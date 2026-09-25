@@ -16,12 +16,55 @@ For every completed task, add a concise completion note, tests/checks performed,
 
 ---
 
+## Locked product decisions
+
+These decisions are already made and must not be silently changed by an implementation agent.
+
+- Product name: **Vergissmeinnicht**
+- Language/runtime: **TypeScript on Node.js**
+- Backend: **Fastify 5**
+- Frontend: **React + Vite**
+- Deployment model: **one deployable modular monolith**
+- Authentication library: **Better Auth**
+- Database: **SQLite**
+- DB layer/migrations: **Drizzle ORM + committed migrations**
+- Realtime: **Server-Sent Events (SSE)**
+- Registration: **invite-only**
+- Invitations: sent by email
+- User identity: stable internal User UUID
+- Email: required
+- Password recovery V1: **admin-assisted recovery only**
+- TOTP: **mandatory after first login**
+- Workspace roles: Guest / User / Editor / Admin
+- Users may belong to multiple Workspaces
+- Procedures are Workspace-wide in V1
+- Any authorized Workspace user may continue an active Run
+- Multiple active Runs of the same Procedure are allowed
+- V1 Step type: **CHECK only**
+- Critical Step confirmation: **press-and-hold**
+- Skip / Not Applicable reason policy: separately configurable as disabled / optional / required
+- Procedure deletion: **soft delete**
+- Completed historical Runs: immutable except future explicit audited correction flow
+- Offline execution: Phase 2
+- Initial deployment: **Docker Compose + SQLite + reverse proxy**
+- License: **AGPL-3.0**
+- Initial UI language: English
+- Architecture must remain i18n-ready
+- Themes: System / Light / Dark
+- Dark theme direction: black/greyscale with restrained red accents
+- Light theme: inverse/light counterpart
+- Animations: allowed but restrained
+- Share concept: **Knot**
+- Knot route: `/knot/{opaque-token}`
+
+---
+
 ## 0 — Foundation and project rules
 
 ### 0.1 Repository documentation
 **Status:** DONE
 
-**Objective:** Establish the product strategy, agent rules, security rules, local-development documentation, deployment direction, and visual identity.
+**Objective:** Establish product strategy, agent rules, security rules, local-development documentation, deployment direction, and visual identity.
 
 **Acceptance criteria:**
 - AGENTS.md exists and references this file and security.md.
@@ -37,19 +80,32 @@ For every completed task, add a concise completion note, tests/checks performed,
 **Checks performed:** Repository structure and cross-references reviewed.
 
 ### 0.2 Select implementation stack
-**Status:** TODO
+**Status:** DONE
+**Completed:** 2026-09-25
 
-**Objective:** Choose the smallest mature web stack that supports strong authentication, server-side authorization, SQLite, realtime collaboration, testing, and PWA-friendly responsive UI.
+**Objective:** Choose a mature TypeScript stack with a clear server security boundary, strong validation, maintainable authentication, SQLite migrations, realtime collaboration, and simple self-hosting.
 
-**Acceptance criteria:**
-- framework/runtime/package manager documented;
-- security/auth libraries selected based on active maintenance and established practice;
-- database/migration library selected;
-- realtime approach selected;
-- rationale added to architecture documentation;
-- no unnecessary distributed components.
+**Selected stack:**
+- Node.js LTS/current supported release at implementation time
+- TypeScript
+- Fastify 5
+- React
+- Vite
+- Better Auth
+- Drizzle ORM
+- SQLite
+- SSE for realtime server-to-client Run updates
+- pnpm preferred as package manager unless implementation reveals a concrete blocker
+- Vitest for unit/integration tests
+- Playwright for browser/end-to-end tests
 
-**Security impact:** HIGH — authentication/session and dependency choices.
+**Rationale:** Fastify keeps authentication/authorization and validation on an explicit server boundary, has a mature plugin ecosystem for cookies, CSRF, security headers, CORS and rate limiting, and remains straightforward to self-host. React/Vite keeps the frontend conventional without coupling domain rules to a full-stack UI framework. Better Auth supplies maintained authentication and TOTP primitives instead of custom auth. Drizzle supplies typed SQLite access and committed migrations.
+
+**Security impact:** CRITICAL.
+
+**Security docs updated:** YES.
+
+**Remaining:** Pin exact dependency versions when Step 1.1 begins; review current security advisories before first install.
 
 ---
 
@@ -58,13 +114,36 @@ For every completed task, add a concise completion note, tests/checks performed,
 ### 1.1 Modular application skeleton
 **Status:** TODO
 
-**Objective:** Establish Presentation, Application, Domain, and Infrastructure boundaries.
+**Objective:** Establish one deployable application with explicit Presentation, Application, Domain, and Infrastructure boundaries.
+
+**Target shape:**
+
+```text
+apps/
+  server/          Fastify HTTP/SSE entrypoint
+  web/             React/Vite presentation
+
+packages/
+  domain/
+  application/
+  database/
+  auth/
+  permissions/
+  realtime/
+  import-export/
+  ui/
+```
+
+A different physical folder layout is acceptable only if the same boundaries remain obvious and enforceable.
 
 **Acceptance criteria:**
-- no raw DB access from UI components;
-- domain code does not depend on UI or DB framework;
-- test/lint/typecheck commands exist;
-- CI can run them.
+- single repository and single production deployment unit;
+- backend serves API and production frontend assets;
+- no raw DB access from React components;
+- domain code does not depend on React, Fastify, or SQLite;
+- test/lint/typecheck/build commands exist;
+- CI can run them;
+- package lockfile committed.
 
 **Security impact:** MEDIUM — boundaries must keep authorization server-side.
 
@@ -75,15 +154,17 @@ For every completed task, add a concise completion note, tests/checks performed,
 
 **Acceptance criteria:**
 - no real secrets in repository;
-- safe example configuration only;
-- startup fails safely for missing production secrets;
-- logs redact security-sensitive values.
+- safe `.env.example` only;
+- validated environment schema at startup;
+- startup fails closed for missing production secrets;
+- logs redact security-sensitive values;
+- production and development configuration modes cannot silently overlap.
 
 **Security impact:** CRITICAL.
 
 ---
 
-## 2 — Identity and authentication
+## 2 — Identity, invitations, and authentication
 
 ### 2.1 Internal User model
 **Status:** TODO
@@ -92,57 +173,107 @@ For every completed task, add a concise completion note, tests/checks performed,
 
 **Acceptance criteria:**
 - opaque UUID;
+- required unique normalized email;
 - display name;
-- normalized login/email identifiers;
-- status and timestamps;
-- architecture supports multiple linked authentication methods.
+- account status;
+- timestamps;
+- architecture supports multiple linked authentication methods later.
 
 **Security impact:** CRITICAL.
 
-### 2.2 Local password login
+### 2.2 Invite-only account creation
 **Status:** TODO
 
-**Objective:** Secure local username/email + password authentication.
+**Objective:** No public self-registration. Admin sends an invitation to a specific email address.
 
 **Acceptance criteria:**
-- established auth/password library;
-- Argon2id or reviewed equivalent;
-- secure server-side sessions;
-- secure cookie settings;
+- only authorized admin can create invitation;
+- invitation binds to normalized recipient email;
+- invitation token is cryptographically random, single-use, expiring, and stored hashed where practical;
+- invitation email contains the acceptance link;
+- invite cannot be used for another email/account;
+- accepting invite establishes password and verifies ownership of invited email;
+- replay, expired and revoked invitations fail safely;
+- invitation create/revoke/accept actions are audited;
+- no invitation token is logged.
+
+**Security impact:** CRITICAL.
+
+### 2.3 Local password login
+**Status:** TODO
+
+**Objective:** Secure email + password authentication using Better Auth.
+
+**Acceptance criteria:**
+- no custom password crypto;
+- Argon2id or Better Auth's currently recommended secure password mechanism, reviewed before implementation;
+- server-side/opaque secure session semantics;
+- Secure/HttpOnly/SameSite cookies in production;
 - session fixation prevention;
 - login rate limiting;
 - generic authentication errors;
-- audit events for relevant account/security actions.
+- relevant security events audited.
 
 **Security impact:** CRITICAL.
 
-### 2.3 TOTP MFA
+### 2.4 Mandatory TOTP after first login
 **Status:** TODO
 
-**Objective:** Optional TOTP second factor.
+**Objective:** Every locally authenticated user must enroll TOTP before receiving full application access.
+
+**Required flow:**
+
+```text
+Invite accepted
+  -> password established
+  -> limited first-login session
+  -> TOTP enrollment
+  -> successful TOTP verification
+  -> recovery codes presented
+  -> full authenticated session
+```
+
+Subsequent logins require password + TOTP.
 
 **Acceptance criteria:**
-- cryptographically strong seed;
-- enrollment must be verified before enabling;
-- protected storage;
-- recovery codes;
-- recovery codes hashed;
-- OTP attempt rate limiting;
-- MFA session state cannot be bypassed;
-- enable/disable/reset actions audited.
+- no access to normal Workspace/Procedure/Run routes before TOTP enrollment completes;
+- cryptographically strong TOTP seed;
+- enrollment verified before activation;
+- backup/recovery codes generated and stored hashed;
+- OTP attempts rate-limited;
+- TOTP/recovery secrets never logged;
+- no "remember this device" in V1 unless separately approved;
+- TOTP reset is admin-assisted in V1 and fully audited;
+- negative tests prove MFA cannot be bypassed through API/SSE endpoints.
 
 **Security impact:** CRITICAL.
 
-### 2.4 External identity provider abstraction
+### 2.5 Admin-assisted account recovery
+**Status:** TODO
+
+**Objective:** V1 has no public password-reset-by-email flow.
+
+**Acceptance criteria:**
+- recovery requires ADMIN action;
+- action is explicitly audited;
+- recovery cannot expose current password/TOTP secret;
+- recovery uses short-lived one-time reset/enrollment mechanism;
+- reset invalidates relevant existing sessions;
+- TOTP reset requires new enrollment before full access resumes.
+
+**Security impact:** CRITICAL.
+
+### 2.6 External identity provider abstraction
 **Status:** DEFERRED
 
-**Objective:** Prepare for future Apple, GitHub, and Microsoft sign-in.
+**Objective:** Future Apple, GitHub, and Microsoft sign-in.
 
 **Acceptance criteria when activated:**
 - provider identities link to internal User UUID;
-- explicit, safe account-linking rules;
-- state/nonce/PKCE as required;
-- provider tokens handled as secrets.
+- explicit safe account-linking rules;
+- state/nonce/PKCE as applicable;
+- provider tokens treated as secrets;
+- mandatory MFA policy reconsidered explicitly because provider-login paths can have different 2FA semantics.
 
 **Security impact:** CRITICAL.
 
@@ -153,16 +284,40 @@ For every completed task, add a concise completion note, tests/checks performed,
 ### 3.1 Workspace and Membership
 **Status:** TODO
 
-**Objective:** Implement Workspace as the main collaboration/security boundary.
+**Objective:** Workspace is the primary collaboration/security boundary.
+
+**Acceptance criteria:**
+- user may belong to multiple Workspaces;
+- Membership maps User + Workspace + role;
+- Procedures and Runs belong to one Workspace;
+- removal from Workspace revokes future access promptly.
 
 ### 3.2 Roles and policies
 **Status:** TODO
 
-**Objective:** Implement Guest, User, Editor, Admin capabilities through centralized server-side policies.
+**Objective:** Implement Guest, User, Editor, Admin via centralized server-side policies.
 
-**Required tests:** cross-Workspace denial and role escalation denial.
+Initial intent:
+- GUEST: read explicitly permitted Workspace content/history
+- USER: execute permitted Procedures/Runs
+- EDITOR: create/edit/soft-delete Procedures
+- ADMIN: membership, roles, invitations, recovery, Workspace settings
+
+Exact capabilities must be represented centrally rather than scattered string comparisons.
+
+**Required tests:**
+- cross-Workspace denial;
+- horizontal privilege escalation denial;
+- vertical role escalation denial;
+- removed member denial;
+- SSE subscription authorization.
 
 **Security impact:** CRITICAL.
+
+### 3.3 Workspace-wide Procedure visibility
+**Status:** TODO
+
+All non-deleted Procedures in a Workspace are visible according to Workspace role permissions. Per-Procedure ACLs are out of V1 scope.
 
 ---
 
@@ -171,12 +326,25 @@ For every completed task, add a concise completion note, tests/checks performed,
 ### 4.1 Procedure CRUD
 **Status:** TODO
 
-Create/edit/delete reusable Procedures with title, description, icon, tags, and UUID.
+Create/edit/soft-delete reusable Procedures with title, description, icon, tags, and UUID.
 
-### 4.2 Sections and Steps
+### 4.2 Sections and CHECK Steps
 **Status:** TODO
 
-Support ordered Sections and Steps with title, description, icon, required/optional behavior, critical confirmation behavior, and reason policy.
+Support ordered Sections and V1 `CHECK` Steps with:
+- title;
+- description;
+- icon;
+- required/optional;
+- critical flag;
+- press-and-hold confirmation for critical Steps;
+- Skip reason policy;
+- Not Applicable reason policy.
+
+Reason policies are independently:
+- disabled;
+- optional;
+- required.
 
 ### 4.3 Drag and drop
 **Status:** TODO
@@ -186,9 +354,18 @@ Reorder Sections/Steps while preserving stable identifiers.
 ### 4.4 Duplicate / JSON import-export
 **Status:** TODO
 
-Canonical JSON must include `schemaVersion`; imported data is untrusted and must be validated.
+Canonical JSON includes `schemaVersion`; imported data is hostile input and must be validated.
 
 **Security impact:** HIGH for import parser/input validation.
+
+### 4.5 Soft deletion / restore
+**Status:** TODO
+
+Procedure deletion sets deletion metadata rather than destroying definition rows immediately.
+
+Admin/editor restore behavior must be explicit and audited where appropriate.
+
+Historical Runs are never cascaded.
 
 ---
 
@@ -197,7 +374,9 @@ Canonical JSON must include `schemaVersion`; imported data is untrusted and must
 ### 5.1 Create immutable Run snapshot
 **Status:** TODO
 
-Starting a Procedure creates a historical Run snapshot independent of future Procedure changes/deletion.
+Starting a Procedure creates a historical snapshot independent of future Procedure changes/deletion.
+
+Multiple simultaneous active Runs of the same Procedure are valid.
 
 ### 5.2 Step state machine
 **Status:** TODO
@@ -208,9 +387,16 @@ Implement:
 - SKIPPED
 - NOT_APPLICABLE
 
-with reason policies and undo.
+with separate reason policies and undo.
 
-### 5.3 Run lifecycle
+### 5.3 Critical Step press-and-hold
+**Status:** TODO
+
+Critical CHECK Steps use an accessible press-and-hold interaction before marking Done.
+
+The backend still validates the requested state transition; client interaction is UX protection, not an authorization/security control.
+
+### 5.4 Run lifecycle
 **Status:** TODO
 
 Implement:
@@ -218,34 +404,49 @@ Implement:
 - COMPLETED
 - ABORTED
 
-Required Steps must satisfy completion rules before completion.
+Required Steps must satisfy completion rules before Run completion.
 
-### 5.4 Audit trail
+Any authorized Workspace USER-or-higher capability may continue an active Run.
+
+### 5.5 Audit trail
 **Status:** TODO
 
-Every relevant mutation records actor User UUID, actor display name where appropriate, timestamp, event, reason/transition metadata.
+Every relevant mutation records actor User UUID, actor display-name snapshot where appropriate, trusted server timestamp, event, and reason/transition metadata.
 
 **Security impact:** HIGH — integrity and attribution.
+
+### 5.6 Historical immutability
+**Status:** TODO
+
+Completed Runs cannot be edited in V1.
+
+Future correction support must be an explicit additive audited workflow; never silently rewrite a completed Run.
 
 ---
 
 ## 6 — Collaboration
 
-### 6.1 Realtime active Run updates
+### 6.1 SSE active Run updates
 **Status:** TODO
 
-Multiple authorized users can work on one Run and see canonical updates quickly.
+Multiple authorized users can work on one Run and receive canonical updates via Server-Sent Events.
 
 **Acceptance criteria:**
+- SSE connection uses authenticated session;
+- Run subscription is authorized;
 - server remains source of truth;
+- state-changing commands use authenticated HTTP endpoints;
 - reconnect refetches canonical state;
 - revision/version supports missed/conflicting updates;
-- remote changes expose actor/time where useful.
+- remote changes expose actor/time where useful;
+- heartbeat/timeouts/resource limits are defined.
+
+**Security impact:** HIGH.
 
 ### 6.2 Optimistic UI
 **Status:** TODO
 
-Instant visual feedback with safe rollback on rejected writes.
+Instant visual feedback with safe rollback and clear error state on rejected writes.
 
 ---
 
@@ -263,43 +464,101 @@ Token is high entropy, revocable, optionally expiring, redacted from logs, and d
 
 ---
 
-## 8 — UX and theming
+## 8 — UX, accessibility, and theming
 
 ### 8.1 Responsive authoring/execution
 **Status:** TODO
 
-Desktop-first creation; smartphone-first Run execution.
+Desktop-first Procedure creation; smartphone-first Run execution.
+
+ADHD-friendly design goals:
+- strong visual hierarchy;
+- obvious next/pending work;
+- low visual clutter;
+- persistent progress;
+- forgiving undo;
+- no reliance on memory to understand current state.
 
 ### 8.2 State presentation
 **Status:** TODO
 
-Pending, Done, Skipped, and Not Applicable use color plus icon/text semantics.
+Color plus semantic icon/text:
+- Pending: danger/red treatment
+- Done: success treatment + actor/time
+- Skipped: distinct state
+- Not Applicable: distinct state
+
+Do not rely on red/green alone.
 
 ### 8.3 Theme system
 **Status:** TODO
 
-Semantic tokens with System, Light, Dark. Future named themes such as `Memento Mori` must not require business-component rewrites.
+Semantic design tokens.
 
-### 8.4 PWA/offline tolerance
-**Status:** DEFERRED
+Initial modes:
+- System
+- Light
+- Dark
 
-Important eventual scenario: a Procedure may itself contain “turn off router/network”.
+Dark visual direction:
+- black and greyscale foundation;
+- restrained red accents;
+- modern, professional appearance.
+
+Light theme uses the corresponding light/inverted direction.
+
+Animations are acceptable when useful, brief, and not distracting.
+
+Future named presets such as `Memento Mori` must not require business-component rewrites.
+
+### 8.4 i18n readiness
+**Status:** TODO
+
+V1 ships English only, but user-facing strings must be structured so adding translations later does not require rewriting business logic/components.
+
+### 8.5 PWA/offline active Runs
+**Status:** DEFERRED — Phase 2
+
+Important eventual scenario: a Procedure can contain “turn off router/network”.
 
 ---
 
-## 9 — Operations
+## 9 — Email
 
-### 9.1 Container image
+### 9.1 Transactional email abstraction
 **Status:** TODO
 
-Single-instance self-hostable image with non-root runtime where practical and persistent SQLite volume.
+V1 requires email for invitations.
 
-### 9.2 Backup/restore
+Prefer configurable SMTP as the self-hosted baseline, with an adapter boundary for future providers.
+
+**Acceptance criteria:**
+- no SMTP credentials in repo/logs;
+- invitation email templates do not leak unnecessary sensitive data;
+- invitation link tokens are redacted from logs;
+- email send failures do not accidentally create ambiguous account state.
+
+**Security impact:** HIGH.
+
+---
+
+## 10 — Operations
+
+### 10.1 Docker Compose deployment
+**Status:** TODO
+
+Supported V1 deployment:
+- one application container;
+- SQLite persistent volume;
+- reverse proxy providing HTTPS;
+- runtime-injected secrets.
+
+### 10.2 Backup/restore
 **Status:** TODO
 
 Document consistent SQLite backup and tested restore.
 
-### 9.3 Production hardening
+### 10.3 Production hardening
 **Status:** TODO
 
 HTTPS, proxy trust, security headers, dependency scanning, health checks, safe secret injection.
@@ -308,9 +567,18 @@ HTTPS, proxy trust, security headers, dependency scanning, health checks, safe s
 
 ---
 
+## 11 — Licensing
+
+### 11.1 AGPL-3.0
+**Status:** TODO
+
+Add canonical GNU Affero General Public License v3 text and appropriate package/project license metadata.
+
+---
+
 ## Completion template
 
-Agents should append/update task entries with:
+Agents should update a task with:
 
 **Status:** DONE  
 **Completed:** YYYY-MM-DD  
