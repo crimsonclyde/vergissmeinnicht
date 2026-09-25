@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-labelledby="title desc">
+<title id="title">Vergissmeinnicht app icon</title>
+<desc id="desc">A stylized blue forget-me-not flower whose green stalk is tied into a knot.</desc>
+<defs>
+  <radialGradient id="petal" cx="40%" cy="35%" r="70%"><stop offset="0%" stop-color="#7db7ff"/><stop offset="100%" stop-color="#3e78d6"/></radialGradient>
+  <linearGradient id="stem" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#73b978"/><stop offset="100%" stop-color="#347a4c"/></linearGradient>
+  <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%"><feDropShadow dx="0" dy="8" stdDeviation="10" flood-opacity="0.18"/></filter>
+</defs>
+<rect width="512" height="512" rx="112" fill="#11151d"/>
+<g filter="url(#shadow)">
+  <g transform="translate(256 180)">
+    <ellipse rx="48" ry="80" transform="rotate(0) translate(0 -54)" fill="url(#petal)"/>
+    <ellipse rx="48" ry="80" transform="rotate(72) translate(0 -54)" fill="url(#petal)"/>
+    <ellipse rx="48" ry="80" transform="rotate(144) translate(0 -54)" fill="url(#petal)"/>
+    <ellipse rx="48" ry="80" transform="rotate(216) translate(0 -54)" fill="url(#petal)"/>
+    <ellipse rx="48" ry="80" transform="rotate(288) translate(0 -54)" fill="url(#petal)"/>
+    <circle r="34" fill="#f4cf57"/><circle r="15" fill="#fff3a6" opacity="0.85"/>
+  </g>
+  <path d="M256 247 C256 286 253 309 235 329 C208 360 210 400 248 413" fill="none" stroke="url(#stem)" stroke-width="22" stroke-linecap="round"/>
+  <path d="M249 414 C286 428 325 408 326 374 C327 340 291 323 264 344 C235 366 242 406 276 420 C307 433 337 421 349 397" fill="none" stroke="url(#stem)" stroke-width="22" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M264 344 C285 329 315 339 323 361" fill="none" stroke="#4f995d" stroke-width="24" stroke-linecap="round"/>
+  <path d="M349 397 C369 378 383 359 391 337" fill="none" stroke="url(#stem)" stroke-width="22" stroke-linecap="round"/>
+</g></svg>
