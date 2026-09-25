@@ -274,3 +274,48 @@ For security-sensitive tasks, add/update a section in this file:
 **Authorization review:**  
 **Open risks:**  
 **Reviewed:** YYYY-MM-DD
+
+
+---
+
+## 13. Locked V1 authentication policy
+
+The following choices are mandatory V1 behavior:
+
+- public registration is disabled;
+- account creation begins with an ADMIN-created invitation to a required email address;
+- invitation acceptance must prove/use that invited email;
+- TOTP is mandatory after first login;
+- an account without completed TOTP enrollment receives no normal application/Workspace access;
+- password recovery is admin-assisted only in V1;
+- TOTP reset is admin-assisted and must force re-enrollment;
+- there is no unauthenticated password-reset email flow in V1;
+- there is no "remember this device" MFA bypass in V1 unless separately approved;
+- Apple/GitHub/Microsoft login is deferred and requires a new account-linking/MFA security review before implementation.
+
+### Security check: invite-only account bootstrap
+**Threat surface:** invitation theft, token replay, account squatting, email mismatch, invitation enumeration.  
+**Controls required:** CSPRNG token, expiry, single use, revocation, token hashing where practical, target-email binding, generic error handling, audit trail, no token logging.  
+**Negative tests:** expired invite; replayed invite; revoked invite; wrong email; unauthorized invite creation.  
+**Secrets/data involved:** invite token, email address.  
+**Logging review:** invitation token must be redacted.  
+**Authorization review:** only ADMIN capability can issue/revoke invitations.  
+**Open risks:** email delivery channel security is external to the application.
+
+### Security check: mandatory first-login TOTP
+**Threat surface:** bypass through API routes, SSE, Knot resolution, stale session, alternate login path, enrollment race.  
+**Controls required:** explicit restricted pre-MFA session/account state; centralized middleware/policy denies normal resources until MFA enrollment and challenge are satisfied.  
+**Negative tests:** pre-MFA session cannot access Workspace API; cannot subscribe SSE; cannot resolve Knot target details; cannot call admin route; cannot promote session via client flag.  
+**Secrets/data involved:** TOTP seed, OTP values, recovery codes.  
+**Logging review:** seed, OTP and recovery codes never logged.  
+**Authorization review:** MFA gate must be server-side and centralized.  
+**Open risks:** future OAuth/OIDC login paths require explicit policy because provider flows may not automatically pass through credential 2FA hooks.
+
+### Security check: admin-assisted recovery
+**Threat surface:** malicious/compromised admin, privilege abuse, stolen reset token, active-session persistence.  
+**Controls required:** explicit ADMIN capability, short-lived single-use recovery flow, audit trail, session invalidation, forced MFA re-enrollment when TOTP is reset.  
+**Negative tests:** non-admin cannot initiate; used/expired token rejected; old sessions rejected after reset.  
+**Secrets/data involved:** recovery/reset token.  
+**Logging review:** reset token redacted.  
+**Authorization review:** separate capability from ordinary User/Editor actions.  
+**Open risks:** administrative social engineering remains an operational risk and should be addressed in admin UX/docs.
