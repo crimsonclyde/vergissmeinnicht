@@ -1,0 +1,31 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1400 800" role="img" aria-labelledby="title desc">
+<title id="title">Vergissmeinnicht hero illustration</title>
+<desc id="desc">A dreamy forget-me-not flower with a knotted stalk.</desc>
+<defs>
+  <radialGradient id="bg" cx="50%" cy="42%" r="70%"><stop offset="0%" stop-color="#202b3c"/><stop offset="100%" stop-color="#0c1017"/></radialGradient>
+  <radialGradient id="petal2" cx="38%" cy="32%" r="72%"><stop offset="0%" stop-color="#8ec6ff"/><stop offset="100%" stop-color="#3e79d6"/></radialGradient>
+  <linearGradient id="stem2" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#79bb79"/><stop offset="100%" stop-color="#2f7046"/></linearGradient>
+  <filter id="glow" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="16" result="blur"/><feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+  <filter id="softshadow" x="-30%" y="-30%" width="160%" height="160%"><feDropShadow dx="0" dy="18" stdDeviation="18" flood-color="#000" flood-opacity="0.3"/></filter>
+</defs>
+<rect width="1400" height="800" rx="48" fill="url(#bg)"/>
+<g fill="#8fb0d8" opacity="0.18"><circle cx="120" cy="120" r="3"/><circle cx="240" cy="190" r="2"/><circle cx="1120" cy="150" r="3"/><circle cx="1240" cy="230" r="2"/><circle cx="1080" cy="650" r="2"/><circle cx="180" cy="660" r="3"/><circle cx="980" cy="90" r="2"/><circle cx="410" cy="110" r="2"/></g>
+<g transform="translate(700 310)" filter="url(#softshadow)">
+  <g filter="url(#glow)">
+    <ellipse rx="82" ry="136" transform="rotate(0) translate(0 -94)" fill="url(#petal2)"/>
+    <ellipse rx="82" ry="136" transform="rotate(72) translate(0 -94)" fill="url(#petal2)"/>
+    <ellipse rx="82" ry="136" transform="rotate(144) translate(0 -94)" fill="url(#petal2)"/>
+    <ellipse rx="82" ry="136" transform="rotate(216) translate(0 -94)" fill="url(#petal2)"/>
+    <ellipse rx="82" ry="136" transform="rotate(288) translate(0 -94)" fill="url(#petal2)"/>
+  </g>
+  <circle r="58" fill="#f3cf58"/><circle r="24" fill="#fff2a0" opacity="0.9"/>
+</g>
+<path d="M700 427 C700 492 694 529 663 562 C620 608 625 674 684 699" fill="none" stroke="url(#stem2)" stroke-width="30" stroke-linecap="round"/>
+<path d="M684 699 C740 720 800 692 802 640 C804 589 749 562 709 594 C665 628 675 688 725 709 C774 729 821 710 840 673" fill="none" stroke="url(#stem2)" stroke-width="30" stroke-linecap="round" stroke-linejoin="round"/>
+<path d="M709 594 C740 571 785 586 797 619" fill="none" stroke="#4f995d" stroke-width="33" stroke-linecap="round"/>
+<path d="M840 673 C872 641 894 608 907 572" fill="none" stroke="url(#stem2)" stroke-width="30" stroke-linecap="round"/>
+<path d="M670 535 C610 508 564 516 537 556 C592 570 638 563 670 535 Z" fill="#4e915a" opacity="0.95"/>
+<path d="M874 612 C929 575 973 578 1008 610 C960 638 914 640 874 612 Z" fill="#4e915a" opacity="0.95"/>
+<text x="700" y="95" text-anchor="middle" fill="#f4f7fb" font-family="Inter, system-ui, sans-serif" font-size="54" font-weight="650">Vergissmeinnicht</text>
+<text x="700" y="145" text-anchor="middle" fill="#aebdd0" font-family="Inter, system-ui, sans-serif" font-size="22" letter-spacing="1.1">DON’T FORGET WHAT MATTERS</text>
+</svg>
