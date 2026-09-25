@@ -1,16 +1,51 @@
 # Architecture
 
-## Style
+## Selected stack
 
-Vergissmeinnicht starts as a **modular monolith**.
+Vergissmeinnicht is a **TypeScript modular monolith** deployed as one application.
 
-The goal is strong internal boundaries without unnecessary distributed infrastructure.
+### Server
+- Node.js
+- Fastify 5
+- Better Auth
+- Drizzle ORM
+- SQLite
+- Server-Sent Events (SSE)
 
-## Conceptual layers
+### Web
+- React
+- Vite
+- semantic design-token based UI
+- English first, i18n-ready
+
+### Testing
+- Vitest for unit/integration tests
+- Playwright for end-to-end/browser tests
+
+### Package manager
+- pnpm preferred
+
+Exact versions must be pinned/locked when implementation begins and checked against current security advisories.
+
+## Why this shape
+
+The primary security boundary is the Fastify server.
+
+React is presentation only and never owns authorization decisions.
+
+Fastify was chosen because the project benefits from an explicit HTTP server boundary, schema validation, straightforward testability, and maintained ecosystem plugins for concerns such as cookies, CSRF protection, rate limiting, CORS and security headers.
+
+Better Auth is used instead of custom authentication code. Its supported authentication primitives will be wrapped by project-specific policy enforcing invite-only registration and mandatory TOTP before normal application access.
+
+Drizzle provides typed DB access and committed migrations while keeping SQLite simple to self-host.
+
+SSE is sufficient because collaborative mutations already travel from client to server as normal authenticated HTTP commands; realtime transport is primarily server-to-client fan-out.
+
+## Architectural style
 
 ```text
 Presentation
-  routes / web UI / view models
+  React / browser UI / view models
 
 Application
   commands / queries / use cases
@@ -19,26 +54,89 @@ Domain
   entities / policies / state transitions
 
 Infrastructure
-  SQLite / auth adapters / realtime / logging / import-export
+  Fastify adapters
+  Better Auth adapter/policy
+  Drizzle/SQLite repositories
+  SSE
+  email
+  logging
+  import/export
 ```
 
-Dependencies should point inward. Domain logic must not import the UI framework or database driver.
+Dependencies should point inward.
 
-## Core modules
+Domain code must not depend on React, Fastify, Better Auth, Drizzle, SQLite, or SSE.
 
-- Identity
-- Workspaces / Memberships / Policies
-- Procedures
-- Runs
-- Audit
-- Knots
-- Realtime
-- Import/Export
-- UI/Themes
+## Suggested physical repository shape
+
+```text
+apps/
+  server/
+  web/
+
+packages/
+  domain/
+  application/
+  database/
+  auth/
+  permissions/
+  realtime/
+  email/
+  import-export/
+  ui/
+
+docu/
+```
+
+This is a suggested structure, not permission to split into deployable microservices.
+
+## Authentication architecture
+
+There is one stable internal User UUID.
+
+Authentication mechanisms attach to it.
+
+V1:
+- invite-only email accounts;
+- email + password;
+- mandatory TOTP after first login;
+- admin-assisted recovery.
+
+Future:
+- Apple;
+- GitHub;
+- Microsoft.
+
+Provider identities must map to internal User records; provider account linking requires a separate security design.
+
+## First-login security state
+
+A newly invited account is not fully active after password creation.
+
+It enters a restricted authentication state that may access only the MFA enrollment/logout/account bootstrap endpoints until TOTP enrollment has been successfully verified.
+
+No Workspace, Procedure, Run, Knot, admin, API or SSE access is granted before this gate is complete.
+
+## Realtime
+
+SSE is the selected V1 realtime transport.
+
+```text
+browser command
+  -> authenticated HTTP endpoint
+  -> authorization + validation
+  -> DB transaction + audit event
+  -> canonical response
+  -> SSE fan-out to authorized subscribers
+```
+
+SSE is not the source of truth.
+
+Clients refetch canonical state after reconnect or version gaps.
 
 ## Persistence
 
-SQLite is the initial DB.
+SQLite is initial persistence.
 
 Requirements:
 - migrations from day one;
@@ -48,21 +146,11 @@ Requirements:
 - WAL where appropriate;
 - tested backup/restore.
 
-## Realtime
-
-Commands use authenticated server endpoints.
-
-After successful authoritative mutation, realtime transport fans out canonical Run updates.
-
-The client must always be able to reconnect and refetch current Run state.
-
-The exact WebSocket vs SSE choice will be recorded after stack selection.
-
 ## Future extension boundaries
 
-Do not implement now, but avoid coupling that prevents:
-- SQLite -> PostgreSQL
-- in-process realtime -> shared pub/sub
-- local auth -> Apple/GitHub/Microsoft identities
+Do not implement yet, but avoid coupling that prevents:
+- SQLite -> PostgreSQL;
+- in-process SSE fan-out -> shared pub/sub;
+- local auth -> external identity providers.
 
-These future options do not justify microservices in V1.
+These potential extensions do not justify microservices in V1.
