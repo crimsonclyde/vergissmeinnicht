@@ -1,38 +1,62 @@
 # Local Development
 
-The exact commands will be finalized after the implementation stack is selected.
+## Selected stack
+
+- Node.js
+- TypeScript
+- Fastify 5
+- React + Vite
+- Better Auth
+- Drizzle ORM
+- SQLite
+- pnpm
+- Vitest
+- Playwright
+
+Exact supported Node and dependency versions will be pinned when the application skeleton is created.
 
 ## Target workflow
 
 ```bash
 git clone https://github.com/crimsonclyde/vergissmeinnicht.git
 cd vergissmeinnicht
+pnpm install
 cp .env.example .env
-# install dependencies
-# run migrations
-# start development server
+pnpm db:migrate
+pnpm dev
 ```
+
+These commands are target names until Step 1.1 actually creates them.
 
 ## Principles
 
 - ordinary development must not require external SaaS;
-- development uses the real ACL/auth model rather than a production-capable “disable auth” switch;
-- local SQLite data lives in an ignored runtime directory such as `.var/`;
-- migrations, not manual DB edits, define schema changes;
-- safe seed/demo data may create multiple users/roles for authorization testing;
-- no production credentials in fixtures or environment examples.
+- development exercises real ACL/auth rules;
+- do not ship a production-capable "disable auth" mode;
+- local SQLite data lives under an ignored runtime path such as `.var/`;
+- migrations define schema changes;
+- safe seed/demo data should create multiple roles/workspaces for authorization tests;
+- no production credentials in fixtures.
 
-## Required developer commands once implementation begins
+## Email development
 
-The chosen stack should expose obvious commands for:
+Production invitations require email delivery.
 
-- development server
-- unit tests
-- integration tests
-- end-to-end tests
-- lint
-- typecheck
-- migrations
-- production build
+The application should expose an email adapter. Self-hosted baseline is configurable SMTP.
 
-Whenever these commands change, update this file and the relevant task in `steps.md`.
+Development may use a local mail sink such as Mailpit/MailHog or a dev adapter that captures messages locally, but production code must never silently use a fake mail transport.
+
+## Required scripts
+
+Once Step 1.1 is implemented, provide stable scripts for:
+
+- `pnpm dev`
+- `pnpm build`
+- `pnpm test`
+- `pnpm test:e2e`
+- `pnpm lint`
+- `pnpm typecheck`
+- `pnpm db:generate`
+- `pnpm db:migrate`
+
+When commands change, update this document and `docu/steps.md`.
