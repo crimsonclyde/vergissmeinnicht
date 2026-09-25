@@ -1,7 +1,7 @@
 # Vergissmeinnicht
 
 <p align="center">
-  <img src="assets/brand/vergissmeinnicht-hero.webp" alt="A monochrome forget-me-not flower with a knotted stem" width="520">
+  <img src="assets/brand/vergissmeinnicht-hero.svg" alt="A monochrome forget-me-not flower with a knotted stem" width="520">
 </p>
 
 **Vergissmeinnicht** is an ADHD-friendly, security-first app for reliable, repeatable checklists and shared routines.
