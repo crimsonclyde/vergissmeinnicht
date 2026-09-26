@@ -206,12 +206,16 @@ Never commit or log:
 
 Checks:
 - [x] `.gitignore` covers common local secret files.
-- [ ] Safe `.env.example` contains placeholders only.
-- [ ] Structured logging has redaction.
-- [ ] Request logging avoids sensitive URL/path token leakage.
-- [ ] Exceptions do not serialize credential-bearing objects.
-- [ ] Production debug mode is disabled.
+- [x] Safe `.env.example` contains placeholders only.
+- [x] Structured logging has redaction.
+- [x] Request logging avoids sensitive URL/path token leakage. (Knot paths + query strings redacted; add each new token route to the pattern in `apps/server/src/logging.ts`.)
+- [ ] Exceptions do not serialize credential-bearing objects. (Config secrets use the `Secret` wrapper; extend to every new credential type.)
+- [x] Production debug mode is disabled. (`LOG_LEVEL` debug/trace rejected in production.)
 - [ ] Secret rotation process can be documented.
+- [x] Configuration is validated at startup and fails closed; production has no default for any secret, origin or DB path.
+- [x] Development and production modes cannot overlap: `NODE_ENV` must be explicit and `.env` cannot override it; production never loads `.env`.
+- [x] Placeholder or short (<32 chars) `AUTH_SECRET` values are rejected in every mode.
+- [x] Configuration errors name variables but never echo their values.
 
 ---
 
@@ -340,4 +344,14 @@ The following choices are mandatory V1 behavior:
 **Logging review:** request logs contain method/URL/host/remote address only; credential headers redacted. URL-path token redaction (Knot) must be added with Step 7.1 / 1.2.  
 **Authorization review:** no protected resources exist yet; boundaries keep DB/auth code out of the web client.  
 **Open risks:** HSTS off until HTTPS termination is configured (10.3); moderate advisory GHSA-67mh-4wv8-2f99 in dev-only `drizzle-kit` dependency chain; CSP `style-src` allows `'unsafe-inline'` (helmet default) — tighten when the theme system (8.3) is built; validated configuration and fail-closed startup pending (1.2).  
+**Reviewed:** 2026-09-26
+
+### Security check: configuration and secret handling (Step 1.2)
+**Threat surface:** misconfigured production running with development defaults, weak/placeholder secrets, secrets leaking through logs, error messages or serialized config objects, `.env` files switching modes, token-bearing URLs in request logs.  
+**Controls added:** Zod env schema with frozen result; explicit `NODE_ENV`; production requires `AUTH_SECRET`/`PUBLIC_ORIGIN`/absolute `DATABASE_PATH` with no fallback; https-only public origin (loopback exception); min-length + placeholder rejection for `AUTH_SECRET`; `Secret` wrapper redacting `toString`/JSON/`inspect`; error messages list variable names only; production never loads `.env`; request log serializer with URL/token/query redaction and header redaction; debug/trace logging rejected in production.  
+**Negative tests:** see `apps/server/src/config/config.test.ts` and `apps/server/src/logging.test.ts` (missing/unknown mode, each missing production variable, weak/placeholder secret, insecure origin, relative DB path, debug logging, no secret in errors/serialization/logs).  
+**Secrets/data involved:** `AUTH_SECRET`; future SMTP credentials (9.1) must use the same wrapper.  
+**Logging review:** request logs contain method, redacted URL, remote address; no headers except redacted paths. Error objects logged by Fastify must not carry credentials — review when auth errors are introduced.  
+**Authorization review:** not applicable (no protected resources yet).  
+**Open risks:** env-based secret injection is visible to processes that can read the app's environment — prefer Docker secrets / files when deploying (10.1); redaction pattern must be extended for every new token route; ephemeral development secrets are process-local by design.  
 **Reviewed:** 2026-09-26

@@ -1,18 +1,31 @@
 import { resolve } from 'node:path';
 import { buildApp } from './app.ts';
+import { ConfigError, loadConfig } from './config/index.ts';
+import { loggerOptions } from './logging.ts';
 
-// Full validated configuration handling follows in Step 1.2.
-const production = process.env.NODE_ENV === 'production';
-const host = process.env.HOST ?? '127.0.0.1';
-const port = Number(process.env.PORT ?? 3000);
+function readConfig() {
+  try {
+    return loadConfig(process.env);
+  } catch (error) {
+    if (error instanceof ConfigError) {
+      // Fail closed. The message names invalid variables but never contains their values.
+      console.error(error.message);
+      process.exit(1);
+    }
+    throw error;
+  }
+}
+
+const config = readConfig();
 
 const app = await buildApp({
-  webDistDir: production ? resolve(import.meta.dirname, '../../web/dist') : undefined,
-  logger: {
-    level: production ? 'info' : 'debug',
-    redact: ['req.headers.authorization', 'req.headers.cookie', 'res.headers["set-cookie"]'],
-  },
+  webDistDir: config.mode === 'production' ? resolve(import.meta.dirname, '../../web/dist') : undefined,
+  logger: loggerOptions(config.logLevel),
 });
+
+if (config.authSecretEphemeral) {
+  app.log.warn(`AUTH_SECRET not set: using a per-process secret (${config.mode} only); sessions will not survive restarts`);
+}
 
 for (const signal of ['SIGINT', 'SIGTERM'] as const) {
   process.once(signal, () => {
@@ -20,4 +33,4 @@ for (const signal of ['SIGINT', 'SIGTERM'] as const) {
   });
 }
 
-await app.listen({ host, port });
+await app.listen({ host: config.host, port: config.port });

@@ -10,7 +10,7 @@
   "scripts": {
     "typecheck": "tsc -p .",
     "db:generate": "drizzle-kit generate",
-    "db:migrate": "node src/migrate.ts"
+    "db:migrate": "node --env-file-if-exists=../../.env src/migrate.ts"
   },
   "dependencies": {
     "better-sqlite3": "13.0.3",

@@ -19,8 +19,9 @@ export function runMigrations(databasePath: string): 'applied' | 'none' {
 }
 
 if (import.meta.main) {
-  const databasePath =
-    process.env.DATABASE_PATH ?? resolve(import.meta.dirname, '../../../.var/vergissmeinnicht.sqlite');
+  // Relative paths resolve against the repository root, matching the server configuration.
+  const repoRoot = resolve(import.meta.dirname, '../../..');
+  const databasePath = resolve(repoRoot, process.env.DATABASE_PATH ?? '.var/vergissmeinnicht.sqlite');
   const result = runMigrations(databasePath);
   console.log(result === 'none' ? 'No migrations to apply yet.' : 'Migrations applied.');
 }

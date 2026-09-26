@@ -33,12 +33,20 @@ Versions:
 git clone https://github.com/crimsonclyde/vergissmeinnicht.git
 cd vergissmeinnicht
 pnpm install
+cp .env.example .env                    # optional; defaults work for development
 pnpm db:migrate
 pnpm exec playwright install chromium   # once, for pnpm test:e2e
 pnpm dev
 ```
 
-`.env.example` and validated configuration follow in Step 1.2. Until then the server reads `HOST` (default `127.0.0.1`), `PORT` (default `3000`) and `NODE_ENV`; `pnpm db:migrate` reads `DATABASE_PATH` (default `.var/vergissmeinnicht.sqlite`).
+## Configuration
+
+Configuration comes from environment variables, validated at startup (`apps/server/src/config/`). See `.env.example` for all variables.
+
+- `NODE_ENV` is set by the scripts (`pnpm dev` = `development`, `pnpm start` = `production`) and must be one of `development`, `test`, `production`. Values from `.env` never override an already-set variable, so `.env` cannot switch modes.
+- `pnpm dev` and `pnpm db:migrate` read `.env` if it exists. `pnpm start` (production) never reads `.env`.
+- Development defaults: `HOST=127.0.0.1`, `PORT=3000`, `PUBLIC_ORIGIN=http://localhost:5173`, `DATABASE_PATH=.var/vergissmeinnicht.sqlite` (relative to the repo root), `LOG_LEVEL=debug`. Without `AUTH_SECRET` a per-process secret is generated and a warning is logged.
+- Production has no defaults for secrets, origin or DB path; see [Deployment](deployment.md#configuration).
 
 `pnpm dev` starts the Fastify API (`node --watch`, port 3000) and the Vite dev server (proxying `/api` to the API) in parallel.
 

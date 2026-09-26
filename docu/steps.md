@@ -192,7 +192,8 @@ A different physical folder layout is acceptable only if the same boundaries rem
 - Node type stripping for the server is a deliberate choice; revisit if a dependency or deployment constraint requires a compiled server bundle.
 
 ### 1.2 Configuration and secret handling
-**Status:** TODO
+**Status:** DONE
+**Completed:** 2026-09-26
 
 **Objective:** Establish safe environment/config handling.
 
@@ -205,6 +206,29 @@ A different physical folder layout is acceptable only if the same boundaries rem
 - production and development configuration modes cannot silently overlap.
 
 **Security impact:** CRITICAL.
+
+**Implemented:**
+- `apps/server/src/config/`: Zod-validated environment schema (`NODE_ENV`, `HOST`, `PORT`, `PUBLIC_ORIGIN`, `DATABASE_PATH`, `AUTH_SECRET`, `LOG_LEVEL`) producing a frozen `AppConfig`. Startup prints the invalid variable names (never values) and exits 1.
+- Mode separation: `NODE_ENV` must be exactly `development`, `test` or `production`; unset/unknown fails. Scripts set it explicitly (`pnpm dev` → development, `pnpm start` → production) and Node's `--env-file-if-exists` never overrides an already-set variable, so a `.env` cannot switch modes. `.env` is loaded only by `pnpm dev` / `pnpm db:migrate`, never in production.
+- Production has no fallbacks: `AUTH_SECRET` (≥32 chars), `PUBLIC_ORIGIN` (https, or http only for loopback hosts) and an absolute `DATABASE_PATH` are required; `LOG_LEVEL` `debug`/`trace` rejected. Outside production a missing `AUTH_SECRET` becomes a random per-process secret with a startup warning.
+- `AUTH_SECRET` rejected in every mode if shorter than 32 characters or containing the `.env.example` placeholder marker `replace-me`.
+- `Secret` wrapper: secret values render as `[REDACTED]` via `toString`, JSON and `util.inspect`; read only through `reveal()`.
+- Logging (`apps/server/src/logging.ts`): request serializer logs method, redacted URL and remote address only; `/knot/{token}` and `/api/knot/{token}` path tokens and any query string are replaced with `[REDACTED]`; `authorization`, `cookie`, `x-csrf-token` and `set-cookie` headers are redacted by path.
+- Relative `DATABASE_PATH` resolves against the repository root in both the server and `db:migrate`.
+- Safe `.env.example` with placeholders only; Playwright's production server gets throwaway generated config.
+
+**Tests/checks:**
+- `pnpm test` — 30 tests. New negative tests: missing/unknown `NODE_ENV`; each required production variable missing; short and placeholder secret; non-https and `javascript:` origins; relative production DB path; debug/trace in production; error message and `inspect(error)` do not contain the rejected secret; `JSON.stringify`/`inspect` of config do not contain the secret; ephemeral secrets differ per load; config frozen; URL redaction cases; captured log output contains no Knot token, query token, cookie or bearer value.
+- Mutation check: disabling URL redaction makes the log-capture test fail.
+- Manual: `pnpm start` without configuration exits with the three missing variables listed; a `.env` containing `NODE_ENV=production` did not switch `pnpm dev`-style startup out of development.
+- `pnpm lint`, `pnpm typecheck`, `pnpm test:e2e` (2 passed).
+
+**Security docs updated:** YES.
+
+**Remaining:**
+- Better Auth consumes `AUTH_SECRET`/`PUBLIC_ORIGIN` from Step 2.x; SMTP settings are added with Step 9.1 using the same `Secret` wrapper.
+- New token-bearing routes (e.g. invitation acceptance, recovery) must be added to the URL redaction pattern when introduced.
+- Production secret injection method (Docker secrets vs. env) is decided in Step 10.1; secret rotation procedure still to be documented.
 
 ---
 

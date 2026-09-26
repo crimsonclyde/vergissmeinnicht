@@ -1,3 +1,6 @@
+import { randomBytes } from 'node:crypto';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { defineConfig, devices } from '@playwright/test';
 
 const port = 3100;
@@ -17,7 +20,15 @@ export default defineConfig({
     // `pnpm test:e2e` builds the web assets first.
     command: 'node apps/server/src/main.ts',
     url: `http://127.0.0.1:${port}/api/health`,
-    env: { NODE_ENV: 'production', PORT: String(port), HOST: '127.0.0.1' },
+    // Production mode requires explicit configuration; use throwaway values for the test run.
+    env: {
+      NODE_ENV: 'production',
+      HOST: '127.0.0.1',
+      PORT: String(port),
+      PUBLIC_ORIGIN: `http://127.0.0.1:${port}`,
+      DATABASE_PATH: join(tmpdir(), `vergissmeinnicht-e2e-${process.pid}.sqlite`),
+      AUTH_SECRET: randomBytes(32).toString('base64url'),
+    },
     reuseExistingServer: false,
     timeout: 120_000,
   },

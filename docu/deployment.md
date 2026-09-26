@@ -26,6 +26,22 @@ persistent volume
 - Apply controlled DB migrations.
 - Protect backups as sensitive data.
 
+## Configuration
+
+Inject configuration at runtime. The production server never reads `.env` files and refuses to start (exit code 1, listing the invalid variable names) if a required value is missing or invalid.
+
+| Variable | Production | Notes |
+| --- | --- | --- |
+| `NODE_ENV` | `production` (set by `pnpm start`) | Must be exactly `development`, `test` or `production`. |
+| `AUTH_SECRET` | **required** | ≥32 characters, e.g. `openssl rand -base64 32`. Treat as a credential; prefer a secret store / Docker secret over plain env where possible. |
+| `PUBLIC_ORIGIN` | **required** | External origin, e.g. `https://vmn.example.org`. Must be `https` (plain `http` only for loopback). |
+| `DATABASE_PATH` | **required** | Absolute path on the persistent volume. |
+| `HOST` | optional | Default `127.0.0.1`. In a container set `0.0.0.0` and expose only via the reverse proxy. |
+| `PORT` | optional | Default `3000`. |
+| `LOG_LEVEL` | optional | `info` (default), `warn`, `error`, `fatal`, `silent`. `debug`/`trace` are rejected in production. |
+
+Rotating `AUTH_SECRET` invalidates existing sessions; a documented rotation procedure follows with authentication (Step 2.x).
+
 ## Backups
 
 Before calling backup support complete, documentation must include:
