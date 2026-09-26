@@ -31,7 +31,7 @@ This file is normative and must evolve with the application.
 - [ ] Password values never appear in application logs, traces, analytics, or error payloads.
 
 ### TOTP MFA
-- [ ] TOTP is optional for V1 accounts and architecture supports policy enforcement later.
+- [ ] TOTP is built in and user-activated (optional) for V1 accounts; the MFA requirement is evaluated by a central server-side policy so enforcement (e.g. for ADMIN) can be added later.
 - [ ] Seed generated with a CSPRNG.
 - [ ] Enrollment is not active until the user proves a valid OTP.
 - [ ] TOTP seed is treated as highly sensitive data.
@@ -42,10 +42,12 @@ This file is normative and must evolve with the application.
 - [ ] Recovery codes are stored hashed.
 - [ ] Recovery code use is one-time and atomic.
 - [ ] MFA enable/disable/reset is audited.
-- [ ] Sensitive MFA changes require recent authentication / appropriate re-verification.
-- [ ] A password-authenticated but MFA-incomplete session cannot access authenticated app resources.
+- [ ] Enabling TOTP and regenerating recovery codes require recent re-authentication.
+- [ ] Disabling TOTP requires re-authentication plus a valid OTP or recovery code.
+- [ ] For a TOTP-enabled account, a password-authenticated session that has not passed the TOTP challenge cannot access authenticated app resources.
+- [ ] The session is rotated after a successful TOTP challenge.
 
-### Future external login: Apple / GitHub / Microsoft
+### Future external login: Apple / GitHub (planned), Microsoft (possible)
 - [ ] Internal User UUID remains primary identity.
 - [ ] External subject/provider ID mapping is explicit.
 - [ ] No implicit account linking merely because two providers claim the same email.
@@ -55,6 +57,7 @@ This file is normative and must evolve with the application.
 - [ ] Use PKCE where applicable.
 - [ ] Access/refresh tokens are secrets and never logged.
 - [ ] Linking/unlinking identity providers requires recent authenticated confirmation.
+- [ ] Provider login cannot bypass TOTP for a user who enabled it, unless an explicitly reviewed policy says otherwise.
 
 ---
 
@@ -285,13 +288,14 @@ The following choices are mandatory V1 behavior:
 - public registration is disabled;
 - account creation begins with an ADMIN-created invitation to a required email address;
 - invitation acceptance must prove/use that invited email;
-- TOTP is mandatory after first login;
-- an account without completed TOTP enrollment receives no normal application/Workspace access;
+- TOTP is optional and user-activated, but built in from V1 (not mandatory for now);
+- an account with TOTP enabled receives no normal application/Workspace access until the TOTP challenge succeeds;
+- whether TOTP is required is decided by a central server-side policy, so mandatory enforcement can be introduced later without redesign;
 - password recovery is admin-assisted only in V1;
-- TOTP reset is admin-assisted and must force re-enrollment;
+- TOTP reset (lost device) is admin-assisted, audited, removes the TOTP credential and recovery codes, and invalidates existing sessions;
 - there is no unauthenticated password-reset email flow in V1;
 - there is no "remember this device" MFA bypass in V1 unless separately approved;
-- Apple/GitHub/Microsoft login is deferred and requires a new account-linking/MFA security review before implementation.
+- Apple and GitHub login are planned but deferred (Microsoft possible later) and require a new account-linking/MFA security review before implementation.
 
 ### Security check: invite-only account bootstrap
 **Threat surface:** invitation theft, token replay, account squatting, email mismatch, invitation enumeration.  
@@ -302,18 +306,19 @@ The following choices are mandatory V1 behavior:
 **Authorization review:** only ADMIN capability can issue/revoke invitations.  
 **Open risks:** email delivery channel security is external to the application.
 
-### Security check: mandatory first-login TOTP
-**Threat surface:** bypass through API routes, SSE, Knot resolution, stale session, alternate login path, enrollment race.  
-**Controls required:** explicit restricted pre-MFA session/account state; centralized middleware/policy denies normal resources until MFA enrollment and challenge are satisfied.  
-**Negative tests:** pre-MFA session cannot access Workspace API; cannot subscribe SSE; cannot resolve Knot target details; cannot call admin route; cannot promote session via client flag.  
+### Security check: optional user-activated TOTP
+**Threat surface:** challenge bypass through API routes, SSE, Knot resolution, stale session, alternate login path; enrollment race; attacker with a stolen session enabling TOTP to lock the owner out; attacker disabling TOTP (downgrade); recovery-code brute force.  
+**Controls required:** explicit restricted pre-MFA session state for TOTP-enabled accounts; centralized middleware/policy denies normal resources until the TOTP challenge is satisfied; re-authentication to enable TOTP or regenerate recovery codes; re-authentication plus OTP/recovery code to disable; rate limits; audit events for enable/disable/recovery-code use/regeneration/admin reset.  
+**Negative tests:** pre-MFA session of a TOTP-enabled account cannot access Workspace API, subscribe SSE, resolve Knot target details, or call admin routes; cannot promote session via client flag; TOTP cannot be disabled without OTP/recovery code; TOTP cannot be enabled without re-authentication; used recovery code is rejected.  
 **Secrets/data involved:** TOTP seed, OTP values, recovery codes.  
 **Logging review:** seed, OTP and recovery codes never logged.  
 **Authorization review:** MFA gate must be server-side and centralized.  
-**Open risks:** future OAuth/OIDC login paths require explicit policy because provider flows may not automatically pass through credential 2FA hooks.
+**Open risks:** accounts that have not enabled TOTP (including ADMIN accounts) are protected by password only — consider an enforcement policy for ADMIN later; future OAuth/OIDC login paths require explicit policy because provider flows may not automatically pass through credential 2FA hooks.  
+**Reviewed:** 2026-09-26
 
 ### Security check: admin-assisted recovery
 **Threat surface:** malicious/compromised admin, privilege abuse, stolen reset token, active-session persistence.  
-**Controls required:** explicit ADMIN capability, short-lived single-use recovery flow, audit trail, session invalidation, forced MFA re-enrollment when TOTP is reset.  
+**Controls required:** explicit ADMIN capability, short-lived single-use recovery flow, audit trail, session invalidation, TOTP credential and recovery codes removed when TOTP is reset.  
 **Negative tests:** non-admin cannot initiate; used/expired token rejected; old sessions rejected after reset.  
 **Secrets/data involved:** recovery/reset token.  
 **Logging review:** reset token redacted.  

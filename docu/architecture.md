@@ -35,7 +35,7 @@ React is presentation only and never owns authorization decisions.
 
 Fastify was chosen because the project benefits from an explicit HTTP server boundary, schema validation, straightforward testability, and maintained ecosystem plugins for concerns such as cookies, CSRF protection, rate limiting, CORS and security headers.
 
-Better Auth is used instead of custom authentication code. Its supported authentication primitives will be wrapped by project-specific policy enforcing invite-only registration and mandatory TOTP before normal application access.
+Better Auth is used instead of custom authentication code. Its supported authentication primitives will be wrapped by project-specific policy enforcing invite-only registration and, for accounts that enabled TOTP, a completed TOTP challenge before normal application access.
 
 Drizzle provides typed DB access and committed migrations while keeping SQLite simple to self-host.
 
@@ -99,23 +99,25 @@ Authentication mechanisms attach to it.
 V1:
 - invite-only email accounts;
 - email + password;
-- mandatory TOTP after first login;
+- optional, user-activated TOTP (built in; enforcement policy may be added later);
 - admin-assisted recovery.
 
 Future:
-- Apple;
-- GitHub;
-- Microsoft.
+- Apple (planned);
+- GitHub (planned);
+- Microsoft (possible).
 
 Provider identities must map to internal User records; provider account linking requires a separate security design.
 
-## First-login security state
+## TOTP security state
 
-A newly invited account is not fully active after password creation.
+TOTP is optional and user-activated in V1. Users enable it from their account security settings (re-authentication required; activation only after a valid OTP).
 
-It enters a restricted authentication state that may access only the MFA enrollment/logout/account bootstrap endpoints until TOTP enrollment has been successfully verified.
+When an account has TOTP enabled, password login yields a restricted pre-MFA session that may access only the TOTP challenge/recovery-code/logout endpoints. The session is rotated to a full session after a successful challenge.
 
 No Workspace, Procedure, Run, Knot, admin, API or SSE access is granted before this gate is complete.
+
+Whether an account must pass TOTP is decided by one central server-side MFA policy (currently: "required if the user enabled TOTP"). A later enforcement rule, such as mandatory TOTP for ADMIN, is a policy change rather than a redesign.
 
 ## Realtime
 

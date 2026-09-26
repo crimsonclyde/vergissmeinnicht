@@ -34,7 +34,8 @@ These decisions are already made and must not be silently changed by an implemen
 - User identity: stable internal User UUID
 - Email: required
 - Password recovery V1: **admin-assisted recovery only**
-- TOTP: **mandatory after first login**
+- TOTP: **optional, user-activated, built in from V1** (not mandatory for now; architecture keeps a seam for a later enforcement policy)
+- External login: **Apple and GitHub planned for later** (deferred; mapped to the internal User UUID)
 - Workspace roles: Guest / User / Editor / Admin
 - Users may belong to multiple Workspaces
 - Procedures are Workspace-wide in V1
@@ -106,6 +107,22 @@ These decisions are already made and must not be silently changed by an implemen
 **Security docs updated:** YES.
 
 **Remaining:** Pin exact dependency versions when Step 1.1 begins; review current security advisories before first install.
+
+### 0.3 Revise V1 TOTP and external-login policy
+**Status:** DONE
+**Completed:** 2026-09-26
+
+**Objective:** Align documentation with the product decision that TOTP is not mandatory for now, but must be available as a built-in, user-activated feature; Apple and GitHub login are planned for later.
+
+**Implemented:** Replaced "mandatory TOTP after first login" with "optional, user-activated TOTP" across `steps.md` (locked decisions, 2.4, 2.5, 2.6), `security.md` (§1, §13, per-feature security checks), `architecture.md` and `AGENTS.md`; resolved the previous contradiction between `security.md` §1 / `AGENTS.md` (optional) and §13 / `steps.md` (mandatory). Prioritized Apple and GitHub in 2.6; Microsoft remains a possible later provider.
+
+**Tests/checks:** Documentation cross-references reviewed with `grep` for TOTP/MFA/provider mentions.
+
+**Security impact:** HIGH — accounts without TOTP enabled are protected by password only. Mitigations and open risks recorded in `security.md`.
+
+**Security docs updated:** YES.
+
+**Remaining:** Decide later whether ADMIN accounts (or Workspaces) may enforce TOTP; the enforcement seam must be kept in 2.4.
 
 ---
 
@@ -216,35 +233,49 @@ A different physical folder layout is acceptable only if the same boundaries rem
 
 **Security impact:** CRITICAL.
 
-### 2.4 Mandatory TOTP after first login
+### 2.4 Optional user-activated TOTP
 **Status:** TODO
 
-**Objective:** Every locally authenticated user must enroll TOTP before receiving full application access.
+**Objective:** TOTP is a built-in feature from V1 that every local user can activate for their own account. It is **not mandatory** for now; the design must keep a server-side enforcement seam so a later policy (for example "ADMIN accounts require TOTP" or a per-Workspace requirement) can be added without redesign.
 
-**Required flow:**
+**Enrollment flow (user-initiated, from account settings):**
 
 ```text
-Invite accepted
-  -> password established
-  -> limited first-login session
-  -> TOTP enrollment
-  -> successful TOTP verification
-  -> recovery codes presented
-  -> full authenticated session
+Authenticated user opens account security settings
+  -> re-authenticates (current password)
+  -> TOTP seed generated, QR/secret shown once
+  -> user submits valid OTP
+  -> TOTP activated
+  -> recovery codes presented once
 ```
 
-Subsequent logins require password + TOTP.
+**Login flow for an account with TOTP enabled:**
+
+```text
+email + password
+  -> restricted pre-MFA session (TOTP challenge/logout only)
+  -> valid OTP or recovery code
+  -> session rotated to full authenticated session
+```
+
+Accounts without TOTP enabled log in with email + password only.
 
 **Acceptance criteria:**
-- no access to normal Workspace/Procedure/Run routes before TOTP enrollment completes;
+- user can enable TOTP from account settings; enabling requires recent re-authentication;
 - cryptographically strong TOTP seed;
-- enrollment verified before activation;
+- enrollment verified with a valid OTP before activation;
 - backup/recovery codes generated and stored hashed;
-- OTP attempts rate-limited;
+- disabling TOTP requires re-authentication plus a valid OTP or recovery code;
+- regenerating recovery codes requires re-authentication;
+- for TOTP-enabled accounts, no access to Workspace/Procedure/Run/Knot/admin/SSE routes before the TOTP challenge succeeds;
+- session rotated after successful TOTP challenge;
+- OTP and recovery-code attempts rate-limited;
 - TOTP/recovery secrets never logged;
+- enable/disable/recovery-code use/regeneration are audited;
 - no "remember this device" in V1 unless separately approved;
-- TOTP reset is admin-assisted in V1 and fully audited;
-- negative tests prove MFA cannot be bypassed through API/SSE endpoints.
+- TOTP reset (lost device) is admin-assisted in V1 and fully audited;
+- MFA requirement is evaluated by a central server-side policy (currently "required only if the user enabled TOTP"), so a future enforcement rule is a policy change, not a rewrite;
+- negative tests prove a TOTP-enabled account cannot bypass the challenge through API/SSE/Knot endpoints or by client-supplied flags.
 
 **Security impact:** CRITICAL.
 
@@ -259,21 +290,22 @@ Subsequent logins require password + TOTP.
 - recovery cannot expose current password/TOTP secret;
 - recovery uses short-lived one-time reset/enrollment mechanism;
 - reset invalidates relevant existing sessions;
-- TOTP reset requires new enrollment before full access resumes.
+- TOTP reset removes the user's TOTP credential and recovery codes, is audited, and the user may re-enroll afterwards.
 
 **Security impact:** CRITICAL.
 
 ### 2.6 External identity provider abstraction
 **Status:** DEFERRED
 
-**Objective:** Future Apple, GitHub, and Microsoft sign-in.
+**Objective:** Future sign-in with Apple and GitHub (planned). Microsoft remains a possible later provider.
 
 **Acceptance criteria when activated:**
 - provider identities link to internal User UUID;
 - explicit safe account-linking rules;
 - state/nonce/PKCE as applicable;
 - provider tokens treated as secrets;
-- mandatory MFA policy reconsidered explicitly because provider-login paths can have different 2FA semantics.
+- users who enabled TOTP must not be able to bypass it by signing in through a provider; MFA policy for provider logins is decided explicitly because provider-login paths can have different 2FA semantics;
+- linking/unlinking a provider requires recent authentication and is audited.
 
 **Security impact:** CRITICAL.
 
