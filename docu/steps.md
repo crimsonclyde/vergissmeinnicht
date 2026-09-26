@@ -235,7 +235,8 @@ A different physical folder layout is acceptable only if the same boundaries rem
 ## 2 — Identity, invitations, and authentication
 
 ### 2.1 Internal User model
-**Status:** TODO
+**Status:** DONE
+**Completed:** 2026-09-26
 
 **Objective:** Create stable internal User identity independent of login provider.
 
@@ -248,6 +249,26 @@ A different physical folder layout is acceptable only if the same boundaries rem
 - architecture supports multiple linked authentication methods later.
 
 **Security impact:** CRITICAL.
+
+**Implemented:**
+- Domain (`packages/domain/src/user.ts`): `User`, branded `UserId` / `NormalizedEmail`, `USER_STATUSES` (`ACTIVE`, `DISABLED`), `canAuthenticate()`, `DomainValidationError` with stable codes and messages that never echo input.
+- `normalizeEmail`: trim → NFC → lower-case the whole address (case/composition variants cannot create a second account or dodge invite binding); shape check, control characters rejected, ≤254 chars / local part ≤64.
+- `normalizeDisplayName`: trim → NFC, 1–80 code points, control and bidi override/isolate characters rejected (prevents spoofed names in audit snapshots). Emoji and non-Latin scripts allowed.
+- Application port `UserRepository` (async, for a later DB swap) and `EmailAlreadyInUseError`.
+- Database: `users` table + migration `0000_users.sql`. Drizzle property names follow Better Auth's core `user` schema (`name`, `email`, `emailVerified`, `image`, `createdAt`, `updatedAt`) so Better Auth (2.3) can use the table via `user.modelName = 'users'` without a data migration; columns are snake_case. `status` is ours and must be registered as a Better Auth additional field with `input: false`. CHECK constraints: 36-char id, normalized email ≤254, non-blank display name, valid status; unique index on email.
+- `createUserRepository`: server-generated UUIDv4 ids (`crypto.randomUUID`), server timestamps, unique-email violations mapped to `EmailAlreadyInUseError`.
+- Linked authentication methods: not a column on `users`. Better Auth's `account` table (provider + provider account id → `users.id`) will hold password and future Apple/GitHub credentials, added with 2.3.
+
+**Tests/checks:**
+- `pnpm test` — 69 tests. New: email normalization (case, NFC, 10 malformed inputs, length limits, no input echo); display-name normalization (bidi override/isolate, control chars, empty, code-point length); `parseUserId` rejects non-v4/upper-case/SQL-like input; repository create/find, non-sequential ids, duplicate normalized email rejected; raw-SQL inserts violating each CHECK constraint rejected.
+- `pnpm db:migrate` applied to the dev DB and re-run idempotently; `pnpm lint`, `pnpm typecheck`, `pnpm test:e2e` pass.
+
+**Security docs updated:** YES.
+
+**Remaining:**
+- Status changes (disable/enable) and who may perform them arrive with admin tooling (2.5 / 3.2) and must be audited.
+- Better Auth configuration mapping (`modelName`, `status` additional field with `input: false`, `generateId: () => crypto.randomUUID()`) is done in 2.3.
+- Email ownership (`emailVerified`) is established by invite acceptance in 2.2.
 
 ### 2.2 Invite-only account creation
 **Status:** TODO

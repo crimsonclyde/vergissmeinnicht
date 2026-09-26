@@ -109,6 +109,14 @@ Future:
 
 Provider identities must map to internal User records; provider account linking requires a separate security design.
 
+### User table and Better Auth
+
+The `users` table (`packages/database/src/schema.ts`) is the internal identity. Its Drizzle property names match Better Auth's core `user` model so Better Auth reads and writes it directly (`user.modelName = 'users'`); column names are snake_case. `status` is application-owned and must never be writable through Better Auth input.
+
+Credentials and login methods live in Better Auth's `account` table (one row per provider + provider account id, pointing to `users.id`). Adding Apple/GitHub later adds `account` rows; it never changes `users.id`.
+
+Emails are normalized (trimmed, NFC, lower-cased) before storage and lookup; the normalized email is unique.
+
 ## TOTP security state
 
 TOTP is optional and user-activated in V1. Users enable it from their account security settings (re-authentication required; activation only after a valid OTP).

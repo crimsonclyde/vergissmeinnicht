@@ -134,6 +134,11 @@ Canonical shape:
 - [ ] Reject malformed UUIDs/tokens/state transitions.
 - [ ] Drag/drop order input is validated, authorized, and bounded.
 
+- [x] Emails are normalized (trim, NFC, lower-case) before storage/lookup; uniqueness is enforced on the normalized value by a unique index.
+- [x] Display names reject control and bidi override/isolate characters so audit snapshots cannot be visually spoofed.
+- [x] Critical invariants (id shape, normalized email, status enum) are also enforced by DB CHECK constraints.
+- [x] Validation errors carry stable codes and never echo the rejected input.
+
 ### JSON import
 - [ ] Treat imports as hostile input.
 - [ ] Require/validate `schemaVersion`.
@@ -354,4 +359,14 @@ The following choices are mandatory V1 behavior:
 **Logging review:** request logs contain method, redacted URL, remote address; no headers except redacted paths. Error objects logged by Fastify must not carry credentials — review when auth errors are introduced.  
 **Authorization review:** not applicable (no protected resources yet).  
 **Open risks:** env-based secret injection is visible to processes that can read the app's environment — prefer Docker secrets / files when deploying (10.1); redaction pattern must be extended for every new token route; ephemeral development secrets are process-local by design.  
+**Reviewed:** 2026-09-26
+
+### Security check: internal User model (Step 2.1)
+**Threat surface:** duplicate accounts via email case/Unicode variants, display-name spoofing in audit history, guessable/sequential user ids, identity tied to an external provider, invalid rows written around application validation.  
+**Controls added:** server-generated UUIDv4 ids; normalized unique email; display-name character policy; DB CHECK constraints + unique index; status is application-owned (`input: false` required when Better Auth is configured); identity stays in `users.id`, credentials go to Better Auth `account` rows.  
+**Negative tests:** duplicate normalized email rejected; malformed emails/ids rejected; bidi/control display names rejected; raw-SQL rows violating constraints rejected (`packages/domain/src/user.test.ts`, `packages/database/src/user-repository.test.ts`).  
+**Secrets/data involved:** email addresses and display names (personal data). No credentials yet.  
+**Logging review:** no logging added; emails must not be logged at info level in later auth flows.  
+**Authorization review:** no endpoints yet. Future: only ADMIN may change `status`; users must not change their own status or email without a verified flow.  
+**Open risks:** lower-casing the local part assumes case-insensitive mailboxes (true for mainstream providers); `image` column exists for Better Auth compatibility and must not be rendered as an arbitrary URL without review; DISABLED must also revoke active sessions once sessions exist (2.3).  
 **Reviewed:** 2026-09-26

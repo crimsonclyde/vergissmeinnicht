@@ -252,6 +252,12 @@ importers:
 
   packages/database:
     dependencies:
+      '@vergissmeinnicht/application':
+        specifier: workspace:*
+        version: link:../application
+      '@vergissmeinnicht/domain':
+        specifier: workspace:*
+        version: link:../domain
       better-sqlite3:
         specifier: 13.0.3
         version: 13.0.3
