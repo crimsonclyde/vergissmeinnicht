@@ -27,7 +27,7 @@ This file is normative and must evolve with the application.
 - [x] Login errors do not reveal whether an account exists. (One `401 invalid_credentials` for every failure; unknown users still cost one hash.)
 - [x] Login attempts are rate-limited. (10/min per client address, 10/15 min per account.)
 - [x] Successful login rotates the session identifier. (New session per login; a session presented with the login request is revoked.)
-- [ ] Password changes invalidate relevant old sessions as policy requires. (No password-change flow yet; `revokeSessionsOnPasswordReset` set for Better Auth.)
+- [x] Password changes invalidate relevant old sessions as policy requires. (Self-service change and recovery reset delete all sessions of the user in the same transaction; the changing client gets a fresh session.)
 - [x] Password values never appear in application logs, traces, analytics, or error payloads. (Verified by log capture in `apps/server/src/http/auth.test.ts`.)
 - [x] New passwords: 15–128 characters (NIST SP 800-63B-4 single-factor minimum), no composition rules, NFKC-normalized before hashing.
 - [ ] Breached/common-password blocklist.
@@ -43,7 +43,7 @@ This file is normative and must evolve with the application.
 - [x] Recovery codes are high entropy. (10 × 80 bits.)
 - [x] Recovery codes are stored hashed. (SHA-256 per code.)
 - [x] Recovery code use is one-time and atomic. (Conditional update; concurrency tested.)
-- [ ] MFA enable/disable/reset is audited. (Enable/disable/use/regenerate/lock: yes. Admin reset arrives with 2.5.)
+- [x] MFA enable/disable/reset is audited. (Enable/disable/use/regenerate/lock and admin/operator TOTP reset.)
 - [x] Enabling TOTP and regenerating recovery codes require recent re-authentication. (Current password in the same request.)
 - [x] Disabling TOTP requires re-authentication plus a valid OTP or recovery code.
 - [x] For a TOTP-enabled account, a password-authenticated session that has not passed the TOTP challenge cannot access authenticated app resources. (No session exists before the challenge; only a challenge cookie scoped to `/api/auth/mfa`.)
@@ -72,7 +72,7 @@ This file is normative and must evolve with the application.
 - [x] Session cookie is `HttpOnly`.
 - [x] `SameSite` policy is intentional and documented. (`Strict`: the SPA only needs the cookie on same-site `fetch` calls; cross-site navigations such as email links load the public shell first.)
 - [x] Cookie Domain/Path are no broader than necessary. (No `Domain`, `Path=/`.)
-- [ ] Session rotates after login and security-sensitive privilege changes. (Login and TOTP enable/disable: yes — all sessions of the user are replaced. Server-admin grant/removal and password change must do the same when those flows exist.)
+- [ ] Session rotates after login and security-sensitive privilege changes. (Login, TOTP enable/disable, password change and account recovery: yes — all sessions of the user are replaced. Server-admin grant/removal and account disabling must do the same when those flows exist.)
 - [x] Logout invalidates server-side session.
 - [x] Idle/absolute expiration policies are documented. (Idle 7 days, refreshed at most daily; absolute 30 days, enforced per request — `SESSION_POLICY` in `packages/auth`.)
 - [x] CSRF protection covers state-changing cookie-authenticated operations. (Every non-GET/HEAD/OPTIONS request needs `Origin` = `PUBLIC_ORIGIN`, missing `Origin` rejected; JSON-only bodies; `SameSite=Strict`.)
@@ -349,13 +349,15 @@ The following choices are mandatory V1 behavior:
 **Reviewed:** 2026-09-26
 
 ### Security check: admin-assisted recovery
-**Threat surface:** malicious/compromised admin, privilege abuse, stolen reset token, active-session persistence.  
+**Threat surface:** malicious/compromised admin, stolen admin session, privilege abuse, stolen reset token, active-session persistence, downgrade of a user's TOTP, social engineering of admins.  
 **Controls required:** explicit ADMIN capability, short-lived single-use recovery flow, audit trail, session invalidation, TOTP credential and recovery codes removed when TOTP is reset.  
-**Negative tests:** non-admin cannot initiate; used/expired token rejected; old sessions rejected after reset.  
-**Secrets/data involved:** recovery/reset token.  
-**Logging review:** reset token redacted.  
-**Authorization review:** separate capability from ordinary User/Editor actions.  
-**Open risks:** administrative social engineering remains an operational risk and should be addressed in admin UX/docs.
+**Controls implemented (2026-09-26, Step 2.5):** server-admin capability checked in the use-case; step-up (admin password + admin TOTP if enabled) per recovery; no self-recovery via the admin path; link emailed only to the account's own address and never shown to the admin; 256-bit token, SHA-256 at rest, 60 min, single use, superseded on re-issue; TOTP-only reset additionally needs the user's current password; completion atomically applies the reset, deletes TOTP + recovery codes, invalidates MFA challenges and deletes every session of the user; per-client and per-admin rate limits; security events for issue/supersede/complete/reset; operator CLI fallback attributed to `cli:admin-recover`; self-service password change revokes all sessions.  
+**Negative tests:** non-admin, disabled admin, wrong admin password, missing admin TOTP, self-target, unknown/disabled/TOTP-less target; used/expired/superseded/malformed token; TOTP reset without or with wrong current password; old sessions rejected after completion; concurrent completion (`packages/database/src/recovery-use-cases.test.ts`, `apps/server/src/http/recovery.test.ts`).  
+**Secrets/data involved:** recovery token (link), new password.  
+**Logging review:** `/recover/{token}` and `/api/recoveries/{…}` redacted in request logs; tokens travel in JSON bodies for API calls; verified by log capture.  
+**Authorization review:** separate server-admin capability, independent of Workspace roles; enforced in `issueAccountRecovery`.  
+**Open risks:** an admin who also controls the user's mailbox (or an operator with shell access) can take over accounts — inherent to admin-assisted recovery, visible in the audit trail; users who lost mailbox access need an out-of-band operator process; no admin UI yet; administrative social engineering remains an operational risk (admins should verify the requester through a second channel before starting a recovery).  
+**Reviewed:** 2026-09-26
 
 ### Security check: application skeleton (Step 1.1)
 **Threat surface:** HTTP server baseline (headers, static file serving, SPA fallback), SQLite file handling, dependency supply chain, CI.  

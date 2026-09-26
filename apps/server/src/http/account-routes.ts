@@ -1,4 +1,5 @@
 import {
+  changePassword,
   confirmTotpEnrollment,
   disableTotp,
   mfaStatus,
@@ -9,7 +10,7 @@ import type { FastifyInstance, FastifyRequest } from 'fastify';
 import { z } from 'zod';
 import type { AppServices } from '../composition.ts';
 import { InvalidRequestError } from './errors.ts';
-import { replaceAllSessions, requireUser } from './session.ts';
+import { issueSession, replaceAllSessions, requireUser } from './session.ts';
 
 const password = z.string().max(1024);
 const setupBody = z.strictObject({ password });
@@ -19,6 +20,7 @@ const disableBody = z.union([
   z.strictObject({ password, recoveryCode: z.string().max(64) }),
 ]);
 const regenerateBody = z.strictObject({ password });
+const changePasswordBody = z.strictObject({ currentPassword: password, newPassword: password });
 
 function parse<T>(schema: z.ZodType<T>, value: unknown): T {
   const parsed = schema.safeParse(value);
@@ -50,6 +52,15 @@ export async function accountRoutes(app: FastifyInstance, { services }: { servic
   app.addHook('preHandler', requireUser(services));
 
   app.get('/mfa', async (request) => mfaStatus(deps, userOf(request)));
+
+  app.post('/password', { bodyLimit: 4096, config: perAccount }, async (request, reply) => {
+    const body = parse(changePasswordBody, request.body);
+    const user = userOf(request);
+    // Revokes every session of the user (same transaction); this client gets a fresh one.
+    await changePassword(services.recovery, { user, currentPassword: body.currentPassword, newPassword: body.newPassword });
+    await issueSession(services, request, reply, user.id);
+    return reply.code(204).send();
+  });
 
   app.post('/mfa/totp/setup', { bodyLimit: 2048, config: perAccount }, async (request) => {
     const { password: current } = parse(setupBody, request.body);

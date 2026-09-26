@@ -19,6 +19,12 @@ export const SECURITY_EVENT_TYPES = [
   'TOTP_LOCKED',
   'RECOVERY_CODE_USED',
   'RECOVERY_CODES_REGENERATED',
+  'ACCOUNT_RECOVERY_ISSUED',
+  'ACCOUNT_RECOVERY_SUPERSEDED',
+  'ACCOUNT_RECOVERY_COMPLETED',
+  'PASSWORD_CHANGED',
+  'PASSWORD_RESET',
+  'TOTP_RESET',
 ] as const;
 export type SecurityEventType = (typeof SECURITY_EVENT_TYPES)[number];
 
@@ -28,7 +34,7 @@ export type Actor =
   | { readonly kind: 'system'; readonly label: SystemActorLabel };
 
 /**
- * `cli:admin-bootstrap`: the one-time operator CLI. `anonymous`: an unauthenticated request,
+ * `cli:admin-bootstrap` / `cli:admin-recover`: operator CLIs. `anonymous`: an unauthenticated request,
  * e.g. a failed login attempt against an existing account.
  */
-export type SystemActorLabel = 'cli:admin-bootstrap' | 'anonymous';
+export type SystemActorLabel = 'cli:admin-bootstrap' | 'cli:admin-recover' | 'anonymous';

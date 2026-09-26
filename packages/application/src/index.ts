@@ -1,5 +1,7 @@
 export * from './invitations/index.ts';
 export * from './mfa/index.ts';
+export * from './recovery/index.ts';
+export * from './ports/account-recovery-repository.ts';
 export * from './ports/clock.ts';
 export * from './ports/email-sender.ts';
 export * from './ports/invitation-repository.ts';

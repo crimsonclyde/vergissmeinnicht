@@ -25,6 +25,9 @@ export const ERROR_MESSAGES: Record<string, string> = {
   no_pending_enrollment: 'The setup has expired. Please start again.',
   totp_already_enabled: 'Two-factor authentication is already enabled.',
   totp_not_enabled: 'Two-factor authentication is not enabled.',
+  invalid_recovery: 'This recovery link is invalid, has expired or was already used.',
+  password_too_short: 'The new password must be at least 15 characters.',
+  password_too_long: 'The new password must be at most 128 characters.',
 };
 
 export function messageFor(error: unknown, fallback = 'Something went wrong. Please try again.'): string {
@@ -75,6 +78,16 @@ export const api = {
   confirmTotp: (code: string) => request<{ recoveryCodes: string[] }>('POST', '/account/mfa/totp/confirm', { code }),
   disableTotp: (password: string, factor: SecondFactor) =>
     request<undefined>('POST', '/account/mfa/totp/disable', { password, ...factor }),
+  changePassword: (currentPassword: string, newPassword: string) =>
+    request<undefined>('POST', '/account/password', { currentPassword, newPassword }),
+  resolveRecovery: (token: string) =>
+    request<{ email: string; resetPassword: boolean; resetTotp: boolean; requiresCurrentPassword: boolean; expiresAt: string }>(
+      'POST',
+      '/recoveries/resolve',
+      { token },
+    ),
+  completeRecovery: (token: string, passwords: { newPassword?: string; currentPassword?: string }) =>
+    request<undefined>('POST', '/recoveries/complete', { token, ...passwords }),
   regenerateRecoveryCodes: (password: string) =>
     request<{ recoveryCodes: string[] }>('POST', '/account/mfa/recovery-codes', { password }),
   signOut: () => request<undefined>('POST', '/auth/sign-out'),

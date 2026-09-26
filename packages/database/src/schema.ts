@@ -189,6 +189,37 @@ export const mfaChallenges = sqliteTable(
   ],
 );
 
+/**
+ * Admin- or operator-initiated account recoveries. Only a SHA-256 hash of the link token is stored;
+ * the link goes to the account's own email address (or the operator's terminal).
+ */
+export const accountRecoveries = sqliteTable(
+  'account_recoveries',
+  {
+    id: text('id').primaryKey(),
+    userId: text('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    tokenHash: text('token_hash').notNull().unique(),
+    resetPassword: integer('reset_password', { mode: 'boolean' }).notNull(),
+    resetTotp: integer('reset_totp', { mode: 'boolean' }).notNull(),
+    /** NULL = issued by the operator CLI. */
+    issuedByUserId: text('issued_by_user_id').references(() => users.id),
+    createdAt: integer('created_at', { mode: 'timestamp_ms' }).notNull(),
+    expiresAt: integer('expires_at', { mode: 'timestamp_ms' }).notNull(),
+    completedAt: integer('completed_at', { mode: 'timestamp_ms' }),
+    revokedAt: integer('revoked_at', { mode: 'timestamp_ms' }),
+  },
+  (table) => [
+    index('account_recoveries_user_id_idx').on(table.userId),
+    check('account_recoveries_scope', sql`${table.resetPassword} = 1 or ${table.resetTotp} = 1`),
+    check('account_recoveries_token_hash_format', sql`length(${table.tokenHash}) = 64`),
+    check('account_recoveries_expiry_after_creation', sql`${table.expiresAt} > ${table.createdAt}`),
+    check('account_recoveries_single_outcome', sql`${table.completedAt} is null or ${table.revokedAt} is null`),
+    check('account_recoveries_not_self_issued', sql`${table.issuedByUserId} is null or ${table.issuedByUserId} <> ${table.userId}`),
+  ],
+);
+
 /** Invitations. Only a SHA-256 hash of the link token is stored. */
 export const invitations = sqliteTable(
   'invitations',

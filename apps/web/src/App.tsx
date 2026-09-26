@@ -1,10 +1,13 @@
 import { useEffect, useState } from 'react';
 import { AcceptInvitation } from './AcceptInvitation.tsx';
 import { AccountSecurity } from './AccountSecurity.tsx';
+import { ChangePassword } from './ChangePassword.tsx';
+import { RecoverAccount } from './RecoverAccount.tsx';
 import { api, type CurrentUser } from './api.ts';
 import { SignIn } from './SignIn.tsx';
 
 const INVITE_PATH = /^\/invite\/([A-Za-z0-9_-]+)$/;
+const RECOVER_PATH = /^\/recover\/([A-Za-z0-9_-]+)$/;
 
 function Home() {
   const [user, setUser] = useState<CurrentUser | null | undefined>(undefined);
@@ -34,18 +37,26 @@ function Home() {
       <button type="button" onClick={() => void signOut()}>
         Sign out
       </button>
+      <ChangePassword />
       <AccountSecurity />
     </section>
   );
 }
 
 export function App() {
-  const invite = INVITE_PATH.exec(window.location.pathname);
+  const invite = INVITE_PATH.exec(window.location.pathname)?.[1];
+  const recover = RECOVER_PATH.exec(window.location.pathname)?.[1];
   return (
     <main>
       <h1>Vergissmeinnicht</h1>
       <p>Repeatable procedures with trustworthy execution history.</p>
-      {invite?.[1] !== undefined ? <AcceptInvitation token={invite[1]} /> : <Home />}
+      {invite !== undefined ? (
+        <AcceptInvitation token={invite} />
+      ) : recover !== undefined ? (
+        <RecoverAccount token={recover} />
+      ) : (
+        <Home />
+      )}
     </main>
   );
 }

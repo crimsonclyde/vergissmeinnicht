@@ -139,6 +139,10 @@ Cross-cutting HTTP controls registered in `apps/server/src/app.ts`: `Origin` gua
 
 Accounts are created only by invitation acceptance (`acceptInvitation` use-case), which writes the `users` and `accounts` (credential) rows itself in one transaction; Better Auth's sign-up is disabled.
 
+### Account recovery
+
+Recovery (`packages/application/src/recovery`) mirrors invitations: an authorized issuer (server admin with step-up, or the operator CLI) creates a hashed, short-lived, single-use token; the link goes to the account's own mailbox (or the operator's terminal); completion replaces credentials and revokes all sessions and MFA challenges in one transaction. Password changes use the same "replace credential + revoke all sessions atomically, then issue a fresh session" pattern.
+
 ### Security events
 
 Account-security events (invitations, account creation, login success/failure, logout; MFA and recovery later) go to the append-only `security_events` table, written in the same transaction as the state change. Run/Step history uses the separate Run AuditEvent model (5.5).

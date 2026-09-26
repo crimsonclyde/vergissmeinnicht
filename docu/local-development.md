@@ -90,11 +90,12 @@ The development defaults (`SMTP_HOST=127.0.0.1`, `SMTP_PORT=1025`, `SMTP_SECURIT
 | `pnpm build` | Build production web assets (`apps/web/dist`) |
 | `pnpm start` | Production server (serves API + built web assets); run `pnpm build` first |
 | `pnpm test` | Vitest unit/integration tests |
-| `pnpm test:e2e` | Builds web assets, then runs Playwright tests (smoke + bootstrap/invite/sign-in/TOTP flow) against a freshly migrated production-mode server on port 3100 |
+| `pnpm test:e2e` | Builds web assets, then runs Playwright tests (smoke + bootstrap/invite/sign-in/TOTP/recovery flow) against a freshly migrated production-mode server on port 3100 |
 | `pnpm lint` | ESLint incl. architecture boundary rules |
 | `pnpm typecheck` | `tsc` for every package |
 | `pnpm db:generate` | Generate a migration from `packages/database/src/schema.ts` |
 | `pnpm db:migrate` | Apply committed migrations |
+| `pnpm admin:recover --email you@example.org [--password] [--totp]` | Print a single-use account recovery link (operator fallback) |
 | `pnpm admin:bootstrap --email you@example.org` | Create the first server-admin invitation and print its link (refused once a server admin exists) |
 
 The server runs TypeScript directly via Node's built-in type stripping; only erasable TypeScript syntax is allowed (`erasableSyntaxOnly`), and relative imports use `.ts` extensions.

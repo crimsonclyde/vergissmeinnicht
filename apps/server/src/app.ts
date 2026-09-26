@@ -9,6 +9,7 @@ import { authRoutes } from './http/auth-routes.ts';
 import { errorHandler } from './http/errors.ts';
 import { adminInvitationRoutes, invitationRoutes } from './http/invitation-routes.ts';
 import { originGuard } from './http/origin-guard.ts';
+import { adminRecoveryRoutes, recoveryRoutes } from './http/recovery-routes.ts';
 
 export interface AppOptions {
   /** Built web assets (apps/web/dist). When absent, only the API is served (development). */
@@ -70,6 +71,8 @@ export async function buildApp(options: AppOptions = {}) {
         await api.register(accountRoutes, { prefix: '/account', services });
         await api.register(invitationRoutes, { prefix: '/invitations', services });
         await api.register(adminInvitationRoutes, { prefix: '/admin/invitations', services });
+        await api.register(recoveryRoutes, { prefix: '/recoveries', services });
+        await api.register(adminRecoveryRoutes, { prefix: '/admin/recoveries', services });
       }
     },
     { prefix: '/api' },

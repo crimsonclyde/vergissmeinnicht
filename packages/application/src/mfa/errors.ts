@@ -51,3 +51,11 @@ export class NoPendingEnrollmentError extends Error {
     this.name = 'NoPendingEnrollmentError';
   }
 }
+
+/** The action needs a TOTP or recovery code because the acting account has TOTP enabled. */
+export class SecondFactorRequiredError extends Error {
+  constructor() {
+    super('A second factor is required');
+    this.name = 'SecondFactorRequiredError';
+  }
+}

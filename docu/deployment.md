@@ -56,7 +56,7 @@ Inject configuration at runtime. The production server never reads `.env` files 
 
 ### `DATA_ENCRYPTION_KEY`
 
-TOTP authenticator secrets are encrypted with this key. If it is lost or changed, every enrolled authenticator stops working: users can still sign in with a recovery code and re-enroll, otherwise an admin reset (Step 2.5) is needed. A re-encryption tool for planned key rotation does not exist yet — do not rotate it. Keep a copy of the key outside the server (e.g. in the operator's password manager) and store it separately from database backups: the encryption protects stolen database files only as long as the key is not stored alongside them.
+TOTP authenticator secrets are encrypted with this key. If it is lost or changed, every enrolled authenticator stops working: users can still sign in with a recovery code and re-enroll, otherwise an admin or operator TOTP reset is needed (see Account recovery). A re-encryption tool for planned key rotation does not exist yet — do not rotate it. Keep a copy of the key outside the server (e.g. in the operator's password manager) and store it separately from database backups: the encryption protects stolen database files only as long as the key is not stored alongside them.
 
 ## Migrations
 
@@ -81,6 +81,19 @@ NODE_ENV=production node apps/server/src/cli/admin-bootstrap.ts --email admin@ex
 ```
 
 The command prints a single-use invitation link to the terminal (it is not emailed or logged). Treat it like a password. Running it again replaces the previous link. Open the link, choose a display name and a password (at least 15 characters), then sign in. Once a server admin exists, the command refuses to run and unused bootstrap links stop working; further accounts are invited by a server admin (`POST /api/admin/invitations`; a web UI follows).
+
+## Account recovery
+
+There is no self-service "forgot password" email. A server admin starts a recovery (`POST /api/admin/recoveries`: password reset, two-factor reset or both; requires the admin's password and TOTP code) and the user receives a single-use link valid for 60 minutes at their own email address. Before starting one, verify the request through a second channel (in person, phone) — recovery requests are a classic social-engineering target.
+
+If no admin can act (e.g. the only server admin lost the authenticator), use the operator CLI with the production environment:
+
+```bash
+NODE_ENV=production node apps/server/src/cli/admin-recover.ts --email admin@example.org --totp       # lost authenticator
+NODE_ENV=production node apps/server/src/cli/admin-recover.ts --email admin@example.org --password   # forgotten password
+```
+
+It prints the link to the terminal (not emailed, not logged). A two-factor-only reset asks the user for their current password. Completing a recovery signs the account out everywhere.
 
 ## Backups
 

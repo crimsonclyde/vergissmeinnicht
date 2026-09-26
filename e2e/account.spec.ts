@@ -5,7 +5,7 @@ import { serverEnv } from '../playwright.config.ts';
 
 const PASSWORD = 'an e2e passphrase that is long';
 
-test('first server admin: bootstrap link, account creation, sign-in, TOTP enrollment and TOTP sign-in', async ({ page }, testInfo) => {
+test('first server admin: bootstrap link, account creation, sign-in, TOTP enrollment, TOTP sign-in and operator TOTP recovery', async ({ page }, testInfo) => {
   // Bootstrap works exactly once per server; the flow runs on one project only.
   test.skip(testInfo.project.name !== 'desktop-chromium', 'bootstrap is single-use per server');
 
@@ -72,6 +72,30 @@ test('first server admin: bootstrap link, account creation, sign-in, TOTP enroll
   await page.getByLabel('Code from your authenticator app').fill(totp.generate({ timestamp: Date.now() + 30_000 }));
   await page.getByRole('button', { name: 'Verify' }).click();
   await expect(page.getByRole('heading', { name: 'Welcome, Ada Admin' })).toBeVisible();
+
+  await page.getByRole('button', { name: 'Sign out' }).click();
+  await expect(page.getByRole('heading', { name: 'Sign in' })).toBeVisible();
+
+  // Lost authenticator, only admin: operator recovery via CLI, completed with the current password.
+  const recoverOutput = execFileSync(
+    process.execPath,
+    ['apps/server/src/cli/admin-recover.ts', '--email', 'admin@example.org', '--totp'],
+    { env: { ...process.env, ...serverEnv }, encoding: 'utf8' },
+  );
+  const recoverLink = /http:\/\/127\.0\.0\.1:\d+(\/recover\/[A-Za-z0-9_-]{43})/.exec(recoverOutput)?.[1];
+  expect(recoverLink).toBeDefined();
+  await page.goto(recoverLink ?? '/');
+  await expect(page.getByRole('heading', { name: 'Recover your account' })).toBeVisible();
+  await page.getByLabel('Current password').fill(PASSWORD);
+  await page.getByRole('button', { name: 'Recover account' }).click();
+  await expect(page.getByRole('heading', { name: 'Account recovered' })).toBeVisible();
+
+  await page.goto('/');
+  await page.getByLabel('Email').fill('admin@example.org');
+  await page.getByLabel('Password').fill(PASSWORD);
+  await page.getByRole('button', { name: 'Sign in' }).click();
+  await expect(page.getByRole('heading', { name: 'Welcome, Ada Admin' })).toBeVisible();
+  await expect(page.getByText('Status: Not enabled')).toBeVisible();
 
   await page.getByRole('button', { name: 'Sign out' }).click();
   await expect(page.getByRole('heading', { name: 'Sign in' })).toBeVisible();

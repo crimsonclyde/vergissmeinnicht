@@ -1,4 +1,10 @@
-import { systemClock, type InvitationDeps, type MfaDeps, type UserRepository } from '@vergissmeinnicht/application';
+import {
+  systemClock,
+  type InvitationDeps,
+  type MfaDeps,
+  type RecoveryDeps,
+  type UserRepository,
+} from '@vergissmeinnicht/application';
 import {
   createAuth,
   createSecretBox,
@@ -10,6 +16,8 @@ import {
 } from '@vergissmeinnicht/auth';
 import {
   accounts,
+  createAccountRecoveryRepository,
+  createCredentialRepository,
   createInvitationRepository,
   createMfaChallengeRepository,
   createSecurityEventLog,
@@ -33,6 +41,7 @@ export interface AppServices {
   readonly users: UserRepository;
   readonly invitations: InvitationDeps;
   readonly mfa: MfaDeps;
+  readonly recovery: RecoveryDeps;
   readonly securityEvents: SecurityEventLog;
   /** `Secure` + `__Secure-` cookies (production). */
   readonly secureCookies: boolean;
@@ -53,7 +62,8 @@ export function invitationDeps(config: AppConfig, database: AppDatabase): Invita
 }
 
 export function createServices(config: AppConfig, database: AppDatabase) {
-  return (log: FastifyBaseLogger): AppServices => {
+  // Without a logger (CLI), Better Auth warnings and errors go to stderr.
+  return (logger?: FastifyBaseLogger): AppServices => {
     const userRepository = createUserRepository(database);
     const securityEvents = createSecurityEventLog(database);
     const auth = createAuth({
@@ -66,7 +76,10 @@ export function createServices(config: AppConfig, database: AppDatabase) {
         const user = await userRepository.findById(userId as UserId);
         return user !== undefined && canAuthenticate(user);
       },
-      log: (level, message) => log[level]({ component: 'better-auth' }, message),
+      log: (level, message) => {
+        if (logger !== undefined) logger[level]({ component: 'better-auth' }, message);
+        else if (level === 'warn' || level === 'error') console.error(message);
+      },
     });
     const mfa: MfaDeps = {
       users: userRepository,
@@ -81,12 +94,25 @@ export function createServices(config: AppConfig, database: AppDatabase) {
       },
       clock: systemClock,
     };
+    const invitations = invitationDeps(config, database);
+    const recovery: RecoveryDeps = {
+      users: userRepository,
+      recoveries: createAccountRecoveryRepository(database),
+      credentials: createCredentialRepository(database),
+      mfa,
+      tokens: invitationTokens,
+      passwordHasher,
+      email: invitations.email,
+      clock: systemClock,
+      publicOrigin: config.publicOrigin,
+    };
     return {
       publicOrigin: config.publicOrigin,
       auth,
       users: userRepository,
-      invitations: invitationDeps(config, database),
+      invitations,
       mfa,
+      recovery,
       securityEvents,
       secureCookies: config.mode === 'production',
     };

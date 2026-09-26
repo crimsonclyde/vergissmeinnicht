@@ -1,7 +1,6 @@
 import { useEffect, useState, type FormEvent } from 'react';
 import { ApiError, api } from './api.ts';
-
-const MIN_PASSWORD_LENGTH = 15;
+import { MIN_PASSWORD_LENGTH, NewPasswordFields } from './NewPasswordFields.tsx';
 
 const MESSAGES: Record<string, string> = {
   invalid_invitation: 'This invitation link is invalid, has expired or was already used.',
@@ -98,34 +97,12 @@ export function AcceptInvitation({ token }: { token: string }) {
           <input autoComplete="name" required maxLength={80} value={displayName} onChange={(e) => setDisplayName(e.target.value)} />
         </label>
       </p>
-      <p>
-        <label>
-          Password (at least {MIN_PASSWORD_LENGTH} characters)
-          <br />
-          <input
-            type="password"
-            autoComplete="new-password"
-            required
-            minLength={MIN_PASSWORD_LENGTH}
-            maxLength={128}
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-          />
-        </label>
-      </p>
-      <p>
-        <label>
-          Repeat password
-          <br />
-          <input
-            type="password"
-            autoComplete="new-password"
-            required
-            value={confirmation}
-            onChange={(e) => setConfirmation(e.target.value)}
-          />
-        </label>
-      </p>
+      <NewPasswordFields
+        password={password}
+        confirmation={confirmation}
+        onPassword={setPassword}
+        onConfirmation={setConfirmation}
+      />
       {error !== null && <p role="alert">{error}</p>}
       <button type="submit" disabled={busy}>
         Create account

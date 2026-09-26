@@ -18,17 +18,17 @@ For every completed task, add a concise completion note, tests/checks performed,
 
 ## Current state — resume here
 
-_Last updated: 2026-09-26 (after 2.4)_
+_Last updated: 2026-09-26 (after 2.5)_
 
-**Done:** 0.1, 0.2, 0.3, 1.1, 1.2, 2.1, 2.2, 2.3, 2.4, 9.1 (pulled forward for invitations).
-**Next:** 2.5 Admin-assisted account recovery:
-1. security review first (security.md §12 trigger "password reset/account recovery"): short-lived single-use reset/enrollment link (reuse the invitation token scheme), server-admin capability, no exposure of password/TOTP secret;
-2. admin password reset and admin TOTP reset (delete `totp_credentials` + recovery codes, revoke all sessions — `deleteUserSessions`), both audited;
-3. user password change with re-authentication (same session-replacement pattern as TOTP changes) can land here too.
+**Done:** 0.1, 0.2, 0.3, 1.1, 1.2, 2.1–2.5, 9.1 (pulled forward for invitations). 2.6 (external providers) is DEFERRED.
+**Next:** 3.1 Workspace and Membership (then 3.2 roles/policies):
+1. read §3 of `security.md`; design the Workspace/Membership schema with opaque ids and the centralized capability policy in `packages/permissions` before any route;
+2. every Workspace route goes through `requireUser` + a membership/capability check; negative tests for cross-Workspace, horizontal and vertical escalation, removed member;
+3. Workspace creation: **server admins only** (decided 2026-09-26, see locked decisions). Keep it behind one central capability check so the later admin-board setting (below) is a policy change, not a rewrite.
 
-Also open: trusted-proxy configuration (10.3) before production use behind a reverse proxy; admin web UI for invitations; housekeeping of expired `mfa_challenges` rows.
+Also open: trusted-proxy configuration (10.3) before production use behind a reverse proxy; admin web UI (invitations, recoveries — API only so far); account status changes (disable/enable users) with session revocation; housekeeping of expired challenge/recovery/invitation rows.
 
-**Branches:** work is stacked, not yet merged into `main`: `step-1.1-app-skeleton` → `step-1.2-config` → `step-2.1-user-model` → `step-2.2-invitations` → `step-2.4-totp` (each branch contains the previous ones; 2.3 was completed on `step-2.2-invitations` because acceptance finishes 2.2). CI runs on pull requests / `main` only.
+**Branches:** work is stacked, not yet merged into `main`: `step-1.1-app-skeleton` → `step-1.2-config` → `step-2.1-user-model` → `step-2.2-invitations` → `step-2.4-totp` → `step-2.5-recovery` (each branch contains the previous ones; 2.3 was completed on `step-2.2-invitations` because acceptance finishes 2.2). CI runs on pull requests / `main` only.
 
 **Local tooling:** Node 24 LTS (Node 26 works), pnpm 12.6.0 (`npm install -g pnpm@12.6.0`), Docker for Mailpit (`compose.dev.yml`), `pnpm exec playwright install chromium` for e2e.
 
@@ -57,6 +57,7 @@ These decisions are already made and must not be silently changed by an implemen
 - Workspace roles: Guest / User / Editor / Admin
 - Server-wide administration: a **server admin** flag on the User (separate from Workspace roles) grants invitations, admin-assisted recovery and account disabling. The first server admin is created by a one-time CLI bootstrap (`pnpm admin:bootstrap`) that issues an invitation link printed to the operator's terminal; it refuses to run once a server admin exists.
 - Users may belong to multiple Workspaces
+- Workspace creation (decided 2026-09-26): **only server admins** by default. Planned later: a setting in the admin board that lets a server admin additionally allow a group (e.g. all users with the Workspace role USER or EDITOR) to create Workspaces. Implement creation behind a single central capability (`canCreateWorkspace`) so this becomes a policy/configuration change.
 - Procedures are Workspace-wide in V1
 - Any authorized Workspace user may continue an active Run
 - Multiple active Runs of the same Procedure are allowed
@@ -471,7 +472,8 @@ Accounts without TOTP enabled log in with email + password only.
 
 
 ### 2.5 Admin-assisted account recovery
-**Status:** TODO
+**Status:** DONE
+**Completed:** 2026-09-26
 
 **Objective:** V1 has no public password-reset-by-email flow.
 
@@ -484,6 +486,32 @@ Accounts without TOTP enabled log in with email + password only.
 - TOTP reset removes the user's TOTP credential and recovery codes, is audited, and the user may re-enroll afterwards.
 
 **Security impact:** CRITICAL.
+
+**Design (security review 2026-09-26, security.md §12 trigger "account recovery"):**
+- A server admin starts a recovery for another account by email, choosing *reset password*, *reset TOTP* or both. Step-up required: the admin's current password, plus the admin's TOTP/recovery code if the admin has TOTP. Admins cannot target themselves (own credentials are changed in account settings).
+- The link (`/recover/{token}`, 256-bit, SHA-256 at rest, **60 min**, single use, superseded by a newer one) is emailed to the **account's own address** and never returned to the admin — a malicious admin or stolen admin session also needs the user's mailbox.
+- Completing: password reset sets a new password; a TOTP-only reset requires the user's **current password** (mailbox + password). One `IMMEDIATE` transaction claims the recovery, applies the reset (TOTP credential + recovery codes deleted), invalidates pending MFA challenges, deletes **all sessions** of the user and records the events. No session is created; the user signs in again.
+- Operator CLI `admin:recover --email … [--password] [--totp]` for when no admin can act (e.g. the only server admin lost the authenticator): prints the link to the terminal; attributed to `cli:admin-recover`.
+- Self-service password change (`POST /api/account/password`): current password + policy-valid new password; all sessions revoked in the same transaction, the client gets a fresh session.
+
+**Implemented:** domain `recovery.ts`; application `recovery/` (`issueAccountRecovery`, `issueOperatorRecovery`, `resolveAccountRecovery`, `completeAccountRecovery`, `changePassword`) and `verifyStepUp` in `mfa/`; DB migration `0005_account_recoveries` (CHECKs: scope non-empty, single outcome, never self-issued) and `createAccountRecoveryRepository` / `createCredentialRepository`; HTTP `POST /api/admin/recoveries`, `POST /api/recoveries/resolve|complete`, `POST /api/account/password`; `/recover/…` and `/api/recoveries/…` added to log redaction; CLI `apps/server/src/cli/admin-recover.ts` (`pnpm admin:recover`); web pages `/recover/{token}` and "Change password"; security events `ACCOUNT_RECOVERY_ISSUED/_SUPERSEDED/_COMPLETED`, `PASSWORD_RESET`, `TOTP_RESET`, `PASSWORD_CHANGED` (with revoked-session counts).
+
+**Tests/checks:**
+- `pnpm test` — 279 tests. New use-case tests (17): link only to the account owner, token absent from result/DB/events; non-admin, disabled admin, wrong admin password refused without side effects; admin TOTP step-up; self/unknown/disabled/TOTP-less targets refused; supersede; password reset sets new password, revokes only that user's sessions, single use, weak password rejected with link still usable, 60-min expiry, target disabled after issue, concurrent completion → one; TOTP reset needs current password, removes credential + codes, invalidates challenges, re-enrollment possible; both-factor reset; operator recovery of the only admin attributed to the CLI; password change. HTTP tests (8, `apps/server/src/http/recovery.test.ts`) incl. old sessions dead after completion, non-admin 403, missing admin password 403, missing admin TOTP `second_factor_required`, empty scope / self / unknown, no tokens or passwords in logs, password change replaces all sessions.
+- Mutation checks: removing admin step-up, the admin check, the self-target check, the current-password requirement for TOTP reset, session revocation on completion, or the single-use condition each fails tests.
+- CLI manually: usage errors, unknown account, TOTP-less account → exit 1; valid run prints link.
+- `pnpm test:e2e`: extended with CLI TOTP recovery of the only admin → `/recover/{token}` with current password → sign-in without TOTP.
+- `pnpm lint`, `pnpm typecheck`, `pnpm audit` (unchanged), migration 0005 on a copy of the dev DB.
+
+**Security impact:** CRITICAL — new privileged action over other accounts, new token type, credential replacement paths.
+
+**Security docs updated:** YES.
+
+**Remaining:**
+- Admin web UI for starting recoveries (API only; `curl`/future admin page).
+- Recovery delivery depends on the user's mailbox; a user who lost mailbox access needs an operator-driven process (e.g. CLI link handed over in person) — document per deployment.
+- Disabling/enabling accounts (status change with session revocation) is not implemented yet.
+
 
 ### 2.6 External identity provider abstraction
 **Status:** DEFERRED
@@ -508,6 +536,8 @@ Accounts without TOTP enabled log in with email + password only.
 **Status:** TODO
 
 **Objective:** Workspace is the primary collaboration/security boundary.
+
+**Decision (2026-09-26):** only server admins create Workspaces for now; creation goes through one central capability check so a later admin-board option ("allow USERs/EDITORs to create Workspaces") only changes the policy. That option is not part of 3.1.
 
 **Acceptance criteria:**
 - user may belong to multiple Workspaces;

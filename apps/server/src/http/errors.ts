@@ -4,6 +4,11 @@ import {
   InvalidMfaCodeError,
   InvitationNotRevocableError,
   MfaChallengeInvalidError,
+  InvalidRecoveryError,
+  AccountNotActiveError,
+  NothingToRecoverError,
+  SecondFactorRequiredError,
+  UnknownAccountError,
   NoPendingEnrollmentError,
   NotAuthorizedError,
   ReauthenticationFailedError,
@@ -41,6 +46,11 @@ export function errorHandler(error: FastifyError | Error, request: FastifyReques
   if (error instanceof TotpLockedError) return reply.code(429).send({ error: 'mfa_locked' });
   if (error instanceof TotpAlreadyEnabledError) return reply.code(409).send({ error: 'totp_already_enabled' });
   if (error instanceof TotpNotEnabledError) return reply.code(409).send({ error: 'totp_not_enabled' });
+  if (error instanceof SecondFactorRequiredError) return reply.code(400).send({ error: 'second_factor_required' });
+  if (error instanceof InvalidRecoveryError) return reply.code(404).send({ error: 'invalid_recovery' });
+  if (error instanceof UnknownAccountError) return reply.code(404).send({ error: 'unknown_account' });
+  if (error instanceof AccountNotActiveError) return reply.code(409).send({ error: 'account_not_active' });
+  if (error instanceof NothingToRecoverError) return reply.code(409).send({ error: 'nothing_to_recover' });
   if (error instanceof NoPendingEnrollmentError) return reply.code(409).send({ error: 'no_pending_enrollment' });
 
   const statusCode = 'statusCode' in error && typeof error.statusCode === 'number' ? error.statusCode : 500;

@@ -25,6 +25,7 @@ import {
   MfaChallengeInvalidError,
   NoPendingEnrollmentError,
   ReauthenticationFailedError,
+  SecondFactorRequiredError,
   TotpAlreadyEnabledError,
   TotpLockedError,
   TotpNotEnabledError,
@@ -56,6 +57,21 @@ async function reauthenticate(deps: MfaDeps, user: User, password: string): Prom
   if (!canAuthenticate(user) || !(await deps.passwords.verify(user.id, password))) {
     throw new ReauthenticationFailedError();
   }
+}
+
+/**
+ * Step-up authentication for high-impact actions (e.g. an admin recovering another account): the
+ * current password, plus a TOTP or recovery code if the acting account has TOTP enabled.
+ */
+export async function verifyStepUp(
+  deps: MfaDeps,
+  input: { readonly user: User; readonly password: string; readonly factor: SecondFactor | undefined },
+): Promise<void> {
+  await reauthenticate(deps, input.user, input.password);
+  const credential = await deps.totp.find(input.user.id);
+  if (!isEnabled(credential)) return;
+  if (input.factor === undefined) throw new SecondFactorRequiredError();
+  await verifySecondFactor(deps, input.user, credential, input.factor);
 }
 
 /** Central decision used by sign-in: does this account need the TOTP challenge? */
