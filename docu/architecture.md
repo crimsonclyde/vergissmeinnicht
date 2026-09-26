@@ -123,9 +123,25 @@ Emails are normalized (trimmed, NFC, lower-cased) before storage and lookup; the
 
 Invitations store only a SHA-256 hash of a 256-bit token. Use-cases in `packages/application/src/invitations` enforce authorization themselves; HTTP handlers only authenticate and translate.
 
+### Sessions and the Better Auth boundary
+
+Better Auth (`packages/auth`) owns password verification and server-side sessions (`sessions` table, HMAC-signed cookie). Its HTTP handler is **not** mounted. The Fastify layer (`apps/server/src/http/`) exposes a small allow-list of routes that call `auth.api.*` directly:
+
+```text
+POST /api/auth/sign-in    -> auth.api.signInEmail (email + password only)
+POST /api/auth/sign-out   -> auth.api.signOut
+GET  /api/auth/session    -> authenticate()
+```
+
+`authenticate()` in `apps/server/src/http/session.ts` is the single place that turns a cookie into a `Principal` (ACTIVE User + session id): it enforces the absolute session lifetime and account status, and is where the TOTP challenge gate (2.4) plugs in. Routes needing a user use the `requireUser` preHandler; capability checks stay in the application use-cases.
+
+Cross-cutting HTTP controls registered in `apps/server/src/app.ts`: `Origin` guard for every state-changing request (CSRF), JSON-only bodies, `@fastify/rate-limit` (global + per-route + per-account for sign-in), central error mapping to stable error codes.
+
+Accounts are created only by invitation acceptance (`acceptInvitation` use-case), which writes the `users` and `accounts` (credential) rows itself in one transaction; Better Auth's sign-up is disabled.
+
 ### Security events
 
-Account-security events (invitations now; logins, MFA, recovery later) go to the append-only `security_events` table, written in the same transaction as the state change. Run/Step history uses the separate Run AuditEvent model (5.5).
+Account-security events (invitations, account creation, login success/failure, logout; MFA and recovery later) go to the append-only `security_events` table, written in the same transaction as the state change. Run/Step history uses the separate Run AuditEvent model (5.5).
 
 ## TOTP security state
 

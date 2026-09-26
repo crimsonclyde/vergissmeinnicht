@@ -5,7 +5,8 @@
   "description": "SQLite persistence via Drizzle ORM: connection, schema, committed migrations, repositories.",
   "type": "module",
   "exports": {
-    ".": "./src/index.ts"
+    ".": "./src/index.ts",
+    "./test-support": "./src/test-support.ts"
   },
   "scripts": {
     "typecheck": "tsc -p .",

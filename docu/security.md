@@ -19,16 +19,18 @@ This file is normative and must evolve with the application.
 ## 1. Authentication baseline
 
 ### Password login
-- [ ] Use a mature maintained authentication library/framework.
-- [ ] Never store plaintext or reversibly encrypted passwords.
-- [ ] Use Argon2id or a currently recommended reviewed equivalent.
-- [ ] Parameter choices are documented and tested.
-- [ ] Compare secrets using library primitives designed for the purpose.
-- [ ] Login errors do not reveal whether an account exists.
-- [ ] Login attempts are rate-limited.
-- [ ] Successful login rotates the session identifier.
-- [ ] Password changes invalidate relevant old sessions as policy requires.
-- [ ] Password values never appear in application logs, traces, analytics, or error payloads.
+- [x] Use a mature maintained authentication library/framework. (Better Auth 1.7.6, reviewed 2026-09-26; its HTTP handler is not mounted, see "local password login and sessions".)
+- [x] Never store plaintext or reversibly encrypted passwords.
+- [x] Use Argon2id or a currently recommended reviewed equivalent. (Argon2id via `@node-rs/argon2`; Better Auth's default scrypt is replaced.)
+- [x] Parameter choices are documented and tested. (m=64 MiB, t=3, p=1, 32-byte output, 16-byte salt; `packages/auth/src/password-hashing.ts` + test.)
+- [x] Compare secrets using library primitives designed for the purpose. (Argon2 `verify`; cookie signatures verified by Better Auth.)
+- [x] Login errors do not reveal whether an account exists. (One `401 invalid_credentials` for every failure; unknown users still cost one hash.)
+- [x] Login attempts are rate-limited. (10/min per client address, 10/15 min per account.)
+- [x] Successful login rotates the session identifier. (New session per login; a session presented with the login request is revoked.)
+- [ ] Password changes invalidate relevant old sessions as policy requires. (No password-change flow yet; `revokeSessionsOnPasswordReset` set for Better Auth.)
+- [x] Password values never appear in application logs, traces, analytics, or error payloads. (Verified by log capture in `apps/server/src/http/auth.test.ts`.)
+- [x] New passwords: 15–128 characters (NIST SP 800-63B-4 single-factor minimum), no composition rules, NFKC-normalized before hashing.
+- [ ] Breached/common-password blocklist.
 
 ### TOTP MFA
 - [ ] TOTP is built in and user-activated (optional) for V1 accounts; the MFA requirement is evaluated by a central server-side policy so enforcement (e.g. for ADMIN) can be added later.
@@ -63,18 +65,20 @@ This file is normative and must evolve with the application.
 
 ## 2. Sessions and browser security
 
-- [ ] Session IDs are opaque and generated with sufficient entropy.
-- [ ] Server-side session state is authoritative.
-- [ ] Production session cookie is `Secure`.
-- [ ] Session cookie is `HttpOnly`.
-- [ ] `SameSite` policy is intentional and documented.
-- [ ] Cookie Domain/Path are no broader than necessary.
-- [ ] Session rotates after login and security-sensitive privilege changes.
-- [ ] Logout invalidates server-side session.
-- [ ] Idle/absolute expiration policies are documented.
-- [ ] CSRF protection covers state-changing cookie-authenticated operations.
+- [x] Session IDs are opaque and generated with sufficient entropy. (32 chars from a 62-symbol alphabet via `crypto.getRandomValues`, ≈190 bits; cookie value HMAC-signed with `AUTH_SECRET`.)
+- [x] Server-side session state is authoritative. (`sessions` table; `cookieCache` disabled; user status re-checked on every request.)
+- [x] Production session cookie is `Secure`. (`__Secure-vmn.session_token`.)
+- [x] Session cookie is `HttpOnly`.
+- [x] `SameSite` policy is intentional and documented. (`Strict`: the SPA only needs the cookie on same-site `fetch` calls; cross-site navigations such as email links load the public shell first.)
+- [x] Cookie Domain/Path are no broader than necessary. (No `Domain`, `Path=/`.)
+- [ ] Session rotates after login and security-sensitive privilege changes. (Login: yes. Privilege changes (server-admin grant/removal, TOTP) must revoke/rotate when those flows exist.)
+- [x] Logout invalidates server-side session.
+- [x] Idle/absolute expiration policies are documented. (Idle 7 days, refreshed at most daily; absolute 30 days, enforced per request — `SESSION_POLICY` in `packages/auth`.)
+- [x] CSRF protection covers state-changing cookie-authenticated operations. (Every non-GET/HEAD/OPTIONS request needs `Origin` = `PUBLIC_ORIGIN`, missing `Origin` rejected; JSON-only bodies; `SameSite=Strict`.)
+- [x] Authentication library endpoints are not exposed wholesale: only allow-listed server routes call Better Auth (`/api/auth/sign-in`, `/sign-out`, `/session`); tests assert other Better Auth paths return 404.
+- [x] Disabled users cannot start sessions, and their existing sessions are revoked on the next request.
 - [x] CORS is deny-by-default / narrowly configured. (No CORS plugin registered: same-origin only; any future CORS needs review.)
-- [ ] Sensitive responses are not cached publicly.
+- [x] Sensitive responses are not cached publicly. (`Cache-Control: no-store` on all `/api/*`.)
 - [ ] Production uses HTTPS.
 - [ ] HSTS enabled when deployment topology makes it safe.
 - [x] Content-Security-Policy is defined.
@@ -138,6 +142,8 @@ Canonical shape:
 - [x] Display names reject control and bidi override/isolate characters so audit snapshots cannot be visually spoofed.
 - [x] Critical invariants (id shape, normalized email, status enum) are also enforced by DB CHECK constraints.
 - [x] Validation errors carry stable codes and never echo the rejected input.
+- [x] Auth/invitation API bodies are validated with strict Zod schemas (unknown fields rejected, string length bounds); global body limit 64 KiB, 4 KiB on auth routes; only `application/json` is parsed.
+- [x] Link tokens travel in JSON bodies for API calls, never in API URLs.
 
 ### JSON import
 - [ ] Treat imports as hostile input.
@@ -215,9 +221,9 @@ Checks:
 - [x] Safe `.env.example` contains placeholders only.
 - [x] Structured logging has redaction.
 - [x] Request logging avoids sensitive URL/path token leakage. (Knot paths + query strings redacted; add each new token route to the pattern in `apps/server/src/logging.ts`.)
-- [ ] Exceptions do not serialize credential-bearing objects. (Config secrets use the `Secret` wrapper; extend to every new credential type.)
+- [ ] Exceptions do not serialize credential-bearing objects. (Config secrets use the `Secret` wrapper; the HTTP error handler logs only error type + stack frames because messages can embed query parameters; Better Auth log calls are reduced to their message string. Extend to every new credential type.)
 - [x] Production debug mode is disabled. (`LOG_LEVEL` debug/trace rejected in production.)
-- [ ] Secret rotation process can be documented.
+- [x] Secret rotation process can be documented. (`AUTH_SECRET`: see deployment.md — rotation signs everyone out.)
 - [x] Configuration is validated at startup and fails closed; production has no default for any secret, origin or DB path.
 - [x] Development and production modes cannot overlap: `NODE_ENV` must be explicit and `.env` cannot override it; production never loads `.env`.
 - [x] Placeholder or short (<32 chars) `AUTH_SECRET` values are rejected in every mode.
@@ -252,7 +258,7 @@ Checks:
 
 ---
 
-- [x] Install scripts only run for allow-listed packages (`allowBuilds`); new entries require review.
+- [x] Install scripts only run for allow-listed packages (`allowBuilds`); new entries require review. (`@node-rs/argon2` ships prebuilt binaries as optional dependencies and needs no install script.)
 - [x] Newly published versions are not installed for 24 h (`minimumReleaseAge`).
 - [x] Publish trust downgrades fail install (`trustPolicy: no-downgrade`); exceptions are exact versions with a written reason.
 - [x] CI actions are pinned to commit SHAs and run with a read-only token.
@@ -322,8 +328,10 @@ The following choices are mandatory V1 behavior:
 **Logging review:** invitation token must be redacted.  
 **Authorization review:** only ADMIN capability can issue/revoke invitations.  
 **Open risks:** email delivery channel security is external to the application.  
-**Status (2026-09-26):** issue/revoke/resolve/bootstrap implemented with tests (see steps.md 2.2); acceptance and HTTP endpoints pending with 2.3.  
-**Implemented controls:** 256-bit CSPRNG token, SHA-256 at rest, `/invite/{token}` path (redacted in logs), TTL (default 72 h, max 720 h), supersede-on-reissue, single-outcome DB constraint, generic resolve error, ACTIVE-server-admin check inside use-cases, token never returned to the inviter, atomic security events, append-only event table, bootstrap refused once an admin exists and limited to one live link.
+**Status (2026-09-26):** complete (steps.md 2.2/2.3).  
+**Implemented controls:** 256-bit CSPRNG token, SHA-256 at rest, `/invite/{token}` path (redacted in logs), TTL (default 72 h, max 720 h), supersede-on-reissue, single-outcome DB constraint, generic resolve error, ACTIVE-server-admin check inside use-cases, token never returned to the inviter, atomic security events, append-only event table, bootstrap refused once an admin exists and limited to one live link; acceptance is POST-only, validates the link before hashing, and creates User + credential + acceptance + events in one `BEGIN IMMEDIATE` transaction (single use under concurrency); bootstrap links are rejected at resolve and accept time once any server admin exists; acceptance never creates a session; admin endpoints require a session and the ACTIVE-server-admin check in the use-case.  
+**Negative tests (implemented):** replay, concurrency (3 parallel accepts → 1 user), expired/revoked/superseded, email taken in between, bootstrap after admin exists, unknown/malformed tokens, extra body fields, USER calling admin list/issue/revoke, unauthenticated admin calls, missing/foreign `Origin`.  
+**Reviewed:** 2026-09-26
 
 ### Security check: optional user-activated TOTP
 **Threat surface:** challenge bypass through API routes, SSE, Knot resolution, stale session, alternate login path; enrollment race; attacker with a stolen session enabling TOTP to lock the owner out; attacker disabling TOTP (downgrade); recovery-code brute force.  
@@ -391,5 +399,15 @@ The following choices are mandatory V1 behavior:
 **Secrets/data involved:** invitation token (in printed link).  
 **Logging review:** no logger in the CLI; token only in stdout.  
 **Authorization review:** requires shell access with the production environment — equivalent to full server control already.  
-**Open risks:** terminal scrollback/recording; acceptance (2.3) must additionally reject bootstrap invitations once an admin exists.  
+**Open risks:** terminal scrollback/recording. (Acceptance rejects bootstrap invitations once an admin exists — implemented in 2.3.)  
+**Reviewed:** 2026-09-26
+
+### Security check: local password login and sessions (Step 2.3)
+**Threat surface:** credential guessing (online, distributed), account enumeration, password hash theft/cracking, session theft/fixation, CSRF on login/logout/admin actions, open redirects, hidden endpoints of the authentication library (sign-up, profile/email change, password reset, account linking), spoofed client IPs defeating rate limits, disabled accounts keeping access, leaking tokens/passwords into logs or responses.  
+**Controls added:** Better Auth 1.7.6 reviewed (advisories, defaults); its HTTP handler is not mounted — only `POST /api/auth/sign-in`, `POST /api/auth/sign-out`, `GET /api/auth/session` call `auth.api.*`; sign-up/email change/delete/linking disabled, `status`/`serverAdmin` not writable (`input: false`); Argon2id (m=64 MiB, t=3, p=1) replacing default scrypt; 15–128 character passwords; generic `401 invalid_credentials`; per-client (10/min) and per-account (10/15 min) sign-in limits plus global 300/min; client IP only from the socket via a server-set internal header (Better Auth never sees `X-Forwarded-For`); session token stripped from responses, `callbackURL` rejected; session rotation on login; `__Secure-` + `HttpOnly` + `Secure` + `SameSite=Strict` cookie; idle 7 d / absolute 30 d; per-request user status check; `Origin` guard on every state-changing request; JSON-only bodies; `cookieCache` off; telemetry off; LOGIN_SUCCEEDED/LOGIN_FAILED/LOGOUT security events (success event written before the cookie is issued).  
+**Negative tests:** `apps/server/src/http/auth.test.ts` (identical failure responses, rate limits per IP and per account, tampered/unsigned cookies, DB token without signature, idle/absolute expiry, disabled user, rotation, origin variants, non-JSON body, unreachable Better Auth endpoints, no secrets in logs); `packages/auth/src/password-hashing.test.ts`; `packages/domain/src/password.test.ts`; e2e cookie attributes in Chromium.  
+**Secrets/data involved:** passwords (transient), Argon2id hashes (`accounts.password`), session tokens (`sessions.token`, cookie), `AUTH_SECRET` (cookie HMAC), client IP and user agent in `sessions`.  
+**Logging review:** request logs contain method, redacted URL, status; failed sign-ins log an event marker without email; Better Auth messages are forwarded without structured arguments ("User not found", "Invalid password"); unexpected errors logged as type + stack frames only. Verified by capturing all log output in the HTTP test suite.  
+**Authorization review:** session → ACTIVE User resolution is centralized in `authenticate()`/`requireUser` (`apps/server/src/http/session.ts`), which is also the seam for the 2.4 TOTP gate; admin capabilities are checked in the use-cases.  
+**Open risks:** behind a reverse proxy, until `trustProxy` is configured (10.3), all clients share one address and per-client limits become global (DoS of sign-in by one attacker) — configure before production use behind a proxy; per-account limit lets an attacker temporarily block a known account's sign-in (bounded to 15 min windows); session tokens are stored unhashed (a DB leak plus `AUTH_SECRET` allows session forgery — protect both; rotate `AUTH_SECRET` after suspected compromise); no breached-password blocklist; in-memory rate-limit state resets on restart; password change and privilege-change session rotation not yet implemented; `BETTER_AUTH_TELEMETRY` env var would override the explicit telemetry opt-out — do not set it.  
 **Reviewed:** 2026-09-26

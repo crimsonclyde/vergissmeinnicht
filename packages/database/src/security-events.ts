@@ -30,3 +30,17 @@ export function recordSecurityEvent(tx: Transaction, event: SecurityEventRecord)
     })
     .run();
 }
+
+/**
+ * For events that are not part of an application-owned state change (logins happen inside
+ * Better Auth). Each call is its own transaction.
+ */
+export function createSecurityEventLog({ db }: Pick<AppDatabase, 'db'>) {
+  return {
+    record(event: SecurityEventRecord): void {
+      db.transaction((tx) => recordSecurityEvent(tx, event));
+    },
+  };
+}
+
+export type SecurityEventLog = ReturnType<typeof createSecurityEventLog>;

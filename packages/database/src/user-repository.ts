@@ -12,7 +12,7 @@ import { users } from './schema.ts';
 
 type UserRow = typeof users.$inferSelect;
 
-function toUser(row: UserRow): User {
+export function toUser(row: UserRow): User {
   return {
     id: row.id as UserId,
     email: row.email as NormalizedEmail,

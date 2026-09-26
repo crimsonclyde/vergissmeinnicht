@@ -6,20 +6,23 @@ import {
   InvalidInvitationError,
   InvitationNotRevocableError,
   NotAuthorizedError,
+  acceptInvitation,
   bootstrapServerAdmin,
   issueInvitation,
+  listPendingInvitations,
   resolvePendingInvitation,
   revokeInvitation,
   type EmailMessage,
   type InvitationDeps,
 } from '@vergissmeinnicht/application';
-import { invitationTokens } from '@vergissmeinnicht/auth';
-import { normalizeEmail, type User } from '@vergissmeinnicht/domain';
+import { invitationTokens, passwordHasher } from '@vergissmeinnicht/auth';
+import { DomainValidationError, normalizeEmail, type User } from '@vergissmeinnicht/domain';
 import { createInvitationRepository } from './invitation-repository.ts';
 import { createTestDatabase } from './test-support.ts';
 import { createUserRepository } from './user-repository.ts';
 
 const ORIGIN = 'https://vmn.example.org';
+const PASSWORD = 'a long enough passphrase';
 const LINK = /https:\/\/vmn\.example\.org\/invite\/([A-Za-z0-9_-]{43})/;
 
 describe('invitation use-cases', () => {
@@ -47,6 +50,7 @@ describe('invitation use-cases', () => {
       users,
       invitations: createInvitationRepository(database),
       tokens: invitationTokens,
+      passwords: passwordHasher,
       email: {
         async send(message) {
           if (failDelivery) throw new EmailDeliveryError('smtp_econnrefused');
@@ -189,6 +193,144 @@ describe('invitation use-cases', () => {
       } finally {
         fresh.dispose();
       }
+    });
+  });
+
+  describe('acceptInvitation', () => {
+    const accept = (token: string, overrides: { displayName?: string; password?: string } = {}) =>
+      acceptInvitation(deps, { token, displayName: 'Bob', password: PASSWORD, ...overrides });
+
+    it('creates a verified user with an Argon2id credential and consumes the invitation', async () => {
+      const { invitation } = await invite();
+      const token = tokenFromOutbox();
+      const user = await accept(token, { displayName: '  Bob Builder ' });
+      expect(user).toMatchObject({
+        email: 'bob@example.org',
+        displayName: 'Bob Builder',
+        emailVerified: true,
+        status: 'ACTIVE',
+        serverAdmin: false,
+      });
+      const account = database.sqlite
+        .prepare('SELECT provider_id, account_id, password FROM accounts WHERE user_id = ?')
+        .get(user.id) as { provider_id: string; account_id: string; password: string };
+      expect(account.provider_id).toBe('credential');
+      expect(account.account_id).toBe(user.id);
+      expect(account.password).toMatch(/^\$argon2id\$/);
+      expect(account.password).not.toContain(PASSWORD);
+      expect(eventTypes()).toEqual(['INVITATION_CREATED', 'INVITATION_ACCEPTED', 'USER_CREATED']);
+      const accepted = database.sqlite
+        .prepare('SELECT accepted_user_id FROM invitations WHERE id = ?')
+        .get(invitation.id) as { accepted_user_id: string };
+      expect(accepted.accepted_user_id).toBe(user.id);
+    });
+
+    it('cannot be replayed', async () => {
+      await invite();
+      const token = tokenFromOutbox();
+      await accept(token);
+      await expect(accept(token, { displayName: 'Mallory' })).rejects.toBeInstanceOf(InvalidInvitationError);
+      expect(database.sqlite.prepare('SELECT count(*) AS n FROM users').get()).toEqual({ n: 3 });
+    });
+
+    it('creates at most one user when accepted concurrently', async () => {
+      await invite();
+      const token = tokenFromOutbox();
+      const results = await Promise.allSettled([accept(token), accept(token), accept(token)]);
+      expect(results.filter((result) => result.status === 'fulfilled')).toHaveLength(1);
+      for (const result of results) {
+        if (result.status === 'rejected') expect(result.reason).toBeInstanceOf(InvalidInvitationError);
+      }
+      expect(database.sqlite.prepare("SELECT count(*) AS n FROM users WHERE email = 'bob@example.org'").get()).toEqual({ n: 1 });
+      expect(eventTypes().filter((type) => type === 'USER_CREATED')).toHaveLength(1);
+    });
+
+    it.each([
+      ['expired', async () => { now = new Date(now.getTime() + 72 * 3_600_000); }],
+      ['revoked', async (id: string) => revokeInvitation(deps, { actor: admin, invitationId: id as never })],
+      ['superseded', async () => { await invite(); }],
+    ])('rejects a %s invitation without hashing the password', async (_label, invalidate) => {
+      const { invitation } = await invite();
+      const token = tokenFromOutbox();
+      await invalidate(invitation.id);
+      let hashed = 0;
+      deps = { ...deps, passwords: { hash: async (password) => { hashed++; return passwordHasher.hash(password); } } };
+      await expect(accept(token)).rejects.toBeInstanceOf(InvalidInvitationError);
+      expect(hashed).toBe(0);
+    });
+
+    it('rejects weak passwords and invalid display names, leaving the invitation pending', async () => {
+      await invite();
+      const token = tokenFromOutbox();
+      await expect(accept(token, { password: 'short-password' })).rejects.toMatchObject({ code: 'password_too_short' });
+      await expect(accept(token, { password: 'x'.repeat(129) })).rejects.toMatchObject({ code: 'password_too_long' });
+      await expect(accept(token, { displayName: 'evil\u202Eeman' })).rejects.toBeInstanceOf(DomainValidationError);
+      await expect(resolvePendingInvitation(deps, token)).resolves.toBeDefined();
+    });
+
+    it('fails if an account for the email appeared after the invitation was issued', async () => {
+      await invite();
+      const token = tokenFromOutbox();
+      await deps.users.create({
+        email: normalizeEmail('bob@example.org'),
+        displayName: 'Other Bob',
+        emailVerified: true,
+        status: 'ACTIVE',
+        serverAdmin: false,
+      });
+      await expect(accept(token)).rejects.toBeInstanceOf(InvalidInvitationError);
+    });
+
+    it('grants server admin only through a bootstrap link, and only while no server admin exists', async () => {
+      const fresh = createTestDatabase();
+      try {
+        const freshDeps = { ...deps, users: createUserRepository(fresh), invitations: createInvitationRepository(fresh) };
+        const first = await bootstrapServerAdmin(freshDeps, { email: normalizeEmail('root@example.org') });
+        const firstToken = LINK.exec(first.acceptUrl)?.[1] ?? '';
+
+        // Simulate an admin appearing by another path (e.g. a concurrent bootstrap acceptance).
+        const other = await createUserRepository(fresh).create({
+          email: normalizeEmail('other-admin@example.org'),
+          displayName: 'Other Admin',
+          emailVerified: true,
+          status: 'ACTIVE',
+          serverAdmin: true,
+        });
+        expect(other.serverAdmin).toBe(true);
+        await expect(resolvePendingInvitation(freshDeps, firstToken)).rejects.toBeInstanceOf(InvalidInvitationError);
+        await expect(
+          acceptInvitation(freshDeps, { token: firstToken, displayName: 'Root', password: PASSWORD }),
+        ).rejects.toBeInstanceOf(InvalidInvitationError);
+      } finally {
+        fresh.dispose();
+      }
+    });
+
+    it('makes the bootstrap invitee a server admin', async () => {
+      const fresh = createTestDatabase();
+      try {
+        const freshDeps = { ...deps, users: createUserRepository(fresh), invitations: createInvitationRepository(fresh) };
+        const { acceptUrl } = await bootstrapServerAdmin(freshDeps, { email: normalizeEmail('root@example.org') });
+        const user = await acceptInvitation(freshDeps, {
+          token: LINK.exec(acceptUrl)?.[1] ?? '',
+          displayName: 'Root',
+          password: PASSWORD,
+        });
+        expect(user.serverAdmin).toBe(true);
+      } finally {
+        fresh.dispose();
+      }
+    });
+  });
+
+  describe('listPendingInvitations', () => {
+    it('lists only pending invitations, for server admins only', async () => {
+      const { invitation } = await invite();
+      await invite(admin, 'carol@example.org');
+      await revokeInvitation(deps, { actor: admin, invitationId: invitation.id });
+      const pending = await listPendingInvitations(deps, { actor: admin });
+      expect(pending.map((entry) => entry.email)).toEqual(['carol@example.org']);
+      await expect(listPendingInvitations(deps, { actor: member })).rejects.toBeInstanceOf(NotAuthorizedError);
     });
   });
 });

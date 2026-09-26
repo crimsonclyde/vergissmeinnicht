@@ -3,7 +3,7 @@
 // Auth-related tables follow Better Auth's core schema: Drizzle *property* names are the
 // Better Auth field names (e.g. `name`, `emailVerified`), while *column* names are snake_case.
 import { sql } from 'drizzle-orm';
-import { check, index, integer, sqliteTable, text } from 'drizzle-orm/sqlite-core';
+import { check, index, integer, sqliteTable, text, uniqueIndex } from 'drizzle-orm/sqlite-core';
 import { USER_STATUSES } from '@vergissmeinnicht/domain';
 
 const timestampMs = (column: string) =>
@@ -42,6 +42,84 @@ export const users = sqliteTable(
       sql.raw(`status in (${USER_STATUSES.map((status) => `'${status}'`).join(', ')})`),
     ),
   ],
+);
+
+/**
+ * Better Auth sessions (model `session`, `modelName: 'sessions'`). The cookie carries
+ * `token` plus an HMAC signature keyed by AUTH_SECRET, so the stored token alone cannot be
+ * replayed as a cookie. Server-side state is authoritative: deleting the row ends the session.
+ */
+export const sessions = sqliteTable(
+  'sessions',
+  {
+    id: text('id').primaryKey(),
+    token: text('token').notNull().unique(),
+    userId: text('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    expiresAt: integer('expires_at', { mode: 'timestamp_ms' }).notNull(),
+    /** Client address as seen by the server (proxy trust per docu/security.md §11); never from client headers. */
+    ipAddress: text('ip_address'),
+    userAgent: text('user_agent'),
+    createdAt: timestampMs('created_at'),
+    updatedAt: timestampMs('updated_at'),
+  },
+  (table) => [index('sessions_user_id_idx').on(table.userId)],
+);
+
+/**
+ * Better Auth accounts (model `account`, `modelName: 'accounts'`): linked authentication methods
+ * of an internal User. `providerId = 'credential'` holds the Argon2id password hash; future
+ * Apple/GitHub identities become further rows and never replace `users.id`.
+ */
+export const accounts = sqliteTable(
+  'accounts',
+  {
+    id: text('id').primaryKey(),
+    /** Provider subject. For `credential` it is the internal User id. */
+    accountId: text('account_id').notNull(),
+    providerId: text('provider_id').notNull(),
+    userId: text('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    accessToken: text('access_token'),
+    refreshToken: text('refresh_token'),
+    idToken: text('id_token'),
+    accessTokenExpiresAt: integer('access_token_expires_at', { mode: 'timestamp_ms' }),
+    refreshTokenExpiresAt: integer('refresh_token_expires_at', { mode: 'timestamp_ms' }),
+    scope: text('scope'),
+    /** Argon2id PHC string; only for `credential` rows. */
+    password: text('password'),
+    createdAt: timestampMs('created_at'),
+    updatedAt: timestampMs('updated_at'),
+  },
+  (table) => [
+    index('accounts_user_id_idx').on(table.userId),
+    // One identity per provider subject: an external account can never be attached to two Users.
+    uniqueIndex('accounts_provider_account_unique').on(table.providerId, table.accountId),
+    check(
+      'accounts_credential_shape',
+      sql`${table.providerId} <> 'credential' or (${table.accountId} = ${table.userId} and ${table.password} like '$argon2id$%')`,
+    ),
+  ],
+);
+
+/**
+ * Better Auth verification values (model `verification`, `modelName: 'verifications'`). Required
+ * by Better Auth's schema check; no V1 flow writes to it (email verification and password reset
+ * by email are disabled). Any future use must store only hashed or short-lived values.
+ */
+export const verifications = sqliteTable(
+  'verifications',
+  {
+    id: text('id').primaryKey(),
+    identifier: text('identifier').notNull(),
+    value: text('value').notNull(),
+    expiresAt: integer('expires_at', { mode: 'timestamp_ms' }).notNull(),
+    createdAt: timestampMs('created_at'),
+    updatedAt: timestampMs('updated_at'),
+  },
+  (table) => [index('verifications_identifier_idx').on(table.identifier)],
 );
 
 /** Invitations. Only a SHA-256 hash of the link token is stored. */

@@ -4,6 +4,8 @@ import {
   type Actor,
   type Invitation,
   type InvitationId,
+  normalizeDisplayName,
+  validateNewPassword,
   type NormalizedEmail,
   type User,
 } from '@vergissmeinnicht/domain';
@@ -11,6 +13,7 @@ import type { Clock } from '../ports/clock.ts';
 import type { EmailSender } from '../ports/email-sender.ts';
 import type { InvitationRepository } from '../ports/invitation-repository.ts';
 import type { InvitationTokens } from '../ports/invitation-tokens.ts';
+import type { PasswordHasher } from '../ports/password-hasher.ts';
 import type { UserRepository } from '../ports/user-repository.ts';
 import {
   AccountAlreadyExistsError,
@@ -25,6 +28,7 @@ export interface InvitationDeps {
   readonly users: UserRepository;
   readonly invitations: InvitationRepository;
   readonly tokens: InvitationTokens;
+  readonly passwords: PasswordHasher;
   readonly email: EmailSender;
   readonly clock: Clock;
   readonly publicOrigin: string;
@@ -124,7 +128,8 @@ export async function revokeInvitation(
 
 /**
  * Looks up a pending invitation by its raw token (for the acceptance page). Every failure mode
- * — malformed, unknown, expired, revoked, accepted — raises the same InvalidInvitationError.
+ * — malformed, unknown, expired, revoked, accepted, bootstrap link after the first server admin
+ * exists — raises the same InvalidInvitationError.
  */
 export async function resolvePendingInvitation(deps: InvitationDeps, token: string): Promise<Invitation> {
   const hash = deps.tokens.hash(token);
@@ -132,5 +137,45 @@ export async function resolvePendingInvitation(deps: InvitationDeps, token: stri
   if (invitation === undefined || invitationState(invitation, deps.clock.now()) !== 'PENDING') {
     throw new InvalidInvitationError();
   }
+  if (invitation.invitedBy === undefined && (await deps.users.hasServerAdmin())) {
+    // A CLI bootstrap link is only valid until the first server admin exists.
+    throw new InvalidInvitationError();
+  }
   return invitation;
+}
+
+/** Pending invitations for the server-admin overview. Never includes tokens (only hashes exist). */
+export async function listPendingInvitations(deps: InvitationDeps, input: { readonly actor: User }): Promise<Invitation[]> {
+  if (!isActiveServerAdmin(input.actor)) {
+    throw new NotAuthorizedError();
+  }
+  return deps.invitations.listPending(deps.clock.now());
+}
+
+/**
+ * The invitee proves possession of the emailed link and chooses a display name and password.
+ * Creates the User (email verified by the link, server-admin grant from the invitation) and the
+ * password credential atomically. Does not sign in: a session is only ever created by login.
+ *
+ * Throws DomainValidationError for an unacceptable display name or password (checked only after
+ * the token is known to be valid, so invalid links never trigger password hashing) and the
+ * generic InvalidInvitationError for every token problem, including losing a concurrent race.
+ */
+export async function acceptInvitation(
+  deps: InvitationDeps,
+  input: { readonly token: string; readonly displayName: string; readonly password: string },
+): Promise<User> {
+  await resolvePendingInvitation(deps, input.token);
+  const displayName = normalizeDisplayName(input.displayName);
+  validateNewPassword(input.password);
+  const passwordHash = await deps.passwords.hash(input.password);
+  const tokenHash = deps.tokens.hash(input.token);
+  const user =
+    tokenHash === undefined
+      ? undefined
+      : await deps.invitations.accept({ tokenHash, displayName, passwordHash, acceptedAt: deps.clock.now() });
+  if (user === undefined) {
+    throw new InvalidInvitationError();
+  }
+  return user;
 }

@@ -18,17 +18,18 @@ For every completed task, add a concise completion note, tests/checks performed,
 
 ## Current state — resume here
 
-_Last updated: 2026-09-26_
+_Last updated: 2026-09-26 (after 2.3)_
 
-**Done:** 0.1, 0.2, 0.3, 1.1, 1.2, 2.1, 9.1 (pulled forward for invitations).
-**In progress:** 2.2 — invitation core, storage, security events and CLI bootstrap done; acceptance and HTTP endpoints are completed together with 2.3.
-**Next:** 2.3 Local password login (Better Auth):
-1. review Better Auth's current password hashing (policy: Argon2id or reviewed equivalent) and security advisories before installing;
-2. configure Better Auth on the existing `users` table (`modelName: 'users'`, `status`/`serverAdmin` as `input: false`, `generateId: () => crypto.randomUUID()`, public sign-up disabled);
-3. invitation acceptance (POST only, atomic + single-use under concurrency, bootstrap invitations only while no server admin exists) — finishes 2.2;
-4. login rate limiting, session rotation, cookie flags, CSRF, admin issue/revoke endpoints.
+**Done:** 0.1, 0.2, 0.3, 1.1, 1.2, 2.1, 2.2, 2.3, 9.1 (pulled forward for invitations).
+**Next:** 2.4 Optional user-activated TOTP (Better Auth `twoFactor` plugin):
+1. review the plugin (storage of the TOTP secret, backup-code hashing, verification window, advisories — cf. GHSA-xg6x-h9c9-2m83; keep `cookieCache` disabled);
+2. restricted pre-MFA session state enforced in `apps/server/src/http/session.ts` `authenticate()` (the documented seam), so no route yields a Principal before the challenge;
+3. enrollment/disable/regenerate with re-authentication, rate limits, security events, negative tests against every authenticated route;
+4. admin-assisted TOTP reset belongs to 2.5.
 
-**Branches:** work is stacked, not yet merged into `main`: `step-1.1-app-skeleton` → `step-1.2-config` → `step-2.1-user-model` → `step-2.2-invitations` (each branch contains the previous ones). CI runs on pull requests / `main` only.
+Also open from 2.3 (see its Remaining list): password change + session invalidation, admin web UI for invitations, trusted-proxy configuration (10.3) before production use behind a reverse proxy.
+
+**Branches:** work is stacked, not yet merged into `main`: `step-1.1-app-skeleton` → `step-1.2-config` → `step-2.1-user-model` → `step-2.2-invitations` (each branch contains the previous ones; 2.3 was completed on `step-2.2-invitations` because acceptance finishes 2.2). CI runs on pull requests / `main` only.
 
 **Local tooling:** Node 24 LTS (Node 26 works), pnpm 12.6.0 (`npm install -g pnpm@12.6.0`), Docker for Mailpit (`compose.dev.yml`), `pnpm exec playwright install chromium` for e2e.
 
@@ -290,7 +291,8 @@ A different physical folder layout is acceptable only if the same boundaries rem
 - Email ownership (`emailVerified`) is established by invite acceptance in 2.2.
 
 ### 2.2 Invite-only account creation
-**Status:** IN PROGRESS — core, storage and CLI bootstrap done; acceptance + HTTP endpoints with 2.3
+**Status:** DONE
+**Completed:** 2026-09-26 (acceptance and HTTP endpoints together with 2.3)
 
 **Objective:** No public self-registration. A server admin sends an invitation to a specific email address.
 
@@ -323,14 +325,20 @@ A different physical folder layout is acceptable only if the same boundaries rem
 
 **Tests/checks:** 126 tests. New negative tests: non-admin and DISABLED admin cannot issue; non-admin cannot revoke; revoke twice fails; bootstrap refused once an admin exists; account-exists refusal; malformed/unknown/expired/revoked/superseded tokens rejected with the same generic error; raw token absent from DB rows and events; token not in use-case result; security event failure (FK) rolls back invitation + supersede; security events cannot be updated/deleted; duplicate token hash rejected. CLI manually checked (usage/invalid email/extra args exit 1; production without config fails closed).
 
-**Remaining (with 2.3):**
-- acceptance: POST only (link scanners may GET), set password via Better Auth, mark accepted + create User (`emailVerified`, `serverAdmin` from invitation) + `INVITATION_ACCEPTED` atomically, single use under concurrency;
-- bootstrap invitations (no inviter) must only be acceptable while no server admin exists;
-- admin HTTP endpoints for issue/revoke/list (server admin session, CSRF, rate limits);
-- web page `/invite/{token}` with `Referrer-Policy: no-referrer`.
+**Completed with 2.3 (2026-09-26):**
+- `acceptInvitation` use-case + `InvitationRepository.accept`: token and bootstrap validity are checked *before* the password is hashed (invalid links never cost an Argon2id hash); then one `BEGIN IMMEDIATE` transaction re-checks pending state, bootstrap-only-while-no-server-admin and email uniqueness, creates the User (`emailVerified: true`, `serverAdmin` from the invitation), the `credential` account row (Argon2id hash) and marks the invitation accepted with a conditional update; `INVITATION_ACCEPTED` + `USER_CREATED` events in the same transaction. Acceptance never creates a session.
+- `resolvePendingInvitation` now also rejects bootstrap links once a server admin exists (same generic error).
+- `listPendingInvitations` (server admin only).
+- HTTP (`apps/server/src/http/invitation-routes.ts`): `POST /api/invitations/resolve` and `POST /api/invitations/accept` (token in the JSON body, never in API URLs), `GET/POST /api/admin/invitations`, `POST /api/admin/invitations/{id}/revoke` (session required; authorization inside the use-cases).
+- Web page `/invite/{token}`: GET only resolves (safe for mail link scanners), account creation is a form POST; the token is removed from the address bar/history after success. `Referrer-Policy: no-referrer` is global.
+
+**Tests/checks (acceptance part):** replay; concurrent acceptance creates exactly one User; expired/revoked/superseded links rejected without hashing; weak password / bidi display name rejected with invitation still pending; account created by another path in between → rejected; bootstrap link rejected once any server admin exists; bootstrap invitee becomes server admin; listing is admin-only. HTTP: unknown/malformed token 404, extra fields (`serverAdmin: true`) 400, no session on acceptance, no token/password in logs.
+
+**Remaining:** admin web UI for issuing/revoking invitations (API exists); resend-delivery button when `delivery: 'failed'`.
 
 ### 2.3 Local password login
-**Status:** TODO
+**Status:** DONE
+**Completed:** 2026-09-26
 
 **Objective:** Secure email + password authentication using Better Auth.
 
@@ -345,6 +353,45 @@ A different physical folder layout is acceptable only if the same boundaries rem
 - relevant security events audited.
 
 **Security impact:** CRITICAL.
+
+**Review before install (2026-09-26):**
+- Better Auth **1.7.6** (published 2026-09-24): no GitHub advisory affects it (all listed advisories are fixed in ≤1.6.22 / 1.7.0-beta.10). Relevant history kept in mind: GHSA-xg6x-h9c9-2m83 (TOTP bypass via `cookieCache`), GHSA-p6v2-xcpg-h6xw (IPv6 rate-limit bypass), GHSA-g38m-r43w-p2q7 (OAuth auto-link) — none of those features is enabled.
+- Its default password hash is scrypt N=2^14, r=16, p=1 (~32 MiB) compared with `===` on hex strings — below our policy. Replaced via `emailAndPassword.password.{hash,verify}` with **Argon2id** (`@node-rs/argon2@2.2.1`: PHC strings, constant-time verify, prebuilt binaries, no install scripts, npm provenance, no advisories).
+- Better Auth's sign-in response contains the raw session token and honours `callbackURL` (redirect); its IP detection trusts `X-Forwarded-For` by default; its built-in origin/CSRF checks are skipped when `NODE_ENV=test`. Consequence: Better Auth's HTTP handler is **not mounted**; the server calls `auth.api.*` from narrow Fastify routes.
+- Telemetry is off by default (explicitly disabled as well; the `BETTER_AUTH_TELEMETRY` env var would still enable it — never set it).
+
+**Implemented:**
+- `packages/auth`: `createAuth()` (Better Auth on the existing `users` table via Drizzle adapter; `sessions`, `accounts`, `verifications` models; `status`/`serverAdmin` as `input: false`; server-generated UUIDs; sign-up, email change, user deletion and account linking disabled; `cookieCache` disabled; Better Auth rate limiter disabled in favour of Fastify's; client IP only from an internal header set by the server; log messages forwarded without structured arguments). `hashPassword`/`verifyPassword`: Argon2id m=64 MiB, t=3, p=1, 32-byte output, NFKC-normalized input; malformed hashes never match.
+- Domain `validateNewPassword`: 15–128 characters (NIST SP 800-63B-4 single-factor minimum, since TOTP is optional), no composition rules.
+- DB migration `0003_better_auth_tables`: `sessions` (unique token, FK to users), `accounts` (unique provider+subject, CHECK that `credential` rows point to their own user and hold an Argon2id PHC string), `verifications` (required by Better Auth's schema check; unused in V1).
+- HTTP (`apps/server/src/http/`): `POST /api/auth/sign-in`, `POST /api/auth/sign-out`, `GET /api/auth/session`; `requireUser` preHandler + `authenticate()` (the central place for the 2.4 TOTP gate). Sign-in accepts exactly `{email, password}`, normalizes the email, answers every failure with one `401 invalid_credentials`, strips the token from the response, revokes any session presented with the login request (rotation) and records `LOGIN_SUCCEEDED` (in Better Auth's session-create hook — if the event cannot be written, sign-in fails before the cookie is issued) / `LOGIN_FAILED` (existing accounts only; unknown identifiers are not stored) / `LOGOUT`.
+- Sessions: opaque ~190-bit token, cookie `__Secure-vmn.session_token` in production (`HttpOnly`, `Secure`, `SameSite=Strict`, `Path=/`, no `Domain`), value HMAC-signed with `AUTH_SECRET`; 7-day idle expiry (refreshed at most daily), 30-day absolute lifetime enforced on every request; sessions of DISABLED users are revoked on sight and DISABLED users cannot start sessions.
+- CSRF: global `onRequest` guard — every non-GET/HEAD/OPTIONS request must carry `Origin` equal to `PUBLIC_ORIGIN`; `text/plain` body parser removed (JSON only); plus `SameSite=Strict`.
+- Rate limits (`@fastify/rate-limit@11.2.0`, in-memory, IPv6 grouped per /56): global 300/min per client; sign-in 10/min per client and 10/15 min per account; invitation resolve 30/15 min, accept 10/15 min, admin issue 30/15 min per client.
+- Central error mapping to stable JSON codes; unexpected errors are logged with type and stack frames only (messages can embed query parameters). Global body limit 64 KiB (4 KiB on auth routes).
+- Web: sign-in form, invitation acceptance page, signed-in shell with sign-out (`apps/web/src`).
+- `main.ts` opens the database and wires services; e2e runs migrations before starting the server.
+
+**Tests/checks:**
+- `pnpm test` — 190 tests. New: Argon2id format/parameters, salting, NFKC, malformed-hash handling; password policy; acceptance use-cases (see 2.2); HTTP integration suite `apps/server/src/http/auth.test.ts` (40): cookie flags and no token in body; identical responses for unknown email / wrong password / malformed email / over-long password; LOGIN_FAILED only for existing accounts and no attempted identifiers stored; LOGIN_SUCCEEDED with session id; session rotation on login; `callbackURL` rejected; DISABLED user refused + sessions revoked; per-IP and per-account rate limits; tampered cookie and raw DB token rejected; absolute and idle expiry; server-side sign-out; missing/foreign/`null`/scheme-mismatched `Origin` rejected on sign-in, sign-out and admin routes; non-JSON bodies 415; admin routes 401 unauthenticated / 403 for a USER (list, issue, revoke) / full admin flow; 12 Better Auth endpoints (sign-up, update-user, change-password, reset, list-accounts, …) unreachable; logs contain no tokens, passwords or attempted emails.
+- Mutation checks: disabling the origin guard, the absolute-lifetime check, the per-request status check, session rotation, or the per-account limiter each makes at least one test fail.
+- Log review: captured log output of the whole suite contains only method, redacted URL, status and Better Auth messages such as "User not found" / "Invalid password" (no identifiers).
+- `pnpm test:e2e` — CLI bootstrap → `/invite/{token}` → account creation → link reuse rejected → wrong password → sign-in (cookie `HttpOnly`/`Secure`/`Strict` verified in Chromium) → reload → sign-out; plus smoke tests (desktop + mobile).
+- `pnpm lint`, `pnpm typecheck`; `pnpm audit`: 0 high/critical, only the known dev-only moderate GHSA-67mh-4wv8-2f99 (esbuild via `drizzle-kit`, now also reachable as Better Auth's optional peer).
+
+**Security impact:** CRITICAL — new credential type (password hashes), session cookies, login/logout endpoints, admin endpoints.
+
+**Security docs updated:** YES (`security.md` §1, §2, §5, §9 and per-task blocks "local password login and sessions", "invite-only account bootstrap").
+
+**Remaining:**
+- **Reverse proxy:** `trustProxy` is still `false` (Step 10.3). Behind a proxy all clients share the proxy's address, so per-client limits act as one global limit (an attacker can then throttle everyone's sign-in). Configure trusted proxies before production use behind a proxy.
+- Password change (with re-authentication and revocation of other sessions) is not exposed yet; add with account settings (2.4) or 2.5. Admin password reset is 2.5.
+- No breached/common-password blocklist yet (NIST recommends one); consider an offline list.
+- Session tokens are stored unhashed in `sessions.token` (Better Auth design). A DB leak alone does not yield usable cookies (HMAC with `AUTH_SECRET`), but DB + secret does.
+- Rate-limit state is in memory (single process; resets on restart); revisit for multi-node deployments.
+- Admin web UI for invitations; session list/revoke UI.
+- `drizzle-kit` appears in `packages/auth`'s resolved tree as Better Auth's optional peer; ensure production images install without dev tooling (10.1).
+
 
 ### 2.4 Optional user-activated TOTP
 **Status:** TODO

@@ -47,7 +47,25 @@ Inject configuration at runtime. The production server never reads `.env` files 
 | `MAIL_FROM_NAME` | optional | Default `Vergissmeinnicht`. |
 | `INVITATION_TTL_HOURS` | optional | Default `72`, range 1–720. |
 
-Rotating `AUTH_SECRET` invalidates existing sessions; a documented rotation procedure follows with authentication (Step 2.x).
+`PUBLIC_ORIGIN` must be exactly the origin users type in the browser: every state-changing request whose `Origin` header differs is rejected (CSRF protection). In production the session cookie is `__Secure-vmn.session_token` (`Secure`, `HttpOnly`, `SameSite=Strict`), so the site must be served over HTTPS (loopback excepted).
+
+### Rotating `AUTH_SECRET`
+
+`AUTH_SECRET` signs session cookies. To rotate it (routinely or after a suspected leak of the secret or of the database): stop the server, replace the secret, start the server. All existing sessions become invalid and every user has to sign in again; no data is lost. Invitation links are unaffected (they are not derived from the secret).
+
+## Migrations
+
+The server does not migrate the database on startup. Apply committed migrations before starting a new version, with the production environment:
+
+```bash
+NODE_ENV=production DATABASE_PATH=/data/vergissmeinnicht.sqlite node packages/database/src/migrate.ts
+```
+
+Back up the database first (see Backups). The controlled production procedure (container entrypoint) follows in Step 10.1.
+
+## Reverse proxy and rate limits
+
+Sign-in, invitation and global request limits are counted per client address. The application does not yet trust forwarding headers (`trustProxy: false`, Step 10.3): behind a reverse proxy every request appears to come from the proxy, so all users share one limit and a single attacker can temporarily block everyone's sign-in. Until trusted-proxy configuration exists, treat proxied production deployments as not ready.
 
 ## First server admin
 
@@ -57,7 +75,7 @@ After the first deployment and migrations, create the first server admin from a 
 NODE_ENV=production node apps/server/src/cli/admin-bootstrap.ts --email admin@example.org
 ```
 
-The command prints a single-use invitation link to the terminal (it is not emailed or logged). Treat it like a password. Running it again replaces the previous link. Once a server admin exists, the command refuses to run; further accounts are invited from the application.
+The command prints a single-use invitation link to the terminal (it is not emailed or logged). Treat it like a password. Running it again replaces the previous link. Open the link, choose a display name and a password (at least 15 characters), then sign in. Once a server admin exists, the command refuses to run and unused bootstrap links stop working; further accounts are invited by a server admin (`POST /api/admin/invitations`; a web UI follows).
 
 ## Backups
 

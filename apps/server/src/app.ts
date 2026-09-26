@@ -1,12 +1,20 @@
 import { existsSync } from 'node:fs';
 import fastifyHelmet from '@fastify/helmet';
+import fastifyRateLimit from '@fastify/rate-limit';
 import fastifyStatic from '@fastify/static';
-import Fastify, { type FastifyServerOptions } from 'fastify';
+import Fastify, { type FastifyBaseLogger, type FastifyServerOptions } from 'fastify';
+import type { AppServices } from './composition.ts';
+import { authRoutes } from './http/auth-routes.ts';
+import { errorHandler } from './http/errors.ts';
+import { adminInvitationRoutes, invitationRoutes } from './http/invitation-routes.ts';
+import { originGuard } from './http/origin-guard.ts';
 
 export interface AppOptions {
   /** Built web assets (apps/web/dist). When absent, only the API is served (development). */
   webDistDir?: string | undefined;
   logger?: FastifyServerOptions['logger'];
+  /** Application services. Without them only health and static assets are served (tests of the HTTP baseline). */
+  services?: ((log: FastifyBaseLogger) => AppServices) | undefined;
 }
 
 export async function buildApp(options: AppOptions = {}) {
@@ -14,6 +22,26 @@ export async function buildApp(options: AppOptions = {}) {
     logger: options.logger ?? false,
     // Forwarding headers are not trusted until the reverse-proxy setup is explicit (Step 10.3).
     trustProxy: false,
+    // JSON bodies are small; routes that need more (e.g. imports) must raise this explicitly.
+    bodyLimit: 64 * 1024,
+  });
+  // JSON is the only accepted request body type (no text/plain or form posts).
+  app.removeContentTypeParser('text/plain');
+  app.setErrorHandler(errorHandler);
+  app.decorateRequest('principal', null);
+
+  const services = options.services?.(app.log);
+  if (services !== undefined) {
+    app.addHook('onRequest', originGuard(services.publicOrigin));
+  }
+
+  await app.register(fastifyRateLimit, {
+    global: true,
+    max: 300,
+    timeWindow: 60_000,
+    // IPv6 clients usually control a whole prefix; count it as one client.
+    ipv6Subnet: 56,
+    errorResponseBuilder: (_request, context) => ({ statusCode: context.statusCode, error: 'rate_limited' }),
   });
 
   await app.register(fastifyHelmet, {
@@ -36,6 +64,11 @@ export async function buildApp(options: AppOptions = {}) {
         reply.header('Cache-Control', 'no-store');
       });
       api.get('/health', async () => ({ status: 'ok' }));
+      if (services !== undefined) {
+        await api.register(authRoutes, { prefix: '/auth', services });
+        await api.register(invitationRoutes, { prefix: '/invitations', services });
+        await api.register(adminInvitationRoutes, { prefix: '/admin/invitations', services });
+      }
     },
     { prefix: '/api' },
   );

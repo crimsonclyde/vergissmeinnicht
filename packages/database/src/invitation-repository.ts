@@ -1,10 +1,11 @@
 import { randomUUID } from 'node:crypto';
-import { and, eq, gt, isNull, or } from 'drizzle-orm';
-import type { InvitationRepository, NewInvitation } from '@vergissmeinnicht/application';
+import { TransactionRollbackError, and, desc, eq, gt, isNull, or } from 'drizzle-orm';
+import type { InvitationAcceptance, InvitationRepository, NewInvitation } from '@vergissmeinnicht/application';
 import type { Actor, Invitation, InvitationId, NormalizedEmail, UserId } from '@vergissmeinnicht/domain';
 import type { AppDatabase } from './connection.ts';
-import { invitations } from './schema.ts';
+import { accounts, invitations, users } from './schema.ts';
 import { recordSecurityEvent } from './security-events.ts';
+import { toUser } from './user-repository.ts';
 
 type InvitationRow = typeof invitations.$inferSelect;
 
@@ -96,6 +97,96 @@ export function createInvitationRepository({ db }: Pick<AppDatabase, 'db'>): Inv
         });
         return true;
       });
+    },
+
+    async accept(input: InvitationAcceptance) {
+      const at = input.acceptedAt;
+      // IMMEDIATE takes the write lock before the first read, so concurrent acceptances (also from
+      // other processes) are serialized; the conditional update below is a second guard.
+      try {
+        return db.transaction((tx) => {
+          const invitation = tx
+            .select()
+            .from(invitations)
+            .where(and(eq(invitations.tokenHash, input.tokenHash), pending(at)))
+            .get();
+          if (invitation === undefined) return undefined;
+          const isBootstrap = invitation.invitedByUserId === null;
+          if (isBootstrap && tx.select({ id: users.id }).from(users).where(eq(users.serverAdmin, true)).limit(1).get()) {
+            return undefined;
+          }
+          if (tx.select({ id: users.id }).from(users).where(eq(users.email, invitation.email)).get()) {
+            return undefined;
+          }
+
+          const user = tx
+            .insert(users)
+            .values({
+              id: randomUUID(),
+              email: invitation.email,
+              name: input.displayName,
+              // Possession of the link emailed to (or, for the bootstrap, printed for) this address.
+              emailVerified: true,
+              status: 'ACTIVE',
+              serverAdmin: invitation.grantsServerAdmin,
+              createdAt: at,
+              updatedAt: at,
+            })
+            .returning()
+            .get();
+          tx.insert(accounts)
+            .values({
+              id: randomUUID(),
+              accountId: user.id,
+              providerId: 'credential',
+              userId: user.id,
+              password: input.passwordHash,
+              createdAt: at,
+              updatedAt: at,
+            })
+            .run();
+          const claimed = tx
+            .update(invitations)
+            .set({ acceptedAt: at, acceptedUserId: user.id })
+            .where(and(eq(invitations.id, invitation.id), pending(at)))
+            .returning({ id: invitations.id })
+            .all();
+          if (claimed.length !== 1) {
+            tx.rollback();
+          }
+
+          const actor: Actor = { kind: 'user', userId: user.id, displayName: user.name };
+          recordSecurityEvent(tx, {
+            type: 'INVITATION_ACCEPTED',
+            actor,
+            subjectType: 'invitation',
+            subjectId: invitation.id,
+            occurredAt: at,
+          });
+          recordSecurityEvent(tx, {
+            type: 'USER_CREATED',
+            actor,
+            subjectType: 'user',
+            subjectId: user.id,
+            occurredAt: at,
+            metadata: { invitationId: invitation.id, serverAdmin: user.serverAdmin },
+          });
+          return toUser(user);
+        }, { behavior: 'immediate' });
+      } catch (error) {
+        if (error instanceof TransactionRollbackError) return undefined;
+        throw error;
+      }
+    },
+
+    async listPending(now: Date) {
+      return db
+        .select()
+        .from(invitations)
+        .where(pending(now))
+        .orderBy(desc(invitations.createdAt))
+        .all()
+        .map(toInvitation);
     },
 
     async findById(id: InvitationId) {

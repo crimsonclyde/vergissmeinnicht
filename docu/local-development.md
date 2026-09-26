@@ -50,6 +50,17 @@ Configuration comes from environment variables, validated at startup (`apps/serv
 
 `pnpm dev` starts the Fastify API (`node --watch`, port 3000) and the Vite dev server (proxying `/api` to the API) in parallel.
 
+Open the app at exactly `PUBLIC_ORIGIN` (default `http://localhost:5173`, **not** `http://127.0.0.1:5173`): state-changing API requests whose `Origin` differs are rejected with `403 forbidden_origin`.
+
+### First local account
+
+```bash
+pnpm db:migrate
+pnpm admin:bootstrap --email you@example.org   # prints http://localhost:5173/invite/…
+```
+
+Open the printed link, choose a display name and a password (≥15 characters), then sign in at `http://localhost:5173/`. Further invitations are sent by a server admin through `POST /api/admin/invitations` and arrive in Mailpit. Without `AUTH_SECRET` in `.env`, sessions end whenever the API restarts.
+
 ## Principles
 
 - ordinary development must not require external SaaS;
@@ -79,7 +90,7 @@ The development defaults (`SMTP_HOST=127.0.0.1`, `SMTP_PORT=1025`, `SMTP_SECURIT
 | `pnpm build` | Build production web assets (`apps/web/dist`) |
 | `pnpm start` | Production server (serves API + built web assets); run `pnpm build` first |
 | `pnpm test` | Vitest unit/integration tests |
-| `pnpm test:e2e` | Builds web assets, then runs Playwright smoke tests against the production server on port 3100 |
+| `pnpm test:e2e` | Builds web assets, then runs Playwright tests (smoke + bootstrap/invite/sign-in flow) against a freshly migrated production-mode server on port 3100 |
 | `pnpm lint` | ESLint incl. architecture boundary rules |
 | `pnpm typecheck` | `tsc` for every package |
 | `pnpm db:generate` | Generate a migration from `packages/database/src/schema.ts` |

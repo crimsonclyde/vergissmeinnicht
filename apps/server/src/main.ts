@@ -1,5 +1,7 @@
 import { resolve } from 'node:path';
+import { openDatabase } from '@vergissmeinnicht/database';
 import { buildApp } from './app.ts';
+import { createServices } from './composition.ts';
 import { ConfigError, loadConfig } from './config/index.ts';
 import { loggerOptions } from './logging.ts';
 
@@ -17,11 +19,15 @@ function readConfig() {
 }
 
 const config = readConfig();
+// Schema migrations are applied separately (`pnpm db:migrate`); see docu/deployment.md.
+const database = openDatabase(config.databasePath);
 
 const app = await buildApp({
   webDistDir: config.mode === 'production' ? resolve(import.meta.dirname, '../../web/dist') : undefined,
   logger: loggerOptions(config.logLevel),
+  services: createServices(config, database),
 });
+app.addHook('onClose', async () => database.close());
 
 if (config.authSecretEphemeral) {
   app.log.warn(`AUTH_SECRET not set: using a per-process secret (${config.mode} only); sessions will not survive restarts`);
