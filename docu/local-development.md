@@ -62,11 +62,14 @@ Configuration comes from environment variables, validated at startup (`apps/serv
 
 ## Email development
 
-Production invitations require email delivery.
+Email always goes through the real SMTP adapter (`packages/email`); there is no fake transport in application code. In development, run Mailpit as a local SMTP sink:
 
-The application should expose an email adapter. Self-hosted baseline is configurable SMTP.
+```bash
+docker compose -f compose.dev.yml up -d
+# SMTP on 127.0.0.1:1025, inbox UI at http://127.0.0.1:8025
+```
 
-Development may use a local mail sink such as Mailpit/MailHog or a dev adapter that captures messages locally, but production code must never silently use a fake mail transport.
+The development defaults (`SMTP_HOST=127.0.0.1`, `SMTP_PORT=1025`, `SMTP_SECURITY=none`) match this. Tests use an in-process SMTP server (`smtp-server`), not Mailpit.
 
 ## Scripts
 

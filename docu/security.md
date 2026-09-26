@@ -370,3 +370,13 @@ The following choices are mandatory V1 behavior:
 **Authorization review:** no endpoints yet. Future: only ADMIN may change `status`; users must not change their own status or email without a verified flow.  
 **Open risks:** lower-casing the local part assumes case-insensitive mailboxes (true for mainstream providers); `image` column exists for Better Auth compatibility and must not be rendered as an arbitrary URL without review; DISABLED must also revoke active sessions once sessions exist (2.3).  
 **Reviewed:** 2026-09-26
+
+### Security check: transactional email (Step 9.1)
+**Threat surface:** header/recipient injection, mail sent to unintended recipients, cleartext SMTP exposing invitation links and credentials, nodemailer file/URL content loading (SSRF/file read), secrets or tokens leaking via delivery errors.  
+**Controls added:** text-only messages; recipient must be a single normalized address; subject CR/LF rejected; nodemailer `disableFileAccess`/`disableUrlAccess`, no raw messages; TLS ≥1.2 with certificate verification; STARTTLS required by default in production, cleartext only to loopback relays; SMTP password in `Secret`; `EmailDeliveryError` carries only a reason code; nodemailer logging disabled.  
+**Negative tests:** `packages/email/src/smtp-email-sender.test.ts`; SMTP config cases in `apps/server/src/config/config.test.ts`.  
+**Secrets/data involved:** SMTP password; recipient addresses; invitation links in message bodies (2.2).  
+**Logging review:** adapter logs nothing; callers must not log recipients at info level or message bodies at any level.  
+**Authorization review:** no endpoint sends arbitrary email; only application use-cases (invitations) call the port.  
+**Open risks:** mailbox security and transport between mail servers are outside the app; link-scanning mail gateways may fetch invitation URLs (acceptance must require a POST, never act on GET — 2.2); nodemailer has a history of advisories — keep Dependabot/audit gating.  
+**Reviewed:** 2026-09-26

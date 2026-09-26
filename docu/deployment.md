@@ -39,6 +39,13 @@ Inject configuration at runtime. The production server never reads `.env` files 
 | `HOST` | optional | Default `127.0.0.1`. In a container set `0.0.0.0` and expose only via the reverse proxy. |
 | `PORT` | optional | Default `3000`. |
 | `LOG_LEVEL` | optional | `info` (default), `warn`, `error`, `fatal`, `silent`. `debug`/`trace` are rejected in production. |
+| `SMTP_HOST` | **required** | Outgoing mail server. |
+| `SMTP_PORT` | optional | Default `587`. |
+| `SMTP_SECURITY` | optional | `starttls` (default, upgrade required), `tls` (implicit), `none` (only for a loopback relay). Certificates are always verified; TLS ≥1.2. |
+| `SMTP_USER` / `SMTP_PASSWORD` | optional | Set both or neither. Treat the password as a credential. |
+| `MAIL_FROM_ADDRESS` | **required** | Sender address, e.g. `noreply@vmn.example.org`. |
+| `MAIL_FROM_NAME` | optional | Default `Vergissmeinnicht`. |
+| `INVITATION_TTL_HOURS` | optional | Default `72`, range 1–720. |
 
 Rotating `AUTH_SECRET` invalidates existing sessions; a documented rotation procedure follows with authentication (Step 2.x).
 

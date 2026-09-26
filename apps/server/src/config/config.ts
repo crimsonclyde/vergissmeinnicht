@@ -1,13 +1,23 @@
 import { randomBytes } from 'node:crypto';
 import { isAbsolute, resolve } from 'node:path';
 import { z } from 'zod';
+import { normalizeEmail } from '@vergissmeinnicht/domain';
 import { Secret } from './secret.ts';
 
 const REPO_ROOT = resolve(import.meta.dirname, '../../../..');
-const LOOPBACK_HOSTNAMES = new Set(['localhost', '127.0.0.1', '[::1]']);
+const LOOPBACK_HOSTNAMES = new Set(['localhost', '127.0.0.1', '[::1]', '::1']);
 /** Marker used in `.env.example`; a value containing it is never a real secret. */
 const PLACEHOLDER_MARKER = 'replace-me';
 const MIN_SECRET_LENGTH = 32;
+
+function isValidEmail(value: string): boolean {
+  try {
+    normalizeEmail(value);
+    return true;
+  } catch {
+    return false;
+  }
+}
 
 const modeSchema = z.enum(['development', 'test', 'production'], {
   error: 'NODE_ENV must be set explicitly to "development", "test" or "production"',
@@ -29,9 +39,40 @@ const envSchema = z
       .refine((value) => !value.includes(PLACEHOLDER_MARKER), 'AUTH_SECRET still contains the .env.example placeholder')
       .optional(),
     LOG_LEVEL: z.enum(logLevels).optional(),
+    SMTP_HOST: z.string().min(1).optional(),
+    SMTP_PORT: z.coerce.number().int().min(1).max(65535).optional(),
+    SMTP_SECURITY: z.enum(['tls', 'starttls', 'none']).optional(),
+    SMTP_USER: z.string().min(1).optional(),
+    SMTP_PASSWORD: z.string().min(1).optional(),
+    MAIL_FROM_ADDRESS: z.string().min(1).optional(),
+    MAIL_FROM_NAME: z
+      .string()
+      .min(1)
+      .max(80)
+      .refine((value) => !/[\r\n"<>]/.test(value), 'MAIL_FROM_NAME must not contain line breaks, quotes or angle brackets')
+      .optional(),
+    INVITATION_TTL_HOURS: z.coerce.number().int().min(1).max(720).optional(),
   })
   .superRefine((env, ctx) => {
+    if ((env.SMTP_USER === undefined) !== (env.SMTP_PASSWORD === undefined)) {
+      ctx.addIssue({ code: 'custom', path: ['SMTP_USER'], message: 'SMTP_USER and SMTP_PASSWORD must be set together' });
+    }
+    if (env.MAIL_FROM_ADDRESS !== undefined && !isValidEmail(env.MAIL_FROM_ADDRESS)) {
+      ctx.addIssue({ code: 'custom', path: ['MAIL_FROM_ADDRESS'], message: 'MAIL_FROM_ADDRESS must be a valid email address' });
+    }
     if (env.NODE_ENV !== 'production') return;
+    for (const name of ['SMTP_HOST', 'MAIL_FROM_ADDRESS'] as const) {
+      if (env[name] === undefined) {
+        ctx.addIssue({ code: 'custom', path: [name], message: `${name} is required in production` });
+      }
+    }
+    if (env.SMTP_SECURITY === 'none' && env.SMTP_HOST !== undefined && !LOOPBACK_HOSTNAMES.has(env.SMTP_HOST)) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['SMTP_SECURITY'],
+        message: 'SMTP_SECURITY=none is only allowed for a loopback SMTP host in production',
+      });
+    }
     // Production never falls back to development defaults: every value below must be injected explicitly.
     if (env.AUTH_SECRET === undefined) {
       ctx.addIssue({ code: 'custom', path: ['AUTH_SECRET'], message: 'AUTH_SECRET is required in production' });
@@ -77,6 +118,17 @@ export interface AppConfig {
   /** True when no AUTH_SECRET was configured outside production and a per-process secret was generated. */
   readonly authSecretEphemeral: boolean;
   readonly logLevel: (typeof logLevels)[number];
+  readonly smtp: SmtpConfig;
+  readonly invitationTtlHours: number;
+}
+
+export interface SmtpConfig {
+  readonly host: string;
+  readonly port: number;
+  readonly security: 'tls' | 'starttls' | 'none';
+  readonly auth: { readonly user: string; readonly password: Secret } | undefined;
+  readonly fromAddress: string;
+  readonly fromName: string;
 }
 
 export class ConfigError extends Error {
@@ -111,5 +163,18 @@ export function loadConfig(env: NodeJS.ProcessEnv): AppConfig {
     authSecret: new Secret(values.AUTH_SECRET ?? randomBytes(32).toString('base64url')),
     authSecretEphemeral: values.AUTH_SECRET === undefined,
     logLevel: values.LOG_LEVEL ?? (production ? 'info' : 'debug'),
+    // Development defaults target a local Mailpit (see docu/local-development.md).
+    smtp: Object.freeze({
+      host: values.SMTP_HOST ?? '127.0.0.1',
+      port: values.SMTP_PORT ?? (production ? 587 : 1025),
+      security: values.SMTP_SECURITY ?? (production ? 'starttls' : 'none'),
+      auth:
+        values.SMTP_USER !== undefined && values.SMTP_PASSWORD !== undefined
+          ? Object.freeze({ user: values.SMTP_USER, password: new Secret(values.SMTP_PASSWORD) })
+          : undefined,
+      fromAddress: values.MAIL_FROM_ADDRESS ?? 'noreply@vergissmeinnicht.localhost',
+      fromName: values.MAIL_FROM_NAME ?? 'Vergissmeinnicht',
+    }),
+    invitationTtlHours: values.INVITATION_TTL_HOURS ?? 72,
   });
 }

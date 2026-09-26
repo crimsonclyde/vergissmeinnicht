@@ -1,0 +1,10 @@
+# Development-only services. Not a production deployment (see docu/deployment.md).
+#   docker compose -f compose.dev.yml up -d
+services:
+  mailpit:
+    # Local SMTP sink: every email sent in development lands here instead of real inboxes.
+    image: axllent/mailpit:v1.31.2
+    ports:
+      - '127.0.0.1:1025:1025' # SMTP
+      - '127.0.0.1:8025:8025' # Web UI: http://127.0.0.1:8025
+    restart: unless-stopped

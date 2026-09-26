@@ -8,6 +8,8 @@ const production = {
   AUTH_SECRET: SECRET,
   PUBLIC_ORIGIN: 'https://vmn.example.org',
   DATABASE_PATH: '/var/lib/vergissmeinnicht/app.sqlite',
+  SMTP_HOST: 'smtp.example.org',
+  MAIL_FROM_ADDRESS: 'noreply@example.org',
 };
 
 function issuesOf(env: NodeJS.ProcessEnv): readonly string[] {
@@ -36,7 +38,7 @@ describe('loadConfig', () => {
     expect(issuesOf({ ...production, NODE_ENV: 'prod' }).join()).toMatch(/NODE_ENV/);
   });
 
-  it.each(['AUTH_SECRET', 'PUBLIC_ORIGIN', 'DATABASE_PATH'] as const)(
+  it.each(['AUTH_SECRET', 'PUBLIC_ORIGIN', 'DATABASE_PATH', 'SMTP_HOST', 'MAIL_FROM_ADDRESS'] as const)(
     'requires %s in production instead of using a development default',
     (name) => {
       const env: NodeJS.ProcessEnv = { ...production, [name]: undefined };
@@ -102,5 +104,44 @@ describe('loadConfig', () => {
   it('returns an immutable configuration', () => {
     const config = loadConfig(production);
     expect(Object.isFrozen(config)).toBe(true);
+  });
+
+  describe('SMTP settings', () => {
+    it('defaults to STARTTLS on port 587 in production and Mailpit in development', () => {
+      expect(loadConfig(production).smtp).toMatchObject({ port: 587, security: 'starttls', auth: undefined });
+      expect(loadConfig({ NODE_ENV: 'development' }).smtp).toMatchObject({
+        host: '127.0.0.1',
+        port: 1025,
+        security: 'none',
+      });
+    });
+
+    it('rejects unencrypted SMTP to a remote host in production', () => {
+      expect(issuesOf({ ...production, SMTP_SECURITY: 'none' }).join()).toMatch(/SMTP_SECURITY/);
+      expect(loadConfig({ ...production, SMTP_HOST: '127.0.0.1', SMTP_SECURITY: 'none' }).smtp.security).toBe('none');
+    });
+
+    it('requires SMTP_USER and SMTP_PASSWORD together', () => {
+      expect(issuesOf({ ...production, SMTP_USER: 'mailer' }).join()).toMatch(/SMTP_USER/);
+      expect(issuesOf({ ...production, SMTP_PASSWORD: 'pw' }).join()).toMatch(/SMTP_USER/);
+    });
+
+    it('never exposes the SMTP password when serialized or inspected', () => {
+      const config = loadConfig({ ...production, SMTP_USER: 'mailer', SMTP_PASSWORD: 'smtp-password-value' });
+      expect(config.smtp.auth?.password.reveal()).toBe('smtp-password-value');
+      expect(JSON.stringify(config)).not.toContain('smtp-password-value');
+      expect(inspect(config, { depth: 10 })).not.toContain('smtp-password-value');
+    });
+
+    it('validates the sender', () => {
+      expect(issuesOf({ ...production, MAIL_FROM_ADDRESS: 'not-an-address' }).join()).toMatch(/MAIL_FROM_ADDRESS/);
+      expect(issuesOf({ ...production, MAIL_FROM_NAME: 'Evil\r\nBcc: x@y.z' }).join()).toMatch(/MAIL_FROM_NAME/);
+    });
+  });
+
+  it('bounds the invitation lifetime', () => {
+    expect(loadConfig(production).invitationTtlHours).toBe(72);
+    expect(issuesOf({ ...production, INVITATION_TTL_HOURS: '0' }).join()).toMatch(/INVITATION_TTL_HOURS/);
+    expect(issuesOf({ ...production, INVITATION_TTL_HOURS: '10000' }).join()).toMatch(/INVITATION_TTL_HOURS/);
   });
 });

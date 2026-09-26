@@ -633,7 +633,8 @@ Important eventual scenario: a Procedure can contain “turn off router/network�
 ## 9 — Email
 
 ### 9.1 Transactional email abstraction
-**Status:** TODO
+**Status:** DONE
+**Completed:** 2026-09-26
 
 V1 requires email for invitations.
 
@@ -646,6 +647,17 @@ Prefer configurable SMTP as the self-hosted baseline, with an adapter boundary f
 - email send failures do not accidentally create ambiguous account state.
 
 **Security impact:** HIGH.
+
+**Implemented:** (pulled forward because invitations (2.2) need it)
+- Port `EmailSender` / `EmailMessage` / `EmailDeliveryError` in `packages/application` — plain text only (no HTML in V1).
+- `packages/email`: SMTP adapter on nodemailer 10.0.10 (all known advisories patched). `disableFileAccess`/`disableUrlAccess` on transport and message, no raw messages, TLS ≥1.2 with certificate verification, `requireTLS` for `starttls`, timeouts, nodemailer logging off. Recipient re-validated as a single normalized address; subject rejected if it contains CR/LF or exceeds 200 chars. Errors are `EmailDeliveryError` with a short reason code only (no recipient, body or SMTP transcript).
+- Config: `SMTP_HOST`, `SMTP_PORT`, `SMTP_SECURITY` (`tls`/`starttls`/`none`), `SMTP_USER`+`SMTP_PASSWORD` (both or neither; password wrapped in `Secret`), `MAIL_FROM_ADDRESS`, `MAIL_FROM_NAME`, plus `INVITATION_TTL_HOURS` for 2.2. Production requires host and sender, defaults to STARTTLS/587 and rejects `none` for non-loopback hosts. Development defaults to Mailpit (`compose.dev.yml`, image pinned `axllent/mailpit:v1.31.2`, bound to 127.0.0.1).
+
+**Tests/checks:** 9 adapter tests against an in-process SMTP server (delivery to exactly one recipient as text/plain; header-injection subjects and multi/non-normalized/CRLF recipients rejected before any SMTP traffic; STARTTLS-required against a server without STARTTLS fails without sending; connection failure yields a reason code without recipient/body). Config tests for SMTP defaults, cleartext rejection, credential pairing, password redaction, sender validation, invitation TTL bounds. Full suite, lint, typecheck, e2e pass.
+
+**Security docs updated:** YES.
+
+**Remaining:** "send failures do not create ambiguous account state" is enforced where emails are sent (2.2: an invitation stays valid/revocable and can be re-sent; no account exists before acceptance). DKIM/SPF/DMARC are the operator's mail-server responsibility (document in 10.x).
 
 ---
 
