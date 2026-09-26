@@ -16,6 +16,24 @@ For every completed task, add a concise completion note, tests/checks performed,
 
 ---
 
+## Current state — resume here
+
+_Last updated: 2026-09-26_
+
+**Done:** 0.1, 0.2, 0.3, 1.1, 1.2, 2.1, 9.1 (pulled forward for invitations).
+**In progress:** 2.2 — invitation core, storage, security events and CLI bootstrap done; acceptance and HTTP endpoints are completed together with 2.3.
+**Next:** 2.3 Local password login (Better Auth):
+1. review Better Auth's current password hashing (policy: Argon2id or reviewed equivalent) and security advisories before installing;
+2. configure Better Auth on the existing `users` table (`modelName: 'users'`, `status`/`serverAdmin` as `input: false`, `generateId: () => crypto.randomUUID()`, public sign-up disabled);
+3. invitation acceptance (POST only, atomic + single-use under concurrency, bootstrap invitations only while no server admin exists) — finishes 2.2;
+4. login rate limiting, session rotation, cookie flags, CSRF, admin issue/revoke endpoints.
+
+**Branches:** work is stacked, not yet merged into `main`: `step-1.1-app-skeleton` → `step-1.2-config` → `step-2.1-user-model` → `step-2.2-invitations` (each branch contains the previous ones). CI runs on pull requests / `main` only.
+
+**Local tooling:** Node 24 LTS (Node 26 works), pnpm 12.6.0 (`npm install -g pnpm@12.6.0`), Docker for Mailpit (`compose.dev.yml`), `pnpm exec playwright install chromium` for e2e.
+
+---
+
 ## Locked product decisions
 
 These decisions are already made and must not be silently changed by an implementation agent.
