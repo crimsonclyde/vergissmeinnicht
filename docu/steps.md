@@ -37,6 +37,7 @@ These decisions are already made and must not be silently changed by an implemen
 - TOTP: **optional, user-activated, built in from V1** (not mandatory for now; architecture keeps a seam for a later enforcement policy)
 - External login: **Apple and GitHub planned for later** (deferred; mapped to the internal User UUID)
 - Workspace roles: Guest / User / Editor / Admin
+- Server-wide administration: a **server admin** flag on the User (separate from Workspace roles) grants invitations, admin-assisted recovery and account disabling. The first server admin is created by a one-time CLI bootstrap (`pnpm admin:bootstrap`) that issues an invitation link printed to the operator's terminal; it refuses to run once a server admin exists.
 - Users may belong to multiple Workspaces
 - Procedures are Workspace-wide in V1
 - Any authorized Workspace user may continue an active Run
@@ -273,10 +274,12 @@ A different physical folder layout is acceptable only if the same boundaries rem
 ### 2.2 Invite-only account creation
 **Status:** TODO
 
-**Objective:** No public self-registration. Admin sends an invitation to a specific email address.
+**Objective:** No public self-registration. A server admin sends an invitation to a specific email address.
+
+**Decision (2026-09-26):** invitations are issued by **server admins** (server-wide flag on the User), not by Workspace ADMINs. First-admin bootstrap is a one-time CLI command. Delivery uses the transactional email abstraction (9.1), which is therefore implemented before this step. Acceptance (setting the password) needs Better Auth and is completed together with 2.3.
 
 **Acceptance criteria:**
-- only authorized admin can create invitation;
+- only a server admin (or the one-time CLI bootstrap) can create invitations;
 - invitation binds to normalized recipient email;
 - invitation token is cryptographically random, single-use, expiring, and stored hashed where practical;
 - invitation email contains the acceptance link;
