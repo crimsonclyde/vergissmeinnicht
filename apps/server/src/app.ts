@@ -4,6 +4,7 @@ import fastifyRateLimit from '@fastify/rate-limit';
 import fastifyStatic from '@fastify/static';
 import Fastify, { type FastifyBaseLogger, type FastifyServerOptions } from 'fastify';
 import type { AppServices } from './composition.ts';
+import { accountRoutes } from './http/account-routes.ts';
 import { authRoutes } from './http/auth-routes.ts';
 import { errorHandler } from './http/errors.ts';
 import { adminInvitationRoutes, invitationRoutes } from './http/invitation-routes.ts';
@@ -66,6 +67,7 @@ export async function buildApp(options: AppOptions = {}) {
       api.get('/health', async () => ({ status: 'ok' }));
       if (services !== undefined) {
         await api.register(authRoutes, { prefix: '/auth', services });
+        await api.register(accountRoutes, { prefix: '/account', services });
         await api.register(invitationRoutes, { prefix: '/invitations', services });
         await api.register(adminInvitationRoutes, { prefix: '/admin/invitations', services });
       }

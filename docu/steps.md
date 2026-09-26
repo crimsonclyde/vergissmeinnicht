@@ -18,18 +18,17 @@ For every completed task, add a concise completion note, tests/checks performed,
 
 ## Current state — resume here
 
-_Last updated: 2026-09-26 (after 2.3)_
+_Last updated: 2026-09-26 (after 2.4)_
 
-**Done:** 0.1, 0.2, 0.3, 1.1, 1.2, 2.1, 2.2, 2.3, 9.1 (pulled forward for invitations).
-**Next:** 2.4 Optional user-activated TOTP (Better Auth `twoFactor` plugin):
-1. review the plugin (storage of the TOTP secret, backup-code hashing, verification window, advisories — cf. GHSA-xg6x-h9c9-2m83; keep `cookieCache` disabled);
-2. restricted pre-MFA session state enforced in `apps/server/src/http/session.ts` `authenticate()` (the documented seam), so no route yields a Principal before the challenge;
-3. enrollment/disable/regenerate with re-authentication, rate limits, security events, negative tests against every authenticated route;
-4. admin-assisted TOTP reset belongs to 2.5.
+**Done:** 0.1, 0.2, 0.3, 1.1, 1.2, 2.1, 2.2, 2.3, 2.4, 9.1 (pulled forward for invitations).
+**Next:** 2.5 Admin-assisted account recovery:
+1. security review first (security.md §12 trigger "password reset/account recovery"): short-lived single-use reset/enrollment link (reuse the invitation token scheme), server-admin capability, no exposure of password/TOTP secret;
+2. admin password reset and admin TOTP reset (delete `totp_credentials` + recovery codes, revoke all sessions — `deleteUserSessions`), both audited;
+3. user password change with re-authentication (same session-replacement pattern as TOTP changes) can land here too.
 
-Also open from 2.3 (see its Remaining list): password change + session invalidation, admin web UI for invitations, trusted-proxy configuration (10.3) before production use behind a reverse proxy.
+Also open: trusted-proxy configuration (10.3) before production use behind a reverse proxy; admin web UI for invitations; housekeeping of expired `mfa_challenges` rows.
 
-**Branches:** work is stacked, not yet merged into `main`: `step-1.1-app-skeleton` → `step-1.2-config` → `step-2.1-user-model` → `step-2.2-invitations` (each branch contains the previous ones; 2.3 was completed on `step-2.2-invitations` because acceptance finishes 2.2). CI runs on pull requests / `main` only.
+**Branches:** work is stacked, not yet merged into `main`: `step-1.1-app-skeleton` → `step-1.2-config` → `step-2.1-user-model` → `step-2.2-invitations` → `step-2.4-totp` (each branch contains the previous ones; 2.3 was completed on `step-2.2-invitations` because acceptance finishes 2.2). CI runs on pull requests / `main` only.
 
 **Local tooling:** Node 24 LTS (Node 26 works), pnpm 12.6.0 (`npm install -g pnpm@12.6.0`), Docker for Mailpit (`compose.dev.yml`), `pnpm exec playwright install chromium` for e2e.
 
@@ -394,7 +393,8 @@ A different physical folder layout is acceptable only if the same boundaries rem
 
 
 ### 2.4 Optional user-activated TOTP
-**Status:** TODO
+**Status:** DONE
+**Completed:** 2026-09-26
 
 **Objective:** TOTP is a built-in feature from V1 that every local user can activate for their own account. It is **not mandatory** for now; the design must keep a server-side enforcement seam so a later policy (for example "ADMIN accounts require TOTP" or a per-Workspace requirement) can be added without redesign.
 
@@ -438,6 +438,37 @@ Accounts without TOTP enabled log in with email + password only.
 - negative tests prove a TOTP-enabled account cannot bypass the challenge through API/SSE/Knot endpoints or by client-supplied flags.
 
 **Security impact:** CRITICAL.
+
+**Review and design decision (2026-09-26):** Better Auth's `twoFactor` plugin (1.7.6) was reviewed and **not used**: no OTP replay protection (a code is reusable within its ±30 s window), backup codes stored as one plaintext or reversibly encrypted JSON blob and consumed by a non-atomic read-modify-write (concurrent reuse possible), disabling requires only the password, and it ships "trust device" (not allowed in V1). Instead the flows are implemented as application use-cases with reviewed primitives: `otpauth@9.5.2` (RFC 6238, constant-time comparison, returns the matched step — enables replay protection; old advisory GHSA-rmmc-8cqj-hfp3 fixed in 3.2.8), Node/OpenSSL AES-256-GCM + HKDF for secret encryption, SHA-256 for 80-bit recovery codes. Better Auth still creates and signs every session, through a small server-only plugin (`issueSession`, `checkPassword`).
+
+**Pre-MFA state:** stronger than the "restricted session" sketched above — for a TOTP account the session Better Auth creates at the password step is deleted before its cookie leaves the server; the client receives only a challenge token (256-bit, SHA-256 at rest, 5 min, 5 attempts, single use) in an `HttpOnly`/`Secure`/`SameSite=Strict` cookie scoped to `Path=/api/auth/mfa`. With no session in existence there is nothing a Workspace/admin/SSE/Knot route could accept by mistake.
+
+**Implemented:**
+- Domain `mfa.ts`: TOTP parameters (SHA-1, 6 digits, 30 s, ±1 step, 160-bit secret), `requiresTotpChallenge()` — the central MFA policy (currently "TOTP enabled"), `totpLockDurationMs()` (lock after every 10 consecutive failures: 15 min doubling, max 24 h), `normalizeTotpCode()` (exactly six ASCII digits).
+- Application `mfa/use-cases.ts`: `startTotpEnrollment` (password), `confirmTotpEnrollment` (valid code within 10 min; yields 10 recovery codes once), `disableTotp` (password + TOTP or recovery code), `regenerateRecoveryCodes` (password), `beginMfaChallenge`, `completeMfaChallenge`, `requiresSecondFactor`, `mfaStatus`. Recovery codes bypass the TOTP lock (unguessable; lets the owner in during an attack).
+- DB migration `0004_totp_mfa`: `totp_credentials` (sealed secret, `last_used_step`, failure count, lock), `recovery_codes` (hash per code, `used_at`), `mfa_challenges`. Conditional updates make step acceptance, recovery-code use and challenge consumption single-use under concurrency; state change + security event in one `IMMEDIATE` transaction.
+- Secret encryption: `DATA_ENCRYPTION_KEY` (new required production variable, ≥32 chars, must differ from `AUTH_SECRET`), HKDF-SHA256 → AES-256-GCM, random 96-bit IV, user id bound as associated data.
+- HTTP: sign-in returns `{mfaRequired: true}` + challenge cookie for TOTP accounts; `POST /api/auth/mfa` (`{code}` or `{recoveryCode}`); `GET /api/account/mfa`, `POST /api/account/mfa/totp/setup|confirm|disable`, `POST /api/account/mfa/recovery-codes` (full session required, per-account limit 10/15 min plus per-client limits). Enabling or disabling TOTP revokes **all** of the user's sessions and issues a fresh one.
+- Security events: `MFA_CHALLENGE_STARTED`, `TOTP_CODE_REJECTED`, `TOTP_LOCKED`, `TOTP_ENROLLMENT_STARTED`, `TOTP_ENABLED`, `TOTP_DISABLED`, `RECOVERY_CODE_USED`, `RECOVERY_CODES_REGENERATED`; `LOGIN_SUCCEEDED` now carries `method` (`password` / `totp` / `recovery_code`) and is written by the routes (after the MFA outcome is known, before the cookie is sent).
+- Web: second sign-in step (authenticator or recovery code), account security section (enable with locally rendered QR code via `qrcode-generator@2.0.4` into a `data:` image, disable, new recovery codes).
+
+**Tests/checks:**
+- `pnpm test` — 253 tests. New: domain policy/lock/code normalization; RFC 6238 test vector and drift window; recovery code format/entropy/hash normalization; secret box round-trip, fresh IV, wrong context, wrong key, tampering; 22 use-case tests (password required, activation only after valid code, no plaintext secret/codes in DB, enrollment expiry and replacement, no re-enrollment while enabled, challenge single use, replay across challenges and from enrollment, drift, 5 attempts, 5 min expiry, malformed tokens, disabled user, lock after 10 failures with recovery code still working and unlock after 15 min, concurrent recovery-code use → 1 success, disable needs password + factor, regeneration invalidates old codes); 12 HTTP tests (`apps/server/src/http/mfa.test.ts`): no session and a narrowly scoped challenge cookie after the password step, challenge cookie (also disguised as session cookie) rejected by session/account/admin routes, `mfaVerified` flag rejected, missing/forged challenge, full session only after a valid code and only once, recovery code once, 5-attempt limit, replay, disabled-after-password, all other sessions revoked on enable/disable, regeneration, no secrets/codes/challenge tokens/passwords in logs.
+- Mutation checks: skipping the sign-in MFA gate, keeping the pre-MFA session, removing replay protection, disabling without second factor, not revoking sessions on TOTP change, ignoring the lock, and removing the per-challenge attempt limit each fail at least one test.
+- `pnpm test:e2e`: bootstrap → account → sign-in → TOTP enrollment via UI (QR shown, key read from page) → 10 recovery codes → sign-out → sign-in requires code (no session cookie before it) → signed in → sign-out.
+- `pnpm lint`, `pnpm typecheck`, `pnpm audit` (unchanged: only dev-only moderate GHSA-67mh-4wv8-2f99). Migration 0004 applied on a copy of the dev DB.
+
+**Security impact:** CRITICAL — new credential types (TOTP secrets, recovery codes, challenge tokens), new encryption-at-rest key, new authentication step.
+
+**Security docs updated:** YES (§1 TOTP, §2, §9, §13, TOTP and secret-box check blocks).
+
+**Remaining:**
+- Admin-assisted TOTP reset (lost device) → 2.5.
+- Enforcement policy (e.g. mandatory TOTP for server admins) is a change to `requiresTotpChallenge()` plus an enrollment-on-login flow; not decided.
+- `DATA_ENCRYPTION_KEY` rotation needs a re-encryption tool (the sealed format is versioned `v1.` to allow it); until then the key must not change (see deployment.md).
+- Expired/consumed `mfa_challenges` rows and unconfirmed enrollments are not cleaned up yet (small, no secrets in plaintext).
+- Future SSE/Knot routes must use `requireUser`; tests for them must include the "challenge cookie only" case.
+
 
 ### 2.5 Admin-assisted account recovery
 **Status:** TODO

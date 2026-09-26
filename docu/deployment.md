@@ -34,6 +34,7 @@ Inject configuration at runtime. The production server never reads `.env` files 
 | --- | --- | --- |
 | `NODE_ENV` | `production` (set by `pnpm start`) | Must be exactly `development`, `test` or `production`. |
 | `AUTH_SECRET` | **required** | ≥32 characters, e.g. `openssl rand -base64 32`. Treat as a credential; prefer a secret store / Docker secret over plain env where possible. |
+| `DATA_ENCRYPTION_KEY` | **required** | ≥32 characters, different from `AUTH_SECRET`. Encrypts TOTP secrets at rest. **Back it up separately from the database and never change it** (see below). |
 | `PUBLIC_ORIGIN` | **required** | External origin, e.g. `https://vmn.example.org`. Must be `https` (plain `http` only for loopback). |
 | `DATABASE_PATH` | **required** | Absolute path on the persistent volume. |
 | `HOST` | optional | Default `127.0.0.1`. In a container set `0.0.0.0` and expose only via the reverse proxy. |
@@ -51,7 +52,11 @@ Inject configuration at runtime. The production server never reads `.env` files 
 
 ### Rotating `AUTH_SECRET`
 
-`AUTH_SECRET` signs session cookies. To rotate it (routinely or after a suspected leak of the secret or of the database): stop the server, replace the secret, start the server. All existing sessions become invalid and every user has to sign in again; no data is lost. Invitation links are unaffected (they are not derived from the secret).
+`AUTH_SECRET` signs session cookies. To rotate it (routinely or after a suspected leak of the secret or of the database): stop the server, replace the secret, start the server. All existing sessions become invalid and every user has to sign in again; no data is lost. Invitation links and TOTP enrollments are unaffected (they are not derived from the secret).
+
+### `DATA_ENCRYPTION_KEY`
+
+TOTP authenticator secrets are encrypted with this key. If it is lost or changed, every enrolled authenticator stops working: users can still sign in with a recovery code and re-enroll, otherwise an admin reset (Step 2.5) is needed. A re-encryption tool for planned key rotation does not exist yet — do not rotate it. Keep a copy of the key outside the server (e.g. in the operator's password manager) and store it separately from database backups: the encryption protects stolen database files only as long as the key is not stored alongside them.
 
 ## Migrations
 

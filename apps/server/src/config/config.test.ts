@@ -3,9 +3,11 @@ import { describe, expect, it } from 'vitest';
 import { ConfigError, loadConfig } from './config.ts';
 
 const SECRET = 'a'.repeat(20) + 'unique-secret-value-xyz';
+const DATA_KEY = 'b'.repeat(20) + 'unique-data-key-value-xyz';
 const production = {
   NODE_ENV: 'production',
   AUTH_SECRET: SECRET,
+  DATA_ENCRYPTION_KEY: DATA_KEY,
   PUBLIC_ORIGIN: 'https://vmn.example.org',
   DATABASE_PATH: '/var/lib/vergissmeinnicht/app.sqlite',
   SMTP_HOST: 'smtp.example.org',
@@ -38,13 +40,25 @@ describe('loadConfig', () => {
     expect(issuesOf({ ...production, NODE_ENV: 'prod' }).join()).toMatch(/NODE_ENV/);
   });
 
-  it.each(['AUTH_SECRET', 'PUBLIC_ORIGIN', 'DATABASE_PATH', 'SMTP_HOST', 'MAIL_FROM_ADDRESS'] as const)(
+  it.each(['AUTH_SECRET', 'DATA_ENCRYPTION_KEY', 'PUBLIC_ORIGIN', 'DATABASE_PATH', 'SMTP_HOST', 'MAIL_FROM_ADDRESS'] as const)(
     'requires %s in production instead of using a development default',
     (name) => {
       const env: NodeJS.ProcessEnv = { ...production, [name]: undefined };
       expect(issuesOf(env).join()).toMatch(new RegExp(name));
     },
   );
+
+  it('keeps the data encryption key separate from the session secret', () => {
+    const config = loadConfig(production);
+    expect(config.dataEncryptionKey.reveal()).toBe(DATA_KEY);
+    expect(`${config.dataEncryptionKey}`).toBe('[REDACTED]');
+    expect(issuesOf({ ...production, DATA_ENCRYPTION_KEY: SECRET }).join()).toMatch(/must differ from AUTH_SECRET/);
+    expect(issuesOf({ ...production, DATA_ENCRYPTION_KEY: 'short' }).join()).toMatch(/DATA_ENCRYPTION_KEY/);
+    expect(issuesOf({ ...production, DATA_ENCRYPTION_KEY: 'replace-me'.repeat(4) }).join()).toMatch(/placeholder/);
+    const development = loadConfig({ NODE_ENV: 'development' });
+    expect(development.dataEncryptionKeyEphemeral).toBe(true);
+    expect(development.dataEncryptionKey.reveal()).not.toBe(development.authSecret.reveal());
+  });
 
   it('rejects a short or placeholder AUTH_SECRET in every mode', () => {
     expect(issuesOf({ ...production, AUTH_SECRET: 'too-short' }).join()).toMatch(/AUTH_SECRET/);

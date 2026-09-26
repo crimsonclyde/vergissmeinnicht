@@ -3,6 +3,7 @@ import { betterAuth } from 'better-auth';
 import { drizzleAdapter } from 'better-auth/adapters/drizzle';
 import { MAX_PASSWORD_LENGTH, MIN_PASSWORD_LENGTH } from '@vergissmeinnicht/domain';
 import { hashPassword, verifyPassword } from './password-hashing.ts';
+import { sessionPlugin } from './session-plugin.ts';
 
 /** Better Auth routes are never mounted directly; the server calls `auth.api.*` from allow-listed routes. */
 export const AUTH_BASE_PATH = '/api/auth';
@@ -41,8 +42,6 @@ export interface AuthOptions {
   readonly secureCookies: boolean;
   /** Returns false for unknown or non-ACTIVE Users; no session is created for them. */
   readonly canStartSession: (userId: string) => Promise<boolean>;
-  /** Records LOGIN_SUCCEEDED. If it throws, sign-in fails before the session cookie is issued. */
-  readonly onSessionCreated: (session: { id: string; userId: string; createdAt: Date }) => Promise<void>;
   /** Receives Better Auth's own log messages; structured arguments are dropped (they may hold user input). */
   readonly log: (level: 'debug' | 'info' | 'warn' | 'error', message: string) => void;
 }
@@ -102,7 +101,6 @@ export function createAuth(options: AuthOptions) {
       session: {
         create: {
           before: async (session) => ((await options.canStartSession(session.userId)) ? undefined : false),
-          after: async (session) => options.onSessionCreated(session),
         },
       },
     },
@@ -116,6 +114,7 @@ export function createAuth(options: AuthOptions) {
       disableOriginCheck: false,
       disableCSRFCheck: false,
     },
+    plugins: [sessionPlugin()],
     rateLimit: { enabled: false },
     telemetry: { enabled: false },
     logger: {

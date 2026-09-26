@@ -19,6 +19,13 @@ function isValidEmail(value: string): boolean {
   }
 }
 
+const secretSchema = (name: string) =>
+  z
+    .string()
+    .min(MIN_SECRET_LENGTH, `${name} must be at least ${MIN_SECRET_LENGTH} characters`)
+    .refine((value) => !value.includes(PLACEHOLDER_MARKER), `${name} still contains the .env.example placeholder`)
+    .optional();
+
 const modeSchema = z.enum(['development', 'test', 'production'], {
   error: 'NODE_ENV must be set explicitly to "development", "test" or "production"',
 });
@@ -33,11 +40,8 @@ const envSchema = z
     PORT: z.coerce.number().int().min(1).max(65535).default(3000),
     PUBLIC_ORIGIN: z.url({ protocol: /^https?$/ }).optional(),
     DATABASE_PATH: z.string().min(1).optional(),
-    AUTH_SECRET: z
-      .string()
-      .min(MIN_SECRET_LENGTH, `AUTH_SECRET must be at least ${MIN_SECRET_LENGTH} characters`)
-      .refine((value) => !value.includes(PLACEHOLDER_MARKER), 'AUTH_SECRET still contains the .env.example placeholder')
-      .optional(),
+    AUTH_SECRET: secretSchema('AUTH_SECRET'),
+    DATA_ENCRYPTION_KEY: secretSchema('DATA_ENCRYPTION_KEY'),
     LOG_LEVEL: z.enum(logLevels).optional(),
     SMTP_HOST: z.string().min(1).optional(),
     SMTP_PORT: z.coerce.number().int().min(1).max(65535).optional(),
@@ -60,6 +64,13 @@ const envSchema = z
     if (env.MAIL_FROM_ADDRESS !== undefined && !isValidEmail(env.MAIL_FROM_ADDRESS)) {
       ctx.addIssue({ code: 'custom', path: ['MAIL_FROM_ADDRESS'], message: 'MAIL_FROM_ADDRESS must be a valid email address' });
     }
+    if (env.AUTH_SECRET !== undefined && env.AUTH_SECRET === env.DATA_ENCRYPTION_KEY) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['DATA_ENCRYPTION_KEY'],
+        message: 'DATA_ENCRYPTION_KEY must differ from AUTH_SECRET',
+      });
+    }
     if (env.NODE_ENV !== 'production') return;
     for (const name of ['SMTP_HOST', 'MAIL_FROM_ADDRESS'] as const) {
       if (env[name] === undefined) {
@@ -76,6 +87,9 @@ const envSchema = z
     // Production never falls back to development defaults: every value below must be injected explicitly.
     if (env.AUTH_SECRET === undefined) {
       ctx.addIssue({ code: 'custom', path: ['AUTH_SECRET'], message: 'AUTH_SECRET is required in production' });
+    }
+    if (env.DATA_ENCRYPTION_KEY === undefined) {
+      ctx.addIssue({ code: 'custom', path: ['DATA_ENCRYPTION_KEY'], message: 'DATA_ENCRYPTION_KEY is required in production' });
     }
     if (env.PUBLIC_ORIGIN === undefined) {
       ctx.addIssue({ code: 'custom', path: ['PUBLIC_ORIGIN'], message: 'PUBLIC_ORIGIN is required in production' });
@@ -117,6 +131,13 @@ export interface AppConfig {
   readonly authSecret: Secret;
   /** True when no AUTH_SECRET was configured outside production and a per-process secret was generated. */
   readonly authSecretEphemeral: boolean;
+  /**
+   * Encrypts recoverable secrets at rest (TOTP seeds). Separate from AUTH_SECRET so that rotating
+   * the session secret does not destroy enrolled authenticators.
+   */
+  readonly dataEncryptionKey: Secret;
+  /** True when no DATA_ENCRYPTION_KEY was configured outside production (TOTP enrollments break on restart). */
+  readonly dataEncryptionKeyEphemeral: boolean;
   readonly logLevel: (typeof logLevels)[number];
   readonly smtp: SmtpConfig;
   readonly invitationTtlHours: number;
@@ -162,6 +183,8 @@ export function loadConfig(env: NodeJS.ProcessEnv): AppConfig {
     databasePath: resolve(REPO_ROOT, values.DATABASE_PATH ?? '.var/vergissmeinnicht.sqlite'),
     authSecret: new Secret(values.AUTH_SECRET ?? randomBytes(32).toString('base64url')),
     authSecretEphemeral: values.AUTH_SECRET === undefined,
+    dataEncryptionKey: new Secret(values.DATA_ENCRYPTION_KEY ?? randomBytes(32).toString('base64url')),
+    dataEncryptionKeyEphemeral: values.DATA_ENCRYPTION_KEY === undefined,
     logLevel: values.LOG_LEVEL ?? (production ? 'info' : 'debug'),
     // Development defaults target a local Mailpit (see docu/local-development.md).
     smtp: Object.freeze({

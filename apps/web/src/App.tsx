@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { AcceptInvitation } from './AcceptInvitation.tsx';
+import { AccountSecurity } from './AccountSecurity.tsx';
 import { api, type CurrentUser } from './api.ts';
 import { SignIn } from './SignIn.tsx';
 
@@ -33,6 +34,7 @@ function Home() {
       <button type="button" onClick={() => void signOut()}>
         Sign out
       </button>
+      <AccountSecurity />
     </section>
   );
 }

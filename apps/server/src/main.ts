@@ -32,6 +32,11 @@ app.addHook('onClose', async () => database.close());
 if (config.authSecretEphemeral) {
   app.log.warn(`AUTH_SECRET not set: using a per-process secret (${config.mode} only); sessions will not survive restarts`);
 }
+if (config.dataEncryptionKeyEphemeral) {
+  app.log.warn(
+    `DATA_ENCRYPTION_KEY not set: using a per-process key (${config.mode} only); enrolled TOTP authenticators stop working after a restart`,
+  );
+}
 
 for (const signal of ['SIGINT', 'SIGTERM'] as const) {
   process.once(signal, () => {

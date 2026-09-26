@@ -7,6 +7,30 @@ export interface CurrentUser {
   readonly serverAdmin: boolean;
 }
 
+export type SecondFactor = { readonly code: string } | { readonly recoveryCode: string };
+
+export interface MfaStatus {
+  readonly totpEnabled: boolean;
+  readonly recoveryCodesRemaining: number;
+}
+
+/** User-facing texts for the API's stable error codes. */
+export const ERROR_MESSAGES: Record<string, string> = {
+  invalid_credentials: 'Email or password is not correct.',
+  rate_limited: 'Too many attempts. Please wait a few minutes and try again.',
+  invalid_code: 'That code is not valid. Codes can only be used once.',
+  mfa_locked: 'Too many wrong codes. Authenticator codes are locked for a while; a recovery code still works.',
+  mfa_challenge_invalid: 'The sign-in has expired. Please enter your password again.',
+  reauthentication_failed: 'Your current password is not correct.',
+  no_pending_enrollment: 'The setup has expired. Please start again.',
+  totp_already_enabled: 'Two-factor authentication is already enabled.',
+  totp_not_enabled: 'Two-factor authentication is not enabled.',
+};
+
+export function messageFor(error: unknown, fallback = 'Something went wrong. Please try again.'): string {
+  return (error instanceof ApiError ? ERROR_MESSAGES[error.code] : undefined) ?? fallback;
+}
+
 export class ApiError extends Error {
   readonly status: number;
   readonly code: string;
@@ -42,8 +66,17 @@ export const api = {
       throw error;
     }
   },
-  signIn: async (email: string, password: string) =>
-    (await request<{ user: CurrentUser }>('POST', '/auth/sign-in', { email, password })).user,
+  /** Either a full sign-in or the request for the second factor (no session exists yet). */
+  signIn: (email: string, password: string) =>
+    request<{ user: CurrentUser } | { mfaRequired: true }>('POST', '/auth/sign-in', { email, password }),
+  completeMfa: async (factor: SecondFactor) => (await request<{ user: CurrentUser }>('POST', '/auth/mfa', factor)).user,
+  mfaStatus: () => request<MfaStatus>('GET', '/account/mfa'),
+  startTotp: (password: string) => request<{ secret: string; uri: string }>('POST', '/account/mfa/totp/setup', { password }),
+  confirmTotp: (code: string) => request<{ recoveryCodes: string[] }>('POST', '/account/mfa/totp/confirm', { code }),
+  disableTotp: (password: string, factor: SecondFactor) =>
+    request<undefined>('POST', '/account/mfa/totp/disable', { password, ...factor }),
+  regenerateRecoveryCodes: (password: string) =>
+    request<{ recoveryCodes: string[] }>('POST', '/account/mfa/recovery-codes', { password }),
   signOut: () => request<undefined>('POST', '/auth/sign-out'),
   resolveInvitation: (token: string) =>
     request<{ email: string; expiresAt: string }>('POST', '/invitations/resolve', { token }),

@@ -145,13 +145,22 @@ Account-security events (invitations, account creation, login success/failure, l
 
 ## TOTP security state
 
-TOTP is optional and user-activated in V1. Users enable it from their account security settings (re-authentication required; activation only after a valid OTP).
+TOTP is optional and user-activated in V1. Users enable it from their account security settings (current password required; activation only after a valid code; ten single-use recovery codes are shown once).
 
-When an account has TOTP enabled, password login yields a restricted pre-MFA session that may access only the TOTP challenge/recovery-code/logout endpoints. The session is rotated to a full session after a successful challenge.
+```text
+POST /api/auth/sign-in (email + password)
+  -> no TOTP:  full session cookie
+  -> TOTP:     Better Auth's new session is deleted server-side before any cookie is sent;
+               client gets {mfaRequired: true} + challenge cookie (Path=/api/auth/mfa, 5 min)
+POST /api/auth/mfa ({code} | {recoveryCode}) + challenge cookie
+  -> valid:    challenge consumed, new full session issued by Better Auth (server-only plugin)
+```
 
-No Workspace, Procedure, Run, Knot, admin, API or SSE access is granted before this gate is complete.
+Because no session exists before the challenge succeeds, no Workspace, Procedure, Run, Knot, admin, API or SSE route can be reached in the pre-MFA state; `authenticate()` needs no special case for it.
 
-Whether an account must pass TOTP is decided by one central server-side MFA policy (currently: "required if the user enabled TOTP"). A later enforcement rule, such as mandatory TOTP for ADMIN, is a policy change rather than a redesign.
+Whether an account must pass TOTP is decided by one central policy, `requiresTotpChallenge()` in `packages/domain/src/mfa.ts` (currently: "required if the user enabled TOTP"). A later enforcement rule, such as mandatory TOTP for server admins, is a policy change plus an enrollment prompt, not a redesign.
+
+TOTP flows are application use-cases (`packages/application/src/mfa`) on ports implemented in `packages/auth` (`otpauth` for RFC 6238, AES-256-GCM secret box, recovery codes) and `packages/database` (credentials with replay/lock state, hashed recovery codes, challenges). Better Auth's `twoFactor` plugin is not used (see steps.md 2.4). TOTP secrets are encrypted with `DATA_ENCRYPTION_KEY`, which is independent from the cookie-signing `AUTH_SECRET`.
 
 ## Realtime
 

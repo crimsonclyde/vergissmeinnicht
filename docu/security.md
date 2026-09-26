@@ -33,21 +33,22 @@ This file is normative and must evolve with the application.
 - [ ] Breached/common-password blocklist.
 
 ### TOTP MFA
-- [ ] TOTP is built in and user-activated (optional) for V1 accounts; the MFA requirement is evaluated by a central server-side policy so enforcement (e.g. for ADMIN) can be added later.
-- [ ] Seed generated with a CSPRNG.
-- [ ] Enrollment is not active until the user proves a valid OTP.
-- [ ] TOTP seed is treated as highly sensitive data.
-- [ ] Submitted OTP values are never logged.
-- [ ] Verification attempts are rate-limited.
-- [ ] Time-window handling is intentionally bounded.
-- [ ] Recovery codes are high entropy.
-- [ ] Recovery codes are stored hashed.
-- [ ] Recovery code use is one-time and atomic.
-- [ ] MFA enable/disable/reset is audited.
-- [ ] Enabling TOTP and regenerating recovery codes require recent re-authentication.
-- [ ] Disabling TOTP requires re-authentication plus a valid OTP or recovery code.
-- [ ] For a TOTP-enabled account, a password-authenticated session that has not passed the TOTP challenge cannot access authenticated app resources.
-- [ ] The session is rotated after a successful TOTP challenge.
+- [x] TOTP is built in and user-activated (optional) for V1 accounts; the MFA requirement is evaluated by a central server-side policy so enforcement (e.g. for ADMIN) can be added later. (`requiresTotpChallenge()` in `packages/domain/src/mfa.ts`.)
+- [x] Seed generated with a CSPRNG. (160 bits via `otpauth` → `crypto.randomBytes`.)
+- [x] Enrollment is not active until the user proves a valid OTP. (Unconfirmed enrollment expires after 10 min.)
+- [x] TOTP seed is treated as highly sensitive data. (AES-256-GCM at rest with `DATA_ENCRYPTION_KEY`, bound to the user id; shown once at enrollment; never logged.)
+- [x] Submitted OTP values are never logged. (Verified by log capture.)
+- [x] Verification attempts are rate-limited. (Per client, per account, 5 per challenge, account lock after 10 consecutive failures escalating to 24 h.)
+- [x] Time-window handling is intentionally bounded. (±1 step of 30 s; each step accepted once per account — replay protection.)
+- [x] Recovery codes are high entropy. (10 × 80 bits.)
+- [x] Recovery codes are stored hashed. (SHA-256 per code.)
+- [x] Recovery code use is one-time and atomic. (Conditional update; concurrency tested.)
+- [ ] MFA enable/disable/reset is audited. (Enable/disable/use/regenerate/lock: yes. Admin reset arrives with 2.5.)
+- [x] Enabling TOTP and regenerating recovery codes require recent re-authentication. (Current password in the same request.)
+- [x] Disabling TOTP requires re-authentication plus a valid OTP or recovery code.
+- [x] For a TOTP-enabled account, a password-authenticated session that has not passed the TOTP challenge cannot access authenticated app resources. (No session exists before the challenge; only a challenge cookie scoped to `/api/auth/mfa`.)
+- [x] The session is rotated after a successful TOTP challenge. (The full session is created only then; enabling/disabling TOTP revokes all sessions of the user.)
+- [x] No "remember this device" / trusted-device bypass.
 
 ### Future external login: Apple / GitHub (planned), Microsoft (possible)
 - [ ] Internal User UUID remains primary identity.
@@ -71,7 +72,7 @@ This file is normative and must evolve with the application.
 - [x] Session cookie is `HttpOnly`.
 - [x] `SameSite` policy is intentional and documented. (`Strict`: the SPA only needs the cookie on same-site `fetch` calls; cross-site navigations such as email links load the public shell first.)
 - [x] Cookie Domain/Path are no broader than necessary. (No `Domain`, `Path=/`.)
-- [ ] Session rotates after login and security-sensitive privilege changes. (Login: yes. Privilege changes (server-admin grant/removal, TOTP) must revoke/rotate when those flows exist.)
+- [ ] Session rotates after login and security-sensitive privilege changes. (Login and TOTP enable/disable: yes — all sessions of the user are replaced. Server-admin grant/removal and password change must do the same when those flows exist.)
 - [x] Logout invalidates server-side session.
 - [x] Idle/absolute expiration policies are documented. (Idle 7 days, refreshed at most daily; absolute 30 days, enforced per request — `SESSION_POLICY` in `packages/auth`.)
 - [x] CSRF protection covers state-changing cookie-authenticated operations. (Every non-GET/HEAD/OPTIONS request needs `Origin` = `PUBLIC_ORIGIN`, missing `Origin` rejected; JSON-only bodies; `SameSite=Strict`.)
@@ -218,10 +219,11 @@ Never commit or log:
 
 Checks:
 - [x] `.gitignore` covers common local secret files.
+- [x] `DATA_ENCRYPTION_KEY` (encryption at rest) is separate from `AUTH_SECRET` (cookie signing), wrapped in `Secret`, required in production, rejected if equal to `AUTH_SECRET`.
 - [x] Safe `.env.example` contains placeholders only.
 - [x] Structured logging has redaction.
 - [x] Request logging avoids sensitive URL/path token leakage. (Knot paths + query strings redacted; add each new token route to the pattern in `apps/server/src/logging.ts`.)
-- [ ] Exceptions do not serialize credential-bearing objects. (Config secrets use the `Secret` wrapper; the HTTP error handler logs only error type + stack frames because messages can embed query parameters; Better Auth log calls are reduced to their message string. Extend to every new credential type.)
+- [ ] Exceptions do not serialize credential-bearing objects. (MFA use-case errors carry no codes or secrets.) (Config secrets use the `Secret` wrapper; the HTTP error handler logs only error type + stack frames because messages can embed query parameters; Better Auth log calls are reduced to their message string. Extend to every new credential type.)
 - [x] Production debug mode is disabled. (`LOG_LEVEL` debug/trace rejected in production.)
 - [x] Secret rotation process can be documented. (`AUTH_SECRET`: see deployment.md — rotation signs everyone out.)
 - [x] Configuration is validated at startup and fails closed; production has no default for any secret, origin or DB path.
@@ -311,7 +313,7 @@ The following choices are mandatory V1 behavior:
 - public registration is disabled;
 - account creation begins with an ADMIN-created invitation to a required email address;
 - invitation acceptance must prove/use that invited email;
-- TOTP is optional and user-activated, but built in from V1 (not mandatory for now);
+- TOTP is optional and user-activated, but built in from V1 (not mandatory for now); the pre-MFA state holds no session at all (challenge token only);
 - an account with TOTP enabled receives no normal application/Workspace access until the TOTP challenge succeeds;
 - whether TOTP is required is decided by a central server-side policy, so mandatory enforcement can be introduced later without redesign;
 - password recovery is admin-assisted only in V1;
@@ -341,6 +343,9 @@ The following choices are mandatory V1 behavior:
 **Logging review:** seed, OTP and recovery codes never logged.  
 **Authorization review:** MFA gate must be server-side and centralized.  
 **Open risks:** accounts that have not enabled TOTP (including ADMIN accounts) are protected by password only — consider an enforcement policy for ADMIN later; future OAuth/OIDC login paths require explicit policy because provider flows may not automatically pass through credential 2FA hooks.  
+**Status (2026-09-26):** implemented (steps.md 2.4), except admin reset (2.5).  
+**Implemented controls:** own use-cases on reviewed primitives (Better Auth `twoFactor` plugin rejected: no replay protection, reversible non-atomic backup codes, password-only disable, trust-device feature); no session before the challenge — the password step yields only a 256-bit challenge token (hash at rest, 5 min, 5 attempts, single use, cookie `HttpOnly`/`Secure`/`Strict`, `Path=/api/auth/mfa`); full session issued by Better Auth only after a valid factor; replay protection via last accepted time step; account lock after 10 consecutive wrong codes (15 min doubling to 24 h) with recovery codes still usable; per-client and per-account rate limits; seed encrypted (AES-256-GCM, HKDF from `DATA_ENCRYPTION_KEY`, user id as AAD); 80-bit recovery codes hashed, atomic single use; password for enable/regenerate, password + factor for disable; all sessions replaced on enable/disable; security events for every step.  
+**Negative tests (implemented):** `packages/database/src/mfa-use-cases.test.ts`, `apps/server/src/http/mfa.test.ts` — challenge cookie (also disguised as session cookie) rejected by session, account and admin routes; client `mfaVerified` flag rejected; forged/missing/expired/exhausted/used challenge; replay; disable without factor; enable without password; used recovery code; concurrent recovery-code use; disabled user after password step; no secrets in logs. SSE/Knot routes do not exist yet — their tests must include the challenge-only case.  
 **Reviewed:** 2026-09-26
 
 ### Security check: admin-assisted recovery
@@ -410,4 +415,14 @@ The following choices are mandatory V1 behavior:
 **Logging review:** request logs contain method, redacted URL, status; failed sign-ins log an event marker without email; Better Auth messages are forwarded without structured arguments ("User not found", "Invalid password"); unexpected errors logged as type + stack frames only. Verified by capturing all log output in the HTTP test suite.  
 **Authorization review:** session → ACTIVE User resolution is centralized in `authenticate()`/`requireUser` (`apps/server/src/http/session.ts`), which is also the seam for the 2.4 TOTP gate; admin capabilities are checked in the use-cases.  
 **Open risks:** behind a reverse proxy, until `trustProxy` is configured (10.3), all clients share one address and per-client limits become global (DoS of sign-in by one attacker) — configure before production use behind a proxy; per-account limit lets an attacker temporarily block a known account's sign-in (bounded to 15 min windows); session tokens are stored unhashed (a DB leak plus `AUTH_SECRET` allows session forgery — protect both; rotate `AUTH_SECRET` after suspected compromise); no breached-password blocklist; in-memory rate-limit state resets on restart; password change and privilege-change session rotation not yet implemented; `BETTER_AUTH_TELEMETRY` env var would override the explicit telemetry opt-out — do not set it.  
+**Reviewed:** 2026-09-26
+
+### Security check: encryption at rest for TOTP secrets (Step 2.4)
+**Threat surface:** database or backup theft yielding usable authenticator seeds; ciphertext swapped between users; key reuse across purposes; key loss.  
+**Controls added:** `DATA_ENCRYPTION_KEY` (≥32 chars, production-required, distinct from `AUTH_SECRET`); HKDF-SHA256 with a purpose label derives the AES-256-GCM key; random 96-bit IV per seal; `totp-secret:<userId>` as associated data; versioned format `v1.<iv>.<ciphertext>.<tag>`; any failure to open is treated as a wrong code (no oracle); DB CHECK on the format.  
+**Negative tests:** `packages/auth/src/secret-box.test.ts` (wrong context, wrong key, tampered IV/ciphertext/tag, malformed input); config tests (missing, short, placeholder, equal to `AUTH_SECRET`).  
+**Secrets/data involved:** `DATA_ENCRYPTION_KEY`, TOTP seeds.  
+**Logging review:** neither key nor seeds are logged; `Secret` wrapper redacts the key.  
+**Authorization review:** only the MFA use-cases open sealed secrets, for the owning user.  
+**Open risks:** key and database together (same host) defeat the encryption — it protects stolen DB files/backups, not a compromised server; losing or changing the key disables every enrolled authenticator (users fall back to recovery codes / admin reset in 2.5); no rotation tool yet; development without a configured key uses a per-process key.  
 **Reviewed:** 2026-09-26

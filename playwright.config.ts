@@ -9,6 +9,7 @@ const port = 3100;
 // inherit the runner's environment and re-evaluate this file) see the same values.
 const databasePath = (process.env.VMN_E2E_DATABASE_PATH ??= join(tmpdir(), `vergissmeinnicht-e2e-${process.pid}.sqlite`));
 const authSecret = (process.env.VMN_E2E_AUTH_SECRET ??= randomBytes(32).toString('base64url'));
+const dataKey = (process.env.VMN_E2E_DATA_ENCRYPTION_KEY ??= randomBytes(32).toString('base64url'));
 
 /** Environment of the e2e server; tests use it to run the admin bootstrap CLI against the same DB. */
 export const serverEnv = {
@@ -18,6 +19,7 @@ export const serverEnv = {
   PUBLIC_ORIGIN: `http://127.0.0.1:${port}`,
   DATABASE_PATH: databasePath,
   AUTH_SECRET: authSecret,
+  DATA_ENCRYPTION_KEY: dataKey,
   SMTP_HOST: '127.0.0.1',
   SMTP_SECURITY: 'none',
   MAIL_FROM_ADDRESS: 'noreply@vergissmeinnicht.test',

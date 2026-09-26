@@ -122,6 +122,73 @@ export const verifications = sqliteTable(
   (table) => [index('verifications_identifier_idx').on(table.identifier)],
 );
 
+/**
+ * TOTP credentials, one per user. `secret` is sealed with AES-256-GCM (key from
+ * DATA_ENCRYPTION_KEY, bound to the user id). `enabled_at IS NULL` = unconfirmed enrollment.
+ */
+export const totpCredentials = sqliteTable(
+  'totp_credentials',
+  {
+    userId: text('user_id')
+      .primaryKey()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    sealedSecret: text('sealed_secret').notNull(),
+    createdAt: integer('created_at', { mode: 'timestamp_ms' }).notNull(),
+    enabledAt: integer('enabled_at', { mode: 'timestamp_ms' }),
+    /** Replay protection: highest accepted RFC 6238 time step. */
+    lastUsedStep: integer('last_used_step').notNull().default(-1),
+    consecutiveFailures: integer('consecutive_failures').notNull().default(0),
+    lockedUntil: integer('locked_until', { mode: 'timestamp_ms' }),
+  },
+  (table) => [
+    check('totp_credentials_sealed_format', sql`${table.sealedSecret} like 'v1.%'`),
+    check('totp_credentials_failures_non_negative', sql`${table.consecutiveFailures} >= 0`),
+  ],
+);
+
+/** Single-use recovery codes; only SHA-256 hashes of the 80-bit codes are stored. */
+export const recoveryCodes = sqliteTable(
+  'recovery_codes',
+  {
+    id: text('id').primaryKey(),
+    userId: text('user_id')
+      .notNull()
+      .references(() => totpCredentials.userId, { onDelete: 'cascade' }),
+    codeHash: text('code_hash').notNull().unique(),
+    createdAt: integer('created_at', { mode: 'timestamp_ms' }).notNull(),
+    usedAt: integer('used_at', { mode: 'timestamp_ms' }),
+  },
+  (table) => [
+    index('recovery_codes_user_id_idx').on(table.userId),
+    check('recovery_codes_hash_format', sql`length(${table.codeHash}) = 64`),
+  ],
+);
+
+/**
+ * Pending sign-ins of TOTP-enabled accounts (password verified, second factor outstanding).
+ * The client holds the raw token in a cookie; only its SHA-256 hash is stored. No session exists
+ * until the challenge is completed.
+ */
+export const mfaChallenges = sqliteTable(
+  'mfa_challenges',
+  {
+    id: text('id').primaryKey(),
+    tokenHash: text('token_hash').notNull().unique(),
+    userId: text('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    createdAt: integer('created_at', { mode: 'timestamp_ms' }).notNull(),
+    expiresAt: integer('expires_at', { mode: 'timestamp_ms' }).notNull(),
+    attempts: integer('attempts').notNull().default(0),
+    consumedAt: integer('consumed_at', { mode: 'timestamp_ms' }),
+  },
+  (table) => [
+    index('mfa_challenges_user_id_idx').on(table.userId),
+    check('mfa_challenges_token_hash_format', sql`length(${table.tokenHash}) = 64`),
+    check('mfa_challenges_expiry_after_creation', sql`${table.expiresAt} > ${table.createdAt}`),
+  ],
+);
+
 /** Invitations. Only a SHA-256 hash of the link token is stored. */
 export const invitations = sqliteTable(
   'invitations',

@@ -1,10 +1,11 @@
 import { execFileSync } from 'node:child_process';
 import { expect, test } from '@playwright/test';
+import { TOTP } from 'otpauth';
 import { serverEnv } from '../playwright.config.ts';
 
 const PASSWORD = 'an e2e passphrase that is long';
 
-test('first server admin: CLI bootstrap link, account creation, sign-in and sign-out', async ({ page }, testInfo) => {
+test('first server admin: bootstrap link, account creation, sign-in, TOTP enrollment and TOTP sign-in', async ({ page }, testInfo) => {
   // Bootstrap works exactly once per server; the flow runs on one project only.
   test.skip(testInfo.project.name !== 'desktop-chromium', 'bootstrap is single-use per server');
 
@@ -43,6 +44,33 @@ test('first server admin: CLI bootstrap link, account creation, sign-in and sign
   expect(session).toMatchObject({ httpOnly: true, secure: true, sameSite: 'Strict' });
 
   await page.reload();
+  await expect(page.getByRole('heading', { name: 'Welcome, Ada Admin' })).toBeVisible();
+
+  // Enable TOTP: password, QR code + key, confirmation code, recovery codes.
+  await page.getByRole('button', { name: 'Enable two-factor authentication' }).click();
+  await page.getByLabel('Current password').fill(PASSWORD);
+  await page.getByRole('button', { name: 'Continue' }).click();
+  await expect(page.getByRole('img', { name: 'QR code for your authenticator app' })).toBeVisible();
+  const key = ((await page.locator('code').first().textContent()) ?? '').replaceAll(' ', '');
+  const totp = new TOTP({ secret: key });
+  await page.getByLabel('Code from your authenticator app').fill(totp.generate());
+  await page.getByRole('button', { name: 'Enable', exact: true }).click();
+  await expect(page.getByRole('list', { name: 'Recovery codes' }).getByRole('listitem')).toHaveCount(10);
+  await page.getByRole('button', { name: 'I have saved my recovery codes' }).click();
+  await expect(page.getByText('Status: Enabled')).toBeVisible();
+
+  await page.getByRole('button', { name: 'Sign out' }).click();
+  await expect(page.getByRole('heading', { name: 'Sign in' })).toBeVisible();
+
+  // Sign-in now needs the second factor; the enrollment code's time step is used up, so use the next one.
+  await page.getByLabel('Email').fill('admin@example.org');
+  await page.getByLabel('Password').fill(PASSWORD);
+  await page.getByRole('button', { name: 'Sign in' }).click();
+  await expect(page.getByRole('heading', { name: 'Two-factor authentication' })).toBeVisible();
+  const cookiesBeforeCode = await page.context().cookies();
+  expect(cookiesBeforeCode.some((cookie) => cookie.name.endsWith('vmn.session_token'))).toBe(false);
+  await page.getByLabel('Code from your authenticator app').fill(totp.generate({ timestamp: Date.now() + 30_000 }));
+  await page.getByRole('button', { name: 'Verify' }).click();
   await expect(page.getByRole('heading', { name: 'Welcome, Ada Admin' })).toBeVisible();
 
   await page.getByRole('button', { name: 'Sign out' }).click();

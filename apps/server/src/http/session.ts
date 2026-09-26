@@ -84,3 +84,63 @@ export function requireUser(services: AppServices) {
     request.principal = principal;
   };
 }
+
+/** Creates a full session (cookie set by Better Auth) for a user whose authentication is complete. */
+export async function issueSession(
+  services: AppServices,
+  request: FastifyRequest,
+  reply: FastifyReply,
+  userId: string,
+): Promise<string> {
+  const response = await services.auth.api.issueSession({
+    body: { userId },
+    headers: authHeaders(request),
+    asResponse: true,
+  });
+  if (!response.ok) throw new Error('Session could not be issued');
+  forwardCookies(response.headers, reply);
+  return ((await response.json()) as { sessionId: string }).sessionId;
+}
+
+/**
+ * After a security-sensitive account change (TOTP enabled/disabled): every existing session of
+ * the user — possibly including one an attacker opened before the change — is revoked, and the
+ * current client gets a fresh session.
+ */
+export async function replaceAllSessions(
+  services: AppServices,
+  request: FastifyRequest,
+  reply: FastifyReply,
+  userId: string,
+): Promise<void> {
+  await (await services.auth.$context).internalAdapter.deleteUserSessions(userId);
+  await issueSession(services, request, reply, userId);
+}
+
+const CHALLENGE_COOKIE = 'vmn.mfa_challenge';
+/** The challenge cookie is only ever sent to the endpoint that completes it. */
+export const MFA_CHALLENGE_PATH = '/api/auth/mfa';
+
+function challengeCookieName(services: AppServices): string {
+  return services.secureCookies ? `__Secure-${CHALLENGE_COOKIE}` : CHALLENGE_COOKIE;
+}
+
+export function setChallengeCookie(services: AppServices, reply: FastifyReply, token: string, maxAgeSeconds: number) {
+  const attributes = [`Path=${MFA_CHALLENGE_PATH}`, `Max-Age=${maxAgeSeconds}`, 'HttpOnly', 'SameSite=Strict'];
+  if (services.secureCookies) attributes.push('Secure');
+  reply.header('set-cookie', [[`${challengeCookieName(services)}=${token}`, ...attributes].join('; ')]);
+}
+
+export function clearChallengeCookie(services: AppServices, reply: FastifyReply) {
+  setChallengeCookie(services, reply, '', 0);
+}
+
+/** Raw cookie value or undefined; the token format is validated by the token service. */
+export function readChallengeCookie(services: AppServices, request: FastifyRequest): string | undefined {
+  const name = `${challengeCookieName(services)}=`;
+  const entry = request.headers.cookie
+    ?.split(';')
+    .map((part) => part.trim())
+    .find((part) => part.startsWith(name));
+  return entry?.slice(name.length);
+}

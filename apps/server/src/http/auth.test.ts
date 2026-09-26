@@ -34,6 +34,7 @@ describe('authentication and invitation HTTP API', () => {
     PUBLIC_ORIGIN: ORIGIN,
     DATABASE_PATH: '/unused/by/tests.sqlite',
     AUTH_SECRET: randomBytes(32).toString('base64url'),
+    DATA_ENCRYPTION_KEY: randomBytes(32).toString('base64url'),
     SMTP_HOST: '127.0.0.1',
     MAIL_FROM_ADDRESS: 'noreply@example.org',
     LOG_LEVEL: 'info',
@@ -223,7 +224,7 @@ describe('authentication and invitation HTTP API', () => {
         .get() as { actor_label: string; metadata: string };
       const sessionId = (database.sqlite.prepare('SELECT id FROM sessions').get() as { id: string }).id;
       expect(event.actor_label).toBe('Ada Admin');
-      expect(JSON.parse(event.metadata)).toEqual({ sessionId });
+      expect(JSON.parse(event.metadata)).toEqual({ sessionId, method: 'password' });
     });
 
     it('rotates the session: an existing session is revoked by a new login', async () => {

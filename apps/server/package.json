@@ -22,6 +22,7 @@
     "zod": "4.6.5"
   },
   "devDependencies": {
-    "@types/node": "24.13.6"
+    "@types/node": "24.13.6",
+    "otpauth": "9.5.2"
   }
 }

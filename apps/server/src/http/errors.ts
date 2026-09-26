@@ -1,8 +1,15 @@
 import {
   AccountAlreadyExistsError,
   InvalidInvitationError,
+  InvalidMfaCodeError,
   InvitationNotRevocableError,
+  MfaChallengeInvalidError,
+  NoPendingEnrollmentError,
   NotAuthorizedError,
+  ReauthenticationFailedError,
+  TotpAlreadyEnabledError,
+  TotpLockedError,
+  TotpNotEnabledError,
 } from '@vergissmeinnicht/application';
 import { DomainValidationError } from '@vergissmeinnicht/domain';
 import type { FastifyError, FastifyReply, FastifyRequest } from 'fastify';
@@ -28,6 +35,13 @@ export function errorHandler(error: FastifyError | Error, request: FastifyReques
   if (error instanceof InvalidInvitationError) return reply.code(404).send({ error: 'invalid_invitation' });
   if (error instanceof InvitationNotRevocableError) return reply.code(409).send({ error: 'invitation_not_pending' });
   if (error instanceof AccountAlreadyExistsError) return reply.code(409).send({ error: 'account_exists' });
+  if (error instanceof ReauthenticationFailedError) return reply.code(403).send({ error: 'reauthentication_failed' });
+  if (error instanceof InvalidMfaCodeError) return reply.code(400).send({ error: 'invalid_code' });
+  if (error instanceof MfaChallengeInvalidError) return reply.code(401).send({ error: 'mfa_challenge_invalid' });
+  if (error instanceof TotpLockedError) return reply.code(429).send({ error: 'mfa_locked' });
+  if (error instanceof TotpAlreadyEnabledError) return reply.code(409).send({ error: 'totp_already_enabled' });
+  if (error instanceof TotpNotEnabledError) return reply.code(409).send({ error: 'totp_not_enabled' });
+  if (error instanceof NoPendingEnrollmentError) return reply.code(409).send({ error: 'no_pending_enrollment' });
 
   const statusCode = 'statusCode' in error && typeof error.statusCode === 'number' ? error.statusCode : 500;
   if (statusCode === 429) return reply.code(429).send({ error: 'rate_limited' });

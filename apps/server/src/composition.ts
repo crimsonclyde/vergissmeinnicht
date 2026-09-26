@@ -1,9 +1,19 @@
-import { systemClock, type InvitationDeps, type UserRepository } from '@vergissmeinnicht/application';
-import { createAuth, invitationTokens, passwordHasher, type Auth } from '@vergissmeinnicht/auth';
+import { systemClock, type InvitationDeps, type MfaDeps, type UserRepository } from '@vergissmeinnicht/application';
+import {
+  createAuth,
+  createSecretBox,
+  invitationTokens,
+  passwordHasher,
+  recoveryCodes,
+  totpAlgorithm,
+  type Auth,
+} from '@vergissmeinnicht/auth';
 import {
   accounts,
   createInvitationRepository,
+  createMfaChallengeRepository,
   createSecurityEventLog,
+  createTotpRepository,
   createUserRepository,
   sessions,
   users,
@@ -22,7 +32,10 @@ export interface AppServices {
   readonly auth: Auth;
   readonly users: UserRepository;
   readonly invitations: InvitationDeps;
+  readonly mfa: MfaDeps;
   readonly securityEvents: SecurityEventLog;
+  /** `Secure` + `__Secure-` cookies (production). */
+  readonly secureCookies: boolean;
 }
 
 /** Composition root: wires infrastructure adapters into application use-case dependencies. */
@@ -53,26 +66,29 @@ export function createServices(config: AppConfig, database: AppDatabase) {
         const user = await userRepository.findById(userId as UserId);
         return user !== undefined && canAuthenticate(user);
       },
-      onSessionCreated: async (session) => {
-        const user = await userRepository.findById(session.userId as UserId);
-        if (user === undefined) throw new Error('Session created for an unknown user');
-        securityEvents.record({
-          type: 'LOGIN_SUCCEEDED',
-          actor: { kind: 'user', userId: user.id, displayName: user.displayName },
-          subjectType: 'user',
-          subjectId: user.id,
-          occurredAt: session.createdAt,
-          metadata: { sessionId: session.id },
-        });
-      },
       log: (level, message) => log[level]({ component: 'better-auth' }, message),
     });
+    const mfa: MfaDeps = {
+      users: userRepository,
+      totp: createTotpRepository(database),
+      challenges: createMfaChallengeRepository(database),
+      secretBox: createSecretBox(config.dataEncryptionKey.reveal()),
+      algorithm: totpAlgorithm,
+      recoveryCodes,
+      challengeTokens: invitationTokens,
+      passwords: {
+        verify: async (userId, password) => (await auth.api.checkPassword({ body: { userId, password } })).valid,
+      },
+      clock: systemClock,
+    };
     return {
       publicOrigin: config.publicOrigin,
       auth,
       users: userRepository,
       invitations: invitationDeps(config, database),
+      mfa,
       securityEvents,
+      secureCookies: config.mode === 'production',
     };
   };
 }

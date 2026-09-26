@@ -1,9 +1,42 @@
-import { normalizeEmail, type NormalizedEmail, type UserId } from '@vergissmeinnicht/domain';
+import {
+  MfaChallengeInvalidError,
+  beginMfaChallenge,
+  completeMfaChallenge,
+  requiresSecondFactor,
+  type SecondFactorMethod,
+} from '@vergissmeinnicht/application';
+import { MFA_CHALLENGE_TTL_MS, normalizeEmail, type NormalizedEmail, type User, type UserId } from '@vergissmeinnicht/domain';
 import type { FastifyInstance, FastifyReply } from 'fastify';
 import { z } from 'zod';
 import type { AppServices } from '../composition.ts';
 import { InvalidRequestError } from './errors.ts';
-import { authHeaders, authenticate, endSession, forwardCookies, publicUser } from './session.ts';
+import {
+  authHeaders,
+  authenticate,
+  clearChallengeCookie,
+  endSession,
+  forwardCookies,
+  issueSession,
+  publicUser,
+  readChallengeCookie,
+  setChallengeCookie,
+} from './session.ts';
+
+const mfaBody = z.union([
+  z.strictObject({ code: z.string().max(32) }),
+  z.strictObject({ recoveryCode: z.string().max(64) }),
+]);
+
+function recordLogin(services: AppServices, user: User, sessionId: string, method: 'password' | SecondFactorMethod) {
+  services.securityEvents.record({
+    type: 'LOGIN_SUCCEEDED',
+    actor: { kind: 'user', userId: user.id, displayName: user.displayName },
+    subjectType: 'user',
+    subjectId: user.id,
+    occurredAt: new Date(),
+    metadata: { sessionId, method },
+  });
+}
 
 const signInBody = z.strictObject({
   email: z.string().max(320),
@@ -96,16 +129,53 @@ export async function authRoutes(app: FastifyInstance, { services }: { services:
         return invalidCredentials(reply);
       }
 
+      const internal = (await auth.$context).internalAdapter;
       // Session rotation: a session that existed before this login never survives it.
-      if (previous !== null) {
-        await (await auth.$context).internalAdapter.deleteSession(previous.session.token);
-      }
-      forwardCookies(response.headers, reply);
-      const body = (await response.json()) as { user: { id: string } };
+      if (previous !== null) await internal.deleteSession(previous.session.token);
+      // The session token Better Auth returns in the body is never passed on to the client.
+      const body = (await response.json()) as { token: string; user: { id: string } };
       const user = await services.users.findById(body.user.id as UserId);
       if (user === undefined) throw new Error('Signed-in user not found');
-      // The session token Better Auth returns in the body is deliberately not passed on.
+
+      if (await requiresSecondFactor(services.mfa, user)) {
+        // Password correct, TOTP outstanding: the session Better Auth just created is deleted
+        // before its cookie ever leaves the server. The client only gets a challenge token that
+        // is valid for POST /api/auth/mfa and nothing else.
+        await internal.deleteSession(body.token);
+        const token = await beginMfaChallenge(services.mfa, user);
+        setChallengeCookie(services, reply, token, MFA_CHALLENGE_TTL_MS / 1000);
+        return { mfaRequired: true };
+      }
+
+      const session = await internal.findSession(body.token);
+      if (session === null) throw new Error('Session missing after sign-in');
+      // Recorded before the cookie is sent: if this fails, the client never receives the session.
+      recordLogin(services, user, session.session.id, 'password');
+      forwardCookies(response.headers, reply);
       return { user: publicUser(user) };
+    },
+  );
+
+  app.post(
+    '/mfa',
+    { bodyLimit: 1024, config: { rateLimit: { max: 10, timeWindow: MINUTE_MS } } },
+    async (request, reply) => {
+      const parsed = mfaBody.safeParse(request.body);
+      if (!parsed.success) throw new InvalidRequestError();
+      const factor = 'code' in parsed.data ? { code: parsed.data.code } : { recoveryCode: parsed.data.recoveryCode };
+      try {
+        const { user, method } = await completeMfaChallenge(services.mfa, {
+          token: readChallengeCookie(services, request) ?? '',
+          factor,
+        });
+        clearChallengeCookie(services, reply);
+        const sessionId = await issueSession(services, request, reply, user.id);
+        recordLogin(services, user, sessionId, method);
+        return { user: publicUser(user) };
+      } catch (error) {
+        if (error instanceof MfaChallengeInvalidError) clearChallengeCookie(services, reply);
+        throw error;
+      }
     },
   );
 
