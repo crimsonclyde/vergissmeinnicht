@@ -11,6 +11,10 @@
     "typecheck": "tsc -p ."
   },
   "dependencies": {
+    "@vergissmeinnicht/application": "workspace:*",
     "@vergissmeinnicht/domain": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/node": "24.13.6"
   }
 }

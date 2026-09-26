@@ -13,6 +13,7 @@ const alice = {
   displayName: 'Alice',
   emailVerified: true,
   status: 'ACTIVE' as const,
+  serverAdmin: false,
 };
 
 describe('user repository', () => {

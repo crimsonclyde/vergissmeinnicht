@@ -1,7 +1,7 @@
 import type { FastifyRequest, FastifyServerOptions } from 'fastify';
 
 /** URL path segments that carry bearer-like tokens. Extend when new token routes are added. */
-const TOKEN_PATH_PATTERN = /^(\/(?:api\/)?knot\/)[^/?#]+/;
+const TOKEN_PATH_PATTERN = /^(\/(?:api\/)?(?:knot|invite|invitations)\/)[^/?#]+/;
 
 /**
  * Strips tokens from request paths and replaces any query string before a URL reaches the logs.

@@ -202,9 +202,21 @@ importers:
       '@fastify/static':
         specifier: 10.1.4
         version: 10.1.4
+      '@vergissmeinnicht/application':
+        specifier: workspace:*
+        version: link:../../packages/application
+      '@vergissmeinnicht/auth':
+        specifier: workspace:*
+        version: link:../../packages/auth
+      '@vergissmeinnicht/database':
+        specifier: workspace:*
+        version: link:../../packages/database
       '@vergissmeinnicht/domain':
         specifier: workspace:*
         version: link:../../packages/domain
+      '@vergissmeinnicht/email':
+        specifier: workspace:*
+        version: link:../../packages/email
       fastify:
         specifier: 5.12.5
         version: 5.12.5
@@ -249,9 +261,16 @@ importers:
 
   packages/auth:
     dependencies:
+      '@vergissmeinnicht/application':
+        specifier: workspace:*
+        version: link:../application
       '@vergissmeinnicht/domain':
         specifier: workspace:*
         version: link:../domain
+    devDependencies:
+      '@types/node':
+        specifier: 24.13.6
+        version: 24.13.6
 
   packages/database:
     dependencies:
@@ -274,6 +293,9 @@ importers:
       '@types/node':
         specifier: 24.13.6
         version: 24.13.6
+      '@vergissmeinnicht/auth':
+        specifier: workspace:*
+        version: link:../auth
       drizzle-kit:
         specifier: 0.31.11
         version: 0.31.11

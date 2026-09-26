@@ -16,7 +16,8 @@
     "lint": "eslint .",
     "typecheck": "tsc -p . && pnpm -r --parallel typecheck",
     "db:generate": "pnpm --filter @vergissmeinnicht/database db:generate",
-    "db:migrate": "pnpm --filter @vergissmeinnicht/database db:migrate"
+    "db:migrate": "pnpm --filter @vergissmeinnicht/database db:migrate",
+    "admin:bootstrap": "NODE_ENV=development node --env-file-if-exists=.env apps/server/src/cli/admin-bootstrap.ts"
   },
   "devDependencies": {
     "@eslint/js": "10.0.1",

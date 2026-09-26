@@ -12,7 +12,11 @@
   "dependencies": {
     "@fastify/helmet": "13.1.1",
     "@fastify/static": "10.1.4",
+    "@vergissmeinnicht/application": "workspace:*",
+    "@vergissmeinnicht/auth": "workspace:*",
+    "@vergissmeinnicht/database": "workspace:*",
     "@vergissmeinnicht/domain": "workspace:*",
+    "@vergissmeinnicht/email": "workspace:*",
     "fastify": "5.12.5",
     "zod": "4.6.5"
   },

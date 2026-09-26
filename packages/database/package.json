@@ -21,6 +21,7 @@
   "devDependencies": {
     "@types/better-sqlite3": "9.6.0",
     "@types/node": "24.13.6",
+    "@vergissmeinnicht/auth": "workspace:*",
     "drizzle-kit": "0.31.11"
   }
 }

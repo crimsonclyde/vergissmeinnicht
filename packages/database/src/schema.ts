@@ -3,7 +3,7 @@
 // Auth-related tables follow Better Auth's core schema: Drizzle *property* names are the
 // Better Auth field names (e.g. `name`, `emailVerified`), while *column* names are snake_case.
 import { sql } from 'drizzle-orm';
-import { check, integer, sqliteTable, text } from 'drizzle-orm/sqlite-core';
+import { check, index, integer, sqliteTable, text } from 'drizzle-orm/sqlite-core';
 import { USER_STATUSES } from '@vergissmeinnicht/domain';
 
 const timestampMs = (column: string) =>
@@ -27,6 +27,8 @@ export const users = sqliteTable(
     /** Better Auth core field. Not rendered anywhere until a reviewed use exists (see security.md §5). */
     image: text('image'),
     status: text('status', { enum: USER_STATUSES }).notNull().default('ACTIVE'),
+    /** Server-wide admin flag (application-owned; must be `input: false` in Better Auth). */
+    serverAdmin: integer('server_admin', { mode: 'boolean' }).notNull().default(false),
     createdAt: timestampMs('created_at'),
     updatedAt: timestampMs('updated_at'),
   },
@@ -39,5 +41,58 @@ export const users = sqliteTable(
       'users_status_valid',
       sql.raw(`status in (${USER_STATUSES.map((status) => `'${status}'`).join(', ')})`),
     ),
+  ],
+);
+
+/** Invitations. Only a SHA-256 hash of the link token is stored. */
+export const invitations = sqliteTable(
+  'invitations',
+  {
+    id: text('id').primaryKey(),
+    email: text('email').notNull(),
+    tokenHash: text('token_hash').notNull().unique(),
+    grantsServerAdmin: integer('grants_server_admin', { mode: 'boolean' }).notNull().default(false),
+    /** NULL = issued by the CLI bootstrap. */
+    invitedByUserId: text('invited_by_user_id').references(() => users.id),
+    createdAt: integer('created_at', { mode: 'timestamp_ms' }).notNull(),
+    expiresAt: integer('expires_at', { mode: 'timestamp_ms' }).notNull(),
+    acceptedAt: integer('accepted_at', { mode: 'timestamp_ms' }),
+    acceptedUserId: text('accepted_user_id').references(() => users.id),
+    revokedAt: integer('revoked_at', { mode: 'timestamp_ms' }),
+    revokedByUserId: text('revoked_by_user_id').references(() => users.id),
+  },
+  (table) => [
+    index('invitations_email_idx').on(table.email),
+    check('invitations_email_normalized', sql`${table.email} = lower(trim(${table.email}))`),
+    check('invitations_token_hash_format', sql`length(${table.tokenHash}) = 64`),
+    check('invitations_expiry_after_creation', sql`${table.expiresAt} > ${table.createdAt}`),
+    check('invitations_single_outcome', sql`${table.acceptedAt} is null or ${table.revokedAt} is null`),
+    check(
+      'invitations_accepted_user_consistent',
+      sql`(${table.acceptedAt} is null) = (${table.acceptedUserId} is null)`,
+    ),
+  ],
+);
+
+/**
+ * Append-only security event log (UPDATE/DELETE blocked by triggers in migration 0002).
+ * Metadata is JSON and must never contain secrets.
+ */
+export const securityEvents = sqliteTable(
+  'security_events',
+  {
+    id: text('id').primaryKey(),
+    occurredAt: integer('occurred_at', { mode: 'timestamp_ms' }).notNull(),
+    type: text('type').notNull(),
+    actorUserId: text('actor_user_id').references(() => users.id),
+    /** Display-name snapshot for users, or the system channel label (e.g. `cli:admin-bootstrap`). */
+    actorLabel: text('actor_label').notNull(),
+    subjectType: text('subject_type').notNull(),
+    subjectId: text('subject_id').notNull(),
+    metadata: text('metadata', { mode: 'json' }).$type<Record<string, string | number | boolean>>(),
+  },
+  (table) => [
+    index('security_events_subject_idx').on(table.subjectType, table.subjectId),
+    index('security_events_occurred_at_idx').on(table.occurredAt),
   ],
 );

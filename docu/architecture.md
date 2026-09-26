@@ -117,6 +117,16 @@ Credentials and login methods live in Better Auth's `account` table (one row per
 
 Emails are normalized (trimmed, NFC, lower-cased) before storage and lookup; the normalized email is unique.
 
+### Server admins and invitations
+
+`users.server_admin` is a server-wide capability (invitations, recovery, disabling accounts), independent of Workspace roles, and effective only for ACTIVE users. The first server admin is created through a one-time CLI bootstrap invitation.
+
+Invitations store only a SHA-256 hash of a 256-bit token. Use-cases in `packages/application/src/invitations` enforce authorization themselves; HTTP handlers only authenticate and translate.
+
+### Security events
+
+Account-security events (invitations now; logins, MFA, recovery later) go to the append-only `security_events` table, written in the same transaction as the state change. Run/Step history uses the separate Run AuditEvent model (5.5).
+
 ## TOTP security state
 
 TOTP is optional and user-activated in V1. Users enable it from their account security settings (re-authentication required; activation only after a valid OTP).

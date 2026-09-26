@@ -8,6 +8,8 @@ describe('redactUrl', () => {
     ['/knot/abcDEF123', '/knot/[REDACTED]'],
     ['/knot/abcDEF123/details', '/knot/[REDACTED]/details'],
     ['/api/knot/abcDEF123', '/api/knot/[REDACTED]'],
+    ['/invite/abcDEF123', '/invite/[REDACTED]'],
+    ['/api/invitations/abcDEF123', '/api/invitations/[REDACTED]'],
     ['/api/health?token=abc', '/api/health?[REDACTED]'],
     ['/runs/123#frag', '/runs/123?[REDACTED]'],
     ['/api/health', '/api/health'],

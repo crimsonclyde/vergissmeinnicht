@@ -19,6 +19,7 @@ function toUser(row: UserRow): User {
     emailVerified: row.emailVerified,
     displayName: row.name,
     status: row.status,
+    serverAdmin: row.serverAdmin,
     createdAt: row.createdAt,
     updatedAt: row.updatedAt,
   };
@@ -37,6 +38,7 @@ export function createUserRepository({ db }: Pick<AppDatabase, 'db'>): UserRepos
             name: user.displayName,
             emailVerified: user.emailVerified,
             status: user.status,
+            serverAdmin: user.serverAdmin,
             createdAt: now,
             updatedAt: now,
           })
@@ -59,6 +61,10 @@ export function createUserRepository({ db }: Pick<AppDatabase, 'db'>): UserRepos
     async findByEmail(email: NormalizedEmail) {
       const row = db.select().from(users).where(eq(users.email, email)).get();
       return row && toUser(row);
+    },
+
+    async hasServerAdmin() {
+      return db.select({ id: users.id }).from(users).where(eq(users.serverAdmin, true)).limit(1).get() !== undefined;
     },
   };
 }

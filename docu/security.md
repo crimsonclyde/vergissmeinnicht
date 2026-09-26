@@ -157,6 +157,7 @@ Canonical shape:
 - [ ] Store trusted server timestamp.
 - [ ] Required state change + AuditEvent are one DB transaction.
 - [ ] Normal users cannot edit/delete audit history.
+- [x] `security_events` is append-only at the DB level (UPDATE/DELETE triggers abort).
 - [ ] Corrections are additive rather than silent rewrites.
 - [ ] Audit metadata does not contain credentials/secrets.
 - [ ] Procedure deletion cannot cascade-delete historical Runs.
@@ -320,7 +321,9 @@ The following choices are mandatory V1 behavior:
 **Secrets/data involved:** invite token, email address.  
 **Logging review:** invitation token must be redacted.  
 **Authorization review:** only ADMIN capability can issue/revoke invitations.  
-**Open risks:** email delivery channel security is external to the application.
+**Open risks:** email delivery channel security is external to the application.  
+**Status (2026-09-26):** issue/revoke/resolve/bootstrap implemented with tests (see steps.md 2.2); acceptance and HTTP endpoints pending with 2.3.  
+**Implemented controls:** 256-bit CSPRNG token, SHA-256 at rest, `/invite/{token}` path (redacted in logs), TTL (default 72 h, max 720 h), supersede-on-reissue, single-outcome DB constraint, generic resolve error, ACTIVE-server-admin check inside use-cases, token never returned to the inviter, atomic security events, append-only event table, bootstrap refused once an admin exists and limited to one live link.
 
 ### Security check: optional user-activated TOTP
 **Threat surface:** challenge bypass through API routes, SSE, Knot resolution, stale session, alternate login path; enrollment race; attacker with a stolen session enabling TOTP to lock the owner out; attacker disabling TOTP (downgrade); recovery-code brute force.  
@@ -379,4 +382,14 @@ The following choices are mandatory V1 behavior:
 **Logging review:** adapter logs nothing; callers must not log recipients at info level or message bodies at any level.  
 **Authorization review:** no endpoint sends arbitrary email; only application use-cases (invitations) call the port.  
 **Open risks:** mailbox security and transport between mail servers are outside the app; link-scanning mail gateways may fetch invitation URLs (acceptance must require a POST, never act on GET — 2.2); nodemailer has a history of advisories — keep Dependabot/audit gating.  
+**Reviewed:** 2026-09-26
+
+### Security check: server-admin bootstrap CLI (Step 2.2)
+**Threat surface:** creating an admin-granting link outside the app; link exposure in terminals/shell history; repeated bootstrap after setup.  
+**Controls added:** refuses once any server admin exists; supersedes all pending bootstrap links; link written to stdout only (never logged/emailed); requires validated configuration (fails closed in production); security event attributed to `cli:admin-bootstrap`.  
+**Negative tests:** bootstrap refused with existing admin; second bootstrap invalidates first link (`packages/database/src/invitation-use-cases.test.ts`).  
+**Secrets/data involved:** invitation token (in printed link).  
+**Logging review:** no logger in the CLI; token only in stdout.  
+**Authorization review:** requires shell access with the production environment — equivalent to full server control already.  
+**Open risks:** terminal scrollback/recording; acceptance (2.3) must additionally reject bootstrap invitations once an admin exists.  
 **Reviewed:** 2026-09-26

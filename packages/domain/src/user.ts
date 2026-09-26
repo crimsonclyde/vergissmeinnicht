@@ -18,6 +18,8 @@ export interface User {
   readonly emailVerified: boolean;
   readonly displayName: string;
   readonly status: UserStatus;
+  /** Server-wide administration (invitations, recovery, disabling accounts). Independent of Workspace roles. */
+  readonly serverAdmin: boolean;
   readonly createdAt: Date;
   readonly updatedAt: Date;
 }
@@ -79,4 +81,9 @@ export function normalizeDisplayName(input: string): string {
 /** Only ACTIVE users may authenticate or act; DISABLED users keep their history but lose access. */
 export function canAuthenticate(user: Pick<User, 'status'>): boolean {
   return user.status === 'ACTIVE';
+}
+
+/** Server-admin capabilities require an ACTIVE account; a disabled admin has no administrative power. */
+export function isActiveServerAdmin(user: Pick<User, 'status' | 'serverAdmin'>): boolean {
+  return canAuthenticate(user) && user.serverAdmin;
 }

@@ -49,6 +49,16 @@ Inject configuration at runtime. The production server never reads `.env` files 
 
 Rotating `AUTH_SECRET` invalidates existing sessions; a documented rotation procedure follows with authentication (Step 2.x).
 
+## First server admin
+
+After the first deployment and migrations, create the first server admin from a shell with the production environment:
+
+```bash
+NODE_ENV=production node apps/server/src/cli/admin-bootstrap.ts --email admin@example.org
+```
+
+The command prints a single-use invitation link to the terminal (it is not emailed or logged). Treat it like a password. Running it again replaces the previous link. Once a server admin exists, the command refuses to run; further accounts are invited from the application.
+
 ## Backups
 
 Before calling backup support complete, documentation must include:

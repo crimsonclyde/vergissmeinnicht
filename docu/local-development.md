@@ -84,6 +84,7 @@ The development defaults (`SMTP_HOST=127.0.0.1`, `SMTP_PORT=1025`, `SMTP_SECURIT
 | `pnpm typecheck` | `tsc` for every package |
 | `pnpm db:generate` | Generate a migration from `packages/database/src/schema.ts` |
 | `pnpm db:migrate` | Apply committed migrations |
+| `pnpm admin:bootstrap --email you@example.org` | Create the first server-admin invitation and print its link (refused once a server admin exists) |
 
 The server runs TypeScript directly via Node's built-in type stripping; only erasable TypeScript syntax is allowed (`erasableSyntaxOnly`), and relative imports use `.ts` extensions.
 

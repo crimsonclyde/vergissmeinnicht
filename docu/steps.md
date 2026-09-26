@@ -272,7 +272,7 @@ A different physical folder layout is acceptable only if the same boundaries rem
 - Email ownership (`emailVerified`) is established by invite acceptance in 2.2.
 
 ### 2.2 Invite-only account creation
-**Status:** TODO
+**Status:** IN PROGRESS — core, storage and CLI bootstrap done; acceptance + HTTP endpoints with 2.3
 
 **Objective:** No public self-registration. A server admin sends an invitation to a specific email address.
 
@@ -290,6 +290,26 @@ A different physical folder layout is acceptable only if the same boundaries rem
 - no invitation token is logged.
 
 **Security impact:** CRITICAL.
+
+**Implemented so far (2026-09-26):**
+- Domain: `Invitation`, `invitationState()` (PENDING/ACCEPTED/REVOKED/EXPIRED), `serverAdmin` on `User`, `isActiveServerAdmin()` (flag + ACTIVE), security event types and `Actor` (user or named system channel).
+- Tokens (`packages/auth`): 32-byte CSPRNG, base64url; only SHA-256 hex stored; malformed tokens rejected before any lookup.
+- Use-cases (`packages/application/src/invitations`), authorization enforced inside each use-case:
+  - `issueInvitation` — ACTIVE server admin only; refuses if an account exists for the email; supersedes pending invitations for that email; emails the link; token never returned to the caller (inviter cannot accept on the invitee's behalf); delivery failure leaves a pending, revocable invitation and reports `delivery: 'failed'`.
+  - `bootstrapServerAdmin` — only while no server admin exists; admin-granting invitation, link returned for the operator's terminal only, supersedes every pending bootstrap invitation (at most one live bootstrap link).
+  - `revokeInvitation` — ACTIVE server admin only; pending only; once.
+  - `resolvePendingInvitation` — one generic error for malformed/unknown/expired/revoked/accepted.
+- Link format `{PUBLIC_ORIGIN}/invite/{token}` (path, never query). `/invite/…` and `/api/invitations/…` added to log URL redaction.
+- Database: `users.server_admin`; `invitations` table (hash unique, normalized email, CHECKs for expiry/outcome consistency, FKs to users); append-only `security_events` table (UPDATE/DELETE blocked by triggers, migration `0002`). Invitation state change and its security event(s) commit in one transaction.
+- CLI: `pnpm admin:bootstrap --email …` (dev) / `NODE_ENV=production node apps/server/src/cli/admin-bootstrap.ts --email …` (prod). Prints link to stdout only.
+
+**Tests/checks:** 126 tests. New negative tests: non-admin and DISABLED admin cannot issue; non-admin cannot revoke; revoke twice fails; bootstrap refused once an admin exists; account-exists refusal; malformed/unknown/expired/revoked/superseded tokens rejected with the same generic error; raw token absent from DB rows and events; token not in use-case result; security event failure (FK) rolls back invitation + supersede; security events cannot be updated/deleted; duplicate token hash rejected. CLI manually checked (usage/invalid email/extra args exit 1; production without config fails closed).
+
+**Remaining (with 2.3):**
+- acceptance: POST only (link scanners may GET), set password via Better Auth, mark accepted + create User (`emailVerified`, `serverAdmin` from invitation) + `INVITATION_ACCEPTED` atomically, single use under concurrency;
+- bootstrap invitations (no inviter) must only be acceptable while no server admin exists;
+- admin HTTP endpoints for issue/revoke/list (server admin session, CSRF, rate limits);
+- web page `/invite/{token}` with `Referrer-Policy: no-referrer`.
 
 ### 2.3 Local password login
 **Status:** TODO
