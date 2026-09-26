@@ -1,0 +1,22 @@
+{
+  "name": "@vergissmeinnicht/web",
+  "private": true,
+  "license": "AGPL-3.0-only",
+  "description": "React/Vite presentation. Never an authorization boundary; talks to the server only over HTTP/SSE.",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "typecheck": "tsc -p ."
+  },
+  "dependencies": {
+    "react": "19.3.0",
+    "react-dom": "19.3.0"
+  },
+  "devDependencies": {
+    "@types/react": "19.3.0",
+    "@types/react-dom": "19.3.0",
+    "@vitejs/plugin-react": "6.1.1",
+    "vite": "8.3.1"
+  }
+}

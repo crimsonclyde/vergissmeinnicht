@@ -73,14 +73,14 @@ This file is normative and must evolve with the application.
 - [ ] Logout invalidates server-side session.
 - [ ] Idle/absolute expiration policies are documented.
 - [ ] CSRF protection covers state-changing cookie-authenticated operations.
-- [ ] CORS is deny-by-default / narrowly configured.
+- [x] CORS is deny-by-default / narrowly configured. (No CORS plugin registered: same-origin only; any future CORS needs review.)
 - [ ] Sensitive responses are not cached publicly.
 - [ ] Production uses HTTPS.
 - [ ] HSTS enabled when deployment topology makes it safe.
-- [ ] Content-Security-Policy is defined.
-- [ ] Clickjacking prevented via CSP `frame-ancestors`.
-- [ ] `X-Content-Type-Options: nosniff`.
-- [ ] Strict `Referrer-Policy`, especially around Knot URLs.
+- [x] Content-Security-Policy is defined.
+- [x] Clickjacking prevented via CSP `frame-ancestors`.
+- [x] `X-Content-Type-Options: nosniff`.
+- [x] Strict `Referrer-Policy`, especially around Knot URLs. (`no-referrer` header + meta tag; re-verify when Knot routes land.)
 
 ---
 
@@ -175,12 +175,12 @@ Canonical shape:
 
 ## 8. Database and storage
 
-- [ ] SQLite foreign keys enabled.
+- [x] SQLite foreign keys enabled.
 - [ ] Migrations exist from first schema.
 - [ ] Writes requiring audit consistency are transactional.
-- [ ] SQLite file permissions are restrictive.
+- [x] SQLite file permissions are restrictive.
 - [ ] WAL/sidecar files are treated as sensitive data too.
-- [ ] DB files are excluded from Git.
+- [x] DB files are excluded from Git.
 - [ ] Backup contains sensitive data and is protected accordingly.
 - [ ] Restore procedure is tested.
 - [ ] A future PostgreSQL migration must preserve security/integrity semantics.
@@ -205,7 +205,7 @@ Never commit or log:
 - private keys/certificates.
 
 Checks:
-- [ ] `.gitignore` covers common local secret files.
+- [x] `.gitignore` covers common local secret files.
 - [ ] Safe `.env.example` contains placeholders only.
 - [ ] Structured logging has redaction.
 - [ ] Request logging avoids sensitive URL/path token leakage.
@@ -217,12 +217,12 @@ Checks:
 
 ## 10. Dependency / supply-chain security
 
-- [ ] Use lockfile.
-- [ ] Pin/review security-critical dependencies.
-- [ ] Automated vulnerability/dependency scanning enabled.
+- [x] Use lockfile.
+- [ ] Pin/review security-critical dependencies. (All versions pinned exactly; per-upgrade review is ongoing.)
+- [x] Automated vulnerability/dependency scanning enabled.
 - [ ] Avoid abandoned auth/crypto libraries.
-- [ ] Review dependency install scripts where relevant.
-- [ ] CI runs tests/typecheck/lint.
+- [x] Review dependency install scripts where relevant.
+- [x] CI runs tests/typecheck/lint.
 - [ ] Security-sensitive dependency upgrades receive explicit review.
 
 ---
@@ -234,11 +234,18 @@ Checks:
 - [ ] Only required port exposed.
 - [ ] Persistent writable paths are explicit.
 - [ ] Reverse proxy trust configuration is explicit.
-- [ ] Do not trust spoofable forwarding headers unless proxy is trusted.
+- [x] Do not trust spoofable forwarding headers unless proxy is trusted. (`trustProxy: false` until Step 10.3 configures the proxy explicitly.)
 - [ ] HTTPS termination documented.
 - [ ] Backups are protected and restorable.
 - [ ] Production migrations are controlled.
 - [ ] Private/Tailscale deployment does not replace app authentication.
+
+---
+
+- [x] Install scripts only run for allow-listed packages (`allowBuilds`); new entries require review.
+- [x] Newly published versions are not installed for 24 h (`minimumReleaseAge`).
+- [x] Publish trust downgrades fail install (`trustPolicy: no-downgrade`); exceptions are exact versions with a written reason.
+- [x] CI actions are pinned to commit SHAs and run with a read-only token.
 
 ---
 
@@ -324,3 +331,13 @@ The following choices are mandatory V1 behavior:
 **Logging review:** reset token redacted.  
 **Authorization review:** separate capability from ordinary User/Editor actions.  
 **Open risks:** administrative social engineering remains an operational risk and should be addressed in admin UX/docs.
+
+### Security check: application skeleton (Step 1.1)
+**Threat surface:** HTTP server baseline (headers, static file serving, SPA fallback), SQLite file handling, dependency supply chain, CI.  
+**Controls added:** `@fastify/helmet` (CSP with `frame-ancestors 'none'`, `object-src 'none'`, `nosniff`, `Referrer-Policy: no-referrer`); `Cache-Control: no-store` on `/api/*`; unknown `/api/*` routes return JSON 404, never the SPA shell; `trustProxy: false`; default bind `127.0.0.1`; logger redacts `authorization`/`cookie`/`set-cookie`; SQLite `foreign_keys=ON`, WAL, DB dir 0700 / file 0600; layer boundaries enforced by pnpm isolation + ESLint; pnpm `allowBuilds`, `minimumReleaseAge`, `trustPolicy`; exact version pins + lockfile; CI with SHA-pinned actions, `permissions: contents: read`, `persist-credentials: false`, `pnpm audit --audit-level high`; Dependabot.  
+**Negative tests:** unknown API route is not served the SPA shell; FK violation rejected; forbidden cross-layer imports fail lint (verified manually).  
+**Secrets/data involved:** none yet (no auth, no secrets, empty schema).  
+**Logging review:** request logs contain method/URL/host/remote address only; credential headers redacted. URL-path token redaction (Knot) must be added with Step 7.1 / 1.2.  
+**Authorization review:** no protected resources exist yet; boundaries keep DB/auth code out of the web client.  
+**Open risks:** HSTS off until HTTPS termination is configured (10.3); moderate advisory GHSA-67mh-4wv8-2f99 in dev-only `drizzle-kit` dependency chain; CSP `style-src` allows `'unsafe-inline'` (helmet default) — tighten when the theme system (8.3) is built; validated configuration and fail-closed startup pending (1.2).  
+**Reviewed:** 2026-09-26

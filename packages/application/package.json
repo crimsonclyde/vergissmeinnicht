@@ -1,0 +1,17 @@
+{
+  "name": "@vergissmeinnicht/application",
+  "private": true,
+  "license": "AGPL-3.0-only",
+  "description": "Use cases: commands and queries orchestrating domain, permissions and ports.",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc -p ."
+  },
+  "dependencies": {
+    "@vergissmeinnicht/domain": "workspace:*",
+    "@vergissmeinnicht/permissions": "workspace:*"
+  }
+}

@@ -1,0 +1,16 @@
+{
+  "name": "@vergissmeinnicht/import-export",
+  "private": true,
+  "license": "AGPL-3.0-only",
+  "description": "Canonical Procedure JSON import/export. Imports are hostile input.",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc -p ."
+  },
+  "dependencies": {
+    "@vergissmeinnicht/domain": "workspace:*"
+  }
+}

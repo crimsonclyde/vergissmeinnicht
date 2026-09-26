@@ -1,0 +1,13 @@
+{
+  "name": "@vergissmeinnicht/domain",
+  "private": true,
+  "license": "AGPL-3.0-only",
+  "description": "Domain entities, value types, policies and state transitions. No framework, DB or transport dependencies.",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc -p ."
+  }
+}

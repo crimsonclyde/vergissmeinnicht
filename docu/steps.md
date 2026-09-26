@@ -129,7 +129,8 @@ These decisions are already made and must not be silently changed by an implemen
 ## 1 — Application foundation
 
 ### 1.1 Modular application skeleton
-**Status:** TODO
+**Status:** DONE
+**Completed:** 2026-09-26
 
 **Objective:** Establish one deployable application with explicit Presentation, Application, Domain, and Infrastructure boundaries.
 
@@ -163,6 +164,32 @@ A different physical folder layout is acceptable only if the same boundaries rem
 - package lockfile committed.
 
 **Security impact:** MEDIUM — boundaries must keep authorization server-side.
+
+**Implemented:**
+- pnpm workspace (`pnpm@12.6.0` pinned via `packageManager`), Node 24 LTS target (`.nvmrc`, `engines >=24.11.0`); all dependency versions pinned exactly (`savePrefix: ''`), `pnpm-lock.yaml` committed.
+- Packages `@vergissmeinnicht/{domain,application,permissions,database,auth,realtime,import-export,ui}` and apps `server`, `web`. Packages export TypeScript source; the server runs on Node's built-in type stripping (no separate server build), the web app is built by Vite. `erasableSyntaxOnly` + `verbatimModuleSyntax` keep code compatible with type stripping.
+- Domain: V1 vocabulary (Run states, Step states, Workspace roles). Other layer packages are empty seams with a comment naming their Step.
+- Database: `openDatabase()` with `foreign_keys=ON`, WAL, `busy_timeout`, restrictive permissions (dir 0700, file 0600); Drizzle config, empty initial migration journal, `db:generate` / `db:migrate`. Default local DB: `.var/vergissmeinnicht.sqlite` (git-ignored), overridable with `DATABASE_PATH`.
+- Server: Fastify app factory with `/api/health` (`Cache-Control: no-store`), `@fastify/helmet` baseline headers (CSP incl. `frame-ancestors 'none'`, `nosniff`, `Referrer-Policy: no-referrer`; HSTS deferred to 10.3), `trustProxy: false`, production serving of `apps/web/dist` with SPA fallback that never answers `/api/*`; logger redacts authorization/cookie headers. Binds `127.0.0.1:3000` by default.
+- Web: minimal React 19 app, Vite dev proxy for `/api`.
+- Boundaries enforced twice: pnpm strict dependency isolation (undeclared imports fail) and ESLint `no-restricted-imports` rules (domain → no UI/HTTP/auth/DB/other layers; application/permissions → no infrastructure; web/ui → no DB, server layers or `node:*`).
+- Supply chain: `allowBuilds` allow-list (`better-sqlite3`, `esbuild`), `minimumReleaseAge: 1440`, `trustPolicy: no-downgrade` with one reviewed exact-version exception (`semver@6.3.1`, see `pnpm-workspace.yaml`).
+- CI: GitHub Actions (actions pinned to commit SHAs, read-only token, no persisted credentials) runs install (`--frozen-lockfile`), `pnpm audit --audit-level high`, lint, typecheck, test, build, Playwright e2e. Dependabot for npm and GitHub Actions.
+
+**Tests/checks:**
+- `pnpm typecheck`, `pnpm lint`, `pnpm test` (9 tests: domain vocabulary; SQLite FK/WAL/file permissions + FK violation rejected; health, security headers, SPA fallback, unknown `/api/*` → JSON 404), `pnpm build`, `pnpm db:generate`, `pnpm db:migrate`, `pnpm test:e2e` (desktop + mobile Chromium smoke test against the production server) — all passing locally on Node 26.10.0.
+- Negative lint check: deliberately forbidden imports in domain, application and web produced 5 `no-restricted-imports` errors (files removed afterwards).
+- `pnpm audit`: 0 high/critical; 1 moderate (GHSA-67mh-4wv8-2f99, esbuild ≤0.24.2 dev-server CORS) via `drizzle-kit` → `@esbuild-kit/esm-loader`, dev-only tooling not using esbuild's `serve()`.
+- CI workflow not yet executed on GitHub (branch not pushed).
+
+**Security docs updated:** YES.
+
+**Remaining:**
+- Configuration/secret handling, `.env.example`, validated env schema → Step 1.2 (server currently reads only `HOST`, `PORT`, `NODE_ENV`, `DATABASE_PATH`).
+- Better Auth is not installed yet; added with Step 2.x.
+- Production migration strategy/container image → Step 10.1; HSTS/proxy trust → 10.3.
+- Watch for a `drizzle-kit` release that drops `@esbuild-kit/*` to clear the moderate advisory.
+- Node type stripping for the server is a deliberate choice; revisit if a dependency or deployment constraint requires a compiled server bundle.
 
 ### 1.2 Configuration and secret handling
 **Status:** TODO

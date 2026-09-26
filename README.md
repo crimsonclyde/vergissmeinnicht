@@ -40,4 +40,4 @@ Start here:
 
 ## Status
 
-The project is in foundation/design stage. The architecture and security rules are deliberately documented before implementation begins.
+The project is in the foundation stage: architecture and security rules are documented, and the modular application skeleton (Step 1.1) exists. See [docu/steps.md](docu/steps.md) for progress and [Local development](docu/local-development.md) to run it.

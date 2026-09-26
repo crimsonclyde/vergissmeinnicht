@@ -100,3 +100,6 @@ compose.override.yml
 
 # Keep intentionally safe templates
 !.env.example
+
+# Committed schema migrations (not DB dumps)
+!packages/database/migrations/**/*.sql

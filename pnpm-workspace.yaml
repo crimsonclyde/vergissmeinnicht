@@ -1,0 +1,20 @@
+packages:
+  - apps/*
+  - packages/*
+
+# Supply-chain hardening (docu/security.md §10).
+# Only explicitly reviewed packages may run install scripts.
+allowBuilds:
+  better-sqlite3: true
+  esbuild: true
+# Do not install versions published less than 24 hours ago.
+minimumReleaseAge: 1440
+# Fail if a package's publish trust level drops compared to earlier releases.
+trustPolicy: no-downgrade
+# Reviewed exceptions (exact versions only):
+# - semver@6.3.1: 2023 backport release of the 6.x line published without provenance after
+#   7.x gained it; flagged as a trust downgrade by publish date only. Pulled in via Babel.
+trustPolicyExclude:
+  - semver@6.3.1
+strictDepBuilds: true
+savePrefix: ''

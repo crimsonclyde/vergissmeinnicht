@@ -1,0 +1,16 @@
+{
+  "name": "@vergissmeinnicht/auth",
+  "private": true,
+  "license": "AGPL-3.0-only",
+  "description": "Better Auth adapter and project authentication policy (invite-only, optional TOTP).",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc -p ."
+  },
+  "dependencies": {
+    "@vergissmeinnicht/domain": "workspace:*"
+  }
+}
