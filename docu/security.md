@@ -80,8 +80,8 @@ This file is normative and must evolve with the application.
 - [x] Disabled users cannot start sessions, and their existing sessions are revoked on the next request.
 - [x] CORS is deny-by-default / narrowly configured. (No CORS plugin registered: same-origin only; any future CORS needs review.)
 - [x] Sensitive responses are not cached publicly. (`Cache-Control: no-store` on all `/api/*`.)
-- [ ] Production uses HTTPS.
-- [ ] HSTS enabled when deployment topology makes it safe.
+- [x] Production uses HTTPS. (Config rejects non-https `PUBLIC_ORIGIN` except loopback; the Compose deployment terminates TLS in Caddy with automatic certificates, 10.1.)
+- [x] HSTS enabled when deployment topology makes it safe. (For https origins, one year by default, `HSTS_MAX_AGE`; no `includeSubDomains`/`preload` so other services on the domain are unaffected, 10.3.)
 - [x] Content-Security-Policy is defined. (`default-src 'self'`, `script-src 'self'`, `style-src 'self'` and `font-src 'self'` without `'unsafe-inline'` since 8.3, `object-src 'none'`, `frame-ancestors 'none'`; the e2e flow fails on any CSP violation.)
 - [x] Clickjacking prevented via CSP `frame-ancestors`.
 - [x] `X-Content-Type-Options: nosniff`.
@@ -193,13 +193,13 @@ Canonical shape:
 ## 8. Database and storage
 
 - [x] SQLite foreign keys enabled.
-- [ ] Migrations exist from first schema.
-- [ ] Writes requiring audit consistency are transactional.
+- [x] Migrations exist from first schema. (`packages/database/migrations` 0000–0014; readiness reports pending ones.)
+- [x] Writes requiring audit consistency are transactional. (Every repository mutation with its audit/security event in one `IMMEDIATE` transaction — §6.)
 - [x] SQLite file permissions are restrictive.
-- [ ] WAL/sidecar files are treated as sensitive data too.
-- [x] DB files are excluded from Git.
-- [ ] Backup contains sensitive data and is protected accordingly.
-- [ ] Restore procedure is tested.
+- [x] WAL/sidecar files are treated as sensitive data too. (Same `0700` directory; backups use the online backup API so WAL content is included, and are converted to a single file; restores move the old database together with its WAL/SHM.)
+- [x] DB files are excluded from Git. (Also `deploy/secrets/`, `deploy/vergissmeinnicht.env`; `.dockerignore` keeps data and secrets out of the build context.)
+- [x] Backup contains sensitive data and is protected accordingly. (`0600` files in `0700` `/data/backups`; docs require encrypted off-host copies and a separately stored `DATA_ENCRYPTION_KEY`.)
+- [x] Restore procedure is tested. (Automated round-trip tests plus a container drill, 10.2.)
 - [ ] A future PostgreSQL migration must preserve security/integrity semantics.
 
 ---
@@ -251,16 +251,16 @@ Checks:
 
 ## 11. Deployment security
 
-- [ ] Container runs non-root where practical.
-- [ ] No secrets baked into image.
-- [ ] Only required port exposed.
-- [ ] Persistent writable paths are explicit.
-- [ ] Reverse proxy trust configuration is explicit.
-- [x] Do not trust spoofable forwarding headers unless proxy is trusted. (`trustProxy: false` until Step 10.3 configures the proxy explicitly.)
-- [ ] HTTPS termination documented.
-- [ ] Backups are protected and restorable.
-- [ ] Production migrations are controlled.
-- [ ] Private/Tailscale deployment does not replace app authentication.
+- [x] Container runs non-root where practical. (`node`, uid 1000; `cap_drop: ALL`, `no-new-privileges`, read-only root file system, tmpfs `/tmp`; CI asserts uid 1000.)
+- [x] No secrets baked into image. (Runtime env/`*_FILE` Docker secrets only; `.dockerignore` excludes `.env*`, secrets and data; the image fails closed without configuration — CI check.)
+- [x] Only required port exposed. (The app publishes no port; only Caddy's 80/443.)
+- [x] Persistent writable paths are explicit. (Volume `/data` only.)
+- [x] Reverse proxy trust configuration is explicit. (`TRUSTED_PROXIES` = Caddy's fixed address; dynamic addresses come from a separate range; `/0`, `*`, host names rejected.)
+- [x] Do not trust spoofable forwarding headers unless proxy is trusted. (Without `TRUSTED_PROXIES` the socket address is used; tested that untrusted clients cannot change their rate-limit identity via `X-Forwarded-For`.)
+- [x] HTTPS termination documented. (deployment.md "Reverse proxy, HTTPS and rate limits".)
+- [x] Backups are protected and restorable. (§8.)
+- [x] Production migrations are controlled. (Server never migrates itself; explicit `migrate` command with automatic pre-migration backup; readiness `503 migrations_pending` until done.)
+- [x] Private/Tailscale deployment does not replace app authentication. (Documented; no configuration disables authentication.)
 
 ---
 
@@ -370,7 +370,7 @@ The following choices are mandatory V1 behavior:
 **Secrets/data involved:** none yet (no auth, no secrets, empty schema).  
 **Logging review:** request logs contain method/URL/host/remote address only; credential headers redacted. URL-path token redaction (Knot) must be added with Step 7.1 / 1.2.  
 **Authorization review:** no protected resources exist yet; boundaries keep DB/auth code out of the web client.  
-**Open risks:** HSTS off until HTTPS termination is configured (10.3); moderate advisory GHSA-67mh-4wv8-2f99 in dev-only `drizzle-kit` dependency chain; CSP `style-src` allowed `'unsafe-inline'` (helmet default) — tightened to `'self'` in 8.3; validated configuration and fail-closed startup pending (1.2).  
+**Open risks:** HSTS off until HTTPS termination is configured (resolved in 10.3); moderate advisory GHSA-67mh-4wv8-2f99 in dev-only `drizzle-kit` dependency chain; CSP `style-src` allowed `'unsafe-inline'` (helmet default) — tightened to `'self'` in 8.3; validated configuration and fail-closed startup pending (1.2).  
 **Reviewed:** 2026-09-26
 
 ### Security check: configuration and secret handling (Step 1.2)
@@ -420,7 +420,7 @@ The following choices are mandatory V1 behavior:
 **Secrets/data involved:** passwords (transient), Argon2id hashes (`accounts.password`), session tokens (`sessions.token`, cookie), `AUTH_SECRET` (cookie HMAC), client IP and user agent in `sessions`.  
 **Logging review:** request logs contain method, redacted URL, status; failed sign-ins log an event marker without email; Better Auth messages are forwarded without structured arguments ("User not found", "Invalid password"); unexpected errors logged as type + stack frames only. Verified by capturing all log output in the HTTP test suite.  
 **Authorization review:** session → ACTIVE User resolution is centralized in `authenticate()`/`requireUser` (`apps/server/src/http/session.ts`), which is also the seam for the 2.4 TOTP gate; admin capabilities are checked in the use-cases.  
-**Open risks:** behind a reverse proxy, until `trustProxy` is configured (10.3), all clients share one address and per-client limits become global (DoS of sign-in by one attacker) — configure before production use behind a proxy; per-account limit lets an attacker temporarily block a known account's sign-in (bounded to 15 min windows); session tokens are stored unhashed (a DB leak plus `AUTH_SECRET` allows session forgery — protect both; rotate `AUTH_SECRET` after suspected compromise); no breached-password blocklist; in-memory rate-limit state resets on restart; password change and privilege-change session rotation not yet implemented; `BETTER_AUTH_TELEMETRY` env var would override the explicit telemetry opt-out — do not set it.  
+**Open risks:** behind a reverse proxy without `TRUSTED_PROXIES` (available since 10.3, preset in the Compose deployment) all clients share one address and per-client limits become global (DoS of sign-in by one attacker); per-account limit lets an attacker temporarily block a known account's sign-in (bounded to 15 min windows); session tokens are stored unhashed (a DB leak plus `AUTH_SECRET` allows session forgery — protect both; rotate `AUTH_SECRET` after suspected compromise); no breached-password blocklist; in-memory rate-limit state resets on restart; password change and privilege-change session rotation not yet implemented; `BETTER_AUTH_TELEMETRY` env var would override the explicit telemetry opt-out — do not set it.  
 **Reviewed:** 2026-09-26
 
 ### Security check: encryption at rest for TOTP secrets (Step 2.4)
@@ -530,7 +530,7 @@ The following choices are mandatory V1 behavior:
 **Secrets/data involved:** actor display names and change times of Workspace Runs.  
 **Logging review:** no new log statements; the stream URL contains only Workspace/Run ids.  
 **Authorization review:** HTTP layer authenticates and streams; authorization in `packages/application/src/runs/use-cases.ts` (`authorizeRunSubscription`).  
-**Open risks:** re-checks run every 20 s, so a revoked session or removed member may receive announcements (no content) for up to one heartbeat; per-client connect limits share the proxy address until `trustProxy` is configured (10.3); the hub is in-process (multi-node deployments require a reviewed shared pub/sub — §12 trigger "multi-node deployments").  
+**Open risks:** re-checks run every 20 s, so a revoked session or removed member may receive announcements (no content) for up to one heartbeat; per-client connect limits need `TRUSTED_PROXIES` behind a proxy (10.3); the hub is in-process (multi-node deployments require a reviewed shared pub/sub — §12 trigger "multi-node deployments").  
 **Reviewed:** 2026-09-27
 
 ### Security check: Knot links (Step 7.1)
@@ -541,4 +541,14 @@ The following choices are mandatory V1 behavior:
 **Logging review:** no new log statements; tokens never in API URLs; the page path is redacted.  
 **Authorization review:** HTTP authenticates and parses; all decisions in `packages/application/src/knots/use-cases.ts`; the target page re-authorizes every request on its own.  
 **Open risks:** a leaked, unexpired Knot tells a member of the Workspace where it points (by design) but nothing to others; reverse-proxy access logs may record `/knot/{token}` unless the operator redacts them (document in 10.x); the token remains in the browser history entry until the app replaces it (and if opening fails); openings are not audited; anonymous Knot access would need a new review (§12).  
+**Reviewed:** 2026-09-27
+
+### Security check: deployment, hardening and backups (Steps 10.1–10.3)
+**Threat surface:** container escape or tampering via root/capabilities/writable image; secrets in images, Compose files, environment dumps or build context; spoofed `X-Forwarded-For` defeating rate limits (or, without proxy trust, one attacker throttling everyone); downgrade to HTTP; slowloris-style connections; token leakage through proxy access logs; unprotected or unrestorable backups; restoring over a live database (silent data loss); inconsistent file copies; uncontrolled migrations; stale dependencies/base images.  
+**Controls added:** image pinned by digest, multi-stage build, server-only production dependencies, runs as `node` with `cap_drop: ALL`, `no-new-privileges`, read-only root FS, tmpfs `/tmp`, `/data` 0700; HEALTHCHECK on readiness; `*_FILE` secrets (absolute path, both-set rejected, contents never echoed) with Docker secrets in Compose; `TRUSTED_PROXIES` explicit IP/CIDR list (no `/0`, no host names, no "trust all") with Caddy on a fixed address and dynamic addresses in a separate range; HSTS for https origins; `Permissions-Policy`; request/connection timeouts; Caddy without access log and without compression (BREACH, SSE); backups through SQLite's online backup API, verified (integrity, foreign keys, schema), `0600`, self-contained, never overwriting; restore verifies first, refuses while any connection holds the database (exclusive-lock probe), keeps the replaced database; `migrate` backs up before applying pending migrations, server reports `migrations_pending` as not ready; CI builds the image and asserts non-root + fail-closed startup; Dependabot for the Docker base image and the Compose proxy image.  
+**Negative tests:** `apps/server/src/config/config.test.ts` (proxy entries incl. `/0`, `*`, host names; HSTS only for https; file secrets: both set, relative path, unreadable, short content not echoed), `apps/server/src/http/hardening.test.ts` (HSTS/Permissions-Policy, forwarded client identity only from the trusted proxy — spoofing from elsewhere does not escape the limit, readiness with pending migrations), `packages/database/src/backup.test.ts` (WAL content included, modes, refusal while open — also idle with empty WAL, garbage/foreign/missing/same-file rejected without changes); container drill (steps.md 10.2).  
+**Secrets/data involved:** `AUTH_SECRET`, `DATA_ENCRYPTION_KEY`, SMTP password (Docker secrets); complete database backups.  
+**Logging review:** no new application log output; proxy access logs deliberately absent (Knot tokens).  
+**Authorization review:** no new endpoints except public `GET /api/health/ready` (status and reason code only) and `GET /api/about` (11.1).  
+**Open risks:** backups are only as safe as where operators store them (encryption off-host is documented, not enforced); `restore --force` bypasses the in-use check; secrets readable by the container user (inherent); better-auth's optional peer dependencies (drizzle-kit, vitest, esbuild) are resolved into the production tree (unused at runtime, ~60 MB); image vulnerability scanning beyond Dependabot is not automated; a single host — no high availability.  
 **Reviewed:** 2026-09-27

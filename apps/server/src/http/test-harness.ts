@@ -17,7 +17,7 @@ const INVITE_LINK = /\/invite\/([A-Za-z0-9_-]{43})/;
 type App = Awaited<ReturnType<typeof buildApp>>;
 export type InjectResponse = Awaited<ReturnType<App['inject']>>;
 
-export async function startTestApp(options: { runEvents?: RunEventsOptions } = {}) {
+export async function startTestApp(options: { runEvents?: RunEventsOptions; trustedProxies?: readonly string[] } = {}) {
   const database = createTestDatabase();
   const outbox: EmailMessage[] = [];
   let services: AppServices | undefined;
@@ -32,6 +32,7 @@ export async function startTestApp(options: { runEvents?: RunEventsOptions } = {
     LOG_LEVEL: 'info',
   });
   const app = await buildApp({
+    trustedProxies: options.trustedProxies,
     services: (log) => {
       const built = createServices(config, database)(log);
       const email = { send: async (message: EmailMessage) => void outbox.push(message) };

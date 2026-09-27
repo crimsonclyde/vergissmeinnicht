@@ -33,6 +33,7 @@ import {
   createTotpRepository,
   createUserRepository,
   createWorkspaceRepository,
+  migrationStatus,
   sessions,
   users,
   verifications,
@@ -66,6 +67,8 @@ export interface AppServices {
   /** Stream timing overrides (tests). */
   readonly runEvents?: RunEventsOptions | undefined;
   readonly securityEvents: SecurityEventLog;
+  /** Readiness: the database answers and every shipped migration is applied. Never throws. */
+  readonly readiness: () => { readonly ready: boolean; readonly reason?: 'database_unavailable' | 'migrations_pending' };
   /** `Secure` + `__Secure-` cookies (production). */
   readonly secureCookies: boolean;
 }
@@ -150,6 +153,13 @@ export function createServices(config: AppConfig, database: AppDatabase) {
       knots: { workspaces: workspaceDeps.workspaces, knots: createKnotRepository(database), tokens: invitationTokens, clock: systemClock },
       history: { workspaces: workspaceDeps.workspaces, history: createAuditHistory(database) },
       securityEvents,
+      readiness: () => {
+        try {
+          return migrationStatus(database.sqlite).pending ? { ready: false, reason: 'migrations_pending' } : { ready: true };
+        } catch {
+          return { ready: false, reason: 'database_unavailable' };
+        }
+      },
       secureCookies: config.mode === 'production',
     };
   };

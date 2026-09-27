@@ -18,18 +18,18 @@ For every completed task, add a concise completion note, tests/checks performed,
 
 ## Current state — resume here
 
-_Last updated: 2026-09-27 (after 8.4 — sections 6, 7, 8 (except deferred 8.5) and 11 complete)_
+_Last updated: 2026-09-27 (after 10.3 — every non-deferred step is DONE)_
 
-**Done:** 0.1, 0.2, 0.3, 1.1, 1.2, 2.1–2.5, 3.1–3.3, 4.1–4.5, 5.1–5.6, 6.1, 6.2, 7.1, 8.0–8.4, 11.1, 9.1 (pulled forward for invitations). 2.6 (external providers) is DEFERRED.
-**Next:** section 10 — 10.1 Docker Compose, 10.2 backup/restore, 10.3 production hardening. Open decisions for the user: SKIPPED does not satisfy a required Step at completion (5.4); the Knot design choices in 7.1 (targets, `knot.manage` for EDITOR/ADMIN, link shown once).
+**Done:** 0.1, 0.2, 0.3, 1.1, 1.2, 2.1–2.5, 3.1–3.3, 4.1–4.5, 5.1–5.6, 6.1, 6.2, 7.1, 8.0–8.4, 9.1, 10.1–10.3, 11.1. DEFERRED: 2.6 (external identity providers), 8.5 (PWA/offline, Phase 2).
+**Next:** no open ledger step. Candidates: merge the stacked branches into `main` (CI has not run on them), a full accessibility review (incl. an alternative to press-and-hold), account disabling with session revocation, housekeeping of expired rows, 2.6 / 8.5 when prioritised. Open decisions for the user: SKIPPED does not satisfy a required Step at completion (5.4); the Knot design choices in 7.1 (targets, `knot.manage` for EDITOR/ADMIN, link shown once).
 
-**UI (2026-09-27):** the app shell from the user's feedback is done as 8.0 (navigation, separate pages, stylesheet, admin UI, clearer press-and-hold). Themes toggle (8.3), i18n (8.4) and a full accessibility review remain.
+**UI (2026-09-27):** app shell (8.0), responsive execution (8.1), state presentation (8.2), themes (8.3) and the message catalog (8.4) are done; a full accessibility review remains.
 
 **Lockfile note (4.4):** the hand-edited entries (`apps/server` → `@vergissmeinnicht/import-export`, `packages/import-export` → `zod`) were verified on 2026-09-27 with `pnpm install --frozen-lockfile` (pnpm 12.6.0): lockfile up to date, supply-chain policies passed, no changes.
 
-Also open: trusted-proxy configuration (10.3) before production use behind a reverse proxy; admin web UI (invitations, recoveries — API only so far); account status changes (disable/enable users) with session revocation; housekeeping of expired challenge/recovery/invitation rows.
+Also open: account status changes (disable/enable users) with session revocation; housekeeping of expired challenge/recovery/invitation rows.
 
-**Branches:** work is stacked, not yet merged into `main`: `step-1.1-app-skeleton` → `step-1.2-config` → `step-2.1-user-model` → `step-2.2-invitations` → `step-2.4-totp` → `step-2.5-recovery` → `step-3.1-workspaces` → `step-3.2-roles` → `step-4.1-procedures` → `step-4.2-steps` → `step-4.3-drag-drop` → `step-4.4-import-export` → `step-4.5-restore` → `step-5.1-run-snapshot` → `cleanup-web-domain-constants` → `step-5.2-step-states` → `step-5.3-press-and-hold` → `step-5.4-run-lifecycle` → `step-5.5-audit-trail` → `step-5.6-immutability` → `step-8.0-app-shell` → `step-6-collaboration` (6.1, 6.2) → `step-7.1-knots` (each branch contains the previous ones; 2.3 was completed on `step-2.2-invitations` because acceptance finishes 2.2). CI runs on pull requests / `main` only.
+**Branches:** work is stacked, not yet merged into `main`: `step-1.1-app-skeleton` → `step-1.2-config` → `step-2.1-user-model` → `step-2.2-invitations` → `step-2.4-totp` → `step-2.5-recovery` → `step-3.1-workspaces` → `step-3.2-roles` → `step-4.1-procedures` → `step-4.2-steps` → `step-4.3-drag-drop` → `step-4.4-import-export` → `step-4.5-restore` → `step-5.1-run-snapshot` → `cleanup-web-domain-constants` → `step-5.2-step-states` → `step-5.3-press-and-hold` → `step-5.4-run-lifecycle` → `step-5.5-audit-trail` → `step-5.6-immutability` → `step-8.0-app-shell` → `step-6-collaboration` (6.1, 6.2) → `step-7.1-knots` → `step-11.1-license` → `step-8-ux` (8.1–8.4) → `step-10-operations` (10.1–10.3) (each branch contains the previous ones; 2.3 was completed on `step-2.2-invitations` because acceptance finishes 2.2). CI runs on pull requests / `main` only.
 
 **Manual testing:** `test-env/menu.sh` (added 2026-09-27) installs/starts/stops/removes an isolated production-mode instance on port 3200 with demo accounts for every role (see `test-env/README.md`). Extend `test-env/seed.ts` when new features need demo data (e.g. Procedures in 4.1).
 
@@ -1258,7 +1258,8 @@ Prefer configurable SMTP as the self-hosted baseline, with an adapter boundary f
 ## 10 — Operations
 
 ### 10.1 Docker Compose deployment
-**Status:** TODO
+**Status:** DONE
+**Completed:** 2026-09-27
 
 Supported V1 deployment:
 - one application container;
@@ -1266,17 +1267,63 @@ Supported V1 deployment:
 - reverse proxy providing HTTPS;
 - runtime-injected secrets.
 
+**Security impact:** HIGH — production runtime environment, secret injection, network exposure.
+
+**Implemented:**
+- `Dockerfile` (multi-stage, base `node:24.21.0-bookworm-slim` pinned by digest): web bundle built in its own stage, server-only production dependencies (`pnpm install --prod --filter "@vergissmeinnicht/server..."`), runtime as `node` (uid 1000), `/data` volume (0700), `HEALTHCHECK` on `/api/health/ready`, `LICENSE` included. `.dockerignore` keeps `.git`, data, secrets, env files, tests and docs out of the build context.
+- `deploy/docker-entrypoint.sh` (`vergissmeinnicht` in the image): `serve` (default), `migrate`, `backup`, `verify`, `restore`, `admin-bootstrap`, `admin-recover` — all with the server's configuration.
+- `deploy/compose.yml`: app (read-only root FS, tmpfs `/tmp`, `cap_drop: ALL`, `no-new-privileges`, `init`, Docker secrets for `AUTH_SECRET`/`DATA_ENCRYPTION_KEY` via `*_FILE`, no published port) and Caddy `2.11.4-alpine` (pinned digest; automatic HTTPS; only 80/443 published) on an internal network where Caddy has a fixed address (`TRUSTED_PROXIES`) and other containers get addresses from a separate range. `deploy/Caddyfile` (no access log, no compression), `deploy/vergissmeinnicht.env.example`; env file and secrets git-ignored.
+- CI job `image`: builds the image, asserts uid 1000 and that `serve` fails without configuration. Dependabot: `docker` (Dockerfile) and `docker-compose` (`deploy/`).
+- `docu/deployment.md` rewritten: quick start, commands, configuration incl. new variables, upgrades, proxy/HTTPS, health checks, backups.
+
+**Tests/checks:** image build locally (Docker 29.8.1, Compose 5.5.1); container drill with the Compose file (local TLS for `localhost` via Caddy): `migrate` → `up` → healthy; process uid 1000, root FS read-only, `/data` 0700 and files 0600; headers through Caddy (HSTS, CSP, Permissions-Policy, no-store); bootstrap CLI → accept invitation → sign-in → create Workspace over HTTPS; request logs show the forwarded client address (Docker gateway), not Caddy's; no token in logs; `docker compose stop` exits 0 (graceful SIGTERM); no error-level log lines. Found and fixed during the drill: a one-off `run` container could take Caddy's fixed IP (now a separate dynamic range) and a fixed app IP blocked `run` while the app was up (removed).
+
+**Security docs updated:** YES (§2, §8, §11, "Security check: deployment, hardening and backups").
+
+**Remaining:** image size 576 MB — better-auth's optional peers (drizzle-kit, vitest, esbuild) are resolved into the production tree (unused at runtime); no published image/registry or release process; no automated image vulnerability scan beyond Dependabot; ARM builds untested.
+
 ### 10.2 Backup/restore
-**Status:** TODO
+**Status:** DONE
+**Completed:** 2026-09-27
 
 Document consistent SQLite backup and tested restore.
 
+**Security impact:** HIGH — backups hold every credential-like artefact of the system; restore can destroy data if done wrong.
+
+**Implemented:**
+- `packages/database/src/backup.ts`: `backupDatabase` (SQLite online backup API from a read-only connection — consistent while the server writes, WAL included; never overwrites; `0600` in a `0700` directory; converted to a self-contained rollback-journal file; verified), `verifyDatabase` (integrity check, foreign-key check, expected tables, pending-migration info; read-only), `restoreDatabase` (verifies first; refuses while any connection has the database open via an exclusive-lock probe held during the swap; keeps the replaced database and its WAL/SHM as `.before-restore-<time>`; `0600`), `defaultBackupPath`.
+- `packages/database/src/ops-cli.ts`: `migrate` (automatic `…-pre-migration.sqlite` backup when migrations are pending), `backup [--out]`, `verify`, `restore [--force]`; root scripts `pnpm db:backup` / `pnpm db:restore`.
+- `migrationStatus` (drizzle-compatible: newest applied vs. newest shipped migration timestamp) used by readiness and verification.
+- Documentation: what to back up (database via the command, `DATA_ENCRYPTION_KEY` separately, configuration), encryption of off-host copies, retention, restore procedure, restore drill.
+
+**Tests/checks:** `backup.test.ts` (5: older schemas are valid backups and a failed verification leaves no file; backup during writes includes uncheckpointed WAL data, modes, no sidecars, no overwrite; restore refused while open — including idle with an empty WAL — then succeeds after close, old database kept, restored database usable; restore into an empty location reporting an older schema; garbage/foreign/missing/same-file inputs rejected without changes). CLI drill on a copy of the dev database. Container drill: backup while running (`exec`), change data, restore refused while running (also via a separate `run` container), stop, restore, start → data back to the backup state, healthy. The first drill found a real bug: the WAL-size heuristic let a restore run against an idle server (writes would have gone to the renamed file) — replaced by the lock probe, with a regression test.
+
+**Security docs updated:** YES (§8).
+
+**Remaining:** no built-in schedule, retention or encryption of backups (operator's cron/timer and tooling, documented); `--force` bypasses the in-use check by design.
+
 ### 10.3 Production hardening
-**Status:** TODO
+**Status:** DONE
+**Completed:** 2026-09-27
 
 HTTPS, proxy trust, security headers, dependency scanning, health checks, safe secret injection.
 
 **Security impact:** CRITICAL.
+
+**Implemented:**
+- Proxy trust: `TRUSTED_PROXIES` (IPs, CIDR ranges `/1`+, `loopback`; `/0`, `*`, host names and presets like `uniquelocal` rejected) → Fastify `trustProxy` list; default none. Rate limits, sign-in client identity (Better Auth client-IP header) and logs then use the real client behind the proxy.
+- HTTPS/HSTS: `HSTS_MAX_AGE` (default one year, only for https origins, `0` disables; no `includeSubDomains`/`preload`). HTTPS itself: config already requires an https `PUBLIC_ORIGIN`; Compose terminates TLS in Caddy.
+- Headers: `Permissions-Policy` denying camera, microphone, geolocation, payment, USB, interest-cohort; CSP tightened in 8.3; existing helmet baseline.
+- Timeouts: `requestTimeout` 30 s, `connectionTimeout` 60 s (request reception only; SSE responses unaffected).
+- Health: `GET /api/health` (liveness) and `GET /api/health/ready` (database reachable, no pending migrations; `503` + reason code).
+- Secret injection: `AUTH_SECRET_FILE`, `DATA_ENCRYPTION_KEY_FILE`, `SMTP_PASSWORD_FILE` (absolute path; either variable or file; trailing newline trimmed; errors never echo contents).
+- Dependency scanning: existing `pnpm audit --audit-level high` in CI and Dependabot (npm, GitHub Actions) extended with Docker and Compose images; CI builds the image.
+
+**Tests/checks:** `config.test.ts` (+3), `hardening.test.ts` (3: HSTS/Permissions-Policy; per-client limits behind a trusted proxy, other clients unaffected, spoofed `X-Forwarded-For` from an untrusted address does not escape the limit; readiness with pending migrations); container drill (forwarded address in logs, headers through Caddy). `pnpm test` 534, `pnpm test:e2e`, `pnpm lint`, `pnpm typecheck`.
+
+**Security docs updated:** YES (§2, §11, open risks of Steps 1.1, 2.3, 6.1 updated).
+
+**Remaining:** rate-limit state is in memory (resets on restart, single node only); no WAF/fail2ban integration; secrets can still be given as plain environment variables (allowed for development and simple setups).
 
 ---
 

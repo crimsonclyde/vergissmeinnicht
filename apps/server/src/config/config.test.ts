@@ -159,6 +159,57 @@ describe('loadConfig', () => {
     expect(issuesOf({ ...production, INVITATION_TTL_HOURS: '10000' }).join()).toMatch(/INVITATION_TTL_HOURS/);
   });
 
+  it('trusts forwarding headers only from explicitly listed proxies', () => {
+    expect(loadConfig(production).trustedProxies).toEqual([]);
+    expect(loadConfig({ ...production, TRUSTED_PROXIES: ' 172.31.250.0/24, loopback,::1 ' }).trustedProxies).toEqual([
+      '172.31.250.0/24',
+      'loopback',
+      '::1',
+    ]);
+    for (const value of ['*', 'true', '0.0.0.0/0', '::/0', '10.0.0.0/33', 'proxy.example.org', '10.0.0.1/8/1', 'uniquelocal']) {
+      expect(issuesOf({ ...production, TRUSTED_PROXIES: value }).join(), value).toMatch(/TRUSTED_PROXIES/);
+    }
+  });
+
+  it('sends HSTS only for https origins, one year by default', () => {
+    expect(loadConfig(production).hstsMaxAge).toBe(31_536_000);
+    expect(loadConfig({ ...production, HSTS_MAX_AGE: '0' }).hstsMaxAge).toBe(0);
+    expect(loadConfig({ ...production, PUBLIC_ORIGIN: 'http://127.0.0.1:3000' }).hstsMaxAge).toBe(0);
+    expect(issuesOf({ ...production, HSTS_MAX_AGE: '-1' }).join()).toMatch(/HSTS_MAX_AGE/);
+  });
+
+  it('reads secrets from files (Docker secrets) without echoing them', () => {
+    const files: Record<string, string> = { '/run/secrets/auth': `${SECRET}\n`, '/run/secrets/data': DATA_KEY };
+    const read = (path: string) => {
+      const content = files[path];
+      if (content === undefined) throw new Error('ENOENT');
+      return content;
+    };
+    const rest: NodeJS.ProcessEnv = { ...production };
+    delete rest.AUTH_SECRET;
+    delete rest.DATA_ENCRYPTION_KEY;
+    const config = loadConfig({ ...rest, AUTH_SECRET_FILE: '/run/secrets/auth', DATA_ENCRYPTION_KEY_FILE: '/run/secrets/data' }, read);
+    expect(config.authSecret.reveal()).toBe(SECRET);
+    expect(config.dataEncryptionKey.reveal()).toBe(DATA_KEY);
+
+    const failures = (env: NodeJS.ProcessEnv) => {
+      try {
+        loadConfig(env, read);
+      } catch (error) {
+        if (error instanceof ConfigError) return error.message;
+      }
+      return 'no error';
+    };
+    expect(failures({ ...production, AUTH_SECRET_FILE: '/run/secrets/auth' })).toMatch(/either AUTH_SECRET or AUTH_SECRET_FILE/);
+    expect(failures({ ...rest, DATA_ENCRYPTION_KEY: DATA_KEY, AUTH_SECRET_FILE: 'secrets/auth' })).toMatch(/absolute path/);
+    const missing = failures({ ...rest, DATA_ENCRYPTION_KEY: DATA_KEY, AUTH_SECRET_FILE: '/run/secrets/nope' });
+    expect(missing).toMatch(/AUTH_SECRET_FILE: file cannot be read/);
+    files['/run/secrets/short'] = 'too-short';
+    const short = failures({ ...rest, DATA_ENCRYPTION_KEY: DATA_KEY, AUTH_SECRET_FILE: '/run/secrets/short' });
+    expect(short).toMatch(/AUTH_SECRET/);
+    expect(short).not.toContain('too-short');
+  });
+
   it('offers the upstream source by default and accepts only https source links', () => {
     expect(loadConfig(production).sourceCodeUrl).toBe('https://github.com/crimsonclyde/vergissmeinnicht');
     expect(loadConfig({ ...production, SOURCE_CODE_URL: 'https://git.example.org/fork' }).sourceCodeUrl).toBe('https://git.example.org/fork');

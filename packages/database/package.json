@@ -11,7 +11,8 @@
   "scripts": {
     "typecheck": "tsc -p .",
     "db:generate": "drizzle-kit generate",
-    "db:migrate": "node --env-file-if-exists=../../.env src/migrate.ts"
+    "db:migrate": "node --env-file-if-exists=../../.env src/migrate.ts",
+    "db:ops": "node --env-file-if-exists=../../.env src/ops-cli.ts"
   },
   "dependencies": {
     "@vergissmeinnicht/application": "workspace:*",

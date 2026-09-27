@@ -1,4 +1,6 @@
 import { randomBytes } from 'node:crypto';
+import { readFileSync } from 'node:fs';
+import { isIP } from 'node:net';
 import { isAbsolute, resolve } from 'node:path';
 import { z } from 'zod';
 import { normalizeEmail } from '@vergissmeinnicht/domain';
@@ -9,6 +11,23 @@ const LOOPBACK_HOSTNAMES = new Set(['localhost', '127.0.0.1', '[::1]', '::1']);
 /** Marker used in `.env.example`; a value containing it is never a real secret. */
 const PLACEHOLDER_MARKER = 'replace-me';
 const MIN_SECRET_LENGTH = 32;
+/** One year; sent only when the public origin is https. */
+const DEFAULT_HSTS_MAX_AGE = 31_536_000;
+/** Secrets that may be given as a file (Docker/Kubernetes secrets) via `<NAME>_FILE`. */
+const FILE_SECRETS = ['AUTH_SECRET', 'DATA_ENCRYPTION_KEY', 'SMTP_PASSWORD'] as const;
+
+/** An IPv4/IPv6 address or CIDR range, or the `loopback` preset. Never "trust everything". */
+function isTrustedProxyEntry(entry: string): boolean {
+  if (entry === 'loopback') return true;
+  const [address = '', prefix, extra] = entry.split('/');
+  const version = isIP(address);
+  if (version === 0 || extra !== undefined) return false;
+  if (prefix === undefined) return true;
+  if (!/^\d{1,3}$/.test(prefix)) return false;
+  const bits = Number(prefix);
+  // A /0 range would trust every client's forwarding headers.
+  return bits >= 1 && bits <= (version === 4 ? 32 : 128);
+}
 /** Upstream repository: the Corresponding Source offered to network users (AGPL-3.0 §13). */
 export const UPSTREAM_SOURCE_URL = 'https://github.com/crimsonclyde/vergissmeinnicht';
 
@@ -60,6 +79,13 @@ const envSchema = z
     INVITATION_TTL_HOURS: z.coerce.number().int().min(1).max(720).optional(),
     // Operators running a modified version must point this at their own source (AGPL-3.0 §13).
     SOURCE_CODE_URL: z.url({ protocol: /^https$/, error: 'SOURCE_CODE_URL must be an https URL' }).optional(),
+    // Reverse proxies whose X-Forwarded-For is believed (comma-separated IPs/CIDRs or `loopback`).
+    TRUSTED_PROXIES: z
+      .string()
+      .transform((value) => value.split(',').map((entry) => entry.trim()).filter((entry) => entry !== ''))
+      .refine((entries) => entries.every(isTrustedProxyEntry), 'TRUSTED_PROXIES must list IP addresses, CIDR ranges (not /0) or "loopback"')
+      .optional(),
+    HSTS_MAX_AGE: z.coerce.number().int().min(0).max(63_072_000).optional(),
   })
   .superRefine((env, ctx) => {
     if ((env.SMTP_USER === undefined) !== (env.SMTP_PASSWORD === undefined)) {
@@ -147,6 +173,10 @@ export interface AppConfig {
   readonly invitationTtlHours: number;
   /** Where users can obtain the source of the running version (AGPL-3.0 §13). */
   readonly sourceCodeUrl: string;
+  /** Proxies allowed to set the client address via X-Forwarded-For; empty = trust nobody. */
+  readonly trustedProxies: readonly string[];
+  /** Strict-Transport-Security max-age in seconds; 0 = header not sent. */
+  readonly hstsMaxAge: number;
 }
 
 export interface SmtpConfig {
@@ -173,8 +203,8 @@ export class ConfigError extends Error {
  * any invalid or missing required value throws a ConfigError. Error messages name
  * variables but never echo their values.
  */
-export function loadConfig(env: NodeJS.ProcessEnv): AppConfig {
-  const parsed = envSchema.safeParse(env);
+export function loadConfig(env: NodeJS.ProcessEnv, readFile: (path: string) => string = (path) => readFileSync(path, 'utf8')): AppConfig {
+  const parsed = envSchema.safeParse(withFileSecrets(env, readFile));
   if (!parsed.success) {
     throw new ConfigError(parsed.error.issues.map((issue) => `${issue.path.join('.') || 'env'}: ${issue.message}`));
   }
@@ -206,5 +236,37 @@ export function loadConfig(env: NodeJS.ProcessEnv): AppConfig {
     }),
     invitationTtlHours: values.INVITATION_TTL_HOURS ?? 72,
     sourceCodeUrl: values.SOURCE_CODE_URL ?? UPSTREAM_SOURCE_URL,
+    trustedProxies: Object.freeze([...(values.TRUSTED_PROXIES ?? [])]),
+    // HSTS only makes sense (and is only honoured) on https origins; loopback http never gets it.
+    hstsMaxAge: new URL(values.PUBLIC_ORIGIN ?? 'http://localhost').protocol === 'https:' ? (values.HSTS_MAX_AGE ?? DEFAULT_HSTS_MAX_AGE) : 0,
   });
+}
+
+/**
+ * Resolves `<NAME>_FILE` for secrets (e.g. `AUTH_SECRET_FILE=/run/secrets/auth_secret`): the file
+ * content, without a trailing line break, becomes `<NAME>`. Setting both is an error. Errors name
+ * the variable, never the path's content.
+ */
+function withFileSecrets(env: NodeJS.ProcessEnv, readFile: (path: string) => string): NodeJS.ProcessEnv {
+  const resolved: NodeJS.ProcessEnv = { ...env };
+  const issues: string[] = [];
+  for (const name of FILE_SECRETS) {
+    const path = env[`${name}_FILE`];
+    if (path === undefined || path === '') continue;
+    if (env[name] !== undefined) {
+      issues.push(`${name}_FILE: set either ${name} or ${name}_FILE, not both`);
+      continue;
+    }
+    if (!isAbsolute(path)) {
+      issues.push(`${name}_FILE: must be an absolute path`);
+      continue;
+    }
+    try {
+      resolved[name] = readFile(path).replace(/\r?\n$/, '');
+    } catch {
+      issues.push(`${name}_FILE: file cannot be read`);
+    }
+  }
+  if (issues.length > 0) throw new ConfigError(issues);
+  return resolved;
 }

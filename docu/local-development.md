@@ -99,6 +99,9 @@ The development defaults (`SMTP_HOST=127.0.0.1`, `SMTP_PORT=1025`, `SMTP_SECURIT
 | `pnpm typecheck` | `tsc` for every package |
 | `pnpm db:generate` | Generate a migration from `packages/database/src/schema.ts` |
 | `pnpm db:migrate` | Apply committed migrations |
+| `pnpm db:backup` | Consistent backup of the development database to `.var/backups/` (see deployment.md) |
+| `pnpm db:restore <file>` | Restore a backup (stop `pnpm dev` first) |
+| `docker build -t vergissmeinnicht:local .` | Build the production image (deployment: `deploy/compose.yml`) |
 | `pnpm admin:recover --email you@example.org [--password] [--totp]` | Print a single-use account recovery link (operator fallback) |
 | `test-env/menu.sh` | Local test environment with demo accounts (install / stop / uninstall / status) |
 | `pnpm admin:bootstrap --email you@example.org` | Create the first server-admin invitation and print its link (refused once a server admin exists) |

@@ -26,6 +26,8 @@ const app = await buildApp({
   webDistDir: config.mode === 'production' ? resolve(import.meta.dirname, '../../web/dist') : undefined,
   logger: loggerOptions(config.logLevel),
   services: createServices(config, database),
+  trustedProxies: config.trustedProxies,
+  hstsMaxAge: config.hstsMaxAge,
 });
 app.addHook('onClose', async () => database.close());
 

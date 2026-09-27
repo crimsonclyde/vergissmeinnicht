@@ -2,29 +2,52 @@
 
 ## Target
 
-A simple self-hosted deployment:
+The supported V1 deployment is Docker Compose (`deploy/compose.yml`):
 
 ```text
-HTTPS reverse proxy
-       |
-Vergissmeinnicht container
-       |
-persistent volume
-  SQLite + runtime data
+Internet ──HTTPS──> Caddy (deploy/Caddyfile, automatic certificates, 172.31.250.2)
+                         │  internal network 172.31.250.0/24
+                         ▼
+                   app container (Dockerfile): Fastify API + web app, user `node`, read-only root FS
+                         │
+                   volume `data` → /data: SQLite database, WAL files, backups/
 ```
 
-## Requirements
+- One application container; no ports published except Caddy's 80/443.
+- Secrets come from Docker secrets (`*_FILE`), never from the image or the Compose file.
+- Only Caddy's fixed address may set the client address (`TRUSTED_PROXIES=172.31.250.2`).
+- The app runs as non-root (`node`, uid 1000) with all capabilities dropped, `no-new-privileges`, a read-only root file system and `/tmp` as tmpfs; `/data` is `0700`, database and backups `0600`.
 
-- HTTPS is mandatory in production.
-- Application authentication/ACLs remain required even on Tailscale/private networks.
-- Persistent data survives container replacement.
-- Secrets are injected at runtime and never baked into images.
-- Run non-root where practical.
-- Restrict writable filesystem paths.
-- Explicitly configure trusted reverse proxies.
-- Do not trust spoofable forwarded headers.
-- Apply controlled DB migrations.
-- Protect backups as sensitive data.
+## Quick start (Docker Compose)
+
+```bash
+cd deploy
+cp vergissmeinnicht.env.example vergissmeinnicht.env        # set PUBLIC_ORIGIN, SMTP_*, MAIL_FROM_*
+mkdir -p secrets
+openssl rand -base64 32 > secrets/auth_secret
+openssl rand -base64 32 > secrets/data_encryption_key
+chmod 0400 secrets/*                                         # readable by uid 1000 (the container user)
+export VMN_DOMAIN=vmn.example.org                            # DNS must point here for certificates
+docker compose build
+docker compose run --rm app migrate                          # creates / upgrades the database
+docker compose up -d
+docker compose run --rm app admin-bootstrap --email admin@example.org
+```
+
+`deploy/vergissmeinnicht.env` and `deploy/secrets/` are git-ignored. Keep a copy of `data_encryption_key` outside the server (see below). `docker compose ps` shows the app as `healthy` once it is ready.
+
+The image entry point knows these commands (all use the same configuration as the server):
+
+| Command | Purpose |
+| --- | --- |
+| `serve` (default) | Start the server. |
+| `migrate` | Back up the database if migrations are pending (`/data/backups/…-pre-migration.sqlite`), then apply them. |
+| `backup [--out FILE]` | Consistent online backup (server may keep running), verified. |
+| `verify FILE` | Check a backup (integrity, foreign keys, schema). |
+| `restore FILE [--force]` | Replace the database with a backup — **server stopped** (refused while it has the database open). |
+| `admin-bootstrap --email …` / `admin-recover --email … (--password\|--totp)` | See "First server admin" and "Account recovery". |
+
+Use `docker compose run --rm app <command>` when the app is stopped, or `docker compose exec app vergissmeinnicht <command>` while it runs (backups).
 
 ## Configuration
 
@@ -47,6 +70,9 @@ Inject configuration at runtime. The production server never reads `.env` files 
 | `MAIL_FROM_ADDRESS` | **required** | Sender address, e.g. `noreply@vmn.example.org`. |
 | `MAIL_FROM_NAME` | optional | Default `Vergissmeinnicht`. |
 | `INVITATION_TTL_HOURS` | optional | Default `72`, range 1–720. |
+| `TRUSTED_PROXIES` | behind a proxy | Comma-separated IPs/CIDR ranges (or `loopback`) of reverse proxies whose `X-Forwarded-For` is trusted. Empty (default): the socket address is the client. Never use broad ranges: every trusted address can claim any client address. `/0` is rejected. |
+| `HSTS_MAX_AGE` | optional | Strict-Transport-Security max-age in seconds for https origins (default one year, `0` disables; no `includeSubDomains`/`preload`). |
+| `AUTH_SECRET_FILE`, `DATA_ENCRYPTION_KEY_FILE`, `SMTP_PASSWORD_FILE` | recommended | Absolute path of a file holding the secret (Docker secrets: `/run/secrets/…`); a trailing line break is ignored. Set either the variable or its `_FILE`, not both. |
 | `SOURCE_CODE_URL` | optional | `https` link to the source of the running version, shown in every page footer (AGPL-3.0 §13). Default: the upstream repository. **Set it to your own repository if you run a modified version.** |
 
 `PUBLIC_ORIGIN` must be exactly the origin users type in the browser: every state-changing request whose `Origin` header differs is rejected (CSRF protection). In production the session cookie is `__Secure-vmn.session_token` (`Secure`, `HttpOnly`, `SameSite=Strict`), so the site must be served over HTTPS (loopback excepted).
@@ -59,50 +85,89 @@ Inject configuration at runtime. The production server never reads `.env` files 
 
 TOTP authenticator secrets are encrypted with this key. If it is lost or changed, every enrolled authenticator stops working: users can still sign in with a recovery code and re-enroll, otherwise an admin or operator TOTP reset is needed (see Account recovery). A re-encryption tool for planned key rotation does not exist yet — do not rotate it. Keep a copy of the key outside the server (e.g. in the operator's password manager) and store it separately from database backups: the encryption protects stolen database files only as long as the key is not stored alongside them.
 
-## Migrations
+## Migrations and upgrades
 
-The server does not migrate the database on startup. Apply committed migrations before starting a new version, with the production environment:
+The server never migrates on its own; it reports pending migrations as not ready (`GET /api/health/ready` → `503 migrations_pending`, container `unhealthy`). Upgrade procedure:
 
 ```bash
-NODE_ENV=production DATABASE_PATH=/data/vergissmeinnicht.sqlite node packages/database/src/migrate.ts
+git pull                                   # or fetch the new release
+docker compose build
+docker compose stop app
+docker compose run --rm app migrate        # automatic backup first if anything is pending
+docker compose up -d
 ```
 
-Back up the database first (see Backups). The controlled production procedure (container entrypoint) follows in Step 10.1.
+Without Docker: `NODE_ENV=production DATABASE_PATH=/data/vergissmeinnicht.sqlite node packages/database/src/ops-cli.ts migrate`. Migrations are committed files; a failed migration leaves the pre-migration backup to restore (see Backups).
 
-## Reverse proxy and rate limits
+## Reverse proxy, HTTPS and rate limits
 
-Sign-in, invitation and global request limits are counted per client address. The application does not yet trust forwarding headers (`trustProxy: false`, Step 10.3): behind a reverse proxy every request appears to come from the proxy, so all users share one limit and a single attacker can temporarily block everyone's sign-in. Until trusted-proxy configuration exists, treat proxied production deployments as not ready.
+HTTPS is mandatory; the Compose setup uses Caddy, which obtains and renews certificates automatically. Sign-in, invitation, Knot and global request limits count per client address, so the app must know the real client:
+
+- `TRUSTED_PROXIES` lists exactly the proxy's address. The app then takes the client from `X-Forwarded-For` as set by that proxy; headers from any other address are ignored (tested: a client cannot escape its limit by sending the header itself).
+- With your own proxy instead of Caddy: terminate TLS there, forward to the app's port 3000 on a private network, **overwrite** (not append to) `X-Forwarded-For` or make sure the proxy's own address is the one in `TRUSTED_PROXIES`, disable response buffering for `/api/workspaces/*/runs/*/events` (Server-Sent Events; nginx: the app sends `X-Accel-Buffering: no`), and do not enable response compression.
+- Access logs: the app redacts `/knot/{token}` and link tokens from its own request logs. Proxy access logs would contain them — keep them off (the Caddyfile has none) or filter the URI.
+- The app sends HSTS (one year) for https origins, CSP without inline styles/scripts, `Referrer-Policy: no-referrer`, `Permissions-Policy`, `X-Content-Type-Options`, `Cache-Control: no-store` on the API.
+- Private networks (VPN, Tailscale) do not replace the application's authentication; keep HTTPS and the normal configuration there too.
+
+## Health checks
+
+- `GET /api/health` — liveness (process answers).
+- `GET /api/health/ready` — readiness: database reachable and all migrations applied; `503` with a reason code otherwise. The image's `HEALTHCHECK` uses it.
 
 ## First server admin
 
 After the first deployment and migrations, create the first server admin from a shell with the production environment:
 
 ```bash
-NODE_ENV=production node apps/server/src/cli/admin-bootstrap.ts --email admin@example.org
+docker compose run --rm app admin-bootstrap --email admin@example.org
+# without Docker: NODE_ENV=production node apps/server/src/cli/admin-bootstrap.ts --email admin@example.org
 ```
 
-The command prints a single-use invitation link to the terminal (it is not emailed or logged). Treat it like a password. Running it again replaces the previous link. Open the link, choose a display name and a password (at least 15 characters), then sign in. Once a server admin exists, the command refuses to run and unused bootstrap links stop working; further accounts are invited by a server admin (`POST /api/admin/invitations`; a web UI follows).
+The command prints a single-use invitation link to the terminal (it is not emailed or logged). Treat it like a password. Running it again replaces the previous link. Open the link, choose a display name and a password (at least 15 characters), then sign in. Once a server admin exists, the command refuses to run and unused bootstrap links stop working; further accounts are invited by a server admin on the "Server admin" page.
 
 ## Account recovery
 
-There is no self-service "forgot password" email. A server admin starts a recovery (`POST /api/admin/recoveries`: password reset, two-factor reset or both; requires the admin's password and TOTP code) and the user receives a single-use link valid for 60 minutes at their own email address. Before starting one, verify the request through a second channel (in person, phone) — recovery requests are a classic social-engineering target.
+There is no self-service "forgot password" email. A server admin starts a recovery on the "Server admin" page (password reset, two-factor reset or both; requires the admin's password and TOTP code) and the user receives a single-use link valid for 60 minutes at their own email address. Before starting one, verify the request through a second channel (in person, phone) — recovery requests are a classic social-engineering target.
 
 If no admin can act (e.g. the only server admin lost the authenticator), use the operator CLI with the production environment:
 
 ```bash
-NODE_ENV=production node apps/server/src/cli/admin-recover.ts --email admin@example.org --totp       # lost authenticator
-NODE_ENV=production node apps/server/src/cli/admin-recover.ts --email admin@example.org --password   # forgotten password
+docker compose run --rm app admin-recover --email admin@example.org --totp       # lost authenticator
+docker compose run --rm app admin-recover --email admin@example.org --password   # forgotten password
 ```
 
 It prints the link to the terminal (not emailed, not logged). A two-factor-only reset asks the user for their current password. Completing a recovery signs the account out everywhere.
 
-## Backups
+## Backups and restore
 
-Before calling backup support complete, documentation must include:
+A backup is a complete copy of everything sensitive: accounts and password hashes, session tokens, encrypted TOTP secrets, Workspace content and the audit history. Treat backups like the live database: private storage, encrypted when they leave the server (e.g. `age`/`gpg` or an encrypted backup tool), access restricted.
 
-1. how to create a consistent SQLite backup;
-2. what files/data are required;
-3. restore steps;
-4. a tested restore procedure.
+**What to back up**
 
-A backup process that has never been restored is not verified.
+1. The database, via the backup command (never by copying the live file: a copy taken while the server writes can be inconsistent, and the WAL file holds recent changes).
+2. `DATA_ENCRYPTION_KEY` — separately (password manager). Without it, restored TOTP enrollments do not work (users fall back to recovery codes/admin reset); stored together with the database it would defeat the encryption.
+3. Your configuration (`vergissmeinnicht.env`, Caddyfile). `AUTH_SECRET` does not need a backup: a new one only signs everyone out.
+
+**Create a backup** (the server keeps running):
+
+```bash
+docker compose exec app vergissmeinnicht backup                        # → /data/backups/vergissmeinnicht-<UTC time>.sqlite
+docker compose cp app:/data/backups/<file> ./                          # copy it off the server, then encrypt it
+```
+
+The backup uses SQLite's online backup API (consistent, includes the WAL), is written with mode `0600`, converted to a single self-contained file and verified (integrity check, foreign keys, expected tables) before the command reports success. Schedule it (cron/systemd timer) and remove old files from `/data/backups` according to your retention policy; the app never deletes backups.
+
+**Restore**
+
+```bash
+docker compose cp ./vergissmeinnicht-<time>.sqlite app:/data/backups/  # if it is not on the volume
+docker compose run --rm app verify /data/backups/vergissmeinnicht-<time>.sqlite
+docker compose stop app
+docker compose run --rm app restore /data/backups/vergissmeinnicht-<time>.sqlite
+docker compose run --rm app migrate                                     # if the backup is from an older version
+docker compose up -d
+```
+
+`restore` refuses to run while any process has the database open (it needs an exclusive SQLite lock), verifies the backup first, and keeps the replaced database as `vergissmeinnicht.sqlite.before-restore-<time>` (plus its WAL/SHM files) — delete that manually once the restore is confirmed. Sessions in the backup are valid again after a restore; rotate `AUTH_SECRET` if you restore after a suspected compromise.
+
+**Tested procedure** (2026-09-27, `docu/steps.md` 10.2): automated tests back up a database with uncheckpointed WAL changes, restore it, and check contents, file modes, refusal while the database is open (also idle with an empty WAL) and rejection of damaged or foreign files. The full container drill — migrate, start behind Caddy, create data, `backup` while running, change data, restore refused while running, stop, restore, start, data back to the backup state, healthy — was run against the image. Repeat a restore drill on a spare machine regularly: a backup that was never restored is not verified.

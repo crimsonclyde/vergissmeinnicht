@@ -103,3 +103,7 @@ compose.override.yml
 
 # Committed schema migrations (not DB dumps)
 !packages/database/migrations/**/*.sql
+
+# Deployment: local configuration and Docker secrets
+deploy/vergissmeinnicht.env
+deploy/secrets/

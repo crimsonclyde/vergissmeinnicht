@@ -1,0 +1,19 @@
+# Only what the image needs; never local data, secrets or build artifacts.
+**/node_modules
+**/dist
+.git
+.github
+.var
+.env
+.env.*
+*.env
+secrets
+deploy/secrets
+e2e
+test-env
+test-results
+playwright-report
+docu
+assets
+**/*.test.ts
+**/*.sqlite*

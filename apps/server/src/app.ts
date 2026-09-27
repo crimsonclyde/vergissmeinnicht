@@ -21,13 +21,26 @@ export interface AppOptions {
   logger?: FastifyServerOptions['logger'];
   /** Application services. Without them only health and static assets are served (tests of the HTTP baseline). */
   services?: ((log: FastifyBaseLogger) => AppServices) | undefined;
+  /** Reverse proxies (IPs/CIDRs, `loopback`) whose X-Forwarded-For is trusted; empty = none (default). */
+  trustedProxies?: readonly string[] | undefined;
+  /** Strict-Transport-Security max-age in seconds; 0 or undefined = no HSTS header. */
+  hstsMaxAge?: number | undefined;
 }
+
+/** Browser features the app never uses; denied so injected content cannot use them either. */
+const PERMISSIONS_POLICY = ['camera', 'microphone', 'geolocation', 'payment', 'usb', 'interest-cohort']
+  .map((feature) => `${feature}=()`)
+  .join(', ');
 
 export async function buildApp(options: AppOptions = {}) {
   const app = Fastify({
     logger: options.logger ?? false,
-    // Forwarding headers are not trusted until the reverse-proxy setup is explicit (Step 10.3).
-    trustProxy: false,
+    // Forwarding headers are believed only from explicitly configured proxies (TRUSTED_PROXIES, 10.3);
+    // otherwise the socket address is the client address.
+    trustProxy: options.trustedProxies !== undefined && options.trustedProxies.length > 0 ? [...options.trustedProxies] : false,
+    // Slow clients cannot hold a connection open while sending a request (does not limit SSE responses).
+    requestTimeout: 30_000,
+    connectionTimeout: 60_000,
     // JSON bodies are small; routes that need more (e.g. imports) must raise this explicitly.
     bodyLimit: 64 * 1024,
   });
@@ -64,8 +77,12 @@ export async function buildApp(options: AppOptions = {}) {
       },
     },
     referrerPolicy: { policy: 'no-referrer' },
-    // HSTS is enabled once HTTPS termination is configured (Step 10.3).
-    strictTransportSecurity: false,
+    // Only for https public origins (HSTS_MAX_AGE, default one year); no includeSubDomains/preload,
+    // which would affect other services on the domain.
+    strictTransportSecurity: options.hstsMaxAge !== undefined && options.hstsMaxAge > 0 ? { maxAge: options.hstsMaxAge, includeSubDomains: false } : false,
+  });
+  app.addHook('onSend', async (_request, reply) => {
+    reply.header('Permissions-Policy', PERMISSIONS_POLICY);
   });
 
   await app.register(
@@ -75,6 +92,11 @@ export async function buildApp(options: AppOptions = {}) {
       });
       api.get('/health', async () => ({ status: 'ok' }));
       if (services !== undefined) {
+        // Readiness for container health checks: no details beyond a reason code.
+        api.get('/health/ready', async (_request, reply) => {
+          const readiness = services.readiness();
+          return readiness.ready ? { status: 'ready' } : reply.code(503).send({ status: 'not_ready', reason: readiness.reason });
+        });
         // Public: the license requires offering the source to everyone who uses the app over a network.
         api.get('/about', async () => ({ license: 'AGPL-3.0-only', sourceCodeUrl: services.sourceCodeUrl }));
         await api.register(authRoutes, { prefix: '/auth', services });
