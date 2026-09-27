@@ -1,7 +1,9 @@
 import {
   normalizeProcedureContent,
+  normalizeProcedureStructure,
   type Procedure,
   type ProcedureId,
+  type SectionInput,
   type User,
   type WorkspaceId,
 } from '@vergissmeinnicht/domain';
@@ -9,11 +11,16 @@ import { roleHasCapability, type WorkspaceCapability } from '@vergissmeinnicht/p
 import { NotAuthorizedError } from '../invitations/errors.ts';
 import type { ActorGuard } from '../ports/actor-guard.ts';
 import type { Clock } from '../ports/clock.ts';
-import type { ProcedureRepository, ProcedureWriteResult } from '../ports/procedure-repository.ts';
+import type { ProcedureDetail, ProcedureRepository, ProcedureWriteResult } from '../ports/procedure-repository.ts';
 import type { WorkspaceRepository } from '../ports/workspace-repository.ts';
 import { userActor } from '../user-actor.ts';
 import { authorizeWorkspace } from '../workspaces/use-cases.ts';
-import { ProcedureConflictError, ProcedureLimitReachedError, ProcedureNotFoundError } from './errors.ts';
+import {
+  InvalidProcedureReferenceError,
+  ProcedureConflictError,
+  ProcedureLimitReachedError,
+  ProcedureNotFoundError,
+} from './errors.ts';
 
 export interface ProcedureDeps {
   readonly workspaces: WorkspaceRepository;
@@ -29,16 +36,22 @@ export interface ProcedureInput {
   readonly description: string;
   readonly icon: string;
   readonly tags: readonly string[];
+  /** The complete ordered structure. Omitted items are removed on update. */
+  readonly sections: readonly SectionInput[];
+}
+
+function normalizeInput(input: ProcedureInput) {
+  return { content: normalizeProcedureContent(input), structure: normalizeProcedureStructure(input.sections) };
 }
 
 const guard = (capability: WorkspaceCapability): ActorGuard => ({
   actorMay: (role) => roleHasCapability(role, capability),
 });
 
-function procedureOrThrow(result: ProcedureWriteResult): Procedure {
+function detailOrThrow(result: ProcedureWriteResult): ProcedureDetail {
   switch (result.status) {
     case 'ok':
-      return result.procedure;
+      return result.detail;
     case 'forbidden':
       throw new NotAuthorizedError();
     case 'not_found':
@@ -47,6 +60,8 @@ function procedureOrThrow(result: ProcedureWriteResult): Procedure {
       throw new ProcedureConflictError();
     case 'limit_reached':
       throw new ProcedureLimitReachedError();
+    case 'invalid_reference':
+      throw new InvalidProcedureReferenceError();
   }
 }
 
@@ -62,22 +77,22 @@ export async function listProcedures(
 export async function getProcedure(
   deps: ProcedureDeps,
   input: { readonly actor: User; readonly workspaceId: WorkspaceId; readonly procedureId: ProcedureId },
-): Promise<Procedure> {
+): Promise<ProcedureDetail> {
   await authorizeWorkspace(deps, input.actor, input.workspaceId, 'procedure.view');
-  const procedure = await deps.procedures.findActive(input.workspaceId, input.procedureId);
-  if (procedure === undefined) throw new ProcedureNotFoundError();
-  return procedure;
+  const detail = await deps.procedures.findActive(input.workspaceId, input.procedureId);
+  if (detail === undefined) throw new ProcedureNotFoundError();
+  return detail;
 }
 
 export async function createProcedure(
   deps: ProcedureDeps,
   input: { readonly actor: User; readonly workspaceId: WorkspaceId; readonly content: ProcedureInput },
-): Promise<Procedure> {
+): Promise<ProcedureDetail> {
   await authorizeWorkspace(deps, input.actor, input.workspaceId, 'procedure.edit');
-  const content = normalizeProcedureContent(input.content);
-  return procedureOrThrow(
+  const { content, structure } = normalizeInput(input.content);
+  return detailOrThrow(
     await deps.procedures.create(
-      { workspaceId: input.workspaceId, content, at: deps.clock.now(), maxActive: MAX_PROCEDURES_PER_WORKSPACE },
+      { workspaceId: input.workspaceId, content, structure, at: deps.clock.now(), maxActive: MAX_PROCEDURES_PER_WORKSPACE },
       userActor(input.actor),
       guard('procedure.edit'),
     ),
@@ -85,8 +100,9 @@ export async function createProcedure(
 }
 
 /**
- * Replaces the editable content. `expectedRevision` is the revision the editor started from;
- * a concurrent edit by someone else yields ProcedureConflictError instead of silently overwriting it.
+ * One save of the whole Procedure (content, Sections, Steps), recorded as one audit event.
+ * `expectedRevision` is the revision the editor started from; a concurrent save by someone else
+ * yields ProcedureConflictError instead of silently overwriting it.
  */
 export async function updateProcedure(
   deps: ProcedureDeps,
@@ -97,16 +113,17 @@ export async function updateProcedure(
     readonly expectedRevision: number;
     readonly content: ProcedureInput;
   },
-): Promise<Procedure> {
+): Promise<ProcedureDetail> {
   await authorizeWorkspace(deps, input.actor, input.workspaceId, 'procedure.edit');
-  const content = normalizeProcedureContent(input.content);
-  return procedureOrThrow(
+  const { content, structure } = normalizeInput(input.content);
+  return detailOrThrow(
     await deps.procedures.update(
       {
         workspaceId: input.workspaceId,
         procedureId: input.procedureId,
         expectedRevision: input.expectedRevision,
         content,
+        structure,
         at: deps.clock.now(),
       },
       userActor(input.actor),
@@ -121,7 +138,7 @@ export async function deleteProcedure(
   input: { readonly actor: User; readonly workspaceId: WorkspaceId; readonly procedureId: ProcedureId },
 ): Promise<void> {
   await authorizeWorkspace(deps, input.actor, input.workspaceId, 'procedure.edit');
-  procedureOrThrow(
+  detailOrThrow(
     await deps.procedures.softDelete(
       { workspaceId: input.workspaceId, procedureId: input.procedureId, at: deps.clock.now() },
       userActor(input.actor),

@@ -46,18 +46,63 @@ export const PROCEDURE_ICONS = [
 ] as const;
 export type ProcedureIcon = (typeof PROCEDURE_ICONS)[number];
 
+/** Must match REASON_POLICIES on the server. */
+export const REASON_POLICIES = ['DISABLED', 'OPTIONAL', 'REQUIRED'] as const;
+export type ReasonPolicy = (typeof REASON_POLICIES)[number];
+
+export interface StepInput {
+  /** Existing Step id; omitted for new Steps (the server assigns ids). */
+  readonly id?: string;
+  readonly title: string;
+  readonly description: string;
+  readonly icon: ProcedureIcon | null;
+  readonly required: boolean;
+  readonly critical: boolean;
+  readonly skipReasonPolicy: ReasonPolicy;
+  readonly notApplicableReasonPolicy: ReasonPolicy;
+}
+
+export interface SectionInput {
+  readonly id?: string;
+  readonly title: string;
+  readonly description: string;
+  readonly steps: readonly StepInput[];
+}
+
 export interface ProcedureContent {
   readonly title: string;
   readonly description: string;
   readonly icon: ProcedureIcon;
   readonly tags: readonly string[];
+  readonly sections: readonly SectionInput[];
 }
 
-export interface Procedure extends ProcedureContent {
+/** List entry (no structure). */
+export interface Procedure {
   readonly id: string;
+  readonly title: string;
+  readonly description: string;
+  readonly icon: ProcedureIcon;
+  readonly tags: readonly string[];
   readonly revision: number;
   readonly createdAt: string;
   readonly updatedAt: string;
+}
+
+export interface ProcedureStep extends StepInput {
+  readonly id: string;
+  readonly kind: 'CHECK';
+}
+
+export interface ProcedureSection {
+  readonly id: string;
+  readonly title: string;
+  readonly description: string;
+  readonly steps: readonly ProcedureStep[];
+}
+
+export interface ProcedureDetail extends Procedure {
+  readonly sections: readonly ProcedureSection[];
 }
 
 export type SecondFactor = { readonly code: string } | { readonly recoveryCode: string };
@@ -102,6 +147,15 @@ export const ERROR_MESSAGES: Record<string, string> = {
   tag_too_long: 'Each tag must be at most 32 characters.',
   tag_invalid_characters: 'A tag contains characters that are not allowed.',
   too_many_tags: 'A Procedure can have at most 10 tags.',
+  too_many_sections: 'A Procedure can have at most 50 Sections.',
+  too_many_steps: 'A Procedure can have at most 200 Steps.',
+  section_title_empty: 'Every Section needs a title.',
+  section_title_too_long: 'Section titles must be at most 120 characters.',
+  section_title_invalid_characters: 'A Section title contains characters that are not allowed.',
+  step_title_empty: 'Every Step needs a title.',
+  step_title_too_long: 'Step titles must be at most 200 characters.',
+  step_title_invalid_characters: 'A Step title contains characters that are not allowed.',
+  invalid_item_reference: 'This Procedure was restructured in the meantime. Reload it and apply your changes again.',
 };
 
 export function messageFor(error: unknown, fallback = 'Something went wrong. Please try again.'): string {
@@ -174,11 +228,19 @@ export const api = {
     request<undefined>('POST', `/workspaces/${encodeURIComponent(id)}/rename`, { name }),
   procedures: async (workspaceId: string) =>
     (await request<{ procedures: Procedure[] }>('GET', `/workspaces/${encodeURIComponent(workspaceId)}/procedures`)).procedures,
+  procedure: async (workspaceId: string, id: string) =>
+    (
+      await request<{ procedure: ProcedureDetail }>(
+        'GET',
+        `/workspaces/${encodeURIComponent(workspaceId)}/procedures/${encodeURIComponent(id)}`,
+      )
+    ).procedure,
   createProcedure: async (workspaceId: string, content: ProcedureContent) =>
-    (await request<{ procedure: Procedure }>('POST', `/workspaces/${encodeURIComponent(workspaceId)}/procedures`, content)).procedure,
+    (await request<{ procedure: ProcedureDetail }>('POST', `/workspaces/${encodeURIComponent(workspaceId)}/procedures`, content))
+      .procedure,
   updateProcedure: async (workspaceId: string, id: string, expectedRevision: number, content: ProcedureContent) =>
     (
-      await request<{ procedure: Procedure }>(
+      await request<{ procedure: ProcedureDetail }>(
         'POST',
         `/workspaces/${encodeURIComponent(workspaceId)}/procedures/${encodeURIComponent(id)}/update`,
         { ...content, expectedRevision },

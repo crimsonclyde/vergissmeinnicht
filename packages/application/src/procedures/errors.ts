@@ -20,3 +20,11 @@ export class ProcedureLimitReachedError extends Error {
     this.name = 'ProcedureLimitReachedError';
   }
 }
+
+/** The save names a Section or Step id that does not belong to this Procedure. */
+export class InvalidProcedureReferenceError extends Error {
+  constructor() {
+    super('The Procedure structure references unknown items');
+    this.name = 'InvalidProcedureReferenceError';
+  }
+}

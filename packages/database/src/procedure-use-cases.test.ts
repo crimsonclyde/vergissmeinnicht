@@ -36,6 +36,7 @@ const LEAVE_HOUSE: ProcedureInput = {
   description: 'Before a trip.',
   icon: 'home',
   tags: ['travel'],
+  sections: [],
 };
 
 describe('Procedure use-cases', () => {
@@ -60,8 +61,8 @@ describe('Procedure use-cases', () => {
   }
   const join = (workspace: Workspace, user: User, role: WorkspaceRole) =>
     addMember(workspaceDeps, { actor: admin, workspaceId: workspace.id, email: user.email, role });
-  const create = (actor: User, workspace = home, content = LEAVE_HOUSE) =>
-    createProcedure(deps, { actor, workspaceId: workspace.id, content });
+  const create = async (actor: User, workspace = home, content = LEAVE_HOUSE) =>
+    (await createProcedure(deps, { actor, workspaceId: workspace.id, content })).procedure;
 
   beforeEach(async () => {
     database = createTestDatabase();
@@ -86,7 +87,7 @@ describe('Procedure use-cases', () => {
   describe('authoring', () => {
     it('lets EDITOR and ADMIN create, edit and soft-delete, each change audited atomically', async () => {
       const created = await create(editor);
-      expect(created).toMatchObject({ ...LEAVE_HOUSE, revision: 1, workspaceId: home.id });
+      expect(created).toMatchObject({ title: 'Leave the house', icon: 'home', tags: ['travel'], revision: 1, workspaceId: home.id });
       const updated = await updateProcedure(deps, {
         actor: admin,
         workspaceId: home.id,
@@ -94,7 +95,7 @@ describe('Procedure use-cases', () => {
         expectedRevision: 1,
         content: { ...LEAVE_HOUSE, title: 'Leave the flat', tags: ['travel', 'daily'] },
       });
-      expect(updated).toMatchObject({ title: 'Leave the flat', revision: 2 });
+      expect(updated.procedure).toMatchObject({ title: 'Leave the flat', revision: 2 });
       await deleteProcedure(deps, { actor: editor, workspaceId: home.id, procedureId: created.id });
 
       const events = auditEvents();
@@ -119,7 +120,7 @@ describe('Procedure use-cases', () => {
       await expect(deleteProcedure(deps, { actor: actor(), workspaceId: home.id, procedureId: existing.id })).rejects.toThrow(
         NotAuthorizedError,
       );
-      expect((await getProcedure(deps, { actor: editor, workspaceId: home.id, procedureId: existing.id })).revision).toBe(1);
+      expect((await getProcedure(deps, { actor: editor, workspaceId: home.id, procedureId: existing.id })).procedure.revision).toBe(1);
     });
 
     it('validates content before writing anything', async () => {
@@ -155,17 +156,18 @@ describe('Procedure use-cases', () => {
       const actor = { kind: 'user', userId: editor.id, displayName: editor.displayName } as const;
       const guard = { actorMay: () => true };
       const content = { ...LEAVE_HOUSE, icon: 'home', tags: [] } as const;
-      expect(await repository.create({ workspaceId: home.id, content, at: new Date(), maxActive: 1 }, actor, guard)).toEqual({
+      const structure = { sections: [] };
+      expect(await repository.create({ workspaceId: home.id, content, structure, at: new Date(), maxActive: 1 }, actor, guard)).toEqual({
         status: 'limit_reached',
       });
       expect(
-        (await repository.create({ workspaceId: home.id, content, at: new Date(), maxActive: 2 }, actor, guard)).status,
+        (await repository.create({ workspaceId: home.id, content, structure, at: new Date(), maxActive: 2 }, actor, guard)).status,
       ).toBe('ok');
       const full: ProcedureDeps = {
         ...deps,
         procedures: { ...repository, create: async () => ({ status: 'limit_reached' }) },
       };
-      await expect(createProcedure(full, { actor: editor, workspaceId: home.id, content })).rejects.toThrow(
+      await expect(createProcedure(full, { actor: editor, workspaceId: home.id, content: LEAVE_HOUSE })).rejects.toThrow(
         ProcedureLimitReachedError,
       );
     });
@@ -178,7 +180,7 @@ describe('Procedure use-cases', () => {
         updateProcedure(deps, { actor, workspaceId: home.id, procedureId: created.id, expectedRevision: 1, content: { ...LEAVE_HOUSE, title } });
       await edit(editor, 'First');
       await expect(edit(admin, 'Second')).rejects.toThrow(ProcedureConflictError);
-      expect((await getProcedure(deps, { actor: guest, workspaceId: home.id, procedureId: created.id })).title).toBe('First');
+      expect((await getProcedure(deps, { actor: guest, workspaceId: home.id, procedureId: created.id })).procedure.title).toBe('First');
     });
 
     it('does not bump the revision or audit when nothing changed', async () => {
@@ -190,7 +192,7 @@ describe('Procedure use-cases', () => {
         expectedRevision: 1,
         content: { ...LEAVE_HOUSE, title: '  Leave the house ' },
       });
-      expect(same.revision).toBe(1);
+      expect(same.procedure.revision).toBe(1);
       expect(auditEvents()).toHaveLength(1);
     });
   });
@@ -239,7 +241,7 @@ describe('Procedure use-cases', () => {
           ProcedureNotFoundError,
         );
       }
-      expect((await getProcedure(deps, { actor: outsider, workspaceId: office.id, procedureId: officeProcedure.id })).revision).toBe(1);
+      expect((await getProcedure(deps, { actor: outsider, workspaceId: office.id, procedureId: officeProcedure.id })).procedure.revision).toBe(1);
     });
 
     it('denies non-members exactly like an unknown Workspace', async () => {

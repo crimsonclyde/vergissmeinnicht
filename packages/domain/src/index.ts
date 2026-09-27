@@ -4,6 +4,7 @@ export * from './invitation.ts';
 export * from './mfa.ts';
 export * from './password.ts';
 export * from './procedure.ts';
+export * from './procedure-structure.ts';
 export * from './recovery.ts';
 export * from './security-event.ts';
 export * from './states.ts';

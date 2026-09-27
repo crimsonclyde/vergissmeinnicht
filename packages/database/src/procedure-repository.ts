@@ -1,11 +1,24 @@
 import { randomUUID } from 'node:crypto';
 import { and, asc, count, eq, isNull } from 'drizzle-orm';
-import type { ProcedureRepository, ProcedureWriteResult } from '@vergissmeinnicht/application';
-import type { Procedure, ProcedureContent, ProcedureId, WorkspaceId } from '@vergissmeinnicht/domain';
-import { IMMEDIATE, actorAllowed } from './actor-guard.ts';
+import type { ProcedureDetail, ProcedureRepository, ProcedureWriteResult } from '@vergissmeinnicht/application';
+import {
+  isEmptyChange,
+  summarizeStructureChange,
+  type Procedure,
+  type ProcedureContent,
+  type ProcedureId,
+  type ProcedureSection,
+  type SectionId,
+  type StepId,
+  type StructureDraft,
+  type WorkspaceId,
+} from '@vergissmeinnicht/domain';
+import { IMMEDIATE, actorAllowed, type Transaction } from './actor-guard.ts';
 import { recordAuditEvent } from './audit-events.ts';
 import type { AppDatabase } from './connection.ts';
-import { procedures } from './schema.ts';
+import { procedureSections, procedureSteps, procedures } from './schema.ts';
+
+type Reader = Pick<Transaction, 'select'>;
 
 function toProcedure(row: typeof procedures.$inferSelect): Procedure {
   return {
@@ -29,6 +42,77 @@ const activeIn = (workspaceId: WorkspaceId, procedureId?: ProcedureId) =>
     procedureId === undefined ? undefined : eq(procedures.id, procedureId),
   );
 
+/** Only call with a Procedure id that was already resolved through `activeIn`. */
+function loadSections(db: Reader, procedureId: string): ProcedureSection[] {
+  const steps = db
+    .select()
+    .from(procedureSteps)
+    .where(eq(procedureSteps.procedureId, procedureId))
+    .orderBy(asc(procedureSteps.position))
+    .all();
+  return db
+    .select()
+    .from(procedureSections)
+    .where(eq(procedureSections.procedureId, procedureId))
+    .orderBy(asc(procedureSections.position))
+    .all()
+    .map((section) => ({
+      id: section.id as SectionId,
+      title: section.title,
+      description: section.description,
+      steps: steps
+        .filter((step) => step.sectionId === section.id)
+        .map((step) => ({
+          id: step.id as StepId,
+          kind: step.kind,
+          title: step.title,
+          description: step.description,
+          icon: step.icon,
+          required: step.required,
+          critical: step.critical,
+          skipReasonPolicy: step.skipReasonPolicy,
+          notApplicableReasonPolicy: step.notApplicableReasonPolicy,
+        })),
+    }));
+}
+
+/**
+ * Resolves draft ids against the Procedure's current items: a named id must already be a Section
+ * (or Step) of *this* Procedure; unnamed items get fresh server-generated ids. Returns undefined
+ * for any foreign or wrong-kind id.
+ */
+function resolveStructure(draft: StructureDraft, current: readonly ProcedureSection[]): ProcedureSection[] | undefined {
+  const sectionIds = new Set<string>(current.map((section) => section.id));
+  const stepIds = new Set<string>(current.flatMap((section) => section.steps.map((step) => step.id)));
+  const resolved: ProcedureSection[] = [];
+  for (const section of draft.sections) {
+    if (section.id !== undefined && !sectionIds.has(section.id)) return undefined;
+    const steps = [];
+    for (const step of section.steps) {
+      if (step.id !== undefined && !stepIds.has(step.id)) return undefined;
+      steps.push({ ...step, id: step.id ?? (randomUUID() as StepId) });
+    }
+    resolved.push({ ...section, id: section.id ?? (randomUUID() as SectionId), steps });
+  }
+  return resolved;
+}
+
+function writeSections(tx: Transaction, procedureId: string, sections: readonly ProcedureSection[]): void {
+  // Rewritten as a whole; ids are preserved, positions follow the array order.
+  tx.delete(procedureSteps).where(eq(procedureSteps.procedureId, procedureId)).run();
+  tx.delete(procedureSections).where(eq(procedureSections.procedureId, procedureId)).run();
+  sections.forEach((section, position) => {
+    tx.insert(procedureSections)
+      .values({ id: section.id, procedureId, position, title: section.title, description: section.description })
+      .run();
+    section.steps.forEach((step, stepPosition) => {
+      tx.insert(procedureSteps)
+        .values({ ...step, procedureId, sectionId: section.id, position: stepPosition })
+        .run();
+    });
+  });
+}
+
 const CONTENT_FIELDS = ['title', 'description', 'icon', 'tags'] as const;
 
 function changedFields(before: ProcedureContent, after: ProcedureContent): string[] {
@@ -48,8 +132,10 @@ export function createProcedureRepository({ db }: Pick<AppDatabase, 'db'>): Proc
     },
 
     async findActive(workspaceId, procedureId) {
-      const row = db.select().from(procedures).where(activeIn(workspaceId, procedureId)).get();
-      return row && toProcedure(row);
+      return db.transaction((tx): ProcedureDetail | undefined => {
+        const row = tx.select().from(procedures).where(activeIn(workspaceId, procedureId)).get();
+        return row && { procedure: toProcedure(row), sections: loadSections(tx, row.id) };
+      });
     },
 
     async create(input, actor, guard) {
@@ -57,6 +143,9 @@ export function createProcedureRepository({ db }: Pick<AppDatabase, 'db'>): Proc
         if (!actorAllowed(tx, input.workspaceId, actor, guard)) return { status: 'forbidden' };
         const active = tx.select({ n: count() }).from(procedures).where(activeIn(input.workspaceId)).get()?.n ?? 0;
         if (active >= input.maxActive) return { status: 'limit_reached' };
+        // A new Procedure has no items yet, so any client-supplied id is foreign.
+        const sections = resolveStructure(input.structure, []);
+        if (sections === undefined) return { status: 'invalid_reference' };
         const row = tx
           .insert(procedures)
           .values({
@@ -71,6 +160,7 @@ export function createProcedureRepository({ db }: Pick<AppDatabase, 'db'>): Proc
           })
           .returning()
           .get();
+        writeSections(tx, row.id, sections);
         recordAuditEvent(tx, {
           workspaceId: input.workspaceId,
           type: 'PROCEDURE_CREATED',
@@ -78,9 +168,14 @@ export function createProcedureRepository({ db }: Pick<AppDatabase, 'db'>): Proc
           subjectType: 'procedure',
           subjectId: row.id,
           occurredAt: input.at,
-          metadata: { title: row.title, revision: 1 },
+          metadata: {
+            title: row.title,
+            revision: 1,
+            sections: sections.length,
+            steps: sections.reduce((total, section) => total + section.steps.length, 0),
+          },
         });
-        return { status: 'ok', procedure: toProcedure(row) };
+        return { status: 'ok', detail: { procedure: toProcedure(row), sections } };
       }, IMMEDIATE);
     },
 
@@ -90,8 +185,15 @@ export function createProcedureRepository({ db }: Pick<AppDatabase, 'db'>): Proc
         const current = tx.select().from(procedures).where(activeIn(input.workspaceId, input.procedureId)).get();
         if (current === undefined) return { status: 'not_found' };
         if (current.revision !== input.expectedRevision) return { status: 'conflict' };
+        const currentSections = loadSections(tx, current.id);
+        const sections = resolveStructure(input.structure, currentSections);
+        if (sections === undefined) return { status: 'invalid_reference' };
+
         const fields = changedFields(toProcedure(current), input.content);
-        if (fields.length === 0) return { status: 'ok', procedure: toProcedure(current) };
+        const summary = summarizeStructureChange(currentSections, sections);
+        if (fields.length === 0 && isEmptyChange(summary)) {
+          return { status: 'ok', detail: { procedure: toProcedure(current), sections: currentSections } };
+        }
         const revision = current.revision + 1;
         const row = tx
           .update(procedures)
@@ -100,6 +202,7 @@ export function createProcedureRepository({ db }: Pick<AppDatabase, 'db'>): Proc
           .returning()
           .get();
         if (row === undefined) return { status: 'conflict' };
+        if (!isEmptyChange(summary)) writeSections(tx, row.id, sections);
         recordAuditEvent(tx, {
           workspaceId: input.workspaceId,
           type: 'PROCEDURE_UPDATED',
@@ -107,9 +210,13 @@ export function createProcedureRepository({ db }: Pick<AppDatabase, 'db'>): Proc
           subjectType: 'procedure',
           subjectId: row.id,
           occurredAt: input.at,
-          metadata: { fields, revision },
+          metadata: {
+            fields: isEmptyChange(summary) ? fields : [...fields, 'structure'],
+            revision,
+            ...(isEmptyChange(summary) ? {} : summary),
+          },
         });
-        return { status: 'ok', procedure: toProcedure(row) };
+        return { status: 'ok', detail: { procedure: toProcedure(row), sections } };
       }, IMMEDIATE);
     },
 
@@ -132,7 +239,8 @@ export function createProcedureRepository({ db }: Pick<AppDatabase, 'db'>): Proc
           occurredAt: input.at,
           metadata: { title: row.title, revision: row.revision },
         });
-        return { status: 'ok', procedure: toProcedure(row) };
+        // Sections and Steps stay untouched with the soft-deleted Procedure (restore in Step 4.5).
+        return { status: 'ok', detail: { procedure: toProcedure(row), sections: loadSections(tx, row.id) } };
       }, IMMEDIATE);
     },
   };

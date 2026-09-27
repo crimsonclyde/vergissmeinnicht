@@ -95,7 +95,7 @@ This file is normative and must evolve with the application.
 - [x] UI-hidden buttons are never the authorization mechanism. (The web client receives capabilities only to adapt its UI; every request is re-authorized.)
 - [x] Workspace membership checked for resource access. (`authorizeWorkspace` in `packages/application/src/workspaces/use-cases.ts` reads the Membership on every call; non-members get the same 404 as unknown ids.)
 - [x] Role/capability checked for the requested operation. (Capabilities, not role strings; mutations re-check the actor's current role and ACTIVE status inside the write transaction.)
-- [ ] Child resources cannot bypass parent Workspace checks. (Memberships and Procedures: yes — every query is scoped by the route's Workspace id plus the child id; a child id from another Workspace behaves like an unknown id. Sections/Steps/Runs must follow the same rule — Steps 4.2/5.)
+- [ ] Child resources cannot bypass parent Workspace checks. (Memberships, Procedures, Sections and Steps: yes — every query is scoped by the route's Workspace id plus the child id; a child id from another Workspace behaves like an unknown id; Section/Step ids in a save must already belong to that Procedure, enforced in the transaction and by a composite FK. Runs must follow the same rule — Step 5.)
 - [x] Object identifiers are opaque but are not treated as authorization. (UUIDv4 Workspace ids; knowing an id grants nothing.)
 - [x] Guest/User/Editor/Admin policies are centrally defined. (`packages/permissions`: one role → capability table incl. Procedure/Run capabilities (3.2), exact-matrix test; matrix documented in steps.md 3.2.)
 - [x] Cross-Workspace access has negative tests.
@@ -137,7 +137,7 @@ Canonical shape:
 - [ ] Escape output according to rendering context.
 - [x] Do not accept arbitrary HTML by default. (Procedure text is plain text; the web client renders it as text, never via `innerHTML`.)
 - [x] User-selectable icons are trusted icon keys, not arbitrary uploaded SVG/HTML. (`PROCEDURE_ICONS`, validated in the domain and by a DB CHECK.)
-- [ ] Apply sensible text/array/file-size limits. (Procedures: title 120, description 4000 code points, ≤10 tags × 32, ≤1000 per Workspace, coarse transport bounds in the Zod schemas. Keep extending per feature.)
+- [ ] Apply sensible text/array/file-size limits. (Procedures: title 120, description 4000 code points, ≤10 tags × 32, ≤1000 per Workspace; ≤50 Sections, ≤200 Steps per Procedure, 1 MiB body limit on Procedure saves; coarse transport bounds in the Zod schemas. Keep extending per feature.)
 - [ ] Reject malformed UUIDs/tokens/state transitions.
 - [ ] Drag/drop order input is validated, authorized, and bounded.
 
@@ -470,5 +470,15 @@ The following choices are mandatory V1 behavior:
 **Logging review:** no new log statements; Procedure text only in request bodies, which are not logged; audit metadata holds title, field names and revision numbers only.  
 **Authorization review:** HTTP layer only authenticates and parses; all authorization in `packages/application/src/procedures/use-cases.ts` using `packages/permissions`.  
 **Open risks:** titles are copied into audit metadata on create/delete (Workspace-confidential text persists in the append-only log even after deletion — acceptable, readable only by future authorized history views); no audit history UI yet; restore (4.5) must re-check `procedure.restore` and the Workspace scope.  
+**Reviewed:** 2026-09-27
+
+### Security check: Procedure Sections and Steps (Step 4.2)
+**Threat surface:** IDOR through client-supplied Section/Step ids (moving or overwriting another Procedure's or Workspace's items), id confusion between Sections and Steps, client-chosen ids on create, a partial update body wiping the structure, oversized structures and bodies, invalid policy/flag values, stored XSS in Section/Step text.  
+**Controls added:** ids validated syntactically (UUIDv4, unique across kinds) and, inside the `IMMEDIATE` transaction, against the Procedure's own current items; new ids only server-generated; composite FK keeps each Step inside its own Procedure's Sections; update requires the complete `sections` array; ≤50 Sections / ≤200 Steps, 1 MiB body limit on create/update only; enums and lengths enforced in domain and DB CHECKs; plain-text rendering in the web client; one audit event per save with a structural change summary (no text copies).  
+**Negative tests:** `packages/domain/src/procedure-structure.test.ts`, `packages/database/src/procedure-structure-use-cases.test.ts`, structure cases in `apps/server/src/http/procedure.test.ts`; mutation checks listed in steps.md 4.2.  
+**Secrets/data involved:** user-authored Section/Step text (Workspace-confidential).  
+**Logging review:** no new log statements; bodies are not logged.  
+**Authorization review:** unchanged capabilities (`procedure.view` / `procedure.edit`); structure writes go through the same guarded repository methods as Procedure content.  
+**Open risks:** the 1 MiB body limit on two routes raises per-request parsing cost (bounded by the global rate limit and authentication); Section/Step rows are rewritten on every save, so nothing may reference them by foreign key (Run snapshots must copy — 5.1).  
 **Reviewed:** 2026-09-27
 

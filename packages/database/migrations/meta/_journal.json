@@ -64,6 +64,13 @@
       "when": 1790489116453,
       "tag": "0008_audit_events_append_only",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "6",
+      "when": 1790489811073,
+      "tag": "0009_procedure_sections_steps",
+      "breakpoints": true
     }
   ]
 }

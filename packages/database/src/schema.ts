@@ -3,8 +3,8 @@
 // Auth-related tables follow Better Auth's core schema: Drizzle *property* names are the
 // Better Auth field names (e.g. `name`, `emailVerified`), while *column* names are snake_case.
 import { sql } from 'drizzle-orm';
-import { check, index, integer, primaryKey, sqliteTable, text, uniqueIndex } from 'drizzle-orm/sqlite-core';
-import { PROCEDURE_ICONS, USER_STATUSES, WORKSPACE_ROLES } from '@vergissmeinnicht/domain';
+import { check, foreignKey, index, integer, primaryKey, sqliteTable, text, uniqueIndex } from 'drizzle-orm/sqlite-core';
+import { PROCEDURE_ICONS, REASON_POLICIES, STEP_KINDS, USER_STATUSES, WORKSPACE_ROLES } from '@vergissmeinnicht/domain';
 
 const timestampMs = (column: string) =>
   integer(column, { mode: 'timestamp_ms' })
@@ -337,6 +337,73 @@ export const procedures = sqliteTable(
     check('procedures_tags_array', sql`json_valid(${table.tags}) and json_type(${table.tags}) = 'array' and json_array_length(${table.tags}) <= 10`),
     check('procedures_revision_positive', sql`${table.revision} >= 1`),
     check('procedures_deletion_consistent', sql`(${table.deletedAt} is null) = (${table.deletedByUserId} is null)`),
+  ],
+);
+
+const oneOf = (column: string, values: readonly string[]) =>
+  sql.raw(`${column} in (${values.map((value) => `'${value}'`).join(', ')})`);
+
+/**
+ * Ordered Sections of a Procedure. Rewritten as a whole on every structure save (ids are kept);
+ * Run snapshots (Step 5.1) copy what they need and must not reference these rows.
+ */
+export const procedureSections = sqliteTable(
+  'procedure_sections',
+  {
+    id: text('id').primaryKey(),
+    procedureId: text('procedure_id')
+      .notNull()
+      .references(() => procedures.id),
+    position: integer('position').notNull(),
+    title: text('title').notNull(),
+    description: text('description').notNull().default(''),
+  },
+  (table) => [
+    uniqueIndex('procedure_sections_position_unique').on(table.procedureId, table.position),
+    // Target of the composite foreign key from procedure_steps.
+    uniqueIndex('procedure_sections_id_procedure_unique').on(table.id, table.procedureId),
+    check('procedure_sections_id_uuid', sql`length(${table.id}) = 36`),
+    check('procedure_sections_position_bounded', sql`${table.position} >= 0 and ${table.position} < 50`),
+    check('procedure_sections_title_present', sql`length(trim(${table.title})) > 0 and length(${table.title}) <= 120`),
+    check('procedure_sections_description_bounded', sql`length(${table.description}) <= 4000`),
+  ],
+);
+
+/** Ordered CHECK Steps. The composite foreign key keeps each Step inside its own Procedure's Sections. */
+export const procedureSteps = sqliteTable(
+  'procedure_steps',
+  {
+    id: text('id').primaryKey(),
+    procedureId: text('procedure_id')
+      .notNull()
+      .references(() => procedures.id),
+    sectionId: text('section_id').notNull(),
+    position: integer('position').notNull(),
+    kind: text('kind', { enum: STEP_KINDS }).notNull().default('CHECK'),
+    title: text('title').notNull(),
+    description: text('description').notNull().default(''),
+    icon: text('icon', { enum: PROCEDURE_ICONS }),
+    required: integer('required', { mode: 'boolean' }).notNull(),
+    critical: integer('critical', { mode: 'boolean' }).notNull(),
+    skipReasonPolicy: text('skip_reason_policy', { enum: REASON_POLICIES }).notNull(),
+    notApplicableReasonPolicy: text('not_applicable_reason_policy', { enum: REASON_POLICIES }).notNull(),
+  },
+  (table) => [
+    foreignKey({
+      name: 'procedure_steps_section_same_procedure',
+      columns: [table.sectionId, table.procedureId],
+      foreignColumns: [procedureSections.id, procedureSections.procedureId],
+    }),
+    uniqueIndex('procedure_steps_position_unique').on(table.sectionId, table.position),
+    index('procedure_steps_procedure_idx').on(table.procedureId),
+    check('procedure_steps_id_uuid', sql`length(${table.id}) = 36`),
+    check('procedure_steps_position_bounded', sql`${table.position} >= 0 and ${table.position} < 200`),
+    check('procedure_steps_kind_valid', oneOf('kind', STEP_KINDS)),
+    check('procedure_steps_title_present', sql`length(trim(${table.title})) > 0 and length(${table.title}) <= 200`),
+    check('procedure_steps_description_bounded', sql`length(${table.description}) <= 4000`),
+    check('procedure_steps_icon_valid', sql`icon is null or ${oneOf('icon', PROCEDURE_ICONS)}`),
+    check('procedure_steps_skip_policy_valid', oneOf('skip_reason_policy', REASON_POLICIES)),
+    check('procedure_steps_na_policy_valid', oneOf('not_applicable_reason_policy', REASON_POLICIES)),
   ],
 );
 

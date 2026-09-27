@@ -1,111 +1,51 @@
-import { useCallback, useEffect, useState, type FormEvent } from 'react';
-import { api, messageFor, PROCEDURE_ICONS, type Procedure, type ProcedureContent, type ProcedureIcon } from './api.ts';
+import { useCallback, useEffect, useState } from 'react';
+import { api, messageFor, type Procedure, type ProcedureContent, type ProcedureDetail, type ReasonPolicy } from './api.ts';
+import { Icon } from './procedure-icons.tsx';
+import { ProcedureForm } from './ProcedureForm.tsx';
 
-/** Glyph plus text label for every trusted icon key; the label is what screen readers announce. */
-const ICONS: Record<ProcedureIcon, { glyph: string; label: string }> = {
-  checklist: { glyph: '☑️', label: 'Checklist' },
-  home: { glyph: '🏠', label: 'Home' },
-  kitchen: { glyph: '🍳', label: 'Kitchen' },
-  cleaning: { glyph: '🧹', label: 'Cleaning' },
-  laundry: { glyph: '🧺', label: 'Laundry' },
-  garden: { glyph: '🌱', label: 'Garden' },
-  pet: { glyph: '🐾', label: 'Pet' },
-  car: { glyph: '🚗', label: 'Car' },
-  travel: { glyph: '🧳', label: 'Travel' },
-  tools: { glyph: '🛠️', label: 'Tools' },
-  health: { glyph: '🩺', label: 'Health' },
-  shopping: { glyph: '🛒', label: 'Shopping' },
-  document: { glyph: '📄', label: 'Document' },
-  security: { glyph: '🔒', label: 'Security' },
-  star: { glyph: '⭐', label: 'Star' },
+const EMPTY: ProcedureContent = { title: '', description: '', icon: 'checklist', tags: [], sections: [] };
+
+const REASON_TEXT: Record<ReasonPolicy, string> = {
+  DISABLED: 'no reason',
+  OPTIONAL: 'reason optional',
+  REQUIRED: 'reason required',
 };
 
-function Icon({ icon }: { icon: ProcedureIcon }) {
+function ProcedureView({ detail }: { detail: ProcedureDetail }) {
   return (
-    <span role="img" aria-label={ICONS[icon].label} title={ICONS[icon].label}>
-      {ICONS[icon].glyph}
-    </span>
-  );
-}
-
-const EMPTY: ProcedureContent = { title: '', description: '', icon: 'checklist', tags: [] };
-
-function splitTags(value: string): string[] {
-  return value
-    .split(',')
-    .map((tag) => tag.trim())
-    .filter((tag) => tag !== '');
-}
-
-function ProcedureForm(props: {
-  initial: ProcedureContent;
-  submitLabel: string;
-  onSubmit: (content: ProcedureContent) => Promise<void>;
-  onCancel: () => void;
-}) {
-  const [title, setTitle] = useState(props.initial.title);
-  const [description, setDescription] = useState(props.initial.description);
-  const [icon, setIcon] = useState<ProcedureIcon>(props.initial.icon);
-  const [tags, setTags] = useState(props.initial.tags.join(', '));
-  const [message, setMessage] = useState<string | null>(null);
-  const [busy, setBusy] = useState(false);
-
-  async function submit(event: FormEvent) {
-    event.preventDefault();
-    setBusy(true);
-    setMessage(null);
-    try {
-      await props.onSubmit({ title, description, icon, tags: splitTags(tags) });
-    } catch (caught) {
-      setMessage(messageFor(caught));
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  return (
-    <form onSubmit={submit}>
-      {message !== null && <p role="alert">{message}</p>}
-      <p>
-        <label>
-          Title
-          <br />
-          <input required maxLength={120} value={title} onChange={(e) => setTitle(e.target.value)} />
-        </label>
-      </p>
-      <p>
-        <label>
-          Description
-          <br />
-          <textarea rows={4} maxLength={4000} value={description} onChange={(e) => setDescription(e.target.value)} />
-        </label>
-      </p>
-      <p>
-        <label>
-          Icon{' '}
-          <select value={icon} onChange={(e) => setIcon(e.target.value as ProcedureIcon)}>
-            {PROCEDURE_ICONS.map((key) => (
-              <option key={key} value={key}>
-                {ICONS[key].glyph} {ICONS[key].label}
-              </option>
+    <>
+      <h5 id="procedure-title">
+        <Icon icon={detail.icon} /> {detail.title}
+      </h5>
+      {/* Plain text: React escapes it; line breaks are preserved by CSS only. */}
+      {detail.description !== '' && <p style={{ whiteSpace: 'pre-wrap' }}>{detail.description}</p>}
+      {detail.tags.length > 0 && <p>Tags: {detail.tags.join(', ')}</p>}
+      {detail.sections.length === 0 && <p>No Sections yet.</p>}
+      {detail.sections.map((section) => (
+        <section key={section.id} aria-label={`Section: ${section.title}`}>
+          <h6>{section.title}</h6>
+          {section.description !== '' && <p style={{ whiteSpace: 'pre-wrap' }}>{section.description}</p>}
+          <ol>
+            {section.steps.map((step) => (
+              <li key={step.id}>
+                {step.icon !== null && (
+                  <>
+                    <Icon icon={step.icon} />{' '}
+                  </>
+                )}
+                <strong>{step.title}</strong> — {step.required ? 'Required' : 'Optional'}
+                {step.critical && ', Critical'}
+                <br />
+                <small>
+                  Skip: {REASON_TEXT[step.skipReasonPolicy]} · Not applicable: {REASON_TEXT[step.notApplicableReasonPolicy]}
+                </small>
+                {step.description !== '' && <p style={{ whiteSpace: 'pre-wrap' }}>{step.description}</p>}
+              </li>
             ))}
-          </select>
-        </label>
-      </p>
-      <p>
-        <label>
-          Tags (comma-separated)
-          <br />
-          <input value={tags} onChange={(e) => setTags(e.target.value)} />
-        </label>
-      </p>
-      <button type="submit" disabled={busy}>
-        {props.submitLabel}
-      </button>{' '}
-      <button type="button" onClick={props.onCancel}>
-        Cancel
-      </button>
-    </form>
+          </ol>
+        </section>
+      ))}
+    </>
   );
 }
 
@@ -114,6 +54,7 @@ type Mode = { kind: 'list' } | { kind: 'create' } | { kind: 'view'; id: string }
 /** Capabilities only adapt the UI; the server authorizes every request. */
 export function Procedures({ workspaceId, canEdit }: { workspaceId: string; canEdit: boolean }) {
   const [procedures, setProcedures] = useState<Procedure[] | null>(null);
+  const [detail, setDetail] = useState<ProcedureDetail | null>(null);
   const [mode, setMode] = useState<Mode>({ kind: 'list' });
   const [message, setMessage] = useState<string | null>(null);
 
@@ -122,9 +63,31 @@ export function Procedures({ workspaceId, canEdit }: { workspaceId: string; canE
   }, [workspaceId]);
   useEffect(refresh, [refresh]);
 
-  const selected = mode.kind === 'view' || mode.kind === 'edit' ? procedures?.find((p) => p.id === mode.id) : undefined;
+  const openedId = mode.kind === 'view' || mode.kind === 'edit' ? mode.id : null;
+  useEffect(() => {
+    if (openedId === null) return;
+    let active = true;
+    api.procedure(workspaceId, openedId).then(
+      (loaded) => active && setDetail(loaded),
+      (caught: unknown) => {
+        if (!active) return;
+        setMessage(messageFor(caught));
+        setMode({ kind: 'list' });
+      },
+    );
+    return () => {
+      active = false;
+    };
+  }, [workspaceId, openedId]);
 
-  async function remove(procedure: Procedure) {
+  const shown = detail !== null && detail.id === openedId ? detail : null;
+
+  function open(id: string) {
+    setMessage(null);
+    setMode({ kind: 'view', id });
+  }
+
+  async function remove(procedure: ProcedureDetail) {
     if (!window.confirm(`Delete “${procedure.title}”? Past Runs stay readable.`)) return;
     setMessage(null);
     try {
@@ -148,48 +111,41 @@ export function Procedures({ workspaceId, canEdit }: { workspaceId: string; canE
           onCancel={() => setMode({ kind: 'list' })}
           onSubmit={async (content) => {
             const created = await api.createProcedure(workspaceId, content);
-            setMessage(null);
+            setDetail(created);
             refresh();
-            setMode({ kind: 'view', id: created.id });
+            open(created.id);
           }}
         />
       )}
 
-      {mode.kind === 'edit' && selected !== undefined && (
+      {mode.kind === 'edit' && shown !== null && (
         <ProcedureForm
-          key={`${selected.id}-${selected.revision}`}
-          initial={selected}
+          key={`${shown.id}-${shown.revision}`}
+          initial={shown}
           submitLabel="Save changes"
-          onCancel={() => setMode({ kind: 'view', id: selected.id })}
+          onCancel={() => setMode({ kind: 'view', id: shown.id })}
           onSubmit={async (content) => {
-            try {
-              await api.updateProcedure(workspaceId, selected.id, selected.revision, content);
-              setMode({ kind: 'view', id: selected.id });
-            } finally {
-              refresh();
-            }
+            const saved = await api.updateProcedure(workspaceId, shown.id, shown.revision, content);
+            setDetail(saved);
+            refresh();
+            setMode({ kind: 'view', id: saved.id });
           }}
         />
       )}
 
-      {mode.kind === 'view' && selected !== undefined && (
+      {mode.kind === 'view' && shown !== null && (
         <article aria-labelledby="procedure-title">
-          <h5 id="procedure-title">
-            <Icon icon={selected.icon} /> {selected.title}
-          </h5>
-          {/* Plain text: React escapes it; line breaks are preserved by CSS only. */}
-          {selected.description !== '' && <p style={{ whiteSpace: 'pre-wrap' }}>{selected.description}</p>}
-          {selected.tags.length > 0 && <p>Tags: {selected.tags.join(', ')}</p>}
+          <ProcedureView detail={shown} />
           <p>
             <button type="button" onClick={() => setMode({ kind: 'list' })}>
               Back to all Procedures
             </button>{' '}
             {canEdit && (
               <>
-                <button type="button" onClick={() => setMode({ kind: 'edit', id: selected.id })}>
+                <button type="button" onClick={() => setMode({ kind: 'edit', id: shown.id })}>
                   Edit
                 </button>{' '}
-                <button type="button" onClick={() => void remove(selected)}>
+                <button type="button" onClick={() => void remove(shown)}>
                   Delete
                 </button>
               </>
@@ -198,7 +154,9 @@ export function Procedures({ workspaceId, canEdit }: { workspaceId: string; canE
         </article>
       )}
 
-      {(mode.kind === 'list' || ((mode.kind === 'view' || mode.kind === 'edit') && selected === undefined)) && (
+      {(mode.kind === 'view' || mode.kind === 'edit') && shown === null && <p>Loading…</p>}
+
+      {mode.kind === 'list' && (
         <>
           {procedures === null ? (
             <p>Loading…</p>
@@ -208,7 +166,7 @@ export function Procedures({ workspaceId, canEdit }: { workspaceId: string; canE
             <ul aria-label="Procedures">
               {procedures.map((procedure) => (
                 <li key={procedure.id}>
-                  <button type="button" onClick={() => setMode({ kind: 'view', id: procedure.id })}>
+                  <button type="button" onClick={() => open(procedure.id)}>
                     <Icon icon={procedure.icon} /> {procedure.title}
                   </button>
                   {procedure.tags.length > 0 && <> ({procedure.tags.join(', ')})</>}

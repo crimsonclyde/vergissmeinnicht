@@ -204,9 +204,11 @@ Procedures live under their Workspace and are addressed only together with it:
 GET  /api/workspaces/{id}/procedures                    procedure.view (all roles), non-deleted
 POST /api/workspaces/{id}/procedures                    procedure.edit
 GET  /api/workspaces/{id}/procedures/{procedureId}      procedure.view
-POST /api/workspaces/{id}/procedures/{procedureId}/update   procedure.edit + expectedRevision
+POST /api/workspaces/{id}/procedures/{procedureId}/update   procedure.edit + expectedRevision + complete sections[]
 POST /api/workspaces/{id}/procedures/{procedureId}/delete   procedure.edit (soft delete)
 ```
+
+A Procedure is saved as one document: content plus ordered Sections and CHECK Steps. Existing Section/Step ids are kept (they must belong to that Procedure); new items get server ids; the child rows are rewritten on every save, so Runs will snapshot them instead of referencing them. Each save is one `PROCEDURE_UPDATED` audit event with a change summary.
 
 Workspace content changes are recorded in `audit_events` (append-only, same transaction; Run/Step events join in 5.5). Account and access changes stay in `security_events`.
 

@@ -105,10 +105,62 @@ await api('POST', '/auth/sign-out', {}, admin);
 
 // Procedures are authored by the editor, like in real use.
 const editor = await signIn('editor@vmn.test');
+const check = (title: string, extra: object = {}) => ({
+  title,
+  required: true,
+  critical: false,
+  skipReasonPolicy: 'OPTIONAL',
+  notApplicableReasonPolicy: 'OPTIONAL',
+  ...extra,
+});
 const procedures = [
-  { title: 'Leave the house', icon: 'home', tags: ['daily', 'safety'], description: 'Before everyone leaves:\nwindows, stove, lights, door.' },
-  { title: 'Weekly cleaning', icon: 'cleaning', tags: ['weekly'], description: 'Kitchen, bathroom, floors.' },
-  { title: 'Pack for a trip', icon: 'travel', tags: ['travel'], description: '' },
+  {
+    title: 'Leave the house',
+    icon: 'home',
+    tags: ['daily', 'safety'],
+    description: 'Before everyone leaves.',
+    sections: [
+      {
+        title: 'Kitchen',
+        steps: [
+          check('Stove and oven off', { critical: true, icon: 'kitchen', skipReasonPolicy: 'DISABLED' }),
+          check('Dishwasher started', { required: false }),
+        ],
+      },
+      {
+        title: 'Everywhere',
+        steps: [
+          check('Windows closed', { notApplicableReasonPolicy: 'REQUIRED' }),
+          check('Lights off', { required: false, skipReasonPolicy: 'DISABLED' }),
+          check('Front door locked', { critical: true, icon: 'security', skipReasonPolicy: 'REQUIRED' }),
+        ],
+      },
+    ],
+  },
+  {
+    title: 'Weekly cleaning',
+    icon: 'cleaning',
+    tags: ['weekly'],
+    description: 'Kitchen, bathroom, floors.',
+    sections: [
+      { title: 'Kitchen', steps: [check('Wipe counters'), check('Clean fridge', { required: false })] },
+      { title: 'Bathroom', steps: [check('Clean sink and toilet'), check('Replace towels')] },
+      { title: 'Floors', steps: [check('Vacuum'), check('Mop', { required: false })] },
+    ],
+  },
+  {
+    title: 'Pack for a trip',
+    icon: 'travel',
+    tags: ['travel'],
+    description: '',
+    sections: [
+      {
+        title: 'Documents',
+        steps: [check('Passport / ID', { critical: true, icon: 'document' }), check('Tickets'), check('Insurance card')],
+      },
+      { title: 'Bag', steps: [check('Chargers'), check('Medication', { icon: 'health', notApplicableReasonPolicy: 'DISABLED' })] },
+    ],
+  },
 ];
 for (const procedure of procedures) {
   await api('POST', `/workspaces/${household}/procedures`, procedure, editor);

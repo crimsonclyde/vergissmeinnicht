@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { startTestApp } from './test-harness.ts';
 
 const UNKNOWN_ID = '3f1c2b9a-6d4e-4f8a-9b7c-1a2b3c4d5e6f';
-const PROCEDURE = { title: 'Leave the house', description: 'Before a trip', icon: 'home', tags: ['travel'] };
+const PROCEDURE = { title: 'Leave the house', description: 'Before a trip', icon: 'home', tags: ['travel'], sections: [] };
 
 describe('Procedure HTTP API', () => {
   let t: Awaited<ReturnType<typeof startTestApp>>;
@@ -116,6 +116,58 @@ describe('Procedure HTTP API', () => {
     ];
     expect(invalid.map((r) => r.statusCode)).toEqual(Array(invalid.length).fill(400));
     expect((await t.get(base(home), editor)).json().procedures).toHaveLength(1);
+  });
+
+  it('saves Sections and Steps with the Procedure and requires the full structure on update', async () => {
+    const step = { title: 'Windows', required: true, skipReasonPolicy: 'OPTIONAL', notApplicableReasonPolicy: 'DISABLED' };
+    const created = await create(home, editor, { ...PROCEDURE, sections: [{ title: 'Upstairs', steps: [step] }] });
+    expect(created.statusCode).toBe(201);
+    const procedure = created.json().procedure as { id: string; sections: { id: string; steps: { id: string }[] }[] };
+    expect(procedure.sections[0]).toMatchObject({
+      title: 'Upstairs',
+      description: '',
+      steps: [{ title: 'Windows', kind: 'CHECK', icon: null, critical: false, required: true }],
+    });
+
+    const withoutSections = { title: PROCEDURE.title, description: PROCEDURE.description, icon: PROCEDURE.icon, tags: PROCEDURE.tags };
+    const missing = await t.post(`${base(home)}/${procedure.id}/update`, { ...withoutSections, expectedRevision: 1 }, editor);
+    expect(missing.statusCode).toBe(400);
+
+    const listed = (await t.get(base(home), guest)).json().procedures[0];
+    expect(listed).not.toHaveProperty('sections');
+    const fetched = (await t.get(`${base(home)}/${procedure.id}`, guest)).json().procedure;
+    expect(fetched.sections[0].steps[0].id).toBe(procedure.sections[0]?.steps[0]?.id);
+  });
+
+  it('rejects Step ids that belong to another Procedure', async () => {
+    const step = { title: 'Secret', required: true, skipReasonPolicy: 'OPTIONAL', notApplicableReasonPolicy: 'OPTIONAL' };
+    const other = (await create(home, editor, { ...PROCEDURE, sections: [{ title: 'S', steps: [step] }] })).json().procedure;
+    const mine = (await create(home, editor)).json().procedure;
+    const stolenStepId = other.sections[0].steps[0].id as string;
+    const response = await t.post(
+      `${base(home)}/${mine.id}/update`,
+      { ...PROCEDURE, expectedRevision: 1, sections: [{ title: 'Mine', steps: [{ ...step, id: stolenStepId }] }] },
+      editor,
+    );
+    expect(response.statusCode).toBe(400);
+    expect(response.json()).toEqual({ error: 'invalid_item_reference' });
+    expect((await t.get(`${base(home)}/${other.id}`, editor)).json().procedure.sections[0].steps[0].title).toBe('Secret');
+  });
+
+  it('validates Step fields strictly', async () => {
+    const step = { title: 'S', required: true, skipReasonPolicy: 'OPTIONAL', notApplicableReasonPolicy: 'OPTIONAL' };
+    const invalid = [
+      { ...step, kind: 'TEXT' },
+      { ...step, skipReasonPolicy: 'optional' },
+      { ...step, required: 'yes' },
+      { ...step, icon: '<svg/>' },
+      { ...step, id: 'not-a-uuid' },
+      { title: 'S' },
+    ];
+    for (const bad of invalid) {
+      expect((await create(home, editor, { ...PROCEDURE, sections: [{ title: 'X', steps: [bad] }] })).statusCode).toBe(400);
+    }
+    expect((await t.get(base(home), editor)).json().procedures).toEqual([]);
   });
 
   it('answers unknown Procedure ids with 404', async () => {

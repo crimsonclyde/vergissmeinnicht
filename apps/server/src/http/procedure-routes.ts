@@ -5,6 +5,7 @@ import {
   listProcedures,
   updateProcedure,
 } from '@vergissmeinnicht/application';
+import type { ProcedureDetail } from '@vergissmeinnicht/application';
 import { UUID_V4, type Procedure, type ProcedureId, type WorkspaceId } from '@vergissmeinnicht/domain';
 import type { FastifyInstance, FastifyRequest } from 'fastify';
 import { z } from 'zod';
@@ -16,15 +17,41 @@ import { requireUser, type Principal } from './session.ts';
 const uuid = z.string().regex(UUID_V4);
 const workspaceParams = z.strictObject({ workspaceId: uuid });
 const procedureParams = z.strictObject({ workspaceId: uuid, procedureId: uuid });
-// Coarse transport bounds; the domain applies the exact rules (code points, characters, icon keys).
+// Coarse transport bounds; the domain applies the exact rules (code points, characters, icon keys,
+// id format, reason policies, counts).
+const text = (max: number) => z.string().max(max);
+const itemId = text(64).optional();
+const step = z.strictObject({
+  id: itemId,
+  title: text(1024),
+  description: text(16_384).default(''),
+  icon: text(64).nullable().default(null),
+  required: z.boolean(),
+  critical: z.boolean().default(false),
+  skipReasonPolicy: text(32),
+  notApplicableReasonPolicy: text(32),
+});
+const section = z.strictObject({
+  id: itemId,
+  title: text(512),
+  description: text(16_384).default(''),
+  steps: z.array(step).max(250).default([]),
+});
 const content = {
-  title: z.string().max(512),
-  description: z.string().max(16_384).default(''),
-  icon: z.string().max(64),
-  tags: z.array(z.string().max(128)).max(50).default([]),
+  title: text(512),
+  description: text(16_384).default(''),
+  icon: text(64),
+  tags: z.array(text(128)).max(50).default([]),
 };
-const createBody = z.strictObject(content);
-const updateBody = z.strictObject({ ...content, expectedRevision: z.number().int().min(1).max(Number.MAX_SAFE_INTEGER) });
+const createBody = z.strictObject({ ...content, sections: z.array(section).max(60).default([]) });
+// Updates always carry the complete structure: a missing `sections` must never mean "delete all".
+const updateBody = z.strictObject({
+  ...content,
+  sections: z.array(section).max(60),
+  expectedRevision: z.number().int().min(1).max(Number.MAX_SAFE_INTEGER),
+});
+/** A full Procedure with up to 200 Steps can exceed the global 64 KiB body limit. */
+const STRUCTURE_BODY_LIMIT = 1024 * 1024;
 
 function parse<T>(schema: z.ZodType<T>, value: unknown): T {
   const parsed = schema.safeParse(value);
@@ -50,6 +77,10 @@ function procedureView(procedure: Procedure) {
   };
 }
 
+function detailView(detail: ProcedureDetail) {
+  return { ...procedureView(detail.procedure), sections: detail.sections };
+}
+
 /**
  * Procedures of one Workspace (`/api/workspaces/{workspaceId}/procedures`). Every route requires a
  * session; membership, capabilities and Workspace scoping of the Procedure id are enforced in the use-cases.
@@ -64,38 +95,38 @@ export async function procedureRoutes(app: FastifyInstance, { services }: { serv
     return { procedures: procedures.map(procedureView) };
   });
 
-  app.post('/', async (request, reply) => {
+  app.post('/', { bodyLimit: STRUCTURE_BODY_LIMIT }, async (request, reply) => {
     const { workspaceId } = parse(workspaceParams, request.params);
     const body = parse(createBody, request.body);
-    const procedure = await createProcedure(deps, {
+    const detail = await createProcedure(deps, {
       actor: principalOf(request).user,
       workspaceId: workspaceId as WorkspaceId,
       content: body,
     });
-    return reply.code(201).send({ procedure: procedureView(procedure) });
+    return reply.code(201).send({ procedure: detailView(detail) });
   });
 
   app.get('/:procedureId', async (request) => {
     const { workspaceId, procedureId } = parse(procedureParams, request.params);
-    const procedure = await getProcedure(deps, {
+    const detail = await getProcedure(deps, {
       actor: principalOf(request).user,
       workspaceId: workspaceId as WorkspaceId,
       procedureId: procedureId as ProcedureId,
     });
-    return { procedure: procedureView(procedure) };
+    return { procedure: detailView(detail) };
   });
 
-  app.post('/:procedureId/update', async (request) => {
+  app.post('/:procedureId/update', { bodyLimit: STRUCTURE_BODY_LIMIT }, async (request) => {
     const { workspaceId, procedureId } = parse(procedureParams, request.params);
     const { expectedRevision, ...body } = parse(updateBody, request.body);
-    const procedure = await updateProcedure(deps, {
+    const detail = await updateProcedure(deps, {
       actor: principalOf(request).user,
       workspaceId: workspaceId as WorkspaceId,
       procedureId: procedureId as ProcedureId,
       expectedRevision,
       content: body,
     });
-    return { procedure: procedureView(procedure) };
+    return { procedure: detailView(detail) };
   });
 
   app.post('/:procedureId/delete', async (request, reply) => {

@@ -18,17 +18,14 @@ For every completed task, add a concise completion note, tests/checks performed,
 
 ## Current state — resume here
 
-_Last updated: 2026-09-27 (after 4.1 + 3.3)_
+_Last updated: 2026-09-27 (after 4.2)_
 
-**Done:** 0.1, 0.2, 0.3, 1.1, 1.2, 2.1–2.5, 3.1–3.3, 4.1, 9.1 (pulled forward for invitations). 2.6 (external providers) is DEFERRED.
-**Next:** 4.2 Sections and CHECK Steps:
-1. Sections/Steps as child rows of a Procedure, always addressed via Workspace id + Procedure id + own id; ordering with bounded, validated positions (prepares 4.3);
-2. Step fields per 4.2 (required/optional, critical flag, Skip / Not Applicable reason policies disabled/optional/required) with DB CHECKs; editing a Step bumps the Procedure `revision` (same lost-update protection);
-3. counts bounded per Procedure; audit events `SECTION_*` / `STEP_*` or one `PROCEDURE_UPDATED` per change set — decide and document; extend `test-env/seed.ts` with Steps.
+**Done:** 0.1, 0.2, 0.3, 1.1, 1.2, 2.1–2.5, 3.1–3.3, 4.1, 4.2, 9.1 (pulled forward for invitations). 2.6 (external providers) is DEFERRED.
+**Next:** 4.3 Drag and drop — the server side already exists: a save carries the complete ordered structure with stable ids, and items may move between Sections. 4.3 is mainly client work: accessible drag and drop (keyboard alternative stays: the ↑/↓ buttons) on top of the same save; keep the server limits and the "ids must belong to this Procedure" check as the only authority. Then 4.4 (duplicate / JSON import-export) or 5.1 (Run snapshot) — decide order with the user.
 
 Also open: trusted-proxy configuration (10.3) before production use behind a reverse proxy; admin web UI (invitations, recoveries — API only so far); account status changes (disable/enable users) with session revocation; housekeeping of expired challenge/recovery/invitation rows.
 
-**Branches:** work is stacked, not yet merged into `main`: `step-1.1-app-skeleton` → `step-1.2-config` → `step-2.1-user-model` → `step-2.2-invitations` → `step-2.4-totp` → `step-2.5-recovery` → `step-3.1-workspaces` → `step-3.2-roles` → `step-4.1-procedures` (each branch contains the previous ones; 2.3 was completed on `step-2.2-invitations` because acceptance finishes 2.2). CI runs on pull requests / `main` only.
+**Branches:** work is stacked, not yet merged into `main`: `step-1.1-app-skeleton` → `step-1.2-config` → `step-2.1-user-model` → `step-2.2-invitations` → `step-2.4-totp` → `step-2.5-recovery` → `step-3.1-workspaces` → `step-3.2-roles` → `step-4.1-procedures` → `step-4.2-steps` (each branch contains the previous ones; 2.3 was completed on `step-2.2-invitations` because acceptance finishes 2.2). CI runs on pull requests / `main` only.
 
 **Manual testing:** `test-env/menu.sh` (added 2026-09-27) installs/starts/stops/removes an isolated production-mode instance on port 3200 with demo accounts for every role (see `test-env/README.md`). Extend `test-env/seed.ts` when new features need demo data (e.g. Procedures in 4.1).
 
@@ -670,7 +667,8 @@ Create/edit/soft-delete reusable Procedures with title, description, icon, tags,
 - Search/filter by tag is not implemented (not required by 4.1).
 
 ### 4.2 Sections and CHECK Steps
-**Status:** TODO
+**Status:** DONE
+**Completed:** 2026-09-27
 
 Support ordered Sections and V1 `CHECK` Steps with:
 - title;
@@ -686,6 +684,31 @@ Reason policies are independently:
 - disabled;
 - optional;
 - required.
+
+**Decision (2026-09-27, user):** one audit entry per save. Editors save the whole Procedure (content + ordered Sections + Steps) in one request; the `PROCEDURE_UPDATED` event summarizes what changed (`fields` incl. `structure`, counts of Sections/Steps added, removed and changed — moves and reorders count as changes).
+
+**Security impact:** HIGH — nested child resources with client-supplied ids (IDOR risk), larger request bodies.
+
+**Implemented:**
+- Domain (`packages/domain/src/procedure-structure.ts`): `ProcedureSection`, `ProcedureStep` (`kind: 'CHECK'`, title ≤200, plain-text description ≤4000, optional trusted icon key, `required`, `critical`, `skipReasonPolicy` / `notApplicableReasonPolicy` ∈ `DISABLED`/`OPTIONAL`/`REQUIRED`), `normalizeProcedureStructure` (≤50 Sections, ≤200 Steps per Procedure, UUIDv4 item ids unique across Sections and Steps), `summarizeStructureChange`. The *meaning* of reason policies and required/critical is enforced by Run execution (5.2–5.4); 4.2 stores them. Press-and-hold is the Run UI (5.3); authoring only sets the critical flag.
+- Application: `ProcedureInput.sections` (complete structure); create/get/update return `ProcedureDetail` (Procedure + Sections); `InvalidProcedureReferenceError` for foreign ids.
+- Database: migration `0009` — `procedure_sections` and `procedure_steps` (positions unique per parent and bounded, CHECKs for kind, policies, icon, lengths; composite FK `(section_id, procedure_id)` → `procedure_sections(id, procedure_id)` so a Step can never sit in another Procedure's Section; no cascading deletes). The repository resolves ids inside the `IMMEDIATE` transaction: a named id must already be a Section/Step of *this* Procedure (right kind); new items get server UUIDs; client ids on create are always rejected. The structure is rewritten as a whole with ids preserved; unchanged saves are no-ops; soft delete keeps Sections/Steps.
+- HTTP: create accepts `sections` (default empty), update **requires** `sections` (a missing field must never mean "delete everything"); strict nested Zod schemas; body limit 1 MiB on create/update (a full 200-Step Procedure can exceed the global 64 KiB); error `invalid_item_reference` (400). List responses stay without structure; detail/create/update responses include it.
+- Web: `ProcedureForm.tsx` edits Sections and Steps (add, remove, ↑/↓ reorder, all Step fields; labels explicitly associated for assistive tech), `Procedures.tsx` shows the structure with Required/Optional, Critical and reason-policy text; icon components shared in `procedure-icons.tsx`.
+- `test-env/seed.ts`: demo Procedures now have Sections and Steps covering every flag and policy.
+
+**Tests/checks:**
+- `pnpm test` — 388 tests (+19): domain structure rules (6: normalization, policies, icons, malformed/duplicate ids incl. cross-kind, limits, change summary), use-cases (10: ordered create with server ids, stable ids across edit/reorder/move with one audit event and exact summary, no-op, foreign Step/Section ids from another Procedure and another Workspace rejected with nothing changed, Section id used as Step id and vice versa, client ids on create, stale save, USER refused, invalid policy, soft delete keeps structure, DB composite FK/unique/CHECK), HTTP (3: structure round trip and required `sections` on update, stolen Step id → 400 with the other Procedure intact, strict Step field validation), drift test extended to reason policies.
+- Mutation checks: removing the Step-id or Section-id ownership check, accepting client ids on create, the duplicate-id check, the Step limit or the revision check each fails tests.
+- `pnpm test:e2e`: Procedure with a Section and two Steps (critical flag, skip policy), view, edit with reorder, delete.
+- test-env install → structured demo Procedures readable by USER → uninstall.
+- `pnpm lint`, `pnpm typecheck`; migration 0009 applied twice to a copy of the dev DB, `foreign_key_check` clean.
+
+**Security docs updated:** YES (§3, §5, "Security check: Procedure Sections and Steps (Step 4.2)").
+
+**Remaining:**
+- Drag and drop (4.3) on top of the same save.
+- Run snapshots (5.1) must copy Section/Step data and must not reference `procedure_sections`/`procedure_steps` rows (they are rewritten on every save).
 
 ### 4.3 Drag and drop
 **Status:** TODO
