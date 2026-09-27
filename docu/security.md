@@ -102,7 +102,7 @@ This file is normative and must evolve with the application.
 - [x] Horizontal privilege escalation has negative tests. (Admin of Workspace A cannot manage members of Workspace B; members cannot see other Workspaces.)
 - [x] Vertical privilege escalation has negative tests. (GUEST/USER/EDITOR cannot add, re-role, remove or rename; self-promotion refused; Workspace ADMIN ≠ server admin.)
 - [x] Membership/role changes are audited. (`WORKSPACE_CREATED`, `WORKSPACE_RENAMED`, `MEMBERSHIP_ADDED`, `MEMBERSHIP_ROLE_CHANGED`, `MEMBERSHIP_REMOVED` in `security_events`, same transaction.)
-- [x] Removing a member invalidates/updates active access promptly. (No cached authorization: the next request with the same session is denied. SSE subscriptions must re-check on membership change — Step 6.1.)
+- [x] Removing a member invalidates/updates active access promptly. (No cached authorization: the next request with the same session is denied. SSE streams re-check membership before every delivered change and at every 20 s heartbeat — Step 6.1.)
 - [x] Workspace creation goes through one capability (`canCreateWorkspace`: ACTIVE server admins only).
 - [x] Every Workspace keeps at least one ACTIVE member with `workspace.members.manage`; enforced inside the membership transaction.
 
@@ -178,15 +178,15 @@ Canonical shape:
 
 ## 7. Realtime collaboration
 
-- [ ] Realtime connection authenticates current session.
-- [ ] Subscription to a Run is authorized server-side.
-- [ ] User cannot subscribe to arbitrary Workspace/Run channels.
-- [ ] Realtime event does not expose unnecessary sensitive data.
-- [ ] Mutations still use authoritative server validation.
-- [ ] Client-supplied actor/timestamps are ignored for audit authority.
-- [ ] Reconnect fetches canonical state.
-- [ ] Revision/version conflicts are handled deliberately.
-- [ ] Realtime endpoint has resource/rate/connection limits.
+- [x] Realtime connection authenticates current session. (`requireUser` on connect; the same session is re-checked — exists, not expired/revoked, User ACTIVE — before every event and every 20 s.)
+- [x] Subscription to a Run is authorized server-side. (`authorizeRunSubscription`: `run.view` + Run within the Workspace; re-evaluated like the session.)
+- [x] User cannot subscribe to arbitrary Workspace/Run channels. (Channels are addressed only by Workspace + Run id through the authorized route; there is no client-chosen channel name.)
+- [x] Realtime event does not expose unnecessary sensitive data. (Revision, event kind, Step id, actor display name, time — no user ids, emails or Step/Run text; content is refetched through the API.)
+- [x] Mutations still use authoritative server validation. (The stream is server → client only; changes go through the existing POST routes.)
+- [x] Client-supplied actor/timestamps are ignored for audit authority. (Events are built from the committed server result.)
+- [x] Reconnect fetches canonical state. (Every (re)connect starts with a `ready` event carrying the current revision, read after subscribing; the client refetches when it is newer.)
+- [x] Revision/version conflicts are handled deliberately. (`Run.revision`; Step writes keep the 5.2 `expectedState` check; the client never hides a revision gap and ignores older answers.)
+- [x] Realtime endpoint has resource/rate/connection limits. (10 streams per user, 1000 per process, 30 connects/min per client, 15 min maximum lifetime, 20 s heartbeat, closed on shutdown.)
 
 ---
 
@@ -523,3 +523,12 @@ The following choices are mandatory V1 behavior:
 **Open risks:** any member with `run.abort` can abort anyone's Run (by design, audited); there is no correction workflow for mistakes in finished Runs (V1 decision).  
 **Reviewed:** 2026-09-27
 
+### Security check: live Run updates (Step 6.1)
+**Threat surface:** eavesdropping on Runs of other Workspaces by subscribing with guessed ids, removed/demoted/disabled members or signed-out sessions keeping a live feed, pre-MFA state reaching the stream, cross-site EventSource requests (CSRF-style reads), data leakage through event payloads, connection exhaustion (per user, per process), missed updates making the UI show stale state as current, intermediary caching or buffering of the stream.  
+**Controls added:** session required (`requireUser`, no session exists before the TOTP challenge); authorization through `authorizeRunSubscription` (`run.view`, Run scoped by Workspace id), with the same 404/403 answers as reading the Run; session (same id, lifetimes, revocation, User ACTIVE — without refreshing it) and authorization re-checked before every delivered event and at every 20 s heartbeat, failures close the stream; `SameSite=Strict` session cookie (cross-site EventSource carries no session); events are announcements only (revision, kind, Step id, display name, time) and content is refetched over the authorized API; events emitted only after commit, never for rejected writes; hub limits (10/user, 1000/process), 30 connects/min per client, 15 min lifetime, `204` for finished Runs, `preClose` shutdown; `Cache-Control: no-store`, `X-Accel-Buffering: no`; the revision read after subscribing closes the subscribe/commit race.  
+**Negative tests:** `apps/server/src/http/run-events.test.ts` (unauthenticated, forged session cookie, MFA-challenge cookie, non-member, cross-Workspace Run id, malformed id, removed member, sign-out, per-user limit, payload without ids/emails/content), `packages/realtime/src/run-change-hub.test.ts`, notification case in `packages/database/src/run-lifecycle-use-cases.test.ts`; mutation checks in steps.md 6.1.  
+**Secrets/data involved:** actor display names and change times of Workspace Runs.  
+**Logging review:** no new log statements; the stream URL contains only Workspace/Run ids.  
+**Authorization review:** HTTP layer authenticates and streams; authorization in `packages/application/src/runs/use-cases.ts` (`authorizeRunSubscription`).  
+**Open risks:** re-checks run every 20 s, so a revoked session or removed member may receive announcements (no content) for up to one heartbeat; per-client connect limits share the proxy address until `trustProxy` is configured (10.3); the hub is in-process (multi-node deployments require a reviewed shared pub/sub — §12 trigger "multi-node deployments").  
+**Reviewed:** 2026-09-27

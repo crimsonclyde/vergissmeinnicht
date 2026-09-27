@@ -103,6 +103,8 @@ export interface RunInfo {
   readonly icon: ProcedureIcon;
   readonly tags: readonly string[];
   readonly state: RunState;
+  /** Increases with every change; used to notice missed live updates. */
+  readonly revision: number;
   readonly startedAt: string;
   /** Display name at the time the Run was started. */
   readonly startedBy: string;
@@ -225,6 +227,7 @@ export const ERROR_MESSAGES: Record<string, string> = {
   reason_invalid_characters: 'The reason contains characters that are not allowed.',
   procedure_has_no_steps: 'This Procedure has no Steps yet. Add at least one Step before starting a Run.',
   run_limit_reached: 'This Workspace has too many active Runs. Finish some before starting new ones.',
+  too_many_streams: 'Live updates are not available right now because too many are open. Reload the page to see changes.',
   invalid_item_reference: 'This Procedure was restructured in the meantime. Reload it and apply your changes again.',
 };
 

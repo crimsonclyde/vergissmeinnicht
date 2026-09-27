@@ -17,6 +17,7 @@ import { z } from 'zod';
 import type { AppServices } from '../composition.ts';
 import { InvalidRequestError } from './errors.ts';
 import { auditEventView } from './history-view.ts';
+import { registerRunEvents } from './run-events.ts';
 import { requireUser, type Principal } from './session.ts';
 
 // Lower-case UUIDv4 only, like the domain parsers: one canonical spelling per id.
@@ -54,6 +55,7 @@ function runView(run: Run) {
     icon: run.icon,
     tags: run.tags,
     state: run.state,
+    revision: run.revision,
     startedAt: run.startedAt.toISOString(),
     // Display-name snapshot only; the internal user id is not needed by clients.
     startedBy: run.startedBy.displayName,
@@ -135,6 +137,17 @@ export async function runRoutes(app: FastifyInstance, { services }: { services: 
     });
     return { run: detailView(detail) };
   });
+
+  registerRunEvents(
+    app,
+    services,
+    services.runChanges,
+    (request) => {
+      const { workspaceId, runId } = parse(runParams, request.params);
+      return { workspaceId: workspaceId as WorkspaceId, runId: runId as RunId, principal: principalOf(request) };
+    },
+    services.runEvents,
+  );
 
   app.get('/:runId/history', async (request) => {
     const { workspaceId, runId } = parse(runParams, request.params);

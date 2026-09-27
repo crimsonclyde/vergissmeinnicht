@@ -979,7 +979,8 @@ No correction workflow exists in V1. If one is added, it must be a new, additive
 ## 6 — Collaboration
 
 ### 6.1 SSE active Run updates
-**Status:** TODO
+**Status:** DONE
+**Completed:** 2026-09-27
 
 Multiple authorized users can work on one Run and receive canonical updates via Server-Sent Events.
 
@@ -993,12 +994,48 @@ Multiple authorized users can work on one Run and receive canonical updates via 
 - remote changes expose actor/time where useful;
 - heartbeat/timeouts/resource limits are defined.
 
-**Security impact:** HIGH.
+**Security impact:** HIGH — new long-lived authenticated endpoint that pushes Workspace data.
+
+**Decisions (2026-09-27):** events are *announcements*, not state: `{ revision, kind, stepId, by, at }` (actor display name, no user ids, no Step text). Clients always refetch the Run over the normal API, so the stream can never show data the reader could not fetch. One stream per open Run (no Workspace-wide stream; the Run list refreshes on navigation as before).
+
+**Implemented:**
+- Domain: `Run.revision` (exposed in API responses), `RunChange` event type.
+- Application: port `RunChangeNotifier` (optional in `RunDeps`); `changeStepState`, `completeRun` and `abortRun` announce a change only after the repository committed it (rejected/conflicting writes announce nothing); use-case `authorizeRunSubscription` (`run.view`, Run within the Workspace).
+- `packages/realtime`: `createRunChangeHub` — in-process fan-out by Run id, listener errors isolated, limits 1000 streams per process and 10 per user.
+- HTTP (`apps/server/src/http/run-events.ts`): `GET /api/workspaces/{id}/runs/{runId}/events` (`text/event-stream`, `Cache-Control: no-store`, `X-Accel-Buffering: no`). Session via `requireUser`; subscription authorized like reading the Run (401/404/403 as for `GET …/runs/{runId}`); finished Runs answer `204` (EventSource then stops). After subscribing, the current revision is read again and sent as `ready` — a change committed between authorization and subscription cannot be missed. Before every delivered change and at every heartbeat (20 s) the stream re-checks the session (same session id, not expired, not revoked, User ACTIVE — `reauthenticate()` without session refresh) and `run.view`; any failure closes the stream. Streams close after 15 min (client reconnects re-authenticated), after `RUN_COMPLETED`/`RUN_ABORTED`, on client disconnect and on server shutdown (`preClose`). Rate limit 30 connects/min per client; `429 too_many_streams` beyond the hub limits. `retry: 5000` for reconnects.
+- Web: `useRunLiveUpdates` (EventSource) — refetches the Run whenever the announced revision is newer than the shown one (after reconnects via `ready`), shows the connection state as text ("● Live…", "reconnecting", "off"), announces others' changes in a `role="status"` line ("Uma changed “Stove off” at 17:40") and outlines the changed Step; stops after the Run finished. `api.run` answers older than the shown revision are ignored.
+
+**Tests/checks:**
+- `pnpm test` — 490 tests (+14): hub (4: per-Run delivery, unsubscribe/slot release, per-user and total limits, failing listener isolation), use-case (1: only committed changes announced, with revision and display name; conflicts, incomplete completion and GUEST attempts announce nothing), SSE over a real socket (5: ready → change → completion → stream end → `204`, no user ids/emails/Step text in events, revision matches the API; 401 without/with forged session or MFA challenge cookie, 404 non-member, 404 cross-Workspace Run id, 400 malformed id; removed member receives nothing further and the stream closes; sign-out closes the stream within a heartbeat; 10 streams per user then 429, other users unaffected, closed streams free their slot), web merge helpers (4, shared with 6.2).
+- Mutation checks: removing the per-event re-check fails the removed-member test; removing the heartbeat re-check fails the sign-out test.
+- `pnpm test:e2e`: a second browser session follows the Run live (Done appears with actor/time and a status message, completion appears without reload).
+- `pnpm lint`, `pnpm typecheck`. Lockfile: new workspace link `apps/server` → `@vergissmeinnicht/realtime` added by hand; `pnpm install --frozen-lockfile --offline` accepts it.
+
+**Security docs updated:** YES (§3, §7, "Security check: live Run updates (Step 6.1)").
+
+**Remaining:**
+- In-process hub only: a multi-node deployment needs shared pub/sub (architecture extension seam).
+- Per-client connect rate limits share the reverse-proxy address until `trustProxy` is configured (10.3).
+- Streams re-check authorization every 20 s, so a revoked session may still receive announcements (revision/actor name/time only, no content) for up to one heartbeat.
+- No live update of the Run list.
 
 ### 6.2 Optimistic UI
-**Status:** TODO
+**Status:** DONE
+**Completed:** 2026-09-27
 
 Instant visual feedback with safe rollback and clear error state on rejected writes.
+
+**Security impact:** LOW — client-side only; the server still validates every change (`expectedState` compare-and-set from 5.2).
+
+**Implemented:**
+- `apps/web/src/run-updates.ts`: pure helpers — `withPendingChanges` (shows unconfirmed target states over the canonical Run without modifying it), `applyStepResult` (takes over the server's answer; if the revision jumped, e.g. someone else's change is not fetched yet, the Step is merged but the revision kept and a refetch requested, so the gap is not hidden), `isNewer`.
+- `Runs.tsx`: a Step change shows its target state immediately, marked "Saving…" (dashed border; its old actor/time line hidden); only that Step's buttons are disabled, other Steps stay usable; Complete/Abort wait until nothing is pending. On rejection the canonical state comes back from the server and an alert names the Step and the reason ("“Close windows” was not changed: Someone else changed this Step just now…"). `expectedState` is always taken from the canonical state, never from the optimistic one.
+
+**Tests/checks:** `run-updates.test.ts` (4: next revision applied, revision gap → refetch, overtaken answers ignored, overlay does not modify canonical state); `pnpm test:e2e`: delayed request shows "Saving…" with the new state, a rejected change (409) rolls back with the alert, a delayed successful change resolves to the server's actor/time and reaches the other session live; the keyboard press-and-hold test now waits for the undo to be saved.
+
+**Security docs updated:** N/A (no server change).
+
+**Remaining:** no automatic retry for network failures (the user repeats the action; the canonical state is reloaded); offline execution stays Phase 2 (8.5).
 
 ---
 

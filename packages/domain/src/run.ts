@@ -33,6 +33,8 @@ export interface Run {
   readonly icon: ProcedureIcon;
   readonly tags: readonly string[];
   readonly state: RunState;
+  /** Increases with every change of the Run or one of its Steps; clients use it to detect missed updates. */
+  readonly revision: number;
   readonly startedAt: Date;
   /** Actor snapshot: internal id plus the display name at the time of starting. */
   readonly startedBy: { readonly userId: UserId; readonly displayName: string };
@@ -102,4 +104,20 @@ export function parseRunId(value: string): RunId {
     throw new DomainValidationError('runId', 'invalid_run_id', 'Run id must be a lower-case UUIDv4');
   }
   return value as RunId;
+}
+
+/**
+ * Notification that a Run changed, emitted after the change is committed. It names the new
+ * revision and who changed what, but is never the source of truth: receivers refetch the Run.
+ */
+export interface RunChange {
+  readonly workspaceId: WorkspaceId;
+  readonly runId: RunId;
+  readonly revision: number;
+  readonly kind: 'STEP_STATE_CHANGED' | 'RUN_COMPLETED' | 'RUN_ABORTED';
+  /** The changed Step for STEP_STATE_CHANGED, otherwise `null`. */
+  readonly stepId: RunStepId | null;
+  /** Display-name snapshot of the actor (no internal user id). */
+  readonly by: string;
+  readonly at: Date;
 }

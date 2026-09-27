@@ -17,4 +17,5 @@ export * from './ports/user-repository.ts';
 export * from './ports/workspace-repository.ts';
 export * from './ports/procedure-repository.ts';
 export * from './ports/run-repository.ts';
+export * from './ports/run-changes.ts';
 export * from './ports/audit-history.ts';

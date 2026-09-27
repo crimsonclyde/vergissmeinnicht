@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState, type FormEvent } from 'react';
+import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react';
 import {
   api,
   ApiError,
@@ -14,6 +14,8 @@ import {
 import { History } from './History.tsx';
 import { HoldToConfirm } from './HoldToConfirm.tsx';
 import { Icon } from './procedure-icons.tsx';
+import { applyStepResult, isNewer, withPendingChanges, type PendingStepChange } from './run-updates.ts';
+import { useRunLiveUpdates, type AnnouncedChange, type LiveStatus } from './useRunLiveUpdates.ts';
 
 /** Text (and a glyph) for every state: color is never the only indicator. */
 const STEP_STATE_LABELS: Record<StepState, { glyph: string; label: string }> = {
@@ -92,15 +94,25 @@ function ReasonForm(props: { step: RunStep; to: StepState; onSubmit: (reason: st
   );
 }
 
-function StepItem(props: { step: RunStep; canExecute: boolean; busy: boolean; onChange: (action: StepAction) => void }) {
+function StepItem(props: {
+  step: RunStep;
+  canExecute: boolean;
+  busy: boolean;
+  /** Our change is on its way to the server; the shown state is not confirmed yet. */
+  saving: boolean;
+  /** Someone else changed this Step a moment ago. */
+  remote: boolean;
+  onChange: (action: StepAction) => void;
+}) {
   const { step } = props;
+  const busy = props.busy || props.saving;
   const [asking, setAsking] = useState<StepState | null>(null);
   const choose = (to: StepState) => {
     if (policyFor(step, to) === 'DISABLED') props.onChange({ to });
     else setAsking(to);
   };
   return (
-    <li className="step" data-state={step.state}>
+    <li className="step" data-state={step.state} data-saving={props.saving} data-remote={props.remote}>
       <div className="row" style={{ justifyContent: 'space-between' }}>
         <span className="step-title">
           {step.icon !== null && (
@@ -116,7 +128,12 @@ function StepItem(props: { step: RunStep; canExecute: boolean; busy: boolean; on
         {step.required ? 'Required' : 'Optional'}
         {step.critical && ' · critical'}
       </small>
-      {step.stateChange !== null && (
+      {props.saving && (
+        <div>
+          <small>Saving…</small>
+        </div>
+      )}
+      {!props.saving && step.stateChange !== null && (
         <div>
           <small>
             {step.state === 'PENDING' ? 'Reset' : STEP_STATE_LABELS[step.state].label} by {step.stateChange.by} at{' '}
@@ -131,21 +148,21 @@ function StepItem(props: { step: RunStep; canExecute: boolean; busy: boolean; on
           {step.state === 'PENDING' ? (
             <>
               {step.critical ? (
-                <HoldToConfirm label={step.title} disabled={props.busy} onConfirm={() => props.onChange({ to: 'DONE' })} />
+                <HoldToConfirm label={step.title} disabled={busy} onConfirm={() => props.onChange({ to: 'DONE' })} />
               ) : (
-                <button type="button" className="done-action" disabled={props.busy} onClick={() => props.onChange({ to: 'DONE' })}>
+                <button type="button" className="done-action" disabled={busy} onClick={() => props.onChange({ to: 'DONE' })}>
                   ✔ Done: {step.title}
                 </button>
               )}
-              <button type="button" disabled={props.busy} onClick={() => choose('SKIPPED')}>
+              <button type="button" disabled={busy} onClick={() => choose('SKIPPED')}>
                 Skip
               </button>
-              <button type="button" disabled={props.busy} onClick={() => choose('NOT_APPLICABLE')}>
+              <button type="button" disabled={busy} onClick={() => choose('NOT_APPLICABLE')}>
                 Not applicable
               </button>
             </>
           ) : (
-            <button type="button" disabled={props.busy} onClick={() => props.onChange({ to: 'PENDING' })}>
+            <button type="button" disabled={busy} onClick={() => props.onChange({ to: 'PENDING' })}>
               Undo: {step.title}
             </button>
           )}
@@ -232,11 +249,29 @@ function RunEndControls(props: {
   );
 }
 
+const LIVE_STATUS_TEXT: Record<LiveStatus, string> = {
+  connecting: 'Connecting live updates…',
+  live: '● Live: changes by others appear automatically.',
+  reconnecting: 'Connection lost — reconnecting. Changes will be loaded when it is back.',
+  off: 'Live updates are off. Reload the page to see changes by others.',
+};
+
+function describeChange(run: RunDetail, change: AnnouncedChange): string {
+  const time = new Date(change.at).toLocaleTimeString();
+  if (change.kind === 'RUN_COMPLETED') return `${change.by} completed this Run at ${time}.`;
+  if (change.kind === 'RUN_ABORTED') return `${change.by} aborted this Run at ${time}.`;
+  const step = run.sections.flatMap((section) => section.steps).find((s) => s.id === change.stepId);
+  return `${change.by} changed “${step?.title ?? 'a Step'}” at ${time}.`;
+}
+
 function RunView(props: {
   run: RunDetail;
   canExecute: boolean;
   canAbort: boolean;
   busy: boolean;
+  saving: ReadonlySet<string>;
+  live: LiveStatus;
+  remoteChange: AnnouncedChange | null;
   onStep: (step: RunStep, action: StepAction) => void;
   onComplete: () => void;
   onAbort: (reason: string) => void;
@@ -266,6 +301,10 @@ function RunView(props: {
           </p>
         )}
         {run.description !== '' && <p style={{ whiteSpace: 'pre-wrap', margin: 0 }}>{run.description}</p>}
+        {run.state === 'ACTIVE' && <p className="live-status" style={{ margin: 0 }}>{LIVE_STATUS_TEXT[props.live]}</p>}
+        <p role="status" className="live-status" style={{ margin: 0 }}>
+          {props.remoteChange !== null && describeChange(run, props.remoteChange)}
+        </p>
       </div>
       {run.sections.map((section) => (
         <section key={section.id} aria-label={`Run section: ${section.title}`}>
@@ -278,6 +317,8 @@ function RunView(props: {
                 step={step}
                 canExecute={canExecute}
                 busy={props.busy}
+                saving={props.saving.has(step.id)}
+                remote={props.remoteChange?.stepId === step.id}
                 onChange={(action) => props.onStep(step, action)}
               />
             ))}
@@ -290,7 +331,7 @@ function RunView(props: {
             run={run}
             canExecute={props.canExecute}
             canAbort={props.canAbort}
-            busy={props.busy}
+            busy={props.busy || props.saving.size > 0}
             onComplete={props.onComplete}
             onAbort={props.onAbort}
           />
@@ -349,56 +390,108 @@ export function Runs(props: {
   }, [workspaceId]);
   useEffect(refresh, [refresh, openRunId]);
 
+  /** Canonical Run as last received from the server (never contains unconfirmed changes). */
+  const detailRef = useRef<RunDetail | null>(null);
+  const keepDetail = useCallback((next: RunDetail | null) => {
+    detailRef.current = next;
+    setDetail(next);
+  }, []);
+  // Keyed by Step id (UUIDs are unique across Runs), so switching Runs needs no reset.
+  const [pending, setPending] = useState<ReadonlyMap<string, PendingStepChange>>(new Map());
+  const [remote, setRemote] = useState<{ runId: string; change: AnnouncedChange } | null>(null);
+  const remoteChange = remote !== null && remote.runId === openRunId ? remote.change : null;
+
+  /** Takes over a fetched canonical Run; an older answer never replaces a newer state. */
+  const accept = useCallback(
+    (loaded: RunDetail) => {
+      const current = detailRef.current;
+      if (current === null || current.id !== loaded.id || loaded.revision >= current.revision) keepDetail(loaded);
+    },
+    [keepDetail],
+  );
+  const reload = useCallback(
+    (runId: string) => api.run(workspaceId, runId).then(accept, (caught: unknown) => setMessage(messageFor(caught))),
+    [workspaceId, accept],
+  );
+
   useEffect(() => {
     if (openRunId === null) return;
     let active = true;
     api.run(workspaceId, openRunId).then(
-      (loaded) => active && setDetail(loaded),
+      (loaded) => active && accept(loaded),
       (caught: unknown) => active && setMessage(messageFor(caught)),
     );
     return () => {
       active = false;
     };
-  }, [workspaceId, openRunId]);
+  }, [workspaceId, openRunId, accept]);
 
-  const shown = detail !== null && detail.id === openRunId ? detail : null;
+  const canonical = detail !== null && detail.id === openRunId ? detail : null;
+  const shown = canonical === null ? null : withPendingChanges(canonical, pending);
   const [busy, setBusy] = useState(false);
+
+  const live = useRunLiveUpdates(
+    canonical?.state === 'ACTIVE' ? `/api/workspaces/${encodeURIComponent(workspaceId)}/runs/${encodeURIComponent(canonical.id)}/events` : null,
+    {
+      onRevision: (revision, change) => {
+        const current = detailRef.current;
+        if (current === null || !isNewer(current, revision)) return;
+        // Not yet contained in what we show: someone else changed the Run (or our own answer is still on its way).
+        if (change !== null && !pending.has(change.stepId ?? '')) setRemote({ runId: current.id, change });
+        void reload(current.id);
+      },
+      onClosed: () => {
+        if (detailRef.current !== null) void reload(detailRef.current.id);
+      },
+    },
+  );
 
   async function finish(run: RunDetail, action: () => Promise<RunDetail>) {
     setBusy(true);
     setMessage(null);
     try {
-      setDetail(await action());
+      keepDetail(await action());
     } catch (caught) {
       setMessage(messageFor(caught));
-      if (caught instanceof ApiError) setDetail(await api.run(workspaceId, run.id));
+      if (caught instanceof ApiError) await reload(run.id);
     } finally {
       setBusy(false);
     }
   }
 
-  async function changeStep(run: RunDetail, step: RunStep, action: StepAction) {
-    setBusy(true);
+  /**
+   * Optimistic Step change (Step 6.2): the target state is shown immediately and marked as saving;
+   * the server's answer replaces it, a rejection restores the canonical state and explains why.
+   */
+  async function changeStep(runId: string, stepId: string, action: StepAction) {
+    const step = detailRef.current?.sections.flatMap((section) => section.steps).find((s) => s.id === stepId);
+    if (step === undefined || pending.has(stepId)) return;
+    const change: PendingStepChange = { from: step.state, to: action.to };
+    setPending((current) => new Map(current).set(stepId, change));
     setMessage(null);
+    setRemote(null);
     try {
-      const result = await api.changeStepState(workspaceId, run.id, step.id, {
-        expectedState: step.state,
-        state: action.to,
+      const result = await api.changeStepState(workspaceId, runId, stepId, {
+        expectedState: change.from,
+        state: change.to,
         ...(action.reason === undefined ? {} : { reason: action.reason }),
       });
-      setDetail({
-        ...run,
-        sections: run.sections.map((section) => ({
-          ...section,
-          steps: section.steps.map((s) => (s.id === result.step.id ? result.step : s)),
-        })),
-      });
+      const current = detailRef.current;
+      if (current !== null && current.id === runId) {
+        const merged = applyStepResult(current, result.step, result.runRevision);
+        keepDetail(merged.run);
+        if (merged.stale) void reload(runId);
+      }
     } catch (caught) {
-      setMessage(messageFor(caught));
-      // After a conflict (or any failure) show the canonical server state.
-      if (caught instanceof ApiError) setDetail(await api.run(workspaceId, run.id));
+      setMessage(`“${step.title}” was not changed: ${messageFor(caught)}`);
+      // Show the canonical server state again (e.g. after someone else's change).
+      await reload(runId);
     } finally {
-      setBusy(false);
+      setPending((current) => {
+        const next = new Map(current);
+        next.delete(stepId);
+        return next;
+      });
     }
   }
 
@@ -423,7 +516,10 @@ export function Runs(props: {
               canExecute={props.canExecute}
               canAbort={props.canAbort}
               busy={busy}
-              onStep={(step, action) => void changeStep(shown, step, action)}
+              saving={new Set(pending.keys())}
+              live={live}
+              remoteChange={remoteChange}
+              onStep={(step, action) => void changeStep(shown.id, step.id, action)}
               onComplete={() => void finish(shown, () => api.completeRun(workspaceId, shown.id))}
               onAbort={(reason) => void finish(shown, () => api.abortRun(workspaceId, shown.id, reason))}
               loadHistory={() => api.runHistory(workspaceId, shown.id)}

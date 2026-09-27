@@ -25,6 +25,7 @@ import {
 import {
   DomainValidationError,
   normalizeEmail,
+  type RunChange,
   type RunDetail,
   type RunStep,
   type StepState,
@@ -102,6 +103,28 @@ describe('Run lifecycle and historical immutability', () => {
   });
 
   afterEach(() => database.dispose());
+
+  describe('change notifications (realtime fan-out)', () => {
+    it('announces only committed changes, with the new revision and the actor display name', async () => {
+      const changes: RunChange[] = [];
+      deps = { ...deps, changes: { runChanged: (change) => changes.push(change) } };
+
+      await set(must(steps[0]), 'PENDING', 'DONE');
+      // Rejected or conflicting changes are not announced.
+      await expect(set(must(steps[0]), 'PENDING', 'DONE')).rejects.toThrow();
+      await expect(complete()).rejects.toThrow(RunIncompleteError);
+      await expect(
+        changeStepState(deps, { actor: guest, workspaceId: home.id, runId: run.run.id, stepId: must(steps[1]).id, expectedState: 'PENDING', to: 'DONE' }),
+      ).rejects.toThrow(NotAuthorizedError);
+      await abort('Rain');
+
+      expect(changes).toEqual([
+        { workspaceId: home.id, runId: run.run.id, revision: 2, kind: 'STEP_STATE_CHANGED', stepId: must(steps[0]).id, by: 'Uma', at: expect.any(Date) },
+        { workspaceId: home.id, runId: run.run.id, revision: 3, kind: 'RUN_ABORTED', stepId: null, by: 'Uma', at: expect.any(Date) },
+      ]);
+      expect((await getRun(deps, { actor: guest, workspaceId: home.id, runId: run.run.id })).run.revision).toBe(3);
+    });
+  });
 
   describe('completion', () => {
     it('requires every required Step to be DONE or NOT_APPLICABLE; optional Steps may stay pending', async () => {

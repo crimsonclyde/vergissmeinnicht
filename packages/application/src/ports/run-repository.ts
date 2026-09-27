@@ -42,13 +42,6 @@ export interface RunRepository {
   list(workspaceId: WorkspaceId, filter: { readonly state?: RunState | undefined; readonly limit: number }): Promise<RunSummary[]>;
   find(workspaceId: WorkspaceId, runId: RunId): Promise<RunDetail | undefined>;
   /**
-   * In one transaction: re-checks the guard, resolves the Step within this Run of this Workspace,
-   * requires an ACTIVE Run and `expectedState` to be the current state ('conflict' otherwise), calls
-   * `validate` with the current Step (which throws for rule violations and returns the normalized
-   * reason), writes the new state with actor snapshot and time, bumps the Run revision and records
-   * STEP_STATE_CHANGED.
-   */
-  /**
    * In one transaction: re-checks the guard, resolves the Run within the Workspace, requires it to be
    * ACTIVE, calls `validate` with the current Steps (throws if the Run may not end this way, returns
    * the normalized reason), sets the final state with actor, time and reason, bumps the revision and
@@ -65,6 +58,13 @@ export interface RunRepository {
     guard: ActorGuard,
     validate: (steps: readonly RunStep[]) => { readonly reason: string | null },
   ): Promise<FinishRunResult>;
+  /**
+   * In one transaction: re-checks the guard, resolves the Step within this Run of this Workspace,
+   * requires an ACTIVE Run and `expectedState` to be the current state ('conflict' otherwise), calls
+   * `validate` with the current Step (which throws for rule violations and returns the normalized
+   * reason), writes the new state with actor snapshot and time, bumps the Run revision and records
+   * STEP_STATE_CHANGED.
+   */
   changeStepState(
     input: {
       readonly workspaceId: WorkspaceId;

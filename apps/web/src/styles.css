@@ -361,6 +361,21 @@ caption {
   border-left-color: var(--state-na);
 }
 
+.step[data-saving='true'] {
+  border-style: dashed;
+}
+
+/* A change someone else just made; the text next to it names who and when. */
+.step[data-remote='true'] {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+}
+
+.live-status {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+}
+
 .step-title {
   font-weight: 600;
   font-size: 1.05rem;

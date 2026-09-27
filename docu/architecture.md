@@ -253,6 +253,19 @@ SSE is not the source of truth.
 
 Clients refetch canonical state after reconnect or version gaps.
 
+Implementation (Step 6.1):
+
+```text
+GET /api/workspaces/{id}/runs/{runId}/events     run.view, text/event-stream
+  event: ready   { revision, state }             on every (re)connect, read after subscribing
+  event: run     { revision, kind, stepId, by, at }   after each committed change
+```
+
+- The use-cases announce committed changes through the `RunChangeNotifier` port; `packages/realtime` implements it as an in-process hub (replaceable by shared pub/sub).
+- Events carry no content; the client refetches `GET …/runs/{runId}` when the announced revision is newer than the one it shows (`Run.revision` increases with every change).
+- The stream re-checks the session and `run.view` before each event and every 20 s, closes after 15 min, after the Run finished, and on shutdown; finished Runs answer `204`.
+- The web client applies its own Step changes optimistically (Step 6.2) but always sends the canonical `expectedState` and falls back to the server state on rejection.
+
 ## Persistence
 
 SQLite is initial persistence.

@@ -5,7 +5,7 @@ import { serverEnv } from '../playwright.config.ts';
 
 const PASSWORD = 'an e2e passphrase that is long';
 
-test('first server admin: bootstrap link, account creation, sign-in, Workspace creation, Procedure authoring with Sections and Steps, export/import/duplicate/restore, starting, executing, completing and aborting Runs, TOTP enrollment, TOTP sign-in and operator TOTP recovery', async ({ page }, testInfo) => {
+test('first server admin: bootstrap link, account creation, sign-in, Workspace creation, Procedure authoring with Sections and Steps, export/import/duplicate/restore, starting, executing, completing and aborting Runs, TOTP enrollment, TOTP sign-in and operator TOTP recovery', async ({ page, browser }, testInfo) => {
   // Bootstrap works exactly once per server; the flow runs on one project only.
   test.skip(testInfo.project.name !== 'desktop-chromium', 'bootstrap is single-use per server');
 
@@ -200,8 +200,49 @@ test('first server admin: bootstrap link, account creation, sign-in, Workspace c
 
   // Execute a Run: Done, Skip with a required reason, Undo.
   await activeRuns.getByRole('button').first().click();
+
+  // A second device of the same person follows the Run live (6.1).
+  const secondDevice = await browser.newContext(testInfo.project.use.baseURL === undefined ? {} : { baseURL: testInfo.project.use.baseURL });
+  const page2 = await secondDevice.newPage();
+  await page2.goto('/');
+  await page2.getByLabel('Email').fill('admin@example.org');
+  await page2.getByLabel('Password').fill(PASSWORD);
+  await page2.getByRole('button', { name: 'Sign in' }).click();
+  await expect(page2.getByRole('button', { name: 'Sign out' })).toBeVisible();
+  await page2.goto(page.url());
+  const run2 = page2.getByRole('article');
+  const stepItem2 = (title: string) => run2.getByRole('listitem').filter({ hasText: title });
+  await expect(run2).toContainText('Live: changes by others appear automatically.');
+  await expect(run).toContainText('Live: changes by others appear automatically.');
+
   await run.getByRole('button', { name: 'Done: Close windows' }).click();
   await expect(stepItem('Close windows')).toContainText('Done by Ada Admin at');
+  await expect(stepItem2('Close windows')).toContainText('Done by Ada Admin at');
+  await expect(run2.getByRole('status')).toContainText('Ada Admin changed “Close windows”');
+
+  // Optimistic UI (6.2): the new state shows at once while saving; a rejection restores it.
+  const stateUrl = '**/api/workspaces/*/runs/*/steps/*/state';
+  await page2.route(stateUrl, async (route) => {
+    await new Promise((resolve) => setTimeout(resolve, 500));
+    await route.fulfill({ status: 409, contentType: 'application/json', body: JSON.stringify({ error: 'step_conflict' }) });
+  });
+  await run2.getByRole('button', { name: 'Undo: Close windows' }).click();
+  await expect(stepItem2('Close windows')).toContainText('Saving…');
+  await expect(stepItem2('Close windows').locator('.state-badge')).toHaveText(/Pending/);
+  await expect(page2.getByRole('alert')).toContainText('“Close windows” was not changed: Someone else changed this Step just now.');
+  await expect(stepItem2('Close windows').locator('.state-badge')).toHaveText(/Done/);
+  await page2.unroute(stateUrl);
+  await page2.route(stateUrl, async (route) => {
+    await new Promise((resolve) => setTimeout(resolve, 500));
+    await route.continue();
+  });
+  await run2.getByRole('button', { name: 'Undo: Close windows' }).click();
+  await expect(stepItem2('Close windows')).toContainText('Saving…');
+  await expect(stepItem2('Close windows')).toContainText('Reset by Ada Admin');
+  await expect(stepItem('Close windows')).toContainText('Reset by Ada Admin');
+  await run2.getByRole('button', { name: 'Done: Close windows' }).click();
+  await expect(stepItem('Close windows')).toContainText('Done by Ada Admin at');
+  await page2.unroute(stateUrl);
   const stove = stepItem('Turn off stove');
   await stove.getByRole('button', { name: 'Skip' }).click();
   await stove.getByLabel(/Why is it skipped\? \(required\)/).fill('Nobody cooked today');
@@ -230,6 +271,8 @@ test('first server admin: bootstrap link, account creation, sign-in, Workspace c
   await page.mouse.up();
   // Keyboard: holding Space works as well (undo first).
   await stove.getByRole('button', { name: 'Undo: Turn off stove' }).click();
+  // The optimistic Pending state appears at once; the button is usable once the undo is saved.
+  await expect(stove).toContainText('Reset by Ada Admin');
   await hold.focus();
   await page.keyboard.down(' ');
   await expect(stove).toContainText('Done by Ada Admin', { timeout: 5000 });
@@ -241,14 +284,19 @@ test('first server admin: bootstrap link, account creation, sign-in, Workspace c
   await expect(finishControls).toContainText('1 required Step is still pending or skipped: Close windows');
   await run.getByRole('button', { name: 'Done: Close windows' }).click();
   await finishControls.getByRole('button', { name: 'Complete Run' }).click();
-  await expect(run.getByRole('status')).toContainText('Completed by Ada Admin');
+  await expect(run.getByRole('status').filter({ hasText: 'Completed by Ada Admin' })).toBeVisible();
+  // The second device sees the completion without reloading and stops listening.
+  await expect(run2.getByRole('status').filter({ hasText: 'Completed by Ada Admin on' })).toBeVisible();
+  await expect(run2.getByRole('button', { name: /Undo|Done|Skip/ })).toHaveCount(0);
+  await secondDevice.close();
   await expect(run.getByRole('button', { name: /Undo|Done|Skip/ })).toHaveCount(0);
   // The Run's history tells who did what, when and why.
   await run.getByRole('region', { name: 'Run history' }).getByRole('button', { name: 'Show history' }).click();
   const history = run.getByRole('region', { name: 'Run history' }).getByRole('listitem');
   await expect(history.first()).toContainText('Ada Admin started the Run');
   await expect(history.filter({ hasText: 'Turn off stove: Pending → Skipped — reason: Nobody cooked today' })).toHaveCount(1);
-  await expect(history.filter({ hasText: 'Close windows: Done → Pending (undo)' })).toHaveCount(1);
+  // One undo from the second device, one from this one; the rejected attempt left no trace.
+  await expect(history.filter({ hasText: 'Close windows: Done → Pending (undo)' })).toHaveCount(2);
   await expect(history.last()).toContainText('Ada Admin completed the Run');
   await page.getByRole('button', { name: 'Back to all Runs' }).click();
 
@@ -258,8 +306,8 @@ test('first server admin: bootstrap link, account creation, sign-in, Workspace c
   await run.getByRole('button', { name: 'Abort Run…' }).click();
   await run.getByLabel('Why is this Run aborted? (optional)').fill('Plans changed');
   await run.getByRole('button', { name: 'Abort Run', exact: true }).click();
-  await expect(run.getByRole('status')).toContainText('Aborted by Ada Admin');
-  await expect(run.getByRole('status')).toContainText('reason: Plans changed');
+  const aborted = run.getByRole('status').filter({ hasText: 'Aborted by Ada Admin' });
+  await expect(aborted).toContainText('reason: Plans changed');
   await page.getByRole('button', { name: 'Back to all Runs' }).click();
   await expect(page.getByRole('list', { name: 'Finished Runs' }).getByRole('listitem')).toHaveCount(2);
   await expect(page.getByText('No active Runs.')).toBeVisible();

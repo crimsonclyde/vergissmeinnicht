@@ -34,6 +34,7 @@ function toRun(row: typeof runs.$inferSelect): Run {
     icon: row.icon,
     tags: row.tags,
     state: row.state,
+    revision: row.revision,
     startedAt: row.startedAt,
     startedBy: { userId: row.startedByUserId as UserId, displayName: row.startedByDisplayName },
     ended:

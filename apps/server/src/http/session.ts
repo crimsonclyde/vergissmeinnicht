@@ -75,6 +75,21 @@ export async function authenticate(
   return { user, sessionId: response.session.id };
 }
 
+/**
+ * Re-checks the session of a long-lived request (SSE) that was authenticated when it started:
+ * the same session must still exist and be within its lifetimes, and its User must still be
+ * ACTIVE. Returns the current User. Never refreshes the session, because the response headers of
+ * a stream are already sent.
+ */
+export async function reauthenticate(services: AppServices, request: FastifyRequest, principal: Principal): Promise<User | undefined> {
+  const response = await services.auth.api.getSession({ headers: authHeaders(request), query: { disableRefresh: true } });
+  if (response === null || response.session.id !== principal.sessionId) return undefined;
+  const user = await services.users.findById(response.user.id as UserId);
+  const ageMs = Date.now() - response.session.createdAt.getTime();
+  if (user === undefined || !canAuthenticate(user) || ageMs >= SESSION_POLICY.absoluteSeconds * 1000) return undefined;
+  return user;
+}
+
 export function requireUser(services: AppServices) {
   return async (request: FastifyRequest, reply: FastifyReply) => {
     const principal = await authenticate(services, request, reply);

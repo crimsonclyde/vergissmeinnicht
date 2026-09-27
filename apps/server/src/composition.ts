@@ -39,8 +39,10 @@ import {
 } from '@vergissmeinnicht/database';
 import { canAuthenticate, type UserId } from '@vergissmeinnicht/domain';
 import { createSmtpEmailSender } from '@vergissmeinnicht/email';
+import { createRunChangeHub, type RunChangeHub } from '@vergissmeinnicht/realtime';
 import type { FastifyBaseLogger } from 'fastify';
 import type { AppConfig } from './config/index.ts';
+import type { RunEventsOptions } from './http/run-events.ts';
 
 /** Everything the HTTP layer needs. Built once per process by the composition root. */
 export interface AppServices {
@@ -54,6 +56,10 @@ export interface AppServices {
   readonly procedures: ProcedureDeps;
   readonly runs: RunDeps;
   readonly history: HistoryDeps;
+  /** In-process fan-out of committed Run changes to SSE subscribers. */
+  readonly runChanges: RunChangeHub;
+  /** Stream timing overrides (tests). */
+  readonly runEvents?: RunEventsOptions | undefined;
   readonly securityEvents: SecurityEventLog;
   /** `Secure` + `__Secure-` cookies (production). */
   readonly secureCookies: boolean;
@@ -118,6 +124,7 @@ export function createServices(config: AppConfig, database: AppDatabase) {
       clock: systemClock,
       publicOrigin: config.publicOrigin,
     };
+    const runChanges = createRunChangeHub();
     const workspaceDeps: WorkspaceDeps = {
       users: userRepository,
       workspaces: createWorkspaceRepository(database),
@@ -132,7 +139,8 @@ export function createServices(config: AppConfig, database: AppDatabase) {
       recovery,
       workspaces: workspaceDeps,
       procedures: { workspaces: workspaceDeps.workspaces, procedures: createProcedureRepository(database), clock: systemClock },
-      runs: { workspaces: workspaceDeps.workspaces, runs: createRunRepository(database), clock: systemClock },
+      runs: { workspaces: workspaceDeps.workspaces, runs: createRunRepository(database), clock: systemClock, changes: runChanges },
+      runChanges,
       history: { workspaces: workspaceDeps.workspaces, history: createAuditHistory(database) },
       securityEvents,
       secureCookies: config.mode === 'production',

@@ -226,6 +226,9 @@ importers:
       '@vergissmeinnicht/import-export':
         specifier: workspace:*
         version: link:../../packages/import-export
+      '@vergissmeinnicht/realtime':
+        specifier: workspace:*
+        version: link:../../packages/realtime
       fastify:
         specifier: 5.12.5
         version: 5.12.5

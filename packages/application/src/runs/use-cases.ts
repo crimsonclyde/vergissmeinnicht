@@ -3,6 +3,7 @@ import {
   normalizeOptionalReason,
   validateStepTransition,
   type ProcedureId,
+  type Run,
   type RunDetail,
   type RunId,
   type RunState,
@@ -16,6 +17,7 @@ import {
 import { roleHasCapability } from '@vergissmeinnicht/permissions';
 import { NotAuthorizedError } from '../invitations/errors.ts';
 import type { Clock } from '../ports/clock.ts';
+import type { RunChangeNotifier } from '../ports/run-changes.ts';
 import type { FinishRunResult, RunRepository } from '../ports/run-repository.ts';
 import type { WorkspaceRepository } from '../ports/workspace-repository.ts';
 import { ProcedureNotFoundError } from '../procedures/errors.ts';
@@ -35,6 +37,8 @@ export interface RunDeps {
   readonly workspaces: WorkspaceRepository;
   readonly runs: RunRepository;
   readonly clock: Clock;
+  /** Realtime fan-out of committed changes; without it nothing is pushed (CLI, most tests). */
+  readonly changes?: RunChangeNotifier | undefined;
 }
 
 /** Resource bound: ACTIVE Runs per Workspace. Finished Runs are history and not limited. */
@@ -90,6 +94,19 @@ export async function getRun(
 }
 
 /**
+ * Authorizes (and re-authorizes) a realtime subscription to one Run: the actor needs `run.view`
+ * in the Workspace and the Run must belong to it. Returns the Run's current state and revision.
+ * The realtime layer calls this again before delivering each change and periodically, so removed
+ * members, demotions below GUEST and disabled accounts lose the subscription.
+ */
+export async function authorizeRunSubscription(
+  deps: RunDeps,
+  input: { readonly actor: User; readonly workspaceId: WorkspaceId; readonly runId: RunId },
+): Promise<Run> {
+  return (await getRun(deps, input)).run;
+}
+
+/**
  * Changes one Step's execution state (resolve as DONE / SKIPPED / NOT_APPLICABLE, or undo to
  * PENDING). Any member with `run.execute` may work on any active Run of the Workspace.
  * `expectedState` is the state the caller saw; if someone else changed the Step in between, the
@@ -124,6 +141,15 @@ export async function changeStepState(
   );
   switch (result.status) {
     case 'ok':
+      deps.changes?.runChanged({
+        workspaceId: input.workspaceId,
+        runId: input.runId,
+        revision: result.runRevision,
+        kind: 'STEP_STATE_CHANGED',
+        stepId: result.step.id,
+        by: input.actor.displayName,
+        at: result.step.stateChange?.at ?? deps.clock.now(),
+      });
       return { step: result.step, runRevision: result.runRevision };
     case 'forbidden':
       throw new NotAuthorizedError();
@@ -138,10 +164,23 @@ export async function changeStepState(
   }
 }
 
-function finishedOrThrow(result: FinishRunResult): RunDetail {
+function finishedOrThrow(deps: RunDeps, result: FinishRunResult): RunDetail {
   switch (result.status) {
-    case 'ok':
+    case 'ok': {
+      const { run } = result.detail;
+      if (run.ended !== null) {
+        deps.changes?.runChanged({
+          workspaceId: run.workspaceId,
+          runId: run.id,
+          revision: run.revision,
+          kind: run.state === 'COMPLETED' ? 'RUN_COMPLETED' : 'RUN_ABORTED',
+          stepId: null,
+          by: run.ended.by.displayName,
+          at: run.ended.at,
+        });
+      }
       return result.detail;
+    }
     case 'forbidden':
       throw new NotAuthorizedError();
     case 'run_not_found':
@@ -161,6 +200,7 @@ export async function completeRun(
 ): Promise<RunDetail> {
   await authorizeWorkspace(deps, input.actor, input.workspaceId, 'run.execute');
   return finishedOrThrow(
+    deps,
     await deps.runs.finish(
       { workspaceId: input.workspaceId, runId: input.runId, to: 'COMPLETED', at: deps.clock.now() },
       userActor(input.actor),
@@ -182,6 +222,7 @@ export async function abortRun(
   await authorizeWorkspace(deps, input.actor, input.workspaceId, 'run.abort');
   const reason = normalizeOptionalReason(input.reason);
   return finishedOrThrow(
+    deps,
     await deps.runs.finish(
       { workspaceId: input.workspaceId, runId: input.runId, to: 'ABORTED', at: deps.clock.now() },
       userActor(input.actor),
