@@ -38,7 +38,7 @@ export default tseslint.config(
     ),
   },
   {
-    files: ['packages/permissions/**', 'packages/application/**'],
+    files: ['packages/permissions/**', 'packages/application/**', 'packages/import-export/**'],
     rules: restrict(
       [...infrastructure, '@vergissmeinnicht/database', '@vergissmeinnicht/auth', '@vergissmeinnicht/realtime'],
       'Application/policy code depends on the domain and ports, not on infrastructure.',

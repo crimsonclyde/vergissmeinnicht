@@ -5,7 +5,7 @@ import { serverEnv } from '../playwright.config.ts';
 
 const PASSWORD = 'an e2e passphrase that is long';
 
-test('first server admin: bootstrap link, account creation, sign-in, Workspace creation, Procedure authoring with Sections and Steps, TOTP enrollment, TOTP sign-in and operator TOTP recovery', async ({ page }, testInfo) => {
+test('first server admin: bootstrap link, account creation, sign-in, Workspace creation, Procedure authoring with Sections and Steps, export/import/duplicate, TOTP enrollment, TOTP sign-in and operator TOTP recovery', async ({ page }, testInfo) => {
   // Bootstrap works exactly once per server; the flow runs on one project only.
   test.skip(testInfo.project.name !== 'desktop-chromium', 'bootstrap is single-use per server');
 
@@ -134,9 +134,32 @@ test('first server admin: bootstrap link, account creation, sign-in, Workspace c
   await expect(procedure.getByRole('region', { name: 'Section: Upstairs' }).getByRole('listitem')).toHaveText([/Close windows/]);
   await expect(steps).toHaveCount(1);
 
+  // Export as a JSON file, duplicate, delete the copy, re-import the exported file.
+  const downloadPromise = page.waitForEvent('download');
+  await procedure.getByRole('button', { name: 'Export as JSON' }).click();
+  const download = await downloadPromise;
+  expect(download.suggestedFilename()).toBe('leave-the-flat.vmn.json');
+  const exportPath = testInfo.outputPath('export.json');
+  await download.saveAs(exportPath);
+
+  await procedure.getByRole('button', { name: 'Duplicate' }).click();
+  await expect(procedure.getByRole('heading', { name: 'Travel Leave the flat (copy)' })).toBeVisible();
   page.once('dialog', (dialog) => void dialog.accept());
   await procedure.getByRole('button', { name: 'Delete' }).click();
-  await expect(page.getByText('No Procedures yet.')).toBeVisible();
+  await expect(page.getByRole('list', { name: 'Procedures' }).getByRole('listitem')).toHaveCount(1);
+
+  await page.getByLabel('Import Procedure from JSON file').setInputFiles(exportPath);
+  await expect(procedure.getByRole('heading', { name: 'Travel Leave the flat' })).toBeVisible();
+  await expect(procedure.getByRole('heading', { level: 6 })).toHaveText(['Upstairs', 'Ground floor']);
+  await procedure.getByRole('button', { name: 'Back to all Procedures' }).click();
+  await expect(page.getByRole('list', { name: 'Procedures' }).getByRole('listitem')).toHaveCount(2);
+  await page.getByLabel('Import Procedure from JSON file').setInputFiles({
+    name: 'evil.json',
+    mimeType: 'application/json',
+    buffer: Buffer.from(JSON.stringify({ format: 'vergissmeinnicht.procedure', schemaVersion: 99, procedure: {} })),
+  });
+  await expect(page.getByRole('alert').filter({ hasText: 'different version' })).toBeVisible();
+  await expect(page.getByRole('list', { name: 'Procedures' }).getByRole('listitem')).toHaveCount(2);
 
   // Enable TOTP: password, QR code + key, confirmation code, recovery codes.
   await page.getByRole('button', { name: 'Enable two-factor authentication' }).click();

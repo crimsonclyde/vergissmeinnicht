@@ -149,13 +149,13 @@ Canonical shape:
 - [x] Link tokens travel in JSON bodies for API calls, never in API URLs.
 
 ### JSON import
-- [ ] Treat imports as hostile input.
-- [ ] Require/validate `schemaVersion`.
-- [ ] Validate full shape before persistence.
-- [ ] Reject invalid references/state/type values.
-- [ ] Bound input size and collection counts.
-- [ ] Do not allow imported IDs to overwrite unauthorized existing records.
-- [ ] Import is transactional or fails cleanly.
+- [x] Treat imports as hostile input. (`packages/import-export`: strict parse, then the regular create path with all domain rules.)
+- [x] Require/validate `schemaVersion`. (Only `1`; checked before the schema; anything else → `unsupported_schema_version`.)
+- [x] Validate full shape before persistence. (Strict Zod schema, then domain normalization of every field before the transaction.)
+- [x] Reject invalid references/state/type values. (Unknown keys at every level rejected; enums/kinds validated; the format carries no references.)
+- [x] Bound input size and collection counts. (1 MiB body, coarse array bounds in the schema, exact domain limits, per-Workspace Procedure limit.)
+- [x] Do not allow imported IDs to overwrite unauthorized existing records. (Documents contain no ids; any id field is rejected; all ids are server-generated.)
+- [x] Import is transactional or fails cleanly. (One `IMMEDIATE` transaction with the audit event; tests assert nothing is created on failure.)
 
 ---
 
@@ -480,5 +480,15 @@ The following choices are mandatory V1 behavior:
 **Logging review:** no new log statements; bodies are not logged.  
 **Authorization review:** unchanged capabilities (`procedure.view` / `procedure.edit`); structure writes go through the same guarded repository methods as Procedure content.  
 **Open risks:** the 1 MiB body limit on two routes raises per-request parsing cost (bounded by the global rate limit and authentication); Section/Step rows are rewritten on every save, so nothing may reference them by foreign key (Run snapshots must copy — 5.1).  
+**Reviewed:** 2026-09-27
+
+### Security check: Procedure import/export and duplicate (Step 4.4)
+**Threat surface:** malicious import files (prototype pollution, deep nesting, huge payloads, unknown fields, forged ids to overwrite other records, script-bearing icons/text, bidi spoofing, future/foreign formats), data leakage through exports (internal ids, users, emails, Workspace data), cross-Workspace copying without permission, download file-name/header injection.  
+**Controls added:** versioned envelope checked first; strict Zod schema with coarse bounds; field-by-field mapping into the regular create use-case (domain rules, limits, `procedure.edit`, in-transaction re-check, new ids, one audited transaction with `origin`); Fastify's JSON parser rejects `__proto__`/`constructor` keys and malformed JSON; 1 MiB body limit and 30 imports / 15 min per client; exports contain only definition fields; duplicate restricted to the same Workspace (cross-Workspace = export + import with both permission checks); client-side download naming from a letters/digits/dashes slug, no server `Content-Disposition`.  
+**Negative tests:** `packages/import-export/src/procedure-document.test.ts`, `packages/database/src/procedure-copy-use-cases.test.ts`, `apps/server/src/http/procedure-transfer.test.ts`, `apps/web/src/procedure-files.test.ts`, e2e future-version import.  
+**Secrets/data involved:** Procedure definitions (Workspace-confidential) leave the server as files by design; they contain no personal data.  
+**Logging review:** no new log statements; import bodies are not logged.  
+**Authorization review:** export `procedure.view`, import/duplicate `procedure.edit`, all through `authorizeWorkspace`; Procedure ids resolved only within the route's Workspace.  
+**Open risks:** exported files are outside the application's control once downloaded (anyone who can read a Procedure can already copy its content); the lockfile entries for the new workspace links were added by hand and must be verified with `pnpm install --frozen-lockfile`.  
 **Reviewed:** 2026-09-27
 

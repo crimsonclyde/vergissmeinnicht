@@ -18,6 +18,7 @@
     "@vergissmeinnicht/database": "workspace:*",
     "@vergissmeinnicht/domain": "workspace:*",
     "@vergissmeinnicht/email": "workspace:*",
+    "@vergissmeinnicht/import-export": "workspace:*",
     "fastify": "5.12.5",
     "zod": "4.6.5"
   },

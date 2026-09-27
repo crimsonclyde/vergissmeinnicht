@@ -171,6 +171,8 @@ export function createProcedureRepository({ db }: Pick<AppDatabase, 'db'>): Proc
           metadata: {
             title: row.title,
             revision: 1,
+            origin: input.origin.kind,
+            ...(input.origin.kind === 'duplicated' ? { sourceProcedureId: input.origin.sourceProcedureId } : {}),
             sections: sections.length,
             steps: sections.reduce((total, section) => total + section.steps.length, 0),
           },

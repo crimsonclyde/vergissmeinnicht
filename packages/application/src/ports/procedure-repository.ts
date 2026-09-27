@@ -15,6 +15,12 @@ export interface ProcedureDetail {
   readonly sections: readonly ProcedureSection[];
 }
 
+/** How a new Procedure came to be; recorded in its PROCEDURE_CREATED audit event. */
+export type ProcedureOrigin =
+  | { readonly kind: 'created' }
+  | { readonly kind: 'imported' }
+  | { readonly kind: 'duplicated'; readonly sourceProcedureId: ProcedureId };
+
 export type ProcedureWriteResult =
   | { readonly status: 'ok'; readonly detail: ProcedureDetail }
   | { readonly status: 'forbidden' | 'not_found' | 'conflict' | 'limit_reached' | 'invalid_reference' };
@@ -36,6 +42,7 @@ export interface ProcedureRepository {
       readonly workspaceId: WorkspaceId;
       readonly content: ProcedureContent;
       readonly structure: StructureDraft;
+      readonly origin: ProcedureOrigin;
       readonly at: Date;
       readonly maxActive: number;
     },

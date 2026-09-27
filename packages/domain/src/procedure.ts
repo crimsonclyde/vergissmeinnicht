@@ -128,3 +128,11 @@ export function normalizeProcedureContent(input: {
     tags: normalizeProcedureTags(input.tags),
   };
 }
+
+const COPY_SUFFIX = ' (copy)';
+
+/** Title of a duplicate: the original plus " (copy)", shortened so the result stays within the limit. */
+export function copyTitle(title: string): string {
+  const room = MAX_PROCEDURE_TITLE_LENGTH - [...COPY_SUFFIX].length;
+  return `${[...title].slice(0, room).join('').trimEnd()}${COPY_SUFFIX}`;
+}

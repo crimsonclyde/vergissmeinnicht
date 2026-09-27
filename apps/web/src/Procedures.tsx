@@ -1,6 +1,7 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useState, type ChangeEvent } from 'react';
 import { api, messageFor, type Procedure, type ProcedureContent, type ProcedureDetail, type ReasonPolicy } from './api.ts';
 import { Icon } from './procedure-icons.tsx';
+import { downloadJson, exportFileName, readImportFile } from './procedure-files.ts';
 import { ProcedureForm } from './ProcedureForm.tsx';
 
 const EMPTY: ProcedureContent = { title: '', description: '', icon: 'checklist', tags: [], sections: [] };
@@ -87,6 +88,40 @@ export function Procedures({ workspaceId, canEdit }: { workspaceId: string; canE
     setMode({ kind: 'view', id });
   }
 
+  /** Runs an action; if it yields a new Procedure (import, duplicate), opens it. */
+  async function runAction(action: () => Promise<ProcedureDetail | undefined>) {
+    setMessage(null);
+    try {
+      const result = await action();
+      if (result !== undefined) {
+        setDetail(result);
+        refresh();
+        open(result.id);
+      }
+    } catch (caught) {
+      setMessage(messageFor(caught));
+    }
+  }
+
+  async function exportProcedure(procedure: ProcedureDetail) {
+    await runAction(async () => {
+      downloadJson(await api.exportProcedure(workspaceId, procedure.id), exportFileName(procedure.title));
+      return undefined;
+    });
+  }
+
+  async function importFile(event: ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+    event.target.value = '';
+    if (file === undefined) return;
+    const read = await readImportFile(file);
+    if (!read.ok) {
+      setMessage(read.message);
+      return;
+    }
+    await runAction(() => api.importProcedure(workspaceId, read.document));
+  }
+
   async function remove(procedure: ProcedureDetail) {
     if (!window.confirm(`Delete “${procedure.title}”? Past Runs stay readable.`)) return;
     setMessage(null);
@@ -140,10 +175,16 @@ export function Procedures({ workspaceId, canEdit }: { workspaceId: string; canE
             <button type="button" onClick={() => setMode({ kind: 'list' })}>
               Back to all Procedures
             </button>{' '}
+            <button type="button" onClick={() => void exportProcedure(shown)}>
+              Export as JSON
+            </button>{' '}
             {canEdit && (
               <>
                 <button type="button" onClick={() => setMode({ kind: 'edit', id: shown.id })}>
                   Edit
+                </button>{' '}
+                <button type="button" onClick={() => void runAction(() => api.duplicateProcedure(workspaceId, shown.id))}>
+                  Duplicate
                 </button>{' '}
                 <button type="button" onClick={() => void remove(shown)}>
                   Delete
@@ -175,9 +216,15 @@ export function Procedures({ workspaceId, canEdit }: { workspaceId: string; canE
             </ul>
           )}
           {canEdit && (
-            <button type="button" onClick={() => setMode({ kind: 'create' })}>
-              New Procedure
-            </button>
+            <p>
+              <button type="button" onClick={() => setMode({ kind: 'create' })}>
+                New Procedure
+              </button>{' '}
+              <label>
+                Import Procedure from JSON file{' '}
+                <input type="file" accept="application/json,.json" onChange={(e) => void importFile(e)} />
+              </label>
+            </p>
           )}
         </>
       )}

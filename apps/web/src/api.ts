@@ -155,6 +155,12 @@ export const ERROR_MESSAGES: Record<string, string> = {
   step_title_empty: 'Every Step needs a title.',
   step_title_too_long: 'Step titles must be at most 200 characters.',
   step_title_invalid_characters: 'A Step title contains characters that are not allowed.',
+  invalid_document: 'This file is not a valid Procedure export.',
+  unsupported_format: 'This file is not a Vergissmeinnicht Procedure.',
+  unsupported_schema_version: 'This file was created by a different version of Vergissmeinnicht and cannot be imported.',
+  invalid_icon: 'The file uses an unknown icon.',
+  invalid_reason_policy: 'The file uses an unknown reason setting.',
+  invalid_request: 'The request was not valid.',
   invalid_item_reference: 'This Procedure was restructured in the meantime. Reload it and apply your changes again.',
 };
 
@@ -244,6 +250,18 @@ export const api = {
         'POST',
         `/workspaces/${encodeURIComponent(workspaceId)}/procedures/${encodeURIComponent(id)}/update`,
         { ...content, expectedRevision },
+      )
+    ).procedure,
+  exportProcedure: (workspaceId: string, id: string) =>
+    request<unknown>('GET', `/workspaces/${encodeURIComponent(workspaceId)}/procedures/${encodeURIComponent(id)}/export`),
+  importProcedure: async (workspaceId: string, document: unknown) =>
+    (await request<{ procedure: ProcedureDetail }>('POST', `/workspaces/${encodeURIComponent(workspaceId)}/procedures/import`, document))
+      .procedure,
+  duplicateProcedure: async (workspaceId: string, id: string) =>
+    (
+      await request<{ procedure: ProcedureDetail }>(
+        'POST',
+        `/workspaces/${encodeURIComponent(workspaceId)}/procedures/${encodeURIComponent(id)}/duplicate`,
       )
     ).procedure,
   deleteProcedure: (workspaceId: string, id: string) =>

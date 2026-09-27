@@ -157,11 +157,11 @@ describe('Procedure use-cases', () => {
       const guard = { actorMay: () => true };
       const content = { ...LEAVE_HOUSE, icon: 'home', tags: [] } as const;
       const structure = { sections: [] };
-      expect(await repository.create({ workspaceId: home.id, content, structure, at: new Date(), maxActive: 1 }, actor, guard)).toEqual({
+      expect(await repository.create({ workspaceId: home.id, content, structure, origin: { kind: 'created' }, at: new Date(), maxActive: 1 }, actor, guard)).toEqual({
         status: 'limit_reached',
       });
       expect(
-        (await repository.create({ workspaceId: home.id, content, structure, at: new Date(), maxActive: 2 }, actor, guard)).status,
+        (await repository.create({ workspaceId: home.id, content, structure, origin: { kind: 'created' }, at: new Date(), maxActive: 2 }, actor, guard)).status,
       ).toBe('ok');
       const full: ProcedureDeps = {
         ...deps,

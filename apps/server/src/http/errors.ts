@@ -25,6 +25,7 @@ import {
   TotpNotEnabledError,
 } from '@vergissmeinnicht/application';
 import { DomainValidationError } from '@vergissmeinnicht/domain';
+import { ProcedureImportError } from '@vergissmeinnicht/import-export';
 import type { FastifyError, FastifyReply, FastifyRequest } from 'fastify';
 
 /** A request body/params did not match the route schema. Carries no input values. */
@@ -44,6 +45,7 @@ export function errorHandler(error: FastifyError | Error, request: FastifyReques
     return reply.code(400).send({ error: error.code, field: error.field });
   }
   if (error instanceof InvalidRequestError) return reply.code(400).send({ error: 'invalid_request' });
+  if (error instanceof ProcedureImportError) return reply.code(400).send({ error: error.code });
   if (error instanceof NotAuthorizedError) return reply.code(403).send({ error: 'forbidden' });
   if (error instanceof InvalidInvitationError) return reply.code(404).send({ error: 'invalid_invitation' });
   if (error instanceof InvitationNotRevocableError) return reply.code(409).send({ error: 'invitation_not_pending' });

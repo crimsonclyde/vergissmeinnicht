@@ -1,12 +1,15 @@
 import {
   createProcedure,
   deleteProcedure,
+  duplicateProcedure,
   getProcedure,
+  importProcedure,
   listProcedures,
   updateProcedure,
 } from '@vergissmeinnicht/application';
 import type { ProcedureDetail } from '@vergissmeinnicht/application';
 import { UUID_V4, type Procedure, type ProcedureId, type WorkspaceId } from '@vergissmeinnicht/domain';
+import { parseProcedureDocument, toProcedureDocument } from '@vergissmeinnicht/import-export';
 import type { FastifyInstance, FastifyRequest } from 'fastify';
 import { z } from 'zod';
 import type { AppServices } from '../composition.ts';
@@ -102,6 +105,42 @@ export async function procedureRoutes(app: FastifyInstance, { services }: { serv
       actor: principalOf(request).user,
       workspaceId: workspaceId as WorkspaceId,
       content: body,
+    });
+    return reply.code(201).send({ procedure: detailView(detail) });
+  });
+
+  // Import: the body is an untrusted document (e.g. a file someone sent around). Parsed strictly by
+  // the import-export package, then created through the regular rules; ids from the file are never used.
+  app.post(
+    '/import',
+    { bodyLimit: STRUCTURE_BODY_LIMIT, config: { rateLimit: { max: 30, timeWindow: 15 * 60_000 } } },
+    async (request, reply) => {
+      const { workspaceId } = parse(workspaceParams, request.params);
+      const detail = await importProcedure(deps, {
+        actor: principalOf(request).user,
+        workspaceId: workspaceId as WorkspaceId,
+        content: parseProcedureDocument(request.body),
+      });
+      return reply.code(201).send({ procedure: detailView(detail) });
+    },
+  );
+
+  app.get('/:procedureId/export', async (request) => {
+    const { workspaceId, procedureId } = parse(procedureParams, request.params);
+    const detail = await getProcedure(deps, {
+      actor: principalOf(request).user,
+      workspaceId: workspaceId as WorkspaceId,
+      procedureId: procedureId as ProcedureId,
+    });
+    return toProcedureDocument(detail);
+  });
+
+  app.post('/:procedureId/duplicate', async (request, reply) => {
+    const { workspaceId, procedureId } = parse(procedureParams, request.params);
+    const detail = await duplicateProcedure(deps, {
+      actor: principalOf(request).user,
+      workspaceId: workspaceId as WorkspaceId,
+      procedureId: procedureId as ProcedureId,
     });
     return reply.code(201).send({ procedure: detailView(detail) });
   });

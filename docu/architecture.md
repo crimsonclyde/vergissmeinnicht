@@ -206,9 +206,14 @@ POST /api/workspaces/{id}/procedures                    procedure.edit
 GET  /api/workspaces/{id}/procedures/{procedureId}      procedure.view
 POST /api/workspaces/{id}/procedures/{procedureId}/update   procedure.edit + expectedRevision + complete sections[]
 POST /api/workspaces/{id}/procedures/{procedureId}/delete   procedure.edit (soft delete)
+GET  /api/workspaces/{id}/procedures/{procedureId}/export   procedure.view, canonical JSON without ids
+POST /api/workspaces/{id}/procedures/import             procedure.edit, untrusted document
+POST /api/workspaces/{id}/procedures/{procedureId}/duplicate procedure.edit, same Workspace only
 ```
 
 A Procedure is saved as one document: content plus ordered Sections and CHECK Steps. Existing Section/Step ids are kept (they must belong to that Procedure); new items get server ids; the child rows are rewritten on every save, so Runs will snapshot them instead of referencing them. Each save is one `PROCEDURE_UPDATED` audit event with a change summary.
+
+The canonical JSON format lives in `packages/import-export` (`schemaVersion` 1): exports carry only the definition; imports are parsed strictly there and then created through the same use-case as hand-made Procedures.
 
 Workspace content changes are recorded in `audit_events` (append-only, same transaction; Run/Step events join in 5.5). Account and access changes stay in `security_events`.
 

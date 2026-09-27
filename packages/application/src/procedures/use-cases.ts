@@ -1,4 +1,5 @@
 import {
+  copyTitle,
   normalizeProcedureContent,
   normalizeProcedureStructure,
   type Procedure,
@@ -11,7 +12,12 @@ import { roleHasCapability, type WorkspaceCapability } from '@vergissmeinnicht/p
 import { NotAuthorizedError } from '../invitations/errors.ts';
 import type { ActorGuard } from '../ports/actor-guard.ts';
 import type { Clock } from '../ports/clock.ts';
-import type { ProcedureDetail, ProcedureRepository, ProcedureWriteResult } from '../ports/procedure-repository.ts';
+import type {
+  ProcedureDetail,
+  ProcedureOrigin,
+  ProcedureRepository,
+  ProcedureWriteResult,
+} from '../ports/procedure-repository.ts';
 import type { WorkspaceRepository } from '../ports/workspace-repository.ts';
 import { userActor } from '../user-actor.ts';
 import { authorizeWorkspace } from '../workspaces/use-cases.ts';
@@ -84,19 +90,79 @@ export async function getProcedure(
   return detail;
 }
 
+async function create(
+  deps: ProcedureDeps,
+  input: { readonly actor: User; readonly workspaceId: WorkspaceId; readonly content: ProcedureInput },
+  origin: ProcedureOrigin,
+): Promise<ProcedureDetail> {
+  const { content, structure } = normalizeInput(input.content);
+  return detailOrThrow(
+    await deps.procedures.create(
+      {
+        workspaceId: input.workspaceId,
+        content,
+        structure,
+        origin,
+        at: deps.clock.now(),
+        maxActive: MAX_PROCEDURES_PER_WORKSPACE,
+      },
+      userActor(input.actor),
+      guard('procedure.edit'),
+    ),
+  );
+}
+
 export async function createProcedure(
   deps: ProcedureDeps,
   input: { readonly actor: User; readonly workspaceId: WorkspaceId; readonly content: ProcedureInput },
 ): Promise<ProcedureDetail> {
   await authorizeWorkspace(deps, input.actor, input.workspaceId, 'procedure.edit');
-  const { content, structure } = normalizeInput(input.content);
-  return detailOrThrow(
-    await deps.procedures.create(
-      { workspaceId: input.workspaceId, content, structure, at: deps.clock.now(), maxActive: MAX_PROCEDURES_PER_WORKSPACE },
-      userActor(input.actor),
-      guard('procedure.edit'),
-    ),
-  );
+  return create(deps, input, { kind: 'created' });
+}
+
+/**
+ * Creates a Procedure from an already parsed import document. The content passes exactly the same
+ * domain rules, limits and authorization as a Procedure created by hand; ids are always new.
+ */
+export async function importProcedure(
+  deps: ProcedureDeps,
+  input: { readonly actor: User; readonly workspaceId: WorkspaceId; readonly content: ProcedureInput },
+): Promise<ProcedureDetail> {
+  await authorizeWorkspace(deps, input.actor, input.workspaceId, 'procedure.edit');
+  return create(deps, input, { kind: 'imported' });
+}
+
+/**
+ * Copies a Procedure within its Workspace (new ids everywhere). Copying into another Workspace is
+ * export + import, which checks the permissions of both Workspaces separately.
+ */
+export async function duplicateProcedure(
+  deps: ProcedureDeps,
+  input: { readonly actor: User; readonly workspaceId: WorkspaceId; readonly procedureId: ProcedureId },
+): Promise<ProcedureDetail> {
+  await authorizeWorkspace(deps, input.actor, input.workspaceId, 'procedure.edit');
+  const source = await deps.procedures.findActive(input.workspaceId, input.procedureId);
+  if (source === undefined) throw new ProcedureNotFoundError();
+  const content: ProcedureInput = {
+    title: copyTitle(source.procedure.title),
+    description: source.procedure.description,
+    icon: source.procedure.icon,
+    tags: source.procedure.tags,
+    sections: source.sections.map((section) => ({
+      title: section.title,
+      description: section.description,
+      steps: section.steps.map((step) => ({
+        title: step.title,
+        description: step.description,
+        icon: step.icon,
+        required: step.required,
+        critical: step.critical,
+        skipReasonPolicy: step.skipReasonPolicy,
+        notApplicableReasonPolicy: step.notApplicableReasonPolicy,
+      })),
+    })),
+  };
+  return create(deps, { ...input, content }, { kind: 'duplicated', sourceProcedureId: input.procedureId });
 }
 
 /**

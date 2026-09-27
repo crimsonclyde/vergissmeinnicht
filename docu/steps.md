@@ -18,14 +18,16 @@ For every completed task, add a concise completion note, tests/checks performed,
 
 ## Current state — resume here
 
-_Last updated: 2026-09-27 (after 4.3)_
+_Last updated: 2026-09-27 (after 4.4)_
 
-**Done:** 0.1, 0.2, 0.3, 1.1, 1.2, 2.1–2.5, 3.1–3.3, 4.1–4.3, 9.1 (pulled forward for invitations). 2.6 (external providers) is DEFERRED.
-**Next:** 4.4 Duplicate / JSON import-export (user decision 2026-09-27: follow the numbered order, step by step). Import is hostile input: versioned canonical format (`schemaVersion`), full validation through the same domain normalizers before any write, bounded size/counts, imported ids never trusted (always new server ids), one transaction, authorization `procedure.edit` on the target Workspace.
+**Done:** 0.1, 0.2, 0.3, 1.1, 1.2, 2.1–2.5, 3.1–3.3, 4.1–4.4, 9.1 (pulled forward for invitations). 2.6 (external providers) is DEFERRED.
+**Next:** 4.5 Soft deletion / restore (numbered order, user decision 2026-09-27): a view of deleted Procedures and restore, both `procedure.restore` (EDITOR, ADMIN), Workspace-scoped, audited (`PROCEDURE_RESTORED`), revision check; decide whether restore is allowed when the per-Workspace limit is reached (it should count against it).
+
+**Lockfile note (4.4):** `apps/server` → `@vergissmeinnicht/import-export` and `packages/import-export` → `zod@4.6.5` were added to `package.json` and `pnpm-lock.yaml` by hand (pnpm was not available in the agent's shell). Verify once with `pnpm install --frozen-lockfile` (must succeed without changes).
 
 Also open: trusted-proxy configuration (10.3) before production use behind a reverse proxy; admin web UI (invitations, recoveries — API only so far); account status changes (disable/enable users) with session revocation; housekeeping of expired challenge/recovery/invitation rows.
 
-**Branches:** work is stacked, not yet merged into `main`: `step-1.1-app-skeleton` → `step-1.2-config` → `step-2.1-user-model` → `step-2.2-invitations` → `step-2.4-totp` → `step-2.5-recovery` → `step-3.1-workspaces` → `step-3.2-roles` → `step-4.1-procedures` → `step-4.2-steps` → `step-4.3-drag-drop` (each branch contains the previous ones; 2.3 was completed on `step-2.2-invitations` because acceptance finishes 2.2). CI runs on pull requests / `main` only.
+**Branches:** work is stacked, not yet merged into `main`: `step-1.1-app-skeleton` → `step-1.2-config` → `step-2.1-user-model` → `step-2.2-invitations` → `step-2.4-totp` → `step-2.5-recovery` → `step-3.1-workspaces` → `step-3.2-roles` → `step-4.1-procedures` → `step-4.2-steps` → `step-4.3-drag-drop` → `step-4.4-import-export` (each branch contains the previous ones; 2.3 was completed on `step-2.2-invitations` because acceptance finishes 2.2). CI runs on pull requests / `main` only.
 
 **Manual testing:** `test-env/menu.sh` (added 2026-09-27) installs/starts/stops/removes an isolated production-mode instance on port 3200 with demo accounts for every role (see `test-env/README.md`). Extend `test-env/seed.ts` when new features need demo data (e.g. Procedures in 4.1).
 
@@ -736,11 +738,30 @@ Reorder Sections/Steps while preserving stable identifiers.
 - No visual drop indicator beyond the browser's default and the end-of-section zones (styling with 8.x).
 
 ### 4.4 Duplicate / JSON import-export
-**Status:** TODO
+**Status:** DONE
+**Completed:** 2026-09-27
 
 Canonical JSON includes `schemaVersion`; imported data is hostile input and must be validated.
 
 **Security impact:** HIGH for import parser/input validation.
+
+**Implemented:**
+- `packages/import-export` (now used by the server; depends on `domain` and `zod`): canonical document `{ format: "vergissmeinnicht.procedure", schemaVersion: 1, procedure: { title, description, icon, tags, sections: [{ title, description, steps: [{ kind: "CHECK", … }] }] } }`. `toProcedureDocument` exports the definition only — **no ids, Workspace, users, timestamps or revision**. `parseProcedureDocument`: envelope and version checked first (`unsupported_format`, `unsupported_schema_version`), then a strict Zod schema (unknown keys rejected at every level — ids, `__proto__`, run state …; coarse length/count bounds); the result is built field by field so nothing else from the file can reach persistence. Lint boundary: same rules as `application` (no infrastructure imports).
+- Application: `importProcedure` and `duplicateProcedure` (both `procedure.edit` via `authorizeWorkspace`) share the regular create path: all domain rules, the per-Workspace limit, in-transaction re-check, server-generated ids, one audit event. `PROCEDURE_CREATED` metadata now has `origin` (`created` / `imported` / `duplicated`, plus `sourceProcedureId`). Duplicates stay in the same Workspace; title "… (copy)" kept ≤120 code points (`copyTitle`). Copying between Workspaces = export + import, so both Workspaces' permissions apply.
+- HTTP: `GET …/procedures/{id}/export` (`procedure.view` — readers can already see the full definition), `POST …/procedures/import` (1 MiB body limit, 30 per 15 min per client), `POST …/procedures/{id}/duplicate`. Import errors: `invalid_document`, `unsupported_format`, `unsupported_schema_version` (400); domain errors as usual. The client builds the download itself (no `Content-Disposition` header built from user text).
+- Web: "Export as JSON" (all roles; file name slugged to letters/digits/dashes), "Duplicate" and "Import Procedure from JSON file" (editors; 1 MiB and JSON pre-check in the browser, server decides).
+
+**Tests/checks:**
+- `pnpm test` — 413 tests (+19): parser (6: export has no ids/internal data, round trip, envelope/version cases, extra fields at every level incl. `__proto__` without prototype pollution, wrong types/kinds/oversized collections, no input echo), use-cases (7: duplicate with new ids and audited origin, `procedure.edit` required, no cross-Workspace duplicate by id, deleted source, title limit, limit reached; import into another Workspace with new ids and origin, USER/non-member refused, domain rules applied before any write), HTTP (5: export content, export→import round trip across Workspaces, role and Workspace boundaries, duplicate, hostile bodies — future version, foreign format, array, embedded id, markup icon, bidi title, `__proto__`, 50 000-deep nesting, truncated JSON, >1 MiB → 413, nothing created), file-name slugging (1).
+- `pnpm test:e2e`: export download (file name), duplicate, delete copy, import the downloaded file (structure preserved), import of a future-version file shows the version message.
+- `pnpm lint`, `pnpm typecheck`. No schema change.
+
+**Security docs updated:** YES (§5 JSON import checklist, "Security check: Procedure import/export and duplicate (Step 4.4)").
+
+**Remaining:**
+- Verify the hand-edited lockfile with `pnpm install --frozen-lockfile`.
+- Only schema version 1 exists; a future version needs an explicit upgrade function per older version (never "best effort" parsing).
+- Bulk export/import of several Procedures is not part of V1.
 
 ### 4.5 Soft deletion / restore
 **Status:** TODO
