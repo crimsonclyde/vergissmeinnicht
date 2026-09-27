@@ -18,17 +18,17 @@ For every completed task, add a concise completion note, tests/checks performed,
 
 ## Current state — resume here
 
-_Last updated: 2026-09-26 (after 2.5)_
+_Last updated: 2026-09-27 (after 3.1)_
 
-**Done:** 0.1, 0.2, 0.3, 1.1, 1.2, 2.1–2.5, 9.1 (pulled forward for invitations). 2.6 (external providers) is DEFERRED.
-**Next:** 3.1 Workspace and Membership (then 3.2 roles/policies):
-1. read §3 of `security.md`; design the Workspace/Membership schema with opaque ids and the centralized capability policy in `packages/permissions` before any route;
-2. every Workspace route goes through `requireUser` + a membership/capability check; negative tests for cross-Workspace, horizontal and vertical escalation, removed member;
-3. Workspace creation: **server admins only** (decided 2026-09-26, see locked decisions). Keep it behind one central capability check so the later admin-board setting (below) is a policy change, not a rewrite.
+**Done:** 0.1, 0.2, 0.3, 1.1, 1.2, 2.1–2.5, 3.1, 9.1 (pulled forward for invitations). 2.6 (external providers) is DEFERRED.
+**Next:** 3.2 Roles and policies — the capability table, `authorizeWorkspace` and the Workspace negative tests already exist (3.1). Remaining for 3.2:
+1. decide the Procedure/Run capability matrix for GUEST/USER/EDITOR/ADMIN (read vs. execute vs. author; what "explicitly permitted" means for GUEST) and add it to `packages/permissions` with the exact-matrix test;
+2. member self-service "leave Workspace"; a server-level repair path for a Workspace whose only ADMIN is disabled (ties into account disabling);
+3. SSE subscription authorization is tested with 6.1; then continue with 3.3 / 4.1.
 
 Also open: trusted-proxy configuration (10.3) before production use behind a reverse proxy; admin web UI (invitations, recoveries — API only so far); account status changes (disable/enable users) with session revocation; housekeeping of expired challenge/recovery/invitation rows.
 
-**Branches:** work is stacked, not yet merged into `main`: `step-1.1-app-skeleton` → `step-1.2-config` → `step-2.1-user-model` → `step-2.2-invitations` → `step-2.4-totp` → `step-2.5-recovery` (each branch contains the previous ones; 2.3 was completed on `step-2.2-invitations` because acceptance finishes 2.2). CI runs on pull requests / `main` only.
+**Branches:** work is stacked, not yet merged into `main`: `step-1.1-app-skeleton` → `step-1.2-config` → `step-2.1-user-model` → `step-2.2-invitations` → `step-2.4-totp` → `step-2.5-recovery` → `step-3.1-workspaces` (each branch contains the previous ones; 2.3 was completed on `step-2.2-invitations` because acceptance finishes 2.2). CI runs on pull requests / `main` only.
 
 **Local tooling:** Node 24 LTS (Node 26 works), pnpm 12.6.0 (`npm install -g pnpm@12.6.0`), Docker for Mailpit (`compose.dev.yml`), `pnpm exec playwright install chromium` for e2e.
 
@@ -533,7 +533,8 @@ Accounts without TOTP enabled log in with email + password only.
 ## 3 — Workspaces and ACLs
 
 ### 3.1 Workspace and Membership
-**Status:** TODO
+**Status:** DONE
+**Completed:** 2026-09-27
 
 **Objective:** Workspace is the primary collaboration/security boundary.
 
@@ -544,6 +545,31 @@ Accounts without TOTP enabled log in with email + password only.
 - Membership maps User + Workspace + role;
 - Procedures and Runs belong to one Workspace;
 - removal from Workspace revokes future access promptly.
+
+**Security impact:** CRITICAL — new permission boundary (Workspace), role assignment, personal data of members.
+
+**Implemented:**
+- Domain (`packages/domain/src/workspace.ts`): `Workspace`, `Membership`, branded `WorkspaceId`, `parseWorkspaceId`, `normalizeWorkspaceName` (same rules as display names: trim, NFC, 1–80 code points, no control/bidi characters; shared helper `text.ts`). New security event types `WORKSPACE_CREATED`, `WORKSPACE_RENAMED`, `MEMBERSHIP_ADDED`, `MEMBERSHIP_ROLE_CHANGED`, `MEMBERSHIP_REMOVED`.
+- Policy (`packages/permissions`): role → capability table (`workspace.view` all roles; `workspace.members.view` USER+; `workspace.members.manage` and `workspace.settings.manage` ADMIN), `capabilitiesOf`, `rolesWithCapability`, `canCreateWorkspace` (ACTIVE server admins only — the single switch for the planned admin-board option).
+- Application (`packages/application/src/workspaces`): `authorizeWorkspace` (ACTIVE actor + Membership + capability; non-member ≡ unknown id → `WorkspaceNotFoundError`), `createWorkspace` (creator becomes ADMIN), `listMyWorkspaces`, `getWorkspace` (role + capabilities), `listMembers` (email/status only for managers), `renameWorkspace`, `addMember` (existing ACTIVE account by email; unknown/disabled → same `UnknownAccountError`), `changeMemberRole`, `removeMember`. Port `WorkspaceRepository` with a `MembershipGuard` evaluated inside the write transaction.
+- Database: migration `0006_workspaces_memberships` — `workspaces` (UUID id CHECK, non-blank name, creator FK) and `memberships` (composite PK workspace+user, role CHECK, FKs without cascade, index on user). `createWorkspaceRepository`: every mutation in `BEGIN IMMEDIATE`, re-checks the actor's current role and ACTIVE status, keeps ≥1 ACTIVE ADMIN (rollback otherwise), writes the security event in the same transaction.
+- HTTP (`apps/server/src/http/workspace-routes.ts`): `GET/POST /api/workspaces`, `GET /api/workspaces/{id}`, `POST …/rename`, `GET/POST …/members`, `POST …/members/{userId}/role`, `POST …/members/{userId}/remove`; strict Zod schemas, lower-case UUIDv4 ids; add-member limited to 30/15 min per client; error codes `workspace_not_found` (404), `member_not_found` (404), `already_member` (409), `last_workspace_admin` (409), `unknown_account` (404), `forbidden` (403).
+- Web (`apps/web/src/Workspaces.tsx`): own Workspaces with role, create form for server admins, member table with role select / remove / leave and add-member form for admins. Capabilities from the API only adapt the UI.
+
+**Tests/checks:**
+- `pnpm test` — 329 tests (+50). New: domain name/id validation (4); policy matrix, monotonicity, fail-closed unknown role, `canCreateWorkspace` (5); use-cases against SQLite (29, see security.md "Workspaces and Memberships"); HTTP (12: 401 everywhere, Origin guard, identical 404 for non-member/unknown, cross-Workspace, vertical escalation, contact data hidden, removal/demotion effective on the same session's next request, last admin, strict validation, rate limit).
+- Mutation checks: removing the capability check, the create check, the in-transaction actor guard, the last-admin check, the ACTIVE check in `authorizeWorkspace` or the contact filter each fails tests.
+- `pnpm test:e2e` (3 passed, 1 skipped as before): account flow extended with Workspace creation, member table, unknown-account and last-admin messages.
+- `pnpm lint`, `pnpm typecheck`; migration 0006 applied twice to a copy of the dev DB. No new dependencies (audit unchanged).
+- Tooling note: pnpm was not on PATH in this session; commands were run through the repository-local binaries (`node_modules/.bin/{vitest,tsc,eslint,playwright}`, `drizzle-kit`, `vite`) — equivalent to the pnpm scripts.
+
+**Security docs updated:** YES (§3 checklist, "Security check: Workspaces and Memberships (Step 3.1)").
+
+**Remaining:**
+- Procedures and Runs do not exist yet; "Procedures and Runs belong to one Workspace" is satisfied by design (FK to `workspaces`, capability checks via `authorizeWorkspace`) when 4.1/5.1 add them.
+- Inviting a new person directly into a Workspace (invitation with Workspace grant) — invitations remain server-admin only; admins add existing accounts.
+- Self-service "leave Workspace" for non-admins; Workspace archiving/deletion; server-level repair when the only ADMIN is disabled.
+- "Add member by email" reveals to a Workspace ADMIN whether an ACTIVE account exists (accepted, rate-limited, audited).
 
 ### 3.2 Roles and policies
 **Status:** TODO
@@ -566,6 +592,8 @@ Exact capabilities must be represented centrally rather than scattered string co
 - SSE subscription authorization.
 
 **Security impact:** CRITICAL.
+
+**Prepared by 3.1:** capability table and exact-matrix test in `packages/permissions`, `authorizeWorkspace`, Workspace-level cross-Workspace / horizontal / vertical / removed-member negative tests, audited role changes. Still open: Procedure/Run capabilities, GUEST read scope, SSE subscription authorization (with 6.1).
 
 ### 3.3 Workspace-wide Procedure visibility
 **Status:** TODO

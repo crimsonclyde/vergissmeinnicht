@@ -1,5 +1,6 @@
 /**
- * Security-relevant account events (invitations, logins, MFA, recovery). Run/Step history uses
+ * Security-relevant account and access events (invitations, logins, MFA, recovery, Workspace
+ * creation and Membership/role changes). Run/Step history uses
  * the separate Run AuditEvent model (Step 5.5). Security events are append-only.
  */
 export const SECURITY_EVENT_TYPES = [
@@ -25,6 +26,11 @@ export const SECURITY_EVENT_TYPES = [
   'PASSWORD_CHANGED',
   'PASSWORD_RESET',
   'TOTP_RESET',
+  'WORKSPACE_CREATED',
+  'WORKSPACE_RENAMED',
+  'MEMBERSHIP_ADDED',
+  'MEMBERSHIP_ROLE_CHANGED',
+  'MEMBERSHIP_REMOVED',
 ] as const;
 export type SecurityEventType = (typeof SECURITY_EVENT_TYPES)[number];
 

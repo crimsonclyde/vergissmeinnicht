@@ -1,6 +1,7 @@
 export * from './invitations/index.ts';
 export * from './mfa/index.ts';
 export * from './recovery/index.ts';
+export * from './workspaces/index.ts';
 export * from './ports/account-recovery-repository.ts';
 export * from './ports/clock.ts';
 export * from './ports/email-sender.ts';
@@ -9,3 +10,4 @@ export * from './ports/invitation-tokens.ts';
 export * from './ports/mfa.ts';
 export * from './ports/password-hasher.ts';
 export * from './ports/user-repository.ts';
+export * from './ports/workspace-repository.ts';

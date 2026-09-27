@@ -7,6 +7,25 @@ export interface CurrentUser {
   readonly serverAdmin: boolean;
 }
 
+export const WORKSPACE_ROLES = ['GUEST', 'USER', 'EDITOR', 'ADMIN'] as const;
+export type WorkspaceRole = (typeof WORKSPACE_ROLES)[number];
+
+export interface WorkspaceSummary {
+  readonly id: string;
+  readonly name: string;
+  readonly role: WorkspaceRole;
+}
+
+export interface WorkspaceMember {
+  readonly userId: string;
+  readonly displayName: string;
+  readonly role: WorkspaceRole;
+  readonly memberSince: string;
+  /** Only returned to members who manage the Workspace. */
+  readonly email?: string;
+  readonly status?: string;
+}
+
 export type SecondFactor = { readonly code: string } | { readonly recoveryCode: string };
 
 export interface MfaStatus {
@@ -28,6 +47,16 @@ export const ERROR_MESSAGES: Record<string, string> = {
   invalid_recovery: 'This recovery link is invalid, has expired or was already used.',
   password_too_short: 'The new password must be at least 15 characters.',
   password_too_long: 'The new password must be at most 128 characters.',
+  workspace_not_found: 'This Workspace does not exist or you are no longer a member.',
+  forbidden: 'You are not allowed to do this.',
+  unknown_account: 'There is no active account with this email address. A server admin must invite the person first.',
+  already_member: 'This person is already a member.',
+  last_workspace_admin: 'A Workspace needs at least one active admin. Make someone else admin first.',
+  member_not_found: 'This person is no longer a member.',
+  workspace_name_empty: 'Please enter a name.',
+  workspace_name_too_long: 'The name must be at most 80 characters.',
+  workspace_name_invalid_characters: 'The name contains characters that are not allowed.',
+  invalid_email: 'Please enter a valid email address.',
 };
 
 export function messageFor(error: unknown, fallback = 'Something went wrong. Please try again.'): string {
@@ -91,6 +120,21 @@ export const api = {
   regenerateRecoveryCodes: (password: string) =>
     request<{ recoveryCodes: string[] }>('POST', '/account/mfa/recovery-codes', { password }),
   signOut: () => request<undefined>('POST', '/auth/sign-out'),
+  workspaces: async () => (await request<{ workspaces: WorkspaceSummary[] }>('GET', '/workspaces')).workspaces,
+  createWorkspace: async (name: string) =>
+    (await request<{ workspace: WorkspaceSummary }>('POST', '/workspaces', { name })).workspace,
+  workspace: (id: string) =>
+    request<{ workspace: WorkspaceSummary; capabilities: string[] }>('GET', `/workspaces/${encodeURIComponent(id)}`),
+  renameWorkspace: (id: string, name: string) =>
+    request<undefined>('POST', `/workspaces/${encodeURIComponent(id)}/rename`, { name }),
+  members: async (id: string) =>
+    (await request<{ members: WorkspaceMember[] }>('GET', `/workspaces/${encodeURIComponent(id)}/members`)).members,
+  addMember: (id: string, email: string, role: WorkspaceRole) =>
+    request<{ member: WorkspaceMember }>('POST', `/workspaces/${encodeURIComponent(id)}/members`, { email, role }),
+  changeMemberRole: (id: string, userId: string, role: WorkspaceRole) =>
+    request<undefined>('POST', `/workspaces/${encodeURIComponent(id)}/members/${encodeURIComponent(userId)}/role`, { role }),
+  removeMember: (id: string, userId: string) =>
+    request<undefined>('POST', `/workspaces/${encodeURIComponent(id)}/members/${encodeURIComponent(userId)}/remove`),
   resolveInvitation: (token: string) =>
     request<{ email: string; expiresAt: string }>('POST', '/invitations/resolve', { token }),
   acceptInvitation: (token: string, displayName: string, password: string) =>

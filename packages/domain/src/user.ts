@@ -1,4 +1,5 @@
 import { DomainValidationError } from './errors.ts';
+import { CONTROL_CHARS, normalizeSingleLineName } from './text.ts';
 
 /**
  * Stable internal User identity. Authentication methods (password, TOTP, future Apple/GitHub)
@@ -24,7 +25,7 @@ export interface User {
   readonly updatedAt: Date;
 }
 
-const UUID_V4 = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
+export const UUID_V4 = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
 
 export function parseUserId(value: string): UserId {
   if (!UUID_V4.test(value)) {
@@ -37,7 +38,6 @@ export const MAX_EMAIL_LENGTH = 254;
 const MAX_EMAIL_LOCAL_PART_LENGTH = 64;
 // Pragmatic shape check; ownership is proven by the invitation email, not by syntax.
 const EMAIL_SHAPE = /^[^\s@]+@[^\s@.]+(?:\.[^\s@.]+)+$/u;
-const CONTROL_CHARS = /\p{Cc}/u;
 
 /**
  * Normalizes an email address for storage, lookup and uniqueness. The whole address is
@@ -56,26 +56,15 @@ export function normalizeEmail(input: string): NormalizedEmail {
 }
 
 export const MAX_DISPLAY_NAME_LENGTH = 80;
-// Bidirectional overrides/isolates can make a name render as someone else's in audit history.
-const BIDI_CONTROLS = /[؜‎‏‪-‮⁦-⁩]/u;
 
 /** Display names appear in audit snapshots, so they must render unambiguously. */
 export function normalizeDisplayName(input: string): string {
-  const name = input.trim().normalize('NFC');
-  if (name.length === 0) {
-    throw new DomainValidationError('displayName', 'display_name_empty', 'Display name is required');
-  }
-  if ([...name].length > MAX_DISPLAY_NAME_LENGTH) {
-    throw new DomainValidationError('displayName', 'display_name_too_long', 'Display name is too long');
-  }
-  if (CONTROL_CHARS.test(name) || BIDI_CONTROLS.test(name)) {
-    throw new DomainValidationError(
-      'displayName',
-      'display_name_invalid_characters',
-      'Display name contains control characters',
-    );
-  }
-  return name;
+  return normalizeSingleLineName(input, {
+    field: 'displayName',
+    codePrefix: 'display_name',
+    label: 'Display name',
+    maxLength: MAX_DISPLAY_NAME_LENGTH,
+  });
 }
 
 /** Only ACTIVE users may authenticate or act; DISABLED users keep their history but lose access. */

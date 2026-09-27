@@ -91,18 +91,20 @@ This file is normative and must evolve with the application.
 
 ## 3. Authorization and ACLs
 
-- [ ] Authorization happens server-side for every protected operation.
-- [ ] UI-hidden buttons are never the authorization mechanism.
-- [ ] Workspace membership checked for resource access.
-- [ ] Role/capability checked for the requested operation.
-- [ ] Child resources cannot bypass parent Workspace checks.
-- [ ] Object identifiers are opaque but are not treated as authorization.
-- [ ] Guest/User/Editor/Admin policies are centrally defined.
-- [ ] Cross-Workspace access has negative tests.
-- [ ] Horizontal privilege escalation has negative tests.
-- [ ] Vertical privilege escalation has negative tests.
-- [ ] Membership/role changes are audited.
-- [ ] Removing a member invalidates/updates active access promptly.
+- [ ] Authorization happens server-side for every protected operation. (Workspace routes: yes — `requireUser` + `authorizeWorkspace` in every use-case. Re-check for every new route.)
+- [x] UI-hidden buttons are never the authorization mechanism. (The web client receives capabilities only to adapt its UI; every request is re-authorized.)
+- [x] Workspace membership checked for resource access. (`authorizeWorkspace` in `packages/application/src/workspaces/use-cases.ts` reads the Membership on every call; non-members get the same 404 as unknown ids.)
+- [x] Role/capability checked for the requested operation. (Capabilities, not role strings; mutations re-check the actor's current role and ACTIVE status inside the write transaction.)
+- [ ] Child resources cannot bypass parent Workspace checks. (Membership routes take the Workspace id and target user id together; target must be a member of *that* Workspace. Procedures/Runs must follow the same rule — Steps 4/5.)
+- [x] Object identifiers are opaque but are not treated as authorization. (UUIDv4 Workspace ids; knowing an id grants nothing.)
+- [x] Guest/User/Editor/Admin policies are centrally defined. (`packages/permissions`: one role → capability table, exact-matrix test; Procedure/Run capabilities are added there in 3.2/4/5.)
+- [x] Cross-Workspace access has negative tests.
+- [x] Horizontal privilege escalation has negative tests. (Admin of Workspace A cannot manage members of Workspace B; members cannot see other Workspaces.)
+- [x] Vertical privilege escalation has negative tests. (GUEST/USER/EDITOR cannot add, re-role, remove or rename; self-promotion refused; Workspace ADMIN ≠ server admin.)
+- [x] Membership/role changes are audited. (`WORKSPACE_CREATED`, `WORKSPACE_RENAMED`, `MEMBERSHIP_ADDED`, `MEMBERSHIP_ROLE_CHANGED`, `MEMBERSHIP_REMOVED` in `security_events`, same transaction.)
+- [x] Removing a member invalidates/updates active access promptly. (No cached authorization: the next request with the same session is denied. SSE subscriptions must re-check on membership change — Step 6.1.)
+- [x] Workspace creation goes through one capability (`canCreateWorkspace`: ACTIVE server admins only).
+- [x] Every Workspace keeps at least one ACTIVE member with `workspace.members.manage`; enforced inside the membership transaction.
 
 ---
 
@@ -428,3 +430,13 @@ The following choices are mandatory V1 behavior:
 **Authorization review:** only the MFA use-cases open sealed secrets, for the owning user.  
 **Open risks:** key and database together (same host) defeat the encryption — it protects stolen DB files/backups, not a compromised server; losing or changing the key disables every enrolled authenticator (users fall back to recovery codes / admin reset in 2.5); no rotation tool yet; development without a configured key uses a per-process key.  
 **Reviewed:** 2026-09-26
+
+### Security check: Workspaces and Memberships (Step 3.1)
+**Threat surface:** cross-Workspace data access, horizontal escalation (acting on another Workspace's members through one's own), vertical escalation (self-promotion, non-admins managing members), probing Workspace ids, leaking other members' contact data, account enumeration through "add member by email", orphaned Workspaces without an admin, TOCTOU between authorization check and write, removed/disabled members keeping access, unaudited role changes.  
+**Controls added:** centralized role → capability table and `canCreateWorkspace` (`packages/permissions`); single authorization entry point `authorizeWorkspace` (ACTIVE actor + Membership + capability) used by every Workspace use-case; non-member and unknown id both `404 workspace_not_found`; membership mutations run in `BEGIN IMMEDIATE` transactions that re-read the actor's current role and ACTIVE status, verify the target belongs to the same Workspace, keep ≥1 ACTIVE ADMIN and write the security event atomically; emails/status of members only for members who manage the Workspace; unknown and DISABLED accounts both reported as `unknown_account`; add-member rate limit 30/15 min per client; strict Zod bodies (unknown fields rejected), lower-case UUIDv4 path ids, role enum; server admins get no implicit Workspace access; DB: composite PK (one Membership per user/Workspace), role CHECK, FKs without cascade (a Workspace with members cannot be deleted).  
+**Negative tests:** `packages/database/src/workspace-use-cases.test.ts` (29: creation by non-admin/Workspace-ADMIN/disabled admin, cross-Workspace for every use-case, horizontal A→B, no implicit server-admin access, GUEST/USER/EDITOR vertical escalation, GUEST cannot list members, contact data hidden, in-transaction re-check after concurrent demotion, disabled actor, last-admin removal/demotion incl. disabled co-admin, duplicate/unknown/disabled targets, removal effective immediately, audit rollback atomicity, DB constraints); `packages/permissions/src/policy.test.ts` (exact matrix, monotonic roles, unknown role fails closed); `apps/server/src/http/workspace.test.ts` (12: 401 on every route, Origin guard, 403/404 mapping, identical 404 bodies, same-session revocation after removal, demotion, strict input validation, rate limit); e2e Workspace creation. Mutation checks: removing the capability check, the create check, the in-transaction actor guard, the last-admin check, the ACTIVE check or the contact-data filter each fails tests.  
+**Secrets/data involved:** member emails and account status (personal data), Workspace names.  
+**Logging review:** no new log statements; emails travel in JSON bodies, never in URLs; security event metadata holds user ids, roles and Workspace names only.  
+**Authorization review:** HTTP handlers only authenticate (`requireUser`) and translate; all Workspace authorization is in `packages/application/src/workspaces/use-cases.ts` via `packages/permissions`.  
+**Open risks:** "add member by email" tells a Workspace ADMIN whether an ACTIVE account exists for an address (accepted: invite-only system, admins are trusted, rate-limited and audited); Workspace names are stored in security-event metadata on rename (not secret, but personal wording persists); members cannot leave a Workspace on their own unless they are an admin; disabling the only ACTIVE admin of a Workspace leaves it without a manager until a server-level repair tool exists; no Workspace deletion/archiving yet; SSE authorization and Procedure/Run capabilities still to come (3.2, 6.1).  
+**Reviewed:** 2026-09-27

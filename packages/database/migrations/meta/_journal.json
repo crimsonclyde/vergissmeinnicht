@@ -43,6 +43,13 @@
       "when": 1790455910729,
       "tag": "0005_account_recoveries",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "6",
+      "when": 1790486743295,
+      "tag": "0006_workspaces_memberships",
+      "breakpoints": true
     }
   ]
 }

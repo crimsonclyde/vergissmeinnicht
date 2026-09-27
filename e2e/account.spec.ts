@@ -5,7 +5,7 @@ import { serverEnv } from '../playwright.config.ts';
 
 const PASSWORD = 'an e2e passphrase that is long';
 
-test('first server admin: bootstrap link, account creation, sign-in, TOTP enrollment, TOTP sign-in and operator TOTP recovery', async ({ page }, testInfo) => {
+test('first server admin: bootstrap link, account creation, sign-in, Workspace creation, TOTP enrollment, TOTP sign-in and operator TOTP recovery', async ({ page }, testInfo) => {
   // Bootstrap works exactly once per server; the flow runs on one project only.
   test.skip(testInfo.project.name !== 'desktop-chromium', 'bootstrap is single-use per server');
 
@@ -45,6 +45,23 @@ test('first server admin: bootstrap link, account creation, sign-in, TOTP enroll
 
   await page.reload();
   await expect(page.getByRole('heading', { name: 'Welcome, Ada Admin' })).toBeVisible();
+
+  // Workspaces: a server admin creates one and becomes its only admin.
+  await expect(page.getByText('You are not a member of any Workspace yet.')).toBeVisible();
+  await page.getByLabel('New Workspace name').fill('Household');
+  await page.getByRole('button', { name: 'Create Workspace' }).click();
+  await expect(page.getByRole('heading', { name: 'Household' })).toBeVisible();
+  await expect(page.getByText('Your role: Admin')).toBeVisible();
+  await expect(page.getByRole('list', { name: 'Your Workspaces' }).getByRole('listitem')).toHaveCount(1);
+  const members = page.getByRole('table', { name: 'Members' });
+  await expect(members.getByRole('row')).toHaveCount(2);
+  await expect(members.getByRole('cell', { name: 'admin@example.org' })).toBeVisible();
+  await page.getByLabel('Member email').fill('nobody@example.org');
+  await page.getByRole('button', { name: 'Add', exact: true }).click();
+  await expect(page.getByRole('alert')).toHaveText(/no active account/);
+  await page.getByRole('button', { name: 'Leave' }).click();
+  await expect(page.getByRole('alert').filter({ hasText: 'at least one active admin' })).toBeVisible();
+  await expect(page.getByText('Your role: Admin')).toBeVisible();
 
   // Enable TOTP: password, QR code + key, confirmation code, recovery codes.
   await page.getByRole('button', { name: 'Enable two-factor authentication' }).click();

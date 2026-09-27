@@ -3,8 +3,8 @@
 // Auth-related tables follow Better Auth's core schema: Drizzle *property* names are the
 // Better Auth field names (e.g. `name`, `emailVerified`), while *column* names are snake_case.
 import { sql } from 'drizzle-orm';
-import { check, index, integer, sqliteTable, text, uniqueIndex } from 'drizzle-orm/sqlite-core';
-import { USER_STATUSES } from '@vergissmeinnicht/domain';
+import { check, index, integer, primaryKey, sqliteTable, text, uniqueIndex } from 'drizzle-orm/sqlite-core';
+import { USER_STATUSES, WORKSPACE_ROLES } from '@vergissmeinnicht/domain';
 
 const timestampMs = (column: string) =>
   integer(column, { mode: 'timestamp_ms' })
@@ -246,6 +246,55 @@ export const invitations = sqliteTable(
     check(
       'invitations_accepted_user_consistent',
       sql`(${table.acceptedAt} is null) = (${table.acceptedUserId} is null)`,
+    ),
+  ],
+);
+
+/**
+ * Workspaces: the collaboration and security boundary. Never hard-deleted by the application
+ * (historical Runs will reference them); foreign keys to it do not cascade.
+ */
+export const workspaces = sqliteTable(
+  'workspaces',
+  {
+    id: text('id').primaryKey(),
+    name: text('name').notNull(),
+    createdByUserId: text('created_by_user_id')
+      .notNull()
+      .references(() => users.id),
+    createdAt: integer('created_at', { mode: 'timestamp_ms' }).notNull(),
+    updatedAt: integer('updated_at', { mode: 'timestamp_ms' }).notNull(),
+  },
+  (table) => [
+    check('workspaces_id_uuid', sql`length(${table.id}) = 36`),
+    check('workspaces_name_present', sql`length(trim(${table.name})) > 0`),
+  ],
+);
+
+/**
+ * Memberships: one role per User and Workspace. Removal deletes the row (recorded as a
+ * MEMBERSHIP_REMOVED security event); every authorization reads this table, so it takes effect
+ * on the next request.
+ */
+export const memberships = sqliteTable(
+  'memberships',
+  {
+    workspaceId: text('workspace_id')
+      .notNull()
+      .references(() => workspaces.id),
+    userId: text('user_id')
+      .notNull()
+      .references(() => users.id),
+    role: text('role', { enum: WORKSPACE_ROLES }).notNull(),
+    createdAt: integer('created_at', { mode: 'timestamp_ms' }).notNull(),
+    updatedAt: integer('updated_at', { mode: 'timestamp_ms' }).notNull(),
+  },
+  (table) => [
+    primaryKey({ columns: [table.workspaceId, table.userId] }),
+    index('memberships_user_id_idx').on(table.userId),
+    check(
+      'memberships_role_valid',
+      sql.raw(`role in (${WORKSPACE_ROLES.map((role) => `'${role}'`).join(', ')})`),
     ),
   ],
 );

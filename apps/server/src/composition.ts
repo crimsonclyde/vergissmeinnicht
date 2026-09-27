@@ -4,6 +4,7 @@ import {
   type MfaDeps,
   type RecoveryDeps,
   type UserRepository,
+  type WorkspaceDeps,
 } from '@vergissmeinnicht/application';
 import {
   createAuth,
@@ -23,6 +24,7 @@ import {
   createSecurityEventLog,
   createTotpRepository,
   createUserRepository,
+  createWorkspaceRepository,
   sessions,
   users,
   verifications,
@@ -42,6 +44,7 @@ export interface AppServices {
   readonly invitations: InvitationDeps;
   readonly mfa: MfaDeps;
   readonly recovery: RecoveryDeps;
+  readonly workspaces: WorkspaceDeps;
   readonly securityEvents: SecurityEventLog;
   /** `Secure` + `__Secure-` cookies (production). */
   readonly secureCookies: boolean;
@@ -113,6 +116,7 @@ export function createServices(config: AppConfig, database: AppDatabase) {
       invitations,
       mfa,
       recovery,
+      workspaces: { users: userRepository, workspaces: createWorkspaceRepository(database), clock: systemClock },
       securityEvents,
       secureCookies: config.mode === 'production',
     };

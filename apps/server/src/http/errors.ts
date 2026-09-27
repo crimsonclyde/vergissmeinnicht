@@ -1,5 +1,9 @@
 import {
   AccountAlreadyExistsError,
+  AlreadyMemberError,
+  LastWorkspaceAdminError,
+  MemberNotFoundError,
+  WorkspaceNotFoundError,
   InvalidInvitationError,
   InvalidMfaCodeError,
   InvitationNotRevocableError,
@@ -52,6 +56,10 @@ export function errorHandler(error: FastifyError | Error, request: FastifyReques
   if (error instanceof AccountNotActiveError) return reply.code(409).send({ error: 'account_not_active' });
   if (error instanceof NothingToRecoverError) return reply.code(409).send({ error: 'nothing_to_recover' });
   if (error instanceof NoPendingEnrollmentError) return reply.code(409).send({ error: 'no_pending_enrollment' });
+  if (error instanceof WorkspaceNotFoundError) return reply.code(404).send({ error: 'workspace_not_found' });
+  if (error instanceof MemberNotFoundError) return reply.code(404).send({ error: 'member_not_found' });
+  if (error instanceof AlreadyMemberError) return reply.code(409).send({ error: 'already_member' });
+  if (error instanceof LastWorkspaceAdminError) return reply.code(409).send({ error: 'last_workspace_admin' });
 
   const statusCode = 'statusCode' in error && typeof error.statusCode === 'number' ? error.statusCode : 500;
   if (statusCode === 429) return reply.code(429).send({ error: 'rate_limited' });

@@ -6,3 +6,4 @@ export * from './recovery.ts';
 export * from './security-event.ts';
 export * from './states.ts';
 export * from './user.ts';
+export * from './workspace.ts';

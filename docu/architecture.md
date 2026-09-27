@@ -166,6 +166,39 @@ Whether an account must pass TOTP is decided by one central policy, `requiresTot
 
 TOTP flows are application use-cases (`packages/application/src/mfa`) on ports implemented in `packages/auth` (`otpauth` for RFC 6238, AES-256-GCM secret box, recovery codes) and `packages/database` (credentials with replay/lock state, hashed recovery codes, challenges). Better Auth's `twoFactor` plugin is not used (see steps.md 2.4). TOTP secrets are encrypted with `DATA_ENCRYPTION_KEY`, which is independent from the cookie-signing `AUTH_SECRET`.
 
+## Workspaces and authorization
+
+A Workspace is the collaboration and security boundary; a Membership maps one User to one Workspace with one role (`GUEST`, `USER`, `EDITOR`, `ADMIN`). Users may belong to several Workspaces. Workspace roles are independent of the server-wide `serverAdmin` flag: a server admin has no implicit access to Workspaces they are not a member of.
+
+```text
+HTTP route (apps/server/src/http/workspace-routes.ts)
+  -> requireUser                      session -> ACTIVE User
+  -> use-case (packages/application/src/workspaces)
+       -> authorizeWorkspace(actor, workspaceId, capability)
+            Membership read on every call; none -> 404, missing capability -> 403
+       -> repository mutation (BEGIN IMMEDIATE)
+            re-check actor's current role + ACTIVE status (MembershipGuard)
+            change + security event
+            >= 1 ACTIVE ADMIN remains, else rollback
+```
+
+`packages/permissions` holds the only role → capability table (`workspace.view`, `workspace.members.view`, `workspace.members.manage`, `workspace.settings.manage`) and `canCreateWorkspace` (ACTIVE server admins only; a later admin-board option changes this one function). Procedure and Run capabilities are added to the same table with their features; use-cases ask for capabilities, never compare role strings.
+
+Workspace API (all session-authenticated, JSON, `Origin`-guarded for POST):
+
+```text
+GET  /api/workspaces                                    own Workspaces + role
+POST /api/workspaces                                    create (server admin) -> creator is ADMIN
+GET  /api/workspaces/{id}                               Workspace, own role, capabilities
+POST /api/workspaces/{id}/rename
+GET  /api/workspaces/{id}/members                       emails/status only for managers
+POST /api/workspaces/{id}/members                       add existing ACTIVE account by email
+POST /api/workspaces/{id}/members/{userId}/role
+POST /api/workspaces/{id}/members/{userId}/remove
+```
+
+Workspaces are not deleted by the application; `memberships` and future Procedure/Run tables reference them without cascading deletes.
+
 ## Realtime
 
 SSE is the selected V1 realtime transport.

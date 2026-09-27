@@ -5,6 +5,7 @@ import { ChangePassword } from './ChangePassword.tsx';
 import { RecoverAccount } from './RecoverAccount.tsx';
 import { api, type CurrentUser } from './api.ts';
 import { SignIn } from './SignIn.tsx';
+import { Workspaces } from './Workspaces.tsx';
 
 const INVITE_PATH = /^\/invite\/([A-Za-z0-9_-]+)$/;
 const RECOVER_PATH = /^\/recover\/([A-Za-z0-9_-]+)$/;
@@ -37,6 +38,7 @@ function Home() {
       <button type="button" onClick={() => void signOut()}>
         Sign out
       </button>
+      <Workspaces user={user} />
       <ChangePassword />
       <AccountSecurity />
     </section>
