@@ -18,10 +18,10 @@ For every completed task, add a concise completion note, tests/checks performed,
 
 ## Current state — resume here
 
-_Last updated: 2026-09-27 (after 5.2)_
+_Last updated: 2026-09-27 (after 5.3)_
 
-**Done:** 0.1, 0.2, 0.3, 1.1, 1.2, 2.1–2.5, 3.1–3.3, 4.1–4.5, 5.1, 5.2, 9.1 (pulled forward for invitations). 2.6 (external providers) is DEFERRED.
-**Next:** 5.3 Critical Step press-and-hold (UI only; the server keeps validating transitions), then 5.4 Run lifecycle (complete / abort with required-Step rules; the trigger from 5.2 already freezes Step state once a Run is not ACTIVE).
+**Done:** 0.1, 0.2, 0.3, 1.1, 1.2, 2.1–2.5, 3.1–3.3, 4.1–4.5, 5.1–5.3, 9.1 (pulled forward for invitations). 2.6 (external providers) is DEFERRED.
+**Next:** 5.4 Run lifecycle (complete / abort with required-Step rules; the trigger from 5.2 already freezes Step state once a Run is not ACTIVE).
 
 **UI note (2026-09-27, user feedback):** the web page mixes account settings, Workspace administration, server administration and everyday execution on one unstyled page. Planned remedy — an app shell with navigation (Runs · Procedures · Members · Server admin · Account), real URLs, and a minimal token-based stylesheet — was deferred by the user in favour of continuing with 5.x; pick it up with 8.1/8.3 or earlier on request.
 
@@ -29,7 +29,7 @@ _Last updated: 2026-09-27 (after 5.2)_
 
 Also open: trusted-proxy configuration (10.3) before production use behind a reverse proxy; admin web UI (invitations, recoveries — API only so far); account status changes (disable/enable users) with session revocation; housekeeping of expired challenge/recovery/invitation rows.
 
-**Branches:** work is stacked, not yet merged into `main`: `step-1.1-app-skeleton` → `step-1.2-config` → `step-2.1-user-model` → `step-2.2-invitations` → `step-2.4-totp` → `step-2.5-recovery` → `step-3.1-workspaces` → `step-3.2-roles` → `step-4.1-procedures` → `step-4.2-steps` → `step-4.3-drag-drop` → `step-4.4-import-export` → `step-4.5-restore` → `step-5.1-run-snapshot` → `cleanup-web-domain-constants` → `step-5.2-step-states` (each branch contains the previous ones; 2.3 was completed on `step-2.2-invitations` because acceptance finishes 2.2). CI runs on pull requests / `main` only.
+**Branches:** work is stacked, not yet merged into `main`: `step-1.1-app-skeleton` → `step-1.2-config` → `step-2.1-user-model` → `step-2.2-invitations` → `step-2.4-totp` → `step-2.5-recovery` → `step-3.1-workspaces` → `step-3.2-roles` → `step-4.1-procedures` → `step-4.2-steps` → `step-4.3-drag-drop` → `step-4.4-import-export` → `step-4.5-restore` → `step-5.1-run-snapshot` → `cleanup-web-domain-constants` → `step-5.2-step-states` → `step-5.3-press-and-hold` (each branch contains the previous ones; 2.3 was completed on `step-2.2-invitations` because acceptance finishes 2.2). CI runs on pull requests / `main` only.
 
 **Manual testing:** `test-env/menu.sh` (added 2026-09-27) installs/starts/stops/removes an isolated production-mode instance on port 3200 with demo accounts for every role (see `test-env/README.md`). Extend `test-env/seed.ts` when new features need demo data (e.g. Procedures in 4.1).
 
@@ -863,11 +863,20 @@ with separate reason policies and undo.
 - The test-environment seed still starts its demo Run with all Steps pending.
 
 ### 5.3 Critical Step press-and-hold
-**Status:** TODO
+**Status:** DONE
+**Completed:** 2026-09-27
 
 Critical CHECK Steps use an accessible press-and-hold interaction before marking Done.
 
 The backend still validates the requested state transition; client interaction is UX protection, not an authorization/security control.
+
+**Security impact:** NONE — client-side UX only; no server change (5.2 validation unchanged).
+
+**Implemented:** `apps/web/src/HoldToConfirm.tsx` — hold for 1.2 s with pointer/touch (pointer capture; release, cancel or leaving cancels) or keyboard (hold Space/Enter; key repeat ignored; key-up or blur cancels); the normal click is suppressed, context menu on long touch suppressed; progress as text ("hold… 45 %") plus a bar; `aria-describedby` hint "Critical step: press and hold for 1.2 seconds to confirm." Used for "Done" on critical Steps; Skip / Not applicable / Undo stay normal buttons.
+
+**Tests/checks:** `pnpm test:e2e` — plain click and a 0.6 s hold leave the critical Step pending, a full mouse hold and a held Space key mark it Done, the accessible description is present. `pnpm lint`, `pnpm typecheck`.
+
+**Remaining:** hold duration is fixed (not user-configurable); users who cannot hold a key/pointer for 1.2 s have no alternative yet — revisit with 8.x accessibility review (e.g. a setting for a two-step confirmation instead).
 
 ### 5.4 Run lifecycle
 **Status:** TODO

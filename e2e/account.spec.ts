@@ -199,6 +199,29 @@ test('first server admin: bootstrap link, account creation, sign-in, Workspace c
   await activeRun.getByRole('button', { name: 'Undo: Close windows' }).click();
   await expect(activeRun.getByRole('listitem').nth(0)).toContainText('Close windows — Pending');
   await expect(activeRun.getByRole('listitem').nth(0)).toContainText('Reset by Ada Admin');
+  // Critical Step: undo the skip, then a click is not enough — it needs press-and-hold.
+  await stove.getByRole('button', { name: 'Undo: Turn off stove' }).click();
+  const hold = stove.getByRole('button', { name: /^Done: Turn off stove/ });
+  await expect(hold).toHaveAccessibleDescription(/press and hold/);
+  await hold.click();
+  await page.waitForTimeout(1500);
+  await expect(stove).toContainText('Turn off stove — Pending');
+  await hold.hover();
+  await page.mouse.down();
+  await page.waitForTimeout(600);
+  await page.mouse.up();
+  await page.waitForTimeout(1000);
+  await expect(stove).toContainText('Turn off stove — Pending');
+  await hold.hover();
+  await page.mouse.down();
+  await expect(stove).toContainText('Turn off stove — Done', { timeout: 5000 });
+  await page.mouse.up();
+  // Keyboard: holding Space works as well (undo first).
+  await stove.getByRole('button', { name: 'Undo: Turn off stove' }).click();
+  await hold.focus();
+  await page.keyboard.down(' ');
+  await expect(stove).toContainText('Turn off stove — Done', { timeout: 5000 });
+  await page.keyboard.up(' ');
   await runs.getByRole('button', { name: 'Back to all Runs' }).click();
   await expect(runs.getByRole('list', { name: 'Runs' })).toContainText('Active, 1 of 2 Steps resolved');
 

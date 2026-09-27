@@ -10,6 +10,7 @@ import {
   type RunSummary,
   type StepState,
 } from './api.ts';
+import { HoldToConfirm } from './HoldToConfirm.tsx';
 import { Icon } from './procedure-icons.tsx';
 
 /** Text (and a glyph) for every state: color is never the only indicator. */
@@ -86,9 +87,13 @@ function StepItem(props: { step: RunStep; canExecute: boolean; busy: boolean; on
         <p>
           {step.state === 'PENDING' ? (
             <>
-              <button type="button" disabled={props.busy} onClick={() => props.onChange({ to: 'DONE' })}>
-                Done: {step.title}
-              </button>{' '}
+              {step.critical ? (
+                <HoldToConfirm label={`Done: ${step.title}`} disabled={props.busy} onConfirm={() => props.onChange({ to: 'DONE' })} />
+              ) : (
+                <button type="button" disabled={props.busy} onClick={() => props.onChange({ to: 'DONE' })}>
+                  Done: {step.title}
+                </button>
+              )}{' '}
               <button type="button" disabled={props.busy} onClick={() => choose('SKIPPED')}>
                 Skip
               </button>{' '}
