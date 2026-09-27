@@ -4,7 +4,7 @@
 // Better Auth field names (e.g. `name`, `emailVerified`), while *column* names are snake_case.
 import { sql } from 'drizzle-orm';
 import { check, index, integer, primaryKey, sqliteTable, text, uniqueIndex } from 'drizzle-orm/sqlite-core';
-import { USER_STATUSES, WORKSPACE_ROLES } from '@vergissmeinnicht/domain';
+import { PROCEDURE_ICONS, USER_STATUSES, WORKSPACE_ROLES } from '@vergissmeinnicht/domain';
 
 const timestampMs = (column: string) =>
   integer(column, { mode: 'timestamp_ms' })
@@ -296,6 +296,75 @@ export const memberships = sqliteTable(
       'memberships_role_valid',
       sql.raw(`role in (${WORKSPACE_ROLES.map((role) => `'${role}'`).join(', ')})`),
     ),
+  ],
+);
+
+/**
+ * Procedures: editable, reusable definitions. Soft-deleted only (`deleted_at`); rows are never
+ * removed by the application, and future Run snapshots must not depend on them.
+ */
+export const procedures = sqliteTable(
+  'procedures',
+  {
+    id: text('id').primaryKey(),
+    workspaceId: text('workspace_id')
+      .notNull()
+      .references(() => workspaces.id),
+    title: text('title').notNull(),
+    /** Plain text; rendered as text, never as HTML. */
+    description: text('description').notNull().default(''),
+    /** Trusted icon key (PROCEDURE_ICONS), never a URL or markup. */
+    icon: text('icon', { enum: PROCEDURE_ICONS }).notNull(),
+    tags: text('tags', { mode: 'json' }).$type<string[]>().notNull().default(sql`'[]'`),
+    revision: integer('revision').notNull().default(1),
+    createdByUserId: text('created_by_user_id')
+      .notNull()
+      .references(() => users.id),
+    createdAt: integer('created_at', { mode: 'timestamp_ms' }).notNull(),
+    updatedAt: integer('updated_at', { mode: 'timestamp_ms' }).notNull(),
+    deletedAt: integer('deleted_at', { mode: 'timestamp_ms' }),
+    deletedByUserId: text('deleted_by_user_id').references(() => users.id),
+  },
+  (table) => [
+    index('procedures_workspace_idx').on(table.workspaceId, table.deletedAt),
+    check('procedures_id_uuid', sql`length(${table.id}) = 36`),
+    check('procedures_title_present', sql`length(trim(${table.title})) > 0 and length(${table.title}) <= 120`),
+    check('procedures_description_bounded', sql`length(${table.description}) <= 4000`),
+    check(
+      'procedures_icon_valid',
+      sql.raw(`icon in (${PROCEDURE_ICONS.map((icon) => `'${icon}'`).join(', ')})`),
+    ),
+    check('procedures_tags_array', sql`json_valid(${table.tags}) and json_type(${table.tags}) = 'array' and json_array_length(${table.tags}) <= 10`),
+    check('procedures_revision_positive', sql`${table.revision} >= 1`),
+    check('procedures_deletion_consistent', sql`(${table.deletedAt} is null) = (${table.deletedByUserId} is null)`),
+  ],
+);
+
+/**
+ * Append-only history of Workspace content (UPDATE/DELETE blocked by triggers in migration 0008).
+ * Procedures now; Run and Step events join with Step 5.5. Metadata is JSON and never holds secrets.
+ */
+export const auditEvents = sqliteTable(
+  'audit_events',
+  {
+    id: text('id').primaryKey(),
+    workspaceId: text('workspace_id')
+      .notNull()
+      .references(() => workspaces.id),
+    occurredAt: integer('occurred_at', { mode: 'timestamp_ms' }).notNull(),
+    type: text('type').notNull(),
+    actorUserId: text('actor_user_id')
+      .notNull()
+      .references(() => users.id),
+    /** Display-name snapshot at the time of the event. */
+    actorDisplayName: text('actor_display_name').notNull(),
+    subjectType: text('subject_type').notNull(),
+    subjectId: text('subject_id').notNull(),
+    metadata: text('metadata', { mode: 'json' }).$type<Record<string, string | number | boolean | string[]>>(),
+  },
+  (table) => [
+    index('audit_events_subject_idx').on(table.workspaceId, table.subjectType, table.subjectId),
+    index('audit_events_occurred_at_idx').on(table.workspaceId, table.occurredAt),
   ],
 );
 

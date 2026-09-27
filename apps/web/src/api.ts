@@ -26,6 +26,40 @@ export interface WorkspaceMember {
   readonly status?: string;
 }
 
+/** Must match PROCEDURE_ICONS on the server; the server rejects anything else. */
+export const PROCEDURE_ICONS = [
+  'checklist',
+  'home',
+  'kitchen',
+  'cleaning',
+  'laundry',
+  'garden',
+  'pet',
+  'car',
+  'travel',
+  'tools',
+  'health',
+  'shopping',
+  'document',
+  'security',
+  'star',
+] as const;
+export type ProcedureIcon = (typeof PROCEDURE_ICONS)[number];
+
+export interface ProcedureContent {
+  readonly title: string;
+  readonly description: string;
+  readonly icon: ProcedureIcon;
+  readonly tags: readonly string[];
+}
+
+export interface Procedure extends ProcedureContent {
+  readonly id: string;
+  readonly revision: number;
+  readonly createdAt: string;
+  readonly updatedAt: string;
+}
+
 export type SecondFactor = { readonly code: string } | { readonly recoveryCode: string };
 
 export interface MfaStatus {
@@ -57,6 +91,17 @@ export const ERROR_MESSAGES: Record<string, string> = {
   workspace_name_too_long: 'The name must be at most 80 characters.',
   workspace_name_invalid_characters: 'The name contains characters that are not allowed.',
   invalid_email: 'Please enter a valid email address.',
+  procedure_not_found: 'This Procedure no longer exists.',
+  procedure_conflict: 'Someone else changed this Procedure in the meantime. Reload it and apply your changes again.',
+  procedure_limit_reached: 'This Workspace has reached the maximum number of Procedures.',
+  procedure_title_empty: 'Please enter a title.',
+  procedure_title_too_long: 'The title must be at most 120 characters.',
+  procedure_title_invalid_characters: 'The title contains characters that are not allowed.',
+  description_too_long: 'The description must be at most 4000 characters.',
+  description_invalid_characters: 'The description contains characters that are not allowed.',
+  tag_too_long: 'Each tag must be at most 32 characters.',
+  tag_invalid_characters: 'A tag contains characters that are not allowed.',
+  too_many_tags: 'A Procedure can have at most 10 tags.',
 };
 
 export function messageFor(error: unknown, fallback = 'Something went wrong. Please try again.'): string {
@@ -127,6 +172,20 @@ export const api = {
     request<{ workspace: WorkspaceSummary; capabilities: string[] }>('GET', `/workspaces/${encodeURIComponent(id)}`),
   renameWorkspace: (id: string, name: string) =>
     request<undefined>('POST', `/workspaces/${encodeURIComponent(id)}/rename`, { name }),
+  procedures: async (workspaceId: string) =>
+    (await request<{ procedures: Procedure[] }>('GET', `/workspaces/${encodeURIComponent(workspaceId)}/procedures`)).procedures,
+  createProcedure: async (workspaceId: string, content: ProcedureContent) =>
+    (await request<{ procedure: Procedure }>('POST', `/workspaces/${encodeURIComponent(workspaceId)}/procedures`, content)).procedure,
+  updateProcedure: async (workspaceId: string, id: string, expectedRevision: number, content: ProcedureContent) =>
+    (
+      await request<{ procedure: Procedure }>(
+        'POST',
+        `/workspaces/${encodeURIComponent(workspaceId)}/procedures/${encodeURIComponent(id)}/update`,
+        { ...content, expectedRevision },
+      )
+    ).procedure,
+  deleteProcedure: (workspaceId: string, id: string) =>
+    request<undefined>('POST', `/workspaces/${encodeURIComponent(workspaceId)}/procedures/${encodeURIComponent(id)}/delete`),
   leaveWorkspace: (id: string) => request<undefined>('POST', `/workspaces/${encodeURIComponent(id)}/leave`),
   members: async (id: string) =>
     (await request<{ members: WorkspaceMember[] }>('GET', `/workspaces/${encodeURIComponent(id)}/members`)).members,

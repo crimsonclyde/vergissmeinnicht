@@ -95,7 +95,7 @@ This file is normative and must evolve with the application.
 - [x] UI-hidden buttons are never the authorization mechanism. (The web client receives capabilities only to adapt its UI; every request is re-authorized.)
 - [x] Workspace membership checked for resource access. (`authorizeWorkspace` in `packages/application/src/workspaces/use-cases.ts` reads the Membership on every call; non-members get the same 404 as unknown ids.)
 - [x] Role/capability checked for the requested operation. (Capabilities, not role strings; mutations re-check the actor's current role and ACTIVE status inside the write transaction.)
-- [ ] Child resources cannot bypass parent Workspace checks. (Membership routes take the Workspace id and target user id together; target must be a member of *that* Workspace. Procedures/Runs must follow the same rule — Steps 4/5.)
+- [ ] Child resources cannot bypass parent Workspace checks. (Memberships and Procedures: yes — every query is scoped by the route's Workspace id plus the child id; a child id from another Workspace behaves like an unknown id. Sections/Steps/Runs must follow the same rule — Steps 4.2/5.)
 - [x] Object identifiers are opaque but are not treated as authorization. (UUIDv4 Workspace ids; knowing an id grants nothing.)
 - [x] Guest/User/Editor/Admin policies are centrally defined. (`packages/permissions`: one role → capability table incl. Procedure/Run capabilities (3.2), exact-matrix test; matrix documented in steps.md 3.2.)
 - [x] Cross-Workspace access has negative tests.
@@ -135,9 +135,9 @@ Canonical shape:
 - [ ] Parameterize SQL / use safe query builder or ORM.
 - [ ] Never concatenate user input into SQL.
 - [ ] Escape output according to rendering context.
-- [ ] Do not accept arbitrary HTML by default.
-- [ ] User-selectable icons are trusted icon keys, not arbitrary uploaded SVG/HTML.
-- [ ] Apply sensible text/array/file-size limits.
+- [x] Do not accept arbitrary HTML by default. (Procedure text is plain text; the web client renders it as text, never via `innerHTML`.)
+- [x] User-selectable icons are trusted icon keys, not arbitrary uploaded SVG/HTML. (`PROCEDURE_ICONS`, validated in the domain and by a DB CHECK.)
+- [ ] Apply sensible text/array/file-size limits. (Procedures: title 120, description 4000 code points, ≤10 tags × 32, ≤1000 per Workspace, coarse transport bounds in the Zod schemas. Keep extending per feature.)
 - [ ] Reject malformed UUIDs/tokens/state transitions.
 - [ ] Drag/drop order input is validated, authorized, and bounded.
 
@@ -167,6 +167,7 @@ Canonical shape:
 - [ ] Required state change + AuditEvent are one DB transaction.
 - [ ] Normal users cannot edit/delete audit history.
 - [x] `security_events` is append-only at the DB level (UPDATE/DELETE triggers abort).
+- [x] `audit_events` (Workspace content history) is append-only at the DB level; Procedure changes and their audit event commit in one transaction with actor id, display-name snapshot and server timestamp.
 - [ ] Corrections are additive rather than silent rewrites.
 - [ ] Audit metadata does not contain credentials/secrets.
 - [ ] Procedure deletion cannot cascade-delete historical Runs.
@@ -459,5 +460,15 @@ The following choices are mandatory V1 behavior:
 **Logging review:** server log in `.var/test-env/server.log` at `info`; no passwords or tokens (verified).  
 **Authorization review:** unchanged application rules; the environment adds no routes.  
 **Open risks:** anyone with access to the local user account can read the demo credentials (acceptable for throwaway data); never reuse it for real data or expose the port.  
+**Reviewed:** 2026-09-27
+
+### Security check: Procedures (Steps 4.1, 3.3)
+**Threat surface:** authoring by roles without `procedure.edit`, reading or changing Procedures of another Workspace by id (IDOR), stored XSS through title/description/tags/icon, spoofed text via bidi/control characters, lost updates between concurrent editors, unbounded content/number of Procedures, hard deletion destroying history, unaudited or partially audited changes.  
+**Controls added:** `procedure.view` / `procedure.edit` via `authorizeWorkspace` plus in-transaction re-check (`ActorGuard`); every repository query scoped by Workspace id + Procedure id + not deleted; plain-text fields with control/bidi rejection and length bounds (domain + DB CHECKs); icons only from `PROCEDURE_ICONS` (domain + DB CHECK), web renders text via React escaping; optimistic concurrency (`expectedRevision`, conditional UPDATE); per-Workspace limit 1000; soft delete with actor/time, no cascading FKs; `audit_events` append-only (triggers), written in the same transaction; strict Zod bodies rejecting unknown fields such as `id`/`workspaceId`.  
+**Negative tests:** `packages/domain/src/procedure.test.ts`; `packages/database/src/procedure-use-cases.test.ts` (17); `apps/server/src/http/procedure.test.ts` (8); mutation checks listed in steps.md 4.1.  
+**Secrets/data involved:** user-authored Procedure text (may contain household/operational details — Workspace-confidential).  
+**Logging review:** no new log statements; Procedure text only in request bodies, which are not logged; audit metadata holds title, field names and revision numbers only.  
+**Authorization review:** HTTP layer only authenticates and parses; all authorization in `packages/application/src/procedures/use-cases.ts` using `packages/permissions`.  
+**Open risks:** titles are copied into audit metadata on create/delete (Workspace-confidential text persists in the append-only log even after deletion — acceptable, readable only by future authorized history views); no audit history UI yet; restore (4.5) must re-check `procedure.restore` and the Workspace scope.  
 **Reviewed:** 2026-09-27
 

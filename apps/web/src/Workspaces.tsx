@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState, type FormEvent } from 'react';
+import { Procedures } from './Procedures.tsx';
 import {
   api,
   messageFor,
@@ -145,6 +146,9 @@ function WorkspaceDetail({ id, currentUserId, onLeft }: { id: string; currentUse
       <h3 id="workspace-heading">{workspace.name}</h3>
       <p>Your role: {ROLE_LABELS[workspace.role]}</p>
       {message !== null && <p role="alert">{message}</p>}
+      {capabilities.includes('procedure.view') && (
+        <Procedures workspaceId={id} canEdit={capabilities.includes('procedure.edit')} />
+      )}
       {members !== null && (
         <table>
           <caption>Members</caption>

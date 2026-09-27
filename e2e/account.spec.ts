@@ -5,7 +5,7 @@ import { serverEnv } from '../playwright.config.ts';
 
 const PASSWORD = 'an e2e passphrase that is long';
 
-test('first server admin: bootstrap link, account creation, sign-in, Workspace creation, TOTP enrollment, TOTP sign-in and operator TOTP recovery', async ({ page }, testInfo) => {
+test('first server admin: bootstrap link, account creation, sign-in, Workspace creation, Procedure authoring, TOTP enrollment, TOTP sign-in and operator TOTP recovery', async ({ page }, testInfo) => {
   // Bootstrap works exactly once per server; the flow runs on one project only.
   test.skip(testInfo.project.name !== 'desktop-chromium', 'bootstrap is single-use per server');
 
@@ -63,6 +63,25 @@ test('first server admin: bootstrap link, account creation, sign-in, Workspace c
   await page.getByRole('button', { name: 'Leave Workspace' }).click();
   await expect(page.getByRole('alert').filter({ hasText: 'at least one active admin' })).toBeVisible();
   await expect(page.getByText('Your role: Admin')).toBeVisible();
+
+  // Procedures: create, view, edit, delete (the admin is also an editor of the Workspace).
+  await page.getByRole('button', { name: 'New Procedure' }).click();
+  await page.getByLabel('Title').fill('Leave the house');
+  await page.getByLabel('Description').fill('Windows closed?\n<b>Stove off</b>');
+  await page.getByLabel('Icon').selectOption('travel');
+  await page.getByLabel('Tags (comma-separated)').fill('daily, Daily, safety');
+  await page.getByRole('button', { name: 'Create Procedure' }).click();
+  const procedure = page.getByRole('article');
+  await expect(procedure.getByRole('heading', { name: 'Travel Leave the house' })).toBeVisible();
+  await expect(procedure.getByText('<b>Stove off</b>')).toBeVisible();
+  await expect(procedure.getByText('Tags: daily, safety')).toBeVisible();
+  await procedure.getByRole('button', { name: 'Edit' }).click();
+  await page.getByLabel('Title').fill('Leave the flat');
+  await page.getByRole('button', { name: 'Save changes' }).click();
+  await expect(procedure.getByRole('heading', { name: 'Travel Leave the flat' })).toBeVisible();
+  page.once('dialog', (dialog) => void dialog.accept());
+  await procedure.getByRole('button', { name: 'Delete' }).click();
+  await expect(page.getByText('No Procedures yet.')).toBeVisible();
 
   // Enable TOTP: password, QR code + key, confirmation code, recovery codes.
   await page.getByRole('button', { name: 'Enable two-factor authentication' }).click();

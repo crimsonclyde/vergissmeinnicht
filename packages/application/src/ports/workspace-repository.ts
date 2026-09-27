@@ -8,6 +8,7 @@ import type {
   WorkspaceId,
   WorkspaceRole,
 } from '@vergissmeinnicht/domain';
+import type { ActorGuard } from './actor-guard.ts';
 
 export interface WorkspaceMember {
   readonly userId: UserId;
@@ -18,13 +19,7 @@ export interface WorkspaceMember {
   readonly memberSince: Date;
 }
 
-/**
- * Re-evaluated inside the mutating transaction, so a concurrent demotion or removal of the actor
- * cannot slip between the use-case's authorization check and the write.
- */
-export interface MembershipGuard {
-  /** Whether the actor's *current* role allows the change. No membership at all also refuses. */
-  readonly actorMay: (actorRole: WorkspaceRole) => boolean;
+export interface MembershipGuard extends ActorGuard {
   /** After the change, at least one ACTIVE member must hold one of these roles. */
   readonly managingRoles: readonly WorkspaceRole[];
 }

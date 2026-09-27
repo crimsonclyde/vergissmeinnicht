@@ -18,17 +18,17 @@ For every completed task, add a concise completion note, tests/checks performed,
 
 ## Current state — resume here
 
-_Last updated: 2026-09-27 (after 3.2)_
+_Last updated: 2026-09-27 (after 4.1 + 3.3)_
 
-**Done:** 0.1, 0.2, 0.3, 1.1, 1.2, 2.1–2.5, 3.1, 3.2, 9.1 (pulled forward for invitations). 2.6 (external providers) is DEFERRED.
-**Next:** 4.1 Procedure CRUD together with 3.3 (Workspace-wide visibility needs Procedures to exist):
-1. Procedure schema with opaque UUID, `workspace_id` FK (no cascade), soft-delete columns from the start (4.5);
-2. every Procedure use-case goes through `authorizeWorkspace` with `procedure.view` / `procedure.edit` (matrix in `packages/permissions`, see 3.2); Procedure ids are always looked up *within* the Workspace id of the route (child cannot bypass parent);
-3. negative tests: GUEST/USER cannot edit, cross-Workspace Procedure id rejected, soft-deleted hidden from `procedure.view`-only roles; audit events for create/edit/delete.
+**Done:** 0.1, 0.2, 0.3, 1.1, 1.2, 2.1–2.5, 3.1–3.3, 4.1, 9.1 (pulled forward for invitations). 2.6 (external providers) is DEFERRED.
+**Next:** 4.2 Sections and CHECK Steps:
+1. Sections/Steps as child rows of a Procedure, always addressed via Workspace id + Procedure id + own id; ordering with bounded, validated positions (prepares 4.3);
+2. Step fields per 4.2 (required/optional, critical flag, Skip / Not Applicable reason policies disabled/optional/required) with DB CHECKs; editing a Step bumps the Procedure `revision` (same lost-update protection);
+3. counts bounded per Procedure; audit events `SECTION_*` / `STEP_*` or one `PROCEDURE_UPDATED` per change set — decide and document; extend `test-env/seed.ts` with Steps.
 
 Also open: trusted-proxy configuration (10.3) before production use behind a reverse proxy; admin web UI (invitations, recoveries — API only so far); account status changes (disable/enable users) with session revocation; housekeeping of expired challenge/recovery/invitation rows.
 
-**Branches:** work is stacked, not yet merged into `main`: `step-1.1-app-skeleton` → `step-1.2-config` → `step-2.1-user-model` → `step-2.2-invitations` → `step-2.4-totp` → `step-2.5-recovery` → `step-3.1-workspaces` → `step-3.2-roles` (each branch contains the previous ones; 2.3 was completed on `step-2.2-invitations` because acceptance finishes 2.2). CI runs on pull requests / `main` only.
+**Branches:** work is stacked, not yet merged into `main`: `step-1.1-app-skeleton` → `step-1.2-config` → `step-2.1-user-model` → `step-2.2-invitations` → `step-2.4-totp` → `step-2.5-recovery` → `step-3.1-workspaces` → `step-3.2-roles` → `step-4.1-procedures` (each branch contains the previous ones; 2.3 was completed on `step-2.2-invitations` because acceptance finishes 2.2). CI runs on pull requests / `main` only.
 
 **Manual testing:** `test-env/menu.sh` (added 2026-09-27) installs/starts/stops/removes an isolated production-mode instance on port 3200 with demo accounts for every role (see `test-env/README.md`). Extend `test-env/seed.ts` when new features need demo data (e.g. Procedures in 4.1).
 
@@ -628,18 +628,46 @@ Exact capabilities must be represented centrally rather than scattered string co
 - Revisit whether USER should abort Runs started by others once Runs exist (currently `run.abort` for USER+, a policy-only change).
 
 ### 3.3 Workspace-wide Procedure visibility
-**Status:** TODO
+**Status:** DONE
+**Completed:** 2026-09-27 (with 4.1)
 
 All non-deleted Procedures in a Workspace are visible according to Workspace role permissions. Per-Procedure ACLs are out of V1 scope.
+
+**Implemented:** `listProcedures` / `getProcedure` require `procedure.view` (every role) and return all non-deleted Procedures of the Workspace; soft-deleted ones are invisible to everyone until 4.5 adds the restore view (`procedure.restore`). Tests: every role sees the same list; deleted Procedures are hidden and unreachable by id.
 
 ---
 
 ## 4 — Procedure authoring
 
 ### 4.1 Procedure CRUD
-**Status:** TODO
+**Status:** DONE
+**Completed:** 2026-09-27
 
 Create/edit/soft-delete reusable Procedures with title, description, icon, tags, and UUID.
+
+**Security impact:** HIGH — new Workspace child resource, user-authored text rendered to other members, new audit log.
+
+**Implemented:**
+- Domain (`packages/domain/src/procedure.ts`): `Procedure`, `ProcedureContent`, `ProcedureId`; title 1–120 code points single-line; description plain text ≤4000 code points (line feed/tab allowed, other control and bidi characters rejected, CRLF → LF); icon from the trusted key list `PROCEDURE_ICONS` (15 keys, clients map keys to artwork); ≤10 tags of ≤32 code points, case-insensitive de-duplication. `AUDIT_EVENT_TYPES` (`PROCEDURE_CREATED/_UPDATED/_DELETED`).
+- Application (`packages/application/src/procedures`): `listProcedures`, `getProcedure` (`procedure.view`), `createProcedure`, `updateProcedure`, `deleteProcedure` (`procedure.edit`), all via `authorizeWorkspace`. Optimistic concurrency: updates carry `expectedRevision`; a stale revision → `ProcedureConflictError` (409) instead of a silent overwrite; no-op edits change nothing. At most 1000 non-deleted Procedures per Workspace. Shared `ActorGuard` port (the in-transaction re-check introduced in 3.1, now also used by Procedures) and `userActor` helper.
+- Database: migration `0007` — `procedures` (Workspace FK without cascade, CHECKs for id, title, description length, icon key list, tags JSON array ≤10, revision ≥1, deletion columns consistent) and `audit_events` (Workspace-scoped, actor id + display-name snapshot, JSON metadata); migration `0008` — `audit_events` append-only triggers. `createProcedureRepository`: every query is scoped by Workspace id *and* Procedure id and excludes deleted rows; writes run in `BEGIN IMMEDIATE`, re-check the actor, and record the audit event in the same transaction (metadata: title, changed field names, revision — no content copies).
+- HTTP (`apps/server/src/http/procedure-routes.ts`): `GET/POST /api/workspaces/{id}/procedures`, `GET …/procedures/{procedureId}`, `POST …/{procedureId}/update`, `POST …/{procedureId}/delete`; strict Zod bodies with coarse transport bounds, domain applies exact rules; errors `procedure_not_found` (404), `procedure_conflict` (409), `procedure_limit_reached` (409).
+- Web (`apps/web/src/Procedures.tsx`): list, detail (description rendered as text with preserved line breaks), create/edit form (icon select from the key list, comma-separated tags), delete with confirmation; conflict message on stale edits. Edit/delete controls only for `procedure.edit`.
+- `test-env/seed.ts` creates three demo Procedures in "Demo Household" as the editor.
+
+**Tests/checks:**
+- `pnpm test` — 369 tests (+32): domain content rules (6), use-cases against SQLite (17: EDITOR/ADMIN lifecycle with audit, USER/GUEST refused, validation before write, in-transaction re-check after concurrent demotion, per-Workspace limit, stale revision conflict, no-op edit, all roles see the same list, soft delete hides but keeps the row, Procedure id through another Workspace ≡ unknown, non-member ≡ unknown Workspace for read/create/update/delete, removal effective, audit rollback atomicity, append-only triggers, DB CHECK/FK constraints), HTTP (8: lifecycle, 401 on every route, Origin guard, read-only roles, cross-Workspace ids, 409 conflict, strict validation incl. markup/URL icons and extra fields, verbatim JSON text), web/domain constant drift test (1).
+- Mutation checks: removing the Workspace scoping of Procedure queries, the deleted filter, the revision check, the in-transaction guard on create, the use-case check on update, or using `procedure.view` for authoring each fails tests.
+- `pnpm test:e2e`: account flow extended with create/view/edit/delete of a Procedure (markup in the description shown as text).
+- `test-env` install → demo Procedures listed for GUEST, GUEST create → 403 → uninstall.
+- `pnpm lint`, `pnpm typecheck`; migrations 0007/0008 applied twice to a copy of the dev DB. No new dependencies.
+
+**Security docs updated:** YES (§3, §5, §6, "Security check: Procedures (Steps 4.1, 3.3)").
+
+**Remaining:**
+- The web client keeps its own copy of the icon and role lists (guarded by a drift test); switch to importing `@vergissmeinnicht/domain` once the dependency can be added with `pnpm install`.
+- No history view of `audit_events` yet; restore of deleted Procedures is 4.5.
+- Search/filter by tag is not implemented (not required by 4.1).
 
 ### 4.2 Sections and CHECK Steps
 **Status:** TODO

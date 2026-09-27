@@ -2,7 +2,7 @@ import { DomainValidationError } from './errors.ts';
 
 export const CONTROL_CHARS = /\p{Cc}/u;
 // Bidirectional overrides/isolates can make a name render as another one (e.g. in audit history).
-const BIDI_CONTROLS = /[؜‎‏‪-‮⁦-⁩]/u;
+export const BIDI_CONTROLS = /[؜‎‏‪-‮⁦-⁩]/u;
 
 /**
  * Trim → NFC, 1..`maxLength` code points, no control or bidi override/isolate characters.

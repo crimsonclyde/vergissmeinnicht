@@ -9,6 +9,7 @@ import { authRoutes } from './http/auth-routes.ts';
 import { errorHandler } from './http/errors.ts';
 import { adminInvitationRoutes, invitationRoutes } from './http/invitation-routes.ts';
 import { originGuard } from './http/origin-guard.ts';
+import { procedureRoutes } from './http/procedure-routes.ts';
 import { adminRecoveryRoutes, recoveryRoutes } from './http/recovery-routes.ts';
 import { workspaceRoutes } from './http/workspace-routes.ts';
 
@@ -75,6 +76,7 @@ export async function buildApp(options: AppOptions = {}) {
         await api.register(recoveryRoutes, { prefix: '/recoveries', services });
         await api.register(adminRecoveryRoutes, { prefix: '/admin/recoveries', services });
         await api.register(workspaceRoutes, { prefix: '/workspaces', services });
+        await api.register(procedureRoutes, { prefix: '/workspaces/:workspaceId/procedures', services });
       }
     },
     { prefix: '/api' },

@@ -50,6 +50,20 @@
       "when": 1790486743295,
       "tag": "0006_workspaces_memberships",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "6",
+      "when": 1790489116173,
+      "tag": "0007_procedures_audit_events",
+      "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "6",
+      "when": 1790489116453,
+      "tag": "0008_audit_events_append_only",
+      "breakpoints": true
     }
   ]
 }

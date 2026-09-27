@@ -1,6 +1,5 @@
 import {
   canAuthenticate,
-  type Actor,
   type Membership,
   type NormalizedEmail,
   normalizeWorkspaceName,
@@ -27,6 +26,7 @@ import type {
   WorkspaceRepository,
 } from '../ports/workspace-repository.ts';
 import { UnknownAccountError } from '../recovery/errors.ts';
+import { userActor } from '../user-actor.ts';
 import {
   AlreadyMemberError,
   LastWorkspaceAdminError,
@@ -42,10 +42,6 @@ export interface WorkspaceDeps {
 
 /** The creator must be able to manage the new Workspace. */
 const CREATOR_ROLE: WorkspaceRole = 'ADMIN';
-
-function userActor(user: User): Actor & { kind: 'user' } {
-  return { kind: 'user', userId: user.id, displayName: user.displayName };
-}
 
 /**
  * The single entry point for Workspace-scoped authorization: the actor must be ACTIVE and a member

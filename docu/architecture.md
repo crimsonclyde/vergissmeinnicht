@@ -198,6 +198,18 @@ POST /api/workspaces/{id}/members/{userId}/role
 POST /api/workspaces/{id}/members/{userId}/remove
 ```
 
+Procedures live under their Workspace and are addressed only together with it:
+
+```text
+GET  /api/workspaces/{id}/procedures                    procedure.view (all roles), non-deleted
+POST /api/workspaces/{id}/procedures                    procedure.edit
+GET  /api/workspaces/{id}/procedures/{procedureId}      procedure.view
+POST /api/workspaces/{id}/procedures/{procedureId}/update   procedure.edit + expectedRevision
+POST /api/workspaces/{id}/procedures/{procedureId}/delete   procedure.edit (soft delete)
+```
+
+Workspace content changes are recorded in `audit_events` (append-only, same transaction; Run/Step events join in 5.5). Account and access changes stay in `security_events`.
+
 Workspaces are not deleted by the application; `memberships` and future Procedure/Run tables reference them without cascading deletes.
 
 ## Realtime

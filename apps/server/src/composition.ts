@@ -1,6 +1,7 @@
 import {
   systemClock,
   type InvitationDeps,
+  type ProcedureDeps,
   type MfaDeps,
   type RecoveryDeps,
   type UserRepository,
@@ -21,6 +22,7 @@ import {
   createCredentialRepository,
   createInvitationRepository,
   createMfaChallengeRepository,
+  createProcedureRepository,
   createSecurityEventLog,
   createTotpRepository,
   createUserRepository,
@@ -45,6 +47,7 @@ export interface AppServices {
   readonly mfa: MfaDeps;
   readonly recovery: RecoveryDeps;
   readonly workspaces: WorkspaceDeps;
+  readonly procedures: ProcedureDeps;
   readonly securityEvents: SecurityEventLog;
   /** `Secure` + `__Secure-` cookies (production). */
   readonly secureCookies: boolean;
@@ -109,6 +112,11 @@ export function createServices(config: AppConfig, database: AppDatabase) {
       clock: systemClock,
       publicOrigin: config.publicOrigin,
     };
+    const workspaceDeps: WorkspaceDeps = {
+      users: userRepository,
+      workspaces: createWorkspaceRepository(database),
+      clock: systemClock,
+    };
     return {
       publicOrigin: config.publicOrigin,
       auth,
@@ -116,7 +124,8 @@ export function createServices(config: AppConfig, database: AppDatabase) {
       invitations,
       mfa,
       recovery,
-      workspaces: { users: userRepository, workspaces: createWorkspaceRepository(database), clock: systemClock },
+      workspaces: workspaceDeps,
+      procedures: { workspaces: workspaceDeps.workspaces, procedures: createProcedureRepository(database), clock: systemClock },
       securityEvents,
       secureCookies: config.mode === 'production',
     };

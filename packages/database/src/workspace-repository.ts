@@ -7,7 +7,6 @@ import type {
   WorkspaceRepository,
 } from '@vergissmeinnicht/application';
 import type {
-  Actor,
   Membership,
   NormalizedEmail,
   UserId,
@@ -17,14 +16,8 @@ import type {
 } from '@vergissmeinnicht/domain';
 import type { AppDatabase } from './connection.ts';
 import { memberships, users, workspaces } from './schema.ts';
+import { IMMEDIATE, actorAllowed, type Transaction, type UserActor } from './actor-guard.ts';
 import { recordSecurityEvent } from './security-events.ts';
-
-type Transaction = Parameters<Parameters<AppDatabase['db']['transaction']>[0]>[0];
-type UserActor = Actor & { readonly kind: 'user' };
-
-// IMMEDIATE takes the write lock before the first read: guard checks and the write are serialized
-// against concurrent membership changes (also from other processes).
-const IMMEDIATE = { behavior: 'immediate' } as const;
 
 function toWorkspace(row: typeof workspaces.$inferSelect): Workspace {
   return { id: row.id as WorkspaceId, name: row.name, createdAt: row.createdAt, updatedAt: row.updatedAt };
@@ -46,17 +39,6 @@ function roleOf(tx: Transaction, workspaceId: WorkspaceId, userId: string): Work
     .from(memberships)
     .where(and(eq(memberships.workspaceId, workspaceId), eq(memberships.userId, userId)))
     .get()?.role;
-}
-
-/** The actor must still be an ACTIVE member whose current role passes the guard. */
-function actorAllowed(tx: Transaction, workspaceId: WorkspaceId, actor: UserActor, guard: MembershipGuard): boolean {
-  const row = tx
-    .select({ role: memberships.role })
-    .from(memberships)
-    .innerJoin(users, eq(users.id, memberships.userId))
-    .where(and(eq(memberships.workspaceId, workspaceId), eq(memberships.userId, actor.userId), eq(users.status, 'ACTIVE')))
-    .get();
-  return row !== undefined && guard.actorMay(row.role);
 }
 
 function activeManagers(tx: Transaction, workspaceId: WorkspaceId, guard: MembershipGuard): number {

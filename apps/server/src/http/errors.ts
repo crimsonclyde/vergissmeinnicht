@@ -4,6 +4,9 @@ import {
   LastWorkspaceAdminError,
   MemberNotFoundError,
   WorkspaceNotFoundError,
+  ProcedureConflictError,
+  ProcedureLimitReachedError,
+  ProcedureNotFoundError,
   InvalidInvitationError,
   InvalidMfaCodeError,
   InvitationNotRevocableError,
@@ -59,6 +62,9 @@ export function errorHandler(error: FastifyError | Error, request: FastifyReques
   if (error instanceof WorkspaceNotFoundError) return reply.code(404).send({ error: 'workspace_not_found' });
   if (error instanceof MemberNotFoundError) return reply.code(404).send({ error: 'member_not_found' });
   if (error instanceof AlreadyMemberError) return reply.code(409).send({ error: 'already_member' });
+  if (error instanceof ProcedureNotFoundError) return reply.code(404).send({ error: 'procedure_not_found' });
+  if (error instanceof ProcedureConflictError) return reply.code(409).send({ error: 'procedure_conflict' });
+  if (error instanceof ProcedureLimitReachedError) return reply.code(409).send({ error: 'procedure_limit_reached' });
   if (error instanceof LastWorkspaceAdminError) return reply.code(409).send({ error: 'last_workspace_admin' });
 
   const statusCode = 'statusCode' in error && typeof error.statusCode === 'number' ? error.statusCode : 500;

@@ -102,4 +102,16 @@ for (const [workspaceId, email, role] of memberships) {
   await api('POST', `/workspaces/${workspaceId}/members`, { email, role }, admin);
 }
 await api('POST', '/auth/sign-out', {}, admin);
-console.log(`Created ${people.length + 1} accounts and 2 Workspaces.`);
+
+// Procedures are authored by the editor, like in real use.
+const editor = await signIn('editor@vmn.test');
+const procedures = [
+  { title: 'Leave the house', icon: 'home', tags: ['daily', 'safety'], description: 'Before everyone leaves:\nwindows, stove, lights, door.' },
+  { title: 'Weekly cleaning', icon: 'cleaning', tags: ['weekly'], description: 'Kitchen, bathroom, floors.' },
+  { title: 'Pack for a trip', icon: 'travel', tags: ['travel'], description: '' },
+];
+for (const procedure of procedures) {
+  await api('POST', `/workspaces/${household}/procedures`, procedure, editor);
+}
+await api('POST', '/auth/sign-out', {}, editor);
+console.log(`Created ${people.length + 1} accounts, 2 Workspaces and ${procedures.length} Procedures.`);

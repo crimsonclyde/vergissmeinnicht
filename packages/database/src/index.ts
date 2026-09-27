@@ -7,3 +7,4 @@ export { accounts, memberships, sessions, users, verifications, workspaces } fro
 export { createMfaChallengeRepository, createTotpRepository } from './mfa-repository.ts';
 export { createAccountRecoveryRepository, createCredentialRepository } from './recovery-repository.ts';
 export { createWorkspaceRepository } from './workspace-repository.ts';
+export { createProcedureRepository } from './procedure-repository.ts';
