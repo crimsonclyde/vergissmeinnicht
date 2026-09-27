@@ -285,6 +285,7 @@ async function request<T>(method: 'GET' | 'POST', path: string, body?: unknown):
 }
 
 export const api = {
+  about: () => request<{ license: string; sourceCodeUrl: string }>('GET', '/about'),
   currentUser: async (): Promise<CurrentUser | null> => {
     try {
       return (await request<{ user: CurrentUser }>('GET', '/auth/session')).user;

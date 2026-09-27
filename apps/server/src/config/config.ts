@@ -9,6 +9,8 @@ const LOOPBACK_HOSTNAMES = new Set(['localhost', '127.0.0.1', '[::1]', '::1']);
 /** Marker used in `.env.example`; a value containing it is never a real secret. */
 const PLACEHOLDER_MARKER = 'replace-me';
 const MIN_SECRET_LENGTH = 32;
+/** Upstream repository: the Corresponding Source offered to network users (AGPL-3.0 §13). */
+export const UPSTREAM_SOURCE_URL = 'https://github.com/crimsonclyde/vergissmeinnicht';
 
 function isValidEmail(value: string): boolean {
   try {
@@ -56,6 +58,8 @@ const envSchema = z
       .refine((value) => !/[\r\n"<>]/.test(value), 'MAIL_FROM_NAME must not contain line breaks, quotes or angle brackets')
       .optional(),
     INVITATION_TTL_HOURS: z.coerce.number().int().min(1).max(720).optional(),
+    // Operators running a modified version must point this at their own source (AGPL-3.0 §13).
+    SOURCE_CODE_URL: z.url({ protocol: /^https$/, error: 'SOURCE_CODE_URL must be an https URL' }).optional(),
   })
   .superRefine((env, ctx) => {
     if ((env.SMTP_USER === undefined) !== (env.SMTP_PASSWORD === undefined)) {
@@ -141,6 +145,8 @@ export interface AppConfig {
   readonly logLevel: (typeof logLevels)[number];
   readonly smtp: SmtpConfig;
   readonly invitationTtlHours: number;
+  /** Where users can obtain the source of the running version (AGPL-3.0 §13). */
+  readonly sourceCodeUrl: string;
 }
 
 export interface SmtpConfig {
@@ -199,5 +205,6 @@ export function loadConfig(env: NodeJS.ProcessEnv): AppConfig {
       fromName: values.MAIL_FROM_NAME ?? 'Vergissmeinnicht',
     }),
     invitationTtlHours: values.INVITATION_TTL_HOURS ?? 72,
+    sourceCodeUrl: values.SOURCE_CODE_URL ?? UPSTREAM_SOURCE_URL,
   });
 }

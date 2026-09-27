@@ -40,4 +40,10 @@ Start here:
 
 ## Status
 
-The project is in the foundation stage: architecture and security rules are documented, and the modular application skeleton (Step 1.1) exists. See [docu/steps.md](docu/steps.md) for progress and [Local development](docu/local-development.md) to run it.
+Core features are implemented: invite-only accounts with optional TOTP, Workspaces with roles, Procedures with Sections and Steps, historical Runs with a full audit trail, live collaboration and Knot links. See [docu/steps.md](docu/steps.md) for progress and [Local development](docu/local-development.md) to run it.
+
+## License
+
+Vergissmeinnicht is free software: you can redistribute it and/or modify it under the terms of the [GNU Affero General Public License, version 3](LICENSE) (`AGPL-3.0-only`).
+
+If you run a modified version for others over a network, the AGPL requires you to offer them its source code. The app links to its source in the footer of every page; point `SOURCE_CODE_URL` at your repository (see [Deployment](docu/deployment.md)).

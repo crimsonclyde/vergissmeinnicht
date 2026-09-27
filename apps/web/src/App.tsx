@@ -5,6 +5,7 @@ import { AppShell } from './AppShell.tsx';
 import { RecoverAccount } from './RecoverAccount.tsx';
 import { navigate, parseRoute, usePathname } from './router.tsx';
 import { SignIn } from './SignIn.tsx';
+import { SourceFooter } from './SourceFooter.tsx';
 
 /** Pages reachable without signing in (sign-in, invitation and recovery links). */
 function PublicLayout({ children }: { children: ReactNode }) {
@@ -13,6 +14,7 @@ function PublicLayout({ children }: { children: ReactNode }) {
       <h1>Vergissmeinnicht</h1>
       <p className="muted">Repeatable procedures with trustworthy execution history.</p>
       <div className="card">{children}</div>
+      <SourceFooter />
     </main>
   );
 }

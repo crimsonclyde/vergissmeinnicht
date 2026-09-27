@@ -71,6 +71,8 @@ export async function buildApp(options: AppOptions = {}) {
       });
       api.get('/health', async () => ({ status: 'ok' }));
       if (services !== undefined) {
+        // Public: the license requires offering the source to everyone who uses the app over a network.
+        api.get('/about', async () => ({ license: 'AGPL-3.0-only', sourceCodeUrl: services.sourceCodeUrl }));
         await api.register(authRoutes, { prefix: '/auth', services });
         await api.register(accountRoutes, { prefix: '/account', services });
         await api.register(invitationRoutes, { prefix: '/invitations', services });

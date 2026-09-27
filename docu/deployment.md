@@ -47,6 +47,7 @@ Inject configuration at runtime. The production server never reads `.env` files 
 | `MAIL_FROM_ADDRESS` | **required** | Sender address, e.g. `noreply@vmn.example.org`. |
 | `MAIL_FROM_NAME` | optional | Default `Vergissmeinnicht`. |
 | `INVITATION_TTL_HOURS` | optional | Default `72`, range 1–720. |
+| `SOURCE_CODE_URL` | optional | `https` link to the source of the running version, shown in every page footer (AGPL-3.0 §13). Default: the upstream repository. **Set it to your own repository if you run a modified version.** |
 
 `PUBLIC_ORIGIN` must be exactly the origin users type in the browser: every state-changing request whose `Origin` header differs is rejected (CSRF protection). In production the session cookie is `__Secure-vmn.session_token` (`Secure`, `HttpOnly`, `SameSite=Strict`), so the site must be served over HTTPS (loopback excepted).
 

@@ -49,6 +49,8 @@ import type { RunEventsOptions } from './http/run-events.ts';
 /** Everything the HTTP layer needs. Built once per process by the composition root. */
 export interface AppServices {
   readonly publicOrigin: string;
+  /** Offered to every user via `GET /api/about` (AGPL-3.0 §13). */
+  readonly sourceCodeUrl: string;
   readonly auth: Auth;
   readonly users: UserRepository;
   readonly invitations: InvitationDeps;
@@ -135,6 +137,7 @@ export function createServices(config: AppConfig, database: AppDatabase) {
     };
     return {
       publicOrigin: config.publicOrigin,
+      sourceCodeUrl: config.sourceCodeUrl,
       auth,
       users: userRepository,
       invitations,

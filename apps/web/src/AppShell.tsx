@@ -8,6 +8,7 @@ import { MembersPage, ROLE_LABELS } from './MembersPage.tsx';
 import { Procedures } from './Procedures.tsx';
 import { Link, navigate, paths, type Route } from './router.tsx';
 import { Runs } from './Runs.tsx';
+import { SourceFooter } from './SourceFooter.tsx';
 import type { WorkspaceContext } from './workspace-context.ts';
 
 const LAST_WORKSPACE_KEY = 'vmn.lastWorkspace';
@@ -270,6 +271,7 @@ export function AppShell(props: { user: CurrentUser; route: Route; onSignOut: ()
       <main className="app-main">
         {message !== null && <p role="alert">{message}</p>}
         {content}
+        <SourceFooter />
       </main>
     </>
   );

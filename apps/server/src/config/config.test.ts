@@ -158,4 +158,12 @@ describe('loadConfig', () => {
     expect(issuesOf({ ...production, INVITATION_TTL_HOURS: '0' }).join()).toMatch(/INVITATION_TTL_HOURS/);
     expect(issuesOf({ ...production, INVITATION_TTL_HOURS: '10000' }).join()).toMatch(/INVITATION_TTL_HOURS/);
   });
+
+  it('offers the upstream source by default and accepts only https source links', () => {
+    expect(loadConfig(production).sourceCodeUrl).toBe('https://github.com/crimsonclyde/vergissmeinnicht');
+    expect(loadConfig({ ...production, SOURCE_CODE_URL: 'https://git.example.org/fork' }).sourceCodeUrl).toBe('https://git.example.org/fork');
+    for (const value of ['http://git.example.org/fork', 'javascript:alert(1)', 'not a url']) {
+      expect(issuesOf({ ...production, SOURCE_CODE_URL: value }).join()).toMatch(/SOURCE_CODE_URL/);
+    }
+  });
 });

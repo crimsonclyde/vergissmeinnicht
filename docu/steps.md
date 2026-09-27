@@ -1220,9 +1220,24 @@ HTTPS, proxy trust, security headers, dependency scanning, health checks, safe s
 ## 11 — Licensing
 
 ### 11.1 AGPL-3.0
-**Status:** TODO
+**Status:** DONE
+**Completed:** 2026-09-27
 
 Add canonical GNU Affero General Public License v3 text and appropriate package/project license metadata.
+
+**Security impact:** LOW — one new public read-only endpoint that returns only static configuration.
+
+**Implemented:**
+- `LICENSE`: canonical text from `https://www.gnu.org/licenses/agpl-3.0.txt` (SHA-256 `0d96a4ff68ad6d4b6f1f30f713b18d5184912ba8dd389f86aa7710db079abcb0`, compared with the SPDX `AGPL-3.0-only` text: identical apart from `http`/`https` in URLs).
+- Package metadata: every `package.json` (root, apps, packages) already declares `"license": "AGPL-3.0-only"` (verified).
+- AGPL §13 (network use): `SOURCE_CODE_URL` (optional, `https` only, default the upstream repository), public `GET /api/about` → `{ license, sourceCodeUrl }`, and a footer on every page (also before sign-in) with "Source code" linking there (falls back to upstream if the request fails).
+- README "License" section; deployment table documents `SOURCE_CODE_URL` for operators of modified versions.
+
+**Tests/checks:** config test (default, custom https URL, http/`javascript:`/garbage rejected), `about.test.ts` (public, no-store), e2e smoke test asserts the footer link before sign-in; `pnpm lint`, `pnpm typecheck`, `pnpm test`.
+
+**Security docs updated:** N/A (no credentials or permissions involved).
+
+**Remaining:** no per-file license headers (the root `LICENSE` plus package metadata cover the project); third-party license notices of bundled dependencies are not collected into the web build yet.
 
 ---
 
