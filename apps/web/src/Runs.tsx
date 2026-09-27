@@ -23,10 +23,38 @@ const STEP_STATE_LABELS: Record<StepState, { glyph: string; label: string }> = {
   NOT_APPLICABLE: { glyph: '–', label: 'Not applicable' },
 };
 const RUN_STATE_LABELS: Record<RunState, string> = { ACTIVE: 'Active', COMPLETED: 'Completed', ABORTED: 'Aborted' };
+const RUN_STATE_BADGE: Record<RunState, StepState> = { ACTIVE: 'PENDING', COMPLETED: 'DONE', ABORTED: 'NOT_APPLICABLE' };
 
-function progress(summary: RunSummary): string {
-  const total = Object.values(summary.stepCounts).reduce((sum, n) => sum + n, 0);
-  return `${total - summary.stepCounts.PENDING} of ${total} Steps resolved`;
+function StateBadge({ state }: { state: StepState }) {
+  return (
+    <span className={`state-badge state-${state}`}>
+      <span aria-hidden="true">{STEP_STATE_LABELS[state].glyph}</span> {STEP_STATE_LABELS[state].label}
+    </span>
+  );
+}
+
+function RunStateBadge({ state }: { state: RunState }) {
+  return <span className={`state-badge state-${RUN_STATE_BADGE[state]}`}>{RUN_STATE_LABELS[state]}</span>;
+}
+
+function Progress({ resolved, total }: { resolved: number; total: number }) {
+  return (
+    <div className="stack">
+      <div
+        className="progress"
+        role="progressbar"
+        aria-valuemin={0}
+        aria-valuemax={total}
+        aria-valuenow={resolved}
+        aria-label="Resolved Steps"
+      >
+        <span style={{ width: `${total === 0 ? 0 : Math.round((resolved / total) * 100)}%` }} />
+      </div>
+      <small className="muted">
+        {resolved} of {total} Steps resolved
+      </small>
+    </div>
+  );
 }
 
 type StepAction = { readonly to: StepState; readonly reason?: string };
@@ -46,17 +74,20 @@ function ReasonForm(props: { step: RunStep; to: StepState; onSubmit: (reason: st
     props.onSubmit(reason);
   }
   return (
-    <form onSubmit={submit}>
+    <form onSubmit={submit} className="stack step-actions">
       <label>
         {props.to === 'SKIPPED' ? 'Why is it skipped?' : 'Why does it not apply?'} {required ? '(required)' : '(optional)'}
         <br />
         <textarea rows={2} maxLength={500} required={required} value={reason} onChange={(e) => setReason(e.target.value)} />
       </label>
-      <br />
-      <button type="submit">{props.to === 'SKIPPED' ? 'Skip' : 'Mark not applicable'}</button>{' '}
-      <button type="button" onClick={props.onCancel}>
-        Cancel
-      </button>
+      <div className="row">
+        <button type="submit" className="primary">
+          {props.to === 'SKIPPED' ? 'Skip' : 'Mark not applicable'}
+        </button>
+        <button type="button" onClick={props.onCancel}>
+          Cancel
+        </button>
+      </div>
     </form>
   );
 }
@@ -69,36 +100,46 @@ function StepItem(props: { step: RunStep; canExecute: boolean; busy: boolean; on
     else setAsking(to);
   };
   return (
-    <li>
-      <span aria-hidden="true">{STEP_STATE_LABELS[step.state].glyph}</span> <strong>{step.title}</strong> —{' '}
-      {STEP_STATE_LABELS[step.state].label}
-      {step.required ? '' : ' (optional)'}
-      {step.critical && ', critical'}
+    <li className="step" data-state={step.state}>
+      <div className="row" style={{ justifyContent: 'space-between' }}>
+        <span className="step-title">
+          {step.icon !== null && (
+            <>
+              <Icon icon={step.icon} />{' '}
+            </>
+          )}
+          {step.title}
+        </span>
+        <StateBadge state={step.state} />
+      </div>
+      <small className="muted">
+        {step.required ? 'Required' : 'Optional'}
+        {step.critical && ' · critical'}
+      </small>
       {step.stateChange !== null && (
-        <>
-          <br />
+        <div>
           <small>
             {step.state === 'PENDING' ? 'Reset' : STEP_STATE_LABELS[step.state].label} by {step.stateChange.by} at{' '}
             {new Date(step.stateChange.at).toLocaleString()}
             {step.stateChange.reason !== null && <> — reason: {step.stateChange.reason}</>}
           </small>
-        </>
+        </div>
       )}
-      {step.description !== '' && <p style={{ whiteSpace: 'pre-wrap' }}>{step.description}</p>}
+      {step.description !== '' && <p style={{ whiteSpace: 'pre-wrap', margin: '0.5rem 0 0' }}>{step.description}</p>}
       {props.canExecute && asking === null && (
-        <p>
+        <div className="row step-actions">
           {step.state === 'PENDING' ? (
             <>
               {step.critical ? (
-                <HoldToConfirm label={`Done: ${step.title}`} disabled={props.busy} onConfirm={() => props.onChange({ to: 'DONE' })} />
+                <HoldToConfirm label={step.title} disabled={props.busy} onConfirm={() => props.onChange({ to: 'DONE' })} />
               ) : (
-                <button type="button" disabled={props.busy} onClick={() => props.onChange({ to: 'DONE' })}>
-                  Done: {step.title}
+                <button type="button" className="done-action" disabled={props.busy} onClick={() => props.onChange({ to: 'DONE' })}>
+                  ✔ Done: {step.title}
                 </button>
-              )}{' '}
+              )}
               <button type="button" disabled={props.busy} onClick={() => choose('SKIPPED')}>
                 Skip
-              </button>{' '}
+              </button>
               <button type="button" disabled={props.busy} onClick={() => choose('NOT_APPLICABLE')}>
                 Not applicable
               </button>
@@ -108,7 +149,7 @@ function StepItem(props: { step: RunStep; canExecute: boolean; busy: boolean; on
               Undo: {step.title}
             </button>
           )}
-        </p>
+        </div>
       )}
       {asking !== null && (
         <ReasonForm
@@ -132,28 +173,37 @@ function openRequired(run: RunDetail): RunStep[] {
     .filter((step) => step.required && step.state !== 'DONE' && step.state !== 'NOT_APPLICABLE');
 }
 
-function RunEndControls(props: { run: RunDetail; canExecute: boolean; canAbort: boolean; busy: boolean; onComplete: () => void; onAbort: (reason: string) => void }) {
+function RunEndControls(props: {
+  run: RunDetail;
+  canExecute: boolean;
+  canAbort: boolean;
+  busy: boolean;
+  onComplete: () => void;
+  onAbort: (reason: string) => void;
+}) {
   const [aborting, setAborting] = useState(false);
   const [reason, setReason] = useState('');
   const open = openRequired(props.run);
   return (
-    <section aria-label="Finish this Run">
+    <section aria-label="Finish this Run" className="card stack">
+      <h3 style={{ marginTop: 0 }}>Finish this Run</h3>
       {props.canExecute && (
-        <p>
-          <button type="button" disabled={props.busy || open.length > 0} onClick={props.onComplete}>
+        <div className="stack">
+          <button type="button" className="primary" disabled={props.busy || open.length > 0} onClick={props.onComplete}>
             Complete Run
-          </button>{' '}
+          </button>
           {open.length > 0 && (
-            <small>
+            <p className="muted">
               {open.length} required {open.length === 1 ? 'Step is' : 'Steps are'} still pending or skipped:{' '}
               {open.map((step) => step.title).join(', ')}
-            </small>
+            </p>
           )}
-        </p>
+        </div>
       )}
       {props.canAbort &&
         (aborting ? (
           <form
+            className="stack"
             onSubmit={(event) => {
               event.preventDefault();
               props.onAbort(reason);
@@ -164,16 +214,17 @@ function RunEndControls(props: { run: RunDetail; canExecute: boolean; canAbort: 
               <br />
               <textarea rows={2} maxLength={500} value={reason} onChange={(e) => setReason(e.target.value)} />
             </label>
-            <br />
-            <button type="submit" disabled={props.busy}>
-              Abort Run
-            </button>{' '}
-            <button type="button" onClick={() => setAborting(false)}>
-              Keep running
-            </button>
+            <div className="row">
+              <button type="submit" disabled={props.busy}>
+                Abort Run
+              </button>
+              <button type="button" onClick={() => setAborting(false)}>
+                Keep running
+              </button>
+            </div>
           </form>
         ) : (
-          <button type="button" disabled={props.busy} onClick={() => setAborting(true)}>
+          <button type="button" className="quiet" disabled={props.busy} onClick={() => setAborting(true)}>
             Abort Run…
           </button>
         ))}
@@ -193,26 +244,34 @@ function RunView(props: {
 }) {
   const { run } = props;
   const canExecute = props.canExecute && run.state === 'ACTIVE';
+  const steps = run.sections.flatMap((section) => section.steps);
   return (
     <article aria-labelledby="run-title">
-      <h5 id="run-title">
-        <Icon icon={run.icon} /> {run.title}
-      </h5>
-      <p>
-        {RUN_STATE_LABELS[run.state]} · started by {run.startedBy} on {new Date(run.startedAt).toLocaleString()} (Procedure
-        revision {run.procedureRevision})
-      </p>
-      {run.ended !== null && (
-        <p role="status">
-          {RUN_STATE_LABELS[run.state]} by {run.ended.by} on {new Date(run.ended.at).toLocaleString()}
-          {run.ended.reason !== null && <> — reason: {run.ended.reason}</>}. This Run is history and can no longer change.
+      <div className="card stack">
+        <div className="row" style={{ justifyContent: 'space-between' }}>
+          <h2 id="run-title" style={{ margin: 0 }}>
+            <Icon icon={run.icon} /> {run.title}
+          </h2>
+          <RunStateBadge state={run.state} />
+        </div>
+        <Progress resolved={steps.filter((step) => step.state !== 'PENDING').length} total={steps.length} />
+        <p className="muted" style={{ margin: 0 }}>
+          {RUN_STATE_LABELS[run.state]} · started by {run.startedBy} on {new Date(run.startedAt).toLocaleString()} (Procedure revision{' '}
+          {run.procedureRevision})
         </p>
-      )}
-      {run.description !== '' && <p style={{ whiteSpace: 'pre-wrap' }}>{run.description}</p>}
+        {run.ended !== null && (
+          <p role="status">
+            {RUN_STATE_LABELS[run.state]} by {run.ended.by} on {new Date(run.ended.at).toLocaleString()}
+            {run.ended.reason !== null && <> — reason: {run.ended.reason}</>}. This Run is history and can no longer change.
+          </p>
+        )}
+        {run.description !== '' && <p style={{ whiteSpace: 'pre-wrap', margin: 0 }}>{run.description}</p>}
+      </div>
       {run.sections.map((section) => (
         <section key={section.id} aria-label={`Run section: ${section.title}`}>
-          <h6>{section.title}</h6>
-          <ol>
+          <h3>{section.title}</h3>
+          {section.description !== '' && <p className="muted">{section.description}</p>}
+          <ol className="plain-list">
             {section.steps.map((step) => (
               <StepItem
                 key={`${step.id}-${step.state}`}
@@ -225,26 +284,58 @@ function RunView(props: {
           </ol>
         </section>
       ))}
-      <History key={`${run.id}-${run.state}`} label="Run history" load={props.loadHistory} />
       {run.state === 'ACTIVE' && (props.canExecute || props.canAbort) && (
-        <RunEndControls
-          run={run}
-          canExecute={props.canExecute}
-          canAbort={props.canAbort}
-          busy={props.busy}
-          onComplete={props.onComplete}
-          onAbort={props.onAbort}
-        />
+        <div style={{ marginTop: '1.5rem' }}>
+          <RunEndControls
+            run={run}
+            canExecute={props.canExecute}
+            canAbort={props.canAbort}
+            busy={props.busy}
+            onComplete={props.onComplete}
+            onAbort={props.onAbort}
+          />
+        </div>
       )}
+      <div className="card">
+        <History key={`${run.id}-${run.state}`} label="Run history" load={props.loadHistory} />
+      </div>
     </article>
   );
 }
 
-/** Runs of a Workspace. `openRunId` is controlled by the parent so other sections can open a Run. */
+function RunList({ title, runs, onOpen }: { title: string; runs: RunSummary[]; onOpen: (runId: string) => void }) {
+  return (
+    <section aria-label={title}>
+      <h3>{title}</h3>
+      <ul aria-label={title} className="plain-list">
+        {runs.map((run) => {
+          const total = Object.values(run.stepCounts).reduce((sum, n) => sum + n, 0);
+          return (
+            <li key={run.id} className="card stack">
+              <div className="row" style={{ justifyContent: 'space-between' }}>
+                <button type="button" className="link-like" onClick={() => onOpen(run.id)} style={{ fontSize: '1.1rem', fontWeight: 600 }}>
+                  <Icon icon={run.icon} /> {run.title}
+                </button>
+                <RunStateBadge state={run.state} />
+              </div>
+              <Progress resolved={total - run.stepCounts.PENDING} total={total} />
+              <small className="muted">
+                {RUN_STATE_LABELS[run.state]}, started by {run.startedBy} on {new Date(run.startedAt).toLocaleString()}
+              </small>
+            </li>
+          );
+        })}
+      </ul>
+    </section>
+  );
+}
+
+/** Runs of a Workspace. `openRunId` comes from the URL. */
 export function Runs(props: {
   workspaceId: string;
   canExecute: boolean;
   canAbort: boolean;
+  canStart: boolean;
   openRunId: string | null;
   onOpen: (runId: string | null) => void;
 }) {
@@ -311,12 +402,19 @@ export function Runs(props: {
     }
   }
 
+  const active = runs?.filter((run) => run.state === 'ACTIVE') ?? [];
+  const finished = runs?.filter((run) => run.state !== 'ACTIVE') ?? [];
+
   return (
-    <section aria-labelledby="runs-heading">
-      <h4 id="runs-heading">Runs</h4>
-      {message !== null && <p role="alert">{message}</p>}
+    <section aria-label="Runs">
       {openRunId !== null ? (
         <>
+          <p>
+            <button type="button" className="link-like" onClick={() => onOpen(null)}>
+              ← Back to all Runs
+            </button>
+          </p>
+          {message !== null && <p role="alert">{message}</p>}
           {shown === null ? (
             <p>Loading…</p>
           ) : (
@@ -331,25 +429,25 @@ export function Runs(props: {
               loadHistory={() => api.runHistory(workspaceId, shown.id)}
             />
           )}
-          <button type="button" onClick={() => onOpen(null)}>
-            Back to all Runs
-          </button>
         </>
-      ) : runs === null ? (
-        <p>Loading…</p>
-      ) : runs.length === 0 ? (
-        <p>No Runs yet.</p>
       ) : (
-        <ul aria-label="Runs">
-          {runs.map((run) => (
-            <li key={run.id}>
-              <button type="button" onClick={() => onOpen(run.id)}>
-                <Icon icon={run.icon} /> {run.title}
-              </button>{' '}
-              — {RUN_STATE_LABELS[run.state]}, {progress(run)}, started by {run.startedBy} on {new Date(run.startedAt).toLocaleString()}
-            </li>
-          ))}
-        </ul>
+        <>
+          <div className="page-header">
+            <h2>Runs</h2>
+            {props.canStart && <span className="muted">Start a Run from a Procedure.</span>}
+          </div>
+          {message !== null && <p role="alert">{message}</p>}
+          {runs === null ? (
+            <p>Loading…</p>
+          ) : runs.length === 0 ? (
+            <p className="card">No Runs yet.</p>
+          ) : (
+            <>
+              {active.length > 0 ? <RunList title="Active Runs" runs={active} onOpen={onOpen} /> : <p className="muted">No active Runs.</p>}
+              {finished.length > 0 && <RunList title="Finished Runs" runs={finished} onOpen={onOpen} />}
+            </>
+          )}
+        </>
       )}
     </section>
   );

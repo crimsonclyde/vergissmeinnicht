@@ -144,6 +144,14 @@ export interface HistoryEvent {
   readonly metadata: Readonly<Record<string, string | number | boolean | readonly string[]>>;
 }
 
+export interface PendingInvitation {
+  readonly id: string;
+  readonly email: string;
+  readonly grantsServerAdmin: boolean;
+  readonly createdAt: string;
+  readonly expiresAt: string;
+}
+
 export type SecondFactor = { readonly code: string } | { readonly recoveryCode: string };
 
 export interface MfaStatus {
@@ -165,6 +173,11 @@ export const ERROR_MESSAGES: Record<string, string> = {
   invalid_recovery: 'This recovery link is invalid, has expired or was already used.',
   password_too_short: 'The new password must be at least 15 characters.',
   password_too_long: 'The new password must be at most 128 characters.',
+  invitation_not_pending: 'This invitation is no longer pending.',
+  account_exists: 'An account with this email address already exists.',
+  account_not_active: 'This account is disabled.',
+  nothing_to_recover: 'This account has no two-factor authentication to reset.',
+  second_factor_required: 'Enter your own authenticator code (or a recovery code) to confirm.',
   workspace_not_found: 'This Workspace does not exist or you are no longer a member.',
   forbidden: 'You are not allowed to do this.',
   unknown_account: 'There is no active account with this email address. A server admin must invite the person first.',
@@ -276,6 +289,17 @@ export const api = {
   regenerateRecoveryCodes: (password: string) =>
     request<{ recoveryCodes: string[] }>('POST', '/account/mfa/recovery-codes', { password }),
   signOut: () => request<undefined>('POST', '/auth/sign-out'),
+  invitations: async () => (await request<{ invitations: PendingInvitation[] }>('GET', '/admin/invitations')).invitations,
+  invite: (email: string, grantsServerAdmin: boolean) =>
+    request<{ invitation: PendingInvitation; delivery: 'sent' | 'failed' }>('POST', '/admin/invitations', { email, grantsServerAdmin }),
+  revokeInvitation: (id: string) => request<undefined>('POST', `/admin/invitations/${encodeURIComponent(id)}/revoke`),
+  startRecovery: (input: {
+    email: string;
+    resetPassword: boolean;
+    resetTotp: boolean;
+    password: string;
+    code?: string;
+  }) => request<{ recovery: { expiresAt: string }; delivery: 'sent' | 'failed' }>('POST', '/admin/recoveries', input),
   workspaces: async () => (await request<{ workspaces: WorkspaceSummary[] }>('GET', '/workspaces')).workspaces,
   createWorkspace: async (name: string) =>
     (await request<{ workspace: WorkspaceSummary }>('POST', '/workspaces', { name })).workspace,

@@ -1,16 +1,24 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import { AcceptInvitation } from './AcceptInvitation.tsx';
-import { AccountSecurity } from './AccountSecurity.tsx';
-import { ChangePassword } from './ChangePassword.tsx';
-import { RecoverAccount } from './RecoverAccount.tsx';
 import { api, type CurrentUser } from './api.ts';
+import { AppShell } from './AppShell.tsx';
+import { RecoverAccount } from './RecoverAccount.tsx';
+import { navigate, parseRoute, usePathname } from './router.tsx';
 import { SignIn } from './SignIn.tsx';
-import { Workspaces } from './Workspaces.tsx';
 
-const INVITE_PATH = /^\/invite\/([A-Za-z0-9_-]+)$/;
-const RECOVER_PATH = /^\/recover\/([A-Za-z0-9_-]+)$/;
+/** Pages reachable without signing in (sign-in, invitation and recovery links). */
+function PublicLayout({ children }: { children: ReactNode }) {
+  return (
+    <main className="app-main" style={{ maxWidth: '36rem' }}>
+      <h1>Vergissmeinnicht</h1>
+      <p className="muted">Repeatable procedures with trustworthy execution history.</p>
+      <div className="card">{children}</div>
+    </main>
+  );
+}
 
-function Home() {
+export function App() {
+  const route = parseRoute(usePathname());
   const [user, setUser] = useState<CurrentUser | null | undefined>(undefined);
 
   useEffect(() => {
@@ -24,41 +32,38 @@ function Home() {
     };
   }, []);
 
-  async function signOut() {
-    await api.signOut();
-    setUser(null);
+  if (route.page === 'invite') {
+    return (
+      <PublicLayout>
+        <AcceptInvitation token={route.token} />
+      </PublicLayout>
+    );
   }
-
-  if (user === undefined) return <p>Loading…</p>;
-  if (user === null) return <SignIn onSignedIn={setUser} />;
+  if (route.page === 'recover') {
+    return (
+      <PublicLayout>
+        <RecoverAccount token={route.token} />
+      </PublicLayout>
+    );
+  }
+  if (user === undefined) return <p className="app-main">Loading…</p>;
+  if (user === null) {
+    return (
+      <PublicLayout>
+        <SignIn onSignedIn={setUser} />
+      </PublicLayout>
+    );
+  }
   return (
-    <section aria-labelledby="account-heading">
-      <h2 id="account-heading">Welcome, {user.displayName}</h2>
-      <p>Signed in as {user.email}.</p>
-      <button type="button" onClick={() => void signOut()}>
-        Sign out
-      </button>
-      <Workspaces user={user} />
-      <ChangePassword />
-      <AccountSecurity />
-    </section>
-  );
-}
-
-export function App() {
-  const invite = INVITE_PATH.exec(window.location.pathname)?.[1];
-  const recover = RECOVER_PATH.exec(window.location.pathname)?.[1];
-  return (
-    <main>
-      <h1>Vergissmeinnicht</h1>
-      <p>Repeatable procedures with trustworthy execution history.</p>
-      {invite !== undefined ? (
-        <AcceptInvitation token={invite} />
-      ) : recover !== undefined ? (
-        <RecoverAccount token={recover} />
-      ) : (
-        <Home />
-      )}
-    </main>
+    <AppShell
+      user={user}
+      route={route}
+      onSignOut={() => {
+        void api.signOut().then(() => {
+          setUser(null);
+          navigate('/', { replace: true });
+        });
+      }}
+    />
   );
 }

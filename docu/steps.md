@@ -23,13 +23,13 @@ _Last updated: 2026-09-27 (after 5.6 — section 5 complete)_
 **Done:** 0.1, 0.2, 0.3, 1.1, 1.2, 2.1–2.5, 3.1–3.3, 4.1–4.5, 5.1–5.6, 9.1 (pulled forward for invitations). 2.6 (external providers) is DEFERRED.
 **Next:** section 6 — 6.1 SSE active Run updates (the Run `revision` bumps on every change and clients already refetch canonical state after conflicts), 6.2 optimistic UI. Open decision from 5.4 for the user: SKIPPED does not satisfy a required Step at completion.
 
-**UI note (2026-09-27, user feedback):** the web page mixes account settings, Workspace administration, server administration and everyday execution on one unstyled page. Planned remedy — an app shell with navigation (Runs · Procedures · Members · Server admin · Account), real URLs, and a minimal token-based stylesheet — was deferred by the user in favour of continuing with 5.x; pick it up with 8.1/8.3 or earlier on request.
+**UI (2026-09-27):** the app shell from the user's feedback is done as 8.0 (navigation, separate pages, stylesheet, admin UI, clearer press-and-hold). Themes toggle (8.3), i18n (8.4) and a full accessibility review remain.
 
 **Lockfile note (4.4):** the hand-edited entries (`apps/server` → `@vergissmeinnicht/import-export`, `packages/import-export` → `zod`) were verified on 2026-09-27 with `pnpm install --frozen-lockfile` (pnpm 12.6.0): lockfile up to date, supply-chain policies passed, no changes.
 
 Also open: trusted-proxy configuration (10.3) before production use behind a reverse proxy; admin web UI (invitations, recoveries — API only so far); account status changes (disable/enable users) with session revocation; housekeeping of expired challenge/recovery/invitation rows.
 
-**Branches:** work is stacked, not yet merged into `main`: `step-1.1-app-skeleton` → `step-1.2-config` → `step-2.1-user-model` → `step-2.2-invitations` → `step-2.4-totp` → `step-2.5-recovery` → `step-3.1-workspaces` → `step-3.2-roles` → `step-4.1-procedures` → `step-4.2-steps` → `step-4.3-drag-drop` → `step-4.4-import-export` → `step-4.5-restore` → `step-5.1-run-snapshot` → `cleanup-web-domain-constants` → `step-5.2-step-states` → `step-5.3-press-and-hold` → `step-5.4-run-lifecycle` → `step-5.5-audit-trail` → `step-5.6-immutability` (each branch contains the previous ones; 2.3 was completed on `step-2.2-invitations` because acceptance finishes 2.2). CI runs on pull requests / `main` only.
+**Branches:** work is stacked, not yet merged into `main`: `step-1.1-app-skeleton` → `step-1.2-config` → `step-2.1-user-model` → `step-2.2-invitations` → `step-2.4-totp` → `step-2.5-recovery` → `step-3.1-workspaces` → `step-3.2-roles` → `step-4.1-procedures` → `step-4.2-steps` → `step-4.3-drag-drop` → `step-4.4-import-export` → `step-4.5-restore` → `step-5.1-run-snapshot` → `cleanup-web-domain-constants` → `step-5.2-step-states` → `step-5.3-press-and-hold` → `step-5.4-run-lifecycle` → `step-5.5-audit-trail` → `step-5.6-immutability` → `step-8.0-app-shell` (each branch contains the previous ones; 2.3 was completed on `step-2.2-invitations` because acceptance finishes 2.2). CI runs on pull requests / `main` only.
 
 **Manual testing:** `test-env/menu.sh` (added 2026-09-27) installs/starts/stops/removes an isolated production-mode instance on port 3200 with demo accounts for every role (see `test-env/README.md`). Extend `test-env/seed.ts` when new features need demo data (e.g. Procedures in 4.1).
 
@@ -872,7 +872,7 @@ The backend still validates the requested state transition; client interaction i
 
 **Security impact:** NONE — client-side UX only; no server change (5.2 validation unchanged).
 
-**Implemented:** `apps/web/src/HoldToConfirm.tsx` — hold for 1.2 s with pointer/touch (pointer capture; release, cancel or leaving cancels) or keyboard (hold Space/Enter; key repeat ignored; key-up or blur cancels); the normal click is suppressed, context menu on long touch suppressed; progress as text ("hold… 45 %") plus a bar; `aria-describedby` hint "Critical step: press and hold for 1.2 seconds to confirm." Used for "Done" on critical Steps; Skip / Not applicable / Undo stay normal buttons.
+**Implemented:** `apps/web/src/HoldToConfirm.tsx` — hold for 1.2 s (1.0 s since 8.0) with pointer/touch (pointer capture; release, cancel or leaving cancels) or keyboard (hold Space/Enter; key repeat ignored; key-up or blur cancels); the normal click is suppressed, context menu on long touch suppressed; progress as text ("hold… 45 %") plus a bar; `aria-describedby` hint "Critical step: press and hold for 1.2 seconds to confirm." Used for "Done" on critical Steps; Skip / Not applicable / Undo stay normal buttons.
 
 **Tests/checks:** `pnpm test:e2e` — plain click and a 0.6 s hold leave the critical Step pending, a full mouse hold and a held Space key mark it Done, the accessible description is present. `pnpm lint`, `pnpm typecheck`.
 
@@ -1017,6 +1017,25 @@ Token is high entropy, revocable, optionally expiring, redacted from logs, and d
 ---
 
 ## 8 — UX, accessibility, and theming
+
+### 8.0 App shell and usability pass (pulled forward)
+**Status:** DONE
+**Completed:** 2026-09-27
+
+**Why:** user feedback — account settings, Workspace and server administration and everyday execution were mixed on one unstyled page; the press-and-hold gave almost no feedback, so the app could not be tested meaningfully.
+
+**Security impact:** LOW — client only. No new server endpoints; the admin page uses the existing invitation/recovery APIs (server-admin checks unchanged). The last used Workspace id is kept in `localStorage` as a per-viewer convenience (wrapped in try/catch, never required). Capabilities still only adapt the UI.
+
+**Implemented:**
+- Routing without a dependency (`apps/web/src/router.tsx`, History API, links usable with middle-click): `/` (opens the last used or first Workspace), `/w/{id}/runs[/{runId}]`, `/w/{id}/procedures`, `/w/{id}/members`, `/admin`, `/account`, plus the public `/invite/…` and `/recover/…`; unknown paths show a not-found message. The server's SPA fallback already serves these paths.
+- App shell (`AppShell.tsx`): header with Workspace switcher (name + role), Workspace sections (Runs · Procedures · Members), "Server admin" (server admins only), "Account", "Sign out". Sign-in, invitation and recovery pages use a separate public layout.
+- Pages: Runs (active and finished lists with progress bars; Run view with state badges, per-Step cards, finish controls and history), Procedures (cards, "▶ Start Run"), Members (table, add with role explanation, rename Workspace, leave) — extracted from the old `Workspaces.tsx`, Server admin (create Workspace, invitations list/send/revoke, account recovery with step-up), Account (password, two-factor).
+- `styles.css`: semantic tokens with light and dark (system setting) values — dark = black/greyscale with restrained red accents (8.3 direction); state colors always paired with glyph + text (8.2): Pending red, Done green, Skipped amber, Not applicable grey; positive "Done" actions are green; responsive (full-width actions on phones).
+- Press-and-hold redesigned: the whole button fills while held (1.0 s), stable accessible name "Hold to mark done: …", hint text as accessible description, releasing early says "Keep holding until the button is completely filled.", a click without pressing says "Press and hold this button for one second."
+
+**Tests/checks:** `pnpm test` — 476 tests (+2 router tests). `pnpm test:e2e` rewritten for the new navigation: admin page (invite + revoke, create Workspace), Members page, Procedures page, Run URLs, Step execution incl. early-release hint and keyboard hold, complete/abort, history, Account page for TOTP. Screenshots checked for desktop light/dark and a 390 px phone. `pnpm lint`, `pnpm typecheck`.
+
+**Remaining:** manual theme toggle (8.3), i18n string structure (8.4), a full accessibility review (incl. an alternative to press-and-hold for users who cannot hold), Procedure view URLs (the Procedure detail is not yet addressable by URL).
 
 ### 8.1 Responsive authoring/execution
 **Status:** TODO

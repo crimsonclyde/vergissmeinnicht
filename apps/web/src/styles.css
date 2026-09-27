@@ -1,0 +1,416 @@
+/*
+ * Semantic design tokens (docu/steps.md 8.3). Components use only these variables, so themes (System /
+ * Light / Dark, later named presets such as "Memento Mori") change values, not components.
+ * State colors always come with a glyph and text (8.2): color is never the only signal.
+ */
+:root {
+  color-scheme: light;
+  --bg: #f6f6f7;
+  --surface: #ffffff;
+  --surface-muted: #eeeef0;
+  --text: #16161a;
+  --text-muted: #5b5b66;
+  --border: #d6d6dc;
+  --accent: #b3261e;
+  --accent-text: #ffffff;
+  --accent-soft: #fbe9e7;
+  --focus: #1f5fbf;
+  --state-pending: #b3261e;
+  --state-pending-bg: #fdecea;
+  --state-done: #1e6b34;
+  --state-done-bg: #e6f4ea;
+  --state-done-text: #ffffff;
+  --state-skipped: #8a5a00;
+  --state-skipped-bg: #fff4dc;
+  --state-na: #4a4f5c;
+  --state-na-bg: #eceef2;
+  --radius: 10px;
+  --shadow: 0 1px 2px rgb(0 0 0 / 8%);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    color-scheme: dark;
+    --bg: #0b0b0c;
+    --surface: #161618;
+    --surface-muted: #202024;
+    --text: #ececef;
+    --text-muted: #a0a0aa;
+    --border: #33333a;
+    --accent: #e0463b;
+    --accent-text: #0b0b0c;
+    --accent-soft: #3a1512;
+    --focus: #7aa7ff;
+    --state-pending: #ff6b5e;
+    --state-pending-bg: #331513;
+    --state-done: #5fd07e;
+    --state-done-bg: #11291a;
+    --state-done-text: #0b0b0c;
+    --state-skipped: #f2b84b;
+    --state-skipped-bg: #33260b;
+    --state-na: #b4b8c4;
+    --state-na-bg: #24262c;
+    --shadow: none;
+  }
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font: 16px/1.5 system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+}
+
+a {
+  color: var(--focus);
+}
+
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+  line-height: 1.25;
+  margin: 1.2em 0 0.5em;
+}
+
+:focus-visible {
+  outline: 3px solid var(--focus);
+  outline-offset: 2px;
+}
+
+/* ---- Layout ---------------------------------------------------------------------------- */
+
+.app-header {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+}
+
+.app-header-inner,
+.app-main {
+  max-width: 64rem;
+  margin: 0 auto;
+  padding: 0 1rem;
+}
+
+.app-header-inner {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem 1rem;
+  padding-top: 0.6rem;
+  padding-bottom: 0.6rem;
+}
+
+.brand {
+  font-weight: 700;
+  color: var(--text);
+  text-decoration: none;
+  margin-right: auto;
+}
+
+.app-main {
+  padding-bottom: 4rem;
+}
+
+.nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem;
+}
+
+.nav a {
+  padding: 0.4rem 0.75rem;
+  border-radius: 999px;
+  color: var(--text);
+  text-decoration: none;
+}
+
+.nav a:hover {
+  background: var(--surface-muted);
+}
+
+.nav a[aria-current='page'] {
+  background: var(--text);
+  color: var(--bg);
+}
+
+.page-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin: 1.5rem 0 1rem;
+}
+
+.page-header h2 {
+  margin: 0;
+}
+
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  padding: 1rem;
+  margin: 0 0 1rem;
+}
+
+.muted {
+  color: var(--text-muted);
+}
+
+.stack > * + * {
+  margin-top: 0.75rem;
+}
+
+.row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.plain-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.plain-list > li + li {
+  margin-top: 0.5rem;
+}
+
+/* ---- Controls -------------------------------------------------------------------------- */
+
+button,
+.button {
+  font: inherit;
+  min-height: 2.5rem;
+  padding: 0.45rem 0.9rem;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--surface-muted);
+  color: var(--text);
+  cursor: pointer;
+}
+
+button:hover:not(:disabled) {
+  filter: brightness(0.96);
+}
+
+button:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+button.primary {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--accent-text);
+  font-weight: 600;
+}
+
+/* The positive action ("mark done") is green, never the red used for pending/danger. */
+button.done-action {
+  background: var(--state-done);
+  border-color: var(--state-done);
+  color: var(--state-done-text);
+  font-weight: 600;
+}
+
+button.quiet {
+  background: transparent;
+}
+
+button.link-like {
+  background: none;
+  border: none;
+  padding: 0;
+  min-height: 0;
+  color: var(--focus);
+  text-decoration: underline;
+  text-align: left;
+}
+
+input,
+select,
+textarea {
+  font: inherit;
+  color: var(--text);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 0.45rem 0.6rem;
+  max-width: 100%;
+}
+
+input:not([type='checkbox']):not([type='file']),
+textarea {
+  width: min(32rem, 100%);
+}
+
+label {
+  font-weight: 500;
+}
+
+fieldset {
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  margin: 0 0 1rem;
+  padding: 0.75rem 1rem;
+}
+
+legend {
+  font-weight: 600;
+  padding: 0 0.25rem;
+}
+
+table {
+  border-collapse: collapse;
+  width: 100%;
+}
+
+th,
+td {
+  text-align: left;
+  padding: 0.5rem;
+  border-bottom: 1px solid var(--border);
+  vertical-align: middle;
+}
+
+caption {
+  text-align: left;
+  font-weight: 600;
+  padding-bottom: 0.5rem;
+}
+
+[role='alert'] {
+  border-left: 4px solid var(--accent);
+  background: var(--accent-soft);
+  padding: 0.5rem 0.75rem;
+  border-radius: 6px;
+}
+
+[role='status'] {
+  border-left: 4px solid var(--border);
+  background: var(--surface-muted);
+  padding: 0.5rem 0.75rem;
+  border-radius: 6px;
+}
+
+/* ---- Run execution --------------------------------------------------------------------- */
+
+.state-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.1rem 0.6rem;
+  border-radius: 999px;
+  font-size: 0.9rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.state-PENDING {
+  color: var(--state-pending);
+  background: var(--state-pending-bg);
+}
+
+.state-DONE {
+  color: var(--state-done);
+  background: var(--state-done-bg);
+}
+
+.state-SKIPPED {
+  color: var(--state-skipped);
+  background: var(--state-skipped-bg);
+}
+
+.state-NOT_APPLICABLE {
+  color: var(--state-na);
+  background: var(--state-na-bg);
+}
+
+.step {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-left: 6px solid var(--state-pending);
+  border-radius: var(--radius);
+  padding: 0.75rem 1rem;
+}
+
+.step[data-state='DONE'] {
+  border-left-color: var(--state-done);
+}
+
+.step[data-state='SKIPPED'] {
+  border-left-color: var(--state-skipped);
+}
+
+.step[data-state='NOT_APPLICABLE'] {
+  border-left-color: var(--state-na);
+}
+
+.step-title {
+  font-weight: 600;
+  font-size: 1.05rem;
+}
+
+.step-actions {
+  margin-top: 0.6rem;
+}
+
+.progress {
+  height: 0.5rem;
+  background: var(--surface-muted);
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+.progress > span {
+  display: block;
+  height: 100%;
+  background: var(--state-done);
+}
+
+/* Press-and-hold: the whole button fills while held. */
+.hold {
+  position: relative;
+  overflow: hidden;
+  min-height: 3rem;
+  padding: 0.6rem 1.2rem;
+  background: var(--surface);
+  border: 2px solid var(--state-done);
+  color: var(--text);
+  font-weight: 600;
+  user-select: none;
+  -webkit-user-select: none;
+  touch-action: none;
+}
+
+.hold-fill {
+  position: absolute;
+  inset: 0 auto 0 0;
+  background: var(--state-done-bg);
+  pointer-events: none;
+}
+
+.hold-label {
+  position: relative;
+}
+
+@media (max-width: 40rem) {
+  .step-actions button {
+    flex: 1 1 100%;
+  }
+}

@@ -24,20 +24,22 @@ const REASON_TEXT: Record<ReasonPolicy, string> = {
 function ProcedureView({ detail }: { detail: ProcedureDetail }) {
   return (
     <>
-      <h5 id="procedure-title">
-        <Icon icon={detail.icon} /> {detail.title}
-      </h5>
-      {/* Plain text: React escapes it; line breaks are preserved by CSS only. */}
-      {detail.description !== '' && <p style={{ whiteSpace: 'pre-wrap' }}>{detail.description}</p>}
-      {detail.tags.length > 0 && <p>Tags: {detail.tags.join(', ')}</p>}
-      {detail.sections.length === 0 && <p>No Sections yet.</p>}
+      <div className="card stack">
+        <h2 id="procedure-title" style={{ margin: 0 }}>
+          <Icon icon={detail.icon} /> {detail.title}
+        </h2>
+        {/* Plain text: React escapes it; line breaks are preserved by CSS only. */}
+        {detail.description !== '' && <p style={{ whiteSpace: 'pre-wrap', margin: 0 }}>{detail.description}</p>}
+        {detail.tags.length > 0 && <p className="muted" style={{ margin: 0 }}>Tags: {detail.tags.join(', ')}</p>}
+      </div>
+      {detail.sections.length === 0 && <p className="muted">No Sections yet.</p>}
       {detail.sections.map((section) => (
-        <section key={section.id} aria-label={`Section: ${section.title}`}>
-          <h6>{section.title}</h6>
+        <section key={section.id} aria-label={`Section: ${section.title}`} className="card">
+          <h3 style={{ marginTop: 0 }}>{section.title}</h3>
           {section.description !== '' && <p style={{ whiteSpace: 'pre-wrap' }}>{section.description}</p>}
           <ol>
             {section.steps.map((step) => (
-              <li key={step.id}>
+              <li key={step.id} style={{ marginBottom: '0.5rem' }}>
                 {step.icon !== null && (
                   <>
                     <Icon icon={step.icon} />{' '}
@@ -176,7 +178,10 @@ export function Procedures(props: {
 
   return (
     <section aria-labelledby="procedures-heading">
-      <h4 id="procedures-heading">Procedures</h4>
+      <div className="page-header">
+        <h2 id="procedures-heading">Procedures</h2>
+        <span className="muted">Reusable checklists. Start a Run to work through one.</span>
+      </div>
       {message !== null && <p role="alert">{message}</p>}
 
       {mode.kind === 'create' && (
@@ -211,15 +216,17 @@ export function Procedures(props: {
       {mode.kind === 'view' && shown !== null && (
         <article aria-labelledby="procedure-title">
           <ProcedureView detail={shown} />
-          <History key={`${shown.id}-${shown.revision}`} label="Procedure history" load={() => api.procedureHistory(workspaceId, shown.id)} />
-          <p>
+          <div className="card">
+            <History key={`${shown.id}-${shown.revision}`} label="Procedure history" load={() => api.procedureHistory(workspaceId, shown.id)} />
+          </div>
+          <p className="row">
             <button type="button" onClick={() => setMode({ kind: 'list' })}>
-              Back to all Procedures
+              ← Back to all Procedures
             </button>{' '}
             {canStartRun && (
               <>
-                <button type="button" onClick={() => void startRun(shown)}>
-                  Start Run
+                <button type="button" className="primary" onClick={() => void startRun(shown)}>
+                  ▶ Start Run
                 </button>{' '}
               </>
             )}
@@ -246,8 +253,10 @@ export function Procedures(props: {
       {(mode.kind === 'view' || mode.kind === 'edit') && shown === null && <p>Loading…</p>}
 
       {mode.kind === 'deleted' && (
-        <section aria-labelledby="deleted-heading">
-          <h5 id="deleted-heading">Deleted Procedures</h5>
+        <section aria-labelledby="deleted-heading" className="card stack">
+          <h3 id="deleted-heading" style={{ marginTop: 0 }}>
+            Deleted Procedures
+          </h3>
           {deleted === null ? (
             <p>Loading…</p>
           ) : deleted.length === 0 ? (
@@ -278,20 +287,20 @@ export function Procedures(props: {
           ) : procedures.length === 0 ? (
             <p>No Procedures yet.</p>
           ) : (
-            <ul aria-label="Procedures">
+            <ul aria-label="Procedures" className="plain-list">
               {procedures.map((procedure) => (
-                <li key={procedure.id}>
-                  <button type="button" onClick={() => open(procedure.id)}>
+                <li key={procedure.id} className="card row" style={{ justifyContent: 'space-between' }}>
+                  <button type="button" className="link-like" style={{ fontSize: '1.1rem', fontWeight: 600 }} onClick={() => open(procedure.id)}>
                     <Icon icon={procedure.icon} /> {procedure.title}
                   </button>
-                  {procedure.tags.length > 0 && <> ({procedure.tags.join(', ')})</>}
+                  {procedure.tags.length > 0 && <span className="muted">{procedure.tags.join(', ')}</span>}
                 </li>
               ))}
             </ul>
           )}
           {canEdit && (
-            <p>
-              <button type="button" onClick={() => setMode({ kind: 'create' })}>
+            <p className="row" style={{ marginTop: '1rem' }}>
+              <button type="button" className="primary" onClick={() => setMode({ kind: 'create' })}>
                 New Procedure
               </button>{' '}
               <label>
