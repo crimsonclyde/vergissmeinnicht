@@ -18,10 +18,10 @@ For every completed task, add a concise completion note, tests/checks performed,
 
 ## Current state — resume here
 
-_Last updated: 2026-09-27 (after 5.5)_
+_Last updated: 2026-09-27 (after 5.6 — section 5 complete)_
 
-**Done:** 0.1, 0.2, 0.3, 1.1, 1.2, 2.1–2.5, 3.1–3.3, 4.1–4.5, 5.1–5.5, 9.1 (pulled forward for invitations). 2.6 (external providers) is DEFERRED.
-**Next:** 5.6 Historical immutability (enforced since 5.4 — verify, document and close).
+**Done:** 0.1, 0.2, 0.3, 1.1, 1.2, 2.1–2.5, 3.1–3.3, 4.1–4.5, 5.1–5.6, 9.1 (pulled forward for invitations). 2.6 (external providers) is DEFERRED.
+**Next:** section 6 — 6.1 SSE active Run updates (the Run `revision` bumps on every change and clients already refetch canonical state after conflicts), 6.2 optimistic UI. Open decision from 5.4 for the user: SKIPPED does not satisfy a required Step at completion.
 
 **UI note (2026-09-27, user feedback):** the web page mixes account settings, Workspace administration, server administration and everyday execution on one unstyled page. Planned remedy — an app shell with navigation (Runs · Procedures · Members · Server admin · Account), real URLs, and a minimal token-based stylesheet — was deferred by the user in favour of continuing with 5.x; pick it up with 8.1/8.3 or earlier on request.
 
@@ -29,7 +29,7 @@ _Last updated: 2026-09-27 (after 5.5)_
 
 Also open: trusted-proxy configuration (10.3) before production use behind a reverse proxy; admin web UI (invitations, recoveries — API only so far); account status changes (disable/enable users) with session revocation; housekeeping of expired challenge/recovery/invitation rows.
 
-**Branches:** work is stacked, not yet merged into `main`: `step-1.1-app-skeleton` → `step-1.2-config` → `step-2.1-user-model` → `step-2.2-invitations` → `step-2.4-totp` → `step-2.5-recovery` → `step-3.1-workspaces` → `step-3.2-roles` → `step-4.1-procedures` → `step-4.2-steps` → `step-4.3-drag-drop` → `step-4.4-import-export` → `step-4.5-restore` → `step-5.1-run-snapshot` → `cleanup-web-domain-constants` → `step-5.2-step-states` → `step-5.3-press-and-hold` → `step-5.4-run-lifecycle` → `step-5.5-audit-trail` (each branch contains the previous ones; 2.3 was completed on `step-2.2-invitations` because acceptance finishes 2.2). CI runs on pull requests / `main` only.
+**Branches:** work is stacked, not yet merged into `main`: `step-1.1-app-skeleton` → `step-1.2-config` → `step-2.1-user-model` → `step-2.2-invitations` → `step-2.4-totp` → `step-2.5-recovery` → `step-3.1-workspaces` → `step-3.2-roles` → `step-4.1-procedures` → `step-4.2-steps` → `step-4.3-drag-drop` → `step-4.4-import-export` → `step-4.5-restore` → `step-5.1-run-snapshot` → `cleanup-web-domain-constants` → `step-5.2-step-states` → `step-5.3-press-and-hold` → `step-5.4-run-lifecycle` → `step-5.5-audit-trail` → `step-5.6-immutability` (each branch contains the previous ones; 2.3 was completed on `step-2.2-invitations` because acceptance finishes 2.2). CI runs on pull requests / `main` only.
 
 **Manual testing:** `test-env/menu.sh` (added 2026-09-27) installs/starts/stops/removes an isolated production-mode instance on port 3200 with demo accounts for every role (see `test-env/README.md`). Extend `test-env/seed.ts` when new features need demo data (e.g. Procedures in 4.1).
 
@@ -940,18 +940,39 @@ Account and access events (logins, MFA, recovery, invitations, Workspace members
 - HTTP: `GET /api/workspaces/{id}/runs/{runId}/history`, `GET /api/workspaces/{id}/procedures/{procedureId}/history` — entries carry the actor's display-name snapshot, never user ids.
 - Web: "Show history" in the Run view and the Procedure view with plain-language entries ("Uma — Stove off: Pending → Skipped — reason: Later", "changed title; 1 Step added (revision 4)").
 
-**Tests/checks:** `pnpm test` — 482 tests (+17): history use-cases (4: full Run story in order with actor snapshots and metadata, only the Run's own events, Procedure history across delete/restore, no cross-Workspace reads, display name kept after rename), HTTP (1: members only, 401/404, no user ids or emails in the response, cross-Workspace), `describeEvent` (3; caught a pluralization bug). `pnpm test:e2e`: history of the completed Run shows start, skip with reason, undo and completion. `pnpm lint`, `pnpm typecheck`. No schema change.
+**Tests/checks:** `pnpm test` — 473 tests (+8): history use-cases (4: full Run story in order with actor snapshots and metadata, only the Run's own events, Procedure history across delete/restore, no cross-Workspace reads, display name kept after rename), HTTP (1: members only, 401/404, no user ids or emails in the response, cross-Workspace), `describeEvent` (3; caught a pluralization bug). `pnpm test:e2e`: history of the completed Run shows start, skip with reason, undo and completion. `pnpm lint`, `pnpm typecheck`. No schema change.
 
 **Security docs updated:** YES (§6 checklist).
 
 **Remaining:** pagination beyond 1000 events; no history view for `security_events` (server-admin audit UI) yet.
 
 ### 5.6 Historical immutability
-**Status:** TODO
+**Status:** DONE
+**Completed:** 2026-09-27
 
 Completed Runs cannot be edited in V1.
 
 Future correction support must be an explicit additive audited workflow; never silently rewrite a completed Run.
+
+**Security impact:** HIGH — integrity of history.
+
+**How it is enforced (layers):**
+1. Application: every Run write path (`changeStepState`, `finish`) requires an ACTIVE Run inside its transaction (`run_not_active` otherwise); there is no API to edit a Run's content, its end data, or audit events.
+2. Database triggers (apply to every writer, including bugs and manual SQL through the app's connection):
+   - `runs_snapshot_immutable`, `run_sections_immutable`, `run_steps_snapshot_immutable` (0011) — the copied definition never changes, for any Run;
+   - `runs_no_delete`, `run_sections_no_delete`, `run_steps_no_delete` (0011) — Runs are never deleted;
+   - `run_steps_state_only_while_active` (0012) — Step state of a non-ACTIVE Run is frozen;
+   - `runs_finished_immutable` (0013) — no column of a COMPLETED/ABORTED Run changes, so it cannot be reopened;
+   - `audit_events_no_update` / `_no_delete` (0008) — history is append-only.
+3. No cascading foreign keys into Runs: Procedure (soft) deletion or edits never touch them; a Procedure with Runs cannot even be hard-deleted.
+
+No correction workflow exists in V1. If one is added, it must be a new, additive, audited record referring to the finished Run — never an update of it (the triggers above would have to stay in place).
+
+**Tests/checks:** `pnpm test` — 474 tests (+1): a completed Run and its audit history stay identical after its Procedure is rewritten and deleted; existing tests cover re-complete/abort/execute refusal (application) and trigger refusals for state, end data, Steps, snapshot and deletes. `pnpm lint`, `pnpm typecheck`.
+
+**Security docs updated:** YES (§6).
+
+**Remaining:** an operator with direct access to the SQLite file can drop triggers — database-level protections guard the application, not the host (see §11 deployment / backups).
 
 ---
 

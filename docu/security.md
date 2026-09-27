@@ -172,6 +172,7 @@ Canonical shape:
 - [x] Audit metadata does not contain credentials/secrets. (Titles, field names, states, counts, reasons and ids only; history responses expose display names, not user ids.)
 - [x] Procedure deletion cannot cascade-delete historical Runs. (Soft delete only; `runs.procedure_id` FK without cascade blocks even a hard delete; Run rows cannot be deleted — triggers.)
 - [x] Historical Run snapshot remains readable after Procedure change/deletion. (Definition copied at start; snapshot columns immutable by triggers; tests edit, restructure and delete the source.)
+- [x] Completed/aborted Runs are immutable (application checks plus triggers `runs_finished_immutable` and `run_steps_state_only_while_active`); no correction workflow in V1 — any future one must be additive and audited.
 
 ---
 

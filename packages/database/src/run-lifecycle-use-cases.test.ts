@@ -12,9 +12,11 @@ import {
   completeRun,
   createProcedure,
   createWorkspace,
+  deleteProcedure,
   getRun,
   listRuns,
   startRun,
+  updateProcedure,
   type ProcedureDeps,
   type ProcedureInput,
   type RunDeps,
@@ -222,6 +224,24 @@ describe('Run lifecycle and historical immutability', () => {
       expect(exec("UPDATE runs SET ended_by_display_name = 'Someone else' WHERE id = ?", run.run.id)).toThrow(/finished/);
       expect(exec("UPDATE run_steps SET state = 'PENDING' WHERE id = ?", must(steps[0]).id)).toThrow(/not active/);
       expect(exec('DELETE FROM runs WHERE id = ?', run.run.id)).toThrow(/never deleted/);
+    });
+
+    it('stays exactly as it was when completed, whatever happens to the Procedure afterwards', async () => {
+      await set(must(steps[0]), 'PENDING', 'DONE');
+      await set(must(steps[1]), 'PENDING', 'DONE');
+      const completed = await complete();
+      const historyBefore = database.sqlite.prepare('SELECT * FROM audit_events WHERE run_id = ? ORDER BY rowid').all(run.run.id);
+      const procedureDeps: ProcedureDeps = { workspaces: workspaceDeps.workspaces, procedures: createProcedureRepository(database), clock: { now: () => new Date() } };
+      await updateProcedure(procedureDeps, {
+        actor: admin,
+        workspaceId: home.id,
+        procedureId: run.run.procedureId,
+        expectedRevision: 1,
+        content: { ...PROCEDURE, title: 'Rewritten', sections: [] },
+      });
+      await deleteProcedure(procedureDeps, { actor: admin, workspaceId: home.id, procedureId: run.run.procedureId });
+      expect(await getRun(deps, { actor: guest, workspaceId: home.id, runId: run.run.id })).toEqual(completed);
+      expect(database.sqlite.prepare('SELECT * FROM audit_events WHERE run_id = ? ORDER BY rowid').all(run.run.id)).toEqual(historyBefore);
     });
 
     it('rejects inconsistent end data at the database level', () => {
