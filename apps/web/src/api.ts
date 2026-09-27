@@ -1,4 +1,10 @@
 /** Thin JSON client for the same-origin API. The browser adds the `Origin` header the server checks. */
+import type { ProcedureIcon, ReasonPolicy, RunState, StepState, WorkspaceRole } from '@vergissmeinnicht/domain';
+
+// Shared vocabulary comes from the domain package (browser-safe, no server code). The server still
+// validates everything; these lists only drive the UI.
+export { PROCEDURE_ICONS, REASON_POLICIES, WORKSPACE_ROLES } from '@vergissmeinnicht/domain';
+export type { ProcedureIcon, ReasonPolicy, RunState, StepState, WorkspaceRole } from '@vergissmeinnicht/domain';
 
 export interface CurrentUser {
   readonly id: string;
@@ -7,8 +13,6 @@ export interface CurrentUser {
   readonly serverAdmin: boolean;
 }
 
-export const WORKSPACE_ROLES = ['GUEST', 'USER', 'EDITOR', 'ADMIN'] as const;
-export type WorkspaceRole = (typeof WORKSPACE_ROLES)[number];
 
 export interface WorkspaceSummary {
   readonly id: string;
@@ -26,29 +30,7 @@ export interface WorkspaceMember {
   readonly status?: string;
 }
 
-/** Must match PROCEDURE_ICONS on the server; the server rejects anything else. */
-export const PROCEDURE_ICONS = [
-  'checklist',
-  'home',
-  'kitchen',
-  'cleaning',
-  'laundry',
-  'garden',
-  'pet',
-  'car',
-  'travel',
-  'tools',
-  'health',
-  'shopping',
-  'document',
-  'security',
-  'star',
-] as const;
-export type ProcedureIcon = (typeof PROCEDURE_ICONS)[number];
 
-/** Must match REASON_POLICIES on the server. */
-export const REASON_POLICIES = ['DISABLED', 'OPTIONAL', 'REQUIRED'] as const;
-export type ReasonPolicy = (typeof REASON_POLICIES)[number];
 
 export interface StepInput {
   /** Existing Step id; omitted for new Steps (the server assigns ids). */
@@ -111,8 +93,6 @@ export interface ProcedureDetail extends Procedure {
   readonly sections: readonly ProcedureSection[];
 }
 
-export type RunState = 'ACTIVE' | 'COMPLETED' | 'ABORTED';
-export type StepState = 'PENDING' | 'DONE' | 'SKIPPED' | 'NOT_APPLICABLE';
 
 export interface RunInfo {
   readonly id: string;

@@ -667,7 +667,7 @@ Create/edit/soft-delete reusable Procedures with title, description, icon, tags,
 **Security docs updated:** YES (§3, §5, §6, "Security check: Procedures (Steps 4.1, 3.3)").
 
 **Remaining:**
-- The web client keeps its own copy of the icon and role lists (guarded by a drift test); switch to importing `@vergissmeinnicht/domain` once the dependency can be added with `pnpm install`.
+- ~~The web client keeps its own copy of the icon and role lists~~ — done 2026-09-27: `apps/web` depends on `@vergissmeinnicht/domain` (browser-safe) and imports `PROCEDURE_ICONS`, `REASON_POLICIES`, `WORKSPACE_ROLES` and the state types; the drift test was removed.
 - No history view of `audit_events` yet; restore of deleted Procedures is 4.5.
 - Search/filter by tag is not implemented (not required by 4.1).
 
