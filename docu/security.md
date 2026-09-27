@@ -489,7 +489,7 @@ The following choices are mandatory V1 behavior:
 **Secrets/data involved:** Procedure definitions (Workspace-confidential) leave the server as files by design; they contain no personal data.  
 **Logging review:** no new log statements; import bodies are not logged.  
 **Authorization review:** export `procedure.view`, import/duplicate `procedure.edit`, all through `authorizeWorkspace`; Procedure ids resolved only within the route's Workspace.  
-**Open risks:** exported files are outside the application's control once downloaded (anyone who can read a Procedure can already copy its content); the lockfile entries for the new workspace links were added by hand and must be verified with `pnpm install --frozen-lockfile`.  
+**Open risks:** exported files are outside the application's control once downloaded (anyone who can read a Procedure can already copy its content); the lockfile entries for the new workspace links were added by hand; verified 2026-09-27 with `pnpm install --frozen-lockfile` (no changes, supply-chain policies passed).  
 **Reviewed:** 2026-09-27
 
 ### Security check: Run snapshots (Step 5.1)

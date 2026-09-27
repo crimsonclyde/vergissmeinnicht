@@ -26,7 +26,7 @@ _Last updated: 2026-09-27 (after 5.1)_
 2. `run.execute` via `authorizeWorkspace` + in-transaction guard; Run must be ACTIVE; the Run's `revision` as concurrency token for collaborative edits (6.1);
 3. reason policies enforced server-side from the snapshotted Step (DISABLED → no reason accepted, REQUIRED → non-empty), undo = transition back to PENDING, every transition one `audit_events` row with `run_id`.
 
-**Lockfile note (4.4):** `apps/server` → `@vergissmeinnicht/import-export` and `packages/import-export` → `zod@4.6.5` were added to `package.json` and `pnpm-lock.yaml` by hand (pnpm was not available in the agent's shell). Verify once with `pnpm install --frozen-lockfile` (must succeed without changes).
+**Lockfile note (4.4):** the hand-edited entries (`apps/server` → `@vergissmeinnicht/import-export`, `packages/import-export` → `zod`) were verified on 2026-09-27 with `pnpm install --frozen-lockfile` (pnpm 12.6.0): lockfile up to date, supply-chain policies passed, no changes.
 
 Also open: trusted-proxy configuration (10.3) before production use behind a reverse proxy; admin web UI (invitations, recoveries — API only so far); account status changes (disable/enable users) with session revocation; housekeeping of expired challenge/recovery/invitation rows.
 
@@ -762,7 +762,7 @@ Canonical JSON includes `schemaVersion`; imported data is hostile input and must
 **Security docs updated:** YES (§5 JSON import checklist, "Security check: Procedure import/export and duplicate (Step 4.4)").
 
 **Remaining:**
-- Verify the hand-edited lockfile with `pnpm install --frozen-lockfile`.
+- ~~Verify the hand-edited lockfile~~ — verified 2026-09-27 (`pnpm install --frozen-lockfile`, no changes).
 - Only schema version 1 exists; a future version needs an explicit upgrade function per older version (never "best effort" parsing).
 - Bulk export/import of several Procedures is not part of V1.
 
