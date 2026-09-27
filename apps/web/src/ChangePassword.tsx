@@ -1,6 +1,7 @@
 import { useState, type FormEvent } from 'react';
 import { api, messageFor } from './api.ts';
 import { NewPasswordFields } from './NewPasswordFields.tsx';
+import { t } from './i18n/index.ts';
 
 export function ChangePassword() {
   const [open, setOpen] = useState(false);
@@ -20,7 +21,7 @@ export function ChangePassword() {
   async function submit(event: FormEvent) {
     event.preventDefault();
     if (password !== confirmation) {
-      setMessage('The passwords do not match.');
+      setMessage(t('password.mismatch'));
       return;
     }
     setBusy(true);
@@ -28,7 +29,7 @@ export function ChangePassword() {
     try {
       await api.changePassword(current, password);
       reset(false);
-      setMessage('Password changed. All other sessions were signed out.');
+      setMessage(t('password.changed'));
     } catch (caught) {
       setMessage(messageFor(caught));
       setCurrent('');
@@ -39,33 +40,33 @@ export function ChangePassword() {
 
   return (
     <section aria-labelledby="password-heading">
-      <h3 id="password-heading">Password</h3>
+      <h3 id="password-heading">{t('password.heading')}</h3>
       {message !== null && <p role="status">{message}</p>}
       {!open ? (
         <button type="button" onClick={() => reset(true)}>
-          Change password
+          {t('password.change')}
         </button>
       ) : (
         <form onSubmit={submit}>
           <p>
             <label>
-              Current password
+              {t('password.current')}
               <br />
               <input type="password" autoComplete="current-password" required value={current} onChange={(e) => setCurrent(e.target.value)} />
             </label>
           </p>
           <NewPasswordFields
-            label="New password"
+            label={t('password.new')}
             password={password}
             confirmation={confirmation}
             onPassword={setPassword}
             onConfirmation={setConfirmation}
           />
           <button type="submit" disabled={busy}>
-            Save new password
+            {t('password.save')}
           </button>{' '}
           <button type="button" onClick={() => reset(false)}>
-            Cancel
+            {t('common.cancel')}
           </button>
         </form>
       )}

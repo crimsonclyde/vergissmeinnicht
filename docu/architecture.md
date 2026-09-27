@@ -18,6 +18,9 @@ Vergissmeinnicht is a **TypeScript modular monolith** deployed as one applicatio
 - semantic design-token based UI
 - English first, i18n-ready
 
+### Web text and formatting
+User-facing text lives in `apps/web/src/i18n/en.ts` and is looked up with `t(key, params)`; dates are formatted only through `formatDateTime` / `formatTime` (lint-enforced). A translation is a new typed catalog, not a component change. Themes are token blocks selected by `<html data-theme>` (`apps/web/src/theme.ts`).
+
 ### Testing
 - Vitest for unit/integration tests
 - Playwright for end-to-end/browser tests

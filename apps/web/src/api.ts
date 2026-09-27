@@ -1,5 +1,6 @@
 /** Thin JSON client for the same-origin API. The browser adds the `Origin` header the server checks. */
 import type { ProcedureIcon, ReasonPolicy, RunState, StepState, WorkspaceRole } from '@vergissmeinnicht/domain';
+import { hasMessage, t } from './i18n/index.ts';
 
 // Shared vocabulary comes from the domain package (browser-safe, no server code). The server still
 // validates everything; these lists only drive the UI.
@@ -176,86 +177,10 @@ export interface MfaStatus {
   readonly recoveryCodesRemaining: number;
 }
 
-/** User-facing texts for the API's stable error codes. */
-export const ERROR_MESSAGES: Record<string, string> = {
-  invalid_credentials: 'Email or password is not correct.',
-  rate_limited: 'Too many attempts. Please wait a few minutes and try again.',
-  invalid_code: 'That code is not valid. Codes can only be used once.',
-  mfa_locked: 'Too many wrong codes. Authenticator codes are locked for a while; a recovery code still works.',
-  mfa_challenge_invalid: 'The sign-in has expired. Please enter your password again.',
-  reauthentication_failed: 'Your current password is not correct.',
-  no_pending_enrollment: 'The setup has expired. Please start again.',
-  totp_already_enabled: 'Two-factor authentication is already enabled.',
-  totp_not_enabled: 'Two-factor authentication is not enabled.',
-  invalid_recovery: 'This recovery link is invalid, has expired or was already used.',
-  password_too_short: 'The new password must be at least 15 characters.',
-  password_too_long: 'The new password must be at most 128 characters.',
-  invitation_not_pending: 'This invitation is no longer pending.',
-  account_exists: 'An account with this email address already exists.',
-  account_not_active: 'This account is disabled.',
-  nothing_to_recover: 'This account has no two-factor authentication to reset.',
-  second_factor_required: 'Enter your own authenticator code (or a recovery code) to confirm.',
-  workspace_not_found: 'This Workspace does not exist or you are no longer a member.',
-  forbidden: 'You are not allowed to do this.',
-  unknown_account: 'There is no active account with this email address. A server admin must invite the person first.',
-  already_member: 'This person is already a member.',
-  last_workspace_admin: 'A Workspace needs at least one active admin. Make someone else admin first.',
-  member_not_found: 'This person is no longer a member.',
-  workspace_name_empty: 'Please enter a name.',
-  workspace_name_too_long: 'The name must be at most 80 characters.',
-  workspace_name_invalid_characters: 'The name contains characters that are not allowed.',
-  invalid_email: 'Please enter a valid email address.',
-  procedure_not_found: 'This Procedure no longer exists.',
-  procedure_conflict: 'Someone else changed this Procedure in the meantime. Reload it and apply your changes again.',
-  procedure_limit_reached: 'This Workspace has reached the maximum number of Procedures.',
-  procedure_title_empty: 'Please enter a title.',
-  procedure_title_too_long: 'The title must be at most 120 characters.',
-  procedure_title_invalid_characters: 'The title contains characters that are not allowed.',
-  description_too_long: 'The description must be at most 4000 characters.',
-  description_invalid_characters: 'The description contains characters that are not allowed.',
-  tag_too_long: 'Each tag must be at most 32 characters.',
-  tag_invalid_characters: 'A tag contains characters that are not allowed.',
-  too_many_tags: 'A Procedure can have at most 10 tags.',
-  too_many_sections: 'A Procedure can have at most 50 Sections.',
-  too_many_steps: 'A Procedure can have at most 200 Steps.',
-  section_title_empty: 'Every Section needs a title.',
-  section_title_too_long: 'Section titles must be at most 120 characters.',
-  section_title_invalid_characters: 'A Section title contains characters that are not allowed.',
-  step_title_empty: 'Every Step needs a title.',
-  step_title_too_long: 'Step titles must be at most 200 characters.',
-  step_title_invalid_characters: 'A Step title contains characters that are not allowed.',
-  invalid_document: 'This file is not a valid Procedure export.',
-  unsupported_format: 'This file is not a Vergissmeinnicht Procedure.',
-  unsupported_schema_version: 'This file was created by a different version of Vergissmeinnicht and cannot be imported.',
-  invalid_icon: 'The file uses an unknown icon.',
-  invalid_reason_policy: 'The file uses an unknown reason setting.',
-  invalid_request: 'The request was not valid.',
-  run_not_found: 'This Run does not exist.',
-  step_not_found: 'This Step does not exist.',
-  required_steps_open: 'Some required Steps are still pending or skipped. Mark them done or not applicable, or abort the Run.',
-  run_not_active: 'This Run is finished; its Steps can no longer change.',
-  step_conflict: 'Someone else changed this Step just now. The Run has been reloaded.',
-  invalid_transition: 'This change is not possible. Undo the Step first.',
-  reason_required: 'Please give a reason.',
-  reason_not_allowed: 'This Step does not take a reason.',
-  reason_too_long: 'The reason must be at most 500 characters.',
-  reason_invalid_characters: 'The reason contains characters that are not allowed.',
-  procedure_has_no_steps: 'This Procedure has no Steps yet. Add at least one Step before starting a Run.',
-  run_limit_reached: 'This Workspace has too many active Runs. Finish some before starting new ones.',
-  too_many_streams: 'Live updates are not available right now because too many are open. Reload the page to see changes.',
-  knot_not_found: 'This Knot link is not valid: it may have expired or been revoked, or you do not have access to what it points to.',
-  knot_already_revoked: 'This Knot link was already revoked.',
-  knot_target_not_found: 'What this Knot link should point to no longer exists.',
-  knot_limit_reached: 'This Workspace has too many active Knot links. Revoke some first.',
-  knot_label_empty: 'Please give the link a name.',
-  knot_label_too_long: 'The name must be at most 80 characters.',
-  knot_label_invalid_characters: 'The name contains characters that are not allowed.',
-  invalid_knot_expiry: 'Choose a lifetime between 1 and 365 days, or no expiry.',
-  invalid_item_reference: 'This Procedure was restructured in the meantime. Reload it and apply your changes again.',
-};
-
-export function messageFor(error: unknown, fallback = 'Something went wrong. Please try again.'): string {
-  return (error instanceof ApiError ? ERROR_MESSAGES[error.code] : undefined) ?? fallback;
+/** User-facing text for an API error: the catalog's `error.<code>` message, else the fallback. */
+export function messageFor(error: unknown, fallback: string = t('error.generic')): string {
+  const key = error instanceof ApiError ? `error.${error.code}` : '';
+  return hasMessage(key) ? t(key) : fallback;
 }
 
 export class ApiError extends Error {

@@ -1,5 +1,6 @@
 import { useEffect, useState, type FormEvent } from 'react';
-import { ApiError, ERROR_MESSAGES, api, messageFor } from './api.ts';
+import { ApiError, api, messageFor } from './api.ts';
+import { t } from './i18n/index.ts';
 import { NewPasswordFields } from './NewPasswordFields.tsx';
 
 type Recovery = Awaited<ReturnType<typeof api.resolveRecovery>>;
@@ -33,7 +34,7 @@ export function RecoverAccount({ token }: { token: string }) {
     event.preventDefault();
     setError(null);
     if (recovery.resetPassword && password !== confirmation) {
-      setError('The passwords do not match.');
+      setError(t('password.mismatch'));
       return;
     }
     setBusy(true);
@@ -50,21 +51,24 @@ export function RecoverAccount({ token }: { token: string }) {
     }
   }
 
-  if (state.kind === 'loading') return <p>Checking recovery link…</p>;
+  if (state.kind === 'loading') return <p>{t('recover.checking')}</p>;
   if (state.kind === 'invalid') {
     return (
       <section aria-labelledby="recover-heading">
-        <h2 id="recover-heading">Recovery link not valid</h2>
-        <p role="alert">{ERROR_MESSAGES.invalid_recovery} Ask an administrator for a new one.</p>
+        <h2 id="recover-heading">{t('recover.invalidHeading')}</h2>
+        <p role="alert">
+          {t('error.invalid_recovery')} {t('recover.askAdmin')}
+        </p>
       </section>
     );
   }
   if (state.kind === 'done') {
     return (
       <section aria-labelledby="recover-heading">
-        <h2 id="recover-heading">Account recovered</h2>
+        <h2 id="recover-heading">{t('recover.doneHeading')}</h2>
+        <p>{t('recover.done')}</p>
         <p>
-          All previous sessions were signed out. <a href="/">Sign in</a> again.
+          <a href="/">{t('invite.signIn')}</a>
         </p>
       </section>
     );
@@ -73,18 +77,16 @@ export function RecoverAccount({ token }: { token: string }) {
   const { recovery } = state;
   return (
     <form onSubmit={(e) => void submit(e, recovery)} aria-labelledby="recover-heading">
-      <h2 id="recover-heading">Recover your account</h2>
-      <p>
-        Account <strong>{recovery.email}</strong>
-      </p>
+      <h2 id="recover-heading">{t('recover.heading')}</h2>
+      <p>{t('recover.account', { email: recovery.email })}</p>
       <input type="email" autoComplete="username" value={recovery.email} readOnly hidden />
       <ul>
-        {recovery.resetPassword && <li>Choose a new password.</li>}
-        {recovery.resetTotp && <li>Two-factor authentication will be removed; you can set it up again afterwards.</li>}
+        {recovery.resetPassword && <li>{t('recover.resetPassword')}</li>}
+        {recovery.resetTotp && <li>{t('recover.resetTotp')}</li>}
       </ul>
       {recovery.resetPassword ? (
         <NewPasswordFields
-          label="New password"
+          label={t('password.new')}
           password={password}
           confirmation={confirmation}
           onPassword={setPassword}
@@ -93,7 +95,7 @@ export function RecoverAccount({ token }: { token: string }) {
       ) : (
         <p>
           <label>
-            Current password
+            {t('password.current')}
             <br />
             <input type="password" autoComplete="current-password" required value={current} onChange={(e) => setCurrent(e.target.value)} />
           </label>
@@ -101,7 +103,7 @@ export function RecoverAccount({ token }: { token: string }) {
       )}
       {error !== null && <p role="alert">{error}</p>}
       <button type="submit" disabled={busy}>
-        Recover account
+        {t('recover.submit')}
       </button>
     </form>
   );

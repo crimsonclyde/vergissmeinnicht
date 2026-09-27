@@ -1,3 +1,5 @@
+import { t } from './i18n/index.ts';
+
 /** Same bound as the server's body limit for imports. */
 export const MAX_IMPORT_BYTES = 1024 * 1024;
 
@@ -27,10 +29,10 @@ export type ReadResult = { readonly ok: true; readonly document: unknown } | { r
 
 /** Reads a selected file as JSON. Only a size and syntax pre-check: the server validates everything. */
 export async function readImportFile(file: File): Promise<ReadResult> {
-  if (file.size > MAX_IMPORT_BYTES) return { ok: false, message: 'The file is too large (maximum 1 MB).' };
+  if (file.size > MAX_IMPORT_BYTES) return { ok: false, message: t('import.tooLarge') };
   try {
     return { ok: true, document: JSON.parse(await file.text()) as unknown };
   } catch {
-    return { ok: false, message: 'The file is not valid JSON.' };
+    return { ok: false, message: t('import.notJson') };
   }
 }

@@ -9,14 +9,9 @@ import {
   type SectionInput,
   type StepInput,
 } from './api.ts';
-import { ICONS } from './procedure-icons.tsx';
+import { ICON_GLYPHS, iconLabel } from './procedure-icons.tsx';
 import { moveItem, moveStep, type StepPosition } from './structure-moves.ts';
-
-const POLICY_LABELS: Record<ReasonPolicy, string> = {
-  DISABLED: 'No reason',
-  OPTIONAL: 'Reason optional',
-  REQUIRED: 'Reason required',
-};
+import { t } from './i18n/index.ts';
 
 // Client-only keys keep React state attached to the right row while items move.
 type Keyed<T> = T & { readonly key: number };
@@ -101,10 +96,10 @@ function IconSelect(props: { label: string; value: ProcedureIcon | null; allowNo
         value={props.value ?? ''}
         onChange={(e) => props.onChange(e.target.value === '' ? null : (e.target.value as ProcedureIcon))}
       >
-        {props.allowNone && <option value="">No icon</option>}
+        {props.allowNone && <option value="">{t('icon.none')}</option>}
         {PROCEDURE_ICONS.map((key) => (
           <option key={key} value={key}>
-            {ICONS[key].glyph} {ICONS[key].label}
+            {ICON_GLYPHS[key]} {iconLabel(key)}
           </option>
         ))}
       </select>
@@ -120,7 +115,7 @@ function PolicySelect(props: { label: string; value: ReasonPolicy; onChange: (po
       <select id={id} value={props.value} onChange={(e) => props.onChange(e.target.value as ReasonPolicy)}>
         {REASON_POLICIES.map((policy) => (
           <option key={policy} value={policy}>
-            {POLICY_LABELS[policy]}
+            {t(`policy.${policy}`)}
           </option>
         ))}
       </select>
@@ -147,48 +142,47 @@ function StepEditor(props: {
   return (
     <fieldset {...props.drag.target}>
       <legend>
-        <DragHandle {...props.drag.handle} label={`Drag step ${number}`} /> Step {number}
+        <DragHandle {...props.drag.handle} label={t('form.dragStep', { number })} /> {t('form.step', { number })}
       </legend>
       <p>
         <label>
-          Step {number} title
+          {t('form.stepTitle', { number })}
           <br />
           <input required maxLength={200} value={step.title} onChange={(e) => set({ title: e.target.value })} />
         </label>
       </p>
       <p>
         <label>
-          Step {number} description
+          {t('form.stepDescription', { number })}
           <br />
           <textarea rows={2} maxLength={4000} value={step.description} onChange={(e) => set({ description: e.target.value })} />
         </label>
       </p>
       <p>
-        <IconSelect label={`Step ${number} icon`} value={step.icon} allowNone onChange={(icon) => set({ icon })} />{' '}
+        <IconSelect label={t('form.stepIcon', { number })} value={step.icon} allowNone onChange={(icon) => set({ icon })} />{' '}
         <label>
-          <input type="checkbox" checked={step.required} onChange={(e) => set({ required: e.target.checked })} /> Required
+          <input type="checkbox" checked={step.required} onChange={(e) => set({ required: e.target.checked })} /> {t('form.required')}
         </label>{' '}
         <label>
-          <input type="checkbox" checked={step.critical} onChange={(e) => set({ critical: e.target.checked })} /> Critical
-          (press and hold to confirm)
+          <input type="checkbox" checked={step.critical} onChange={(e) => set({ critical: e.target.checked })} /> {t('form.critical')}
         </label>
       </p>
       <p>
-        <PolicySelect label="When skipped:" value={step.skipReasonPolicy} onChange={(skipReasonPolicy) => set({ skipReasonPolicy })} />{' '}
+        <PolicySelect label={t('form.whenSkipped')} value={step.skipReasonPolicy} onChange={(skipReasonPolicy) => set({ skipReasonPolicy })} />{' '}
         <PolicySelect
-          label="When not applicable:"
+          label={t('form.whenNotApplicable')}
           value={step.notApplicableReasonPolicy}
           onChange={(notApplicableReasonPolicy) => set({ notApplicableReasonPolicy })}
         />
       </p>
       <p>
-        <button type="button" disabled={props.isFirst} onClick={() => props.onMove(-1)} aria-label={`Move step ${number} up`}>
+        <button type="button" disabled={props.isFirst} onClick={() => props.onMove(-1)} aria-label={t('form.stepUp', { number })}>
           ↑
         </button>{' '}
-        <button type="button" disabled={props.isLast} onClick={() => props.onMove(1)} aria-label={`Move step ${number} down`}>
+        <button type="button" disabled={props.isLast} onClick={() => props.onMove(1)} aria-label={t('form.stepDown', { number })}>
           ↓
         </button>{' '}
-        <label htmlFor={moveId}>Move step {number} to section</label>{' '}
+        <label htmlFor={moveId}>{t('form.moveToSection', { number })}</label>{' '}
         <select
           id={moveId}
           value={props.sectionNumber - 1}
@@ -196,12 +190,12 @@ function StepEditor(props: {
         >
           {props.sectionTitles.map((title, i) => (
             <option key={i} value={i}>
-              {i + 1}. {title === '' ? '(untitled)' : title}
+              {t('form.sectionOption', { number: i + 1, title: title === '' ? t('form.untitled') : title })}
             </option>
           ))}
         </select>{' '}
         <button type="button" onClick={props.onRemove}>
-          Remove step {number}
+          {t('form.removeStep', { number })}
         </button>
       </p>
     </fieldset>
@@ -291,24 +285,24 @@ export function ProcedureForm(props: {
       {message !== null && <p role="alert">{message}</p>}
       <p>
         <label>
-          Title
+          {t('form.title')}
           <br />
           <input required maxLength={120} value={title} onChange={(e) => setTitle(e.target.value)} />
         </label>
       </p>
       <p>
         <label>
-          Description
+          {t('form.description')}
           <br />
           <textarea rows={3} maxLength={4000} value={description} onChange={(e) => setDescription(e.target.value)} />
         </label>
       </p>
       <p>
-        <IconSelect label="Icon" value={icon} allowNone={false} onChange={(next) => setIcon(next ?? 'checklist')} />
+        <IconSelect label={t('form.icon')} value={icon} allowNone={false} onChange={(next) => setIcon(next ?? 'checklist')} />
       </p>
       <p>
         <label>
-          Tags (comma-separated)
+          {t('form.tags')}
           <br />
           <input value={tags} onChange={(e) => setTags(e.target.value)} />
         </label>
@@ -320,18 +314,19 @@ export function ProcedureForm(props: {
           {...target('section', (item) => item.kind === 'section' && setSections((current) => moveItem(current, item.index, index)))}
         >
           <legend>
-            <DragHandle {...handle({ kind: 'section', index })} label={`Drag section ${index + 1}`} /> Section {index + 1}
+            <DragHandle {...handle({ kind: 'section', index })} label={t('form.dragSection', { number: index + 1 })} />{' '}
+            {t('form.section', { number: index + 1 })}
           </legend>
           <p>
             <label>
-              Section {index + 1} title
+              {t('form.sectionTitle', { number: index + 1 })}
               <br />
               <input required maxLength={120} value={section.title} onChange={(e) => updateSection(index, { title: e.target.value })} />
             </label>
           </p>
           <p>
             <label>
-              Section {index + 1} description
+              {t('form.sectionDescription', { number: index + 1 })}
               <br />
               <textarea
                 rows={2}
@@ -379,17 +374,17 @@ export function ProcedureForm(props: {
               )}
               style={{ border: '1px dashed', padding: '0.5em' }}
             >
-              Drop here to move the step to the end of section {index + 1}
+              {t('form.dropHere', { number: index + 1 })}
             </p>
           )}
           <p>
             <button type="button" onClick={() => updateSteps(index, (steps) => [...steps, keyed(NEW_STEP)])}>
-              Add step to section {index + 1}
+              {t('form.addStep', { number: index + 1 })}
             </button>{' '}
             <button
               type="button"
               disabled={index === 0}
-              aria-label={`Move section ${index + 1} up`}
+              aria-label={t('form.sectionUp', { number: index + 1 })}
               onClick={() => setSections((current) => moveItem(current, index, index - 1))}
             >
               ↑
@@ -397,20 +392,20 @@ export function ProcedureForm(props: {
             <button
               type="button"
               disabled={index === sections.length - 1}
-              aria-label={`Move section ${index + 1} down`}
+              aria-label={t('form.sectionDown', { number: index + 1 })}
               onClick={() => setSections((current) => moveItem(current, index, index + 1))}
             >
               ↓
             </button>{' '}
             <button type="button" onClick={() => setSections((current) => current.filter((_, i) => i !== index))}>
-              Remove section {index + 1}
+              {t('form.removeSection', { number: index + 1 })}
             </button>
           </p>
         </fieldset>
       ))}
       <p>
         <button type="button" onClick={() => setSections((current) => [...current, keyed({ title: '', description: '', steps: [] })])}>
-          Add section
+          {t('form.addSection')}
         </button>
       </p>
 
@@ -418,7 +413,7 @@ export function ProcedureForm(props: {
         {props.submitLabel}
       </button>{' '}
       <button type="button" onClick={props.onCancel}>
-        Cancel
+        {t('common.cancel')}
       </button>
     </form>
   );

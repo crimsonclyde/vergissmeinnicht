@@ -1,3 +1,5 @@
+import { t } from './i18n/index.ts';
+
 export const MIN_PASSWORD_LENGTH = 15;
 
 /** New password + confirmation, shared by invitation, recovery and password change. */
@@ -12,7 +14,7 @@ export function NewPasswordFields(props: {
     <>
       <p>
         <label>
-          {props.label ?? 'Password'} (at least {MIN_PASSWORD_LENGTH} characters)
+          {t('password.field', { label: props.label ?? t('password.default'), min: MIN_PASSWORD_LENGTH })}
           <br />
           <input
             type="password"
@@ -27,7 +29,7 @@ export function NewPasswordFields(props: {
       </p>
       <p>
         <label>
-          Repeat password
+          {t('password.repeat')}
           <br />
           <input
             type="password"

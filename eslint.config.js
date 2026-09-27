@@ -68,4 +68,18 @@ export default tseslint.config(
       ),
     },
   },
+  {
+    // i18n readiness (steps.md 8.4): dates and numbers are formatted in one place, for one locale.
+    files: ['apps/web/src/**'],
+    ignores: ['apps/web/src/i18n/**'],
+    rules: {
+      'no-restricted-properties': [
+        'error',
+        ...['toLocaleString', 'toLocaleDateString', 'toLocaleTimeString'].map((property) => ({
+          property,
+          message: 'Use formatDateTime/formatTime from ./i18n so formatting follows the app locale.',
+        })),
+      ],
+    },
+  },
 );

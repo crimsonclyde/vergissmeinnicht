@@ -2,22 +2,17 @@ import { useCallback, useEffect, useState, type FormEvent } from 'react';
 import { api, messageFor, WORKSPACE_ROLES, type WorkspaceMember, type WorkspaceRole } from './api.ts';
 import { navigate } from './router.tsx';
 import type { WorkspaceContext } from './workspace-context.ts';
+import { t } from './i18n/index.ts';
 
-export const ROLE_LABELS: Record<WorkspaceRole, string> = { GUEST: 'Guest', USER: 'User', EDITOR: 'Editor', ADMIN: 'Admin' };
-
-const ROLE_HELP: Record<WorkspaceRole, string> = {
-  GUEST: 'can read Procedures and Runs',
-  USER: 'can also start and execute Runs',
-  EDITOR: 'can also create and edit Procedures',
-  ADMIN: 'can also manage members and settings',
-};
+export const roleLabel = (role: WorkspaceRole): string => t(`role.${role}`);
+const roleHelp = (role: WorkspaceRole): string => t(`roleHelp.${role}`);
 
 function RoleSelect(props: { label: string; value: WorkspaceRole; disabled?: boolean; onChange: (role: WorkspaceRole) => void }) {
   return (
     <select aria-label={props.label} value={props.value} disabled={props.disabled} onChange={(e) => props.onChange(e.target.value as WorkspaceRole)}>
       {WORKSPACE_ROLES.map((role) => (
         <option key={role} value={role}>
-          {ROLE_LABELS[role]}
+          {roleLabel(role)}
         </option>
       ))}
     </select>
@@ -48,27 +43,25 @@ function AddMember({ workspaceId, onAdded }: { workspaceId: string; onAdded: () 
   return (
     <form onSubmit={submit} className="card stack" aria-labelledby="add-member-heading">
       <h3 id="add-member-heading" style={{ marginTop: 0 }}>
-        Add member
+        {t('members.addHeading')}
       </h3>
-      <p className="muted">The person needs an account first. A server admin invites new people.</p>
+      <p className="muted">{t('members.addHint')}</p>
       {message !== null && <p role="alert">{message}</p>}
       <div className="row">
         <label>
-          Member email
+          {t('members.email')}
           <br />
           <input type="email" required value={email} onChange={(e) => setEmail(e.target.value)} />
         </label>
         <label>
-          Role
+          {t('members.role')}
           <br />
-          <RoleSelect label="Role for new member" value={role} onChange={setRole} />
+          <RoleSelect label={t('members.roleForNew')} value={role} onChange={setRole} />
         </label>
       </div>
-      <p className="muted">
-        {ROLE_LABELS[role]} {ROLE_HELP[role]}.
-      </p>
+      <p className="muted">{t('members.roleExplained', { role: roleLabel(role), help: roleHelp(role) })}</p>
       <button type="submit" className="primary" disabled={busy}>
-        Add
+        {t('members.add')}
       </button>
     </form>
   );
@@ -84,7 +77,7 @@ function RenameWorkspace({ context, onRenamed }: { context: WorkspaceContext; on
     try {
       await api.renameWorkspace(context.workspace.id, name);
       onRenamed();
-      setMessage('Saved.');
+      setMessage(t('workspace.saved'));
     } catch (caught) {
       setMessage(messageFor(caught));
     }
@@ -92,14 +85,14 @@ function RenameWorkspace({ context, onRenamed }: { context: WorkspaceContext; on
 
   return (
     <form onSubmit={submit} className="card stack">
-      <h3 style={{ marginTop: 0 }}>Workspace name</h3>
+      <h3 style={{ marginTop: 0 }}>{t('workspace.nameHeading')}</h3>
       {message !== null && <p role="status">{message}</p>}
       <label>
-        Name
+        {t('workspace.name')}
         <br />
         <input required maxLength={80} value={name} onChange={(e) => setName(e.target.value)} />
       </label>
-      <button type="submit">Rename Workspace</button>
+      <button type="submit">{t('workspace.rename')}</button>
     </form>
   );
 }
@@ -136,26 +129,26 @@ export function MembersPage(props: { context: WorkspaceContext; currentUserId: s
   return (
     <>
       <div className="page-header">
-        <h2>Members</h2>
+        <h2>{t('members.heading')}</h2>
         <span className="muted">
-          Your role: {ROLE_LABELS[context.workspace.role]} — {ROLE_HELP[context.workspace.role]}
+          {t('members.yourRole', { role: roleLabel(context.workspace.role), help: roleHelp(context.workspace.role) })}
         </span>
       </div>
       {message !== null && <p role="alert">{message}</p>}
       {!canView ? (
-        <p className="muted">Guests cannot see the member list.</p>
+        <p className="muted">{t('members.guestsCannotSee')}</p>
       ) : members === null ? (
-        <p>Loading…</p>
+        <p>{t('common.loading')}</p>
       ) : (
         <div className="card">
           <table>
-            <caption>Members</caption>
+            <caption>{t('members.heading')}</caption>
             <thead>
               <tr>
-                <th scope="col">Name</th>
-                {canManage && <th scope="col">Email</th>}
-                <th scope="col">Role</th>
-                {canManage && <th scope="col">Actions</th>}
+                <th scope="col">{t('members.column.name')}</th>
+                {canManage && <th scope="col">{t('members.column.email')}</th>}
+                <th scope="col">{t('members.column.role')}</th>
+                {canManage && <th scope="col">{t('members.column.actions')}</th>}
               </tr>
             </thead>
             <tbody>
@@ -163,27 +156,27 @@ export function MembersPage(props: { context: WorkspaceContext; currentUserId: s
                 <tr key={member.userId}>
                   <td>
                     {member.displayName}
-                    {member.userId === props.currentUserId && <span className="muted"> (you)</span>}
-                    {member.status === 'DISABLED' && ' (disabled)'}
+                    {member.userId === props.currentUserId && <span className="muted">{t('members.you')}</span>}
+                    {member.status === 'DISABLED' && t('members.disabled')}
                   </td>
                   {canManage && <td>{member.email}</td>}
                   <td>
                     {canManage ? (
                       <RoleSelect
-                        label={`Role of ${member.displayName}`}
+                        label={t('members.roleOf', { name: member.displayName })}
                         value={member.role}
                         disabled={busy}
                         onChange={(role) => void act(() => api.changeMemberRole(workspaceId, member.userId, role))}
                       />
                     ) : (
-                      ROLE_LABELS[member.role]
+                      roleLabel(member.role)
                     )}
                   </td>
                   {canManage && (
                     <td>
                       {member.userId !== props.currentUserId && (
                         <button type="button" className="quiet" disabled={busy} onClick={() => void act(() => api.removeMember(workspaceId, member.userId))}>
-                          Remove {member.displayName}
+                          {t('members.remove', { name: member.displayName })}
                         </button>
                       )}
                     </td>
@@ -199,13 +192,13 @@ export function MembersPage(props: { context: WorkspaceContext; currentUserId: s
         <RenameWorkspace context={context} onRenamed={props.onWorkspacesChanged} />
       )}
       <div className="card stack">
-        <h3 style={{ marginTop: 0 }}>Leave this Workspace</h3>
-        <p className="muted">An admin must add you again to regain access. The last admin cannot leave.</p>
+        <h3 style={{ marginTop: 0 }}>{t('workspace.leaveHeading')}</h3>
+        <p className="muted">{t('workspace.leaveHint')}</p>
         <button
           type="button"
           disabled={busy}
           onClick={() => {
-            if (window.confirm('Leave this Workspace? An admin must add you again to regain access.')) {
+            if (window.confirm(t('workspace.leaveConfirm'))) {
               void act(
                 () => api.leaveWorkspace(workspaceId),
                 () => {
@@ -216,7 +209,7 @@ export function MembersPage(props: { context: WorkspaceContext; currentUserId: s
             }
           }}
         >
-          Leave Workspace
+          {t('workspace.leave')}
         </button>
       </div>
     </>

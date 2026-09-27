@@ -18,10 +18,10 @@ For every completed task, add a concise completion note, tests/checks performed,
 
 ## Current state — resume here
 
-_Last updated: 2026-09-27 (after 7.1 — sections 6 and 7 complete)_
+_Last updated: 2026-09-27 (after 8.4 — sections 6, 7, 8 (except deferred 8.5) and 11 complete)_
 
-**Done:** 0.1, 0.2, 0.3, 1.1, 1.2, 2.1–2.5, 3.1–3.3, 4.1–4.5, 5.1–5.6, 6.1, 6.2, 7.1, 8.0 (pulled forward), 9.1 (pulled forward for invitations). 2.6 (external providers) is DEFERRED.
-**Next:** section 8 — 8.1 responsive authoring/execution, 8.2 state presentation, 8.3 theme toggle, 8.4 i18n readiness. Open decisions for the user: SKIPPED does not satisfy a required Step at completion (5.4); the Knot design choices in 7.1 (targets, `knot.manage` for EDITOR/ADMIN, link shown once).
+**Done:** 0.1, 0.2, 0.3, 1.1, 1.2, 2.1–2.5, 3.1–3.3, 4.1–4.5, 5.1–5.6, 6.1, 6.2, 7.1, 8.0–8.4, 11.1, 9.1 (pulled forward for invitations). 2.6 (external providers) is DEFERRED.
+**Next:** section 10 — 10.1 Docker Compose, 10.2 backup/restore, 10.3 production hardening. Open decisions for the user: SKIPPED does not satisfy a required Step at completion (5.4); the Knot design choices in 7.1 (targets, `knot.manage` for EDITOR/ADMIN, link shown once).
 
 **UI (2026-09-27):** the app shell from the user's feedback is done as 8.0 (navigation, separate pages, stylesheet, admin UI, clearer press-and-hold). Themes toggle (8.3), i18n (8.4) and a full accessibility review remain.
 
@@ -1198,9 +1198,24 @@ Future named presets such as `Memento Mori` must not require business-component 
 **Remaining:** no named preset yet (Memento Mori reserved); the theme choice is per browser, not synced across devices.
 
 ### 8.4 i18n readiness
-**Status:** TODO
+**Status:** DONE
+**Completed:** 2026-09-27
 
 V1 ships English only, but user-facing strings must be structured so adding translations later does not require rewriting business logic/components.
+
+**Security impact:** NONE — client-side text only (messages are rendered as plain text, never HTML).
+
+**Implemented:**
+- `apps/web/src/i18n/`: `en.ts` is the reference catalog (455 keys grouped by area); `t(key, params)` fills `{name}` placeholders and chooses plural forms by `{count}` via `Intl.PluralRules`; `Messages = Record<MessageKey, Message>` makes TypeScript require every key in any future catalog; `hasMessage` for server error codes; `formatDateTime` / `formatTime` via `Intl.DateTimeFormat` (UI language, with the browser's regional variant for date formats); `setLocale` also sets `<html lang>`.
+- **Every component's user-facing text now comes from the catalog**: shell and navigation, sign-in/MFA, invitation and recovery pages, account (password, two-factor, appearance), Members, server admin, Procedures and the Procedure form (incl. icon names, reason policies, drag/move labels and accessible names), Runs (states, summaries, progress, dock, finishing, live updates, optimistic errors), press-and-hold, history descriptions, Knot links, footer. API error texts moved from `api.ts` into `error.<code>` keys (`messageFor` looks them up). Sentences that embedded links were rephrased so no translation has to be split into fragments. Only the product name stays literal.
+- Guards: ESLint forbids `toLocaleString` / `toLocaleDateString` / `toLocaleTimeString` in `apps/web` outside `i18n/`; a server test checks that every error code mapped in `apps/server/src/http/errors.ts` has an `error.<code>` message (it found `invalid_invitation` missing — added).
+- Adding a language: copy `en.ts` to `xx.ts` typed as `Messages`, translate, register it in `CATALOGS`, and pick the locale (a user setting would be new UI).
+
+**Tests/checks:** `i18n.test.ts` (6: placeholders, plurals, values never re-interpreted, `hasMessage` incl. prototype keys, date formatting, well-formed catalog — no empty/HTML messages, balanced braces, plural entries use `{count}`), `error-messages.test.ts`; `pnpm test` (523), `pnpm test:e2e` unchanged selectors pass (visible texts kept identical except rephrased link sentences and the Knot/start-page link names), `pnpm lint`, `pnpm typecheck`.
+
+**Security docs updated:** N/A.
+
+**Remaining:** no language switcher and no second catalog (V1 is English only); server-generated texts (invitation/recovery emails, CLI output) are still English literals in the server; numbers are interpolated without locale formatting (only counts and revisions today).
 
 ### 8.5 PWA/offline active Runs
 **Status:** DEFERRED — Phase 2

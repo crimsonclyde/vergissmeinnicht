@@ -252,7 +252,8 @@ test('first server admin: bootstrap link, account creation, sign-in, Workspace c
 
   // Phone-first execution (8.1): the next Step is obvious, progress stays in view, less clutter
   // on demand, and nothing scrolls sideways.
-  const noSidewaysScroll = () => page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth);
+  // Evaluated in the page (string form: the e2e files are type-checked without DOM types).
+  const noSidewaysScroll = () => page.evaluate('document.documentElement.scrollWidth <= window.innerWidth');
   await page.setViewportSize({ width: 390, height: 844 });
   expect(await noSidewaysScroll()).toBe(true);
   await expect(stepItem('Turn off stove')).toContainText('Next');
@@ -368,7 +369,7 @@ test('first server admin: bootstrap link, account creation, sign-in, Workspace c
   // Wide tables scroll inside their card, never the page (8.1).
   await page.setViewportSize({ width: 390, height: 844 });
   await expect(knotTable).toBeVisible();
-  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+  expect(await noSidewaysScroll()).toBe(true);
   await page.setViewportSize({ width: 1280, height: 720 });
   await expect(knotTable.getByRole('row')).toHaveCount(2);
   await expect(knotTable).toContainText('Hallway card');

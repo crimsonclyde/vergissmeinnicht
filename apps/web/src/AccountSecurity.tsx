@@ -2,6 +2,7 @@ import qrcode from 'qrcode-generator';
 import { useCallback, useEffect, useState, type FormEvent } from 'react';
 import { api, messageFor, type MfaStatus } from './api.ts';
 import { SecondFactorInput, type FactorMode } from './SecondFactorInput.tsx';
+import { t } from './i18n/index.ts';
 
 /** Rendered locally into a data: URL; the secret never leaves the browser. */
 function qrDataUrl(uri: string): string {
@@ -14,12 +15,9 @@ function qrDataUrl(uri: string): string {
 function RecoveryCodeList({ codes }: { codes: readonly string[] }) {
   return (
     <section aria-labelledby="recovery-heading">
-      <h4 id="recovery-heading">Your recovery codes</h4>
-      <p>
-        Store these codes somewhere safe, e.g. in a password manager. Each code works once and lets you sign in if you
-        lose your authenticator. They are shown only now.
-      </p>
-      <ul aria-label="Recovery codes">
+      <h4 id="recovery-heading">{t('mfa.codesHeading')}</h4>
+      <p>{t('mfa.codesExplain')}</p>
+      <ul aria-label={t('mfa.codesList')}>
         {codes.map((code) => (
           <li key={code}>
             <code>{code}</code>
@@ -81,7 +79,7 @@ export function AccountSecurity() {
   const passwordField = (
     <p>
       <label>
-        Current password
+        {t('password.current')}
         <br />
         <input
           type="password"
@@ -96,39 +94,39 @@ export function AccountSecurity() {
   const errorLine = error !== null && <p role="alert">{error}</p>;
   const cancel = (
     <button type="button" onClick={() => begin({ kind: 'idle' })}>
-      Cancel
+      {t('common.cancel')}
     </button>
   );
 
   return (
     <section aria-labelledby="security-heading">
-      <h3 id="security-heading">Two-factor authentication</h3>
+      <h3 id="security-heading">{t('mfa.heading')}</h3>
       <p>
-        Status: <strong>{status.totpEnabled ? 'Enabled' : 'Not enabled'}</strong>
-        {status.totpEnabled && ` · ${status.recoveryCodesRemaining} recovery codes left`}
+        {t('mfa.status', { status: t(status.totpEnabled ? 'mfa.enabled' : 'mfa.notEnabled') })}
+        {status.totpEnabled && t('mfa.codesLeft', { count: status.recoveryCodesRemaining })}
       </p>
 
       {flow.kind === 'codes' && (
         <>
           <RecoveryCodeList codes={flow.codes} />
           <button type="button" onClick={() => begin({ kind: 'idle' })}>
-            I have saved my recovery codes
+            {t('mfa.codesSaved')}
           </button>
         </>
       )}
 
       {flow.kind === 'idle' && !status.totpEnabled && (
         <button type="button" onClick={() => begin({ kind: 'enable-password' })}>
-          Enable two-factor authentication
+          {t('mfa.enable')}
         </button>
       )}
       {flow.kind === 'idle' && status.totpEnabled && (
         <p>
           <button type="button" onClick={() => begin({ kind: 'regenerate' })}>
-            New recovery codes
+            {t('mfa.newCodes')}
           </button>{' '}
           <button type="button" onClick={() => begin({ kind: 'disable' })}>
-            Disable two-factor authentication
+            {t('mfa.disable')}
           </button>
         </p>
       )}
@@ -145,7 +143,7 @@ export function AccountSecurity() {
           {passwordField}
           {errorLine}
           <button type="submit" disabled={busy}>
-            Continue
+            {t('mfa.continue')}
           </button>{' '}
           {cancel}
         </form>
@@ -157,15 +155,16 @@ export function AccountSecurity() {
             void run(e, async () => ({ kind: 'codes', codes: (await api.confirmTotp(factor)).recoveryCodes }))
           }
         >
-          <p>Scan this code with your authenticator app, or enter the key manually.</p>
-          <img src={qrDataUrl(flow.uri)} alt="QR code for your authenticator app" width={200} height={200} />
+          <p>{t('mfa.scan')}</p>
+          <img src={qrDataUrl(flow.uri)} alt={t('mfa.qrAlt')} width={200} height={200} />
           <p>
-            Key: <code>{flow.secret.match(/.{1,4}/g)?.join(' ')}</code>
+            {t('mfa.key')}
+            <code>{flow.secret.match(/.{1,4}/g)?.join(' ')}</code>
           </p>
           <SecondFactorInput mode="code" value={factor} onChange={setFactor} onModeChange={() => undefined} />
           {errorLine}
           <button type="submit" disabled={busy}>
-            Enable
+            {t('mfa.confirmEnable')}
           </button>{' '}
           {cancel}
         </form>
@@ -192,7 +191,7 @@ export function AccountSecurity() {
           />
           {errorLine}
           <button type="submit" disabled={busy}>
-            Disable
+            {t('mfa.confirmDisable')}
           </button>{' '}
           {cancel}
         </form>
@@ -207,11 +206,11 @@ export function AccountSecurity() {
             }))
           }
         >
-          <p>All previous recovery codes stop working.</p>
+          <p>{t('mfa.oldCodesStop')}</p>
           {passwordField}
           {errorLine}
           <button type="submit" disabled={busy}>
-            Create new codes
+            {t('mfa.createCodes')}
           </button>{' '}
           {cancel}
         </form>

@@ -1,16 +1,7 @@
 import { useEffect, useState, type FormEvent } from 'react';
-import { ApiError, api } from './api.ts';
-import { MIN_PASSWORD_LENGTH, NewPasswordFields } from './NewPasswordFields.tsx';
-
-const MESSAGES: Record<string, string> = {
-  invalid_invitation: 'This invitation link is invalid, has expired or was already used.',
-  password_too_short: `The password must be at least ${MIN_PASSWORD_LENGTH} characters.`,
-  password_too_long: 'The password must be at most 128 characters.',
-  display_name_empty: 'Please enter a display name.',
-  display_name_too_long: 'The display name must be at most 80 characters.',
-  display_name_invalid_characters: 'The display name contains characters that are not allowed.',
-  rate_limited: 'Too many attempts. Please wait a few minutes and try again.',
-};
+import { ApiError, api, messageFor } from './api.ts';
+import { NewPasswordFields } from './NewPasswordFields.tsx';
+import { t } from './i18n/index.ts';
 
 type State =
   | { readonly kind: 'loading' }
@@ -45,7 +36,7 @@ export function AcceptInvitation({ token }: { token: string }) {
     event.preventDefault();
     setError(null);
     if (password !== confirmation) {
-      setError('The passwords do not match.');
+      setError(t('password.mismatch'));
       return;
     }
     setBusy(true);
@@ -55,29 +46,31 @@ export function AcceptInvitation({ token }: { token: string }) {
       window.history.replaceState(null, '', '/');
       setState({ kind: 'done' });
     } catch (caught) {
-      const code = caught instanceof ApiError ? caught.code : 'request_failed';
-      if (code === 'invalid_invitation') setState({ kind: 'invalid' });
-      setError(MESSAGES[code] ?? 'Something went wrong. Please try again.');
+      if (caught instanceof ApiError && caught.code === 'invalid_invitation') setState({ kind: 'invalid' });
+      setError(messageFor(caught));
     } finally {
       setBusy(false);
     }
   }
 
-  if (state.kind === 'loading') return <p>Checking invitation…</p>;
+  if (state.kind === 'loading') return <p>{t('invite.checking')}</p>;
   if (state.kind === 'invalid') {
     return (
       <section aria-labelledby="invite-heading">
-        <h2 id="invite-heading">Invitation not valid</h2>
-        <p role="alert">{MESSAGES.invalid_invitation} Ask an administrator for a new invitation.</p>
+        <h2 id="invite-heading">{t('invite.invalidHeading')}</h2>
+        <p role="alert">
+          {t('error.invalid_invitation')} {t('invite.askAdmin')}
+        </p>
       </section>
     );
   }
   if (state.kind === 'done') {
     return (
       <section aria-labelledby="invite-heading">
-        <h2 id="invite-heading">Account created</h2>
+        <h2 id="invite-heading">{t('invite.doneHeading')}</h2>
+        <p>{t('invite.ready')}</p>
         <p>
-          Your account is ready. <a href="/">Sign in</a> with your email address and the password you chose.
+          <a href="/">{t('invite.signIn')}</a>
         </p>
       </section>
     );
@@ -85,14 +78,12 @@ export function AcceptInvitation({ token }: { token: string }) {
 
   return (
     <form onSubmit={submit} aria-labelledby="invite-heading">
-      <h2 id="invite-heading">Create your account</h2>
-      <p>
-        Invitation for <strong>{state.email}</strong>
-      </p>
+      <h2 id="invite-heading">{t('invite.heading')}</h2>
+      <p>{t('invite.for', { email: state.email })}</p>
       <input type="email" autoComplete="username" value={state.email} readOnly hidden />
       <p>
         <label>
-          Display name
+          {t('invite.displayName')}
           <br />
           <input autoComplete="name" required maxLength={80} value={displayName} onChange={(e) => setDisplayName(e.target.value)} />
         </label>
@@ -105,7 +96,7 @@ export function AcceptInvitation({ token }: { token: string }) {
       />
       {error !== null && <p role="alert">{error}</p>}
       <button type="submit" disabled={busy}>
-        Create account
+        {t('invite.submit')}
       </button>
     </form>
   );

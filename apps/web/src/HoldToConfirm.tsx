@@ -1,4 +1,5 @@
 import { useEffect, useId, useRef, useState, type KeyboardEvent, type PointerEvent } from 'react';
+import { t } from './i18n/index.ts';
 
 /** How long a critical Step's confirmation must be held. */
 export const HOLD_DURATION_MS = 1000;
@@ -29,7 +30,7 @@ export function HoldToConfirm(props: { label: string; disabled?: boolean; onConf
 
   /** Released before the time was up. */
   const cancel = () => {
-    if (startedAt.current !== null) setHint('Keep holding until the button is completely filled.');
+    if (startedAt.current !== null) setHint(t('hold.releasedEarly'));
     clear();
   };
 
@@ -68,13 +69,13 @@ export function HoldToConfirm(props: { label: string; disabled?: boolean; onConf
         className="hold"
         disabled={props.disabled}
         // Stable accessible name; the visible text changes while holding.
-        aria-label={`Hold to mark done: ${props.label}`}
+        aria-label={t('hold.name', { title: props.label })}
         aria-describedby={hintId}
         // A normal click (also fired by Enter/Space) never confirms on its own.
         onClick={(event) => {
           event.preventDefault();
           if (!confirmed.current && startedAt.current === null && progress === 0 && hint === null) {
-            setHint('Press and hold this button for one second.');
+            setHint(t('hold.clicked'));
           }
         }}
         onPointerDown={(event: PointerEvent<HTMLButtonElement>) => {
@@ -97,11 +98,11 @@ export function HoldToConfirm(props: { label: string; disabled?: boolean; onConf
       >
         <span className="hold-fill" aria-hidden="true" style={{ width: `${Math.round(progress * 100)}%` }} />
         <span className="hold-label">
-          {progress > 0 ? `Keep holding… ${Math.round(progress * 100)} %` : `✔ Hold to mark done: ${props.label}`}
+          {progress > 0 ? t('hold.progress', { percent: Math.round(progress * 100) }) : t('hold.label', { title: props.label })}
         </span>
       </button>
       <small id={hintId} className="muted" style={{ display: 'block' }}>
-        {hint ?? 'Critical step — press and hold for one second.'}
+        {hint ?? t('hold.hint')}
       </small>
     </span>
   );

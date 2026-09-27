@@ -1,54 +1,59 @@
 import { useState } from 'react';
 import { messageFor, type HistoryEvent } from './api.ts';
-
-const STATE_TEXT: Record<string, string> = {
-  PENDING: 'Pending',
-  DONE: 'Done',
-  SKIPPED: 'Skipped',
-  NOT_APPLICABLE: 'Not applicable',
-};
+import { formatDateTime, hasMessage, t, type MessageKey } from './i18n/index.ts';
 
 const text = (value: unknown): string => (typeof value === 'string' ? value : String(value ?? ''));
+/** Known Step states in their words; anything else is shown as stored. */
+const stateText = (value: unknown): string => {
+  const key = `state.${text(value)}`;
+  return hasMessage(key) ? t(key) : text(value);
+};
 /** "1 Step added", "2 Steps added"; nothing for 0. */
-const count = (value: unknown, noun: string, verb: string): string | null =>
-  typeof value === 'number' && value > 0 ? `${value} ${noun}${value === 1 ? '' : 's'} ${verb}` : null;
+const count = (value: unknown, key: MessageKey): string | null =>
+  typeof value === 'number' && value > 0 ? t(key, { count: value }) : null;
 
 /** Plain-language description of one audit event (rendered as text, never as HTML). */
 export function describeEvent(event: HistoryEvent): string {
   const m = event.metadata;
-  const reason = typeof m.reason === 'string' ? ` — reason: ${m.reason}` : '';
+  const reason = typeof m.reason === 'string' ? t('history.reason', { reason: m.reason }) : '';
   switch (event.type) {
     case 'RUN_STARTED':
-      return `started the Run (Procedure revision ${text(m.procedureRevision)}, ${text(m.steps)} Steps)`;
+      return t('history.RUN_STARTED', { revision: text(m.procedureRevision), count: typeof m.steps === 'number' ? m.steps : 0 });
     case 'STEP_STATE_CHANGED':
-      return `${text(m.stepTitle)}: ${STATE_TEXT[text(m.from)] ?? text(m.from)} → ${STATE_TEXT[text(m.to)] ?? text(m.to)}${m.undo === true ? ' (undo)' : ''}${reason}`;
+      return (
+        t('history.STEP_STATE_CHANGED', { title: text(m.stepTitle), from: stateText(m.from), to: stateText(m.to) }) +
+        (m.undo === true ? t('history.undo') : '') +
+        reason
+      );
     case 'RUN_COMPLETED':
-      return 'completed the Run';
+      return t('history.RUN_COMPLETED');
     case 'RUN_ABORTED':
-      return `aborted the Run${reason}`;
+      return t('history.RUN_ABORTED') + reason;
     case 'PROCEDURE_CREATED':
-      return m.origin === 'imported'
-        ? 'imported the Procedure from a file'
-        : m.origin === 'duplicated'
-          ? 'created the Procedure as a copy'
-          : 'created the Procedure';
+      return t(
+        m.origin === 'imported'
+          ? 'history.PROCEDURE_IMPORTED'
+          : m.origin === 'duplicated'
+            ? 'history.PROCEDURE_DUPLICATED'
+            : 'history.PROCEDURE_CREATED',
+      );
     case 'PROCEDURE_UPDATED': {
       const fields = Array.isArray(m.fields) ? m.fields.filter((f) => f !== 'structure') : [];
       const structure = [
-        count(m.sectionsAdded, 'Section', 'added'),
-        count(m.sectionsRemoved, 'Section', 'removed'),
-        count(m.sectionsChanged, 'Section', 'changed'),
-        count(m.stepsAdded, 'Step', 'added'),
-        count(m.stepsRemoved, 'Step', 'removed'),
-        count(m.stepsChanged, 'Step', 'changed'),
+        count(m.sectionsAdded, 'history.sectionsAdded'),
+        count(m.sectionsRemoved, 'history.sectionsRemoved'),
+        count(m.sectionsChanged, 'history.sectionsChanged'),
+        count(m.stepsAdded, 'history.stepsAdded'),
+        count(m.stepsRemoved, 'history.stepsRemoved'),
+        count(m.stepsChanged, 'history.stepsChanged'),
       ].filter((part): part is string => part !== null);
-      const parts = [...(fields.length > 0 ? [`changed ${fields.join(', ')}`] : []), ...structure];
-      return `${parts.join('; ')} (revision ${text(m.revision)})`;
+      const parts = [...(fields.length > 0 ? [t('history.changedFields', { fields: fields.join(', ') })] : []), ...structure];
+      return t('history.revision', { changes: parts.join('; '), revision: text(m.revision) });
     }
     case 'PROCEDURE_DELETED':
-      return 'deleted the Procedure';
+      return t('history.PROCEDURE_DELETED');
     case 'PROCEDURE_RESTORED':
-      return 'restored the Procedure';
+      return t('history.PROCEDURE_RESTORED');
     default:
       return event.type;
   }
@@ -77,18 +82,18 @@ export function History(props: { label: string; load: () => Promise<HistoryEvent
   return (
     <section aria-label={props.label}>
       <button type="button" aria-expanded={open} onClick={() => void toggle()}>
-        {open ? 'Hide history' : 'Show history'}
+        {t(open ? 'history.hide' : 'history.show')}
       </button>
       {open && message !== null && <p role="alert">{message}</p>}
       {open &&
         message === null &&
         (events === null ? (
-          <p>Loading…</p>
+          <p>{t('common.loading')}</p>
         ) : (
           <ol>
             {events.map((event) => (
               <li key={event.id}>
-                <time dateTime={event.at}>{new Date(event.at).toLocaleString()}</time> — <strong>{event.actor}</strong>{' '}
+                <time dateTime={event.at}>{formatDateTime(event.at)}</time> — <strong>{event.actor}</strong>{' '}
                 {describeEvent(event)}
               </li>
             ))}

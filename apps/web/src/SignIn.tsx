@@ -1,6 +1,7 @@
 import { useState, type FormEvent } from 'react';
 import { ApiError, api, messageFor, type CurrentUser } from './api.ts';
 import { SecondFactorInput, type FactorMode } from './SecondFactorInput.tsx';
+import { t } from './i18n/index.ts';
 
 export function SignIn({ onSignedIn }: { onSignedIn: (user: CurrentUser) => void }) {
   const [email, setEmail] = useState('');
@@ -21,7 +22,7 @@ export function SignIn({ onSignedIn }: { onSignedIn: (user: CurrentUser) => void
       if ('mfaRequired' in result) setStep('mfa');
       else onSignedIn(result.user);
     } catch (caught) {
-      setError(messageFor(caught, 'Sign-in failed. Please try again.'));
+      setError(messageFor(caught, t('signIn.failed')));
       setPassword('');
     } finally {
       setBusy(false);
@@ -46,7 +47,7 @@ export function SignIn({ onSignedIn }: { onSignedIn: (user: CurrentUser) => void
   if (step === 'mfa') {
     return (
       <form onSubmit={submitFactor} aria-labelledby="mfa-heading">
-        <h2 id="mfa-heading">Two-factor authentication</h2>
+        <h2 id="mfa-heading">{t('signIn.mfaHeading')}</h2>
         <SecondFactorInput
           mode={mode}
           value={factor}
@@ -58,7 +59,7 @@ export function SignIn({ onSignedIn }: { onSignedIn: (user: CurrentUser) => void
         />
         {error !== null && <p role="alert">{error}</p>}
         <button type="submit" disabled={busy}>
-          Verify
+          {t('signIn.verify')}
         </button>
       </form>
     );
@@ -66,17 +67,17 @@ export function SignIn({ onSignedIn }: { onSignedIn: (user: CurrentUser) => void
 
   return (
     <form onSubmit={submitPassword} aria-labelledby="sign-in-heading">
-      <h2 id="sign-in-heading">Sign in</h2>
+      <h2 id="sign-in-heading">{t('signIn.heading')}</h2>
       <p>
         <label>
-          Email
+          {t('signIn.email')}
           <br />
           <input type="email" autoComplete="username" required value={email} onChange={(e) => setEmail(e.target.value)} />
         </label>
       </p>
       <p>
         <label>
-          Password
+          {t('signIn.password')}
           <br />
           <input
             type="password"
@@ -89,7 +90,7 @@ export function SignIn({ onSignedIn }: { onSignedIn: (user: CurrentUser) => void
       </p>
       {error !== null && <p role="alert">{error}</p>}
       <button type="submit" disabled={busy}>
-        Sign in
+        {t('signIn.submit')}
       </button>
     </form>
   );

@@ -1,28 +1,31 @@
 import type { ProcedureIcon as IconKey } from './api.ts';
+import { t } from './i18n/index.ts';
 
-/** Glyph plus text label for every trusted icon key; the label is what screen readers announce. */
-export const ICONS: Record<IconKey, { glyph: string; label: string }> = {
-  checklist: { glyph: '☑️', label: 'Checklist' },
-  home: { glyph: '🏠', label: 'Home' },
-  kitchen: { glyph: '🍳', label: 'Kitchen' },
-  cleaning: { glyph: '🧹', label: 'Cleaning' },
-  laundry: { glyph: '🧺', label: 'Laundry' },
-  garden: { glyph: '🌱', label: 'Garden' },
-  pet: { glyph: '🐾', label: 'Pet' },
-  car: { glyph: '🚗', label: 'Car' },
-  travel: { glyph: '🧳', label: 'Travel' },
-  tools: { glyph: '🛠️', label: 'Tools' },
-  health: { glyph: '🩺', label: 'Health' },
-  shopping: { glyph: '🛒', label: 'Shopping' },
-  document: { glyph: '📄', label: 'Document' },
-  security: { glyph: '🔒', label: 'Security' },
-  star: { glyph: '⭐', label: 'Star' },
+/** Glyph for every trusted icon key; the text label (what screen readers announce) is `iconLabel`. */
+export const ICON_GLYPHS: Record<IconKey, string> = {
+  checklist: '☑️',
+  home: '🏠',
+  kitchen: '🍳',
+  cleaning: '🧹',
+  laundry: '🧺',
+  garden: '🌱',
+  pet: '🐾',
+  car: '🚗',
+  travel: '🧳',
+  tools: '🛠️',
+  health: '🩺',
+  shopping: '🛒',
+  document: '📄',
+  security: '🔒',
+  star: '⭐',
 };
+
+export const iconLabel = (icon: IconKey): string => t(`icon.${icon}`);
 
 export function Icon({ icon }: { icon: IconKey }) {
   return (
-    <span role="img" aria-label={ICONS[icon].label} title={ICONS[icon].label}>
-      {ICONS[icon].glyph}
+    <span role="img" aria-label={iconLabel(icon)} title={iconLabel(icon)}>
+      {ICON_GLYPHS[icon]}
     </span>
   );
 }

@@ -1,3 +1,5 @@
+import { t } from './i18n/index.ts';
+
 export type FactorMode = 'code' | 'recovery';
 
 /** Authenticator code or recovery code entry, shared by sign-in and disabling TOTP. */
@@ -13,7 +15,7 @@ export function SecondFactorInput(props: {
       {mode === 'code' ? (
         <p>
           <label>
-            Code from your authenticator app
+            {t('factor.code')}
             <br />
             <input
               inputMode="numeric"
@@ -29,7 +31,7 @@ export function SecondFactorInput(props: {
       ) : (
         <p>
           <label>
-            Recovery code
+            {t('factor.recoveryCode')}
             <br />
             <input autoComplete="off" spellCheck={false} maxLength={32} required value={value} onChange={(e) => onChange(e.target.value)} />
           </label>
@@ -37,7 +39,7 @@ export function SecondFactorInput(props: {
       )}
       <p>
         <button type="button" onClick={() => onModeChange(mode === 'code' ? 'recovery' : 'code')}>
-          {mode === 'code' ? 'Use a recovery code instead' : 'Use an authenticator code instead'}
+          {t(mode === 'code' ? 'factor.useRecovery' : 'factor.useCode')}
         </button>
       </p>
     </>

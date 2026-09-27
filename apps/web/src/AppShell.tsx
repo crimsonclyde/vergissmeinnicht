@@ -4,8 +4,9 @@ import { AdminPage } from './AdminPage.tsx';
 import { AppearanceSettings } from './AppearanceSettings.tsx';
 import { api, messageFor, type CurrentUser, type WorkspaceSummary } from './api.ts';
 import { ChangePassword } from './ChangePassword.tsx';
+import { t } from './i18n/index.ts';
 import { KnotOpener, KnotsPage } from './Knots.tsx';
-import { MembersPage, ROLE_LABELS } from './MembersPage.tsx';
+import { MembersPage, roleLabel } from './MembersPage.tsx';
 import { Procedures } from './Procedures.tsx';
 import { Link, navigate, paths, type Route } from './router.tsx';
 import { Runs } from './Runs.tsx';
@@ -58,50 +59,50 @@ function Header(props: {
         </Link>
         {workspaces !== null && workspaces.length > 0 && (
           <label className="row" style={{ fontWeight: 400 }}>
-            <span className="muted">Workspace</span>
+            <span className="muted">{t('shell.workspace')}</span>
             <select
-              aria-label="Workspace"
+              aria-label={t('shell.workspace')}
               value={workspaceId ?? ''}
               onChange={(e) => navigate(paths.runs(e.target.value))}
             >
-              {workspaceId === null && <option value="">Choose…</option>}
+              {workspaceId === null && <option value="">{t('shell.choose')}</option>}
               {workspaces.map((workspace) => (
                 <option key={workspace.id} value={workspace.id}>
-                  {workspace.name} ({ROLE_LABELS[workspace.role]})
+                  {t('workspace.option', { name: workspace.name, role: roleLabel(workspace.role) })}
                 </option>
               ))}
             </select>
           </label>
         )}
-        <nav aria-label="Account" className="nav">
+        <nav aria-label={t('shell.accountNav')} className="nav">
           {props.user.serverAdmin && (
             <NavLink href="/admin" current={route.page === 'admin'}>
-              Server admin
+              {t('shell.serverAdmin')}
             </NavLink>
           )}
           <NavLink href="/account" current={route.page === 'account'}>
-            {`Account (${props.user.displayName})`}
+            {t('shell.account', { name: props.user.displayName })}
           </NavLink>
           <button type="button" className="quiet" onClick={props.onSignOut}>
-            Sign out
+            {t('shell.signOut')}
           </button>
         </nav>
       </div>
       {workspaceId !== null && (
         <div className="app-header-inner" style={{ paddingTop: 0 }}>
-          <nav aria-label="Workspace sections" className="nav">
+          <nav aria-label={t('shell.sections')} className="nav">
             <NavLink href={paths.runs(workspaceId)} current={route.page === 'runs'}>
-              Runs
+              {t('shell.runs')}
             </NavLink>
             <NavLink href={paths.procedures(workspaceId)} current={route.page === 'procedures'}>
-              Procedures
+              {t('shell.procedures')}
             </NavLink>
             <NavLink href={paths.members(workspaceId)} current={route.page === 'members'}>
-              Members
+              {t('shell.members')}
             </NavLink>
             {props.capabilities?.includes('knot.manage') === true && (
               <NavLink href={paths.knots(workspaceId)} current={route.page === 'knots'}>
-                Knot links
+                {t('shell.knots')}
               </NavLink>
             )}
           </nav>
@@ -140,7 +141,7 @@ function WorkspacePage(props: {
   useEffect(load, [load]);
 
   if (message !== null) return <p role="alert">{message}</p>;
-  if (context === null || context.workspace.id !== route.workspaceId) return <p>Loading…</p>;
+  if (context === null || context.workspace.id !== route.workspaceId) return <p>{t('common.loading')}</p>;
   const can = (capability: string) => context.capabilities.includes(capability);
   const reload = () => {
     load();
@@ -179,7 +180,7 @@ function WorkspacePage(props: {
       return can('knot.manage') ? (
         <KnotsPage workspaceId={route.workspaceId} />
       ) : (
-        <p role="alert">Only editors and admins of this Workspace manage Knot links.</p>
+        <p role="alert">{t('knot.manageOnly')}</p>
       );
   }
 }
@@ -187,14 +188,17 @@ function WorkspacePage(props: {
 function NoWorkspace({ user }: { user: CurrentUser }) {
   return (
     <div className="card stack" style={{ marginTop: '2rem' }}>
-      <h2 style={{ marginTop: 0 }}>Welcome, {user.displayName}</h2>
-      <p>You are not a member of any Workspace yet.</p>
+      <h2 style={{ marginTop: 0 }}>{t('welcome.heading', { name: user.displayName })}</h2>
+      <p>{t('welcome.noWorkspace')}</p>
       {user.serverAdmin ? (
-        <p>
-          As a server admin you can <Link href="/admin">create a Workspace</Link> and invite people.
-        </p>
+        <>
+          <p>{t('welcome.adminHint')}</p>
+          <p>
+            <Link href="/admin">{t('welcome.adminLink')}</Link>
+          </p>
+        </>
       ) : (
-        <p className="muted">Ask a Workspace admin to add you.</p>
+        <p className="muted">{t('welcome.askAdmin')}</p>
       )}
     </div>
   );
@@ -230,10 +234,8 @@ export function AppShell(props: { user: CurrentUser; route: Route; onSignOut: ()
     content = (
       <>
         <div className="page-header">
-          <h2>Account</h2>
-          <span className="muted">
-            {user.displayName} · {user.email}
-          </span>
+          <h2>{t('account.heading')}</h2>
+          <span className="muted">{t('account.identity', { name: user.displayName, email: user.email })}</span>
         </div>
         <div className="card">
           <ChangePassword />
@@ -247,17 +249,18 @@ export function AppShell(props: { user: CurrentUser; route: Route; onSignOut: ()
       </>
     );
   } else if (route.page === 'admin') {
-    content = user.serverAdmin ? <AdminPage onWorkspacesChanged={refresh} /> : <p role="alert">Only server admins can open this page.</p>;
+    content = user.serverAdmin ? <AdminPage onWorkspacesChanged={refresh} /> : <p role="alert">{t('admin.onlyServerAdmins')}</p>;
   } else if (route.page === 'knot') {
     content = <KnotOpener token={route.token} />;
   } else if (route.page === 'runs' || route.page === 'procedures' || route.page === 'members' || route.page === 'knots') {
     content = <WorkspacePage route={route} user={user} onWorkspacesChanged={refresh} onCapabilities={reportCapabilities} />;
   } else if (route.page === 'home') {
-    content = workspaces === null ? <p>Loading…</p> : workspaces.length === 0 ? <NoWorkspace user={user} /> : <p>Loading…</p>;
+    const loading = <p>{t('common.loading')}</p>;
+    content = workspaces === null ? loading : workspaces.length === 0 ? <NoWorkspace user={user} /> : loading;
   } else {
     content = (
       <p role="alert">
-        This page does not exist. <Link href="/">Go to the start page</Link>.
+        {t('shell.notFound')} <Link href="/">{t('common.startPage')}</Link>.
       </p>
     );
   }

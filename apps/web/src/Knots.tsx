@@ -1,18 +1,10 @@
 import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react';
 import { api, messageFor, type KnotInfo, type KnotTargetType } from './api.ts';
+import { formatDateTime, t } from './i18n/index.ts';
 import { Link, navigate, paths } from './router.tsx';
 
-const TARGET_NOUN: Record<KnotTargetType, string> = { PROCEDURE: 'Procedure', RUN: 'Run' };
-const STATUS_TEXT: Record<KnotInfo['status'], string> = { ACTIVE: 'Active', EXPIRED: 'Expired', REVOKED: 'Revoked' };
-/** Lifetime choices in days; `null` = does not expire. */
-const LIFETIMES: readonly { readonly days: number | null; readonly label: string }[] = [
-  { days: 1, label: '1 day' },
-  { days: 7, label: '7 days' },
-  { days: 30, label: '30 days' },
-  { days: 90, label: '90 days' },
-  { days: 365, label: '1 year' },
-  { days: null, label: 'Does not expire' },
-];
+/** Lifetime choices in days; `never` = does not expire. */
+const LIFETIMES = ['1', '7', '30', '90', '365', 'never'] as const;
 
 /**
  * "Share as Knot link" for a Procedure or Run (editors and admins). The link is shown once: only
@@ -26,7 +18,7 @@ export function KnotShare(props: { workspaceId: string; target: { type: KnotTarg
   const [message, setMessage] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const linkRef = useRef<HTMLInputElement>(null);
-  const noun = TARGET_NOUN[props.target.type];
+  const noun = t(`knot.target.${props.target.type}`);
 
   async function submit(event: FormEvent) {
     event.preventDefault();
@@ -49,63 +41,63 @@ export function KnotShare(props: { workspaceId: string; target: { type: KnotTarg
   async function copy() {
     try {
       await navigator.clipboard.writeText(link ?? '');
-      setMessage('Link copied.');
+      setMessage(t('knot.copied'));
     } catch {
       linkRef.current?.select();
-      setMessage('Copying is not available here; the link is selected so you can copy it yourself.');
+      setMessage(t('knot.copyUnavailable'));
     }
   }
 
   if (!open) {
     return (
       <button type="button" onClick={() => setOpen(true)}>
-        Share as Knot link…
+        {t('knot.share')}
       </button>
     );
   }
   return (
-    <section aria-label={`Knot link for this ${noun}`} className="card stack">
-      <h3 style={{ marginTop: 0 }}>Knot link for this {noun}</h3>
+    <section aria-label={t('knot.shareHeading', { target: noun })} className="card stack">
+      <h3 style={{ marginTop: 0 }}>{t('knot.shareHeading', { target: noun })}</h3>
       {link === null ? (
         <form className="stack" onSubmit={(event) => void submit(event)}>
           <p className="muted" style={{ margin: 0 }}>
-            A Knot link opens this {noun} directly. It does not give access: whoever opens it must sign in and be allowed to see it.
+            {t('knot.shareExplain', { target: noun })}
           </p>
           <label>
-            Name of the link
+            {t('knot.name')}
             <br />
             <input value={label} maxLength={80} required onChange={(e) => setLabel(e.target.value)} />
           </label>
           <label>
-            Valid for
+            {t('knot.validFor')}
             <br />
             <select value={days} onChange={(e) => setDays(e.target.value)}>
               {LIFETIMES.map((lifetime) => (
-                <option key={lifetime.label} value={lifetime.days === null ? 'never' : String(lifetime.days)}>
-                  {lifetime.label}
+                <option key={lifetime} value={lifetime}>
+                  {t(`knot.lifetime.${lifetime}`)}
                 </option>
               ))}
             </select>
           </label>
           <div className="row">
             <button type="submit" className="primary" disabled={busy}>
-              Create Knot link
+              {t('knot.create')}
             </button>
             <button type="button" onClick={() => setOpen(false)}>
-              Cancel
+              {t('common.cancel')}
             </button>
           </div>
         </form>
       ) : (
         <div className="stack">
           <label>
-            Knot link (shown only now — copy it before closing)
+            {t('knot.link')}
             <br />
             <input ref={linkRef} readOnly value={link} onFocus={(e) => e.target.select()} style={{ width: '100%' }} />
           </label>
           <div className="row">
             <button type="button" className="primary" onClick={() => void copy()}>
-              Copy link
+              {t('knot.copy')}
             </button>
             <button
               type="button"
@@ -115,7 +107,7 @@ export function KnotShare(props: { workspaceId: string; target: { type: KnotTarg
                 setMessage(null);
               }}
             >
-              Done
+              {t('knot.done')}
             </button>
           </div>
         </div>
@@ -140,7 +132,7 @@ export function KnotsPage({ workspaceId }: { workspaceId: string }) {
   useEffect(refresh, [refresh]);
 
   async function revoke(knot: KnotInfo) {
-    if (!window.confirm(`Revoke the Knot link “${knot.label}”? It stops working for everyone and cannot be restored.`)) return;
+    if (!window.confirm(t('knot.revokeConfirm', { label: knot.label }))) return;
     setMessage(null);
     try {
       await api.revokeKnot(workspaceId, knot.id);
@@ -153,26 +145,26 @@ export function KnotsPage({ workspaceId }: { workspaceId: string }) {
   return (
     <section aria-labelledby="knots-heading">
       <div className="page-header">
-        <h2 id="knots-heading">Knot links</h2>
-        <span className="muted">Links that open a Procedure or Run directly. Create them from a Procedure or Run.</span>
+        <h2 id="knots-heading">{t('knot.pageHeading')}</h2>
+        <span className="muted">{t('knot.pageHint')}</span>
       </div>
       {message !== null && <p role="alert">{message}</p>}
       {knots === null ? (
-        message === null && <p>Loading…</p>
+        message === null && <p>{t('common.loading')}</p>
       ) : knots.length === 0 ? (
-        <p className="card">No Knot links yet.</p>
+        <p className="card">{t('knot.none')}</p>
       ) : (
         <div className="card table-wrap">
-          <table aria-label="Knot links">
+          <table aria-label={t('knot.pageHeading')}>
             <thead>
               <tr>
-                <th scope="col">Name</th>
-                <th scope="col">Opens</th>
-                <th scope="col">Status</th>
-                <th scope="col">Created</th>
-                <th scope="col">Expires</th>
+                <th scope="col">{t('knot.column.name')}</th>
+                <th scope="col">{t('knot.column.opens')}</th>
+                <th scope="col">{t('knot.column.status')}</th>
+                <th scope="col">{t('knot.column.created')}</th>
+                <th scope="col">{t('knot.column.expires')}</th>
                 <th scope="col">
-                  <span className="visually-hidden">Actions</span>
+                  <span className="visually-hidden">{t('knot.column.actions')}</span>
                 </th>
               </tr>
             </thead>
@@ -181,25 +173,26 @@ export function KnotsPage({ workspaceId }: { workspaceId: string }) {
                 <tr key={knot.id}>
                   <td>{knot.label}</td>
                   <td>
-                    {TARGET_NOUN[knot.target.type]}:{' '}
+                    {t('knot.opens', { target: t(`knot.target.${knot.target.type}`) })}
                     {knot.target.available ? (
                       <Link href={targetPath(workspaceId, knot.target)}>{knot.target.title ?? ''}</Link>
                     ) : (
-                      <>{knot.target.title} (deleted)</>
+                      t('knot.deleted', { title: knot.target.title ?? '' })
                     )}
                   </td>
                   <td>
-                    {STATUS_TEXT[knot.status]}
-                    {knot.revoked !== null && ` by ${knot.revoked.by} on ${new Date(knot.revoked.at).toLocaleString()}`}
+                    {knot.revoked !== null
+                      ? t('knot.revokedBy', { name: knot.revoked.by, time: formatDateTime(knot.revoked.at) })
+                      : t(`knot.status.${knot.status}`)}
                   </td>
                   <td>
-                    {knot.createdBy}, {new Date(knot.createdAt).toLocaleString()}
+                    {t('knot.created', { name: knot.createdBy, time: formatDateTime(knot.createdAt) })}
                   </td>
-                  <td>{knot.expiresAt === null ? 'Never' : new Date(knot.expiresAt).toLocaleString()}</td>
+                  <td>{knot.expiresAt === null ? t('knot.never') : formatDateTime(knot.expiresAt)}</td>
                   <td>
                     {knot.revoked === null && (
                       <button type="button" onClick={() => void revoke(knot)}>
-                        Revoke {knot.label}
+                        {t('knot.revoke', { label: knot.label })}
                       </button>
                     )}
                   </td>
@@ -229,13 +222,13 @@ export function KnotOpener({ token }: { token: string }) {
       active = false;
     };
   }, [token]);
-  if (failure === null) return <p>Opening Knot link…</p>;
+  if (failure === null) return <p>{t('knot.opening')}</p>;
   return (
     <div className="card stack">
-      <h2 style={{ marginTop: 0 }}>Knot link cannot be opened</h2>
+      <h2 style={{ marginTop: 0 }}>{t('knot.cannotOpen')}</h2>
       <p role="alert">{failure}</p>
       <p>
-        <Link href="/">Go to the start page</Link>
+        <Link href="/">{t('common.startPage')}</Link>
       </p>
     </div>
   );

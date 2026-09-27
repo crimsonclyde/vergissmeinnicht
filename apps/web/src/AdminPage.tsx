@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState, type FormEvent } from 'react';
 import { api, messageFor, type PendingInvitation } from './api.ts';
+import { formatDateTime, t } from './i18n/index.ts';
 import { navigate, paths } from './router.tsx';
 
 /** Server administration: Workspaces, invitations, account recovery. The server checks the admin flag. */
@@ -25,17 +26,17 @@ function CreateWorkspace({ onCreated }: { onCreated: () => void }) {
   return (
     <form onSubmit={submit} className="card stack" aria-labelledby="create-workspace-heading">
       <h3 id="create-workspace-heading" style={{ marginTop: 0 }}>
-        Create a Workspace
+        {t('admin.createHeading')}
       </h3>
-      <p className="muted">You become its admin and can add members afterwards.</p>
+      <p className="muted">{t('admin.createHint')}</p>
       {message !== null && <p role="alert">{message}</p>}
       <label>
-        New Workspace name
+        {t('admin.newName')}
         <br />
         <input required maxLength={80} value={name} onChange={(e) => setName(e.target.value)} />
       </label>
       <button type="submit" className="primary" disabled={busy}>
-        Create Workspace
+        {t('admin.create')}
       </button>
     </form>
   );
@@ -74,46 +75,44 @@ function Invitations() {
       const result = await api.invite(email, grantsServerAdmin);
       setEmail('');
       setGrantsServerAdmin(false);
-      return result.delivery === 'sent'
-        ? `Invitation sent to ${result.invitation.email}.`
-        : `The invitation for ${result.invitation.email} was created, but the email could not be sent. Check the mail settings and invite again.`;
+      return t(result.delivery === 'sent' ? 'admin.invitationSent' : 'admin.invitationNotSent', { email: result.invitation.email });
     });
   }
 
   return (
     <section className="card stack" aria-labelledby="invitations-heading">
       <h3 id="invitations-heading" style={{ marginTop: 0 }}>
-        Invitations
+        {t('admin.invitationsHeading')}
       </h3>
-      <p className="muted">New people join by invitation only. The link is emailed to them and is valid for a limited time.</p>
+      <p className="muted">{t('admin.invitationsHint')}</p>
       {message !== null && <p role="alert">{message}</p>}
       {status !== null && <p role="status">{status}</p>}
       <form onSubmit={submit} className="stack">
         <label>
-          Email address to invite
+          {t('admin.inviteEmail')}
           <br />
           <input type="email" required value={email} onChange={(e) => setEmail(e.target.value)} />
         </label>
         <label>
-          <input type="checkbox" checked={grantsServerAdmin} onChange={(e) => setGrantsServerAdmin(e.target.checked)} /> Also make
-          them a server admin
+          <input type="checkbox" checked={grantsServerAdmin} onChange={(e) => setGrantsServerAdmin(e.target.checked)} />{' '}
+          {t('admin.alsoServerAdmin')}
         </label>
         <button type="submit" className="primary" disabled={busy}>
-          Send invitation
+          {t('admin.sendInvitation')}
         </button>
       </form>
       {invitations === null ? (
-        <p>Loading…</p>
+        <p>{t('common.loading')}</p>
       ) : invitations.length === 0 ? (
-        <p className="muted">No pending invitations.</p>
+        <p className="muted">{t('admin.noInvitations')}</p>
       ) : (
         <table>
-          <caption>Pending invitations</caption>
+          <caption>{t('admin.pendingInvitations')}</caption>
           <thead>
             <tr>
-              <th scope="col">Email</th>
-              <th scope="col">Expires</th>
-              <th scope="col">Actions</th>
+              <th scope="col">{t('admin.column.email')}</th>
+              <th scope="col">{t('admin.column.expires')}</th>
+              <th scope="col">{t('admin.column.actions')}</th>
             </tr>
           </thead>
           <tbody>
@@ -121,9 +120,9 @@ function Invitations() {
               <tr key={invitation.id}>
                 <td>
                   {invitation.email}
-                  {invitation.grantsServerAdmin && <span className="muted"> (server admin)</span>}
+                  {invitation.grantsServerAdmin && <span className="muted">{t('admin.serverAdminMark')}</span>}
                 </td>
-                <td>{new Date(invitation.expiresAt).toLocaleString()}</td>
+                <td>{formatDateTime(invitation.expiresAt)}</td>
                 <td>
                   <button
                     type="button"
@@ -132,11 +131,11 @@ function Invitations() {
                     onClick={() =>
                       void act(async () => {
                         await api.revokeInvitation(invitation.id);
-                        return `Invitation for ${invitation.email} revoked.`;
+                        return t('admin.invitationRevoked', { email: invitation.email });
                       })
                     }
                   >
-                    Revoke invitation for {invitation.email}
+                    {t('admin.revokeInvitation', { email: invitation.email })}
                   </button>
                 </td>
               </tr>
@@ -173,8 +172,8 @@ function AccountRecovery() {
       });
       setStatus(
         result.delivery === 'sent'
-          ? `A recovery link was emailed to ${email}. It is valid until ${new Date(result.recovery.expiresAt).toLocaleString()}.`
-          : 'The recovery was created, but the email could not be sent.',
+          ? t('admin.recoverySent', { email, time: formatDateTime(result.recovery.expiresAt) })
+          : t('admin.recoveryNotSent'),
       );
       setEmail('');
     } catch (caught) {
@@ -189,39 +188,36 @@ function AccountRecovery() {
   return (
     <form onSubmit={submit} className="card stack" aria-labelledby="recovery-admin-heading">
       <h3 id="recovery-admin-heading" style={{ marginTop: 0 }}>
-        Account recovery
+        {t('admin.recoveryHeading')}
       </h3>
-      <p className="muted">
-        For someone who forgot their password or lost their authenticator. The link goes to their own email address, never to you.
-      </p>
+      <p className="muted">{t('admin.recoveryHint')}</p>
       {message !== null && <p role="alert">{message}</p>}
       {status !== null && <p role="status">{status}</p>}
       <label>
-        Account email
+        {t('admin.accountEmail')}
         <br />
         <input type="email" required value={email} onChange={(e) => setEmail(e.target.value)} />
       </label>
       <div className="row">
         <label>
-          <input type="checkbox" checked={resetPassword} onChange={(e) => setResetPassword(e.target.checked)} /> Reset password
+          <input type="checkbox" checked={resetPassword} onChange={(e) => setResetPassword(e.target.checked)} /> {t('admin.resetPassword')}
         </label>
         <label>
-          <input type="checkbox" checked={resetTotp} onChange={(e) => setResetTotp(e.target.checked)} /> Reset two-factor
-          authentication
+          <input type="checkbox" checked={resetTotp} onChange={(e) => setResetTotp(e.target.checked)} /> {t('admin.resetTotp')}
         </label>
       </div>
       <label>
-        Your own password (to confirm it is you)
+        {t('admin.ownPassword')}
         <br />
         <input type="password" autoComplete="current-password" required value={password} onChange={(e) => setPassword(e.target.value)} />
       </label>
       <label>
-        Your authenticator code (only if you use two-factor authentication)
+        {t('admin.ownCode')}
         <br />
         <input inputMode="numeric" autoComplete="one-time-code" value={code} onChange={(e) => setCode(e.target.value)} />
       </label>
       <button type="submit" className="primary" disabled={busy || (!resetPassword && !resetTotp)}>
-        Send recovery link
+        {t('admin.sendRecovery')}
       </button>
     </form>
   );
@@ -231,7 +227,7 @@ export function AdminPage({ onWorkspacesChanged }: { onWorkspacesChanged: () => 
   return (
     <>
       <div className="page-header">
-        <h2>Server administration</h2>
+        <h2>{t('admin.heading')}</h2>
       </div>
       <CreateWorkspace onCreated={onWorkspacesChanged} />
       <Invitations />

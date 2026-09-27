@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { api } from './api.ts';
+import { t } from './i18n/index.ts';
 
 /** Shown until the server answers; the server's value names the source of the running version. */
 const UPSTREAM_SOURCE_URL = 'https://github.com/crimsonclyde/vergissmeinnicht';
@@ -19,9 +20,9 @@ export function SourceFooter() {
   }, []);
   return (
     <footer className="app-footer">
-      Vergissmeinnicht is free software under the GNU AGPL-3.0.{' '}
+      {t('footer.license')}{' '}
       <a href={sourceCodeUrl} rel="noopener noreferrer">
-        Source code
+        {t('footer.source')}
       </a>
     </footer>
   );

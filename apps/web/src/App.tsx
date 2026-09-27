@@ -6,13 +6,14 @@ import { RecoverAccount } from './RecoverAccount.tsx';
 import { navigate, parseRoute, usePathname } from './router.tsx';
 import { SignIn } from './SignIn.tsx';
 import { SourceFooter } from './SourceFooter.tsx';
+import { t } from './i18n/index.ts';
 
 /** Pages reachable without signing in (sign-in, invitation and recovery links). */
 function PublicLayout({ children }: { children: ReactNode }) {
   return (
     <main className="app-main" style={{ maxWidth: '36rem' }}>
       <h1>Vergissmeinnicht</h1>
-      <p className="muted">Repeatable procedures with trustworthy execution history.</p>
+      <p className="muted">{t('public.tagline')}</p>
       <div className="card">{children}</div>
       <SourceFooter />
     </main>
@@ -48,12 +49,12 @@ export function App() {
       </PublicLayout>
     );
   }
-  if (user === undefined) return <p className="app-main">Loading…</p>;
+  if (user === undefined) return <p className="app-main">{t('common.loading')}</p>;
   if (user === null) {
     return (
       <PublicLayout>
         {/* The Knot token stays in the address bar; after sign-in the app resolves it. */}
-        {route.page === 'knot' && <p role="status">Sign in to open this Knot link.</p>}
+        {route.page === 'knot' && <p role="status">{t('knot.signInHint')}</p>}
         <SignIn onSignedIn={setUser} />
       </PublicLayout>
     );
