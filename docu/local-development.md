@@ -61,6 +61,10 @@ pnpm admin:bootstrap --email you@example.org   # prints http://localhost:5173/in
 
 Open the printed link, choose a display name and a password (≥15 characters), then sign in at `http://localhost:5173/`. Further invitations are sent by a server admin through `POST /api/admin/invitations` and arrive in Mailpit. Without `AUTH_SECRET` in `.env`, sessions end whenever the API restarts; without `DATA_ENCRYPTION_KEY`, enrolled TOTP authenticators stop working after a restart (set both in `.env` when testing TOTP; use two different values).
 
+## Local test environment
+
+For trying the app by hand, `test-env/menu.sh` installs, starts, stops and removes an isolated production-mode instance on `http://127.0.0.1:3200`. It has its own database and generated secrets under `.var/test-env/`, uses Mailpit, and creates demo accounts for every Workspace role (created through the real invitation flow). It never touches `.env` or the development database. See [test-env/README.md](../test-env/README.md).
+
 ## Principles
 
 - ordinary development must not require external SaaS;
@@ -96,6 +100,7 @@ The development defaults (`SMTP_HOST=127.0.0.1`, `SMTP_PORT=1025`, `SMTP_SECURIT
 | `pnpm db:generate` | Generate a migration from `packages/database/src/schema.ts` |
 | `pnpm db:migrate` | Apply committed migrations |
 | `pnpm admin:recover --email you@example.org [--password] [--totp]` | Print a single-use account recovery link (operator fallback) |
+| `test-env/menu.sh` | Local test environment with demo accounts (install / stop / uninstall / status) |
 | `pnpm admin:bootstrap --email you@example.org` | Create the first server-admin invitation and print its link (refused once a server admin exists) |
 
 The server runs TypeScript directly via Node's built-in type stripping; only erasable TypeScript syntax is allowed (`erasableSyntaxOnly`), and relative imports use `.ts` extensions.

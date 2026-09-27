@@ -450,3 +450,14 @@ The following choices are mandatory V1 behavior:
 **Authorization review:** Procedure/Run capabilities are defined but not yet enforced anywhere because those features do not exist; Steps 4/5 must use `authorizeWorkspace` with them and add negative tests per capability.  
 **Open risks:** matrix decided from the documented intent, pending product review (steps.md 3.2); SSE authorization not yet implemented (6.1); a Workspace whose only ACTIVE admin is disabled cannot be managed until a server-admin repair path exists.  
 **Reviewed:** 2026-09-27
+
+### Security check: local test environment (`test-env/`, 2026-09-27)
+**Threat surface:** a demo instance with known accounts reachable by others; generated secrets or the demo password committed or world-readable; cleanup killing unrelated processes or deleting outside its directory; demo data created through a privileged backdoor.  
+**Controls added:** binds to `127.0.0.1` only; runs in production mode (same config validation, Secure cookies, Origin guard, rate limits); secrets from `openssl rand`, stored with the DB, log and credentials in `.var/test-env/` (git-ignored, dir `0700`, files `0600`); one random demo password per install (no fixed password in the repository); demo data is created only through the public HTTP API, the bootstrap CLI and real invitation emails — no seeding code with database access exists; `uninstall.sh` kills only a PID whose command line is this repository's server, stops Mailpit only if it started it, and deletes only the expected state path.  
+**Negative tests:** manual — the GUEST demo account gets `403` on the member list, the outsider account gets `404` for the Household Workspace, and the demo password does not appear in the server log. Full install → stop → restart → uninstall cycle verified; the development database stays untouched.  
+**Secrets/data involved:** throwaway `AUTH_SECRET`/`DATA_ENCRYPTION_KEY`, demo password (plaintext in `credentials.txt`, by design).  
+**Logging review:** server log in `.var/test-env/server.log` at `info`; no passwords or tokens (verified).  
+**Authorization review:** unchanged application rules; the environment adds no routes.  
+**Open risks:** anyone with access to the local user account can read the demo credentials (acceptable for throwaway data); never reuse it for real data or expose the port.  
+**Reviewed:** 2026-09-27
+
