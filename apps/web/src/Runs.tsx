@@ -126,6 +126,8 @@ function StepItem(props: {
   saving: boolean;
   /** Someone else changed this Step a moment ago. */
   remote: boolean;
+  /** The first pending Step: what to do next. */
+  next: boolean;
   onChange: (action: StepAction) => void;
 }) {
   const { step } = props;
@@ -136,7 +138,17 @@ function StepItem(props: {
     else setAsking(to);
   };
   return (
-    <li className="step" data-state={step.state} data-saving={props.saving} data-remote={props.remote}>
+    <li
+      id={stepElementId(step.id)}
+      tabIndex={-1}
+      className="step"
+      data-state={step.state}
+      data-saving={props.saving}
+      data-remote={props.remote}
+      data-next={props.next}
+      aria-current={props.next ? 'step' : undefined}
+    >
+      {props.next && <span className="next-chip">Next</span>}
       <div className="row" style={{ justifyContent: 'space-between' }}>
         <span className="step-title">
           {step.icon !== null && (
@@ -204,6 +216,40 @@ function StepItem(props: {
         />
       )}
     </li>
+  );
+}
+
+const stepElementId = (stepId: string) => `step-${stepId}`;
+
+/** Brings a Step into view and moves keyboard focus to it (no smooth scrolling if the user prefers less motion). */
+function goToStep(stepId: string) {
+  const element = document.getElementById(stepElementId(stepId));
+  if (element === null) return;
+  const reduced = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false;
+  element.scrollIntoView({ block: 'center', behavior: reduced ? 'auto' : 'smooth' });
+  element.focus({ preventScroll: true });
+}
+
+/**
+ * Stays at the bottom of the screen while working through an active Run (thumb reach on phones):
+ * progress and the next pending Step are always visible, so nothing has to be remembered.
+ */
+function RunDock({ steps, next }: { steps: readonly RunStep[]; next: RunStep | undefined }) {
+  const resolved = steps.filter((step) => step.state !== 'PENDING').length;
+  return (
+    <div className="run-dock" role="region" aria-label="Run progress">
+      <span>
+        <strong>
+          {resolved} of {steps.length}
+        </strong>{' '}
+        resolved{next !== undefined ? <> · Next: {next.title}</> : ' · no pending Steps'}
+      </span>
+      {next !== undefined && (
+        <button type="button" onClick={() => goToStep(next.id)}>
+          Go to next Step
+        </button>
+      )}
+    </div>
   );
 }
 
@@ -306,6 +352,10 @@ function RunView(props: {
   const { run } = props;
   const canExecute = props.canExecute && run.state === 'ACTIVE';
   const steps = run.sections.flatMap((section) => section.steps);
+  const next = run.state === 'ACTIVE' ? steps.find((step) => step.state === 'PENDING') : undefined;
+  // Less clutter on demand; resolved Steps stay one click away (and undo stays possible).
+  const [hideResolved, setHideResolved] = useState(false);
+  const hiding = hideResolved && run.state === 'ACTIVE';
   return (
     <article aria-labelledby="run-title">
       <div className="card stack">
@@ -333,12 +383,21 @@ function RunView(props: {
           {props.remoteChange !== null && describeChange(run, props.remoteChange)}
         </p>
       </div>
-      {run.sections.map((section) => (
+      {run.state === 'ACTIVE' && (
+        <label className="row" style={{ fontWeight: 400 }}>
+          <input type="checkbox" checked={hideResolved} onChange={(e) => setHideResolved(e.target.checked)} />
+          Hide resolved Steps
+        </label>
+      )}
+      {run.sections.map((section) => {
+        const visible = hiding ? section.steps.filter((step) => step.state === 'PENDING' || props.saving.has(step.id)) : section.steps;
+        return (
         <section key={section.id} aria-label={`Run section: ${section.title}`}>
           <h3>{section.title}</h3>
           {section.description !== '' && <p className="muted">{section.description}</p>}
+          {visible.length === 0 && <p className="muted">All Steps in this section are resolved.</p>}
           <ol className="plain-list">
-            {section.steps.map((step) => (
+            {visible.map((step) => (
               <StepItem
                 key={`${step.id}-${step.state}`}
                 step={step}
@@ -346,12 +405,14 @@ function RunView(props: {
                 busy={props.busy}
                 saving={props.saving.has(step.id)}
                 remote={props.remoteChange?.stepId === step.id}
+                next={next?.id === step.id}
                 onChange={(action) => props.onStep(step, action)}
               />
             ))}
           </ol>
         </section>
-      ))}
+        );
+      })}
       {run.state === 'ACTIVE' && (props.canExecute || props.canAbort) && (
         <div style={{ marginTop: '1.5rem' }}>
           <RunEndControls
@@ -367,6 +428,7 @@ function RunView(props: {
       <div className="card">
         <History key={`${run.id}-${run.state}`} label="Run history" load={props.loadHistory} />
       </div>
+      {run.state === 'ACTIVE' && <RunDock steps={steps} next={next} />}
       {props.canManageKnots && (
         <div style={{ marginBottom: '1rem' }}>
           <KnotShare key={run.id} workspaceId={props.workspaceId} target={{ type: 'RUN', id: run.id }} defaultLabel={run.title} />

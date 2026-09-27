@@ -249,6 +249,27 @@ test('first server admin: bootstrap link, account creation, sign-in, Workspace c
   await run2.getByRole('button', { name: 'Done: Close windows' }).click();
   await expect(stepItem('Close windows')).toContainText('Done by Ada Admin at');
   await page2.unroute(stateUrl);
+
+  // Phone-first execution (8.1): the next Step is obvious, progress stays in view, less clutter
+  // on demand, and nothing scrolls sideways.
+  const noSidewaysScroll = () => page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth);
+  await page.setViewportSize({ width: 390, height: 844 });
+  expect(await noSidewaysScroll()).toBe(true);
+  await expect(stepItem('Turn off stove')).toContainText('Next');
+  await expect(stepItem('Close windows')).not.toContainText('Next');
+  const dock = page.getByRole('region', { name: 'Run progress' });
+  await expect(dock).toContainText('1 of 2 resolved · Next: Turn off stove');
+  await dock.getByRole('button', { name: 'Go to next Step' }).click();
+  await expect(stepItem('Turn off stove')).toBeFocused();
+  await expect(dock).toBeInViewport();
+  const doneButtonHeight = (await stepItem('Turn off stove').getByRole('button', { name: 'Skip' }).boundingBox())?.height ?? 0;
+  expect(doneButtonHeight).toBeGreaterThanOrEqual(44);
+  await run.getByLabel('Hide resolved Steps').check();
+  await expect(stepItem('Close windows')).toHaveCount(0);
+  await expect(stepItem('Turn off stove')).toHaveCount(1);
+  await run.getByLabel('Hide resolved Steps').uncheck();
+  await expect(stepItem('Close windows')).toHaveCount(1);
+  await page.setViewportSize({ width: 1280, height: 720 });
   const stove = stepItem('Turn off stove');
   await stove.getByRole('button', { name: 'Skip' }).click();
   await stove.getByLabel(/Why is it skipped\? \(required\)/).fill('Nobody cooked today');
@@ -344,6 +365,11 @@ test('first server admin: bootstrap link, account creation, sign-in, Workspace c
 
   await page.getByRole('link', { name: 'Knot links' }).click();
   const knotTable = page.getByRole('table', { name: 'Knot links' });
+  // Wide tables scroll inside their card, never the page (8.1).
+  await page.setViewportSize({ width: 390, height: 844 });
+  await expect(knotTable).toBeVisible();
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+  await page.setViewportSize({ width: 1280, height: 720 });
   await expect(knotTable.getByRole('row')).toHaveCount(2);
   await expect(knotTable).toContainText('Hallway card');
   await expect(knotTable).toContainText('Procedure: Leave the flat');

@@ -302,6 +302,7 @@ td {
 
 /* Wide tables scroll inside their card instead of widening the page on phones. */
 .table-wrap {
+  position: relative; /* keeps visually hidden cells inside the scroll area */
   overflow-x: auto;
 }
 
@@ -467,6 +468,50 @@ caption {
   position: relative;
 }
 
+/* The next pending Step stands out; the "Next" chip names it in text, too. */
+.step[data-next='true'] {
+  border-width: 2px 2px 2px 6px;
+  border-color: var(--state-pending);
+}
+
+.next-chip {
+  display: inline-block;
+  margin-bottom: 0.3rem;
+  padding: 0 0.5rem;
+  border-radius: 999px;
+  background: var(--state-pending);
+  color: var(--accent-text);
+  font-size: 0.8rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+/* Progress and "next" stay reachable at the bottom of the screen while executing. */
+.run-dock {
+  position: sticky;
+  bottom: 0;
+  z-index: 5;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin-top: 1rem;
+  padding: 0.6rem 1rem;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius) var(--radius) 0 0;
+  box-shadow: 0 -2px 8px rgb(0 0 0 / 12%);
+}
+
+/* An empty live region must not show as an empty box. */
+[role='status']:empty {
+  padding: 0;
+  border: 0;
+  background: none;
+}
+
 /* Brief confirmation when a Step becomes Done; no motion for users who ask for less. */
 @keyframes confirm-pop {
   from {
@@ -486,6 +531,13 @@ caption {
 @media (max-width: 40rem) {
   .step-actions button {
     flex: 1 1 100%;
+  }
+
+  /* Touch targets of at least 44 px while executing on a phone. */
+  button,
+  .button,
+  select {
+    min-height: 2.75rem;
   }
 }
 

@@ -42,6 +42,8 @@ const PAIRS: readonly [string, string, number][] = [
   ['state-done', 'state-done-bg', 4.5],
   ['state-skipped', 'state-skipped-bg', 4.5],
   ['state-na', 'state-na-bg', 4.5],
+  // "Next" chip label on the pending colour.
+  ['accent-text', 'state-pending', 4.5],
   // Press-and-hold fill behind the button label.
   ['text', 'state-done-bg', 4.5],
   // State summary text on cards.

@@ -1105,7 +1105,8 @@ Token is high entropy, revocable, optionally expiring, redacted from logs, and d
 **Remaining:** manual theme toggle (8.3), i18n string structure (8.4), a full accessibility review (incl. an alternative to press-and-hold for users who cannot hold), Procedure view URLs (the Procedure detail is not yet addressable by URL).
 
 ### 8.1 Responsive authoring/execution
-**Status:** TODO
+**Status:** DONE
+**Completed:** 2026-09-27
 
 Desktop-first Procedure creation; smartphone-first Run execution.
 
@@ -1116,6 +1117,23 @@ ADHD-friendly design goals:
 - persistent progress;
 - forgiving undo;
 - no reliance on memory to understand current state.
+
+**Security impact:** NONE — presentation only.
+
+**Implemented:** (on top of the 8.0 shell: responsive layout, full-width Step actions on phones)
+- Obvious next work: the first pending Step of an active Run is marked with a "Next" chip (text, not only colour), a stronger border and `aria-current="step"`.
+- Persistent progress: a sticky bottom dock on active Runs ("1 of 2 resolved · Next: Turn off stove") within thumb reach, with "Go to next Step" (scrolls — smoothly only without `prefers-reduced-motion` — and moves keyboard focus to the Step).
+- Low clutter on demand: "Hide resolved Steps" (per view, not stored); sections say "All Steps in this section are resolved."; empty live-status regions no longer render as empty boxes.
+- Forgiving undo and no reliance on memory: already present (Undo on every resolved Step, actor/time/reason lines, per-state summary from 8.2, live updates from 6.1).
+- Touch: buttons and selects at least 44 px high on narrow screens.
+- Wide tables (members, invitations, Knot links) scroll inside their card; a visually hidden header cell no longer widened the page.
+- Desktop authoring is unchanged from 4.x/8.0 (form with keyboard/drag reordering); it works on phones but is not optimized for them.
+
+**Tests/checks:** e2e at 390×844: no horizontal page scroll on the Run view and the Knot links page, "Next" on the right Step, dock text and visibility, focus after "Go to next Step", 44 px action buttons, hide/show resolved Steps; contrast test extended to the "Next" chip. `pnpm lint`, `pnpm typecheck`, `pnpm test`.
+
+**Security docs updated:** N/A.
+
+**Remaining:** Procedure authoring on phones is usable but not optimized (drag handles are desktop-only; buttons/select work); no manual test on physical iOS/Android devices yet; a full accessibility review (incl. an alternative to press-and-hold) is still open from 8.0.
 
 ### 8.2 State presentation
 **Status:** DONE
