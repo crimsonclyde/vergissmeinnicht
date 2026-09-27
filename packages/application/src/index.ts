@@ -1,3 +1,4 @@
+export * from './history/index.ts';
 export * from './invitations/index.ts';
 export * from './mfa/index.ts';
 export * from './recovery/index.ts';
@@ -16,3 +17,4 @@ export * from './ports/user-repository.ts';
 export * from './ports/workspace-repository.ts';
 export * from './ports/procedure-repository.ts';
 export * from './ports/run-repository.ts';
+export * from './ports/audit-history.ts';

@@ -231,6 +231,13 @@ test('first server admin: bootstrap link, account creation, sign-in, Workspace c
   await finishControls.getByRole('button', { name: 'Complete Run' }).click();
   await expect(activeRun.getByRole('status')).toContainText('Completed by Ada Admin');
   await expect(activeRun.getByRole('button', { name: /Undo|Done|Skip/ })).toHaveCount(0);
+  // The Run's history tells who did what, when and why.
+  await activeRun.getByRole('region', { name: 'Run history' }).getByRole('button', { name: 'Show history' }).click();
+  const history = activeRun.getByRole('region', { name: 'Run history' }).getByRole('listitem');
+  await expect(history.first()).toContainText('Ada Admin started the Run');
+  await expect(history.filter({ hasText: 'Turn off stove: Pending → Skipped — reason: Nobody cooked today' })).toHaveCount(1);
+  await expect(history.filter({ hasText: 'Close windows: Done → Pending (undo)' })).toHaveCount(1);
+  await expect(history.last()).toContainText('Ada Admin completed the Run');
   await runs.getByRole('button', { name: 'Back to all Runs' }).click();
 
   // Abort the other Run with a reason.

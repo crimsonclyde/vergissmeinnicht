@@ -138,6 +138,25 @@ describe('Run HTTP API', () => {
     expect((await t.post(`${runs(home)}/${(await start(user)).json().run.id}/abort`, undefined, user)).json().run.state).toBe('ABORTED');
   });
 
+  it('serves Run and Procedure history to members only, with display names instead of user ids', async () => {
+    const run = (await start(user)).json().run;
+    const stepId = run.sections[0].steps[0].id as string;
+    await t.post(`${runs(home)}/${run.id}/steps/${stepId}/state`, { expectedState: 'PENDING', state: 'DONE' }, user);
+    const history = await t.get(`${runs(home)}/${run.id}/history`, guest);
+    expect(history.json().events.map((e: { type: string; actor: string }) => [e.type, e.actor])).toEqual([
+      ['RUN_STARTED', 'Uma'],
+      ['STEP_STATE_CHANGED', 'Uma'],
+    ]);
+    expect(history.body).not.toMatch(/userId|actorUserId|@example\.org/);
+    expect((await t.get(`${runs(home)}/${run.id}/history`, outsider)).statusCode).toBe(404);
+    expect((await t.get(`${runs(office)}/${run.id}/history`, outsider)).json()).toEqual({ error: 'run_not_found' });
+    expect((await t.get(`${runs(home)}/${run.id}/history`)).statusCode).toBe(401);
+
+    const procedureHistory = await t.get(`/api/workspaces/${home}/procedures/${procedureId}/history`, guest);
+    expect(procedureHistory.json().events.map((e: { type: string }) => e.type)).toEqual(['PROCEDURE_CREATED']);
+    expect((await t.get(`/api/workspaces/${office}/procedures/${procedureId}/history`, outsider)).json()).toEqual({ events: [] });
+  });
+
   it('validates input and preconditions', async () => {
     const empty = (await t.post(`/api/workspaces/${home}/procedures`, { title: 'Empty', icon: 'home' }, editor)).json().procedure.id;
     expect((await start(user, home, empty)).json()).toEqual({ error: 'procedure_has_no_steps' });

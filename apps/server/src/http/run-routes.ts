@@ -1,4 +1,4 @@
-import { abortRun, changeStepState, completeRun, getRun, listRuns, startRun } from '@vergissmeinnicht/application';
+import { abortRun, changeStepState, completeRun, getRun, getRunHistory, listRuns, startRun } from '@vergissmeinnicht/application';
 import {
   RUN_STATES,
   STEP_STATES,
@@ -16,6 +16,7 @@ import type { FastifyInstance, FastifyRequest } from 'fastify';
 import { z } from 'zod';
 import type { AppServices } from '../composition.ts';
 import { InvalidRequestError } from './errors.ts';
+import { auditEventView } from './history-view.ts';
 import { requireUser, type Principal } from './session.ts';
 
 // Lower-case UUIDv4 only, like the domain parsers: one canonical spelling per id.
@@ -133,6 +134,16 @@ export async function runRoutes(app: FastifyInstance, { services }: { services: 
       reason,
     });
     return { run: detailView(detail) };
+  });
+
+  app.get('/:runId/history', async (request) => {
+    const { workspaceId, runId } = parse(runParams, request.params);
+    const events = await getRunHistory(services.history, {
+      actor: principalOf(request).user,
+      workspaceId: workspaceId as WorkspaceId,
+      runId: runId as RunId,
+    });
+    return { events: events.map(auditEventView) };
   });
 
   app.get('/:runId', async (request) => {

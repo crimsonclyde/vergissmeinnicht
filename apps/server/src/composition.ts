@@ -1,5 +1,6 @@
 import {
   systemClock,
+  type HistoryDeps,
   type InvitationDeps,
   type ProcedureDeps,
   type RunDeps,
@@ -20,6 +21,7 @@ import {
 import {
   accounts,
   createAccountRecoveryRepository,
+  createAuditHistory,
   createCredentialRepository,
   createInvitationRepository,
   createMfaChallengeRepository,
@@ -51,6 +53,7 @@ export interface AppServices {
   readonly workspaces: WorkspaceDeps;
   readonly procedures: ProcedureDeps;
   readonly runs: RunDeps;
+  readonly history: HistoryDeps;
   readonly securityEvents: SecurityEventLog;
   /** `Secure` + `__Secure-` cookies (production). */
   readonly secureCookies: boolean;
@@ -130,6 +133,7 @@ export function createServices(config: AppConfig, database: AppDatabase) {
       workspaces: workspaceDeps,
       procedures: { workspaces: workspaceDeps.workspaces, procedures: createProcedureRepository(database), clock: systemClock },
       runs: { workspaces: workspaceDeps.workspaces, runs: createRunRepository(database), clock: systemClock },
+      history: { workspaces: workspaceDeps.workspaces, history: createAuditHistory(database) },
       securityEvents,
       secureCookies: config.mode === 'production',
     };

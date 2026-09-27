@@ -3,6 +3,7 @@ import {
   api,
   ApiError,
   messageFor,
+  type HistoryEvent,
   type ReasonPolicy,
   type RunDetail,
   type RunState,
@@ -10,6 +11,7 @@ import {
   type RunSummary,
   type StepState,
 } from './api.ts';
+import { History } from './History.tsx';
 import { HoldToConfirm } from './HoldToConfirm.tsx';
 import { Icon } from './procedure-icons.tsx';
 
@@ -187,6 +189,7 @@ function RunView(props: {
   onStep: (step: RunStep, action: StepAction) => void;
   onComplete: () => void;
   onAbort: (reason: string) => void;
+  loadHistory: () => Promise<HistoryEvent[]>;
 }) {
   const { run } = props;
   const canExecute = props.canExecute && run.state === 'ACTIVE';
@@ -222,6 +225,7 @@ function RunView(props: {
           </ol>
         </section>
       ))}
+      <History key={`${run.id}-${run.state}`} label="Run history" load={props.loadHistory} />
       {run.state === 'ACTIVE' && (props.canExecute || props.canAbort) && (
         <RunEndControls
           run={run}
@@ -324,6 +328,7 @@ export function Runs(props: {
               onStep={(step, action) => void changeStep(shown, step, action)}
               onComplete={() => void finish(shown, () => api.completeRun(workspaceId, shown.id))}
               onAbort={(reason) => void finish(shown, () => api.abortRun(workspaceId, shown.id, reason))}
+              loadHistory={() => api.runHistory(workspaceId, shown.id)}
             />
           )}
           <button type="button" onClick={() => onOpen(null)}>

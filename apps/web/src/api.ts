@@ -133,6 +133,17 @@ export interface RunDetail extends RunInfo {
   readonly sections: readonly { readonly id: string; readonly title: string; readonly description: string; readonly steps: readonly RunStep[] }[];
 }
 
+export interface HistoryEvent {
+  readonly id: string;
+  readonly type: string;
+  readonly at: string;
+  /** Display name at the time of the event. */
+  readonly actor: string;
+  readonly subjectType: string;
+  readonly subjectId: string;
+  readonly metadata: Readonly<Record<string, string | number | boolean | readonly string[]>>;
+}
+
 export type SecondFactor = { readonly code: string } | { readonly recoveryCode: string };
 
 export interface MfaStatus {
@@ -347,6 +358,20 @@ export const api = {
         reason.trim() === '' ? {} : { reason },
       )
     ).run,
+  runHistory: async (workspaceId: string, runId: string) =>
+    (
+      await request<{ events: HistoryEvent[] }>(
+        'GET',
+        `/workspaces/${encodeURIComponent(workspaceId)}/runs/${encodeURIComponent(runId)}/history`,
+      )
+    ).events,
+  procedureHistory: async (workspaceId: string, procedureId: string) =>
+    (
+      await request<{ events: HistoryEvent[] }>(
+        'GET',
+        `/workspaces/${encodeURIComponent(workspaceId)}/procedures/${encodeURIComponent(procedureId)}/history`,
+      )
+    ).events,
   startRun: async (workspaceId: string, procedureId: string) =>
     (await request<{ run: RunDetail }>('POST', `/workspaces/${encodeURIComponent(workspaceId)}/runs`, { procedureId })).run,
   leaveWorkspace: (id: string) => request<undefined>('POST', `/workspaces/${encodeURIComponent(id)}/leave`),

@@ -161,15 +161,15 @@ Canonical shape:
 
 ## 6. Audit integrity
 
-- [ ] Important mutations record internal User UUID. (Procedures, Runs and Step state changes: yes — actor id + display-name snapshot in `audit_events`, Step state changes also on the Step row.)
+- [x] Important mutations record internal User UUID. (Procedures, Runs, Step state changes, Run completion/abort in `audit_events`; account/access changes in `security_events`.)
 - [x] Store actor display-name snapshot where historical readability requires it. (Audit events, Run starter, Step state changes.)
 - [x] Store trusted server timestamp. (Server clock only; clients never send times.)
-- [ ] Required state change + AuditEvent are one DB transaction.
-- [ ] Normal users cannot edit/delete audit history.
+- [x] Required state change + AuditEvent are one DB transaction. (Every repository mutation; tests force the audit insert to fail and assert a full rollback.)
+- [x] Normal users cannot edit/delete audit history. (No write API; history is read-only via `AuditHistory`; UPDATE/DELETE blocked by triggers for everyone.)
 - [x] `security_events` is append-only at the DB level (UPDATE/DELETE triggers abort).
 - [x] `audit_events` (Workspace content history) is append-only at the DB level; Procedure changes and their audit event commit in one transaction with actor id, display-name snapshot and server timestamp.
-- [ ] Corrections are additive rather than silent rewrites.
-- [ ] Audit metadata does not contain credentials/secrets.
+- [x] Corrections are additive rather than silent rewrites. (Undo is a new event; finished Runs are frozen; no correction workflow exists in V1.)
+- [x] Audit metadata does not contain credentials/secrets. (Titles, field names, states, counts, reasons and ids only; history responses expose display names, not user ids.)
 - [x] Procedure deletion cannot cascade-delete historical Runs. (Soft delete only; `runs.procedure_id` FK without cascade blocks even a hard delete; Run rows cannot be deleted — triggers.)
 - [x] Historical Run snapshot remains readable after Procedure change/deletion. (Definition copied at start; snapshot columns immutable by triggers; tests edit, restructure and delete the source.)
 

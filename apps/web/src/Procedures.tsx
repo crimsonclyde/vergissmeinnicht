@@ -8,6 +8,7 @@ import {
   type ProcedureDetail,
   type ReasonPolicy,
 } from './api.ts';
+import { History } from './History.tsx';
 import { Icon } from './procedure-icons.tsx';
 import { downloadJson, exportFileName, readImportFile } from './procedure-files.ts';
 import { ProcedureForm } from './ProcedureForm.tsx';
@@ -210,6 +211,7 @@ export function Procedures(props: {
       {mode.kind === 'view' && shown !== null && (
         <article aria-labelledby="procedure-title">
           <ProcedureView detail={shown} />
+          <History key={`${shown.id}-${shown.revision}`} label="Procedure history" load={() => api.procedureHistory(workspaceId, shown.id)} />
           <p>
             <button type="button" onClick={() => setMode({ kind: 'list' })}>
               Back to all Procedures
