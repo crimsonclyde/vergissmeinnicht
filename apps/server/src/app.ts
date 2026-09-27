@@ -57,6 +57,10 @@ export async function buildApp(options: AppOptions = {}) {
         frameAncestors: ["'none'"],
         objectSrc: ["'none'"],
         baseUri: ["'self'"],
+        // Only the app's own stylesheet: no inline <style>/style="" and no remote styles or fonts.
+        // (React `style` props use the CSSOM, which style-src does not restrict.)
+        styleSrc: ["'self'"],
+        fontSrc: ["'self'"],
       },
     },
     referrerPolicy: { policy: 'no-referrer' },

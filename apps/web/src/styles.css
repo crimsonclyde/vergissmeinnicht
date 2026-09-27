@@ -1,6 +1,7 @@
 /*
  * Semantic design tokens (docu/steps.md 8.3). Components use only these variables, so themes (System /
  * Light / Dark, later named presets such as "Memento Mori") change values, not components.
+ * `:root` holds the light theme.
  * State colors always come with a glyph and text (8.2): color is never the only signal.
  */
 :root {
@@ -28,29 +29,40 @@
   --shadow: 0 1px 2px rgb(0 0 0 / 8%);
 }
 
+/*
+ * Themes are selected by `data-theme` on <html> (set by theme.ts from the user's System / Light /
+ * Dark choice). A named preset is one more block like this one.
+ */
+:root[data-theme='dark'] {
+  color-scheme: dark;
+  --bg: #0b0b0c;
+  --surface: #161618;
+  --surface-muted: #202024;
+  --text: #ececef;
+  --text-muted: #a0a0aa;
+  --border: #33333a;
+  --accent: #e0463b;
+  --accent-text: #0b0b0c;
+  --accent-soft: #3a1512;
+  --focus: #7aa7ff;
+  --state-pending: #ff6b5e;
+  --state-pending-bg: #331513;
+  --state-done: #5fd07e;
+  --state-done-bg: #11291a;
+  --state-done-text: #0b0b0c;
+  --state-skipped: #f2b84b;
+  --state-skipped-bg: #33260b;
+  --state-na: #b4b8c4;
+  --state-na-bg: #24262c;
+  --shadow: none;
+}
+
+/* Before the script sets a theme (and without JavaScript), follow the system for the page background. */
 @media (prefers-color-scheme: dark) {
-  :root {
+  :root:not([data-theme]) {
     color-scheme: dark;
     --bg: #0b0b0c;
-    --surface: #161618;
-    --surface-muted: #202024;
     --text: #ececef;
-    --text-muted: #a0a0aa;
-    --border: #33333a;
-    --accent: #e0463b;
-    --accent-text: #0b0b0c;
-    --accent-soft: #3a1512;
-    --focus: #7aa7ff;
-    --state-pending: #ff6b5e;
-    --state-pending-bg: #331513;
-    --state-done: #5fd07e;
-    --state-done-bg: #11291a;
-    --state-done-text: #0b0b0c;
-    --state-skipped: #f2b84b;
-    --state-skipped-bg: #33260b;
-    --state-na: #b4b8c4;
-    --state-na-bg: #24262c;
-    --shadow: none;
   }
 }
 
@@ -436,6 +448,22 @@ caption {
 
 .hold-label {
   position: relative;
+}
+
+/* Brief confirmation when a Step becomes Done; no motion for users who ask for less. */
+@keyframes confirm-pop {
+  from {
+    transform: scale(0.8);
+  }
+  to {
+    transform: scale(1);
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .step[data-state='DONE'] .state-badge {
+    animation: confirm-pop 220ms ease-out;
+  }
 }
 
 @media (max-width: 40rem) {

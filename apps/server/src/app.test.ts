@@ -28,6 +28,9 @@ describe('server app', () => {
     expect(response.headers['x-content-type-options']).toBe('nosniff');
     expect(response.headers['referrer-policy']).toBe('no-referrer');
     expect(response.headers['content-security-policy']).toContain("frame-ancestors 'none'");
+    expect(response.headers['content-security-policy']).toContain("style-src 'self';");
+    expect(response.headers['content-security-policy']).toContain("font-src 'self';");
+    expect(response.headers['content-security-policy']).not.toContain('unsafe-inline');
     await app.close();
   });
 

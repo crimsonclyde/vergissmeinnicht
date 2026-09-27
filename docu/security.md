@@ -82,7 +82,7 @@ This file is normative and must evolve with the application.
 - [x] Sensitive responses are not cached publicly. (`Cache-Control: no-store` on all `/api/*`.)
 - [ ] Production uses HTTPS.
 - [ ] HSTS enabled when deployment topology makes it safe.
-- [x] Content-Security-Policy is defined.
+- [x] Content-Security-Policy is defined. (`default-src 'self'`, `script-src 'self'`, `style-src 'self'` and `font-src 'self'` without `'unsafe-inline'` since 8.3, `object-src 'none'`, `frame-ancestors 'none'`; the e2e flow fails on any CSP violation.)
 - [x] Clickjacking prevented via CSP `frame-ancestors`.
 - [x] `X-Content-Type-Options: nosniff`.
 - [x] Strict `Referrer-Policy`, especially around Knot URLs. (`no-referrer` header + meta tag; verified on `/knot/{token}` by e2e, 7.1.)
@@ -370,7 +370,7 @@ The following choices are mandatory V1 behavior:
 **Secrets/data involved:** none yet (no auth, no secrets, empty schema).  
 **Logging review:** request logs contain method/URL/host/remote address only; credential headers redacted. URL-path token redaction (Knot) must be added with Step 7.1 / 1.2.  
 **Authorization review:** no protected resources exist yet; boundaries keep DB/auth code out of the web client.  
-**Open risks:** HSTS off until HTTPS termination is configured (10.3); moderate advisory GHSA-67mh-4wv8-2f99 in dev-only `drizzle-kit` dependency chain; CSP `style-src` allows `'unsafe-inline'` (helmet default) — tighten when the theme system (8.3) is built; validated configuration and fail-closed startup pending (1.2).  
+**Open risks:** HSTS off until HTTPS termination is configured (10.3); moderate advisory GHSA-67mh-4wv8-2f99 in dev-only `drizzle-kit` dependency chain; CSP `style-src` allowed `'unsafe-inline'` (helmet default) — tightened to `'self'` in 8.3; validated configuration and fail-closed startup pending (1.2).  
 **Reviewed:** 2026-09-26
 
 ### Security check: configuration and secret handling (Step 1.2)

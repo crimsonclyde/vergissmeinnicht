@@ -1129,7 +1129,8 @@ Color plus semantic icon/text:
 Do not rely on red/green alone.
 
 ### 8.3 Theme system
-**Status:** TODO
+**Status:** DONE
+**Completed:** 2026-09-27
 
 Semantic design tokens.
 
@@ -1148,6 +1149,21 @@ Light theme uses the corresponding light/inverted direction.
 Animations are acceptable when useful, brief, and not distracting.
 
 Future named presets such as `Memento Mori` must not require business-component rewrites.
+
+**Security impact:** LOW — client-only preference; the CSP was tightened as part of this step.
+
+**Implemented:**
+- `apps/web/src/theme.ts`: modes `system` / `light` / `dark` resolve to a theme id written to `<html data-theme>` before the first render (`initTheme` in `main.tsx`); "System" follows the device setting live (`matchMedia` change). The choice is a per-browser convenience in `localStorage` (`vmn.theme`, wrapped in try/catch, invalid values ignored), not part of the account.
+- `styles.css`: `:root` = light tokens, `:root[data-theme='dark']` = dark tokens (black/grey, restrained red accent) — defined once; a pre-script fallback follows the system for the page background. Components still use only semantic tokens. **Adding a named preset** (e.g. Memento Mori) = one token block `:root[data-theme='memento-mori']`, one entry in `THEMES` and one mode; no component changes.
+- Account page: "Appearance" radio group (System / Light / Dark) with short explanations.
+- Motion: a 220 ms confirmation when a Step becomes Done, only under `prefers-reduced-motion: no-preference`.
+- CSP: `style-src 'self'` and `font-src 'self'` (no `'unsafe-inline'`, no remote styles/fonts) — possible because the app has no inline `<style>`/`style=""` markup (React style props use the CSSOM).
+
+**Tests/checks:** `theme.test.ts` (3: System resolution, only known stored modes accepted, every mode resolves to an existing theme); `app.test.ts` asserts the tightened CSP; e2e: Dark applies at once (body background from the dark tokens), survives a reload, Light switches back, System follows emulated `prefers-color-scheme`; the whole e2e flow collects console messages and fails on any CSP violation. `pnpm lint`, `pnpm typecheck`.
+
+**Security docs updated:** YES (§2 CSP, Step 1.1 open risk closed).
+
+**Remaining:** no named preset yet (Memento Mori reserved); the theme choice is per browser, not synced across devices.
 
 ### 8.4 i18n readiness
 **Status:** TODO

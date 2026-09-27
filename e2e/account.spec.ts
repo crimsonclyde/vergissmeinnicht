@@ -8,6 +8,11 @@ const PASSWORD = 'an e2e passphrase that is long';
 test('first server admin: bootstrap link, account creation, sign-in, Workspace creation, Procedure authoring with Sections and Steps, export/import/duplicate/restore, starting, executing, completing and aborting Runs, TOTP enrollment, TOTP sign-in and operator TOTP recovery', async ({ page, browser }, testInfo) => {
   // Bootstrap works exactly once per server; the flow runs on one project only.
   test.skip(testInfo.project.name !== 'desktop-chromium', 'bootstrap is single-use per server');
+  // The strict CSP (no inline styles/scripts) must not break anything the flow touches.
+  const cspViolations: string[] = [];
+  page.on('console', (message) => {
+    if (message.text().includes('Content Security Policy')) cspViolations.push(message.text());
+  });
 
   const output = execFileSync(
     process.execPath,
@@ -351,6 +356,22 @@ test('first server admin: bootstrap link, account creation, sign-in, Workspace c
   // Account settings live on their own page.
   await page.getByRole('link', { name: /^Account/ }).click();
 
+  // Appearance (8.3): the theme choice applies at once and survives a reload.
+  const html = page.locator('html');
+  await page.getByRole('radio', { name: /^Dark/ }).check();
+  await expect(html).toHaveAttribute('data-theme', 'dark');
+  await expect(page.locator('body')).toHaveCSS('background-color', 'rgb(11, 11, 12)');
+  await page.reload();
+  await expect(page.getByRole('radio', { name: /^Dark/ })).toBeChecked();
+  await expect(html).toHaveAttribute('data-theme', 'dark');
+  await page.getByRole('radio', { name: /^Light/ }).check();
+  await expect(page.locator('body')).toHaveCSS('background-color', 'rgb(246, 246, 247)');
+  await page.getByRole('radio', { name: /^System/ }).check();
+  await page.emulateMedia({ colorScheme: 'dark' });
+  await expect(html).toHaveAttribute('data-theme', 'dark');
+  await page.emulateMedia({ colorScheme: 'light' });
+  await expect(html).toHaveAttribute('data-theme', 'light');
+
   // Enable TOTP: password, QR code + key, confirmation code, recovery codes.
   await page.getByRole('button', { name: 'Enable two-factor authentication' }).click();
   await page.getByLabel('Current password').fill(PASSWORD);
@@ -407,4 +428,5 @@ test('first server admin: bootstrap link, account creation, sign-in, Workspace c
   await expect(page.getByRole('heading', { name: 'Sign in' })).toBeVisible();
   await page.reload();
   await expect(page.getByRole('heading', { name: 'Sign in' })).toBeVisible();
+  expect(cspViolations).toEqual([]);
 });

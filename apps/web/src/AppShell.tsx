@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { AccountSecurity } from './AccountSecurity.tsx';
 import { AdminPage } from './AdminPage.tsx';
+import { AppearanceSettings } from './AppearanceSettings.tsx';
 import { api, messageFor, type CurrentUser, type WorkspaceSummary } from './api.ts';
 import { ChangePassword } from './ChangePassword.tsx';
 import { KnotOpener, KnotsPage } from './Knots.tsx';
@@ -239,6 +240,9 @@ export function AppShell(props: { user: CurrentUser; route: Route; onSignOut: ()
         </div>
         <div className="card">
           <AccountSecurity />
+        </div>
+        <div className="card">
+          <AppearanceSettings />
         </div>
       </>
     );
