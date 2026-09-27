@@ -147,7 +147,11 @@ function WorkspaceDetail({ id, currentUserId, onLeft }: { id: string; currentUse
       <p>Your role: {ROLE_LABELS[workspace.role]}</p>
       {message !== null && <p role="alert">{message}</p>}
       {capabilities.includes('procedure.view') && (
-        <Procedures workspaceId={id} canEdit={capabilities.includes('procedure.edit')} />
+        <Procedures
+          workspaceId={id}
+          canEdit={capabilities.includes('procedure.edit')}
+          canRestore={capabilities.includes('procedure.restore')}
+        />
       )}
       {members !== null && (
         <table>

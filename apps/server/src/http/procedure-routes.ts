@@ -4,7 +4,9 @@ import {
   duplicateProcedure,
   getProcedure,
   importProcedure,
+  listDeletedProcedures,
   listProcedures,
+  restoreProcedure,
   updateProcedure,
 } from '@vergissmeinnicht/application';
 import type { ProcedureDetail } from '@vergissmeinnicht/application';
@@ -124,6 +126,29 @@ export async function procedureRoutes(app: FastifyInstance, { services }: { serv
       return reply.code(201).send({ procedure: detailView(detail) });
     },
   );
+
+  // Static segment: takes precedence over '/:procedureId'.
+  app.get('/deleted', async (request) => {
+    const { workspaceId } = parse(workspaceParams, request.params);
+    const deleted = await listDeletedProcedures(deps, { actor: principalOf(request).user, workspaceId: workspaceId as WorkspaceId });
+    return {
+      procedures: deleted.map((entry) => ({
+        ...procedureView(entry.procedure),
+        deletedAt: entry.deletedAt.toISOString(),
+        deletedBy: entry.deletedBy.displayName,
+      })),
+    };
+  });
+
+  app.post('/:procedureId/restore', async (request) => {
+    const { workspaceId, procedureId } = parse(procedureParams, request.params);
+    const detail = await restoreProcedure(deps, {
+      actor: principalOf(request).user,
+      workspaceId: workspaceId as WorkspaceId,
+      procedureId: procedureId as ProcedureId,
+    });
+    return { procedure: detailView(detail) };
+  });
 
   app.get('/:procedureId/export', async (request) => {
     const { workspaceId, procedureId } = parse(procedureParams, request.params);

@@ -18,16 +18,16 @@ For every completed task, add a concise completion note, tests/checks performed,
 
 ## Current state — resume here
 
-_Last updated: 2026-09-27 (after 4.4)_
+_Last updated: 2026-09-27 (after 4.5)_
 
-**Done:** 0.1, 0.2, 0.3, 1.1, 1.2, 2.1–2.5, 3.1–3.3, 4.1–4.4, 9.1 (pulled forward for invitations). 2.6 (external providers) is DEFERRED.
-**Next:** 4.5 Soft deletion / restore (numbered order, user decision 2026-09-27): a view of deleted Procedures and restore, both `procedure.restore` (EDITOR, ADMIN), Workspace-scoped, audited (`PROCEDURE_RESTORED`), revision check; decide whether restore is allowed when the per-Workspace limit is reached (it should count against it).
+**Done:** 0.1, 0.2, 0.3, 1.1, 1.2, 2.1–2.5, 3.1–3.3, 4.1–4.5, 9.1 (pulled forward for invitations). 2.6 (external providers) is DEFERRED.
+**Next:** 5.1 Create immutable Run snapshot.
 
 **Lockfile note (4.4):** `apps/server` → `@vergissmeinnicht/import-export` and `packages/import-export` → `zod@4.6.5` were added to `package.json` and `pnpm-lock.yaml` by hand (pnpm was not available in the agent's shell). Verify once with `pnpm install --frozen-lockfile` (must succeed without changes).
 
 Also open: trusted-proxy configuration (10.3) before production use behind a reverse proxy; admin web UI (invitations, recoveries — API only so far); account status changes (disable/enable users) with session revocation; housekeeping of expired challenge/recovery/invitation rows.
 
-**Branches:** work is stacked, not yet merged into `main`: `step-1.1-app-skeleton` → `step-1.2-config` → `step-2.1-user-model` → `step-2.2-invitations` → `step-2.4-totp` → `step-2.5-recovery` → `step-3.1-workspaces` → `step-3.2-roles` → `step-4.1-procedures` → `step-4.2-steps` → `step-4.3-drag-drop` → `step-4.4-import-export` (each branch contains the previous ones; 2.3 was completed on `step-2.2-invitations` because acceptance finishes 2.2). CI runs on pull requests / `main` only.
+**Branches:** work is stacked, not yet merged into `main`: `step-1.1-app-skeleton` → `step-1.2-config` → `step-2.1-user-model` → `step-2.2-invitations` → `step-2.4-totp` → `step-2.5-recovery` → `step-3.1-workspaces` → `step-3.2-roles` → `step-4.1-procedures` → `step-4.2-steps` → `step-4.3-drag-drop` → `step-4.4-import-export` → `step-4.5-restore` (each branch contains the previous ones; 2.3 was completed on `step-2.2-invitations` because acceptance finishes 2.2). CI runs on pull requests / `main` only.
 
 **Manual testing:** `test-env/menu.sh` (added 2026-09-27) installs/starts/stops/removes an isolated production-mode instance on port 3200 with demo accounts for every role (see `test-env/README.md`). Extend `test-env/seed.ts` when new features need demo data (e.g. Procedures in 4.1).
 
@@ -764,13 +764,28 @@ Canonical JSON includes `schemaVersion`; imported data is hostile input and must
 - Bulk export/import of several Procedures is not part of V1.
 
 ### 4.5 Soft deletion / restore
-**Status:** TODO
+**Status:** DONE
+**Completed:** 2026-09-27
 
 Procedure deletion sets deletion metadata rather than destroying definition rows immediately.
 
 Admin/editor restore behavior must be explicit and audited where appropriate.
 
 Historical Runs are never cascaded.
+
+**Security impact:** MEDIUM — new privileged view and state change.
+
+**Implemented:**
+- Soft delete existed since 4.1 (deletion metadata, Sections/Steps kept, no cascading FKs; a hard delete is blocked by FKs as soon as anything references the Procedure).
+- `listDeletedProcedures` / `restoreProcedure` (`procedure.restore` = EDITOR, ADMIN) via `authorizeWorkspace` + in-transaction re-check. Restore is explicit per Procedure, scoped by Workspace id + Procedure id + "is deleted", counts against the 1000-active limit, bumps the revision, records `PROCEDURE_RESTORED` in the same transaction; Sections and Steps come back unchanged.
+- HTTP: `GET …/procedures/deleted` (title, who deleted, when), `POST …/procedures/{id}/restore`.
+- Web: "Show deleted Procedures" (editors/admins) with a Restore button per entry; delete confirmation mentions that restore is possible.
+
+**Tests/checks:** `pnpm test` — 419 tests (+6): restore with structure and audit, USER/GUEST/non-member refused, not for active or other-Workspace Procedures, limit, restore once; HTTP list/restore incl. 403/404/Origin. `pnpm test:e2e`: delete → show deleted → restore → delete again. `pnpm lint`, `pnpm typecheck`. No schema change.
+
+**Security docs updated:** YES (§3 note in "Security check: Procedures").
+
+**Remaining:** no permanent purge (intentionally none in V1); a deleted Procedure cannot be viewed in full before restoring.
 
 ---
 

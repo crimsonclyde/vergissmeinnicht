@@ -89,6 +89,12 @@ export interface Procedure {
   readonly updatedAt: string;
 }
 
+export interface DeletedProcedure extends Procedure {
+  readonly deletedAt: string;
+  /** Display name of the person who deleted it. */
+  readonly deletedBy: string;
+}
+
 export interface ProcedureStep extends StepInput {
   readonly id: string;
   readonly kind: 'CHECK';
@@ -250,6 +256,16 @@ export const api = {
         'POST',
         `/workspaces/${encodeURIComponent(workspaceId)}/procedures/${encodeURIComponent(id)}/update`,
         { ...content, expectedRevision },
+      )
+    ).procedure,
+  deletedProcedures: async (workspaceId: string) =>
+    (await request<{ procedures: DeletedProcedure[] }>('GET', `/workspaces/${encodeURIComponent(workspaceId)}/procedures/deleted`))
+      .procedures,
+  restoreProcedure: async (workspaceId: string, id: string) =>
+    (
+      await request<{ procedure: ProcedureDetail }>(
+        'POST',
+        `/workspaces/${encodeURIComponent(workspaceId)}/procedures/${encodeURIComponent(id)}/restore`,
       )
     ).procedure,
   exportProcedure: (workspaceId: string, id: string) =>

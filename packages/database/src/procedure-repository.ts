@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import { and, asc, count, eq, isNull } from 'drizzle-orm';
+import { and, asc, count, desc, eq, isNotNull, isNull } from 'drizzle-orm';
 import type { ProcedureDetail, ProcedureRepository, ProcedureWriteResult } from '@vergissmeinnicht/application';
 import {
   isEmptyChange,
@@ -16,7 +16,7 @@ import {
 import { IMMEDIATE, actorAllowed, type Transaction } from './actor-guard.ts';
 import { recordAuditEvent } from './audit-events.ts';
 import type { AppDatabase } from './connection.ts';
-import { procedureSections, procedureSteps, procedures } from './schema.ts';
+import { procedureSections, procedureSteps, procedures, users } from './schema.ts';
 
 type Reader = Pick<Transaction, 'select'>;
 
@@ -219,6 +219,54 @@ export function createProcedureRepository({ db }: Pick<AppDatabase, 'db'>): Proc
           },
         });
         return { status: 'ok', detail: { procedure: toProcedure(row), sections } };
+      }, IMMEDIATE);
+    },
+
+    async listDeleted(workspaceId) {
+      return db
+        .select({ procedure: procedures, displayName: users.name })
+        .from(procedures)
+        .innerJoin(users, eq(users.id, procedures.deletedByUserId))
+        .where(and(eq(procedures.workspaceId, workspaceId), isNotNull(procedures.deletedAt)))
+        .orderBy(desc(procedures.deletedAt), asc(procedures.id))
+        .all()
+        .map(({ procedure, displayName }) => ({
+          procedure: toProcedure(procedure),
+          deletedAt: procedure.deletedAt ?? procedure.updatedAt,
+          deletedBy: { userId: procedure.deletedByUserId ?? '', displayName },
+        }));
+    },
+
+    async restore(input, actor, guard) {
+      return db.transaction((tx): ProcedureWriteResult => {
+        if (!actorAllowed(tx, input.workspaceId, actor, guard)) return { status: 'forbidden' };
+        const deleted = and(
+          eq(procedures.workspaceId, input.workspaceId),
+          eq(procedures.id, input.procedureId),
+          isNotNull(procedures.deletedAt),
+        );
+        const current = tx.select().from(procedures).where(deleted).get();
+        if (current === undefined) return { status: 'not_found' };
+        const active = tx.select({ n: count() }).from(procedures).where(activeIn(input.workspaceId)).get()?.n ?? 0;
+        if (active >= input.maxActive) return { status: 'limit_reached' };
+        const revision = current.revision + 1;
+        const row = tx
+          .update(procedures)
+          .set({ deletedAt: null, deletedByUserId: null, revision, updatedAt: input.at })
+          .where(and(deleted, eq(procedures.revision, current.revision)))
+          .returning()
+          .get();
+        if (row === undefined) return { status: 'conflict' };
+        recordAuditEvent(tx, {
+          workspaceId: input.workspaceId,
+          type: 'PROCEDURE_RESTORED',
+          actor,
+          subjectType: 'procedure',
+          subjectId: row.id,
+          occurredAt: input.at,
+          metadata: { title: row.title, revision },
+        });
+        return { status: 'ok', detail: { procedure: toProcedure(row), sections: loadSections(tx, row.id) } };
       }, IMMEDIATE);
     },
 

@@ -170,6 +170,27 @@ describe('Procedure HTTP API', () => {
     expect((await t.get(base(home), editor)).json().procedures).toEqual([]);
   });
 
+  it('lists and restores deleted Procedures for editors only', async () => {
+    const id = await createdId(home, editor);
+    expect((await t.post(`${base(home)}/${id}/delete`, undefined, editor)).statusCode).toBe(204);
+    const deleted = await t.get(`${base(home)}/deleted`, t.admin);
+    expect(deleted.json().procedures).toMatchObject([{ id, title: 'Leave the house', deletedBy: 'Eddie' }]);
+    for (const cookie of [user, guest]) {
+      expect((await t.get(`${base(home)}/deleted`, cookie)).statusCode).toBe(403);
+      expect((await t.post(`${base(home)}/${id}/restore`, undefined, cookie)).statusCode).toBe(403);
+    }
+    expect((await t.get(`${base(home)}/deleted`, outsider)).statusCode).toBe(404);
+    expect((await t.post(`${base(home)}/${id}/restore`, undefined, editor, null)).statusCode).toBe(403);
+    // Through another Workspace the id is unknown.
+    expect((await t.post(`${base(office)}/${id}/restore`, undefined, outsider)).statusCode).toBe(404);
+
+    const restored = await t.post(`${base(home)}/${id}/restore`, undefined, editor);
+    expect(restored.statusCode).toBe(200);
+    expect(restored.json().procedure).toMatchObject({ id, revision: 2 });
+    expect((await t.get(base(home), guest)).json().procedures).toHaveLength(1);
+    expect((await t.post(`${base(home)}/${id}/restore`, undefined, editor)).statusCode).toBe(404);
+  });
+
   it('answers unknown Procedure ids with 404', async () => {
     expect((await t.get(`${base(home)}/${UNKNOWN_ID}`, editor)).statusCode).toBe(404);
     expect((await t.post(`${base(home)}/${UNKNOWN_ID}/delete`, undefined, editor)).statusCode).toBe(404);

@@ -5,7 +5,7 @@ import { serverEnv } from '../playwright.config.ts';
 
 const PASSWORD = 'an e2e passphrase that is long';
 
-test('first server admin: bootstrap link, account creation, sign-in, Workspace creation, Procedure authoring with Sections and Steps, export/import/duplicate, TOTP enrollment, TOTP sign-in and operator TOTP recovery', async ({ page }, testInfo) => {
+test('first server admin: bootstrap link, account creation, sign-in, Workspace creation, Procedure authoring with Sections and Steps, export/import/duplicate/restore, TOTP enrollment, TOTP sign-in and operator TOTP recovery', async ({ page }, testInfo) => {
   // Bootstrap works exactly once per server; the flow runs on one project only.
   test.skip(testInfo.project.name !== 'desktop-chromium', 'bootstrap is single-use per server');
 
@@ -143,6 +143,14 @@ test('first server admin: bootstrap link, account creation, sign-in, Workspace c
   await download.saveAs(exportPath);
 
   await procedure.getByRole('button', { name: 'Duplicate' }).click();
+  await expect(procedure.getByRole('heading', { name: 'Travel Leave the flat (copy)' })).toBeVisible();
+  page.once('dialog', (dialog) => void dialog.accept());
+  await procedure.getByRole('button', { name: 'Delete' }).click();
+  await expect(page.getByRole('list', { name: 'Procedures' }).getByRole('listitem')).toHaveCount(1);
+  // Restore the deleted copy, then delete it again.
+  await page.getByRole('button', { name: 'Show deleted Procedures' }).click();
+  await expect(page.getByRole('list', { name: 'Deleted Procedures' })).toContainText('Leave the flat (copy) — deleted by Ada Admin');
+  await page.getByRole('button', { name: 'Restore Leave the flat (copy)' }).click();
   await expect(procedure.getByRole('heading', { name: 'Travel Leave the flat (copy)' })).toBeVisible();
   page.once('dialog', (dialog) => void dialog.accept());
   await procedure.getByRole('button', { name: 'Delete' }).click();

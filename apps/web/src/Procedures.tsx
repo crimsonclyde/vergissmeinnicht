@@ -1,5 +1,13 @@
 import { useCallback, useEffect, useState, type ChangeEvent } from 'react';
-import { api, messageFor, type Procedure, type ProcedureContent, type ProcedureDetail, type ReasonPolicy } from './api.ts';
+import {
+  api,
+  messageFor,
+  type DeletedProcedure,
+  type Procedure,
+  type ProcedureContent,
+  type ProcedureDetail,
+  type ReasonPolicy,
+} from './api.ts';
 import { Icon } from './procedure-icons.tsx';
 import { downloadJson, exportFileName, readImportFile } from './procedure-files.ts';
 import { ProcedureForm } from './ProcedureForm.tsx';
@@ -50,11 +58,18 @@ function ProcedureView({ detail }: { detail: ProcedureDetail }) {
   );
 }
 
-type Mode = { kind: 'list' } | { kind: 'create' } | { kind: 'view'; id: string } | { kind: 'edit'; id: string };
+type Mode =
+  | { kind: 'list' }
+  | { kind: 'create' }
+  | { kind: 'deleted' }
+  | { kind: 'view'; id: string }
+  | { kind: 'edit'; id: string };
 
 /** Capabilities only adapt the UI; the server authorizes every request. */
-export function Procedures({ workspaceId, canEdit }: { workspaceId: string; canEdit: boolean }) {
+export function Procedures(props: { workspaceId: string; canEdit: boolean; canRestore: boolean }) {
+  const { workspaceId, canEdit, canRestore } = props;
   const [procedures, setProcedures] = useState<Procedure[] | null>(null);
+  const [deleted, setDeleted] = useState<DeletedProcedure[] | null>(null);
   const [detail, setDetail] = useState<ProcedureDetail | null>(null);
   const [mode, setMode] = useState<Mode>({ kind: 'list' });
   const [message, setMessage] = useState<string | null>(null);
@@ -122,8 +137,15 @@ export function Procedures({ workspaceId, canEdit }: { workspaceId: string; canE
     await runAction(() => api.importProcedure(workspaceId, read.document));
   }
 
+  function showDeleted() {
+    setMessage(null);
+    setDeleted(null);
+    setMode({ kind: 'deleted' });
+    api.deletedProcedures(workspaceId).then(setDeleted, (caught: unknown) => setMessage(messageFor(caught)));
+  }
+
   async function remove(procedure: ProcedureDetail) {
-    if (!window.confirm(`Delete “${procedure.title}”? Past Runs stay readable.`)) return;
+    if (!window.confirm(`Delete “${procedure.title}”? It can be restored later; past Runs stay readable.`)) return;
     setMessage(null);
     try {
       await api.deleteProcedure(workspaceId, procedure.id);
@@ -197,6 +219,32 @@ export function Procedures({ workspaceId, canEdit }: { workspaceId: string; canE
 
       {(mode.kind === 'view' || mode.kind === 'edit') && shown === null && <p>Loading…</p>}
 
+      {mode.kind === 'deleted' && (
+        <section aria-labelledby="deleted-heading">
+          <h5 id="deleted-heading">Deleted Procedures</h5>
+          {deleted === null ? (
+            <p>Loading…</p>
+          ) : deleted.length === 0 ? (
+            <p>No deleted Procedures.</p>
+          ) : (
+            <ul aria-label="Deleted Procedures">
+              {deleted.map((procedure) => (
+                <li key={procedure.id}>
+                  <Icon icon={procedure.icon} /> {procedure.title} — deleted by {procedure.deletedBy} on{' '}
+                  {new Date(procedure.deletedAt).toLocaleString()}{' '}
+                  <button type="button" onClick={() => void runAction(() => api.restoreProcedure(workspaceId, procedure.id))}>
+                    Restore {procedure.title}
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+          <button type="button" onClick={() => setMode({ kind: 'list' })}>
+            Back to all Procedures
+          </button>
+        </section>
+      )}
+
       {mode.kind === 'list' && (
         <>
           {procedures === null ? (
@@ -225,6 +273,11 @@ export function Procedures({ workspaceId, canEdit }: { workspaceId: string; canE
                 <input type="file" accept="application/json,.json" onChange={(e) => void importFile(e)} />
               </label>
             </p>
+          )}
+          {canRestore && (
+            <button type="button" onClick={showDeleted}>
+              Show deleted Procedures
+            </button>
           )}
         </>
       )}

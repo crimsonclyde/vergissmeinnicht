@@ -206,6 +206,8 @@ POST /api/workspaces/{id}/procedures                    procedure.edit
 GET  /api/workspaces/{id}/procedures/{procedureId}      procedure.view
 POST /api/workspaces/{id}/procedures/{procedureId}/update   procedure.edit + expectedRevision + complete sections[]
 POST /api/workspaces/{id}/procedures/{procedureId}/delete   procedure.edit (soft delete)
+GET  /api/workspaces/{id}/procedures/deleted            procedure.restore
+POST /api/workspaces/{id}/procedures/{procedureId}/restore  procedure.restore, audited
 GET  /api/workspaces/{id}/procedures/{procedureId}/export   procedure.view, canonical JSON without ids
 POST /api/workspaces/{id}/procedures/import             procedure.edit, untrusted document
 POST /api/workspaces/{id}/procedures/{procedureId}/duplicate procedure.edit, same Workspace only

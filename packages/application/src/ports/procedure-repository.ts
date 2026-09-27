@@ -15,6 +15,13 @@ export interface ProcedureDetail {
   readonly sections: readonly ProcedureSection[];
 }
 
+/** A soft-deleted Procedure as shown in the restore view. */
+export interface DeletedProcedure {
+  readonly procedure: Procedure;
+  readonly deletedAt: Date;
+  readonly deletedBy: { readonly userId: string; readonly displayName: string };
+}
+
 /** How a new Procedure came to be; recorded in its PROCEDURE_CREATED audit event. */
 export type ProcedureOrigin =
   | { readonly kind: 'created' }
@@ -59,6 +66,18 @@ export interface ProcedureRepository {
       readonly structure: StructureDraft;
       readonly at: Date;
     },
+    actor: Actor & { readonly kind: 'user' },
+    guard: ActorGuard,
+  ): Promise<ProcedureWriteResult>;
+  /** Soft-deleted Procedures of the Workspace, most recently deleted first. */
+  listDeleted(workspaceId: WorkspaceId): Promise<DeletedProcedure[]>;
+  /**
+   * Clears the deletion metadata of a soft-deleted Procedure of this Workspace (with its Sections and
+   * Steps) and bumps the revision. 'not_found' if it is not deleted or belongs elsewhere;
+   * 'limit_reached' if the Workspace is at its active-Procedure limit.
+   */
+  restore(
+    input: { readonly workspaceId: WorkspaceId; readonly procedureId: ProcedureId; readonly at: Date; readonly maxActive: number },
     actor: Actor & { readonly kind: 'user' },
     guard: ActorGuard,
   ): Promise<ProcedureWriteResult>;

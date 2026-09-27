@@ -469,7 +469,7 @@ The following choices are mandatory V1 behavior:
 **Secrets/data involved:** user-authored Procedure text (may contain household/operational details — Workspace-confidential).  
 **Logging review:** no new log statements; Procedure text only in request bodies, which are not logged; audit metadata holds title, field names and revision numbers only.  
 **Authorization review:** HTTP layer only authenticates and parses; all authorization in `packages/application/src/procedures/use-cases.ts` using `packages/permissions`.  
-**Open risks:** titles are copied into audit metadata on create/delete (Workspace-confidential text persists in the append-only log even after deletion — acceptable, readable only by future authorized history views); no audit history UI yet; restore (4.5) must re-check `procedure.restore` and the Workspace scope.  
+**Open risks:** titles are copied into audit metadata on create/delete (Workspace-confidential text persists in the append-only log even after deletion — acceptable, readable only by future authorized history views); no audit history UI yet; restore (4.5) re-checks `procedure.restore` and the Workspace scope, counts against the limit and is audited (`PROCEDURE_RESTORED`) — implemented 2026-09-27.  
 **Reviewed:** 2026-09-27
 
 ### Security check: Procedure Sections and Steps (Step 4.2)

@@ -13,6 +13,7 @@ import { NotAuthorizedError } from '../invitations/errors.ts';
 import type { ActorGuard } from '../ports/actor-guard.ts';
 import type { Clock } from '../ports/clock.ts';
 import type {
+  DeletedProcedure,
   ProcedureDetail,
   ProcedureOrigin,
   ProcedureRepository,
@@ -209,6 +210,30 @@ export async function deleteProcedure(
       { workspaceId: input.workspaceId, procedureId: input.procedureId, at: deps.clock.now() },
       userActor(input.actor),
       guard('procedure.edit'),
+    ),
+  );
+}
+
+/** The restore view: soft-deleted Procedures of the Workspace. */
+export async function listDeletedProcedures(
+  deps: ProcedureDeps,
+  input: { readonly actor: User; readonly workspaceId: WorkspaceId },
+): Promise<DeletedProcedure[]> {
+  await authorizeWorkspace(deps, input.actor, input.workspaceId, 'procedure.restore');
+  return deps.procedures.listDeleted(input.workspaceId);
+}
+
+/** Brings a soft-deleted Procedure back, unchanged except for a new revision. Audited. */
+export async function restoreProcedure(
+  deps: ProcedureDeps,
+  input: { readonly actor: User; readonly workspaceId: WorkspaceId; readonly procedureId: ProcedureId },
+): Promise<ProcedureDetail> {
+  await authorizeWorkspace(deps, input.actor, input.workspaceId, 'procedure.restore');
+  return detailOrThrow(
+    await deps.procedures.restore(
+      { workspaceId: input.workspaceId, procedureId: input.procedureId, at: deps.clock.now(), maxActive: MAX_PROCEDURES_PER_WORKSPACE },
+      userActor(input.actor),
+      guard('procedure.restore'),
     ),
   );
 }
