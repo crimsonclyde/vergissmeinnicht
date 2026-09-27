@@ -3,11 +3,15 @@
 import { WORKSPACE_ROLES, isActiveServerAdmin, type User, type WorkspaceRole } from '@vergissmeinnicht/domain';
 
 /**
- * Capabilities a Workspace role can grant. Procedure/Run capabilities are added with the features
- * that need them (Steps 3.2, 4, 5); every new capability must be assigned here and nowhere else.
+ * Capabilities a Workspace role can grant. Every capability is assigned here and nowhere else;
+ * use-cases ask for a capability, never for a role. Changing the matrix is a security-relevant
+ * change (docu/security.md §3) and must update the exact-matrix test.
+ *
+ * Procedure/Run capabilities are defined now (Step 3.2) and enforced by the use-cases that
+ * introduce Procedures (Step 4) and Runs (Step 5).
  */
 export const WORKSPACE_CAPABILITIES = [
-  /** See the Workspace itself (name, own role). */
+  /** See the Workspace itself (name, own role) and leave it. */
   'workspace.view',
   /** See who else is a member and their role. */
   'workspace.members.view',
@@ -15,12 +19,30 @@ export const WORKSPACE_CAPABILITIES = [
   'workspace.members.manage',
   /** Rename the Workspace. */
   'workspace.settings.manage',
+  /** Read non-deleted Procedures of the Workspace (Workspace-wide in V1, no per-Procedure ACLs). */
+  'procedure.view',
+  /** Create, edit, reorder, duplicate, import and soft-delete Procedures. */
+  'procedure.edit',
+  /** See soft-deleted Procedures and restore them. */
+  'procedure.restore',
+  /** Read Runs (active and historical) and their audit history. */
+  'run.view',
+  /** Start a new Run from a Procedure. */
+  'run.start',
+  /** Change Step states (incl. undo) and complete any active Run of the Workspace. */
+  'run.execute',
+  /** Abort an active Run. */
+  'run.abort',
 ] as const;
 export type WorkspaceCapability = (typeof WORKSPACE_CAPABILITIES)[number];
 
-const GUEST: readonly WorkspaceCapability[] = ['workspace.view'];
-const USER: readonly WorkspaceCapability[] = [...GUEST, 'workspace.members.view'];
-const EDITOR: readonly WorkspaceCapability[] = [...USER];
+/** Read-only: Workspace content and history, no execution. */
+const GUEST: readonly WorkspaceCapability[] = ['workspace.view', 'procedure.view', 'run.view'];
+/** Executes Runs. */
+const USER: readonly WorkspaceCapability[] = [...GUEST, 'workspace.members.view', 'run.start', 'run.execute', 'run.abort'];
+/** Authors Procedures. */
+const EDITOR: readonly WorkspaceCapability[] = [...USER, 'procedure.edit', 'procedure.restore'];
+/** Manages membership, roles and settings. */
 const ADMIN: readonly WorkspaceCapability[] = [...EDITOR, 'workspace.members.manage', 'workspace.settings.manage'];
 
 const ROLE_CAPABILITIES: Readonly<Record<WorkspaceRole, ReadonlySet<WorkspaceCapability>>> = Object.freeze({

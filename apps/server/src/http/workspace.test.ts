@@ -109,6 +109,7 @@ describe('Workspace HTTP API', () => {
       await post(`/api/workspaces/${id}/members`, { email: 'bob@example.org', role: 'ADMIN' }),
       await post(`/api/workspaces/${id}/members/${bobId}/role`, { role: 'ADMIN' }),
       await post(`/api/workspaces/${id}/members/${bobId}/remove`),
+      await post(`/api/workspaces/${id}/leave`),
     ];
     expect(responses.map((r) => r.statusCode)).toEqual(Array(responses.length).fill(401));
   });
@@ -127,7 +128,19 @@ describe('Workspace HTTP API', () => {
     const id = await createWorkspace('  Home ');
     expect((await get(`/api/workspaces/${id}`, admin)).json()).toEqual({
       workspace: { id, name: 'Home', role: 'ADMIN' },
-      capabilities: ['workspace.view', 'workspace.members.view', 'workspace.members.manage', 'workspace.settings.manage'],
+      capabilities: [
+        'workspace.view',
+        'workspace.members.view',
+        'workspace.members.manage',
+        'workspace.settings.manage',
+        'procedure.view',
+        'procedure.edit',
+        'procedure.restore',
+        'run.view',
+        'run.start',
+        'run.execute',
+        'run.abort',
+      ],
     });
     // A Workspace ADMIN without the server-admin flag still cannot create Workspaces.
     await addMember(id, 'bob@example.org', 'ADMIN');
@@ -200,6 +213,16 @@ describe('Workspace HTTP API', () => {
     expect((await post(`/api/workspaces/${id}/members/${bobId}/role`, { role: 'GUEST' }, admin)).statusCode).toBe(204);
     expect((await addMember(id, 'carol@example.org', 'USER', bob)).statusCode).toBe(403);
     expect((await get(`/api/workspaces/${id}`, bob)).json().workspace.role).toBe('GUEST');
+  });
+
+  it('lets members leave on their own, but not the last admin', async () => {
+    const id = await createWorkspace();
+    await addMember(id, 'bob@example.org', 'GUEST');
+    expect((await post(`/api/workspaces/${id}/leave`, undefined, carol)).statusCode).toBe(404);
+    expect((await post(`/api/workspaces/${id}/leave`, undefined, bob, null)).statusCode).toBe(403);
+    expect((await post(`/api/workspaces/${id}/leave`, undefined, bob)).statusCode).toBe(204);
+    expect((await get(`/api/workspaces/${id}`, bob)).statusCode).toBe(404);
+    expect((await post(`/api/workspaces/${id}/leave`, undefined, admin)).json()).toEqual({ error: 'last_workspace_admin' });
   });
 
   it('protects the last Workspace admin', async () => {

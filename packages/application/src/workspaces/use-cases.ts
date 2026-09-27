@@ -210,3 +210,21 @@ export async function removeMember(
     ),
   );
 }
+
+/**
+ * Any member may leave. The last ACTIVE admin cannot leave (LastWorkspaceAdminError); they hand
+ * over the admin role first.
+ */
+export async function leaveWorkspace(
+  deps: WorkspaceDeps,
+  input: { readonly actor: User; readonly workspaceId: WorkspaceId },
+): Promise<void> {
+  await authorizeWorkspace(deps, input.actor, input.workspaceId, 'workspace.view');
+  throwUnlessOk(
+    await deps.workspaces.removeMember(
+      { workspaceId: input.workspaceId, userId: input.actor.id, at: deps.clock.now() },
+      userActor(input.actor),
+      guardFor('workspace.view'),
+    ),
+  );
+}

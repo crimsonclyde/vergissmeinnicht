@@ -178,13 +178,11 @@ function WorkspaceDetail({ id, currentUserId, onLeft }: { id: string; currentUse
                 </td>
                 {canManage && (
                   <td>
-                    <button
-                      type="button"
-                      disabled={busy}
-                      onClick={() => void act(() => api.removeMember(id, member.userId), member.userId === currentUserId)}
-                    >
-                      {member.userId === currentUserId ? 'Leave' : `Remove ${member.displayName}`}
-                    </button>
+                    {member.userId !== currentUserId && (
+                      <button type="button" disabled={busy} onClick={() => void act(() => api.removeMember(id, member.userId))}>
+                        Remove {member.displayName}
+                      </button>
+                    )}
                   </td>
                 )}
               </tr>
@@ -193,6 +191,19 @@ function WorkspaceDetail({ id, currentUserId, onLeft }: { id: string; currentUse
         </table>
       )}
       {canManage && <AddMember workspaceId={id} onAdded={refresh} />}
+      <p>
+        <button
+          type="button"
+          disabled={busy}
+          onClick={() => {
+            if (window.confirm('Leave this Workspace? An admin must add you again to regain access.')) {
+              void act(() => api.leaveWorkspace(id), true);
+            }
+          }}
+        >
+          Leave Workspace
+        </button>
+      </p>
     </section>
   );
 }

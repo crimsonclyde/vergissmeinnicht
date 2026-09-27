@@ -127,6 +127,7 @@ export const api = {
     request<{ workspace: WorkspaceSummary; capabilities: string[] }>('GET', `/workspaces/${encodeURIComponent(id)}`),
   renameWorkspace: (id: string, name: string) =>
     request<undefined>('POST', `/workspaces/${encodeURIComponent(id)}/rename`, { name }),
+  leaveWorkspace: (id: string) => request<undefined>('POST', `/workspaces/${encodeURIComponent(id)}/leave`),
   members: async (id: string) =>
     (await request<{ members: WorkspaceMember[] }>('GET', `/workspaces/${encodeURIComponent(id)}/members`)).members,
   addMember: (id: string, email: string, role: WorkspaceRole) =>

@@ -59,7 +59,8 @@ test('first server admin: bootstrap link, account creation, sign-in, Workspace c
   await page.getByLabel('Member email').fill('nobody@example.org');
   await page.getByRole('button', { name: 'Add', exact: true }).click();
   await expect(page.getByRole('alert')).toHaveText(/no active account/);
-  await page.getByRole('button', { name: 'Leave' }).click();
+  page.once('dialog', (dialog) => void dialog.accept());
+  await page.getByRole('button', { name: 'Leave Workspace' }).click();
   await expect(page.getByRole('alert').filter({ hasText: 'at least one active admin' })).toBeVisible();
   await expect(page.getByText('Your role: Admin')).toBeVisible();
 

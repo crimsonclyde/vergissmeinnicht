@@ -3,6 +3,7 @@ import {
   changeMemberRole,
   createWorkspace,
   getWorkspace,
+  leaveWorkspace,
   listMembers,
   listMyWorkspaces,
   removeMember,
@@ -95,6 +96,12 @@ export async function workspaceRoutes(app: FastifyInstance, { services }: { serv
       workspaceId: workspaceId as WorkspaceId,
       name: body.name,
     });
+    return reply.code(204).send();
+  });
+
+  app.post('/:workspaceId/leave', async (request, reply) => {
+    const { workspaceId } = parse(workspaceParams, request.params);
+    await leaveWorkspace(deps, { actor: principalOf(request).user, workspaceId: workspaceId as WorkspaceId });
     return reply.code(204).send();
   });
 

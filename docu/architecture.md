@@ -182,7 +182,7 @@ HTTP route (apps/server/src/http/workspace-routes.ts)
             >= 1 ACTIVE ADMIN remains, else rollback
 ```
 
-`packages/permissions` holds the only role → capability table (`workspace.view`, `workspace.members.view`, `workspace.members.manage`, `workspace.settings.manage`) and `canCreateWorkspace` (ACTIVE server admins only; a later admin-board option changes this one function). Procedure and Run capabilities are added to the same table with their features; use-cases ask for capabilities, never compare role strings.
+`packages/permissions` holds the only role → capability table (Workspace: `workspace.view`, `workspace.members.view`, `workspace.members.manage`, `workspace.settings.manage`; Procedures: `procedure.view`, `procedure.edit`, `procedure.restore`; Runs: `run.view`, `run.start`, `run.execute`, `run.abort` — matrix in steps.md 3.2) and `canCreateWorkspace` (ACTIVE server admins only; a later admin-board option changes this one function). Use-cases ask for capabilities, never compare role strings.
 
 Workspace API (all session-authenticated, JSON, `Origin`-guarded for POST):
 
@@ -191,6 +191,7 @@ GET  /api/workspaces                                    own Workspaces + role
 POST /api/workspaces                                    create (server admin) -> creator is ADMIN
 GET  /api/workspaces/{id}                               Workspace, own role, capabilities
 POST /api/workspaces/{id}/rename
+POST /api/workspaces/{id}/leave                         any member; not the last ACTIVE admin
 GET  /api/workspaces/{id}/members                       emails/status only for managers
 POST /api/workspaces/{id}/members                       add existing ACTIVE account by email
 POST /api/workspaces/{id}/members/{userId}/role

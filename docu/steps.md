@@ -18,17 +18,17 @@ For every completed task, add a concise completion note, tests/checks performed,
 
 ## Current state — resume here
 
-_Last updated: 2026-09-27 (after 3.1)_
+_Last updated: 2026-09-27 (after 3.2)_
 
-**Done:** 0.1, 0.2, 0.3, 1.1, 1.2, 2.1–2.5, 3.1, 9.1 (pulled forward for invitations). 2.6 (external providers) is DEFERRED.
-**Next:** 3.2 Roles and policies — the capability table, `authorizeWorkspace` and the Workspace negative tests already exist (3.1). Remaining for 3.2:
-1. decide the Procedure/Run capability matrix for GUEST/USER/EDITOR/ADMIN (read vs. execute vs. author; what "explicitly permitted" means for GUEST) and add it to `packages/permissions` with the exact-matrix test;
-2. member self-service "leave Workspace"; a server-level repair path for a Workspace whose only ADMIN is disabled (ties into account disabling);
-3. SSE subscription authorization is tested with 6.1; then continue with 3.3 / 4.1.
+**Done:** 0.1, 0.2, 0.3, 1.1, 1.2, 2.1–2.5, 3.1, 3.2, 9.1 (pulled forward for invitations). 2.6 (external providers) is DEFERRED.
+**Next:** 4.1 Procedure CRUD together with 3.3 (Workspace-wide visibility needs Procedures to exist):
+1. Procedure schema with opaque UUID, `workspace_id` FK (no cascade), soft-delete columns from the start (4.5);
+2. every Procedure use-case goes through `authorizeWorkspace` with `procedure.view` / `procedure.edit` (matrix in `packages/permissions`, see 3.2); Procedure ids are always looked up *within* the Workspace id of the route (child cannot bypass parent);
+3. negative tests: GUEST/USER cannot edit, cross-Workspace Procedure id rejected, soft-deleted hidden from `procedure.view`-only roles; audit events for create/edit/delete.
 
 Also open: trusted-proxy configuration (10.3) before production use behind a reverse proxy; admin web UI (invitations, recoveries — API only so far); account status changes (disable/enable users) with session revocation; housekeeping of expired challenge/recovery/invitation rows.
 
-**Branches:** work is stacked, not yet merged into `main`: `step-1.1-app-skeleton` → `step-1.2-config` → `step-2.1-user-model` → `step-2.2-invitations` → `step-2.4-totp` → `step-2.5-recovery` → `step-3.1-workspaces` (each branch contains the previous ones; 2.3 was completed on `step-2.2-invitations` because acceptance finishes 2.2). CI runs on pull requests / `main` only.
+**Branches:** work is stacked, not yet merged into `main`: `step-1.1-app-skeleton` → `step-1.2-config` → `step-2.1-user-model` → `step-2.2-invitations` → `step-2.4-totp` → `step-2.5-recovery` → `step-3.1-workspaces` → `step-3.2-roles` (each branch contains the previous ones; 2.3 was completed on `step-2.2-invitations` because acceptance finishes 2.2). CI runs on pull requests / `main` only.
 
 **Local tooling:** Node 24 LTS (Node 26 works), pnpm 12.6.0 (`npm install -g pnpm@12.6.0`), Docker for Mailpit (`compose.dev.yml`), `pnpm exec playwright install chromium` for e2e.
 
@@ -572,7 +572,8 @@ Accounts without TOTP enabled log in with email + password only.
 - "Add member by email" reveals to a Workspace ADMIN whether an ACTIVE account exists (accepted, rate-limited, audited).
 
 ### 3.2 Roles and policies
-**Status:** TODO
+**Status:** DONE
+**Completed:** 2026-09-27
 
 **Objective:** Implement Guest, User, Editor, Admin via centralized server-side policies.
 
@@ -593,7 +594,36 @@ Exact capabilities must be represented centrally rather than scattered string co
 
 **Security impact:** CRITICAL.
 
-**Prepared by 3.1:** capability table and exact-matrix test in `packages/permissions`, `authorizeWorkspace`, Workspace-level cross-Workspace / horizontal / vertical / removed-member negative tests, audited role changes. Still open: Procedure/Run capabilities, GUEST read scope, SSE subscription authorization (with 6.1).
+**Decision (2026-09-27, derived from the initial intent above and 3.3 — review welcome):** V1 has no per-Procedure ACLs, so GUEST's "explicitly permitted content" is the Workspace's non-deleted Procedures and its Run history, read-only. Invitations and account recovery stay **server-admin** capabilities (locked decisions), not Workspace ADMIN capabilities.
+
+| Capability | GUEST | USER | EDITOR | ADMIN |
+|---|---|---|---|---|
+| `workspace.view` (see Workspace, leave it) | ✓ | ✓ | ✓ | ✓ |
+| `workspace.members.view` | | ✓ | ✓ | ✓ |
+| `procedure.view` | ✓ | ✓ | ✓ | ✓ |
+| `run.view` (incl. history/audit) | ✓ | ✓ | ✓ | ✓ |
+| `run.start`, `run.execute`, `run.abort` | | ✓ | ✓ | ✓ |
+| `procedure.edit`, `procedure.restore` | | | ✓ | ✓ |
+| `workspace.members.manage`, `workspace.settings.manage` | | | | ✓ |
+
+**Implemented:**
+- The matrix above in `packages/permissions` (the only place roles map to capabilities). Procedure/Run capabilities are enforced by the use-cases of Steps 4/5 via `authorizeWorkspace`.
+- `leaveWorkspace` use-case + `POST /api/workspaces/{id}/leave`: any member leaves on their own (audited as `MEMBERSHIP_REMOVED` by themselves); the last ACTIVE admin gets `last_workspace_admin`. Web: "Leave Workspace" button with confirmation; admins no longer remove themselves through the member table.
+- From 3.1: `authorizeWorkspace`, in-transaction re-check of the actor's role, audited role changes, cross-Workspace / horizontal / vertical / removed-member negative tests.
+
+**Tests/checks:**
+- `pnpm test` — 337 tests (+8): exact matrix, GUEST read-only (`*.view` only), author/execute role sets; leave for GUEST/USER/EDITOR, last admin cannot leave until another ACTIVE admin exists, non-member leave ≡ unknown Workspace and only removes the caller; HTTP leave incl. missing `Origin` and 401.
+- `pnpm test:e2e` (3 passed, 1 skipped): last-admin leave refused via the new button.
+- `pnpm lint`, `pnpm typecheck`. No schema change, no new dependencies.
+
+**Security impact:** CRITICAL — defines who may author, execute and read.
+
+**Security docs updated:** YES (§3, "Security check: Workspace role policy (Step 3.2)").
+
+**Remaining:**
+- SSE subscription authorization test moves to 6.1 (its acceptance criteria already require it): subscriptions must check `run.view` on connect and drop on membership removal/demotion.
+- Repairing a Workspace whose only ACTIVE admin is disabled: to be designed with account disabling (server admin action, audited).
+- Revisit whether USER should abort Runs started by others once Runs exist (currently `run.abort` for USER+, a policy-only change).
 
 ### 3.3 Workspace-wide Procedure visibility
 **Status:** TODO

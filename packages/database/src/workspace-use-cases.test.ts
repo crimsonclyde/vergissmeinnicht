@@ -10,6 +10,7 @@ import {
   changeMemberRole,
   createWorkspace,
   getWorkspace,
+  leaveWorkspace,
   listMembers,
   listMyWorkspaces,
   removeMember,
@@ -204,7 +205,7 @@ describe('Workspace and Membership use-cases', () => {
       await join(home, alice, 'GUEST');
       await expect(getWorkspace(deps, { actor: alice, workspaceId: home.id })).resolves.toMatchObject({
         role: 'GUEST',
-        capabilities: ['workspace.view'],
+        capabilities: ['workspace.view', 'procedure.view', 'run.view'],
       });
       await expect(listMembers(deps, { actor: alice, workspaceId: home.id })).rejects.toThrow(NotAuthorizedError);
     });
@@ -323,6 +324,30 @@ describe('Workspace and Membership use-cases', () => {
       await expect(
         changeMemberRole(deps, { actor: serverAdmin, workspaceId: home.id, userId: serverAdmin.id, role: 'ADMIN' }),
       ).rejects.toThrow(NotAuthorizedError);
+    });
+  });
+
+  describe('leaving', () => {
+    it.each(['GUEST', 'USER', 'EDITOR'] as const)('lets a %s leave, audited as their own action', async (role) => {
+      await join(home, alice, role);
+      await leaveWorkspace(deps, { actor: alice, workspaceId: home.id });
+      await expect(getWorkspace(deps, { actor: alice, workspaceId: home.id })).rejects.toThrow(WorkspaceNotFoundError);
+      expect(events().at(-1)).toMatchObject({ type: 'MEMBERSHIP_REMOVED', actor: alice.id });
+    });
+
+    it('lets an admin leave only while another ACTIVE admin remains', async () => {
+      await expect(leaveWorkspace(deps, { actor: serverAdmin, workspaceId: home.id })).rejects.toThrow(LastWorkspaceAdminError);
+      await join(home, alice, 'ADMIN');
+      await leaveWorkspace(deps, { actor: serverAdmin, workspaceId: home.id });
+      expect(await listMyWorkspaces(deps, { actor: serverAdmin })).toEqual([]);
+    });
+
+    it('only ever removes the caller and fails for non-members like an unknown Workspace', async () => {
+      await join(home, alice, 'USER');
+      const office = await createWorkspace(deps, { actor: serverAdmin, name: 'Office' });
+      await expect(leaveWorkspace(deps, { actor: bob, workspaceId: home.id })).rejects.toThrow(WorkspaceNotFoundError);
+      await expect(leaveWorkspace(deps, { actor: alice, workspaceId: office.id })).rejects.toThrow(WorkspaceNotFoundError);
+      expect((await deps.workspaces.findMembership(home.id, alice.id))?.role).toBe('USER');
     });
   });
 

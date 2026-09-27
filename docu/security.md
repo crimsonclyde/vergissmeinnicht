@@ -97,7 +97,7 @@ This file is normative and must evolve with the application.
 - [x] Role/capability checked for the requested operation. (Capabilities, not role strings; mutations re-check the actor's current role and ACTIVE status inside the write transaction.)
 - [ ] Child resources cannot bypass parent Workspace checks. (Membership routes take the Workspace id and target user id together; target must be a member of *that* Workspace. Procedures/Runs must follow the same rule — Steps 4/5.)
 - [x] Object identifiers are opaque but are not treated as authorization. (UUIDv4 Workspace ids; knowing an id grants nothing.)
-- [x] Guest/User/Editor/Admin policies are centrally defined. (`packages/permissions`: one role → capability table, exact-matrix test; Procedure/Run capabilities are added there in 3.2/4/5.)
+- [x] Guest/User/Editor/Admin policies are centrally defined. (`packages/permissions`: one role → capability table incl. Procedure/Run capabilities (3.2), exact-matrix test; matrix documented in steps.md 3.2.)
 - [x] Cross-Workspace access has negative tests.
 - [x] Horizontal privilege escalation has negative tests. (Admin of Workspace A cannot manage members of Workspace B; members cannot see other Workspaces.)
 - [x] Vertical privilege escalation has negative tests. (GUEST/USER/EDITOR cannot add, re-role, remove or rename; self-promotion refused; Workspace ADMIN ≠ server admin.)
@@ -439,4 +439,14 @@ The following choices are mandatory V1 behavior:
 **Logging review:** no new log statements; emails travel in JSON bodies, never in URLs; security event metadata holds user ids, roles and Workspace names only.  
 **Authorization review:** HTTP handlers only authenticate (`requireUser`) and translate; all Workspace authorization is in `packages/application/src/workspaces/use-cases.ts` via `packages/permissions`.  
 **Open risks:** "add member by email" tells a Workspace ADMIN whether an ACTIVE account exists for an address (accepted: invite-only system, admins are trusted, rate-limited and audited); Workspace names are stored in security-event metadata on rename (not secret, but personal wording persists); members cannot leave a Workspace on their own unless they are an admin; disabling the only ACTIVE admin of a Workspace leaves it without a manager until a server-level repair tool exists; no Workspace deletion/archiving yet; SSE authorization and Procedure/Run capabilities still to come (3.2, 6.1).  
+**Reviewed:** 2026-09-27
+
+### Security check: Workspace role policy (Step 3.2)
+**Threat surface:** over-broad default roles (GUEST executing or editing), scattered role checks drifting apart, members unable to withdraw from a Workspace, admins orphaning a Workspace by leaving.  
+**Controls added:** full V1 capability matrix in `packages/permissions` (GUEST read-only: `workspace.view`, `procedure.view`, `run.view`; USER adds member list and Run start/execute/abort; EDITOR adds Procedure edit/restore; ADMIN adds member and settings management); tests pin the exact matrix, GUEST's read-only set and the author/execute role sets; `leaveWorkspace` removes only the caller, requires membership, keeps ≥1 ACTIVE admin and is audited.  
+**Negative tests:** `packages/permissions/src/policy.test.ts`; leave cases in `packages/database/src/workspace-use-cases.test.ts` and `apps/server/src/http/workspace.test.ts` (non-member 404, missing Origin 403, unauthenticated 401, last admin 409).  
+**Secrets/data involved:** none new.  
+**Logging review:** no new log output.  
+**Authorization review:** Procedure/Run capabilities are defined but not yet enforced anywhere because those features do not exist; Steps 4/5 must use `authorizeWorkspace` with them and add negative tests per capability.  
+**Open risks:** matrix decided from the documented intent, pending product review (steps.md 3.2); SSE authorization not yet implemented (6.1); a Workspace whose only ACTIVE admin is disabled cannot be managed until a server-admin repair path exists.  
 **Reviewed:** 2026-09-27
