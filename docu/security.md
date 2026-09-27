@@ -170,8 +170,8 @@ Canonical shape:
 - [x] `audit_events` (Workspace content history) is append-only at the DB level; Procedure changes and their audit event commit in one transaction with actor id, display-name snapshot and server timestamp.
 - [ ] Corrections are additive rather than silent rewrites.
 - [ ] Audit metadata does not contain credentials/secrets.
-- [ ] Procedure deletion cannot cascade-delete historical Runs.
-- [ ] Historical Run snapshot remains readable after Procedure change/deletion.
+- [x] Procedure deletion cannot cascade-delete historical Runs. (Soft delete only; `runs.procedure_id` FK without cascade blocks even a hard delete; Run rows cannot be deleted — triggers.)
+- [x] Historical Run snapshot remains readable after Procedure change/deletion. (Definition copied at start; snapshot columns immutable by triggers; tests edit, restructure and delete the source.)
 
 ---
 
@@ -490,5 +490,15 @@ The following choices are mandatory V1 behavior:
 **Logging review:** no new log statements; import bodies are not logged.  
 **Authorization review:** export `procedure.view`, import/duplicate `procedure.edit`, all through `authorizeWorkspace`; Procedure ids resolved only within the route's Workspace.  
 **Open risks:** exported files are outside the application's control once downloaded (anyone who can read a Procedure can already copy its content); the lockfile entries for the new workspace links were added by hand and must be verified with `pnpm install --frozen-lockfile`.  
+**Reviewed:** 2026-09-27
+
+### Security check: Run snapshots (Step 5.1)
+**Threat surface:** falsifying history (editing a Run's copied definition or starter after the fact, deleting Runs), Runs changing when their Procedure changes, starting or reading Runs of another Workspace by id, GUESTs starting Runs, race between Procedure edit and snapshot, unbounded active Runs.  
+**Controls added:** snapshot copied (not referenced) in one `IMMEDIATE` transaction together with the `RUN_STARTED` audit event (with `run_id`); DB triggers make snapshot columns and `run_sections` immutable and forbid deleting `runs`/`run_sections`/`run_steps`; `run.start` (USER+) / `run.view` (all roles) via `authorizeWorkspace` plus in-transaction re-check; every Run/Procedure lookup scoped by the route's Workspace id; ≤500 ACTIVE Runs per Workspace; responses expose the starter's display-name snapshot only.  
+**Negative tests:** `packages/database/src/run-use-cases.test.ts` (12), `apps/server/src/http/run.test.ts` (3); mutation checks in steps.md 5.1.  
+**Secrets/data involved:** Run snapshots of Workspace-confidential Procedure text; starter display names.  
+**Logging review:** no new log statements.  
+**Authorization review:** HTTP only authenticates/parses; authorization in `packages/application/src/runs/use-cases.ts` via `packages/permissions`.  
+**Open risks:** state columns are intentionally writable for 5.2/5.4 — their transitions must go only through audited use-cases; completed-Run immutability (5.6) still to be enforced; an operator with direct DB file access can drop triggers (DB-level protections guard the application, not the host).  
 **Reviewed:** 2026-09-27
 

@@ -213,6 +213,16 @@ POST /api/workspaces/{id}/procedures/import             procedure.edit, untruste
 POST /api/workspaces/{id}/procedures/{procedureId}/duplicate procedure.edit, same Workspace only
 ```
 
+Runs live under their Workspace as well:
+
+```text
+GET  /api/workspaces/{id}/runs[?state=ACTIVE|COMPLETED|ABORTED]   run.view, newest 200 with Step counts
+POST /api/workspaces/{id}/runs  { procedureId }                   run.start → snapshot
+GET  /api/workspaces/{id}/runs/{runId}                            run.view
+```
+
+Starting a Run copies the Procedure's current definition (title, Sections, Steps with all flags and policies) into `runs` / `run_sections` / `run_steps` inside one transaction. The copy is immutable (DB triggers); Runs are never deleted; only execution state changes later (5.2+). `audit_events.run_id` identifies the Run for every Run event.
+
 A Procedure is saved as one document: content plus ordered Sections and CHECK Steps. Existing Section/Step ids are kept (they must belong to that Procedure); new items get server ids; the child rows are rewritten on every save, so Runs will snapshot them instead of referencing them. Each save is one `PROCEDURE_UPDATED` audit event with a change summary.
 
 The canonical JSON format lives in `packages/import-export` (`schemaVersion` 1): exports carry only the definition; imports are parsed strictly there and then created through the same use-case as hand-made Procedures.

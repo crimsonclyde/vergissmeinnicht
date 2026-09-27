@@ -4,7 +4,15 @@
 // Better Auth field names (e.g. `name`, `emailVerified`), while *column* names are snake_case.
 import { sql } from 'drizzle-orm';
 import { check, foreignKey, index, integer, primaryKey, sqliteTable, text, uniqueIndex } from 'drizzle-orm/sqlite-core';
-import { PROCEDURE_ICONS, REASON_POLICIES, STEP_KINDS, USER_STATUSES, WORKSPACE_ROLES } from '@vergissmeinnicht/domain';
+import {
+  PROCEDURE_ICONS,
+  REASON_POLICIES,
+  RUN_STATES,
+  STEP_KINDS,
+  STEP_STATES,
+  USER_STATUSES,
+  WORKSPACE_ROLES,
+} from '@vergissmeinnicht/domain';
 
 const timestampMs = (column: string) =>
   integer(column, { mode: 'timestamp_ms' })
@@ -408,6 +416,106 @@ export const procedureSteps = sqliteTable(
 );
 
 /**
+ * Runs: historical executions. The definition columns are a snapshot taken when the Run started and
+ * are immutable (triggers in migration 0011); only `state` and `revision` change later. Runs are never
+ * deleted. `procedure_id` points at the source Procedure (never cascades; blocks a hard delete).
+ */
+export const runs = sqliteTable(
+  'runs',
+  {
+    id: text('id').primaryKey(),
+    workspaceId: text('workspace_id')
+      .notNull()
+      .references(() => workspaces.id),
+    procedureId: text('procedure_id')
+      .notNull()
+      .references(() => procedures.id),
+    procedureRevision: integer('procedure_revision').notNull(),
+    title: text('title').notNull(),
+    description: text('description').notNull(),
+    icon: text('icon', { enum: PROCEDURE_ICONS }).notNull(),
+    tags: text('tags', { mode: 'json' }).$type<string[]>().notNull(),
+    state: text('state', { enum: RUN_STATES }).notNull().default('ACTIVE'),
+    /** Concurrency token for later state changes (5.2 / 6.1). */
+    revision: integer('revision').notNull().default(1),
+    startedByUserId: text('started_by_user_id')
+      .notNull()
+      .references(() => users.id),
+    startedByDisplayName: text('started_by_display_name').notNull(),
+    startedAt: integer('started_at', { mode: 'timestamp_ms' }).notNull(),
+  },
+  (table) => [
+    index('runs_workspace_state_idx').on(table.workspaceId, table.state, table.startedAt),
+    index('runs_procedure_idx').on(table.procedureId),
+    check('runs_id_uuid', sql`length(${table.id}) = 36`),
+    check('runs_state_valid', oneOf('state', RUN_STATES)),
+    check('runs_icon_valid', oneOf('icon', PROCEDURE_ICONS)),
+    check('runs_title_present', sql`length(trim(${table.title})) > 0 and length(${table.title}) <= 120`),
+    check('runs_tags_array', sql`json_valid(${table.tags}) and json_type(${table.tags}) = 'array'`),
+    check('runs_revisions_positive', sql`${table.procedureRevision} >= 1 and ${table.revision} >= 1`),
+  ],
+);
+
+/** Snapshot of a Section at Run start. Immutable. */
+export const runSections = sqliteTable(
+  'run_sections',
+  {
+    id: text('id').primaryKey(),
+    runId: text('run_id')
+      .notNull()
+      .references(() => runs.id),
+    position: integer('position').notNull(),
+    /** The Procedure Section it was copied from (informational; no FK — those rows are rewritten on save). */
+    sourceSectionId: text('source_section_id').notNull(),
+    title: text('title').notNull(),
+    description: text('description').notNull(),
+  },
+  (table) => [
+    uniqueIndex('run_sections_position_unique').on(table.runId, table.position),
+    uniqueIndex('run_sections_id_run_unique').on(table.id, table.runId),
+    check('run_sections_id_uuid', sql`length(${table.id}) = 36`),
+  ],
+);
+
+/** Snapshot of a Step at Run start. Definition columns are immutable; `state` is the execution state. */
+export const runSteps = sqliteTable(
+  'run_steps',
+  {
+    id: text('id').primaryKey(),
+    runId: text('run_id')
+      .notNull()
+      .references(() => runs.id),
+    runSectionId: text('run_section_id').notNull(),
+    position: integer('position').notNull(),
+    sourceStepId: text('source_step_id').notNull(),
+    kind: text('kind', { enum: STEP_KINDS }).notNull(),
+    title: text('title').notNull(),
+    description: text('description').notNull(),
+    icon: text('icon', { enum: PROCEDURE_ICONS }),
+    required: integer('required', { mode: 'boolean' }).notNull(),
+    critical: integer('critical', { mode: 'boolean' }).notNull(),
+    skipReasonPolicy: text('skip_reason_policy', { enum: REASON_POLICIES }).notNull(),
+    notApplicableReasonPolicy: text('not_applicable_reason_policy', { enum: REASON_POLICIES }).notNull(),
+    state: text('state', { enum: STEP_STATES }).notNull().default('PENDING'),
+  },
+  (table) => [
+    foreignKey({
+      name: 'run_steps_section_same_run',
+      columns: [table.runSectionId, table.runId],
+      foreignColumns: [runSections.id, runSections.runId],
+    }),
+    uniqueIndex('run_steps_position_unique').on(table.runSectionId, table.position),
+    index('run_steps_run_idx').on(table.runId),
+    check('run_steps_id_uuid', sql`length(${table.id}) = 36`),
+    check('run_steps_kind_valid', oneOf('kind', STEP_KINDS)),
+    check('run_steps_icon_valid', sql`icon is null or ${oneOf('icon', PROCEDURE_ICONS)}`),
+    check('run_steps_skip_policy_valid', oneOf('skip_reason_policy', REASON_POLICIES)),
+    check('run_steps_na_policy_valid', oneOf('not_applicable_reason_policy', REASON_POLICIES)),
+    check('run_steps_state_valid', oneOf('state', STEP_STATES)),
+  ],
+);
+
+/**
  * Append-only history of Workspace content (UPDATE/DELETE blocked by triggers in migration 0008).
  * Procedures now; Run and Step events join with Step 5.5. Metadata is JSON and never holds secrets.
  */
@@ -427,9 +535,12 @@ export const auditEvents = sqliteTable(
     actorDisplayName: text('actor_display_name').notNull(),
     subjectType: text('subject_type').notNull(),
     subjectId: text('subject_id').notNull(),
+    /** Set for every Run event (AGENTS.md: Run events identify the Run UUID). */
+    runId: text('run_id').references(() => runs.id),
     metadata: text('metadata', { mode: 'json' }).$type<Record<string, string | number | boolean | string[]>>(),
   },
   (table) => [
+    index('audit_events_run_idx').on(table.runId),
     index('audit_events_subject_idx').on(table.workspaceId, table.subjectType, table.subjectId),
     index('audit_events_occurred_at_idx').on(table.workspaceId, table.occurredAt),
   ],

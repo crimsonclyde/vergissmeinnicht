@@ -8,6 +8,9 @@ import {
   ProcedureLimitReachedError,
   ProcedureNotFoundError,
   InvalidProcedureReferenceError,
+  ProcedureHasNoStepsError,
+  RunLimitReachedError,
+  RunNotFoundError,
   InvalidInvitationError,
   InvalidMfaCodeError,
   InvitationNotRevocableError,
@@ -68,6 +71,9 @@ export function errorHandler(error: FastifyError | Error, request: FastifyReques
   if (error instanceof ProcedureNotFoundError) return reply.code(404).send({ error: 'procedure_not_found' });
   if (error instanceof ProcedureConflictError) return reply.code(409).send({ error: 'procedure_conflict' });
   if (error instanceof InvalidProcedureReferenceError) return reply.code(400).send({ error: 'invalid_item_reference' });
+  if (error instanceof RunNotFoundError) return reply.code(404).send({ error: 'run_not_found' });
+  if (error instanceof ProcedureHasNoStepsError) return reply.code(409).send({ error: 'procedure_has_no_steps' });
+  if (error instanceof RunLimitReachedError) return reply.code(409).send({ error: 'run_limit_reached' });
   if (error instanceof ProcedureLimitReachedError) return reply.code(409).send({ error: 'procedure_limit_reached' });
   if (error instanceof LastWorkspaceAdminError) return reply.code(409).send({ error: 'last_workspace_admin' });
 

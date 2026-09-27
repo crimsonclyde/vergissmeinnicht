@@ -35,7 +35,7 @@ function toProcedure(row: typeof procedures.$inferSelect): Procedure {
 }
 
 /** Scoped to the Workspace *and* not deleted: the only way Procedure rows are addressed. */
-const activeIn = (workspaceId: WorkspaceId, procedureId?: ProcedureId) =>
+export const activeIn = (workspaceId: WorkspaceId, procedureId?: ProcedureId) =>
   and(
     eq(procedures.workspaceId, workspaceId),
     isNull(procedures.deletedAt),
@@ -43,7 +43,7 @@ const activeIn = (workspaceId: WorkspaceId, procedureId?: ProcedureId) =>
   );
 
 /** Only call with a Procedure id that was already resolved through `activeIn`. */
-function loadSections(db: Reader, procedureId: string): ProcedureSection[] {
+export function loadSections(db: Reader, procedureId: string): ProcedureSection[] {
   const steps = db
     .select()
     .from(procedureSteps)

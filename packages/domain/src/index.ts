@@ -6,6 +6,7 @@ export * from './password.ts';
 export * from './procedure.ts';
 export * from './procedure-structure.ts';
 export * from './recovery.ts';
+export * from './run.ts';
 export * from './security-event.ts';
 export * from './states.ts';
 export * from './user.ts';

@@ -8,3 +8,4 @@ export { createMfaChallengeRepository, createTotpRepository } from './mfa-reposi
 export { createAccountRecoveryRepository, createCredentialRepository } from './recovery-repository.ts';
 export { createWorkspaceRepository } from './workspace-repository.ts';
 export { createProcedureRepository } from './procedure-repository.ts';
+export { createRunRepository } from './run-repository.ts';

@@ -66,8 +66,14 @@ type Mode =
   | { kind: 'edit'; id: string };
 
 /** Capabilities only adapt the UI; the server authorizes every request. */
-export function Procedures(props: { workspaceId: string; canEdit: boolean; canRestore: boolean }) {
-  const { workspaceId, canEdit, canRestore } = props;
+export function Procedures(props: {
+  workspaceId: string;
+  canEdit: boolean;
+  canRestore: boolean;
+  canStartRun: boolean;
+  onRunStarted: (runId: string) => void;
+}) {
+  const { workspaceId, canEdit, canRestore, canStartRun, onRunStarted } = props;
   const [procedures, setProcedures] = useState<Procedure[] | null>(null);
   const [deleted, setDeleted] = useState<DeletedProcedure[] | null>(null);
   const [detail, setDetail] = useState<ProcedureDetail | null>(null);
@@ -144,6 +150,17 @@ export function Procedures(props: { workspaceId: string; canEdit: boolean; canRe
     api.deletedProcedures(workspaceId).then(setDeleted, (caught: unknown) => setMessage(messageFor(caught)));
   }
 
+  async function startRun(procedure: ProcedureDetail) {
+    setMessage(null);
+    try {
+      const run = await api.startRun(workspaceId, procedure.id);
+      setMode({ kind: 'list' });
+      onRunStarted(run.id);
+    } catch (caught) {
+      setMessage(messageFor(caught));
+    }
+  }
+
   async function remove(procedure: ProcedureDetail) {
     if (!window.confirm(`Delete “${procedure.title}”? It can be restored later; past Runs stay readable.`)) return;
     setMessage(null);
@@ -197,6 +214,13 @@ export function Procedures(props: { workspaceId: string; canEdit: boolean; canRe
             <button type="button" onClick={() => setMode({ kind: 'list' })}>
               Back to all Procedures
             </button>{' '}
+            {canStartRun && (
+              <>
+                <button type="button" onClick={() => void startRun(shown)}>
+                  Start Run
+                </button>{' '}
+              </>
+            )}
             <button type="button" onClick={() => void exportProcedure(shown)}>
               Export as JSON
             </button>{' '}

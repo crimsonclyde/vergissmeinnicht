@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState, type FormEvent } from 'react';
 import { Procedures } from './Procedures.tsx';
+import { Runs } from './Runs.tsx';
 import {
   api,
   messageFor,
@@ -106,6 +107,7 @@ function WorkspaceDetail({ id, currentUserId, onLeft }: { id: string; currentUse
   // Capabilities only adapt the UI; the server enforces them on every request.
   const [capabilities, setCapabilities] = useState<string[]>([]);
   const [members, setMembers] = useState<WorkspaceMember[] | null>(null);
+  const [openRunId, setOpenRunId] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
@@ -151,8 +153,11 @@ function WorkspaceDetail({ id, currentUserId, onLeft }: { id: string; currentUse
           workspaceId={id}
           canEdit={capabilities.includes('procedure.edit')}
           canRestore={capabilities.includes('procedure.restore')}
+          canStartRun={capabilities.includes('run.start')}
+          onRunStarted={setOpenRunId}
         />
       )}
+      {capabilities.includes('run.view') && <Runs workspaceId={id} openRunId={openRunId} onOpen={setOpenRunId} />}
       {members !== null && (
         <table>
           <caption>Members</caption>

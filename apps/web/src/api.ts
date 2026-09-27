@@ -111,6 +111,44 @@ export interface ProcedureDetail extends Procedure {
   readonly sections: readonly ProcedureSection[];
 }
 
+export type RunState = 'ACTIVE' | 'COMPLETED' | 'ABORTED';
+export type StepState = 'PENDING' | 'DONE' | 'SKIPPED' | 'NOT_APPLICABLE';
+
+export interface RunInfo {
+  readonly id: string;
+  readonly procedureId: string;
+  readonly procedureRevision: number;
+  readonly title: string;
+  readonly description: string;
+  readonly icon: ProcedureIcon;
+  readonly tags: readonly string[];
+  readonly state: RunState;
+  readonly startedAt: string;
+  /** Display name at the time the Run was started. */
+  readonly startedBy: string;
+}
+
+export interface RunSummary extends RunInfo {
+  readonly stepCounts: Readonly<Record<StepState, number>>;
+}
+
+export interface RunStep {
+  readonly id: string;
+  readonly kind: 'CHECK';
+  readonly title: string;
+  readonly description: string;
+  readonly icon: ProcedureIcon | null;
+  readonly required: boolean;
+  readonly critical: boolean;
+  readonly skipReasonPolicy: ReasonPolicy;
+  readonly notApplicableReasonPolicy: ReasonPolicy;
+  readonly state: StepState;
+}
+
+export interface RunDetail extends RunInfo {
+  readonly sections: readonly { readonly id: string; readonly title: string; readonly description: string; readonly steps: readonly RunStep[] }[];
+}
+
 export type SecondFactor = { readonly code: string } | { readonly recoveryCode: string };
 
 export interface MfaStatus {
@@ -167,6 +205,9 @@ export const ERROR_MESSAGES: Record<string, string> = {
   invalid_icon: 'The file uses an unknown icon.',
   invalid_reason_policy: 'The file uses an unknown reason setting.',
   invalid_request: 'The request was not valid.',
+  run_not_found: 'This Run does not exist.',
+  procedure_has_no_steps: 'This Procedure has no Steps yet. Add at least one Step before starting a Run.',
+  run_limit_reached: 'This Workspace has too many active Runs. Finish some before starting new ones.',
   invalid_item_reference: 'This Procedure was restructured in the meantime. Reload it and apply your changes again.',
 };
 
@@ -282,6 +323,17 @@ export const api = {
     ).procedure,
   deleteProcedure: (workspaceId: string, id: string) =>
     request<undefined>('POST', `/workspaces/${encodeURIComponent(workspaceId)}/procedures/${encodeURIComponent(id)}/delete`),
+  runs: async (workspaceId: string, state?: RunState) =>
+    (
+      await request<{ runs: RunSummary[] }>(
+        'GET',
+        `/workspaces/${encodeURIComponent(workspaceId)}/runs${state === undefined ? '' : `?state=${state}`}`,
+      )
+    ).runs,
+  run: async (workspaceId: string, id: string) =>
+    (await request<{ run: RunDetail }>('GET', `/workspaces/${encodeURIComponent(workspaceId)}/runs/${encodeURIComponent(id)}`)).run,
+  startRun: async (workspaceId: string, procedureId: string) =>
+    (await request<{ run: RunDetail }>('POST', `/workspaces/${encodeURIComponent(workspaceId)}/runs`, { procedureId })).run,
   leaveWorkspace: (id: string) => request<undefined>('POST', `/workspaces/${encodeURIComponent(id)}/leave`),
   members: async (id: string) =>
     (await request<{ members: WorkspaceMember[] }>('GET', `/workspaces/${encodeURIComponent(id)}/members`)).members,

@@ -18,16 +18,19 @@ For every completed task, add a concise completion note, tests/checks performed,
 
 ## Current state — resume here
 
-_Last updated: 2026-09-27 (after 4.5)_
+_Last updated: 2026-09-27 (after 5.1)_
 
-**Done:** 0.1, 0.2, 0.3, 1.1, 1.2, 2.1–2.5, 3.1–3.3, 4.1–4.5, 9.1 (pulled forward for invitations). 2.6 (external providers) is DEFERRED.
-**Next:** 5.1 Create immutable Run snapshot.
+**Done:** 0.1, 0.2, 0.3, 1.1, 1.2, 2.1–2.5, 3.1–3.3, 4.1–4.5, 5.1, 9.1 (pulled forward for invitations). 2.6 (external providers) is DEFERRED.
+**Next:** 5.2 Step state machine (user asked to stop after 5.1 for review). Design notes for 5.2:
+1. transitions on `run_steps.state` only (the snapshot columns are trigger-protected); add state metadata columns (reason, changed_by user id + display-name snapshot, changed_at) via migration;
+2. `run.execute` via `authorizeWorkspace` + in-transaction guard; Run must be ACTIVE; the Run's `revision` as concurrency token for collaborative edits (6.1);
+3. reason policies enforced server-side from the snapshotted Step (DISABLED → no reason accepted, REQUIRED → non-empty), undo = transition back to PENDING, every transition one `audit_events` row with `run_id`.
 
 **Lockfile note (4.4):** `apps/server` → `@vergissmeinnicht/import-export` and `packages/import-export` → `zod@4.6.5` were added to `package.json` and `pnpm-lock.yaml` by hand (pnpm was not available in the agent's shell). Verify once with `pnpm install --frozen-lockfile` (must succeed without changes).
 
 Also open: trusted-proxy configuration (10.3) before production use behind a reverse proxy; admin web UI (invitations, recoveries — API only so far); account status changes (disable/enable users) with session revocation; housekeeping of expired challenge/recovery/invitation rows.
 
-**Branches:** work is stacked, not yet merged into `main`: `step-1.1-app-skeleton` → `step-1.2-config` → `step-2.1-user-model` → `step-2.2-invitations` → `step-2.4-totp` → `step-2.5-recovery` → `step-3.1-workspaces` → `step-3.2-roles` → `step-4.1-procedures` → `step-4.2-steps` → `step-4.3-drag-drop` → `step-4.4-import-export` → `step-4.5-restore` (each branch contains the previous ones; 2.3 was completed on `step-2.2-invitations` because acceptance finishes 2.2). CI runs on pull requests / `main` only.
+**Branches:** work is stacked, not yet merged into `main`: `step-1.1-app-skeleton` → `step-1.2-config` → `step-2.1-user-model` → `step-2.2-invitations` → `step-2.4-totp` → `step-2.5-recovery` → `step-3.1-workspaces` → `step-3.2-roles` → `step-4.1-procedures` → `step-4.2-steps` → `step-4.3-drag-drop` → `step-4.4-import-export` → `step-4.5-restore` → `step-5.1-run-snapshot` (each branch contains the previous ones; 2.3 was completed on `step-2.2-invitations` because acceptance finishes 2.2). CI runs on pull requests / `main` only.
 
 **Manual testing:** `test-env/menu.sh` (added 2026-09-27) installs/starts/stops/removes an isolated production-mode instance on port 3200 with demo accounts for every role (see `test-env/README.md`). Extend `test-env/seed.ts` when new features need demo data (e.g. Procedures in 4.1).
 
@@ -792,11 +795,36 @@ Historical Runs are never cascaded.
 ## 5 — Run execution
 
 ### 5.1 Create immutable Run snapshot
-**Status:** TODO
+**Status:** DONE
+**Completed:** 2026-09-27
 
 Starting a Procedure creates a historical snapshot independent of future Procedure changes/deletion.
 
 Multiple simultaneous active Runs of the same Procedure are valid.
+
+**Security impact:** HIGH — history integrity, new Workspace child resource.
+
+**Implemented:**
+- Domain (`packages/domain/src/run.ts`): `Run`, `RunSection`, `RunStep`, `RunDetail`, `RunSummary`, `parseRunId`; `RUN_STARTED` audit type.
+- Database: migration `0010` — `runs` (Workspace FK, source `procedure_id` FK without cascade + snapshotted `procedure_revision`, copied title/description/icon/tags, `state` ACTIVE/COMPLETED/ABORTED, `revision` concurrency token for later, starter id + display-name snapshot, `started_at`), `run_sections` and `run_steps` (copied definition incl. required/critical/reason policies, `source_*_id` informational without FK, composite FK keeps a Step inside its own Run's Section, `state` default PENDING with CHECK), `audit_events.run_id` (FK, indexed). Migration `0011` — triggers: snapshot columns of `runs`/`run_steps` and all of `run_sections` cannot be updated; no row of any Run table can be deleted. Only execution state stays writable.
+- `createRunRepository.start`: one `IMMEDIATE` transaction re-checks the actor (`run.start`), reads the active Procedure of *this* Workspace with its current Sections/Steps, refuses Procedures without Steps and more than 500 ACTIVE Runs per Workspace, copies everything with new ids, records `RUN_STARTED` (with `run_id`, Procedure id + revision, title, Step count). `list` (newest first, ≤200, optional state filter, per-state Step counts) and `find` are scoped by Workspace id.
+- Application (`packages/application/src/runs`): `startRun` (`run.start`: USER, EDITOR, ADMIN), `listRuns` / `getRun` (`run.view`: all roles).
+- HTTP (`apps/server/src/http/run-routes.ts`): `GET/POST /api/workspaces/{id}/runs` (`?state=` filter; body `{ procedureId }`), `GET /api/workspaces/{id}/runs/{runId}`; errors `run_not_found` (404), `procedure_has_no_steps` / `run_limit_reached` (409). Responses carry the starter's display-name snapshot, not the user id.
+- Web: "Start Run" on the Procedure view (for `run.start`), "Runs" section with list (state, progress, starter, time) and a read-only Run view; states shown as text + glyph (never color only). Checking Steps off is 5.2.
+- `test-env/seed.ts`: one active demo Run started by the USER account.
+
+**Tests/checks:**
+- `pnpm test` — 434 tests (+15): use-cases (12: full definition copied with new ids and PENDING Steps, audit with `run_id`; snapshot unchanged after Procedure rename/restructure and after deletion, deleted Procedure cannot start new Runs; three simultaneous active Runs with their own snapshots/revisions, list counts and state filter; GUEST view-only; cross-Workspace Run/Procedure ids unknown; in-transaction re-check after demotion; unknown ids; no-Steps refusal; active-Run limit; DB triggers block snapshot updates and deletes while state stays writable; Procedure hard delete blocked by FK; audit failure rolls back all Run rows), HTTP (3: snapshot across Procedure edit, list/filter, 401/403/404 matrix incl. Origin and cross-Workspace, validation of bodies/query/ids).
+- Mutation checks: Workspace scoping in `find`, the in-transaction guard (and its capability), the no-Steps check, and the `run.view` check in `getRun` each fail tests; weakening only the use-case check of `startRun` is masked by the in-transaction guard (intended second layer).
+- `pnpm test:e2e`: two Runs of the same Procedure, pending Steps, list with progress.
+- test-env install → demo Run visible to GUEST → uninstall. Migrations 0010/0011 applied twice to a copy of the dev DB, `foreign_key_check` clean.
+- `pnpm lint`, `pnpm typecheck`.
+
+**Security docs updated:** YES (§6, "Security check: Run snapshots (Step 5.1)").
+
+**Remaining:**
+- Step execution, Run completion/abort and their audit events: 5.2–5.5. Completed Runs' immutability for state (5.6) is not enforced yet (only the definition snapshot is).
+- Run list pagination beyond the newest 200.
 
 ### 5.2 Step state machine
 **Status:** TODO

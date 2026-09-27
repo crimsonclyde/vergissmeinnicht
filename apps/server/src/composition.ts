@@ -2,6 +2,7 @@ import {
   systemClock,
   type InvitationDeps,
   type ProcedureDeps,
+  type RunDeps,
   type MfaDeps,
   type RecoveryDeps,
   type UserRepository,
@@ -23,6 +24,7 @@ import {
   createInvitationRepository,
   createMfaChallengeRepository,
   createProcedureRepository,
+  createRunRepository,
   createSecurityEventLog,
   createTotpRepository,
   createUserRepository,
@@ -48,6 +50,7 @@ export interface AppServices {
   readonly recovery: RecoveryDeps;
   readonly workspaces: WorkspaceDeps;
   readonly procedures: ProcedureDeps;
+  readonly runs: RunDeps;
   readonly securityEvents: SecurityEventLog;
   /** `Secure` + `__Secure-` cookies (production). */
   readonly secureCookies: boolean;
@@ -126,6 +129,7 @@ export function createServices(config: AppConfig, database: AppDatabase) {
       recovery,
       workspaces: workspaceDeps,
       procedures: { workspaces: workspaceDeps.workspaces, procedures: createProcedureRepository(database), clock: systemClock },
+      runs: { workspaces: workspaceDeps.workspaces, runs: createRunRepository(database), clock: systemClock },
       securityEvents,
       secureCookies: config.mode === 'production',
     };

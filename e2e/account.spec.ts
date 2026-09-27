@@ -5,7 +5,7 @@ import { serverEnv } from '../playwright.config.ts';
 
 const PASSWORD = 'an e2e passphrase that is long';
 
-test('first server admin: bootstrap link, account creation, sign-in, Workspace creation, Procedure authoring with Sections and Steps, export/import/duplicate/restore, TOTP enrollment, TOTP sign-in and operator TOTP recovery', async ({ page }, testInfo) => {
+test('first server admin: bootstrap link, account creation, sign-in, Workspace creation, Procedure authoring with Sections and Steps, export/import/duplicate/restore, starting Runs, TOTP enrollment, TOTP sign-in and operator TOTP recovery', async ({ page }, testInfo) => {
   // Bootstrap works exactly once per server; the flow runs on one project only.
   test.skip(testInfo.project.name !== 'desktop-chromium', 'bootstrap is single-use per server');
 
@@ -168,6 +168,21 @@ test('first server admin: bootstrap link, account creation, sign-in, Workspace c
   });
   await expect(page.getByRole('alert').filter({ hasText: 'different version' })).toBeVisible();
   await expect(page.getByRole('list', { name: 'Procedures' }).getByRole('listitem')).toHaveCount(2);
+
+  // Runs: start two Runs of the same Procedure; each is a snapshot with pending Steps.
+  const runs = page.getByRole('region', { name: 'Runs' });
+  await expect(runs.getByText('No Runs yet.')).toBeVisible();
+  for (let i = 0; i < 2; i++) {
+    await page.getByRole('list', { name: 'Procedures' }).getByRole('button').first().click();
+    await procedure.getByRole('button', { name: 'Start Run' }).click();
+    const run = runs.getByRole('article');
+    await expect(run.getByRole('heading', { name: 'Travel Leave the flat' })).toBeVisible();
+    await expect(run).toContainText('Active · started by Ada Admin');
+    await expect(run.getByRole('listitem')).toHaveText([/Close windows — Pending/, /Turn off stove — Pending, critical/]);
+    await runs.getByRole('button', { name: 'Back to all Runs' }).click();
+  }
+  await expect(runs.getByRole('list', { name: 'Runs' }).getByRole('listitem')).toHaveCount(2);
+  await expect(runs.getByRole('list', { name: 'Runs' }).getByRole('listitem').first()).toContainText('Active, 0 of 2 Steps resolved');
 
   // Enable TOTP: password, QR code + key, confirmation code, recovery codes.
   await page.getByRole('button', { name: 'Enable two-factor authentication' }).click();

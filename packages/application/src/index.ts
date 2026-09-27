@@ -1,6 +1,7 @@
 export * from './invitations/index.ts';
 export * from './mfa/index.ts';
 export * from './recovery/index.ts';
+export * from './runs/index.ts';
 export * from './procedures/index.ts';
 export * from './workspaces/index.ts';
 export * from './ports/actor-guard.ts';
@@ -14,3 +15,4 @@ export * from './ports/password-hasher.ts';
 export * from './ports/user-repository.ts';
 export * from './ports/workspace-repository.ts';
 export * from './ports/procedure-repository.ts';
+export * from './ports/run-repository.ts';

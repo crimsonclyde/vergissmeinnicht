@@ -7,7 +7,9 @@ export interface AuditEventRecord {
   readonly workspaceId: WorkspaceId;
   readonly type: AuditEventType;
   readonly actor: UserActor;
-  readonly subjectType: 'procedure';
+  readonly subjectType: 'procedure' | 'run';
+  /** Required for Run events. */
+  readonly runId?: string;
   readonly subjectId: string;
   readonly occurredAt: Date;
   /** Never put secrets here. */
@@ -26,6 +28,7 @@ export function recordAuditEvent(tx: Transaction, event: AuditEventRecord): void
       actorDisplayName: event.actor.displayName,
       subjectType: event.subjectType,
       subjectId: event.subjectId,
+      runId: event.runId ?? null,
       metadata: event.metadata ? { ...event.metadata } : null,
     })
     .run();

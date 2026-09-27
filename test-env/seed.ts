@@ -162,8 +162,15 @@ const procedures = [
     ],
   },
 ];
+const procedureIds: string[] = [];
 for (const procedure of procedures) {
-  await api('POST', `/workspaces/${household}/procedures`, procedure, editor);
+  const { data } = await api<{ procedure: { id: string } }>('POST', `/workspaces/${household}/procedures`, procedure, editor);
+  procedureIds.push(data.procedure.id);
 }
 await api('POST', '/auth/sign-out', {}, editor);
-console.log(`Created ${people.length + 1} accounts, 2 Workspaces and ${procedures.length} Procedures.`);
+
+// One active Run, started by the USER account.
+const member = await signIn('user@vmn.test');
+await api('POST', `/workspaces/${household}/runs`, { procedureId: procedureIds[0] }, member);
+await api('POST', '/auth/sign-out', {}, member);
+console.log(`Created ${people.length + 1} accounts, 2 Workspaces, ${procedures.length} Procedures and 1 Run.`);

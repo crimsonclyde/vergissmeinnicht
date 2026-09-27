@@ -11,6 +11,7 @@ import { adminInvitationRoutes, invitationRoutes } from './http/invitation-route
 import { originGuard } from './http/origin-guard.ts';
 import { procedureRoutes } from './http/procedure-routes.ts';
 import { adminRecoveryRoutes, recoveryRoutes } from './http/recovery-routes.ts';
+import { runRoutes } from './http/run-routes.ts';
 import { workspaceRoutes } from './http/workspace-routes.ts';
 
 export interface AppOptions {
@@ -77,6 +78,7 @@ export async function buildApp(options: AppOptions = {}) {
         await api.register(adminRecoveryRoutes, { prefix: '/admin/recoveries', services });
         await api.register(workspaceRoutes, { prefix: '/workspaces', services });
         await api.register(procedureRoutes, { prefix: '/workspaces/:workspaceId/procedures', services });
+        await api.register(runRoutes, { prefix: '/workspaces/:workspaceId/runs', services });
       }
     },
     { prefix: '/api' },
