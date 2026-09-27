@@ -18,14 +18,14 @@ For every completed task, add a concise completion note, tests/checks performed,
 
 ## Current state — resume here
 
-_Last updated: 2026-09-27 (after 4.2)_
+_Last updated: 2026-09-27 (after 4.3)_
 
-**Done:** 0.1, 0.2, 0.3, 1.1, 1.2, 2.1–2.5, 3.1–3.3, 4.1, 4.2, 9.1 (pulled forward for invitations). 2.6 (external providers) is DEFERRED.
-**Next:** 4.3 Drag and drop — the server side already exists: a save carries the complete ordered structure with stable ids, and items may move between Sections. 4.3 is mainly client work: accessible drag and drop (keyboard alternative stays: the ↑/↓ buttons) on top of the same save; keep the server limits and the "ids must belong to this Procedure" check as the only authority. Then 4.4 (duplicate / JSON import-export) or 5.1 (Run snapshot) — decide order with the user.
+**Done:** 0.1, 0.2, 0.3, 1.1, 1.2, 2.1–2.5, 3.1–3.3, 4.1–4.3, 9.1 (pulled forward for invitations). 2.6 (external providers) is DEFERRED.
+**Next:** 4.4 Duplicate / JSON import-export (user decision 2026-09-27: follow the numbered order, step by step). Import is hostile input: versioned canonical format (`schemaVersion`), full validation through the same domain normalizers before any write, bounded size/counts, imported ids never trusted (always new server ids), one transaction, authorization `procedure.edit` on the target Workspace.
 
 Also open: trusted-proxy configuration (10.3) before production use behind a reverse proxy; admin web UI (invitations, recoveries — API only so far); account status changes (disable/enable users) with session revocation; housekeeping of expired challenge/recovery/invitation rows.
 
-**Branches:** work is stacked, not yet merged into `main`: `step-1.1-app-skeleton` → `step-1.2-config` → `step-2.1-user-model` → `step-2.2-invitations` → `step-2.4-totp` → `step-2.5-recovery` → `step-3.1-workspaces` → `step-3.2-roles` → `step-4.1-procedures` → `step-4.2-steps` (each branch contains the previous ones; 2.3 was completed on `step-2.2-invitations` because acceptance finishes 2.2). CI runs on pull requests / `main` only.
+**Branches:** work is stacked, not yet merged into `main`: `step-1.1-app-skeleton` → `step-1.2-config` → `step-2.1-user-model` → `step-2.2-invitations` → `step-2.4-totp` → `step-2.5-recovery` → `step-3.1-workspaces` → `step-3.2-roles` → `step-4.1-procedures` → `step-4.2-steps` → `step-4.3-drag-drop` (each branch contains the previous ones; 2.3 was completed on `step-2.2-invitations` because acceptance finishes 2.2). CI runs on pull requests / `main` only.
 
 **Manual testing:** `test-env/menu.sh` (added 2026-09-27) installs/starts/stops/removes an isolated production-mode instance on port 3200 with demo accounts for every role (see `test-env/README.md`). Extend `test-env/seed.ts` when new features need demo data (e.g. Procedures in 4.1).
 
@@ -711,9 +711,29 @@ Reason policies are independently:
 - Run snapshots (5.1) must copy Section/Step data and must not reference `procedure_sections`/`procedure_steps` rows (they are rewritten on every save).
 
 ### 4.3 Drag and drop
-**Status:** TODO
+**Status:** DONE
+**Completed:** 2026-09-27
 
 Reorder Sections/Steps while preserving stable identifiers.
+
+**Security impact:** LOW — client-only; order input reaches the server only through the 4.2 save, which already validates, authorizes and bounds it.
+
+**Implemented:**
+- `apps/web/src/structure-moves.ts`: pure `moveItem` / `moveStep` (within and across Sections, append, invalid positions are no-ops, never loses or duplicates a Step).
+- `ProcedureForm.tsx`: native HTML5 drag and drop (no new dependency) — drag handles (⠿) on Sections and Steps; drop a Step onto another Step (takes its place, also across Sections) or onto a "Drop here …" zone at the end of any Section (incl. empty ones); drop a Section onto another Section. The dragged item is kept in a ref for event handlers so fast drags work before React re-renders.
+- Accessible alternative for keyboard and touch: existing ↑/↓ buttons plus a new "Move step … to section" select. Handles are `aria-hidden`; all moves are also possible without a pointer.
+- Nothing is saved until "Save changes" — one save, one audit event (4.2).
+
+**Tests/checks:**
+- `pnpm test` — 394 tests (+6 in `structure-moves.test.ts`, incl. an exhaustive no-loss/no-duplicate check over all move combinations).
+- `pnpm test:e2e`: drag a Step into a new Section's drop zone, move it back with the select, drag it again, drag Section 2 above Section 1, save, verify order and that ids survived (Step stays the same row).
+- `pnpm lint`, `pnpm typecheck`.
+
+**Security docs updated:** YES (§5 drag/drop item checked).
+
+**Remaining:**
+- Native HTML5 drag and drop is desktop-oriented; touch devices use the buttons/select (authoring is desktop-first per 8.1). Revisit with a reviewed DnD library if touch dragging is required.
+- No visual drop indicator beyond the browser's default and the end-of-section zones (styling with 8.x).
 
 ### 4.4 Duplicate / JSON import-export
 **Status:** TODO

@@ -139,7 +139,7 @@ Canonical shape:
 - [x] User-selectable icons are trusted icon keys, not arbitrary uploaded SVG/HTML. (`PROCEDURE_ICONS`, validated in the domain and by a DB CHECK.)
 - [ ] Apply sensible text/array/file-size limits. (Procedures: title 120, description 4000 code points, ≤10 tags × 32, ≤1000 per Workspace; ≤50 Sections, ≤200 Steps per Procedure, 1 MiB body limit on Procedure saves; coarse transport bounds in the Zod schemas. Keep extending per feature.)
 - [ ] Reject malformed UUIDs/tokens/state transitions.
-- [ ] Drag/drop order input is validated, authorized, and bounded.
+- [x] Drag/drop order input is validated, authorized, and bounded. (Reordering is client-side only; the result is saved through the 4.2 Procedure save: `procedure.edit`, ids must belong to the Procedure, ≤50 Sections / ≤200 Steps, revision check.)
 
 - [x] Emails are normalized (trim, NFC, lower-case) before storage/lookup; uniqueness is enforced on the normalized value by a unique index.
 - [x] Display names reject control and bidi override/isolate characters so audit snapshots cannot be visually spoofed.

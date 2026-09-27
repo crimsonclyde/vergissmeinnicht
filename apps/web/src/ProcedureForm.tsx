@@ -1,4 +1,4 @@
-import { useId, useState, type FormEvent } from 'react';
+import { useId, useRef, useState, type DragEvent, type FormEvent } from 'react';
 import {
   messageFor,
   PROCEDURE_ICONS,
@@ -10,6 +10,7 @@ import {
   type StepInput,
 } from './api.ts';
 import { ICONS } from './procedure-icons.tsx';
+import { moveItem, moveStep, type StepPosition } from './structure-moves.ts';
 
 const POLICY_LABELS: Record<ReasonPolicy, string> = {
   DISABLED: 'No reason',
@@ -58,12 +59,28 @@ const NEW_STEP: StepInput = {
   notApplicableReasonPolicy: 'OPTIONAL',
 };
 
-function move<T>(items: readonly T[], index: number, delta: -1 | 1): T[] {
-  const target = index + delta;
-  if (target < 0 || target >= items.length) return [...items];
-  const next = [...items];
-  [next[index], next[target]] = [next[target] as T, next[index] as T];
-  return next;
+type Dragged = { readonly kind: 'section'; readonly index: number } | { readonly kind: 'step'; readonly from: StepPosition };
+
+/** Native drag and drop (desktop). ↑/↓ buttons and "Move to section" are the keyboard/touch alternative. */
+interface DragBindings {
+  readonly handle: {
+    draggable: true;
+    onDragStart: (event: DragEvent) => void;
+    onDragEnd: () => void;
+  };
+  readonly target: {
+    onDragOver: (event: DragEvent) => void;
+    onDrop: (event: DragEvent) => void;
+  };
+}
+
+function DragHandle(props: DragBindings['handle'] & { label: string }) {
+  const { label, ...handle } = props;
+  return (
+    <span {...handle} title={label} aria-hidden="true" style={{ cursor: 'grab', userSelect: 'none' }}>
+      ⠿
+    </span>
+  );
 }
 
 function splitTags(value: string): string[] {
@@ -116,15 +133,22 @@ function StepEditor(props: {
   number: string;
   isFirst: boolean;
   isLast: boolean;
+  sectionNumber: number;
+  sectionTitles: readonly string[];
+  drag: DragBindings;
   onChange: (step: DraftStep) => void;
   onMove: (delta: -1 | 1) => void;
+  onMoveToSection: (sectionIndex: number) => void;
   onRemove: () => void;
 }) {
   const { step, number } = props;
   const set = (patch: Partial<StepInput>) => props.onChange({ ...step, ...patch });
+  const moveId = useId();
   return (
-    <fieldset>
-      <legend>Step {number}</legend>
+    <fieldset {...props.drag.target}>
+      <legend>
+        <DragHandle {...props.drag.handle} label={`Drag step ${number}`} /> Step {number}
+      </legend>
       <p>
         <label>
           Step {number} title
@@ -164,6 +188,18 @@ function StepEditor(props: {
         <button type="button" disabled={props.isLast} onClick={() => props.onMove(1)} aria-label={`Move step ${number} down`}>
           ↓
         </button>{' '}
+        <label htmlFor={moveId}>Move step {number} to section</label>{' '}
+        <select
+          id={moveId}
+          value={props.sectionNumber - 1}
+          onChange={(e) => props.onMoveToSection(Number(e.target.value))}
+        >
+          {props.sectionTitles.map((title, i) => (
+            <option key={i} value={i}>
+              {i + 1}. {title === '' ? '(untitled)' : title}
+            </option>
+          ))}
+        </select>{' '}
         <button type="button" onClick={props.onRemove}>
           Remove step {number}
         </button>
@@ -188,6 +224,43 @@ export function ProcedureForm(props: {
   );
   const [message, setMessage] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  // The ref is what event handlers read (a fast drag fires dragover before React re-renders);
+  // the state only drives rendering of the drop zones.
+  const draggedRef = useRef<Dragged | null>(null);
+  const [dragged, setDraggedState] = useState<Dragged | null>(null);
+  const setDragged = (item: Dragged | null) => {
+    draggedRef.current = item;
+    setDraggedState(item);
+  };
+
+  const handle = (item: Dragged): DragBindings['handle'] => ({
+    draggable: true,
+    onDragStart: (event) => {
+      event.dataTransfer.effectAllowed = 'move';
+      // Firefox only starts a drag with data set; the value itself is not used.
+      event.dataTransfer.setData('text/plain', '');
+      setDragged(item);
+    },
+    onDragEnd: () => setDragged(null),
+  });
+  /** A drop target that accepts `accepts` drags and performs `drop` with the dragged item. */
+  const target = (accepts: Dragged['kind'], drop: (item: Dragged) => void): DragBindings['target'] => ({
+    onDragOver: (event) => {
+      if (draggedRef.current?.kind !== accepts) return;
+      event.preventDefault();
+      event.stopPropagation();
+      event.dataTransfer.dropEffect = 'move';
+    },
+    onDrop: (event) => {
+      const item = draggedRef.current;
+      if (item?.kind !== accepts) return;
+      event.preventDefault();
+      event.stopPropagation();
+      drop(item);
+      setDragged(null);
+    },
+  });
+  const moveStepTo = (from: StepPosition, to: StepPosition) => setSections((current) => moveStep(current, from, to));
 
   const updateSection = (index: number, patch: Partial<DraftSection>) =>
     setSections((current) => current.map((section, i) => (i === index ? { ...section, ...patch } : section)));
@@ -242,8 +315,13 @@ export function ProcedureForm(props: {
       </p>
 
       {sections.map((section, index) => (
-        <fieldset key={section.key}>
-          <legend>Section {index + 1}</legend>
+        <fieldset
+          key={section.key}
+          {...target('section', (item) => item.kind === 'section' && setSections((current) => moveItem(current, item.index, index)))}
+        >
+          <legend>
+            <DragHandle {...handle({ kind: 'section', index })} label={`Drag section ${index + 1}`} /> Section {index + 1}
+          </legend>
           <p>
             <label>
               Section {index + 1} title
@@ -270,11 +348,40 @@ export function ProcedureForm(props: {
               number={`${index + 1}.${stepIndex + 1}`}
               isFirst={stepIndex === 0}
               isLast={stepIndex === section.steps.length - 1}
+              sectionNumber={index + 1}
+              sectionTitles={sections.map((s) => s.title)}
+              drag={{
+                handle: handle({ kind: 'step', from: { section: index, index: stepIndex } }),
+                target: target('step', (item) => item.kind === 'step' && moveStepTo(item.from, { section: index, index: stepIndex })),
+              }}
               onChange={(next) => updateSteps(index, (steps) => steps.map((s, i) => (i === stepIndex ? next : s)))}
-              onMove={(delta) => updateSteps(index, (steps) => move(steps, stepIndex, delta))}
+              onMove={(delta) => updateSteps(index, (steps) => moveItem(steps, stepIndex, stepIndex + delta))}
+              onMoveToSection={(sectionIndex) =>
+                moveStepTo(
+                  { section: index, index: stepIndex },
+                  {
+                    section: sectionIndex,
+                    index: (sections[sectionIndex]?.steps.length ?? 0) - (sectionIndex === index ? 1 : 0),
+                  },
+                )
+              }
               onRemove={() => updateSteps(index, (steps) => steps.filter((_, i) => i !== stepIndex))}
             />
           ))}
+          {dragged?.kind === 'step' && (
+            <p
+              {...target('step', (item) =>
+                item.kind === 'step' &&
+                moveStepTo(item.from, {
+                  section: index,
+                  index: section.steps.length - (item.from.section === index ? 1 : 0),
+                }),
+              )}
+              style={{ border: '1px dashed', padding: '0.5em' }}
+            >
+              Drop here to move the step to the end of section {index + 1}
+            </p>
+          )}
           <p>
             <button type="button" onClick={() => updateSteps(index, (steps) => [...steps, keyed(NEW_STEP)])}>
               Add step to section {index + 1}
@@ -283,7 +390,7 @@ export function ProcedureForm(props: {
               type="button"
               disabled={index === 0}
               aria-label={`Move section ${index + 1} up`}
-              onClick={() => setSections((current) => move(current, index, -1))}
+              onClick={() => setSections((current) => moveItem(current, index, index - 1))}
             >
               ↑
             </button>{' '}
@@ -291,7 +398,7 @@ export function ProcedureForm(props: {
               type="button"
               disabled={index === sections.length - 1}
               aria-label={`Move section ${index + 1} down`}
-              onClick={() => setSections((current) => move(current, index, 1))}
+              onClick={() => setSections((current) => moveItem(current, index, index + 1))}
             >
               ↓
             </button>{' '}

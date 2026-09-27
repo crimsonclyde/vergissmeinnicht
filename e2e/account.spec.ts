@@ -98,6 +98,42 @@ test('first server admin: bootstrap link, account creation, sign-in, Workspace c
   await expect(steps.nth(0)).toContainText('Turn off stove');
   await expect(steps.nth(1)).toContainText('Close windows');
 
+  // Drag and drop: a new Section, then drag "Close windows" (step 1.2) into it; one save.
+  await procedure.getByRole('button', { name: 'Edit' }).click();
+  await page.getByRole('button', { name: 'Add section' }).click();
+  await page.getByLabel('Section 2 title').fill('Upstairs');
+  await page.getByTitle('Drag step 1.2').hover();
+  await page.mouse.down();
+  await page.mouse.move(10, 10);
+  const dropZone = page.getByText('Drop here to move the step to the end of section 2');
+  await dropZone.hover();
+  await dropZone.hover({ position: { x: 20, y: 10 } });
+  await page.mouse.up();
+  await expect(page.getByLabel('Step 2.1 title')).toHaveValue('Close windows');
+  await expect(page.getByLabel('Step 1.2 title')).toHaveCount(0);
+  // Keyboard alternative: move it back to section 1 with the select.
+  await page.getByLabel('Move step 2.1 to section').selectOption({ label: '1. Ground floor' });
+  await expect(page.getByLabel('Step 1.2 title')).toHaveValue('Close windows');
+  // And drag it into Upstairs once more before saving.
+  await page.getByTitle('Drag step 1.2').hover();
+  await page.mouse.down();
+  await page.mouse.move(10, 10);
+  await dropZone.hover();
+  await dropZone.hover({ position: { x: 20, y: 10 } });
+  await page.mouse.up();
+  // Drag Section 2 onto Section 1: Upstairs comes first.
+  await page.getByTitle('Drag section 2').hover();
+  await page.mouse.down();
+  await page.mouse.move(10, 10);
+  await page.getByTitle('Drag section 1').hover();
+  await page.getByTitle('Drag section 1').hover({ position: { x: 2, y: 2 } });
+  await page.mouse.up();
+  await expect(page.getByLabel('Section 1 title')).toHaveValue('Upstairs');
+  await page.getByRole('button', { name: 'Save changes' }).click();
+  await expect(procedure.getByRole('heading', { level: 6 })).toHaveText(['Upstairs', 'Ground floor']);
+  await expect(procedure.getByRole('region', { name: 'Section: Upstairs' }).getByRole('listitem')).toHaveText([/Close windows/]);
+  await expect(steps).toHaveCount(1);
+
   page.once('dialog', (dialog) => void dialog.accept());
   await procedure.getByRole('button', { name: 'Delete' }).click();
   await expect(page.getByText('No Procedures yet.')).toBeVisible();
