@@ -70,6 +70,49 @@ describe('Run HTTP API', () => {
     expect((await start(outsider, office)).json()).toEqual({ error: 'procedure_not_found' });
   });
 
+  it('changes Step states with reasons, conflicts and undo', async () => {
+    const run = (await start(user)).json().run;
+    const stepId = run.sections[0].steps[0].id as string;
+    const url = `${runs(home)}/${run.id}/steps/${stepId}/state`;
+    const done = await t.post(url, { expectedState: 'PENDING', state: 'DONE' }, user);
+    expect(done.statusCode).toBe(200);
+    expect(done.json()).toMatchObject({ runRevision: 2, step: { id: stepId, state: 'DONE', stateChange: { by: 'Uma', reason: null } } });
+    expect(done.body).not.toContain('userId');
+
+    expect((await t.post(url, { expectedState: 'PENDING', state: 'DONE' }, editor)).json()).toEqual({ error: 'step_conflict' });
+    expect((await t.post(url, { expectedState: 'DONE', state: 'SKIPPED' }, editor)).json()).toMatchObject({ error: 'invalid_transition' });
+    expect((await t.post(url, { expectedState: 'DONE', state: 'PENDING', reason: 'oops' }, editor)).json()).toMatchObject({
+      error: 'reason_not_allowed',
+    });
+    expect((await t.post(url, { expectedState: 'DONE', state: 'PENDING' }, editor)).json().step.state).toBe('PENDING');
+    // Skip reason is DISABLED for this Step.
+    expect((await t.post(url, { expectedState: 'PENDING', state: 'SKIPPED', reason: 'no' }, user)).json()).toMatchObject({
+      error: 'reason_not_allowed',
+    });
+
+    expect((await t.post(url, { expectedState: 'PENDING', state: 'DONE' }, guest)).statusCode).toBe(403);
+    expect((await t.post(url, { expectedState: 'PENDING', state: 'DONE' }, user, null)).statusCode).toBe(403);
+    expect((await t.post(url, { expectedState: 'PENDING', state: 'DONE' })).statusCode).toBe(401);
+    expect((await t.post(url, { expectedState: 'PENDING', state: 'DONE' }, outsider)).statusCode).toBe(404);
+    expect((await t.post(`${runs(office)}/${run.id}/steps/${stepId}/state`, { expectedState: 'PENDING', state: 'DONE' }, outsider)).json()).toEqual({
+      error: 'run_not_found',
+    });
+    const otherRun = (await start(user)).json().run.id as string;
+    expect((await t.post(`${runs(home)}/${otherRun}/steps/${stepId}/state`, { expectedState: 'PENDING', state: 'DONE' }, user)).json()).toEqual({
+      error: 'step_not_found',
+    });
+    for (const bad of [
+      { expectedState: 'PENDING', state: 'FINISHED' },
+      { state: 'DONE' },
+      { expectedState: 'PENDING', state: 'DONE', by: 'someone else' },
+      { expectedState: 'PENDING', state: 'DONE', reason: 'x'.repeat(5000) },
+    ]) {
+      expect((await t.post(url, bad, user)).statusCode).toBe(400);
+    }
+    const fetched = (await t.get(`${runs(home)}/${run.id}`, guest)).json().run;
+    expect(fetched.sections[0].steps[0]).toMatchObject({ state: 'PENDING', stateChange: { by: 'Eddie' } });
+  });
+
   it('validates input and preconditions', async () => {
     const empty = (await t.post(`/api/workspaces/${home}/procedures`, { title: 'Empty', icon: 'home' }, editor)).json().procedure.id;
     expect((await start(user, home, empty)).json()).toEqual({ error: 'procedure_has_no_steps' });

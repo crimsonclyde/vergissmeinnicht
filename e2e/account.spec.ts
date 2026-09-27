@@ -5,7 +5,7 @@ import { serverEnv } from '../playwright.config.ts';
 
 const PASSWORD = 'an e2e passphrase that is long';
 
-test('first server admin: bootstrap link, account creation, sign-in, Workspace creation, Procedure authoring with Sections and Steps, export/import/duplicate/restore, starting Runs, TOTP enrollment, TOTP sign-in and operator TOTP recovery', async ({ page }, testInfo) => {
+test('first server admin: bootstrap link, account creation, sign-in, Workspace creation, Procedure authoring with Sections and Steps, export/import/duplicate/restore, starting and executing Runs, TOTP enrollment, TOTP sign-in and operator TOTP recovery', async ({ page }, testInfo) => {
   // Bootstrap works exactly once per server; the flow runs on one project only.
   test.skip(testInfo.project.name !== 'desktop-chromium', 'bootstrap is single-use per server');
 
@@ -183,6 +183,24 @@ test('first server admin: bootstrap link, account creation, sign-in, Workspace c
   }
   await expect(runs.getByRole('list', { name: 'Runs' }).getByRole('listitem')).toHaveCount(2);
   await expect(runs.getByRole('list', { name: 'Runs' }).getByRole('listitem').first()).toContainText('Active, 0 of 2 Steps resolved');
+
+  // Execute a Run: Done, Skip with a required reason, Undo.
+  await runs.getByRole('list', { name: 'Runs' }).getByRole('button').first().click();
+  const activeRun = runs.getByRole('article');
+  await activeRun.getByRole('button', { name: 'Done: Close windows' }).click();
+  await expect(activeRun.getByRole('listitem').nth(0)).toContainText('Close windows — Done');
+  await expect(activeRun.getByRole('listitem').nth(0)).toContainText('Done by Ada Admin at');
+  const stove = activeRun.getByRole('listitem').nth(1);
+  await stove.getByRole('button', { name: 'Skip' }).click();
+  await stove.getByLabel(/Why is it skipped\? \(required\)/).fill('Nobody cooked today');
+  await stove.getByRole('button', { name: 'Skip', exact: true }).click();
+  await expect(stove).toContainText('Turn off stove — Skipped');
+  await expect(stove).toContainText('reason: Nobody cooked today');
+  await activeRun.getByRole('button', { name: 'Undo: Close windows' }).click();
+  await expect(activeRun.getByRole('listitem').nth(0)).toContainText('Close windows — Pending');
+  await expect(activeRun.getByRole('listitem').nth(0)).toContainText('Reset by Ada Admin');
+  await runs.getByRole('button', { name: 'Back to all Runs' }).click();
+  await expect(runs.getByRole('list', { name: 'Runs' })).toContainText('Active, 1 of 2 Steps resolved');
 
   // Enable TOTP: password, QR code + key, confirmation code, recovery codes.
   await page.getByRole('button', { name: 'Enable two-factor authentication' }).click();

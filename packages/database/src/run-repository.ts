@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import { and, asc, count, desc, eq, inArray } from 'drizzle-orm';
-import type { RunRepository, StartRunResult } from '@vergissmeinnicht/application';
+import type { RunRepository, StartRunResult, StepStateChangeResult } from '@vergissmeinnicht/application';
 import {
   STEP_STATES,
   type ProcedureId,
@@ -8,6 +8,7 @@ import {
   type RunDetail,
   type RunId,
   type RunSection,
+  type RunStep,
   type RunSectionId,
   type RunStepId,
   type StepState,
@@ -38,6 +39,29 @@ function toRun(row: typeof runs.$inferSelect): Run {
   };
 }
 
+function toRunStep(step: typeof runSteps.$inferSelect): RunStep {
+  return {
+    id: step.id as RunStepId,
+    kind: step.kind,
+    title: step.title,
+    description: step.description,
+    icon: step.icon,
+    required: step.required,
+    critical: step.critical,
+    skipReasonPolicy: step.skipReasonPolicy,
+    notApplicableReasonPolicy: step.notApplicableReasonPolicy,
+    state: step.state,
+    stateChange:
+      step.stateChangedByUserId === null || step.stateChangedByDisplayName === null || step.stateChangedAt === null
+        ? null
+        : {
+            by: { userId: step.stateChangedByUserId as UserId, displayName: step.stateChangedByDisplayName },
+            at: step.stateChangedAt,
+            reason: step.stateReason,
+          },
+  };
+}
+
 /** Only call with a Run id that was already resolved within its Workspace. */
 function loadRunSections(db: Reader, runId: string): RunSection[] {
   const steps = db.select().from(runSteps).where(eq(runSteps.runId, runId)).orderBy(asc(runSteps.position)).all();
@@ -53,18 +77,7 @@ function loadRunSections(db: Reader, runId: string): RunSection[] {
       description: section.description,
       steps: steps
         .filter((step) => step.runSectionId === section.id)
-        .map((step) => ({
-          id: step.id as RunStepId,
-          kind: step.kind,
-          title: step.title,
-          description: step.description,
-          icon: step.icon,
-          required: step.required,
-          critical: step.critical,
-          skipReasonPolicy: step.skipReasonPolicy,
-          notApplicableReasonPolicy: step.notApplicableReasonPolicy,
-          state: step.state,
-        })),
+        .map(toRunStep),
     }));
 }
 
@@ -176,6 +189,63 @@ export function createRunRepository({ db }: Pick<AppDatabase, 'db'>): RunReposit
           return { run: toRun(row), stepCounts };
         });
       });
+    },
+
+    async changeStepState(input, actor, guard, validate) {
+      return db.transaction((tx): StepStateChangeResult => {
+        if (!actorAllowed(tx, input.workspaceId, actor, guard)) return { status: 'forbidden' };
+        const run = tx
+          .select({ id: runs.id, state: runs.state, revision: runs.revision })
+          .from(runs)
+          .where(and(eq(runs.workspaceId, input.workspaceId), eq(runs.id, input.runId)))
+          .get();
+        if (run === undefined) return { status: 'run_not_found' };
+        // The Step must belong to this Run (which belongs to this Workspace).
+        const current = tx
+          .select()
+          .from(runSteps)
+          .where(and(eq(runSteps.runId, run.id), eq(runSteps.id, input.stepId)))
+          .get();
+        if (current === undefined) return { status: 'step_not_found' };
+        if (run.state !== 'ACTIVE') return { status: 'run_not_active' };
+        if (current.state !== input.expectedState) return { status: 'conflict' };
+        // Throws (rolling back) for disallowed transitions and reason-policy violations.
+        const { reason } = validate(toRunStep(current));
+
+        const updated = tx
+          .update(runSteps)
+          .set({
+            state: input.to,
+            stateReason: reason,
+            stateChangedByUserId: actor.userId,
+            stateChangedByDisplayName: actor.displayName,
+            stateChangedAt: input.at,
+          })
+          .where(and(eq(runSteps.id, current.id), eq(runSteps.state, current.state)))
+          .returning()
+          .get();
+        if (updated === undefined) return { status: 'conflict' };
+        const runRevision = run.revision + 1;
+        tx.update(runs).set({ revision: runRevision }).where(eq(runs.id, run.id)).run();
+        recordAuditEvent(tx, {
+          workspaceId: input.workspaceId,
+          type: 'STEP_STATE_CHANGED',
+          actor,
+          subjectType: 'run_step',
+          subjectId: current.id,
+          runId: run.id,
+          occurredAt: input.at,
+          metadata: {
+            from: current.state,
+            to: input.to,
+            undo: input.to === 'PENDING',
+            stepTitle: current.title,
+            runRevision,
+            ...(reason === null ? {} : { reason }),
+          },
+        });
+        return { status: 'ok', step: toRunStep(updated), runRevision };
+      }, IMMEDIATE);
     },
 
     async find(workspaceId, runId) {

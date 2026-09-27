@@ -18,19 +18,18 @@ For every completed task, add a concise completion note, tests/checks performed,
 
 ## Current state — resume here
 
-_Last updated: 2026-09-27 (after 5.1)_
+_Last updated: 2026-09-27 (after 5.2)_
 
-**Done:** 0.1, 0.2, 0.3, 1.1, 1.2, 2.1–2.5, 3.1–3.3, 4.1–4.5, 5.1, 9.1 (pulled forward for invitations). 2.6 (external providers) is DEFERRED.
-**Next:** 5.2 Step state machine (user asked to stop after 5.1 for review). Design notes for 5.2:
-1. transitions on `run_steps.state` only (the snapshot columns are trigger-protected); add state metadata columns (reason, changed_by user id + display-name snapshot, changed_at) via migration;
-2. `run.execute` via `authorizeWorkspace` + in-transaction guard; Run must be ACTIVE; the Run's `revision` as concurrency token for collaborative edits (6.1);
-3. reason policies enforced server-side from the snapshotted Step (DISABLED → no reason accepted, REQUIRED → non-empty), undo = transition back to PENDING, every transition one `audit_events` row with `run_id`.
+**Done:** 0.1, 0.2, 0.3, 1.1, 1.2, 2.1–2.5, 3.1–3.3, 4.1–4.5, 5.1, 5.2, 9.1 (pulled forward for invitations). 2.6 (external providers) is DEFERRED.
+**Next:** 5.3 Critical Step press-and-hold (UI only; the server keeps validating transitions), then 5.4 Run lifecycle (complete / abort with required-Step rules; the trigger from 5.2 already freezes Step state once a Run is not ACTIVE).
+
+**UI note (2026-09-27, user feedback):** the web page mixes account settings, Workspace administration, server administration and everyday execution on one unstyled page. Planned remedy — an app shell with navigation (Runs · Procedures · Members · Server admin · Account), real URLs, and a minimal token-based stylesheet — was deferred by the user in favour of continuing with 5.x; pick it up with 8.1/8.3 or earlier on request.
 
 **Lockfile note (4.4):** the hand-edited entries (`apps/server` → `@vergissmeinnicht/import-export`, `packages/import-export` → `zod`) were verified on 2026-09-27 with `pnpm install --frozen-lockfile` (pnpm 12.6.0): lockfile up to date, supply-chain policies passed, no changes.
 
 Also open: trusted-proxy configuration (10.3) before production use behind a reverse proxy; admin web UI (invitations, recoveries — API only so far); account status changes (disable/enable users) with session revocation; housekeeping of expired challenge/recovery/invitation rows.
 
-**Branches:** work is stacked, not yet merged into `main`: `step-1.1-app-skeleton` → `step-1.2-config` → `step-2.1-user-model` → `step-2.2-invitations` → `step-2.4-totp` → `step-2.5-recovery` → `step-3.1-workspaces` → `step-3.2-roles` → `step-4.1-procedures` → `step-4.2-steps` → `step-4.3-drag-drop` → `step-4.4-import-export` → `step-4.5-restore` → `step-5.1-run-snapshot` (each branch contains the previous ones; 2.3 was completed on `step-2.2-invitations` because acceptance finishes 2.2). CI runs on pull requests / `main` only.
+**Branches:** work is stacked, not yet merged into `main`: `step-1.1-app-skeleton` → `step-1.2-config` → `step-2.1-user-model` → `step-2.2-invitations` → `step-2.4-totp` → `step-2.5-recovery` → `step-3.1-workspaces` → `step-3.2-roles` → `step-4.1-procedures` → `step-4.2-steps` → `step-4.3-drag-drop` → `step-4.4-import-export` → `step-4.5-restore` → `step-5.1-run-snapshot` → `cleanup-web-domain-constants` → `step-5.2-step-states` (each branch contains the previous ones; 2.3 was completed on `step-2.2-invitations` because acceptance finishes 2.2). CI runs on pull requests / `main` only.
 
 **Manual testing:** `test-env/menu.sh` (added 2026-09-27) installs/starts/stops/removes an isolated production-mode instance on port 3200 with demo accounts for every role (see `test-env/README.md`). Extend `test-env/seed.ts` when new features need demo data (e.g. Procedures in 4.1).
 
@@ -827,7 +826,8 @@ Multiple simultaneous active Runs of the same Procedure are valid.
 - Run list pagination beyond the newest 200.
 
 ### 5.2 Step state machine
-**Status:** TODO
+**Status:** DONE
+**Completed:** 2026-09-27
 
 Implement:
 - PENDING
@@ -836,6 +836,31 @@ Implement:
 - NOT_APPLICABLE
 
 with separate reason policies and undo.
+
+**Security impact:** HIGH — integrity and attribution of execution history; collaborative writes.
+
+**Decisions (2026-09-27):** transitions are PENDING → DONE / SKIPPED / NOT_APPLICABLE and any resolved state → PENDING (undo); switching directly between resolved states requires an undo first, so every change is explicit and separately audited. DONE and undo never take a reason. Reasons are plain text ≤500 code points (line breaks allowed, other control and bidi characters rejected). Concurrency: the client names the state it saw (`expectedState`); a mismatch is a conflict (409), never a silent overwrite.
+
+**Implemented:**
+- Domain (`packages/domain/src/step-transition.ts`): `canTransitionStep`, `validateStepTransition` (transition + policy of the target state from the Step's snapshot: DISABLED → no reason, OPTIONAL → reason or none, REQUIRED → non-empty; whitespace-only = none). `RunStep.stateChange` (actor id + display-name snapshot, time, reason); `STEP_STATE_CHANGED` audit type; `parseRunStepId`.
+- Database: migration `0012` adds `run_steps.state_reason`, `state_changed_by_user_id` (FK users), `state_changed_by_display_name`, `state_changed_at` with CHECKs (actor/time all-or-nothing; reason only for SKIPPED/NOT_APPLICABLE, non-blank, ≤500) and trigger `run_steps_state_only_while_active` (execution state of a non-ACTIVE Run cannot change — groundwork for 5.4/5.6). Hand-written `ALTER TABLE` statements, because drizzle-kit's table rebuild would have dropped the 0011 immutability triggers (drizzle snapshot kept in sync; a test asserts the triggers still work).
+- `RunRepository.changeStepState`: one `IMMEDIATE` transaction — guard re-check (`run.execute`), Run resolved within the Workspace, Step resolved within the Run, Run must be ACTIVE, `expectedState` must match, domain validation of the current snapshot, conditional update with actor/time/reason, Run `revision` + 1 (for 6.1), `STEP_STATE_CHANGED` audit event with `run_id`, Step id as subject, `from`/`to`/`undo`/Step title/Run revision/reason.
+- Application: `changeStepState` (`run.execute`: USER, EDITOR, ADMIN — any of them may continue any active Run); errors `RunStepNotFoundError` (404 `step_not_found`), `RunNotActiveError` (409 `run_not_active`), `StepStateConflictError` (409 `step_conflict`).
+- HTTP: `POST /api/workspaces/{id}/runs/{runId}/steps/{stepId}/state` `{ expectedState, state, reason? }` → `{ step, runRevision }`; Run responses now include `stateChange` with the actor's display name and time (no user ids).
+- Web: per Step "Done", "Skip", "Not applicable" (reason form when the policy is OPTIONAL/REQUIRED) and "Undo"; shows who/when/why; after a conflict the Run is reloaded from the server. GUESTs see the Run read-only. Critical Steps use the normal button until 5.3.
+
+**Tests/checks:**
+- `pnpm test` — 451 tests (+18): transition matrix and reason rules (5), use-cases (12: resolve with actor/time/reason and one audited event per change with `run_id`, undo and re-resolve, every policy combination incl. whitespace/length/bidi with nothing written on rejection, disallowed transitions, concurrent change → conflict, GUEST refused, any USER continues someone else's Run, Step of another Run / Run through another Workspace / non-member, in-transaction re-check after demotion, inactive Run refused, audit failure rolls back state and revision, snapshot triggers survive the migration), HTTP (1 extended scenario: states, conflict, invalid transition, reason rules, 401/403/404, Origin, strict bodies, no user ids in responses); 5.1 DB test extended with the new CHECKs and the inactive-Run freeze.
+- Mutation checks: removing the `expectedState` check, the domain validation, the Run scoping of the Step lookup, the ACTIVE check, the in-transaction guard, REQUIRED enforcement, or allowing any transition each fails tests.
+- `pnpm test:e2e`: execute a Run in the browser (Done, Skip with required reason, Undo, progress in the list).
+- Migration 0012 applied to a copy of the dev DB (twice) and to an online backup of the running test environment with an existing Run (5 Steps preserved, new columns NULL, FK check clean).
+- `pnpm lint`, `pnpm typecheck`.
+
+**Security docs updated:** YES (§6, "Security check: Step state changes (Step 5.2)").
+
+**Remaining:**
+- Press-and-hold for critical Steps (5.3), Run completion/abort (5.4), a history view of `audit_events` (5.5), realtime fan-out (6.1; the Run `revision` is ready for it).
+- The test-environment seed still starts its demo Run with all Steps pending.
 
 ### 5.3 Critical Step press-and-hold
 **Status:** TODO

@@ -123,6 +123,8 @@ export interface RunStep {
   readonly skipReasonPolicy: ReasonPolicy;
   readonly notApplicableReasonPolicy: ReasonPolicy;
   readonly state: StepState;
+  /** Who set the current state (display-name snapshot), when, and why. */
+  readonly stateChange: { readonly by: string; readonly at: string; readonly reason: string | null } | null;
 }
 
 export interface RunDetail extends RunInfo {
@@ -186,6 +188,14 @@ export const ERROR_MESSAGES: Record<string, string> = {
   invalid_reason_policy: 'The file uses an unknown reason setting.',
   invalid_request: 'The request was not valid.',
   run_not_found: 'This Run does not exist.',
+  step_not_found: 'This Step does not exist.',
+  run_not_active: 'This Run is finished; its Steps can no longer change.',
+  step_conflict: 'Someone else changed this Step just now. The Run has been reloaded.',
+  invalid_transition: 'This change is not possible. Undo the Step first.',
+  reason_required: 'Please give a reason.',
+  reason_not_allowed: 'This Step does not take a reason.',
+  reason_too_long: 'The reason must be at most 500 characters.',
+  reason_invalid_characters: 'The reason contains characters that are not allowed.',
   procedure_has_no_steps: 'This Procedure has no Steps yet. Add at least one Step before starting a Run.',
   run_limit_reached: 'This Workspace has too many active Runs. Finish some before starting new ones.',
   invalid_item_reference: 'This Procedure was restructured in the meantime. Reload it and apply your changes again.',
@@ -312,6 +322,17 @@ export const api = {
     ).runs,
   run: async (workspaceId: string, id: string) =>
     (await request<{ run: RunDetail }>('GET', `/workspaces/${encodeURIComponent(workspaceId)}/runs/${encodeURIComponent(id)}`)).run,
+  changeStepState: (
+    workspaceId: string,
+    runId: string,
+    stepId: string,
+    change: { expectedState: StepState; state: StepState; reason?: string },
+  ) =>
+    request<{ step: RunStep; runRevision: number }>(
+      'POST',
+      `/workspaces/${encodeURIComponent(workspaceId)}/runs/${encodeURIComponent(runId)}/steps/${encodeURIComponent(stepId)}/state`,
+      change,
+    ),
   startRun: async (workspaceId: string, procedureId: string) =>
     (await request<{ run: RunDetail }>('POST', `/workspaces/${encodeURIComponent(workspaceId)}/runs`, { procedureId })).run,
   leaveWorkspace: (id: string) => request<undefined>('POST', `/workspaces/${encodeURIComponent(id)}/leave`),

@@ -161,9 +161,9 @@ Canonical shape:
 
 ## 6. Audit integrity
 
-- [ ] Important mutations record internal User UUID.
-- [ ] Store actor display-name snapshot where historical readability requires it.
-- [ ] Store trusted server timestamp.
+- [ ] Important mutations record internal User UUID. (Procedures, Runs and Step state changes: yes — actor id + display-name snapshot in `audit_events`, Step state changes also on the Step row.)
+- [x] Store actor display-name snapshot where historical readability requires it. (Audit events, Run starter, Step state changes.)
+- [x] Store trusted server timestamp. (Server clock only; clients never send times.)
 - [ ] Required state change + AuditEvent are one DB transaction.
 - [ ] Normal users cannot edit/delete audit history.
 - [x] `security_events` is append-only at the DB level (UPDATE/DELETE triggers abort).
@@ -500,5 +500,15 @@ The following choices are mandatory V1 behavior:
 **Logging review:** no new log statements.  
 **Authorization review:** HTTP only authenticates/parses; authorization in `packages/application/src/runs/use-cases.ts` via `packages/permissions`.  
 **Open risks:** state columns are intentionally writable for 5.2/5.4 — their transitions must go only through audited use-cases; completed-Run immutability (5.6) still to be enforced; an operator with direct DB file access can drop triggers (DB-level protections guard the application, not the host).  
+**Reviewed:** 2026-09-27
+
+### Security check: Step state changes (Step 5.2)
+**Threat surface:** unauthorized execution (GUESTs, non-members, other Workspaces), IDOR by combining a Step id with another Run or Workspace, lost updates between collaborators, bypassing reason policies by calling the API directly, spoofed or oversized reasons, forged actor/time, changing finished Runs, state change without audit.  
+**Controls added:** `run.execute` via `authorizeWorkspace` + in-transaction re-check; Step looked up within the Run within the Workspace; `expectedState` compare-and-set plus conditional UPDATE; transition and reason rules evaluated server-side against the Step's immutable snapshot; reasons plain text ≤500 code points without control/bidi characters; actor and time taken from the session and the server clock only (strict body rejects anything else); DB CHECKs for actor/time/reason consistency; trigger freezes execution state of non-ACTIVE Runs; state change, Run revision and `STEP_STATE_CHANGED` audit event (with `run_id`, from/to/undo/reason) in one transaction; responses expose display names only.  
+**Negative tests:** `packages/domain/src/step-transition.test.ts`, `packages/database/src/step-state-use-cases.test.ts` (12), `apps/server/src/http/run.test.ts`; mutation checks in steps.md 5.2.  
+**Secrets/data involved:** reasons (free text, Workspace-confidential), actor names.  
+**Logging review:** no new log statements; reasons appear only in request bodies (not logged) and audit metadata.  
+**Authorization review:** HTTP only authenticates/parses; authorization in `packages/application/src/runs/use-cases.ts`.  
+**Open risks:** any member with `run.execute` can undo anyone's change (by design: "any authorized Workspace user may continue an active Run"; every undo is audited with the actor); reasons are stored in audit metadata permanently.  
 **Reviewed:** 2026-09-27
 

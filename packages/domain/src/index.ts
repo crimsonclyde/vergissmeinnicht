@@ -9,5 +9,6 @@ export * from './recovery.ts';
 export * from './run.ts';
 export * from './security-event.ts';
 export * from './states.ts';
+export * from './step-transition.ts';
 export * from './user.ts';
 export * from './workspace.ts';

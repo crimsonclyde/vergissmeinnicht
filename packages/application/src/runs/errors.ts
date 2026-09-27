@@ -20,3 +20,27 @@ export class RunLimitReachedError extends Error {
     this.name = 'RunLimitReachedError';
   }
 }
+
+/** Unknown Step, or one that belongs to another Run. */
+export class RunStepNotFoundError extends Error {
+  constructor() {
+    super('Step not found');
+    this.name = 'RunStepNotFoundError';
+  }
+}
+
+/** Completed or aborted Runs are history; their Steps cannot change. */
+export class RunNotActiveError extends Error {
+  constructor() {
+    super('The Run is not active');
+    this.name = 'RunNotActiveError';
+  }
+}
+
+/** Someone else changed the Step since the caller last saw it. */
+export class StepStateConflictError extends Error {
+  constructor() {
+    super('The Step was changed in the meantime');
+    this.name = 'StepStateConflictError';
+  }
+}

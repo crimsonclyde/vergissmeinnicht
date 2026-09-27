@@ -1,11 +1,14 @@
-import { getRun, listRuns, startRun } from '@vergissmeinnicht/application';
+import { changeStepState, getRun, listRuns, startRun } from '@vergissmeinnicht/application';
 import {
   RUN_STATES,
+  STEP_STATES,
   UUID_V4,
   type ProcedureId,
   type Run,
   type RunDetail,
   type RunId,
+  type RunStep,
+  type RunStepId,
   type RunSummary,
   type WorkspaceId,
 } from '@vergissmeinnicht/domain';
@@ -21,6 +24,12 @@ const workspaceParams = z.strictObject({ workspaceId: uuid });
 const runParams = z.strictObject({ workspaceId: uuid, runId: uuid });
 const listQuery = z.strictObject({ state: z.enum(RUN_STATES).optional() });
 const startBody = z.strictObject({ procedureId: uuid });
+const stepParams = z.strictObject({ workspaceId: uuid, runId: uuid, stepId: uuid });
+const stateBody = z.strictObject({
+  expectedState: z.enum(STEP_STATES),
+  state: z.enum(STEP_STATES),
+  reason: z.string().max(4096).optional(),
+});
 
 function parse<T>(schema: z.ZodType<T>, value: unknown): T {
   const parsed = schema.safeParse(value);
@@ -49,8 +58,21 @@ function runView(run: Run) {
   };
 }
 
+function stepView(step: RunStep) {
+  const { stateChange, ...rest } = step;
+  return {
+    ...rest,
+    // Display-name snapshot and time only; internal user ids are not needed by clients.
+    stateChange:
+      stateChange === null ? null : { by: stateChange.by.displayName, at: stateChange.at.toISOString(), reason: stateChange.reason },
+  };
+}
+
 const summaryView = (summary: RunSummary) => ({ ...runView(summary.run), stepCounts: summary.stepCounts });
-const detailView = (detail: RunDetail) => ({ ...runView(detail.run), sections: detail.sections });
+const detailView = (detail: RunDetail) => ({
+  ...runView(detail.run),
+  sections: detail.sections.map((section) => ({ ...section, steps: section.steps.map(stepView) })),
+});
 
 /**
  * Runs of one Workspace (`/api/workspaces/{workspaceId}/runs`). Every route requires a session;
@@ -76,6 +98,21 @@ export async function runRoutes(app: FastifyInstance, { services }: { services: 
       procedureId: procedureId as ProcedureId,
     });
     return reply.code(201).send({ run: detailView(detail) });
+  });
+
+  app.post('/:runId/steps/:stepId/state', { bodyLimit: 16 * 1024 }, async (request) => {
+    const { workspaceId, runId, stepId } = parse(stepParams, request.params);
+    const body = parse(stateBody, request.body);
+    const result = await changeStepState(deps, {
+      actor: principalOf(request).user,
+      workspaceId: workspaceId as WorkspaceId,
+      runId: runId as RunId,
+      stepId: stepId as RunStepId,
+      expectedState: body.expectedState,
+      to: body.state,
+      reason: body.reason,
+    });
+    return { step: stepView(result.step), runRevision: result.runRevision };
   });
 
   app.get('/:runId', async (request) => {

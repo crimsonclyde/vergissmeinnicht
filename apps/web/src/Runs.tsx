@@ -1,5 +1,15 @@
-import { useCallback, useEffect, useState } from 'react';
-import { api, messageFor, type RunDetail, type RunState, type RunSummary, type StepState } from './api.ts';
+import { useCallback, useEffect, useState, type FormEvent } from 'react';
+import {
+  api,
+  ApiError,
+  messageFor,
+  type ReasonPolicy,
+  type RunDetail,
+  type RunState,
+  type RunStep,
+  type RunSummary,
+  type StepState,
+} from './api.ts';
 import { Icon } from './procedure-icons.tsx';
 
 /** Text (and a glyph) for every state: color is never the only indicator. */
@@ -16,7 +26,101 @@ function progress(summary: RunSummary): string {
   return `${total - summary.stepCounts.PENDING} of ${total} Steps resolved`;
 }
 
-function RunView({ run }: { run: RunDetail }) {
+type StepAction = { readonly to: StepState; readonly reason?: string };
+
+function policyFor(step: RunStep, to: StepState): ReasonPolicy {
+  if (to === 'SKIPPED') return step.skipReasonPolicy;
+  if (to === 'NOT_APPLICABLE') return step.notApplicableReasonPolicy;
+  return 'DISABLED';
+}
+
+/** Asks for a reason when the Step's policy allows or requires one (the server enforces the policy). */
+function ReasonForm(props: { step: RunStep; to: StepState; onSubmit: (reason: string) => void; onCancel: () => void }) {
+  const [reason, setReason] = useState('');
+  const required = policyFor(props.step, props.to) === 'REQUIRED';
+  function submit(event: FormEvent) {
+    event.preventDefault();
+    props.onSubmit(reason);
+  }
+  return (
+    <form onSubmit={submit}>
+      <label>
+        {props.to === 'SKIPPED' ? 'Why is it skipped?' : 'Why does it not apply?'} {required ? '(required)' : '(optional)'}
+        <br />
+        <textarea rows={2} maxLength={500} required={required} value={reason} onChange={(e) => setReason(e.target.value)} />
+      </label>
+      <br />
+      <button type="submit">{props.to === 'SKIPPED' ? 'Skip' : 'Mark not applicable'}</button>{' '}
+      <button type="button" onClick={props.onCancel}>
+        Cancel
+      </button>
+    </form>
+  );
+}
+
+function StepItem(props: { step: RunStep; canExecute: boolean; busy: boolean; onChange: (action: StepAction) => void }) {
+  const { step } = props;
+  const [asking, setAsking] = useState<StepState | null>(null);
+  const choose = (to: StepState) => {
+    if (policyFor(step, to) === 'DISABLED') props.onChange({ to });
+    else setAsking(to);
+  };
+  return (
+    <li>
+      <span aria-hidden="true">{STEP_STATE_LABELS[step.state].glyph}</span> <strong>{step.title}</strong> —{' '}
+      {STEP_STATE_LABELS[step.state].label}
+      {step.required ? '' : ' (optional)'}
+      {step.critical && ', critical'}
+      {step.stateChange !== null && (
+        <>
+          <br />
+          <small>
+            {step.state === 'PENDING' ? 'Reset' : STEP_STATE_LABELS[step.state].label} by {step.stateChange.by} at{' '}
+            {new Date(step.stateChange.at).toLocaleString()}
+            {step.stateChange.reason !== null && <> — reason: {step.stateChange.reason}</>}
+          </small>
+        </>
+      )}
+      {step.description !== '' && <p style={{ whiteSpace: 'pre-wrap' }}>{step.description}</p>}
+      {props.canExecute && asking === null && (
+        <p>
+          {step.state === 'PENDING' ? (
+            <>
+              <button type="button" disabled={props.busy} onClick={() => props.onChange({ to: 'DONE' })}>
+                Done: {step.title}
+              </button>{' '}
+              <button type="button" disabled={props.busy} onClick={() => choose('SKIPPED')}>
+                Skip
+              </button>{' '}
+              <button type="button" disabled={props.busy} onClick={() => choose('NOT_APPLICABLE')}>
+                Not applicable
+              </button>
+            </>
+          ) : (
+            <button type="button" disabled={props.busy} onClick={() => props.onChange({ to: 'PENDING' })}>
+              Undo: {step.title}
+            </button>
+          )}
+        </p>
+      )}
+      {asking !== null && (
+        <ReasonForm
+          step={step}
+          to={asking}
+          onCancel={() => setAsking(null)}
+          onSubmit={(reason) => {
+            setAsking(null);
+            props.onChange({ to: asking, reason });
+          }}
+        />
+      )}
+    </li>
+  );
+}
+
+function RunView(props: { run: RunDetail; canExecute: boolean; busy: boolean; onStep: (step: RunStep, action: StepAction) => void }) {
+  const { run } = props;
+  const canExecute = props.canExecute && run.state === 'ACTIVE';
   return (
     <article aria-labelledby="run-title">
       <h5 id="run-title">
@@ -32,12 +136,13 @@ function RunView({ run }: { run: RunDetail }) {
           <h6>{section.title}</h6>
           <ol>
             {section.steps.map((step) => (
-              <li key={step.id}>
-                <span aria-hidden="true">{STEP_STATE_LABELS[step.state].glyph}</span> <strong>{step.title}</strong> —{' '}
-                {STEP_STATE_LABELS[step.state].label}
-                {step.required ? '' : ' (optional)'}
-                {step.critical && ', critical'}
-              </li>
+              <StepItem
+                key={`${step.id}-${step.state}`}
+                step={step}
+                canExecute={canExecute}
+                busy={props.busy}
+                onChange={(action) => props.onStep(step, action)}
+              />
             ))}
           </ol>
         </section>
@@ -47,7 +152,12 @@ function RunView({ run }: { run: RunDetail }) {
 }
 
 /** Runs of a Workspace. `openRunId` is controlled by the parent so other sections can open a Run. */
-export function Runs(props: { workspaceId: string; openRunId: string | null; onOpen: (runId: string | null) => void }) {
+export function Runs(props: {
+  workspaceId: string;
+  canExecute: boolean;
+  openRunId: string | null;
+  onOpen: (runId: string | null) => void;
+}) {
   const { workspaceId, openRunId, onOpen } = props;
   const [runs, setRuns] = useState<RunSummary[] | null>(null);
   const [detail, setDetail] = useState<RunDetail | null>(null);
@@ -71,6 +181,32 @@ export function Runs(props: { workspaceId: string; openRunId: string | null; onO
   }, [workspaceId, openRunId]);
 
   const shown = detail !== null && detail.id === openRunId ? detail : null;
+  const [busy, setBusy] = useState(false);
+
+  async function changeStep(run: RunDetail, step: RunStep, action: StepAction) {
+    setBusy(true);
+    setMessage(null);
+    try {
+      const result = await api.changeStepState(workspaceId, run.id, step.id, {
+        expectedState: step.state,
+        state: action.to,
+        ...(action.reason === undefined ? {} : { reason: action.reason }),
+      });
+      setDetail({
+        ...run,
+        sections: run.sections.map((section) => ({
+          ...section,
+          steps: section.steps.map((s) => (s.id === result.step.id ? result.step : s)),
+        })),
+      });
+    } catch (caught) {
+      setMessage(messageFor(caught));
+      // After a conflict (or any failure) show the canonical server state.
+      if (caught instanceof ApiError) setDetail(await api.run(workspaceId, run.id));
+    } finally {
+      setBusy(false);
+    }
+  }
 
   return (
     <section aria-labelledby="runs-heading">
@@ -78,7 +214,11 @@ export function Runs(props: { workspaceId: string; openRunId: string | null; onO
       {message !== null && <p role="alert">{message}</p>}
       {openRunId !== null ? (
         <>
-          {shown === null ? <p>Loading…</p> : <RunView run={shown} />}
+          {shown === null ? (
+            <p>Loading…</p>
+          ) : (
+            <RunView run={shown} canExecute={props.canExecute} busy={busy} onStep={(step, action) => void changeStep(shown, step, action)} />
+          )}
           <button type="button" onClick={() => onOpen(null)}>
             Back to all Runs
           </button>

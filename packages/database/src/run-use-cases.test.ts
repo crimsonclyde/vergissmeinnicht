@@ -279,8 +279,12 @@ describe('Run start (immutable snapshot)', () => {
       expect(exec('DELETE FROM runs')).toThrow(/never deleted/);
       // Execution state stays writable for Steps 5.2 / 5.4.
       expect(exec("UPDATE run_steps SET state = 'DONE' WHERE id = ?", firstStep)).not.toThrow();
-      expect(exec("UPDATE runs SET state = 'COMPLETED', revision = 2 WHERE id = ?", run.run.id)).not.toThrow();
       expect(exec("UPDATE run_steps SET state = 'MAYBE' WHERE id = ?", firstStep)).toThrow(/CHECK/);
+      expect(exec("UPDATE run_steps SET state_reason = 'why' WHERE id = ?", firstStep)).toThrow(/CHECK/);
+      expect(exec('UPDATE run_steps SET state_changed_at = 1 WHERE id = ?', firstStep)).toThrow(/CHECK/);
+      expect(exec("UPDATE runs SET state = 'COMPLETED', revision = 2 WHERE id = ?", run.run.id)).not.toThrow();
+      // Once the Run is no longer ACTIVE its execution state is frozen too.
+      expect(exec("UPDATE run_steps SET state = 'PENDING' WHERE id = ?", firstStep)).toThrow(/not active/);
     });
 
     it('never lets a Procedure hard delete remove Runs', async () => {

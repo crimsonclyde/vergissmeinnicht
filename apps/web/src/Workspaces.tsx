@@ -157,7 +157,14 @@ function WorkspaceDetail({ id, currentUserId, onLeft }: { id: string; currentUse
           onRunStarted={setOpenRunId}
         />
       )}
-      {capabilities.includes('run.view') && <Runs workspaceId={id} openRunId={openRunId} onOpen={setOpenRunId} />}
+      {capabilities.includes('run.view') && (
+        <Runs
+          workspaceId={id}
+          canExecute={capabilities.includes('run.execute')}
+          openRunId={openRunId}
+          onOpen={setOpenRunId}
+        />
+      )}
       {members !== null && (
         <table>
           <caption>Members</caption>

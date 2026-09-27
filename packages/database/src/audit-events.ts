@@ -7,7 +7,7 @@ export interface AuditEventRecord {
   readonly workspaceId: WorkspaceId;
   readonly type: AuditEventType;
   readonly actor: UserActor;
-  readonly subjectType: 'procedure' | 'run';
+  readonly subjectType: 'procedure' | 'run' | 'run_step';
   /** Required for Run events. */
   readonly runId?: string;
   readonly subjectId: string;

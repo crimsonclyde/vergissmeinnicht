@@ -497,6 +497,12 @@ export const runSteps = sqliteTable(
     skipReasonPolicy: text('skip_reason_policy', { enum: REASON_POLICIES }).notNull(),
     notApplicableReasonPolicy: text('not_applicable_reason_policy', { enum: REASON_POLICIES }).notNull(),
     state: text('state', { enum: STEP_STATES }).notNull().default('PENDING'),
+    // Who set the current state, when and why (all NULL until the first change). Execution state:
+    // writable, but only while the Run is ACTIVE (trigger in migration 0013).
+    stateReason: text('state_reason'),
+    stateChangedByUserId: text('state_changed_by_user_id').references(() => users.id),
+    stateChangedByDisplayName: text('state_changed_by_display_name'),
+    stateChangedAt: integer('state_changed_at', { mode: 'timestamp_ms' }),
   },
   (table) => [
     foreignKey({
@@ -512,6 +518,14 @@ export const runSteps = sqliteTable(
     check('run_steps_skip_policy_valid', oneOf('skip_reason_policy', REASON_POLICIES)),
     check('run_steps_na_policy_valid', oneOf('not_applicable_reason_policy', REASON_POLICIES)),
     check('run_steps_state_valid', oneOf('state', STEP_STATES)),
+    check(
+      'run_steps_state_change_complete',
+      sql`(${table.stateChangedByUserId} is null) = (${table.stateChangedByDisplayName} is null) and (${table.stateChangedByUserId} is null) = (${table.stateChangedAt} is null)`,
+    ),
+    check(
+      'run_steps_reason_only_when_skipped_or_na',
+      sql`${table.stateReason} is null or (${table.state} in ('SKIPPED', 'NOT_APPLICABLE') and length(trim(${table.stateReason})) > 0 and length(${table.stateReason}) <= 500)`,
+    ),
   ],
 );
 

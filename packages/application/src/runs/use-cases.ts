@@ -1,4 +1,16 @@
-import type { ProcedureId, RunDetail, RunId, RunState, RunSummary, User, WorkspaceId } from '@vergissmeinnicht/domain';
+import {
+  validateStepTransition,
+  type ProcedureId,
+  type RunDetail,
+  type RunId,
+  type RunState,
+  type RunStep,
+  type RunStepId,
+  type RunSummary,
+  type StepState,
+  type User,
+  type WorkspaceId,
+} from '@vergissmeinnicht/domain';
 import { roleHasCapability } from '@vergissmeinnicht/permissions';
 import { NotAuthorizedError } from '../invitations/errors.ts';
 import type { Clock } from '../ports/clock.ts';
@@ -7,7 +19,14 @@ import type { WorkspaceRepository } from '../ports/workspace-repository.ts';
 import { ProcedureNotFoundError } from '../procedures/errors.ts';
 import { userActor } from '../user-actor.ts';
 import { authorizeWorkspace } from '../workspaces/use-cases.ts';
-import { ProcedureHasNoStepsError, RunLimitReachedError, RunNotFoundError } from './errors.ts';
+import {
+  ProcedureHasNoStepsError,
+  RunLimitReachedError,
+  RunNotActiveError,
+  RunNotFoundError,
+  RunStepNotFoundError,
+  StepStateConflictError,
+} from './errors.ts';
 
 export interface RunDeps {
   readonly workspaces: WorkspaceRepository;
@@ -65,4 +84,53 @@ export async function getRun(
   const detail = await deps.runs.find(input.workspaceId, input.runId);
   if (detail === undefined) throw new RunNotFoundError();
   return detail;
+}
+
+/**
+ * Changes one Step's execution state (resolve as DONE / SKIPPED / NOT_APPLICABLE, or undo to
+ * PENDING). Any member with `run.execute` may work on any active Run of the Workspace.
+ * `expectedState` is the state the caller saw; if someone else changed the Step in between, the
+ * call fails with StepStateConflictError instead of overwriting their change. Transition and reason
+ * rules are checked against the Step's snapshotted policies inside the write transaction.
+ */
+export async function changeStepState(
+  deps: RunDeps,
+  input: {
+    readonly actor: User;
+    readonly workspaceId: WorkspaceId;
+    readonly runId: RunId;
+    readonly stepId: RunStepId;
+    readonly expectedState: StepState;
+    readonly to: StepState;
+    readonly reason?: string | undefined;
+  },
+): Promise<{ step: RunStep; runRevision: number }> {
+  await authorizeWorkspace(deps, input.actor, input.workspaceId, 'run.execute');
+  const result = await deps.runs.changeStepState(
+    {
+      workspaceId: input.workspaceId,
+      runId: input.runId,
+      stepId: input.stepId,
+      expectedState: input.expectedState,
+      to: input.to,
+      at: deps.clock.now(),
+    },
+    userActor(input.actor),
+    { actorMay: (role) => roleHasCapability(role, 'run.execute') },
+    (current) => validateStepTransition(current, input.to, input.reason),
+  );
+  switch (result.status) {
+    case 'ok':
+      return { step: result.step, runRevision: result.runRevision };
+    case 'forbidden':
+      throw new NotAuthorizedError();
+    case 'run_not_found':
+      throw new RunNotFoundError();
+    case 'step_not_found':
+      throw new RunStepNotFoundError();
+    case 'run_not_active':
+      throw new RunNotActiveError();
+    case 'conflict':
+      throw new StepStateConflictError();
+  }
 }

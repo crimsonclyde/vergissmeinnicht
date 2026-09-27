@@ -14,6 +14,13 @@ export type RunId = string & { readonly __brand: 'RunId' };
 export type RunSectionId = string & { readonly __brand: 'RunSectionId' };
 export type RunStepId = string & { readonly __brand: 'RunStepId' };
 
+export function parseRunStepId(value: string): RunStepId {
+  if (!UUID_V4.test(value)) {
+    throw new DomainValidationError('stepId', 'invalid_step_id', 'Step id must be a lower-case UUIDv4');
+  }
+  return value as RunStepId;
+}
+
 export interface Run {
   readonly id: RunId;
   readonly workspaceId: WorkspaceId;
@@ -42,6 +49,14 @@ export interface RunStep {
   readonly skipReasonPolicy: ReasonPolicy;
   readonly notApplicableReasonPolicy: ReasonPolicy;
   readonly state: StepState;
+  /** Who set the current state, when, and why (reason only for SKIPPED / NOT_APPLICABLE). `null` = never changed. */
+  readonly stateChange: StepStateChange | null;
+}
+
+export interface StepStateChange {
+  readonly by: { readonly userId: UserId; readonly displayName: string };
+  readonly at: Date;
+  readonly reason: string | null;
 }
 
 export interface RunSection {
