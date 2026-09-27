@@ -5,7 +5,7 @@ import { serverEnv } from '../playwright.config.ts';
 
 const PASSWORD = 'an e2e passphrase that is long';
 
-test('first server admin: bootstrap link, account creation, sign-in, Workspace creation, Procedure authoring with Sections and Steps, export/import/duplicate/restore, starting and executing Runs, TOTP enrollment, TOTP sign-in and operator TOTP recovery', async ({ page }, testInfo) => {
+test('first server admin: bootstrap link, account creation, sign-in, Workspace creation, Procedure authoring with Sections and Steps, export/import/duplicate/restore, starting, executing, completing and aborting Runs, TOTP enrollment, TOTP sign-in and operator TOTP recovery', async ({ page }, testInfo) => {
   // Bootstrap works exactly once per server; the flow runs on one project only.
   test.skip(testInfo.project.name !== 'desktop-chromium', 'bootstrap is single-use per server');
 
@@ -222,8 +222,28 @@ test('first server admin: bootstrap link, account creation, sign-in, Workspace c
   await page.keyboard.down(' ');
   await expect(stove).toContainText('Turn off stove — Done', { timeout: 5000 });
   await page.keyboard.up(' ');
+
+  // Completion needs every required Step done or not applicable.
+  const finishControls = activeRun.getByRole('region', { name: 'Finish this Run' });
+  await expect(finishControls.getByRole('button', { name: 'Complete Run' })).toBeDisabled();
+  await expect(finishControls).toContainText('1 required Step is still pending or skipped: Close windows');
+  await activeRun.getByRole('button', { name: 'Done: Close windows' }).click();
+  await finishControls.getByRole('button', { name: 'Complete Run' }).click();
+  await expect(activeRun.getByRole('status')).toContainText('Completed by Ada Admin');
+  await expect(activeRun.getByRole('button', { name: /Undo|Done|Skip/ })).toHaveCount(0);
   await runs.getByRole('button', { name: 'Back to all Runs' }).click();
-  await expect(runs.getByRole('list', { name: 'Runs' })).toContainText('Active, 1 of 2 Steps resolved');
+
+  // Abort the other Run with a reason.
+  await expect(runs.getByRole('list', { name: 'Runs' })).toContainText('Completed, 2 of 2 Steps resolved');
+  await runs.getByRole('list', { name: 'Runs' }).getByRole('listitem').filter({ hasText: 'Active' }).getByRole('button').click();
+  await activeRun.getByRole('button', { name: 'Abort Run…' }).click();
+  await activeRun.getByLabel('Why is this Run aborted? (optional)').fill('Plans changed');
+  await activeRun.getByRole('button', { name: 'Abort Run', exact: true }).click();
+  await expect(activeRun.getByRole('status')).toContainText('Aborted by Ada Admin');
+  await expect(activeRun.getByRole('status')).toContainText('reason: Plans changed');
+  await runs.getByRole('button', { name: 'Back to all Runs' }).click();
+  await expect(runs.getByRole('list', { name: 'Runs' })).toContainText('Completed, 2 of 2 Steps resolved');
+  await expect(runs.getByRole('list', { name: 'Runs' })).toContainText('Aborted, 0 of 2 Steps resolved');
 
   // Enable TOTP: password, QR code + key, confirmation code, recovery codes.
   await page.getByRole('button', { name: 'Enable two-factor authentication' }).click();

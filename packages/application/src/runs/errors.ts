@@ -44,3 +44,14 @@ export class StepStateConflictError extends Error {
     this.name = 'StepStateConflictError';
   }
 }
+
+/** Required Steps are still PENDING or SKIPPED; the Run cannot be completed (it can be aborted). */
+export class RunIncompleteError extends Error {
+  readonly openRequiredSteps: number;
+
+  constructor(openRequiredSteps: number) {
+    super('Required Steps are still open');
+    this.name = 'RunIncompleteError';
+    this.openRequiredSteps = openRequiredSteps;
+  }
+}

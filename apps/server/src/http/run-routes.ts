@@ -1,4 +1,4 @@
-import { changeStepState, getRun, listRuns, startRun } from '@vergissmeinnicht/application';
+import { abortRun, changeStepState, completeRun, getRun, listRuns, startRun } from '@vergissmeinnicht/application';
 import {
   RUN_STATES,
   STEP_STATES,
@@ -24,6 +24,7 @@ const workspaceParams = z.strictObject({ workspaceId: uuid });
 const runParams = z.strictObject({ workspaceId: uuid, runId: uuid });
 const listQuery = z.strictObject({ state: z.enum(RUN_STATES).optional() });
 const startBody = z.strictObject({ procedureId: uuid });
+const abortBody = z.strictObject({ reason: z.string().max(4096).optional() });
 const stepParams = z.strictObject({ workspaceId: uuid, runId: uuid, stepId: uuid });
 const stateBody = z.strictObject({
   expectedState: z.enum(STEP_STATES),
@@ -55,6 +56,7 @@ function runView(run: Run) {
     startedAt: run.startedAt.toISOString(),
     // Display-name snapshot only; the internal user id is not needed by clients.
     startedBy: run.startedBy.displayName,
+    ended: run.ended === null ? null : { at: run.ended.at.toISOString(), by: run.ended.by.displayName, reason: run.ended.reason },
   };
 }
 
@@ -113,6 +115,24 @@ export async function runRoutes(app: FastifyInstance, { services }: { services: 
       reason: body.reason,
     });
     return { step: stepView(result.step), runRevision: result.runRevision };
+  });
+
+  app.post('/:runId/complete', async (request) => {
+    const { workspaceId, runId } = parse(runParams, request.params);
+    const detail = await completeRun(deps, { actor: principalOf(request).user, workspaceId: workspaceId as WorkspaceId, runId: runId as RunId });
+    return { run: detailView(detail) };
+  });
+
+  app.post('/:runId/abort', { bodyLimit: 16 * 1024 }, async (request) => {
+    const { workspaceId, runId } = parse(runParams, request.params);
+    const { reason } = parse(abortBody, request.body ?? {});
+    const detail = await abortRun(deps, {
+      actor: principalOf(request).user,
+      workspaceId: workspaceId as WorkspaceId,
+      runId: runId as RunId,
+      reason,
+    });
+    return { run: detailView(detail) };
   });
 
   app.get('/:runId', async (request) => {

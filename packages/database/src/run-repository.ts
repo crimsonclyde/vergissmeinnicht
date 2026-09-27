@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import { and, asc, count, desc, eq, inArray } from 'drizzle-orm';
-import type { RunRepository, StartRunResult, StepStateChangeResult } from '@vergissmeinnicht/application';
+import type { FinishRunResult, RunRepository, StartRunResult, StepStateChangeResult } from '@vergissmeinnicht/application';
 import {
   STEP_STATES,
   type ProcedureId,
@@ -36,6 +36,10 @@ function toRun(row: typeof runs.$inferSelect): Run {
     state: row.state,
     startedAt: row.startedAt,
     startedBy: { userId: row.startedByUserId as UserId, displayName: row.startedByDisplayName },
+    ended:
+      row.endedAt === null || row.endedByUserId === null || row.endedByDisplayName === null
+        ? null
+        : { at: row.endedAt, by: { userId: row.endedByUserId as UserId, displayName: row.endedByDisplayName }, reason: row.endReason },
   };
 }
 
@@ -189,6 +193,53 @@ export function createRunRepository({ db }: Pick<AppDatabase, 'db'>): RunReposit
           return { run: toRun(row), stepCounts };
         });
       });
+    },
+
+    async finish(input, actor, guard, validate) {
+      return db.transaction((tx): FinishRunResult => {
+        if (!actorAllowed(tx, input.workspaceId, actor, guard)) return { status: 'forbidden' };
+        const run = tx.select().from(runs).where(and(eq(runs.workspaceId, input.workspaceId), eq(runs.id, input.runId))).get();
+        if (run === undefined) return { status: 'run_not_found' };
+        if (run.state !== 'ACTIVE') return { status: 'run_not_active' };
+        const steps = loadRunSections(tx, run.id).flatMap((section) => section.steps);
+        // Throws (rolling back) when the Run may not end this way, e.g. required Steps still open.
+        const { reason } = validate(steps);
+        const revision = run.revision + 1;
+        const updated = tx
+          .update(runs)
+          .set({
+            state: input.to,
+            revision,
+            endedAt: input.at,
+            endedByUserId: actor.userId,
+            endedByDisplayName: actor.displayName,
+            endReason: reason,
+          })
+          .where(and(eq(runs.id, run.id), eq(runs.state, 'ACTIVE')))
+          .returning()
+          .get();
+        if (updated === undefined) return { status: 'run_not_active' };
+        const stepCounts = Object.fromEntries(STEP_STATES.map((state) => [state, 0])) as Record<StepState, number>;
+        for (const step of steps) stepCounts[step.state] += 1;
+        recordAuditEvent(tx, {
+          workspaceId: input.workspaceId,
+          type: input.to === 'COMPLETED' ? 'RUN_COMPLETED' : 'RUN_ABORTED',
+          actor,
+          subjectType: 'run',
+          subjectId: run.id,
+          runId: run.id,
+          occurredAt: input.at,
+          metadata: {
+            runRevision: revision,
+            done: stepCounts.DONE,
+            skipped: stepCounts.SKIPPED,
+            notApplicable: stepCounts.NOT_APPLICABLE,
+            pending: stepCounts.PENDING,
+            ...(reason === null ? {} : { reason }),
+          },
+        });
+        return { status: 'ok', detail: { run: toRun(updated), sections: loadRunSections(tx, run.id) } };
+      }, IMMEDIATE);
     },
 
     async changeStepState(input, actor, guard, validate) {

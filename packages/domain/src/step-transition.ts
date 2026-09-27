@@ -51,11 +51,21 @@ export function validateStepTransition(
   if (policy === 'DISABLED') {
     throw new DomainValidationError('reason', 'reason_not_allowed', 'This state change does not take a reason');
   }
+  return { reason: checkReason(reason) };
+}
+
+/** Optional free-text reason (e.g. for aborting a Run): normalized, `null` when empty. */
+export function normalizeOptionalReason(input: string | undefined): string | null {
+  const reason = input?.replace(/\r\n?/g, '\n').normalize('NFC').trim() ?? '';
+  return reason === '' ? null : checkReason(reason);
+}
+
+function checkReason(reason: string): string {
   if ([...reason].length > MAX_STEP_REASON_LENGTH) {
     throw new DomainValidationError('reason', 'reason_too_long', 'The reason is too long');
   }
   if (DISALLOWED_IN_REASON.test(reason) || BIDI_CONTROLS.test(reason)) {
     throw new DomainValidationError('reason', 'reason_invalid_characters', 'The reason contains control characters');
   }
-  return { reason };
+  return reason;
 }

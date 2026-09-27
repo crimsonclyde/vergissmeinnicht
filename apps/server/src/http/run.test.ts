@@ -113,6 +113,31 @@ describe('Run HTTP API', () => {
     expect(fetched.sections[0].steps[0]).toMatchObject({ state: 'PENDING', stateChange: { by: 'Eddie' } });
   });
 
+  it('completes and aborts Runs with the required-Step rule and freezes them afterwards', async () => {
+    const run = (await start(user)).json().run;
+    const stepId = run.sections[0].steps[0].id as string;
+    expect((await t.post(`${runs(home)}/${run.id}/complete`, undefined, user)).json()).toEqual({
+      error: 'required_steps_open',
+      openRequiredSteps: 1,
+    });
+    await t.post(`${runs(home)}/${run.id}/steps/${stepId}/state`, { expectedState: 'PENDING', state: 'DONE' }, user);
+    expect((await t.post(`${runs(home)}/${run.id}/complete`, undefined, guest)).statusCode).toBe(403);
+    expect((await t.post(`${runs(home)}/${run.id}/complete`, undefined, user, null)).statusCode).toBe(403);
+    const completed = await t.post(`${runs(home)}/${run.id}/complete`, undefined, user);
+    expect(completed.json().run).toMatchObject({ state: 'COMPLETED', ended: { by: 'Uma', reason: null } });
+    expect((await t.post(`${runs(home)}/${run.id}/abort`, {}, user)).json()).toEqual({ error: 'run_not_active' });
+    expect((await t.post(`${runs(home)}/${run.id}/steps/${stepId}/state`, { expectedState: 'DONE', state: 'PENDING' }, user)).json()).toEqual({
+      error: 'run_not_active',
+    });
+
+    const second = (await start(user)).json().run;
+    expect((await t.post(`${runs(home)}/${second.id}/abort`, { reason: 'x', by: 'someone' }, user)).statusCode).toBe(400);
+    expect((await t.post(`${runs(office)}/${second.id}/abort`, {}, outsider)).json()).toEqual({ error: 'run_not_found' });
+    const aborted = await t.post(`${runs(home)}/${second.id}/abort`, { reason: 'Power cut' }, editor);
+    expect(aborted.json().run).toMatchObject({ state: 'ABORTED', ended: { by: 'Eddie', reason: 'Power cut' } });
+    expect((await t.post(`${runs(home)}/${(await start(user)).json().run.id}/abort`, undefined, user)).json().run.state).toBe('ABORTED');
+  });
+
   it('validates input and preconditions', async () => {
     const empty = (await t.post(`/api/workspaces/${home}/procedures`, { title: 'Empty', icon: 'home' }, editor)).json().procedure.id;
     expect((await start(user, home, empty)).json()).toEqual({ error: 'procedure_has_no_steps' });

@@ -257,7 +257,9 @@ describe('Step state machine', () => {
   });
 
   it('refuses changes once the Run is no longer active', async () => {
-    database.sqlite.prepare("UPDATE runs SET state = 'ABORTED' WHERE id = ?").run(run.run.id);
+    database.sqlite
+      .prepare("UPDATE runs SET state = 'ABORTED', ended_at = 1, ended_by_user_id = ?, ended_by_display_name = 'Uma' WHERE id = ?")
+      .run(member.id, run.run.id);
     await expect(change(member, stove, 'PENDING', 'DONE')).rejects.toThrow(RunNotActiveError);
   });
 

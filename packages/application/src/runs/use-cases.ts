@@ -1,4 +1,6 @@
 import {
+  completionBlockers,
+  normalizeOptionalReason,
   validateStepTransition,
   type ProcedureId,
   type RunDetail,
@@ -14,13 +16,14 @@ import {
 import { roleHasCapability } from '@vergissmeinnicht/permissions';
 import { NotAuthorizedError } from '../invitations/errors.ts';
 import type { Clock } from '../ports/clock.ts';
-import type { RunRepository } from '../ports/run-repository.ts';
+import type { FinishRunResult, RunRepository } from '../ports/run-repository.ts';
 import type { WorkspaceRepository } from '../ports/workspace-repository.ts';
 import { ProcedureNotFoundError } from '../procedures/errors.ts';
 import { userActor } from '../user-actor.ts';
 import { authorizeWorkspace } from '../workspaces/use-cases.ts';
 import {
   ProcedureHasNoStepsError,
+  RunIncompleteError,
   RunLimitReachedError,
   RunNotActiveError,
   RunNotFoundError,
@@ -133,4 +136,57 @@ export async function changeStepState(
     case 'conflict':
       throw new StepStateConflictError();
   }
+}
+
+function finishedOrThrow(result: FinishRunResult): RunDetail {
+  switch (result.status) {
+    case 'ok':
+      return result.detail;
+    case 'forbidden':
+      throw new NotAuthorizedError();
+    case 'run_not_found':
+      throw new RunNotFoundError();
+    case 'run_not_active':
+      throw new RunNotActiveError();
+  }
+}
+
+/**
+ * Completes an ACTIVE Run. Every required Step must be DONE or NOT_APPLICABLE (SKIPPED does not
+ * count); optional Steps may be in any state. Checked on the current Steps inside the transaction.
+ */
+export async function completeRun(
+  deps: RunDeps,
+  input: { readonly actor: User; readonly workspaceId: WorkspaceId; readonly runId: RunId },
+): Promise<RunDetail> {
+  await authorizeWorkspace(deps, input.actor, input.workspaceId, 'run.execute');
+  return finishedOrThrow(
+    await deps.runs.finish(
+      { workspaceId: input.workspaceId, runId: input.runId, to: 'COMPLETED', at: deps.clock.now() },
+      userActor(input.actor),
+      { actorMay: (role) => roleHasCapability(role, 'run.execute') },
+      (steps) => {
+        const blockers = completionBlockers(steps);
+        if (blockers.length > 0) throw new RunIncompleteError(blockers.length);
+        return { reason: null };
+      },
+    ),
+  );
+}
+
+/** Ends an ACTIVE Run without completing it, with an optional reason. Allowed regardless of Step states. */
+export async function abortRun(
+  deps: RunDeps,
+  input: { readonly actor: User; readonly workspaceId: WorkspaceId; readonly runId: RunId; readonly reason?: string | undefined },
+): Promise<RunDetail> {
+  await authorizeWorkspace(deps, input.actor, input.workspaceId, 'run.abort');
+  const reason = normalizeOptionalReason(input.reason);
+  return finishedOrThrow(
+    await deps.runs.finish(
+      { workspaceId: input.workspaceId, runId: input.runId, to: 'ABORTED', at: deps.clock.now() },
+      userActor(input.actor),
+      { actorMay: (role) => roleHasCapability(role, 'run.abort') },
+      () => ({ reason }),
+    ),
+  );
 }

@@ -161,6 +161,7 @@ function WorkspaceDetail({ id, currentUserId, onLeft }: { id: string; currentUse
         <Runs
           workspaceId={id}
           canExecute={capabilities.includes('run.execute')}
+          canAbort={capabilities.includes('run.abort')}
           openRunId={openRunId}
           onOpen={setOpenRunId}
         />

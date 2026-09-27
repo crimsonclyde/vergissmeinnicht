@@ -512,3 +512,13 @@ The following choices are mandatory V1 behavior:
 **Open risks:** any member with `run.execute` can undo anyone's change (by design: "any authorized Workspace user may continue an active Run"; every undo is audited with the actor); reasons are stored in audit metadata permanently.  
 **Reviewed:** 2026-09-27
 
+### Security check: Run completion and abort (Step 5.4)
+**Threat surface:** completing Runs with unresolved required Steps (also via a race with a concurrent undo), GUESTs or non-members ending Runs, ending Runs of another Workspace by id, reopening or editing finished Runs, rewriting who ended a Run, unaudited endings.  
+**Controls added:** `run.execute` / `run.abort` via `authorizeWorkspace` + in-transaction re-check; completion rule evaluated on current Steps inside the `IMMEDIATE` transaction; Run resolved within the Workspace; conditional update from ACTIVE only; end data from session and server clock; DB CHECKs for end-data consistency; trigger `runs_finished_immutable` freezes every column of finished Runs (plus the 5.2 Step freeze and 5.1 no-delete triggers); `RUN_COMPLETED` / `RUN_ABORTED` audit events with `run_id` in the same transaction.  
+**Negative tests:** `packages/database/src/run-lifecycle-use-cases.test.ts` (10), `packages/domain/src/run.test.ts`, lifecycle scenario in `apps/server/src/http/run.test.ts`; mutation checks in steps.md 5.4.  
+**Secrets/data involved:** abort reasons (free text), actor names.  
+**Logging review:** no new log statements.  
+**Authorization review:** authorization only in `packages/application/src/runs/use-cases.ts`.  
+**Open risks:** any member with `run.abort` can abort anyone's Run (by design, audited); there is no correction workflow for mistakes in finished Runs (V1 decision).  
+**Reviewed:** 2026-09-27
+

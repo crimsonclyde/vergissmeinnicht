@@ -106,6 +106,8 @@ export interface RunInfo {
   readonly startedAt: string;
   /** Display name at the time the Run was started. */
   readonly startedBy: string;
+  /** Set once the Run is COMPLETED or ABORTED. */
+  readonly ended: { readonly at: string; readonly by: string; readonly reason: string | null } | null;
 }
 
 export interface RunSummary extends RunInfo {
@@ -189,6 +191,7 @@ export const ERROR_MESSAGES: Record<string, string> = {
   invalid_request: 'The request was not valid.',
   run_not_found: 'This Run does not exist.',
   step_not_found: 'This Step does not exist.',
+  required_steps_open: 'Some required Steps are still pending or skipped. Mark them done or not applicable, or abort the Run.',
   run_not_active: 'This Run is finished; its Steps can no longer change.',
   step_conflict: 'Someone else changed this Step just now. The Run has been reloaded.',
   invalid_transition: 'This change is not possible. Undo the Step first.',
@@ -333,6 +336,17 @@ export const api = {
       `/workspaces/${encodeURIComponent(workspaceId)}/runs/${encodeURIComponent(runId)}/steps/${encodeURIComponent(stepId)}/state`,
       change,
     ),
+  completeRun: async (workspaceId: string, runId: string) =>
+    (await request<{ run: RunDetail }>('POST', `/workspaces/${encodeURIComponent(workspaceId)}/runs/${encodeURIComponent(runId)}/complete`))
+      .run,
+  abortRun: async (workspaceId: string, runId: string, reason: string) =>
+    (
+      await request<{ run: RunDetail }>(
+        'POST',
+        `/workspaces/${encodeURIComponent(workspaceId)}/runs/${encodeURIComponent(runId)}/abort`,
+        reason.trim() === '' ? {} : { reason },
+      )
+    ).run,
   startRun: async (workspaceId: string, procedureId: string) =>
     (await request<{ run: RunDetail }>('POST', `/workspaces/${encodeURIComponent(workspaceId)}/runs`, { procedureId })).run,
   leaveWorkspace: (id: string) => request<undefined>('POST', `/workspaces/${encodeURIComponent(id)}/leave`),

@@ -18,10 +18,10 @@ For every completed task, add a concise completion note, tests/checks performed,
 
 ## Current state — resume here
 
-_Last updated: 2026-09-27 (after 5.3)_
+_Last updated: 2026-09-27 (after 5.4)_
 
-**Done:** 0.1, 0.2, 0.3, 1.1, 1.2, 2.1–2.5, 3.1–3.3, 4.1–4.5, 5.1–5.3, 9.1 (pulled forward for invitations). 2.6 (external providers) is DEFERRED.
-**Next:** 5.4 Run lifecycle (complete / abort with required-Step rules; the trigger from 5.2 already freezes Step state once a Run is not ACTIVE).
+**Done:** 0.1, 0.2, 0.3, 1.1, 1.2, 2.1–2.5, 3.1–3.3, 4.1–4.5, 5.1–5.4, 9.1 (pulled forward for invitations). 2.6 (external providers) is DEFERRED.
+**Next:** 5.5 Audit trail (history view of `audit_events` per Run), then 5.6 Historical immutability (mostly enforced since 5.4 — document and close).
 
 **UI note (2026-09-27, user feedback):** the web page mixes account settings, Workspace administration, server administration and everyday execution on one unstyled page. Planned remedy — an app shell with navigation (Runs · Procedures · Members · Server admin · Account), real URLs, and a minimal token-based stylesheet — was deferred by the user in favour of continuing with 5.x; pick it up with 8.1/8.3 or earlier on request.
 
@@ -29,7 +29,7 @@ _Last updated: 2026-09-27 (after 5.3)_
 
 Also open: trusted-proxy configuration (10.3) before production use behind a reverse proxy; admin web UI (invitations, recoveries — API only so far); account status changes (disable/enable users) with session revocation; housekeeping of expired challenge/recovery/invitation rows.
 
-**Branches:** work is stacked, not yet merged into `main`: `step-1.1-app-skeleton` → `step-1.2-config` → `step-2.1-user-model` → `step-2.2-invitations` → `step-2.4-totp` → `step-2.5-recovery` → `step-3.1-workspaces` → `step-3.2-roles` → `step-4.1-procedures` → `step-4.2-steps` → `step-4.3-drag-drop` → `step-4.4-import-export` → `step-4.5-restore` → `step-5.1-run-snapshot` → `cleanup-web-domain-constants` → `step-5.2-step-states` → `step-5.3-press-and-hold` (each branch contains the previous ones; 2.3 was completed on `step-2.2-invitations` because acceptance finishes 2.2). CI runs on pull requests / `main` only.
+**Branches:** work is stacked, not yet merged into `main`: `step-1.1-app-skeleton` → `step-1.2-config` → `step-2.1-user-model` → `step-2.2-invitations` → `step-2.4-totp` → `step-2.5-recovery` → `step-3.1-workspaces` → `step-3.2-roles` → `step-4.1-procedures` → `step-4.2-steps` → `step-4.3-drag-drop` → `step-4.4-import-export` → `step-4.5-restore` → `step-5.1-run-snapshot` → `cleanup-web-domain-constants` → `step-5.2-step-states` → `step-5.3-press-and-hold` → `step-5.4-run-lifecycle` (each branch contains the previous ones; 2.3 was completed on `step-2.2-invitations` because acceptance finishes 2.2). CI runs on pull requests / `main` only.
 
 **Manual testing:** `test-env/menu.sh` (added 2026-09-27) installs/starts/stops/removes an isolated production-mode instance on port 3200 with demo accounts for every role (see `test-env/README.md`). Extend `test-env/seed.ts` when new features need demo data (e.g. Procedures in 4.1).
 
@@ -879,7 +879,8 @@ The backend still validates the requested state transition; client interaction i
 **Remaining:** hold duration is fixed (not user-configurable); users who cannot hold a key/pointer for 1.2 s have no alternative yet — revisit with 8.x accessibility review (e.g. a setting for a two-step confirmation instead).
 
 ### 5.4 Run lifecycle
-**Status:** TODO
+**Status:** DONE
+**Completed:** 2026-09-27
 
 Implement:
 - ACTIVE
@@ -889,6 +890,28 @@ Implement:
 Required Steps must satisfy completion rules before Run completion.
 
 Any authorized Workspace USER-or-higher capability may continue an active Run.
+
+**Security impact:** HIGH — finality of history, collaborative writes.
+
+**Decisions (2026-09-27, review welcome):** a Run can be completed only when every *required* Step is DONE or NOT_APPLICABLE — SKIPPED does not satisfy a required Step (it was applicable but not done); optional Steps may be in any state, including PENDING. Abort is possible at any time for an ACTIVE Run, with an optional reason (≤500 code points, same text rules as Step reasons). Completion needs `run.execute`, abort `run.abort` (both USER, EDITOR, ADMIN). There is no reopening.
+
+**Implemented:**
+- Domain: `completionBlockers`, `normalizeOptionalReason`, `Run.ended` (actor snapshot, time, reason); audit types `RUN_COMPLETED`, `RUN_ABORTED`.
+- Database: migration `0013` (hand-written `ALTER TABLE`, keeps the 0011 triggers) adds `runs.ended_at`, `ended_by_user_id` (FK), `ended_by_display_name`, `end_reason` with CHECKs (end data present exactly when not ACTIVE; reason only for ABORTED) and trigger `runs_finished_immutable` (no column of a COMPLETED/ABORTED Run can change; together with the 5.2 trigger their Steps are frozen as well).
+- `RunRepository.finish`: one `IMMEDIATE` transaction — guard re-check, Run within Workspace, must be ACTIVE, completion rule evaluated on the *current* Steps, conditional update, revision + 1, audit event with Step counts and reason.
+- Application: `completeRun`, `abortRun`; `RunIncompleteError` → 409 `required_steps_open` with `openRequiredSteps`.
+- HTTP: `POST /api/workspaces/{id}/runs/{runId}/complete`, `POST …/abort` `{ reason? }`; Run responses include `ended` (display name, time, reason).
+- Web: "Complete Run" (disabled with the list of open required Steps), "Abort Run…" with optional reason, finished Runs show "Completed/Aborted by … on …" and no execution controls.
+
+**Tests/checks:**
+- `pnpm test` — 465 tests (+14): completion rule (domain 3; use-cases: pending and skipped required Steps block, optional pending allowed, audit sequence and counts), GUEST / non-member / other-Workspace refused, concurrent undo inside the transaction blocks completion, in-transaction actor re-check, abort with reason / invalid reason / GUEST / non-member (404, not 403), finished Runs cannot be completed/aborted/executed again, DB freeze of state/end data/Steps, end-data CHECKs, audit failure rolls back; HTTP scenario incl. 409 body, Origin, strict bodies, cross-Workspace.
+- Mutation checks: SKIPPED satisfying required Steps, skipping the completion validation, finishing a non-ACTIVE Run, or dropping the use-case check of `abortRun` each fail tests.
+- `pnpm test:e2e`: completion blocked with hint, complete, abort with reason, list shows both states.
+- Migration 0013 on a copy of the dev DB (twice) and on an online backup of the running test environment (existing ACTIVE Run unchanged, FK check clean). `pnpm lint`, `pnpm typecheck`.
+
+**Security docs updated:** YES ("Security check: Run completion and abort (Step 5.4)").
+
+**Remaining:** no "reopen" or correction workflow (explicitly out of V1, see 5.6).
 
 ### 5.5 Audit trail
 **Status:** TODO

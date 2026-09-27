@@ -282,7 +282,15 @@ describe('Run start (immutable snapshot)', () => {
       expect(exec("UPDATE run_steps SET state = 'MAYBE' WHERE id = ?", firstStep)).toThrow(/CHECK/);
       expect(exec("UPDATE run_steps SET state_reason = 'why' WHERE id = ?", firstStep)).toThrow(/CHECK/);
       expect(exec('UPDATE run_steps SET state_changed_at = 1 WHERE id = ?', firstStep)).toThrow(/CHECK/);
-      expect(exec("UPDATE runs SET state = 'COMPLETED', revision = 2 WHERE id = ?", run.run.id)).not.toThrow();
+      expect(exec("UPDATE runs SET state = 'COMPLETED' WHERE id = ?", run.run.id)).toThrow(/CHECK/);
+      expect(
+        exec(
+          "UPDATE runs SET state = 'COMPLETED', revision = 2, ended_at = 1, ended_by_user_id = ?, ended_by_display_name = 'Uma' WHERE id = ?",
+          member.id,
+          run.run.id,
+        ),
+      ).not.toThrow();
+      expect(exec("UPDATE runs SET state = 'ACTIVE', ended_at = NULL WHERE id = ?", run.run.id)).toThrow(/finished/);
       // Once the Run is no longer ACTIVE its execution state is frozen too.
       expect(exec("UPDATE run_steps SET state = 'PENDING' WHERE id = ?", firstStep)).toThrow(/not active/);
     });

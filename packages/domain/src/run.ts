@@ -36,6 +36,26 @@ export interface Run {
   readonly startedAt: Date;
   /** Actor snapshot: internal id plus the display name at the time of starting. */
   readonly startedBy: { readonly userId: UserId; readonly displayName: string };
+  /** How the Run ended; `null` while ACTIVE. */
+  readonly ended: RunEnd | null;
+}
+
+export interface RunEnd {
+  readonly at: Date;
+  readonly by: { readonly userId: UserId; readonly displayName: string };
+  /** Optional reason, only for ABORTED. */
+  readonly reason: string | null;
+}
+
+/** States that satisfy a required Step for completion. SKIPPED does not: it was applicable but not done. */
+const SATISFIES_REQUIRED: readonly StepState[] = ['DONE', 'NOT_APPLICABLE'];
+
+/**
+ * Required Steps that prevent completing the Run. Optional Steps never block (any state, even
+ * PENDING, is acceptable for them).
+ */
+export function completionBlockers<T extends Pick<RunStep, 'required' | 'state'>>(steps: readonly T[]): T[] {
+  return steps.filter((step) => step.required && !SATISFIES_REQUIRED.includes(step.state));
 }
 
 export interface RunStep {

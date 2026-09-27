@@ -123,7 +123,71 @@ function StepItem(props: { step: RunStep; canExecute: boolean; busy: boolean; on
   );
 }
 
-function RunView(props: { run: RunDetail; canExecute: boolean; busy: boolean; onStep: (step: RunStep, action: StepAction) => void }) {
+/** Required Steps that block completion (mirrors the server rule; the server decides). */
+function openRequired(run: RunDetail): RunStep[] {
+  return run.sections
+    .flatMap((section) => section.steps)
+    .filter((step) => step.required && step.state !== 'DONE' && step.state !== 'NOT_APPLICABLE');
+}
+
+function RunEndControls(props: { run: RunDetail; canExecute: boolean; canAbort: boolean; busy: boolean; onComplete: () => void; onAbort: (reason: string) => void }) {
+  const [aborting, setAborting] = useState(false);
+  const [reason, setReason] = useState('');
+  const open = openRequired(props.run);
+  return (
+    <section aria-label="Finish this Run">
+      {props.canExecute && (
+        <p>
+          <button type="button" disabled={props.busy || open.length > 0} onClick={props.onComplete}>
+            Complete Run
+          </button>{' '}
+          {open.length > 0 && (
+            <small>
+              {open.length} required {open.length === 1 ? 'Step is' : 'Steps are'} still pending or skipped:{' '}
+              {open.map((step) => step.title).join(', ')}
+            </small>
+          )}
+        </p>
+      )}
+      {props.canAbort &&
+        (aborting ? (
+          <form
+            onSubmit={(event) => {
+              event.preventDefault();
+              props.onAbort(reason);
+            }}
+          >
+            <label>
+              Why is this Run aborted? (optional)
+              <br />
+              <textarea rows={2} maxLength={500} value={reason} onChange={(e) => setReason(e.target.value)} />
+            </label>
+            <br />
+            <button type="submit" disabled={props.busy}>
+              Abort Run
+            </button>{' '}
+            <button type="button" onClick={() => setAborting(false)}>
+              Keep running
+            </button>
+          </form>
+        ) : (
+          <button type="button" disabled={props.busy} onClick={() => setAborting(true)}>
+            Abort Run…
+          </button>
+        ))}
+    </section>
+  );
+}
+
+function RunView(props: {
+  run: RunDetail;
+  canExecute: boolean;
+  canAbort: boolean;
+  busy: boolean;
+  onStep: (step: RunStep, action: StepAction) => void;
+  onComplete: () => void;
+  onAbort: (reason: string) => void;
+}) {
   const { run } = props;
   const canExecute = props.canExecute && run.state === 'ACTIVE';
   return (
@@ -135,6 +199,12 @@ function RunView(props: { run: RunDetail; canExecute: boolean; busy: boolean; on
         {RUN_STATE_LABELS[run.state]} · started by {run.startedBy} on {new Date(run.startedAt).toLocaleString()} (Procedure
         revision {run.procedureRevision})
       </p>
+      {run.ended !== null && (
+        <p role="status">
+          {RUN_STATE_LABELS[run.state]} by {run.ended.by} on {new Date(run.ended.at).toLocaleString()}
+          {run.ended.reason !== null && <> — reason: {run.ended.reason}</>}. This Run is history and can no longer change.
+        </p>
+      )}
       {run.description !== '' && <p style={{ whiteSpace: 'pre-wrap' }}>{run.description}</p>}
       {run.sections.map((section) => (
         <section key={section.id} aria-label={`Run section: ${section.title}`}>
@@ -152,6 +222,16 @@ function RunView(props: { run: RunDetail; canExecute: boolean; busy: boolean; on
           </ol>
         </section>
       ))}
+      {run.state === 'ACTIVE' && (props.canExecute || props.canAbort) && (
+        <RunEndControls
+          run={run}
+          canExecute={props.canExecute}
+          canAbort={props.canAbort}
+          busy={props.busy}
+          onComplete={props.onComplete}
+          onAbort={props.onAbort}
+        />
+      )}
     </article>
   );
 }
@@ -160,6 +240,7 @@ function RunView(props: { run: RunDetail; canExecute: boolean; busy: boolean; on
 export function Runs(props: {
   workspaceId: string;
   canExecute: boolean;
+  canAbort: boolean;
   openRunId: string | null;
   onOpen: (runId: string | null) => void;
 }) {
@@ -187,6 +268,19 @@ export function Runs(props: {
 
   const shown = detail !== null && detail.id === openRunId ? detail : null;
   const [busy, setBusy] = useState(false);
+
+  async function finish(run: RunDetail, action: () => Promise<RunDetail>) {
+    setBusy(true);
+    setMessage(null);
+    try {
+      setDetail(await action());
+    } catch (caught) {
+      setMessage(messageFor(caught));
+      if (caught instanceof ApiError) setDetail(await api.run(workspaceId, run.id));
+    } finally {
+      setBusy(false);
+    }
+  }
 
   async function changeStep(run: RunDetail, step: RunStep, action: StepAction) {
     setBusy(true);
@@ -222,7 +316,15 @@ export function Runs(props: {
           {shown === null ? (
             <p>Loading…</p>
           ) : (
-            <RunView run={shown} canExecute={props.canExecute} busy={busy} onStep={(step, action) => void changeStep(shown, step, action)} />
+            <RunView
+              run={shown}
+              canExecute={props.canExecute}
+              canAbort={props.canAbort}
+              busy={busy}
+              onStep={(step, action) => void changeStep(shown, step, action)}
+              onComplete={() => void finish(shown, () => api.completeRun(workspaceId, shown.id))}
+              onAbort={(reason) => void finish(shown, () => api.abortRun(workspaceId, shown.id, reason))}
+            />
           )}
           <button type="button" onClick={() => onOpen(null)}>
             Back to all Runs

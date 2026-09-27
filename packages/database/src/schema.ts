@@ -443,6 +443,12 @@ export const runs = sqliteTable(
       .references(() => users.id),
     startedByDisplayName: text('started_by_display_name').notNull(),
     startedAt: integer('started_at', { mode: 'timestamp_ms' }).notNull(),
+    /** Set when the Run is completed or aborted (all NULL while ACTIVE). Added by migration 0013. */
+    endedAt: integer('ended_at', { mode: 'timestamp_ms' }),
+    endedByUserId: text('ended_by_user_id').references(() => users.id),
+    endedByDisplayName: text('ended_by_display_name'),
+    /** Optional abort reason. */
+    endReason: text('end_reason'),
   },
   (table) => [
     index('runs_workspace_state_idx').on(table.workspaceId, table.state, table.startedAt),
@@ -453,6 +459,14 @@ export const runs = sqliteTable(
     check('runs_title_present', sql`length(trim(${table.title})) > 0 and length(${table.title}) <= 120`),
     check('runs_tags_array', sql`json_valid(${table.tags}) and json_type(${table.tags}) = 'array'`),
     check('runs_revisions_positive', sql`${table.procedureRevision} >= 1 and ${table.revision} >= 1`),
+    check(
+      'runs_end_consistent',
+      sql`(${table.endedAt} is null) = (${table.state} = 'ACTIVE') and (${table.endedAt} is null) = (${table.endedByUserId} is null) and (${table.endedAt} is null) = (${table.endedByDisplayName} is null)`,
+    ),
+    check(
+      'runs_end_reason_only_when_aborted',
+      sql`${table.endReason} is null or (${table.state} = 'ABORTED' and length(trim(${table.endReason})) > 0 and length(${table.endReason}) <= 500)`,
+    ),
   ],
 );
 

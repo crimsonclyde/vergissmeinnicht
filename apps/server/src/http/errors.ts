@@ -12,6 +12,7 @@ import {
   RunLimitReachedError,
   RunNotFoundError,
   RunNotActiveError,
+  RunIncompleteError,
   RunStepNotFoundError,
   StepStateConflictError,
   InvalidInvitationError,
@@ -76,6 +77,9 @@ export function errorHandler(error: FastifyError | Error, request: FastifyReques
   if (error instanceof InvalidProcedureReferenceError) return reply.code(400).send({ error: 'invalid_item_reference' });
   if (error instanceof RunNotFoundError) return reply.code(404).send({ error: 'run_not_found' });
   if (error instanceof RunStepNotFoundError) return reply.code(404).send({ error: 'step_not_found' });
+  if (error instanceof RunIncompleteError) {
+    return reply.code(409).send({ error: 'required_steps_open', openRequiredSteps: error.openRequiredSteps });
+  }
   if (error instanceof RunNotActiveError) return reply.code(409).send({ error: 'run_not_active' });
   if (error instanceof StepStateConflictError) return reply.code(409).send({ error: 'step_conflict' });
   if (error instanceof ProcedureHasNoStepsError) return reply.code(409).send({ error: 'procedure_has_no_steps' });

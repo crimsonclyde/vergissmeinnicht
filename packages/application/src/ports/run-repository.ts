@@ -16,6 +16,10 @@ export type StartRunResult =
   | { readonly status: 'ok'; readonly detail: RunDetail }
   | { readonly status: 'forbidden' | 'procedure_not_found' | 'no_steps' | 'limit_reached' };
 
+export type FinishRunResult =
+  | { readonly status: 'ok'; readonly detail: RunDetail }
+  | { readonly status: 'forbidden' | 'run_not_found' | 'run_not_active' };
+
 export type StepStateChangeResult =
   | { readonly status: 'ok'; readonly step: RunStep; readonly runRevision: number }
   | { readonly status: 'forbidden' | 'run_not_found' | 'step_not_found' | 'run_not_active' | 'conflict' };
@@ -44,6 +48,23 @@ export interface RunRepository {
    * reason), writes the new state with actor snapshot and time, bumps the Run revision and records
    * STEP_STATE_CHANGED.
    */
+  /**
+   * In one transaction: re-checks the guard, resolves the Run within the Workspace, requires it to be
+   * ACTIVE, calls `validate` with the current Steps (throws if the Run may not end this way, returns
+   * the normalized reason), sets the final state with actor, time and reason, bumps the revision and
+   * records RUN_COMPLETED / RUN_ABORTED. Afterwards the database refuses any change to the Run.
+   */
+  finish(
+    input: {
+      readonly workspaceId: WorkspaceId;
+      readonly runId: RunId;
+      readonly to: 'COMPLETED' | 'ABORTED';
+      readonly at: Date;
+    },
+    actor: Actor & { readonly kind: 'user' },
+    guard: ActorGuard,
+    validate: (steps: readonly RunStep[]) => { readonly reason: string | null },
+  ): Promise<FinishRunResult>;
   changeStepState(
     input: {
       readonly workspaceId: WorkspaceId;

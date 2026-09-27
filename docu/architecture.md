@@ -220,6 +220,8 @@ GET  /api/workspaces/{id}/runs[?state=ACTIVE|COMPLETED|ABORTED]   run.view, newe
 POST /api/workspaces/{id}/runs  { procedureId }                   run.start → snapshot
 GET  /api/workspaces/{id}/runs/{runId}                            run.view
 POST /api/workspaces/{id}/runs/{runId}/steps/{stepId}/state      run.execute { expectedState, state, reason? }
+POST /api/workspaces/{id}/runs/{runId}/complete                   run.execute, required Steps DONE or NOT_APPLICABLE
+POST /api/workspaces/{id}/runs/{runId}/abort  { reason? }         run.abort
 ```
 
 Starting a Run copies the Procedure's current definition (title, Sections, Steps with all flags and policies) into `runs` / `run_sections` / `run_steps` inside one transaction. The copy is immutable (DB triggers); Runs are never deleted; only execution state changes: Step transitions (PENDING ↔ DONE / SKIPPED / NOT_APPLICABLE) are compare-and-set on the state the client saw, validated against the snapshotted reason policies, bump the Run `revision` and are audited in the same transaction; a trigger freezes Step state once the Run is not ACTIVE. `audit_events.run_id` identifies the Run for every Run event.
