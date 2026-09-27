@@ -6,18 +6,17 @@ import {
   type Procedure,
   type ProcedureContent,
   type ProcedureDetail,
-  type ReasonPolicy,
 } from './api.ts';
 import { History } from './History.tsx';
 import { formatDateTime, t } from './i18n/index.ts';
 import { KnotShare } from './Knots.tsx';
+import { StepMarks } from './StepMarks.tsx';
 import { Icon } from './procedure-icons.tsx';
 import { downloadJson, exportFileName, readImportFile } from './procedure-files.ts';
 import { ProcedureForm } from './ProcedureForm.tsx';
 
 const EMPTY: ProcedureContent = { title: '', description: '', icon: 'checklist', tags: [], sections: [] };
 
-const reasonText = (policy: ReasonPolicy): string => t(`reason.${policy}`);
 
 function ProcedureView({ detail }: { detail: ProcedureDetail }) {
   return (
@@ -44,15 +43,7 @@ function ProcedureView({ detail }: { detail: ProcedureDetail }) {
                   </>
                 )}
                 <strong>{step.title}</strong>
-                {t('procedure.stepFlags', { required: t(step.required ? 'step.required' : 'step.optional') })}
-                {step.critical && t('procedure.critical')}
-                <br />
-                <small>
-                  {t('procedure.policies', {
-                    skip: reasonText(step.skipReasonPolicy),
-                    notApplicable: reasonText(step.notApplicableReasonPolicy),
-                  })}
-                </small>
+                <StepMarks required={step.required} critical={step.critical} />
                 {step.description !== '' && <p style={{ whiteSpace: 'pre-wrap' }}>{step.description}</p>}
               </li>
             ))}
@@ -185,7 +176,6 @@ export function Procedures(props: {
     <section aria-labelledby="procedures-heading">
       <div className="page-header">
         <h2 id="procedures-heading">{t('procedures.heading')}</h2>
-        <span className="muted">{t('procedures.hint')}</span>
       </div>
       {message !== null && <p role="alert">{message}</p>}
 
@@ -220,43 +210,48 @@ export function Procedures(props: {
 
       {mode.kind === 'view' && shown !== null && (
         <article aria-labelledby="procedure-title">
+          <p>
+            <button type="button" className="link-like" onClick={() => setMode({ kind: 'list' })}>
+              {t('procedures.backArrow')}
+            </button>
+          </p>
           <ProcedureView detail={shown} />
+          <p className="row">
+            {canStartRun && (
+              <button type="button" className="primary" onClick={() => void startRun(shown)}>
+                {t('procedure.startRun')}
+              </button>
+            )}
+            {canEdit && (
+              <button type="button" onClick={() => setMode({ kind: 'edit', id: shown.id })}>
+                {t('procedure.edit')}
+              </button>
+            )}
+          </p>
+          <details className="more-actions">
+            <summary>{t('procedure.more')}</summary>
+            <div className="row">
+              <button type="button" onClick={() => void exportProcedure(shown)}>
+                {t('procedure.export')}
+              </button>
+              {canEdit && (
+                <>
+                  <button type="button" onClick={() => void runAction(() => api.duplicateProcedure(workspaceId, shown.id))}>
+                    {t('procedure.duplicate')}
+                  </button>
+                  <button type="button" onClick={() => void remove(shown)}>
+                    {t('procedure.delete')}
+                  </button>
+                </>
+              )}
+            </div>
+            {props.canManageKnots && (
+              <KnotShare key={shown.id} workspaceId={workspaceId} target={{ type: 'PROCEDURE', id: shown.id }} defaultLabel={shown.title} />
+            )}
+          </details>
           <div className="card">
             <History key={`${shown.id}-${shown.revision}`} label={t('procedure.historyLabel')} load={() => api.procedureHistory(workspaceId, shown.id)} />
           </div>
-          {props.canManageKnots && (
-            <div style={{ marginBottom: '1rem' }}>
-              <KnotShare key={shown.id} workspaceId={workspaceId} target={{ type: 'PROCEDURE', id: shown.id }} defaultLabel={shown.title} />
-            </div>
-          )}
-          <p className="row">
-            <button type="button" onClick={() => setMode({ kind: 'list' })}>
-              {t('procedures.backArrow')}
-            </button>{' '}
-            {canStartRun && (
-              <>
-                <button type="button" className="primary" onClick={() => void startRun(shown)}>
-                  {t('procedure.startRun')}
-                </button>{' '}
-              </>
-            )}
-            <button type="button" onClick={() => void exportProcedure(shown)}>
-              {t('procedure.export')}
-            </button>{' '}
-            {canEdit && (
-              <>
-                <button type="button" onClick={() => setMode({ kind: 'edit', id: shown.id })}>
-                  {t('procedure.edit')}
-                </button>{' '}
-                <button type="button" onClick={() => void runAction(() => api.duplicateProcedure(workspaceId, shown.id))}>
-                  {t('procedure.duplicate')}
-                </button>{' '}
-                <button type="button" onClick={() => void remove(shown)}>
-                  {t('procedure.delete')}
-                </button>
-              </>
-            )}
-          </p>
         </article>
       )}
 
@@ -295,7 +290,7 @@ export function Procedures(props: {
           {procedures === null ? (
             <p>{t('common.loading')}</p>
           ) : procedures.length === 0 ? (
-            <p>{t('procedures.none')}</p>
+            <p className="card">{t(canEdit ? 'procedures.noneHint' : 'procedures.none')}</p>
           ) : (
             <ul aria-label={t('procedures.heading')} className="plain-list">
               {procedures.map((procedure) => (

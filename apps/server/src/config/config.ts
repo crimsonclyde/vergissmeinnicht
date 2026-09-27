@@ -232,7 +232,7 @@ export function loadConfig(env: NodeJS.ProcessEnv, readFile: (path: string) => s
           ? Object.freeze({ user: values.SMTP_USER, password: new Secret(values.SMTP_PASSWORD) })
           : undefined,
       fromAddress: values.MAIL_FROM_ADDRESS ?? 'noreply@vergissmeinnicht.localhost',
-      fromName: values.MAIL_FROM_NAME ?? 'Vergissmeinnicht',
+      fromName: values.MAIL_FROM_NAME ?? 'VergissMeinNicht',
     }),
     invitationTtlHours: values.INVITATION_TTL_HOURS ?? 72,
     sourceCodeUrl: values.SOURCE_CODE_URL ?? UPSTREAM_SOURCE_URL,

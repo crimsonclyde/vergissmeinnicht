@@ -1,4 +1,4 @@
-# HTTPS termination for Vergissmeinnicht. Certificates are obtained automatically for $VMN_DOMAIN.
+# HTTPS termination for VergissMeinNicht. Certificates are obtained automatically for $VMN_DOMAIN.
 #
 # No access log is configured on purpose: request logs would contain Knot link tokens
 # (/knot/{token}). If you enable one, filter the URI (see docu/deployment.md).

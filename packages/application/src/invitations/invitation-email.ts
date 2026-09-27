@@ -15,11 +15,11 @@ export function invitationEmail(
   const invitedBy = inviterName === undefined ? '' : ` by ${inviterName}`;
   return {
     to: invitation.email,
-    subject: 'You are invited to Vergissmeinnicht',
+    subject: 'You are invited to VergissMeinNicht',
     text: [
       `Hello,`,
       ``,
-      `you have been invited${invitedBy} to create a Vergissmeinnicht account for ${invitation.email}.`,
+      `you have been invited${invitedBy} to create a VergissMeinNicht account for ${invitation.email}.`,
       ``,
       `Open this link to choose your password:`,
       acceptUrl,

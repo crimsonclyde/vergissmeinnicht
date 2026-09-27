@@ -1,9 +1,16 @@
 import { execFileSync } from 'node:child_process';
-import { expect, test } from '@playwright/test';
+import { expect, test, type Page } from '@playwright/test';
 import { TOTP } from 'otpauth';
 import { serverEnv } from '../playwright.config.ts';
 
 const PASSWORD = 'an e2e passphrase that is long';
+
+/** The header menu (☰) holds profile & settings, server admin and sign-out. */
+async function fromMenu(page: Page, item: 'Profile & settings' | 'Server admin' | 'Sign out') {
+  await page.getByRole('button', { name: /^Menu/ }).click();
+  const role = item === 'Sign out' ? 'button' : 'link';
+  await page.getByRole(role, { name: item }).click();
+}
 
 test('first server admin: bootstrap link, account creation, sign-in, Workspace creation, Procedure authoring with Sections and Steps, export/import/duplicate/restore, starting, executing, completing and aborting Runs, TOTP enrollment, TOTP sign-in and operator TOTP recovery', async ({ page, browser }, testInfo) => {
   // Bootstrap works exactly once per server; the flow runs on one project only.
@@ -53,7 +60,15 @@ test('first server admin: bootstrap link, account creation, sign-in, Workspace c
 
   // Workspaces: a server admin creates one on the admin page and becomes its only admin.
   await expect(page.getByText('You are not a member of any Workspace yet.')).toBeVisible();
-  await page.getByRole('link', { name: 'Server admin' }).click();
+  // Header menu: opens, closes with Escape and gives focus back to its button.
+  const menuButton = page.getByRole('button', { name: /^Menu/ });
+  await menuButton.click();
+  await expect(menuButton).toHaveAttribute('aria-expanded', 'true');
+  await expect(page.getByText('admin@example.org')).toBeVisible();
+  await page.keyboard.press('Escape');
+  await expect(menuButton).toHaveAttribute('aria-expanded', 'false');
+  await expect(menuButton).toBeFocused();
+  await fromMenu(page, 'Server admin');
   // Invitations are managed here (no mail server in this test, so delivery reports a failure).
   await page.getByLabel('Email address to invite').fill('Bob@Example.org');
   await page.getByRole('button', { name: 'Send invitation' }).click();
@@ -92,6 +107,8 @@ test('first server admin: bootstrap link, account creation, sign-in, Workspace c
   await page.getByRole('button', { name: 'Add step to section 1' }).click();
   await page.getByLabel('Step 1.2 title').fill('Turn off stove');
   await page.getByRole('group', { name: 'Step 1.2' }).getByLabel(/Critical/).check();
+  // Reason settings are under "More options" of the Step.
+  await page.getByRole('group', { name: 'Step 1.2' }).getByText('More options').click();
   await page.getByRole('group', { name: 'Step 1.2' }).getByLabel('When skipped:').selectOption('REQUIRED');
   await page.getByRole('button', { name: 'Create Procedure' }).click();
 
@@ -101,8 +118,11 @@ test('first server admin: bootstrap link, account creation, sign-in, Workspace c
   await expect(procedure.getByText('Tags: daily, safety')).toBeVisible();
   const steps = procedure.getByRole('region', { name: 'Section: Ground floor' }).getByRole('listitem');
   await expect(steps).toHaveCount(2);
-  await expect(steps.nth(1)).toContainText('Turn off stove — Required, Critical');
-  await expect(steps.nth(1)).toContainText('Skip: reason required');
+  // Flags are marks, not prose: a "Critical" icon, and no label for the (default) required Steps.
+  await expect(steps.nth(1)).toContainText('Turn off stove');
+  await expect(steps.nth(1).getByRole('img', { name: 'Critical' })).toBeVisible();
+  await expect(steps.nth(0).getByRole('img', { name: 'Critical' })).toHaveCount(0);
+  await expect(steps.nth(1)).not.toContainText('Required');
 
   // Edit: rename, move the stove Step to the top, save once.
   await procedure.getByRole('button', { name: 'Edit' }).click();
@@ -127,6 +147,7 @@ test('first server admin: bootstrap link, account creation, sign-in, Workspace c
   await expect(page.getByLabel('Step 2.1 title')).toHaveValue('Close windows');
   await expect(page.getByLabel('Step 1.2 title')).toHaveCount(0);
   // Keyboard alternative: move it back to section 1 with the select.
+  await page.getByRole('group', { name: 'Step 2.1' }).getByText('More options').click();
   await page.getByLabel('Move step 2.1 to section').selectOption({ label: '1. Ground floor' });
   await expect(page.getByLabel('Step 1.2 title')).toHaveValue('Close windows');
   // And drag it into Upstairs once more before saving.
@@ -151,15 +172,22 @@ test('first server admin: bootstrap link, account creation, sign-in, Workspace c
 
   // Export as a JSON file, duplicate, delete the copy, re-import the exported file.
   const downloadPromise = page.waitForEvent('download');
+  // Secondary actions are under "More actions" (a disclosure that may already be open).
+  const moreActions = async () => {
+    if ((await procedure.locator('details.more-actions').getAttribute('open')) === null) await procedure.getByText('More actions').click();
+  };
+  await moreActions();
   await procedure.getByRole('button', { name: 'Export as JSON' }).click();
   const download = await downloadPromise;
   expect(download.suggestedFilename()).toBe('leave-the-flat.vmn.json');
   const exportPath = testInfo.outputPath('export.json');
   await download.saveAs(exportPath);
 
+  await moreActions();
   await procedure.getByRole('button', { name: 'Duplicate' }).click();
   await expect(procedure.getByRole('heading', { name: 'Travel Leave the flat (copy)' })).toBeVisible();
   page.once('dialog', (dialog) => void dialog.accept());
+  await moreActions();
   await procedure.getByRole('button', { name: 'Delete' }).click();
   await expect(page.getByRole('list', { name: 'Procedures' }).getByRole('listitem')).toHaveCount(1);
   // Restore the deleted copy, then delete it again.
@@ -168,6 +196,7 @@ test('first server admin: bootstrap link, account creation, sign-in, Workspace c
   await page.getByRole('button', { name: 'Restore Leave the flat (copy)' }).click();
   await expect(procedure.getByRole('heading', { name: 'Travel Leave the flat (copy)' })).toBeVisible();
   page.once('dialog', (dialog) => void dialog.accept());
+  await moreActions();
   await procedure.getByRole('button', { name: 'Delete' }).click();
   await expect(page.getByRole('list', { name: 'Procedures' }).getByRole('listitem')).toHaveCount(1);
 
@@ -193,15 +222,15 @@ test('first server admin: bootstrap link, account creation, sign-in, Workspace c
     await procedure.getByRole('button', { name: 'Start Run' }).click();
     await expect(page).toHaveURL(/\/w\/[0-9a-f-]{36}\/runs\/[0-9a-f-]{36}$/);
     await expect(run.getByRole('heading', { name: 'Travel Leave the flat', level: 2 })).toBeVisible();
-    await expect(run).toContainText('Active · started by Ada Admin');
+    await expect(run).toContainText('Started by Ada Admin');
     await expect(stepItem('Close windows')).toContainText('Pending');
     await expect(stepItem('Turn off stove')).toContainText('Pending');
-    await expect(stepItem('Turn off stove')).toContainText('critical');
+    await expect(stepItem('Turn off stove').getByRole('img', { name: 'Critical' })).toBeVisible();
+    await expect(stepItem('Turn off stove')).not.toContainText('Required');
   }
   await page.getByRole('link', { name: 'Runs' }).click();
   const activeRuns = page.getByRole('list', { name: 'Active Runs' });
   await expect(activeRuns.getByRole('listitem')).toHaveCount(2);
-  await expect(activeRuns.getByRole('listitem').first()).toContainText('0 of 2 Steps resolved');
   await expect(activeRuns.getByRole('listitem').first()).toContainText('○ 2 pending');
 
   // Execute a Run: Done, Skip with a required reason, Undo.
@@ -214,17 +243,17 @@ test('first server admin: bootstrap link, account creation, sign-in, Workspace c
   await page2.getByLabel('Email').fill('admin@example.org');
   await page2.getByLabel('Password').fill(PASSWORD);
   await page2.getByRole('button', { name: 'Sign in' }).click();
-  await expect(page2.getByRole('button', { name: 'Sign out' })).toBeVisible();
+  await expect(page2.getByRole('button', { name: /^Menu/ })).toBeVisible();
   await page2.goto(page.url());
   const run2 = page2.getByRole('article');
   const stepItem2 = (title: string) => run2.getByRole('listitem').filter({ hasText: title });
-  await expect(run2).toContainText('Live: changes by others appear automatically.');
-  await expect(run).toContainText('Live: changes by others appear automatically.');
+  await expect(run2).toContainText('● Live');
+  await expect(run).toContainText('● Live');
 
   await run.getByRole('button', { name: 'Done: Close windows' }).click();
-  await expect(stepItem('Close windows')).toContainText('Done by Ada Admin at');
-  await expect(stepItem2('Close windows')).toContainText('Done by Ada Admin at');
-  await expect(run2.getByRole('status')).toContainText('Ada Admin changed “Close windows”');
+  await expect(stepItem('Close windows')).toContainText('Ada Admin ·');
+  await expect(stepItem2('Close windows')).toContainText('Ada Admin ·');
+  await expect(run2.getByRole('status').filter({ hasText: 'changed' })).toContainText('Ada Admin changed “Close windows”');
 
   // Optimistic UI (6.2): the new state shows at once while saving; a rejection restores it.
   const stateUrl = '**/api/workspaces/*/runs/*/steps/*/state';
@@ -244,10 +273,10 @@ test('first server admin: bootstrap link, account creation, sign-in, Workspace c
   });
   await run2.getByRole('button', { name: 'Undo: Close windows' }).click();
   await expect(stepItem2('Close windows')).toContainText('Saving…');
-  await expect(stepItem2('Close windows')).toContainText('Reset by Ada Admin');
-  await expect(stepItem('Close windows')).toContainText('Reset by Ada Admin');
+  await expect(stepItem2('Close windows')).not.toContainText('Ada Admin ·');
+  await expect(stepItem('Close windows')).not.toContainText('Ada Admin ·');
   await run2.getByRole('button', { name: 'Done: Close windows' }).click();
-  await expect(stepItem('Close windows')).toContainText('Done by Ada Admin at');
+  await expect(stepItem('Close windows')).toContainText('Ada Admin ·');
   await page2.unroute(stateUrl);
 
   // Phone-first execution (8.1): the next Step is obvious, progress stays in view, less clutter
@@ -278,7 +307,7 @@ test('first server admin: bootstrap link, account creation, sign-in, Workspace c
   await expect(stove).toContainText('Skipped');
   await expect(stove).toContainText('reason: Nobody cooked today');
   await run.getByRole('button', { name: 'Undo: Close windows' }).click();
-  await expect(stepItem('Close windows')).toContainText('Reset by Ada Admin');
+  await expect(stepItem('Close windows')).not.toContainText('Ada Admin ·');
 
   // Critical Step: a click is not enough — it needs press-and-hold, and says so.
   await stove.getByRole('button', { name: 'Undo: Turn off stove' }).click();
@@ -295,15 +324,17 @@ test('first server admin: bootstrap link, account creation, sign-in, Workspace c
   await expect(stove.locator('.state-badge')).toHaveText(/Pending/);
   await hold.hover();
   await page.mouse.down();
-  await expect(stove).toContainText('Done by Ada Admin', { timeout: 5000 });
+  await expect(stove).toContainText('Ada Admin ·', { timeout: 5000 });
   await page.mouse.up();
   // Keyboard: holding Space works as well (undo first).
   await stove.getByRole('button', { name: 'Undo: Turn off stove' }).click();
   // The optimistic Pending state appears at once; the button is usable once the undo is saved.
-  await expect(stove).toContainText('Reset by Ada Admin');
+  await expect(stove).not.toContainText('Ada Admin ·');
+  await expect(hold).toBeEnabled();
+  await expect(stove).not.toContainText('Saving…');
   await hold.focus();
   await page.keyboard.down(' ');
-  await expect(stove).toContainText('Done by Ada Admin', { timeout: 5000 });
+  await expect(stove).toContainText('Ada Admin ·', { timeout: 5000 });
   await page.keyboard.up(' ');
 
   // Completion needs every required Step done or not applicable.
@@ -329,7 +360,6 @@ test('first server admin: bootstrap link, account creation, sign-in, Workspace c
   await page.getByRole('button', { name: 'Back to all Runs' }).click();
 
   // Abort the other Run with a reason.
-  await expect(page.getByRole('list', { name: 'Finished Runs' })).toContainText('2 of 2 Steps resolved');
   await expect(page.getByRole('list', { name: 'Finished Runs' })).toContainText('✔ 2 done');
   await page.getByRole('list', { name: 'Active Runs' }).getByRole('button').click();
   await run.getByRole('button', { name: 'Abort Run…' }).click();
@@ -344,6 +374,7 @@ test('first server admin: bootstrap link, account creation, sign-in, Workspace c
   // Knot links (7.1): an entry link to a Procedure, shown once, that still requires signing in.
   await page.getByRole('link', { name: 'Procedures' }).click();
   await page.getByRole('list', { name: 'Procedures' }).getByRole('button').first().click();
+  await moreActions();
   await procedure.getByRole('button', { name: 'Share as Knot link…' }).click();
   const share = page.getByRole('region', { name: 'Knot link for this Procedure' });
   await share.getByLabel('Name of the link').fill('Hallway card');
@@ -383,7 +414,7 @@ test('first server admin: bootstrap link, account creation, sign-in, Workspace c
   await visitor.close();
 
   // Account settings live on their own page.
-  await page.getByRole('link', { name: /^Account/ }).click();
+  await fromMenu(page, 'Profile & settings');
 
   // Appearance (8.3): the theme choice applies at once and survives a reload.
   const html = page.locator('html');
@@ -414,7 +445,7 @@ test('first server admin: bootstrap link, account creation, sign-in, Workspace c
   await page.getByRole('button', { name: 'I have saved my recovery codes' }).click();
   await expect(page.getByText('Status: Enabled')).toBeVisible();
 
-  await page.getByRole('button', { name: 'Sign out' }).click();
+  await fromMenu(page, 'Sign out');
   await expect(page.getByRole('heading', { name: 'Sign in' })).toBeVisible();
 
   // Sign-in now needs the second factor; the enrollment code's time step is used up, so use the next one.
@@ -428,7 +459,7 @@ test('first server admin: bootstrap link, account creation, sign-in, Workspace c
   await page.getByRole('button', { name: 'Verify' }).click();
   await expect(page.getByRole('heading', { name: 'Runs', level: 2 })).toBeVisible();
 
-  await page.getByRole('button', { name: 'Sign out' }).click();
+  await fromMenu(page, 'Sign out');
   await expect(page.getByRole('heading', { name: 'Sign in' })).toBeVisible();
 
   // Lost authenticator, only admin: operator recovery via CLI, completed with the current password.
@@ -450,10 +481,10 @@ test('first server admin: bootstrap link, account creation, sign-in, Workspace c
   await page.getByLabel('Password').fill(PASSWORD);
   await page.getByRole('button', { name: 'Sign in' }).click();
   await expect(page.getByRole('heading', { name: 'Runs', level: 2 })).toBeVisible();
-  await page.getByRole('link', { name: /^Account/ }).click();
+  await fromMenu(page, 'Profile & settings');
   await expect(page.getByText('Status: Not enabled')).toBeVisible();
 
-  await page.getByRole('button', { name: 'Sign out' }).click();
+  await fromMenu(page, 'Sign out');
   await expect(page.getByRole('heading', { name: 'Sign in' })).toBeVisible();
   await page.reload();
   await expect(page.getByRole('heading', { name: 'Sign in' })).toBeVisible();

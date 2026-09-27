@@ -1,4 +1,4 @@
-# AGENTS.md — Vergissmeinnicht
+# AGENTS.md — VergissMeinNicht
 
 This file contains mandatory instructions for all coding agents and contributors, including Codex, Claude Code, and similar tools.
 
@@ -40,7 +40,7 @@ A task is not considered complete until its documentation state is updated.
 
 ## Product objective
 
-Vergissmeinnicht is a general-purpose platform for **repeatable procedures with trustworthy execution history**.
+VergissMeinNicht is a general-purpose platform for **repeatable procedures with trustworthy execution history**.
 
 The application must make it easy to:
 

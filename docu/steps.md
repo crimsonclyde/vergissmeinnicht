@@ -1,6 +1,6 @@
 # Project Steps & Objectives
 
-This file is the authoritative implementation ledger for Vergissmeinnicht.
+This file is the authoritative implementation ledger for VergissMeinNicht.
 
 **Agents must update this file when a task is completed or materially changed.**
 
@@ -20,16 +20,16 @@ For every completed task, add a concise completion note, tests/checks performed,
 
 _Last updated: 2026-09-27 (after 10.3 — every non-deferred step is DONE)_
 
-**Done:** 0.1, 0.2, 0.3, 1.1, 1.2, 2.1–2.5, 3.1–3.3, 4.1–4.5, 5.1–5.6, 6.1, 6.2, 7.1, 8.0–8.4, 9.1, 10.1–10.3, 11.1. DEFERRED: 2.6 (external identity providers), 8.5 (PWA/offline, Phase 2).
+**Done:** 0.1, 0.2, 0.3, 1.1, 1.2, 2.1–2.5, 3.1–3.3, 4.1–4.5, 5.1–5.6, 6.1, 6.2, 7.1, 8.0–8.4, 8.6, 9.1, 10.1–10.3, 11.1. DEFERRED: 2.6 (external identity providers), 8.5 (PWA/offline, Phase 2).
 **Next:** no open ledger step. Candidates: merge the stacked branches into `main` (CI has not run on them), a full accessibility review (incl. an alternative to press-and-hold), account disabling with session revocation, housekeeping of expired rows, 2.6 / 8.5 when prioritised. Open decisions for the user: SKIPPED does not satisfy a required Step at completion (5.4); the Knot design choices in 7.1 (targets, `knot.manage` for EDITOR/ADMIN, link shown once).
 
-**UI (2026-09-27):** app shell (8.0), responsive execution (8.1), state presentation (8.2), themes (8.3) and the message catalog (8.4) are done; a full accessibility review remains.
+**UI (2026-09-27):** app shell (8.0), responsive execution (8.1), state presentation (8.2), themes (8.3), message catalog (8.4) and the declutter/naming pass from user feedback (8.6) are done; a full accessibility review remains.
 
 **Lockfile note (4.4):** the hand-edited entries (`apps/server` → `@vergissmeinnicht/import-export`, `packages/import-export` → `zod`) were verified on 2026-09-27 with `pnpm install --frozen-lockfile` (pnpm 12.6.0): lockfile up to date, supply-chain policies passed, no changes.
 
 Also open: account status changes (disable/enable users) with session revocation; housekeeping of expired challenge/recovery/invitation rows.
 
-**Branches:** work is stacked, not yet merged into `main`: `step-1.1-app-skeleton` → `step-1.2-config` → `step-2.1-user-model` → `step-2.2-invitations` → `step-2.4-totp` → `step-2.5-recovery` → `step-3.1-workspaces` → `step-3.2-roles` → `step-4.1-procedures` → `step-4.2-steps` → `step-4.3-drag-drop` → `step-4.4-import-export` → `step-4.5-restore` → `step-5.1-run-snapshot` → `cleanup-web-domain-constants` → `step-5.2-step-states` → `step-5.3-press-and-hold` → `step-5.4-run-lifecycle` → `step-5.5-audit-trail` → `step-5.6-immutability` → `step-8.0-app-shell` → `step-6-collaboration` (6.1, 6.2) → `step-7.1-knots` → `step-11.1-license` → `step-8-ux` (8.1–8.4) → `step-10-operations` (10.1–10.3) (each branch contains the previous ones; 2.3 was completed on `step-2.2-invitations` because acceptance finishes 2.2). CI runs on pull requests / `main` only.
+**Branches:** work is stacked, not yet merged into `main`: `step-1.1-app-skeleton` → `step-1.2-config` → `step-2.1-user-model` → `step-2.2-invitations` → `step-2.4-totp` → `step-2.5-recovery` → `step-3.1-workspaces` → `step-3.2-roles` → `step-4.1-procedures` → `step-4.2-steps` → `step-4.3-drag-drop` → `step-4.4-import-export` → `step-4.5-restore` → `step-5.1-run-snapshot` → `cleanup-web-domain-constants` → `step-5.2-step-states` → `step-5.3-press-and-hold` → `step-5.4-run-lifecycle` → `step-5.5-audit-trail` → `step-5.6-immutability` → `step-8.0-app-shell` → `step-6-collaboration` (6.1, 6.2) → `step-7.1-knots` → `step-11.1-license` → `step-8-ux` (8.1–8.4) → `step-10-operations` (10.1–10.3) → `ui-declutter` (8.6) (each branch contains the previous ones; 2.3 was completed on `step-2.2-invitations` because acceptance finishes 2.2). CI runs on pull requests / `main` only.
 
 **Manual testing:** `test-env/menu.sh` (added 2026-09-27) installs/starts/stops/removes an isolated production-mode instance on port 3200 with demo accounts for every role (see `test-env/README.md`). Extend `test-env/seed.ts` when new features need demo data (e.g. Procedures in 4.1).
 
@@ -41,7 +41,7 @@ Also open: account status changes (disable/enable users) with session revocation
 
 These decisions are already made and must not be silently changed by an implementation agent.
 
-- Product name: **Vergissmeinnicht**
+- Product name: **VergissMeinNicht**, short **VMN** (display spelling changed from "Vergissmeinnicht" on 2026-09-27 at the user's request; technical identifiers stay lower-case)
 - Language/runtime: **TypeScript on Node.js**
 - Backend: **Fastify 5**
 - Frontend: **React + Vite**
@@ -1216,6 +1216,30 @@ V1 ships English only, but user-facing strings must be structured so adding tran
 **Security docs updated:** N/A.
 
 **Remaining:** no language switcher and no second catalog (V1 is English only); server-generated texts (invitation/recovery emails, CLI output) are still English literals in the server; numbers are interpolated without locale formatting (only counts and revisions today).
+
+### 8.6 Declutter and naming (user feedback)
+**Status:** DONE
+**Completed:** 2026-09-27
+
+**Why:** user feedback — too much text, too many controls at once; the header should use a menu; the project name must be consistent with VMN clearly referenced; no private use-case names in a public project.
+
+**Security impact:** LOW — client-side presentation only. The "Server admin" menu entry is shown only to server admins, but the server still authorizes every admin request (unchanged); no server behavior changed besides display names (email subjects/bodies, TOTP issuer label for new enrollments, Better Auth app name).
+
+**Implemented:**
+- Header: brand ("VergissMeinNicht", "VMN" on phones), Workspace selector (no label text), and a menu button (avatar initial + ☰) with the user's name/email, "Profile & settings", "Server admin" (server admins only) and "Sign out". Disclosure pattern: Escape and outside clicks close it, focus returns to the button, menu items close it. Workspace tabs stay on one row on phones.
+- Steps: "Required · critical" prose replaced by marks — a red "!" icon for critical Steps (accessible name "Critical", tooltip "press and hold to confirm") and a small "optional" tag; required is the unmarked default. Same marks in the Procedure view, which no longer lists reason policies (they are in the editor).
+- Less text in the Run view: buttons "✔ Done" / "Undo" / "✔ Hold to confirm" (full names such as "Done: Stove off" stay as accessible names); "who · when" lines ("Ada · 17:40", date only when not today) only for resolved Steps; "Started by … · …" without state word and Procedure revision; live status as a small "● Live" chip with the explanation as tooltip; the "Uma changed …" notice fades after 10 s; the "x of y resolved" lines under progress bars removed (bar value is announced; counts are in the state summary and the bottom bar); the standing press-and-hold hint is only for assistive tech (feedback such as "keep holding" is still shown).
+- Secondary actions behind disclosures: Procedure "More actions" (Export, Duplicate, Delete, Knot link), Run "More actions" (Knot link), and per-Step "More options" in the editor (icon, reason policies, move to section).
+- Page hints moved into empty states ("No Runs yet. Start one from a Procedure."); footer shortened to "VergissMeinNicht (VMN) · AGPL-3.0 · Source code".
+- Naming: display name **VergissMeinNicht** (short **VMN**) across UI, emails, TOTP issuer, docs, deployment files and test environment; README and architecture explain that VMN is the prefix of technical identifiers; package/image/file names stay lower-case. The German word keeps its spelling where the name is explained.
+- Removed the private "Casa Nostra" use-case references (README, objectives); README now lists general uses.
+- New test `catalog-usage.test.ts`: every catalog message must be used (dynamic key prefixes allow-listed); it found and removed 17 messages orphaned by this pass.
+
+**Tests/checks:** `pnpm test` 535, `pnpm test:e2e` updated to the new structure (menu helper, marks via accessible names, "More" disclosures, short labels) plus a menu check (opens, shows identity, Escape closes and restores focus); screenshots reviewed on desktop and at 390 px; `pnpm lint`, `pnpm typecheck`.
+
+**Security docs updated:** N/A.
+
+**Remaining:** no automated test that non-admins do not see "Server admin" in the menu (the server-side refusal is tested); Knot links and history could get the same "more" treatment in list pages; a full accessibility review is still open.
 
 ### 8.5 PWA/offline active Runs
 **Status:** DEFERRED — Phase 2

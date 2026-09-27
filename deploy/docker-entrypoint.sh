@@ -1,5 +1,5 @@
 #!/bin/sh
-# Entry point of the Vergissmeinnicht image. Every command reads the same runtime configuration
+# Entry point of the VergissMeinNicht image. Every command reads the same runtime configuration
 # (environment and *_FILE secrets), so operator commands act on the same database as the server.
 set -eu
 cd /app

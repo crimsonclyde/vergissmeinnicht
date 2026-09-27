@@ -1,4 +1,4 @@
-# Vergissmeinnicht production deployment (docu/deployment.md, steps.md 10.1).
+# VergissMeinNicht production deployment (docu/deployment.md, steps.md 10.1).
 #
 #   cp vergissmeinnicht.env.example vergissmeinnicht.env   # then edit
 #   mkdir -p secrets && openssl rand -base64 32 > secrets/auth_secret \

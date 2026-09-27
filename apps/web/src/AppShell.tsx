@@ -10,6 +10,7 @@ import { MembersPage, roleLabel } from './MembersPage.tsx';
 import { Procedures } from './Procedures.tsx';
 import { Link, navigate, paths, type Route } from './router.tsx';
 import { Runs } from './Runs.tsx';
+import { UserMenu } from './UserMenu.tsx';
 import { SourceFooter } from './SourceFooter.tsx';
 import type { WorkspaceContext } from './workspace-context.ts';
 
@@ -54,12 +55,14 @@ function Header(props: {
   return (
     <header className="app-header">
       <div className="app-header-inner">
-        <Link href="/" className="brand">
-          Vergissmeinnicht
+        <Link href="/" className="brand" aria-label={t('shell.home')}>
+          <span className="brand-long">VergissMeinNicht</span>
+          <span className="brand-short" aria-hidden="true">
+            VMN
+          </span>
         </Link>
         {workspaces !== null && workspaces.length > 0 && (
-          <label className="row" style={{ fontWeight: 400 }}>
-            <span className="muted">{t('shell.workspace')}</span>
+          <label className="workspace-select">
             <select
               aria-label={t('shell.workspace')}
               value={workspaceId ?? ''}
@@ -74,23 +77,11 @@ function Header(props: {
             </select>
           </label>
         )}
-        <nav aria-label={t('shell.accountNav')} className="nav">
-          {props.user.serverAdmin && (
-            <NavLink href="/admin" current={route.page === 'admin'}>
-              {t('shell.serverAdmin')}
-            </NavLink>
-          )}
-          <NavLink href="/account" current={route.page === 'account'}>
-            {t('shell.account', { name: props.user.displayName })}
-          </NavLink>
-          <button type="button" className="quiet" onClick={props.onSignOut}>
-            {t('shell.signOut')}
-          </button>
-        </nav>
+        <UserMenu user={props.user} onSignOut={props.onSignOut} />
       </div>
       {workspaceId !== null && (
         <div className="app-header-inner" style={{ paddingTop: 0 }}>
-          <nav aria-label={t('shell.sections')} className="nav">
+          <nav aria-label={t('shell.sections')} className="nav section-nav">
             <NavLink href={paths.runs(workspaceId)} current={route.page === 'runs'}>
               {t('shell.runs')}
             </NavLink>

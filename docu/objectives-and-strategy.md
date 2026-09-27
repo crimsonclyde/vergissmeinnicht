@@ -2,7 +2,7 @@
 
 ## Mission
 
-Vergissmeinnicht helps people reliably execute repeatable real-world procedures and retain trustworthy evidence of what was done.
+VergissMeinNicht helps people reliably execute repeatable real-world procedures and retain trustworthy evidence of what was done.
 
 It should answer:
 
@@ -30,7 +30,7 @@ The Run UI must reduce memory burden: strong state contrast, minimal ambiguity, 
 Complex Procedures should be pleasant to build on desktop and effortless to execute on a phone.
 
 ### 6. General-purpose domain
-Casa Nostra is the first use case, not the architecture. The same system should fit maintenance, inspections, onboarding/offboarding, deployments, packing, opening/closing routines, and other repeatable procedures.
+No single use case shapes the architecture. The same system should fit households as well as maintenance, inspections, onboarding/offboarding, deployments, packing, opening/closing routines, and other repeatable procedures.
 
 ### 7. Simple self-hosting
 Start with a modular monolith and SQLite. Prefer operational simplicity over speculative scale.
@@ -56,7 +56,7 @@ Color is supportive, not exclusive:
 
 ## Brand
 
-The project is named **Vergissmeinnicht**, German for the forget-me-not flower and literally “forget me not.”
+The project is named **VergissMeinNicht** (short **VMN**), after *Vergissmeinnicht*, German for the forget-me-not flower and literally “forget me not.” The capitalisation makes the three words — and the abbreviation VMN used in technical identifiers — visible. Package, image and file names stay lower-case (`vergissmeinnicht`) where tooling requires it.
 
 The visual motif is a forget-me-not flower with a knotted stem.
 

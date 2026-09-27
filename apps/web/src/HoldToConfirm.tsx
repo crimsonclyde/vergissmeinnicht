@@ -98,10 +98,10 @@ export function HoldToConfirm(props: { label: string; disabled?: boolean; onConf
       >
         <span className="hold-fill" aria-hidden="true" style={{ width: `${Math.round(progress * 100)}%` }} />
         <span className="hold-label">
-          {progress > 0 ? t('hold.progress', { percent: Math.round(progress * 100) }) : t('hold.label', { title: props.label })}
+          {progress > 0 ? t('hold.progress', { percent: Math.round(progress * 100) }) : t('hold.short')}
         </span>
       </button>
-      <small id={hintId} className="muted" style={{ display: 'block' }}>
+      <small id={hintId} className={hint === null ? 'visually-hidden' : 'hold-feedback'}>
         {hint ?? t('hold.hint')}
       </small>
     </span>

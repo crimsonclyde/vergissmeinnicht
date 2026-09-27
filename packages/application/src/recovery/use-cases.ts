@@ -52,11 +52,11 @@ function recoveryEmail(target: User, scope: RecoveryScope, url: string, expiresA
     .join(' and ');
   return {
     to: target.email,
-    subject: 'Vergissmeinnicht account recovery',
+    subject: 'VergissMeinNicht account recovery',
     text: [
       `Hello ${target.displayName},`,
       ``,
-      `${adminName} started a recovery of your Vergissmeinnicht account. Open this link to ${what}:`,
+      `${adminName} started a recovery of your VergissMeinNicht account. Open this link to ${what}:`,
       url,
       ``,
       `The link can be used once and expires on ${expiresAt.toISOString()}.`,

@@ -20,7 +20,7 @@ export class BackupError extends Error {
 /** Present since the first migration; older schemas are valid backups (reported as migrations pending). */
 const REQUIRED_TABLES = ['__drizzle_migrations', 'users'];
 
-/** Checks that `path` is an intact Vergissmeinnicht database. Opens it read-only. */
+/** Checks that `path` is an intact VergissMeinNicht database. Opens it read-only. */
 export function verifyDatabase(path: string): { readonly migrationsPending: boolean } {
   if (!existsSync(path)) throw new BackupError('file does not exist');
   let sqlite: Database.Database;
@@ -40,7 +40,7 @@ export function verifyDatabase(path: string): { readonly migrationsPending: bool
     const tables = new Set(
       (sqlite.prepare("SELECT name FROM sqlite_master WHERE type = 'table'").all() as { name: string }[]).map((row) => row.name),
     );
-    if (!REQUIRED_TABLES.every((table) => tables.has(table))) throw new BackupError('not a Vergissmeinnicht database');
+    if (!REQUIRED_TABLES.every((table) => tables.has(table))) throw new BackupError('not a VergissMeinNicht database');
     if ((sqlite.pragma('foreign_key_check') as unknown[]).length > 0) throw new BackupError('foreign key check failed');
     return { migrationsPending: migrationStatus(sqlite).pending };
   } finally {

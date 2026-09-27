@@ -2,7 +2,7 @@
 
 ## Selected stack
 
-Vergissmeinnicht is a **TypeScript modular monolith** deployed as one application.
+VergissMeinNicht is a **TypeScript modular monolith** deployed as one application.
 
 ### Server
 - Node.js

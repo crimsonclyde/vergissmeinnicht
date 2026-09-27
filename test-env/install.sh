@@ -53,7 +53,7 @@ SMTP_HOST=127.0.0.1
 SMTP_PORT=1025
 SMTP_SECURITY=none
 MAIL_FROM_ADDRESS=noreply@vergissmeinnicht.test
-MAIL_FROM_NAME=Vergissmeinnicht (test)
+MAIL_FROM_NAME=VergissMeinNicht (test)
 EOF
   )
 fi

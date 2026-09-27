@@ -27,14 +27,14 @@ choose() {
   current="$(status)"
   # Runs inside $(...): stdout is captured, so check stdin/stderr for a terminal.
   if command -v whiptail >/dev/null && [[ -t 0 && -t 2 ]]; then
-    whiptail --title "Vergissmeinnicht test environment" --notags --menu "$current" 20 78 5 \
+    whiptail --title "VergissMeinNicht test environment" --notags --menu "$current" 20 78 5 \
       install "Install / start (keeps existing demo data)" \
       stop "Stop (keep data)" \
       uninstall "Uninstall (stop and delete all test data)" \
       status "Show status and demo accounts" \
       quit "Quit" 3>&1 1>&2 2>&3 || echo quit
   else
-    echo "Vergissmeinnicht test environment" >&2
+    echo "VergissMeinNicht test environment" >&2
     echo "$current" >&2
     PS3="Choose: "
     select option in "Install / start" "Stop (keep data)" "Uninstall (delete all test data)" "Status" "Quit"; do

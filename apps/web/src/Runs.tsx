@@ -14,10 +14,14 @@ import {
 import { History } from './History.tsx';
 import { HoldToConfirm } from './HoldToConfirm.tsx';
 import { KnotShare } from './Knots.tsx';
-import { formatDateTime, formatTime, t } from './i18n/index.ts';
+import { formatDateTime, formatTime, formatWhen, t } from './i18n/index.ts';
 import { Icon } from './procedure-icons.tsx';
+import { StepMarks } from './StepMarks.tsx';
 import { applyStepResult, isNewer, withPendingChanges, type PendingStepChange } from './run-updates.ts';
 import { useRunLiveUpdates, type AnnouncedChange, type LiveStatus } from './useRunLiveUpdates.ts';
+
+/** How long "Uma changed … at …" stays visible. */
+const REMOTE_NOTICE_MS = 10_000;
 
 /** A glyph for every state, always next to its text: color is never the only indicator. */
 const STATE_GLYPHS: Record<StepState, string> = { PENDING: '○', DONE: '✔', SKIPPED: '↷', NOT_APPLICABLE: '–' };
@@ -68,10 +72,10 @@ function Progress({ resolved, total }: { resolved: number; total: number }) {
         aria-valuemax={total}
         aria-valuenow={resolved}
         aria-label={t('run.progressLabel')}
+        aria-valuetext={t('run.progress', { resolved, count: total })}
       >
         <span style={{ width: `${total === 0 ? 0 : Math.round((resolved / total) * 100)}%` }} />
       </div>
-      <small className="muted">{t('run.progress', { resolved, count: total })}</small>
     </div>
   );
 }
@@ -150,27 +154,17 @@ function StepItem(props: {
             </>
           )}
           {step.title}
+          <StepMarks required={step.required} critical={step.critical} />
         </span>
         <StateBadge state={step.state} />
       </div>
-      <small className="muted">
-        {t(step.required ? 'step.required' : 'step.optional')}
-        {step.critical && t('step.critical')}
-      </small>
-      {props.saving && (
-        <div>
-          <small>{t('step.saving')}</small>
-        </div>
-      )}
-      {!props.saving && step.stateChange !== null && (
-        <div>
-          <small>
-            {step.state === 'PENDING'
-              ? t('step.resetBy', { name: step.stateChange.by, time: formatDateTime(step.stateChange.at) })
-              : t('step.changedBy', { state: t(`state.${step.state}`), name: step.stateChange.by, time: formatDateTime(step.stateChange.at) })}
-            {step.stateChange.reason !== null && t('step.reason', { reason: step.stateChange.reason })}
-          </small>
-        </div>
+      {props.saving && <small className="step-meta">{t('step.saving')}</small>}
+      {/* Who and when for resolved Steps; the badge already says what. Undo details live in the history. */}
+      {!props.saving && step.stateChange !== null && step.state !== 'PENDING' && (
+        <small className="step-meta">
+          {t('step.by', { name: step.stateChange.by, time: formatWhen(step.stateChange.at) })}
+          {step.stateChange.reason !== null && t('step.reason', { reason: step.stateChange.reason })}
+        </small>
       )}
       {step.description !== '' && <p style={{ whiteSpace: 'pre-wrap', margin: '0.5rem 0 0' }}>{step.description}</p>}
       {props.canExecute && asking === null && (
@@ -180,8 +174,14 @@ function StepItem(props: {
               {step.critical ? (
                 <HoldToConfirm label={step.title} disabled={busy} onConfirm={() => props.onChange({ to: 'DONE' })} />
               ) : (
-                <button type="button" className="done-action" disabled={busy} onClick={() => props.onChange({ to: 'DONE' })}>
-                  {t('step.done', { title: step.title })}
+                <button
+                  type="button"
+                  className="done-action"
+                  disabled={busy}
+                  aria-label={t('step.doneName', { title: step.title })}
+                  onClick={() => props.onChange({ to: 'DONE' })}
+                >
+                  {t('step.doneShort')}
                 </button>
               )}
               <button type="button" disabled={busy} onClick={() => choose('SKIPPED')}>
@@ -192,8 +192,13 @@ function StepItem(props: {
               </button>
             </>
           ) : (
-            <button type="button" disabled={busy} onClick={() => props.onChange({ to: 'PENDING' })}>
-              {t('step.undo', { title: step.title })}
+            <button
+              type="button"
+              disabled={busy}
+              aria-label={t('step.undo', { title: step.title })}
+              onClick={() => props.onChange({ to: 'PENDING' })}
+            >
+              {t('step.undoShort')}
             </button>
           )}
         </div>
@@ -346,17 +351,19 @@ function RunView(props: {
           <h2 id="run-title" style={{ margin: 0 }}>
             <Icon icon={run.icon} /> {run.title}
           </h2>
-          <RunStateBadge state={run.state} />
+          <span className="row">
+            {run.state === 'ACTIVE' && (
+              <span className={`live-chip live-${props.live}`} title={t(`live.${props.live}`)} role="status">
+                {t(`live.short.${props.live}`)}
+              </span>
+            )}
+            <RunStateBadge state={run.state} />
+          </span>
         </div>
         <Progress resolved={steps.filter((step) => step.state !== 'PENDING').length} total={steps.length} />
         <StateSummary counts={countStates(steps)} />
         <p className="muted" style={{ margin: 0 }}>
-          {t('run.meta', {
-            state: t(`runState.${run.state}`),
-            name: run.startedBy,
-            time: formatDateTime(run.startedAt),
-            revision: run.procedureRevision,
-          })}
+          {t('run.started', { name: run.startedBy, time: formatWhen(run.startedAt) })}
         </p>
         {run.ended !== null && (
           <p role="status">
@@ -372,7 +379,6 @@ function RunView(props: {
           </p>
         )}
         {run.description !== '' && <p style={{ whiteSpace: 'pre-wrap', margin: 0 }}>{run.description}</p>}
-        {run.state === 'ACTIVE' && <p className="live-status" style={{ margin: 0 }}>{t(`live.${props.live}`)}</p>}
         <p role="status" className="live-status" style={{ margin: 0 }}>
           {props.remoteChange !== null && describeChange(run, props.remoteChange)}
         </p>
@@ -424,9 +430,10 @@ function RunView(props: {
       </div>
       {run.state === 'ACTIVE' && <RunDock steps={steps} next={next} />}
       {props.canManageKnots && (
-        <div style={{ marginBottom: '1rem' }}>
+        <details className="more-actions">
+          <summary>{t('procedure.more')}</summary>
           <KnotShare key={run.id} workspaceId={props.workspaceId} target={{ type: 'RUN', id: run.id }} defaultLabel={run.title} />
-        </div>
+        </details>
       )}
     </article>
   );
@@ -450,7 +457,7 @@ function RunList({ title, runs, onOpen }: { title: string; runs: RunSummary[]; o
               <Progress resolved={total - run.stepCounts.PENDING} total={total} />
               <StateSummary counts={run.stepCounts} />
               <small className="muted">
-                {t('runs.startedBy', { state: t(`runState.${run.state}`), name: run.startedBy, time: formatDateTime(run.startedAt) })}
+                {t('run.started', { name: run.startedBy, time: formatWhen(run.startedAt) })}
               </small>
             </li>
           );
@@ -490,6 +497,12 @@ export function Runs(props: {
   const [pending, setPending] = useState<ReadonlyMap<string, PendingStepChange>>(new Map());
   const [remote, setRemote] = useState<{ runId: string; change: AnnouncedChange } | null>(null);
   const remoteChange = remote !== null && remote.runId === openRunId ? remote.change : null;
+  // The notice (and the outline of the changed Step) fades after a while: less to read later on.
+  useEffect(() => {
+    if (remote === null) return;
+    const timer = setTimeout(() => setRemote(null), REMOTE_NOTICE_MS);
+    return () => clearTimeout(timer);
+  }, [remote]);
 
   /** Takes over a fetched canonical Run; an older answer never replaces a newer state. */
   const accept = useCallback(
@@ -622,13 +635,12 @@ export function Runs(props: {
         <>
           <div className="page-header">
             <h2>{t('runs.heading')}</h2>
-            {props.canStart && <span className="muted">{t('runs.startHint')}</span>}
           </div>
           {message !== null && <p role="alert">{message}</p>}
           {runs === null ? (
             <p>{t('common.loading')}</p>
           ) : runs.length === 0 ? (
-            <p className="card">{t('runs.none')}</p>
+            <p className="card">{t(props.canStart ? 'runs.noneHint' : 'runs.none')}</p>
           ) : (
             <>
               {active.length > 0 ? (

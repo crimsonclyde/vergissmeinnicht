@@ -2,7 +2,7 @@
 
 ## Security is the highest priority
 
-For Vergissmeinnicht, **security takes precedence over convenience, speed of implementation, and feature count**.
+For VergissMeinNicht, **security takes precedence over convenience, speed of implementation, and feature count**.
 
 The application manages authenticated users, collaborative procedures, audit trails, security-sensitive household/operational routines, and potentially shareable entry links. A weakness in login or authorization can expose far more than a normal todo list.
 

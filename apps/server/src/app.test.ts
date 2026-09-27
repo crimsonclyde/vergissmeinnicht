@@ -9,7 +9,7 @@ describe('server app', () => {
 
   beforeAll(() => {
     webDistDir = mkdtempSync(join(tmpdir(), 'vmn-web-'));
-    writeFileSync(join(webDistDir, 'index.html'), '<!doctype html><title>Vergissmeinnicht</title>');
+    writeFileSync(join(webDistDir, 'index.html'), '<!doctype html><title>VergissMeinNicht</title>');
   });
   afterAll(() => rmSync(webDistDir, { recursive: true, force: true }));
 
@@ -38,7 +38,7 @@ describe('server app', () => {
     const app = await buildApp({ webDistDir });
     const response = await app.inject({ method: 'GET', url: '/runs/some-client-route' });
     expect(response.statusCode).toBe(200);
-    expect(response.body).toContain('Vergissmeinnicht');
+    expect(response.body).toContain('VergissMeinNicht');
     await app.close();
   });
 

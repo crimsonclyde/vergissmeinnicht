@@ -103,11 +103,11 @@ describe('backup and restore (10.2)', () => {
     other.exec('CREATE TABLE notes (id INTEGER PRIMARY KEY)');
     other.close();
     const target = join(dir, 'bad-backup.sqlite');
-    await expect(backupDatabase(notOurs, target)).rejects.toThrow(/not a Vergissmeinnicht database/);
+    await expect(backupDatabase(notOurs, target)).rejects.toThrow(/not a VergissMeinNicht database/);
     expect(existsSync(target)).toBe(false);
   });
 
-  it('refuses files that are not intact Vergissmeinnicht databases, changing nothing', async () => {
+  it('refuses files that are not intact VergissMeinNicht databases, changing nothing', async () => {
     const garbage = join(dir, 'garbage.sqlite');
     writeFileSync(garbage, 'not a database at all, just text '.repeat(200));
     const foreign = join(dir, 'foreign.sqlite');
@@ -119,7 +119,7 @@ describe('backup and restore (10.2)', () => {
     const before = mainFiles();
     for (const [file, message] of [
       [garbage, /not a readable SQLite database/],
-      [foreign, /not a Vergissmeinnicht database/],
+      [foreign, /not a VergissMeinNicht database/],
       [join(dir, 'missing.sqlite'), /does not exist/],
       [live, /same file/],
     ] as const) {

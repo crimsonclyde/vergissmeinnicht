@@ -44,7 +44,7 @@ function sender(port: number, security: SmtpSecurity = 'none') {
     port,
     security,
     fromAddress: 'noreply@vergissmeinnicht.test',
-    fromName: 'Vergissmeinnicht',
+    fromName: 'VergissMeinNicht',
   });
 }
 

@@ -72,3 +72,13 @@ export function formatDateTime(value: string | Date): string {
 export function formatTime(value: string | Date): string {
   return new Intl.DateTimeFormat(formatLocale(), { timeStyle: 'medium' }).format(toDate(value));
 }
+
+/** Compact "when": time only for today, date and time otherwise (e.g. "17:40" / "Sep 26, 17:40"). */
+export function formatWhen(value: string | Date, now: Date = new Date()): string {
+  const date = toDate(value);
+  const sameDay = date.toDateString() === now.toDateString();
+  return new Intl.DateTimeFormat(
+    formatLocale(),
+    sameDay ? { timeStyle: 'short' } : { dateStyle: 'medium', timeStyle: 'short' },
+  ).format(date);
+}

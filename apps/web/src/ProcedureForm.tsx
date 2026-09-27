@@ -158,46 +158,48 @@ function StepEditor(props: {
           <textarea rows={2} maxLength={4000} value={step.description} onChange={(e) => set({ description: e.target.value })} />
         </label>
       </p>
-      <p>
-        <IconSelect label={t('form.stepIcon', { number })} value={step.icon} allowNone onChange={(icon) => set({ icon })} />{' '}
+      <p className="row">
         <label>
           <input type="checkbox" checked={step.required} onChange={(e) => set({ required: e.target.checked })} /> {t('form.required')}
-        </label>{' '}
+        </label>
         <label>
           <input type="checkbox" checked={step.critical} onChange={(e) => set({ critical: e.target.checked })} /> {t('form.critical')}
         </label>
-      </p>
-      <p>
-        <PolicySelect label={t('form.whenSkipped')} value={step.skipReasonPolicy} onChange={(skipReasonPolicy) => set({ skipReasonPolicy })} />{' '}
-        <PolicySelect
-          label={t('form.whenNotApplicable')}
-          value={step.notApplicableReasonPolicy}
-          onChange={(notApplicableReasonPolicy) => set({ notApplicableReasonPolicy })}
-        />
-      </p>
-      <p>
         <button type="button" disabled={props.isFirst} onClick={() => props.onMove(-1)} aria-label={t('form.stepUp', { number })}>
           ↑
-        </button>{' '}
+        </button>
         <button type="button" disabled={props.isLast} onClick={() => props.onMove(1)} aria-label={t('form.stepDown', { number })}>
           ↓
-        </button>{' '}
-        <label htmlFor={moveId}>{t('form.moveToSection', { number })}</label>{' '}
-        <select
-          id={moveId}
-          value={props.sectionNumber - 1}
-          onChange={(e) => props.onMoveToSection(Number(e.target.value))}
-        >
-          {props.sectionTitles.map((title, i) => (
-            <option key={i} value={i}>
-              {t('form.sectionOption', { number: i + 1, title: title === '' ? t('form.untitled') : title })}
-            </option>
-          ))}
-        </select>{' '}
-        <button type="button" onClick={props.onRemove}>
-          {t('form.removeStep', { number })}
+        </button>
+        <button type="button" className="quiet" onClick={props.onRemove} aria-label={t('form.removeStep', { number })}>
+          {t('form.remove')}
         </button>
       </p>
+      {/* Rarely changed settings stay out of the way. */}
+      <details className="more-actions">
+        <summary>{t('form.moreOptions')}</summary>
+        <p>
+          <IconSelect label={t('form.stepIcon', { number })} value={step.icon} allowNone onChange={(icon) => set({ icon })} />
+        </p>
+        <p>
+          <PolicySelect label={t('form.whenSkipped')} value={step.skipReasonPolicy} onChange={(skipReasonPolicy) => set({ skipReasonPolicy })} />{' '}
+          <PolicySelect
+            label={t('form.whenNotApplicable')}
+            value={step.notApplicableReasonPolicy}
+            onChange={(notApplicableReasonPolicy) => set({ notApplicableReasonPolicy })}
+          />
+        </p>
+        <p>
+          <label htmlFor={moveId}>{t('form.moveToSection', { number })}</label>{' '}
+          <select id={moveId} value={props.sectionNumber - 1} onChange={(e) => props.onMoveToSection(Number(e.target.value))}>
+            {props.sectionTitles.map((title, i) => (
+              <option key={i} value={i}>
+                {t('form.sectionOption', { number: i + 1, title: title === '' ? t('form.untitled') : title })}
+              </option>
+            ))}
+          </select>
+        </p>
+      </details>
     </fieldset>
   );
 }

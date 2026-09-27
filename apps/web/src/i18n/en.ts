@@ -26,14 +26,11 @@ export const en = {
 
   // ---- Runs
   'runs.heading': 'Runs',
-  'runs.startHint': 'Start a Run from a Procedure.',
   'runs.none': 'No Runs yet.',
   'runs.noneActive': 'No active Runs.',
   'runs.active': 'Active Runs',
   'runs.finished': 'Finished Runs',
   'runs.back': '← Back to all Runs',
-  'runs.startedBy': '{state}, started by {name} on {time}',
-  'run.meta': '{state} · started by {name} on {time} (Procedure revision {revision})',
   'run.ended': '{state} by {name} on {time}.',
   'run.endedWithReason': '{state} by {name} on {time} — reason: {reason}.',
   'run.history': 'This Run is history and can no longer change.',
@@ -51,14 +48,8 @@ export const en = {
 
   // ---- Steps
   'step.next': 'Next',
-  'step.required': 'Required',
-  'step.optional': 'Optional',
-  'step.critical': ' · critical',
   'step.saving': 'Saving…',
-  'step.changedBy': '{state} by {name} at {time}',
-  'step.resetBy': 'Reset by {name} at {time}',
   'step.reason': ' — reason: {reason}',
-  'step.done': '✔ Done: {title}',
   'step.skip': 'Skip',
   'step.notApplicable': 'Not applicable',
   'step.undo': 'Undo: {title}',
@@ -67,9 +58,14 @@ export const en = {
   'step.confirmSkip': 'Skip',
   'step.confirmNotApplicable': 'Mark not applicable',
 
+  // ---- Step marks (icons instead of prose)
+  'mark.critical': 'Critical',
+  'mark.criticalHint': 'Critical: press and hold to confirm',
+  'mark.optional': 'optional',
+  'step.by': '{name} · {time}',
+
   // ---- Press-and-hold (critical Steps)
   'hold.name': 'Hold to mark done: {title}',
-  'hold.label': '✔ Hold to mark done: {title}',
   'hold.progress': 'Keep holding… {percent} %',
   'hold.hint': 'Critical step — press and hold for one second.',
   'hold.releasedEarly': 'Keep holding until the button is completely filled.',
@@ -166,10 +162,12 @@ export const en = {
 
   // ---- App shell
   'shell.workspace': 'Workspace',
+  'shell.home': 'VergissMeinNicht (VMN) — start page',
+  'menu.open': 'Menu: profile, settings and sign-out',
+  'menu.profile': 'Profile & settings',
   'shell.choose': 'Choose…',
   'shell.accountNav': 'Account',
   'shell.serverAdmin': 'Server admin',
-  'shell.account': 'Account ({name})',
   'shell.signOut': 'Sign out',
   'shell.sections': 'Workspace sections',
   'shell.runs': 'Runs',
@@ -177,7 +175,7 @@ export const en = {
   'shell.members': 'Members',
   'shell.knots': 'Knot links',
   'shell.notFound': 'This page does not exist.',
-  'footer.license': 'Vergissmeinnicht is free software under the GNU AGPL-3.0.',
+  'footer.license': 'VergissMeinNicht (VMN) · AGPL-3.0 ·',
   'footer.source': 'Source code',
 
   // ---- Appearance
@@ -281,7 +279,7 @@ export const en = {
   'welcome.adminHint': 'As a server admin you can create a Workspace and invite people.',
   'welcome.adminLink': 'Create a Workspace',
   'welcome.askAdmin': 'Ask a Workspace admin to add you.',
-  'account.heading': 'Account',
+  'account.heading': 'Profile & settings',
   'account.identity': '{name} · {email}',
   'admin.onlyServerAdmins': 'Only server admins can open this page.',
 
@@ -379,7 +377,7 @@ export const en = {
   'form.stepDescription': 'Step {number} description',
   'form.stepIcon': 'Step {number} icon',
   'form.required': 'Required',
-  'form.critical': 'Critical (press and hold to confirm)',
+  'form.critical': 'Critical (hold to confirm)',
   'form.whenSkipped': 'When skipped:',
   'form.whenNotApplicable': 'When not applicable:',
   'form.stepUp': 'Move step {number} up',
@@ -392,11 +390,7 @@ export const en = {
   'import.notJson': 'The file is not valid JSON.',
 
   // ---- Procedures
-  'reason.DISABLED': 'no reason',
-  'reason.OPTIONAL': 'reason optional',
-  'reason.REQUIRED': 'reason required',
   'procedures.heading': 'Procedures',
-  'procedures.hint': 'Reusable checklists. Start a Run to work through one.',
   'procedures.none': 'No Procedures yet.',
   'procedures.new': 'New Procedure',
   'procedures.import': 'Import Procedure from JSON file',
@@ -410,9 +404,6 @@ export const en = {
   'procedure.tags': 'Tags: {tags}',
   'procedure.noSections': 'No Sections yet.',
   'procedure.sectionLabel': 'Section: {title}',
-  'procedure.stepFlags': ' — {required}',
-  'procedure.critical': ', Critical',
-  'procedure.policies': 'Skip: {skip} · Not applicable: {notApplicable}',
   'procedure.historyLabel': 'Procedure history',
   'procedure.startRun': '▶ Start Run',
   'procedure.export': 'Export as JSON',
@@ -425,6 +416,28 @@ export const en = {
 
   // ---- Public pages
   'public.tagline': 'Repeatable procedures with trustworthy execution history.',
+
+  // ---- Decluttered Run view
+  'run.started': 'Started by {name} · {time}',
+  'live.short.connecting': '○ Connecting…',
+  'live.short.live': '● Live',
+  'live.short.reconnecting': '○ Reconnecting…',
+  'live.short.off': '○ Offline',
+  'step.doneShort': '✔ Done',
+  'step.undoShort': 'Undo',
+  'step.doneName': 'Done: {title}',
+  'runs.noneHint': 'No Runs yet. Start one from a Procedure.',
+
+  // ---- Press-and-hold (short)
+  'hold.short': '✔ Hold to confirm',
+
+  // ---- Decluttered Procedure view
+  'procedure.more': 'More actions',
+  'procedures.noneHint': 'No Procedures yet. Create the first one.',
+
+  // ---- Decluttered Procedure editor
+  'form.moreOptions': 'More options',
+  'form.remove': 'Remove',
 
   // ---- Errors: stable API error codes → user-facing text
   'error.generic': 'Something went wrong. Please try again.',
@@ -476,8 +489,8 @@ export const en = {
   'error.step_title_too_long': 'Step titles must be at most 200 characters.',
   'error.step_title_invalid_characters': 'A Step title contains characters that are not allowed.',
   'error.invalid_document': 'This file is not a valid Procedure export.',
-  'error.unsupported_format': 'This file is not a Vergissmeinnicht Procedure.',
-  'error.unsupported_schema_version': 'This file was created by a different version of Vergissmeinnicht and cannot be imported.',
+  'error.unsupported_format': 'This file is not a VergissMeinNicht Procedure.',
+  'error.unsupported_schema_version': 'This file was created by a different version of VergissMeinNicht and cannot be imported.',
   'error.invalid_icon': 'The file uses an unknown icon.',
   'error.invalid_reason_policy': 'The file uses an unknown reason setting.',
   'error.invalid_request': 'The request was not valid.',

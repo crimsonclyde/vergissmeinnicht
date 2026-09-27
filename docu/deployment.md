@@ -68,7 +68,7 @@ Inject configuration at runtime. The production server never reads `.env` files 
 | `SMTP_SECURITY` | optional | `starttls` (default, upgrade required), `tls` (implicit), `none` (only for a loopback relay). Certificates are always verified; TLS ≥1.2. |
 | `SMTP_USER` / `SMTP_PASSWORD` | optional | Set both or neither. Treat the password as a credential. |
 | `MAIL_FROM_ADDRESS` | **required** | Sender address, e.g. `noreply@vmn.example.org`. |
-| `MAIL_FROM_NAME` | optional | Default `Vergissmeinnicht`. |
+| `MAIL_FROM_NAME` | optional | Default `VergissMeinNicht`. |
 | `INVITATION_TTL_HOURS` | optional | Default `72`, range 1–720. |
 | `TRUSTED_PROXIES` | behind a proxy | Comma-separated IPs/CIDR ranges (or `loopback`) of reverse proxies whose `X-Forwarded-For` is trusted. Empty (default): the socket address is the client. Never use broad ranges: every trusted address can claim any client address. `/0` is rejected. |
 | `HSTS_MAX_AGE` | optional | Strict-Transport-Security max-age in seconds for https origins (default one year, `0` disables; no `includeSubDomains`/`preload`). |

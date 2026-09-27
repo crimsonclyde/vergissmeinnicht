@@ -126,7 +126,88 @@ h6 {
   font-weight: 700;
   color: var(--text);
   text-decoration: none;
-  margin-right: auto;
+}
+
+.brand-short {
+  display: none;
+}
+
+/* Phones: the short name keeps the header on one line. */
+@media (max-width: 30rem) {
+  .brand-long {
+    display: none;
+  }
+
+  .brand-short {
+    display: inline;
+  }
+}
+
+.workspace-select select {
+  max-width: 14rem;
+}
+
+/* Header menu (☰): profile & settings, server admin, sign out. */
+.user-menu {
+  position: relative;
+  margin-left: auto;
+}
+
+.menu-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  background: transparent;
+}
+
+.avatar {
+  display: inline-grid;
+  place-items: center;
+  width: 1.8rem;
+  height: 1.8rem;
+  border-radius: 999px;
+  background: var(--text);
+  color: var(--bg);
+  font-weight: 700;
+  font-size: 0.9rem;
+}
+
+.menu-panel {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 0.4rem);
+  z-index: 20;
+  min-width: 15rem;
+  max-width: calc(100vw - 2rem);
+  padding: 0.5rem;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: 0 6px 24px rgb(0 0 0 / 18%);
+}
+
+.menu-identity {
+  margin: 0.25rem 0.5rem 0.5rem;
+  overflow-wrap: anywhere;
+}
+
+.menu-panel a,
+.menu-panel button {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  min-height: 2.75rem;
+  padding: 0 0.75rem;
+  border: 0;
+  border-radius: 8px;
+  color: var(--text);
+  text-decoration: none;
+  text-align: left;
+}
+
+.menu-panel a:hover,
+.menu-panel button:hover {
+  background: var(--surface-muted);
 }
 
 .app-main {
@@ -415,9 +496,68 @@ caption {
   outline-offset: 2px;
 }
 
+.live-chip {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  white-space: nowrap;
+  cursor: help;
+}
+
+.live-chip.live-live {
+  color: var(--state-done);
+}
+
+/* The chip is a live region but must not get the boxed status style. */
+.live-chip[role='status'] {
+  padding: 0;
+  border: 0;
+  background: none;
+}
+
+.hold-feedback {
+  display: block;
+  color: var(--text);
+  font-size: 0.85rem;
+}
+
 .live-status {
   font-size: 0.85rem;
   color: var(--text-muted);
+}
+
+.critical-mark {
+  display: inline-grid;
+  place-items: center;
+  width: 1.3rem;
+  height: 1.3rem;
+  margin-left: 0.4rem;
+  border-radius: 999px;
+  background: var(--state-pending);
+  color: var(--accent-text);
+  font-size: 0.85rem;
+  font-weight: 800;
+  vertical-align: 0.1em;
+  cursor: help;
+}
+
+.optional-tag {
+  margin-left: 0.4rem;
+  padding: 0 0.45rem;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  color: var(--text-muted);
+  font-size: 0.8rem;
+  font-weight: 500;
+  vertical-align: 0.1em;
+}
+
+/* Who changed the Step and when: one quiet line. */
+.step-meta {
+  display: block;
+  margin-top: 0.2rem;
+  color: var(--text-muted);
+  font-size: 0.85rem;
 }
 
 .step-title {
@@ -547,4 +687,47 @@ caption {
   border-top: 1px solid var(--border);
   font-size: 0.85rem;
   color: var(--text-muted);
+}
+
+/* Secondary actions stay one click away instead of crowding the page. */
+.more-actions {
+  margin: 0 0 1rem;
+}
+
+.more-actions > summary {
+  list-style: none;
+  cursor: pointer;
+  color: var(--text-muted);
+  min-height: 2.75rem;
+  display: inline-flex;
+  align-items: center;
+}
+
+.more-actions > summary::before {
+  content: '▸';
+  display: inline-block;
+  margin-right: 0.4rem;
+}
+
+.more-actions[open] > summary::before {
+  transform: rotate(90deg);
+}
+
+.more-actions[open] > summary {
+  margin-bottom: 0.5rem;
+}
+
+.more-actions > * + * {
+  margin-top: 0.5rem;
+}
+
+/* Workspace sections stay on one row on phones and scroll sideways inside the header if needed. */
+.section-nav {
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.section-nav a {
+  white-space: nowrap;
 }

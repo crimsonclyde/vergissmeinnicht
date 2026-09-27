@@ -54,7 +54,7 @@ export interface AuthOptions {
  */
 export function createAuth(options: AuthOptions) {
   return betterAuth({
-    appName: 'Vergissmeinnicht',
+    appName: 'VergissMeinNicht',
     baseURL: options.publicOrigin,
     basePath: AUTH_BASE_PATH,
     secret: options.secret,
