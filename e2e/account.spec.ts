@@ -202,6 +202,7 @@ test('first server admin: bootstrap link, account creation, sign-in, Workspace c
   const activeRuns = page.getByRole('list', { name: 'Active Runs' });
   await expect(activeRuns.getByRole('listitem')).toHaveCount(2);
   await expect(activeRuns.getByRole('listitem').first()).toContainText('0 of 2 Steps resolved');
+  await expect(activeRuns.getByRole('listitem').first()).toContainText('○ 2 pending');
 
   // Execute a Run: Done, Skip with a required reason, Undo.
   await activeRuns.getByRole('button').first().click();
@@ -307,6 +308,7 @@ test('first server admin: bootstrap link, account creation, sign-in, Workspace c
 
   // Abort the other Run with a reason.
   await expect(page.getByRole('list', { name: 'Finished Runs' })).toContainText('2 of 2 Steps resolved');
+  await expect(page.getByRole('list', { name: 'Finished Runs' })).toContainText('✔ 2 done');
   await page.getByRole('list', { name: 'Active Runs' }).getByRole('button').click();
   await run.getByRole('button', { name: 'Abort Run…' }).click();
   await run.getByLabel('Why is this Run aborted? (optional)').fill('Plans changed');

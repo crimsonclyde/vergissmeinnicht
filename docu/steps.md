@@ -1118,7 +1118,8 @@ ADHD-friendly design goals:
 - no reliance on memory to understand current state.
 
 ### 8.2 State presentation
-**Status:** TODO
+**Status:** DONE
+**Completed:** 2026-09-27
 
 Color plus semantic icon/text:
 - Pending: danger/red treatment
@@ -1127,6 +1128,19 @@ Color plus semantic icon/text:
 - Not Applicable: distinct state
 
 Do not rely on red/green alone.
+
+**Security impact:** NONE — presentation only.
+
+**Implemented:** (built on 8.0, which introduced badges and Step cards)
+- Every state is glyph + word + colour: badges (○ Pending, ✔ Done, ↷ Skipped, – Not applicable), a coloured left border per Step card, the actor/time/reason line ("Done by Uma at …"), remote changes outlined and announced with actor and time (6.1), a brief Done confirmation (8.3).
+- New per-state summary under the progress bar in Run lists and the Run view ("✔ 2 done · ↷ 1 skipped · ○ 3 pending"), so Skipped and Not applicable are not merged into "resolved".
+- `contrast.test.ts` reads the real token blocks of both themes from `styles.css` and checks WCAG AA: 4.5:1 for all text pairs (text/muted/links on backgrounds, badge text on its tint, button labels, summary text, the press-and-hold label on its fill) and 3:1 for non-text UI (Step borders, progress bar); it also requires four distinct state colours. A deliberately darkened dark-theme colour fails it (checked).
+
+**Tests/checks:** `pnpm test` (contrast: 4 tests); e2e asserts the summaries ("○ 2 pending", "✔ 2 done"); `pnpm lint`, `pnpm typecheck`.
+
+**Security docs updated:** N/A.
+
+**Remaining:** no manual screen-reader pass yet (part of a full accessibility review); Windows High Contrast / forced-colors mode not specifically styled.
 
 ### 8.3 Theme system
 **Status:** DONE

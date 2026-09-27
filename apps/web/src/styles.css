@@ -367,6 +367,23 @@ caption {
   background: var(--state-na-bg);
 }
 
+/* Text colours for the state summary; glyph and word carry the meaning. */
+.state-text-PENDING {
+  color: var(--state-pending);
+}
+
+.state-text-DONE {
+  color: var(--state-done);
+}
+
+.state-text-SKIPPED {
+  color: var(--state-skipped);
+}
+
+.state-text-NOT_APPLICABLE {
+  color: var(--text-muted);
+}
+
 .step {
   background: var(--surface);
   border: 1px solid var(--border);

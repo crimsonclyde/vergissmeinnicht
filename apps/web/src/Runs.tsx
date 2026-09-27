@@ -40,6 +40,29 @@ function RunStateBadge({ state }: { state: RunState }) {
   return <span className={`state-badge state-${RUN_STATE_BADGE[state]}`}>{RUN_STATE_LABELS[state]}</span>;
 }
 
+const SUMMARY_ORDER: readonly StepState[] = ['DONE', 'SKIPPED', 'NOT_APPLICABLE', 'PENDING'];
+
+/** "✔ 2 done · ↷ 1 skipped · ○ 3 pending": resolved states stay distinguishable at a glance (8.2). */
+function StateSummary({ counts }: { counts: Readonly<Record<StepState, number>> }) {
+  const parts = SUMMARY_ORDER.filter((state) => counts[state] > 0);
+  return (
+    <small className="state-summary">
+      {parts.map((state, index) => (
+        <span key={state} className={`state-text-${state}`}>
+          {index > 0 && ' · '}
+          <span aria-hidden="true">{STEP_STATE_LABELS[state].glyph}</span> {counts[state]} {STEP_STATE_LABELS[state].label.toLowerCase()}
+        </span>
+      ))}
+    </small>
+  );
+}
+
+function countStates(steps: readonly RunStep[]): Record<StepState, number> {
+  const counts: Record<StepState, number> = { PENDING: 0, DONE: 0, SKIPPED: 0, NOT_APPLICABLE: 0 };
+  for (const step of steps) counts[step.state] += 1;
+  return counts;
+}
+
 function Progress({ resolved, total }: { resolved: number; total: number }) {
   return (
     <div className="stack">
@@ -293,6 +316,7 @@ function RunView(props: {
           <RunStateBadge state={run.state} />
         </div>
         <Progress resolved={steps.filter((step) => step.state !== 'PENDING').length} total={steps.length} />
+        <StateSummary counts={countStates(steps)} />
         <p className="muted" style={{ margin: 0 }}>
           {RUN_STATE_LABELS[run.state]} · started by {run.startedBy} on {new Date(run.startedAt).toLocaleString()} (Procedure revision{' '}
           {run.procedureRevision})
@@ -368,6 +392,7 @@ function RunList({ title, runs, onOpen }: { title: string; runs: RunSummary[]; o
                 <RunStateBadge state={run.state} />
               </div>
               <Progress resolved={total - run.stepCounts.PENDING} total={total} />
+              <StateSummary counts={run.stepCounts} />
               <small className="muted">
                 {RUN_STATE_LABELS[run.state]}, started by {run.startedBy} on {new Date(run.startedAt).toLocaleString()}
               </small>
