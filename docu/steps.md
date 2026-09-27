@@ -18,10 +18,10 @@ For every completed task, add a concise completion note, tests/checks performed,
 
 ## Current state — resume here
 
-_Last updated: 2026-09-27 (after 5.6 — section 5 complete)_
+_Last updated: 2026-09-27 (after 7.1 — sections 6 and 7 complete)_
 
-**Done:** 0.1, 0.2, 0.3, 1.1, 1.2, 2.1–2.5, 3.1–3.3, 4.1–4.5, 5.1–5.6, 9.1 (pulled forward for invitations). 2.6 (external providers) is DEFERRED.
-**Next:** section 6 — 6.1 SSE active Run updates (the Run `revision` bumps on every change and clients already refetch canonical state after conflicts), 6.2 optimistic UI. Open decision from 5.4 for the user: SKIPPED does not satisfy a required Step at completion.
+**Done:** 0.1, 0.2, 0.3, 1.1, 1.2, 2.1–2.5, 3.1–3.3, 4.1–4.5, 5.1–5.6, 6.1, 6.2, 7.1, 8.0 (pulled forward), 9.1 (pulled forward for invitations). 2.6 (external providers) is DEFERRED.
+**Next:** section 8 — 8.1 responsive authoring/execution, 8.2 state presentation, 8.3 theme toggle, 8.4 i18n readiness. Open decisions for the user: SKIPPED does not satisfy a required Step at completion (5.4); the Knot design choices in 7.1 (targets, `knot.manage` for EDITOR/ADMIN, link shown once).
 
 **UI (2026-09-27):** the app shell from the user's feedback is done as 8.0 (navigation, separate pages, stylesheet, admin UI, clearer press-and-hold). Themes toggle (8.3), i18n (8.4) and a full accessibility review remain.
 
@@ -29,7 +29,7 @@ _Last updated: 2026-09-27 (after 5.6 — section 5 complete)_
 
 Also open: trusted-proxy configuration (10.3) before production use behind a reverse proxy; admin web UI (invitations, recoveries — API only so far); account status changes (disable/enable users) with session revocation; housekeeping of expired challenge/recovery/invitation rows.
 
-**Branches:** work is stacked, not yet merged into `main`: `step-1.1-app-skeleton` → `step-1.2-config` → `step-2.1-user-model` → `step-2.2-invitations` → `step-2.4-totp` → `step-2.5-recovery` → `step-3.1-workspaces` → `step-3.2-roles` → `step-4.1-procedures` → `step-4.2-steps` → `step-4.3-drag-drop` → `step-4.4-import-export` → `step-4.5-restore` → `step-5.1-run-snapshot` → `cleanup-web-domain-constants` → `step-5.2-step-states` → `step-5.3-press-and-hold` → `step-5.4-run-lifecycle` → `step-5.5-audit-trail` → `step-5.6-immutability` → `step-8.0-app-shell` (each branch contains the previous ones; 2.3 was completed on `step-2.2-invitations` because acceptance finishes 2.2). CI runs on pull requests / `main` only.
+**Branches:** work is stacked, not yet merged into `main`: `step-1.1-app-skeleton` → `step-1.2-config` → `step-2.1-user-model` → `step-2.2-invitations` → `step-2.4-totp` → `step-2.5-recovery` → `step-3.1-workspaces` → `step-3.2-roles` → `step-4.1-procedures` → `step-4.2-steps` → `step-4.3-drag-drop` → `step-4.4-import-export` → `step-4.5-restore` → `step-5.1-run-snapshot` → `cleanup-web-domain-constants` → `step-5.2-step-states` → `step-5.3-press-and-hold` → `step-5.4-run-lifecycle` → `step-5.5-audit-trail` → `step-5.6-immutability` → `step-8.0-app-shell` → `step-6-collaboration` (6.1, 6.2) → `step-7.1-knots` (each branch contains the previous ones; 2.3 was completed on `step-2.2-invitations` because acceptance finishes 2.2). CI runs on pull requests / `main` only.
 
 **Manual testing:** `test-env/menu.sh` (added 2026-09-27) installs/starts/stops/removes an isolated production-mode instance on port 3200 with demo accounts for every role (see `test-env/README.md`). Extend `test-env/seed.ts` when new features need demo data (e.g. Procedures in 4.1).
 
@@ -607,6 +607,7 @@ Exact capabilities must be represented centrally rather than scattered string co
 | `run.view` (incl. history/audit) | ✓ | ✓ | ✓ | ✓ |
 | `run.start`, `run.execute`, `run.abort` | | ✓ | ✓ | ✓ |
 | `procedure.edit`, `procedure.restore` | | | ✓ | ✓ |
+| `knot.manage` (added in 7.1) | | | ✓ | ✓ |
 | `workspace.members.manage`, `workspace.settings.manage` | | | | ✓ |
 
 **Implemented:**
@@ -1042,14 +1043,43 @@ Instant visual feedback with safe rollback and clear error state on rejected wri
 ## 7 — Knots / shared entry links
 
 ### 7.1 Authenticated Knot links
-**Status:** TODO
+**Status:** DONE
+**Completed:** 2026-09-27
 
 Use:
 `/knot/{opaque-token}`
 
 Token is high entropy, revocable, optionally expiring, redacted from logs, and does not replace authentication.
 
-**Security impact:** CRITICAL.
+**Security impact:** CRITICAL — new credential-like token type and a new Workspace capability.
+
+**Decisions (2026-09-27, review welcome):**
+- A Knot points at exactly one **Procedure** or **Run** of its Workspace (explicit target, stored with a type-checked FK). Other targets (Sections, Steps, Workspaces) are not part of V1.
+- New capability `knot.manage` (EDITOR, ADMIN): create, list and revoke the Workspace's Knots. Opening a Knot needs no extra capability — only what reading the target needs (`procedure.view` / `run.view`, i.e. every member role).
+- The link is shown **once** at creation (only the SHA-256 is stored); to share again, create a new Knot. Lifetime 1–365 days or no expiry (default in the UI: 30 days). Revocation is final and audited; records are kept.
+- Every opening failure — malformed/unknown token, expired, revoked, deleted Procedure, not signed in as a member with access — is the same `404 knot_not_found` (401 only when there is no session at all).
+
+**Implemented:**
+- Domain (`packages/domain/src/knot.ts`): `Knot`, `KnotTarget`, `knotStatus` (ACTIVE / EXPIRED / REVOKED; expiry inclusive), `normalizeKnotLabel` (1–80 code points, no control/bidi characters), `knotExpiresAt`, `parseKnotId`; audit types `KNOT_CREATED`, `KNOT_REVOKED` (subject `knot`).
+- Permissions: `knot.manage` for EDITOR and ADMIN (matrix test updated).
+- Database: migration `0014` — `knots` (Workspace FK, unique 64-hex `token_hash`, label, `target_type` + `procedure_id`/`run_id` with a CHECK that exactly the matching one is set, creator id + display-name snapshot, `created_at`, optional `expires_at` after creation, revocation columns all-or-nothing). Triggers: `knots_no_delete`; `knots_only_revocation` (only the revocation columns may change, once). `createKnotRepository`: create/revoke in `IMMEDIATE` transactions with the actor re-check and the audit event; target must exist in the same Workspace (non-deleted Procedure or any Run); ≤500 unrevoked, unexpired Knots per Workspace.
+- Application (`packages/application/src/knots`): `createKnot` (returns the token once; 256-bit token via the existing token service), `listKnots`, `revokeKnot`, `resolveKnot` (hash → Knot → status → `authorizeWorkspace` with the target's view capability → target still available; all failures `KnotNotFoundError`).
+- HTTP: `POST /api/knots/resolve { token }` (session required, Origin guard, 30/min per client, 1 KiB body); `GET|POST /api/workspaces/{id}/knots`, `POST …/knots/{knotId}/revoke` (`knot.manage`; create 30 / 15 min per client). The create response contains `url` = `PUBLIC_ORIGIN/knot/{token}`; list responses never contain tokens or hashes. Request-log redaction extended to `/api/knots/…`.
+- Web: `/knot/{token}` — when signed out, the sign-in page says "Sign in to open this Knot link."; after sign-in the app resolves the token (in the JSON body) and replaces the history entry with the target page, so the token leaves the address bar. "Share as Knot link…" on Procedure and Run views (editors/admins: name, lifetime, link shown once with Copy), "Knot links" page (`/w/{id}/knots`, nav item for `knot.manage`) with target, status, creator, expiry and Revoke. New route `/w/{id}/procedures/{procedureId}` opens a Procedure directly (Knot target).
+
+**Tests/checks:**
+- `pnpm test` — 507 tests (+17): domain (4: labels, lifetimes, status, ids), policy matrix (`knot.manage` EDITOR/ADMIN), use-cases (8: create for Procedure/Run with only the hash stored and no token in audit metadata; USER/GUEST/non-member refused; cross-Workspace targets and Procedure/Run id confusion refused; label/lifetime/target validation with nothing written; resolve only for members with access — other Workspace, unknown, malformed, Knot id as token, removed member, disabled account fail identically; expiry, revocation (once), Procedure deletion and restore; in-transaction re-check after demotion; active limit; DB triggers and CHECKs), HTTP (4: link format and token absent from lists; resolve matrix incl. 401 without session and with only an MFA challenge cookie, missing Origin, identical 404 bodies without Workspace ids, token-in-URL 404, revoke; `knot.manage`/Origin/Workspace scope for management; strict bodies), router (Knot and Procedure routes), log redaction.
+- Mutation checks: removing the authorization in `resolveKnot`, the expiry/revocation check, the target-availability check, or the `knot.manage` check in `createKnot` each fails tests.
+- `pnpm test:e2e`: create a Knot for a Procedure (link shown once), open it in a signed-out browser (`Referrer-Policy: no-referrer`, sign-in hint, lands on the Procedure with the token gone from the URL), revoke it on the Knot links page, opening again fails.
+- Migration 0014 applied twice to online backups of the development and test-environment databases (FK check clean, triggers present, existing Run preserved). `pnpm lint`, `pnpm typecheck`.
+
+**Security docs updated:** YES (§2, §3, §4, §9, "Security check: Knot links (Step 7.1)").
+
+**Remaining:**
+- Anonymous (unauthenticated) Knot access is not supported and requires a new security review (§12).
+- Knot openings are not recorded (reads are not audited); no "last used" information.
+- Inside the Procedures page, opening another Procedure does not update the URL yet (only direct links and Knots use `/procedures/{id}`).
+- QR codes / NFC for Knots are out of scope (AGENTS.md).
 
 ---
 

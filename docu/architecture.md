@@ -182,7 +182,7 @@ HTTP route (apps/server/src/http/workspace-routes.ts)
             >= 1 ACTIVE ADMIN remains, else rollback
 ```
 
-`packages/permissions` holds the only role → capability table (Workspace: `workspace.view`, `workspace.members.view`, `workspace.members.manage`, `workspace.settings.manage`; Procedures: `procedure.view`, `procedure.edit`, `procedure.restore`; Runs: `run.view`, `run.start`, `run.execute`, `run.abort` — matrix in steps.md 3.2) and `canCreateWorkspace` (ACTIVE server admins only; a later admin-board option changes this one function). Use-cases ask for capabilities, never compare role strings.
+`packages/permissions` holds the only role → capability table (Workspace: `workspace.view`, `workspace.members.view`, `workspace.members.manage`, `workspace.settings.manage`; Procedures: `procedure.view`, `procedure.edit`, `procedure.restore`; Runs: `run.view`, `run.start`, `run.execute`, `run.abort`; Knots: `knot.manage` — matrix in steps.md 3.2) and `canCreateWorkspace` (ACTIVE server admins only; a later admin-board option changes this one function). Use-cases ask for capabilities, never compare role strings.
 
 Workspace API (all session-authenticated, JSON, `Origin`-guarded for POST):
 
@@ -235,6 +235,18 @@ The canonical JSON format lives in `packages/import-export` (`schemaVersion` 1):
 Workspace content changes are recorded in `audit_events` (append-only, same transaction; Run/Step events join in 5.5). Account and access changes stay in `security_events`.
 
 Workspaces are not deleted by the application; `memberships` and future Procedure/Run tables reference them without cascading deletes.
+
+### Knots (Step 7.1)
+
+```text
+/knot/{token}                                          SPA page; resolves after sign-in, then replaces the history entry
+POST /api/knots/resolve { token }                      session; → { workspaceId, target: { type, id } } or 404 knot_not_found
+GET  /api/workspaces/{id}/knots                        knot.manage, newest first (no tokens)
+POST /api/workspaces/{id}/knots { target, label, expiresInDays|null }   knot.manage → { knot, url } (token shown once)
+POST /api/workspaces/{id}/knots/{knotId}/revoke        knot.manage, final
+```
+
+A Knot is a pointer, not a credential: it names one Procedure or Run of its Workspace, and opening it requires a signed-in member who may view that target. Only the SHA-256 of the token is stored in `knots`; records are never deleted and only a one-time revocation can change them (triggers). Create/revoke are `audit_events` (`KNOT_CREATED`, `KNOT_REVOKED`, subject `knot`).
 
 ## Realtime
 

@@ -5,6 +5,7 @@
 import { sql } from 'drizzle-orm';
 import { check, foreignKey, index, integer, primaryKey, sqliteTable, text, uniqueIndex } from 'drizzle-orm/sqlite-core';
 import {
+  KNOT_TARGET_TYPES,
   PROCEDURE_ICONS,
   REASON_POLICIES,
   RUN_STATES,
@@ -571,6 +572,52 @@ export const auditEvents = sqliteTable(
     index('audit_events_run_idx').on(table.runId),
     index('audit_events_subject_idx').on(table.workspaceId, table.subjectType, table.subjectId),
     index('audit_events_occurred_at_idx').on(table.workspaceId, table.occurredAt),
+  ],
+);
+
+/**
+ * Knot links (Step 7.1): an opaque token pointing at one Procedure or Run of the Workspace. Only the
+ * token's SHA-256 is stored. Rows are never deleted; after creation only the revocation columns can
+ * be set, exactly once (triggers in migration 0014).
+ */
+export const knots = sqliteTable(
+  'knots',
+  {
+    id: text('id').primaryKey(),
+    workspaceId: text('workspace_id')
+      .notNull()
+      .references(() => workspaces.id),
+    tokenHash: text('token_hash').notNull().unique(),
+    label: text('label').notNull(),
+    targetType: text('target_type', { enum: KNOT_TARGET_TYPES }).notNull(),
+    procedureId: text('procedure_id').references(() => procedures.id),
+    runId: text('run_id').references(() => runs.id),
+    createdByUserId: text('created_by_user_id')
+      .notNull()
+      .references(() => users.id),
+    createdByDisplayName: text('created_by_display_name').notNull(),
+    createdAt: integer('created_at', { mode: 'timestamp_ms' }).notNull(),
+    /** NULL = does not expire. */
+    expiresAt: integer('expires_at', { mode: 'timestamp_ms' }),
+    revokedAt: integer('revoked_at', { mode: 'timestamp_ms' }),
+    revokedByUserId: text('revoked_by_user_id').references(() => users.id),
+    revokedByDisplayName: text('revoked_by_display_name'),
+  },
+  (table) => [
+    index('knots_workspace_idx').on(table.workspaceId, table.createdAt),
+    check('knots_id_uuid', sql`length(${table.id}) = 36`),
+    check('knots_token_hash_format', sql`length(${table.tokenHash}) = 64`),
+    check('knots_label_present', sql`length(trim(${table.label})) > 0 and length(${table.label}) <= 80`),
+    check('knots_target_type_valid', oneOf('target_type', KNOT_TARGET_TYPES)),
+    check(
+      'knots_target_consistent',
+      sql`(${table.targetType} = 'PROCEDURE' and ${table.procedureId} is not null and ${table.runId} is null) or (${table.targetType} = 'RUN' and ${table.runId} is not null and ${table.procedureId} is null)`,
+    ),
+    check('knots_expiry_after_creation', sql`${table.expiresAt} is null or ${table.expiresAt} > ${table.createdAt}`),
+    check(
+      'knots_revocation_consistent',
+      sql`(${table.revokedAt} is null) = (${table.revokedByUserId} is null) and (${table.revokedAt} is null) = (${table.revokedByDisplayName} is null)`,
+    ),
   ],
 );
 

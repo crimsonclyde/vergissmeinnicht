@@ -25,6 +25,7 @@ describe('Workspace role policy', () => {
         'run.start',
         'run.execute',
         'run.abort',
+        'knot.manage',
       ],
       ADMIN: [...WORKSPACE_CAPABILITIES],
     });
@@ -37,6 +38,7 @@ describe('Workspace role policy', () => {
   it('lets only EDITOR and ADMIN author Procedures, and USER and above execute Runs', () => {
     expect(rolesWithCapability('procedure.edit')).toEqual(['EDITOR', 'ADMIN']);
     expect(rolesWithCapability('procedure.restore')).toEqual(['EDITOR', 'ADMIN']);
+    expect(rolesWithCapability('knot.manage')).toEqual(['EDITOR', 'ADMIN']);
     for (const capability of ['run.start', 'run.execute', 'run.abort'] as const) {
       expect(rolesWithCapability(capability)).toEqual(['USER', 'EDITOR', 'ADMIN']);
     }

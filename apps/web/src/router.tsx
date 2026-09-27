@@ -45,11 +45,13 @@ export type Route =
   | { readonly page: 'home' }
   | { readonly page: 'invite'; readonly token: string }
   | { readonly page: 'recover'; readonly token: string }
+  | { readonly page: 'knot'; readonly token: string }
   | { readonly page: 'account' }
   | { readonly page: 'admin' }
   | { readonly page: 'runs'; readonly workspaceId: string; readonly runId: string | null }
-  | { readonly page: 'procedures'; readonly workspaceId: string }
+  | { readonly page: 'procedures'; readonly workspaceId: string; readonly procedureId: string | null }
   | { readonly page: 'members'; readonly workspaceId: string }
+  | { readonly page: 'knots'; readonly workspaceId: string }
   | { readonly page: 'not-found' };
 
 const TOKEN = '([A-Za-z0-9_-]+)';
@@ -62,14 +64,19 @@ export function parseRoute(pathname: string): Route {
   if (path === '/') return { page: 'home' };
   if ((match = new RegExp(`^/invite/${TOKEN}$`).exec(path))) return { page: 'invite', token: match[1] ?? '' };
   if ((match = new RegExp(`^/recover/${TOKEN}$`).exec(path))) return { page: 'recover', token: match[1] ?? '' };
+  if ((match = new RegExp(`^/knot/${TOKEN}$`).exec(path))) return { page: 'knot', token: match[1] ?? '' };
   if (path === '/account') return { page: 'account' };
   if (path === '/admin') return { page: 'admin' };
   if ((match = new RegExp(`^/w/${ID}(?:/runs)?$`).exec(path))) return { page: 'runs', workspaceId: match[1] ?? '', runId: null };
   if ((match = new RegExp(`^/w/${ID}/runs/${ID}$`).exec(path))) {
     return { page: 'runs', workspaceId: match[1] ?? '', runId: match[2] ?? null };
   }
-  if ((match = new RegExp(`^/w/${ID}/procedures$`).exec(path))) return { page: 'procedures', workspaceId: match[1] ?? '' };
+  if ((match = new RegExp(`^/w/${ID}/procedures$`).exec(path))) return { page: 'procedures', workspaceId: match[1] ?? '', procedureId: null };
+  if ((match = new RegExp(`^/w/${ID}/procedures/${ID}$`).exec(path))) {
+    return { page: 'procedures', workspaceId: match[1] ?? '', procedureId: match[2] ?? null };
+  }
   if ((match = new RegExp(`^/w/${ID}/members$`).exec(path))) return { page: 'members', workspaceId: match[1] ?? '' };
+  if ((match = new RegExp(`^/w/${ID}/knots$`).exec(path))) return { page: 'knots', workspaceId: match[1] ?? '' };
   return { page: 'not-found' };
 }
 
@@ -77,5 +84,7 @@ export const paths = {
   runs: (workspaceId: string) => `/w/${workspaceId}/runs`,
   run: (workspaceId: string, runId: string) => `/w/${workspaceId}/runs/${runId}`,
   procedures: (workspaceId: string) => `/w/${workspaceId}/procedures`,
+  procedure: (workspaceId: string, procedureId: string) => `/w/${workspaceId}/procedures/${procedureId}`,
+  knots: (workspaceId: string) => `/w/${workspaceId}/knots`,
   members: (workspaceId: string) => `/w/${workspaceId}/members`,
 };

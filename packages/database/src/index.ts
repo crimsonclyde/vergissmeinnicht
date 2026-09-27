@@ -10,3 +10,4 @@ export { createWorkspaceRepository } from './workspace-repository.ts';
 export { createProcedureRepository } from './procedure-repository.ts';
 export { createRunRepository } from './run-repository.ts';
 export { createAuditHistory } from './audit-events.ts';
+export { createKnotRepository } from './knot-repository.ts';

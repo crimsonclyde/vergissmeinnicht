@@ -1,4 +1,9 @@
 import {
+  KnotAlreadyRevokedError,
+  KnotLimitReachedError,
+  KnotNotFoundError,
+  KnotRecordNotFoundError,
+  KnotTargetNotFoundError,
   AccountAlreadyExistsError,
   AlreadyMemberError,
   LastWorkspaceAdminError,
@@ -86,6 +91,12 @@ export function errorHandler(error: FastifyError | Error, request: FastifyReques
   if (error instanceof RunLimitReachedError) return reply.code(409).send({ error: 'run_limit_reached' });
   if (error instanceof ProcedureLimitReachedError) return reply.code(409).send({ error: 'procedure_limit_reached' });
   if (error instanceof LastWorkspaceAdminError) return reply.code(409).send({ error: 'last_workspace_admin' });
+  // Resolution failures of every kind share one answer (no hint about the target).
+  if (error instanceof KnotNotFoundError) return reply.code(404).send({ error: 'knot_not_found' });
+  if (error instanceof KnotRecordNotFoundError) return reply.code(404).send({ error: 'knot_not_found' });
+  if (error instanceof KnotAlreadyRevokedError) return reply.code(409).send({ error: 'knot_already_revoked' });
+  if (error instanceof KnotTargetNotFoundError) return reply.code(404).send({ error: 'knot_target_not_found' });
+  if (error instanceof KnotLimitReachedError) return reply.code(409).send({ error: 'knot_limit_reached' });
 
   const statusCode = 'statusCode' in error && typeof error.statusCode === 'number' ? error.statusCode : 500;
   if (statusCode === 429) return reply.code(429).send({ error: 'rate_limited' });

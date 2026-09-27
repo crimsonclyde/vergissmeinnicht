@@ -312,6 +312,42 @@ test('first server admin: bootstrap link, account creation, sign-in, Workspace c
   await expect(page.getByRole('list', { name: 'Finished Runs' }).getByRole('listitem')).toHaveCount(2);
   await expect(page.getByText('No active Runs.')).toBeVisible();
 
+  // Knot links (7.1): an entry link to a Procedure, shown once, that still requires signing in.
+  await page.getByRole('link', { name: 'Procedures' }).click();
+  await page.getByRole('list', { name: 'Procedures' }).getByRole('button').first().click();
+  await procedure.getByRole('button', { name: 'Share as Knot link…' }).click();
+  const share = page.getByRole('region', { name: 'Knot link for this Procedure' });
+  await share.getByLabel('Name of the link').fill('Hallway card');
+  await share.getByLabel('Valid for').selectOption('7');
+  await share.getByRole('button', { name: 'Create Knot link' }).click();
+  const knotLink = await share.getByLabel(/Knot link \(shown only now/).inputValue();
+  expect(knotLink).toMatch(/^http:\/\/127\.0\.0\.1:\d+\/knot\/[A-Za-z0-9_-]{43}$/);
+  await share.getByRole('button', { name: 'Done' }).click();
+
+  const visitor = await browser.newContext(testInfo.project.use.baseURL === undefined ? {} : { baseURL: testInfo.project.use.baseURL });
+  const visitorPage = await visitor.newPage();
+  const knotResponse = await visitorPage.goto(knotLink);
+  expect(knotResponse?.headers()['referrer-policy']).toBe('no-referrer');
+  await expect(visitorPage.getByRole('status')).toHaveText('Sign in to open this Knot link.');
+  await visitorPage.getByLabel('Email').fill('admin@example.org');
+  await visitorPage.getByLabel('Password').fill(PASSWORD);
+  await visitorPage.getByRole('button', { name: 'Sign in' }).click();
+  await expect(visitorPage).toHaveURL(/\/w\/[0-9a-f-]{36}\/procedures\/[0-9a-f-]{36}$/);
+  await expect(visitorPage.getByRole('heading', { name: 'Travel Leave the flat', level: 2 })).toBeVisible();
+
+  await page.getByRole('link', { name: 'Knot links' }).click();
+  const knotTable = page.getByRole('table', { name: 'Knot links' });
+  await expect(knotTable.getByRole('row')).toHaveCount(2);
+  await expect(knotTable).toContainText('Hallway card');
+  await expect(knotTable).toContainText('Procedure: Leave the flat');
+  page.once('dialog', (dialog) => void dialog.accept());
+  await knotTable.getByRole('button', { name: 'Revoke Hallway card' }).click();
+  await expect(knotTable).toContainText('Revoked by Ada Admin');
+  await visitorPage.goto(knotLink);
+  await expect(visitorPage.getByRole('heading', { name: 'Knot link cannot be opened' })).toBeVisible();
+  await expect(visitorPage.getByRole('alert')).toContainText('not valid');
+  await visitor.close();
+
   // Account settings live on their own page.
   await page.getByRole('link', { name: /^Account/ }).click();
 

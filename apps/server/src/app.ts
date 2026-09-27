@@ -8,6 +8,7 @@ import { accountRoutes } from './http/account-routes.ts';
 import { authRoutes } from './http/auth-routes.ts';
 import { errorHandler } from './http/errors.ts';
 import { adminInvitationRoutes, invitationRoutes } from './http/invitation-routes.ts';
+import { knotRoutes, workspaceKnotRoutes } from './http/knot-routes.ts';
 import { originGuard } from './http/origin-guard.ts';
 import { procedureRoutes } from './http/procedure-routes.ts';
 import { adminRecoveryRoutes, recoveryRoutes } from './http/recovery-routes.ts';
@@ -79,6 +80,8 @@ export async function buildApp(options: AppOptions = {}) {
         await api.register(workspaceRoutes, { prefix: '/workspaces', services });
         await api.register(procedureRoutes, { prefix: '/workspaces/:workspaceId/procedures', services });
         await api.register(runRoutes, { prefix: '/workspaces/:workspaceId/runs', services });
+        await api.register(workspaceKnotRoutes, { prefix: '/workspaces/:workspaceId/knots', services });
+        await api.register(knotRoutes, { prefix: '/knots', services });
       }
     },
     { prefix: '/api' },

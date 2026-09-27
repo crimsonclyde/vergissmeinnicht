@@ -7,6 +7,8 @@ describe('redactUrl', () => {
   it.each([
     ['/knot/abcDEF123', '/knot/[REDACTED]'],
     ['/knot/abcDEF123/details', '/knot/[REDACTED]/details'],
+    // Knot tokens never belong in API URLs; a misbehaving client's attempt is still redacted.
+    ['/api/knots/abcDEF123', '/api/knots/[REDACTED]'],
     ['/api/knot/abcDEF123', '/api/knot/[REDACTED]'],
     ['/invite/abcDEF123', '/invite/[REDACTED]'],
     ['/recover/abcDEF123', '/recover/[REDACTED]'],

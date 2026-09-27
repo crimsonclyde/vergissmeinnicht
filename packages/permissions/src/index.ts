@@ -33,6 +33,8 @@ export const WORKSPACE_CAPABILITIES = [
   'run.execute',
   /** Abort an active Run. */
   'run.abort',
+  /** Create, list and revoke Knot links to Procedures and Runs of the Workspace. */
+  'knot.manage',
 ] as const;
 export type WorkspaceCapability = (typeof WORKSPACE_CAPABILITIES)[number];
 
@@ -41,7 +43,7 @@ const GUEST: readonly WorkspaceCapability[] = ['workspace.view', 'procedure.view
 /** Executes Runs. */
 const USER: readonly WorkspaceCapability[] = [...GUEST, 'workspace.members.view', 'run.start', 'run.execute', 'run.abort'];
 /** Authors Procedures. */
-const EDITOR: readonly WorkspaceCapability[] = [...USER, 'procedure.edit', 'procedure.restore'];
+const EDITOR: readonly WorkspaceCapability[] = [...USER, 'procedure.edit', 'procedure.restore', 'knot.manage'];
 /** Manages membership, roles and settings. */
 const ADMIN: readonly WorkspaceCapability[] = [...EDITOR, 'workspace.members.manage', 'workspace.settings.manage'];
 

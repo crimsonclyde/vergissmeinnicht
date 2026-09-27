@@ -288,6 +288,20 @@ td {
   vertical-align: middle;
 }
 
+/* Wide tables scroll inside their card instead of widening the page on phones. */
+.table-wrap {
+  overflow-x: auto;
+}
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
 caption {
   text-align: left;
   font-weight: 600;

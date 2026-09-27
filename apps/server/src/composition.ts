@@ -2,6 +2,7 @@ import {
   systemClock,
   type HistoryDeps,
   type InvitationDeps,
+  type KnotDeps,
   type ProcedureDeps,
   type RunDeps,
   type MfaDeps,
@@ -24,6 +25,7 @@ import {
   createAuditHistory,
   createCredentialRepository,
   createInvitationRepository,
+  createKnotRepository,
   createMfaChallengeRepository,
   createProcedureRepository,
   createRunRepository,
@@ -55,6 +57,7 @@ export interface AppServices {
   readonly workspaces: WorkspaceDeps;
   readonly procedures: ProcedureDeps;
   readonly runs: RunDeps;
+  readonly knots: KnotDeps;
   readonly history: HistoryDeps;
   /** In-process fan-out of committed Run changes to SSE subscribers. */
   readonly runChanges: RunChangeHub;
@@ -141,6 +144,7 @@ export function createServices(config: AppConfig, database: AppDatabase) {
       procedures: { workspaces: workspaceDeps.workspaces, procedures: createProcedureRepository(database), clock: systemClock },
       runs: { workspaces: workspaceDeps.workspaces, runs: createRunRepository(database), clock: systemClock, changes: runChanges },
       runChanges,
+      knots: { workspaces: workspaceDeps.workspaces, knots: createKnotRepository(database), tokens: invitationTokens, clock: systemClock },
       history: { workspaces: workspaceDeps.workspaces, history: createAuditHistory(database) },
       securityEvents,
       secureCookies: config.mode === 'production',

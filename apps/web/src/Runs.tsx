@@ -13,6 +13,7 @@ import {
 } from './api.ts';
 import { History } from './History.tsx';
 import { HoldToConfirm } from './HoldToConfirm.tsx';
+import { KnotShare } from './Knots.tsx';
 import { Icon } from './procedure-icons.tsx';
 import { applyStepResult, isNewer, withPendingChanges, type PendingStepChange } from './run-updates.ts';
 import { useRunLiveUpdates, type AnnouncedChange, type LiveStatus } from './useRunLiveUpdates.ts';
@@ -268,6 +269,8 @@ function RunView(props: {
   run: RunDetail;
   canExecute: boolean;
   canAbort: boolean;
+  canManageKnots: boolean;
+  workspaceId: string;
   busy: boolean;
   saving: ReadonlySet<string>;
   live: LiveStatus;
@@ -340,6 +343,11 @@ function RunView(props: {
       <div className="card">
         <History key={`${run.id}-${run.state}`} label="Run history" load={props.loadHistory} />
       </div>
+      {props.canManageKnots && (
+        <div style={{ marginBottom: '1rem' }}>
+          <KnotShare key={run.id} workspaceId={props.workspaceId} target={{ type: 'RUN', id: run.id }} defaultLabel={run.title} />
+        </div>
+      )}
     </article>
   );
 }
@@ -377,6 +385,7 @@ export function Runs(props: {
   canExecute: boolean;
   canAbort: boolean;
   canStart: boolean;
+  canManageKnots: boolean;
   openRunId: string | null;
   onOpen: (runId: string | null) => void;
 }) {
@@ -515,6 +524,8 @@ export function Runs(props: {
               run={shown}
               canExecute={props.canExecute}
               canAbort={props.canAbort}
+              canManageKnots={props.canManageKnots}
+              workspaceId={workspaceId}
               busy={busy}
               saving={new Set(pending.keys())}
               live={live}

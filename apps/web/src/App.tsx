@@ -50,6 +50,8 @@ export function App() {
   if (user === null) {
     return (
       <PublicLayout>
+        {/* The Knot token stays in the address bar; after sign-in the app resolves it. */}
+        {route.page === 'knot' && <p role="status">Sign in to open this Knot link.</p>}
         <SignIn onSignedIn={setUser} />
       </PublicLayout>
     );

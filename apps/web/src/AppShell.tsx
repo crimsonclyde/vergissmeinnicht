@@ -3,6 +3,7 @@ import { AccountSecurity } from './AccountSecurity.tsx';
 import { AdminPage } from './AdminPage.tsx';
 import { api, messageFor, type CurrentUser, type WorkspaceSummary } from './api.ts';
 import { ChangePassword } from './ChangePassword.tsx';
+import { KnotOpener, KnotsPage } from './Knots.tsx';
 import { MembersPage, ROLE_LABELS } from './MembersPage.tsx';
 import { Procedures } from './Procedures.tsx';
 import { Link, navigate, paths, type Route } from './router.tsx';
@@ -42,6 +43,8 @@ function Header(props: {
   route: Route;
   workspaces: WorkspaceSummary[] | null;
   workspaceId: string | null;
+  /** Capabilities in the shown Workspace (UI only); `null` while unknown. */
+  capabilities: readonly string[] | null;
   onSignOut: () => void;
 }) {
   const { route, workspaceId, workspaces } = props;
@@ -94,6 +97,11 @@ function Header(props: {
             <NavLink href={paths.members(workspaceId)} current={route.page === 'members'}>
               Members
             </NavLink>
+            {props.capabilities?.includes('knot.manage') === true && (
+              <NavLink href={paths.knots(workspaceId)} current={route.page === 'knots'}>
+                Knot links
+              </NavLink>
+            )}
           </nav>
         </div>
       )}
@@ -102,7 +110,13 @@ function Header(props: {
 }
 
 /** Loads the Workspace (name, role, capabilities) for the Workspace pages. */
-function WorkspacePage(props: { route: WorkspaceRoute; user: CurrentUser; onWorkspacesChanged: () => void }) {
+function WorkspacePage(props: {
+  route: WorkspaceRoute;
+  user: CurrentUser;
+  onWorkspacesChanged: () => void;
+  onCapabilities: (workspaceId: string, capabilities: readonly string[]) => void;
+}) {
+  const { onCapabilities } = props;
   const { route } = props;
   const [context, setContext] = useState<WorkspaceContext | null>(null);
   const [message, setMessage] = useState<string | null>(null);
@@ -113,13 +127,14 @@ function WorkspacePage(props: { route: WorkspaceRoute; user: CurrentUser; onWork
         setContext({ workspace: result.workspace, capabilities: result.capabilities });
         setMessage(null);
         rememberWorkspace(result.workspace.id);
+        onCapabilities(result.workspace.id, result.capabilities);
       },
       (caught: unknown) => {
         setContext(null);
         setMessage(messageFor(caught));
       },
     );
-  }, [route.workspaceId]);
+  }, [route.workspaceId, onCapabilities]);
   useEffect(load, [load]);
 
   if (message !== null) return <p role="alert">{message}</p>;
@@ -138,6 +153,7 @@ function WorkspacePage(props: { route: WorkspaceRoute; user: CurrentUser; onWork
           canExecute={can('run.execute')}
           canAbort={can('run.abort')}
           canStart={can('run.start')}
+          canManageKnots={can('knot.manage')}
           openRunId={route.runId}
           onOpen={(runId) => navigate(runId === null ? paths.runs(route.workspaceId) : paths.run(route.workspaceId, runId))}
         />
@@ -145,7 +161,10 @@ function WorkspacePage(props: { route: WorkspaceRoute; user: CurrentUser; onWork
     case 'procedures':
       return (
         <Procedures
+          key={route.procedureId ?? 'list'}
           workspaceId={route.workspaceId}
+          openProcedureId={route.procedureId}
+          canManageKnots={can('knot.manage')}
           canEdit={can('procedure.edit')}
           canRestore={can('procedure.restore')}
           canStartRun={can('run.start')}
@@ -154,6 +173,12 @@ function WorkspacePage(props: { route: WorkspaceRoute; user: CurrentUser; onWork
       );
     case 'members':
       return <MembersPage key={context.workspace.name} context={context} currentUserId={props.user.id} onWorkspacesChanged={reload} />;
+    case 'knots':
+      return can('knot.manage') ? (
+        <KnotsPage workspaceId={route.workspaceId} />
+      ) : (
+        <p role="alert">Only editors and admins of this Workspace manage Knot links.</p>
+      );
   }
 }
 
@@ -177,6 +202,11 @@ export function AppShell(props: { user: CurrentUser; route: Route; onSignOut: ()
   const { user, route } = props;
   const [workspaces, setWorkspaces] = useState<WorkspaceSummary[] | null>(null);
   const [message, setMessage] = useState<string | null>(null);
+  const [capabilities, setCapabilities] = useState<{ workspaceId: string; list: readonly string[] } | null>(null);
+  const reportCapabilities = useCallback(
+    (id: string, list: readonly string[]) => setCapabilities({ workspaceId: id, list }),
+    [],
+  );
 
   const refresh = useCallback(() => {
     api.workspaces().then(setWorkspaces, (caught: unknown) => setMessage(messageFor(caught)));
@@ -213,8 +243,10 @@ export function AppShell(props: { user: CurrentUser; route: Route; onSignOut: ()
     );
   } else if (route.page === 'admin') {
     content = user.serverAdmin ? <AdminPage onWorkspacesChanged={refresh} /> : <p role="alert">Only server admins can open this page.</p>;
-  } else if (route.page === 'runs' || route.page === 'procedures' || route.page === 'members') {
-    content = <WorkspacePage route={route} user={user} onWorkspacesChanged={refresh} />;
+  } else if (route.page === 'knot') {
+    content = <KnotOpener token={route.token} />;
+  } else if (route.page === 'runs' || route.page === 'procedures' || route.page === 'members' || route.page === 'knots') {
+    content = <WorkspacePage route={route} user={user} onWorkspacesChanged={refresh} onCapabilities={reportCapabilities} />;
   } else if (route.page === 'home') {
     content = workspaces === null ? <p>Loading…</p> : workspaces.length === 0 ? <NoWorkspace user={user} /> : <p>Loading…</p>;
   } else {
@@ -227,7 +259,14 @@ export function AppShell(props: { user: CurrentUser; route: Route; onSignOut: ()
 
   return (
     <>
-      <Header user={user} route={route} workspaces={workspaces} workspaceId={workspaceId} onSignOut={props.onSignOut} />
+      <Header
+        user={user}
+        route={route}
+        workspaces={workspaces}
+        workspaceId={workspaceId}
+        capabilities={capabilities !== null && capabilities.workspaceId === workspaceId ? capabilities.list : null}
+        onSignOut={props.onSignOut}
+      />
       <main className="app-main">
         {message !== null && <p role="alert">{message}</p>}
         {content}

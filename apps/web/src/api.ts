@@ -146,6 +146,21 @@ export interface HistoryEvent {
   readonly metadata: Readonly<Record<string, string | number | boolean | readonly string[]>>;
 }
 
+export type KnotTargetType = 'PROCEDURE' | 'RUN';
+
+export interface KnotInfo {
+  readonly id: string;
+  readonly label: string;
+  /** `title` is null right after creation; `available` is false for a deleted Procedure. */
+  readonly target: { readonly type: KnotTargetType; readonly id: string; readonly title: string | null; readonly available: boolean };
+  readonly status: 'ACTIVE' | 'EXPIRED' | 'REVOKED';
+  readonly createdAt: string;
+  /** Display name of the creator. */
+  readonly createdBy: string;
+  readonly expiresAt: string | null;
+  readonly revoked: { readonly at: string; readonly by: string } | null;
+}
+
 export interface PendingInvitation {
   readonly id: string;
   readonly email: string;
@@ -228,6 +243,14 @@ export const ERROR_MESSAGES: Record<string, string> = {
   procedure_has_no_steps: 'This Procedure has no Steps yet. Add at least one Step before starting a Run.',
   run_limit_reached: 'This Workspace has too many active Runs. Finish some before starting new ones.',
   too_many_streams: 'Live updates are not available right now because too many are open. Reload the page to see changes.',
+  knot_not_found: 'This Knot link is not valid: it may have expired or been revoked, or you do not have access to what it points to.',
+  knot_already_revoked: 'This Knot link was already revoked.',
+  knot_target_not_found: 'What this Knot link should point to no longer exists.',
+  knot_limit_reached: 'This Workspace has too many active Knot links. Revoke some first.',
+  knot_label_empty: 'Please give the link a name.',
+  knot_label_too_long: 'The name must be at most 80 characters.',
+  knot_label_invalid_characters: 'The name contains characters that are not allowed.',
+  invalid_knot_expiry: 'Choose a lifetime between 1 and 365 days, or no expiry.',
   invalid_item_reference: 'This Procedure was restructured in the meantime. Reload it and apply your changes again.',
 };
 
@@ -401,6 +424,18 @@ export const api = {
     ).events,
   startRun: async (workspaceId: string, procedureId: string) =>
     (await request<{ run: RunDetail }>('POST', `/workspaces/${encodeURIComponent(workspaceId)}/runs`, { procedureId })).run,
+  knots: async (workspaceId: string) =>
+    (await request<{ knots: KnotInfo[] }>('GET', `/workspaces/${encodeURIComponent(workspaceId)}/knots`)).knots,
+  /** The returned URL contains the token; it is shown once and never again. */
+  createKnot: (
+    workspaceId: string,
+    input: { target: { type: KnotTargetType; id: string }; label: string; expiresInDays: number | null },
+  ) => request<{ knot: KnotInfo; url: string }>('POST', `/workspaces/${encodeURIComponent(workspaceId)}/knots`, input),
+  revokeKnot: (workspaceId: string, knotId: string) =>
+    request<undefined>('POST', `/workspaces/${encodeURIComponent(workspaceId)}/knots/${encodeURIComponent(knotId)}/revoke`),
+  /** The token travels in the body, never in the API URL. */
+  resolveKnot: (token: string) =>
+    request<{ workspaceId: string; target: { type: KnotTargetType; id: string } }>('POST', '/knots/resolve', { token }),
   leaveWorkspace: (id: string) => request<undefined>('POST', `/workspaces/${encodeURIComponent(id)}/leave`),
   members: async (id: string) =>
     (await request<{ members: WorkspaceMember[] }>('GET', `/workspaces/${encodeURIComponent(id)}/members`)).members,

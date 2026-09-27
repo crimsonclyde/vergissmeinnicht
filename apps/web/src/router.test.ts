@@ -12,14 +12,17 @@ describe('parseRoute', () => {
     expect(parseRoute(`/w/${W}`)).toEqual({ page: 'runs', workspaceId: W, runId: null });
     expect(parseRoute(paths.runs(W))).toEqual({ page: 'runs', workspaceId: W, runId: null });
     expect(parseRoute(paths.run(W, R))).toEqual({ page: 'runs', workspaceId: W, runId: R });
-    expect(parseRoute(paths.procedures(W))).toEqual({ page: 'procedures', workspaceId: W });
+    expect(parseRoute(paths.procedures(W))).toEqual({ page: 'procedures', workspaceId: W, procedureId: null });
+    expect(parseRoute(paths.procedure(W, R))).toEqual({ page: 'procedures', workspaceId: W, procedureId: R });
+    expect(parseRoute(paths.knots(W))).toEqual({ page: 'knots', workspaceId: W });
+    expect(parseRoute('/knot/abc_DEF-123')).toEqual({ page: 'knot', token: 'abc_DEF-123' });
     expect(parseRoute(paths.members(W))).toEqual({ page: 'members', workspaceId: W });
     expect(parseRoute('/invite/abc_DEF-123')).toEqual({ page: 'invite', token: 'abc_DEF-123' });
     expect(parseRoute('/recover/abc')).toEqual({ page: 'recover', token: 'abc' });
   });
 
   it('rejects anything else', () => {
-    for (const path of ['/w/not-an-id', `/w/${W}/secret`, '/invite/', '/invite/a/b', '/admin/x', `/w/${W}/runs/x`, '/%2e%2e/admin']) {
+    for (const path of ['/w/not-an-id', `/w/${W}/secret`, '/invite/', '/invite/a/b', '/admin/x', `/w/${W}/runs/x`, '/knot/', '/knot/a/b', '/knot/a.b', `/w/${W}/procedures/x`, '/%2e%2e/admin']) {
       expect(parseRoute(path)).toEqual({ page: 'not-found' });
     }
   });

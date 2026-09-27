@@ -9,6 +9,7 @@ import {
   type ReasonPolicy,
 } from './api.ts';
 import { History } from './History.tsx';
+import { KnotShare } from './Knots.tsx';
 import { Icon } from './procedure-icons.tsx';
 import { downloadJson, exportFileName, readImportFile } from './procedure-files.ts';
 import { ProcedureForm } from './ProcedureForm.tsx';
@@ -71,6 +72,9 @@ type Mode =
 /** Capabilities only adapt the UI; the server authorizes every request. */
 export function Procedures(props: {
   workspaceId: string;
+  /** From the URL (e.g. a Knot link): open this Procedure first. */
+  openProcedureId: string | null;
+  canManageKnots: boolean;
   canEdit: boolean;
   canRestore: boolean;
   canStartRun: boolean;
@@ -80,7 +84,7 @@ export function Procedures(props: {
   const [procedures, setProcedures] = useState<Procedure[] | null>(null);
   const [deleted, setDeleted] = useState<DeletedProcedure[] | null>(null);
   const [detail, setDetail] = useState<ProcedureDetail | null>(null);
-  const [mode, setMode] = useState<Mode>({ kind: 'list' });
+  const [mode, setMode] = useState<Mode>(props.openProcedureId === null ? { kind: 'list' } : { kind: 'view', id: props.openProcedureId });
   const [message, setMessage] = useState<string | null>(null);
 
   const refresh = useCallback(() => {
@@ -219,6 +223,11 @@ export function Procedures(props: {
           <div className="card">
             <History key={`${shown.id}-${shown.revision}`} label="Procedure history" load={() => api.procedureHistory(workspaceId, shown.id)} />
           </div>
+          {props.canManageKnots && (
+            <div style={{ marginBottom: '1rem' }}>
+              <KnotShare key={shown.id} workspaceId={workspaceId} target={{ type: 'PROCEDURE', id: shown.id }} defaultLabel={shown.title} />
+            </div>
+          )}
           <p className="row">
             <button type="button" onClick={() => setMode({ kind: 'list' })}>
               ← Back to all Procedures

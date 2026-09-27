@@ -1,5 +1,6 @@
 export * from './history/index.ts';
 export * from './invitations/index.ts';
+export * from './knots/index.ts';
 export * from './mfa/index.ts';
 export * from './recovery/index.ts';
 export * from './runs/index.ts';
@@ -11,6 +12,7 @@ export * from './ports/clock.ts';
 export * from './ports/email-sender.ts';
 export * from './ports/invitation-repository.ts';
 export * from './ports/invitation-tokens.ts';
+export * from './ports/knot-repository.ts';
 export * from './ports/mfa.ts';
 export * from './ports/password-hasher.ts';
 export * from './ports/user-repository.ts';
