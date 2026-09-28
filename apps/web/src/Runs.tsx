@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react'
 import {
   api,
   ApiError,
+  isNetworkError,
   messageFor,
   type HistoryPage,
   type ReasonPolicy,
@@ -20,6 +21,9 @@ import { formatDateTime, formatTime, formatWhen, t } from './i18n/index.ts';
 import { Icon } from './procedure-icons.tsx';
 import { StepMarks } from './StepMarks.tsx';
 import { applyStepResult, isNewer, withPendingChanges, type PendingStepChange } from './run-updates.ts';
+import { useOffline } from './offline/OfflineProvider.tsx';
+import { expectedStateFor, withQueuedChanges } from './offline/queue.ts';
+import { offlineStore } from './offline/store.ts';
 import { useRunLiveUpdates, type AnnouncedChange, type LiveStatus } from './useRunLiveUpdates.ts';
 
 /** How long "Uma changed … at …" stays visible. */
@@ -123,6 +127,8 @@ function StepItem(props: {
   busy: boolean;
   /** Our change is on its way to the server; the shown state is not confirmed yet. */
   saving: boolean;
+  /** Changed offline: saved on this device, not sent yet (8.5). */
+  queued: boolean;
   /** Someone else changed this Step a moment ago. */
   remote: boolean;
   /** The first pending Step: what to do next. */
@@ -163,10 +169,13 @@ function StepItem(props: {
         <StateBadge state={step.state} />
       </div>
       {props.saving && <small className="step-meta">{t('step.saving')}</small>}
+      {props.queued && <small className="step-meta">{t('offline.queuedStep')}</small>}
       {/* Who and when for resolved Steps; the badge already says what. Undo details live in the history. */}
-      {!props.saving && step.stateChange !== null && step.state !== 'PENDING' && (
+      {!props.saving && !props.queued && step.stateChange !== null && step.state !== 'PENDING' && (
         <small className="step-meta">
           {t('step.by', { name: step.stateChange.by, time: formatWhen(step.stateChange.at) })}
+          {/* Offline change: the device clock is shown as such, next to the server time (8.5). */}
+          {step.stateChange.deviceAt != null && t('step.deviceTime', { time: formatWhen(step.stateChange.deviceAt) })}
           {step.stateChange.reason !== null && t('step.reason', { reason: step.stateChange.reason })}
         </small>
       )}
@@ -271,6 +280,8 @@ function RunEndControls(props: {
   canExecute: boolean;
   canAbort: boolean;
   busy: boolean;
+  /** Completing/aborting needs the server: not offline, not while offline changes wait (8.5). */
+  needsConnection: boolean;
   onComplete: () => void;
   onAbort: (reason: string) => void;
 }) {
@@ -280,9 +291,10 @@ function RunEndControls(props: {
   return (
     <section aria-label={t('finish.heading')} className="card stack">
       <h3 style={{ marginTop: 0 }}>{t('finish.heading')}</h3>
+      {props.needsConnection && <p className="muted">{t('offline.finishNeedsConnection')}</p>}
       {props.canExecute && (
         <div className="stack">
-          <button type="button" className="primary" disabled={props.busy || open.length > 0} onClick={props.onComplete}>
+          <button type="button" className="primary" disabled={props.busy || props.needsConnection || open.length > 0} onClick={props.onComplete}>
             {t('finish.complete')}
           </button>
           {open.length > 0 && (
@@ -305,7 +317,7 @@ function RunEndControls(props: {
               <textarea rows={2} maxLength={500} value={reason} onChange={(e) => setReason(e.target.value)} />
             </label>
             <div className="row">
-              <button type="submit" disabled={props.busy}>
+              <button type="submit" disabled={props.busy || props.needsConnection}>
                 {t('finish.abort')}
               </button>
               <button type="button" onClick={() => setAborting(false)}>
@@ -314,7 +326,7 @@ function RunEndControls(props: {
             </div>
           </form>
         ) : (
-          <button type="button" className="quiet" disabled={props.busy} onClick={() => setAborting(true)}>
+          <button type="button" className="quiet" disabled={props.busy || props.needsConnection} onClick={() => setAborting(true)}>
             {t('finish.abortStart')}
           </button>
         ))}
@@ -338,6 +350,11 @@ function RunView(props: {
   workspaceId: string;
   busy: boolean;
   saving: ReadonlySet<string>;
+  /** Steps changed offline and not sent yet. */
+  queued: ReadonlySet<string>;
+  /** Set while the Run shown is the copy saved on this device (offline): when it was saved. */
+  offlineCopy: string | null;
+  needsConnection: boolean;
   live: LiveStatus;
   remoteChange: AnnouncedChange | null;
   onStep: (step: RunStep, action: StepAction) => void;
@@ -387,6 +404,7 @@ function RunView(props: {
           </p>
         )}
         {run.description !== '' && <p style={{ whiteSpace: 'pre-wrap', margin: 0 }}>{run.description}</p>}
+        {props.offlineCopy !== null && <p className="muted" style={{ margin: 0 }}>{t('offline.savedCopy', { time: formatWhen(props.offlineCopy) })}</p>}
         <p role="status" className="live-status" style={{ margin: 0 }}>
           {props.remoteChange !== null && describeChange(run, props.remoteChange)}
         </p>
@@ -412,6 +430,7 @@ function RunView(props: {
                 canExecute={canExecute}
                 busy={props.busy}
                 saving={props.saving.has(step.id)}
+                queued={props.queued.has(step.id)}
                 remote={props.remoteChange?.stepId === step.id}
                 next={next?.id === step.id}
                 onChange={(action) => props.onStep(step, action)}
@@ -428,6 +447,7 @@ function RunView(props: {
             canExecute={props.canExecute}
             canAbort={props.canAbort}
             busy={props.busy || props.saving.size > 0}
+            needsConnection={props.needsConnection}
             onComplete={props.onComplete}
             onAbort={props.onAbort}
           />
@@ -475,6 +495,12 @@ function RunList({ title, runs, onOpen }: { title: string; runs: RunSummary[]; o
   );
 }
 
+/** List entry for a Run saved on this device (offline list, 8.5). */
+function summaryOf(run: RunDetail): RunSummary {
+  const { sections, ...info } = run;
+  return { ...info, stepCounts: countStates(sections.flatMap((section) => section.steps)) };
+}
+
 /** Runs of a Workspace. `openRunId` comes from the URL. */
 export function Runs(props: {
   workspaceId: string;
@@ -486,9 +512,15 @@ export function Runs(props: {
   onOpen: (runId: string | null) => void;
 }) {
   const { workspaceId, openRunId, onOpen } = props;
+  const offline = useOffline();
+  const { userId, queued, sentVersion, reportReachable, reportUnreachable } = offline;
   const [runs, setRuns] = useState<RunSummary[] | null>(null);
   const [nextCursor, setNextCursor] = useState<string | null>(null);
+  /** The list shows the Runs saved on this device (offline). */
+  const [listFromDevice, setListFromDevice] = useState(false);
   const [detail, setDetail] = useState<RunDetail | null>(null);
+  /** When the shown Run is the copy saved on this device: when it was saved. */
+  const [offlineCopy, setOfflineCopy] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
 
   const refresh = useCallback(() => {
@@ -496,10 +528,22 @@ export function Runs(props: {
       (page) => {
         setRuns(page.runs);
         setNextCursor(page.nextCursor);
+        setListFromDevice(false);
+        reportReachable();
       },
-      (caught: unknown) => setMessage(messageFor(caught)),
+      async (caught: unknown) => {
+        if (!isNetworkError(caught)) {
+          setMessage(messageFor(caught));
+          return;
+        }
+        reportUnreachable();
+        const saved = await offlineStore.listRuns(userId, workspaceId);
+        setRuns(saved.map((entry) => summaryOf(entry.run)));
+        setNextCursor(null);
+        setListFromDevice(true);
+      },
     );
-  }, [workspaceId]);
+  }, [workspaceId, userId, reportReachable, reportUnreachable]);
   const [loadingMore, setLoadingMore] = useState(false);
   async function loadMore() {
     if (nextCursor === null) return;
@@ -533,33 +577,66 @@ export function Runs(props: {
     return () => clearTimeout(timer);
   }, [remote]);
 
-  /** Takes over a fetched canonical Run; an older answer never replaces a newer state. */
+  /**
+   * Takes over a fetched canonical Run; an older answer never replaces a newer state. Active Runs are
+   * saved on this device for offline use (8.5); finished ones are removed from it.
+   */
   const accept = useCallback(
     (loaded: RunDetail) => {
       const current = detailRef.current;
       if (current === null || current.id !== loaded.id || loaded.revision >= current.revision) keepDetail(loaded);
+      setOfflineCopy(null);
+      reportReachable();
+      if (loaded.state === 'ACTIVE') void offlineStore.saveRun(userId, workspaceId, loaded);
+      else void offlineStore.deleteRun(userId, loaded.id);
     },
-    [keepDetail],
+    [keepDetail, userId, workspaceId, reportReachable],
   );
-  const reload = useCallback(
-    (runId: string) => api.run(workspaceId, runId).then(accept, (caught: unknown) => setMessage(messageFor(caught))),
-    [workspaceId, accept],
+  /** Loads the Run; when the server cannot be reached, shows the copy saved on this device instead. */
+  const load = useCallback(
+    (runId: string, isActive: () => boolean = () => true) =>
+      api.run(workspaceId, runId).then(
+        (loaded) => {
+          if (isActive()) accept(loaded);
+        },
+        async (caught: unknown) => {
+          if (!isActive()) return;
+          if (!isNetworkError(caught)) {
+            setMessage(messageFor(caught));
+            return;
+          }
+          reportUnreachable();
+          const saved = await offlineStore.loadRun(userId, workspaceId, runId);
+          if (!isActive()) return;
+          if (saved === undefined) {
+            setMessage(t('offline.runNotSaved'));
+            return;
+          }
+          if (detailRef.current === null || detailRef.current.id !== runId) keepDetail(saved.run);
+          setOfflineCopy(saved.savedAt);
+        },
+      ),
+    [workspaceId, userId, accept, keepDetail, reportUnreachable],
   );
+  const reload = useCallback((runId: string) => load(runId), [load]);
 
   useEffect(() => {
     if (openRunId === null) return;
     let active = true;
-    api.run(workspaceId, openRunId).then(
-      (loaded) => active && accept(loaded),
-      (caught: unknown) => active && setMessage(messageFor(caught)),
-    );
+    void load(openRunId, () => active);
     return () => {
       active = false;
     };
-  }, [workspaceId, openRunId, accept]);
+  }, [openRunId, load]);
+
+  // Queued offline changes were sent: show the canonical state (incl. others' changes meanwhile).
+  useEffect(() => {
+    if (sentVersion > 0 && detailRef.current !== null) void load(detailRef.current.id);
+  }, [sentVersion, load]);
 
   const canonical = detail !== null && detail.id === openRunId ? detail : null;
-  const shown = canonical === null ? null : withPendingChanges(canonical, pending);
+  const queuedHere = canonical === null ? [] : queued.filter((change) => change.runId === canonical.id);
+  const shown = canonical === null ? null : withQueuedChanges(withPendingChanges(canonical, pending), queuedHere);
   const [busy, setBusy] = useState(false);
 
   const live = useRunLiveUpdates(
@@ -598,10 +675,31 @@ export function Runs(props: {
   async function changeStep(runId: string, stepId: string, action: StepAction) {
     const step = detailRef.current?.sections.flatMap((section) => section.steps).find((s) => s.id === stepId);
     if (step === undefined || pending.has(stepId)) return;
-    const change: PendingStepChange = { from: step.state, to: action.to };
-    setPending((current) => new Map(current).set(stepId, change));
+    const waiting = queued.filter((change) => change.runId === runId);
+    const from = expectedStateFor(step, waiting);
     setMessage(null);
     setRemote(null);
+
+    /** Offline (8.5): kept on this device and sent later, strictly after earlier queued changes. */
+    const queue = async () => {
+      const stored = await offline.enqueue({
+        workspaceId,
+        runId,
+        stepId,
+        stepTitle: step.title,
+        expectedState: from,
+        to: action.to,
+        reason: action.reason,
+      });
+      if (!stored) setMessage(t('offline.cannotSave', { title: step.title }));
+    };
+    if (!offline.online || waiting.length > 0) {
+      await queue();
+      return;
+    }
+
+    const change: PendingStepChange = { from, to: action.to };
+    setPending((current) => new Map(current).set(stepId, change));
     try {
       const result = await api.changeStepState(workspaceId, runId, stepId, {
         expectedState: change.from,
@@ -611,13 +709,19 @@ export function Runs(props: {
       const current = detailRef.current;
       if (current !== null && current.id === runId) {
         const merged = applyStepResult(current, result.step, result.runRevision);
-        keepDetail(merged.run);
+        accept(merged.run);
         if (merged.stale) void reload(runId);
       }
     } catch (caught) {
-      setMessage(t('run.notChanged', { title: step.title, reason: messageFor(caught) }));
-      // Show the canonical server state again (e.g. after someone else's change).
-      await reload(runId);
+      if (isNetworkError(caught)) {
+        // The connection dropped on the way (e.g. the router was just switched off): keep the change.
+        reportUnreachable();
+        await queue();
+      } else {
+        setMessage(t('run.notChanged', { title: step.title, reason: messageFor(caught) }));
+        // Show the canonical server state again (e.g. after someone else's change).
+        await reload(runId);
+      }
     } finally {
       setPending((current) => {
         const next = new Map(current);
@@ -651,6 +755,9 @@ export function Runs(props: {
               workspaceId={workspaceId}
               busy={busy}
               saving={new Set(pending.keys())}
+              queued={new Set(queuedHere.map((change) => change.stepId))}
+              offlineCopy={offlineCopy}
+              needsConnection={!offline.online || queuedHere.length > 0}
               live={live}
               remoteChange={remoteChange}
               onStep={(step, action) => void changeStep(shown.id, step.id, action)}
@@ -666,6 +773,7 @@ export function Runs(props: {
             <h2>{t('runs.heading')}</h2>
           </div>
           {message !== null && <p role="alert">{message}</p>}
+          {listFromDevice && <p className="muted">{t('offline.savedList')}</p>}
           {runs === null ? (
             <p>{t('common.loading')}</p>
           ) : runs.length === 0 ? (

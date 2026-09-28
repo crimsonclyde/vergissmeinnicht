@@ -77,8 +77,31 @@ export interface RunStep {
 
 export interface StepStateChange {
   readonly by: { readonly userId: UserId; readonly displayName: string };
+  /** Server time: when the server accepted the change (authoritative). */
   readonly at: Date;
   readonly reason: string | null;
+  /** Device clock of a change made offline and sent later (8.5); reported by the client, never authoritative. */
+  readonly deviceAt: Date | null;
+}
+
+/** How far a device clock may run ahead of the server clock and still be believed. */
+export const DEVICE_CLOCK_AHEAD_TOLERANCE_MS = 2 * 60_000;
+/** Offline changes older than this keep only the server time. */
+export const MAX_OFFLINE_AGE_MS = 7 * 24 * 60 * 60_000;
+
+/**
+ * Whether a device time reported for an offline change is plausible (Step 8.5): not before the Run
+ * started, not (much) after the server received it, and not older than a week. Implausible values
+ * are dropped — the change itself still counts, with the server time only.
+ */
+export function plausibleDeviceTime(deviceAt: Date, run: { readonly startedAt: Date }, serverNow: Date): Date | null {
+  const at = deviceAt.getTime();
+  if (!Number.isFinite(at)) return null;
+  if (at < run.startedAt.getTime()) return null;
+  if (at > serverNow.getTime() + DEVICE_CLOCK_AHEAD_TOLERANCE_MS) return null;
+  if (serverNow.getTime() - at > MAX_OFFLINE_AGE_MS) return null;
+  // Never later than the server time it is shown next to.
+  return at > serverNow.getTime() ? serverNow : deviceAt;
 }
 
 export interface RunSection {

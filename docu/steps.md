@@ -20,7 +20,7 @@ For every completed task, add a concise completion note, tests/checks performed,
 
 _Last updated: 2026-09-27 (after 10.3 — every non-deferred step is DONE)_
 
-**Done:** 0.1, 0.2, 0.3, 1.1, 1.2, 2.1–2.5, 3.1–3.3, 4.1–4.5, 5.1–5.6, 6.1, 6.2, 7.1, 8.0–8.4, 8.6, 9.1, 10.1–10.3, 11.1. DEFERRED: 2.6 (external identity providers), 8.5 (PWA/offline, Phase 2).
+**Done:** 0.1, 0.2, 0.3, 1.1, 1.2, 2.1–2.5, 3.1–3.3, 4.1–4.5, 5.1–5.6, 6.1, 6.2, 7.1, 8.0–8.4, 8.6, 9.1, 10.1–10.3, 11.1. DEFERRED: 2.6 (external identity providers). Follow-ups 2026-09-28: 2.7–2.9, 5.7, 8.5, 8.7–8.9 (see below).
 **Next:** no open ledger step. Candidates: merge the stacked branches into `main` (CI has not run on them), a full accessibility review (incl. an alternative to press-and-hold), account disabling with session revocation, housekeeping of expired rows, 2.6 / 8.5 when prioritised. Open decisions for the user: SKIPPED does not satisfy a required Step at completion (5.4); the Knot design choices in 7.1 (targets, `knot.manage` for EDITOR/ADMIN, link shown once).
 
 **UI (2026-09-27):** app shell (8.0), responsive execution (8.1), state presentation (8.2), themes (8.3), message catalog (8.4) and the declutter/naming pass from user feedback (8.6) are done; a full accessibility review remains.
@@ -69,7 +69,7 @@ These decisions are already made and must not be silently changed by an implemen
 - Skip / Not Applicable reason policy: separately configurable as disabled / optional / required
 - Procedure deletion: **soft delete**
 - Completed historical Runs: immutable except future explicit audited correction flow
-- Offline execution: Phase 2
+- Offline execution: Phase 2 → pulled forward and implemented in 8.5 (2026-09-28): queued Step changes, server time authoritative, device time labelled
 - Initial deployment: **Docker Compose + SQLite + reverse proxy**
 - License: **AGPL-3.0**
 - Initial UI language: English
@@ -1382,9 +1382,29 @@ V1 ships English only, but user-facing strings must be structured so adding tran
 **Remaining:** Procedure authoring on phones is usable but not optimized (drag handles desktop-only; move buttons work).
 
 ### 8.5 PWA/offline active Runs
-**Status:** DEFERRED — Phase 2
+**Status:** DONE
+**Completed:** 2026-09-28 (pulled forward from Phase 2 at the user's request)
 
-Important eventual scenario: a Procedure can contain “turn off router/network”.
+Important scenario: a Procedure can contain “turn off router/network”.
+
+**Decisions (2026-09-28, user):** Step changes made offline are queued on the device and sent when back online; the server time stays authoritative, the device clock is stored only as a clearly labelled extra ("offline, device clock …"); conflicts with others' changes are shown, never silently overwritten.
+
+**Security impact:** HIGH — Workspace data at rest on the device, client-reported times in the execution history, replayed writes.
+
+**Scope:** only active Runs the user opened on this device while online; offline only Step changes (DONE / SKIPPED / NOT_APPLICABLE / undo). Starting, completing and aborting need a connection (and completing waits until queued changes are sent).
+
+**Implemented:**
+- Domain: `StepStateChange.deviceAt`; `plausibleDeviceTime` — kept only between the Run's start and the server time (+2 min clock skew, capped at the server time) and not older than 7 days; otherwise dropped (the change still counts).
+- Database: migration `0017` (hand-written, triggers kept): `run_steps.state_changed_device_at` (CHECK: only with a server time; added to the `run_steps_state_only_while_active` freeze trigger), `audit_events.client_change_id` with a unique index per actor.
+- `changeStepState` with `offline: { clientChangeId, deviceAt }`: inside the `IMMEDIATE` transaction a change id this actor already used for this Step returns `duplicate` (nothing written, no live event — also after the Run ended); an id used for another Step is a conflict; otherwise the normal rules apply (`expectedState` compare-and-set, reason policies, Run ACTIVE, `run.execute` re-check); audit metadata `offline: true` and `deviceTime` when kept. An online change clears the device time.
+- HTTP: strict optional `offline` object (`clientChangeId` UUIDv4, `deviceTime` ISO 8601 with offset); response `duplicate`; Run responses carry `stateChange.deviceAt`.
+- Web: service worker (`public/sw.js`) caches only the app shell (HTML + hashed assets, same for every user; never `/api`; old assets pruned); web app manifest and icon. `OfflineProvider` + IndexedDB store (`offline/store.ts`): active Runs opened while online, the Workspace list/context and the last user (for a reload without connection), and the queue — all keyed by user id. Step changes go to the queue when the browser is offline, when the request cannot reach the server, or when earlier changes of the Run still wait; queued changes are shown as "Saved on this device · not sent yet"; the queue is sent strictly in order on `online`, at start and every 30 s: accepted/duplicate → removed; refused (conflict, Run ended, no permission, invalid) → removed together with later changes of the same Step, explained in an alert; 401 → kept, "sign in again"; unreachable/429/5xx → kept. Sign-out deletes the whole device database (with a confirmation when changes wait); another account signing in on the browser deletes the previous account's data. Offline banner (status line); complete/abort disabled while offline or while changes wait.
+
+**Tests/checks:** domain (5: plausibility bounds), use-cases (8: server time authoritative + device time kept; implausible dropped; idempotent replay also after completion; id per actor and per Step; conflict without overwrite; online change clears the device time; device time frozen with the Run; GUEST refused, malformed id; DB unique index), HTTP (duplicate flag, strict `offline` body, GUEST 403, `deviceAt` in the Run view), web queue logic (4), e2e: go offline, mark a Step done (queued, banner, abort disabled, axe clean), reload offline (service worker + saved Run + queue), back online → sent with "(offline, device clock …)"; offline undo against another device's change → dropped and explained, other device's state kept; sign-out removes the device database. Mutation checks: dropping the duplicate check or the plausibility rule fails tests. Migration 0017 on a fresh database and on a copy of the dev database (twice; integrity and FK checks clean).
+
+**Security docs updated:** YES ("Security check: offline Run execution (Step 8.5)", §6, §7).
+
+**Remaining:** Runs not opened on the device while online are not available offline; a shared device that is never signed out keeps the saved Runs of its last user (until sign-out or another account signs in); no background sync while the app is closed (sending resumes when it is opened); physical-device testing (iOS Safari storage eviction) not done.
 
 ---
 

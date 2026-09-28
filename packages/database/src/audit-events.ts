@@ -17,6 +17,8 @@ export interface AuditEventRecord {
   readonly occurredAt: Date;
   /** Never put secrets here. */
   readonly metadata?: Readonly<Record<string, string | number | boolean | string[]>>;
+  /** Offline Step changes (8.5): the client-chosen id, unique per actor. */
+  readonly clientChangeId?: string | undefined;
 }
 
 /** Must be called inside the transaction that performs the change it records. */
@@ -33,6 +35,7 @@ export function recordAuditEvent(tx: Transaction, event: AuditEventRecord): void
       subjectId: event.subjectId,
       runId: event.runId ?? null,
       metadata: event.metadata ? { ...event.metadata } : null,
+      clientChangeId: event.clientChangeId ?? null,
     })
     .run();
 }

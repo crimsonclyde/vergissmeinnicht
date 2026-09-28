@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-labelledby="title desc">
+<title id="title">VergissMeinNicht</title>
+<desc id="desc">A minimal forget-me-not flower with a knotted stem.</desc>
+<rect width="64" height="64" rx="12" fill="#000"/>
+<g fill="none" stroke="#fff" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round">
+  <path d="M32 23c-3-6-10-7-13-2-3 5 1 10 7 10-6 1-8 8-4 12 4 4 9 1 10-4 1 5 6 8 10 4 4-4 2-11-4-12 6 0 10-5 7-10-3-5-10-4-13 2Z"/>
+  <circle cx="32" cy="31" r="3.2"/>
+  <path d="M32 39c0 5-5 6-5 10 0 3 3 5 6 3 3-2 3-6 0-8-3-2-6 0-6 4"/>
+  <path d="M33 52c0 3 0 5-1 8"/>
+</g>
+</svg>

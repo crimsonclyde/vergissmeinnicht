@@ -816,3 +816,18 @@ caption {
 .tag-filter {
   margin-bottom: 1rem;
 }
+
+/* Offline state (8.5): visible, but not alarming; the text says what happens. */
+.offline-banner {
+  margin: 0 0 1rem;
+  padding: 0.5rem 0.75rem;
+  border: 1px solid var(--border);
+  border-left: 6px solid var(--state-skipped);
+  border-radius: var(--radius);
+  background: var(--surface);
+}
+
+.offline-notices ul {
+  margin: 0;
+  padding-left: 1.2rem;
+}

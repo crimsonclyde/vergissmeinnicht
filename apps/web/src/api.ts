@@ -128,8 +128,11 @@ export interface RunStep {
   readonly skipReasonPolicy: ReasonPolicy;
   readonly notApplicableReasonPolicy: ReasonPolicy;
   readonly state: StepState;
-  /** Who set the current state (display-name snapshot), when, and why. */
-  readonly stateChange: { readonly by: string; readonly at: string; readonly reason: string | null } | null;
+  /**
+   * Who set the current state (display-name snapshot), when (server time), and why. `deviceAt`: the
+   * device clock of a change made offline and sent later — informational only (8.5).
+   */
+  readonly stateChange: { readonly by: string; readonly at: string; readonly reason: string | null; readonly deviceAt?: string | null } | null;
 }
 
 export interface RunDetail extends RunInfo {
@@ -210,6 +213,9 @@ export function messageFor(error: unknown, fallback: string = t('error.generic')
   const key = error instanceof ApiError ? `error.${error.code}` : '';
   return hasMessage(key) ? t(key) : fallback;
 }
+
+/** The request never got an answer (offline, server unreachable) — as opposed to an error answer. */
+export const isNetworkError = (error: unknown): boolean => !(error instanceof ApiError) && error instanceof TypeError;
 
 export class ApiError extends Error {
   readonly status: number;
@@ -375,11 +381,13 @@ export const api = {
     runId: string,
     stepId: string,
     change: { expectedState: StepState; state: StepState; reason?: string },
+    /** Only for changes made offline and sent later (8.5). */
+    offline?: { clientChangeId: string; deviceTime: string },
   ) =>
-    request<{ step: RunStep; runRevision: number }>(
+    request<{ step: RunStep; runRevision: number; duplicate: boolean }>(
       'POST',
       `/workspaces/${encodeURIComponent(workspaceId)}/runs/${encodeURIComponent(runId)}/steps/${encodeURIComponent(stepId)}/state`,
-      change,
+      offline === undefined ? change : { ...change, offline },
     ),
   completeRun: async (workspaceId: string, runId: string) =>
     (await request<{ run: RunDetail }>('POST', `/workspaces/${encodeURIComponent(workspaceId)}/runs/${encodeURIComponent(runId)}/complete`))

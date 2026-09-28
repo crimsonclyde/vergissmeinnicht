@@ -294,6 +294,19 @@ GET /api/workspaces/{id}/runs/{runId}/events     run.view, text/event-stream
 - The stream re-checks the session and `run.view` before each event and every 20 s, closes after 15 min, after the Run finished, and on shutdown; finished Runs answer `204`.
 - The web client applies its own Step changes optimistically (Step 6.2) but always sends the canonical `expectedState` and falls back to the server state on rejection.
 
+## Offline execution (Step 8.5)
+
+```text
+online:   GET run ──► show + save (IndexedDB, per user, active Runs only)
+offline:  Step change ──► queue (IndexedDB: clientChangeId, expectedState, to, reason, deviceTime)
+          reload ──► service worker shell + last user + saved Workspace/Run + queue
+online:   queue ──► POST …/steps/{id}/state { …, offline: { clientChangeId, deviceTime } } in order
+          server: same rules as online + idempotency (actor, clientChangeId) + plausibleDeviceTime
+          → ok / duplicate: remove   refused: remove + explain   401: keep, sign in   unreachable: keep
+```
+
+The server remains the only authority: the queue is a list of ordinary requests, the device time is informational (`state_changed_device_at`, audit metadata `deviceTime`), and sign-out deletes the device database. The service worker (`apps/web/public/sw.js`) caches only the app shell.
+
 ## Persistence
 
 SQLite is initial persistence.

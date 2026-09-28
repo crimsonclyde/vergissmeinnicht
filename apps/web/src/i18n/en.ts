@@ -5,6 +5,19 @@
  */
 export const en = {
   // ---- General
+  'offline.offline': 'Offline. Changes to Runs you opened here are saved on this device.',
+  'offline.offlineWaiting': { one: 'Offline. {count} change is saved on this device and will be sent when the connection is back.', other: 'Offline. {count} changes are saved on this device and will be sent when the connection is back.' },
+  'offline.sending': { one: 'Sending {count} change saved on this device…', other: 'Sending {count} changes saved on this device…' },
+  'offline.signInAgain': { one: 'Your session has ended. Sign in again to send the {count} change saved on this device.', other: 'Your session has ended. Sign in again to send the {count} changes saved on this device.' },
+  'offline.rejected': 'Your offline change to “{title}” was not applied: {reason}',
+  'offline.dismiss': 'OK',
+  'offline.queuedStep': 'Saved on this device · not sent yet',
+  'offline.savedCopy': 'Offline: showing the copy saved on this device at {time}.',
+  'offline.savedList': 'Offline: showing the active Runs saved on this device.',
+  'offline.runNotSaved': 'Offline, and this Run was not opened on this device before.',
+  'offline.cannotSave': 'Could not save the change to “{title}” on this device. Try again when you are online.',
+  'offline.finishNeedsConnection': 'Completing or aborting needs a connection and all changes sent.',
+  'offline.signOutConfirm': { one: '{count} change has not been sent yet and will be lost when you sign out. Sign out anyway?', other: '{count} changes have not been sent yet and will be lost when you sign out. Sign out anyway?' },
   'common.loading': 'Loading…',
   'common.cancel': 'Cancel',
   'common.showMore': 'Show more',
@@ -51,6 +64,7 @@ export const en = {
   // ---- Steps
   'step.next': 'Next',
   'step.saving': 'Saving…',
+  'step.deviceTime': ' (offline, device clock {time})',
   'step.reason': ' — reason: {reason}',
   'step.skip': 'Skip',
   'step.notApplicable': 'Not applicable',

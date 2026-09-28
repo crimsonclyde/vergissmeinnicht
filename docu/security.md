@@ -163,7 +163,7 @@ Canonical shape:
 
 - [x] Important mutations record internal User UUID. (Procedures, Runs, Step state changes, Run completion/abort in `audit_events`; account/access changes in `security_events`.)
 - [x] Store actor display-name snapshot where historical readability requires it. (Audit events, Run starter, Step state changes.)
-- [x] Store trusted server timestamp. (Server clock only; clients never send times.)
+- [x] Store trusted server timestamp. (Server clock only. Since 8.5 an offline change may report its device time; it is stored separately as `deviceAt`, labelled as device clock, bounded by `plausibleDeviceTime`, and never replaces the server time.)
 - [x] Required state change + AuditEvent are one DB transaction. (Every repository mutation; tests force the audit insert to fail and assert a full rollback.)
 - [x] Normal users cannot edit/delete audit history. (No write API; history is read-only via `AuditHistory`; UPDATE/DELETE blocked by triggers for everyone.)
 - [x] `security_events` is append-only at the DB level (UPDATE/DELETE triggers abort); readable only by ACTIVE server admins through `GET /api/admin/security-events` (5.7).
@@ -183,7 +183,7 @@ Canonical shape:
 - [x] User cannot subscribe to arbitrary Workspace/Run channels. (Channels are addressed only by Workspace + Run id through the authorized route; there is no client-chosen channel name.)
 - [x] Realtime event does not expose unnecessary sensitive data. (Revision, event kind, Step id, actor display name, time — no user ids, emails or Step/Run text; content is refetched through the API.)
 - [x] Mutations still use authoritative server validation. (The stream is server → client only; changes go through the existing POST routes.)
-- [x] Client-supplied actor/timestamps are ignored for audit authority. (Events are built from the committed server result.)
+- [x] Client-supplied actor/timestamps are ignored for audit authority. (Events are built from the committed server result; an offline change's device time is informational metadata only, 8.5.)
 - [x] Reconnect fetches canonical state. (Every (re)connect starts with a `ready` event carrying the current revision, read after subscribing; the client refetches when it is newer.)
 - [x] Revision/version conflicts are handled deliberately. (`Run.revision`; Step writes keep the 5.2 `expectedState` check; the client never hides a revision gap and ignores older answers.)
 - [x] Realtime endpoint has resource/rate/connection limits. (10 streams per user, 1000 per process, 30 connects/min per client, 15 min maximum lifetime, 20 s heartbeat, closed on shutdown.)
@@ -581,4 +581,14 @@ The following choices are mandatory V1 behavior:
 **Logging review:** no new log output.  
 **Authorization review:** in `packages/application/src/accounts` and the history/run use-cases.  
 **Open risks:** server admins see all accounts' sign-in activity (inherent to the role, documented).  
+**Reviewed:** 2026-09-28
+
+### Security check: offline Run execution (Step 8.5)
+**Threat surface:** Workspace-confidential Run data at rest on phones/shared computers; queued changes sent under another account's session (misattribution); forged or wrong device clocks rewriting "when" in the history; replayed or duplicated writes; offline changes silently overwriting others' changes; stale client capabilities; a service worker caching private API responses or serving them to another user; changes to finished Runs through the new column.  
+**Controls added:** server time stays authoritative; device time only in a separate labelled column/metadata, bounded to [Run start, server time + 2 min] and ≤7 days old, capped at the server time, frozen with the Run by trigger; every offline change is an ordinary authorized request (session, Origin, `run.execute` + in-transaction re-check, compare-and-set on the expected state, reason policies, Run ACTIVE); idempotency by a client UUIDv4 unique per actor, checked inside the write transaction (same Step only; duplicates write nothing and emit no event); refused changes are dropped with an explanation, never retried in another form; queue entries carry the user id and are only sent by that user's provider; sign-out deletes the IndexedDB database; another account signing in deletes the previous account's entries; only active Runs the user opened are stored, removed once finished; service worker caches only the same public shell for all users, never `/api`, same-origin GETs only; `Cache-Control: no-store` on the API unchanged; CSP unchanged (`default-src 'self'` covers the worker and manifest).  
+**Negative tests:** `packages/database/src/offline-step-changes.test.ts`, `packages/domain/src/run.test.ts`, offline case in `apps/server/src/http/run.test.ts`, `apps/web/src/offline/queue.test.ts`, e2e offline/conflict/sign-out cleanup; mutation checks in steps.md 8.5.  
+**Secrets/data involved:** Run snapshots and reasons (Workspace-confidential) and the user's display data on the device; no credentials (the session cookie stays HttpOnly and is never stored by the app).  
+**Logging review:** no new log output.  
+**Authorization review:** unchanged server-side authorization for every sent change; cached capabilities only adapt the offline UI.  
+**Open risks:** a device that is never signed out keeps its last user's saved Runs readable to anyone who can use that browser profile (same as the open app itself; documented); a user can claim any plausible device time within the bounds (shown as device clock, next to the server time); browsers may evict storage (queued changes lost — the user sees them as not sent).  
 **Reviewed:** 2026-09-28

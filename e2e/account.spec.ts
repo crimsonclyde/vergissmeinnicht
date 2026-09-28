@@ -510,6 +510,48 @@ test('first server admin: bootstrap link, account creation, sign-in, Workspace c
   await tapStove.getByRole('button', { name: 'Mark done: Turn off stove (asks to confirm)' }).click();
   await question.getByRole('button', { name: '✔ Yes, done' }).click();
   await expect(tapStove).toContainText('Ada Admin ·');
+
+  // Offline (8.5): the router goes off after "Turn off stove". The next change is kept on this device,
+  // survives a reload without connection, and is sent once the connection is back — with the device
+  // time shown as such next to the server time.
+  expect(await page.evaluate('navigator.serviceWorker.ready.then(() => true)')).toBe(true);
+  const context = page.context();
+  await context.setOffline(true);
+  const windows = stepItem('Close windows');
+  await windows.getByRole('button', { name: 'Done: Close windows' }).click();
+  await expect(windows).toContainText('Saved on this device · not sent yet');
+  await expect(page.getByRole('status').filter({ hasText: 'Offline.' })).toContainText('1 change is saved on this device');
+  await expect(run.getByRole('button', { name: 'Abort Run…' })).toBeDisabled();
+  await expectAccessible(page, 'run view offline');
+  await page.reload();
+  await expect(stepItem('Close windows')).toContainText('Saved on this device · not sent yet');
+  await expect(run).toContainText('Offline: showing the copy saved on this device');
+  await context.setOffline(false);
+  await expect(stepItem('Close windows')).toContainText('(offline, device clock', { timeout: 15_000 });
+  await expect(page.getByRole('status').filter({ hasText: 'Offline.' })).toHaveCount(0);
+  await expect(run.getByRole('button', { name: 'Abort Run…' })).toBeEnabled();
+  // A conflicting offline change is dropped and explained, never forced over someone else's change.
+  const otherDevice = await browser.newContext(testInfo.project.use.baseURL === undefined ? {} : { baseURL: testInfo.project.use.baseURL });
+  const otherPage = await otherDevice.newPage();
+  await otherPage.goto('/');
+  await otherPage.getByLabel('Email').fill('admin@example.org');
+  await otherPage.getByLabel('Password').fill(PASSWORD);
+  await otherPage.getByRole('button', { name: 'Sign in' }).click();
+  await expect(otherPage.getByRole('button', { name: /^Menu/ })).toBeVisible();
+  await otherPage.goto(page.url());
+  await context.setOffline(true);
+  await stepItem('Close windows').getByRole('button', { name: 'Undo: Close windows' }).click();
+  await expect(stepItem('Close windows')).toContainText('Saved on this device · not sent yet');
+  const otherRun = otherPage.getByRole('article');
+  await otherRun.getByRole('button', { name: 'Undo: Close windows' }).click();
+  await otherRun.getByRole('listitem').filter({ hasText: 'Close windows' }).getByRole('button', { name: 'Skip' }).click();
+  await otherRun.getByRole('button', { name: 'Skip', exact: true }).click();
+  await expect(otherRun.getByRole('listitem').filter({ hasText: 'Close windows' })).toContainText('Skipped');
+  await otherDevice.close();
+  await context.setOffline(false);
+  await expect(page.getByRole('alert')).toContainText('Your offline change to “Close windows” was not applied: Someone else changed this Step', { timeout: 15_000 });
+  await expect(stepItem('Close windows')).toContainText('Skipped');
+  await page.getByRole('button', { name: 'OK' }).click();
   await run.getByRole('button', { name: 'Abort Run…' }).click();
   await run.getByRole('button', { name: 'Abort Run', exact: true }).click();
   await expect(run.getByRole('status').filter({ hasText: 'Aborted by Ada Admin' })).toBeVisible();
@@ -531,6 +573,8 @@ test('first server admin: bootstrap link, account creation, sign-in, Workspace c
 
   await fromMenu(page, 'Sign out');
   await expect(page.getByRole('heading', { name: 'Sign in' })).toBeVisible();
+  // Nothing of the account stays on the device (8.5): saved Runs and queued changes are gone.
+  expect(await page.evaluate("indexedDB.databases().then((list) => list.map((db) => db.name))")).not.toContain('vmn-offline');
 
   // Sign-in now needs the second factor; the enrollment code's time step is used up, so use the next one.
   await page.getByLabel('Email').fill('admin@example.org');

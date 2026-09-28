@@ -193,5 +193,27 @@ describe('Run HTTP API', () => {
     // The cursor does not bypass authorization.
     expect((await t.get(`${runs(home)}/${first}/history?after=${eventId}`, outsider)).statusCode).toBe(404);
   });
+
+  it('accepts offline changes once, with the device time only as a labelled extra (8.5)', async () => {
+    const run = (await start(user)).json().run as { id: string; sections: { steps: { id: string }[] }[] };
+    const stepId = run.sections[0]?.steps[0]?.id ?? '';
+    const url = `${runs(home)}/${run.id}/steps/${stepId}/state`;
+    const clientChangeId = '6f1c2b9a-6d4e-4f8a-9b7c-1a2b3c4d5e6f';
+    const body = { expectedState: 'PENDING', state: 'DONE', offline: { clientChangeId, deviceTime: new Date().toISOString() } };
+    const first = await t.post(url, body, user);
+    expect(first.statusCode).toBe(200);
+    expect(first.json()).toMatchObject({ duplicate: false, step: { state: 'DONE', stateChange: { by: 'Uma' } } });
+    expect(first.json().step.stateChange.deviceAt).toEqual(expect.any(String));
+    const again = await t.post(url, body, user);
+    expect(again.json()).toMatchObject({ duplicate: true, runRevision: first.json().runRevision });
+    // Strict body: unknown fields, malformed ids and times are rejected; GUESTs stay read-only.
+    for (const offline of [{ clientChangeId: 'x' }, { clientChangeId, deviceTime: 'yesterday' }, { clientChangeId, by: 'Ada' }, { deviceTime: new Date().toISOString() }]) {
+      expect((await t.post(url, { expectedState: 'DONE', state: 'PENDING', offline }, user)).statusCode).toBe(400);
+    }
+    expect((await t.post(url, { ...body, offline: { clientChangeId: '7f1c2b9a-6d4e-4f8a-9b7c-1a2b3c4d5e6f' } }, guest)).statusCode).toBe(403);
+    // The Run view shows the device time next to the server time.
+    const detail = (await t.get(`${runs(home)}/${run.id}`, guest)).json().run;
+    expect(detail.sections[0].steps[0].stateChange).toMatchObject({ by: 'Uma', deviceAt: expect.any(String) });
+  });
 });
 

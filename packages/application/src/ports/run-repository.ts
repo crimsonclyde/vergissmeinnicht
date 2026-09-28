@@ -22,7 +22,8 @@ export type FinishRunResult =
   | { readonly status: 'forbidden' | 'run_not_found' | 'run_not_active' };
 
 export type StepStateChangeResult =
-  | { readonly status: 'ok'; readonly step: RunStep; readonly runRevision: number }
+  /** `duplicate`: an offline change with this client change id was already applied; nothing was written. */
+  | { readonly status: 'ok'; readonly step: RunStep; readonly runRevision: number; readonly duplicate?: boolean }
   | { readonly status: 'forbidden' | 'run_not_found' | 'step_not_found' | 'run_not_active' | 'conflict' };
 
 /**
@@ -80,6 +81,12 @@ export interface RunRepository {
       readonly expectedState: StepState;
       readonly to: StepState;
       readonly at: Date;
+      /**
+       * Offline change sent later (8.5): its client-chosen id — if this actor already applied a change
+       * with the same id to this Run, nothing is written and the result is 'duplicate' — and the device
+       * time reported with it, stored only when `plausibleDeviceTime` accepts it.
+       */
+      readonly offline?: { readonly clientChangeId: string; readonly deviceAt: Date | undefined } | undefined;
     },
     actor: Actor & { readonly kind: 'user' },
     guard: ActorGuard,

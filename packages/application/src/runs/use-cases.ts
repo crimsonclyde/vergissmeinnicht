@@ -1,4 +1,6 @@
 import {
+  DomainValidationError,
+  UUID_V4,
   completionBlockers,
   normalizeOptionalReason,
   validateStepTransition,
@@ -119,6 +121,12 @@ export async function authorizeRunSubscription(
  * call fails with StepStateConflictError instead of overwriting their change. Transition and reason
  * rules are checked against the Step's snapshotted policies inside the write transaction.
  */
+/** Client change ids are random UUIDv4s chosen by the device. */
+function parseClientChangeId(value: string): string {
+  if (!UUID_V4.test(value)) throw new DomainValidationError('clientChangeId', 'invalid_client_change_id', 'Client change id must be a UUIDv4');
+  return value;
+}
+
 export async function changeStepState(
   deps: RunDeps,
   input: {
@@ -129,9 +137,18 @@ export async function changeStepState(
     readonly expectedState: StepState;
     readonly to: StepState;
     readonly reason?: string | undefined;
+    /**
+     * A change made offline and sent later (8.5): a client-chosen UUID (same change sent twice is
+     * applied once) and the device time it was made at (stored only if plausible, never authoritative).
+     */
+    readonly offline?: { readonly clientChangeId: string; readonly deviceAt?: Date | undefined } | undefined;
   },
-): Promise<{ step: RunStep; runRevision: number }> {
+): Promise<{ step: RunStep; runRevision: number; duplicate: boolean }> {
   await authorizeWorkspace(deps, input.actor, input.workspaceId, 'run.execute');
+  const offline =
+    input.offline === undefined
+      ? undefined
+      : { clientChangeId: parseClientChangeId(input.offline.clientChangeId), deviceAt: input.offline.deviceAt };
   const result = await deps.runs.changeStepState(
     {
       workspaceId: input.workspaceId,
@@ -140,6 +157,7 @@ export async function changeStepState(
       expectedState: input.expectedState,
       to: input.to,
       at: deps.clock.now(),
+      offline,
     },
     userActor(input.actor),
     { actorMay: (role) => roleHasCapability(role, 'run.execute') },
@@ -147,6 +165,7 @@ export async function changeStepState(
   );
   switch (result.status) {
     case 'ok':
+      if (result.duplicate === true) return { step: result.step, runRevision: result.runRevision, duplicate: true };
       deps.changes?.runChanged({
         workspaceId: input.workspaceId,
         runId: input.runId,
@@ -156,7 +175,7 @@ export async function changeStepState(
         by: input.actor.displayName,
         at: result.step.stateChange?.at ?? deps.clock.now(),
       });
-      return { step: result.step, runRevision: result.runRevision };
+      return { step: result.step, runRevision: result.runRevision, duplicate: false };
     case 'forbidden':
       throw new NotAuthorizedError();
     case 'run_not_found':

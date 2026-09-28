@@ -4,7 +4,9 @@ import { AdminPage } from './AdminPage.tsx';
 import { AppearanceSettings } from './AppearanceSettings.tsx';
 import { CriticalConfirmSettings } from './CriticalConfirmSettings.tsx';
 import { PreferencesProvider } from './preferences.tsx';
-import { api, messageFor, type CurrentUser, type WorkspaceSummary } from './api.ts';
+import { OfflineBanner, useOffline } from './offline/OfflineProvider.tsx';
+import { offlineStore } from './offline/store.ts';
+import { api, isNetworkError, messageFor, type CurrentUser, type WorkspaceSummary } from './api.ts';
 import { ChangePassword } from './ChangePassword.tsx';
 import { t } from './i18n/index.ts';
 import { KnotOpener, KnotsPage } from './Knots.tsx';
@@ -120,6 +122,7 @@ function WorkspacePage(props: {
   const [context, setContext] = useState<WorkspaceContext | null>(null);
   const [message, setMessage] = useState<string | null>(null);
 
+  const { userId } = useOffline();
   const load = useCallback(() => {
     api.workspace(route.workspaceId).then(
       (result) => {
@@ -127,13 +130,22 @@ function WorkspacePage(props: {
         setMessage(null);
         rememberWorkspace(result.workspace.id);
         onCapabilities(result.workspace.id, result.capabilities);
+        void offlineStore.saveWorkspace(userId, { workspace: result.workspace, capabilities: result.capabilities });
       },
-      (caught: unknown) => {
+      async (caught: unknown) => {
+        // Offline: the Workspace as last seen on this device (UI only; the server decides on every change).
+        const saved = isNetworkError(caught) ? await offlineStore.loadWorkspace(userId, route.workspaceId) : undefined;
+        if (saved !== undefined) {
+          setContext({ workspace: saved.workspace, capabilities: saved.capabilities });
+          setMessage(null);
+          onCapabilities(saved.workspace.id, saved.capabilities);
+          return;
+        }
         setContext(null);
         setMessage(messageFor(caught));
       },
     );
-  }, [route.workspaceId, onCapabilities]);
+  }, [route.workspaceId, onCapabilities, userId]);
   useEffect(load, [load]);
 
   if (message !== null) return <p role="alert">{message}</p>;
@@ -202,6 +214,12 @@ function NoWorkspace({ user }: { user: CurrentUser }) {
 
 export function AppShell(props: { user: CurrentUser; route: Route; onSignOut: () => void }) {
   const { user, route } = props;
+  const { queued } = useOffline();
+  // Unsent offline changes are deleted with the rest of the device data on sign-out: ask first.
+  const signOut = () => {
+    if (queued.length > 0 && !window.confirm(t('offline.signOutConfirm', { count: queued.length }))) return;
+    props.onSignOut();
+  };
   const [workspaces, setWorkspaces] = useState<WorkspaceSummary[] | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [capabilities, setCapabilities] = useState<{ workspaceId: string; list: readonly string[] } | null>(null);
@@ -211,8 +229,18 @@ export function AppShell(props: { user: CurrentUser; route: Route; onSignOut: ()
   );
 
   const refresh = useCallback(() => {
-    api.workspaces().then(setWorkspaces, (caught: unknown) => setMessage(messageFor(caught)));
-  }, []);
+    api.workspaces().then(
+      (list) => {
+        setWorkspaces(list);
+        void offlineStore.saveWorkspaceList(user.id, list);
+      },
+      async (caught: unknown) => {
+        const saved = isNetworkError(caught) ? await offlineStore.loadWorkspaceList(user.id) : undefined;
+        if (saved !== undefined) setWorkspaces(saved);
+        else setMessage(messageFor(caught));
+      },
+    );
+  }, [user.id]);
   useEffect(refresh, [refresh]);
 
   // The start page opens the last used (or first) Workspace.
@@ -272,9 +300,10 @@ export function AppShell(props: { user: CurrentUser; route: Route; onSignOut: ()
         workspaces={workspaces}
         workspaceId={workspaceId}
         capabilities={capabilities !== null && capabilities.workspaceId === workspaceId ? capabilities.list : null}
-        onSignOut={props.onSignOut}
+        onSignOut={signOut}
       />
       <main className="app-main">
+        <OfflineBanner />
         {message !== null && <p role="alert">{message}</p>}
         {content}
         <SourceFooter />

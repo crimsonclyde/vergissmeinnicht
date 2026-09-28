@@ -32,6 +32,10 @@ const stateBody = z.strictObject({
   expectedState: z.enum(STEP_STATES),
   state: z.enum(STEP_STATES),
   reason: z.string().max(4096).optional(),
+  /** A change made offline and sent later (8.5). The device time is informational only. */
+  offline: z
+    .strictObject({ clientChangeId: z.uuid({ version: 'v4' }), deviceTime: z.iso.datetime({ offset: true }).optional() })
+    .optional(),
 });
 
 function parse<T>(schema: z.ZodType<T>, value: unknown): T {
@@ -69,7 +73,14 @@ function stepView(step: RunStep) {
     ...rest,
     // Display-name snapshot and time only; internal user ids are not needed by clients.
     stateChange:
-      stateChange === null ? null : { by: stateChange.by.displayName, at: stateChange.at.toISOString(), reason: stateChange.reason },
+      stateChange === null
+        ? null
+        : {
+            by: stateChange.by.displayName,
+            at: stateChange.at.toISOString(),
+            reason: stateChange.reason,
+            deviceAt: stateChange.deviceAt === null ? null : stateChange.deviceAt.toISOString(),
+          },
   };
 }
 
@@ -116,8 +127,15 @@ export async function runRoutes(app: FastifyInstance, { services }: { services: 
       expectedState: body.expectedState,
       to: body.state,
       reason: body.reason,
+      offline:
+        body.offline === undefined
+          ? undefined
+          : {
+              clientChangeId: body.offline.clientChangeId,
+              deviceAt: body.offline.deviceTime === undefined ? undefined : new Date(body.offline.deviceTime),
+            },
     });
-    return { step: stepView(result.step), runRevision: result.runRevision };
+    return { step: stepView(result.step), runRevision: result.runRevision, duplicate: result.duplicate };
   });
 
   app.post('/:runId/complete', async (request) => {

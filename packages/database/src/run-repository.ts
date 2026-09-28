@@ -3,6 +3,7 @@ import { and, asc, count, desc, eq, gt, inArray, lt, or, type SQL } from 'drizzl
 import { InvalidCursorError, toPage, type FinishRunResult, type RunRepository, type StartRunResult, type StepStateChangeResult } from '@vergissmeinnicht/application';
 import {
   STEP_STATES,
+  plausibleDeviceTime,
   type ProcedureId,
   type Run,
   type RunDetail,
@@ -19,7 +20,7 @@ import { IMMEDIATE, actorAllowed } from './actor-guard.ts';
 import { recordAuditEvent } from './audit-events.ts';
 import type { AppDatabase } from './connection.ts';
 import { activeIn, loadSections } from './procedure-repository.ts';
-import { procedures, runSections, runSteps, runs } from './schema.ts';
+import { auditEvents, procedures, runSections, runSteps, runs } from './schema.ts';
 
 type Reader = Pick<Parameters<Parameters<AppDatabase['db']['transaction']>[0]>[0], 'select'>;
 
@@ -63,6 +64,7 @@ function toRunStep(step: typeof runSteps.$inferSelect): RunStep {
             by: { userId: step.stateChangedByUserId as UserId, displayName: step.stateChangedByDisplayName },
             at: step.stateChangedAt,
             reason: step.stateReason,
+            deviceAt: step.stateChangedDeviceAt,
           },
   };
 }
@@ -258,7 +260,7 @@ export function createRunRepository({ db }: Pick<AppDatabase, 'db'>): RunReposit
       return db.transaction((tx): StepStateChangeResult => {
         if (!actorAllowed(tx, input.workspaceId, actor, guard)) return { status: 'forbidden' };
         const run = tx
-          .select({ id: runs.id, state: runs.state, revision: runs.revision })
+          .select({ id: runs.id, state: runs.state, revision: runs.revision, startedAt: runs.startedAt })
           .from(runs)
           .where(and(eq(runs.workspaceId, input.workspaceId), eq(runs.id, input.runId)))
           .get();
@@ -270,10 +272,26 @@ export function createRunRepository({ db }: Pick<AppDatabase, 'db'>): RunReposit
           .where(and(eq(runSteps.runId, run.id), eq(runSteps.id, input.stepId)))
           .get();
         if (current === undefined) return { status: 'step_not_found' };
+
+        if (input.offline !== undefined) {
+          // The same offline change sent again (e.g. the first answer was lost): already applied.
+          const earlier = tx
+            .select({ runId: auditEvents.runId, subjectId: auditEvents.subjectId })
+            .from(auditEvents)
+            .where(and(eq(auditEvents.actorUserId, actor.userId), eq(auditEvents.clientChangeId, input.offline.clientChangeId)))
+            .get();
+          if (earlier !== undefined) {
+            if (earlier.runId !== run.id || earlier.subjectId !== current.id) return { status: 'conflict' };
+            return { status: 'ok', step: toRunStep(current), runRevision: run.revision, duplicate: true };
+          }
+        }
+
         if (run.state !== 'ACTIVE') return { status: 'run_not_active' };
         if (current.state !== input.expectedState) return { status: 'conflict' };
         // Throws (rolling back) for disallowed transitions and reason-policy violations.
         const { reason } = validate(toRunStep(current));
+        const deviceAt =
+          input.offline?.deviceAt === undefined ? null : plausibleDeviceTime(input.offline.deviceAt, run, input.at);
 
         const updated = tx
           .update(runSteps)
@@ -283,6 +301,7 @@ export function createRunRepository({ db }: Pick<AppDatabase, 'db'>): RunReposit
             stateChangedByUserId: actor.userId,
             stateChangedByDisplayName: actor.displayName,
             stateChangedAt: input.at,
+            stateChangedDeviceAt: deviceAt,
           })
           .where(and(eq(runSteps.id, current.id), eq(runSteps.state, current.state)))
           .returning()
@@ -298,6 +317,7 @@ export function createRunRepository({ db }: Pick<AppDatabase, 'db'>): RunReposit
           subjectId: current.id,
           runId: run.id,
           occurredAt: input.at,
+          clientChangeId: input.offline?.clientChangeId,
           metadata: {
             from: current.state,
             to: input.to,
@@ -305,6 +325,8 @@ export function createRunRepository({ db }: Pick<AppDatabase, 'db'>): RunReposit
             stepTitle: current.title,
             runRevision,
             ...(reason === null ? {} : { reason }),
+            ...(input.offline === undefined ? {} : { offline: true }),
+            ...(deviceAt === null ? {} : { deviceTime: deviceAt.toISOString() }),
           },
         });
         return { status: 'ok', step: toRunStep(updated), runRevision };

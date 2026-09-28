@@ -111,6 +111,10 @@ HTTPS is mandatory; the Compose setup uses Caddy, which obtains and renews certi
 - Limits of security-sensitive routes (sign-in per client and per account, second factor, recovery and invitation links, password/TOTP changes, admin recovery/invitations/account status, Knot resolution) are kept in the database (`rate_limits`, key hashes only), so a restart does not reset them. The global per-client limit and other route limits are in memory. All of it is per server process/database: multi-node deployments need a reviewed shared store.
 - Private networks (VPN, Tailscale) do not replace the application's authentication; keep HTTPS and the normal configuration there too.
 
+## Offline use
+
+The web app installs a service worker (production builds) that keeps the app shell, so Runs opened on a device can be executed without a connection (steps.md 8.5). Service workers require HTTPS (or `localhost`); nothing needs to be configured. Reverse proxies must not cache `/api/*` (the app sends `Cache-Control: no-store`) and should pass `/sw.js` through unchanged. After an upgrade, browsers pick up the new app shell on their next online page load.
+
 ## Housekeeping
 
 The server deletes rows that can no longer be used at start and then hourly: expired sessions and verification values, used or expired sign-in challenges, TOTP enrollments not confirmed within 10 minutes, expired rate-limit windows, and invitations / account-recovery links that were accepted, revoked or expired **more than 30 days ago**. Security events, audit history, Runs and Knots are never deleted. Only counts are logged. `pnpm db:housekeeping` (or the `housekeeping` image command) runs the same purge on demand.

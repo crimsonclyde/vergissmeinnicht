@@ -520,6 +520,11 @@ export const runSteps = sqliteTable(
     stateChangedByUserId: text('state_changed_by_user_id').references(() => users.id),
     stateChangedByDisplayName: text('state_changed_by_display_name'),
     stateChangedAt: integer('state_changed_at', { mode: 'timestamp_ms' }),
+    /**
+     * Device clock of a change made offline and sent later (Step 8.5). Reported by the client, so
+     * never authoritative: `state_changed_at` stays the server time. Only stored when plausible.
+     */
+    stateChangedDeviceAt: integer('state_changed_device_at', { mode: 'timestamp_ms' }),
   },
   (table) => [
     foreignKey({
@@ -539,6 +544,7 @@ export const runSteps = sqliteTable(
       'run_steps_state_change_complete',
       sql`(${table.stateChangedByUserId} is null) = (${table.stateChangedByDisplayName} is null) and (${table.stateChangedByUserId} is null) = (${table.stateChangedAt} is null)`,
     ),
+    check('run_steps_device_time_with_change', sql`${table.stateChangedDeviceAt} is null or ${table.stateChangedAt} is not null`),
     check(
       'run_steps_reason_only_when_skipped_or_na',
       sql`${table.stateReason} is null or (${table.state} in ('SKIPPED', 'NOT_APPLICABLE') and length(trim(${table.stateReason})) > 0 and length(${table.stateReason}) <= 500)`,
@@ -569,9 +575,14 @@ export const auditEvents = sqliteTable(
     /** Set for every Run event (AGENTS.md: Run events identify the Run UUID). */
     runId: text('run_id').references(() => runs.id),
     metadata: text('metadata', { mode: 'json' }).$type<Record<string, string | number | boolean | string[]>>(),
+    /** Client-chosen id of an offline change (Step 8.5): the same change sent twice is applied once. */
+    clientChangeId: text('client_change_id'),
   },
   (table) => [
     index('audit_events_run_idx').on(table.runId),
+    uniqueIndex('audit_events_client_change_unique')
+      .on(table.actorUserId, table.clientChangeId)
+      .where(sql`${table.clientChangeId} is not null`),
     index('audit_events_subject_idx').on(table.workspaceId, table.subjectType, table.subjectId),
     index('audit_events_occurred_at_idx').on(table.workspaceId, table.occurredAt),
   ],
