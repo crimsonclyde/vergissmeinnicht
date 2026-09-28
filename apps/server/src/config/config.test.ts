@@ -178,6 +178,14 @@ describe('loadConfig', () => {
     expect(issuesOf({ ...production, HSTS_MAX_AGE: '-1' }).join()).toMatch(/HSTS_MAX_AGE/);
   });
 
+  it('has scheduled backups off by default and validates their settings', () => {
+    expect(loadConfig(production).backup).toEqual({ intervalHours: 0, keep: 14 });
+    expect(loadConfig({ ...production, BACKUP_INTERVAL_HOURS: '24', BACKUP_KEEP: '7' }).backup).toEqual({ intervalHours: 24, keep: 7 });
+    expect(issuesOf({ ...production, BACKUP_INTERVAL_HOURS: '-1' }).join()).toMatch(/BACKUP_INTERVAL_HOURS/);
+    expect(issuesOf({ ...production, BACKUP_INTERVAL_HOURS: 'daily' }).join()).toMatch(/BACKUP_INTERVAL_HOURS/);
+    expect(issuesOf({ ...production, BACKUP_KEEP: '0' }).join()).toMatch(/BACKUP_KEEP/);
+  });
+
   it('reads secrets from files (Docker secrets) without echoing them', () => {
     const files: Record<string, string> = { '/run/secrets/auth': `${SECRET}\n`, '/run/secrets/data': DATA_KEY };
     const read = (path: string) => {

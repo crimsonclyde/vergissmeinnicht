@@ -192,6 +192,7 @@ export const en = {
   'shell.knots': 'Knot links',
   'shell.notFound': 'This page does not exist.',
   'footer.license': 'VergissMeinNicht (VMN) · AGPL-3.0 ·',
+  'footer.thirdParty': 'Third-party licenses',
   'footer.source': 'Source code',
 
   // ---- Appearance

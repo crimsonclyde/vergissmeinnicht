@@ -69,6 +69,12 @@ export default tseslint.config(
     },
   },
   {
+    // Build tooling of the web app (runs in Node at build time, never shipped to the browser).
+    files: ['apps/web/vite.config.ts', 'apps/web/third-party-notices.ts', 'apps/web/src/third-party-notices.test.ts'],
+    languageOptions: { globals: { ...globals.node } },
+    rules: { 'no-restricted-imports': 'off' },
+  },
+  {
     // i18n readiness (steps.md 8.4): dates and numbers are formatted in one place, for one locale.
     files: ['apps/web/src/**'],
     ignores: ['apps/web/src/i18n/**'],

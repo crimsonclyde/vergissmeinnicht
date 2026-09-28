@@ -1,4 +1,4 @@
-import { chmodSync, copyFileSync, existsSync, mkdirSync, renameSync, rmSync, statSync } from 'node:fs';
+import { chmodSync, copyFileSync, existsSync, mkdirSync, readdirSync, renameSync, rmSync, statSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import Database from 'better-sqlite3';
 import { migrationStatus } from './migrate.ts';
@@ -138,4 +138,46 @@ function lockExclusively(path: string): Database.Database {
 /** Default backup file: `<database dir>/backups/vergissmeinnicht-<UTC time>.sqlite`. */
 export function defaultBackupPath(databasePath: string, now: Date = new Date()): string {
   return join(dirname(databasePath), 'backups', `vergissmeinnicht-${now.toISOString().replaceAll(':', '-')}.sqlite`);
+}
+
+/** Automatic backups (Step 10.5) have their own prefix, so retention never touches manual or pre-migration backups. */
+const AUTO_PREFIX = 'vergissmeinnicht-auto-';
+const AUTO_NAME = /^vergissmeinnicht-auto-(\d{4}-\d{2}-\d{2}T\d{2}-\d{2}-\d{2}\.\d{3}Z)\.sqlite$/;
+
+export function automaticBackupPath(databasePath: string, now: Date = new Date()): string {
+  return join(dirname(databasePath), 'backups', `${AUTO_PREFIX}${now.toISOString().replaceAll(':', '-')}.sqlite`);
+}
+
+/** Automatic backups next to the database, oldest first. */
+export function listAutomaticBackups(databasePath: string): { readonly path: string; readonly at: Date }[] {
+  const dir = join(dirname(databasePath), 'backups');
+  if (!existsSync(dir)) return [];
+  return readdirSync(dir)
+    .map((name) => ({ name, match: AUTO_NAME.exec(name) }))
+    .filter((entry): entry is { name: string; match: RegExpExecArray } => entry.match !== null)
+    .map(({ name, match }) => ({ path: join(dir, name), at: new Date((match[1] ?? '').replace(/T(\d{2})-(\d{2})-(\d{2})/, 'T$1:$2:$3')) }))
+    .filter((entry) => !Number.isNaN(entry.at.getTime()))
+    .sort((a, b) => a.at.getTime() - b.at.getTime());
+}
+
+/**
+ * Scheduled backup (Step 10.5): writes a verified automatic backup when the newest one is older than
+ * `intervalMs` (or none exists), then keeps only the newest `keep` automatic backups. Deciding from
+ * the files on disk makes restarts neither skip nor repeat backups. Returns what was done.
+ */
+export async function backupIfDue(
+  databasePath: string,
+  options: { readonly intervalMs: number; readonly keep: number; readonly now?: Date },
+): Promise<{ readonly written: string | null; readonly removed: readonly string[] }> {
+  const now = options.now ?? new Date();
+  const newest = listAutomaticBackups(databasePath).at(-1);
+  let written: string | null = null;
+  if (newest === undefined || now.getTime() - newest.at.getTime() >= options.intervalMs) {
+    written = automaticBackupPath(databasePath, now);
+    await backupDatabase(databasePath, written);
+  }
+  const all = listAutomaticBackups(databasePath);
+  const removed = all.slice(0, Math.max(0, all.length - options.keep)).map((entry) => entry.path);
+  for (const path of removed) rmSync(path, { force: true });
+  return { written, removed };
 }

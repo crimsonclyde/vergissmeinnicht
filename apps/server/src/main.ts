@@ -3,6 +3,7 @@ import { openDatabase } from '@vergissmeinnicht/database';
 import { buildApp } from './app.ts';
 import { createServices } from './composition.ts';
 import { ConfigError, loadConfig } from './config/index.ts';
+import { scheduleBackups } from './backup-schedule.ts';
 import { scheduleHousekeeping } from './housekeeping.ts';
 import { loggerOptions } from './logging.ts';
 
@@ -32,8 +33,11 @@ const app = await buildApp({
 });
 // Expired sessions, challenges, links and rate-limit windows are deleted hourly (Step 2.8).
 const stopHousekeeping = scheduleHousekeeping(database, app.log);
+// Optional automatic backups (BACKUP_INTERVAL_HOURS, BACKUP_KEEP; Step 10.5).
+const stopBackups = scheduleBackups(config.databasePath, app.log, config.backup);
 app.addHook('onClose', async () => {
   stopHousekeeping();
+  stopBackups();
   database.close();
 });
 

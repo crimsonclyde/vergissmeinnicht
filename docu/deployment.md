@@ -18,6 +18,23 @@ Internet ──HTTPS──> Caddy (deploy/Caddyfile, automatic certificates, 172
 - Only Caddy's fixed address may set the client address (`TRUSTED_PROXIES=172.31.250.2`).
 - The app runs as non-root (`node`, uid 1000) with all capabilities dropped, `no-new-privileges`, a read-only root file system and `/tmp` as tmpfs; `/data` is `0700`, database and backups `0600`.
 
+## Published images
+
+Version tags (`v1.2.3`) publish a multi-architecture image (`linux/amd64`, `linux/arm64`) to GitHub Container Registry: `ghcr.io/crimsonclyde/vergissmeinnicht:1.2.3` (also `:1.2` and `:latest`). Each architecture is built natively, smoke-tested (migrate, CLI, backup, server ready, scheduled backup) and scanned (Trivy, no fixable HIGH/CRITICAL findings) before it is pushed. The image is signed keyless with Sigstore and carries a CycloneDX SBOM attestation. Verify before use and pin the digest:
+
+```bash
+cosign verify ghcr.io/crimsonclyde/vergissmeinnicht:1.2.3 \
+  --certificate-identity-regexp '^https://github.com/crimsonclyde/vergissmeinnicht/\.github/workflows/release\.yml@refs/tags/v' \
+  --certificate-oidc-issuer https://token.actions.githubusercontent.com
+cosign verify-attestation --type cyclonedx ghcr.io/crimsonclyde/vergissmeinnicht:1.2.3 \
+  --certificate-identity-regexp '^https://github.com/crimsonclyde/vergissmeinnicht/\.github/workflows/release\.yml@refs/tags/v' \
+  --certificate-oidc-issuer https://token.actions.githubusercontent.com > /dev/null
+export VMN_IMAGE=ghcr.io/crimsonclyde/vergissmeinnicht:1.2.3@sha256:<digest shown by cosign>
+docker compose pull app      # instead of `docker compose build`
+```
+
+Maintainers: push a tag `vX.Y.Z` to release; the first published package is private on GitHub until its visibility is set to public.
+
 ## Quick start (Docker Compose)
 
 ```bash
@@ -73,6 +90,8 @@ Inject configuration at runtime. The production server never reads `.env` files 
 | `INVITATION_TTL_HOURS` | optional | Default `72`, range 1–720. |
 | `TRUSTED_PROXIES` | behind a proxy | Comma-separated IPs/CIDR ranges (or `loopback`) of reverse proxies whose `X-Forwarded-For` is trusted. Empty (default): the socket address is the client. Never use broad ranges: every trusted address can claim any client address. `/0` is rejected. |
 | `HSTS_MAX_AGE` | optional | Strict-Transport-Security max-age in seconds for https origins (default one year, `0` disables; no `includeSubDomains`/`preload`). |
+| `BACKUP_INTERVAL_HOURS` | optional | Automatic backups every N hours into `/data/backups` (`0`/unset = off). See "Backups and restore". |
+| `BACKUP_KEEP` | optional | Number of automatic backups kept (default 14); manual and pre-migration backups are never deleted. |
 | `AUTH_SECRET_FILE`, `DATA_ENCRYPTION_KEY_FILE`, `SMTP_PASSWORD_FILE` | recommended | Absolute path of a file holding the secret (Docker secrets: `/run/secrets/…`); a trailing line break is ignored. Set either the variable or its `_FILE`, not both. |
 | `SOURCE_CODE_URL` | optional | `https` link to the source of the running version, shown in every page footer (AGPL-3.0 §13). Default: the upstream repository. **Set it to your own repository if you run a modified version.** |
 
@@ -165,7 +184,17 @@ docker compose exec app vergissmeinnicht backup                        # → /da
 docker compose cp app:/data/backups/<file> ./                          # copy it off the server, then encrypt it
 ```
 
-The backup uses SQLite's online backup API (consistent, includes the WAL), is written with mode `0600`, converted to a single self-contained file and verified (integrity check, foreign keys, expected tables) before the command reports success. Schedule it (cron/systemd timer) and remove old files from `/data/backups` according to your retention policy; the app never deletes backups.
+The backup uses SQLite's online backup API (consistent, includes the WAL), is written with mode `0600`, converted to a single self-contained file and verified (integrity check, foreign keys, expected tables) before the command reports success.
+
+**Scheduled backups** (built in, off by default): set `BACKUP_INTERVAL_HOURS` (e.g. `24`) and optionally `BACKUP_KEEP` (default `14`). The server checks every 10 minutes and writes `/data/backups/vergissmeinnicht-auto-<UTC time>.sqlite` whenever the newest automatic backup is older than the interval (so restarts neither skip nor repeat one), then keeps the newest `BACKUP_KEEP` automatic backups. Manual (`vergissmeinnicht-<time>.sqlite`) and pre-migration backups are never deleted by the app. The backups stay on the same volume as the database: they protect against mistakes and corruption, not against losing the server — copy them off the host **encrypted**, with established tools, for example:
+
+```bash
+# on the host, e.g. daily from cron/systemd, after the scheduled backup
+docker compose cp app:/data/backups/. ./vmn-backups/
+age -r <recipient public key> -o vmn-$(date +%F).tar.age <(tar -C ./vmn-backups -c .)   # or: restic backup ./vmn-backups
+```
+
+The app does no encryption of its own (no home-made cryptography); keep the private key of the recipient off the server.
 
 **Restore**
 

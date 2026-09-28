@@ -198,7 +198,7 @@ Canonical shape:
 - [x] SQLite file permissions are restrictive.
 - [x] WAL/sidecar files are treated as sensitive data too. (Same `0700` directory; backups use the online backup API so WAL content is included, and are converted to a single file; restores move the old database together with its WAL/SHM.)
 - [x] DB files are excluded from Git. (Also `deploy/secrets/`, `deploy/vergissmeinnicht.env`; `.dockerignore` keeps data and secrets out of the build context.)
-- [x] Backup contains sensitive data and is protected accordingly. (`0600` files in `0700` `/data/backups`; docs require encrypted off-host copies and a separately stored `DATA_ENCRYPTION_KEY`.)
+- [x] Backup contains sensitive data and is protected accordingly. (`0600` files in `0700` `/data/backups`; docs require encrypted off-host copies and a separately stored `DATA_ENCRYPTION_KEY`. Scheduled backups (10.5) use the same verified path and retention only deletes automatic backups.)
 - [x] Restore procedure is tested. (Automated round-trip tests plus a container drill, 10.2.)
 - [ ] A future PostgreSQL migration must preserve security/integrity semantics.
 
@@ -267,7 +267,8 @@ Checks:
 - [x] Install scripts only run for allow-listed packages (`allowBuilds`); new entries require review. (`@node-rs/argon2` ships prebuilt binaries as optional dependencies and needs no install script.)
 - [x] Newly published versions are not installed for 24 h (`minimumReleaseAge`).
 - [x] Publish trust downgrades fail install (`trustPolicy: no-downgrade`); exceptions are exact versions with a written reason.
-- [x] CI actions are pinned to commit SHAs and run with a read-only token.
+- [x] CI actions are pinned to commit SHAs and run with a read-only token. (Release workflow: `packages: write` / `id-token: write` only in its tag-triggered jobs; every newly pinned action checked to be a verified commit on its default branch, 10.4.)
+- [x] Built images are scanned before release (Trivy, fixable HIGH/CRITICAL fail CI and the release), smoke-tested on amd64 and arm64, signed keyless (Sigstore) with an SBOM attestation (10.4).
 
 ---
 
@@ -591,4 +592,14 @@ The following choices are mandatory V1 behavior:
 **Logging review:** no new log output.  
 **Authorization review:** unchanged server-side authorization for every sent change; cached capabilities only adapt the offline UI.  
 **Open risks:** a device that is never signed out keeps its last user's saved Runs readable to anyone who can use that browser profile (same as the open app itself; documented); a user can claim any plausible device time within the bounds (shown as device clock, next to the server time); browsers may evict storage (queued changes lost — the user sees them as not sent).  
+**Reviewed:** 2026-09-28
+
+### Security check: image pipeline and releases (Step 10.4)
+**Threat surface:** compromised CI actions (e.g. hijacked tags, as with trivy-action in March 2026) exfiltrating the registry token or altering images; publishing unscanned or broken images; tampered images between registry and host; unnecessary tooling (npm, compilers, dev packages) in the runtime image widening the attack surface; license obligations for bundled code.  
+**Controls added:** every action pinned to a full commit SHA that was checked to be a verified commit on its default branch (tags are never trusted); scanner version pinned; release only on `vX.Y.Z` tags, after the full CI; per-architecture build → smoke test → Trivy scan → push; least-privilege job permissions (`packages: write`, `id-token: write` only where needed), `persist-credentials: false`; keyless Sigstore signature + CycloneDX SBOM attestation on the index digest, verification documented with an exact identity regexp; runtime image without dev packages, compilers, npm/yarn/corepack; smoke test in the hardened configuration (read-only, no capabilities); third-party notices generated from the actual bundle.  
+**Negative tests:** smoke test fails if pruning removed a runtime dependency; Trivy fails on fixable HIGH/CRITICAL; fail-closed and non-root checks per architecture.  
+**Secrets/data involved:** `GITHUB_TOKEN` (registry push), Sigstore OIDC token (short-lived) — neither leaves GitHub Actions; no application secrets in CI.  
+**Logging review:** no new application logs; the scheduled backup logs its path and counts only.  
+**Authorization review:** unchanged application authorization; the release workflow cannot be triggered by pull requests.  
+**Open risks:** GitHub-hosted runners and GHCR are trusted infrastructure; `ignore-unfixed` hides vulnerabilities without a fix (tracked through Dependabot base-image updates); builds are not bit-for-bit reproducible.  
 **Reviewed:** 2026-09-28

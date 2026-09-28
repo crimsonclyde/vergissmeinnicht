@@ -4,7 +4,7 @@ import { join } from 'node:path';
 import Database from 'better-sqlite3';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { normalizeEmail } from '@vergissmeinnicht/domain';
-import { BackupError, backupDatabase, defaultBackupPath, restoreDatabase, verifyDatabase } from './backup.ts';
+import { BackupError, backupDatabase, backupIfDue, defaultBackupPath, listAutomaticBackups, restoreDatabase, verifyDatabase } from './backup.ts';
 import { openDatabase } from './connection.ts';
 import { runMigrations } from './migrate.ts';
 import { createUserRepository } from './user-repository.ts';
@@ -130,4 +130,43 @@ describe('backup and restore (10.2)', () => {
     expect(emails(live)).toEqual(['ada@example.org']);
     database = openDatabase(live);
   });
+
+  describe('scheduled backups (10.5)', () => {
+    const HOUR = 3_600_000;
+    const at = (iso: string) => new Date(iso);
+
+    it('writes a backup when none exists or the newest is older than the interval, never more often', async () => {
+      const first = await backupIfDue(live, { intervalMs: 24 * HOUR, keep: 3, now: at('2026-09-28T02:00:00.000Z') });
+      expect(first.written).toMatch(/backups\/vergissmeinnicht-auto-2026-09-28T02-00-00\.000Z\.sqlite$/);
+      expect(emails(first.written ?? '')).toEqual(['ada@example.org']);
+      expect(statSync(first.written ?? '').mode & 0o777).toBe(0o600);
+      // A restart an hour later does not repeat it.
+      expect((await backupIfDue(live, { intervalMs: 24 * HOUR, keep: 3, now: at('2026-09-28T03:00:00.000Z') })).written).toBeNull();
+      expect((await backupIfDue(live, { intervalMs: 24 * HOUR, keep: 3, now: at('2026-09-29T02:00:00.000Z') })).written).not.toBeNull();
+    });
+
+    it('keeps only the newest automatic backups and never touches manual or pre-migration ones', async () => {
+      const manual = defaultBackupPath(live, at('2026-09-01T00:00:00.000Z'));
+      await backupDatabase(live, manual);
+      const preMigration = manual.replace(/\.sqlite$/, '-pre-migration.sqlite');
+      await backupDatabase(live, preMigration);
+      for (const day of ['01', '02', '03', '04']) {
+        await backupIfDue(live, { intervalMs: HOUR, keep: 2, now: at(`2026-09-${day}T02:00:00.000Z`) });
+      }
+      expect(listAutomaticBackups(live).map((entry) => entry.at.toISOString())).toEqual(['2026-09-03T02:00:00.000Z', '2026-09-04T02:00:00.000Z']);
+      expect(existsSync(manual)).toBe(true);
+      expect(existsSync(preMigration)).toBe(true);
+    });
+
+    it('ignores files that only look similar', async () => {
+      const backups = join(dir, 'data', 'backups');
+      await backupIfDue(live, { intervalMs: HOUR, keep: 5, now: at('2026-09-01T00:00:00.000Z') });
+      writeFileSync(join(backups, 'vergissmeinnicht-auto-latest.sqlite'), 'x');
+      writeFileSync(join(backups, 'notes.txt'), 'x');
+      expect(listAutomaticBackups(live)).toHaveLength(1);
+      await backupIfDue(live, { intervalMs: HOUR, keep: 1, now: at('2026-09-02T00:00:00.000Z') });
+      expect(readdirSync(backups).sort()).toEqual(['notes.txt', 'vergissmeinnicht-auto-2026-09-02T00-00-00.000Z.sqlite', 'vergissmeinnicht-auto-latest.sqlite']);
+    });
+  });
 });
+

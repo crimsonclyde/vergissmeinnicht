@@ -38,9 +38,25 @@ RUN pnpm --filter @vergissmeinnicht/web build
 # ---- Runtime dependencies of the server only (no dev tools, no React/Vite).
 FROM toolchain AS server-deps
 RUN pnpm install --frozen-lockfile --prod --filter "@vergissmeinnicht/server..."
+# Better Auth declares optional peer dependencies (drizzle-kit, vitest, React, …) that pnpm links from
+# the development workspace; the server never loads them. They and their build tooling are removed
+# from the runtime tree, and better-sqlite3 keeps only the prebuilt binary of this platform (its
+# sources are only needed to compile). deploy/smoke-test.sh starts the image to prove nothing needed
+# at runtime was removed (CI).
+RUN cd node_modules/.pnpm \
+  && rm -rf vitest@* @vitest+* vite@* rolldown@* @rolldown+* esbuild@* @esbuild+* @esbuild-kit+* \
+    drizzle-kit@* @drizzle-team+brocli@* lightningcss@* lightningcss-* postcss@* @oxc-project+* \
+    react@* react-dom@* scheduler@* @types+* tsx@* get-tsconfig@* resolve-pkg-maps@* \
+    chai@* assertion-error@* tinybench@* tinyexec@* why-is-node-running@* expect-type@* \
+  && cd better-sqlite3@*/node_modules/better-sqlite3 \
+  && find prebuilds -type f ! -name "linux-$(node -p process.arch).node" -delete \
+  && rm -rf deps src build
 
 # ---- Runtime image.
 FROM ${NODE_IMAGE} AS runtime
+LABEL org.opencontainers.image.title="VergissMeinNicht" \
+      org.opencontainers.image.description="Repeatable procedures with trustworthy execution history" \
+      org.opencontainers.image.licenses="AGPL-3.0-only"
 ENV NODE_ENV=production \
     HOST=0.0.0.0 \
     PORT=3000 \
@@ -52,7 +68,11 @@ COPY packages packages
 COPY --from=web /app/apps/web/dist apps/web/dist
 COPY LICENSE ./
 COPY deploy/docker-entrypoint.sh /usr/local/bin/vergissmeinnicht
-RUN chmod 0755 /usr/local/bin/vergissmeinnicht \
+# npm/npx/corepack/yarn are not needed at runtime (the server runs with plain node): less attack
+# surface, fewer scanner findings.
+RUN rm -rf /usr/local/lib/node_modules/npm /usr/local/lib/node_modules/corepack /opt/yarn-* \
+    /usr/local/bin/npm /usr/local/bin/npx /usr/local/bin/corepack /usr/local/bin/yarn /usr/local/bin/yarnpkg \
+  && chmod 0755 /usr/local/bin/vergissmeinnicht \
   && mkdir -p /data \
   && chown node:node /data \
   && chmod 0700 /data

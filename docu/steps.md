@@ -1464,7 +1464,7 @@ Supported V1 deployment:
 
 **Security docs updated:** YES (§2, §8, §11, "Security check: deployment, hardening and backups").
 
-**Remaining:** image size 576 MB — better-auth's optional peers (drizzle-kit, vitest, esbuild) are resolved into the production tree (unused at runtime); no published image/registry or release process; no automated image vulnerability scan beyond Dependabot; ARM builds untested.
+**Remaining:** ~~image size~~, ~~registry/release~~, ~~image scan~~, ~~ARM builds~~ — all in 10.4.
 
 ### 10.2 Backup/restore
 **Status:** DONE
@@ -1484,7 +1484,7 @@ Document consistent SQLite backup and tested restore.
 
 **Security docs updated:** YES (§8).
 
-**Remaining:** no built-in schedule, retention or encryption of backups (operator's cron/timer and tooling, documented); `--force` bypasses the in-use check by design.
+**Remaining:** ~~no built-in schedule/retention~~ (10.5); encryption stays with the operator's tools (documented); `--force` bypasses the in-use check by design.
 
 ### 10.3 Production hardening
 **Status:** DONE
@@ -1511,6 +1511,45 @@ HTTPS, proxy trust, security headers, dependency scanning, health checks, safe s
 
 ---
 
+### 10.4 Image size, vulnerability scanning, multi-architecture builds, signed releases
+**Status:** DONE
+**Completed:** 2026-09-28
+
+**Decisions (2026-09-28, user):** slim image, image vulnerability scan, arm64 builds, and publishing to GHCR on version tags — nothing is published until a tag is pushed.
+
+**Security impact:** MEDIUM — supply chain of the published artifact; new CI permissions (`packages: write`, `id-token: write`) only in the tag-triggered release workflow.
+
+**Implemented:**
+- Image: better-auth's optional peers and all build/test tooling (vitest, vite, rolldown, esbuild, drizzle-kit, lightningcss, postcss, React, @types, tsx, …) are removed from the runtime tree; better-sqlite3 keeps only the prebuilt binary of the image's platform (no sources); npm/npx/corepack/yarn removed from the runtime file system. 576 MB → 416 MB (runtime `node_modules` 193 MB → 72 MB); OCI labels (title, description, license; version/revision/source on releases).
+- `deploy/smoke-test.sh`: starts an image with a throwaway production configuration — `migrate`, `admin-bootstrap`, `backup`, then `serve` read-only with dropped capabilities: readiness, web app, service worker, manifest, third-party notices, scheduled backup. Proves the pruning removed nothing needed.
+- CI `image` job: matrix on native `ubuntu-latest` and `ubuntu-24.04-arm` runners (no emulation): build, non-root + fail-closed checks, smoke test, Trivy scan (HIGH/CRITICAL with a fix → fail). `trivy-action` pinned to the verified signed commit of v0.36.0 (released after the March 2026 tag compromise; checked to be in the default branch) with an explicit scanner version v0.70.0.
+- `.github/workflows/release.yml` (tags `vX.Y.Z` only): runs the full CI (`workflow_call`), then per architecture on native runners build → smoke test → scan → push `:<version>-<arch>`; then one multi-architecture index (`:<version>`, `:<major.minor>`, `:latest`), a CycloneDX SBOM (Trivy), keyless Sigstore signature and SBOM attestation of the index digest (`cosign`). All actions pinned to verified commit SHAs (checked: signed, on the default branch); least-privilege job permissions; `persist-credentials: false`.
+- Third-party notices (open item of 11.1): a Vite plugin writes `third-party-notices.txt` from the modules actually in the bundle (name, version, license, full license text); linked in the footer.
+
+**Tests/checks:** local image build + smoke test (amd64); Trivy v0.70.0 scan of the slim image: 0 fixable HIGH/CRITICAL; actionlint 1.7.7 on both workflows (clean); notices unit tests; e2e: footer link and notices content; `pnpm test`, `pnpm lint`, `pnpm typecheck`. Not run here: the arm64 job and the release workflow (they run on GitHub; first real run happens on the next pull request / tag).
+
+**Security docs updated:** YES (§10, §11, "Security check: image pipeline and releases (10.4)").
+
+**Remaining:** first GHCR package must be made public once; releases are not reproducible builds; no automatic base-image rebuild when only the OS packages get fixes (Dependabot bumps the pinned digest).
+
+### 10.5 Scheduled backups
+**Status:** DONE
+**Completed:** 2026-09-28
+
+**Decision (2026-09-28, user):** built-in schedule and retention; encryption stays with established external tools (documented), no home-made crypto.
+
+**Security impact:** LOW — more copies of the sensitive database on the same volume (same `0600`/`0700` protection); retention deletes only automatic backups.
+
+**Implemented:** `BACKUP_INTERVAL_HOURS` (off by default, ≤744) and `BACKUP_KEEP` (default 14); `backupIfDue` (`packages/database/src/backup.ts`): decides from the newest `vergissmeinnicht-auto-<UTC>.sqlite` on disk (restarts neither skip nor repeat), writes through the verified online-backup path, keeps the newest N automatic backups and never touches manual or pre-migration backups or other files; `scheduleBackups` in the server checks at start and every 10 minutes, never overlapping, logs path/count or error type + BackupError message. Documented with an `age`/`restic` off-host example.
+
+**Tests/checks:** backup tests (due/not due across a restart, retention, manual and pre-migration backups untouched, look-alike files ignored, file mode), scheduler tests (off by default, one backup when due, failures logged not thrown), config tests, smoke test in the container (read-only root FS). `pnpm test` 590.
+
+**Security docs updated:** YES (§8).
+
+**Remaining:** off-host copies and encryption remain the operator's job (documented).
+
+---
+
 ## 11 — Licensing
 
 ### 11.1 AGPL-3.0
@@ -1531,7 +1570,7 @@ Add canonical GNU Affero General Public License v3 text and appropriate package/
 
 **Security docs updated:** N/A (no credentials or permissions involved).
 
-**Remaining:** no per-file license headers (the root `LICENSE` plus package metadata cover the project); third-party license notices of bundled dependencies are not collected into the web build yet.
+**Remaining:** no per-file license headers (the root `LICENSE` plus package metadata cover the project); ~~third-party notices~~ collected into the web build since 10.4 (`/third-party-notices.txt`).
 
 ---
 

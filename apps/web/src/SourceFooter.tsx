@@ -23,7 +23,8 @@ export function SourceFooter() {
       {t('footer.license')}{' '}
       <a href={sourceCodeUrl} rel="noopener noreferrer">
         {t('footer.source')}
-      </a>
+      </a>{' '}
+      · <a href="/third-party-notices.txt">{t('footer.thirdParty')}</a>
     </footer>
   );
 }
