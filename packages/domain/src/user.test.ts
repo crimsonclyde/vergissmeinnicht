@@ -39,6 +39,15 @@ describe('normalizeEmail', () => {
     'user@example..org',
     'user@example.org\u0000',
     'line\nbreak@example.org',
+    // Invisible or broken characters: look-alikes of another address, or impossible to type.
+    'clyde@\uFFFDexample.org',
+    'clyde@\u200Bexample.org',
+    'clyde\u200D@example.org',
+    'clyde@exa\u00ADmple.org',
+    'cly\u202Ede@example.org',
+    'clyde@\uE000example.org',
+    'clyde@\uD800example.org',
+    'clyde\u00A0x@example.org',
   ])('rejects %j', (input) => {
     expect(codeOf(() => normalizeEmail(input))).toBe('invalid_email');
   });

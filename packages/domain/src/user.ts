@@ -1,5 +1,5 @@
 import { DomainValidationError } from './errors.ts';
-import { CONTROL_CHARS, normalizeSingleLineName } from './text.ts';
+import { INVISIBLE_OR_INVALID_CHARS, normalizeSingleLineName } from './text.ts';
 
 /**
  * Stable internal User identity. Authentication methods (password, TOTP, future Apple/GitHub)
@@ -45,7 +45,9 @@ const EMAIL_SHAPE = /^[^\s@]+@[^\s@.]+(?:\.[^\s@.]+)+$/u;
  */
 export function normalizeEmail(input: string): NormalizedEmail {
   const email = input.trim().normalize('NFC').toLowerCase();
-  if (CONTROL_CHARS.test(email) || !EMAIL_SHAPE.test(email)) {
+  // Invisible or broken characters would create an address that looks like another one (a look-alike
+  // account, or one nobody can type to sign in).
+  if (INVISIBLE_OR_INVALID_CHARS.test(email) || !EMAIL_SHAPE.test(email)) {
     throw new DomainValidationError('email', 'invalid_email', 'Email address is not valid');
   }
   const localPart = email.slice(0, email.lastIndexOf('@'));
