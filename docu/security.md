@@ -441,7 +441,7 @@ The following choices are mandatory V1 behavior:
 **Secrets/data involved:** member emails and account status (personal data), Workspace names.  
 **Logging review:** no new log statements; emails travel in JSON bodies, never in URLs; security event metadata holds user ids, roles and Workspace names only.  
 **Authorization review:** HTTP handlers only authenticate (`requireUser`) and translate; all Workspace authorization is in `packages/application/src/workspaces/use-cases.ts` via `packages/permissions`.  
-**Open risks:** "add member by email" tells a Workspace ADMIN whether an ACTIVE account exists for an address (accepted: invite-only system, admins are trusted, rate-limited and audited); Workspace names are stored in security-event metadata on rename (not secret, but personal wording persists); members cannot leave a Workspace on their own unless they are an admin; disabling the only ACTIVE admin of a Workspace leaves it without a manager until a server-level repair tool exists; no Workspace deletion/archiving yet; SSE authorization and Procedure/Run capabilities still to come (3.2, 6.1).  
+**Open risks:** "add member by email" tells a Workspace ADMIN whether an ACTIVE account exists for an address (accepted: invite-only system, admins are trusted, rate-limited and audited); Workspace names are stored in security-event metadata on rename (not secret, but personal wording persists); members cannot leave a Workspace on their own unless they are an admin; disabling the only ACTIVE admin of a Workspace is refused (2.7), so no Workspace is left without a manager; no Workspace deletion/archiving yet; SSE authorization and Procedure/Run capabilities still to come (3.2, 6.1).  
 **Reviewed:** 2026-09-27
 
 ### Security check: Workspace role policy (Step 3.2)
@@ -451,7 +451,7 @@ The following choices are mandatory V1 behavior:
 **Secrets/data involved:** none new.  
 **Logging review:** no new log output.  
 **Authorization review:** Procedure/Run capabilities are defined but not yet enforced anywhere because those features do not exist; Steps 4/5 must use `authorizeWorkspace` with them and add negative tests per capability.  
-**Open risks:** matrix decided from the documented intent, pending product review (steps.md 3.2); SSE authorization not yet implemented (6.1); a Workspace whose only ACTIVE admin is disabled cannot be managed until a server-admin repair path exists.  
+**Open risks:** matrix decided from the documented intent, pending product review (steps.md 3.2); SSE authorization not yet implemented (6.1); a Workspace can no longer lose its only ACTIVE admin through account disabling (refused since 2.7).  
 **Reviewed:** 2026-09-27
 
 ### Security check: local test environment (`test-env/`, 2026-09-27)

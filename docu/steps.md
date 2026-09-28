@@ -18,18 +18,18 @@ For every completed task, add a concise completion note, tests/checks performed,
 
 ## Current state — resume here
 
-_Last updated: 2026-09-27 (after 10.3 — every non-deferred step is DONE)_
+_Last updated: 2026-09-28 (follow-up round: 2.7–2.9, 5.7, 8.5, 8.7–8.9, 10.4, 10.5)_
 
-**Done:** 0.1, 0.2, 0.3, 1.1, 1.2, 2.1–2.5, 3.1–3.3, 4.1–4.5, 5.1–5.6, 6.1, 6.2, 7.1, 8.0–8.4, 8.6, 9.1, 10.1–10.3, 11.1. DEFERRED: 2.6 (external identity providers). Follow-ups 2026-09-28: 2.7–2.9, 5.7, 8.5, 8.7–8.9 (see below).
-**Next:** no open ledger step. Candidates: merge the stacked branches into `main` (CI has not run on them), a full accessibility review (incl. an alternative to press-and-hold), account disabling with session revocation, housekeeping of expired rows, 2.6 / 8.5 when prioritised. Open decisions for the user: SKIPPED does not satisfy a required Step at completion (5.4); the Knot design choices in 7.1 (targets, `knot.manage` for EDITOR/ADMIN, link shown once).
+**Done:** 0.1, 0.2, 0.3, 1.1, 1.2, 2.1–2.5, 2.7–2.9, 3.1–3.3, 4.1–4.5, 5.1–5.7, 6.1, 6.2, 7.1, 8.0–8.9, 9.1, 10.1–10.5, 11.1. DEFERRED: 2.6 (external identity providers — a later step, user decision 2026-09-28).
+**Next:** merge into `main` only when the user says so (decided 2026-09-28: wait); the first pull request will run CI incl. the new arm64 image job; the release workflow runs on the first `vX.Y.Z` tag. Needs people/devices: a session with a real screen reader and tests on physical iOS/Android devices (incl. offline storage eviction).
 
-**UI (2026-09-27):** app shell (8.0), responsive execution (8.1), state presentation (8.2), themes (8.3), message catalog (8.4) and the declutter/naming pass from user feedback (8.6) are done; a full accessibility review remains.
+**Decisions 2026-09-28 (user):** offline = queue + labelled device time (8.5); disabling an account is refused while it is the only active Workspace admin (2.7); TOTP stays optional for everyone, also server admins; housekeeping automatic in the server (2.8); sensitive rate limits persisted (2.9); critical Steps: "Tap, then confirm" per account, theme per account (8.7); Memento Mori = darker + stronger red (8.7); slim image, image scan, arm64, signed GHCR releases on tags (10.4); scheduled backups without own crypto (10.5); SKIPPED keeps blocking completion (5.4) and the Knot design stays (7.1) — both confirmed.
+
+**UI:** app shell (8.0), responsive execution (8.1), state presentation (8.2), themes incl. Memento Mori (8.3, 8.7), message catalog (8.4), declutter (8.6), accessibility review with automated axe checks (8.8), UX follow-ups (8.9), offline Runs (8.5).
 
 **Lockfile note (4.4):** the hand-edited entries (`apps/server` → `@vergissmeinnicht/import-export`, `packages/import-export` → `zod`) were verified on 2026-09-27 with `pnpm install --frozen-lockfile` (pnpm 12.6.0): lockfile up to date, supply-chain policies passed, no changes.
 
-Also open: ~~account status changes~~ (2.7), ~~housekeeping~~ (2.8), ~~persistent rate limits~~ (2.9).
-
-**Branches:** work is stacked, not yet merged into `main`: `step-1.1-app-skeleton` → `step-1.2-config` → `step-2.1-user-model` → `step-2.2-invitations` → `step-2.4-totp` → `step-2.5-recovery` → `step-3.1-workspaces` → `step-3.2-roles` → `step-4.1-procedures` → `step-4.2-steps` → `step-4.3-drag-drop` → `step-4.4-import-export` → `step-4.5-restore` → `step-5.1-run-snapshot` → `cleanup-web-domain-constants` → `step-5.2-step-states` → `step-5.3-press-and-hold` → `step-5.4-run-lifecycle` → `step-5.5-audit-trail` → `step-5.6-immutability` → `step-8.0-app-shell` → `step-6-collaboration` (6.1, 6.2) → `step-7.1-knots` → `step-11.1-license` → `step-8-ux` (8.1–8.4) → `step-10-operations` (10.1–10.3) → `ui-declutter` (8.6) (each branch contains the previous ones; 2.3 was completed on `step-2.2-invitations` because acceptance finishes 2.2). CI runs on pull requests / `main` only.
+**Branches:** work is stacked, not yet merged into `main`: `step-1.1-app-skeleton` → `step-1.2-config` → `step-2.1-user-model` → `step-2.2-invitations` → `step-2.4-totp` → `step-2.5-recovery` → `step-3.1-workspaces` → `step-3.2-roles` → `step-4.1-procedures` → `step-4.2-steps` → `step-4.3-drag-drop` → `step-4.4-import-export` → `step-4.5-restore` → `step-5.1-run-snapshot` → `cleanup-web-domain-constants` → `step-5.2-step-states` → `step-5.3-press-and-hold` → `step-5.4-run-lifecycle` → `step-5.5-audit-trail` → `step-5.6-immutability` → `step-8.0-app-shell` → `step-6-collaboration` (6.1, 6.2) → `step-7.1-knots` → `step-11.1-license` → `step-8-ux` (8.1–8.4) → `step-10-operations` (10.1–10.3) → `ui-declutter` (8.6) → `step-2.7-account-status` → `step-2.8-housekeeping` (2.8, 2.9) → `step-5.7-history-paging` → `step-8.7-preferences` → `step-8.9-ux` (8.8 was committed on `step-8.7-preferences`) → `step-8.5-offline` → `step-10.4-operations` (10.4, 10.5) (each branch contains the previous ones; 2.3 was completed on `step-2.2-invitations` because acceptance finishes 2.2). CI runs on pull requests / `main` only.
 
 **Manual testing:** `test-env/menu.sh` (added 2026-09-27) installs/starts/stops/removes an isolated production-mode instance on port 3200 with demo accounts for every role (see `test-env/README.md`). Extend `test-env/seed.ts` when new features need demo data (e.g. Procedures in 4.1).
 
@@ -955,7 +955,7 @@ Any authorized Workspace USER-or-higher capability may continue an active Run.
 
 **Security impact:** HIGH — finality of history, collaborative writes.
 
-**Decisions (2026-09-27, review welcome):** a Run can be completed only when every *required* Step is DONE or NOT_APPLICABLE — SKIPPED does not satisfy a required Step (it was applicable but not done); optional Steps may be in any state, including PENDING. Abort is possible at any time for an ACTIVE Run, with an optional reason (≤500 code points, same text rules as Step reasons). Completion needs `run.execute`, abort `run.abort` (both USER, EDITOR, ADMIN). There is no reopening.
+**Decisions (2026-09-27; confirmed by the user 2026-09-28):** a Run can be completed only when every *required* Step is DONE or NOT_APPLICABLE — SKIPPED does not satisfy a required Step (it was applicable but not done); optional Steps may be in any state, including PENDING. Abort is possible at any time for an ACTIVE Run, with an optional reason (≤500 code points, same text rules as Step reasons). Completion needs `run.execute`, abort `run.abort` (both USER, EDITOR, ADMIN). There is no reopening.
 
 **Implemented:**
 - Domain: `completionBlockers`, `normalizeOptionalReason`, `Run.ended` (actor snapshot, time, reason); audit types `RUN_COMPLETED`, `RUN_ABORTED`.
@@ -1136,7 +1136,7 @@ Token is high entropy, revocable, optionally expiring, redacted from logs, and d
 
 **Security impact:** CRITICAL — new credential-like token type and a new Workspace capability.
 
-**Decisions (2026-09-27, review welcome):**
+**Decisions (2026-09-27; confirmed by the user 2026-09-28 — targets, `knot.manage` for EDITOR/ADMIN, link shown once):**
 - A Knot points at exactly one **Procedure** or **Run** of its Workspace (explicit target, stored with a type-checked FK). Other targets (Sections, Steps, Workspaces) are not part of V1.
 - New capability `knot.manage` (EDITOR, ADMIN): create, list and revoke the Workspace's Knots. Opening a Knot needs no extra capability — only what reading the target needs (`procedure.view` / `run.view`, i.e. every member role).
 - The link is shown **once** at creation (only the SHA-256 is stored); to share again, create a new Knot. Lifetime 1–365 days or no expiry (default in the UI: 30 days). Revocation is final and audited; records are kept.
