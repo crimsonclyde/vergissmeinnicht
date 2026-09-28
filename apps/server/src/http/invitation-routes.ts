@@ -49,7 +49,7 @@ export async function invitationRoutes(app: FastifyInstance, { services }: { ser
 
   app.post(
     '/resolve',
-    { bodyLimit: 1024, config: { rateLimit: { max: 30, timeWindow: 15 * MINUTE_MS } } },
+    { bodyLimit: 1024, config: { rateLimit: { persist: 'invitation-resolve', max: 30, timeWindow: 15 * MINUTE_MS } } },
     async (request) => {
       const invitation = await resolvePendingInvitation(deps, parse(resolveBody, request.body).token);
       return { email: invitation.email, expiresAt: invitation.expiresAt.toISOString() };
@@ -59,7 +59,7 @@ export async function invitationRoutes(app: FastifyInstance, { services }: { ser
   app.post(
     '/accept',
     // Each accepted request costs one Argon2id hash; keep it scarce per client.
-    { bodyLimit: 4096, config: { rateLimit: { max: 10, timeWindow: 15 * MINUTE_MS } } },
+    { bodyLimit: 4096, config: { rateLimit: { persist: 'invitation-accept', max: 10, timeWindow: 15 * MINUTE_MS } } },
     async (request, reply) => {
       const body = parse(acceptBody, request.body);
       await acceptInvitation(deps, body);
@@ -81,7 +81,7 @@ export async function adminInvitationRoutes(app: FastifyInstance, { services }: 
 
   app.post(
     '/',
-    { bodyLimit: 1024, config: { rateLimit: { max: 30, timeWindow: 15 * MINUTE_MS } } },
+    { bodyLimit: 1024, config: { rateLimit: { persist: 'admin-invitation', max: 30, timeWindow: 15 * MINUTE_MS } } },
     async (request, reply) => {
       const body = parse(issueBody, request.body);
       const { invitation, delivery } = await issueInvitation(deps, {

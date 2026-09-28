@@ -76,6 +76,7 @@ export async function authRoutes(app: FastifyInstance, { services }: { services:
 
   // Per-account throttle against distributed guessing; per-IP throttle is the route config below.
   const accountLimiter = app.createRateLimit({
+    persist: 'sign-in-account',
     max: 10,
     timeWindow: 15 * MINUTE_MS,
     keyGenerator: (request) => {
@@ -86,7 +87,7 @@ export async function authRoutes(app: FastifyInstance, { services }: { services:
 
   app.post(
     '/sign-in',
-    { bodyLimit: 4096, config: { rateLimit: { max: 10, timeWindow: MINUTE_MS } } },
+    { bodyLimit: 4096, config: { rateLimit: { persist: 'sign-in', max: 10, timeWindow: MINUTE_MS } } },
     async (request, reply) => {
       const parsed = signInBody.safeParse(request.body);
       if (!parsed.success) throw new InvalidRequestError();
@@ -158,7 +159,7 @@ export async function authRoutes(app: FastifyInstance, { services }: { services:
 
   app.post(
     '/mfa',
-    { bodyLimit: 1024, config: { rateLimit: { max: 10, timeWindow: MINUTE_MS } } },
+    { bodyLimit: 1024, config: { rateLimit: { persist: 'mfa', max: 10, timeWindow: MINUTE_MS } } },
     async (request, reply) => {
       const parsed = mfaBody.safeParse(request.body);
       if (!parsed.success) throw new InvalidRequestError();

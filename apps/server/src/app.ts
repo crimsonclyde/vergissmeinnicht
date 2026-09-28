@@ -12,6 +12,7 @@ import { adminInvitationRoutes, invitationRoutes } from './http/invitation-route
 import { knotRoutes, workspaceKnotRoutes } from './http/knot-routes.ts';
 import { originGuard } from './http/origin-guard.ts';
 import { procedureRoutes } from './http/procedure-routes.ts';
+import { rateLimitStore } from './http/rate-limit-store.ts';
 import { adminRecoveryRoutes, recoveryRoutes } from './http/recovery-routes.ts';
 import { runRoutes } from './http/run-routes.ts';
 import { workspaceRoutes } from './http/workspace-routes.ts';
@@ -62,6 +63,8 @@ export async function buildApp(options: AppOptions = {}) {
     // IPv6 clients usually control a whole prefix; count it as one client.
     ipv6Subnet: 56,
     errorResponseBuilder: (_request, context) => ({ statusCode: context.statusCode, error: 'rate_limited' }),
+    // Limits marked `persist` (sign-in, MFA, recovery, invitations, account security) live in the database.
+    store: rateLimitStore(services?.rateLimits),
   });
 
   await app.register(fastifyHelmet, {

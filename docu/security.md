@@ -193,7 +193,7 @@ Canonical shape:
 ## 8. Database and storage
 
 - [x] SQLite foreign keys enabled.
-- [x] Migrations exist from first schema. (`packages/database/migrations` 0000–0014; readiness reports pending ones.)
+- [x] Migrations exist from first schema. (`packages/database/migrations` 0000–0015; readiness reports pending ones.)
 - [x] Writes requiring audit consistency are transactional. (Every repository mutation with its audit/security event in one `IMMEDIATE` transaction — §6.)
 - [x] SQLite file permissions are restrictive.
 - [x] WAL/sidecar files are treated as sensitive data too. (Same `0700` directory; backups use the online backup API so WAL content is included, and are converted to a single file; restores move the old database together with its WAL/SHM.)
@@ -420,7 +420,7 @@ The following choices are mandatory V1 behavior:
 **Secrets/data involved:** passwords (transient), Argon2id hashes (`accounts.password`), session tokens (`sessions.token`, cookie), `AUTH_SECRET` (cookie HMAC), client IP and user agent in `sessions`.  
 **Logging review:** request logs contain method, redacted URL, status; failed sign-ins log an event marker without email; Better Auth messages are forwarded without structured arguments ("User not found", "Invalid password"); unexpected errors logged as type + stack frames only. Verified by capturing all log output in the HTTP test suite.  
 **Authorization review:** session → ACTIVE User resolution is centralized in `authenticate()`/`requireUser` (`apps/server/src/http/session.ts`), which is also the seam for the 2.4 TOTP gate; admin capabilities are checked in the use-cases.  
-**Open risks:** behind a reverse proxy without `TRUSTED_PROXIES` (available since 10.3, preset in the Compose deployment) all clients share one address and per-client limits become global (DoS of sign-in by one attacker); per-account limit lets an attacker temporarily block a known account's sign-in (bounded to 15 min windows); session tokens are stored unhashed (a DB leak plus `AUTH_SECRET` allows session forgery — protect both; rotate `AUTH_SECRET` after suspected compromise); no breached-password blocklist; in-memory rate-limit state resets on restart; password change and privilege-change session rotation not yet implemented; `BETTER_AUTH_TELEMETRY` env var would override the explicit telemetry opt-out — do not set it.  
+**Open risks:** behind a reverse proxy without `TRUSTED_PROXIES` (available since 10.3, preset in the Compose deployment) all clients share one address and per-client limits become global (DoS of sign-in by one attacker); per-account limit lets an attacker temporarily block a known account's sign-in (bounded to 15 min windows); session tokens are stored unhashed (a DB leak plus `AUTH_SECRET` allows session forgery — protect both; rotate `AUTH_SECRET` after suspected compromise); no breached-password blocklist; in-memory rate-limit state resets on restart (sensitive limits persisted since 2.9); password change and privilege-change session rotation not yet implemented; `BETTER_AUTH_TELEMETRY` env var would override the explicit telemetry opt-out — do not set it.  
 **Reviewed:** 2026-09-26
 
 ### Security check: encryption at rest for TOTP secrets (Step 2.4)
@@ -561,4 +561,14 @@ The following choices are mandatory V1 behavior:
 **Logging review:** no new log statements; passwords only in request bodies (not logged).  
 **Authorization review:** `listAccounts` / `setAccountStatus` in `packages/application/src/accounts`; the HTTP layer only authenticates and parses.  
 **Open risks:** server admins see every account's email (inherent to administration); an admin can disable any other admin (both actions audited); no server-admin grant/removal flow yet.  
+**Reviewed:** 2026-09-28
+
+### Security check: housekeeping and persistent rate limits (Steps 2.8/2.9)
+**Threat surface:** deleting rows that are still usable (live sessions, pending links) or history (security/audit events); leftover expired token hashes and sessions accumulating; brute-force limits reset by restarting or crashing the server; personal data (emails, IPs) accumulating in a limiter table; write amplification by flooding a persisted limiter.  
+**Controls added:** purge conditions only select expired, consumed, or finished-for-30-days rows, in one transaction; security events, audit events, Runs and Knots are never touched (append-only triggers would refuse anyway); counts-only logging. Sensitive limits in `rate_limits` keyed by SHA-256 of counter name + key; no writes after a key is over its limit; expired windows purged hourly.  
+**Negative tests:** `packages/database/src/housekeeping.test.ts` (pending/recent/live rows kept, events untouched), `apps/server/src/http/rate-limit-persistence.test.ts` (limits survive a restart; no email/IP stored; ordinary routes do not write).  
+**Secrets/data involved:** session rows, token hashes, hashed limiter keys.  
+**Logging review:** only deletion counts and error types.  
+**Authorization review:** no new endpoints; the CLI requires shell access with the production configuration.  
+**Open risks:** hashed limiter keys of low-entropy inputs (emails, IPv4 addresses) could be brute-forced by someone with the database file — they exist only for the window length (≤15 min) plus up to one hour until purge; single-node only.  
 **Reviewed:** 2026-09-28

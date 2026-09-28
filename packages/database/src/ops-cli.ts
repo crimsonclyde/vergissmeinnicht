@@ -3,6 +3,8 @@ import { resolve } from 'node:path';
 import { parseArgs } from 'node:util';
 import Database from 'better-sqlite3';
 import { BackupError, backupDatabase, defaultBackupPath, restoreDatabase, verifyDatabase } from './backup.ts';
+import { openDatabase } from './connection.ts';
+import { purgeExpired } from './housekeeping.ts';
 import { migrationStatus, runMigrations } from './migrate.ts';
 
 /**
@@ -13,8 +15,9 @@ import { migrationStatus, runMigrations } from './migrate.ts';
  *   backup [--out]   consistent online backup, verified
  *   verify <file>    check a backup
  *   restore <file>   replace the database with a backup (server stopped; --force to override the check)
+ *   housekeeping     delete expired sessions, challenges, finished links and rate-limit windows now
  */
-const USAGE = 'Usage: ops-cli.ts migrate | backup [--out <file>] | verify <file> | restore <file> [--force]';
+const USAGE = 'Usage: ops-cli.ts migrate | backup [--out <file>] | verify <file> | restore <file> [--force] | housekeeping';
 
 const { values, positionals } = parseArgs({
   allowPositionals: true,
@@ -62,6 +65,16 @@ try {
       const { previous, migrationsPending } = restoreDatabase(resolve(file), databasePath, { force: values.force });
       console.log(`Restored ${databasePath}.${previous === null ? '' : ` The replaced database was kept as ${previous}.`}`);
       if (migrationsPending) console.log('The backup has an older schema: run "migrate" before starting the server.');
+      break;
+    }
+    case 'housekeeping': {
+      const database = openDatabase(databasePath);
+      try {
+        const deleted = purgeExpired(database);
+        console.log(`Deleted: ${Object.entries(deleted).map(([table, count]) => `${table} ${count}`).join(', ')}.`);
+      } finally {
+        database.close();
+      }
       break;
     }
     default:

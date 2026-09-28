@@ -56,6 +56,7 @@ export async function adminAccountRoutes(app: FastifyInstance, { services }: { s
       bodyLimit: 4096,
       config: {
         rateLimit: {
+          persist: 'admin-account-status',
           max: 20,
           timeWindow: 15 * MINUTE_MS,
           hook: 'preHandler',

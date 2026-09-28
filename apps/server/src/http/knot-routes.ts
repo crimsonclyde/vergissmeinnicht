@@ -51,7 +51,7 @@ const entryView = (entry: KnotListEntry, now: Date) =>
 export async function knotRoutes(app: FastifyInstance, { services }: { services: AppServices }) {
   app.addHook('preHandler', requireUser(services));
 
-  app.post('/resolve', { bodyLimit: 1024, config: { rateLimit: { max: 30, timeWindow: MINUTE_MS } } }, async (request) => {
+  app.post('/resolve', { bodyLimit: 1024, config: { rateLimit: { persist: 'knot-resolve', max: 30, timeWindow: MINUTE_MS } } }, async (request) => {
     const { token } = parse(resolveBody, request.body);
     const resolved = await resolveKnot(services.knots, { actor: principalOf(request).user, token });
     return { workspaceId: resolved.workspaceId, target: resolved.target };

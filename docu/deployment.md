@@ -45,6 +45,7 @@ The image entry point knows these commands (all use the same configuration as th
 | `backup [--out FILE]` | Consistent online backup (server may keep running), verified. |
 | `verify FILE` | Check a backup (integrity, foreign keys, schema). |
 | `restore FILE [--force]` | Replace the database with a backup — **server stopped** (refused while it has the database open). |
+| `housekeeping` | Delete expired rows now (the server also does this at start and hourly, see below). |
 | `admin-bootstrap --email …` / `admin-recover --email … (--password\|--totp)` | See "First server admin" and "Account recovery". |
 
 Use `docker compose run --rm app <command>` when the app is stopped, or `docker compose exec app vergissmeinnicht <command>` while it runs (backups).
@@ -107,7 +108,12 @@ HTTPS is mandatory; the Compose setup uses Caddy, which obtains and renews certi
 - With your own proxy instead of Caddy: terminate TLS there, forward to the app's port 3000 on a private network, **overwrite** (not append to) `X-Forwarded-For` or make sure the proxy's own address is the one in `TRUSTED_PROXIES`, disable response buffering for `/api/workspaces/*/runs/*/events` (Server-Sent Events; nginx: the app sends `X-Accel-Buffering: no`), and do not enable response compression.
 - Access logs: the app redacts `/knot/{token}` and link tokens from its own request logs. Proxy access logs would contain them — keep them off (the Caddyfile has none) or filter the URI.
 - The app sends HSTS (one year) for https origins, CSP without inline styles/scripts, `Referrer-Policy: no-referrer`, `Permissions-Policy`, `X-Content-Type-Options`, `Cache-Control: no-store` on the API.
+- Limits of security-sensitive routes (sign-in per client and per account, second factor, recovery and invitation links, password/TOTP changes, admin recovery/invitations/account status, Knot resolution) are kept in the database (`rate_limits`, key hashes only), so a restart does not reset them. The global per-client limit and other route limits are in memory. All of it is per server process/database: multi-node deployments need a reviewed shared store.
 - Private networks (VPN, Tailscale) do not replace the application's authentication; keep HTTPS and the normal configuration there too.
+
+## Housekeeping
+
+The server deletes rows that can no longer be used at start and then hourly: expired sessions and verification values, used or expired sign-in challenges, TOTP enrollments not confirmed within 10 minutes, expired rate-limit windows, and invitations / account-recovery links that were accepted, revoked or expired **more than 30 days ago**. Security events, audit history, Runs and Knots are never deleted. Only counts are logged. `pnpm db:housekeeping` (or the `housekeeping` image command) runs the same purge on demand.
 
 ## Health checks
 

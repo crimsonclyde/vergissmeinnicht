@@ -27,7 +27,7 @@ _Last updated: 2026-09-27 (after 10.3 — every non-deferred step is DONE)_
 
 **Lockfile note (4.4):** the hand-edited entries (`apps/server` → `@vergissmeinnicht/import-export`, `packages/import-export` → `zod`) were verified on 2026-09-27 with `pnpm install --frozen-lockfile` (pnpm 12.6.0): lockfile up to date, supply-chain policies passed, no changes.
 
-Also open: account status changes (disable/enable users) with session revocation; housekeeping of expired challenge/recovery/invitation rows.
+Also open: ~~account status changes~~ (2.7), ~~housekeeping~~ (2.8), ~~persistent rate limits~~ (2.9).
 
 **Branches:** work is stacked, not yet merged into `main`: `step-1.1-app-skeleton` → `step-1.2-config` → `step-2.1-user-model` → `step-2.2-invitations` → `step-2.4-totp` → `step-2.5-recovery` → `step-3.1-workspaces` → `step-3.2-roles` → `step-4.1-procedures` → `step-4.2-steps` → `step-4.3-drag-drop` → `step-4.4-import-export` → `step-4.5-restore` → `step-5.1-run-snapshot` → `cleanup-web-domain-constants` → `step-5.2-step-states` → `step-5.3-press-and-hold` → `step-5.4-run-lifecycle` → `step-5.5-audit-trail` → `step-5.6-immutability` → `step-8.0-app-shell` → `step-6-collaboration` (6.1, 6.2) → `step-7.1-knots` → `step-11.1-license` → `step-8-ux` (8.1–8.4) → `step-10-operations` (10.1–10.3) → `ui-declutter` (8.6) (each branch contains the previous ones; 2.3 was completed on `step-2.2-invitations` because acceptance finishes 2.2). CI runs on pull requests / `main` only.
 
@@ -391,7 +391,7 @@ A different physical folder layout is acceptable only if the same boundaries rem
 - Password change (with re-authentication and revocation of other sessions) is not exposed yet; add with account settings (2.4) or 2.5. Admin password reset is 2.5.
 - No breached/common-password blocklist yet (NIST recommends one); consider an offline list.
 - Session tokens are stored unhashed in `sessions.token` (Better Auth design). A DB leak alone does not yield usable cookies (HMAC with `AUTH_SECRET`), but DB + secret does.
-- Rate-limit state is in memory (single process; resets on restart); revisit for multi-node deployments.
+- Rate-limit state is in memory (single process; resets on restart); revisit for multi-node deployments. → Sensitive limits persisted in 2.9.
 - Admin web UI for invitations; session list/revoke UI.
 - `drizzle-kit` appears in `packages/auth`'s resolved tree as Better Auth's optional peer; ensure production images install without dev tooling (10.1).
 
@@ -541,6 +541,41 @@ Accounts without TOTP enabled log in with email + password only.
 **Security docs updated:** YES (§2 session rotation line, "Security check: account status (Step 2.7)").
 
 **Remaining:** server-admin grant/removal of the flag has no UI/API yet (only invitations can grant it); no bulk actions.
+
+### 2.8 Housekeeping of expired rows
+**Status:** DONE
+**Completed:** 2026-09-28
+
+**Decision (2026-09-28, user):** automatic in the server (at start + hourly), also available as a CLI command; security events are never deleted.
+
+**Security impact:** MEDIUM — deletes credential-adjacent rows (token hashes, sessions); must never delete anything still usable or any history.
+
+**Implemented:** `purgeExpired` (`packages/database/src/housekeeping.ts`, one `IMMEDIATE` transaction): expired sessions and `verifications`; MFA challenges that are expired or consumed; TOTP enrollments unconfirmed after `TOTP_ENROLLMENT_TTL_MS`; expired `rate_limits` windows (2.9); invitations and account recoveries accepted/completed, revoked or expired more than 30 days ago (`FINISHED_LINK_RETENTION_MS`). `scheduleHousekeeping` in `apps/server` runs it at start and hourly (unref'd timer, stopped on close, failures logged by type only, counts logged only when something was deleted). CLI: `pnpm db:housekeeping` / image command `housekeeping`.
+
+**Tests/checks:** `packages/database/src/housekeeping.test.ts` (exact deletion set incl. boundaries — recent/pending links, live sessions/challenges/rate-limit windows, confirmed TOTP credentials stay; security events untouched; idempotent), `apps/server/src/housekeeping.test.ts` (start + interval, stop, logs contain counts only); CLI run against a fresh database (success and usage error exit codes). `pnpm test`, `pnpm lint`, `pnpm typecheck`.
+
+**Security docs updated:** YES ("Security check: housekeeping and persistent rate limits (2.8/2.9)").
+
+**Remaining:** retention is fixed (30 days), not configurable.
+
+### 2.9 Persistent rate limits for sensitive endpoints
+**Status:** DONE
+**Completed:** 2026-09-28
+
+**Decision (2026-09-28, user):** persist only the security-sensitive limits; the global per-request limit stays in memory.
+
+**Security impact:** MEDIUM — restarts no longer reset brute-force limits.
+
+**Implemented:**
+- Migration `0015_rate_limits`: `rate_limits` (`key_hash` = SHA-256 of counter name + key — no email/IP in clear; `hits`, `window_start`, `window_ms`; CHECKs).
+- `createRateLimitCounter` (`packages/database`): fixed windows like the plugin's in-memory store; once a key exceeds its maximum, further hits are not written (one write per window under a flood).
+- `apps/server/src/http/rate-limit-store.ts`: store for `@fastify/rate-limit` — in memory by default, persistent for limits configured with `persist: '<name>'`. Persisted: sign-in (per client and per account), `/auth/mfa`, account security (password, TOTP), recovery link resolve/complete, admin recovery, invitation resolve/accept, admin invitations, admin account status, Knot resolution.
+
+**Tests/checks:** counter (fixed window, reopen = restart, write stop, hashes only), `apps/server/src/http/rate-limit-persistence.test.ts` (per-account and per-client sign-in limits still apply after a restart on the same database; no email/IP in the table; ordinary routes write nothing); mutation: disabling persistence fails the test. Existing rate-limit tests unchanged and passing.
+
+**Security docs updated:** YES.
+
+**Remaining:** single database/process only (multi-node needs a reviewed shared store, §12).
 
 ### 2.6 External identity provider abstraction
 **Status:** DEFERRED
@@ -1373,7 +1408,7 @@ HTTPS, proxy trust, security headers, dependency scanning, health checks, safe s
 
 **Security docs updated:** YES (§2, §11, open risks of Steps 1.1, 2.3, 6.1 updated).
 
-**Remaining:** rate-limit state is in memory (resets on restart, single node only); no WAF/fail2ban integration; secrets can still be given as plain environment variables (allowed for development and simple setups).
+**Remaining:** ~~rate-limit state in memory~~ (sensitive limits persisted in 2.9; single node only); no WAF/fail2ban integration; secrets can still be given as plain environment variables (allowed for development and simple setups).
 
 ---
 

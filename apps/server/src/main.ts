@@ -3,6 +3,7 @@ import { openDatabase } from '@vergissmeinnicht/database';
 import { buildApp } from './app.ts';
 import { createServices } from './composition.ts';
 import { ConfigError, loadConfig } from './config/index.ts';
+import { scheduleHousekeeping } from './housekeeping.ts';
 import { loggerOptions } from './logging.ts';
 
 function readConfig() {
@@ -29,7 +30,12 @@ const app = await buildApp({
   trustedProxies: config.trustedProxies,
   hstsMaxAge: config.hstsMaxAge,
 });
-app.addHook('onClose', async () => database.close());
+// Expired sessions, challenges, links and rate-limit windows are deleted hourly (Step 2.8).
+const stopHousekeeping = scheduleHousekeeping(database, app.log);
+app.addHook('onClose', async () => {
+  stopHousekeeping();
+  database.close();
+});
 
 if (config.authSecretEphemeral) {
   app.log.warn(`AUTH_SECRET not set: using a per-process secret (${config.mode} only); sessions will not survive restarts`);

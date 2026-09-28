@@ -33,7 +33,7 @@ function parse<T>(schema: z.ZodType<T>, value: unknown): T {
 /** Public: the `/recover/{token}` page. Possession of the emailed link is the credential. */
 export async function recoveryRoutes(app: FastifyInstance, { services }: { services: AppServices }) {
   const deps = services.recovery;
-  const limit = { rateLimit: { max: 10, timeWindow: 15 * MINUTE_MS } };
+  const limit = { rateLimit: { persist: 'recovery-link', max: 10, timeWindow: 15 * MINUTE_MS } };
 
   app.post('/resolve', { bodyLimit: 1024, config: limit }, async (request) => {
     const result = await resolveAccountRecovery(deps, parse(resolveBody, request.body).token);
@@ -58,6 +58,7 @@ export async function adminRecoveryRoutes(app: FastifyInstance, { services }: { 
       bodyLimit: 4096,
       config: {
         rateLimit: {
+          persist: 'admin-recovery',
           max: 10,
           timeWindow: 15 * MINUTE_MS,
           hook: 'preHandler',

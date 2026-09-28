@@ -39,6 +39,7 @@ function userOf(request: FastifyRequest) {
  */
 const perAccount = {
   rateLimit: {
+    persist: 'account-security',
     max: 10,
     timeWindow: 15 * 60_000,
     hook: 'preHandler' as const,

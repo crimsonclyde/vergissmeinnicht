@@ -12,3 +12,5 @@ export { createRunRepository } from './run-repository.ts';
 export { createAuditHistory } from './audit-events.ts';
 export { createKnotRepository } from './knot-repository.ts';
 export { createAccountAdminRepository } from './account-admin-repository.ts';
+export { FINISHED_LINK_RETENTION_MS, purgeExpired, type HousekeepingResult } from './housekeeping.ts';
+export { createRateLimitCounter, type RateLimitCounter, type RateLimitState } from './rate-limit-counter.ts';

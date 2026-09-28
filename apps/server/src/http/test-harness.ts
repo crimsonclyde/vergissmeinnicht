@@ -31,15 +31,17 @@ export async function startTestApp(options: { runEvents?: RunEventsOptions; trus
     MAIL_FROM_ADDRESS: 'noreply@example.org',
     LOG_LEVEL: 'info',
   });
-  const app = await buildApp({
-    trustedProxies: options.trustedProxies,
-    services: (log) => {
-      const built = createServices(config, database)(log);
-      const email = { send: async (message: EmailMessage) => void outbox.push(message) };
-      services = { ...built, invitations: { ...built.invitations, email }, runEvents: options.runEvents };
-      return services;
-    },
-  });
+  const build = () =>
+    buildApp({
+      trustedProxies: options.trustedProxies,
+      services: (log) => {
+        const built = createServices(config, database)(log);
+        const email = { send: async (message: EmailMessage) => void outbox.push(message) };
+        services = { ...built, invitations: { ...built.invitations, email }, runEvents: options.runEvents };
+        return services;
+      },
+    });
+  let app = await build();
   if (services === undefined) throw new Error('services were not built');
   const ready = services;
 
@@ -86,7 +88,14 @@ export async function startTestApp(options: { runEvents?: RunEventsOptions; trus
     post(`/api/workspaces/${workspaceId}/members`, { email, role }, admin);
 
   return {
-    app,
+    get app() {
+      return app;
+    },
+    /** A new process on the same database: in-memory state (e.g. ordinary rate limits) is gone. */
+    async restart() {
+      await app.close();
+      app = await build();
+    },
     database,
     admin,
     post,

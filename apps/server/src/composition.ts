@@ -30,6 +30,7 @@ import {
   createKnotRepository,
   createMfaChallengeRepository,
   createProcedureRepository,
+  createRateLimitCounter,
   createRunRepository,
   createSecurityEventLog,
   createTotpRepository,
@@ -40,6 +41,7 @@ import {
   users,
   verifications,
   type AppDatabase,
+  type RateLimitCounter,
   type SecurityEventLog,
 } from '@vergissmeinnicht/database';
 import { canAuthenticate, type UserId } from '@vergissmeinnicht/domain';
@@ -70,6 +72,8 @@ export interface AppServices {
   /** Stream timing overrides (tests). */
   readonly runEvents?: RunEventsOptions | undefined;
   readonly securityEvents: SecurityEventLog;
+  /** Persistent counters for the security-sensitive rate limits (Step 2.9). */
+  readonly rateLimits: RateLimitCounter;
   /** Readiness: the database answers and every shipped migration is applied. Never throws. */
   readonly readiness: () => { readonly ready: boolean; readonly reason?: 'database_unavailable' | 'migrations_pending' };
   /** `Secure` + `__Secure-` cookies (production). */
@@ -157,6 +161,7 @@ export function createServices(config: AppConfig, database: AppDatabase) {
       knots: { workspaces: workspaceDeps.workspaces, knots: createKnotRepository(database), tokens: invitationTokens, clock: systemClock },
       history: { workspaces: workspaceDeps.workspaces, history: createAuditHistory(database) },
       securityEvents,
+      rateLimits: createRateLimitCounter(database),
       readiness: () => {
         try {
           return migrationStatus(database.sqlite).pending ? { ready: false, reason: 'migrations_pending' } : { ready: true };

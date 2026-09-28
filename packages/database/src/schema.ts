@@ -643,3 +643,24 @@ export const securityEvents = sqliteTable(
     index('security_events_occurred_at_idx').on(table.occurredAt),
   ],
 );
+
+/**
+ * Persistent fixed-window counters for the security-sensitive rate limits (sign-in, MFA, recovery,
+ * invitations, account security), so a restart does not reset them (Step 2.9). `key_hash` is the
+ * SHA-256 of route + client/account key: no email address or IP is stored in clear. Expired rows are
+ * removed by housekeeping (Step 2.8).
+ */
+export const rateLimits = sqliteTable(
+  'rate_limits',
+  {
+    keyHash: text('key_hash').primaryKey(),
+    hits: integer('hits').notNull(),
+    windowStart: integer('window_start', { mode: 'timestamp_ms' }).notNull(),
+    windowMs: integer('window_ms').notNull(),
+  },
+  (table) => [
+    index('rate_limits_window_idx').on(table.windowStart),
+    check('rate_limits_key_hash_format', sql`length(${table.keyHash}) = 64`),
+    check('rate_limits_counts_positive', sql`${table.hits} > 0 and ${table.windowMs} > 0`),
+  ],
+);
