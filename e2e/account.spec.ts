@@ -477,13 +477,13 @@ test('first server admin: bootstrap link, account creation, sign-in, Workspace c
   const html = page.locator('html');
   await page.getByRole('radio', { name: /^Dark/ }).check();
   await expect(html).toHaveAttribute('data-theme', 'dark');
-  await expect(page.locator('body')).toHaveCSS('background-color', 'rgb(11, 11, 12)');
+  await expect(page.locator('body')).toHaveCSS('background-color', 'rgb(0, 0, 0)');
   await expectAccessible(page, 'account page (dark)');
   await page.reload();
   await expect(page.getByRole('radio', { name: /^Dark/ })).toBeChecked();
   await expect(html).toHaveAttribute('data-theme', 'dark');
   await page.getByRole('radio', { name: /^Light/ }).check();
-  await expect(page.locator('body')).toHaveCSS('background-color', 'rgb(246, 246, 247)');
+  await expect(page.locator('body')).toHaveCSS('background-color', 'rgb(255, 255, 255)');
   await expectAccessible(page, 'account page (light)');
   await page.getByRole('radio', { name: /^System/ }).check();
   await page.emulateMedia({ colorScheme: 'dark' });

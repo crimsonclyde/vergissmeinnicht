@@ -20,7 +20,7 @@ For every completed task, add a concise completion note, tests/checks performed,
 
 _Last updated: 2026-09-28 (follow-up round: 2.7–2.9, 5.7, 8.5, 8.7–8.9, 10.4, 10.5)_
 
-**Done:** 0.1, 0.2, 0.3, 1.1, 1.2, 2.1–2.5, 2.7–2.9, 3.1–3.3, 4.1–4.5, 5.1–5.7, 6.1, 6.2, 7.1, 8.0–8.10, 9.1, 10.1–10.5, 11.1. DEFERRED: 2.6 (external identity providers — a later step, user decision 2026-09-28).
+**Done:** 0.1, 0.2, 0.3, 1.1, 1.2, 2.1–2.5, 2.7–2.9, 3.1–3.3, 4.1–4.5, 5.1–5.7, 6.1, 6.2, 7.1, 8.0–8.11, 9.1, 10.1–10.5, 11.1. DEFERRED: 2.6 (external identity providers — a later step, user decision 2026-09-28).
 **Next:** merge into `main` only when the user says so (decided 2026-09-28: wait); the first pull request will run CI incl. the new arm64 image job; the release workflow runs on the first `vX.Y.Z` tag. Needs people/devices: a session with a real screen reader and tests on physical iOS/Android devices (incl. offline storage eviction).
 
 **Decisions 2026-09-28 (user):** offline = queue + labelled device time (8.5); disabling an account is refused while it is the only active Workspace admin (2.7); TOTP stays optional for everyone, also server admins; housekeeping automatic in the server (2.8); sensitive rate limits persisted (2.9); critical Steps: "Tap, then confirm" per account, theme per account (8.7); Memento Mori = darker + stronger red (8.7); slim image, image scan, arm64, signed GHCR releases on tags (10.4); scheduled backups without own crypto (10.5); SKIPPED keeps blocking completion (5.4) and the Knot design stays (7.1) — both confirmed.
@@ -29,7 +29,7 @@ _Last updated: 2026-09-28 (follow-up round: 2.7–2.9, 5.7, 8.5, 8.7–8.9, 10.4
 
 **Lockfile note (4.4):** the hand-edited entries (`apps/server` → `@vergissmeinnicht/import-export`, `packages/import-export` → `zod`) were verified on 2026-09-27 with `pnpm install --frozen-lockfile` (pnpm 12.6.0): lockfile up to date, supply-chain policies passed, no changes.
 
-**Branches:** work is stacked, not yet merged into `main`: `step-1.1-app-skeleton` → `step-1.2-config` → `step-2.1-user-model` → `step-2.2-invitations` → `step-2.4-totp` → `step-2.5-recovery` → `step-3.1-workspaces` → `step-3.2-roles` → `step-4.1-procedures` → `step-4.2-steps` → `step-4.3-drag-drop` → `step-4.4-import-export` → `step-4.5-restore` → `step-5.1-run-snapshot` → `cleanup-web-domain-constants` → `step-5.2-step-states` → `step-5.3-press-and-hold` → `step-5.4-run-lifecycle` → `step-5.5-audit-trail` → `step-5.6-immutability` → `step-8.0-app-shell` → `step-6-collaboration` (6.1, 6.2) → `step-7.1-knots` → `step-11.1-license` → `step-8-ux` (8.1–8.4) → `step-10-operations` (10.1–10.3) → `ui-declutter` (8.6) → `step-2.7-account-status` → `step-2.8-housekeeping` (2.8, 2.9) → `step-5.7-history-paging` → `step-8.7-preferences` → `step-8.9-ux` (8.8 was committed on `step-8.7-preferences`) → `step-8.5-offline` → `step-10.4-operations` (10.4, 10.5) → `branding-footer` (8.10) (each branch contains the previous ones; 2.3 was completed on `step-2.2-invitations` because acceptance finishes 2.2). CI runs on pull requests / `main` only.
+**Branches:** work is stacked, not yet merged into `main`: `step-1.1-app-skeleton` → `step-1.2-config` → `step-2.1-user-model` → `step-2.2-invitations` → `step-2.4-totp` → `step-2.5-recovery` → `step-3.1-workspaces` → `step-3.2-roles` → `step-4.1-procedures` → `step-4.2-steps` → `step-4.3-drag-drop` → `step-4.4-import-export` → `step-4.5-restore` → `step-5.1-run-snapshot` → `cleanup-web-domain-constants` → `step-5.2-step-states` → `step-5.3-press-and-hold` → `step-5.4-run-lifecycle` → `step-5.5-audit-trail` → `step-5.6-immutability` → `step-8.0-app-shell` → `step-6-collaboration` (6.1, 6.2) → `step-7.1-knots` → `step-11.1-license` → `step-8-ux` (8.1–8.4) → `step-10-operations` (10.1–10.3) → `ui-declutter` (8.6) → `step-2.7-account-status` → `step-2.8-housekeeping` (2.8, 2.9) → `step-5.7-history-paging` → `step-8.7-preferences` → `step-8.9-ux` (8.8 was committed on `step-8.7-preferences`) → `step-8.5-offline` → `step-10.4-operations` (10.4, 10.5) → `branding-footer` (8.10) → `header-refresh` (8.11) (each branch contains the previous ones; 2.3 was completed on `step-2.2-invitations` because acceptance finishes 2.2). CI runs on pull requests / `main` only.
 
 **Manual testing:** `test-env/menu.sh` (added 2026-09-27) installs/starts/stops/removes an isolated production-mode instance on port 3200 with demo accounts for every role (see `test-env/README.md`). Extend `test-env/seed.ts` when new features need demo data (e.g. Procedures in 4.1).
 
@@ -1401,6 +1401,20 @@ V1 ships English only, but user-facing strings must be structured so adding tran
 **Security docs updated:** YES (§2 rate limits, "Security check: branding and instance settings (8.10)").
 
 **Remaining:** none.
+
+### 8.11 Header and colour scheme refresh (user feedback)
+**Status:** DONE
+**Completed:** 2026-09-28
+
+**Request (user, 2026-09-28):** bigger icon, a livelier header; apart from the Step cards no colour: black page, dark grey boxes, a dark blood-red (crimson) highlight, an animated stripe through the scheme's colours (black, greys, red); the light theme as the inverted version; no blue anywhere, the glow a darker shade of white.
+
+**Security impact:** NONE — presentation only.
+
+**Implemented:** header icon 44 px (36 px on phones) with a grey glow; wordmark "VergissMein**Nicht**" (accent) with the tagline "Never skip the step that matters" on wider screens; a soft grey glow behind the logo; a 3 px stripe that slowly runs through page colour → greys → blood red and back (still under `prefers-reduced-motion: reduce`); current tab and avatar ring in the highlight colour. Tokens: dark = `#000` page, `#141416`/`#1f1f23` boxes, `#8b1020` highlight (white text), `#c41e3a` brand text; light = white page, `#f3f3f5`/`#e7e7eb` boxes, `#8b1020` highlight; links and focus rings neutral (no blue); new tokens `--link`, `--glow`, `--on-pending` (text on the Pending red, e.g. the "Next" chip); checkboxes/radios use the highlight (`accent-color`). Fixed on the way: radio buttons were stretched to text-field width. Step state colours (cards) unchanged.
+
+**Tests/checks:** contrast test for all three themes (new pairs: link on page/boxes, brand on page/boxes, text on Pending red); e2e incl. all axe checks; screenshots reviewed (dark, light, phone). `pnpm test`, `pnpm lint`, `pnpm typecheck`.
+
+**Security docs updated:** N/A.
 
 ### 8.5 PWA/offline active Runs
 **Status:** DONE

@@ -6,19 +6,20 @@
  */
 :root {
   color-scheme: light;
-  --bg: #f6f6f7;
-  --surface: #ffffff;
-  --surface-muted: #eeeef0;
-  --text: #16161a;
-  --text-muted: #5b5b66;
-  --border: #d6d6dc;
-  --accent: #b3261e;
+  --bg: #ffffff;
+  --surface: #f3f3f5;
+  --surface-muted: #e7e7eb;
+  --text: #141417;
+  --text-muted: #55555e;
+  --border: #d0d0d6;
+  --accent: #8b1020;
   --accent-text: #ffffff;
-  --accent-soft: #fbe9e7;
-  --focus: #1f5fbf;
-  --brand: #2f66b3;
-  --brand-text: #ffffff;
-  --brand-soft: #e3efff;
+  --accent-soft: #f4e4e6;
+  --focus: #141417;
+  --brand: #8b1020;
+  --link: #141417;
+  --glow: #e2e2e6;
+  --on-pending: #ffffff;
   --state-pending: #b3261e;
   --state-pending-bg: #fdecea;
   --state-done: #1e6b34;
@@ -38,19 +39,20 @@
  */
 :root[data-theme='dark'] {
   color-scheme: dark;
-  --bg: #0b0b0c;
-  --surface: #161618;
-  --surface-muted: #202024;
+  --bg: #000000;
+  --surface: #141416;
+  --surface-muted: #1f1f23;
   --text: #ececef;
   --text-muted: #a0a0aa;
-  --border: #33333a;
-  --accent: #e0463b;
-  --accent-text: #0b0b0c;
-  --accent-soft: #3a1512;
-  --focus: #7aa7ff;
-  --brand: #7fb6f0;
-  --brand-text: #0b0b0c;
-  --brand-soft: #13233b;
+  --border: #34343a;
+  --accent: #8b1020;
+  --accent-text: #ffffff;
+  --accent-soft: #2a0d11;
+  --focus: #e6e6ea;
+  --brand: #c41e3a;
+  --link: #ececef;
+  --glow: #2c2c30;
+  --on-pending: #0b0b0c;
   --state-pending: #ff6b5e;
   --state-pending-bg: #331513;
   --state-done: #5fd07e;
@@ -75,10 +77,11 @@
   --accent: #e0343f;
   --accent-text: #000000;
   --accent-soft: #2b0c10;
-  --focus: #9ab8ff;
+  --focus: #f1ece2;
   --brand: #e0343f;
-  --brand-text: #000000;
-  --brand-soft: #2b0c10;
+  --link: #f1ece2;
+  --glow: #2a2626;
+  --on-pending: #000000;
   --state-pending: #ff4d5e;
   --state-pending-bg: #2e0b10;
   --state-done: #6fd98a;
@@ -95,7 +98,7 @@
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme]) {
     color-scheme: dark;
-    --bg: #0b0b0c;
+    --bg: #000000;
     --text: #ececef;
   }
 }
@@ -112,7 +115,7 @@ body {
 }
 
 a {
-  color: var(--focus);
+  color: var(--link);
 }
 
 h1,
@@ -138,7 +141,7 @@ h6 {
   z-index: 10;
   /* A soft glow of the flower's colour behind the logo, and a brand stripe along the bottom edge. */
   background:
-    radial-gradient(ellipse 28rem 6rem at 12% 0%, var(--brand-soft), transparent 70%),
+    radial-gradient(ellipse 28rem 6rem at 12% 0%, var(--glow), transparent 70%),
     var(--surface);
   border-bottom: 1px solid var(--border);
 }
@@ -147,7 +150,36 @@ h6 {
   content: '';
   display: block;
   height: 3px;
-  background: linear-gradient(90deg, var(--brand), var(--accent));
+  /* The theme's own colours: page, greys, blood red — and back. */
+  background: linear-gradient(
+    90deg,
+    var(--bg),
+    var(--surface-muted),
+    var(--border),
+    var(--accent),
+    var(--brand),
+    var(--accent),
+    var(--border),
+    var(--surface-muted),
+    var(--bg)
+  );
+  background-size: 300% 100%;
+}
+
+@keyframes stripe-flow {
+  from {
+    background-position: 0% 0;
+  }
+  to {
+    background-position: 300% 0;
+  }
+}
+
+/* Moves slowly; still for people who ask for less motion. */
+@media (prefers-reduced-motion: no-preference) {
+  .app-header::after {
+    animation: stripe-flow 12s linear infinite;
+  }
 }
 
 .app-header-inner,
@@ -205,7 +237,7 @@ h6 {
 .brand-icon {
   flex: none;
   border-radius: 22%;
-  box-shadow: 0 0 0 1px var(--border), 0 4px 16px -4px var(--brand);
+  box-shadow: 0 0 0 1px var(--border), 0 4px 18px -2px var(--glow);
 }
 
 .app-header .brand-icon {
@@ -250,7 +282,16 @@ h6 {
 /* Phones: icon + short name + Workspace + menu stay on one line. */
 @media (max-width: 30rem) {
   .workspace-select select {
-    max-width: 9.5rem;
+    max-width: 8rem;
+  }
+
+  .app-header-inner {
+    gap: 0.5rem 0.6rem;
+  }
+
+  .brand {
+    gap: 0.5rem;
+    font-size: 1.2rem;
   }
 }
 
@@ -277,7 +318,7 @@ h6 {
   color: var(--bg);
   font-weight: 700;
   font-size: 0.9rem;
-  box-shadow: 0 0 0 2px var(--surface), 0 0 0 4px var(--brand);
+  box-shadow: 0 0 0 2px var(--surface), 0 0 0 4px var(--accent);
 }
 
 .menu-panel {
@@ -340,8 +381,8 @@ h6 {
 }
 
 .nav a[aria-current='page'] {
-  background: var(--brand);
-  color: var(--brand-text);
+  background: var(--accent);
+  color: var(--accent-text);
   font-weight: 600;
 }
 
@@ -439,7 +480,7 @@ button.link-like {
   border: none;
   padding: 0;
   min-height: 0;
-  color: var(--focus);
+  color: var(--link);
   text-decoration: underline;
   text-align: left;
 }
@@ -456,9 +497,16 @@ textarea {
   max-width: 100%;
 }
 
-input:not([type='checkbox']):not([type='file']),
+input:not([type='checkbox']):not([type='radio']):not([type='file']),
 textarea {
   width: min(32rem, 100%);
+}
+
+/* Checkboxes and radio buttons take the theme's highlight, never the browser's blue. */
+input[type='checkbox'],
+input[type='radio'],
+progress {
+  accent-color: var(--accent);
 }
 
 label {
@@ -643,7 +691,7 @@ caption {
   margin-left: 0.4rem;
   border-radius: 999px;
   background: var(--state-pending);
-  color: var(--accent-text);
+  color: var(--on-pending);
   font-size: 0.85rem;
   font-weight: 800;
   vertical-align: 0.1em;
@@ -731,7 +779,7 @@ caption {
   padding: 0 0.5rem;
   border-radius: 999px;
   background: var(--state-pending);
-  color: var(--accent-text);
+  color: var(--on-pending);
   font-size: 0.8rem;
   font-weight: 700;
   text-transform: uppercase;

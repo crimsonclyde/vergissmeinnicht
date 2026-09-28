@@ -41,16 +41,18 @@ const PAIRS: readonly [string, string, number][] = [
   ['focus', 'bg', 4.5],
   ['accent-text', 'accent', 4.5],
   // Current tab in the header, and the brand accent in the wordmark.
-  ['brand-text', 'brand', 4.5],
   ['brand', 'surface', 3],
+  ['brand', 'bg', 3],
+  ['link', 'surface', 4.5],
+  ['link', 'bg', 4.5],
   ['state-done-text', 'state-done', 4.5],
   // State badges: coloured text on the matching tint.
   ['state-pending', 'state-pending-bg', 4.5],
   ['state-done', 'state-done-bg', 4.5],
   ['state-skipped', 'state-skipped-bg', 4.5],
   ['state-na', 'state-na-bg', 4.5],
-  // "Next" chip label on the pending colour.
-  ['accent-text', 'state-pending', 4.5],
+  // "Next" chip and critical mark on the pending colour.
+  ['on-pending', 'state-pending', 4.5],
   // Press-and-hold fill behind the button label.
   ['text', 'state-done-bg', 4.5],
   // State summary text on cards.
