@@ -1,0 +1,13 @@
+{
+  "name": "@vergissmeinnicht/ui",
+  "private": true,
+  "license": "AGPL-3.0-only",
+  "description": "Shared React presentation components and semantic design tokens.",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc -p ."
+  }
+}

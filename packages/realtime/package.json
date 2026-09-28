@@ -1,0 +1,16 @@
+{
+  "name": "@vergissmeinnicht/realtime",
+  "private": true,
+  "license": "AGPL-3.0-only",
+  "description": "Server-Sent Events fan-out of canonical Run updates.",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc -p ."
+  },
+  "dependencies": {
+    "@vergissmeinnicht/domain": "workspace:*"
+  }
+}

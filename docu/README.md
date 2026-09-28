@@ -1,5 +1,7 @@
 # Documentation
 
+For people using the app: [User guide](user-guide.md).
+
 Core documents:
 
 - [Project steps and objectives](steps.md) — authoritative task ledger; agents update this when work is completed.
@@ -8,5 +10,6 @@ Core documents:
 - [Architecture](architecture.md)
 - [Local development](local-development.md)
 - [Deployment](deployment.md)
+- [Installing on Unraid](unraid.md)
 
 See the repository root [AGENTS.md](../AGENTS.md) for mandatory agent workflow.

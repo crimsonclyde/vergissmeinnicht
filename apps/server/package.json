@@ -1,0 +1,30 @@
+{
+  "name": "@vergissmeinnicht/server",
+  "private": true,
+  "license": "AGPL-3.0-only",
+  "description": "Fastify HTTP/SSE entrypoint. Serves the API and the production web assets.",
+  "type": "module",
+  "scripts": {
+    "dev": "NODE_ENV=development node --env-file-if-exists=../../.env --watch src/main.ts",
+    "start": "NODE_ENV=production node src/main.ts",
+    "typecheck": "tsc -p ."
+  },
+  "dependencies": {
+    "@fastify/helmet": "13.1.1",
+    "@fastify/rate-limit": "11.2.0",
+    "@fastify/static": "10.1.4",
+    "@vergissmeinnicht/application": "workspace:*",
+    "@vergissmeinnicht/auth": "workspace:*",
+    "@vergissmeinnicht/database": "workspace:*",
+    "@vergissmeinnicht/domain": "workspace:*",
+    "@vergissmeinnicht/email": "workspace:*",
+    "@vergissmeinnicht/import-export": "workspace:*",
+    "@vergissmeinnicht/realtime": "workspace:*",
+    "fastify": "5.12.5",
+    "zod": "4.6.5"
+  },
+  "devDependencies": {
+    "@types/node": "24.13.6",
+    "otpauth": "9.5.2"
+  }
+}

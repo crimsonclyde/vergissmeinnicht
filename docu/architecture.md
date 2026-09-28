@@ -2,7 +2,7 @@
 
 ## Selected stack
 
-Vergissmeinnicht is a **TypeScript modular monolith** deployed as one application.
+VergissMeinNicht is a **TypeScript modular monolith** deployed as one application.
 
 ### Server
 - Node.js
@@ -17,6 +17,9 @@ Vergissmeinnicht is a **TypeScript modular monolith** deployed as one applicatio
 - Vite
 - semantic design-token based UI
 - English first, i18n-ready
+
+### Web text and formatting
+User-facing text lives in `apps/web/src/i18n/en.ts` and is looked up with `t(key, params)`; dates are formatted only through `formatDateTime` / `formatTime` (lint-enforced). A translation is a new typed catalog, not a component change. Themes are token blocks selected by `<html data-theme>` (`apps/web/src/theme.ts`): light, dark, memento-mori. Theme and the critical-Step confirmation style (press and hold / tap then confirm) are account preferences (`GET/POST /api/account/preferences`, table `user_preferences`), loaded by `PreferencesProvider`; the browser keeps a copy of the theme for the first paint.
 
 ### Testing
 - Vitest for unit/integration tests
@@ -35,7 +38,7 @@ React is presentation only and never owns authorization decisions.
 
 Fastify was chosen because the project benefits from an explicit HTTP server boundary, schema validation, straightforward testability, and maintained ecosystem plugins for concerns such as cookies, CSRF protection, rate limiting, CORS and security headers.
 
-Better Auth is used instead of custom authentication code. Its supported authentication primitives will be wrapped by project-specific policy enforcing invite-only registration and mandatory TOTP before normal application access.
+Better Auth is used instead of custom authentication code. Its supported authentication primitives will be wrapped by project-specific policy enforcing invite-only registration and, for accounts that enabled TOTP, a completed TOTP challenge before normal application access.
 
 Drizzle provides typed DB access and committed migrations while keeping SQLite simple to self-host.
 
@@ -99,23 +102,168 @@ Authentication mechanisms attach to it.
 V1:
 - invite-only email accounts;
 - email + password;
-- mandatory TOTP after first login;
+- optional, user-activated TOTP (built in; enforcement policy may be added later);
 - admin-assisted recovery.
 
 Future:
-- Apple;
-- GitHub;
-- Microsoft.
+- Apple (planned);
+- GitHub (planned);
+- Microsoft (possible).
 
 Provider identities must map to internal User records; provider account linking requires a separate security design.
 
-## First-login security state
+### User table and Better Auth
 
-A newly invited account is not fully active after password creation.
+The `users` table (`packages/database/src/schema.ts`) is the internal identity. Its Drizzle property names match Better Auth's core `user` model so Better Auth reads and writes it directly (`user.modelName = 'users'`); column names are snake_case. `status` is application-owned and must never be writable through Better Auth input.
 
-It enters a restricted authentication state that may access only the MFA enrollment/logout/account bootstrap endpoints until TOTP enrollment has been successfully verified.
+Credentials and login methods live in Better Auth's `account` table (one row per provider + provider account id, pointing to `users.id`). Adding Apple/GitHub later adds `account` rows; it never changes `users.id`.
 
-No Workspace, Procedure, Run, Knot, admin, API or SSE access is granted before this gate is complete.
+Emails are normalized (trimmed, NFC, lower-cased) before storage and lookup; the normalized email is unique.
+
+### Server admins and invitations
+
+`users.server_admin` is a server-wide capability (invitations, recovery, disabling accounts), independent of Workspace roles, and effective only for ACTIVE users. The first server admin is created through a one-time CLI bootstrap invitation.
+
+Invitations store only a SHA-256 hash of a 256-bit token. Use-cases in `packages/application/src/invitations` enforce authorization themselves; HTTP handlers only authenticate and translate.
+
+### Sessions and the Better Auth boundary
+
+Better Auth (`packages/auth`) owns password verification and server-side sessions (`sessions` table, HMAC-signed cookie). Its HTTP handler is **not** mounted. The Fastify layer (`apps/server/src/http/`) exposes a small allow-list of routes that call `auth.api.*` directly:
+
+```text
+POST /api/auth/sign-in    -> auth.api.signInEmail (email + password only)
+POST /api/auth/sign-out   -> auth.api.signOut
+GET  /api/auth/session    -> authenticate()
+```
+
+`authenticate()` in `apps/server/src/http/session.ts` is the single place that turns a cookie into a `Principal` (ACTIVE User + session id): it enforces the absolute session lifetime and account status, and is where the TOTP challenge gate (2.4) plugs in. Routes needing a user use the `requireUser` preHandler; capability checks stay in the application use-cases.
+
+Cross-cutting HTTP controls registered in `apps/server/src/app.ts`: `Origin` guard for every state-changing request (CSRF), JSON-only bodies, `@fastify/rate-limit` (global + per-route + per-account for sign-in), central error mapping to stable error codes.
+
+Accounts are created only by invitation acceptance (`acceptInvitation` use-case), which writes the `users` and `accounts` (credential) rows itself in one transaction; Better Auth's sign-up is disabled.
+
+### Account recovery
+
+Recovery (`packages/application/src/recovery`) mirrors invitations: an authorized issuer (server admin with step-up, or the operator CLI) creates a hashed, short-lived, single-use token; the link goes to the account's own mailbox (or the operator's terminal); completion replaces credentials and revokes all sessions and MFA challenges in one transaction. Password changes use the same "replace credential + revoke all sessions atomically, then issue a fresh session" pattern.
+
+### Account status (Step 2.7)
+
+```text
+GET  /api/admin/accounts                         server admin: every account (email, status, TOTP on/off)
+POST /api/admin/accounts/{userId}/status         server admin + step-up { status, password, code? }
+GET  /api/admin/security-events[?before=&userId=] server admin: security log, newest first, 100 per page
+POST /api/admin/settings { footerHidden }          server admin: settings of this server (public via GET /api/about)
+```
+
+Lists page with keyset cursors (`{ items…, nextCursor }`): the cursor is the id of the last item and is resolved inside the same scope (Workspace, Run, Procedure, filter), so a foreign id is `400 invalid_cursor`, never a position in another list.
+
+Disabling is one transaction: status, all sessions and pending MFA challenges, pending recoveries, pending invitations the user issued, and the security events. It is refused for the admin's own account and while the user is the only ACTIVE Workspace ADMIN anywhere.
+
+### Security events
+
+Account-security events (invitations, account creation, login success/failure, logout; MFA and recovery later) go to the append-only `security_events` table, written in the same transaction as the state change. Run/Step history uses the separate Run AuditEvent model (5.5).
+
+## TOTP security state
+
+TOTP is optional and user-activated in V1. Users enable it from their account security settings (current password required; activation only after a valid code; ten single-use recovery codes are shown once).
+
+```text
+POST /api/auth/sign-in (email + password)
+  -> no TOTP:  full session cookie
+  -> TOTP:     Better Auth's new session is deleted server-side before any cookie is sent;
+               client gets {mfaRequired: true} + challenge cookie (Path=/api/auth/mfa, 5 min)
+POST /api/auth/mfa ({code} | {recoveryCode}) + challenge cookie
+  -> valid:    challenge consumed, new full session issued by Better Auth (server-only plugin)
+```
+
+Because no session exists before the challenge succeeds, no Workspace, Procedure, Run, Knot, admin, API or SSE route can be reached in the pre-MFA state; `authenticate()` needs no special case for it.
+
+Whether an account must pass TOTP is decided by one central policy, `requiresTotpChallenge()` in `packages/domain/src/mfa.ts` (currently: "required if the user enabled TOTP"). A later enforcement rule, such as mandatory TOTP for server admins, is a policy change plus an enrollment prompt, not a redesign.
+
+TOTP flows are application use-cases (`packages/application/src/mfa`) on ports implemented in `packages/auth` (`otpauth` for RFC 6238, AES-256-GCM secret box, recovery codes) and `packages/database` (credentials with replay/lock state, hashed recovery codes, challenges). Better Auth's `twoFactor` plugin is not used (see steps.md 2.4). TOTP secrets are encrypted with `DATA_ENCRYPTION_KEY`, which is independent from the cookie-signing `AUTH_SECRET`.
+
+## Workspaces and authorization
+
+A Workspace is the collaboration and security boundary; a Membership maps one User to one Workspace with one role (`GUEST`, `USER`, `EDITOR`, `ADMIN`). Users may belong to several Workspaces. Workspace roles are independent of the server-wide `serverAdmin` flag: a server admin has no implicit access to Workspaces they are not a member of.
+
+```text
+HTTP route (apps/server/src/http/workspace-routes.ts)
+  -> requireUser                      session -> ACTIVE User
+  -> use-case (packages/application/src/workspaces)
+       -> authorizeWorkspace(actor, workspaceId, capability)
+            Membership read on every call; none -> 404, missing capability -> 403
+       -> repository mutation (BEGIN IMMEDIATE)
+            re-check actor's current role + ACTIVE status (MembershipGuard)
+            change + security event
+            >= 1 ACTIVE ADMIN remains, else rollback
+```
+
+`packages/permissions` holds the only role → capability table (Workspace: `workspace.view`, `workspace.members.view`, `workspace.members.manage`, `workspace.settings.manage`; Procedures: `procedure.view`, `procedure.edit`, `procedure.restore`; Runs: `run.view`, `run.start`, `run.execute`, `run.abort`; Knots: `knot.manage` — matrix in steps.md 3.2) and `canCreateWorkspace` (ACTIVE server admins only; a later admin-board option changes this one function). Use-cases ask for capabilities, never compare role strings.
+
+Workspace API (all session-authenticated, JSON, `Origin`-guarded for POST):
+
+```text
+GET  /api/workspaces                                    own Workspaces + role
+POST /api/workspaces                                    create (server admin) -> creator is ADMIN
+GET  /api/workspaces/{id}                               Workspace, own role, capabilities
+POST /api/workspaces/{id}/rename
+POST /api/workspaces/{id}/leave                         any member; not the last ACTIVE admin
+GET  /api/workspaces/{id}/members                       emails/status only for managers
+POST /api/workspaces/{id}/members                       add existing ACTIVE account by email
+POST /api/workspaces/{id}/members/{userId}/role
+POST /api/workspaces/{id}/members/{userId}/remove
+```
+
+Procedures live under their Workspace and are addressed only together with it:
+
+```text
+GET  /api/workspaces/{id}/procedures                    procedure.view (all roles), non-deleted
+POST /api/workspaces/{id}/procedures                    procedure.edit
+GET  /api/workspaces/{id}/procedures/{procedureId}      procedure.view
+POST /api/workspaces/{id}/procedures/{procedureId}/update   procedure.edit + expectedRevision + complete sections[]
+POST /api/workspaces/{id}/procedures/{procedureId}/delete   procedure.edit (soft delete)
+GET  /api/workspaces/{id}/procedures/deleted            procedure.restore
+GET  /api/workspaces/{id}/procedures/deleted/{procedureId}  procedure.restore, full soft-deleted Procedure
+POST /api/workspaces/{id}/procedures/{procedureId}/restore  procedure.restore, audited
+GET  /api/workspaces/{id}/procedures/{procedureId}/history[?after=]  procedure.view, audit events, 500 per page
+GET  /api/workspaces/{id}/procedures/{procedureId}/export   procedure.view, canonical JSON without ids
+POST /api/workspaces/{id}/procedures/import             procedure.edit, untrusted document
+POST /api/workspaces/{id}/procedures/{procedureId}/duplicate procedure.edit, same Workspace only
+```
+
+Runs live under their Workspace as well:
+
+```text
+GET  /api/workspaces/{id}/runs[?state=ACTIVE|COMPLETED|ABORTED][&before=]   run.view, 200 per page, newest first, with Step counts
+POST /api/workspaces/{id}/runs  { procedureId }                   run.start → snapshot
+GET  /api/workspaces/{id}/runs/{runId}                            run.view
+POST /api/workspaces/{id}/runs/{runId}/steps/{stepId}/state      run.execute { expectedState, state, reason? }
+POST /api/workspaces/{id}/runs/{runId}/complete                   run.execute, required Steps DONE or NOT_APPLICABLE
+POST /api/workspaces/{id}/runs/{runId}/abort  { reason? }         run.abort
+GET  /api/workspaces/{id}/runs/{runId}/history[?after=]           run.view, audit events of the Run, 500 per page
+```
+
+Starting a Run copies the Procedure's current definition (title, Sections, Steps with all flags and policies) into `runs` / `run_sections` / `run_steps` inside one transaction. The copy is immutable (DB triggers); Runs are never deleted; only execution state changes: Step transitions (PENDING ↔ DONE / SKIPPED / NOT_APPLICABLE) are compare-and-set on the state the client saw, validated against the snapshotted reason policies, bump the Run `revision` and are audited in the same transaction; a trigger freezes Step state once the Run is not ACTIVE. `audit_events.run_id` identifies the Run for every Run event.
+
+A Procedure is saved as one document: content plus ordered Sections and CHECK Steps. Existing Section/Step ids are kept (they must belong to that Procedure); new items get server ids; the child rows are rewritten on every save, so Runs will snapshot them instead of referencing them. Each save is one `PROCEDURE_UPDATED` audit event with a change summary.
+
+The canonical JSON format lives in `packages/import-export` (`schemaVersion` 1): exports carry only the definition; imports are parsed strictly there and then created through the same use-case as hand-made Procedures.
+
+Workspace content changes are recorded in `audit_events` (append-only, same transaction; Run/Step events join in 5.5). Account and access changes stay in `security_events`.
+
+Workspaces are not deleted by the application; `memberships` and future Procedure/Run tables reference them without cascading deletes.
+
+### Knots (Step 7.1)
+
+```text
+/knot/{token}                                          SPA page; resolves after sign-in, then replaces the history entry
+POST /api/knots/resolve { token }                      session; → { workspaceId, target: { type, id } } or 404 knot_not_found
+GET  /api/workspaces/{id}/knots                        knot.manage, newest first (no tokens)
+POST /api/workspaces/{id}/knots { target, label, expiresInDays|null }   knot.manage → { knot, url } (token shown once)
+POST /api/workspaces/{id}/knots/{knotId}/revoke        knot.manage, final
+```
+
+A Knot is a pointer, not a credential: it names one Procedure or Run of its Workspace, and opening it requires a signed-in member who may view that target. Only the SHA-256 of the token is stored in `knots`; records are never deleted and only a one-time revocation can change them (triggers). Create/revoke are `audit_events` (`KNOT_CREATED`, `KNOT_REVOKED`, subject `knot`).
 
 ## Realtime
 
@@ -133,6 +281,32 @@ browser command
 SSE is not the source of truth.
 
 Clients refetch canonical state after reconnect or version gaps.
+
+Implementation (Step 6.1):
+
+```text
+GET /api/workspaces/{id}/runs/{runId}/events     run.view, text/event-stream
+  event: ready   { revision, state }             on every (re)connect, read after subscribing
+  event: run     { revision, kind, stepId, by, at }   after each committed change
+```
+
+- The use-cases announce committed changes through the `RunChangeNotifier` port; `packages/realtime` implements it as an in-process hub (replaceable by shared pub/sub).
+- Events carry no content; the client refetches `GET …/runs/{runId}` when the announced revision is newer than the one it shows (`Run.revision` increases with every change).
+- The stream re-checks the session and `run.view` before each event and every 20 s, closes after 15 min, after the Run finished, and on shutdown; finished Runs answer `204`.
+- The web client applies its own Step changes optimistically (Step 6.2) but always sends the canonical `expectedState` and falls back to the server state on rejection.
+
+## Offline execution (Step 8.5)
+
+```text
+online:   GET run ──► show + save (IndexedDB, per user, active Runs only)
+offline:  Step change ──► queue (IndexedDB: clientChangeId, expectedState, to, reason, deviceTime)
+          reload ──► service worker shell + last user + saved Workspace/Run + queue
+online:   queue ──► POST …/steps/{id}/state { …, offline: { clientChangeId, deviceTime } } in order
+          server: same rules as online + idempotency (actor, clientChangeId) + plausibleDeviceTime
+          → ok / duplicate: remove   refused: remove + explain   401: keep, sign in   unreachable: keep
+```
+
+The server remains the only authority: the queue is a list of ordinary requests, the device time is informational (`state_changed_device_at`, audit metadata `deviceTime`), and sign-out deletes the device database. The service worker (`apps/web/public/sw.js`) caches only the app shell.
 
 ## Persistence
 

@@ -1,0 +1,24 @@
+{
+  "name": "@vergissmeinnicht/email",
+  "private": true,
+  "license": "AGPL-3.0-only",
+  "description": "Transactional email adapters (SMTP).",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc -p ."
+  },
+  "dependencies": {
+    "@vergissmeinnicht/application": "workspace:*",
+    "@vergissmeinnicht/domain": "workspace:*",
+    "nodemailer": "10.0.10"
+  },
+  "devDependencies": {
+    "@types/node": "24.13.6",
+    "@types/nodemailer": "8.0.2",
+    "@types/smtp-server": "3.5.13",
+    "smtp-server": "3.19.13"
+  }
+}

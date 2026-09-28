@@ -1,0 +1,30 @@
+{
+  "name": "@vergissmeinnicht/database",
+  "private": true,
+  "license": "AGPL-3.0-only",
+  "description": "SQLite persistence via Drizzle ORM: connection, schema, committed migrations, repositories.",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./test-support": "./src/test-support.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc -p .",
+    "db:generate": "drizzle-kit generate",
+    "db:migrate": "node --env-file-if-exists=../../.env src/migrate.ts",
+    "db:ops": "node --env-file-if-exists=../../.env src/ops-cli.ts"
+  },
+  "dependencies": {
+    "@vergissmeinnicht/application": "workspace:*",
+    "@vergissmeinnicht/domain": "workspace:*",
+    "better-sqlite3": "13.0.3",
+    "drizzle-orm": "0.45.3"
+  },
+  "devDependencies": {
+    "@types/better-sqlite3": "9.6.0",
+    "@types/node": "24.13.6",
+    "@vergissmeinnicht/auth": "workspace:*",
+    "drizzle-kit": "0.31.11",
+    "otpauth": "9.5.2"
+  }
+}

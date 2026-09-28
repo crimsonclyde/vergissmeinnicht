@@ -30,6 +30,9 @@ id_ed25519
 recovery-codes*
 totp*
 oauth-credentials*
+# …but never the source code implementing them.
+!**/src/**/totp*.ts
+!**/src/**/recovery-codes*.ts
 
 # --- Databases / runtime data ---
 .var/
@@ -100,3 +103,10 @@ compose.override.yml
 
 # Keep intentionally safe templates
 !.env.example
+
+# Committed schema migrations (not DB dumps)
+!packages/database/migrations/**/*.sql
+
+# Deployment: local configuration and Docker secrets
+deploy/vergissmeinnicht.env
+deploy/secrets/

@@ -1,0 +1,964 @@
+/*
+ * Semantic design tokens (docu/steps.md 8.3). Components use only these variables, so themes (System /
+ * Light / Dark and the named preset "Memento Mori") change values, not components.
+ * `:root` holds the light theme.
+ * State colors always come with a glyph and text (8.2): color is never the only signal.
+ */
+:root {
+  color-scheme: light;
+  --bg: #ffffff;
+  --surface: #f3f3f5;
+  --surface-muted: #e7e7eb;
+  --text: #141417;
+  --text-muted: #55555e;
+  --border: #d0d0d6;
+  --accent: #8b1020;
+  --accent-text: #ffffff;
+  --accent-soft: #f4e4e6;
+  --focus: #141417;
+  --brand: #8b1020;
+  --link: #141417;
+  --glow: #e2e2e6;
+  --on-pending: #ffffff;
+  --state-pending: #b3261e;
+  --state-pending-bg: #fdecea;
+  --state-done: #1e6b34;
+  --state-done-bg: #e6f4ea;
+  --state-done-text: #ffffff;
+  --state-skipped: #8a5a00;
+  --state-skipped-bg: #fff4dc;
+  --state-na: #4a4f5c;
+  --state-na-bg: #eceef2;
+  --radius: 10px;
+  --shadow: 0 1px 2px rgb(0 0 0 / 8%);
+}
+
+/*
+ * Themes are selected by `data-theme` on <html> (set by theme.ts from the user's System / Light /
+ * Dark choice). A named preset is one more block like this one.
+ */
+:root[data-theme='dark'] {
+  color-scheme: dark;
+  --bg: #000000;
+  --surface: #141416;
+  --surface-muted: #1f1f23;
+  --text: #ececef;
+  --text-muted: #a0a0aa;
+  --border: #34343a;
+  --accent: #8b1020;
+  --accent-text: #ffffff;
+  --accent-soft: #2a0d11;
+  --focus: #e6e6ea;
+  --brand: #c41e3a;
+  --link: #ececef;
+  --glow: #2c2c30;
+  --on-pending: #0b0b0c;
+  --state-pending: #ff6b5e;
+  --state-pending-bg: #331513;
+  --state-done: #5fd07e;
+  --state-done-bg: #11291a;
+  --state-done-text: #0b0b0c;
+  --state-skipped: #f2b84b;
+  --state-skipped-bg: #33260b;
+  --state-na: #b4b8c4;
+  --state-na-bg: #24262c;
+  --shadow: none;
+}
+
+:root[data-theme='memento-mori'] {
+  /* Named preset (8.7): pure black, bone-white text, deep crimson accents. */
+  color-scheme: dark;
+  --bg: #000000;
+  --surface: #0c0a0a;
+  --surface-muted: #1a1616;
+  --text: #f1ece2;
+  --text-muted: #b5ad9f;
+  --border: #3b3434;
+  --accent: #e0343f;
+  --accent-text: #000000;
+  --accent-soft: #2b0c10;
+  --focus: #f1ece2;
+  --brand: #e0343f;
+  --link: #f1ece2;
+  --glow: #2a2626;
+  --on-pending: #000000;
+  --state-pending: #ff4d5e;
+  --state-pending-bg: #2e0b10;
+  --state-done: #6fd98a;
+  --state-done-bg: #0e2416;
+  --state-done-text: #000000;
+  --state-skipped: #f2bd4d;
+  --state-skipped-bg: #2d2108;
+  --state-na: #bfc3cc;
+  --state-na-bg: #1f2025;
+  --shadow: none;
+}
+
+/* Before the script sets a theme (and without JavaScript), follow the system for the page background. */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme]) {
+    color-scheme: dark;
+    --bg: #000000;
+    --text: #ececef;
+  }
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font: 16px/1.5 system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+}
+
+a {
+  color: var(--link);
+}
+
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+  line-height: 1.25;
+  margin: 1.2em 0 0.5em;
+}
+
+:focus-visible {
+  outline: 3px solid var(--focus);
+  outline-offset: 2px;
+}
+
+/* ---- Layout ---------------------------------------------------------------------------- */
+
+.app-header {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  /* A soft glow of the flower's colour behind the logo, and a brand stripe along the bottom edge. */
+  background:
+    radial-gradient(ellipse 28rem 6rem at 12% 0%, var(--glow), transparent 70%),
+    var(--surface);
+  border-bottom: 1px solid var(--border);
+}
+
+.app-header::after {
+  content: '';
+  display: block;
+  height: 3px;
+  /* The theme's own colours: page, greys, blood red — and back. */
+  background: linear-gradient(
+    90deg,
+    var(--bg),
+    var(--surface-muted),
+    var(--border),
+    var(--accent),
+    var(--brand),
+    var(--accent),
+    var(--border),
+    var(--surface-muted),
+    var(--bg)
+  );
+  background-size: 300% 100%;
+}
+
+@keyframes stripe-flow {
+  from {
+    background-position: 0% 0;
+  }
+  to {
+    background-position: 300% 0;
+  }
+}
+
+/* Moves slowly; still for people who ask for less motion. */
+@media (prefers-reduced-motion: no-preference) {
+  .app-header::after {
+    animation: stripe-flow 12s linear infinite;
+  }
+}
+
+.app-header-inner,
+.app-main {
+  max-width: 64rem;
+  margin: 0 auto;
+  padding: 0 1rem;
+}
+
+.app-header-inner {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem 1rem;
+  padding-top: 0.6rem;
+  padding-bottom: 0.6rem;
+}
+
+.brand-heading {
+  margin: 0;
+  font-size: inherit;
+  line-height: inherit;
+}
+
+.brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.7rem;
+  font-weight: 800;
+  font-size: 1.35rem;
+  letter-spacing: -0.01em;
+  color: var(--text);
+  text-decoration: none;
+}
+
+.brand-accent {
+  color: var(--brand);
+}
+
+.brand-words {
+  display: inline-flex;
+  flex-direction: column;
+  line-height: 1.15;
+}
+
+.brand-tagline {
+  font-size: 0.75rem;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+  color: var(--text-muted);
+}
+
+/* The app icon (black tile, white flower): crisp on light themes; on dark themes a thin border keeps
+   the tile's edge visible against the black background. */
+.brand-icon {
+  flex: none;
+  border-radius: 22%;
+  box-shadow: 0 0 0 1px var(--border), 0 4px 18px -2px var(--glow);
+}
+
+.app-header .brand-icon {
+  width: 44px;
+  height: 44px;
+}
+
+.public-brand {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+.brand-short {
+  display: none;
+}
+
+/* Phones: the short name keeps the header on one line. */
+@media (max-width: 30rem) {
+  .brand-long {
+    display: none;
+  }
+
+  .brand-short {
+    display: inline;
+  }
+
+  .brand-tagline {
+    display: none;
+  }
+
+  .app-header .brand-icon {
+    width: 36px;
+    height: 36px;
+  }
+}
+
+.workspace-select select {
+  max-width: 14rem;
+}
+
+/* Phones: icon + short name + Workspace + menu stay on one line. */
+@media (max-width: 30rem) {
+  .workspace-select select {
+    max-width: 8rem;
+  }
+
+  .app-header-inner {
+    gap: 0.5rem 0.6rem;
+  }
+
+  .brand {
+    gap: 0.5rem;
+    font-size: 1.2rem;
+  }
+}
+
+/* Header menu (☰): profile & settings, server admin, sign out. */
+.user-menu {
+  position: relative;
+  margin-left: auto;
+}
+
+.menu-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  background: transparent;
+}
+
+.avatar {
+  display: inline-grid;
+  place-items: center;
+  width: 1.8rem;
+  height: 1.8rem;
+  border-radius: 999px;
+  background: var(--text);
+  color: var(--bg);
+  font-weight: 700;
+  font-size: 0.9rem;
+  box-shadow: 0 0 0 2px var(--surface), 0 0 0 4px var(--accent);
+}
+
+.menu-panel {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 0.4rem);
+  z-index: 20;
+  min-width: 15rem;
+  max-width: calc(100vw - 2rem);
+  padding: 0.5rem;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: 0 6px 24px rgb(0 0 0 / 18%);
+}
+
+.menu-identity {
+  margin: 0.25rem 0.5rem 0.5rem;
+  overflow-wrap: anywhere;
+}
+
+.menu-panel a,
+.menu-panel button {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  min-height: 2.75rem;
+  padding: 0 0.75rem;
+  border: 0;
+  border-radius: 8px;
+  color: var(--text);
+  text-decoration: none;
+  text-align: left;
+}
+
+.menu-panel a:hover,
+.menu-panel button:hover {
+  background: var(--surface-muted);
+}
+
+.app-main {
+  padding-bottom: 4rem;
+}
+
+.nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem;
+}
+
+.nav a {
+  padding: 0.4rem 0.75rem;
+  border-radius: 999px;
+  color: var(--text);
+  text-decoration: none;
+}
+
+.nav a:hover {
+  background: var(--surface-muted);
+}
+
+.nav a[aria-current='page'] {
+  background: var(--accent);
+  color: var(--accent-text);
+  font-weight: 600;
+}
+
+.page-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin: 1.5rem 0 1rem;
+}
+
+.page-header h2 {
+  margin: 0;
+}
+
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  padding: 1rem;
+  margin: 0 0 1rem;
+}
+
+.muted {
+  color: var(--text-muted);
+}
+
+.stack > * + * {
+  margin-top: 0.75rem;
+}
+
+.row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.plain-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.plain-list > li + li {
+  margin-top: 0.5rem;
+}
+
+/* ---- Controls -------------------------------------------------------------------------- */
+
+button,
+.button {
+  font: inherit;
+  min-height: 2.5rem;
+  padding: 0.45rem 0.9rem;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--surface-muted);
+  color: var(--text);
+  cursor: pointer;
+}
+
+button:hover:not(:disabled) {
+  filter: brightness(0.96);
+}
+
+button:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+button.primary {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--accent-text);
+  font-weight: 600;
+}
+
+/* The positive action ("mark done") is green, never the red used for pending/danger. */
+button.done-action {
+  background: var(--state-done);
+  border-color: var(--state-done);
+  color: var(--state-done-text);
+  font-weight: 600;
+}
+
+button.quiet {
+  background: transparent;
+}
+
+button.link-like {
+  background: none;
+  border: none;
+  padding: 0;
+  min-height: 0;
+  color: var(--link);
+  text-decoration: underline;
+  text-align: left;
+}
+
+input,
+select,
+textarea {
+  font: inherit;
+  color: var(--text);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 0.45rem 0.6rem;
+  max-width: 100%;
+}
+
+input:not([type='checkbox']):not([type='radio']):not([type='file']),
+textarea {
+  width: min(32rem, 100%);
+}
+
+/* Checkboxes and radio buttons take the theme's highlight, never the browser's blue. */
+input[type='checkbox'],
+input[type='radio'],
+progress {
+  accent-color: var(--accent);
+}
+
+label {
+  font-weight: 500;
+}
+
+fieldset {
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  margin: 0 0 1rem;
+  padding: 0.75rem 1rem;
+}
+
+legend {
+  font-weight: 600;
+  padding: 0 0.25rem;
+}
+
+table {
+  border-collapse: collapse;
+  width: 100%;
+}
+
+th,
+td {
+  text-align: left;
+  padding: 0.5rem;
+  border-bottom: 1px solid var(--border);
+  vertical-align: middle;
+}
+
+/* Wide tables scroll inside their card instead of widening the page on phones. */
+.table-wrap {
+  position: relative; /* keeps visually hidden cells inside the scroll area */
+  overflow-x: auto;
+}
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+caption {
+  text-align: left;
+  font-weight: 600;
+  padding-bottom: 0.5rem;
+}
+
+[role='alert'] {
+  border-left: 4px solid var(--accent);
+  background: var(--accent-soft);
+  padding: 0.5rem 0.75rem;
+  border-radius: 6px;
+}
+
+[role='status'] {
+  border-left: 4px solid var(--border);
+  background: var(--surface-muted);
+  padding: 0.5rem 0.75rem;
+  border-radius: 6px;
+}
+
+/* ---- Run execution --------------------------------------------------------------------- */
+
+.state-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.1rem 0.6rem;
+  border-radius: 999px;
+  font-size: 0.9rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.state-PENDING {
+  color: var(--state-pending);
+  background: var(--state-pending-bg);
+}
+
+.state-DONE {
+  color: var(--state-done);
+  background: var(--state-done-bg);
+}
+
+.state-SKIPPED {
+  color: var(--state-skipped);
+  background: var(--state-skipped-bg);
+}
+
+.state-NOT_APPLICABLE {
+  color: var(--state-na);
+  background: var(--state-na-bg);
+}
+
+/* Text colours for the state summary; glyph and word carry the meaning. */
+.state-text-PENDING {
+  color: var(--state-pending);
+}
+
+.state-text-DONE {
+  color: var(--state-done);
+}
+
+.state-text-SKIPPED {
+  color: var(--state-skipped);
+}
+
+.state-text-NOT_APPLICABLE {
+  color: var(--text-muted);
+}
+
+.step {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-left: 6px solid var(--state-pending);
+  border-radius: var(--radius);
+  padding: 0.75rem 1rem;
+}
+
+.step[data-state='DONE'] {
+  border-left-color: var(--state-done);
+}
+
+.step[data-state='SKIPPED'] {
+  border-left-color: var(--state-skipped);
+}
+
+.step[data-state='NOT_APPLICABLE'] {
+  border-left-color: var(--state-na);
+}
+
+.step[data-saving='true'] {
+  border-style: dashed;
+}
+
+/* A change someone else just made; the text next to it names who and when. */
+.step[data-remote='true'] {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+}
+
+.live-chip {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  white-space: nowrap;
+  cursor: help;
+}
+
+.live-chip.live-live {
+  color: var(--state-done);
+}
+
+/* The chip is a live region but must not get the boxed status style. */
+.live-chip[role='status'] {
+  padding: 0;
+  border: 0;
+  background: none;
+}
+
+.hold-feedback {
+  display: block;
+  color: var(--text);
+  font-size: 0.85rem;
+}
+
+.live-status {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+}
+
+.critical-mark {
+  display: inline-grid;
+  place-items: center;
+  width: 1.3rem;
+  height: 1.3rem;
+  margin-left: 0.4rem;
+  border-radius: 999px;
+  background: var(--state-pending);
+  color: var(--on-pending);
+  font-size: 0.85rem;
+  font-weight: 800;
+  vertical-align: 0.1em;
+  cursor: help;
+}
+
+.optional-tag {
+  margin-left: 0.4rem;
+  padding: 0 0.45rem;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  color: var(--text-muted);
+  font-size: 0.8rem;
+  font-weight: 500;
+  vertical-align: 0.1em;
+}
+
+/* Who changed the Step and when: one quiet line. */
+.step-meta {
+  display: block;
+  margin-top: 0.2rem;
+  color: var(--text-muted);
+  font-size: 0.85rem;
+}
+
+.step-title {
+  margin: 0;
+  font-weight: 600;
+  font-size: 1.05rem;
+  line-height: 1.5;
+}
+
+.step-actions {
+  margin-top: 0.6rem;
+}
+
+.progress {
+  height: 0.5rem;
+  background: var(--surface-muted);
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+.progress > span {
+  display: block;
+  height: 100%;
+  background: var(--state-done);
+}
+
+/* Press-and-hold: the whole button fills while held. */
+.hold {
+  position: relative;
+  overflow: hidden;
+  min-height: 3rem;
+  padding: 0.6rem 1.2rem;
+  background: var(--surface);
+  border: 2px solid var(--state-done);
+  color: var(--text);
+  font-weight: 600;
+  user-select: none;
+  -webkit-user-select: none;
+  touch-action: none;
+}
+
+.hold-fill {
+  position: absolute;
+  inset: 0 auto 0 0;
+  background: var(--state-done-bg);
+  pointer-events: none;
+}
+
+.hold-label {
+  position: relative;
+}
+
+/* The next pending Step stands out; the "Next" chip names it in text, too. */
+.step[data-next='true'] {
+  border-width: 2px 2px 2px 6px;
+  border-color: var(--state-pending);
+}
+
+.next-chip {
+  display: inline-block;
+  margin-bottom: 0.3rem;
+  padding: 0 0.5rem;
+  border-radius: 999px;
+  background: var(--state-pending);
+  color: var(--on-pending);
+  font-size: 0.8rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+/* Progress and "next" stay reachable at the bottom of the screen while executing. */
+.run-dock {
+  position: sticky;
+  bottom: 0;
+  z-index: 5;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin-top: 1rem;
+  padding: 0.6rem 1rem;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius) var(--radius) 0 0;
+  box-shadow: 0 -2px 8px rgb(0 0 0 / 12%);
+}
+
+/* An empty live region must not show as an empty box. */
+[role='status']:empty {
+  padding: 0;
+  border: 0;
+  background: none;
+}
+
+/* Brief confirmation when a Step becomes Done; no motion for users who ask for less. */
+@keyframes confirm-pop {
+  from {
+    transform: scale(0.8);
+  }
+  to {
+    transform: scale(1);
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .step[data-state='DONE'] .state-badge {
+    animation: confirm-pop 220ms ease-out;
+  }
+}
+
+@media (max-width: 40rem) {
+  .step-actions button {
+    flex: 1 1 100%;
+  }
+
+  /* Touch targets of at least 44 px while executing on a phone. */
+  button,
+  .button,
+  select {
+    min-height: 2.75rem;
+  }
+}
+
+.app-footer {
+  margin-top: 3rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--border);
+  font-size: 0.85rem;
+  color: var(--text-muted);
+}
+
+/* Secondary actions stay one click away instead of crowding the page. */
+.more-actions {
+  margin: 0 0 1rem;
+}
+
+.more-actions > summary {
+  list-style: none;
+  cursor: pointer;
+  color: var(--text-muted);
+  min-height: 2.75rem;
+  display: inline-flex;
+  align-items: center;
+}
+
+.more-actions > summary::before {
+  content: '▸';
+  display: inline-block;
+  margin-right: 0.4rem;
+}
+
+.more-actions[open] > summary::before {
+  transform: rotate(90deg);
+}
+
+.more-actions[open] > summary {
+  margin-bottom: 0.5rem;
+}
+
+.more-actions > * + * {
+  margin-top: 0.5rem;
+}
+
+/* Workspace sections stay on one row on phones and scroll sideways inside the header if needed. */
+.section-nav {
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.section-nav a {
+  white-space: nowrap;
+}
+
+/*
+ * Forced colours (Windows High Contrast, 8.8): the system palette replaces ours, so meaning must not
+ * depend on our colours. State is still glyph + word; in addition badges and chips get outlines,
+ * fills use the system Highlight, the hold fill becomes a bar under the label (the label keeps the
+ * button colours), and each Step state has its own border style.
+ */
+@media (forced-colors: active) {
+  .state-badge,
+  .next-chip,
+  .progress {
+    border: 1px solid CanvasText;
+  }
+
+  .progress > span,
+  .hold-fill {
+    forced-color-adjust: none;
+    background: Highlight;
+  }
+
+  .hold-fill {
+    inset: auto auto 0 0;
+    height: 0.4rem;
+  }
+
+  .step[data-state='SKIPPED'] {
+    border-left-style: dashed;
+  }
+
+  .step[data-state='NOT_APPLICABLE'] {
+    border-left-style: dotted;
+  }
+
+  .step[data-next='true'] {
+    border-width: 3px 3px 3px 8px;
+  }
+
+  .run-dock {
+    border: 2px solid CanvasText;
+  }
+
+  /* The current tab is shown like a system selection. */
+  .nav a[aria-current='page'] {
+    forced-color-adjust: none;
+    background: Highlight;
+    color: HighlightText;
+  }
+}
+
+.tag-filter {
+  margin-bottom: 1rem;
+}
+
+/* Offline state (8.5): visible, but not alarming; the text says what happens. */
+.offline-banner {
+  margin: 0 0 1rem;
+  padding: 0.5rem 0.75rem;
+  border: 1px solid var(--border);
+  border-left: 6px solid var(--state-skipped);
+  border-radius: var(--radius);
+  background: var(--surface);
+}
+
+.offline-notices ul {
+  margin: 0;
+  padding-left: 1.2rem;
+}
+
+/* The black heart in the footer keeps a faint outline on dark themes. */
+.footer-heart {
+  filter: drop-shadow(0 0 1px var(--text-muted));
+}

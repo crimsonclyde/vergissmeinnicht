@@ -1,0 +1,16 @@
+{
+  "name": "@vergissmeinnicht/permissions",
+  "private": true,
+  "license": "AGPL-3.0-only",
+  "description": "Centralized server-side capability policies for Workspace roles.",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc -p ."
+  },
+  "dependencies": {
+    "@vergissmeinnicht/domain": "workspace:*"
+  }
+}
