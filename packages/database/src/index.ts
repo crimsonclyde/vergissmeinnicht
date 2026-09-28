@@ -11,3 +11,4 @@ export { createProcedureRepository } from './procedure-repository.ts';
 export { createRunRepository } from './run-repository.ts';
 export { createAuditHistory } from './audit-events.ts';
 export { createKnotRepository } from './knot-repository.ts';
+export { createAccountAdminRepository } from './account-admin-repository.ts';

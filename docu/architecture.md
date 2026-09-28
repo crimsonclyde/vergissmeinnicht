@@ -146,6 +146,15 @@ Accounts are created only by invitation acceptance (`acceptInvitation` use-case)
 
 Recovery (`packages/application/src/recovery`) mirrors invitations: an authorized issuer (server admin with step-up, or the operator CLI) creates a hashed, short-lived, single-use token; the link goes to the account's own mailbox (or the operator's terminal); completion replaces credentials and revokes all sessions and MFA challenges in one transaction. Password changes use the same "replace credential + revoke all sessions atomically, then issue a fresh session" pattern.
 
+### Account status (Step 2.7)
+
+```text
+GET  /api/admin/accounts                         server admin: every account (email, status, TOTP on/off)
+POST /api/admin/accounts/{userId}/status         server admin + step-up { status, password, code? }
+```
+
+Disabling is one transaction: status, all sessions and pending MFA challenges, pending recoveries, pending invitations the user issued, and the security events. It is refused for the admin's own account and while the user is the only ACTIVE Workspace ADMIN anywhere.
+
 ### Security events
 
 Account-security events (invitations, account creation, login success/failure, logout; MFA and recovery later) go to the append-only `security_events` table, written in the same transaction as the state change. Run/Step history uses the separate Run AuditEvent model (5.5).

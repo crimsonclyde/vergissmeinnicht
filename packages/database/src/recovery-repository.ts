@@ -3,7 +3,8 @@ import { and, eq, gt, isNull } from 'drizzle-orm';
 import type { AccountRecoveryRepository, CredentialRepository } from '@vergissmeinnicht/application';
 import type { AccountRecovery, AccountRecoveryId, UserId } from '@vergissmeinnicht/domain';
 import type { AppDatabase } from './connection.ts';
-import { accountRecoveries, accounts, mfaChallenges, sessions, totpCredentials } from './schema.ts';
+import { revokeAllAccess } from './access-revocation.ts';
+import { accountRecoveries, accounts, totpCredentials } from './schema.ts';
 import { recordSecurityEvent } from './security-events.ts';
 
 type RecoveryRow = typeof accountRecoveries.$inferSelect;
@@ -27,15 +28,6 @@ function toRecovery(row: RecoveryRow): AccountRecovery {
 
 const pending = (now: Date) =>
   and(isNull(accountRecoveries.completedAt), isNull(accountRecoveries.revokedAt), gt(accountRecoveries.expiresAt, now));
-
-/** Ends every session and pending sign-in challenge of a user. Returns the number of sessions. */
-function revokeAllAccess(tx: Tx, userId: string, now: Date): number {
-  tx.update(mfaChallenges)
-    .set({ consumedAt: now })
-    .where(and(eq(mfaChallenges.userId, userId), isNull(mfaChallenges.consumedAt)))
-    .run();
-  return tx.delete(sessions).where(eq(sessions.userId, userId)).returning({ id: sessions.id }).all().length;
-}
 
 function replacePasswordHash(tx: Tx, userId: string, passwordHash: string, now: Date): boolean {
   const updated = tx

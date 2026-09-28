@@ -1,5 +1,6 @@
 import {
   systemClock,
+  type AccountAdminDeps,
   type HistoryDeps,
   type InvitationDeps,
   type KnotDeps,
@@ -21,6 +22,7 @@ import {
 } from '@vergissmeinnicht/auth';
 import {
   accounts,
+  createAccountAdminRepository,
   createAccountRecoveryRepository,
   createAuditHistory,
   createCredentialRepository,
@@ -57,6 +59,7 @@ export interface AppServices {
   readonly invitations: InvitationDeps;
   readonly mfa: MfaDeps;
   readonly recovery: RecoveryDeps;
+  readonly accounts: AccountAdminDeps;
   readonly workspaces: WorkspaceDeps;
   readonly procedures: ProcedureDeps;
   readonly runs: RunDeps;
@@ -146,6 +149,7 @@ export function createServices(config: AppConfig, database: AppDatabase) {
       invitations,
       mfa,
       recovery,
+      accounts: { accounts: createAccountAdminRepository(database), mfa, clock: systemClock },
       workspaces: workspaceDeps,
       procedures: { workspaces: workspaceDeps.workspaces, procedures: createProcedureRepository(database), clock: systemClock },
       runs: { workspaces: workspaceDeps.workspaces, runs: createRunRepository(database), clock: systemClock, changes: runChanges },

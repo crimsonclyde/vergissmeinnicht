@@ -23,6 +23,7 @@ const DYNAMIC_PREFIXES = [
   'knot.target.',
   'knot.status.',
   'knot.lifetime.',
+  'admin.status.',
   'history.',
   'error.',
 ];

@@ -337,7 +337,7 @@ A different physical folder layout is acceptable only if the same boundaries rem
 
 **Tests/checks (acceptance part):** replay; concurrent acceptance creates exactly one User; expired/revoked/superseded links rejected without hashing; weak password / bidi display name rejected with invitation still pending; account created by another path in between → rejected; bootstrap link rejected once any server admin exists; bootstrap invitee becomes server admin; listing is admin-only. HTTP: unknown/malformed token 404, extra fields (`serverAdmin: true`) 400, no session on acceptance, no token/password in logs.
 
-**Remaining:** admin web UI for issuing/revoking invitations (API exists); resend-delivery button when `delivery: 'failed'`.
+**Remaining:** ~~admin web UI~~ (8.0) and ~~resend button~~ (2.7) done.
 
 ### 2.3 Local password login
 **Status:** DONE
@@ -513,8 +513,34 @@ Accounts without TOTP enabled log in with email + password only.
 **Remaining:**
 - Admin web UI for starting recoveries (API only; `curl`/future admin page).
 - Recovery delivery depends on the user's mailbox; a user who lost mailbox access needs an operator-driven process (e.g. CLI link handed over in person) — document per deployment.
-- Disabling/enabling accounts (status change with session revocation) is not implemented yet.
+- ~~Disabling/enabling accounts~~ — done in 2.7.
 
+
+### 2.7 Disable / enable accounts
+**Status:** DONE
+**Completed:** 2026-09-28
+
+**Objective:** server admins can take away (and give back) an account's access at once — the open item from 2.1/2.5.
+
+**Security impact:** HIGH — new privileged action over other accounts; session revocation.
+
+**Decisions (2026-09-28, user):** disabling is **refused** while the account is the only ACTIVE admin of any Workspace (the error names those Workspaces; promote someone else first). No self-change through the admin path, so the last active server admin can never be disabled. Step-up like recovery (own password + TOTP if enabled).
+
+**Implemented:**
+- Domain: security events `ACCOUNT_DISABLED`, `ACCOUNT_ENABLED`.
+- Application (`packages/application/src/accounts`): `listAccounts` (ACTIVE server admins), `setAccountStatus` (server admin, not self, valid UUID, step-up via `verifyStepUp`); errors `AccountStatusUnchangedError` (409 `account_status_unchanged`), `SoleWorkspaceManagerError` (409 `sole_workspace_admin` + `workspaces`). The managing roles come from `rolesWithCapability('workspace.members.manage')`.
+- Database (`createAccountAdminRepository`): one `IMMEDIATE` transaction re-checks the actor (ACTIVE + server admin, not the target), sets the status, and for disabling checks the sole-manager rule after the update, deletes all sessions, consumes pending MFA challenges, revokes pending account recoveries and every pending invitation the user issued (`INVITATION_REVOKED`, reason `issuer_disabled`), records `ACCOUNT_DISABLED` with counts. Enabling restores no session. `revokeAllAccess` moved to `access-revocation.ts` (shared with recovery/password change).
+- HTTP: `GET /api/admin/accounts`, `POST /api/admin/accounts/{userId}/status` `{ status, password, code? | recoveryCode? }` (strict body, 20 / 15 min per admin).
+- Web: admin page "Accounts" table (name, email, status, two-factor mark, "(you)" without actions) with an inline step-up confirmation; invitations got a "Send again" button (re-issues and supersedes the link — closes the 2.2 resend item). `ApiError.details` carries extra error fields (e.g. the Workspaces).
+
+**Tests/checks:**
+- `pnpm test` — 548 (+13): use-cases (8: list only for ACTIVE server admins; disable revokes sessions/challenges/recoveries/issued invitations atomically with events and counts; enable restores nothing; non-admin/disabled admin/self/unknown/malformed/unchanged write nothing; wrong password and missing TOTP refused; in-transaction re-check after the admin flag is removed; sole-admin refusal names the Workspace; disabled admin cannot act), HTTP (5: 401/403 matrix, Origin, strict bodies, session unusable at once and sign-in refused, re-enabled account needs a new sign-in, 409 bodies, rate limit).
+- Mutation checks: skipping the sole-manager check, the session revocation or the in-transaction actor re-check each fails tests.
+- `pnpm test:e2e` (Accounts table with own row and no self-action), `pnpm lint`, `pnpm typecheck`.
+
+**Security docs updated:** YES (§2 session rotation line, "Security check: account status (Step 2.7)").
+
+**Remaining:** server-admin grant/removal of the flag has no UI/API yet (only invitations can grant it); no bulk actions.
 
 ### 2.6 External identity provider abstraction
 **Status:** DEFERRED

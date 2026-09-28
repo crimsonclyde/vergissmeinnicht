@@ -72,12 +72,12 @@ This file is normative and must evolve with the application.
 - [x] Session cookie is `HttpOnly`.
 - [x] `SameSite` policy is intentional and documented. (`Strict`: the SPA only needs the cookie on same-site `fetch` calls; cross-site navigations such as email links load the public shell first.)
 - [x] Cookie Domain/Path are no broader than necessary. (No `Domain`, `Path=/`.)
-- [ ] Session rotates after login and security-sensitive privilege changes. (Login, TOTP enable/disable, password change and account recovery: yes — all sessions of the user are replaced. Server-admin grant/removal and account disabling must do the same when those flows exist.)
+- [ ] Session rotates after login and security-sensitive privilege changes. (Login, TOTP enable/disable, password change and account recovery: yes — all sessions of the user are replaced. Account disabling deletes every session in the same transaction (2.7). Server-admin grant/removal must do the same when that flow exists.)
 - [x] Logout invalidates server-side session.
 - [x] Idle/absolute expiration policies are documented. (Idle 7 days, refreshed at most daily; absolute 30 days, enforced per request — `SESSION_POLICY` in `packages/auth`.)
 - [x] CSRF protection covers state-changing cookie-authenticated operations. (Every non-GET/HEAD/OPTIONS request needs `Origin` = `PUBLIC_ORIGIN`, missing `Origin` rejected; JSON-only bodies; `SameSite=Strict`.)
 - [x] Authentication library endpoints are not exposed wholesale: only allow-listed server routes call Better Auth (`/api/auth/sign-in`, `/sign-out`, `/session`); tests assert other Better Auth paths return 404.
-- [x] Disabled users cannot start sessions, and their existing sessions are revoked on the next request.
+- [x] Disabled users cannot start sessions; disabling deletes their sessions and pending sign-in challenges at once (2.7), and any leftover session is revoked on the next request.
 - [x] CORS is deny-by-default / narrowly configured. (No CORS plugin registered: same-origin only; any future CORS needs review.)
 - [x] Sensitive responses are not cached publicly. (`Cache-Control: no-store` on all `/api/*`.)
 - [x] Production uses HTTPS. (Config rejects non-https `PUBLIC_ORIGIN` except loopback; the Compose deployment terminates TLS in Caddy with automatic certificates, 10.1.)
@@ -552,3 +552,13 @@ The following choices are mandatory V1 behavior:
 **Authorization review:** no new endpoints except public `GET /api/health/ready` (status and reason code only) and `GET /api/about` (11.1).  
 **Open risks:** backups are only as safe as where operators store them (encryption off-host is documented, not enforced); `restore --force` bypasses the in-use check; secrets readable by the container user (inherent); better-auth's optional peer dependencies (drizzle-kit, vitest, esbuild) are resolved into the production tree (unused at runtime, ~60 MB); image vulnerability scanning beyond Dependabot is not automated; a single host — no high availability.  
 **Reviewed:** 2026-09-27
+
+### Security check: account status (Step 2.7)
+**Threat surface:** a stolen admin session disabling or re-enabling accounts; an admin locking everyone out (self-disable, last admin); disabled users keeping live sessions, sign-in challenges, recovery links or invitations they issued (e.g. a compromised admin's pending server-admin invitations); Workspaces left without a manager; TOCTOU between check and write; account enumeration.  
+**Controls added:** ACTIVE-server-admin check in the use-case and again inside the `IMMEDIATE` transaction; step-up (password + TOTP if enabled); no self-change; sole-Workspace-manager rule evaluated inside the transaction (refused, Workspaces named); disabling deletes sessions, consumes MFA challenges, revokes pending recoveries and pending invitations issued by the user — all with security events in the same transaction; enabling restores nothing; strict body, UUIDv4 path, 20 changes / 15 min per admin.  
+**Negative tests:** `packages/database/src/account-admin-use-cases.test.ts`, `apps/server/src/http/account-admin.test.ts`; mutation checks in steps.md 2.7.  
+**Secrets/data involved:** account emails and status (only to server admins); admin password / TOTP (transient step-up).  
+**Logging review:** no new log statements; passwords only in request bodies (not logged).  
+**Authorization review:** `listAccounts` / `setAccountStatus` in `packages/application/src/accounts`; the HTTP layer only authenticates and parses.  
+**Open risks:** server admins see every account's email (inherent to administration); an admin can disable any other admin (both actions audited); no server-admin grant/removal flow yet.  
+**Reviewed:** 2026-09-28

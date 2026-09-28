@@ -77,6 +77,12 @@ test('first server admin: bootstrap link, account creation, sign-in, Workspace c
   await expect(pending.getByRole('cell', { name: 'bob@example.org', exact: true })).toBeVisible();
   await pending.getByRole('button', { name: 'Revoke invitation for bob@example.org' }).click();
   await expect(page.getByText('No pending invitations.')).toBeVisible();
+  // Accounts: the admin's own account is listed but offers no disable action (no self-lockout).
+  const accountRows = page.getByRole('table', { name: 'All accounts' }).getByRole('row');
+  await expect(accountRows).toHaveCount(2);
+  await expect(accountRows.nth(1)).toContainText('(you)');
+  await expect(accountRows.nth(1)).toContainText('Active');
+  await expect(accountRows.nth(1).getByRole('button')).toHaveCount(0);
   await page.getByLabel('New Workspace name').fill('Household');
   await page.getByRole('button', { name: 'Create Workspace' }).click();
   await expect(page.getByRole('heading', { name: 'Members', level: 2 })).toBeVisible();

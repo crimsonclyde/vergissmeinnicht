@@ -1,4 +1,6 @@
 import {
+  AccountStatusUnchangedError,
+  SoleWorkspaceManagerError,
   KnotAlreadyRevokedError,
   KnotLimitReachedError,
   KnotNotFoundError,
@@ -72,6 +74,10 @@ export function errorHandler(error: FastifyError | Error, request: FastifyReques
   if (error instanceof InvalidRecoveryError) return reply.code(404).send({ error: 'invalid_recovery' });
   if (error instanceof UnknownAccountError) return reply.code(404).send({ error: 'unknown_account' });
   if (error instanceof AccountNotActiveError) return reply.code(409).send({ error: 'account_not_active' });
+  if (error instanceof AccountStatusUnchangedError) return reply.code(409).send({ error: 'account_status_unchanged' });
+  if (error instanceof SoleWorkspaceManagerError) {
+    return reply.code(409).send({ error: 'sole_workspace_admin', workspaces: error.workspaces });
+  }
   if (error instanceof NothingToRecoverError) return reply.code(409).send({ error: 'nothing_to_recover' });
   if (error instanceof NoPendingEnrollmentError) return reply.code(409).send({ error: 'no_pending_enrollment' });
   if (error instanceof WorkspaceNotFoundError) return reply.code(404).send({ error: 'workspace_not_found' });

@@ -240,7 +240,7 @@ export function AppShell(props: { user: CurrentUser; route: Route; onSignOut: ()
       </>
     );
   } else if (route.page === 'admin') {
-    content = user.serverAdmin ? <AdminPage onWorkspacesChanged={refresh} /> : <p role="alert">{t('admin.onlyServerAdmins')}</p>;
+    content = user.serverAdmin ? <AdminPage currentUserId={user.id} onWorkspacesChanged={refresh} /> : <p role="alert">{t('admin.onlyServerAdmins')}</p>;
   } else if (route.page === 'knot') {
     content = <KnotOpener token={route.token} />;
   } else if (route.page === 'runs' || route.page === 'procedures' || route.page === 'members' || route.page === 'knots') {

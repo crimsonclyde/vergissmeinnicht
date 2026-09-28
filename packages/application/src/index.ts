@@ -1,3 +1,4 @@
+export * from './accounts/index.ts';
 export * from './history/index.ts';
 export * from './invitations/index.ts';
 export * from './knots/index.ts';
@@ -7,6 +8,7 @@ export * from './runs/index.ts';
 export * from './procedures/index.ts';
 export * from './workspaces/index.ts';
 export * from './ports/actor-guard.ts';
+export * from './ports/account-admin-repository.ts';
 export * from './ports/account-recovery-repository.ts';
 export * from './ports/clock.ts';
 export * from './ports/email-sender.ts';

@@ -170,6 +170,16 @@ export interface PendingInvitation {
   readonly expiresAt: string;
 }
 
+export interface AccountInfo {
+  readonly id: string;
+  readonly email: string;
+  readonly displayName: string;
+  readonly status: 'ACTIVE' | 'DISABLED';
+  readonly serverAdmin: boolean;
+  readonly totpEnabled: boolean;
+  readonly createdAt: string;
+}
+
 export type SecondFactor = { readonly code: string } | { readonly recoveryCode: string };
 
 export interface MfaStatus {
@@ -186,12 +196,15 @@ export function messageFor(error: unknown, fallback: string = t('error.generic')
 export class ApiError extends Error {
   readonly status: number;
   readonly code: string;
+  /** The rest of the error body (e.g. the Workspaces of `sole_workspace_admin`). */
+  readonly details: Readonly<Record<string, unknown>>;
 
-  constructor(status: number, code: string) {
+  constructor(status: number, code: string, details: Readonly<Record<string, unknown>> = {}) {
     super(code);
     this.name = 'ApiError';
     this.status = status;
     this.code = code;
+    this.details = details;
   }
 }
 
@@ -203,8 +216,8 @@ async function request<T>(method: 'GET' | 'POST', path: string, body?: unknown):
     ...(body === undefined ? {} : { body: JSON.stringify(body) }),
   });
   if (!response.ok) {
-    const payload = (await response.json().catch(() => ({}))) as { error?: string };
-    throw new ApiError(response.status, payload.error ?? 'request_failed');
+    const { error, ...details } = (await response.json().catch(() => ({}))) as { error?: string } & Record<string, unknown>;
+    throw new ApiError(response.status, error ?? 'request_failed', details);
   }
   return (response.status === 204 ? undefined : await response.json()) as T;
 }
@@ -252,6 +265,13 @@ export const api = {
     password: string;
     code?: string;
   }) => request<{ recovery: { expiresAt: string }; delivery: 'sent' | 'failed' }>('POST', '/admin/recoveries', input),
+  accounts: async () => (await request<{ accounts: AccountInfo[] }>('GET', '/admin/accounts')).accounts,
+  setAccountStatus: (userId: string, input: { status: AccountInfo['status']; password: string; code?: string }) =>
+    request<{ status: AccountInfo['status']; sessionsRevoked: number }>(
+      'POST',
+      `/admin/accounts/${encodeURIComponent(userId)}/status`,
+      input,
+    ),
   workspaces: async () => (await request<{ workspaces: WorkspaceSummary[] }>('GET', '/workspaces')).workspaces,
   createWorkspace: async (name: string) =>
     (await request<{ workspace: WorkspaceSummary }>('POST', '/workspaces', { name })).workspace,

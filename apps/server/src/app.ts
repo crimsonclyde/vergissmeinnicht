@@ -4,6 +4,7 @@ import fastifyRateLimit from '@fastify/rate-limit';
 import fastifyStatic from '@fastify/static';
 import Fastify, { type FastifyBaseLogger, type FastifyServerOptions } from 'fastify';
 import type { AppServices } from './composition.ts';
+import { adminAccountRoutes } from './http/account-admin-routes.ts';
 import { accountRoutes } from './http/account-routes.ts';
 import { authRoutes } from './http/auth-routes.ts';
 import { errorHandler } from './http/errors.ts';
@@ -105,6 +106,7 @@ export async function buildApp(options: AppOptions = {}) {
         await api.register(adminInvitationRoutes, { prefix: '/admin/invitations', services });
         await api.register(recoveryRoutes, { prefix: '/recoveries', services });
         await api.register(adminRecoveryRoutes, { prefix: '/admin/recoveries', services });
+        await api.register(adminAccountRoutes, { prefix: '/admin/accounts', services });
         await api.register(workspaceRoutes, { prefix: '/workspaces', services });
         await api.register(procedureRoutes, { prefix: '/workspaces/:workspaceId/procedures', services });
         await api.register(runRoutes, { prefix: '/workspaces/:workspaceId/runs', services });
