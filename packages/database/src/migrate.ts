@@ -10,9 +10,19 @@ export function runMigrations(databasePath: string): 'applied' | 'none' {
   if (!existsSync(join(MIGRATIONS_FOLDER, 'meta', '_journal.json'))) {
     return 'none';
   }
-  const { db, close } = openDatabase(databasePath);
+  const { db, sqlite, close } = openDatabase(databasePath);
   try {
+    // SQLite's table-rebuild procedure (e.g. migration 0019) needs foreign keys off while tables are
+    // swapped; the pragma is a no-op inside the migrator's transaction, so it is set around it.
+    sqlite.pragma('foreign_keys = OFF');
     migrate(db, { migrationsFolder: MIGRATIONS_FOLDER });
+    sqlite.pragma('foreign_keys = ON');
+    if ((sqlite.pragma('foreign_key_check') as unknown[]).length > 0) {
+      throw new Error('Migration left foreign key violations; restore the pre-migration backup');
+    }
+    if (sqlite.pragma('integrity_check', { simple: true }) !== 'ok') {
+      throw new Error('Migration left the database inconsistent; restore the pre-migration backup');
+    }
   } finally {
     close();
   }

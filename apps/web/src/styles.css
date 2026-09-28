@@ -962,3 +962,88 @@ caption {
 .footer-heart {
   filter: drop-shadow(0 0 1px var(--text-muted));
 }
+
+/* Icon picker (Procedures and Steps): a button with the current icon, a panel of grouped tiles. */
+.icon-picker-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.icon-picker-glyph {
+  font-size: 1.4rem;
+  line-height: 1;
+}
+
+.icon-panel {
+  margin-top: 0.5rem;
+  padding: 0.75rem;
+  max-height: 24rem;
+  overflow-y: auto;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+
+.icon-group {
+  margin: 0.75rem 0 0;
+  padding: 0;
+  border: 0;
+}
+
+.icon-group legend {
+  padding: 0;
+  margin-bottom: 0.35rem;
+  font-size: 0.85rem;
+  color: var(--text-muted);
+}
+
+.icon-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(4.6rem, 1fr));
+  gap: 0.4rem;
+}
+
+.icon-tile {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.2rem;
+  padding: 0.5rem 0.25rem;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface-muted);
+  font-weight: 400;
+  text-align: center;
+  cursor: pointer;
+}
+
+.icon-tile:hover {
+  border-color: var(--text-muted);
+}
+
+.icon-tile:has(input:checked) {
+  border: 2px solid var(--accent);
+  background: var(--accent-soft);
+}
+
+.icon-tile:has(input:focus-visible) {
+  outline: 3px solid var(--focus);
+  outline-offset: 2px;
+}
+
+.icon-tile-glyph {
+  font-size: 1.6rem;
+  line-height: 1.2;
+}
+
+.icon-tile-label {
+  font-size: 0.8rem;
+  line-height: 1.2;
+}
+
+@media (forced-colors: active) {
+  .icon-tile:has(input:checked) {
+    border: 3px solid Highlight;
+  }
+}

@@ -1642,6 +1642,23 @@ HTTPS, proxy trust, security headers, dependency scanning, health checks, safe s
 
 **Security docs updated:** YES (§5).
 
+### 12.5 More icons and an icon picker (0.1.0-beta.4)
+**Status:** DONE
+**Completed:** 2026-09-28
+
+**Request (user, 2026-09-28):** more Step icons — power, water, gas, internet, offboarding and others — and a good selection box.
+
+**Security impact:** LOW — icons stay trusted keys; a schema migration that rebuilds four tables (data and immutability triggers verified).
+
+**Implemented:**
+- 45 new icons (60 in total): utilities (power, water, gas, heating, internet, Wi-Fi, lights, trash, recycling), home (door, window, keys, houseplants, bedroom, bathroom), people & work (onboarding, offboarding, team, work, calendar, mail, phone, school), tech (computer, server, backup, update, launch), care & food (medication, baby, food, coffee, fitness), safety (fire safety, warning, alarm), outdoors & travel (bike, weather, snow, sun, delivery), general (money, clock, settings, camera).
+- Migration `0019_procedure_icons` (hand-written table rebuild, generated from the live schema): table `procedure_icons`; `procedures`, `procedure_steps`, `runs`, `run_steps` rebuilt with their definitions unchanged except that the icon CHECK becomes a reference to `procedure_icons`; indexes and the six immutability triggers recreated verbatim. Future icons = one `INSERT`, no rebuild. `runMigrations` applies migrations with foreign keys off (SQLite's rebuild procedure) and then refuses to continue on any foreign-key or integrity problem.
+- `IconPicker`: a button with the current icon opens a searchable panel (icon and group names) of large tiles in eight groups; native radio buttons (arrow keys, screen readers), pointer choice closes, Enter/Escape close without submitting the form, focus returns to the button; used for Procedure and Step icons.
+
+**Tests/checks:** `migration-0019.test.ts` (database with Procedures, finished and active Runs at 0018 → 0019: every row identical, every index and trigger identical, finished Runs still frozen, Runs never deleted, snapshot columns immutable, FK and integrity checks clean, new icon usable, unknown icon refused, re-run is a no-op); icon catalog test (every key has artwork, a name and exactly one group); e2e (search, pointer and keyboard choice, Enter does not submit, axe with the panel open); screenshots desktop/phone. `pnpm test`, `pnpm lint`, `pnpm typecheck`.
+
+**Security docs updated:** YES (§5 icons).
+
 ---
 
 ## 11 — Licensing

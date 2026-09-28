@@ -16,6 +16,8 @@ async function fromMenu(page: Page, item: 'Profile & settings' | 'Server admin' 
 test('first server admin: bootstrap link, account creation, sign-in, Workspace creation, Procedure authoring with Sections and Steps, export/import/duplicate/restore, starting, executing, completing and aborting Runs, TOTP enrollment, TOTP sign-in and operator TOTP recovery', async ({ page, browser }, testInfo) => {
   // Bootstrap works exactly once per server; the flow runs on one project only.
   test.skip(testInfo.project.name !== 'desktop-chromium', 'bootstrap is single-use per server');
+  // One long flow through the whole app (~25 s locally): give slower CI runners room.
+  test.setTimeout(180_000);
   // The strict CSP (no inline styles/scripts) must not break anything the flow touches.
   const cspViolations: string[] = [];
   page.on('console', (message) => {
@@ -129,7 +131,15 @@ test('first server admin: bootstrap link, account creation, sign-in, Workspace c
   await page.getByRole('button', { name: 'New Procedure' }).click();
   await page.getByLabel('Title', { exact: true }).fill('Leave the house');
   await page.getByLabel('Description', { exact: true }).fill('Windows closed?\n<b>Stove off</b>');
-  await page.getByLabel('Icon', { exact: true }).selectOption('travel');
+  // Icon picker: search, then pick with the pointer (closes the panel).
+  await page.getByRole('button', { name: 'Icon: Checklist — change' }).click();
+  await page.getByLabel('Search icons').fill('trav');
+  // Matches icon names and group names ("Outdoors & travel"); everything else is filtered out.
+  await expect(page.getByRole('radio', { name: 'Travel' })).toBeVisible();
+  await expect(page.getByRole('radio', { name: 'Power' })).toHaveCount(0);
+  await page.getByTitle('Travel', { exact: true }).click();
+  await expect(page.getByRole('button', { name: 'Icon: Travel — change' })).toBeFocused();
+  await expect(page.getByLabel('Search icons')).toHaveCount(0);
   await page.getByLabel('Tags (comma-separated)').fill('daily, Daily, safety');
   await page.getByRole('button', { name: 'Add section' }).click();
   await page.getByLabel('Section 1 title').fill('Ground floor');
@@ -141,6 +151,21 @@ test('first server admin: bootstrap link, account creation, sign-in, Workspace c
   // Reason settings are under "More options" of the Step.
   await page.getByRole('group', { name: 'Step 1.2' }).getByText('More options').click();
   await page.getByRole('group', { name: 'Step 1.2' }).getByLabel('When skipped:').selectOption('REQUIRED');
+  // Step icon with the keyboard only: grouped tiles, arrows move the choice, Enter closes (no submit).
+  await page.getByRole('button', { name: 'Step 1.2 icon: No icon — change' }).click();
+  await expect(page.getByRole('group', { name: 'Utilities' })).toBeVisible();
+  await expectAccessible(page, 'icon picker');
+  await page.getByRole('radio', { name: 'Power' }).focus();
+  await page.keyboard.press('Space');
+  await page.keyboard.press('ArrowRight');
+  await expect(page.getByRole('radio', { name: 'Water' })).toBeChecked();
+  await page.keyboard.press('Enter');
+  await expect(page.getByRole('button', { name: 'Step 1.2 icon: Water — change' })).toBeFocused();
+  await expect(page.getByRole('button', { name: 'Create Procedure' })).toBeVisible();
+  // Back to the kitchen icon for the stove (search by name, pick with the pointer).
+  await page.getByRole('button', { name: 'Step 1.2 icon: Water — change' }).click();
+  await page.getByLabel('Search icons').fill('kitchen');
+  await page.getByTitle('Kitchen', { exact: true }).click();
   await page.getByRole('button', { name: 'Create Procedure' }).click();
 
   const procedure = page.getByRole('article');
@@ -366,7 +391,7 @@ test('first server admin: bootstrap link, account creation, sign-in, Workspace c
   const hold = stove.getByRole('button', { name: 'Hold to mark done: Turn off stove' });
   await expect(hold).toHaveAccessibleDescription(/press and hold/);
   // Each Step is a heading (jump from Step to Step with a screen reader).
-  await expect(run.getByRole('heading', { level: 4, name: /^Turn off stove/ })).toBeVisible();
+  await expect(run.getByRole('heading', { level: 4, name: /Turn off stove/ })).toBeVisible();
   await hold.click();
   // The feedback is a live status, so screen readers announce it.
   await expect(stove.getByRole('status')).toHaveText('Keep holding until the button is completely filled.');
