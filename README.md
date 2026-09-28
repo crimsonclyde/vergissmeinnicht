@@ -48,21 +48,39 @@ Typical uses: leaving the house, closing a shop or office, maintenance and inspe
 
 Every security decision is written down and tested — see the [security policy and checks](docu/security.md).
 
-## 🚀 Run it
+## 🚀 Get started
 
-VergissMeinNicht is one container with SQLite behind Caddy (automatic HTTPS):
+### 1. Install it (once, on your server)
+
+You need a machine with Docker (a small VPS or a Raspberry Pi 4/5 is enough), a domain name pointing at it, and an email account the server can send invitations from. VergissMeinNicht runs as one container with SQLite, behind Caddy with automatic HTTPS.
 
 ```bash
-cd deploy
+git clone https://github.com/crimsonclyde/vergissmeinnicht.git && cd vergissmeinnicht/deploy
 cp vergissmeinnicht.env.example vergissmeinnicht.env        # set PUBLIC_ORIGIN, SMTP_*, MAIL_FROM_*
 mkdir -p secrets && openssl rand -base64 32 > secrets/auth_secret \
   && openssl rand -base64 32 > secrets/data_encryption_key && chmod 0400 secrets/*
-export VMN_DOMAIN=vmn.example.org
-docker compose build && docker compose run --rm app migrate && docker compose up -d
-docker compose run --rm app admin-bootstrap --email you@example.org
+export VMN_DOMAIN=vmn.example.org                            # your domain
+export VMN_IMAGE=ghcr.io/crimsonclyde/vergissmeinnicht:<version>   # a published release (or skip and build)
+docker compose pull app || docker compose build              # use the release, or build from source
+docker compose run --rm app migrate
+docker compose up -d
+docker compose run --rm app admin-bootstrap --email you@example.org   # prints your first sign-in link
 ```
 
-Backups, upgrades, signed images and everything else: [Deployment](docu/deployment.md). Want to hack on it? [Local development](docu/local-development.md).
+Published releases are signed — [verify them](docu/deployment.md#published-images) before use. Turn on automatic backups with `BACKUP_INTERVAL_HOURS=24`, and keep a copy of `secrets/data_encryption_key` somewhere safe.
+
+### 2. First steps in the app
+
+1. Open the link printed by `admin-bootstrap`, choose your name and password, and sign in.
+2. **Profile & settings** → enable **two-factor authentication** (strongly recommended for admins).
+3. **Server admin** → **Create a Workspace** — for example *Home*.
+4. **Server admin** → **Invitations**: invite the people who share your routines. On the Workspace's **Members** page, give them a role (*User* to tick off steps, *Editor* to write checklists).
+5. **Procedures** → **New Procedure**: write your first routine, e.g. *Leave the house* with *Close windows* and a critical *Turn off stove*.
+6. **Start Run** — and tick it off together, on your phones.
+
+Everything else — roles, critical steps, working offline, Knot links, themes — is in the **[user guide](docu/user-guide.md)**.
+
+Running it for others: [Deployment](docu/deployment.md) covers upgrades, backups and restore, reverse proxies and hardening. Want to hack on it? [Local development](docu/local-development.md).
 
 ## 🌼 The name
 
@@ -74,6 +92,11 @@ Look closely at the logo: the flower's stem is tied into a knot — a **Forget-M
 **VMN** is the short form used in technical names: cookies (`vmn.*`), deployment variables (`VMN_DOMAIN`, `VMN_IMAGE`) and export files (`*.vmn.json`). Package and image names are the lower-case `vergissmeinnicht`.
 
 ## 📚 Documentation
+
+- **[User guide](docu/user-guide.md) — how to use VergissMeinNicht**
+- [Deployment](docu/deployment.md) — installing, upgrading, backups
+
+For contributors:
 
 - [Agent rules](AGENTS.md) — how humans and coding agents work on this project
 - [Project steps and objectives](docu/steps.md) — what is built, how it was tested, what is next

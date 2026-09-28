@@ -1585,6 +1585,20 @@ HTTPS, proxy trust, security headers, dependency scanning, health checks, safe s
 
 ---
 
+## 12 — Rollout
+
+### 12.1 User guide and beta releases
+**Status:** DONE
+**Completed:** 2026-09-28
+
+**Implemented:** `docu/user-guide.md` (for people using the app: getting in, roles, writing Procedures, Runs, offline, Knots, settings, server-admin tools; every quoted label checked against the message catalog); README "Get started" (install from a published package or build from source, first steps in the app); the release workflow also accepts `vX.Y.Z-beta.N` / `-rc.N` tags, which publish only their exact version (no `latest`, no minor tag).
+
+**Tests/checks:** actionlint on the workflows; labels verified against `apps/web/src/i18n/en.ts`.
+
+**Security docs updated:** N/A.
+
+---
+
 ## 11 — Licensing
 
 ### 11.1 AGPL-3.0

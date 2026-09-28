@@ -1,5 +1,7 @@
 # Documentation
 
+For people using the app: [User guide](user-guide.md).
+
 Core documents:
 
 - [Project steps and objectives](steps.md) — authoritative task ledger; agents update this when work is completed.
