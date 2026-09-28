@@ -138,6 +138,17 @@ export function createProcedureRepository({ db }: Pick<AppDatabase, 'db'>): Proc
       });
     },
 
+    async findDeleted(workspaceId, procedureId) {
+      return db.transaction((tx): ProcedureDetail | undefined => {
+        const row = tx
+          .select()
+          .from(procedures)
+          .where(and(eq(procedures.workspaceId, workspaceId), eq(procedures.id, procedureId), isNotNull(procedures.deletedAt)))
+          .get();
+        return row && { procedure: toProcedure(row), sections: loadSections(tx, row.id) };
+      });
+    },
+
     async create(input, actor, guard) {
       return db.transaction((tx): ProcedureWriteResult => {
         if (!actorAllowed(tx, input.workspaceId, actor, guard)) return { status: 'forbidden' };

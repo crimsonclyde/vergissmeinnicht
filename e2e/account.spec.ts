@@ -211,7 +211,12 @@ test('first server admin: bootstrap link, account creation, sign-in, Workspace c
   // Restore the deleted copy, then delete it again.
   await page.getByRole('button', { name: 'Show deleted Procedures' }).click();
   await expect(page.getByRole('list', { name: 'Deleted Procedures' })).toContainText('Leave the flat (copy) — deleted by Ada Admin');
-  await page.getByRole('button', { name: 'Restore Leave the flat (copy)' }).click();
+  // It can be read in full before restoring (8.9).
+  await page.getByRole('button', { name: 'View Leave the flat (copy)' }).click();
+  await expect(procedure.getByRole('note')).toContainText('This Procedure is deleted.');
+  await expect(procedure.getByRole('heading', { level: 3 })).toHaveText(['Upstairs', 'Ground floor']);
+  await expectAccessible(page, 'deleted procedure view');
+  await procedure.getByRole('button', { name: 'Restore Leave the flat (copy)' }).click();
   await expect(procedure.getByRole('heading', { name: 'Travel Leave the flat (copy)' })).toBeVisible();
   page.once('dialog', (dialog) => void dialog.accept());
   await moreActions();
@@ -223,6 +228,12 @@ test('first server admin: bootstrap link, account creation, sign-in, Workspace c
   await expect(procedure.getByRole('heading', { level: 3 })).toHaveText(['Upstairs', 'Ground floor']);
   await procedure.getByRole('button', { name: 'Back to all Procedures' }).click();
   await expect(page.getByRole('list', { name: 'Procedures' }).getByRole('listitem')).toHaveCount(2);
+  // Tag filter (8.9): every tag of the Workspace, "All tags" by default.
+  const tagFilter = page.getByLabel('Tag', { exact: true });
+  await expect(tagFilter.getByRole('option')).toHaveText(['All tags', 'daily', 'safety']);
+  await tagFilter.selectOption('safety');
+  await expect(page.getByRole('list', { name: 'Procedures' }).getByRole('listitem')).toHaveCount(2);
+  await tagFilter.selectOption('');
   await page.getByLabel('Import Procedure from JSON file').setInputFiles({
     name: 'evil.json',
     mimeType: 'application/json',

@@ -71,6 +71,8 @@ export interface ProcedureRepository {
   ): Promise<ProcedureWriteResult>;
   /** Soft-deleted Procedures of the Workspace, most recently deleted first. */
   listDeleted(workspaceId: WorkspaceId): Promise<DeletedProcedure[]>;
+  /** One soft-deleted Procedure of this Workspace with its Sections and Steps; undefined if not deleted or elsewhere. */
+  findDeleted(workspaceId: WorkspaceId, procedureId: ProcedureId): Promise<ProcedureDetail | undefined>;
   /**
    * Clears the deletion metadata of a soft-deleted Procedure of this Workspace (with its Sections and
    * Steps) and bumps the revision. 'not_found' if it is not deleted or belongs elsewhere;

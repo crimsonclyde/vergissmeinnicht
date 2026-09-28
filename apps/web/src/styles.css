@@ -812,3 +812,7 @@ caption {
     color: HighlightText;
   }
 }
+
+.tag-filter {
+  margin-bottom: 1rem;
+}

@@ -730,7 +730,7 @@ Create/edit/soft-delete reusable Procedures with title, description, icon, tags,
 **Remaining:**
 - ~~The web client keeps its own copy of the icon and role lists~~ — done 2026-09-27: `apps/web` depends on `@vergissmeinnicht/domain` (browser-safe) and imports `PROCEDURE_ICONS`, `REASON_POLICIES`, `WORKSPACE_ROLES` and the state types; the drift test was removed.
 - No history view of `audit_events` yet; restore of deleted Procedures is 4.5.
-- Search/filter by tag is not implemented (not required by 4.1).
+- ~~Search/filter by tag~~ — tag filter in 8.9.
 
 ### 4.2 Sections and CHECK Steps
 **Status:** DONE
@@ -849,7 +849,7 @@ Historical Runs are never cascaded.
 
 **Security docs updated:** YES (§3 note in "Security check: Procedures").
 
-**Remaining:** no permanent purge (intentionally none in V1); a deleted Procedure cannot be viewed in full before restoring.
+**Remaining:** no permanent purge (intentionally none in V1); ~~full view before restoring~~ (8.9).
 
 ---
 
@@ -1298,7 +1298,7 @@ V1 ships English only, but user-facing strings must be structured so adding tran
 
 **Security docs updated:** N/A.
 
-**Remaining:** no language switcher and no second catalog (V1 is English only); server-generated texts (invitation/recovery emails, CLI output) are still English literals in the server; numbers are interpolated without locale formatting (only counts and revisions today).
+**Remaining:** no language switcher and no second catalog (V1 is English only); ~~email texts~~ in a catalog since 8.9 (CLI output stays English); numbers are interpolated without locale formatting (only counts and revisions today).
 
 ### 8.6 Declutter and naming (user feedback)
 **Status:** DONE
@@ -1362,6 +1362,24 @@ V1 ships English only, but user-facing strings must be structured so adding tran
 **Security docs updated:** N/A (dev dependency noted above; §10 policies applied).
 
 **Remaining:** no session with a real screen reader (NVDA/VoiceOver/TalkBack) or on physical iOS/Android devices — needs a person with the devices; axe covers only automatically detectable issues; the `<details>` disclosure marker is the browser default.
+
+### 8.9 UX follow-ups: deleted Procedure view, tag filter, email text catalog
+**Status:** DONE
+**Completed:** 2026-09-28
+
+**Security impact:** LOW — one new read route for soft-deleted Procedures, behind the existing `procedure.restore` capability.
+
+**Implemented:**
+- Deleted Procedures can be read in full before restoring: `getDeletedProcedure` (`procedure.restore`, Workspace-scoped, only soft-deleted rows; the normal view still answers 404), `GET /api/workspaces/{id}/procedures/deleted/{procedureId}`; web: "View …" in the deleted list, a read-only view with a "This Procedure is deleted" note and Restore.
+- Procedures list: tag filter (every tag of the Workspace, "All tags" by default; per view, not stored). Client-side over the list the user may already see.
+- Server-side i18n: invitation and recovery emails come from a typed catalog (`packages/application/src/email-texts`, `EmailTexts` + `emailTextsEn`); a translation is another object of that type. Operator CLI output stays English (operator tooling).
+- Reviewed and left unchanged: the Knot links page has one action per row and histories are collapsed by default, so no further "more" disclosure is needed.
+
+**Tests/checks:** use-case (viewable with structure, normal view 404, USER/GUEST refused) and HTTP tests (403 for USER/GUEST, 404 for other Workspaces/unknown/restored ids, 400 for malformed ids); email text tests; e2e: view a deleted Procedure (note, Sections, axe clean) and restore from there, tag filter options. `pnpm test` 566, `pnpm lint`, `pnpm typecheck`.
+
+**Security docs updated:** YES (§ Procedures check: deleted view).
+
+**Remaining:** Procedure authoring on phones is usable but not optimized (drag handles desktop-only; move buttons work).
 
 ### 8.5 PWA/offline active Runs
 **Status:** DEFERRED — Phase 2

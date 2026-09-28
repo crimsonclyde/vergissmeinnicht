@@ -15,6 +15,10 @@ import { Icon } from './procedure-icons.tsx';
 import { downloadJson, exportFileName, readImportFile } from './procedure-files.ts';
 import { ProcedureForm } from './ProcedureForm.tsx';
 
+/** Every tag used in the Workspace, sorted for the filter. */
+const allTags = (procedures: readonly Procedure[]) =>
+  [...new Set(procedures.flatMap((procedure) => procedure.tags))].sort((a, b) => a.localeCompare(b));
+
 const EMPTY: ProcedureContent = { title: '', description: '', icon: 'checklist', tags: [], sections: [] };
 
 
@@ -58,6 +62,7 @@ type Mode =
   | { kind: 'list' }
   | { kind: 'create' }
   | { kind: 'deleted' }
+  | { kind: 'deletedView'; id: string }
   | { kind: 'view'; id: string }
   | { kind: 'edit'; id: string };
 
@@ -78,6 +83,9 @@ export function Procedures(props: {
   const [detail, setDetail] = useState<ProcedureDetail | null>(null);
   const [mode, setMode] = useState<Mode>(props.openProcedureId === null ? { kind: 'list' } : { kind: 'view', id: props.openProcedureId });
   const [message, setMessage] = useState<string | null>(null);
+  // Per view only (not stored); '' = all tags.
+  const [tagFilter, setTagFilter] = useState('');
+  const [deletedDetail, setDeletedDetail] = useState<ProcedureDetail | null>(null);
 
   const refresh = useCallback(() => {
     api.procedures(workspaceId).then(setProcedures, (caught: unknown) => setMessage(messageFor(caught)));
@@ -140,6 +148,16 @@ export function Procedures(props: {
       return;
     }
     await runAction(() => api.importProcedure(workspaceId, read.document));
+  }
+
+  function viewDeleted(id: string) {
+    setMessage(null);
+    setDeletedDetail(null);
+    setMode({ kind: 'deletedView', id });
+    api.deletedProcedure(workspaceId, id).then(setDeletedDetail, (caught: unknown) => {
+      setMessage(messageFor(caught));
+      setMode({ kind: 'deleted' });
+    });
   }
 
   function showDeleted() {
@@ -271,7 +289,10 @@ export function Procedures(props: {
               {deleted.map((procedure) => (
                 <li key={procedure.id}>
                   <Icon icon={procedure.icon} /> {procedure.title}
-                  {t('procedures.deletedBy', { name: procedure.deletedBy, time: formatDateTime(procedure.deletedAt) })}
+                  {t('procedures.deletedBy', { name: procedure.deletedBy, time: formatDateTime(procedure.deletedAt) })}{' '}
+                  <button type="button" className="quiet" onClick={() => viewDeleted(procedure.id)}>
+                    {t('procedures.viewDeleted', { title: procedure.title })}
+                  </button>
                   <button type="button" onClick={() => void runAction(() => api.restoreProcedure(workspaceId, procedure.id))}>
                     {t('procedures.restore', { title: procedure.title })}
                   </button>
@@ -285,15 +306,57 @@ export function Procedures(props: {
         </section>
       )}
 
+      {mode.kind === 'deletedView' && (
+        <article aria-labelledby="procedure-title">
+          <p>
+            <button type="button" className="link-like" onClick={showDeleted}>
+              {t('procedures.backToDeleted')}
+            </button>
+          </p>
+          {deletedDetail === null || deletedDetail.id !== mode.id ? (
+            <p>{t('common.loading')}</p>
+          ) : (
+            <>
+              <p role="note" className="card">
+                {t('procedures.deletedNote')}
+              </p>
+              <ProcedureView detail={deletedDetail} />
+              <p className="row">
+                <button
+                  type="button"
+                  className="primary"
+                  onClick={() => void runAction(() => api.restoreProcedure(workspaceId, deletedDetail.id))}
+                >
+                  {t('procedures.restore', { title: deletedDetail.title })}
+                </button>
+              </p>
+            </>
+          )}
+        </article>
+      )}
+
       {mode.kind === 'list' && (
         <>
+          {procedures !== null && allTags(procedures).length > 0 && (
+            <p className="row tag-filter">
+              <label htmlFor="procedure-tag-filter">{t('procedures.filterByTag')}</label>
+              <select id="procedure-tag-filter" value={tagFilter} onChange={(e) => setTagFilter(e.target.value)}>
+                <option value="">{t('procedures.allTags')}</option>
+                {allTags(procedures).map((tag) => (
+                  <option key={tag} value={tag}>
+                    {tag}
+                  </option>
+                ))}
+              </select>
+            </p>
+          )}
           {procedures === null ? (
             <p>{t('common.loading')}</p>
           ) : procedures.length === 0 ? (
             <p className="card">{t(canEdit ? 'procedures.noneHint' : 'procedures.none')}</p>
           ) : (
             <ul aria-label={t('procedures.heading')} className="plain-list">
-              {procedures.map((procedure) => (
+              {procedures.filter((procedure) => tagFilter === '' || procedure.tags.includes(tagFilter)).map((procedure) => (
                 <li key={procedure.id} className="card row" style={{ justifyContent: 'space-between' }}>
                   <button type="button" className="link-like" style={{ fontSize: '1.1rem', fontWeight: 600 }} onClick={() => open(procedure.id)}>
                     <Icon icon={procedure.icon} /> {procedure.title}

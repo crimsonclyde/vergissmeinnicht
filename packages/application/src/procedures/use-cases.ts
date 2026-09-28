@@ -223,6 +223,17 @@ export async function listDeletedProcedures(
   return deps.procedures.listDeleted(input.workspaceId);
 }
 
+/** A soft-deleted Procedure in full, so it can be checked before restoring. Same capability as restoring. */
+export async function getDeletedProcedure(
+  deps: ProcedureDeps,
+  input: { readonly actor: User; readonly workspaceId: WorkspaceId; readonly procedureId: ProcedureId },
+): Promise<ProcedureDetail> {
+  await authorizeWorkspace(deps, input.actor, input.workspaceId, 'procedure.restore');
+  const detail = await deps.procedures.findDeleted(input.workspaceId, input.procedureId);
+  if (detail === undefined) throw new ProcedureNotFoundError();
+  return detail;
+}
+
 /** Brings a soft-deleted Procedure back, unchanged except for a new revision. Audited. */
 export async function restoreProcedure(
   deps: ProcedureDeps,

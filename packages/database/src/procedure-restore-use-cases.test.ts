@@ -8,6 +8,7 @@ import {
   createProcedure,
   createWorkspace,
   deleteProcedure,
+  getDeletedProcedure,
   getProcedure,
   listDeletedProcedures,
   listProcedures,
@@ -94,6 +95,12 @@ describe('Procedure soft deletion and restore', () => {
     const created = await createAndDelete();
     const deleted = await listDeletedProcedures(deps, { actor: admin, workspaceId: home.id });
     expect(deleted.map((d) => [d.procedure.title, d.deletedBy.displayName])).toEqual([['Leave the house', 'Eddie']]);
+    // Viewable in full before restoring; the normal view still does not find it.
+    const viewed = await getDeletedProcedure(deps, { actor: editor, workspaceId: home.id, procedureId: created.procedure.id });
+    expect(viewed.sections).toEqual(created.sections);
+    await expect(getProcedure(deps, { actor: editor, workspaceId: home.id, procedureId: created.procedure.id })).rejects.toThrow(
+      ProcedureNotFoundError,
+    );
 
     const restored = await restoreProcedure(deps, { actor: editor, workspaceId: home.id, procedureId: created.procedure.id });
     expect(restored.procedure.revision).toBe(2);
@@ -108,6 +115,9 @@ describe('Procedure soft deletion and restore', () => {
     for (const actor of [member, guest]) {
       await expect(listDeletedProcedures(deps, { actor, workspaceId: home.id })).rejects.toThrow(NotAuthorizedError);
       await expect(restoreProcedure(deps, { actor, workspaceId: home.id, procedureId: created.procedure.id })).rejects.toThrow(
+        NotAuthorizedError,
+      );
+      await expect(getDeletedProcedure(deps, { actor, workspaceId: home.id, procedureId: created.procedure.id })).rejects.toThrow(
         NotAuthorizedError,
       );
     }

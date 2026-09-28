@@ -461,6 +461,11 @@ export const en = {
   'import.notJson': 'The file is not valid JSON.',
 
   // ---- Procedures
+  'procedures.viewDeleted': 'View {title}',
+  'procedures.backToDeleted': '← Back to deleted Procedures',
+  'procedures.deletedNote': 'This Procedure is deleted. Restore it to use it again.',
+  'procedures.filterByTag': 'Tag',
+  'procedures.allTags': 'All tags',
   'procedures.heading': 'Procedures',
   'procedures.none': 'No Procedures yet.',
   'procedures.new': 'New Procedure',

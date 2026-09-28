@@ -332,6 +332,13 @@ export const api = {
   deletedProcedures: async (workspaceId: string) =>
     (await request<{ procedures: DeletedProcedure[] }>('GET', `/workspaces/${encodeURIComponent(workspaceId)}/procedures/deleted`))
       .procedures,
+  deletedProcedure: async (workspaceId: string, id: string) =>
+    (
+      await request<{ procedure: ProcedureDetail }>(
+        'GET',
+        `/workspaces/${encodeURIComponent(workspaceId)}/procedures/deleted/${encodeURIComponent(id)}`,
+      )
+    ).procedure,
   restoreProcedure: async (workspaceId: string, id: string) =>
     (
       await request<{ procedure: ProcedureDetail }>(

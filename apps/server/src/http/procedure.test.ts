@@ -184,11 +184,25 @@ describe('Procedure HTTP API', () => {
     // Through another Workspace the id is unknown.
     expect((await t.post(`${base(office)}/${id}/restore`, undefined, outsider)).statusCode).toBe(404);
 
+    // A deleted Procedure can be read in full before restoring — with the same capability.
+    const view = await t.get(`${base(home)}/deleted/${id}`, editor);
+    expect(view.statusCode).toBe(200);
+    expect(view.json().procedure).toMatchObject({ id, title: 'Leave the house', tags: ['travel'], sections: [] });
+    for (const cookie of [user, guest]) expect((await t.get(`${base(home)}/deleted/${id}`, cookie)).statusCode).toBe(403);
+    expect((await t.get(`${base(home)}/deleted/${id}`, outsider)).statusCode).toBe(404);
+    expect((await t.get(`${base(office)}/deleted/${id}`, outsider)).statusCode).toBe(404);
+    expect((await t.get(`${base(home)}/deleted/${UNKNOWN_ID}`, editor)).statusCode).toBe(404);
+    expect((await t.get(`${base(home)}/deleted/not-a-uuid`, editor)).statusCode).toBe(400);
+    // The normal view still hides it.
+    expect((await t.get(`${base(home)}/${id}`, editor)).statusCode).toBe(404);
+
     const restored = await t.post(`${base(home)}/${id}/restore`, undefined, editor);
     expect(restored.statusCode).toBe(200);
     expect(restored.json().procedure).toMatchObject({ id, revision: 2 });
     expect((await t.get(base(home), guest)).json().procedures).toHaveLength(1);
     expect((await t.post(`${base(home)}/${id}/restore`, undefined, editor)).statusCode).toBe(404);
+    // Once restored it is no longer a deleted Procedure.
+    expect((await t.get(`${base(home)}/deleted/${id}`, editor)).statusCode).toBe(404);
   });
 
   it('answers unknown Procedure ids with 404', async () => {

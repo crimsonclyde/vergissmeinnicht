@@ -1,5 +1,6 @@
-import type { EmailMessage } from '../ports/email-sender.ts';
 import type { Invitation } from '@vergissmeinnicht/domain';
+import { emailTextsEn } from '../email-texts/en.ts';
+import type { EmailMessage } from '../ports/email-sender.ts';
 
 /** `publicOrigin` is the validated origin from configuration (scheme://host[:port], no path). */
 export function invitationAcceptUrl(publicOrigin: string, token: string): string {
@@ -11,21 +12,16 @@ export function invitationEmail(
   invitation: Invitation,
   acceptUrl: string,
   inviterName: string | undefined,
+  texts = emailTextsEn,
 ): EmailMessage {
-  const invitedBy = inviterName === undefined ? '' : ` by ${inviterName}`;
   return {
     to: invitation.email,
-    subject: 'You are invited to VergissMeinNicht',
-    text: [
-      `Hello,`,
-      ``,
-      `you have been invited${invitedBy} to create a VergissMeinNicht account for ${invitation.email}.`,
-      ``,
-      `Open this link to choose your password:`,
-      acceptUrl,
-      ``,
-      `The link can be used once and expires on ${invitation.expiresAt.toISOString()}.`,
-      `If you did not expect this invitation, ignore this email; no account is created without the link.`,
-    ].join('\n'),
+    subject: texts.invitation.subject,
+    text: texts.invitation.body({
+      email: invitation.email,
+      inviterName,
+      url: acceptUrl,
+      expiresAt: invitation.expiresAt.toISOString(),
+    }),
   };
 }

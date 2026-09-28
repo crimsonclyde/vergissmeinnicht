@@ -10,6 +10,7 @@ import {
   type Actor,
   type User,
 } from '@vergissmeinnicht/domain';
+import { emailTextsEn } from '../email-texts/en.ts';
 import { NotAuthorizedError } from '../invitations/errors.ts';
 import { ReauthenticationFailedError } from '../mfa/errors.ts';
 import { mfaStatus, verifyStepUp, type MfaDeps, type SecondFactor } from '../mfa/use-cases.ts';
@@ -46,25 +47,11 @@ export function recoveryUrl(publicOrigin: string, token: string): string {
   return `${publicOrigin}/recover/${token}`;
 }
 
-function recoveryEmail(target: User, scope: RecoveryScope, url: string, expiresAt: Date, adminName: string): EmailMessage {
-  const what = [scope.resetPassword && 'choose a new password', scope.resetTotp && 'remove your two-factor authentication']
-    .filter(Boolean)
-    .join(' and ');
+function recoveryEmail(target: User, scope: RecoveryScope, url: string, expiresAt: Date, adminName: string, texts = emailTextsEn): EmailMessage {
   return {
     to: target.email,
-    subject: 'VergissMeinNicht account recovery',
-    text: [
-      `Hello ${target.displayName},`,
-      ``,
-      `${adminName} started a recovery of your VergissMeinNicht account. Open this link to ${what}:`,
-      url,
-      ``,
-      `The link can be used once and expires on ${expiresAt.toISOString()}.`,
-      scope.resetPassword ? '' : 'You will need your current password to complete it.',
-      `If you did not ask for this, do not open the link and contact your administrator.`,
-    ]
-      .filter((line, index, lines) => line !== '' || lines[index - 1] !== '')
-      .join('\n'),
+    subject: texts.recovery.subject,
+    text: texts.recovery.body({ displayName: target.displayName, adminName, ...scope, url, expiresAt: expiresAt.toISOString() }),
   };
 }
 

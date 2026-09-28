@@ -222,6 +222,7 @@ GET  /api/workspaces/{id}/procedures/{procedureId}      procedure.view
 POST /api/workspaces/{id}/procedures/{procedureId}/update   procedure.edit + expectedRevision + complete sections[]
 POST /api/workspaces/{id}/procedures/{procedureId}/delete   procedure.edit (soft delete)
 GET  /api/workspaces/{id}/procedures/deleted            procedure.restore
+GET  /api/workspaces/{id}/procedures/deleted/{procedureId}  procedure.restore, full soft-deleted Procedure
 POST /api/workspaces/{id}/procedures/{procedureId}/restore  procedure.restore, audited
 GET  /api/workspaces/{id}/procedures/{procedureId}/history[?after=]  procedure.view, audit events, 500 per page
 GET  /api/workspaces/{id}/procedures/{procedureId}/export   procedure.view, canonical JSON without ids

@@ -5,6 +5,7 @@ import {
   getProcedure,
   getProcedureHistory,
   importProcedure,
+  getDeletedProcedure,
   listDeletedProcedures,
   listProcedures,
   restoreProcedure,
@@ -140,6 +141,17 @@ export async function procedureRoutes(app: FastifyInstance, { services }: { serv
         deletedBy: entry.deletedBy.displayName,
       })),
     };
+  });
+
+  // Registered before '/:procedureId' routes; 'deleted' is not a UUID, so the two never collide.
+  app.get('/deleted/:procedureId', async (request) => {
+    const { workspaceId, procedureId } = parse(procedureParams, request.params);
+    const detail = await getDeletedProcedure(deps, {
+      actor: principalOf(request).user,
+      workspaceId: workspaceId as WorkspaceId,
+      procedureId: procedureId as ProcedureId,
+    });
+    return { procedure: detailView(detail) };
   });
 
   app.post('/:procedureId/restore', async (request) => {

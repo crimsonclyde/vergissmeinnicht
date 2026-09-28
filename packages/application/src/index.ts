@@ -1,3 +1,4 @@
+export * from './email-texts/index.ts';
 export * from './accounts/index.ts';
 export * from './history/index.ts';
 export * from './invitations/index.ts';
