@@ -38,13 +38,16 @@ chown -R 99:100 . && chmod 0700 data secrets && chmod 0400 secrets/*
 3. Fill in:
    - **Repository:** `ghcr.io/crimsonclyde/vergissmeinnicht:0.1.0-beta.1` (or a newer release — pin an exact version, not `latest`).
    - **Use Tailscale:** *Yes*. **Tailscale Hostname:** `vergissmeinnicht`. **Tailscale Serve:** *Serve* (port `3000`, taken from the WebUI field). Leave *Funnel* off — that would publish the app on the internet.
+   - **Tailscale State Directory** (Tailscale settings, if shown): `/data/.tailscale_state` — keeps the container's Tailscale identity across updates.
    - **Public address:** `https://vergissmeinnicht.<your-tailnet>.ts.net` — exactly the name Tailscale shows for the container.
    - **Trusted proxy:** `loopback` (Tailscale Serve forwards from inside the container).
-   - **SMTP host / port / security / user**, **Sender address**.
-   - Keep *Backups every (hours)* = `24`, *Migrate on start* = `true`, *Run as user/group id* = `99`/`100`.
-4. **Apply.** On the first start Unraid sets up Tailscale inside the container (you may have to approve the new machine in the Tailscale admin console). The log ends with `Server listening`.
+   - **SMTP host / port / security**, **Sender address**.
+   - **SMTP user** only if your mail server needs a login. Then *both*: put the password into `secrets/smtp_password` (step 1) **and** set **SMTP password file** to `/run/secrets/smtp_password`. Otherwise leave both empty — one without the other stops the start with `SMTP_USER and SMTP_PASSWORD … must be set together`.
+   - Keep **Extra Parameters** as in the template (`--init --user 0:0 --security-opt no-new-privileges:true`), *Backups every (hours)* = `24`, *Migrate on start* = `true`, *Run as user/group id* = `99`/`100`.
+   - Leave **Privileged** *off*.
+4. **Apply.** On the first start Unraid sets up Tailscale inside the container (you may have to approve the new machine in the Tailscale admin console). The log shows `Executing Unraid Docker Hook for Tailscale` without errors and ends with `Server listening`.
 
-Why the container starts as root: Unraid's Tailscale installs itself into the container at start, which needs root. The image then starts VergissMeinNicht as `99:100` (*Run as user/group id*) **with no capabilities left**; the application never runs as root, and `0` is refused.
+**Why `--user 0:0`, and why not "Privileged":** Unraid's Tailscale hook installs Tailscale into the container every time it starts, and it refuses with `ERROR: No root privileges!` unless the container starts as root. The image itself starts as an unprivileged user by default, so the template asks for root with `--user 0:0` — only for that setup step. Before VergissMeinNicht runs, the image's entrypoint switches to `99:100` (*Run as user/group id*) and drops every capability; the application never runs as root, and `0` is refused. *Privileged* mode is something else — it would hand the container nearly full control of the host — and is not needed.
 
 ## 3. First sign-in
 
@@ -76,6 +79,8 @@ Change the version in *Repository* and **Apply**. With *Migrate on start* the co
 
 ## Troubleshooting
 
+- **`ERROR: No root privileges!` / "Starting container without Tailscale":** *Extra Parameters* must contain `--user 0:0` (see step 2) — not *Privileged*.
+- **`SMTP_USER and SMTP_PASSWORD … must be set together`:** either fill in *SMTP user* and *SMTP password file* (`/run/secrets/smtp_password`, with the password in `secrets/smtp_password`), or leave both empty.
 - **"Sign in" does nothing / is refused:** the address in the browser must be exactly the *Public address* (same host name, `https`).
 - **Page not reachable:** is the device in your tailnet, and does the Tailscale admin console list the `vergissmeinnicht` machine? Are HTTPS certificates enabled?
 - **Invitation emails do not arrive:** check the SMTP settings and the container log; the admin page says "the email could not be sent" and offers *Send again*.

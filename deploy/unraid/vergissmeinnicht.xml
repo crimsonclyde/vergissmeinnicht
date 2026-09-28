@@ -3,9 +3,11 @@
   Unraid Docker template for VergissMeinNicht (docu/unraid.md).
   Copy to /boot/config/plugins/dockerMan/templates-user/my-VergissMeinNicht.xml, then
   Docker → Add Container → Template: VergissMeinNicht, and turn on "Use Tailscale" with Serve.
-  HTTPS comes from Tailscale Serve (https://<hostname>.<tailnet>.ts.net). The container may start as
-  root (Unraid's Tailscale needs that); the image then runs the application as PUID:PGID with no
-  capabilities. No port is published on the LAN.
+  HTTPS comes from Tailscale Serve (https://<hostname>.<tailnet>.ts.net). The container starts as root
+  (Extra Parameters: user 0:0): Unraid's Tailscale hook installs Tailscale into the container and refuses to run
+  otherwise. This is NOT Unraid's "Privileged" mode (leave that off). Before the application starts,
+  the image's entrypoint switches to PUID:PGID (99:100) with no capabilities. No port is published on
+  the LAN.
 -->
 <Container version="2">
   <Name>VergissMeinNicht</Name>
@@ -22,7 +24,7 @@
   <!-- Tells Unraid (and Tailscale Serve) which port the web app listens on inside the container. -->
   <WebUI>http://[IP]:[PORT:3000]/</WebUI>
   <Icon>https://raw.githubusercontent.com/crimsonclyde/vergissmeinnicht/main/apps/web/public/icon.svg</Icon>
-  <ExtraParams>--init --security-opt no-new-privileges:true</ExtraParams>
+  <ExtraParams>--init --user 0:0 --security-opt no-new-privileges:true</ExtraParams>
   <PostArgs/>
   <Config Name="Data" Target="/data" Default="/mnt/user/appdata/vergissmeinnicht/data" Mode="rw" Description="Database, its WAL files and backups. Sensitive: keep it private (0700, owned by 99:100)." Type="Path" Display="always" Required="true" Mask="false">/mnt/user/appdata/vergissmeinnicht/data</Config>
   <Config Name="Secrets" Target="/run/secrets" Default="/mnt/user/appdata/vergissmeinnicht/secrets" Mode="ro" Description="Folder with the files auth_secret and data_encryption_key (and smtp_password if needed)." Type="Path" Display="always" Required="true" Mask="false">/mnt/user/appdata/vergissmeinnicht/secrets</Config>
@@ -33,8 +35,8 @@
   <Config Name="SMTP host" Target="SMTP_HOST" Default="" Mode="" Description="Mail server for invitations and account recovery." Type="Variable" Display="always" Required="true" Mask="false"/>
   <Config Name="SMTP port" Target="SMTP_PORT" Default="587" Mode="" Description="587 for STARTTLS, 465 for TLS." Type="Variable" Display="always" Required="false" Mask="false">587</Config>
   <Config Name="SMTP security" Target="SMTP_SECURITY" Default="starttls" Mode="" Description="starttls or tls." Type="Variable" Display="always" Required="false" Mask="false">starttls</Config>
-  <Config Name="SMTP user" Target="SMTP_USER" Default="" Mode="" Description="Leave empty if your mail server needs no login. With a user, put the password into secrets/smtp_password and set SMTP password file." Type="Variable" Display="always" Required="false" Mask="false"/>
-  <Config Name="SMTP password file" Target="SMTP_PASSWORD_FILE" Default="" Mode="" Description="/run/secrets/smtp_password when SMTP user is set, otherwise empty." Type="Variable" Display="advanced" Required="false" Mask="false"/>
+  <Config Name="SMTP user" Target="SMTP_USER" Default="" Mode="" Description="Leave empty if your mail server needs no login. With a user: put the password into the file secrets/smtp_password and fill in SMTP password file below." Type="Variable" Display="always" Required="false" Mask="false"/>
+  <Config Name="SMTP password file" Target="SMTP_PASSWORD_FILE" Default="" Mode="" Description="Only with an SMTP user: /run/secrets/smtp_password (the file secrets/smtp_password in appdata). Leave empty without a user." Type="Variable" Display="always" Required="false" Mask="false"/>
   <Config Name="Sender address" Target="MAIL_FROM_ADDRESS" Default="" Mode="" Description="From address of the emails, e.g. noreply@example.org." Type="Variable" Display="always" Required="true" Mask="false"/>
   <Config Name="Backups every (hours)" Target="BACKUP_INTERVAL_HOURS" Default="24" Mode="" Description="Automatic verified backups into Data/backups. 0 = off." Type="Variable" Display="always" Required="false" Mask="false">24</Config>
   <Config Name="Backups to keep" Target="BACKUP_KEEP" Default="14" Mode="" Description="Newest automatic backups kept." Type="Variable" Display="advanced" Required="false" Mask="false">14</Config>

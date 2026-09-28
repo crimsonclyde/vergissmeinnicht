@@ -92,7 +92,7 @@ const envSchema = z
   })
   .superRefine((env, ctx) => {
     if ((env.SMTP_USER === undefined) !== (env.SMTP_PASSWORD === undefined)) {
-      ctx.addIssue({ code: 'custom', path: ['SMTP_USER'], message: 'SMTP_USER and SMTP_PASSWORD must be set together' });
+      ctx.addIssue({ code: 'custom', path: ['SMTP_USER'], message: 'SMTP_USER and SMTP_PASSWORD (or SMTP_PASSWORD_FILE) must be set together' });
     }
     if (env.MAIL_FROM_ADDRESS !== undefined && !isValidEmail(env.MAIL_FROM_ADDRESS)) {
       ctx.addIssue({ code: 'custom', path: ['MAIL_FROM_ADDRESS'], message: 'MAIL_FROM_ADDRESS must be a valid email address' });
