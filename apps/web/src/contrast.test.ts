@@ -40,6 +40,9 @@ const PAIRS: readonly [string, string, number][] = [
   ['focus', 'surface', 4.5],
   ['focus', 'bg', 4.5],
   ['accent-text', 'accent', 4.5],
+  // Current tab in the header, and the brand accent in the wordmark.
+  ['brand-text', 'brand', 4.5],
+  ['brand', 'surface', 3],
   ['state-done-text', 'state-done', 4.5],
   // State badges: coloured text on the matching tint.
   ['state-pending', 'state-pending-bg', 4.5],

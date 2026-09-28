@@ -16,6 +16,9 @@
   --accent-text: #ffffff;
   --accent-soft: #fbe9e7;
   --focus: #1f5fbf;
+  --brand: #2f66b3;
+  --brand-text: #ffffff;
+  --brand-soft: #e3efff;
   --state-pending: #b3261e;
   --state-pending-bg: #fdecea;
   --state-done: #1e6b34;
@@ -45,6 +48,9 @@
   --accent-text: #0b0b0c;
   --accent-soft: #3a1512;
   --focus: #7aa7ff;
+  --brand: #7fb6f0;
+  --brand-text: #0b0b0c;
+  --brand-soft: #13233b;
   --state-pending: #ff6b5e;
   --state-pending-bg: #331513;
   --state-done: #5fd07e;
@@ -70,6 +76,9 @@
   --accent-text: #000000;
   --accent-soft: #2b0c10;
   --focus: #9ab8ff;
+  --brand: #e0343f;
+  --brand-text: #000000;
+  --brand-soft: #2b0c10;
   --state-pending: #ff4d5e;
   --state-pending-bg: #2e0b10;
   --state-done: #6fd98a;
@@ -127,8 +136,18 @@ h6 {
   position: sticky;
   top: 0;
   z-index: 10;
-  background: var(--surface);
+  /* A soft glow of the flower's colour behind the logo, and a brand stripe along the bottom edge. */
+  background:
+    radial-gradient(ellipse 28rem 6rem at 12% 0%, var(--brand-soft), transparent 70%),
+    var(--surface);
   border-bottom: 1px solid var(--border);
+}
+
+.app-header::after {
+  content: '';
+  display: block;
+  height: 3px;
+  background: linear-gradient(90deg, var(--brand), var(--accent));
 }
 
 .app-header-inner,
@@ -156,10 +175,29 @@ h6 {
 .brand {
   display: inline-flex;
   align-items: center;
-  gap: 0.5rem;
-  font-weight: 700;
+  gap: 0.7rem;
+  font-weight: 800;
+  font-size: 1.35rem;
+  letter-spacing: -0.01em;
   color: var(--text);
   text-decoration: none;
+}
+
+.brand-accent {
+  color: var(--brand);
+}
+
+.brand-words {
+  display: inline-flex;
+  flex-direction: column;
+  line-height: 1.15;
+}
+
+.brand-tagline {
+  font-size: 0.75rem;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+  color: var(--text-muted);
 }
 
 /* The app icon (black tile, white flower): crisp on light themes; on dark themes a thin border keeps
@@ -167,7 +205,12 @@ h6 {
 .brand-icon {
   flex: none;
   border-radius: 22%;
-  box-shadow: 0 0 0 1px var(--border);
+  box-shadow: 0 0 0 1px var(--border), 0 4px 16px -4px var(--brand);
+}
+
+.app-header .brand-icon {
+  width: 44px;
+  height: 44px;
 }
 
 .public-brand {
@@ -190,6 +233,14 @@ h6 {
     display: inline;
   }
 
+  .brand-tagline {
+    display: none;
+  }
+
+  .app-header .brand-icon {
+    width: 36px;
+    height: 36px;
+  }
 }
 
 .workspace-select select {
@@ -226,6 +277,7 @@ h6 {
   color: var(--bg);
   font-weight: 700;
   font-size: 0.9rem;
+  box-shadow: 0 0 0 2px var(--surface), 0 0 0 4px var(--brand);
 }
 
 .menu-panel {
@@ -288,8 +340,9 @@ h6 {
 }
 
 .nav a[aria-current='page'] {
-  background: var(--text);
-  color: var(--bg);
+  background: var(--brand);
+  color: var(--brand-text);
+  font-weight: 600;
 }
 
 .page-header {

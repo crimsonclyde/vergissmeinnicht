@@ -178,6 +178,7 @@ export const en = {
 
   // ---- App shell
   'shell.workspace': 'Workspace',
+  'shell.tagline': 'Never skip the step that matters',
   'shell.home': 'VergissMeinNicht (VMN) — start page',
   'menu.open': 'Menu: profile, settings and sign-out',
   'menu.profile': 'Profile & settings',
