@@ -95,5 +95,35 @@ describe('server-admin account status API', () => {
     expect((await t.get('/api/admin/security-events?before=nope', t.admin)).statusCode).toBe(400);
     expect((await t.get('/api/admin/security-events?other=1', t.admin)).statusCode).toBe(400);
   });
+
+  it('lets server admins hide the footer for everyone; audited; others refused', async () => {
+    expect((await t.get('/api/about')).json()).toMatchObject({ footerHidden: false });
+    expect((await t.post('/api/admin/settings', { footerHidden: true }, bob)).statusCode).toBe(403);
+    expect((await t.post('/api/admin/settings', { footerHidden: true })).statusCode).toBe(401);
+    expect((await t.post('/api/admin/settings', { footerHidden: true }, t.admin, null)).statusCode).toBe(403);
+    for (const body of [{}, { footerHidden: 'yes' }, { footerHidden: true, other: 1 }]) {
+      expect((await t.post('/api/admin/settings', body, t.admin)).statusCode).toBe(400);
+    }
+    expect((await t.get('/api/about')).json().footerHidden).toBe(false);
+
+    const changed = await t.post('/api/admin/settings', { footerHidden: true }, t.admin);
+    expect(changed.json()).toEqual({ settings: { footerHidden: true } });
+    // Public, also before sign-in; the source link stays available.
+    expect((await t.get('/api/about')).json()).toEqual({
+      license: 'AGPL-3.0-only',
+      sourceCodeUrl: expect.stringMatching(/^https:/),
+      footerHidden: true,
+    });
+    const log = (await t.get('/api/admin/security-events', t.admin)).json() as { events: { type: string; metadata: object }[] };
+    expect(log.events[0]).toMatchObject({ type: 'INSTANCE_SETTINGS_CHANGED', metadata: { footerHidden: true } });
+    await t.post('/api/admin/settings', { footerHidden: false }, t.admin);
+    expect((await t.get('/api/about')).json().footerHidden).toBe(false);
+  });
+
+  it('re-checks the server-admin flag when saving settings', async () => {
+    t.database.sqlite.prepare("UPDATE users SET server_admin = 0 WHERE email = 'admin@example.org'").run();
+    expect((await t.post('/api/admin/settings', { footerHidden: true }, t.admin)).statusCode).toBe(403);
+    expect(t.database.sqlite.prepare('SELECT count(*) AS n FROM instance_settings').get()).toEqual({ n: 0 });
+  });
 });
 

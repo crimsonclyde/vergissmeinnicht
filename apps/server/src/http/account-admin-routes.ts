@@ -1,4 +1,4 @@
-import { listAccounts, listSecurityEvents, setAccountStatus } from '@vergissmeinnicht/application';
+import { listAccounts, listSecurityEvents, setAccountStatus, updateInstanceSettings } from '@vergissmeinnicht/application';
 import { USER_STATUSES } from '@vergissmeinnicht/domain';
 import type { FastifyInstance, FastifyRequest } from 'fastify';
 import { z } from 'zod';
@@ -102,5 +102,18 @@ export async function adminSecurityEventRoutes(app: FastifyInstance, { services 
       })),
       nextCursor: page.nextCursor,
     };
+  });
+}
+
+const settingsBody = z.strictObject({ footerHidden: z.boolean() });
+
+/** Server-admin settings of this server (footer visibility); read publicly via /api/about. Authorization in the use-case. */
+export async function adminSettingsRoutes(app: FastifyInstance, { services }: { services: AppServices }) {
+  app.addHook('preHandler', requireUser(services));
+
+  app.post('/', { bodyLimit: 1024 }, async (request) => {
+    const body = parse(settingsBody, request.body);
+    const settings = await updateInstanceSettings(services.instanceSettings, { actor: principalOf(request).user, settings: body });
+    return { settings };
   });
 }

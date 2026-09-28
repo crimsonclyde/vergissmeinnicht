@@ -62,6 +62,7 @@ function Header(props: {
         {/* The product name is the page's level-one heading; each page's own title is a level-two heading. */}
         <h1 className="brand-heading">
           <Link href="/" className="brand" aria-label={t('shell.home')}>
+            <img className="brand-icon" src="/icon.svg" alt="" width={28} height={28} />
             <span className="brand-long">VergissMeinNicht</span>
             <span className="brand-short" aria-hidden="true">
               VMN

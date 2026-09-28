@@ -93,6 +93,20 @@ test('first server admin: bootstrap link, account creation, sign-in, Workspace c
   await expect(log.getByRole('row').nth(1)).toContainText('Invitation revoked');
   await expect(log.getByRole('cell', { name: 'Signed in', exact: true })).toBeVisible();
   await expectAccessible(page, 'server admin page');
+  // Hide the footer for everyone (8.10): it stays in the HTML, hidden; also after a reload; then back.
+  const footer = page.locator('footer.app-footer');
+  await expect(footer).toBeVisible();
+  await expect(page.getByRole('img', { name: 'love' })).toBeVisible();
+  await page.getByLabel('Hide the page footer (name and licence)').check();
+  await expect(page.getByRole('status').filter({ hasText: 'The footer is hidden.' })).toBeVisible();
+  await expect(footer).toBeHidden();
+  await expect(footer).toHaveAttribute('hidden', '');
+  await page.reload();
+  await expect(page.getByLabel('Hide the page footer (name and licence)')).toBeChecked();
+  await expect(footer).toBeHidden();
+  await expect(footer).toContainText('VergissMeinNicht (VMN) with');
+  await page.getByLabel('Hide the page footer (name and licence)').uncheck();
+  await expect(footer).toBeVisible();
   await page.getByLabel('New Workspace name').fill('Household');
   await page.getByRole('button', { name: 'Create Workspace' }).click();
   await expect(page.getByRole('heading', { name: 'Members', level: 2 })).toBeVisible();

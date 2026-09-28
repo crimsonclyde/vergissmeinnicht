@@ -16,3 +16,4 @@ export { FINISHED_LINK_RETENTION_MS, purgeExpired, type HousekeepingResult } fro
 export { createRateLimitCounter, type RateLimitCounter, type RateLimitState } from './rate-limit-counter.ts';
 export { createPreferencesRepository } from './preferences-repository.ts';
 export { backupIfDue, listAutomaticBackups } from './backup.ts';
+export { createInstanceSettingsRepository } from './instance-settings-repository.ts';

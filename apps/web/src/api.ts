@@ -249,7 +249,9 @@ async function request<T>(method: 'GET' | 'POST', path: string, body?: unknown):
 }
 
 export const api = {
-  about: () => request<{ license: string; sourceCodeUrl: string }>('GET', '/about'),
+  about: () => request<{ license: string; sourceCodeUrl: string; footerHidden: boolean }>('GET', '/about'),
+  updateInstanceSettings: async (settings: { footerHidden: boolean }) =>
+    (await request<{ settings: { footerHidden: boolean } }>('POST', '/admin/settings', settings)).settings,
   currentUser: async (): Promise<CurrentUser | null> => {
     try {
       return (await request<{ user: CurrentUser }>('GET', '/auth/session')).user;

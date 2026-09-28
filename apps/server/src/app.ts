@@ -4,7 +4,8 @@ import fastifyRateLimit from '@fastify/rate-limit';
 import fastifyStatic from '@fastify/static';
 import Fastify, { type FastifyBaseLogger, type FastifyServerOptions } from 'fastify';
 import type { AppServices } from './composition.ts';
-import { adminAccountRoutes, adminSecurityEventRoutes } from './http/account-admin-routes.ts';
+import { getInstanceSettings } from '@vergissmeinnicht/application';
+import { adminAccountRoutes, adminSecurityEventRoutes, adminSettingsRoutes } from './http/account-admin-routes.ts';
 import { accountRoutes } from './http/account-routes.ts';
 import { authRoutes } from './http/auth-routes.ts';
 import { errorHandler } from './http/errors.ts';
@@ -62,6 +63,9 @@ export async function buildApp(options: AppOptions = {}) {
     timeWindow: 60_000,
     // IPv6 clients usually control a whole prefix; count it as one client.
     ipv6Subnet: 56,
+    // The limits protect the API. The web app's static files (page shell, hashed assets, icon, service
+    // worker) never touch the database; counting them made every page load cost several requests.
+    allowList: (request) => request.url !== '/api' && !request.url.startsWith('/api/'),
     errorResponseBuilder: (_request, context) => ({ statusCode: context.statusCode, error: 'rate_limited' }),
     // Limits marked `persist` (sign-in, MFA, recovery, invitations, account security) live in the database.
     store: rateLimitStore(services?.rateLimits),
@@ -102,7 +106,11 @@ export async function buildApp(options: AppOptions = {}) {
           return readiness.ready ? { status: 'ready' } : reply.code(503).send({ status: 'not_ready', reason: readiness.reason });
         });
         // Public: the license requires offering the source to everyone who uses the app over a network.
-        api.get('/about', async () => ({ license: 'AGPL-3.0-only', sourceCodeUrl: services.sourceCodeUrl }));
+        api.get('/about', async () => ({
+          license: 'AGPL-3.0-only',
+          sourceCodeUrl: services.sourceCodeUrl,
+          footerHidden: (await getInstanceSettings(services.instanceSettings)).footerHidden,
+        }));
         await api.register(authRoutes, { prefix: '/auth', services });
         await api.register(accountRoutes, { prefix: '/account', services });
         await api.register(invitationRoutes, { prefix: '/invitations', services });
@@ -111,6 +119,7 @@ export async function buildApp(options: AppOptions = {}) {
         await api.register(adminRecoveryRoutes, { prefix: '/admin/recoveries', services });
         await api.register(adminAccountRoutes, { prefix: '/admin/accounts', services });
         await api.register(adminSecurityEventRoutes, { prefix: '/admin/security-events', services });
+        await api.register(adminSettingsRoutes, { prefix: '/admin/settings', services });
         await api.register(workspaceRoutes, { prefix: '/workspaces', services });
         await api.register(procedureRoutes, { prefix: '/workspaces/:workspaceId/procedures', services });
         await api.register(runRoutes, { prefix: '/workspaces/:workspaceId/runs', services });

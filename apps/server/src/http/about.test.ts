@@ -11,7 +11,11 @@ describe('GET /api/about', () => {
   it('offers the license and source link to everyone, signed in or not (AGPL-3.0 §13)', async () => {
     const response = await t.get('/api/about');
     expect(response.statusCode).toBe(200);
-    expect(response.json()).toEqual({ license: 'AGPL-3.0-only', sourceCodeUrl: 'https://github.com/crimsonclyde/vergissmeinnicht' });
+    expect(response.json()).toEqual({
+      license: 'AGPL-3.0-only',
+      sourceCodeUrl: 'https://github.com/crimsonclyde/vergissmeinnicht',
+      footerHidden: false,
+    });
     expect(response.headers['cache-control']).toBe('no-store');
   });
 });

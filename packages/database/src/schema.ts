@@ -697,3 +697,21 @@ export const userPreferences = sqliteTable(
     ),
   ],
 );
+
+/**
+ * Settings of this server (Step 8.10), changed by server admins only. Exactly one row (id 1); no row
+ * yet = defaults.
+ */
+export const instanceSettings = sqliteTable(
+  'instance_settings',
+  {
+    id: integer('id').primaryKey(),
+    /** Hide the page footer (it stays in the HTML, with the `hidden` attribute). */
+    footerHidden: integer('footer_hidden', { mode: 'boolean' }).notNull().default(false),
+    updatedAt: integer('updated_at', { mode: 'timestamp_ms' }).notNull(),
+    updatedByUserId: text('updated_by_user_id')
+      .notNull()
+      .references(() => users.id),
+  },
+  (table) => [check('instance_settings_single_row', sql`${table.id} = 1`)],
+);

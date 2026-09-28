@@ -154,9 +154,26 @@ h6 {
 }
 
 .brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
   font-weight: 700;
   color: var(--text);
   text-decoration: none;
+}
+
+/* The app icon (black tile, white flower): crisp on light themes; on dark themes a thin border keeps
+   the tile's edge visible against the black background. */
+.brand-icon {
+  flex: none;
+  border-radius: 22%;
+  box-shadow: 0 0 0 1px var(--border);
+}
+
+.public-brand {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
 }
 
 .brand-short {
@@ -172,10 +189,18 @@ h6 {
   .brand-short {
     display: inline;
   }
+
 }
 
 .workspace-select select {
   max-width: 14rem;
+}
+
+/* Phones: icon + short name + Workspace + menu stay on one line. */
+@media (max-width: 30rem) {
+  .workspace-select select {
+    max-width: 9.5rem;
+  }
 }
 
 /* Header menu (☰): profile & settings, server admin, sign out. */
@@ -830,4 +855,9 @@ caption {
 .offline-notices ul {
   margin: 0;
   padding-left: 1.2rem;
+}
+
+/* The black heart in the footer keeps a faint outline on dark themes. */
+.footer-heart {
+  filter: drop-shadow(0 0 1px var(--text-muted));
 }

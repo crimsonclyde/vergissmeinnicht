@@ -152,6 +152,7 @@ Recovery (`packages/application/src/recovery`) mirrors invitations: an authorize
 GET  /api/admin/accounts                         server admin: every account (email, status, TOTP on/off)
 POST /api/admin/accounts/{userId}/status         server admin + step-up { status, password, code? }
 GET  /api/admin/security-events[?before=&userId=] server admin: security log, newest first, 100 per page
+POST /api/admin/settings { footerHidden }          server admin: settings of this server (public via GET /api/about)
 ```
 
 Lists page with keyset cursors (`{ items…, nextCursor }`): the cursor is the id of the last item and is resolved inside the same scope (Workspace, Run, Procedure, filter), so a foreign id is `400 invalid_cursor`, never a position in another list.

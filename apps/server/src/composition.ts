@@ -1,6 +1,7 @@
 import {
   systemClock,
   type AccountAdminDeps,
+  type InstanceSettingsDeps,
   type PreferencesDeps,
   type HistoryDeps,
   type InvitationDeps,
@@ -27,6 +28,7 @@ import {
   createAccountRecoveryRepository,
   createAuditHistory,
   createCredentialRepository,
+  createInstanceSettingsRepository,
   createInvitationRepository,
   createKnotRepository,
   createMfaChallengeRepository,
@@ -66,6 +68,8 @@ export interface AppServices {
   readonly recovery: RecoveryDeps;
   readonly accounts: AccountAdminDeps;
   readonly preferences: PreferencesDeps;
+  /** Settings of this server (footer), changed by server admins. */
+  readonly instanceSettings: InstanceSettingsDeps;
   readonly workspaces: WorkspaceDeps;
   readonly procedures: ProcedureDeps;
   readonly runs: RunDeps;
@@ -164,6 +168,7 @@ export function createServices(config: AppConfig, database: AppDatabase) {
         clock: systemClock,
       },
       preferences: { preferences: createPreferencesRepository(database), clock: systemClock },
+      instanceSettings: { settings: createInstanceSettingsRepository(database), clock: systemClock },
       workspaces: workspaceDeps,
       procedures: { workspaces: workspaceDeps.workspaces, procedures: createProcedureRepository(database), clock: systemClock },
       runs: { workspaces: workspaceDeps.workspaces, runs: createRunRepository(database), clock: systemClock, changes: runChanges },

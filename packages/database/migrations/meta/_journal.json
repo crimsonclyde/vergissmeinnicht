@@ -127,6 +127,13 @@
       "when": 1790577260744,
       "tag": "0017_offline_step_changes",
       "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "6",
+      "when": 1790583337063,
+      "tag": "0018_instance_settings",
+      "breakpoints": true
     }
   ]
 }

@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState, type FormEvent } from 'react';
 import { ApiError, api, messageFor, type AccountInfo, type PendingInvitation, type SecurityLogEntry } from './api.ts';
 import { formatDateTime, hasMessage, t } from './i18n/index.ts';
 import { navigate, paths } from './router.tsx';
+import { announceFooterHidden } from './SourceFooter.tsx';
 
 /** Server administration: Workspaces, invitations, accounts, account recovery. The server checks the admin flag. */
 function CreateWorkspace({ onCreated }: { onCreated: () => void }) {
@@ -409,6 +410,59 @@ function SecurityLog() {
   );
 }
 
+/** Settings of this server: the footer can be hidden (it stays in the HTML). */
+function ServerSettings() {
+  const [footerHidden, setFooterHidden] = useState<boolean | null>(null);
+  const [message, setMessage] = useState<string | null>(null);
+  const [status, setStatus] = useState<string | null>(null);
+  useEffect(() => {
+    api.about().then(
+      (about) => setFooterHidden(about.footerHidden),
+      (caught: unknown) => setMessage(messageFor(caught)),
+    );
+  }, []);
+
+  async function change(hidden: boolean) {
+    const previous = footerHidden;
+    setFooterHidden(hidden);
+    setMessage(null);
+    setStatus(null);
+    try {
+      const saved = await api.updateInstanceSettings({ footerHidden: hidden });
+      setFooterHidden(saved.footerHidden);
+      setStatus(t(saved.footerHidden ? 'admin.footerHidden' : 'admin.footerShown'));
+      // The footer of this page follows at once.
+      announceFooterHidden(saved.footerHidden);
+    } catch (caught) {
+      setFooterHidden(previous);
+      setMessage(messageFor(caught));
+    }
+  }
+
+  return (
+    <section className="card stack" aria-labelledby="server-settings-heading">
+      <h3 id="server-settings-heading" style={{ marginTop: 0 }}>
+        {t('admin.serverHeading')}
+      </h3>
+      {message !== null && <p role="alert">{message}</p>}
+      {status !== null && <p role="status">{status}</p>}
+      <label className="row" style={{ fontWeight: 400 }}>
+        <input
+          type="checkbox"
+          disabled={footerHidden === null}
+          checked={footerHidden === true}
+          onChange={(e) => void change(e.target.checked)}
+          aria-describedby="hide-footer-hint"
+        />
+        {t('admin.hideFooter')}
+      </label>
+      <p id="hide-footer-hint" className="muted" style={{ margin: 0 }}>
+        {t('admin.hideFooterHint')}
+      </p>
+    </section>
+  );
+}
+
 function AccountRecovery() {
   const [email, setEmail] = useState('');
   const [resetPassword, setResetPassword] = useState(true);
@@ -492,6 +546,7 @@ export function AdminPage({ currentUserId, onWorkspacesChanged }: { currentUserI
         <h2>{t('admin.heading')}</h2>
       </div>
       <CreateWorkspace onCreated={onWorkspacesChanged} />
+      <ServerSettings />
       <Invitations />
       <Accounts currentUserId={currentUserId} />
       <AccountRecovery />

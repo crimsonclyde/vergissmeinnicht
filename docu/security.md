@@ -603,3 +603,13 @@ The following choices are mandatory V1 behavior:
 **Authorization review:** unchanged application authorization; the release workflow cannot be triggered by pull requests.  
 **Open risks:** GitHub-hosted runners and GHCR are trusted infrastructure; `ignore-unfixed` hides vulnerabilities without a fix (tracked through Dependabot base-image updates); builds are not bit-for-bit reproducible.  
 **Reviewed:** 2026-09-28
+
+### Security check: branding and instance settings (Step 8.10)
+**Threat surface:** non-admins changing server-wide presentation; hiding the AGPL source offer; rate limits that block ordinary page loads (self-inflicted denial of service) or, if widened, the API.  
+**Controls added:** `updateInstanceSettings` requires an ACTIVE server admin, re-checked inside the `IMMEDIATE` transaction, audited (`INSTANCE_SETTINGS_CHANGED`); strict body; the setting is public (no secret) via `/api/about`; a hidden footer stays in the HTML and the source URL stays available in `/api/about`; the admin page explains the AGPL obligation for modified versions. The global per-client limit now covers `/api` only (static files never touch the database); every API limit is unchanged, tested.  
+**Negative tests:** `apps/server/src/http/account-admin.test.ts` (non-admin 403, unauthenticated 401, missing Origin 403, invalid bodies, in-transaction re-check), `apps/server/src/http/hardening.test.ts` (API still limited).  
+**Secrets/data involved:** none.  
+**Logging review:** no new log output.  
+**Authorization review:** `packages/application/src/settings`.  
+**Open risks:** static file requests are no longer rate-limited by the app (a reverse proxy can limit them; they are cheap); operators of modified versions who hide the footer must offer the source elsewhere (documented).  
+**Reviewed:** 2026-09-28

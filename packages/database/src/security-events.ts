@@ -10,7 +10,7 @@ type Transaction = Parameters<Parameters<AppDatabase['db']['transaction']>[0]>[0
 export interface SecurityEventRecord {
   readonly type: SecurityEventType;
   readonly actor: Actor;
-  readonly subjectType: 'invitation' | 'user' | 'mfa_challenge' | 'workspace';
+  readonly subjectType: 'invitation' | 'user' | 'mfa_challenge' | 'workspace' | 'instance';
   readonly subjectId: string;
   readonly occurredAt: Date;
   /** Never put tokens, passwords, OTPs or other secrets here. */

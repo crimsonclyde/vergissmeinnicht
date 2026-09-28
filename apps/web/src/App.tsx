@@ -14,7 +14,10 @@ import { t } from './i18n/index.ts';
 function PublicLayout({ children }: { children: ReactNode }) {
   return (
     <main className="app-main" style={{ maxWidth: '36rem' }}>
-      <h1>VergissMeinNicht</h1>
+      <h1 className="public-brand">
+        <img className="brand-icon" src="/icon.svg" alt="" width={40} height={40} />
+        VergissMeinNicht
+      </h1>
       <p className="muted">{t('public.tagline')}</p>
       <div className="card">{children}</div>
       <SourceFooter />

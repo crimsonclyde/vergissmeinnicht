@@ -130,6 +130,10 @@ HTTPS is mandatory; the Compose setup uses Caddy, which obtains and renews certi
 - Limits of security-sensitive routes (sign-in per client and per account, second factor, recovery and invitation links, password/TOTP changes, admin recovery/invitations/account status, Knot resolution) are kept in the database (`rate_limits`, key hashes only), so a restart does not reset them. The global per-client limit and other route limits are in memory. All of it is per server process/database: multi-node deployments need a reviewed shared store.
 - Private networks (VPN, Tailscale) do not replace the application's authentication; keep HTTPS and the normal configuration there too.
 
+## Footer
+
+Every page shows "VergissMeinNicht (VMN) with 🖤 by CrimsonClyde - Licence: AGPL-3.0", the name linking to the source code (`SOURCE_CODE_URL`). A server admin can hide it for everyone under *Server admin → This server*; it then stays in the page source with the `hidden` attribute. If you run a **modified** version for others, the AGPL still requires you to offer its source in a visible way.
+
 ## Offline use
 
 The web app installs a service worker (production builds) that keeps the app shell, so Runs opened on a device can be executed without a connection (steps.md 8.5). Service workers require HTTPS (or `localhost`); nothing needs to be configured. Reverse proxies must not cache `/api/*` (the app sends `Cache-Control: no-store`) and should pass `/sw.js` through unchanged. After an upgrade, browsers pick up the new app shell on their next online page load.

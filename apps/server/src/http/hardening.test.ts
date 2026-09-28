@@ -1,3 +1,6 @@
+import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
 import { buildApp } from '../app.ts';
 import { ORIGIN, startTestApp } from './test-harness.ts';
@@ -19,6 +22,24 @@ describe('production hardening (10.3)', () => {
     const without = await buildApp();
     expect((await without.inject({ url: '/api/health' })).headers['strict-transport-security']).toBeUndefined();
     await without.close();
+  });
+
+  it('limits the API but not the static web app files', async () => {
+    const dist = mkdtempSync(join(tmpdir(), 'vmn-dist-'));
+    writeFileSync(join(dist, 'index.html'), '<!doctype html><title>VMN</title>');
+    writeFileSync(join(dist, 'icon.svg'), '<svg xmlns="http://www.w3.org/2000/svg"/>');
+    const app = await buildApp({ webDistDir: dist });
+    try {
+      for (let i = 0; i < 320; i += 1) {
+        expect((await app.inject({ url: i % 2 === 0 ? '/icon.svg' : '/w/some/page' })).statusCode).toBe(200);
+      }
+      let last = 0;
+      for (let i = 0; i < 301; i += 1) last = (await app.inject({ url: '/api/health' })).statusCode;
+      expect(last).toBe(429);
+    } finally {
+      await app.close();
+      rmSync(dist, { recursive: true, force: true });
+    }
   });
 
   it('counts rate limits per real client behind a trusted proxy and ignores spoofed headers otherwise', async () => {

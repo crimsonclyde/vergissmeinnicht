@@ -1,51 +1,96 @@
-# VergissMeinNicht
-
 <p align="center">
-  <img src="assets/brand/vergissmeinnicht-hero.svg" alt="A monochrome forget-me-not flower with a knotted stem" width="520">
+  <img src="assets/brand/vergissmeinnicht-hero.svg" alt="Forget-me-not flowers with sky-blue petals; the green stem is tied into a knot" width="640">
 </p>
 
-**VergissMeinNicht** (short: **VMN**) is an ADHD-friendly, security-first app for reliable, repeatable checklists and shared routines — self-hosted, open source, for households, teams and anyone else with procedures that must not be forgotten.
+<h1 align="center">VergissMeinNicht</h1>
 
-The name comes from the German word **Vergissmeinnicht**, the name of the *forget-me-not* flower and literally means **“forget me not” / “do not forget me.”**  
-Approximate pronunciation for English speakers: **fair-GISS-mine-nikht**.
+<p align="center">
+  <strong>Never skip the step that matters.</strong><br>
+  Shared checklists for the routines you repeat — with a history you can trust.
+</p>
 
-The knotted flower in the project identity also keeps a little of the **“Forget Me Knot”** idea.
+<p align="center">
+  <a href="LICENSE"><img alt="License: AGPL-3.0" src="https://img.shields.io/badge/license-AGPL--3.0-blue"></a>
+  <a href="https://github.com/crimsonclyde/vergissmeinnicht/actions/workflows/ci.yml"><img alt="CI" src="https://github.com/crimsonclyde/vergissmeinnicht/actions/workflows/ci.yml/badge.svg"></a>
+  <img alt="Self-hosted" src="https://img.shields.io/badge/self--hosted-Docker%20Compose-2496ED">
+  <img alt="Security first" src="https://img.shields.io/badge/security-first-critical">
+</p>
 
-## What this project is
+---
 
-VergissMeinNicht is not meant to be another basic todo list.
+Was the stove really off? Did anyone lock the back door? Which step of the deployment did we skip last time — and why?
 
-It is designed for repeatable procedures where it matters that every step is handled and that people can later see:
+**VergissMeinNicht** (short **VMN**) turns the routines you repeat into checklists that a whole household or team can work through together, step by step, on a phone or a desktop. Every tick is recorded: **what** was done, **who** did it, **when**, and — if something was skipped — **why**. Later, anyone can look back at a run and know exactly what happened.
 
-- what still needs to be done;
-- what was done;
-- who did it;
-- when it was done;
-- whether something was skipped or not applicable, and why;
-- whether the entire procedure was actually completed.
+It is built to be calm and obvious to use (ADHD-friendly by design), self-hosted, open source, and secure from the ground up.
 
-Typical uses: leaving the house or closing a site, maintenance and inspections, onboarding and offboarding, deployments, packing lists, opening and closing routines. The domain is intentionally general-purpose.
+## ✨ What it does
+
+- **Procedures, not to-do lists.** Write a routine once — with sections, steps, optional and critical steps — and run it again and again.
+- **Runs you can trust.** Starting a run takes a snapshot. Editing or deleting the procedure later never rewrites history.
+- **Four honest states.** Every step is *Pending*, *Done*, *Skipped* or *Not applicable* — skipped is not the same as "didn't apply", and a reason can be required.
+- **Critical steps need intent.** Press and hold (or tap, then confirm) so nothing important gets ticked by accident.
+- **Together, live.** Several people work on the same run; changes appear instantly with who and when.
+- **Works when the Wi-Fi doesn't.** Turned off the router as step 5? Keep going. Changes are saved on the device and sent when you are back online — nothing is overwritten silently.
+- **The next step is always obvious.** Big touch targets, a sticky progress bar, "next step" markers, and a full undo.
+- **Share with a Knot.** A Knot link opens a procedure or run directly — it still requires signing in, so a leaked link reveals nothing.
+- **Your look.** System, Light, Dark, and the pitch-black **Memento Mori** theme — all checked for WCAG AA contrast.
+
+Typical uses: leaving the house, closing a shop or office, maintenance and inspections, onboarding and offboarding, deployments, packing lists, opening and closing routines.
+
+## 🔐 Security is the foundation, not a feature
+
+- Invite-only accounts, Argon2id passwords, optional **TOTP two-factor** with single-use recovery codes.
+- Workspaces with **Guest / User / Editor / Admin** roles — every request is authorized on the server.
+- An **append-only audit trail**: finished runs and history are protected by the database itself.
+- Strict CSP, CSRF protection, rate limits that survive restarts, sessions revoked the moment an account is disabled.
+- Release images are scanned, smoke-tested on amd64 and arm64, and **signed** with Sigstore.
+
+Every security decision is written down and tested — see the [security policy and checks](docu/security.md).
+
+## 🚀 Run it
+
+VergissMeinNicht is one container with SQLite behind Caddy (automatic HTTPS):
+
+```bash
+cd deploy
+cp vergissmeinnicht.env.example vergissmeinnicht.env        # set PUBLIC_ORIGIN, SMTP_*, MAIL_FROM_*
+mkdir -p secrets && openssl rand -base64 32 > secrets/auth_secret \
+  && openssl rand -base64 32 > secrets/data_encryption_key && chmod 0400 secrets/*
+export VMN_DOMAIN=vmn.example.org
+docker compose build && docker compose run --rm app migrate && docker compose up -d
+docker compose run --rm app admin-bootstrap --email you@example.org
+```
+
+Backups, upgrades, signed images and everything else: [Deployment](docu/deployment.md). Want to hack on it? [Local development](docu/local-development.md).
+
+## 🌼 The name
+
+**Vergissmeinnicht** is German for the *forget-me-not* flower — literally **"forget me not"**.
+Say it like **fair-GISS-mine-nikht**.
+
+Look closely at the logo: the flower's stem is tied into a knot — a **Forget-Me-Knot**, the little string you tie around your finger so you don't forget.
 
 **VMN** is the short form used in technical names: cookies (`vmn.*`), deployment variables (`VMN_DOMAIN`, `VMN_IMAGE`) and export files (`*.vmn.json`). Package and image names are the lower-case `vergissmeinnicht`.
 
-## Documentation
+## 📚 Documentation
 
-Start here:
-
-- [Agent rules](AGENTS.md)
-- [Project steps and objectives](docu/steps.md)
+- [Agent rules](AGENTS.md) — how humans and coding agents work on this project
+- [Project steps and objectives](docu/steps.md) — what is built, how it was tested, what is next
 - [Security policy and checks](docu/security.md)
 - [Objectives and strategy](docu/objectives-and-strategy.md)
 - [Architecture](docu/architecture.md)
 - [Local development](docu/local-development.md)
 - [Deployment](docu/deployment.md)
 
-## Status
+## 📈 Status
 
-Core features are implemented: invite-only accounts with optional TOTP, Workspaces with roles, Procedures with Sections and Steps, historical Runs with a full audit trail, live collaboration and Knot links. See [docu/steps.md](docu/steps.md) for progress and [Local development](docu/local-development.md) to run it.
+The core is complete and tested end to end: accounts with optional TOTP, Workspaces and roles, procedures, historical runs with a full audit trail, live collaboration, offline runs, Knot links, admin tools and signed multi-architecture releases. Sign-in with Apple and GitHub is planned. Progress lives in [docu/steps.md](docu/steps.md).
 
-## License
+## 🖤 License
+
+Made with 🖤 by CrimsonClyde.
 
 VergissMeinNicht is free software: you can redistribute it and/or modify it under the terms of the [GNU Affero General Public License, version 3](LICENSE) (`AGPL-3.0-only`).
 
-If you run a modified version for others over a network, the AGPL requires you to offer them its source code. The app links to its source in the footer of every page; point `SOURCE_CODE_URL` at your repository (see [Deployment](docu/deployment.md)).
+If you run a modified version for others over a network, the AGPL requires you to offer them its source code. The app links to its source in the page footer; point `SOURCE_CODE_URL` at your repository (see [Deployment](docu/deployment.md)). If a server admin hides the footer, offer the source in another visible way.

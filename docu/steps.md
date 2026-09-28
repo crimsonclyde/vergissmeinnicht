@@ -20,7 +20,7 @@ For every completed task, add a concise completion note, tests/checks performed,
 
 _Last updated: 2026-09-28 (follow-up round: 2.7–2.9, 5.7, 8.5, 8.7–8.9, 10.4, 10.5)_
 
-**Done:** 0.1, 0.2, 0.3, 1.1, 1.2, 2.1–2.5, 2.7–2.9, 3.1–3.3, 4.1–4.5, 5.1–5.7, 6.1, 6.2, 7.1, 8.0–8.9, 9.1, 10.1–10.5, 11.1. DEFERRED: 2.6 (external identity providers — a later step, user decision 2026-09-28).
+**Done:** 0.1, 0.2, 0.3, 1.1, 1.2, 2.1–2.5, 2.7–2.9, 3.1–3.3, 4.1–4.5, 5.1–5.7, 6.1, 6.2, 7.1, 8.0–8.10, 9.1, 10.1–10.5, 11.1. DEFERRED: 2.6 (external identity providers — a later step, user decision 2026-09-28).
 **Next:** merge into `main` only when the user says so (decided 2026-09-28: wait); the first pull request will run CI incl. the new arm64 image job; the release workflow runs on the first `vX.Y.Z` tag. Needs people/devices: a session with a real screen reader and tests on physical iOS/Android devices (incl. offline storage eviction).
 
 **Decisions 2026-09-28 (user):** offline = queue + labelled device time (8.5); disabling an account is refused while it is the only active Workspace admin (2.7); TOTP stays optional for everyone, also server admins; housekeeping automatic in the server (2.8); sensitive rate limits persisted (2.9); critical Steps: "Tap, then confirm" per account, theme per account (8.7); Memento Mori = darker + stronger red (8.7); slim image, image scan, arm64, signed GHCR releases on tags (10.4); scheduled backups without own crypto (10.5); SKIPPED keeps blocking completion (5.4) and the Knot design stays (7.1) — both confirmed.
@@ -29,7 +29,7 @@ _Last updated: 2026-09-28 (follow-up round: 2.7–2.9, 5.7, 8.5, 8.7–8.9, 10.4
 
 **Lockfile note (4.4):** the hand-edited entries (`apps/server` → `@vergissmeinnicht/import-export`, `packages/import-export` → `zod`) were verified on 2026-09-27 with `pnpm install --frozen-lockfile` (pnpm 12.6.0): lockfile up to date, supply-chain policies passed, no changes.
 
-**Branches:** work is stacked, not yet merged into `main`: `step-1.1-app-skeleton` → `step-1.2-config` → `step-2.1-user-model` → `step-2.2-invitations` → `step-2.4-totp` → `step-2.5-recovery` → `step-3.1-workspaces` → `step-3.2-roles` → `step-4.1-procedures` → `step-4.2-steps` → `step-4.3-drag-drop` → `step-4.4-import-export` → `step-4.5-restore` → `step-5.1-run-snapshot` → `cleanup-web-domain-constants` → `step-5.2-step-states` → `step-5.3-press-and-hold` → `step-5.4-run-lifecycle` → `step-5.5-audit-trail` → `step-5.6-immutability` → `step-8.0-app-shell` → `step-6-collaboration` (6.1, 6.2) → `step-7.1-knots` → `step-11.1-license` → `step-8-ux` (8.1–8.4) → `step-10-operations` (10.1–10.3) → `ui-declutter` (8.6) → `step-2.7-account-status` → `step-2.8-housekeeping` (2.8, 2.9) → `step-5.7-history-paging` → `step-8.7-preferences` → `step-8.9-ux` (8.8 was committed on `step-8.7-preferences`) → `step-8.5-offline` → `step-10.4-operations` (10.4, 10.5) (each branch contains the previous ones; 2.3 was completed on `step-2.2-invitations` because acceptance finishes 2.2). CI runs on pull requests / `main` only.
+**Branches:** work is stacked, not yet merged into `main`: `step-1.1-app-skeleton` → `step-1.2-config` → `step-2.1-user-model` → `step-2.2-invitations` → `step-2.4-totp` → `step-2.5-recovery` → `step-3.1-workspaces` → `step-3.2-roles` → `step-4.1-procedures` → `step-4.2-steps` → `step-4.3-drag-drop` → `step-4.4-import-export` → `step-4.5-restore` → `step-5.1-run-snapshot` → `cleanup-web-domain-constants` → `step-5.2-step-states` → `step-5.3-press-and-hold` → `step-5.4-run-lifecycle` → `step-5.5-audit-trail` → `step-5.6-immutability` → `step-8.0-app-shell` → `step-6-collaboration` (6.1, 6.2) → `step-7.1-knots` → `step-11.1-license` → `step-8-ux` (8.1–8.4) → `step-10-operations` (10.1–10.3) → `ui-declutter` (8.6) → `step-2.7-account-status` → `step-2.8-housekeeping` (2.8, 2.9) → `step-5.7-history-paging` → `step-8.7-preferences` → `step-8.9-ux` (8.8 was committed on `step-8.7-preferences`) → `step-8.5-offline` → `step-10.4-operations` (10.4, 10.5) → `branding-footer` (8.10) (each branch contains the previous ones; 2.3 was completed on `step-2.2-invitations` because acceptance finishes 2.2). CI runs on pull requests / `main` only.
 
 **Manual testing:** `test-env/menu.sh` (added 2026-09-27) installs/starts/stops/removes an isolated production-mode instance on port 3200 with demo accounts for every role (see `test-env/README.md`). Extend `test-env/seed.ts` when new features need demo data (e.g. Procedures in 4.1).
 
@@ -1380,6 +1380,27 @@ V1 ships English only, but user-facing strings must be structured so adding tran
 **Security docs updated:** YES (§ Procedures check: deleted view).
 
 **Remaining:** Procedure authoring on phones is usable but not optimized (drag handles desktop-only; move buttons work).
+
+### 8.10 Branding: header icon, hero image, footer and the option to hide it
+**Status:** DONE
+**Completed:** 2026-09-28
+
+**Request (user, 2026-09-28):** the icon in the upper left corner in both styles (light/dark); a more realistic hero image of the forget-me-not with the knot; a more exciting README; the footer reads "VergissMeinNicht (VMN) with 🖤 by CrimsonClyde - Licence: AGPL-3.0"; an admin option to hide the footer — still in the HTML, only hidden.
+
+**Security impact:** LOW — one new server-admin write (`POST /api/admin/settings`), audited; the global rate limit no longer counts static web files.
+
+**Implemented:**
+- Header and public pages show `icon.svg` (black tile, white flower) next to "VergissMeinNicht" / "VMN"; a thin border in the theme's border colour keeps the tile's edge visible on dark themes. Phones: the Workspace selector is narrower so the header stays on one line.
+- `assets/brand/vergissmeinnicht-hero.svg`: new illustration — sky-blue five-petal flowers with white halos and golden eyes, pink buds, leaves, and a stem tied into an overhand knot (an opened trefoil with alternating over/under crossings). README uses it and was rewritten (features, security, quick start, the "Forget-Me-Knot" name story).
+- Footer: "VergissMeinNicht (VMN) with 🖤 by CrimsonClyde - Licence: AGPL-3.0"; the name links to the source code (AGPL §13 offer), "AGPL-3.0" to the licence text, the heart has the accessible name "love". The third-party notices stay at `/third-party-notices.txt` (no longer linked from the footer).
+- Instance settings: migration `0018_instance_settings` (single row, CHECK id = 1); `updateInstanceSettings` (ACTIVE server admin, re-checked inside the transaction, `INSTANCE_SETTINGS_CHANGED` security event); `POST /api/admin/settings { footerHidden }` (strict body); `GET /api/about` returns `footerHidden` (public). Admin page "This server": "Hide the page footer (name and licence)" with a note on the AGPL. The footer keeps its markup and gets the `hidden` attribute; it starts hidden until the server answered (no flash), and is shown when the server cannot be reached.
+- Rate limits: the global per-client limit (300/min) now applies to `/api` only — every page load had cost several requests for static files, which the e2e flow exposed as `rate_limited` on a page load. All API limits are unchanged.
+
+**Tests/checks:** HTTP (footer setting: 401/403/Origin, strict body, public `/api/about`, audited, in-transaction re-check), hardening (320 static requests pass, the 301st API request is limited), e2e (footer text and links; hide → hidden but in the DOM → survives reload → show; axe checks), screenshots of header (light, dark, phone) and footer reviewed; hero rendered and reviewed. `pnpm test` 593, `pnpm lint`, `pnpm typecheck`.
+
+**Security docs updated:** YES (§2 rate limits, "Security check: branding and instance settings (8.10)").
+
+**Remaining:** none.
 
 ### 8.5 PWA/offline active Runs
 **Status:** DONE
