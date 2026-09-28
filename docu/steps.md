@@ -1614,7 +1614,7 @@ HTTPS, proxy trust, security headers, dependency scanning, health checks, safe s
 
 **Security docs updated:** YES (§11).
 
-**Follow-up (2026-09-28, first install by the user):** the hook refused with `No root privileges!` because the image starts as `node` — the template now sets `--user 0:0` (not Privileged; the entrypoint still drops to 99:100); the SMTP password-file field was hidden under *advanced* and is now always shown; the config error names `SMTP_PASSWORD_FILE`; the guide explains both and the Tailscale state directory.
+**Follow-up (2026-09-28, first install by the user):** the hook refused with `No root privileges!` because the image starts as `node` — the template now sets `--user 0:0` (not Privileged; the entrypoint still drops to 99:100); the SMTP password-file field was hidden under *advanced* and is now always shown; the config error names `SMTP_PASSWORD_FILE`; the guide explains both and the Tailscale state directory. Second report: `SQLITE_CANTOPEN` — the first start (before `--user 0:0`) created the database as the image user 1000; now the entrypoint, when started as root, gives the data directory to PUID:PGID before dropping privileges (not Tailscale's state kept there, never the secrets, symbolic links neither followed nor changed) — reproduced on the 0.1.0-beta.1 image and verified fixed. Guide: secrets permissions, Tailscale certificates, name mismatch.
 
 **Remaining:** Unraid's Tailscale setup itself was not run here (only on Unraid); no Community Applications listing yet.
 

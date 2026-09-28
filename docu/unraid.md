@@ -20,6 +20,7 @@ openssl rand -base64 32 > secrets/data_encryption_key
 # only if your mail server needs a login:
 # printf '%s' 'the-smtp-password' > secrets/smtp_password
 chown -R 99:100 . && chmod 0700 data secrets && chmod 0400 secrets/*
+ls -ln secrets    # must show 99 100 and -r-------- for every file
 ```
 
 **Copy `secrets/data_encryption_key` somewhere safe outside the server** (password manager). Without it, two-factor authentication of every user stops working after a restore.
@@ -36,7 +37,7 @@ chown -R 99:100 . && chmod 0700 data secrets && chmod 0400 secrets/*
    (Without the terminal: the flash drive is also the network share `flash` — copy [`deploy/unraid/vergissmeinnicht.xml`](../deploy/unraid/vergissmeinnicht.xml) into `config/plugins/dockerMan/templates-user/` there and rename it to `my-VergissMeinNicht.xml`.)
 2. **Docker** tab → **Add Container** (button at the bottom) → **Template** drop-down → under *User templates* choose **VergissMeinNicht**. The form fills itself from the template.
 3. Fill in:
-   - **Repository:** `ghcr.io/crimsonclyde/vergissmeinnicht:0.1.0-beta.1` (or a newer release — pin an exact version, not `latest`).
+   - **Repository:** `ghcr.io/crimsonclyde/vergissmeinnicht:0.1.0-beta.2` (or a newer release — pin an exact version, not `latest`).
    - **Use Tailscale:** *Yes*. **Tailscale Hostname:** `vergissmeinnicht`. **Tailscale Serve:** *Serve* (port `3000`, taken from the WebUI field). Leave *Funnel* off — that would publish the app on the internet.
    - **Tailscale State Directory** (Tailscale settings, if shown): `/data/.tailscale_state` — keeps the container's Tailscale identity across updates.
    - **Public address:** `https://vergissmeinnicht.<your-tailnet>.ts.net` — exactly the name Tailscale shows for the container.
@@ -79,6 +80,10 @@ Change the version in *Repository* and **Apply**. With *Migrate on start* the co
 
 ## Troubleshooting
 
+- **`SqliteError: unable to open database file` (`SQLITE_CANTOPEN`):** the data folder or database belongs to another user (e.g. created before `--user 0:0` was set). Since 0.1.0-beta.2 the container fixes the ownership of the data folder itself when it starts as root; with older versions stop the container and run `chown -R 99:100 /mnt/user/appdata/vergissmeinnicht/data`.
+- **`AUTH_SECRET_FILE: file cannot be read`:** the secrets must be readable by 99:100 — `chown -R 99:100 /mnt/user/appdata/vergissmeinnicht/secrets && chmod 0700 /mnt/user/appdata/vergissmeinnicht/secrets && chmod 0400 /mnt/user/appdata/vergissmeinnicht/secrets/*` (not `rw-rw-rw-`: nobody else should read them).
+- **`ERROR: Can't generate certificates!` from the Tailscale hook:** in the Tailscale admin console, *DNS* page, enable **HTTPS Certificates**. Fetching the first certificate can take a minute or two — the hook stops waiting, but Tailscale keeps trying; open the `https://…ts.net` address to check.
+- **The Tailscale name differs from the template** (e.g. `vmn` instead of `vergissmeinnicht`): the *Public address* must use the name the log prints under `Available within your tailnet:`.
 - **`ERROR: No root privileges!` / "Starting container without Tailscale":** *Extra Parameters* must contain `--user 0:0` (see step 2) — not *Privileged*.
 - **`SMTP_USER and SMTP_PASSWORD … must be set together`:** either fill in *SMTP user* and *SMTP password file* (`/run/secrets/smtp_password`, with the password in `secrets/smtp_password`), or leave both empty.
 - **"Sign in" does nothing / is refused:** the address in the browser must be exactly the *Public address* (same host name, `https`).
