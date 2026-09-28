@@ -16,6 +16,16 @@ if [ "$(id -u)" = "0" ]; then
     echo "Refusing to run the application as root (PUID/PGID 0)" >&2
     exit 2
   fi
+  # The data directory must belong to that user: a folder created by root on the host, or files left
+  # by an earlier start as another user, would otherwise make the database unreadable. Only the data
+  # directory is touched — not the Tailscale state Unraid's hook keeps there, never the secrets — and
+  # symbolic links are neither followed nor changed.
+  data="$(dirname "${DATABASE_PATH:-/data/vergissmeinnicht.sqlite}")"
+  if [ -d "$data" ]; then
+    find "$data" -path "$data/.tailscale_state" -prune -o \( ! -type l \( ! -user "$uid" -o ! -group "$gid" \) \) -exec chown "$uid:$gid" {} + \
+      && chmod 0700 "$data" \
+      || echo "Warning: could not give $data to $uid:$gid; the database may not open" >&2
+  fi
   exec setpriv --reuid="$uid" --regid="$gid" --clear-groups --inh-caps=-all --bounding-set=-all -- "$0" "$@"
 fi
 

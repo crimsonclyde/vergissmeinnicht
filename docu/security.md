@@ -251,7 +251,7 @@ Checks:
 
 ## 11. Deployment security
 
-- [x] Container runs non-root where practical. (Also verified as `--user 99:100` with bind mounts, 12.2. A container started as root — Unraid's per-container Tailscale needs that — is dropped by the entrypoint to `PUID:PGID` via `setpriv` with empty inheritable/bounding capability sets before anything else runs; `0` and non-numeric ids are refused; tested: the application process has no effective or bounding capabilities.) (`node`, uid 1000; `cap_drop: ALL`, `no-new-privileges`, read-only root file system, tmpfs `/tmp`; CI asserts uid 1000.)
+- [x] Container runs non-root where practical. (Also verified as `--user 99:100` with bind mounts, 12.2. A container started as root — Unraid's per-container Tailscale needs that — is dropped by the entrypoint to `PUID:PGID` via `setpriv` with empty inheritable/bounding capability sets before anything else runs; `0` and non-numeric ids are refused; tested: the application process has no effective or bounding capabilities. As root it first gives the data directory to PUID:PGID — only that directory, without Tailscale's state, never following or changing symbolic links.) (`node`, uid 1000; `cap_drop: ALL`, `no-new-privileges`, read-only root file system, tmpfs `/tmp`; CI asserts uid 1000.)
 - [x] No secrets baked into image. (Runtime env/`*_FILE` Docker secrets only; `.dockerignore` excludes `.env*`, secrets and data; the image fails closed without configuration — CI check.)
 - [x] Only required port exposed. (The app publishes no port; only Caddy's 80/443.)
 - [x] Persistent writable paths are explicit. (Volume `/data` only.)
