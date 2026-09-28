@@ -23,7 +23,11 @@ function contrast(a: string, b: string): number {
 }
 
 const light = tokens(':root');
-const themes = { light, dark: { ...light, ...tokens(":root[data-theme='dark']") } };
+const themes = {
+  light,
+  dark: { ...light, ...tokens(":root[data-theme='dark']") },
+  'memento-mori': { ...light, ...tokens(":root[data-theme='memento-mori']") },
+};
 
 /** [foreground, background, minimum]: 4.5 for text (WCAG AA), 3 for non-text UI such as borders and focus rings. */
 const PAIRS: readonly [string, string, number][] = [
@@ -59,9 +63,12 @@ const PAIRS: readonly [string, string, number][] = [
 ];
 
 describe('theme contrast (WCAG AA)', () => {
-  it('reads both token blocks from the stylesheet', () => {
+  it('reads every theme token block from the stylesheet, each complete', () => {
     expect(Object.keys(light).length).toBeGreaterThanOrEqual(19);
-    expect(Object.keys(tokens(":root[data-theme='dark']")).length).toBeGreaterThanOrEqual(19);
+    // Presets must define every colour token themselves (no accidental fallback to light values).
+    for (const selector of [":root[data-theme='dark']", ":root[data-theme='memento-mori']"]) {
+      expect(Object.keys(tokens(selector)).sort()).toEqual(Object.keys(light).sort());
+    }
   });
 
   for (const [name, values] of Object.entries(themes)) {

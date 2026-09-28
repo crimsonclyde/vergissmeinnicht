@@ -1,17 +1,19 @@
+import { THEME_PREFERENCES, type ThemePreference } from '@vergissmeinnicht/domain';
 import { useCallback, useSyncExternalStore } from 'react';
 
 /**
- * Theme selection (Step 8.3). The user picks a mode; the mode resolves to one theme whose semantic
- * tokens live in `styles.css` under `:root[data-theme='…']`. Components never know the theme.
+ * Theme selection (Steps 8.3, 8.7). The user picks a mode; the mode resolves to one theme whose
+ * semantic tokens live in `styles.css` under `:root[data-theme='…']`. Components never know the theme.
+ * The choice is part of the account (8.7); this browser keeps a copy so the first paint is right.
  *
- * A future named preset (e.g. "Memento Mori") is one more entry in THEMES plus one token block in
- * the stylesheet, and one more mode — no component changes.
+ * A named preset (such as "Memento Mori") is one more entry in THEMES plus one token block in the
+ * stylesheet, and one more mode — no component changes.
  */
-export const THEME_MODES = ['system', 'light', 'dark'] as const;
-export type ThemeMode = (typeof THEME_MODES)[number];
+export const THEME_MODES = THEME_PREFERENCES;
+export type ThemeMode = ThemePreference;
 
 /** Theme ids = `data-theme` values; each has a token block (incl. `color-scheme`) in styles.css. */
-export const THEMES = ['light', 'dark'] as const;
+export const THEMES = ['light', 'dark', 'memento-mori'] as const;
 export type ThemeId = (typeof THEMES)[number];
 
 const STORAGE_KEY = 'vmn.theme';
@@ -66,6 +68,7 @@ export function initTheme(): void {
   });
 }
 
+/** Shows `mode` and keeps it as this browser's copy (the account's value is saved by the caller). */
 export function setThemeMode(mode: ThemeMode): void {
   currentMode = mode;
   storeMode(mode);

@@ -5,12 +5,14 @@
 import { sql } from 'drizzle-orm';
 import { check, foreignKey, index, integer, primaryKey, sqliteTable, text, uniqueIndex } from 'drizzle-orm/sqlite-core';
 import {
+  CRITICAL_CONFIRM_MODES,
   KNOT_TARGET_TYPES,
   PROCEDURE_ICONS,
   REASON_POLICIES,
   RUN_STATES,
   STEP_KINDS,
   STEP_STATES,
+  THEME_PREFERENCES,
   USER_STATUSES,
   WORKSPACE_ROLES,
 } from '@vergissmeinnicht/domain';
@@ -662,5 +664,25 @@ export const rateLimits = sqliteTable(
     index('rate_limits_window_idx').on(table.windowStart),
     check('rate_limits_key_hash_format', sql`length(${table.keyHash}) = 64`),
     check('rate_limits_counts_positive', sql`${table.hits} > 0 and ${table.windowMs} > 0`),
+  ],
+);
+
+/** Presentation preferences of an account (Step 8.7). No row = defaults. */
+export const userPreferences = sqliteTable(
+  'user_preferences',
+  {
+    userId: text('user_id')
+      .primaryKey()
+      .references(() => users.id),
+    theme: text('theme', { enum: THEME_PREFERENCES }).notNull(),
+    criticalConfirm: text('critical_confirm', { enum: CRITICAL_CONFIRM_MODES }).notNull(),
+    updatedAt: integer('updated_at', { mode: 'timestamp_ms' }).notNull(),
+  },
+  () => [
+    check('user_preferences_theme_valid', sql.raw(`theme in (${THEME_PREFERENCES.map((value) => `'${value}'`).join(', ')})`)),
+    check(
+      'user_preferences_critical_confirm_valid',
+      sql.raw(`critical_confirm in (${CRITICAL_CONFIRM_MODES.map((value) => `'${value}'`).join(', ')})`),
+    ),
   ],
 );

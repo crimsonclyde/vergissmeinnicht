@@ -182,13 +182,25 @@ export const en = {
 
   // ---- Appearance
   'appearance.legend': 'Appearance',
-  'appearance.localOnly': 'Saved in this browser only.',
+  'appearance.savedToAccount': 'Saved to your account, so it applies on all your devices.',
   'appearance.system': 'System',
   'appearance.systemHint': 'Follow the setting of this device.',
   'appearance.light': 'Light',
   'appearance.lightHint': 'Always light.',
   'appearance.dark': 'Dark',
   'appearance.darkHint': 'Always dark: black and grey with red accents.',
+  'appearance.memento-mori': 'Memento Mori',
+  'appearance.memento-moriHint': 'Pure black, bone-white text and deep crimson accents.',
+  'criticalConfirm.legend': 'Critical Steps',
+  'criticalConfirm.intro': 'Critical Steps need a deliberate confirmation so they are not marked done by accident.',
+  'criticalConfirm.hold': 'Press and hold',
+  'criticalConfirm.holdHint': 'Hold the button for one second.',
+  'criticalConfirm.tap-confirm': 'Tap, then confirm',
+  'criticalConfirm.tap-confirmHint': 'Tap once, then tap “Yes, done”. No holding needed.',
+  'tapConfirm.name': 'Mark done: {title} (asks to confirm)',
+  'tapConfirm.question': 'Confirm: {title} is done?',
+  'tapConfirm.questionShort': 'Really done?',
+  'tapConfirm.yes': '✔ Yes, done',
 
   // ---- Sign-in, passwords and second factor
   'signIn.heading': 'Sign in',

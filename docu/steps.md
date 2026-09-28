@@ -938,7 +938,7 @@ The backend still validates the requested state transition; client interaction i
 
 **Tests/checks:** `pnpm test:e2e` — plain click and a 0.6 s hold leave the critical Step pending, a full mouse hold and a held Space key mark it Done, the accessible description is present. `pnpm lint`, `pnpm typecheck`.
 
-**Remaining:** hold duration is fixed (not user-configurable); users who cannot hold a key/pointer for 1.2 s have no alternative yet — revisit with 8.x accessibility review (e.g. a setting for a two-step confirmation instead).
+**Remaining:** hold duration is fixed (not user-configurable); ~~no alternative for users who cannot hold~~ — "Tap, then confirm" account setting since 8.7.
 
 ### 5.4 Run lifecycle
 **Status:** DONE
@@ -1278,7 +1278,7 @@ Future named presets such as `Memento Mori` must not require business-component 
 
 **Security docs updated:** YES (§2 CSP, Step 1.1 open risk closed).
 
-**Remaining:** no named preset yet (Memento Mori reserved); the theme choice is per browser, not synced across devices.
+**Remaining:** ~~no named preset~~ (Memento Mori, 8.7); ~~theme per browser~~ (account preference, 8.7).
 
 ### 8.4 i18n readiness
 **Status:** DONE
@@ -1323,6 +1323,26 @@ V1 ships English only, but user-facing strings must be structured so adding tran
 **Security docs updated:** N/A.
 
 **Remaining:** no automated test that non-admins do not see "Server admin" in the menu (the server-side refusal is tested); Knot links and history could get the same "more" treatment in list pages; a full accessibility review is still open.
+
+### 8.7 Account preferences: theme sync, Memento Mori, critical-Step alternative
+**Status:** DONE
+**Completed:** 2026-09-28
+
+**Decisions (2026-09-28, user):** critical Steps can be confirmed by "Tap, then confirm" instead of press-and-hold, chosen per account (follows the user to every device); the theme moves into the same account preferences; Memento Mori = darker + stronger red (pure black, bone-white text, deep crimson), a fourth appearance option.
+
+**Security impact:** LOW — presentation preferences of the user's own account; no authorization change (the server validates every Step transition regardless of the confirmation style).
+
+**Implemented:**
+- Domain `preferences.ts`: `THEME_PREFERENCES` (system/light/dark/memento-mori), `CRITICAL_CONFIRM_MODES` (hold/tap-confirm), defaults.
+- Migration `0016_user_preferences` (one row per user, enum CHECKs, FK to users); `createPreferencesRepository`; use-cases `getPreferences` / `updatePreferences` (own account, ACTIVE); `GET/POST /api/account/preferences` (strict body, at least one field, Origin-guarded).
+- Web: `PreferencesProvider` loads the account's preferences after sign-in and applies the theme (the browser keeps a copy only for the first paint); Appearance and "Critical Steps" settings on the Account page save to the account; `TapToConfirm` — "✔ Done" asks "Really done?" with "✔ Yes, done" (focused) and Cancel/Escape (focus returns); Memento Mori token block.
+- `contrast.test.ts` checks all three themes and requires every preset to define every colour token.
+
+**Tests/checks:** `apps/server/src/http/preferences.test.ts` (defaults, partial updates, per account, other session sees them, strict validation, 401/403, nothing stored on rejection); contrast (Memento Mori passes WCAG AA for all pairs); theme tests; e2e: Memento Mori applies (black background) and another browser gets it after sign-in; tap-confirm flow incl. Escape and focus handling. `pnpm test` 563, `pnpm lint`, `pnpm typecheck`.
+
+**Security docs updated:** N/A (no security-relevant behavior; noted under 5.3 that confirmation style is UX only).
+
+**Remaining:** hold duration itself is not configurable.
 
 ### 8.5 PWA/offline active Runs
 **Status:** DEFERRED — Phase 2

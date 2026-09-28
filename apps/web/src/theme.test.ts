@@ -7,11 +7,12 @@ describe('theme selection', () => {
     expect(resolveTheme('system', false)).toBe('light');
     expect(resolveTheme('light', true)).toBe('light');
     expect(resolveTheme('dark', false)).toBe('dark');
+    expect(resolveTheme('memento-mori', false)).toBe('memento-mori');
   });
 
   it('accepts only known modes from storage', () => {
     for (const mode of THEME_MODES) expect(isThemeMode(mode)).toBe(true);
-    for (const value of [null, '', 'Dark', 'memento-mori', '__proto__', 1]) expect(isThemeMode(value)).toBe(false);
+    for (const value of [null, '', 'Dark', 'Memento Mori', '__proto__', 1]) expect(isThemeMode(value)).toBe(false);
   });
 
   it('resolves every mode to a theme that exists', () => {

@@ -2,6 +2,8 @@ import { useCallback, useEffect, useState } from 'react';
 import { AccountSecurity } from './AccountSecurity.tsx';
 import { AdminPage } from './AdminPage.tsx';
 import { AppearanceSettings } from './AppearanceSettings.tsx';
+import { CriticalConfirmSettings } from './CriticalConfirmSettings.tsx';
+import { PreferencesProvider } from './preferences.tsx';
 import { api, messageFor, type CurrentUser, type WorkspaceSummary } from './api.ts';
 import { ChangePassword } from './ChangePassword.tsx';
 import { t } from './i18n/index.ts';
@@ -237,6 +239,9 @@ export function AppShell(props: { user: CurrentUser; route: Route; onSignOut: ()
         <div className="card">
           <AppearanceSettings />
         </div>
+        <div className="card">
+          <CriticalConfirmSettings />
+        </div>
       </>
     );
   } else if (route.page === 'admin') {
@@ -257,7 +262,7 @@ export function AppShell(props: { user: CurrentUser; route: Route; onSignOut: ()
   }
 
   return (
-    <>
+    <PreferencesProvider>
       <Header
         user={user}
         route={route}
@@ -271,6 +276,6 @@ export function AppShell(props: { user: CurrentUser; route: Route; onSignOut: ()
         {content}
         <SourceFooter />
       </main>
-    </>
+    </PreferencesProvider>
   );
 }

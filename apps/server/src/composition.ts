@@ -1,6 +1,7 @@
 import {
   systemClock,
   type AccountAdminDeps,
+  type PreferencesDeps,
   type HistoryDeps,
   type InvitationDeps,
   type KnotDeps,
@@ -29,6 +30,7 @@ import {
   createInvitationRepository,
   createKnotRepository,
   createMfaChallengeRepository,
+  createPreferencesRepository,
   createProcedureRepository,
   createRateLimitCounter,
   createRunRepository,
@@ -63,6 +65,7 @@ export interface AppServices {
   readonly mfa: MfaDeps;
   readonly recovery: RecoveryDeps;
   readonly accounts: AccountAdminDeps;
+  readonly preferences: PreferencesDeps;
   readonly workspaces: WorkspaceDeps;
   readonly procedures: ProcedureDeps;
   readonly runs: RunDeps;
@@ -160,6 +163,7 @@ export function createServices(config: AppConfig, database: AppDatabase) {
         mfa,
         clock: systemClock,
       },
+      preferences: { preferences: createPreferencesRepository(database), clock: systemClock },
       workspaces: workspaceDeps,
       procedures: { workspaces: workspaceDeps.workspaces, procedures: createProcedureRepository(database), clock: systemClock },
       runs: { workspaces: workspaceDeps.workspaces, runs: createRunRepository(database), clock: systemClock, changes: runChanges },

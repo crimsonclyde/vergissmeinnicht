@@ -2,10 +2,13 @@ import {
   changePassword,
   confirmTotpEnrollment,
   disableTotp,
+  getPreferences,
   mfaStatus,
   regenerateRecoveryCodes,
   startTotpEnrollment,
+  updatePreferences,
 } from '@vergissmeinnicht/application';
+import { CRITICAL_CONFIRM_MODES, THEME_PREFERENCES } from '@vergissmeinnicht/domain';
 import type { FastifyInstance, FastifyRequest } from 'fastify';
 import { z } from 'zod';
 import type { AppServices } from '../composition.ts';
@@ -21,6 +24,9 @@ const disableBody = z.union([
 ]);
 const regenerateBody = z.strictObject({ password });
 const changePasswordBody = z.strictObject({ currentPassword: password, newPassword: password });
+const preferencesBody = z
+  .strictObject({ theme: z.enum(THEME_PREFERENCES).optional(), criticalConfirm: z.enum(CRITICAL_CONFIRM_MODES).optional() })
+  .refine((body) => body.theme !== undefined || body.criticalConfirm !== undefined);
 
 function parse<T>(schema: z.ZodType<T>, value: unknown): T {
   const parsed = schema.safeParse(value);
@@ -53,6 +59,20 @@ export async function accountRoutes(app: FastifyInstance, { services }: { servic
   app.addHook('preHandler', requireUser(services));
 
   app.get('/mfa', async (request) => mfaStatus(deps, userOf(request)));
+
+  // Presentation only (theme, critical-Step confirmation); the user's own account only.
+  app.get('/preferences', async (request) => ({ preferences: await getPreferences(services.preferences, { user: userOf(request) }) }));
+  app.post('/preferences', { bodyLimit: 1024 }, async (request) => {
+    const changes = parse(preferencesBody, request.body);
+    const preferences = await updatePreferences(services.preferences, {
+      user: userOf(request),
+      changes: {
+        ...(changes.theme === undefined ? {} : { theme: changes.theme }),
+        ...(changes.criticalConfirm === undefined ? {} : { criticalConfirm: changes.criticalConfirm }),
+      },
+    });
+    return { preferences };
+  });
 
   app.post('/password', { bodyLimit: 4096, config: perAccount }, async (request, reply) => {
     const body = parse(changePasswordBody, request.body);

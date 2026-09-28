@@ -13,6 +13,8 @@ import {
 } from './api.ts';
 import { History } from './History.tsx';
 import { HoldToConfirm } from './HoldToConfirm.tsx';
+import { usePreferences } from './preferences.tsx';
+import { TapToConfirm } from './TapToConfirm.tsx';
 import { KnotShare } from './Knots.tsx';
 import { formatDateTime, formatTime, formatWhen, t } from './i18n/index.ts';
 import { Icon } from './procedure-icons.tsx';
@@ -130,6 +132,7 @@ function StepItem(props: {
   const { step } = props;
   const busy = props.busy || props.saving;
   const [asking, setAsking] = useState<StepState | null>(null);
+  const { criticalConfirm } = usePreferences().preferences;
   const choose = (to: StepState) => {
     if (policyFor(step, to) === 'DISABLED') props.onChange({ to });
     else setAsking(to);
@@ -172,7 +175,11 @@ function StepItem(props: {
           {step.state === 'PENDING' ? (
             <>
               {step.critical ? (
-                <HoldToConfirm label={step.title} disabled={busy} onConfirm={() => props.onChange({ to: 'DONE' })} />
+                criticalConfirm === 'tap-confirm' ? (
+                  <TapToConfirm label={step.title} disabled={busy} onConfirm={() => props.onChange({ to: 'DONE' })} />
+                ) : (
+                  <HoldToConfirm label={step.title} disabled={busy} onConfirm={() => props.onChange({ to: 'DONE' })} />
+                )
               ) : (
                 <button
                   type="button"

@@ -1,5 +1,5 @@
 /** Thin JSON client for the same-origin API. The browser adds the `Origin` header the server checks. */
-import type { ProcedureIcon, ReasonPolicy, RunState, StepState, WorkspaceRole } from '@vergissmeinnicht/domain';
+import type { ProcedureIcon, ReasonPolicy, RunState, StepState, UserPreferences, WorkspaceRole } from '@vergissmeinnicht/domain';
 import { hasMessage, t } from './i18n/index.ts';
 
 // Shared vocabulary comes from the domain package (browser-safe, no server code). The server still
@@ -257,6 +257,9 @@ export const api = {
     request<{ user: CurrentUser } | { mfaRequired: true }>('POST', '/auth/sign-in', { email, password }),
   completeMfa: async (factor: SecondFactor) => (await request<{ user: CurrentUser }>('POST', '/auth/mfa', factor)).user,
   mfaStatus: () => request<MfaStatus>('GET', '/account/mfa'),
+  preferences: async () => (await request<{ preferences: UserPreferences }>('GET', '/account/preferences')).preferences,
+  updatePreferences: async (changes: Partial<UserPreferences>) =>
+    (await request<{ preferences: UserPreferences }>('POST', '/account/preferences', changes)).preferences,
   startTotp: (password: string) => request<{ secret: string; uri: string }>('POST', '/account/mfa/totp/setup', { password }),
   confirmTotp: (code: string) => request<{ recoveryCodes: string[] }>('POST', '/account/mfa/totp/confirm', { code }),
   disableTotp: (password: string, factor: SecondFactor) =>

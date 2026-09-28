@@ -25,6 +25,7 @@ const DYNAMIC_PREFIXES = [
   'knot.lifetime.',
   'admin.status.',
   'securityEvent.',
+  'criticalConfirm.',
   'history.',
   'error.',
 ];

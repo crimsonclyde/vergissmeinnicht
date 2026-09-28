@@ -442,6 +442,43 @@ test('first server admin: bootstrap link, account creation, sign-in, Workspace c
   await expect(html).toHaveAttribute('data-theme', 'dark');
   await page.emulateMedia({ colorScheme: 'light' });
   await expect(html).toHaveAttribute('data-theme', 'light');
+  // Memento Mori (8.7) is saved to the account: another browser gets it right after signing in.
+  await page.getByRole('radio', { name: /^Memento Mori/ }).check();
+  await expect(html).toHaveAttribute('data-theme', 'memento-mori');
+  await expect(page.locator('body')).toHaveCSS('background-color', 'rgb(0, 0, 0)');
+  const otherBrowser = await browser.newContext(testInfo.project.use.baseURL === undefined ? {} : { baseURL: testInfo.project.use.baseURL });
+  const other = await otherBrowser.newPage();
+  await other.goto('/');
+  await other.getByLabel('Email').fill('admin@example.org');
+  await other.getByLabel('Password').fill(PASSWORD);
+  await other.getByRole('button', { name: 'Sign in' }).click();
+  await expect(other.locator('html')).toHaveAttribute('data-theme', 'memento-mori');
+  await otherBrowser.close();
+  await page.getByRole('radio', { name: /^System/ }).check();
+
+  // Critical Steps without holding (8.7): tap, then confirm; Escape backs out.
+  await page.getByRole('radio', { name: /^Tap, then confirm/ }).check();
+  await expect(page.getByRole('radio', { name: /^Tap, then confirm/ })).toBeChecked();
+  await page.goto('/');
+  await page.getByRole('link', { name: 'Procedures' }).click();
+  await page.getByRole('list', { name: 'Procedures' }).getByRole('button').first().click();
+  await procedure.getByRole('button', { name: 'Start Run' }).click();
+  const tapStove = stepItem('Turn off stove');
+  await tapStove.getByRole('button', { name: 'Mark done: Turn off stove (asks to confirm)' }).click();
+  const question = tapStove.getByRole('group', { name: 'Confirm: Turn off stove is done?' });
+  await expect(question.getByRole('button', { name: '✔ Yes, done' })).toBeFocused();
+  await page.keyboard.press('Escape');
+  await expect(question).toHaveCount(0);
+  await expect(tapStove.getByRole('button', { name: 'Mark done: Turn off stove (asks to confirm)' })).toBeFocused();
+  await expect(tapStove).toContainText('Pending');
+  await tapStove.getByRole('button', { name: 'Mark done: Turn off stove (asks to confirm)' }).click();
+  await question.getByRole('button', { name: '✔ Yes, done' }).click();
+  await expect(tapStove).toContainText('Ada Admin ·');
+  await run.getByRole('button', { name: 'Abort Run…' }).click();
+  await run.getByRole('button', { name: 'Abort Run', exact: true }).click();
+  await expect(run.getByRole('status').filter({ hasText: 'Aborted by Ada Admin' })).toBeVisible();
+  await fromMenu(page, 'Profile & settings');
+  await page.getByRole('radio', { name: /^Press and hold/ }).check();
 
   // Enable TOTP: password, QR code + key, confirmation code, recovery codes.
   await page.getByRole('button', { name: 'Enable two-factor authentication' }).click();

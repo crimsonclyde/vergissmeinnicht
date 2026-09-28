@@ -1,6 +1,6 @@
 /*
  * Semantic design tokens (docu/steps.md 8.3). Components use only these variables, so themes (System /
- * Light / Dark, later named presets such as "Memento Mori") change values, not components.
+ * Light / Dark and the named preset "Memento Mori") change values, not components.
  * `:root` holds the light theme.
  * State colors always come with a glyph and text (8.2): color is never the only signal.
  */
@@ -54,6 +54,31 @@
   --state-skipped-bg: #33260b;
   --state-na: #b4b8c4;
   --state-na-bg: #24262c;
+  --shadow: none;
+}
+
+:root[data-theme='memento-mori'] {
+  /* Named preset (8.7): pure black, bone-white text, deep crimson accents. */
+  color-scheme: dark;
+  --bg: #000000;
+  --surface: #0c0a0a;
+  --surface-muted: #1a1616;
+  --text: #f1ece2;
+  --text-muted: #b5ad9f;
+  --border: #3b3434;
+  --accent: #e0343f;
+  --accent-text: #000000;
+  --accent-soft: #2b0c10;
+  --focus: #9ab8ff;
+  --state-pending: #ff4d5e;
+  --state-pending-bg: #2e0b10;
+  --state-done: #6fd98a;
+  --state-done-bg: #0e2416;
+  --state-done-text: #000000;
+  --state-skipped: #f2bd4d;
+  --state-skipped-bg: #2d2108;
+  --state-na: #bfc3cc;
+  --state-na-bg: #1f2025;
   --shadow: none;
 }
 
