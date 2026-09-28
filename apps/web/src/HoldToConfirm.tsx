@@ -101,8 +101,13 @@ export function HoldToConfirm(props: { label: string; disabled?: boolean; onConf
           {progress > 0 ? t('hold.progress', { percent: Math.round(progress * 100) }) : t('hold.short')}
         </span>
       </button>
-      <small id={hintId} className={hint === null ? 'visually-hidden' : 'hold-feedback'}>
-        {hint ?? t('hold.hint')}
+      {/* The standing hint is the button's description only (not read a second time in reading order). */}
+      <small id={hintId} className="visually-hidden" aria-hidden="true">
+        {t('hold.hint')}
+      </small>
+      {/* Feedback after a click or an early release is announced. */}
+      <small role="status" className={hint === null ? undefined : 'hold-feedback'}>
+        {hint}
       </small>
     </span>
   );

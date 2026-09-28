@@ -2,6 +2,7 @@ import { execFileSync } from 'node:child_process';
 import { expect, test, type Page } from '@playwright/test';
 import { TOTP } from 'otpauth';
 import { serverEnv } from '../playwright.config.ts';
+import { expectAccessible } from './a11y.ts';
 
 const PASSWORD = 'an e2e passphrase that is long';
 
@@ -31,6 +32,7 @@ test('first server admin: bootstrap link, account creation, sign-in, Workspace c
 
   await page.goto(link ?? '/');
   await expect(page.getByText('admin@example.org')).toBeVisible();
+  await expectAccessible(page, 'invitation page');
   await page.getByLabel('Display name').fill('Ada Admin');
   await page.getByLabel(/^Password/).fill(PASSWORD);
   await page.getByLabel('Repeat password').fill(PASSWORD);
@@ -47,6 +49,7 @@ test('first server admin: bootstrap link, account creation, sign-in, Workspace c
   await page.getByLabel('Password').fill('not the right passphrase');
   await page.getByRole('button', { name: 'Sign in' }).click();
   await expect(page.getByRole('alert')).toHaveText('Email or password is not correct.');
+  await expectAccessible(page, 'sign-in page with error');
 
   await page.getByLabel('Password').fill(PASSWORD);
   await page.getByRole('button', { name: 'Sign in' }).click();
@@ -57,6 +60,7 @@ test('first server admin: bootstrap link, account creation, sign-in, Workspace c
 
   await page.reload();
   await expect(page.getByRole('heading', { name: 'Welcome, Ada Admin' })).toBeVisible();
+  await expectAccessible(page, 'start page without Workspace');
 
   // Workspaces: a server admin creates one on the admin page and becomes its only admin.
   await expect(page.getByText('You are not a member of any Workspace yet.')).toBeVisible();
@@ -88,6 +92,7 @@ test('first server admin: bootstrap link, account creation, sign-in, Workspace c
   const log = page.getByRole('table', { name: 'Security events' });
   await expect(log.getByRole('row').nth(1)).toContainText('Invitation revoked');
   await expect(log.getByRole('cell', { name: 'Signed in', exact: true })).toBeVisible();
+  await expectAccessible(page, 'server admin page');
   await page.getByLabel('New Workspace name').fill('Household');
   await page.getByRole('button', { name: 'Create Workspace' }).click();
   await expect(page.getByRole('heading', { name: 'Members', level: 2 })).toBeVisible();
@@ -96,6 +101,7 @@ test('first server admin: bootstrap link, account creation, sign-in, Workspace c
   const members = page.getByRole('table', { name: 'Members' });
   await expect(members.getByRole('row')).toHaveCount(2);
   await expect(members.getByRole('cell', { name: 'admin@example.org' })).toBeVisible();
+  await expectAccessible(page, 'members page');
   await page.getByLabel('Member email').fill('nobody@example.org');
   await page.getByRole('button', { name: 'Add', exact: true }).click();
   await expect(page.getByRole('alert')).toHaveText(/no active account/);
@@ -134,6 +140,7 @@ test('first server admin: bootstrap link, account creation, sign-in, Workspace c
   await expect(steps.nth(1).getByRole('img', { name: 'Critical' })).toBeVisible();
   await expect(steps.nth(0).getByRole('img', { name: 'Critical' })).toHaveCount(0);
   await expect(steps.nth(1)).not.toContainText('Required');
+  await expectAccessible(page, 'procedure view');
 
   // Edit: rename, move the stove Step to the top, save once.
   await procedure.getByRole('button', { name: 'Edit' }).click();
@@ -243,6 +250,7 @@ test('first server admin: bootstrap link, account creation, sign-in, Workspace c
   const activeRuns = page.getByRole('list', { name: 'Active Runs' });
   await expect(activeRuns.getByRole('listitem')).toHaveCount(2);
   await expect(activeRuns.getByRole('listitem').first()).toContainText('○ 2 pending');
+  await expectAccessible(page, 'run list');
 
   // Execute a Run: Done, Skip with a required reason, Undo.
   await activeRuns.getByRole('button').first().click();
@@ -296,6 +304,7 @@ test('first server admin: bootstrap link, account creation, sign-in, Workspace c
   const noSidewaysScroll = () => page.evaluate('document.documentElement.scrollWidth <= window.innerWidth');
   await page.setViewportSize({ width: 390, height: 844 });
   expect(await noSidewaysScroll()).toBe(true);
+  await expectAccessible(page, 'run view on a phone');
   await expect(stepItem('Turn off stove')).toContainText('Next');
   await expect(stepItem('Close windows')).not.toContainText('Next');
   const dock = page.getByRole('region', { name: 'Run progress' });
@@ -317,6 +326,13 @@ test('first server admin: bootstrap link, account creation, sign-in, Workspace c
   await stove.getByRole('button', { name: 'Skip', exact: true }).click();
   await expect(stove).toContainText('Skipped');
   await expect(stove).toContainText('reason: Nobody cooked today');
+  // Forced colours (8.8): Step states differ by border style, not only by (now system) colour.
+  await page.emulateMedia({ forcedColors: 'active' });
+  await expect(stove).toHaveCSS('border-left-style', 'dashed');
+  await expect(stepItem('Close windows')).toHaveCSS('border-left-style', 'solid');
+  await expect(page.getByRole('progressbar').first().locator('span')).toHaveCSS('forced-color-adjust', 'none');
+  await expectAccessible(page, 'run view in forced colours');
+  await page.emulateMedia({ forcedColors: 'none' });
   await run.getByRole('button', { name: 'Undo: Close windows' }).click();
   await expect(stepItem('Close windows')).not.toContainText('Ada Admin ·');
 
@@ -324,8 +340,11 @@ test('first server admin: bootstrap link, account creation, sign-in, Workspace c
   await stove.getByRole('button', { name: 'Undo: Turn off stove' }).click();
   const hold = stove.getByRole('button', { name: 'Hold to mark done: Turn off stove' });
   await expect(hold).toHaveAccessibleDescription(/press and hold/);
+  // Each Step is a heading (jump from Step to Step with a screen reader).
+  await expect(run.getByRole('heading', { level: 4, name: /^Turn off stove/ })).toBeVisible();
   await hold.click();
-  await expect(stove).toContainText('Keep holding until the button is completely filled.');
+  // The feedback is a live status, so screen readers announce it.
+  await expect(stove.getByRole('status')).toHaveText('Keep holding until the button is completely filled.');
   await expect(stove.locator('.state-badge')).toHaveText(/Pending/);
   await hold.hover();
   await page.mouse.down();
@@ -368,6 +387,7 @@ test('first server admin: bootstrap link, account creation, sign-in, Workspace c
   // One undo from the second device, one from this one; the rejected attempt left no trace.
   await expect(history.filter({ hasText: 'Close windows: Done → Pending (undo)' })).toHaveCount(2);
   await expect(history.last()).toContainText('Ada Admin completed the Run');
+  await expectAccessible(page, 'finished run with history');
   await page.getByRole('button', { name: 'Back to all Runs' }).click();
 
   // Abort the other Run with a reason.
@@ -419,6 +439,7 @@ test('first server admin: bootstrap link, account creation, sign-in, Workspace c
   page.once('dialog', (dialog) => void dialog.accept());
   await knotTable.getByRole('button', { name: 'Revoke Hallway card' }).click();
   await expect(knotTable).toContainText('Revoked by Ada Admin');
+  await expectAccessible(page, 'knot links page');
   await visitorPage.goto(knotLink);
   await expect(visitorPage.getByRole('heading', { name: 'Knot link cannot be opened' })).toBeVisible();
   await expect(visitorPage.getByRole('alert')).toContainText('not valid');
@@ -432,11 +453,13 @@ test('first server admin: bootstrap link, account creation, sign-in, Workspace c
   await page.getByRole('radio', { name: /^Dark/ }).check();
   await expect(html).toHaveAttribute('data-theme', 'dark');
   await expect(page.locator('body')).toHaveCSS('background-color', 'rgb(11, 11, 12)');
+  await expectAccessible(page, 'account page (dark)');
   await page.reload();
   await expect(page.getByRole('radio', { name: /^Dark/ })).toBeChecked();
   await expect(html).toHaveAttribute('data-theme', 'dark');
   await page.getByRole('radio', { name: /^Light/ }).check();
   await expect(page.locator('body')).toHaveCSS('background-color', 'rgb(246, 246, 247)');
+  await expectAccessible(page, 'account page (light)');
   await page.getByRole('radio', { name: /^System/ }).check();
   await page.emulateMedia({ colorScheme: 'dark' });
   await expect(html).toHaveAttribute('data-theme', 'dark');
@@ -446,6 +469,7 @@ test('first server admin: bootstrap link, account creation, sign-in, Workspace c
   await page.getByRole('radio', { name: /^Memento Mori/ }).check();
   await expect(html).toHaveAttribute('data-theme', 'memento-mori');
   await expect(page.locator('body')).toHaveCSS('background-color', 'rgb(0, 0, 0)');
+  await expectAccessible(page, 'account page (memento mori)');
   const otherBrowser = await browser.newContext(testInfo.project.use.baseURL === undefined ? {} : { baseURL: testInfo.project.use.baseURL });
   const other = await otherBrowser.newPage();
   await other.goto('/');
@@ -467,6 +491,7 @@ test('first server admin: bootstrap link, account creation, sign-in, Workspace c
   await tapStove.getByRole('button', { name: 'Mark done: Turn off stove (asks to confirm)' }).click();
   const question = tapStove.getByRole('group', { name: 'Confirm: Turn off stove is done?' });
   await expect(question.getByRole('button', { name: '✔ Yes, done' })).toBeFocused();
+  await expectAccessible(page, 'run view asking to confirm a critical step');
   await page.keyboard.press('Escape');
   await expect(question).toHaveCount(0);
   await expect(tapStove.getByRole('button', { name: 'Mark done: Turn off stove (asks to confirm)' })).toBeFocused();
@@ -501,6 +526,7 @@ test('first server admin: bootstrap link, account creation, sign-in, Workspace c
   await page.getByLabel('Password').fill(PASSWORD);
   await page.getByRole('button', { name: 'Sign in' }).click();
   await expect(page.getByRole('heading', { name: 'Two-factor authentication' })).toBeVisible();
+  await expectAccessible(page, 'second-factor page');
   const cookiesBeforeCode = await page.context().cookies();
   expect(cookiesBeforeCode.some((cookie) => cookie.name.endsWith('vmn.session_token'))).toBe(false);
   await page.getByLabel('Code from your authenticator app').fill(totp.generate({ timestamp: Date.now() + 30_000 }));

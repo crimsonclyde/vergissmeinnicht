@@ -1,7 +1,12 @@
 import { useEffect, useId, useRef, useState } from 'react';
 import type { CurrentUser } from './api.ts';
-import { t } from './i18n/index.ts';
+import { t, type MessageKey } from './i18n/index.ts';
 import { Link } from './router.tsx';
+
+/** Links of the menu. "Server admin" only for server admins (UI only — the server checks every admin request). */
+export function menuLinks(user: Pick<CurrentUser, 'serverAdmin'>): { href: string; label: MessageKey }[] {
+  return [{ href: '/account', label: 'menu.profile' }, ...(user.serverAdmin ? [{ href: '/admin', label: 'shell.serverAdmin' as const }] : [])];
+}
 
 /**
  * The menu button (☰) in the header: profile & settings, server administration (only for server
@@ -59,14 +64,11 @@ export function UserMenu(props: { user: CurrentUser; onSignOut: () => void }) {
             <small className="muted">{props.user.email}</small>
           </p>
           <nav aria-label={t('shell.accountNav')}>
-            <Link href="/account" onClick={close}>
-              {t('menu.profile')}
-            </Link>
-            {props.user.serverAdmin && (
-              <Link href="/admin" onClick={close}>
-                {t('shell.serverAdmin')}
+            {menuLinks(props.user).map((link) => (
+              <Link key={link.href} href={link.href} onClick={close}>
+                {t(link.label)}
               </Link>
-            )}
+            ))}
           </nav>
           <button
             type="button"

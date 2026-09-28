@@ -150,7 +150,8 @@ function StepItem(props: {
     >
       {props.next && <span className="next-chip">{t('step.next')}</span>}
       <div className="row" style={{ justifyContent: 'space-between' }}>
-        <span className="step-title">
+        {/* A heading per Step, so screen-reader users can jump from Step to Step. */}
+        <h4 className="step-title">
           {step.icon !== null && (
             <>
               <Icon icon={step.icon} />{' '}
@@ -158,7 +159,7 @@ function StepItem(props: {
           )}
           {step.title}
           <StepMarks required={step.required} critical={step.critical} />
-        </span>
+        </h4>
         <StateBadge state={step.state} />
       </div>
       {props.saving && <small className="step-meta">{t('step.saving')}</small>}

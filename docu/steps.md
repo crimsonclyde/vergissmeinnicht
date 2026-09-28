@@ -1241,7 +1241,7 @@ Do not rely on red/green alone.
 
 **Security docs updated:** N/A.
 
-**Remaining:** no manual screen-reader pass yet (part of a full accessibility review); Windows High Contrast / forced-colors mode not specifically styled.
+**Remaining:** ~~forced colours~~ and automated/tree review done in 8.8; a session with a real screen reader is still open.
 
 ### 8.3 Theme system
 **Status:** DONE
@@ -1322,7 +1322,7 @@ V1 ships English only, but user-facing strings must be structured so adding tran
 
 **Security docs updated:** N/A.
 
-**Remaining:** no automated test that non-admins do not see "Server admin" in the menu (the server-side refusal is tested); Knot links and history could get the same "more" treatment in list pages; a full accessibility review is still open.
+**Remaining:** ~~menu test~~ and ~~accessibility review~~ (8.8); Knot links and history could get the same "more" treatment in list pages.
 
 ### 8.7 Account preferences: theme sync, Memento Mori, critical-Step alternative
 **Status:** DONE
@@ -1343,6 +1343,25 @@ V1 ships English only, but user-facing strings must be structured so adding tran
 **Security docs updated:** N/A (no security-relevant behavior; noted under 5.3 that confirmation style is UX only).
 
 **Remaining:** hold duration itself is not configurable.
+
+### 8.8 Accessibility review
+**Status:** DONE
+**Completed:** 2026-09-28
+
+**Security impact:** NONE — presentation and tests; one exactly pinned dev dependency (`@axe-core/playwright` 4.13.0 by Deque, depends only on `axe-core` 4.13.0 without dependencies; lockfile verified with `pnpm install --frozen-lockfile`, supply-chain policies passed).
+
+**Implemented:**
+- Automated checks: `e2e/a11y.ts` runs axe-core (WCAG 2.0/2.1/2.2 A+AA and best practices) at 16 points of the e2e flow — invitation, sign-in with error, start page, server admin, members, Procedure view, Run list, Run view on a phone, Run view in forced colours, critical-Step confirmation question, finished Run with history, Knot links, Account page in light, dark and Memento Mori, second-factor page. Any violation fails the run.
+- Fixes from the review: the header's product name is now the page's level-one heading (axe `page-has-heading-one`); in forced colours the current tab uses the system selection colours (axe `color-contrast`); Step titles are level-4 headings (jump from Step to Step); the press-and-hold hint is only the button's description (no longer read twice) and its feedback ("keep holding…") is a live status.
+- Forced colours (Windows High Contrast): outlines for badges, chips and the progress bar; progress and hold fills use `Highlight` (the hold fill becomes a bar under the label); Skipped/Not applicable Steps get dashed/dotted borders, the next Step thicker borders; dock outlined.
+- "Server admin" menu entry: `menuLinks()` extracted and unit-tested (only for server admins; the server check is unchanged and tested).
+- Accessibility-tree review (Playwright ARIA snapshots of the Run view and admin page) in place of a screen-reader session: landmarks (banner, navigation, main, regions), names of all controls, live regions for remote changes and hold feedback, progressbar with a name.
+
+**Tests/checks:** `pnpm test:e2e` (all axe checks clean; forced-colours border styles; Step headings; live hold feedback), `apps/web/src/UserMenu.test.ts`, `pnpm test`, `pnpm lint`, `pnpm typecheck`.
+
+**Security docs updated:** N/A (dev dependency noted above; §10 policies applied).
+
+**Remaining:** no session with a real screen reader (NVDA/VoiceOver/TalkBack) or on physical iOS/Android devices — needs a person with the devices; axe covers only automatically detectable issues; the `<details>` disclosure marker is the browser default.
 
 ### 8.5 PWA/offline active Runs
 **Status:** DEFERRED — Phase 2

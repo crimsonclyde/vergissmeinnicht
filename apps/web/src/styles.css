@@ -147,6 +147,12 @@ h6 {
   padding-bottom: 0.6rem;
 }
 
+.brand-heading {
+  margin: 0;
+  font-size: inherit;
+  line-height: inherit;
+}
+
 .brand {
   font-weight: 700;
   color: var(--text);
@@ -586,8 +592,10 @@ caption {
 }
 
 .step-title {
+  margin: 0;
   font-weight: 600;
   font-size: 1.05rem;
+  line-height: 1.5;
 }
 
 .step-actions {
@@ -755,4 +763,52 @@ caption {
 
 .section-nav a {
   white-space: nowrap;
+}
+
+/*
+ * Forced colours (Windows High Contrast, 8.8): the system palette replaces ours, so meaning must not
+ * depend on our colours. State is still glyph + word; in addition badges and chips get outlines,
+ * fills use the system Highlight, the hold fill becomes a bar under the label (the label keeps the
+ * button colours), and each Step state has its own border style.
+ */
+@media (forced-colors: active) {
+  .state-badge,
+  .next-chip,
+  .progress {
+    border: 1px solid CanvasText;
+  }
+
+  .progress > span,
+  .hold-fill {
+    forced-color-adjust: none;
+    background: Highlight;
+  }
+
+  .hold-fill {
+    inset: auto auto 0 0;
+    height: 0.4rem;
+  }
+
+  .step[data-state='SKIPPED'] {
+    border-left-style: dashed;
+  }
+
+  .step[data-state='NOT_APPLICABLE'] {
+    border-left-style: dotted;
+  }
+
+  .step[data-next='true'] {
+    border-width: 3px 3px 3px 8px;
+  }
+
+  .run-dock {
+    border: 2px solid CanvasText;
+  }
+
+  /* The current tab is shown like a system selection. */
+  .nav a[aria-current='page'] {
+    forced-color-adjust: none;
+    background: Highlight;
+    color: HighlightText;
+  }
 }

@@ -57,12 +57,15 @@ function Header(props: {
   return (
     <header className="app-header">
       <div className="app-header-inner">
-        <Link href="/" className="brand" aria-label={t('shell.home')}>
-          <span className="brand-long">VergissMeinNicht</span>
-          <span className="brand-short" aria-hidden="true">
-            VMN
-          </span>
-        </Link>
+        {/* The product name is the page's level-one heading; each page's own title is a level-two heading. */}
+        <h1 className="brand-heading">
+          <Link href="/" className="brand" aria-label={t('shell.home')}>
+            <span className="brand-long">VergissMeinNicht</span>
+            <span className="brand-short" aria-hidden="true">
+              VMN
+            </span>
+          </Link>
+        </h1>
         {workspaces !== null && workspaces.length > 0 && (
           <label className="workspace-select">
             <select
