@@ -26,8 +26,15 @@ chown -R 99:100 . && chmod 0700 data secrets && chmod 0400 secrets/*
 
 ## 2. Add the container
 
-1. Copy the template [`deploy/unraid/vergissmeinnicht.xml`](../deploy/unraid/vergissmeinnicht.xml) to the flash drive as `config/plugins/dockerMan/templates-user/my-VergissMeinNicht.xml` (share `flash`, or `/boot/config/plugins/dockerMan/templates-user/` in the terminal).
-2. **Docker → Add Container → Template:** *VergissMeinNicht*.
+1. **Put the template where Unraid looks for it.** Unraid keeps its settings on the USB flash drive it boots from, mounted as `/boot`; user templates live in `/boot/config/plugins/dockerMan/templates-user/`. In the Unraid **Terminal** (top right, `>_`):
+
+   ```bash
+   wget -O /boot/config/plugins/dockerMan/templates-user/my-VergissMeinNicht.xml \
+     https://raw.githubusercontent.com/crimsonclyde/vergissmeinnicht/main/deploy/unraid/vergissmeinnicht.xml
+   ```
+
+   (Without the terminal: the flash drive is also the network share `flash` — copy [`deploy/unraid/vergissmeinnicht.xml`](../deploy/unraid/vergissmeinnicht.xml) into `config/plugins/dockerMan/templates-user/` there and rename it to `my-VergissMeinNicht.xml`.)
+2. **Docker** tab → **Add Container** (button at the bottom) → **Template** drop-down → under *User templates* choose **VergissMeinNicht**. The form fills itself from the template.
 3. Fill in:
    - **Repository:** `ghcr.io/crimsonclyde/vergissmeinnicht:0.1.0-beta.1` (or a newer release — pin an exact version, not `latest`).
    - **Use Tailscale:** *Yes*. **Tailscale Hostname:** `vergissmeinnicht`. **Tailscale Serve:** *Serve* (port `3000`, taken from the WebUI field). Leave *Funnel* off — that would publish the app on the internet.

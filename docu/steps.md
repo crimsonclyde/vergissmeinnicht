@@ -21,7 +21,7 @@ For every completed task, add a concise completion note, tests/checks performed,
 _Last updated: 2026-09-28 (follow-up round: 2.7–2.9, 5.7, 8.5, 8.7–8.9, 10.4, 10.5)_
 
 **Done:** 0.1, 0.2, 0.3, 1.1, 1.2, 2.1–2.5, 2.7–2.9, 3.1–3.3, 4.1–4.5, 5.1–5.7, 6.1, 6.2, 7.1, 8.0–8.11, 9.1, 10.1–10.5, 11.1. DEFERRED: 2.6 (external identity providers — a later step, user decision 2026-09-28).
-**Next:** merge into `main` only when the user says so (decided 2026-09-28: wait); the first pull request will run CI incl. the new arm64 image job; the release workflow runs on the first `vX.Y.Z` tag. Needs people/devices: a session with a real screen reader and tests on physical iOS/Android devices (incl. offline storage eviction).
+**Next:** 0.1.0-beta.1 released (12.3); make the GHCR package public, install on Unraid, collect beta feedback; the first pull request will run CI incl. the new arm64 image job; the release workflow runs on the first `vX.Y.Z` tag. Needs people/devices: a session with a real screen reader and tests on physical iOS/Android devices (incl. offline storage eviction).
 
 **Decisions 2026-09-28 (user):** offline = queue + labelled device time (8.5); disabling an account is refused while it is the only active Workspace admin (2.7); TOTP stays optional for everyone, also server admins; housekeeping automatic in the server (2.8); sensitive rate limits persisted (2.9); critical Steps: "Tap, then confirm" per account, theme per account (8.7); Memento Mori = darker + stronger red (8.7); slim image, image scan, arm64, signed GHCR releases on tags (10.4); scheduled backups without own crypto (10.5); SKIPPED keeps blocking completion (5.4) and the Knot design stays (7.1) — both confirmed.
 
@@ -1615,6 +1615,16 @@ HTTPS, proxy trust, security headers, dependency scanning, health checks, safe s
 **Security docs updated:** YES (§11).
 
 **Remaining:** Unraid's Tailscale setup itself was not run here (only on Unraid); no Community Applications listing yet.
+
+### 12.3 First beta release (0.1.0-beta.1)
+**Status:** DONE
+**Completed:** 2026-09-28
+
+**Implemented:** PR #1 merged all work into `main` (first CI run of the full pipeline: tests, e2e, image build + smoke test + Trivy on amd64 and arm64 — all green); tag `v0.1.0-beta.1` published `ghcr.io/crimsonclyde/vergissmeinnicht:0.1.0-beta.1` (index `sha256:e5cbbc3437f0deb8735dfa3f1d609a829f13df88e66fe93cfd57bd846c9281d3`, no `latest`), signed keyless with an SBOM attestation; GitHub pre-release with notes.
+
+**Found by the first CI run:** the `.gitignore` rule `totp*` (for exported TOTP secrets) also matched `packages/auth/src/totp.ts` and `totp.test.ts`, so they had never been committed — builds from a clean checkout failed. Fixed with explicit exceptions for source files; verified in a fresh clone from GitHub (install, typecheck, lint, 593 tests).
+
+**Remaining:** the GHCR package is private until its visibility is set to public (GitHub → Packages → vergissmeinnicht → Package settings); first real installation on Unraid.
 
 ---
 
