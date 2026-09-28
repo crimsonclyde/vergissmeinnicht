@@ -16,7 +16,7 @@ import type { FastifyInstance, FastifyRequest } from 'fastify';
 import { z } from 'zod';
 import type { AppServices } from '../composition.ts';
 import { InvalidRequestError } from './errors.ts';
-import { auditEventView } from './history-view.ts';
+import { auditEventView, historyQuery } from './history-view.ts';
 import { registerRunEvents } from './run-events.ts';
 import { requireUser, type Principal } from './session.ts';
 
@@ -24,7 +24,7 @@ import { requireUser, type Principal } from './session.ts';
 const uuid = z.string().regex(UUID_V4);
 const workspaceParams = z.strictObject({ workspaceId: uuid });
 const runParams = z.strictObject({ workspaceId: uuid, runId: uuid });
-const listQuery = z.strictObject({ state: z.enum(RUN_STATES).optional() });
+const listQuery = z.strictObject({ state: z.enum(RUN_STATES).optional(), before: uuid.optional() });
 const startBody = z.strictObject({ procedureId: uuid });
 const abortBody = z.strictObject({ reason: z.string().max(4096).optional() });
 const stepParams = z.strictObject({ workspaceId: uuid, runId: uuid, stepId: uuid });
@@ -89,9 +89,9 @@ export async function runRoutes(app: FastifyInstance, { services }: { services: 
 
   app.get('/', async (request) => {
     const { workspaceId } = parse(workspaceParams, request.params);
-    const { state } = parse(listQuery, request.query);
-    const runs = await listRuns(deps, { actor: principalOf(request).user, workspaceId: workspaceId as WorkspaceId, state });
-    return { runs: runs.map(summaryView) };
+    const { state, before } = parse(listQuery, request.query);
+    const page = await listRuns(deps, { actor: principalOf(request).user, workspaceId: workspaceId as WorkspaceId, state, before });
+    return { runs: page.items.map(summaryView), nextCursor: page.nextCursor };
   });
 
   app.post('/', { bodyLimit: 1024 }, async (request, reply) => {
@@ -151,12 +151,14 @@ export async function runRoutes(app: FastifyInstance, { services }: { services: 
 
   app.get('/:runId/history', async (request) => {
     const { workspaceId, runId } = parse(runParams, request.params);
-    const events = await getRunHistory(services.history, {
+    const { after } = parse(historyQuery, request.query);
+    const page = await getRunHistory(services.history, {
       actor: principalOf(request).user,
       workspaceId: workspaceId as WorkspaceId,
       runId: runId as RunId,
+      after,
     });
-    return { events: events.map(auditEventView) };
+    return { events: page.items.map(auditEventView), nextCursor: page.nextCursor };
   });
 
   app.get('/:runId', async (request) => {

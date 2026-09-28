@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { messageFor, type HistoryEvent } from './api.ts';
+import { messageFor, type HistoryEvent, type HistoryPage } from './api.ts';
 import { formatDateTime, hasMessage, t, type MessageKey } from './i18n/index.ts';
 
 const text = (value: unknown): string => (typeof value === 'string' ? value : String(value ?? ''));
@@ -59,11 +59,13 @@ export function describeEvent(event: HistoryEvent): string {
   }
 }
 
-/** Collapsible, read-only history. The list is loaded on demand. */
-export function History(props: { label: string; load: () => Promise<HistoryEvent[]> }) {
+/** Collapsible, read-only history. Loaded on demand, one page at a time. */
+export function History(props: { label: string; load: (after?: string) => Promise<HistoryPage> }) {
   const [events, setEvents] = useState<HistoryEvent[] | null>(null);
+  const [nextCursor, setNextCursor] = useState<string | null>(null);
   const [open, setOpen] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
+  const [loadingMore, setLoadingMore] = useState(false);
 
   async function toggle() {
     if (open) {
@@ -73,9 +75,25 @@ export function History(props: { label: string; load: () => Promise<HistoryEvent
     setOpen(true);
     setMessage(null);
     try {
-      setEvents(await props.load());
+      const page = await props.load();
+      setEvents(page.events);
+      setNextCursor(page.nextCursor);
     } catch (caught) {
       setMessage(messageFor(caught));
+    }
+  }
+
+  async function more() {
+    if (nextCursor === null) return;
+    setLoadingMore(true);
+    try {
+      const page = await props.load(nextCursor);
+      setEvents((current) => [...(current ?? []), ...page.events]);
+      setNextCursor(page.nextCursor);
+    } catch (caught) {
+      setMessage(messageFor(caught));
+    } finally {
+      setLoadingMore(false);
     }
   }
 
@@ -90,14 +108,21 @@ export function History(props: { label: string; load: () => Promise<HistoryEvent
         (events === null ? (
           <p>{t('common.loading')}</p>
         ) : (
-          <ol>
-            {events.map((event) => (
-              <li key={event.id}>
-                <time dateTime={event.at}>{formatDateTime(event.at)}</time> — <strong>{event.actor}</strong>{' '}
-                {describeEvent(event)}
-              </li>
-            ))}
-          </ol>
+          <>
+            <ol>
+              {events.map((event) => (
+                <li key={event.id}>
+                  <time dateTime={event.at}>{formatDateTime(event.at)}</time> — <strong>{event.actor}</strong>{' '}
+                  {describeEvent(event)}
+                </li>
+              ))}
+            </ol>
+            {nextCursor !== null && (
+              <button type="button" className="quiet" disabled={loadingMore} onClick={() => void more()}>
+                {t('common.showMore')}
+              </button>
+            )}
+          </>
         ))}
     </section>
   );

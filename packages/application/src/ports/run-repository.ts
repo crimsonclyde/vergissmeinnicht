@@ -1,3 +1,4 @@
+import type { Page } from './paging.ts';
 import type {
   Actor,
   ProcedureId,
@@ -38,8 +39,14 @@ export interface RunRepository {
     actor: Actor & { readonly kind: 'user' },
     guard: ActorGuard,
   ): Promise<StartRunResult>;
-  /** Newest first, at most `limit` entries. */
-  list(workspaceId: WorkspaceId, filter: { readonly state?: RunState | undefined; readonly limit: number }): Promise<RunSummary[]>;
+  /**
+   * Newest first, at most `limit` entries, continuing after the Run `before` (the last Run of the
+   * previous page; must be a Run of this Workspace matching the filter, else `InvalidCursorError`).
+   */
+  list(
+    workspaceId: WorkspaceId,
+    filter: { readonly state?: RunState | undefined; readonly limit: number; readonly before?: string | undefined },
+  ): Promise<Page<RunSummary>>;
   find(workspaceId: WorkspaceId, runId: RunId): Promise<RunDetail | undefined>;
   /**
    * In one transaction: re-checks the guard, resolves the Run within the Workspace, requires it to be

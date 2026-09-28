@@ -12,6 +12,8 @@ import {
   confirmTotpEnrollment,
   createWorkspace,
   listAccounts,
+  listSecurityEvents,
+  InvalidCursorError,
   setAccountStatus,
   startTotpEnrollment,
   type AccountAdminDeps,
@@ -21,6 +23,7 @@ import {
 import { createSecretBox, hashPassword, invitationTokens, recoveryCodes, totpAlgorithm, verifyPassword } from '@vergissmeinnicht/auth';
 import { DomainValidationError, normalizeEmail, type User, type UserStatus } from '@vergissmeinnicht/domain';
 import { createAccountAdminRepository } from './account-admin-repository.ts';
+import { createSecurityEventReader } from './security-events.ts';
 import { createMfaChallengeRepository, createTotpRepository } from './mfa-repository.ts';
 import { createTestDatabase } from './test-support.ts';
 import { createUserRepository } from './user-repository.ts';
@@ -93,7 +96,12 @@ describe('account status administration', () => {
       passwords: { verify: async (userId, password) => verifyPassword(passwordOf(userId), password) },
       clock: { now: () => now },
     };
-    deps = { accounts: createAccountAdminRepository(database), mfa, clock: { now: () => now } };
+    deps = {
+      accounts: createAccountAdminRepository(database),
+      securityEvents: createSecurityEventReader(database),
+      mfa,
+      clock: { now: () => now },
+    };
     workspaceDeps = { users, workspaces: createWorkspaceRepository(database), clock: { now: () => now } };
   });
 
@@ -206,4 +214,41 @@ describe('account status administration', () => {
     await expect(change(bob.id, 'DISABLED', disabledCarol, PASSWORD)).rejects.toBeInstanceOf(NotAuthorizedError);
     await expect(listAccounts(deps, { actor: disabledCarol })).rejects.toBeInstanceOf(NotAuthorizedError);
   });
+
+  it('shows the security log newest first, pages it and filters by account, for server admins only', async () => {
+    await change(bob.id, 'DISABLED');
+    await change(bob.id, 'ACTIVE');
+    const carol = await createUser('carol@example.org', 'Carol', PASSWORD);
+    await change(carol.id, 'DISABLED');
+
+    const page = await listSecurityEvents(deps, { actor: admin });
+    expect(page.items.map((entry) => [entry.type, entry.subjectEmail, entry.actorLabel])).toEqual([
+      ['ACCOUNT_DISABLED', 'carol@example.org', 'Ada Admin'],
+      ['ACCOUNT_ENABLED', 'bob@example.org', 'Ada Admin'],
+      ['ACCOUNT_DISABLED', 'bob@example.org', 'Ada Admin'],
+    ]);
+    expect(page.nextCursor).toBeNull();
+    const aboutBob = await listSecurityEvents(deps, { actor: admin, userId: bob.id });
+    expect(aboutBob.items.map((entry) => entry.type)).toEqual(['ACCOUNT_ENABLED', 'ACCOUNT_DISABLED']);
+    // Cursor continues after the given event; an event outside the filter is no cursor.
+    expect((await listSecurityEvents(deps, { actor: admin, before: page.items[0]?.id })).items).toHaveLength(2);
+    await expect(listSecurityEvents(deps, { actor: admin, userId: bob.id, before: page.items[0]?.id })).rejects.toBeInstanceOf(
+      InvalidCursorError,
+    );
+    await expect(listSecurityEvents(deps, { actor: admin, userId: 'nope' })).rejects.toBeInstanceOf(DomainValidationError);
+    await expect(listSecurityEvents(deps, { actor: bob })).rejects.toBeInstanceOf(NotAuthorizedError);
+    await expect(listSecurityEvents(deps, { actor: { ...admin, status: 'DISABLED' } })).rejects.toBeInstanceOf(NotAuthorizedError);
+  });
+
+  it('pages the security log by insertion order when timestamps tie', async () => {
+    const reader = createSecurityEventReader(database);
+    for (let i = 0; i < 5; i += 1) await change(bob.id, i % 2 === 0 ? 'DISABLED' : 'ACTIVE');
+    const all = await reader.list({ limit: 100 });
+    const first = await reader.list({ limit: 2 });
+    const second = await reader.list({ limit: 2, before: first.nextCursor ?? undefined });
+    const third = await reader.list({ limit: 2, before: second.nextCursor ?? undefined });
+    expect([...first.items, ...second.items, ...third.items].map((entry) => entry.id)).toEqual(all.items.map((entry) => entry.id));
+    expect(third.nextCursor).toBeNull();
+  });
 });
+

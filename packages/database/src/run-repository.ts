@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto';
-import { and, asc, count, desc, eq, inArray } from 'drizzle-orm';
-import type { FinishRunResult, RunRepository, StartRunResult, StepStateChangeResult } from '@vergissmeinnicht/application';
+import { and, asc, count, desc, eq, gt, inArray, lt, or, type SQL } from 'drizzle-orm';
+import { InvalidCursorError, toPage, type FinishRunResult, type RunRepository, type StartRunResult, type StepStateChangeResult } from '@vergissmeinnicht/application';
 import {
   STEP_STATES,
   type ProcedureId,
@@ -172,27 +172,38 @@ export function createRunRepository({ db }: Pick<AppDatabase, 'db'>): RunReposit
 
     async list(workspaceId, filter) {
       return db.transaction((tx) => {
+        const scope = and(eq(runs.workspaceId, workspaceId), filter.state === undefined ? undefined : eq(runs.state, filter.state));
+        let before: SQL | undefined;
+        if (filter.before !== undefined) {
+          const cursor = tx.select({ startedAt: runs.startedAt, id: runs.id }).from(runs).where(and(scope, eq(runs.id, filter.before))).get();
+          if (cursor === undefined) throw new InvalidCursorError();
+          before = or(lt(runs.startedAt, cursor.startedAt), and(eq(runs.startedAt, cursor.startedAt), gt(runs.id, cursor.id)));
+        }
         const rows = tx
           .select()
           .from(runs)
-          .where(and(eq(runs.workspaceId, workspaceId), filter.state === undefined ? undefined : eq(runs.state, filter.state)))
+          .where(and(scope, before))
           .orderBy(desc(runs.startedAt), asc(runs.id))
-          .limit(filter.limit)
+          .limit(filter.limit + 1)
           .all();
+        const page = toPage(rows, filter.limit, (row) => row.id);
         const counts =
-          rows.length === 0
+          page.items.length === 0
             ? []
             : tx
                 .select({ runId: runSteps.runId, state: runSteps.state, n: count() })
                 .from(runSteps)
-                .where(inArray(runSteps.runId, rows.map((row) => row.id)))
+                .where(inArray(runSteps.runId, page.items.map((row) => row.id)))
                 .groupBy(runSteps.runId, runSteps.state)
                 .all();
-        return rows.map((row) => {
-          const stepCounts = Object.fromEntries(STEP_STATES.map((state) => [state, 0])) as Record<StepState, number>;
-          for (const entry of counts) if (entry.runId === row.id) stepCounts[entry.state] = entry.n;
-          return { run: toRun(row), stepCounts };
-        });
+        return {
+          nextCursor: page.nextCursor,
+          items: page.items.map((row) => {
+            const stepCounts = Object.fromEntries(STEP_STATES.map((state) => [state, 0])) as Record<StepState, number>;
+            for (const entry of counts) if (entry.runId === row.id) stepCounts[entry.state] = entry.n;
+            return { run: toRun(row), stepCounts };
+          }),
+        };
       });
     },
 

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState, type FormEvent } from 'react';
-import { ApiError, api, messageFor, type AccountInfo, type PendingInvitation } from './api.ts';
-import { formatDateTime, t } from './i18n/index.ts';
+import { ApiError, api, messageFor, type AccountInfo, type PendingInvitation, type SecurityLogEntry } from './api.ts';
+import { formatDateTime, hasMessage, t } from './i18n/index.ts';
 import { navigate, paths } from './router.tsx';
 
 /** Server administration: Workspaces, invitations, accounts, account recovery. The server checks the admin flag. */
@@ -297,6 +297,118 @@ function Accounts({ currentUserId }: { currentUserId: string }) {
   );
 }
 
+/** Readable event name; unknown (future) types are shown as stored. */
+const eventName = (type: string) => {
+  const key = `securityEvent.${type}`;
+  return hasMessage(key) ? t(key) : type;
+};
+
+function SecurityLog() {
+  const [accounts, setAccounts] = useState<AccountInfo[]>([]);
+  const [userId, setUserId] = useState('');
+  const [events, setEvents] = useState<SecurityLogEntry[] | null>(null);
+  const [nextCursor, setNextCursor] = useState<string | null>(null);
+  const [message, setMessage] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    api.accounts().then(setAccounts, () => setAccounts([]));
+  }, []);
+  useEffect(() => {
+    let active = true;
+    api.securityLog(userId === '' ? {} : { userId }).then(
+      (page) => {
+        if (!active) return;
+        setEvents(page.events);
+        setNextCursor(page.nextCursor);
+      },
+      (caught: unknown) => active && setMessage(messageFor(caught)),
+    );
+    return () => {
+      active = false;
+    };
+  }, [userId]);
+
+  async function more() {
+    if (nextCursor === null) return;
+    setBusy(true);
+    try {
+      const page = await api.securityLog({ before: nextCursor, ...(userId === '' ? {} : { userId }) });
+      setEvents((current) => [...(current ?? []), ...page.events]);
+      setNextCursor(page.nextCursor);
+    } catch (caught) {
+      setMessage(messageFor(caught));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <section className="card stack" aria-labelledby="security-log-heading">
+      <h3 id="security-log-heading" style={{ marginTop: 0 }}>
+        {t('admin.logHeading')}
+      </h3>
+      <p className="muted">{t('admin.logHint')}</p>
+      <label>
+        {t('admin.logFilter')}
+        <br />
+        <select
+          value={userId}
+          onChange={(e) => {
+            setEvents(null);
+            setMessage(null);
+            setUserId(e.target.value);
+          }}
+        >
+          <option value="">{t('admin.logAllAccounts')}</option>
+          {accounts.map((account) => (
+            <option key={account.id} value={account.id}>
+              {account.displayName} ({account.email})
+            </option>
+          ))}
+        </select>
+      </label>
+      {message !== null && <p role="alert">{message}</p>}
+      {events === null ? (
+        message === null && <p>{t('common.loading')}</p>
+      ) : events.length === 0 ? (
+        <p className="muted">{t('admin.logEmpty')}</p>
+      ) : (
+        <div className="table-wrap">
+          <table>
+            <caption>{t('admin.logCaption')}</caption>
+            <thead>
+              <tr>
+                <th scope="col">{t('admin.column.time')}</th>
+                <th scope="col">{t('admin.column.event')}</th>
+                <th scope="col">{t('admin.column.by')}</th>
+                <th scope="col">{t('admin.column.about')}</th>
+              </tr>
+            </thead>
+            <tbody>
+              {events.map((event) => (
+                <tr key={event.id}>
+                  <td>
+                    <time dateTime={event.at}>{formatDateTime(event.at)}</time>
+                  </td>
+                  <td>{eventName(event.type)}</td>
+                  <td>{event.actor}</td>
+                  <td>{event.subjectEmail ?? event.subjectType}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+      {nextCursor !== null && (
+        <button type="button" className="quiet" disabled={busy} onClick={() => void more()}>
+          {t('common.showMore')}
+        </button>
+      )}
+    </section>
+  );
+}
+
 function AccountRecovery() {
   const [email, setEmail] = useState('');
   const [resetPassword, setResetPassword] = useState(true);
@@ -383,6 +495,7 @@ export function AdminPage({ currentUserId, onWorkspacesChanged }: { currentUserI
       <Invitations />
       <Accounts currentUserId={currentUserId} />
       <AccountRecovery />
+      <SecurityLog />
     </>
   );
 }

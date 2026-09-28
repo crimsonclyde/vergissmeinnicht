@@ -885,7 +885,7 @@ Multiple simultaneous active Runs of the same Procedure are valid.
 
 **Remaining:**
 - Step execution, Run completion/abort and their audit events: 5.2–5.5. Completed Runs' immutability for state (5.6) is not enforced yet (only the definition snapshot is).
-- Run list pagination beyond the newest 200.
+- ~~Run list pagination beyond the newest 200~~ (5.7).
 
 ### 5.2 Step state machine
 **Status:** DONE
@@ -1006,7 +1006,7 @@ Account and access events (logins, MFA, recovery, invitations, Workspace members
 
 **Security docs updated:** YES (§6 checklist).
 
-**Remaining:** pagination beyond 1000 events; no history view for `security_events` (server-admin audit UI) yet.
+**Remaining:** ~~pagination~~ and ~~security-event view~~ — done in 5.7.
 
 ### 5.6 Historical immutability
 **Status:** DONE
@@ -1035,6 +1035,28 @@ No correction workflow exists in V1. If one is added, it must be a new, additive
 **Security docs updated:** YES (§6).
 
 **Remaining:** an operator with direct access to the SQLite file can drop triggers — database-level protections guard the application, not the host (see §11 deployment / backups).
+
+---
+
+### 5.7 History paging and server security log
+**Status:** DONE
+**Completed:** 2026-09-28
+
+**Objective:** open items from 5.1/5.5: Run lists beyond the newest 200, histories beyond 1000 events, and a server-admin view of `security_events`.
+
+**Security impact:** MEDIUM — new read path to the security log (server admins only); cursors must not leak across Workspaces.
+
+**Implemented:**
+- Application: `Page<T>` (`items`, `nextCursor`), `InvalidCursorError` (400 `invalid_cursor`), `toPage`. `listRuns` (`before`), `getRunHistory` / `getProcedureHistory` (`after`, 500 per page), `listSecurityEvents` (ACTIVE server admin, 100 per page, optional account filter) with port `SecurityEventReader`.
+- Database: keyset paging on (`started_at` desc, id) for Runs and (`occurred_at`, rowid) for audit/security events; the cursor row is looked up inside the same scope (Workspace + Run/Procedure/state/account filter) — any other id is an invalid cursor. `createSecurityEventReader` joins the subject's current email for user subjects.
+- HTTP: `?before=` on Run lists, `?after=` on histories (strict query schemas, UUIDv4), `GET /api/admin/security-events[?before=&userId=]`; responses carry `nextCursor`.
+- Web: "Show older Runs" and "Show more" in histories; admin page "Security log" (time, event in plain words, by, about) with an account filter and "Show more".
+
+**Tests/checks:** `pnpm test` 560 (+5): paging walks produce exactly the single-page order (Runs, Run history, security log incl. timestamp ties), foreign/other-list/other-filter cursors rejected, security log newest-first, filter, only ACTIVE server admins; HTTP: cursor validation, `invalid_cursor`, cursors do not bypass authorization (404 for non-members), security log 401/403, strict queries, no password in output. `pnpm test:e2e` (security log rows), `pnpm lint`, `pnpm typecheck`.
+
+**Security docs updated:** YES (§6, "Security check: security log and paging (Step 5.7)").
+
+**Remaining:** the security log is not exported/archived; metadata is not shown in the table (ids only in the API).
 
 ---
 

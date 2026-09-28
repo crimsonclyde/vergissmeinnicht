@@ -149,7 +149,7 @@ describe('Run lifecycle and historical immutability', () => {
       ]);
       const metadata = database.sqlite.prepare("SELECT metadata FROM audit_events WHERE type = 'RUN_COMPLETED'").get() as { metadata: string };
       expect(JSON.parse(metadata.metadata)).toEqual({ runRevision: 6, done: 1, skipped: 0, notApplicable: 1, pending: 1 });
-      expect((await listRuns(deps, { actor: guest, workspaceId: home.id, state: 'COMPLETED' })).map((r) => r.run.id)).toEqual([run.run.id]);
+      expect((await listRuns(deps, { actor: guest, workspaceId: home.id, state: 'COMPLETED' })).items.map((r) => r.run.id)).toEqual([run.run.id]);
     });
 
     it('is refused for GUESTs, non-members and through another Workspace', async () => {

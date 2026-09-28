@@ -3,7 +3,7 @@ import {
   api,
   ApiError,
   messageFor,
-  type HistoryEvent,
+  type HistoryPage,
   type ReasonPolicy,
   type RunDetail,
   type RunState,
@@ -335,7 +335,7 @@ function RunView(props: {
   onStep: (step: RunStep, action: StepAction) => void;
   onComplete: () => void;
   onAbort: (reason: string) => void;
-  loadHistory: () => Promise<HistoryEvent[]>;
+  loadHistory: (after?: string) => Promise<HistoryPage>;
 }) {
   const { run } = props;
   const canExecute = props.canExecute && run.state === 'ACTIVE';
@@ -479,12 +479,33 @@ export function Runs(props: {
 }) {
   const { workspaceId, openRunId, onOpen } = props;
   const [runs, setRuns] = useState<RunSummary[] | null>(null);
+  const [nextCursor, setNextCursor] = useState<string | null>(null);
   const [detail, setDetail] = useState<RunDetail | null>(null);
   const [message, setMessage] = useState<string | null>(null);
 
   const refresh = useCallback(() => {
-    api.runs(workspaceId).then(setRuns, (caught: unknown) => setMessage(messageFor(caught)));
+    api.runs(workspaceId).then(
+      (page) => {
+        setRuns(page.runs);
+        setNextCursor(page.nextCursor);
+      },
+      (caught: unknown) => setMessage(messageFor(caught)),
+    );
   }, [workspaceId]);
+  const [loadingMore, setLoadingMore] = useState(false);
+  async function loadMore() {
+    if (nextCursor === null) return;
+    setLoadingMore(true);
+    try {
+      const page = await api.runs(workspaceId, { before: nextCursor });
+      setRuns((current) => [...(current ?? []), ...page.runs]);
+      setNextCursor(page.nextCursor);
+    } catch (caught) {
+      setMessage(messageFor(caught));
+    } finally {
+      setLoadingMore(false);
+    }
+  }
   useEffect(refresh, [refresh, openRunId]);
 
   /** Canonical Run as last received from the server (never contains unconfirmed changes). */
@@ -627,7 +648,7 @@ export function Runs(props: {
               onStep={(step, action) => void changeStep(shown.id, step.id, action)}
               onComplete={() => void finish(shown, () => api.completeRun(workspaceId, shown.id))}
               onAbort={(reason) => void finish(shown, () => api.abortRun(workspaceId, shown.id, reason))}
-              loadHistory={() => api.runHistory(workspaceId, shown.id)}
+              loadHistory={(after) => api.runHistory(workspaceId, shown.id, after)}
             />
           )}
         </>
@@ -649,6 +670,11 @@ export function Runs(props: {
                 <p className="muted">{t('runs.noneActive')}</p>
               )}
               {finished.length > 0 && <RunList title={t('runs.finished')} runs={finished} onOpen={onOpen} />}
+              {nextCursor !== null && (
+                <button type="button" className="quiet" disabled={loadingMore} onClick={() => void loadMore()}>
+                  {t('runs.showOlder')}
+                </button>
+              )}
             </>
           )}
         </>

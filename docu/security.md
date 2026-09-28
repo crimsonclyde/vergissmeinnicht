@@ -166,7 +166,7 @@ Canonical shape:
 - [x] Store trusted server timestamp. (Server clock only; clients never send times.)
 - [x] Required state change + AuditEvent are one DB transaction. (Every repository mutation; tests force the audit insert to fail and assert a full rollback.)
 - [x] Normal users cannot edit/delete audit history. (No write API; history is read-only via `AuditHistory`; UPDATE/DELETE blocked by triggers for everyone.)
-- [x] `security_events` is append-only at the DB level (UPDATE/DELETE triggers abort).
+- [x] `security_events` is append-only at the DB level (UPDATE/DELETE triggers abort); readable only by ACTIVE server admins through `GET /api/admin/security-events` (5.7).
 - [x] `audit_events` (Workspace content history) is append-only at the DB level; Procedure changes and their audit event commit in one transaction with actor id, display-name snapshot and server timestamp.
 - [x] Corrections are additive rather than silent rewrites. (Undo is a new event; finished Runs are frozen; no correction workflow exists in V1.)
 - [x] Audit metadata does not contain credentials/secrets. (Titles, field names, states, counts, reasons and ids only; history responses expose display names, not user ids.)
@@ -571,4 +571,14 @@ The following choices are mandatory V1 behavior:
 **Logging review:** only deletion counts and error types.  
 **Authorization review:** no new endpoints; the CLI requires shell access with the production configuration.  
 **Open risks:** hashed limiter keys of low-entropy inputs (emails, IPv4 addresses) could be brute-forced by someone with the database file — they exist only for the window length (≤15 min) plus up to one hour until purge; single-node only.  
+**Reviewed:** 2026-09-28
+
+### Security check: security log and paging (Step 5.7)
+**Threat surface:** non-admins reading account activity (sign-ins, emails); using a cursor id from another Workspace/Run to learn about or position inside foreign data; malformed cursors; secrets leaking through event metadata.  
+**Controls added:** `listSecurityEvents` requires an ACTIVE server admin; read-only (no write path exists, table append-only); cursors are resolved inside the same scope as the list (Workspace + Run/Procedure/state filter, account filter) and otherwise rejected with one `invalid_cursor`; strict UUIDv4 query schemas; the list is authorized before the cursor is looked at; event metadata never contains secrets (§6); only display-name snapshots/system labels and subject emails are returned.  
+**Negative tests:** `packages/database/src/history-use-cases.test.ts` (foreign cursors), `packages/database/src/account-admin-use-cases.test.ts` (log authorization, filter-scoped cursors), `apps/server/src/http/run.test.ts` and `account-admin.test.ts` (401/403/404, invalid cursors).  
+**Secrets/data involved:** account emails, session ids (not tokens) and client-independent event metadata.  
+**Logging review:** no new log output.  
+**Authorization review:** in `packages/application/src/accounts` and the history/run use-cases.  
+**Open risks:** server admins see all accounts' sign-in activity (inherent to the role, documented).  
 **Reviewed:** 2026-09-28

@@ -17,6 +17,7 @@ import {
 import { roleHasCapability } from '@vergissmeinnicht/permissions';
 import { NotAuthorizedError } from '../invitations/errors.ts';
 import type { Clock } from '../ports/clock.ts';
+import type { Page } from '../ports/paging.ts';
 import type { RunChangeNotifier } from '../ports/run-changes.ts';
 import type { FinishRunResult, RunRepository } from '../ports/run-repository.ts';
 import type { WorkspaceRepository } from '../ports/workspace-repository.ts';
@@ -77,10 +78,15 @@ export async function startRun(
 
 export async function listRuns(
   deps: RunDeps,
-  input: { readonly actor: User; readonly workspaceId: WorkspaceId; readonly state?: RunState | undefined },
-): Promise<RunSummary[]> {
+  input: {
+    readonly actor: User;
+    readonly workspaceId: WorkspaceId;
+    readonly state?: RunState | undefined;
+    readonly before?: string | undefined;
+  },
+): Promise<Page<RunSummary>> {
   await authorizeWorkspace(deps, input.actor, input.workspaceId, 'run.view');
-  return deps.runs.list(input.workspaceId, { state: input.state, limit: RUN_LIST_LIMIT });
+  return deps.runs.list(input.workspaceId, { state: input.state, limit: RUN_LIST_LIMIT, before: input.before });
 }
 
 export async function getRun(

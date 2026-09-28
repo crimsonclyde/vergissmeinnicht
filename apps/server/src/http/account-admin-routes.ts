@@ -1,4 +1,4 @@
-import { listAccounts, setAccountStatus } from '@vergissmeinnicht/application';
+import { listAccounts, listSecurityEvents, setAccountStatus } from '@vergissmeinnicht/application';
 import { USER_STATUSES } from '@vergissmeinnicht/domain';
 import type { FastifyInstance, FastifyRequest } from 'fastify';
 import { z } from 'zod';
@@ -9,6 +9,7 @@ import { requireUser, type Principal } from './session.ts';
 const MINUTE_MS = 60_000;
 
 const userParams = z.strictObject({ userId: z.uuid({ version: 'v4' }) });
+const logQuery = z.strictObject({ before: z.uuid({ version: 'v4' }).optional(), userId: z.uuid({ version: 'v4' }).optional() });
 const statusBody = z
   .strictObject({
     status: z.enum(USER_STATUSES),
@@ -79,4 +80,27 @@ export async function adminAccountRoutes(app: FastifyInstance, { services }: { s
       return { status: body.status, sessionsRevoked };
     },
   );
+}
+
+/** Server-admin security log: read-only, newest first, `?before=<event id>` for the next page. */
+export async function adminSecurityEventRoutes(app: FastifyInstance, { services }: { services: AppServices }) {
+  app.addHook('preHandler', requireUser(services));
+
+  app.get('/', async (request) => {
+    const { before, userId } = parse(logQuery, request.query);
+    const page = await listSecurityEvents(services.accounts, { actor: principalOf(request).user, before, userId });
+    return {
+      events: page.items.map((entry) => ({
+        id: entry.id,
+        type: entry.type,
+        at: entry.occurredAt.toISOString(),
+        actor: entry.actorLabel,
+        subjectType: entry.subjectType,
+        subjectId: entry.subjectId,
+        subjectEmail: entry.subjectEmail,
+        metadata: entry.metadata,
+      })),
+      nextCursor: page.nextCursor,
+    };
+  });
 }

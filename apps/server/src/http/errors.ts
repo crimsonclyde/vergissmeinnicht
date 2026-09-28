@@ -1,5 +1,6 @@
 import {
   AccountStatusUnchangedError,
+  InvalidCursorError,
   SoleWorkspaceManagerError,
   KnotAlreadyRevokedError,
   KnotLimitReachedError,
@@ -59,6 +60,7 @@ export function errorHandler(error: FastifyError | Error, request: FastifyReques
     return reply.code(400).send({ error: error.code, field: error.field });
   }
   if (error instanceof InvalidRequestError) return reply.code(400).send({ error: 'invalid_request' });
+  if (error instanceof InvalidCursorError) return reply.code(400).send({ error: 'invalid_cursor' });
   if (error instanceof ProcedureImportError) return reply.code(400).send({ error: error.code });
   if (error instanceof NotAuthorizedError) return reply.code(403).send({ error: 'forbidden' });
   if (error instanceof InvalidInvitationError) return reply.code(404).send({ error: 'invalid_invitation' });

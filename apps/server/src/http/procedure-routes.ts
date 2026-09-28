@@ -17,7 +17,7 @@ import type { FastifyInstance, FastifyRequest } from 'fastify';
 import { z } from 'zod';
 import type { AppServices } from '../composition.ts';
 import { InvalidRequestError } from './errors.ts';
-import { auditEventView } from './history-view.ts';
+import { auditEventView, historyQuery } from './history-view.ts';
 import { requireUser, type Principal } from './session.ts';
 
 // Lower-case UUIDv4 only, like the domain parsers: one canonical spelling per id.
@@ -154,12 +154,14 @@ export async function procedureRoutes(app: FastifyInstance, { services }: { serv
 
   app.get('/:procedureId/history', async (request) => {
     const { workspaceId, procedureId } = parse(procedureParams, request.params);
-    const events = await getProcedureHistory(services.history, {
+    const { after } = parse(historyQuery, request.query);
+    const page = await getProcedureHistory(services.history, {
       actor: principalOf(request).user,
       workspaceId: workspaceId as WorkspaceId,
       procedureId: procedureId as ProcedureId,
+      after,
     });
-    return { events: events.map(auditEventView) };
+    return { events: page.items.map(auditEventView), nextCursor: page.nextCursor };
   });
 
   app.get('/:procedureId/export', async (request) => {

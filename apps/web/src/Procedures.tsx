@@ -250,7 +250,7 @@ export function Procedures(props: {
             )}
           </details>
           <div className="card">
-            <History key={`${shown.id}-${shown.revision}`} label={t('procedure.historyLabel')} load={() => api.procedureHistory(workspaceId, shown.id)} />
+            <History key={`${shown.id}-${shown.revision}`} label={t('procedure.historyLabel')} load={(after) => api.procedureHistory(workspaceId, shown.id, after)} />
           </div>
         </article>
       )}

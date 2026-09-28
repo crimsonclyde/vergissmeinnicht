@@ -147,6 +147,24 @@ export interface HistoryEvent {
   readonly metadata: Readonly<Record<string, string | number | boolean | readonly string[]>>;
 }
 
+/** One page of a list; pass `nextCursor` back to load the following page (null = last page). */
+export interface HistoryPage {
+  readonly events: HistoryEvent[];
+  readonly nextCursor: string | null;
+}
+
+export interface SecurityLogEntry {
+  readonly id: string;
+  readonly type: string;
+  readonly at: string;
+  /** Display-name snapshot or system channel (e.g. `anonymous`, `cli:admin-recover`). */
+  readonly actor: string;
+  readonly subjectType: string;
+  readonly subjectId: string;
+  readonly subjectEmail: string | null;
+  readonly metadata: Readonly<Record<string, string | number | boolean>>;
+}
+
 export type KnotTargetType = 'PROCEDURE' | 'RUN';
 
 export interface KnotInfo {
@@ -208,6 +226,8 @@ export class ApiError extends Error {
   }
 }
 
+const afterQuery = (after: string | undefined) => (after === undefined ? '' : `?after=${encodeURIComponent(after)}`);
+
 async function request<T>(method: 'GET' | 'POST', path: string, body?: unknown): Promise<T> {
   const response = await fetch(`/api${path}`, {
     method,
@@ -265,6 +285,13 @@ export const api = {
     password: string;
     code?: string;
   }) => request<{ recovery: { expiresAt: string }; delivery: 'sent' | 'failed' }>('POST', '/admin/recoveries', input),
+  securityLog: (page: { before?: string; userId?: string } = {}) => {
+    const query = new URLSearchParams();
+    if (page.before !== undefined) query.set('before', page.before);
+    if (page.userId !== undefined) query.set('userId', page.userId);
+    const suffix = query.size === 0 ? '' : `?${query.toString()}`;
+    return request<{ events: SecurityLogEntry[]; nextCursor: string | null }>('GET', `/admin/security-events${suffix}`);
+  },
   accounts: async () => (await request<{ accounts: AccountInfo[] }>('GET', '/admin/accounts')).accounts,
   setAccountStatus: (userId: string, input: { status: AccountInfo['status']; password: string; code?: string }) =>
     request<{ status: AccountInfo['status']; sessionsRevoked: number }>(
@@ -323,13 +350,14 @@ export const api = {
     ).procedure,
   deleteProcedure: (workspaceId: string, id: string) =>
     request<undefined>('POST', `/workspaces/${encodeURIComponent(workspaceId)}/procedures/${encodeURIComponent(id)}/delete`),
-  runs: async (workspaceId: string, state?: RunState) =>
-    (
-      await request<{ runs: RunSummary[] }>(
-        'GET',
-        `/workspaces/${encodeURIComponent(workspaceId)}/runs${state === undefined ? '' : `?state=${state}`}`,
-      )
-    ).runs,
+  /** Newest first; `before` = `nextCursor` of the previous page. */
+  runs: (workspaceId: string, page: { state?: RunState; before?: string } = {}) => {
+    const query = new URLSearchParams();
+    if (page.state !== undefined) query.set('state', page.state);
+    if (page.before !== undefined) query.set('before', page.before);
+    const suffix = query.size === 0 ? '' : `?${query.toString()}`;
+    return request<{ runs: RunSummary[]; nextCursor: string | null }>('GET', `/workspaces/${encodeURIComponent(workspaceId)}/runs${suffix}`);
+  },
   run: async (workspaceId: string, id: string) =>
     (await request<{ run: RunDetail }>('GET', `/workspaces/${encodeURIComponent(workspaceId)}/runs/${encodeURIComponent(id)}`)).run,
   changeStepState: (
@@ -354,20 +382,16 @@ export const api = {
         reason.trim() === '' ? {} : { reason },
       )
     ).run,
-  runHistory: async (workspaceId: string, runId: string) =>
-    (
-      await request<{ events: HistoryEvent[] }>(
-        'GET',
-        `/workspaces/${encodeURIComponent(workspaceId)}/runs/${encodeURIComponent(runId)}/history`,
-      )
-    ).events,
-  procedureHistory: async (workspaceId: string, procedureId: string) =>
-    (
-      await request<{ events: HistoryEvent[] }>(
-        'GET',
-        `/workspaces/${encodeURIComponent(workspaceId)}/procedures/${encodeURIComponent(procedureId)}/history`,
-      )
-    ).events,
+  runHistory: (workspaceId: string, runId: string, after?: string) =>
+    request<HistoryPage>(
+      'GET',
+      `/workspaces/${encodeURIComponent(workspaceId)}/runs/${encodeURIComponent(runId)}/history${afterQuery(after)}`,
+    ),
+  procedureHistory: (workspaceId: string, procedureId: string, after?: string) =>
+    request<HistoryPage>(
+      'GET',
+      `/workspaces/${encodeURIComponent(workspaceId)}/procedures/${encodeURIComponent(procedureId)}/history${afterQuery(after)}`,
+    ),
   startRun: async (workspaceId: string, procedureId: string) =>
     (await request<{ run: RunDetail }>('POST', `/workspaces/${encodeURIComponent(workspaceId)}/runs`, { procedureId })).run,
   knots: async (workspaceId: string) =>

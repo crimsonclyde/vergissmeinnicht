@@ -1,7 +1,9 @@
 import { randomUUID } from 'node:crypto';
+import { InvalidCursorError, toPage, type SecurityEventEntry, type SecurityEventReader } from '@vergissmeinnicht/application';
 import type { Actor, SecurityEventType } from '@vergissmeinnicht/domain';
+import { and, desc, eq, lt, or, sql, type SQL } from 'drizzle-orm';
 import type { AppDatabase } from './connection.ts';
-import { securityEvents } from './schema.ts';
+import { securityEvents, users } from './schema.ts';
 
 type Transaction = Parameters<Parameters<AppDatabase['db']['transaction']>[0]>[0];
 
@@ -44,3 +46,48 @@ export function createSecurityEventLog({ db }: Pick<AppDatabase, 'db'>) {
 }
 
 export type SecurityEventLog = ReturnType<typeof createSecurityEventLog>;
+
+/** Read side for server admins (Step 5.7): newest first, insertion order breaking timestamp ties. */
+export function createSecurityEventReader({ db }: Pick<AppDatabase, 'db'>): SecurityEventReader {
+  return {
+    async list(filter) {
+      return db.transaction((tx) => {
+        const scope = filter.subjectUserId === undefined ? undefined : and(eq(securityEvents.subjectType, 'user'), eq(securityEvents.subjectId, filter.subjectUserId));
+        let before: SQL | undefined;
+        if (filter.before !== undefined) {
+          const cursor = tx
+            .select({ at: securityEvents.occurredAt, rowid: sql<number>`${securityEvents}.rowid` })
+            .from(securityEvents)
+            .where(and(scope, eq(securityEvents.id, filter.before)))
+            .get();
+          if (cursor === undefined) throw new InvalidCursorError();
+          before = or(
+            lt(securityEvents.occurredAt, cursor.at),
+            and(eq(securityEvents.occurredAt, cursor.at), lt(sql`${securityEvents}.rowid`, cursor.rowid)),
+          );
+        }
+        const rows = tx
+          .select({ event: securityEvents, email: users.email })
+          .from(securityEvents)
+          .leftJoin(users, and(eq(securityEvents.subjectType, 'user'), eq(users.id, securityEvents.subjectId)))
+          .where(and(scope, before))
+          .orderBy(desc(securityEvents.occurredAt), desc(sql`${securityEvents}.rowid`))
+          .limit(filter.limit + 1)
+          .all()
+          .map(
+            ({ event, email }): SecurityEventEntry => ({
+              id: event.id,
+              type: event.type as SecurityEventType,
+              occurredAt: event.occurredAt,
+              actorLabel: event.actorLabel,
+              subjectType: event.subjectType,
+              subjectId: event.subjectId,
+              subjectEmail: email,
+              metadata: event.metadata ?? {},
+            }),
+          );
+        return toPage(rows, filter.limit, (entry) => entry.id);
+      });
+    },
+  };
+}

@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto';
-import { and, asc, eq, sql } from 'drizzle-orm';
-import type { AuditHistory } from '@vergissmeinnicht/application';
+import { and, asc, eq, gt, or, sql, type SQL } from 'drizzle-orm';
+import { InvalidCursorError, toPage, type AuditHistory, type HistoryPageRequest } from '@vergissmeinnicht/application';
 import type { AuditEvent, AuditEventType, WorkspaceId } from '@vergissmeinnicht/domain';
 import type { Transaction, UserActor } from './actor-guard.ts';
 import type { AppDatabase } from './connection.ts';
@@ -50,39 +50,51 @@ function toAuditEvent(row: typeof auditEvents.$inferSelect): AuditEvent {
   };
 }
 
+/**
+ * Oldest-first page of the events matching `scope`. The cursor is resolved within the same scope, so
+ * an event id of another Run, Procedure or Workspace is rejected rather than used as a position.
+ */
+function historyPage(tx: Pick<Transaction, 'select'>, scope: SQL | undefined, page: HistoryPageRequest) {
+  let after: SQL | undefined;
+  if (page.after !== undefined) {
+    const cursor = tx
+      .select({ at: auditEvents.occurredAt, rowid: sql<number>`rowid` })
+      .from(auditEvents)
+      .where(and(scope, eq(auditEvents.id, page.after)))
+      .get();
+    if (cursor === undefined) throw new InvalidCursorError();
+    after = or(gt(auditEvents.occurredAt, cursor.at), and(eq(auditEvents.occurredAt, cursor.at), gt(sql`rowid`, cursor.rowid)));
+  }
+  const rows = tx
+    .select()
+    .from(auditEvents)
+    .where(and(scope, after))
+    .orderBy(asc(auditEvents.occurredAt), asc(sql`rowid`))
+    .limit(page.limit + 1)
+    .all()
+    .map(toAuditEvent);
+  return toPage(rows, page.limit, (event) => event.id);
+}
+
 /** Read side of `audit_events`; always filtered by Workspace. Insertion order breaks timestamp ties. */
 export function createAuditHistory({ db }: Pick<AppDatabase, 'db'>): AuditHistory {
   return {
-    async forRun(workspaceId, runId, limit) {
+    async forRun(workspaceId, runId, page) {
       return db.transaction((tx) => {
         const run = tx.select({ id: runs.id }).from(runs).where(and(eq(runs.workspaceId, workspaceId), eq(runs.id, runId))).get();
         if (run === undefined) return undefined;
-        return tx
-          .select()
-          .from(auditEvents)
-          .where(and(eq(auditEvents.workspaceId, workspaceId), eq(auditEvents.runId, run.id)))
-          .orderBy(asc(auditEvents.occurredAt), asc(sql`rowid`))
-          .limit(limit)
-          .all()
-          .map(toAuditEvent);
+        return historyPage(tx, and(eq(auditEvents.workspaceId, workspaceId), eq(auditEvents.runId, run.id)), page);
       });
     },
 
-    async forProcedure(workspaceId, procedureId, limit) {
-      return db
-        .select()
-        .from(auditEvents)
-        .where(
-          and(
-            eq(auditEvents.workspaceId, workspaceId),
-            eq(auditEvents.subjectType, 'procedure'),
-            eq(auditEvents.subjectId, procedureId),
-          ),
-        )
-        .orderBy(asc(auditEvents.occurredAt), asc(sql`rowid`))
-        .limit(limit)
-        .all()
-        .map(toAuditEvent);
+    async forProcedure(workspaceId, procedureId, page) {
+      return db.transaction((tx) =>
+        historyPage(
+          tx,
+          and(eq(auditEvents.workspaceId, workspaceId), eq(auditEvents.subjectType, 'procedure'), eq(auditEvents.subjectId, procedureId)),
+          page,
+        ),
+      );
     },
   };
 }

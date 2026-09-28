@@ -77,4 +77,23 @@ describe('server-admin account status API', () => {
     }
     expect(last).toBe(429);
   });
+
+  it('serves the security log to server admins only, without secrets', async () => {
+    await setStatus(bobId, 'DISABLED');
+    const log = await t.get('/api/admin/security-events', t.admin);
+    expect(log.statusCode).toBe(200);
+    const body = log.json() as { events: { type: string; subjectEmail: string | null; actor: string }[]; nextCursor: string | null };
+    expect(body.events[0]).toMatchObject({ type: 'ACCOUNT_DISABLED', subjectEmail: 'bob@example.org', actor: 'Ada' });
+    expect(body.events.some((event) => event.type === 'LOGIN_SUCCEEDED')).toBe(true);
+    expect(JSON.stringify(body)).not.toContain(PASSWORD);
+    const filtered = (await t.get(`/api/admin/security-events?userId=${bobId}`, t.admin)).json() as { events: { subjectEmail: string }[] };
+    expect(new Set(filtered.events.map((event) => event.subjectEmail))).toEqual(new Set(['bob@example.org']));
+    expect((await t.get('/api/admin/security-events', bob)).statusCode).toBe(401); // Bob is disabled now
+    const carol = await t.invite('carol@example.org', 'Carol');
+    expect((await t.get('/api/admin/security-events', carol)).statusCode).toBe(403);
+    expect((await t.get('/api/admin/security-events')).statusCode).toBe(401);
+    expect((await t.get('/api/admin/security-events?before=nope', t.admin)).statusCode).toBe(400);
+    expect((await t.get('/api/admin/security-events?other=1', t.admin)).statusCode).toBe(400);
+  });
 });
+

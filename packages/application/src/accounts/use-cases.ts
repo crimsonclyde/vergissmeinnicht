@@ -4,11 +4,14 @@ import { NotAuthorizedError } from '../invitations/errors.ts';
 import { verifyStepUp, type MfaDeps, type SecondFactor } from '../mfa/use-cases.ts';
 import type { AccountAdminRepository, AccountSummary } from '../ports/account-admin-repository.ts';
 import type { Clock } from '../ports/clock.ts';
+import type { Page } from '../ports/paging.ts';
+import type { SecurityEventEntry, SecurityEventReader } from '../ports/security-event-reader.ts';
 import { UnknownAccountError } from '../recovery/errors.ts';
 import { AccountStatusUnchangedError, SoleWorkspaceManagerError } from './errors.ts';
 
 export interface AccountAdminDeps {
   readonly accounts: AccountAdminRepository;
+  readonly securityEvents: SecurityEventReader;
   /** Step-up of the acting admin. */
   readonly mfa: MfaDeps;
   readonly clock: Clock;
@@ -62,4 +65,23 @@ export async function setAccountStatus(
     case 'sole_workspace_manager':
       throw new SoleWorkspaceManagerError(result.workspaces);
   }
+}
+
+/** Events per page of the security log. */
+export const SECURITY_LOG_PAGE_SIZE = 100;
+
+/**
+ * The server-wide security log (sign-ins, MFA, recovery, invitations, account status, Workspace
+ * membership), newest first. Server admins only; read-only.
+ */
+export async function listSecurityEvents(
+  deps: AccountAdminDeps,
+  input: { readonly actor: User; readonly before?: string | undefined; readonly userId?: string | undefined },
+): Promise<Page<SecurityEventEntry>> {
+  if (!isActiveServerAdmin(input.actor)) throw new NotAuthorizedError();
+  return deps.securityEvents.list({
+    limit: SECURITY_LOG_PAGE_SIZE,
+    before: input.before,
+    subjectUserId: input.userId === undefined ? undefined : parseUserId(input.userId),
+  });
 }

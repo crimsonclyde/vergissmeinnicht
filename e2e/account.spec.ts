@@ -83,6 +83,11 @@ test('first server admin: bootstrap link, account creation, sign-in, Workspace c
   await expect(accountRows.nth(1)).toContainText('(you)');
   await expect(accountRows.nth(1)).toContainText('Active');
   await expect(accountRows.nth(1).getByRole('button')).toHaveCount(0);
+  // Security log (a snapshot when the page opens): newest first, in plain words.
+  await page.reload();
+  const log = page.getByRole('table', { name: 'Security events' });
+  await expect(log.getByRole('row').nth(1)).toContainText('Invitation revoked');
+  await expect(log.getByRole('cell', { name: 'Signed in', exact: true })).toBeVisible();
   await page.getByLabel('New Workspace name').fill('Household');
   await page.getByRole('button', { name: 'Create Workspace' }).click();
   await expect(page.getByRole('heading', { name: 'Members', level: 2 })).toBeVisible();

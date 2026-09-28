@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import {
+  InvalidCursorError,
   RunNotFoundError,
   WorkspaceNotFoundError,
   addMember,
@@ -19,7 +20,7 @@ import {
   type RunDeps,
   type WorkspaceDeps,
 } from '@vergissmeinnicht/application';
-import { normalizeEmail, type User, type Workspace } from '@vergissmeinnicht/domain';
+import { normalizeEmail, type RunId, type RunStepId, type User, type Workspace } from '@vergissmeinnicht/domain';
 import { createAuditHistory } from './audit-events.ts';
 import { createProcedureRepository } from './procedure-repository.ts';
 import { createRunRepository } from './run-repository.ts';
@@ -96,7 +97,7 @@ describe('Audit history', () => {
     await change('PENDING', 'DONE');
     await completeRun(runDeps, { actor: admin, workspaceId: home.id, runId: run.run.id });
 
-    const history = await getRunHistory(deps, { actor: guest, workspaceId: home.id, runId: run.run.id });
+    const history = (await getRunHistory(deps, { actor: guest, workspaceId: home.id, runId: run.run.id })).items;
     expect(history.map((e) => [e.type, e.actor.displayName])).toEqual([
       ['RUN_STARTED', 'Uma'],
       ['STEP_STATE_CHANGED', 'Uma'],
@@ -108,7 +109,7 @@ describe('Audit history', () => {
     expect(history[2]?.metadata).toMatchObject({ undo: true });
     expect(history.every((e) => e.occurredAt instanceof Date && e.actor.userId.length === 36)).toBe(true);
     // Only this Run's events.
-    expect((await getRunHistory(deps, { actor: guest, workspaceId: home.id, runId: other.run.id })).map((e) => e.type)).toEqual([
+    expect((await getRunHistory(deps, { actor: guest, workspaceId: home.id, runId: other.run.id })).items.map((e) => e.type)).toEqual([
       'RUN_STARTED',
     ]);
   });
@@ -118,13 +119,13 @@ describe('Audit history', () => {
     const id = created.procedure.id;
     await updateProcedure(procedureDeps, { actor: admin, workspaceId: home.id, procedureId: id, expectedRevision: 1, content: { ...PROCEDURE, title: 'Renamed' } });
     await deleteProcedure(procedureDeps, { actor: admin, workspaceId: home.id, procedureId: id });
-    expect((await getProcedureHistory(deps, { actor: guest, workspaceId: home.id, procedureId: id })).map((e) => e.type)).toEqual([
+    expect((await getProcedureHistory(deps, { actor: guest, workspaceId: home.id, procedureId: id })).items.map((e) => e.type)).toEqual([
       'PROCEDURE_CREATED',
       'PROCEDURE_UPDATED',
       'PROCEDURE_DELETED',
     ]);
     await restoreProcedure(procedureDeps, { actor: admin, workspaceId: home.id, procedureId: id });
-    const history = await getProcedureHistory(deps, { actor: member, workspaceId: home.id, procedureId: id });
+    const history = (await getProcedureHistory(deps, { actor: member, workspaceId: home.id, procedureId: id })).items;
     expect(history.at(-1)).toMatchObject({ type: 'PROCEDURE_RESTORED', actor: { displayName: 'Ada' } });
     // Sections were re-sent without ids, so they were replaced: the summary says so.
     expect(history[1]?.metadata).toMatchObject({ fields: ['title', 'structure'], revision: 2, sectionsAdded: 1, sectionsRemoved: 1 });
@@ -136,7 +137,10 @@ describe('Audit history', () => {
     const run = await startRun(runDeps, { actor: member, workspaceId: home.id, procedureId: procedure.procedure.id });
     // Uma administers Office: Home ids through Office reveal nothing.
     await expect(getRunHistory(deps, { actor: member, workspaceId: office.id, runId: run.run.id })).rejects.toThrow(RunNotFoundError);
-    expect(await getProcedureHistory(deps, { actor: member, workspaceId: office.id, procedureId: procedure.procedure.id })).toEqual([]);
+    expect(await getProcedureHistory(deps, { actor: member, workspaceId: office.id, procedureId: procedure.procedure.id })).toEqual({
+      items: [],
+      nextCursor: null,
+    });
     const outsider = await workspaceDeps.users.create({
       email: normalizeEmail('out@example.org'),
       displayName: 'Otto',
@@ -154,7 +158,60 @@ describe('Audit history', () => {
     const procedure = await createProcedure(procedureDeps, { actor: admin, workspaceId: home.id, content: PROCEDURE });
     const run = await startRun(runDeps, { actor: member, workspaceId: home.id, procedureId: procedure.procedure.id });
     database.sqlite.prepare("UPDATE users SET display_name = 'Uma Renamed' WHERE id = ?").run(member.id);
-    const history = await getRunHistory(deps, { actor: guest, workspaceId: home.id, runId: run.run.id });
+    const history = (await getRunHistory(deps, { actor: guest, workspaceId: home.id, runId: run.run.id })).items;
     expect(history[0]?.actor.displayName).toBe('Uma');
+  });
+
+  it('pages Run lists and histories with cursors scoped to the same list', async () => {
+    const procedure = await createProcedure(procedureDeps, { actor: admin, workspaceId: home.id, content: PROCEDURE });
+    const started: RunId[] = [];
+    for (let i = 0; i < 5; i += 1) {
+      started.push((await startRun(runDeps, { actor: member, workspaceId: home.id, procedureId: procedure.procedure.id })).run.id);
+    }
+    const runs = runDeps.runs;
+    const all = await runs.list(home.id, { limit: 100 });
+    expect(all.nextCursor).toBeNull();
+    const seen: string[] = [];
+    let cursor: string | undefined;
+    for (let pageNo = 0; pageNo < 5; pageNo += 1) {
+      const page = await runs.list(home.id, { limit: 2, before: cursor });
+      seen.push(...page.items.map((item) => item.run.id));
+      if (page.nextCursor === null) break;
+      cursor = page.nextCursor;
+    }
+    // Same order as one big page, nothing twice, nothing missing.
+    expect(seen).toEqual(all.items.map((item) => item.run.id));
+    expect(new Set(seen)).toEqual(new Set(started));
+
+    // A Run of another Workspace, or one not matching the state filter, is no cursor.
+    const foreign = await createProcedure(procedureDeps, { actor: admin, workspaceId: office.id, content: PROCEDURE });
+    const officeRun = await startRun(runDeps, { actor: admin, workspaceId: office.id, procedureId: foreign.procedure.id });
+    await expect(runs.list(home.id, { limit: 2, before: officeRun.run.id })).rejects.toBeInstanceOf(InvalidCursorError);
+    await expect(runs.list(home.id, { limit: 2, before: started[0], state: 'COMPLETED' })).rejects.toBeInstanceOf(InvalidCursorError);
+
+    // History: 1 start + 4 changes of one Run, pages of 2.
+    const runId = started[0] as RunId;
+    const stepId = (await runs.find(home.id, runId))?.sections[0]?.steps[0]?.id as RunStepId;
+    const change = (expectedState: 'PENDING' | 'DONE', to: 'PENDING' | 'DONE') =>
+      changeStepState(runDeps, { actor: member, workspaceId: home.id, runId, stepId, expectedState, to });
+    await change('PENDING', 'DONE');
+    await change('DONE', 'PENDING');
+    await change('PENDING', 'DONE');
+    await change('DONE', 'PENDING');
+    const history = createAuditHistory(database);
+    const full = await history.forRun(home.id, runId, { limit: 100 });
+    const first = await history.forRun(home.id, runId, { limit: 2 });
+    const second = await history.forRun(home.id, runId, { limit: 2, after: first?.nextCursor ?? undefined });
+    const third = await history.forRun(home.id, runId, { limit: 2, after: second?.nextCursor ?? undefined });
+    expect([...(first?.items ?? []), ...(second?.items ?? []), ...(third?.items ?? [])].map((event) => event.id)).toEqual(
+      full?.items.map((event) => event.id),
+    );
+    expect(third?.nextCursor).toBeNull();
+    // An event of another Run (same Workspace) or another list is rejected as a cursor.
+    const otherRunEvent = (await history.forRun(home.id, started[1] as RunId, { limit: 1 }))?.items[0]?.id;
+    await expect(history.forRun(home.id, runId, { limit: 2, after: otherRunEvent })).rejects.toBeInstanceOf(InvalidCursorError);
+    await expect(history.forProcedure(home.id, procedure.procedure.id, { limit: 2, after: first?.items[0]?.id })).rejects.toBeInstanceOf(
+      InvalidCursorError,
+    );
   });
 });

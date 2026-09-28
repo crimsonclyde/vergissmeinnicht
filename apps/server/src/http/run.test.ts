@@ -154,7 +154,7 @@ describe('Run HTTP API', () => {
 
     const procedureHistory = await t.get(`/api/workspaces/${home}/procedures/${procedureId}/history`, guest);
     expect(procedureHistory.json().events.map((e: { type: string }) => e.type)).toEqual(['PROCEDURE_CREATED']);
-    expect((await t.get(`/api/workspaces/${office}/procedures/${procedureId}/history`, outsider)).json()).toEqual({ events: [] });
+    expect((await t.get(`/api/workspaces/${office}/procedures/${procedureId}/history`, outsider)).json()).toEqual({ events: [], nextCursor: null });
   });
 
   it('validates input and preconditions', async () => {
@@ -172,4 +172,26 @@ describe('Run HTTP API', () => {
     expect(invalid.map((r) => r.statusCode)).toEqual(Array(invalid.length).fill(400));
     expect((await t.get(`${runs(home)}/${UNKNOWN_ID}`, user)).json()).toEqual({ error: 'run_not_found' });
   });
+
+  it('pages lists and histories with validated, list-scoped cursors', async () => {
+    const first = (await start(user)).json().run.id as string;
+    await start(user);
+    const listed = await t.get(`${runs(home)}?before=${first}`, guest);
+    expect(listed.statusCode).toBe(200);
+    expect(listed.json()).toEqual({ runs: [], nextCursor: null });
+    expect((await t.get(`${runs(home)}`, guest)).json().nextCursor).toBeNull();
+    expect((await t.get(`${runs(home)}?before=not-a-uuid`, guest)).statusCode).toBe(400);
+    expect((await t.get(`${runs(home)}?before=${UNKNOWN_ID}`, guest)).json()).toEqual({ error: 'invalid_cursor' });
+    expect((await t.get(`${runs(home)}?unknown=1`, guest)).statusCode).toBe(400);
+    const history = await t.get(`${runs(home)}/${first}/history`, guest);
+    const eventId = history.json().events[0].id as string;
+    expect(history.json().nextCursor).toBeNull();
+    expect((await t.get(`${runs(home)}/${first}/history?after=${eventId}`, guest)).json()).toEqual({ events: [], nextCursor: null });
+    expect((await t.get(`/api/workspaces/${home}/procedures/${procedureId}/history?after=${eventId}`, guest)).json()).toEqual({
+      error: 'invalid_cursor',
+    });
+    // The cursor does not bypass authorization.
+    expect((await t.get(`${runs(home)}/${first}/history?after=${eventId}`, outsider)).statusCode).toBe(404);
+  });
 });
+

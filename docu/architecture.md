@@ -151,7 +151,10 @@ Recovery (`packages/application/src/recovery`) mirrors invitations: an authorize
 ```text
 GET  /api/admin/accounts                         server admin: every account (email, status, TOTP on/off)
 POST /api/admin/accounts/{userId}/status         server admin + step-up { status, password, code? }
+GET  /api/admin/security-events[?before=&userId=] server admin: security log, newest first, 100 per page
 ```
+
+Lists page with keyset cursors (`{ items…, nextCursor }`): the cursor is the id of the last item and is resolved inside the same scope (Workspace, Run, Procedure, filter), so a foreign id is `400 invalid_cursor`, never a position in another list.
 
 Disabling is one transaction: status, all sessions and pending MFA challenges, pending recoveries, pending invitations the user issued, and the security events. It is refused for the admin's own account and while the user is the only ACTIVE Workspace ADMIN anywhere.
 
@@ -220,7 +223,7 @@ POST /api/workspaces/{id}/procedures/{procedureId}/update   procedure.edit + exp
 POST /api/workspaces/{id}/procedures/{procedureId}/delete   procedure.edit (soft delete)
 GET  /api/workspaces/{id}/procedures/deleted            procedure.restore
 POST /api/workspaces/{id}/procedures/{procedureId}/restore  procedure.restore, audited
-GET  /api/workspaces/{id}/procedures/{procedureId}/history  procedure.view, audit events
+GET  /api/workspaces/{id}/procedures/{procedureId}/history[?after=]  procedure.view, audit events, 500 per page
 GET  /api/workspaces/{id}/procedures/{procedureId}/export   procedure.view, canonical JSON without ids
 POST /api/workspaces/{id}/procedures/import             procedure.edit, untrusted document
 POST /api/workspaces/{id}/procedures/{procedureId}/duplicate procedure.edit, same Workspace only
@@ -229,13 +232,13 @@ POST /api/workspaces/{id}/procedures/{procedureId}/duplicate procedure.edit, sam
 Runs live under their Workspace as well:
 
 ```text
-GET  /api/workspaces/{id}/runs[?state=ACTIVE|COMPLETED|ABORTED]   run.view, newest 200 with Step counts
+GET  /api/workspaces/{id}/runs[?state=ACTIVE|COMPLETED|ABORTED][&before=]   run.view, 200 per page, newest first, with Step counts
 POST /api/workspaces/{id}/runs  { procedureId }                   run.start → snapshot
 GET  /api/workspaces/{id}/runs/{runId}                            run.view
 POST /api/workspaces/{id}/runs/{runId}/steps/{stepId}/state      run.execute { expectedState, state, reason? }
 POST /api/workspaces/{id}/runs/{runId}/complete                   run.execute, required Steps DONE or NOT_APPLICABLE
 POST /api/workspaces/{id}/runs/{runId}/abort  { reason? }         run.abort
-GET  /api/workspaces/{id}/runs/{runId}/history                    run.view, audit events of the Run
+GET  /api/workspaces/{id}/runs/{runId}/history[?after=]           run.view, audit events of the Run, 500 per page
 ```
 
 Starting a Run copies the Procedure's current definition (title, Sections, Steps with all flags and policies) into `runs` / `run_sections` / `run_steps` inside one transaction. The copy is immutable (DB triggers); Runs are never deleted; only execution state changes: Step transitions (PENDING ↔ DONE / SKIPPED / NOT_APPLICABLE) are compare-and-set on the state the client saw, validated against the snapshotted reason policies, bump the Run `revision` and are audited in the same transaction; a trigger freezes Step state once the Run is not ACTIVE. `audit_events.run_id` identifies the Run for every Run event.

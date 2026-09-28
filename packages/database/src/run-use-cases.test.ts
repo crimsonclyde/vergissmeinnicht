@@ -187,10 +187,10 @@ describe('Run start (immutable snapshot)', () => {
     const third = await start(admin);
     expect(new Set([first.run.id, second.run.id, third.run.id]).size).toBe(3);
     expect([first.run.title, second.run.title, second.run.procedureRevision]).toEqual(['Leave the house', 'Leave the flat', 2]);
-    const listed = await listRuns(deps, { actor: guest, workspaceId: home.id, state: 'ACTIVE' });
+    const listed = (await listRuns(deps, { actor: guest, workspaceId: home.id, state: 'ACTIVE' })).items;
     expect(listed.map((summary) => summary.run.id).sort()).toEqual([first.run.id, second.run.id, third.run.id].sort());
     expect(listed[0]?.stepCounts).toEqual({ PENDING: 3, DONE: 0, SKIPPED: 0, NOT_APPLICABLE: 0 });
-    expect(await listRuns(deps, { actor: guest, workspaceId: home.id, state: 'COMPLETED' })).toEqual([]);
+    expect(await listRuns(deps, { actor: guest, workspaceId: home.id, state: 'COMPLETED' })).toEqual({ items: [], nextCursor: null });
   });
 
   describe('authorization and Workspace scoping', () => {
@@ -208,7 +208,7 @@ describe('Run start (immutable snapshot)', () => {
       // Editor is in both Workspaces, but ids never cross the Workspace given in the call.
       await expect(start(editor, officeProcedure.procedure.id, home)).rejects.toThrow(ProcedureNotFoundError);
       await expect(getRun(deps, { actor: editor, workspaceId: home.id, runId: officeRun.run.id })).rejects.toThrow(RunNotFoundError);
-      expect(await listRuns(deps, { actor: editor, workspaceId: home.id })).toEqual([]);
+      expect(await listRuns(deps, { actor: editor, workspaceId: home.id })).toEqual({ items: [], nextCursor: null });
       await expect(listRuns(deps, { actor: member, workspaceId: office.id })).rejects.toThrow(WorkspaceNotFoundError);
       await expect(getRun(deps, { actor: member, workspaceId: office.id, runId: officeRun.run.id })).rejects.toThrow(WorkspaceNotFoundError);
     });
