@@ -30,6 +30,9 @@ id_ed25519
 recovery-codes*
 totp*
 oauth-credentials*
+# …but never the source code implementing them.
+!**/src/**/totp*.ts
+!**/src/**/recovery-codes*.ts
 
 # --- Databases / runtime data ---
 .var/
