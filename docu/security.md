@@ -136,7 +136,7 @@ Canonical shape:
 - [ ] Never concatenate user input into SQL.
 - [ ] Escape output according to rendering context.
 - [x] Do not accept arbitrary HTML by default. (Procedure text is plain text; the web client renders it as text, never via `innerHTML`.)
-- [x] User-selectable icons are trusted icon keys, not arbitrary uploaded SVG/HTML. (`PROCEDURE_ICONS`, validated in the domain and by a DB CHECK.)
+- [x] User-selectable icons are trusted icon keys, not arbitrary uploaded SVG/HTML. (`PROCEDURE_ICONS`, validated in the domain; in the database every icon column references the `procedure_icons` table since migration 0019 — keys are only ever added by migrations.)
 - [ ] Apply sensible text/array/file-size limits. (Procedures: title 120, description 4000 code points, ≤10 tags × 32, ≤1000 per Workspace; ≤50 Sections, ≤200 Steps per Procedure, 1 MiB body limit on Procedure saves; coarse transport bounds in the Zod schemas. Keep extending per feature.)
 - [ ] Reject malformed UUIDs/tokens/state transitions.
 - [x] Drag/drop order input is validated, authorized, and bounded. (Reordering is client-side only; the result is saved through the 4.2 Procedure save: `procedure.edit`, ids must belong to the Procedure, ≤50 Sections / ≤200 Steps, revision check.)

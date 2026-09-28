@@ -19,6 +19,7 @@ const DYNAMIC_PREFIXES = [
   'live.',
   'appearance.',
   'icon.',
+  'iconGroup.',
   'policy.',
   'knot.target.',
   'knot.status.',

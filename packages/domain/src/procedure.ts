@@ -11,7 +11,8 @@ export type ProcedureId = string & { readonly __brand: 'ProcedureId' };
 
 /**
  * Trusted icon keys. Clients map each key to their own artwork; no user-supplied SVG, HTML, URLs
- * or uploads (docu/security.md §5).
+ * or uploads (docu/security.md §5). The database holds the same keys in `procedure_icons` (every
+ * icon column references it): a new key needs a migration that inserts it — keys are never removed.
  */
 export const PROCEDURE_ICONS = [
   'checklist',
@@ -29,6 +30,52 @@ export const PROCEDURE_ICONS = [
   'document',
   'security',
   'star',
+  // Added in 0.1.0-beta.4 (migration 0019).
+  'power',
+  'water',
+  'gas',
+  'heating',
+  'internet',
+  'wifi',
+  'lights',
+  'trash',
+  'recycling',
+  'door',
+  'window',
+  'key',
+  'plant',
+  'bed',
+  'bath',
+  'onboarding',
+  'offboarding',
+  'team',
+  'work',
+  'calendar',
+  'mail',
+  'phone',
+  'school',
+  'computer',
+  'server',
+  'backup',
+  'update',
+  'launch',
+  'medication',
+  'baby',
+  'food',
+  'coffee',
+  'fitness',
+  'fire-safety',
+  'warning',
+  'alarm',
+  'bike',
+  'weather',
+  'snow',
+  'sun',
+  'delivery',
+  'money',
+  'clock',
+  'settings',
+  'camera',
 ] as const;
 export type ProcedureIcon = (typeof PROCEDURE_ICONS)[number];
 

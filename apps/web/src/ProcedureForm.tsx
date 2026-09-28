@@ -1,7 +1,6 @@
 import { useId, useRef, useState, type DragEvent, type FormEvent } from 'react';
 import {
   messageFor,
-  PROCEDURE_ICONS,
   REASON_POLICIES,
   type ProcedureContent,
   type ProcedureIcon,
@@ -9,7 +8,7 @@ import {
   type SectionInput,
   type StepInput,
 } from './api.ts';
-import { ICON_GLYPHS, iconLabel } from './procedure-icons.tsx';
+import { IconPicker } from './IconPicker.tsx';
 import { moveItem, moveStep, type StepPosition } from './structure-moves.ts';
 import { t } from './i18n/index.ts';
 
@@ -85,28 +84,6 @@ function splitTags(value: string): string[] {
     .filter((tag) => tag !== '');
 }
 
-// Explicit label association: a label wrapping a <select> would add the selected option to its name.
-function IconSelect(props: { label: string; value: ProcedureIcon | null; allowNone: boolean; onChange: (icon: ProcedureIcon | null) => void }) {
-  const id = useId();
-  return (
-    <>
-      <label htmlFor={id}>{props.label}</label>{' '}
-      <select
-        id={id}
-        value={props.value ?? ''}
-        onChange={(e) => props.onChange(e.target.value === '' ? null : (e.target.value as ProcedureIcon))}
-      >
-        {props.allowNone && <option value="">{t('icon.none')}</option>}
-        {PROCEDURE_ICONS.map((key) => (
-          <option key={key} value={key}>
-            {ICON_GLYPHS[key]} {iconLabel(key)}
-          </option>
-        ))}
-      </select>
-    </>
-  );
-}
-
 function PolicySelect(props: { label: string; value: ReasonPolicy; onChange: (policy: ReasonPolicy) => void }) {
   const id = useId();
   return (
@@ -179,7 +156,7 @@ function StepEditor(props: {
       <details className="more-actions">
         <summary>{t('form.moreOptions')}</summary>
         <p>
-          <IconSelect label={t('form.stepIcon', { number })} value={step.icon} allowNone onChange={(icon) => set({ icon })} />
+          <IconPicker label={t('form.stepIcon', { number })} value={step.icon} allowNone onChange={(icon) => set({ icon })} />
         </p>
         <p>
           <PolicySelect label={t('form.whenSkipped')} value={step.skipReasonPolicy} onChange={(skipReasonPolicy) => set({ skipReasonPolicy })} />{' '}
@@ -300,7 +277,7 @@ export function ProcedureForm(props: {
         </label>
       </p>
       <p>
-        <IconSelect label={t('form.icon')} value={icon} allowNone={false} onChange={(next) => setIcon(next ?? 'checklist')} />
+        <IconPicker label={t('form.icon')} value={icon} allowNone={false} onChange={(next) => setIcon(next ?? 'checklist')} />
       </p>
       <p>
         <label>

@@ -311,6 +311,18 @@ export const memberships = sqliteTable(
 );
 
 /**
+ * The trusted icon keys (PROCEDURE_ICONS). Every icon column references this table, so a new icon is a
+ * migration that inserts a row — no table rebuild. Keys are never removed (history keeps its icons).
+ */
+export const procedureIcons = sqliteTable(
+  'procedure_icons',
+  {
+    key: text('key').primaryKey(),
+  },
+  (table) => [check('procedure_icons_key_format', sql`${table.key} glob '[a-z]*' and length(${table.key}) between 1 and 40`)],
+);
+
+/**
  * Procedures: editable, reusable definitions. Soft-deleted only (`deleted_at`); rows are never
  * removed by the application, and future Run snapshots must not depend on them.
  */
@@ -324,8 +336,10 @@ export const procedures = sqliteTable(
     title: text('title').notNull(),
     /** Plain text; rendered as text, never as HTML. */
     description: text('description').notNull().default(''),
-    /** Trusted icon key (PROCEDURE_ICONS), never a URL or markup. */
-    icon: text('icon', { enum: PROCEDURE_ICONS }).notNull(),
+    /** Trusted icon key (PROCEDURE_ICONS, table `procedure_icons`), never a URL or markup. */
+    icon: text('icon', { enum: PROCEDURE_ICONS })
+      .notNull()
+      .references(() => procedureIcons.key),
     tags: text('tags', { mode: 'json' }).$type<string[]>().notNull().default(sql`'[]'`),
     revision: integer('revision').notNull().default(1),
     createdByUserId: text('created_by_user_id')
@@ -341,10 +355,6 @@ export const procedures = sqliteTable(
     check('procedures_id_uuid', sql`length(${table.id}) = 36`),
     check('procedures_title_present', sql`length(trim(${table.title})) > 0 and length(${table.title}) <= 120`),
     check('procedures_description_bounded', sql`length(${table.description}) <= 4000`),
-    check(
-      'procedures_icon_valid',
-      sql.raw(`icon in (${PROCEDURE_ICONS.map((icon) => `'${icon}'`).join(', ')})`),
-    ),
     check('procedures_tags_array', sql`json_valid(${table.tags}) and json_type(${table.tags}) = 'array' and json_array_length(${table.tags}) <= 10`),
     check('procedures_revision_positive', sql`${table.revision} >= 1`),
     check('procedures_deletion_consistent', sql`(${table.deletedAt} is null) = (${table.deletedByUserId} is null)`),
@@ -393,7 +403,7 @@ export const procedureSteps = sqliteTable(
     kind: text('kind', { enum: STEP_KINDS }).notNull().default('CHECK'),
     title: text('title').notNull(),
     description: text('description').notNull().default(''),
-    icon: text('icon', { enum: PROCEDURE_ICONS }),
+    icon: text('icon', { enum: PROCEDURE_ICONS }).references(() => procedureIcons.key),
     required: integer('required', { mode: 'boolean' }).notNull(),
     critical: integer('critical', { mode: 'boolean' }).notNull(),
     skipReasonPolicy: text('skip_reason_policy', { enum: REASON_POLICIES }).notNull(),
@@ -412,7 +422,6 @@ export const procedureSteps = sqliteTable(
     check('procedure_steps_kind_valid', oneOf('kind', STEP_KINDS)),
     check('procedure_steps_title_present', sql`length(trim(${table.title})) > 0 and length(${table.title}) <= 200`),
     check('procedure_steps_description_bounded', sql`length(${table.description}) <= 4000`),
-    check('procedure_steps_icon_valid', sql`icon is null or ${oneOf('icon', PROCEDURE_ICONS)}`),
     check('procedure_steps_skip_policy_valid', oneOf('skip_reason_policy', REASON_POLICIES)),
     check('procedure_steps_na_policy_valid', oneOf('not_applicable_reason_policy', REASON_POLICIES)),
   ],
@@ -436,7 +445,9 @@ export const runs = sqliteTable(
     procedureRevision: integer('procedure_revision').notNull(),
     title: text('title').notNull(),
     description: text('description').notNull(),
-    icon: text('icon', { enum: PROCEDURE_ICONS }).notNull(),
+    icon: text('icon', { enum: PROCEDURE_ICONS })
+      .notNull()
+      .references(() => procedureIcons.key),
     tags: text('tags', { mode: 'json' }).$type<string[]>().notNull(),
     state: text('state', { enum: RUN_STATES }).notNull().default('ACTIVE'),
     /** Concurrency token for later state changes (5.2 / 6.1). */
@@ -458,7 +469,6 @@ export const runs = sqliteTable(
     index('runs_procedure_idx').on(table.procedureId),
     check('runs_id_uuid', sql`length(${table.id}) = 36`),
     check('runs_state_valid', oneOf('state', RUN_STATES)),
-    check('runs_icon_valid', oneOf('icon', PROCEDURE_ICONS)),
     check('runs_title_present', sql`length(trim(${table.title})) > 0 and length(${table.title}) <= 120`),
     check('runs_tags_array', sql`json_valid(${table.tags}) and json_type(${table.tags}) = 'array'`),
     check('runs_revisions_positive', sql`${table.procedureRevision} >= 1 and ${table.revision} >= 1`),
@@ -508,7 +518,7 @@ export const runSteps = sqliteTable(
     kind: text('kind', { enum: STEP_KINDS }).notNull(),
     title: text('title').notNull(),
     description: text('description').notNull(),
-    icon: text('icon', { enum: PROCEDURE_ICONS }),
+    icon: text('icon', { enum: PROCEDURE_ICONS }).references(() => procedureIcons.key),
     required: integer('required', { mode: 'boolean' }).notNull(),
     critical: integer('critical', { mode: 'boolean' }).notNull(),
     skipReasonPolicy: text('skip_reason_policy', { enum: REASON_POLICIES }).notNull(),
@@ -536,7 +546,6 @@ export const runSteps = sqliteTable(
     index('run_steps_run_idx').on(table.runId),
     check('run_steps_id_uuid', sql`length(${table.id}) = 36`),
     check('run_steps_kind_valid', oneOf('kind', STEP_KINDS)),
-    check('run_steps_icon_valid', sql`icon is null or ${oneOf('icon', PROCEDURE_ICONS)}`),
     check('run_steps_skip_policy_valid', oneOf('skip_reason_policy', REASON_POLICIES)),
     check('run_steps_na_policy_valid', oneOf('not_applicable_reason_policy', REASON_POLICIES)),
     check('run_steps_state_valid', oneOf('state', STEP_STATES)),
