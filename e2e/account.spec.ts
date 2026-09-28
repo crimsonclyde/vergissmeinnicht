@@ -16,6 +16,8 @@ async function fromMenu(page: Page, item: 'Profile & settings' | 'Server admin' 
 test('first server admin: bootstrap link, account creation, sign-in, Workspace creation, Procedure authoring with Sections and Steps, export/import/duplicate/restore, starting, executing, completing and aborting Runs, TOTP enrollment, TOTP sign-in and operator TOTP recovery', async ({ page, browser }, testInfo) => {
   // Bootstrap works exactly once per server; the flow runs on one project only.
   test.skip(testInfo.project.name !== 'desktop-chromium', 'bootstrap is single-use per server');
+  // One long flow through the whole app (~25 s locally): give slower CI runners room.
+  test.setTimeout(180_000);
   // The strict CSP (no inline styles/scripts) must not break anything the flow touches.
   const cspViolations: string[] = [];
   page.on('console', (message) => {
