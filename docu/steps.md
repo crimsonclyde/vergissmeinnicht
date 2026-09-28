@@ -1597,6 +1597,22 @@ HTTPS, proxy trust, security headers, dependency scanning, health checks, safe s
 
 **Security docs updated:** N/A.
 
+### 12.2 Unraid installation
+**Status:** DONE
+**Completed:** 2026-09-28
+
+**Request (user, 2026-09-28):** install on Unraid.
+
+**Security impact:** LOW — an opt-in migration on start (same command, backup first); a documented platform setup with the same hardening.
+
+**Implemented:** `deploy/unraid/vergissmeinnicht.xml` (Unraid Docker template: custom network, no published port, `--init --user 99:100 --read-only --tmpfs /tmp --cap-drop ALL --security-opt no-new-privileges:true`, `appdata` paths for data and secrets, secrets via `*_FILE`, backups on); `docu/unraid.md` (folders and secrets, image from a release or `docker save | docker load` before the first release, template, Nginx Proxy Manager / SWAG incl. `access_log off` for Knot tokens, first admin from the container console, updates, backups and restore, Tailscale notes); `VMN_MIGRATE_ON_START` in the image entrypoint.
+
+**Tests/checks:** image built and run exactly like the template (99:100, read-only, no capabilities, bind mounts, `*_FILE` secrets): migration on start, ready, scheduled backup written, `admin-bootstrap` from `docker exec`, files 99:100 with 0600/0700, restart, restore command as 99:100; template XML well-formed.
+
+**Security docs updated:** YES (§11 migrations, non-root).
+
+**Remaining:** not run on a real Unraid server yet; the Tailscale variant is untested; no Community Applications listing (needs a published image first).
+
 ---
 
 ## 11 — Licensing

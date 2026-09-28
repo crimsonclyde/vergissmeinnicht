@@ -10,5 +10,6 @@ Core documents:
 - [Architecture](architecture.md)
 - [Local development](local-development.md)
 - [Deployment](deployment.md)
+- [Installing on Unraid](unraid.md)
 
 See the repository root [AGENTS.md](../AGENTS.md) for mandatory agent workflow.

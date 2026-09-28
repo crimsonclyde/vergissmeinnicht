@@ -1,0 +1,42 @@
+<?xml version="1.0"?>
+<!--
+  Unraid Docker template for VergissMeinNicht (docu/unraid.md).
+  Copy to /boot/config/plugins/dockerMan/templates-user/my-VergissMeinNicht.xml, then
+  Docker → Add Container → Template: VergissMeinNicht.
+  The app must be reached over HTTPS through a reverse proxy (Nginx Proxy Manager, SWAG, …) on the
+  same custom Docker network; it publishes no port.
+-->
+<Container version="2">
+  <Name>VergissMeinNicht</Name>
+  <Repository>ghcr.io/crimsonclyde/vergissmeinnicht:latest</Repository>
+  <Registry>https://github.com/crimsonclyde/vergissmeinnicht/pkgs/container/vergissmeinnicht</Registry>
+  <Network>proxynet</Network>
+  <MyIP/>
+  <Shell>sh</Shell>
+  <Privileged>false</Privileged>
+  <Support>https://github.com/crimsonclyde/vergissmeinnicht/issues</Support>
+  <Project>https://github.com/crimsonclyde/vergissmeinnicht</Project>
+  <Overview>Shared checklists for the routines you repeat — with a history you can trust. Invite-only, optional two-factor, works offline on phones. Needs HTTPS through your reverse proxy. Guide: docu/unraid.md in the repository.</Overview>
+  <Category>Productivity: Tools:</Category>
+  <WebUI/>
+  <Icon>https://raw.githubusercontent.com/crimsonclyde/vergissmeinnicht/main/apps/web/public/icon.svg</Icon>
+  <!-- Unraid's user/group (nobody:users), read-only root file system, no capabilities. -->
+  <ExtraParams>--init --user 99:100 --read-only --tmpfs /tmp --cap-drop ALL --security-opt no-new-privileges:true</ExtraParams>
+  <PostArgs/>
+  <Config Name="Data" Target="/data" Default="/mnt/user/appdata/vergissmeinnicht/data" Mode="rw" Description="Database, its WAL files and backups. Sensitive: keep it private (0700, owned by 99:100)." Type="Path" Display="always" Required="true" Mask="false">/mnt/user/appdata/vergissmeinnicht/data</Config>
+  <Config Name="Secrets" Target="/run/secrets" Default="/mnt/user/appdata/vergissmeinnicht/secrets" Mode="ro" Description="Folder with the files auth_secret and data_encryption_key (and smtp_password if needed)." Type="Path" Display="always" Required="true" Mask="false">/mnt/user/appdata/vergissmeinnicht/secrets</Config>
+  <Config Name="Public address" Target="PUBLIC_ORIGIN" Default="" Mode="" Description="The HTTPS address people open, e.g. https://vmn.example.org (no path, no trailing slash)." Type="Variable" Display="always" Required="true" Mask="false"/>
+  <Config Name="Trusted proxy IP" Target="TRUSTED_PROXIES" Default="" Mode="" Description="Fixed IP of your reverse proxy container on the custom network (so rate limits count real clients). Never a whole range." Type="Variable" Display="always" Required="false" Mask="false"/>
+  <Config Name="SMTP host" Target="SMTP_HOST" Default="" Mode="" Description="Mail server for invitations and account recovery." Type="Variable" Display="always" Required="true" Mask="false"/>
+  <Config Name="SMTP port" Target="SMTP_PORT" Default="587" Mode="" Description="587 for STARTTLS, 465 for TLS." Type="Variable" Display="always" Required="false" Mask="false">587</Config>
+  <Config Name="SMTP security" Target="SMTP_SECURITY" Default="starttls" Mode="" Description="starttls or tls." Type="Variable" Display="always" Required="false" Mask="false">starttls</Config>
+  <Config Name="SMTP user" Target="SMTP_USER" Default="" Mode="" Description="Leave empty if your mail server needs no login. With a user, put the password into secrets/smtp_password and set SMTP password file." Type="Variable" Display="always" Required="false" Mask="false"/>
+  <Config Name="SMTP password file" Target="SMTP_PASSWORD_FILE" Default="" Mode="" Description="/run/secrets/smtp_password when SMTP user is set, otherwise empty." Type="Variable" Display="advanced" Required="false" Mask="false"/>
+  <Config Name="Sender address" Target="MAIL_FROM_ADDRESS" Default="" Mode="" Description="From address of the emails, e.g. noreply@vmn.example.org." Type="Variable" Display="always" Required="true" Mask="false"/>
+  <Config Name="Backups every (hours)" Target="BACKUP_INTERVAL_HOURS" Default="24" Mode="" Description="Automatic verified backups into Data/backups. 0 = off." Type="Variable" Display="always" Required="false" Mask="false">24</Config>
+  <Config Name="Backups to keep" Target="BACKUP_KEEP" Default="14" Mode="" Description="Newest automatic backups kept." Type="Variable" Display="advanced" Required="false" Mask="false">14</Config>
+  <Config Name="Migrate on start" Target="VMN_MIGRATE_ON_START" Default="true" Mode="" Description="Apply database updates when the container starts (a backup is written first)." Type="Variable" Display="advanced" Required="false" Mask="false">true</Config>
+  <Config Name="Auth secret file" Target="AUTH_SECRET_FILE" Default="/run/secrets/auth_secret" Mode="" Description="Do not change." Type="Variable" Display="advanced" Required="true" Mask="false">/run/secrets/auth_secret</Config>
+  <Config Name="Data encryption key file" Target="DATA_ENCRYPTION_KEY_FILE" Default="/run/secrets/data_encryption_key" Mode="" Description="Do not change." Type="Variable" Display="advanced" Required="true" Mask="false">/run/secrets/data_encryption_key</Config>
+  <Config Name="Log level" Target="LOG_LEVEL" Default="info" Mode="" Description="info, warn or error." Type="Variable" Display="advanced" Required="false" Mask="false">info</Config>
+</Container>

@@ -18,6 +18,8 @@ Internet ──HTTPS──> Caddy (deploy/Caddyfile, automatic certificates, 172
 - Only Caddy's fixed address may set the client address (`TRUSTED_PROXIES=172.31.250.2`).
 - The app runs as non-root (`node`, uid 1000) with all capabilities dropped, `no-new-privileges`, a read-only root file system and `/tmp` as tmpfs; `/data` is `0700`, database and backups `0600`.
 
+**Unraid:** see [Installing on Unraid](unraid.md) (template, reverse proxy, `appdata`).
+
 ## Published images
 
 Version tags (`v1.2.3`) publish a multi-architecture image (`linux/amd64`, `linux/arm64`) to GitHub Container Registry: `ghcr.io/crimsonclyde/vergissmeinnicht:1.2.3` (also `:1.2` and `:latest`). Each architecture is built natively, smoke-tested (migrate, CLI, backup, server ready, scheduled backup) and scanned (Trivy, no fixable HIGH/CRITICAL findings) before it is pushed. The image is signed keyless with Sigstore and carries a CycloneDX SBOM attestation. Verify before use and pin the digest:
@@ -91,6 +93,7 @@ Inject configuration at runtime. The production server never reads `.env` files 
 | `TRUSTED_PROXIES` | behind a proxy | Comma-separated IPs/CIDR ranges (or `loopback`) of reverse proxies whose `X-Forwarded-For` is trusted. Empty (default): the socket address is the client. Never use broad ranges: every trusted address can claim any client address. `/0` is rejected. |
 | `HSTS_MAX_AGE` | optional | Strict-Transport-Security max-age in seconds for https origins (default one year, `0` disables; no `includeSubDomains`/`preload`). |
 | `BACKUP_INTERVAL_HOURS` | optional | Automatic backups every N hours into `/data/backups` (`0`/unset = off). See "Backups and restore". |
+| `VMN_MIGRATE_ON_START` | optional | `true`: the `serve` command first runs `migrate` (backup first if anything is pending). For platforms where a separate migrate run is impractical (Unraid). Default off. |
 | `BACKUP_KEEP` | optional | Number of automatic backups kept (default 14); manual and pre-migration backups are never deleted. |
 | `AUTH_SECRET_FILE`, `DATA_ENCRYPTION_KEY_FILE`, `SMTP_PASSWORD_FILE` | recommended | Absolute path of a file holding the secret (Docker secrets: `/run/secrets/…`); a trailing line break is ignored. Set either the variable or its `_FILE`, not both. |
 | `SOURCE_CODE_URL` | optional | `https` link to the source of the running version, shown in every page footer (AGPL-3.0 §13). Default: the upstream repository. **Set it to your own repository if you run a modified version.** |

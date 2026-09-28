@@ -251,7 +251,7 @@ Checks:
 
 ## 11. Deployment security
 
-- [x] Container runs non-root where practical. (`node`, uid 1000; `cap_drop: ALL`, `no-new-privileges`, read-only root file system, tmpfs `/tmp`; CI asserts uid 1000.)
+- [x] Container runs non-root where practical. (Also verified as `--user 99:100` with bind mounts, the Unraid template's setting, 12.2.) (`node`, uid 1000; `cap_drop: ALL`, `no-new-privileges`, read-only root file system, tmpfs `/tmp`; CI asserts uid 1000.)
 - [x] No secrets baked into image. (Runtime env/`*_FILE` Docker secrets only; `.dockerignore` excludes `.env*`, secrets and data; the image fails closed without configuration — CI check.)
 - [x] Only required port exposed. (The app publishes no port; only Caddy's 80/443.)
 - [x] Persistent writable paths are explicit. (Volume `/data` only.)
@@ -259,7 +259,7 @@ Checks:
 - [x] Do not trust spoofable forwarding headers unless proxy is trusted. (Without `TRUSTED_PROXIES` the socket address is used; tested that untrusted clients cannot change their rate-limit identity via `X-Forwarded-For`.)
 - [x] HTTPS termination documented. (deployment.md "Reverse proxy, HTTPS and rate limits".)
 - [x] Backups are protected and restorable. (§8.)
-- [x] Production migrations are controlled. (Server never migrates itself; explicit `migrate` command with automatic pre-migration backup; readiness `503 migrations_pending` until done.)
+- [x] Production migrations are controlled. (Server never migrates itself; explicit `migrate` command with automatic pre-migration backup; readiness `503 migrations_pending` until done. Opt-in `VMN_MIGRATE_ON_START=true` runs the same `migrate` command, backup included, in the entrypoint before `serve` — for Unraid, 12.2.)
 - [x] Private/Tailscale deployment does not replace app authentication. (Documented; no configuration disables authentication.)
 
 ---

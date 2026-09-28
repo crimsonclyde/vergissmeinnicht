@@ -6,7 +6,14 @@ cd /app
 command="${1:-serve}"
 [ "$#" -gt 0 ] && shift
 case "$command" in
-  serve) exec node apps/server/src/main.ts ;;
+  serve)
+    # Opt-in for platforms where a separate `migrate` run before starting is impractical (e.g. Unraid):
+    # the same command as `migrate` — backup first if anything is pending — then the server.
+    if [ "${VMN_MIGRATE_ON_START:-false}" = "true" ]; then
+      node packages/database/src/ops-cli.ts migrate
+    fi
+    exec node apps/server/src/main.ts
+    ;;
   migrate | backup | verify | restore | housekeeping) exec node packages/database/src/ops-cli.ts "$command" "$@" ;;
   admin-bootstrap) exec node apps/server/src/cli/admin-bootstrap.ts "$@" ;;
   admin-recover) exec node apps/server/src/cli/admin-recover.ts "$@" ;;
