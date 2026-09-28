@@ -67,7 +67,7 @@ docker compose up -d
 docker compose run --rm app admin-bootstrap --email you@example.org   # prints your first sign-in link
 ```
 
-On **Unraid**? Follow [Installing on Unraid](docu/unraid.md). Published releases are signed — [verify them](docu/deployment.md#published-images) before use. Turn on automatic backups with `BACKUP_INTERVAL_HOURS=24`, and keep a copy of `secrets/data_encryption_key` somewhere safe.
+On **Unraid** (with Tailscale or a reverse proxy)? Follow [Installing on Unraid](docu/unraid.md). Published releases are signed — [verify them](docu/deployment.md#published-images) before use. Turn on automatic backups with `BACKUP_INTERVAL_HOURS=24`, and keep a copy of `secrets/data_encryption_key` somewhere safe.
 
 ### 2. First steps in the app
 

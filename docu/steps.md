@@ -1601,17 +1601,20 @@ HTTPS, proxy trust, security headers, dependency scanning, health checks, safe s
 **Status:** DONE
 **Completed:** 2026-09-28
 
-**Request (user, 2026-09-28):** install on Unraid.
+**Request (user, 2026-09-28):** install on Unraid; the user runs containers with Unraid's Tailscale feature (HTTPS through Tailscale), no reverse proxy.
 
-**Security impact:** LOW — an opt-in migration on start (same command, backup first); a documented platform setup with the same hardening.
+**Security impact:** MEDIUM — the container may now start as root (required by Unraid's Tailscale integration); the entrypoint drops the application to an unprivileged user before anything else runs.
 
-**Implemented:** `deploy/unraid/vergissmeinnicht.xml` (Unraid Docker template: custom network, no published port, `--init --user 99:100 --read-only --tmpfs /tmp --cap-drop ALL --security-opt no-new-privileges:true`, `appdata` paths for data and secrets, secrets via `*_FILE`, backups on); `docu/unraid.md` (folders and secrets, image from a release or `docker save | docker load` before the first release, template, Nginx Proxy Manager / SWAG incl. `access_log off` for Knot tokens, first admin from the container console, updates, backups and restore, Tailscale notes); `VMN_MIGRATE_ON_START` in the image entrypoint.
+**Implemented:**
+- Entrypoint: if started as root, re-executes itself as `PUID:PGID` (default 1000:1000; Unraid template 99:100) via `setpriv --clear-groups --inh-caps=-all --bounding-set=-all`; `0` and non-numeric ids refused. Opt-in `VMN_MIGRATE_ON_START` (the normal `migrate`, backup first) before `serve`.
+- `deploy/unraid/vergissmeinnicht.xml`: bridge network, no published port, WebUI port 3000 for Tailscale Serve, `TRUSTED_PROXIES=loopback`, PUID/PGID 99/100, `appdata` paths for data and secrets, secrets via `*_FILE`, backups and migration on start.
+- `docu/unraid.md`: Tailscale-first guide (MagicDNS + HTTPS certificates, Serve not Funnel, public address = the container's `ts.net` name), first admin from the container console, updates, backups/restore, troubleshooting; reverse-proxy alternative with the fully hardened parameters.
 
-**Tests/checks:** image built and run exactly like the template (99:100, read-only, no capabilities, bind mounts, `*_FILE` secrets): migration on start, ready, scheduled backup written, `admin-bootstrap` from `docker exec`, files 99:100 with 0600/0700, restart, restore command as 99:100; template XML well-formed.
+**Tests/checks:** image started as root with PUID/PGID 99/100: application process uid/gid 99/100, `CapEff`/`CapBnd` 0; ready; `admin-bootstrap` via `docker exec` (as root → dropped); data files 99:100; PUID 0 / non-numeric refused (exit 2). Hardened variant (`--user 99:100 --read-only --cap-drop ALL`): migration on start, scheduled backup, restore. Standard smoke test passes. Template XML well-formed.
 
-**Security docs updated:** YES (§11 migrations, non-root).
+**Security docs updated:** YES (§11).
 
-**Remaining:** not run on a real Unraid server yet; the Tailscale variant is untested; no Community Applications listing (needs a published image first).
+**Remaining:** Unraid's Tailscale setup itself was not run here (only on Unraid); no Community Applications listing yet.
 
 ---
 

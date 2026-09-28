@@ -1,13 +1,12 @@
 # Installing on Unraid
 
-VergissMeinNicht runs on Unraid as one container. Because Unraid's own web interface normally uses ports 80/443, it runs **behind the reverse proxy you already use** (Nginx Proxy Manager or SWAG) instead of the Caddy from the Compose setup. HTTPS is required: sign-in cookies are `Secure`, and the app refuses a plain-HTTP address.
-
-Tested with the image run exactly as the template does it: user `99:100` (Unraid's `nobody:users`), read-only root file system, no capabilities, `appdata` bind mounts, secrets from files, database updates on start.
+VergissMeinNicht runs on Unraid as one ordinary container. HTTPS is required (sign-in cookies are `Secure`, and the app refuses a plain-HTTP address), and on Unraid the simplest way to get it is **Unraid's built-in Tailscale for containers with Tailscale Serve**: the app gets its own name in your tailnet, e.g. `https://vergissmeinnicht.your-tailnet.ts.net`, with a valid certificate — no reverse proxy, no open ports on your LAN. A variant with a reverse proxy is at the end.
 
 ## What you need
 
-- A domain (or subdomain), e.g. `vmn.example.org`, pointing at your Unraid server, and a reverse proxy with Let's Encrypt (Nginx Proxy Manager or SWAG) on a **custom Docker network** (below: `proxynet`).
-- An email account the server can send from (SMTP) — for invitations and account recovery.
+- Unraid 7 (Tailscale integration for containers) and a Tailscale account; in the Tailscale admin console **MagicDNS** and **HTTPS certificates** enabled (*DNS* page).
+- The devices that should use VMN in your tailnet (phones: the Tailscale app).
+- An email account the server can send from (SMTP) — for invitations and account recovery. Without it the first admin still works, but you cannot invite anyone.
 
 ## 1. Folders and secrets
 
@@ -25,45 +24,22 @@ chown -R 99:100 . && chmod 0700 data secrets && chmod 0400 secrets/*
 
 **Copy `secrets/data_encryption_key` somewhere safe outside the server** (password manager). Without it, two-factor authentication of every user stops working after a restore.
 
-If you do not have a custom network yet: `docker network create proxynet`, and put your reverse proxy container on it (Network type: `proxynet`) with a **fixed IP** (e.g. `172.18.0.2`) — you need that IP in step 3.
+## 2. Add the container
 
-## 2. The image
-
-- **When a release is published:** use `ghcr.io/crimsonclyde/vergissmeinnicht:<version>` (e.g. `0.1.0-beta.1`). Pin an exact version rather than `latest`; releases are signed — see [Deployment → Published images](deployment.md#published-images).
-- **Before the first release** (or to test your own build): build on your computer and copy it to Unraid:
-
-  ```bash
-  docker build --tag vergissmeinnicht:local .                  # in the repository
-  docker save vergissmeinnicht:local | ssh root@tower docker load
-  ```
-
-  and use `vergissmeinnicht:local` as *Repository* in the template.
-
-## 3. Add the container
-
-1. Copy the template [`deploy/unraid/vergissmeinnicht.xml`](../deploy/unraid/vergissmeinnicht.xml) to `/boot/config/plugins/dockerMan/templates-user/my-VergissMeinNicht.xml` (flash drive, share `flash` → `config/plugins/dockerMan/templates-user/`).
+1. Copy the template [`deploy/unraid/vergissmeinnicht.xml`](../deploy/unraid/vergissmeinnicht.xml) to the flash drive as `config/plugins/dockerMan/templates-user/my-VergissMeinNicht.xml` (share `flash`, or `/boot/config/plugins/dockerMan/templates-user/` in the terminal).
 2. **Docker → Add Container → Template:** *VergissMeinNicht*.
 3. Fill in:
-   - **Repository:** the image from step 2.
-   - **Network type:** `proxynet`.
-   - **Public address:** `https://vmn.example.org`
-   - **Trusted proxy IP:** the fixed IP of your reverse proxy (e.g. `172.18.0.2`). Leave empty if you have none — it still works, but all users then share one rate-limit budget.
+   - **Repository:** `ghcr.io/crimsonclyde/vergissmeinnicht:0.1.0-beta.1` (or a newer release — pin an exact version, not `latest`).
+   - **Use Tailscale:** *Yes*. **Tailscale Hostname:** `vergissmeinnicht`. **Tailscale Serve:** *Serve* (port `3000`, taken from the WebUI field). Leave *Funnel* off — that would publish the app on the internet.
+   - **Public address:** `https://vergissmeinnicht.<your-tailnet>.ts.net` — exactly the name Tailscale shows for the container.
+   - **Trusted proxy:** `loopback` (Tailscale Serve forwards from inside the container).
    - **SMTP host / port / security / user**, **Sender address**.
-   - Keep *Backups every (hours)* = `24` and *Migrate on start* = `true`.
-4. **Apply.** The log should end with `Server listening`. The container publishes no port; only the reverse proxy reaches it.
+   - Keep *Backups every (hours)* = `24`, *Migrate on start* = `true`, *Run as user/group id* = `99`/`100`.
+4. **Apply.** On the first start Unraid sets up Tailscale inside the container (you may have to approve the new machine in the Tailscale admin console). The log ends with `Server listening`.
 
-## 4. Reverse proxy
+Why the container starts as root: Unraid's Tailscale installs itself into the container at start, which needs root. The image then starts VergissMeinNicht as `99:100` (*Run as user/group id*) **with no capabilities left**; the application never runs as root, and `0` is refused.
 
-**Nginx Proxy Manager** → *Hosts → Proxy Hosts → Add*:
-
-- Domain: `vmn.example.org`; Scheme `http`; Forward hostname `VergissMeinNicht` (the container name); port `3000`.
-- *SSL*: request a Let's Encrypt certificate, **Force SSL**, **HTTP/2**, **HSTS**.
-- *Advanced* (recommended): `access_log off;` — access logs would otherwise record Knot link tokens (`/knot/…`).
-- Live updates (Server-Sent Events) work without extra settings: the app tells nginx not to buffer them.
-
-**SWAG**: copy any `*.subdomain.conf.sample` to `vergissmeinnicht.subdomain.conf`, set `server_name vmn.*;`, `set $upstream_app VergissMeinNicht;`, `set $upstream_port 3000;`, `set $upstream_proto http;`, add `access_log off;`, restart SWAG.
-
-## 5. First sign-in
+## 3. First sign-in
 
 Docker tab → *VergissMeinNicht* icon → **Console**:
 
@@ -71,27 +47,39 @@ Docker tab → *VergissMeinNicht* icon → **Console**:
 vergissmeinnicht admin-bootstrap --email you@example.org
 ```
 
-Open the printed link (valid once), choose your password — then continue with the [first steps in the README](../README.md#2-first-steps-in-the-app) and the [user guide](user-guide.md).
+Open the printed link (valid once, on a device in your tailnet), choose your password, then continue with the [first steps in the README](../README.md#2-first-steps-in-the-app) and the [user guide](user-guide.md). On phones: open the address in the browser and *Add to Home Screen* — Runs you opened keep working offline.
 
 ## Updating
 
-Change the version in *Repository* (or load a new local build) and **Apply**. With *Migrate on start* the container backs up the database, applies pending updates, then starts. Before big upgrades you can also make a backup yourself from the console: `vergissmeinnicht backup`.
+Change the version in *Repository* and **Apply**. With *Migrate on start* the container backs up the database, applies pending updates, then starts. Releases are signed — see [Deployment → Published images](deployment.md#published-images) to verify one first.
 
 ## Backups
 
 - Automatic, verified backups land in `appdata/vergissmeinnicht/data/backups` (newest 14 kept). They contain everything sensitive — copy them **encrypted** to another machine.
 - The *Appdata Backup* plugin can include the folder; it stops the container first, so the copy is consistent. Keep `secrets/data_encryption_key` **separately** from those copies.
-- Restore: stop the container, then from the Unraid terminal:
+- A backup on demand: Console → `vergissmeinnicht backup`.
+- Restore: stop the container, then in the Unraid terminal
 
   ```bash
-  docker run --rm --user 99:100 -v /mnt/user/appdata/vergissmeinnicht/data:/data <image> restore /data/backups/<file>.sqlite
+  docker run --rm --user 99:100 -v /mnt/user/appdata/vergissmeinnicht/data:/data \
+    ghcr.io/crimsonclyde/vergissmeinnicht:<version> restore /data/backups/<file>.sqlite
   ```
 
-  The replaced database is kept next to it (`….before-restore-<time>`);
-  then start the container again.
+  (the replaced database is kept next to it as `….before-restore-<time>`), then start the container again.
 
-## Only inside your home network or Tailscale?
+## Troubleshooting
 
-The app still needs HTTPS. Options: a reverse proxy with a certificate for an internal name (DNS challenge), or Tailscale (`tailscale serve` giving `https://<name>.<tailnet>.ts.net`). With Unraid's per-container Tailscale option, the container must be allowed to start as root with a writable file system — remove `--user 99:100 --read-only` from *Extra Parameters* in that case, set **Public address** to the `ts.net` address and **Trusted proxy IP** to `loopback`. This variant is not tested yet; the reverse-proxy route above is.
+- **"Sign in" does nothing / is refused:** the address in the browser must be exactly the *Public address* (same host name, `https`).
+- **Page not reachable:** is the device in your tailnet, and does the Tailscale admin console list the `vergissmeinnicht` machine? Are HTTPS certificates enabled?
+- **Invitation emails do not arrive:** check the SMTP settings and the container log; the admin page says "the email could not be sent" and offers *Send again*.
+
+## Alternative: reverse proxy instead of Tailscale
+
+With Nginx Proxy Manager or SWAG on a custom Docker network (e.g. `proxynet`): set *Use Tailscale* to *No*, *Network type* `proxynet`, *Public address* to your domain, *Trusted proxy* to the proxy's fixed IP, and harden the container further with *Extra Parameters*
+`--init --user 99:100 --read-only --tmpfs /tmp --cap-drop ALL --security-opt no-new-privileges:true`. In the proxy, forward your domain to `VergissMeinNicht:3000` with a Let's Encrypt certificate and add `access_log off;` (access logs would record Knot link tokens).
+
+## Tested
+
+The image was run as the template does it: started as root with `PUID=99`/`PGID=100` (application process as 99:100, no effective or bounding capabilities), `TRUSTED_PROXIES=loopback`, secrets from files, migration on start, scheduled backup, `admin-bootstrap` from the console, restore; and in the hardened reverse-proxy variant (`--user 99:100 --read-only --cap-drop ALL`). Unraid's Tailscale setup itself runs only on Unraid and was not part of these tests — please report anything that differs.
 
 A private network never replaces the app's own sign-in; keep two-factor authentication on for admins.

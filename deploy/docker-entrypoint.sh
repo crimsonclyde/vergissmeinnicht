@@ -2,6 +2,23 @@
 # Entry point of the VergissMeinNicht image. Every command reads the same runtime configuration
 # (environment and *_FILE secrets), so operator commands act on the same database as the server.
 set -eu
+
+# The application never runs as root. If the container is started as root — e.g. by Unraid's
+# per-container Tailscale, which needs root to set itself up — switch to PUID:PGID (default: the
+# image's `node` user, 1000:1000) with no capabilities left, then continue as that user.
+if [ "$(id -u)" = "0" ]; then
+  uid="${PUID:-1000}"
+  gid="${PGID:-1000}"
+  case "$uid:$gid" in
+    *[!0-9:]* | :* | *:) echo "PUID and PGID must be numeric user and group ids" >&2; exit 2 ;;
+  esac
+  if [ "$uid" -eq 0 ] || [ "$gid" -eq 0 ]; then
+    echo "Refusing to run the application as root (PUID/PGID 0)" >&2
+    exit 2
+  fi
+  exec setpriv --reuid="$uid" --regid="$gid" --clear-groups --inh-caps=-all --bounding-set=-all -- "$0" "$@"
+fi
+
 cd /app
 command="${1:-serve}"
 [ "$#" -gt 0 ] && shift
