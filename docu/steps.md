@@ -1628,6 +1628,20 @@ HTTPS, proxy trust, security headers, dependency scanning, health checks, safe s
 
 **Remaining:** the GHCR package is private until its visibility is set to public (GitHub → Packages → vergissmeinnicht → Package settings); first real installation on Unraid.
 
+### 12.4 Reject invisible characters in email addresses (0.1.0-beta.3)
+**Status:** DONE
+**Completed:** 2026-09-28
+
+**Found on the first Unraid install:** `admin-bootstrap` accepted an address with a U+FFFD (a mis-decoded paste in the terminal) — the admin account then could not be signed in with the typed address, and bootstrap refused to run again.
+
+**Security impact:** MEDIUM — identifier validation (look-alike accounts).
+
+**Implemented:** `INVISIBLE_OR_INVALID_CHARS` (`\p{Cc}`, `\p{Cf}`, `\p{Co}`, `\p{Cn}`, `\p{Cs}`, U+FFFD) in `normalizeEmail`, used by every path (invitations, acceptance, sign-in lookup, members, recovery, CLIs); the CLIs explain the error ("type it by hand …").
+
+**Tests/checks:** domain tests for U+FFFD, zero-width space/joiner, soft hyphen, bidi override, private use, lone surrogate, non-breaking space; CLI run with the reported address (refused, exit 1) and the typed one (accepted). `pnpm test` 601.
+
+**Security docs updated:** YES (§5).
+
 ---
 
 ## 11 — Licensing

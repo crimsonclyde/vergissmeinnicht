@@ -65,7 +65,7 @@ try {
     ].join('\n'),
   );
 } catch (error) {
-  if (error instanceof DomainValidationError) fail('Invalid email address.');
+  if (error instanceof DomainValidationError) fail('Invalid email address. Type it by hand: it must not contain spaces, invisible or unreadable characters (e.g. from copy and paste).');
   if (error instanceof UnknownAccountError || error instanceof AccountNotActiveError || error instanceof NothingToRecoverError) {
     fail(error.message);
   }

@@ -38,7 +38,7 @@ let email;
 try {
   email = normalizeEmail(values.email);
 } catch (error) {
-  if (error instanceof DomainValidationError) fail('Invalid email address.');
+  if (error instanceof DomainValidationError) fail('Invalid email address. Type it by hand: it must not contain spaces, invisible or unreadable characters (e.g. from copy and paste).');
   throw error;
 }
 

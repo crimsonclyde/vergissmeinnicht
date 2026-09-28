@@ -142,6 +142,7 @@ Canonical shape:
 - [x] Drag/drop order input is validated, authorized, and bounded. (Reordering is client-side only; the result is saved through the 4.2 Procedure save: `procedure.edit`, ids must belong to the Procedure, ≤50 Sections / ≤200 Steps, revision check.)
 
 - [x] Emails are normalized (trim, NFC, lower-case) before storage/lookup; uniqueness is enforced on the normalized value by a unique index.
+- [x] Emails with invisible or broken characters are rejected (control, format — zero-width, direction marks, soft hyphen —, private-use, unassigned, lone surrogates, U+FFFD, non-ASCII spaces): they would create look-alike accounts or addresses nobody can type (found on the first Unraid install, 0.1.0-beta.3).
 - [x] Display names reject control and bidi override/isolate characters so audit snapshots cannot be visually spoofed.
 - [x] Critical invariants (id shape, normalized email, status enum) are also enforced by DB CHECK constraints.
 - [x] Validation errors carry stable codes and never echo the rejected input.
