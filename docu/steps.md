@@ -1661,6 +1661,16 @@ HTTPS, proxy trust, security headers, dependency scanning, health checks, safe s
 
 **Security docs updated:** YES (§5 icons).
 
+### 12.6 Release 0.2.0-beta.1: scheduling, reminders, Home
+**Status:** DONE
+**Completed:** 2026-09-29
+
+**Request (user, 2026-09-29):** release the section 13 work; version chosen by the user: **0.2.0-beta.1** (minor bump: new features and migration 0020).
+
+**Implemented:** Unraid template and guide point to `ghcr.io/crimsonclyde/vergissmeinnicht:0.2.0-beta.1`; the branch goes through a pull request (full CI incl. e2e and image builds on amd64/arm64), is merged into `main`, and `main` is tagged `v0.2.0-beta.1` — the release workflow builds, smoke-tests, scans, pushes, signs and attests the image and publishes only this exact version (no `latest`).
+
+**Upgrade note for operators:** migration 0020 (new tables, one added column); `migrate` backs up first (or `VMN_MIGRATE_ON_START=true` on Unraid). Telegram is optional and configured in the app; the server then needs outgoing HTTPS to `api.telegram.org`.
+
 ---
 
 ## 13 — Remembering Procedures: scheduling, reminders, Home (accepted 2026-09-29)
