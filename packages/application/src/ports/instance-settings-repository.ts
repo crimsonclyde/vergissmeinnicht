@@ -1,12 +1,16 @@
 import type { Actor } from '@vergissmeinnicht/domain';
 
-/** Settings of this server that everyone may know (the web app reads them before sign-in). */
+/** Settings of this server; none of them is secret. */
 export interface InstanceSettings {
   /** The page footer is hidden (still in the HTML, with the `hidden` attribute). */
   readonly footerHidden: boolean;
+  /** How many recently started Procedures Home shows per person (13.13); 0 hides the section. */
+  readonly recentProceduresLimit: number;
 }
 
-export const DEFAULT_INSTANCE_SETTINGS: InstanceSettings = Object.freeze({ footerHidden: false });
+export const RECENT_PROCEDURES_LIMIT_RANGE = Object.freeze({ min: 0, max: 20 });
+
+export const DEFAULT_INSTANCE_SETTINGS: InstanceSettings = Object.freeze({ footerHidden: false, recentProceduresLimit: 5 });
 
 export interface InstanceSettingsRepository {
   get(): Promise<InstanceSettings>;

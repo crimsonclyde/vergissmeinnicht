@@ -107,7 +107,7 @@ describe('server-admin account status API', () => {
     expect((await t.get('/api/about')).json().footerHidden).toBe(false);
 
     const changed = await t.post('/api/admin/settings', { footerHidden: true }, t.admin);
-    expect(changed.json()).toEqual({ settings: { footerHidden: true } });
+    expect(changed.json()).toEqual({ settings: { footerHidden: true, recentProceduresLimit: 5 } });
     // Public, also before sign-in; the source link stays available.
     expect((await t.get('/api/about')).json()).toEqual({
       license: 'AGPL-3.0-only',
@@ -118,6 +118,19 @@ describe('server-admin account status API', () => {
     expect(log.events[0]).toMatchObject({ type: 'INSTANCE_SETTINGS_CHANGED', metadata: { footerHidden: true } });
     await t.post('/api/admin/settings', { footerHidden: false }, t.admin);
     expect((await t.get('/api/about')).json().footerHidden).toBe(false);
+  });
+
+  it('lets server admins set the Recent limit (0–20), server-side validated (13.13)', async () => {
+    const bob = await t.invite('bob@example.org', 'Bob');
+    expect((await t.get('/api/admin/settings', bob)).statusCode).toBe(403);
+    expect((await t.post('/api/admin/settings', { recentProceduresLimit: 3 }, bob)).statusCode).toBe(403);
+    for (const value of [-1, 21, 2.5, '5', null]) {
+      expect((await t.post('/api/admin/settings', { recentProceduresLimit: value }, t.admin)).statusCode).toBe(400);
+    }
+    expect((await t.post('/api/admin/settings', { recentProceduresLimit: 0 }, t.admin)).json()).toEqual({ settings: { footerHidden: false, recentProceduresLimit: 0 } });
+    expect((await t.get('/api/admin/settings', t.admin)).json()).toEqual({ settings: { footerHidden: false, recentProceduresLimit: 0 } });
+    const log = (await t.get('/api/admin/security-events', t.admin)).json() as { events: { type: string; metadata: object }[] };
+    expect(log.events[0]).toMatchObject({ type: 'INSTANCE_SETTINGS_CHANGED', metadata: { recentProceduresLimit: 0 } });
   });
 
   it('re-checks the server-admin flag when saving settings', async () => {

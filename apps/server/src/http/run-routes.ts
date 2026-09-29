@@ -24,7 +24,7 @@ import { requireUser, type Principal } from './session.ts';
 const uuid = z.string().regex(UUID_V4);
 const workspaceParams = z.strictObject({ workspaceId: uuid });
 const runParams = z.strictObject({ workspaceId: uuid, runId: uuid });
-const listQuery = z.strictObject({ state: z.enum(RUN_STATES).optional(), before: uuid.optional() });
+const listQuery = z.strictObject({ state: z.enum(RUN_STATES).optional(), procedureId: uuid.optional(), before: uuid.optional() });
 const startBody = z.strictObject({ procedureId: uuid });
 const abortBody = z.strictObject({ reason: z.string().max(4096).optional() });
 const stepParams = z.strictObject({ workspaceId: uuid, runId: uuid, stepId: uuid });
@@ -87,7 +87,7 @@ function stepView(step: RunStep) {
   };
 }
 
-const summaryView = (summary: RunSummary) => ({ ...runView(summary.run), stepCounts: summary.stepCounts });
+export const summaryView = (summary: RunSummary) => ({ ...runView(summary.run), stepCounts: summary.stepCounts });
 export const detailView = (detail: RunDetail) => ({
   ...runView(detail.run),
   sections: detail.sections.map((section) => ({ ...section, steps: section.steps.map(stepView) })),
@@ -103,8 +103,14 @@ export async function runRoutes(app: FastifyInstance, { services }: { services: 
 
   app.get('/', async (request) => {
     const { workspaceId } = parse(workspaceParams, request.params);
-    const { state, before } = parse(listQuery, request.query);
-    const page = await listRuns(deps, { actor: principalOf(request).user, workspaceId: workspaceId as WorkspaceId, state, before });
+    const { state, procedureId, before } = parse(listQuery, request.query);
+    const page = await listRuns(deps, {
+      actor: principalOf(request).user,
+      workspaceId: workspaceId as WorkspaceId,
+      state,
+      procedureId: procedureId as ProcedureId | undefined,
+      before,
+    });
     return { runs: page.items.map(summaryView), nextCursor: page.nextCursor };
   });
 

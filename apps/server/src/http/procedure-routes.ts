@@ -7,11 +7,13 @@ import {
   importProcedure,
   getDeletedProcedure,
   listDeletedProcedures,
-  listProcedures,
+  listProcedureCards,
+  pinProcedure,
   restoreProcedure,
+  unpinProcedure,
   updateProcedure,
 } from '@vergissmeinnicht/application';
-import type { ProcedureDetail } from '@vergissmeinnicht/application';
+import type { ProcedureCard, ProcedureDetail } from '@vergissmeinnicht/application';
 import { UUID_V4, type Procedure, type ProcedureId, type WorkspaceId } from '@vergissmeinnicht/domain';
 import { parseProcedureDocument, toProcedureDocument } from '@vergissmeinnicht/import-export';
 import type { FastifyInstance, FastifyRequest } from 'fastify';
@@ -85,6 +87,20 @@ function procedureView(procedure: Procedure) {
   };
 }
 
+/** A Procedure with the person's pin, its last completion, active executions and next scheduled date. */
+export function procedureCardView(card: ProcedureCard) {
+  return {
+    ...procedureView(card.procedure),
+    pinned: card.pinned,
+    lastCompletedAt: card.activity.lastCompletedAt?.toISOString() ?? null,
+    active: card.activity.active.map((run) => ({ runId: run.runId, startedBy: run.startedBy, startedAt: run.startedAt.toISOString() })),
+    nextSchedule:
+      card.nextSchedule === null
+        ? null
+        : { id: card.nextSchedule.id, date: card.nextSchedule.date, time: card.nextSchedule.time, timeZone: card.nextSchedule.timeZone },
+  };
+}
+
 function detailView(detail: ProcedureDetail) {
   return { ...procedureView(detail.procedure), sections: detail.sections };
 }
@@ -99,8 +115,21 @@ export async function procedureRoutes(app: FastifyInstance, { services }: { serv
 
   app.get('/', async (request) => {
     const { workspaceId } = parse(workspaceParams, request.params);
-    const procedures = await listProcedures(deps, { actor: principalOf(request).user, workspaceId: workspaceId as WorkspaceId });
-    return { procedures: procedures.map(procedureView) };
+    const cards = await listProcedureCards(services.home, { actor: principalOf(request).user, workspaceId: workspaceId as WorkspaceId });
+    return { procedures: cards.map(procedureCardView) };
+  });
+
+  // Personal pins (13.12): not audited, only for Procedures the person can see.
+  app.post('/:procedureId/pin', async (request, reply) => {
+    const { workspaceId, procedureId } = parse(procedureParams, request.params);
+    await pinProcedure(services.home, { actor: principalOf(request).user, workspaceId: workspaceId as WorkspaceId, procedureId: procedureId as ProcedureId });
+    return reply.code(204).send();
+  });
+
+  app.post('/:procedureId/unpin', async (request, reply) => {
+    const { workspaceId, procedureId } = parse(procedureParams, request.params);
+    await unpinProcedure(services.home, { actor: principalOf(request).user, workspaceId: workspaceId as WorkspaceId, procedureId: procedureId as ProcedureId });
+    return reply.code(204).send();
   });
 
   app.post('/', { bodyLimit: STRUCTURE_BODY_LIMIT }, async (request, reply) => {

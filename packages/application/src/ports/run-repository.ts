@@ -55,7 +55,7 @@ export interface RunRepository {
    */
   list(
     workspaceId: WorkspaceId,
-    filter: { readonly state?: RunState | undefined; readonly limit: number; readonly before?: string | undefined },
+    filter: { readonly state?: RunState | undefined; readonly procedureId?: ProcedureId | undefined; readonly limit: number; readonly before?: string | undefined },
   ): Promise<Page<RunSummary>>;
   find(workspaceId: WorkspaceId, runId: RunId): Promise<RunDetail | undefined>;
   /**

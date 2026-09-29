@@ -188,7 +188,11 @@ export function createRunRepository({ db }: Pick<AppDatabase, 'db'>): RunReposit
 
     async list(workspaceId, filter) {
       return db.transaction((tx) => {
-        const scope = and(eq(runs.workspaceId, workspaceId), filter.state === undefined ? undefined : eq(runs.state, filter.state));
+        const scope = and(
+          eq(runs.workspaceId, workspaceId),
+          filter.state === undefined ? undefined : eq(runs.state, filter.state),
+          filter.procedureId === undefined ? undefined : eq(runs.procedureId, filter.procedureId),
+        );
         let before: SQL | undefined;
         if (filter.before !== undefined) {
           const cursor = tx.select({ startedAt: runs.startedAt, id: runs.id }).from(runs).where(and(scope, eq(runs.id, filter.before))).get();

@@ -9,6 +9,7 @@ import { adminAccountRoutes, adminSecurityEventRoutes, adminSettingsRoutes } fro
 import { accountRoutes } from './http/account-routes.ts';
 import { authRoutes } from './http/auth-routes.ts';
 import { errorHandler } from './http/errors.ts';
+import { homeRoutes } from './http/home-routes.ts';
 import { adminInvitationRoutes, invitationRoutes } from './http/invitation-routes.ts';
 import { knotRoutes, workspaceKnotRoutes } from './http/knot-routes.ts';
 import { accountNotificationRoutes, adminNotificationRoutes } from './http/notification-routes.ts';
@@ -147,6 +148,7 @@ export async function buildApp(options: AppOptions = {}) {
         await api.register(procedureRoutes, { prefix: '/workspaces/:workspaceId/procedures', services });
         await api.register(runRoutes, { prefix: '/workspaces/:workspaceId/runs', services });
         await api.register(scheduleRoutes, { prefix: '/workspaces/:workspaceId/schedules', services });
+        await api.register(homeRoutes, { prefix: '/workspaces/:workspaceId/home', services });
         await api.register(workspaceKnotRoutes, { prefix: '/workspaces/:workspaceId/knots', services });
         await api.register(knotRoutes, { prefix: '/knots', services });
       }

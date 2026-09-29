@@ -113,6 +113,16 @@ describe('security properties of every route (13.2)', () => {
     }
   });
 
+  // Runs before the malformed-id sweep, whose many admin calls use up the persisted per-client limits.
+  it('keeps every server-admin route for ACTIVE server admins', async () => {
+    const adminRoutes = routes.filter((r) => r.includes(' /api/admin/'));
+    expect(adminRoutes.length).toBeGreaterThan(5);
+    for (const route of adminRoutes) {
+      const response = await call(route, plainUser, { id: homeIds.userId ?? '', userId: homeIds.userId ?? '' });
+      expect({ route, status: response.statusCode }).toEqual({ route, status: expect.toSatisfy((s: number) => s === 403 || s === 400) });
+    }
+  });
+
   it('answers non-members of a Workspace like an unknown Workspace, on every Workspace route', async () => {
     for (const route of routes.filter((r) => r.includes('/workspaces/:workspaceId'))) {
       const response = await call(route, outsider, homeIds);
@@ -140,22 +150,16 @@ describe('security properties of every route (13.2)', () => {
 
   it('rejects malformed identifiers without errors or data', async () => {
     const withParams = routes.filter((r) => r.includes('/:'));
+    let sent = 0;
     for (const route of withParams) {
       for (const name of [...route.matchAll(/:([A-Za-z]+)/g)].map((m) => m[1] as string)) {
         for (const bad of ['not-a-uuid', homeIds[name]?.toUpperCase() ?? 'X', '00000000-0000-0000-0000-000000000000']) {
+          // Stay below the global per-client limit (in memory): a fresh process every 200 requests.
+          if (sent++ % 200 === 0) await t.restart();
           const response = await call(route, owner, { ...homeIds, [name]: bad });
           expect({ route, name, bad, status: response.statusCode }).toEqual({ route, name, bad, status: expect.toSatisfy((s: number) => s === 400 || s === 404) });
         }
       }
-    }
-  });
-
-  it('keeps every server-admin route for ACTIVE server admins', async () => {
-    const adminRoutes = routes.filter((r) => r.includes(' /api/admin/'));
-    expect(adminRoutes.length).toBeGreaterThan(5);
-    for (const route of adminRoutes) {
-      const response = await call(route, plainUser, { id: homeIds.userId ?? '', userId: homeIds.userId ?? '' });
-      expect({ route, status: response.statusCode }).toEqual({ route, status: expect.toSatisfy((s: number) => s === 403 || s === 400) });
     }
   });
 });

@@ -101,11 +101,13 @@ export async function listRuns(
     readonly actor: User;
     readonly workspaceId: WorkspaceId;
     readonly state?: RunState | undefined;
+    /** Only Runs of this Procedure (e.g. its active executions, 13.18). */
+    readonly procedureId?: ProcedureId | undefined;
     readonly before?: string | undefined;
   },
 ): Promise<Page<RunSummary>> {
   await authorizeWorkspace(deps, input.actor, input.workspaceId, 'run.view');
-  return deps.runs.list(input.workspaceId, { state: input.state, limit: RUN_LIST_LIMIT, before: input.before });
+  return deps.runs.list(input.workspaceId, { state: input.state, procedureId: input.procedureId, limit: RUN_LIST_LIMIT, before: input.before });
 }
 
 export async function getRun(

@@ -9,6 +9,7 @@ import {
   type InvitationDeps,
   type KnotDeps,
   type ProcedureDeps,
+  type HomeDeps,
   type NotificationDeps,
   type ReminderDeps,
   type RunDeps,
@@ -43,6 +44,7 @@ import {
   createRateLimitCounter,
   createNotificationPreferencesRepository,
   createNotificationProviderRepository,
+  createProcedureActivityRepository,
   createReminderQueue,
   createRunRepository,
   createScheduleRepository,
@@ -93,6 +95,8 @@ export interface AppServices {
   readonly notifications: NotificationDeps;
   /** The reminder dispatcher (13.5), run by the in-process scheduler. */
   readonly reminders: ReminderDeps;
+  /** Home, Procedure cards and personal pins (13.9–13.13). */
+  readonly home: HomeDeps;
   /** In-process fan-out of committed Run changes to SSE subscribers. */
   readonly runChanges: RunChangeHub;
   /** Stream timing overrides (tests). */
@@ -185,6 +189,7 @@ export function createServices(config: AppConfig, database: AppDatabase) {
       clock: systemClock,
       publicOrigin: config.publicOrigin,
     };
+    const scheduleRepository = createScheduleRepository(database);
     const runChanges = createRunChangeHub();
     const runs: RunDeps = { workspaces: createWorkspaceRepository(database), runs: createRunRepository(database), clock: systemClock, changes: runChanges };
     const workspaceDeps: WorkspaceDeps = {
@@ -211,7 +216,16 @@ export function createServices(config: AppConfig, database: AppDatabase) {
       workspaces: workspaceDeps,
       procedures: { workspaces: workspaceDeps.workspaces, procedures: createProcedureRepository(database), clock: systemClock },
       runs,
-      schedules: { ...runs, schedules: createScheduleRepository(database), notificationPreferences },
+      schedules: { ...runs, schedules: scheduleRepository, notificationPreferences },
+      home: {
+        workspaces: runs.workspaces,
+        procedures: createProcedureRepository(database),
+        activity: createProcedureActivityRepository(database),
+        schedules: scheduleRepository,
+        runs: runs.runs,
+        settings: createInstanceSettingsRepository(database),
+        clock: systemClock,
+      },
       notifications,
       reminders,
       runChanges,

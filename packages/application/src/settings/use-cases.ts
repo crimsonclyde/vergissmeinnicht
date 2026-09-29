@@ -1,7 +1,7 @@
-import { isActiveServerAdmin, type User } from '@vergissmeinnicht/domain';
+import { DomainValidationError, isActiveServerAdmin, type User } from '@vergissmeinnicht/domain';
 import { NotAuthorizedError } from '../invitations/errors.ts';
 import type { Clock } from '../ports/clock.ts';
-import type { InstanceSettings, InstanceSettingsRepository } from '../ports/instance-settings-repository.ts';
+import { RECENT_PROCEDURES_LIMIT_RANGE, type InstanceSettings, type InstanceSettingsRepository } from '../ports/instance-settings-repository.ts';
 import { userActor } from '../user-actor.ts';
 
 export interface InstanceSettingsDeps {
@@ -14,12 +14,26 @@ export async function getInstanceSettings(deps: InstanceSettingsDeps): Promise<I
   return deps.settings.get();
 }
 
-/** Server admins change the settings of this server; audited. */
+/** All settings, for the admin page (server admins only). */
+export async function getInstanceSettingsForAdmin(deps: InstanceSettingsDeps, input: { readonly actor: User }): Promise<InstanceSettings> {
+  if (!isActiveServerAdmin(input.actor)) throw new NotAuthorizedError();
+  return deps.settings.get();
+}
+
+/**
+ * Server admins change some settings of this server; audited. The Recent limit only changes how many
+ * entries Home shows — no history is touched.
+ */
 export async function updateInstanceSettings(
   deps: InstanceSettingsDeps,
-  input: { readonly actor: User; readonly settings: InstanceSettings },
+  input: { readonly actor: User; readonly settings: Partial<InstanceSettings> },
 ): Promise<InstanceSettings> {
   if (!isActiveServerAdmin(input.actor)) throw new NotAuthorizedError();
-  if (!(await deps.settings.save(input.settings, deps.clock.now(), userActor(input.actor)))) throw new NotAuthorizedError();
+  const limit = input.settings.recentProceduresLimit;
+  if (limit !== undefined && (!Number.isInteger(limit) || limit < RECENT_PROCEDURES_LIMIT_RANGE.min || limit > RECENT_PROCEDURES_LIMIT_RANGE.max)) {
+    throw new DomainValidationError('recentProceduresLimit', 'invalid_recent_limit', 'The Recent limit is 0 to 20');
+  }
+  const next = { ...(await deps.settings.get()), ...input.settings };
+  if (!(await deps.settings.save(next, deps.clock.now(), userActor(input.actor)))) throw new NotAuthorizedError();
   return deps.settings.get();
 }
