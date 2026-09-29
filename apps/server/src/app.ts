@@ -30,6 +30,18 @@ export interface AppOptions {
   hstsMaxAge?: number | undefined;
 }
 
+export interface RouteEntry {
+  readonly method: string;
+  readonly url: string;
+}
+
+declare module 'fastify' {
+  interface FastifyInstance {
+    /** Every registered route (method + URL pattern), in registration order. */
+    readonly routeTable: readonly RouteEntry[];
+  }
+}
+
 /** Browser features the app never uses; denied so injected content cannot use them either. */
 const PERMISSIONS_POLICY = ['camera', 'microphone', 'geolocation', 'payment', 'usb', 'interest-cohort']
   .map((feature) => `${feature}=()`)
@@ -51,6 +63,13 @@ export async function buildApp(options: AppOptions = {}) {
   app.removeContentTypeParser('text/plain');
   app.setErrorHandler(errorHandler);
   app.decorateRequest('principal', null);
+  // Every registered route, so tests can prove authentication and Workspace isolation for all of
+  // them — including routes added later — instead of a hand-maintained list (13.2).
+  const routeTable: RouteEntry[] = [];
+  app.addHook('onRoute', (route) => {
+    for (const method of [route.method].flat()) if (method !== 'HEAD') routeTable.push({ method, url: route.url });
+  });
+  app.decorate('routeTable', routeTable as readonly RouteEntry[]);
 
   const services = options.services?.(app.log);
   if (services !== undefined) {

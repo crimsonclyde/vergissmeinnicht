@@ -51,6 +51,7 @@ This file is normative and must evolve with the application.
 - [x] No "remember this device" / trusted-device bypass.
 
 ### Future external login: Apple / GitHub (planned), Microsoft (possible)
+_Deferred with 2.6; these checks apply when external login is implemented (reviewed 2026-09-29: no external login code exists)._
 - [ ] Internal User UUID remains primary identity.
 - [ ] External subject/provider ID mapping is explicit.
 - [ ] No implicit account linking merely because two providers claim the same email.
@@ -72,7 +73,7 @@ This file is normative and must evolve with the application.
 - [x] Session cookie is `HttpOnly`.
 - [x] `SameSite` policy is intentional and documented. (`Strict`: the SPA only needs the cookie on same-site `fetch` calls; cross-site navigations such as email links load the public shell first.)
 - [x] Cookie Domain/Path are no broader than necessary. (No `Domain`, `Path=/`.)
-- [ ] Session rotates after login and security-sensitive privilege changes. (Login, TOTP enable/disable, password change and account recovery: yes — all sessions of the user are replaced. Account disabling deletes every session in the same transaction (2.7). Server-admin grant/removal must do the same when that flow exists.)
+- [x] Session rotates after login and security-sensitive privilege changes. (Login, TOTP enable/disable, password change and account recovery: yes — all sessions of the user are replaced. Account disabling deletes every session in the same transaction (2.7). Workspace role changes need no rotation: no role is cached in the session, every request re-reads the Membership. Reviewed 2026-09-29: no server-admin grant/removal flow exists — **when one is added it must replace the user's sessions** (review trigger).)
 - [x] Logout invalidates server-side session.
 - [x] Idle/absolute expiration policies are documented. (Idle 7 days, refreshed at most daily; absolute 30 days, enforced per request — `SESSION_POLICY` in `packages/auth`.)
 - [x] CSRF protection covers state-changing cookie-authenticated operations. (Every non-GET/HEAD/OPTIONS request needs `Origin` = `PUBLIC_ORIGIN`, missing `Origin` rejected; JSON-only bodies; `SameSite=Strict`.)
@@ -91,11 +92,11 @@ This file is normative and must evolve with the application.
 
 ## 3. Authorization and ACLs
 
-- [ ] Authorization happens server-side for every protected operation. (Workspace routes: yes — `requireUser` + `authorizeWorkspace` in every use-case. Re-check for every new route.)
+- [x] Authorization happens server-side for every protected operation. (`requireUser` + `authorizeWorkspace`/server-admin checks in every use-case. `apps/server/src/http/route-security.test.ts` checks the registered route table itself, so every new route is covered: pinned public routes, 401 without session, 404 for non-members on every Workspace route, 403 for non-admins on every `/api/admin/*` route — 13.2.)
 - [x] UI-hidden buttons are never the authorization mechanism. (The web client receives capabilities only to adapt its UI; every request is re-authorized.)
 - [x] Workspace membership checked for resource access. (`authorizeWorkspace` in `packages/application/src/workspaces/use-cases.ts` reads the Membership on every call; non-members get the same 404 as unknown ids.)
 - [x] Role/capability checked for the requested operation. (Capabilities, not role strings; mutations re-check the actor's current role and ACTIVE status inside the write transaction.)
-- [ ] Child resources cannot bypass parent Workspace checks. (Memberships, Procedures, Sections and Steps: yes — every query is scoped by the route's Workspace id plus the child id; a child id from another Workspace behaves like an unknown id; Section/Step ids in a save must already belong to that Procedure, enforced in the transaction and by a composite FK. Runs must follow the same rule — Step 5.)
+- [x] Child resources cannot bypass parent Workspace checks. (Memberships, Procedures, Sections, Steps, Runs, RunSteps, Knots: every query is scoped by the route's Workspace id plus the child id; a child id from another Workspace behaves like an unknown id; Section/Step ids in a save must already belong to that Procedure, enforced in the transaction and by a composite FK. The route-table test uses every child id of Workspace A under Workspace B → 404, nothing changes; it found and fixed Procedure history answering `200 []` instead of 404 — 13.2.)
 - [x] Object identifiers are opaque but are not treated as authorization. (UUIDv4 Workspace ids; knowing an id grants nothing.)
 - [x] Guest/User/Editor/Admin policies are centrally defined. (`packages/permissions`: one role → capability table incl. Procedure/Run capabilities (3.2), exact-matrix test; matrix documented in steps.md 3.2.)
 - [x] Cross-Workspace access has negative tests.
@@ -130,15 +131,15 @@ Canonical shape:
 
 ## 5. Input and output safety
 
-- [ ] Validate all inputs at server trust boundaries.
-- [ ] Use schema validation for API payloads.
-- [ ] Parameterize SQL / use safe query builder or ORM.
-- [ ] Never concatenate user input into SQL.
-- [ ] Escape output according to rendering context.
+- [x] Validate all inputs at server trust boundaries. (Params, query and body of every route are parsed by strict Zod schemas before use; imports by the strict import-export parser; domain parsers re-validate — reviewed 2026-09-29.)
+- [x] Use schema validation for API payloads. (`z.strictObject` everywhere: unknown fields rejected.)
+- [x] Parameterize SQL / use safe query builder or ORM. (Drizzle; `sql` templates bind interpolated values as parameters.)
+- [x] Never concatenate user input into SQL. (`sql.raw` only in schema CHECK constraints from compile-time constants; `prepare`/`exec` only with constant strings — guarded by `packages/database/src/sql-safety.test.ts`.)
+- [x] Escape output according to rendering context. (React text rendering only; no HTML sinks — guarded by `apps/server/src/http/web-output-safety.test.ts`; emails are text-only; JSON responses.)
 - [x] Do not accept arbitrary HTML by default. (Procedure text is plain text; the web client renders it as text, never via `innerHTML`.)
 - [x] User-selectable icons are trusted icon keys, not arbitrary uploaded SVG/HTML. (`PROCEDURE_ICONS`, validated in the domain; in the database every icon column references the `procedure_icons` table since migration 0019 — keys are only ever added by migrations.)
 - [ ] Apply sensible text/array/file-size limits. (Procedures: title 120, description 4000 code points, ≤10 tags × 32, ≤1000 per Workspace; ≤50 Sections, ≤200 Steps per Procedure, 1 MiB body limit on Procedure saves; coarse transport bounds in the Zod schemas. Keep extending per feature.)
-- [ ] Reject malformed UUIDs/tokens/state transitions.
+- [x] Reject malformed UUIDs/tokens/state transitions. (Lower-case UUIDv4 path/body ids; malformed, upper-case and nil ids in every path parameter → 400/404, never 5xx (route-table test); tokens length/alphabet-checked before hashing; state transitions by the domain state machine with compare-and-set.)
 - [x] Drag/drop order input is validated, authorized, and bounded. (Reordering is client-side only; the result is saved through the 4.2 Procedure save: `procedure.edit`, ids must belong to the Procedure, ≤50 Sections / ≤200 Steps, revision check.)
 
 - [x] Emails are normalized (trim, NFC, lower-case) before storage/lookup; uniqueness is enforced on the normalized value by a unique index.
@@ -241,12 +242,12 @@ Checks:
 ## 10. Dependency / supply-chain security
 
 - [x] Use lockfile.
-- [ ] Pin/review security-critical dependencies. (All versions pinned exactly; per-upgrade review is ongoing.)
+- [x] Pin/review security-critical dependencies. (All versions pinned exactly with a committed lockfile; installed versions compared with the latest releases on 2026-09-29.)
 - [x] Automated vulnerability/dependency scanning enabled.
-- [ ] Avoid abandoned auth/crypto libraries.
+- [x] Avoid abandoned auth/crypto libraries. (Reviewed 2026-09-29: better-auth, @node-rs/argon2, otpauth, nodemailer, drizzle-orm, fastify and its security plugins all released within the last two months; re-check at every upgrade.)
 - [x] Review dependency install scripts where relevant.
 - [x] CI runs tests/typecheck/lint.
-- [ ] Security-sensitive dependency upgrades receive explicit review.
+- [ ] Security-sensitive dependency upgrades receive explicit review. (Standing rule, not closable once: every Dependabot upgrade of better-auth, argon2, otpauth, nodemailer, drizzle, fastify security plugins or zod is reviewed — changelog and advisories — before merging.)
 
 ---
 
@@ -593,6 +594,7 @@ The following choices are mandatory V1 behavior:
 **Logging review:** no new log output.  
 **Authorization review:** unchanged server-side authorization for every sent change; cached capabilities only adapt the offline UI.  
 **Open risks:** a device that is never signed out keeps its last user's saved Runs readable to anyone who can use that browser profile (same as the open app itself; documented); a user can claim any plausible device time within the bounds (shown as device clock, next to the server time); browsers may evict storage (queued changes lost — the user sees them as not sent).  
+**Addendum 13.1 (2026-09-29):** sign-out never reports a blocked database deletion as done: other tabs are told first (BroadcastChannel, no secrets) and drop the account; every store is emptied in one transaction; the deletion then waits for other tabs (connections close on `versionchange`); a failure is shown to the user. Device storage is suspended between accounts. Queued changes are sent only after checking that the session belongs to the account that queued them, and the server refuses an offline change whose `userId` is not the signed-in account (`409 offline_account_mismatch`, nothing written). Tests: `apps/web/src/offline/cleanup.test.ts`, `packages/database/src/offline-step-changes.test.ts`, `apps/server/src/http/run.test.ts`, e2e second tab.  
 **Reviewed:** 2026-09-28
 
 ### Security check: image pipeline and releases (Step 10.4)

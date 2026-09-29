@@ -1661,6 +1661,105 @@ HTTPS, proxy trust, security headers, dependency scanning, health checks, safe s
 
 ---
 
+## 13 — Remembering Procedures: scheduling, reminders, Home (accepted 2026-09-29)
+
+**Request (user, 2026-09-29):** VMN exists so people do not forget repeatable procedures. Main flow: *Procedure → optionally schedule it → receive reminders → Start → execute → trustworthy history*. Not a task manager, calendar, Kanban, workflow engine or chat. MFA stays optional (the beta runs behind a VPN); the enforcement seam stays. Stack, architecture, Run snapshot model and audit trail stay unchanged. Implementation order as listed; focused commits.
+
+**Out of scope (this pass):** mandatory MFA, folders, generic tasks, calendar events, recurring schedules/cron, Kanban, comments/chat, attachments, photos, geolocation, AI, Web Push, SMS, WhatsApp, analytics, branching, queues/Redis/Kubernetes.
+
+### 13.1 Offline device data: sign-out cleanup and account binding
+**Status:** DONE
+**Completed:** 2026-09-29
+
+**Found (review of `apps/web/src/offline/store.ts`):** sign-out resolved "cleanup done" on `deleteDatabase`'s `onblocked` — while another tab held the database, the saved Runs and queue could stay on the device although the app reported them gone. Tabs share one session cookie: a second tab still showing account A could send A's queued changes after B signed in elsewhere (the server would have recorded them as B's).
+
+**Security impact:** HIGH — Workspace data at rest on shared devices; misattribution of execution history.
+
+**Implemented:**
+- `offline/cleanup.ts`: sign-out tells other tabs first, empties every VMN store in one transaction (data gone even if the file stays), then deletes the database, waiting ≤3 s for other tabs to let go. `onblocked` is never success; the result is `deleted` / `emptied` / `failed`; `failed` shows an alert on the sign-in page (close every tab, clear site data).
+- Every database connection closes itself on `versionchange`, so other tabs never block the deletion.
+- `offline/session-channel.ts` (BroadcastChannel `vmn-session`, no secrets): on `signed-out` other tabs drop the account at once (sign-in page); on `signed-in` of another account they re-check the session. Device storage is suspended from sign-out until the next account is known (late writes cannot re-create data).
+- Before sending queued changes the client checks that the current session belongs to the account that queued them; otherwise nothing is sent.
+- Server: an offline change now carries `offline.userId` (required); the use-case refuses it with `409 offline_account_mismatch` unless it is the signed-in account — before any write. The client keeps such changes for their own account ("sign in again").
+- Service worker unchanged (app shell only, never `/api`).
+
+**Tests/checks:** `apps/web/src/offline/cleanup.test.ts` (order announce → empty → delete; blocked never reported as deleted; timeout; errors; message parsing; tab reactions), queue outcome for `offline_account_mismatch`; use-case test (change queued by another account refused, nothing written, no live event); HTTP test (mismatch 409 both ways; strict body incl. missing/malformed `userId`); e2e: a second tab of the same browser shows the sign-in page after the first tab signs out and the device database is gone. `pnpm test`, `pnpm lint`, `pnpm typecheck`, `pnpm test:e2e`.
+
+**Security docs updated:** YES ("Security check: offline Run execution", addendum 13.1).
+
+**Remaining:** browsers without BroadcastChannel fall back to the per-send session check and the server-side refusal; a tab frozen by the browser receives the message when it resumes; physical-device testing still open (8.5).
+
+### 13.2 Security checklist closure
+**Status:** DONE
+**Completed:** 2026-09-29
+
+**Implemented:** every unchecked item of `security.md` reviewed against the code; ticked only with evidence:
+- `apps/server/src/http/route-security.test.ts` runs against the **registered route table** (`app.routeTable`, collected by an `onRoute` hook), so routes added later are covered automatically: pinned list of public routes; 401 without a session on every other route; non-member → 404 on every Workspace route (no content in the body); every Workspace child id (Procedure, Run, Step, Knot, member, target of `POST …/runs` / `…/knots`) used under another Workspace → 404 and nothing changes; malformed / upper-case / nil UUIDs in every path parameter → 400/404, never 5xx; every `/api/admin/*` route → 403 for non-admins.
+- **Gap found and fixed:** `GET …/procedures/{id}/history` answered `200 []` for a Procedure id of another Workspace (no data leaked — the query was Workspace-scoped — but it did not behave like an unknown id). Now `404 procedure_not_found` unless the Procedure (also soft-deleted) is in the Workspace.
+- Static guards: `packages/database/src/sql-safety.test.ts` (`sql.raw` only in schema CHECK constraints from compile-time constants; no interpolated or concatenated `prepare`/`exec`), `apps/server/src/http/web-output-safety.test.ts` (no HTML sinks in the web client).
+- Reviewed: every route parses params/query/body with strict Zod schemas (the two direct `request.body` reads are the sign-in limiter key after parsing and the strict import parser); auth/crypto libraries current and maintained (better-auth 1.7.6, @node-rs/argon2 2.2.1, otpauth 9.5.2, nodemailer 10.0.10 — 10.0.12 available, left to Dependabot review); `pnpm audit`: only the known moderate dev-only drizzle-kit/esbuild advisory.
+
+**Left open deliberately:** external-login items (deferred, 2.6), PostgreSQL migration (future), "security-sensitive upgrades receive explicit review" (standing rule, not closable once), breached-password blocklist (13.3), exception serialization for the new notification credentials (13.7).
+
+**Tests/checks:** new tests above; mutation check: without the history fix the route test fails; `pnpm test`, `pnpm lint`, `pnpm typecheck`, `pnpm audit`.
+
+**Security impact:** MEDIUM — one isolation inconsistency fixed; generic regression tests for every route.
+
+**Security docs updated:** YES (§2, §3, §5, §10).
+
+### 13.3 Common/breached-password blocklist
+**Status:** TODO
+
+### 13.4 Scheduled Procedures (domain, database, application)
+**Status:** TODO
+
+### 13.5 Reminder persistence and scheduler
+**Status:** TODO
+
+### 13.6 Email reminders
+**Status:** TODO
+
+### 13.7 Telegram provider: admin configuration and account pairing
+**Status:** TODO
+
+### 13.8 Account → Notifications
+**Status:** TODO
+
+### 13.9 Workspace Home
+**Status:** TODO
+
+### 13.10 Start directly from the Procedure list (Start now / Schedule…)
+**Status:** TODO
+
+### 13.11 Due / Upcoming / Active on Home
+**Status:** TODO
+
+### 13.12 Pinned Procedures
+**Status:** TODO
+
+### 13.13 Recent Procedures with an admin-configurable limit
+**Status:** TODO
+
+### 13.14 "Completed history" wording and navigation
+**Status:** TODO
+
+### 13.15 Procedure ⋯ menu and page-level Manage menu
+**Status:** TODO
+
+### 13.16 Calmer icon picker
+**Status:** TODO
+
+### 13.17 Focused mobile execution
+**Status:** TODO
+
+### 13.18 Warning before starting another active Run
+**Status:** TODO
+
+### 13.19 Final security, documentation and test pass
+**Status:** TODO
+
+---
+
 ## 11 — Licensing
 
 ### 11.1 AGPL-3.0

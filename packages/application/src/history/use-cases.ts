@@ -2,6 +2,7 @@ import type { AuditEvent, ProcedureId, RunId, User, WorkspaceId } from '@vergiss
 import type { AuditHistory } from '../ports/audit-history.ts';
 import type { Page } from '../ports/paging.ts';
 import type { WorkspaceRepository } from '../ports/workspace-repository.ts';
+import { ProcedureNotFoundError } from '../procedures/errors.ts';
 import { RunNotFoundError } from '../runs/errors.ts';
 import { authorizeWorkspace } from '../workspaces/use-cases.ts';
 
@@ -30,5 +31,8 @@ export async function getProcedureHistory(
   input: { readonly actor: User; readonly workspaceId: WorkspaceId; readonly procedureId: ProcedureId; readonly after?: string | undefined },
 ): Promise<Page<AuditEvent>> {
   await authorizeWorkspace(deps, input.actor, input.workspaceId, 'procedure.view');
-  return deps.history.forProcedure(input.workspaceId, input.procedureId, { limit: HISTORY_PAGE_SIZE, after: input.after });
+  // A Procedure id of another Workspace behaves like an unknown id (13.2).
+  const events = await deps.history.forProcedure(input.workspaceId, input.procedureId, { limit: HISTORY_PAGE_SIZE, after: input.after });
+  if (events === undefined) throw new ProcedureNotFoundError();
+  return events;
 }

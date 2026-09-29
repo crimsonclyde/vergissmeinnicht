@@ -14,6 +14,9 @@ export interface HistoryPageRequest {
 export interface AuditHistory {
   /** Events of one Run of this Workspace, oldest first; `undefined` if the Run is not in the Workspace. */
   forRun(workspaceId: WorkspaceId, runId: RunId, page: HistoryPageRequest): Promise<Page<AuditEvent> | undefined>;
-  /** Events of one Procedure of this Workspace (also after deletion), oldest first. */
-  forProcedure(workspaceId: WorkspaceId, procedureId: ProcedureId, page: HistoryPageRequest): Promise<Page<AuditEvent>>;
+  /**
+   * Events of one Procedure of this Workspace (also after soft deletion), oldest first; `undefined`
+   * if the Procedure is not in the Workspace.
+   */
+  forProcedure(workspaceId: WorkspaceId, procedureId: ProcedureId, page: HistoryPageRequest): Promise<Page<AuditEvent> | undefined>;
 }
