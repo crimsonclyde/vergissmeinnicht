@@ -18,10 +18,10 @@ For every completed task, add a concise completion note, tests/checks performed,
 
 ## Current state — resume here
 
-_Last updated: 2026-09-29 (13 — scheduling, reminders, Home; branch `feature/schedules-notifications-home`, stacked on `feature/more-icons`)_
+_Last updated: 2026-09-29 (0.2.0-beta.1 released from `main`; section 13 — scheduling, reminders, Home)_
 
-**Done:** 0.1, 0.2, 0.3, 1.1, 1.2, 2.1–2.5, 2.7–2.9, 3.1–3.3, 4.1–4.5, 5.1–5.7, 6.1, 6.2, 7.1, 8.0–8.11, 9.1, 10.1–10.5, 11.1, 12.1–12.5, 13.1–13.19. DEFERRED: 2.6 (external identity providers — a later step, user decision 2026-09-28).
-**Next:** review and merge `feature/more-icons` and `feature/schedules-notifications-home` (migration 0020: back up first — `migrate` does it automatically); try Telegram with a real bot (only faked in tests); beta feedback on Home/scheduling. Still open from before: GHCR package visibility, a session with a real screen reader, physical iOS/Android devices (incl. offline storage eviction). Possible next providers: ntfy/Gotify or a webhook — the webhook needs the SSRF policy in security.md first.
+**Done:** 0.1, 0.2, 0.3, 1.1, 1.2, 2.1–2.5, 2.7–2.9, 3.1–3.3, 4.1–4.5, 5.1–5.7, 6.1, 6.2, 7.1, 8.0–8.11, 9.1, 10.1–10.5, 11.1, 12.1–12.6, 13.1–13.19. DEFERRED: 2.6 (external identity providers — a later step, user decision 2026-09-28).
+**Next:** try Telegram with a real bot (only faked in tests); beta feedback on Home/scheduling. Still open from before: GHCR package visibility, a session with a real screen reader, physical iOS/Android devices (incl. offline storage eviction), and automate GitHub Release creation in the release workflow (the 0.2.0-beta.1 pre-release was created manually after the workflow). Possible next providers: ntfy/Gotify or a webhook — the webhook needs the SSRF policy in security.md first.
 
 **Decisions 2026-09-29 (user):** MFA stays optional (also for admins; the beta runs behind a VPN) with the enforcement seam kept; VMN's main flow is *Procedure → optionally schedule → reminders → Start → execute → history* — no task manager, calendar or workflow engine; Home is the Workspace landing page; email and Telegram reminders; Recent limit admin-configurable. **Made while implementing (documented in 13.x):** name *ScheduledProcedure*; reminders go to the person who scheduled; pairing needs a confirmation in VMN; polling instead of a webhook; Recent limit 0–20 (0 hides).
 
@@ -1662,17 +1662,20 @@ HTTPS, proxy trust, security headers, dependency scanning, health checks, safe s
 **Security docs updated:** YES (§5 icons).
 
 ### 12.6 Release 0.2.0-beta.1: scheduling, reminders, Home
-**Status:** IN PROGRESS
+**Status:** DONE
+**Completed:** 2026-09-29
 
 **Request (user, 2026-09-29):** release the section 13 work; version chosen by the user: **0.2.0-beta.1** (minor bump: new features and migration 0020).
 
-**Implemented so far:** Unraid template and guide point to `ghcr.io/crimsonclyde/vergissmeinnicht:0.2.0-beta.1`; PR #7 is open. Its first CI run passed the amd64 and arm64 image jobs but exposed that the new offline common-password dataset and provenance were hidden by the generic `.gitignore` `data/` rule. Narrow exceptions now include `packages/auth/data/README.md` and `common-passwords.txt.gz` in clean checkouts.
+**Implemented:** Unraid template and guide point to `ghcr.io/crimsonclyde/vergissmeinnicht:0.2.0-beta.1`. PR #7 merged into `main` at `8cf495f`; tag `v0.2.0-beta.1` points to that merge. The release workflow built, smoke-tested, scanned and pushed native amd64/arm64 images, assembled and signed the multi-architecture image, and attached its CycloneDX SBOM attestation. Published index: `sha256:a0c0dec0f9c69b22703bdcc3e0bfdcf291c07af2c7152aaecd6fd077fc64fa77` (exact version only; no `latest`). GitHub pre-release: `https://github.com/crimsonclyde/vergissmeinnicht/releases/tag/v0.2.0-beta.1`.
 
-**Checks performed:** Confirmed the CI root cause from the failed `pnpm test` log (`ENOENT` for `packages/auth/data/common-passwords.txt.gz`); affected tests 69/69; full unit/integration suite 697/697; lint; typecheck. (The full suite's loopback-based SSE/SMTP tests require network-capable execution and passed there.) The full PR CI, merge, tag and release workflow remain pending.
+The first PR CI run exposed that the new offline common-password dataset and provenance were hidden by the generic `.gitignore` `data/` rule. Narrow exceptions now include `packages/auth/data/README.md` and `common-passwords.txt.gz` in clean checkouts.
+
+**Checks performed:** Confirmed the initial CI root cause (`ENOENT` for the dataset); affected tests 69/69; local full suite 697/697, lint and typecheck; PR CI green (tests, build and e2e; amd64/arm64 image build, smoke test and Trivy); post-merge `main` CI green; release workflow green (checks; native builds, smoke tests and scans; multi-architecture manifest; SBOM; keyless signature and attestation). The published manifest was inspected directly and contains linux/amd64 and linux/arm64.
 
 **Security impact:** MEDIUM — the bundled offline breached/common-password check must be present in every source checkout and release image so password validation fails consistently rather than raising an internal error.
 
-**Remaining:** Push the fix; require PR #7 CI (tests, e2e, amd64 and arm64 images) to pass; merge into `main`; tag and push `v0.2.0-beta.1`; verify the release workflow (build, smoke test, scan, push, signing, SBOM attestation and GitHub pre-release); record the published multi-architecture image digest here.
+**Remaining:** The workflow does not currently create a GitHub Release despite earlier ledger wording; this pre-release was created manually after the successful workflow and automated creation remains a follow-up. GHCR package visibility still needs an owner-side check if public pulls fail.
 
 **Upgrade note for operators:** migration 0020 (new tables, one added column); `migrate` backs up first (or `VMN_MIGRATE_ON_START=true` on Unraid). Telegram is optional and configured in the app; the server then needs outgoing HTTPS to `api.telegram.org`.
 
