@@ -1726,7 +1726,23 @@ HTTPS, proxy trust, security headers, dependency scanning, health checks, safe s
 **Remaining:** the list is a snapshot (update procedure documented; refresh with releases); the server keeps ≈5 MB for the list after the first password change; existing passwords are not re-checked (they are checked when changed).
 
 ### 13.4 Scheduled Procedures (domain, database, application)
-**Status:** TODO
+**Status:** DONE
+**Completed:** 2026-09-29
+
+**Security impact:** MEDIUM — new Workspace-scoped resource with its own capability; no new credential.
+
+**Decisions (made here, documented):** name **ScheduledProcedure** (Procedure vocabulary; not a Run); an item is Workspace-visible (`procedure.view`), managed with the new capability `schedule.manage` (USER, EDITOR, ADMIN — like `run.start`); **reminders go to the person who scheduled it** (no Workspace-wide broadcast); a started or cancelled item is final; items are never deleted; editing the source Procedure changes what a later Start snapshots (the Run is taken from the Procedure *at Start*); a deleted source Procedure leaves the item visible as unavailable — it can be cancelled but never started, and no reminders are sent for it (13.5).
+
+**Implemented:**
+- Domain `schedule.ts`: `ScheduledProcedure`, states SCHEDULED / STARTED / CANCELLED; calendar date + optional time + IANA zone (validated with Intl, no offsets) + reminder time; reminder offsets `DAYS` 0–30 (at the reminder time) and `HOURS` 1–48 (before the due moment), ≤5, de-duplicated and ordered; DST-aware wall-clock → instant conversion without a library (gap → later, overlap → earlier, like Temporal "compatible"); due/overdue judged by the calendar date in the item's own zone; dates today … +731 days; `upcomingReminders` drops past instants and sends one reminder per instant.
+- Database (migration 0020, hand-edited): `scheduled_procedures` (CHECKs for formats/state/closing; triggers: never deleted, identity immutable, closed = final), `scheduled_reminders` (one row per instant for the recipient; cancelled — not deleted — when moved/started/cancelled; a processed instant is never stored again), plus the tables for 13.5–13.13.
+- Application `schedules/`: schedule, reschedule (revision compare-and-set), cancel, list open, get, **start** — `startRun` with `fromSchedule`: the Run snapshot and closing the item as STARTED happen in one IMMEDIATE transaction (`RUN_STARTED` metadata carries `scheduleId`); audit events `SCHEDULE_CREATED/CHANGED/CANCELLED` (subject `schedule`) — never execution evidence.
+- HTTP: `GET/POST /api/workspaces/{id}/schedules`, `GET …/{scheduleId}`, `POST …/{scheduleId}/update|cancel|start`; strict bodies; display names only.
+- Limits: ≤1000 open items per Workspace, 4 KiB bodies.
+
+**Tests/checks:** domain (11: formats, zones, reminder bounds, DST gap/overlap in Berlin and New York, day- vs hour-based reminders across DST, due by local date, past/far dates); use-cases (13: no Run on create or when the date passes, default reminder time, past reminders dropped, one per instant, server-side validation, GUEST/non-member/foreign Procedure, in-transaction guard (mutation-checked), reschedule replaces unsent reminders and never repeats a sent one, cancel, start once → normal Run + closed item, deleted Procedure → unavailable, audit rollback, DB triggers); HTTP (3) and the route-table test now covers all schedule routes. `pnpm test`, `pnpm lint`, `pnpm typecheck`.
+
+**Security docs updated:** YES ("Security check: scheduled Procedures and reminders", §3).
 
 ### 13.5 Reminder persistence and scheduler
 **Status:** TODO

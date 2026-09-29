@@ -8,6 +8,7 @@ import {
   type KnotDeps,
   type ProcedureDeps,
   type RunDeps,
+  type ScheduleDeps,
   type MfaDeps,
   type RecoveryDeps,
   type UserRepository,
@@ -36,7 +37,9 @@ import {
   createPreferencesRepository,
   createProcedureRepository,
   createRateLimitCounter,
+  createNotificationPreferencesRepository,
   createRunRepository,
+  createScheduleRepository,
   createSecurityEventLog,
   createSecurityEventReader,
   createTotpRepository,
@@ -74,6 +77,8 @@ export interface AppServices {
   readonly workspaces: WorkspaceDeps;
   readonly procedures: ProcedureDeps;
   readonly runs: RunDeps;
+  /** Scheduled Procedures (13.4); starting one needs the Run dependencies as well. */
+  readonly schedules: ScheduleDeps & RunDeps;
   readonly knots: KnotDeps;
   readonly history: HistoryDeps;
   /** In-process fan-out of committed Run changes to SSE subscribers. */
@@ -151,6 +156,7 @@ export function createServices(config: AppConfig, database: AppDatabase) {
       publicOrigin: config.publicOrigin,
     };
     const runChanges = createRunChangeHub();
+    const runs: RunDeps = { workspaces: createWorkspaceRepository(database), runs: createRunRepository(database), clock: systemClock, changes: runChanges };
     const workspaceDeps: WorkspaceDeps = {
       users: userRepository,
       workspaces: createWorkspaceRepository(database),
@@ -174,7 +180,12 @@ export function createServices(config: AppConfig, database: AppDatabase) {
       instanceSettings: { settings: createInstanceSettingsRepository(database), clock: systemClock },
       workspaces: workspaceDeps,
       procedures: { workspaces: workspaceDeps.workspaces, procedures: createProcedureRepository(database), clock: systemClock },
-      runs: { workspaces: workspaceDeps.workspaces, runs: createRunRepository(database), clock: systemClock, changes: runChanges },
+      runs,
+      schedules: {
+        ...runs,
+        schedules: createScheduleRepository(database),
+        notificationPreferences: createNotificationPreferencesRepository(database),
+      },
       runChanges,
       knots: { workspaces: workspaceDeps.workspaces, knots: createKnotRepository(database), tokens: invitationTokens, clock: systemClock },
       history: { workspaces: workspaceDeps.workspaces, history: createAuditHistory(database) },

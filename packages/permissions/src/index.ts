@@ -35,13 +35,19 @@ export const WORKSPACE_CAPABILITIES = [
   'run.abort',
   /** Create, list and revoke Knot links to Procedures and Runs of the Workspace. */
   'knot.manage',
+  /**
+   * Schedule a Procedure for a date (with reminders to oneself), reschedule or cancel scheduled
+   * items of the Workspace (13.4). Seeing scheduled items needs only `procedure.view`; starting one
+   * additionally needs `run.start`.
+   */
+  'schedule.manage',
 ] as const;
 export type WorkspaceCapability = (typeof WORKSPACE_CAPABILITIES)[number];
 
 /** Read-only: Workspace content and history, no execution. */
 const GUEST: readonly WorkspaceCapability[] = ['workspace.view', 'procedure.view', 'run.view'];
 /** Executes Runs. */
-const USER: readonly WorkspaceCapability[] = [...GUEST, 'workspace.members.view', 'run.start', 'run.execute', 'run.abort'];
+const USER: readonly WorkspaceCapability[] = [...GUEST, 'workspace.members.view', 'run.start', 'run.execute', 'run.abort', 'schedule.manage'];
 /** Authors Procedures. */
 const EDITOR: readonly WorkspaceCapability[] = [...USER, 'procedure.edit', 'procedure.restore', 'knot.manage'];
 /** Manages membership, roles and settings. */

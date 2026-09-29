@@ -14,7 +14,7 @@ describe('Workspace role policy', () => {
     const matrix = Object.fromEntries(WORKSPACE_ROLES.map((role) => [role, capabilitiesOf(role)]));
     expect(matrix).toEqual({
       GUEST: ['workspace.view', 'procedure.view', 'run.view'],
-      USER: ['workspace.view', 'workspace.members.view', 'procedure.view', 'run.view', 'run.start', 'run.execute', 'run.abort'],
+      USER: ['workspace.view', 'workspace.members.view', 'procedure.view', 'run.view', 'run.start', 'run.execute', 'run.abort', 'schedule.manage'],
       EDITOR: [
         'workspace.view',
         'workspace.members.view',
@@ -26,6 +26,7 @@ describe('Workspace role policy', () => {
         'run.execute',
         'run.abort',
         'knot.manage',
+        'schedule.manage',
       ],
       ADMIN: [...WORKSPACE_CAPABILITIES],
     });
@@ -39,7 +40,7 @@ describe('Workspace role policy', () => {
     expect(rolesWithCapability('procedure.edit')).toEqual(['EDITOR', 'ADMIN']);
     expect(rolesWithCapability('procedure.restore')).toEqual(['EDITOR', 'ADMIN']);
     expect(rolesWithCapability('knot.manage')).toEqual(['EDITOR', 'ADMIN']);
-    for (const capability of ['run.start', 'run.execute', 'run.abort'] as const) {
+    for (const capability of ['run.start', 'run.execute', 'run.abort', 'schedule.manage'] as const) {
       expect(rolesWithCapability(capability)).toEqual(['USER', 'EDITOR', 'ADMIN']);
     }
   });

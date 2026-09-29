@@ -88,7 +88,7 @@ function stepView(step: RunStep) {
 }
 
 const summaryView = (summary: RunSummary) => ({ ...runView(summary.run), stepCounts: summary.stepCounts });
-const detailView = (detail: RunDetail) => ({
+export const detailView = (detail: RunDetail) => ({
   ...runView(detail.run),
   sections: detail.sections.map((section) => ({ ...section, steps: section.steps.map(stepView) })),
 });

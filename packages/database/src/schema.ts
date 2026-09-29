@@ -10,6 +10,7 @@ import {
   PROCEDURE_ICONS,
   REASON_POLICIES,
   RUN_STATES,
+  SCHEDULE_STATES,
   STEP_KINDS,
   STEP_STATES,
   THEME_PREFERENCES,
@@ -717,10 +718,249 @@ export const instanceSettings = sqliteTable(
     id: integer('id').primaryKey(),
     /** Hide the page footer (it stays in the HTML, with the `hidden` attribute). */
     footerHidden: integer('footer_hidden', { mode: 'boolean' }).notNull().default(false),
+    /** How many recently started Procedures Home shows per user (13.13); 0 hides the section. */
+    recentProceduresLimit: integer('recent_procedures_limit').notNull().default(5),
     updatedAt: integer('updated_at', { mode: 'timestamp_ms' }).notNull(),
     updatedByUserId: text('updated_by_user_id')
       .notNull()
       .references(() => users.id),
   },
-  (table) => [check('instance_settings_single_row', sql`${table.id} = 1`)],
+  (table) => [
+    check('instance_settings_single_row', sql`${table.id} = 1`),
+    check('instance_settings_recent_limit_bounded', sql`${table.recentProceduresLimit} between 0 and 20`),
+  ],
+);
+
+/**
+ * Scheduled Procedures (13.4): the intention to perform a Procedure on a date. Not a Run — nothing is
+ * executed when the date arrives. Starting it creates a normal Run (same transaction) and sets
+ * `run_id`. Date/time are wall-clock values in `time_zone`. Rows are never deleted; the source
+ * Procedure is referenced without cascade (a deleted Procedure leaves the item, shown as unavailable).
+ */
+export const scheduledProcedures = sqliteTable(
+  'scheduled_procedures',
+  {
+    id: text('id').primaryKey(),
+    workspaceId: text('workspace_id')
+      .notNull()
+      .references(() => workspaces.id),
+    procedureId: text('procedure_id')
+      .notNull()
+      .references(() => procedures.id),
+    date: text('date').notNull(),
+    time: text('time'),
+    timeZone: text('time_zone').notNull(),
+    reminderTime: text('reminder_time').notNull(),
+    /** Normalized offsets `[{unit, amount}]`, at most 5. */
+    reminders: text('reminders', { mode: 'json' }).$type<{ unit: 'DAYS' | 'HOURS'; amount: number }[]>().notNull(),
+    state: text('state', { enum: SCHEDULE_STATES }).notNull().default('SCHEDULED'),
+    revision: integer('revision').notNull().default(1),
+    createdByUserId: text('created_by_user_id')
+      .notNull()
+      .references(() => users.id),
+    createdByDisplayName: text('created_by_display_name').notNull(),
+    createdAt: integer('created_at', { mode: 'timestamp_ms' }).notNull(),
+    updatedAt: integer('updated_at', { mode: 'timestamp_ms' }).notNull(),
+    runId: text('run_id').references(() => runs.id),
+    closedAt: integer('closed_at', { mode: 'timestamp_ms' }),
+    closedByUserId: text('closed_by_user_id').references(() => users.id),
+    closedByDisplayName: text('closed_by_display_name'),
+  },
+  (table) => [
+    index('scheduled_procedures_workspace_idx').on(table.workspaceId, table.state, table.date),
+    index('scheduled_procedures_procedure_idx').on(table.procedureId),
+    check('scheduled_procedures_id_uuid', sql`length(${table.id}) = 36`),
+    check('scheduled_procedures_date_format', sql`${table.date} glob '[0-9][0-9][0-9][0-9]-[0-1][0-9]-[0-3][0-9]'`),
+    check('scheduled_procedures_time_format', sql`${table.time} is null or ${table.time} glob '[0-2][0-9]:[0-5][0-9]'`),
+    check('scheduled_procedures_reminder_time_format', sql`${table.reminderTime} glob '[0-2][0-9]:[0-5][0-9]'`),
+    check('scheduled_procedures_time_zone_bounded', sql`length(${table.timeZone}) between 1 and 64`),
+    check(
+      'scheduled_procedures_reminders_array',
+      sql`json_valid(${table.reminders}) and json_type(${table.reminders}) = 'array' and json_array_length(${table.reminders}) <= 5`,
+    ),
+    check('scheduled_procedures_state_valid', oneOf('state', SCHEDULE_STATES)),
+    check('scheduled_procedures_revision_positive', sql`${table.revision} >= 1`),
+    check('scheduled_procedures_run_when_started', sql`(${table.state} = 'STARTED') = (${table.runId} is not null)`),
+    check(
+      'scheduled_procedures_closed_consistent',
+      sql`(${table.state} = 'SCHEDULED') = (${table.closedAt} is null) and (${table.closedAt} is null) = (${table.closedByUserId} is null) and (${table.closedAt} is null) = (${table.closedByDisplayName} is null)`,
+    ),
+  ],
+);
+
+/**
+ * One row per reminder instant of a scheduled item (13.5), computed when it is scheduled or moved.
+ * Reminders already due at that moment are not created. When the item is moved, started or
+ * cancelled, unprocessed rows are cancelled (kept, never deleted while deliveries reference them).
+ */
+export const scheduledReminders = sqliteTable(
+  'scheduled_reminders',
+  {
+    id: text('id').primaryKey(),
+    scheduleId: text('schedule_id')
+      .notNull()
+      .references(() => scheduledProcedures.id),
+    /** `DAYS:7`, `HOURS:3`, … */
+    reminderKey: text('reminder_key').notNull(),
+    remindAt: integer('remind_at', { mode: 'timestamp_ms' }).notNull(),
+    recipientUserId: text('recipient_user_id')
+      .notNull()
+      .references(() => users.id),
+    /** Every channel reached a final state (sent, failed or skipped). */
+    processedAt: integer('processed_at', { mode: 'timestamp_ms' }),
+    cancelledAt: integer('cancelled_at', { mode: 'timestamp_ms' }),
+  },
+  (table) => [
+    uniqueIndex('scheduled_reminders_instant_unique').on(table.scheduleId, table.reminderKey, table.remindAt),
+    index('scheduled_reminders_due_idx').on(table.processedAt, table.cancelledAt, table.remindAt),
+    check('scheduled_reminders_id_uuid', sql`length(${table.id}) = 36`),
+    check('scheduled_reminders_key_format', sql`${table.reminderKey} glob '[A-Z]*:[0-9]*' and length(${table.reminderKey}) <= 16`),
+  ],
+);
+
+export const NOTIFICATION_CHANNELS = ['EMAIL', 'TELEGRAM'] as const;
+export const DELIVERY_STATUSES = ['SENDING', 'RETRY', 'SENT', 'FAILED', 'SKIPPED'] as const;
+
+/**
+ * Delivery of one reminder through one channel (13.5). The unique (reminder, channel) row is claimed
+ * *before* sending, so restarts and overlapping runs never send a reminder twice through a channel;
+ * attempts are bounded. A failed delivery never touches Procedures, Runs or their history.
+ */
+export const reminderDeliveries = sqliteTable(
+  'reminder_deliveries',
+  {
+    id: text('id').primaryKey(),
+    reminderId: text('reminder_id')
+      .notNull()
+      .references(() => scheduledReminders.id),
+    channel: text('channel', { enum: NOTIFICATION_CHANNELS }).notNull(),
+    status: text('status', { enum: DELIVERY_STATUSES }).notNull(),
+    attempts: integer('attempts').notNull(),
+    /** RETRY: not before; SENDING: the claim expires (then treated as interrupted). */
+    nextAttemptAt: integer('next_attempt_at', { mode: 'timestamp_ms' }),
+    updatedAt: integer('updated_at', { mode: 'timestamp_ms' }).notNull(),
+    sentAt: integer('sent_at', { mode: 'timestamp_ms' }),
+    /** Stable reason code only — never provider responses, addresses or tokens. */
+    errorCode: text('error_code'),
+  },
+  (table) => [
+    uniqueIndex('reminder_deliveries_once_per_channel').on(table.reminderId, table.channel),
+    index('reminder_deliveries_retry_idx').on(table.status, table.nextAttemptAt),
+    check('reminder_deliveries_id_uuid', sql`length(${table.id}) = 36`),
+    check('reminder_deliveries_channel_valid', oneOf('channel', NOTIFICATION_CHANNELS)),
+    check('reminder_deliveries_status_valid', oneOf('status', DELIVERY_STATUSES)),
+    check('reminder_deliveries_attempts_bounded', sql`${table.attempts} between 0 and 10`),
+    check('reminder_deliveries_sent_consistent', sql`(${table.status} = 'SENT') = (${table.sentAt} is not null)`),
+    check('reminder_deliveries_error_code_bounded', sql`${table.errorCode} is null or length(${table.errorCode}) <= 40`),
+  ],
+);
+
+/** Each person's reminder channels and default reminder time (13.8). No row = defaults. */
+export const notificationPreferences = sqliteTable(
+  'notification_preferences',
+  {
+    userId: text('user_id')
+      .primaryKey()
+      .references(() => users.id),
+    reminderTime: text('reminder_time').notNull(),
+    emailReminders: integer('email_reminders', { mode: 'boolean' }).notNull(),
+    telegramReminders: integer('telegram_reminders', { mode: 'boolean' }).notNull(),
+    updatedAt: integer('updated_at', { mode: 'timestamp_ms' }).notNull(),
+  },
+  (table) => [check('notification_preferences_reminder_time_format', sql`${table.reminderTime} glob '[0-2][0-9]:[0-5][0-9]'`)],
+);
+
+/**
+ * Server-wide notification providers (13.7), configured by server admins. `sealed_secret` holds a
+ * provider credential (the Telegram bot token) encrypted with DATA_ENCRYPTION_KEY — it is never
+ * returned to any client. `public_label` is non-secret (e.g. the bot's @name for pairing links).
+ */
+export const notificationProviders = sqliteTable(
+  'notification_providers',
+  {
+    provider: text('provider', { enum: NOTIFICATION_CHANNELS }).primaryKey(),
+    enabled: integer('enabled', { mode: 'boolean' }).notNull(),
+    sealedSecret: text('sealed_secret'),
+    publicLabel: text('public_label'),
+    /** Telegram: next `getUpdates` offset, so an update is processed once. */
+    pollOffset: integer('poll_offset'),
+    updatedAt: integer('updated_at', { mode: 'timestamp_ms' }).notNull(),
+    updatedByUserId: text('updated_by_user_id').references(() => users.id),
+  },
+  (table) => [
+    check('notification_providers_valid', oneOf('provider', NOTIFICATION_CHANNELS)),
+    check('notification_providers_sealed_format', sql`${table.sealedSecret} is null or ${table.sealedSecret} like 'v1.%'`),
+    check('notification_providers_label_bounded', sql`${table.publicLabel} is null or length(${table.publicLabel}) <= 64`),
+  ],
+);
+
+/**
+ * Telegram chats connected to accounts (13.7): where reminders go. The chat id is an address, never
+ * an authentication credential for VMN.
+ */
+export const telegramLinks = sqliteTable(
+  'telegram_links',
+  {
+    userId: text('user_id')
+      .primaryKey()
+      .references(() => users.id),
+    chatId: text('chat_id').notNull(),
+    /** What Telegram reported for the chat (e.g. `@name` or a first name), sanitized, for display. */
+    chatLabel: text('chat_label').notNull(),
+    connectedAt: integer('connected_at', { mode: 'timestamp_ms' }).notNull(),
+  },
+  (table) => [
+    check('telegram_links_chat_id_format', sql`${table.chatId} glob '[0-9]*' and length(${table.chatId}) between 1 and 20`),
+    check('telegram_links_label_bounded', sql`length(${table.chatLabel}) between 1 and 64`),
+  ],
+);
+
+/**
+ * Pairing of a Telegram chat with an account (13.7): a 256-bit one-time token (SHA-256 stored) that
+ * the user sends to the bot with /start; the chat is only connected after the signed-in user
+ * confirms it in VMN. Short-lived; claimed, completed and cancelled at most once.
+ */
+export const telegramPairings = sqliteTable(
+  'telegram_pairings',
+  {
+    id: text('id').primaryKey(),
+    userId: text('user_id')
+      .notNull()
+      .references(() => users.id),
+    tokenHash: text('token_hash').notNull().unique(),
+    createdAt: integer('created_at', { mode: 'timestamp_ms' }).notNull(),
+    expiresAt: integer('expires_at', { mode: 'timestamp_ms' }).notNull(),
+    claimedAt: integer('claimed_at', { mode: 'timestamp_ms' }),
+    chatId: text('chat_id'),
+    chatLabel: text('chat_label'),
+    completedAt: integer('completed_at', { mode: 'timestamp_ms' }),
+    cancelledAt: integer('cancelled_at', { mode: 'timestamp_ms' }),
+  },
+  (table) => [
+    index('telegram_pairings_user_idx').on(table.userId),
+    check('telegram_pairings_id_uuid', sql`length(${table.id}) = 36`),
+    check('telegram_pairings_token_hash_format', sql`length(${table.tokenHash}) = 64`),
+    check('telegram_pairings_expiry_after_creation', sql`${table.expiresAt} > ${table.createdAt}`),
+    check('telegram_pairings_claim_consistent', sql`(${table.claimedAt} is null) = (${table.chatId} is null) and (${table.chatId} is null) = (${table.chatLabel} is null)`),
+    check('telegram_pairings_completed_after_claim', sql`${table.completedAt} is null or ${table.claimedAt} is not null`),
+    check('telegram_pairings_single_outcome', sql`${table.completedAt} is null or ${table.cancelledAt} is null`),
+  ],
+);
+
+/** A person's pinned Procedures (13.12): personal, not Workspace history, never audited. */
+export const procedurePins = sqliteTable(
+  'procedure_pins',
+  {
+    userId: text('user_id')
+      .notNull()
+      .references(() => users.id),
+    procedureId: text('procedure_id')
+      .notNull()
+      .references(() => procedures.id),
+    workspaceId: text('workspace_id')
+      .notNull()
+      .references(() => workspaces.id),
+    pinnedAt: integer('pinned_at', { mode: 'timestamp_ms' }).notNull(),
+  },
+  (table) => [primaryKey({ columns: [table.userId, table.procedureId] }), index('procedure_pins_workspace_idx').on(table.userId, table.workspaceId)],
 );

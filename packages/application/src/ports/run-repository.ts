@@ -8,6 +8,7 @@ import type {
   RunStep,
   RunStepId,
   RunSummary,
+  ScheduledProcedureId,
   StepState,
   WorkspaceId,
 } from '@vergissmeinnicht/domain';
@@ -15,7 +16,7 @@ import type { ActorGuard } from './actor-guard.ts';
 
 export type StartRunResult =
   | { readonly status: 'ok'; readonly detail: RunDetail }
-  | { readonly status: 'forbidden' | 'procedure_not_found' | 'no_steps' | 'limit_reached' };
+  | { readonly status: 'forbidden' | 'procedure_not_found' | 'no_steps' | 'limit_reached' | 'schedule_not_open' };
 
 export type FinishRunResult =
   | { readonly status: 'ok'; readonly detail: RunDetail }
@@ -33,10 +34,18 @@ export type StepStateChangeResult =
 export interface RunRepository {
   /**
    * In one transaction: re-checks the guard, reads the active Procedure of this Workspace with its
-   * current Sections and Steps, copies them into a new ACTIVE Run and records RUN_STARTED.
+   * current Sections and Steps, copies them into a new ACTIVE Run and records RUN_STARTED. With
+   * `fromSchedule`, that item must be an open (SCHEDULED) item of this Workspace for this Procedure
+   * ('schedule_not_open' otherwise); it is closed as STARTED with the new Run's id.
    */
   start(
-    input: { readonly workspaceId: WorkspaceId; readonly procedureId: ProcedureId; readonly at: Date; readonly maxActive: number },
+    input: {
+      readonly workspaceId: WorkspaceId;
+      readonly procedureId: ProcedureId;
+      readonly at: Date;
+      readonly maxActive: number;
+      readonly fromSchedule?: ScheduledProcedureId | undefined;
+    },
     actor: Actor & { readonly kind: 'user' },
     guard: ActorGuard,
   ): Promise<StartRunResult>;
