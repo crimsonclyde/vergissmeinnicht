@@ -58,6 +58,8 @@ describe('offline queue (8.5)', () => {
     expect(outcomeOf(new ApiError(503, 'x'))).toBe('retry');
     expect(outcomeOf(new ApiError(429, 'rate_limited'))).toBe('retry');
     expect(outcomeOf(new ApiError(401, 'unauthenticated'))).toBe('sign-in');
+    // Another account's session: kept for its own account, never dropped or re-sent as someone else (13.1).
+    expect(outcomeOf(new ApiError(409, 'offline_account_mismatch'))).toBe('sign-in');
     for (const [status, code] of [[409, 'step_conflict'], [409, 'run_not_active'], [403, 'forbidden'], [404, 'run_not_found'], [400, 'reason_required']] as const) {
       expect(outcomeOf(new ApiError(status, code))).toBe('rejected');
     }

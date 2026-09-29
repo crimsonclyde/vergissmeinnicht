@@ -1,5 +1,7 @@
 import {
+  emailReminderNotifier,
   systemClock,
+  telegramReminderNotifier,
   type AccountAdminDeps,
   type InstanceSettingsDeps,
   type PreferencesDeps,
@@ -7,13 +9,18 @@ import {
   type InvitationDeps,
   type KnotDeps,
   type ProcedureDeps,
+  type HomeDeps,
+  type NotificationDeps,
+  type ReminderDeps,
   type RunDeps,
+  type ScheduleDeps,
   type MfaDeps,
   type RecoveryDeps,
   type UserRepository,
   type WorkspaceDeps,
 } from '@vergissmeinnicht/application';
 import {
+  commonPasswords,
   createAuth,
   createSecretBox,
   invitationTokens,
@@ -35,9 +42,15 @@ import {
   createPreferencesRepository,
   createProcedureRepository,
   createRateLimitCounter,
+  createNotificationPreferencesRepository,
+  createNotificationProviderRepository,
+  createProcedureActivityRepository,
+  createReminderQueue,
   createRunRepository,
+  createScheduleRepository,
   createSecurityEventLog,
   createSecurityEventReader,
+  createTelegramRepository,
   createTotpRepository,
   createUserRepository,
   createWorkspaceRepository,
@@ -51,6 +64,7 @@ import {
 } from '@vergissmeinnicht/database';
 import { canAuthenticate, type UserId } from '@vergissmeinnicht/domain';
 import { createSmtpEmailSender } from '@vergissmeinnicht/email';
+import { createTelegramBotApi } from '@vergissmeinnicht/notifications';
 import { createRunChangeHub, type RunChangeHub } from '@vergissmeinnicht/realtime';
 import type { FastifyBaseLogger } from 'fastify';
 import type { AppConfig } from './config/index.ts';
@@ -73,8 +87,16 @@ export interface AppServices {
   readonly workspaces: WorkspaceDeps;
   readonly procedures: ProcedureDeps;
   readonly runs: RunDeps;
+  /** Scheduled Procedures (13.4); starting one needs the Run dependencies as well. */
+  readonly schedules: ScheduleDeps & RunDeps;
   readonly knots: KnotDeps;
   readonly history: HistoryDeps;
+  /** Notification providers, a person's reminder settings and Telegram pairing (13.6–13.8). */
+  readonly notifications: NotificationDeps;
+  /** The reminder dispatcher (13.5), run by the in-process scheduler. */
+  readonly reminders: ReminderDeps;
+  /** Home, Procedure cards and personal pins (13.9–13.13). */
+  readonly home: HomeDeps;
   /** In-process fan-out of committed Run changes to SSE subscribers. */
   readonly runChanges: RunChangeHub;
   /** Stream timing overrides (tests). */
@@ -95,6 +117,7 @@ export function invitationDeps(config: AppConfig, database: AppDatabase): Invita
     invitations: createInvitationRepository(database),
     tokens: invitationTokens,
     passwords: passwordHasher,
+    commonPasswords,
     email: createSmtpEmailSender(config.smtp),
     clock: systemClock,
     publicOrigin: config.publicOrigin,
@@ -143,11 +166,32 @@ export function createServices(config: AppConfig, database: AppDatabase) {
       mfa,
       tokens: invitationTokens,
       passwordHasher,
+      commonPasswords,
       email: invitations.email,
       clock: systemClock,
       publicOrigin: config.publicOrigin,
     };
+    const notificationPreferences = createNotificationPreferencesRepository(database);
+    const notifications: NotificationDeps = {
+      providers: createNotificationProviderRepository(database),
+      preferences: notificationPreferences,
+      telegram: createTelegramRepository(database),
+      telegramApi: createTelegramBotApi(),
+      secretBox: mfa.secretBox,
+      tokens: invitationTokens,
+      email: invitations.email,
+      emailConfigured: true,
+      clock: systemClock,
+    };
+    const reminders: ReminderDeps = {
+      queue: createReminderQueue(database),
+      notifiers: [emailReminderNotifier(notifications), telegramReminderNotifier(notifications)],
+      clock: systemClock,
+      publicOrigin: config.publicOrigin,
+    };
+    const scheduleRepository = createScheduleRepository(database);
     const runChanges = createRunChangeHub();
+    const runs: RunDeps = { workspaces: createWorkspaceRepository(database), runs: createRunRepository(database), clock: systemClock, changes: runChanges };
     const workspaceDeps: WorkspaceDeps = {
       users: userRepository,
       workspaces: createWorkspaceRepository(database),
@@ -171,7 +215,19 @@ export function createServices(config: AppConfig, database: AppDatabase) {
       instanceSettings: { settings: createInstanceSettingsRepository(database), clock: systemClock },
       workspaces: workspaceDeps,
       procedures: { workspaces: workspaceDeps.workspaces, procedures: createProcedureRepository(database), clock: systemClock },
-      runs: { workspaces: workspaceDeps.workspaces, runs: createRunRepository(database), clock: systemClock, changes: runChanges },
+      runs,
+      schedules: { ...runs, schedules: scheduleRepository, notificationPreferences },
+      home: {
+        workspaces: runs.workspaces,
+        procedures: createProcedureRepository(database),
+        activity: createProcedureActivityRepository(database),
+        schedules: scheduleRepository,
+        runs: runs.runs,
+        settings: createInstanceSettingsRepository(database),
+        clock: systemClock,
+      },
+      notifications,
+      reminders,
       runChanges,
       knots: { workspaces: workspaceDeps.workspaces, knots: createKnotRepository(database), tokens: invitationTokens, clock: systemClock },
       history: { workspaces: workspaceDeps.workspaces, history: createAuditHistory(database) },

@@ -169,8 +169,23 @@ for (const procedure of procedures) {
 }
 await api('POST', '/auth/sign-out', {}, editor);
 
-// One active Run, started by the USER account.
+// One active Run, started by the USER account; for Home (13.9): one scheduled item due today, one in
+// a week with reminders, and a pinned Procedure.
 const member = await signIn('user@vmn.test');
 await api('POST', `/workspaces/${household}/runs`, { procedureId: procedureIds[0] }, member);
+const localDate = (offsetDays: number) => {
+  const date = new Date();
+  date.setDate(date.getDate() + offsetDays);
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+};
+const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';
+await api('POST', `/workspaces/${household}/schedules`, { procedureId: procedureIds[1], date: localDate(0), timeZone, reminders: [] }, member);
+await api(
+  'POST',
+  `/workspaces/${household}/schedules`,
+  { procedureId: procedureIds[procedureIds.length - 1], date: localDate(7), timeZone, reminders: [{ unit: 'DAYS', amount: 1 }, { unit: 'DAYS', amount: 0 }] },
+  member,
+);
+await api('POST', `/workspaces/${household}/procedures/${procedureIds[0]}/pin`, {}, member);
 await api('POST', '/auth/sign-out', {}, member);
-console.log(`Created ${people.length + 1} accounts, 2 Workspaces, ${procedures.length} Procedures and 1 Run.`);
+console.log(`Created ${people.length + 1} accounts, 2 Workspaces, ${procedures.length} Procedures, 1 Run, 2 scheduled items and 1 pin.`);

@@ -48,9 +48,10 @@ describe('migration 0019: icons as a reference table (table rebuild)', () => {
     // The migrations up to 0018, i.e. the schema before this change.
     const before = join(dir, 'migrations');
     cpSync(MIGRATIONS_FOLDER, before, { recursive: true });
-    rmSync(join(before, '0019_procedure_icons.sql'));
+    // 0019 and every later migration are applied by the test itself.
     const journal = JSON.parse(readFileSync(join(before, 'meta', '_journal.json'), 'utf8')) as { entries: { tag: string }[] };
-    journal.entries = journal.entries.filter((entry) => entry.tag !== '0019_procedure_icons');
+    for (const entry of journal.entries.filter((e) => e.tag >= '0019')) rmSync(join(before, `${entry.tag}.sql`));
+    journal.entries = journal.entries.filter((entry) => entry.tag < '0019');
     writeFileSync(join(before, 'meta', '_journal.json'), JSON.stringify(journal));
     const database = openDatabase(path);
     migrate(database.db, { migrationsFolder: before });
@@ -89,7 +90,8 @@ describe('migration 0019: icons as a reference table (table rebuild)', () => {
 
     database = openDatabase(path);
     expect(snapshot()).toEqual(before);
-    expect(schemaObjects()).toEqual(objectsBefore);
+    // Every index and trigger is back unchanged (later migrations only add objects).
+    expect(schemaObjects()).toEqual(expect.arrayContaining(objectsBefore));
     expect(database.sqlite.pragma('foreign_key_check')).toEqual([]);
     expect(database.sqlite.pragma('integrity_check', { simple: true })).toBe('ok');
     expect((database.sqlite.prepare('SELECT count(*) AS n FROM procedure_icons').get() as { n: number }).n).toBeGreaterThanOrEqual(60);

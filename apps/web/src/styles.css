@@ -1047,3 +1047,172 @@ caption {
     border: 3px solid Highlight;
   }
 }
+
+/* ---- Home, Procedure cards, Start/Schedule, ⋯ menus (13.9–13.16) ------------------------ */
+
+/* A link that looks like a button (e.g. Continue, Open Telegram). */
+a.button {
+  display: inline-flex;
+  align-items: center;
+  text-decoration: none;
+}
+
+a.button.primary {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--accent-text);
+  font-weight: 600;
+}
+
+.more-menu,
+.start-control {
+  position: relative;
+  display: inline-block;
+}
+
+.more-menu-button {
+  min-width: 2.75rem;
+  min-height: 2.75rem;
+  font-size: 1.2rem;
+  line-height: 1;
+  background: transparent;
+}
+
+.more-menu-panel {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 0.3rem);
+  z-index: 20;
+  min-width: 13rem;
+  max-width: calc(100vw - 2rem);
+  padding: 0.4rem;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: 0 6px 24px rgb(0 0 0 / 18%);
+}
+
+.more-menu-panel button {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  min-height: 2.75rem;
+  padding: 0 0.75rem;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--text);
+  text-align: left;
+  white-space: nowrap;
+}
+
+.more-menu-panel button:hover {
+  background: var(--surface-muted);
+}
+
+.more-menu-panel .danger-text {
+  color: var(--state-pending);
+  border-top: 1px solid var(--border);
+  border-radius: 0 0 8px 8px;
+}
+
+/* The start menu opens below its button, aligned to its left edge where there is room. */
+.start-control .more-menu-panel {
+  left: 0;
+  right: auto;
+}
+
+.start-control > [role='alert'],
+.start-control > [role='status'] {
+  margin: 0.4rem 0 0;
+  white-space: normal;
+}
+
+.dialog {
+  width: min(34rem, calc(100vw - 2rem));
+  max-height: calc(100dvh - 2rem);
+  overflow: auto;
+  color: var(--text);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 1.25rem;
+  box-shadow: 0 12px 40px rgb(0 0 0 / 35%);
+}
+
+.dialog::backdrop {
+  background: rgb(0 0 0 / 55%);
+}
+
+.home-section h3 {
+  margin: 1.5rem 0 0.5rem;
+}
+
+.home-item-main,
+.procedure-card {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem 1rem;
+}
+
+/* Due items carry the pending treatment (with the "!"/word, never colour alone). */
+.home-due {
+  border-left: 4px solid var(--state-pending);
+}
+
+.home-item[data-timeliness='OVERDUE'] {
+  background: var(--state-pending-bg);
+}
+
+.procedure-card-main {
+  min-width: 0;
+  flex: 1 1 14rem;
+}
+
+.procedure-link {
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: var(--link);
+}
+
+.card-facts {
+  display: block;
+  margin-top: 0.2rem;
+}
+
+.procedure-card-actions,
+.procedure-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.procedure-actions {
+  margin: 0 0 1rem;
+}
+
+.pin-button {
+  min-width: 2.75rem;
+  min-height: 2.75rem;
+  font-size: 1.25rem;
+  line-height: 1;
+  background: transparent;
+  color: var(--text-muted);
+}
+
+.pin-button[aria-pressed='true'] {
+  color: var(--accent);
+}
+
+@media (forced-colors: active) {
+  .home-due {
+    border-left-color: CanvasText;
+  }
+
+  .pin-button[aria-pressed='true'] {
+    outline: 2px solid CanvasText;
+  }
+}

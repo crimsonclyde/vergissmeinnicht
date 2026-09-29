@@ -4,13 +4,13 @@ import { InvalidCursorError, toPage, type AuditHistory, type HistoryPageRequest 
 import type { AuditEvent, AuditEventType, WorkspaceId } from '@vergissmeinnicht/domain';
 import type { Transaction, UserActor } from './actor-guard.ts';
 import type { AppDatabase } from './connection.ts';
-import { auditEvents, runs } from './schema.ts';
+import { auditEvents, procedures, runs } from './schema.ts';
 
 export interface AuditEventRecord {
   readonly workspaceId: WorkspaceId;
   readonly type: AuditEventType;
   readonly actor: UserActor;
-  readonly subjectType: 'procedure' | 'run' | 'run_step' | 'knot';
+  readonly subjectType: 'procedure' | 'run' | 'run_step' | 'knot' | 'schedule';
   /** Required for Run events. */
   readonly runId?: string;
   readonly subjectId: string;
@@ -91,13 +91,20 @@ export function createAuditHistory({ db }: Pick<AppDatabase, 'db'>): AuditHistor
     },
 
     async forProcedure(workspaceId, procedureId, page) {
-      return db.transaction((tx) =>
-        historyPage(
+      return db.transaction((tx) => {
+        // Soft-deleted Procedures keep their row, so their history stays readable.
+        const procedure = tx
+          .select({ id: procedures.id })
+          .from(procedures)
+          .where(and(eq(procedures.workspaceId, workspaceId), eq(procedures.id, procedureId)))
+          .get();
+        if (procedure === undefined) return undefined;
+        return historyPage(
           tx,
-          and(eq(auditEvents.workspaceId, workspaceId), eq(auditEvents.subjectType, 'procedure'), eq(auditEvents.subjectId, procedureId)),
+          and(eq(auditEvents.workspaceId, workspaceId), eq(auditEvents.subjectType, 'procedure'), eq(auditEvents.subjectId, procedure.id)),
           page,
-        ),
-      );
+        );
+      });
     },
   };
 }

@@ -18,10 +18,12 @@ For every completed task, add a concise completion note, tests/checks performed,
 
 ## Current state — resume here
 
-_Last updated: 2026-09-28 (follow-up round: 2.7–2.9, 5.7, 8.5, 8.7–8.9, 10.4, 10.5)_
+_Last updated: 2026-09-29 (13 — scheduling, reminders, Home; branch `feature/schedules-notifications-home`, stacked on `feature/more-icons`)_
 
-**Done:** 0.1, 0.2, 0.3, 1.1, 1.2, 2.1–2.5, 2.7–2.9, 3.1–3.3, 4.1–4.5, 5.1–5.7, 6.1, 6.2, 7.1, 8.0–8.11, 9.1, 10.1–10.5, 11.1. DEFERRED: 2.6 (external identity providers — a later step, user decision 2026-09-28).
-**Next:** 0.1.0-beta.1 released (12.3); make the GHCR package public, install on Unraid, collect beta feedback; the first pull request will run CI incl. the new arm64 image job; the release workflow runs on the first `vX.Y.Z` tag. Needs people/devices: a session with a real screen reader and tests on physical iOS/Android devices (incl. offline storage eviction).
+**Done:** 0.1, 0.2, 0.3, 1.1, 1.2, 2.1–2.5, 2.7–2.9, 3.1–3.3, 4.1–4.5, 5.1–5.7, 6.1, 6.2, 7.1, 8.0–8.11, 9.1, 10.1–10.5, 11.1, 12.1–12.5, 13.1–13.19. DEFERRED: 2.6 (external identity providers — a later step, user decision 2026-09-28).
+**Next:** review and merge `feature/more-icons` and `feature/schedules-notifications-home` (migration 0020: back up first — `migrate` does it automatically); try Telegram with a real bot (only faked in tests); beta feedback on Home/scheduling. Still open from before: GHCR package visibility, a session with a real screen reader, physical iOS/Android devices (incl. offline storage eviction). Possible next providers: ntfy/Gotify or a webhook — the webhook needs the SSRF policy in security.md first.
+
+**Decisions 2026-09-29 (user):** MFA stays optional (also for admins; the beta runs behind a VPN) with the enforcement seam kept; VMN's main flow is *Procedure → optionally schedule → reminders → Start → execute → history* — no task manager, calendar or workflow engine; Home is the Workspace landing page; email and Telegram reminders; Recent limit admin-configurable. **Made while implementing (documented in 13.x):** name *ScheduledProcedure*; reminders go to the person who scheduled; pairing needs a confirmation in VMN; polling instead of a webhook; Recent limit 0–20 (0 hides).
 
 **Decisions 2026-09-28 (user):** offline = queue + labelled device time (8.5); disabling an account is refused while it is the only active Workspace admin (2.7); TOTP stays optional for everyone, also server admins; housekeeping automatic in the server (2.8); sensitive rate limits persisted (2.9); critical Steps: "Tap, then confirm" per account, theme per account (8.7); Memento Mori = darker + stronger red (8.7); slim image, image scan, arm64, signed GHCR releases on tags (10.4); scheduled backups without own crypto (10.5); SKIPPED keeps blocking completion (5.4) and the Knot design stays (7.1) — both confirmed.
 
@@ -1658,6 +1660,283 @@ HTTPS, proxy trust, security headers, dependency scanning, health checks, safe s
 **Tests/checks:** `migration-0019.test.ts` (database with Procedures, finished and active Runs at 0018 → 0019: every row identical, every index and trigger identical, finished Runs still frozen, Runs never deleted, snapshot columns immutable, FK and integrity checks clean, new icon usable, unknown icon refused, re-run is a no-op); icon catalog test (every key has artwork, a name and exactly one group); e2e (search, pointer and keyboard choice, Enter does not submit, axe with the panel open); screenshots desktop/phone. `pnpm test`, `pnpm lint`, `pnpm typecheck`.
 
 **Security docs updated:** YES (§5 icons).
+
+### 12.6 Release 0.2.0-beta.1: scheduling, reminders, Home
+**Status:** IN PROGRESS
+
+**Request (user, 2026-09-29):** release the section 13 work; version chosen by the user: **0.2.0-beta.1** (minor bump: new features and migration 0020).
+
+**Implemented so far:** Unraid template and guide point to `ghcr.io/crimsonclyde/vergissmeinnicht:0.2.0-beta.1`; PR #7 is open. Its first CI run passed the amd64 and arm64 image jobs but exposed that the new offline common-password dataset and provenance were hidden by the generic `.gitignore` `data/` rule. Narrow exceptions now include `packages/auth/data/README.md` and `common-passwords.txt.gz` in clean checkouts.
+
+**Checks performed:** Confirmed the CI root cause from the failed `pnpm test` log (`ENOENT` for `packages/auth/data/common-passwords.txt.gz`); affected tests 69/69; full unit/integration suite 697/697; lint; typecheck. (The full suite's loopback-based SSE/SMTP tests require network-capable execution and passed there.) The full PR CI, merge, tag and release workflow remain pending.
+
+**Security impact:** MEDIUM — the bundled offline breached/common-password check must be present in every source checkout and release image so password validation fails consistently rather than raising an internal error.
+
+**Remaining:** Push the fix; require PR #7 CI (tests, e2e, amd64 and arm64 images) to pass; merge into `main`; tag and push `v0.2.0-beta.1`; verify the release workflow (build, smoke test, scan, push, signing, SBOM attestation and GitHub pre-release); record the published multi-architecture image digest here.
+
+**Upgrade note for operators:** migration 0020 (new tables, one added column); `migrate` backs up first (or `VMN_MIGRATE_ON_START=true` on Unraid). Telegram is optional and configured in the app; the server then needs outgoing HTTPS to `api.telegram.org`.
+
+---
+
+## 13 — Remembering Procedures: scheduling, reminders, Home (accepted 2026-09-29)
+
+**Request (user, 2026-09-29):** VMN exists so people do not forget repeatable procedures. Main flow: *Procedure → optionally schedule it → receive reminders → Start → execute → trustworthy history*. Not a task manager, calendar, Kanban, workflow engine or chat. MFA stays optional (the beta runs behind a VPN); the enforcement seam stays. Stack, architecture, Run snapshot model and audit trail stay unchanged. Implementation order as listed; focused commits.
+
+**Out of scope (this pass):** mandatory MFA, folders, generic tasks, calendar events, recurring schedules/cron, Kanban, comments/chat, attachments, photos, geolocation, AI, Web Push, SMS, WhatsApp, analytics, branching, queues/Redis/Kubernetes.
+
+### 13.1 Offline device data: sign-out cleanup and account binding
+**Status:** DONE
+**Completed:** 2026-09-29
+
+**Found (review of `apps/web/src/offline/store.ts`):** sign-out resolved "cleanup done" on `deleteDatabase`'s `onblocked` — while another tab held the database, the saved Runs and queue could stay on the device although the app reported them gone. Tabs share one session cookie: a second tab still showing account A could send A's queued changes after B signed in elsewhere (the server would have recorded them as B's).
+
+**Security impact:** HIGH — Workspace data at rest on shared devices; misattribution of execution history.
+
+**Implemented:**
+- `offline/cleanup.ts`: sign-out tells other tabs first, empties every VMN store in one transaction (data gone even if the file stays), then deletes the database, waiting ≤3 s for other tabs to let go. `onblocked` is never success; the result is `deleted` / `emptied` / `failed`; `failed` shows an alert on the sign-in page (close every tab, clear site data).
+- Every database connection closes itself on `versionchange`, so other tabs never block the deletion.
+- `offline/session-channel.ts` (BroadcastChannel `vmn-session`, no secrets): on `signed-out` other tabs drop the account at once (sign-in page); on `signed-in` of another account they re-check the session. Device storage is suspended from sign-out until the next account is known (late writes cannot re-create data).
+- Before sending queued changes the client checks that the current session belongs to the account that queued them; otherwise nothing is sent.
+- Server: an offline change now carries `offline.userId` (required); the use-case refuses it with `409 offline_account_mismatch` unless it is the signed-in account — before any write. The client keeps such changes for their own account ("sign in again").
+- Service worker unchanged (app shell only, never `/api`).
+
+**Tests/checks:** `apps/web/src/offline/cleanup.test.ts` (order announce → empty → delete; blocked never reported as deleted; timeout; errors; message parsing; tab reactions), queue outcome for `offline_account_mismatch`; use-case test (change queued by another account refused, nothing written, no live event); HTTP test (mismatch 409 both ways; strict body incl. missing/malformed `userId`); e2e: a second tab of the same browser shows the sign-in page after the first tab signs out and the device database is gone. `pnpm test`, `pnpm lint`, `pnpm typecheck`, `pnpm test:e2e`.
+
+**Security docs updated:** YES ("Security check: offline Run execution", addendum 13.1).
+
+**Remaining:** browsers without BroadcastChannel fall back to the per-send session check and the server-side refusal; a tab frozen by the browser receives the message when it resumes; physical-device testing still open (8.5).
+
+### 13.2 Security checklist closure
+**Status:** DONE
+**Completed:** 2026-09-29
+
+**Implemented:** every unchecked item of `security.md` reviewed against the code; ticked only with evidence:
+- `apps/server/src/http/route-security.test.ts` runs against the **registered route table** (`app.routeTable`, collected by an `onRoute` hook), so routes added later are covered automatically: pinned list of public routes; 401 without a session on every other route; non-member → 404 on every Workspace route (no content in the body); every Workspace child id (Procedure, Run, Step, Knot, member, target of `POST …/runs` / `…/knots`) used under another Workspace → 404 and nothing changes; malformed / upper-case / nil UUIDs in every path parameter → 400/404, never 5xx; every `/api/admin/*` route → 403 for non-admins.
+- **Gap found and fixed:** `GET …/procedures/{id}/history` answered `200 []` for a Procedure id of another Workspace (no data leaked — the query was Workspace-scoped — but it did not behave like an unknown id). Now `404 procedure_not_found` unless the Procedure (also soft-deleted) is in the Workspace.
+- Static guards: `packages/database/src/sql-safety.test.ts` (`sql.raw` only in schema CHECK constraints from compile-time constants; no interpolated or concatenated `prepare`/`exec`), `apps/server/src/http/web-output-safety.test.ts` (no HTML sinks in the web client).
+- Reviewed: every route parses params/query/body with strict Zod schemas (the two direct `request.body` reads are the sign-in limiter key after parsing and the strict import parser); auth/crypto libraries current and maintained (better-auth 1.7.6, @node-rs/argon2 2.2.1, otpauth 9.5.2, nodemailer 10.0.10 — 10.0.12 available, left to Dependabot review); `pnpm audit`: only the known moderate dev-only drizzle-kit/esbuild advisory.
+
+**Left open deliberately:** external-login items (deferred, 2.6), PostgreSQL migration (future), "security-sensitive upgrades receive explicit review" (standing rule, not closable once), breached-password blocklist (13.3), exception serialization for the new notification credentials (13.7).
+
+**Tests/checks:** new tests above; mutation check: without the history fix the route test fails; `pnpm test`, `pnpm lint`, `pnpm typecheck`, `pnpm audit`.
+
+**Security impact:** MEDIUM — one isolation inconsistency fixed; generic regression tests for every route.
+
+**Security docs updated:** YES (§2, §3, §5, §10).
+
+### 13.3 Common/breached-password blocklist
+**Status:** DONE
+**Completed:** 2026-09-29
+
+**Security impact:** MEDIUM — closes the open §1 item; passwords stay on the server.
+
+**Implemented:**
+- Domain (`packages/domain/src/password.ts`): `validateNewPassword(password, { common, context })` keeps the 15–128 length policy and no composition rules, and now also rejects (a) passwords on the common/breached list (`password_too_common`), (b) repetitive or sequential patterns — one unit of ≤4 characters repeated, runs along the alphabet, digits or QWERTY/QWERTZ/AZERTY rows, forwards or backwards (`password_too_predictable`), (c) passwords that are mostly context words — the service name, the account's email (whole, local part, its parts) and display name — leaving fewer than 8 own letters/digits (`password_too_predictable`). Comparison form: NFKC (as the hasher), lower case, no white space.
+- Offline list (`packages/auth/data/common-passwords.txt.gz`, 560 KB, 60 003 entries): the most common 15+ character passwords of three public breach corpora (SecLists, MIT: NCSC top 100k, xato 1M, Pwdb top 10M, merged by rank), hash-like hex strings excluded, loaded once into a `Set` on first use. Provenance and update procedure in `packages/auth/data/README.md`; maintainer tool `node packages/auth/scripts/update-common-passwords.ts` (network access, never used by the server). No password or hash is ever sent anywhere.
+- Checked on every path that sets a password: invitation acceptance (context: invited email + chosen name), self-service change and admin-assisted recovery (context: the account's email + name) — before hashing, nothing written on refusal.
+- Web: hint under every new-password field; messages for both codes. Test passwords changed from "correct horse battery staple" (now correctly refused).
+
+**Tests/checks:** `packages/domain/src/password.test.ts` (list match through case/spaces/full-width forms, patterns, context words, acceptable passphrases, no echo), `packages/auth/src/common-passwords.test.ts` (bundled, size, known entries, comparison form only), use-cases for acceptance/change/recovery (refused, invitation/recovery still usable, no sessions revoked, no events), HTTP `400 {error: 'password_too_common', field: 'password'}`. The first list build excluded all-digit passwords by mistake (hash filter) — found by the test, fixed. `pnpm test`, `pnpm lint`, `pnpm typecheck`.
+
+**Security docs updated:** YES (§1).
+
+**Remaining:** the list is a snapshot (update procedure documented; refresh with releases); the server keeps ≈5 MB for the list after the first password change; existing passwords are not re-checked (they are checked when changed).
+
+### 13.4 Scheduled Procedures (domain, database, application)
+**Status:** DONE
+**Completed:** 2026-09-29
+
+**Security impact:** MEDIUM — new Workspace-scoped resource with its own capability; no new credential.
+
+**Decisions (made here, documented):** name **ScheduledProcedure** (Procedure vocabulary; not a Run); an item is Workspace-visible (`procedure.view`), managed with the new capability `schedule.manage` (USER, EDITOR, ADMIN — like `run.start`); **reminders go to the person who scheduled it** (no Workspace-wide broadcast); a started or cancelled item is final; items are never deleted; editing the source Procedure changes what a later Start snapshots (the Run is taken from the Procedure *at Start*); a deleted source Procedure leaves the item visible as unavailable — it can be cancelled but never started, and no reminders are sent for it (13.5).
+
+**Implemented:**
+- Domain `schedule.ts`: `ScheduledProcedure`, states SCHEDULED / STARTED / CANCELLED; calendar date + optional time + IANA zone (validated with Intl, no offsets) + reminder time; reminder offsets `DAYS` 0–30 (at the reminder time) and `HOURS` 1–48 (before the due moment), ≤5, de-duplicated and ordered; DST-aware wall-clock → instant conversion without a library (gap → later, overlap → earlier, like Temporal "compatible"); due/overdue judged by the calendar date in the item's own zone; dates today … +731 days; `upcomingReminders` drops past instants and sends one reminder per instant.
+- Database (migration 0020, hand-edited): `scheduled_procedures` (CHECKs for formats/state/closing; triggers: never deleted, identity immutable, closed = final), `scheduled_reminders` (one row per instant for the recipient; cancelled — not deleted — when moved/started/cancelled; a processed instant is never stored again), plus the tables for 13.5–13.13.
+- Application `schedules/`: schedule, reschedule (revision compare-and-set), cancel, list open, get, **start** — `startRun` with `fromSchedule`: the Run snapshot and closing the item as STARTED happen in one IMMEDIATE transaction (`RUN_STARTED` metadata carries `scheduleId`); audit events `SCHEDULE_CREATED/CHANGED/CANCELLED` (subject `schedule`) — never execution evidence.
+- HTTP: `GET/POST /api/workspaces/{id}/schedules`, `GET …/{scheduleId}`, `POST …/{scheduleId}/update|cancel|start`; strict bodies; display names only.
+- Limits: ≤1000 open items per Workspace, 4 KiB bodies.
+
+**Tests/checks:** domain (11: formats, zones, reminder bounds, DST gap/overlap in Berlin and New York, day- vs hour-based reminders across DST, due by local date, past/far dates); use-cases (13: no Run on create or when the date passes, default reminder time, past reminders dropped, one per instant, server-side validation, GUEST/non-member/foreign Procedure, in-transaction guard (mutation-checked), reschedule replaces unsent reminders and never repeats a sent one, cancel, start once → normal Run + closed item, deleted Procedure → unavailable, audit rollback, DB triggers); HTTP (3) and the route-table test now covers all schedule routes. `pnpm test`, `pnpm lint`, `pnpm typecheck`.
+
+**Security docs updated:** YES ("Security check: scheduled Procedures and reminders", §3).
+
+### 13.5 Reminder persistence and scheduler
+**Status:** DONE
+**Completed:** 2026-09-29
+
+**Security impact:** MEDIUM — Workspace content leaves the server in reminders; spam/duplication risk.
+
+**Implemented:**
+- `scheduled_reminders` (13.4) + `reminder_deliveries`: one row per (reminder, channel), unique, claimed in an IMMEDIATE transaction *before* sending (status SENDING with a 5-minute lease, attempt counter); outcomes SENT / RETRY (next attempt) / FAILED / SKIPPED with a stable error code only; a reminder is processed when all its channels are final, otherwise it is not looked at before the earliest retry.
+- `dispatchDueReminders` (application): ≤50 due reminders per run; checks at send time that the recipient (the person who scheduled the item) is ACTIVE and still a member with `procedure.view`, the item still open and the Procedure not deleted — otherwise nothing is sent; channels = providers the server enabled **and** the person enabled/connected; ≤4 attempts (1 min, 10 min, 1 h), permanent errors not retried; reminders >24 h late are dropped; the message links to the Workspace Home (plain URL, sign-in required).
+- Scheduler in the server process (`apps/server/src/reminder-schedule.ts`): every minute, never overlapping; the Telegram pairing poll every 3 s only while a pairing is open (13.7); logs counts and error type/code only. No queue, worker or extra deployment; the database is the source of truth, so restarts just continue.
+- Provider port `ReminderNotifier` (channel, `enabledFor`, `send`) — future ntfy/Gotify/webhook/Web Push adapters plug in here.
+
+**Tests/checks:** `packages/database/src/reminder-dispatch.test.ts` (9: nothing early; once per channel, also after a restart; two concurrent dispatchers; interrupted claim retried only after the lease; bounded retries with delays, given up for good; permanent failure not retried and schedule/Runs/audit untouched; removed member, deleted Procedure, cancelled item → nothing; disabled channel; stale reminders dropped), `apps/server/src/reminder-schedule.test.ts` (no overlap; error log without messages).
+
+**Remaining:** reminders go to the scheduler only (no per-item recipients); delivery history is not shown in the UI; a crash between the provider accepting a message and the outcome being recorded can repeat that single message (bounded).
+
+**Security docs updated:** YES.
+
+### 13.6 Email reminders
+**Status:** DONE
+**Completed:** 2026-09-29
+
+**Implemented:** `emailReminderNotifier` reuses the existing SMTP `EmailSender` (no second email stack): plain text with the Procedure title, the date in words with time and zone, "in 7 days / tomorrow / today / in 2 hours / overdue", the Workspace name and the link to the Workspace Home; texts in the email catalog (`reminder`, `providerTest`). On unless the server admin switches email reminders off (`notification_providers` row EMAIL) or the person does (Account → Notifications). No Knot or other token in reminders.
+
+**Tests/checks:** email text tests (subjects per offset, date format, no double blank lines), dispatch tests with a fake provider, admin test message only to the admin's own address.
+
+**Security impact:** LOW (existing transport; content per 13.5).
+
+**Security docs updated:** YES.
+
+### 13.7 Telegram provider: admin configuration and account pairing
+**Status:** DONE
+**Completed:** 2026-09-29
+
+**Security impact:** HIGH — new credential type (bot token), external service, account linking of an outside identity.
+
+**Decisions (made here, documented):** the bot token is entered in the admin UI (not an environment variable) and stored sealed with `DATA_ENCRYPTION_KEY`; **polling, not a webhook** (the beta runs behind a VPN; no inbound endpoint needed) and only while a pairing is open; pairing needs a **confirmation by the signed-in user in VMN** after /start, so a leaked link cannot attach a stranger's chat; one Telegram chat per account; no generic webhook/ntfy in this pass (SSRF policy must be designed first — security.md).
+
+**Implemented:**
+- `packages/notifications` (new): Telegram Bot API client on `fetch` — fixed host `api.telegram.org`, POST JSON, redirects refused, 10 s timeout, 1 MiB cap, plain-text messages ≤4096 characters, updates reduced to id/chat/type/text/sender label; every failure a `NotificationDeliveryError` with a stable code (the token-bearing URL is never exposed).
+- Application `notifications/`: admin overview, email on/off, `configureTelegram` (format check, `getMe` verification, seal, save — token never returned), `testNotificationProvider` (to the acting admin only); per-person settings (default reminder time, email/Telegram on/off), `startTelegramPairing` (256-bit token, hash stored, 10 min, one open pairing per account, returns the `t.me/<bot>?start=<token>` link once), `pollTelegramPairings` (only `/start <token>` in private chats; one-time claim; stored update offset), `confirmTelegramPairing`, cancel, disconnect; security events `NOTIFICATION_PROVIDER_CHANGED` (no credential), `TELEGRAM_CONNECTED`, `TELEGRAM_DISCONNECTED`.
+- HTTP: `GET /api/admin/notifications`, `POST …/email`, `…/telegram`, `…/test` (server admin, persisted per-account limits 20 / 20 / 5 per 15 min); `GET/POST /api/account/notifications`, `POST …/telegram/pair|confirm|cancel|disconnect` (pair/confirm 10 per 15 min).
+
+- Web (*Server admin → Notification providers*): email configured/enabled with a test email to oneself; Telegram status (bot name, enabled), bot-token field (password input, `autocomplete=off`, cleared after every save, never filled from the server), enable, test message to one's own chat, remove token.
+
+**Tests/checks:** `packages/database/src/notification-use-cases.test.ts` (13), `packages/notifications/src/telegram-bot-api.test.ts` (5), `apps/server/src/http/notification.test.ts` (3, incl. captured server log without the token), route-table test; e2e: providers section (email configured, Telegram not configured, a malformed token refused with its message and the field cleared), axe.
+
+**Remaining:** real pairing with Telegram cannot run in CI (no bot) — covered with a fake Bot API at use-case and HTTP level; ntfy/Gotify/webhook not implemented (webhook needs the SSRF policy first).
+
+**Security docs updated:** YES ("Security check: notification providers and Telegram", §9, §12).
+
+### 13.8 Account → Notifications
+**Status:** DONE
+**Completed:** 2026-09-29
+
+**Implemented:** `notification_preferences` (default reminder time, email/Telegram reminders on/off; defaults 09:00/on/on); *Profile & settings → Notifications*: default reminder time (used for "n days before" reminders and for new items without a time), email reminders (or "switched off on this server"), Telegram: *Connect Telegram* → link to the bot (shown once) → the page checks every 3 s until a chat pressed Start → "The Telegram chat “@x” wants to receive your reminders" → **Confirm** / **Not me**; connected: label and date, reminders on/off, *Disconnect Telegram*. No provider setting or secret appears here.
+
+**Tests/checks:** use-case and HTTP tests (13.7); e2e: default time saved and kept after reload, "Telegram is not set up on this server", no token field, axe.
+
+**Security impact:** MEDIUM (account linking of an outside chat — controls in 13.7).
+
+**Security docs updated:** YES.
+
+### 13.9 Workspace Home
+**Status:** DONE
+**Completed:** 2026-09-29
+
+**Implemented:** `/w/{id}` is the Workspace Home (the start page opens the last Workspace's Home); navigation **Home · Procedures · Completed history · Members · Knot links**. `GET /api/workspaces/{id}/home` returns Due, Upcoming, Active, Pinned, Recent and the Recent limit in one call. Sections appear only when they have content, in the order Due, Upcoming, Active, Pinned, Recent; an empty Workspace gets one calm hint. Offline, Home shows the active executions saved on the device. No charts, statistics or percentages over time.
+
+**Tests/checks:** `packages/database/src/home-use-cases.test.ts`; route-table test (non-members 404); e2e: Home after sign-in (also after the TOTP sign-in), axe.
+
+**Security impact:** LOW — read-only aggregation of data the member can already see (`procedure.view`).
+
+### 13.10 Start directly from the Procedure list (Start now / Schedule…)
+**Status:** DONE
+**Completed:** 2026-09-29
+
+**Implemented:** every Procedure card and the Procedure view have **Start** (a disclosure: *Start now*, *Schedule…* — each only with its capability). *Schedule…* opens a modal `<dialog>`: date (today or later in the item's zone), optional time, reminders (on the day, 1 day before, 1 week before, plus custom 1–48 hours / 0–30 days, ≤5), the time zone named; *Reschedule…* uses the same dialog. Cards are compact: icon, title, scheduled/due/overdue, active count, "Last completed …", ★, Start, ⋯.
+
+**Tests/checks:** e2e: Start now from the card and from the view, Schedule… with preset and custom reminders, the card shows "Scheduled …"/"Due today", axe on the dialog.
+
+**Security impact:** NONE (UI only; the server authorizes every request).
+
+### 13.11 Due / Upcoming / Active on Home
+**Status:** DONE
+**Completed:** 2026-09-29
+
+**Implemented:** **Due** — overdue (marked "!" and "Overdue — was due …", not colour alone) and today, primary **Start** (creates the Run from the item; the item then disappears); **Upcoming** — date/time and "Reminders: 1 day before, 3 hours before, on the day", **Start early**, ⋯ *Reschedule…* / *Cancel this schedule* (confirmation); **Active** — title, "Started by Jane 18 minutes ago · 2 of 5 resolved", **Continue**. A scheduled item whose Procedure was deleted says so and offers only Cancel.
+
+**Tests/checks:** e2e: Due (today) and Upcoming with reminders, reschedule, cancel, Start from Due → execution, Active with Continue; use-cases for due/overdue per time zone.
+
+### 13.12 Pinned Procedures
+**Status:** DONE
+**Completed:** 2026-09-29
+
+**Implemented:** `procedure_pins` (user, Procedure, Workspace, time); ★ toggle (`aria-pressed`) on cards and in the Procedure view, instant; pinned Procedures first (in pinning order) and on Home; personal — another member does not see them; never audited; pins of deleted Procedures are hidden; unpin/pin of a Procedure outside the Workspace → 404.
+
+**Tests/checks:** use-cases (personal, order, no audit, Workspace isolation, deleted), route-table test (found unpin answering 204 for a foreign id → now 404), e2e pin/unpin.
+
+**Security impact:** LOW.
+
+### 13.13 Recent Procedures with an admin-configurable limit
+**Status:** DONE
+**Completed:** 2026-09-29
+
+**Decision:** range **0–20** (default 5); 0 hides the section — the cleaner way to switch it off.
+
+**Implemented:** Recent = non-deleted Procedures of the Workspace that *this person started*, newest start first (derived from `runs`, index `runs_starter_idx`); opening a Procedure does not count. `instance_settings.recent_procedures_limit` (CHECK 0–20), *Server admin → This server → Recent Procedures on Home*, validated server-side (`invalid_recent_limit`), audited with `INSTANCE_SETTINGS_CHANGED`; changing it only changes what Home shows.
+
+**Tests/checks:** use-cases (started vs. opened, per person, limit 2/0/20, invalid values), HTTP (admin only, strict body, bounds, audit), e2e (0 hides Recent, back to 5).
+
+**Security impact:** LOW (server-admin setting, audited).
+
+### 13.14 "Completed history" wording and navigation
+**Status:** DONE
+**Completed:** 2026-09-29
+
+**Implemented:** *Completed history* (`/w/{id}/history`; the old `/w/{id}/runs` address leads there) lists finished executions; active ones are on Home. User-facing texts say Start, Continue, Complete, Abort…, execution, Completed history instead of "Run" where the word did not help ("Complete Run" → "Complete", "Abort Run…" → "Abort…", history lines "started it / completed it"). The internal Run entity, its snapshot model, actors, timestamps and audit events are unchanged. The execution view no longer fetches the history list (fewer requests).
+
+**Tests/checks:** router tests (new routes, old address), web text tests, e2e.
+
+**Security impact:** NONE.
+
+### 13.15 Procedure ⋯ menu and page-level Manage menu
+**Status:** DONE
+**Completed:** 2026-09-29
+
+**Implemented:** `MoreMenu` (⋯): a disclosure of ordinary buttons (Tab, Escape closes and returns focus, click outside closes), only with actions the person may use (not shown disabled); Procedure ⋯: Edit, Duplicate, Export as JSON, Share as Knot link…, History, Delete (last, marked). Page level: **New Procedure** + **⋯ Manage Procedures** (*Import Procedure (JSON file)…*, *Deleted Procedures*). The Procedure's history is folded away below it.
+
+**Tests/checks:** e2e (all actions through ⋯ and Manage), axe with the Manage menu open.
+
+**Security impact:** NONE.
+
+### 13.16 Calmer icon picker
+**Status:** DONE
+**Completed:** 2026-09-29
+
+**Implemented:** the panel opens with **Suggested** (8 common icons, plus the current one) and **Recently used** (this browser, localStorage, per-viewer convenience only), a search field and **Browse all 60 icons** for the complete grouped catalog; each view shows every icon once as one native radio group (arrow keys, screen readers, Enter/Escape unchanged). Icons stay trusted keys.
+
+**Tests/checks:** icon test (suggestions distinct and existing), e2e (Suggested first, Browse all, keyboard choice, search), axe.
+
+**Security impact:** NONE.
+
+### 13.17 Focused mobile execution
+**Status:** DONE
+**Completed:** 2026-09-29
+
+**Implemented:** the execution view shows title, live state, progress and the Steps (Next, Done / Skip / Not applicable, undo, actor/time) first; the history and Knot sharing are folded into one *History (and sharing)* section below (open by default only for finished executions). Kept: sticky dock with the next Step, critical-Step confirmation, large touch targets, glyph + text states, offline queue, live updates, reduced motion.
+
+**Tests/checks:** e2e on a 390 px viewport: no sideways scrolling, history folded, axe.
+
+**Security impact:** NONE.
+
+### 13.18 Warning before starting another active Run
+**Status:** DONE
+**Completed:** 2026-09-29
+
+**Implemented:** before *Start now* (and before starting a scheduled item) the client fetches the Procedure's active executions (`GET …/runs?state=ACTIVE&procedureId=`); if there are any, a dialog says "“Leave the flat” already has an active execution, started by Jane 18 minutes ago" with **Continue existing**, **Start another anyway**, **Cancel**. UX only: the server still allows several active Runs, and if the check fails the start proceeds (the server decides).
+
+**Tests/checks:** e2e (second start shows the warning, "Start another anyway" starts), axe on the dialog; HTTP filter covered by the route tests.
+
+**Security impact:** NONE.
+
+### 13.19 Final security, documentation and test pass
+**Status:** DONE
+**Completed:** 2026-09-29
+
+**Implemented/checked:** review of every change of section 13 for logging (counts and error type/code only; no token-bearing URLs; request bodies never logged), output (React text only, plain-text email/Telegram), outbound requests (only `api.telegram.org`, redirects refused), authorization (route-table test covers every new route), and time handling; docs updated: `security.md` (checklist, three new security checks, §9/§12), `architecture.md` (Home, scheduling, reminders, providers; offline addendum), `deployment.md` (reminders and notification providers, `API_RATE_LIMIT_PER_MINUTE`, `DATA_ENCRYPTION_KEY` also encrypts the bot token), `unraid.md` (Telegram troubleshooting), `user-guide.md` (Home, Start/Schedule, reminders, pins, Notifications, admin), `.env.example` and `deploy/vergissmeinnicht.env.example`; `test-env/seed.ts` creates two scheduled items and a pin (type-checked; the existing local test environment was left untouched, so the seed itself was not re-run).
+
+**New configuration:** `API_RATE_LIMIT_PER_MINUTE` (optional, 60–10000, default 300) — added because the single e2e flow exceeded the fixed global limit from one address; sensitive routes keep their own limits.
+
+**Tests/checks (final run):** `pnpm lint`, `pnpm typecheck`, `pnpm test` (all unit/integration tests), `pnpm build`, `pnpm test:e2e` (desktop + mobile Chromium; the long flow runs on desktop, smoke on both) — all passing; `pnpm db:generate` reports no schema drift after the hand-edited migration 0020; `pnpm audit`: only the known moderate dev-only advisory.
+
+**Security impact:** HIGH overall for section 13 (new credential type, external service, outbound Workspace content) — controls and open risks in security.md.
+
+**Remaining:** real Telegram pairing untested against Telegram itself; no UI for delivery history; reminders only to the scheduler (no per-item recipients); no recurring schedules (out of scope); the e2e flow is long — consider splitting it once a second bootstrap path for tests exists.
 
 ---
 

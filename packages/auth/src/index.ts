@@ -3,4 +3,5 @@ export { AUTH_BASE_PATH, CLIENT_IP_HEADER, SESSION_POLICY, createAuth, type Auth
 export { invitationTokens } from './invitation-tokens.ts';
 export { ARGON2ID_OPTIONS, hashPassword, passwordHasher, verifyPassword } from './password-hashing.ts';
 export { createSecretBox } from './secret-box.ts';
+export { commonPasswords } from './common-passwords.ts';
 export { recoveryCodes, totpAlgorithm } from './totp.ts';

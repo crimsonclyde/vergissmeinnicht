@@ -1,3 +1,4 @@
+import { useId } from 'react';
 import { t } from './i18n/index.ts';
 
 export const MIN_PASSWORD_LENGTH = 15;
@@ -10,6 +11,7 @@ export function NewPasswordFields(props: {
   onConfirmation: (value: string) => void;
   label?: string;
 }) {
+  const hintId = useId();
   return (
     <>
       <p>
@@ -24,8 +26,13 @@ export function NewPasswordFields(props: {
             maxLength={128}
             value={props.password}
             onChange={(e) => props.onPassword(e.target.value)}
+            aria-describedby={hintId}
           />
         </label>
+        <br />
+        <small id={hintId} className="muted">
+          {t('password.hint')}
+        </small>
       </p>
       <p>
         <label>

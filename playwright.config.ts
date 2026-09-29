@@ -23,6 +23,9 @@ export const serverEnv = {
   SMTP_HOST: '127.0.0.1',
   SMTP_SECURITY: 'none',
   MAIL_FROM_ADDRESS: 'noreply@vergissmeinnicht.test',
+  // The single end-to-end flow does in half a minute what people do in an afternoon, with every
+  // browser context on 127.0.0.1: raise the global per-client limit (sensitive routes keep theirs).
+  API_RATE_LIMIT_PER_MINUTE: '2000',
 };
 
 export default defineConfig({

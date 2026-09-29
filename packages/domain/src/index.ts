@@ -14,3 +14,4 @@ export * from './step-transition.ts';
 export * from './user.ts';
 export * from './workspace.ts';
 export * from './preferences.ts';
+export * from './schedule.ts';

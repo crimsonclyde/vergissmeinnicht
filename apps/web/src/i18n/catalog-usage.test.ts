@@ -29,6 +29,7 @@ const DYNAMIC_PREFIXES = [
   'criticalConfirm.',
   'history.',
   'error.',
+  'admin.testFailed.',
 ];
 
 describe('message catalog', () => {

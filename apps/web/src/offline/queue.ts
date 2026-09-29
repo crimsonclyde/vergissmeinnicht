@@ -59,6 +59,8 @@ export function outcomeOf(error: unknown): SendOutcome {
   if (error === undefined) return 'sent';
   if (!(error instanceof ApiError)) return 'retry';
   if (error.status === 401) return 'sign-in';
+  // Another account's session (e.g. signed in in another tab): keep the change for its own account.
+  if (error.code === 'offline_account_mismatch') return 'sign-in';
   if (error.status === 429 || error.status >= 500) return 'retry';
   return 'rejected';
 }

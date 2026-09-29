@@ -15,7 +15,7 @@ import {
   type EmailMessage,
   type InvitationDeps,
 } from '@vergissmeinnicht/application';
-import { invitationTokens, passwordHasher } from '@vergissmeinnicht/auth';
+import { commonPasswords, invitationTokens, passwordHasher } from '@vergissmeinnicht/auth';
 import { DomainValidationError, normalizeEmail, type User } from '@vergissmeinnicht/domain';
 import { createInvitationRepository } from './invitation-repository.ts';
 import { createTestDatabase } from './test-support.ts';
@@ -51,6 +51,7 @@ describe('invitation use-cases', () => {
       invitations: createInvitationRepository(database),
       tokens: invitationTokens,
       passwords: passwordHasher,
+      commonPasswords,
       email: {
         async send(message) {
           if (failDelivery) throw new EmailDeliveryError('smtp_econnrefused');
@@ -264,6 +265,13 @@ describe('invitation use-cases', () => {
       const token = tokenFromOutbox();
       await expect(accept(token, { password: 'short-password' })).rejects.toMatchObject({ code: 'password_too_short' });
       await expect(accept(token, { password: 'x'.repeat(129) })).rejects.toMatchObject({ code: 'password_too_long' });
+      // Offline common/breached-password list and context words (13.3): the invited email, the chosen name.
+      await expect(accept(token, { password: 'correcthorsebatterystaple' })).rejects.toMatchObject({ code: 'password_too_common' });
+      await expect(accept(token, { password: 'qwertyuiopasdfghjkl' })).rejects.toMatchObject({ code: 'password_too_common' });
+      await expect(accept(token, { password: 'bob@example.org!!' })).rejects.toMatchObject({ code: 'password_too_predictable' });
+      await expect(accept(token, { displayName: 'Robert Tables', password: 'Robert Tables 1234' })).rejects.toMatchObject({
+        code: 'password_too_predictable',
+      });
       await expect(accept(token, { displayName: 'evil\u202Eeman' })).rejects.toBeInstanceOf(DomainValidationError);
       await expect(resolvePendingInvitation(deps, token)).resolves.toBeDefined();
     });

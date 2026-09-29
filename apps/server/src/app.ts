@@ -9,13 +9,16 @@ import { adminAccountRoutes, adminSecurityEventRoutes, adminSettingsRoutes } fro
 import { accountRoutes } from './http/account-routes.ts';
 import { authRoutes } from './http/auth-routes.ts';
 import { errorHandler } from './http/errors.ts';
+import { homeRoutes } from './http/home-routes.ts';
 import { adminInvitationRoutes, invitationRoutes } from './http/invitation-routes.ts';
 import { knotRoutes, workspaceKnotRoutes } from './http/knot-routes.ts';
+import { accountNotificationRoutes, adminNotificationRoutes } from './http/notification-routes.ts';
 import { originGuard } from './http/origin-guard.ts';
 import { procedureRoutes } from './http/procedure-routes.ts';
 import { rateLimitStore } from './http/rate-limit-store.ts';
 import { adminRecoveryRoutes, recoveryRoutes } from './http/recovery-routes.ts';
 import { runRoutes } from './http/run-routes.ts';
+import { scheduleRoutes } from './http/schedule-routes.ts';
 import { workspaceRoutes } from './http/workspace-routes.ts';
 
 export interface AppOptions {
@@ -28,6 +31,20 @@ export interface AppOptions {
   trustedProxies?: readonly string[] | undefined;
   /** Strict-Transport-Security max-age in seconds; 0 or undefined = no HSTS header. */
   hstsMaxAge?: number | undefined;
+  /** Global per-client limit on /api requests per minute (default 300). */
+  apiRateLimitPerMinute?: number | undefined;
+}
+
+export interface RouteEntry {
+  readonly method: string;
+  readonly url: string;
+}
+
+declare module 'fastify' {
+  interface FastifyInstance {
+    /** Every registered route (method + URL pattern), in registration order. */
+    readonly routeTable: readonly RouteEntry[];
+  }
 }
 
 /** Browser features the app never uses; denied so injected content cannot use them either. */
@@ -51,6 +68,13 @@ export async function buildApp(options: AppOptions = {}) {
   app.removeContentTypeParser('text/plain');
   app.setErrorHandler(errorHandler);
   app.decorateRequest('principal', null);
+  // Every registered route, so tests can prove authentication and Workspace isolation for all of
+  // them — including routes added later — instead of a hand-maintained list (13.2).
+  const routeTable: RouteEntry[] = [];
+  app.addHook('onRoute', (route) => {
+    for (const method of [route.method].flat()) if (method !== 'HEAD') routeTable.push({ method, url: route.url });
+  });
+  app.decorate('routeTable', routeTable as readonly RouteEntry[]);
 
   const services = options.services?.(app.log);
   if (services !== undefined) {
@@ -59,7 +83,7 @@ export async function buildApp(options: AppOptions = {}) {
 
   await app.register(fastifyRateLimit, {
     global: true,
-    max: 300,
+    max: options.apiRateLimitPerMinute ?? 300,
     timeWindow: 60_000,
     // IPv6 clients usually control a whole prefix; count it as one client.
     ipv6Subnet: 56,
@@ -113,6 +137,7 @@ export async function buildApp(options: AppOptions = {}) {
         }));
         await api.register(authRoutes, { prefix: '/auth', services });
         await api.register(accountRoutes, { prefix: '/account', services });
+        await api.register(accountNotificationRoutes, { prefix: '/account/notifications', services });
         await api.register(invitationRoutes, { prefix: '/invitations', services });
         await api.register(adminInvitationRoutes, { prefix: '/admin/invitations', services });
         await api.register(recoveryRoutes, { prefix: '/recoveries', services });
@@ -120,9 +145,12 @@ export async function buildApp(options: AppOptions = {}) {
         await api.register(adminAccountRoutes, { prefix: '/admin/accounts', services });
         await api.register(adminSecurityEventRoutes, { prefix: '/admin/security-events', services });
         await api.register(adminSettingsRoutes, { prefix: '/admin/settings', services });
+        await api.register(adminNotificationRoutes, { prefix: '/admin/notifications', services });
         await api.register(workspaceRoutes, { prefix: '/workspaces', services });
         await api.register(procedureRoutes, { prefix: '/workspaces/:workspaceId/procedures', services });
         await api.register(runRoutes, { prefix: '/workspaces/:workspaceId/runs', services });
+        await api.register(scheduleRoutes, { prefix: '/workspaces/:workspaceId/schedules', services });
+        await api.register(homeRoutes, { prefix: '/workspaces/:workspaceId/home', services });
         await api.register(workspaceKnotRoutes, { prefix: '/workspaces/:workspaceId/knots', services });
         await api.register(knotRoutes, { prefix: '/knots', services });
       }

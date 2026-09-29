@@ -24,7 +24,7 @@ import { requireUser, type Principal } from './session.ts';
 const uuid = z.string().regex(UUID_V4);
 const workspaceParams = z.strictObject({ workspaceId: uuid });
 const runParams = z.strictObject({ workspaceId: uuid, runId: uuid });
-const listQuery = z.strictObject({ state: z.enum(RUN_STATES).optional(), before: uuid.optional() });
+const listQuery = z.strictObject({ state: z.enum(RUN_STATES).optional(), procedureId: uuid.optional(), before: uuid.optional() });
 const startBody = z.strictObject({ procedureId: uuid });
 const abortBody = z.strictObject({ reason: z.string().max(4096).optional() });
 const stepParams = z.strictObject({ workspaceId: uuid, runId: uuid, stepId: uuid });
@@ -32,9 +32,12 @@ const stateBody = z.strictObject({
   expectedState: z.enum(STEP_STATES),
   state: z.enum(STEP_STATES),
   reason: z.string().max(4096).optional(),
-  /** A change made offline and sent later (8.5). The device time is informational only. */
+  /**
+   * A change made offline and sent later (8.5). `userId` is the account that made it on the device;
+   * it must be the signed-in account. The device time is informational only.
+   */
   offline: z
-    .strictObject({ clientChangeId: z.uuid({ version: 'v4' }), deviceTime: z.iso.datetime({ offset: true }).optional() })
+    .strictObject({ clientChangeId: z.uuid({ version: 'v4' }), userId: uuid, deviceTime: z.iso.datetime({ offset: true }).optional() })
     .optional(),
 });
 
@@ -84,8 +87,8 @@ function stepView(step: RunStep) {
   };
 }
 
-const summaryView = (summary: RunSummary) => ({ ...runView(summary.run), stepCounts: summary.stepCounts });
-const detailView = (detail: RunDetail) => ({
+export const summaryView = (summary: RunSummary) => ({ ...runView(summary.run), stepCounts: summary.stepCounts });
+export const detailView = (detail: RunDetail) => ({
   ...runView(detail.run),
   sections: detail.sections.map((section) => ({ ...section, steps: section.steps.map(stepView) })),
 });
@@ -100,8 +103,14 @@ export async function runRoutes(app: FastifyInstance, { services }: { services: 
 
   app.get('/', async (request) => {
     const { workspaceId } = parse(workspaceParams, request.params);
-    const { state, before } = parse(listQuery, request.query);
-    const page = await listRuns(deps, { actor: principalOf(request).user, workspaceId: workspaceId as WorkspaceId, state, before });
+    const { state, procedureId, before } = parse(listQuery, request.query);
+    const page = await listRuns(deps, {
+      actor: principalOf(request).user,
+      workspaceId: workspaceId as WorkspaceId,
+      state,
+      procedureId: procedureId as ProcedureId | undefined,
+      before,
+    });
     return { runs: page.items.map(summaryView), nextCursor: page.nextCursor };
   });
 
@@ -132,6 +141,7 @@ export async function runRoutes(app: FastifyInstance, { services }: { services: 
           ? undefined
           : {
               clientChangeId: body.offline.clientChangeId,
+              madeBy: body.offline.userId,
               deviceAt: body.offline.deviceTime === undefined ? undefined : new Date(body.offline.deviceTime),
             },
     });

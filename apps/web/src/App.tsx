@@ -1,8 +1,9 @@
-import { useEffect, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useState, type ReactNode } from 'react';
 import { AcceptInvitation } from './AcceptInvitation.tsx';
 import { api, isNetworkError, type CurrentUser } from './api.ts';
 import { AppShell } from './AppShell.tsx';
 import { OfflineProvider } from './offline/OfflineProvider.tsx';
+import { announceSession, onSessionMessage, reactionTo } from './offline/session-channel.ts';
 import { offlineStore } from './offline/store.ts';
 import { RecoverAccount } from './RecoverAccount.tsx';
 import { navigate, parseRoute, usePathname } from './router.tsx';
@@ -27,13 +28,43 @@ function PublicLayout({ children }: { children: ReactNode }) {
 
 export function App() {
   const route = parseRoute(usePathname());
-  const [user, setUser] = useState<CurrentUser | null | undefined>(undefined);
+  const [user, setUserState] = useState<CurrentUser | null | undefined>(undefined);
+  const [cleanupFailed, setCleanupFailed] = useState(false);
+
+  // Device storage is usable only while an account is known; it is suspended before any view of the
+  // next account renders, so nothing of the previous account is read or re-created (13.1).
+  const setUser = useCallback((next: CurrentUser | null) => {
+    if (next === null) offlineStore.suspend();
+    else offlineStore.resume();
+    setUserState(next);
+  }, []);
 
   // Offline data of another account that used this browser is never kept (let alone sent) (8.5).
   const userId = user?.id;
   useEffect(() => {
     if (userId !== undefined) void offlineStore.discardOtherUsers(userId);
   }, [userId]);
+
+  // Another tab signed out or another account signed in: leave this account here at once (the
+  // cookie is shared), so its queued changes are never sent under someone else's session (13.1).
+  useEffect(
+    () =>
+      onSessionMessage((message) => {
+        const reaction = reactionTo(message, userId);
+        if (reaction === 'leave') {
+          setUser(null);
+          navigate('/', { replace: true });
+        } else if (reaction === 'recheck') {
+          offlineStore.suspend();
+          api.currentUser().then(
+            (current) => setUser(current),
+            // Could not check (offline, busy server): stay on the sign-in page until the next request tells.
+            () => setUser(null),
+          );
+        }
+      }),
+    [userId, setUser],
+  );
 
   useEffect(() => {
     let active = true;
@@ -53,7 +84,7 @@ export function App() {
     return () => {
       active = false;
     };
-  }, []);
+  }, [setUser]);
 
   if (route.page === 'invite') {
     return (
@@ -75,9 +106,12 @@ export function App() {
       <PublicLayout>
         {/* The Knot token stays in the address bar; after sign-in the app resolves it. */}
         {route.page === 'knot' && <p role="status">{t('knot.signInHint')}</p>}
+        {cleanupFailed && <p role="alert">{t('offline.cleanupFailed')}</p>}
         <SignIn
           onSignedIn={(signedIn) => {
+            setCleanupFailed(false);
             setUser(signedIn);
+            announceSession({ type: 'signed-in', userId: signedIn.id });
             void offlineStore.saveUser(signedIn);
           }}
         />
@@ -95,7 +129,8 @@ export function App() {
             .signOut()
             .catch(() => undefined)
             .then(() => offlineStore.clear())
-            .then(() => {
+            .then((result) => {
+              setCleanupFailed(result === 'failed');
               setUser(null);
               navigate('/', { replace: true });
             });

@@ -42,6 +42,18 @@ describe('production hardening (10.3)', () => {
     }
   });
 
+  it('applies a configured global API limit (API_RATE_LIMIT_PER_MINUTE)', async () => {
+    const app = await buildApp({ apiRateLimitPerMinute: 60 });
+    try {
+      const statuses: number[] = [];
+      for (let i = 0; i < 61; i += 1) statuses.push((await app.inject({ url: '/api/health' })).statusCode);
+      expect(statuses.slice(0, 60).every((status) => status === 200)).toBe(true);
+      expect(statuses[60]).toBe(429);
+    } finally {
+      await app.close();
+    }
+  });
+
   it('counts rate limits per real client behind a trusted proxy and ignores spoofed headers otherwise', async () => {
     t = await startTestApp({ trustedProxies: ['10.0.0.2'] });
     const app = t.app;

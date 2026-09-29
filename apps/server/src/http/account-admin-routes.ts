@@ -1,4 +1,4 @@
-import { listAccounts, listSecurityEvents, setAccountStatus, updateInstanceSettings } from '@vergissmeinnicht/application';
+import { getInstanceSettingsForAdmin, listAccounts, listSecurityEvents, setAccountStatus, updateInstanceSettings } from '@vergissmeinnicht/application';
 import { USER_STATUSES } from '@vergissmeinnicht/domain';
 import type { FastifyInstance, FastifyRequest } from 'fastify';
 import { z } from 'zod';
@@ -105,15 +105,25 @@ export async function adminSecurityEventRoutes(app: FastifyInstance, { services 
   });
 }
 
-const settingsBody = z.strictObject({ footerHidden: z.boolean() });
+const settingsBody = z
+  .strictObject({ footerHidden: z.boolean().optional(), recentProceduresLimit: z.number().int().min(-1000).max(1000).optional() })
+  .refine((body) => body.footerHidden !== undefined || body.recentProceduresLimit !== undefined);
 
 /** Server-admin settings of this server (footer visibility); read publicly via /api/about. Authorization in the use-case. */
 export async function adminSettingsRoutes(app: FastifyInstance, { services }: { services: AppServices }) {
   app.addHook('preHandler', requireUser(services));
 
+  app.get('/', async (request) => ({ settings: await getInstanceSettingsForAdmin(services.instanceSettings, { actor: principalOf(request).user }) }));
+
   app.post('/', { bodyLimit: 1024 }, async (request) => {
     const body = parse(settingsBody, request.body);
-    const settings = await updateInstanceSettings(services.instanceSettings, { actor: principalOf(request).user, settings: body });
+    const settings = await updateInstanceSettings(services.instanceSettings, {
+      actor: principalOf(request).user,
+      settings: {
+        ...(body.footerHidden === undefined ? {} : { footerHidden: body.footerHidden }),
+        ...(body.recentProceduresLimit === undefined ? {} : { recentProceduresLimit: body.recentProceduresLimit }),
+      },
+    });
     return { settings };
   });
 }

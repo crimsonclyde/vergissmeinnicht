@@ -20,6 +20,7 @@ import { IMMEDIATE, actorAllowed } from './actor-guard.ts';
 import { recordAuditEvent } from './audit-events.ts';
 import type { AppDatabase } from './connection.ts';
 import { activeIn, loadSections } from './procedure-repository.ts';
+import { closeScheduleAsStarted, scheduleIsOpen } from './schedule-repository.ts';
 import { auditEvents, procedures, runSections, runSteps, runs } from './schema.ts';
 
 type Reader = Pick<Parameters<Parameters<AppDatabase['db']['transaction']>[0]>[0], 'select'>;
@@ -105,6 +106,10 @@ export function createRunRepository({ db }: Pick<AppDatabase, 'db'>): RunReposit
             .where(and(eq(runs.workspaceId, input.workspaceId), eq(runs.state, 'ACTIVE')))
             .get()?.n ?? 0;
         if (active >= input.maxActive) return { status: 'limit_reached' };
+        // Started from a scheduled item (13.4): it must still be open, for this Procedure, in this Workspace.
+        if (input.fromSchedule !== undefined && !scheduleIsOpen(tx, input.workspaceId, input.fromSchedule, procedure.id)) {
+          return { status: 'schedule_not_open' };
+        }
 
         const run = tx
           .insert(runs)
@@ -166,15 +171,28 @@ export function createRunRepository({ db }: Pick<AppDatabase, 'db'>): RunReposit
           subjectId: run.id,
           runId: run.id,
           occurredAt: input.at,
-          metadata: { procedureId: procedure.id, procedureRevision: procedure.revision, title: procedure.title, steps: stepCount },
+          metadata: {
+            procedureId: procedure.id,
+            procedureRevision: procedure.revision,
+            title: procedure.title,
+            steps: stepCount,
+            ...(input.fromSchedule === undefined ? {} : { scheduleId: input.fromSchedule }),
+          },
         });
+        if (input.fromSchedule !== undefined) {
+          closeScheduleAsStarted(tx, { workspaceId: input.workspaceId, scheduleId: input.fromSchedule, procedureId: procedure.id, runId: run.id, at: input.at, actor });
+        }
         return { status: 'ok', detail: { run: toRun(run), sections: loadRunSections(tx, run.id) } };
       }, IMMEDIATE);
     },
 
     async list(workspaceId, filter) {
       return db.transaction((tx) => {
-        const scope = and(eq(runs.workspaceId, workspaceId), filter.state === undefined ? undefined : eq(runs.state, filter.state));
+        const scope = and(
+          eq(runs.workspaceId, workspaceId),
+          filter.state === undefined ? undefined : eq(runs.state, filter.state),
+          filter.procedureId === undefined ? undefined : eq(runs.procedureId, filter.procedureId),
+        );
         let before: SQL | undefined;
         if (filter.before !== undefined) {
           const cursor = tx.select({ startedAt: runs.startedAt, id: runs.id }).from(runs).where(and(scope, eq(runs.id, filter.before))).get();

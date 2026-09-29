@@ -24,6 +24,7 @@ COPY packages/database/package.json packages/database/
 COPY packages/domain/package.json packages/domain/
 COPY packages/email/package.json packages/email/
 COPY packages/import-export/package.json packages/import-export/
+COPY packages/notifications/package.json packages/notifications/
 COPY packages/permissions/package.json packages/permissions/
 COPY packages/realtime/package.json packages/realtime/
 COPY packages/ui/package.json packages/ui/

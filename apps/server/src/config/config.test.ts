@@ -186,6 +186,12 @@ describe('loadConfig', () => {
     expect(issuesOf({ ...production, BACKUP_KEEP: '0' }).join()).toMatch(/BACKUP_KEEP/);
   });
 
+  it('bounds the global API rate limit (default 300 per minute)', () => {
+    expect(loadConfig(production).apiRateLimitPerMinute).toBe(300);
+    expect(loadConfig({ ...production, API_RATE_LIMIT_PER_MINUTE: '1200' }).apiRateLimitPerMinute).toBe(1200);
+    for (const value of ['59', '10001', 'lots', '0']) expect(issuesOf({ ...production, API_RATE_LIMIT_PER_MINUTE: value }).join()).toMatch(/API_RATE_LIMIT_PER_MINUTE/);
+  });
+
   it('reads secrets from files (Docker secrets) without echoing them', () => {
     const files: Record<string, string> = { '/run/secrets/auth': `${SECRET}\n`, '/run/secrets/data': DATA_KEY };
     const read = (path: string) => {

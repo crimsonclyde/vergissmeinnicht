@@ -23,6 +23,7 @@ import {
   type RecoveryScope,
 } from '@vergissmeinnicht/application';
 import {
+  commonPasswords,
   createSecretBox,
   hashPassword,
   invitationTokens,
@@ -118,6 +119,7 @@ describe('account recovery use-cases', () => {
       mfa,
       tokens: invitationTokens,
       passwordHasher,
+      commonPasswords,
       email: {
         async send(message) {
           outbox.push(message);
@@ -212,7 +214,15 @@ describe('account recovery use-cases', () => {
       const token = tokenFromOutbox();
       await expect(completeAccountRecovery(deps, { token, newPassword: 'short' })).rejects.toBeInstanceOf(DomainValidationError);
       await expect(completeAccountRecovery(deps, { token })).rejects.toBeInstanceOf(DomainValidationError);
+      // Common/breached and account-derived passwords are refused as well (13.3).
+      await expect(completeAccountRecovery(deps, { token, newPassword: 'Correct Horse Battery Staple' })).rejects.toMatchObject({
+        code: 'password_too_common',
+      });
+      await expect(completeAccountRecovery(deps, { token, newPassword: 'bob@example.org 2026' })).rejects.toMatchObject({
+        code: 'password_too_predictable',
+      });
       await expect(resolveAccountRecovery(deps, token)).resolves.toBeDefined();
+      expect(await verifyPassword(passwordOf(bob), BOB_PASSWORD)).toBe(true);
     });
 
     it('expires after one hour', async () => {
@@ -312,7 +322,14 @@ describe('account recovery use-cases', () => {
       await expect(changePassword(deps, { user: bob, currentPassword: BOB_PASSWORD, newPassword: 'short' })).rejects.toBeInstanceOf(
         DomainValidationError,
       );
+      await expect(changePassword(deps, { user: bob, currentPassword: BOB_PASSWORD, newPassword: 'manchesterunited1' })).rejects.toMatchObject({
+        code: 'password_too_common',
+      });
+      await expect(changePassword(deps, { user: bob, currentPassword: BOB_PASSWORD, newPassword: 'zqxzqxzqxzqxzqxzqx' })).rejects.toMatchObject({
+        code: 'password_too_predictable',
+      });
       expect(count('sessions', bob.id)).toBe(1);
+      expect(events()).toEqual([]);
       await changePassword(deps, { user: bob, currentPassword: BOB_PASSWORD, newPassword: NEW_PASSWORD });
       expect(await verifyPassword(passwordOf(bob), NEW_PASSWORD)).toBe(true);
       expect(count('sessions', bob.id)).toBe(0);

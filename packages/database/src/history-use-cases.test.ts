@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import {
   InvalidCursorError,
+  ProcedureNotFoundError,
   RunNotFoundError,
   WorkspaceNotFoundError,
   addMember,
@@ -137,10 +138,9 @@ describe('Audit history', () => {
     const run = await startRun(runDeps, { actor: member, workspaceId: home.id, procedureId: procedure.procedure.id });
     // Uma administers Office: Home ids through Office reveal nothing.
     await expect(getRunHistory(deps, { actor: member, workspaceId: office.id, runId: run.run.id })).rejects.toThrow(RunNotFoundError);
-    expect(await getProcedureHistory(deps, { actor: member, workspaceId: office.id, procedureId: procedure.procedure.id })).toEqual({
-      items: [],
-      nextCursor: null,
-    });
+    await expect(getProcedureHistory(deps, { actor: member, workspaceId: office.id, procedureId: procedure.procedure.id })).rejects.toThrow(
+      ProcedureNotFoundError,
+    );
     const outsider = await workspaceDeps.users.create({
       email: normalizeEmail('out@example.org'),
       displayName: 'Otto',

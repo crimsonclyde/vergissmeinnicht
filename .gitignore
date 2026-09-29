@@ -37,6 +37,11 @@ oauth-credentials*
 # --- Databases / runtime data ---
 .var/
 data/
+# The authentication package deliberately bundles an offline common-password
+# dataset and its provenance. These are application assets, not runtime data.
+!packages/auth/data/
+!packages/auth/data/README.md
+!packages/auth/data/common-passwords.txt.gz
 runtime/
 *.db
 *.db-*

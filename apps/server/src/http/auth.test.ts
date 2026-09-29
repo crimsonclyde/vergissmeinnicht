@@ -80,11 +80,12 @@ describe('authentication and invitation HTTP API', () => {
   async function inviteAndAccept(adminCookie: string, email = 'bob@example.org'): Promise<void> {
     const issued = await post('/api/admin/invitations', { email }, { headers: { cookie: adminCookie } });
     expect(issued.statusCode).toBe(201);
-    const accepted = await post('/api/invitations/accept', {
-      token: lastInviteToken(),
-      displayName: 'Bob',
-      password: BOB_PASSWORD,
-    });
+    const token = lastInviteToken();
+    // A common/breached password is refused with a stable code; the invitation stays usable (13.3).
+    const common = await post('/api/invitations/accept', { token, displayName: 'Bob', password: 'Manchester United' });
+    expect(common.statusCode).toBe(400);
+    expect(common.json()).toEqual({ error: 'password_too_common', field: 'password' });
+    const accepted = await post('/api/invitations/accept', { token, displayName: 'Bob', password: BOB_PASSWORD });
     expect(accepted.statusCode).toBe(201);
   }
 

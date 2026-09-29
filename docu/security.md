@@ -30,7 +30,7 @@ This file is normative and must evolve with the application.
 - [x] Password changes invalidate relevant old sessions as policy requires. (Self-service change and recovery reset delete all sessions of the user in the same transaction; the changing client gets a fresh session.)
 - [x] Password values never appear in application logs, traces, analytics, or error payloads. (Verified by log capture in `apps/server/src/http/auth.test.ts`.)
 - [x] New passwords: 15–128 characters (NIST SP 800-63B-4 single-factor minimum), no composition rules, NFKC-normalized before hashing.
-- [ ] Breached/common-password blocklist.
+- [x] Breached/common-password blocklist. (Offline: 60 003 most common 15+ character passwords from public breach corpora, bundled with the server, compared in NFKC/lower-case/no-space form; plus repetitive/sequential patterns and passwords made mostly of the service name or the account's own email/name. Checked at invitation acceptance, password change and recovery; passwords never leave the server. Update procedure: `packages/auth/data/README.md` — 13.3.)
 
 ### TOTP MFA
 - [x] TOTP is built in and user-activated (optional) for V1 accounts; the MFA requirement is evaluated by a central server-side policy so enforcement (e.g. for ADMIN) can be added later. (`requiresTotpChallenge()` in `packages/domain/src/mfa.ts`.)
@@ -51,6 +51,7 @@ This file is normative and must evolve with the application.
 - [x] No "remember this device" / trusted-device bypass.
 
 ### Future external login: Apple / GitHub (planned), Microsoft (possible)
+_Deferred with 2.6; these checks apply when external login is implemented (reviewed 2026-09-29: no external login code exists)._
 - [ ] Internal User UUID remains primary identity.
 - [ ] External subject/provider ID mapping is explicit.
 - [ ] No implicit account linking merely because two providers claim the same email.
@@ -72,7 +73,7 @@ This file is normative and must evolve with the application.
 - [x] Session cookie is `HttpOnly`.
 - [x] `SameSite` policy is intentional and documented. (`Strict`: the SPA only needs the cookie on same-site `fetch` calls; cross-site navigations such as email links load the public shell first.)
 - [x] Cookie Domain/Path are no broader than necessary. (No `Domain`, `Path=/`.)
-- [ ] Session rotates after login and security-sensitive privilege changes. (Login, TOTP enable/disable, password change and account recovery: yes — all sessions of the user are replaced. Account disabling deletes every session in the same transaction (2.7). Server-admin grant/removal must do the same when that flow exists.)
+- [x] Session rotates after login and security-sensitive privilege changes. (Login, TOTP enable/disable, password change and account recovery: yes — all sessions of the user are replaced. Account disabling deletes every session in the same transaction (2.7). Workspace role changes need no rotation: no role is cached in the session, every request re-reads the Membership. Reviewed 2026-09-29: no server-admin grant/removal flow exists — **when one is added it must replace the user's sessions** (review trigger).)
 - [x] Logout invalidates server-side session.
 - [x] Idle/absolute expiration policies are documented. (Idle 7 days, refreshed at most daily; absolute 30 days, enforced per request — `SESSION_POLICY` in `packages/auth`.)
 - [x] CSRF protection covers state-changing cookie-authenticated operations. (Every non-GET/HEAD/OPTIONS request needs `Origin` = `PUBLIC_ORIGIN`, missing `Origin` rejected; JSON-only bodies; `SameSite=Strict`.)
@@ -91,11 +92,11 @@ This file is normative and must evolve with the application.
 
 ## 3. Authorization and ACLs
 
-- [ ] Authorization happens server-side for every protected operation. (Workspace routes: yes — `requireUser` + `authorizeWorkspace` in every use-case. Re-check for every new route.)
+- [x] Authorization happens server-side for every protected operation. (`requireUser` + `authorizeWorkspace`/server-admin checks in every use-case. `apps/server/src/http/route-security.test.ts` checks the registered route table itself, so every new route is covered: pinned public routes, 401 without session, 404 for non-members on every Workspace route, 403 for non-admins on every `/api/admin/*` route — 13.2.)
 - [x] UI-hidden buttons are never the authorization mechanism. (The web client receives capabilities only to adapt its UI; every request is re-authorized.)
 - [x] Workspace membership checked for resource access. (`authorizeWorkspace` in `packages/application/src/workspaces/use-cases.ts` reads the Membership on every call; non-members get the same 404 as unknown ids.)
 - [x] Role/capability checked for the requested operation. (Capabilities, not role strings; mutations re-check the actor's current role and ACTIVE status inside the write transaction.)
-- [ ] Child resources cannot bypass parent Workspace checks. (Memberships, Procedures, Sections and Steps: yes — every query is scoped by the route's Workspace id plus the child id; a child id from another Workspace behaves like an unknown id; Section/Step ids in a save must already belong to that Procedure, enforced in the transaction and by a composite FK. Runs must follow the same rule — Step 5.)
+- [x] Child resources cannot bypass parent Workspace checks. (Memberships, Procedures, Sections, Steps, Runs, RunSteps, Knots: every query is scoped by the route's Workspace id plus the child id; a child id from another Workspace behaves like an unknown id; Section/Step ids in a save must already belong to that Procedure, enforced in the transaction and by a composite FK. The route-table test uses every child id of Workspace A under Workspace B → 404, nothing changes; it found and fixed Procedure history answering `200 []` instead of 404 — 13.2.)
 - [x] Object identifiers are opaque but are not treated as authorization. (UUIDv4 Workspace ids; knowing an id grants nothing.)
 - [x] Guest/User/Editor/Admin policies are centrally defined. (`packages/permissions`: one role → capability table incl. Procedure/Run capabilities (3.2), exact-matrix test; matrix documented in steps.md 3.2.)
 - [x] Cross-Workspace access has negative tests.
@@ -130,15 +131,15 @@ Canonical shape:
 
 ## 5. Input and output safety
 
-- [ ] Validate all inputs at server trust boundaries.
-- [ ] Use schema validation for API payloads.
-- [ ] Parameterize SQL / use safe query builder or ORM.
-- [ ] Never concatenate user input into SQL.
-- [ ] Escape output according to rendering context.
+- [x] Validate all inputs at server trust boundaries. (Params, query and body of every route are parsed by strict Zod schemas before use; imports by the strict import-export parser; domain parsers re-validate — reviewed 2026-09-29.)
+- [x] Use schema validation for API payloads. (`z.strictObject` everywhere: unknown fields rejected.)
+- [x] Parameterize SQL / use safe query builder or ORM. (Drizzle; `sql` templates bind interpolated values as parameters.)
+- [x] Never concatenate user input into SQL. (`sql.raw` only in schema CHECK constraints from compile-time constants; `prepare`/`exec` only with constant strings — guarded by `packages/database/src/sql-safety.test.ts`.)
+- [x] Escape output according to rendering context. (React text rendering only; no HTML sinks — guarded by `apps/server/src/http/web-output-safety.test.ts`; emails are text-only; JSON responses.)
 - [x] Do not accept arbitrary HTML by default. (Procedure text is plain text; the web client renders it as text, never via `innerHTML`.)
 - [x] User-selectable icons are trusted icon keys, not arbitrary uploaded SVG/HTML. (`PROCEDURE_ICONS`, validated in the domain; in the database every icon column references the `procedure_icons` table since migration 0019 — keys are only ever added by migrations.)
-- [ ] Apply sensible text/array/file-size limits. (Procedures: title 120, description 4000 code points, ≤10 tags × 32, ≤1000 per Workspace; ≤50 Sections, ≤200 Steps per Procedure, 1 MiB body limit on Procedure saves; coarse transport bounds in the Zod schemas. Keep extending per feature.)
-- [ ] Reject malformed UUIDs/tokens/state transitions.
+- [x] Apply sensible text/array/file-size limits. (Procedures: title 120, description 4000 code points, ≤10 tags × 32, ≤1000 per Workspace; ≤50 Sections, ≤200 Steps per Procedure, 1 MiB body limit on Procedure saves; scheduled items: ≤5 reminders, 0–30 days / 1–48 hours, ≤731 days ahead, ≤1000 open per Workspace, 4 KiB bodies; bot token ≤128, notification bodies 1 KiB; global 64 KiB body limit; coarse transport bounds in the Zod schemas. Keep extending per feature — reviewed 2026-09-29.)
+- [x] Reject malformed UUIDs/tokens/state transitions. (Lower-case UUIDv4 path/body ids; malformed, upper-case and nil ids in every path parameter → 400/404, never 5xx (route-table test); tokens length/alphabet-checked before hashing; state transitions by the domain state machine with compare-and-set.)
 - [x] Drag/drop order input is validated, authorized, and bounded. (Reordering is client-side only; the result is saved through the 4.2 Procedure save: `procedure.edit`, ids must belong to the Procedure, ≤50 Sections / ≤200 Steps, revision check.)
 
 - [x] Emails are normalized (trim, NFC, lower-case) before storage/lookup; uniqueness is enforced on the normalized value by a unique index.
@@ -194,7 +195,7 @@ Canonical shape:
 ## 8. Database and storage
 
 - [x] SQLite foreign keys enabled.
-- [x] Migrations exist from first schema. (`packages/database/migrations` 0000–0015; readiness reports pending ones.)
+- [x] Migrations exist from first schema. (`packages/database/migrations` 0000–0020; readiness reports pending ones. 0020 is hand-edited — drizzle-kit would rebuild `instance_settings` — and verified free of schema drift.)
 - [x] Writes requiring audit consistency are transactional. (Every repository mutation with its audit/security event in one `IMMEDIATE` transaction — §6.)
 - [x] SQLite file permissions are restrictive.
 - [x] WAL/sidecar files are treated as sensitive data too. (Same `0700` directory; backups use the online backup API so WAL content is included, and are converted to a single file; restores move the old database together with its WAL/SHM.)
@@ -218,6 +219,7 @@ Never commit or log:
 - OAuth client secrets;
 - OAuth access/refresh tokens;
 - Knot tokens;
+- notification provider credentials (Telegram bot token) and Telegram pairing tokens;
 - encryption keys;
 - production DB files;
 - private keys/certificates.
@@ -228,7 +230,7 @@ Checks:
 - [x] Safe `.env.example` contains placeholders only.
 - [x] Structured logging has redaction.
 - [x] Request logging avoids sensitive URL/path token leakage. (Knot paths — `/knot/…`, `/api/knot(s)/…` — and query strings redacted; add each new token route to the pattern in `apps/server/src/logging.ts`.)
-- [ ] Exceptions do not serialize credential-bearing objects. (MFA use-case errors carry no codes or secrets.) (Config secrets use the `Secret` wrapper; the HTTP error handler logs only error type + stack frames because messages can embed query parameters; Better Auth log calls are reduced to their message string. Extend to every new credential type.)
+- [x] Exceptions do not serialize credential-bearing objects. (MFA use-case errors carry no codes or secrets.) (Config secrets use the `Secret` wrapper; the HTTP error handler logs only error type + stack frames because messages can embed query parameters; Better Auth log calls are reduced to their message string. Notification credentials (13.7): the Telegram adapter turns every failure — whose URL would contain the bot token — into a `NotificationDeliveryError` with a stable code only; the reminder scheduler logs error type and code only; tests capture the logs and responses and assert the token is absent. Extend to every new credential type.)
 - [x] Production debug mode is disabled. (`LOG_LEVEL` debug/trace rejected in production.)
 - [x] Secret rotation process can be documented. (`AUTH_SECRET`: see deployment.md — rotation signs everyone out.)
 - [x] Configuration is validated at startup and fails closed; production has no default for any secret, origin or DB path.
@@ -241,12 +243,12 @@ Checks:
 ## 10. Dependency / supply-chain security
 
 - [x] Use lockfile.
-- [ ] Pin/review security-critical dependencies. (All versions pinned exactly; per-upgrade review is ongoing.)
+- [x] Pin/review security-critical dependencies. (All versions pinned exactly with a committed lockfile; installed versions compared with the latest releases on 2026-09-29.)
 - [x] Automated vulnerability/dependency scanning enabled.
-- [ ] Avoid abandoned auth/crypto libraries.
+- [x] Avoid abandoned auth/crypto libraries. (Reviewed 2026-09-29: better-auth, @node-rs/argon2, otpauth, nodemailer, drizzle-orm, fastify and its security plugins all released within the last two months; re-check at every upgrade.)
 - [x] Review dependency install scripts where relevant.
 - [x] CI runs tests/typecheck/lint.
-- [ ] Security-sensitive dependency upgrades receive explicit review.
+- [ ] Security-sensitive dependency upgrades receive explicit review. (Standing rule, not closable once: every Dependabot upgrade of better-auth, argon2, otpauth, nodemailer, drizzle, fastify security plugins or zod is reviewed — changelog and advisories — before merging.)
 
 ---
 
@@ -291,7 +293,7 @@ A dedicated security review and update to this file is mandatory before adding:
 - admin impersonation/support tooling;
 - multi-node deployments;
 - third-party analytics;
-- external notification services.
+- external notification services (reviewed for email reminders and Telegram in 13.5–13.7; ntfy, Gotify, Web Push and webhooks each need their own review — see "Security check: notification providers and Telegram").
 
 ---
 
@@ -593,6 +595,7 @@ The following choices are mandatory V1 behavior:
 **Logging review:** no new log output.  
 **Authorization review:** unchanged server-side authorization for every sent change; cached capabilities only adapt the offline UI.  
 **Open risks:** a device that is never signed out keeps its last user's saved Runs readable to anyone who can use that browser profile (same as the open app itself; documented); a user can claim any plausible device time within the bounds (shown as device clock, next to the server time); browsers may evict storage (queued changes lost — the user sees them as not sent).  
+**Addendum 13.1 (2026-09-29):** sign-out never reports a blocked database deletion as done: other tabs are told first (BroadcastChannel, no secrets; messages carry a random tab id so a tab ignores its own — found by the e2e flow: without it a tab re-checked its own sign-in) and drop the account; every store is emptied in one transaction; the deletion then waits for other tabs (connections close on `versionchange`); a failure is shown to the user. Device storage is suspended between accounts. Queued changes are sent only after checking that the session belongs to the account that queued them, and the server refuses an offline change whose `userId` is not the signed-in account (`409 offline_account_mismatch`, nothing written). Tests: `apps/web/src/offline/cleanup.test.ts`, `packages/database/src/offline-step-changes.test.ts`, `apps/server/src/http/run.test.ts`, e2e second tab.  
 **Reviewed:** 2026-09-28
 
 ### Security check: image pipeline and releases (Step 10.4)
@@ -614,3 +617,33 @@ The following choices are mandatory V1 behavior:
 **Authorization review:** `packages/application/src/settings`.  
 **Open risks:** static file requests are no longer rate-limited by the app (a reverse proxy can limit them; they are cheap); operators of modified versions who hide the footer must offer the source elsewhere (documented).  
 **Reviewed:** 2026-09-28
+
+### Security check: scheduled Procedures and reminders (Steps 13.4, 13.5)
+**Threat surface:** scheduling, reading or starting items of another Workspace (IDOR through schedule/Procedure ids); GUESTs scheduling or starting; history falsified by "automatic" execution; reminders leaking Workspace content (Procedure titles, Workspace names) to people who left the Workspace, were disabled or never had access; reminder links used as a login bypass; duplicate or endless reminders (restart, crash, overlapping runs, retries) — spam; stale reminders after downtime; unbounded items; time-zone confusion (reminders at the wrong time); delivery failures corrupting Procedure/Run truth.  
+**Controls added:** `schedule.manage` (USER, EDITOR, ADMIN) via `authorizeWorkspace` plus an in-transaction re-check; reading needs `procedure.view`; starting needs `run.start`; every lookup scoped by Workspace id + item id (route-table test); the Procedure must be a non-deleted Procedure of the same Workspace; an item is never a Run — only Start creates one, in the same IMMEDIATE transaction that closes the item (no Run, audit or Step event is ever created by the passage of time); items are never deleted, identity immutable, closed items final (DB triggers); SCHEDULE_* audit events describe the intention only; strict bodies, calendar dates/24 h times/IANA zones validated in the domain, ≤5 reminders (0–30 days, 1–48 hours), ≤731 days ahead, ≤1000 open items per Workspace, 4 KiB bodies. Reminders go only to the person who scheduled the item, and only if — at send time — the account is ACTIVE, still a member with `procedure.view`, the item still open and the Procedure not deleted. Idempotent delivery: a unique (reminder, channel) row is claimed in a transaction before sending; a processed instant is never stored again when an item is moved back; claims have a 5-minute lease; ≤4 attempts per reminder and channel (1 min, 10 min, 1 h), permanent errors are not retried; reminders more than 24 h late are dropped; the dispatcher never overlaps itself and handles ≤50 reminders per minute. Reminder links are the plain Workspace URL: sign-in is still required, no token. Delivery state lives in its own tables — a failure never touches schedules, Runs or audit events.  
+**Negative tests:** `packages/database/src/schedule-use-cases.test.ts` (GUEST, non-member, foreign Procedure/ids, in-transaction guard — mutation-checked, no Run when the date passes, deleted Procedure never started, audit rollback, triggers), `packages/database/src/reminder-dispatch.test.ts` (once per channel also after restart, concurrent dispatchers, interrupted claim only after the lease, bounded retries, permanent failure not retried and history untouched, removed member / deleted Procedure / cancelled item receive nothing, stale), `apps/server/src/reminder-schedule.test.ts` (no overlap, error logging without messages), `apps/server/src/http/schedule.test.ts`, `apps/server/src/http/route-security.test.ts`, `packages/domain/src/schedule.test.ts` (DST).  
+**Secrets/data involved:** Procedure titles and Workspace names in reminders (Workspace-confidential, to the scheduler only); email addresses; schedule dates.  
+**Logging review:** the scheduler logs counts and error type/code only — never recipients, titles, chat ids or tokens.  
+**Authorization review:** HTTP only authenticates and parses; decisions in `packages/application/src/schedules` and `reminders/dispatch.ts` (`mayReceive`).  
+**Open risks:** reminders travel through third parties (mail servers, Telegram) and reveal the Procedure title and Workspace name there — documented for users; an at-least-once edge remains: a crash between a provider accepting a message and recording it can repeat that one message (bounded by the attempt limit); any member with `schedule.manage` can cancel or move anyone's item (audited, like Runs).  
+**Reviewed:** 2026-09-29
+
+### Security check: notification providers and Telegram (Steps 13.6, 13.7, 13.8)
+**Threat surface:** the Telegram bot token (full control of the bot) leaking through responses, logs, errors, backups or the security log; non-admins configuring providers; SSRF through provider URLs; abuse of test messages (spam, mail relay); a leaked pairing link attaching a stranger's chat to someone's account (their reminders then go to the stranger); guessing/replaying pairing tokens; one account confirming another's pairing; spoofed chat names; malicious bot updates (groups, floods, huge payloads); treating Telegram ids as identity.  
+**Controls added:** bot token accepted only by an ACTIVE server admin (use-case check + in-transaction re-check), only in a JSON body, format-checked, verified with Telegram (`getMe`) before storing, stored sealed with AES-256-GCM (HKDF from `DATA_ENCRYPTION_KEY`, purpose-bound associated data `notification-provider:TELEGRAM`), never returned (responses show configured/enabled/bot name only), security event `NOTIFICATION_PROVIDER_CHANGED` records "replaced/removed", never the value; the adapter talks only to the fixed host `api.telegram.org` over HTTPS with redirects refused, 10 s timeout, 1 MiB response cap, and maps every failure to a stable code (the URL containing the token is never logged or passed on); plain-text messages only (no `parse_mode`). Test messages go only to the acting admin's own address/chat. Rate limits (persisted, per account): provider changes 20 / 15 min, tests 5 / 15 min, pairing 10 / 15 min. Pairing: 256-bit one-time token (SHA-256 stored), 10 minutes, one open pairing per account, claimed at most once (conditional update), only from private chats, and connected **only after the signed-in owner confirms it** in VMN (showing which chat asked) — a leaked link alone connects nothing, and the owner's own /start then fails visibly; confirmation is bound to the owner's own pairing; chat labels sanitized (no control/format characters, ≤64); Telegram chat ids are addresses, never credentials — no login or authorization uses them; connect/disconnect recorded as `TELEGRAM_CONNECTED/DISCONNECTED`. Polling instead of a webhook (works behind a VPN, no inbound endpoint, no webhook secret to manage); the server polls only while a pairing is open. Email reminders reuse the existing SMTP adapter (text-only, single recipient, no URL/file access). No generic webhook was added (see open risks).  
+**Negative tests:** `packages/database/src/notification-use-cases.test.ts` (non-admin / disabled admin, malformed and rejected tokens stored nowhere, sealed at rest, security-log metadata without the token, test messages only to the actor, one-time / expired / group-chat / replaced / cancelled pairings, cross-account confirmation refused, no polling without a pairing, update offset, disconnect stops reminders), `packages/notifications/src/telegram-bot-api.test.ts` (fixed host, no redirects, plain text, error codes, token absent from errors, malformed token → no request), `apps/server/src/http/notification.test.ts` (401/403/Origin on every admin route, token absent from responses, security log and captured server log, rate limit on tests, strict bodies).  
+**Secrets/data involved:** Telegram bot token (sealed), pairing tokens (hashed), Telegram chat ids and labels, email addresses.  
+**Logging review:** no request bodies are logged; the poller logs claim counts; errors are logged as type + code.  
+**Authorization review:** `packages/application/src/notifications/use-cases.ts` (server-admin checks, own-account checks); HTTP only authenticates and parses.  
+**Open risks:** whoever holds the database **and** `DATA_ENCRYPTION_KEY` can read the bot token (same trust as TOTP seeds); a user who confirms a chat they do not recognise sends their reminders there; Telegram sees reminder texts; if the bot has a webhook set elsewhere, polling fails (documented). **Generic webhooks / ntfy / Gotify / Web Push are not implemented**: before adding a webhook, design an SSRF policy (https only, DNS resolution checked against private/loopback/link-local ranges at connect time, no redirects, size/time limits, per-admin allow-list) and review it here.  
+**Reviewed:** 2026-09-29
+
+### Security check: Home, pins, Recent and the global API limit (Steps 13.9–13.18)
+**Threat surface:** Home aggregating data of other Workspaces; pins or Recent revealing another person's activity; pinning Procedures of another Workspace by id; an admin setting changing history; UI-only warnings mistaken for rules; the configurable global API limit weakening protection.  
+**Controls added:** every Home/card query is scoped by the route's Workspace id and needs `procedure.view`; pins are per user (primary key user + Procedure), only for a non-deleted Procedure of the same Workspace (else 404, also for unpin — found by the route-table test), never audited and never shown to others; Recent is derived only from the person's own started Runs of this Workspace; the Recent limit (0–20) changes only the query limit, is server-admin only, validated server-side and audited; the "already active" warning is guidance only (the server keeps allowing several active Runs); `API_RATE_LIMIT_PER_MINUTE` is bounded 60–10000 (default 300) and does not touch the persisted limits of sign-in, second factor, recovery, invitations, account security, Knot resolution or the notification routes.  
+**Negative tests:** `packages/database/src/home-use-cases.test.ts`, `apps/server/src/http/route-security.test.ts` (home, pin/unpin, schedules), `apps/server/src/http/account-admin.test.ts` (Recent limit), `apps/server/src/config/config.test.ts` and `apps/server/src/http/hardening.test.ts` (API limit).  
+**Secrets/data involved:** none new (display names, titles already visible to members).  
+**Logging review:** no new log output.  
+**Authorization review:** `packages/application/src/home/use-cases.ts`, `settings/use-cases.ts`.  
+**Open risks:** raising the API limit makes request floods from one address cheaper (documented; prefer `TRUSTED_PROXIES`).  
+**Reviewed:** 2026-09-29

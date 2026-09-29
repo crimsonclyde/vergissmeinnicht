@@ -10,8 +10,19 @@ const LIFETIMES = ['1', '7', '30', '90', '365', 'never'] as const;
  * "Share as Knot link" for a Procedure or Run (editors and admins). The link is shown once: only
  * its hash is stored. Opening it still requires signing in with access to the target.
  */
-export function KnotShare(props: { workspaceId: string; target: { type: KnotTargetType; id: string }; defaultLabel: string }) {
-  const [open, setOpen] = useState(false);
+export function KnotShare(props: {
+  workspaceId: string;
+  target: { type: KnotTargetType; id: string };
+  defaultLabel: string;
+  /** Opened from a ⋯ menu: show the form right away; `onDone` closes the whole panel. */
+  initiallyOpen?: boolean;
+  onDone?: () => void;
+}) {
+  const [open, setOpenState] = useState(props.initiallyOpen === true);
+  const setOpen = (next: boolean) => {
+    setOpenState(next);
+    if (!next) props.onDone?.();
+  };
   const [label, setLabel] = useState(props.defaultLabel.slice(0, 80));
   const [days, setDays] = useState<string>('30');
   const [link, setLink] = useState<string | null>(null);

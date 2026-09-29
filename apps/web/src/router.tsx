@@ -48,7 +48,12 @@ export type Route =
   | { readonly page: 'knot'; readonly token: string }
   | { readonly page: 'account' }
   | { readonly page: 'admin' }
-  | { readonly page: 'runs'; readonly workspaceId: string; readonly runId: string | null }
+  /** Workspace Home (13.9): Due, Upcoming, Active, Pinned, Recent. */
+  | { readonly page: 'workspace'; readonly workspaceId: string }
+  /** Completed history (13.14): finished executions. */
+  | { readonly page: 'history'; readonly workspaceId: string }
+  /** One execution (Run). */
+  | { readonly page: 'run'; readonly workspaceId: string; readonly runId: string }
   | { readonly page: 'procedures'; readonly workspaceId: string; readonly procedureId: string | null }
   | { readonly page: 'members'; readonly workspaceId: string }
   | { readonly page: 'knots'; readonly workspaceId: string }
@@ -67,9 +72,11 @@ export function parseRoute(pathname: string): Route {
   if ((match = new RegExp(`^/knot/${TOKEN}$`).exec(path))) return { page: 'knot', token: match[1] ?? '' };
   if (path === '/account') return { page: 'account' };
   if (path === '/admin') return { page: 'admin' };
-  if ((match = new RegExp(`^/w/${ID}(?:/runs)?$`).exec(path))) return { page: 'runs', workspaceId: match[1] ?? '', runId: null };
+  if ((match = new RegExp(`^/w/${ID}$`).exec(path))) return { page: 'workspace', workspaceId: match[1] ?? '' };
+  // `/runs` is the address of the former Run list (bookmarks keep working).
+  if ((match = new RegExp(`^/w/${ID}/(?:history|runs)$`).exec(path))) return { page: 'history', workspaceId: match[1] ?? '' };
   if ((match = new RegExp(`^/w/${ID}/runs/${ID}$`).exec(path))) {
-    return { page: 'runs', workspaceId: match[1] ?? '', runId: match[2] ?? null };
+    return { page: 'run', workspaceId: match[1] ?? '', runId: match[2] ?? '' };
   }
   if ((match = new RegExp(`^/w/${ID}/procedures$`).exec(path))) return { page: 'procedures', workspaceId: match[1] ?? '', procedureId: null };
   if ((match = new RegExp(`^/w/${ID}/procedures/${ID}$`).exec(path))) {
@@ -81,7 +88,8 @@ export function parseRoute(pathname: string): Route {
 }
 
 export const paths = {
-  runs: (workspaceId: string) => `/w/${workspaceId}/runs`,
+  home: (workspaceId: string) => `/w/${workspaceId}`,
+  history: (workspaceId: string) => `/w/${workspaceId}/history`,
   run: (workspaceId: string, runId: string) => `/w/${workspaceId}/runs/${runId}`,
   procedures: (workspaceId: string) => `/w/${workspaceId}/procedures`,
   procedure: (workspaceId: string, procedureId: string) => `/w/${workspaceId}/procedures/${procedureId}`,

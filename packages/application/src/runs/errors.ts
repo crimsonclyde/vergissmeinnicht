@@ -55,3 +55,14 @@ export class RunIncompleteError extends Error {
     this.openRequiredSteps = openRequiredSteps;
   }
 }
+
+/**
+ * An offline change (8.5) names the account that made it on the device; it is refused under any
+ * other account's session, so a change queued by one person is never recorded as another's.
+ */
+export class OfflineAccountMismatchError extends Error {
+  constructor() {
+    super('The offline change was made by another account');
+    this.name = 'OfflineAccountMismatchError';
+  }
+}

@@ -229,6 +229,9 @@ importers:
       '@vergissmeinnicht/import-export':
         specifier: workspace:*
         version: link:../../packages/import-export
+      '@vergissmeinnicht/notifications':
+        specifier: workspace:*
+        version: link:../../packages/notifications
       '@vergissmeinnicht/realtime':
         specifier: workspace:*
         version: link:../../packages/realtime
@@ -374,6 +377,16 @@ importers:
       zod:
         specifier: 4.6.5
         version: 4.6.5
+
+  packages/notifications:
+    dependencies:
+      '@vergissmeinnicht/application':
+        specifier: workspace:*
+        version: link:../application
+    devDependencies:
+      '@types/node':
+        specifier: 24.13.6
+        version: 24.13.6
 
   packages/permissions:
     dependencies:

@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import {
   NotAuthorizedError,
+  OfflineAccountMismatchError,
   StepStateConflictError,
   addMember,
   changeStepState,
@@ -51,7 +52,7 @@ describe('offline Step changes (Step 8.5)', () => {
       stepId: step.id,
       expectedState,
       to,
-      offline: { clientChangeId: id, deviceAt: deviceTime },
+      offline: { clientChangeId: id, madeBy: actor.id, deviceAt: deviceTime },
     });
   const stepNow = async (step: RunStep) =>
     (await getRun(deps, { actor: uma, workspaceId: home.id, runId: run.run.id })).sections[0]?.steps.find((s) => s.id === step.id);
@@ -150,6 +151,22 @@ describe('offline Step changes (Step 8.5)', () => {
     await expect(offline(guest, router, undefined)).rejects.toBeInstanceOf(NotAuthorizedError);
     await expect(offline(uma, router, undefined, 'not-a-uuid')).rejects.toBeInstanceOf(DomainValidationError);
     expect(events()).toEqual([]);
+  });
+
+  it('refuses a change queued by another account, without writing anything', async () => {
+    const queuedByCole = changeStepState(deps, {
+      actor: uma,
+      workspaceId: home.id,
+      runId: run.run.id,
+      stepId: router.id,
+      expectedState: 'PENDING',
+      to: 'DONE',
+      offline: { clientChangeId: randomUUID(), madeBy: cole.id, deviceAt: undefined },
+    });
+    await expect(queuedByCole).rejects.toBeInstanceOf(OfflineAccountMismatchError);
+    expect(events()).toEqual([]);
+    expect((await stepNow(router))?.state).toBe('PENDING');
+    expect(announced).toBe(0);
   });
 
   it('enforces one change id per actor in the database as well', () => {
