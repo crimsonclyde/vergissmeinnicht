@@ -18,10 +18,12 @@ For every completed task, add a concise completion note, tests/checks performed,
 
 ## Current state — resume here
 
-_Last updated: 2026-09-28 (follow-up round: 2.7–2.9, 5.7, 8.5, 8.7–8.9, 10.4, 10.5)_
+_Last updated: 2026-09-29 (13 — scheduling, reminders, Home; branch `feature/schedules-notifications-home`, stacked on `feature/more-icons`)_
 
-**Done:** 0.1, 0.2, 0.3, 1.1, 1.2, 2.1–2.5, 2.7–2.9, 3.1–3.3, 4.1–4.5, 5.1–5.7, 6.1, 6.2, 7.1, 8.0–8.11, 9.1, 10.1–10.5, 11.1. DEFERRED: 2.6 (external identity providers — a later step, user decision 2026-09-28).
-**Next:** 0.1.0-beta.1 released (12.3); make the GHCR package public, install on Unraid, collect beta feedback; the first pull request will run CI incl. the new arm64 image job; the release workflow runs on the first `vX.Y.Z` tag. Needs people/devices: a session with a real screen reader and tests on physical iOS/Android devices (incl. offline storage eviction).
+**Done:** 0.1, 0.2, 0.3, 1.1, 1.2, 2.1–2.5, 2.7–2.9, 3.1–3.3, 4.1–4.5, 5.1–5.7, 6.1, 6.2, 7.1, 8.0–8.11, 9.1, 10.1–10.5, 11.1, 12.1–12.5, 13.1–13.19. DEFERRED: 2.6 (external identity providers — a later step, user decision 2026-09-28).
+**Next:** review and merge `feature/more-icons` and `feature/schedules-notifications-home` (migration 0020: back up first — `migrate` does it automatically); try Telegram with a real bot (only faked in tests); beta feedback on Home/scheduling. Still open from before: GHCR package visibility, a session with a real screen reader, physical iOS/Android devices (incl. offline storage eviction). Possible next providers: ntfy/Gotify or a webhook — the webhook needs the SSRF policy in security.md first.
+
+**Decisions 2026-09-29 (user):** MFA stays optional (also for admins; the beta runs behind a VPN) with the enforcement seam kept; VMN's main flow is *Procedure → optionally schedule → reminders → Start → execute → history* — no task manager, calendar or workflow engine; Home is the Workspace landing page; email and Telegram reminders; Recent limit admin-configurable. **Made while implementing (documented in 13.x):** name *ScheduledProcedure*; reminders go to the person who scheduled; pairing needs a confirmation in VMN; polling instead of a webhook; Recent limit 0–20 (0 hides).
 
 **Decisions 2026-09-28 (user):** offline = queue + labelled device time (8.5); disabling an account is refused while it is the only active Workspace admin (2.7); TOTP stays optional for everyone, also server admins; housekeeping automatic in the server (2.8); sensitive rate limits persisted (2.9); critical Steps: "Tap, then confirm" per account, theme per account (8.7); Memento Mori = darker + stronger red (8.7); slim image, image scan, arm64, signed GHCR releases on tags (10.4); scheduled backups without own crypto (10.5); SKIPPED keeps blocking completion (5.4) and the Knot design stays (7.1) — both confirmed.
 
@@ -1908,7 +1910,18 @@ HTTPS, proxy trust, security headers, dependency scanning, health checks, safe s
 **Security impact:** NONE.
 
 ### 13.19 Final security, documentation and test pass
-**Status:** TODO
+**Status:** DONE
+**Completed:** 2026-09-29
+
+**Implemented/checked:** review of every change of section 13 for logging (counts and error type/code only; no token-bearing URLs; request bodies never logged), output (React text only, plain-text email/Telegram), outbound requests (only `api.telegram.org`, redirects refused), authorization (route-table test covers every new route), and time handling; docs updated: `security.md` (checklist, three new security checks, §9/§12), `architecture.md` (Home, scheduling, reminders, providers; offline addendum), `deployment.md` (reminders and notification providers, `API_RATE_LIMIT_PER_MINUTE`, `DATA_ENCRYPTION_KEY` also encrypts the bot token), `unraid.md` (Telegram troubleshooting), `user-guide.md` (Home, Start/Schedule, reminders, pins, Notifications, admin), `.env.example` and `deploy/vergissmeinnicht.env.example`; `test-env/seed.ts` creates two scheduled items and a pin (type-checked; the existing local test environment was left untouched, so the seed itself was not re-run).
+
+**New configuration:** `API_RATE_LIMIT_PER_MINUTE` (optional, 60–10000, default 300) — added because the single e2e flow exceeded the fixed global limit from one address; sensitive routes keep their own limits.
+
+**Tests/checks (final run):** `pnpm lint`, `pnpm typecheck`, `pnpm test` (all unit/integration tests), `pnpm build`, `pnpm test:e2e` (desktop + mobile Chromium; the long flow runs on desktop, smoke on both) — all passing; `pnpm db:generate` reports no schema drift after the hand-edited migration 0020; `pnpm audit`: only the known moderate dev-only advisory.
+
+**Security impact:** HIGH overall for section 13 (new credential type, external service, outbound Workspace content) — controls and open risks in security.md.
+
+**Remaining:** real Telegram pairing untested against Telegram itself; no UI for delivery history; reminders only to the scheduler (no per-item recipients); no recurring schedules (out of scope); the e2e flow is long — consider splitting it once a second bootstrap path for tests exists.
 
 ---
 

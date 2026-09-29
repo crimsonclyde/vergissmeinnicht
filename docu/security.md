@@ -195,7 +195,7 @@ Canonical shape:
 ## 8. Database and storage
 
 - [x] SQLite foreign keys enabled.
-- [x] Migrations exist from first schema. (`packages/database/migrations` 0000–0015; readiness reports pending ones.)
+- [x] Migrations exist from first schema. (`packages/database/migrations` 0000–0020; readiness reports pending ones. 0020 is hand-edited — drizzle-kit would rebuild `instance_settings` — and verified free of schema drift.)
 - [x] Writes requiring audit consistency are transactional. (Every repository mutation with its audit/security event in one `IMMEDIATE` transaction — §6.)
 - [x] SQLite file permissions are restrictive.
 - [x] WAL/sidecar files are treated as sensitive data too. (Same `0700` directory; backups use the online backup API so WAL content is included, and are converted to a single file; restores move the old database together with its WAL/SHM.)
