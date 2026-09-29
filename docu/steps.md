@@ -1662,12 +1662,17 @@ HTTPS, proxy trust, security headers, dependency scanning, health checks, safe s
 **Security docs updated:** YES (§5 icons).
 
 ### 12.6 Release 0.2.0-beta.1: scheduling, reminders, Home
-**Status:** DONE
-**Completed:** 2026-09-29
+**Status:** IN PROGRESS
 
 **Request (user, 2026-09-29):** release the section 13 work; version chosen by the user: **0.2.0-beta.1** (minor bump: new features and migration 0020).
 
-**Implemented:** Unraid template and guide point to `ghcr.io/crimsonclyde/vergissmeinnicht:0.2.0-beta.1`; the branch goes through a pull request (full CI incl. e2e and image builds on amd64/arm64), is merged into `main`, and `main` is tagged `v0.2.0-beta.1` — the release workflow builds, smoke-tests, scans, pushes, signs and attests the image and publishes only this exact version (no `latest`).
+**Implemented so far:** Unraid template and guide point to `ghcr.io/crimsonclyde/vergissmeinnicht:0.2.0-beta.1`; PR #7 is open. Its first CI run passed the amd64 and arm64 image jobs but exposed that the new offline common-password dataset and provenance were hidden by the generic `.gitignore` `data/` rule. Narrow exceptions now include `packages/auth/data/README.md` and `common-passwords.txt.gz` in clean checkouts.
+
+**Checks performed:** Confirmed the CI root cause from the failed `pnpm test` log (`ENOENT` for `packages/auth/data/common-passwords.txt.gz`); affected tests 69/69; full unit/integration suite 697/697; lint; typecheck. (The full suite's loopback-based SSE/SMTP tests require network-capable execution and passed there.) The full PR CI, merge, tag and release workflow remain pending.
+
+**Security impact:** MEDIUM — the bundled offline breached/common-password check must be present in every source checkout and release image so password validation fails consistently rather than raising an internal error.
+
+**Remaining:** Push the fix; require PR #7 CI (tests, e2e, amd64 and arm64 images) to pass; merge into `main`; tag and push `v0.2.0-beta.1`; verify the release workflow (build, smoke test, scan, push, signing, SBOM attestation and GitHub pre-release); record the published multi-architecture image digest here.
 
 **Upgrade note for operators:** migration 0020 (new tables, one added column); `migrate` backs up first (or `VMN_MIGRATE_ON_START=true` on Unraid). Telegram is optional and configured in the app; the server then needs outgoing HTTPS to `api.telegram.org`.
 
