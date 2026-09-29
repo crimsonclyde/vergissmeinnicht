@@ -1394,13 +1394,18 @@ V1 ships English only, but user-facing strings must be structured so adding tran
 **Implemented:**
 - Header and public pages show `icon.svg` (black tile, white flower) next to "VergissMeinNicht" / "VMN"; a thin border in the theme's border colour keeps the tile's edge visible on dark themes. Phones: the Workspace selector is narrower so the header stays on one line.
 - `assets/brand/vergissmeinnicht-hero.svg`: new illustration — sky-blue five-petal flowers with white halos and golden eyes, pink buds, leaves, and a stem tied into an overhand knot (an opened trefoil with alternating over/under crossings). README uses it and was rewritten (features, security, quick start, the "Forget-Me-Knot" name story).
+- Follow-up (2026-09-29): replaced the stylized SVG hero entirely with `assets/brand/vergissmeinnicht-hero.png`, a transparent hyperrealistic botanical image with a continuous living stem forming a clear overhand knot; updated the README reference and accessible description.
 - Footer: "VergissMeinNicht (VMN) with 🖤 by CrimsonClyde - Licence: AGPL-3.0"; the name links to the source code (AGPL §13 offer), "AGPL-3.0" to the licence text, the heart has the accessible name "love". The third-party notices stay at `/third-party-notices.txt` (no longer linked from the footer).
 - Instance settings: migration `0018_instance_settings` (single row, CHECK id = 1); `updateInstanceSettings` (ACTIVE server admin, re-checked inside the transaction, `INSTANCE_SETTINGS_CHANGED` security event); `POST /api/admin/settings { footerHidden }` (strict body); `GET /api/about` returns `footerHidden` (public). Admin page "This server": "Hide the page footer (name and licence)" with a note on the AGPL. The footer keeps its markup and gets the `hidden` attribute; it starts hidden until the server answered (no flash), and is shown when the server cannot be reached.
 - Rate limits: the global per-client limit (300/min) now applies to `/api` only — every page load had cost several requests for static files, which the e2e flow exposed as `rate_limited` on a page load. All API limits are unchanged.
 
 **Tests/checks:** HTTP (footer setting: 401/403/Origin, strict body, public `/api/about`, audited, in-transaction re-check), hardening (320 static requests pass, the 301st API request is limited), e2e (footer text and links; hide → hidden but in the DOM → survives reload → show; axe checks), screenshots of header (light, dark, phone) and footer reviewed; hero rendered and reviewed. `pnpm test` 593, `pnpm lint`, `pnpm typecheck`.
 
+**Hero replacement checks (2026-09-29):** generated image visually reviewed for botanical realism, five-petal flower morphology, knot readability, and clean isolation; verified as 1448×1086 8-bit sRGB PNG with a true alpha channel. Documentation-only asset change; no automated application suite rerun.
+
 **Security docs updated:** YES (§2 rate limits, "Security check: branding and instance settings (8.10)").
+
+**Hero replacement security impact (2026-09-29):** NONE — static documentation artwork only; `docu/security.md` unchanged.
 
 **Remaining:** none.
 

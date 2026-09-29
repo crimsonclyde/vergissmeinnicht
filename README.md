@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="assets/brand/vergissmeinnicht-hero.svg" alt="Forget-me-not flowers with sky-blue petals; the green stem is tied into a knot" width="640">
+  <img src="assets/brand/vergissmeinnicht-hero.png" alt="Hyperrealistic forget-me-not flowers with a living green stem tied into a knot" width="640">
 </p>
 
 <h1 align="center">VergissMeinNicht</h1>
