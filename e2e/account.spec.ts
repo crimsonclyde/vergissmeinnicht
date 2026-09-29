@@ -152,7 +152,11 @@ test('first server admin: bootstrap link, account creation, sign-in, Workspace c
   await page.getByRole('group', { name: 'Step 1.2' }).getByText('More options').click();
   await page.getByRole('group', { name: 'Step 1.2' }).getByLabel('When skipped:').selectOption('REQUIRED');
   // Step icon with the keyboard only: grouped tiles, arrows move the choice, Enter closes (no submit).
+  // A calm panel first (13.16): a few suggested icons, the complete catalog one click away.
   await page.getByRole('button', { name: 'Step 1.2 icon: No icon — change' }).click();
+  await expect(page.getByRole('group', { name: 'Suggested' }).getByRole('radio')).toHaveCount(9); // "No icon" + 8
+  await expect(page.getByRole('group', { name: 'Utilities' })).toHaveCount(0);
+  await page.getByRole('button', { name: /^Browse all \d+ icons$/ }).click();
   await expect(page.getByRole('group', { name: 'Utilities' })).toBeVisible();
   await expectAccessible(page, 'icon picker');
   await page.getByRole('radio', { name: 'Power' }).focus();
@@ -181,8 +185,13 @@ test('first server admin: bootstrap link, account creation, sign-in, Workspace c
   await expect(steps.nth(1)).not.toContainText('Required');
   await expectAccessible(page, 'procedure view');
 
+  // Secondary actions are under ⋯ (13.15): Edit, Duplicate, Export, Knot link, Delete.
+  const fromProcedureMenu = async (item: string) => {
+    await procedure.getByRole('button', { name: /^More actions for / }).click();
+    await procedure.getByRole('button', { name: item, exact: true }).click();
+  };
   // Edit: rename, move the stove Step to the top, save once.
-  await procedure.getByRole('button', { name: 'Edit' }).click();
+  await fromProcedureMenu('Edit');
   await page.getByLabel('Title', { exact: true }).fill('Leave the flat');
   await page.getByRole('button', { name: 'Move step 1.2 up' }).click();
   await page.getByRole('button', { name: 'Save changes' }).click();
@@ -191,7 +200,7 @@ test('first server admin: bootstrap link, account creation, sign-in, Workspace c
   await expect(steps.nth(1)).toContainText('Close windows');
 
   // Drag and drop: a new Section, then drag "Close windows" (step 1.2) into it; one save.
-  await procedure.getByRole('button', { name: 'Edit' }).click();
+  await fromProcedureMenu('Edit');
   await page.getByRole('button', { name: 'Add section' }).click();
   await page.getByLabel('Section 2 title').fill('Upstairs');
   await page.getByTitle('Drag step 1.2').hover();
@@ -229,26 +238,21 @@ test('first server admin: bootstrap link, account creation, sign-in, Workspace c
 
   // Export as a JSON file, duplicate, delete the copy, re-import the exported file.
   const downloadPromise = page.waitForEvent('download');
-  // Secondary actions are under "More actions" (a disclosure that may already be open).
-  const moreActions = async () => {
-    if ((await procedure.locator('details.more-actions').getAttribute('open')) === null) await procedure.getByText('More actions').click();
-  };
-  await moreActions();
-  await procedure.getByRole('button', { name: 'Export as JSON' }).click();
+  await fromProcedureMenu('Export as JSON');
   const download = await downloadPromise;
   expect(download.suggestedFilename()).toBe('leave-the-flat.vmn.json');
   const exportPath = testInfo.outputPath('export.json');
   await download.saveAs(exportPath);
 
-  await moreActions();
-  await procedure.getByRole('button', { name: 'Duplicate' }).click();
+  await fromProcedureMenu('Duplicate');
   await expect(procedure.getByRole('heading', { name: 'Travel Leave the flat (copy)' })).toBeVisible();
   page.once('dialog', (dialog) => void dialog.accept());
-  await moreActions();
-  await procedure.getByRole('button', { name: 'Delete' }).click();
+  await fromProcedureMenu('Delete');
   await expect(page.getByRole('list', { name: 'Procedures' }).getByRole('listitem')).toHaveCount(1);
-  // Restore the deleted copy, then delete it again.
-  await page.getByRole('button', { name: 'Show deleted Procedures' }).click();
+  // Rare actions live in the page's Manage menu (13.15). Restore the deleted copy, then delete it again.
+  await page.getByRole('button', { name: 'Manage Procedures' }).click();
+  await expectAccessible(page, 'procedure list with manage menu');
+  await page.getByRole('button', { name: 'Deleted Procedures' }).click();
   await expect(page.getByRole('list', { name: 'Deleted Procedures' })).toContainText('Leave the flat (copy) — deleted by Ada Admin');
   // It can be read in full before restoring (8.9).
   await page.getByRole('button', { name: 'View Leave the flat (copy)' }).click();
@@ -258,11 +262,10 @@ test('first server admin: bootstrap link, account creation, sign-in, Workspace c
   await procedure.getByRole('button', { name: 'Restore Leave the flat (copy)' }).click();
   await expect(procedure.getByRole('heading', { name: 'Travel Leave the flat (copy)' })).toBeVisible();
   page.once('dialog', (dialog) => void dialog.accept());
-  await moreActions();
-  await procedure.getByRole('button', { name: 'Delete' }).click();
+  await fromProcedureMenu('Delete');
   await expect(page.getByRole('list', { name: 'Procedures' }).getByRole('listitem')).toHaveCount(1);
 
-  await page.getByLabel('Import Procedure from JSON file').setInputFiles(exportPath);
+  await page.getByLabel('Import Procedure (JSON file)…').setInputFiles(exportPath);
   await expect(procedure.getByRole('heading', { name: 'Travel Leave the flat' })).toBeVisible();
   await expect(procedure.getByRole('heading', { level: 3 })).toHaveText(['Upstairs', 'Ground floor']);
   await procedure.getByRole('button', { name: 'Back to all Procedures' }).click();
@@ -273,7 +276,7 @@ test('first server admin: bootstrap link, account creation, sign-in, Workspace c
   await tagFilter.selectOption('safety');
   await expect(page.getByRole('list', { name: 'Procedures' }).getByRole('listitem')).toHaveCount(2);
   await tagFilter.selectOption('');
-  await page.getByLabel('Import Procedure from JSON file').setInputFiles({
+  await page.getByLabel('Import Procedure (JSON file)…').setInputFiles({
     name: 'evil.json',
     mimeType: 'application/json',
     buffer: Buffer.from(JSON.stringify({ format: 'vergissmeinnicht.procedure', schemaVersion: 99, procedure: {} })),
@@ -281,13 +284,22 @@ test('first server admin: bootstrap link, account creation, sign-in, Workspace c
   await expect(page.getByRole('alert').filter({ hasText: 'different version' })).toBeVisible();
   await expect(page.getByRole('list', { name: 'Procedures' }).getByRole('listitem')).toHaveCount(2);
 
-  // Runs: start two Runs of the same Procedure; each is a snapshot with pending Steps.
+  // Start two executions of the same Procedure; each is a snapshot with pending Steps. The second
+  // time VMN warns that one is already active — starting another stays allowed (13.18).
   const run = page.getByRole('article');
   const stepItem = (title: string) => run.getByRole('listitem').filter({ hasText: title });
+  const sections = page.getByRole('navigation', { name: 'Workspace sections' });
   for (let i = 0; i < 2; i++) {
-    await page.getByRole('link', { name: 'Procedures' }).click();
+    await sections.getByRole('link', { name: 'Procedures' }).click();
     await page.getByRole('list', { name: 'Procedures' }).getByRole('button').first().click();
-    await procedure.getByRole('button', { name: 'Start Run' }).click();
+    await procedure.getByRole('button', { name: 'Start Leave the flat' }).click();
+    await procedure.getByRole('button', { name: 'Start now' }).click();
+    if (i === 1) {
+      const warning = page.getByRole('dialog', { name: 'Already in progress' });
+      await expect(warning).toContainText('“Leave the flat” already has an active execution, started by Ada Admin');
+      await expectAccessible(page, 'already-active warning');
+      await warning.getByRole('button', { name: 'Start another anyway' }).click();
+    }
     await expect(page).toHaveURL(/\/w\/[0-9a-f-]{36}\/runs\/[0-9a-f-]{36}$/);
     await expect(run.getByRole('heading', { name: 'Travel Leave the flat', level: 2 })).toBeVisible();
     await expect(run).toContainText('Started by Ada Admin');
@@ -296,14 +308,16 @@ test('first server admin: bootstrap link, account creation, sign-in, Workspace c
     await expect(stepItem('Turn off stove').getByRole('img', { name: 'Critical' })).toBeVisible();
     await expect(stepItem('Turn off stove')).not.toContainText('Required');
   }
-  await page.getByRole('link', { name: 'Runs' }).click();
-  const activeRuns = page.getByRole('list', { name: 'Active Runs' });
+  // Home (13.9) lists what is going on: both executions under Active, with Continue.
+  await sections.getByRole('link', { name: 'Home' }).click();
+  await expect(page.getByRole('heading', { name: 'Household', level: 2 })).toBeVisible();
+  const activeRuns = page.getByRole('list', { name: 'Active' });
   await expect(activeRuns.getByRole('listitem')).toHaveCount(2);
-  await expect(activeRuns.getByRole('listitem').first()).toContainText('○ 2 pending');
-  await expectAccessible(page, 'run list');
+  await expect(activeRuns.getByRole('listitem').first()).toContainText('0 of 2 resolved');
+  await expectAccessible(page, 'workspace home');
 
-  // Execute a Run: Done, Skip with a required reason, Undo.
-  await activeRuns.getByRole('button').first().click();
+  // Execute: Done, Skip with a required reason, Undo.
+  await activeRuns.getByRole('link').first().click();
 
   // A second device of the same person follows the Run live (6.1).
   const secondDevice = await browser.newContext(testInfo.project.use.baseURL === undefined ? {} : { baseURL: testInfo.project.use.baseURL });
@@ -357,7 +371,7 @@ test('first server admin: bootstrap link, account creation, sign-in, Workspace c
   await expectAccessible(page, 'run view on a phone');
   await expect(stepItem('Turn off stove')).toContainText('Next');
   await expect(stepItem('Close windows')).not.toContainText('Next');
-  const dock = page.getByRole('region', { name: 'Run progress' });
+  const dock = page.getByRole('region', { name: 'Progress' });
   await expect(dock).toContainText('1 of 2 resolved · Next: Turn off stove');
   await dock.getByRole('button', { name: 'Go to next Step' }).click();
   await expect(stepItem('Turn off stove')).toBeFocused();
@@ -418,11 +432,11 @@ test('first server admin: bootstrap link, account creation, sign-in, Workspace c
   await page.keyboard.up(' ');
 
   // Completion needs every required Step done or not applicable.
-  const finishControls = run.getByRole('region', { name: 'Finish this Run' });
-  await expect(finishControls.getByRole('button', { name: 'Complete Run' })).toBeDisabled();
+  const finishControls = run.getByRole('region', { name: 'Finish' });
+  await expect(finishControls.getByRole('button', { name: 'Complete' })).toBeDisabled();
   await expect(finishControls).toContainText('1 required Step is still pending or skipped: Close windows');
   await run.getByRole('button', { name: 'Done: Close windows' }).click();
-  await finishControls.getByRole('button', { name: 'Complete Run' }).click();
+  await finishControls.getByRole('button', { name: 'Complete' }).click();
   await expect(run.getByRole('status').filter({ hasText: 'Completed by Ada Admin' })).toBeVisible();
   // The second device sees the completion without reloading and stops listening.
   await expect(run2.getByRole('status').filter({ hasText: 'Completed by Ada Admin on' })).toBeVisible();
@@ -430,33 +444,37 @@ test('first server admin: bootstrap link, account creation, sign-in, Workspace c
   await secondDevice.close();
   await expect(run.getByRole('button', { name: /Undo|Done|Skip/ })).toHaveCount(0);
   // The Run's history tells who did what, when and why.
-  await run.getByRole('region', { name: 'Run history' }).getByRole('button', { name: 'Show history' }).click();
-  const history = run.getByRole('region', { name: 'Run history' }).getByRole('listitem');
-  await expect(history.first()).toContainText('Ada Admin started the Run');
+  await run.getByRole('region', { name: 'Execution history' }).getByRole('button', { name: 'Show history' }).click();
+  const history = run.getByRole('region', { name: 'Execution history' }).getByRole('listitem');
+  await expect(history.first()).toContainText('Ada Admin started it');
   await expect(history.filter({ hasText: 'Turn off stove: Pending → Skipped — reason: Nobody cooked today' })).toHaveCount(1);
   // One undo from the second device, one from this one; the rejected attempt left no trace.
   await expect(history.filter({ hasText: 'Close windows: Done → Pending (undo)' })).toHaveCount(2);
-  await expect(history.last()).toContainText('Ada Admin completed the Run');
+  await expect(history.last()).toContainText('Ada Admin completed it');
   await expectAccessible(page, 'finished run with history');
-  await page.getByRole('button', { name: 'Back to all Runs' }).click();
+  await sections.getByRole('link', { name: 'Completed history' }).click();
+  await expect(page.getByRole('list', { name: 'Finished' })).toContainText('✔ 2 done');
+  await expectAccessible(page, 'completed history');
 
-  // Abort the other Run with a reason.
-  await expect(page.getByRole('list', { name: 'Finished Runs' })).toContainText('✔ 2 done');
-  await page.getByRole('list', { name: 'Active Runs' }).getByRole('button').click();
-  await run.getByRole('button', { name: 'Abort Run…' }).click();
-  await run.getByLabel('Why is this Run aborted? (optional)').fill('Plans changed');
-  await run.getByRole('button', { name: 'Abort Run', exact: true }).click();
+  // Abort the other execution with a reason.
+  await page.getByRole('button', { name: 'Go to Home' }).click();
+  await page.getByRole('list', { name: 'Active' }).getByRole('link').click();
+  await run.getByRole('button', { name: 'Abort…' }).click();
+  await run.getByLabel('Why is it aborted? (optional)').fill('Plans changed');
+  await run.getByRole('button', { name: 'Abort', exact: true }).click();
   const aborted = run.getByRole('status').filter({ hasText: 'Aborted by Ada Admin' });
   await expect(aborted).toContainText('reason: Plans changed');
-  await page.getByRole('button', { name: 'Back to all Runs' }).click();
-  await expect(page.getByRole('list', { name: 'Finished Runs' }).getByRole('listitem')).toHaveCount(2);
-  await expect(page.getByText('No active Runs.')).toBeVisible();
+  await page.getByRole('button', { name: '← Home' }).click();
+  await expect(page.getByRole('list', { name: 'Active' })).toHaveCount(0);
+  await sections.getByRole('link', { name: 'Completed history' }).click();
+  await expect(page.getByRole('list', { name: 'Finished' }).getByRole('listitem')).toHaveCount(2);
+  // The Procedure card tells when it was last completed.
+  await sections.getByRole('link', { name: 'Procedures' }).click();
+  await expect(page.getByRole('list', { name: 'Procedures' }).getByRole('listitem').first()).toContainText('Last completed');
 
   // Knot links (7.1): an entry link to a Procedure, shown once, that still requires signing in.
-  await page.getByRole('link', { name: 'Procedures' }).click();
   await page.getByRole('list', { name: 'Procedures' }).getByRole('button').first().click();
-  await moreActions();
-  await procedure.getByRole('button', { name: 'Share as Knot link…' }).click();
+  await fromProcedureMenu('Share as Knot link…');
   const share = page.getByRole('region', { name: 'Knot link for this Procedure' });
   await share.getByLabel('Name of the link').fill('Hallway card');
   await share.getByLabel('Valid for').selectOption('7');
@@ -494,6 +512,137 @@ test('first server admin: bootstrap link, account creation, sign-in, Workspace c
   await expect(visitorPage.getByRole('heading', { name: 'Knot link cannot be opened' })).toBeVisible();
   await expect(visitorPage.getByRole('alert')).toContainText('not valid');
   await visitor.close();
+
+  // Procedures are started and scheduled right from the list (13.10), pinned per person (13.12).
+  await sections.getByRole('link', { name: 'Procedures' }).click();
+  // The imported copy has the same title: work with the first card.
+  const card = page.getByRole('list', { name: 'Procedures' }).getByRole('listitem').filter({ hasText: 'Leave the flat' }).first();
+  await card.getByRole('button', { name: 'Pin Leave the flat' }).click();
+  await expect(card.getByRole('button', { name: 'Unpin Leave the flat' })).toHaveAttribute('aria-pressed', 'true');
+  // Start now, directly from the card (no need to open the Procedure first); abort it again.
+  await card.getByRole('button', { name: 'Start Leave the flat' }).click();
+  await card.getByRole('button', { name: 'Start now' }).click();
+  await expect(page).toHaveURL(/\/runs\/[0-9a-f-]{36}$/);
+  await run.getByRole('button', { name: 'Abort…' }).click();
+  await run.getByRole('button', { name: 'Abort', exact: true }).click();
+  await expect(run.getByRole('status').filter({ hasText: 'Aborted by Ada Admin' })).toBeVisible();
+
+  // Schedule… (13.4): a date, an optional time and reminders; nothing starts by itself.
+  const localDate = (offsetDays: number) => {
+    const date = new Date();
+    date.setDate(date.getDate() + offsetDays);
+    return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+  };
+  const schedule = async (date: string, reminders: 'custom' | 'none') => {
+    await sections.getByRole('link', { name: 'Procedures' }).click();
+    await card.getByRole('button', { name: 'Start Leave the flat' }).click();
+    await card.getByRole('button', { name: 'Schedule…' }).click();
+    const dialog = page.getByRole('dialog', { name: 'Schedule “Leave the flat”' });
+    await expect(dialog).toContainText('Nothing starts by itself');
+    await dialog.getByLabel('Date').fill(date);
+    if (reminders === 'custom') {
+      await dialog.getByLabel('1 day before').check();
+      await dialog.getByLabel('Custom reminder: how many').fill('3');
+      await dialog.getByRole('button', { name: 'Add reminder' }).click();
+      await expect(dialog).toContainText('3 hours before');
+      await expectAccessible(page, 'schedule dialog');
+    } else {
+      await dialog.getByLabel('On the day').uncheck();
+    }
+    await dialog.getByRole('button', { name: 'Schedule', exact: true }).click();
+    await expect(dialog).toHaveCount(0);
+    await expect(card.getByRole('status')).toContainText('“Leave the flat” is scheduled for');
+  };
+  await schedule(localDate(4), 'custom');
+  await expect(card).toContainText('Scheduled');
+  await schedule(localDate(0), 'none');
+  await expect(card).toContainText('Due today');
+
+  // Home (13.9, 13.11): Due with Start, Upcoming with its reminders, Pinned and Recent.
+  await sections.getByRole('link', { name: 'Home' }).click();
+  const due = page.getByRole('list', { name: 'Due' });
+  const upcoming = page.getByRole('list', { name: 'Upcoming' });
+  await expect(due.getByRole('listitem')).toHaveCount(1);
+  await expect(due).toContainText('Today');
+  await expect(upcoming.getByRole('listitem')).toHaveCount(1);
+  await expect(upcoming).toContainText('Reminders: 1 day before, 3 hours before, on the day');
+  await expect(page.getByRole('list', { name: 'Pinned' })).toContainText('Leave the flat');
+  await expect(page.getByRole('list', { name: 'Recent' })).toContainText('Leave the flat');
+  await expect(page.getByRole('list', { name: 'Active' })).toHaveCount(0);
+  await expectAccessible(page, 'home with due and upcoming');
+  // Reschedule and cancel are under ⋯.
+  await upcoming.getByRole('button', { name: 'More for Leave the flat' }).click();
+  await upcoming.getByRole('button', { name: 'Reschedule…' }).click();
+  const move = page.getByRole('dialog', { name: 'Reschedule “Leave the flat”' });
+  await move.getByLabel('Date').fill(localDate(9));
+  await move.getByRole('button', { name: 'Save' }).click();
+  await expect(move).toHaveCount(0);
+  await expect(upcoming.getByRole('listitem')).toHaveCount(1);
+  page.once('dialog', (dialog) => void dialog.accept());
+  await upcoming.getByRole('button', { name: 'More for Leave the flat' }).click();
+  await upcoming.getByRole('button', { name: 'Cancel this schedule' }).click();
+  await expect(page.getByRole('list', { name: 'Upcoming' })).toHaveCount(0);
+  // Start what is due: a normal execution; afterwards it is no longer due, and it is active.
+  await due.getByRole('button', { name: 'Start Leave the flat' }).click();
+  await expect(page).toHaveURL(/\/runs\/[0-9a-f-]{36}$/);
+  await expect(run.getByRole('heading', { name: 'Travel Leave the flat', level: 2 })).toBeVisible();
+  // Phone (13.17): the Steps come first; history and sharing are folded away.
+  await page.setViewportSize({ width: 390, height: 844 });
+  expect(await noSidewaysScroll()).toBe(true);
+  await expect(run.locator('details.run-more')).not.toHaveAttribute('open');
+  await expect(run.getByRole('region', { name: 'Execution history' })).toBeHidden();
+  await expectAccessible(page, 'run view on a phone, started from Due');
+  await page.setViewportSize({ width: 1280, height: 720 });
+  await page.getByRole('button', { name: '← Home' }).click();
+  await expect(page.getByRole('list', { name: 'Due' })).toHaveCount(0);
+  await expect(page.getByRole('list', { name: 'Active' }).getByRole('listitem')).toHaveCount(1);
+  await page.getByRole('list', { name: 'Active' }).getByRole('link', { name: 'Continue Leave the flat' }).click();
+  await run.getByRole('button', { name: 'Abort…' }).click();
+  await run.getByRole('button', { name: 'Abort', exact: true }).click();
+  await expect(run.getByRole('status').filter({ hasText: 'Aborted by Ada Admin' })).toBeVisible();
+
+  // Server admin: the size of Recent (13.13) and the notification providers (13.7).
+  await fromMenu(page, 'Server admin');
+  await expect(page.getByLabel('Recent Procedures on Home')).toHaveValue('5');
+  await page.getByLabel('Recent Procedures on Home').fill('0');
+  await page.getByRole('button', { name: 'Save', exact: true }).click();
+  await expect(page.getByRole('status').filter({ hasText: 'Home shows no recent Procedures.' })).toBeVisible();
+  const providers = page.getByRole('region', { name: 'Notification providers' });
+  await expect(providers).toContainText('Configured (SMTP settings of this server).');
+  await expect(providers).toContainText('Telegram');
+  await expect(providers).toContainText('Not configured. Create a bot with @BotFather');
+  await providers.getByLabel('Bot token').fill('not a bot token');
+  await providers.getByRole('button', { name: 'Save Telegram settings' }).click();
+  await expect(providers.getByRole('alert')).toHaveText('This is not a Telegram bot token.');
+  await expect(providers.getByLabel('Bot token')).toHaveValue('');
+  await expectAccessible(page, 'server admin page with notification providers');
+  await page.goto('/'); // the start page opens the last Workspace's Home
+  await expect(page.getByRole('list', { name: 'Pinned' })).toContainText('Leave the flat');
+  await expect(page.getByRole('list', { name: 'Recent' })).toHaveCount(0);
+  await fromMenu(page, 'Server admin');
+  await expect(page.getByLabel('Recent Procedures on Home')).toHaveValue('0');
+  await page.getByLabel('Recent Procedures on Home').fill('5');
+  await page.getByRole('button', { name: 'Save', exact: true }).click();
+  await expect(page.getByRole('status').filter({ hasText: 'Home shows 5 recent Procedures.' })).toBeVisible();
+
+  // Account → Notifications (13.8): own default reminder time and channels; no provider secrets here.
+  await fromMenu(page, 'Profile & settings');
+  const notifications = page.getByRole('region', { name: 'Notifications' });
+  await expect(notifications.getByLabel('Default reminder time')).toHaveValue('09:00');
+  await notifications.getByLabel('Default reminder time').fill('07:30');
+  await notifications.getByRole('button', { name: 'Save time' }).click();
+  await expect(notifications.getByRole('status')).toHaveText('Saved.');
+  await expect(notifications).toContainText('Telegram is not set up on this server.');
+  await expect(notifications.getByLabel('Procedure reminders')).toBeChecked();
+  await expect(notifications.getByLabel(/token/i)).toHaveCount(0);
+  await page.reload();
+  await expect(page.getByRole('region', { name: 'Notifications' }).getByLabel('Default reminder time')).toHaveValue('07:30');
+  await expectAccessible(page, 'account page with notifications');
+  // Unpin again from the list.
+  await page.goto('/');
+  await sections.getByRole('link', { name: 'Procedures' }).click();
+  await card.getByRole('button', { name: 'Unpin Leave the flat' }).click();
+  await expect(card.getByRole('button', { name: 'Pin Leave the flat' })).toHaveAttribute('aria-pressed', 'false');
 
   // Account settings live on their own page.
   await fromMenu(page, 'Profile & settings');
@@ -534,9 +683,10 @@ test('first server admin: bootstrap link, account creation, sign-in, Workspace c
   await page.getByRole('radio', { name: /^Tap, then confirm/ }).check();
   await expect(page.getByRole('radio', { name: /^Tap, then confirm/ })).toBeChecked();
   await page.goto('/');
-  await page.getByRole('link', { name: 'Procedures' }).click();
+  await sections.getByRole('link', { name: 'Procedures' }).click();
   await page.getByRole('list', { name: 'Procedures' }).getByRole('button').first().click();
-  await procedure.getByRole('button', { name: 'Start Run' }).click();
+  await procedure.getByRole('button', { name: 'Start Leave the flat' }).click();
+  await procedure.getByRole('button', { name: 'Start now' }).click();
   const tapStove = stepItem('Turn off stove');
   await tapStove.getByRole('button', { name: 'Mark done: Turn off stove (asks to confirm)' }).click();
   const question = tapStove.getByRole('group', { name: 'Confirm: Turn off stove is done?' });
@@ -560,7 +710,7 @@ test('first server admin: bootstrap link, account creation, sign-in, Workspace c
   await windows.getByRole('button', { name: 'Done: Close windows' }).click();
   await expect(windows).toContainText('Saved on this device · not sent yet');
   await expect(page.getByRole('status').filter({ hasText: 'Offline.' })).toContainText('1 change is saved on this device');
-  await expect(run.getByRole('button', { name: 'Abort Run…' })).toBeDisabled();
+  await expect(run.getByRole('button', { name: 'Abort…' })).toBeDisabled();
   await expectAccessible(page, 'run view offline');
   await page.reload();
   await expect(stepItem('Close windows')).toContainText('Saved on this device · not sent yet');
@@ -568,7 +718,7 @@ test('first server admin: bootstrap link, account creation, sign-in, Workspace c
   await context.setOffline(false);
   await expect(stepItem('Close windows')).toContainText('(offline, device clock', { timeout: 15_000 });
   await expect(page.getByRole('status').filter({ hasText: 'Offline.' })).toHaveCount(0);
-  await expect(run.getByRole('button', { name: 'Abort Run…' })).toBeEnabled();
+  await expect(run.getByRole('button', { name: 'Abort…' })).toBeEnabled();
   // A conflicting offline change is dropped and explained, never forced over someone else's change.
   const otherDevice = await browser.newContext(testInfo.project.use.baseURL === undefined ? {} : { baseURL: testInfo.project.use.baseURL });
   const otherPage = await otherDevice.newPage();
@@ -591,8 +741,8 @@ test('first server admin: bootstrap link, account creation, sign-in, Workspace c
   await expect(page.getByRole('alert')).toContainText('Your offline change to “Close windows” was not applied: Someone else changed this Step', { timeout: 15_000 });
   await expect(stepItem('Close windows')).toContainText('Skipped');
   await page.getByRole('button', { name: 'OK' }).click();
-  await run.getByRole('button', { name: 'Abort Run…' }).click();
-  await run.getByRole('button', { name: 'Abort Run', exact: true }).click();
+  await run.getByRole('button', { name: 'Abort…' }).click();
+  await run.getByRole('button', { name: 'Abort', exact: true }).click();
   await expect(run.getByRole('status').filter({ hasText: 'Aborted by Ada Admin' })).toBeVisible();
   await fromMenu(page, 'Profile & settings');
   await page.getByRole('radio', { name: /^Press and hold/ }).check();
@@ -632,7 +782,7 @@ test('first server admin: bootstrap link, account creation, sign-in, Workspace c
   expect(cookiesBeforeCode.some((cookie) => cookie.name.endsWith('vmn.session_token'))).toBe(false);
   await page.getByLabel('Code from your authenticator app').fill(totp.generate({ timestamp: Date.now() + 30_000 }));
   await page.getByRole('button', { name: 'Verify' }).click();
-  await expect(page.getByRole('heading', { name: 'Runs', level: 2 })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Household', level: 2 })).toBeVisible();
 
   await fromMenu(page, 'Sign out');
   await expect(page.getByRole('heading', { name: 'Sign in' })).toBeVisible();
@@ -655,7 +805,7 @@ test('first server admin: bootstrap link, account creation, sign-in, Workspace c
   await page.getByLabel('Email').fill('admin@example.org');
   await page.getByLabel('Password').fill(PASSWORD);
   await page.getByRole('button', { name: 'Sign in' }).click();
-  await expect(page.getByRole('heading', { name: 'Runs', level: 2 })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Household', level: 2 })).toBeVisible();
   await fromMenu(page, 'Profile & settings');
   await expect(page.getByText('Status: Not enabled')).toBeVisible();
 

@@ -82,3 +82,26 @@ export function formatWhen(value: string | Date, now: Date = new Date()): string
     sameDay ? { timeStyle: 'short' } : { dateStyle: 'medium', timeStyle: 'short' },
   ).format(date);
 }
+
+/** "Thu, Oct 15, 2026" for a calendar date `YYYY-MM-DD` (a date as such, independent of time zones). */
+export function formatCalendarDate(date: string): string {
+  const [year, month, day] = date.split('-').map(Number) as [number, number, number];
+  return new Intl.DateTimeFormat(formatLocale(), { weekday: 'short', year: 'numeric', month: 'short', day: 'numeric', timeZone: 'UTC' }).format(
+    new Date(Date.UTC(year, month - 1, day, 12)),
+  );
+}
+
+/** "18 minutes ago", "in 2 days" — rounded to the largest sensible unit. */
+export function formatRelative(value: string | Date, now: Date = new Date()): string {
+  const seconds = (toDate(value).getTime() - now.getTime()) / 1000;
+  const units: [Intl.RelativeTimeFormatUnit, number][] = [
+    ['day', 86_400],
+    ['hour', 3_600],
+    ['minute', 60],
+  ];
+  const format = new Intl.RelativeTimeFormat(formatLocale(), { numeric: 'auto' });
+  for (const [unit, size] of units) {
+    if (Math.abs(seconds) >= size) return format.format(Math.round(seconds / size), unit);
+  }
+  return format.format(0, 'minute');
+}

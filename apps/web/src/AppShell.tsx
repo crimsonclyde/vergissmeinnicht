@@ -8,6 +8,8 @@ import { OfflineBanner, useOffline } from './offline/OfflineProvider.tsx';
 import { offlineStore } from './offline/store.ts';
 import { api, isNetworkError, messageFor, type CurrentUser, type WorkspaceSummary } from './api.ts';
 import { ChangePassword } from './ChangePassword.tsx';
+import { Home } from './Home.tsx';
+import { NotificationSettings } from './NotificationSettings.tsx';
 import { t } from './i18n/index.ts';
 import { KnotOpener, KnotsPage } from './Knots.tsx';
 import { MembersPage, roleLabel } from './MembersPage.tsx';
@@ -79,7 +81,7 @@ function Header(props: {
             <select
               aria-label={t('shell.workspace')}
               value={workspaceId ?? ''}
-              onChange={(e) => navigate(paths.runs(e.target.value))}
+              onChange={(e) => navigate(paths.home(e.target.value))}
             >
               {workspaceId === null && <option value="">{t('shell.choose')}</option>}
               {workspaces.map((workspace) => (
@@ -95,11 +97,14 @@ function Header(props: {
       {workspaceId !== null && (
         <div className="app-header-inner" style={{ paddingTop: 0 }}>
           <nav aria-label={t('shell.sections')} className="nav section-nav">
-            <NavLink href={paths.runs(workspaceId)} current={route.page === 'runs'}>
-              {t('shell.runs')}
+            <NavLink href={paths.home(workspaceId)} current={route.page === 'workspace'}>
+              {t('shell.workspaceHome')}
             </NavLink>
             <NavLink href={paths.procedures(workspaceId)} current={route.page === 'procedures'}>
               {t('shell.procedures')}
+            </NavLink>
+            <NavLink href={paths.history(workspaceId)} current={route.page === 'history'}>
+              {t('shell.history')}
             </NavLink>
             <NavLink href={paths.members(workspaceId)} current={route.page === 'members'}>
               {t('shell.members')}
@@ -162,8 +167,20 @@ function WorkspacePage(props: {
     props.onWorkspacesChanged();
   };
 
+  const openRun = (runId: string) => navigate(paths.run(route.workspaceId, runId));
   switch (route.page) {
-    case 'runs':
+    case 'workspace':
+      return (
+        <Home
+          workspaceId={route.workspaceId}
+          workspaceName={context.workspace.name}
+          canStart={can('run.start')}
+          canSchedule={can('schedule.manage')}
+          onOpenRun={openRun}
+        />
+      );
+    case 'history':
+    case 'run':
       return (
         <Runs
           workspaceId={route.workspaceId}
@@ -171,8 +188,9 @@ function WorkspacePage(props: {
           canAbort={can('run.abort')}
           canStart={can('run.start')}
           canManageKnots={can('knot.manage')}
-          openRunId={route.runId}
-          onOpen={(runId) => navigate(runId === null ? paths.runs(route.workspaceId) : paths.run(route.workspaceId, runId))}
+          openRunId={route.page === 'run' ? route.runId : null}
+          onOpen={(runId) => navigate(runId === null ? paths.history(route.workspaceId) : paths.run(route.workspaceId, runId))}
+          onHome={() => navigate(paths.home(route.workspaceId))}
         />
       );
     case 'procedures':
@@ -185,7 +203,8 @@ function WorkspacePage(props: {
           canEdit={can('procedure.edit')}
           canRestore={can('procedure.restore')}
           canStartRun={can('run.start')}
-          onRunStarted={(runId) => navigate(paths.run(route.workspaceId, runId))}
+          canSchedule={can('schedule.manage')}
+          onOpenRun={openRun}
         />
       );
     case 'members':
@@ -254,7 +273,7 @@ export function AppShell(props: { user: CurrentUser; route: Route; onSignOut: ()
     if (route.page !== 'home' || workspaces === null || workspaces.length === 0) return;
     const last = rememberedWorkspace();
     const target = workspaces.find((workspace) => workspace.id === last) ?? workspaces[0];
-    if (target !== undefined) navigate(paths.runs(target.id), { replace: true });
+    if (target !== undefined) navigate(paths.home(target.id), { replace: true });
   }, [route.page, workspaces]);
 
   const workspaceId = 'workspaceId' in route ? route.workspaceId : null;
@@ -266,6 +285,9 @@ export function AppShell(props: { user: CurrentUser; route: Route; onSignOut: ()
         <div className="page-header">
           <h2>{t('account.heading')}</h2>
           <span className="muted">{t('account.identity', { name: user.displayName, email: user.email })}</span>
+        </div>
+        <div className="card">
+          <NotificationSettings />
         </div>
         <div className="card">
           <ChangePassword />
@@ -285,7 +307,14 @@ export function AppShell(props: { user: CurrentUser; route: Route; onSignOut: ()
     content = user.serverAdmin ? <AdminPage currentUserId={user.id} onWorkspacesChanged={refresh} /> : <p role="alert">{t('admin.onlyServerAdmins')}</p>;
   } else if (route.page === 'knot') {
     content = <KnotOpener token={route.token} />;
-  } else if (route.page === 'runs' || route.page === 'procedures' || route.page === 'members' || route.page === 'knots') {
+  } else if (
+    route.page === 'workspace' ||
+    route.page === 'history' ||
+    route.page === 'run' ||
+    route.page === 'procedures' ||
+    route.page === 'members' ||
+    route.page === 'knots'
+  ) {
     content = <WorkspacePage route={route} user={user} onWorkspacesChanged={refresh} onCapabilities={reportCapabilities} />;
   } else if (route.page === 'home') {
     const loading = <p>{t('common.loading')}</p>;

@@ -91,6 +91,11 @@ describe('deleteIndexedDb', () => {
 });
 
 describe('session messages between tabs (13.1)', () => {
+  it('ignores what this tab announced itself', () => {
+    expect(parseSessionMessage({ type: 'signed-out', tab: 'me' }, 'me')).toBeUndefined();
+    expect(parseSessionMessage({ type: 'signed-out', tab: 'other' }, 'me')).toEqual({ type: 'signed-out' });
+  });
+
   it('accepts only the two known shapes', () => {
     expect(parseSessionMessage({ type: 'signed-out' })).toEqual({ type: 'signed-out' });
     expect(parseSessionMessage({ type: 'signed-in', userId: 'u1' })).toEqual({ type: 'signed-in', userId: 'u1' });

@@ -72,6 +72,84 @@ export interface Procedure {
   readonly updatedAt: string;
 }
 
+/** A Procedure in the list (13.10): the person's pin, last completion, active executions, next scheduled date. */
+export interface ProcedureCard extends Procedure {
+  readonly pinned: boolean;
+  readonly lastCompletedAt: string | null;
+  readonly active: readonly ActiveExecution[];
+  readonly nextSchedule: { readonly id: string; readonly date: string; readonly time: string | null; readonly timeZone: string } | null;
+}
+
+export interface ActiveExecution {
+  readonly runId: string;
+  readonly startedBy: string;
+  readonly startedAt: string;
+}
+
+export type ReminderUnit = 'DAYS' | 'HOURS';
+export interface ReminderOffset {
+  readonly unit: ReminderUnit;
+  readonly amount: number;
+}
+
+/** A Procedure scheduled for a date (13.4): the intention only, not an execution. */
+export interface ScheduledProcedure {
+  readonly id: string;
+  readonly procedureId: string;
+  /** The Procedure as it is now; `deleted` = it can no longer be started. */
+  readonly procedure: { readonly title: string; readonly icon: ProcedureIcon; readonly deleted: boolean };
+  /** `YYYY-MM-DD` and optional `HH:MM` in `timeZone`. */
+  readonly date: string;
+  readonly time: string | null;
+  readonly timeZone: string;
+  readonly reminderTime: string;
+  readonly reminders: readonly ReminderOffset[];
+  readonly state: 'SCHEDULED' | 'STARTED' | 'CANCELLED';
+  readonly revision: number;
+  readonly createdAt: string;
+  readonly createdBy: string;
+  readonly runId: string | null;
+  readonly closed: { readonly at: string; readonly by: string } | null;
+}
+
+export interface ScheduleInput {
+  readonly date: string;
+  readonly time: string | null;
+  readonly timeZone: string;
+  readonly reminders: readonly ReminderOffset[];
+}
+
+export interface HomeOverview {
+  readonly due: readonly (ScheduledProcedure & { readonly timeliness: 'OVERDUE' | 'TODAY' })[];
+  readonly upcoming: readonly ScheduledProcedure[];
+  readonly active: readonly RunSummary[];
+  readonly pinned: readonly ProcedureCard[];
+  readonly recent: readonly ProcedureCard[];
+  readonly recentLimit: number;
+}
+
+export interface NotificationSettings {
+  readonly reminderTime: string;
+  readonly email: { readonly available: boolean; readonly enabled: boolean };
+  readonly telegram: {
+    readonly available: boolean;
+    readonly enabled: boolean;
+    readonly connected: { readonly label: string; readonly connectedAt: string } | null;
+    readonly pairing: { readonly expiresAt: string; readonly claimedBy: string | null } | null;
+  };
+}
+
+/** Server-wide providers; never contains a provider credential. */
+export interface NotificationProviders {
+  readonly email: { readonly configured: boolean; readonly enabled: boolean };
+  readonly telegram: { readonly enabled: boolean; readonly configured: boolean; readonly botName: string | null };
+}
+
+export interface InstanceSettings {
+  readonly footerHidden: boolean;
+  readonly recentProceduresLimit: number;
+}
+
 export interface DeletedProcedure extends Procedure {
   readonly deletedAt: string;
   /** Display name of the person who deleted it. */
@@ -250,8 +328,25 @@ async function request<T>(method: 'GET' | 'POST', path: string, body?: unknown):
 
 export const api = {
   about: () => request<{ license: string; sourceCodeUrl: string; footerHidden: boolean }>('GET', '/about'),
-  updateInstanceSettings: async (settings: { footerHidden: boolean }) =>
-    (await request<{ settings: { footerHidden: boolean } }>('POST', '/admin/settings', settings)).settings,
+  instanceSettings: async () => (await request<{ settings: InstanceSettings }>('GET', '/admin/settings')).settings,
+  updateInstanceSettings: async (settings: Partial<InstanceSettings>) =>
+    (await request<{ settings: InstanceSettings }>('POST', '/admin/settings', settings)).settings,
+  notificationProviders: async () => (await request<{ providers: NotificationProviders }>('GET', '/admin/notifications')).providers,
+  setEmailReminders: async (enabled: boolean) =>
+    (await request<{ providers: NotificationProviders }>('POST', '/admin/notifications/email', { enabled })).providers,
+  /** `botToken`: a new token (checked by the server with Telegram), `null` removes it, omitted keeps it. It is never sent back. */
+  configureTelegram: async (input: { enabled: boolean; botToken?: string | null }) =>
+    (await request<{ providers: NotificationProviders }>('POST', '/admin/notifications/telegram', input)).providers,
+  testNotificationProvider: async (provider: 'EMAIL' | 'TELEGRAM') =>
+    (await request<{ result: { delivered: boolean; botName?: string; reason?: string } }>('POST', '/admin/notifications/test', { provider })).result,
+  notificationSettings: async () => (await request<{ settings: NotificationSettings }>('GET', '/account/notifications')).settings,
+  updateNotificationSettings: async (changes: { reminderTime?: string; emailReminders?: boolean; telegramReminders?: boolean }) =>
+    (await request<{ settings: NotificationSettings }>('POST', '/account/notifications', changes)).settings,
+  /** The link carries a one-time token; it is shown once. */
+  startTelegramPairing: () => request<{ url: string; expiresAt: string }>('POST', '/account/notifications/telegram/pair'),
+  confirmTelegramPairing: async () => (await request<{ settings: NotificationSettings }>('POST', '/account/notifications/telegram/confirm')).settings,
+  cancelTelegramPairing: async () => (await request<{ settings: NotificationSettings }>('POST', '/account/notifications/telegram/cancel')).settings,
+  disconnectTelegram: async () => (await request<{ settings: NotificationSettings }>('POST', '/account/notifications/telegram/disconnect')).settings,
   currentUser: async (): Promise<CurrentUser | null> => {
     try {
       return (await request<{ user: CurrentUser }>('GET', '/auth/session')).user;
@@ -318,7 +413,30 @@ export const api = {
   renameWorkspace: (id: string, name: string) =>
     request<undefined>('POST', `/workspaces/${encodeURIComponent(id)}/rename`, { name }),
   procedures: async (workspaceId: string) =>
-    (await request<{ procedures: Procedure[] }>('GET', `/workspaces/${encodeURIComponent(workspaceId)}/procedures`)).procedures,
+    (await request<{ procedures: ProcedureCard[] }>('GET', `/workspaces/${encodeURIComponent(workspaceId)}/procedures`)).procedures,
+  home: (workspaceId: string) => request<HomeOverview>('GET', `/workspaces/${encodeURIComponent(workspaceId)}/home`),
+  pinProcedure: (workspaceId: string, id: string, pinned: boolean) =>
+    request<undefined>('POST', `/workspaces/${encodeURIComponent(workspaceId)}/procedures/${encodeURIComponent(id)}/${pinned ? 'pin' : 'unpin'}`),
+  scheduleProcedure: async (workspaceId: string, procedureId: string, input: ScheduleInput) =>
+    (await request<{ schedule: ScheduledProcedure }>('POST', `/workspaces/${encodeURIComponent(workspaceId)}/schedules`, { procedureId, ...input })).schedule,
+  reschedule: async (workspaceId: string, scheduleId: string, expectedRevision: number, input: ScheduleInput) =>
+    (
+      await request<{ schedule: ScheduledProcedure }>(
+        'POST',
+        `/workspaces/${encodeURIComponent(workspaceId)}/schedules/${encodeURIComponent(scheduleId)}/update`,
+        { expectedRevision, ...input },
+      )
+    ).schedule,
+  cancelSchedule: async (workspaceId: string, scheduleId: string, expectedRevision: number) =>
+    (
+      await request<{ schedule: ScheduledProcedure }>(
+        'POST',
+        `/workspaces/${encodeURIComponent(workspaceId)}/schedules/${encodeURIComponent(scheduleId)}/cancel`,
+        { expectedRevision },
+      )
+    ).schedule,
+  startScheduled: async (workspaceId: string, scheduleId: string) =>
+    (await request<{ run: RunDetail }>('POST', `/workspaces/${encodeURIComponent(workspaceId)}/schedules/${encodeURIComponent(scheduleId)}/start`)).run,
   procedure: async (workspaceId: string, id: string) =>
     (
       await request<{ procedure: ProcedureDetail }>(
@@ -369,9 +487,10 @@ export const api = {
   deleteProcedure: (workspaceId: string, id: string) =>
     request<undefined>('POST', `/workspaces/${encodeURIComponent(workspaceId)}/procedures/${encodeURIComponent(id)}/delete`),
   /** Newest first; `before` = `nextCursor` of the previous page. */
-  runs: (workspaceId: string, page: { state?: RunState; before?: string } = {}) => {
+  runs: (workspaceId: string, page: { state?: RunState; procedureId?: string; before?: string } = {}) => {
     const query = new URLSearchParams();
     if (page.state !== undefined) query.set('state', page.state);
+    if (page.procedureId !== undefined) query.set('procedureId', page.procedureId);
     if (page.before !== undefined) query.set('before', page.before);
     const suffix = query.size === 0 ? '' : `?${query.toString()}`;
     return request<{ runs: RunSummary[]; nextCursor: string | null }>('GET', `/workspaces/${encodeURIComponent(workspaceId)}/runs${suffix}`);

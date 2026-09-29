@@ -33,6 +33,7 @@ const app = await buildApp({
   services: (log) => (built = services(log)),
   trustedProxies: config.trustedProxies,
   hstsMaxAge: config.hstsMaxAge,
+  apiRateLimitPerMinute: config.apiRateLimitPerMinute,
 });
 // Expired sessions, challenges, links and rate-limit windows are deleted hourly (Step 2.8).
 const stopHousekeeping = scheduleHousekeeping(database, app.log);

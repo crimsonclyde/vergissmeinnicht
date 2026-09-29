@@ -9,10 +9,17 @@
 export type SessionMessage = { readonly type: 'signed-out' } | { readonly type: 'signed-in'; readonly userId: string };
 
 const CHANNEL = 'vmn-session';
+/**
+ * Identifies this tab. A BroadcastChannel delivers a message to every *other channel object* — also
+ * to those of the sending tab — so a tab must recognise and ignore its own announcements.
+ */
+const TAB_ID = typeof crypto !== 'undefined' && 'randomUUID' in crypto ? crypto.randomUUID() : String(Math.random());
 
-export function parseSessionMessage(data: unknown): SessionMessage | undefined {
+/** The message, unless it is malformed or was sent by the tab `ownTab`. */
+export function parseSessionMessage(data: unknown, ownTab: string = TAB_ID): SessionMessage | undefined {
   if (typeof data !== 'object' || data === null) return undefined;
-  const { type, userId } = data as { type?: unknown; userId?: unknown };
+  const { type, userId, tab } = data as { type?: unknown; userId?: unknown; tab?: unknown };
+  if (tab === ownTab) return undefined;
   if (type === 'signed-out') return { type };
   if (type === 'signed-in' && typeof userId === 'string') return { type, userId };
   return undefined;
@@ -28,7 +35,7 @@ export function announceSession(message: SessionMessage): void {
   try {
     if (typeof BroadcastChannel === 'undefined') return;
     const channel = new BroadcastChannel(CHANNEL);
-    channel.postMessage(message);
+    channel.postMessage({ ...message, tab: TAB_ID });
     channel.close();
   } catch {
     // Not available (old browser, some private modes): tabs then notice on their next request.

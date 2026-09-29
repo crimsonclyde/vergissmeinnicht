@@ -9,9 +9,11 @@ describe('parseRoute', () => {
     expect(parseRoute('/')).toEqual({ page: 'home' });
     expect(parseRoute('/account/')).toEqual({ page: 'account' });
     expect(parseRoute('/admin')).toEqual({ page: 'admin' });
-    expect(parseRoute(`/w/${W}`)).toEqual({ page: 'runs', workspaceId: W, runId: null });
-    expect(parseRoute(paths.runs(W))).toEqual({ page: 'runs', workspaceId: W, runId: null });
-    expect(parseRoute(paths.run(W, R))).toEqual({ page: 'runs', workspaceId: W, runId: R });
+    expect(parseRoute(`/w/${W}`)).toEqual({ page: 'workspace', workspaceId: W });
+    expect(parseRoute(paths.home(W))).toEqual({ page: 'workspace', workspaceId: W });
+    expect(parseRoute(paths.history(W))).toEqual({ page: 'history', workspaceId: W });
+    expect(parseRoute(`/w/${W}/runs`)).toEqual({ page: 'history', workspaceId: W });
+    expect(parseRoute(paths.run(W, R))).toEqual({ page: 'run', workspaceId: W, runId: R });
     expect(parseRoute(paths.procedures(W))).toEqual({ page: 'procedures', workspaceId: W, procedureId: null });
     expect(parseRoute(paths.procedure(W, R))).toEqual({ page: 'procedures', workspaceId: W, procedureId: R });
     expect(parseRoute(paths.knots(W))).toEqual({ page: 'knots', workspaceId: W });

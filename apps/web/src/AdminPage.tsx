@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState, type FormEvent } from 'react';
-import { ApiError, api, messageFor, type AccountInfo, type PendingInvitation, type SecurityLogEntry } from './api.ts';
+import { ApiError, api, messageFor, type AccountInfo, type NotificationProviders as NotificationProvidersInfo, type PendingInvitation, type SecurityLogEntry } from './api.ts';
 import { formatDateTime, hasMessage, t } from './i18n/index.ts';
 import { navigate, paths } from './router.tsx';
 import { announceFooterHidden } from './SourceFooter.tsx';
@@ -410,17 +410,37 @@ function SecurityLog() {
   );
 }
 
-/** Settings of this server: the footer can be hidden (it stays in the HTML). */
+/** Settings of this server: the footer can be hidden (it stays in the HTML); the size of Recent on Home. */
 function ServerSettings() {
   const [footerHidden, setFooterHidden] = useState<boolean | null>(null);
+  const [recentLimit, setRecentLimit] = useState('');
+  const [savedRecentLimit, setSavedRecentLimit] = useState<number | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [status, setStatus] = useState<string | null>(null);
   useEffect(() => {
-    api.about().then(
-      (about) => setFooterHidden(about.footerHidden),
+    api.instanceSettings().then(
+      (settings) => {
+        setFooterHidden(settings.footerHidden);
+        setSavedRecentLimit(settings.recentProceduresLimit);
+        setRecentLimit(String(settings.recentProceduresLimit));
+      },
       (caught: unknown) => setMessage(messageFor(caught)),
     );
   }, []);
+
+  async function saveRecentLimit(event: FormEvent) {
+    event.preventDefault();
+    setMessage(null);
+    setStatus(null);
+    try {
+      const saved = await api.updateInstanceSettings({ recentProceduresLimit: Number(recentLimit) });
+      setSavedRecentLimit(saved.recentProceduresLimit);
+      setRecentLimit(String(saved.recentProceduresLimit));
+      setStatus(saved.recentProceduresLimit === 0 ? t('admin.recentHidden') : t('admin.recentSaved', { count: saved.recentProceduresLimit }));
+    } catch (caught) {
+      setMessage(messageFor(caught));
+    }
+  }
 
   async function change(hidden: boolean) {
     const previous = footerHidden;
@@ -459,6 +479,187 @@ function ServerSettings() {
       <p id="hide-footer-hint" className="muted" style={{ margin: 0 }}>
         {t('admin.hideFooterHint')}
       </p>
+      <form className="row" onSubmit={(event) => void saveRecentLimit(event)}>
+        <label>
+          {t('admin.recentLimit')}
+          <br />
+          <input
+            type="number"
+            inputMode="numeric"
+            min={0}
+            max={20}
+            required
+            disabled={savedRecentLimit === null}
+            value={recentLimit}
+            onChange={(e) => setRecentLimit(e.target.value)}
+            aria-describedby="recent-limit-hint"
+            style={{ width: '6rem' }}
+          />
+        </label>
+        <button type="submit" disabled={savedRecentLimit === null || recentLimit === String(savedRecentLimit)} style={{ alignSelf: 'flex-end' }}>
+          {t('admin.saveRecentLimit')}
+        </button>
+      </form>
+      <p id="recent-limit-hint" className="muted" style={{ margin: 0 }}>
+        {t('admin.recentLimitHint')}
+      </p>
+    </section>
+  );
+}
+
+/**
+ * Notification providers (13.7, 13.10): email (configured through the server environment) and the
+ * optional Telegram bot. The bot token can be replaced or removed, never read back.
+ */
+function NotificationProviders() {
+  const [providers, setProviders] = useState<NotificationProvidersInfo | null>(null);
+  const [token, setToken] = useState('');
+  const [telegramEnabled, setTelegramEnabled] = useState(true);
+  const [message, setMessage] = useState<string | null>(null);
+  const [status, setStatus] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    api.notificationProviders().then(
+      (loaded) => {
+        setProviders(loaded);
+        setTelegramEnabled(loaded.telegram.enabled || !loaded.telegram.configured);
+      },
+      (caught: unknown) => setMessage(messageFor(caught)),
+    );
+  }, []);
+
+  async function act(action: () => Promise<NotificationProvidersInfo>, done: string) {
+    setBusy(true);
+    setMessage(null);
+    setStatus(null);
+    try {
+      const next = await action();
+      setProviders(next);
+      setTelegramEnabled(next.telegram.enabled);
+      setStatus(done);
+    } catch (caught) {
+      setMessage(messageFor(caught));
+    } finally {
+      setToken('');
+      setBusy(false);
+    }
+  }
+
+  async function test(provider: 'EMAIL' | 'TELEGRAM') {
+    setBusy(true);
+    setMessage(null);
+    setStatus(null);
+    try {
+      const result = await api.testNotificationProvider(provider);
+      const failure = `admin.testFailed.${result.reason ?? 'failed'}`;
+      setStatus(
+        result.delivered
+          ? t(provider === 'EMAIL' ? 'admin.testEmailSent' : 'admin.testTelegramSent')
+          : hasMessage(failure)
+            ? t(failure)
+            : t('admin.testFailed.failed'),
+      );
+    } catch (caught) {
+      setMessage(messageFor(caught));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <section className="card stack" aria-labelledby="providers-heading">
+      <h3 id="providers-heading" style={{ marginTop: 0 }}>
+        {t('admin.providersHeading')}
+      </h3>
+      <p className="muted" style={{ margin: 0 }}>
+        {t('admin.providersHint')}
+      </p>
+      {message !== null && <p role="alert">{message}</p>}
+      {status !== null && <p role="status">{status}</p>}
+      {providers === null ? (
+        <p>{t('common.loading')}</p>
+      ) : (
+        <>
+          <fieldset className="stack">
+            <legend>{t('admin.providerEmail')}</legend>
+            <p style={{ margin: 0 }}>{t(providers.email.configured ? 'admin.emailConfigured' : 'admin.emailNotConfigured')}</p>
+            <label className="row" style={{ fontWeight: 400 }}>
+              <input
+                type="checkbox"
+                checked={providers.email.enabled}
+                disabled={busy}
+                onChange={(e) => void act(() => api.setEmailReminders(e.target.checked), t(e.target.checked ? 'admin.emailOn' : 'admin.emailOff'))}
+              />
+              {t('admin.emailReminders')}
+            </label>
+            <button type="button" disabled={busy || !providers.email.configured} onClick={() => void test('EMAIL')}>
+              {t('admin.testEmail')}
+            </button>
+          </fieldset>
+          <fieldset className="stack">
+            <legend>{t('admin.providerTelegram')}</legend>
+            <p style={{ margin: 0 }}>
+              {providers.telegram.configured
+                ? t(providers.telegram.enabled ? 'admin.telegramOn' : 'admin.telegramConfiguredOff', { bot: providers.telegram.botName ?? '' })
+                : t('admin.telegramNotConfigured')}
+            </p>
+            <form
+              className="stack"
+              onSubmit={(event) => {
+                event.preventDefault();
+                void act(
+                  () => api.configureTelegram({ enabled: telegramEnabled, ...(token.trim() === '' ? {} : { botToken: token.trim() }) }),
+                  t('admin.telegramSaved'),
+                );
+              }}
+            >
+              <label>
+                {t(providers.telegram.configured ? 'admin.telegramNewToken' : 'admin.telegramToken')}
+                <br />
+                <input
+                  type="password"
+                  autoComplete="off"
+                  spellCheck={false}
+                  value={token}
+                  onChange={(e) => setToken(e.target.value)}
+                  aria-describedby="telegram-token-hint"
+                  required={!providers.telegram.configured}
+                />
+              </label>
+              <small id="telegram-token-hint" className="muted">
+                {t('admin.telegramTokenHint')}
+              </small>
+              <label className="row" style={{ fontWeight: 400 }}>
+                <input type="checkbox" checked={telegramEnabled} onChange={(e) => setTelegramEnabled(e.target.checked)} />
+                {t('admin.telegramEnabled')}
+              </label>
+              <div className="row">
+                <button type="submit" className="primary" disabled={busy}>
+                  {t('admin.telegramSave')}
+                </button>
+                {providers.telegram.configured && (
+                  <>
+                    <button type="button" disabled={busy} onClick={() => void test('TELEGRAM')}>
+                      {t('admin.testTelegram')}
+                    </button>
+                    <button
+                      type="button"
+                      className="quiet"
+                      disabled={busy}
+                      onClick={() => {
+                        if (window.confirm(t('admin.telegramRemoveConfirm'))) void act(() => api.configureTelegram({ enabled: false, botToken: null }), t('admin.telegramRemoved'));
+                      }}
+                    >
+                      {t('admin.telegramRemove')}
+                    </button>
+                  </>
+                )}
+              </div>
+            </form>
+          </fieldset>
+        </>
+      )}
     </section>
   );
 }
@@ -547,6 +748,7 @@ export function AdminPage({ currentUserId, onWorkspacesChanged }: { currentUserI
       </div>
       <CreateWorkspace onCreated={onWorkspacesChanged} />
       <ServerSettings />
+      <NotificationProviders />
       <Invitations />
       <Accounts currentUserId={currentUserId} />
       <AccountRecovery />

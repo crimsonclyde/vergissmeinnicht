@@ -85,6 +85,7 @@ packages/
   permissions/
   realtime/
   email/
+  notifications/   (Telegram Bot API adapter; more providers later)
   import-export/
   ui/
 
@@ -198,7 +199,7 @@ HTTP route (apps/server/src/http/workspace-routes.ts)
             >= 1 ACTIVE ADMIN remains, else rollback
 ```
 
-`packages/permissions` holds the only role → capability table (Workspace: `workspace.view`, `workspace.members.view`, `workspace.members.manage`, `workspace.settings.manage`; Procedures: `procedure.view`, `procedure.edit`, `procedure.restore`; Runs: `run.view`, `run.start`, `run.execute`, `run.abort`; Knots: `knot.manage` — matrix in steps.md 3.2) and `canCreateWorkspace` (ACTIVE server admins only; a later admin-board option changes this one function). Use-cases ask for capabilities, never compare role strings.
+`packages/permissions` holds the only role → capability table (Workspace: `workspace.view`, `workspace.members.view`, `workspace.members.manage`, `workspace.settings.manage`; Procedures: `procedure.view`, `procedure.edit`, `procedure.restore`; Runs: `run.view`, `run.start`, `run.execute`, `run.abort`; Knots: `knot.manage`; scheduled Procedures: `schedule.manage` (USER and above, 13.4) — matrix in steps.md 3.2) and `canCreateWorkspace` (ACTIVE server admins only; a later admin-board option changes this one function). Use-cases ask for capabilities, never compare role strings.
 
 Workspace API (all session-authenticated, JSON, `Origin`-guarded for POST):
 
@@ -295,6 +296,52 @@ GET /api/workspaces/{id}/runs/{runId}/events     run.view, text/event-stream
 - The stream re-checks the session and `run.view` before each event and every 20 s, closes after 15 min, after the Run finished, and on shutdown; finished Runs answer `204`.
 - The web client applies its own Step changes optimistically (Step 6.2) but always sends the canonical `expectedState` and falls back to the server state on rejection.
 
+## Home, scheduling and reminders (Steps 13.4–13.13)
+
+The everyday flow is *Procedure → optionally schedule it → reminders → Start → execute → history*. A **ScheduledProcedure** is only the intention; a Run exists only after Start.
+
+```text
+GET  /api/workspaces/{id}/home                         procedure.view: Due, Upcoming, Active, Pinned, Recent
+GET  /api/workspaces/{id}/procedures                   cards: + pinned, lastCompletedAt, active executions, nextSchedule
+POST /api/workspaces/{id}/procedures/{pid}/pin|unpin   procedure.view — personal, not audited
+GET  /api/workspaces/{id}/runs?state=ACTIVE&procedureId=  active executions of one Procedure (warning before Start, 13.18)
+GET  /api/workspaces/{id}/schedules                    procedure.view, open items
+POST /api/workspaces/{id}/schedules { procedureId, date, time?, timeZone, reminderTime?, reminders[] }   schedule.manage
+GET  /api/workspaces/{id}/schedules/{sid}
+POST /api/workspaces/{id}/schedules/{sid}/update|cancel  schedule.manage, expectedRevision
+POST /api/workspaces/{id}/schedules/{sid}/start        run.start → normal Run; item closed as STARTED in the same transaction
+```
+
+- **Time**: an item stores a calendar date, an optional wall-clock time, an IANA time zone (the browser's at creation) and a reminder time (the creator's default, 09:00 unless changed). `packages/domain/src/schedule.ts` converts wall-clock values to instants with Intl only (DST gap → later, overlap → earlier); "due"/"overdue" is judged by the calendar date in the item's own zone.
+- **Reminders** (`scheduled_reminders`): one row per instant, computed when an item is scheduled or moved (past instants dropped, one per instant); cancelled — never deleted — when it is moved, started or cancelled; a processed instant is never stored again.
+- **Dispatch** (`packages/application/src/reminders/dispatch.ts`), run every minute by `apps/server/src/reminder-schedule.ts` inside the server process (no queue, no worker; never overlapping):
+
+```text
+due reminders (≤50) ──► still allowed? (recipient ACTIVE, member with procedure.view, item open, Procedure not deleted)
+   └─► for each channel the server enabled and the person enabled/connected:
+         claim (reminder, channel) row in a transaction ──► send ──► SENT
+                                                        └─► RETRY (1 min, 10 min, 1 h) / FAILED / SKIPPED (>24 h late)
+```
+
+  The unique (reminder, channel) claim makes delivery idempotent across restarts and concurrent runs; a claim not settled within 5 minutes counts as interrupted (≤4 attempts in total). Delivery state never touches schedules, Runs or audit events.
+- **Providers** implement `ReminderNotifier` (`channel`, `enabledFor(user)`, `send(user, message)`):
+  - **Email**: the existing SMTP `EmailSender` (texts in `email-texts/en.ts`).
+  - **Telegram**: `packages/notifications` (Bot API over HTTPS to `api.telegram.org` only). The bot token is configured by a server admin, verified with `getMe`, stored sealed in `notification_providers` (AES-256-GCM, `DATA_ENCRYPTION_KEY`, context `notification-provider:TELEGRAM`) and never returned. Pairing: a 256-bit one-time token (hash stored, 10 min) in a `t.me/<bot>?start=<token>` link; the server polls `getUpdates` every 3 s **only while a pairing is open** (no webhook, works behind a VPN), claims the pairing for the private chat that sent `/start <token>`, and the chat is connected only after the signed-in owner confirms it.
+  - Future ntfy / Gotify / webhook / Web Push adapters implement the same port; a webhook first needs the SSRF policy in security.md.
+
+```text
+GET  /api/account/notifications                     own settings: reminder time, email, Telegram (connected / pairing)
+POST /api/account/notifications { reminderTime?, emailReminders?, telegramReminders? }
+POST /api/account/notifications/telegram/pair|confirm|cancel|disconnect
+GET  /api/admin/notifications                       server admin: email + Telegram state (never the token)
+POST /api/admin/notifications/email { enabled }
+POST /api/admin/notifications/telegram { enabled, botToken?: string | null }
+POST /api/admin/notifications/test { provider }     to the acting admin only
+GET/POST /api/admin/settings { footerHidden?, recentProceduresLimit? }   Recent 0–20 (default 5)
+```
+
+- **Web**: `/w/{id}` is the Workspace Home, `/w/{id}/history` the completed history (`/w/{id}/runs` still works), `/w/{id}/runs/{runId}` one execution. Start/Schedule live in `StartProcedure.tsx`/`ScheduleDialog.tsx`, secondary actions in the `MoreMenu` (⋯) disclosure.
+
 ## Offline execution (Step 8.5)
 
 ```text
@@ -307,6 +354,8 @@ online:   queue ──► POST …/steps/{id}/state { …, offline: { clientChan
 ```
 
 The server remains the only authority: the queue is a list of ordinary requests, the device time is informational (`state_changed_device_at`, audit metadata `deviceTime`), and sign-out deletes the device database. The service worker (`apps/web/public/sw.js`) caches only the app shell.
+
+Hardened in 13.1: a queued change carries the id of the account that made it (`offline.userId`), and the server refuses it under any other session; the client also checks the session's account before sending. Sign-out tells other tabs (BroadcastChannel `vmn-session`, messages tagged with the sending tab so a tab ignores its own), empties every store, then deletes the database — a deletion blocked by another tab is never reported as done.
 
 ## Persistence
 

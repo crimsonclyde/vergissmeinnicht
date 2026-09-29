@@ -1775,7 +1775,8 @@ HTTPS, proxy trust, security headers, dependency scanning, health checks, safe s
 **Security docs updated:** YES.
 
 ### 13.7 Telegram provider: admin configuration and account pairing
-**Status:** IN PROGRESS (server done 2026-09-29; admin UI with 13.8)
+**Status:** DONE
+**Completed:** 2026-09-29
 
 **Security impact:** HIGH — new credential type (bot token), external service, account linking of an outside identity.
 
@@ -1786,42 +1787,125 @@ HTTPS, proxy trust, security headers, dependency scanning, health checks, safe s
 - Application `notifications/`: admin overview, email on/off, `configureTelegram` (format check, `getMe` verification, seal, save — token never returned), `testNotificationProvider` (to the acting admin only); per-person settings (default reminder time, email/Telegram on/off), `startTelegramPairing` (256-bit token, hash stored, 10 min, one open pairing per account, returns the `t.me/<bot>?start=<token>` link once), `pollTelegramPairings` (only `/start <token>` in private chats; one-time claim; stored update offset), `confirmTelegramPairing`, cancel, disconnect; security events `NOTIFICATION_PROVIDER_CHANGED` (no credential), `TELEGRAM_CONNECTED`, `TELEGRAM_DISCONNECTED`.
 - HTTP: `GET /api/admin/notifications`, `POST …/email`, `…/telegram`, `…/test` (server admin, persisted per-account limits 20 / 20 / 5 per 15 min); `GET/POST /api/account/notifications`, `POST …/telegram/pair|confirm|cancel|disconnect` (pair/confirm 10 per 15 min).
 
-**Tests/checks:** `packages/database/src/notification-use-cases.test.ts` (13), `packages/notifications/src/telegram-bot-api.test.ts` (5), `apps/server/src/http/notification.test.ts` (3, incl. captured server log without the token), route-table test.
+- Web (*Server admin → Notification providers*): email configured/enabled with a test email to oneself; Telegram status (bot name, enabled), bot-token field (password input, `autocomplete=off`, cleared after every save, never filled from the server), enable, test message to one's own chat, remove token.
+
+**Tests/checks:** `packages/database/src/notification-use-cases.test.ts` (13), `packages/notifications/src/telegram-bot-api.test.ts` (5), `apps/server/src/http/notification.test.ts` (3, incl. captured server log without the token), route-table test; e2e: providers section (email configured, Telegram not configured, a malformed token refused with its message and the field cleared), axe.
+
+**Remaining:** real pairing with Telegram cannot run in CI (no bot) — covered with a fake Bot API at use-case and HTTP level; ntfy/Gotify/webhook not implemented (webhook needs the SSRF policy first).
 
 **Security docs updated:** YES ("Security check: notification providers and Telegram", §9, §12).
 
 ### 13.8 Account → Notifications
-**Status:** TODO
+**Status:** DONE
+**Completed:** 2026-09-29
+
+**Implemented:** `notification_preferences` (default reminder time, email/Telegram reminders on/off; defaults 09:00/on/on); *Profile & settings → Notifications*: default reminder time (used for "n days before" reminders and for new items without a time), email reminders (or "switched off on this server"), Telegram: *Connect Telegram* → link to the bot (shown once) → the page checks every 3 s until a chat pressed Start → "The Telegram chat “@x” wants to receive your reminders" → **Confirm** / **Not me**; connected: label and date, reminders on/off, *Disconnect Telegram*. No provider setting or secret appears here.
+
+**Tests/checks:** use-case and HTTP tests (13.7); e2e: default time saved and kept after reload, "Telegram is not set up on this server", no token field, axe.
+
+**Security impact:** MEDIUM (account linking of an outside chat — controls in 13.7).
+
+**Security docs updated:** YES.
 
 ### 13.9 Workspace Home
-**Status:** TODO
+**Status:** DONE
+**Completed:** 2026-09-29
+
+**Implemented:** `/w/{id}` is the Workspace Home (the start page opens the last Workspace's Home); navigation **Home · Procedures · Completed history · Members · Knot links**. `GET /api/workspaces/{id}/home` returns Due, Upcoming, Active, Pinned, Recent and the Recent limit in one call. Sections appear only when they have content, in the order Due, Upcoming, Active, Pinned, Recent; an empty Workspace gets one calm hint. Offline, Home shows the active executions saved on the device. No charts, statistics or percentages over time.
+
+**Tests/checks:** `packages/database/src/home-use-cases.test.ts`; route-table test (non-members 404); e2e: Home after sign-in (also after the TOTP sign-in), axe.
+
+**Security impact:** LOW — read-only aggregation of data the member can already see (`procedure.view`).
 
 ### 13.10 Start directly from the Procedure list (Start now / Schedule…)
-**Status:** TODO
+**Status:** DONE
+**Completed:** 2026-09-29
+
+**Implemented:** every Procedure card and the Procedure view have **Start** (a disclosure: *Start now*, *Schedule…* — each only with its capability). *Schedule…* opens a modal `<dialog>`: date (today or later in the item's zone), optional time, reminders (on the day, 1 day before, 1 week before, plus custom 1–48 hours / 0–30 days, ≤5), the time zone named; *Reschedule…* uses the same dialog. Cards are compact: icon, title, scheduled/due/overdue, active count, "Last completed …", ★, Start, ⋯.
+
+**Tests/checks:** e2e: Start now from the card and from the view, Schedule… with preset and custom reminders, the card shows "Scheduled …"/"Due today", axe on the dialog.
+
+**Security impact:** NONE (UI only; the server authorizes every request).
 
 ### 13.11 Due / Upcoming / Active on Home
-**Status:** TODO
+**Status:** DONE
+**Completed:** 2026-09-29
+
+**Implemented:** **Due** — overdue (marked "!" and "Overdue — was due …", not colour alone) and today, primary **Start** (creates the Run from the item; the item then disappears); **Upcoming** — date/time and "Reminders: 1 day before, 3 hours before, on the day", **Start early**, ⋯ *Reschedule…* / *Cancel this schedule* (confirmation); **Active** — title, "Started by Jane 18 minutes ago · 2 of 5 resolved", **Continue**. A scheduled item whose Procedure was deleted says so and offers only Cancel.
+
+**Tests/checks:** e2e: Due (today) and Upcoming with reminders, reschedule, cancel, Start from Due → execution, Active with Continue; use-cases for due/overdue per time zone.
 
 ### 13.12 Pinned Procedures
-**Status:** TODO
+**Status:** DONE
+**Completed:** 2026-09-29
+
+**Implemented:** `procedure_pins` (user, Procedure, Workspace, time); ★ toggle (`aria-pressed`) on cards and in the Procedure view, instant; pinned Procedures first (in pinning order) and on Home; personal — another member does not see them; never audited; pins of deleted Procedures are hidden; unpin/pin of a Procedure outside the Workspace → 404.
+
+**Tests/checks:** use-cases (personal, order, no audit, Workspace isolation, deleted), route-table test (found unpin answering 204 for a foreign id → now 404), e2e pin/unpin.
+
+**Security impact:** LOW.
 
 ### 13.13 Recent Procedures with an admin-configurable limit
-**Status:** TODO
+**Status:** DONE
+**Completed:** 2026-09-29
+
+**Decision:** range **0–20** (default 5); 0 hides the section — the cleaner way to switch it off.
+
+**Implemented:** Recent = non-deleted Procedures of the Workspace that *this person started*, newest start first (derived from `runs`, index `runs_starter_idx`); opening a Procedure does not count. `instance_settings.recent_procedures_limit` (CHECK 0–20), *Server admin → This server → Recent Procedures on Home*, validated server-side (`invalid_recent_limit`), audited with `INSTANCE_SETTINGS_CHANGED`; changing it only changes what Home shows.
+
+**Tests/checks:** use-cases (started vs. opened, per person, limit 2/0/20, invalid values), HTTP (admin only, strict body, bounds, audit), e2e (0 hides Recent, back to 5).
+
+**Security impact:** LOW (server-admin setting, audited).
 
 ### 13.14 "Completed history" wording and navigation
-**Status:** TODO
+**Status:** DONE
+**Completed:** 2026-09-29
+
+**Implemented:** *Completed history* (`/w/{id}/history`; the old `/w/{id}/runs` address leads there) lists finished executions; active ones are on Home. User-facing texts say Start, Continue, Complete, Abort…, execution, Completed history instead of "Run" where the word did not help ("Complete Run" → "Complete", "Abort Run…" → "Abort…", history lines "started it / completed it"). The internal Run entity, its snapshot model, actors, timestamps and audit events are unchanged. The execution view no longer fetches the history list (fewer requests).
+
+**Tests/checks:** router tests (new routes, old address), web text tests, e2e.
+
+**Security impact:** NONE.
 
 ### 13.15 Procedure ⋯ menu and page-level Manage menu
-**Status:** TODO
+**Status:** DONE
+**Completed:** 2026-09-29
+
+**Implemented:** `MoreMenu` (⋯): a disclosure of ordinary buttons (Tab, Escape closes and returns focus, click outside closes), only with actions the person may use (not shown disabled); Procedure ⋯: Edit, Duplicate, Export as JSON, Share as Knot link…, History, Delete (last, marked). Page level: **New Procedure** + **⋯ Manage Procedures** (*Import Procedure (JSON file)…*, *Deleted Procedures*). The Procedure's history is folded away below it.
+
+**Tests/checks:** e2e (all actions through ⋯ and Manage), axe with the Manage menu open.
+
+**Security impact:** NONE.
 
 ### 13.16 Calmer icon picker
-**Status:** TODO
+**Status:** DONE
+**Completed:** 2026-09-29
+
+**Implemented:** the panel opens with **Suggested** (8 common icons, plus the current one) and **Recently used** (this browser, localStorage, per-viewer convenience only), a search field and **Browse all 60 icons** for the complete grouped catalog; each view shows every icon once as one native radio group (arrow keys, screen readers, Enter/Escape unchanged). Icons stay trusted keys.
+
+**Tests/checks:** icon test (suggestions distinct and existing), e2e (Suggested first, Browse all, keyboard choice, search), axe.
+
+**Security impact:** NONE.
 
 ### 13.17 Focused mobile execution
-**Status:** TODO
+**Status:** DONE
+**Completed:** 2026-09-29
+
+**Implemented:** the execution view shows title, live state, progress and the Steps (Next, Done / Skip / Not applicable, undo, actor/time) first; the history and Knot sharing are folded into one *History (and sharing)* section below (open by default only for finished executions). Kept: sticky dock with the next Step, critical-Step confirmation, large touch targets, glyph + text states, offline queue, live updates, reduced motion.
+
+**Tests/checks:** e2e on a 390 px viewport: no sideways scrolling, history folded, axe.
+
+**Security impact:** NONE.
 
 ### 13.18 Warning before starting another active Run
-**Status:** TODO
+**Status:** DONE
+**Completed:** 2026-09-29
+
+**Implemented:** before *Start now* (and before starting a scheduled item) the client fetches the Procedure's active executions (`GET …/runs?state=ACTIVE&procedureId=`); if there are any, a dialog says "“Leave the flat” already has an active execution, started by Jane 18 minutes ago" with **Continue existing**, **Start another anyway**, **Cancel**. UX only: the server still allows several active Runs, and if the check fails the start proceeds (the server decides).
+
+**Tests/checks:** e2e (second start shows the warning, "Start another anyway" starts), axe on the dialog; HTTP filter covered by the route tests.
+
+**Security impact:** NONE.
 
 ### 13.19 Final security, documentation and test pass
 **Status:** TODO

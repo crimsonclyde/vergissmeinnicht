@@ -11,6 +11,7 @@ const LOOPBACK_HOSTNAMES = new Set(['localhost', '127.0.0.1', '[::1]', '::1']);
 /** Marker used in `.env.example`; a value containing it is never a real secret. */
 const PLACEHOLDER_MARKER = 'replace-me';
 const MIN_SECRET_LENGTH = 32;
+export const DEFAULT_API_RATE_LIMIT_PER_MINUTE = 300;
 /** One year; sent only when the public origin is https. */
 const DEFAULT_HSTS_MAX_AGE = 31_536_000;
 /** Secrets that may be given as a file (Docker/Kubernetes secrets) via `<NAME>_FILE`. */
@@ -89,6 +90,9 @@ const envSchema = z
     // Scheduled backups into <database dir>/backups (Step 10.5); 0 or unset = off.
     BACKUP_INTERVAL_HOURS: z.coerce.number().int().min(0).max(24 * 31).optional(),
     BACKUP_KEEP: z.coerce.number().int().min(1).max(1000).optional(),
+    // Global per-client limit on /api requests per minute (default 300). Security-sensitive routes keep
+    // their own, persisted limits regardless of this value.
+    API_RATE_LIMIT_PER_MINUTE: z.coerce.number().int().min(60).max(10_000).optional(),
   })
   .superRefine((env, ctx) => {
     if ((env.SMTP_USER === undefined) !== (env.SMTP_PASSWORD === undefined)) {
@@ -182,6 +186,8 @@ export interface AppConfig {
   readonly hstsMaxAge: number;
   /** Scheduled automatic backups (10.5); `intervalHours` 0 = off. */
   readonly backup: { readonly intervalHours: number; readonly keep: number };
+  /** Global per-client limit on /api requests per minute. */
+  readonly apiRateLimitPerMinute: number;
 }
 
 export interface SmtpConfig {
@@ -245,6 +251,7 @@ export function loadConfig(env: NodeJS.ProcessEnv, readFile: (path: string) => s
     // HSTS only makes sense (and is only honoured) on https origins; loopback http never gets it.
     hstsMaxAge: new URL(values.PUBLIC_ORIGIN ?? 'http://localhost').protocol === 'https:' ? (values.HSTS_MAX_AGE ?? DEFAULT_HSTS_MAX_AGE) : 0,
     backup: Object.freeze({ intervalHours: values.BACKUP_INTERVAL_HOURS ?? 0, keep: values.BACKUP_KEEP ?? 14 }),
+    apiRateLimitPerMinute: values.API_RATE_LIMIT_PER_MINUTE ?? DEFAULT_API_RATE_LIMIT_PER_MINUTE,
   });
 }
 

@@ -58,6 +58,7 @@ export function App() {
           offlineStore.suspend();
           api.currentUser().then(
             (current) => setUser(current),
+            // Could not check (offline, busy server): stay on the sign-in page until the next request tells.
             () => setUser(null),
           );
         }

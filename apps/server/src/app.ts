@@ -31,6 +31,8 @@ export interface AppOptions {
   trustedProxies?: readonly string[] | undefined;
   /** Strict-Transport-Security max-age in seconds; 0 or undefined = no HSTS header. */
   hstsMaxAge?: number | undefined;
+  /** Global per-client limit on /api requests per minute (default 300). */
+  apiRateLimitPerMinute?: number | undefined;
 }
 
 export interface RouteEntry {
@@ -81,7 +83,7 @@ export async function buildApp(options: AppOptions = {}) {
 
   await app.register(fastifyRateLimit, {
     global: true,
-    max: 300,
+    max: options.apiRateLimitPerMinute ?? 300,
     timeWindow: 60_000,
     // IPv6 clients usually control a whole prefix; count it as one client.
     ipv6Subnet: 56,

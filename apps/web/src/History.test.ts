@@ -14,14 +14,14 @@ const event = (type: string, metadata: HistoryEvent['metadata']): HistoryEvent =
 
 describe('describeEvent', () => {
   it('describes Run events in plain language', () => {
-    expect(describeEvent(event('RUN_STARTED', { procedureRevision: 3, steps: 5 }))).toBe('started the Run (Procedure revision 3, 5 Steps)');
+    expect(describeEvent(event('RUN_STARTED', { procedureRevision: 3, steps: 5 }))).toBe('started it (Procedure revision 3, 5 Steps)');
     expect(describeEvent(event('STEP_STATE_CHANGED', { stepTitle: 'Stove off', from: 'PENDING', to: 'SKIPPED', undo: false, reason: 'Later' }))).toBe(
       'Stove off: Pending → Skipped — reason: Later',
     );
     expect(describeEvent(event('STEP_STATE_CHANGED', { stepTitle: 'Stove off', from: 'DONE', to: 'PENDING', undo: true }))).toBe(
       'Stove off: Done → Pending (undo)',
     );
-    expect(describeEvent(event('RUN_ABORTED', { reason: 'Power cut' }))).toBe('aborted the Run — reason: Power cut');
+    expect(describeEvent(event('RUN_ABORTED', { reason: 'Power cut' }))).toBe('aborted it — reason: Power cut');
   });
 
   it('describes Procedure changes including structure summaries', () => {

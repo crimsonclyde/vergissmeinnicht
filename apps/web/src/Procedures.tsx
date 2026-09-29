@@ -1,19 +1,64 @@
-import { useCallback, useEffect, useState, type ChangeEvent } from 'react';
+import { useCallback, useEffect, useRef, useState, type ChangeEvent } from 'react';
 import {
   api,
   messageFor,
   type DeletedProcedure,
   type Procedure,
+  type ProcedureCard,
   type ProcedureContent,
   type ProcedureDetail,
 } from './api.ts';
 import { History } from './History.tsx';
-import { formatDateTime, t } from './i18n/index.ts';
+import { formatCalendarDate, formatDateTime, formatRelative, t } from './i18n/index.ts';
 import { KnotShare } from './Knots.tsx';
+import { MoreMenu, type MoreMenuItem } from './MoreMenu.tsx';
 import { StepMarks } from './StepMarks.tsx';
 import { Icon } from './procedure-icons.tsx';
 import { downloadJson, exportFileName, readImportFile } from './procedure-files.ts';
 import { ProcedureForm } from './ProcedureForm.tsx';
+import { todayIn } from './schedule-dates.ts';
+import { StartControl } from './StartProcedure.tsx';
+
+/** Pin/unpin: personal, instant, never part of the Workspace history (13.12). */
+function PinButton(props: { title: string; pinned: boolean; onToggle: () => void }) {
+  return (
+    <button
+      type="button"
+      className="pin-button"
+      aria-pressed={props.pinned}
+      aria-label={t(props.pinned ? 'procedures.unpin' : 'procedures.pin', { title: props.title })}
+      title={t(props.pinned ? 'procedures.pinnedHint' : 'procedures.pinHint')}
+      onClick={props.onToggle}
+    >
+      <span aria-hidden="true">{props.pinned ? '★' : '☆'}</span>
+    </button>
+  );
+}
+
+/** Compact facts of a card: scheduled/due, last completion, active executions (13.16). */
+function CardFacts({ card }: { card: ProcedureCard }) {
+  const facts: { text: string; urgent?: boolean }[] = [];
+  if (card.nextSchedule !== null) {
+    const today = todayIn(card.nextSchedule.timeZone);
+    const date = formatCalendarDate(card.nextSchedule.date);
+    if (card.nextSchedule.date < today) facts.push({ text: t('procedures.overdue', { date }), urgent: true });
+    else if (card.nextSchedule.date === today) facts.push({ text: t('procedures.dueToday'), urgent: true });
+    else facts.push({ text: t('procedures.scheduledFor', { date }) });
+  }
+  if (card.active.length > 0) facts.push({ text: t('procedures.activeCount', { count: card.active.length }) });
+  if (card.lastCompletedAt !== null) facts.push({ text: t('procedures.lastCompleted', { ago: formatRelative(card.lastCompletedAt) }) });
+  if (facts.length === 0) return null;
+  return (
+    <small className="card-facts">
+      {facts.map((fact, index) => (
+        <span key={fact.text} className={fact.urgent === true ? 'state-text-PENDING' : 'muted'}>
+          {index > 0 && ' · '}
+          {fact.text}
+        </span>
+      ))}
+    </small>
+  );
+}
 
 /** Every tag used in the Workspace, sorted for the filter. */
 const allTags = (procedures: readonly Procedure[]) =>
@@ -63,7 +108,7 @@ type Mode =
   | { kind: 'create' }
   | { kind: 'deleted' }
   | { kind: 'deletedView'; id: string }
-  | { kind: 'view'; id: string }
+  | { kind: 'view'; id: string; panel?: 'share' | 'history' }
   | { kind: 'edit'; id: string };
 
 /** Capabilities only adapt the UI; the server authorizes every request. */
@@ -75,10 +120,13 @@ export function Procedures(props: {
   canEdit: boolean;
   canRestore: boolean;
   canStartRun: boolean;
-  onRunStarted: (runId: string) => void;
+  canSchedule: boolean;
+  /** Opens an execution (after Start, or Continue existing). */
+  onOpenRun: (runId: string) => void;
 }) {
-  const { workspaceId, canEdit, canRestore, canStartRun, onRunStarted } = props;
-  const [procedures, setProcedures] = useState<Procedure[] | null>(null);
+  const { workspaceId, canEdit, canRestore, canStartRun, canSchedule, onOpenRun } = props;
+  const [procedures, setProcedures] = useState<ProcedureCard[] | null>(null);
+  const importRef = useRef<HTMLInputElement>(null);
   const [deleted, setDeleted] = useState<DeletedProcedure[] | null>(null);
   const [detail, setDetail] = useState<ProcedureDetail | null>(null);
   const [mode, setMode] = useState<Mode>(props.openProcedureId === null ? { kind: 'list' } : { kind: 'view', id: props.openProcedureId });
@@ -111,9 +159,33 @@ export function Procedures(props: {
 
   const shown = detail !== null && detail.id === openedId ? detail : null;
 
-  function open(id: string) {
+  function open(id: string, panel?: 'share' | 'history') {
     setMessage(null);
-    setMode({ kind: 'view', id });
+    setMode({ kind: 'view', id, ...(panel === undefined ? {} : { panel }) });
+  }
+
+  async function togglePin(id: string, pinned: boolean) {
+    setMessage(null);
+    // Instant feedback; the list is reloaded from the server afterwards.
+    setProcedures((current) => current?.map((card) => (card.id === id ? { ...card, pinned } : card)) ?? null);
+    try {
+      await api.pinProcedure(workspaceId, id, pinned);
+    } catch (caught) {
+      setMessage(messageFor(caught));
+    }
+    refresh();
+  }
+
+  /** Secondary actions of a Procedure (13.15): only those the person may use. */
+  function moreItems(procedure: Pick<Procedure, 'id' | 'title'>, inView: boolean): MoreMenuItem[] {
+    return [
+      ...(canEdit ? [{ label: t('procedure.edit'), onSelect: () => setMode({ kind: 'edit', id: procedure.id }) }] : []),
+      ...(canEdit ? [{ label: t('procedure.duplicate'), onSelect: () => void runAction(() => api.duplicateProcedure(workspaceId, procedure.id)) }] : []),
+      { label: t('procedure.export'), onSelect: () => void exportProcedure(procedure) },
+      ...(props.canManageKnots ? [{ label: t('procedure.share'), onSelect: () => open(procedure.id, 'share') }] : []),
+      ...(inView ? [] : [{ label: t('procedure.history'), onSelect: () => open(procedure.id, 'history') }]),
+      ...(canEdit ? [{ label: t('procedure.delete'), onSelect: () => void remove(procedure), danger: true }] : []),
+    ];
   }
 
   /** Runs an action; if it yields a new Procedure (import, duplicate), opens it. */
@@ -131,7 +203,7 @@ export function Procedures(props: {
     }
   }
 
-  async function exportProcedure(procedure: ProcedureDetail) {
+  async function exportProcedure(procedure: Pick<Procedure, 'id' | 'title'>) {
     await runAction(async () => {
       downloadJson(await api.exportProcedure(workspaceId, procedure.id), exportFileName(procedure.title));
       return undefined;
@@ -167,18 +239,7 @@ export function Procedures(props: {
     api.deletedProcedures(workspaceId).then(setDeleted, (caught: unknown) => setMessage(messageFor(caught)));
   }
 
-  async function startRun(procedure: ProcedureDetail) {
-    setMessage(null);
-    try {
-      const run = await api.startRun(workspaceId, procedure.id);
-      setMode({ kind: 'list' });
-      onRunStarted(run.id);
-    } catch (caught) {
-      setMessage(messageFor(caught));
-    }
-  }
-
-  async function remove(procedure: ProcedureDetail) {
+  async function remove(procedure: Pick<Procedure, 'id' | 'title'>) {
     if (!window.confirm(t('procedure.deleteConfirm', { title: procedure.title }))) return;
     setMessage(null);
     try {
@@ -190,11 +251,30 @@ export function Procedures(props: {
     refresh();
   }
 
+  const manageItems: MoreMenuItem[] = [
+    ...(canEdit ? [{ label: t('procedures.import'), onSelect: () => importRef.current?.click() }] : []),
+    ...(canRestore ? [{ label: t('procedures.showDeleted'), onSelect: showDeleted }] : []),
+  ];
+
   return (
     <section aria-labelledby="procedures-heading">
       <div className="page-header">
         <h2 id="procedures-heading">{t('procedures.heading')}</h2>
+        {mode.kind === 'list' && (
+          <div className="row">
+            {canEdit && (
+              <button type="button" className="primary" onClick={() => setMode({ kind: 'create' })}>
+                {t('procedures.new')}
+              </button>
+            )}
+            <MoreMenu label={t('procedures.manage')} items={manageItems} />
+          </div>
+        )}
       </div>
+      {/* Opened from the Manage menu; not a visible control of its own. */}
+      {canEdit && (
+        <input ref={importRef} type="file" accept="application/json,.json" className="visually-hidden" tabIndex={-1} aria-label={t('procedures.import')} onChange={(e) => void importFile(e)} />
+      )}
       {message !== null && <p role="alert">{message}</p>}
 
       {mode.kind === 'create' && (
@@ -233,43 +313,33 @@ export function Procedures(props: {
               {t('procedures.backArrow')}
             </button>
           </p>
-          <ProcedureView detail={shown} />
-          <p className="row">
-            {canStartRun && (
-              <button type="button" className="primary" onClick={() => void startRun(shown)}>
-                {t('procedure.startRun')}
-              </button>
-            )}
-            {canEdit && (
-              <button type="button" onClick={() => setMode({ kind: 'edit', id: shown.id })}>
-                {t('procedure.edit')}
-              </button>
-            )}
-          </p>
-          <details className="more-actions">
-            <summary>{t('procedure.more')}</summary>
-            <div className="row">
-              <button type="button" onClick={() => void exportProcedure(shown)}>
-                {t('procedure.export')}
-              </button>
-              {canEdit && (
-                <>
-                  <button type="button" onClick={() => void runAction(() => api.duplicateProcedure(workspaceId, shown.id))}>
-                    {t('procedure.duplicate')}
-                  </button>
-                  <button type="button" onClick={() => void remove(shown)}>
-                    {t('procedure.delete')}
-                  </button>
-                </>
-              )}
-            </div>
-            {props.canManageKnots && (
-              <KnotShare key={shown.id} workspaceId={workspaceId} target={{ type: 'PROCEDURE', id: shown.id }} defaultLabel={shown.title} />
-            )}
-          </details>
-          <div className="card">
-            <History key={`${shown.id}-${shown.revision}`} label={t('procedure.historyLabel')} load={(after) => api.procedureHistory(workspaceId, shown.id, after)} />
+          <div className="row procedure-actions">
+            <StartControl workspaceId={workspaceId} procedure={shown} canStart={canStartRun} canSchedule={canSchedule} onOpenRun={onOpenRun} onScheduled={refresh} />
+            <PinButton
+              title={shown.title}
+              pinned={procedures?.find((card) => card.id === shown.id)?.pinned === true}
+              onToggle={() => void togglePin(shown.id, procedures?.find((card) => card.id === shown.id)?.pinned !== true)}
+            />
+            <MoreMenu label={t('procedure.moreFor', { title: shown.title })} items={moreItems(shown, true)} />
           </div>
+          {mode.panel === 'share' && props.canManageKnots && (
+            <div className="card">
+              <KnotShare
+                key={shown.id}
+                workspaceId={workspaceId}
+                target={{ type: 'PROCEDURE', id: shown.id }}
+                defaultLabel={shown.title}
+                initiallyOpen
+                onDone={() => setMode({ kind: 'view', id: shown.id })}
+              />
+            </div>
+          )}
+          <ProcedureView detail={shown} />
+          {/* History is one click away, not competing with the Procedure itself. */}
+          <details className="more-actions" open={mode.panel === 'history'}>
+            <summary>{t('procedure.history')}</summary>
+            <History key={`${shown.id}-${shown.revision}`} label={t('procedure.historyLabel')} load={(after) => api.procedureHistory(workspaceId, shown.id, after)} />
+          </details>
         </article>
       )}
 
@@ -357,30 +427,28 @@ export function Procedures(props: {
           ) : (
             <ul aria-label={t('procedures.heading')} className="plain-list">
               {procedures.filter((procedure) => tagFilter === '' || procedure.tags.includes(tagFilter)).map((procedure) => (
-                <li key={procedure.id} className="card row" style={{ justifyContent: 'space-between' }}>
-                  <button type="button" className="link-like" style={{ fontSize: '1.1rem', fontWeight: 600 }} onClick={() => open(procedure.id)}>
-                    <Icon icon={procedure.icon} /> {procedure.title}
-                  </button>
-                  {procedure.tags.length > 0 && <span className="muted">{procedure.tags.join(', ')}</span>}
+                <li key={procedure.id} className="card procedure-card">
+                  <div className="procedure-card-main">
+                    <button type="button" className="link-like procedure-link" onClick={() => open(procedure.id)}>
+                      <Icon icon={procedure.icon} /> {procedure.title}
+                    </button>
+                    <CardFacts card={procedure} />
+                  </div>
+                  <div className="procedure-card-actions">
+                    <PinButton title={procedure.title} pinned={procedure.pinned} onToggle={() => void togglePin(procedure.id, !procedure.pinned)} />
+                    <StartControl
+                      workspaceId={workspaceId}
+                      procedure={procedure}
+                      canStart={canStartRun}
+                      canSchedule={canSchedule}
+                      onOpenRun={onOpenRun}
+                      onScheduled={refresh}
+                    />
+                    <MoreMenu label={t('procedure.moreFor', { title: procedure.title })} items={moreItems(procedure, false)} />
+                  </div>
                 </li>
               ))}
             </ul>
-          )}
-          {canEdit && (
-            <p className="row" style={{ marginTop: '1rem' }}>
-              <button type="button" className="primary" onClick={() => setMode({ kind: 'create' })}>
-                {t('procedures.new')}
-              </button>{' '}
-              <label>
-                {t('procedures.import')}{' '}
-                <input type="file" accept="application/json,.json" onChange={(e) => void importFile(e)} />
-              </label>
-            </p>
-          )}
-          {canRestore && (
-            <button type="button" onClick={showDeleted}>
-              {t('procedures.showDeleted')}
-            </button>
           )}
         </>
       )}

@@ -453,16 +453,13 @@ function RunView(props: {
           />
         </div>
       )}
-      <div className="card">
+      {/* Execution first (13.17): history and sharing stay one tap away instead of competing with the Steps. */}
+      <details className="more-actions run-more" open={run.state !== 'ACTIVE'}>
+        <summary>{t(props.canManageKnots ? 'run.moreWithShare' : 'run.more')}</summary>
         <History key={`${run.id}-${run.state}`} label={t('run.historyLabel')} load={props.loadHistory} />
-      </div>
+        {props.canManageKnots && <KnotShare key={run.id} workspaceId={props.workspaceId} target={{ type: 'RUN', id: run.id }} defaultLabel={run.title} />}
+      </details>
       {run.state === 'ACTIVE' && <RunDock steps={steps} next={next} />}
-      {props.canManageKnots && (
-        <details className="more-actions">
-          <summary>{t('procedure.more')}</summary>
-          <KnotShare key={run.id} workspaceId={props.workspaceId} target={{ type: 'RUN', id: run.id }} defaultLabel={run.title} />
-        </details>
-      )}
     </article>
   );
 }
@@ -496,7 +493,7 @@ function RunList({ title, runs, onOpen }: { title: string; runs: RunSummary[]; o
 }
 
 /** List entry for a Run saved on this device (offline list, 8.5). */
-function summaryOf(run: RunDetail): RunSummary {
+export function summaryOf(run: RunDetail): RunSummary {
   const { sections, ...info } = run;
   return { ...info, stepCounts: countStates(sections.flatMap((section) => section.steps)) };
 }
@@ -510,6 +507,8 @@ export function Runs(props: {
   canManageKnots: boolean;
   openRunId: string | null;
   onOpen: (runId: string | null) => void;
+  /** Back to the Workspace Home (from an execution). */
+  onHome: () => void;
 }) {
   const { workspaceId, openRunId, onOpen } = props;
   const offline = useOffline();
@@ -558,7 +557,10 @@ export function Runs(props: {
       setLoadingMore(false);
     }
   }
-  useEffect(refresh, [refresh, openRunId]);
+  // The list is only shown on the history page; an open execution loads just itself.
+  useEffect(() => {
+    if (openRunId === null) refresh();
+  }, [refresh, openRunId]);
 
   /** Canonical Run as last received from the server (never contains unconfirmed changes). */
   const detailRef = useRef<RunDetail | null>(null);
@@ -739,7 +741,7 @@ export function Runs(props: {
       {openRunId !== null ? (
         <>
           <p>
-            <button type="button" className="link-like" onClick={() => onOpen(null)}>
+            <button type="button" className="link-like" onClick={props.onHome}>
               {t('runs.back')}
             </button>
           </p>
@@ -773,17 +775,20 @@ export function Runs(props: {
             <h2>{t('runs.heading')}</h2>
           </div>
           {message !== null && <p role="alert">{message}</p>}
-          {listFromDevice && <p className="muted">{t('offline.savedList')}</p>}
+          {listFromDevice && <p className="muted">{t('offline.historyNeedsConnection')}</p>}
           {runs === null ? (
             <p>{t('common.loading')}</p>
-          ) : runs.length === 0 ? (
-            <p className="card">{t(props.canStart ? 'runs.noneHint' : 'runs.none')}</p>
+          ) : finished.length === 0 && !listFromDevice ? (
+            <p className="card">{t('runs.none')}</p>
           ) : (
             <>
-              {active.length > 0 ? (
-                <RunList title={t('runs.active')} runs={active} onOpen={onOpen} />
-              ) : (
-                <p className="muted">{t('runs.noneActive')}</p>
+              {active.length > 0 && (
+                <p className="muted">
+                  {t('runs.activeOnHome', { count: active.length })}{' '}
+                  <button type="button" className="link-like" onClick={props.onHome}>
+                    {t('runs.toHome')}
+                  </button>
+                </p>
               )}
               {finished.length > 0 && <RunList title={t('runs.finished')} runs={finished} onOpen={onOpen} />}
               {nextCursor !== null && (
