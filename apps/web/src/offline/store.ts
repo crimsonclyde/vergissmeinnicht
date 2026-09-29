@@ -1,5 +1,7 @@
 import type { CurrentUser, RunDetail, WorkspaceSummary } from '../api.ts';
+import { cleanUpDevice, deleteIndexedDb, type CleanupResult } from './cleanup.ts';
 import type { QueuedChange } from './queue.ts';
+import { announceSession } from './session-channel.ts';
 
 /**
  * Device storage for offline Runs (Step 8.5), in IndexedDB: the active Runs this user opened while
@@ -12,6 +14,15 @@ const RUNS = 'runs';
 const QUEUE = 'queue';
 /** The signed-in user and Workspace contexts, so a reload while offline still shows saved Runs. */
 const CONTEXT = 'context';
+const STORES = [RUNS, QUEUE, CONTEXT];
+/** How long sign-out waits for other tabs to release the database before reporting `emptied`. */
+const DELETE_WAIT_MS = 3000;
+
+/**
+ * Set while no account may use the device storage: from sign-out (here or in another tab) until
+ * the next account is known. Late writes of a leaving view would otherwise re-create saved data.
+ */
+let suspended = false;
 
 interface ContextEntry {
   readonly key: string;
@@ -44,7 +55,13 @@ function open(): Promise<IDBDatabase> {
       db.createObjectStore(QUEUE, { keyPath: 'clientChangeId' });
       db.createObjectStore(CONTEXT, { keyPath: 'key' });
     };
-    request.onsuccess = () => resolve(request.result);
+    request.onsuccess = () => {
+      const db = request.result;
+      // Another tab deletes the database (sign-out): let go at once instead of blocking it.
+      db.onversionchange = () => db.close();
+      resolve(db);
+    };
+    request.onblocked = () => reject(new Error('IndexedDB blocked'));
     request.onerror = () => reject(request.error ?? new Error('IndexedDB unavailable'));
   });
 }
@@ -67,7 +84,7 @@ async function withStore<T>(name: string, mode: IDBTransactionMode, action: (sto
 /** Never throws: device storage is a convenience, the server stays authoritative. */
 async function safely<T>(action: () => Promise<T>, fallback: T): Promise<T> {
   try {
-    if (typeof indexedDB === 'undefined') return fallback;
+    if (typeof indexedDB === 'undefined' || suspended) return fallback;
     return await action();
   } catch {
     return fallback;
@@ -162,7 +179,7 @@ export const offlineStore = {
   /** Keeps only this user's data (another account signed in on this browser). */
   discardOtherUsers: (userId: string) =>
     safely(async () => {
-      for (const name of [RUNS, QUEUE, CONTEXT]) {
+      for (const name of STORES) {
         const all = (await withStore<{ userId: string; key?: string; clientChangeId?: string }[]>(name, 'readonly', (store) => store.getAll())) ?? [];
         const foreign = all.filter((entry) => entry.userId !== userId).map((entry) => entry.key ?? entry.clientChangeId ?? '');
         if (foreign.length > 0) {
@@ -174,16 +191,45 @@ export const offlineStore = {
       }
     }, undefined),
 
-  /** Sign-out: nothing of this account stays on the device. */
-  clear: () =>
-    safely(
-      () =>
-        new Promise<void>((resolve) => {
-          const request = indexedDB.deleteDatabase(DB_NAME);
-          request.onsuccess = () => resolve();
-          request.onerror = () => resolve();
-          request.onblocked = () => resolve();
-        }),
-      undefined,
-    ),
+  /** Stops all device storage use (signed out here or in another tab) until `resume`. */
+  suspend: () => {
+    suspended = true;
+  },
+
+  /** An account is signed in again: device storage may be used (for that account's entries). */
+  resume: () => {
+    suspended = false;
+  },
+
+  /**
+   * Sign-out: nothing of this account stays on the device. Other tabs are told first; every store is
+   * emptied, then the database deleted. Resolves how far that got — a deletion blocked by another
+   * tab is never reported as done.
+   */
+  clear: async (): Promise<CleanupResult> => {
+    suspended = true;
+    if (typeof indexedDB === 'undefined') {
+      announceSession({ type: 'signed-out' });
+      return 'deleted';
+    }
+    return cleanUpDevice({
+      announce: () => announceSession({ type: 'signed-out' }),
+      emptyStores: async () => {
+        const db = await open();
+        try {
+          await new Promise<void>((resolve, reject) => {
+            const transaction = db.transaction(STORES, 'readwrite');
+            for (const name of STORES) transaction.objectStore(name).clear();
+            transaction.oncomplete = () => resolve();
+            transaction.onerror = () => reject(transaction.error ?? new Error('IndexedDB clear failed'));
+            transaction.onabort = () => reject(transaction.error ?? new Error('IndexedDB clear aborted'));
+          });
+          return true;
+        } finally {
+          db.close();
+        }
+      },
+      deleteDatabase: () => deleteIndexedDb(indexedDB, DB_NAME, DELETE_WAIT_MS),
+    });
+  },
 };

@@ -56,6 +56,21 @@ export function OfflineProvider({ userId, children }: { userId: string; children
     sending.current = true;
     try {
       let pending = await offlineStore.queued(userId);
+      if (pending.length === 0) return;
+      // Queued changes go out only under the session of the account that made them (13.1): after
+      // a sign-out or another account's sign-in in another tab, the shared cookie belongs to
+      // someone else — then nothing is sent (the server refuses such changes as well).
+      let current: Awaited<ReturnType<typeof api.currentUser>>;
+      try {
+        current = await api.currentUser();
+      } catch {
+        setUnreachable(true);
+        return;
+      }
+      if (current === null || current.id !== userId) {
+        setNeedsSignIn(true);
+        return;
+      }
       let sent = false;
       while (pending.length > 0) {
         const change = pending[0] as QueuedChange;
@@ -70,7 +85,7 @@ export function OfflineProvider({ userId, children }: { userId: string; children
               state: change.to,
               ...(change.reason === undefined ? {} : { reason: change.reason }),
             },
-            { clientChangeId: change.clientChangeId, deviceTime: change.deviceTime },
+            { clientChangeId: change.clientChangeId, userId: change.userId, deviceTime: change.deviceTime },
           );
         } catch (caught) {
           error = caught;

@@ -27,6 +27,7 @@ import { ProcedureNotFoundError } from '../procedures/errors.ts';
 import { userActor } from '../user-actor.ts';
 import { authorizeWorkspace } from '../workspaces/use-cases.ts';
 import {
+  OfflineAccountMismatchError,
   ProcedureHasNoStepsError,
   RunIncompleteError,
   RunLimitReachedError,
@@ -139,12 +140,14 @@ export async function changeStepState(
     readonly reason?: string | undefined;
     /**
      * A change made offline and sent later (8.5): a client-chosen UUID (same change sent twice is
-     * applied once) and the device time it was made at (stored only if plausible, never authoritative).
+     * applied once), the id of the account that made it on the device (must be the caller) and the
+     * device time it was made at (stored only if plausible, never authoritative).
      */
-    readonly offline?: { readonly clientChangeId: string; readonly deviceAt?: Date | undefined } | undefined;
+    readonly offline?: { readonly clientChangeId: string; readonly madeBy: string; readonly deviceAt?: Date | undefined } | undefined;
   },
 ): Promise<{ step: RunStep; runRevision: number; duplicate: boolean }> {
   await authorizeWorkspace(deps, input.actor, input.workspaceId, 'run.execute');
+  if (input.offline !== undefined && input.offline.madeBy !== input.actor.id) throw new OfflineAccountMismatchError();
   const offline =
     input.offline === undefined
       ? undefined

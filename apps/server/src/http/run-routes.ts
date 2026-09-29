@@ -32,9 +32,12 @@ const stateBody = z.strictObject({
   expectedState: z.enum(STEP_STATES),
   state: z.enum(STEP_STATES),
   reason: z.string().max(4096).optional(),
-  /** A change made offline and sent later (8.5). The device time is informational only. */
+  /**
+   * A change made offline and sent later (8.5). `userId` is the account that made it on the device;
+   * it must be the signed-in account. The device time is informational only.
+   */
   offline: z
-    .strictObject({ clientChangeId: z.uuid({ version: 'v4' }), deviceTime: z.iso.datetime({ offset: true }).optional() })
+    .strictObject({ clientChangeId: z.uuid({ version: 'v4' }), userId: uuid, deviceTime: z.iso.datetime({ offset: true }).optional() })
     .optional(),
 });
 
@@ -132,6 +135,7 @@ export async function runRoutes(app: FastifyInstance, { services }: { services: 
           ? undefined
           : {
               clientChangeId: body.offline.clientChangeId,
+              madeBy: body.offline.userId,
               deviceAt: body.offline.deviceTime === undefined ? undefined : new Date(body.offline.deviceTime),
             },
     });

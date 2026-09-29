@@ -383,8 +383,8 @@ export const api = {
     runId: string,
     stepId: string,
     change: { expectedState: StepState; state: StepState; reason?: string },
-    /** Only for changes made offline and sent later (8.5). */
-    offline?: { clientChangeId: string; deviceTime: string },
+    /** Only for changes made offline and sent later (8.5); `userId` is the account that made it. */
+    offline?: { clientChangeId: string; userId: string; deviceTime: string },
   ) =>
     request<{ step: RunStep; runRevision: number; duplicate: boolean }>(
       'POST',

@@ -23,6 +23,7 @@ import {
   RunIncompleteError,
   RunStepNotFoundError,
   StepStateConflictError,
+  OfflineAccountMismatchError,
   InvalidInvitationError,
   InvalidMfaCodeError,
   InvitationNotRevocableError,
@@ -95,6 +96,7 @@ export function errorHandler(error: FastifyError | Error, request: FastifyReques
   }
   if (error instanceof RunNotActiveError) return reply.code(409).send({ error: 'run_not_active' });
   if (error instanceof StepStateConflictError) return reply.code(409).send({ error: 'step_conflict' });
+  if (error instanceof OfflineAccountMismatchError) return reply.code(409).send({ error: 'offline_account_mismatch' });
   if (error instanceof ProcedureHasNoStepsError) return reply.code(409).send({ error: 'procedure_has_no_steps' });
   if (error instanceof RunLimitReachedError) return reply.code(409).send({ error: 'run_limit_reached' });
   if (error instanceof ProcedureLimitReachedError) return reply.code(409).send({ error: 'procedure_limit_reached' });

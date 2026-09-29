@@ -154,7 +154,7 @@ describe('Run HTTP API', () => {
 
     const procedureHistory = await t.get(`/api/workspaces/${home}/procedures/${procedureId}/history`, guest);
     expect(procedureHistory.json().events.map((e: { type: string }) => e.type)).toEqual(['PROCEDURE_CREATED']);
-    expect((await t.get(`/api/workspaces/${office}/procedures/${procedureId}/history`, outsider)).json()).toEqual({ events: [], nextCursor: null });
+    expect((await t.get(`/api/workspaces/${office}/procedures/${procedureId}/history`, outsider)).json()).toEqual({ error: 'procedure_not_found' });
   });
 
   it('validates input and preconditions', async () => {
@@ -199,7 +199,14 @@ describe('Run HTTP API', () => {
     const stepId = run.sections[0]?.steps[0]?.id ?? '';
     const url = `${runs(home)}/${run.id}/steps/${stepId}/state`;
     const clientChangeId = '6f1c2b9a-6d4e-4f8a-9b7c-1a2b3c4d5e6f';
-    const body = { expectedState: 'PENDING', state: 'DONE', offline: { clientChangeId, deviceTime: new Date().toISOString() } };
+    const userId = (await t.get('/api/auth/session', user)).json().user.id as string;
+    const editorId = (await t.get('/api/auth/session', editor)).json().user.id as string;
+    const body = { expectedState: 'PENDING', state: 'DONE', offline: { clientChangeId, userId, deviceTime: new Date().toISOString() } };
+    // A change queued by one account is never recorded under another account's session.
+    const foreign = await t.post(url, body, editor);
+    expect(foreign.statusCode).toBe(409);
+    expect(foreign.json()).toEqual({ error: 'offline_account_mismatch' });
+    expect((await t.post(url, { ...body, offline: { ...body.offline, userId: editorId } }, user)).json()).toEqual({ error: 'offline_account_mismatch' });
     const first = await t.post(url, body, user);
     expect(first.statusCode).toBe(200);
     expect(first.json()).toMatchObject({ duplicate: false, step: { state: 'DONE', stateChange: { by: 'Uma' } } });
@@ -207,10 +214,17 @@ describe('Run HTTP API', () => {
     const again = await t.post(url, body, user);
     expect(again.json()).toMatchObject({ duplicate: true, runRevision: first.json().runRevision });
     // Strict body: unknown fields, malformed ids and times are rejected; GUESTs stay read-only.
-    for (const offline of [{ clientChangeId: 'x' }, { clientChangeId, deviceTime: 'yesterday' }, { clientChangeId, by: 'Ada' }, { deviceTime: new Date().toISOString() }]) {
+    for (const offline of [
+      { clientChangeId: 'x', userId },
+      { clientChangeId, userId, deviceTime: 'yesterday' },
+      { clientChangeId, userId, by: 'Ada' },
+      { userId, deviceTime: new Date().toISOString() },
+      { clientChangeId },
+      { clientChangeId, userId: 'not-a-uuid' },
+    ]) {
       expect((await t.post(url, { expectedState: 'DONE', state: 'PENDING', offline }, user)).statusCode).toBe(400);
     }
-    expect((await t.post(url, { ...body, offline: { clientChangeId: '7f1c2b9a-6d4e-4f8a-9b7c-1a2b3c4d5e6f' } }, guest)).statusCode).toBe(403);
+    expect((await t.post(url, { ...body, offline: { clientChangeId: '7f1c2b9a-6d4e-4f8a-9b7c-1a2b3c4d5e6f', userId } }, guest)).statusCode).toBe(403);
     // The Run view shows the device time next to the server time.
     const detail = (await t.get(`${runs(home)}/${run.id}`, guest)).json().run;
     expect(detail.sections[0].steps[0].stateChange).toMatchObject({ by: 'Uma', deviceAt: expect.any(String) });

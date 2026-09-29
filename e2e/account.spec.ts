@@ -610,10 +610,17 @@ test('first server admin: bootstrap link, account creation, sign-in, Workspace c
   await page.getByRole('button', { name: 'I have saved my recovery codes' }).click();
   await expect(page.getByText('Status: Enabled')).toBeVisible();
 
+  // A second tab of the same browser shares the session and the device database (13.1).
+  const secondTab = await page.context().newPage();
+  await secondTab.goto(page.url());
+  await expect(secondTab.getByRole('button', { name: /^Menu/ })).toBeVisible();
   await fromMenu(page, 'Sign out');
   await expect(page.getByRole('heading', { name: 'Sign in' })).toBeVisible();
   // Nothing of the account stays on the device (8.5): saved Runs and queued changes are gone.
   expect(await page.evaluate("indexedDB.databases().then((list) => list.map((db) => db.name))")).not.toContain('vmn-offline');
+  // The other tab left the account at once instead of keeping (and possibly sending) its data.
+  await expect(secondTab.getByRole('heading', { name: 'Sign in' })).toBeVisible();
+  await secondTab.close();
 
   // Sign-in now needs the second factor; the enrollment code's time step is used up, so use the next one.
   await page.getByLabel('Email').fill('admin@example.org');
