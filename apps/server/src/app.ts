@@ -11,6 +11,7 @@ import { authRoutes } from './http/auth-routes.ts';
 import { errorHandler } from './http/errors.ts';
 import { adminInvitationRoutes, invitationRoutes } from './http/invitation-routes.ts';
 import { knotRoutes, workspaceKnotRoutes } from './http/knot-routes.ts';
+import { accountNotificationRoutes, adminNotificationRoutes } from './http/notification-routes.ts';
 import { originGuard } from './http/origin-guard.ts';
 import { procedureRoutes } from './http/procedure-routes.ts';
 import { rateLimitStore } from './http/rate-limit-store.ts';
@@ -133,6 +134,7 @@ export async function buildApp(options: AppOptions = {}) {
         }));
         await api.register(authRoutes, { prefix: '/auth', services });
         await api.register(accountRoutes, { prefix: '/account', services });
+        await api.register(accountNotificationRoutes, { prefix: '/account/notifications', services });
         await api.register(invitationRoutes, { prefix: '/invitations', services });
         await api.register(adminInvitationRoutes, { prefix: '/admin/invitations', services });
         await api.register(recoveryRoutes, { prefix: '/recoveries', services });
@@ -140,6 +142,7 @@ export async function buildApp(options: AppOptions = {}) {
         await api.register(adminAccountRoutes, { prefix: '/admin/accounts', services });
         await api.register(adminSecurityEventRoutes, { prefix: '/admin/security-events', services });
         await api.register(adminSettingsRoutes, { prefix: '/admin/settings', services });
+        await api.register(adminNotificationRoutes, { prefix: '/admin/notifications', services });
         await api.register(workspaceRoutes, { prefix: '/workspaces', services });
         await api.register(procedureRoutes, { prefix: '/workspaces/:workspaceId/procedures', services });
         await api.register(runRoutes, { prefix: '/workspaces/:workspaceId/runs', services });

@@ -103,6 +103,7 @@ CREATE TABLE `scheduled_reminders` (
 	`remind_at` integer NOT NULL,
 	`recipient_user_id` text NOT NULL,
 	`processed_at` integer,
+	`next_attempt_at` integer,
 	`cancelled_at` integer,
 	FOREIGN KEY (`schedule_id`) REFERENCES `scheduled_procedures`(`id`) ON UPDATE no action ON DELETE no action,
 	FOREIGN KEY (`recipient_user_id`) REFERENCES `users`(`id`) ON UPDATE no action ON DELETE no action,
@@ -144,6 +145,8 @@ CREATE TABLE `telegram_pairings` (
 --> statement-breakpoint
 CREATE UNIQUE INDEX `telegram_pairings_token_hash_unique` ON `telegram_pairings` (`token_hash`);--> statement-breakpoint
 CREATE INDEX `telegram_pairings_user_idx` ON `telegram_pairings` (`user_id`);--> statement-breakpoint
+CREATE INDEX `runs_starter_idx` ON `runs` (`workspace_id`,`started_by_user_id`,`started_at`);
+--> statement-breakpoint
 ALTER TABLE `instance_settings` ADD `recent_procedures_limit` integer DEFAULT 5 NOT NULL
 	CONSTRAINT "instance_settings_recent_limit_bounded" CHECK("recent_procedures_limit" between 0 and 20);
 --> statement-breakpoint

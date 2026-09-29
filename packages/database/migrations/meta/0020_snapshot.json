@@ -1,7 +1,7 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "01779b1a-ad49-4e40-8a08-99bd2a834d1d",
+  "id": "67d0d255-2fe6-4dae-b719-473216b5af50",
   "prevId": "0eda6f3b-bfa1-4ea4-a9e3-e0c0351a59cc",
   "tables": {
     "account_recoveries": {
@@ -2558,6 +2558,15 @@
             "procedure_id"
           ],
           "isUnique": false
+        },
+        "runs_starter_idx": {
+          "name": "runs_starter_idx",
+          "columns": [
+            "workspace_id",
+            "started_by_user_id",
+            "started_at"
+          ],
+          "isUnique": false
         }
       },
       "foreignKeys": {
@@ -2962,6 +2971,13 @@
         },
         "processed_at": {
           "name": "processed_at",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "next_attempt_at": {
+          "name": "next_attempt_at",
           "type": "integer",
           "primaryKey": false,
           "notNull": false,

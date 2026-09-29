@@ -18,6 +18,7 @@
     "@vergissmeinnicht/database": "workspace:*",
     "@vergissmeinnicht/domain": "workspace:*",
     "@vergissmeinnicht/email": "workspace:*",
+    "@vergissmeinnicht/notifications": "workspace:*",
     "@vergissmeinnicht/import-export": "workspace:*",
     "@vergissmeinnicht/realtime": "workspace:*",
     "fastify": "5.12.5",

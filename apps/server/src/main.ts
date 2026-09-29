@@ -5,6 +5,7 @@ import { createServices } from './composition.ts';
 import { ConfigError, loadConfig } from './config/index.ts';
 import { scheduleBackups } from './backup-schedule.ts';
 import { scheduleHousekeeping } from './housekeeping.ts';
+import { scheduleReminders } from './reminder-schedule.ts';
 import { loggerOptions } from './logging.ts';
 
 function readConfig() {
@@ -24,10 +25,12 @@ const config = readConfig();
 // Schema migrations are applied separately (`pnpm db:migrate`); see docu/deployment.md.
 const database = openDatabase(config.databasePath);
 
+const services = createServices(config, database);
+let built: ReturnType<typeof services> | undefined;
 const app = await buildApp({
   webDistDir: config.mode === 'production' ? resolve(import.meta.dirname, '../../web/dist') : undefined,
   logger: loggerOptions(config.logLevel),
-  services: createServices(config, database),
+  services: (log) => (built = services(log)),
   trustedProxies: config.trustedProxies,
   hstsMaxAge: config.hstsMaxAge,
 });
@@ -35,9 +38,12 @@ const app = await buildApp({
 const stopHousekeeping = scheduleHousekeeping(database, app.log);
 // Optional automatic backups (BACKUP_INTERVAL_HOURS, BACKUP_KEEP; Step 10.5).
 const stopBackups = scheduleBackups(config.databasePath, app.log, config.backup);
+// Reminders of scheduled Procedures and Telegram pairing (13.5, 13.7), within this process.
+const stopReminders = built === undefined ? () => undefined : scheduleReminders(built, app.log);
 app.addHook('onClose', async () => {
   stopHousekeeping();
   stopBackups();
+  stopReminders();
   database.close();
 });
 

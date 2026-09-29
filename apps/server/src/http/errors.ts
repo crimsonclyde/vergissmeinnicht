@@ -24,6 +24,9 @@ import {
   RunStepNotFoundError,
   StepStateConflictError,
   OfflineAccountMismatchError,
+  NotificationDeliveryError,
+  NothingToConfirmError,
+  TelegramUnavailableError,
   ScheduleClosedError,
   ScheduleConflictError,
   ScheduleLimitReachedError,
@@ -107,6 +110,10 @@ export function errorHandler(error: FastifyError | Error, request: FastifyReques
   if (error instanceof ScheduleClosedError) return reply.code(409).send({ error: 'schedule_closed' });
   if (error instanceof ScheduleLimitReachedError) return reply.code(409).send({ error: 'schedule_limit_reached' });
   if (error instanceof ScheduledProcedureUnavailableError) return reply.code(409).send({ error: 'procedure_unavailable' });
+  if (error instanceof TelegramUnavailableError) return reply.code(409).send({ error: 'telegram_unavailable' });
+  if (error instanceof NothingToConfirmError) return reply.code(409).send({ error: 'nothing_to_confirm' });
+  // A provider check (e.g. a new bot token) failed: the stable reason code only, never the provider's answer.
+  if (error instanceof NotificationDeliveryError) return reply.code(400).send({ error: 'provider_check_failed', reason: error.code });
   if (error instanceof ProcedureHasNoStepsError) return reply.code(409).send({ error: 'procedure_has_no_steps' });
   if (error instanceof RunLimitReachedError) return reply.code(409).send({ error: 'run_limit_reached' });
   if (error instanceof ProcedureLimitReachedError) return reply.code(409).send({ error: 'procedure_limit_reached' });

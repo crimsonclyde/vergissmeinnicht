@@ -1,12 +1,14 @@
 // Test-only helper: a production-configured app on a fresh database, with captured email and
 // signed-in demo users. Not imported by application code.
 import { randomBytes } from 'node:crypto';
-import { bootstrapServerAdmin, type EmailMessage } from '@vergissmeinnicht/application';
+import { Writable } from 'node:stream';
+import { bootstrapServerAdmin, type EmailMessage, type TelegramBotApi } from '@vergissmeinnicht/application';
 import { createTestDatabase } from '@vergissmeinnicht/database/test-support';
 import { normalizeEmail } from '@vergissmeinnicht/domain';
 import { buildApp } from '../app.ts';
 import { createServices, type AppServices } from '../composition.ts';
 import { loadConfig } from '../config/index.ts';
+import { loggerOptions } from '../logging.ts';
 import type { RunEventsOptions } from './run-events.ts';
 
 export const ORIGIN = 'https://vmn.example.org';
@@ -17,9 +19,25 @@ const INVITE_LINK = /\/invite\/([A-Za-z0-9_-]{43})/;
 type App = Awaited<ReturnType<typeof buildApp>>;
 export type InjectResponse = Awaited<ReturnType<App['inject']>>;
 
-export async function startTestApp(options: { runEvents?: RunEventsOptions; trustedProxies?: readonly string[] } = {}) {
+export async function startTestApp(
+  options: {
+    runEvents?: RunEventsOptions;
+    trustedProxies?: readonly string[];
+    /** Replaces the real Telegram client (tests never reach api.telegram.org). */
+    telegramApi?: TelegramBotApi;
+    /** Capture the server log (info level, production serializers) into `logs`. */
+    captureLogs?: boolean;
+  } = {},
+) {
   const database = createTestDatabase();
   const outbox: EmailMessage[] = [];
+  let logs = '';
+  const logStream = new Writable({
+    write(chunk, _encoding, done) {
+      logs += String(chunk);
+      done();
+    },
+  });
   let services: AppServices | undefined;
   const config = loadConfig({
     NODE_ENV: 'production',
@@ -34,10 +52,12 @@ export async function startTestApp(options: { runEvents?: RunEventsOptions; trus
   const build = () =>
     buildApp({
       trustedProxies: options.trustedProxies,
+      ...(options.captureLogs === true ? { logger: { ...loggerOptions('info'), stream: logStream } } : {}),
       services: (log) => {
         const built = createServices(config, database)(log);
         const email = { send: async (message: EmailMessage) => void outbox.push(message) };
-        services = { ...built, invitations: { ...built.invitations, email }, runEvents: options.runEvents };
+        const notifications = { ...built.notifications, email, ...(options.telegramApi === undefined ? {} : { telegramApi: options.telegramApi }) };
+        services = { ...built, invitations: { ...built.invitations, email }, notifications, runEvents: options.runEvents };
         return services;
       },
     });
@@ -97,7 +117,17 @@ export async function startTestApp(options: { runEvents?: RunEventsOptions; trus
       app = await build();
     },
     database,
+    /** The services of the running app (e.g. to run a scheduler task directly). */
+    get services(): AppServices {
+      if (services === undefined) throw new Error('services were not built');
+      return services;
+    },
     admin,
+    outbox,
+    /** Everything logged so far (with `captureLogs`). */
+    get logs() {
+      return logs;
+    },
     post,
     get,
     invite,

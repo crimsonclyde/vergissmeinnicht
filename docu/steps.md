@@ -1745,13 +1745,50 @@ HTTPS, proxy trust, security headers, dependency scanning, health checks, safe s
 **Security docs updated:** YES ("Security check: scheduled Procedures and reminders", §3).
 
 ### 13.5 Reminder persistence and scheduler
-**Status:** TODO
+**Status:** DONE
+**Completed:** 2026-09-29
+
+**Security impact:** MEDIUM — Workspace content leaves the server in reminders; spam/duplication risk.
+
+**Implemented:**
+- `scheduled_reminders` (13.4) + `reminder_deliveries`: one row per (reminder, channel), unique, claimed in an IMMEDIATE transaction *before* sending (status SENDING with a 5-minute lease, attempt counter); outcomes SENT / RETRY (next attempt) / FAILED / SKIPPED with a stable error code only; a reminder is processed when all its channels are final, otherwise it is not looked at before the earliest retry.
+- `dispatchDueReminders` (application): ≤50 due reminders per run; checks at send time that the recipient (the person who scheduled the item) is ACTIVE and still a member with `procedure.view`, the item still open and the Procedure not deleted — otherwise nothing is sent; channels = providers the server enabled **and** the person enabled/connected; ≤4 attempts (1 min, 10 min, 1 h), permanent errors not retried; reminders >24 h late are dropped; the message links to the Workspace Home (plain URL, sign-in required).
+- Scheduler in the server process (`apps/server/src/reminder-schedule.ts`): every minute, never overlapping; the Telegram pairing poll every 3 s only while a pairing is open (13.7); logs counts and error type/code only. No queue, worker or extra deployment; the database is the source of truth, so restarts just continue.
+- Provider port `ReminderNotifier` (channel, `enabledFor`, `send`) — future ntfy/Gotify/webhook/Web Push adapters plug in here.
+
+**Tests/checks:** `packages/database/src/reminder-dispatch.test.ts` (9: nothing early; once per channel, also after a restart; two concurrent dispatchers; interrupted claim retried only after the lease; bounded retries with delays, given up for good; permanent failure not retried and schedule/Runs/audit untouched; removed member, deleted Procedure, cancelled item → nothing; disabled channel; stale reminders dropped), `apps/server/src/reminder-schedule.test.ts` (no overlap; error log without messages).
+
+**Remaining:** reminders go to the scheduler only (no per-item recipients); delivery history is not shown in the UI; a crash between the provider accepting a message and the outcome being recorded can repeat that single message (bounded).
+
+**Security docs updated:** YES.
 
 ### 13.6 Email reminders
-**Status:** TODO
+**Status:** DONE
+**Completed:** 2026-09-29
+
+**Implemented:** `emailReminderNotifier` reuses the existing SMTP `EmailSender` (no second email stack): plain text with the Procedure title, the date in words with time and zone, "in 7 days / tomorrow / today / in 2 hours / overdue", the Workspace name and the link to the Workspace Home; texts in the email catalog (`reminder`, `providerTest`). On unless the server admin switches email reminders off (`notification_providers` row EMAIL) or the person does (Account → Notifications). No Knot or other token in reminders.
+
+**Tests/checks:** email text tests (subjects per offset, date format, no double blank lines), dispatch tests with a fake provider, admin test message only to the admin's own address.
+
+**Security impact:** LOW (existing transport; content per 13.5).
+
+**Security docs updated:** YES.
 
 ### 13.7 Telegram provider: admin configuration and account pairing
-**Status:** TODO
+**Status:** IN PROGRESS (server done 2026-09-29; admin UI with 13.8)
+
+**Security impact:** HIGH — new credential type (bot token), external service, account linking of an outside identity.
+
+**Decisions (made here, documented):** the bot token is entered in the admin UI (not an environment variable) and stored sealed with `DATA_ENCRYPTION_KEY`; **polling, not a webhook** (the beta runs behind a VPN; no inbound endpoint needed) and only while a pairing is open; pairing needs a **confirmation by the signed-in user in VMN** after /start, so a leaked link cannot attach a stranger's chat; one Telegram chat per account; no generic webhook/ntfy in this pass (SSRF policy must be designed first — security.md).
+
+**Implemented:**
+- `packages/notifications` (new): Telegram Bot API client on `fetch` — fixed host `api.telegram.org`, POST JSON, redirects refused, 10 s timeout, 1 MiB cap, plain-text messages ≤4096 characters, updates reduced to id/chat/type/text/sender label; every failure a `NotificationDeliveryError` with a stable code (the token-bearing URL is never exposed).
+- Application `notifications/`: admin overview, email on/off, `configureTelegram` (format check, `getMe` verification, seal, save — token never returned), `testNotificationProvider` (to the acting admin only); per-person settings (default reminder time, email/Telegram on/off), `startTelegramPairing` (256-bit token, hash stored, 10 min, one open pairing per account, returns the `t.me/<bot>?start=<token>` link once), `pollTelegramPairings` (only `/start <token>` in private chats; one-time claim; stored update offset), `confirmTelegramPairing`, cancel, disconnect; security events `NOTIFICATION_PROVIDER_CHANGED` (no credential), `TELEGRAM_CONNECTED`, `TELEGRAM_DISCONNECTED`.
+- HTTP: `GET /api/admin/notifications`, `POST …/email`, `…/telegram`, `…/test` (server admin, persisted per-account limits 20 / 20 / 5 per 15 min); `GET/POST /api/account/notifications`, `POST …/telegram/pair|confirm|cancel|disconnect` (pair/confirm 10 per 15 min).
+
+**Tests/checks:** `packages/database/src/notification-use-cases.test.ts` (13), `packages/notifications/src/telegram-bot-api.test.ts` (5), `apps/server/src/http/notification.test.ts` (3, incl. captured server log without the token), route-table test.
+
+**Security docs updated:** YES ("Security check: notification providers and Telegram", §9, §12).
 
 ### 13.8 Account → Notifications
 **Status:** TODO

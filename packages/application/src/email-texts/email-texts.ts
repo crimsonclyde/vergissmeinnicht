@@ -19,4 +19,24 @@ export interface EmailTexts {
       readonly expiresAt: string;
     }) => string;
   };
+  /** A reminder of a scheduled Procedure (13.6); the same wording is used for Telegram (13.7). */
+  readonly reminder: {
+    readonly subject: (input: ReminderTextInput) => string;
+    readonly body: (input: ReminderTextInput) => string;
+  };
+  /** Test message sent by a server admin to check a provider (13.10 admin). */
+  readonly providerTest: { readonly subject: string; readonly body: (input: { readonly provider: string }) => string };
+}
+
+export interface ReminderTextInput {
+  readonly procedureTitle: string;
+  readonly workspaceName: string;
+  /** `YYYY-MM-DD` and optional `HH:MM`, in `timeZone`. */
+  readonly date: string;
+  readonly time: string | null;
+  readonly timeZone: string;
+  /** `DAYS:7`, `HOURS:2`, … */
+  readonly reminderKey: string;
+  readonly overdue: boolean;
+  readonly url: string;
 }

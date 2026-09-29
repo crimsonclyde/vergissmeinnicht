@@ -1,5 +1,7 @@
 import {
+  emailReminderNotifier,
   systemClock,
+  telegramReminderNotifier,
   type AccountAdminDeps,
   type InstanceSettingsDeps,
   type PreferencesDeps,
@@ -7,6 +9,8 @@ import {
   type InvitationDeps,
   type KnotDeps,
   type ProcedureDeps,
+  type NotificationDeps,
+  type ReminderDeps,
   type RunDeps,
   type ScheduleDeps,
   type MfaDeps,
@@ -38,10 +42,13 @@ import {
   createProcedureRepository,
   createRateLimitCounter,
   createNotificationPreferencesRepository,
+  createNotificationProviderRepository,
+  createReminderQueue,
   createRunRepository,
   createScheduleRepository,
   createSecurityEventLog,
   createSecurityEventReader,
+  createTelegramRepository,
   createTotpRepository,
   createUserRepository,
   createWorkspaceRepository,
@@ -55,6 +62,7 @@ import {
 } from '@vergissmeinnicht/database';
 import { canAuthenticate, type UserId } from '@vergissmeinnicht/domain';
 import { createSmtpEmailSender } from '@vergissmeinnicht/email';
+import { createTelegramBotApi } from '@vergissmeinnicht/notifications';
 import { createRunChangeHub, type RunChangeHub } from '@vergissmeinnicht/realtime';
 import type { FastifyBaseLogger } from 'fastify';
 import type { AppConfig } from './config/index.ts';
@@ -81,6 +89,10 @@ export interface AppServices {
   readonly schedules: ScheduleDeps & RunDeps;
   readonly knots: KnotDeps;
   readonly history: HistoryDeps;
+  /** Notification providers, a person's reminder settings and Telegram pairing (13.6–13.8). */
+  readonly notifications: NotificationDeps;
+  /** The reminder dispatcher (13.5), run by the in-process scheduler. */
+  readonly reminders: ReminderDeps;
   /** In-process fan-out of committed Run changes to SSE subscribers. */
   readonly runChanges: RunChangeHub;
   /** Stream timing overrides (tests). */
@@ -155,6 +167,24 @@ export function createServices(config: AppConfig, database: AppDatabase) {
       clock: systemClock,
       publicOrigin: config.publicOrigin,
     };
+    const notificationPreferences = createNotificationPreferencesRepository(database);
+    const notifications: NotificationDeps = {
+      providers: createNotificationProviderRepository(database),
+      preferences: notificationPreferences,
+      telegram: createTelegramRepository(database),
+      telegramApi: createTelegramBotApi(),
+      secretBox: mfa.secretBox,
+      tokens: invitationTokens,
+      email: invitations.email,
+      emailConfigured: true,
+      clock: systemClock,
+    };
+    const reminders: ReminderDeps = {
+      queue: createReminderQueue(database),
+      notifiers: [emailReminderNotifier(notifications), telegramReminderNotifier(notifications)],
+      clock: systemClock,
+      publicOrigin: config.publicOrigin,
+    };
     const runChanges = createRunChangeHub();
     const runs: RunDeps = { workspaces: createWorkspaceRepository(database), runs: createRunRepository(database), clock: systemClock, changes: runChanges };
     const workspaceDeps: WorkspaceDeps = {
@@ -181,11 +211,9 @@ export function createServices(config: AppConfig, database: AppDatabase) {
       workspaces: workspaceDeps,
       procedures: { workspaces: workspaceDeps.workspaces, procedures: createProcedureRepository(database), clock: systemClock },
       runs,
-      schedules: {
-        ...runs,
-        schedules: createScheduleRepository(database),
-        notificationPreferences: createNotificationPreferencesRepository(database),
-      },
+      schedules: { ...runs, schedules: createScheduleRepository(database), notificationPreferences },
+      notifications,
+      reminders,
       runChanges,
       knots: { workspaces: workspaceDeps.workspaces, knots: createKnotRepository(database), tokens: invitationTokens, clock: systemClock },
       history: { workspaces: workspaceDeps.workspaces, history: createAuditHistory(database) },

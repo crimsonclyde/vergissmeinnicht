@@ -29,6 +29,10 @@ export const SECURITY_EVENT_TYPES = [
   'ACCOUNT_DISABLED',
   'ACCOUNT_ENABLED',
   'INSTANCE_SETTINGS_CHANGED',
+  // Notifications (13.7): provider configuration (never the credential) and a person's Telegram chat.
+  'NOTIFICATION_PROVIDER_CHANGED',
+  'TELEGRAM_CONNECTED',
+  'TELEGRAM_DISCONNECTED',
   'WORKSPACE_CREATED',
   'WORKSPACE_RENAMED',
   'MEMBERSHIP_ADDED',

@@ -468,6 +468,8 @@ export const runs = sqliteTable(
   (table) => [
     index('runs_workspace_state_idx').on(table.workspaceId, table.state, table.startedAt),
     index('runs_procedure_idx').on(table.procedureId),
+    // Recent Procedures of a person (13.13).
+    index('runs_starter_idx').on(table.workspaceId, table.startedByUserId, table.startedAt),
     check('runs_id_uuid', sql`length(${table.id}) = 36`),
     check('runs_state_valid', oneOf('state', RUN_STATES)),
     check('runs_title_present', sql`length(trim(${table.title})) > 0 and length(${table.title}) <= 120`),
@@ -808,6 +810,8 @@ export const scheduledReminders = sqliteTable(
       .references(() => users.id),
     /** Every channel reached a final state (sent, failed or skipped). */
     processedAt: integer('processed_at', { mode: 'timestamp_ms' }),
+    /** A channel waits for a retry: not looked at again before this time. */
+    nextAttemptAt: integer('next_attempt_at', { mode: 'timestamp_ms' }),
     cancelledAt: integer('cancelled_at', { mode: 'timestamp_ms' }),
   },
   (table) => [

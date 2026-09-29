@@ -107,7 +107,7 @@ Inject configuration at runtime. The production server never reads `.env` files 
 
 ### `DATA_ENCRYPTION_KEY`
 
-TOTP authenticator secrets are encrypted with this key. If it is lost or changed, every enrolled authenticator stops working: users can still sign in with a recovery code and re-enroll, otherwise an admin or operator TOTP reset is needed (see Account recovery). A re-encryption tool for planned key rotation does not exist yet — do not rotate it. Keep a copy of the key outside the server (e.g. in the operator's password manager) and store it separately from database backups: the encryption protects stolen database files only as long as the key is not stored alongside them.
+TOTP authenticator secrets and the Telegram bot token (13.7) are encrypted with this key. If it is lost or changed, every enrolled authenticator stops working: users can still sign in with a recovery code and re-enroll, otherwise an admin or operator TOTP reset is needed (see Account recovery); the Telegram bot token must then be entered again under *Server admin → Notification providers*. A re-encryption tool for planned key rotation does not exist yet — do not rotate it. Keep a copy of the key outside the server (e.g. in the operator's password manager) and store it separately from database backups: the encryption protects stolen database files only as long as the key is not stored alongside them.
 
 ## Migrations and upgrades
 
@@ -141,6 +141,20 @@ Every page shows "VergissMeinNicht (VMN) with 🖤 by CrimsonClyde - Licence: AG
 ## Offline use
 
 The web app installs a service worker (production builds) that keeps the app shell, so Runs opened on a device can be executed without a connection (steps.md 8.5). Service workers require HTTPS (or `localhost`); nothing needs to be configured. Reverse proxies must not cache `/api/*` (the app sends `Cache-Control: no-store`) and should pass `/sw.js` through unchanged. After an upgrade, browsers pick up the new app shell on their next online page load.
+
+## Reminders and notification providers
+
+Scheduled Procedures (steps.md 13.4) send reminders to the person who scheduled them. Everything runs inside the server process — no queue, worker or extra container:
+
+- Every minute the server sends due reminders (at most 50 per minute) through the channels each person enabled. Each reminder is sent at most once per channel, also across restarts; temporary failures are retried after 1 minute, 10 minutes and 1 hour, then given up. Reminders more than a day late (server was down) are dropped. Only counts are logged.
+- **Email** uses the SMTP settings above (the same as invitations). It is on by default; a server admin can switch email reminders off, and everyone can switch them off for themselves.
+- **Telegram** is optional:
+  1. Create a bot with [@BotFather](https://t.me/BotFather) (`/newbot`) and copy its token.
+  2. *Server admin → Notification providers → Telegram*: paste the token, tick *Enabled*, save. The server checks the token with Telegram, stores it encrypted with `DATA_ENCRYPTION_KEY` and never shows it again. *Send test message* sends one to your own connected chat.
+  3. People connect their chat under *Profile & settings → Notifications → Connect Telegram*, press *Start* in Telegram and confirm the chat in VMN.
+  - The server needs **outgoing HTTPS to `api.telegram.org`**; no inbound connection is needed. It asks Telegram for messages (polling every 3 seconds) only while someone is connecting a chat — so it works behind a VPN/Tailscale.
+  - Do not set a webhook for the bot elsewhere (polling does not work while a webhook is set), and use the bot for VMN only.
+  - Telegram (and mail servers) see the reminder text: the Procedure title, date and Workspace name.
 
 ## Housekeeping
 

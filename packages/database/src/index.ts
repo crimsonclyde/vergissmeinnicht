@@ -19,3 +19,5 @@ export { backupIfDue, listAutomaticBackups } from './backup.ts';
 export { createInstanceSettingsRepository } from './instance-settings-repository.ts';
 export { createScheduleRepository } from './schedule-repository.ts';
 export { createNotificationPreferencesRepository } from './notification-preferences-repository.ts';
+export { createReminderQueue } from './reminder-queue.ts';
+export { createNotificationProviderRepository, createTelegramRepository } from './notification-repositories.ts';

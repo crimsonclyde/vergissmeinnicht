@@ -89,6 +89,7 @@ Change the version in *Repository* and **Apply**. With *Migrate on start* the co
 - **`SMTP_USER and SMTP_PASSWORD … must be set together`:** either fill in *SMTP user* and *SMTP password file* (`/run/secrets/smtp_password`, with the password in `secrets/smtp_password`), or leave both empty.
 - **"Sign in" does nothing / is refused:** the address in the browser must be exactly the *Public address* (same host name, `https`).
 - **Page not reachable:** is the device in your tailnet, and does the Tailscale admin console list the `vergissmeinnicht` machine? Are HTTPS certificates enabled?
+- **Telegram test fails / "could not be reached":** the container needs outgoing HTTPS to `api.telegram.org` (check firewall/VPN exit rules); remove a webhook set for the bot elsewhere.
 - **Invitation emails do not arrive:** check the SMTP settings and the container log; the admin page says "the email could not be sent" and offers *Send again*.
 
 ## Alternative: reverse proxy instead of Tailscale
