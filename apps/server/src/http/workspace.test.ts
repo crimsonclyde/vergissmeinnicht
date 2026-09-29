@@ -8,7 +8,7 @@ import { createServices, type AppServices } from '../composition.ts';
 import { loadConfig } from '../config/index.ts';
 
 const ORIGIN = 'https://vmn.example.org';
-const PASSWORD = 'correct horse battery staple';
+const PASSWORD = 'violet anchor lantern marmalade';
 const SESSION_COOKIE = '__Secure-vmn.session_token';
 const INVITE_LINK = /\/invite\/([A-Za-z0-9_-]{43})/;
 const UNKNOWN_ID = '3f1c2b9a-6d4e-4f8a-9b7c-1a2b3c4d5e6f';

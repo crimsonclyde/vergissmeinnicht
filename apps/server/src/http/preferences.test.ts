@@ -16,7 +16,7 @@ describe('account preferences API (Step 8.7)', () => {
       preferences: { theme: 'memento-mori', criticalConfirm: 'hold' },
     });
     await t.post('/api/account/preferences', { criticalConfirm: 'tap-confirm' }, bob);
-    const second = (await t.post('/api/auth/sign-in', { email: 'bob@example.org', password: 'correct horse battery staple' })).headers[
+    const second = (await t.post('/api/auth/sign-in', { email: 'bob@example.org', password: 'violet anchor lantern marmalade' })).headers[
       'set-cookie'
     ];
     const cookie = [second ?? []].flat().find((c) => c.startsWith('__Secure-vmn.session_token='))?.split(';')[0] ?? '';

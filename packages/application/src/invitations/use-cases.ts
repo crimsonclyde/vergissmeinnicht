@@ -5,7 +5,9 @@ import {
   type Invitation,
   type InvitationId,
   normalizeDisplayName,
+  passwordContextOf,
   validateNewPassword,
+  type CommonPasswordList,
   type NormalizedEmail,
   type User,
 } from '@vergissmeinnicht/domain';
@@ -29,6 +31,8 @@ export interface InvitationDeps {
   readonly invitations: InvitationRepository;
   readonly tokens: InvitationTokens;
   readonly passwords: PasswordHasher;
+  /** Offline list of common/breached passwords (13.3). */
+  readonly commonPasswords: CommonPasswordList;
   readonly email: EmailSender;
   readonly clock: Clock;
   readonly publicOrigin: string;
@@ -165,9 +169,9 @@ export async function acceptInvitation(
   deps: InvitationDeps,
   input: { readonly token: string; readonly displayName: string; readonly password: string },
 ): Promise<User> {
-  await resolvePendingInvitation(deps, input.token);
+  const invitation = await resolvePendingInvitation(deps, input.token);
   const displayName = normalizeDisplayName(input.displayName);
-  validateNewPassword(input.password);
+  validateNewPassword(input.password, { common: deps.commonPasswords, context: passwordContextOf({ email: invitation.email, displayName }) });
   const passwordHash = await deps.passwords.hash(input.password);
   const tokenHash = deps.tokens.hash(input.token);
   const user =

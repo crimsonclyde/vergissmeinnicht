@@ -30,7 +30,7 @@ This file is normative and must evolve with the application.
 - [x] Password changes invalidate relevant old sessions as policy requires. (Self-service change and recovery reset delete all sessions of the user in the same transaction; the changing client gets a fresh session.)
 - [x] Password values never appear in application logs, traces, analytics, or error payloads. (Verified by log capture in `apps/server/src/http/auth.test.ts`.)
 - [x] New passwords: 15–128 characters (NIST SP 800-63B-4 single-factor minimum), no composition rules, NFKC-normalized before hashing.
-- [ ] Breached/common-password blocklist.
+- [x] Breached/common-password blocklist. (Offline: 60 003 most common 15+ character passwords from public breach corpora, bundled with the server, compared in NFKC/lower-case/no-space form; plus repetitive/sequential patterns and passwords made mostly of the service name or the account's own email/name. Checked at invitation acceptance, password change and recovery; passwords never leave the server. Update procedure: `packages/auth/data/README.md` — 13.3.)
 
 ### TOTP MFA
 - [x] TOTP is built in and user-activated (optional) for V1 accounts; the MFA requirement is evaluated by a central server-side policy so enforcement (e.g. for ADMIN) can be added later. (`requiresTotpChallenge()` in `packages/domain/src/mfa.ts`.)

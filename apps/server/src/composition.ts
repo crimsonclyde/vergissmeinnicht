@@ -14,6 +14,7 @@ import {
   type WorkspaceDeps,
 } from '@vergissmeinnicht/application';
 import {
+  commonPasswords,
   createAuth,
   createSecretBox,
   invitationTokens,
@@ -95,6 +96,7 @@ export function invitationDeps(config: AppConfig, database: AppDatabase): Invita
     invitations: createInvitationRepository(database),
     tokens: invitationTokens,
     passwords: passwordHasher,
+    commonPasswords,
     email: createSmtpEmailSender(config.smtp),
     clock: systemClock,
     publicOrigin: config.publicOrigin,
@@ -143,6 +145,7 @@ export function createServices(config: AppConfig, database: AppDatabase) {
       mfa,
       tokens: invitationTokens,
       passwordHasher,
+      commonPasswords,
       email: invitations.email,
       clock: systemClock,
       publicOrigin: config.publicOrigin,

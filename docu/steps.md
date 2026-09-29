@@ -1708,7 +1708,22 @@ HTTPS, proxy trust, security headers, dependency scanning, health checks, safe s
 **Security docs updated:** YES (§2, §3, §5, §10).
 
 ### 13.3 Common/breached-password blocklist
-**Status:** TODO
+**Status:** DONE
+**Completed:** 2026-09-29
+
+**Security impact:** MEDIUM — closes the open §1 item; passwords stay on the server.
+
+**Implemented:**
+- Domain (`packages/domain/src/password.ts`): `validateNewPassword(password, { common, context })` keeps the 15–128 length policy and no composition rules, and now also rejects (a) passwords on the common/breached list (`password_too_common`), (b) repetitive or sequential patterns — one unit of ≤4 characters repeated, runs along the alphabet, digits or QWERTY/QWERTZ/AZERTY rows, forwards or backwards (`password_too_predictable`), (c) passwords that are mostly context words — the service name, the account's email (whole, local part, its parts) and display name — leaving fewer than 8 own letters/digits (`password_too_predictable`). Comparison form: NFKC (as the hasher), lower case, no white space.
+- Offline list (`packages/auth/data/common-passwords.txt.gz`, 560 KB, 60 003 entries): the most common 15+ character passwords of three public breach corpora (SecLists, MIT: NCSC top 100k, xato 1M, Pwdb top 10M, merged by rank), hash-like hex strings excluded, loaded once into a `Set` on first use. Provenance and update procedure in `packages/auth/data/README.md`; maintainer tool `node packages/auth/scripts/update-common-passwords.ts` (network access, never used by the server). No password or hash is ever sent anywhere.
+- Checked on every path that sets a password: invitation acceptance (context: invited email + chosen name), self-service change and admin-assisted recovery (context: the account's email + name) — before hashing, nothing written on refusal.
+- Web: hint under every new-password field; messages for both codes. Test passwords changed from "correct horse battery staple" (now correctly refused).
+
+**Tests/checks:** `packages/domain/src/password.test.ts` (list match through case/spaces/full-width forms, patterns, context words, acceptable passphrases, no echo), `packages/auth/src/common-passwords.test.ts` (bundled, size, known entries, comparison form only), use-cases for acceptance/change/recovery (refused, invitation/recovery still usable, no sessions revoked, no events), HTTP `400 {error: 'password_too_common', field: 'password'}`. The first list build excluded all-digit passwords by mistake (hash filter) — found by the test, fixed. `pnpm test`, `pnpm lint`, `pnpm typecheck`.
+
+**Security docs updated:** YES (§1).
+
+**Remaining:** the list is a snapshot (update procedure documented; refresh with releases); the server keeps ≈5 MB for the list after the first password change; existing passwords are not re-checked (they are checked when changed).
 
 ### 13.4 Scheduled Procedures (domain, database, application)
 **Status:** TODO

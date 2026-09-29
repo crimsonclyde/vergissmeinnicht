@@ -4,9 +4,11 @@ import {
   isAccountRecoveryPending,
   isActiveServerAdmin,
   normalizeEmail,
+  passwordContextOf,
   recoveryRequiresCurrentPassword,
   validateNewPassword,
   type AccountRecovery,
+  type CommonPasswordList,
   type Actor,
   type User,
 } from '@vergissmeinnicht/domain';
@@ -30,6 +32,8 @@ export interface RecoveryDeps {
   readonly mfa: MfaDeps;
   readonly tokens: InvitationTokens;
   readonly passwordHasher: PasswordHasher;
+  /** Offline list of common/breached passwords (13.3). */
+  readonly commonPasswords: CommonPasswordList;
   readonly email: EmailSender;
   readonly clock: Clock;
   readonly publicOrigin: string;
@@ -163,7 +167,7 @@ export async function completeAccountRecovery(
   const { recovery, user } = await pendingRecovery(deps, input.token);
   let passwordHash: string | undefined;
   if (recovery.resetPassword) {
-    validateNewPassword(input.newPassword ?? '');
+    validateNewPassword(input.newPassword ?? '', { common: deps.commonPasswords, context: passwordContextOf(user) });
     passwordHash = await deps.passwordHasher.hash(input.newPassword ?? '');
   } else if (input.currentPassword === undefined || !(await deps.mfa.passwords.verify(user.id, input.currentPassword))) {
     throw new ReauthenticationFailedError();
@@ -185,7 +189,7 @@ export async function changePassword(
   if (!canAuthenticate(input.user) || !(await deps.mfa.passwords.verify(input.user.id, input.currentPassword))) {
     throw new ReauthenticationFailedError();
   }
-  validateNewPassword(input.newPassword);
+  validateNewPassword(input.newPassword, { common: deps.commonPasswords, context: passwordContextOf(input.user) });
   const hash = await deps.passwordHasher.hash(input.newPassword);
   if (!(await deps.credentials.changePassword(input.user.id, hash, deps.clock.now(), userActor(input.user)))) {
     throw new ReauthenticationFailedError();

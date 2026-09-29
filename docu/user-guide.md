@@ -11,7 +11,7 @@ This guide is for the people who *use* VergissMeinNicht (VMN). To install and ru
 
 ## Getting in
 
-1. You receive an **invitation email** (VMN is invite-only). Open the link, choose a display name and a password (at least 15 characters — a sentence works well).
+1. You receive an **invitation email** (VMN is invite-only). Open the link, choose a display name and a password (at least 15 characters — a sentence of your own works well; common or leaked passwords, simple patterns and your own name or email address are refused).
 2. Sign in with your email address and password.
 3. Recommended: open the menu (☰, top right) → **Profile & settings** → **Enable two-factor authentication**, scan the QR code with an authenticator app and **store the recovery codes** somewhere safe.
 

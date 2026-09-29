@@ -241,6 +241,7 @@ export const en = {
   'password.mismatch': 'The passwords do not match.',
   'password.changed': 'Password changed. All other sessions were signed out.',
   'password.field': '{label} (at least {min} characters)',
+  'password.hint': 'Common or leaked passwords, simple patterns and your own name or email address are not accepted.',
   'password.default': 'Password',
   'password.repeat': 'Repeat password',
 
@@ -611,6 +612,8 @@ export const en = {
   'error.invalid_recovery': 'This recovery link is invalid, has expired or was already used.',
   'error.password_too_short': 'The new password must be at least 15 characters.',
   'error.password_too_long': 'The new password must be at most 128 characters.',
+  'error.password_too_common': 'This password appears in lists of common or leaked passwords. Choose another one — a sentence of your own works well.',
+  'error.password_too_predictable': 'This password is too easy to guess: a simple pattern, or mostly your name, your email address or the name of this app.',
   'error.invitation_not_pending': 'This invitation is no longer pending.',
   'error.account_exists': 'An account with this email address already exists.',
   'error.account_not_active': 'This account is disabled.',

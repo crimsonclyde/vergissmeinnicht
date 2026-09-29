@@ -10,7 +10,7 @@ import { loadConfig } from '../config/index.ts';
 import type { RunEventsOptions } from './run-events.ts';
 
 export const ORIGIN = 'https://vmn.example.org';
-export const PASSWORD = 'correct horse battery staple';
+export const PASSWORD = 'violet anchor lantern marmalade';
 const SESSION_COOKIE = '__Secure-vmn.session_token';
 const INVITE_LINK = /\/invite\/([A-Za-z0-9_-]{43})/;
 
