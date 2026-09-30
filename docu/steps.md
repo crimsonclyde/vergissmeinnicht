@@ -18,9 +18,9 @@ For every completed task, add a concise completion note, tests/checks performed,
 
 ## Current state — resume here
 
-_Last updated: 2026-09-30 (0.2.0-beta.2: chimney/gas icons, Telegram setup UX)_
+_Last updated: 2026-09-30 (0.2.0-beta.2 released from `main`: chimney/gas icons, Telegram setup UX)_
 
-**Done:** 0.1, 0.2, 0.3, 1.1, 1.2, 2.1–2.5, 2.7–2.9, 3.1–3.3, 4.1–4.5, 5.1–5.7, 6.1, 6.2, 7.1, 8.0–8.11, 9.1, 10.1–10.5, 11.1, 12.1–12.8, 13.1–13.19. IN PROGRESS: 12.9 (release 0.2.0-beta.2). DEFERRED: 2.6 (external identity providers — a later step, user decision 2026-09-28).
+**Done:** 0.1, 0.2, 0.3, 1.1, 1.2, 2.1–2.5, 2.7–2.9, 3.1–3.3, 4.1–4.5, 5.1–5.7, 6.1, 6.2, 7.1, 8.0–8.11, 9.1, 10.1–10.5, 11.1, 12.1–12.9, 13.1–13.19. DEFERRED: 2.6 (external identity providers — a later step, user decision 2026-09-28).
 **Next:** more icons (ask the user which); beta feedback on Home/scheduling. Still open from before: GHCR package visibility, a session with a real screen reader, physical iOS/Android devices (incl. offline storage eviction), and automate GitHub Release creation in the release workflow (the 0.2.0-beta.1 pre-release was created manually after the workflow). Possible next providers: ntfy/Gotify or a webhook — the webhook needs the SSRF policy in security.md first.
 
 **Decisions 2026-09-29 (user):** MFA stays optional (also for admins; the beta runs behind a VPN) with the enforcement seam kept; VMN's main flow is *Procedure → optionally schedule → reminders → Start → execute → history* — no task manager, calendar or workflow engine; Home is the Workspace landing page; email and Telegram reminders; Recent limit admin-configurable. **Made while implementing (documented in 13.x):** name *ScheduledProcedure*; reminders go to the person who scheduled; pairing needs a confirmation in VMN; polling instead of a webhook; Recent limit 0–20 (0 hides).
@@ -1721,10 +1721,18 @@ The first PR CI run exposed that the new offline common-password dataset and pro
 **Remaining:** ordinary users have no own "send test message" (the confirmation message in Telegram serves as proof; a per-user test would need a new rate-limited endpoint).
 
 ### 12.9 Release 0.2.0-beta.2
-**Status:** IN PROGRESS
-**Started:** 2026-09-30
+**Status:** DONE
+**Completed:** 2026-09-30
 
 **Request (user, 2026-09-30):** commit, push and release 12.7 and 12.8. Version chosen by the agent: **0.2.0-beta.2** (small migration 0021 + UX fixes). Unraid template and guide point to `ghcr.io/crimsonclyde/vergissmeinnicht:0.2.0-beta.2`.
+
+**Implemented:** committed straight to `main` (`53942fc` feature, `fb3463f` ledger/template); annotated tag `v0.2.0-beta.2` on `fb3463f`. The release workflow ran checks, native amd64/arm64 builds with smoke tests and scans, assembled and signed the multi-architecture image and attached the SBOM. Published index `sha256:999fbf59553484c32b2b6a411bb8eba93c8d1ecef09d5c6f974386e510ff5812` (linux/amd64, linux/arm64; inspected directly). GitHub pre-release created manually: `https://github.com/crimsonclyde/vergissmeinnicht/releases/tag/v0.2.0-beta.2`.
+
+**Checks performed:** local lint, typecheck, 711 unit/integration tests, build, e2e; `main` CI green; release workflow green.
+
+**Security impact:** LOW (see 12.7, 12.8).
+
+**Remaining:** automated GitHub Release creation in the workflow is still open (as in 12.6).
 
 **Upgrade note for operators:** migration 0021 (one row); `migrate` backs up first (or `VMN_MIGRATE_ON_START=true` on Unraid).
 
