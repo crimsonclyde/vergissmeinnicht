@@ -1,15 +1,38 @@
 import { useCallback, useEffect, useState } from 'react';
 import { api, messageFor, type NotificationSettings as Settings } from './api.ts';
-import { formatDateTime, formatWhen, t } from './i18n/index.ts';
+import { formatDateTime, formatWhen, hasMessage, t, type MessageKey } from './i18n/index.ts';
 
 /** While connecting Telegram: how often the page asks whether the chat has pressed Start. */
 const PAIRING_CHECK_MS = 3000;
+
+/** Anchor of this section, e.g. `/account#notifications` from the server admin page. */
+export const SECTION_ID = 'notifications';
+
+/** Where a person is in connecting their own Telegram chat (the server learns the chat id from /start). */
+export type TelegramStage = 'unavailable' | 'ready' | 'waiting' | 'claimed' | 'connected';
+
+export function telegramStage(telegram: Settings['telegram']): TelegramStage {
+  if (telegram.connected !== null) return 'connected';
+  if (!telegram.available) return 'unavailable';
+  if (telegram.pairing === null) return 'ready';
+  return telegram.pairing.claimedBy === null ? 'waiting' : 'claimed';
+}
+
+/** The visible sequence; the stage decides which step is current. */
+const PAIRING_STEPS: readonly MessageKey[] = ['notifications.stepConnect', 'notifications.stepStart', 'notifications.stepConfirm', 'notifications.stepConnected'];
+const CURRENT_STEP: Partial<Record<TelegramStage, number>> = { ready: 0, waiting: 1, claimed: 2 };
+
+/** Message for a failed test send (`reason` is a stable code from the server). */
+export function testFailureMessage(reason: string | undefined): string {
+  const key = `admin.testFailed.${reason ?? 'failed'}`;
+  return hasMessage(key) ? t(key) : t('admin.testFailed.failed');
+}
 
 /**
  * Account → Notifications (13.8): the person's own reminder channels and default reminder time.
  * Provider-wide settings (the Telegram bot token) are for server admins only and never appear here.
  */
-export function NotificationSettings() {
+export function NotificationSettings(props: { serverAdmin: boolean }) {
   const [settings, setSettings] = useState<Settings | null>(null);
   const [pairingLink, setPairingLink] = useState<string | null>(null);
   const [reminderTime, setReminderTime] = useState('');
@@ -26,6 +49,12 @@ export function NotificationSettings() {
   useEffect(() => {
     api.notificationSettings().then(show, (caught: unknown) => setMessage(messageFor(caught)));
   }, [show]);
+
+  // Linked from Server admin → Notification providers ("Go to my notification settings").
+  const loaded = settings !== null;
+  useEffect(() => {
+    if (loaded && window.location.hash === `#${SECTION_ID}`) document.getElementById(SECTION_ID)?.scrollIntoView({ block: 'start' });
+  }, [loaded]);
 
   // Waiting for /start in Telegram: check until a chat claimed the link (or it expired).
   const waiting = settings?.telegram.pairing !== null && settings?.telegram.pairing?.claimedBy === null;
@@ -66,9 +95,24 @@ export function NotificationSettings() {
     }
   }
 
+  // Server admins can reuse the provider test, which sends to their own connected chat.
+  async function sendTest() {
+    setBusy(true);
+    setMessage(null);
+    setStatus(null);
+    try {
+      const result = await api.testNotificationProvider('TELEGRAM');
+      setStatus(result.delivered ? t('admin.testTelegramSent') : testFailureMessage(result.reason));
+    } catch (caught) {
+      setMessage(messageFor(caught));
+    } finally {
+      setBusy(false);
+    }
+  }
+
   if (settings === null) {
     return (
-      <section aria-labelledby="notifications-heading">
+      <section id={SECTION_ID} aria-labelledby="notifications-heading">
         <h3 id="notifications-heading" style={{ marginTop: 0 }}>
           {t('notifications.heading')}
         </h3>
@@ -76,9 +120,8 @@ export function NotificationSettings() {
       </section>
     );
   }
-  const { telegram } = settings;
   return (
-    <section aria-labelledby="notifications-heading" className="stack">
+    <section id={SECTION_ID} aria-labelledby="notifications-heading" className="stack">
       <h3 id="notifications-heading" style={{ marginTop: 0 }}>
         {t('notifications.heading')}
       </h3>
@@ -125,78 +168,135 @@ export function NotificationSettings() {
         )}
       </fieldset>
 
-      <fieldset>
-        <legend>{t('notifications.telegram')}</legend>
-        {!telegram.available && telegram.connected === null ? (
-          <p className="muted" style={{ margin: 0 }}>
-            {t('notifications.telegramUnavailable')}
+      <TelegramConnection
+        telegram={settings.telegram}
+        pairingLink={pairingLink}
+        busy={busy}
+        serverAdmin={props.serverAdmin}
+        onConnect={() => void connect()}
+        onConfirm={() => void act(() => api.confirmTelegramPairing(), t('notifications.connected'))}
+        onCancel={() => void act(() => api.cancelTelegramPairing())}
+        onDisconnect={() => void act(() => api.disconnectTelegram(), t('notifications.disconnected'))}
+        onReminders={(on) => void act(() => api.updateNotificationSettings({ telegramReminders: on }))}
+        onTest={() => void sendTest()}
+      />
+    </section>
+  );
+}
+
+/** Numbered steps with the current one marked in text (not colour alone) and for screen readers. */
+function PairingSteps({ current }: { current: number }) {
+  return (
+    <ol className="pairing-steps" aria-label={t('notifications.stepsLabel')}>
+      {PAIRING_STEPS.map((key, index) => (
+        <li key={key} aria-current={index === current ? 'step' : undefined} className={index < current ? 'done' : index === current ? 'current' : undefined}>
+          <span aria-hidden="true">{index < current ? '✓' : index === current ? '→' : '○'}</span> {t(key)}
+          {index < current && <span className="visually-hidden"> {t('notifications.stepDone')}</span>}
+        </li>
+      ))}
+    </ol>
+  );
+}
+
+/**
+ * The Telegram part of Account → Notifications for one stage: available → Connect Telegram → open the bot
+ * and press Start → waiting → confirm here → connected. There is no chat id field: the server learns the
+ * chat from the one-time /start link and only links it after the person confirms here.
+ */
+export function TelegramConnection(props: {
+  telegram: Settings['telegram'];
+  /** The t.me link, shown once right after Connect Telegram (never stored or fetched again). */
+  pairingLink: string | null;
+  busy: boolean;
+  serverAdmin: boolean;
+  onConnect: () => void;
+  onConfirm: () => void;
+  onCancel: () => void;
+  onDisconnect: () => void;
+  onReminders: (on: boolean) => void;
+  onTest: () => void;
+}) {
+  const { telegram, busy } = props;
+  const stage = telegramStage(telegram);
+  const current = CURRENT_STEP[stage];
+  return (
+    <fieldset className="stack">
+      <legend>{t('notifications.telegram')}</legend>
+      {current !== undefined && <PairingSteps current={current} />}
+      {stage === 'unavailable' ? (
+        <p className="muted" style={{ margin: 0 }}>
+          {t('notifications.telegramUnavailable')}
+        </p>
+      ) : stage === 'connected' && telegram.connected !== null ? (
+        <div className="stack">
+          <p style={{ margin: 0 }}>
+            <span aria-hidden="true">✓ </span>
+            {t('notifications.connectedAs', { label: telegram.connected.label, time: formatWhen(telegram.connected.connectedAt) })}
           </p>
-        ) : telegram.connected !== null ? (
-          <div className="stack">
-            <p style={{ margin: 0 }}>{t('notifications.connectedAs', { label: telegram.connected.label, time: formatWhen(telegram.connected.connectedAt) })}</p>
-            {!telegram.available && <p className="muted">{t('notifications.telegramPaused')}</p>}
-            <label className="row" style={{ fontWeight: 400 }}>
-              <input
-                type="checkbox"
-                checked={telegram.enabled}
-                disabled={busy}
-                onChange={(e) => void act(() => api.updateNotificationSettings({ telegramReminders: e.target.checked }))}
-              />
-              {t('notifications.procedureReminders')}
-            </label>
-            <button type="button" className="quiet" disabled={busy} onClick={() => void act(() => api.disconnectTelegram(), t('notifications.disconnected'))}>
+          {!telegram.available && <p className="muted">{t('notifications.telegramPaused')}</p>}
+          <label className="row" style={{ fontWeight: 400 }}>
+            <input type="checkbox" checked={telegram.enabled} disabled={busy} onChange={(e) => props.onReminders(e.target.checked)} />
+            {t('notifications.procedureReminders')}
+          </label>
+          <div className="row">
+            {props.serverAdmin && telegram.available && (
+              <button type="button" disabled={busy} onClick={props.onTest}>
+                {t('admin.testTelegram')}
+              </button>
+            )}
+            <button type="button" className="quiet" disabled={busy} onClick={props.onDisconnect}>
               {t('notifications.disconnect')}
             </button>
           </div>
-        ) : telegram.pairing !== null && telegram.pairing.claimedBy !== null ? (
-          <div className="stack" role="group" aria-label={t('notifications.confirmLabel')}>
-            <p style={{ margin: 0 }}>
-              <strong>{t('notifications.claimed', { label: telegram.pairing.claimedBy })}</strong>
-            </p>
-            <p className="muted" style={{ margin: 0 }}>
-              {t('notifications.claimedHint')}
-            </p>
-            <div className="row">
-              <button type="button" className="primary" disabled={busy} onClick={() => void act(() => api.confirmTelegramPairing(), t('notifications.connected'))}>
-                {t('notifications.confirm')}
-              </button>
-              <button type="button" disabled={busy} onClick={() => void act(() => api.cancelTelegramPairing())}>
-                {t('notifications.notMine')}
-              </button>
-            </div>
-          </div>
-        ) : telegram.pairing !== null ? (
-          <div className="stack">
-            {pairingLink !== null ? (
-              <>
-                <p style={{ margin: 0 }}>{t('notifications.openBot')}</p>
-                <p style={{ margin: 0 }}>
-                  <a href={pairingLink} target="_blank" rel="noopener noreferrer" className="button primary">
-                    {t('notifications.openTelegram')}
-                  </a>
-                </p>
-              </>
-            ) : (
-              <p style={{ margin: 0 }}>{t('notifications.linkShownOnce')}</p>
-            )}
-            <p className="muted" role="status" style={{ margin: 0 }}>
-              {t('notifications.waiting', { time: formatDateTime(telegram.pairing.expiresAt) })}
-            </p>
-            <button type="button" className="quiet" disabled={busy} onClick={() => void act(() => api.cancelTelegramPairing())}>
-              {t('common.cancel')}
+        </div>
+      ) : stage === 'claimed' && telegram.pairing !== null ? (
+        <div className="stack" role="group" aria-label={t('notifications.confirmLabel')}>
+          <p style={{ margin: 0 }}>
+            <strong>{t('notifications.claimed', { label: telegram.pairing.claimedBy ?? '' })}</strong>
+          </p>
+          <p className="muted" style={{ margin: 0 }}>
+            {t('notifications.claimedHint')}
+          </p>
+          <div className="row">
+            <button type="button" className="primary" disabled={busy} onClick={props.onConfirm}>
+              {t('notifications.confirm')}
+            </button>
+            <button type="button" disabled={busy} onClick={props.onCancel}>
+              {t('notifications.notMine')}
             </button>
           </div>
-        ) : (
-          <div className="stack">
-            <p className="muted" style={{ margin: 0 }}>
-              {t('notifications.telegramHint')}
-            </p>
-            <button type="button" disabled={busy} onClick={() => void connect()}>
-              {t('notifications.connect')}
-            </button>
-          </div>
-        )}
-      </fieldset>
-    </section>
+        </div>
+      ) : stage === 'waiting' && telegram.pairing !== null ? (
+        <div className="stack">
+          {props.pairingLink !== null ? (
+            <>
+              <p style={{ margin: 0 }}>{t('notifications.openBot')}</p>
+              <p style={{ margin: 0 }}>
+                <a href={props.pairingLink} target="_blank" rel="noopener noreferrer" className="button primary">
+                  {t('notifications.openTelegram')}
+                </a>
+              </p>
+            </>
+          ) : (
+            <p style={{ margin: 0 }}>{t('notifications.linkShownOnce')}</p>
+          )}
+          <p className="muted" role="status" style={{ margin: 0 }}>
+            {t('notifications.waiting', { time: formatDateTime(telegram.pairing.expiresAt) })}
+          </p>
+          <button type="button" className="quiet" disabled={busy} onClick={props.onCancel}>
+            {t('common.cancel')}
+          </button>
+        </div>
+      ) : (
+        <div className="stack">
+          <p className="muted" style={{ margin: 0 }}>
+            {t('notifications.telegramHint')}
+          </p>
+          <button type="button" className="primary" disabled={busy} onClick={props.onConnect}>
+            {t('notifications.connect')}
+          </button>
+        </div>
+      )}
+    </fieldset>
   );
 }

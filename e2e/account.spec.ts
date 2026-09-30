@@ -610,7 +610,10 @@ test('first server admin: bootstrap link, account creation, sign-in, Workspace c
   const providers = page.getByRole('region', { name: 'Notification providers' });
   await expect(providers).toContainText('Configured (SMTP settings of this server).');
   await expect(providers).toContainText('Telegram');
-  await expect(providers).toContainText('Not configured. Create a bot with @BotFather');
+  await expect(providers).toContainText('Configure the Telegram bot used by this VergissMeinNicht instance.');
+  await expect(providers).toContainText('No bot configured yet.');
+  await expect(providers).toContainText('Create a bot with @BotFather');
+  await expect(providers.getByRole('button', { name: 'Send test message to my Telegram' })).toHaveCount(0);
   await providers.getByLabel('Bot token').fill('not a bot token');
   await providers.getByRole('button', { name: 'Save Telegram settings' }).click();
   await expect(providers.getByRole('alert')).toHaveText('This is not a Telegram bot token.');

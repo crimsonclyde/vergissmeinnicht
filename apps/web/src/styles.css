@@ -963,6 +963,37 @@ caption {
   filter: drop-shadow(0 0 1px var(--text-muted));
 }
 
+/* A highlighted next step (e.g. "connect your own Telegram account" after the bot is set up). */
+.callout {
+  padding: 0.75rem 1rem;
+  border: 1px solid var(--border);
+  border-left: 4px solid var(--accent);
+  border-radius: var(--radius);
+  background: var(--accent-soft);
+}
+
+/* Connecting Telegram: numbered steps; the current one is marked with text and aria-current. */
+.pairing-steps {
+  margin: 0;
+  padding-left: 1.5rem;
+}
+
+.pairing-steps li.current {
+  font-weight: 600;
+}
+
+.pairing-steps li.done {
+  color: var(--text-muted);
+}
+
+/* Drawn icon artwork (icons without a fitting emoji): sized like the emoji next to it. */
+.icon-art {
+  display: inline-block;
+  width: 1.1em;
+  height: 1.1em;
+  vertical-align: -0.2em;
+}
+
 /* Icon picker (Procedures and Steps): a button with the current icon, a panel of grouped tiles. */
 .icon-picker-button {
   display: inline-flex;

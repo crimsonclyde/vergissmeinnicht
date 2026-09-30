@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useState, type FormEvent } from 'react';
 import { ApiError, api, messageFor, type AccountInfo, type NotificationProviders as NotificationProvidersInfo, type PendingInvitation, type SecurityLogEntry } from './api.ts';
 import { formatDateTime, hasMessage, t } from './i18n/index.ts';
-import { navigate, paths } from './router.tsx';
+import { SECTION_ID as NOTIFICATIONS_SECTION, testFailureMessage } from './NotificationSettings.tsx';
+import { Link, navigate, paths } from './router.tsx';
 import { announceFooterHidden } from './SourceFooter.tsx';
 
 /** Server administration: Workspaces, invitations, accounts, account recovery. The server checks the admin flag. */
@@ -507,6 +508,122 @@ function ServerSettings() {
   );
 }
 
+/** What the Telegram provider section shows (see `TelegramProvider`). */
+export type TelegramAdminState = 'not-configured' | 'off' | 'admin-not-paired' | 'admin-paired' | 'admin-unknown';
+
+export function telegramAdminState(telegram: NotificationProvidersInfo['telegram'], ownConnection: string | null | undefined): TelegramAdminState {
+  if (!telegram.configured) return 'not-configured';
+  if (!telegram.enabled) return 'off';
+  if (ownConnection === undefined) return 'admin-unknown';
+  return ownConnection === null ? 'admin-not-paired' : 'admin-paired';
+}
+
+/**
+ * Telegram is set up in two stages: here, once, the bot for the whole server (its token); then every
+ * person — this admin included — connects their own chat under Profile & settings → Notifications.
+ * This section says so, so a saved token does not look like the end of the setup. No chat id is
+ * entered anywhere: the server learns it during pairing. The token is never read back.
+ */
+export function TelegramProvider(props: {
+  telegram: NotificationProvidersInfo['telegram'];
+  /** The signed-in admin's own chat label; `null` = not connected, `undefined` = unknown. */
+  ownConnection: string | null | undefined;
+  token: string;
+  enabled: boolean;
+  busy: boolean;
+  onToken: (token: string) => void;
+  onEnabled: (enabled: boolean) => void;
+  onSave: () => void;
+  onTest: () => void;
+  onRemove: () => void;
+}) {
+  const { telegram, busy } = props;
+  const state = telegramAdminState(telegram, props.ownConnection);
+  const notPaired = props.ownConnection === null;
+  return (
+    <fieldset className="stack">
+      <legend>{t('admin.providerTelegram')}</legend>
+      <p style={{ margin: 0 }}>{t('admin.telegramIntro')}</p>
+      {telegram.configured ? (
+        <p style={{ margin: 0 }}>
+          <strong>
+            <span aria-hidden="true">✓ </span>
+            {t('admin.telegramBot', { bot: telegram.botName ?? '' })}
+          </strong>{' '}
+          {t(telegram.enabled ? 'admin.telegramStateOn' : 'admin.telegramStateOff')}
+        </p>
+      ) : (
+        <p style={{ margin: 0 }}>{t('admin.telegramNotConfigured')}</p>
+      )}
+      {(state === 'admin-not-paired' || state === 'admin-unknown') && (
+        <section className="callout stack" aria-labelledby="telegram-next-heading">
+          <h4 id="telegram-next-heading" style={{ margin: 0 }}>
+            {t('admin.telegramNextHeading')}
+          </h4>
+          <p style={{ margin: 0 }}>{t('admin.telegramNext')}</p>
+          <p style={{ margin: 0 }}>
+            <Link href={`/account#${NOTIFICATIONS_SECTION}`} className="button primary">
+              {t('admin.telegramGoToSettings')}
+            </Link>
+          </p>
+        </section>
+      )}
+      {state === 'admin-paired' && (
+        <p style={{ margin: 0 }}>{t('admin.telegramYouConnected', { label: props.ownConnection ?? '' })}</p>
+      )}
+      <form
+        className="stack"
+        onSubmit={(event) => {
+          event.preventDefault();
+          props.onSave();
+        }}
+      >
+        <label>
+          {t('admin.telegramToken')}
+          <br />
+          <input
+            type="password"
+            autoComplete="off"
+            spellCheck={false}
+            value={props.token}
+            onChange={(e) => props.onToken(e.target.value)}
+            aria-describedby="telegram-token-hint"
+            required={!telegram.configured}
+          />
+        </label>
+        <small id="telegram-token-hint" className="muted" style={{ display: 'block' }}>
+          {t('admin.telegramTokenHint')}
+          {telegram.configured && ` ${t('admin.telegramTokenKeep')}`}
+        </small>
+        <label className="row" style={{ fontWeight: 400 }}>
+          <input type="checkbox" checked={props.enabled} onChange={(e) => props.onEnabled(e.target.checked)} />
+          {t('admin.telegramEnabled')}
+        </label>
+        <div className="row">
+          <button type="submit" className="primary" disabled={busy}>
+            {t('admin.telegramSave')}
+          </button>
+          {telegram.configured && (
+            <>
+              <button type="button" disabled={busy || notPaired} aria-describedby={notPaired ? 'telegram-test-hint' : undefined} onClick={props.onTest}>
+                {t('admin.testTelegram')}
+              </button>
+              <button type="button" className="quiet" disabled={busy} onClick={props.onRemove}>
+                {t('admin.telegramRemove')}
+              </button>
+            </>
+          )}
+        </div>
+        {telegram.configured && notPaired && (
+          <small id="telegram-test-hint" className="muted" style={{ display: 'block' }}>
+            {t('admin.telegramTestNeedsPairing')}
+          </small>
+        )}
+      </form>
+    </fieldset>
+  );
+}
+
 /**
  * Notification providers (13.7, 13.10): email (configured through the server environment) and the
  * optional Telegram bot. The bot token can be replaced or removed, never read back.
@@ -518,6 +635,8 @@ function NotificationProviders() {
   const [message, setMessage] = useState<string | null>(null);
   const [status, setStatus] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  // The signed-in admin's own Telegram chat (label only): the test message goes there. `undefined` = unknown.
+  const [ownTelegram, setOwnTelegram] = useState<string | null | undefined>(undefined);
 
   useEffect(() => {
     api.notificationProviders().then(
@@ -526,6 +645,10 @@ function NotificationProviders() {
         setTelegramEnabled(loaded.telegram.enabled || !loaded.telegram.configured);
       },
       (caught: unknown) => setMessage(messageFor(caught)),
+    );
+    api.notificationSettings().then(
+      (own) => setOwnTelegram(own.telegram.connected?.label ?? null),
+      () => setOwnTelegram(undefined),
     );
   }, []);
 
@@ -552,14 +675,8 @@ function NotificationProviders() {
     setStatus(null);
     try {
       const result = await api.testNotificationProvider(provider);
-      const failure = `admin.testFailed.${result.reason ?? 'failed'}`;
-      setStatus(
-        result.delivered
-          ? t(provider === 'EMAIL' ? 'admin.testEmailSent' : 'admin.testTelegramSent')
-          : hasMessage(failure)
-            ? t(failure)
-            : t('admin.testFailed.failed'),
-      );
+      if (result.reason === 'not_connected') setOwnTelegram(null);
+      setStatus(result.delivered ? t(provider === 'EMAIL' ? 'admin.testEmailSent' : 'admin.testTelegramSent') : testFailureMessage(result.reason));
     } catch (caught) {
       setMessage(messageFor(caught));
     } finally {
@@ -597,67 +714,25 @@ function NotificationProviders() {
               {t('admin.testEmail')}
             </button>
           </fieldset>
-          <fieldset className="stack">
-            <legend>{t('admin.providerTelegram')}</legend>
-            <p style={{ margin: 0 }}>
-              {providers.telegram.configured
-                ? t(providers.telegram.enabled ? 'admin.telegramOn' : 'admin.telegramConfiguredOff', { bot: providers.telegram.botName ?? '' })
-                : t('admin.telegramNotConfigured')}
-            </p>
-            <form
-              className="stack"
-              onSubmit={(event) => {
-                event.preventDefault();
-                void act(
-                  () => api.configureTelegram({ enabled: telegramEnabled, ...(token.trim() === '' ? {} : { botToken: token.trim() }) }),
-                  t('admin.telegramSaved'),
-                );
-              }}
-            >
-              <label>
-                {t(providers.telegram.configured ? 'admin.telegramNewToken' : 'admin.telegramToken')}
-                <br />
-                <input
-                  type="password"
-                  autoComplete="off"
-                  spellCheck={false}
-                  value={token}
-                  onChange={(e) => setToken(e.target.value)}
-                  aria-describedby="telegram-token-hint"
-                  required={!providers.telegram.configured}
-                />
-              </label>
-              <small id="telegram-token-hint" className="muted">
-                {t('admin.telegramTokenHint')}
-              </small>
-              <label className="row" style={{ fontWeight: 400 }}>
-                <input type="checkbox" checked={telegramEnabled} onChange={(e) => setTelegramEnabled(e.target.checked)} />
-                {t('admin.telegramEnabled')}
-              </label>
-              <div className="row">
-                <button type="submit" className="primary" disabled={busy}>
-                  {t('admin.telegramSave')}
-                </button>
-                {providers.telegram.configured && (
-                  <>
-                    <button type="button" disabled={busy} onClick={() => void test('TELEGRAM')}>
-                      {t('admin.testTelegram')}
-                    </button>
-                    <button
-                      type="button"
-                      className="quiet"
-                      disabled={busy}
-                      onClick={() => {
-                        if (window.confirm(t('admin.telegramRemoveConfirm'))) void act(() => api.configureTelegram({ enabled: false, botToken: null }), t('admin.telegramRemoved'));
-                      }}
-                    >
-                      {t('admin.telegramRemove')}
-                    </button>
-                  </>
-                )}
-              </div>
-            </form>
-          </fieldset>
+          <TelegramProvider
+            telegram={providers.telegram}
+            ownConnection={ownTelegram}
+            token={token}
+            enabled={telegramEnabled}
+            busy={busy}
+            onToken={setToken}
+            onEnabled={setTelegramEnabled}
+            onSave={() =>
+              void act(
+                () => api.configureTelegram({ enabled: telegramEnabled, ...(token.trim() === '' ? {} : { botToken: token.trim() }) }),
+                t('admin.telegramSaved'),
+              )
+            }
+            onTest={() => void test('TELEGRAM')}
+            onRemove={() => {
+              if (window.confirm(t('admin.telegramRemoveConfirm'))) void act(() => api.configureTelegram({ enabled: false, botToken: null }), t('admin.telegramRemoved'));
+            }}
+          />
         </>
       )}
     </section>

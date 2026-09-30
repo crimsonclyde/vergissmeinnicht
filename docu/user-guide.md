@@ -90,7 +90,7 @@ Editors and Admins can **Share as Knot link…** from a Procedure (under **⋯**
 
 **Profile & settings**:
 
-- **Notifications** — your default reminder time (09:00 unless you change it), email reminders on/off, and **Connect Telegram**: open the bot in Telegram, press *Start*, come back and **Confirm** the chat (only if it is yours — otherwise *Not me*). *Disconnect Telegram* stops it at any time.
+- **Notifications** — your default reminder time (09:00 unless you change it), email reminders on/off, and Telegram. Once your server admin has set up a Telegram bot, connect **your own** chat: **Connect Telegram** → open the link in Telegram and press *Start* → come back (the page notices it by itself) → **Confirm** the chat (only if it is yours — otherwise *Not me*) → connected, shown with your Telegram name. You never type a chat ID. *Disconnect Telegram* stops it at any time.
 - **Appearance** — System, Light, Dark or **Memento Mori** (pure black with crimson accents). Saved to your account, so it follows you to every device.
 - **Critical Steps** — press and hold, or tap then confirm.
 - **Password** and **Two-factor authentication**.
@@ -105,4 +105,4 @@ Editors and Admins can **Share as Knot link…** from a Procedure (under **⋯**
 - **Account recovery** — email a recovery link for a forgotten password or a lost authenticator.
 - **Security log** — sign-ins, two-factor, recovery, invitations, account and membership changes.
 - **This server** — hide the page footer; how many **Recent** Procedures Home shows (0–20, 0 hides the section).
-- **Notification providers** — email reminders on/off and a test email to yourself; **Telegram**: paste the bot token from @BotFather (checked with Telegram, stored encrypted, never shown again), enable, send a test message to your own connected chat, or remove the token. See [Deployment](deployment.md#reminders-and-notification-providers).
+- **Notification providers** — email reminders on/off and a test email to yourself; **Telegram**: paste the **Bot token** from @BotFather (checked with Telegram, stored encrypted, never shown again) and enable it — this sets up the bot for the whole server, not a destination chat. Then, like everyone else, connect your own chat under *Profile & settings → Notifications* (**Go to my notification settings**); only after that can **Send test message to my Telegram** reach you. You can also remove the token. See [Deployment](deployment.md#reminders-and-notification-providers).

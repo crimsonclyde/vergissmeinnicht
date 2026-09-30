@@ -149,10 +149,23 @@ Scheduled Procedures (steps.md 13.4) send reminders to the person who scheduled 
 
 - Every minute the server sends due reminders (at most 50 per minute) through the channels each person enabled. Each reminder is sent at most once per channel, also across restarts; temporary failures are retried after 1 minute, 10 minutes and 1 hour, then given up. Reminders more than a day late (server was down) are dropped. Only counts are logged.
 - **Email** uses the SMTP settings above (the same as invitations). It is on by default; a server admin can switch email reminders off, and everyone can switch them off for themselves.
-- **Telegram** is optional:
+- **Telegram** is optional and set up in **two stages**: the server admin sets up one bot for the whole instance, then **every person connects their own Telegram chat**. Saving the bot token alone sends nothing to anyone.
+
+  **Server administrator (once per instance):**
   1. Create a bot with [@BotFather](https://t.me/BotFather) (`/newbot`) and copy its token.
-  2. *Server admin → Notification providers → Telegram*: paste the token, tick *Enabled*, save. The server checks the token with Telegram, stores it encrypted with `DATA_ENCRYPTION_KEY` and never shows it again. *Send test message* sends one to your own connected chat.
-  3. People connect their chat under *Profile & settings → Notifications → Connect Telegram*, press *Start* in Telegram and confirm the chat in VMN.
+  2. *Server admin → Notification providers → Telegram*: paste it into **Bot token**, tick *Enable Telegram on this server*, save. The server checks the token with Telegram (`getMe`), stores it encrypted with `DATA_ENCRYPTION_KEY` and never shows it again; the page then says "Bot connected: @YourBot".
+  3. The page now shows **Next step** — connect your own account like everyone else (*Go to my notification settings*). **Send test message to my Telegram** stays disabled until your own account is connected, because it goes to *your personal chat*, not to a server-wide chat.
+
+  **Each user (including the admin):**
+  1. Open *Profile & settings → Notifications*.
+  2. Select **Connect Telegram**.
+  3. Open the generated Telegram link and press **Start** (Telegram answers "Almost done: go back to VergissMeinNicht and confirm this chat …").
+  4. Return to VergissMeinNicht — the page notices the chat by itself.
+  5. **Confirm** the pending Telegram connection (only if the named chat is yours; otherwise *Not me*). Telegram answers "Connected to VergissMeinNicht …".
+  6. Keep *Procedure reminders* under Telegram switched on.
+
+  - The bot token is **global** for the VMN instance; each user has **their own** Telegram destination.
+  - Nobody enters a Telegram **chat ID**: VMN learns the chat during pairing from the one-time `/start` link and links it only after the signed-in person confirms it.
   - The server needs **outgoing HTTPS to `api.telegram.org`**; no inbound connection is needed. It asks Telegram for messages (polling every 3 seconds) only while someone is connecting a chat — so it works behind a VPN/Tailscale.
   - Do not set a webhook for the bot elsewhere (polling does not work while a webhook is set), and use the bot for VMN only.
   - Telegram (and mail servers) see the reminder text: the Procedure title, date and Workspace name.

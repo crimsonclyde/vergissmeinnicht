@@ -287,7 +287,7 @@ export function AppShell(props: { user: CurrentUser; route: Route; onSignOut: ()
           <span className="muted">{t('account.identity', { name: user.displayName, email: user.email })}</span>
         </div>
         <div className="card">
-          <NotificationSettings />
+          <NotificationSettings serverAdmin={user.serverAdmin} />
         </div>
         <div className="card">
           <ChangePassword />

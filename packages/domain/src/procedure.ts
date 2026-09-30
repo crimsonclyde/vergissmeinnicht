@@ -76,6 +76,8 @@ export const PROCEDURE_ICONS = [
   'clock',
   'settings',
   'camera',
+  // Added in 0.2.0-beta.2 (migration 0021).
+  'chimney',
 ] as const;
 export type ProcedureIcon = (typeof PROCEDURE_ICONS)[number];
 
