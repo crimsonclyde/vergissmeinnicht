@@ -18,9 +18,9 @@ For every completed task, add a concise completion note, tests/checks performed,
 
 ## Current state — resume here
 
-_Last updated: 2026-09-30 (releasing 0.3.0-beta.1: 14.0–14.2; 14.3–14.5 TODO)_
+_Last updated: 2026-09-30 (0.3.0-beta.1 released from `main`: 14.0–14.2; 14.3–14.5 TODO)_
 
-**Done:** 0.1, 0.2, 0.3, 1.1, 1.2, 2.1–2.5, 2.7–2.9, 3.1–3.3, 4.1–4.5, 5.1–5.7, 6.1, 6.2, 7.1, 8.0–8.11, 9.1, 10.1–10.5, 11.1, 12.1–12.14, 13.1–13.19, 14.0–14.2. IN PROGRESS: 12.15 (release 0.3.0-beta.1). DEFERRED: 2.6 (external identity providers — a later step, user decision 2026-09-28).
+**Done:** 0.1, 0.2, 0.3, 1.1, 1.2, 2.1–2.5, 2.7–2.9, 3.1–3.3, 4.1–4.5, 5.1–5.7, 6.1, 6.2, 7.1, 8.0–8.11, 9.1, 10.1–10.5, 11.1, 12.1–12.14, 13.1–13.19, 14.0–14.2, 12.15. DEFERRED: 2.6 (external identity providers — a later step, user decision 2026-09-28).
 **Next:** beta test of 0.3.0-beta.1 (real email/Telegram reminders, upgrade of real data); then 14.3 (instruction photos) → 14.4 (calendar, agenda); 14.5 later. Also: beta feedback on the icon catalogue (12.11, 12.13); beta feedback on Home/scheduling. Still open from before: GHCR package visibility, a session with a real screen reader, physical iOS/Android devices (incl. offline storage eviction), and automate GitHub Release creation in the release workflow (the 0.2.0-beta.1 pre-release was created manually after the workflow). Possible next providers: ntfy/Gotify or a webhook — the webhook needs the SSRF policy in security.md first.
 
 **Decisions 2026-09-30 (user) — new objective, section 14 (planned, not implemented):** VMN becomes an ADHD-friendly place to see what needs attention, remember recurring obligations and follow clear visual instructions. First release: standalone Reminders and scheduled Procedures in one overview and calendar; one-time, fixed-calendar and completion-based recurrence with independent Occurrence history; reminder offsets in days/weeks/calendar months; bounded catch-up after outages; one optional Assignee (no extra access); Overdue/Today/Upcoming overview, calendar and mobile agenda; one optional instruction image per Step (processed to a ≤500 KB JPEG, metadata removed) with a per-Workspace storage quota (default 100 MB). Later: completion photos, required evidence, annotations. Supersedes the 2026-09-29 "no calendar / no generic tasks / no recurring schedules / no photos" scope for exactly these features. Product decisions D1–D8, D11–D18 approved; technical choices T1–T5 (details in 14.6).
@@ -1832,10 +1832,16 @@ The first PR CI run exposed that the new offline common-password dataset and pro
 **Upgrade note for operators:** migration 0023 (389 rows in `procedure_icons`); `migrate` backs up first (or `VMN_MIGRATE_ON_START=true` on Unraid). Existing icons keep their keys.
 
 ### 12.15 Release 0.3.0-beta.1
-**Status:** IN PROGRESS
-**Started:** 2026-09-30
+**Status:** DONE
+**Completed:** 2026-09-30
 
 **Request (user, 2026-09-30):** release 14.0–14.2 for testing. Version chosen by the user: **0.3.0-beta.1** (minor bump: recurring Schedules, Reminders, assignment, new Home; migration 0024). Unraid template and guide point to `ghcr.io/crimsonclyde/vergissmeinnicht:0.3.0-beta.1`.
+
+**Implemented:** committed to `main` (`10c7986` 14.0, `fe55c2e` 14.1/14.2, `7eef00c` template/ledger); annotated tag `v0.3.0-beta.1` on `7eef00c`. The release workflow ran checks, native amd64/arm64 builds with smoke tests and scans, and assembled, signed and SBOM-attested the multi-architecture image. Published index `sha256:90daf6d2d8ac1dee7089ac453982f1891eb14cf3c89fd4e4547525e1e4154d97` (linux/amd64, linux/arm64; inspected directly; the image tag has no `v`). GitHub pre-release created manually: `https://github.com/crimsonclyde/vergissmeinnicht/releases/tag/v0.3.0-beta.1`.
+
+**Checks performed:** local lint, typecheck, 756 unit/integration tests, build, e2e, schema drift; `main` CI green; release workflow green.
+
+**Remaining:** beta test with real email/Telegram reminders and an upgrade of real data; automated GitHub Release creation still open.
 
 **Upgrade note for operators:** migration 0024 converts every scheduled Procedure into a one-time Schedule with one Occurrence (same ids, reminders and delivery records kept; nothing already sent is sent again); `migrate` backs up first (or `VMN_MIGRATE_ON_START=true` on Unraid). Recommended: try the upgrade on a copy of the database first.
 
