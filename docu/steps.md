@@ -1744,7 +1744,7 @@ The first PR CI run exposed that the new offline common-password dataset and pro
 
 **Implemented:** `assets/brand/vergissmeinnicht-icon.png` (512×512, rendered from the app icon SVG with `rsvg-convert`); the template's `<Icon>` now points to its raw GitHub URL on `main` (no image release needed); `unraid.md` troubleshooting explains how to update an existing container's Icon URL and clear Unraid's cached icon.
 
-**Tests/checks:** PNG inspected (512×512 RGBA, correct artwork).
+**Tests/checks:** PNG inspected (512×512 RGBA, correct artwork); raw URL on `main` serves `image/png`; on the user's Unraid server the icon appeared after the Icon URL was updated and both cached copies (`/var/lib/docker/unraid/images/` and `/var/local/emhttp/plugins/dynamix.docker.manager/images/`) were deleted.
 
 **Security impact:** NONE (static public image; Unraid fetches it from GitHub, not from the app).
 
