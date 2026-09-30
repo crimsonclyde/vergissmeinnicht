@@ -1,117 +1,544 @@
-import type { ReactNode } from 'react';
-import type { ProcedureIcon as IconKey } from './api.ts';
+import type { ComponentType } from 'react';
+import {
+  IconAirConditioning,
+  IconAlarm,
+  IconAlarmSmoke,
+  IconAlertTriangle,
+  IconAmbulance,
+  IconApple,
+  IconArchive,
+  IconAxe,
+  IconBabyBottle,
+  IconBabyCarriage,
+  IconBalloon,
+  IconBarbell,
+  IconBasket,
+  IconBath,
+  IconBattery,
+  IconBeach,
+  IconBed,
+  IconBeer,
+  IconBellRinging,
+  IconBike,
+  IconBlender,
+  IconBolt,
+  IconBook,
+  IconBowl,
+  IconBox,
+  IconBoxMultiple,
+  IconBread,
+  IconBriefcase,
+  IconBrush,
+  IconBucketDroplet,
+  IconBug,
+  IconBuilding,
+  IconBuildingHospital,
+  IconBuildingWarehouse,
+  IconBulb,
+  IconBus,
+  IconCalendar,
+  IconCamera,
+  IconCamper,
+  IconCandle,
+  IconCar,
+  IconCarrot,
+  IconCash,
+  IconCat,
+  IconCertificate,
+  IconChargingPile,
+  IconChecklist,
+  IconChefHat,
+  IconChristmasTree,
+  IconCircleDashed,
+  IconClipboardCheck,
+  IconClock,
+  IconCloudRain,
+  IconCloudSnow,
+  IconCloudStorm,
+  IconCloudUpload,
+  IconCoffee,
+  IconCooker,
+  IconCreditCard,
+  IconDatabase,
+  IconDental,
+  IconDeviceCctv,
+  IconDeviceDesktop,
+  IconDeviceFloppy,
+  IconDeviceLaptop,
+  IconDeviceMobile,
+  IconDeviceTablet,
+  IconDeviceTv,
+  IconDog,
+  IconDogBowl,
+  IconDoor,
+  IconDoorExit,
+  IconDroplet,
+  IconEPassport,
+  IconEgg,
+  IconEngine,
+  IconFaceMask,
+  IconFence,
+  IconFileText,
+  IconFingerprint,
+  IconFireExtinguisher,
+  IconFirstAidKit,
+  IconFish,
+  IconFlag,
+  IconFlame,
+  IconFlower,
+  IconFolder,
+  IconFridge,
+  IconFriends,
+  IconGardenCart,
+  IconGasStation,
+  IconGauge,
+  IconGift,
+  IconGlassFull,
+  IconGrill,
+  IconHammer,
+  IconHammerDrill,
+  IconHanger,
+  IconHeadphones,
+  IconHeart,
+  IconHeartbeat,
+  IconHelmet,
+  IconHome,
+  IconHomeCog,
+  IconHomeLock,
+  IconHomeMove,
+  IconHorse,
+  IconHourglass,
+  IconId,
+  IconIroning,
+  IconKey,
+  IconLadder,
+  IconLamp,
+  IconLawnMower,
+  IconLeaf,
+  IconLeaf2,
+  IconLifebuoy,
+  IconListCheck,
+  IconLock,
+  IconLuggage,
+  IconMail,
+  IconMailbox,
+  IconMap,
+  IconMessage,
+  IconMicrowave,
+  IconMilk,
+  IconMoon,
+  IconMotorbike,
+  IconMountain,
+  IconMusic,
+  IconNeedleThread,
+  IconPackage,
+  IconPaint,
+  IconPaperBag,
+  IconParking,
+  IconPassword,
+  IconPaw,
+  IconPhone,
+  IconPill,
+  IconPizza,
+  IconPlane,
+  IconPlant,
+  IconPool,
+  IconPrinter,
+  IconPuzzle,
+  IconReceipt,
+  IconReceiptTax,
+  IconRecycle,
+  IconRefresh,
+  IconRepeat,
+  IconRocket,
+  IconRouter,
+  IconRuler2,
+  IconRun,
+  IconSchool,
+  IconScooter,
+  IconSeedling,
+  IconServer,
+  IconSettings,
+  IconShield,
+  IconShip,
+  IconShoppingBag,
+  IconShoppingCart,
+  IconShovel,
+  IconSignature,
+  IconSmartHome,
+  IconSnowflake,
+  IconSofa,
+  IconSolarPanel,
+  IconSpeakerphone,
+  IconSpray,
+  IconStairs,
+  IconStar,
+  IconStethoscope,
+  IconSun,
+  IconTag,
+  IconTarget,
+  IconTent,
+  IconThermometer,
+  IconTicket,
+  IconToiletPaper,
+  IconTool,
+  IconTools,
+  IconToolsKitchen2,
+  IconTrain,
+  IconTrash,
+  IconTree,
+  IconTrophy,
+  IconTruck,
+  IconUmbrella,
+  IconUserMinus,
+  IconUserPlus,
+  IconUsers,
+  IconVaccine,
+  IconVacuumCleaner,
+  IconWallet,
+  IconWashMachine,
+  IconWashTumbleDry,
+  IconWheel,
+  IconWheelchair,
+  IconWifi,
+  IconWind,
+  IconWindow,
+  IconWorld,
+} from '@tabler/icons-react';
+import type { ProcedureIcon as VmnIconKey } from './api.ts';
+import { ChimneyArt, GasBottleArt, type IconArtProps } from './icon-art.tsx';
 import { t, type MessageKey } from './i18n/index.ts';
 
 /**
- * Artwork for icons without a fitting emoji (drawn in the colourful emoji style; decorative — the
- * label comes from `iconLabel`). Gas is a gas bottle: a flame would read as fire.
+ * The central icon registry (the only place that imports icon artwork). Procedures, Steps, Runs and
+ * exported files store stable VMN icon keys (`PROCEDURE_ICONS`, e.g. "freezer"), never artwork or a
+ * library component name; this maps each key to its artwork (Tabler Icons, MIT — one outline style,
+ * `currentColor`, so every theme colours it), its picker category and English search words.
+ * Labels are messages (`icon.<key>`).
  */
-const GasArt = () => (
-  <svg className="icon-art" viewBox="0 0 32 32" aria-hidden="true" focusable="false">
-    <rect x="11" y="1.5" width="10" height="3" rx="1.5" fill="#5b6570" />
-    <rect x="14" y="4" width="4" height="5" fill="#7b8794" />
-    <rect x="7.5" y="8.5" width="17" height="22" rx="6.5" fill="#2f7fd0" stroke="#1d4f82" strokeWidth="1.5" />
-    <rect x="8.3" y="15" width="15.4" height="4" fill="#e8eef5" />
-    <path d="M11 24.5h10" stroke="#1d4f82" strokeWidth="1.5" strokeLinecap="round" />
-  </svg>
-);
+export type IconArt = ComponentType<IconArtProps>;
 
-const ChimneyArt = () => (
-  <svg className="icon-art" viewBox="0 0 32 32" aria-hidden="true" focusable="false">
-    <circle cx="21.5" cy="6" r="2.4" fill="#9aa3ad" />
-    <circle cx="24.8" cy="3.4" r="1.9" fill="#b6bec7" />
-    <circle cx="18.6" cy="3" r="1.4" fill="#b6bec7" />
-    <rect x="18" y="10" width="7" height="12" fill="#b5523b" />
-    <path d="M18 14h7M18 18h7M21.5 10v4M20 14v4M23 14v4M21.5 18v4" stroke="#7d3424" strokeWidth="0.8" />
-    <rect x="17" y="8.5" width="9" height="2.5" rx="0.6" fill="#7d3424" />
-    <rect x="6" y="23" width="20" height="7.5" fill="#ecd9b4" stroke="#8a6a4a" strokeWidth="1" />
-    <path d="M2.5 25 16 13l13.5 12Z" fill="#6b4a3a" stroke="#4a3126" strokeWidth="1.2" strokeLinejoin="round" />
-  </svg>
-);
+export type IconGroupKey = 'tasks' | 'home' | 'access' | 'utilities' | 'kitchen' | 'bathroom' | 'cleaning' | 'garden' | 'vehicles' | 'travel' | 'safety' | 'security' | 'tools' | 'documents' | 'shopping' | 'food' | 'animals' | 'tech' | 'communication' | 'people' | 'health' | 'weather' | 'storage' | 'waste' | 'misc';
 
-/** Artwork for every trusted icon key; the text label (what screen readers announce) is `iconLabel`. */
-export const ICON_GLYPHS: Record<IconKey, ReactNode> = {
-  checklist: '☑️',
-  home: '🏠',
-  kitchen: '🍳',
-  cleaning: '🧹',
-  laundry: '🧺',
-  garden: '🌱',
-  pet: '🐾',
-  car: '🚗',
-  travel: '🧳',
-  tools: '🛠️',
-  health: '🩺',
-  shopping: '🛒',
-  document: '📄',
-  security: '🔒',
-  star: '⭐',
-  power: '⚡',
-  water: '💧',
-  gas: <GasArt />,
-  heating: '🌡️',
-  chimney: <ChimneyArt />,
-  internet: '🌐',
-  wifi: '📶',
-  lights: '💡',
-  trash: '🗑️',
-  recycling: '♻️',
-  door: '🚪',
-  window: '🪟',
-  key: '🔑',
-  plant: '🪴',
-  bed: '🛏️',
-  bath: '🛁',
-  onboarding: '🤝',
-  offboarding: '👋',
-  team: '👥',
-  work: '💼',
-  calendar: '📅',
-  mail: '✉️',
-  phone: '📱',
-  school: '🎒',
-  computer: '💻',
-  server: '🖥️',
-  backup: '💾',
-  update: '🔄',
-  launch: '🚀',
-  medication: '💊',
-  baby: '🍼',
-  food: '🍽️',
-  coffee: '☕',
-  fitness: '🏃',
-  'fire-safety': '🧯',
-  warning: '⚠️',
-  alarm: '🔔',
-  bike: '🚲',
-  weather: '☂️',
-  snow: '❄️',
-  sun: '☀️',
-  delivery: '📦',
-  money: '💶',
-  clock: '⏰',
-  settings: '⚙️',
-  camera: '📷',
+interface IconEntry {
+  readonly art: IconArt;
+  readonly group: IconGroupKey;
+  /** Extra search words (aliases), e.g. "plug electricity" for Power. */
+  readonly keywords: string;
+}
+
+export const ICON_REGISTRY: Readonly<Record<VmnIconKey, IconEntry>> = {
+  // Tasks & time
+  checklist: { art: IconChecklist, group: 'tasks', keywords: 'list todo tasks check routine' },
+  list: { art: IconListCheck, group: 'tasks', keywords: 'tasks todo items' },
+  clipboard: { art: IconClipboardCheck, group: 'tasks', keywords: 'inspection review check audit' },
+  star: { art: IconStar, group: 'tasks', keywords: 'favourite favorite important' },
+  flag: { art: IconFlag, group: 'tasks', keywords: 'milestone goal mark' },
+  target: { art: IconTarget, group: 'tasks', keywords: 'goal aim focus' },
+  clock: { art: IconClock, group: 'tasks', keywords: 'time hour' },
+  calendar: { art: IconCalendar, group: 'tasks', keywords: 'date schedule appointment day' },
+  repeat: { art: IconRepeat, group: 'tasks', keywords: 'recurring routine again daily weekly monthly' },
+  hourglass: { art: IconHourglass, group: 'tasks', keywords: 'timer wait deadline countdown' },
+  alarm: { art: IconAlarm, group: 'tasks', keywords: 'alarm clock wake up morning' },
+  reminder: { art: IconBellRinging, group: 'tasks', keywords: 'notification bell alert remind' },
+  // Home
+  home: { art: IconHome, group: 'home', keywords: 'house flat apartment' },
+  building: { art: IconBuilding, group: 'home', keywords: 'apartment block flat office' },
+  bed: { art: IconBed, group: 'home', keywords: 'bed sleep' },
+  sofa: { art: IconSofa, group: 'home', keywords: 'sofa couch lounge' },
+  lamp: { art: IconLamp, group: 'home', keywords: 'light reading lamp' },
+  stairs: { art: IconStairs, group: 'home', keywords: 'steps staircase stairwell' },
+  fence: { art: IconFence, group: 'home', keywords: 'yard boundary' },
+  'smart-home': { art: IconSmartHome, group: 'home', keywords: 'automation home assistant' },
+  moving: { art: IconHomeMove, group: 'home', keywords: 'move relocation removal' },
+  // Doors, windows & keys
+  door: { art: IconDoor, group: 'access', keywords: 'entrance access front door' },
+  'door-exit': { art: IconDoorExit, group: 'access', keywords: 'exit leave go out' },
+  window: { art: IconWindow, group: 'access', keywords: 'windows close open ventilate air' },
+  key: { art: IconKey, group: 'access', keywords: 'key access lock' },
+  // Utilities
+  power: { art: IconBolt, group: 'utilities', keywords: 'electricity electric plug socket energy current fuse' },
+  water: { art: IconDroplet, group: 'utilities', keywords: 'plumbing tap faucet pipe' },
+  gas: { art: GasBottleArt, group: 'utilities', keywords: 'gas supply cylinder bottle propane boiler valve' },
+  heating: { art: IconFlame, group: 'utilities', keywords: 'heater radiator boiler warm fire thermostat furnace' },
+  chimney: { art: ChimneyArt, group: 'utilities', keywords: 'fireplace stove soot sweep smoke fire' },
+  cooling: { art: IconAirConditioning, group: 'utilities', keywords: 'ac cooling cool fan climate' },
+  lights: { art: IconBulb, group: 'utilities', keywords: 'light bulb lamp' },
+  meter: { art: IconGauge, group: 'utilities', keywords: 'meter gauge counter reading' },
+  solar: { art: IconSolarPanel, group: 'utilities', keywords: 'solar photovoltaic pv energy' },
+  battery: { art: IconBattery, group: 'utilities', keywords: 'charge batteries' },
+  'ev-charging': { art: IconChargingPile, group: 'utilities', keywords: 'electric car charger wallbox plug' },
+  internet: { art: IconWorld, group: 'utilities', keywords: 'web online' },
+  wifi: { art: IconWifi, group: 'utilities', keywords: 'wireless network wlan' },
+  // Kitchen
+  kitchen: { art: IconChefHat, group: 'kitchen', keywords: 'cooking cook recipe chef' },
+  fridge: { art: IconFridge, group: 'kitchen', keywords: 'refrigerator cooler' },
+  freezer: { art: IconSnowflake, group: 'kitchen', keywords: 'freeze frozen fridge refrigerator ice defrost' },
+  stove: { art: IconCooker, group: 'kitchen', keywords: 'cooker oven hob pot' },
+  microwave: { art: IconMicrowave, group: 'kitchen', keywords: 'oven' },
+  blender: { art: IconBlender, group: 'kitchen', keywords: 'mixer smoothie' },
+  dishes: { art: IconBowl, group: 'kitchen', keywords: 'dishwasher washing up bowl plates' },
+  grill: { art: IconGrill, group: 'kitchen', keywords: 'barbecue bbq' },
+  // Bathroom
+  bath: { art: IconBath, group: 'bathroom', keywords: 'bath bathtub shower' },
+  'toilet-paper': { art: IconToiletPaper, group: 'bathroom', keywords: 'toilet wc loo restroom' },
+  dental: { art: IconDental, group: 'bathroom', keywords: 'tooth toothbrush dentist dental' },
+  // Cleaning & laundry
+  cleaning: { art: IconSpray, group: 'cleaning', keywords: 'clean spray tidy' },
+  vacuum: { art: IconVacuumCleaner, group: 'cleaning', keywords: 'vacuum cleaner hoover' },
+  mop: { art: IconBucketDroplet, group: 'cleaning', keywords: 'mop bucket floor wipe' },
+  laundry: { art: IconWashMachine, group: 'cleaning', keywords: 'washing machine wash clothes' },
+  dryer: { art: IconWashTumbleDry, group: 'cleaning', keywords: 'tumble dryer drying' },
+  ironing: { art: IconIroning, group: 'cleaning', keywords: 'iron clothes' },
+  hanger: { art: IconHanger, group: 'cleaning', keywords: 'hanger clothes closet' },
+  // Garden & plants
+  garden: { art: IconSeedling, group: 'garden', keywords: 'gardening sprout grow' },
+  plant: { art: IconPlant, group: 'garden', keywords: 'plant pot water plants' },
+  flower: { art: IconFlower, group: 'garden', keywords: 'flower bloom' },
+  tree: { art: IconTree, group: 'garden', keywords: 'trees hedge' },
+  leaf: { art: IconLeaf, group: 'garden', keywords: 'leaf autumn rake' },
+  'lawn-mower': { art: IconLawnMower, group: 'garden', keywords: 'lawn mower grass mow' },
+  shovel: { art: IconShovel, group: 'garden', keywords: 'dig spade' },
+  wheelbarrow: { art: IconGardenCart, group: 'garden', keywords: 'garden cart' },
+  pool: { art: IconPool, group: 'garden', keywords: 'swimming pool' },
+  // Vehicles
+  car: { art: IconCar, group: 'vehicles', keywords: 'vehicle auto' },
+  bike: { art: IconBike, group: 'vehicles', keywords: 'bicycle cycling' },
+  motorbike: { art: IconMotorbike, group: 'vehicles', keywords: 'motorcycle vehicle' },
+  scooter: { art: IconScooter, group: 'vehicles', keywords: 'kick scooter e-scooter' },
+  bus: { art: IconBus, group: 'vehicles', keywords: 'public transport coach' },
+  truck: { art: IconTruck, group: 'vehicles', keywords: 'van lorry vehicle' },
+  camper: { art: IconCamper, group: 'vehicles', keywords: 'campervan motorhome caravan rv vehicle' },
+  fuel: { art: IconGasStation, group: 'vehicles', keywords: 'fuel petrol diesel gas station' },
+  tire: { art: IconWheel, group: 'vehicles', keywords: 'tire tyre wheel change' },
+  engine: { art: IconEngine, group: 'vehicles', keywords: 'motor service oil' },
+  parking: { art: IconParking, group: 'vehicles', keywords: 'park' },
+  // Travel
+  travel: { art: IconLuggage, group: 'travel', keywords: 'suitcase luggage packing trip vacation holiday' },
+  plane: { art: IconPlane, group: 'travel', keywords: 'plane airport fly' },
+  train: { art: IconTrain, group: 'travel', keywords: 'rail railway' },
+  ship: { art: IconShip, group: 'travel', keywords: 'ferry cruise boat' },
+  tent: { art: IconTent, group: 'travel', keywords: 'tent camp' },
+  beach: { art: IconBeach, group: 'travel', keywords: 'holiday seaside' },
+  mountain: { art: IconMountain, group: 'travel', keywords: 'hiking hike' },
+  map: { art: IconMap, group: 'travel', keywords: 'route directions' },
+  passport: { art: IconEPassport, group: 'travel', keywords: 'visa id' },
+  ticket: { art: IconTicket, group: 'travel', keywords: 'tickets booking' },
+  // Safety & first aid
+  'fire-safety': { art: IconFireExtinguisher, group: 'safety', keywords: 'fire extinguisher' },
+  'smoke-alarm': { art: IconAlarmSmoke, group: 'safety', keywords: 'smoke detector fire' },
+  warning: { art: IconAlertTriangle, group: 'safety', keywords: 'danger caution hazard' },
+  'first-aid': { art: IconFirstAidKit, group: 'safety', keywords: 'first aid kit emergency' },
+  ambulance: { art: IconAmbulance, group: 'safety', keywords: 'ambulance emergency 112 911' },
+  lifebuoy: { art: IconLifebuoy, group: 'safety', keywords: 'rescue help lifesaver' },
+  helmet: { art: IconHelmet, group: 'safety', keywords: 'protection hard hat' },
+  // Security
+  security: { art: IconLock, group: 'security', keywords: 'lock locked' },
+  shield: { art: IconShield, group: 'security', keywords: 'shield protect' },
+  'home-lock': { art: IconHomeLock, group: 'security', keywords: 'home lock alarm system' },
+  cctv: { art: IconDeviceCctv, group: 'security', keywords: 'cctv surveillance camera' },
+  password: { art: IconPassword, group: 'security', keywords: 'pin code' },
+  fingerprint: { art: IconFingerprint, group: 'security', keywords: 'biometric' },
+  // Tools & maintenance
+  tools: { art: IconTools, group: 'tools', keywords: 'tool repair fix' },
+  wrench: { art: IconTool, group: 'tools', keywords: 'spanner repair fix' },
+  hammer: { art: IconHammer, group: 'tools', keywords: 'nail diy' },
+  drill: { art: IconHammerDrill, group: 'tools', keywords: 'drilling diy' },
+  ruler: { art: IconRuler2, group: 'tools', keywords: 'ruler measure' },
+  paint: { art: IconPaint, group: 'tools', keywords: 'paint roller decorate wall' },
+  brush: { art: IconBrush, group: 'tools', keywords: 'paintbrush' },
+  ladder: { art: IconLadder, group: 'tools', keywords: 'climb' },
+  axe: { art: IconAxe, group: 'tools', keywords: 'firewood wood chop' },
+  sewing: { art: IconNeedleThread, group: 'tools', keywords: 'needle thread mend' },
+  maintenance: { art: IconHomeCog, group: 'tools', keywords: 'service inspection servicing' },
+  settings: { art: IconSettings, group: 'tools', keywords: 'gear configure setup' },
+  // Documents & money
+  document: { art: IconFileText, group: 'documents', keywords: 'file paper' },
+  folder: { art: IconFolder, group: 'documents', keywords: 'files' },
+  signature: { art: IconSignature, group: 'documents', keywords: 'sign contract' },
+  receipt: { art: IconReceipt, group: 'documents', keywords: 'invoice bill' },
+  tax: { art: IconReceiptTax, group: 'documents', keywords: 'tax return' },
+  certificate: { art: IconCertificate, group: 'documents', keywords: 'diploma award' },
+  'id-card': { art: IconId, group: 'documents', keywords: 'identity card id' },
+  printer: { art: IconPrinter, group: 'documents', keywords: 'print' },
+  money: { art: IconCash, group: 'documents', keywords: 'cash banknote euro pay payment' },
+  wallet: { art: IconWallet, group: 'documents', keywords: 'purse' },
+  'credit-card': { art: IconCreditCard, group: 'documents', keywords: 'credit card debit bank' },
+  // Shopping
+  shopping: { art: IconShoppingCart, group: 'shopping', keywords: 'groceries supermarket cart' },
+  'shopping-bag': { art: IconShoppingBag, group: 'shopping', keywords: 'bag store' },
+  basket: { art: IconBasket, group: 'shopping', keywords: 'groceries' },
+  gift: { art: IconGift, group: 'shopping', keywords: 'present birthday' },
+  tag: { art: IconTag, group: 'shopping', keywords: 'price sale tag' },
+  delivery: { art: IconPackage, group: 'shopping', keywords: 'parcel package' },
+  // Food & drink
+  food: { art: IconToolsKitchen2, group: 'food', keywords: 'meal eat dinner lunch cutlery' },
+  coffee: { art: IconCoffee, group: 'food', keywords: 'tea cup' },
+  drink: { art: IconGlassFull, group: 'food', keywords: 'drink glass water' },
+  beer: { art: IconBeer, group: 'food', keywords: 'drinks' },
+  pizza: { art: IconPizza, group: 'food', keywords: 'takeaway' },
+  bread: { art: IconBread, group: 'food', keywords: 'bakery' },
+  fruit: { art: IconApple, group: 'food', keywords: 'apple' },
+  vegetables: { art: IconCarrot, group: 'food', keywords: 'carrot veg' },
+  milk: { art: IconMilk, group: 'food', keywords: 'dairy' },
+  egg: { art: IconEgg, group: 'food', keywords: 'egg breakfast' },
+  // Animals
+  pet: { art: IconPaw, group: 'animals', keywords: 'animal pets' },
+  dog: { art: IconDog, group: 'animals', keywords: 'walk dogs' },
+  cat: { art: IconCat, group: 'animals', keywords: 'cats' },
+  fish: { art: IconFish, group: 'animals', keywords: 'aquarium' },
+  horse: { art: IconHorse, group: 'animals', keywords: 'riding' },
+  'pet-food': { art: IconDogBowl, group: 'animals', keywords: 'feed feeding bowl' },
+  bug: { art: IconBug, group: 'animals', keywords: 'bug insect pest' },
+  // Technology
+  computer: { art: IconDeviceLaptop, group: 'tech', keywords: 'laptop pc' },
+  desktop: { art: IconDeviceDesktop, group: 'tech', keywords: 'monitor pc screen' },
+  tablet: { art: IconDeviceTablet, group: 'tech', keywords: 'ipad' },
+  tv: { art: IconDeviceTv, group: 'tech', keywords: 'television' },
+  headphones: { art: IconHeadphones, group: 'tech', keywords: 'audio' },
+  router: { art: IconRouter, group: 'tech', keywords: 'modem network' },
+  server: { art: IconServer, group: 'tech', keywords: 'servers' },
+  database: { art: IconDatabase, group: 'tech', keywords: 'data' },
+  cloud: { art: IconCloudUpload, group: 'tech', keywords: 'cloud upload sync' },
+  backup: { art: IconDeviceFloppy, group: 'tech', keywords: 'save' },
+  update: { art: IconRefresh, group: 'tech', keywords: 'refresh reload sync' },
+  launch: { art: IconRocket, group: 'tech', keywords: 'release deploy start' },
+  // Communication
+  mail: { art: IconMail, group: 'communication', keywords: 'email letter' },
+  mailbox: { art: IconMailbox, group: 'communication', keywords: 'post letterbox letters' },
+  phone: { art: IconDeviceMobile, group: 'communication', keywords: 'smartphone mobile' },
+  call: { art: IconPhone, group: 'communication', keywords: 'telephone landline' },
+  message: { art: IconMessage, group: 'communication', keywords: 'chat sms text' },
+  announcement: { art: IconSpeakerphone, group: 'communication', keywords: 'megaphone announce' },
+  // People & work
+  onboarding: { art: IconUserPlus, group: 'people', keywords: 'new hire join welcome start' },
+  offboarding: { art: IconUserMinus, group: 'people', keywords: 'leave leaver exit' },
+  team: { art: IconUsers, group: 'people', keywords: 'group people' },
+  family: { art: IconFriends, group: 'people', keywords: 'friends family people' },
+  work: { art: IconBriefcase, group: 'people', keywords: 'job office business' },
+  school: { art: IconSchool, group: 'people', keywords: 'education study' },
+  baby: { art: IconBabyBottle, group: 'people', keywords: 'infant bottle' },
+  stroller: { art: IconBabyCarriage, group: 'people', keywords: 'pram buggy baby' },
+  fitness: { art: IconRun, group: 'people', keywords: 'sport exercise running' },
+  gym: { art: IconBarbell, group: 'people', keywords: 'weights training' },
+  // Health
+  health: { art: IconStethoscope, group: 'health', keywords: 'doctor medical checkup' },
+  medication: { art: IconPill, group: 'health', keywords: 'medicine pills tablets' },
+  vaccine: { art: IconVaccine, group: 'health', keywords: 'vaccine injection jab' },
+  thermometer: { art: IconThermometer, group: 'health', keywords: 'fever temperature' },
+  heart: { art: IconHeartbeat, group: 'health', keywords: 'pulse cardio blood pressure' },
+  mask: { art: IconFaceMask, group: 'health', keywords: 'mask' },
+  wheelchair: { art: IconWheelchair, group: 'health', keywords: 'wheelchair accessible' },
+  hospital: { art: IconBuildingHospital, group: 'health', keywords: 'clinic' },
+  // Weather
+  weather: { art: IconUmbrella, group: 'weather', keywords: 'umbrella rain' },
+  sun: { art: IconSun, group: 'weather', keywords: 'summer sunny' },
+  rain: { art: IconCloudRain, group: 'weather', keywords: 'rainy' },
+  storm: { art: IconCloudStorm, group: 'weather', keywords: 'thunder lightning' },
+  wind: { art: IconWind, group: 'weather', keywords: 'windy' },
+  snow: { art: IconCloudSnow, group: 'weather', keywords: 'snowfall winter' },
+  night: { art: IconMoon, group: 'weather', keywords: 'moon evening' },
+  // Storage
+  box: { art: IconBox, group: 'storage', keywords: 'storage' },
+  boxes: { art: IconBoxMultiple, group: 'storage', keywords: 'moving storage' },
+  archive: { art: IconArchive, group: 'storage', keywords: 'store' },
+  warehouse: { art: IconBuildingWarehouse, group: 'storage', keywords: 'warehouse storage' },
+  // Waste & recycling
+  trash: { art: IconTrash, group: 'waste', keywords: 'bin garbage rubbish waste' },
+  recycling: { art: IconRecycle, group: 'waste', keywords: 'recycle waste bin' },
+  compost: { art: IconLeaf2, group: 'waste', keywords: 'organic bio waste' },
+  'paper-waste': { art: IconPaperBag, group: 'waste', keywords: 'paper cardboard bag' },
+  // Miscellaneous
+  camera: { art: IconCamera, group: 'misc', keywords: 'photo picture' },
+  book: { art: IconBook, group: 'misc', keywords: 'manual reading' },
+  music: { art: IconMusic, group: 'misc', keywords: 'song' },
+  puzzle: { art: IconPuzzle, group: 'misc', keywords: 'puzzle game' },
+  trophy: { art: IconTrophy, group: 'misc', keywords: 'win award' },
+  love: { art: IconHeart, group: 'misc', keywords: 'heart favourite' },
+  party: { art: IconBalloon, group: 'misc', keywords: 'birthday celebration' },
+  christmas: { art: IconChristmasTree, group: 'misc', keywords: 'holiday xmas' },
+  candle: { art: IconCandle, group: 'misc', keywords: 'candles' },
 };
 
-/** Groups of the icon picker, in display order; every icon appears in exactly one group. */
-export const ICON_GROUPS: readonly { readonly name: MessageKey; readonly icons: readonly IconKey[] }[] = [
-  { name: 'iconGroup.general', icons: ['checklist', 'star', 'document', 'tools', 'settings', 'clock', 'calendar', 'money', 'camera'] },
-  { name: 'iconGroup.utilities', icons: ['power', 'water', 'gas', 'heating', 'chimney', 'internet', 'wifi', 'lights', 'trash', 'recycling'] },
-  { name: 'iconGroup.home', icons: ['home', 'kitchen', 'cleaning', 'laundry', 'bed', 'bath', 'door', 'window', 'key', 'garden', 'plant'] },
-  { name: 'iconGroup.people', icons: ['onboarding', 'offboarding', 'team', 'work', 'mail', 'phone', 'school'] },
-  { name: 'iconGroup.tech', icons: ['computer', 'server', 'backup', 'update', 'launch'] },
-  { name: 'iconGroup.care', icons: ['health', 'medication', 'baby', 'pet', 'food', 'coffee', 'fitness'] },
-  { name: 'iconGroup.safety', icons: ['security', 'fire-safety', 'warning', 'alarm'] },
-  { name: 'iconGroup.outdoors', icons: ['car', 'bike', 'travel', 'delivery', 'shopping', 'weather', 'sun', 'snow'] },
-];
+/** Picker categories in display order. */
+export const ICON_GROUP_ORDER: readonly IconGroupKey[] = ['tasks', 'home', 'access', 'utilities', 'kitchen', 'bathroom', 'cleaning', 'garden', 'vehicles', 'travel', 'safety', 'security', 'tools', 'documents', 'shopping', 'food', 'animals', 'tech', 'communication', 'people', 'health', 'weather', 'storage', 'waste', 'misc'];
 
-export const iconLabel = (icon: IconKey): string => t(`icon.${icon}`);
+/** Categories with their icons in registry order; every icon is in exactly one. */
+export const ICON_GROUPS: readonly { readonly key: IconGroupKey; readonly name: MessageKey; readonly icons: readonly VmnIconKey[] }[] = ICON_GROUP_ORDER.map((key) => ({
+  key,
+  name: `iconGroup.${key}`,
+  icons: (Object.keys(ICON_REGISTRY) as VmnIconKey[]).filter((icon) => ICON_REGISTRY[icon].group === key),
+}));
 
-export function Icon({ icon }: { icon: IconKey }) {
+export const ICON_COUNT = Object.keys(ICON_REGISTRY).length;
+
+/**
+ * Whether a value is a known icon key. Own properties only, so "constructor", "__proto__" or
+ * "toString" from stored or offline data never resolve to something else.
+ */
+export function isIconKey(value: unknown): value is VmnIconKey {
+  return typeof value === 'string' && Object.hasOwn(ICON_REGISTRY, value);
+}
+
+export const iconLabel = (icon: VmnIconKey): string => t(`icon.${icon}`);
+
+/** Lower-case words an icon is found by: its label, key, category and aliases. */
+function searchWords(icon: VmnIconKey): readonly string[] {
+  const entry = ICON_REGISTRY[icon];
+  return `${iconLabel(icon)} ${icon} ${t(`iconGroup.${entry.group}`)} ${entry.keywords}`
+    .toLowerCase()
+    .split(/[^\p{L}\p{N}]+/u)
+    .filter((word) => word !== '');
+}
+
+/**
+ * Icons matching a search (every typed word must start one of the icon's words — "plug" finds Power,
+ * "bin" finds Trash), optionally within one category; grouped in display order. An empty query
+ * returns the whole category (or everything).
+ */
+export function searchIcons(query: string, group: IconGroupKey | null = null): typeof ICON_GROUPS {
+  const needles = query
+    .toLowerCase()
+    .split(/[^\p{L}\p{N}]+/u)
+    .filter((word) => word !== '');
+  const matches = (icon: VmnIconKey) => {
+    if (needles.length === 0) return true;
+    const words = searchWords(icon);
+    return needles.every((needle) => words.some((word) => word.startsWith(needle)));
+  };
+  return ICON_GROUPS.filter((entry) => group === null || entry.key === group)
+    .map((entry) => ({ ...entry, icons: entry.icons.filter(matches) }))
+    .filter((entry) => entry.icons.length > 0);
+}
+
+/** Shown for a value that is not (or no longer) a known key, e.g. data from a newer version. */
+const FALLBACK: IconArt = IconCircleDashed;
+
+/** Size and stroke shared by every icon so they sit evenly next to text. */
+const ICON_SIZE = '1.15em';
+const ICON_STROKE = 1.75;
+
+/**
+ * Renders a stored icon key. Only registry artwork can appear: an unknown value (anything a file,
+ * old data or an attacker supplies) shows the neutral fallback and is never used to load or build
+ * anything. `decorative` hides it from assistive technology when a visible label is next to it.
+ */
+export function AppIcon(props: { name: string; decorative?: boolean; size?: number | string; stroke?: number | string; className?: string }) {
+  const known = isIconKey(props.name);
+  const Art = known ? ICON_REGISTRY[props.name as VmnIconKey].art : FALLBACK;
+  const label = known ? iconLabel(props.name as VmnIconKey) : t('icon.unknown');
+  const art = <Art size={props.size ?? ICON_SIZE} stroke={props.stroke ?? ICON_STROKE} aria-hidden="true" focusable="false" />;
+  const className = props.className === undefined ? 'app-icon' : `app-icon ${props.className}`;
+  if (props.decorative === true) {
+    return (
+      <span className={className} aria-hidden="true">
+        {art}
+      </span>
+    );
+  }
   return (
-    <span role="img" aria-label={iconLabel(icon)} title={iconLabel(icon)}>
-      {ICON_GLYPHS[icon]}
+    <span className={className} role="img" aria-label={label} title={label}>
+      {art}
     </span>
   );
 }

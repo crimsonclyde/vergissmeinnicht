@@ -152,5 +152,28 @@ describe('Procedure duplicate and import', () => {
       ).rejects.toThrow(DomainValidationError);
       expect((database.sqlite.prepare('SELECT count(*) AS n FROM procedures').get() as { n: number }).n).toBe(0);
     });
+
+    it('keeps new and old icon keys, and refuses unknown or malicious icon values without writing', async () => {
+      const withIcons = (icon: string, stepIcon: string | null) =>
+        importProcedure(deps, {
+          actor: editor,
+          workspaceId: home.id,
+          content: {
+            ...PROCEDURE,
+            icon: icon as ProcedureInput['icon'],
+            sections: PROCEDURE.sections.map((section) => ({ ...section, steps: section.steps.map((step) => ({ ...step, icon: stepIcon as ProcedureInput['icon'] })) })),
+          },
+        });
+      const imported = await withIcons('freezer', 'gas');
+      expect(imported.procedure.icon).toBe('freezer');
+      expect(imported.sections[0]?.steps[0]?.icon).toBe('gas');
+      expect(database.sqlite.prepare('SELECT icon FROM procedures WHERE id = ?').get(imported.procedure.id)).toEqual({ icon: 'freezer' });
+      const before = (database.sqlite.prepare('SELECT count(*) AS n FROM procedures').get() as { n: number }).n;
+      for (const bad of ['IconSnowflake', '__proto__', 'constructor', '<svg onload=alert(1)>', 'https://evil.example/x.svg', 'FREEZER', '']) {
+        await expect(withIcons(bad, null), bad).rejects.toThrow(DomainValidationError);
+        await expect(withIcons('home', bad), bad).rejects.toThrow(DomainValidationError);
+      }
+      expect((database.sqlite.prepare('SELECT count(*) AS n FROM procedures').get() as { n: number }).n).toBe(before);
+    });
   });
 });

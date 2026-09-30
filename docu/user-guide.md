@@ -30,7 +30,7 @@ Forgot your password or lost your phone? Ask your server admin for an account re
 
 ## Write a Procedure (Editors)
 
-1. **Procedures** → **New Procedure**. Give it a title, an icon and optional tags.
+1. **Procedures** → **New Procedure**. Give it a title, an icon and optional tags. The icon picker suggests common icons; search by name or everyday words (*plug* finds Power, *bin* finds Trash, *fridge* finds Fridge and Freezer), pick a **Category**, or **Browse all**.
 2. **Add section**, then **Add step to section …**. Reorder by dragging or with the move buttons.
 3. Per Step:
    - **Optional** — does not block completing.

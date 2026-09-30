@@ -4,7 +4,7 @@ import { formatCalendarDate, formatRelative, t } from './i18n/index.ts';
 import { MoreMenu } from './MoreMenu.tsx';
 import { useOffline } from './offline/OfflineProvider.tsx';
 import { offlineStore } from './offline/store.ts';
-import { Icon } from './procedure-icons.tsx';
+import { AppIcon } from './procedure-icons.tsx';
 import { Link, paths } from './router.tsx';
 import { summaryOf } from './Runs.tsx';
 import { ScheduleDialog, reminderLabel } from './ScheduleDialog.tsx';
@@ -56,7 +56,7 @@ function ScheduledItem(props: {
       <div className="home-item-main">
         <div>
           <strong>
-            <Icon icon={item.procedure.icon} /> {item.procedure.title}
+            <AppIcon name={item.procedure.icon} /> {item.procedure.title}
           </strong>
           <br />
           <small className={item.timeliness === 'OVERDUE' ? 'state-text-PENDING' : 'muted'}>
@@ -127,7 +127,7 @@ function ActiveItem({ workspaceId, run }: { workspaceId: string; run: RunSummary
       <div className="home-item-main">
         <div>
           <strong>
-            <Icon icon={run.icon} /> {run.title}
+            <AppIcon name={run.icon} /> {run.title}
           </strong>
           <br />
           <small className="muted">
@@ -149,7 +149,7 @@ function ProcedureItem(props: { workspaceId: string; card: ProcedureCard; can: C
       <div className="home-item-main">
         <div>
           <Link href={paths.procedure(props.workspaceId, card.id)} className="procedure-link">
-            <Icon icon={card.icon} /> {card.title}
+            <AppIcon name={card.icon} /> {card.title}
           </Link>
           {card.lastCompletedAt !== null && (
             <>

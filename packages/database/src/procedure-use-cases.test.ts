@@ -294,6 +294,9 @@ describe('Procedure use-cases', () => {
       // Icons are rows of procedure_icons (migration 0019); anything else is refused by the reference.
       expect(update("UPDATE procedures SET icon = 'javascript:alert(1)' WHERE id = ?")).toThrow(/FOREIGN KEY/);
       expect(update("UPDATE procedures SET icon = 'offboarding' WHERE id = ?")).not.toThrow();
+      // Keys added with the Tabler icon set (migration 0022) are rows too; library names are not.
+      expect(update("UPDATE procedures SET icon = 'freezer' WHERE id = ?")).not.toThrow();
+      expect(update("UPDATE procedures SET icon = 'IconSnowflake' WHERE id = ?")).toThrow(/FOREIGN KEY/);
       expect(update(`UPDATE procedures SET tags = '{"a":1}' WHERE id = ?`)).toThrow(/CHECK/);
       expect(update(`UPDATE procedures SET tags = '[${Array(11).fill('"x"').join(',')}]' WHERE id = ?`)).toThrow(/CHECK/);
       expect(update('UPDATE procedures SET deleted_at = 1 WHERE id = ?')).toThrow(/CHECK/);

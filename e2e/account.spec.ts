@@ -133,6 +133,10 @@ test('first server admin: bootstrap link, account creation, sign-in, Workspace c
   await page.getByLabel('Description', { exact: true }).fill('Windows closed?\n<b>Stove off</b>');
   // Icon picker: search, then pick with the pointer (closes the panel).
   await page.getByRole('button', { name: 'Icon: Checklist — change' }).click();
+  // Aliases: "fridge" also finds the freezer.
+  await page.getByLabel('Search icons').fill('fridge');
+  await expect(page.getByRole('radio', { name: 'Fridge' })).toBeVisible();
+  await expect(page.getByRole('radio', { name: 'Freezer' })).toBeVisible();
   await page.getByLabel('Search icons').fill('trav');
   // Matches icon names and group names ("Outdoors & travel"); everything else is filtered out.
   await expect(page.getByRole('radio', { name: 'Travel' })).toBeVisible();
@@ -159,6 +163,11 @@ test('first server admin: bootstrap link, account creation, sign-in, Workspace c
   await page.getByRole('button', { name: /^Browse all \d+ icons$/ }).click();
   await expect(page.getByRole('group', { name: 'Utilities' })).toBeVisible();
   await expectAccessible(page, 'icon picker');
+  // Categories narrow the catalog.
+  await page.getByLabel('Category').selectOption({ label: 'Kitchen' });
+  await expect(page.getByRole('radio', { name: 'Freezer' })).toBeVisible();
+  await expect(page.getByRole('radio', { name: 'Power' })).toHaveCount(0);
+  await page.getByLabel('Category').selectOption({ label: 'Utilities' });
   await page.getByRole('radio', { name: 'Power' }).focus();
   await page.keyboard.press('Space');
   await page.keyboard.press('ArrowRight');

@@ -18,7 +18,7 @@ import { usePreferences } from './preferences.tsx';
 import { TapToConfirm } from './TapToConfirm.tsx';
 import { KnotShare } from './Knots.tsx';
 import { formatDateTime, formatTime, formatWhen, t } from './i18n/index.ts';
-import { Icon } from './procedure-icons.tsx';
+import { AppIcon } from './procedure-icons.tsx';
 import { StepMarks } from './StepMarks.tsx';
 import { applyStepResult, isNewer, withPendingChanges, type PendingStepChange } from './run-updates.ts';
 import { useOffline } from './offline/OfflineProvider.tsx';
@@ -160,7 +160,7 @@ function StepItem(props: {
         <h4 className="step-title">
           {step.icon !== null && (
             <>
-              <Icon icon={step.icon} />{' '}
+              <AppIcon name={step.icon} />{' '}
             </>
           )}
           {step.title}
@@ -374,7 +374,7 @@ function RunView(props: {
       <div className="card stack">
         <div className="row" style={{ justifyContent: 'space-between' }}>
           <h2 id="run-title" style={{ margin: 0 }}>
-            <Icon icon={run.icon} /> {run.title}
+            <AppIcon name={run.icon} /> {run.title}
           </h2>
           <span className="row">
             {run.state === 'ACTIVE' && (
@@ -475,7 +475,7 @@ function RunList({ title, runs, onOpen }: { title: string; runs: RunSummary[]; o
             <li key={run.id} className="card stack">
               <div className="row" style={{ justifyContent: 'space-between' }}>
                 <button type="button" className="link-like" onClick={() => onOpen(run.id)} style={{ fontSize: '1.1rem', fontWeight: 600 }}>
-                  <Icon icon={run.icon} /> {run.title}
+                  <AppIcon name={run.icon} /> {run.title}
                 </button>
                 <RunStateBadge state={run.state} />
               </div>

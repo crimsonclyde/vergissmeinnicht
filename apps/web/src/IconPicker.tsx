@@ -1,7 +1,7 @@
 import { useEffect, useId, useRef, useState, type KeyboardEvent } from 'react';
 import type { ProcedureIcon } from './api.ts';
 import { t } from './i18n/index.ts';
-import { ICON_GLYPHS, ICON_GROUPS, iconLabel } from './procedure-icons.tsx';
+import { AppIcon, ICON_COUNT, ICON_GROUPS, iconLabel, isIconKey, searchIcons, type IconGroupKey } from './procedure-icons.tsx';
 
 /** A few common icons shown first (13.16); everything else is one "Browse all" or a search away. */
 export const SUGGESTED_ICONS: readonly ProcedureIcon[] = ['checklist', 'home', 'shopping', 'cleaning', 'travel', 'power', 'security', 'work'];
@@ -12,7 +12,7 @@ const RECENT_MAX = 6;
 function recentIcons(): ProcedureIcon[] {
   try {
     const stored = JSON.parse(window.localStorage.getItem(RECENT_KEY) ?? '[]') as unknown;
-    return Array.isArray(stored) ? stored.filter((icon): icon is ProcedureIcon => typeof icon === 'string' && icon in ICON_GLYPHS).slice(0, RECENT_MAX) : [];
+    return Array.isArray(stored) ? stored.filter(isIconKey).slice(0, RECENT_MAX) : [];
   } catch {
     return [];
   }
@@ -43,6 +43,7 @@ export function IconPicker(props: {
   const [browseAll, setBrowseAll] = useState(false);
   const [recent, setRecent] = useState<ProcedureIcon[]>([]);
   const [query, setQuery] = useState('');
+  const [category, setCategory] = useState<IconGroupKey | null>(null);
   const name = useId();
   const panelId = useId();
   const buttonRef = useRef<HTMLButtonElement>(null);
@@ -55,6 +56,7 @@ export function IconPicker(props: {
   const openPanel = () => {
     setRecent(recentIcons());
     setBrowseAll(false);
+    setCategory(null);
     setOpen(true);
   };
 
@@ -70,12 +72,10 @@ export function IconPicker(props: {
   };
 
   const current = props.value === null ? t('icon.none') : iconLabel(props.value);
-  const needle = query.trim().toLowerCase();
-  const matches = (icon: ProcedureIcon, group: string) =>
-    needle === '' || iconLabel(icon).toLowerCase().includes(needle) || icon.includes(needle) || group.toLowerCase().includes(needle);
-  const groups = ICON_GROUPS.map((group) => ({ ...group, icons: group.icons.filter((icon) => matches(icon, t(group.name))) })).filter(
-    (group) => group.icons.length > 0,
-  );
+  const needle = query.trim();
+  // Search and category narrow the full catalog; without either, the calm quick view is shown.
+  const filtering = needle !== '' || category !== null || browseAll;
+  const groups = searchIcons(needle, category);
 
   const suggested = [...SUGGESTED_ICONS, ...(props.value !== null && !SUGGESTED_ICONS.includes(props.value) && !recent.includes(props.value) ? [props.value] : [])];
   const quick = { suggested, recent: recent.filter((icon) => !suggested.includes(icon)) };
@@ -103,7 +103,7 @@ export function IconPicker(props: {
           onChange={() => choose(icon)}
         />
         <span className="icon-tile-glyph" aria-hidden="true">
-          {icon === null ? '∅' : ICON_GLYPHS[icon]}
+          {icon === null ? '∅' : <AppIcon name={icon} decorative />}
         </span>
         <span className="icon-tile-label">{label}</span>
       </label>
@@ -122,7 +122,7 @@ export function IconPicker(props: {
         onClick={() => (open ? close() : openPanel())}
       >
         <span className="icon-picker-glyph" aria-hidden="true">
-          {props.value === null ? '∅' : ICON_GLYPHS[props.value]}
+          {props.value === null ? '∅' : <AppIcon name={props.value} decorative />}
         </span>
         <span aria-hidden="true">
           {props.label}: {current}
@@ -140,11 +140,19 @@ export function IconPicker(props: {
               value={query}
               onChange={(e) => setQuery(e.target.value)}
             />
+            <select aria-label={t('iconPicker.category')} value={category ?? ''} onChange={(e) => setCategory(e.target.value === '' ? null : (e.target.value as IconGroupKey))}>
+              <option value="">{t('iconPicker.allCategories')}</option>
+              {ICON_GROUPS.map((group) => (
+                <option key={group.key} value={group.key}>
+                  {t(group.name)}
+                </option>
+              ))}
+            </select>
             <button type="button" className="quiet" onClick={close}>
               {t('iconPicker.close')}
             </button>
           </div>
-          {needle === '' && !browseAll ? (
+          {!filtering ? (
             <>
               {/* The quick view: suggestions, then recently used — the current icon is always among them. */}
               <fieldset className="icon-group">
@@ -161,15 +169,15 @@ export function IconPicker(props: {
                 </fieldset>
               )}
               <button type="button" className="quiet" onClick={() => setBrowseAll(true)}>
-                {t('iconPicker.browseAll', { count: ICON_GROUPS.reduce((sum, group) => sum + group.icons.length, 0) })}
+                {t('iconPicker.browseAll', { count: ICON_COUNT })}
               </button>
             </>
           ) : (
             <>
-              {props.allowNone && needle === '' && <div className="icon-grid">{tile(null)}</div>}
+              {props.allowNone && needle === '' && category === null && <div className="icon-grid">{tile(null)}</div>}
               {groups.length === 0 && <p className="muted">{t('iconPicker.noMatch')}</p>}
               {groups.map((group) => (
-                <fieldset key={group.name} className="icon-group">
+                <fieldset key={group.key} className="icon-group">
                   <legend>{t(group.name)}</legend>
                   <div className="icon-grid">{group.icons.map((icon) => tile(icon))}</div>
                 </fieldset>

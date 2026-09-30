@@ -82,6 +82,31 @@ describe('toProcedureDocument', () => {
   });
 });
 
+describe('icons in documents', () => {
+  it('exports and re-imports stable VMN icon keys, never artwork or library names', () => {
+    const document = toProcedureDocument({
+      procedure: { ...DETAIL.procedure, icon: 'freezer' },
+      sections: SECTIONS.map((section) => ({ ...section, steps: section.steps.map((step) => ({ ...step, icon: 'chimney' as const })) })),
+    });
+    const json = JSON.stringify(document);
+    expect(json).toContain('"icon":"freezer"');
+    expect(json).toContain('"icon":"chimney"');
+    expect(json).not.toMatch(/Icon[A-Z]|tabler|<svg/i);
+    const imported = parseProcedureDocument(JSON.parse(json));
+    expect(imported.icon).toBe('freezer');
+    expect(imported.sections[0]?.steps[0]?.icon).toBe('chimney');
+  });
+
+  it('passes an icon on only as a bounded string; key validation happens in the domain on create', () => {
+    const document = valid();
+    document.procedure.icon = { toString: 'x' };
+    expect(codeOf(document)).toBe('invalid_document');
+    const long = valid();
+    long.procedure.icon = 'x'.repeat(65);
+    expect(codeOf(long)).toBe('invalid_document');
+  });
+});
+
 describe('parseProcedureDocument', () => {
   it('round-trips an export without any ids', () => {
     const imported = parseProcedureDocument(valid());

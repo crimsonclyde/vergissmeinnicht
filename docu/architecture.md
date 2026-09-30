@@ -18,6 +18,9 @@ VergissMeinNicht is a **TypeScript modular monolith** deployed as one applicatio
 - semantic design-token based UI
 - English first, i18n-ready
 
+### Icons
+Procedures, Steps, Runs and exported files store **stable VMN icon keys** (`PROCEDURE_ICONS` in the domain, e.g. `freezer`, `power`), never artwork, markup or a library component name. Every icon column references the `procedure_icons` table (a new key = one `INSERT` migration; keys are never renamed or removed, because Run snapshots are immutable). The web app has one registry, `apps/web/src/procedure-icons.tsx`: key → artwork, picker category and English search aliases; it is the only module that imports icon artwork. Artwork comes from [Tabler Icons](https://tabler.io/icons) (`@tabler/icons-react`, MIT, individual named imports so only the used icons are bundled, in their own `icons` chunk); gas and chimney are drawn in the same style (`icon-art.tsx`) because Tabler has no fitting icon. `<AppIcon name>` renders a key with a shared size and stroke in `currentColor` (every theme colours it) and falls back to a neutral icon for any unknown value (own-property lookup only). Changing the icon library means changing the registry only — stored data stays the same.
+
 ### Web text and formatting
 User-facing text lives in `apps/web/src/i18n/en.ts` and is looked up with `t(key, params)`; dates are formatted only through `formatDateTime` / `formatTime` (lint-enforced). A translation is a new typed catalog, not a component change. Themes are token blocks selected by `<html data-theme>` (`apps/web/src/theme.ts`): light, dark, memento-mori. Theme and the critical-Step confirmation style (press and hold / tap then confirm) are account preferences (`GET/POST /api/account/preferences`, table `user_preferences`), loaded by `PreferencesProvider`; the browser keeps a copy of the theme for the first paint.
 

@@ -13,7 +13,7 @@ import { formatCalendarDate, formatDateTime, formatRelative, t } from './i18n/in
 import { KnotShare } from './Knots.tsx';
 import { MoreMenu, type MoreMenuItem } from './MoreMenu.tsx';
 import { StepMarks } from './StepMarks.tsx';
-import { Icon } from './procedure-icons.tsx';
+import { AppIcon } from './procedure-icons.tsx';
 import { downloadJson, exportFileName, readImportFile } from './procedure-files.ts';
 import { ProcedureForm } from './ProcedureForm.tsx';
 import { todayIn } from './schedule-dates.ts';
@@ -72,7 +72,7 @@ function ProcedureView({ detail }: { detail: ProcedureDetail }) {
     <>
       <div className="card stack">
         <h2 id="procedure-title" style={{ margin: 0 }}>
-          <Icon icon={detail.icon} /> {detail.title}
+          <AppIcon name={detail.icon} /> {detail.title}
         </h2>
         {/* Plain text: React escapes it; line breaks are preserved by CSS only. */}
         {detail.description !== '' && <p style={{ whiteSpace: 'pre-wrap', margin: 0 }}>{detail.description}</p>}
@@ -88,7 +88,7 @@ function ProcedureView({ detail }: { detail: ProcedureDetail }) {
               <li key={step.id} style={{ marginBottom: '0.5rem' }}>
                 {step.icon !== null && (
                   <>
-                    <Icon icon={step.icon} />{' '}
+                    <AppIcon name={step.icon} />{' '}
                   </>
                 )}
                 <strong>{step.title}</strong>
@@ -358,7 +358,7 @@ export function Procedures(props: {
             <ul aria-label={t('procedures.deletedHeading')}>
               {deleted.map((procedure) => (
                 <li key={procedure.id}>
-                  <Icon icon={procedure.icon} /> {procedure.title}
+                  <AppIcon name={procedure.icon} /> {procedure.title}
                   {t('procedures.deletedBy', { name: procedure.deletedBy, time: formatDateTime(procedure.deletedAt) })}{' '}
                   <button type="button" className="quiet" onClick={() => viewDeleted(procedure.id)}>
                     {t('procedures.viewDeleted', { title: procedure.title })}
@@ -430,7 +430,7 @@ export function Procedures(props: {
                 <li key={procedure.id} className="card procedure-card">
                   <div className="procedure-card-main">
                     <button type="button" className="link-like procedure-link" onClick={() => open(procedure.id)}>
-                      <Icon icon={procedure.icon} /> {procedure.title}
+                      <AppIcon name={procedure.icon} /> {procedure.title}
                     </button>
                     <CardFacts card={procedure} />
                   </div>

@@ -10,6 +10,7 @@
     "typecheck": "tsc -p ."
   },
   "dependencies": {
+    "@tabler/icons-react": "3.48.0",
     "@vergissmeinnicht/domain": "workspace:*",
     "qrcode-generator": "2.0.4",
     "react": "19.3.0",

@@ -116,4 +116,6 @@ Made with 🖤 by CrimsonClyde.
 
 VergissMeinNicht is free software: you can redistribute it and/or modify it under the terms of the [GNU Affero General Public License, version 3](LICENSE) (`AGPL-3.0-only`).
 
+Third-party software bundled into the web app — for example the icons from [Tabler Icons](https://tabler.io/icons) (MIT) — is listed with its license texts at `/third-party-notices.txt` of every running instance, generated from the actual build.
+
 If you run a modified version for others over a network, the AGPL requires you to offer them its source code. The app links to its source in the page footer; point `SOURCE_CODE_URL` at your repository (see [Deployment](docu/deployment.md)). If a server admin hides the footer, offer the source in another visible way.

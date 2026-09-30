@@ -986,12 +986,16 @@ caption {
   color: var(--text-muted);
 }
 
-/* Drawn icon artwork (icons without a fitting emoji): sized like the emoji next to it. */
-.icon-art {
-  display: inline-block;
-  width: 1.1em;
-  height: 1.1em;
+/* Procedure and Step icons (AppIcon): one outline style in the text colour, so every theme works. */
+.app-icon {
+  display: inline-flex;
   vertical-align: -0.2em;
+  line-height: 1;
+}
+
+.app-icon svg {
+  display: block;
+  flex-shrink: 0;
 }
 
 /* Icon picker (Procedures and Steps): a button with the current icon, a panel of grouped tiles. */
