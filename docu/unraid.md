@@ -37,7 +37,7 @@ ls -ln secrets    # must show 99 100 and -r-------- for every file
    (Without the terminal: the flash drive is also the network share `flash` — copy [`deploy/unraid/vergissmeinnicht.xml`](../deploy/unraid/vergissmeinnicht.xml) into `config/plugins/dockerMan/templates-user/` there and rename it to `my-VergissMeinNicht.xml`.)
 2. **Docker** tab → **Add Container** (button at the bottom) → **Template** drop-down → under *User templates* choose **VergissMeinNicht**. The form fills itself from the template.
 3. Fill in:
-   - **Repository:** `ghcr.io/crimsonclyde/vergissmeinnicht:0.2.0-beta.1` (or a newer release — pin an exact version, not `latest`).
+   - **Repository:** `ghcr.io/crimsonclyde/vergissmeinnicht:0.2.0-beta.2` (or a newer release — pin an exact version, not `latest`).
    - **Use Tailscale:** *Yes*. **Tailscale Hostname:** `vergissmeinnicht`. **Tailscale Serve:** *Serve* (port `3000`, taken from the WebUI field). Leave *Funnel* off — that would publish the app on the internet.
    - **Tailscale State Directory** (Tailscale settings, if shown): `/data/.tailscale_state` — keeps the container's Tailscale identity across updates.
    - **Public address:** `https://vergissmeinnicht.<your-tailnet>.ts.net` — exactly the name Tailscale shows for the container.
@@ -89,6 +89,7 @@ Change the version in *Repository* and **Apply**. With *Migrate on start* the co
 - **`SMTP_USER and SMTP_PASSWORD … must be set together`:** either fill in *SMTP user* and *SMTP password file* (`/run/secrets/smtp_password`, with the password in `secrets/smtp_password`), or leave both empty.
 - **"Sign in" does nothing / is refused:** the address in the browser must be exactly the *Public address* (same host name, `https`).
 - **Page not reachable:** is the device in your tailnet, and does the Tailscale admin console list the `vergissmeinnicht` machine? Are HTTPS certificates enabled?
+- **"Send test message to my Telegram" is disabled / "your account is not connected to Telegram yet":** the bot token only sets up the bot for the server. Connect your own chat under *Profile & settings → Notifications → Connect Telegram* (press *Start* in Telegram, then confirm in VMN); the test goes to that chat.
 - **Telegram test fails / "could not be reached":** the container needs outgoing HTTPS to `api.telegram.org` (check firewall/VPN exit rules); remove a webhook set for the bot elsewhere.
 - **Invitation emails do not arrive:** check the SMTP settings and the container log; the admin page says "the email could not be sent" and offers *Send again*.
 

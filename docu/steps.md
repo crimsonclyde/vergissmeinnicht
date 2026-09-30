@@ -18,10 +18,10 @@ For every completed task, add a concise completion note, tests/checks performed,
 
 ## Current state — resume here
 
-_Last updated: 2026-09-29 (0.2.0-beta.1 released from `main`; section 13 — scheduling, reminders, Home)_
+_Last updated: 2026-09-30 (0.2.0-beta.2: chimney/gas icons, Telegram setup UX)_
 
-**Done:** 0.1, 0.2, 0.3, 1.1, 1.2, 2.1–2.5, 2.7–2.9, 3.1–3.3, 4.1–4.5, 5.1–5.7, 6.1, 6.2, 7.1, 8.0–8.11, 9.1, 10.1–10.5, 11.1, 12.1–12.6, 13.1–13.19. DEFERRED: 2.6 (external identity providers — a later step, user decision 2026-09-28).
-**Next:** try Telegram with a real bot (only faked in tests); beta feedback on Home/scheduling. Still open from before: GHCR package visibility, a session with a real screen reader, physical iOS/Android devices (incl. offline storage eviction), and automate GitHub Release creation in the release workflow (the 0.2.0-beta.1 pre-release was created manually after the workflow). Possible next providers: ntfy/Gotify or a webhook — the webhook needs the SSRF policy in security.md first.
+**Done:** 0.1, 0.2, 0.3, 1.1, 1.2, 2.1–2.5, 2.7–2.9, 3.1–3.3, 4.1–4.5, 5.1–5.7, 6.1, 6.2, 7.1, 8.0–8.11, 9.1, 10.1–10.5, 11.1, 12.1–12.8, 13.1–13.19. IN PROGRESS: 12.9 (release 0.2.0-beta.2). DEFERRED: 2.6 (external identity providers — a later step, user decision 2026-09-28).
+**Next:** more icons (ask the user which); beta feedback on Home/scheduling. Still open from before: GHCR package visibility, a session with a real screen reader, physical iOS/Android devices (incl. offline storage eviction), and automate GitHub Release creation in the release workflow (the 0.2.0-beta.1 pre-release was created manually after the workflow). Possible next providers: ntfy/Gotify or a webhook — the webhook needs the SSRF policy in security.md first.
 
 **Decisions 2026-09-29 (user):** MFA stays optional (also for admins; the beta runs behind a VPN) with the enforcement seam kept; VMN's main flow is *Procedure → optionally schedule → reminders → Start → execute → history* — no task manager, calendar or workflow engine; Home is the Workspace landing page; email and Telegram reminders; Recent limit admin-configurable. **Made while implementing (documented in 13.x):** name *ScheduledProcedure*; reminders go to the person who scheduled; pairing needs a confirmation in VMN; polling instead of a webhook; Recent limit 0–20 (0 hides).
 
@@ -1683,6 +1683,50 @@ The first PR CI run exposed that the new offline common-password dataset and pro
 **Remaining:** The workflow does not currently create a GitHub Release despite earlier ledger wording; this pre-release was created manually after the successful workflow and automated creation remains a follow-up. GHCR package visibility still needs an owner-side check if public pulls fail.
 
 **Upgrade note for operators:** migration 0020 (new tables, one added column); `migrate` backs up first (or `VMN_MIGRATE_ON_START=true` on Unraid). Telegram is optional and configured in the app; the server then needs outgoing HTTPS to `api.telegram.org`.
+
+### 12.7 Chimney icon and a gas icon that is not fire (0.2.0-beta.2)
+**Status:** DONE
+**Completed:** 2026-09-30
+
+**Request (user, 2026-09-29):** "We need def more icons!" — at least a **chimney**, and **gas** must not use a fire glyph.
+
+**Implemented:** new trusted key `chimney` (domain `PROCEDURE_ICONS`, label, *Utilities* group next to heating); migration `0021_chimney_icon` = one `INSERT` into `procedure_icons` (no rebuild, as planned in 12.5). Neither a chimney nor natural gas has a fitting emoji, so both are drawn as small static inline SVGs in the emoji style (`GasArt` — a gas bottle; `ChimneyArt` — a roof with a smoking brick chimney), compiled into the bundle, `aria-hidden` (the label stays the accessible name); `ICON_GLYPHS` now holds `ReactNode`s. Existing Procedures/Runs with `gas` keep their key and simply show the new artwork.
+
+**Tests/checks:** new `packages/database/src/procedure-icons.test.ts` (after all migrations the table holds exactly `PROCEDURE_ICONS` — a key without its migration fails); existing icon catalog test (artwork, name, one group); migration-0019 test; visual check light/dark.
+
+**Security impact:** LOW — one more trusted key via migration; artwork is static code, never data.
+
+**Security docs updated:** YES (§5 icons checklist line).
+
+**Remaining:** ask the user which further icons they want.
+
+### 12.8 Telegram setup UX: bot for the server, chat per person (0.2.0-beta.2)
+**Status:** DONE
+**Completed:** 2026-09-30
+
+**Request (user, 2026-09-30):** the real-bot pairing works (tested by the user), but the admin page made Telegram look finished after the token was saved; the per-person pairing and the fact that the admin test goes to the admin's own chat were not obvious. UI and help only; architecture unchanged.
+
+**Implemented (web only, no backend change):**
+- *Server admin → Notification providers → Telegram* (`TelegramProvider`): scope text ("Configure the Telegram bot used by this VergissMeinNicht instance … each user must connect their own Telegram account …; this page does not choose a destination chat"); field **Bot token** with BotFather/encrypted-storage hint (+ "leave empty to keep" once configured); "✓ Bot connected: @bot — enabled/switched off"; when enabled and the admin has no chat, a **Next step** callout with **Go to my notification settings** (`/account#notifications`, scrolls there); the test is **Send test message to my Telegram**, disabled with an explanation while the admin's own chat is not connected (read from the admin's own `GET /api/account/notifications`, label only; if that read fails the button stays usable and the server decides); a `not_connected` answer shows the explicit "bot configured successfully, but your account is not connected …" message.
+- *Profile & settings → Notifications* (`TelegramConnection`): stages unavailable / ready / waiting / claimed / connected (`telegramStage`), a numbered step list (Connect → Open Telegram and press Start → Come back and confirm → Connected) with the current step marked by text/glyph and `aria-current="step"`, "Waiting for Telegram…", confirm/Not me, connected with the safe label; Disconnect; server admins also get *Send test message to my Telegram* there. No chat-id field anywhere.
+- Docs: `deployment.md` (two stages, admin steps, user steps, global token vs. per-person destination, no chat id), `user-guide.md`, `unraid.md` (troubleshooting), `architecture.md`, `security.md`.
+- Fixed on the way: the token hint rendered inline next to the input.
+
+**Tests/checks:** new `apps/web/src/telegram-setup.test.tsx` (13, server-rendered): bot not configured, configured + admin not paired, configured + admin paired, own state unknown, switched off, `not_connected` message; account: unavailable, ready, pairing pending (link only once), claimed not confirmed, confirmed, disconnected, paused — each asserts no chat-id input and no token/pairing token/chat id in the output. e2e updated (new wording, no test button without a bot, axe). `pnpm lint`, `pnpm typecheck`, `pnpm test` (711), `pnpm build`, `pnpm test:e2e`; screenshots light/dark.
+
+**Security impact:** LOW — presentation only; the admin page additionally reads the admin's *own* notification settings (existing endpoint, own data). Nothing new is exposed: no token, raw chat id or pairing token reaches the UI beyond what 13.7/13.8 already returned (bot name, chat label, the one-time link right after *Connect*).
+
+**Security docs updated:** YES (Telegram security check: UI negative tests).
+
+**Remaining:** ordinary users have no own "send test message" (the confirmation message in Telegram serves as proof; a per-user test would need a new rate-limited endpoint).
+
+### 12.9 Release 0.2.0-beta.2
+**Status:** IN PROGRESS
+**Started:** 2026-09-30
+
+**Request (user, 2026-09-30):** commit, push and release 12.7 and 12.8. Version chosen by the agent: **0.2.0-beta.2** (small migration 0021 + UX fixes). Unraid template and guide point to `ghcr.io/crimsonclyde/vergissmeinnicht:0.2.0-beta.2`.
+
+**Upgrade note for operators:** migration 0021 (one row); `migrate` backs up first (or `VMN_MIGRATE_ON_START=true` on Unraid).
 
 ---
 
