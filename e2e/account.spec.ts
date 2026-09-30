@@ -135,12 +135,12 @@ test('first server admin: bootstrap link, account creation, sign-in, Workspace c
   await page.getByRole('button', { name: 'Icon: Checklist — change' }).click();
   // Aliases: "fridge" also finds the freezer.
   await page.getByLabel('Search icons').fill('fridge');
-  await expect(page.getByRole('radio', { name: 'Fridge' })).toBeVisible();
-  await expect(page.getByRole('radio', { name: 'Freezer' })).toBeVisible();
+  await expect(page.getByRole('radio', { name: 'Fridge', exact: true })).toBeVisible();
+  await expect(page.getByRole('radio', { name: 'Freezer', exact: true })).toBeVisible();
   await page.getByLabel('Search icons').fill('trav');
   // Matches icon names and group names ("Outdoors & travel"); everything else is filtered out.
-  await expect(page.getByRole('radio', { name: 'Travel' })).toBeVisible();
-  await expect(page.getByRole('radio', { name: 'Power' })).toHaveCount(0);
+  await expect(page.getByRole('radio', { name: 'Travel', exact: true })).toBeVisible();
+  await expect(page.getByRole('radio', { name: 'Power', exact: true })).toHaveCount(0);
   await page.getByTitle('Travel', { exact: true }).click();
   await expect(page.getByRole('button', { name: 'Icon: Travel — change' })).toBeFocused();
   await expect(page.getByLabel('Search icons')).toHaveCount(0);
@@ -165,13 +165,13 @@ test('first server admin: bootstrap link, account creation, sign-in, Workspace c
   await expectAccessible(page, 'icon picker');
   // Categories narrow the catalog.
   await page.getByLabel('Category').selectOption({ label: 'Kitchen' });
-  await expect(page.getByRole('radio', { name: 'Freezer' })).toBeVisible();
-  await expect(page.getByRole('radio', { name: 'Power' })).toHaveCount(0);
+  await expect(page.getByRole('radio', { name: 'Freezer', exact: true })).toBeVisible();
+  await expect(page.getByRole('radio', { name: 'Power', exact: true })).toHaveCount(0);
   await page.getByLabel('Category').selectOption({ label: 'Utilities' });
-  await page.getByRole('radio', { name: 'Power' }).focus();
+  await page.getByRole('radio', { name: 'Power', exact: true }).focus();
   await page.keyboard.press('Space');
   await page.keyboard.press('ArrowRight');
-  await expect(page.getByRole('radio', { name: 'Water' })).toBeChecked();
+  await expect(page.getByRole('radio', { name: 'Water', exact: true })).toBeChecked();
   await page.keyboard.press('Enter');
   await expect(page.getByRole('button', { name: 'Step 1.2 icon: Water — change' })).toBeFocused();
   await expect(page.getByRole('button', { name: 'Create Procedure' })).toBeVisible();

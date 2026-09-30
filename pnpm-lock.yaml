@@ -267,6 +267,9 @@ importers:
         specifier: 19.3.0
         version: 19.3.0(react@19.3.0)
     devDependencies:
+      '@tabler/icons':
+        specifier: 3.48.0
+        version: 3.48.0
       '@types/react':
         specifier: 19.3.0
         version: 19.3.0

@@ -1,0 +1,153 @@
+{
+  "$comment": "Tabler icons offered in the picker in addition to the hand-written entries of src/procedure-icons.tsx. Entry: \"tabler-name\" or \"tabler-name[>vmn-key]|Label|extra search words\" (label and words optional; the key defaults to the Tabler name). Keys are stored in data and must never change or disappear. Run `pnpm --filter @vergissmeinnicht/web icons:generate` after editing; then add an INSERT migration for new keys.",
+  "$ignoreTags": {
+    "$comment": "Tabler tags that mislead the search for an icon (key → words to drop).",
+    "rain": "online storage server sync dry",
+    "storm": "online storage server sync",
+    "snow": "online storage server sync",
+    "cloudy": "online storage server sync",
+    "cloud-fog": "online storage server sync",
+    "night": "dark mode",
+    "moon-stars": "dark mode favorite rating",
+    "sausage": "dog"
+  },
+  "tasks": [
+    "calendar-check|Date confirmed", "calendar-event|Event", "calendar-week|Week", "calendar-month|Month", "calendar-due|Due date|deadline",
+    "calendar-time|Appointment", "calendar-repeat|Recurring date|recurring repeat", "calendar-clock|Date and time", "stopwatch|Stopwatch|timer",
+    "alarm-snooze|Snooze", "bell|Bell|notification doorbell", "checkbox|Checkbox", "square-check|Checked", "circle-check|Done|complete finished",
+    "checks|All done", "list-numbers|Numbered list|steps order", "list-details|Details", "history|History|past log", "pinned|Pinned|pin",
+    "bookmark|Bookmark"
+  ],
+  "home": [
+    "armchair|Armchair|chair seat", "bed-flat|Guest bed|bed", "lamp-2|Desk lamp|light", "stairs-up|Upstairs", "stairs-down|Downstairs|basement cellar",
+    "elevator|Lift|elevator", "home-2|House", "home-eco|Eco home|energy saving", "building-cottage|Cottage|holiday home cabin",
+    "building-estate|Estate", "building-community|Neighbourhood|neighbors community", "car-garage|Garage", "door-hanger|Do not disturb|door sign hotel",
+    "desk|Desk|home office", "chair-director|Chair"
+  ],
+  "access": [
+    "door-enter|Coming home|enter arrive", "lock-open|Unlocked|open", "lock-access|Access control", "lock-password|Code lock|keypad pin",
+    "car-door|Car door", "bell-ringing-2>doorbell|Doorbell|door bell ring"
+  ],
+  "utilities": [
+    "plug|Plug|electricity power cable", "plug-connected|Plugged in|charging cable", "outlet|Socket|outlet power plug electricity wall socket",
+    "battery-charging|Charging|charger", "sun-electricity|Solar power|solar energy", "wind-electricity|Wind power|wind turbine energy",
+    "windmill|Windmill", "droplets|Water drops|leak humidity drip", "droplet-half|Humidity|moisture damp",
+    "temperature-celsius|Temperature (°C)|thermostat", "meter-cube|Water meter|cubic metre consumption reading", "propeller|Propeller|fan blade air",
+    "power>power-button|Power button|on off switch standby"
+  ],
+  "kitchen": [
+    "tools-kitchen|Cutlery", "bowl-spoon|Cereal|bowl breakfast", "cup|Cup", "mug|Mug|tea coffee", "teapot|Tea|teapot", "glass|Glass",
+    "whisk|Baking|whisk bake", "salt|Salt", "pepper|Pepper", "grill-fork|Grill fork|barbecue", "grill-spatula|Spatula|barbecue"
+  ],
+  "bathroom": [
+    "plunger|Plunger|toilet drain blocked clogged", "razor|Razor|shave", "razor-electric|Electric razor|shave",
+    "hand-sanitizer|Hand sanitizer|hand wash soap disinfect", "badge-wc|WC|toilet restroom loo"
+  ],
+  "cleaning": [
+    "wash|Hand wash|washing basin", "wash-dryclean|Dry cleaning", "wash-dry-hang|Line drying|clothesline drying", "ironing-steam|Steam iron",
+    "bleach|Bleach", "clothes-rack|Clothes rack|clothes horse", "hanger-2|Coat hanger", "bucket|Bucket", "sparkles|Sparkling clean|clean shine polish"
+  ],
+  "garden": [
+    "acorn|Acorn", "cactus|Cactus", "clover|Clover", "growth|Growth", "leaf-maple|Maple leaf|autumn", "plant-2|Plant", "trees|Trees|forest woods",
+    "twig|Twig|branch prune", "butterfly|Butterfly", "trowel|Trowel|planting", "shovel-pitchforks|Garden tools|pitchfork rake",
+    "picnic-table|Picnic table", "wheat|Grain|wheat harvest", "mushroom|Mushroom"
+  ],
+  "vehicles": [
+    "car-suv|SUV", "car-4wd|4×4|off-road", "car-crash|Accident|crash", "car-crane|Tow truck|towing breakdown", "tractor|Tractor", "forklift|Forklift",
+    "bulldozer|Bulldozer", "backhoe|Excavator|digger", "caravan|Caravan|trailer", "moped|Moped", "scooter-electric|E-scooter",
+    "bus-stop|Bus stop", "helicopter|Helicopter", "ferry|Ferry", "sailboat|Sailboat|sailing", "speedboat|Motorboat|boat",
+    "steering-wheel|Steering wheel|driving", "car-fan|Car ventilation|fan blower", "automatic-gearbox|Automatic gearbox",
+    "manual-gearbox|Manual gearbox", "battery-automotive|Car battery", "truck-loading|Loading|loading dock", "car-lifter|Car lift|garage service",
+    "wiper|Wipers|windscreen windshield", "road|Road", "road-sign|Road sign", "traffic-cone|Traffic cone|roadworks", "traffic-lights|Traffic lights",
+    "parking-meter|Parking meter"
+  ],
+  "travel": [
+    "plane-departure|Departure", "plane-arrival|Arrival", "building-airport|Airport", "backpack|Backpack|rucksack", "map-pin|Location pin|place",
+    "map-pins|Places", "map-route|Route map", "route|Route", "compass|Compass", "globe|Globe", "world-map|World map", "directions|Directions",
+    "navigation|Navigation", "current-location|Current location|gps", "campfire|Campfire", "anchor|Anchor|harbour", "building-lighthouse|Lighthouse",
+    "building-bridge|Bridge", "building-castle|Castle", "air-balloon|Hot-air balloon", "aerial-lift|Cable car|gondola"
+  ],
+  "safety": [
+    "fire-hydrant|Fire hydrant", "firetruck|Fire engine|fire brigade", "alert-octagon|Stop", "alert-circle|Attention", "emergency-bed|Stretcher",
+    "urgent|Urgent|siren alarm", "radioactive|Radioactive", "biohazard|Biohazard", "smoking-no|No smoking", "hand-stop|Stop sign|halt",
+    "barrier-block|Barrier|roadblock", "sos|SOS|emergency help"
+  ],
+  "security": [
+    "shield-check|Protected", "shield-half|Shield", "face-id|Face ID", "eye|Look|check inspect view watch", "home-shield|Home security",
+    "user-shield|Personal security", "spy|Privacy|incognito spy", "scan|Scan"
+  ],
+  "tools": [
+    "pick|Pickaxe", "ruler-measure|Tape measure|measure", "color-picker|Colour picker|color", "needle|Needle", "scissors|Scissors|cut",
+    "adjustments|Adjust|tune controls", "magnet|Magnet"
+  ],
+  "documents": [
+    "contract|Contract", "invoice|Invoice|bill", "license|Licence|license", "notebook|Notebook", "notes|Notes", "note|Note", "news|Newspaper|news",
+    "article|Article", "books|Books|library", "paperclip|Paperclip|attachment", "rubber-stamp|Stamp|official", "clipboard-list|Checklist board",
+    "folders|Folders", "id-badge|Name badge", "calculator|Calculator", "moneybag|Money bag", "coin-euro|Euro", "pig-money|Savings|piggy bank",
+    "building-bank|Bank", "report-money|Financial report|finances", "file-spreadsheet|Spreadsheet", "scale|Scales|weigh law justice",
+    "percentage|Percent|discount interest"
+  ],
+  "shopping": [
+    "building-store|Shop|store", "cash-register|Till|cash register checkout", "gift-card|Gift card|voucher", "truck-delivery|Delivery van",
+    "truck-return|Return|returns send back", "discount|Discount|sale", "tags|Tags", "barcode|Barcode", "coin|Coin", "coins|Coins|change"
+  ],
+  "food": [
+    "avocado|Avocado", "banana|Banana", "cherry|Cherries", "grape|Grapes", "lemon|Lemon", "melon|Melon", "salad|Salad", "egg-fried|Fried egg",
+    "baguette|Baguette", "cheese|Cheese", "meat|Meat", "sausage|Sausage", "burger|Burger", "soup|Soup", "dumpling|Dumpling", "ice-cream|Ice cream",
+    "cake|Cake|birthday", "cake-roll|Swiss roll", "cookie|Cookie|biscuit", "candy|Sweets|candy", "chocolate|Chocolate", "bubble-tea|Bubble tea",
+    "milkshake|Milkshake", "glass-cocktail|Cocktail", "glass-champagne|Champagne|celebrate", "bottle|Bottle", "lollipop|Lollipop",
+    "bowl-chopsticks|Noodles|asian", "nut|Nuts"
+  ],
+  "animals": [
+    "deer|Deer", "pig|Pig", "spider|Spider", "feather|Bird|bird feather", "fish-bone|Fish bone", "horseshoe|Horseshoe", "bone|Bone|dog treat"
+  ],
+  "tech": [
+    "device-watch|Smartwatch", "device-speaker|Speaker", "device-landline-phone|Landline phone", "device-computer-camera|Webcam",
+    "device-tv-old|Old TV", "device-sd-card|SD card", "device-usb|USB stick", "device-remote|Remote control", "keyboard|Keyboard", "mouse|Mouse",
+    "cpu|Processor|cpu", "cloud-download|Cloud download", "download|Download", "upload|Upload", "access-point|Access point",
+    "antenna|Antenna|aerial", "bluetooth|Bluetooth", "usb|USB", "robot|Robot", "code|Code", "terminal|Terminal|console",
+    "microphone|Microphone", "radio|Radio", "video|Video", "photo|Photo|picture", "movie|Film|movie", "device-sim|SIM card"
+  ],
+  "communication": [
+    "phone-call|Phone call", "phone-ringing|Ringing phone", "message-circle|Chat", "messages|Conversation", "inbox|Inbox", "send|Send",
+    "at|Email address", "address-book|Contacts", "broadcast|Broadcast", "mail-opened|Opened mail"
+  ],
+  "people": [
+    "user|Person", "users-group|Group", "woman|Woman", "man|Man", "old|Elderly|senior grandparent", "mood-kid|Child|kid",
+    "heart-handshake|Care|volunteer help support", "chalkboard|Teaching|teacher lesson", "ballpen|Pen|write", "pencil|Pencil|write"
+  ],
+  "health": [
+    "activity|Activity", "bandage|Plaster|bandage band-aid", "brain|Brain", "crutches|Crutches", "dna|DNA", "ear|Hearing|ear",
+    "eyeglass|Glasses|eyes optician", "heart-rate-monitor|Heart rate", "lungs|Lungs|breathing", "massage|Massage", "medicine-syrup|Syrup",
+    "microscope|Lab test|laboratory", "nurse|Nurse|care", "pills|Pills", "prescription|Prescription", "report-medical|Medical report",
+    "virus|Virus|flu cold infection", "disabled|Disability", "cane|Walking stick|cane", "zzz|Sleep|nap"
+  ],
+  "weather": [
+    "cloud>cloudy|Cloudy|cloud", "cloud-fog|Fog", "flood|Flood", "moon-stars|Starry night", "rainbow|Rainbow", "snowman|Snowman",
+    "storm>hurricane|Hurricane|cyclone typhoon", "sunrise|Sunrise|morning", "sunset|Sunset|evening", "temperature-sun|Heat|hot summer", "temperature-snow|Frost|freezing cold",
+    "tornado|Tornado", "uv-index|UV index|sunscreen"
+  ],
+  "storage": [
+    "stack-2|Stack", "container|Container", "packages|Packages|parcels"
+  ],
+  "misc": [
+    "confetti|Celebration|party", "piano|Piano", "palette|Palette|art", "crown|Crown", "diamond|Diamond|jewellery", "medal|Medal",
+    "masks-theater|Theatre", "pumpkin-scary|Halloween", "christmas-ball|Christmas bauble"
+  ],
+  "sport": [
+    "ball-football|Football|soccer", "ball-basketball|Basketball", "ball-tennis|Tennis", "ball-volleyball|Volleyball", "ball-baseball|Baseball",
+    "ball-american-football|American football", "ball-bowling|Bowling", "dumbbell|Dumbbells", "swimming|Swimming", "walk|Walking",
+    "stretching|Stretching", "yoga|Yoga", "karate|Martial arts", "ping-pong|Table tennis", "golf|Golf", "ice-skating|Ice skating", "kayak|Kayak",
+    "fish-hook|Fishing", "trekking|Hiking|trekking", "jump-rope|Skipping rope", "chess|Chess", "dice|Board games|dice", "play-card|Playing cards",
+    "ski-jumping|Skiing", "snowboarding|Snowboarding", "scuba-mask|Diving|snorkel", "treadmill|Treadmill", "skateboard|Skateboard",
+    "device-gamepad-2|Video games|gaming console"
+  ],
+  "places": [
+    "building-church|Church", "building-mosque|Mosque", "building-factory|Factory", "building-skyscraper|Skyscraper", "building-stadium|Stadium",
+    "building-monument|Monument", "building-tunnel|Tunnel", "fountain|Fountain", "grave|Cemetery|grave", "building-carousel|Fair|carousel funfair"
+  ],
+  "clothing": [
+    "shirt|T-shirt|clothes", "shirt-sport|Sports shirt", "jacket|Jacket|coat", "shoe|Shoes", "sock|Socks", "diaper|Nappy|diaper baby",
+    "perfume|Perfume", "tie|Tie", "sunglasses|Sunglasses", "flip-flops|Flip-flops|sandals"
+  ]
+}

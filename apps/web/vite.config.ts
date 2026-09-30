@@ -7,9 +7,11 @@ export default defineConfig({
   build: {
     rolldownOptions: {
       output: {
-        // The icon artwork (only the icons the registry imports) in its own chunk: it changes rarely,
-        // so browsers keep it cached across app updates.
-        codeSplitting: { groups: [{ name: 'icons', test: /[\\/]node_modules[\\/]@tabler[\\/]/ }] },
+        // The icon catalogue (Tabler artwork the registry imports, the generated labels and search words,
+        // the drawn icons) in its own chunk: it changes rarely, so browsers keep it cached across app updates.
+        codeSplitting: {
+          groups: [{ name: 'icons', test: /[\\/]node_modules[\\/]@tabler[\\/]|[\\/]src[\\/](icon-catalog\.generated\.ts|icon-art\.tsx)$/ }],
+        },
       },
     },
   },

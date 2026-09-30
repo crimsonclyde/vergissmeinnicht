@@ -71,7 +71,7 @@ export default tseslint.config(
   },
   {
     // Build tooling of the web app (runs in Node at build time, never shipped to the browser).
-    files: ['apps/web/vite.config.ts', 'apps/web/third-party-notices.ts', 'apps/web/src/third-party-notices.test.ts'],
+    files: ['apps/web/vite.config.ts', 'apps/web/third-party-notices.ts', 'apps/web/src/third-party-notices.test.ts', 'apps/web/icon-catalog.ts', 'apps/web/src/icon-catalog.test.ts'],
     languageOptions: { globals: { ...globals.node } },
     rules: { 'no-restricted-imports': 'off' },
   },

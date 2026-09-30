@@ -206,28 +206,59 @@ import {
   IconWorld,
 } from '@tabler/icons-react';
 import type { ProcedureIcon as VmnIconKey } from './api.ts';
-import { ChimneyArt, GasBottleArt, type IconArtProps } from './icon-art.tsx';
-import { t, type MessageKey } from './i18n/index.ts';
+import { CURATED_TABLER_TAGS, GENERATED_ICONS } from './icon-catalog.generated.ts';
+import {
+  BoilerArt,
+  ChimneyArt,
+  DishwasherArt,
+  FanArt,
+  FuseBoxArt,
+  GasBottleArt,
+  RadiatorArt,
+  ShowerArt,
+  ShutterArt,
+  SinkArt,
+  ValveArt,
+  type IconArtProps,
+} from './icon-art.tsx';
+import { hasMessage, t, type MessageKey } from './i18n/index.ts';
 
 /**
- * The central icon registry (the only place that imports icon artwork). Procedures, Steps, Runs and
+ * The central icon registry (with the generated Tabler part, the only place that imports icon artwork). Procedures, Steps, Runs and
  * exported files store stable VMN icon keys (`PROCEDURE_ICONS`, e.g. "freezer"), never artwork or a
  * library component name; this maps each key to its artwork (Tabler Icons, MIT — one outline style,
  * `currentColor`, so every theme colours it), its picker category and English search words.
- * Labels are messages (`icon.<key>`).
+ * Two parts: the hand-written entries below (labels are messages `icon.<key>`, also drawn artwork for
+ * household topics Tabler lacks) and several hundred Tabler icons generated from `icon-selection.json`
+ * and Tabler's metadata (`icon-catalog.generated.ts`, `pnpm --filter @vergissmeinnicht/web icons:generate`).
  */
 export type IconArt = ComponentType<IconArtProps>;
 
-export type IconGroupKey = 'tasks' | 'home' | 'access' | 'utilities' | 'kitchen' | 'bathroom' | 'cleaning' | 'garden' | 'vehicles' | 'travel' | 'safety' | 'security' | 'tools' | 'documents' | 'shopping' | 'food' | 'animals' | 'tech' | 'communication' | 'people' | 'health' | 'weather' | 'storage' | 'waste' | 'misc';
+export type IconGroupKey = 'sport' | 'clothing' | 'places' | 'tasks' | 'home' | 'access' | 'utilities' | 'kitchen' | 'bathroom' | 'cleaning' | 'garden' | 'vehicles' | 'travel' | 'safety' | 'security' | 'tools' | 'documents' | 'shopping' | 'food' | 'animals' | 'tech' | 'communication' | 'people' | 'health' | 'weather' | 'storage' | 'waste' | 'misc';
 
-interface IconEntry {
+interface CuratedIconEntry {
   readonly art: IconArt;
   readonly group: IconGroupKey;
   /** Extra search words (aliases), e.g. "plug electricity" for Power. */
   readonly keywords: string;
 }
 
-export const ICON_REGISTRY: Readonly<Record<VmnIconKey, IconEntry>> = {
+/** An entry of `icon-catalog.generated.ts`. */
+export interface GeneratedIconEntry {
+  readonly art: IconArt;
+  readonly group: IconGroupKey;
+  /** English label (a message `icon.<key>` overrides it). */
+  readonly label: string;
+  /** Search words chosen for VMN (strong). */
+  readonly aliases: string;
+  /** Tabler's tags (weaker search words). */
+  readonly tags: string;
+}
+
+type GeneratedKey = keyof typeof GENERATED_ICONS;
+
+// Keep one entry per line as `  key: { art: …,` — the generator reads these lines.
+const CURATED_ICONS: Readonly<Record<Exclude<VmnIconKey, GeneratedKey>, CuratedIconEntry>> = {
   // Tasks & time
   checklist: { art: IconChecklist, group: 'tasks', keywords: 'list todo tasks check routine' },
   list: { art: IconListCheck, group: 'tasks', keywords: 'tasks todo items' },
@@ -254,6 +285,7 @@ export const ICON_REGISTRY: Readonly<Record<VmnIconKey, IconEntry>> = {
   // Doors, windows & keys
   door: { art: IconDoor, group: 'access', keywords: 'entrance access front door' },
   'door-exit': { art: IconDoorExit, group: 'access', keywords: 'exit leave go out' },
+  shutter: { art: ShutterArt, group: 'access', keywords: 'roller shutter shutters blinds window' },
   window: { art: IconWindow, group: 'access', keywords: 'windows close open ventilate air' },
   key: { art: IconKey, group: 'access', keywords: 'key access lock' },
   // Utilities
@@ -262,6 +294,11 @@ export const ICON_REGISTRY: Readonly<Record<VmnIconKey, IconEntry>> = {
   gas: { art: GasBottleArt, group: 'utilities', keywords: 'gas supply cylinder bottle propane boiler valve' },
   heating: { art: IconFlame, group: 'utilities', keywords: 'heater radiator boiler warm fire thermostat furnace' },
   chimney: { art: ChimneyArt, group: 'utilities', keywords: 'fireplace stove soot sweep smoke fire' },
+  fan: { art: FanArt, group: 'utilities', keywords: 'fan ventilator ventilation lüfter air cooling blower' },
+  radiator: { art: RadiatorArt, group: 'utilities', keywords: 'heating heater radiator warm bleed' },
+  boiler: { art: BoilerArt, group: 'utilities', keywords: 'water heater hot water heating tank furnace' },
+  'fuse-box': { art: FuseBoxArt, group: 'utilities', keywords: 'fuse fuses breaker circuit electricity power consumer unit' },
+  valve: { art: ValveArt, group: 'utilities', keywords: 'stopcock shut-off main pipe plumbing water gas' },
   cooling: { art: IconAirConditioning, group: 'utilities', keywords: 'ac cooling cool fan climate' },
   lights: { art: IconBulb, group: 'utilities', keywords: 'light bulb lamp' },
   meter: { art: IconGauge, group: 'utilities', keywords: 'meter gauge counter reading' },
@@ -277,9 +314,12 @@ export const ICON_REGISTRY: Readonly<Record<VmnIconKey, IconEntry>> = {
   stove: { art: IconCooker, group: 'kitchen', keywords: 'cooker oven hob pot' },
   microwave: { art: IconMicrowave, group: 'kitchen', keywords: 'oven' },
   blender: { art: IconBlender, group: 'kitchen', keywords: 'mixer smoothie' },
+  dishwasher: { art: DishwasherArt, group: 'kitchen', keywords: 'dishwasher dishes washing up' },
   dishes: { art: IconBowl, group: 'kitchen', keywords: 'dishwasher washing up bowl plates' },
   grill: { art: IconGrill, group: 'kitchen', keywords: 'barbecue bbq' },
   // Bathroom
+  shower: { art: ShowerArt, group: 'bathroom', keywords: 'shower wash' },
+  sink: { art: SinkArt, group: 'bathroom', keywords: 'tap faucet basin washbasin sink plumbing' },
   bath: { art: IconBath, group: 'bathroom', keywords: 'bath bathtub shower' },
   'toilet-paper': { art: IconToiletPaper, group: 'bathroom', keywords: 'toilet wc loo restroom' },
   dental: { art: IconDental, group: 'bathroom', keywords: 'tooth toothbrush dentist dental' },
@@ -461,7 +501,31 @@ export const ICON_REGISTRY: Readonly<Record<VmnIconKey, IconEntry>> = {
 };
 
 /** Picker categories in display order. */
-export const ICON_GROUP_ORDER: readonly IconGroupKey[] = ['tasks', 'home', 'access', 'utilities', 'kitchen', 'bathroom', 'cleaning', 'garden', 'vehicles', 'travel', 'safety', 'security', 'tools', 'documents', 'shopping', 'food', 'animals', 'tech', 'communication', 'people', 'health', 'weather', 'storage', 'waste', 'misc'];
+export const ICON_GROUP_ORDER: readonly IconGroupKey[] = [
+  'tasks', 'home', 'access', 'utilities', 'kitchen', 'bathroom', 'cleaning', 'garden', 'vehicles', 'travel', 'safety', 'security', 'tools',
+  'documents', 'shopping', 'food', 'animals', 'tech', 'communication', 'people', 'health', 'sport', 'clothing', 'places', 'weather', 'storage',
+  'waste', 'misc',
+];
+
+interface IconEntry {
+  readonly art: IconArt;
+  readonly group: IconGroupKey;
+  /** English fallback label for generated entries; hand-written ones use messages. */
+  readonly label: string | null;
+  readonly aliases: string;
+  readonly tags: string;
+}
+
+/** Every trusted key → artwork, category and search words (hand-written first, then generated). */
+export const ICON_REGISTRY: Readonly<Record<VmnIconKey, IconEntry>> = {
+  ...(Object.fromEntries(
+    Object.entries(CURATED_ICONS).map(([key, entry]) => [
+      key,
+      { art: entry.art, group: entry.group, label: null, aliases: entry.keywords, tags: CURATED_TABLER_TAGS[key] ?? '' },
+    ]),
+  ) as Record<Exclude<VmnIconKey, GeneratedKey>, IconEntry>),
+  ...GENERATED_ICONS,
+};
 
 /** Categories with their icons in registry order; every icon is in exactly one. */
 export const ICON_GROUPS: readonly { readonly key: IconGroupKey; readonly name: MessageKey; readonly icons: readonly VmnIconKey[] }[] = ICON_GROUP_ORDER.map((key) => ({
@@ -480,34 +544,96 @@ export function isIconKey(value: unknown): value is VmnIconKey {
   return typeof value === 'string' && Object.hasOwn(ICON_REGISTRY, value);
 }
 
-export const iconLabel = (icon: VmnIconKey): string => t(`icon.${icon}`);
+export const iconLabel = (icon: VmnIconKey): string => {
+  const message = `icon.${icon}`;
+  return hasMessage(message) ? t(message) : (ICON_REGISTRY[icon].label ?? icon);
+};
 
-/** Lower-case words an icon is found by: its label, key, category and aliases. */
-function searchWords(icon: VmnIconKey): readonly string[] {
-  const entry = ICON_REGISTRY[icon];
-  return `${iconLabel(icon)} ${icon} ${t(`iconGroup.${entry.group}`)} ${entry.keywords}`
+const splitWords = (text: string): string[] =>
+  text
     .toLowerCase()
     .split(/[^\p{L}\p{N}]+/u)
     .filter((word) => word !== '');
+
+interface SearchWords {
+  /** The label shown in the picker. */
+  readonly label: readonly string[];
+  /** Key and VMN aliases. */
+  readonly strong: readonly string[];
+  readonly group: readonly string[];
+  /** Tabler's tags. */
+  readonly tags: readonly string[];
+}
+
+let searchIndex: Map<VmnIconKey, SearchWords> | null = null;
+
+function wordsOf(icon: VmnIconKey): SearchWords {
+  searchIndex ??= new Map();
+  let words = searchIndex.get(icon);
+  if (words === undefined) {
+    const entry = ICON_REGISTRY[icon];
+    words = {
+      label: splitWords(iconLabel(icon)),
+      strong: splitWords(`${icon} ${entry.aliases}`),
+      group: splitWords(t(`iconGroup.${entry.group}`)),
+      tags: splitWords(entry.tags),
+    };
+    searchIndex.set(icon, words);
+  }
+  return words;
 }
 
 /**
- * Icons matching a search (every typed word must start one of the icon's words — "plug" finds Power,
- * "bin" finds Trash), optionally within one category; grouped in display order. An empty query
- * returns the whole category (or everything).
+ * How well one typed word fits an icon (0 = not at all): its label, key and VMN aliases count most,
+ * then Tabler's tags, then the category name. Word starts count for names; for tags only from 4 letters
+ * ("fan" must not find "fantasy").
  */
+function scoreWord(needle: string, words: SearchWords): number {
+  const exact = (list: readonly string[]) => list.includes(needle);
+  const start = (list: readonly string[]) => list.some((word) => word.startsWith(needle));
+  if (exact(words.label) || exact(words.strong)) return 10;
+  if (start(words.label) || start(words.strong)) return 6;
+  if (exact(words.tags)) return 4;
+  if (exact(words.group)) return 3;
+  if (needle.length >= 4 && start(words.tags)) return 2;
+  if (start(words.group)) return 2;
+  return 0;
+}
+
+const ORDER = new Map((Object.keys(ICON_REGISTRY) as VmnIconKey[]).map((icon, index) => [icon, index]));
+
+/**
+ * Icons matching a search, best first: every typed word must fit (see `scoreWord`); optionally within
+ * one category. An empty query matches nothing (use `searchIcons` to browse).
+ */
+export function rankIcons(query: string, group: IconGroupKey | null = null): VmnIconKey[] {
+  const needles = splitWords(query);
+  if (needles.length === 0) return [];
+  const scored: { icon: VmnIconKey; score: number }[] = [];
+  for (const icon of Object.keys(ICON_REGISTRY) as VmnIconKey[]) {
+    if (group !== null && ICON_REGISTRY[icon].group !== group) continue;
+    const words = wordsOf(icon);
+    let score = 0;
+    for (const needle of needles) {
+      const one = scoreWord(needle, words);
+      if (one === 0) {
+        score = 0;
+        break;
+      }
+      score += one;
+    }
+    // Typing exactly an icon's name ("box") puts it before icons that only contain the word ("fuse box").
+    if (score > 0 && words.label.join(' ') === needles.join(' ')) score += 5;
+    if (score > 0) scored.push({ icon, score });
+  }
+  return scored.sort((a, b) => b.score - a.score || (ORDER.get(a.icon) ?? 0) - (ORDER.get(b.icon) ?? 0)).map((entry) => entry.icon);
+}
+
+/** Categories with their icons for browsing, optionally only one category; a query narrows them (like `rankIcons`). */
 export function searchIcons(query: string, group: IconGroupKey | null = null): typeof ICON_GROUPS {
-  const needles = query
-    .toLowerCase()
-    .split(/[^\p{L}\p{N}]+/u)
-    .filter((word) => word !== '');
-  const matches = (icon: VmnIconKey) => {
-    if (needles.length === 0) return true;
-    const words = searchWords(icon);
-    return needles.every((needle) => words.some((word) => word.startsWith(needle)));
-  };
+  const matching = splitWords(query).length === 0 ? null : new Set(rankIcons(query, group));
   return ICON_GROUPS.filter((entry) => group === null || entry.key === group)
-    .map((entry) => ({ ...entry, icons: entry.icons.filter(matches) }))
+    .map((entry) => ({ ...entry, icons: matching === null ? entry.icons : entry.icons.filter((icon) => matching.has(icon)) }))
     .filter((entry) => entry.icons.length > 0);
 }
 

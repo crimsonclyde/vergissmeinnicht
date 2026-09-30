@@ -1,4 +1,5 @@
 import { DomainValidationError } from './errors.ts';
+import { GENERATED_ICON_KEYS } from './procedure-icon-keys.generated.ts';
 import { CONTROL_CHARS, BIDI_CONTROLS, normalizeSingleLineName } from './text.ts';
 import { UUID_V4 } from './user.ts';
 import type { WorkspaceId } from './workspace.ts';
@@ -223,6 +224,17 @@ export const PROCEDURE_ICONS = [
   'party',
   'christmas',
   'candle',
+  // Drawn household icons and the generated Tabler selection (migration 0023).
+  'fan',
+  'radiator',
+  'boiler',
+  'fuse-box',
+  'valve',
+  'shower',
+  'sink',
+  'dishwasher',
+  'shutter',
+  ...GENERATED_ICON_KEYS,
 ] as const;
 export type ProcedureIcon = (typeof PROCEDURE_ICONS)[number];
 

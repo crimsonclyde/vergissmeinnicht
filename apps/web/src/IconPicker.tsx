@@ -1,7 +1,7 @@
 import { useEffect, useId, useRef, useState, type KeyboardEvent } from 'react';
 import type { ProcedureIcon } from './api.ts';
 import { t } from './i18n/index.ts';
-import { AppIcon, ICON_COUNT, ICON_GROUPS, iconLabel, isIconKey, searchIcons, type IconGroupKey } from './procedure-icons.tsx';
+import { AppIcon, ICON_COUNT, ICON_GROUPS, iconLabel, isIconKey, rankIcons, searchIcons, type IconGroupKey } from './procedure-icons.tsx';
 
 /** A few common icons shown first (13.16); everything else is one "Browse all" or a search away. */
 export const SUGGESTED_ICONS: readonly ProcedureIcon[] = ['checklist', 'home', 'shopping', 'cleaning', 'travel', 'power', 'security', 'work'];
@@ -28,8 +28,8 @@ function rememberIcon(icon: ProcedureIcon): void {
 
 /**
  * Icon choice for Procedures and Steps: a button showing the current icon opens a calm panel —
- * suggested and recently used icons, a search field, and "Browse all" for the complete catalog grouped
- * by topic (13.16). Each view shows every icon at most once, as one group of native radio buttons, so
+ * suggested and recently used icons, a search field (best matches first), a category filter, and
+ * "Browse all" for the complete catalog grouped by topic (13.16, 12.11, 12.13). Each view shows every icon at most once, as one group of native radio buttons, so
  * arrow keys and screen readers work as usual. A pointer choice closes the panel; with the keyboard,
  * arrows move the choice and Enter or Escape closes (Enter never submits the surrounding form).
  */
@@ -75,7 +75,9 @@ export function IconPicker(props: {
   const needle = query.trim();
   // Search and category narrow the full catalog; without either, the calm quick view is shown.
   const filtering = needle !== '' || category !== null || browseAll;
-  const groups = searchIcons(needle, category);
+  // A search lists the best matches first (one list); browsing shows the categories.
+  const results = needle === '' ? null : rankIcons(needle, category);
+  const groups = needle === '' ? searchIcons('', category) : [];
 
   const suggested = [...SUGGESTED_ICONS, ...(props.value !== null && !SUGGESTED_ICONS.includes(props.value) && !recent.includes(props.value) ? [props.value] : [])];
   const quick = { suggested, recent: recent.filter((icon) => !suggested.includes(icon)) };
@@ -175,7 +177,15 @@ export function IconPicker(props: {
           ) : (
             <>
               {props.allowNone && needle === '' && category === null && <div className="icon-grid">{tile(null)}</div>}
-              {groups.length === 0 && <p className="muted">{t('iconPicker.noMatch')}</p>}
+              {results !== null &&
+                (results.length === 0 ? (
+                  <p className="muted">{t('iconPicker.noMatch')}</p>
+                ) : (
+                  <fieldset className="icon-group">
+                    <legend>{t('iconPicker.results', { count: results.length })}</legend>
+                    <div className="icon-grid">{results.map((icon) => tile(icon))}</div>
+                  </fieldset>
+                ))}
               {groups.map((group) => (
                 <fieldset key={group.key} className="icon-group">
                   <legend>{t(group.name)}</legend>
