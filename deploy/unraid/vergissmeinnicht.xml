@@ -11,7 +11,7 @@
 -->
 <Container version="2">
   <Name>VergissMeinNicht</Name>
-  <Repository>ghcr.io/crimsonclyde/vergissmeinnicht:0.2.0-beta.3</Repository>
+  <Repository>ghcr.io/crimsonclyde/vergissmeinnicht:0.2.0-beta.4</Repository>
   <Registry>https://github.com/crimsonclyde/vergissmeinnicht/pkgs/container/vergissmeinnicht</Registry>
   <Network>bridge</Network>
   <MyIP/>

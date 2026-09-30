@@ -18,10 +18,10 @@ For every completed task, add a concise completion note, tests/checks performed,
 
 ## Current state — resume here
 
-_Last updated: 2026-09-30 (0.2.0-beta.3 released from `main`: Tabler icon set (12.11), Unraid PNG icon (12.10))_
+_Last updated: 2026-09-30 (releasing 0.2.0-beta.4: 594 icons, household icons, ranked search (12.13))_
 
-**Done:** 0.1, 0.2, 0.3, 1.1, 1.2, 2.1–2.5, 2.7–2.9, 3.1–3.3, 4.1–4.5, 5.1–5.7, 6.1, 6.2, 7.1, 8.0–8.11, 9.1, 10.1–10.5, 11.1, 12.1–12.12, 13.1–13.19. DEFERRED: 2.6 (external identity providers — a later step, user decision 2026-09-28).
-**Next:** beta feedback on the Tabler icon set (12.11); beta feedback on Home/scheduling. Still open from before: GHCR package visibility, a session with a real screen reader, physical iOS/Android devices (incl. offline storage eviction), and automate GitHub Release creation in the release workflow (the 0.2.0-beta.1 pre-release was created manually after the workflow). Possible next providers: ntfy/Gotify or a webhook — the webhook needs the SSRF policy in security.md first.
+**Done:** 0.1, 0.2, 0.3, 1.1, 1.2, 2.1–2.5, 2.7–2.9, 3.1–3.3, 4.1–4.5, 5.1–5.7, 6.1, 6.2, 7.1, 8.0–8.11, 9.1, 10.1–10.5, 11.1, 12.1–12.13, 13.1–13.19. IN PROGRESS: 12.14 (release 0.2.0-beta.4). DEFERRED: 2.6 (external identity providers — a later step, user decision 2026-09-28).
+**Next:** beta feedback on the icon catalogue (12.11, 12.13); beta feedback on Home/scheduling. Still open from before: GHCR package visibility, a session with a real screen reader, physical iOS/Android devices (incl. offline storage eviction), and automate GitHub Release creation in the release workflow (the 0.2.0-beta.1 pre-release was created manually after the workflow). Possible next providers: ntfy/Gotify or a webhook — the webhook needs the SSRF policy in security.md first.
 
 **Decisions 2026-09-29 (user):** MFA stays optional (also for admins; the beta runs behind a VPN) with the enforcement seam kept; VMN's main flow is *Procedure → optionally schedule → reminders → Start → execute → history* — no task manager, calendar or workflow engine; Home is the Workspace landing page; email and Telegram reminders; Recent limit admin-configurable. **Made while implementing (documented in 13.x):** name *ScheduledProcedure*; reminders go to the person who scheduled; pairing needs a confirmation in VMN; polling instead of a webhook; Recent limit 0–20 (0 hides).
 
@@ -1789,6 +1789,37 @@ The first PR CI run exposed that the new offline common-password dataset and pro
 **Remaining:** automated GitHub Release creation in the workflow is still open.
 
 **Upgrade note for operators:** migration 0022 (144 rows in `procedure_icons`); `migrate` backs up first (or `VMN_MIGRATE_ON_START=true` on Unraid). Existing icons keep their keys and show the new artwork.
+
+### 12.13 Hundreds of icons from Tabler metadata, household icons, ranked search
+**Status:** DONE
+**Completed:** 2026-09-30
+
+**Request (user, 2026-09-30):** the 205-icon registry is too small (searching *fan* only found Air conditioning). Expose hundreds of useful Tabler icons (not all 5000+), add a fan (`IconFan`, id `fan`, aliases fan/ventilator/ventilation/lüfter/air), dedicated icons for common household concepts, search that finds real-world words naturally; prefer generating the catalogue from Tabler metadata; keep stored ids stable.
+
+**Found:** Tabler 3.48.0 (the latest release) has **no `IconFan`** and no icon for radiator, heater/boiler, dishwasher, sink/tap, shower, roller shutter, valve or fuse box. Its fan-like icons are `propeller` and `car-fan` (both now offered). A purely rule-based selection from the metadata picked up too much noise (`http-get`, `rewind-backward-10`, circuit symbols, laundry-care codes), so the selection is hand-picked and everything else comes from the metadata.
+
+**Implemented:**
+- Generator `apps/web/icon-catalog.ts` (`icons:generate`, `icons:check`) + hand-picked `apps/web/icon-selection.json` (entries `tabler-name[>vmn-key]|Label|search words`, `$ignoreTags`) → `src/icon-catalog.generated.ts` (artwork imports, English labels, aliases, Tabler tags; Tabler tags for the hand-written entries too) and `packages/domain/src/procedure-icon-keys.generated.ts` (append-only). Refuses unknown/non-outline names, clashing keys (`storm` → `hurricane`), reused artwork, bad key formats, dropped keys. `@tabler/icons@3.48.0` (metadata, same MIT package the React one depends on) as an exact-pinned dev dependency.
+- Nine drawn household icons in Tabler's style: **fan** (with the requested aliases), radiator, boiler, fuse box, valve, shower, sink, dishwasher, roller shutter.
+- **594 icons** (205 existing unchanged + 9 drawn + 380 generated) in 28 categories (new: Sport & leisure, Clothing, Buildings & places); migration `0023_tabler_icon_catalogue` inserts the 389 new keys.
+- Ranked search (`rankIcons`): label/key/VMN aliases 10 (word start 6), Tabler tag 4 (word start only from 4 letters: *fan* does not find *fantasy*), category 3/2, +5 when the query is the whole label; the picker shows search results as one list, best first ("12 matching icons"); browsing stays grouped. Generated labels are English (messages `icon.<key>` override them).
+- `icons` chunk now also holds the generated catalogue and drawn art (main 441 kB, icons 265 kB / 69 kB gzip; no size warning).
+
+**Tests/checks:** `apps/web/src/procedure-icons.test.tsx` — every word of the request (fan … travel, incl. *lüfter*, *washing machine*, *fire extinguisher*, *first aid*) has a dedicated icon among the first three results; *fan* first is Fan and never Dragon; *box* first is Box; aliases; categories; 500–1000 icons; unique labels; generated files current. `apps/web/src/icon-catalog.test.ts` — generator output, `$ignoreTags`, and every refusal incl. dropped keys. Existing: table = key list after all migrations, fallback/malicious values, import/export, 61 original keys. e2e (exact radio names now: *Power* also appears in *Solar power*). `pnpm lint`, `pnpm typecheck`, `pnpm test`, `pnpm build`, `pnpm test:e2e`, `drizzle-kit generate` (no drift); screenshots of the drawn icons and search results light/dark.
+
+**Security impact:** LOW — more trusted keys via migration; a build-time generator (never runs in the app or on user input); dev dependency from the same MIT publisher/version already in use.
+
+**Security docs updated:** YES (§5 icons line).
+
+**Remaining:** search words are English (plus *lüfter* for the fan); if a later Tabler release adds `IconFan`, the drawn fan can switch artwork without changing the stored key `fan`.
+
+### 12.14 Release 0.2.0-beta.4
+**Status:** IN PROGRESS
+**Started:** 2026-09-30
+
+**Request (user, 2026-09-30):** release 12.13. Version: **0.2.0-beta.4**. Unraid template and guide point to `ghcr.io/crimsonclyde/vergissmeinnicht:0.2.0-beta.4`.
+
+**Upgrade note for operators:** migration 0023 (389 rows in `procedure_icons`); `migrate` backs up first (or `VMN_MIGRATE_ON_START=true` on Unraid). Existing icons keep their keys.
 
 ---
 
