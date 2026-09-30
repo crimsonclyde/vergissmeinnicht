@@ -1736,6 +1736,20 @@ The first PR CI run exposed that the new offline common-password dataset and pro
 
 **Upgrade note for operators:** migration 0021 (one row); `migrate` backs up first (or `VMN_MIGRATE_ON_START=true` on Unraid).
 
+### 12.10 Unraid Docker icon
+**Status:** DONE
+**Completed:** 2026-09-30
+
+**Found (user, 2026-09-30):** Unraid showed the generic Docker icon. The template's `<Icon>` pointed to `apps/web/public/icon.svg`; Unraid caches the icon as a PNG and does not display SVGs reliably.
+
+**Implemented:** `assets/brand/vergissmeinnicht-icon.png` (512×512, rendered from the app icon SVG with `rsvg-convert`); the template's `<Icon>` now points to its raw GitHub URL on `main` (no image release needed); `unraid.md` troubleshooting explains how to update an existing container's Icon URL and clear Unraid's cached icon.
+
+**Tests/checks:** PNG inspected (512×512 RGBA, correct artwork).
+
+**Security impact:** NONE (static public image; Unraid fetches it from GitHub, not from the app).
+
+**Security docs updated:** N/A.
+
 ---
 
 ## 13 — Remembering Procedures: scheduling, reminders, Home (accepted 2026-09-29)

@@ -23,7 +23,7 @@
   <Category>Productivity: Tools:</Category>
   <!-- Tells Unraid (and Tailscale Serve) which port the web app listens on inside the container. -->
   <WebUI>http://[IP]:[PORT:3000]/</WebUI>
-  <Icon>https://raw.githubusercontent.com/crimsonclyde/vergissmeinnicht/main/apps/web/public/icon.svg</Icon>
+  <Icon>https://raw.githubusercontent.com/crimsonclyde/vergissmeinnicht/main/assets/brand/vergissmeinnicht-icon.png</Icon>
   <ExtraParams>--init --user 0:0 --security-opt no-new-privileges:true</ExtraParams>
   <PostArgs/>
   <Config Name="Data" Target="/data" Default="/mnt/user/appdata/vergissmeinnicht/data" Mode="rw" Description="Database, its WAL files and backups. Sensitive: keep it private (0700, owned by 99:100)." Type="Path" Display="always" Required="true" Mask="false">/mnt/user/appdata/vergissmeinnicht/data</Config>

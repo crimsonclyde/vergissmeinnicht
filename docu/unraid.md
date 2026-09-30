@@ -91,6 +91,7 @@ Change the version in *Repository* and **Apply**. With *Migrate on start* the co
 - **Page not reachable:** is the device in your tailnet, and does the Tailscale admin console list the `vergissmeinnicht` machine? Are HTTPS certificates enabled?
 - **"Send test message to my Telegram" is disabled / "your account is not connected to Telegram yet":** the bot token only sets up the bot for the server. Connect your own chat under *Profile & settings → Notifications → Connect Telegram* (press *Start* in Telegram, then confirm in VMN); the test goes to that chat.
 - **Telegram test fails / "could not be reached":** the container needs outgoing HTTPS to `api.telegram.org` (check firewall/VPN exit rules); remove a webhook set for the bot elsewhere.
+- **The Docker tab shows the generic Docker icon:** Unraid only displays the icon if it can load it as a PNG. The template uses `assets/brand/vergissmeinnicht-icon.png` (earlier templates pointed to an SVG). For an existing container: *Edit* → switch to *Advanced View* → set **Icon URL** to `https://raw.githubusercontent.com/crimsonclyde/vergissmeinnicht/main/assets/brand/vergissmeinnicht-icon.png` → *Apply*. If the old icon still shows, delete Unraid's cached copy (`rm /var/lib/docker/unraid/images/VergissMeinNicht-icon.png` in the Unraid terminal) and reload the page.
 - **Invitation emails do not arrive:** check the SMTP settings and the container log; the admin page says "the email could not be sent" and offers *Send again*.
 
 ## Alternative: reverse proxy instead of Tailscale
