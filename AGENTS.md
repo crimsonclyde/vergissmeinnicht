@@ -52,6 +52,14 @@ The application must make it easy to:
 - preserve the actor and timestamp for important state changes;
 - preserve historical Runs independently of later Procedure edits or deletion.
 
+It is also an ADHD-friendly place to see what needs attention (accepted 2026-09-30, `docu/steps.md` section 14). A person must be able to answer at a glance:
+
+- What is due or overdue?
+- What is coming up?
+- Who is responsible?
+- How do I do this correctly?
+- Has this occurrence already been completed?
+
 Do not turn it into a generic project-management suite or an enterprise workflow engine.
 
 ## Security rules
@@ -122,6 +130,12 @@ Use these terms consistently:
 - RunStep
 - AuditEvent
 - Knot
+- Reminder — a standalone obligation without a Procedure (e.g. "pay the annual tax")
+- Schedule — a series that produces Occurrences of a Reminder or a Procedure (one-time, fixed calendar, or after completion)
+- Occurrence — one dated instance of a Schedule with its own status and history
+- Assignee — the optional responsible member of a Schedule or Occurrence; assignment grants no access
+
+A Schedule of a Procedure never creates Runs by itself: only an explicit Start does. Completing one Occurrence never completes another.
 
 ### Procedure vs Run
 
@@ -233,9 +247,10 @@ Do not add without an accepted requirement:
 
 - AI features;
 - chat;
-- calendars;
-- email notifications;
-- attachments/photos;
+- calendar features beyond the accepted calendar/agenda view of Occurrences (no external calendar sync, no drag-and-drop planning);
+- notification channels beyond the accepted email and Telegram reminders;
+- photos beyond the accepted instruction image per Procedure Step (`docu/steps.md` 14.3); completion photos, required photo evidence and annotations are not accepted yet (14.5);
+- other attachments;
 - geolocation;
 - QR/NFC;
 - complex branching workflows;
@@ -257,7 +272,11 @@ Examples:
 - TOTP-enabled account cannot bypass the TOTP challenge;
 - incomplete required Steps prevent Run completion;
 - Procedure deletion leaves historical Runs intact;
-- state transition and AuditEvent commit atomically.
+- state transition and AuditEvent commit atomically;
+- completing one Occurrence never completes another, and fixed recurrence never drifts;
+- reminders are delivered at most once per logical key across concurrent workers and restarts, and outage catch-up never floods;
+- assignment never grants access;
+- instruction images require Workspace authorisation.
 
 ## Documentation
 
