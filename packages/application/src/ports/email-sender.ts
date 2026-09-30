@@ -5,6 +5,11 @@ export interface EmailMessage {
   readonly to: NormalizedEmail;
   readonly subject: string;
   readonly text: string;
+  /**
+   * Optional stable `Message-ID` (`<local@host>`), e.g. derived from a reminder's logical key, so a
+   * repeated delivery after a crash is recognisable as the same message (14.1).
+   */
+  readonly messageId?: string | undefined;
 }
 
 export interface EmailSender {

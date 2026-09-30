@@ -18,6 +18,18 @@ export const AUDIT_EVENT_TYPES = [
   'SCHEDULE_CREATED',
   'SCHEDULE_CHANGED',
   'SCHEDULE_CANCELLED',
+  // Schedules and Occurrences (14.1): intentions, completion of Reminders and the link to Runs.
+  'SCHEDULE_PAUSED',
+  'SCHEDULE_RESUMED',
+  'SCHEDULE_ENDED',
+  'SCHEDULE_ASSIGNED',
+  'OCCURRENCE_COMPLETED',
+  'OCCURRENCE_REOPENED',
+  'OCCURRENCE_SKIPPED',
+  'OCCURRENCE_MOVED',
+  'OCCURRENCE_ASSIGNED',
+  'OCCURRENCE_RUN_LINKED',
+  'OCCURRENCE_RUN_UNLINKED',
 ] as const;
 export type AuditEventType = (typeof AUDIT_EVENT_TYPES)[number];
 
@@ -28,7 +40,7 @@ export interface AuditEvent {
   readonly occurredAt: Date;
   /** Internal id plus the display name at the time of the event. */
   readonly actor: { readonly userId: string; readonly displayName: string };
-  readonly subjectType: 'procedure' | 'run' | 'run_step' | 'knot' | 'schedule';
+  readonly subjectType: 'procedure' | 'run' | 'run_step' | 'knot' | 'schedule' | 'occurrence';
   readonly subjectId: string;
   readonly runId: string | null;
   readonly metadata: Readonly<Record<string, string | number | boolean | readonly string[]>>;

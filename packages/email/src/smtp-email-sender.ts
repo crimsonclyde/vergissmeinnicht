@@ -17,6 +17,8 @@ export interface SmtpOptions {
 
 const MAX_SUBJECT_LENGTH = 200;
 const LINE_BREAK = /[\r\n]/;
+/** A Message-ID we generate ourselves: angle brackets around a safe local part and host, nothing else. */
+const MESSAGE_ID = /^<[A-Za-z0-9._-]{1,120}@[A-Za-z0-9.-]{1,120}>$/;
 
 export function createSmtpEmailSender(options: SmtpOptions): EmailSender {
   const transport = createTransport({
@@ -48,12 +50,16 @@ export function createSmtpEmailSender(options: SmtpOptions): EmailSender {
       if (LINE_BREAK.test(message.subject) || message.subject.length > MAX_SUBJECT_LENGTH) {
         throw new EmailDeliveryError('invalid_subject');
       }
+      if (message.messageId !== undefined && !MESSAGE_ID.test(message.messageId)) {
+        throw new EmailDeliveryError('invalid_message_id');
+      }
       try {
         await transport.sendMail({
           from,
           to: { name: '', address: message.to },
           subject: message.subject,
           text: message.text,
+          ...(message.messageId === undefined ? {} : { messageId: message.messageId }),
           disableFileAccess: true,
           disableUrlAccess: true,
         });

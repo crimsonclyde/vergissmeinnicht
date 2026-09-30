@@ -548,7 +548,7 @@ test('first server admin: bootstrap link, account creation, sign-in, Workspace c
     await card.getByRole('button', { name: 'Schedule…' }).click();
     const dialog = page.getByRole('dialog', { name: 'Schedule “Leave the flat”' });
     await expect(dialog).toContainText('Nothing starts by itself');
-    await dialog.getByLabel('Date').fill(date);
+    await dialog.getByLabel('Date', { exact: true }).fill(date);
     if (reminders === 'custom') {
       await dialog.getByLabel('1 day before').check();
       await dialog.getByLabel('Custom reminder: how many').fill('3');
@@ -556,7 +556,7 @@ test('first server admin: bootstrap link, account creation, sign-in, Workspace c
       await expect(dialog).toContainText('3 hours before');
       await expectAccessible(page, 'schedule dialog');
     } else {
-      await dialog.getByLabel('On the day').uncheck();
+      await dialog.getByLabel('On the due date').uncheck();
     }
     await dialog.getByRole('button', { name: 'Schedule', exact: true }).click();
     await expect(dialog).toHaveCount(0);
@@ -567,32 +567,33 @@ test('first server admin: bootstrap link, account creation, sign-in, Workspace c
   await schedule(localDate(0), 'none');
   await expect(card).toContainText('Due today');
 
-  // Home (13.9, 13.11): Due with Start, Upcoming with its reminders, Pinned and Recent.
+  // Home (13.9, 14.2): Today with Start, Upcoming with its reminders, Pinned and Recent.
   await sections.getByRole('link', { name: 'Home' }).click();
-  const due = page.getByRole('list', { name: 'Due' });
+  const todayList = page.getByRole('list', { name: 'Today' });
   const upcoming = page.getByRole('list', { name: 'Upcoming' });
-  await expect(due.getByRole('listitem')).toHaveCount(1);
-  await expect(due).toContainText('Today');
+  await expect(todayList.getByRole('listitem')).toHaveCount(1);
+  await expect(todayList).toContainText('Today');
+  await expect(todayList).toContainText('Shared');
   await expect(upcoming.getByRole('listitem')).toHaveCount(1);
-  await expect(upcoming).toContainText('Reminders: 1 day before, 3 hours before, on the day');
+  await expect(upcoming).toContainText('Reminders: 1 day before, 3 hours before, on the due date');
   await expect(page.getByRole('list', { name: 'Pinned' })).toContainText('Leave the flat');
-  await expect(page.getByRole('list', { name: 'Recent' })).toContainText('Leave the flat');
+  await expect(page.getByRole('list', { name: 'Recent', exact: true })).toContainText('Leave the flat');
   await expect(page.getByRole('list', { name: 'Active' })).toHaveCount(0);
-  await expectAccessible(page, 'home with due and upcoming');
-  // Reschedule and cancel are under ⋯.
+  await expectAccessible(page, 'home with today and upcoming');
+  // Move one date and end a schedule under ⋯.
   await upcoming.getByRole('button', { name: 'More for Leave the flat' }).click();
-  await upcoming.getByRole('button', { name: 'Reschedule…' }).click();
-  const move = page.getByRole('dialog', { name: 'Reschedule “Leave the flat”' });
-  await move.getByLabel('Date').fill(localDate(9));
+  await upcoming.getByRole('button', { name: 'Move this date…' }).click();
+  const move = page.getByRole('dialog', { name: 'Move “Leave the flat”' });
+  await move.getByLabel('Date', { exact: true }).fill(localDate(9));
   await move.getByRole('button', { name: 'Save' }).click();
   await expect(move).toHaveCount(0);
   await expect(upcoming.getByRole('listitem')).toHaveCount(1);
   page.once('dialog', (dialog) => void dialog.accept());
   await upcoming.getByRole('button', { name: 'More for Leave the flat' }).click();
-  await upcoming.getByRole('button', { name: 'Cancel this schedule' }).click();
+  await upcoming.getByRole('button', { name: 'End schedule…' }).click();
   await expect(page.getByRole('list', { name: 'Upcoming' })).toHaveCount(0);
-  // Start what is due: a normal execution; afterwards it is no longer due, and it is active.
-  await due.getByRole('button', { name: 'Start Leave the flat' }).click();
+  // Start what is due today: a normal execution, linked to this date.
+  await todayList.getByRole('button', { name: 'Start Leave the flat' }).click();
   await expect(page).toHaveURL(/\/runs\/[0-9a-f-]{36}$/);
   await expect(run.getByRole('heading', { name: 'Travel Leave the flat', level: 2 })).toBeVisible();
   // Phone (13.17): the Steps come first; history and sharing are folded away.
@@ -600,15 +601,57 @@ test('first server admin: bootstrap link, account creation, sign-in, Workspace c
   expect(await noSidewaysScroll()).toBe(true);
   await expect(run.locator('details.run-more')).not.toHaveAttribute('open');
   await expect(run.getByRole('region', { name: 'Execution history' })).toBeHidden();
-  await expectAccessible(page, 'run view on a phone, started from Due');
+  await expectAccessible(page, 'run view on a phone, started from Today');
   await page.setViewportSize({ width: 1280, height: 720 });
   await page.getByRole('button', { name: '← Home' }).click();
-  await expect(page.getByRole('list', { name: 'Due' })).toHaveCount(0);
-  await expect(page.getByRole('list', { name: 'Active' }).getByRole('listitem')).toHaveCount(1);
-  await page.getByRole('list', { name: 'Active' }).getByRole('link', { name: 'Continue Leave the flat' }).click();
+  // The date shows its execution (Continue) instead of a second Start; Active does not repeat it.
+  await expect(page.getByRole('list', { name: 'Today' })).toContainText('In progress — started by Ada Admin');
+  await expect(page.getByRole('list', { name: 'Active' })).toHaveCount(0);
+  await page.getByRole('list', { name: 'Today' }).getByRole('link', { name: 'Continue Leave the flat' }).click();
   await run.getByRole('button', { name: 'Abort…' }).click();
   await run.getByRole('button', { name: 'Abort', exact: true }).click();
   await expect(run.getByRole('status').filter({ hasText: 'Aborted by Ada Admin' })).toBeVisible();
+  // Aborted: the date is open again (Start), nothing was completed.
+  await page.getByRole('button', { name: '← Home' }).click();
+  await expect(page.getByRole('list', { name: 'Today' }).getByRole('button', { name: 'Start Leave the flat' })).toBeVisible();
+
+  // A standalone Reminder (14.1, 14.2): repeating yearly, responsible person, Complete, who and Undo.
+  await page.getByRole('button', { name: 'New reminder' }).click();
+  const newReminder = page.getByRole('dialog', { name: 'New reminder' });
+  await newReminder.getByLabel('What').fill('Pay annual tax');
+  await newReminder.getByLabel('On fixed dates').check();
+  await newReminder.getByLabel('Unit', { exact: true }).selectOption({ label: 'years' });
+  await expect(newReminder).toContainText('Dates stay fixed, even when one is done late.');
+  await newReminder.getByLabel('First date').fill(localDate(0));
+  await newReminder.getByLabel('Responsible').selectOption({ label: 'Ada Admin' });
+  await newReminder.getByLabel('1 month before').check();
+  await expectAccessible(page, 'new reminder dialog');
+  await newReminder.getByRole('button', { name: 'Create reminder' }).click();
+  await expect(newReminder).toHaveCount(0);
+  const taxToday = page.getByRole('list', { name: 'Today' }).getByRole('listitem').filter({ hasText: 'Pay annual tax' });
+  await expect(taxToday).toContainText('Reminder · Every year');
+  await expect(taxToday).toContainText('Assigned to Ada Admin');
+  // Filters: assigned to me shows it, shared hides it.
+  await page.getByRole('button', { name: 'Shared', exact: true }).click();
+  await expect(taxToday).toHaveCount(0);
+  await page.getByRole('button', { name: 'Assigned to me' }).click();
+  await expect(taxToday).toHaveCount(1);
+  await page.getByRole('button', { name: 'All', exact: true }).click();
+  await taxToday.getByRole('button', { name: 'Complete Pay annual tax' }).click();
+  const doneList = page.getByRole('list', { name: 'Recently done' });
+  await expect(doneList).toContainText('Completed by Ada Admin');
+  await expect(taxToday).toHaveCount(0);
+  await expectAccessible(page, 'home with recently done');
+  await doneList.getByRole('button', { name: 'Undo Pay annual tax' }).click();
+  await expect(taxToday).toHaveCount(1);
+  // Skip shows what happens next; the history keeps it.
+  await taxToday.getByRole('button', { name: 'More for Pay annual tax' }).click();
+  await taxToday.getByRole('button', { name: 'Skip…' }).click();
+  const skip = page.getByRole('dialog', { name: /^Skip “Pay annual tax”/ });
+  await expect(skip).toContainText('the next dates are not affected');
+  await skip.getByLabel('Reason').fill('Paid in advance');
+  await skip.getByRole('button', { name: 'Skip', exact: true }).click();
+  await expect(doneList).toContainText('Skipped by Ada Admin');
 
   // Server admin: the size of Recent (13.13) and the notification providers (13.7).
   await fromMenu(page, 'Server admin');
@@ -630,7 +673,7 @@ test('first server admin: bootstrap link, account creation, sign-in, Workspace c
   await expectAccessible(page, 'server admin page with notification providers');
   await page.goto('/'); // the start page opens the last Workspace's Home
   await expect(page.getByRole('list', { name: 'Pinned' })).toContainText('Leave the flat');
-  await expect(page.getByRole('list', { name: 'Recent' })).toHaveCount(0);
+  await expect(page.getByRole('list', { name: 'Recent', exact: true })).toHaveCount(0);
   await fromMenu(page, 'Server admin');
   await expect(page.getByLabel('Recent Procedures on Home')).toHaveValue('0');
   await page.getByLabel('Recent Procedures on Home').fill('5');

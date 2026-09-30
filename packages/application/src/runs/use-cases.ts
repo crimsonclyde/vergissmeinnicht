@@ -5,7 +5,7 @@ import {
   normalizeOptionalReason,
   validateStepTransition,
   type ProcedureId,
-  type ScheduledProcedureId,
+  type OccurrenceId,
   type Run,
   type RunDetail,
   type RunId,
@@ -63,8 +63,8 @@ export async function startRun(
     readonly actor: User;
     readonly workspaceId: WorkspaceId;
     readonly procedureId: ProcedureId;
-    /** Started from this scheduled item (13.4): it is closed as STARTED in the same transaction. */
-    readonly fromSchedule?: ScheduledProcedureId | undefined;
+    /** Started from this Occurrence (14.1): it is linked and becomes IN_PROGRESS in the same transaction. */
+    readonly fromOccurrence?: OccurrenceId | undefined;
   },
 ): Promise<RunDetail> {
   await authorizeWorkspace(deps, input.actor, input.workspaceId, 'run.start');
@@ -74,7 +74,7 @@ export async function startRun(
       procedureId: input.procedureId,
       at: deps.clock.now(),
       maxActive: MAX_ACTIVE_RUNS_PER_WORKSPACE,
-      fromSchedule: input.fromSchedule,
+      fromOccurrence: input.fromOccurrence,
     },
     userActor(input.actor),
     { actorMay: (role) => roleHasCapability(role, 'run.start') },
@@ -90,7 +90,7 @@ export async function startRun(
       throw new ProcedureHasNoStepsError();
     case 'limit_reached':
       throw new RunLimitReachedError();
-    case 'schedule_not_open':
+    case 'occurrence_not_open':
       throw new ScheduleClosedError();
   }
 }

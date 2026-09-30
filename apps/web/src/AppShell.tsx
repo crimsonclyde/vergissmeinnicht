@@ -174,8 +174,10 @@ function WorkspacePage(props: {
         <Home
           workspaceId={route.workspaceId}
           workspaceName={context.workspace.name}
+          userId={props.user.id}
           canStart={can('run.start')}
           canSchedule={can('schedule.manage')}
+          canExecute={can('run.execute')}
           onOpenRun={openRun}
         />
       );

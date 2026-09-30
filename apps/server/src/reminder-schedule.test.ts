@@ -1,9 +1,9 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import type { NotificationDeps, ReminderDeps } from '@vergissmeinnicht/application';
+import type { NotificationDeps, ReminderDeps, ScheduleDeps } from '@vergissmeinnicht/application';
 import type { FastifyBaseLogger } from 'fastify';
 import { scheduleReminders } from './reminder-schedule.ts';
 
-describe('reminder scheduler (13.5)', () => {
+describe('reminder scheduler (13.5, 14.1)', () => {
   afterEach(() => vi.useRealTimers());
 
   it('never runs two dispatches at once and logs counts and error types only', async () => {
@@ -13,6 +13,7 @@ describe('reminder scheduler (13.5)', () => {
     let calls = 0;
     let release: () => void = () => undefined;
     const queue = {
+      dueSummaries: async () => [],
       due: async () => {
         calls++;
         active++;
@@ -28,7 +29,8 @@ describe('reminder scheduler (13.5)', () => {
     const error = vi.fn();
     const log = { info: vi.fn(), error } as unknown as FastifyBaseLogger;
 
-    const stop = scheduleReminders({ reminders, notifications }, log, { reminderMs: 100, telegramMs: 100 });
+    const schedules = { schedules: { advance: async () => 0 }, clock: { now: () => new Date() } } as unknown as Pick<ScheduleDeps, 'schedules' | 'clock'>;
+    const stop = scheduleReminders({ reminders, notifications, schedules }, log, { reminderMs: 100, telegramMs: 100 });
     await vi.advanceTimersByTimeAsync(350); // three more ticks while the first dispatch still runs
     expect(calls).toBe(1);
     release();

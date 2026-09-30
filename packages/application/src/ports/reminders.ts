@@ -1,4 +1,4 @@
-import type { LocalDate, LocalTime, ScheduleState, TimeZoneName, User, WorkspaceRole } from '@vergissmeinnicht/domain';
+import type { LocalDate, LocalTime, OccurrenceState, ScheduleKind, ScheduleState, TimeZoneName, User, WorkspaceRole } from '@vergissmeinnicht/domain';
 
 /** Channels a reminder can travel through (13.6, 13.7). Future: ntfy, Gotify, webhook — same port. */
 export const NOTIFICATION_CHANNELS = ['EMAIL', 'TELEGRAM'] as const;
@@ -9,37 +9,56 @@ export interface DueReminder {
   readonly reminderId: string;
   readonly reminderKey: string;
   readonly remindAt: Date;
+  readonly occurrence: {
+    readonly id: string;
+    readonly state: OccurrenceState;
+    readonly dueDate: LocalDate;
+    readonly time: LocalTime | null;
+    readonly assigneeUserId: string | null;
+  };
   readonly schedule: {
     readonly id: string;
+    readonly kind: ScheduleKind;
     readonly state: ScheduleState;
     readonly workspaceId: string;
     readonly workspaceName: string;
-    readonly procedureTitle: string;
+    readonly title: string;
     readonly procedureDeleted: boolean;
-    readonly date: LocalDate;
-    readonly time: LocalTime | null;
     readonly timeZone: TimeZoneName;
+    readonly assigneeUserId: string | null;
+    readonly createdByUserId: string;
   };
   readonly recipient: User;
   /** The recipient's current role in the Workspace; null when no longer a member. */
   readonly recipientRole: WorkspaceRole | null;
+  /** A delivery of this reminder is already under way (a retry): it continues normally, never as catch-up. */
+  readonly inDelivery: boolean;
 }
 
-/** Result of claiming one (reminder, channel) delivery before sending. */
+/** Result of claiming one (reminder, channel) delivery — or one summary — before sending. */
 export type DeliveryClaim =
   | { readonly status: 'claimed'; readonly deliveryId: string; readonly attempt: number }
   /** Already sent, failed for good or skipped: never again. */
   | { readonly status: 'final' }
-  /** Another dispatcher holds it, or its retry is not due yet. */
+  /** Another worker holds it, or its retry is not due yet. */
   | { readonly status: 'busy' };
 
+/** A catch-up summary with its members (for sending or re-sending after a retry). */
+export interface CatchUpSummary {
+  readonly summaryId: string;
+  readonly channel: NotificationChannel;
+  readonly recipient: User;
+  readonly members: readonly (DueReminder & { readonly deliveryId: string })[];
+}
+
 /**
- * Durable reminder state. `claim` is atomic: the (reminder, channel) row is created or taken over in
- * one transaction *before* anything is sent, so restarts or overlapping dispatchers never send twice;
- * a claim held longer than the lease counts as interrupted and may be retried (bounded attempts).
+ * Durable reminder state. Every logical notification — (Occurrence, recipient, offset instant,
+ * channel), or a catch-up summary — is a persistent record claimed atomically in the database *before*
+ * anything is sent, so restarts or concurrent workers never send it twice after success was recorded; a
+ * claim held longer than the lease counts as interrupted and may be retried (bounded attempts).
  */
 export interface ReminderQueue {
-  /** Unprocessed, not cancelled reminders due at `now` (and not waiting for a retry), oldest first. */
+  /** Unprocessed, not cancelled reminders due at `now` (not waiting for a retry, not in a summary), oldest first. */
   due(now: Date, limit: number): Promise<DueReminder[]>;
   claim(reminderId: string, channel: NotificationChannel, now: Date, leaseMs: number): Promise<DeliveryClaim>;
   sent(deliveryId: string, now: Date): Promise<void>;
@@ -51,19 +70,38 @@ export interface ReminderQueue {
    * `channels` is empty); otherwise remembers the earliest pending retry so it is not looked at before.
    */
   settle(reminderId: string, channels: readonly NotificationChannel[], now: Date): Promise<void>;
+
+  // ---- Outage catch-up (D5)
+  /** Unprocessed, not cancelled reminders of the Occurrence and recipient that are more than `staleMs` late, oldest first. */
+  missed(occurrenceId: string, recipientUserId: string, now: Date, staleMs: number): Promise<{ readonly reminderId: string; readonly remindAt: Date }[]>;
+  /** Another reminder of the same Occurrence and recipient is deliverable now or within `windowMs` (at most `staleMs` late). */
+  hasNormalReminder(occurrenceId: string, recipientUserId: string, now: Date, staleMs: number, windowMs: number): Promise<boolean>;
+  /** Missed reminders covered by a later catch-up: processed without being sent. */
+  supersede(reminderIds: readonly string[], now: Date): Promise<void>;
+  /**
+   * Atomically creates one claimed summary (attempt 1) for the recipient and channel and adds the given
+   * reminders that have no delivery on this channel yet (as GROUPED deliveries). Null when none was added.
+   */
+  groupIntoSummary(recipientUserId: string, channel: NotificationChannel, reminderIds: readonly string[], now: Date, leaseMs: number): Promise<string | null>;
+  /** Summaries whose retry is due or whose claim expired. */
+  dueSummaries(now: Date, limit: number): Promise<string[]>;
+  claimSummary(summaryId: string, now: Date, leaseMs: number): Promise<DeliveryClaim>;
+  summary(summaryId: string): Promise<CatchUpSummary | undefined>;
+  /** A member no longer eligible (re-checked at send time): its delivery is SKIPPED and it leaves the summary. */
+  dropFromSummary(deliveryIds: readonly string[], now: Date, reason: string): Promise<void>;
+  summarySent(summaryId: string, now: Date): Promise<void>;
+  summaryRetry(summaryId: string, now: Date, nextAttemptAt: Date, errorCode: string): Promise<void>;
+  summaryFailed(summaryId: string, now: Date, errorCode: string): Promise<void>;
+  summarySkipped(summaryId: string, now: Date, reason: string): Promise<void>;
+  /** Marks the reminder processed once all its deliveries are final. */
+  settleDelivered(reminderId: string, now: Date): Promise<void>;
 }
 
-/** What a reminder says. Plain text only; the link opens the Workspace — it never carries a token. */
-export interface ReminderMessage {
-  readonly procedureTitle: string;
-  readonly workspaceName: string;
-  readonly date: LocalDate;
-  readonly time: LocalTime | null;
-  readonly timeZone: TimeZoneName;
-  /** `DAYS:7`, `HOURS:2`, … */
-  readonly reminderKey: string;
-  readonly overdue: boolean;
-  readonly url: string;
+/** A rendered notification. `key` is stable per logical notification (e.g. for an email Message-ID). */
+export interface OutgoingNotification {
+  readonly subject: string;
+  readonly body: string;
+  readonly key: string;
 }
 
 /**
@@ -74,7 +112,7 @@ export interface ReminderNotifier {
   readonly channel: NotificationChannel;
   /** The provider is enabled on this server and the person has it switched on (and connected). */
   enabledFor(user: User): Promise<boolean>;
-  send(user: User, message: ReminderMessage): Promise<void>;
+  send(user: User, message: OutgoingNotification): Promise<void>;
 }
 
 /**

@@ -30,6 +30,13 @@ const DYNAMIC_PREFIXES = [
   'history.',
   'error.',
   'admin.testFailed.',
+  // Schedules (14.1, 14.2): units, repetitions, reminder offsets and Home filters by name.
+  'home.filter.',
+  'schedule.unit.',
+  'schedule.unitName.',
+  'schedule.every.',
+  'schedule.interval.',
+  'schedule.reminder.',
 ];
 
 describe('message catalog', () => {

@@ -32,6 +32,11 @@ import {
   ScheduleLimitReachedError,
   ScheduleNotFoundError,
   ScheduledProcedureUnavailableError,
+  InvalidAssigneeError,
+  WrongScheduleKindError,
+  NextOccurrenceInUseError,
+  OccurrenceDateTakenError,
+  RunNotEligibleError,
   InvalidInvitationError,
   InvalidMfaCodeError,
   InvitationNotRevocableError,
@@ -110,6 +115,11 @@ export function errorHandler(error: FastifyError | Error, request: FastifyReques
   if (error instanceof ScheduleClosedError) return reply.code(409).send({ error: 'schedule_closed' });
   if (error instanceof ScheduleLimitReachedError) return reply.code(409).send({ error: 'schedule_limit_reached' });
   if (error instanceof ScheduledProcedureUnavailableError) return reply.code(409).send({ error: 'procedure_unavailable' });
+  if (error instanceof InvalidAssigneeError) return reply.code(400).send({ error: 'invalid_assignee' });
+  if (error instanceof WrongScheduleKindError) return reply.code(409).send({ error: 'wrong_schedule_kind' });
+  if (error instanceof NextOccurrenceInUseError) return reply.code(409).send({ error: 'next_occurrence_in_use' });
+  if (error instanceof OccurrenceDateTakenError) return reply.code(409).send({ error: 'occurrence_date_taken' });
+  if (error instanceof RunNotEligibleError) return reply.code(409).send({ error: 'run_not_eligible' });
   if (error instanceof TelegramUnavailableError) return reply.code(409).send({ error: 'telegram_unavailable' });
   if (error instanceof NothingToConfirmError) return reply.code(409).send({ error: 'nothing_to_confirm' });
   // A provider check (e.g. a new bot token) failed: the stable reason code only, never the provider's answer.

@@ -1,5 +1,5 @@
 import { useEffect, useId, useRef, useState } from 'react';
-import { api, messageFor, type RunDetail, type RunSummary, type ScheduledProcedure } from './api.ts';
+import { api, messageFor, type PersonRef, type RunDetail, type RunSummary, type Schedule } from './api.ts';
 import { formatCalendarDate, formatRelative, t } from './i18n/index.ts';
 import { ScheduleDialog } from './ScheduleDialog.tsx';
 
@@ -106,10 +106,11 @@ export function StartControl(props: {
   canStart: boolean;
   canSchedule: boolean;
   onOpenRun: (runId: string) => void;
-  onScheduled?: (schedule: ScheduledProcedure) => void;
+  onScheduled?: (schedule: Schedule) => void;
 }) {
   const [open, setOpen] = useState(false);
   const [scheduling, setScheduling] = useState(false);
+  const [members, setMembers] = useState<readonly PersonRef[] | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [status, setStatus] = useState<string | null>(null);
   const panelId = useId();
@@ -178,6 +179,11 @@ export function StartControl(props: {
                 setOpen(false);
                 setMessage(null);
                 setScheduling(true);
+                // For the optional responsible person; without the right to list members the choice is hidden.
+                api.members(props.workspaceId).then(
+                  (list) => setMembers(list.map((member) => ({ id: member.userId, name: member.displayName }))),
+                  () => setMembers(null),
+                );
               }}
             >
               {t('start.schedule')}
@@ -190,13 +196,15 @@ export function StartControl(props: {
       {flow.dialog}
       {scheduling && (
         <ScheduleDialog
-          procedureTitle={props.procedure.title}
+          kind="PROCEDURE"
+          title={props.procedure.title}
+          members={members}
           onClose={() => {
             setScheduling(false);
             buttonRef.current?.focus();
           }}
           onSubmit={async (input) => {
-            const schedule = await api.scheduleProcedure(props.workspaceId, props.procedure.id, input);
+            const schedule = await api.createSchedule(props.workspaceId, { ...input, procedureId: props.procedure.id });
             setStatus(t('start.scheduled', { title: props.procedure.title, date: formatCalendarDate(schedule.date) }));
             props.onScheduled?.(schedule);
           }}

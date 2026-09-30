@@ -72,12 +72,12 @@ export interface Procedure {
   readonly updatedAt: string;
 }
 
-/** A Procedure in the list (13.10): the person's pin, last completion, active executions, next scheduled date. */
+/** A Procedure in the list (13.10): the person's pin, last completion, active executions, next open Occurrence. */
 export interface ProcedureCard extends Procedure {
   readonly pinned: boolean;
   readonly lastCompletedAt: string | null;
   readonly active: readonly ActiveExecution[];
-  readonly nextSchedule: { readonly id: string; readonly date: string; readonly time: string | null; readonly timeZone: string } | null;
+  readonly nextOccurrence: { readonly id: string; readonly scheduleId: string; readonly date: string; readonly time: string | null; readonly timeZone: string } | null;
 }
 
 export interface ActiveExecution {
@@ -86,42 +86,91 @@ export interface ActiveExecution {
   readonly startedAt: string;
 }
 
-export type ReminderUnit = 'DAYS' | 'HOURS';
+export type ReminderUnit = 'DAYS' | 'WEEKS' | 'MONTHS' | 'HOURS';
 export interface ReminderOffset {
   readonly unit: ReminderUnit;
   readonly amount: number;
 }
 
-/** A Procedure scheduled for a date (13.4): the intention only, not an execution. */
-export interface ScheduledProcedure {
+export type RecurrenceUnit = 'DAY' | 'WEEK' | 'MONTH' | 'YEAR';
+/** One-time, fixed calendar, or counted from the last completion (14.1). */
+export type Recurrence =
+  | { readonly kind: 'ONCE' }
+  | { readonly kind: 'FIXED'; readonly unit: RecurrenceUnit; readonly interval: number; readonly weekdays: readonly number[] | null; readonly lastDayOfMonth: boolean }
+  | { readonly kind: 'AFTER_COMPLETION'; readonly unit: RecurrenceUnit; readonly interval: number };
+
+export interface PersonRef {
   readonly id: string;
-  readonly procedureId: string;
-  /** The Procedure as it is now; `deleted` = it can no longer be started. */
-  readonly procedure: { readonly title: string; readonly icon: ProcedureIcon; readonly deleted: boolean };
-  /** `YYYY-MM-DD` and optional `HH:MM` in `timeZone`. */
+  readonly name: string;
+}
+
+/** A series of a standalone Reminder or of a Procedure (14.1). */
+export interface Schedule {
+  readonly id: string;
+  readonly kind: 'REMINDER' | 'PROCEDURE';
+  readonly procedureId: string | null;
+  /** The Procedure as it is now; `deleted` = its Occurrences can no longer be started. */
+  readonly procedure: { readonly title: string; readonly icon: ProcedureIcon; readonly deleted: boolean } | null;
+  readonly title: string;
+  readonly description: string;
+  readonly recurrence: Recurrence;
+  /** First due date (`YYYY-MM-DD`) and optional `HH:MM` in `timeZone`. */
   readonly date: string;
   readonly time: string | null;
   readonly timeZone: string;
-  readonly reminderTime: string;
   readonly reminders: readonly ReminderOffset[];
-  readonly state: 'SCHEDULED' | 'STARTED' | 'CANCELLED';
+  readonly assignee: PersonRef | null;
+  readonly state: 'ACTIVE' | 'PAUSED' | 'ENDED';
+  readonly pausedAt: string | null;
+  readonly ended: { readonly at: string; readonly by: string } | null;
   readonly revision: number;
   readonly createdAt: string;
   readonly createdBy: string;
-  readonly runId: string | null;
-  readonly closed: { readonly at: string; readonly by: string } | null;
 }
 
+export type OccurrenceState = 'OPEN' | 'IN_PROGRESS' | 'COMPLETED' | 'SKIPPED' | 'CANCELLED';
+
+/** One dated instance of a Schedule with its own state and history. */
+export interface Occurrence {
+  readonly id: string;
+  readonly schedule: Schedule;
+  readonly dueDate: string;
+  readonly time: string | null;
+  readonly state: OccurrenceState;
+  /** This Occurrence's own Assignee (override). */
+  readonly assignee: PersonRef | null;
+  /** Who is responsible: the override, else the Schedule's Assignee; null = shared. */
+  readonly responsible: PersonRef | null;
+  readonly closed: { readonly at: string; readonly by: string } | null;
+  readonly skipReason: string | null;
+  readonly run: { readonly id: string; readonly state: RunState; readonly startedAt: string; readonly startedBy: string } | null;
+  readonly revision: number;
+}
+
+export interface OccurrenceHistoryEntry extends Occurrence {
+  readonly runs: readonly { readonly runId: string; readonly how: 'STARTED' | 'LINKED'; readonly linkedAt: string; readonly linkedBy: string; readonly ended: 'ABORTED' | 'UNLINKED' | null }[];
+}
+
+/** What the Schedule dialog sends; the server validates everything again. */
 export interface ScheduleInput {
+  readonly title?: string;
+  readonly description?: string;
+  readonly recurrence: Recurrence;
   readonly date: string;
   readonly time: string | null;
   readonly timeZone: string;
   readonly reminders: readonly ReminderOffset[];
+  readonly assigneeUserId: string | null;
 }
 
 export interface HomeOverview {
-  readonly due: readonly (ScheduledProcedure & { readonly timeliness: 'OVERDUE' | 'TODAY' })[];
-  readonly upcoming: readonly ScheduledProcedure[];
+  readonly overdue: readonly Occurrence[];
+  readonly today: readonly Occurrence[];
+  /** The next 90 days. */
+  readonly upcoming: readonly Occurrence[];
+  /** Open Occurrences further ahead. */
+  readonly later: number;
+  readonly recentlyDone: readonly Occurrence[];
   readonly active: readonly RunSummary[];
   readonly pinned: readonly ProcedureCard[];
   readonly recent: readonly ProcedureCard[];
@@ -326,6 +375,9 @@ async function request<T>(method: 'GET' | 'POST', path: string, body?: unknown):
   return (response.status === 204 ? undefined : await response.json()) as T;
 }
 
+const schedulePath = (workspaceId: string, scheduleId: string) => `/workspaces/${encodeURIComponent(workspaceId)}/schedules/${encodeURIComponent(scheduleId)}`;
+const occurrencePath = (workspaceId: string, id: string) => `/workspaces/${encodeURIComponent(workspaceId)}/occurrences/${encodeURIComponent(id)}`;
+
 export const api = {
   about: () => request<{ license: string; sourceCodeUrl: string; footerHidden: boolean }>('GET', '/about'),
   instanceSettings: async () => (await request<{ settings: InstanceSettings }>('GET', '/admin/settings')).settings,
@@ -417,26 +469,36 @@ export const api = {
   home: (workspaceId: string) => request<HomeOverview>('GET', `/workspaces/${encodeURIComponent(workspaceId)}/home`),
   pinProcedure: (workspaceId: string, id: string, pinned: boolean) =>
     request<undefined>('POST', `/workspaces/${encodeURIComponent(workspaceId)}/procedures/${encodeURIComponent(id)}/${pinned ? 'pin' : 'unpin'}`),
-  scheduleProcedure: async (workspaceId: string, procedureId: string, input: ScheduleInput) =>
-    (await request<{ schedule: ScheduledProcedure }>('POST', `/workspaces/${encodeURIComponent(workspaceId)}/schedules`, { procedureId, ...input })).schedule,
-  reschedule: async (workspaceId: string, scheduleId: string, expectedRevision: number, input: ScheduleInput) =>
-    (
-      await request<{ schedule: ScheduledProcedure }>(
-        'POST',
-        `/workspaces/${encodeURIComponent(workspaceId)}/schedules/${encodeURIComponent(scheduleId)}/update`,
-        { expectedRevision, ...input },
-      )
-    ).schedule,
-  cancelSchedule: async (workspaceId: string, scheduleId: string, expectedRevision: number) =>
-    (
-      await request<{ schedule: ScheduledProcedure }>(
-        'POST',
-        `/workspaces/${encodeURIComponent(workspaceId)}/schedules/${encodeURIComponent(scheduleId)}/cancel`,
-        { expectedRevision },
-      )
-    ).schedule,
-  startScheduled: async (workspaceId: string, scheduleId: string) =>
-    (await request<{ run: RunDetail }>('POST', `/workspaces/${encodeURIComponent(workspaceId)}/schedules/${encodeURIComponent(scheduleId)}/start`)).run,
+  createSchedule: async (workspaceId: string, input: ScheduleInput & { readonly procedureId?: string }) =>
+    (await request<{ schedule: Schedule }>('POST', `/workspaces/${encodeURIComponent(workspaceId)}/schedules`, input)).schedule,
+  updateSchedule: async (workspaceId: string, scheduleId: string, expectedRevision: number, input: ScheduleInput) =>
+    (await request<{ schedule: Schedule }>('POST', `${schedulePath(workspaceId, scheduleId)}/update`, { expectedRevision, ...input })).schedule,
+  pauseSchedule: async (workspaceId: string, scheduleId: string, expectedRevision: number) =>
+    (await request<{ schedule: Schedule }>('POST', `${schedulePath(workspaceId, scheduleId)}/pause`, { expectedRevision })).schedule,
+  resumeSchedule: async (workspaceId: string, scheduleId: string, expectedRevision: number, skipElapsed: boolean) =>
+    (await request<{ schedule: Schedule }>('POST', `${schedulePath(workspaceId, scheduleId)}/resume`, { expectedRevision, skipElapsed })).schedule,
+  endSchedule: async (workspaceId: string, scheduleId: string, expectedRevision: number) =>
+    (await request<{ schedule: Schedule }>('POST', `${schedulePath(workspaceId, scheduleId)}/end`, { expectedRevision })).schedule,
+  skipOlderOccurrences: async (workspaceId: string, scheduleId: string, before: string) =>
+    (await request<{ skipped: number }>('POST', `${schedulePath(workspaceId, scheduleId)}/skip-older`, { before })).skipped,
+  scheduleHistory: (workspaceId: string, scheduleId: string) =>
+    request<{ schedule: Schedule; occurrences: OccurrenceHistoryEntry[] }>('GET', schedulePath(workspaceId, scheduleId)),
+  completeOccurrence: async (workspaceId: string, id: string) =>
+    (await request<{ occurrence: Occurrence }>('POST', `${occurrencePath(workspaceId, id)}/complete`, {})).occurrence,
+  reopenOccurrence: async (workspaceId: string, id: string) =>
+    (await request<{ occurrence: Occurrence }>('POST', `${occurrencePath(workspaceId, id)}/reopen`, {})).occurrence,
+  skipOccurrence: async (workspaceId: string, id: string, reason: string) =>
+    (await request<{ occurrence: Occurrence }>('POST', `${occurrencePath(workspaceId, id)}/skip`, reason.trim() === '' ? {} : { reason })).occurrence,
+  moveOccurrence: async (workspaceId: string, id: string, date: string, time: string | null) =>
+    (await request<{ occurrence: Occurrence }>('POST', `${occurrencePath(workspaceId, id)}/move`, { date, time })).occurrence,
+  assignOccurrence: async (workspaceId: string, id: string, assigneeUserId: string | null) =>
+    (await request<{ occurrence: Occurrence }>('POST', `${occurrencePath(workspaceId, id)}/assign`, { assigneeUserId })).occurrence,
+  startOccurrence: async (workspaceId: string, id: string) => (await request<{ run: RunDetail }>('POST', `${occurrencePath(workspaceId, id)}/start`)).run,
+  linkableRuns: async (workspaceId: string, id: string) => (await request<{ runs: RunSummary[] }>('GET', `${occurrencePath(workspaceId, id)}/linkable-runs`)).runs,
+  linkRun: async (workspaceId: string, id: string, runId: string) =>
+    (await request<{ occurrence: Occurrence }>('POST', `${occurrencePath(workspaceId, id)}/link-run`, { runId })).occurrence,
+  unlinkRun: async (workspaceId: string, id: string) =>
+    (await request<{ occurrence: Occurrence }>('POST', `${occurrencePath(workspaceId, id)}/unlink-run`, {})).occurrence,
   procedure: async (workspaceId: string, id: string) =>
     (
       await request<{ procedure: ProcedureDetail }>(

@@ -4,21 +4,26 @@ import {
   NotificationDeliveryError,
   RETRY_DELAYS_MS,
   addMember,
-  cancelSchedule,
+  completeOccurrence,
   createProcedure,
+  createSchedule,
   createWorkspace,
   deleteProcedure,
   dispatchDueReminders,
+  listOpenOccurrences,
+  pauseSchedule,
   removeMember,
-  scheduleProcedure,
+  updateSchedule,
   type NotificationChannel,
+  type OutgoingNotification,
   type ProcedureInput,
   type ReminderDeps,
-  type ReminderMessage,
   type ReminderNotifier,
+  type ReminderQueue,
   type ScheduleDeps,
 } from '@vergissmeinnicht/application';
-import { normalizeEmail, type ProcedureId, type ScheduledProcedure, type User, type Workspace } from '@vergissmeinnicht/domain';
+import { normalizeEmail, type Schedule, type User, type Workspace } from '@vergissmeinnicht/domain';
+import { openDatabase } from './connection.ts';
 import { createNotificationPreferencesRepository } from './notification-preferences-repository.ts';
 import { createProcedureRepository } from './procedure-repository.ts';
 import { createReminderQueue } from './reminder-queue.ts';
@@ -29,11 +34,12 @@ import { createWorkspaceRepository } from './workspace-repository.ts';
 
 const STEP = { description: '', icon: null, required: true, critical: false, skipReasonPolicy: 'OPTIONAL', notApplicableReasonPolicy: 'OPTIONAL' } as const;
 const PROCEDURE: ProcedureInput = { title: 'Buy groceries', description: '', icon: 'food', tags: [], sections: [{ title: 'Shop', description: '', steps: [{ ...STEP, title: 'Milk' }] }] };
+const BERLIN = 'Europe/Berlin';
 
-/** A fake provider that records what it sent and can be told to fail. */
+/** A fake provider that records every call (even ones that "crash" afterwards) and can be told to fail. */
 function fakeNotifier(channel: NotificationChannel) {
-  const sent: { to: string; message: ReminderMessage }[] = [];
-  let failure: NotificationDeliveryError | undefined;
+  const sent: { to: string; message: OutgoingNotification }[] = [];
+  let failures: NotificationDeliveryError[] = [];
   let enabled = true;
   let gate: Promise<void> | undefined;
   const notifier: ReminderNotifier = {
@@ -41,6 +47,7 @@ function fakeNotifier(channel: NotificationChannel) {
     enabledFor: async () => enabled,
     async send(user, message) {
       if (gate !== undefined) await gate;
+      const failure = failures.shift();
       if (failure !== undefined) throw failure;
       sent.push({ to: user.email, message });
     },
@@ -48,13 +55,13 @@ function fakeNotifier(channel: NotificationChannel) {
   return {
     notifier,
     sent,
-    failWith: (error: NotificationDeliveryError | undefined) => void (failure = error),
+    failWith: (...errors: NotificationDeliveryError[]) => void (failures = errors),
     setEnabled: (value: boolean) => void (enabled = value),
     hold: (promise: Promise<void> | undefined) => void (gate = promise),
   };
 }
 
-describe('reminder dispatch (13.5)', () => {
+describe('reminder dispatch (13.5, 14.1)', () => {
   let database: ReturnType<typeof createTestDatabase>;
   let now: Date;
   let scheduleDeps: ScheduleDeps;
@@ -62,181 +69,257 @@ describe('reminder dispatch (13.5)', () => {
   let email: ReturnType<typeof fakeNotifier>;
   let telegram: ReturnType<typeof fakeNotifier>;
   let admin: User;
-  let uma: User;
+  let ana: User;
+  let ben: User;
   let home: Workspace;
-  let groceries: ProcedureId;
-  let item: ScheduledProcedure;
   const clock = { now: () => now };
+  const at = (iso: string) => {
+    now = new Date(iso);
+  };
 
   const dispatch = (overrides: Partial<ReminderDeps> = {}) => dispatchDueReminders({ ...deps, ...overrides });
   const deliveries = () =>
-    database.sqlite.prepare('SELECT channel, status, attempts, error_code AS code FROM reminder_deliveries ORDER BY rowid').all() as {
-      channel: string;
-      status: string;
-      attempts: number;
-      code: string | null;
-    }[];
+    database.sqlite.prepare('SELECT channel, status, attempts, error_code AS code FROM reminder_deliveries ORDER BY rowid').all() as { channel: string; status: string; attempts: number; code: string | null }[];
   const unprocessed = () => (database.sqlite.prepare('SELECT count(*) AS n FROM scheduled_reminders WHERE processed_at IS NULL AND cancelled_at IS NULL').get() as { n: number }).n;
+  const superseded = () => (database.sqlite.prepare('SELECT count(*) AS n FROM scheduled_reminders WHERE superseded_at IS NOT NULL').get() as { n: number }).n;
+  const summaries = () => database.sqlite.prepare('SELECT channel, status, attempts FROM notification_summaries ORDER BY rowid').all() as { channel: string; status: string; attempts: number }[];
+  const reminder = (overrides: Partial<Parameters<typeof createSchedule>[1]> = {}) =>
+    createSchedule(scheduleDeps, { actor: ana, workspaceId: home.id, title: 'Pay annual tax', date: '2027-06-15', timeZone: BERLIN, reminders: [{ unit: 'MONTHS', amount: 1 }, { unit: 'WEEKS', amount: 1 }], ...overrides });
+  const openOccurrence = async (schedule: Schedule) => {
+    const item = (await listOpenOccurrences(scheduleDeps, { actor: admin, workspaceId: home.id })).find((entry) => entry.schedule.id === schedule.id);
+    if (item === undefined) throw new Error('no open occurrence');
+    return item.occurrence;
+  };
 
   beforeEach(async () => {
     database = createTestDatabase();
-    now = new Date('2026-09-29T10:00:00Z');
+    now = new Date('2027-04-01T08:00:00Z');
     const users = createUserRepository(database);
     const workspaces = createWorkspaceRepository(database);
-    admin = await users.create({ email: normalizeEmail('admin@example.org'), displayName: 'Ada', emailVerified: true, status: 'ACTIVE', serverAdmin: true });
-    uma = await users.create({ email: normalizeEmail('uma@example.org'), displayName: 'Uma', emailVerified: true, status: 'ACTIVE', serverAdmin: false });
+    const user = (mail: string, name: string, serverAdmin = false) => users.create({ email: normalizeEmail(mail), displayName: name, emailVerified: true, status: 'ACTIVE', serverAdmin });
+    admin = await user('admin@example.org', 'Ada', true);
+    ana = await user('ana@example.org', 'Ana');
+    ben = await user('ben@example.org', 'Ben');
     home = await createWorkspace({ users, workspaces, clock }, { actor: admin, name: 'Home' });
-    await addMember({ users, workspaces, clock }, { actor: admin, workspaceId: home.id, email: uma.email, role: 'USER' });
-    groceries = (await createProcedure({ workspaces, procedures: createProcedureRepository(database), clock }, { actor: admin, workspaceId: home.id, content: PROCEDURE })).procedure.id;
+    await addMember({ users, workspaces, clock }, { actor: admin, workspaceId: home.id, email: ana.email, role: 'USER' });
+    await addMember({ users, workspaces, clock }, { actor: admin, workspaceId: home.id, email: ben.email, role: 'USER' });
     scheduleDeps = { workspaces, schedules: createScheduleRepository(database), notificationPreferences: createNotificationPreferencesRepository(database), clock };
-    item = await scheduleProcedure(scheduleDeps, {
-      actor: uma,
-      workspaceId: home.id,
-      procedureId: groceries,
-      date: '2026-10-15',
-      timeZone: 'Europe/Berlin',
-      reminders: [
-        { unit: 'DAYS', amount: 1 },
-        { unit: 'DAYS', amount: 0 },
-      ],
-    });
     email = fakeNotifier('EMAIL');
     telegram = fakeNotifier('TELEGRAM');
     deps = { queue: createReminderQueue(database), notifiers: [email.notifier, telegram.notifier], clock, publicOrigin: 'https://vmn.example.org' };
   });
   afterEach(() => database.dispose());
 
-  it('sends nothing before the reminder time', async () => {
-    expect(await dispatch()).toEqual({ sent: 0, retried: 0, failed: 0, skipped: 0 });
-    expect(email.sent).toEqual([]);
-  });
+  describe('normal delivery', () => {
+    it('sends each reminder once per channel at its time, with the current status and a stable key', async () => {
+      await reminder();
+      expect(await dispatch()).toMatchObject({ sent: 0 });
+      at('2027-05-15T07:00:00Z'); // 1 month before, 09:00 Berlin
+      expect(await dispatch()).toMatchObject({ sent: 2, summaries: 0 });
+      const [first] = email.sent;
+      expect(first?.message.subject).toBe('Reminder: Pay annual tax — in 31 days');
+      expect(first?.message.body).toContain('to mark it done');
+      expect(first?.message.key).toMatch(/^r-[0-9a-f-]{36}-email$/);
+      // A restart (a fresh queue on the same database) sends nothing again.
+      expect(await dispatch({ queue: createReminderQueue(database) })).toMatchObject({ sent: 0 });
+      expect(email.sent).toHaveLength(1);
+      expect(telegram.sent).toHaveLength(1);
+      expect(unprocessed()).toBe(1); // the 1-week reminder is still ahead
+    });
 
-  it('sends each due reminder once per enabled channel, to the person who scheduled it', async () => {
-    now = new Date('2026-10-14T07:00:30Z'); // 09:00:30 in Berlin, the day before
-    expect(await dispatch()).toMatchObject({ sent: 2 });
-    expect(email.sent).toEqual([
-      {
-        to: 'uma@example.org',
-        message: {
-          procedureTitle: 'Buy groceries',
-          workspaceName: 'Home',
-          date: '2026-10-15',
-          time: null,
-          timeZone: 'Europe/Berlin',
-          reminderKey: 'DAYS:1',
-          overdue: false,
-          url: `https://vmn.example.org/w/${home.id}`,
+    it('lets concurrent workers on separate connections call the provider once per logical notification', async () => {
+      for (let i = 0; i < 5; i++) await reminder({ title: `Bill ${i}`, reminders: [{ unit: 'DAYS', amount: 0 }] });
+      at('2027-06-15T07:00:00Z');
+      const second = openDatabase(database.path);
+      try {
+        let release: () => void = () => undefined;
+        email.hold(new Promise<void>((resolve) => (release = resolve)));
+        const running = Promise.all([dispatch(), dispatch({ queue: createReminderQueue(second) })]);
+        release();
+        await running;
+        expect(email.sent).toHaveLength(5);
+        expect(telegram.sent).toHaveLength(5);
+        expect(new Set(email.sent.map((entry) => entry.message.key)).size).toBe(5);
+      } finally {
+        second.close();
+      }
+    });
+
+    it('retries a claim interrupted before the provider call once after the lease, and records success so a restart sends nothing', async () => {
+      await reminder({ reminders: [{ unit: 'DAYS', amount: 0 }] });
+      at('2027-06-15T07:00:00Z');
+      // A worker claimed both channels and died before calling the provider.
+      const queue = createReminderQueue(database);
+      const [due] = await queue.due(now, 10);
+      await queue.claim(due?.reminderId ?? '', 'EMAIL', now, DELIVERY_LEASE_MS);
+      await queue.claim(due?.reminderId ?? '', 'TELEGRAM', now, DELIVERY_LEASE_MS);
+      expect(await dispatch()).toMatchObject({ sent: 0 }); // lease still held
+      at(new Date(now.getTime() + DELIVERY_LEASE_MS + 1000).toISOString());
+      expect(await dispatch()).toMatchObject({ sent: 2 });
+      expect(deliveries().map((row) => [row.status, row.attempts])).toEqual([
+        ['SENT', 2],
+        ['SENT', 2],
+      ]);
+      expect(await dispatch({ queue: createReminderQueue(database) })).toMatchObject({ sent: 0 });
+      expect(email.sent).toHaveLength(1);
+    });
+
+    it('may repeat one message at most once when a crash hits after the provider accepted it (documented limit)', async () => {
+      await reminder({ reminders: [{ unit: 'DAYS', amount: 0 }] });
+      at('2027-06-15T07:00:00Z');
+      const real = createReminderQueue(database);
+      let crash = true;
+      const crashing: ReminderQueue = {
+        ...real,
+        sent: async (id, when) => {
+          if (crash) throw new Error('process died');
+          return real.sent(id, when);
         },
-      },
-    ]);
-    expect(telegram.sent).toHaveLength(1);
-    // Again, and after a "restart" (a new queue on the same database): nothing is sent twice.
-    await dispatch();
-    await dispatch({ queue: createReminderQueue(database) });
-    expect(email.sent).toHaveLength(1);
-    expect(telegram.sent).toHaveLength(1);
-    expect(deliveries()).toEqual([
-      { channel: 'EMAIL', status: 'SENT', attempts: 1, code: null },
-      { channel: 'TELEGRAM', status: 'SENT', attempts: 1, code: null },
-    ]);
-    // The next one on the day.
-    now = new Date('2026-10-15T07:05:00Z');
-    await dispatch();
-    expect(email.sent.map((entry) => entry.message.reminderKey)).toEqual(['DAYS:1', 'DAYS:0']);
-    expect(unprocessed()).toBe(0);
-  });
+      };
+      await expect(dispatch({ queue: crashing, notifiers: [email.notifier] })).rejects.toThrow('process died');
+      crash = false;
+      at(new Date(now.getTime() + DELIVERY_LEASE_MS + 1000).toISOString());
+      await dispatch({ notifiers: [email.notifier] });
+      await dispatch({ notifiers: [email.notifier] });
+      expect(email.sent).toHaveLength(2); // the accepted one and exactly one repeat — never more
+      expect(email.sent[0]?.message.key).toBe(email.sent[1]?.message.key); // same Message-ID key
+    });
 
-  it('never sends twice when two dispatchers run at the same time', async () => {
-    now = new Date('2026-10-14T07:01:00Z');
-    let release: () => void = () => undefined;
-    email.hold(new Promise<void>((resolve) => (release = resolve)));
-    const first = dispatch();
-    const second = dispatch();
-    await new Promise((resolve) => setTimeout(resolve, 20));
-    release();
-    await Promise.all([first, second]);
-    expect(email.sent).toHaveLength(1);
-    expect(telegram.sent).toHaveLength(1);
-  });
+    it('retries transient failures after 1 min, 10 min and 1 h, then gives up', async () => {
+      await reminder({ reminders: [{ unit: 'DAYS', amount: 0 }] });
+      at('2027-06-15T07:00:00Z');
+      const transient = new NotificationDeliveryError('email_failed', true);
+      email.failWith(transient, transient, transient, transient);
+      await dispatch({ notifiers: [email.notifier] });
+      for (const delay of RETRY_DELAYS_MS) {
+        at(new Date(now.getTime() + delay).toISOString());
+        await dispatch({ notifiers: [email.notifier] });
+      }
+      expect(deliveries()).toEqual([{ channel: 'EMAIL', status: 'FAILED', attempts: 4, code: 'email_failed' }]);
+      expect(unprocessed()).toBe(0);
+    });
 
-  it('treats a claim that was never finished (crash while sending) as interrupted only after the lease', async () => {
-    now = new Date('2026-10-14T07:01:00Z');
-    const reminderId = (database.sqlite.prepare("SELECT id FROM scheduled_reminders WHERE reminder_key = 'DAYS:1'").get() as { id: string }).id;
-    // Another process claimed the email delivery and died before recording the outcome.
-    expect(await deps.queue.claim(reminderId, 'EMAIL', now, DELIVERY_LEASE_MS)).toMatchObject({ status: 'claimed', attempt: 1 });
-    await dispatch();
-    expect(email.sent).toEqual([]);
-    expect(telegram.sent).toHaveLength(1);
-    now = new Date(now.getTime() + DELIVERY_LEASE_MS + 1000);
-    await dispatch();
-    expect(email.sent).toHaveLength(1);
-    expect(deliveries().find((d) => d.channel === 'EMAIL')).toEqual({ channel: 'EMAIL', status: 'SENT', attempts: 2, code: null });
-  });
-
-  it('retries transient failures with growing delays, a bounded number of times', async () => {
-    now = new Date('2026-10-14T07:01:00Z');
-    email.failWith(new NotificationDeliveryError('email_failed', true));
-    telegram.setEnabled(false);
-    await dispatch();
-    expect(deliveries()).toEqual([{ channel: 'EMAIL', status: 'RETRY', attempts: 1, code: 'email_failed' }]);
-    // Not before the retry time.
-    now = new Date(now.getTime() + RETRY_DELAYS_MS[0] - 1000);
-    await dispatch();
-    expect(deliveries()[0]?.attempts).toBe(1);
-    for (const delay of RETRY_DELAYS_MS) {
-      now = new Date(now.getTime() + delay + 1000);
+    it('re-checks the recipient, the Occurrence and the Schedule at send time', async () => {
+      const removed = await reminder({ title: 'Removed', reminders: [{ unit: 'DAYS', amount: 0 }] });
+      const completed = await reminder({ title: 'Completed', reminders: [{ unit: 'DAYS', amount: 0 }] });
+      const paused = await reminder({ title: 'Paused', reminders: [{ unit: 'DAYS', amount: 0 }] });
+      const procedure = await createProcedure(
+        { workspaces: scheduleDeps.workspaces, procedures: createProcedureRepository(database), clock },
+        { actor: admin, workspaceId: home.id, content: PROCEDURE },
+      );
+      await createSchedule(scheduleDeps, { actor: ana, workspaceId: home.id, procedureId: procedure.procedure.id, date: '2027-06-15', timeZone: BERLIN, reminders: [{ unit: 'DAYS', amount: 0 }] });
+      await completeOccurrence(scheduleDeps, { actor: ben, workspaceId: home.id, occurrenceId: (await openOccurrence(completed)).id });
+      await pauseSchedule(scheduleDeps, { actor: ana, workspaceId: home.id, scheduleId: paused.id, expectedRevision: paused.revision });
+      await deleteProcedure({ workspaces: scheduleDeps.workspaces, procedures: createProcedureRepository(database), clock }, { actor: admin, workspaceId: home.id, procedureId: procedure.procedure.id });
+      const toBen = await updateSchedule(scheduleDeps, { actor: ana, workspaceId: home.id, scheduleId: removed.id, expectedRevision: removed.revision, date: '2027-06-15', timeZone: BERLIN, reminders: removed.reminders, assigneeUserId: ben.id });
+      await removeMember({ users: createUserRepository(database), workspaces: scheduleDeps.workspaces, clock }, { actor: admin, workspaceId: home.id, userId: ben.id });
+      at('2027-06-15T07:00:00Z');
       await dispatch();
-    }
-    expect(deliveries()).toEqual([{ channel: 'EMAIL', status: 'FAILED', attempts: 4, code: 'email_failed' }]);
-    // Given up: never again, even when the provider works again.
-    email.failWith(undefined);
-    now = new Date(now.getTime() + 24 * 3_600_000);
-    await dispatch();
-    expect(email.sent.filter((entry) => entry.message.reminderKey === 'DAYS:1')).toEqual([]);
+      expect(email.sent).toEqual([]);
+      expect(toBen.assignee?.displayName).toBe('Ben');
+    });
   });
 
-  it('does not retry permanent failures, and a failure never changes the schedule or history', async () => {
-    now = new Date('2026-10-14T07:01:00Z');
-    telegram.failWith(new NotificationDeliveryError('telegram_blocked', false));
-    const auditBefore = database.sqlite.prepare('SELECT count(*) AS n FROM audit_events').get();
-    await dispatch();
-    expect(deliveries()).toEqual([
-      { channel: 'EMAIL', status: 'SENT', attempts: 1, code: null },
-      { channel: 'TELEGRAM', status: 'FAILED', attempts: 1, code: 'telegram_blocked' },
-    ]);
-    expect(database.sqlite.prepare('SELECT count(*) AS n FROM audit_events').get()).toEqual(auditBefore);
-    expect(database.sqlite.prepare('SELECT state, revision FROM scheduled_procedures').get()).toEqual({ state: 'SCHEDULED', revision: 1 });
-    expect((database.sqlite.prepare('SELECT count(*) AS n FROM runs').get() as { n: number }).n).toBe(0);
-  });
+  describe('outage catch-up (D5)', () => {
+    it('(a) sends one catch-up with the current due status and keeps the later offset', async () => {
+      await reminder();
+      at('2027-05-17T08:00:00Z'); // down 14–17 May: the 15 May reminder is 2 days late
+      expect(await dispatch()).toMatchObject({ sent: 0, summaries: 2 });
+      expect(email.sent.map((entry) => entry.message.subject)).toEqual(['Missed reminder: Pay annual tax — in 29 days']);
+      expect(email.sent[0]?.message.body).toContain('due on Tuesday, 15 June 2027 (Europe/Berlin), in 29 days');
+      expect(email.sent[0]?.message.body).not.toContain('1 month');
+      expect(telegram.sent).toHaveLength(1);
+      at('2027-06-08T07:00:00Z'); // the 1-week reminder arrives normally
+      expect(await dispatch()).toMatchObject({ sent: 2, summaries: 0 });
+      expect(email.sent.at(-1)?.message.subject).toBe('Reminder: Pay annual tax — in 7 days');
+    });
 
-  it('sends nothing to someone who left the Workspace, was disabled, or for a deleted Procedure', async () => {
-    now = new Date('2026-10-14T07:01:00Z');
-    const users = createUserRepository(database);
-    await removeMember({ users, workspaces: scheduleDeps.workspaces, clock }, { actor: admin, workspaceId: home.id, userId: uma.id });
-    expect(await dispatch()).toMatchObject({ sent: 0, skipped: 1 });
-    expect(email.sent).toEqual([]);
+    it('(b) covers earlier missed offsets with the most recent one', async () => {
+      await reminder();
+      at('2027-06-10T08:00:00Z'); // both 15 May and 8 June were missed
+      expect(await dispatch()).toMatchObject({ summaries: 2, superseded: 1 });
+      expect(email.sent).toHaveLength(1);
+      expect(superseded()).toBe(1);
+      expect(unprocessed()).toBe(0);
+    });
 
-    await addMember({ users, workspaces: scheduleDeps.workspaces, clock }, { actor: admin, workspaceId: home.id, email: uma.email, role: 'USER' });
-    await deleteProcedure({ workspaces: scheduleDeps.workspaces, procedures: createProcedureRepository(database), clock }, { actor: admin, workspaceId: home.id, procedureId: groceries });
-    now = new Date('2026-10-15T07:01:00Z');
-    expect(await dispatch()).toMatchObject({ sent: 0, skipped: 1 });
-    expect(email.sent).toEqual([]);
-  });
+    it('(c) delivers a reminder up to 24 h late normally', async () => {
+      await reminder();
+      at('2027-05-16T03:00:00Z'); // 20 hours late
+      expect(await dispatch()).toMatchObject({ sent: 2, summaries: 0 });
+      expect(email.sent[0]?.message.subject).toMatch(/^Reminder: /);
+    });
 
-  it('sends nothing for cancelled items and only through channels the person keeps enabled', async () => {
-    telegram.setEnabled(false);
-    now = new Date('2026-10-14T07:01:00Z');
-    await dispatch();
-    expect([email.sent.length, telegram.sent.length]).toEqual([1, 0]);
-    await cancelSchedule(scheduleDeps, { actor: uma, workspaceId: home.id, scheduleId: item.id, expectedRevision: 1 });
-    now = new Date('2026-10-15T07:01:00Z');
-    await dispatch();
-    expect(email.sent).toHaveLength(1);
-  });
+    it('(d) sends nothing for Occurrences completed or paused during the outage', async () => {
+      const done = await reminder({ title: 'Done' });
+      const paused = await reminder({ title: 'Paused' });
+      at('2027-05-16T08:00:00Z');
+      await completeOccurrence(scheduleDeps, { actor: ben, workspaceId: home.id, occurrenceId: (await openOccurrence(done)).id });
+      await pauseSchedule(scheduleDeps, { actor: ana, workspaceId: home.id, scheduleId: paused.id, expectedRevision: paused.revision });
+      at('2027-05-18T08:00:00Z');
+      await dispatch();
+      expect(email.sent).toEqual([]);
+      expect(summaries()).toEqual([]);
+    });
 
-  it('drops reminders that are more than a day late (e.g. the server was down)', async () => {
-    now = new Date('2026-10-15T09:00:00Z'); // DAYS:1 is 26 h late, DAYS:0 two hours
-    expect(await dispatch()).toMatchObject({ sent: 2, skipped: 2 });
-    expect(email.sent.map((entry) => entry.message.reminderKey)).toEqual(['DAYS:0']);
+    it('(e) sends no catch-up when a normal reminder for the same Occurrence comes within 24 h', async () => {
+      await reminder({ date: '2027-06-15', reminders: [{ unit: 'WEEKS', amount: 1 }, { unit: 'DAYS', amount: 1 }] });
+      at('2027-06-13T12:00:00Z'); // 1 week before (8 June) missed; 1 day before (14 June 09:00) is 19 h away
+      expect(await dispatch()).toMatchObject({ summaries: 0, superseded: 1 });
+      expect(email.sent).toEqual([]);
+      at('2027-06-14T07:00:00Z');
+      expect(await dispatch()).toMatchObject({ sent: 2 });
+      expect(email.sent.map((entry) => entry.message.subject)).toEqual(['Reminder: Pay annual tax — tomorrow']);
+    });
+
+    it('(f) groups 30 missed Occurrences into one bounded summary per channel', async () => {
+      for (let i = 0; i < 30; i++) await reminder({ title: `Bill ${String(i).padStart(2, '0')}`, date: '2027-06-15', reminders: [{ unit: 'MONTHS', amount: 1 }] });
+      at('2027-05-20T08:00:00Z');
+      expect(await dispatch()).toMatchObject({ summaries: 2 });
+      expect(email.sent).toHaveLength(1);
+      expect(telegram.sent).toHaveLength(1);
+      const body = email.sent[0]?.message.body ?? '';
+      expect(email.sent[0]?.message.subject).toBe('Missed reminders: 30 items need attention');
+      expect(body.split('\n').filter((line) => line.startsWith('- Bill'))).toHaveLength(10);
+      expect(body).toContain('- … and 20 more');
+      expect(email.sent[0]?.message.key).toMatch(/^s-[0-9a-f-]{36}-email$/);
+    });
+
+    it('(g) never puts an Occurrence into two summaries, also across restarts and summary retries', async () => {
+      for (let i = 0; i < 3; i++) await reminder({ title: `Bill ${i}`, reminders: [{ unit: 'MONTHS', amount: 1 }] });
+      at('2027-05-20T08:00:00Z');
+      email.failWith(new NotificationDeliveryError('email_failed', true));
+      await dispatch();
+      expect(summaries().map((row) => [row.channel, row.status])).toEqual([
+        ['EMAIL', 'RETRY'],
+        ['TELEGRAM', 'SENT'],
+      ]);
+      await dispatch({ queue: createReminderQueue(database) }); // restart before the retry is due
+      at(new Date(now.getTime() + RETRY_DELAYS_MS[0] + 1000).toISOString());
+      await dispatch({ queue: createReminderQueue(database) });
+      await dispatch({ queue: createReminderQueue(database) });
+      expect(summaries().map((row) => [row.channel, row.status, row.attempts])).toEqual([
+        ['EMAIL', 'SENT', 2],
+        ['TELEGRAM', 'SENT', 1],
+      ]);
+      expect(email.sent).toHaveLength(1);
+      expect(telegram.sent).toHaveLength(1);
+      expect(unprocessed()).toBe(0);
+      expect(deliveries().every((row) => row.status === 'SENT')).toBe(true);
+    });
+
+    it('drops members that became ineligible before a summary retry', async () => {
+      const kept = await reminder({ title: 'Kept', reminders: [{ unit: 'MONTHS', amount: 1 }] });
+      const done = await reminder({ title: 'Done meanwhile', reminders: [{ unit: 'MONTHS', amount: 1 }] });
+      at('2027-05-20T08:00:00Z');
+      email.failWith(new NotificationDeliveryError('email_failed', true));
+      await dispatch({ notifiers: [email.notifier] });
+      await completeOccurrence(scheduleDeps, { actor: ana, workspaceId: home.id, occurrenceId: (await openOccurrence(done)).id });
+      at(new Date(now.getTime() + RETRY_DELAYS_MS[0] + 1000).toISOString());
+      await dispatch({ notifiers: [email.notifier] });
+      expect(email.sent).toHaveLength(1);
+      expect(email.sent[0]?.message.subject).toBe('Missed reminder: Kept — in 26 days');
+      expect(kept.title).toBe('Kept');
+    });
   });
 });

@@ -169,8 +169,8 @@ for (const procedure of procedures) {
 }
 await api('POST', '/auth/sign-out', {}, editor);
 
-// One active Run, started by the USER account; for Home (13.9): one scheduled item due today, one in
-// a week with reminders, and a pinned Procedure.
+// One active Run, started by the USER account; for Home (13.9, 14.2): one scheduled item due today, one in
+// a week with reminders, two Reminders and a pinned Procedure.
 const member = await signIn('user@vmn.test');
 await api('POST', `/workspaces/${household}/runs`, { procedureId: procedureIds[0] }, member);
 const localDate = (offsetDays: number) => {
@@ -186,6 +186,19 @@ await api(
   { procedureId: procedureIds[procedureIds.length - 1], date: localDate(7), timeZone, reminders: [{ unit: 'DAYS', amount: 1 }, { unit: 'DAYS', amount: 0 }] },
   member,
 );
+// Standalone Reminders (14.1): a yearly one with month/week reminders, one counted from the last completion.
+await api(
+  'POST',
+  `/workspaces/${household}/schedules`,
+  { title: 'Pay the annual tax', date: localDate(30), timeZone, recurrence: { kind: 'FIXED', unit: 'YEAR', interval: 1 }, reminders: [{ unit: 'MONTHS', amount: 1 }, { unit: 'WEEKS', amount: 1 }] },
+  member,
+);
+await api(
+  'POST',
+  `/workspaces/${household}/schedules`,
+  { title: 'Change the water filter', date: localDate(1), timeZone, recurrence: { kind: 'AFTER_COMPLETION', unit: 'MONTH', interval: 6 }, reminders: [{ unit: 'DAYS', amount: 0 }] },
+  member,
+);
 await api('POST', `/workspaces/${household}/procedures/${procedureIds[0]}/pin`, {}, member);
 await api('POST', '/auth/sign-out', {}, member);
-console.log(`Created ${people.length + 1} accounts, 2 Workspaces, ${procedures.length} Procedures, 1 Run, 2 scheduled items and 1 pin.`);
+console.log(`Created ${people.length + 1} accounts, 2 Workspaces, ${procedures.length} Procedures, 1 Run, 2 scheduled Procedures, 2 Reminders and 1 pin.`);

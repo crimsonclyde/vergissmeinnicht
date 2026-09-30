@@ -2,65 +2,139 @@ import type {
   Actor,
   LocalDate,
   LocalTime,
+  Occurrence,
+  OccurrenceId,
   ProcedureId,
+  Recurrence,
   ReminderOffset,
-  ScheduledProcedure,
-  ScheduledProcedureId,
+  RunId,
+  RunSummary,
+  Schedule,
+  ScheduleId,
+  ScheduleKind,
   TimeZoneName,
   UserId,
   WorkspaceId,
 } from '@vergissmeinnicht/domain';
 import type { ActorGuard } from './actor-guard.ts';
 
-/** When and how: the editable part of a scheduled item (already validated and normalized). */
-export interface ScheduleTimingInput {
-  readonly date: LocalDate;
+type UserActor = Actor & { readonly kind: 'user' };
+
+/** The editable part of a Schedule, already validated and normalized by the use-case. */
+export interface ScheduleContentInput {
+  /** REMINDER only. */
+  readonly title: string | null;
+  readonly description: string;
+  readonly recurrence: Recurrence;
+  readonly anchorDate: LocalDate;
   readonly time: LocalTime | null;
   readonly timeZone: TimeZoneName;
-  readonly reminderTime: LocalTime;
   readonly reminders: readonly ReminderOffset[];
-  /** The reminder instants still ahead, from `upcomingReminders` (sent to the item's creator). */
-  readonly upcoming: readonly { readonly key: string; readonly at: Date }[];
+  readonly assigneeUserId: UserId | null;
 }
 
-export type ScheduleWriteResult =
-  | { readonly status: 'ok'; readonly schedule: ScheduledProcedure }
-  | { readonly status: 'forbidden' | 'not_found' | 'procedure_not_found' | 'conflict' | 'closed' | 'limit_reached' };
+/** An Occurrence together with its Schedule (what lists and actions return). */
+export interface ScheduledOccurrence {
+  readonly schedule: Schedule;
+  readonly occurrence: Occurrence;
+}
+
+export type ScheduleWriteStatus =
+  | 'forbidden'
+  | 'not_found'
+  | 'procedure_not_found'
+  | 'conflict'
+  | 'closed'
+  | 'limit_reached'
+  | 'invalid_assignee'
+  /** The action does not apply to this kind (e.g. Complete on a Procedure Occurrence). */
+  | 'wrong_kind'
+  /** Reopen refused: the next Occurrence of a completion-based series was already acted on. */
+  | 'next_in_use'
+  /** Another Occurrence of the Schedule is already due on that date. */
+  | 'date_taken'
+  | 'paused'
+  | 'run_not_eligible';
+
+export type ScheduleWriteResult = { readonly status: 'ok'; readonly schedule: Schedule } | { readonly status: ScheduleWriteStatus };
+export type OccurrenceWriteResult = { readonly status: 'ok'; readonly item: ScheduledOccurrence } | { readonly status: ScheduleWriteStatus };
+
+export interface OccurrenceHistoryEntry extends ScheduledOccurrence {
+  /** Runs linked now or before (aborted or unlinked ones included), newest first. */
+  readonly runs: readonly { readonly runId: RunId; readonly how: 'STARTED' | 'LINKED'; readonly linkedAt: Date; readonly linkedBy: string; readonly ended: 'ABORTED' | 'UNLINKED' | null }[];
+}
 
 /**
- * Scheduled Procedures, always addressed by Workspace id *and* item id. Every write runs in one
- * IMMEDIATE transaction that re-checks the guard and records its audit event (SCHEDULE_*).
+ * Schedules and Occurrences (14.1), always addressed by Workspace id *and* object id. Every write runs
+ * in one IMMEDIATE transaction that re-checks the guard, keeps reminders in step (per Occurrence and
+ * recipient) and records its audit event. `at` is the time of the change; "today" is judged in each
+ * Schedule's own zone.
  */
 export interface ScheduleRepository {
-  /** Requires a non-deleted Procedure of the Workspace and fewer than `maxOpen` open items. */
   create(
-    input: ScheduleTimingInput & { readonly workspaceId: WorkspaceId; readonly procedureId: ProcedureId; readonly at: Date; readonly maxOpen: number },
-    actor: Actor & { readonly kind: 'user' },
-    guard: ActorGuard,
-  ): Promise<ScheduleWriteResult>;
-  /**
-   * Moves an open item (compare-and-set on `expectedRevision`): unsent reminders are cancelled and
-   * the new ones stored — a reminder already sent for the same moment is not sent again.
-   */
-  reschedule(
-    input: ScheduleTimingInput & {
+    input: ScheduleContentInput & {
       readonly workspaceId: WorkspaceId;
-      readonly scheduleId: ScheduledProcedureId;
-      readonly expectedRevision: number;
+      readonly kind: ScheduleKind;
+      readonly procedureId: ProcedureId | null;
       readonly at: Date;
+      readonly maxOpen: number;
     },
-    actor: Actor & { readonly kind: 'user' },
+    actor: UserActor,
     guard: ActorGuard,
   ): Promise<ScheduleWriteResult>;
-  /** Closes an open item as CANCELLED and cancels its unsent reminders. */
-  cancel(
-    input: { readonly workspaceId: WorkspaceId; readonly scheduleId: ScheduledProcedureId; readonly expectedRevision: number; readonly at: Date },
-    actor: Actor & { readonly kind: 'user' },
+  /** Changes apply to Occurrences not yet acted on; history is never rewritten. */
+  update(
+    input: ScheduleContentInput & { readonly workspaceId: WorkspaceId; readonly scheduleId: ScheduleId; readonly expectedRevision: number; readonly at: Date },
+    actor: UserActor,
     guard: ActorGuard,
   ): Promise<ScheduleWriteResult>;
-  find(workspaceId: WorkspaceId, scheduleId: ScheduledProcedureId): Promise<ScheduledProcedure | undefined>;
-  /** Open (SCHEDULED) items of the Workspace, earliest date first, at most `limit`. */
-  listOpen(workspaceId: WorkspaceId, limit: number): Promise<ScheduledProcedure[]>;
+  pause(input: ScheduleRef & { readonly expectedRevision: number }, actor: UserActor, guard: ActorGuard): Promise<ScheduleWriteResult>;
+  /** Fixed series: creates the Occurrences that fell into the pause and skips them when `skipElapsed`. */
+  resume(input: ScheduleRef & { readonly expectedRevision: number; readonly skipElapsed: boolean }, actor: UserActor, guard: ActorGuard): Promise<ScheduleWriteResult>;
+  /** Cancels the OPEN Occurrences; history stays. */
+  end(input: ScheduleRef & { readonly expectedRevision: number }, actor: UserActor, guard: ActorGuard): Promise<ScheduleWriteResult>;
+  /** Skips every OPEN Occurrence of the Schedule due before `before` (never IN_PROGRESS ones). */
+  skipOlder(input: ScheduleRef & { readonly before: LocalDate; readonly reason: string | null }, actor: UserActor, guard: ActorGuard): Promise<{ readonly status: 'ok'; readonly skipped: number } | { readonly status: ScheduleWriteStatus }>;
+
+  complete(input: OccurrenceRef, actor: UserActor, guard: ActorGuard): Promise<OccurrenceWriteResult>;
+  reopen(input: OccurrenceRef, actor: UserActor, guard: ActorGuard): Promise<OccurrenceWriteResult>;
+  skip(input: OccurrenceRef & { readonly reason: string | null }, actor: UserActor, guard: ActorGuard): Promise<OccurrenceWriteResult>;
+  move(input: OccurrenceRef & { readonly dueDate: LocalDate; readonly time: LocalTime | null }, actor: UserActor, guard: ActorGuard): Promise<OccurrenceWriteResult>;
+  assign(input: OccurrenceRef & { readonly assigneeUserId: UserId | null }, actor: UserActor, guard: ActorGuard): Promise<OccurrenceWriteResult>;
+  /** Deliberately links an eligible existing Run (D7); a completed Run completes the Occurrence. */
+  linkRun(input: OccurrenceRef & { readonly runId: RunId }, actor: UserActor, guard: ActorGuard): Promise<OccurrenceWriteResult>;
+  /** Ends the current link; the Occurrence is OPEN again. */
+  unlinkRun(input: OccurrenceRef, actor: UserActor, guard: ActorGuard): Promise<OccurrenceWriteResult>;
+
+  findSchedule(workspaceId: WorkspaceId, scheduleId: ScheduleId): Promise<Schedule | undefined>;
+  findOccurrence(workspaceId: WorkspaceId, occurrenceId: OccurrenceId): Promise<ScheduledOccurrence | undefined>;
+  /** Active and paused Schedules of the Workspace, at most `limit`. */
+  listSchedules(workspaceId: WorkspaceId, limit: number): Promise<Schedule[]>;
+  /** A Schedule's Occurrences, newest first, with their Run links. */
+  history(workspaceId: WorkspaceId, scheduleId: ScheduleId, limit: number): Promise<OccurrenceHistoryEntry[]>;
+  /** OPEN and IN_PROGRESS Occurrences of the Workspace, earliest due first. */
+  listOpen(workspaceId: WorkspaceId, limit: number): Promise<ScheduledOccurrence[]>;
+  /** Occurrences completed or skipped since `since`, newest first. */
+  listRecentlyClosed(workspaceId: WorkspaceId, since: Date, limit: number): Promise<ScheduledOccurrence[]>;
+  /** Runs that may be linked to the Occurrence (D7): same Procedure, active or completed, not linked, started since the previous due date. */
+  linkableRuns(workspaceId: WorkspaceId, occurrenceId: OccurrenceId): Promise<RunSummary[]>;
+  /**
+   * The generator (system, not audited): creates the next Occurrence of active fixed series whose
+   * latest due date has passed — idempotent by (Schedule, due date). At most `limit` Occurrences.
+   */
+  advance(now: Date, limit: number): Promise<number>;
+}
+
+export interface ScheduleRef {
+  readonly workspaceId: WorkspaceId;
+  readonly scheduleId: ScheduleId;
+  readonly at: Date;
+}
+
+export interface OccurrenceRef {
+  readonly workspaceId: WorkspaceId;
+  readonly occurrenceId: OccurrenceId;
+  readonly at: Date;
 }
 
 /** A person's reminder settings (13.8); used for defaults when scheduling. */

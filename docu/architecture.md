@@ -299,39 +299,52 @@ GET /api/workspaces/{id}/runs/{runId}/events     run.view, text/event-stream
 - The stream re-checks the session and `run.view` before each event and every 20 s, closes after 15 min, after the Run finished, and on shutdown; finished Runs answer `204`.
 - The web client applies its own Step changes optimistically (Step 6.2) but always sends the canonical `expectedState` and falls back to the server state on rejection.
 
-## Home, scheduling and reminders (Steps 13.4–13.13)
+## Home, Schedules, Occurrences and reminders (Steps 13.4–13.13, 14.1–14.2)
 
-The everyday flow is *Procedure → optionally schedule it → reminders → Start → execute → history*. A **ScheduledProcedure** is only the intention; a Run exists only after Start.
+The everyday flow is *Procedure or Reminder → optionally schedule it → reminders → Start/Complete → history*. A **Schedule** (series of a standalone **Reminder** or of a **Procedure**) produces **Occurrences** — one per due date, each with its own state and history. A Run exists only after an explicit Start; nothing is executed or marked done by the passage of time. The one-time ScheduledProcedure of 13.4 became a one-time Schedule with one Occurrence (migration 0024, same ids).
 
 ```text
-GET  /api/workspaces/{id}/home                         procedure.view: Due, Upcoming, Active, Pinned, Recent
-GET  /api/workspaces/{id}/procedures                   cards: + pinned, lastCompletedAt, active executions, nextSchedule
-POST /api/workspaces/{id}/procedures/{pid}/pin|unpin   procedure.view — personal, not audited
-GET  /api/workspaces/{id}/runs?state=ACTIVE&procedureId=  active executions of one Procedure (warning before Start, 13.18)
-GET  /api/workspaces/{id}/schedules                    procedure.view, open items
-POST /api/workspaces/{id}/schedules { procedureId, date, time?, timeZone, reminderTime?, reminders[] }   schedule.manage
-GET  /api/workspaces/{id}/schedules/{sid}
-POST /api/workspaces/{id}/schedules/{sid}/update|cancel  schedule.manage, expectedRevision
-POST /api/workspaces/{id}/schedules/{sid}/start        run.start → normal Run; item closed as STARTED in the same transaction
+GET  /api/workspaces/{id}/home                          procedure.view: Overdue, Today, Upcoming (90 days) + later count, recently done (24 h), Active, Pinned, Recent
+GET  /api/workspaces/{id}/procedures                    cards: + pinned, lastCompletedAt, active executions, nextOccurrence
+POST /api/workspaces/{id}/procedures/{pid}/pin|unpin    procedure.view — personal, not audited
+GET  /api/workspaces/{id}/schedules                     procedure.view: active and paused Schedules
+POST /api/workspaces/{id}/schedules { kind?, procedureId? | title, description?, recurrence?, date, time?, timeZone, reminders[], assigneeUserId? }   schedule.manage
+GET  /api/workspaces/{id}/schedules/{sid}               Schedule + Occurrences (newest first) with their Run links
+POST /api/workspaces/{id}/schedules/{sid}/update|pause|end|cancel { expectedRevision, … }   schedule.manage (cancel = end, 13.4 compatibility)
+POST /api/workspaces/{id}/schedules/{sid}/resume { expectedRevision, skipElapsed }          schedule.manage
+POST /api/workspaces/{id}/schedules/{sid}/skip-older { before, reason? }                    schedule.manage (bulk skip, D1)
+POST /api/workspaces/{id}/schedules/{sid}/start         13.4 compatibility: starts the open Occurrence
+GET  /api/workspaces/{id}/occurrences/{oid}             procedure.view
+POST /api/workspaces/{id}/occurrences/{oid}/complete|reopen|skip   run.execute (Reminders; completing user recorded apart from the Assignee)
+POST /api/workspaces/{id}/occurrences/{oid}/start       run.start → normal Run, linked; Occurrence IN_PROGRESS (same transaction)
+POST /api/workspaces/{id}/occurrences/{oid}/link-run|unlink-run   run.execute (D7); GET …/linkable-runs (run.view)
+POST /api/workspaces/{id}/occurrences/{oid}/move|assign  schedule.manage
 ```
 
-- **Time**: an item stores a calendar date, an optional wall-clock time, an IANA time zone (the browser's at creation) and a reminder time (the creator's default, 09:00 unless changed). `packages/domain/src/schedule.ts` converts wall-clock values to instants with Intl only (DST gap → later, overlap → earlier); "due"/"overdue" is judged by the calendar date in the item's own zone.
-- **Reminders** (`scheduled_reminders`): one row per instant, computed when an item is scheduled or moved (past instants dropped, one per instant); cancelled — never deleted — when it is moved, started or cancelled; a processed instant is never stored again.
+- **Model** (`packages/domain/src/schedule.ts`): recurrence ONCE / FIXED (every N days, weeks with optional weekdays, months on a day or the last day, years) / AFTER_COMPLETION (N units after the completion or skip date). Fixed dates are always computed from the anchor (`fixedDateAt`), and non-existent dates are clamped to the month's last day — no drift. Dates are calendar dates in the Schedule's IANA zone; wall-clock times use Intl only (DST gap → later, overlap → earlier). Reminder offsets: on the due date / N days / N weeks / N calendar months (clamped) before, at the recipient's reminder time; N hours before a timed Occurrence.
+- **Tables** (migration 0024): `schedules` (never deleted; identity immutable; ENDED final), `occurrences` (unique per Schedule and due date among non-cancelled rows — also the generator's idempotency key; never deleted; CANCELLED final), `occurrence_runs` (Run links: started or deliberately linked, at most one current link per Occurrence and per Run, aborted/unlinked ones kept as history), `scheduled_reminders` (per Occurrence and recipient), `reminder_deliveries`, `notification_summaries`.
+- **Lifecycle**: Occurrences are OPEN → IN_PROGRESS (linked active Run) → COMPLETED, or SKIPPED/CANCELLED. Reminders are completed and reopened directly; a Procedure Occurrence is completed by its linked Run (Run completion and abort update it inside `RunRepository.finish`'s transaction). Completion-based series create the next Occurrence on completion or skip; reopening withdraws it if nobody acted on it. **Generator** (`advanceSchedules`, every minute before dispatch): the next Occurrence of a fixed series once the latest due date has passed — idempotent, incremental (one per elapsed period, bounded per run), nothing while paused, ended or with a deleted Procedure. Occurrences never count toward the 500-active-Run limit.
+- **Responsibility**: optional Assignee per Schedule and per Occurrence (override); reminders go to the Assignee, else the creator; assignment grants nothing.
+- **Reminders** (`scheduled_reminders`): one row per (Occurrence, recipient, offset, instant), computed when an Occurrence is created, moved, reassigned or reopened (past instants not created); unsent rows are cancelled — never deleted — on changes, closing or pausing; a processed instant is never stored again.
 - **Dispatch** (`packages/application/src/reminders/dispatch.ts`), run every minute by `apps/server/src/reminder-schedule.ts` inside the server process (no queue, no worker; never overlapping):
 
 ```text
-due reminders (≤50) ──► still allowed? (recipient ACTIVE, member with procedure.view, item open, Procedure not deleted)
-   └─► for each channel the server enabled and the person enabled/connected:
-         claim (reminder, channel) row in a transaction ──► send ──► SENT
-                                                        └─► RETRY (1 min, 10 min, 1 h) / FAILED / SKIPPED (>24 h late)
+catch-up summaries due for a retry ──► claim ──► re-check members ──► send / RETRY / FAILED
+due reminders (≤50) ──► still allowed? (recipient ACTIVE, member with procedure.view, still the responsible person,
+   │                     Occurrence OPEN, Schedule ACTIVE, Procedure not deleted)
+   ├─ ≤24 h late (or already being retried): for each channel the server and the person enabled:
+   │     claim (reminder, channel) in a transaction ──► send ──► SENT / RETRY (1 min, 10 min, 1 h) / FAILED
+   └─ >24 h late (missed, D5): per Occurrence and recipient only the latest missed offset → catch-up;
+         earlier ones SUPERSEDED; also superseded when a normal reminder comes within 24 h;
+         grouped: one summary per recipient and channel (≤10 listed, "and N more"), claimed like a delivery
 ```
 
-  The unique (reminder, channel) claim makes delivery idempotent across restarts and concurrent runs; a claim not settled within 5 minutes counts as interrupted (≤4 attempts in total). Delivery state never touches schedules, Runs or audit events.
+  Persistent delivery rows with unique logical keys, atomic claims with a 5-minute lease and ≤4 attempts make delivery idempotent across restarts and concurrent workers; success is recorded outside the provider call, so a crash between a provider accepting a message and recording it can repeat that one message (documented; emails carry a stable `Message-ID` per logical key). Texts describe the current due status, never the original offset. Delivery state never touches Schedules, Occurrences, Runs or audit events.
 - **Providers** implement `ReminderNotifier` (`channel`, `enabledFor(user)`, `send(user, message)`):
   - **Email**: the existing SMTP `EmailSender` (texts in `email-texts/en.ts`).
   - **Telegram**: `packages/notifications` (Bot API over HTTPS to `api.telegram.org` only). The bot token is configured by a server admin, verified with `getMe`, stored sealed in `notification_providers` (AES-256-GCM, `DATA_ENCRYPTION_KEY`, context `notification-provider:TELEGRAM`) and never returned. Pairing: a 256-bit one-time token (hash stored, 10 min) in a `t.me/<bot>?start=<token>` link; the server polls `getUpdates` every 3 s **only while a pairing is open** (no webhook, works behind a VPN), claims the pairing for the private chat that sent `/start <token>`, and the chat is connected only after the signed-in owner confirms it.
     Two stages, also in the UI (0.2.0-beta.2): the admin page configures only the **instance-wide bot** (it says so, shows "Bot connected: @bot" and a *Next step* pointing to the admin's own `/account#notifications`); each person — the admin included — connects **their own chat** there through the visible sequence Connect → Start in Telegram → waiting → confirm → connected. The admin test message goes to the acting admin's own chat, so the admin page reads the admin's own `GET /api/account/notifications` (label only) and disables the test until that chat is connected. No chat id is ever entered by hand.
-  - Future ntfy / Gotify / webhook / Web Push adapters implement the same port; a webhook first needs the SSRF policy in security.md.
+  - Future ntfy / Gotify / webhook / Web Push adapters implement the same port (`send(user, { subject, body, key })`); a webhook first needs the SSRF policy in security.md.
 
 ```text
 GET  /api/account/notifications                     own settings: reminder time, email, Telegram (connected / pairing)
@@ -344,7 +357,7 @@ POST /api/admin/notifications/test { provider }     to the acting admin only
 GET/POST /api/admin/settings { footerHidden?, recentProceduresLimit? }   Recent 0–20 (default 5)
 ```
 
-- **Web**: `/w/{id}` is the Workspace Home, `/w/{id}/history` the completed history (`/w/{id}/runs` still works), `/w/{id}/runs/{runId}` one execution. Start/Schedule live in `StartProcedure.tsx`/`ScheduleDialog.tsx`, secondary actions in the `MoreMenu` (⋯) disclosure.
+- **Web**: `/w/{id}` is the Workspace Home (Overdue, Today, Upcoming, recently done; filter All / Assigned to me / Shared; refreshed every 30 s while visible), `/w/{id}/history` the completed history (`/w/{id}/runs` still works), `/w/{id}/runs/{runId}` one execution. Start/Schedule live in `StartProcedure.tsx`/`ScheduleDialog.tsx` (also "New reminder" on Home), Occurrence actions in the `MoreMenu` (⋯) disclosure of each Home row.
 
 ## Offline execution (Step 8.5)
 

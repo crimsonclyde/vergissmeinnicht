@@ -1,4 +1,4 @@
-import { dispatchDueReminders, pollTelegramPairings, type NotificationDeps, type ReminderDeps } from '@vergissmeinnicht/application';
+import { advanceSchedules, dispatchDueReminders, pollTelegramPairings, type NotificationDeps, type ReminderDeps, type ScheduleDeps } from '@vergissmeinnicht/application';
 import type { FastifyBaseLogger } from 'fastify';
 
 /** How often due reminders are looked for. */
@@ -35,11 +35,14 @@ function every(intervalMs: number, name: string, log: FastifyBaseLogger, task: (
  * recipients, titles or tokens. Returns a function that stops both loops.
  */
 export function scheduleReminders(
-  deps: { readonly reminders: ReminderDeps; readonly notifications: NotificationDeps },
+  deps: { readonly reminders: ReminderDeps; readonly notifications: NotificationDeps; readonly schedules: Pick<ScheduleDeps, 'schedules' | 'clock'> },
   log: FastifyBaseLogger,
   intervals: { readonly reminderMs?: number; readonly telegramMs?: number } = {},
 ): () => void {
   const stopReminders = every(intervals.reminderMs ?? REMINDER_CHECK_MS, 'reminder dispatch', log, async () => {
+    // First the next Occurrences of fixed series (14.1; idempotent), then their reminders.
+    const created = await advanceSchedules(deps.schedules);
+    if (created > 0) log.info({ occurrencesCreated: created }, 'schedules advanced');
     const result = await dispatchDueReminders(deps.reminders);
     if (Object.values(result).some((count) => count > 0)) log.info({ reminders: result }, 'reminders processed');
   });

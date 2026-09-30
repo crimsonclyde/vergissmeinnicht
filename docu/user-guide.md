@@ -7,7 +7,8 @@ This guide is for the people who *use* VergissMeinNicht (VMN). To install and ru
 VMN exists so you do not forget the things you have to do again and again.
 
 - A **Procedure** is a checklist you reuse: "Leave the house", "Close the shop", "Deploy the website". It has **Sections** (e.g. *Upstairs*, *Kitchen*) with **Steps**.
-- **Start** a Procedure to go through it now — or **Schedule** it for a day and get **reminders** (email, Telegram).
+- **Start** a Procedure to go through it now — or **Schedule** it (once or repeating) and get **reminders** (email, Telegram).
+- Keep simple obligations — like paying the annual tax — as **Reminders**, with or without repetition, and mark them done.
 - Every Step is **Pending**, **Done**, **Skipped** or **Not applicable** — and VMN remembers who changed it, when, and (if asked) why. Starting takes a copy of the Procedure, so later edits never change what happened. Finished executions end up in the **Completed history**.
 - Everything lives in a **Workspace** (a household, a team, a shop). You only see Workspaces you were added to.
 
@@ -23,8 +24,8 @@ Forgot your password or lost your phone? Ask your server admin for an account re
 
 | Role | Can |
 | --- | --- |
-| **Guest** | read Procedures, scheduled items and the completed history |
-| **User** | … and start, schedule, execute, complete and abort Procedures |
+| **Guest** | read Procedures, schedules, Reminders and the completed history |
+| **User** | … and start, schedule, execute, complete and abort Procedures; create, complete and skip Reminders; assign who is responsible |
 | **Editor** | … and create, edit, import, duplicate, delete and restore Procedures; create Knot links |
 | **Admin** | … and manage members, roles and the Workspace name |
 
@@ -42,23 +43,37 @@ Procedures can be exported as a `.vmn.json` file and imported into another Works
 
 ## Home
 
-Opening a Workspace shows its **Home** — small on purpose:
+Opening a Workspace shows its **Home** — what needs attention, one clear action per line:
 
-- **Due** — scheduled Procedures for today and overdue ones, with **Start**.
-- **Upcoming** — what is scheduled later, with its reminders. **Start early** if you like; **⋯** → *Reschedule…* or *Cancel this schedule*.
+- **Overdue** — dates that have passed and are not done yet. They stay until you complete or skip them; nothing is marked done by itself. If a repeating item is overdue several times, it is shown once ("3 overdue") with **⋯ → Skip the older ones…**.
+- **Today** and **Upcoming** (the next 90 days) — each line says whether it is a **Reminder** or a **Procedure**, when it is due, who is responsible (**Assigned to …** or **Shared**) and offers the next step: **Complete** for a Reminder, **Start** (or **Start early**) for a Procedure, **Continue** when it is already being done.
+- **⋯** on a line: *Skip…* (with an optional reason — for a series that repeats after completion it tells you the next date first), *Move this date…*, *Assign…* (this date only), *Link an execution…* (count an execution that was already done for this date), *Edit schedule…*, *Pause* / *Resume*, *End schedule…*.
+- **Recently done** — what was completed or skipped in the last day, and **by whom**; **Undo** reopens a Reminder.
 - **Active** — what is being done right now, by whom, with **Continue**.
-- **Pinned** — your ★ Procedures (only for you).
-- **Recent** — Procedures you started lately (opening one does not count).
+- **Pinned** — your ★ Procedures (only for you). **Recent** — Procedures you started lately.
+- **All / Assigned to me / Shared** filters the lists (remembered in this browser). **New reminder** creates a standalone Reminder.
+
+## Reminders and repeating schedules
+
+A **Reminder** is something to remember without steps (a title and optional notes); a **scheduled Procedure** is a Procedure with a date. Both can repeat:
+
+- **Once** — one date.
+- **On fixed dates** — every N days, weeks (optionally on chosen weekdays), months (optionally on the last day) or years. Dates stay fixed even when one is done late; a day that does not exist in a month (the 31st, 29 February) moves to that month's last day and the next one returns to it.
+- **After it is done** — every N days/weeks/months/years counted from the day it was completed (or skipped).
+
+Every date is its own entry: completing last year's never completes this year's. **Responsible** (optional) names who is expected to do it and who gets the reminders; it grants no extra rights, and anyone allowed to execute may complete it (VMN records who actually did). **Pause** stops new dates and reminders; **Resume** offers to skip the dates that fell into the pause. **End** keeps the history.
+
+Reminders can come *on the due date*, *N days/weeks/months before* (at your default reminder time) or *N hours before* a timed date — up to 5. They go to the responsible person, otherwise to whoever created the schedule. If VMN was unavailable when a reminder was due and it is more than a day late, you get **one short summary** of what was missed ("Missed reminders: …") describing each item's current date and status — never a flood of old messages. The Home page is always the reliable overview, whether a message arrived or not.
 
 ## Start or schedule a Procedure
 
 On **Procedures**, every Procedure has **Start** right in the list (no need to open it first):
 
 - **Start now** — begins at once. If the Procedure is already being done, VMN says so (*"… started by Jane 18 minutes ago"*) and offers **Continue existing** or **Start another anyway**.
-- **Schedule…** — choose a date, optionally a time, and when to be reminded: *on the day*, *1 day before*, *1 week before* or your own (1–48 hours or 0–30 days before, up to 5). Nothing starts by itself: on the day it appears under **Due**, and you press **Start**. If the Procedure is deleted in the meantime, the scheduled item says so and can no longer be started.
+- **Schedule…** — choose once or a repetition, a date, optionally a time, who is responsible, and when to be reminded (see *Reminders and repeating schedules*). Nothing starts by itself: on the day it appears under **Today**, and you press **Start**. If the Procedure is deleted in the meantime, its dates say so and can no longer be started.
 - **★** pins a Procedure (Home and first in the list — only for you). **⋯** holds the rest: Edit, Duplicate, Export, Share as Knot link, History, Delete.
 
-Reminders go to the person who scheduled it, through the channels switched on under **Profile & settings → Notifications**. They contain the Procedure's title, the date and the Workspace name, and a link that still asks you to sign in.
+Reminders go to the responsible person, otherwise to the person who scheduled it, through the channels switched on under **Profile & settings → Notifications**. They contain the title, the date and the Workspace name, and a link that still asks you to sign in.
 
 ## Go through a Procedure
 

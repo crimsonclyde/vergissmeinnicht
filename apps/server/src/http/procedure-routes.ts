@@ -87,17 +87,23 @@ function procedureView(procedure: Procedure) {
   };
 }
 
-/** A Procedure with the person's pin, its last completion, active executions and next scheduled date. */
+/** A Procedure with the person's pin, its last completion, active executions and next open Occurrence. */
 export function procedureCardView(card: ProcedureCard) {
   return {
     ...procedureView(card.procedure),
     pinned: card.pinned,
     lastCompletedAt: card.activity.lastCompletedAt?.toISOString() ?? null,
     active: card.activity.active.map((run) => ({ runId: run.runId, startedBy: run.startedBy, startedAt: run.startedAt.toISOString() })),
-    nextSchedule:
-      card.nextSchedule === null
+    nextOccurrence:
+      card.nextOccurrence === null
         ? null
-        : { id: card.nextSchedule.id, date: card.nextSchedule.date, time: card.nextSchedule.time, timeZone: card.nextSchedule.timeZone },
+        : {
+            id: card.nextOccurrence.occurrence.id,
+            scheduleId: card.nextOccurrence.schedule.id,
+            date: card.nextOccurrence.occurrence.dueDate,
+            time: card.nextOccurrence.occurrence.time,
+            timeZone: card.nextOccurrence.schedule.timeZone,
+          },
   };
 }
 

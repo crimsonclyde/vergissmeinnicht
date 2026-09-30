@@ -31,7 +31,7 @@ const codeOf = (action: () => unknown) => {
   }
 };
 
-describe('scheduled Procedure values (13.4)', () => {
+describe('schedule values (13.4, 14.1)', () => {
   it('accepts real calendar dates and 24 h times only', () => {
     expect(d('2026-10-03')).toBe('2026-10-03');
     expect(d('2028-02-29')).toBe('2028-02-29');
@@ -48,27 +48,32 @@ describe('scheduled Procedure values (13.4)', () => {
     for (const bad of ['+02:00', 'GMT+2', 'Mars/Olympus', 'Europe/Berlin; DROP', '', 'x'.repeat(80)]) expect(codeOf(() => z(bad))).toBe('invalid_time_zone');
   });
 
-  it('bounds, de-duplicates and orders reminders', () => {
+  it('bounds, de-duplicates and orders reminders (days, weeks, calendar months, hours; D4)', () => {
     const list = normalizeReminders([
       { unit: 'DAYS', amount: 0 },
       { unit: 'DAYS', amount: 7 },
       { unit: 'HOURS', amount: 3 },
-      { unit: 'DAYS', amount: 1 },
+      { unit: 'MONTHS', amount: 1 },
+      { unit: 'WEEKS', amount: 1 },
       { unit: 'DAYS', amount: 7 },
     ]);
     expect(list).toEqual([
+      { unit: 'MONTHS', amount: 1 },
       { unit: 'DAYS', amount: 7 },
-      { unit: 'DAYS', amount: 1 },
+      { unit: 'WEEKS', amount: 1 },
       { unit: 'HOURS', amount: 3 },
       { unit: 'DAYS', amount: 0 },
     ]);
     const bad: ReminderOffset[][] = [
-      [{ unit: 'DAYS', amount: 31 }],
+      [{ unit: 'DAYS', amount: 367 }],
       [{ unit: 'DAYS', amount: -1 }],
+      [{ unit: 'WEEKS', amount: 0 }],
+      [{ unit: 'WEEKS', amount: 53 }],
+      [{ unit: 'MONTHS', amount: 13 }],
       [{ unit: 'HOURS', amount: 0 }],
       [{ unit: 'HOURS', amount: 49 }],
       [{ unit: 'DAYS', amount: 1.5 }],
-      [{ unit: 'WEEKS' as 'DAYS', amount: 1 }],
+      [{ unit: 'YEARS' as 'DAYS', amount: 1 }],
     ];
     for (const offsets of bad) expect(codeOf(() => normalizeReminders(offsets))).toBe('invalid_reminder');
     const six = [0, 1, 2, 3, 4, 5].map((amount) => ({ unit: 'DAYS' as const, amount }));
@@ -108,28 +113,37 @@ describe('time zones and daylight saving time (13.4)', () => {
   });
 
   it('keeps day-based reminders at the reminder time on both sides of a DST change', () => {
-    const item = { date: d('2026-10-27'), time: null, timeZone: berlin, reminderTime: t('09:00') as LocalTime };
-    // On the day (after fall-back: CET) and 7 days before (before it: CEST) — both 09:00 local.
-    expect(reminderInstant(item, { unit: 'DAYS', amount: 0 }).toISOString()).toBe('2026-10-27T08:00:00.000Z');
-    expect(reminderInstant(item, { unit: 'DAYS', amount: 7 }).toISOString()).toBe('2026-10-20T07:00:00.000Z');
-    expect(dueInstant(item).toISOString()).toBe('2026-10-27T08:00:00.000Z');
+    const item = { dueDate: d('2026-10-27'), time: null, timeZone: berlin };
+    const nine = t('09:00') as LocalTime;
+    // On the day (after fall-back: CET) and 7 days / 1 week before (before it: CEST) — all 09:00 local.
+    expect(reminderInstant(item, { unit: 'DAYS', amount: 0 }, nine).toISOString()).toBe('2026-10-27T08:00:00.000Z');
+    expect(reminderInstant(item, { unit: 'DAYS', amount: 7 }, nine).toISOString()).toBe('2026-10-20T07:00:00.000Z');
+    expect(reminderInstant(item, { unit: 'WEEKS', amount: 1 }, nine).toISOString()).toBe('2026-10-20T07:00:00.000Z');
+    expect(dueInstant(item, nine).toISOString()).toBe('2026-10-27T08:00:00.000Z');
+  });
+
+  it('counts month offsets in calendar months, clamped (1 month before 31 March is 28/29 February)', () => {
+    const nine = t('09:00');
+    expect(reminderInstant({ dueDate: d('2027-03-31'), time: null, timeZone: berlin }, { unit: 'MONTHS', amount: 1 }, nine).toISOString()).toBe('2027-02-28T08:00:00.000Z');
+    expect(reminderInstant({ dueDate: d('2028-03-31'), time: null, timeZone: berlin }, { unit: 'MONTHS', amount: 1 }, nine).toISOString()).toBe('2028-02-29T08:00:00.000Z');
+    expect(reminderInstant({ dueDate: d('2027-06-15'), time: null, timeZone: berlin }, { unit: 'MONTHS', amount: 1 }, nine).toISOString()).toBe('2027-05-15T07:00:00.000Z');
   });
 
   it('counts hour-based reminders in real hours across a DST change', () => {
     // Due 2026-03-29 09:00 CEST (07:00 UTC); 12 h before is 19:00 UTC the day before (20:00 CET).
-    const item = { date: d('2026-03-29'), time: t('09:00'), timeZone: berlin, reminderTime: t('08:00') };
-    expect(reminderInstant(item, { unit: 'HOURS', amount: 12 }).toISOString()).toBe('2026-03-28T19:00:00.000Z');
+    const item = { dueDate: d('2026-03-29'), time: t('09:00'), timeZone: berlin };
+    expect(reminderInstant(item, { unit: 'HOURS', amount: 12 }, t('08:00')).toISOString()).toBe('2026-03-28T19:00:00.000Z');
     // A time of its own wins over the reminder time for the due moment.
-    expect(dueInstant(item).toISOString()).toBe('2026-03-29T07:00:00.000Z');
+    expect(dueInstant(item, t('08:00')).toISOString()).toBe('2026-03-29T07:00:00.000Z');
   });
 
   it('judges due/overdue by the calendar date in the item’s zone', () => {
     const now = new Date('2026-10-02T23:30:00Z'); // Oct 3, 01:30 in Berlin; Oct 2, 19:30 in New York
     expect(localDateAt(now, berlin)).toBe('2026-10-03');
     expect(localDateAt(now, newYork)).toBe('2026-10-02');
-    expect(timelinessAt({ date: d('2026-10-03'), timeZone: berlin }, now)).toBe('TODAY');
-    expect(timelinessAt({ date: d('2026-10-03'), timeZone: newYork }, now)).toBe('UPCOMING');
-    expect(timelinessAt({ date: d('2026-10-02'), timeZone: berlin }, now)).toBe('OVERDUE');
+    expect(timelinessAt({ dueDate: d('2026-10-03'), timeZone: berlin }, now)).toBe('TODAY');
+    expect(timelinessAt({ dueDate: d('2026-10-03'), timeZone: newYork }, now)).toBe('UPCOMING');
+    expect(timelinessAt({ dueDate: d('2026-10-02'), timeZone: berlin }, now)).toBe('OVERDUE');
   });
 
   it('refuses dates in the past (in the item’s zone) and too far ahead', () => {

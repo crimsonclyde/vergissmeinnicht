@@ -34,6 +34,12 @@ function bodyFor(route: string, ids: Record<string, string>): object {
   if (method !== 'POST') return {};
   if (url.endsWith('/schedules')) return { procedureId: ids.procedureId ?? '', date: TOMORROW, timeZone: 'UTC', reminders: [] };
   if (url.endsWith('/schedules/:scheduleId/update')) return { expectedRevision: 1, date: TOMORROW, timeZone: 'UTC', reminders: [] };
+  if (/\/schedules\/:scheduleId\/(pause|end|cancel)$/.test(url)) return { expectedRevision: 1 };
+  if (url.endsWith('/schedules/:scheduleId/resume')) return { expectedRevision: 1, skipElapsed: false };
+  if (url.endsWith('/schedules/:scheduleId/skip-older')) return { before: TOMORROW };
+  if (url.endsWith('/occurrences/:occurrenceId/move')) return { date: TOMORROW };
+  if (url.endsWith('/occurrences/:occurrenceId/assign')) return { assigneeUserId: null };
+  if (url.endsWith('/occurrences/:occurrenceId/link-run')) return { runId: ids.runId ?? '' };
   if (url.endsWith('/procedures')) return PROCEDURE;
   if (url.endsWith('/procedures/import')) return exported;
   if (url.endsWith('/update')) return { ...PROCEDURE, expectedRevision: 1 };
@@ -88,6 +94,7 @@ describe('security properties of every route (13.2)', () => {
     const uma = (await t.get('/api/auth/session', plainUser)).json().user.id as string;
     const scheduled = (await t.post(`/api/workspaces/${home}/schedules`, { procedureId: procedure.id, date: TOMORROW, timeZone: 'UTC', reminders: [] }, owner)).json()
       .schedule;
+    const occurrence = (await t.get(`/api/workspaces/${home}/schedules/${scheduled.id}`, owner)).json().occurrences[0];
     homeIds = {
       workspaceId: home,
       procedureId: procedure.id,
@@ -96,6 +103,7 @@ describe('security properties of every route (13.2)', () => {
       knotId: knot.id,
       userId: uma,
       scheduleId: scheduled.id,
+      occurrenceId: occurrence.id,
     };
     routes = t.app.routeTable.map((route) => `${route.method} ${route.url}`);
   });
@@ -133,7 +141,7 @@ describe('security properties of every route (13.2)', () => {
 
   it('never resolves a child id of one Workspace under another Workspace', async () => {
     // Otto administers Office and uses Home's Procedure/Run/Step/Knot/member ids under Office's id.
-    const childRoutes = routes.filter((r) => (r.includes('/:workspaceId/') && /:(procedureId|runId|knotId|userId|scheduleId)/.test(r)) || /^POST .*\/:workspaceId\/(runs|knots|schedules)$/.test(r));
+    const childRoutes = routes.filter((r) => (r.includes('/:workspaceId/') && /:(procedureId|runId|knotId|userId|scheduleId|occurrenceId)/.test(r)) || /^POST .*\/:workspaceId\/(runs|knots|schedules)$/.test(r));
     expect(childRoutes.length).toBeGreaterThan(10);
     for (const route of childRoutes) {
       const response = await call(route, outsider, { ...homeIds, workspaceId: office });
@@ -145,7 +153,9 @@ describe('security properties of every route (13.2)', () => {
     expect(run.state).toBe('ACTIVE');
     expect(run.sections[0].steps[0].state).toBe('PENDING');
     const scheduled = (await t.get(`/api/workspaces/${homeIds.workspaceId}/schedules/${homeIds.scheduleId}`, owner)).json().schedule;
-    expect(scheduled).toMatchObject({ state: 'SCHEDULED', revision: 1 });
+    expect(scheduled).toMatchObject({ state: 'ACTIVE', revision: 1 });
+    const occurrence = (await t.get(`/api/workspaces/${homeIds.workspaceId}/occurrences/${homeIds.occurrenceId}`, owner)).json().occurrence;
+    expect(occurrence).toMatchObject({ state: 'OPEN', revision: 1 });
   });
 
   it('rejects malformed identifiers without errors or data', async () => {

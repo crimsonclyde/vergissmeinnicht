@@ -169,6 +169,13 @@
       "when": 1790755603080,
       "tag": "0023_tabler_icon_catalogue",
       "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": "6",
+      "when": 1790772686009,
+      "tag": "0024_schedules_occurrences",
+      "breakpoints": true
     }
   ]
 }

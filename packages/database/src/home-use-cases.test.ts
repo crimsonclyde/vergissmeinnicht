@@ -12,7 +12,9 @@ import {
   getProcedure,
   listProcedureCards,
   pinProcedure,
-  scheduleProcedure,
+  completeOccurrence,
+  createSchedule,
+  startOccurrence,
   startRun,
   unpinProcedure,
   updateInstanceSettings,
@@ -145,28 +147,48 @@ describe('Home, Procedure cards, pins and Recent (13.9–13.13)', () => {
     }
   });
 
-  it('lists Due (by the item’s own zone), Upcoming and Active, with last completion and active executions on cards', async () => {
+  it('lists Overdue, Today and Upcoming (by each Occurrence’s own zone), Active and recently done (14.2)', async () => {
     const schedule = (title: string, date: string, timeZone = 'Europe/Berlin') =>
-      scheduleProcedure(scheduleDeps, { actor: uma, workspaceId: home.id, procedureId: ids[title] as ProcedureId, date, timeZone, reminders: [] });
+      createSchedule(scheduleDeps, { actor: uma, workspaceId: home.id, procedureId: ids[title] as ProcedureId, date, timeZone, reminders: [] });
     await schedule('Water plants', '2026-09-29');
     await schedule('Buy groceries', '2026-10-03');
-    await schedule('Leave the house', '2026-09-30', 'Pacific/Kiritimati'); // UTC+14: already Sep 30 there at 10:00 UTC
+    await schedule('Leave the house', '2026-09-30', 'Pacific/Kiritimati'); // UTC+14: already Oct 1 there at 10:00 UTC on Sep 30
+    const tax = await createSchedule(scheduleDeps, { actor: uma, workspaceId: home.id, title: 'Pay annual tax', date: '2026-10-01', timeZone: 'Europe/Berlin', reminders: [] });
+    await createSchedule(scheduleDeps, { actor: uma, workspaceId: home.id, title: 'Renew passport', date: '2027-04-19', timeZone: 'Europe/Berlin', reminders: [] });
     now = new Date('2026-10-01T10:00:00Z');
     const started = await startRun(runDeps, { actor: cole, workspaceId: home.id, procedureId: ids['Take out trash'] as ProcedureId });
     const done = await startRun(runDeps, { actor: cole, workspaceId: home.id, procedureId: ids['Take out trash'] as ProcedureId });
     await changeStepState(runDeps, { actor: cole, workspaceId: home.id, runId: done.run.id, stepId: done.sections[0]?.steps[0]?.id ?? ('' as never), expectedState: 'PENDING', to: 'DONE' });
     await completeRun(runDeps, { actor: cole, workspaceId: home.id, runId: done.run.id });
 
-    const overview = await getHome(deps, { actor: uma, workspaceId: home.id });
-    expect(overview.due.map((item) => [item.procedure.title, item.timeliness])).toEqual([
+    let overview = await getHome(deps, { actor: uma, workspaceId: home.id });
+    const titleOf = (item: { schedule: { title: string } }) => item.schedule.title;
+    expect(overview.overdue.map((item) => [titleOf(item), item.timeliness])).toEqual([
       ['Water plants', 'OVERDUE'],
       ['Leave the house', 'OVERDUE'],
     ]);
-    expect(overview.upcoming.map((item) => item.procedure.title)).toEqual(['Buy groceries']);
+    expect(overview.today.map(titleOf)).toEqual(['Pay annual tax']);
+    expect(overview.upcoming.map(titleOf)).toEqual(['Buy groceries']);
+    // Upcoming shows 90 days; the passport (200 days ahead) is counted, not lost.
+    expect(overview.later).toBe(1);
     expect(overview.active.map((summary) => summary.run.id)).toEqual([started.run.id]);
+
+    // Completing moves the item to "recently done" with who and when; a started Occurrence shows its Run
+    // there and not again under Active.
+    const taxItem = overview.today[0];
+    await completeOccurrence(scheduleDeps, { actor: cole, workspaceId: home.id, occurrenceId: taxItem?.occurrence.id ?? '' });
+    const groceriesItem = overview.upcoming[0];
+    const linked = await startOccurrence({ ...scheduleDeps, runs: runDeps.runs }, { actor: cole, workspaceId: home.id, occurrenceId: groceriesItem?.occurrence.id ?? '' });
+    overview = await getHome(deps, { actor: uma, workspaceId: home.id });
+    expect(overview.today).toEqual([]);
+    expect(overview.recentlyDone.map((item) => [titleOf(item), item.occurrence.closed?.by.displayName])).toEqual([['Pay annual tax', 'Cole']]);
+    expect(overview.upcoming.map((item) => [titleOf(item), item.occurrence.state, item.occurrence.run?.id])).toEqual([['Buy groceries', 'IN_PROGRESS', linked.run.id]]);
+    expect(overview.active.map((summary) => summary.run.id)).toEqual([started.run.id]);
+    expect(tax.kind).toBe('REMINDER');
+
     const trash = (await listProcedureCards(deps, { actor: uma, workspaceId: home.id })).find((card) => card.procedure.title === 'Take out trash');
     expect(trash?.activity).toEqual({ lastCompletedAt: now, active: [{ runId: started.run.id, startedBy: 'Cole', startedAt: now }] });
-    const groceries = (await listProcedureCards(deps, { actor: uma, workspaceId: home.id })).find((card) => card.procedure.title === 'Buy groceries');
-    expect(groceries?.nextSchedule?.date).toBe('2026-10-03');
+    const water = (await listProcedureCards(deps, { actor: uma, workspaceId: home.id })).find((card) => card.procedure.title === 'Water plants');
+    expect(water?.nextOccurrence?.occurrence.dueDate).toBe('2026-09-29');
   });
 });

@@ -185,7 +185,7 @@ export function createServices(config: AppConfig, database: AppDatabase) {
     };
     const reminders: ReminderDeps = {
       queue: createReminderQueue(database),
-      notifiers: [emailReminderNotifier(notifications), telegramReminderNotifier(notifications)],
+      notifiers: [emailReminderNotifier(notifications, new URL(config.publicOrigin).hostname), telegramReminderNotifier(notifications)],
       clock: systemClock,
       publicOrigin: config.publicOrigin,
     };

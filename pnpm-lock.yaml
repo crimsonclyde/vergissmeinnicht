@@ -325,6 +325,9 @@ importers:
       '@vergissmeinnicht/domain':
         specifier: workspace:*
         version: link:../domain
+      '@vergissmeinnicht/permissions':
+        specifier: workspace:*
+        version: link:../permissions
       better-sqlite3:
         specifier: 13.0.3
         version: 13.0.3

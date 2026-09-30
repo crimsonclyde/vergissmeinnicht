@@ -9,7 +9,11 @@ import {
   KNOT_TARGET_TYPES,
   PROCEDURE_ICONS,
   REASON_POLICIES,
+  OCCURRENCE_STATES,
+  RECURRENCE_KINDS,
+  RECURRENCE_UNITS,
   RUN_STATES,
+  SCHEDULE_KINDS,
   SCHEDULE_STATES,
   STEP_KINDS,
   STEP_STATES,
@@ -734,28 +738,44 @@ export const instanceSettings = sqliteTable(
 );
 
 /**
- * Scheduled Procedures (13.4): the intention to perform a Procedure on a date. Not a Run — nothing is
- * executed when the date arrives. Starting it creates a normal Run (same transaction) and sets
- * `run_id`. Date/time are wall-clock values in `time_zone`. Rows are never deleted; the source
- * Procedure is referenced without cascade (a deleted Procedure leaves the item, shown as unavailable).
+ * Schedules (14.1): a series of a standalone Reminder or of a Procedure. Not a Run — nothing is
+ * executed or recorded as done when a date arrives. Dates are wall-clock values in `time_zone`.
+ * Rows are never deleted (ending keeps the history); the Procedure is referenced without cascade (a
+ * deleted Procedure leaves its Occurrences visible as unavailable). Existing one-time scheduled
+ * Procedures (13.4) were migrated with their ids in migration 0024.
  */
-export const scheduledProcedures = sqliteTable(
-  'scheduled_procedures',
+export const schedules = sqliteTable(
+  'schedules',
   {
     id: text('id').primaryKey(),
     workspaceId: text('workspace_id')
       .notNull()
       .references(() => workspaces.id),
-    procedureId: text('procedure_id')
-      .notNull()
-      .references(() => procedures.id),
-    date: text('date').notNull(),
+    kind: text('kind', { enum: SCHEDULE_KINDS }).notNull(),
+    /** PROCEDURE only. */
+    procedureId: text('procedure_id').references(() => procedures.id),
+    /** REMINDER only (plain text). */
+    title: text('title'),
+    description: text('description').notNull().default(''),
+    recurrenceKind: text('recurrence_kind', { enum: RECURRENCE_KINDS }).notNull(),
+    recurrenceUnit: text('recurrence_unit', { enum: RECURRENCE_UNITS }),
+    recurrenceInterval: integer('recurrence_interval'),
+    /** FIXED weekly: ISO weekdays 1–7, sorted. */
+    recurrenceWeekdays: text('recurrence_weekdays', { mode: 'json' }).$type<number[]>(),
+    recurrenceLastDay: integer('recurrence_last_day', { mode: 'boolean' }).notNull().default(false),
+    /** First due date; fixed recurrence is always computed from it (no drift). */
+    anchorDate: text('anchor_date').notNull(),
     time: text('time'),
     timeZone: text('time_zone').notNull(),
-    reminderTime: text('reminder_time').notNull(),
     /** Normalized offsets `[{unit, amount}]`, at most 5. */
-    reminders: text('reminders', { mode: 'json' }).$type<{ unit: 'DAYS' | 'HOURS'; amount: number }[]>().notNull(),
-    state: text('state', { enum: SCHEDULE_STATES }).notNull().default('SCHEDULED'),
+    reminders: text('reminders', { mode: 'json' }).$type<{ unit: 'DAYS' | 'WEEKS' | 'MONTHS' | 'HOURS'; amount: number }[]>().notNull(),
+    /** Optional responsible member; grants nothing. */
+    assigneeUserId: text('assignee_user_id').references(() => users.id),
+    state: text('state', { enum: SCHEDULE_STATES }).notNull().default('ACTIVE'),
+    pausedAt: integer('paused_at', { mode: 'timestamp_ms' }),
+    endedAt: integer('ended_at', { mode: 'timestamp_ms' }),
+    endedByUserId: text('ended_by_user_id').references(() => users.id),
+    endedByDisplayName: text('ended_by_display_name'),
     revision: integer('revision').notNull().default(1),
     createdByUserId: text('created_by_user_id')
       .notNull()
@@ -763,72 +783,204 @@ export const scheduledProcedures = sqliteTable(
     createdByDisplayName: text('created_by_display_name').notNull(),
     createdAt: integer('created_at', { mode: 'timestamp_ms' }).notNull(),
     updatedAt: integer('updated_at', { mode: 'timestamp_ms' }).notNull(),
-    runId: text('run_id').references(() => runs.id),
-    closedAt: integer('closed_at', { mode: 'timestamp_ms' }),
-    closedByUserId: text('closed_by_user_id').references(() => users.id),
-    closedByDisplayName: text('closed_by_display_name'),
   },
   (table) => [
-    index('scheduled_procedures_workspace_idx').on(table.workspaceId, table.state, table.date),
-    index('scheduled_procedures_procedure_idx').on(table.procedureId),
-    check('scheduled_procedures_id_uuid', sql`length(${table.id}) = 36`),
-    check('scheduled_procedures_date_format', sql`${table.date} glob '[0-9][0-9][0-9][0-9]-[0-1][0-9]-[0-3][0-9]'`),
-    check('scheduled_procedures_time_format', sql`${table.time} is null or ${table.time} glob '[0-2][0-9]:[0-5][0-9]'`),
-    check('scheduled_procedures_reminder_time_format', sql`${table.reminderTime} glob '[0-2][0-9]:[0-5][0-9]'`),
-    check('scheduled_procedures_time_zone_bounded', sql`length(${table.timeZone}) between 1 and 64`),
+    index('schedules_workspace_idx').on(table.workspaceId, table.state),
+    index('schedules_procedure_idx').on(table.procedureId),
+    check('schedules_id_uuid', sql`length(${table.id}) = 36`),
+    check('schedules_kind_valid', oneOf('kind', SCHEDULE_KINDS)),
+    check('schedules_kind_consistent', sql`(${table.kind} = 'PROCEDURE') = (${table.procedureId} is not null) and (${table.kind} = 'REMINDER') = (${table.title} is not null)`),
+    check('schedules_title_bounded', sql`${table.title} is null or length(${table.title}) between 1 and 120`),
+    check('schedules_description_bounded', sql`length(${table.description}) <= 4000`),
+    check('schedules_recurrence_kind_valid', oneOf('recurrence_kind', RECURRENCE_KINDS)),
     check(
-      'scheduled_procedures_reminders_array',
-      sql`json_valid(${table.reminders}) and json_type(${table.reminders}) = 'array' and json_array_length(${table.reminders}) <= 5`,
+      'schedules_recurrence_consistent',
+      sql`(${table.recurrenceKind} = 'ONCE') = (${table.recurrenceUnit} is null) and (${table.recurrenceUnit} is null) = (${table.recurrenceInterval} is null) and (${table.recurrenceUnit} is null or ${table.recurrenceUnit} in ('DAY', 'WEEK', 'MONTH', 'YEAR')) and (${table.recurrenceInterval} is null or ${table.recurrenceInterval} between 1 and 99)`,
     ),
-    check('scheduled_procedures_state_valid', oneOf('state', SCHEDULE_STATES)),
-    check('scheduled_procedures_revision_positive', sql`${table.revision} >= 1`),
-    check('scheduled_procedures_run_when_started', sql`(${table.state} = 'STARTED') = (${table.runId} is not null)`),
     check(
-      'scheduled_procedures_closed_consistent',
-      sql`(${table.state} = 'SCHEDULED') = (${table.closedAt} is null) and (${table.closedAt} is null) = (${table.closedByUserId} is null) and (${table.closedAt} is null) = (${table.closedByDisplayName} is null)`,
+      'schedules_weekdays_valid',
+      sql`${table.recurrenceWeekdays} is null or (${table.recurrenceKind} = 'FIXED' and ${table.recurrenceUnit} = 'WEEK' and json_valid(${table.recurrenceWeekdays}) and json_type(${table.recurrenceWeekdays}) = 'array' and json_array_length(${table.recurrenceWeekdays}) between 1 and 7)`,
     ),
+    check('schedules_last_day_valid', sql`${table.recurrenceLastDay} = 0 or (${table.recurrenceKind} = 'FIXED' and ${table.recurrenceUnit} = 'MONTH')`),
+    check('schedules_anchor_format', sql`${table.anchorDate} glob '[0-9][0-9][0-9][0-9]-[0-1][0-9]-[0-3][0-9]'`),
+    check('schedules_time_format', sql`${table.time} is null or ${table.time} glob '[0-2][0-9]:[0-5][0-9]'`),
+    check('schedules_time_zone_bounded', sql`length(${table.timeZone}) between 1 and 64`),
+    check('schedules_reminders_array', sql`json_valid(${table.reminders}) and json_type(${table.reminders}) = 'array' and json_array_length(${table.reminders}) <= 5`),
+    check('schedules_state_valid', oneOf('state', SCHEDULE_STATES)),
+    check('schedules_paused_consistent', sql`(${table.state} = 'PAUSED') = (${table.pausedAt} is not null)`),
+    check(
+      'schedules_ended_consistent',
+      sql`(${table.state} = 'ENDED') = (${table.endedAt} is not null) and (${table.endedAt} is null) = (${table.endedByUserId} is null) and (${table.endedAt} is null) = (${table.endedByDisplayName} is null)`,
+    ),
+    check('schedules_revision_positive', sql`${table.revision} >= 1`),
   ],
 );
 
 /**
- * One row per reminder instant of a scheduled item (13.5), computed when it is scheduled or moved.
- * Reminders already due at that moment are not created. When the item is moved, started or
- * cancelled, unprocessed rows are cancelled (kept, never deleted while deliveries reference them).
+ * One dated instance of a Schedule (14.1) with its own state and history. Unique per (Schedule, due
+ * date) among non-cancelled rows — also the idempotency key of the generator. OPEN/IN_PROGRESS are
+ * open; COMPLETED, SKIPPED and CANCELLED record who and when. Never deleted.
+ */
+export const occurrences = sqliteTable(
+  'occurrences',
+  {
+    id: text('id').primaryKey(),
+    scheduleId: text('schedule_id')
+      .notNull()
+      .references(() => schedules.id),
+    workspaceId: text('workspace_id')
+      .notNull()
+      .references(() => workspaces.id),
+    dueDate: text('due_date').notNull(),
+    time: text('time'),
+    state: text('state', { enum: OCCURRENCE_STATES }).notNull().default('OPEN'),
+    /** Overrides the Schedule's Assignee for this Occurrence; grants nothing. */
+    assigneeUserId: text('assignee_user_id').references(() => users.id),
+    closedAt: integer('closed_at', { mode: 'timestamp_ms' }),
+    closedByUserId: text('closed_by_user_id').references(() => users.id),
+    closedByDisplayName: text('closed_by_display_name'),
+    skipReason: text('skip_reason'),
+    revision: integer('revision').notNull().default(1),
+    createdAt: integer('created_at', { mode: 'timestamp_ms' }).notNull(),
+    updatedAt: integer('updated_at', { mode: 'timestamp_ms' }).notNull(),
+  },
+  (table) => [
+    uniqueIndex('occurrences_due_unique')
+      .on(table.scheduleId, table.dueDate)
+      .where(sql`${table.state} <> 'CANCELLED'`),
+    index('occurrences_workspace_idx').on(table.workspaceId, table.state, table.dueDate),
+    index('occurrences_schedule_idx').on(table.scheduleId, table.dueDate),
+    check('occurrences_id_uuid', sql`length(${table.id}) = 36`),
+    check('occurrences_due_format', sql`${table.dueDate} glob '[0-9][0-9][0-9][0-9]-[0-1][0-9]-[0-3][0-9]'`),
+    check('occurrences_time_format', sql`${table.time} is null or ${table.time} glob '[0-2][0-9]:[0-5][0-9]'`),
+    check('occurrences_state_valid', oneOf('state', OCCURRENCE_STATES)),
+    check(
+      'occurrences_closed_consistent',
+      sql`(${table.state} in ('COMPLETED', 'SKIPPED', 'CANCELLED')) = (${table.closedAt} is not null) and (${table.closedAt} is null) = (${table.closedByUserId} is null) and (${table.closedAt} is null) = (${table.closedByDisplayName} is null)`,
+    ),
+    check('occurrences_skip_reason_valid', sql`${table.skipReason} is null or (${table.state} = 'SKIPPED' and length(${table.skipReason}) between 1 and 500)`),
+    check('occurrences_revision_positive', sql`${table.revision} >= 1`),
+  ],
+);
+
+/**
+ * Links between Occurrences and Runs (14.1, D7): started from the Occurrence or deliberately linked.
+ * At most one current link per Occurrence and per Run; an aborted or unlinked Run stays in the history
+ * (`ended_at`). Never deleted.
+ */
+export const occurrenceRuns = sqliteTable(
+  'occurrence_runs',
+  {
+    id: text('id').primaryKey(),
+    occurrenceId: text('occurrence_id')
+      .notNull()
+      .references(() => occurrences.id),
+    runId: text('run_id')
+      .notNull()
+      .references(() => runs.id),
+    workspaceId: text('workspace_id')
+      .notNull()
+      .references(() => workspaces.id),
+    how: text('how', { enum: ['STARTED', 'LINKED'] }).notNull(),
+    linkedAt: integer('linked_at', { mode: 'timestamp_ms' }).notNull(),
+    linkedByUserId: text('linked_by_user_id')
+      .notNull()
+      .references(() => users.id),
+    linkedByDisplayName: text('linked_by_display_name').notNull(),
+    endedAt: integer('ended_at', { mode: 'timestamp_ms' }),
+    endReason: text('end_reason', { enum: ['ABORTED', 'UNLINKED'] }),
+  },
+  (table) => [
+    uniqueIndex('occurrence_runs_current_run')
+      .on(table.runId)
+      .where(sql`${table.endedAt} is null`),
+    uniqueIndex('occurrence_runs_current_occurrence')
+      .on(table.occurrenceId)
+      .where(sql`${table.endedAt} is null`),
+    index('occurrence_runs_occurrence_idx').on(table.occurrenceId),
+    check('occurrence_runs_id_uuid', sql`length(${table.id}) = 36`),
+    check('occurrence_runs_how_valid', sql`${table.how} in ('STARTED', 'LINKED')`),
+    check('occurrence_runs_end_consistent', sql`(${table.endedAt} is null) = (${table.endReason} is null) and (${table.endReason} is null or ${table.endReason} in ('ABORTED', 'UNLINKED'))`),
+  ],
+);
+
+/**
+ * One row per reminder instant of an Occurrence and recipient (13.5, 14.1) — the logical notification
+ * key is (Occurrence, recipient, offset, instant). Reminders already due when they are computed are
+ * not created. When the Occurrence is moved, reassigned, closed or its Schedule paused, unprocessed
+ * rows are cancelled (kept; deliveries may reference them). `superseded_at`: a missed reminder
+ * covered by a later catch-up (D5) — processed without being sent.
  */
 export const scheduledReminders = sqliteTable(
   'scheduled_reminders',
   {
     id: text('id').primaryKey(),
-    scheduleId: text('schedule_id')
+    occurrenceId: text('occurrence_id')
       .notNull()
-      .references(() => scheduledProcedures.id),
-    /** `DAYS:7`, `HOURS:3`, … */
+      .references(() => occurrences.id),
+    /** `DAYS:7`, `WEEKS:1`, `MONTHS:1`, `HOURS:3`, … */
     reminderKey: text('reminder_key').notNull(),
     remindAt: integer('remind_at', { mode: 'timestamp_ms' }).notNull(),
     recipientUserId: text('recipient_user_id')
       .notNull()
       .references(() => users.id),
-    /** Every channel reached a final state (sent, failed or skipped). */
+    /** Every channel reached a final state (sent, failed or skipped), or it was superseded. */
     processedAt: integer('processed_at', { mode: 'timestamp_ms' }),
     /** A channel waits for a retry: not looked at again before this time. */
     nextAttemptAt: integer('next_attempt_at', { mode: 'timestamp_ms' }),
     cancelledAt: integer('cancelled_at', { mode: 'timestamp_ms' }),
+    supersededAt: integer('superseded_at', { mode: 'timestamp_ms' }),
   },
   (table) => [
-    uniqueIndex('scheduled_reminders_instant_unique').on(table.scheduleId, table.reminderKey, table.remindAt),
+    uniqueIndex('scheduled_reminders_instant_unique').on(table.occurrenceId, table.recipientUserId, table.reminderKey, table.remindAt),
     index('scheduled_reminders_due_idx').on(table.processedAt, table.cancelledAt, table.remindAt),
     check('scheduled_reminders_id_uuid', sql`length(${table.id}) = 36`),
     check('scheduled_reminders_key_format', sql`${table.reminderKey} glob '[A-Z]*:[0-9]*' and length(${table.reminderKey}) <= 16`),
+    check('scheduled_reminders_superseded_processed', sql`${table.supersededAt} is null or ${table.processedAt} is not null`),
   ],
 );
 
 export const NOTIFICATION_CHANNELS = ['EMAIL', 'TELEGRAM'] as const;
-export const DELIVERY_STATUSES = ['SENDING', 'RETRY', 'SENT', 'FAILED', 'SKIPPED'] as const;
+export const DELIVERY_STATUSES = ['SENDING', 'RETRY', 'SENT', 'FAILED', 'SKIPPED', 'GROUPED'] as const;
+export const SUMMARY_STATUSES = ['SENDING', 'RETRY', 'SENT', 'FAILED', 'SKIPPED'] as const;
+
+/**
+ * One catch-up summary (D5): the missed reminders of one recipient through one channel, sent as a
+ * single bounded message. Claimed, leased and retried like a delivery; its member deliveries
+ * (status GROUPED) take its final outcome.
+ */
+export const notificationSummaries = sqliteTable(
+  'notification_summaries',
+  {
+    id: text('id').primaryKey(),
+    recipientUserId: text('recipient_user_id')
+      .notNull()
+      .references(() => users.id),
+    channel: text('channel', { enum: NOTIFICATION_CHANNELS }).notNull(),
+    status: text('status', { enum: SUMMARY_STATUSES }).notNull(),
+    attempts: integer('attempts').notNull(),
+    nextAttemptAt: integer('next_attempt_at', { mode: 'timestamp_ms' }),
+    createdAt: integer('created_at', { mode: 'timestamp_ms' }).notNull(),
+    updatedAt: integer('updated_at', { mode: 'timestamp_ms' }).notNull(),
+    sentAt: integer('sent_at', { mode: 'timestamp_ms' }),
+    errorCode: text('error_code'),
+  },
+  (table) => [
+    index('notification_summaries_retry_idx').on(table.status, table.nextAttemptAt),
+    check('notification_summaries_id_uuid', sql`length(${table.id}) = 36`),
+    check('notification_summaries_channel_valid', oneOf('channel', NOTIFICATION_CHANNELS)),
+    check('notification_summaries_status_valid', oneOf('status', SUMMARY_STATUSES)),
+    check('notification_summaries_attempts_bounded', sql`${table.attempts} between 0 and 10`),
+    check('notification_summaries_sent_consistent', sql`(${table.status} = 'SENT') = (${table.sentAt} is not null)`),
+    check('notification_summaries_error_code_bounded', sql`${table.errorCode} is null or length(${table.errorCode}) <= 40`),
+  ],
+);
 
 /**
  * Delivery of one reminder through one channel (13.5). The unique (reminder, channel) row is claimed
- * *before* sending, so restarts and overlapping runs never send a reminder twice through a channel;
- * attempts are bounded. A failed delivery never touches Procedures, Runs or their history.
+ * *before* sending, so restarts and overlapping workers never send a reminder twice through a channel;
+ * attempts are bounded. GROUPED: part of a catch-up summary (`summary_id`), finished with it.
+ * A failed delivery never touches Procedures, Runs or their history.
  */
 export const reminderDeliveries = sqliteTable(
   'reminder_deliveries',
@@ -846,16 +998,19 @@ export const reminderDeliveries = sqliteTable(
     sentAt: integer('sent_at', { mode: 'timestamp_ms' }),
     /** Stable reason code only — never provider responses, addresses or tokens. */
     errorCode: text('error_code'),
+    summaryId: text('summary_id').references(() => notificationSummaries.id),
   },
   (table) => [
     uniqueIndex('reminder_deliveries_once_per_channel').on(table.reminderId, table.channel),
     index('reminder_deliveries_retry_idx').on(table.status, table.nextAttemptAt),
+    index('reminder_deliveries_summary_idx').on(table.summaryId),
     check('reminder_deliveries_id_uuid', sql`length(${table.id}) = 36`),
     check('reminder_deliveries_channel_valid', oneOf('channel', NOTIFICATION_CHANNELS)),
     check('reminder_deliveries_status_valid', oneOf('status', DELIVERY_STATUSES)),
     check('reminder_deliveries_attempts_bounded', sql`${table.attempts} between 0 and 10`),
     check('reminder_deliveries_sent_consistent', sql`(${table.status} = 'SENT') = (${table.sentAt} is not null)`),
     check('reminder_deliveries_error_code_bounded', sql`${table.errorCode} is null or length(${table.errorCode}) <= 40`),
+    check('reminder_deliveries_grouped_summary', sql`${table.status} <> 'GROUPED' or ${table.summaryId} is not null`),
   ],
 );
 

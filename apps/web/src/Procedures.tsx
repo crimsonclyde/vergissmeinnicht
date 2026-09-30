@@ -38,11 +38,11 @@ function PinButton(props: { title: string; pinned: boolean; onToggle: () => void
 /** Compact facts of a card: scheduled/due, last completion, active executions (13.16). */
 function CardFacts({ card }: { card: ProcedureCard }) {
   const facts: { text: string; urgent?: boolean }[] = [];
-  if (card.nextSchedule !== null) {
-    const today = todayIn(card.nextSchedule.timeZone);
-    const date = formatCalendarDate(card.nextSchedule.date);
-    if (card.nextSchedule.date < today) facts.push({ text: t('procedures.overdue', { date }), urgent: true });
-    else if (card.nextSchedule.date === today) facts.push({ text: t('procedures.dueToday'), urgent: true });
+  if (card.nextOccurrence !== null) {
+    const today = todayIn(card.nextOccurrence.timeZone);
+    const date = formatCalendarDate(card.nextOccurrence.date);
+    if (card.nextOccurrence.date < today) facts.push({ text: t('procedures.overdue', { date }), urgent: true });
+    else if (card.nextOccurrence.date === today) facts.push({ text: t('procedures.dueToday'), urgent: true });
     else facts.push({ text: t('procedures.scheduledFor', { date }) });
   }
   if (card.active.length > 0) facts.push({ text: t('procedures.activeCount', { count: card.active.length }) });

@@ -6,7 +6,7 @@ import type { EmailSender } from '../ports/email-sender.ts';
 import type { InvitationTokens } from '../ports/invitation-tokens.ts';
 import type { SecretBox } from '../ports/mfa.ts';
 import type { NotificationProviderRepository, TelegramBotApi, TelegramRepository } from '../ports/notifications.ts';
-import { NotificationDeliveryError, type ReminderMessage, type ReminderNotifier } from '../ports/reminders.ts';
+import { NotificationDeliveryError, type OutgoingNotification, type ReminderNotifier } from '../ports/reminders.ts';
 import type { NotificationPreferences, NotificationPreferencesRepository } from '../ports/schedule-repository.ts';
 import { userActor } from '../user-actor.ts';
 
@@ -55,16 +55,20 @@ export function sanitizeChatLabel(label: string | null): string {
 
 // ---- Reminder channels (13.6, 13.7)
 
-/** Email reminders: the existing SMTP sender; on unless the server admin or the person turned them off. */
-export function emailReminderNotifier(deps: Pick<NotificationDeps, 'providers' | 'preferences' | 'email' | 'emailConfigured'>): ReminderNotifier {
+/**
+ * Email reminders: the existing SMTP sender; on unless the server admin or the person turned them off.
+ * `messageIdHost` (the public origin's host name) completes the stable Message-ID of each notification.
+ */
+export function emailReminderNotifier(deps: Pick<NotificationDeps, 'providers' | 'preferences' | 'email' | 'emailConfigured'>, messageIdHost = 'vergissmeinnicht.invalid'): ReminderNotifier {
   return {
     channel: 'EMAIL',
     async enabledFor(user) {
       return deps.emailConfigured && (await deps.providers.get('EMAIL')).enabled && (await preferencesOf(deps, user)).emailReminders;
     },
-    async send(user, message: ReminderMessage) {
+    async send(user, message: OutgoingNotification) {
       try {
-        await deps.email.send({ to: user.email, subject: emailTextsEn.reminder.subject(message), text: emailTextsEn.reminder.body(message) });
+        // A stable Message-ID per logical notification: a repeat after a crash is recognisable as the same message.
+        await deps.email.send({ to: user.email, subject: message.subject, text: message.body, messageId: `<${message.key}@${messageIdHost}>` });
       } catch {
         // The SMTP adapter's errors carry a reason code only; treat them as transient (server down, …).
         throw new NotificationDeliveryError('email_failed', true);
@@ -87,7 +91,7 @@ export function telegramReminderNotifier(deps: Pick<NotificationDeps, 'providers
       const link = await deps.telegram.link(user.id);
       if (token === undefined) throw new NotificationDeliveryError('telegram_not_configured', false);
       if (link === undefined) throw new NotificationDeliveryError('telegram_not_connected', false);
-      await deps.telegramApi.sendMessage(token, link.chatId, `${emailTextsEn.reminder.subject(message)}\n\n${emailTextsEn.reminder.body(message)}`);
+      await deps.telegramApi.sendMessage(token, link.chatId, `${message.subject}\n\n${message.body}`);
     },
   };
 }

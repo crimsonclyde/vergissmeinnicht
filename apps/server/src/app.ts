@@ -18,7 +18,7 @@ import { procedureRoutes } from './http/procedure-routes.ts';
 import { rateLimitStore } from './http/rate-limit-store.ts';
 import { adminRecoveryRoutes, recoveryRoutes } from './http/recovery-routes.ts';
 import { runRoutes } from './http/run-routes.ts';
-import { scheduleRoutes } from './http/schedule-routes.ts';
+import { occurrenceRoutes, scheduleRoutes } from './http/schedule-routes.ts';
 import { workspaceRoutes } from './http/workspace-routes.ts';
 
 export interface AppOptions {
@@ -150,6 +150,7 @@ export async function buildApp(options: AppOptions = {}) {
         await api.register(procedureRoutes, { prefix: '/workspaces/:workspaceId/procedures', services });
         await api.register(runRoutes, { prefix: '/workspaces/:workspaceId/runs', services });
         await api.register(scheduleRoutes, { prefix: '/workspaces/:workspaceId/schedules', services });
+        await api.register(occurrenceRoutes, { prefix: '/workspaces/:workspaceId/occurrences', services });
         await api.register(homeRoutes, { prefix: '/workspaces/:workspaceId/home', services });
         await api.register(workspaceKnotRoutes, { prefix: '/workspaces/:workspaceId/knots', services });
         await api.register(knotRoutes, { prefix: '/knots', services });

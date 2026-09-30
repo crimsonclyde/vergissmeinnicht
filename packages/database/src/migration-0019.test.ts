@@ -5,7 +5,6 @@ import { migrate } from 'drizzle-orm/better-sqlite3/migrator';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import {
   changeStepState,
-  completeRun,
   createProcedure,
   createWorkspace,
   startRun,
@@ -73,7 +72,10 @@ describe('migration 0019: icons as a reference table (table rebuild)', () => {
     for (const step of finished.sections[0]?.steps ?? []) {
       await changeStepState(runDeps, { actor: admin, workspaceId: home.id, runId: finished.run.id, stepId: step.id, expectedState: 'PENDING', to: 'DONE' });
     }
-    await completeRun(runDeps, { actor: admin, workspaceId: home.id, runId: finished.run.id });
+    // Finished directly in SQL: today's completeRun also updates Occurrences (14.1), a table this old schema does not have yet.
+    database.sqlite
+      .prepare("UPDATE runs SET state = 'COMPLETED', revision = revision + 1, ended_at = ?, ended_by_user_id = ?, ended_by_display_name = ? WHERE id = ?")
+      .run(Date.now(), admin.id, admin.displayName, finished.run.id);
     const active = await startRun(runDeps, { actor: admin, workspaceId: home.id, procedureId: procedure.procedure.id });
 
     const snapshot = () =>

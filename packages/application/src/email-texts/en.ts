@@ -1,4 +1,4 @@
-import type { EmailTexts, ReminderTextInput } from './email-texts.ts';
+import type { CatchUpTextInput, EmailTexts, ReminderTextInput } from './email-texts.ts';
 
 /** Removes blank lines left by optional parts, never two blank lines in a row. */
 const lines = (parts: readonly string[]) => parts.filter((line, index, all) => line !== '' || all[index - 1] !== '').join('\n');
@@ -9,15 +9,15 @@ function longDate(date: string): string {
   return new Intl.DateTimeFormat('en-GB', { dateStyle: 'full', timeZone: 'UTC' }).format(new Date(Date.UTC(year, month - 1, day, 12)));
 }
 
-function when(input: ReminderTextInput): string {
-  if (input.overdue) return 'overdue';
-  const [unit, raw] = input.reminderKey.split(':');
-  const amount = Number(raw);
-  if (unit === 'DAYS') return amount === 0 ? 'today' : amount === 1 ? 'tomorrow' : `in ${amount} days`;
-  return amount === 1 ? 'in 1 hour' : `in ${amount} hours`;
+/** Where the item stands now: "today", "tomorrow", "in 5 days", "in 3 hours", "overdue since …". */
+function when(input: Omit<ReminderTextInput, 'url'>): string {
+  if (input.daysUntil < 0) return `overdue since ${longDate(input.date)}`;
+  if (input.hoursUntil !== null && input.hoursUntil >= 1 && input.daysUntil <= 1) return input.hoursUntil === 1 ? 'in 1 hour' : `in ${input.hoursUntil} hours`;
+  if (input.daysUntil === 0) return 'today';
+  return input.daysUntil === 1 ? 'tomorrow' : `in ${input.daysUntil} days`;
 }
 
-const dueAt = (input: ReminderTextInput) => `${longDate(input.date)}${input.time === null ? '' : `, ${input.time}`} (${input.timeZone})`;
+const dueAt = (input: Omit<ReminderTextInput, 'url'>) => `${longDate(input.date)}${input.time === null ? '' : `, ${input.time}`} (${input.timeZone})`;
 
 export const emailTextsEn: EmailTexts = {
   invitation: {
@@ -54,19 +54,40 @@ export const emailTextsEn: EmailTexts = {
     },
   },
   reminder: {
-    subject: (input) => `Reminder: ${input.procedureTitle} — ${when(input)}`,
+    subject: (input) => `Reminder: ${input.title} — ${when(input)}`,
     body: (input) =>
       lines([
         `Reminder from VergissMeinNicht:`,
         ``,
-        `${input.procedureTitle}`,
-        `Scheduled for ${dueAt(input)} — ${when(input)}.`,
+        `${input.title}`,
+        `${input.daysUntil < 0 ? 'Was due on' : 'Due on'} ${dueAt(input)} — ${when(input)}.`,
         `Workspace: ${input.workspaceName}`,
         ``,
-        `Open VergissMeinNicht to start it (you will be asked to sign in if needed):`,
+        input.kind === 'PROCEDURE'
+          ? `Open VergissMeinNicht to start it (you will be asked to sign in if needed):`
+          : `Open VergissMeinNicht to mark it done (you will be asked to sign in if needed):`,
         input.url,
         ``,
-        `You get this reminder because you scheduled this Procedure. Change your reminder channels under Profile & settings → Notifications.`,
+        `You get this reminder because you are responsible for it or scheduled it. Change your reminder channels under Profile & settings → Notifications.`,
+      ]),
+  },
+  catchUp: {
+    subject: (input: CatchUpTextInput) => {
+      const total = input.items.length + input.more;
+      const first = input.items[0];
+      return total === 1 && first !== undefined ? `Missed reminder: ${first.title} — ${when(first)}` : `Missed reminders: ${total} items need attention`;
+    },
+    body: (input: CatchUpTextInput) =>
+      lines([
+        `VergissMeinNicht could not send ${input.items.length + input.more === 1 ? 'this reminder' : 'these reminders'} on time (the server was unavailable). As of now:`,
+        ``,
+        ...input.items.map((item) => `- ${item.title} — ${item.daysUntil < 0 ? 'was due on' : 'due on'} ${dueAt(item)}, ${when(item)} (Workspace: ${item.workspaceName})`),
+        input.more > 0 ? `- … and ${input.more} more` : '',
+        ``,
+        `Open VergissMeinNicht to see everything that needs attention (you will be asked to sign in if needed):`,
+        input.url,
+        ``,
+        `Change your reminder channels under Profile & settings → Notifications.`,
       ]),
   },
   providerTest: {

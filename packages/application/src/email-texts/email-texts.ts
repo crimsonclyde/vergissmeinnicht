@@ -19,24 +19,43 @@ export interface EmailTexts {
       readonly expiresAt: string;
     }) => string;
   };
-  /** A reminder of a scheduled Procedure (13.6); the same wording is used for Telegram (13.7). */
+  /** A reminder of a Reminder or scheduled Procedure (13.6, 14.1); the same wording is used for Telegram (13.7). */
   readonly reminder: {
     readonly subject: (input: ReminderTextInput) => string;
     readonly body: (input: ReminderTextInput) => string;
+  };
+  /**
+   * Catch-up after an outage (D5): one bounded summary of reminders that could not be sent on time.
+   * Describes each item's *current* due date and status — never the original offset.
+   */
+  readonly catchUp: {
+    readonly subject: (input: CatchUpTextInput) => string;
+    readonly body: (input: CatchUpTextInput) => string;
   };
   /** Test message sent by a server admin to check a provider (13.10 admin). */
   readonly providerTest: { readonly subject: string; readonly body: (input: { readonly provider: string }) => string };
 }
 
 export interface ReminderTextInput {
-  readonly procedureTitle: string;
+  readonly kind: 'REMINDER' | 'PROCEDURE';
+  /** The Reminder's or Procedure's title. */
+  readonly title: string;
   readonly workspaceName: string;
   /** `YYYY-MM-DD` and optional `HH:MM`, in `timeZone`. */
   readonly date: string;
   readonly time: string | null;
   readonly timeZone: string;
-  /** `DAYS:7`, `HOURS:2`, … */
-  readonly reminderKey: string;
-  readonly overdue: boolean;
+  /** Calendar days from today (in `timeZone`) to the due date; negative when overdue. */
+  readonly daysUntil: number;
+  /** Whole hours until a timed Occurrence is due, when that is less than a day away; otherwise null. */
+  readonly hoursUntil: number | null;
+  readonly url: string;
+}
+
+export interface CatchUpTextInput {
+  /** The items shown (at most 10), earliest due first. */
+  readonly items: readonly Omit<ReminderTextInput, 'url'>[];
+  /** Further items not listed. */
+  readonly more: number;
   readonly url: string;
 }

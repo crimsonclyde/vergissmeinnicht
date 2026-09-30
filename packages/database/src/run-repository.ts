@@ -20,12 +20,12 @@ import { IMMEDIATE, actorAllowed } from './actor-guard.ts';
 import { recordAuditEvent } from './audit-events.ts';
 import type { AppDatabase } from './connection.ts';
 import { activeIn, loadSections } from './procedure-repository.ts';
-import { closeScheduleAsStarted, scheduleIsOpen } from './schedule-repository.ts';
+import { linkStartedRun, occurrenceIsStartable, onRunFinished } from './schedule-repository.ts';
 import { auditEvents, procedures, runSections, runSteps, runs } from './schema.ts';
 
 type Reader = Pick<Parameters<Parameters<AppDatabase['db']['transaction']>[0]>[0], 'select'>;
 
-function toRun(row: typeof runs.$inferSelect): Run {
+export function toRun(row: typeof runs.$inferSelect): Run {
   return {
     id: row.id as RunId,
     workspaceId: row.workspaceId as WorkspaceId,
@@ -106,9 +106,9 @@ export function createRunRepository({ db }: Pick<AppDatabase, 'db'>): RunReposit
             .where(and(eq(runs.workspaceId, input.workspaceId), eq(runs.state, 'ACTIVE')))
             .get()?.n ?? 0;
         if (active >= input.maxActive) return { status: 'limit_reached' };
-        // Started from a scheduled item (13.4): it must still be open, for this Procedure, in this Workspace.
-        if (input.fromSchedule !== undefined && !scheduleIsOpen(tx, input.workspaceId, input.fromSchedule, procedure.id)) {
-          return { status: 'schedule_not_open' };
+        // Started from an Occurrence (14.1): it must still be OPEN, for this Procedure, in this Workspace.
+        if (input.fromOccurrence !== undefined && !occurrenceIsStartable(tx, input.workspaceId, input.fromOccurrence, procedure.id)) {
+          return { status: 'occurrence_not_open' };
         }
 
         const run = tx
@@ -176,11 +176,11 @@ export function createRunRepository({ db }: Pick<AppDatabase, 'db'>): RunReposit
             procedureRevision: procedure.revision,
             title: procedure.title,
             steps: stepCount,
-            ...(input.fromSchedule === undefined ? {} : { scheduleId: input.fromSchedule }),
+            ...(input.fromOccurrence === undefined ? {} : { occurrenceId: input.fromOccurrence }),
           },
         });
-        if (input.fromSchedule !== undefined) {
-          closeScheduleAsStarted(tx, { workspaceId: input.workspaceId, scheduleId: input.fromSchedule, procedureId: procedure.id, runId: run.id, at: input.at, actor });
+        if (input.fromOccurrence !== undefined) {
+          linkStartedRun(tx, { workspaceId: input.workspaceId, occurrenceId: input.fromOccurrence, runId: run.id, at: input.at, actor });
         }
         return { status: 'ok', detail: { run: toRun(run), sections: loadRunSections(tx, run.id) } };
       }, IMMEDIATE);
@@ -270,6 +270,8 @@ export function createRunRepository({ db }: Pick<AppDatabase, 'db'>): RunReposit
             ...(reason === null ? {} : { reason }),
           },
         });
+        // A Run linked to an Occurrence completes it, or (aborted) leaves it OPEN again — same transaction (14.1).
+        onRunFinished(tx, { runId: run.id, to: input.to, at: input.at, actor });
         return { status: 'ok', detail: { run: toRun(updated), sections: loadRunSections(tx, run.id) } };
       }, IMMEDIATE);
     },

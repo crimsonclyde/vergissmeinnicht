@@ -1251,3 +1251,10 @@ a.button.primary {
     outline: 2px solid CanvasText;
   }
 }
+
+/* Home filter (14.2): the chosen view is marked by border, weight and a ✓ — not by colour alone. */
+.home-filter button[aria-pressed='true'] {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+  font-weight: 600;
+}

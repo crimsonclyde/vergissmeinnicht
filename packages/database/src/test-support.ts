@@ -5,13 +5,14 @@ import { openDatabase, type AppDatabase } from './connection.ts';
 import { runMigrations } from './migrate.ts';
 
 /** Fresh, fully migrated database in a temp directory. Test-only helper. */
-export function createTestDatabase(): AppDatabase & { dispose(): void } {
+export function createTestDatabase(): AppDatabase & { readonly path: string; dispose(): void } {
   const dir = mkdtempSync(join(tmpdir(), 'vmn-test-'));
   const path = join(dir, 'test.sqlite');
   runMigrations(path);
   const database = openDatabase(path);
   return {
     ...database,
+    path,
     dispose() {
       database.close();
       rmSync(dir, { recursive: true, force: true });
