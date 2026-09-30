@@ -18,9 +18,9 @@ For every completed task, add a concise completion note, tests/checks performed,
 
 ## Current state — resume here
 
-_Last updated: 2026-09-30 (releasing 0.2.0-beta.3: Tabler icon set (12.11), Unraid PNG icon (12.10))_
+_Last updated: 2026-09-30 (0.2.0-beta.3 released from `main`: Tabler icon set (12.11), Unraid PNG icon (12.10))_
 
-**Done:** 0.1, 0.2, 0.3, 1.1, 1.2, 2.1–2.5, 2.7–2.9, 3.1–3.3, 4.1–4.5, 5.1–5.7, 6.1, 6.2, 7.1, 8.0–8.11, 9.1, 10.1–10.5, 11.1, 12.1–12.11, 13.1–13.19. IN PROGRESS: 12.12 (release 0.2.0-beta.3). DEFERRED: 2.6 (external identity providers — a later step, user decision 2026-09-28).
+**Done:** 0.1, 0.2, 0.3, 1.1, 1.2, 2.1–2.5, 2.7–2.9, 3.1–3.3, 4.1–4.5, 5.1–5.7, 6.1, 6.2, 7.1, 8.0–8.11, 9.1, 10.1–10.5, 11.1, 12.1–12.12, 13.1–13.19. DEFERRED: 2.6 (external identity providers — a later step, user decision 2026-09-28).
 **Next:** beta feedback on the Tabler icon set (12.11); beta feedback on Home/scheduling. Still open from before: GHCR package visibility, a session with a real screen reader, physical iOS/Android devices (incl. offline storage eviction), and automate GitHub Release creation in the release workflow (the 0.2.0-beta.1 pre-release was created manually after the workflow). Possible next providers: ntfy/Gotify or a webhook — the webhook needs the SSRF policy in security.md first.
 
 **Decisions 2026-09-29 (user):** MFA stays optional (also for admins; the beta runs behind a VPN) with the enforcement seam kept; VMN's main flow is *Procedure → optionally schedule → reminders → Start → execute → history* — no task manager, calendar or workflow engine; Home is the Workspace landing page; email and Telegram reminders; Recent limit admin-configurable. **Made while implementing (documented in 13.x):** name *ScheduledProcedure*; reminders go to the person who scheduled; pairing needs a confirmation in VMN; polling instead of a webhook; Recent limit 0–20 (0 hides).
@@ -1775,10 +1775,18 @@ The first PR CI run exposed that the new offline common-password dataset and pro
 **Remaining:** search aliases are English (like the only catalog); more icons on request = registry entry + label + one `INSERT` migration.
 
 ### 12.12 Release 0.2.0-beta.3
-**Status:** IN PROGRESS
-**Started:** 2026-09-30
+**Status:** DONE
+**Completed:** 2026-09-30
 
 **Request (user, 2026-09-30):** commit, push and release the Tabler icon set (12.11) together with the Unraid PNG icon (12.10). Version: **0.2.0-beta.3**. Unraid template and guide point to `ghcr.io/crimsonclyde/vergissmeinnicht:0.2.0-beta.3`.
+
+**Implemented:** committed to `main` (`7582747` feature, `fed3710` template/ledger); annotated tag `v0.2.0-beta.3` on `fed3710`. The release workflow ran checks, native amd64/arm64 builds with smoke tests and scans, and assembled, signed and SBOM-attested the multi-architecture image. Published index `sha256:340aadb5f675f2c1b4231fac9aced38cd2c3d29c56cb89aa01fcf7659f2df0d3` (linux/amd64, linux/arm64; inspected directly). GitHub pre-release created manually: `https://github.com/crimsonclyde/vergissmeinnicht/releases/tag/v0.2.0-beta.3`.
+
+**Checks performed:** local lint, typecheck, 721 unit/integration tests, build, e2e; `main` CI green; release workflow green.
+
+**Security impact:** LOW (see 12.11).
+
+**Remaining:** automated GitHub Release creation in the workflow is still open.
 
 **Upgrade note for operators:** migration 0022 (144 rows in `procedure_icons`); `migrate` backs up first (or `VMN_MIGRATE_ON_START=true` on Unraid). Existing icons keep their keys and show the new artwork.
 
