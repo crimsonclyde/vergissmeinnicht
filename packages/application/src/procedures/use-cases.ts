@@ -160,6 +160,8 @@ export async function duplicateProcedure(
         critical: step.critical,
         skipReasonPolicy: step.skipReasonPolicy,
         notApplicableReasonPolicy: step.notApplicableReasonPolicy,
+        // The same image of the same Workspace: referenced again, charged once (14.3).
+        image: step.image,
       })),
     })),
   };

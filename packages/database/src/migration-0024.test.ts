@@ -4,18 +4,14 @@ import { join } from 'node:path';
 import { randomUUID } from 'node:crypto';
 import { migrate } from 'drizzle-orm/better-sqlite3/migrator';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { createProcedure, createWorkspace, deleteProcedure, dispatchDueReminders, startRun, type OutgoingNotification, type ProcedureInput } from '@vergissmeinnicht/application';
+import { dispatchDueReminders, type OutgoingNotification } from '@vergissmeinnicht/application';
 import { normalizeEmail } from '@vergissmeinnicht/domain';
 import { openDatabase } from './connection.ts';
 import { MIGRATIONS_FOLDER, runMigrations } from './migrate.ts';
-import { createProcedureRepository } from './procedure-repository.ts';
 import { createReminderQueue } from './reminder-queue.ts';
-import { createRunRepository } from './run-repository.ts';
+import { insertLegacyProcedure, insertLegacyRun, insertLegacyWorkspace } from './test-support.ts';
 import { createUserRepository } from './user-repository.ts';
-import { createWorkspaceRepository } from './workspace-repository.ts';
 
-const STEP = { description: '', icon: null, required: true, critical: false, skipReasonPolicy: 'OPTIONAL', notApplicableReasonPolicy: 'OPTIONAL' } as const;
-const PROCEDURE: ProcedureInput = { title: 'Leave the house', description: '', icon: 'home', tags: [], sections: [{ title: 'Kitchen', description: '', steps: [{ ...STEP, title: 'Stove off' }] }] };
 
 describe('migration 0024: scheduled Procedures become Schedules and Occurrences (D14)', () => {
   let dir: string;
@@ -39,22 +35,19 @@ describe('migration 0024: scheduled Procedures become Schedules and Occurrences 
   it('keeps every item, date, reminder setting, delivery and audit event, links started Runs and sends nothing twice', async () => {
     let database = openDatabase(path);
     const now = new Date('2026-10-14T08:00:00Z');
-    const clock = { now: () => now };
     const users = createUserRepository(database);
-    const workspaces = createWorkspaceRepository(database);
     const ada = await users.create({ email: normalizeEmail('ada@example.org'), displayName: 'Ada', emailVerified: true, status: 'ACTIVE', serverAdmin: true });
-    const home = await createWorkspace({ users, workspaces, clock }, { actor: ada, name: 'Home' });
-    const procedureDeps = { workspaces, procedures: createProcedureRepository(database), clock };
-    const runDeps = { workspaces, runs: createRunRepository(database), clock };
-    const leave = (await createProcedure(procedureDeps, { actor: ada, workspaceId: home.id, content: PROCEDURE })).procedure;
-    const gone = (await createProcedure(procedureDeps, { actor: ada, workspaceId: home.id, content: { ...PROCEDURE, title: 'Gone' } })).procedure;
-    const active = await startRun(runDeps, { actor: ada, workspaceId: home.id, procedureId: leave.id });
-    const completed = await startRun(runDeps, { actor: ada, workspaceId: home.id, procedureId: leave.id });
-    const aborted = await startRun(runDeps, { actor: ada, workspaceId: home.id, procedureId: leave.id });
-    const end = database.sqlite.prepare('UPDATE runs SET state = ?, revision = revision + 1, ended_at = ?, ended_by_user_id = ?, ended_by_display_name = ?, end_reason = ? WHERE id = ?');
-    end.run('COMPLETED', now.getTime(), ada.id, 'Ada', null, completed.run.id);
-    end.run('ABORTED', now.getTime(), ada.id, 'Ada', 'Rain', aborted.run.id);
-    await deleteProcedure(procedureDeps, { actor: ada, workspaceId: home.id, procedureId: gone.id });
+    const home = insertLegacyWorkspace(database, { name: 'Home', adminUserId: ada.id });
+    // Plain SQL: today's repositories name columns this old schema does not have yet.
+    const leave = insertLegacyProcedure(database, { workspaceId: home.id, userId: ada.id, title: 'Leave the house', icon: 'home', steps: [{ title: 'Stove off' }] });
+    const gone = insertLegacyProcedure(database, { workspaceId: home.id, userId: ada.id, title: 'Gone', steps: [{ title: 'Stove off' }], deleted: true });
+    // Runs in plain SQL: today's repositories name columns this old schema does not have yet.
+    const legacyRun = (state: 'ACTIVE' | 'COMPLETED' | 'ABORTED') => ({
+      run: { id: insertLegacyRun(database, { workspaceId: home.id, procedureId: leave.id, user: { id: ada.id, displayName: 'Ada' }, state, at: now.getTime() }).runId },
+    });
+    const active = legacyRun('ACTIVE');
+    const completed = legacyRun('COMPLETED');
+    const aborted = legacyRun('ABORTED');
 
     // Legacy rows exactly as 13.4 wrote them.
     const item = database.sqlite.prepare(

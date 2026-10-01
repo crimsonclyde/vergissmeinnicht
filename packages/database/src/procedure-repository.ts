@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto';
-import { and, asc, count, desc, eq, isNotNull, isNull } from 'drizzle-orm';
-import type { ProcedureDetail, ProcedureRepository, ProcedureWriteResult } from '@vergissmeinnicht/application';
+import { and, asc, count, desc, eq, inArray, isNotNull, isNull, sql } from 'drizzle-orm';
+import { IMAGE_PENDING_MS, type ProcedureDetail, type ProcedureRepository, type ProcedureWriteResult } from '@vergissmeinnicht/application';
 import {
   isEmptyChange,
   summarizeStructureChange,
@@ -10,13 +10,14 @@ import {
   type ProcedureSection,
   type SectionId,
   type StepId,
+  type StepImageId,
   type StructureDraft,
   type WorkspaceId,
 } from '@vergissmeinnicht/domain';
 import { IMMEDIATE, actorAllowed, type Transaction } from './actor-guard.ts';
 import { recordAuditEvent } from './audit-events.ts';
 import type { AppDatabase } from './connection.ts';
-import { procedureSections, procedureSteps, procedures, users } from './schema.ts';
+import { procedureSections, procedureSteps, procedures, runSteps, stepImages, users } from './schema.ts';
 
 type Reader = Pick<Transaction, 'select'>;
 
@@ -72,6 +73,7 @@ export function loadSections(db: Reader, procedureId: string): ProcedureSection[
           critical: step.critical,
           skipReasonPolicy: step.skipReasonPolicy,
           notApplicableReasonPolicy: step.notApplicableReasonPolicy,
+          image: step.imageId === null || step.imageCaption === null ? null : { id: step.imageId as StepImageId, caption: step.imageCaption },
         })),
     }));
 }
@@ -97,6 +99,33 @@ function resolveStructure(draft: StructureDraft, current: readonly ProcedureSect
   return resolved;
 }
 
+/**
+ * Every Step image must be an image of this Workspace (14.3); an id of another Workspace is refused
+ * like an unknown one. It must also still be charged to the Workspace's quota: in use (by a Step or
+ * a Run snapshot) or uploaded within the grace period. An upload left unused for longer is no longer
+ * counted and waits for housekeeping — referencing it now would add bytes without a quota check, so
+ * it is refused (the editor asks for the photo again).
+ */
+function imagesBelongTo(tx: Transaction, workspaceId: string, sections: readonly ProcedureSection[], at: Date): boolean {
+  const ids = [...new Set(sections.flatMap((section) => section.steps.flatMap((step) => (step.image === null ? [] : [step.image.id]))))];
+  if (ids.length === 0) return true;
+  const pendingSince = at.getTime() - IMAGE_PENDING_MS;
+  const found = tx
+    .select({ id: stepImages.id })
+    .from(stepImages)
+    .where(
+      and(
+        eq(stepImages.workspaceId, workspaceId),
+        inArray(stepImages.id, ids),
+        sql`(${stepImages.createdAt} >= ${pendingSince}
+          or exists (select 1 from ${procedureSteps} where ${procedureSteps.imageId} = ${stepImages.id})
+          or exists (select 1 from ${runSteps} where ${runSteps.imageId} = ${stepImages.id}))`,
+      ),
+    )
+    .all();
+  return found.length === ids.length;
+}
+
 function writeSections(tx: Transaction, procedureId: string, sections: readonly ProcedureSection[]): void {
   // Rewritten as a whole; ids are preserved, positions follow the array order.
   tx.delete(procedureSteps).where(eq(procedureSteps.procedureId, procedureId)).run();
@@ -106,8 +135,10 @@ function writeSections(tx: Transaction, procedureId: string, sections: readonly 
       .values({ id: section.id, procedureId, position, title: section.title, description: section.description })
       .run();
     section.steps.forEach((step, stepPosition) => {
+      const { image, ...fields } = step;
       tx.insert(procedureSteps)
-        .values({ ...step, procedureId, sectionId: section.id, position: stepPosition })
+        // Image columns only when there is an image (14.3).
+        .values({ ...fields, procedureId, sectionId: section.id, position: stepPosition, ...(image === null ? {} : { imageId: image.id, imageCaption: image.caption }) })
         .run();
     });
   });
@@ -156,7 +187,7 @@ export function createProcedureRepository({ db }: Pick<AppDatabase, 'db'>): Proc
         if (active >= input.maxActive) return { status: 'limit_reached' };
         // A new Procedure has no items yet, so any client-supplied id is foreign.
         const sections = resolveStructure(input.structure, []);
-        if (sections === undefined) return { status: 'invalid_reference' };
+        if (sections === undefined || !imagesBelongTo(tx, input.workspaceId, sections, input.at)) return { status: 'invalid_reference' };
         const row = tx
           .insert(procedures)
           .values({
@@ -200,7 +231,7 @@ export function createProcedureRepository({ db }: Pick<AppDatabase, 'db'>): Proc
         if (current.revision !== input.expectedRevision) return { status: 'conflict' };
         const currentSections = loadSections(tx, current.id);
         const sections = resolveStructure(input.structure, currentSections);
-        if (sections === undefined) return { status: 'invalid_reference' };
+        if (sections === undefined || !imagesBelongTo(tx, input.workspaceId, sections, input.at)) return { status: 'invalid_reference' };
 
         const fields = changedFields(toProcedure(current), input.content);
         const summary = summarizeStructureChange(currentSections, sections);

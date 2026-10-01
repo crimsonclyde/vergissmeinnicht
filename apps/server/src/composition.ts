@@ -6,6 +6,7 @@ import {
   type InstanceSettingsDeps,
   type PreferencesDeps,
   type HistoryDeps,
+  type ImageDeps,
   type InvitationDeps,
   type KnotDeps,
   type ProcedureDeps,
@@ -35,6 +36,7 @@ import {
   createAccountRecoveryRepository,
   createAuditHistory,
   createCredentialRepository,
+  createImageRepository,
   createInstanceSettingsRepository,
   createInvitationRepository,
   createKnotRepository,
@@ -64,6 +66,7 @@ import {
 } from '@vergissmeinnicht/database';
 import { canAuthenticate, type UserId } from '@vergissmeinnicht/domain';
 import { createSmtpEmailSender } from '@vergissmeinnicht/email';
+import { createFileMediaStore, createSharpImageProcessor } from '@vergissmeinnicht/media';
 import { createTelegramBotApi } from '@vergissmeinnicht/notifications';
 import { createRunChangeHub, type RunChangeHub } from '@vergissmeinnicht/realtime';
 import type { FastifyBaseLogger } from 'fastify';
@@ -91,6 +94,8 @@ export interface AppServices {
   readonly schedules: ScheduleDeps & RunDeps;
   readonly knots: KnotDeps;
   readonly history: HistoryDeps;
+  /** Instruction images (14.3): metadata in SQLite, files under `mediaPath`. */
+  readonly images: ImageDeps;
   /** Notification providers, a person's reminder settings and Telegram pairing (13.6–13.8). */
   readonly notifications: NotificationDeps;
   /** The reminder dispatcher (13.5), run by the in-process scheduler. */
@@ -231,6 +236,13 @@ export function createServices(config: AppConfig, database: AppDatabase) {
       runChanges,
       knots: { workspaces: workspaceDeps.workspaces, knots: createKnotRepository(database), tokens: invitationTokens, clock: systemClock },
       history: { workspaces: workspaceDeps.workspaces, history: createAuditHistory(database) },
+      images: {
+        workspaces: workspaceDeps.workspaces,
+        images: createImageRepository(database),
+        store: createFileMediaStore(config.mediaPath),
+        processor: createSharpImageProcessor(),
+        clock: systemClock,
+      },
       securityEvents,
       rateLimits: createRateLimitCounter(database),
       readiness: () => {

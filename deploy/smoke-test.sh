@@ -33,6 +33,10 @@ for _ in $(seq 1 30); do
   if docker exec "$name" node -e "fetch('http://127.0.0.1:3000/api/health/ready').then((r) => process.exit(r.ok ? 0 : 1), () => process.exit(1))"; then
     # The web app and the service worker are served as well.
     docker exec "$name" node -e "Promise.all(['/', '/sw.js', '/manifest.webmanifest', '/third-party-notices.txt'].map((p) => fetch('http://127.0.0.1:3000' + p))).then((rs) => process.exit(rs.every((r) => r.ok) ? 0 : 1), () => process.exit(1))"
+    # Instruction images (14.3): sharp/libvips load and process an image in the read-only container,
+    # and the server licence notices ship with the image.
+    docker exec "$name" node -e "import('/app/packages/media/src/index.ts').then(async (m) => { const png = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAIAAACQd1PeAAAADElEQVR4nGP4z8AAAAMBAQDJ/pLvAAAAAElFTkSuQmCC', 'base64'); const r = await m.createSharpImageProcessor().process(new Uint8Array(png)); process.exit(r.width === 1 && r.jpeg[0] === 0xff ? 0 : 1); }, () => process.exit(1))"
+    docker exec "$name" sh -c 'grep -q "@img/sharp-libvips-linux" /app/third-party-notices-server.txt'
     # The scheduled backup ran at start (BACKUP_INTERVAL_HOURS).
     for _ in $(seq 1 10); do
       docker exec "$name" sh -c 'ls /data/backups | grep -q "^vergissmeinnicht-auto-"' && break

@@ -1,3 +1,4 @@
+import { parseStepImage, type StepImageRef } from './media.ts';
 import { DomainValidationError } from './errors.ts';
 import {
   normalizeProcedureDescription,
@@ -33,6 +34,8 @@ export interface ProcedureStep {
   readonly critical: boolean;
   readonly skipReasonPolicy: ReasonPolicy;
   readonly notApplicableReasonPolicy: ReasonPolicy;
+  /** Optional instruction image with its caption (14.3); the written Step must be understandable without it. */
+  readonly image: StepImageRef | null;
 }
 
 export interface ProcedureSection {
@@ -58,6 +61,8 @@ export interface StepInput {
   readonly critical: boolean;
   readonly skipReasonPolicy: string;
   readonly notApplicableReasonPolicy: string;
+  /** Omitted or null: no image. The image must belong to the Procedure's Workspace (checked on write). */
+  readonly image?: { readonly id: string; readonly caption: string } | null | undefined;
 }
 
 export interface SectionInput {
@@ -130,6 +135,7 @@ export function normalizeProcedureStructure(sections: readonly SectionInput[]): 
         critical: step.critical,
         skipReasonPolicy: parseReasonPolicy('skipReasonPolicy', step.skipReasonPolicy),
         notApplicableReasonPolicy: parseReasonPolicy('notApplicableReasonPolicy', step.notApplicableReasonPolicy),
+        image: parseStepImage(step.image),
       })),
     })),
   };

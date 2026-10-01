@@ -24,6 +24,7 @@ COPY packages/database/package.json packages/database/
 COPY packages/domain/package.json packages/domain/
 COPY packages/email/package.json packages/email/
 COPY packages/import-export/package.json packages/import-export/
+COPY packages/media/package.json packages/media/
 COPY packages/notifications/package.json packages/notifications/
 COPY packages/permissions/package.json packages/permissions/
 COPY packages/realtime/package.json packages/realtime/
@@ -52,6 +53,11 @@ RUN cd node_modules/.pnpm \
   && cd better-sqlite3@*/node_modules/better-sqlite3 \
   && find prebuilds -type f ! -name "linux-$(node -p process.arch).node" -delete \
   && rm -rf deps src build
+# Licence notices of exactly this runtime tree (sharp's libvips binaries include LGPL-3.0 libraries;
+# their texts are in /usr/share/common-licenses of the base image). Served nowhere; shipped in /app.
+COPY deploy/server-notices.ts deploy/
+RUN node deploy/server-notices.ts node_modules/.pnpm > third-party-notices-server.txt \
+  && grep -q '@img/sharp-libvips-linux' third-party-notices-server.txt
 
 # ---- Runtime image.
 FROM ${NODE_IMAGE} AS runtime

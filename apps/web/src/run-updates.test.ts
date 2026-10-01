@@ -12,6 +12,7 @@ const step = (id: string, state: RunStep['state'] = 'PENDING'): RunStep => ({
   critical: false,
   skipReasonPolicy: 'OPTIONAL',
   notApplicableReasonPolicy: 'OPTIONAL',
+  image: null,
   state,
   stateChange: null,
 });

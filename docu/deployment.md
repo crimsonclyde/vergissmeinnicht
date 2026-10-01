@@ -10,7 +10,7 @@ Internet ──HTTPS──> Caddy (deploy/Caddyfile, automatic certificates, 172
                          ▼
                    app container (Dockerfile): Fastify API + web app, user `node`, read-only root FS
                          │
-                   volume `data` → /data: SQLite database, WAL files, backups/
+                   volume `data` → /data: SQLite database, WAL files, media/ (instruction photos), backups/ (incl. backups/media/)
 ```
 
 - One application container; no ports published except Caddy's 80/443.
@@ -22,7 +22,7 @@ Internet ──HTTPS──> Caddy (deploy/Caddyfile, automatic certificates, 172
 
 ## Published images
 
-Version tags (`v1.2.3`) publish a multi-architecture image (`linux/amd64`, `linux/arm64`) to GitHub Container Registry: `ghcr.io/crimsonclyde/vergissmeinnicht:1.2.3` (also `:1.2` and `:latest`). Each architecture is built natively, smoke-tested (migrate, CLI, backup, server ready, scheduled backup) and scanned (Trivy, no fixable HIGH/CRITICAL findings) before it is pushed. The image is signed keyless with Sigstore and carries a CycloneDX SBOM attestation. Verify before use and pin the digest:
+Version tags (`v1.2.3`) publish a multi-architecture image (`linux/amd64`, `linux/arm64`) to GitHub Container Registry: `ghcr.io/crimsonclyde/vergissmeinnicht:1.2.3` (also `:1.2` and `:latest`). Each architecture is built natively, smoke-tested (migrate, CLI, backup, server ready, scheduled backup, image processing) and scanned (Trivy, no fixable HIGH/CRITICAL findings) before it is pushed. The image is signed keyless with Sigstore and carries a CycloneDX SBOM attestation. Verify before use and pin the digest:
 
 ```bash
 cosign verify ghcr.io/crimsonclyde/vergissmeinnicht:1.2.3 \
@@ -211,7 +211,7 @@ A backup is a complete copy of everything sensitive: accounts and password hashe
 
 **What to back up**
 
-1. The database, via the backup command (never by copying the live file: a copy taken while the server writes can be inconsistent, and the WAL file holds recent changes).
+1. The database and its instruction photos, via the backup command (never by copying the live file: a copy taken while the server writes can be inconsistent, and the WAL file holds recent changes). The command also copies every photo the backup uses into `/data/backups/media/` (next to the backup files, shared between backups): **a backup is the `.sqlite` file together with that `media/` directory** — always copy both.
 2. `DATA_ENCRYPTION_KEY` — separately (password manager). Without it, restored TOTP enrollments do not work (users fall back to recovery codes/admin reset); stored together with the database it would defeat the encryption.
 3. Your configuration (`vergissmeinnicht.env`, Caddyfile). `AUTH_SECRET` does not need a backup: a new one only signs everyone out.
 
@@ -220,9 +220,10 @@ A backup is a complete copy of everything sensitive: accounts and password hashe
 ```bash
 docker compose exec app vergissmeinnicht backup                        # → /data/backups/vergissmeinnicht-<UTC time>.sqlite
 docker compose cp app:/data/backups/<file> ./                          # copy it off the server, then encrypt it
+docker compose cp app:/data/backups/media ./                           # … together with the photos it uses
 ```
 
-The backup uses SQLite's online backup API (consistent, includes the WAL), is written with mode `0600`, converted to a single self-contained file and verified (integrity check, foreign keys, expected tables) before the command reports success.
+The backup uses SQLite's online backup API (consistent, includes the WAL), is written with mode `0600`, converted to a single database file and verified (integrity check, foreign keys, expected tables, and every instruction photo present in `backups/media` with the right SHA-256) before the command reports success. Photos are immutable and named by their hash, so consecutive backups share them instead of copying them again; the scheduled backup removes a photo from `backups/media` once no backup file in `/data/backups` uses it any more.
 
 **Scheduled backups** (built in, off by default): set `BACKUP_INTERVAL_HOURS` (e.g. `24`) and optionally `BACKUP_KEEP` (default `14`). The server checks every 10 minutes and writes `/data/backups/vergissmeinnicht-auto-<UTC time>.sqlite` whenever the newest automatic backup is older than the interval (so restarts neither skip nor repeat one), then keeps the newest `BACKUP_KEEP` automatic backups. Manual (`vergissmeinnicht-<time>.sqlite`) and pre-migration backups are never deleted by the app. The backups stay on the same volume as the database: they protect against mistakes and corruption, not against losing the server — copy them off the host **encrypted**, with established tools, for example:
 
@@ -238,6 +239,7 @@ The app does no encryption of its own (no home-made cryptography); keep the priv
 
 ```bash
 docker compose cp ./vergissmeinnicht-<time>.sqlite app:/data/backups/  # if it is not on the volume
+docker compose cp ./media app:/data/backups/                            # … and the photos next to it
 docker compose run --rm app verify /data/backups/vergissmeinnicht-<time>.sqlite
 docker compose stop app
 docker compose run --rm app restore /data/backups/vergissmeinnicht-<time>.sqlite
@@ -245,6 +247,6 @@ docker compose run --rm app migrate                                     # if the
 docker compose up -d
 ```
 
-`restore` refuses to run while any process has the database open (it needs an exclusive SQLite lock), verifies the backup first, and keeps the replaced database as `vergissmeinnicht.sqlite.before-restore-<time>` (plus its WAL/SHM files) — delete that manually once the restore is confirmed. Sessions in the backup are valid again after a restore; rotate `AUTH_SECRET` if you restore after a suspected compromise.
+`restore` refuses to run while any process has the database open (it needs an exclusive SQLite lock), verifies the backup first (a missing or altered photo refuses the restore), copies the backup's photos into `/data/media`, and keeps the replaced database as `vergissmeinnicht.sqlite.before-restore-<time>` (plus its WAL/SHM files) — delete that manually once the restore is confirmed. Sessions in the backup are valid again after a restore; rotate `AUTH_SECRET` if you restore after a suspected compromise.
 
 **Tested procedure** (2026-09-27, `docu/steps.md` 10.2): automated tests back up a database with uncheckpointed WAL changes, restore it, and check contents, file modes, refusal while the database is open (also idle with an empty WAL) and rejection of damaged or foreign files. The full container drill — migrate, start behind Caddy, create data, `backup` while running, change data, restore refused while running, stop, restore, start, data back to the backup state, healthy — was run against the image. Repeat a restore drill on a spare machine regularly: a backup that was never restored is not verified.

@@ -12,6 +12,7 @@ import {
   type RunStep,
   type RunSectionId,
   type RunStepId,
+  type StepImageId,
   type StepState,
   type UserId,
   type WorkspaceId,
@@ -57,6 +58,7 @@ function toRunStep(step: typeof runSteps.$inferSelect): RunStep {
     critical: step.critical,
     skipReasonPolicy: step.skipReasonPolicy,
     notApplicableReasonPolicy: step.notApplicableReasonPolicy,
+    image: step.imageId === null || step.imageCaption === null ? null : { id: step.imageId as StepImageId, caption: step.imageCaption },
     state: step.state,
     stateChange:
       step.stateChangedByUserId === null || step.stateChangedByDisplayName === null || step.stateChangedAt === null
@@ -159,6 +161,8 @@ export function createRunRepository({ db }: Pick<AppDatabase, 'db'>): RunReposit
                 skipReasonPolicy: step.skipReasonPolicy,
                 notApplicableReasonPolicy: step.notApplicableReasonPolicy,
                 state: 'PENDING',
+                // The instruction image as it is now: the Run keeps this version (14.3).
+                ...(step.image === null ? {} : { imageId: step.image.id, imageCaption: step.image.caption }),
               })
               .run();
           });

@@ -1,6 +1,9 @@
 // Test-only helper: a production-configured app on a fresh database, with captured email and
 // signed-in demo users. Not imported by application code.
 import { randomBytes } from 'node:crypto';
+import { mkdtempSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { Writable } from 'node:stream';
 import { bootstrapServerAdmin, type EmailMessage, type TelegramBotApi } from '@vergissmeinnicht/application';
 import { createTestDatabase } from '@vergissmeinnicht/database/test-support';
@@ -49,12 +52,14 @@ export async function startTestApp(
     MAIL_FROM_ADDRESS: 'noreply@example.org',
     LOG_LEVEL: 'info',
   });
+  const mediaDir = mkdtempSync(join(tmpdir(), 'vmn-test-media-'));
+  const testConfig = { ...config, mediaPath: mediaDir };
   const build = () =>
     buildApp({
       trustedProxies: options.trustedProxies,
       ...(options.captureLogs === true ? { logger: { ...loggerOptions('info'), stream: logStream } } : {}),
       services: (log) => {
-        const built = createServices(config, database)(log);
+        const built = createServices(testConfig, database)(log);
         const email = { send: async (message: EmailMessage) => void outbox.push(message) };
         const notifications = { ...built.notifications, email, ...(options.telegramApi === undefined ? {} : { telegramApi: options.telegramApi }) };
         services = { ...built, invitations: { ...built.invitations, email }, notifications, runEvents: options.runEvents };
@@ -136,6 +141,7 @@ export async function startTestApp(
     async close() {
       await app.close();
       database.dispose();
+      rmSync(mediaDir, { recursive: true, force: true });
     },
   };
 }

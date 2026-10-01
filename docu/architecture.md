@@ -89,7 +89,8 @@ packages/
   realtime/
   email/
   notifications/   (Telegram Bot API adapter; more providers later)
-  import-export/
+  import-export/   (Procedure JSON v1 and the Procedure archive, 14.3)
+  media/           (instruction images: sharp/libvips processing, content-addressed file store, 14.3)
   ui/
 
 docu/
@@ -373,6 +374,18 @@ online:   queue ──► POST …/steps/{id}/state { …, offline: { clientChan
 The server remains the only authority: the queue is a list of ordinary requests, the device time is informational (`state_changed_device_at`, audit metadata `deviceTime`), and sign-out deletes the device database. The service worker (`apps/web/public/sw.js`) caches only the app shell.
 
 Hardened in 13.1: a queued change carries the id of the account that made it (`offline.userId`), and the server refuses it under any other session; the client also checks the session's account before sending. Sign-out tells other tabs (BroadcastChannel `vmn-session`, messages tagged with the sending tab so a tab ignores its own), empties every store, then deletes the database — a deletion blocked by another tab is never reported as done.
+
+## Instruction images (Step 14.3)
+
+```text
+editor:  photo ──► browser: decode (Safari also HEIC), orient, ≤1600 px JPEG ──► POST …/images (octet-stream, ≤10 MB)
+server:  uploadStepImage (procedure.edit) ──► ImageProcessor (sharp: identify, limits, rotate, strip, resize, JPEG ≤500 KB)
+         ──► MediaStore.put (/data/media/<xx>/<sha256>.jpg, atomic) ──► ImageRepository.register (IMMEDIATE: guard, dedup, quota)
+save:    Step { image: { id, caption } } ──► same-Workspace + still-charged check in the Procedure save transaction
+start:   run_steps copy image id + caption (immutable)        serve: GET …/images/:id (procedure.view, Workspace-scoped)
+```
+
+Ports (`packages/application/src/ports/media.ts`): `ImageProcessor` and `MediaStore` are implemented by `packages/media`, `ImageRepository` by `packages/database/src/image-repository.ts`. The domain (`media.ts`) owns the limits, the caption rules and the quota choices. Files are immutable and written before their row commits; only housekeeping deletes them (unreferenced for 24 h). Quota usage is computed in the upload transaction (distinct referenced images + recent unreferenced uploads) rather than kept as a counter, so it cannot drift. Backups copy the referenced files into `backups/media` next to the backup files (`packages/database/src/backup.ts`). Offline: images of active Runs are cached in IndexedDB (`images` store) and shown from `blob:` URLs. The Procedure archive (`packages/import-export/src/procedure-archive.ts`) is a ZIP of `procedure.json` (manifest + JSON v1 document) and `images/<n>.jpg`; imports re-process every image (`importProcedureArchive`).
 
 ## Persistence
 

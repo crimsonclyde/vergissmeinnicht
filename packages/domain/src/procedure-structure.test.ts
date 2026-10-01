@@ -96,6 +96,7 @@ describe('summarizeStructureChange', () => {
     critical: false,
     skipReasonPolicy: 'OPTIONAL' as const,
     notApplicableReasonPolicy: 'OPTIONAL' as const,
+    image: null,
   });
   const before: ProcedureSection[] = [
     { id: 's1' as SectionId, title: 'One', description: '', steps: [step(ID_A, 'a'), step(ID_B, 'b')] },

@@ -280,10 +280,45 @@ export const workspaces = sqliteTable(
       .references(() => users.id),
     createdAt: integer('created_at', { mode: 'timestamp_ms' }).notNull(),
     updatedAt: integer('updated_at', { mode: 'timestamp_ms' }).notNull(),
+    /** Instruction image storage quota in bytes (14.3): 100/250/500 MB or 1 GB, set by a server admin (trigger in migration 0025). */
+    imageQuotaBytes: integer('image_quota_bytes').notNull().default(100_000_000),
   },
   (table) => [
     check('workspaces_id_uuid', sql`length(${table.id}) = 36`),
     check('workspaces_name_present', sql`length(trim(${table.name})) > 0`),
+  ],
+);
+
+/**
+ * Instruction images (14.3): the metadata of one processed JPEG in a Workspace. The bytes live in the
+ * media store (a file named by `sha256`, shared by identical content across Workspaces). Rows are
+ * immutable; the same content in the same Workspace is one row (charged once). Steps and Run snapshots
+ * reference rows (foreign keys), so a referenced image can never be deleted; unreferenced ones are
+ * removed by housekeeping after a grace period.
+ */
+export const stepImages = sqliteTable(
+  'step_images',
+  {
+    id: text('id').primaryKey(),
+    workspaceId: text('workspace_id')
+      .notNull()
+      .references(() => workspaces.id),
+    sha256: text('sha256').notNull(),
+    bytes: integer('bytes').notNull(),
+    width: integer('width').notNull(),
+    height: integer('height').notNull(),
+    createdByUserId: text('created_by_user_id')
+      .notNull()
+      .references(() => users.id),
+    createdAt: integer('created_at', { mode: 'timestamp_ms' }).notNull(),
+  },
+  (table) => [
+    uniqueIndex('step_images_content_unique').on(table.workspaceId, table.sha256),
+    index('step_images_sha_idx').on(table.sha256),
+    check('step_images_id_uuid', sql`length(${table.id}) = 36`),
+    check('step_images_sha_format', sql`length(${table.sha256}) = 64 and ${table.sha256} not glob '*[^0-9a-f]*'`),
+    check('step_images_bytes_bounded', sql`${table.bytes} between 1 and 500000`),
+    check('step_images_size_bounded', sql`${table.width} between 1 and 1600 and ${table.height} between 1 and 1600`),
   ],
 );
 
@@ -413,6 +448,9 @@ export const procedureSteps = sqliteTable(
     critical: integer('critical', { mode: 'boolean' }).notNull(),
     skipReasonPolicy: text('skip_reason_policy', { enum: REASON_POLICIES }).notNull(),
     notApplicableReasonPolicy: text('not_applicable_reason_policy', { enum: REASON_POLICIES }).notNull(),
+    /** Optional instruction image and its caption (14.3); both or neither (trigger in migration 0025). */
+    imageId: text('image_id').references(() => stepImages.id),
+    imageCaption: text('image_caption'),
   },
   (table) => [
     foreignKey({
@@ -422,6 +460,7 @@ export const procedureSteps = sqliteTable(
     }),
     uniqueIndex('procedure_steps_position_unique').on(table.sectionId, table.position),
     index('procedure_steps_procedure_idx').on(table.procedureId),
+    index('procedure_steps_image_idx').on(table.imageId),
     check('procedure_steps_id_uuid', sql`length(${table.id}) = 36`),
     check('procedure_steps_position_bounded', sql`${table.position} >= 0 and ${table.position} < 200`),
     check('procedure_steps_kind_valid', oneOf('kind', STEP_KINDS)),
@@ -542,6 +581,9 @@ export const runSteps = sqliteTable(
      * never authoritative: `state_changed_at` stays the server time. Only stored when plausible.
      */
     stateChangedDeviceAt: integer('state_changed_device_at', { mode: 'timestamp_ms' }),
+    /** The Step's instruction image when the Run started (14.3): snapshot, immutable (triggers in migration 0025). */
+    imageId: text('image_id').references(() => stepImages.id),
+    imageCaption: text('image_caption'),
   },
   (table) => [
     foreignKey({
@@ -551,6 +593,7 @@ export const runSteps = sqliteTable(
     }),
     uniqueIndex('run_steps_position_unique').on(table.runSectionId, table.position),
     index('run_steps_run_idx').on(table.runId),
+    index('run_steps_image_idx').on(table.imageId),
     check('run_steps_id_uuid', sql`length(${table.id}) = 36`),
     check('run_steps_kind_valid', oneOf('kind', STEP_KINDS)),
     check('run_steps_skip_policy_valid', oneOf('skip_reason_policy', REASON_POLICIES)),

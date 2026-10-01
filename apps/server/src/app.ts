@@ -10,6 +10,7 @@ import { accountRoutes } from './http/account-routes.ts';
 import { authRoutes } from './http/auth-routes.ts';
 import { errorHandler } from './http/errors.ts';
 import { homeRoutes } from './http/home-routes.ts';
+import { adminImageStorageRoutes, imageRoutes } from './http/image-routes.ts';
 import { adminInvitationRoutes, invitationRoutes } from './http/invitation-routes.ts';
 import { knotRoutes, workspaceKnotRoutes } from './http/knot-routes.ts';
 import { accountNotificationRoutes, adminNotificationRoutes } from './http/notification-routes.ts';
@@ -106,6 +107,8 @@ export async function buildApp(options: AppOptions = {}) {
         // (React `style` props use the CSSOM, which style-src does not restrict.)
         styleSrc: ["'self'"],
         fontSrc: ["'self'"],
+        // Instruction photos kept on the device for offline Runs are shown from blob: URLs (14.3).
+        imgSrc: ["'self'", 'data:', 'blob:'],
       },
     },
     referrerPolicy: { policy: 'no-referrer' },
@@ -146,12 +149,14 @@ export async function buildApp(options: AppOptions = {}) {
         await api.register(adminSecurityEventRoutes, { prefix: '/admin/security-events', services });
         await api.register(adminSettingsRoutes, { prefix: '/admin/settings', services });
         await api.register(adminNotificationRoutes, { prefix: '/admin/notifications', services });
+        await api.register(adminImageStorageRoutes, { prefix: '/admin/image-storage', services });
         await api.register(workspaceRoutes, { prefix: '/workspaces', services });
         await api.register(procedureRoutes, { prefix: '/workspaces/:workspaceId/procedures', services });
         await api.register(runRoutes, { prefix: '/workspaces/:workspaceId/runs', services });
         await api.register(scheduleRoutes, { prefix: '/workspaces/:workspaceId/schedules', services });
         await api.register(occurrenceRoutes, { prefix: '/workspaces/:workspaceId/occurrences', services });
         await api.register(homeRoutes, { prefix: '/workspaces/:workspaceId/home', services });
+        await api.register(imageRoutes, { prefix: '/workspaces/:workspaceId/images', services });
         await api.register(workspaceKnotRoutes, { prefix: '/workspaces/:workspaceId/knots', services });
         await api.register(knotRoutes, { prefix: '/knots', services });
       }

@@ -37,9 +37,12 @@ Forgot your password or lost your phone? Ask your server admin for an account re
    - **Optional** — does not block completing.
    - **Critical** — must be confirmed deliberately (press and hold, or tap and confirm).
    - **More options** → when skipped / not applicable: reason *not asked*, *optional* or *required*.
+   - **A photo** (optional, one per Step): **Take photo** opens the camera on a phone, **Choose photo** picks a file. Describe what it shows (e.g. *Blue lever left of the water meter*) — the description is shown with the photo and read out by screen readers. Write the Step so it also works without the photo. **Replace photo** / **Remove photo** change it; executions that already started keep the photo they started with.
 4. **Create Procedure**. Edits later never touch executions that already started.
 
-Procedures can be exported as a `.vmn.json` file and imported into another Workspace (**⋯ Manage Procedures → Import Procedure**). Deleted Procedures can be viewed and restored under **⋯ Manage Procedures → Deleted Procedures**.
+Procedures can be exported as a `.vmn.json` file (**Export as JSON** — without photos) or as a `.vmn.zip` archive **with** photos (**Export as archive**), and imported into another Workspace (**⋯ Manage Procedures → Import Procedure**; both kinds of file).
+
+**Photos in detail:** JPEG, PNG and WebP up to 10 MB. VMN stores a copy of at most 1600 pixels as JPEG, turned upright, with all hidden information removed (location, camera, time). iPhone photos (HEIC) are converted by the browser before they are sent (Safari and other iPhone browsers); if a browser cannot do that, VMN says so — then set *Settings → Camera → Formats → Most Compatible* or share the photo as JPEG. Each Workspace has photo storage (100 MB unless a server admin chose more); the editor shows how much is used. When it is full, new photos are refused — existing ones stay. Deleted Procedures can be viewed and restored under **⋯ Manage Procedures → Deleted Procedures**.
 
 ## Home
 
@@ -80,8 +83,9 @@ Reminders go to the responsible person, otherwise to the person who scheduled it
 1. **Start** it (or **Continue** on Home).
 2. The next Step to do is marked **Next**; the bar at the bottom always shows progress and **Go to next Step**.
 3. For each Step: **✔ Done**, **Skip** (it applied, but was not done) or **Not applicable** (it did not apply this time). Changed your mind? **Undo**.
-4. **Critical Steps** (red **!**): press and hold the button until it fills — or, if holding is hard, choose *Tap, then confirm* in **Profile & settings**.
-5. When every required Step is Done or Not applicable: **Complete**. Plans changed? **Abort…** (a reason is optional).
+4. A Step with a photo shows it small next to the Step; tap it to see it full-screen (**Close**, Escape or Back to return).
+5. **Critical Steps** (red **!**): press and hold the button until it fills — or, if holding is hard, choose *Tap, then confirm* in **Profile & settings**.
+6. When every required Step is Done or Not applicable: **Complete**. Plans changed? **Abort…** (a reason is optional).
 
 Several people can work on the same execution at once. The **● Live** chip shows it updates by itself, and you see who changed what, and when.
 
@@ -95,6 +99,7 @@ Executions you opened on a device keep working when the network goes away — fo
 - When the connection is back, they are sent automatically, in order. The history shows the server time and, marked as such, the time on your device.
 - If someone else changed the same Step in the meantime, your change is **not** forced through; a message tells you which one.
 - Completing or aborting needs a connection.
+- Photos of Steps are kept with the execution on the device once they have been shown; a photo that is not there shows *Image not available offline* with its description.
 - Signing out removes everything VMN stored on the device (it asks first if changes are still waiting) — also for other open VMN tabs, which go back to the sign-in page. If the browser cannot remove it, VMN tells you; then close every VMN tab and clear this site's data in the browser settings.
 
 ## Share a link: Knots
@@ -119,5 +124,6 @@ Editors and Admins can **Share as Knot link…** from a Procedure (under **⋯**
 - **Accounts** — disable an account (signs the person out everywhere at once) or enable it again.
 - **Account recovery** — email a recovery link for a forgotten password or a lost authenticator.
 - **Security log** — sign-ins, two-factor, recovery, invitations, account and membership changes.
+- **Photo storage** — how much each Workspace uses, and its limit: 100 MB, 250 MB, 500 MB or 1 GB. Lowering a limit never deletes photos; new ones are refused until usage is below it.
 - **This server** — hide the page footer; how many **Recent** Procedures Home shows (0–20, 0 hides the section).
 - **Notification providers** — email reminders on/off and a test email to yourself; **Telegram**: paste the **Bot token** from @BotFather (checked with Telegram, stored encrypted, never shown again) and enable it — this sets up the bot for the whole server, not a destination chat. Then, like everyone else, connect your own chat under *Profile & settings → Notifications* (**Go to my notification settings**); only after that can **Send test message to my Telegram** reach you. You can also remove the token. See [Deployment](deployment.md#reminders-and-notification-providers).

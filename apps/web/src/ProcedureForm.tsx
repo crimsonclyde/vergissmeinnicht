@@ -1,14 +1,17 @@
-import { useId, useRef, useState, type DragEvent, type FormEvent } from 'react';
+import { useEffect, useId, useRef, useState, type DragEvent, type FormEvent } from 'react';
 import {
+  api,
   messageFor,
   REASON_POLICIES,
   type ProcedureContent,
   type ProcedureIcon,
   type ReasonPolicy,
+  type ImageUsage,
   type SectionInput,
   type StepInput,
 } from './api.ts';
 import { IconPicker } from './IconPicker.tsx';
+import { formatMegabytes, StepImageField } from './StepImage.tsx';
 import { moveItem, moveStep, type StepPosition } from './structure-moves.ts';
 import { t } from './i18n/index.ts';
 
@@ -31,6 +34,7 @@ function toStepInput(step: DraftStep): StepInput {
     critical: step.critical,
     skipReasonPolicy: step.skipReasonPolicy,
     notApplicableReasonPolicy: step.notApplicableReasonPolicy,
+    image: step.image ?? null,
   };
 }
 
@@ -101,6 +105,8 @@ function PolicySelect(props: { label: string; value: ReasonPolicy; onChange: (po
 }
 
 function StepEditor(props: {
+  workspaceId: string;
+  onImageUsage: (usage: ImageUsage) => void;
   step: DraftStep;
   number: string;
   isFirst: boolean;
@@ -135,6 +141,7 @@ function StepEditor(props: {
           <textarea rows={2} maxLength={4000} value={step.description} onChange={(e) => set({ description: e.target.value })} />
         </label>
       </p>
+      <StepImageField workspaceId={props.workspaceId} number={number} image={step.image ?? null} onChange={(image) => set({ image })} onUsage={props.onImageUsage} />
       <p className="row">
         <label>
           <input type="checkbox" checked={step.required} onChange={(e) => set({ required: e.target.checked })} /> {t('form.required')}
@@ -183,6 +190,7 @@ function StepEditor(props: {
 
 /** Edits a complete Procedure (content, Sections, Steps); one submit is one save on the server. */
 export function ProcedureForm(props: {
+  workspaceId: string;
   initial: ProcedureContent;
   submitLabel: string;
   onSubmit: (content: ProcedureContent) => Promise<void>;
@@ -197,6 +205,10 @@ export function ProcedureForm(props: {
   );
   const [message, setMessage] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [imageUsage, setImageUsage] = useState<ImageUsage | null>(null);
+  useEffect(() => {
+    api.imageUsage(props.workspaceId).then(setImageUsage, () => setImageUsage(null));
+  }, [props.workspaceId]);
   // The ref is what event handlers read (a fast drag fires dragover before React re-renders);
   // the state only drives rendering of the drop zones.
   const draggedRef = useRef<Dragged | null>(null);
@@ -318,6 +330,8 @@ export function ProcedureForm(props: {
           {section.steps.map((step, stepIndex) => (
             <StepEditor
               key={step.key}
+              workspaceId={props.workspaceId}
+              onImageUsage={setImageUsage}
               step={step}
               number={`${index + 1}.${stepIndex + 1}`}
               isFirst={stepIndex === 0}
@@ -388,6 +402,9 @@ export function ProcedureForm(props: {
         </button>
       </p>
 
+      {imageUsage !== null && (
+        <p className="muted">{t('image.usage', { used: formatMegabytes(imageUsage.usedBytes), quota: formatMegabytes(imageUsage.quotaBytes) })}</p>
+      )}
       <button type="submit" disabled={busy}>
         {props.submitLabel}
       </button>{' '}

@@ -7,6 +7,9 @@ import {
   KnotNotFoundError,
   KnotRecordNotFoundError,
   KnotTargetNotFoundError,
+  ImageNotFoundError,
+  ImageQuotaExceededError,
+  ImageRejectedError,
   AccountAlreadyExistsError,
   AlreadyMemberError,
   LastWorkspaceAdminError,
@@ -134,6 +137,12 @@ export function errorHandler(error: FastifyError | Error, request: FastifyReques
   if (error instanceof KnotAlreadyRevokedError) return reply.code(409).send({ error: 'knot_already_revoked' });
   if (error instanceof KnotTargetNotFoundError) return reply.code(404).send({ error: 'knot_target_not_found' });
   if (error instanceof KnotLimitReachedError) return reply.code(409).send({ error: 'knot_limit_reached' });
+  if (error instanceof ImageNotFoundError) return reply.code(404).send({ error: 'image_not_found' });
+  // The stable reason only (e.g. heic_unsupported); never anything about the file's content.
+  if (error instanceof ImageRejectedError) return reply.code(422).send({ error: 'image_rejected', reason: error.code });
+  if (error instanceof ImageQuotaExceededError) {
+    return reply.code(409).send({ error: 'image_quota_exceeded', usedBytes: error.usage.used, quotaBytes: error.usage.quota });
+  }
 
   const statusCode = 'statusCode' in error && typeof error.statusCode === 'number' ? error.statusCode : 500;
   if (statusCode === 429) return reply.code(429).send({ error: 'rate_limited' });

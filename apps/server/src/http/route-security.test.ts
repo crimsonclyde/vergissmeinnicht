@@ -87,6 +87,15 @@ describe('security properties of every route (13.2)', () => {
     const procedure = (await t.post(`/api/workspaces/${home}/procedures`, PROCEDURE, owner)).json().procedure;
     exported = (await t.get(`/api/workspaces/${home}/procedures/${procedure.id}/export`, owner)).json();
     const run = (await t.post(`/api/workspaces/${home}/runs`, { procedureId: procedure.id }, owner)).json().run;
+    const image = (
+      await t.app.inject({
+        method: 'POST',
+        url: `/api/workspaces/${home}/images`,
+        headers: { origin: 'https://vmn.example.org', cookie: owner, 'content-type': 'application/octet-stream' },
+        // A 1×1 PNG.
+        payload: Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAIAAACQd1PeAAAADElEQVR4nGP4z8AAAAMBAQDJ/pLvAAAAAElFTkSuQmCC', 'base64'),
+      })
+    ).json().image;
     const knot = (await t.post(`/api/workspaces/${home}/knots`, { target: { type: 'RUN', id: run.id }, label: 'x', expiresInDays: null }, owner)).json()
       .knot;
     const deleted = (await t.post(`/api/workspaces/${home}/procedures`, { ...PROCEDURE, title: 'Old' }, owner)).json().procedure;
@@ -104,6 +113,7 @@ describe('security properties of every route (13.2)', () => {
       userId: uma,
       scheduleId: scheduled.id,
       occurrenceId: occurrence.id,
+      imageId: image.id,
     };
     routes = t.app.routeTable.map((route) => `${route.method} ${route.url}`);
   });
@@ -141,7 +151,7 @@ describe('security properties of every route (13.2)', () => {
 
   it('never resolves a child id of one Workspace under another Workspace', async () => {
     // Otto administers Office and uses Home's Procedure/Run/Step/Knot/member ids under Office's id.
-    const childRoutes = routes.filter((r) => (r.includes('/:workspaceId/') && /:(procedureId|runId|knotId|userId|scheduleId|occurrenceId)/.test(r)) || /^POST .*\/:workspaceId\/(runs|knots|schedules)$/.test(r));
+    const childRoutes = routes.filter((r) => (r.includes('/:workspaceId/') && /:(procedureId|runId|knotId|userId|scheduleId|occurrenceId|imageId)/.test(r)) || /^POST .*\/:workspaceId\/(runs|knots|schedules)$/.test(r));
     expect(childRoutes.length).toBeGreaterThan(10);
     for (const route of childRoutes) {
       const response = await call(route, outsider, { ...homeIds, workspaceId: office });

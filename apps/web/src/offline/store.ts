@@ -14,7 +14,9 @@ const RUNS = 'runs';
 const QUEUE = 'queue';
 /** The signed-in user and Workspace contexts, so a reload while offline still shows saved Runs. */
 const CONTEXT = 'context';
-const STORES = [RUNS, QUEUE, CONTEXT];
+/** Instruction images of saved Runs (14.3), so a Run's photos are there offline too. */
+const IMAGES = 'images';
+const STORES = [RUNS, QUEUE, CONTEXT, IMAGES];
 /** How long sign-out waits for other tabs to release the database before reporting `emptied`. */
 const DELETE_WAIT_MS = 3000;
 
@@ -45,15 +47,25 @@ export interface SavedRun {
 }
 
 const runKey = (userId: string, runId: string) => `${userId}:${runId}`;
+const imageKey = (userId: string, workspaceId: string, imageId: string) => `${userId}:${workspaceId}:${imageId}`;
+
+interface SavedImage {
+  readonly key: string;
+  readonly userId: string;
+  readonly blob: Blob;
+}
 
 function open(): Promise<IDBDatabase> {
   return new Promise((resolve, reject) => {
-    const request = indexedDB.open(DB_NAME, 1);
-    request.onupgradeneeded = () => {
+    const request = indexedDB.open(DB_NAME, 2);
+    request.onupgradeneeded = (event) => {
       const db = request.result;
-      db.createObjectStore(RUNS, { keyPath: 'key' });
-      db.createObjectStore(QUEUE, { keyPath: 'clientChangeId' });
-      db.createObjectStore(CONTEXT, { keyPath: 'key' });
+      if (event.oldVersion < 1) {
+        db.createObjectStore(RUNS, { keyPath: 'key' });
+        db.createObjectStore(QUEUE, { keyPath: 'clientChangeId' });
+        db.createObjectStore(CONTEXT, { keyPath: 'key' });
+      }
+      if (event.oldVersion < 2) db.createObjectStore(IMAGES, { keyPath: 'key' });
     };
     request.onsuccess = () => {
       const db = request.result;
@@ -114,6 +126,19 @@ export const offlineStore = {
       const all = (await withStore<SavedRun[]>(RUNS, 'readonly', (store) => store.getAll() as IDBRequest<SavedRun[]>)) ?? [];
       return all.filter((entry) => entry.userId === userId && entry.workspaceId === workspaceId);
     }, [] as SavedRun[]),
+
+  /** An instruction image of a saved Run; only images are stored here, as served by the server. */
+  saveImage: (userId: string, workspaceId: string, imageId: string, blob: Blob) =>
+    safely(async () => {
+      const entry: SavedImage = { key: imageKey(userId, workspaceId, imageId), userId, blob };
+      await withStore(IMAGES, 'readwrite', (store) => store.put(entry));
+    }, undefined),
+
+  loadImage: (userId: string, workspaceId: string, imageId: string) =>
+    safely(async () => {
+      const entry = await withStore<SavedImage | undefined>(IMAGES, 'readonly', (store) => store.get(imageKey(userId, workspaceId, imageId)) as IDBRequest<SavedImage | undefined>);
+      return entry?.userId === userId ? entry.blob : undefined;
+    }, undefined),
 
   queued: (userId: string) =>
     safely(async () => {

@@ -68,7 +68,7 @@ export function toProcedureDocument(detail: {
   };
 }
 
-export type ImportErrorCode = 'invalid_document' | 'unsupported_format' | 'unsupported_schema_version';
+export type ImportErrorCode = 'invalid_document' | 'unsupported_format' | 'unsupported_schema_version' | 'invalid_archive';
 
 /** The document is not an importable Procedure. `code` is stable; nothing from the input is echoed. */
 export class ProcedureImportError extends Error {

@@ -1,9 +1,11 @@
 import { useCallback, useEffect, useState, type FormEvent } from 'react';
-import { ApiError, api, messageFor, type AccountInfo, type NotificationProviders as NotificationProvidersInfo, type PendingInvitation, type SecurityLogEntry } from './api.ts';
+import { ApiError, api, messageFor, type AccountInfo, type NotificationProviders as NotificationProvidersInfo, type PendingInvitation, type SecurityLogEntry, type WorkspaceImageStorage } from './api.ts';
 import { formatDateTime, hasMessage, t } from './i18n/index.ts';
 import { SECTION_ID as NOTIFICATIONS_SECTION, testFailureMessage } from './NotificationSettings.tsx';
 import { Link, navigate, paths } from './router.tsx';
 import { announceFooterHidden } from './SourceFooter.tsx';
+import { formatMegabytes } from './StepImage.tsx';
+import { IMAGE_QUOTA_CHOICES } from '@vergissmeinnicht/domain';
 
 /** Server administration: Workspaces, invitations, accounts, account recovery. The server checks the admin flag. */
 function CreateWorkspace({ onCreated }: { onCreated: () => void }) {
@@ -815,6 +817,60 @@ function AccountRecovery() {
   );
 }
 
+/** Photo storage per Workspace and its limit (14.3, D11a). Lowering a limit never deletes photos. */
+function ImageStorage() {
+  const [storage, setStorage] = useState<WorkspaceImageStorage[] | null>(null);
+  const [message, setMessage] = useState<string | null>(null);
+  const [status, setStatus] = useState<string | null>(null);
+  const load = useCallback(() => {
+    api.imageStorage().then(setStorage, (caught: unknown) => setMessage(messageFor(caught)));
+  }, []);
+  useEffect(load, [load]);
+
+  async function change(workspace: WorkspaceImageStorage, quota: number) {
+    setMessage(null);
+    setStatus(null);
+    try {
+      await api.setImageQuota(workspace.id, quota);
+      setStatus(t('admin.images.saved', { name: workspace.name }));
+      load();
+    } catch (caught) {
+      setMessage(messageFor(caught));
+    }
+  }
+
+  return (
+    <section className="card stack" aria-labelledby="image-storage-heading">
+      <h3 id="image-storage-heading" style={{ marginTop: 0 }}>
+        {t('admin.images.heading')}
+      </h3>
+      <p className="muted" style={{ margin: 0 }}>
+        {t('admin.images.intro')}
+      </p>
+      {message !== null && <p role="alert">{message}</p>}
+      {status !== null && <p role="status">{status}</p>}
+      <ul className="plain-list stack">
+        {storage?.map((workspace) => (
+          <li key={workspace.id} className="row" style={{ justifyContent: 'space-between' }}>
+            <span>{t('admin.images.row', { name: workspace.name, used: formatMegabytes(workspace.usedBytes), quota: formatMegabytes(workspace.quotaBytes) })}</span>
+            <select
+              aria-label={t('admin.images.quota', { name: workspace.name })}
+              value={workspace.quotaBytes}
+              onChange={(e) => void change(workspace, Number(e.target.value))}
+            >
+              {IMAGE_QUOTA_CHOICES.map((choice) => (
+                <option key={choice} value={choice}>
+                  {choice >= 1_000_000_000 ? '1 GB' : `${choice / 1_000_000} MB`}
+                </option>
+              ))}
+            </select>
+          </li>
+        ))}
+      </ul>
+    </section>
+  );
+}
+
 export function AdminPage({ currentUserId, onWorkspacesChanged }: { currentUserId: string; onWorkspacesChanged: () => void }) {
   return (
     <>
@@ -823,6 +879,7 @@ export function AdminPage({ currentUserId, onWorkspacesChanged }: { currentUserI
       </div>
       <CreateWorkspace onCreated={onWorkspacesChanged} />
       <ServerSettings />
+      <ImageStorage />
       <NotificationProviders />
       <Invitations />
       <Accounts currentUserId={currentUserId} />

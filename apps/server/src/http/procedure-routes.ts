@@ -5,6 +5,8 @@ import {
   getProcedure,
   getProcedureHistory,
   importProcedure,
+  importProcedureArchive,
+  readStepImage,
   getDeletedProcedure,
   listDeletedProcedures,
   listProcedureCards,
@@ -15,7 +17,7 @@ import {
 } from '@vergissmeinnicht/application';
 import type { ProcedureCard, ProcedureDetail } from '@vergissmeinnicht/application';
 import { UUID_V4, type Procedure, type ProcedureId, type WorkspaceId } from '@vergissmeinnicht/domain';
-import { parseProcedureDocument, toProcedureDocument } from '@vergissmeinnicht/import-export';
+import { ARCHIVE_LIMITS, parseProcedureDocument, readProcedureArchive, toProcedureDocument, writeProcedureArchive } from '@vergissmeinnicht/import-export';
 import type { FastifyInstance, FastifyRequest } from 'fastify';
 import { z } from 'zod';
 import type { AppServices } from '../composition.ts';
@@ -40,6 +42,7 @@ const step = z.strictObject({
   critical: z.boolean().default(false),
   skipReasonPolicy: text(32),
   notApplicableReasonPolicy: text(32),
+  image: z.strictObject({ id: text(64), caption: text(1024) }).nullable().optional(),
 });
 const section = z.strictObject({
   id: itemId,
@@ -118,6 +121,8 @@ function detailView(detail: ProcedureDetail) {
 export async function procedureRoutes(app: FastifyInstance, { services }: { services: AppServices }) {
   const deps = services.procedures;
   app.addHook('preHandler', requireUser(services));
+  // Procedure archives (14.3) are uploaded as raw bytes, only to the archive import route.
+  app.addContentTypeParser('application/octet-stream', { parseAs: 'buffer', bodyLimit: ARCHIVE_LIMITS.maxArchiveBytes }, (_request, body, done) => done(null, body));
 
   app.get('/', async (request) => {
     const { workspaceId } = parse(workspaceParams, request.params);
@@ -161,6 +166,32 @@ export async function procedureRoutes(app: FastifyInstance, { services }: { serv
         workspaceId: workspaceId as WorkspaceId,
         content: parseProcedureDocument(request.body),
       });
+      return reply.code(201).send({ procedure: detailView(detail) });
+    },
+  );
+
+  // Archive import (14.3, T4): an untrusted ZIP with the JSON document and its images. Read in bounded
+  // memory only after the caller may import here; every image is processed like an upload and charged.
+  app.post(
+    '/import-archive',
+    {
+      bodyLimit: ARCHIVE_LIMITS.maxArchiveBytes,
+      config: {
+        rateLimit: {
+          max: 10,
+          timeWindow: 15 * 60_000,
+          hook: 'preHandler',
+          keyGenerator: (request: FastifyRequest) => `archive-import:${request.principal?.user.id ?? request.ip}`,
+        },
+      },
+    },
+    async (request, reply) => {
+      const { workspaceId } = parse(workspaceParams, request.params);
+      const body = Buffer.isBuffer(request.body) ? request.body : Buffer.alloc(0);
+      const detail = await importProcedureArchive(
+        { ...deps, ...services.images },
+        { actor: principalOf(request).user, workspaceId: workspaceId as WorkspaceId, read: () => readProcedureArchive(body) },
+      );
       return reply.code(201).send({ procedure: detailView(detail) });
     },
   );
@@ -219,6 +250,23 @@ export async function procedureRoutes(app: FastifyInstance, { services }: { serv
       procedureId: procedureId as ProcedureId,
     });
     return toProcedureDocument(detail);
+  });
+
+  // The archive carries the stored (already processed) images; they are read with the same checks as when viewed.
+  app.get('/:procedureId/archive', async (request, reply) => {
+    const { workspaceId, procedureId } = parse(procedureParams, request.params);
+    const actor = principalOf(request).user;
+    const detail = await getProcedure(deps, { actor, workspaceId: workspaceId as WorkspaceId, procedureId: procedureId as ProcedureId });
+    const images = [];
+    for (const [section, entry] of detail.sections.entries()) {
+      for (const [step, item] of entry.steps.entries()) {
+        if (item.image === null) continue;
+        const bytes = await readStepImage(services.images, { actor, workspaceId: workspaceId as WorkspaceId, imageId: item.image.id });
+        images.push({ section, step, caption: item.image.caption, bytes });
+      }
+    }
+    const archive = await writeProcedureArchive(toProcedureDocument(detail), images);
+    return reply.type('application/zip').header('Content-Disposition', 'attachment; filename="procedure.vmn.zip"').send(archive);
   });
 
   app.post('/:procedureId/duplicate', async (request, reply) => {

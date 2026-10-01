@@ -7,7 +7,8 @@ const port = 3100;
 
 // Throwaway production-mode configuration. Stored in process.env so Playwright workers (which
 // inherit the runner's environment and re-evaluate this file) see the same values.
-const databasePath = (process.env.VMN_E2E_DATABASE_PATH ??= join(tmpdir(), `vergissmeinnicht-e2e-${process.pid}.sqlite`));
+// In its own directory: instruction photos are stored next to the database (`media/`).
+const databasePath = (process.env.VMN_E2E_DATABASE_PATH ??= join(tmpdir(), `vergissmeinnicht-e2e-${process.pid}`, 'vergissmeinnicht.sqlite'));
 const authSecret = (process.env.VMN_E2E_AUTH_SECRET ??= randomBytes(32).toString('base64url'));
 const dataKey = (process.env.VMN_E2E_DATA_ENCRYPTION_KEY ??= randomBytes(32).toString('base64url'));
 

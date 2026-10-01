@@ -19,6 +19,7 @@ import { TapToConfirm } from './TapToConfirm.tsx';
 import { KnotShare } from './Knots.tsx';
 import { formatDateTime, formatTime, formatWhen, t } from './i18n/index.ts';
 import { AppIcon } from './procedure-icons.tsx';
+import { StepImage } from './StepImage.tsx';
 import { StepMarks } from './StepMarks.tsx';
 import { applyStepResult, isNewer, withPendingChanges, type PendingStepChange } from './run-updates.ts';
 import { useOffline } from './offline/OfflineProvider.tsx';
@@ -123,6 +124,9 @@ function ReasonForm(props: { step: RunStep; to: StepState; onSubmit: (reason: st
 
 function StepItem(props: {
   step: RunStep;
+  workspaceId: string;
+  /** Keeps the Step's photo on this device for offline use (active Runs, which are saved there too). */
+  offlineUserId: string | undefined;
   canExecute: boolean;
   busy: boolean;
   /** Our change is on its way to the server; the shown state is not confirmed yet. */
@@ -180,6 +184,7 @@ function StepItem(props: {
         </small>
       )}
       {step.description !== '' && <p style={{ whiteSpace: 'pre-wrap', margin: '0.5rem 0 0' }}>{step.description}</p>}
+      {step.image != null && <StepImage workspaceId={props.workspaceId} image={step.image} offlineUserId={props.offlineUserId} />}
       {props.canExecute && asking === null && (
         <div className="row step-actions">
           {step.state === 'PENDING' ? (
@@ -363,6 +368,7 @@ function RunView(props: {
   loadHistory: (after?: string) => Promise<HistoryPage>;
 }) {
   const { run } = props;
+  const { userId } = useOffline();
   const canExecute = props.canExecute && run.state === 'ACTIVE';
   const steps = run.sections.flatMap((section) => section.steps);
   const next = run.state === 'ACTIVE' ? steps.find((step) => step.state === 'PENDING') : undefined;
@@ -427,6 +433,8 @@ function RunView(props: {
               <StepItem
                 key={`${step.id}-${step.state}`}
                 step={step}
+                workspaceId={props.workspaceId}
+                offlineUserId={run.state === 'ACTIVE' ? userId : undefined}
                 canExecute={canExecute}
                 busy={props.busy}
                 saving={props.saving.has(step.id)}

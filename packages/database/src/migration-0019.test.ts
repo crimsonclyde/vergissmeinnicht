@@ -4,17 +4,14 @@ import { join } from 'node:path';
 import { migrate } from 'drizzle-orm/better-sqlite3/migrator';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import {
-  changeStepState,
   createProcedure,
-  createWorkspace,
-  startRun,
   type ProcedureInput,
 } from '@vergissmeinnicht/application';
 import { normalizeEmail } from '@vergissmeinnicht/domain';
 import { openDatabase } from './connection.ts';
 import { MIGRATIONS_FOLDER, runMigrations } from './migrate.ts';
 import { createProcedureRepository } from './procedure-repository.ts';
-import { createRunRepository } from './run-repository.ts';
+import { insertLegacyProcedure, insertLegacyRun, insertLegacyWorkspace } from './test-support.ts';
 import { createUserRepository } from './user-repository.ts';
 import { createWorkspaceRepository } from './workspace-repository.ts';
 
@@ -62,24 +59,28 @@ describe('migration 0019: icons as a reference table (table rebuild)', () => {
     let database = openDatabase(path);
     const clock = { now: () => new Date() };
     const users = createUserRepository(database);
-    const workspaces = createWorkspaceRepository(database);
     const admin = await users.create({ email: normalizeEmail('ada@example.org'), displayName: 'Ada', emailVerified: true, status: 'ACTIVE', serverAdmin: true });
-    const home = await createWorkspace({ users, workspaces, clock }, { actor: admin, name: 'Home' });
-    const procedureDeps = { workspaces, procedures: createProcedureRepository(database), clock };
-    const runDeps = { workspaces, runs: createRunRepository(database), clock };
-    const procedure = await createProcedure(procedureDeps, { actor: admin, workspaceId: home.id, content: PROCEDURE });
-    const finished = await startRun(runDeps, { actor: admin, workspaceId: home.id, procedureId: procedure.procedure.id });
-    for (const step of finished.sections[0]?.steps ?? []) {
-      await changeStepState(runDeps, { actor: admin, workspaceId: home.id, runId: finished.run.id, stepId: step.id, expectedState: 'PENDING', to: 'DONE' });
-    }
-    // Finished directly in SQL: today's completeRun also updates Occurrences (14.1), a table this old schema does not have yet.
-    database.sqlite
-      .prepare("UPDATE runs SET state = 'COMPLETED', revision = revision + 1, ended_at = ?, ended_by_user_id = ?, ended_by_display_name = ? WHERE id = ?")
-      .run(Date.now(), admin.id, admin.displayName, finished.run.id);
-    const active = await startRun(runDeps, { actor: admin, workspaceId: home.id, procedureId: procedure.procedure.id });
+    const home = insertLegacyWorkspace(database, { name: 'Home', adminUserId: admin.id });
+    // Plain SQL: today's repositories name columns this old schema does not have yet.
+    const procedure = {
+      procedure: insertLegacyProcedure(database, {
+        workspaceId: home.id,
+        userId: admin.id,
+        title: 'Leave the house',
+        icon: 'travel',
+        steps: [{ title: 'Stove off', icon: 'kitchen', critical: true }, { title: 'Windows' }],
+      }),
+    };
+    // Runs in plain SQL: today's repositories name columns this old schema does not have yet.
+    const finished = { run: { id: insertLegacyRun(database, { workspaceId: home.id, procedureId: procedure.procedure.id, user: { id: admin.id, displayName: admin.displayName }, state: 'COMPLETED' }).runId } };
+    const active = { run: { id: insertLegacyRun(database, { workspaceId: home.id, procedureId: procedure.procedure.id, user: { id: admin.id, displayName: admin.displayName } }).runId } };
 
+    // Only the columns that exist now: later migrations may add columns (e.g. 0025 images).
+    const columns = Object.fromEntries(
+      TABLES.map((table) => [table, (database.sqlite.prepare(`PRAGMA table_info(${table})`).all() as { name: string }[]).map((column) => `"${column.name}"`).join(', ')]),
+    );
     const snapshot = () =>
-      Object.fromEntries(TABLES.map((table) => [table, database.sqlite.prepare(`SELECT * FROM ${table} ORDER BY rowid`).all()]));
+      Object.fromEntries(TABLES.map((table) => [table, database.sqlite.prepare(`SELECT ${columns[table]} FROM ${table} ORDER BY rowid`).all()]));
     const schemaObjects = () =>
       database.sqlite
         .prepare("SELECT type, name, sql FROM sqlite_master WHERE type IN ('index', 'trigger') AND sql IS NOT NULL ORDER BY type, name")

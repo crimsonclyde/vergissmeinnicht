@@ -2,6 +2,7 @@ import { randomBytes } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { isIP } from 'node:net';
 import { isAbsolute, resolve } from 'node:path';
+import { defaultMediaPath } from '@vergissmeinnicht/database';
 import { z } from 'zod';
 import { normalizeEmail } from '@vergissmeinnicht/domain';
 import { Secret } from './secret.ts';
@@ -165,6 +166,8 @@ export interface AppConfig {
   /** Origin the browser uses to reach the app; basis for auth callbacks and origin/CSRF checks. */
   readonly publicOrigin: string;
   readonly databasePath: string;
+  /** Instruction images (14.3): `media/` next to the database, so one volume holds all data. */
+  readonly mediaPath: string;
   readonly authSecret: Secret;
   /** True when no AUTH_SECRET was configured outside production and a per-process secret was generated. */
   readonly authSecretEphemeral: boolean;
@@ -228,6 +231,7 @@ export function loadConfig(env: NodeJS.ProcessEnv, readFile: (path: string) => s
     port: values.PORT,
     publicOrigin: new URL(values.PUBLIC_ORIGIN ?? 'http://localhost:5173').origin,
     databasePath: resolve(REPO_ROOT, values.DATABASE_PATH ?? '.var/vergissmeinnicht.sqlite'),
+    mediaPath: defaultMediaPath(resolve(REPO_ROOT, values.DATABASE_PATH ?? '.var/vergissmeinnicht.sqlite')),
     authSecret: new Secret(values.AUTH_SECRET ?? randomBytes(32).toString('base64url')),
     authSecretEphemeral: values.AUTH_SECRET === undefined,
     dataEncryptionKey: new Secret(values.DATA_ENCRYPTION_KEY ?? randomBytes(32).toString('base64url')),

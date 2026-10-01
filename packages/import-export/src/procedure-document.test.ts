@@ -24,6 +24,7 @@ const SECTIONS: ProcedureSection[] = [
         critical: true,
         skipReasonPolicy: 'DISABLED',
         notApplicableReasonPolicy: 'REQUIRED',
+        image: null,
       },
     ],
   },
@@ -79,6 +80,21 @@ describe('toProcedureDocument', () => {
       },
     });
     expect(JSON.stringify(document)).not.toMatch(/[0-9a-f]{8}-[0-9a-f]{4}-/);
+  });
+});
+
+describe('images in documents (D13)', () => {
+  it('keeps the JSON format image-free: an instruction image is never exported', () => {
+    const withImage = SECTIONS.map((section) => ({
+      ...section,
+      steps: section.steps.map((step) => ({ ...step, image: { id: '3f1c2b9a-6d4e-4f8a-9b7c-1a2b3c4d5e6f' as never, caption: 'Blue lever' } })),
+    }));
+    const json = JSON.stringify(toProcedureDocument({ ...DETAIL, sections: withImage }));
+    expect(json).not.toMatch(/image|Blue lever|3f1c2b9a/);
+    // And an image in an imported file is an unknown field: refused.
+    const document = valid();
+    (document.procedure.sections[0]?.steps[0] as Record<string, unknown>).image = { id: '3f1c2b9a-6d4e-4f8a-9b7c-1a2b3c4d5e6f', caption: 'x' };
+    expect(codeOf(document)).toBe('invalid_document');
   });
 });
 

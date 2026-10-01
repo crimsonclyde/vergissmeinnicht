@@ -29,6 +29,8 @@ export const SECURITY_EVENT_TYPES = [
   'ACCOUNT_DISABLED',
   'ACCOUNT_ENABLED',
   'INSTANCE_SETTINGS_CHANGED',
+  // Image storage quota of a Workspace changed by a server admin (14.3).
+  'WORKSPACE_IMAGE_QUOTA_CHANGED',
   // Notifications (13.7): provider configuration (never the credential) and a person's Telegram chat.
   'NOTIFICATION_PROVIDER_CHANGED',
   'TELEGRAM_CONNECTED',

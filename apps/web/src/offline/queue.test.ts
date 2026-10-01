@@ -12,6 +12,7 @@ const step = (id: string, state: RunStep['state'] = 'PENDING'): RunStep => ({
   critical: false,
   skipReasonPolicy: 'OPTIONAL',
   notApplicableReasonPolicy: 'OPTIONAL',
+  image: null,
   state,
   stateChange: state === 'PENDING' ? null : { by: 'Uma', at: '2026-09-28T10:00:00Z', reason: null },
 });

@@ -66,8 +66,8 @@ Change the version in *Repository* and **Apply**. With *Migrate on start* the co
 
 ## Backups
 
-- Automatic, verified backups land in `appdata/vergissmeinnicht/data/backups` (newest 14 kept). They contain everything sensitive — copy them **encrypted** to another machine.
-- The *Appdata Backup* plugin can include the folder; it stops the container first, so the copy is consistent. Keep `secrets/data_encryption_key` **separately** from those copies.
+- Automatic, verified backups land in `appdata/vergissmeinnicht/data/backups` (newest 14 kept); the instruction photos they use are in `data/backups/media` (shared between backups). The live photos are in `data/media`. Backups contain everything sensitive — copy the whole `backups` folder (with `media`) **encrypted** to another machine.
+- The *Appdata Backup* plugin can include the folder (with `data/media`); it stops the container first, so the copy is consistent. Keep `secrets/data_encryption_key` **separately** from those copies.
 - A backup on demand: Console → `vergissmeinnicht backup`.
 - Restore: stop the container, then in the Unraid terminal
 

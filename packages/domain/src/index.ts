@@ -15,3 +15,4 @@ export * from './user.ts';
 export * from './workspace.ts';
 export * from './preferences.ts';
 export * from './schedule.ts';
+export * from './media.ts';

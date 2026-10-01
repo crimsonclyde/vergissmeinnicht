@@ -1,10 +1,39 @@
 import { execFileSync } from 'node:child_process';
+import { readFileSync } from 'node:fs';
+import { crc32, deflateSync } from 'node:zlib';
 import { expect, test, type Page } from '@playwright/test';
 import { TOTP } from 'otpauth';
 import { serverEnv } from '../playwright.config.ts';
 import { expectAccessible } from './a11y.ts';
 
 const PASSWORD = 'an e2e passphrase that is long';
+
+/** A small real PNG (a colour gradient), as a photo from the file picker. */
+function photo(width = 320, height = 240): Buffer {
+  const chunk = (type: string, data: Buffer) => {
+    const head = Buffer.alloc(8);
+    head.writeUInt32BE(data.length, 0);
+    head.write(type, 4, 'ascii');
+    const crc = Buffer.alloc(4);
+    crc.writeUInt32BE(crc32(Buffer.concat([Buffer.from(type, 'ascii'), data])), 0);
+    return Buffer.concat([head, data, crc]);
+  };
+  const ihdr = Buffer.alloc(13);
+  ihdr.writeUInt32BE(width, 0);
+  ihdr.writeUInt32BE(height, 4);
+  ihdr.writeUInt8(8, 8);
+  ihdr.writeUInt8(2, 9);
+  const rows = Buffer.alloc((width * 3 + 1) * height);
+  for (let y = 0; y < height; y++) {
+    for (let x = 0; x < width; x++) {
+      const i = y * (width * 3 + 1) + 1 + x * 3;
+      rows[i] = (x * 255) / width;
+      rows[i + 1] = (y * 255) / height;
+      rows[i + 2] = 160;
+    }
+  }
+  return Buffer.concat([Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]), chunk('IHDR', ihdr), chunk('IDAT', deflateSync(rows)), chunk('IEND', Buffer.alloc(0))]);
+}
 
 /** The header menu (☰) holds profile & settings, server admin and sign-out. */
 async function fromMenu(page: Page, item: 'Profile & settings' | 'Server admin' | 'Sign out') {
@@ -149,6 +178,15 @@ test('first server admin: bootstrap link, account creation, sign-in, Workspace c
   await page.getByLabel('Section 1 title').fill('Ground floor');
   await page.getByRole('button', { name: 'Add step to section 1' }).click();
   await page.getByLabel('Step 1.1 title').fill('Close windows');
+  // An instruction photo (14.3) through the file picker (the camera button is its phone alternative).
+  const firstStep = page.getByRole('group', { name: 'Step 1.1' });
+  const chooser = page.waitForEvent('filechooser');
+  await firstStep.getByRole('button', { name: 'Choose photo' }).click();
+  await (await chooser).setFiles({ name: 'window.png', mimeType: 'image/png', buffer: photo() });
+  await firstStep.getByLabel('What the photo shows (Step 1.1)').fill('Blue handle on the left window');
+  await expect(firstStep.getByRole('img', { name: 'Blue handle on the left window' })).toBeVisible();
+  await expect(firstStep.getByRole('button', { name: 'Replace photo' })).toBeVisible();
+  await expect(page.getByText(/^Photos in this Workspace: [\d.]+ MB of 100 MB used\.$/)).toBeVisible();
   await page.getByRole('button', { name: 'Add step to section 1' }).click();
   await page.getByLabel('Step 1.2 title').fill('Turn off stove');
   await page.getByRole('group', { name: 'Step 1.2' }).getByLabel(/Critical/).check();
@@ -247,11 +285,20 @@ test('first server admin: bootstrap link, account creation, sign-in, Workspace c
 
   // Export as a JSON file, duplicate, delete the copy, re-import the exported file.
   const downloadPromise = page.waitForEvent('download');
-  await fromProcedureMenu('Export as JSON');
+  await fromProcedureMenu('Export as JSON (without images)');
   const download = await downloadPromise;
   expect(download.suggestedFilename()).toBe('leave-the-flat.vmn.json');
   const exportPath = testInfo.outputPath('export.json');
   await download.saveAs(exportPath);
+  expect(readFileSync(exportPath, 'utf8')).not.toContain('Blue handle');
+  // The archive carries the photos as well (14.3).
+  const archivePromise = page.waitForEvent('download');
+  await fromProcedureMenu('Export as archive (with images)');
+  const archive = await archivePromise;
+  expect(archive.suggestedFilename()).toBe('leave-the-flat.vmn.zip');
+  const archivePath = testInfo.outputPath('export.zip');
+  await archive.saveAs(archivePath);
+  expect(readFileSync(archivePath).subarray(0, 4)).toEqual(Buffer.from([0x50, 0x4b, 0x03, 0x04]));
 
   await fromProcedureMenu('Duplicate');
   await expect(procedure.getByRole('heading', { name: 'Travel Leave the flat (copy)' })).toBeVisible();
@@ -274,8 +321,10 @@ test('first server admin: bootstrap link, account creation, sign-in, Workspace c
   await fromProcedureMenu('Delete');
   await expect(page.getByRole('list', { name: 'Procedures' }).getByRole('listitem')).toHaveCount(1);
 
-  await page.getByLabel('Import Procedure (JSON file)…').setInputFiles(exportPath);
+  // Re-import the archive: the Procedure comes back with its photo (the JSON path is checked below).
+  await page.getByLabel('Import Procedure (JSON file or archive with images)…').setInputFiles(archivePath);
   await expect(procedure.getByRole('heading', { name: 'Travel Leave the flat' })).toBeVisible();
+  await expect(procedure.getByRole('img', { name: 'Blue handle on the left window' })).toBeVisible();
   await expect(procedure.getByRole('heading', { level: 3 })).toHaveText(['Upstairs', 'Ground floor']);
   await procedure.getByRole('button', { name: 'Back to all Procedures' }).click();
   await expect(page.getByRole('list', { name: 'Procedures' }).getByRole('listitem')).toHaveCount(2);
@@ -285,7 +334,7 @@ test('first server admin: bootstrap link, account creation, sign-in, Workspace c
   await tagFilter.selectOption('safety');
   await expect(page.getByRole('list', { name: 'Procedures' }).getByRole('listitem')).toHaveCount(2);
   await tagFilter.selectOption('');
-  await page.getByLabel('Import Procedure (JSON file)…').setInputFiles({
+  await page.getByLabel('Import Procedure (JSON file or archive with images)…').setInputFiles({
     name: 'evil.json',
     mimeType: 'application/json',
     buffer: Buffer.from(JSON.stringify({ format: 'vergissmeinnicht.procedure', schemaVersion: 99, procedure: {} })),
@@ -317,6 +366,15 @@ test('first server admin: bootstrap link, account creation, sign-in, Workspace c
     await expect(stepItem('Turn off stove').getByRole('img', { name: 'Critical' })).toBeVisible();
     await expect(stepItem('Turn off stove')).not.toContainText('Required');
   }
+  // The photo is part of the execution snapshot: thumbnail with caption, full-screen on tap.
+  await expect(stepItem('Close windows').getByRole('img', { name: 'Blue handle on the left window' })).toBeVisible();
+  await stepItem('Close windows').getByRole('button', { name: 'Show photo full-screen: Blue handle on the left window' }).click();
+  const viewer = page.getByRole('dialog', { name: 'Blue handle on the left window' });
+  await expect(viewer.getByRole('img', { name: 'Blue handle on the left window' })).toBeVisible();
+  await expectAccessible(page, 'photo viewer');
+  await page.keyboard.press('Escape');
+  await expect(viewer).toBeHidden();
+  await expect(page).toHaveURL(/\/runs\/[0-9a-f-]{36}$/);
   // Home (13.9) lists what is going on: both executions under Active, with Continue.
   await sections.getByRole('link', { name: 'Home' }).click();
   await expect(page.getByRole('heading', { name: 'Household', level: 2 })).toBeVisible();

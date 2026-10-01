@@ -4,10 +4,16 @@ import type { FastifyBaseLogger } from 'fastify';
 export const HOUSEKEEPING_INTERVAL_MS = 60 * 60_000;
 
 /**
- * Runs `purgeExpired` at startup and then hourly (Step 2.8). Failures are logged and retried at the
- * next interval; they never stop the server. Returns a function that stops the schedule.
+ * Runs `purgeExpired` at startup and then hourly (Step 2.8), and — when given — the removal of unused
+ * instruction images and orphan files (14.3). Failures are logged and retried at the next interval;
+ * they never stop the server. Returns a function that stops the schedule.
  */
-export function scheduleHousekeeping(database: Pick<AppDatabase, 'db'>, log: FastifyBaseLogger, intervalMs = HOUSEKEEPING_INTERVAL_MS) {
+export function scheduleHousekeeping(
+  database: Pick<AppDatabase, 'db'>,
+  log: FastifyBaseLogger,
+  intervalMs = HOUSEKEEPING_INTERVAL_MS,
+  purgeImages?: () => Promise<{ readonly files: number }>,
+) {
   const run = () => {
     try {
       const deleted = purgeExpired(database);
@@ -15,6 +21,12 @@ export function scheduleHousekeeping(database: Pick<AppDatabase, 'db'>, log: Fas
     } catch (error) {
       log.error({ err: { type: (error as Error).name } }, 'housekeeping failed');
     }
+    purgeImages?.().then(
+      ({ files }) => {
+        if (files > 0) log.info({ housekeeping: { imageFiles: files } }, 'unused image files deleted');
+      },
+      (error: unknown) => log.error({ err: { type: (error as Error).name } }, 'image housekeeping failed'),
+    );
   };
   run();
   const timer = setInterval(run, intervalMs);

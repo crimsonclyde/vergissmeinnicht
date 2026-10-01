@@ -25,6 +25,7 @@
     "@types/better-sqlite3": "9.6.0",
     "@types/node": "24.13.6",
     "@vergissmeinnicht/auth": "workspace:*",
+    "@vergissmeinnicht/media": "workspace:*",
     "drizzle-kit": "0.31.11",
     "otpauth": "9.5.2"
   }

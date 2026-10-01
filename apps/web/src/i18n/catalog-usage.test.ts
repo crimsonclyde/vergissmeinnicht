@@ -37,6 +37,8 @@ const DYNAMIC_PREFIXES = [
   'schedule.every.',
   'schedule.interval.',
   'schedule.reminder.',
+  // Instruction photos (14.3): refusal reasons by the server's stable code.
+  'image.rejected.',
 ];
 
 describe('message catalog', () => {

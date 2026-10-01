@@ -16,6 +16,7 @@ const infrastructure = [
   'drizzle-orm/*',
   'better-sqlite3',
   'node:sqlite',
+  'sharp',
 ];
 
 /** Architecture boundaries (AGENTS.md / docu/architecture.md). Dependencies point inward. */
@@ -40,7 +41,7 @@ export default tseslint.config(
   {
     files: ['packages/permissions/**', 'packages/application/**', 'packages/import-export/**'],
     rules: restrict(
-      [...infrastructure, '@vergissmeinnicht/database', '@vergissmeinnicht/auth', '@vergissmeinnicht/realtime', '@vergissmeinnicht/notifications', '@vergissmeinnicht/email'],
+      [...infrastructure, '@vergissmeinnicht/database', '@vergissmeinnicht/auth', '@vergissmeinnicht/realtime', '@vergissmeinnicht/notifications', '@vergissmeinnicht/email', '@vergissmeinnicht/media'],
       'Application/policy code depends on the domain and ports, not on infrastructure.',
     ),
   },
@@ -62,6 +63,8 @@ export default tseslint.config(
           '@vergissmeinnicht/auth',
           '@vergissmeinnicht/realtime',
           '@vergissmeinnicht/notifications',
+          '@vergissmeinnicht/media',
+          'sharp',
           '@vergissmeinnicht/application',
           '@vergissmeinnicht/permissions',
         ],

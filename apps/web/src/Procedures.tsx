@@ -14,8 +14,9 @@ import { KnotShare } from './Knots.tsx';
 import { MoreMenu, type MoreMenuItem } from './MoreMenu.tsx';
 import { StepMarks } from './StepMarks.tsx';
 import { AppIcon } from './procedure-icons.tsx';
-import { downloadJson, exportFileName, readImportFile } from './procedure-files.ts';
+import { archiveFileName, downloadBlob, downloadJson, exportFileName, isArchive, MAX_ARCHIVE_BYTES, readImportFile } from './procedure-files.ts';
 import { ProcedureForm } from './ProcedureForm.tsx';
+import { StepImage } from './StepImage.tsx';
 import { todayIn } from './schedule-dates.ts';
 import { StartControl } from './StartProcedure.tsx';
 
@@ -67,7 +68,7 @@ const allTags = (procedures: readonly Procedure[]) =>
 const EMPTY: ProcedureContent = { title: '', description: '', icon: 'checklist', tags: [], sections: [] };
 
 
-function ProcedureView({ detail }: { detail: ProcedureDetail }) {
+function ProcedureView({ detail, workspaceId }: { detail: ProcedureDetail; workspaceId: string }) {
   return (
     <>
       <div className="card stack">
@@ -94,6 +95,7 @@ function ProcedureView({ detail }: { detail: ProcedureDetail }) {
                 <strong>{step.title}</strong>
                 <StepMarks required={step.required} critical={step.critical} />
                 {step.description !== '' && <p style={{ whiteSpace: 'pre-wrap' }}>{step.description}</p>}
+                {step.image != null && <StepImage workspaceId={workspaceId} image={step.image} />}
               </li>
             ))}
           </ol>
@@ -182,6 +184,7 @@ export function Procedures(props: {
       ...(canEdit ? [{ label: t('procedure.edit'), onSelect: () => setMode({ kind: 'edit', id: procedure.id }) }] : []),
       ...(canEdit ? [{ label: t('procedure.duplicate'), onSelect: () => void runAction(() => api.duplicateProcedure(workspaceId, procedure.id)) }] : []),
       { label: t('procedure.export'), onSelect: () => void exportProcedure(procedure) },
+      { label: t('procedure.exportArchive'), onSelect: () => void exportArchive(procedure) },
       ...(props.canManageKnots ? [{ label: t('procedure.share'), onSelect: () => open(procedure.id, 'share') }] : []),
       ...(inView ? [] : [{ label: t('procedure.history'), onSelect: () => open(procedure.id, 'history') }]),
       ...(canEdit ? [{ label: t('procedure.delete'), onSelect: () => void remove(procedure), danger: true }] : []),
@@ -210,10 +213,25 @@ export function Procedures(props: {
     });
   }
 
+  async function exportArchive(procedure: Pick<Procedure, 'id' | 'title'>) {
+    await runAction(async () => {
+      downloadBlob(await api.exportProcedureArchive(workspaceId, procedure.id), archiveFileName(procedure.title));
+      return undefined;
+    });
+  }
+
   async function importFile(event: ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0];
     event.target.value = '';
     if (file === undefined) return;
+    if (await isArchive(file)) {
+      if (file.size > MAX_ARCHIVE_BYTES) {
+        setMessage(t('error.invalid_archive'));
+        return;
+      }
+      await runAction(() => api.importProcedureArchive(workspaceId, file));
+      return;
+    }
     const read = await readImportFile(file);
     if (!read.ok) {
       setMessage(read.message);
@@ -273,12 +291,13 @@ export function Procedures(props: {
       </div>
       {/* Opened from the Manage menu; not a visible control of its own. */}
       {canEdit && (
-        <input ref={importRef} type="file" accept="application/json,.json" className="visually-hidden" tabIndex={-1} aria-label={t('procedures.import')} onChange={(e) => void importFile(e)} />
+        <input ref={importRef} type="file" accept="application/json,.json,application/zip,.zip" className="visually-hidden" tabIndex={-1} aria-label={t('procedures.import')} onChange={(e) => void importFile(e)} />
       )}
       {message !== null && <p role="alert">{message}</p>}
 
       {mode.kind === 'create' && (
         <ProcedureForm
+          workspaceId={workspaceId}
           initial={EMPTY}
           submitLabel={t('procedure.create')}
           onCancel={() => setMode({ kind: 'list' })}
@@ -293,6 +312,7 @@ export function Procedures(props: {
 
       {mode.kind === 'edit' && shown !== null && (
         <ProcedureForm
+          workspaceId={workspaceId}
           key={`${shown.id}-${shown.revision}`}
           initial={shown}
           submitLabel={t('procedure.save')}
@@ -334,7 +354,7 @@ export function Procedures(props: {
               />
             </div>
           )}
-          <ProcedureView detail={shown} />
+          <ProcedureView detail={shown} workspaceId={workspaceId} />
           {/* History is one click away, not competing with the Procedure itself. */}
           <details className="more-actions" open={mode.panel === 'history'}>
             <summary>{t('procedure.history')}</summary>
@@ -390,7 +410,7 @@ export function Procedures(props: {
               <p role="note" className="card">
                 {t('procedures.deletedNote')}
               </p>
-              <ProcedureView detail={deletedDetail} />
+              <ProcedureView detail={deletedDetail} workspaceId={workspaceId} />
               <p className="row">
                 <button
                   type="button"

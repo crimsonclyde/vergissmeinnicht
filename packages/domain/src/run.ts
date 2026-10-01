@@ -1,3 +1,4 @@
+import type { StepImageRef } from './media.ts';
 import { DomainValidationError } from './errors.ts';
 import type { ProcedureIcon, ProcedureId } from './procedure.ts';
 import type { ReasonPolicy, StepKind } from './procedure-structure.ts';
@@ -70,6 +71,8 @@ export interface RunStep {
   readonly critical: boolean;
   readonly skipReasonPolicy: ReasonPolicy;
   readonly notApplicableReasonPolicy: ReasonPolicy;
+  /** The instruction image as it was when the Run started (immutable snapshot, 14.3). */
+  readonly image: StepImageRef | null;
   readonly state: StepState;
   /** Who set the current state, when, and why (reason only for SKIPPED / NOT_APPLICABLE). `null` = never changed. */
   readonly stateChange: StepStateChange | null;

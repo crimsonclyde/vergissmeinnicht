@@ -33,6 +33,23 @@ export interface WorkspaceMember {
 
 
 
+/** One optional instruction photo per Step, with its required caption (14.3). */
+export interface StepImageRef {
+  readonly id: string;
+  readonly caption: string;
+}
+
+/** Image storage of a Workspace, in bytes. */
+export interface ImageUsage {
+  readonly usedBytes: number;
+  readonly quotaBytes: number;
+}
+
+export interface WorkspaceImageStorage extends ImageUsage {
+  readonly id: string;
+  readonly name: string;
+}
+
 export interface StepInput {
   /** Existing Step id; omitted for new Steps (the server assigns ids). */
   readonly id?: string;
@@ -43,6 +60,7 @@ export interface StepInput {
   readonly critical: boolean;
   readonly skipReasonPolicy: ReasonPolicy;
   readonly notApplicableReasonPolicy: ReasonPolicy;
+  readonly image?: StepImageRef | null;
 }
 
 export interface SectionInput {
@@ -254,6 +272,8 @@ export interface RunStep {
   readonly critical: boolean;
   readonly skipReasonPolicy: ReasonPolicy;
   readonly notApplicableReasonPolicy: ReasonPolicy;
+  /** The photo as it was when the Run started. */
+  readonly image: StepImageRef | null;
   readonly state: StepState;
   /**
    * Who set the current state (display-name snapshot), when (server time), and why. `deviceAt`: the
@@ -375,10 +395,54 @@ async function request<T>(method: 'GET' | 'POST', path: string, body?: unknown):
   return (response.status === 204 ? undefined : await response.json()) as T;
 }
 
+/** The image as served to members of the Workspace (same-origin, session cookie). */
+export const imageUrl = (workspaceId: string, imageId: string) => `/api/workspaces/${encodeURIComponent(workspaceId)}/images/${encodeURIComponent(imageId)}`;
+
+/** Sends raw bytes (image or archive) and maps error answers like `request`. */
+async function sendBytes<T>(path: string, body: Blob): Promise<T> {
+  const response = await fetch(`/api${path}`, { method: 'POST', credentials: 'same-origin', headers: { 'content-type': 'application/octet-stream' }, body });
+  if (!response.ok) {
+    const { error, ...details } = (await response.json().catch(() => ({}))) as { error?: string } & Record<string, unknown>;
+    throw new ApiError(response.status, error ?? 'request_failed', details);
+  }
+  return (await response.json()) as T;
+}
+
+/** A Procedure archive (JSON document + images) as a file to save. */
+async function exportProcedureArchive(workspaceId: string, id: string): Promise<Blob> {
+  const response = await fetch(`/api/workspaces/${encodeURIComponent(workspaceId)}/procedures/${encodeURIComponent(id)}/archive`, { credentials: 'same-origin' });
+  if (!response.ok) {
+    const { error, ...details } = (await response.json().catch(() => ({}))) as { error?: string } & Record<string, unknown>;
+    throw new ApiError(response.status, error ?? 'request_failed', details);
+  }
+  return response.blob();
+}
+
+/** Raw bytes (not JSON): the server identifies, checks and re-encodes the image. */
+async function uploadImage(workspaceId: string, image: Blob, replacing?: string): Promise<{ image: { id: string; width: number; height: number }; usage: ImageUsage }> {
+  const query = replacing === undefined ? '' : `?replacing=${encodeURIComponent(replacing)}`;
+  const response = await fetch(`/api/workspaces/${encodeURIComponent(workspaceId)}/images${query}`, {
+    method: 'POST',
+    credentials: 'same-origin',
+    headers: { 'content-type': 'application/octet-stream' },
+    body: image,
+  });
+  if (!response.ok) {
+    const { error, ...details } = (await response.json().catch(() => ({}))) as { error?: string } & Record<string, unknown>;
+    // 413 comes from the body limit, before any route code.
+    throw new ApiError(response.status, response.status === 413 ? 'image_too_large' : (error ?? 'request_failed'), details);
+  }
+  return (await response.json()) as { image: { id: string; width: number; height: number }; usage: ImageUsage };
+}
+
 const schedulePath = (workspaceId: string, scheduleId: string) => `/workspaces/${encodeURIComponent(workspaceId)}/schedules/${encodeURIComponent(scheduleId)}`;
 const occurrencePath = (workspaceId: string, id: string) => `/workspaces/${encodeURIComponent(workspaceId)}/occurrences/${encodeURIComponent(id)}`;
 
 export const api = {
+  uploadImage,
+  imageUsage: async (workspaceId: string) => (await request<{ usage: ImageUsage }>('GET', `/workspaces/${encodeURIComponent(workspaceId)}/images/usage`)).usage,
+  imageStorage: async () => (await request<{ workspaces: WorkspaceImageStorage[] }>('GET', '/admin/image-storage')).workspaces,
+  setImageQuota: (workspaceId: string, quota: number) => request<undefined>('POST', `/admin/image-storage/${encodeURIComponent(workspaceId)}/quota`, { quota }),
   about: () => request<{ license: string; sourceCodeUrl: string; footerHidden: boolean }>('GET', '/about'),
   instanceSettings: async () => (await request<{ settings: InstanceSettings }>('GET', '/admin/settings')).settings,
   updateInstanceSettings: async (settings: Partial<InstanceSettings>) =>
@@ -534,6 +598,9 @@ export const api = {
         `/workspaces/${encodeURIComponent(workspaceId)}/procedures/${encodeURIComponent(id)}/restore`,
       )
     ).procedure,
+  exportProcedureArchive,
+  importProcedureArchive: async (workspaceId: string, archive: Blob) =>
+    (await sendBytes<{ procedure: ProcedureDetail }>(`/workspaces/${encodeURIComponent(workspaceId)}/procedures/import-archive`, archive)).procedure,
   exportProcedure: (workspaceId: string, id: string) =>
     request<unknown>('GET', `/workspaces/${encodeURIComponent(workspaceId)}/procedures/${encodeURIComponent(id)}/export`),
   importProcedure: async (workspaceId: string, document: unknown) =>

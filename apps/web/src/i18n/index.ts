@@ -68,6 +68,11 @@ export function formatDateTime(value: string | Date): string {
   return new Intl.DateTimeFormat(formatLocale(), { dateStyle: 'medium', timeStyle: 'short' }).format(toDate(value));
 }
 
+/** A number in the app locale, with at most `maximumFractionDigits` decimals. */
+export function formatNumber(value: number, maximumFractionDigits = 0): string {
+  return new Intl.NumberFormat(formatLocale(), { maximumFractionDigits }).format(value);
+}
+
 /** Time of day only, e.g. "5:40:12 PM" (for "just now" notices). */
 export function formatTime(value: string | Date): string {
   return new Intl.DateTimeFormat(formatLocale(), { timeStyle: 'medium' }).format(toDate(value));
