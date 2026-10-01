@@ -18,10 +18,10 @@ For every completed task, add a concise completion note, tests/checks performed,
 
 ## Current state — resume here
 
-_Last updated: 2026-10-01 (0.3.0-beta.3 image released from `main`: 14.3 + menu fix 13.20; GitHub pre-release pages for beta.2/beta.3 still to be created; 14.4–14.5 TODO)_
+_Last updated: 2026-10-01 (0.3.0-beta.3 released from `main`: 14.3 + menu fix 13.20; 14.4 next; 14.5 later)_
 
 **Done:** 0.1, 0.2, 0.3, 1.1, 1.2, 2.1–2.5, 2.7–2.9, 3.1–3.3, 4.1–4.5, 5.1–5.7, 6.1, 6.2, 7.1, 8.0–8.11, 9.1, 10.1–10.5, 11.1, 12.1–12.14, 13.1–13.19, 14.0–14.3, 12.15, 12.16, 13.20, 12.17. DEFERRED: 2.6 (external identity providers — a later step, user decision 2026-09-28).
-**Next:** create the GitHub pre-release page for `v0.3.0-beta.3` (12.17 Remaining); beta test of 0.3.0-beta.3 — instruction photos on a real iPhone (HEIC from camera and photo library, Safari and Chrome, pinch-zoom in the viewer; see 14.3 Remaining) (real email and Telegram reminders: tested by the user, working — 2026-10-01; upgrade of real data not yet confirmed); then 14.4 (calendar, agenda); 14.5 later. Also: beta feedback on the icon catalogue (12.11, 12.13); beta feedback on Home/scheduling. Still open from before: GHCR package visibility, a session with a real screen reader, physical iOS/Android devices (incl. offline storage eviction), and automate GitHub Release creation in the release workflow (the 0.2.0-beta.1 pre-release was created manually after the workflow). Possible next providers: ntfy/Gotify or a webhook — the webhook needs the SSRF policy in security.md first.
+**Next:** 14.4 (calendar, agenda). Beta test of 0.3.0-beta.3 — camera photos work on the user's iPhone; the rest of the real-iPhone matrix is still open (see 14.3 Remaining) (real email and Telegram reminders: tested by the user, working — 2026-10-01; upgrade of real data not yet confirmed); then 14.4 (calendar, agenda); 14.5 later. Also: beta feedback on the icon catalogue (12.11, 12.13); beta feedback on Home/scheduling. Still open from before: GHCR package visibility, a session with a real screen reader, physical iOS/Android devices (incl. offline storage eviction), and automate GitHub Release creation in the release workflow (the 0.2.0-beta.1 pre-release was created manually after the workflow). Possible next providers: ntfy/Gotify or a webhook — the webhook needs the SSRF policy in security.md first.
 
 **Decisions 2026-09-30 (user) — new objective, section 14 (planned, not implemented):** VMN becomes an ADHD-friendly place to see what needs attention, remember recurring obligations and follow clear visual instructions. First release: standalone Reminders and scheduled Procedures in one overview and calendar; one-time, fixed-calendar and completion-based recurrence with independent Occurrence history; reminder offsets in days/weeks/calendar months; bounded catch-up after outages; one optional Assignee (no extra access); Overdue/Today/Upcoming overview, calendar and mobile agenda; one optional instruction image per Step (processed to a ≤500 KB JPEG, metadata removed) with a per-Workspace storage quota (default 100 MB). Later: completion photos, required evidence, annotations. Supersedes the 2026-09-29 "no calendar / no generic tasks / no recurring schedules / no photos" scope for exactly these features. Product decisions D1–D8, D11–D18 approved; technical choices T1–T5 (details in 14.6).
 
@@ -1865,7 +1865,7 @@ The first PR CI run exposed that the new offline common-password dataset and pro
 
 
 ### 12.17 Release 0.3.0-beta.3
-**Status:** DONE (GitHub pre-release page open — see Remaining)
+**Status:** DONE
 **Completed:** 2026-10-01
 
 **Request (user, 2026-10-01):** release the menu fix (13.20) as **0.3.0-beta.3**, so instruction photos (14.3) can be tested on a real iPhone. Unraid template and guide point to `ghcr.io/crimsonclyde/vergissmeinnicht:0.3.0-beta.3`. No migration since 0.3.0-beta.2; upgrading from 0.3.0-beta.1 runs migration 0025 (see 12.16).
@@ -1876,7 +1876,9 @@ The first PR CI run exposed that the new offline common-password dataset and pro
 
 **Security surface:** unchanged.
 
-**Remaining:** the GitHub pre-release page for `v0.3.0-beta.3` is not created yet (the agent's `gh release create` was not permitted; the user creates it — the page for `v0.3.0-beta.2` may be skipped); real-iPhone test of instruction photos and of the menu fix; automated GitHub Release creation still open.
+GitHub pre-release created by the user: `https://github.com/crimsonclyde/vergissmeinnicht/releases/tag/v0.3.0-beta.3`.
+
+**Remaining:** no GitHub release page exists for `v0.3.0-beta.2` (superseded by beta.3; tag and image exist); rest of the real-iPhone photo matrix (14.3 Remaining); automated GitHub Release creation still open.
 
 ---
 
@@ -2155,7 +2157,7 @@ The first PR CI run exposed that the new offline common-password dataset and pro
 
 **Security surface:** unchanged (presentation only). **Security docs updated:** NO — not needed.
 
-**Remaining:** the phone-sized run of the full e2e flow (`mobile-chromium`, `account.spec.ts`) is skipped, which is why this was not caught; confirm on the real iPhone after the next release.
+**Remaining:** the phone-sized run of the full e2e flow (`mobile-chromium`, `account.spec.ts`) is skipped, which is why this was not caught. Confirmed by the user on a real iPhone with 0.3.0-beta.3 (2026-10-01).
 
 ---
 
@@ -2377,6 +2379,7 @@ The first PR CI run exposed that the new offline common-password dataset and pro
 **Security docs updated:** YES — "Security check: instruction images (Step 14.3)", §8 (media and backups), §10 (new dependencies), §12 (upload trigger reviewed for instruction images).
 
 **Remaining / limitations:**
+- *User test 2026-10-01 (real iPhone, 0.3.0-beta.3):* two photos taken with the camera from the Step editor (one landscape, one portrait), descriptions added, saved; both are stored and shown upright (screenshot of the Procedure view). Not recorded: the camera format setting (*High Efficiency* / *Most Compatible*), the browser (Safari assumed from the earlier screenshot), the photo library path, Chrome on iOS, pinch-zoom in the viewer, and the location-data check — the item below stays open for those.
 - *Real iPhone test (T3) — required before announcing HEIC support:* camera capture and photo library, Safari and Chrome on iOS, camera set to *High Efficiency* and to *Most Compatible*; expected: upload succeeds, stored photo upright, no location data.
 - Physical-device check of the viewer (pinch-zoom inside the full-screen dialog) on iOS and Android.
 - Offline image copies stay in IndexedDB until sign-out (not pruned per finished Run); the viewer's Back handling uses a same-URL history entry.
