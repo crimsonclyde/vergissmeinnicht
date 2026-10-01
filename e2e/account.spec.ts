@@ -237,6 +237,17 @@ test('first server admin: bootstrap link, account creation, sign-in, Workspace c
     await procedure.getByRole('button', { name: /^More actions for / }).click();
     await procedure.getByRole('button', { name: item, exact: true }).click();
   };
+  // On a phone the ⋯ button sits near the left edge: its menu must still open fully on screen.
+  const viewport = page.viewportSize();
+  await page.setViewportSize({ width: 390, height: 844 });
+  await procedure.getByRole('button', { name: /^More actions for / }).click();
+  for (const item of ['Edit', 'Export as archive (with images)']) {
+    const box = await procedure.getByRole('button', { name: item, exact: true }).boundingBox();
+    expect(box?.x).toBeGreaterThanOrEqual(0);
+    expect((box?.x ?? 0) + (box?.width ?? 0)).toBeLessThanOrEqual(390);
+  }
+  await page.keyboard.press('Escape');
+  if (viewport !== null) await page.setViewportSize(viewport);
   // Edit: rename, move the stove Step to the top, save once.
   await fromProcedureMenu('Edit');
   await page.getByLabel('Title', { exact: true }).fill('Leave the flat');

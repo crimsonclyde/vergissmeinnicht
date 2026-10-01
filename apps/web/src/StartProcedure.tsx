@@ -1,6 +1,7 @@
 import { useEffect, useId, useRef, useState } from 'react';
 import { api, messageFor, type PersonRef, type RunDetail, type RunSummary, type Schedule } from './api.ts';
 import { formatCalendarDate, formatRelative, t } from './i18n/index.ts';
+import { useKeepInViewport } from './MoreMenu.tsx';
 import { ScheduleDialog } from './ScheduleDialog.tsx';
 
 /**
@@ -116,6 +117,7 @@ export function StartControl(props: {
   const panelId = useId();
   const rootRef = useRef<HTMLDivElement>(null);
   const buttonRef = useRef<HTMLButtonElement>(null);
+  const panelRef = useKeepInViewport(open);
   const flow = useStartFlow({
     workspaceId: props.workspaceId,
     procedureId: props.procedure.id,
@@ -159,7 +161,7 @@ export function StartControl(props: {
         {t('start.button')} <span aria-hidden="true">▾</span>
       </button>
       {open && (
-        <div id={panelId} className="more-menu-panel">
+        <div id={panelId} ref={panelRef} className="more-menu-panel">
           {props.canStart && (
             <button
               type="button"
