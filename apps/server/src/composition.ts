@@ -9,6 +9,7 @@ import {
   type ImageDeps,
   type InvitationDeps,
   type KnotDeps,
+  type ListDeps,
   type ProcedureDeps,
   type HomeDeps,
   type NotificationDeps,
@@ -40,6 +41,7 @@ import {
   createInstanceSettingsRepository,
   createInvitationRepository,
   createKnotRepository,
+  createListRepository,
   createMfaChallengeRepository,
   createPreferencesRepository,
   createProcedureRepository,
@@ -93,6 +95,8 @@ export interface AppServices {
   /** Scheduled Procedures (13.4); starting one needs the Run dependencies as well. */
   readonly schedules: ScheduleDeps & RunDeps;
   readonly knots: KnotDeps;
+  /** Lists (grocery lists) of a Workspace (15.3). */
+  readonly lists: ListDeps;
   readonly history: HistoryDeps;
   /** Instruction images (14.3): metadata in SQLite, files under `mediaPath`. */
   readonly images: ImageDeps;
@@ -235,6 +239,7 @@ export function createServices(config: AppConfig, database: AppDatabase) {
       reminders,
       runChanges,
       knots: { workspaces: workspaceDeps.workspaces, knots: createKnotRepository(database), tokens: invitationTokens, clock: systemClock },
+      lists: { workspaces: workspaceDeps.workspaces, lists: createListRepository(database), clock: systemClock },
       history: { workspaces: workspaceDeps.workspaces, history: createAuditHistory(database) },
       images: {
         workspaces: workspaceDeps.workspaces,

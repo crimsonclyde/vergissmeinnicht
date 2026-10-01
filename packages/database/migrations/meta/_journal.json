@@ -183,6 +183,13 @@
       "when": 1790797162484,
       "tag": "0025_step_images",
       "breakpoints": true
+    },
+    {
+      "idx": 26,
+      "version": "6",
+      "when": 1790840567114,
+      "tag": "0026_lists",
+      "breakpoints": true
     }
   ]
 }

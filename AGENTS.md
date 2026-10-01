@@ -60,6 +60,8 @@ It is also an ADHD-friendly place to see what needs attention (accepted 2026-09-
 - How do I do this correctly?
 - Has this occurrence already been completed?
 
+The app is organised around tools (accepted 2026-10-01, `docu/steps.md` section 15): **Today** brings what is actionable together; **Procedures**, **Reminders** and **Lists** each have their own place; the **Calendar** is an optional planning view. Reusable Procedures, scheduled Reminders and lightweight grocery Lists stay conceptually distinct.
+
 Do not turn it into a generic project-management suite or an enterprise workflow engine.
 
 ## Security rules
@@ -134,6 +136,10 @@ Use these terms consistently:
 - Schedule — a series that produces Occurrences of a Reminder or a Procedure (one-time, fixed calendar, or after completion)
 - Occurrence — one dated instance of a Schedule with its own status and history
 - Assignee — the optional responsible member of a Schedule or Occurrence; assignment grants no access
+- List — lightweight shared content of a Workspace with items that are checked off; so far only the grocery list
+- ListItem — one entry of a List: a title, an optional quantity and unit, purchased or not
+
+A List is neither a Procedure nor a Run: nothing is started, and it has no Required, Critical, Skip or Not Applicable.
 
 A Schedule of a Procedure never creates Runs by itself: only an explicit Start does. Completing one Occurrence never completes another.
 
@@ -216,7 +222,11 @@ Color may reinforce state but never be the only state indicator.
 
 Pending should be obvious, Done should include a visual confirmation, and remote collaborator changes should identify the actor/time where useful.
 
-Use semantic design tokens rather than hard-coded theme colors.
+Use semantic design tokens rather than hard-coded theme colors. Light and Dark must offer identical functionality, layout and hierarchy; verify contrast in both (the token test in `apps/web/src/contrast.test.ts`).
+
+Navigation (section 15): a persistent sidebar on desktop (Today, Procedures, Reminders, Lists, Calendar; Workspace on top; one Settings entry at the bottom), four labelled bottom destinations on phones (Today, Procedures, Lists, More). Focused editing hides the global navigation and offers Back. Keep existing addresses working.
+
+Keep cards concise (title, one line of context, the next action); secondary facts and management actions belong in details or ⋯ menus. Touch targets are at least 44 × 44 px; nothing scrolls sideways from 320 px up. Never claim autosave or draft persistence that does not exist.
 
 Initial modes:
 
@@ -251,6 +261,7 @@ Do not add without an accepted requirement:
 - notification channels beyond the accepted email and Telegram reminders;
 - photos beyond the accepted instruction image per Procedure Step (`docu/steps.md` 14.3); completion photos, required photo evidence and annotations are not accepted yet (14.5);
 - other attachments;
+- list types beyond the accepted grocery list, list categories, or links between Lists and Schedules (`docu/steps.md` 15.3);
 - geolocation;
 - QR/NFC;
 - complex branching workflows;
@@ -276,7 +287,9 @@ Examples:
 - completing one Occurrence never completes another, and fixed recurrence never drifts;
 - reminders are delivered at most once per logical key across concurrent workers and restarts, and outage catch-up never floods;
 - assignment never grants access;
-- instruction images require Workspace authorisation.
+- instruction images require Workspace authorisation;
+- GUEST cannot change a List, and a List or item id of another Workspace resolves to nothing;
+- editing or moving a Step in the Procedure builder keeps its id, a duplicate gets a new one, and an outline is never saved while a Step has unapplied changes.
 
 ## Documentation
 

@@ -41,13 +41,17 @@ export const WORKSPACE_CAPABILITIES = [
    * additionally needs `run.start`.
    */
   'schedule.manage',
+  /** Read the Lists (grocery lists) of the Workspace and their items (15.3). */
+  'list.view',
+  /** Create, rename, delete and restore Lists; add, edit, check and remove their items. */
+  'list.edit',
 ] as const;
 export type WorkspaceCapability = (typeof WORKSPACE_CAPABILITIES)[number];
 
 /** Read-only: Workspace content and history, no execution. */
-const GUEST: readonly WorkspaceCapability[] = ['workspace.view', 'procedure.view', 'run.view'];
+const GUEST: readonly WorkspaceCapability[] = ['workspace.view', 'procedure.view', 'run.view', 'list.view'];
 /** Executes Runs. */
-const USER: readonly WorkspaceCapability[] = [...GUEST, 'workspace.members.view', 'run.start', 'run.execute', 'run.abort', 'schedule.manage'];
+const USER: readonly WorkspaceCapability[] = [...GUEST, 'workspace.members.view', 'run.start', 'run.execute', 'run.abort', 'schedule.manage', 'list.edit'];
 /** Authors Procedures. */
 const EDITOR: readonly WorkspaceCapability[] = [...USER, 'procedure.edit', 'procedure.restore', 'knot.manage'];
 /** Manages membership, roles and settings. */

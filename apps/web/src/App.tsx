@@ -14,7 +14,7 @@ import { t } from './i18n/index.ts';
 /** Pages reachable without signing in (sign-in, invitation and recovery links). */
 function PublicLayout({ children }: { children: ReactNode }) {
   return (
-    <main className="app-main" style={{ maxWidth: '36rem' }}>
+    <main className="app-main public-main">
       <h1 className="public-brand">
         <img className="brand-icon" src="/icon.svg" alt="" width={40} height={40} />
         VergissMeinNicht
@@ -100,7 +100,7 @@ export function App() {
       </PublicLayout>
     );
   }
-  if (user === undefined) return <p className="app-main">{t('common.loading')}</p>;
+  if (user === undefined) return <p className="app-main public-main">{t('common.loading')}</p>;
   if (user === null) {
     return (
       <PublicLayout>

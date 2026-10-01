@@ -212,6 +212,43 @@ export interface HomeOverview {
   readonly recentLimit: number;
 }
 
+/** A List (grocery list) in the overview (15.3). */
+export interface ListSummary {
+  readonly id: string;
+  readonly kind: 'GROCERY';
+  readonly title: string;
+  /** Increases with every change to the List or its items. */
+  readonly revision: number;
+  readonly createdBy: string;
+  readonly updatedAt: string;
+  readonly deleted: boolean;
+  /** Items still to buy / already purchased. */
+  readonly open: number;
+  readonly checked: number;
+}
+
+export interface ListItem {
+  readonly id: string;
+  readonly title: string;
+  /** A positive decimal as text (`"1.5"`), or null. */
+  readonly quantity: string | null;
+  readonly unit: string | null;
+  readonly revision: number;
+  readonly addedBy: string;
+  /** Purchased: who checked it and when. */
+  readonly checked: { readonly at: string; readonly by: string } | null;
+}
+
+export interface ListDetail extends Omit<ListSummary, 'open' | 'checked'> {
+  readonly items: readonly ListItem[];
+}
+
+export interface ListItemInput {
+  readonly title: string;
+  readonly quantity: string | null;
+  readonly unit: string | null;
+}
+
 export interface NotificationSettings {
   readonly reminderTime: string;
   readonly email: { readonly available: boolean; readonly enabled: boolean };
@@ -452,6 +489,9 @@ async function uploadImage(workspaceId: string, image: Blob, replacing?: string)
   return (await response.json()) as { image: { id: string; width: number; height: number }; usage: ImageUsage };
 }
 
+const listPath = (workspaceId: string, listId?: string) => `/workspaces/${encodeURIComponent(workspaceId)}/lists${listId === undefined ? '' : `/${encodeURIComponent(listId)}`}`;
+const listItemPath = (workspaceId: string, listId: string, itemId: string) => `${listPath(workspaceId, listId)}/items/${encodeURIComponent(itemId)}`;
+const listOf = async (response: Promise<{ list: ListDetail }>) => (await response).list;
 const schedulePath = (workspaceId: string, scheduleId: string) => `/workspaces/${encodeURIComponent(workspaceId)}/schedules/${encodeURIComponent(scheduleId)}`;
 const occurrencePath = (workspaceId: string, id: string) => `/workspaces/${encodeURIComponent(workspaceId)}/occurrences/${encodeURIComponent(id)}`;
 
@@ -582,6 +622,19 @@ export const api = {
     (await request<{ occurrence: Occurrence }>('POST', `${occurrencePath(workspaceId, id)}/link-run`, { runId })).occurrence,
   unlinkRun: async (workspaceId: string, id: string) =>
     (await request<{ occurrence: Occurrence }>('POST', `${occurrencePath(workspaceId, id)}/unlink-run`, {})).occurrence,
+  // Lists (15.3). Every change answers with the canonical List, items included.
+  lists: async (workspaceId: string) => (await request<{ lists: ListSummary[] }>('GET', listPath(workspaceId))).lists,
+  list: (workspaceId: string, listId: string) => listOf(request('GET', listPath(workspaceId, listId))),
+  createList: (workspaceId: string, title: string) => listOf(request('POST', listPath(workspaceId), { title })),
+  renameList: (workspaceId: string, listId: string, title: string, expectedTitle: string) => listOf(request('POST', `${listPath(workspaceId, listId)}/rename`, { title, expectedTitle })),
+  deleteList: (workspaceId: string, listId: string) => listOf(request('POST', `${listPath(workspaceId, listId)}/delete`, {})),
+  restoreList: (workspaceId: string, listId: string) => listOf(request('POST', `${listPath(workspaceId, listId)}/restore`, {})),
+  addListItem: (workspaceId: string, listId: string, item: ListItemInput) => listOf(request('POST', `${listPath(workspaceId, listId)}/items`, item)),
+  updateListItem: (workspaceId: string, listId: string, itemId: string, item: ListItemInput, expectedRevision: number) =>
+    listOf(request('POST', `${listItemPath(workspaceId, listId, itemId)}/update`, { ...item, expectedRevision })),
+  checkListItem: (workspaceId: string, listId: string, itemId: string, checked: boolean) => listOf(request('POST', `${listItemPath(workspaceId, listId, itemId)}/check`, { checked })),
+  removeListItem: (workspaceId: string, listId: string, itemId: string) => listOf(request('POST', `${listItemPath(workspaceId, listId, itemId)}/remove`, {})),
+  restoreListItem: (workspaceId: string, listId: string, itemId: string) => listOf(request('POST', `${listItemPath(workspaceId, listId, itemId)}/restore`, {})),
   procedure: async (workspaceId: string, id: string) =>
     (
       await request<{ procedure: ProcedureDetail }>(

@@ -2,6 +2,7 @@ export * from './audit-event.ts';
 export * from './errors.ts';
 export * from './invitation.ts';
 export * from './knot.ts';
+export * from './list.ts';
 export * from './mfa.ts';
 export * from './password.ts';
 export * from './procedure.ts';

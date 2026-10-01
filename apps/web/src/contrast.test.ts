@@ -65,11 +65,32 @@ const PAIRS: readonly [string, string, number][] = [
   ['state-skipped', 'surface', 3],
   ['state-na', 'surface', 3],
   ['state-done', 'surface-muted', 3],
+  // Menus, sheets and dialogs (15.1).
+  ['text', 'surface-raised', 4.5],
+  ['text-muted', 'surface-raised', 4.5],
+  ['text-muted', 'surface-muted', 4.5],
+  ['link', 'surface-raised', 4.5],
+  // Edges of controls (inputs, buttons, switches) against everything they sit on.
+  ['border-strong', 'bg', 3],
+  ['border-strong', 'surface', 3],
+  ['border-strong', 'surface-raised', 3],
+  // Destructive actions and field errors: text and outline.
+  ['danger', 'bg', 4.5],
+  ['danger', 'surface', 4.5],
+  ['danger', 'surface-raised', 4.5],
+  // Section labels and the builder's state line directly on the page.
+  ['state-pending', 'bg', 4.5],
+  ['state-done', 'bg', 4.5],
+  ['state-skipped', 'bg', 4.5],
+  // The current destination: brand mark and bar next to text on the navigation surface.
+  ['brand', 'surface-raised', 3],
+  // Focus ring on raised surfaces.
+  ['focus', 'surface-raised', 4.5],
 ];
 
 describe('theme contrast (WCAG AA)', () => {
   it('reads every theme token block from the stylesheet, each complete', () => {
-    expect(Object.keys(light).length).toBeGreaterThanOrEqual(19);
+    expect(Object.keys(light).length).toBeGreaterThanOrEqual(24);
     // Presets must define every colour token themselves (no accidental fallback to light values).
     for (const selector of [":root[data-theme='dark']", ":root[data-theme='memento-mori']"]) {
       expect(Object.keys(tokens(selector)).sort()).toEqual(Object.keys(light).sort());
@@ -88,6 +109,15 @@ describe('theme contrast (WCAG AA)', () => {
       expect(failures).toEqual([]);
     });
   }
+
+  it('separates the surfaces of each theme from the page and from each other', () => {
+    for (const values of Object.values(themes)) {
+      expect(new Set([values.bg, values.surface, values['surface-muted'], values['surface-raised']]).size).toBeGreaterThanOrEqual(3);
+      expect(values.surface).not.toBe(values.bg);
+      // A primary (accent) button and a destructive (danger) one never look the same: different colour, and danger is an outline.
+      expect(values.danger).not.toBe(values.accent);
+    }
+  });
 
   it('keeps the four Step states distinguishable from each other, not only by hue', () => {
     // Different glyph + text already carry the meaning; the colours must still differ visibly.

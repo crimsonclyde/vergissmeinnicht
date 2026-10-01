@@ -13,6 +13,7 @@ import { calendarRoutes, homeRoutes } from './http/home-routes.ts';
 import { adminImageStorageRoutes, imageRoutes } from './http/image-routes.ts';
 import { adminInvitationRoutes, invitationRoutes } from './http/invitation-routes.ts';
 import { knotRoutes, workspaceKnotRoutes } from './http/knot-routes.ts';
+import { listRoutes } from './http/list-routes.ts';
 import { accountNotificationRoutes, adminNotificationRoutes } from './http/notification-routes.ts';
 import { originGuard } from './http/origin-guard.ts';
 import { procedureRoutes } from './http/procedure-routes.ts';
@@ -159,6 +160,7 @@ export async function buildApp(options: AppOptions = {}) {
         await api.register(calendarRoutes, { prefix: '/workspaces/:workspaceId/calendar', services });
         await api.register(imageRoutes, { prefix: '/workspaces/:workspaceId/images', services });
         await api.register(workspaceKnotRoutes, { prefix: '/workspaces/:workspaceId/knots', services });
+        await api.register(listRoutes, { prefix: '/workspaces/:workspaceId/lists', services });
         await api.register(knotRoutes, { prefix: '/knots', services });
       }
     },

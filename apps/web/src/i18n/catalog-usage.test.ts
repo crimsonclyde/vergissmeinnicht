@@ -43,6 +43,11 @@ const DYNAMIC_PREFIXES = [
   'calendar.type.',
   // Instruction photos (14.3): refusal reasons by the server's stable code.
   'image.rejected.',
+  // Settings sections by their address, builder problems by code, reason policies in short form (15.1, 15.2).
+  'account.section.',
+  'admin.section.',
+  'builder.problem.',
+  'policy.short.',
 ];
 
 describe('message catalog', () => {

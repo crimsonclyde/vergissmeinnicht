@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useState, type FormEvent } from 'react';
 import { ApiError, api, messageFor, type AccountInfo, type NotificationProviders as NotificationProvidersInfo, type PendingInvitation, type SecurityLogEntry, type WorkspaceImageStorage } from './api.ts';
 import { formatDateTime, hasMessage, t } from './i18n/index.ts';
-import { SECTION_ID as NOTIFICATIONS_SECTION, testFailureMessage } from './NotificationSettings.tsx';
-import { Link, navigate, paths } from './router.tsx';
+import { testFailureMessage } from './NotificationSettings.tsx';
+import { ADMIN_SECTIONS, Link, navigate, paths, type AdminSection } from './router.tsx';
+import { SettingsLayout } from './SettingsLayout.tsx';
 import { announceFooterHidden } from './SourceFooter.tsx';
 import { formatMegabytes } from './StepImage.tsx';
 import { IMAGE_QUOTA_CHOICES } from '@vergissmeinnicht/domain';
@@ -564,7 +565,7 @@ export function TelegramProvider(props: {
           </h4>
           <p style={{ margin: 0 }}>{t('admin.telegramNext')}</p>
           <p style={{ margin: 0 }}>
-            <Link href={`/account#${NOTIFICATIONS_SECTION}`} className="button primary">
+            <Link href={paths.account('notifications')} className="button primary">
               {t('admin.telegramGoToSettings')}
             </Link>
           </p>
@@ -871,20 +872,30 @@ function ImageStorage() {
   );
 }
 
-export function AdminPage({ currentUserId, onWorkspacesChanged }: { currentUserId: string; onWorkspacesChanged: () => void }) {
+/** Server admin (15.1): one named section at a time. The server checks the admin flag on every request. */
+export function AdminPage({ section, currentUserId, onWorkspacesChanged }: { section: AdminSection; currentUserId: string; onWorkspacesChanged: () => void }) {
   return (
-    <>
-      <div className="page-header">
-        <h2>{t('admin.heading')}</h2>
-      </div>
-      <CreateWorkspace onCreated={onWorkspacesChanged} />
-      <ServerSettings />
-      <ImageStorage />
-      <NotificationProviders />
-      <Invitations />
-      <Accounts currentUserId={currentUserId} />
-      <AccountRecovery />
-      <SecurityLog />
-    </>
+    <SettingsLayout
+      title={t('admin.heading')}
+      navLabel={t('admin.heading')}
+      sections={ADMIN_SECTIONS.map((value) => ({ href: paths.admin(value), label: t(`admin.section.${value}`), current: value === section }))}
+    >
+      {section === 'workspaces' && <CreateWorkspace onCreated={onWorkspacesChanged} />}
+      {section === 'invitations' && <Invitations />}
+      {section === 'accounts' && (
+        <>
+          <Accounts currentUserId={currentUserId} />
+          <AccountRecovery />
+        </>
+      )}
+      {section === 'notifications' && <NotificationProviders />}
+      {section === 'server' && (
+        <>
+          <ServerSettings />
+          <ImageStorage />
+        </>
+      )}
+      {section === 'log' && <SecurityLog />}
+    </SettingsLayout>
   );
 }

@@ -135,6 +135,8 @@ export function StepImageField(props: {
   image: StepImageRef | null;
   onChange: (image: StepImageRef | null) => void;
   onUsage: (usage: ImageUsage) => void;
+  /** Shown next to the caption field (e.g. "Please describe what the photo shows."). */
+  captionError?: string | undefined;
 }) {
   const camera = useRef<HTMLInputElement>(null);
   const library = useRef<HTMLInputElement>(null);
@@ -178,10 +180,16 @@ export function StepImageField(props: {
             maxLength={200}
             value={props.image.caption}
             placeholder={t('image.captionPlaceholder')}
-            aria-describedby={`${captionId}-hint`}
+            aria-describedby={props.captionError === undefined ? `${captionId}-hint` : `${captionId}-error ${captionId}-hint`}
+            aria-invalid={props.captionError !== undefined}
             onChange={(e) => props.onChange({ id: props.image?.id ?? '', caption: e.target.value })}
           />
           <br />
+          {props.captionError !== undefined && (
+            <span id={`${captionId}-error`} className="field-error">
+              {props.captionError}
+            </span>
+          )}
           <small id={`${captionId}-hint`} className="muted">
             {t('image.captionHint')}
           </small>

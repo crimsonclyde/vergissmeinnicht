@@ -1,4 +1,4 @@
-import { useEffect, useId, useRef, useState, type FormEvent } from 'react';
+import { useEffect, useId, useRef, useState, type FormEvent, type ReactNode } from 'react';
 import { messageFor, type PersonRef, type Recurrence, type RecurrenceUnit, type ReminderOffset, type ReminderUnit, type ScheduleInput } from './api.ts';
 import { t } from './i18n/index.ts';
 import { addDays, browserTimeZone, todayIn } from './schedule-dates.ts';
@@ -37,11 +37,30 @@ export function recurrenceLabel(recurrence: Recurrence): string {
   return every;
 }
 
+/** One group of options behind a summary that names its current value, so the default is visible while it stays folded. */
+function Options(props: { label: string; value: string; open: boolean; onToggle: (open: boolean) => void; children: ReactNode }) {
+  return (
+    <details className="option-group" open={props.open} onToggle={(event) => props.onToggle(event.currentTarget.open)}>
+      <summary>
+        <span className="option-label">{props.label}</span>
+        <span className="muted option-value">{props.value}</span>
+      </summary>
+      <div className="stack option-body">{props.children}</div>
+    </details>
+  );
+}
+
+type OptionKey = 'notes' | 'repeat' | 'responsible' | 'reminders';
+
 /**
  * Create or change a Schedule (14.1): a standalone Reminder or a scheduled Procedure; one-time, repeating
  * on fixed dates, or counted from the last completion; reminders (presets and bounded custom offsets);
  * an optional responsible member. Dates are in the Schedule's time zone (the browser's for new ones).
  * The server validates everything again.
+ *
+ * What matters most comes first (15.3): what, and when. Notes, repetition, the responsible person and
+ * the notifications are folded behind summaries that show their current value — the defaults are the
+ * same as before (once, shared, a reminder on the due date).
  */
 export function ScheduleDialog(props: {
   kind: 'REMINDER' | 'PROCEDURE';
@@ -78,6 +97,14 @@ export function ScheduleDialog(props: {
   const [customUnit, setCustomUnit] = useState<ReminderUnit>('HOURS');
   const [message, setMessage] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  // When editing, what differs from the defaults is shown right away.
+  const [open, setOpen] = useState<Readonly<Record<OptionKey, boolean>>>({
+    notes: (initial?.description ?? '') !== '',
+    repeat: initial !== undefined && initial.recurrence.kind !== 'ONCE',
+    responsible: (initial?.assigneeUserId ?? null) !== null,
+    reminders: false,
+  });
+  const toggle = (key: OptionKey) => (next: boolean) => setOpen((current) => ({ ...current, [key]: next }));
 
   useEffect(() => {
     const dialog = ref.current;
@@ -85,7 +112,7 @@ export function ScheduleDialog(props: {
   }, []);
 
   const has = (offset: ReminderOffset) => reminders.some((r) => keyOf(r) === keyOf(offset));
-  const toggle = (offset: ReminderOffset, on: boolean) =>
+  const setReminder = (offset: ReminderOffset, on: boolean) =>
     setReminders((current) => (on ? [...current.filter((r) => keyOf(r) !== keyOf(offset)), offset] : current.filter((r) => keyOf(r) !== keyOf(offset))));
   const custom = reminders.filter((r) => !PRESETS.some((preset) => keyOf(preset) === keyOf(r)));
   const amount = Number(customAmount);
@@ -129,7 +156,8 @@ export function ScheduleDialog(props: {
 
   return (
     <dialog ref={ref} className="dialog" aria-labelledby={headingId} onClose={props.onClose}>
-      <form onSubmit={(event) => void submit(event)} className="stack">
+      {/* A field in a folded group that cannot be submitted (e.g. an empty interval) must be shown, not silently block. */}
+      <form onSubmit={(event) => void submit(event)} onInvalidCapture={() => setOpen({ notes: true, repeat: true, responsible: true, reminders: true })} className="stack">
         <h2 id={headingId} style={{ margin: 0 }}>
           {heading}
         </h2>
@@ -138,21 +166,36 @@ export function ScheduleDialog(props: {
         </p>
         {message !== null && <p role="alert">{message}</p>}
         {props.kind === 'REMINDER' && (
-          <>
+          <label>
+            {t('schedule.reminderTitle')}
+            <br />
+            <input required maxLength={120} value={title} onChange={(e) => setTitle(e.target.value)} placeholder={t('schedule.reminderTitlePlaceholder')} />
+          </label>
+        )}
+        <div className="row">
+          <label>
+            {t(repeat === 'ONCE' ? 'schedule.date' : 'schedule.firstDate')}
+            <br />
+            <input type="date" required min={props.initial === undefined ? today : undefined} value={date} onChange={(e) => setDate(e.target.value)} />
+          </label>
+          <label>
+            {t('schedule.time')} {t('common.optional')}
+            <br />
+            <input type="time" value={time} onChange={(e) => setTime(e.target.value)} />
+          </label>
+        </div>
+        <small className="muted">{t('schedule.timeZone', { zone: timeZone })}</small>
+        {props.kind === 'REMINDER' && (
+          <Options label={t('schedule.reminderDescription')} value={description.trim() === '' ? t('schedule.none') : t('schedule.notesAdded')} open={open.notes} onToggle={toggle('notes')}>
             <label>
-              {t('schedule.reminderTitle')}
-              <br />
-              <input required maxLength={120} value={title} onChange={(e) => setTitle(e.target.value)} placeholder={t('schedule.reminderTitlePlaceholder')} />
-            </label>
-            <label>
-              {t('schedule.reminderDescription')} {t('common.optional')}
-              <br />
+              <span className="visually-hidden">{t('schedule.reminderDescription')}</span>
               <textarea rows={2} maxLength={4000} value={description} onChange={(e) => setDescription(e.target.value)} />
             </label>
-          </>
+          </Options>
         )}
-        <fieldset className="stack">
-          <legend>{t('schedule.repeat')}</legend>
+        <Options label={t('schedule.repeat')} value={recurrenceLabel(recurrence())} open={open.repeat} onToggle={toggle('repeat')}>
+          <fieldset className="stack plain-fieldset">
+            <legend className="visually-hidden">{t('schedule.repeat')}</legend>
           <label className="row" style={{ fontWeight: 400 }}>
             <input type="radio" name={`${headingId}-repeat`} checked={repeat === 'ONCE'} onChange={() => setRepeat('ONCE')} />
             {t('schedule.repeat.once')}
@@ -200,7 +243,7 @@ export function ScheduleDialog(props: {
                       </label>
                     ))}
                   </div>
-                </fieldset>
+                  </fieldset>
               )}
               {repeat === 'FIXED' && unit === 'MONTH' && (
                 <label className="row" style={{ fontWeight: 400 }}>
@@ -211,21 +254,15 @@ export function ScheduleDialog(props: {
               <small className="muted">{t(repeat === 'FIXED' ? 'schedule.repeat.fixedHint' : 'schedule.repeat.afterHint')}</small>
             </div>
           )}
-        </fieldset>
-        <div className="row">
-          <label>
-            {t(repeat === 'ONCE' ? 'schedule.date' : 'schedule.firstDate')}
-            <br />
-            <input type="date" required min={props.initial === undefined ? today : undefined} value={date} onChange={(e) => setDate(e.target.value)} />
-          </label>
-          <label>
-            {t('schedule.time')} {t('common.optional')}
-            <br />
-            <input type="time" value={time} onChange={(e) => setTime(e.target.value)} />
-          </label>
-        </div>
-        <small className="muted">{t('schedule.timeZone', { zone: timeZone })}</small>
+          </fieldset>
+        </Options>
         {props.members !== null && (
+          <Options
+            label={t('schedule.responsible')}
+            value={assignee === '' ? t('schedule.shared') : (props.members.find((member) => member.id === assignee)?.name ?? t('schedule.shared'))}
+            open={open.responsible}
+            onToggle={toggle('responsible')}
+          >
           <div>
             <label htmlFor={responsibleId}>{t('schedule.responsible')}</label>
             <br />
@@ -242,20 +279,27 @@ export function ScheduleDialog(props: {
               {t('schedule.responsibleHint')}
             </small>
           </div>
+          </Options>
         )}
-        <fieldset>
-          <legend>{t('schedule.reminders')}</legend>
+        <Options
+          label={t('schedule.reminders')}
+          value={reminders.length === 0 ? t('schedule.none') : reminders.map((reminder) => reminderLabel(reminder)).join(', ')}
+          open={open.reminders}
+          onToggle={toggle('reminders')}
+        >
+          <fieldset className="plain-fieldset">
+            <legend className="visually-hidden">{t('schedule.reminders')}</legend>
           <div className="stack">
             {PRESETS.map((preset) => (
               <label key={keyOf(preset)} className="row" style={{ fontWeight: 400 }}>
-                <input type="checkbox" checked={has(preset)} disabled={!has(preset) && reminders.length >= MAX_REMINDERS} onChange={(e) => toggle(preset, e.target.checked)} />
+                <input type="checkbox" checked={has(preset)} disabled={!has(preset) && reminders.length >= MAX_REMINDERS} onChange={(e) => setReminder(preset, e.target.checked)} />
                 {reminderLabel(preset)}
               </label>
             ))}
             {custom.map((offset) => (
               <span key={keyOf(offset)} className="row">
                 {reminderLabel(offset)}
-                <button type="button" className="quiet" onClick={() => toggle(offset, false)} aria-label={t('schedule.removeReminder', { reminder: reminderLabel(offset) })}>
+                <button type="button" className="quiet" onClick={() => setReminder(offset, false)} aria-label={t('schedule.removeReminder', { reminder: reminderLabel(offset) })}>
                   ✕
                 </button>
               </span>
@@ -284,15 +328,16 @@ export function ScheduleDialog(props: {
                     ))}
                   </select>
                 </label>
-                <button type="button" disabled={!customValid} onClick={() => toggle({ unit: customUnit, amount }, true)}>
+                <button type="button" disabled={!customValid} onClick={() => setReminder({ unit: customUnit, amount }, true)}>
                   {t('schedule.addReminder')}
                 </button>
               </div>
             )}
             <small className="muted">{t('schedule.remindersHint')}</small>
           </div>
-        </fieldset>
-        <div className="row">
+          </fieldset>
+        </Options>
+        <div className="row dialog-actions">
           <button type="submit" className="primary" disabled={busy}>
             {t(props.initial === undefined ? (props.kind === 'REMINDER' ? 'schedule.submitReminder' : 'schedule.submit') : 'schedule.submitMove')}
           </button>

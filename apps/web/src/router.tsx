@@ -3,10 +3,27 @@ import { useEffect, useState, type AnchorHTMLAttributes, type MouseEvent } from 
 /** Minimal client-side routing on the History API (no dependency). The server serves the SPA for any path. */
 const listeners = new Set<() => void>();
 
-export function navigate(path: string, options: { replace?: boolean } = {}): void {
+/**
+ * Asked before the app leaves the current page (15.2): an editor with unsaved changes registers a guard
+ * that returns `false` to stay. One guard at a time; `null` removes it.
+ */
+let guard: (() => boolean) | null = null;
+/** The path the app shows; a refused Back/Forward returns to it. */
+let shownPath = typeof window === 'undefined' ? '/' : window.location.pathname;
+
+export function setNavigationGuard(next: (() => boolean) | null): void {
+  guard = next;
+}
+
+const mayLeave = (): boolean => guard === null || guard();
+
+export function navigate(path: string, options: { replace?: boolean; force?: boolean } = {}): void {
   if (path === window.location.pathname) return;
+  if (options.force !== true && !mayLeave()) return;
   if (options.replace) window.history.replaceState(null, '', path);
   else window.history.pushState(null, '', path);
+  // `path` may end in a fragment (e.g. `#history`); only the path decides which page is shown.
+  shownPath = path.split('#')[0] ?? path;
   window.scrollTo(0, 0);
   for (const listener of listeners) listener();
 }
@@ -15,11 +32,20 @@ export function usePathname(): string {
   const [pathname, setPathname] = useState(window.location.pathname);
   useEffect(() => {
     const update = () => setPathname(window.location.pathname);
+    const onPop = () => {
+      // Back/Forward cannot be cancelled: when the guard says stay, put the left page back.
+      if (window.location.pathname !== shownPath && !mayLeave()) {
+        window.history.pushState(null, '', shownPath);
+        return;
+      }
+      shownPath = window.location.pathname;
+      update();
+    };
     listeners.add(update);
-    window.addEventListener('popstate', update);
+    window.addEventListener('popstate', onPop);
     return () => {
       listeners.delete(update);
-      window.removeEventListener('popstate', update);
+      window.removeEventListener('popstate', onPop);
     };
   }, []);
   return pathname;
@@ -41,28 +67,46 @@ export function Link(props: AnchorHTMLAttributes<HTMLAnchorElement> & { href: st
   );
 }
 
+/** Sections of Profile & settings and of Server admin (15.1): one page each, so nothing unrelated has to be scrolled past. */
+export const ACCOUNT_SECTIONS = ['notifications', 'appearance', 'security', 'confirmations'] as const;
+export type AccountSection = (typeof ACCOUNT_SECTIONS)[number];
+export const ADMIN_SECTIONS = ['workspaces', 'invitations', 'accounts', 'notifications', 'server', 'log'] as const;
+export type AdminSection = (typeof ADMIN_SECTIONS)[number];
+
 export type Route =
   | { readonly page: 'home' }
   | { readonly page: 'invite'; readonly token: string }
   | { readonly page: 'recover'; readonly token: string }
   | { readonly page: 'knot'; readonly token: string }
-  | { readonly page: 'account' }
-  | { readonly page: 'admin' }
-  /** Workspace Home (13.9): Due, Upcoming, Active, Pinned, Recent. */
+  | { readonly page: 'account'; readonly section: AccountSection }
+  | { readonly page: 'admin'; readonly section: AdminSection }
+  /** Today (15.1; the former Workspace Home): unfinished Runs, what is overdue, what is due today. */
   | { readonly page: 'workspace'; readonly workspaceId: string }
+  /** Reminders (15.3): standalone obligations; `creating` opens the New reminder dialog. */
+  | { readonly page: 'reminders'; readonly workspaceId: string; readonly creating: boolean }
+  /** Lists (15.3): the overview (`listId` null), one List, or the New list dialog (`creating`). */
+  | { readonly page: 'lists'; readonly workspaceId: string; readonly listId: string | null; readonly creating: boolean }
   /** Calendar and agenda of Occurrences (14.4). */
   | { readonly page: 'calendar'; readonly workspaceId: string }
+  /** Phone: what does not fit the bottom bar — Reminders, Calendar, Completed history. */
+  | { readonly page: 'more'; readonly workspaceId: string }
   /** Completed history (13.14): finished executions. */
   | { readonly page: 'history'; readonly workspaceId: string }
   /** One execution (Run). */
   | { readonly page: 'run'; readonly workspaceId: string; readonly runId: string }
   | { readonly page: 'procedures'; readonly workspaceId: string; readonly procedureId: string | null }
+  /** The Procedure builder (15.2): a new Procedure (`procedureId` null) or an existing one. */
+  | { readonly page: 'procedure-edit'; readonly workspaceId: string; readonly procedureId: string | null }
+  /** Workspace settings (15.1): general, members, sharing links. */
+  | { readonly page: 'settings'; readonly workspaceId: string }
   | { readonly page: 'members'; readonly workspaceId: string }
   | { readonly page: 'knots'; readonly workspaceId: string }
   | { readonly page: 'not-found' };
 
 const TOKEN = '([A-Za-z0-9_-]+)';
 const ID = '([0-9a-f-]{36})';
+
+const oneOf = <T extends string>(values: readonly T[], value: string | undefined): T | undefined => values.find((candidate) => candidate === value);
 
 /** Maps a path to a page. Ids are only routing data; the server authorizes every request. */
 export function parseRoute(pathname: string): Route {
@@ -72,19 +116,36 @@ export function parseRoute(pathname: string): Route {
   if ((match = new RegExp(`^/invite/${TOKEN}$`).exec(path))) return { page: 'invite', token: match[1] ?? '' };
   if ((match = new RegExp(`^/recover/${TOKEN}$`).exec(path))) return { page: 'recover', token: match[1] ?? '' };
   if ((match = new RegExp(`^/knot/${TOKEN}$`).exec(path))) return { page: 'knot', token: match[1] ?? '' };
-  if (path === '/account') return { page: 'account' };
-  if (path === '/admin') return { page: 'admin' };
+  if (path === '/account') return { page: 'account', section: 'notifications' };
+  if ((match = /^\/account\/([a-z]+)$/.exec(path))) {
+    const section = oneOf(ACCOUNT_SECTIONS, match[1]);
+    return section === undefined ? { page: 'not-found' } : { page: 'account', section };
+  }
+  if (path === '/admin') return { page: 'admin', section: 'workspaces' };
+  if ((match = /^\/admin\/([a-z]+)$/.exec(path))) {
+    const section = oneOf(ADMIN_SECTIONS, match[1]);
+    return section === undefined ? { page: 'not-found' } : { page: 'admin', section };
+  }
   if ((match = new RegExp(`^/w/${ID}$`).exec(path))) return { page: 'workspace', workspaceId: match[1] ?? '' };
+  if ((match = new RegExp(`^/w/${ID}/reminders(/new)?$`).exec(path))) return { page: 'reminders', workspaceId: match[1] ?? '', creating: match[2] !== undefined };
+  if ((match = new RegExp(`^/w/${ID}/lists(/new)?$`).exec(path))) return { page: 'lists', workspaceId: match[1] ?? '', listId: null, creating: match[2] !== undefined };
+  if ((match = new RegExp(`^/w/${ID}/lists/${ID}$`).exec(path))) return { page: 'lists', workspaceId: match[1] ?? '', listId: match[2] ?? null, creating: false };
   if ((match = new RegExp(`^/w/${ID}/calendar$`).exec(path))) return { page: 'calendar', workspaceId: match[1] ?? '' };
+  if ((match = new RegExp(`^/w/${ID}/more$`).exec(path))) return { page: 'more', workspaceId: match[1] ?? '' };
   // `/runs` is the address of the former Run list (bookmarks keep working).
   if ((match = new RegExp(`^/w/${ID}/(?:history|runs)$`).exec(path))) return { page: 'history', workspaceId: match[1] ?? '' };
   if ((match = new RegExp(`^/w/${ID}/runs/${ID}$`).exec(path))) {
     return { page: 'run', workspaceId: match[1] ?? '', runId: match[2] ?? '' };
   }
   if ((match = new RegExp(`^/w/${ID}/procedures$`).exec(path))) return { page: 'procedures', workspaceId: match[1] ?? '', procedureId: null };
+  if ((match = new RegExp(`^/w/${ID}/procedures/new$`).exec(path))) return { page: 'procedure-edit', workspaceId: match[1] ?? '', procedureId: null };
   if ((match = new RegExp(`^/w/${ID}/procedures/${ID}$`).exec(path))) {
     return { page: 'procedures', workspaceId: match[1] ?? '', procedureId: match[2] ?? null };
   }
+  if ((match = new RegExp(`^/w/${ID}/procedures/${ID}/edit$`).exec(path))) {
+    return { page: 'procedure-edit', workspaceId: match[1] ?? '', procedureId: match[2] ?? null };
+  }
+  if ((match = new RegExp(`^/w/${ID}/settings$`).exec(path))) return { page: 'settings', workspaceId: match[1] ?? '' };
   if ((match = new RegExp(`^/w/${ID}/members$`).exec(path))) return { page: 'members', workspaceId: match[1] ?? '' };
   if ((match = new RegExp(`^/w/${ID}/knots$`).exec(path))) return { page: 'knots', workspaceId: match[1] ?? '' };
   return { page: 'not-found' };
@@ -92,11 +153,22 @@ export function parseRoute(pathname: string): Route {
 
 export const paths = {
   home: (workspaceId: string) => `/w/${workspaceId}`,
+  reminders: (workspaceId: string) => `/w/${workspaceId}/reminders`,
+  newReminder: (workspaceId: string) => `/w/${workspaceId}/reminders/new`,
+  lists: (workspaceId: string) => `/w/${workspaceId}/lists`,
+  newList: (workspaceId: string) => `/w/${workspaceId}/lists/new`,
+  list: (workspaceId: string, listId: string) => `/w/${workspaceId}/lists/${listId}`,
   calendar: (workspaceId: string) => `/w/${workspaceId}/calendar`,
+  more: (workspaceId: string) => `/w/${workspaceId}/more`,
   history: (workspaceId: string) => `/w/${workspaceId}/history`,
   run: (workspaceId: string, runId: string) => `/w/${workspaceId}/runs/${runId}`,
   procedures: (workspaceId: string) => `/w/${workspaceId}/procedures`,
+  newProcedure: (workspaceId: string) => `/w/${workspaceId}/procedures/new`,
   procedure: (workspaceId: string, procedureId: string) => `/w/${workspaceId}/procedures/${procedureId}`,
+  editProcedure: (workspaceId: string, procedureId: string) => `/w/${workspaceId}/procedures/${procedureId}/edit`,
+  settings: (workspaceId: string) => `/w/${workspaceId}/settings`,
   knots: (workspaceId: string) => `/w/${workspaceId}/knots`,
   members: (workspaceId: string) => `/w/${workspaceId}/members`,
+  account: (section: AccountSection) => (section === 'notifications' ? '/account' : `/account/${section}`),
+  admin: (section: AdminSection) => (section === 'workspaces' ? '/admin' : `/admin/${section}`),
 };

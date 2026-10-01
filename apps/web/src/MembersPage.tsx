@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState, type FormEvent } from 'react';
 import { api, messageFor, WORKSPACE_ROLES, type WorkspaceMember, type WorkspaceRole } from './api.ts';
-import { navigate } from './router.tsx';
+import { navigate, paths } from './router.tsx';
 import type { WorkspaceContext } from './workspace-context.ts';
 import { t } from './i18n/index.ts';
 
@@ -97,8 +97,64 @@ function RenameWorkspace({ context, onRenamed }: { context: WorkspaceContext; on
   );
 }
 
-/** Members of the Workspace; management controls only for members who manage it (the server decides). */
-export function MembersPage(props: { context: WorkspaceContext; currentUserId: string; onWorkspacesChanged: () => void }) {
+/** Capabilities only adapt the UI; the server authorizes every request. */
+export const workspaceSettingsSections = (workspaceId: string, capabilities: readonly string[], current: 'settings' | 'members' | 'knots') => [
+  { href: paths.settings(workspaceId), label: t('workspaceSettings.general'), current: current === 'settings' },
+  { href: paths.members(workspaceId), label: t('members.heading'), current: current === 'members' },
+  ...(capabilities.includes('knot.manage') ? [{ href: paths.knots(workspaceId), label: t('workspaceSettings.sharing'), current: current === 'knots' }] : []),
+];
+
+/** Workspace settings → General: the name (for those who manage settings), the own role, leaving. */
+export function WorkspaceGeneral(props: { context: WorkspaceContext; onWorkspacesChanged: () => void }) {
+  const { context } = props;
+  const [message, setMessage] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+
+  async function leave() {
+    if (!window.confirm(t('workspace.leaveConfirm'))) return;
+    setBusy(true);
+    setMessage(null);
+    try {
+      await api.leaveWorkspace(context.workspace.id);
+      props.onWorkspacesChanged();
+      navigate('/', { replace: true });
+    } catch (caught) {
+      setMessage(messageFor(caught));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <>
+      {message !== null && <p role="alert">{message}</p>}
+      {context.capabilities.includes('workspace.settings.manage') ? (
+        <RenameWorkspace context={context} onRenamed={props.onWorkspacesChanged} />
+      ) : (
+        <div className="card stack">
+          <h3 style={{ marginTop: 0 }}>{t('workspace.nameHeading')}</h3>
+          <p style={{ margin: 0 }}>{context.workspace.name}</p>
+        </div>
+      )}
+      <div className="card stack">
+        <h3 style={{ marginTop: 0 }}>{t('workspaceSettings.roleHeading')}</h3>
+        <p style={{ margin: 0 }}>{t('members.yourRole', { role: roleLabel(context.workspace.role), help: roleHelp(context.workspace.role) })}</p>
+      </div>
+      <div className="card stack">
+        <h3 style={{ marginTop: 0 }}>{t('workspace.leaveHeading')}</h3>
+        <p className="muted">{t('workspace.leaveHint')}</p>
+        <div>
+          <button type="button" className="danger" disabled={busy} onClick={() => void leave()}>
+            {t('workspace.leave')}
+          </button>
+        </div>
+      </div>
+    </>
+  );
+}
+
+/** Workspace settings → Members; management controls only for members who manage it (the server decides). */
+export function MembersPage(props: { context: WorkspaceContext; currentUserId: string }) {
   const { context } = props;
   const workspaceId = context.workspace.id;
   const canView = context.capabilities.includes('workspace.members.view');
@@ -113,12 +169,12 @@ export function MembersPage(props: { context: WorkspaceContext; currentUserId: s
   }, [workspaceId, canView]);
   useEffect(refresh, [refresh]);
 
-  async function act(action: () => Promise<unknown>, after: () => void = refresh) {
+  async function act(action: () => Promise<unknown>) {
     setBusy(true);
     setMessage(null);
     try {
       await action();
-      after();
+      refresh();
     } catch (caught) {
       setMessage(messageFor(caught));
     } finally {
@@ -128,19 +184,16 @@ export function MembersPage(props: { context: WorkspaceContext; currentUserId: s
 
   return (
     <>
-      <div className="page-header">
-        <h2>{t('members.heading')}</h2>
-        <span className="muted">
-          {t('members.yourRole', { role: roleLabel(context.workspace.role), help: roleHelp(context.workspace.role) })}
-        </span>
-      </div>
+      <p className="muted" style={{ marginTop: 0 }}>
+        {t('members.yourRole', { role: roleLabel(context.workspace.role), help: roleHelp(context.workspace.role) })}
+      </p>
       {message !== null && <p role="alert">{message}</p>}
       {!canView ? (
         <p className="muted">{t('members.guestsCannotSee')}</p>
       ) : members === null ? (
         <p>{t('common.loading')}</p>
       ) : (
-        <div className="card">
+        <div className="card table-wrap">
           <table>
             <caption>{t('members.heading')}</caption>
             <thead>
@@ -188,30 +241,6 @@ export function MembersPage(props: { context: WorkspaceContext; currentUserId: s
         </div>
       )}
       {canManage && <AddMember workspaceId={workspaceId} onAdded={refresh} />}
-      {context.capabilities.includes('workspace.settings.manage') && (
-        <RenameWorkspace context={context} onRenamed={props.onWorkspacesChanged} />
-      )}
-      <div className="card stack">
-        <h3 style={{ marginTop: 0 }}>{t('workspace.leaveHeading')}</h3>
-        <p className="muted">{t('workspace.leaveHint')}</p>
-        <button
-          type="button"
-          disabled={busy}
-          onClick={() => {
-            if (window.confirm(t('workspace.leaveConfirm'))) {
-              void act(
-                () => api.leaveWorkspace(workspaceId),
-                () => {
-                  props.onWorkspacesChanged();
-                  navigate('/', { replace: true });
-                },
-              );
-            }
-          }}
-        >
-          {t('workspace.leave')}
-        </button>
-      </div>
     </>
   );
 }

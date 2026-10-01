@@ -199,6 +199,16 @@ await api(
   { title: 'Change the water filter', date: localDate(1), timeZone, recurrence: { kind: 'AFTER_COMPLETION', unit: 'MONTH', interval: 6 }, reminders: [{ unit: 'DAYS', amount: 0 }] },
   member,
 );
+// A grocery list (15.3) with something to buy and something already purchased.
+interface SeededList {
+  readonly list: { readonly id: string; readonly items: readonly { readonly id: string }[] };
+}
+let groceries = (await api<SeededList>('POST', `/workspaces/${household}/lists`, { title: 'Groceries' }, member)).data;
+for (const item of [{ title: 'Milk', quantity: '2', unit: 'l' }, { title: 'Bread' }, { title: 'Flour', quantity: '1.5', unit: 'kg' }, { title: 'Coffee' }]) {
+  groceries = (await api<SeededList>('POST', `/workspaces/${household}/lists/${groceries.list.id}/items`, item, member)).data;
+}
+const coffee = groceries.list.items.at(-1);
+if (coffee !== undefined) await api('POST', `/workspaces/${household}/lists/${groceries.list.id}/items/${coffee.id}/check`, { checked: true }, member);
 await api('POST', `/workspaces/${household}/procedures/${procedureIds[0]}/pin`, {}, member);
 await api('POST', '/auth/sign-out', {}, member);
-console.log(`Created ${people.length + 1} accounts, 2 Workspaces, ${procedures.length} Procedures, 1 Run, 2 scheduled Procedures, 2 Reminders and 1 pin.`);
+console.log(`Created ${people.length + 1} accounts, 2 Workspaces, ${procedures.length} Procedures, 1 Run, 2 scheduled Procedures, 2 Reminders, 1 grocery list and 1 pin.`);

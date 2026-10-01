@@ -56,7 +56,7 @@ describe('Telegram provider (server admin)', () => {
     expect(html).toContain('Bot connected: @VergissMeinNichtBot');
     expect(html).toContain('Next step');
     expect(html).toContain('Telegram is available on this server. To receive reminders, open Profile &amp; settings → Notifications and connect your Telegram account.');
-    expect(html).toMatch(/<a href="\/account#notifications"[^>]*>Go to my notification settings<\/a>/);
+    expect(html).toMatch(/<a href="\/account"[^>]*>Go to my notification settings<\/a>/);
     const button = testButton(html);
     expect(button).toContain('disabled');
     expect(button).toContain('aria-describedby="telegram-test-hint"');

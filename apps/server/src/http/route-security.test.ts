@@ -40,6 +40,11 @@ function bodyFor(route: string, ids: Record<string, string>): object {
   if (url.endsWith('/occurrences/:occurrenceId/move')) return { date: TOMORROW };
   if (url.endsWith('/occurrences/:occurrenceId/assign')) return { assigneeUserId: null };
   if (url.endsWith('/occurrences/:occurrenceId/link-run')) return { runId: ids.runId ?? '' };
+  if (url.endsWith('/lists')) return { title: 'Groceries' };
+  if (url.endsWith('/lists/:listId/rename')) return { title: 'Taken over', expectedTitle: 'Groceries' };
+  if (url.endsWith('/lists/:listId/items')) return { title: 'Stolen milk' };
+  if (url.endsWith('/items/:itemId/update')) return { title: 'Stolen milk', expectedRevision: 1 };
+  if (url.endsWith('/items/:itemId/check')) return { checked: true };
   if (url.endsWith('/procedures')) return PROCEDURE;
   if (url.endsWith('/procedures/import')) return exported;
   if (url.endsWith('/update')) return { ...PROCEDURE, expectedRevision: 1 };
@@ -105,6 +110,8 @@ describe('security properties of every route (13.2)', () => {
     const scheduled = (await t.post(`/api/workspaces/${home}/schedules`, { procedureId: procedure.id, date: TOMORROW, timeZone: 'UTC', reminders: [] }, owner)).json()
       .schedule;
     const occurrence = (await t.get(`/api/workspaces/${home}/schedules/${scheduled.id}`, owner)).json().occurrences[0];
+    const list = (await t.post(`/api/workspaces/${home}/lists`, { title: 'Groceries' }, owner)).json().list;
+    const itemId = (await t.post(`/api/workspaces/${home}/lists/${list.id}/items`, { title: 'Milk' }, owner)).json().itemId;
     homeIds = {
       workspaceId: home,
       procedureId: procedure.id,
@@ -115,6 +122,8 @@ describe('security properties of every route (13.2)', () => {
       scheduleId: scheduled.id,
       occurrenceId: occurrence.id,
       imageId: image.id,
+      listId: list.id,
+      itemId,
     };
     routes = t.app.routeTable.map((route) => `${route.method} ${route.url}`);
   });
@@ -147,12 +156,13 @@ describe('security properties of every route (13.2)', () => {
       const response = await call(route, outsider, homeIds);
       expect({ route, status: response.statusCode }).toEqual({ route, status: 404 });
       expect(response.body).not.toContain('Leave the house');
+      expect(response.body).not.toContain('Groceries');
     }
   });
 
   it('never resolves a child id of one Workspace under another Workspace', async () => {
     // Otto administers Office and uses Home's Procedure/Run/Step/Knot/member ids under Office's id.
-    const childRoutes = routes.filter((r) => (r.includes('/:workspaceId/') && /:(procedureId|runId|knotId|userId|scheduleId|occurrenceId|imageId)/.test(r)) || /^POST .*\/:workspaceId\/(runs|knots|schedules)$/.test(r));
+    const childRoutes = routes.filter((r) => (r.includes('/:workspaceId/') && /:(procedureId|runId|knotId|userId|scheduleId|occurrenceId|imageId|listId|itemId)/.test(r)) || /^POST .*\/:workspaceId\/(runs|knots|schedules)$/.test(r));
     expect(childRoutes.length).toBeGreaterThan(10);
     for (const route of childRoutes) {
       const response = await call(route, outsider, { ...homeIds, workspaceId: office });
@@ -167,6 +177,8 @@ describe('security properties of every route (13.2)', () => {
     expect(scheduled).toMatchObject({ state: 'ACTIVE', revision: 1 });
     const occurrence = (await t.get(`/api/workspaces/${homeIds.workspaceId}/occurrences/${homeIds.occurrenceId}`, owner)).json().occurrence;
     expect(occurrence).toMatchObject({ state: 'OPEN', revision: 1 });
+    const list = (await t.get(`/api/workspaces/${homeIds.workspaceId}/lists/${homeIds.listId}`, owner)).json().list;
+    expect(list).toMatchObject({ title: 'Groceries', deleted: false, items: [{ title: 'Milk', checked: null, revision: 1 }] });
   });
 
   it('rejects malformed identifiers without errors or data', async () => {

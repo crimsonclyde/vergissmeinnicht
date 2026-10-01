@@ -18,7 +18,7 @@ import {
   type CalendarFilters,
   type StatusFilter,
 } from './calendar-model.ts';
-import { DoneItem, OccurrenceItem, type Capabilities } from './Home.tsx';
+import { DoneItem, OccurrenceItem, type Capabilities } from './Occurrences.tsx';
 import { formatCalendarDate, formatMonth, t, weekdayNames } from './i18n/index.ts';
 import { useOffline } from './offline/OfflineProvider.tsx';
 import { AppIcon } from './procedure-icons.tsx';
@@ -65,7 +65,7 @@ function ProjectedItem({ entry }: { entry: Extract<CalendarEntry, { status: 'PRO
   const { schedule, responsible } = entry.projected;
   const date = formatCalendarDate(entry.date);
   return (
-    <li className="card home-item calendar-projected">
+    <li className="card item-card calendar-projected">
       <div>
         <strong>
           <AppIcon name={schedule.procedure?.icon ?? 'reminder'} /> {schedule.title}

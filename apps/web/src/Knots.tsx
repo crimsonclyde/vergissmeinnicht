@@ -154,11 +154,10 @@ export function KnotsPage({ workspaceId }: { workspaceId: string }) {
   }
 
   return (
-    <section aria-labelledby="knots-heading">
-      <div className="page-header">
-        <h2 id="knots-heading">{t('knot.pageHeading')}</h2>
-        <span className="muted">{t('knot.pageHint')}</span>
-      </div>
+    <section aria-label={t('knot.pageHeading')}>
+      <p className="muted" style={{ marginTop: 0 }}>
+        {t('knot.pageHint')}
+      </p>
       {message !== null && <p role="alert">{message}</p>}
       {knots === null ? (
         message === null && <p>{t('common.loading')}</p>

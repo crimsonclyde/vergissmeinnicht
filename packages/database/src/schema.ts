@@ -7,6 +7,7 @@ import { check, foreignKey, index, integer, primaryKey, sqliteTable, text, uniqu
 import {
   CRITICAL_CONFIRM_MODES,
   KNOT_TARGET_TYPES,
+  LIST_KINDS,
   PROCEDURE_ICONS,
   REASON_POLICIES,
   OCCURRENCE_STATES,
@@ -1165,4 +1166,86 @@ export const procedurePins = sqliteTable(
     pinnedAt: integer('pinned_at', { mode: 'timestamp_ms' }).notNull(),
   },
   (table) => [primaryKey({ columns: [table.userId, table.procedureId] }), index('procedure_pins_workspace_idx').on(table.userId, table.workspaceId)],
+);
+
+/**
+ * Lists (15.3): lightweight shared content of a Workspace — so far grocery lists. Not a Procedure and
+ * not a Run: no snapshot, no Step rules. A List is soft-deleted (and can be restored); `revision`
+ * increases with every change to the List or its items, so clients notice what they missed.
+ */
+export const lists = sqliteTable(
+  'lists',
+  {
+    id: text('id').primaryKey(),
+    workspaceId: text('workspace_id')
+      .notNull()
+      .references(() => workspaces.id),
+    kind: text('kind', { enum: LIST_KINDS }).notNull(),
+    title: text('title').notNull(),
+    revision: integer('revision').notNull().default(1),
+    createdByUserId: text('created_by_user_id')
+      .notNull()
+      .references(() => users.id),
+    createdByDisplayName: text('created_by_display_name').notNull(),
+    createdAt: integer('created_at', { mode: 'timestamp_ms' }).notNull(),
+    updatedAt: integer('updated_at', { mode: 'timestamp_ms' }).notNull(),
+    deletedAt: integer('deleted_at', { mode: 'timestamp_ms' }),
+    deletedByUserId: text('deleted_by_user_id').references(() => users.id),
+    deletedByDisplayName: text('deleted_by_display_name'),
+  },
+  (table) => [
+    index('lists_workspace_idx').on(table.workspaceId, table.deletedAt),
+    // Lets list_items reference (list, workspace) together: an item can never sit in another Workspace's List.
+    uniqueIndex('lists_id_workspace_unique').on(table.id, table.workspaceId),
+    check('lists_id_uuid', sql`length(${table.id}) = 36`),
+    check('lists_kind_valid', oneOf('kind', LIST_KINDS)),
+    check('lists_title_present', sql`length(trim(${table.title})) > 0 and length(${table.title}) <= 80`),
+    check('lists_revision_positive', sql`${table.revision} >= 1`),
+    check(
+      'lists_deletion_consistent',
+      sql`(${table.deletedAt} is null) = (${table.deletedByUserId} is null) and (${table.deletedAt} is null) = (${table.deletedByDisplayName} is null)`,
+    ),
+  ],
+);
+
+/**
+ * Items of a List. Checked = purchased, with who and when. Removing an item is a soft delete, so it
+ * can be put back (Undo). Who added and who checked are display-name snapshots, like audit history.
+ */
+export const listItems = sqliteTable(
+  'list_items',
+  {
+    id: text('id').primaryKey(),
+    listId: text('list_id').notNull(),
+    workspaceId: text('workspace_id').notNull(),
+    position: integer('position').notNull(),
+    title: text('title').notNull(),
+    /** A positive decimal as text, e.g. `1.5`; NULL = none. */
+    quantity: text('quantity'),
+    unit: text('unit'),
+    revision: integer('revision').notNull().default(1),
+    createdByUserId: text('created_by_user_id')
+      .notNull()
+      .references(() => users.id),
+    createdByDisplayName: text('created_by_display_name').notNull(),
+    createdAt: integer('created_at', { mode: 'timestamp_ms' }).notNull(),
+    checkedAt: integer('checked_at', { mode: 'timestamp_ms' }),
+    checkedByUserId: text('checked_by_user_id').references(() => users.id),
+    checkedByDisplayName: text('checked_by_display_name'),
+    deletedAt: integer('deleted_at', { mode: 'timestamp_ms' }),
+  },
+  (table) => [
+    foreignKey({ name: 'list_items_list_fk', columns: [table.listId, table.workspaceId], foreignColumns: [lists.id, lists.workspaceId] }),
+    index('list_items_list_idx').on(table.listId, table.deletedAt, table.position),
+    check('list_items_id_uuid', sql`length(${table.id}) = 36`),
+    check('list_items_title_present', sql`length(trim(${table.title})) > 0 and length(${table.title}) <= 120`),
+    check('list_items_quantity_format', sql`${table.quantity} is null or (length(${table.quantity}) between 1 and 9 and ${table.quantity} not glob '*[^0-9.]*')`),
+    check('list_items_unit_bounded', sql`${table.unit} is null or (length(trim(${table.unit})) > 0 and length(${table.unit}) <= 16)`),
+    check('list_items_revision_positive', sql`${table.revision} >= 1`),
+    check('list_items_position_valid', sql`${table.position} >= 0`),
+    check(
+      'list_items_check_consistent',
+      sql`(${table.checkedAt} is null) = (${table.checkedByUserId} is null) and (${table.checkedAt} is null) = (${table.checkedByDisplayName} is null)`,
+    ),
+  ],
 );

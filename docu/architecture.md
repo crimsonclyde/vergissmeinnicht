@@ -362,6 +362,26 @@ GET/POST /api/admin/settings { footerHidden?, recentProceduresLimit? }   Recent 
 
 - **Web**: `/w/{id}` is the Workspace Home (Overdue, Today, Upcoming, recently done; filter All / Assigned to me / Shared; refreshed every 30 s while visible), `/w/{id}/history` the completed history (`/w/{id}/runs` still works), `/w/{id}/runs/{runId}` one execution. Start/Schedule live in `StartProcedure.tsx`/`ScheduleDialog.tsx` (also "New reminder" on Home), Occurrence actions in the `MoreMenu` (⋯) disclosure of each Home row.
 
+## Web shell, tools and the Procedure builder (Step 15)
+
+**Shell (`AppShell.tsx`).** One element holds the brand, the Workspace selector, the tool navigation and the Settings menu: a sticky sidebar from 56 rem up, a compact header below — where the four phone destinations move to a fixed bottom bar (`destinations()` is the single list of tools and of the pages each one is "current" for). `data-focus` on the shell hides the global navigation for focused work: `edit` (the builder, every width) and `run` (an execution, phones only). Layout, safe areas (`env(safe-area-inset-*)`, `viewport-fit=cover`) and the bar height (`--tabbar-height`, also used by sticky elements and `scroll-padding-bottom`) are CSS only.
+
+**Routing (`router.tsx`).** Still the History API without a dependency. Sections of Profile & settings and Server admin are addresses (`/account/{section}`, `/admin/{section}`), Workspace settings reuse `/w/{id}/settings`, `/members`, `/knots`; tools add `/reminders[/new]`, `/lists[/new|/{listId}]`, `/more`; the builder is `/procedures/new` and `/procedures/{id}/edit`. Every older address still parses to the same page (pinned in `router.test.ts`). `setNavigationGuard` lets one editor veto leaving: `navigate()` asks it (Workspace switch, links, sign-out), a refused Back/Forward is undone by pushing the shown address again, and the builder adds `beforeunload` for closing or reloading the tab.
+
+**Today, Reminders (`Today.tsx`, `Reminders.tsx`, `Occurrences.tsx`).** Both read the existing `GET …/home` overview; `todayView()` and `remindersView()` are the pure selections (unfinished Runs first, then overdue, then due today; Reminders = standalone Reminders only). Nothing changed on the server for them. Recently used Procedures moved to the Procedures page.
+
+**Procedure builder (`ProcedureBuilder.tsx`, `StepEditor.tsx`, `ProcedurePreview.tsx`, `procedure-draft.ts`).** The draft and every operation on it are pure functions in `procedure-draft.ts` (add, paste preview, duplicate, move, remove, apply, validation, `saveState`, `canSave`): Sections and Steps keep their server `id` through edits and moves, duplicates and new items have none, `key` is only the client's handle. Undo restores the outline as it was before the last operation. The Step editor edits a copy; *Apply step* writes it into the draft, *Save procedure* sends the whole draft through the unchanged create/update routes with `expectedRevision`. There is no autosave and no stored draft. "Dirty" is a comparison of what would be sent with what was last loaded or saved. The preview renders the draft with the execution markup and calls no mutating API.
+
+**Lists (`Lists.tsx`, `list-model.ts`).** See below.
+
+**Theme tokens (`styles.css`).** Roles: `bg`, `surface`, `surface-muted`, `surface-raised`, `border`, `border-strong` (control edges, ≥ 3:1), `text`, `text-muted`, `accent` (primary actions, current destination), `danger` (destructive actions: an outline, never a filled primary), `focus`, `state-*`. Light, Dark and Memento Mori each define every token; `contrast.test.ts` checks the pairs in every theme.
+
+## Lists (Step 15.3)
+
+`List` and `ListItem` (`packages/domain/src/list.ts`) are a small vertical of their own, deliberately not built on Procedures or Runs: no snapshot, no Step rules. Tables `lists` and `list_items` (migration 0026; soft delete on both; a composite foreign key ties an item to its List *and* Workspace). Use-cases in `packages/application/src/lists`, repository in `packages/database/src/list-repository.ts`, routes under `/api/workspaces/{id}/lists`. Capabilities `list.view` / `list.edit`.
+
+Collaboration without a new transport: every write runs in one `IMMEDIATE` transaction, raises the List's `revision` and answers with the canonical List; the page refetches every 10 s while visible and never applies an older revision. Checking is idempotent, editing an item is compare-and-set on the item's revision, renaming on the name the caller saw. The Run SSE hub is Run-specific (channels, limits and re-authorization are per Run) and was not widened for this; a push channel for Lists and Occurrences remains a possible later step. `kind` (`GROCERY`) is the seam for further list types.
+
 ## Offline execution (Step 8.5)
 
 ```text

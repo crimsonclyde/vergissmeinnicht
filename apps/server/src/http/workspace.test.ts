@@ -142,6 +142,8 @@ describe('Workspace HTTP API', () => {
         'run.abort',
         'knot.manage',
         'schedule.manage',
+        'list.view',
+        'list.edit',
       ],
     });
     // A Workspace ADMIN without the server-admin flag still cannot create Workspaces.

@@ -34,7 +34,7 @@ const REMOTE_NOTICE_MS = 10_000;
 const STATE_GLYPHS: Record<StepState, string> = { PENDING: '○', DONE: '✔', SKIPPED: '↷', NOT_APPLICABLE: '–' };
 const RUN_STATE_BADGE: Record<RunState, StepState> = { ACTIVE: 'PENDING', COMPLETED: 'DONE', ABORTED: 'NOT_APPLICABLE' };
 
-function StateBadge({ state }: { state: StepState }) {
+export function StateBadge({ state }: { state: StepState }) {
   return (
     <span className={`state-badge state-${state}`}>
       <span aria-hidden="true">{STATE_GLYPHS[state]}</span> {t(`state.${state}`)}

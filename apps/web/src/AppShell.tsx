@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useState, type ReactNode } from 'react';
 import { AccountSecurity } from './AccountSecurity.tsx';
 import { AdminPage } from './AdminPage.tsx';
 import { AppearanceSettings } from './AppearanceSettings.tsx';
@@ -9,16 +9,22 @@ import { offlineStore } from './offline/store.ts';
 import { api, isNetworkError, messageFor, type CurrentUser, type WorkspaceSummary } from './api.ts';
 import { Calendar } from './Calendar.tsx';
 import { ChangePassword } from './ChangePassword.tsx';
-import { Home } from './Home.tsx';
 import { NotificationSettings } from './NotificationSettings.tsx';
 import { t } from './i18n/index.ts';
 import { KnotOpener, KnotsPage } from './Knots.tsx';
-import { MembersPage, roleLabel } from './MembersPage.tsx';
+import { Lists } from './Lists.tsx';
+import { MembersPage, WorkspaceGeneral, roleLabel, workspaceSettingsSections } from './MembersPage.tsx';
+import { MorePage } from './MorePage.tsx';
+import { ProcedureBuilder } from './ProcedureBuilder.tsx';
 import { Procedures } from './Procedures.tsx';
-import { Link, navigate, paths, type Route } from './router.tsx';
+import { Reminders } from './Reminders.tsx';
+import { ACCOUNT_SECTIONS, Link, navigate, paths, type Route } from './router.tsx';
 import { Runs } from './Runs.tsx';
-import { UserMenu } from './UserMenu.tsx';
+import { SettingsLayout } from './SettingsLayout.tsx';
+import { SettingsMenu } from './SettingsMenu.tsx';
 import { SourceFooter } from './SourceFooter.tsx';
+import { Today } from './Today.tsx';
+import { UiIcon, type UiIconName } from './ui-icons.tsx';
 import type { WorkspaceContext } from './workspace-context.ts';
 
 const LAST_WORKSPACE_KEY = 'vmn.lastWorkspace';
@@ -40,88 +46,40 @@ function rememberedWorkspace(): string | null {
 }
 
 type WorkspaceRoute = Extract<Route, { workspaceId: string }>;
+type Page = Route['page'];
 
-function NavLink({ href, current, children }: { href: string; current: boolean; children: string }) {
-  return (
-    <Link href={href} aria-current={current ? 'page' : undefined}>
-      {children}
-    </Link>
-  );
+interface Destination {
+  readonly href: string;
+  readonly label: string;
+  readonly icon: UiIconName;
+  /** Pages on which this destination is the current one. */
+  readonly pages: readonly Page[];
 }
 
-function Header(props: {
-  user: CurrentUser;
-  route: Route;
-  workspaces: WorkspaceSummary[] | null;
-  workspaceId: string | null;
-  /** Capabilities in the shown Workspace (UI only); `null` while unknown. */
-  capabilities: readonly string[] | null;
-  onSignOut: () => void;
-}) {
-  const { route, workspaceId, workspaces } = props;
+/**
+ * The tools (15.1). Desktop sidebar: Today, Procedures, Reminders, Lists, Calendar. Phone bottom bar:
+ * Today, Procedures, Lists and More — More leads to Reminders, Calendar and the completed history.
+ */
+export function destinations(workspaceId: string): { side: Destination[]; bar: Destination[] } {
+  const today: Destination = { href: paths.home(workspaceId), label: t('shell.today'), icon: 'today', pages: ['workspace'] };
+  const procedures: Destination = { href: paths.procedures(workspaceId), label: t('shell.procedures'), icon: 'procedures', pages: ['procedures', 'procedure-edit'] };
+  const reminders: Destination = { href: paths.reminders(workspaceId), label: t('shell.reminders'), icon: 'reminders', pages: ['reminders'] };
+  const lists: Destination = { href: paths.lists(workspaceId), label: t('shell.lists'), icon: 'lists', pages: ['lists'] };
+  const calendar: Destination = { href: paths.calendar(workspaceId), label: t('shell.calendar'), icon: 'calendar', pages: ['calendar'] };
+  const more: Destination = { href: paths.more(workspaceId), label: t('shell.more'), icon: 'more', pages: ['more', 'reminders', 'calendar', 'history'] };
+  return { side: [today, procedures, reminders, lists, calendar], bar: [today, procedures, lists, more] };
+}
+
+function NavLinks({ items, page }: { items: readonly Destination[]; page: Page }) {
   return (
-    <header className="app-header">
-      <div className="app-header-inner">
-        {/* The product name is the page's level-one heading; each page's own title is a level-two heading. */}
-        <h1 className="brand-heading">
-          <Link href="/" className="brand" aria-label={t('shell.home')}>
-            <img className="brand-icon" src="/icon.svg" alt="" width={44} height={44} />
-            <span className="brand-long brand-words">
-              <span>
-                VergissMein<span className="brand-accent">Nicht</span>
-              </span>
-              <span className="brand-tagline">{t('shell.tagline')}</span>
-            </span>
-            <span className="brand-short" aria-hidden="true">
-              VMN
-            </span>
-          </Link>
-        </h1>
-        {workspaces !== null && workspaces.length > 0 && (
-          <label className="workspace-select">
-            <select
-              aria-label={t('shell.workspace')}
-              value={workspaceId ?? ''}
-              onChange={(e) => navigate(paths.home(e.target.value))}
-            >
-              {workspaceId === null && <option value="">{t('shell.choose')}</option>}
-              {workspaces.map((workspace) => (
-                <option key={workspace.id} value={workspace.id}>
-                  {t('workspace.option', { name: workspace.name, role: roleLabel(workspace.role) })}
-                </option>
-              ))}
-            </select>
-          </label>
-        )}
-        <UserMenu user={props.user} onSignOut={props.onSignOut} />
-      </div>
-      {workspaceId !== null && (
-        <div className="app-header-inner" style={{ paddingTop: 0 }}>
-          <nav aria-label={t('shell.sections')} className="nav section-nav">
-            <NavLink href={paths.home(workspaceId)} current={route.page === 'workspace'}>
-              {t('shell.workspaceHome')}
-            </NavLink>
-            <NavLink href={paths.calendar(workspaceId)} current={route.page === 'calendar'}>
-              {t('shell.calendar')}
-            </NavLink>
-            <NavLink href={paths.procedures(workspaceId)} current={route.page === 'procedures'}>
-              {t('shell.procedures')}
-            </NavLink>
-            <NavLink href={paths.history(workspaceId)} current={route.page === 'history'}>
-              {t('shell.history')}
-            </NavLink>
-            <NavLink href={paths.members(workspaceId)} current={route.page === 'members'}>
-              {t('shell.members')}
-            </NavLink>
-            {props.capabilities?.includes('knot.manage') === true && (
-              <NavLink href={paths.knots(workspaceId)} current={route.page === 'knots'}>
-                {t('shell.knots')}
-              </NavLink>
-            )}
-          </nav>
-        </div>
-      )}
-    </header>
+    <>
+      {items.map((item) => (
+        <Link key={item.href} href={item.href} aria-current={item.pages.includes(page) ? 'page' : undefined}>
+          <UiIcon name={item.icon} size="1.4em" />
+          <span>{item.label}</span>
+        </Link>
+      ))}
+    </>
   );
 }
 
@@ -130,9 +88,7 @@ function WorkspacePage(props: {
   route: WorkspaceRoute;
   user: CurrentUser;
   onWorkspacesChanged: () => void;
-  onCapabilities: (workspaceId: string, capabilities: readonly string[]) => void;
 }) {
-  const { onCapabilities } = props;
   const { route } = props;
   const [context, setContext] = useState<WorkspaceContext | null>(null);
   const [message, setMessage] = useState<string | null>(null);
@@ -144,7 +100,6 @@ function WorkspacePage(props: {
         setContext({ workspace: result.workspace, capabilities: result.capabilities });
         setMessage(null);
         rememberWorkspace(result.workspace.id);
-        onCapabilities(result.workspace.id, result.capabilities);
         void offlineStore.saveWorkspace(userId, { workspace: result.workspace, capabilities: result.capabilities });
       },
       async (caught: unknown) => {
@@ -153,14 +108,13 @@ function WorkspacePage(props: {
         if (saved !== undefined) {
           setContext({ workspace: saved.workspace, capabilities: saved.capabilities });
           setMessage(null);
-          onCapabilities(saved.workspace.id, saved.capabilities);
           return;
         }
         setContext(null);
         setMessage(messageFor(caught));
       },
     );
-  }, [route.workspaceId, onCapabilities, userId]);
+  }, [route.workspaceId, userId]);
   useEffect(load, [load]);
 
   if (message !== null) return <p role="alert">{message}</p>;
@@ -170,21 +124,47 @@ function WorkspacePage(props: {
     load();
     props.onWorkspacesChanged();
   };
+  /** What the person may create here (UI only): drives the Add chooser. */
+  const canAdd = { procedure: can('procedure.edit'), reminder: can('schedule.manage'), list: can('list.edit') };
+  const settings = (current: 'settings' | 'members' | 'knots', content: ReactNode) => (
+    <SettingsLayout
+      title={t('menu.workspaceSettings')}
+      subtitle={context.workspace.name}
+      navLabel={t('menu.workspaceSettings')}
+      sections={workspaceSettingsSections(route.workspaceId, context.capabilities, current)}
+    >
+      {content}
+    </SettingsLayout>
+  );
 
   const openRun = (runId: string) => navigate(paths.run(route.workspaceId, runId));
   switch (route.page) {
     case 'workspace':
       return (
-        <Home
+        <Today
           workspaceId={route.workspaceId}
-          workspaceName={context.workspace.name}
           userId={props.user.id}
+          canStart={can('run.start')}
+          canSchedule={can('schedule.manage')}
+          canExecute={can('run.execute')}
+          canAdd={canAdd}
+          onOpenRun={openRun}
+        />
+      );
+    case 'reminders':
+      return (
+        <Reminders
+          workspaceId={route.workspaceId}
+          userId={props.user.id}
+          creating={route.creating}
           canStart={can('run.start')}
           canSchedule={can('schedule.manage')}
           canExecute={can('run.execute')}
           onOpenRun={openRun}
         />
       );
+    case 'lists':
+      return <Lists key={route.listId ?? 'overview'} workspaceId={route.workspaceId} listId={route.listId} creating={route.creating} canEdit={can('list.edit')} />;
     case 'calendar':
       return (
         <Calendar
@@ -196,6 +176,8 @@ function WorkspacePage(props: {
           onOpenRun={openRun}
         />
       );
+    case 'more':
+      return <MorePage workspaceId={route.workspaceId} />;
     case 'history':
     case 'run':
       return (
@@ -224,14 +206,27 @@ function WorkspacePage(props: {
           onOpenRun={openRun}
         />
       );
-    case 'members':
-      return <MembersPage key={context.workspace.name} context={context} currentUserId={props.user.id} onWorkspacesChanged={reload} />;
-    case 'knots':
-      return can('knot.manage') ? (
-        <KnotsPage workspaceId={route.workspaceId} />
+    case 'procedure-edit':
+      return can('procedure.edit') ? (
+        <ProcedureBuilder
+          key={route.procedureId ?? 'new'}
+          workspaceId={route.workspaceId}
+          procedureId={route.procedureId}
+          canStart={can('run.start')}
+          canSchedule={can('schedule.manage')}
+          onOpenRun={openRun}
+        />
       ) : (
-        <p role="alert">{t('knot.manageOnly')}</p>
+        <p role="alert">
+          {t('builder.editOnly')} <Link href={paths.procedures(route.workspaceId)}>{t('builder.backToProcedures')}</Link>
+        </p>
       );
+    case 'settings':
+      return settings('settings', <WorkspaceGeneral key={context.workspace.name} context={context} onWorkspacesChanged={reload} />);
+    case 'members':
+      return settings('members', <MembersPage context={context} currentUserId={props.user.id} />);
+    case 'knots':
+      return settings('knots', can('knot.manage') ? <KnotsPage workspaceId={route.workspaceId} /> : <p role="alert">{t('knot.manageOnly')}</p>);
   }
 }
 
@@ -254,6 +249,51 @@ function NoWorkspace({ user }: { user: CurrentUser }) {
   );
 }
 
+/** Profile & settings (15.1): personal notifications, appearance, password and security, confirmations. */
+function AccountPage({ user, section }: { user: CurrentUser; section: Extract<Route, { page: 'account' }>['section'] }) {
+  return (
+    <SettingsLayout
+      title={t('account.heading')}
+      subtitle={t('account.identity', { name: user.displayName, email: user.email })}
+      navLabel={t('account.heading')}
+      sections={ACCOUNT_SECTIONS.map((value) => ({ href: paths.account(value), label: t(`account.section.${value}`), current: value === section }))}
+    >
+      {section === 'notifications' && (
+        <div className="card">
+          <NotificationSettings serverAdmin={user.serverAdmin} />
+        </div>
+      )}
+      {section === 'appearance' && (
+        <div className="card">
+          <AppearanceSettings />
+        </div>
+      )}
+      {section === 'security' && (
+        <>
+          <div className="card">
+            <ChangePassword />
+          </div>
+          <div className="card">
+            <AccountSecurity />
+          </div>
+        </>
+      )}
+      {section === 'confirmations' && (
+        <div className="card">
+          <CriticalConfirmSettings />
+        </div>
+      )}
+    </SettingsLayout>
+  );
+}
+
+/** How wide the page may get: forms and lists stay readable, the builder uses the screen. */
+function widthOf(route: Route): 'narrow' | 'wide' | undefined {
+  if (route.page === 'procedure-edit') return 'wide';
+  if (route.page === 'lists' || route.page === 'more' || route.page === 'workspace' || route.page === 'reminders') return 'narrow';
+  return undefined;
+}
+
 export function AppShell(props: { user: CurrentUser; route: Route; onSignOut: () => void }) {
   const { user, route } = props;
   const { queued } = useOffline();
@@ -264,11 +304,6 @@ export function AppShell(props: { user: CurrentUser; route: Route; onSignOut: ()
   };
   const [workspaces, setWorkspaces] = useState<WorkspaceSummary[] | null>(null);
   const [message, setMessage] = useState<string | null>(null);
-  const [capabilities, setCapabilities] = useState<{ workspaceId: string; list: readonly string[] } | null>(null);
-  const reportCapabilities = useCallback(
-    (id: string, list: readonly string[]) => setCapabilities({ workspaceId: id, list }),
-    [],
-  );
 
   const refresh = useCallback(() => {
     api.workspaces().then(
@@ -294,46 +329,26 @@ export function AppShell(props: { user: CurrentUser; route: Route; onSignOut: ()
   }, [route.page, workspaces]);
 
   const workspaceId = 'workspaceId' in route ? route.workspaceId : null;
+  // On pages without a Workspace (settings, admin) the tools stay reachable: they lead to the last used one.
+  const remembered = workspaceId === null ? rememberedWorkspace() : null;
+  const navWorkspaceId = workspaceId ?? workspaces?.find((workspace) => workspace.id === remembered)?.id ?? null;
+  const nav = navWorkspaceId === null ? null : destinations(navWorkspaceId);
+  // Focused work hides the global navigation: the builder everywhere, an execution on phones.
+  const focus = route.page === 'procedure-edit' ? 'edit' : route.page === 'run' ? 'run' : undefined;
 
   let content;
   if (route.page === 'account') {
-    content = (
-      <>
-        <div className="page-header">
-          <h2>{t('account.heading')}</h2>
-          <span className="muted">{t('account.identity', { name: user.displayName, email: user.email })}</span>
-        </div>
-        <div className="card">
-          <NotificationSettings serverAdmin={user.serverAdmin} />
-        </div>
-        <div className="card">
-          <ChangePassword />
-        </div>
-        <div className="card">
-          <AccountSecurity />
-        </div>
-        <div className="card">
-          <AppearanceSettings />
-        </div>
-        <div className="card">
-          <CriticalConfirmSettings />
-        </div>
-      </>
-    );
+    content = <AccountPage user={user} section={route.section} />;
   } else if (route.page === 'admin') {
-    content = user.serverAdmin ? <AdminPage currentUserId={user.id} onWorkspacesChanged={refresh} /> : <p role="alert">{t('admin.onlyServerAdmins')}</p>;
+    content = user.serverAdmin ? (
+      <AdminPage section={route.section} currentUserId={user.id} onWorkspacesChanged={refresh} />
+    ) : (
+      <p role="alert">{t('admin.onlyServerAdmins')}</p>
+    );
   } else if (route.page === 'knot') {
     content = <KnotOpener token={route.token} />;
-  } else if (
-    route.page === 'workspace' ||
-    route.page === 'calendar' ||
-    route.page === 'history' ||
-    route.page === 'run' ||
-    route.page === 'procedures' ||
-    route.page === 'members' ||
-    route.page === 'knots'
-  ) {
-    content = <WorkspacePage route={route} user={user} onWorkspacesChanged={refresh} onCapabilities={reportCapabilities} />;
+  } else if ('workspaceId' in route) {
+    content = <WorkspacePage route={route} user={user} onWorkspacesChanged={refresh} />;
   } else if (route.page === 'home') {
     const loading = <p>{t('common.loading')}</p>;
     content = workspaces === null ? loading : workspaces.length === 0 ? <NoWorkspace user={user} /> : loading;
@@ -347,20 +362,60 @@ export function AppShell(props: { user: CurrentUser; route: Route; onSignOut: ()
 
   return (
     <PreferencesProvider>
-      <Header
-        user={user}
-        route={route}
-        workspaces={workspaces}
-        workspaceId={workspaceId}
-        capabilities={capabilities !== null && capabilities.workspaceId === workspaceId ? capabilities.list : null}
-        onSignOut={signOut}
-      />
-      <main className="app-main">
-        <OfflineBanner />
-        {message !== null && <p role="alert">{message}</p>}
-        {content}
-        <SourceFooter />
-      </main>
+      <a
+        className="skip-link"
+        href="#main"
+        onClick={(event) => {
+          event.preventDefault();
+          document.getElementById('main')?.focus();
+        }}
+      >
+        {t('shell.skipToContent')}
+      </a>
+      <div className="shell" data-focus={focus}>
+        <header className="shell-side">
+          {/* The product name is the page's level-one heading; each page's own title is a level-two heading. */}
+          <h1 className="brand-heading">
+            <Link href="/" className="brand" aria-label={t('shell.home')}>
+              <img className="brand-icon" src="/icon.svg" alt="" width={36} height={36} />
+              <span className="brand-long">
+                VergissMein<span className="brand-accent">Nicht</span>
+              </span>
+            </Link>
+          </h1>
+          {workspaces !== null && workspaces.length > 0 && (
+            <label className="workspace-select">
+              <select aria-label={t('shell.workspace')} value={navWorkspaceId ?? ''} onChange={(e) => navigate(paths.home(e.target.value))}>
+                {navWorkspaceId === null && <option value="">{t('shell.choose')}</option>}
+                {workspaces.map((workspace) => (
+                  <option key={workspace.id} value={workspace.id}>
+                    {t('workspace.option', { name: workspace.name, role: roleLabel(workspace.role) })}
+                  </option>
+                ))}
+              </select>
+            </label>
+          )}
+          {nav !== null && (
+            <nav aria-label={t('shell.tools')} className="side-nav">
+              <NavLinks items={nav.side} page={route.page} />
+            </nav>
+          )}
+          <SettingsMenu user={user} workspaceId={navWorkspaceId} currentPath={window.location.pathname} onSignOut={signOut} />
+        </header>
+        <div className="shell-main">
+          <main id="main" tabIndex={-1} className="app-main" data-width={widthOf(route)}>
+            <OfflineBanner />
+            {message !== null && <p role="alert">{message}</p>}
+            {content}
+            <SourceFooter />
+          </main>
+        </div>
+        {nav !== null && (
+          <nav aria-label={t('shell.tools')} className="tab-bar">
+            <NavLinks items={nav.bar} page={route.page} />
+          </nav>
+        )}
+      </div>
     </PreferencesProvider>
   );
 }

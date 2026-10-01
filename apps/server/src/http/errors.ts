@@ -8,6 +8,11 @@ import {
   KnotRecordNotFoundError,
   KnotTargetNotFoundError,
   ImageNotFoundError,
+  ListConflictError,
+  ListItemLimitReachedError,
+  ListItemNotFoundError,
+  ListLimitReachedError,
+  ListNotFoundError,
   ImageQuotaExceededError,
   ImageRejectedError,
   AccountAlreadyExistsError,
@@ -137,6 +142,11 @@ export function errorHandler(error: FastifyError | Error, request: FastifyReques
   if (error instanceof KnotAlreadyRevokedError) return reply.code(409).send({ error: 'knot_already_revoked' });
   if (error instanceof KnotTargetNotFoundError) return reply.code(404).send({ error: 'knot_target_not_found' });
   if (error instanceof KnotLimitReachedError) return reply.code(409).send({ error: 'knot_limit_reached' });
+  if (error instanceof ListNotFoundError) return reply.code(404).send({ error: 'list_not_found' });
+  if (error instanceof ListItemNotFoundError) return reply.code(404).send({ error: 'list_item_not_found' });
+  if (error instanceof ListConflictError) return reply.code(409).send({ error: 'list_conflict' });
+  if (error instanceof ListLimitReachedError) return reply.code(409).send({ error: 'list_limit_reached' });
+  if (error instanceof ListItemLimitReachedError) return reply.code(409).send({ error: 'list_item_limit_reached' });
   if (error instanceof ImageNotFoundError) return reply.code(404).send({ error: 'image_not_found' });
   // The stable reason only (e.g. heic_unsupported); never anything about the file's content.
   if (error instanceof ImageRejectedError) return reply.code(422).send({ error: 'image_rejected', reason: error.code });

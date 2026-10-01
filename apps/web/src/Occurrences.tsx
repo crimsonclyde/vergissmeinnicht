@@ -1,16 +1,15 @@
 import { addInterval, type LocalDate } from '@vergissmeinnicht/domain';
-import { useCallback, useEffect, useId, useRef, useState, type FormEvent, type ReactNode } from 'react';
-import { api, isNetworkError, messageFor, type HomeOverview, type Occurrence, type PersonRef, type ProcedureCard, type RunSummary, type ScheduleInput } from './api.ts';
+import { useState } from 'react';
+import { api, messageFor, type Occurrence, type PersonRef, type RunSummary, type ScheduleInput } from './api.ts';
+import { FormDialog } from './FormDialog.tsx';
 import { formatCalendarDate, formatDateTime, formatRelative, t } from './i18n/index.ts';
 import { MoreMenu } from './MoreMenu.tsx';
-import { useOffline } from './offline/OfflineProvider.tsx';
-import { offlineStore } from './offline/store.ts';
 import { AppIcon } from './procedure-icons.tsx';
 import { Link, paths } from './router.tsx';
-import { summaryOf } from './Runs.tsx';
 import { ScheduleDialog, recurrenceLabel, reminderLabel } from './ScheduleDialog.tsx';
 import { todayIn } from './schedule-dates.ts';
-import { StartControl, useStartFlow } from './StartProcedure.tsx';
+import { useStartFlow } from './StartProcedure.tsx';
+import { UiIcon } from './ui-icons.tsx';
 
 export interface Capabilities {
   readonly canStart: boolean;
@@ -18,22 +17,8 @@ export interface Capabilities {
   readonly canExecute: boolean;
 }
 
-/** Other members' changes appear without reloading: Home refreshes this often while it is visible. */
-const REFRESH_MS = 30_000;
-const FILTER_KEY = 'vmn.homeFilter';
-type Filter = 'ALL' | 'MINE' | 'SHARED';
-
-function storedFilter(): Filter {
-  try {
-    const value = window.localStorage.getItem(FILTER_KEY);
-    return value === 'MINE' || value === 'SHARED' ? value : 'ALL';
-  } catch {
-    return 'ALL';
-  }
-}
-
 /** "Thu, Oct 15, 2026, 18:00". */
-function when(item: Pick<Occurrence, 'dueDate' | 'time'>): string {
+export function when(item: Pick<Occurrence, 'dueDate' | 'time'>): string {
   return item.time === null ? formatCalendarDate(item.dueDate) : t('home.dateTime', { date: formatCalendarDate(item.dueDate), time: item.time });
 }
 
@@ -51,55 +36,12 @@ function scheduleInputOf(item: Occurrence): ScheduleInput {
   };
 }
 
-/** A small modal form (skip, move, assign, link, resume): the native dialog handles focus and Escape. */
-function FormDialog(props: { title: string; submitLabel: string; danger?: boolean; onSubmit: () => Promise<void>; onClose: () => void; children?: ReactNode }) {
-  const ref = useRef<HTMLDialogElement>(null);
-  const headingId = useId();
-  const [message, setMessage] = useState<string | null>(null);
-  const [busy, setBusy] = useState(false);
-  useEffect(() => {
-    const dialog = ref.current;
-    if (dialog !== null && !dialog.open) dialog.showModal();
-  }, []);
-  async function submit(event: FormEvent) {
-    event.preventDefault();
-    setBusy(true);
-    setMessage(null);
-    try {
-      await props.onSubmit();
-      ref.current?.close();
-    } catch (caught) {
-      setMessage(messageFor(caught));
-    } finally {
-      setBusy(false);
-    }
-  }
-  return (
-    <dialog ref={ref} className="dialog" aria-labelledby={headingId} onClose={props.onClose}>
-      <form onSubmit={(event) => void submit(event)} className="stack">
-        <h2 id={headingId} style={{ margin: 0 }}>
-          {props.title}
-        </h2>
-        {message !== null && <p role="alert">{message}</p>}
-        {props.children}
-        <div className="row">
-          <button type="submit" className={props.danger === true ? 'danger' : 'primary'} disabled={busy}>
-            {props.submitLabel}
-          </button>
-          <button type="button" onClick={() => ref.current?.close()}>
-            {t('common.cancel')}
-          </button>
-        </div>
-      </form>
-    </dialog>
-  );
-}
-
 type OpenDialog = 'edit' | 'skip' | 'move' | 'assign' | 'link' | 'resume' | null;
 
 /**
- * One Occurrence (Overdue, Today or Upcoming): type, title, due date, who is responsible and the one
- * next action — Complete (Reminder), Start or Continue (Procedure). Everything else is under ⋯.
+ * One Occurrence (Overdue, Today or Upcoming), kept concise (15.1): the title, one line of context (when
+ * and who is responsible) and the one next action — Done (Reminder), Start or Continue (Procedure).
+ * Type, repetition, reminders and every management action are under ⋯.
  */
 export function OccurrenceItem(props: {
   workspaceId: string;
@@ -110,10 +52,13 @@ export function OccurrenceItem(props: {
   members: readonly PersonRef[] | null;
   onOpenRun: (runId: string) => void;
   onChanged: () => void;
+  /** A Reminder was just completed here (so the page can offer Undo). */
+  onCompleted?: (item: Occurrence) => void;
 }) {
   const { item } = props;
   const { schedule } = item;
   const [dialog, setDialog] = useState<OpenDialog>(null);
+  const [details, setDetails] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [reason, setReason] = useState('');
@@ -152,11 +97,15 @@ export function OccurrenceItem(props: {
     schedule.recurrence.kind === 'AFTER_COMPLETION' ? formatCalendarDate(addInterval(today as LocalDate, schedule.recurrence.unit, schedule.recurrence.interval)) : null;
 
   const status = overdue
-    ? t('home.overdue', { date: when(item) })
+    ? t('home.wasDue', { date: when(item) })
     : item.dueDate === today
       ? t('home.today', { when: item.time ?? '' })
       : when(item);
+  const dueNow = overdue || item.dueDate === today;
+  const responsible = item.responsible === null ? t('home.shared') : t('home.assignedTo', { name: item.responsible.name });
   const menu = [
+    // Secondary facts (type, repetition, reminders) are one tap away instead of on every card.
+    { label: t(details ? 'occurrence.hideDetails' : 'occurrence.details'), onSelect: () => setDetails((value) => !value) },
     ...(props.can.canExecute && item.state === 'OPEN' ? [{ label: t('occurrence.skip'), onSelect: () => setDialog('skip') }] : []),
     ...(props.can.canSchedule && item.state === 'OPEN' ? [{ label: t('occurrence.move'), onSelect: () => setDialog('move') }] : []),
     ...(props.can.canSchedule && props.members !== null ? [{ label: t('occurrence.assign'), onSelect: () => setDialog('assign') }] : []),
@@ -203,81 +152,82 @@ export function OccurrenceItem(props: {
   ];
 
   return (
-    <li className={`card home-item${overdue || item.dueDate === today ? ' home-due' : ''}`} data-timeliness={overdue ? 'OVERDUE' : item.dueDate === today ? 'TODAY' : 'UPCOMING'}>
-      <div className="home-item-main">
-        <div>
-          <strong>
-            <AppIcon name={schedule.procedure?.icon ?? 'reminder'} /> {schedule.title}
-          </strong>
-          {props.older.length > 0 && (
-            <>
-              {' '}
-              <span className="badge">{t('home.overdueCount', { count: props.older.length + 1 })}</span>
-            </>
-          )}
-          <br />
-          <small className={overdue ? 'state-text-PENDING' : 'muted'}>
-            {overdue && <span aria-hidden="true">! </span>}
-            {status}
-            {' · '}
-            {t(isProcedure ? 'home.kindProcedure' : 'home.kindReminder')}
-            {schedule.recurrence.kind !== 'ONCE' && ` · ${recurrenceLabel(schedule.recurrence)}`}
-          </small>
-          <br />
+    <li className="card item-card" data-timeliness={overdue ? 'OVERDUE' : item.dueDate === today ? 'TODAY' : 'UPCOMING'}>
+      <div className="item-main">
+        <span className="item-icon">
+          <AppIcon name={schedule.procedure?.icon ?? 'reminder'} decorative />
+        </span>
+        <div className="item-body">
+          <span className="item-title">
+            <strong>{schedule.title}</strong>
+            {overdue && (
+              <span className="badge badge-overdue">
+                <span aria-hidden="true">! </span>
+                {props.older.length > 0 ? t('home.overdueCount', { count: props.older.length + 1 }) : t('home.overdueBadge')}
+              </span>
+            )}
+          </span>
+          {/* One line of context: when, and who is responsible. */}
           <small className="muted">
-            {item.responsible === null ? t('home.shared') : t('home.assignedTo', { name: item.responsible.name })}
-            {item.state === 'IN_PROGRESS' && item.run !== null && ` · ${t('home.inProgressBy', { name: item.run.startedBy, ago: formatRelative(item.run.startedAt) })}`}
+            {item.state === 'IN_PROGRESS' && item.run !== null ? t('home.inProgressBy', { name: item.run.startedBy, ago: formatRelative(item.run.startedAt) }) : `${status} · ${responsible}`}
             {schedule.state === 'PAUSED' && ` · ${t('home.paused')}`}
           </small>
-          {!overdue && item.dueDate !== today && schedule.reminders.length > 0 && (
-            <>
+          {deleted && <small role="note">{t('home.procedureDeleted')}</small>}
+          {details && (
+            <small className="muted item-details">
+              {t(isProcedure ? 'home.kindProcedure' : 'home.kindReminder')} · {recurrenceLabel(schedule.recurrence)}
+              {item.state === 'IN_PROGRESS' && ` · ${status} · ${responsible}`}
               <br />
-              <small className="muted">{t('home.reminders', { list: schedule.reminders.map((reminder) => reminderLabel(reminder, true)).join(', ') })}</small>
-            </>
-          )}
-          {deleted && (
-            <>
-              <br />
-              <small role="note">{t('home.procedureDeleted')}</small>
-            </>
+              {schedule.reminders.length > 0 ? t('home.reminders', { list: schedule.reminders.map((reminder) => reminderLabel(reminder, true)).join(', ') }) : t('home.noReminders')}
+              {schedule.description !== '' && (
+                <>
+                  <br />
+                  {schedule.description}
+                </>
+              )}
+            </small>
           )}
         </div>
-        <div className="row">
+        <div className="item-actions">
           {item.state === 'IN_PROGRESS' && item.run !== null ? (
             <Link href={paths.run(props.workspaceId, item.run.id)} className="button primary" aria-label={t('home.continueNamed', { title: schedule.title })}>
-              {t('home.continue')}
+              {t('home.continue')} <UiIcon name="forward" />
             </Link>
           ) : isProcedure ? (
             props.can.canStart &&
             !deleted && (
               <button
                 type="button"
-                className={overdue || item.dueDate === today ? 'primary' : undefined}
+                className={dueNow ? 'primary' : undefined}
                 disabled={flow.busy}
-                aria-label={t(overdue || item.dueDate === today ? 'home.startNamed' : 'home.startEarlyNamed', { title: schedule.title })}
+                aria-label={t(dueNow ? 'home.startNamed' : 'home.startEarlyNamed', { title: schedule.title })}
                 onClick={() => {
                   setMessage(null);
                   void flow.begin();
                 }}
               >
-                {t(overdue || item.dueDate === today ? 'start.button' : 'home.startEarly')}
+                {t(dueNow ? 'start.button' : 'home.startEarly')}
               </button>
             )
           ) : (
             props.can.canExecute && (
               <button
                 type="button"
-                className={overdue || item.dueDate === today ? 'primary' : undefined}
+                className={dueNow ? 'done-action' : undefined}
                 disabled={busy}
                 aria-label={t('home.completeNamed', { title: schedule.title })}
-                onClick={() => void act(() => api.completeOccurrence(props.workspaceId, item.id))}
+                onClick={() =>
+                  void act(async () => {
+                    await api.completeOccurrence(props.workspaceId, item.id);
+                    props.onCompleted?.(item);
+                  })
+                }
               >
-                <span aria-hidden="true">✓ </span>
-                {t('home.complete')}
+                {t('home.done')} <UiIcon name="check" />
               </button>
             )
           )}
-          {menu.length > 0 && <MoreMenu label={t('home.moreFor', { title: schedule.title })} items={menu} />}
+          <MoreMenu label={t('home.moreFor', { title: schedule.title })} items={menu} />
         </div>
       </div>
       {message !== null && <p role="alert">{message}</p>}
@@ -435,12 +385,16 @@ export function DoneItem(props: { workspaceId: string; item: Occurrence; can: Ca
     props.onChanged();
   };
   return (
-    <li className="card home-item">
-      <div className="home-item-main">
-        <div>
-          <span aria-hidden="true">{item.state === 'COMPLETED' ? '✓ ' : '↷ '}</span>
-          <AppIcon name={item.schedule.procedure?.icon ?? 'reminder'} /> {item.schedule.title}
-          <br />
+    <li className="card item-card">
+      <div className="item-main">
+        <span className="item-icon item-icon-quiet">
+          <AppIcon name={item.schedule.procedure?.icon ?? 'reminder'} decorative />
+        </span>
+        <div className="item-body">
+          <span className="item-title">
+            <span aria-hidden="true">{item.state === 'COMPLETED' ? '✓ ' : '↷ '}</span>
+            {item.schedule.title}
+          </span>
           <small className="muted">
             {t(item.state === 'COMPLETED' ? 'home.completedBy' : 'home.skippedBy', {
               name: item.closed?.by ?? '',
@@ -451,9 +405,11 @@ export function DoneItem(props: { workspaceId: string; item: Occurrence; can: Ca
           </small>
         </div>
         {props.can.canExecute && (item.schedule.kind === 'REMINDER' || item.state === 'SKIPPED') && (
-          <button type="button" className="quiet" aria-label={t('home.undoNamed', { title: item.schedule.title })} onClick={() => void undo()}>
-            {t('home.undo')}
-          </button>
+          <div className="item-actions">
+            <button type="button" className="quiet" aria-label={t('home.undoNamed', { title: item.schedule.title })} onClick={() => void undo()}>
+              {t('home.undo')}
+            </button>
+          </div>
         )}
       </div>
       {message !== null && <p role="alert">{message}</p>}
@@ -461,60 +417,37 @@ export function DoneItem(props: { workspaceId: string; item: Occurrence; can: Ca
   );
 }
 
-function ActiveItem({ workspaceId, run }: { workspaceId: string; run: RunSummary }) {
+/** A Run in progress: title, how far it is, and Continue. */
+export function ActiveRunItem({ workspaceId, run }: { workspaceId: string; run: RunSummary }) {
   const total = Object.values(run.stepCounts).reduce((sum, n) => sum + n, 0);
   const resolved = total - run.stepCounts.PENDING;
   return (
-    <li className="card home-item">
-      <div className="home-item-main">
-        <div>
-          <strong>
-            <AppIcon name={run.icon} /> {run.title}
-          </strong>
-          <br />
-          <small className="muted">
-            {t('home.startedBy', { name: run.startedBy, ago: formatRelative(run.startedAt) })} · {t('home.progress', { resolved, total })}
-          </small>
+    <li className="card item-card">
+      <div className="item-main">
+        <span className="item-icon">
+          <AppIcon name={run.icon} decorative />
+        </span>
+        <div className="item-body">
+          <span className="item-title">
+            <strong>{run.title}</strong>
+          </span>
+          <small className="muted">{t('home.progress', { resolved, total })}</small>
+          <span className="progress item-progress" role="progressbar" aria-valuemin={0} aria-valuemax={total} aria-valuenow={resolved} aria-label={t('run.progressLabel')}>
+            <span style={{ width: `${total === 0 ? 0 : Math.round((resolved / total) * 100)}%` }} />
+          </span>
         </div>
-        <Link href={paths.run(workspaceId, run.id)} className="button primary" aria-label={t('home.continueNamed', { title: run.title })}>
-          {t('home.continue')}
-        </Link>
-      </div>
-    </li>
-  );
-}
-
-function ProcedureItem(props: { workspaceId: string; card: ProcedureCard; can: Capabilities; onOpenRun: (runId: string) => void; onChanged: () => void }) {
-  const { card } = props;
-  return (
-    <li className="card home-item">
-      <div className="home-item-main">
-        <div>
-          <Link href={paths.procedure(props.workspaceId, card.id)} className="procedure-link">
-            <AppIcon name={card.icon} /> {card.title}
+        <div className="item-actions">
+          <Link href={paths.run(workspaceId, run.id)} className="button primary" aria-label={t('home.continueNamed', { title: run.title })}>
+            {t('home.continue')} <UiIcon name="forward" />
           </Link>
-          {card.lastCompletedAt !== null && (
-            <>
-              <br />
-              <small className="muted">{t('procedures.lastCompleted', { ago: formatRelative(card.lastCompletedAt) })}</small>
-            </>
-          )}
         </div>
-        <StartControl
-          workspaceId={props.workspaceId}
-          procedure={card}
-          canStart={props.can.canStart}
-          canSchedule={props.can.canSchedule}
-          onOpenRun={props.onOpenRun}
-          onScheduled={props.onChanged}
-        />
       </div>
     </li>
   );
 }
 
 /** Overdue Occurrences of one Schedule shown once: the newest, with the older ones counted. */
-function groupOverdue(items: readonly Occurrence[]): { item: Occurrence; older: Occurrence[] }[] {
+export function groupOverdue(items: readonly Occurrence[]): { item: Occurrence; older: Occurrence[] }[] {
   const bySchedule = new Map<string, Occurrence[]>();
   for (const item of items) bySchedule.set(item.schedule.id, [...(bySchedule.get(item.schedule.id) ?? []), item]);
   return [...bySchedule.values()].map((group) => {
@@ -523,170 +456,3 @@ function groupOverdue(items: readonly Occurrence[]): { item: Occurrence; older: 
     return { item: newest, older: sorted.slice(0, -1) };
   });
 }
-
-/**
- * Workspace Home (13.9, 14.2): what needs attention now (Overdue, Today), what is coming (Upcoming, 90
- * days), what was just done, what is going on (Active), what one uses (Pinned, Recent). Calm on purpose:
- * one clear next action per row, no statistics, no charts.
- */
-export function Home(props: {
-  workspaceId: string;
-  workspaceName: string;
-  userId: string;
-  canStart: boolean;
-  canSchedule: boolean;
-  canExecute: boolean;
-  onOpenRun: (runId: string) => void;
-}) {
-  const { workspaceId } = props;
-  const { userId, reportReachable, reportUnreachable } = useOffline();
-  const [home, setHome] = useState<HomeOverview | null>(null);
-  const [offlineActive, setOfflineActive] = useState<readonly RunSummary[] | null>(null);
-  const [members, setMembers] = useState<readonly PersonRef[] | null>(null);
-  const [message, setMessage] = useState<string | null>(null);
-  const [filter, setFilter] = useState<Filter>(storedFilter);
-  const [creating, setCreating] = useState(false);
-
-  const load = useCallback(() => {
-    api.home(workspaceId).then(
-      (loaded) => {
-        setHome(loaded);
-        setOfflineActive(null);
-        setMessage(null);
-        reportReachable();
-      },
-      async (caught: unknown) => {
-        if (!isNetworkError(caught)) {
-          setMessage(messageFor(caught));
-          return;
-        }
-        // Offline: the active executions saved on this device (8.5).
-        reportUnreachable();
-        const saved = await offlineStore.listRuns(userId, workspaceId);
-        setOfflineActive(saved.map((entry) => summaryOf(entry.run)));
-      },
-    );
-  }, [workspaceId, userId, reportReachable, reportUnreachable]);
-  useEffect(load, [load]);
-  // Changes by other members arrive without a reload: refresh while visible, and when coming back.
-  useEffect(() => {
-    const refresh = () => {
-      if (document.visibilityState === 'visible') load();
-    };
-    const timer = window.setInterval(refresh, REFRESH_MS);
-    document.addEventListener('visibilitychange', refresh);
-    return () => {
-      window.clearInterval(timer);
-      document.removeEventListener('visibilitychange', refresh);
-    };
-  }, [load]);
-  useEffect(() => {
-    if (!props.canSchedule) return;
-    api.members(workspaceId).then(
-      (list) => setMembers(list.map((member) => ({ id: member.userId, name: member.displayName }))),
-      () => setMembers(null),
-    );
-  }, [workspaceId, props.canSchedule]);
-
-  const chooseFilter = (next: Filter) => {
-    setFilter(next);
-    try {
-      window.localStorage.setItem(FILTER_KEY, next);
-    } catch {
-      /* per-viewer convenience only */
-    }
-  };
-  const shown = (item: Occurrence) => filter === 'ALL' || (filter === 'MINE' ? item.responsible?.id === props.userId : item.responsible === null);
-  const can = { canStart: props.canStart, canSchedule: props.canSchedule, canExecute: props.canExecute };
-  const active = home?.active ?? offlineActive ?? [];
-  const overdue = groupOverdue((home?.overdue ?? []).filter(shown));
-  const today = (home?.today ?? []).filter(shown);
-  const upcoming = (home?.upcoming ?? []).filter(shown);
-  const done = home?.recentlyDone ?? [];
-  const nothingToDo = home !== null && overdue.length + today.length === 0;
-  const empty = home !== null && home.overdue.length + home.today.length + home.upcoming.length + home.active.length + home.pinned.length + home.recent.length + done.length === 0;
-
-  const section = (id: string, label: ReactNode, children: ReactNode) => (
-    <section aria-labelledby={id} className="home-section">
-      <h3 id={id}>{label}</h3>
-      <ul className="plain-list" aria-labelledby={id}>
-        {children}
-      </ul>
-    </section>
-  );
-  const row = (item: Occurrence, older: readonly Occurrence[] = []) => (
-    <OccurrenceItem key={item.id} workspaceId={workspaceId} item={item} older={older} can={can} members={members} onOpenRun={props.onOpenRun} onChanged={load} />
-  );
-
-  return (
-    <section aria-labelledby="home-heading">
-      <div className="page-header">
-        <h2 id="home-heading">{t('home.heading', { name: props.workspaceName })}</h2>
-        {props.canSchedule && (
-          <button type="button" onClick={() => setCreating(true)}>
-            {t('home.newReminder')}
-          </button>
-        )}
-      </div>
-      {message !== null && <p role="alert">{message}</p>}
-      {home === null && offlineActive === null && message === null && <p>{t('common.loading')}</p>}
-      {offlineActive !== null && <p className="muted">{t('offline.savedList')}</p>}
-      {home !== null && !empty && (
-        <div className="row home-filter" role="group" aria-label={t('home.filter')}>
-          {(['ALL', 'MINE', 'SHARED'] as const).map((value) => (
-            <button key={value} type="button" className="quiet" aria-pressed={filter === value} onClick={() => chooseFilter(value)}>
-              {filter === value && <span aria-hidden="true">✓ </span>}
-              {t(`home.filter.${value}`)}
-            </button>
-          ))}
-        </div>
-      )}
-      {empty && (
-        <p className="card">
-          {t('home.empty')} <Link href={paths.procedures(workspaceId)}>{t('home.toProcedures')}</Link>
-        </p>
-      )}
-      {home !== null && !empty && nothingToDo && <p className="card">{t('home.nothingNeedsAttention')}</p>}
-      {overdue.length > 0 && section('home-overdue', t('home.overdueSection'), overdue.map(({ item, older }) => row(item, older)))}
-      {today.length > 0 && section('home-today', t('home.todaySection'), today.map((item) => row(item)))}
-      {upcoming.length > 0 && section('home-upcoming', t('home.upcoming'), upcoming.map((item) => row(item)))}
-      {home !== null && home.later > 0 && <p className="muted">{t('home.later', { count: home.later })}</p>}
-      {done.length > 0 &&
-        section(
-          'home-done',
-          t('home.recentlyDone'),
-          done.map((item) => <DoneItem key={item.id} workspaceId={workspaceId} item={item} can={can} onChanged={load} />),
-        )}
-      {active.length > 0 && section('home-active', t('home.active'), active.map((run) => <ActiveItem key={run.id} workspaceId={workspaceId} run={run} />))}
-      {home !== null &&
-        home.pinned.length > 0 &&
-        section(
-          'home-pinned',
-          <>
-            <span aria-hidden="true">★ </span>
-            {t('home.pinned')}
-          </>,
-          home.pinned.map((card) => <ProcedureItem key={card.id} workspaceId={workspaceId} card={card} can={can} onOpenRun={props.onOpenRun} onChanged={load} />),
-        )}
-      {home !== null &&
-        home.recent.length > 0 &&
-        section(
-          'home-recent',
-          t('home.recent'),
-          home.recent.map((card) => <ProcedureItem key={card.id} workspaceId={workspaceId} card={card} can={can} onOpenRun={props.onOpenRun} onChanged={load} />),
-        )}
-      {creating && (
-        <ScheduleDialog
-          kind="REMINDER"
-          members={members}
-          onClose={() => setCreating(false)}
-          onSubmit={async (input) => {
-            await api.createSchedule(workspaceId, input);
-            load();
-          }}
-        />
-      )}
-    </section>
-  );
-}
-

@@ -30,6 +30,11 @@ export const AUDIT_EVENT_TYPES = [
   'OCCURRENCE_ASSIGNED',
   'OCCURRENCE_RUN_LINKED',
   'OCCURRENCE_RUN_UNLINKED',
+  // Lists (15.3): the List itself only. Items carry who added and who checked them; they have no events.
+  'LIST_CREATED',
+  'LIST_RENAMED',
+  'LIST_DELETED',
+  'LIST_RESTORED',
 ] as const;
 export type AuditEventType = (typeof AUDIT_EVENT_TYPES)[number];
 
@@ -40,7 +45,7 @@ export interface AuditEvent {
   readonly occurredAt: Date;
   /** Internal id plus the display name at the time of the event. */
   readonly actor: { readonly userId: string; readonly displayName: string };
-  readonly subjectType: 'procedure' | 'run' | 'run_step' | 'knot' | 'schedule' | 'occurrence';
+  readonly subjectType: 'procedure' | 'run' | 'run_step' | 'knot' | 'schedule' | 'occurrence' | 'list';
   readonly subjectId: string;
   readonly runId: string | null;
   readonly metadata: Readonly<Record<string, string | number | boolean | readonly string[]>>;

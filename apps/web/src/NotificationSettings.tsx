@@ -5,8 +5,6 @@ import { formatDateTime, formatWhen, hasMessage, t, type MessageKey } from './i1
 /** While connecting Telegram: how often the page asks whether the chat has pressed Start. */
 const PAIRING_CHECK_MS = 3000;
 
-/** Anchor of this section, e.g. `/account#notifications` from the server admin page. */
-export const SECTION_ID = 'notifications';
 
 /** Where a person is in connecting their own Telegram chat (the server learns the chat id from /start). */
 export type TelegramStage = 'unavailable' | 'ready' | 'waiting' | 'claimed' | 'connected';
@@ -49,12 +47,6 @@ export function NotificationSettings(props: { serverAdmin: boolean }) {
   useEffect(() => {
     api.notificationSettings().then(show, (caught: unknown) => setMessage(messageFor(caught)));
   }, [show]);
-
-  // Linked from Server admin → Notification providers ("Go to my notification settings").
-  const loaded = settings !== null;
-  useEffect(() => {
-    if (loaded && window.location.hash === `#${SECTION_ID}`) document.getElementById(SECTION_ID)?.scrollIntoView({ block: 'start' });
-  }, [loaded]);
 
   // Waiting for /start in Telegram: check until a chat claimed the link (or it expired).
   const waiting = settings?.telegram.pairing !== null && settings?.telegram.pairing?.claimedBy === null;
@@ -112,7 +104,7 @@ export function NotificationSettings(props: { serverAdmin: boolean }) {
 
   if (settings === null) {
     return (
-      <section id={SECTION_ID} aria-labelledby="notifications-heading">
+      <section aria-labelledby="notifications-heading">
         <h3 id="notifications-heading" style={{ marginTop: 0 }}>
           {t('notifications.heading')}
         </h3>
@@ -121,7 +113,7 @@ export function NotificationSettings(props: { serverAdmin: boolean }) {
     );
   }
   return (
-    <section id={SECTION_ID} aria-labelledby="notifications-heading" className="stack">
+    <section aria-labelledby="notifications-heading" className="stack">
       <h3 id="notifications-heading" style={{ marginTop: 0 }}>
         {t('notifications.heading')}
       </h3>
