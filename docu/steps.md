@@ -18,10 +18,10 @@ For every completed task, add a concise completion note, tests/checks performed,
 
 ## Current state — resume here
 
-_Last updated: 2026-10-01 (section 15 implemented on `main`, **not committed and not released**; latest release is still 0.3.0-beta.4)_
+_Last updated: 2026-10-01 (section 15 committed; release 0.4.0-beta.1 in progress — 12.19)_
 
-**Done:** 0.1, 0.2, 0.3, 1.1, 1.2, 2.1–2.5, 2.7–2.9, 3.1–3.3, 4.1–4.5, 5.1–5.7, 6.1, 6.2, 7.1, 8.0–8.11, 9.1, 10.1–10.5, 11.1, 12.1–12.14, 13.1–13.19, 14.0–14.4, 12.15, 12.16, 13.20, 12.17, 12.18, 15.0–15.4. DEFERRED: 2.6 (external identity providers — a later step, user decision 2026-09-28).
-**Next:** review of section 15 by the user (working tree only — commit, push and a release when asked; the release needs migration 0026 applied: `migrate` as usual); then a beta test on real phones (bottom bar, safe areas, on-screen keyboard in the builder and Step editor, grocery list in a shop). Open from section 15: see 15.4 "Remaining". Still open from before: beta test of 0.3.0-beta.4 (calendar and agenda, also on a real phone); 14.5 later; the rest of the real-iPhone photo matrix (see 14.3 Remaining); upgrade of real data not yet confirmed; beta feedback on the icon catalogue (12.11, 12.13); GHCR package visibility, a session with a real screen reader, physical iOS/Android devices (incl. offline storage eviction), and automate GitHub Release creation in the release workflow. Possible next providers: ntfy/Gotify or a webhook — the webhook needs the SSRF policy in security.md first.
+**Done:** 0.1, 0.2, 0.3, 1.1, 1.2, 2.1–2.5, 2.7–2.9, 3.1–3.3, 4.1–4.5, 5.1–5.7, 6.1, 6.2, 7.1, 8.0–8.11, 9.1, 10.1–10.5, 11.1, 12.1–12.14, 13.1–13.19, 14.0–14.4, 12.15, 12.16, 13.20, 12.17, 12.18, 15.0–15.4, 12.19 (in progress). DEFERRED: 2.6 (external identity providers — a later step, user decision 2026-09-28).
+**Next:** beta test of 0.4.0-beta.1 (needs migration 0026 applied: `migrate` as usual) on real phones (bottom bar, safe areas, on-screen keyboard in the builder and Step editor, grocery list in a shop). Open from section 15: see 15.4 "Remaining". Still open from before: beta test of 0.3.0-beta.4 (calendar and agenda, also on a real phone); 14.5 later; the rest of the real-iPhone photo matrix (see 14.3 Remaining); upgrade of real data not yet confirmed; beta feedback on the icon catalogue (12.11, 12.13); GHCR package visibility, a session with a real screen reader, physical iOS/Android devices (incl. offline storage eviction), and automate GitHub Release creation in the release workflow. Possible next providers: ntfy/Gotify or a webhook — the webhook needs the SSRF policy in security.md first.
 
 **Decisions 2026-10-01 (user) — section 15:** the app is organised around tools (Today, Procedures, Reminders, Lists, Calendar) with one Settings entry; Today shows only what is actionable; Procedures are written outline-first in a builder with a focused Step editor; Reminders get their own destination; a minimum **Grocery list** is added as lightweight shared Workspace content (new scope — supersedes "no generic tasks" for exactly this); Light and Dark are delivered alike. Made while implementing (15.x): capabilities `list.view` / `list.edit` (USER and above may change lists); lists refresh by polling, not SSE; item changes are not audit events; "Recently used" and pinning moved from Home to the Procedures page; upcoming dates and "Recently done" left Today for the Calendar and Reminders.
 
@@ -1902,6 +1902,20 @@ The missing pre-release page for `v0.3.0-beta.2` was added the same day, after t
 GitHub pre-release created after the user approved the command: `https://github.com/crimsonclyde/vergissmeinnicht/releases/tag/v0.3.0-beta.4`.
 
 **Remaining:** beta test of the calendar, also on a real phone; automated GitHub Release creation still open.
+
+### 12.19 Release 0.4.0-beta.1
+**Status:** IN PROGRESS
+**Completed:** —
+
+**Request (user, 2026-10-01):** commit and push section 15 and release it as **0.4.0-beta.1**. Unraid template and guide point to `ghcr.io/crimsonclyde/vergissmeinnicht:0.4.0-beta.1`. **This release has a migration (`0026_lists`)**: run `migrate` as usual (or `VMN_MIGRATE_ON_START=true` on Unraid); it only adds two tables, and a backup is taken first.
+
+**Implemented:** section 15 committed to `main` as `a45207e` (the `assets/` folder — mockups and screenshots — is not part of the repository); template and this entry in the following commit, tagged `v0.4.0-beta.1`.
+
+**Checks performed:** local lint, typecheck, 874 unit/integration tests, build, e2e, migration drift check; `main` CI green for `a45207e` (checks and both image builds).
+
+**Security surface:** unchanged by the release itself (section 15 is recorded in its own entries and in security.md).
+
+**Remaining:** release workflow result, image digest and the GitHub pre-release page are recorded here once done; beta test on real phones (15.4 Remaining).
 
 ---
 
