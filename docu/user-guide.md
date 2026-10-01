@@ -56,6 +56,18 @@ Opening a Workspace shows its **Home** — what needs attention, one clear actio
 - **Pinned** — your ★ Procedures (only for you). **Recent** — Procedures you started lately.
 - **All / Assigned to me / Shared** filters the lists (remembered in this browser). **New reminder** creates a standalone Reminder.
 
+## Calendar
+
+**Calendar** (next to Home) shows one month at a time — everything Home knows, on its date:
+
+- **Month** shows the days with what is on them; choose a day to see its entries below, with the same actions as on Home (**Complete**, **Start**, **Continue**, **⋯**, **Undo**). **Agenda** lists the same month day by day and is what a phone shows first. Your choice is remembered in this browser.
+- Every entry carries a sign and a word: ○ open, ! overdue, ▶ in progress, ✓ completed, ↷ skipped (with who did it and when), and ◌ **Planned**.
+- **Planned** entries are the future dates of something that repeats on fixed dates — also years ahead. They show what is coming; they can be completed once their turn has come and they appear on Home. Things that repeat *after they are done* have no planned dates, because the next date depends on when you finish.
+- **‹ ›** change the month, **Today** returns. With the keyboard: the arrow keys move between days, Page Up / Page Down between months.
+- **Filters** (folded away until you need them): open / overdue / completed / skipped, who is responsible, and Reminders or Procedures. They combine, and they are remembered in this browser.
+
+The calendar only shows and lets you act; there is no dragging of entries and no connection to other calendars.
+
 ## Reminders and repeating schedules
 
 A **Reminder** is something to remember without steps (a title and optional notes); a **scheduled Procedure** is a Procedure with a date. Both can repeat:

@@ -7,6 +7,7 @@ import { PreferencesProvider } from './preferences.tsx';
 import { OfflineBanner, useOffline } from './offline/OfflineProvider.tsx';
 import { offlineStore } from './offline/store.ts';
 import { api, isNetworkError, messageFor, type CurrentUser, type WorkspaceSummary } from './api.ts';
+import { Calendar } from './Calendar.tsx';
 import { ChangePassword } from './ChangePassword.tsx';
 import { Home } from './Home.tsx';
 import { NotificationSettings } from './NotificationSettings.tsx';
@@ -100,6 +101,9 @@ function Header(props: {
             <NavLink href={paths.home(workspaceId)} current={route.page === 'workspace'}>
               {t('shell.workspaceHome')}
             </NavLink>
+            <NavLink href={paths.calendar(workspaceId)} current={route.page === 'calendar'}>
+              {t('shell.calendar')}
+            </NavLink>
             <NavLink href={paths.procedures(workspaceId)} current={route.page === 'procedures'}>
               {t('shell.procedures')}
             </NavLink>
@@ -174,6 +178,17 @@ function WorkspacePage(props: {
         <Home
           workspaceId={route.workspaceId}
           workspaceName={context.workspace.name}
+          userId={props.user.id}
+          canStart={can('run.start')}
+          canSchedule={can('schedule.manage')}
+          canExecute={can('run.execute')}
+          onOpenRun={openRun}
+        />
+      );
+    case 'calendar':
+      return (
+        <Calendar
+          workspaceId={route.workspaceId}
           userId={props.user.id}
           canStart={can('run.start')}
           canSchedule={can('schedule.manage')}
@@ -311,6 +326,7 @@ export function AppShell(props: { user: CurrentUser; route: Route; onSignOut: ()
     content = <KnotOpener token={route.token} />;
   } else if (
     route.page === 'workspace' ||
+    route.page === 'calendar' ||
     route.page === 'history' ||
     route.page === 'run' ||
     route.page === 'procedures' ||

@@ -19,6 +19,7 @@ import {
   unlinkRunFromOccurrence,
   updateSchedule,
   type OccurrenceHistoryEntry,
+  type ProjectedOccurrence,
   type ScheduledOccurrence,
 } from '@vergissmeinnicht/application';
 import { REMINDER_UNITS, SCHEDULE_KINDS, UUID_V4, responsibleFor, type Schedule, type WorkspaceId } from '@vergissmeinnicht/domain';
@@ -127,6 +128,11 @@ export function occurrenceView(item: ScheduledOccurrence) {
     run: occurrence.run === null ? null : { id: occurrence.run.id, state: occurrence.run.state, startedAt: occurrence.run.startedAt.toISOString(), startedBy: occurrence.run.startedBy },
     revision: occurrence.revision,
   };
+}
+
+/** A projected date of a series (14.4): no id, no state — nothing can be done with it until its Occurrence exists. */
+export function projectedView(item: ProjectedOccurrence) {
+  return { schedule: scheduleView(item.schedule), dueDate: item.dueDate, time: item.time, responsible: person(item.schedule.assignee) };
 }
 
 function historyView(entry: OccurrenceHistoryEntry) {

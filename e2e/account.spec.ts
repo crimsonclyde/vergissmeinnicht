@@ -722,6 +722,74 @@ test('first server admin: bootstrap link, account creation, sign-in, Workspace c
   await skip.getByRole('button', { name: 'Skip', exact: true }).click();
   await expect(doneList).toContainText('Skipped by Ada Admin');
 
+  // Calendar (14.4): the Occurrences Home shows, with the same actions; planned dates of a series;
+  // filters remembered per viewer; arrow keys between days; an agenda that fits a phone.
+  await sections.getByRole('link', { name: 'Calendar' }).click();
+  await expect(page.getByRole('heading', { name: 'Calendar' })).toBeVisible();
+  const day = page.locator('section[aria-labelledby="calendar-day-heading"]');
+  const dayButton = (date: string) => page.locator(`button[data-date="${date}"]`);
+  await expect(dayButton(localDate(0))).toHaveAttribute('aria-current', 'date');
+  await expect(dayButton(localDate(0))).toHaveAttribute('aria-pressed', 'true');
+  await expect(dayButton(localDate(0))).toHaveAccessibleName(/^Today · .+: \d+ entries$/);
+  await expect(day).toContainText('Skipped by Ada Admin on ');
+  await expect(day).toContainText('Reason: Paid in advance');
+  await expect(day.getByRole('button', { name: 'Start Leave the flat' })).toBeVisible();
+  await expectAccessible(page, 'calendar month view');
+  // Filters are folded away until used; with a remembered filter they open by themselves.
+  await page.getByText('Filters', { exact: true }).click();
+  await page.getByLabel('Skipped').uncheck();
+  await expect(day).not.toContainText('Pay annual tax');
+  await page.getByLabel('Skipped').check();
+  await page.getByLabel('Type').selectOption({ label: 'Procedures' });
+  await expect(day).not.toContainText('Pay annual tax');
+  await expect(day).toContainText('Leave the flat');
+  await page.reload();
+  await expect(page.getByText('Filters · some entries are hidden')).toBeVisible();
+  await expect(page.getByLabel('Type')).toHaveValue('PROCEDURE');
+  await page.getByLabel('Type').selectOption({ label: 'Reminders and Procedures' });
+  await page.getByLabel('Responsible').selectOption({ label: 'Shared' });
+  await expect(day).not.toContainText('Pay annual tax');
+  await page.getByLabel('Responsible').selectOption({ label: 'Assigned to me' });
+  await expect(day).toContainText('Pay annual tax');
+  await expect(day).not.toContainText('Leave the flat');
+  await page.getByLabel('Responsible').selectOption({ label: 'Anyone' });
+  await dayButton(localDate(0)).focus();
+  await page.keyboard.press('ArrowRight');
+  await expect(dayButton(localDate(1))).toBeFocused();
+  await expect(dayButton(localDate(1))).toHaveAttribute('aria-pressed', 'true');
+  await page.keyboard.press('ArrowLeft');
+  await expect(dayButton(localDate(0))).toBeFocused();
+  // A year ahead: the yearly Reminder is planned there — shown, with nothing to act on.
+  for (let i = 0; i < 12; i++) await page.getByRole('button', { name: 'Next month' }).click();
+  const inAYear = new Date();
+  inAYear.setFullYear(inAYear.getFullYear() + 1);
+  await expect(page.locator('#calendar-month')).toHaveText(new Intl.DateTimeFormat('en-US', { month: 'long', year: 'numeric' }).format(inAYear));
+  await dayButton(`${inAYear.getFullYear()}${localDate(0).slice(4)}`).click();
+  await expect(day).toContainText('Pay annual tax');
+  await expect(day).toContainText('Planned for');
+  await expect(day.getByRole('button')).toHaveCount(0);
+  await page.getByRole('button', { name: 'Agenda', exact: true }).click();
+  const agenda = page.locator('.calendar-agenda');
+  await expect(agenda).toContainText('Planned for');
+  await page.getByRole('button', { name: 'Today', exact: true }).click();
+  await expect(agenda).toContainText('Leave the flat');
+  const desktopViewport = page.viewportSize();
+  await page.setViewportSize({ width: 390, height: 844 });
+  expect(await page.evaluate('document.documentElement.scrollWidth <= document.documentElement.clientWidth')).toBe(true);
+  await expectAccessible(page, 'calendar agenda at phone width');
+  await page.getByRole('button', { name: 'Month', exact: true }).click();
+  await expect(dayButton(localDate(0))).toBeVisible();
+  expect(await page.evaluate('document.documentElement.scrollWidth <= document.documentElement.clientWidth')).toBe(true);
+  await page.getByRole('button', { name: 'Agenda', exact: true }).click();
+  if (desktopViewport !== null) await page.setViewportSize(desktopViewport);
+  // Undo and Complete from the calendar: Home shows the same.
+  await agenda.getByRole('button', { name: 'Undo Pay annual tax' }).click();
+  await agenda.getByRole('button', { name: 'Complete Pay annual tax' }).click();
+  await expect(agenda).toContainText('Completed by Ada Admin on ');
+  await page.getByRole('button', { name: 'Month', exact: true }).click();
+  await sections.getByRole('link', { name: 'Home' }).click();
+  await expect(page.getByRole('list', { name: 'Recently done' })).toContainText('Completed by Ada Admin');
+
   // Server admin: the size of Recent (13.13) and the notification providers (13.7).
   await fromMenu(page, 'Server admin');
   await expect(page.getByLabel('Recent Procedures on Home')).toHaveValue('5');

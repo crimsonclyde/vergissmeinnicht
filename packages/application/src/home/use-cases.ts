@@ -1,4 +1,22 @@
-import { addDays, localDateAt, timelinessAt, type Procedure, type ProcedureId, type RunSummary, type ScheduleTimeliness, type User, type WorkspaceId } from '@vergissmeinnicht/domain';
+import {
+  DomainValidationError,
+  MAX_OPEN_SCHEDULES_PER_WORKSPACE,
+  addDays,
+  daysBetween,
+  fixedDatesInRange,
+  localDateAt,
+  parseLocalDate,
+  timelinessAt,
+  type LocalDate,
+  type LocalTime,
+  type Procedure,
+  type ProcedureId,
+  type RunSummary,
+  type Schedule,
+  type ScheduleTimeliness,
+  type User,
+  type WorkspaceId,
+} from '@vergissmeinnicht/domain';
 import type { Clock } from '../ports/clock.ts';
 import type { InstanceSettingsRepository } from '../ports/instance-settings-repository.ts';
 import type { ProcedureActivity, ProcedureActivityRepository } from '../ports/procedure-activity.ts';
@@ -141,4 +159,61 @@ export async function getHome(deps: HomeDeps, input: { readonly actor: User; rea
     recent: recentIds.flatMap((id) => byId.get(id) ?? []),
     recentLimit: recentProceduresLimit,
   };
+}
+
+/** The widest range one calendar request may ask for (a month grid shows six weeks). */
+export const CALENDAR_MAX_DAYS = 92;
+/** Entries (stored and projected together) returned per request; beyond it the answer is marked truncated. */
+export const CALENDAR_ENTRY_LIMIT = 2000;
+
+/** A future date of an active fixed series that has no Occurrence yet: shown, not actionable. */
+export interface ProjectedOccurrence {
+  readonly schedule: Schedule;
+  readonly dueDate: LocalDate;
+  readonly time: LocalTime | null;
+}
+
+export interface CalendarRange {
+  readonly from: LocalDate;
+  readonly to: LocalDate;
+  /** Stored Occurrences due in the range (open, in progress, completed, skipped), earliest first. */
+  readonly occurrences: readonly ScheduledOccurrence[];
+  /** Dates the generator will create Occurrences for, earliest first. */
+  readonly projected: readonly ProjectedOccurrence[];
+  /** More entries exist in the range than are returned. */
+  readonly truncated: boolean;
+}
+
+/**
+ * The calendar's read model (14.4): the Occurrences due from `from` to `to` — the same rows Home shows —
+ * plus the projected dates of active fixed series. Completion-based series are not projected (their next
+ * date depends on when the current one is done). Read-only; the range is only what is displayed and never
+ * limits scheduling (D16).
+ */
+export async function occurrencesInRange(
+  deps: HomeDeps,
+  input: { readonly actor: User; readonly workspaceId: WorkspaceId; readonly from: string; readonly to: string },
+): Promise<CalendarRange> {
+  await authorizeWorkspace(deps, input.actor, input.workspaceId, 'procedure.view');
+  const from = parseLocalDate(input.from);
+  const to = parseLocalDate(input.to);
+  const days = daysBetween(from, to);
+  if (days < 0 || days >= CALENDAR_MAX_DAYS) throw new DomainValidationError('to', 'invalid_range', `The range must be 1 to ${CALENDAR_MAX_DAYS} days`);
+  const [stored, series] = await Promise.all([
+    deps.schedules.listDueBetween(input.workspaceId, from, to, CALENDAR_ENTRY_LIMIT + 1),
+    deps.schedules.listFixedSeries(input.workspaceId, MAX_OPEN_SCHEDULES_PER_WORKSPACE),
+  ]);
+  const occurrences = stored.slice(0, CALENDAR_ENTRY_LIMIT);
+  let truncated = stored.length > CALENDAR_ENTRY_LIMIT;
+  const projected: ProjectedOccurrence[] = [];
+  for (const { schedule, latestDueDate } of series) {
+    if (schedule.recurrence.kind !== 'FIXED') continue;
+    for (const dueDate of fixedDatesInRange(schedule.recurrence, schedule.anchorDate, latestDueDate ?? undefined, from, to)) {
+      projected.push({ schedule, dueDate, time: schedule.time });
+    }
+  }
+  projected.sort((a, b) => (a.dueDate < b.dueDate ? -1 : a.dueDate > b.dueDate ? 1 : (a.time ?? '').localeCompare(b.time ?? '')));
+  const room = CALENDAR_ENTRY_LIMIT - occurrences.length;
+  if (projected.length > room) truncated = true;
+  return { from, to, occurrences, projected: projected.slice(0, room), truncated };
 }

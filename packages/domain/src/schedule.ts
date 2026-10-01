@@ -418,6 +418,22 @@ export function nextFixedDate(rule: FixedRecurrence, anchor: LocalDate, after: L
   }
 }
 
+/**
+ * The dates of a fixed series within `from`…`to` that come after `latest` (the due date of the
+ * series' latest existing Occurrence; undefined = none yet). This is exactly how the generator
+ * continues a series, so a projected date (calendar, 14.4) is the date an Occurrence will get.
+ */
+export function fixedDatesInRange(rule: FixedRecurrence, anchor: LocalDate, latest: LocalDate | undefined, from: LocalDate, to: LocalDate): LocalDate[] {
+  const before = addDays(from, -1);
+  const dates: LocalDate[] = [];
+  let date = nextFixedDate(rule, anchor, latest !== undefined && latest > before ? latest : before);
+  while (date <= to) {
+    dates.push(date);
+    date = nextFixedDate(rule, anchor, date);
+  }
+  return dates;
+}
+
 /** The first due date of a new series: the anchor, or for weekday rules the first chosen weekday on or after it. */
 export function firstDueDate(recurrence: Recurrence, anchor: LocalDate): LocalDate {
   return recurrence.kind === 'FIXED' ? fixedDateAt(recurrence, anchor, 0) : anchor;

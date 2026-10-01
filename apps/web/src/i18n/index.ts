@@ -96,6 +96,19 @@ export function formatCalendarDate(date: string): string {
   );
 }
 
+/** "October 2026" for a month `YYYY-MM`. */
+export function formatMonth(month: string): string {
+  const [year, index] = month.split('-').map(Number) as [number, number];
+  return new Intl.DateTimeFormat(formatLocale(), { month: 'long', year: 'numeric', timeZone: 'UTC' }).format(new Date(Date.UTC(year, index - 1, 1, 12)));
+}
+
+/** Weekday names, Monday first: `short` ("Mon") for column headers, `long` ("Monday") as their full text. */
+export function weekdayNames(width: 'short' | 'long'): string[] {
+  const format = new Intl.DateTimeFormat(formatLocale(), { weekday: width, timeZone: 'UTC' });
+  // 1 January 2024 was a Monday.
+  return Array.from({ length: 7 }, (_unused, index) => format.format(new Date(Date.UTC(2024, 0, 1 + index, 12))));
+}
+
 /** "18 minutes ago", "in 2 days" — rounded to the largest sensible unit. */
 export function formatRelative(value: string | Date, now: Date = new Date()): string {
   const seconds = (toDate(value).getTime() - now.getTime()) / 1000;

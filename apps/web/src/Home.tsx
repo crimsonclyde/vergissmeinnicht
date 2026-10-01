@@ -12,7 +12,7 @@ import { ScheduleDialog, recurrenceLabel, reminderLabel } from './ScheduleDialog
 import { todayIn } from './schedule-dates.ts';
 import { StartControl, useStartFlow } from './StartProcedure.tsx';
 
-interface Capabilities {
+export interface Capabilities {
   readonly canStart: boolean;
   readonly canSchedule: boolean;
   readonly canExecute: boolean;
@@ -101,7 +101,7 @@ type OpenDialog = 'edit' | 'skip' | 'move' | 'assign' | 'link' | 'resume' | null
  * One Occurrence (Overdue, Today or Upcoming): type, title, due date, who is responsible and the one
  * next action — Complete (Reminder), Start or Continue (Procedure). Everything else is under ⋯.
  */
-function OccurrenceItem(props: {
+export function OccurrenceItem(props: {
   workspaceId: string;
   item: Occurrence;
   /** Several open Occurrences of this Schedule are overdue: this is the newest, `older` the rest. */
@@ -422,8 +422,8 @@ function OccurrenceItem(props: {
   );
 }
 
-/** Completed or skipped in the last 24 hours, with who — and Undo for Reminders. */
-function DoneItem(props: { workspaceId: string; item: Occurrence; can: Capabilities; onChanged: () => void }) {
+/** Completed or skipped, with who and when (`exact`: date and time instead of "2 hours ago") — and Undo for Reminders. */
+export function DoneItem(props: { workspaceId: string; item: Occurrence; can: Capabilities; onChanged: () => void; exact?: boolean }) {
   const { item } = props;
   const [message, setMessage] = useState<string | null>(null);
   const undo = async () => {
@@ -442,7 +442,11 @@ function DoneItem(props: { workspaceId: string; item: Occurrence; can: Capabilit
           <AppIcon name={item.schedule.procedure?.icon ?? 'reminder'} /> {item.schedule.title}
           <br />
           <small className="muted">
-            {t(item.state === 'COMPLETED' ? 'home.completedBy' : 'home.skippedBy', { name: item.closed?.by ?? '', ago: formatRelative(item.closed?.at ?? new Date().toISOString()) })}
+            {t(item.state === 'COMPLETED' ? 'home.completedBy' : 'home.skippedBy', {
+              name: item.closed?.by ?? '',
+              ago: props.exact === true && item.closed !== null ? t('home.closedOn', { when: formatDateTime(item.closed.at) }) : formatRelative(item.closed?.at ?? new Date().toISOString()),
+            })}
+            {item.skipReason !== null && item.skipReason !== '' && ` · ${t('home.skipReason', { reason: item.skipReason })}`}
             {item.responsible !== null && ` · ${t('home.assignedTo', { name: item.responsible.name })}`}
           </small>
         </div>

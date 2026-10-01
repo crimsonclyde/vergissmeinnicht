@@ -3,6 +3,7 @@ import {
   DomainValidationError,
   addDays,
   dueInstant,
+  fixedDatesInRange,
   localDateAt,
   normalizeReminders,
   parseLocalDate,
@@ -151,5 +152,32 @@ describe('time zones and daylight saving time (13.4)', () => {
     expect(codeOf(() => validateScheduleDate(d('2026-10-02'), berlin, now))).toBe('date_in_past');
     expect(codeOf(() => validateScheduleDate(d('2026-10-02'), newYork, now))).toBeUndefined();
     expect(codeOf(() => validateScheduleDate(d('2028-10-10'), berlin, now))).toBe('date_too_far');
+  });
+});
+
+describe('projected dates of a fixed series (14.4)', () => {
+  const rule = (unit: 'DAY' | 'WEEK' | 'MONTH' | 'YEAR', interval = 1, weekdays: number[] | null = null) => ({ kind: 'FIXED', unit, interval, weekdays, lastDayOfMonth: false }) as const;
+  const range = (r: ReturnType<typeof rule>, anchor: string, latest: string | undefined, from: string, to: string) =>
+    fixedDatesInRange(r, d(anchor), latest === undefined ? undefined : d(latest), d(from), d(to));
+
+  it('lists only dates after the latest existing Occurrence, inside the range (both ends included)', () => {
+    expect(range(rule('WEEK'), '2026-10-01', '2026-10-08', '2026-10-01', '2026-10-29')).toEqual(['2026-10-15', '2026-10-22', '2026-10-29']);
+    expect(range(rule('WEEK'), '2026-10-01', undefined, '2026-10-01', '2026-10-08')).toEqual(['2026-10-01', '2026-10-08']);
+    expect(range(rule('WEEK'), '2026-10-01', '2026-12-31', '2026-10-01', '2026-10-31')).toEqual([]);
+    // A series that starts after the range has no date in it.
+    expect(range(rule('MONTH'), '2027-01-15', undefined, '2026-10-01', '2026-10-31')).toEqual([]);
+  });
+
+  it('crosses month and year ends without drift (the 31st, 29 February)', () => {
+    expect(range(rule('MONTH'), '2026-10-31', '2026-10-31', '2026-11-01', '2027-01-31')).toEqual(['2026-11-30', '2026-12-31', '2027-01-31']);
+    expect(range(rule('MONTH'), '2026-10-31', '2026-10-31', '2027-02-01', '2027-03-31')).toEqual(['2027-02-28', '2027-03-31']);
+    expect(range(rule('YEAR'), '2028-02-29', '2028-02-29', '2029-02-01', '2029-03-31')).toEqual(['2029-02-28']);
+    expect(range(rule('YEAR'), '2028-02-29', '2028-02-29', '2032-02-01', '2032-03-31')).toEqual(['2032-02-29']);
+  });
+
+  it('reaches years ahead, on chosen weekdays too', () => {
+    expect(range(rule('MONTH', 3), '2026-10-15', '2026-10-15', '2031-01-01', '2031-01-31')).toEqual(['2031-01-15']);
+    // Mondays and Thursdays, every second week from Thursday 1 October 2026.
+    expect(range(rule('WEEK', 2, [1, 4]), '2026-10-01', '2026-10-01', '2026-10-02', '2026-10-31')).toEqual(['2026-10-12', '2026-10-15', '2026-10-26', '2026-10-29']);
   });
 });

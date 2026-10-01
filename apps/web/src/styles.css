@@ -1336,3 +1336,185 @@ a.button.primary {
   width: 100%;
   object-fit: contain;
 }
+
+/* ---- Calendar and agenda (14.4) ------------------------------------------------------------ */
+
+.calendar-nav {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  margin: 0 0 0.75rem;
+}
+
+.calendar-nav h3 {
+  margin: 0;
+  min-width: 10rem;
+  text-align: center;
+}
+
+.calendar-nav button {
+  min-width: 2.75rem;
+  min-height: 2.75rem;
+}
+
+.calendar-filter-box {
+  margin: 0 0 1rem;
+}
+
+.calendar-filter-box summary {
+  display: inline-block;
+  min-height: 2.75rem;
+  padding: 0.6rem 0;
+  cursor: pointer;
+  text-decoration: underline;
+}
+
+.calendar-filters {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 0.5rem 1.25rem;
+}
+
+.calendar-filters fieldset {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem 1rem;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.calendar-filters legend {
+  padding: 0;
+  font-weight: 600;
+}
+
+.calendar-filters fieldset label {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  min-height: 2.75rem;
+  font-weight: 400;
+}
+
+.calendar-filters > label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+
+.calendar-grid {
+  width: 100%;
+  table-layout: fixed;
+  border-collapse: separate;
+  border-spacing: 3px;
+}
+
+.calendar-grid th {
+  padding: 0.25rem 0;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-align: left;
+}
+
+.calendar-grid td {
+  padding: 0;
+  vertical-align: top;
+}
+
+.calendar-day {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0.15rem;
+  width: 100%;
+  min-height: 6rem;
+  padding: 0.3rem;
+  background: var(--surface);
+  text-align: left;
+  overflow: hidden;
+}
+
+.calendar-outside {
+  background: transparent;
+  color: var(--text-muted);
+}
+
+.calendar-day-number {
+  font-weight: 600;
+}
+
+/* Today and the chosen day are marked by weight, underline and outline — not by colour alone. */
+.calendar-day[aria-current='date'] .calendar-day-number {
+  font-weight: 800;
+  text-decoration: underline;
+  text-decoration-thickness: 2px;
+}
+
+.calendar-day[aria-pressed='true'] {
+  outline: 2px solid var(--focus);
+  outline-offset: -2px;
+  background: var(--accent-soft);
+}
+
+.calendar-chip {
+  display: block;
+  overflow: hidden;
+  font-size: 0.8rem;
+  line-height: 1.3;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.calendar-chip[data-status='OVERDUE'] {
+  color: var(--state-pending);
+  font-weight: 600;
+}
+
+.calendar-chip[data-status='COMPLETED'],
+.calendar-chip[data-status='SKIPPED'],
+.calendar-chip[data-status='PROJECTED'],
+.calendar-more {
+  color: var(--text-muted);
+}
+
+/* A planned date is not yet an Occurrence: dashed, with the word "Planned". */
+.calendar-projected {
+  border-style: dashed;
+}
+
+/* Phones: the day cells keep only the status glyphs; titles are in the list below (or the agenda). */
+@media (max-width: 40rem) {
+  .calendar-grid {
+    border-spacing: 2px;
+  }
+
+  .calendar-day {
+    flex-flow: row wrap;
+    align-content: flex-start;
+    gap: 0 0.2rem;
+    min-height: 3.5rem;
+    padding: 0.2rem;
+  }
+
+  .calendar-day-number {
+    flex-basis: 100%;
+  }
+
+  .calendar-chip-title {
+    display: none;
+  }
+
+  .calendar-more {
+    font-size: 0.7rem;
+  }
+}
+
+@media (forced-colors: active) {
+  .calendar-day[aria-pressed='true'] {
+    outline-color: Highlight;
+  }
+}

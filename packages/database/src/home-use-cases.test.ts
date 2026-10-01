@@ -3,6 +3,11 @@ import {
   ProcedureNotFoundError,
   WorkspaceNotFoundError,
   addMember,
+  advanceSchedules,
+  endSchedule,
+  occurrencesInRange,
+  pauseSchedule,
+  skipOccurrence,
   changeStepState,
   completeRun,
   createProcedure,
@@ -190,5 +195,127 @@ describe('Home, Procedure cards, pins and Recent (13.9–13.13)', () => {
     expect(trash?.activity).toEqual({ lastCompletedAt: now, active: [{ runId: started.run.id, startedBy: 'Cole', startedAt: now }] });
     const water = (await listProcedureCards(deps, { actor: uma, workspaceId: home.id })).find((card) => card.procedure.title === 'Water plants');
     expect(water?.nextOccurrence?.occurrence.dueDate).toBe('2026-09-29');
+  });
+
+  describe('calendar read model (14.4)', () => {
+    const FIXED = { weekdays: null, lastDayOfMonth: false } as const;
+    const reminder = (title: string, date: string, recurrence?: object, timeZone = 'Europe/Berlin') =>
+      createSchedule(scheduleDeps, { actor: uma, workspaceId: home.id, title, date, timeZone, reminders: [], ...(recurrence === undefined ? {} : { recurrence: recurrence as never }) });
+    const range = (from: string, to: string, actor: User = uma, workspaceId = home.id) => occurrencesInRange(deps, { actor, workspaceId, from, to });
+    const stored = (r: Awaited<ReturnType<typeof range>>) => r.occurrences.map((item) => [item.schedule.title, item.occurrence.dueDate, item.occurrence.state]);
+    const projected = (r: Awaited<ReturnType<typeof range>>) => r.projected.map((item) => [item.schedule.title, item.dueDate]);
+
+    it('returns stored Occurrences of every state except cancelled, with who closed them', async () => {
+      await reminder('Pay annual tax', '2026-10-01');
+      await reminder('Renew passport', '2026-10-20');
+      const ended = await reminder('Cancel old contract', '2026-10-10');
+      await reminder('Later', '2026-11-02');
+      const october = await range('2026-10-01', '2026-10-31');
+      await completeOccurrence(scheduleDeps, { actor: cole, workspaceId: home.id, occurrenceId: october.occurrences[0]?.occurrence.id ?? '' });
+      await skipOccurrence(scheduleDeps, { actor: cole, workspaceId: home.id, occurrenceId: october.occurrences[2]?.occurrence.id ?? '', reason: 'Not needed' });
+      await endSchedule(scheduleDeps, { actor: uma, workspaceId: home.id, scheduleId: ended.id, expectedRevision: ended.revision });
+      const after = await range('2026-10-01', '2026-10-31');
+      expect(stored(after)).toEqual([
+        ['Pay annual tax', '2026-10-01', 'COMPLETED'],
+        ['Renew passport', '2026-10-20', 'SKIPPED'],
+      ]);
+      expect(after.occurrences.map((item) => item.occurrence.closed?.by.displayName)).toEqual(['Cole', 'Cole']);
+      expect(after.projected).toEqual([]);
+      expect(after.truncated).toBe(false);
+      // The same rows Home shows: the open one of November is Upcoming there and stored here.
+      const home2 = await getHome(deps, { actor: uma, workspaceId: home.id });
+      expect(home2.upcoming.map((item) => item.occurrence.id)).toEqual((await range('2026-11-01', '2026-11-30')).occurrences.map((item) => item.occurrence.id));
+    });
+
+    it('projects active fixed series — years ahead, across year ends — and nothing else', async () => {
+      await reminder('Pay rent', '2026-10-31', { kind: 'FIXED', unit: 'MONTH', interval: 1, ...FIXED });
+      await reminder('Tax return', '2027-01-01', { kind: 'FIXED', unit: 'YEAR', interval: 1, ...FIXED }, 'Pacific/Kiritimati');
+      await reminder('Descale', '2026-10-05', { kind: 'AFTER_COMPLETION', unit: 'MONTH', interval: 1 });
+      await reminder('One time', '2026-10-06');
+      const paused = await reminder('Paused', '2026-10-07', { kind: 'FIXED', unit: 'WEEK', interval: 1, ...FIXED });
+      await pauseSchedule(scheduleDeps, { actor: uma, workspaceId: home.id, scheduleId: paused.id, expectedRevision: paused.revision });
+      const ended = await reminder('Ended', '2026-10-08', { kind: 'FIXED', unit: 'WEEK', interval: 1, ...FIXED });
+      await endSchedule(scheduleDeps, { actor: uma, workspaceId: home.id, scheduleId: ended.id, expectedRevision: ended.revision });
+      const gone = await createSchedule(scheduleDeps, {
+        actor: uma,
+        workspaceId: home.id,
+        procedureId: ids['Buy groceries'] as ProcedureId,
+        date: '2026-10-09',
+        timeZone: 'Europe/Berlin',
+        reminders: [],
+        recurrence: { kind: 'FIXED', unit: 'WEEK', interval: 1, ...FIXED },
+      });
+      await deleteProcedure({ workspaces: deps.workspaces, procedures: deps.procedures, clock }, { actor: admin, workspaceId: home.id, procedureId: ids['Buy groceries'] as ProcedureId });
+      expect(gone.kind).toBe('PROCEDURE');
+
+      // October: the first Occurrences exist; the series are not projected onto their own stored dates.
+      const october = await range('2026-10-01', '2026-10-31');
+      expect(stored(october).map(([title]) => title)).toEqual(['Descale', 'One time', 'Paused', 'Buy groceries', 'Pay rent']);
+      expect(projected(october)).toEqual([]);
+      // Across the year end: the clamped monthly date and the yearly one (a calendar date in its own zone).
+      expect(projected(await range('2026-11-01', '2027-01-31'))).toEqual([
+        ['Pay rent', '2026-11-30'],
+        ['Pay rent', '2026-12-31'],
+        ['Pay rent', '2027-01-31'],
+      ]);
+      expect(stored(await range('2026-12-28', '2027-01-31'))).toEqual([['Tax return', '2027-01-01', 'OPEN']]);
+      // Years ahead.
+      expect(projected(await range('2031-01-01', '2031-02-28'))).toEqual([
+        ['Tax return', '2031-01-01'],
+        ['Pay rent', '2031-01-31'],
+        ['Pay rent', '2031-02-28'],
+      ]);
+    });
+
+    it('agrees with the generator: a projected date becomes exactly one stored Occurrence', async () => {
+      await reminder('Pay rent', '2026-10-15', { kind: 'FIXED', unit: 'MONTH', interval: 1, ...FIXED });
+      expect(projected(await range('2026-11-01', '2026-11-30'))).toEqual([['Pay rent', '2026-11-15']]);
+      now = new Date('2026-10-16T10:00:00Z');
+      await advanceSchedules(scheduleDeps);
+      const november = await range('2026-11-01', '2026-11-30');
+      expect(stored(november)).toEqual([['Pay rent', '2026-11-15', 'OPEN']]);
+      expect(projected(november)).toEqual([]);
+      expect(projected(await range('2026-12-01', '2026-12-31'))).toEqual([['Pay rent', '2026-12-15']]);
+    });
+
+    it('is Workspace-scoped and needs membership', async () => {
+      await reminder('Pay rent', '2026-10-15', { kind: 'FIXED', unit: 'MONTH', interval: 1, ...FIXED });
+      await expect(range('2026-10-01', '2026-11-30', otto)).rejects.toBeInstanceOf(WorkspaceNotFoundError);
+      const office2 = await range('2026-10-01', '2026-11-30', otto, office.id);
+      expect([office2.occurrences, office2.projected]).toEqual([[], []]);
+      // Reading needs no more than a member may see anyway.
+      expect(stored(await range('2026-10-01', '2026-10-31', cole))).toEqual([['Pay rent', '2026-10-15', 'OPEN']]);
+    });
+
+    it('refuses invalid ranges', async () => {
+      const code = async (from: string, to: string) => {
+        try {
+          await range(from, to);
+          return undefined;
+        } catch (error) {
+          expect(error).toBeInstanceOf(DomainValidationError);
+          return (error as DomainValidationError).code;
+        }
+      };
+      expect(await code('2026-10-31', '2026-10-01')).toBe('invalid_range');
+      expect(await code('2026-10-01', '2027-01-01')).toBe('invalid_range');
+      expect(await code('2026-10-01', '2026-12-31')).toBeUndefined();
+      expect(await code('2026-02-30', '2026-03-01')).toBe('invalid_date');
+      expect(await code("2026-10-01' OR 1=1", '2026-10-31')).toBe('invalid_date');
+    });
+
+    it('stays bounded and fast with 1000 active series', async () => {
+      for (let i = 0; i < 1000; i++) {
+        await reminder(`Series ${i}`, '2026-10-01', { kind: 'FIXED', unit: i % 2 === 0 ? 'WEEK' : 'MONTH', interval: 1, ...FIXED });
+      }
+      const started = performance.now();
+      const november = await range('2026-11-01', '2026-11-30');
+      const elapsed = performance.now() - started;
+      // 500 weekly series × 5 dates + 500 monthly × 1 = 3000 projected dates: cut to the limit and marked.
+      expect(november.projected).toHaveLength(2000);
+      expect(november.truncated).toBe(true);
+      expect((await range('2026-10-01', '2026-10-01')).occurrences).toHaveLength(1000);
+      expect(elapsed).toBeLessThan(2000);
+    }, 60_000);
   });
 });

@@ -11,6 +11,7 @@ describe('parseRoute', () => {
     expect(parseRoute('/admin')).toEqual({ page: 'admin' });
     expect(parseRoute(`/w/${W}`)).toEqual({ page: 'workspace', workspaceId: W });
     expect(parseRoute(paths.home(W))).toEqual({ page: 'workspace', workspaceId: W });
+    expect(parseRoute(paths.calendar(W))).toEqual({ page: 'calendar', workspaceId: W });
     expect(parseRoute(paths.history(W))).toEqual({ page: 'history', workspaceId: W });
     expect(parseRoute(`/w/${W}/runs`)).toEqual({ page: 'history', workspaceId: W });
     expect(parseRoute(paths.run(W, R))).toEqual({ page: 'run', workspaceId: W, runId: R });

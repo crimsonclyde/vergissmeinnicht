@@ -70,7 +70,8 @@ describe('security properties of every route (13.2)', () => {
 
   const call = (route: string, cookie: string | undefined, values: Record<string, string>): Promise<InjectResponse> => {
     const [method, pattern] = route.split(' ') as [string, string];
-    const url = fill(pattern, values);
+    // The calendar needs a valid range to reach the lookup instead of stopping at 400.
+    const url = fill(pattern, values) + (/\/calendar\/?$/.test(pattern) ? `?from=${TOMORROW}&to=${TOMORROW}` : '');
     return method === 'GET' ? t.get(url, cookie) : t.post(url, bodyFor(route, values), cookie);
   };
 

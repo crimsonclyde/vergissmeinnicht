@@ -18,10 +18,10 @@ For every completed task, add a concise completion note, tests/checks performed,
 
 ## Current state — resume here
 
-_Last updated: 2026-10-01 (0.3.0-beta.3 released from `main`: 14.3 + menu fix 13.20; 14.4 next; 14.5 later)_
+_Last updated: 2026-10-01 (0.3.0-beta.3 released from `main`; 14.4 calendar implemented in the working tree, not yet committed or released; 14.5 later)_
 
-**Done:** 0.1, 0.2, 0.3, 1.1, 1.2, 2.1–2.5, 2.7–2.9, 3.1–3.3, 4.1–4.5, 5.1–5.7, 6.1, 6.2, 7.1, 8.0–8.11, 9.1, 10.1–10.5, 11.1, 12.1–12.14, 13.1–13.19, 14.0–14.3, 12.15, 12.16, 13.20, 12.17. DEFERRED: 2.6 (external identity providers — a later step, user decision 2026-09-28).
-**Next:** 14.4 (calendar, agenda). Beta test of 0.3.0-beta.3 — camera photos work on the user's iPhone; the rest of the real-iPhone matrix is still open (see 14.3 Remaining) (real email and Telegram reminders: tested by the user, working — 2026-10-01; upgrade of real data not yet confirmed); then 14.4 (calendar, agenda); 14.5 later. Also: beta feedback on the icon catalogue (12.11, 12.13); beta feedback on Home/scheduling. Still open from before: GHCR package visibility, a session with a real screen reader, physical iOS/Android devices (incl. offline storage eviction), and automate GitHub Release creation in the release workflow (the 0.2.0-beta.1 pre-release was created manually after the workflow). Possible next providers: ntfy/Gotify or a webhook — the webhook needs the SSRF policy in security.md first.
+**Done:** 0.1, 0.2, 0.3, 1.1, 1.2, 2.1–2.5, 2.7–2.9, 3.1–3.3, 4.1–4.5, 5.1–5.7, 6.1, 6.2, 7.1, 8.0–8.11, 9.1, 10.1–10.5, 11.1, 12.1–12.14, 13.1–13.19, 14.0–14.4, 12.15, 12.16, 13.20, 12.17. DEFERRED: 2.6 (external identity providers — a later step, user decision 2026-09-28).
+**Next:** commit and release 14.4 (calendar, agenda) when the user agrees; then beta feedback, 14.5 later. Beta test of 0.3.0-beta.3 — camera photos work on the user's iPhone; the rest of the real-iPhone matrix is still open (see 14.3 Remaining) (real email and Telegram reminders: tested by the user, working — 2026-10-01; upgrade of real data not yet confirmed); then 14.4 (calendar, agenda); 14.5 later. Also: beta feedback on the icon catalogue (12.11, 12.13); beta feedback on Home/scheduling. Still open from before: GHCR package visibility, a session with a real screen reader, physical iOS/Android devices (incl. offline storage eviction), and automate GitHub Release creation in the release workflow (the 0.2.0-beta.1 pre-release was created manually after the workflow). Possible next providers: ntfy/Gotify or a webhook — the webhook needs the SSRF policy in security.md first.
 
 **Decisions 2026-09-30 (user) — new objective, section 14 (planned, not implemented):** VMN becomes an ADHD-friendly place to see what needs attention, remember recurring obligations and follow clear visual instructions. First release: standalone Reminders and scheduled Procedures in one overview and calendar; one-time, fixed-calendar and completion-based recurrence with independent Occurrence history; reminder offsets in days/weeks/calendar months; bounded catch-up after outages; one optional Assignee (no extra access); Overdue/Today/Upcoming overview, calendar and mobile agenda; one optional instruction image per Step (processed to a ≤500 KB JPEG, metadata removed) with a per-Workspace storage quota (default 100 MB). Later: completion photos, required evidence, annotations. Supersedes the 2026-09-29 "no calendar / no generic tasks / no recurring schedules / no photos" scope for exactly these features. Product decisions D1–D8, D11–D18 approved; technical choices T1–T5 (details in 14.6).
 
@@ -2387,7 +2387,7 @@ GitHub pre-release created by the user: `https://github.com/crimsonclyde/vergiss
 - Workspace admins see usage in the editor only (no separate Workspace settings view yet); a per-Workspace usage breakdown (which Procedures use most) does not exist.
 
 ### 14.4 Phase 4 — Calendar and mobile agenda
-**Status:** TODO
+**Status:** DONE (real-phone check open — see Remaining)
 **Depends on:** 14.1, 14.2 (read model).
 
 **Tasks:** month view as the default (D16) and an agenda/list view (default on narrow screens) on `occurrencesInRange`; previous/next navigation loads that range (the display range never limits scheduling); entries show type, title, time, Assignee, status (glyph + text) and projected entries marked; filters: status (open / overdue / completed / skipped), Assignee (me / shared / member), type (Reminder / Procedure) — remembered per viewer (localStorage convenience only); selecting an entry opens it with the same actions as the overview; keyboard navigation between days; no drag-and-drop, no external calendar sync.
@@ -2397,6 +2397,26 @@ GitHub pre-release created by the user: `https://github.com/crimsonclyde/vergiss
 **Checks:** read-model tests over month and year boundaries and zones; e2e month and agenda views, navigation, filters; axe; performance with 1000 active Schedules.
 
 **Security impact (expected):** LOW (read-only view over authorised data).
+
+**Implemented (2026-10-01):**
+- *Read model:* `occurrencesInRange` (`packages/application/src/home/use-cases.ts`): `procedure.view`; validated range (1–92 days); stored Occurrences due in the range (every state except CANCELLED; `ScheduleRepository.listDueBetween`) plus **projected** dates of active fixed series (`listFixedSeries` + domain `fixedDatesInRange`). Projection uses the generator's own rule (dates after the series' latest Occurrence), so a projected date is the date the Occurrence will get and is never shown twice. Not projected: completion-based series (the next date depends on the completion), paused and ended series, series of deleted Procedures. At most 2000 entries per answer (`truncated`).
+- *Route:* `GET /api/workspaces/{id}/calendar?from=YYYY-MM-DD&to=YYYY-MM-DD` (`calendarRoutes` in `apps/server/src/http/home-routes.ts`) → `{ from, to, occurrences, projected, truncated }` with the existing Occurrence/Schedule views; a projection has no id and no state. New stable error `invalid_range`.
+- *Web:* **Calendar** in the Workspace navigation (`/w/{id}/calendar`, `apps/web/src/Calendar.tsx`; pure view model in `calendar-model.ts`). Month view (Monday first; default) with up to three entries named per day and the rest counted; the chosen day lists its entries below with **the same components and actions as Home** (`OccurrenceItem`, `DoneItem` with exact date/time and skip reason) and a non-actionable "Planned" entry for projections. Agenda view (default below 40 rem) lists the month day by day. Entries show type, title, time, responsible person and status as glyph + word (○ open, ! overdue, ▶ in progress, ✓ completed, ↷ skipped, ◌ planned). Previous/next month and Today load that range; arrow keys move between days (roving tabindex, focus kept across months), Page Up/Down between months. Filters (status, responsible: anyone / me / shared / a person responsible for something in the shown month, type) combine and are remembered in `localStorage` together with the Month/Agenda choice; they are folded away until used and open by themselves when a remembered filter hides entries. Refreshes every 30 s while visible, like Home. No drag-and-drop, no external calendar sync.
+
+**Deviations from the plan:**
+- Filters are applied in the browser on the (bounded) answer, not passed to the read model: they are a per-viewer convenience and the month's data is small. When an answer is truncated (> 2000 entries in a month), the filters therefore apply to the returned part only (a notice is shown).
+- Home still reads through `listOpen`/`listRecentlyClosed` and was not rebuilt on `occurrencesInRange`; both read the same Occurrence rows through the same mapping and view (a test compares the ids), but Home shows no projected dates.
+- "Selecting an entry" is selecting its day: the entries of the day are listed with their actions (no separate entry dialog).
+
+**Tests/checks:** `pnpm lint`, `pnpm typecheck`, `pnpm test` (103 files, 820 tests), `pnpm build`, `pnpm test:e2e`. No schema change (no migration). New/extended: `packages/domain/src/schedule.test.ts` (projection across month/year ends, clamping, leap years, weekday rules, years ahead), `packages/database/src/home-use-cases.test.ts` (states, who closed, zones, year boundary, generator agreement, paused/ended/deleted/completion-based not projected, Workspace isolation, invalid ranges, 1000 active series bounded and under 2 s), `apps/server/src/http/schedule.test.ts` (HTTP shape, GUEST read, 400/401), `route-security.test.ts` (sweep covers the route), `apps/web/src/calendar-model.test.ts` (status by zone, ordering, filters alone and combined, remembered filters, month grid, arrow keys), `router.test.ts`; e2e: month view, filters incl. reload, arrow keys, a planned date one year ahead without actions, agenda and month at 390 px without sideways scrolling, Undo and Complete from the calendar reflected on Home, axe on month view and phone agenda. Screenshots of month (desktop, 390 px) and agenda (390 px) reviewed. Docker image not rebuilt locally (CI does).
+
+**Security surface:** changed slightly — one new read-only route over data members already see. **Security docs updated:** YES — "Security check: calendar and agenda (Step 14.4)".
+
+**Remaining / limitations:**
+- Check on a real phone (the full e2e flow still runs at desktop size only; phone width is covered by the 390 px assertions).
+- Changes by other members arrive by polling (30 s), not instantly.
+- The week always starts on Monday; the month shows at most three titles per day (glyphs only on phones).
+- Beyond 2000 entries in one month the answer is cut and marked, not paged.
 
 ### 14.5 Phase 5 (later) — Completion photos, required evidence, annotations
 **Status:** TODO (later phase — not part of the first release)

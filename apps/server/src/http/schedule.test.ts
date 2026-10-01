@@ -108,4 +108,34 @@ describe('Schedules and Occurrences HTTP API (13.4, 14.1)', () => {
     expect((await t.post(schedules(), { title: '', date: inDays(1), timeZone: 'UTC', reminders: [] }, user)).json()).toMatchObject({ error: 'reminder_title_empty' });
     expect((await t.post(schedules(), { ...body(), date: inDays(-1) }, user)).json()).toMatchObject({ error: 'date_in_past' });
   });
+
+  it('serves the calendar range to members (GUEST included) with display names only, and refuses bad ranges (14.4)', async () => {
+    const calendar = (query: string, cookie: string | undefined) => t.get(`/api/workspaces/${home}/calendar${query}`, cookie);
+    const from = inDays(1);
+    const created = await t.post(
+      schedules(),
+      { title: 'Pay rent', date: from, timeZone: 'Europe/Berlin', reminders: [], recurrence: { kind: 'FIXED', unit: 'WEEK', interval: 1 }, assigneeUserId: null },
+      user,
+    );
+    expect(created.statusCode).toBe(201);
+    const response = await calendar(`?from=${from}&to=${inDays(15)}`, guest);
+    expect(response.statusCode).toBe(200);
+    const body2 = response.json();
+    expect(body2).toMatchObject({ from, to: inDays(15), truncated: false });
+    expect(body2.occurrences.map((item: { dueDate: string; state: string; schedule: { title: string } }) => [item.schedule.title, item.dueDate, item.state])).toEqual([['Pay rent', from, 'OPEN']]);
+    expect(body2.projected.map((item: { dueDate: string }) => item.dueDate)).toEqual([inDays(8), inDays(15)]);
+    // A projected date has no id and no state: there is nothing to act on.
+    expect(Object.keys(body2.projected[0]).sort()).toEqual(['dueDate', 'responsible', 'schedule', 'time']);
+    expect(response.body).not.toMatch(/userId|@example/);
+    expect(response.headers['cache-control']).toContain('no-store');
+
+    expect((await calendar('', user)).json()).toEqual({ error: 'invalid_request' });
+    expect((await calendar(`?from=${from}`, user)).statusCode).toBe(400);
+    expect((await calendar(`?from=${from}&to=${from}&extra=1`, user)).statusCode).toBe(400);
+    expect((await calendar(`?from=${inDays(15)}&to=${from}`, user)).json()).toMatchObject({ error: 'invalid_range' });
+    expect((await calendar(`?from=${from}&to=${inDays(200)}`, user)).json()).toMatchObject({ error: 'invalid_range' });
+    expect((await calendar(`?from=${from}&to=${inDays(15)}`, undefined)).statusCode).toBe(401);
+    // The calendar is read-only.
+    expect((await t.post(`/api/workspaces/${home}/calendar?from=${from}&to=${from}`, {}, user)).statusCode).toBe(404);
+  });
 });

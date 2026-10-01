@@ -165,6 +165,23 @@ export interface Occurrence {
   readonly revision: number;
 }
 
+/** A future date of a repeating Schedule that has no Occurrence yet (calendar, 14.4): shown, not actionable. */
+export interface ProjectedOccurrence {
+  readonly schedule: Schedule;
+  readonly dueDate: string;
+  readonly time: string | null;
+  readonly responsible: PersonRef | null;
+}
+
+export interface CalendarRange {
+  readonly from: string;
+  readonly to: string;
+  readonly occurrences: readonly Occurrence[];
+  readonly projected: readonly ProjectedOccurrence[];
+  /** More entries exist in the range than were sent. */
+  readonly truncated: boolean;
+}
+
 export interface OccurrenceHistoryEntry extends Occurrence {
   readonly runs: readonly { readonly runId: string; readonly how: 'STARTED' | 'LINKED'; readonly linkedAt: string; readonly linkedBy: string; readonly ended: 'ABORTED' | 'UNLINKED' | null }[];
 }
@@ -531,6 +548,8 @@ export const api = {
   procedures: async (workspaceId: string) =>
     (await request<{ procedures: ProcedureCard[] }>('GET', `/workspaces/${encodeURIComponent(workspaceId)}/procedures`)).procedures,
   home: (workspaceId: string) => request<HomeOverview>('GET', `/workspaces/${encodeURIComponent(workspaceId)}/home`),
+  calendar: (workspaceId: string, from: string, to: string) =>
+    request<CalendarRange>('GET', `/workspaces/${encodeURIComponent(workspaceId)}/calendar?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`),
   pinProcedure: (workspaceId: string, id: string, pinned: boolean) =>
     request<undefined>('POST', `/workspaces/${encodeURIComponent(workspaceId)}/procedures/${encodeURIComponent(id)}/${pinned ? 'pin' : 'unpin'}`),
   createSchedule: async (workspaceId: string, input: ScheduleInput & { readonly procedureId?: string }) =>

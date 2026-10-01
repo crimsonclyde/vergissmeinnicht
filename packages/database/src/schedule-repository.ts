@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import { and, asc, desc, eq, gte, inArray, isNull, lt, ne, or, sql } from 'drizzle-orm';
+import { and, asc, desc, eq, gte, inArray, isNull, lt, lte, max, ne, or, sql } from 'drizzle-orm';
 import { alias } from 'drizzle-orm/sqlite-core';
 import type {
   OccurrenceHistoryEntry,
@@ -864,6 +864,41 @@ export function createScheduleRepository({ db }: Pick<AppDatabase, 'db'>): Sched
         .limit(limit)
         .all()
         .map(toOccurrence);
+    },
+
+    async listDueBetween(workspaceId, from, to, limit) {
+      return selectOccurrences(db)
+        .where(and(eq(occurrences.workspaceId, workspaceId), ne(occurrences.state, 'CANCELLED'), gte(occurrences.dueDate, from), lte(occurrences.dueDate, to)))
+        .orderBy(asc(occurrences.dueDate), asc(occurrences.time), asc(occurrences.createdAt))
+        .limit(limit)
+        .all()
+        .map(toOccurrence);
+    },
+
+    async listFixedSeries(workspaceId, limit) {
+      // The same series the generator (`advance`) continues, and the same "latest" it continues from.
+      const series = selectSchedules(db)
+        .where(
+          and(
+            eq(schedules.workspaceId, workspaceId),
+            eq(schedules.state, 'ACTIVE'),
+            eq(schedules.recurrenceKind, 'FIXED'),
+            or(isNull(schedules.procedureId), isNull(procedures.deletedAt)),
+          ),
+        )
+        .orderBy(asc(schedules.createdAt))
+        .limit(limit)
+        .all();
+      const latest = new Map(
+        db
+          .select({ scheduleId: occurrences.scheduleId, due: max(occurrences.dueDate) })
+          .from(occurrences)
+          .where(and(eq(occurrences.workspaceId, workspaceId), ne(occurrences.state, 'CANCELLED')))
+          .groupBy(occurrences.scheduleId)
+          .all()
+          .map((row) => [row.scheduleId, row.due]),
+      );
+      return series.map((row) => ({ schedule: toSchedule(row), latestDueDate: (latest.get(row.schedule.id) ?? null) as LocalDate | null }));
     },
 
     async linkableRuns(workspaceId, occurrenceId) {

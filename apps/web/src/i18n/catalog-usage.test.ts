@@ -37,6 +37,10 @@ const DYNAMIC_PREFIXES = [
   'schedule.every.',
   'schedule.interval.',
   'schedule.reminder.',
+  // Calendar (14.4): view, status and type names.
+  'calendar.view.',
+  'calendar.status.',
+  'calendar.type.',
   // Instruction photos (14.3): refusal reasons by the server's stable code.
   'image.rejected.',
 ];

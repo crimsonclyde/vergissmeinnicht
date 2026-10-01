@@ -116,6 +116,13 @@ export interface ScheduleRepository {
   listOpen(workspaceId: WorkspaceId, limit: number): Promise<ScheduledOccurrence[]>;
   /** Occurrences completed or skipped since `since`, newest first. */
   listRecentlyClosed(workspaceId: WorkspaceId, since: Date, limit: number): Promise<ScheduledOccurrence[]>;
+  /** Occurrences due from `from` to `to` (inclusive; CANCELLED ones left out), earliest first, at most `limit`. */
+  listDueBetween(workspaceId: WorkspaceId, from: LocalDate, to: LocalDate, limit: number): Promise<ScheduledOccurrence[]>;
+  /**
+   * Active fixed series the generator continues (not paused or ended, Procedure not deleted), each with
+   * the due date of its latest Occurrence — where the generator goes on from.
+   */
+  listFixedSeries(workspaceId: WorkspaceId, limit: number): Promise<{ readonly schedule: Schedule; readonly latestDueDate: LocalDate | null }[]>;
   /** Runs that may be linked to the Occurrence (D7): same Procedure, active or completed, not linked, started since the previous due date. */
   linkableRuns(workspaceId: WorkspaceId, occurrenceId: OccurrenceId): Promise<RunSummary[]>;
   /**

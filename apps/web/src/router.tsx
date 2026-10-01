@@ -50,6 +50,8 @@ export type Route =
   | { readonly page: 'admin' }
   /** Workspace Home (13.9): Due, Upcoming, Active, Pinned, Recent. */
   | { readonly page: 'workspace'; readonly workspaceId: string }
+  /** Calendar and agenda of Occurrences (14.4). */
+  | { readonly page: 'calendar'; readonly workspaceId: string }
   /** Completed history (13.14): finished executions. */
   | { readonly page: 'history'; readonly workspaceId: string }
   /** One execution (Run). */
@@ -73,6 +75,7 @@ export function parseRoute(pathname: string): Route {
   if (path === '/account') return { page: 'account' };
   if (path === '/admin') return { page: 'admin' };
   if ((match = new RegExp(`^/w/${ID}$`).exec(path))) return { page: 'workspace', workspaceId: match[1] ?? '' };
+  if ((match = new RegExp(`^/w/${ID}/calendar$`).exec(path))) return { page: 'calendar', workspaceId: match[1] ?? '' };
   // `/runs` is the address of the former Run list (bookmarks keep working).
   if ((match = new RegExp(`^/w/${ID}/(?:history|runs)$`).exec(path))) return { page: 'history', workspaceId: match[1] ?? '' };
   if ((match = new RegExp(`^/w/${ID}/runs/${ID}$`).exec(path))) {
@@ -89,6 +92,7 @@ export function parseRoute(pathname: string): Route {
 
 export const paths = {
   home: (workspaceId: string) => `/w/${workspaceId}`,
+  calendar: (workspaceId: string) => `/w/${workspaceId}/calendar`,
   history: (workspaceId: string) => `/w/${workspaceId}/history`,
   run: (workspaceId: string, runId: string) => `/w/${workspaceId}/runs/${runId}`,
   procedures: (workspaceId: string) => `/w/${workspaceId}/procedures`,
