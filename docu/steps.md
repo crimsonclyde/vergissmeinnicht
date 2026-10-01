@@ -18,10 +18,10 @@ For every completed task, add a concise completion note, tests/checks performed,
 
 ## Current state — resume here
 
-_Last updated: 2026-10-01 (0.3.0-beta.3 released from `main`; 14.4 calendar implemented in the working tree, not yet committed or released; 14.5 later)_
+_Last updated: 2026-10-01 (releasing 0.3.0-beta.4: 14.4 calendar; 14.5 later)_
 
-**Done:** 0.1, 0.2, 0.3, 1.1, 1.2, 2.1–2.5, 2.7–2.9, 3.1–3.3, 4.1–4.5, 5.1–5.7, 6.1, 6.2, 7.1, 8.0–8.11, 9.1, 10.1–10.5, 11.1, 12.1–12.14, 13.1–13.19, 14.0–14.4, 12.15, 12.16, 13.20, 12.17. DEFERRED: 2.6 (external identity providers — a later step, user decision 2026-09-28).
-**Next:** commit and release 14.4 (calendar, agenda) when the user agrees; then beta feedback, 14.5 later. Beta test of 0.3.0-beta.3 — camera photos work on the user's iPhone; the rest of the real-iPhone matrix is still open (see 14.3 Remaining) (real email and Telegram reminders: tested by the user, working — 2026-10-01; upgrade of real data not yet confirmed); then 14.4 (calendar, agenda); 14.5 later. Also: beta feedback on the icon catalogue (12.11, 12.13); beta feedback on Home/scheduling. Still open from before: GHCR package visibility, a session with a real screen reader, physical iOS/Android devices (incl. offline storage eviction), and automate GitHub Release creation in the release workflow (the 0.2.0-beta.1 pre-release was created manually after the workflow). Possible next providers: ntfy/Gotify or a webhook — the webhook needs the SSRF policy in security.md first.
+**Done:** 0.1, 0.2, 0.3, 1.1, 1.2, 2.1–2.5, 2.7–2.9, 3.1–3.3, 4.1–4.5, 5.1–5.7, 6.1, 6.2, 7.1, 8.0–8.11, 9.1, 10.1–10.5, 11.1, 12.1–12.14, 13.1–13.19, 14.0–14.4, 12.15, 12.16, 13.20, 12.17. IN PROGRESS: 12.18 (release 0.3.0-beta.4). DEFERRED: 2.6 (external identity providers — a later step, user decision 2026-09-28).
+**Next:** beta test of 0.3.0-beta.4 (calendar and agenda, also on a real phone); 14.5 later. Beta test of 0.3.0-beta.3 — camera photos work on the user's iPhone; the rest of the real-iPhone matrix is still open (see 14.3 Remaining) (real email and Telegram reminders: tested by the user, working — 2026-10-01; upgrade of real data not yet confirmed); then 14.4 (calendar, agenda); 14.5 later. Also: beta feedback on the icon catalogue (12.11, 12.13); beta feedback on Home/scheduling. Still open from before: GHCR package visibility, a session with a real screen reader, physical iOS/Android devices (incl. offline storage eviction), and automate GitHub Release creation in the release workflow (the 0.2.0-beta.1 pre-release was created manually after the workflow). Possible next providers: ntfy/Gotify or a webhook — the webhook needs the SSRF policy in security.md first.
 
 **Decisions 2026-09-30 (user) — new objective, section 14 (planned, not implemented):** VMN becomes an ADHD-friendly place to see what needs attention, remember recurring obligations and follow clear visual instructions. First release: standalone Reminders and scheduled Procedures in one overview and calendar; one-time, fixed-calendar and completion-based recurrence with independent Occurrence history; reminder offsets in days/weeks/calendar months; bounded catch-up after outages; one optional Assignee (no extra access); Overdue/Today/Upcoming overview, calendar and mobile agenda; one optional instruction image per Step (processed to a ≤500 KB JPEG, metadata removed) with a per-Workspace storage quota (default 100 MB). Later: completion photos, required evidence, annotations. Supersedes the 2026-09-29 "no calendar / no generic tasks / no recurring schedules / no photos" scope for exactly these features. Product decisions D1–D8, D11–D18 approved; technical choices T1–T5 (details in 14.6).
 
@@ -1879,6 +1879,13 @@ The first PR CI run exposed that the new offline common-password dataset and pro
 GitHub pre-release created by the user: `https://github.com/crimsonclyde/vergissmeinnicht/releases/tag/v0.3.0-beta.3`.
 
 **Remaining:** no GitHub release page exists for `v0.3.0-beta.2` (superseded by beta.3; tag and image exist); rest of the real-iPhone photo matrix (14.3 Remaining); automated GitHub Release creation still open.
+
+
+### 12.18 Release 0.3.0-beta.4
+**Status:** IN PROGRESS
+**Started:** 2026-10-01
+
+**Request (user, 2026-10-01):** release the calendar and agenda (14.4) as **0.3.0-beta.4**. Unraid template and guide point to `ghcr.io/crimsonclyde/vergissmeinnicht:0.3.0-beta.4`. No migration since 0.3.0-beta.2.
 
 ---
 
