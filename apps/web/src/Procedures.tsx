@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useRef, useState, type ChangeEvent } from 'react';
 import { api, messageFor, type DeletedProcedure, type Procedure, type ProcedureCard, type ProcedureDetail } from './api.ts';
+import { LinkedContacts } from './Contacts.tsx';
+import { LinkedDocuments } from './DocumentLinks.tsx';
 import { History } from './History.tsx';
 import { formatCalendarDate, formatDateTime, formatRelative, t } from './i18n/index.ts';
 import { KnotShare } from './Knots.tsx';
@@ -322,6 +324,8 @@ export function Procedures(props: {
             </div>
           )}
           <ProcedureView detail={shown} workspaceId={workspaceId} />
+          <LinkedDocuments workspaceId={workspaceId} target={{ type: 'procedure', id: shown.id }} />
+          <LinkedContacts workspaceId={workspaceId} procedureId={shown.id} />
           {/* History is one click away, not competing with the Procedure itself. */}
           <details className="more-actions" open={mode.panel === 'history'}>
             <summary>{t('procedure.history')}</summary>

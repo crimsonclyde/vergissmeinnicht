@@ -17,6 +17,7 @@ import { HoldToConfirm } from './HoldToConfirm.tsx';
 import { usePreferences } from './preferences.tsx';
 import { TapToConfirm } from './TapToConfirm.tsx';
 import { KnotShare } from './Knots.tsx';
+import { RunDocuments } from './DocumentLinks.tsx';
 import { formatDateTime, formatTime, formatWhen, t } from './i18n/index.ts';
 import { AppIcon } from './procedure-icons.tsx';
 import { StepImage } from './StepImage.tsx';
@@ -462,6 +463,7 @@ function RunView(props: {
         </div>
       )}
       {/* Execution first (13.17): history and sharing stay one tap away instead of competing with the Steps. */}
+      <RunDocuments key={`documents-${run.id}`} workspaceId={props.workspaceId} runId={run.id} runState={run.state} />
       <details className="more-actions run-more" open={run.state !== 'ACTIVE'}>
         <summary>{t(props.canManageKnots ? 'run.moreWithShare' : 'run.more')}</summary>
         <History key={`${run.id}-${run.state}`} label={t('run.historyLabel')} load={props.loadHistory} />

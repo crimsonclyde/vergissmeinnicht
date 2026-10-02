@@ -41,6 +41,8 @@ export interface ArchiveDocument {
   readonly modifiedAt: Date;
   readonly modifiedByName: string;
   readonly files: readonly ArchiveFile[];
+  /** Relationships to other records (16.5): kind, id and title — only what the exporter may read. */
+  readonly links?: readonly { readonly type: string; readonly id: string; readonly title: string }[];
 }
 
 export interface DocumentsArchiveInput {
@@ -64,9 +66,12 @@ const TYPE_NAMES: Readonly<Record<string, string>> = {
   correspondence: 'Correspondence',
 };
 
+/** Kinds of linked records in words, for the index. */
+const LINK_NAMES: Readonly<Record<string, string>> = { procedure: 'Procedure', reminder: 'Reminder', scheduled_procedure: 'Scheduled procedure', document: 'Document', run: 'Execution' };
+
 const typeName = (type: TypeView): string | null => (type === null ? null : type.kind === 'custom' ? type.name : Object.hasOwn(TYPE_NAMES, type.key) ? (TYPE_NAMES[type.key] ?? type.key) : type.key);
 
-/** The machine-readable description of the export. Relationships (`links`) are listed per Document; none exist before Links do (16.5). */
+/** The machine-readable description of the export, with each Document's relationships (`links`: kind, id, title). */
 export function documentsMetadata(input: DocumentsArchiveInput): string {
   return JSON.stringify(
     {
@@ -100,7 +105,7 @@ export function documentsMetadata(input: DocumentsArchiveInput): string {
           sha256: file.sha256,
           pdfPages: file.pageCount !== null && file.format === 'PDF' ? file.pageCount : null,
         })),
-        links: [],
+        links: (document.links ?? []).map((link) => ({ type: link.type, id: link.id, title: link.title })),
       })),
     },
     null,
@@ -133,6 +138,7 @@ export function documentsIndexHtml(input: DocumentsArchiveInput): string {
       fact('Year', document.year === null ? null : String(document.year)),
       fact('Tags', document.tags.join(', ')),
       fact('Notes', document.notes, 'notes'),
+      fact('Linked to', (document.links ?? []).map((link) => `${LINK_NAMES[link.type] ?? 'Record'}: ${link.title}`).join('; ')),
       fact('Uploaded', `${document.uploadedAt.toISOString().slice(0, 10)} by ${document.uploadedByName}`),
       fact('Last modified', `${document.modifiedAt.toISOString().slice(0, 10)} by ${document.modifiedByName}`),
     ].join('')}</dl><ul>${document.files

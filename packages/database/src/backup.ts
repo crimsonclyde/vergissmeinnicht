@@ -265,9 +265,12 @@ async function copyDocuments(targetPath: string, liveDocumentsPath: string, now:
         backup.prepare("UPDATE document_files SET preview_state = 'PENDING', preview_attempts = 0 WHERE id IN (SELECT file_id FROM document_file_derivatives WHERE sha256 = ?)").run(sha256);
         backup.prepare('DELETE FROM document_file_derivatives WHERE sha256 = ?').run(sha256);
         // Before migration 0028 there are no Documents: every upload is provisional.
-        const expiredUploads = hasTable(backup, 'document_pages')
-          ? backup.prepare('SELECT id FROM document_files WHERE sha256 = ? AND created_at < ? AND id NOT IN (SELECT file_id FROM document_pages)')
-          : backup.prepare('SELECT id FROM document_files WHERE sha256 = ? AND created_at < ?');
+        // … and before 0031 no Document version is retained for a Run. The same rule as housekeeping's `unreferenced`.
+        const expiredUploads = hasTable(backup, 'run_document_files')
+          ? backup.prepare('SELECT id FROM document_files WHERE sha256 = ? AND created_at < ? AND id NOT IN (SELECT file_id FROM document_pages) AND id NOT IN (SELECT file_id FROM run_document_files)')
+          : hasTable(backup, 'document_pages')
+            ? backup.prepare('SELECT id FROM document_files WHERE sha256 = ? AND created_at < ? AND id NOT IN (SELECT file_id FROM document_pages)')
+            : backup.prepare('SELECT id FROM document_files WHERE sha256 = ? AND created_at < ?');
         const expired = expiredUploads.all(sha256, now.getTime() - DOCUMENT_FILE_GRACE_MS) as { id: string }[];
         for (const { id } of expired) {
           backup.prepare('DELETE FROM document_file_derivatives WHERE file_id = ?').run(id);

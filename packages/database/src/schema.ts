@@ -5,6 +5,8 @@
 import { sql } from 'drizzle-orm';
 import { check, foreignKey, index, integer, primaryKey, sqliteTable, text, uniqueIndex } from 'drizzle-orm/sqlite-core';
 import {
+  CONTACT_KEY_KINDS,
+  MAINTENANCE_STATUSES,
   CRITICAL_CONFIRM_MODES,
   KNOT_TARGET_TYPES,
   BUILT_IN_DOCUMENT_TYPES,
@@ -1532,5 +1534,270 @@ export const documentPages = sqliteTable(
     foreignKey({ name: 'document_pages_document_fk', columns: [table.documentId, table.workspaceId], foreignColumns: [documents.id, documents.workspaceId] }),
     foreignKey({ name: 'document_pages_file_fk', columns: [table.fileId, table.workspaceId], foreignColumns: [documentFiles.id, documentFiles.workspaceId] }),
     check('document_pages_position_bounded', sql`${table.position} between 0 and 49`),
+  ],
+);
+
+/**
+ * Links (16.5, HT8): one typed table for references between two records of a Workspace. `from` is a
+ * Document so far; `to` a Document ("related", stored once with the smaller id first), a Procedure or a
+ * Schedule. SQLite cannot declare a foreign key to "one of several tables", so **triggers in migration
+ * 0031** make sure both ends exist in the same Workspace when a Link is added — a cross-Workspace Link
+ * cannot exist. A Document that is deleted for good leaves its end marked as gone (when, by whom)
+ * instead of taking the Link away: the other record still says that something was linked.
+ */
+/**
+ * Contacts (16.6): people and organisations of a Workspace. Not Users: nothing here grants access.
+ * `emails` and `phones` are what is shown; `contact_keys` is what Contacts are compared by.
+ */
+export const contacts = sqliteTable(
+  'contacts',
+  {
+    id: text('id').primaryKey(),
+    workspaceId: text('workspace_id')
+      .notNull()
+      .references(() => workspaces.id),
+    name: text('name').notNull(),
+    organisation: text('organisation').notNull().default(''),
+    category: text('category').notNull().default(''),
+    emails: text('emails', { mode: 'json' }).$type<{ value: string; label: string }[]>().notNull().default(sql`'[]'`),
+    phones: text('phones', { mode: 'json' }).$type<{ value: string; label: string }[]>().notNull().default(sql`'[]'`),
+    address: text('address').notNull().default(''),
+    website: text('website').notNull().default(''),
+    notes: text('notes').notNull().default(''),
+    /** Derived, written with every change: the folded name (order), the folded category (filter), and everything a search looks at. */
+    sortKey: text('sort_key').notNull(),
+    categoryKey: text('category_key').notNull().default(''),
+    searchText: text('search_text').notNull(),
+    revision: integer('revision').notNull().default(1),
+    createdByUserId: text('created_by_user_id')
+      .notNull()
+      .references(() => users.id),
+    createdByDisplayName: text('created_by_display_name').notNull(),
+    createdAt: integer('created_at', { mode: 'timestamp_ms' }).notNull(),
+    updatedByUserId: text('updated_by_user_id')
+      .notNull()
+      .references(() => users.id),
+    updatedByDisplayName: text('updated_by_display_name').notNull(),
+    updatedAt: integer('updated_at', { mode: 'timestamp_ms' }).notNull(),
+    deletedAt: integer('deleted_at', { mode: 'timestamp_ms' }),
+    deletedByUserId: text('deleted_by_user_id').references(() => users.id),
+    deletedByDisplayName: text('deleted_by_display_name'),
+  },
+  (table) => [
+    uniqueIndex('contacts_id_workspace_unique').on(table.id, table.workspaceId),
+    index('contacts_name_idx').on(table.workspaceId, table.sortKey, table.id).where(sql`${table.deletedAt} is null`),
+    index('contacts_trash_idx').on(table.workspaceId, table.deletedAt),
+    check('contacts_id_uuid', sql`length(${table.id}) = 36`),
+    check('contacts_name_present', sql`length(trim(${table.name})) > 0 and length(${table.name}) <= 200`),
+    check('contacts_text_bounded', sql`length(${table.organisation}) <= 200 and length(${table.category}) <= 60 and length(${table.address}) <= 500 and length(${table.notes}) <= 4000`),
+    // Whatever wrote the row: a website is an http(s) address or nothing.
+    check('contacts_website_http', sql`${table.website} = '' or (length(${table.website}) <= 500 and (${table.website} like 'http://%' or ${table.website} like 'https://%'))`),
+    check('contacts_emails_array', sql`json_valid(${table.emails}) and json_type(${table.emails}) = 'array' and json_array_length(${table.emails}) <= 10`),
+    check('contacts_phones_array', sql`json_valid(${table.phones}) and json_type(${table.phones}) = 'array' and json_array_length(${table.phones}) <= 10`),
+    check('contacts_revision_positive', sql`${table.revision} >= 1`),
+    check('contacts_deletion_consistent', sql`(${table.deletedAt} is null) = (${table.deletedByUserId} is null) and (${table.deletedAt} is null) = (${table.deletedByDisplayName} is null)`),
+  ],
+);
+
+/** What a Contact is compared by for possible duplicates: each email address, each phone number without formatting, its name key. */
+export const contactKeys = sqliteTable(
+  'contact_keys',
+  {
+    contactId: text('contact_id').notNull(),
+    workspaceId: text('workspace_id').notNull(),
+    kind: text('kind', { enum: CONTACT_KEY_KINDS }).notNull(),
+    key: text('key').notNull(),
+  },
+  (table) => [
+    primaryKey({ columns: [table.contactId, table.kind, table.key] }),
+    foreignKey({ name: 'contact_keys_contact_fk', columns: [table.contactId, table.workspaceId], foreignColumns: [contacts.id, contacts.workspaceId] }),
+    index('contact_keys_lookup_idx').on(table.workspaceId, table.kind, table.key),
+    check('contact_keys_kind_valid', oneOf('kind', CONTACT_KEY_KINDS)),
+  ],
+);
+
+/**
+ * MaintenanceRecords (16.7): planned or done work with one of four statuses. The status is set by
+ * people only — nothing here references a Run, and no Run, Occurrence or Reminder writes to this table.
+ */
+export const maintenanceRecords = sqliteTable(
+  'maintenance_records',
+  {
+    id: text('id').primaryKey(),
+    workspaceId: text('workspace_id')
+      .notNull()
+      .references(() => workspaces.id),
+    title: text('title').notNull(),
+    category: text('category').notNull().default(''),
+    /** When the work is planned for (`YYYY-MM-DD`), or none. */
+    date: text('date'),
+    status: text('status', { enum: MAINTENANCE_STATUSES }).notNull().default('PLANNED'),
+    /** The day the work was completed: set exactly while the status is COMPLETED. */
+    completedOn: text('completed_on'),
+    description: text('description').notNull().default(''),
+    /** The responsible Contact, by id. Not a foreign key: a Contact deleted for good leaves "a deleted contact" here. */
+    contactId: text('contact_id'),
+    /** A cost as written — decimal text, never a float — with its ISO 4217 currency; both or neither. */
+    costAmount: text('cost_amount'),
+    costCurrency: text('cost_currency'),
+    /** Derived, written with every change: the folded category (filter), the day the record is filed under (List order, year filter), what a search looks at. */
+    categoryKey: text('category_key').notNull().default(''),
+    sortDate: text('sort_date').notNull(),
+    searchText: text('search_text').notNull(),
+    revision: integer('revision').notNull().default(1),
+    createdByUserId: text('created_by_user_id')
+      .notNull()
+      .references(() => users.id),
+    createdByDisplayName: text('created_by_display_name').notNull(),
+    createdAt: integer('created_at', { mode: 'timestamp_ms' }).notNull(),
+    updatedByUserId: text('updated_by_user_id')
+      .notNull()
+      .references(() => users.id),
+    updatedByDisplayName: text('updated_by_display_name').notNull(),
+    updatedAt: integer('updated_at', { mode: 'timestamp_ms' }).notNull(),
+    deletedAt: integer('deleted_at', { mode: 'timestamp_ms' }),
+    deletedByUserId: text('deleted_by_user_id').references(() => users.id),
+    deletedByDisplayName: text('deleted_by_display_name'),
+  },
+  (table) => [
+    uniqueIndex('maintenance_records_id_workspace_unique').on(table.id, table.workspaceId),
+    index('maintenance_records_list_idx').on(table.workspaceId, table.sortDate, table.id).where(sql`${table.deletedAt} is null`),
+    index('maintenance_records_board_idx').on(table.workspaceId, table.status, table.sortDate).where(sql`${table.deletedAt} is null`),
+    index('maintenance_records_contact_idx').on(table.workspaceId, table.contactId),
+    check('maintenance_records_id_uuid', sql`length(${table.id}) = 36`),
+    check('maintenance_records_title_present', sql`length(trim(${table.title})) > 0 and length(${table.title}) <= 200`),
+    check('maintenance_records_text_bounded', sql`length(${table.category}) <= 60 and length(${table.description}) <= 4000`),
+    check('maintenance_records_status_valid', oneOf('status', MAINTENANCE_STATUSES)),
+    check('maintenance_records_dates_format', sql`(${table.date} is null or ${table.date} glob '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]') and (${table.completedOn} is null or ${table.completedOn} glob '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]') and ${table.sortDate} glob '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]'`),
+    // Completed is unmistakable: a completion date exactly while the status says so.
+    check('maintenance_records_completion_consistent', sql`(${table.status} = 'COMPLETED') = (${table.completedOn} is not null)`),
+    check('maintenance_records_cost_consistent', sql`(${table.costAmount} is null) = (${table.costCurrency} is null)`),
+    check('maintenance_records_cost_shape', sql`${table.costAmount} is null or (length(${table.costAmount}) <= 16 and ${table.costAmount} not glob '*[^0-9.]*' and length(${table.costCurrency}) = 3 and ${table.costCurrency} not glob '*[^A-Z]*')`),
+    check('maintenance_records_revision_positive', sql`${table.revision} >= 1`),
+    check('maintenance_records_deletion_consistent', sql`(${table.deletedAt} is null) = (${table.deletedByUserId} is null) and (${table.deletedAt} is null) = (${table.deletedByDisplayName} is null)`),
+  ],
+);
+
+export const links = sqliteTable(
+  'links',
+  {
+    id: text('id').primaryKey(),
+    workspaceId: text('workspace_id')
+      .notNull()
+      .references(() => workspaces.id),
+    fromType: text('from_type').notNull(),
+    fromId: text('from_id').notNull(),
+    toType: text('to_type').notNull(),
+    toId: text('to_id').notNull(),
+    createdByUserId: text('created_by_user_id')
+      .notNull()
+      .references(() => users.id),
+    createdByDisplayName: text('created_by_display_name').notNull(),
+    createdAt: integer('created_at', { mode: 'timestamp_ms' }).notNull(),
+    fromGoneAt: integer('from_gone_at', { mode: 'timestamp_ms' }),
+    fromGoneByDisplayName: text('from_gone_by_display_name'),
+    toGoneAt: integer('to_gone_at', { mode: 'timestamp_ms' }),
+    toGoneByDisplayName: text('to_gone_by_display_name'),
+  },
+  (table) => [
+    uniqueIndex('links_pair_unique').on(table.workspaceId, table.fromType, table.fromId, table.toType, table.toId),
+    index('links_to_idx').on(table.workspaceId, table.toType, table.toId),
+    check('links_id_uuid', sql`length(${table.id}) = 36`),
+    check('links_ends_differ', sql`${table.fromType} <> ${table.toType} or ${table.fromId} <> ${table.toId}`),
+    check('links_from_gone_consistent', sql`(${table.fromGoneAt} is null) = (${table.fromGoneByDisplayName} is null)`),
+    check('links_to_gone_consistent', sql`(${table.toGoneAt} is null) = (${table.toGoneByDisplayName} is null)`),
+  ],
+);
+
+/**
+ * A Document version retained for a Run (16.5, H10): the Document's details as they were when it was
+ * linked, and — in `run_document_files` — its files in page order. Immutable (triggers in migration
+ * 0031); it can only be removed while the Run is ACTIVE. Kept beside the Run: nothing in the Run's own
+ * tables is touched. `source_document_id` is where it came from — not a foreign key, because the
+ * source may be deleted for good while the version stays.
+ */
+export const runDocuments = sqliteTable(
+  'run_documents',
+  {
+    id: text('id').primaryKey(),
+    workspaceId: text('workspace_id')
+      .notNull()
+      .references(() => workspaces.id),
+    runId: text('run_id')
+      .notNull()
+      .references(() => runs.id),
+    sourceDocumentId: text('source_document_id').notNull(),
+    sourceRevision: integer('source_revision').notNull(),
+    title: text('title').notNull(),
+    typeKey: text('type_key'),
+    /** The name of a Workspace's own type at the time. */
+    typeName: text('type_name'),
+    documentDate: text('document_date'),
+    year: integer('year'),
+    notes: text('notes').notNull().default(''),
+    tags: text('tags', { mode: 'json' }).$type<string[]>().notNull().default(sql`'[]'`),
+    linkedByUserId: text('linked_by_user_id')
+      .notNull()
+      .references(() => users.id),
+    linkedByDisplayName: text('linked_by_display_name').notNull(),
+    linkedAt: integer('linked_at', { mode: 'timestamp_ms' }).notNull(),
+  },
+  (table) => [
+    uniqueIndex('run_documents_source_unique').on(table.runId, table.sourceDocumentId),
+    index('run_documents_source_idx').on(table.workspaceId, table.sourceDocumentId),
+    check('run_documents_id_uuid', sql`length(${table.id}) = 36`),
+  ],
+);
+
+/** The files of a retained Document version, in page order. This reference keeps the files from housekeeping. */
+export const runDocumentFiles = sqliteTable(
+  'run_document_files',
+  {
+    runDocumentId: text('run_document_id')
+      .notNull()
+      .references(() => runDocuments.id),
+    workspaceId: text('workspace_id').notNull(),
+    position: integer('position').notNull(),
+    fileId: text('file_id').notNull(),
+  },
+  (table) => [
+    primaryKey({ columns: [table.runDocumentId, table.position] }),
+    index('run_document_files_file_idx').on(table.fileId),
+    foreignKey({ name: 'run_document_files_file_fk', columns: [table.fileId, table.workspaceId], foreignColumns: [documentFiles.id, documentFiles.workspaceId] }),
+  ],
+);
+
+/**
+ * The permanent note left when a Workspace admin removes a Document version from a **finished** Run
+ * (16.5, P4): who removed it, when and why, and when it had been linked — **nothing of the document**
+ * (no title, no details, no file reference). Never changed or deleted (triggers in migration 0032).
+ * `run_document_id` is the removed row's id: its presence is what lets that row be deleted.
+ */
+export const runDocumentRemovals = sqliteTable(
+  'run_document_removals',
+  {
+    id: text('id').primaryKey(),
+    workspaceId: text('workspace_id')
+      .notNull()
+      .references(() => workspaces.id),
+    runId: text('run_id')
+      .notNull()
+      .references(() => runs.id),
+    runDocumentId: text('run_document_id').notNull(),
+    reason: text('reason').notNull(),
+    files: integer('files').notNull(),
+    linkedByDisplayName: text('linked_by_display_name').notNull(),
+    linkedAt: integer('linked_at', { mode: 'timestamp_ms' }).notNull(),
+    removedByUserId: text('removed_by_user_id')
+      .notNull()
+      .references(() => users.id),
+    removedByDisplayName: text('removed_by_display_name').notNull(),
+    removedAt: integer('removed_at', { mode: 'timestamp_ms' }).notNull(),
+  },
+  (table) => [
+    uniqueIndex('run_document_removals_document_unique').on(table.runDocumentId),
+    index('run_document_removals_run_idx').on(table.workspaceId, table.runId),
+    check('run_document_removals_id_uuid', sql`length(${table.id}) = 36`),
+    check('run_document_removals_reason_present', sql`length(trim(${table.reason})) > 0 and length(${table.reason}) <= 500`),
   ],
 );

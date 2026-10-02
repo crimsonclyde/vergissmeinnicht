@@ -41,6 +41,19 @@ function bodyFor(route: string, ids: Record<string, string>): object {
   if (url.endsWith('/occurrences/:occurrenceId/assign')) return { assigneeUserId: null };
   if (url.endsWith('/occurrences/:occurrenceId/link-run')) return { runId: ids.runId ?? '' };
   if (url.endsWith('/tools')) return { tool: 'DOCUMENTS', enabled: true };
+  if (url.endsWith('/documents/:documentId/links')) return { target: { type: 'procedure', id: ids.procedureId ?? '' } };
+  if (url.endsWith('/runs/:runId/documents')) return { documentId: ids.documentId ?? '' };
+  if (url.endsWith('/remove-kept')) return { reason: 'Taken away', confirm: true };
+  if (url.endsWith('/contacts') || url.endsWith('/contacts/duplicates')) return { name: 'Stolen contact' };
+  if (url.endsWith('/contacts/trash/purge')) return { contactIds: [ids.contactId ?? ''] };
+  if (url.endsWith('/contacts/import')) return { format: 'csv', contacts: [{ name: 'Stolen contact' }] };
+  if (url.endsWith('/contacts/:contactId/update')) return { name: 'Taken over', expectedRevision: 1 };
+  if (url.endsWith('/contacts/:contactId/procedures')) return { procedureId: ids.procedureId ?? '' };
+  if (url.endsWith('/maintenance')) return { title: 'Stolen record' };
+  if (url.endsWith('/maintenance/trash/purge')) return { recordIds: [ids.recordId ?? ''] };
+  if (url.endsWith('/maintenance/:recordId/update')) return { title: 'Taken over', expectedRevision: 1 };
+  if (url.endsWith('/maintenance/:recordId/status')) return { status: 'COMPLETED', expectedRevision: 1 };
+  if (url.endsWith('/maintenance/:recordId/links')) return { target: { type: 'procedure', id: ids.procedureId ?? '' } };
   if (url.endsWith('/storage/limit')) return { bytes: null };
   if (url.endsWith('/trash/purge')) return { items: [{ kind: 'document', id: ids.documentId ?? '' }] };
   if (url.endsWith('/ceiling')) return { bytes: 1_000_000_000 };
@@ -89,7 +102,7 @@ describe('security properties of every route (13.2)', () => {
   const call = (route: string, cookie: string | undefined, values: Record<string, string>): Promise<InjectResponse> => {
     const [method, pattern] = route.split(' ') as [string, string];
     // The calendar needs a valid range to reach the lookup instead of stopping at 400.
-    const url = fill(pattern, values) + (/\/calendar\/?$/.test(pattern) ? `?from=${TOMORROW}&to=${TOMORROW}` : '');
+    const url = fill(pattern, values) + (/\/calendar\/?$/.test(pattern) ? `?from=${TOMORROW}&to=${TOMORROW}` : /\/(document|contact)-links$/.test(pattern) ? `?procedure=${values.procedureId ?? ''}` : /\/contacts\/(export|import\/preview)$/.test(pattern) ? '?format=csv' : '');
     return method === 'GET' ? t.get(url, cookie) : t.post(url, bodyFor(route, values), cookie);
   };
 
@@ -126,6 +139,16 @@ describe('security properties of every route (13.2)', () => {
       })
     ).json().file;
     await t.post(`/api/workspaces/${office}/tools`, { tool: 'DOCUMENTS', enabled: true }, outsider);
+    // Contacts (16.6) likewise, in both.
+    await t.post(`/api/workspaces/${home}/tools`, { tool: 'CONTACTS', enabled: true }, owner);
+    await t.post(`/api/workspaces/${office}/tools`, { tool: 'CONTACTS', enabled: true }, outsider);
+    const contact = (await t.post(`/api/workspaces/${home}/contacts`, { name: 'Idraulico Rossi', phones: [{ value: '0471 123456' }] }, owner)).json().contact;
+    await t.post(`/api/workspaces/${home}/contacts/${contact.id}/procedures`, { procedureId: procedure.id }, owner);
+    // Maintenance (16.7), in both.
+    await t.post(`/api/workspaces/${home}/tools`, { tool: 'MAINTENANCE', enabled: true }, owner);
+    await t.post(`/api/workspaces/${office}/tools`, { tool: 'MAINTENANCE', enabled: true }, outsider);
+    const record = (await t.post(`/api/workspaces/${home}/maintenance`, { title: 'Boiler service', contactId: contact.id, cost: { amount: '120.00', currency: 'EUR' } }, owner)).json().record;
+    await t.post(`/api/workspaces/${home}/maintenance/${record.id}/links`, { target: { type: 'run', id: run.id } }, owner);
     const folder = (await t.post(`/api/workspaces/${home}/document-folders`, { name: 'Water', parentId: null }, owner)).json().folder;
     const document = (await t.post(`/api/workspaces/${home}/documents`, { title: 'Water bill', folderId: folder.id, fileIds: [file.id] }, owner)).json().document;
     const documentType = (await t.post(`/api/workspaces/${home}/document-types`, { name: 'Minutes' }, owner)).json().type;
@@ -139,6 +162,9 @@ describe('security properties of every route (13.2)', () => {
     const occurrence = (await t.get(`/api/workspaces/${home}/schedules/${scheduled.id}`, owner)).json().occurrences[0];
     const list = (await t.post(`/api/workspaces/${home}/lists`, { title: 'Groceries' }, owner)).json().list;
     const itemId = (await t.post(`/api/workspaces/${home}/lists/${list.id}/items`, { title: 'Milk' }, owner)).json().itemId;
+    // Links (16.5): the Document linked to the Procedure, and a version of it retained for the Run.
+    const link = (await t.post(`/api/workspaces/${home}/documents/${document.id}/links`, { target: { type: 'procedure', id: procedure.id } }, owner)).json().link;
+    const runDocument = (await t.post(`/api/workspaces/${home}/runs/${run.id}/documents`, { documentId: document.id }, owner)).json().document;
     homeIds = {
       workspaceId: home,
       procedureId: procedure.id,
@@ -156,6 +182,10 @@ describe('security properties of every route (13.2)', () => {
       folderId: folder.id,
       documentId: document.id,
       typeId: documentType.id,
+      linkId: link.id,
+      runDocumentId: runDocument.id,
+      contactId: contact.id,
+      recordId: record.id,
     };
     routes = t.app.routeTable.map((route) => `${route.method} ${route.url}`);
   });
@@ -184,19 +214,24 @@ describe('security properties of every route (13.2)', () => {
   });
 
   it('answers non-members of a Workspace like an unknown Workspace, on every Workspace route', async () => {
+    await t.restart(); // a fresh process: the sweeps before this one use up most of the global per-client limit
     for (const route of routes.filter((r) => r.includes('/workspaces/:workspaceId'))) {
       const response = await call(route, outsider, homeIds);
       expect({ route, status: response.statusCode }).toEqual({ route, status: 404 });
       expect(response.body).not.toContain('Leave the house');
       expect(response.body).not.toContain('Groceries');
       expect(response.body).not.toContain('Water');
+      expect(response.body).not.toContain('Rossi');
+      expect(response.body).not.toContain('Boiler');
+      expect(response.body).not.toContain('120.00');
     }
   });
 
   it('never resolves a child id of one Workspace under another Workspace', async () => {
     // Otto administers Office and uses Home's Procedure/Run/Step/Knot/member ids under Office's id.
-    const childRoutes = routes.filter((r) => (r.includes('/:workspaceId/') && /:(procedureId|runId|knotId|userId|scheduleId|occurrenceId|imageId|listId|itemId|fileId|folderId|documentId|typeId)/.test(r)) || /^POST .*\/:workspaceId\/(runs|knots|schedules|documents|documents\/move|document-folders)$/.test(r));
+    const childRoutes = routes.filter((r) => (r.includes('/:workspaceId/') && /:(procedureId|runId|knotId|userId|scheduleId|occurrenceId|imageId|listId|itemId|fileId|folderId|documentId|typeId|linkId|runDocumentId|contactId|recordId)/.test(r)) || /^POST .*\/:workspaceId\/(runs|knots|schedules|documents|documents\/move|document-folders)$/.test(r));
     expect(childRoutes.length).toBeGreaterThan(10);
+    await t.restart(); // a fresh process: the sweeps before this one use up most of the global per-client limit
     for (const route of childRoutes) {
       const response = await call(route, outsider, { ...homeIds, workspaceId: office });
       expect({ route, status: response.statusCode }).toEqual({ route, status: 404 });
@@ -207,6 +242,19 @@ describe('security properties of every route (13.2)', () => {
     await t.restart();
     const documents = (await t.get(`/api/workspaces/${homeIds.workspaceId}/documents/${homeIds.documentId}`, owner)).json().document;
     expect(documents).toMatchObject({ title: 'Water bill', revision: 1, folderId: homeIds.folderId, files: 1 });
+    // … its Link and the version the Run retains included.
+    const linked = (await t.get(`/api/workspaces/${homeIds.workspaceId}/documents/${homeIds.documentId}/links`, owner)).json();
+    expect(linked).toMatchObject({ links: [{ id: homeIds.linkId, record: { type: 'procedure', state: 'ok' } }], runs: [{ id: homeIds.runDocumentId, runId: homeIds.runId }] });
+    expect((await t.get(`/api/workspaces/${office}/document-links?procedure=${homeIds.procedureId}`, outsider)).json()).toEqual({ links: [] });
+    // … and its Contact, with the Procedure linked to it.
+    expect((await t.get(`/api/workspaces/${homeIds.workspaceId}/contacts/${homeIds.contactId}`, owner)).json().contact).toMatchObject({ name: 'Idraulico Rossi', revision: 1 });
+    expect((await t.get(`/api/workspaces/${homeIds.workspaceId}/contacts/${homeIds.contactId}/procedures`, owner)).json().links).toHaveLength(1);
+    expect((await t.get(`/api/workspaces/${office}/contacts`, outsider)).json()).toMatchObject({ contacts: [], total: 0 });
+    expect((await t.get(`/api/workspaces/${office}/contact-links?procedure=${homeIds.procedureId}`, outsider)).json()).toEqual({ links: [] });
+    // … and its MaintenanceRecord: status, revision and Link as they were.
+    expect((await t.get(`/api/workspaces/${homeIds.workspaceId}/maintenance/${homeIds.recordId}`, owner)).json().record).toMatchObject({ title: 'Boiler service', status: 'PLANNED', revision: 1 });
+    expect((await t.get(`/api/workspaces/${homeIds.workspaceId}/maintenance/${homeIds.recordId}/links`, owner)).json().links).toHaveLength(1);
+    expect((await t.get(`/api/workspaces/${office}/maintenance`, outsider)).json()).toMatchObject({ records: [], total: 0 });
     const folders = (await t.get(`/api/workspaces/${homeIds.workspaceId}/document-folders`, owner)).json().folders;
     expect(folders).toEqual([{ id: homeIds.folderId, parentId: null, name: 'Water', revision: 1, documents: 1 }]);
     expect((await t.get(`/api/workspaces/${office}/document-folders`, outsider)).json().folders).toEqual([]);

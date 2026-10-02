@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import type { DocumentFile, DocumentFolder, DocumentSummary } from './api.ts';
+import type { DocumentFile, DocumentFolder, DocumentSummary, LinkedRecord } from './api.ts';
 import {
   EMPTY_FORM,
   childFolders,
@@ -13,9 +13,12 @@ import {
   filtersFromSearch,
   filtersToSearch,
   isFiltering,
+  linkedKind,
+  linkedRecordText,
   listLine,
   listingParams,
   purgeTotals,
+  runDocumentNote,
   sortedDateLine,
   spansFolders,
   type DocumentFilters,
@@ -115,6 +118,35 @@ describe('Documents view model (16.2)', () => {
         { kind: 'folder', folders: 0, documents: 0, files: 0 },
       ]),
     ).toEqual({ folders: 4, documents: 6, files: 12 });
+  });
+
+  it('says what a Link leads to and where that record stands — without naming what may not be named (16.5)', () => {
+    const base: LinkedRecord = { type: 'schedule', id: 's', title: 'Pay water bill', state: 'ok', scheduleKind: 'REMINDER', nextDue: '2027-06-30', goneAt: null, goneBy: null };
+    expect(linkedKind(base)).toBe('Reminder');
+    expect(linkedKind({ type: 'schedule', scheduleKind: 'PROCEDURE' })).toBe('Scheduled procedure');
+    expect(linkedKind({ type: 'procedure', scheduleKind: null })).toBe('Procedure');
+    expect(linkedKind({ type: 'document', scheduleKind: null })).toBe('Document');
+    expect(linkedRecordText(base)).toMatchObject({ title: 'Pay water bill', open: true });
+    expect(linkedRecordText(base).note).toMatch(/^Due .*2027/);
+    expect(linkedRecordText({ ...base, nextDue: null })).toEqual({ title: 'Pay water bill', note: 'Nothing due', open: true });
+    expect(linkedRecordText({ ...base, state: 'ended', nextDue: null })).toEqual({ title: 'Pay water bill', note: 'Ended', open: true });
+    expect(linkedRecordText({ ...base, state: 'paused' }).note).toMatch(/^Paused · Due /);
+    const procedure: LinkedRecord = { ...base, type: 'procedure', title: 'Boiler service', scheduleKind: null, nextDue: null };
+    expect(linkedRecordText(procedure)).toEqual({ title: 'Boiler service', note: null, open: true });
+    expect(linkedRecordText({ ...procedure, state: 'deleted' })).toEqual({ title: 'Boiler service', note: 'This procedure was deleted', open: false });
+    const document: LinkedRecord = { ...procedure, type: 'document', title: 'Water bill' };
+    // In Trash: named for those who can open Trash, anonymous for everyone else; never a link to open.
+    expect(linkedRecordText({ ...document, state: 'trash' })).toEqual({ title: 'Water bill', note: 'In Trash', open: false });
+    expect(linkedRecordText({ ...document, state: 'trash', title: null })).toEqual({ title: 'A document in Trash', note: null, open: false });
+    // Deleted for good: when and by whom — never a title.
+    const gone = linkedRecordText({ ...document, state: 'gone', title: null, goneAt: '2026-10-02T09:00:00.000Z', goneBy: 'Ada' });
+    expect(gone.title).toBe('A document that was deleted for good');
+    expect(gone.note).toMatch(/^Deleted for good .* by Ada$/);
+    expect(gone.open).toBe(false);
+    expect(runDocumentNote('same')).toBeNull();
+    expect(runDocumentNote('changed')).toMatch(/has changed since/);
+    expect(runDocumentNote('trash')).toMatch(/in Trash/);
+    expect(runDocumentNote('gone')).toMatch(/deleted for good/);
   });
 
   describe('finding Documents (16.3)', () => {

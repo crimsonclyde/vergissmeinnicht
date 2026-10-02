@@ -26,9 +26,11 @@ import {
   IconPlus,
   IconSettings,
   IconShoppingCart,
+  IconTool,
   IconTrash,
   IconUpload,
   IconUser,
+  IconUsers,
   IconX,
 } from '@tabler/icons-react';
 
@@ -69,6 +71,8 @@ const ICONS = {
   download: IconDownload,
   trash: IconTrash,
   upload: IconUpload,
+  contacts: IconUsers,
+  maintenance: IconTool,
 } as const;
 
 export type UiIconName = keyof typeof ICONS;

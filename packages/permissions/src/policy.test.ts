@@ -13,8 +13,8 @@ describe('Workspace role policy', () => {
     // Changing this table is a security-relevant change: update docu/security.md §3 as well.
     const matrix = Object.fromEntries(WORKSPACE_ROLES.map((role) => [role, capabilitiesOf(role)]));
     expect(matrix).toEqual({
-      GUEST: ['workspace.view', 'procedure.view', 'run.view', 'list.view', 'document.view'],
-      USER: ['workspace.view', 'workspace.members.view', 'procedure.view', 'run.view', 'run.start', 'run.execute', 'run.abort', 'schedule.manage', 'list.view', 'list.edit', 'document.view', 'document.manage'],
+      GUEST: ['workspace.view', 'procedure.view', 'run.view', 'list.view', 'document.view', 'contact.view', 'maintenance.view'],
+      USER: ['workspace.view', 'workspace.members.view', 'procedure.view', 'run.view', 'run.start', 'run.execute', 'run.abort', 'schedule.manage', 'list.view', 'list.edit', 'document.view', 'document.manage', 'contact.view', 'contact.manage', 'contact.export', 'maintenance.view', 'maintenance.manage'],
       EDITOR: [
         'workspace.view',
         'workspace.members.view',
@@ -31,6 +31,11 @@ describe('Workspace role policy', () => {
         'list.edit',
         'document.view',
         'document.manage',
+        'contact.view',
+        'contact.manage',
+        'contact.export',
+        'maintenance.view',
+        'maintenance.manage',
       ],
       ADMIN: [...WORKSPACE_CAPABILITIES],
     });
@@ -63,6 +68,17 @@ describe('Workspace role policy', () => {
     expect(rolesWithCapability('workspace.tools.manage')).toEqual(['ADMIN']);
     // Deleting for good is an admin's decision (16.4): a USER or Editor restores from Trash, never empties it.
     expect(rolesWithCapability('document.purge')).toEqual(['ADMIN']);
+    // Removing what a finished Run keeps (P4): an admin's decision, with a reason.
+    expect(rolesWithCapability('run.document.remove')).toEqual(['ADMIN']);
+    // Contacts (16.6): everyone reads; USER and above change, import and export; only an admin deletes for good.
+    expect(rolesWithCapability('contact.view')).toEqual(['GUEST', 'USER', 'EDITOR', 'ADMIN']);
+    expect(rolesWithCapability('contact.manage')).toEqual(['USER', 'EDITOR', 'ADMIN']);
+    expect(rolesWithCapability('contact.export')).toEqual(['USER', 'EDITOR', 'ADMIN']);
+    expect(rolesWithCapability('contact.purge')).toEqual(['ADMIN']);
+    // Maintenance (16.7): guests see it, costs included (P3, decided 2026-10-02); USER and above change it; only an admin deletes for good.
+    expect(rolesWithCapability('maintenance.view')).toEqual(['GUEST', 'USER', 'EDITOR', 'ADMIN']);
+    expect(rolesWithCapability('maintenance.manage')).toEqual(['USER', 'EDITOR', 'ADMIN']);
+    expect(rolesWithCapability('maintenance.purge')).toEqual(['ADMIN']);
     expect(rolesWithCapability('workspace.settings.manage')).toEqual(['ADMIN']); // also: the Workspace's storage limit
   });
 

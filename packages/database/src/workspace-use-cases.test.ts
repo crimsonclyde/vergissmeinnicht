@@ -107,7 +107,7 @@ describe('Workspace and Membership use-cases', () => {
     });
 
     it('validates the name', async () => {
-      await expect(createWorkspace(deps, { actor: serverAdmin, name: '‮evil' })).rejects.toThrow(DomainValidationError);
+      await expect(createWorkspace(deps, { actor: serverAdmin, name: '\u202Eevil' })).rejects.toThrow(DomainValidationError);
     });
 
     it('never produces sequential or guessable ids', async () => {
@@ -205,7 +205,7 @@ describe('Workspace and Membership use-cases', () => {
       await join(home, alice, 'GUEST');
       await expect(getWorkspace(deps, { actor: alice, workspaceId: home.id })).resolves.toMatchObject({
         role: 'GUEST',
-        capabilities: ['workspace.view', 'procedure.view', 'run.view', 'list.view', 'document.view'],
+        capabilities: ['workspace.view', 'procedure.view', 'run.view', 'list.view', 'document.view', 'contact.view', 'maintenance.view'],
       });
       await expect(listMembers(deps, { actor: alice, workspaceId: home.id })).rejects.toThrow(NotAuthorizedError);
     });

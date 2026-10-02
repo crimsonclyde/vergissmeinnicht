@@ -39,6 +39,8 @@ export interface StorageUsage {
   readonly previews: number;
   /** Documents in Trash: their originals and previews. Trash counts. */
   readonly trash: number;
+  /** Document versions kept for Runs (16.5) whose Document no longer holds these files — changed, or deleted for good. */
+  readonly retained: number;
   /** The sum of the above. */
   readonly used: number;
   /** The limit in force (`effectiveStorageLimit`). */

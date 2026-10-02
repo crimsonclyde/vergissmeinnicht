@@ -1,4 +1,4 @@
-import type { DocumentDetail, DocumentFields, DocumentFile, DocumentFilterValues, DocumentFolder, DocumentSummary, DocumentTypeView, DocumentTypes, RestoreOutcome, TrashEntry } from './api.ts';
+import type { DocumentDetail, DocumentFields, DocumentFile, DocumentFilterValues, DocumentFolder, DocumentSummary, DocumentTypeView, DocumentTypes, LinkedRecord, RestoreOutcome, RunDocument, TrashEntry } from './api.ts';
 import { formatCalendarDate, formatDateTime, formatNumber, hasMessage, t } from './i18n/index.ts';
 
 /** What the file picker offers; the server decides from the content, not from this list or the name. */
@@ -343,4 +343,47 @@ export function purgeTotals(entries: readonly Pick<TrashEntry, 'kind' | 'folders
     }),
     { folders: 0, documents: 0, files: 0 },
   );
+}
+
+// ---- Links (16.5)
+
+/** What kind of record a Link leads to, in words. */
+export function linkedKind(record: Pick<LinkedRecord, 'type' | 'scheduleKind'>): string {
+  if (record.type === 'document') return t('links.kind.document');
+  if (record.type === 'procedure') return t('links.kind.procedure');
+  if (record.type === 'contact') return t('links.kind.contact');
+  if (record.type === 'maintenance') return t('links.kind.maintenance');
+  if (record.type === 'run') return t('links.kind.run');
+  return t(record.scheduleKind === 'PROCEDURE' ? 'links.kind.scheduledProcedure' : 'links.kind.reminder');
+}
+
+/**
+ * The record at the other end of a Link, in words: its title, or — when it may not be named — what
+ * happened to it; and a note on where it stands (in Trash, deleted, ended, next due date). `open`:
+ * whether there is still something to go to.
+ */
+export function linkedRecordText(record: LinkedRecord): { title: string; note: string | null; open: boolean } {
+  if (record.state === 'gone') {
+    const note = record.goneAt === null || record.goneBy === null ? null : t('links.goneNote', { when: formatDateTime(record.goneAt), name: record.goneBy });
+    return { title: t(record.type === 'document' ? 'links.documentGone' : record.type === 'contact' ? 'links.contactGone' : record.type === 'maintenance' ? 'links.maintenanceGone' : 'links.recordGone'), note, open: false };
+  }
+  // A Contact in Trash is a deleted contact as well: never named.
+  if (record.type === 'contact' && record.state === 'trash') return { title: t('links.contactGone'), note: null, open: false };
+  if (record.type === 'maintenance' && record.state !== 'ok') return { title: t(record.state === 'trash' ? 'links.maintenanceInTrash' : 'links.maintenanceGone'), note: null, open: false };
+  // An execution: whether it is still going — a fact shown beside it, nothing follows from it.
+  if (record.type === 'run' && record.state === 'ok') return { title: record.title ?? '', note: record.runState === null || record.runState === undefined ? null : t(`runState.${record.runState}`), open: true };
+  if (record.state === 'trash') return { title: record.title ?? t('links.documentInTrash'), note: record.title === null ? null : t('links.inTrash'), open: false };
+  if (record.state === 'deleted') return { title: record.title ?? '', note: t('links.procedureDeleted'), open: false };
+  const due = record.nextDue === null ? null : t('links.nextDue', { date: formatCalendarDate(record.nextDue) });
+  if (record.state === 'ended') return { title: record.title ?? '', note: t('links.ended'), open: true };
+  if (record.state === 'paused') return { title: record.title ?? '', note: [t('links.paused'), due].filter((part) => part !== null).join(' · '), open: true };
+  return { title: record.title ?? '', note: record.type === 'schedule' ? (due ?? t('links.nothingDue')) : null, open: true };
+}
+
+/** What to say about the Document a Run's kept version came from, when it is no longer the same. */
+export function runDocumentNote(source: RunDocument['source']): string | null {
+  if (source === 'changed') return t('links.run.changed');
+  if (source === 'trash') return t('links.run.inTrash');
+  if (source === 'gone') return t('links.run.gone');
+  return null;
 }

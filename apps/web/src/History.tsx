@@ -54,6 +54,14 @@ export function describeEvent(event: HistoryEvent): string {
       return t('history.PROCEDURE_DELETED');
     case 'PROCEDURE_RESTORED':
       return t('history.PROCEDURE_RESTORED');
+    // A Document version kept for the Run (16.5): an addition beside it, named by the Document's title of then.
+    case 'RUN_DOCUMENT_LINKED':
+      return t('history.RUN_DOCUMENT_LINKED', { title: text(m.title) });
+    case 'RUN_DOCUMENT_UNLINKED':
+      return t('history.RUN_DOCUMENT_UNLINKED', { title: text(m.title) });
+    // From a finished execution, by an admin (P4): why — never which document.
+    case 'RUN_DOCUMENT_REMOVED':
+      return t('history.RUN_DOCUMENT_REMOVED') + reason;
     default:
       return event.type;
   }

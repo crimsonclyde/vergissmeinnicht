@@ -116,17 +116,23 @@ function WorkspaceTools(props: { context: WorkspaceContext; onChanged: () => voi
   const [message, setMessage] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   // Shown at once; put back if the server refuses.
-  const [documentsOn, setDocumentsOn] = useState(context.tools.includes('DOCUMENTS'));
-  async function set(enabled: boolean) {
+  const [on, setOn] = useState<readonly string[]>(context.tools);
+  const tools = [
+    { tool: 'DOCUMENTS', name: t('tools.documents'), hint: t('tools.documentsHint') },
+    { tool: 'CONTACTS', name: t('tools.contacts'), hint: t('tools.contactsHint') },
+    { tool: 'MAINTENANCE', name: t('tools.maintenance'), hint: t('tools.maintenanceHint') },
+  ];
+  async function set(tool: string, name: string, enabled: boolean) {
+    const before = on;
     setBusy(true);
     setMessage(null);
-    setDocumentsOn(enabled);
+    setOn(enabled ? [...on, tool] : on.filter((each) => each !== tool));
     try {
-      await api.setWorkspaceTool(context.workspace.id, 'DOCUMENTS', enabled);
-      setStatus(t(enabled ? 'tools.on' : 'tools.off', { tool: t('tools.documents') }));
+      await api.setWorkspaceTool(context.workspace.id, tool, enabled);
+      setStatus(t(enabled ? 'tools.on' : 'tools.off', { tool: name }));
       props.onChanged();
     } catch (caught) {
-      setDocumentsOn(!enabled);
+      setOn(before);
       setStatus(null);
       setMessage(messageFor(caught));
     } finally {
@@ -140,16 +146,18 @@ function WorkspaceTools(props: { context: WorkspaceContext; onChanged: () => voi
         {t('tools.hint')}
       </p>
       {message !== null && <p role="alert">{message}</p>}
-      <label className="option-label tool-switch">
-        <input type="checkbox" checked={documentsOn} disabled={busy} aria-describedby="tool-documents-hint" onChange={(event) => void set(event.target.checked)} />
-        <span>
-          <strong>{t('tools.documents')}</strong>
-          <br />
-          <small id="tool-documents-hint" className="muted">
-            {t('tools.documentsHint')}
-          </small>
-        </span>
-      </label>
+      {tools.map(({ tool, name, hint }) => (
+        <label key={tool} className="option-label tool-switch">
+          <input type="checkbox" checked={on.includes(tool)} disabled={busy} aria-describedby={`tool-${tool}-hint`} onChange={(event) => void set(tool, name, event.target.checked)} />
+          <span>
+            <strong>{name}</strong>
+            <br />
+            <small id={`tool-${tool}-hint`} className="muted">
+              {hint}
+            </small>
+          </span>
+        </label>
+      ))}
       <p role="status" style={{ margin: 0 }}>
         {status ?? ''}
       </p>

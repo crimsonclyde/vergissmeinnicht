@@ -66,6 +66,8 @@ export function ScheduleDialog(props: {
   kind: 'REMINDER' | 'PROCEDURE';
   /** The Procedure's title (PROCEDURE), or the Reminder's current title when editing. */
   title?: string;
+  /** A new Reminder: the title to start from (the person reviews and can change it). */
+  suggestedTitle?: string;
   /** Editing an existing Schedule: its current values. */
   initial?: ScheduleInput;
   /** Members to choose a responsible person from; null when the viewer cannot list them. */
@@ -81,7 +83,7 @@ export function ScheduleDialog(props: {
   const initial = props.initial;
   const timeZone = initial?.timeZone ?? browserTimeZone();
   const today = todayIn(timeZone);
-  const [title, setTitle] = useState(initial?.title ?? '');
+  const [title, setTitle] = useState(initial?.title ?? props.suggestedTitle ?? '');
   const [description, setDescription] = useState(initial?.description ?? '');
   const [date, setDate] = useState(initial?.date ?? addDays(today, 1));
   const [time, setTime] = useState(initial?.time ?? '');

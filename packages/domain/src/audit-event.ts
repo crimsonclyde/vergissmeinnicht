@@ -59,10 +59,40 @@ export const AUDIT_EVENT_TYPES = [
   'FOLDER_PURGED',
   'DOCUMENTS_EXPORTED',
   'WORKSPACE_STORAGE_LIMIT_CHANGED',
+  // Links (16.5): a Document linked to a Procedure, a Schedule or another Document; and a Document
+  // version retained for a Run (recorded with the Run's id — an addition beside the Run, never a change to it).
+  'DOCUMENT_LINK_ADDED',
+  'DOCUMENT_LINK_REMOVED',
+  'RUN_DOCUMENT_LINKED',
+  'RUN_DOCUMENT_UNLINKED',
+  // A Document version removed from a finished Run by a Workspace admin (P4): who, when and why — nothing of the document.
+  'RUN_DOCUMENT_REMOVED',
+  // Contacts (16.6). A Contact is personal data of a third party, and history is never rewritten — so
+  // these events carry the Contact's id and counts, **never a name, address or number**: after a
+  // permanent deletion nothing of the person is left in the history.
+  'CONTACT_CREATED',
+  'CONTACT_UPDATED',
+  'CONTACT_DELETED',
+  'CONTACT_RESTORED',
+  'CONTACT_PURGED',
+  'CONTACTS_IMPORTED',
+  'CONTACTS_EXPORTED',
+  'CONTACT_LINK_ADDED',
+  'CONTACT_LINK_REMOVED',
+  // Maintenance (16.7): a record and its status, always set by a person. Titles and statuses — never
+  // the description, the cost or the name of the responsible Contact.
+  'MAINTENANCE_CREATED',
+  'MAINTENANCE_UPDATED',
+  'MAINTENANCE_STATUS_CHANGED',
+  'MAINTENANCE_DELETED',
+  'MAINTENANCE_RESTORED',
+  'MAINTENANCE_PURGED',
+  'MAINTENANCE_LINK_ADDED',
+  'MAINTENANCE_LINK_REMOVED',
 ] as const;
 export type AuditEventType = (typeof AUDIT_EVENT_TYPES)[number];
 
-export type AuditSubjectType = 'procedure' | 'run' | 'run_step' | 'knot' | 'schedule' | 'occurrence' | 'list' | 'workspace' | 'folder' | 'document' | 'document_type';
+export type AuditSubjectType = 'procedure' | 'run' | 'run_step' | 'knot' | 'schedule' | 'occurrence' | 'list' | 'workspace' | 'folder' | 'document' | 'document_type' | 'contact' | 'maintenance';
 
 /** A recorded event as read back for history views. */
 export interface AuditEvent {

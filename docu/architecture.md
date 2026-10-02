@@ -487,6 +487,80 @@ POST …/documents/trash/purge { items[] | all: true }   document.purge (ADMIN):
 - **Export** is three layers: the domain plans **paths** (`document-export.ts`: `exportSegment`, `planExportPaths` — a title or file name never becomes a path as it is); the use-case (`application/documents/export.ts`) authorises, holds the one-per-person slot, asks the repository for the plan in the transaction that records `DOCUMENTS_EXPORTED`, and hands a `DocumentExport` with lazy `open()` functions to its caller; `packages/import-export/src/documents-archive.ts` renders `metadata.json`, the static `index.html` and the yazl stream. The HTTP route pipes that stream into the response and keeps the slot until the response has ended. Nothing is written to disk.
 - **Permanent deletion** (`purgeTrash` in `document-repository.ts`) removes rows only: a Document with its pages, or a Folder with what went to Trash with it, deepest Folder first; other Trash entries inside are re-parented. Files stay until the hourly housekeeping finds them unreferenced and older than the grace period (`purgeUnusedDocumentFiles`, unchanged since 16.1) — so "what may be deleted from disk" still has exactly one definition, shared with backups. Triggers allow `DELETE` on Documents and Folders only for rows in Trash.
 
+## Links and Document versions kept for Runs (Step 16.5)
+
+```
+GET  …/documents/{did}/links                    document.view (+ procedure.view): what the Document is linked to, and the Runs that keep a version
+POST …/documents/{did}/links { target: { type, id } }     document.manage: link to a procedure | schedule | document
+GET  …/document-links?procedure=<id> | ?schedule=<id>     document.view: the Documents linked to that record
+POST …/document-links/{lid}/delete              document.manage
+GET  …/runs/{rid}/documents                     document.view + run.view: the versions the Run keeps, with their files
+POST …/runs/{rid}/documents { documentId }      document.manage: keep the Document as it is now
+POST …/runs/{rid}/documents/{id}/remove         document.manage: only while the Run is ACTIVE
+POST …/runs/{rid}/documents/{id}/remove-kept { reason, confirm: true }   run.document.remove (ADMIN): from a finished Run, leaving a permanent note
+```
+
+- **Links are references** (`links`, migration 0031; HT8 in steps.md): typed ends, a Document on one side, a Procedure, Schedule or Document on the other. Integrity is in triggers — both ends in the Link's Workspace, ends immutable, a Document not deletable while a Link shows it as present. The repository (`packages/database/src/link-repository.ts`) resolves the other end's title and state inside the Workspace; nothing is copied and no access follows from a Link. Use-cases in `packages/application/src/links`.
+- **A Run keeps a version**, not a reference: `run_documents` copies the Document's details and `run_document_files` references its (immutable) files, beside the Run and never in the Run's tables; both are immutable by trigger. The file reference joins the one rule for "what may be deleted from disk" (`unreferenced`, `copyDocuments`) and the storage accounting (`storageUsageIn`: *kept for executions*). Kept files are served by the document-file routes.
+- **Removal from a finished Run** (P4, migration 0032): `removeFromFinishedRun` writes a `run_document_removals` note (who, when, why — nothing of the document), deletes the version, and deletes the rows of files that nothing else references, all in one transaction; triggers allow deleting a finished Run's version only when its note exists, and never allow changing or deleting a note. Housekeeping removes the released bytes under its unchanged rule.
+- **Permanent deletion** calls `markLinksOfPurgedDocuments` in its transaction: the Document's end of each Link becomes "gone" (when, by whom); kept versions stay.
+- **Reminders** are not special: "Remind me…" creates an ordinary Schedule through the existing use-case and links it. Schedules stay the only reminder engine, and their messages carry nothing of a Document.
+- **Web**: `DocumentLinks.tsx` (the Linked section, the link and "Remind me…" dialogs, `LinkedDocuments` for Procedures and Reminder details, `RunDocuments` for executions); `documents-tool.ts` provides "is the Documents tool on, may the viewer manage" to pages of other tools, so nothing of Documents appears where the tool is off.
+
+## Contacts (Step 16.6)
+
+```
+GET  …/contacts?q=&category=&cursor=             contact.view: one page by name
+GET  …/contacts/categories                       contact.view
+POST …/contacts { name, … }                      contact.manage → { contact, duplicates }
+POST …/contacts/duplicates { name, …, exceptId? } contact.view: "possibly the same as …" for a form; changes nothing
+GET  …/contacts/{cid}                            contact.view → { contact, duplicates }
+POST …/contacts/{cid}/update | delete | restore  contact.manage
+GET  …/contacts/trash                            contact.manage
+POST …/contacts/trash/purge { contactIds } | { all: true }   contact.purge (ADMIN)
+POST …/contacts/import/preview?format=csv|vcard  contact.manage: the file as the raw body → entries, duplicates, problems; saves nothing
+POST …/contacts/import { format, contacts }      contact.manage: saves the confirmed entries, all or nothing
+GET  …/contacts/export?format=csv|vcard          contact.export: a download
+GET  …/contacts/{cid}/procedures                 contact.view + procedure.view
+POST …/contacts/{cid}/procedures { procedureId } contact.manage
+GET  …/contact-links?procedure=<id>              contact.view + procedure.view: the Contacts of a Procedure
+POST …/contact-links/{lid}/delete                contact.manage
+GET  …/document-links?contact=<id>               document.view + contact.view: the Documents linked to a Contact (Documents tool)
+```
+
+- **Layers:** rules in `packages/domain/src/contact.ts` (normalisation, phone / website / link rules, duplicate keys, search text); use-cases in `packages/application/src/contacts`; `ContactRepository` in `packages/database/src/contact-repository.ts`; the file formats in `packages/import-export` (`contacts-file.ts` decoding, `contacts-csv.ts`, `contacts-vcard.ts`) — pure functions that turn bytes into plain drafts and Contacts into text, with no access to the database; routes in `apps/server/src/http/contact-routes.ts`, which is also where a parser is handed to the use-case (it runs only after authorisation).
+- **Tables** (migration 0033): `contacts` (what is shown, plus the derived `sort_key`, `category_key`, `search_text`) and `contact_keys` (one row per email address, phone key and name key — what duplicates are found by). Email addresses and phone numbers are JSON arrays on the Contact: they are always read and written together and never queried by themselves.
+- **Duplicates** are a read, not a constraint: `duplicatesOf` looks the keys up within the Workspace among Contacts not in Trash. Nothing is unique and nothing is merged.
+- **Import is stateless:** the preview keeps nothing on the server; the browser sends back the entries the person confirmed, and the server validates them like any other input.
+- **Links:** the `links` table of 16.5 with two more pairs — Document → Contact (through the Document link routes, with `contact` as a kind of record) and Contact → Procedure (through the Contact routes). Each tool removes only its own Links. `markLinksOfPurged` marks a deleted Contact's end like a Document's.
+- **Audit events never hold a Contact's name** — the id and counts only — so that permanent deletion leaves nothing of the person in history that cannot be rewritten.
+- **Web:** `Contacts.tsx` (list, Contact page, form dialog, import, Trash, and `LinkedContacts` for the Procedure page), `contact-model.ts` (pure helpers, incl. the second look at links before they are rendered), `ContactPicker.tsx`, `contacts-tool.ts` (is the tool on, may the viewer manage).
+
+## Maintenance (Step 16.7)
+
+```
+GET  …/maintenance/board                         maintenance.view: the four statuses, each with its total and newest cards
+GET  …/maintenance?q=&status=&category=&contact=&year=&cursor=   maintenance.view: the List, newest first
+GET  …/maintenance/filters                       maintenance.view: categories, years, responsible Contacts; currency codes
+POST …/maintenance { title, … }                  maintenance.manage → a Planned record
+GET  …/maintenance/{id}                          maintenance.view
+POST …/maintenance/{id}/update                   maintenance.manage: what the record says — never its status
+POST …/maintenance/{id}/status { status, expectedRevision, completedOn? }   maintenance.manage: the only way a status changes
+POST …/maintenance/{id}/delete | restore         maintenance.manage
+GET  …/maintenance/trash                         maintenance.manage
+POST …/maintenance/trash/purge                   maintenance.purge (ADMIN)
+GET  …/maintenance/{id}/links                    maintenance.view (+ each end's own view capability)
+POST …/maintenance/{id}/links { target: { type, id } }   maintenance.manage: document | procedure | run | schedule
+POST …/maintenance-links/{lid}/delete            maintenance.manage
+```
+
+- **Layers:** rules in `packages/domain/src/maintenance.ts` (statuses, `statusChange`, cost, filing day, query); use-cases in `packages/application/src/maintenance`; `MaintenanceRepository` in `packages/database/src/maintenance-repository.ts`; routes in `apps/server/src/http/maintenance-routes.ts`.
+- **One-way independence:** Maintenance may name a Run, a Schedule, a Procedure or a Document as the far end of a Link; none of those modules knows Maintenance. No code outside the Maintenance repository writes `maintenance_records`, and that repository writes no other domain table — which is what "completion is manual" rests on.
+- **`MaintenanceScope`:** computed per request from the other tools' switches and the viewer's capabilities; it decides whether a Contact's name, the Contact filter and Document links exist in an answer at all.
+- **The responsible Contact** is a column, not a foreign key: a Contact deleted for good leaves the id behind and the record shows "a deleted contact". A trigger checks it when it is set.
+- **Links:** `linkedRecord` in `link-repository.ts` is the one reader of "the record at the other end" for all tools; it now also knows Runs and MaintenanceRecords.
+- **Web:** `Maintenance.tsx` (overview with Board and List, record page, dialog, Trash), `maintenance-model.ts`. Drag and drop is the browser's own (HTML drag events with a private data type); the status control is a native select. The "Remind me…" dialog of 16.5 is shared (`RemindDialog` takes the link to make as a callback).
+
 ## House management (Step 16) — planned module boundaries
 
 _Planned 2026-10-01; nothing below exists yet. It fixes where the section 16 tools live and what they may depend on, so each step is built into the same shape. Names of packages, files, tables and capabilities are engineering choices and are recorded in each step's completion note; the open technical choices are HT1–HT14 in steps.md 16.12._

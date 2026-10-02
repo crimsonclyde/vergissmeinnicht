@@ -54,6 +54,8 @@ const DYNAMIC_PREFIXES = [
   // Finding Documents (16.3): the orders and the two views by name.
   'documents.find.sort.',
   'documents.find.view.',
+  // Contacts (16.6): why an import file was refused, by the server's stable code.
+  'contacts.importRefused.',
 ];
 
 describe('message catalog', () => {

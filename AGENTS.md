@@ -295,7 +295,7 @@ Do not add without an accepted requirement:
 - Kubernetes;
 - analytics dashboards.
 
-Product points that touch privacy, permissions, destructive behaviour or scope are decided by the user, never silently by an implementation (open ones: P3–P7 in `docu/steps.md` 16.12).
+Product points that touch privacy, permissions, destructive behaviour or scope are decided by the user, never silently by an implementation (open ones: P5–P7 in `docu/steps.md` 16.12).
 
 Design extension seams, but do not implement speculative systems.
 
@@ -330,7 +330,14 @@ House management (section 16; each applies from the step that implements it):
 - moving a Folder into its own descendant is refused;
 - only a Workspace admin can permanently delete from Trash;
 - a Run still shows the Document version linked at the time after the Document is edited or permanently deleted;
+- only a Workspace admin can remove a Document version from a finished Run, only with a reason, and the removal note holds nothing of the document;
+- a GUEST sees Contacts but cannot change, import or export them, and a Contact id of another Workspace resolves to nothing;
+- a Contact import saves nothing before it is confirmed, and saves exactly what was confirmed;
+- a Contact’s name never appears in audit history, and a deleted Contact is never named on a linked record;
+- a `javascript:` website or a formula-like name does no harm in the UI or in an export;
 - completing a Run never completes a MaintenanceRecord;
+- a MaintenanceRecord changes status only on a request of someone who may manage it, a stale request is refused, and Cancelled never carries a completion date;
+- a GUEST sees MaintenanceRecords including costs and cannot change one; no answer ever holds a sum of costs;
 - text-recognition results follow the source Document's permissions;
 - a GUEST has no Mail access;
 - mail credentials never appear in responses or logs;

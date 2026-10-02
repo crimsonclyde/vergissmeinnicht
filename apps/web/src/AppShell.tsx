@@ -8,6 +8,10 @@ import { PreferencesProvider } from './preferences.tsx';
 import { OfflineBanner, useOffline } from './offline/OfflineProvider.tsx';
 import { offlineStore } from './offline/store.ts';
 import { api, isNetworkError, messageFor, type CurrentUser, type WorkspaceSummary } from './api.ts';
+import { DocumentsToolContext } from './documents-tool.ts';
+import { Contacts } from './Contacts.tsx';
+import { Maintenance } from './Maintenance.tsx';
+import { ContactsToolContext } from './contacts-tool.ts';
 import { Calendar } from './Calendar.tsx';
 import { ChangePassword } from './ChangePassword.tsx';
 import { NotificationSettings } from './NotificationSettings.tsx';
@@ -71,7 +75,9 @@ export function destinations(workspaceId: string, tools: readonly string[] = [])
   // Optional tools (16.2) follow the fixed ones in the sidebar; on phones they are reached through More —
   // the bottom bar keeps exactly four destinations.
   const documents: Destination = { href: paths.documents(workspaceId), label: t('shell.documents'), icon: 'documents', pages: ['documents'] };
-  const optional = tools.includes('DOCUMENTS') ? [documents] : [];
+  const contacts: Destination = { href: paths.contacts(workspaceId), label: t('shell.contacts'), icon: 'contacts', pages: ['contacts'] };
+  const maintenance: Destination = { href: paths.maintenance(workspaceId), label: t('shell.maintenance'), icon: 'maintenance', pages: ['maintenance'] };
+  const optional = [...(tools.includes('DOCUMENTS') ? [documents] : []), ...(tools.includes('CONTACTS') ? [contacts] : []), ...(tools.includes('MAINTENANCE') ? [maintenance] : [])];
   const more: Destination = { href: paths.more(workspaceId), label: t('shell.more'), icon: 'more', pages: ['more', 'reminders', 'calendar', 'history', ...optional.flatMap((tool) => tool.pages)] };
   return { side: [today, procedures, reminders, lists, calendar, ...optional], bar: [today, procedures, lists, more] };
 }
@@ -133,6 +139,7 @@ function WorkspacePage(props: {
   };
   /** What the person may create here (UI only): drives the Add chooser. */
   const documentsOn = context.tools.includes('DOCUMENTS');
+  const contactsOn = context.tools.includes('CONTACTS');
   const canAdd = { procedure: can('procedure.edit'), reminder: can('schedule.manage'), list: can('list.edit'), document: documentsOn && can('document.manage') };
   const settings = (current: 'settings' | 'members' | 'knots', content: ReactNode) => (
     <SettingsLayout
@@ -146,7 +153,8 @@ function WorkspacePage(props: {
   );
 
   const openRun = (runId: string) => navigate(paths.run(route.workspaceId, runId));
-  switch (route.page) {
+  const page = (): ReactNode => {
+    switch (route.page) {
     case 'workspace':
       return (
         <Today
@@ -189,7 +197,25 @@ function WorkspacePage(props: {
     case 'documents':
       // Not switched on here: the tool does not exist for this Workspace (the server answers 404 as well).
       return documentsOn ? (
-        <Documents key={`${route.view}:${route.folderId ?? ''}:${route.documentId ?? ''}`} workspaceId={route.workspaceId} route={route} canManage={can('document.manage')} canPurge={can('document.purge')} />
+        <Documents key={`${route.view}:${route.folderId ?? ''}:${route.documentId ?? ''}`} workspaceId={route.workspaceId} route={route} canManage={can('document.manage')} canPurge={can('document.purge')} canSchedule={can('schedule.manage')} />
+      ) : (
+        <p role="alert">
+          {t('shell.notFound')} <Link href={paths.home(route.workspaceId)}>{t('common.startPage')}</Link>.
+        </p>
+      );
+    case 'contacts':
+      // Not switched on here: the tool does not exist for this Workspace (the server answers 404 as well).
+      return contactsOn ? (
+        <Contacts key={`${route.view}:${route.contactId ?? ''}`} workspaceId={route.workspaceId} route={route} canManage={can('contact.manage')} canExport={can('contact.export')} canPurge={can('contact.purge')} />
+      ) : (
+        <p role="alert">
+          {t('shell.notFound')} <Link href={paths.home(route.workspaceId)}>{t('common.startPage')}</Link>.
+        </p>
+      );
+    case 'maintenance':
+      // Not switched on here: the tool does not exist for this Workspace (the server answers 404 as well).
+      return context.tools.includes('MAINTENANCE') ? (
+        <Maintenance key={`${route.view}:${route.recordId ?? ''}`} workspaceId={route.workspaceId} route={route} canManage={can('maintenance.manage')} canPurge={can('maintenance.purge')} canSchedule={can('schedule.manage')} />
       ) : (
         <p role="alert">
           {t('shell.notFound')} <Link href={paths.home(route.workspaceId)}>{t('common.startPage')}</Link>.
@@ -244,7 +270,14 @@ function WorkspacePage(props: {
       return settings('members', <MembersPage context={context} currentUserId={props.user.id} />);
     case 'knots':
       return settings('knots', can('knot.manage') ? <KnotsPage workspaceId={route.workspaceId} /> : <p role="alert">{t('knot.manageOnly')}</p>);
-  }
+    }
+  };
+  // Pages of other tools show linked Documents only where the Documents tool is on (16.5).
+  return (
+    <DocumentsToolContext.Provider value={{ enabled: documentsOn, canManage: documentsOn && can('document.manage'), canRemoveKept: documentsOn && can('run.document.remove') }}>
+      <ContactsToolContext.Provider value={{ enabled: contactsOn, canManage: contactsOn && can('contact.manage') }}>{page()}</ContactsToolContext.Provider>
+    </DocumentsToolContext.Provider>
+  );
 }
 
 function NoWorkspace({ user }: { user: CurrentUser }) {

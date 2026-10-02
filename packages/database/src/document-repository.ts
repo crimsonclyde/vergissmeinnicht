@@ -15,6 +15,7 @@ import type {
   ExportSize,
   ExportedDocument,
   ExportedFile,
+  ExportedLink,
   FolderRecord,
   PurgeOutcome,
   RestoreOutcome,
@@ -52,7 +53,8 @@ import { IMMEDIATE, actorAllowed, type Transaction, type UserActor } from './act
 import { recordAuditEvent } from './audit-events.ts';
 import type { AppDatabase } from './connection.ts';
 import { fileRecords } from './document-file-repository.ts';
-import { documentFileDerivatives, documentFiles, documentFolders, documentPages, documentTypes, documents, workspaceTools } from './schema.ts';
+import { markLinksOfPurgedDocuments } from './link-repository.ts';
+import { documentFileDerivatives, documentFiles, documentFolders, documentPages, documentTypes, documents, links, procedures, runDocuments, runs, schedules, workspaceTools } from './schema.ts';
 
 type Reader = Pick<Transaction, 'select'>;
 type FolderRow = typeof documentFolders.$inferSelect;
@@ -289,6 +291,38 @@ function exportScope(tx: Reader, workspaceId: string, scope: ExportScope): { doc
   const chosen = and(live, inArray(documents.id, [...scope.ids])) as SQL;
   if ((tx.select({ n: count() }).from(documents).where(chosen).get()?.n ?? 0) !== scope.ids.length) return undefined;
   return { documents: chosen, folders: tree, folder: null };
+}
+
+/**
+ * What the Documents of a Workspace are linked to, for an export (16.5): Procedures that are not
+ * deleted, Schedules, related Documents that are not in Trash, and Runs that retain a version — all
+ * of them records that every member who may export can read. Nothing that is gone or in Trash is named.
+ */
+function exportedLinks(tx: Reader, workspaceId: string): Map<string, ExportedLink[]> {
+  const byDocument = new Map<string, ExportedLink[]>();
+  const add = (documentId: string, link: ExportedLink) => byDocument.set(documentId, [...(byDocument.get(documentId) ?? []), link]);
+  const procedureTitles = new Map(tx.select({ id: procedures.id, title: procedures.title }).from(procedures).where(and(eq(procedures.workspaceId, workspaceId), isNull(procedures.deletedAt))).all().map((row) => [row.id, row.title]));
+  const scheduleRows = new Map(tx.select({ id: schedules.id, kind: schedules.kind, title: schedules.title, procedureId: schedules.procedureId }).from(schedules).where(eq(schedules.workspaceId, workspaceId)).all().map((row) => [row.id, row]));
+  const documentTitles = new Map(tx.select({ id: documents.id, title: documents.title }).from(documents).where(and(eq(documents.workspaceId, workspaceId), isNull(documents.deletedAt))).all().map((row) => [row.id, row.title]));
+  for (const row of tx.select().from(links).where(and(eq(links.workspaceId, workspaceId), isNull(links.fromGoneAt), isNull(links.toGoneAt))).all()) {
+    if (row.toType === 'procedure') {
+      const title = procedureTitles.get(row.toId);
+      if (title !== undefined) add(row.fromId, { type: 'procedure', id: row.toId, title });
+    } else if (row.toType === 'schedule') {
+      const schedule = scheduleRows.get(row.toId);
+      if (schedule !== undefined) add(row.fromId, { type: schedule.kind === 'REMINDER' ? 'reminder' : 'scheduled_procedure', id: row.toId, title: schedule.title ?? procedureTitles.get(schedule.procedureId ?? '') ?? '' });
+    } else if (row.toType === 'document') {
+      const [from, to] = [documentTitles.get(row.fromId), documentTitles.get(row.toId)];
+      if (from !== undefined && to !== undefined) {
+        add(row.fromId, { type: 'document', id: row.toId, title: to });
+        add(row.toId, { type: 'document', id: row.fromId, title: from });
+      }
+    }
+  }
+  for (const row of tx.select({ documentId: runDocuments.sourceDocumentId, runId: runs.id, title: runs.title }).from(runDocuments).innerJoin(runs, eq(runs.id, runDocuments.runId)).where(eq(runDocuments.workspaceId, workspaceId)).all()) {
+    add(row.documentId, { type: 'run', id: row.runId, title: row.title });
+  }
+  return byDocument;
 }
 
 function exportSizeOf(tx: Reader, where: SQL): ExportSize {
@@ -843,6 +877,7 @@ export function createDocumentRepository({ db }: Pick<AppDatabase, 'db'>): Docum
           files.set(page.documentId, list);
         }
         const types = new Map(tx.select().from(documentTypes).where(eq(documentTypes.workspaceId, input.workspaceId)).all().map((type) => [type.id, type]));
+        const related = exportedLinks(tx, input.workspaceId);
         const exported = rows.map((row): ExportedDocument => {
           const custom = row.typeId === null ? undefined : types.get(row.typeId);
           return {
@@ -859,6 +894,7 @@ export function createDocumentRepository({ db }: Pick<AppDatabase, 'db'>): Docum
             modifiedAt: row.updatedAt,
             modifiedByName: row.updatedByDisplayName,
             files: files.get(row.id) ?? [],
+            links: related.get(row.id) ?? [],
           };
         });
         recordAuditEvent(tx, {
@@ -898,6 +934,8 @@ export function createDocumentRepository({ db }: Pick<AppDatabase, 'db'>): Docum
           let files = 0;
           for (let start = 0; start < ids.length; start += 500) {
             const chunk = ids.slice(start, start + 500);
+            // Links to them say "deleted for good" from now on; Document versions retained for Runs are untouched.
+            markLinksOfPurgedDocuments(tx, input.workspaceId, chunk, input.at, actor.displayName);
             files += tx.delete(documentPages).where(inArray(documentPages.documentId, chunk)).returning({ fileId: documentPages.fileId }).all().length;
             tx.delete(documents).where(and(eq(documents.workspaceId, input.workspaceId), inArray(documents.id, chunk), isNotNull(documents.deletedAt))).run();
           }

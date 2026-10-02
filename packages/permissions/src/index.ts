@@ -51,19 +51,35 @@ export const WORKSPACE_CAPABILITIES = [
   'document.manage',
   /** Delete Documents and Folders for good — only out of Trash, only a Workspace admin (16.4, H11). */
   'document.purge',
+  /** Remove a Document version that a **finished** Run keeps — with a reason, leaving a permanent note (16.5, P4). Workspace admins only. */
+  'run.document.remove',
+  /** See Contacts (16.6): every role, guests included. A Contact is not a User and grants nothing. */
+  'contact.view',
+  /** Create, edit, delete, restore, link and import Contacts (USER and above; a GUEST never writes). */
+  'contact.manage',
+  /** Export all Contacts as CSV or vCard (USER and above — third-party personal data leaves the app). */
+  'contact.export',
+  /** Delete Contacts for good — only out of Trash, only a Workspace admin. */
+  'contact.purge',
+  /** See MaintenanceRecords, costs included (16.7): every role, guests too — decided 2026-10-02 (P3, for Maintenance). */
+  'maintenance.view',
+  /** Create and edit MaintenanceRecords, change their status, link them, delete to Trash and restore (USER and above). */
+  'maintenance.manage',
+  /** Delete MaintenanceRecords for good — only out of Trash, only a Workspace admin. */
+  'maintenance.purge',
   /** Switch the optional tools of the Workspace (Documents, …) on and off (16.2). */
   'workspace.tools.manage',
 ] as const;
 export type WorkspaceCapability = (typeof WORKSPACE_CAPABILITIES)[number];
 
 /** Read-only: Workspace content and history, no execution. */
-const GUEST: readonly WorkspaceCapability[] = ['workspace.view', 'procedure.view', 'run.view', 'list.view', 'document.view'];
+const GUEST: readonly WorkspaceCapability[] = ['workspace.view', 'procedure.view', 'run.view', 'list.view', 'document.view', 'contact.view', 'maintenance.view'];
 /** Executes Runs. */
-const USER: readonly WorkspaceCapability[] = [...GUEST, 'workspace.members.view', 'run.start', 'run.execute', 'run.abort', 'schedule.manage', 'list.edit', 'document.manage'];
+const USER: readonly WorkspaceCapability[] = [...GUEST, 'workspace.members.view', 'run.start', 'run.execute', 'run.abort', 'schedule.manage', 'list.edit', 'document.manage', 'contact.manage', 'contact.export', 'maintenance.manage'];
 /** Authors Procedures. */
 const EDITOR: readonly WorkspaceCapability[] = [...USER, 'procedure.edit', 'procedure.restore', 'knot.manage'];
 /** Manages membership, roles and settings. */
-const ADMIN: readonly WorkspaceCapability[] = [...EDITOR, 'workspace.members.manage', 'workspace.settings.manage', 'workspace.tools.manage', 'document.purge'];
+const ADMIN: readonly WorkspaceCapability[] = [...EDITOR, 'workspace.members.manage', 'workspace.settings.manage', 'workspace.tools.manage', 'document.purge', 'run.document.remove', 'contact.purge', 'maintenance.purge'];
 
 const ROLE_CAPABILITIES: Readonly<Record<WorkspaceRole, ReadonlySet<WorkspaceCapability>>> = Object.freeze({
   GUEST: new Set(GUEST),

@@ -24,6 +24,7 @@ export function storageLines(storage: StorageInfo): { key: string; label: string
     { key: 'images', label: t('storage.line.images'), bytes: storage.imageBytes, always: false },
     { key: 'documents', label: t('storage.line.documents'), bytes: storage.documentBytes, always: false },
     { key: 'previews', label: t('storage.line.previews'), bytes: storage.previewBytes, always: false },
+    { key: 'retained', label: t('storage.line.retained'), bytes: storage.retainedBytes, always: false },
     { key: 'trash', label: t('storage.line.trash'), bytes: storage.trashBytes, always: true },
   ]
     .filter((line) => line.always || line.bytes > 0)

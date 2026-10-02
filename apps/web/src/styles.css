@@ -3015,6 +3015,52 @@ input.list-check {
   margin: 0 0 0.75rem;
 }
 
+/* Links (16.5): one line per linked record — kind, title, where it stands; the action at the end. */
+.link-line {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.25rem 1rem;
+  padding: 0.35rem 0;
+}
+
+.link-line + .link-line {
+  border-top: 1px solid var(--border);
+}
+
+.link-line .item-body {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.linked-documents ul {
+  margin: 0.25rem 0 0;
+}
+
+/* The note left where a document was removed from a finished execution: one fact per line. */
+.removal-note {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  overflow-wrap: anywhere;
+}
+
+.run-document-thumb {
+  width: 2.75rem;
+  height: 2.75rem;
+  object-fit: cover;
+  border: 1px solid var(--border);
+  border-radius: calc(var(--radius) / 2);
+}
+
+.run-document-files > li {
+  align-items: center;
+  margin-bottom: 0.4rem;
+}
+
 /* Storage (16.4): how full as a meter with the numbers beside it in words; then what uses it. */
 .storage-meter {
   width: 100%;
@@ -3398,4 +3444,279 @@ input.list-check {
   width: 1.5rem;
   height: 1.5rem;
   margin: 0.15rem 0 0;
+}
+
+/* Contacts (16.6). A card: the Contact (opens it) and, beside it, the number to call. */
+.contact-card {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem 1rem;
+}
+
+.contact-card-main {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex: 1 1 12rem;
+  min-width: 0;
+  min-height: 2.75rem;
+  color: var(--text);
+  text-decoration: none;
+}
+
+.contact-card-main .item-body {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+/* A number, an address or a website to act on: a touch target of its own. */
+.contact-action {
+  display: inline-flex;
+  align-items: center;
+  min-height: 2.75rem;
+  overflow-wrap: anywhere;
+}
+
+.contact-quick-add,
+.contact-find {
+  align-items: flex-end;
+  flex-wrap: wrap;
+}
+
+.contact-quick-add .field,
+.contact-find .field {
+  flex: 1 1 12rem;
+  margin: 0;
+  min-width: 0;
+}
+
+.contact-details .plain-list {
+  margin: 0;
+}
+
+.contact-details h3 {
+  margin: 0;
+}
+
+/* One email address or phone number of the form: value, what it is for, remove. */
+.contact-point-row {
+  display: grid;
+  grid-template-columns: minmax(0, 3fr) minmax(0, 2fr) auto;
+  align-items: end;
+  gap: 0.5rem;
+}
+
+.contact-point-row .field {
+  margin: 0;
+  min-width: 0;
+}
+
+@media (max-width: 30rem) {
+  .contact-point-row {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+
+  .contact-point-row .field:first-child {
+    grid-column: 1 / -1;
+  }
+}
+
+.duplicate-hint ul {
+  margin: 0.25rem 0;
+  padding-left: 1.25rem;
+}
+
+/* One entry of an import preview: the tick, then what would be saved. */
+.import-entry {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+}
+
+.import-entry > input[type='checkbox'] {
+  flex: none;
+  width: 1.5rem;
+  height: 1.5rem;
+  margin: 0.6rem 0.6rem 0.6rem 0.3rem;
+}
+
+.import-entry .item-body {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.import-entry label {
+  display: flex;
+  align-items: center;
+  min-height: 2.75rem;
+}
+
+.import-entry-problem {
+  border-style: dashed;
+}
+
+.import-confirm {
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+/* A list that is itself a card (linked records): the card's padding, not the list's none. */
+.plain-list.card {
+  padding: 0.25rem 1rem;
+}
+
+/* What an import file holds, one fact per line. */
+.import-summary {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+/* Maintenance (16.7). The board: the four statuses side by side where there is room … */
+.maintenance-board {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.75rem;
+  align-items: start;
+}
+
+.maintenance-column {
+  min-width: 0;
+  padding: 0.5rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+}
+
+/* Where a dragged card would land: a stronger, dashed border — not colour alone. */
+.maintenance-column[data-over='true'] {
+  border: 2px dashed var(--border-strong);
+  padding: calc(0.5rem - 1px);
+  background: var(--surface-muted);
+}
+
+.maintenance-column-heading {
+  margin: 0.25rem 0.25rem 0.5rem;
+  font-size: 1rem;
+}
+
+.maintenance-empty {
+  margin: 0.25rem;
+}
+
+.maintenance-card {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  padding: 0.6rem 0.7rem;
+  background: var(--surface-raised);
+  overflow-wrap: anywhere;
+}
+
+.maintenance-card[draggable='true'] {
+  cursor: grab;
+}
+
+.maintenance-card-title {
+  display: inline-flex;
+  align-items: center;
+  min-height: 2.75rem;
+  color: var(--text);
+}
+
+.maintenance-status-control select {
+  width: 100%;
+  min-height: 2.75rem;
+}
+
+.maintenance-switcher {
+  display: none;
+}
+
+.maintenance-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem 1rem;
+}
+
+.maintenance-row .item-body {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 14rem;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.maintenance-row .maintenance-status-control {
+  flex: 0 1 12rem;
+}
+
+.maintenance-status-line {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem 1rem;
+}
+
+.maintenance-status-line .maintenance-status-control {
+  flex: 0 1 14rem;
+}
+
+/* A cancelled record is visibly not a completed one: struck through as well as named. */
+.maintenance-status[data-status='CANCELLED'] {
+  text-decoration: line-through;
+}
+
+.maintenance-cost-row {
+  display: grid;
+  grid-template-columns: minmax(0, 2fr) minmax(0, 1fr);
+  gap: 0.5rem;
+}
+
+.maintenance-cost-row .field {
+  margin: 0;
+  min-width: 0;
+}
+
+.maintenance-find .field {
+  flex: 1 1 9rem;
+}
+
+/* … and one status at a time, chosen with the switcher, where there is not: nothing scrolls sideways. */
+@media (max-width: 60rem) {
+  .maintenance-board {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .maintenance-column[data-current='false'] {
+    display: none;
+  }
+
+  .maintenance-switcher {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .maintenance-switcher button {
+    justify-content: flex-start;
+    min-width: 0;
+  }
+
+  .maintenance-drag-hint {
+    display: none;
+  }
+}
+
+.maintenance-board,
+.maintenance-switcher {
+  margin-top: 0.75rem;
 }

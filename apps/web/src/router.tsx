@@ -91,6 +91,10 @@ export type Route =
    * Folder (`view: 'new'`) or Trash.
    */
   | { readonly page: 'documents'; readonly workspaceId: string; readonly view: 'folder' | 'new' | 'document' | 'trash'; readonly folderId: string | null; readonly documentId: string | null }
+  /** Contacts (16.6): the list, one Contact, the import of a file, or Trash. */
+  | { readonly page: 'contacts'; readonly workspaceId: string; readonly view: 'list' | 'contact' | 'import' | 'trash'; readonly contactId: string | null }
+  /** Maintenance (16.7): the board and list, one record, or Trash. */
+  | { readonly page: 'maintenance'; readonly workspaceId: string; readonly view: 'overview' | 'record' | 'trash'; readonly recordId: string | null }
   /** Calendar and agenda of Occurrences (14.4). */
   | { readonly page: 'calendar'; readonly workspaceId: string }
   /** Phone: what does not fit the bottom bar — Reminders, Calendar, Completed history. */
@@ -143,6 +147,12 @@ export function parseRoute(pathname: string): Route {
     return { page: 'documents', workspaceId: match[1] ?? '', view: match[3] === undefined ? 'folder' : 'new', folderId: match[2] ?? null, documentId: null };
   }
   if ((match = new RegExp(`^/w/${ID}/documents/${ID}$`).exec(path))) return { page: 'documents', workspaceId: match[1] ?? '', view: 'document', folderId: null, documentId: match[2] ?? null };
+  if ((match = new RegExp(`^/w/${ID}/contacts(/import|/trash)?$`).exec(path))) {
+    return { page: 'contacts', workspaceId: match[1] ?? '', view: match[2] === '/import' ? 'import' : match[2] === '/trash' ? 'trash' : 'list', contactId: null };
+  }
+  if ((match = new RegExp(`^/w/${ID}/contacts/${ID}$`).exec(path))) return { page: 'contacts', workspaceId: match[1] ?? '', view: 'contact', contactId: match[2] ?? null };
+  if ((match = new RegExp(`^/w/${ID}/maintenance(/trash)?$`).exec(path))) return { page: 'maintenance', workspaceId: match[1] ?? '', view: match[2] === undefined ? 'overview' : 'trash', recordId: null };
+  if ((match = new RegExp(`^/w/${ID}/maintenance/${ID}$`).exec(path))) return { page: 'maintenance', workspaceId: match[1] ?? '', view: 'record', recordId: match[2] ?? null };
   if ((match = new RegExp(`^/w/${ID}/calendar$`).exec(path))) return { page: 'calendar', workspaceId: match[1] ?? '' };
   if ((match = new RegExp(`^/w/${ID}/more$`).exec(path))) return { page: 'more', workspaceId: match[1] ?? '' };
   // `/runs` is the address of the former Run list (bookmarks keep working).
@@ -176,6 +186,13 @@ export const paths = {
   newDocument: (workspaceId: string, folderId: string | null = null) => `${paths.documents(workspaceId, folderId)}/new`,
   document: (workspaceId: string, documentId: string) => `/w/${workspaceId}/documents/${documentId}`,
   documentTrash: (workspaceId: string) => `/w/${workspaceId}/documents/trash`,
+  contacts: (workspaceId: string) => `/w/${workspaceId}/contacts`,
+  contact: (workspaceId: string, contactId: string) => `/w/${workspaceId}/contacts/${contactId}`,
+  contactImport: (workspaceId: string) => `/w/${workspaceId}/contacts/import`,
+  contactTrash: (workspaceId: string) => `/w/${workspaceId}/contacts/trash`,
+  maintenance: (workspaceId: string) => `/w/${workspaceId}/maintenance`,
+  maintenanceRecord: (workspaceId: string, recordId: string) => `/w/${workspaceId}/maintenance/${recordId}`,
+  maintenanceTrash: (workspaceId: string) => `/w/${workspaceId}/maintenance/trash`,
   calendar: (workspaceId: string) => `/w/${workspaceId}/calendar`,
   more: (workspaceId: string) => `/w/${workspaceId}/more`,
   history: (workspaceId: string) => `/w/${workspaceId}/history`,

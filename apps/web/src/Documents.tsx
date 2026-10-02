@@ -36,6 +36,7 @@ import {
   type DocumentFilters,
   type DocumentForm,
 } from './document-model.ts';
+import { DocumentLinksSection } from './DocumentLinks.tsx';
 import { FormDialog } from './FormDialog.tsx';
 import { clearHandOver, handOver, handedOver } from './handoff.ts';
 import { formatCalendarDate, formatDateTime, t } from './i18n/index.ts';
@@ -989,7 +990,7 @@ function PageCard(props: { workspaceId: string; file: DocumentFile; index: numbe
 }
 
 /** One Document: its facts, its pages in order, previews and downloads; editing for those who may. */
-function DocumentPage(props: { workspaceId: string; documentId: string; canManage: boolean }) {
+function DocumentPage(props: { workspaceId: string; documentId: string; canManage: boolean; canSchedule: boolean }) {
   const { workspaceId, documentId, canManage } = props;
   const [doc, setDoc] = useState<DocumentDetail | null>(null);
   const [folders, setFolders] = useState<readonly DocumentFolder[]>([]);
@@ -1231,6 +1232,7 @@ function DocumentPage(props: { workspaceId: string; documentId: string; canManag
           <UploadList uploads={adding} />
         </div>
       )}
+      <DocumentLinksSection workspaceId={workspaceId} documentId={doc.id} documentTitle={doc.title} canManage={canManage} canSchedule={props.canSchedule} />
       <p className="muted">{dateLine(doc)}</p>
 
       {viewer !== null && (
@@ -1450,14 +1452,14 @@ function Trash(props: { workspaceId: string; canPurge: boolean }) {
  * previews and downloads; `canManage` (USER and above) adds, edits, moves and deletes to Trash. The
  * controls shown follow that — the server decides on every request.
  */
-export function Documents(props: { workspaceId: string; route: DocumentsRoute; canManage: boolean; canPurge: boolean }) {
+export function Documents(props: { workspaceId: string; route: DocumentsRoute; canManage: boolean; canPurge: boolean; canSchedule: boolean }) {
   const { workspaceId, route, canManage } = props;
   const readOnly = (
     <p role="alert">
       {t('documents.manageOnly')} <Link href={paths.documents(workspaceId)}>{t('documents.backToDocuments')}</Link>
     </p>
   );
-  if (route.view === 'document' && route.documentId !== null) return <DocumentPage workspaceId={workspaceId} documentId={route.documentId} canManage={canManage} />;
+  if (route.view === 'document' && route.documentId !== null) return <DocumentPage workspaceId={workspaceId} documentId={route.documentId} canManage={canManage} canSchedule={props.canSchedule} />;
   if (route.view === 'new') return canManage ? <NewDocument workspaceId={workspaceId} folderId={route.folderId} /> : readOnly;
   if (route.view === 'trash') return canManage ? <Trash workspaceId={workspaceId} canPurge={props.canPurge} /> : readOnly;
   // One instance per place: search and filters start afresh in every Folder (and come back from the address).

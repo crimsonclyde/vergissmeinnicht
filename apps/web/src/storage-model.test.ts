@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import type { StorageInfo } from './api.ts';
 import { bytesToGigabytes, gigabytesToBytes, storageLines, storageSummary } from './storage-model.ts';
 
-const storage: StorageInfo = { imageBytes: 300_000_000, documentBytes: 1_200_000_000, previewBytes: 40_000_000, trashBytes: 0, usedBytes: 1_540_000_000, limitBytes: 5_000_000_000, ceilingBytes: 5_000_000_000, ownLimitBytes: null };
+const storage: StorageInfo = { imageBytes: 300_000_000, documentBytes: 1_200_000_000, previewBytes: 40_000_000, retainedBytes: 0, trashBytes: 0, usedBytes: 1_540_000_000, limitBytes: 5_000_000_000, ceilingBytes: 5_000_000_000, ownLimitBytes: null };
 
 describe('storage view model (16.4)', () => {
   it('reads a limit typed in GB, in steps of 0.1, within 100 MB to 1000 GB', () => {

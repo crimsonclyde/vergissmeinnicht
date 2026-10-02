@@ -32,6 +32,7 @@ export const storageView = (usage: StorageUsage) => ({
   documentBytes: usage.originals,
   previewBytes: usage.previews,
   trashBytes: usage.trash,
+  retainedBytes: usage.retained,
   usedBytes: usage.used,
   limitBytes: usage.limit,
   ceilingBytes: usage.ceiling,

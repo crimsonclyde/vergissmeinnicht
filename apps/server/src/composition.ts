@@ -7,6 +7,9 @@ import {
   type DocumentExportDeps,
   type DocumentFileDeps,
   type StorageDeps,
+  type LinkDeps,
+  type ContactDeps,
+  type MaintenanceDeps,
   type InstanceSettingsDeps,
   type PreferencesDeps,
   type HistoryDeps,
@@ -44,6 +47,9 @@ import {
   createDocumentFileRepository,
   createDocumentRepository,
   createStorageRepository,
+  createLinkRepository,
+  createContactRepository,
+  createMaintenanceRepository,
   createImageRepository,
   createInstanceSettingsRepository,
   createInvitationRepository,
@@ -110,6 +116,12 @@ export interface AppServices {
   readonly images: ImageDeps;
   /** The combined storage of a Workspace: usage by tool, ceiling and own limit (16.4). */
   readonly storage: StorageDeps;
+  /** Links between Documents and Procedures, Schedules and Runs (16.5). */
+  readonly links: LinkDeps;
+  /** Contacts of a Workspace (16.6): people and organisations — not Users. */
+  readonly contacts: ContactDeps;
+  /** MaintenanceRecords of a Workspace (16.7). */
+  readonly maintenance: MaintenanceDeps;
   /** Files of Documents (16.1): metadata in SQLite, originals and previews under `documentsPath`. */
   readonly documentFiles: DocumentFileDeps;
   /** Folders, Documents, document types and the Workspace's optional tools (16.2). */
@@ -289,6 +301,9 @@ export function createServices(config: AppConfig, database: AppDatabase) {
         },
       },
       storage: { workspaces: workspaceDeps.workspaces, storage: createStorageRepository(database), clock: systemClock },
+      links: { workspaces: workspaceDeps.workspaces, tools, links: createLinkRepository(database), clock: systemClock },
+      contacts: { workspaces: workspaceDeps.workspaces, tools, contacts: createContactRepository(database), clock: systemClock },
+      maintenance: { workspaces: workspaceDeps.workspaces, tools, maintenance: createMaintenanceRepository(database), clock: systemClock },
       documents: { workspaces: workspaceDeps.workspaces, tools, documents: createDocumentRepository(database), store: documentFiles.store, clock: systemClock },
       closeDocumentFiles: async () => {
         await previews.idle();

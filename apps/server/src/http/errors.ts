@@ -18,7 +18,12 @@ import {
   FolderNotFoundError,
   NameTakenError,
   ToolNotEnabledError,
+  AlreadyLinkedError,
   DocumentFileRejectedError,
+  LinkNotFoundError,
+  LinkTargetNotFoundError,
+  RunFinishedError,
+  RunStillActiveError,
   ExportRunningError,
   ExportTooLargeError,
   StorageFullError,
@@ -70,13 +75,21 @@ import {
   UnknownAccountError,
   NoPendingEnrollmentError,
   NotAuthorizedError,
+  ContactConflictError,
+  ContactImportRefusedError,
+  ContactLimitReachedError,
+  ContactNotFoundError,
+  MaintenanceConflictError,
+  MaintenanceLimitReachedError,
+  MaintenanceRecordNotFoundError,
+  MaintenanceStatusUnchangedError,
   ReauthenticationFailedError,
   TotpAlreadyEnabledError,
   TotpLockedError,
   TotpNotEnabledError,
 } from '@vergissmeinnicht/application';
 import { DomainValidationError, MAX_EXPORT_BYTES, MAX_EXPORT_FILES } from '@vergissmeinnicht/domain';
-import { ProcedureImportError } from '@vergissmeinnicht/import-export';
+import { ContactFileError, ProcedureImportError } from '@vergissmeinnicht/import-export';
 import type { FastifyError, FastifyReply, FastifyRequest } from 'fastify';
 
 /** A request body/params did not match the route schema. Carries no input values. */
@@ -187,6 +200,24 @@ export function errorHandler(error: FastifyError | Error, request: FastifyReques
     return reply.code(413).send({ error: 'export_too_large', files: error.size.files, bytes: error.size.bytes, maxFiles: MAX_EXPORT_FILES, maxBytes: MAX_EXPORT_BYTES });
   }
   if (error instanceof ExportRunningError) return reply.code(429).send({ error: 'export_running' });
+  // Links (16.5): a record of another Workspace, a deleted one and an unknown one all look the same.
+  if (error instanceof LinkTargetNotFoundError) return reply.code(404).send({ error: 'link_target_not_found' });
+  if (error instanceof LinkNotFoundError) return reply.code(404).send({ error: 'link_not_found' });
+  if (error instanceof AlreadyLinkedError) return reply.code(409).send({ error: 'already_linked' });
+  if (error instanceof RunFinishedError) return reply.code(409).send({ error: 'run_document_kept' });
+  if (error instanceof RunStillActiveError) return reply.code(409).send({ error: 'run_still_active' });
+  // Contacts (16.6).
+  if (error instanceof ContactNotFoundError) return reply.code(404).send({ error: 'contact_not_found' });
+  if (error instanceof ContactConflictError) return reply.code(409).send({ error: 'contact_conflict' });
+  if (error instanceof ContactLimitReachedError) return reply.code(409).send({ error: 'contact_limit_reached' });
+  // Maintenance (16.7). A stale change answers with the code alone; the client then shows the current state.
+  if (error instanceof MaintenanceRecordNotFoundError) return reply.code(404).send({ error: 'maintenance_not_found' });
+  if (error instanceof MaintenanceConflictError) return reply.code(409).send({ error: 'maintenance_conflict' });
+  if (error instanceof MaintenanceStatusUnchangedError) return reply.code(409).send({ error: 'maintenance_status_unchanged' });
+  if (error instanceof MaintenanceLimitReachedError) return reply.code(409).send({ error: 'maintenance_limit_reached' });
+  // A file that cannot be used as a whole: the stable reason and, where known, the line — never its content.
+  if (error instanceof ContactImportRefusedError) return reply.code(422).send({ error: 'contact_import_refused', reason: error.code });
+  if (error instanceof ContactFileError) return reply.code(error.code === 'contact_import_too_large' ? 413 : 422).send({ error: 'contact_import_refused', reason: error.code, line: error.line });
 
   const statusCode = 'statusCode' in error && typeof error.statusCode === 'number' ? error.statusCode : 500;
   if (statusCode === 429) return reply.code(429).send({ error: 'rate_limited' });

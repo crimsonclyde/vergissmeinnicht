@@ -186,7 +186,7 @@ describe('Workspace storage, export and permanent deletion (16.4)', () => {
 
   describe('one combined storage limit', () => {
     it('gives a new Workspace 5 GB without configuration, and sets nothing aside', async () => {
-      expect(await usage()).toEqual({ images: 0, originals: 0, previews: 0, trash: 0, used: 0, limit: 5_000_000_000, ceiling: 5_000_000_000, ownLimit: null });
+      expect(await usage()).toEqual({ images: 0, originals: 0, previews: 0, trash: 0, retained: 0, used: 0, limit: 5_000_000_000, ceiling: 5_000_000_000, ownLimit: null });
       // A limit is a number, not disk space: creating the Workspace wrote no file anywhere.
       expect(existsSync(join(dir, 'documents'))).toBe(false);
       expect(existsSync(join(dir, 'media'))).toBe(false);

@@ -2,3 +2,6 @@
 export * from './procedure-document.ts';
 export * from './procedure-archive.ts';
 export * from './documents-archive.ts';
+export * from './contacts-file.ts';
+export * from './contacts-csv.ts';
+export * from './contacts-vcard.ts';

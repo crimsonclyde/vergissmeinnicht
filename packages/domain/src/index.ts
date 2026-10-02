@@ -22,3 +22,6 @@ export * from './document.ts';
 export * from './document-search.ts';
 export * from './document-export.ts';
 export * from './storage.ts';
+export * from './link.ts';
+export * from './contact.ts';
+export * from './maintenance.ts';

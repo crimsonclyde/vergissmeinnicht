@@ -4,7 +4,7 @@ import { and, asc, eq, sql, type SQL } from 'drizzle-orm';
 import { IMMEDIATE, actorAllowed, type Transaction } from './actor-guard.ts';
 import { recordAuditEvent } from './audit-events.ts';
 import type { AppDatabase } from './connection.ts';
-import { documentFileDerivatives, documentFiles, documentPages, documents, procedureSteps, runSteps, stepImages, users, workspaces } from './schema.ts';
+import { documentFileDerivatives, documentFiles, documentPages, documents, procedureSteps, runDocumentFiles, runSteps, stepImages, users, workspaces } from './schema.ts';
 import { recordSecurityEvent } from './security-events.ts';
 
 type Reader = Pick<Transaction, 'select'>;
@@ -23,8 +23,12 @@ function countedImages(pendingSince: Date, replacing: string | null): SQL {
   return replacing === null ? charged : sql`${charged} and not (${stepImages.id} = ${replacing} and not ${imageReferencedByRun})`;
 }
 
-/** 1 when every Document holding the file is in Trash; 0 when a live Document holds it or none does (an upload not saved yet). */
-const onlyInTrash = sql`min(case when ${documents.deletedAt} is not null then 1 else 0 end)`;
+/**
+ * Where a file counts, as the smallest of: 0 — a Document that is not in Trash holds it, or nothing
+ * does yet (an upload not saved); 1 — only Documents in Trash hold it; 2 — no Document holds it any
+ * more, but a version retained for a Run does (16.5).
+ */
+const fileClass = sql`min(case when ${documents.id} is not null and ${documents.deletedAt} is null then 0 when ${documents.id} is not null then 1 when exists (select 1 from ${runDocumentFiles} where ${runDocumentFiles.fileId} = ${documentFiles.id}) then 2 else 0 end)`;
 
 /**
  * The combined storage of a Workspace (16.4), by tool. Identical content is charged once per
@@ -38,24 +42,34 @@ export function storageUsageIn(tx: Reader, workspaceId: string, pendingSince: Da
       .from(stepImages)
       .where(and(eq(stepImages.workspaceId, workspaceId), countedImages(pendingSince, replacingImage)))
       .get()?.n ?? 0;
-  const split = { live: sql<number>`coalesce(sum(case when trashed = 0 then bytes else 0 end), 0)`, trash: sql<number>`coalesce(sum(case when trashed = 1 then bytes else 0 end), 0)` };
+  const split = {
+    live: sql<number>`coalesce(sum(case when class = 0 then bytes else 0 end), 0)`,
+    trash: sql<number>`coalesce(sum(case when class = 1 then bytes else 0 end), 0)`,
+    retained: sql<number>`coalesce(sum(case when class = 2 then bytes else 0 end), 0)`,
+  };
   const originals = tx
     .select(split)
     .from(
-      sql`(select max(${documentFiles.bytes}) as bytes, ${onlyInTrash} as trashed from ${documentFiles} left join ${documentPages} on ${documentPages.fileId} = ${documentFiles.id} left join ${documents} on ${documents.id} = ${documentPages.documentId} where ${documentFiles.workspaceId} = ${workspaceId} group by ${documentFiles.sha256})`,
+      sql`(select max(${documentFiles.bytes}) as bytes, ${fileClass} as class from ${documentFiles} left join ${documentPages} on ${documentPages.fileId} = ${documentFiles.id} left join ${documents} on ${documents.id} = ${documentPages.documentId} where ${documentFiles.workspaceId} = ${workspaceId} group by ${documentFiles.sha256})`,
     )
     .get();
   const previews = tx
     .select(split)
     .from(
-      sql`(select max(${documentFileDerivatives.bytes}) as bytes, ${onlyInTrash} as trashed from ${documentFileDerivatives} inner join ${documentFiles} on ${documentFiles.id} = ${documentFileDerivatives.fileId} left join ${documentPages} on ${documentPages.fileId} = ${documentFiles.id} left join ${documents} on ${documents.id} = ${documentPages.documentId} where ${documentFiles.workspaceId} = ${workspaceId} group by ${documentFileDerivatives.sha256})`,
+      sql`(select max(${documentFileDerivatives.bytes}) as bytes, ${fileClass} as class from ${documentFileDerivatives} inner join ${documentFiles} on ${documentFiles.id} = ${documentFileDerivatives.fileId} left join ${documentPages} on ${documentPages.fileId} = ${documentFiles.id} left join ${documents} on ${documents.id} = ${documentPages.documentId} where ${documentFiles.workspaceId} = ${workspaceId} group by ${documentFileDerivatives.sha256})`,
     )
     .get();
   const limits = tx.select({ ceiling: workspaces.storageQuotaBytes, own: workspaces.storageLimitBytes }).from(workspaces).where(eq(workspaces.id, workspaceId)).get();
   const ceiling = limits?.ceiling ?? DEFAULT_WORKSPACE_STORAGE_BYTES;
   const ownLimit = limits?.own ?? null;
-  const usage = { images: Number(images), originals: Number(originals?.live ?? 0), previews: Number(previews?.live ?? 0), trash: Number(originals?.trash ?? 0) + Number(previews?.trash ?? 0) };
-  return { ...usage, used: usage.images + usage.originals + usage.previews + usage.trash, limit: effectiveStorageLimit(ceiling, ownLimit), ceiling, ownLimit };
+  const usage = {
+    images: Number(images),
+    originals: Number(originals?.live ?? 0),
+    previews: Number(previews?.live ?? 0),
+    trash: Number(originals?.trash ?? 0) + Number(previews?.trash ?? 0),
+    retained: Number(originals?.retained ?? 0) + Number(previews?.retained ?? 0),
+  };
+  return { ...usage, used: usage.images + usage.originals + usage.previews + usage.trash + usage.retained, limit: effectiveStorageLimit(ceiling, ownLimit), ceiling, ownLimit };
 }
 
 /** Workspace storage: usage by tool, the ceiling and the Workspace's own limit (16.4). See `StorageRepository`. */

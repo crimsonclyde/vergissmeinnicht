@@ -4,7 +4,7 @@ import { IMAGE_PENDING_MS, type DerivativeRecord, type DocumentFileRecord, type 
 import { fitsStorage, type DocumentFileId, type WorkspaceId } from '@vergissmeinnicht/domain';
 import { IMMEDIATE, actorAllowed, type Transaction } from './actor-guard.ts';
 import type { AppDatabase } from './connection.ts';
-import { documentFileDerivatives, documentFiles, documentPages } from './schema.ts';
+import { documentFileDerivatives, documentFiles, documentPages, runDocumentFiles } from './schema.ts';
 import { storageUsageIn } from './storage-usage.ts';
 
 type Reader = Pick<Transaction, 'select'>;
@@ -32,11 +32,12 @@ const toRecord = (row: Row, pages: number): DocumentFileRecord => ({
 });
 
 /**
- * What nothing refers to: a file that is on no page of a Document. Documents in Trash keep their
- * pages, so their files stay. This is the one place that decides what housekeeping may delete (the
- * backup applies the same rule to rows whose file is already gone); 16.5 adds "or retained by a Run".
+ * What nothing refers to: a file that is on no page of a Document and in no Document version retained
+ * for a Run (16.5). Documents in Trash keep their pages, so their files stay. This is the one place
+ * that decides what housekeeping may delete (the backup applies the same rule to rows whose file is
+ * already gone).
  */
-const unreferenced: SQL = sql`not exists (select 1 from ${documentPages} where ${documentPages.fileId} = ${documentFiles.id})`;
+const unreferenced: SQL = sql`not exists (select 1 from ${documentPages} where ${documentPages.fileId} = ${documentFiles.id}) and not exists (select 1 from ${runDocumentFiles} where ${runDocumentFiles.fileId} = ${documentFiles.id})`;
 
 /** Instruction images uploaded within this time count towards the combined storage before a Step uses them (14.3). */
 const pendingSince = (at: Date) => new Date(at.getTime() - IMAGE_PENDING_MS);

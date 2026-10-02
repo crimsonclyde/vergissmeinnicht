@@ -103,7 +103,6 @@ const memberships = [
 for (const [workspaceId, email, role] of memberships) {
   await api('POST', `/workspaces/${workspaceId}/members`, { email, role }, admin);
 }
-await api('POST', '/auth/sign-out', {}, admin);
 
 // Procedures are authored by the editor, like in real use.
 const editor = await signIn('editor@vmn.test');
@@ -229,7 +228,10 @@ interface SeededFolder {
 const water = (await api<SeededFolder>('POST', `/workspaces/${household}/document-folders`, { name: 'Water', parentId: null }, member)).data.folder.id;
 const thisYear = (await api<SeededFolder>('POST', `/workspaces/${household}/document-folders`, { name: String(new Date().getFullYear()), parentId: water }, member)).data.folder.id;
 await api('POST', `/workspaces/${household}/document-folders`, { name: 'Insurance', parentId: null }, member);
-await api(
+interface SeededDocument {
+  readonly document: { readonly id: string };
+}
+const waterBill = await api<SeededDocument>(
   'POST',
   `/workspaces/${household}/documents`,
   {
@@ -243,6 +245,36 @@ await api(
   },
   member,
 );
+// Contacts (16.6) and Maintenance (16.7): switched on for the Household as well. A plumber and an office;
+// one maintenance record in each status that matters for a first look — the completed one with its
+// technician, its cost and the bill as evidence.
+await api('POST', `/workspaces/${household}/tools`, { tool: 'CONTACTS', enabled: true }, admin);
+await api('POST', `/workspaces/${household}/tools`, { tool: 'MAINTENANCE', enabled: true }, admin);
+interface SeededContact {
+  readonly contact: { readonly id: string };
+}
+const plumber = (
+  await api<SeededContact>(
+    'POST',
+    `/workspaces/${household}/contacts`,
+    { name: 'Plumber Rossi', category: 'Plumber', organisation: 'Rossi Impianti', phones: [{ value: '+39 0471 123456', label: 'Office' }, { value: '333 1234567', label: 'Mobile' }], emails: [{ value: 'rossi@example.org' }] },
+    member,
+  )
+).data.contact.id;
+await api('POST', `/workspaces/${household}/contacts`, { name: 'Water utility', category: 'Utility', phones: [{ value: '0471 997111' }], website: 'https://example.org' }, member);
+await api('POST', `/workspaces/${household}/contacts/${plumber}/procedures`, { procedureId: procedureIds[0] }, member);
+interface SeededRecord {
+  readonly record: { readonly id: string; readonly revision: number };
+}
+const maintenance = async (body: object) => (await api<SeededRecord>('POST', `/workspaces/${household}/maintenance`, body, member)).data.record;
+await maintenance({ title: 'Clean the gutters', category: 'Roof', date: localDate(30) });
+const boiler = await maintenance({ title: 'Boiler service', category: 'Heating', date: localDate(7), contactId: plumber });
+await api('POST', `/workspaces/${household}/maintenance/${boiler.id}/status`, { status: 'IN_PROGRESS', expectedRevision: boiler.revision }, member);
+const pipe = await maintenance({ title: 'Fix the leaking pipe', category: 'Water', date: localDate(-25), contactId: plumber, cost: { amount: '120.00', currency: 'EUR' } });
+await api('POST', `/workspaces/${household}/maintenance/${pipe.id}/status`, { status: 'COMPLETED', expectedRevision: pipe.revision, completedOn: localDate(-21) }, member);
+await api('POST', `/workspaces/${household}/maintenance/${pipe.id}/links`, { target: { type: 'document', id: waterBill.data.document.id } }, member);
 await api('POST', `/workspaces/${household}/procedures/${procedureIds[0]}/pin`, {}, member);
 await api('POST', '/auth/sign-out', {}, member);
-console.log(`Created ${people.length + 1} accounts, 2 Workspaces, ${procedures.length} Procedures, 1 Run, 2 scheduled Procedures, 2 Reminders, 1 grocery list, 3 document folders with 1 document and 1 pin.`);
+// The admin stays signed in until here: switching the optional tools on needs a Workspace admin.
+await api('POST', '/auth/sign-out', {}, admin);
+console.log(`Created ${people.length + 1} accounts, 2 Workspaces, ${procedures.length} Procedures, 1 Run, 2 scheduled Procedures, 2 Reminders, 1 grocery list, 3 document folders with 1 document, 2 contacts, 3 maintenance records and 1 pin.`);

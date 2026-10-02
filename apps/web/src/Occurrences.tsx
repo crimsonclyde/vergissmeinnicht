@@ -2,6 +2,7 @@ import { addInterval, type LocalDate } from '@vergissmeinnicht/domain';
 import { useState } from 'react';
 import { api, messageFor, type Occurrence, type PersonRef, type RunSummary, type ScheduleInput } from './api.ts';
 import { FormDialog } from './FormDialog.tsx';
+import { LinkedDocuments } from './DocumentLinks.tsx';
 import { formatCalendarDate, formatDateTime, formatRelative, t } from './i18n/index.ts';
 import { MoreMenu } from './MoreMenu.tsx';
 import { AppIcon } from './procedure-icons.tsx';
@@ -187,6 +188,8 @@ export function OccurrenceItem(props: {
               )}
             </small>
           )}
+          {/* Linked Documents belong to the Schedule: reachable from Details, so the card does not grow (16.5). */}
+          {details && <LinkedDocuments workspaceId={props.workspaceId} target={{ type: 'schedule', id: schedule.id }} />}
         </div>
         <div className="item-actions">
           {item.state === 'IN_PROGRESS' && item.run !== null ? (

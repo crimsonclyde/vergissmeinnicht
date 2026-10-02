@@ -49,6 +49,8 @@ export interface ImageUsage {
 
 /** The combined storage of a Workspace by tool, for its admins and the server admin (16.4). */
 export interface StorageInfo extends ImageUsage {
+  /** Document versions kept for executions whose document no longer holds these files. */
+  readonly retainedBytes: number;
   /** Instruction photos of Procedures. */
   readonly imageBytes: number;
   /** Original files of Documents that are not in Trash. */
@@ -624,6 +626,69 @@ const documentTypesPath = (workspaceId: string, rest = '') => `/workspaces/${enc
 const documentFilePath = (workspaceId: string, fileId: string, rest = '') => `/api/workspaces/${encodeURIComponent(workspaceId)}/document-files/${encodeURIComponent(fileId)}${rest}`;
 
 /** Addresses of a file's derived images and of its original (same-origin, session cookie; the server authorizes each request). */
+// ---- Links (16.5)
+
+/** The other end of a Link as it may be shown: kind, title and where it stands today — never content. */
+export interface LinkedRecord {
+  readonly type: 'document' | 'procedure' | 'schedule' | 'contact' | 'run' | 'maintenance';
+  readonly id: string;
+  /** `null`: gone for good, or in Trash and not for this viewer to see (a Contact in Trash is never named). */
+  readonly title: string | null;
+  readonly state: 'ok' | 'deleted' | 'trash' | 'paused' | 'ended' | 'gone';
+  readonly scheduleKind: 'REMINDER' | 'PROCEDURE' | null;
+  /** An execution as the other end of a Link: whether it is still going. */
+  readonly runState?: RunState | null;
+  readonly nextDue: string | null;
+  readonly goneAt: string | null;
+  readonly goneBy: string | null;
+}
+
+export interface DocumentLink {
+  readonly id: string;
+  readonly record: LinkedRecord;
+  readonly createdAt: string;
+  readonly createdBy: string;
+}
+
+/** A Run that keeps a version of the Document. */
+export interface RunLink {
+  readonly id: string;
+  readonly runId: string;
+  readonly title: string;
+  readonly state: RunState;
+  readonly linkedAt: string;
+  readonly linkedBy: string;
+  readonly changedSince: boolean;
+}
+
+/** A Document version a Run keeps: what the Document was when it was linked, with its files of then. */
+export interface RunDocument {
+  readonly id: string;
+  readonly sourceDocumentId: string;
+  /** How the Document it came from stands today. */
+  readonly source: 'same' | 'changed' | 'trash' | 'gone';
+  readonly title: string;
+  readonly type: { readonly kind: 'builtin'; readonly key: string } | { readonly kind: 'custom'; readonly name: string } | null;
+  readonly documentDate: string | null;
+  readonly year: number | null;
+  readonly notes: string;
+  readonly tags: readonly string[];
+  readonly files: readonly DocumentFile[];
+  readonly linkedAt: string;
+  readonly linkedBy: string;
+}
+
+/** The permanent note of a document removed from a finished execution: who, when, why — nothing of the document. */
+export interface RunDocumentRemoval {
+  readonly id: string;
+  readonly reason: string;
+  readonly files: number;
+  readonly linkedAt: string;
+  readonly linkedBy: string;
+  readonly removedAt: string;
+  readonly removedBy: string;
+}
+
 /** How much an export would hold, and what one export may hold at most. */
 export interface ExportSize {
   readonly documents: number;
@@ -634,6 +699,149 @@ export interface ExportSize {
 }
 
 /** The address of an export (a ZIP download): everything, one Folder with its sub-folders, or chosen Documents. */
+/** An email address or phone number of a Contact; `href` is the `mailto:` / `tel:` link the server built from the checked value. */
+export interface ContactPointView {
+  readonly value: string;
+  readonly label: string;
+  readonly href: string;
+}
+
+export interface ContactSummary {
+  readonly id: string;
+  readonly name: string;
+  readonly organisation: string;
+  readonly category: string;
+  readonly emails: readonly ContactPointView[];
+  readonly phones: readonly ContactPointView[];
+  readonly revision: number;
+}
+
+export interface Contact extends ContactSummary {
+  readonly address: string;
+  /** An `http(s)` address, or empty. */
+  readonly website: string;
+  readonly notes: string;
+  readonly createdAt: string;
+  readonly createdBy: string;
+  readonly modifiedAt: string;
+  readonly modifiedBy: string;
+}
+
+/** What a Contact is made of, as it is sent. Only the name is required. */
+export interface ContactInput {
+  readonly name: string;
+  readonly organisation?: string;
+  readonly category?: string;
+  readonly emails?: readonly { readonly value: string; readonly label?: string }[];
+  readonly phones?: readonly { readonly value: string; readonly label?: string }[];
+  readonly address?: string;
+  readonly website?: string;
+  readonly notes?: string;
+}
+
+/** Another Contact that may be the same person or organisation, and what the two share. */
+export interface ContactDuplicate {
+  readonly id: string;
+  readonly name: string;
+  readonly organisation: string;
+  readonly reasons: readonly ('email' | 'phone' | 'name')[];
+}
+
+export interface TrashedContact {
+  readonly id: string;
+  readonly name: string;
+  readonly organisation: string;
+  readonly deletedAt: string;
+  readonly deletedBy: string;
+}
+
+export interface ContactProcedureLink {
+  readonly id: string;
+  readonly procedureId: string;
+  readonly title: string | null;
+  readonly state: 'ok' | 'deleted' | 'gone';
+}
+
+/** A Contact linked to a Procedure; `contact` is `null` for a deleted contact. */
+export interface ProcedureContactLink {
+  readonly id: string;
+  readonly contact: ContactSummary | null;
+}
+
+export type ContactFileFormat = 'csv' | 'vcard';
+
+/** One entry of an import file, as the server would save it — or why it cannot be imported. */
+export interface ContactImportEntry {
+  readonly line: number;
+  readonly name: string;
+  readonly contact: ContactInput | null;
+  readonly problem: { readonly code: string; readonly field: string } | null;
+  readonly duplicates: readonly ContactDuplicate[];
+  readonly sameAs: readonly { readonly entry: number; readonly reasons: readonly ('email' | 'phone' | 'name')[] }[];
+}
+
+export type MaintenanceStatus = 'PLANNED' | 'IN_PROGRESS' | 'COMPLETED' | 'CANCELLED';
+
+/** A MaintenanceRecord as a card or a row shows it. */
+export interface MaintenanceSummary {
+  readonly id: string;
+  readonly title: string;
+  readonly category: string;
+  /** When the work is planned for, `YYYY-MM-DD`. */
+  readonly date: string | null;
+  readonly status: MaintenanceStatus;
+  /** Set exactly while the status is COMPLETED. */
+  readonly completedOn: string | null;
+  /** The responsible Contact; `name` is `null` for a deleted contact. */
+  readonly contact: { readonly id: string; readonly name: string | null } | null;
+  /** As recorded: decimal text and a currency code. */
+  readonly cost: { readonly amount: string; readonly currency: string } | null;
+  readonly revision: number;
+}
+
+export interface MaintenanceRecord extends MaintenanceSummary {
+  readonly description: string;
+  readonly createdAt: string;
+  readonly createdBy: string;
+  readonly modifiedAt: string;
+  readonly modifiedBy: string;
+}
+
+export interface MaintenanceColumn {
+  readonly status: MaintenanceStatus;
+  readonly total: number;
+  readonly records: readonly MaintenanceSummary[];
+}
+
+export interface MaintenanceFilterValues {
+  readonly categories: readonly string[];
+  readonly years: readonly number[];
+  readonly contacts: readonly { readonly id: string; readonly name: string }[];
+}
+
+export interface MaintenanceInput {
+  readonly title: string;
+  readonly category?: string;
+  readonly date?: string | null;
+  readonly description?: string;
+  readonly contactId?: string | null;
+  readonly cost?: { readonly amount: string; readonly currency: string } | null;
+}
+
+export interface TrashedMaintenanceRecord {
+  readonly id: string;
+  readonly title: string;
+  readonly status: MaintenanceStatus;
+  readonly deletedAt: string;
+  readonly deletedBy: string;
+}
+
+const maintenancePath = (workspaceId: string, rest = '') => `/workspaces/${encodeURIComponent(workspaceId)}/maintenance${rest}`;
+
+const contactsPath = (workspaceId: string, rest = '') => `/workspaces/${encodeURIComponent(workspaceId)}/contacts${rest}`;
+/** Every Contact as one file to save (USER and above). */
+export const contactExportUrl = (workspaceId: string, format: ContactFileFormat) => `/api${contactsPath(workspaceId, `/export?format=${format}`)}`;
+
 export const documentExportUrl = (workspaceId: string, scope: string) => `/api/workspaces/${encodeURIComponent(workspaceId)}/documents/export${scope === '' ? '' : `?${scope}`}`;
 
 export const documentFileUrls = {
@@ -838,6 +1046,63 @@ export const api = {
   moveDocuments: async (workspaceId: string, documentIds: readonly string[], folderId: string | null) => (await request<{ moved: number }>('POST', documentsPath(workspaceId, '/move'), { documentIds, folderId })).moved,
   deleteDocument: (workspaceId: string, documentId: string) => request<undefined>('POST', documentsPath(workspaceId, `/${documentId}/delete`), {}),
   restoreDocument: async (workspaceId: string, documentId: string) => (await request<{ restored: RestoreOutcome }>('POST', documentsPath(workspaceId, `/${documentId}/restore`), {})).restored,
+  // Links (16.5).
+  documentLinks: (workspaceId: string, documentId: string) => request<{ links: DocumentLink[]; runs: RunLink[] }>('GET', documentsPath(workspaceId, `/${encodeURIComponent(documentId)}/links`)),
+  addDocumentLink: async (workspaceId: string, documentId: string, target: { type: 'document' | 'procedure' | 'schedule' | 'contact'; id: string }) =>
+    (await request<{ link: DocumentLink }>('POST', documentsPath(workspaceId, `/${encodeURIComponent(documentId)}/links`), { target })).link,
+  removeDocumentLink: (workspaceId: string, linkId: string) => request<undefined>('POST', `/workspaces/${encodeURIComponent(workspaceId)}/document-links/${encodeURIComponent(linkId)}/delete`, {}),
+  maintenanceBoard: async (workspaceId: string) => (await request<{ columns: MaintenanceColumn[] }>('GET', maintenancePath(workspaceId, '/board'))).columns,
+  maintenance: (workspaceId: string, query: string) => request<{ records: MaintenanceSummary[]; nextCursor: string | null; total: number | null }>('GET', maintenancePath(workspaceId, query === '' ? '' : `?${query}`)),
+  maintenanceFilters: (workspaceId: string) => request<{ filters: MaintenanceFilterValues; currencies: string[] }>('GET', maintenancePath(workspaceId, '/filters')),
+  maintenanceRecord: async (workspaceId: string, recordId: string) => (await request<{ record: MaintenanceRecord }>('GET', maintenancePath(workspaceId, `/${encodeURIComponent(recordId)}`))).record,
+  createMaintenance: async (workspaceId: string, input: MaintenanceInput) => (await request<{ record: MaintenanceRecord }>('POST', maintenancePath(workspaceId), input)).record,
+  updateMaintenance: async (workspaceId: string, recordId: string, input: MaintenanceInput, expectedRevision: number) =>
+    (await request<{ record: MaintenanceRecord }>('POST', maintenancePath(workspaceId, `/${encodeURIComponent(recordId)}/update`), { ...input, expectedRevision })).record,
+  /** The one way a status changes. `completedOn`: the day the work was completed, for COMPLETED. */
+  setMaintenanceStatus: async (workspaceId: string, recordId: string, status: MaintenanceStatus, expectedRevision: number, completedOn?: string) =>
+    (await request<{ record: MaintenanceRecord }>('POST', maintenancePath(workspaceId, `/${encodeURIComponent(recordId)}/status`), completedOn === undefined ? { status, expectedRevision } : { status, expectedRevision, completedOn })).record,
+  deleteMaintenance: (workspaceId: string, recordId: string) => request<undefined>('POST', maintenancePath(workspaceId, `/${encodeURIComponent(recordId)}/delete`), {}),
+  restoreMaintenance: async (workspaceId: string, recordId: string) => (await request<{ record: MaintenanceRecord }>('POST', maintenancePath(workspaceId, `/${encodeURIComponent(recordId)}/restore`), {})).record,
+  maintenanceTrash: async (workspaceId: string) => (await request<{ records: TrashedMaintenanceRecord[] }>('GET', maintenancePath(workspaceId, '/trash'))).records,
+  purgeMaintenance: async (workspaceId: string, recordIds: readonly string[] | 'all') => (await request<{ purged: number }>('POST', maintenancePath(workspaceId, '/trash/purge'), recordIds === 'all' ? { all: true } : { recordIds })).purged,
+  maintenanceLinks: async (workspaceId: string, recordId: string) => (await request<{ links: DocumentLink[] }>('GET', maintenancePath(workspaceId, `/${encodeURIComponent(recordId)}/links`))).links,
+  addMaintenanceLink: async (workspaceId: string, recordId: string, target: { type: 'document' | 'procedure' | 'run' | 'schedule'; id: string }) =>
+    (await request<{ link: DocumentLink }>('POST', maintenancePath(workspaceId, `/${encodeURIComponent(recordId)}/links`), { target })).link,
+  removeMaintenanceLink: (workspaceId: string, linkId: string) => request<undefined>('POST', `/workspaces/${encodeURIComponent(workspaceId)}/maintenance-links/${encodeURIComponent(linkId)}/delete`, {}),
+  contacts: (workspaceId: string, query: string) => request<{ contacts: ContactSummary[]; nextCursor: string | null; total: number | null }>('GET', contactsPath(workspaceId, query === '' ? '' : `?${query}`)),
+  contactCategories: async (workspaceId: string) => (await request<{ categories: string[] }>('GET', contactsPath(workspaceId, '/categories'))).categories,
+  contact: (workspaceId: string, contactId: string) => request<{ contact: Contact; duplicates: ContactDuplicate[] }>('GET', contactsPath(workspaceId, `/${encodeURIComponent(contactId)}`)),
+  createContact: (workspaceId: string, input: ContactInput) => request<{ contact: Contact; duplicates: ContactDuplicate[] }>('POST', contactsPath(workspaceId), input),
+  updateContact: (workspaceId: string, contactId: string, input: ContactInput, expectedRevision: number) =>
+    request<{ contact: Contact; duplicates: ContactDuplicate[] }>('POST', contactsPath(workspaceId, `/${encodeURIComponent(contactId)}/update`), { ...input, expectedRevision }),
+  /** "Possibly the same as …" for what is being entered; changes nothing. */
+  contactDuplicates: async (workspaceId: string, input: ContactInput, exceptId?: string) =>
+    (await request<{ duplicates: ContactDuplicate[] }>('POST', contactsPath(workspaceId, '/duplicates'), exceptId === undefined ? input : { ...input, exceptId })).duplicates,
+  deleteContact: (workspaceId: string, contactId: string) => request<undefined>('POST', contactsPath(workspaceId, `/${encodeURIComponent(contactId)}/delete`), {}),
+  restoreContact: (workspaceId: string, contactId: string) => request<{ contact: Contact }>('POST', contactsPath(workspaceId, `/${encodeURIComponent(contactId)}/restore`), {}),
+  contactTrash: async (workspaceId: string) => (await request<{ contacts: TrashedContact[] }>('GET', contactsPath(workspaceId, '/trash'))).contacts,
+  purgeContacts: async (workspaceId: string, contactIds: readonly string[] | 'all') => (await request<{ purged: number }>('POST', contactsPath(workspaceId, '/trash/purge'), contactIds === 'all' ? { all: true } : { contactIds })).purged,
+  /** Reads an import file on the server and answers what it would create. Saves nothing. */
+  previewContactImport: (workspaceId: string, format: ContactFileFormat, file: Blob) => sendBytes<{ entries: ContactImportEntry[]; ignored: string[] }>(contactsPath(workspaceId, `/import/preview?format=${format}`), file),
+  importContacts: async (workspaceId: string, format: ContactFileFormat, contacts: readonly ContactInput[]) => (await request<{ created: number }>('POST', contactsPath(workspaceId, '/import'), { format, contacts })).created,
+  contactProcedures: async (workspaceId: string, contactId: string) => (await request<{ links: ContactProcedureLink[] }>('GET', contactsPath(workspaceId, `/${encodeURIComponent(contactId)}/procedures`))).links,
+  linkContactProcedure: async (workspaceId: string, contactId: string, procedureId: string) =>
+    (await request<{ link: ContactProcedureLink }>('POST', contactsPath(workspaceId, `/${encodeURIComponent(contactId)}/procedures`), { procedureId })).link,
+  unlinkContactProcedure: (workspaceId: string, linkId: string) => request<undefined>('POST', `/workspaces/${encodeURIComponent(workspaceId)}/contact-links/${encodeURIComponent(linkId)}/delete`, {}),
+  procedureContacts: async (workspaceId: string, procedureId: string) =>
+    (await request<{ links: ProcedureContactLink[] }>('GET', `/workspaces/${encodeURIComponent(workspaceId)}/contact-links?procedure=${encodeURIComponent(procedureId)}`)).links,
+  linkedDocuments: async (workspaceId: string, target: { type: 'procedure' | 'schedule' | 'contact'; id: string }) =>
+    (await request<{ links: DocumentLink[] }>('GET', `/workspaces/${encodeURIComponent(workspaceId)}/document-links?${target.type}=${encodeURIComponent(target.id)}`)).links,
+  runDocuments: (workspaceId: string, runId: string) =>
+    request<{ documents: RunDocument[]; removals: RunDocumentRemoval[] }>('GET', `/workspaces/${encodeURIComponent(workspaceId)}/runs/${encodeURIComponent(runId)}/documents`),
+  /** From a finished execution (Workspace admins): the reason is required and the confirmation explicit. */
+  removeKeptRunDocument: (workspaceId: string, runId: string, runDocumentId: string, reason: string) =>
+    request<{ removal: RunDocumentRemoval }>('POST', `/workspaces/${encodeURIComponent(workspaceId)}/runs/${encodeURIComponent(runId)}/documents/${encodeURIComponent(runDocumentId)}/remove-kept`, { reason, confirm: true }),
+  linkRunDocument: async (workspaceId: string, runId: string, documentId: string) =>
+    (await request<{ document: RunDocument }>('POST', `/workspaces/${encodeURIComponent(workspaceId)}/runs/${encodeURIComponent(runId)}/documents`, { documentId })).document,
+  unlinkRunDocument: (workspaceId: string, runId: string, runDocumentId: string) =>
+    request<undefined>('POST', `/workspaces/${encodeURIComponent(workspaceId)}/runs/${encodeURIComponent(runId)}/documents/${encodeURIComponent(runDocumentId)}/remove`, {}),
+  schedules: async (workspaceId: string) => (await request<{ schedules: Schedule[] }>('GET', `/workspaces/${encodeURIComponent(workspaceId)}/schedules`)).schedules,
   /** How much an export would hold (`scope` as built by `exportQuery`); refused when it is too large or one is running. */
   checkDocumentExport: async (workspaceId: string, scope: string) =>
     (await request<{ export: ExportSize }>('GET', documentsPath(workspaceId, `/export/check${scope === '' ? '' : `?${scope}`}`))).export,

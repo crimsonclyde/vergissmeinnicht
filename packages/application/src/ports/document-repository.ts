@@ -110,6 +110,13 @@ export interface ExportedFile {
   readonly pageCount: number | null;
 }
 
+/** A relationship of an exported Document: the kind of record, its id and its title. */
+export interface ExportedLink {
+  readonly type: 'procedure' | 'reminder' | 'scheduled_procedure' | 'document' | 'run';
+  readonly id: string;
+  readonly title: string;
+}
+
 export interface ExportedDocument {
   readonly id: DocumentId;
   readonly folderId: FolderId | null;
@@ -125,6 +132,8 @@ export interface ExportedDocument {
   readonly modifiedByName: string;
   /** In page order. */
   readonly files: readonly ExportedFile[];
+  /** What the Document is linked to (16.5) — only records every member who can export may read. */
+  readonly links: readonly ExportedLink[];
 }
 
 /** Everything an export is made of: Documents that are not in Trash, and the Folders to show them in. */

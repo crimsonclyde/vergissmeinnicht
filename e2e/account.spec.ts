@@ -1248,6 +1248,78 @@ test('first server admin: bootstrap link, account creation, sign-in, Workspace c
   await expect(page.getByLabel('Search documents')).toHaveValue('BILL wat');
   await expect(chips.getByRole('button')).toHaveText([/Type: Bill/, /Year: 2026/, 'Clear filters']);
   await expect(billRow).toBeVisible();
+  await billRow.click();
+  // Links (16.5). "Remind me…" → a Reminder: reviewed in the usual dialog (date and notifications are the person's), then linked.
+  const linked = page.locator('section[aria-labelledby="document-links-heading"]');
+  await expect(linked).toContainText('Not linked to anything yet.');
+  await linked.getByRole('button', { name: 'Remind me…' }).click();
+  const remind = page.getByRole('dialog', { name: 'Remind me about this document' });
+  await expect(remind.getByRole('radio', { name: /A reminder/ })).toBeChecked();
+  await expectAccessible(page, 'remind me dialog');
+  await remind.getByRole('button', { name: 'Next' }).click();
+  const linkedReminder = page.getByRole('dialog', { name: 'New reminder' });
+  await expect(linkedReminder.getByLabel('What')).toHaveValue('Water bill March'); // proposed from the document; nothing is created yet
+  await expect(linked).toContainText('Not linked to anything yet.');
+  await linkedReminder.getByLabel('What').fill('Pay water bill');
+  await linkedReminder.getByLabel('Date', { exact: true }).fill(localDate(20));
+  await linkedReminder.getByRole('button', { name: 'Create reminder' }).click();
+  await expect(linked.getByRole('status')).toHaveText('“Pay water bill” is scheduled and linked to this document.');
+  await expect(linked.getByRole('listitem')).toHaveText([/Reminder: Pay water bill.*Due /]);
+  // "Link to…" a Procedure: a reference — the Procedure's page then lists the document, folded away.
+  await linked.getByRole('button', { name: 'Link to…' }).click();
+  const linkDialog = page.getByRole('dialog', { name: 'Link this document' });
+  await expect(linkDialog).toContainText('nothing is copied, and it gives nobody access to anything');
+  await linkDialog.getByLabel('Procedure', { exact: true }).selectOption({ index: 1 });
+  await linkDialog.getByRole('button', { name: 'Link', exact: true }).click();
+  await expect(linked.getByRole('listitem')).toHaveCount(2);
+  await expectAccessible(page, 'document with links');
+  await linked.getByRole('listitem').nth(1).getByRole('link').click();
+  await page.getByText('Linked documents (1)').click();
+  await expect(page.getByRole('link', { name: 'Water bill March' })).toBeVisible();
+  await expectAccessible(page, 'procedure with linked documents');
+  await page.getByRole('link', { name: 'Water bill March' }).click();
+  await expect(page.getByRole('heading', { name: 'Water bill March', level: 2 })).toBeVisible();
+  // An execution keeps the document as it is now: linked from a finished execution, shown with its files.
+  await page.goto(`${workspacePath}/history`);
+  await page.getByRole('main').locator('button.link-like').first().click();
+  await page.getByText('Documents (0)').click();
+  await page.getByRole('button', { name: 'Link a document…' }).click();
+  const keepDialog = page.getByRole('dialog', { name: 'Keep a document with this execution' });
+  await expect(keepDialog).toContainText(/keeps the document as it is now/);
+  await keepDialog.getByLabel('Search documents').fill('water');
+  await keepDialog.getByLabel('Document', { exact: true }).selectOption({ label: 'Water bill March' });
+  await keepDialog.getByRole('button', { name: 'Keep this version' }).click();
+  const keptDocuments = page.locator('details.run-documents');
+  await expect(keptDocuments.locator('summary')).toHaveText('Documents (1)');
+  await expect(keptDocuments).toContainText(/Document version linked on .* by Ada Admin/);
+  await expect(keptDocuments.getByRole('link', { name: /Download the original of/ })).toHaveCount(4);
+  await expectAccessible(page, 'execution with a kept document');
+  await keptDocuments.getByRole('link', { name: 'Open the document' }).click();
+  await expect(linked.getByRole('listitem')).toHaveText([/Reminder: Pay water bill/, /Procedure: /, /Execution: .*Document version linked on/]);
+  // P4: a Workspace admin removes it from the finished execution — confirmed, with a reason; a note stays in its place.
+  await page.goBack();
+  await keptDocuments.getByRole('button', { name: 'Remove “Water bill March” from this execution…' }).click();
+  const removeKept = page.getByRole('dialog', { name: 'Remove “Water bill March” from this execution?' });
+  await expect(removeKept).toContainText('Copies in backups of this server stay until those backups are replaced.');
+  await expect(removeKept.getByRole('button', { name: 'Remove from this execution' })).toBeDisabled(); // no reason, not confirmed
+  await removeKept.getByLabel('Why are you removing it?').fill('Linked to the wrong execution');
+  await expect(removeKept.getByRole('button', { name: 'Remove from this execution' })).toBeDisabled();
+  await removeKept.getByLabel('I understand that this cannot be undone.').check();
+  await expectAccessible(page, 'remove kept document dialog');
+  await removeKept.getByRole('button', { name: 'Remove from this execution' }).click();
+  await expect(keptDocuments.locator('summary')).toHaveText('Documents (0)');
+  const removedNote = keptDocuments.getByRole('list', { name: 'Documents removed from this execution' });
+  await expect(removedNote).toContainText('Document removed');
+  await expect(removedNote).toContainText(/Removed .* by Ada Admin/);
+  await expect(removedNote).toContainText('Reason: Linked to the wrong execution');
+  await expect(removedNote).not.toContainText('Water bill');
+  await expect(keptDocuments.getByRole('link', { name: /Download the original of/ })).toHaveCount(0);
+  await expectAccessible(page, 'execution with a removal note');
+  // The address alone brings the filtered list back (as a reload or a bookmark would).
+  await page.goto(`${workspacePath}/documents?q=BILL+wat&type=builtin%3Abill&year=2026`);
+  await expect(page.getByLabel('Search documents')).toHaveValue('BILL wat');
+  await expect(chips.getByRole('button')).toHaveText([/Type: Bill/, /Year: 2026/, 'Clear filters']);
+  await expect(billRow).toBeVisible();
   // A chip removes exactly its filter (by keyboard); "Clear filters" resets the rest in one action.
   await chips.getByRole('button', { name: 'Remove filter — Year: 2026' }).focus();
   await page.keyboard.press('Enter');
@@ -1366,6 +1438,348 @@ test('first server admin: bootstrap link, account creation, sign-in, Workspace c
   await page.getByRole('checkbox', { name: /^Documents/ }).check();
   await sections.getByRole('link', { name: 'Documents' }).click();
   await expect(page.getByRole('link', { name: /^Water \(restored\)/ })).toBeVisible();
+
+  // Contacts (16.6): an optional tool as well. A plumber with only a name, then two phone numbers; a
+  // number is a link that dials; a possible duplicate is pointed out and both remain; a CSV import shows
+  // everything before anything is saved; Trash, restore and permanent deletion.
+  const noSideways = (target: Page) => target.evaluate('document.documentElement.scrollWidth <= document.documentElement.clientWidth');
+  await expect(sections.getByRole('link', { name: 'Contacts' })).toHaveCount(0);
+  await page.goto(`${workspacePath}/contacts`);
+  await expect(page.getByRole('alert')).toContainText('This page does not exist');
+  await fromMenu(page, 'Workspace settings');
+  await page.getByRole('checkbox', { name: /^Contacts/ }).check();
+  await expect(page.getByRole('status').filter({ hasText: 'Contacts is switched on for everyone in this Workspace.' })).toBeVisible();
+  await expect(sections.getByRole('link')).toHaveText(['Today', 'Procedures', 'Reminders', 'Lists', 'Calendar', 'Documents', 'Contacts']);
+  await sections.getByRole('link', { name: 'Contacts' }).click();
+  await expect(page.getByText('No contacts yet. Type a name above to add the first one.')).toBeVisible();
+  await expectAccessible(page, 'contacts, empty');
+  // One field and Save.
+  await page.getByLabel('New contact: name').fill('Plumber Rossi');
+  await page.keyboard.press('Enter');
+  await expect(page.getByRole('status').filter({ hasText: '“Plumber Rossi” was added.' })).toBeVisible();
+  await page.getByRole('link', { name: 'Open Plumber Rossi' }).click();
+  await expect(page.getByRole('heading', { name: 'Plumber Rossi', level: 2 })).toBeVisible();
+  await expect(page.getByText('Nothing but the name so far.')).toBeVisible();
+  // Later: two phone numbers, a category, a website — and a harmful website is refused with everything kept.
+  await page.getByRole('button', { name: 'Edit', exact: true }).click();
+  const editContact = page.getByRole('dialog', { name: 'Edit “Plumber Rossi”' });
+  await editContact.getByLabel('Role or category').fill('Plumber');
+  await editContact.getByRole('button', { name: 'Add a phone number' }).click();
+  await editContact.getByLabel('Phone number 1', { exact: true }).fill('+39 0471 12 34 56');
+  await editContact.getByRole('group', { name: 'Phone numbers' }).getByLabel('What it is for (1)').fill('Office');
+  await editContact.getByRole('button', { name: 'Add a phone number' }).click();
+  await editContact.getByLabel('Phone number 2', { exact: true }).fill('333 1234567');
+  await editContact.getByRole('button', { name: 'Add an email address' }).click();
+  await editContact.getByLabel('Email address 1', { exact: true }).fill('rossi@example.org');
+  await editContact.getByLabel('Website').fill('javascript:alert(1)');
+  await expectAccessible(page, 'contact dialog');
+  await editContact.getByRole('button', { name: 'Save' }).click();
+  await expect(editContact.getByRole('alert')).toHaveText('The website must be an address that starts with http or https.');
+  await expect(editContact.getByLabel('Phone number 2', { exact: true })).toHaveValue('333 1234567');
+  await editContact.getByLabel('Website').fill('rossi.example');
+  await editContact.getByRole('button', { name: 'Save' }).click();
+  await expect(page.getByRole('status').filter({ hasText: 'Saved.' })).toBeVisible();
+  // Tapping a number opens the dialler: a tel: link of digits only; the website opens apart from this page.
+  await expect(page.getByRole('link', { name: 'Call +39 0471 12 34 56' })).toHaveAttribute('href', 'tel:+390471123456');
+  await expect(page.getByRole('link', { name: 'Call 333 1234567' })).toHaveAttribute('href', 'tel:3331234567');
+  await expect(page.getByRole('link', { name: 'Write to rossi@example.org' })).toHaveAttribute('href', 'mailto:rossi@example.org');
+  const site = page.getByRole('link', { name: 'https://rossi.example/' });
+  await expect(site).toHaveAttribute('rel', 'noopener noreferrer');
+  await expect(site).toHaveAttribute('target', '_blank');
+  // Linked to a procedure and to a document: references, shown from both ends.
+  await page.getByRole('button', { name: 'Link to a procedure…' }).click();
+  const linkProcedure = page.getByRole('dialog', { name: 'Link “Plumber Rossi” to a procedure' });
+  await linkProcedure.getByLabel('Procedure').selectOption({ label: 'Leave the flat' });
+  await linkProcedure.getByRole('button', { name: 'Link', exact: true }).click();
+  await expect(page.getByRole('status').filter({ hasText: 'Linked to “Leave the flat”.' })).toBeVisible();
+  await page.getByRole('button', { name: 'Link a document…' }).click();
+  const linkDocument = page.getByRole('dialog', { name: 'Link a document to “Plumber Rossi”' });
+  await linkDocument.getByLabel('Search documents').fill('water');
+  await linkDocument.getByLabel('Document', { exact: true }).selectOption({ label: 'Water bill March' });
+  await linkDocument.getByRole('button', { name: 'Link', exact: true }).click();
+  await expect(page.getByRole('status').filter({ hasText: 'The document was linked.' })).toBeVisible();
+  const contactLinks = page.getByRole('region', { name: 'Linked' });
+  await expect(contactLinks.getByRole('listitem')).toHaveText([/^Procedure: Leave the flat/, /^Document: Water bill March/]);
+  await expectAccessible(page, 'contact page');
+  await contactLinks.getByRole('link', { name: 'Water bill March' }).click();
+  await expect(page.getByRole('region', { name: 'Linked' }).getByRole('listitem').filter({ hasText: 'Contact: Plumber Rossi' })).toBeVisible();
+  await page.goBack();
+  // A contact with an existing phone number: "Possibly the same as …" — and both remain.
+  await page.getByRole('link', { name: 'All contacts' }).click();
+  await page.getByRole('button', { name: 'More details…' }).click();
+  const newContact = page.getByRole('dialog', { name: 'New contact' });
+  await newContact.getByLabel('Name').fill('Rossi (mobile)');
+  await newContact.getByLabel('Phone number 1', { exact: true }).fill('0039 0471 123456');
+  await expect(newContact.getByRole('note')).toContainText('Possibly the same as:');
+  await expect(newContact.getByRole('note')).toContainText('Plumber Rossi — same phone number');
+  await newContact.getByRole('button', { name: 'Save' }).click();
+  const contactCards = page.getByRole('list', { name: 'Contacts' }).getByRole('listitem');
+  await expect(contactCards).toHaveText([/Plumber Rossi\s*Plumber/, /Rossi \(mobile\)/]);
+  await expect(page.getByRole('note').filter({ hasText: 'Plumber Rossi — same phone number' })).toContainText('Nothing is merged: both contacts stay as they are.');
+  await expect(page.getByRole('link', { name: 'Call Plumber Rossi: +39 0471 12 34 56' })).toHaveAttribute('href', 'tel:+390471123456');
+  // Search by digits, filter by category.
+  await page.getByLabel('Search contacts').fill('3331234567');
+  await expect(contactCards).toHaveText([/Plumber Rossi/]);
+  await page.getByLabel('Search contacts').fill('');
+  await page.getByLabel('Category').selectOption('Plumber');
+  await expect(contactCards).toHaveText([/Plumber Rossi/]);
+  await page.getByLabel('Category').selectOption('');
+  // Import: a preview with the possible duplicate, the entry that cannot be imported and the unused column — nothing saved before confirming.
+  await page.getByRole('button', { name: 'More actions for contacts' }).click();
+  await page.getByRole('button', { name: 'Import from a file…' }).click();
+  await expect(page.getByRole('heading', { name: 'Import contacts', level: 2 })).toBeVisible();
+  await page.getByLabel('File', { exact: true }).setInputFiles({ name: 'address book.txt', mimeType: 'text/plain', buffer: Buffer.from('Name\nx') });
+  await expect(page.getByRole('alert')).toHaveText('Choose a file whose name ends in .csv or .vcf.');
+  const contactsCsv = 'Name;Phone;E-mail;Category;Shoe size\n=HYPERLINK("http://evil.example");0471 555;elec@example.org;Electrician;42\nRossi again;+39 0471 123456;;;\nBroken;not a number;;;\nComune di Bolzano;0471 997111;;Office;\n';
+  await page.getByLabel('File', { exact: true }).setInputFiles({ name: 'address book.csv', mimeType: 'text/csv', buffer: Buffer.from(contactsCsv) });
+  await expect(page.getByText('4 contacts found in “address book.csv”.')).toBeVisible();
+  await expect(page.getByText('1 may already exist. It is listed first and not ticked: tick it to import it anyway.')).toBeVisible();
+  await expect(page.getByText('1 cannot be imported; the reason is shown with it.')).toBeVisible();
+  await expect(page.getByText('Not used from this file: Shoe size.')).toBeVisible();
+  const importEntries = page.getByRole('list', { name: 'Contacts in the file' }).getByRole('listitem');
+  await expect(importEntries).toHaveText([/Rossi again.*Possibly the same as: Plumber Rossi — same phone number.*It is left out unless you tick it\./, /Broken.*Line 4: cannot be imported\. A phone number is not valid/, /=HYPERLINK/, /Comune di Bolzano/]);
+  await expect(page.getByRole('checkbox', { name: 'Rossi again' })).not.toBeChecked();
+  await expect(page.getByRole('checkbox', { name: 'Comune di Bolzano' })).toBeChecked();
+  await expect(page.getByRole('button', { name: 'Import 2 contacts' })).toBeVisible();
+  await expectAccessible(page, 'contact import preview');
+  await page.setViewportSize({ width: 320, height: 640 });
+  expect(await noSideways(page)).toBe(true);
+  await page.setViewportSize({ width: 1280, height: 720 });
+  await page.getByRole('button', { name: 'Import 2 contacts' }).click();
+  await expect(page.getByRole('status').filter({ hasText: '2 contacts were imported.' })).toBeVisible();
+  await page.getByRole('link', { name: 'All contacts' }).first().click();
+  // A formula-like name is text here, and neutralised in the exported file.
+  await expect(contactCards).toHaveText([/=HYPERLINK\("http:\/\/evil\.example"\)\s*Electrician/, /Comune di Bolzano\s*Office/, /Plumber Rossi/, /Rossi \(mobile\)/]);
+  await expect(page.getByText('4 contacts', { exact: true })).toBeVisible();
+  await page.getByRole('button', { name: 'More actions for contacts' }).click();
+  const csvDownload = page.waitForEvent('download');
+  await page.getByRole('button', { name: 'Export as CSV' }).click();
+  const exportedCsv = await csvDownload;
+  expect(exportedCsv.suggestedFilename()).toMatch(/^Contacts - \d{4}-\d{2}-\d{2}\.csv$/);
+  const exportedText = readFileSync((await exportedCsv.path()) ?? '', 'utf8');
+  expect(exportedText).toContain(`"'=HYPERLINK(""http://evil.example"")"`);
+  expect(exportedText).toContain("'+39 0471 12 34 56,Office");
+  await page.setViewportSize({ width: 320, height: 640 });
+  expect(await noSideways(page)).toBe(true);
+  await expectAccessible(page, 'contacts at 320 px');
+  await page.setViewportSize({ width: 1280, height: 720 });
+  await page.emulateMedia({ colorScheme: 'dark' });
+  await expectAccessible(page, 'contacts, dark');
+  await page.emulateMedia({ colorScheme: 'light' });
+  // The procedure names whom to call.
+  await page.getByRole('link', { name: 'Open Plumber Rossi' }).click();
+  await page.getByRole('region', { name: 'Linked' }).getByRole('link', { name: 'Leave the flat' }).click();
+  const procedureContacts = page.locator('details').filter({ hasText: 'Contacts (1)' });
+  await procedureContacts.locator('summary').click();
+  await expect(procedureContacts.getByRole('link', { name: 'Plumber Rossi', exact: true })).toBeVisible();
+  await expect(procedureContacts.getByRole('link', { name: 'Call Plumber Rossi: +39 0471 12 34 56' })).toHaveAttribute('href', 'tel:+390471123456');
+  const procedureWithContact = page.url();
+  // To Trash (with Undo), again, then deleted for good by the admin: what it was linked to says "a deleted contact".
+  await procedureContacts.getByRole('link', { name: 'Plumber Rossi', exact: true }).click();
+  await page.getByRole('button', { name: 'More actions for “Plumber Rossi”' }).click();
+  await page.getByRole('button', { name: 'Delete…' }).click();
+  await page.getByRole('dialog', { name: 'Move “Plumber Rossi” to Trash?' }).getByRole('button', { name: 'Move to Trash' }).click();
+  await expect(page.getByRole('status').filter({ hasText: '“Plumber Rossi” was moved to Trash.' })).toBeVisible();
+  await expect(contactCards).toHaveCount(3);
+  await page.getByRole('button', { name: 'Undo' }).click();
+  await expect(contactCards).toHaveCount(4);
+  await page.getByRole('link', { name: 'Open Plumber Rossi' }).click();
+  await page.getByRole('button', { name: 'More actions for “Plumber Rossi”' }).click();
+  await page.getByRole('button', { name: 'Delete…' }).click();
+  await page.getByRole('dialog', { name: 'Move “Plumber Rossi” to Trash?' }).getByRole('button', { name: 'Move to Trash' }).click();
+  await expect(contactCards).toHaveCount(3);
+  await page.getByRole('button', { name: 'More actions for contacts' }).click();
+  await page.getByRole('button', { name: 'Trash' }).click();
+  await expect(page.getByRole('heading', { name: 'Trash: contacts', level: 2 })).toBeVisible();
+  await page.getByRole('button', { name: 'Delete “Plumber Rossi” permanently…' }).click();
+  const purgeContact = page.getByRole('dialog', { name: 'Delete “Plumber Rossi” for good?' });
+  await expect(purgeContact).toContainText('This deletes 1 contact for good.');
+  await expect(purgeContact).toContainText('Copies in backups of this server stay until those backups are replaced.');
+  await expectAccessible(page, 'contact permanent deletion dialog');
+  await purgeContact.getByRole('button', { name: 'Delete permanently' }).click();
+  await expect(page.getByRole('status').filter({ hasText: '1 contact was deleted for good.' })).toBeVisible();
+  await expect(page.getByText('Trash is empty.')).toBeVisible();
+  await page.goto(procedureWithContact);
+  const afterPurge = page.locator('details').filter({ hasText: 'Contacts (1)' });
+  await afterPurge.locator('summary').click();
+  await expect(afterPurge).toContainText('A deleted contact');
+  await expect(afterPurge).not.toContainText('Rossi');
+  // Switched off: gone from the navigation, its address unknown, nothing deleted.
+  await fromMenu(page, 'Workspace settings');
+  await page.getByRole('checkbox', { name: /^Contacts/ }).uncheck();
+  await expect(page.getByRole('status').filter({ hasText: 'Contacts is switched off. Nothing was deleted.' })).toBeVisible();
+  await expect(sections.getByRole('link', { name: 'Contacts' })).toHaveCount(0);
+  await page.goto(`${workspacePath}/contacts`);
+  await expect(page.getByRole('alert')).toContainText('This page does not exist');
+  await fromMenu(page, 'Workspace settings');
+  await page.getByRole('checkbox', { name: /^Contacts/ }).check();
+  await sections.getByRole('link', { name: 'Contacts' }).click();
+  await expect(contactCards).toHaveCount(3);
+
+  // Maintenance (16.7): an optional tool. "Boiler service" is planned, dragged to In progress, changed with
+  // the status control (keyboard, and on a 320 px phone without drag), linked to an execution, an invoice and
+  // a reminder — and completed only when someone says so.
+  await expect(sections.getByRole('link', { name: 'Maintenance' })).toHaveCount(0);
+  await page.goto(`${workspacePath}/maintenance`);
+  await expect(page.getByRole('alert')).toContainText('This page does not exist');
+  await fromMenu(page, 'Workspace settings');
+  await page.getByRole('checkbox', { name: /^Maintenance/ }).check();
+  await expect(page.getByRole('status').filter({ hasText: 'Maintenance is switched on for everyone in this Workspace.' })).toBeVisible();
+  await expect(sections.getByRole('link')).toHaveText(['Today', 'Procedures', 'Reminders', 'Lists', 'Calendar', 'Documents', 'Contacts', 'Maintenance']);
+  await sections.getByRole('link', { name: 'Maintenance' }).click();
+  const column = (name: string) => page.getByRole('region', { name: new RegExp(`^${name} \\(`) });
+  await expect(column('Planned')).toContainText('Nothing here.');
+  await page.getByLabel('New record: what needs doing').fill('Boiler service');
+  await page.keyboard.press('Enter');
+  await expect(page.getByRole('status').filter({ hasText: '“Boiler service” was added as Planned.' })).toBeVisible();
+  const boilerCard = page.locator('.maintenance-card').filter({ hasText: 'Boiler service' });
+  await expect(column('Planned').getByRole('listitem')).toHaveText([/Boiler service/]);
+  await expect(page.getByRole('heading', { name: 'Planned (1)' })).toBeVisible();
+  await expectAccessible(page, 'maintenance board');
+  // Dragging the card to another column changes its status.
+  await boilerCard.dragTo(column('In progress'));
+  await expect(page.getByRole('status').filter({ hasText: '“Boiler service” is now In progress.' })).toBeVisible();
+  await expect(column('In progress').getByRole('listitem')).toHaveText([/Boiler service/]);
+  await expect(column('Planned')).toContainText('Nothing here.');
+  // The same change without a pointer: a labelled menu on the card, reached and operated with the keyboard.
+  const statusControl = page.getByRole('combobox', { name: 'Status of “Boiler service”' });
+  await expect(statusControl).toHaveValue('IN_PROGRESS');
+  await statusControl.focus();
+  await page.keyboard.press('ArrowUp');
+  await page.keyboard.press('Enter');
+  await expect(page.getByRole('status').filter({ hasText: '“Boiler service” is now Planned.' })).toBeVisible();
+  await expect(column('Planned').getByRole('listitem')).toHaveText([/Boiler service/]);
+  // On a 320 px phone: one status at a time, chosen with a labelled switcher; no drag needed, nothing scrolls sideways.
+  await page.setViewportSize({ width: 320, height: 640 });
+  expect(await noSideways(page)).toBe(true);
+  const switcher = page.getByRole('group', { name: 'Status shown' });
+  await expect(switcher.getByRole('button')).toHaveText([/Planned \(1\)/, /In progress \(0\)/, /Completed \(0\)/, /Cancelled \(0\)/]);
+  await expect(column('In progress')).toBeHidden();
+  await statusControl.selectOption('IN_PROGRESS');
+  await expect(column('Planned')).toContainText('Nothing here.');
+  await switcher.getByRole('button', { name: /In progress \(1\)/ }).click();
+  await expect(column('In progress').getByRole('listitem')).toHaveText([/Boiler service/]);
+  await expect(column('Planned')).toBeHidden();
+  expect(await noSideways(page)).toBe(true);
+  await page.evaluate('window.scrollTo(0, 0)'); // at the top: nothing lies under the fixed bar
+  await expectAccessible(page, 'maintenance board at 320 px');
+  await page.setViewportSize({ width: 1280, height: 720 });
+  // The record: the technician as a Contact, a cost, an execution, an invoice and a reminder.
+  await boilerCard.getByRole('link', { name: 'Boiler service' }).click();
+  await expect(page.getByRole('heading', { name: 'Boiler service', level: 2 })).toBeVisible();
+  await page.getByRole('button', { name: 'Edit', exact: true }).click();
+  const editRecord = page.getByRole('dialog', { name: 'Edit “Boiler service”' });
+  await editRecord.getByLabel('Category').fill('Heating');
+  await editRecord.getByLabel('Responsible contact').selectOption({ label: 'Comune di Bolzano' });
+  await editRecord.getByLabel('Amount').fill('12o');
+  await editRecord.getByRole('button', { name: 'Save' }).click();
+  await expect(editRecord.getByRole('alert')).toHaveText('The amount must be a plain number such as 120 or 120.50.');
+  await editRecord.getByLabel('Amount').fill('120.00');
+  await expect(editRecord.getByLabel('Currency')).toHaveValue('EUR');
+  await expectAccessible(page, 'maintenance record dialog');
+  await editRecord.getByRole('button', { name: 'Save' }).click();
+  await expect(page.getByRole('status').filter({ hasText: 'Saved.' })).toBeVisible();
+  const recordLinks = page.getByRole('region', { name: 'Linked' });
+  await page.getByRole('button', { name: 'Link an execution…' }).click();
+  const linkRun = page.getByRole('dialog', { name: 'Link an execution to “Boiler service”' });
+  await expect(linkRun).toContainText('Finishing the execution does not complete this record');
+  await linkRun.getByLabel('Execution').selectOption({ index: 1 });
+  await linkRun.getByRole('button', { name: 'Link', exact: true }).click();
+  await expect(recordLinks.getByRole('listitem')).toHaveText([/^Execution: /]);
+  // A linked execution that is already finished did not complete the record: it is still In progress.
+  await expect(recordLinks.getByRole('listitem').first()).toContainText(/Completed|Aborted/);
+  await expect(page.locator('.maintenance-status')).toHaveText('▶ In progress');
+  await page.getByRole('button', { name: 'Add or link evidence…' }).click();
+  const linkEvidence = page.getByRole('dialog', { name: 'Link a document to “Boiler service”' });
+  await linkEvidence.getByLabel('Search documents').fill('water');
+  await linkEvidence.getByLabel('Document', { exact: true }).selectOption({ label: 'Water bill March' });
+  await linkEvidence.getByRole('button', { name: 'Link', exact: true }).click();
+  await expect(recordLinks.getByRole('listitem')).toHaveText([/^Execution: /, /^Document: Water bill March/]);
+  await page.getByRole('button', { name: 'Remind me…' }).click();
+  const remindWork = page.getByRole('dialog', { name: 'Remind me about this work' });
+  await remindWork.getByRole('button', { name: 'Next' }).click();
+  const workReminder = page.getByRole('dialog', { name: 'New reminder' });
+  await expect(workReminder.getByLabel('What')).toHaveValue('Boiler service');
+  await workReminder.getByLabel('What').fill('Service the boiler');
+  await workReminder.getByLabel('Date', { exact: true }).fill(localDate(0));
+  await workReminder.getByRole('button', { name: 'Create reminder' }).click();
+  await expect(recordLinks.getByRole('status')).toHaveText('“Service the boiler” is scheduled and linked to this record.');
+  await expect(recordLinks.getByRole('listitem')).toHaveText([/^Execution: /, /^Document: Water bill March/, /^Reminder: Service the boiler/]);
+  // The reminder is an ordinary one: it is on Today when due. The record did not change.
+  await sections.getByRole('link', { name: 'Today' }).click();
+  await expect(page.getByRole('main')).toContainText('Service the boiler');
+  await page.goBack();
+  await expect(page.locator('.maintenance-status')).toHaveText('▶ In progress');
+  // Someone sets Completed: then it shows its completion date, the Contact, the invoice and the cost as written.
+  await page.getByRole('combobox', { name: 'Status of “Boiler service”' }).selectOption('COMPLETED');
+  await expect(page.getByRole('status').filter({ hasText: '“Boiler service” is now Completed.' })).toContainText('it is not required');
+  await expect(page.locator('.maintenance-status')).toHaveText('✔ Completed');
+  const recordDetails = page.locator('.contact-details');
+  await expect(recordDetails).toContainText(/Completed on /);
+  await expect(recordDetails.getByRole('link', { name: 'Comune di Bolzano' })).toBeVisible();
+  await expect(recordDetails).toContainText('120.00 EUR');
+  await expectAccessible(page, 'maintenance record');
+  // The invoice names the record it is evidence for.
+  await recordLinks.getByRole('link', { name: 'Water bill March' }).click();
+  await expect(page.getByRole('region', { name: 'Linked' }).getByRole('listitem').filter({ hasText: 'Maintenance: Boiler service' })).toBeVisible();
+  await page.goBack();
+  // A cancelled record is visibly not a completed one; the List filters by status and year; no sum of costs anywhere.
+  await page.getByRole('link', { name: 'All maintenance' }).click();
+  await page.getByLabel('New record: what needs doing').fill('Paint the fence');
+  await page.keyboard.press('Enter');
+  await page.getByRole('combobox', { name: 'Status of “Paint the fence”' }).selectOption('CANCELLED');
+  await expect(column('Cancelled').getByRole('listitem')).toHaveText([/Paint the fence/]);
+  await expect(column('Completed').getByRole('listitem')).toHaveText([/Boiler service.*Heating · Completed on .* · Comune di Bolzano/]);
+  await page.getByRole('group', { name: 'Show as' }).getByRole('button', { name: 'List' }).click();
+  const recordRows = page.getByRole('list', { name: 'Maintenance records' }).getByRole('listitem');
+  await expect(recordRows).toHaveCount(2);
+  await expect(recordRows.filter({ hasText: 'Boiler service' })).toContainText('Cost: 120.00 EUR');
+  await expect(page.getByRole('combobox', { name: 'Status of “Paint the fence”' })).toHaveValue('CANCELLED');
+  await page.getByLabel('Status', { exact: true }).selectOption('COMPLETED');
+  await expect(recordRows).toHaveText([/Boiler service/]);
+  await page.getByLabel('Year').selectOption(String(new Date().getFullYear()));
+  await page.getByLabel('Responsible').selectOption({ label: 'Comune di Bolzano' });
+  await expect(recordRows).toHaveText([/Boiler service/]);
+  await expect(page.getByText('1 record found')).toBeVisible();
+  await expect(page.getByRole('main')).not.toContainText(/total|sum of/i);
+  await expectAccessible(page, 'maintenance list');
+  await page.emulateMedia({ colorScheme: 'dark' });
+  await page.getByRole('group', { name: 'Show as' }).getByRole('button', { name: 'Board' }).click();
+  await expect(column('Completed').getByRole('listitem')).toHaveCount(1);
+  await expectAccessible(page, 'maintenance board, dark');
+  await page.emulateMedia({ colorScheme: 'light' });
+  // Trash, Undo, and permanent deletion by the admin.
+  await page.locator('.maintenance-card').filter({ hasText: 'Paint the fence' }).getByRole('link').click();
+  await page.getByRole('button', { name: 'More actions for “Paint the fence”' }).click();
+  await page.getByRole('button', { name: 'Delete…' }).click();
+  await page.getByRole('dialog', { name: 'Move “Paint the fence” to Trash?' }).getByRole('button', { name: 'Move to Trash' }).click();
+  await expect(page.getByRole('status').filter({ hasText: '“Paint the fence” was moved to Trash.' })).toBeVisible();
+  await expect(column('Cancelled')).toContainText('Nothing here.');
+  await page.getByRole('button', { name: 'Undo' }).click();
+  await expect(column('Cancelled').getByRole('listitem')).toHaveCount(1);
+  await page.locator('.maintenance-card').filter({ hasText: 'Paint the fence' }).getByRole('link').click();
+  await page.getByRole('button', { name: 'More actions for “Paint the fence”' }).click();
+  await page.getByRole('button', { name: 'Delete…' }).click();
+  await page.getByRole('dialog', { name: 'Move “Paint the fence” to Trash?' }).getByRole('button', { name: 'Move to Trash' }).click();
+  await page.getByRole('button', { name: 'More actions for maintenance' }).click();
+  await page.getByRole('button', { name: 'Trash' }).click();
+  await expect(page.getByRole('heading', { name: 'Trash: maintenance', level: 2 })).toBeVisible();
+  await page.getByRole('button', { name: 'Delete “Paint the fence” permanently…' }).click();
+  const purgeRecord = page.getByRole('dialog', { name: 'Delete “Paint the fence” for good?' });
+  await expect(purgeRecord).toContainText('This deletes 1 maintenance record for good.');
+  await purgeRecord.getByRole('button', { name: 'Delete permanently' }).click();
+  await expect(page.getByRole('status').filter({ hasText: '1 record was deleted for good.' })).toBeVisible();
+  // Switched off: gone from the navigation, its address unknown, nothing deleted.
+  await fromMenu(page, 'Workspace settings');
+  await page.getByRole('checkbox', { name: /^Maintenance/ }).uncheck();
+  await expect(page.getByRole('status').filter({ hasText: 'Maintenance is switched off. Nothing was deleted.' })).toBeVisible();
+  await expect(sections.getByRole('link', { name: 'Maintenance' })).toHaveCount(0);
+  await page.goto(`${workspacePath}/maintenance`);
+  await expect(page.getByRole('alert')).toContainText('This page does not exist');
+  await fromMenu(page, 'Workspace settings');
+  await page.getByRole('checkbox', { name: /^Maintenance/ }).check();
+  await sections.getByRole('link', { name: 'Maintenance' }).click();
+  await expect(column('Completed').getByRole('listitem')).toHaveText([/Boiler service/]);
   await sections.getByRole('link', { name: 'Today' }).click();
 
   // Calendar (14.4): the Occurrences Home shows, with the same actions; planned dates of a series;
