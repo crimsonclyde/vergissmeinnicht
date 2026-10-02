@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { and, asc, eq, gt, or, sql, type SQL } from 'drizzle-orm';
 import { InvalidCursorError, toPage, type AuditHistory, type HistoryPageRequest } from '@vergissmeinnicht/application';
-import type { AuditEvent, AuditEventType, WorkspaceId } from '@vergissmeinnicht/domain';
+import type { AuditEvent, AuditEventType, AuditSubjectType, WorkspaceId } from '@vergissmeinnicht/domain';
 import type { Transaction, UserActor } from './actor-guard.ts';
 import type { AppDatabase } from './connection.ts';
 import { auditEvents, procedures, runs } from './schema.ts';
@@ -10,7 +10,7 @@ export interface AuditEventRecord {
   readonly workspaceId: WorkspaceId;
   readonly type: AuditEventType;
   readonly actor: UserActor;
-  readonly subjectType: 'procedure' | 'run' | 'run_step' | 'knot' | 'schedule' | 'occurrence' | 'list';
+  readonly subjectType: AuditSubjectType;
   /** Required for Run events. */
   readonly runId?: string;
   readonly subjectId: string;

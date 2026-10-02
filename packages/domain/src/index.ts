@@ -17,3 +17,8 @@ export * from './workspace.ts';
 export * from './preferences.ts';
 export * from './schedule.ts';
 export * from './media.ts';
+export * from './document-file.ts';
+export * from './document.ts';
+export * from './document-search.ts';
+export * from './document-export.ts';
+export * from './storage.ts';

@@ -3,7 +3,8 @@ import { REASON_POLICIES, type ImageUsage, type ReasonPolicy } from './api.ts';
 import { IconPicker } from './IconPicker.tsx';
 import { t } from './i18n/index.ts';
 import { stepProblems, type DraftStep } from './procedure-draft.ts';
-import { formatMegabytes, StepImageField } from './StepImage.tsx';
+import { formatBytes } from './document-model.ts';
+import { StepImageField } from './StepImage.tsx';
 import { UiIcon } from './ui-icons.tsx';
 
 function PolicySelect(props: { label: string; value: ReasonPolicy; onChange: (policy: ReasonPolicy) => void }) {
@@ -155,7 +156,7 @@ export function StepEditor(props: {
           />
           <small className="muted">
             {t('stepEditor.imageHint')}
-            {props.imageUsage !== null && ` ${t('image.usage', { used: formatMegabytes(props.imageUsage.usedBytes), quota: formatMegabytes(props.imageUsage.quotaBytes) })}`}
+            {props.imageUsage !== null && ` ${t('image.usage', { used: formatBytes(props.imageUsage.usedBytes), limit: formatBytes(props.imageUsage.limitBytes) })}`}
           </small>
         </div>
         <RuleSwitch label={t('stepEditor.required')} explanation={t(local.required ? 'stepEditor.requiredOn' : 'stepEditor.requiredOff')} checked={local.required} onChange={(required) => set({ required })} />

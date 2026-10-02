@@ -7,7 +7,8 @@
   (Extra Parameters: user 0:0): Unraid's Tailscale hook installs Tailscale into the container and refuses to run
   otherwise. This is NOT Unraid's "Privileged" mode (leave that off). Before the application starts,
   the image's entrypoint switches to PUID:PGID (99:100) with no capabilities. No port is published on
-  the LAN.
+  the LAN. Extra Parameters also limit the container to 4 GiB of memory (no swap on top) and let Docker
+  start it again if the server ends unexpectedly; a container you stop stays stopped.
 -->
 <Container version="2">
   <Name>VergissMeinNicht</Name>
@@ -24,7 +25,7 @@
   <!-- Tells Unraid (and Tailscale Serve) which port the web app listens on inside the container. -->
   <WebUI>http://[IP]:[PORT:3000]/</WebUI>
   <Icon>https://raw.githubusercontent.com/crimsonclyde/vergissmeinnicht/main/assets/brand/vergissmeinnicht-icon.png</Icon>
-  <ExtraParams>--init --user 0:0 --security-opt no-new-privileges:true</ExtraParams>
+  <ExtraParams>--init --user 0:0 --security-opt no-new-privileges:true --memory=4g --memory-swap=4g --restart=unless-stopped</ExtraParams>
   <PostArgs/>
   <Config Name="Data" Target="/data" Default="/mnt/user/appdata/vergissmeinnicht/data" Mode="rw" Description="Database, its WAL files and backups. Sensitive: keep it private (0700, owned by 99:100)." Type="Path" Display="always" Required="true" Mask="false">/mnt/user/appdata/vergissmeinnicht/data</Config>
   <Config Name="Secrets" Target="/run/secrets" Default="/mnt/user/appdata/vergissmeinnicht/secrets" Mode="ro" Description="Folder with the files auth_secret and data_encryption_key (and smtp_password if needed)." Type="Path" Display="always" Required="true" Mask="false">/mnt/user/appdata/vergissmeinnicht/secrets</Config>

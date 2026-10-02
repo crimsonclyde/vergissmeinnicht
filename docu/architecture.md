@@ -90,7 +90,8 @@ packages/
   email/
   notifications/   (Telegram Bot API adapter; more providers later)
   import-export/   (Procedure JSON v1 and the Procedure archive, 14.3)
-  media/           (instruction images: sharp/libvips processing, content-addressed file store, 14.3)
+  media/           (instruction images: sharp/libvips processing, content-addressed file store, 14.3;
+                    document files: validation, previews — MuPDF as WebAssembly in a worker thread —, store, 16.1)
   ui/
 
 docu/
@@ -347,7 +348,7 @@ due reminders (≤50) ──► still allowed? (recipient ACTIVE, member with pr
   - **Email**: the existing SMTP `EmailSender` (texts in `email-texts/en.ts`).
   - **Telegram**: `packages/notifications` (Bot API over HTTPS to `api.telegram.org` only). The bot token is configured by a server admin, verified with `getMe`, stored sealed in `notification_providers` (AES-256-GCM, `DATA_ENCRYPTION_KEY`, context `notification-provider:TELEGRAM`) and never returned. Pairing: a 256-bit one-time token (hash stored, 10 min) in a `t.me/<bot>?start=<token>` link; the server polls `getUpdates` every 3 s **only while a pairing is open** (no webhook, works behind a VPN), claims the pairing for the private chat that sent `/start <token>`, and the chat is connected only after the signed-in owner confirms it.
     Two stages, also in the UI (0.2.0-beta.2): the admin page configures only the **instance-wide bot** (it says so, shows "Bot connected: @bot" and a *Next step* pointing to the admin's own `/account#notifications`); each person — the admin included — connects **their own chat** there through the visible sequence Connect → Start in Telegram → waiting → confirm → connected. The admin test message goes to the acting admin's own chat, so the admin page reads the admin's own `GET /api/account/notifications` (label only) and disables the test until that chat is connected. No chat id is ever entered by hand.
-  - Future ntfy / Gotify / webhook / Web Push adapters implement the same port (`send(user, { subject, body, key })`); a webhook first needs the SSRF policy in security.md.
+  - Future ntfy / Gotify / webhook / Web Push adapters implement the same port (`send(user, { subject, body, key })`); a webhook first needs its own review against the outbound-connection policy (security.md §14).
 
 ```text
 GET  /api/account/notifications                     own settings: reminder time, email, Telegram (connected / pairing)
@@ -409,6 +410,132 @@ start:   run_steps copy image id + caption (immutable)        serve: GET …/ima
 
 Ports (`packages/application/src/ports/media.ts`): `ImageProcessor` and `MediaStore` are implemented by `packages/media`, `ImageRepository` by `packages/database/src/image-repository.ts`. The domain (`media.ts`) owns the limits, the caption rules and the quota choices. Files are immutable and written before their row commits; only housekeeping deletes them (unreferenced for 24 h). Quota usage is computed in the upload transaction (distinct referenced images + recent unreferenced uploads) rather than kept as a counter, so it cannot drift. Backups copy the referenced files into `backups/media` next to the backup files (`packages/database/src/backup.ts`). Offline: images of active Runs are cached in IndexedDB (`images` store) and shown from `blob:` URLs. The Procedure archive (`packages/import-export/src/procedure-archive.ts`) is a ZIP of `procedure.json` (manifest + JSON v1 document) and `images/<n>.jpg`; imports re-process every image (`importProcedureArchive`).
 
+## Document files (Step 16.1)
+
+The foundation under Documents: files. An uploaded file is provisional — removed after 24 hours — until it becomes a page of a Document (16.2, next section).
+
+```text
+upload:  POST …/document-files (octet-stream, name in X-File-Name) ──► uploadDocumentFile (document.manage, checked first)
+         ──► DocumentFileStore.stage: /data/documents/.staging/<random>, counted + hashed while received (limit cuts it off)
+         ──► DocumentFileProcessor.inspect: signature at offset 0 → sharp header (JPEG, PNG, HEIC) or MuPDF (PDF)
+         ──► renderPage(0): proves the file can be processed (refused otherwise; a locked PDF and every HEIC are kept without preview)
+         ──► commit: rename to /data/documents/<xx>/<sha256>   ──► DocumentFileRepository.register (IMMEDIATE: guard, storage limit, row)
+         ──► preview + thumbnail of page 1 stored as derived files ──► PreviewQueue: remaining PDF pages, one at a time
+serve:   GET …/document-files/:id            facts (format, pages, preview progress, uploader name)          document.view
+         GET …/document-files/:id/original   the unchanged bytes, attachment only, type of the detected format
+         GET …/document-files/:id/pages/:n   preview page n (1-based), JPEG      GET …/:id/thumbnail
+         GET …/document-files/usage          originals + previews, limit
+```
+
+- **Original and derived are different things all the way down.** The original is the staged upload renamed into the store — no code path writes it again. Previews (`document_file_derivatives`: `PREVIEW` per page, one `THUMBNAIL`) are re-encoded, metadata-free JPEGs with their own rows, hashes and routes; they can be deleted and made again. HEIC originals stay HEIC and currently have **no preview**: decoding HEIC needs an HEVC decoder, which is not shipped pending a licensing and patent review (steps.md HT1). They are validated from their container alone (libvips reads it without decoding), stored and downloaded like any other file; the API reports `preview.unavailable: "format"`.
+- **Ports** (`packages/application/src/ports/document-files.ts`): `DocumentFileStore` (streaming, content-addressed, staging), `DocumentFileProcessor` (inspect, render a page, thumbnail), `DocumentFileRepository`, `DocumentFilePolicy` (the instance admin's size limit and formats, read per upload). Use-cases in `packages/application/src/documents` (`files.ts`, `previews.ts`); adapters in `packages/media` (`document-file-store.ts`, `document-file-processor.ts`) and `packages/database/src/document-file-repository.ts`. The domain (`document-file.ts`) owns formats, limits, name rules, download names and the storage arithmetic.
+- **The PDF parser in a worker thread** (`packages/media/src/document-worker.ts` behind `document-worker-host.ts`): MuPDF is a WebAssembly build, run one job at a time in one `worker_threads` thread that is started on demand, stopped when idle and **terminated** when a job exceeds its time (30 s) — the only reliable way to stop a parser stuck inside WebAssembly. Memory: the module's own memory cannot grow beyond the 2 GiB it declares, the thread's JavaScript heap is capped at 256 MB, and the file being parsed (at most 100 MB) is held once more; that — roughly 2.4 GB for one job, and there is only ever one — is the bound that always holds. On top of it a **watchdog** ends the job when the whole process has grown by more than 1.5 GB since the job began; it polls five times a second from the main thread, so it is best effort and not a limit (a fast allocation, or a busy main thread, gets past it). The server's real ceiling is a memory limit on the container (`deployment.md`). JPEG and PNG stay with sharp/libvips as in 14.3 (two decodes at a time). The thread file is TypeScript run by Node's own type stripping, like the server.
+- **Previews in the background** (`createPreviewQueue`): the first page is drawn during the upload; the rest of a PDF (up to 500 pages) by an in-process queue, one file and one page at a time. The to-do list is the `PENDING` state of the file's row, so a restart continues (`resume`, also hourly with housekeeping) without a job table; three failed attempts end in `FAILED`, a full Workspace in `PARTIAL`. One server process is assumed (the monolith), so there is no claiming; a separate worker process would need leases as the reminder dispatcher has them.
+- **Storage limit**: document files are charged to the Workspace's combined storage (16.4, below): originals + derived files, identical content once, computed in the inserting transaction.
+- **Uploads and timeouts** (`apps/server/src/app.ts`): the server-wide request timeout is 15 minutes for the upload route (`config.slowBody`); a hook keeps the 30-second deadline for every other request, and a connection silent for a minute is closed in both cases. The body is streamed, never buffered; a refused upload is answered while a bounded rest of the body is discarded.
+- **Backups** (`packages/database/src/backup.ts`): `backups/documents` holds the files a backup needs as hard links to the live store (a copy where linking is impossible), hashed when they enter it; `verify` and `restore` hash everything; pruning follows the backups, as for images.
+- **Connected by 16.2:** the reference rule (`unreferenced` in the repository, mirrored in `copyDocuments`), the Workspace tool switch in front of these routes, audit events when files are added to or removed from a Document, the upload screen with the metadata notice, previews shown in portions.
+
+## Folders, Documents and optional tools (Step 16.2)
+
+```text
+GET  /api/workspaces/{id}/tools                         every member: which optional tools are on (also in GET /workspaces and /workspaces/{id})
+POST /api/workspaces/{id}/tools { tool, enabled }       workspace.tools.manage (ADMIN); audited; never touches content
+GET  /api/workspaces/{id}/document-folders              document.view: the whole tree (live Folders, with their Document counts)
+POST /api/workspaces/{id}/document-folders { name, parentId }                       document.manage
+POST …/document-folders/{fid}/rename|move { …, expectedRevision }  ·  /delete  ·  /restore
+GET  /api/workspaces/{id}/documents[?q=&folder=&sub=&type=&year=&tag=&uploader=&sort=&dir=&cursor=]   document.view: one page (50) of Documents — see "Finding Documents"
+GET  …/documents/filters                                document.view: years, tags and uploader names in use
+POST /api/workspaces/{id}/documents { title, folderId, fileIds[], type?, documentDate?, year?, notes?, tags? }
+GET  …/documents/{did}                                  the Document with its pages (files) in order
+POST …/documents/{did}/update { …, expectedRevision }  ·  /files { fileIds[], expectedRevision }  ·  /delete  ·  /restore
+POST …/documents/move { documentIds[], folderId }       all or nothing
+GET  …/documents/trash[?within=]                        document.manage: what is in Trash; inside a trashed Folder, what went with it
+GET|POST …/document-types  ·  POST …/document-types/{tid}/rename|retire
+```
+
+- **Optional tools** (`workspace_tools`, `packages/application/src/documents/tools.ts`): `authorizeTool(actor, workspace, tool, capability)` is the gate of every route of an optional tool — membership, then the switch, then the capability — and repositories check the switch again inside their write transaction. A tool that is off is `404 tool_not_enabled` for everyone. The web shell gets the enabled tools with the Workspace list and adds them to the sidebar and to **More**; the phone bar keeps four destinations (`destinations(workspaceId, tools)`). Further tools add a value to `WORKSPACE_TOOLS`, their routes behind `authorizeTool`, and a navigation entry.
+- **Model** (`packages/domain/src/document.ts`, migration 0028): `document_folders` (a tree by `parent_id`; `name_key` for sibling uniqueness), `documents` (title, optional type — a built-in key or a row of `document_types` —, document date, year, notes, tags; `created_*` = uploaded, immutable; `updated_*` = last modified), `document_pages` (ordered file ids; a file is a page of one Document; this table is what keeps an uploaded file). Folder and Document carry a `revision` for compare-and-set.
+- **Tree rules are pure** and shared: placement (cycle, depth, sibling name), restore target and restored name are functions over a list of Folders, used by the repository on the tree it reads inside its `IMMEDIATE` transaction and tested on their own, including a randomised invariant test. A trigger and indexes repeat the essential ones in the database.
+- **Trash**: `deleted_at / by` on Folders and Documents. Deleting a Folder marks everything live below it with that Folder's id (`deleted_with_folder_id`), which makes "restore what went with it" exact and leaves what was deleted separately alone. Restoring a part of a trashed Folder moves it to the nearest ancestor that still exists. Nothing is ever deleted by this step (triggers refuse it); permanent deletion and the storage view are 16.4.
+- **Repository** (`packages/database/src/document-repository.ts`): one `write()` helper per change — guard, tool, change, audit event — where a refusal rolls everything back. Reads return view records (`FolderRecord`, `DocumentSummary`, `DocumentRecord`, `TrashEntry`) with display names only.
+- **Web** (`Documents.tsx`, `DocumentFields.tsx`, `document-model.ts`): addresses `/w/{id}/documents`, `/documents/folders/{fid}` (both with the optional search and filters of 16.3 in the query string), `/documents[/folders/{fid}]/new`, `/documents/{did}`, `/documents/trash`. The view model (paths, tree order, move targets, labels, restore messages, preview notes) is pure and tested; the components load through the API client and refresh by polling (30 s; 3 s while previews are being made). Uploads go file by file through `XMLHttpRequest` (progress, cancel, per-file retry), two at a time; the Add document page keeps nothing but what the server holds provisionally and says so; leaving it with files chosen asks first. Previews are ordinary `<img>` elements of the derived JPEGs, shown five PDF pages at a time; originals are plain download links.
+
+## Finding Documents (Step 16.3)
+
+Search, filters, sorting and paging are a **read model on the `documents` table** — no search service, no virtual table, no second store.
+
+- **Rules in the domain** (`packages/domain/src/document-search.ts`): `foldSearchText` (NFKD, marks removed, lower case, `ß` → `ss`), `parseSearchTerms` (≤ 8 words, ≤ 100 characters), `containsPattern` (a literal `LIKE` pattern), `parseDocumentQuery` (place, type, year, tags, uploader, sort, direction — all validated, sort and direction from fixed lists) and `parseDocumentCursor`.
+- **Derived columns** (migration 0029): `title_key`, `tag_keys`, `search_text` hold folded text and are written by the repository together with title, tags and notes. SQL cannot fold, so `runMigrations` calls `fillDocumentSearch` for rows that lack them, and a trigger refuses new rows without them. Four partial indexes (live Documents; Workspace + upload time / last change / document date / title key + id) serve the four orders.
+- **Query** (`findDocuments` in `packages/database/src/document-repository.ts`): `workspace_id = ? AND deleted_at IS NULL`, then the filters as bound parameters, one `LIKE … ESCAPE` per search word, `ORDER BY <column>, id` and `LIMIT 51`. Paging is **keyset**: the cursor is `[sort value, id]` of the last row and the next page is strictly after it, so inserts and deletions between two pages neither repeat nor hide a row. Documents without a document date sort last in both directions. The total is counted for the first page only.
+- **Why not FTS5** (steps.md HT7): substring matching finds German compounds and two-letter words; a scan of the Workspace's own rows was faster than FTS5 up to the 50 000-Document limit; and an FTS5 index is shared by all Workspaces, which made one Workspace's query time depend on another's content. Recognised text (16.9) is expected to need an index and will be evaluated there.
+- **HTTP**: the query string is parsed by a strict schema; the cursor is base64url JSON, opaque to clients. **Web**: `document-model.ts` holds the filters as one value, mirrors it into the address (`?q=…`) with `history.replaceState` — the router itself only looks at the path — and builds the request; `Documents.tsx` shows the find bar, list or grid, chips and "Show more". Answers to superseded requests are dropped.
+
+## Storage, export and permanent deletion (Step 16.4)
+
+```
+GET  /api/workspaces/{id}/storage                      workspace.settings.manage: usage by tool, limit, ceiling, own limit
+POST /api/workspaces/{id}/storage/limit { bytes|null } workspace.settings.manage: the Workspace's own lower limit (audited)
+GET  /api/admin/storage                                server admin: every Workspace with the same figures
+POST /api/admin/storage/{id}/ceiling { bytes }         server admin: the ceiling (security log)
+GET  …/documents/export/check[?folder=|?document=…]    document.view: how much an export would hold
+GET  …/documents/export[?folder=|?document=…]          document.view: the ZIP, streamed (audited, one at a time, rate-limited)
+POST …/documents/trash/purge { items[] | all: true }   document.purge (ADMIN): deletes from Trash for good (audited)
+```
+
+- **One usage function.** `storageUsageIn` (`packages/database/src/storage-usage.ts`) computes, from the rows, what a Workspace stores: instruction images (charged by the 14.3 rule), Document originals, previews, and Trash; and the limit in force, `min(ceiling, own limit)`. `ImageRepository.register`, `DocumentFileRepository.register` and `addDerivative` call it inside their IMMEDIATE transaction — that is the whole enforcement. `StorageRepository` reads it for the views and writes the two limits. The rules (range, effective limit, the `StorageUsage` shape) are in `packages/domain/src/storage.ts`; `workspaces.image_quota_bytes` is no longer read.
+- **Export** is three layers: the domain plans **paths** (`document-export.ts`: `exportSegment`, `planExportPaths` — a title or file name never becomes a path as it is); the use-case (`application/documents/export.ts`) authorises, holds the one-per-person slot, asks the repository for the plan in the transaction that records `DOCUMENTS_EXPORTED`, and hands a `DocumentExport` with lazy `open()` functions to its caller; `packages/import-export/src/documents-archive.ts` renders `metadata.json`, the static `index.html` and the yazl stream. The HTTP route pipes that stream into the response and keeps the slot until the response has ended. Nothing is written to disk.
+- **Permanent deletion** (`purgeTrash` in `document-repository.ts`) removes rows only: a Document with its pages, or a Folder with what went to Trash with it, deepest Folder first; other Trash entries inside are re-parented. Files stay until the hourly housekeeping finds them unreferenced and older than the grace period (`purgeUnusedDocumentFiles`, unchanged since 16.1) — so "what may be deleted from disk" still has exactly one definition, shared with backups. Triggers allow `DELETE` on Documents and Folders only for rows in Trash.
+
+## House management (Step 16) — planned module boundaries
+
+_Planned 2026-10-01; nothing below exists yet. It fixes where the section 16 tools live and what they may depend on, so each step is built into the same shape. Names of packages, files, tables and capabilities are engineering choices and are recorded in each step's completion note; the open technical choices are HT1–HT14 in steps.md 16.12._
+
+**Same shape as before.** The tools are vertical slices through the existing layers, exactly as Lists are (15.3): rules in `packages/domain`, use-cases and ports in `packages/application/src/<module>`, repositories and migrations in `packages/database`, routes in `apps/server/src/http`, pages in `apps/web`. They are modules of the one deployable, not services. New packages appear only for new infrastructure adapters (file parsing, text recognition, mail protocols, outbound connections), never per tool.
+
+```text
+                         workspaces · permissions · audit            (existing)
+                                        ▲
+  tool settings ──► every module asks: is this tool enabled here, may this actor do this?
+                                        ▲
+  storage ◄── documents ◄── links ──► procedures · schedules · runs   (existing, unchanged)
+     ▲            ▲           ▲
+     │            │           ├── contacts
+  media store     │           ├── maintenance ──► (reminders only through schedules)
+  (14.3)          │           └── equipment   ──► (reminders only through schedules)
+                  │
+        text recognition (derived text for documents; optional)
+                  ▲
+                mail ──► documents (save a copy / an attachment, as an ordinary upload)
+                  └────► outbound connector (security.md §14)
+```
+
+Arrows point from the module that knows to the module that is known. Nothing existing learns about the new tools: Procedures, Runs, Schedules, Lists and Today import nothing from them.
+
+| Module | Owns | May use | Must not |
+|---|---|---|---|
+| **tool settings** (16.2) | which optional tools a Workspace has enabled | workspaces, permissions, audit | hold per-user preferences; delete data when a tool is disabled |
+| **storage** (16.4) | the combined Workspace quota and its breakdown by tool, computed in the writing transaction like the 14.3 quota (not a drifting counter) | the image and document repositories | reserve disk space; delete anything when a limit is lowered |
+| **documents** (16.1–16.4) | Folders, Documents, ordered files, DocumentTypes, originals and previews, search over metadata, export, Trash for its records | media store and processing (`packages/media`), storage, ZIP writing (`packages/import-export`), tool settings | touch an original after it is stored; reuse the 14.3 image pipeline for originals (previews only); know about Procedures, Runs or Mail |
+| **links** (16.5) | typed references between two records of one Workspace; the Document version a Run retains (kept beside the Run, never in the Run tables) | each record type through a small port: "may this viewer read it" and "its title and state" | copy files; read another module's tables directly; grant or imply access; write to Run snapshots or rewrite audit history |
+| **contacts** (16.6) | Contacts, CSV/vCard import and export | links, Trash rules, tool settings | become Users or carry permissions; merge automatically |
+| **maintenance** (16.7) | MaintenanceRecords, their four statuses, Board and List read models | links, existing schedule use-cases | change a Run, Occurrence or Reminder; be changed by one; compute cost totals |
+| **equipment** (16.8) | Equipment | links, existing schedule use-cases | notify by itself |
+| **text recognition** (16.9) | derived text per file, processing jobs and their states, rule-based suggestions | documents (reads files, hands back text), a `TextExtractor` port | alter a Document or create anything without a confirmed user action; open a network connection |
+| **mail** (16.10, 16.11) | Mailboxes, sealed credentials, cache, send records, remote-action records, saved copies | the outbound connector, documents (through its ordinary upload use-case), links, contacts | use or change the transactional `packages/email` (9.1); send, move or delete without a user action; be reachable through Documents permissions |
+
+**Rules that hold across the modules**
+- **Authorisation** stays where it is: HTTP handlers authenticate and parse; every use-case calls the Workspace authorisation with a capability from the one table in `packages/permissions`, plus the tool-enabled check; writes re-check inside the `IMMEDIATE` transaction. A disabled tool and a foreign id both look like an unknown resource.
+- **Reminders** are created only by calling the existing schedule use-cases (`schedule.manage`); there is one reminder engine and one dispatcher (13.5, 14.1).
+- **Trash** is one rule set (domain) applied by each module to its own records, with one combined Trash read model; permanent deletion removes records, housekeeping releases files once nothing references them. Procedure (4.5) and List (15.3) deletion are not rebuilt on it.
+- **Files** have one path in: the document upload use-case (validation, limits, quota, audit). Mail attachments and saved copies use it; nothing writes to the store beside it. Originals are immutable and content-addressed (T1); whether Documents share `/data/media` with instruction images is HT2.
+- **Background work** (preview generation, text recognition, mail synchronisation, exports) runs inside the server process: persistent job rows in SQLite, atomic claims with a lease and bounded attempts, bounded concurrency — the pattern of the reminder dispatcher. Jobs survive restarts and never run twice at once.
+- **Refresh** uses polling as Lists and Today do; the Run SSE hub is not widened.
+- **Outbound connections** to hosts entered through the application go through one connector that implements security.md §14 (resolve, classify, connect to the validated address); no module opens such a connection itself. Mail is its first and, so far, only planned user.
+- **Untrusted content** (file contents, extracted text, mail) is data in every module: escaped on output, never executed, never a source of instructions or actions.
+
+**No new infrastructure.** No Redis, no message queue or queue service, no search server, no object storage, no separate worker deployment. Search is SQLite (FTS5 or indexed `LIKE`, HT7). The only optional additional containers the plan allows are a `clamd` scanner (HT6) and, if the evaluation chooses so, a text-recognition container of the same deployment (HT9) — neither may become a required service, and neither is decided. Where the monolith's limits are reached (a 50 MB upload, a 500-page PDF, a large export), the answer is a bound and a queue, not a new service.
+
 ## Persistence
 
 SQLite is initial persistence.
@@ -426,6 +553,7 @@ Requirements:
 Do not implement yet, but avoid coupling that prevents:
 - SQLite -> PostgreSQL;
 - in-process SSE fan-out -> shared pub/sub;
-- local auth -> external identity providers.
+- local auth -> external identity providers;
+- in-process background jobs (reminders, later previews, text recognition, mail synchronisation) -> a separate worker process of the same deployment.
 
 These potential extensions do not justify microservices in V1.

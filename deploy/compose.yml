@@ -23,6 +23,11 @@ services:
       - /tmp
     cap_drop: [ALL]
     security_opt: [no-new-privileges:true]
+    # A ceiling for the whole application: reading one PDF for its previews can take up to about
+    # 2.4 GB for a moment (docu/deployment.md "Memory"). 4 GiB leaves room for everything else; swap
+    # is not added on top. If the limit is ever reached the container is restarted (`restart`).
+    mem_limit: 4g
+    memswap_limit: 4g
     env_file: vergissmeinnicht.env
     environment:
       AUTH_SECRET_FILE: /run/secrets/auth_secret

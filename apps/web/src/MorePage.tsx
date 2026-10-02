@@ -2,9 +2,13 @@ import { t } from './i18n/index.ts';
 import { Link, paths } from './router.tsx';
 import { UiIcon, type UiIconName } from './ui-icons.tsx';
 
-/** The tools that do not fit the phone bottom bar (15.1): Reminders, Calendar and the completed history. */
-export function MorePage({ workspaceId }: { workspaceId: string }) {
+/**
+ * The tools that do not fit the phone bottom bar (15.1): Reminders, Calendar, the completed history —
+ * and the optional tools the Workspace has switched on (16.2), which never get a bottom-bar place.
+ */
+export function MorePage({ workspaceId, tools }: { workspaceId: string; tools: readonly string[] }) {
   const links: { href: string; icon: UiIconName; label: string; hint: string }[] = [
+    ...(tools.includes('DOCUMENTS') ? [{ href: paths.documents(workspaceId), icon: 'documents' as const, label: t('shell.documents'), hint: t('more.documentsHint') }] : []),
     { href: paths.reminders(workspaceId), icon: 'reminders', label: t('shell.reminders'), hint: t('more.remindersHint') },
     { href: paths.calendar(workspaceId), icon: 'calendar', label: t('shell.calendar'), hint: t('more.calendarHint') },
     { href: paths.history(workspaceId), icon: 'history', label: t('shell.history'), hint: t('more.historyHint') },

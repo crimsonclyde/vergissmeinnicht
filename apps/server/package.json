@@ -27,6 +27,7 @@
   },
   "devDependencies": {
     "@types/node": "24.13.6",
-    "otpauth": "9.5.2"
+    "otpauth": "9.5.2",
+    "sharp": "0.35.5"
   }
 }

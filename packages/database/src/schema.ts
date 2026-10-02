@@ -7,7 +7,12 @@ import { check, foreignKey, index, integer, primaryKey, sqliteTable, text, uniqu
 import {
   CRITICAL_CONFIRM_MODES,
   KNOT_TARGET_TYPES,
+  BUILT_IN_DOCUMENT_TYPES,
+  DERIVATIVE_KINDS,
+  DOCUMENT_FILE_FORMATS,
   LIST_KINDS,
+  PREVIEW_STATES,
+  WORKSPACE_TOOLS,
   PROCEDURE_ICONS,
   REASON_POLICIES,
   OCCURRENCE_STATES,
@@ -281,8 +286,15 @@ export const workspaces = sqliteTable(
       .references(() => users.id),
     createdAt: integer('created_at', { mode: 'timestamp_ms' }).notNull(),
     updatedAt: integer('updated_at', { mode: 'timestamp_ms' }).notNull(),
-    /** Instruction image storage quota in bytes (14.3): 100/250/500 MB or 1 GB, set by a server admin (trigger in migration 0025). */
+    /** The image quota of 14.3 (D11a). **Not read since 16.4** — superseded by the combined storage below; the column is kept, not dropped. */
     imageQuotaBytes: integer('image_quota_bytes').notNull().default(100_000_000),
+    /**
+     * The storage **ceiling** in bytes (16.1 / 16.4, P1), set by the instance admin: a usage limit for
+     * everything the Workspace stores (instruction images, Documents, Trash) — nothing is reserved.
+     */
+    storageQuotaBytes: integer('storage_quota_bytes').notNull().default(5_000_000_000),
+    /** The Workspace admin's own lower limit (16.4); NULL = none, the ceiling applies; never above the ceiling (trigger in migration 0030). */
+    storageLimitBytes: integer('storage_limit_bytes'),
   },
   (table) => [
     check('workspaces_id_uuid', sql`length(${table.id}) = 36`),
@@ -770,6 +782,10 @@ export const instanceSettings = sqliteTable(
     footerHidden: integer('footer_hidden', { mode: 'boolean' }).notNull().default(false),
     /** How many recently started Procedures Home shows per user (13.13); 0 hides the section. */
     recentProceduresLimit: integer('recent_procedures_limit').notNull().default(5),
+    /** Largest accepted document file in bytes (16.1, H8); bounded by a trigger in migration 0027. */
+    documentMaxFileBytes: integer('document_max_file_bytes').notNull().default(50_000_000),
+    /** Accepted document formats, comma-separated in canonical order — a subset of PDF,JPEG,PNG,HEIC. */
+    documentFormats: text('document_formats').notNull().default('PDF,JPEG,PNG,HEIC'),
     updatedAt: integer('updated_at', { mode: 'timestamp_ms' }).notNull(),
     updatedByUserId: text('updated_by_user_id')
       .notNull()
@@ -1247,5 +1263,274 @@ export const listItems = sqliteTable(
       'list_items_check_consistent',
       sql`(${table.checkedAt} is null) = (${table.checkedByUserId} is null) and (${table.checkedAt} is null) = (${table.checkedByDisplayName} is null)`,
     ),
+  ],
+);
+
+/**
+ * Document files (16.1): one uploaded file of a Workspace. The bytes — the original, exactly as
+ * uploaded — live in the document store, named by `sha256`. Everything about the file is immutable
+ * (trigger in migration 0027); only the progress of its previews changes. Identical content uploaded
+ * twice is two rows (each with its own name and uploader) and is charged once.
+ */
+export const documentFiles = sqliteTable(
+  'document_files',
+  {
+    id: text('id').primaryKey(),
+    workspaceId: text('workspace_id')
+      .notNull()
+      .references(() => workspaces.id),
+    sha256: text('sha256').notNull(),
+    bytes: integer('bytes').notNull(),
+    /** Identified from the content, never from the name or a declared type. */
+    format: text('format', { enum: DOCUMENT_FILE_FORMATS }).notNull(),
+    /** The name it was uploaded with: data only, never a path. */
+    originalName: text('original_name').notNull(),
+    /** Pages of a PDF (NULL when password-protected); 1 for an image. */
+    pageCount: integer('page_count'),
+    width: integer('width'),
+    height: integer('height'),
+    encrypted: integer('encrypted', { mode: 'boolean' }).notNull().default(false),
+    activeContent: integer('active_content', { mode: 'boolean' }).notNull().default(false),
+    previewState: text('preview_state', { enum: PREVIEW_STATES }).notNull(),
+    previewAttempts: integer('preview_attempts').notNull().default(0),
+    uploadedByUserId: text('uploaded_by_user_id')
+      .notNull()
+      .references(() => users.id),
+    uploadedByDisplayName: text('uploaded_by_display_name').notNull(),
+    createdAt: integer('created_at', { mode: 'timestamp_ms' }).notNull(),
+  },
+  (table) => [
+    index('document_files_workspace_idx').on(table.workspaceId, table.sha256),
+    index('document_files_sha_idx').on(table.sha256),
+    index('document_files_preview_idx').on(table.previewState, table.createdAt),
+    // Lets later tables reference (file, workspace) together: a file never sits in another Workspace's Document.
+    uniqueIndex('document_files_id_workspace_unique').on(table.id, table.workspaceId),
+    check('document_files_id_uuid', sql`length(${table.id}) = 36`),
+    check('document_files_sha_format', sql`length(${table.sha256}) = 64 and ${table.sha256} not glob '*[^0-9a-f]*'`),
+    check('document_files_bytes_bounded', sql`${table.bytes} between 1 and 100000000`),
+    check('document_files_format_valid', oneOf('format', DOCUMENT_FILE_FORMATS)),
+    check('document_files_name_present', sql`length(trim(${table.originalName})) > 0 and length(${table.originalName}) <= 255`),
+    check('document_files_pages_bounded', sql`${table.pageCount} is null or ${table.pageCount} >= 1`),
+    check('document_files_size_consistent', sql`(${table.width} is null) = (${table.height} is null) and (${table.width} is null or (${table.width} >= 1 and ${table.height} >= 1))`),
+    check('document_files_preview_state_valid', oneOf('preview_state', PREVIEW_STATES)),
+    check('document_files_attempts_valid', sql`${table.previewAttempts} >= 0`),
+  ],
+);
+
+/**
+ * Derived files of a document file (16.1): preview pages and the thumbnail — inert, metadata-free
+ * JPEGs in the document store. They can be made again from the original and are never the original.
+ */
+export const documentFileDerivatives = sqliteTable(
+  'document_file_derivatives',
+  {
+    fileId: text('file_id')
+      .notNull()
+      .references(() => documentFiles.id),
+    kind: text('kind', { enum: DERIVATIVE_KINDS }).notNull(),
+    /** 0-based page of the original; 0 for an image and for the thumbnail. */
+    page: integer('page').notNull(),
+    sha256: text('sha256').notNull(),
+    bytes: integer('bytes').notNull(),
+    width: integer('width').notNull(),
+    height: integer('height').notNull(),
+    createdAt: integer('created_at', { mode: 'timestamp_ms' }).notNull(),
+  },
+  (table) => [
+    primaryKey({ columns: [table.fileId, table.kind, table.page] }),
+    index('document_file_derivatives_sha_idx').on(table.sha256),
+    check('document_file_derivatives_kind_valid', oneOf('kind', DERIVATIVE_KINDS)),
+    check('document_file_derivatives_page_bounded', sql`${table.page} between 0 and 499`),
+    check('document_file_derivatives_sha_format', sql`length(${table.sha256}) = 64 and ${table.sha256} not glob '*[^0-9a-f]*'`),
+    check('document_file_derivatives_bytes_positive', sql`${table.bytes} >= 1`),
+    check('document_file_derivatives_size_bounded', sql`${table.width} between 1 and 2400 and ${table.height} between 1 and 2400`),
+  ],
+);
+
+/**
+ * Optional tools of a Workspace (16.2): switched on by a Workspace admin. No row = not enabled.
+ * Disabling keeps the row (and all data of the tool); enabling again shows the same data.
+ */
+export const workspaceTools = sqliteTable(
+  'workspace_tools',
+  {
+    workspaceId: text('workspace_id')
+      .notNull()
+      .references(() => workspaces.id),
+    tool: text('tool', { enum: WORKSPACE_TOOLS }).notNull(),
+    enabled: integer('enabled', { mode: 'boolean' }).notNull(),
+    updatedAt: integer('updated_at', { mode: 'timestamp_ms' }).notNull(),
+    updatedByUserId: text('updated_by_user_id')
+      .notNull()
+      .references(() => users.id),
+  },
+  (table) => [primaryKey({ columns: [table.workspaceId, table.tool] }), check('workspace_tools_tool_valid', oneOf('tool', WORKSPACE_TOOLS))],
+);
+
+/**
+ * Folders of Documents (16.2): a tree per Workspace. `name_key` is the name as siblings are compared
+ * (NFKC, lower case); live siblings are unique by it. Deleting sets the `deleted_*` columns (Trash):
+ * `deleted_with_folder_id` names the Folder whose deletion took this one along (its own id for the
+ * Folder that was deleted itself), so restoring that Folder brings back exactly what went with it.
+ * A cycle is impossible: the application checks inside the transaction and a trigger refuses it.
+ */
+export const documentFolders = sqliteTable(
+  'document_folders',
+  {
+    id: text('id').primaryKey(),
+    workspaceId: text('workspace_id')
+      .notNull()
+      .references(() => workspaces.id),
+    parentId: text('parent_id'),
+    name: text('name').notNull(),
+    nameKey: text('name_key').notNull(),
+    revision: integer('revision').notNull().default(1),
+    createdByUserId: text('created_by_user_id')
+      .notNull()
+      .references(() => users.id),
+    createdByDisplayName: text('created_by_display_name').notNull(),
+    createdAt: integer('created_at', { mode: 'timestamp_ms' }).notNull(),
+    updatedAt: integer('updated_at', { mode: 'timestamp_ms' }).notNull(),
+    deletedAt: integer('deleted_at', { mode: 'timestamp_ms' }),
+    deletedByUserId: text('deleted_by_user_id').references(() => users.id),
+    deletedByDisplayName: text('deleted_by_display_name'),
+    deletedWithFolderId: text('deleted_with_folder_id'),
+  },
+  (table) => [
+    // Lets children and Documents reference (folder, workspace) together: nothing sits in another Workspace's Folder.
+    uniqueIndex('document_folders_id_workspace_unique').on(table.id, table.workspaceId),
+    foreignKey({ name: 'document_folders_parent_fk', columns: [table.parentId, table.workspaceId], foreignColumns: [table.id, table.workspaceId] }),
+    // Live siblings are unique by name: `document_folders_sibling_name_unique`, an expression index written by hand in migration 0028.
+    index('document_folders_parent_idx').on(table.workspaceId, table.parentId),
+    index('document_folders_deleted_with_idx').on(table.deletedWithFolderId),
+    check('document_folders_id_uuid', sql`length(${table.id}) = 36`),
+    check('document_folders_name_present', sql`length(trim(${table.name})) > 0 and length(${table.name}) <= 80 and instr(${table.name}, '/') = 0`),
+    check('document_folders_not_own_parent', sql`${table.parentId} is null or ${table.parentId} <> ${table.id}`),
+    check('document_folders_revision_positive', sql`${table.revision} >= 1`),
+    check(
+      'document_folders_deletion_consistent',
+      sql`(${table.deletedAt} is null) = (${table.deletedByUserId} is null) and (${table.deletedAt} is null) = (${table.deletedByDisplayName} is null) and (${table.deletedAt} is null) = (${table.deletedWithFolderId} is null)`,
+    ),
+  ],
+);
+
+/** A Workspace's own document types (16.2). A retired type stays on the Documents that have it and is not offered for new ones. */
+export const documentTypes = sqliteTable(
+  'document_types',
+  {
+    id: text('id').primaryKey(),
+    workspaceId: text('workspace_id')
+      .notNull()
+      .references(() => workspaces.id),
+    name: text('name').notNull(),
+    nameKey: text('name_key').notNull(),
+    retiredAt: integer('retired_at', { mode: 'timestamp_ms' }),
+    createdByUserId: text('created_by_user_id')
+      .notNull()
+      .references(() => users.id),
+    createdAt: integer('created_at', { mode: 'timestamp_ms' }).notNull(),
+  },
+  (table) => [
+    uniqueIndex('document_types_id_workspace_unique').on(table.id, table.workspaceId),
+    uniqueIndex('document_types_name_unique').on(table.workspaceId, table.nameKey).where(sql`${table.retiredAt} is null`),
+    check('document_types_id_uuid', sql`length(${table.id}) = 36`),
+    check('document_types_name_present', sql`length(trim(${table.name})) > 0 and length(${table.name}) <= 60`),
+  ],
+);
+
+/**
+ * Documents (16.2): one record with ordered files (`document_pages`). "Uploaded" (`created_*`) never
+ * changes (trigger in migration 0028); every edit sets "last modified" (`updated_*`). Trash as for Folders;
+ * a Document deleted by itself has `deleted_with_folder_id` NULL.
+ */
+export const documents = sqliteTable(
+  'documents',
+  {
+    id: text('id').primaryKey(),
+    workspaceId: text('workspace_id')
+      .notNull()
+      .references(() => workspaces.id),
+    folderId: text('folder_id'),
+    title: text('title').notNull(),
+    /** A built-in type by key, or … */
+    typeKey: text('type_key', { enum: BUILT_IN_DOCUMENT_TYPES }),
+    /** … one of the Workspace's own types. At most one of the two. */
+    typeId: text('type_id'),
+    /** The date on the paper, `YYYY-MM-DD`. */
+    documentDate: text('document_date'),
+    year: integer('year'),
+    notes: text('notes').notNull().default(''),
+    tags: text('tags', { mode: 'json' }).$type<string[]>().notNull().default(sql`'[]'`),
+    /**
+     * Derived for finding (16.3), written with every change of title, notes or tags: the folded title
+     * (sort key), the folded tags (tag filter) and everything a search looks at (`documentSearchText`).
+     * NULL only on rows from before migration 0029 until `migrate` has filled them; a trigger refuses
+     * new rows without them.
+     */
+    titleKey: text('title_key'),
+    tagKeys: text('tag_keys', { mode: 'json' }).$type<string[]>(),
+    searchText: text('search_text'),
+    revision: integer('revision').notNull().default(1),
+    createdByUserId: text('created_by_user_id')
+      .notNull()
+      .references(() => users.id),
+    createdByDisplayName: text('created_by_display_name').notNull(),
+    createdAt: integer('created_at', { mode: 'timestamp_ms' }).notNull(),
+    updatedByUserId: text('updated_by_user_id')
+      .notNull()
+      .references(() => users.id),
+    updatedByDisplayName: text('updated_by_display_name').notNull(),
+    updatedAt: integer('updated_at', { mode: 'timestamp_ms' }).notNull(),
+    deletedAt: integer('deleted_at', { mode: 'timestamp_ms' }),
+    deletedByUserId: text('deleted_by_user_id').references(() => users.id),
+    deletedByDisplayName: text('deleted_by_display_name'),
+    deletedWithFolderId: text('deleted_with_folder_id'),
+  },
+  (table) => [
+    uniqueIndex('documents_id_workspace_unique').on(table.id, table.workspaceId),
+    foreignKey({ name: 'documents_folder_fk', columns: [table.folderId, table.workspaceId], foreignColumns: [documentFolders.id, documentFolders.workspaceId] }),
+    foreignKey({ name: 'documents_type_fk', columns: [table.typeId, table.workspaceId], foreignColumns: [documentTypes.id, documentTypes.workspaceId] }),
+    index('documents_folder_idx').on(table.workspaceId, table.folderId, table.deletedAt),
+    index('documents_deleted_with_idx').on(table.deletedWithFolderId),
+    // One per sort order of the listing (16.3), over the Documents that are not in Trash.
+    index('documents_uploaded_idx').on(table.workspaceId, table.createdAt, table.id).where(sql`${table.deletedAt} is null`),
+    index('documents_modified_idx').on(table.workspaceId, table.updatedAt, table.id).where(sql`${table.deletedAt} is null`),
+    index('documents_date_idx').on(table.workspaceId, table.documentDate, table.id).where(sql`${table.deletedAt} is null`),
+    index('documents_title_idx').on(table.workspaceId, table.titleKey, table.id).where(sql`${table.deletedAt} is null`),
+    check('documents_id_uuid', sql`length(${table.id}) = 36`),
+    check('documents_title_present', sql`length(trim(${table.title})) > 0 and length(${table.title}) <= 200`),
+    check('documents_type_single', sql`${table.typeKey} is null or ${table.typeId} is null`),
+    check('documents_type_key_valid', sql.raw(`type_key is null or type_key in (${BUILT_IN_DOCUMENT_TYPES.map((key) => `'${key}'`).join(', ')})`)),
+    check('documents_date_format', sql`${table.documentDate} is null or ${table.documentDate} glob '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]'`),
+    check('documents_year_bounded', sql`${table.year} is null or ${table.year} between 1900 and 2200`),
+    check('documents_notes_bounded', sql`length(${table.notes}) <= 4000`),
+    check('documents_tags_array', sql`json_valid(${table.tags}) and json_type(${table.tags}) = 'array' and json_array_length(${table.tags}) <= 10`),
+    check('documents_revision_positive', sql`${table.revision} >= 1`),
+    check(
+      'documents_deletion_consistent',
+      sql`(${table.deletedAt} is null) = (${table.deletedByUserId} is null) and (${table.deletedAt} is null) = (${table.deletedByDisplayName} is null)`,
+    ),
+  ],
+);
+
+/**
+ * The ordered files (pages) of a Document. A file belongs to at most one Document, and — through the
+ * composite foreign keys — always to one of its own Workspace. This table is what makes an uploaded
+ * file permanent: a file that is on no page is removed by housekeeping after the grace period.
+ */
+export const documentPages = sqliteTable(
+  'document_pages',
+  {
+    documentId: text('document_id').notNull(),
+    workspaceId: text('workspace_id').notNull(),
+    position: integer('position').notNull(),
+    fileId: text('file_id').notNull(),
+  },
+  (table) => [
+    primaryKey({ columns: [table.documentId, table.position] }),
+    uniqueIndex('document_pages_file_unique').on(table.fileId),
+    foreignKey({ name: 'document_pages_document_fk', columns: [table.documentId, table.workspaceId], foreignColumns: [documents.id, documents.workspaceId] }),
+    foreignKey({ name: 'document_pages_file_fk', columns: [table.fileId, table.workspaceId], foreignColumns: [documentFiles.id, documentFiles.workspaceId] }),
+    check('document_pages_position_bounded', sql`${table.position} between 0 and 49`),
   ],
 );

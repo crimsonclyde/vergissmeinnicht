@@ -277,7 +277,7 @@ test('first server admin: bootstrap link, account creation, sign-in, Workspace c
   await editor.getByRole('button', { name: 'Choose photo' }).click();
   await (await chooserEvent).setFiles({ name: 'window.png', mimeType: 'image/png', buffer: photo() });
   await expect(editor.getByRole('button', { name: 'Replace photo' })).toBeVisible();
-  await expect(editor.getByText(/Photos in this Workspace: [\d.]+ MB of 100 MB used\.$/)).toBeVisible();
+  await expect(editor.getByText(/Storage of this Workspace: [\d.,]+ (bytes|KB|MB) of 5 GB used\.$/)).toBeVisible(); // one limit for the whole Workspace (16.4)
   // Unapplied Step changes are named, and Save procedure waits for them.
   await expect(builderState).toHaveText(/Step has unapplied changes/);
   await expect(page.getByRole('button', { name: 'Save procedure' })).toHaveAttribute('aria-disabled', 'true');
@@ -1095,6 +1095,279 @@ test('first server admin: bootstrap link, account creation, sign-in, Workspace c
   expect(await page.evaluate('document.documentElement.scrollWidth <= document.documentElement.clientWidth')).toBe(true);
   await page.setViewportSize({ width: 1280, height: 720 });
 
+  // Documents (16.2): an optional tool. Not there until a Workspace admin switches it on; then a Water
+  // folder, three photos as one bill, in order, with its date — previewed, downloaded unchanged, moved to
+  // Trash and restored. A HEIC is kept and downloadable without a preview.
+  const workspacePath = /^\/w\/[0-9a-f-]{36}/.exec(new URL(page.url()).pathname)?.[0] ?? '';
+  await expect(sections.getByRole('link', { name: 'Documents' })).toHaveCount(0);
+  await page.goto(`${workspacePath}/documents`);
+  await expect(page.getByRole('alert')).toContainText('This page does not exist');
+  await fromMenu(page, 'Workspace settings');
+  const documentsSwitch = page.getByRole('checkbox', { name: /^Documents/ });
+  await expect(documentsSwitch).not.toBeChecked();
+  await expectAccessible(page, 'workspace settings with the tool switch');
+  await documentsSwitch.check();
+  await expect(page.getByRole('status').filter({ hasText: 'Documents is switched on for everyone in this Workspace.' })).toBeVisible();
+  await expect(sections.getByRole('link')).toHaveText(['Today', 'Procedures', 'Reminders', 'Lists', 'Calendar', 'Documents']);
+  await sections.getByRole('link', { name: 'Documents' }).click();
+  await expect(page.getByText('No documents yet — add a scan, PDF or photo.')).toBeVisible(); // nothing is pre-created
+  await expectAccessible(page, 'empty documents');
+  await page.getByRole('button', { name: 'New folder' }).click();
+  await page.getByRole('dialog', { name: 'New folder' }).getByLabel('Folder name').fill('Water');
+  await page.getByRole('dialog', { name: 'New folder' }).getByRole('button', { name: 'Create folder' }).click();
+  await page.getByRole('link', { name: /Water/ }).click();
+  await expect(page.getByRole('heading', { name: 'Water', level: 2 })).toBeVisible();
+  await expect(page.getByText('Nothing in this folder yet.')).toBeVisible();
+  await page.getByRole('button', { name: 'Add document' }).click();
+  // The upload page says what "kept exactly as uploaded" means for hidden details, before anything is chosen.
+  await expect(page.getByText(/Files are kept exactly as you upload them\..*GPS.*including guests, can download them\./)).toBeVisible();
+  const pages = [photo(300, 420), photo(310, 420), photo(320, 420)];
+  await page.locator('input[type=file][multiple]').setInputFiles([
+    { name: 'IMG_0001.png', mimeType: 'image/png', buffer: pages[0] ?? Buffer.alloc(0) },
+    { name: 'notes.txt', mimeType: 'text/plain', buffer: Buffer.from('not a document format') },
+    { name: 'IMG_0003.png', mimeType: 'image/png', buffer: pages[2] ?? Buffer.alloc(0) },
+  ]);
+  const uploadList = page.getByRole('list', { name: 'Files of this document, in page order' });
+  // The second file fails by itself: the first and third are uploaded, and Retry concerns only that one.
+  await expect(uploadList.getByRole('listitem').filter({ hasText: 'Uploaded' })).toHaveCount(2);
+  await expect(uploadList.getByRole('alert')).toContainText('This file type is not supported.');
+  await expect(uploadList.getByRole('button', { name: 'Retry' })).toHaveCount(1);
+  await expect(page.getByRole('button', { name: 'Save document' })).toBeEnabled();
+  await expectAccessible(page, 'adding a document with a refused file');
+  await page.getByRole('button', { name: 'Remove “notes.txt”' }).click();
+  await page.locator('input[type=file][multiple]').setInputFiles([{ name: 'IMG_0002.png', mimeType: 'image/png', buffer: pages[1] ?? Buffer.alloc(0) }]);
+  await expect(uploadList.getByRole('listitem').filter({ hasText: 'Uploaded' })).toHaveCount(3);
+  // The title is proposed from the first file and stays editable; the rest is behind "More details".
+  await expect(page.getByLabel('Title')).toHaveValue('IMG_0001');
+  await page.getByLabel('Title').fill('Water bill March');
+  await page.getByText('More details (type, dates, tags, notes)').click();
+  await page.getByLabel('Type').selectOption({ label: 'Bill' });
+  await page.getByLabel('Document date').fill('2026-03-12');
+  await expect(page.getByLabel('Year')).toHaveValue('2026'); // proposed from the date, still editable
+  await page.getByRole('button', { name: 'Save document' }).click();
+  await expect(page.getByRole('heading', { name: 'Water bill March', level: 2 })).toBeVisible();
+  const pageTitles = page.getByRole('heading', { level: 4 });
+  await expect(pageTitles).toHaveText(['Page 1 of 3: IMG_0001.png', 'Page 2 of 3: IMG_0003.png', 'Page 3 of 3: IMG_0002.png']);
+  // Put the pages in order with the keyboard (no dragging): the third file becomes page 2.
+  await page.getByRole('button', { name: 'Move “IMG_0002.png” up' }).focus();
+  await page.keyboard.press('Enter');
+  await expect(pageTitles).toHaveText(['Page 1 of 3: IMG_0001.png', 'Page 2 of 3: IMG_0002.png', 'Page 3 of 3: IMG_0003.png']);
+  await page.reload();
+  await expect(pageTitles).toHaveText(['Page 1 of 3: IMG_0001.png', 'Page 2 of 3: IMG_0002.png', 'Page 3 of 3: IMG_0003.png']); // the order is saved
+  const facts = page.locator('.document-facts');
+  await expect(facts).toContainText('Bill');
+  await expect(facts).toContainText('2026');
+  await expect(facts).toContainText('Water');
+  await expect(facts).toContainText('by Ada Admin');
+  // Each page has a preview (a derived image, labelled as such) that can be enlarged …
+  await expect(page.getByRole('img', { name: 'Preview of IMG_0002.png' })).toBeVisible();
+  await expect(page.getByText('Preview — the original file is unchanged.').first()).toBeVisible();
+  await page.getByRole('button', { name: 'Enlarge: Preview of IMG_0002.png' }).click();
+  await expect(page.getByRole('dialog', { name: 'Preview of IMG_0002.png' })).toBeVisible();
+  await page.keyboard.press('Escape');
+  // … and its original downloads exactly as it was uploaded.
+  const originalDownload = page.waitForEvent('download');
+  await page.getByRole('link', { name: 'Download the original of “IMG_0002.png”' }).click();
+  const saved = await originalDownload;
+  expect(saved.suggestedFilename()).toBe('IMG_0002.png');
+  expect(readFileSync(await saved.path()).equals(pages[1] ?? Buffer.alloc(0))).toBe(true);
+  await expectAccessible(page, 'document with three pages');
+  await page.emulateMedia({ colorScheme: 'dark' });
+  await expectAccessible(page, 'document with three pages (dark)');
+  // An iPhone HEIC is kept as HEIC: no preview for this format, and the original downloads unchanged.
+  const heic = readFileSync('packages/media/src/fixtures/photo.heic');
+  await page.locator('input[type=file][multiple]').setInputFiles([{ name: 'IMG_0004.HEIC', mimeType: 'image/heic', buffer: heic }]);
+  await expect(pageTitles).toHaveText([/IMG_0001/, /IMG_0002/, /IMG_0003/, 'Page 4 of 4: IMG_0004.HEIC']);
+  await expect(page.getByText('Preview unavailable for this format. The original (HEIC) is kept unchanged and can be downloaded.')).toBeVisible();
+  const heicDownload = page.waitForEvent('download');
+  await page.getByRole('link', { name: 'Download the original of “IMG_0004.HEIC”' }).click();
+  const savedHeic = await heicDownload;
+  expect(savedHeic.suggestedFilename()).toBe('IMG_0004.HEIC');
+  expect(readFileSync(await savedHeic.path()).equals(heic)).toBe(true);
+  await expectAccessible(page, 'document with a HEIC page (dark)');
+  // Phones: nothing scrolls sideways at 390 and 320 px; the tool is reached through More, the bar keeps four places.
+  for (const width of [390, 320]) {
+    await page.setViewportSize({ width, height: 800 });
+    expect(await page.evaluate('document.documentElement.scrollWidth <= document.documentElement.clientWidth')).toBe(true);
+    for (const button of await page.getByRole('button', { name: /^Move “/ }).all()) expect((await button.boundingBox())?.height).toBeGreaterThanOrEqual(44);
+    await expectAccessible(page, `document at ${width} px (dark)`);
+  }
+  await expect(sections.getByRole('link')).toHaveText(['Today', 'Procedures', 'Lists', 'More']);
+  await expect(sections.getByRole('link', { name: 'More' })).toHaveAttribute('aria-current', 'page');
+  await sections.getByRole('link', { name: 'More' }).click();
+  await expect(page.getByRole('main').getByRole('link').first()).toContainText('Documents');
+  await page.getByRole('main').getByRole('link', { name: /Documents/ }).click();
+  // The top level lists every Document, newest first, and says where each one is.
+  await expect(page.getByRole('heading', { name: 'Recently added', level: 3 })).toBeVisible();
+  await expect(page.getByRole('link', { name: /Water bill March/ })).toContainText(/Bill · Uploaded .* · 4 pages · Water$/);
+  await page.getByRole('link', { name: /^Water\s*1 document/ }).click();
+  await expect(page.getByRole('link', { name: /Water bill March/ })).toContainText(/Bill · Uploaded .* · 4 pages$/);
+  expect(await page.evaluate('document.documentElement.scrollWidth <= document.documentElement.clientWidth')).toBe(true);
+  await expectAccessible(page, 'folder at 320 px (dark)');
+  await page.emulateMedia({ colorScheme: 'light' });
+  await expectAccessible(page, 'folder at 320 px (light)');
+  await page.setViewportSize({ width: 1280, height: 720 });
+
+  // Finding Documents (16.3). The date on each row is named after the order in use, so the date on the
+  // paper and the day of the upload are never confused.
+  const billRow = page.getByRole('link', { name: /Water bill March/ });
+  await page.getByLabel('Sort by').selectOption({ label: 'Document date — newest first' });
+  await expect(billRow).toContainText(/Bill · Document date .*2026 · 4 pages$/);
+  await page.getByLabel('Sort by').selectOption({ label: 'Upload date — newest first' });
+  await expect(billRow).toContainText(/Bill · Uploaded .* · 4 pages$/);
+  // Search in this folder; nothing matches → say so, and offer the way out.
+  await page.getByLabel('Search in “Water”').fill('strom');
+  await expect(page.getByRole('status').filter({ hasText: 'No documents match.' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Search all folders' })).toBeVisible();
+  await expectAccessible(page, 'folder search without results');
+  await page.getByRole('button', { name: 'Clear search' }).click();
+  await expect(page.getByLabel('Search in “Water”')).toHaveValue('');
+  await expect(billRow).toBeVisible();
+  // At the top level: the user's example — type = Bill and year = 2026 find the bill, and its file downloads from the result.
+  await page.getByRole('navigation', { name: 'You are here' }).getByRole('link', { name: 'Documents' }).click();
+  await page.getByLabel('Search documents').fill('BILL märz'); // no such word: every word must occur
+  await expect(page.getByRole('status').filter({ hasText: 'No documents match.' })).toBeVisible();
+  await page.getByLabel('Search documents').fill('BILL wat'); // without case, parts of words
+  await expect(page.getByRole('heading', { name: 'Results', level: 3 })).toBeVisible();
+  await expect(page.getByRole('status').filter({ hasText: '1 document matches' })).toBeVisible();
+  await expect(page).toHaveURL(/\/documents\?q=BILL\+wat$/);
+  await page.getByText('Filters', { exact: true }).click();
+  await page.getByLabel('Type', { exact: true }).selectOption({ label: 'Bill' });
+  await page.getByLabel('Year', { exact: true }).selectOption('2026');
+  const chips = page.getByRole('list', { name: 'Active filters' });
+  await expect(chips.getByRole('button')).toHaveText([/Type: Bill/, /Year: 2026/, 'Clear filters']);
+  await expect(page.getByText('Filters (2 active)')).toBeVisible();
+  await expect(billRow).toContainText('· Water');
+  await expectAccessible(page, 'documents with search and filters');
+  await billRow.click();
+  const fromResult = page.waitForEvent('download');
+  await page.getByRole('link', { name: 'Download the original of “IMG_0001.png”' }).click();
+  expect(readFileSync(await (await fromResult).path()).equals(pages[0] ?? Buffer.alloc(0))).toBe(true);
+  // Back from the Document: the same search and filters, from the address.
+  await page.goBack();
+  await expect(page.getByLabel('Search documents')).toHaveValue('BILL wat');
+  await expect(chips.getByRole('button')).toHaveText([/Type: Bill/, /Year: 2026/, 'Clear filters']);
+  await expect(billRow).toBeVisible();
+  // A chip removes exactly its filter (by keyboard); "Clear filters" resets the rest in one action.
+  await chips.getByRole('button', { name: 'Remove filter — Year: 2026' }).focus();
+  await page.keyboard.press('Enter');
+  await expect(chips.getByRole('button')).toHaveText([/Type: Bill/, 'Clear filters']);
+  await chips.getByRole('button', { name: 'Clear filters' }).click();
+  await expect(page.getByRole('heading', { name: 'Recently added', level: 3 })).toBeVisible();
+  await expect(page).toHaveURL(/\/documents$/);
+  // Grid: thumbnails with the title written out and a text alternative; a plain link, reachable by keyboard; remembered.
+  await page.getByRole('group', { name: 'Show as' }).getByRole('button', { name: 'Grid' }).click();
+  await expect(page.getByRole('group', { name: 'Show as' }).getByRole('button', { name: 'Grid' })).toHaveAttribute('aria-pressed', 'true');
+  await expect(page.getByRole('img', { name: 'First page of “Water bill March”' })).toBeVisible();
+  await expect(billRow).toContainText('Water bill March');
+  await expect(billRow).toContainText(/Uploaded /);
+  await expectAccessible(page, 'documents as a grid');
+  await page.reload();
+  await expect(page.getByRole('group', { name: 'Show as' }).getByRole('button', { name: 'Grid' })).toHaveAttribute('aria-pressed', 'true');
+  await billRow.focus();
+  await page.keyboard.press('Enter');
+  await expect(page.getByRole('heading', { name: 'Water bill March', level: 2 })).toBeVisible();
+  await page.goBack();
+  for (const scheme of ['dark', 'light'] as const) {
+    await page.emulateMedia({ colorScheme: scheme });
+    await page.setViewportSize({ width: 320, height: 800 });
+    for (const view of ['Grid', 'List']) {
+      await page.getByRole('group', { name: 'Show as' }).getByRole('button', { name: view }).click();
+      await expect(billRow).toBeVisible();
+      expect(await page.evaluate('document.documentElement.scrollWidth <= document.documentElement.clientWidth')).toBe(true);
+      await expectAccessible(page, `documents as ${view} at 320 px (${scheme})`);
+    }
+    for (const control of [page.getByLabel('Search documents'), page.getByLabel('Sort by'), page.getByRole('button', { name: 'Grid' }), page.getByRole('button', { name: 'List' })]) {
+      expect((await control.boundingBox())?.height).toBeGreaterThanOrEqual(44);
+    }
+    await page.setViewportSize({ width: 1280, height: 720 });
+  }
+  await page.getByRole('link', { name: /^Water\s*1 document/ }).click();
+  // Export (16.4): the folder as one ZIP — the originals byte for byte, under their folder and Document.
+  await page.getByRole('button', { name: 'Actions for the folder “Water”' }).click();
+  await page.getByRole('button', { name: 'Export this folder…' }).click();
+  const exportDialog = page.getByRole('dialog', { name: 'Export “Water”' });
+  await expect(exportDialog).toContainText(/1 document with 4 files, /);
+  await expect(exportDialog).toContainText('may contain location or other hidden details');
+  await expectAccessible(page, 'export dialog');
+  const zipDownload = page.waitForEvent('download');
+  await exportDialog.getByRole('button', { name: 'Download ZIP' }).click();
+  const zip = await zipDownload;
+  expect(zip.suggestedFilename()).toMatch(/^Documents - Water - \d{4}-\d{2}-\d{2}\.zip$/);
+  const documentsZip = readFileSync(await zip.path());
+  expect(documentsZip.subarray(0, 2).toString('latin1')).toBe('PK');
+  for (const original of [...pages, heic]) expect(documentsZip.includes(original)).toBe(true);
+  for (const name of ['index.html', 'metadata.json', 'Water/Water bill March/01 - IMG_0001.png', 'Water/Water bill March/04 - IMG_0004.HEIC']) expect({ name, there: documentsZip.includes(Buffer.from(name)) }).toEqual({ name, there: true });
+  await expect(exportDialog).toBeHidden();
+  // The folder goes to Trash with its document as one unit; Undo brings both back.
+  await page.getByRole('button', { name: 'Actions for the folder “Water”' }).click();
+  await page.getByRole('button', { name: 'Move folder to Trash' }).click();
+  const toTrash = page.getByRole('dialog', { name: 'Move “Water” to Trash?' });
+  await expect(toTrash).toContainText('0 sub-folders and 1 documents');
+  await toTrash.getByRole('button', { name: 'Move to Trash' }).click();
+  await expect(page.getByRole('status').filter({ hasText: 'Folder “Water” moved to Trash.' })).toBeVisible();
+  await expect(page.getByText('No documents yet — add a scan, PDF or photo.')).toBeVisible();
+  // A new "Water" meanwhile: the restored one comes back under another name, and says so — nothing is merged.
+  await page.getByRole('button', { name: 'New folder' }).click();
+  await page.getByRole('dialog', { name: 'New folder' }).getByLabel('Folder name').fill('Water');
+  await page.getByRole('dialog', { name: 'New folder' }).getByRole('button', { name: 'Create folder' }).click();
+  await expect(page.getByRole('link', { name: /Water/ })).toHaveCount(1);
+  await page.getByRole('button', { name: 'More actions for Documents' }).click();
+  await page.getByRole('button', { name: 'Trash' }).click();
+  await expect(page.getByRole('heading', { name: 'Trash', level: 2 })).toBeVisible();
+  await expect(page.getByRole('main')).toContainText('with 0 sub-folders and 1 documents');
+  await expectAccessible(page, 'trash');
+  await page.getByRole('button', { name: 'Restore “Water”' }).click();
+  await expect(page.getByRole('status').filter({ hasText: '“Water (restored)” restored. A folder named “Water” exists now, so it was given this name.' })).toBeVisible();
+  await expect(page.getByText('Trash is empty.')).toBeVisible();
+  await page.getByRole('link', { name: 'Back to Documents' }).click();
+  await expect(page.getByRole('link', { name: /^Water( \(restored\))?\s*\d+ document/ })).toHaveText([/^Water\s*0 documents/, /Water \(restored\)\s*1 document/]);
+  // Permanent deletion (16.4): only out of Trash, by an admin, after being told what it means.
+  await page.getByRole('link', { name: /^Water\s*0 documents/ }).click();
+  await page.getByRole('button', { name: 'Actions for the folder “Water”' }).click();
+  await page.getByRole('button', { name: 'Move folder to Trash' }).click();
+  await page.getByRole('dialog', { name: 'Move “Water” to Trash?' }).getByRole('button', { name: 'Move to Trash' }).click();
+  await expect(page.getByRole('status').filter({ hasText: 'Folder “Water” moved to Trash.' })).toBeVisible();
+  await page.getByRole('button', { name: 'More actions for Documents' }).click();
+  await page.getByRole('button', { name: 'Trash' }).click();
+  await expect(page.getByRole('button', { name: 'Empty Trash…' })).toBeVisible();
+  await expect(page.getByText('Nothing is removed automatically, and Trash counts towards storage.')).toBeVisible();
+  await page.getByRole('button', { name: 'Delete “Water” permanently…' }).click();
+  const purge = page.getByRole('dialog', { name: 'Delete “Water” permanently?' });
+  await expect(purge).toContainText('0 documents and 1 folders with 0 files will be deleted for good.');
+  await expect(purge).toContainText('This cannot be undone.');
+  await expect(purge).toContainText('Copies may remain in backups of this server until those backups are replaced.');
+  await expectAccessible(page, 'permanent deletion dialog');
+  await purge.getByRole('button', { name: 'Delete permanently' }).click();
+  await expect(page.getByRole('status').filter({ hasText: 'Deleted for good: 0 documents, 1 folders, 0 files.' })).toBeVisible();
+  await expect(page.getByText('Trash is empty.')).toBeVisible();
+  await page.getByRole('link', { name: 'Back to Documents' }).click();
+  await expect(page.getByRole('link', { name: /^Water( \(restored\))?\s*\d+ document/ })).toHaveText([/Water \(restored\)\s*1 document/]);
+  // Switched off again: gone from the navigation for everyone, and its address answers like an unknown page. Nothing was deleted.
+  await fromMenu(page, 'Workspace settings');
+  // Storage (16.4): what the Workspace stores, by tool, and its own limit below what the server admin allows.
+  const storageCard = page.locator('.card').filter({ has: page.getByRole('heading', { name: 'Storage', exact: true }) });
+  await expect(storageCard).toContainText(/of 5 GB used/);
+  await expect(storageCard).toContainText('Documents — original files');
+  await expect(storageCard).toContainText('Trash');
+  await storageCard.getByLabel('Own lower limit (GB)').fill('2');
+  await storageCard.getByRole('button', { name: 'Save limit' }).click();
+  await expect(storageCard.getByRole('status')).toHaveText('Limit saved: 2 GB.');
+  await expect(storageCard).toContainText(/of 2 GB used/);
+  await expectAccessible(page, 'workspace settings with storage');
+  await storageCard.getByRole('button', { name: 'Remove own limit' }).click();
+  await expect(storageCard.getByRole('status')).toHaveText('Own limit removed. The limit is now 5 GB.');
+  await page.getByRole('checkbox', { name: /^Documents/ }).uncheck();
+  await expect(page.getByRole('status').filter({ hasText: 'Documents is switched off. Nothing was deleted.' })).toBeVisible();
+  await expect(sections.getByRole('link', { name: 'Documents' })).toHaveCount(0);
+  await page.goto(`${workspacePath}/documents`);
+  await expect(page.getByRole('alert')).toContainText('This page does not exist');
+  await fromMenu(page, 'Workspace settings');
+  await page.getByRole('checkbox', { name: /^Documents/ }).check();
+  await sections.getByRole('link', { name: 'Documents' }).click();
+  await expect(page.getByRole('link', { name: /^Water \(restored\)/ })).toBeVisible();
+  await sections.getByRole('link', { name: 'Today' }).click();
+
   // Calendar (14.4): the Occurrences Home shows, with the same actions; planned dates of a series;
   // filters remembered per viewer; arrow keys between days; an agenda that fits a phone.
   await sections.getByRole('link', { name: 'Calendar' }).click();
@@ -1195,6 +1468,21 @@ test('first server admin: bootstrap link, account creation, sign-in, Workspace c
   await page.getByLabel('Recently used Procedures').fill('5');
   await page.getByRole('button', { name: 'Save', exact: true }).click();
   await expect(page.getByRole('status').filter({ hasText: 'The Procedures page shows 5 recently used Procedures.' })).toBeVisible();
+  // Storage (16.4): every Workspace with what it stores and the most it may store; file size and formats for new uploads.
+  const allStorage = page.getByRole('region', { name: 'Workspace storage' });
+  const household = allStorage.getByRole('listitem').filter({ hasText: 'Household' });
+  await expect(household).toContainText(/of 5 GB used/);
+  await household.getByLabel('Limit for Household (GB)').fill('6');
+  await household.getByRole('button', { name: 'Save limit' }).click();
+  await expect(allStorage.getByRole('status')).toHaveText('Limit for Household saved: 6 GB.');
+  await expect(household).toContainText(/of 6 GB used/);
+  const fileSettings = page.getByRole('region', { name: 'Document files' });
+  await expect(fileSettings.getByLabel('Largest file (MB, 1 to 100)')).toHaveValue('50');
+  for (const format of ['PDF', 'JPEG', 'PNG', 'HEIC']) await expect(fileSettings.getByRole('checkbox', { name: format })).toBeChecked();
+  await fileSettings.getByLabel('Largest file (MB, 1 to 100)').fill('40');
+  await fileSettings.getByRole('button', { name: 'Save file settings' }).click();
+  await expect(fileSettings.getByRole('status')).toHaveText('Saved: files up to 40 MB; formats: PDF, JPEG, PNG, HEIC.');
+  await expectAccessible(page, 'server storage settings');
 
   // Account → Notifications (13.8): own default reminder time and channels; no provider secrets here.
   await fromMenu(page, 'Profile & settings');

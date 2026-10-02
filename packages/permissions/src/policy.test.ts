@@ -13,8 +13,8 @@ describe('Workspace role policy', () => {
     // Changing this table is a security-relevant change: update docu/security.md §3 as well.
     const matrix = Object.fromEntries(WORKSPACE_ROLES.map((role) => [role, capabilitiesOf(role)]));
     expect(matrix).toEqual({
-      GUEST: ['workspace.view', 'procedure.view', 'run.view', 'list.view'],
-      USER: ['workspace.view', 'workspace.members.view', 'procedure.view', 'run.view', 'run.start', 'run.execute', 'run.abort', 'schedule.manage', 'list.view', 'list.edit'],
+      GUEST: ['workspace.view', 'procedure.view', 'run.view', 'list.view', 'document.view'],
+      USER: ['workspace.view', 'workspace.members.view', 'procedure.view', 'run.view', 'run.start', 'run.execute', 'run.abort', 'schedule.manage', 'list.view', 'list.edit', 'document.view', 'document.manage'],
       EDITOR: [
         'workspace.view',
         'workspace.members.view',
@@ -29,6 +29,8 @@ describe('Workspace role policy', () => {
         'schedule.manage',
         'list.view',
         'list.edit',
+        'document.view',
+        'document.manage',
       ],
       ADMIN: [...WORKSPACE_CAPABILITIES],
     });
@@ -42,7 +44,7 @@ describe('Workspace role policy', () => {
     expect(rolesWithCapability('procedure.edit')).toEqual(['EDITOR', 'ADMIN']);
     expect(rolesWithCapability('procedure.restore')).toEqual(['EDITOR', 'ADMIN']);
     expect(rolesWithCapability('knot.manage')).toEqual(['EDITOR', 'ADMIN']);
-    for (const capability of ['run.start', 'run.execute', 'run.abort', 'schedule.manage', 'list.edit'] as const) {
+    for (const capability of ['run.start', 'run.execute', 'run.abort', 'schedule.manage', 'list.edit', 'document.manage'] as const) {
       expect(rolesWithCapability(capability)).toEqual(['USER', 'EDITOR', 'ADMIN']);
     }
   });
@@ -56,8 +58,12 @@ describe('Workspace role policy', () => {
     });
   });
 
-  it('only lets ADMIN manage members', () => {
+  it('only lets ADMIN manage members and switch tools', () => {
     expect(rolesWithCapability('workspace.members.manage')).toEqual(['ADMIN']);
+    expect(rolesWithCapability('workspace.tools.manage')).toEqual(['ADMIN']);
+    // Deleting for good is an admin's decision (16.4): a USER or Editor restores from Trash, never empties it.
+    expect(rolesWithCapability('document.purge')).toEqual(['ADMIN']);
+    expect(rolesWithCapability('workspace.settings.manage')).toEqual(['ADMIN']); // also: the Workspace's storage limit
   });
 
   it('rejects unknown roles instead of granting anything', () => {

@@ -1,4 +1,4 @@
-import { imageUsage, listWorkspaceImageStorage, readStepImage, setWorkspaceImageQuota, uploadStepImage, type ImageUsage } from '@vergissmeinnicht/application';
+import { imageUsage, readStepImage, uploadStepImage, type ImageUsage } from '@vergissmeinnicht/application';
 import { MAX_IMAGE_UPLOAD_BYTES, UUID_V4, type WorkspaceId } from '@vergissmeinnicht/domain';
 import type { FastifyInstance, FastifyRequest } from 'fastify';
 import { z } from 'zod';
@@ -11,8 +11,6 @@ const uuid = z.string().regex(UUID_V4);
 const workspaceParams = z.strictObject({ workspaceId: uuid });
 const imageParams = z.strictObject({ workspaceId: uuid, imageId: uuid });
 const uploadQuery = z.strictObject({ replacing: uuid.optional() });
-const quotaParams = z.strictObject({ id: uuid });
-const quotaBody = z.strictObject({ quota: z.number().int().min(0).max(Number.MAX_SAFE_INTEGER) });
 
 function parse<T>(schema: z.ZodType<T>, value: unknown): T {
   const parsed = schema.safeParse(value);
@@ -25,7 +23,8 @@ function principalOf(request: FastifyRequest): Principal {
   return request.principal;
 }
 
-const usageView = (usage: ImageUsage) => ({ usedBytes: usage.used, quotaBytes: usage.quota });
+/** Used and limit of the Workspace's combined storage (16.4) — what an author needs; the breakdown is for admins. */
+const usageView = (usage: ImageUsage) => ({ usedBytes: usage.used, limitBytes: usage.limit });
 
 /**
  * Instruction images of a Workspace (14.3). Uploads are raw bytes (`application/octet-stream`, at most
@@ -71,37 +70,4 @@ export async function imageRoutes(app: FastifyInstance, { services }: { services
     const bytes = await readStepImage(deps, { actor: principalOf(request).user, workspaceId: workspaceId as WorkspaceId, imageId });
     return reply.type('image/jpeg').header('Content-Disposition', 'inline; filename="image.jpg"').send(Buffer.from(bytes));
   });
-}
-
-/** Server admin: image storage per Workspace and the quota choices (D11a). */
-export async function adminImageStorageRoutes(app: FastifyInstance, { services }: { services: AppServices }) {
-  const deps = services.images;
-  app.addHook('preHandler', requireUser(services));
-
-  app.get('/', async (request) => {
-    const storage = await listWorkspaceImageStorage(deps, { actor: principalOf(request).user });
-    return { workspaces: storage.map((entry) => ({ id: entry.workspaceId, name: entry.name, ...usageView(entry.usage) })) };
-  });
-
-  app.post(
-    '/:id/quota',
-    {
-      bodyLimit: 1024,
-      config: {
-        rateLimit: {
-          persist: 'admin-image-quota',
-          max: 30,
-          timeWindow: 15 * MINUTE_MS,
-          hook: 'preHandler',
-          keyGenerator: (request: FastifyRequest) => `admin-image-quota:${request.principal?.user.id ?? request.ip}`,
-        },
-      },
-    },
-    async (request, reply) => {
-      const { id } = parse(quotaParams, request.params);
-      const { quota } = parse(quotaBody, request.body);
-      await setWorkspaceImageQuota(deps, { actor: principalOf(request).user, workspaceId: id as WorkspaceId, quota });
-      return reply.code(204).send();
-    },
-  );
 }

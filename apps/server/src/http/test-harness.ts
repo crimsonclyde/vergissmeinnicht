@@ -53,7 +53,7 @@ export async function startTestApp(
     LOG_LEVEL: 'info',
   });
   const mediaDir = mkdtempSync(join(tmpdir(), 'vmn-test-media-'));
-  const testConfig = { ...config, mediaPath: mediaDir };
+  const testConfig = { ...config, mediaPath: mediaDir, documentsPath: join(mediaDir, 'documents') };
   const build = () =>
     buildApp({
       trustedProxies: options.trustedProxies,

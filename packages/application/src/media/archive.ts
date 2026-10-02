@@ -6,7 +6,7 @@ import type { ProcedureDetail } from '../ports/procedure-repository.ts';
 import { importProcedure, type ProcedureDeps, type ProcedureInput } from '../procedures/use-cases.ts';
 import { userActor } from '../user-actor.ts';
 import { authorizeWorkspace } from '../workspaces/use-cases.ts';
-import { ImageQuotaExceededError } from './errors.ts';
+import { StorageFullError } from '../documents/errors.ts';
 import { IMAGE_PENDING_MS, type ImageDeps } from './use-cases.ts';
 
 export interface ImportedImage {
@@ -42,7 +42,7 @@ export async function importProcedureArchive(
   // Nothing is written when the images cannot fit (the registration below still enforces it atomically).
   const usage = await deps.images.usage(input.workspaceId, pendingSince);
   const needed = processed.reduce((sum, entry) => sum + entry.result.jpeg.byteLength, 0);
-  if (usage.used + needed > usage.quota) throw new ImageQuotaExceededError(usage);
+  if (usage.used + needed > usage.limit) throw new StorageFullError(usage);
 
   const registered: StepImageId[] = [];
   const refs = new Map<string, { id: string; caption: string }>();
@@ -55,7 +55,7 @@ export async function importProcedureArchive(
         { actorMay: (role) => roleHasCapability(role, 'procedure.edit') },
       );
       if (outcome.status === 'forbidden') throw new NotAuthorizedError();
-      if (outcome.status === 'quota_exceeded') throw new ImageQuotaExceededError(outcome.usage);
+      if (outcome.status === 'quota_exceeded') throw new StorageFullError(outcome.usage);
       // Only rows this import created are released on failure — not a same-content image already there.
       if (outcome.image.createdAt.getTime() === now.getTime()) registered.push(outcome.image.id);
       refs.set(`${image.section}:${image.step}`, { id: outcome.image.id, caption: image.caption });

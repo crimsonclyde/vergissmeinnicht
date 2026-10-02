@@ -75,7 +75,7 @@ describe('instruction images over HTTP (14.3)', () => {
     expect(response.statusCode).toBe(201);
     const { image, usage } = response.json();
     expect(image).toMatchObject({ width: 1600, height: 800 });
-    expect(usage.quotaBytes).toBe(100_000_000);
+    expect(usage.limitBytes).toBe(5_000_000_000); // the Workspace's combined storage (16.4)
     expect(usage.usedBytes).toBe(image.bytes);
 
     const served = await t.get(`/api/workspaces/${home}/images/${image.id}`, guest);
@@ -174,14 +174,16 @@ describe('instruction images over HTTP (14.3)', () => {
     expect(copy.json().procedure.sections[0].steps[0].image).toEqual({ id: image.id, caption: 'Valve' });
   });
 
-  it('lets server admins see usage and choose a quota; nobody else', async () => {
-    const storage = await t.get('/api/admin/image-storage', t.admin);
+  it('charges images to the combined Workspace storage, whose ceiling only a server admin sets (16.4)', async () => {
+    const storage = await t.get('/api/admin/storage', t.admin);
     expect(storage.statusCode).toBe(200);
-    expect(storage.json().workspaces.find((w: { id: string }) => w.id === home)).toMatchObject({ name: 'Home', quotaBytes: 100_000_000 });
-    expect((await t.get('/api/admin/image-storage', editor)).statusCode).toBe(403);
-    expect((await t.post(`/api/admin/image-storage/${home}/quota`, { quota: 1_000_000_000 }, editor)).statusCode).toBe(403);
-    expect((await t.post(`/api/admin/image-storage/${home}/quota`, { quota: 123 }, t.admin)).json()).toMatchObject({ error: 'invalid_image_quota' });
-    expect((await t.post(`/api/admin/image-storage/${home}/quota`, { quota: 250_000_000 }, t.admin)).statusCode).toBe(204);
-    expect((await t.get(`/api/workspaces/${home}/images/usage`, guest)).json().usage.quotaBytes).toBe(250_000_000);
+    expect(storage.json().workspaces.find((w: { id: string }) => w.id === home)).toMatchObject({ name: 'Home', limitBytes: 5_000_000_000, ceilingBytes: 5_000_000_000, ownLimitBytes: null });
+    expect((await t.get('/api/admin/storage', editor)).statusCode).toBe(403);
+    expect((await t.post(`/api/admin/storage/${home}/ceiling`, { bytes: 1_000_000_000 }, editor)).statusCode).toBe(403);
+    expect((await t.post(`/api/admin/storage/${home}/ceiling`, { bytes: 123 }, t.admin)).json()).toMatchObject({ error: 'invalid_storage_ceiling' });
+    expect((await t.post(`/api/admin/storage/${home}/ceiling`, { bytes: 250_000_000 }, t.admin)).statusCode).toBe(204);
+    expect((await t.get(`/api/workspaces/${home}/images/usage`, guest)).json().usage.limitBytes).toBe(250_000_000);
+    // The old image-quota routes are gone.
+    expect((await t.get('/api/admin/image-storage', t.admin)).statusCode).toBe(404);
   });
 });

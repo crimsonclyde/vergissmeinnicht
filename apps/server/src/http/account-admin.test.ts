@@ -1,6 +1,9 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { PASSWORD, startTestApp } from './test-harness.ts';
 
+/** The document file limits of a fresh server (16.1). */
+const DOCUMENT_DEFAULTS = { documentMaxFileBytes: 50_000_000, documentFormats: ['PDF', 'JPEG', 'PNG', 'HEIC'] };
+
 describe('server-admin account status API', () => {
   let t: Awaited<ReturnType<typeof startTestApp>>;
   let bob: string;
@@ -107,7 +110,7 @@ describe('server-admin account status API', () => {
     expect((await t.get('/api/about')).json().footerHidden).toBe(false);
 
     const changed = await t.post('/api/admin/settings', { footerHidden: true }, t.admin);
-    expect(changed.json()).toEqual({ settings: { footerHidden: true, recentProceduresLimit: 5 } });
+    expect(changed.json()).toEqual({ settings: { footerHidden: true, recentProceduresLimit: 5, ...DOCUMENT_DEFAULTS } });
     // Public, also before sign-in; the source link stays available.
     expect((await t.get('/api/about')).json()).toEqual({
       license: 'AGPL-3.0-only',
@@ -127,8 +130,8 @@ describe('server-admin account status API', () => {
     for (const value of [-1, 21, 2.5, '5', null]) {
       expect((await t.post('/api/admin/settings', { recentProceduresLimit: value }, t.admin)).statusCode).toBe(400);
     }
-    expect((await t.post('/api/admin/settings', { recentProceduresLimit: 0 }, t.admin)).json()).toEqual({ settings: { footerHidden: false, recentProceduresLimit: 0 } });
-    expect((await t.get('/api/admin/settings', t.admin)).json()).toEqual({ settings: { footerHidden: false, recentProceduresLimit: 0 } });
+    expect((await t.post('/api/admin/settings', { recentProceduresLimit: 0 }, t.admin)).json()).toEqual({ settings: { footerHidden: false, recentProceduresLimit: 0, ...DOCUMENT_DEFAULTS } });
+    expect((await t.get('/api/admin/settings', t.admin)).json()).toEqual({ settings: { footerHidden: false, recentProceduresLimit: 0, ...DOCUMENT_DEFAULTS } });
     const log = (await t.get('/api/admin/security-events', t.admin)).json() as { events: { type: string; metadata: object }[] };
     expect(log.events[0]).toMatchObject({ type: 'INSTANCE_SETTINGS_CHANGED', metadata: { recentProceduresLimit: 0 } });
   });

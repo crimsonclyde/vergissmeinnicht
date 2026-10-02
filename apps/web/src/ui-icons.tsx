@@ -12,6 +12,9 @@ import {
   IconDatabase,
   IconDeviceFloppy,
   IconDots,
+  IconDownload,
+  IconFileText,
+  IconFolder,
   IconGripVertical,
   IconHistory,
   IconHome,
@@ -23,6 +26,8 @@ import {
   IconPlus,
   IconSettings,
   IconShoppingCart,
+  IconTrash,
+  IconUpload,
   IconUser,
   IconX,
 } from '@tabler/icons-react';
@@ -59,6 +64,11 @@ const ICONS = {
   photo: IconPhoto,
   warning: IconAlertTriangle,
   undo: IconArrowBackUp,
+  documents: IconFileText,
+  folder: IconFolder,
+  download: IconDownload,
+  trash: IconTrash,
+  upload: IconUpload,
 } as const;
 
 export type UiIconName = keyof typeof ICONS;

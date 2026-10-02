@@ -45,17 +45,25 @@ export const WORKSPACE_CAPABILITIES = [
   'list.view',
   /** Create, rename, delete and restore Lists; add, edit, check and remove their items. */
   'list.edit',
+  /** See Documents and their files: preview and download originals (16.1; every role, guests included — H4). */
+  'document.view',
+  /** Upload files and manage Documents (USER and above; a GUEST never writes). */
+  'document.manage',
+  /** Delete Documents and Folders for good — only out of Trash, only a Workspace admin (16.4, H11). */
+  'document.purge',
+  /** Switch the optional tools of the Workspace (Documents, …) on and off (16.2). */
+  'workspace.tools.manage',
 ] as const;
 export type WorkspaceCapability = (typeof WORKSPACE_CAPABILITIES)[number];
 
 /** Read-only: Workspace content and history, no execution. */
-const GUEST: readonly WorkspaceCapability[] = ['workspace.view', 'procedure.view', 'run.view', 'list.view'];
+const GUEST: readonly WorkspaceCapability[] = ['workspace.view', 'procedure.view', 'run.view', 'list.view', 'document.view'];
 /** Executes Runs. */
-const USER: readonly WorkspaceCapability[] = [...GUEST, 'workspace.members.view', 'run.start', 'run.execute', 'run.abort', 'schedule.manage', 'list.edit'];
+const USER: readonly WorkspaceCapability[] = [...GUEST, 'workspace.members.view', 'run.start', 'run.execute', 'run.abort', 'schedule.manage', 'list.edit', 'document.manage'];
 /** Authors Procedures. */
 const EDITOR: readonly WorkspaceCapability[] = [...USER, 'procedure.edit', 'procedure.restore', 'knot.manage'];
 /** Manages membership, roles and settings. */
-const ADMIN: readonly WorkspaceCapability[] = [...EDITOR, 'workspace.members.manage', 'workspace.settings.manage'];
+const ADMIN: readonly WorkspaceCapability[] = [...EDITOR, 'workspace.members.manage', 'workspace.settings.manage', 'workspace.tools.manage', 'document.purge'];
 
 const ROLE_CAPABILITIES: Readonly<Record<WorkspaceRole, ReadonlySet<WorkspaceCapability>>> = Object.freeze({
   GUEST: new Set(GUEST),

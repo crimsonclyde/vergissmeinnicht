@@ -48,6 +48,12 @@ const DYNAMIC_PREFIXES = [
   'admin.section.',
   'builder.problem.',
   'policy.short.',
+  // Documents (16.2): built-in type names by key, refusal reasons by the server's stable code.
+  'documents.type.',
+  'documents.rejected.',
+  // Finding Documents (16.3): the orders and the two views by name.
+  'documents.find.sort.',
+  'documents.find.view.',
 ];
 
 describe('message catalog', () => {

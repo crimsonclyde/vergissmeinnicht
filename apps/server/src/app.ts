@@ -10,7 +10,10 @@ import { accountRoutes } from './http/account-routes.ts';
 import { authRoutes } from './http/auth-routes.ts';
 import { errorHandler } from './http/errors.ts';
 import { calendarRoutes, homeRoutes } from './http/home-routes.ts';
-import { adminImageStorageRoutes, imageRoutes } from './http/image-routes.ts';
+import { documentFileRoutes } from './http/document-file-routes.ts';
+import { documentFolderRoutes, documentRoutes, documentTypeRoutes, workspaceToolRoutes } from './http/document-routes.ts';
+import { imageRoutes } from './http/image-routes.ts';
+import { adminStorageRoutes, workspaceStorageRoutes } from './http/storage-routes.ts';
 import { adminInvitationRoutes, invitationRoutes } from './http/invitation-routes.ts';
 import { knotRoutes, workspaceKnotRoutes } from './http/knot-routes.ts';
 import { listRoutes } from './http/list-routes.ts';
@@ -42,7 +45,19 @@ export interface RouteEntry {
   readonly url: string;
 }
 
+/** Ordinary requests must have arrived completely within this time (slow clients cannot hold connections). */
+const REQUEST_BODY_DEADLINE_MS = 30_000;
+/** Routes that receive a large file (`config.slowBody`) get this long: 100 MB at about 1 Mbit/s. */
+const SLOW_BODY_DEADLINE_MS = 15 * 60_000;
+
 declare module 'fastify' {
+  interface FastifyContextConfig {
+    /** The route receives a large streamed body (a document upload): the short body deadline does not apply. */
+    slowBody?: boolean;
+  }
+  interface FastifyRequest {
+    bodyDeadline: NodeJS.Timeout | null;
+  }
   interface FastifyInstance {
     /** Every registered route (method + URL pattern), in registration order. */
     readonly routeTable: readonly RouteEntry[];
@@ -60,8 +75,10 @@ export async function buildApp(options: AppOptions = {}) {
     // Forwarding headers are believed only from explicitly configured proxies (TRUSTED_PROXIES, 10.3);
     // otherwise the socket address is the client address.
     trustProxy: options.trustedProxies !== undefined && options.trustedProxies.length > 0 ? [...options.trustedProxies] : false,
-    // Slow clients cannot hold a connection open while sending a request (does not limit SSE responses).
-    requestTimeout: 30_000,
+    // The hard limit for receiving any request — sized for document uploads (16.1). Every other route
+    // keeps the 30-second deadline through the hook below; a connection idle for a minute is closed in
+    // either case. Neither limits SSE responses.
+    requestTimeout: SLOW_BODY_DEADLINE_MS,
     connectionTimeout: 60_000,
     // JSON bodies are small; routes that need more (e.g. imports) must raise this explicitly.
     bodyLimit: 64 * 1024,
@@ -70,6 +87,21 @@ export async function buildApp(options: AppOptions = {}) {
   app.removeContentTypeParser('text/plain');
   app.setErrorHandler(errorHandler);
   app.decorateRequest('principal', null);
+  // Slow clients cannot hold a connection open while sending a request: unless the route expects a
+  // large upload, the whole request must have arrived (been parsed) within 30 seconds.
+  app.decorateRequest('bodyDeadline', null);
+  const clearBodyDeadline = async (request: { bodyDeadline: NodeJS.Timeout | null }) => {
+    if (request.bodyDeadline !== null) clearTimeout(request.bodyDeadline);
+    request.bodyDeadline = null;
+  };
+  app.addHook('onRequest', async (request) => {
+    if (request.routeOptions.config.slowBody === true) return;
+    request.bodyDeadline = setTimeout(() => request.raw.destroy(), REQUEST_BODY_DEADLINE_MS);
+    request.bodyDeadline.unref();
+  });
+  app.addHook('preValidation', clearBodyDeadline);
+  app.addHook('onResponse', clearBodyDeadline);
+  app.addHook('onRequestAbort', clearBodyDeadline);
   // Every registered route, so tests can prove authentication and Workspace isolation for all of
   // them — including routes added later — instead of a hand-maintained list (13.2).
   const routeTable: RouteEntry[] = [];
@@ -81,6 +113,7 @@ export async function buildApp(options: AppOptions = {}) {
   const services = options.services?.(app.log);
   if (services !== undefined) {
     app.addHook('onRequest', originGuard(services.publicOrigin));
+    app.addHook('onClose', () => services.closeDocumentFiles());
   }
 
   await app.register(fastifyRateLimit, {
@@ -150,7 +183,7 @@ export async function buildApp(options: AppOptions = {}) {
         await api.register(adminSecurityEventRoutes, { prefix: '/admin/security-events', services });
         await api.register(adminSettingsRoutes, { prefix: '/admin/settings', services });
         await api.register(adminNotificationRoutes, { prefix: '/admin/notifications', services });
-        await api.register(adminImageStorageRoutes, { prefix: '/admin/image-storage', services });
+        await api.register(adminStorageRoutes, { prefix: '/admin/storage', services });
         await api.register(workspaceRoutes, { prefix: '/workspaces', services });
         await api.register(procedureRoutes, { prefix: '/workspaces/:workspaceId/procedures', services });
         await api.register(runRoutes, { prefix: '/workspaces/:workspaceId/runs', services });
@@ -159,6 +192,12 @@ export async function buildApp(options: AppOptions = {}) {
         await api.register(homeRoutes, { prefix: '/workspaces/:workspaceId/home', services });
         await api.register(calendarRoutes, { prefix: '/workspaces/:workspaceId/calendar', services });
         await api.register(imageRoutes, { prefix: '/workspaces/:workspaceId/images', services });
+        await api.register(workspaceStorageRoutes, { prefix: '/workspaces/:workspaceId/storage', services });
+        await api.register(workspaceToolRoutes, { prefix: '/workspaces/:workspaceId/tools', services });
+        await api.register(documentFileRoutes, { prefix: '/workspaces/:workspaceId/document-files', services });
+        await api.register(documentFolderRoutes, { prefix: '/workspaces/:workspaceId/document-folders', services });
+        await api.register(documentRoutes, { prefix: '/workspaces/:workspaceId/documents', services });
+        await api.register(documentTypeRoutes, { prefix: '/workspaces/:workspaceId/document-types', services });
         await api.register(workspaceKnotRoutes, { prefix: '/workspaces/:workspaceId/knots', services });
         await api.register(listRoutes, { prefix: '/workspaces/:workspaceId/lists', services });
         await api.register(knotRoutes, { prefix: '/knots', services });

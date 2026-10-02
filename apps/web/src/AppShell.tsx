@@ -3,6 +3,7 @@ import { AccountSecurity } from './AccountSecurity.tsx';
 import { AdminPage } from './AdminPage.tsx';
 import { AppearanceSettings } from './AppearanceSettings.tsx';
 import { CriticalConfirmSettings } from './CriticalConfirmSettings.tsx';
+import { Documents } from './Documents.tsx';
 import { PreferencesProvider } from './preferences.tsx';
 import { OfflineBanner, useOffline } from './offline/OfflineProvider.tsx';
 import { offlineStore } from './offline/store.ts';
@@ -59,15 +60,20 @@ interface Destination {
 /**
  * The tools (15.1). Desktop sidebar: Today, Procedures, Reminders, Lists, Calendar. Phone bottom bar:
  * Today, Procedures, Lists and More — More leads to Reminders, Calendar and the completed history.
+ * `tools`: the optional tools the Workspace has switched on (UI only; every request is checked).
  */
-export function destinations(workspaceId: string): { side: Destination[]; bar: Destination[] } {
+export function destinations(workspaceId: string, tools: readonly string[] = []): { side: Destination[]; bar: Destination[] } {
   const today: Destination = { href: paths.home(workspaceId), label: t('shell.today'), icon: 'today', pages: ['workspace'] };
   const procedures: Destination = { href: paths.procedures(workspaceId), label: t('shell.procedures'), icon: 'procedures', pages: ['procedures', 'procedure-edit'] };
   const reminders: Destination = { href: paths.reminders(workspaceId), label: t('shell.reminders'), icon: 'reminders', pages: ['reminders'] };
   const lists: Destination = { href: paths.lists(workspaceId), label: t('shell.lists'), icon: 'lists', pages: ['lists'] };
   const calendar: Destination = { href: paths.calendar(workspaceId), label: t('shell.calendar'), icon: 'calendar', pages: ['calendar'] };
-  const more: Destination = { href: paths.more(workspaceId), label: t('shell.more'), icon: 'more', pages: ['more', 'reminders', 'calendar', 'history'] };
-  return { side: [today, procedures, reminders, lists, calendar], bar: [today, procedures, lists, more] };
+  // Optional tools (16.2) follow the fixed ones in the sidebar; on phones they are reached through More —
+  // the bottom bar keeps exactly four destinations.
+  const documents: Destination = { href: paths.documents(workspaceId), label: t('shell.documents'), icon: 'documents', pages: ['documents'] };
+  const optional = tools.includes('DOCUMENTS') ? [documents] : [];
+  const more: Destination = { href: paths.more(workspaceId), label: t('shell.more'), icon: 'more', pages: ['more', 'reminders', 'calendar', 'history', ...optional.flatMap((tool) => tool.pages)] };
+  return { side: [today, procedures, reminders, lists, calendar, ...optional], bar: [today, procedures, lists, more] };
 }
 
 function NavLinks({ items, page }: { items: readonly Destination[]; page: Page }) {
@@ -97,7 +103,7 @@ function WorkspacePage(props: {
   const load = useCallback(() => {
     api.workspace(route.workspaceId).then(
       (result) => {
-        setContext({ workspace: result.workspace, capabilities: result.capabilities });
+        setContext({ workspace: result.workspace, capabilities: result.capabilities, tools: result.tools });
         setMessage(null);
         rememberWorkspace(result.workspace.id);
         void offlineStore.saveWorkspace(userId, { workspace: result.workspace, capabilities: result.capabilities });
@@ -106,7 +112,8 @@ function WorkspacePage(props: {
         // Offline: the Workspace as last seen on this device (UI only; the server decides on every change).
         const saved = isNetworkError(caught) ? await offlineStore.loadWorkspace(userId, route.workspaceId) : undefined;
         if (saved !== undefined) {
-          setContext({ workspace: saved.workspace, capabilities: saved.capabilities });
+          // Optional tools do not work offline: none are offered from the saved copy.
+          setContext({ workspace: saved.workspace, capabilities: saved.capabilities, tools: [] });
           setMessage(null);
           return;
         }
@@ -125,7 +132,8 @@ function WorkspacePage(props: {
     props.onWorkspacesChanged();
   };
   /** What the person may create here (UI only): drives the Add chooser. */
-  const canAdd = { procedure: can('procedure.edit'), reminder: can('schedule.manage'), list: can('list.edit') };
+  const documentsOn = context.tools.includes('DOCUMENTS');
+  const canAdd = { procedure: can('procedure.edit'), reminder: can('schedule.manage'), list: can('list.edit'), document: documentsOn && can('document.manage') };
   const settings = (current: 'settings' | 'members' | 'knots', content: ReactNode) => (
     <SettingsLayout
       title={t('menu.workspaceSettings')}
@@ -177,7 +185,16 @@ function WorkspacePage(props: {
         />
       );
     case 'more':
-      return <MorePage workspaceId={route.workspaceId} />;
+      return <MorePage workspaceId={route.workspaceId} tools={context.tools} />;
+    case 'documents':
+      // Not switched on here: the tool does not exist for this Workspace (the server answers 404 as well).
+      return documentsOn ? (
+        <Documents key={`${route.view}:${route.folderId ?? ''}:${route.documentId ?? ''}`} workspaceId={route.workspaceId} route={route} canManage={can('document.manage')} canPurge={can('document.purge')} />
+      ) : (
+        <p role="alert">
+          {t('shell.notFound')} <Link href={paths.home(route.workspaceId)}>{t('common.startPage')}</Link>.
+        </p>
+      );
     case 'history':
     case 'run':
       return (
@@ -291,6 +308,7 @@ function AccountPage({ user, section }: { user: CurrentUser; section: Extract<Ro
 function widthOf(route: Route): 'narrow' | 'wide' | undefined {
   if (route.page === 'procedure-edit') return 'wide';
   if (route.page === 'lists' || route.page === 'more' || route.page === 'workspace' || route.page === 'reminders') return 'narrow';
+  if (route.page === 'documents' && route.view === 'new') return 'narrow';
   return undefined;
 }
 
@@ -332,7 +350,7 @@ export function AppShell(props: { user: CurrentUser; route: Route; onSignOut: ()
   // On pages without a Workspace (settings, admin) the tools stay reachable: they lead to the last used one.
   const remembered = workspaceId === null ? rememberedWorkspace() : null;
   const navWorkspaceId = workspaceId ?? workspaces?.find((workspace) => workspace.id === remembered)?.id ?? null;
-  const nav = navWorkspaceId === null ? null : destinations(navWorkspaceId);
+  const nav = navWorkspaceId === null ? null : destinations(navWorkspaceId, workspaces?.find((workspace) => workspace.id === navWorkspaceId)?.tools ?? []);
   // Focused work hides the global navigation: the builder everywhere, an execution on phones.
   const focus = route.page === 'procedure-edit' ? 'edit' : route.page === 'run' ? 'run' : undefined;
 

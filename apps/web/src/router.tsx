@@ -86,6 +86,11 @@ export type Route =
   | { readonly page: 'reminders'; readonly workspaceId: string; readonly creating: boolean }
   /** Lists (15.3): the overview (`listId` null), one List, or the New list dialog (`creating`). */
   | { readonly page: 'lists'; readonly workspaceId: string; readonly listId: string | null; readonly creating: boolean }
+  /**
+   * Documents (16.2): a Folder (`folderId` null = top level), one Document, the upload flow into a
+   * Folder (`view: 'new'`) or Trash.
+   */
+  | { readonly page: 'documents'; readonly workspaceId: string; readonly view: 'folder' | 'new' | 'document' | 'trash'; readonly folderId: string | null; readonly documentId: string | null }
   /** Calendar and agenda of Occurrences (14.4). */
   | { readonly page: 'calendar'; readonly workspaceId: string }
   /** Phone: what does not fit the bottom bar — Reminders, Calendar, Completed history. */
@@ -130,6 +135,14 @@ export function parseRoute(pathname: string): Route {
   if ((match = new RegExp(`^/w/${ID}/reminders(/new)?$`).exec(path))) return { page: 'reminders', workspaceId: match[1] ?? '', creating: match[2] !== undefined };
   if ((match = new RegExp(`^/w/${ID}/lists(/new)?$`).exec(path))) return { page: 'lists', workspaceId: match[1] ?? '', listId: null, creating: match[2] !== undefined };
   if ((match = new RegExp(`^/w/${ID}/lists/${ID}$`).exec(path))) return { page: 'lists', workspaceId: match[1] ?? '', listId: match[2] ?? null, creating: false };
+  if ((match = new RegExp(`^/w/${ID}/documents(/new|/trash)?$`).exec(path))) {
+    const view = match[2] === '/new' ? 'new' : match[2] === '/trash' ? 'trash' : 'folder';
+    return { page: 'documents', workspaceId: match[1] ?? '', view, folderId: null, documentId: null };
+  }
+  if ((match = new RegExp(`^/w/${ID}/documents/folders/${ID}(/new)?$`).exec(path))) {
+    return { page: 'documents', workspaceId: match[1] ?? '', view: match[3] === undefined ? 'folder' : 'new', folderId: match[2] ?? null, documentId: null };
+  }
+  if ((match = new RegExp(`^/w/${ID}/documents/${ID}$`).exec(path))) return { page: 'documents', workspaceId: match[1] ?? '', view: 'document', folderId: null, documentId: match[2] ?? null };
   if ((match = new RegExp(`^/w/${ID}/calendar$`).exec(path))) return { page: 'calendar', workspaceId: match[1] ?? '' };
   if ((match = new RegExp(`^/w/${ID}/more$`).exec(path))) return { page: 'more', workspaceId: match[1] ?? '' };
   // `/runs` is the address of the former Run list (bookmarks keep working).
@@ -158,6 +171,11 @@ export const paths = {
   lists: (workspaceId: string) => `/w/${workspaceId}/lists`,
   newList: (workspaceId: string) => `/w/${workspaceId}/lists/new`,
   list: (workspaceId: string, listId: string) => `/w/${workspaceId}/lists/${listId}`,
+  /** Documents: the top level, or one Folder. */
+  documents: (workspaceId: string, folderId: string | null = null) => `/w/${workspaceId}/documents${folderId === null ? '' : `/folders/${folderId}`}`,
+  newDocument: (workspaceId: string, folderId: string | null = null) => `${paths.documents(workspaceId, folderId)}/new`,
+  document: (workspaceId: string, documentId: string) => `/w/${workspaceId}/documents/${documentId}`,
+  documentTrash: (workspaceId: string) => `/w/${workspaceId}/documents/trash`,
   calendar: (workspaceId: string) => `/w/${workspaceId}/calendar`,
   more: (workspaceId: string) => `/w/${workspaceId}/more`,
   history: (workspaceId: string) => `/w/${workspaceId}/history`,

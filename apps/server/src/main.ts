@@ -1,5 +1,5 @@
 import { resolve } from 'node:path';
-import { purgeUnusedImages } from '@vergissmeinnicht/application';
+import { purgeUnusedDocumentFiles, purgeUnusedImages } from '@vergissmeinnicht/application';
 import { openDatabase } from '@vergissmeinnicht/database';
 import { buildApp } from './app.ts';
 import { createServices } from './composition.ts';
@@ -37,9 +37,17 @@ const app = await buildApp({
   apiRateLimitPerMinute: config.apiRateLimitPerMinute,
 });
 // Expired sessions, challenges, links and rate-limit windows are deleted hourly (Step 2.8), and so are
-// instruction images nothing uses any more (14.3).
+// instruction images nothing uses any more (14.3) and document files nothing uses (16.1); previews a
+// restart interrupted are taken up again.
 const images = built?.images;
-const stopHousekeeping = scheduleHousekeeping(database, app.log, undefined, images === undefined ? undefined : () => purgeUnusedImages(images));
+const documentFiles = built?.documentFiles;
+const stopHousekeeping = scheduleHousekeeping(
+  database,
+  app.log,
+  undefined,
+  images === undefined ? undefined : () => purgeUnusedImages(images),
+  documentFiles === undefined ? undefined : { purge: () => purgeUnusedDocumentFiles(documentFiles), resumePreviews: () => documentFiles.previews.resume() },
+);
 // Optional automatic backups (BACKUP_INTERVAL_HOURS, BACKUP_KEEP; Step 10.5).
 const stopBackups = scheduleBackups(config.databasePath, app.log, config.backup);
 // Reminders of scheduled Procedures and Telegram pairing (13.5, 13.7), within this process.

@@ -6,7 +6,7 @@ This file contains mandatory instructions for all coding agents and contributors
 
 **Security is the highest-priority requirement of this project.**
 
-This is especially true for authentication, sessions, MFA/TOTP, authorization, Workspace separation, Knot links, account recovery, external identity providers, and audit history.
+This is especially true for authentication, sessions, MFA/TOTP, authorization, Workspace separation, Knot links, account recovery, external identity providers, audit history, uploaded files, stored third-party credentials and outbound connections.
 
 Never trade security for implementation speed or convenience.
 
@@ -61,6 +61,8 @@ It is also an ADHD-friendly place to see what needs attention (accepted 2026-09-
 - Has this occurrence already been completed?
 
 The app is organised around tools (accepted 2026-10-01, `docu/steps.md` section 15): **Today** brings what is actionable together; **Procedures**, **Reminders** and **Lists** each have their own place; the **Calendar** is an optional planning view. Reusable Procedures, scheduled Reminders and lightweight grocery Lists stay conceptually distinct.
+
+House management is an **optional** addition (accepted 2026-10-01, `docu/steps.md` section 16; planned in five phases, implemented step by step): the tools **Documents**, **Contacts**, **Maintenance**, **Equipment** and **Mail**. Each is enabled per Workspace by a Workspace admin; a Workspace without them stays fully useful, and no house-specific information is ever required. Today stays actionable: these tools add no sections to it, and planned maintenance, warranty expiry or servicing reach Today only as ordinary Occurrences of the existing Schedules. `docu/steps.md` 16.12 holds the decisions; read it before any 16.x step and do not reopen what is decided there.
 
 Do not turn it into a generic project-management suite or an enterprise workflow engine.
 
@@ -139,9 +141,25 @@ Use these terms consistently:
 - List — lightweight shared content of a Workspace with items that are checked off; so far only the grocery list
 - ListItem — one entry of a List: a title, an optional quantity and unit, purchased or not
 
+House management (section 16; a term is in use once its step is implemented):
+
+- Folder — a named, nestable place for Documents
+- Document — one record (title, dates, type, tags, notes) holding one or more ordered files, shown as pages
+- original — the uploaded file, kept byte-for-byte including embedded metadata
+- preview / converted version — derived from an original, metadata-free, never called or served as the original
+- DocumentType — bill, receipt, contract, …; built-in or managed by the Workspace
+- Trash — where deleted house-management records stay until a Workspace admin deletes them permanently; no automatic expiry
+- Link — a reference between two records, never a copy; a Link grants no access
+- Contact — a person or organisation of the Workspace; not a User, grants no access
+- MaintenanceRecord — planned or done work with one of four statuses: Planned, In progress, Completed, Cancelled
+- Equipment — an appliance or installation of the house
+- Mailbox — a mail account connected to a Workspace; its messages are *live* (at the provider), *cached* (temporary, never an archive) or a *saved copy* (explicitly retained in VMN)
+
 A List is neither a Procedure nor a Run: nothing is started, and it has no Required, Critical, Skip or Not Applicable.
 
 A Schedule of a Procedure never creates Runs by itself: only an explicit Start does. Completing one Occurrence never completes another.
+
+Schedules are the only reminder engine: no house-management tool notifies by itself. Completing a Run never completes a MaintenanceRecord, and completing a MaintenanceRecord never touches a Run, an Occurrence or a Reminder.
 
 ### Procedure vs Run
 
@@ -226,6 +244,8 @@ Use semantic design tokens rather than hard-coded theme colors. Light and Dark m
 
 Navigation (section 15): a persistent sidebar on desktop (Today, Procedures, Reminders, Lists, Calendar; Workspace on top; one Settings entry at the bottom), four labelled bottom destinations on phones (Today, Procedures, Lists, More). Focused editing hides the global navigation and offers Back. Keep existing addresses working.
 
+Optional tools (section 16): an enabled tool is added to the sidebar below the existing ones and is reached through **More** on phones — the bottom bar keeps exactly four destinations. A disabled tool appears nowhere (no navigation entry, no fields, no prompts) and its routes answer as for an unknown resource; disabling keeps its data. There are no personal preferences for hiding tools.
+
 Keep cards concise (title, one line of context, the next action); secondary facts and management actions belong in details or ⋯ menus. Touch targets are at least 44 × 44 px; nothing scrolls sideways from 320 px up. Never claim autosave or draft persistence that does not exist.
 
 Initial modes:
@@ -255,19 +275,27 @@ Use opaque non-sequential public identifiers.
 
 Do not add without an accepted requirement:
 
-- AI features;
+- AI features — superseded for exactly optional AI-assisted suggestions on VMN's own infrastructure, disabled by default, planned after text recognition (`docu/steps.md` 16.9); they need their own detailed plan and scope entry here before any implementation, and external processing is neither a default nor an approved option;
 - chat;
 - calendar features beyond the accepted calendar/agenda view of Occurrences (no external calendar sync, no drag-and-drop planning);
 - notification channels beyond the accepted email and Telegram reminders;
 - photos beyond the accepted instruction image per Procedure Step (`docu/steps.md` 14.3); completion photos, required photo evidence and annotations are not accepted yet (14.5);
-- other attachments;
-- list types beyond the accepted grocery list, list categories, or links between Lists and Schedules (`docu/steps.md` 15.3);
+- other attachments — superseded for exactly the accepted house-management tools Documents, Contacts, Maintenance, Equipment and Mail (`docu/steps.md` section 16), each only as specified in its step; a Run retaining the Document version linked to it (16.5) is not approval of completion photos;
+- list types beyond the accepted grocery list, list categories, or links between Lists and Schedules or Documents (`docu/steps.md` 15.3);
+- Kanban or other boards — superseded for exactly the Maintenance status board with its four fixed statuses (`docu/steps.md` 16.7); no boards elsewhere, no custom columns, swimlanes or limits;
+- per-folder permissions, or personal preferences for hiding tools;
+- automatic payments or financial decisions, cost totals, budgets or charts;
+- automatic sending, replying, forwarding or filing of mail, mail rules, or automatic permanent deletion or expunging of remote mail;
+- mail servers on a LAN, VPN-only or private addresses; any outbound connection to a user-chosen host before the outbound-connection policy in `docu/security.md` covers it;
+- text recognition or any other processing of Documents or mail outside VMN's own infrastructure;
 - geolocation;
 - QR/NFC;
 - complex branching workflows;
-- distributed infrastructure;
+- distributed infrastructure (also no Redis, queue service or search server for section 16);
 - Kubernetes;
 - analytics dashboards.
+
+Product points that touch privacy, permissions, destructive behaviour or scope are decided by the user, never silently by an implementation (open ones: P3–P7 in `docu/steps.md` 16.12).
 
 Design extension seams, but do not implement speculative systems.
 
@@ -289,7 +317,24 @@ Examples:
 - assignment never grants access;
 - instruction images require Workspace authorisation;
 - GUEST cannot change a List, and a List or item id of another Workspace resolves to nothing;
+- a tool that is not switched on in a Workspace answers like an unknown resource on every one of its routes, for every role, and switching it off deletes nothing;
 - editing or moving a Step in the Procedure builder keeps its id, a duplicate gets a new one, and an outline is never saved while a Step has unapplied changes.
+
+House management (section 16; each applies from the step that implements it):
+
+- a Workspace A member cannot read, preview, download, search, export or link a Document of Workspace B;
+- a GUEST can view, download and bulk-export Documents but cannot upload, edit, move or delete one, and a GUEST's export contains nothing from Mail or other content they cannot access;
+- a Link never reveals a record the viewer cannot read;
+- a renamed executable or HTML file is refused as a Document;
+- an original downloads byte-identical to its upload;
+- moving a Folder into its own descendant is refused;
+- only a Workspace admin can permanently delete from Trash;
+- a Run still shows the Document version linked at the time after the Document is edited or permanently deleted;
+- completing a Run never completes a MaintenanceRecord;
+- text-recognition results follow the source Document's permissions;
+- a GUEST has no Mail access;
+- mail credentials never appear in responses or logs;
+- a retried Send never sends twice.
 
 ## Documentation
 

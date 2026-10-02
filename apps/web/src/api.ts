@@ -19,6 +19,8 @@ export interface WorkspaceSummary {
   readonly id: string;
   readonly name: string;
   readonly role: WorkspaceRole;
+  /** Optional tools switched on in the Workspace (16.2); absent in copies saved for offline use. */
+  readonly tools?: readonly string[];
 }
 
 export interface WorkspaceMember {
@@ -39,13 +41,27 @@ export interface StepImageRef {
   readonly caption: string;
 }
 
-/** Image storage of a Workspace, in bytes. */
+/** The Workspace's combined storage (16.4), as every author sees it: used and limit, in bytes. */
 export interface ImageUsage {
   readonly usedBytes: number;
-  readonly quotaBytes: number;
+  readonly limitBytes: number;
 }
 
-export interface WorkspaceImageStorage extends ImageUsage {
+/** The combined storage of a Workspace by tool, for its admins and the server admin (16.4). */
+export interface StorageInfo extends ImageUsage {
+  /** Instruction photos of Procedures. */
+  readonly imageBytes: number;
+  /** Original files of Documents that are not in Trash. */
+  readonly documentBytes: number;
+  readonly previewBytes: number;
+  readonly trashBytes: number;
+  /** What the server admin allows this Workspace. */
+  readonly ceilingBytes: number;
+  /** The Workspace's own lower limit, if it has one. */
+  readonly ownLimitBytes: number | null;
+}
+
+export interface WorkspaceStorage extends StorageInfo {
   readonly id: string;
   readonly name: string;
 }
@@ -269,6 +285,9 @@ export interface NotificationProviders {
 export interface InstanceSettings {
   readonly footerHidden: boolean;
   readonly recentProceduresLimit: number;
+  /** Largest accepted document file, in bytes (1 MB to 100 MB). */
+  readonly documentMaxFileBytes: number;
+  readonly documentFormats: readonly DocumentFileFormat[];
 }
 
 export interface DeletedProcedure extends Procedure {
@@ -489,6 +508,173 @@ async function uploadImage(workspaceId: string, image: Blob, replacing?: string)
   return (await response.json()) as { image: { id: string; width: number; height: number }; usage: ImageUsage };
 }
 
+// ---- Documents (16.1, 16.2)
+
+export type DocumentFileFormat = 'PDF' | 'JPEG' | 'PNG' | 'HEIC';
+
+/** One file of a Document: an original with what the server found out about it. Never a storage name. */
+export interface DocumentFile {
+  readonly id: string;
+  readonly name: string;
+  readonly format: DocumentFileFormat;
+  readonly bytes: number;
+  /** Pages of a PDF (null when password-protected); 1 for an image. */
+  readonly pageCount: number | null;
+  readonly width: number | null;
+  readonly height: number | null;
+  readonly passwordProtected: boolean;
+  readonly activeContent: boolean;
+  readonly preview: {
+    readonly state: 'PENDING' | 'READY' | 'PARTIAL' | 'FAILED' | 'NONE';
+    /** Preview pages that exist. */
+    readonly pages: number;
+    /** Why there is no preview at all: the format has none, or the PDF needs a password. */
+    readonly unavailable: 'format' | 'password_protected' | null;
+  };
+  readonly uploadedBy: string;
+  readonly uploadedAt: string;
+}
+
+export interface DocumentFolder {
+  readonly id: string;
+  readonly parentId: string | null;
+  readonly name: string;
+  readonly revision: number;
+  /** Documents directly in this Folder. */
+  readonly documents: number;
+}
+
+export type DocumentTypeView = { readonly kind: 'builtin'; readonly key: string } | { readonly kind: 'custom'; readonly id: string; readonly name: string; readonly retired: boolean };
+
+export interface DocumentSummary {
+  readonly id: string;
+  readonly folderId: string | null;
+  readonly title: string;
+  readonly type: DocumentTypeView | null;
+  readonly documentDate: string | null;
+  readonly year: number | null;
+  readonly tags: readonly string[];
+  readonly revision: number;
+  readonly files: number;
+  readonly cover: { readonly fileId: string; readonly hasThumbnail: boolean } | null;
+  readonly uploadedAt: string;
+  readonly uploadedBy: string;
+  readonly modifiedAt: string;
+  readonly modifiedBy: string;
+}
+
+/** One page of a listing (16.3): fifty at most; `total` only comes with the first page. */
+export interface DocumentListing {
+  readonly documents: DocumentSummary[];
+  readonly nextCursor: string | null;
+  readonly total: number | null;
+}
+
+/** What the filters can be set to: values that Documents of the Workspace actually have. */
+export interface DocumentFilterValues {
+  readonly years: number[];
+  readonly tags: string[];
+  readonly uploaders: string[];
+}
+
+export interface DocumentDetail extends DocumentSummary {
+  readonly notes: string;
+  readonly pages: readonly DocumentFile[];
+}
+
+/** The fields a person fills in; only the title is required. */
+export interface DocumentFields {
+  readonly title: string;
+  readonly type: { readonly builtIn: string } | { readonly customId: string } | null;
+  readonly documentDate: string | null;
+  readonly year: number | null;
+  readonly notes: string;
+  readonly tags: readonly string[];
+}
+
+export interface DocumentTypes {
+  readonly builtIn: readonly string[];
+  readonly custom: readonly { readonly id: string; readonly name: string; readonly retired: boolean }[];
+}
+
+export interface TrashEntry {
+  readonly kind: 'folder' | 'document';
+  readonly id: string;
+  readonly name: string;
+  readonly location: readonly string[];
+  readonly deletedAt: string;
+  readonly deletedBy: string;
+  readonly folders: number;
+  readonly documents: number;
+  /** Files it holds (for a Folder: of everything that went to Trash with it). */
+  readonly files: number;
+}
+
+/** What a restore did when the item could not simply return to its place. */
+export interface RestoreOutcome {
+  readonly folders: number;
+  readonly documents: number;
+  readonly renamedTo: string | null;
+  readonly movedTo: { readonly id: string | null; readonly name: string | null; readonly because: string } | null;
+}
+
+const documentsPath = (workspaceId: string, rest = '') => `/workspaces/${encodeURIComponent(workspaceId)}/documents${rest}`;
+const foldersPath = (workspaceId: string, rest = '') => `/workspaces/${encodeURIComponent(workspaceId)}/document-folders${rest}`;
+const documentTypesPath = (workspaceId: string, rest = '') => `/workspaces/${encodeURIComponent(workspaceId)}/document-types${rest}`;
+const documentFilePath = (workspaceId: string, fileId: string, rest = '') => `/api/workspaces/${encodeURIComponent(workspaceId)}/document-files/${encodeURIComponent(fileId)}${rest}`;
+
+/** Addresses of a file's derived images and of its original (same-origin, session cookie; the server authorizes each request). */
+/** How much an export would hold, and what one export may hold at most. */
+export interface ExportSize {
+  readonly documents: number;
+  readonly files: number;
+  readonly bytes: number;
+  readonly maxFiles: number;
+  readonly maxBytes: number;
+}
+
+/** The address of an export (a ZIP download): everything, one Folder with its sub-folders, or chosen Documents. */
+export const documentExportUrl = (workspaceId: string, scope: string) => `/api/workspaces/${encodeURIComponent(workspaceId)}/documents/export${scope === '' ? '' : `?${scope}`}`;
+
+export const documentFileUrls = {
+  thumbnail: (workspaceId: string, fileId: string) => documentFilePath(workspaceId, fileId, '/thumbnail'),
+  /** Preview page `page`, counted from 1. */
+  page: (workspaceId: string, fileId: string, page: number) => documentFilePath(workspaceId, fileId, `/pages/${page}`),
+  /** The unchanged original, always answered as a download. */
+  original: (workspaceId: string, fileId: string) => documentFilePath(workspaceId, fileId, '/original'),
+};
+
+/**
+ * Uploads one file as it is — nothing is converted or resized in the browser: the original is what is
+ * kept. Reports progress (0–1) and can be cancelled. XMLHttpRequest, because `fetch` cannot report
+ * upload progress.
+ */
+function uploadDocumentFile(workspaceId: string, file: Blob, name: string, options: { onProgress?: (fraction: number) => void; signal?: AbortSignal } = {}): Promise<DocumentFile> {
+  return new Promise((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    xhr.open('POST', `/api/workspaces/${encodeURIComponent(workspaceId)}/document-files`);
+    xhr.withCredentials = true;
+    xhr.responseType = 'json';
+    xhr.setRequestHeader('content-type', 'application/octet-stream');
+    // The name is data for the server to check; percent-encoded, as a header value must be ASCII.
+    xhr.setRequestHeader('x-file-name', encodeURIComponent(name));
+    xhr.upload.onprogress = (event) => {
+      if (event.lengthComputable) options.onProgress?.(event.loaded / event.total);
+    };
+    xhr.onload = () => {
+      const body = (xhr.response ?? {}) as { file?: DocumentFile; error?: string } & Record<string, unknown>;
+      if (xhr.status === 201 && body.file !== undefined) return resolve(body.file);
+      const { error, ...details } = body;
+      reject(new ApiError(xhr.status, error ?? 'request_failed', details));
+    };
+    // No answer at all (offline, connection closed): the same kind of failure `fetch` reports.
+    xhr.onerror = () => reject(new TypeError('upload failed'));
+    xhr.onabort = () => reject(new DOMException('cancelled', 'AbortError'));
+    options.signal?.addEventListener('abort', () => xhr.abort());
+    xhr.send(file);
+  });
+}
+
 const listPath = (workspaceId: string, listId?: string) => `/workspaces/${encodeURIComponent(workspaceId)}/lists${listId === undefined ? '' : `/${encodeURIComponent(listId)}`}`;
 const listItemPath = (workspaceId: string, listId: string, itemId: string) => `${listPath(workspaceId, listId)}/items/${encodeURIComponent(itemId)}`;
 const listOf = async (response: Promise<{ list: ListDetail }>) => (await response).list;
@@ -498,8 +684,12 @@ const occurrencePath = (workspaceId: string, id: string) => `/workspaces/${encod
 export const api = {
   uploadImage,
   imageUsage: async (workspaceId: string) => (await request<{ usage: ImageUsage }>('GET', `/workspaces/${encodeURIComponent(workspaceId)}/images/usage`)).usage,
-  imageStorage: async () => (await request<{ workspaces: WorkspaceImageStorage[] }>('GET', '/admin/image-storage')).workspaces,
-  setImageQuota: (workspaceId: string, quota: number) => request<undefined>('POST', `/admin/image-storage/${encodeURIComponent(workspaceId)}/quota`, { quota }),
+  // Storage (16.4): the Workspace's own view and limit; every Workspace and its ceiling for the server admin.
+  workspaceStorage: async (workspaceId: string) => (await request<{ storage: StorageInfo }>('GET', `/workspaces/${encodeURIComponent(workspaceId)}/storage`)).storage,
+  setWorkspaceStorageLimit: async (workspaceId: string, bytes: number | null) =>
+    (await request<{ storage: StorageInfo }>('POST', `/workspaces/${encodeURIComponent(workspaceId)}/storage/limit`, { bytes })).storage,
+  adminStorage: async () => (await request<{ workspaces: WorkspaceStorage[] }>('GET', '/admin/storage')).workspaces,
+  setStorageCeiling: (workspaceId: string, bytes: number) => request<undefined>('POST', `/admin/storage/${encodeURIComponent(workspaceId)}/ceiling`, { bytes }),
   about: () => request<{ license: string; sourceCodeUrl: string; footerHidden: boolean }>('GET', '/about'),
   instanceSettings: async () => (await request<{ settings: InstanceSettings }>('GET', '/admin/settings')).settings,
   updateInstanceSettings: async (settings: Partial<InstanceSettings>) =>
@@ -582,7 +772,7 @@ export const api = {
   createWorkspace: async (name: string) =>
     (await request<{ workspace: WorkspaceSummary }>('POST', '/workspaces', { name })).workspace,
   workspace: (id: string) =>
-    request<{ workspace: WorkspaceSummary; capabilities: string[] }>('GET', `/workspaces/${encodeURIComponent(id)}`),
+    request<{ workspace: WorkspaceSummary; capabilities: string[]; tools: string[] }>('GET', `/workspaces/${encodeURIComponent(id)}`),
   renameWorkspace: (id: string, name: string) =>
     request<undefined>('POST', `/workspaces/${encodeURIComponent(id)}/rename`, { name }),
   procedures: async (workspaceId: string) =>
@@ -622,6 +812,43 @@ export const api = {
     (await request<{ occurrence: Occurrence }>('POST', `${occurrencePath(workspaceId, id)}/link-run`, { runId })).occurrence,
   unlinkRun: async (workspaceId: string, id: string) =>
     (await request<{ occurrence: Occurrence }>('POST', `${occurrencePath(workspaceId, id)}/unlink-run`, {})).occurrence,
+  // Optional tools of a Workspace (16.2).
+  setWorkspaceTool: async (workspaceId: string, tool: string, enabled: boolean) => (await request<{ tools: string[] }>('POST', `/workspaces/${encodeURIComponent(workspaceId)}/tools`, { tool, enabled })).tools,
+  // Documents (16.1, 16.2).
+  uploadDocumentFile,
+  documentFile: async (workspaceId: string, fileId: string) => (await request<{ file: DocumentFile }>('GET', documentFilePath(workspaceId, fileId).slice('/api'.length))).file,
+  documentFolders: async (workspaceId: string) => (await request<{ folders: DocumentFolder[] }>('GET', foldersPath(workspaceId))).folders,
+  createDocumentFolder: async (workspaceId: string, name: string, parentId: string | null) => (await request<{ folder: DocumentFolder }>('POST', foldersPath(workspaceId), { name, parentId })).folder,
+  renameDocumentFolder: async (workspaceId: string, folder: DocumentFolder, name: string) =>
+    (await request<{ folder: DocumentFolder }>('POST', foldersPath(workspaceId, `/${folder.id}/rename`), { name, expectedRevision: folder.revision })).folder,
+  moveDocumentFolder: async (workspaceId: string, folder: DocumentFolder, parentId: string | null) =>
+    (await request<{ folder: DocumentFolder }>('POST', foldersPath(workspaceId, `/${folder.id}/move`), { parentId, expectedRevision: folder.revision })).folder,
+  deleteDocumentFolder: async (workspaceId: string, folderId: string) => (await request<{ deleted: { folders: number; documents: number } }>('POST', foldersPath(workspaceId, `/${folderId}/delete`), {})).deleted,
+  restoreDocumentFolder: async (workspaceId: string, folderId: string) => (await request<{ restored: RestoreOutcome }>('POST', foldersPath(workspaceId, `/${folderId}/restore`), {})).restored,
+  /** `query`: the parameters of the listing as built by `listingParams` (search, filters, sort, cursor). */
+  documents: (workspaceId: string, query: string) => request<DocumentListing>('GET', documentsPath(workspaceId, query === '' ? '' : `?${query}`)),
+  documentFilterValues: async (workspaceId: string) => (await request<{ filters: DocumentFilterValues }>('GET', documentsPath(workspaceId, '/filters'))).filters,
+  document: async (workspaceId: string, documentId: string) => (await request<{ document: DocumentDetail }>('GET', documentsPath(workspaceId, `/${encodeURIComponent(documentId)}`))).document,
+  createDocument: async (workspaceId: string, folderId: string | null, fields: DocumentFields, fileIds: readonly string[]) =>
+    (await request<{ document: DocumentDetail }>('POST', documentsPath(workspaceId), { ...fields, folderId, fileIds })).document,
+  updateDocument: async (workspaceId: string, documentId: string, fields: DocumentFields, expectedRevision: number) =>
+    (await request<{ document: DocumentDetail }>('POST', documentsPath(workspaceId, `/${documentId}/update`), { ...fields, expectedRevision })).document,
+  setDocumentFiles: async (workspaceId: string, documentId: string, fileIds: readonly string[], expectedRevision: number) =>
+    (await request<{ document: DocumentDetail }>('POST', documentsPath(workspaceId, `/${documentId}/files`), { fileIds, expectedRevision })).document,
+  moveDocuments: async (workspaceId: string, documentIds: readonly string[], folderId: string | null) => (await request<{ moved: number }>('POST', documentsPath(workspaceId, '/move'), { documentIds, folderId })).moved,
+  deleteDocument: (workspaceId: string, documentId: string) => request<undefined>('POST', documentsPath(workspaceId, `/${documentId}/delete`), {}),
+  restoreDocument: async (workspaceId: string, documentId: string) => (await request<{ restored: RestoreOutcome }>('POST', documentsPath(workspaceId, `/${documentId}/restore`), {})).restored,
+  /** How much an export would hold (`scope` as built by `exportQuery`); refused when it is too large or one is running. */
+  checkDocumentExport: async (workspaceId: string, scope: string) =>
+    (await request<{ export: ExportSize }>('GET', documentsPath(workspaceId, `/export/check${scope === '' ? '' : `?${scope}`}`))).export,
+  purgeDocumentTrash: async (workspaceId: string, items: readonly { kind: 'folder' | 'document'; id: string }[] | 'all') =>
+    (await request<{ purged: { folders: number; documents: number; files: number } }>('POST', documentsPath(workspaceId, '/trash/purge'), items === 'all' ? { all: true } : { items })).purged,
+  documentTrash: async (workspaceId: string, within: string | null) =>
+    (await request<{ entries: TrashEntry[] }>('GET', documentsPath(workspaceId, `/trash${within === null ? '' : `?within=${encodeURIComponent(within)}`}`))).entries,
+  documentTypes: async (workspaceId: string) => (await request<{ types: DocumentTypes }>('GET', documentTypesPath(workspaceId))).types,
+  createDocumentType: (workspaceId: string, name: string) => request<unknown>('POST', documentTypesPath(workspaceId), { name }),
+  renameDocumentType: (workspaceId: string, typeId: string, name: string) => request<unknown>('POST', documentTypesPath(workspaceId, `/${typeId}/rename`), { name }),
+  retireDocumentType: (workspaceId: string, typeId: string) => request<unknown>('POST', documentTypesPath(workspaceId, `/${typeId}/retire`), {}),
   // Lists (15.3). Every change answers with the canonical List, items included.
   lists: async (workspaceId: string) => (await request<{ lists: ListSummary[] }>('GET', listPath(workspaceId))).lists,
   list: (workspaceId: string, listId: string) => listOf(request('GET', listPath(workspaceId, listId))),

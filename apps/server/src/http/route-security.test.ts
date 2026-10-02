@@ -40,6 +40,19 @@ function bodyFor(route: string, ids: Record<string, string>): object {
   if (url.endsWith('/occurrences/:occurrenceId/move')) return { date: TOMORROW };
   if (url.endsWith('/occurrences/:occurrenceId/assign')) return { assigneeUserId: null };
   if (url.endsWith('/occurrences/:occurrenceId/link-run')) return { runId: ids.runId ?? '' };
+  if (url.endsWith('/tools')) return { tool: 'DOCUMENTS', enabled: true };
+  if (url.endsWith('/storage/limit')) return { bytes: null };
+  if (url.endsWith('/trash/purge')) return { items: [{ kind: 'document', id: ids.documentId ?? '' }] };
+  if (url.endsWith('/ceiling')) return { bytes: 1_000_000_000 };
+  if (url.endsWith('/document-folders')) return { name: 'Stolen', parentId: ids.folderId ?? null };
+  if (url.endsWith('/document-folders/:folderId/rename')) return { name: 'Taken over', expectedRevision: 1 };
+  if (url.endsWith('/document-folders/:folderId/move')) return { parentId: null, expectedRevision: 1 };
+  if (url.endsWith('/documents')) return { title: 'Stolen', folderId: ids.folderId ?? null, fileIds: [ids.fileId ?? ''] };
+  if (url.endsWith('/documents/move')) return { documentIds: [ids.documentId ?? ''], folderId: null };
+  if (url.endsWith('/documents/:documentId/update')) return { title: 'Taken over', expectedRevision: 1 };
+  if (url.endsWith('/documents/:documentId/files')) return { fileIds: [ids.fileId ?? ''], expectedRevision: 1 };
+  if (url.endsWith('/document-types')) return { name: 'Stolen type' };
+  if (url.endsWith('/document-types/:typeId/rename')) return { name: 'Taken over' };
   if (url.endsWith('/lists')) return { title: 'Groceries' };
   if (url.endsWith('/lists/:listId/rename')) return { title: 'Taken over', expectedTitle: 'Groceries' };
   if (url.endsWith('/lists/:listId/items')) return { title: 'Stolen milk' };
@@ -102,6 +115,20 @@ describe('security properties of every route (13.2)', () => {
         payload: Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAIAAACQd1PeAAAADElEQVR4nGP4z8AAAAMBAQDJ/pLvAAAAAElFTkSuQmCC', 'base64'),
       })
     ).json().image;
+    // Documents are switched on in Home only: under Office every document route is 404 for that reason alone as well.
+    await t.post(`/api/workspaces/${home}/tools`, { tool: 'DOCUMENTS', enabled: true }, owner);
+    const file = (
+      await t.app.inject({
+        method: 'POST',
+        url: `/api/workspaces/${home}/document-files`,
+        headers: { origin: 'https://vmn.example.org', cookie: owner, 'content-type': 'application/octet-stream', 'x-file-name': 'Leave%20the%20house.png' },
+        payload: Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAIAAACQd1PeAAAADElEQVR4nGP4z8AAAAMBAQDJ/pLvAAAAAElFTkSuQmCC', 'base64'),
+      })
+    ).json().file;
+    await t.post(`/api/workspaces/${office}/tools`, { tool: 'DOCUMENTS', enabled: true }, outsider);
+    const folder = (await t.post(`/api/workspaces/${home}/document-folders`, { name: 'Water', parentId: null }, owner)).json().folder;
+    const document = (await t.post(`/api/workspaces/${home}/documents`, { title: 'Water bill', folderId: folder.id, fileIds: [file.id] }, owner)).json().document;
+    const documentType = (await t.post(`/api/workspaces/${home}/document-types`, { name: 'Minutes' }, owner)).json().type;
     const knot = (await t.post(`/api/workspaces/${home}/knots`, { target: { type: 'RUN', id: run.id }, label: 'x', expiresInDays: null }, owner)).json()
       .knot;
     const deleted = (await t.post(`/api/workspaces/${home}/procedures`, { ...PROCEDURE, title: 'Old' }, owner)).json().procedure;
@@ -124,6 +151,11 @@ describe('security properties of every route (13.2)', () => {
       imageId: image.id,
       listId: list.id,
       itemId,
+      fileId: file.id,
+      page: '1',
+      folderId: folder.id,
+      documentId: document.id,
+      typeId: documentType.id,
     };
     routes = t.app.routeTable.map((route) => `${route.method} ${route.url}`);
   });
@@ -157,19 +189,27 @@ describe('security properties of every route (13.2)', () => {
       expect({ route, status: response.statusCode }).toEqual({ route, status: 404 });
       expect(response.body).not.toContain('Leave the house');
       expect(response.body).not.toContain('Groceries');
+      expect(response.body).not.toContain('Water');
     }
   });
 
   it('never resolves a child id of one Workspace under another Workspace', async () => {
     // Otto administers Office and uses Home's Procedure/Run/Step/Knot/member ids under Office's id.
-    const childRoutes = routes.filter((r) => (r.includes('/:workspaceId/') && /:(procedureId|runId|knotId|userId|scheduleId|occurrenceId|imageId|listId|itemId)/.test(r)) || /^POST .*\/:workspaceId\/(runs|knots|schedules)$/.test(r));
+    const childRoutes = routes.filter((r) => (r.includes('/:workspaceId/') && /:(procedureId|runId|knotId|userId|scheduleId|occurrenceId|imageId|listId|itemId|fileId|folderId|documentId|typeId)/.test(r)) || /^POST .*\/:workspaceId\/(runs|knots|schedules|documents|documents\/move|document-folders)$/.test(r));
     expect(childRoutes.length).toBeGreaterThan(10);
     for (const route of childRoutes) {
       const response = await call(route, outsider, { ...homeIds, workspaceId: office });
       expect({ route, status: response.statusCode }).toEqual({ route, status: 404 });
       expect(response.body).not.toContain('Leave the house');
+      expect(response.body).not.toContain('Water');
     }
-    // Nothing of Home changed.
+    // Nothing of Home changed. (A fresh process first: the sweeps above come close to the global per-client limit.)
+    await t.restart();
+    const documents = (await t.get(`/api/workspaces/${homeIds.workspaceId}/documents/${homeIds.documentId}`, owner)).json().document;
+    expect(documents).toMatchObject({ title: 'Water bill', revision: 1, folderId: homeIds.folderId, files: 1 });
+    const folders = (await t.get(`/api/workspaces/${homeIds.workspaceId}/document-folders`, owner)).json().folders;
+    expect(folders).toEqual([{ id: homeIds.folderId, parentId: null, name: 'Water', revision: 1, documents: 1 }]);
+    expect((await t.get(`/api/workspaces/${office}/document-folders`, outsider)).json().folders).toEqual([]);
     const run = (await t.get(`/api/workspaces/${homeIds.workspaceId}/runs/${homeIds.runId}`, owner)).json().run;
     expect(run.state).toBe('ACTIVE');
     expect(run.sections[0].steps[0].state).toBe('PENDING');
@@ -186,7 +226,8 @@ describe('security properties of every route (13.2)', () => {
     let sent = 0;
     for (const route of withParams) {
       for (const name of [...route.matchAll(/:([A-Za-z]+)/g)].map((m) => m[1] as string)) {
-        for (const bad of ['not-a-uuid', homeIds[name]?.toUpperCase() ?? 'X', '00000000-0000-0000-0000-000000000000']) {
+        // A page number is no id: its malformed forms are zero, signs, padding and anything beyond 500.
+        for (const bad of name === 'page' ? ['not-a-uuid', '0', '01', '501', '-1'] : ['not-a-uuid', homeIds[name]?.toUpperCase() ?? 'X', '00000000-0000-0000-0000-000000000000']) {
           // Stay below the global per-client limit (in memory): a fresh process every 200 requests.
           if (sent++ % 200 === 0) await t.restart();
           const response = await call(route, owner, { ...homeIds, [name]: bad });

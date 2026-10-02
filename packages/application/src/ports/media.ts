@@ -1,4 +1,4 @@
-import type { Actor, ImageQuota, StepImageId, WorkspaceId } from '@vergissmeinnicht/domain';
+import type { Actor, StepImageId, StorageUsage, WorkspaceId } from '@vergissmeinnicht/domain';
 import type { ActorGuard } from './actor-guard.ts';
 
 type UserActor = Actor & { readonly kind: 'user' };
@@ -56,11 +56,8 @@ export interface StepImageRecord {
   readonly createdAt: Date;
 }
 
-/** Storage used by a Workspace's images and its quota, in bytes. */
-export interface ImageUsage {
-  readonly used: number;
-  readonly quota: ImageQuota;
-}
+/** The combined storage of the Workspace and its limit (16.4): instruction images share it with Documents. */
+export type ImageUsage = StorageUsage;
 
 export type RegisterImageResult =
   | { readonly status: 'ok'; readonly image: StepImageRecord; readonly usage: ImageUsage }
@@ -68,14 +65,15 @@ export type RegisterImageResult =
   | { readonly status: 'quota_exceeded'; readonly usage: ImageUsage };
 
 /**
- * Image metadata per Workspace. Usage = the distinct images of the Workspace referenced by a Step
- * (also of restorable deleted Procedures) or a Run snapshot, plus images uploaded since `pendingSince`
- * that are not referenced yet (so uploads cannot bypass the quota before a Procedure is saved).
+ * Image metadata per Workspace. Images are charged to the Workspace's combined storage (16.4): the
+ * distinct images referenced by a Step (also of restorable deleted Procedures) or a Run snapshot, plus
+ * images uploaded since `pendingSince` that are not referenced yet (so uploads cannot bypass the limit
+ * before a Procedure is saved).
  */
 export interface ImageRepository {
   /**
    * In one IMMEDIATE transaction: re-checks the guard, reuses the Workspace's row for identical content
-   * (charged once), otherwise checks usage + bytes against the quota and inserts. `replacing`: an image
+   * (charged once), otherwise checks the combined usage + bytes against the storage limit and inserts. `replacing`: an image
    * the upload replaces — not counted when only this Procedure's Steps reference it.
    */
   register(
@@ -94,10 +92,6 @@ export interface ImageRepository {
   ): Promise<RegisterImageResult>;
   find(workspaceId: WorkspaceId, imageId: StepImageId): Promise<StepImageRecord | undefined>;
   usage(workspaceId: WorkspaceId, pendingSince: Date): Promise<ImageUsage>;
-  /** Every Workspace with its usage and quota (server admin view). */
-  listStorage(pendingSince: Date): Promise<{ readonly workspaceId: WorkspaceId; readonly name: string; readonly usage: ImageUsage }[]>;
-  /** Sets the quota (never deletes anything) and records a security event; false when the Workspace is unknown. */
-  setQuota(input: { readonly workspaceId: WorkspaceId; readonly quota: ImageQuota; readonly at: Date }, actor: UserActor): Promise<boolean>;
   /**
    * Housekeeping: deletes image rows referenced by nothing and created before `before`; returns the
    * SHA-256 of files that no row uses any more (to be removed from the media store).

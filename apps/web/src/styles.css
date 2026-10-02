@@ -2898,3 +2898,504 @@ input.list-check {
     display: none;
   }
 }
+
+/* ---- Documents (16.2) ------------------------------------------------------------------------ */
+
+.breadcrumbs ol {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.15rem 0.4rem;
+  margin: 1rem 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.breadcrumbs li {
+  display: inline-flex;
+  align-items: center;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+/* The separator is decoration: the list order already says what contains what. */
+.breadcrumbs li + li::before {
+  content: '›';
+  margin-right: 0.4rem;
+  color: var(--text-muted);
+}
+
+.breadcrumbs a {
+  display: inline-flex;
+  align-items: center;
+  min-height: 2.75rem;
+}
+
+.folder-tree {
+  margin: 0 0 1rem;
+}
+
+.folder-tree summary,
+.more-details summary {
+  display: inline-flex;
+  align-items: center;
+  min-height: 2.75rem;
+  cursor: pointer;
+  color: var(--link);
+}
+
+.folder-tree li a {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  min-height: 2.75rem;
+  overflow-wrap: anywhere;
+}
+
+.folder-tree li a[aria-current='page'] {
+  font-weight: 700;
+  color: var(--text);
+}
+
+.folder-tree li[data-depth='1'] { padding-left: 1rem; }
+.folder-tree li[data-depth='2'] { padding-left: 2rem; }
+.folder-tree li[data-depth='3'] { padding-left: 3rem; }
+.folder-tree li[data-depth='4'] { padding-left: 4rem; }
+.folder-tree li[data-depth='5'] { padding-left: 5rem; }
+.folder-tree li[data-depth='6'] { padding-left: 6rem; }
+
+.more-details > .stack {
+  margin-top: 0.75rem;
+}
+
+.document-thumb {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 3.25rem;
+  height: 3.25rem;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: calc(var(--radius) / 2);
+  background: var(--surface-muted);
+  color: var(--text-muted);
+}
+
+.document-thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.link-card .item-body,
+.trash-entry .item-body {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.select-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.select-row > input {
+  flex: none;
+  width: 1.5rem;
+  height: 1.5rem;
+  margin: 0 0.6rem 1rem 0.4rem;
+}
+
+.select-row > .link-card {
+  flex: 1;
+  min-width: 0;
+}
+
+.select-bar {
+  margin: 0 0 0.75rem;
+}
+
+/* Storage (16.4): how full as a meter with the numbers beside it in words; then what uses it. */
+.storage-meter {
+  width: 100%;
+  height: 0.75rem;
+  accent-color: var(--accent);
+}
+
+.storage-lines {
+  display: grid;
+  gap: 0.15rem;
+  margin: 0;
+}
+
+.storage-lines > div {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.storage-lines dt {
+  color: var(--text-muted);
+}
+
+.storage-lines dd {
+  margin: 0;
+  white-space: nowrap;
+}
+
+.storage-form {
+  align-items: flex-end;
+}
+
+.storage-workspace + .storage-workspace {
+  padding-top: 1rem;
+  border-top: 1px solid var(--border);
+}
+
+.trash-entry > input[type='checkbox'] {
+  flex: none;
+  width: 1.5rem;
+  height: 1.5rem;
+  margin: 0.5rem 0.25rem 0 0;
+}
+
+/* Finding Documents (16.3): search, order and view on one wrapping row; filters folded below. */
+.document-find {
+  margin: 0 0 0.75rem;
+}
+
+.document-find-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 0.5rem 1rem;
+}
+
+.document-find-row .field {
+  margin: 0;
+  min-width: 0;
+}
+
+.document-search {
+  flex: 1 1 14rem;
+}
+
+.document-search input,
+.document-find-row select,
+.document-filters select {
+  width: 100%;
+  max-width: 100%;
+}
+
+.document-filters > .field {
+  flex: 1 1 10rem;
+  min-width: 0;
+  margin: 0;
+}
+
+.document-chips {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  margin: 0 0 0.75rem;
+}
+
+/* A filter in use: its text says what it is, the × says what pressing it does. */
+.filter-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  min-height: 2.75rem;
+  max-width: 100%;
+  padding: 0.25rem 0.75rem;
+  border: 1px solid var(--accent);
+  border-radius: 999px;
+  background: var(--accent-soft);
+  color: var(--text);
+  overflow-wrap: anywhere;
+  text-align: left;
+}
+
+/* A count that is announced when the list changes: a quiet line, not a notice. */
+.document-count[role='status'] {
+  margin: 0 0 0.5rem;
+  padding: 0;
+  border: 0;
+  background: none;
+}
+
+.document-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(8rem, 1fr));
+  gap: 0.75rem;
+  margin-bottom: 0.75rem;
+}
+
+.document-grid > li {
+  min-width: 0;
+}
+
+.document-grid > .select-row {
+  flex-direction: column;
+  align-items: stretch;
+}
+
+.document-grid > .select-row > input {
+  margin: 0 0 0.25rem;
+}
+
+.document-tile {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  height: 100%;
+  margin: 0;
+  padding: 0.5rem;
+  color: var(--text);
+  text-decoration: none;
+  overflow-wrap: anywhere;
+}
+
+.document-tile-picture {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  aspect-ratio: 3 / 4;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: calc(var(--radius) / 2);
+  background: var(--surface-muted);
+  color: var(--text-muted);
+}
+
+.document-tile-picture img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.document-facts > div {
+  display: grid;
+  grid-template-columns: minmax(6rem, 10rem) minmax(0, 1fr);
+  gap: 0.25rem 1rem;
+  padding: 0.35rem 0;
+}
+
+.document-facts > div + div {
+  border-top: 1px solid var(--border);
+}
+
+.document-facts dt {
+  color: var(--text-muted);
+}
+
+.document-facts dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.document-notes {
+  white-space: pre-wrap;
+}
+
+.document-page-title {
+  margin: 0 0 0.75rem;
+  font-size: 1rem;
+  overflow-wrap: anywhere;
+}
+
+.document-previews {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.document-preview-open {
+  display: block;
+  width: 100%;
+  min-height: 0;
+  padding: 0;
+  border: 1px solid var(--border-strong);
+  border-radius: calc(var(--radius) / 2);
+  background: var(--surface-muted);
+  cursor: zoom-in;
+  overflow: hidden;
+}
+
+.document-preview-open img {
+  display: block;
+  /* Never larger than the preview itself (no blurry upscaling) and never taller than the screen; enlarge to read. */
+  width: auto;
+  max-width: 100%;
+  height: auto;
+  max-height: min(40rem, 80vh);
+  margin: 0 auto;
+}
+
+.document-preview-caption {
+  margin: 0.5rem 0;
+}
+
+.document-no-preview {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  margin: 0 0 0.75rem;
+  padding: 1rem;
+  border: 1px dashed var(--border-strong);
+  border-radius: calc(var(--radius) / 2);
+  background: var(--surface-muted);
+}
+
+.document-page-actions {
+  margin-top: 0.75rem;
+  align-items: center;
+}
+
+.danger-text {
+  color: var(--danger);
+}
+
+/* The enlarged preview keeps its real size and scrolls inside the viewer — the page itself never scrolls sideways. */
+.document-viewer-scroll {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+}
+
+.image-viewer.document-viewer img {
+  flex: none;
+  display: block;
+  width: auto;
+  max-width: none;
+  object-fit: initial;
+}
+
+.file-drop {
+  padding: 1rem;
+  border: 1px dashed var(--border-strong);
+  border-radius: var(--radius);
+  background: var(--surface);
+}
+
+.file-drop[data-over='true'] {
+  border-style: solid;
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+
+.file-drop p {
+  margin: 0.5rem 0 0;
+}
+
+.upload-list {
+  margin: 0;
+}
+
+.upload-item {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem 1rem;
+  margin: 0 0 0.5rem;
+}
+
+.upload-main {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  flex: 1 1 14rem;
+  min-width: 0;
+}
+
+.upload-name {
+  overflow-wrap: anywhere;
+}
+
+.upload-state {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+}
+
+.upload-progress {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.upload-progress progress {
+  width: 100%;
+  accent-color: var(--accent);
+}
+
+.upload-item .field-error {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin: 0;
+}
+
+.document-dates {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr));
+  gap: 0.75rem 1rem;
+}
+
+.trash-entry {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.9rem;
+  margin: 0 0 0.75rem;
+}
+
+.trash-entry .item-body {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+
+.trash-list .trash-list {
+  margin: 0.75rem 0 0;
+  padding-left: 0.75rem;
+  border-left: 2px solid var(--border);
+}
+
+.trash-list .trash-list > .card {
+  box-shadow: none;
+}
+
+.type-list li {
+  align-items: center;
+  min-height: 2.75rem;
+}
+
+.type-name {
+  flex: 1;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.type-add {
+  align-items: flex-end;
+}
+
+.type-add .field {
+  flex: 1 1 10rem;
+}
+
+.tool-switch {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+  min-height: 2.75rem;
+}
+
+.tool-switch input {
+  flex: none;
+  width: 1.5rem;
+  height: 1.5rem;
+  margin: 0.15rem 0 0;
+}

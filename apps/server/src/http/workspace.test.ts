@@ -144,7 +144,12 @@ describe('Workspace HTTP API', () => {
         'schedule.manage',
         'list.view',
         'list.edit',
+        'document.view',
+        'document.manage',
+        'document.purge',
+        'workspace.tools.manage',
       ],
+      tools: [],
     });
     // A Workspace ADMIN without the server-admin flag still cannot create Workspaces.
     await addMember(id, 'bob@example.org', 'ADMIN');
@@ -175,7 +180,7 @@ describe('Workspace HTTP API', () => {
     expect((await post(`/api/workspaces/${home}/members/${carolId}/role`, { role: 'GUEST' }, bob)).json()).toEqual({
       error: 'member_not_found',
     });
-    expect((await get('/api/workspaces', bob)).json()).toEqual({ workspaces: [{ id: home, name: 'Home', role: 'ADMIN' }] });
+    expect((await get('/api/workspaces', bob)).json()).toEqual({ workspaces: [{ id: home, name: 'Home', role: 'ADMIN', tools: [] }] });
   });
 
   it('denies vertical escalation by USERs and hides contact details from them', async () => {

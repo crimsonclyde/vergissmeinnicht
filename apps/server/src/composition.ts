@@ -2,7 +2,11 @@ import {
   emailReminderNotifier,
   systemClock,
   telegramReminderNotifier,
+  createPreviewQueue,
   type AccountAdminDeps,
+  type DocumentExportDeps,
+  type DocumentFileDeps,
+  type StorageDeps,
   type InstanceSettingsDeps,
   type PreferencesDeps,
   type HistoryDeps,
@@ -37,6 +41,9 @@ import {
   createAccountRecoveryRepository,
   createAuditHistory,
   createCredentialRepository,
+  createDocumentFileRepository,
+  createDocumentRepository,
+  createStorageRepository,
   createImageRepository,
   createInstanceSettingsRepository,
   createInvitationRepository,
@@ -58,6 +65,7 @@ import {
   createTotpRepository,
   createUserRepository,
   createWorkspaceRepository,
+  createWorkspaceToolRepository,
   migrationStatus,
   sessions,
   users,
@@ -68,7 +76,7 @@ import {
 } from '@vergissmeinnicht/database';
 import { canAuthenticate, type UserId } from '@vergissmeinnicht/domain';
 import { createSmtpEmailSender } from '@vergissmeinnicht/email';
-import { createFileMediaStore, createSharpImageProcessor } from '@vergissmeinnicht/media';
+import { createDocumentFileProcessor, createDocumentFileStore, createFileMediaStore, createSharpImageProcessor } from '@vergissmeinnicht/media';
 import { createTelegramBotApi } from '@vergissmeinnicht/notifications';
 import { createRunChangeHub, type RunChangeHub } from '@vergissmeinnicht/realtime';
 import type { FastifyBaseLogger } from 'fastify';
@@ -100,6 +108,14 @@ export interface AppServices {
   readonly history: HistoryDeps;
   /** Instruction images (14.3): metadata in SQLite, files under `mediaPath`. */
   readonly images: ImageDeps;
+  /** The combined storage of a Workspace: usage by tool, ceiling and own limit (16.4). */
+  readonly storage: StorageDeps;
+  /** Files of Documents (16.1): metadata in SQLite, originals and previews under `documentsPath`. */
+  readonly documentFiles: DocumentFileDeps;
+  /** Folders, Documents, document types and the Workspace's optional tools (16.2). */
+  readonly documents: DocumentExportDeps;
+  /** Stops the document worker thread and waits for running previews (shutdown, tests). */
+  readonly closeDocumentFiles: () => Promise<void>;
   /** Notification providers, a person's reminder settings and Telegram pairing (13.6–13.8). */
   readonly notifications: NotificationDeps;
   /** The reminder dispatcher (13.5), run by the in-process scheduler. */
@@ -206,6 +222,20 @@ export function createServices(config: AppConfig, database: AppDatabase) {
       workspaces: createWorkspaceRepository(database),
       clock: systemClock,
     };
+    const settingsRepository = createInstanceSettingsRepository(database);
+    const tools = createWorkspaceToolRepository(database);
+    const documentProcessor = createDocumentFileProcessor();
+    const documentFiles = {
+      files: createDocumentFileRepository(database),
+      store: createDocumentFileStore(config.documentsPath),
+      processor: documentProcessor,
+      clock: systemClock,
+    };
+    const previews = createPreviewQueue({
+      ...documentFiles,
+      // The error type only: a parser's message could quote a file.
+      onError: (error) => logger?.error({ err: { type: (error as Error).name } }, 'document preview failed'),
+    });
     return {
       publicOrigin: config.publicOrigin,
       sourceCodeUrl: config.sourceCodeUrl,
@@ -247,6 +277,22 @@ export function createServices(config: AppConfig, database: AppDatabase) {
         store: createFileMediaStore(config.mediaPath),
         processor: createSharpImageProcessor(),
         clock: systemClock,
+      },
+      documentFiles: {
+        ...documentFiles,
+        workspaces: workspaceDeps.workspaces,
+        tools,
+        previews,
+        policy: async () => {
+          const settings = await settingsRepository.get();
+          return { maxFileBytes: settings.documentMaxFileBytes, formats: settings.documentFormats };
+        },
+      },
+      storage: { workspaces: workspaceDeps.workspaces, storage: createStorageRepository(database), clock: systemClock },
+      documents: { workspaces: workspaceDeps.workspaces, tools, documents: createDocumentRepository(database), store: documentFiles.store, clock: systemClock },
+      closeDocumentFiles: async () => {
+        await previews.idle();
+        await documentProcessor.close();
       },
       securityEvents,
       rateLimits: createRateLimitCounter(database),

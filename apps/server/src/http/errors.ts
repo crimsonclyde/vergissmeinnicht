@@ -8,12 +8,26 @@ import {
   KnotRecordNotFoundError,
   KnotTargetNotFoundError,
   ImageNotFoundError,
+  DocumentFileNotFoundError,
+  DocumentConflictError,
+  DocumentLimitReachedError,
+  DocumentNotFoundError,
+  DocumentTypeNotFoundError,
+  FileInUseError,
+  FolderMoveRefusedError,
+  FolderNotFoundError,
+  NameTakenError,
+  ToolNotEnabledError,
+  DocumentFileRejectedError,
+  ExportRunningError,
+  ExportTooLargeError,
+  StorageFullError,
+  TooManyUploadsError,
   ListConflictError,
   ListItemLimitReachedError,
   ListItemNotFoundError,
   ListLimitReachedError,
   ListNotFoundError,
-  ImageQuotaExceededError,
   ImageRejectedError,
   AccountAlreadyExistsError,
   AlreadyMemberError,
@@ -61,7 +75,7 @@ import {
   TotpLockedError,
   TotpNotEnabledError,
 } from '@vergissmeinnicht/application';
-import { DomainValidationError } from '@vergissmeinnicht/domain';
+import { DomainValidationError, MAX_EXPORT_BYTES, MAX_EXPORT_FILES } from '@vergissmeinnicht/domain';
 import { ProcedureImportError } from '@vergissmeinnicht/import-export';
 import type { FastifyError, FastifyReply, FastifyRequest } from 'fastify';
 
@@ -150,9 +164,29 @@ export function errorHandler(error: FastifyError | Error, request: FastifyReques
   if (error instanceof ImageNotFoundError) return reply.code(404).send({ error: 'image_not_found' });
   // The stable reason only (e.g. heic_unsupported); never anything about the file's content.
   if (error instanceof ImageRejectedError) return reply.code(422).send({ error: 'image_rejected', reason: error.code });
-  if (error instanceof ImageQuotaExceededError) {
-    return reply.code(409).send({ error: 'image_quota_exceeded', usedBytes: error.usage.used, quotaBytes: error.usage.quota });
+  // A tool that is not switched on does not exist for this Workspace.
+  if (error instanceof ToolNotEnabledError) return reply.code(404).send({ error: 'tool_not_enabled' });
+  if (error instanceof FolderNotFoundError) return reply.code(404).send({ error: 'folder_not_found' });
+  if (error instanceof DocumentNotFoundError) return reply.code(404).send({ error: 'document_not_found' });
+  if (error instanceof DocumentTypeNotFoundError) return reply.code(404).send({ error: 'document_type_not_found' });
+  if (error instanceof DocumentConflictError) return reply.code(409).send({ error: 'document_conflict' });
+  if (error instanceof NameTakenError) return reply.code(409).send({ error: 'name_taken' });
+  if (error instanceof FolderMoveRefusedError) return reply.code(409).send({ error: error.code === 'cycle' ? 'folder_into_itself' : 'folder_too_deep' });
+  if (error instanceof DocumentLimitReachedError) return reply.code(409).send({ error: 'document_limit_reached' });
+  if (error instanceof FileInUseError) return reply.code(409).send({ error: 'file_in_use' });
+  if (error instanceof DocumentFileNotFoundError) return reply.code(404).send({ error: 'file_not_found' });
+  // The stable reason only; `too_large` is the usual "payload too large".
+  if (error instanceof DocumentFileRejectedError) return reply.code(error.code === 'too_large' ? 413 : 422).send({ error: 'file_rejected', reason: error.code });
+  // One combined limit per Workspace (16.4): the same answer for a Document file and an instruction image.
+  if (error instanceof StorageFullError) {
+    return reply.code(409).send({ error: 'storage_full', usedBytes: error.usage.used, limitBytes: error.usage.limit });
   }
+  if (error instanceof TooManyUploadsError) return reply.code(429).send({ error: 'too_many_uploads' });
+  // An export beyond the bounds: how much it would be, and what one export may hold — so it can be split.
+  if (error instanceof ExportTooLargeError) {
+    return reply.code(413).send({ error: 'export_too_large', files: error.size.files, bytes: error.size.bytes, maxFiles: MAX_EXPORT_FILES, maxBytes: MAX_EXPORT_BYTES });
+  }
+  if (error instanceof ExportRunningError) return reply.code(429).send({ error: 'export_running' });
 
   const statusCode = 'statusCode' in error && typeof error.statusCode === 'number' ? error.statusCode : 500;
   if (statusCode === 429) return reply.code(429).send({ error: 'rate_limited' });

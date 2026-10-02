@@ -83,6 +83,18 @@ describe('tool navigation', () => {
     expect(more?.pages).toEqual(expect.arrayContaining(['more', 'reminders', 'calendar', 'history']));
   });
 
+  it('adds an enabled optional tool to the sidebar and to More — never to the phone bar (16.2)', () => {
+    const withDocuments = destinations(W, ['DOCUMENTS']);
+    expect(withDocuments.side.map((item) => item.label)).toEqual(['Today', 'Procedures', 'Reminders', 'Lists', 'Calendar', 'Documents']);
+    expect(withDocuments.side.at(-1)?.href).toBe(`/w/${W}/documents`);
+    expect(withDocuments.bar.map((item) => item.label)).toEqual(['Today', 'Procedures', 'Lists', 'More']); // still exactly four
+    expect(withDocuments.bar[3]?.pages).toContain('documents');
+    // Not switched on: it appears nowhere.
+    expect(nav.side.some((item) => item.pages.includes('documents'))).toBe(false);
+    expect(nav.bar.some((item) => item.pages.includes('documents'))).toBe(false);
+    expect(destinations(W, ['UNKNOWN']).side).toHaveLength(5);
+  });
+
   it('marks exactly one destination for every tool page', () => {
     for (const page of ['workspace', 'procedures', 'procedure-edit', 'reminders', 'lists', 'calendar'] as const) {
       expect({ page, current: nav.side.filter((item) => item.pages.includes(page)).length }).toEqual({ page, current: 1 });

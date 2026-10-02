@@ -73,7 +73,9 @@ export async function workspaceRoutes(app: FastifyInstance, { services }: { serv
 
   app.get('/', async (request) => {
     const mine = await listMyWorkspaces(deps, { actor: principalOf(request).user });
-    return { workspaces: mine.map(({ workspace, role }) => ({ ...workspaceView(workspace), role })) };
+    // With the optional tools each one has switched on (16.2), so the navigation can offer them.
+    const withTools = await Promise.all(mine.map(async ({ workspace, role }) => ({ ...workspaceView(workspace), role, tools: await services.documents.tools.enabled(workspace.id) })));
+    return { workspaces: withTools };
   });
 
   app.post('/', { bodyLimit: 1024 }, async (request, reply) => {
@@ -85,7 +87,9 @@ export async function workspaceRoutes(app: FastifyInstance, { services }: { serv
   app.get('/:workspaceId', async (request) => {
     const { workspaceId } = parse(workspaceParams, request.params);
     const result = await getWorkspace(deps, { actor: principalOf(request).user, workspaceId: workspaceId as WorkspaceId });
-    return { workspace: { ...workspaceView(result.workspace), role: result.role }, capabilities: result.capabilities };
+    // The optional tools switched on here (16.2): what the navigation offers. Every request to a tool is still checked.
+    const tools = await services.documents.tools.enabled(workspaceId as WorkspaceId);
+    return { workspace: { ...workspaceView(result.workspace), role: result.role }, capabilities: result.capabilities, tools };
   });
 
   app.post('/:workspaceId/rename', { bodyLimit: 1024 }, async (request, reply) => {

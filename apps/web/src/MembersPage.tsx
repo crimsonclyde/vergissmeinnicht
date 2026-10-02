@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState, type FormEvent } from 'react';
 import { api, messageFor, WORKSPACE_ROLES, type WorkspaceMember, type WorkspaceRole } from './api.ts';
+import { WorkspaceStorageCard } from './Storage.tsx';
 import { navigate, paths } from './router.tsx';
 import type { WorkspaceContext } from './workspace-context.ts';
 import { t } from './i18n/index.ts';
@@ -105,6 +106,57 @@ export const workspaceSettingsSections = (workspaceId: string, capabilities: rea
 ];
 
 /** Workspace settings → General: the name (for those who manage settings), the own role, leaving. */
+/**
+ * The optional tools of the Workspace (16.2), for Workspace admins: a tool switched on appears for every
+ * member; switched off it is hidden for everyone and its content is kept. There is no personal hiding.
+ */
+function WorkspaceTools(props: { context: WorkspaceContext; onChanged: () => void }) {
+  const { context } = props;
+  const [status, setStatus] = useState<string | null>(null);
+  const [message, setMessage] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  // Shown at once; put back if the server refuses.
+  const [documentsOn, setDocumentsOn] = useState(context.tools.includes('DOCUMENTS'));
+  async function set(enabled: boolean) {
+    setBusy(true);
+    setMessage(null);
+    setDocumentsOn(enabled);
+    try {
+      await api.setWorkspaceTool(context.workspace.id, 'DOCUMENTS', enabled);
+      setStatus(t(enabled ? 'tools.on' : 'tools.off', { tool: t('tools.documents') }));
+      props.onChanged();
+    } catch (caught) {
+      setDocumentsOn(!enabled);
+      setStatus(null);
+      setMessage(messageFor(caught));
+    } finally {
+      setBusy(false);
+    }
+  }
+  return (
+    <div className="card stack">
+      <h3 style={{ marginTop: 0 }}>{t('tools.heading')}</h3>
+      <p className="muted" style={{ margin: 0 }}>
+        {t('tools.hint')}
+      </p>
+      {message !== null && <p role="alert">{message}</p>}
+      <label className="option-label tool-switch">
+        <input type="checkbox" checked={documentsOn} disabled={busy} aria-describedby="tool-documents-hint" onChange={(event) => void set(event.target.checked)} />
+        <span>
+          <strong>{t('tools.documents')}</strong>
+          <br />
+          <small id="tool-documents-hint" className="muted">
+            {t('tools.documentsHint')}
+          </small>
+        </span>
+      </label>
+      <p role="status" style={{ margin: 0 }}>
+        {status ?? ''}
+      </p>
+    </div>
+  );
+}
+
 export function WorkspaceGeneral(props: { context: WorkspaceContext; onWorkspacesChanged: () => void }) {
   const { context } = props;
   const [message, setMessage] = useState<string | null>(null);
@@ -136,6 +188,8 @@ export function WorkspaceGeneral(props: { context: WorkspaceContext; onWorkspace
           <p style={{ margin: 0 }}>{context.workspace.name}</p>
         </div>
       )}
+      {context.capabilities.includes('workspace.tools.manage') && <WorkspaceTools context={context} onChanged={props.onWorkspacesChanged} />}
+      {context.capabilities.includes('workspace.settings.manage') && <WorkspaceStorageCard workspaceId={context.workspace.id} />}
       <div className="card stack">
         <h3 style={{ marginTop: 0 }}>{t('workspaceSettings.roleHeading')}</h3>
         <p style={{ margin: 0 }}>{t('members.yourRole', { role: roleLabel(context.workspace.role), help: roleHelp(context.workspace.role) })}</p>

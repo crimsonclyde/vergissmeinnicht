@@ -106,8 +106,14 @@ export async function adminSecurityEventRoutes(app: FastifyInstance, { services 
 }
 
 const settingsBody = z
-  .strictObject({ footerHidden: z.boolean().optional(), recentProceduresLimit: z.number().int().min(-1000).max(1000).optional() })
-  .refine((body) => body.footerHidden !== undefined || body.recentProceduresLimit !== undefined);
+  .strictObject({
+    footerHidden: z.boolean().optional(),
+    recentProceduresLimit: z.number().int().min(-1000).max(1000).optional(),
+    // Coarse transport bounds; the exact rules (1–100 MB, known formats only) are the domain's.
+    documentMaxFileBytes: z.number().int().min(0).max(Number.MAX_SAFE_INTEGER).optional(),
+    documentFormats: z.array(z.string().max(16)).max(16).optional(),
+  })
+  .refine((body) => Object.values(body).some((value) => value !== undefined));
 
 /** Server-admin settings of this server (footer visibility); read publicly via /api/about. Authorization in the use-case. */
 export async function adminSettingsRoutes(app: FastifyInstance, { services }: { services: AppServices }) {
@@ -122,6 +128,9 @@ export async function adminSettingsRoutes(app: FastifyInstance, { services }: { 
       settings: {
         ...(body.footerHidden === undefined ? {} : { footerHidden: body.footerHidden }),
         ...(body.recentProceduresLimit === undefined ? {} : { recentProceduresLimit: body.recentProceduresLimit }),
+        ...(body.documentMaxFileBytes === undefined ? {} : { documentMaxFileBytes: body.documentMaxFileBytes }),
+        // Checked against the formats the server validates by the use-case; anything else is refused.
+        ...(body.documentFormats === undefined ? {} : { documentFormats: body.documentFormats as never }),
       },
     });
     return { settings };

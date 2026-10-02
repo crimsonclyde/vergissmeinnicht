@@ -1,5 +1,6 @@
 import { useEffect, useId, useRef, useState } from 'react';
 import { ApiError, api, imageUrl, messageFor, type ImageUsage, type StepImageRef } from './api.ts';
+import { formatBytes } from './document-model.ts';
 import { formatNumber, hasMessage, t } from './i18n/index.ts';
 import { MAX_UPLOAD_BYTES, prepareImage } from './image-prep.ts';
 import { offlineStore } from './offline/store.ts';
@@ -14,10 +15,9 @@ export function imageErrorMessage(error: unknown): string {
     const key = `image.rejected.${String(error.details.reason)}`;
     if (hasMessage(key)) return t(key);
   }
-  if (error instanceof ApiError && error.code === 'image_quota_exceeded') {
-    const used = Number(error.details.usedBytes);
-    const quota = Number(error.details.quotaBytes);
-    return t('error.image_quota_exceeded_detail', { used: formatMegabytes(used), quota: formatMegabytes(quota) });
+  // One storage limit for the whole Workspace (16.4): the same words as for a Document.
+  if (error instanceof ApiError && error.code === 'storage_full' && typeof error.details.usedBytes === 'number' && typeof error.details.limitBytes === 'number') {
+    return t('error.storage_full_detail', { used: formatBytes(error.details.usedBytes), limit: formatBytes(error.details.limitBytes) });
   }
   return messageFor(error);
 }

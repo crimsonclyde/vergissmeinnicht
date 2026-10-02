@@ -1,4 +1,4 @@
-import { isActiveServerAdmin, parseImageQuota, parseStepImageId, type StepImageId, type User, type WorkspaceId } from '@vergissmeinnicht/domain';
+import { parseStepImageId, type StepImageId, type User, type WorkspaceId } from '@vergissmeinnicht/domain';
 import { roleHasCapability } from '@vergissmeinnicht/permissions';
 import { NotAuthorizedError } from '../invitations/errors.ts';
 import type { Clock } from '../ports/clock.ts';
@@ -6,7 +6,8 @@ import type { ImageProcessor, ImageRepository, ImageUsage, MediaStore, StepImage
 import type { WorkspaceRepository } from '../ports/workspace-repository.ts';
 import { userActor } from '../user-actor.ts';
 import { authorizeWorkspace } from '../workspaces/use-cases.ts';
-import { ImageNotFoundError, ImageQuotaExceededError } from './errors.ts';
+import { StorageFullError } from '../documents/errors.ts';
+import { ImageNotFoundError } from './errors.ts';
 
 export interface ImageDeps {
   readonly workspaces: WorkspaceRepository;
@@ -29,7 +30,8 @@ const pendingSince = (now: Date) => new Date(now.getTime() - IMAGE_PENDING_MS);
  * Uploads an instruction image (14.3): needs `procedure.edit`. The upload is validated and processed on
  * the server (never trusted: content-based format check, pixel limit, orientation, metadata removed,
  * ≤1600 px, JPEG ≤500 KB); only the processed JPEG is stored, content-addressed. The quota check and
- * the metadata row happen in one transaction, so concurrent uploads cannot exceed the quota.
+ * the metadata row happen in one transaction, so concurrent uploads cannot exceed it. The quota is the
+ * Workspace's combined storage limit (16.4), shared with Documents.
  * `replacing`: the image this upload replaces on a Step (not counted when only Steps still use it).
  */
 export async function uploadStepImage(
@@ -57,7 +59,7 @@ export async function uploadStepImage(
   );
   // A refused upload leaves only an unreferenced file behind; housekeeping removes it.
   if (result.status === 'forbidden') throw new NotAuthorizedError();
-  if (result.status === 'quota_exceeded') throw new ImageQuotaExceededError(result.usage);
+  if (result.status === 'quota_exceeded') throw new StorageFullError(result.usage);
   return { image: result.image, usage: result.usage };
 }
 
@@ -74,27 +76,10 @@ export async function readStepImage(deps: ImageDeps, input: { readonly actor: Us
   return bytes;
 }
 
-/** Storage used by the Workspace's images and its quota. */
+/** The Workspace's combined storage and its limit, as far as an author needs it (used and limit). */
 export async function imageUsage(deps: ImageDeps, input: { readonly actor: User; readonly workspaceId: WorkspaceId }): Promise<ImageUsage> {
   await authorizeWorkspace(deps, input.actor, input.workspaceId, 'procedure.view');
   return deps.images.usage(input.workspaceId, pendingSince(deps.clock.now()));
-}
-
-function requireServerAdmin(actor: User): void {
-  if (!isActiveServerAdmin(actor)) throw new NotAuthorizedError();
-}
-
-/** Server admin: every Workspace with its image usage and quota. */
-export async function listWorkspaceImageStorage(deps: ImageDeps, input: { readonly actor: User }) {
-  requireServerAdmin(input.actor);
-  return deps.images.listStorage(pendingSince(deps.clock.now()));
-}
-
-/** Server admin: 100 MB, 250 MB, 500 MB or 1 GB. Lowering it deletes nothing. */
-export async function setWorkspaceImageQuota(deps: ImageDeps, input: { readonly actor: User; readonly workspaceId: WorkspaceId; readonly quota: number }): Promise<void> {
-  requireServerAdmin(input.actor);
-  const quota = parseImageQuota(input.quota);
-  if (!(await deps.images.setQuota({ workspaceId: input.workspaceId, quota, at: deps.clock.now() }, userActor(input.actor)))) throw new ImageNotFoundError();
 }
 
 /**

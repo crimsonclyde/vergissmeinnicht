@@ -1,4 +1,4 @@
-import { DomainValidationError, isActiveServerAdmin, type User } from '@vergissmeinnicht/domain';
+import { DomainValidationError, isActiveServerAdmin, parseDocumentFormats, parseMaxDocumentFileBytes, type User } from '@vergissmeinnicht/domain';
 import { NotAuthorizedError } from '../invitations/errors.ts';
 import type { Clock } from '../ports/clock.ts';
 import { RECENT_PROCEDURES_LIMIT_RANGE, type InstanceSettings, type InstanceSettingsRepository } from '../ports/instance-settings-repository.ts';
@@ -22,7 +22,8 @@ export async function getInstanceSettingsForAdmin(deps: InstanceSettingsDeps, in
 
 /**
  * Server admins change some settings of this server; audited. The Recent limit only changes how many
- * entries Home shows — no history is touched.
+ * entries Home shows — no history is touched. The document limits (16.1) apply to new uploads only:
+ * files already stored stay readable when the size limit is lowered or a format is removed.
  */
 export async function updateInstanceSettings(
   deps: InstanceSettingsDeps,
@@ -33,7 +34,13 @@ export async function updateInstanceSettings(
   if (limit !== undefined && (!Number.isInteger(limit) || limit < RECENT_PROCEDURES_LIMIT_RANGE.min || limit > RECENT_PROCEDURES_LIMIT_RANGE.max)) {
     throw new DomainValidationError('recentProceduresLimit', 'invalid_recent_limit', 'The Recent limit is 0 to 20');
   }
-  const next = { ...(await deps.settings.get()), ...input.settings };
+  const current = await deps.settings.get();
+  const next = {
+    ...current,
+    ...input.settings,
+    documentMaxFileBytes: input.settings.documentMaxFileBytes === undefined ? current.documentMaxFileBytes : parseMaxDocumentFileBytes(input.settings.documentMaxFileBytes),
+    documentFormats: input.settings.documentFormats === undefined ? current.documentFormats : parseDocumentFormats(input.settings.documentFormats),
+  };
   if (!(await deps.settings.save(next, deps.clock.now(), userActor(input.actor)))) throw new NotAuthorizedError();
   return deps.settings.get();
 }

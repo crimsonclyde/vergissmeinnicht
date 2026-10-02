@@ -7,6 +7,8 @@ export interface CanAdd {
   readonly procedure: boolean;
   readonly reminder: boolean;
   readonly list: boolean;
+  /** Documents is switched on in this Workspace and the person may add Documents (16.2). */
+  readonly document: boolean;
 }
 
 interface Choice {
@@ -21,6 +23,7 @@ const CHOICES: readonly Choice[] = [
   { key: 'procedure', icon: 'procedures', label: 'add.procedure', hint: 'add.procedureHint', href: paths.newProcedure },
   { key: 'reminder', icon: 'reminders', label: 'add.reminder', hint: 'add.reminderHint', href: paths.newReminder },
   { key: 'list', icon: 'grocery', label: 'add.list', hint: 'add.listHint', href: paths.newList },
+  { key: 'document', icon: 'documents', label: 'add.document', hint: 'add.documentHint', href: (workspaceId) => paths.newDocument(workspaceId) },
 ];
 
 /** What the person may add here — only what they are allowed to create (UI only; the server decides). */

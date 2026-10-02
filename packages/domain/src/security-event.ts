@@ -31,6 +31,8 @@ export const SECURITY_EVENT_TYPES = [
   'INSTANCE_SETTINGS_CHANGED',
   // Image storage quota of a Workspace changed by a server admin (14.3).
   'WORKSPACE_IMAGE_QUOTA_CHANGED',
+  // The storage ceiling of a Workspace changed by a server admin (16.4; replaces the image quota).
+  'WORKSPACE_STORAGE_CEILING_CHANGED',
   // Notifications (13.7): provider configuration (never the credential) and a person's Telegram chat.
   'NOTIFICATION_PROVIDER_CHANGED',
   'TELEGRAM_CONNECTED',

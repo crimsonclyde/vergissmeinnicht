@@ -23,6 +23,18 @@ describe('parseRoute', () => {
     expect(parseRoute('/recover/abc')).toEqual({ page: 'recover', token: 'abc' });
   });
 
+  it('maps the Documents addresses (16.2)', () => {
+    const top = { page: 'documents', workspaceId: W, folderId: null, documentId: null };
+    expect(parseRoute(paths.documents(W))).toEqual({ ...top, view: 'folder' });
+    expect(parseRoute(paths.documents(W, R))).toEqual({ ...top, view: 'folder', folderId: R });
+    expect(parseRoute(paths.newDocument(W))).toEqual({ ...top, view: 'new' });
+    expect(parseRoute(paths.newDocument(W, R))).toEqual({ ...top, view: 'new', folderId: R });
+    expect(parseRoute(paths.document(W, R))).toEqual({ ...top, view: 'document', documentId: R });
+    expect(parseRoute(paths.documentTrash(W))).toEqual({ ...top, view: 'trash' });
+    expect(parseRoute(`/w/${W}/documents/folders/nope`)).toEqual({ page: 'not-found' });
+    expect(parseRoute(`/w/${W}/documents/${R}/original`)).toEqual({ page: 'not-found' });
+  });
+
   it('keeps every address that existed before the tool navigation (15.1)', () => {
     // Bookmarks, Knot targets and links in reminder messages must keep opening the same thing.
     expect(parseRoute('/account')).toMatchObject({ page: 'account' });

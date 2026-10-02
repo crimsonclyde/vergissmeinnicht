@@ -2,7 +2,7 @@
   "name": "@vergissmeinnicht/media",
   "private": true,
   "license": "AGPL-3.0-only",
-  "description": "Instruction images: server-side processing (sharp/libvips) and the content-addressed file store.",
+  "description": "Instruction images and document files: server-side validation and previews (sharp/libvips; MuPDF and libheif as WebAssembly) and the content-addressed file stores.",
   "type": "module",
   "exports": {
     ".": "./src/index.ts"
@@ -13,6 +13,7 @@
   "dependencies": {
     "@vergissmeinnicht/application": "workspace:*",
     "@vergissmeinnicht/domain": "workspace:*",
+    "mupdf": "1.28.1",
     "sharp": "0.35.5"
   },
   "devDependencies": {

@@ -5,7 +5,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import {
   IMAGE_PENDING_MS,
   ImageNotFoundError,
-  ImageQuotaExceededError,
+  StorageFullError,
   ImageRejectedError,
   InvalidProcedureReferenceError,
   NotAuthorizedError,
@@ -15,10 +15,10 @@ import {
   createWorkspace,
   deleteProcedure,
   imageUsage,
-  listWorkspaceImageStorage,
+  listWorkspaceStorage,
   purgeUnusedImages,
   readStepImage,
-  setWorkspaceImageQuota,
+  setWorkspaceStorageCeiling,
   startRun,
   updateProcedure,
   uploadStepImage,
@@ -29,6 +29,7 @@ import {
 import { DomainValidationError, normalizeEmail, type ProcedureId, type User, type Workspace } from '@vergissmeinnicht/domain';
 import { createFileMediaStore, mediaPath } from '@vergissmeinnicht/media';
 import { createImageRepository } from './image-repository.ts';
+import { createStorageRepository } from './storage-usage.ts';
 import { createProcedureRepository } from './procedure-repository.ts';
 import { createRunRepository } from './run-repository.ts';
 import { createTestDatabase } from './test-support.ts';
@@ -65,6 +66,7 @@ describe('instruction images (14.3)', () => {
   let home: Workspace;
   let office: Workspace;
   const clock = { now: () => now };
+  let storage: { storage: ReturnType<typeof createStorageRepository>; clock: typeof clock };
   const procedureDeps = () => ({ workspaces: deps.workspaces, procedures: createProcedureRepository(database), clock });
   const runDeps = () => ({ workspaces: deps.workspaces, runs: createRunRepository(database), clock });
   const content = (imageId: string | null, caption = 'Blue lever left of the meter'): ProcedureInput => ({
@@ -104,6 +106,9 @@ describe('instruction images (14.3)', () => {
       await addMember({ users, workspaces, clock }, { actor: admin, workspaceId: home.id, email: member.email, role });
     }
     await addMember({ users, workspaces, clock }, { actor: admin, workspaceId: office.id, email: otto.email, role: 'ADMIN' });
+    // A small ceiling, so that the limit can be reached with test images (the default is 5 GB).
+    database.sqlite.prepare('UPDATE workspaces SET storage_quota_bytes = 100000000').run();
+    storage = { storage: createStorageRepository(database), clock };
   });
   afterEach(() => {
     database.dispose();
@@ -185,15 +190,15 @@ describe('instruction images (14.3)', () => {
     expect(await deps.store.read(orphan)).toBeUndefined();
   });
 
-  describe('Workspace quota (D11a)', () => {
+  describe('Workspace storage limit (16.4; D11a until then)', () => {
     it('refuses an upload that would exceed the quota; existing images stay available', async () => {
       await fill(99_500_000);
       await upload(300_000); // 99.8 MB
-      await expect(upload(400_000)).rejects.toThrow(ImageQuotaExceededError);
+      await expect(upload(400_000)).rejects.toThrow(StorageFullError);
       try {
         await upload(400_000);
       } catch (error) {
-        expect((error as ImageQuotaExceededError).usage).toEqual({ used: 99_800_000, quota: 100_000_000 });
+        expect((error as StorageFullError).usage).toMatchObject({ used: 99_800_000, images: 99_800_000, limit: 100_000_000 });
       }
       expect((await imageUsage(deps, { actor: gus, workspaceId: home.id })).used).toBe(99_800_000);
     }, 60_000);
@@ -214,21 +219,20 @@ describe('instruction images (14.3)', () => {
     });
 
     it('never deletes when lowered, and blocks storage until usage is below the quota', async () => {
-      await setWorkspaceImageQuota(deps, { actor: admin, workspaceId: home.id, quota: 250_000_000 });
+      await setWorkspaceStorageCeiling(storage, { actor: admin, workspaceId: home.id, bytes: 250_000_000 });
       await fill(180_000_000);
-      await setWorkspaceImageQuota(deps, { actor: admin, workspaceId: home.id, quota: 100_000_000 });
+      await setWorkspaceStorageCeiling(storage, { actor: admin, workspaceId: home.id, bytes: 100_000_000 });
       expect((await imageUsage(deps, { actor: gus, workspaceId: home.id })).used).toBe(180_000_000);
-      await expect(upload(1000)).rejects.toThrow(ImageQuotaExceededError);
-      await expect(setWorkspaceImageQuota(deps, { actor: eddie, workspaceId: home.id, quota: 1_000_000_000 })).rejects.toThrow(NotAuthorizedError);
-      await expect(setWorkspaceImageQuota(deps, { actor: admin, workspaceId: home.id, quota: 123 })).rejects.toThrow(DomainValidationError);
-      const storage = await listWorkspaceImageStorage(deps, { actor: admin });
-      expect(storage.find((entry) => entry.workspaceId === home.id)?.usage).toEqual({ used: 180_000_000, quota: 100_000_000 });
-      const events = database.sqlite.prepare("SELECT metadata FROM security_events WHERE type = 'WORKSPACE_IMAGE_QUOTA_CHANGED' ORDER BY rowid").all() as { metadata: string }[];
+      await expect(upload(1000)).rejects.toThrow(StorageFullError);
+      await expect(setWorkspaceStorageCeiling(storage, { actor: eddie, workspaceId: home.id, bytes: 1_000_000_000 })).rejects.toThrow(NotAuthorizedError);
+      await expect(setWorkspaceStorageCeiling(storage, { actor: admin, workspaceId: home.id, bytes: 123 })).rejects.toThrow(DomainValidationError);
+      const listed = await listWorkspaceStorage(storage, { actor: admin });
+      expect(listed.find((entry) => entry.workspaceId === home.id)?.usage).toMatchObject({ used: 180_000_000, images: 180_000_000, limit: 100_000_000, ceiling: 100_000_000 });
+      const events = database.sqlite.prepare("SELECT metadata FROM security_events WHERE type = 'WORKSPACE_STORAGE_CEILING_CHANGED' ORDER BY rowid").all() as { metadata: string }[];
       expect(events.map((row) => JSON.parse(row.metadata))).toEqual([
         { from: 100_000_000, to: 250_000_000 },
         { from: 250_000_000, to: 100_000_000 },
       ]);
-      expect(() => database.sqlite.prepare('UPDATE workspaces SET image_quota_bytes = 5 WHERE id = ?').run(home.id)).toThrow(/invalid image quota/);
     }, 120_000);
 
     it('replaces an image at the limit when the old one is used only by its Step; old Runs keep theirs charged', async () => {
@@ -237,7 +241,7 @@ describe('instruction images (14.3)', () => {
       now = new Date(now.getTime() + IMAGE_PENDING_MS * 2);
       await fill(99_500_000);
       // 99.9 MB used: a 400 KB replacement fits only because the old image is released by it.
-      await expect(upload(400_000)).rejects.toThrow(ImageQuotaExceededError);
+      await expect(upload(400_000)).rejects.toThrow(StorageFullError);
       const { image: replacement } = await upload(400_000, eddie, home, old.id);
       await updateProcedure(procedureDeps(), { actor: eddie, workspaceId: home.id, procedureId: procedure.procedure.id as ProcedureId, expectedRevision: procedure.procedure.revision, content: content(replacement.id) });
       // With a Run on the old image, removing it from the Step does not free its bytes.

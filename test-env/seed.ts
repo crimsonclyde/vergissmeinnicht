@@ -4,6 +4,8 @@
 //
 // Run by test-env/install.sh; expects the server and Mailpit to be running.
 
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { setTimeout as sleep } from 'node:timers/promises';
 
 const origin = requireEnv('VMN_TEST_ORIGIN');
@@ -209,6 +211,38 @@ for (const item of [{ title: 'Milk', quantity: '2', unit: 'l' }, { title: 'Bread
 }
 const coffee = groceries.list.items.at(-1);
 if (coffee !== undefined) await api('POST', `/workspaces/${household}/lists/${groceries.list.id}/items/${coffee.id}/check`, { checked: true }, member);
+// Documents (16.2): switched on by the Workspace admin for the Household only; two nested Folders and a
+// bill of two pages, uploaded like a person would (the fixture files of the media tests).
+await api('POST', `/workspaces/${household}/tools`, { tool: 'DOCUMENTS', enabled: true }, admin);
+async function uploadFile(name: string, fixture: string): Promise<string> {
+  const response = await fetch(`${origin}/api/workspaces/${household}/document-files`, {
+    method: 'POST',
+    headers: { origin, cookie: member, 'content-type': 'application/octet-stream', 'x-file-name': encodeURIComponent(name) },
+    body: readFileSync(join(import.meta.dirname, '../packages/media/src/fixtures', fixture)),
+  });
+  if (!response.ok) throw new Error(`upload of ${name} failed: ${response.status} ${await response.text()}`);
+  return ((await response.json()) as { file: { id: string } }).file.id;
+}
+interface SeededFolder {
+  readonly folder: { readonly id: string };
+}
+const water = (await api<SeededFolder>('POST', `/workspaces/${household}/document-folders`, { name: 'Water', parentId: null }, member)).data.folder.id;
+const thisYear = (await api<SeededFolder>('POST', `/workspaces/${household}/document-folders`, { name: String(new Date().getFullYear()), parentId: water }, member)).data.folder.id;
+await api('POST', `/workspaces/${household}/document-folders`, { name: 'Insurance', parentId: null }, member);
+await api(
+  'POST',
+  `/workspaces/${household}/documents`,
+  {
+    title: 'Water bill',
+    folderId: thisYear,
+    fileIds: [await uploadFile('water-bill.pdf', 'three-pages.pdf'), await uploadFile('IMG_0001.HEIC', 'photo.heic')],
+    type: { builtIn: 'bill' },
+    documentDate: localDate(-20),
+    year: new Date().getFullYear(),
+    tags: ['water'],
+  },
+  member,
+);
 await api('POST', `/workspaces/${household}/procedures/${procedureIds[0]}/pin`, {}, member);
 await api('POST', '/auth/sign-out', {}, member);
-console.log(`Created ${people.length + 1} accounts, 2 Workspaces, ${procedures.length} Procedures, 1 Run, 2 scheduled Procedures, 2 Reminders, 1 grocery list and 1 pin.`);
+console.log(`Created ${people.length + 1} accounts, 2 Workspaces, ${procedures.length} Procedures, 1 Run, 2 scheduled Procedures, 2 Reminders, 1 grocery list, 3 document folders with 1 document and 1 pin.`);

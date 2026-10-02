@@ -35,8 +35,34 @@ export const AUDIT_EVENT_TYPES = [
   'LIST_RENAMED',
   'LIST_DELETED',
   'LIST_RESTORED',
+  // Optional tools of a Workspace (16.2): switched on or off by a Workspace admin.
+  'WORKSPACE_TOOL_ENABLED',
+  'WORKSPACE_TOOL_DISABLED',
+  // Documents (16.2): changes only — previews and downloads are not events. Never file contents or notes.
+  'FOLDER_CREATED',
+  'FOLDER_RENAMED',
+  'FOLDER_MOVED',
+  'FOLDER_DELETED',
+  'FOLDER_RESTORED',
+  'DOCUMENT_CREATED',
+  'DOCUMENT_UPDATED',
+  'DOCUMENT_FILES_CHANGED',
+  'DOCUMENT_MOVED',
+  'DOCUMENT_DELETED',
+  'DOCUMENT_RESTORED',
+  'DOCUMENT_TYPE_CREATED',
+  'DOCUMENT_TYPE_RENAMED',
+  'DOCUMENT_TYPE_RETIRED',
+  // Documents (16.4): permanent deletion from Trash by a Workspace admin (ids, titles, counts — never
+  // content), a bulk export (who, what scope, how much), and the Workspace's own storage limit.
+  'DOCUMENT_PURGED',
+  'FOLDER_PURGED',
+  'DOCUMENTS_EXPORTED',
+  'WORKSPACE_STORAGE_LIMIT_CHANGED',
 ] as const;
 export type AuditEventType = (typeof AUDIT_EVENT_TYPES)[number];
+
+export type AuditSubjectType = 'procedure' | 'run' | 'run_step' | 'knot' | 'schedule' | 'occurrence' | 'list' | 'workspace' | 'folder' | 'document' | 'document_type';
 
 /** A recorded event as read back for history views. */
 export interface AuditEvent {
@@ -45,7 +71,7 @@ export interface AuditEvent {
   readonly occurredAt: Date;
   /** Internal id plus the display name at the time of the event. */
   readonly actor: { readonly userId: string; readonly displayName: string };
-  readonly subjectType: 'procedure' | 'run' | 'run_step' | 'knot' | 'schedule' | 'occurrence' | 'list';
+  readonly subjectType: AuditSubjectType;
   readonly subjectId: string;
   readonly runId: string | null;
   readonly metadata: Readonly<Record<string, string | number | boolean | readonly string[]>>;
