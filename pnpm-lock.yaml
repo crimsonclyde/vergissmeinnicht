@@ -374,8 +374,8 @@ importers:
         specifier: workspace:*
         version: link:../domain
       nodemailer:
-        specifier: 10.0.10
-        version: 10.0.10
+        specifier: 10.0.13
+        version: 10.0.13
     devDependencies:
       '@types/node':
         specifier: 24.13.6
@@ -2403,6 +2403,10 @@ packages:
     resolution: {integrity: sha512-He9XskOFms62SyAKkLu8CcGcYHAo+BSHSsORI8s4PJH8qZgZY4L4lDfvyN0twvmbpyG+eGrxpyBlskj9d9rJ8A==}
     engines: {node: '>=20.0.0'}
 
+  nodemailer@10.0.13:
+    resolution: {integrity: sha512-SzG86OlvcW/NNhUFC6uROMwRTL4n7MswfQqC/T8mhkmnY1YVa23zUEMYi4ijSeXSl9GLz9ZeTJDUatEDuY5FeQ==}
+    engines: {node: '>=20.0.0'}
+
   obug@2.2.1:
     resolution: {integrity: sha512-XrsrhT5sybtKI6wakr2SPOlGZWWYbUXZ7a0jT8/QOeAPau+1X/bSegNe5YR75oJmEZQbKningirmGOEJCIk61Q==}
     engines: {node: '>=12.20.0'}
@@ -4335,6 +4339,8 @@ snapshots:
   node-releases@2.0.57: {}
 
   nodemailer@10.0.10: {}
+
+  nodemailer@10.0.13: {}
 
   obug@2.2.1: {}
 
