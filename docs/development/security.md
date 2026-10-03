@@ -868,6 +868,14 @@ A host resolving to `127.0.0.1`, `10.0.0.5`, `192.168.1.10`, `100.64.0.1`, `169.
 
 ## 15. Planned all-tool switches and Today aggregates (steps 17.1–17.2)
 
+### Independent review: Document upload during tool disable (2026-10-03)
+
+**Verified finding:** `uploadDocumentFile` checked Documents before staging/processing, but `DocumentFileRepository.register` only re-checked membership/role and quota. A member could start an upload, then have it accepted and charged after an admin disabled Documents. The regression disables Documents inside the processor, before registration; before the fix it returned a READY file and increased usage by 1277 bytes.
+
+**Fix:** registration checks the Documents switch in its IMMEDIATE transaction, before quota or insertion; a disabled switch returns `tool_disabled`, translated to the existing unknown-resource error. No file metadata or derivatives are registered and usage stays unchanged. Staged content already committed to the immutable store can remain orphaned until ordinary housekeeping; it is unreachable through the API.
+
+**Validation:** `packages/database/src/document-file-use-cases.test.ts` (20 tests), including the failing-before/passing-after regression and existing demotion, cross-Workspace, guest, byte-identity, quota and housekeeping checks. This finding does not establish the security of other routes or workers; that review remains ongoing.
+
 **Status: requirements only; not implemented.** Extends the existing house-tool boundary to Procedures/Runs, Reminders, Lists, Calendar and every later functional tool. A Workspace admin changes flags with the existing authenticated, CSRF-protected, in-transaction permission checks and an atomic audit entry. New Workspace flags default off; upgrade preserves currently available core tools and existing flags. Disabling preserves data and quota.
 
 Required negative checks with implementation:

@@ -131,6 +131,7 @@ export type DocumentStorageUsage = StorageUsage;
 export type RegisterDocumentFileResult =
   | { readonly status: 'ok'; readonly file: DocumentFileRecord; readonly usage: DocumentStorageUsage }
   | { readonly status: 'forbidden' }
+  | { readonly status: 'tool_disabled' }
   | { readonly status: 'storage_full'; readonly usage: DocumentStorageUsage };
 
 /**

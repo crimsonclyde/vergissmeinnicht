@@ -25,7 +25,7 @@ import {
 import type { WorkspaceToolRepository } from '../ports/document-repository.ts';
 import type { WorkspaceRepository } from '../ports/workspace-repository.ts';
 import { userActor } from '../user-actor.ts';
-import { DocumentFileNotFoundError, StorageFullError, TooManyUploadsError } from './errors.ts';
+import { DocumentFileNotFoundError, StorageFullError, TooManyUploadsError, ToolNotEnabledError } from './errors.ts';
 import type { PreviewQueue } from './previews.ts';
 import { authorizeTool } from './tools.ts';
 
@@ -119,6 +119,7 @@ export async function uploadDocumentFile(
       );
       // A refused upload leaves only an unreferenced file behind; housekeeping removes it.
       if (result.status === 'forbidden') throw new NotAuthorizedError();
+      if (result.status === 'tool_disabled') throw new ToolNotEnabledError();
       if (result.status === 'storage_full') throw new StorageFullError(result.usage);
       let state: PreviewState = previewState;
       if (first !== undefined) {

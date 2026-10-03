@@ -20,6 +20,8 @@ For every completed task, add a concise completion note, tests/checks performed,
 
 **Latest accepted update (2026-10-02):** documentation reorganisation done (17.0). All-tool Workspace switches, default off for new Workspaces (17.1), a progress-oriented Today (17.2), and reviewed product screenshots (17.3) are TODO. Existing implementation behaviour is unchanged. These requirements supersede the older fixed-navigation/action-only rules as stated in section 17.
 
+**Independent review in progress (2026-10-03):** dedicated branch `development/optional-tools-review`, based on main after documentation PR #8 merged. Existing untracked mock-ups and screenshots are preserved. Confirmed and fixed: a Document upload could register metadata and consume quota after Documents was disabled during processing; registration now checks the switch inside the same IMMEDIATE transaction as the role and quota. The new regression failed before the fix (successful upload, 1277 bytes charged) and passes after it; the complete document-file use-case suite passes (20 tests). Orphan bytes from a refused staged upload remain subject to existing housekeeping, never become a visible file. Security impact: closes a tool-boundary race; no new capability or data flow. Broader review, UI inspection and steps 17.1–17.3 remain in progress and are not validated by this test.
+
 
 _Last updated: 2026-10-02 (0.5.0-beta.2 released from `main`: section 16 through 16.7 — links, Contacts, Maintenance; before it 0.5.0-beta.1: Phase 1 — Documents)_
 

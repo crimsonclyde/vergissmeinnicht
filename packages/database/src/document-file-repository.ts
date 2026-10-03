@@ -4,7 +4,7 @@ import { IMAGE_PENDING_MS, type DerivativeRecord, type DocumentFileRecord, type 
 import { fitsStorage, type DocumentFileId, type WorkspaceId } from '@vergissmeinnicht/domain';
 import { IMMEDIATE, actorAllowed, type Transaction } from './actor-guard.ts';
 import type { AppDatabase } from './connection.ts';
-import { documentFileDerivatives, documentFiles, documentPages, runDocumentFiles } from './schema.ts';
+import { documentFileDerivatives, documentFiles, documentPages, runDocumentFiles, workspaceTools } from './schema.ts';
 import { storageUsageIn } from './storage-usage.ts';
 
 type Reader = Pick<Transaction, 'select'>;
@@ -64,6 +64,10 @@ export function createDocumentFileRepository({ db }: Pick<AppDatabase, 'db'>): D
     async register(input, actor, guard) {
       return db.transaction((tx): RegisterDocumentFileResult => {
         if (!actorAllowed(tx, input.workspaceId, actor, guard)) return { status: 'forbidden' };
+        if (tx.select({ enabled: workspaceTools.enabled }).from(workspaceTools)
+          .where(and(eq(workspaceTools.workspaceId, input.workspaceId), eq(workspaceTools.tool, 'DOCUMENTS'))).get()?.enabled !== true) {
+          return { status: 'tool_disabled' };
+        }
         const usage = storageUsageIn(tx, input.workspaceId, pendingSince(input.at));
         // Identical content already in this Workspace is the same stored file: charged once.
         const known =

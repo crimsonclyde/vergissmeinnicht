@@ -223,6 +223,25 @@ describe('document files (16.1)', () => {
     expect((await getDocumentFile(deps, { actor: gus, workspaceId: home.id, fileId: file.id })).id).toBe(file.id);
   });
 
+  it('refuses an upload when Documents is disabled while the file is being processed', async () => {
+    const workspaces = createWorkspaceRepository(database);
+    const slow = {
+      ...deps,
+      processor: {
+        ...deps.processor,
+        inspect: async (path: string, bytes: number) => {
+          await setWorkspaceTool({ workspaces, tools: deps.tools, clock }, { actor: admin, workspaceId: home.id, tool: 'DOCUMENTS', enabled: false });
+          return deps.processor.inspect(path, bytes);
+        },
+      },
+    };
+    const before = await deps.files.usage(home.id, now);
+    await expect(uploadDocumentFile(slow, { actor: uma, workspaceId: home.id, name: 'a.png', source: once(content('PNG')) })).rejects.toThrow(ToolNotEnabledError);
+    expect(database.sqlite.prepare('SELECT count(*) AS n FROM document_files').get()).toEqual({ n: 0 });
+    expect(await deps.files.usage(home.id, now)).toEqual(before);
+    expect(readdirSync(join(root, '.staging'))).toEqual([]);
+  });
+
   it('refuses a disabled actor and re-checks the role inside the write', async () => {
     const users = createUserRepository(database);
     const workspaces = createWorkspaceRepository(database);
