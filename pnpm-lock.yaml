@@ -387,8 +387,8 @@ importers:
         specifier: 3.5.13
         version: 3.5.13
       smtp-server:
-        specifier: 3.19.13
-        version: 3.19.13
+        specifier: 3.19.16
+        version: 3.19.16
 
   packages/import-export:
     dependencies:
@@ -2403,6 +2403,10 @@ packages:
     resolution: {integrity: sha512-He9XskOFms62SyAKkLu8CcGcYHAo+BSHSsORI8s4PJH8qZgZY4L4lDfvyN0twvmbpyG+eGrxpyBlskj9d9rJ8A==}
     engines: {node: '>=20.0.0'}
 
+  nodemailer@10.0.13:
+    resolution: {integrity: sha512-SzG86OlvcW/NNhUFC6uROMwRTL4n7MswfQqC/T8mhkmnY1YVa23zUEMYi4ijSeXSl9GLz9ZeTJDUatEDuY5FeQ==}
+    engines: {node: '>=20.0.0'}
+
   obug@2.2.1:
     resolution: {integrity: sha512-XrsrhT5sybtKI6wakr2SPOlGZWWYbUXZ7a0jT8/QOeAPau+1X/bSegNe5YR75oJmEZQbKningirmGOEJCIk61Q==}
     engines: {node: '>=12.20.0'}
@@ -2594,8 +2598,8 @@ packages:
   siginfo@2.0.0:
     resolution: {integrity: sha512-ybx0WO1/8bSBLEWXZvEd7gMW3Sn3JFlW3TvX1nREbDLRNQNaeNN8WK0meBwPdAaOI7TtRRRJn/Es1zhrrCHu7g==}
 
-  smtp-server@3.19.13:
-    resolution: {integrity: sha512-W1CjNcrPqW4+1gUOYRyjPvTOxu7GgKR9+7l50yQBF0GM8v8jpYwheHFCHX7s+p7pYI8iXKQQZiF2Rv2Na/3i2g==}
+  smtp-server@3.19.16:
+    resolution: {integrity: sha512-EAO7FiexdU+s/IiW92MIRDSOaVTGF2skmXEpSvl+A+NDMDLnv+NnoYpmEh+7kmARU1F1NTTe3am35IBMEEnN1w==}
     engines: {node: '>=20.0.0'}
 
   sonic-boom@4.2.1:
@@ -4336,6 +4340,8 @@ snapshots:
 
   nodemailer@10.0.10: {}
 
+  nodemailer@10.0.13: {}
+
   obug@2.2.1: {}
 
   on-exit-leak-free@2.1.2: {}
@@ -4531,10 +4537,10 @@ snapshots:
 
   siginfo@2.0.0: {}
 
-  smtp-server@3.19.13:
+  smtp-server@3.19.16:
     dependencies:
       ipv6-normalize: 1.0.1
-      nodemailer: 10.0.10
+      nodemailer: 10.0.13
       punycode.js: 2.3.1
 
   sonic-boom@4.2.1:
