@@ -1,6 +1,6 @@
 # User guide
 
-This guide is for the people who *use* VergissMeinNicht (VMN). To install and run a server, see [Deployment](deployment.md).
+This guide is for the people who *use* VergissMeinNicht (VMN). To install and run a server, see [Deployment](../admin/deployment.md).
 
 ## The idea in one minute
 
@@ -255,6 +255,10 @@ Editors and Admins can **Share as Knot link…** from a Procedure (under **⋯**
 - **Workspaces** — create a Workspace (you become its admin and add members under *Workspace settings → Members*).
 - **Invitations** — invite people by email, send again, revoke.
 - **Accounts & recovery** — disable an account (signs the person out everywhere at once) or enable it again; email a recovery link for a forgotten password or a lost authenticator.
-- **Notification providers** — email reminders on/off and a test email to yourself; **Telegram**: paste the **Bot token** from @BotFather (checked with Telegram, stored encrypted, never shown again) and enable it — this sets up the bot for the whole server, not a destination chat. Then, like everyone else, connect your own chat under *Profile & settings → Notifications* (**Go to my notification settings**); only after that can **Send test message to my Telegram** reach you. You can also remove the token. See [Deployment](deployment.md#reminders-and-notification-providers).
+- **Notification providers** — email reminders on/off and a test email to yourself; **Telegram**: paste the **Bot token** from @BotFather (checked with Telegram, stored encrypted, never shown again) and enable it — this sets up the bot for the whole server, not a destination chat. Then, like everyone else, connect your own chat under *Profile & settings → Notifications* (**Go to my notification settings**); only after that can **Send test message to my Telegram** reach you. You can also remove the token. See [Deployment](../admin/deployment.md#reminders-and-notification-providers).
 - **Server & storage** — hide the page footer; how many **Recently used** Procedures the Procedures page shows (0–20, 0 hides them); **Workspace storage**: what each Workspace stores (instruction photos, documents, previews, Trash) and the most it may store — 5 GB by default, 100 MB to 1000 GB. A limit is a usage limit: no disk space is set aside, so keep an eye on the disk. Lowering a limit never deletes anything; new files are refused until usage is below it. **Document files**: the largest file a document may hold (1–100 MB, 50 MB by default) and the accepted formats — both apply to new uploads only.
 - **Security log** — sign-ins, two-factor, recovery, invitations, account and membership changes.
+
+## Planned changes
+
+The next navigation update will let Workspace admins choose every functional tool, all off in new Workspaces. Existing Workspaces will keep their available tools on upgrade. Today is also planned to gain compact progress statistics and recent completions alongside next actions. These are roadmap items, not current behaviour; see [section 17](../development/steps.md#17--documentation-optional-workspace-tools-and-a-more-encouraging-today-accepted-2026-10-02).

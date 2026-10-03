@@ -2,7 +2,7 @@ import { hash, verify, type Algorithm, type Options } from '@node-rs/argon2';
 import type { PasswordHasher } from '@vergissmeinnicht/application';
 
 /**
- * Argon2id parameters (docu/security.md §1). RFC 9106's memory profile (64 MiB, 3 passes) with a
+ * Argon2id parameters (docs/development/security.md §1). RFC 9106's memory profile (64 MiB, 3 passes) with a
  * single lane; above the OWASP minimum (19 MiB, 2 passes). Changing them affects only new hashes:
  * existing PHC strings carry their own parameters and keep verifying.
  */

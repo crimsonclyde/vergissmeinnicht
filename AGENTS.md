@@ -10,15 +10,15 @@ This is especially true for authentication, sessions, MFA/TOTP, authorization, W
 
 Never trade security for implementation speed or convenience.
 
-If a requested implementation conflicts with the rules in `docu/security.md`, stop and resolve the security design before continuing.
+If a requested implementation conflicts with the rules in `docs/development/security.md`, stop and resolve the security design before continuing.
 
 ## Mandatory files to read before changing code
 
 Before starting a task, read:
 
 1. `AGENTS.md`
-2. `docu/steps.md`
-3. `docu/security.md`
+2. `docs/development/steps.md`
+3. `docs/development/security.md`
 4. any architecture documentation relevant to the task
 
 Do not assume the current code is the complete specification.
@@ -27,13 +27,13 @@ Do not assume the current code is the complete specification.
 
 When a task is finished, the agent MUST:
 
-1. update the matching entry in `docu/steps.md`;
+1. update the matching entry in `docs/development/steps.md`;
 2. record what was implemented;
 3. record tests/checks performed;
 4. record remaining work or limitations;
 5. state whether the task changed the security surface;
-6. if security-sensitive behavior was added or changed, update `docu/security.md`;
-7. add new security checks to `docu/security.md` when a new attack surface, credential type, permission boundary, or sensitive data flow is introduced;
+6. if security-sensitive behavior was added or changed, update `docs/development/security.md`;
+7. add new security checks to `docs/development/security.md` when a new attack surface, credential type, permission boundary, or sensitive data flow is introduced;
 8. update other documentation when commands, deployment, architecture, or behavior changed.
 
 A task is not considered complete until its documentation state is updated.
@@ -52,7 +52,7 @@ The application must make it easy to:
 - preserve the actor and timestamp for important state changes;
 - preserve historical Runs independently of later Procedure edits or deletion.
 
-It is also an ADHD-friendly place to see what needs attention (accepted 2026-09-30, `docu/steps.md` section 14). A person must be able to answer at a glance:
+It also helps people remember everyday responsibilities and see what needs attention (accepted 2026-09-30, `docs/development/steps.md` section 14). A person must be able to answer at a glance:
 
 - What is due or overdue?
 - What is coming up?
@@ -60,15 +60,15 @@ It is also an ADHD-friendly place to see what needs attention (accepted 2026-09-
 - How do I do this correctly?
 - Has this occurrence already been completed?
 
-The app is organised around tools (accepted 2026-10-01, `docu/steps.md` section 15): **Today** brings what is actionable together; **Procedures**, **Reminders** and **Lists** each have their own place; the **Calendar** is an optional planning view. Reusable Procedures, scheduled Reminders and lightweight grocery Lists stay conceptually distinct.
+The app is organised around tools (accepted 2026-10-01, `docs/development/steps.md` section 15): **Today** brings what is actionable together; **Procedures**, **Reminders** and **Lists** each have their own place; the **Calendar** is an optional planning view. Reusable Procedures, scheduled Reminders and lightweight grocery Lists stay conceptually distinct.
 
-House management is an **optional** addition (accepted 2026-10-01, `docu/steps.md` section 16; planned in five phases, implemented step by step): the tools **Documents**, **Contacts**, **Maintenance**, **Equipment** and **Mail**. Each is enabled per Workspace by a Workspace admin; a Workspace without them stays fully useful, and no house-specific information is ever required. Today stays actionable: these tools add no sections to it, and planned maintenance, warranty expiry or servicing reach Today only as ordinary Occurrences of the existing Schedules. `docu/steps.md` 16.12 holds the decisions; read it before any 16.x step and do not reopen what is decided there.
+House management is an **optional** addition (accepted 2026-10-01, `docs/development/steps.md` section 16; planned in five phases, implemented step by step): the tools **Documents**, **Contacts**, **Maintenance**, **Equipment** and **Mail**. Each is enabled per Workspace by a Workspace admin; a Workspace without them stays fully useful, and no house-specific information is ever required. Today stays actionable: these tools add no sections to it, and planned maintenance, warranty expiry or servicing reach Today only as ordinary Occurrences of the existing Schedules. `docs/development/steps.md` 16.12 holds the decisions; read it before any 16.x step and do not reopen what is decided there.
 
 Do not turn it into a generic project-management suite or an enterprise workflow engine.
 
 ## Security rules
 
-The full security policy is in `docu/security.md`; it is normative.
+The full security policy is in `docs/development/security.md`; it is normative.
 
 At minimum:
 
@@ -275,18 +275,18 @@ Use opaque non-sequential public identifiers.
 
 Do not add without an accepted requirement:
 
-- AI features — superseded for exactly optional AI-assisted suggestions on VMN's own infrastructure, disabled by default, planned after text recognition (`docu/steps.md` 16.9); they need their own detailed plan and scope entry here before any implementation, and external processing is neither a default nor an approved option;
+- AI features — superseded for exactly optional AI-assisted suggestions on VMN's own infrastructure, disabled by default, planned after text recognition (`docs/development/steps.md` 16.9); they need their own detailed plan and scope entry here before any implementation, and external processing is neither a default nor an approved option;
 - chat;
 - calendar features beyond the accepted calendar/agenda view of Occurrences (no external calendar sync, no drag-and-drop planning);
 - notification channels beyond the accepted email and Telegram reminders;
-- photos beyond the accepted instruction image per Procedure Step (`docu/steps.md` 14.3); completion photos, required photo evidence and annotations are not accepted yet (14.5);
-- other attachments — superseded for exactly the accepted house-management tools Documents, Contacts, Maintenance, Equipment and Mail (`docu/steps.md` section 16), each only as specified in its step; a Run retaining the Document version linked to it (16.5) is not approval of completion photos;
-- list types beyond the accepted grocery list, list categories, or links between Lists and Schedules or Documents (`docu/steps.md` 15.3);
-- Kanban or other boards — superseded for exactly the Maintenance status board with its four fixed statuses (`docu/steps.md` 16.7); no boards elsewhere, no custom columns, swimlanes or limits;
+- photos beyond the accepted instruction image per Procedure Step (`docs/development/steps.md` 14.3); completion photos, required photo evidence and annotations are not accepted yet (14.5);
+- other attachments — superseded for exactly the accepted house-management tools Documents, Contacts, Maintenance, Equipment and Mail (`docs/development/steps.md` section 16), each only as specified in its step; a Run retaining the Document version linked to it (16.5) is not approval of completion photos;
+- list types beyond the accepted grocery list, list categories, or links between Lists and Schedules or Documents (`docs/development/steps.md` 15.3);
+- Kanban or other boards — superseded for exactly the Maintenance status board with its four fixed statuses (`docs/development/steps.md` 16.7); no boards elsewhere, no custom columns, swimlanes or limits;
 - per-folder permissions, or personal preferences for hiding tools;
 - automatic payments or financial decisions, cost totals, budgets or charts;
 - automatic sending, replying, forwarding or filing of mail, mail rules, or automatic permanent deletion or expunging of remote mail;
-- mail servers on a LAN, VPN-only or private addresses; any outbound connection to a user-chosen host before the outbound-connection policy in `docu/security.md` covers it;
+- mail servers on a LAN, VPN-only or private addresses; any outbound connection to a user-chosen host before the outbound-connection policy in `docs/development/security.md` covers it;
 - text recognition or any other processing of Documents or mail outside VMN's own infrastructure;
 - geolocation;
 - QR/NFC;
@@ -295,7 +295,7 @@ Do not add without an accepted requirement:
 - Kubernetes;
 - analytics dashboards.
 
-Product points that touch privacy, permissions, destructive behaviour or scope are decided by the user, never silently by an implementation (open ones: P5–P7 in `docu/steps.md` 16.12).
+Product points that touch privacy, permissions, destructive behaviour or scope are decided by the user, never silently by an implementation (open ones: P5–P7 in `docs/development/steps.md` 16.12).
 
 Design extension seams, but do not implement speculative systems.
 
@@ -345,8 +345,12 @@ House management (section 16; each applies from the step that implements it):
 
 ## Documentation
 
-`docu/steps.md` is the project execution ledger.
+`docs/development/steps.md` is the project execution ledger.
 
-`docu/security.md` is the authoritative security checklist/policy.
+`docs/development/security.md` is the authoritative security checklist/policy.
 
 Keep both current.
+
+## Accepted follow-up — section 17 (2026-10-02)
+
+Documentation now lives in `docs/admin`, `docs/user` and `docs/development`. Section 17 of the ledger records the accepted next changes, not implemented behaviour. Workspace admins will choose all functional tools, all off for new Workspaces; Today, selection and settings remain structural. This supersedes fixed core navigation and exactly four phone destinations when tools are disabled. Preserve existing Workspace flags and available core tools on upgrade. Today will include compact progress statistics and recent accomplishments alongside actionable items; this narrowly supersedes “actionable only” and the analytics exclusion for those measures, with no cost charts, rankings or external analytics. Read 17.1–17.2 before implementation; server gates and workers must enforce tool settings and aggregate access.

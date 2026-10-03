@@ -19,7 +19,7 @@ const infrastructure = [
   'sharp',
 ];
 
-/** Architecture boundaries (AGENTS.md / docu/architecture.md). Dependencies point inward. */
+/** Architecture boundaries (AGENTS.md / docs/development/architecture.md). Dependencies point inward. */
 const restrict = (patterns, message) => ({
   'no-restricted-imports': ['error', { patterns: [{ group: patterns, message }] }],
 });

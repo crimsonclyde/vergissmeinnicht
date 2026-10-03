@@ -23,7 +23,7 @@ function readConfig() {
 }
 
 const config = readConfig();
-// Schema migrations are applied separately (`pnpm db:migrate`); see docu/deployment.md.
+// Schema migrations are applied separately (`pnpm db:migrate`); see docs/admin/deployment.md.
 const database = openDatabase(config.databasePath);
 
 const services = createServices(config, database);

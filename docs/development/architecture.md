@@ -94,7 +94,10 @@ packages/
                     document files: validation, previews — MuPDF as WebAssembly in a worker thread —, store, 16.1)
   ui/
 
-docu/
+docs/
+  admin/
+  user/
+  development/
 ```
 
 This is a suggested structure, not permission to split into deployable microservices.

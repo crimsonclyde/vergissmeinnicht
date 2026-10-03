@@ -1,4 +1,4 @@
-# Development-only services. Not a production deployment (see docu/deployment.md).
+# Development-only services. Not a production deployment (see docs/admin/deployment.md).
 #   docker compose -f compose.dev.yml up -d
 services:
   mailpit:

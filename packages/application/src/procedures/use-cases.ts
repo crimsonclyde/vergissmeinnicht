@@ -35,7 +35,7 @@ export interface ProcedureDeps {
   readonly clock: Clock;
 }
 
-/** Resource bound per Workspace (docu/security.md §5: sensible limits). */
+/** Resource bound per Workspace (docs/development/security.md §5: sensible limits). */
 export const MAX_PROCEDURES_PER_WORKSPACE = 1000;
 
 export interface ProcedureInput {

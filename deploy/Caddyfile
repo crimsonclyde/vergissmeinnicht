@@ -1,7 +1,7 @@
 # HTTPS termination for VergissMeinNicht. Certificates are obtained automatically for $VMN_DOMAIN.
 #
 # No access log is configured on purpose: request logs would contain Knot link tokens
-# (/knot/{token}). If you enable one, filter the URI (see docu/deployment.md).
+# (/knot/{token}). If you enable one, filter the URI (see docs/admin/deployment.md).
 {$VMN_DOMAIN} {
 	# No response compression: responses can mix secrets with user-controlled text (BREACH), and
 	# live updates (Server-Sent Events) must not be buffered.

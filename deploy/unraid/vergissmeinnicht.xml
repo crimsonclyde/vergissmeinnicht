@@ -1,6 +1,6 @@
 <?xml version="1.0"?>
 <!--
-  Unraid Docker template for VergissMeinNicht (docu/unraid.md).
+  Unraid Docker template for VergissMeinNicht (docs/admin/unraid.md).
   Copy to /boot/config/plugins/dockerMan/templates-user/my-VergissMeinNicht.xml, then
   Docker → Add Container → Template: VergissMeinNicht, and turn on "Use Tailscale" with Serve.
   HTTPS comes from Tailscale Serve (https://<hostname>.<tailnet>.ts.net). The container starts as root
@@ -20,7 +20,7 @@
   <Privileged>false</Privileged>
   <Support>https://github.com/crimsonclyde/vergissmeinnicht/issues</Support>
   <Project>https://github.com/crimsonclyde/vergissmeinnicht</Project>
-  <Overview>Shared checklists for the routines you repeat — with a history you can trust. Invite-only, optional two-factor, works offline on phones. Needs HTTPS: use Unraid's Tailscale with Serve (or a reverse proxy). Guide: docu/unraid.md in the repository.</Overview>
+  <Overview>Shared checklists for the routines you repeat — with a history you can trust. Invite-only, optional two-factor, works offline on phones. Needs HTTPS: use Unraid's Tailscale with Serve (or a reverse proxy). Guide: docs/admin/unraid.md in the repository.</Overview>
   <Category>Productivity: Tools:</Category>
   <!-- Tells Unraid (and Tailscale Serve) which port the web app listens on inside the container. -->
   <WebUI>http://[IP]:[PORT:3000]/</WebUI>

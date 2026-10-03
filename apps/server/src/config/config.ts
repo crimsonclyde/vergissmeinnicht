@@ -240,7 +240,7 @@ export function loadConfig(env: NodeJS.ProcessEnv, readFile: (path: string) => s
     dataEncryptionKey: new Secret(values.DATA_ENCRYPTION_KEY ?? randomBytes(32).toString('base64url')),
     dataEncryptionKeyEphemeral: values.DATA_ENCRYPTION_KEY === undefined,
     logLevel: values.LOG_LEVEL ?? (production ? 'info' : 'debug'),
-    // Development defaults target a local Mailpit (see docu/local-development.md).
+    // Development defaults target a local Mailpit (see docs/development/local-development.md).
     smtp: Object.freeze({
       host: values.SMTP_HOST ?? '127.0.0.1',
       port: values.SMTP_PORT ?? (production ? 587 : 1025),

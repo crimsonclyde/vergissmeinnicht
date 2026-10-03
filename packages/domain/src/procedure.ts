@@ -12,7 +12,7 @@ export type ProcedureId = string & { readonly __brand: 'ProcedureId' };
 
 /**
  * Trusted icon keys. Clients map each key to their own artwork; no user-supplied SVG, HTML, URLs
- * or uploads (docu/security.md §5). The database holds the same keys in `procedure_icons` (every
+ * or uploads (docs/development/security.md §5). The database holds the same keys in `procedure_icons` (every
  * icon column references it): a new key needs a migration that inserts it — keys are never removed.
  */
 export const PROCEDURE_ICONS = [

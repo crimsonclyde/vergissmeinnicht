@@ -82,7 +82,7 @@ export const sessions = sqliteTable(
       .notNull()
       .references(() => users.id, { onDelete: 'cascade' }),
     expiresAt: integer('expires_at', { mode: 'timestamp_ms' }).notNull(),
-    /** Client address as seen by the server (proxy trust per docu/security.md §11); never from client headers. */
+    /** Client address as seen by the server (proxy trust per docs/development/security.md §11); never from client headers. */
     ipAddress: text('ip_address'),
     userAgent: text('user_agent'),
     createdAt: timestampMs('created_at'),

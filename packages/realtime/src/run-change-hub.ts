@@ -1,6 +1,6 @@
 import type { RunChange, RunId } from '@vergissmeinnicht/domain';
 
-/** Resource bounds for open subscriptions (docu/security.md §7). */
+/** Resource bounds for open subscriptions (docs/development/security.md §7). */
 export interface RunChangeHubLimits {
   /** Open subscriptions in the whole process. */
   readonly maxSubscriptions: number;

@@ -1,7 +1,7 @@
 # Common/breached-password list
 
 `common-passwords.txt.gz` — the offline denylist checked whenever a password is chosen (invitation
-acceptance, password change, account recovery; `docu/security.md` §1, steps.md 13.3). Passwords are
+acceptance, password change, account recovery; `docs/development/security.md` §1, steps.md 13.3). Passwords are
 never sent to an external service.
 
 **Content:** the 60 000 most common passwords with at least 15 characters (the minimum length of
@@ -23,5 +23,5 @@ The three lists are merged by rank (the most common entries of each first).
 node packages/auth/scripts/update-common-passwords.ts
 ```
 
-Review the diff size, run `pnpm test`, and record the update in `docu/steps.md`. Keep the size
+Review the diff size, run `pnpm test`, and record the update in `docs/development/steps.md`. Keep the size
 reasonable: the list is loaded into server memory (≈5 MB for 60 000 entries).

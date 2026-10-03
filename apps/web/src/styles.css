@@ -1,5 +1,5 @@
 /*
- * Semantic design tokens (docu/steps.md 8.3, 15.1). Components use only these variables, so themes
+ * Semantic design tokens (docs/development/steps.md 8.3, 15.1). Components use only these variables, so themes
  * (System / Light / Dark and the named preset "Memento Mori") change values, not components.
  * `:root` holds the light theme: white page, soft neutral surfaces, visible borders, deep crimson.
  * State colors always come with a glyph and text (8.2): color is never the only signal.

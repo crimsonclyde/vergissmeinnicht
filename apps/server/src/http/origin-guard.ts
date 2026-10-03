@@ -3,7 +3,7 @@ import type { FastifyReply, FastifyRequest } from 'fastify';
 const SAFE_METHODS = new Set(['GET', 'HEAD', 'OPTIONS']);
 
 /**
- * CSRF protection for every state-changing request (docu/security.md §2): the `Origin` header
+ * CSRF protection for every state-changing request (docs/development/security.md §2): the `Origin` header
  * must be exactly the configured public origin. Browsers always send `Origin` on cross-origin and
  * same-origin POST/PUT/PATCH/DELETE requests, and page scripts cannot forge it. A request without
  * `Origin` is rejected rather than trusted. Together with `SameSite=Strict` session cookies and

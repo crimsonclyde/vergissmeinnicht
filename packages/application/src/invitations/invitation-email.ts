@@ -4,7 +4,7 @@ import type { EmailMessage } from '../ports/email-sender.ts';
 
 /** `publicOrigin` is the validated origin from configuration (scheme://host[:port], no path). */
 export function invitationAcceptUrl(publicOrigin: string, token: string): string {
-  // Token in the path, never in the query string (docu/security.md §4 applies to all link tokens).
+  // Token in the path, never in the query string (docs/development/security.md §4 applies to all link tokens).
   return `${publicOrigin}/invite/${token}`;
 }
 

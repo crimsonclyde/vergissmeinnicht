@@ -865,3 +865,17 @@ A host resolving to `127.0.0.1`, `10.0.0.5`, `192.168.1.10`, `100.64.0.1`, `169.
 - A public host can still be an unintended target (another customer of the same provider, a public service used as a relay). The port allow-list, mandatory TLS with verification and rate limits bound this; it is not eliminated.
 
 **Reviewed:** 2026-10-01 (policy only; to be re-reviewed with its first implementation in 16.10)
+
+## 15. Planned all-tool switches and Today aggregates (steps 17.1–17.2)
+
+**Status: requirements only; not implemented.** Extends the existing house-tool boundary to Procedures/Runs, Reminders, Lists, Calendar and every later functional tool. A Workspace admin changes flags with the existing authenticated, CSRF-protected, in-transaction permission checks and an atomic audit entry. New Workspace flags default off; upgrade preserves currently available core tools and existing flags. Disabling preserves data and quota.
+
+Required negative checks with implementation:
+
+- Non-admin and cross-Workspace requests cannot change flags; stale writes cannot overwrite another admin's change.
+- Every disabled tool's read/write/file/export/stream/Knot/offline-replay route resolves as unknown; enabled tools cannot reveal its titles, linked data or counts. Role permissions still apply after enabling.
+- Scheduled notifications for disabled source tools cannot send, even from queued work; re-enable obeys existing catch-up and deduplication limits. Calendar disable does not stop notifications. Disabled Mail cannot sync or mutate the provider; saved copies retain their own source-tool permissions.
+- Aggregate statistics and recent activity use the same Workspace, role, enabled-tool and selected-filter scope as their source records, including at query time; unauthorised and disabled records are absent from totals. No cross-Workspace caches or revealing counts.
+- Tool disable/re-enable keeps stored records, immutable history, retained versions and quota accounting unchanged.
+
+No security boundary or runtime default changed with the documentation update. The implemented security sections above remain normative until these steps are delivered.

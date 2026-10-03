@@ -16,7 +16,7 @@ export const CLIENT_IP_HEADER = 'x-vmn-client-ip';
 
 const DAY_SECONDS = 86_400;
 
-/** Session lifetime policy (docu/security.md §2). */
+/** Session lifetime policy (docs/development/security.md §2). */
 export const SESSION_POLICY = Object.freeze({
   /** Idle timeout: a session unused for this long expires. */
   idleSeconds: 7 * DAY_SECONDS,
