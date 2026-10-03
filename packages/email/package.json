@@ -13,7 +13,7 @@
   "dependencies": {
     "@vergissmeinnicht/application": "workspace:*",
     "@vergissmeinnicht/domain": "workspace:*",
-    "nodemailer": "10.0.10"
+    "nodemailer": "10.0.13"
   },
   "devDependencies": {
     "@types/node": "24.13.6",
