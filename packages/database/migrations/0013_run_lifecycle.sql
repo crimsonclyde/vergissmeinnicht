@@ -11,7 +11,7 @@ ALTER TABLE `runs` ADD `end_reason` text
 	CONSTRAINT "runs_end_reason_only_when_aborted" CHECK("end_reason" is null or ("state" = 'ABORTED' and length(trim("end_reason")) > 0 and length("end_reason") <= 500));
 --> statement-breakpoint
 -- A COMPLETED or ABORTED Run is history: no column may change any more, and it cannot be reopened
--- (docu/steps.md 5.6). Corrections would be a separate, additive, audited workflow.
+-- (docs/development/steps.md 5.6). Corrections would be a separate, additive, audited workflow.
 CREATE TRIGGER `runs_finished_immutable`
 BEFORE UPDATE ON `runs`
 WHEN OLD.`state` <> 'ACTIVE'

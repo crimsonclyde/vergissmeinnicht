@@ -10,7 +10,7 @@ import {
 
 describe('Workspace role policy', () => {
   it('matches the reviewed capability matrix exactly', () => {
-    // Changing this table is a security-relevant change: update docu/security.md §3 as well.
+    // Changing this table is a security-relevant change: update docs/development/security.md §3 as well.
     const matrix = Object.fromEntries(WORKSPACE_ROLES.map((role) => [role, capabilitiesOf(role)]));
     expect(matrix).toEqual({
       GUEST: ['workspace.view', 'procedure.view', 'run.view', 'list.view', 'document.view', 'contact.view', 'maintenance.view'],

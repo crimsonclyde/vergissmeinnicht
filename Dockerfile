@@ -1,6 +1,6 @@
 # syntax=docker/dockerfile:1
 #
-# VergissMeinNicht production image (docu/deployment.md, steps.md 10.1).
+# VergissMeinNicht production image (docs/admin/deployment.md, steps.md 10.1).
 # One process: the Fastify server serving the API and the built web app. Runs as the unprivileged
 # `node` user; all persistent data lives in /data. No secrets are baked in: configuration and
 # secrets are injected at runtime (environment or *_FILE Docker secrets).

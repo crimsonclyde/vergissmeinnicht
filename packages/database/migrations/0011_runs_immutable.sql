@@ -1,4 +1,4 @@
--- Runs are historical records (AGENTS.md "Procedure vs Run", docu/security.md §6): the snapshot taken
+-- Runs are historical records (AGENTS.md "Procedure vs Run", docs/development/security.md §6): the snapshot taken
 -- at start is immutable and Runs are never deleted. Only execution state (`runs.state`,
 -- `runs.revision`, `run_steps.state` and state columns added later) may change.
 CREATE TRIGGER `runs_snapshot_immutable`

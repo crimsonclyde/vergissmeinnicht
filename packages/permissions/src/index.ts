@@ -5,7 +5,7 @@ import { WORKSPACE_ROLES, isActiveServerAdmin, type User, type WorkspaceRole } f
 /**
  * Capabilities a Workspace role can grant. Every capability is assigned here and nowhere else;
  * use-cases ask for a capability, never for a role. Changing the matrix is a security-relevant
- * change (docu/security.md §3) and must update the exact-matrix test.
+ * change (docs/development/security.md §3) and must update the exact-matrix test.
  *
  * Procedure/Run capabilities are defined now (Step 3.2) and enforced by the use-cases that
  * introduce Procedures (Step 4) and Runs (Step 5).

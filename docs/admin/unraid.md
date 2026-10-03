@@ -34,7 +34,7 @@ ls -ln secrets    # must show 99 100 and -r-------- for every file
      https://raw.githubusercontent.com/crimsonclyde/vergissmeinnicht/main/deploy/unraid/vergissmeinnicht.xml
    ```
 
-   (Without the terminal: the flash drive is also the network share `flash` — copy [`deploy/unraid/vergissmeinnicht.xml`](../deploy/unraid/vergissmeinnicht.xml) into `config/plugins/dockerMan/templates-user/` there and rename it to `my-VergissMeinNicht.xml`.)
+   (Without the terminal: the flash drive is also the network share `flash` — copy [`deploy/unraid/vergissmeinnicht.xml`](../../deploy/unraid/vergissmeinnicht.xml) into `config/plugins/dockerMan/templates-user/` there and rename it to `my-VergissMeinNicht.xml`.)
 2. **Docker** tab → **Add Container** (button at the bottom) → **Template** drop-down → under *User templates* choose **VergissMeinNicht**. The form fills itself from the template.
 3. Fill in:
    - **Repository:** `ghcr.io/crimsonclyde/vergissmeinnicht:0.5.0-beta.2` (or a newer release — pin an exact version, not `latest`).
@@ -58,7 +58,7 @@ Docker tab → *VergissMeinNicht* icon → **Console**:
 vergissmeinnicht admin-bootstrap --email you@example.org
 ```
 
-Open the printed link (valid once, on a device in your tailnet), choose your password, then continue with the [first steps in the README](../README.md#2-first-steps-in-the-app) and the [user guide](user-guide.md). On phones: open the address in the browser and *Add to Home Screen* — Runs you opened keep working offline.
+Open the printed link (valid once, on a device in your tailnet), choose your password, then continue with the [first Workspace setup](README.md#first-workspace-setup) and the [user guide](../user/user-guide.md). On phones: open the address in the browser and *Add to Home Screen* — Runs you opened keep working offline.
 
 ## Updating
 

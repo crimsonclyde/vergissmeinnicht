@@ -4,7 +4,7 @@ updates:
     directory: /
     schedule:
       interval: weekly
-    # Security-sensitive upgrades (auth, DB, HTTP) still need explicit review (docu/security.md §10).
+    # Security-sensitive upgrades (auth, DB, HTTP) still need explicit review (docs/development/security.md §10).
     open-pull-requests-limit: 10
   - package-ecosystem: github-actions
     directory: /

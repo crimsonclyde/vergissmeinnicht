@@ -41,7 +41,7 @@ export interface MfaState {
 }
 
 /**
- * The central MFA policy (docu/security.md §13). V1: a second factor is required exactly when the
+ * The central MFA policy (docs/development/security.md §13). V1: a second factor is required exactly when the
  * user enabled TOTP. A later enforcement rule (e.g. server admins must use TOTP) changes this
  * function only.
  */

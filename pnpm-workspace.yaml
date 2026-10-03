@@ -2,7 +2,7 @@ packages:
   - apps/*
   - packages/*
 
-# Supply-chain hardening (docu/security.md §10).
+# Supply-chain hardening (docs/development/security.md §10).
 # Only explicitly reviewed packages may run install scripts.
 allowBuilds:
   better-sqlite3: true

@@ -1,4 +1,4 @@
-# VergissMeinNicht production deployment (docu/deployment.md, steps.md 10.1).
+# VergissMeinNicht production deployment (docs/admin/deployment.md, steps.md 10.1).
 #
 #   cp vergissmeinnicht.env.example vergissmeinnicht.env   # then edit
 #   mkdir -p secrets && openssl rand -base64 32 > secrets/auth_secret \
@@ -24,7 +24,7 @@ services:
     cap_drop: [ALL]
     security_opt: [no-new-privileges:true]
     # A ceiling for the whole application: reading one PDF for its previews can take up to about
-    # 2.4 GB for a moment (docu/deployment.md "Memory"). 4 GiB leaves room for everything else; swap
+    # 2.4 GB for a moment (docs/admin/deployment.md "Memory"). 4 GiB leaves room for everything else; swap
     # is not added on top. If the limit is ever reached the container is restarted (`restart`).
     mem_limit: 4g
     memswap_limit: 4g
@@ -75,7 +75,7 @@ secrets:
     file: ./secrets/data_encryption_key
 
 volumes:
-  # SQLite database, its WAL files and backups (/data/backups): sensitive, back it up (docu/deployment.md).
+  # SQLite database, its WAL files and backups (/data/backups): sensitive, back it up (docs/admin/deployment.md).
   data:
   caddy_data:
   caddy_config:

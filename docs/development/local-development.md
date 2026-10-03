@@ -46,7 +46,7 @@ Configuration comes from environment variables, validated at startup (`apps/serv
 - `NODE_ENV` is set by the scripts (`pnpm dev` = `development`, `pnpm start` = `production`) and must be one of `development`, `test`, `production`. Values from `.env` never override an already-set variable, so `.env` cannot switch modes.
 - `pnpm dev` and `pnpm db:migrate` read `.env` if it exists. `pnpm start` (production) never reads `.env`.
 - Development defaults: `HOST=127.0.0.1`, `PORT=3000`, `PUBLIC_ORIGIN=http://localhost:5173`, `DATABASE_PATH=.var/vergissmeinnicht.sqlite` (relative to the repo root), `LOG_LEVEL=debug`. Without `AUTH_SECRET` a per-process secret is generated and a warning is logged.
-- Production has no defaults for secrets, origin or DB path; see [Deployment](deployment.md#configuration).
+- Production has no defaults for secrets, origin or DB path; see [Deployment](../admin/deployment.md#configuration).
 
 `pnpm dev` starts the Fastify API (`node --watch`, port 3000) and the Vite dev server (proxying `/api` to the API) in parallel.
 
@@ -63,7 +63,7 @@ Open the printed link, choose a display name and a password (≥15 characters), 
 
 ## Local test environment
 
-For trying the app by hand, `test-env/menu.sh` installs, starts, stops and removes an isolated production-mode instance on `http://127.0.0.1:3200`. It has its own database and generated secrets under `.var/test-env/`, uses Mailpit, and creates demo accounts for every Workspace role (created through the real invitation flow). It never touches `.env` or the development database. See [test-env/README.md](../test-env/README.md).
+For trying the app by hand, `test-env/menu.sh` installs, starts, stops and removes an isolated production-mode instance on `http://127.0.0.1:3200`. It has its own database and generated secrets under `.var/test-env/`, uses Mailpit, and creates demo accounts for every Workspace role (created through the real invitation flow). It never touches `.env` or the development database. See [test-env/README.md](../../test-env/README.md).
 
 ## Principles
 
@@ -112,4 +112,4 @@ The server runs TypeScript directly via Node's built-in type stripping; only era
 
 Boundaries are enforced by pnpm (packages can import only declared dependencies) and by ESLint `no-restricted-imports` rules in `eslint.config.js`. Do not weaken these rules to make an import work; move the code to the right layer instead.
 
-When commands change, update this document and `docu/steps.md`.
+When commands change, update this document and `docs/development/steps.md`.
