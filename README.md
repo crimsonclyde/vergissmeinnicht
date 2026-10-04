@@ -19,6 +19,17 @@
 
 The interface focuses on clear actions, manageable steps and easy undo. Runs preserve what was done, by whom and when, independently of later edits to a Procedure. VMN is self-hosted, open source, and usable on phones and desktops, with Light and Dark themes.
 
+## Screenshots
+
+Actual app captures from the fictional local demo; [capture details and more views](assets/screenshots/workspace-tools-2026-10-04/README.md).
+
+![Today on desktop in Light mode, showing progress, Continue and recent completions](assets/screenshots/workspace-tools-2026-10-04/today-desktop-light.webp)
+
+<p align="center">
+  <img src="assets/screenshots/workspace-tools-2026-10-04/today-phone-dark.webp" alt="Today in Dark mode on a phone, with scoped progress and Continue" width="260">
+  <img src="assets/screenshots/workspace-tools-2026-10-04/run-phone-light.webp" alt="Phone Run execution in Light mode, with a pending Critical Step and Hold to confirm" width="260">
+</p>
+
 ## Documentation
 
 | I want to… | Start here |
@@ -33,7 +44,7 @@ The [documentation index](docs/README.md) links to all guides. Setup commands, f
 
 ## Project status
 
-VMN is in beta. Procedures, collaborative Runs, scheduling, email and optional Telegram reminders, grocery Lists, Documents, Contacts and Maintenance are implemented. Equipment, text recognition and Mail are planned. The [implementation ledger](docs/development/steps.md) records released work, validation gaps and upcoming changes, including switches for every Workspace tool and a more encouraging Today overview.
+VMN is in beta. Procedures, collaborative Runs, scheduling, email and optional Telegram reminders, grocery Lists, Documents, Contacts and Maintenance are implemented. Equipment, text recognition and Mail are planned. The [implementation ledger](docs/development/steps.md) records released work, validation gaps and upcoming changes, including implemented Workspace tool switches and scoped Today progress. New Workspaces start with all functional tools off; admins choose what to enable.
 
 ## The name
 
