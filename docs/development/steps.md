@@ -18,7 +18,9 @@ For every completed task, add a concise completion note, tests/checks performed,
 
 ## Current state — resume here
 
-**Completed implementation (2026-10-04): 16.8 Equipment and phone-compatible Contacts export**, explicitly requested by the owner. Regression and browser checks pass; release preparation follows the authorised commit/push/release workflow. 16.9 is untouched. The latest published release remains 0.5.0-beta.3 until beta.4 publishing completes.
+**Released 2026-10-04: 16.8 Equipment and phone-compatible Contacts export**, explicitly requested by the owner, published as **v0.5.0-beta.4** after fix/review/test/commit/push. PR #16 merged as `1012613`; PR CI, main CI and tagged release workflow all passed. GitHub prerelease: https://github.com/crimsonclyde/vergissmeinnicht/releases/tag/v0.5.0-beta.4. Image `ghcr.io/crimsonclyde/vergissmeinnicht:0.5.0-beta.4` has amd64/arm64 manifests, workflow signing and CycloneDX attestation. Equipment is off until enabled by a Workspace admin; upgrade includes migration 0037 (38 migrations, 0000–0037). Nothing was deployed to the running Unraid installation; owner-provided untracked assets remain preserved.
+
+**Next:** manual beta.4/upgrade checks on the owner’s installation and physical iPhone/Android .vcf imports. Next product phase is 16.9, still TODO and untouched; P5 plus HT9/HT10 must be settled before implementation. No OCR/AI/Mail work is authorised by the 16.8 implementation. Section 16.8 records the remaining limitations; section 12.23 records release evidence.
 
 
 **Released 2026-10-04:** PR #15 merged as `799bb70`; **v0.5.0-beta.3** publishes 17.1–17.4: all seven implemented Workspace tools optional, scoped Today progress, reviewed actual-app screenshots, tool/file/notification fixes, patched runtime PCRE2 and faster CI/fixtures. Main CI and the tagged release workflow passed. GitHub prerelease: https://github.com/crimsonclyde/vergissmeinnicht/releases/tag/v0.5.0-beta.3. Owner-provided mock-ups/screenshots are preserved. The original pause handoff is historical. Nothing was deployed to the running Unraid installation. 16.8 has since been implemented; Phase 4 (16.9) still requires P5 and technical evaluations before implementation.
@@ -1994,13 +1996,15 @@ GitHub pre-release created after the user approved the command: `https://github.
 
 
 ### 12.23 Release 0.5.0-beta.4
-**Status:** IN PROGRESS (2026-10-04)
+**Status:** DONE (2026-10-04)
 
 **Scope:** 16.8 Equipment and iPhone/Android-compatible Contacts .vcf exports. Continue the owner's requested fix/review/test, commit, push and release workflow. Tag `v0.5.0-beta.4`; image `ghcr.io/crimsonclyde/vergissmeinnicht:0.5.0-beta.4`. Unraid template and guide point to the new exact beta. No deployment to the running Unraid installation.
 
 **Upgrade:** migration 0037 adds Equipment metadata and typed links and expands the Workspace tool constraint while preserving existing tool flags/revision. Equipment is off on upgrade and in new Workspaces until a Workspace admin enables it. Back up database and file storage before updating, apply the normal migration command, then optionally enable Equipment. No OCR/AI/Mail implementation (16.9–16.11).
 
-**Validation:** implementation and checks recorded in 16.8. GitHub CI, tagged image publishing, signing/SBOM and release notes remain to be recorded after completion. Physical-phone imports, live Unraid upgrade and the existing development-only moderate esbuild finding remain open. Security surface: MEDIUM, documented in `security.md`; release validation must remain fail-closed.
+**Published:** commits `704b01c` and `0c0f0bd`; PR #16 merged as `1012613282557a26c556abd038d8f40ea1346983`. Annotated tag `v0.5.0-beta.4` points to that merge. GitHub prerelease with feature, security, validation and upgrade notes: https://github.com/crimsonclyde/vergissmeinnicht/releases/tag/v0.5.0-beta.4. Published image index `sha256:ef993baa822e904f884325bf7c88c139807ee9b4acd42351b12cd5402ff265b9` inspected directly: linux/amd64 and linux/arm64. Only the exact beta tag was published; `latest` was not moved.
+
+**Validation:** implementation and local checks recorded in 16.8 (146 files / 1154 tests, 27.30 s; Playwright 3 passed / 1 intentional skip; typecheck/lint/build/schema checks). Final PR CI `37218359808`, main CI `37218652596` and release `37218676293` succeeded. Both native validation and publishing images passed smoke tests and fixable HIGH/CRITICAL vulnerability scans; manifest publishing, workflow signing and CycloneDX attestation succeeded. Completion is recorded in a documentation commit after publication. Physical-phone imports, live Unraid upgrade and the existing development-only moderate esbuild finding remain open. Security surface: MEDIUM, documented in `security.md`; release validation must remain fail-closed.
 
 ### 13.1 Offline device data: sign-out cleanup and account binding
 **Status:** DONE
