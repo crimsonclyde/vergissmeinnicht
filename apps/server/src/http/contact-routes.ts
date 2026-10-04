@@ -60,6 +60,7 @@ const listQuery = z.strictObject({ q: z.string().max(400).optional(), category: 
 const noQuery = z.strictObject({});
 const format = z.enum(['csv', 'vcard']);
 const formatQuery = z.strictObject({ format });
+const exportQuery = z.strictObject({ format, contact: uuid.optional() });
 const importBody = z.strictObject({ format, contacts: z.array(z.strictObject(content)).min(1).max(MAX_CONTACTS_PER_IMPORT) });
 // Permanent deletion names its Contacts, or says "all" — never both, never nothing.
 const purgeBody = z.union([z.strictObject({ contactIds: z.array(uuid).min(1).max(1000) }), z.strictObject({ all: z.literal(true) })]);
@@ -189,9 +190,9 @@ export async function contactRoutes(app: FastifyInstance, { services }: { servic
     { config: { rateLimit: { max: 10, timeWindow: 15 * MINUTE_MS, hook: 'preHandler', keyGenerator: (request: FastifyRequest) => `contact-export:${request.principal?.user.id ?? request.ip}` } } },
     async (request, reply) => {
       const { workspaceId } = parse(workspaceParams, request.params);
-      const query = parse(formatQuery, request.query);
-      const contacts = await exportContacts(deps, { ...ref(request, workspaceId), format: query.format });
-      const name = exportSegment(`Contacts - ${new Date().toISOString().slice(0, 10)}`);
+      const query = parse(exportQuery, request.query);
+      const contacts = await exportContacts(deps, { ...ref(request, workspaceId), format: query.format, ...(query.contact === undefined ? {} : { contactId: query.contact }) });
+      const name = exportSegment(`${query.contact === undefined ? 'Contacts' : 'Contact'} - ${new Date().toISOString().slice(0, 10)}`);
       return query.format === 'csv'
         ? reply.type('text/csv; charset=utf-8').header('Content-Disposition', attachment(`${name}.csv`)).send(contactsToCsv(contacts))
         : reply.type('text/vcard; charset=utf-8').header('Content-Disposition', attachment(`${name}.vcf`)).send(contactsToVcard(contacts));

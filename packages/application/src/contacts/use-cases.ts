@@ -252,10 +252,10 @@ export async function importContacts(deps: ContactDeps, input: Ref & { readonly 
   return ok(await deps.contacts.importMany({ workspaceId: input.workspaceId, contents, format: input.format, at: deps.clock.now() }, userActor(input.actor), manage)).created;
 }
 
-/** Every Contact that is not in Trash (`contact.export`: USER and above — not a GUEST). Audited: who, which format, how many. */
-export async function exportContacts(deps: ContactDeps, input: Ref & { readonly format: 'csv' | 'vcard' }): Promise<ContactRecord[]> {
+/** All live Contacts or one requested Contact (`contact.export`: USER and above). Audited by id/count only. */
+export async function exportContacts(deps: ContactDeps, input: Ref & { readonly format: 'csv' | 'vcard'; readonly contactId?: string }): Promise<ContactRecord[]> {
   await authorizeTool(deps, input.actor, input.workspaceId, 'CONTACTS', 'contact.export');
-  return ok(await deps.contacts.exportAll({ workspaceId: input.workspaceId, format: input.format, at: deps.clock.now() }, userActor(input.actor), exporter)).contacts;
+  return ok(await deps.contacts.exportAll({ workspaceId: input.workspaceId, format: input.format, ...(input.contactId === undefined ? {} : { contactId: parseContactId(input.contactId) }), at: deps.clock.now() }, userActor(input.actor), exporter)).contacts;
 }
 
 // ---- Links to Procedures (Links to Documents are the Document's: `links/use-cases.ts`)

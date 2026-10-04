@@ -307,10 +307,11 @@ export function createContactRepository({ db }: Pick<AppDatabase, 'db'>): Contac
         const rows = tx
           .select()
           .from(contacts)
-          .where(and(eq(contacts.workspaceId, input.workspaceId), isNull(contacts.deletedAt)))
+          .where(and(eq(contacts.workspaceId, input.workspaceId), isNull(contacts.deletedAt), input.contactId === undefined ? undefined : eq(contacts.id, input.contactId)))
           .orderBy(asc(contacts.sortKey), asc(contacts.id))
           .all();
-        recordAuditEvent(tx, { workspaceId: input.workspaceId, type: 'CONTACTS_EXPORTED', actor, subjectType: 'workspace', subjectId: input.workspaceId, occurredAt: input.at, metadata: { format: input.format, contacts: rows.length } });
+        if (input.contactId !== undefined && rows.length === 0) throw new Refusal('contact_not_found');
+        recordAuditEvent(tx, { workspaceId: input.workspaceId, type: 'CONTACTS_EXPORTED', actor, subjectType: 'workspace', subjectId: input.workspaceId, occurredAt: input.at, metadata: { format: input.format, contacts: rows.length, ...(input.contactId === undefined ? {} : { contactId: input.contactId }) } });
         return { contacts: rows.map(record) };
       });
     },

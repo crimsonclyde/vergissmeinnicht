@@ -861,7 +861,7 @@ const maintenancePath = (workspaceId: string, rest = '') => `/workspaces/${encod
 
 const contactsPath = (workspaceId: string, rest = '') => `/workspaces/${encodeURIComponent(workspaceId)}/contacts${rest}`;
 /** Every Contact as one file to save (USER and above). */
-export const contactExportUrl = (workspaceId: string, format: ContactFileFormat) => `/api${contactsPath(workspaceId, `/export?format=${format}`)}`;
+export const contactExportUrl = (workspaceId: string, format: ContactFileFormat, contactId?: string) => `/api${contactsPath(workspaceId, `/export?format=${format}${contactId === undefined ? "" : `&contact=${encodeURIComponent(contactId)}`}`)}`;
 
 export const documentExportUrl = (workspaceId: string, scope: string) => `/api/workspaces/${encodeURIComponent(workspaceId)}/documents/export${scope === '' ? '' : `?${scope}`}`;
 
