@@ -3514,6 +3514,10 @@ GitHub pre-release created after the user approved the command: `https://github.
 **Security docs updated:** YES (planned requirements only).  
 **Remaining:** old external links to `docu` need updating by their owners. Implementation and remaining validation limits are recorded below.
 
+**README presentation refresh (2026-10-04):** inserted the approved household opening; replaced the large flower banner with the existing compact brand icon, retained CI/license links and added section navigation. Added three everyday examples and explicit admin-selected/all-off Workspace defaults. Presented desktop Today alongside complementary phone Run/Maintenance captures with equal phone widths, practical captions, meaningful alt text and the capture-guide link. Kept the audience documentation table, name/pronunciation/Forget-Me-Knot story, author credit, exact `AGPL-3.0-only` identifier and third-party notices. Simplified beta status; Equipment is available according to completed 16.8, while text recognition (16.9) and Mail (16.10–16.11) remain planned.
+
+**Checks:** visually inspected both raster brand assets, the SVG source and all six actual-app captures with their guide; reviewed current ledger status and documentation destinations. Local CommonMark rendering with table support verified balanced HTML, the opening line break and documentation table; checked every README relative link/image destination and heading anchor, decoded local images and confirmed exactly three captures with equal phone widths. `git diff --check` passed. No dedicated documentation checker is configured; application tests are unnecessary for this documentation-only change. **Remaining / limitations:** no live GitHub rendering check; existing screenshot version/provenance remains as recorded in the capture guide. Unrelated untracked assets preserved. **Security surface changed:** NO — presentation/copy only, no runtime behavior or new assets/data flow; security policy unchanged.
+
 ### 17.1 Every Workspace tool is optional
 **Status:** DONE (review branch, 2026-10-04)
 
