@@ -18,7 +18,7 @@ For every completed task, add a concise completion note, tests/checks performed,
 
 ## Current state — resume here
 
-**Resumed and implemented 2026-10-04:** branch `development/optional-tools-review` completes 17.1–17.3 and the verified review fixes below. All seven available tools are optional; Today has scoped progress and recent completions. The original pause handoff is historical. Owner-provided mock-ups/screenshots are preserved. PR #15 holds this work. The user authorised stabilization, review, upgrade testing and release as 0.5.0-beta.3 on 2026-10-04; release progress is recorded in 12.22. The running Unraid installation is not being deployed.
+**Released 2026-10-04:** PR #15 merged as `799bb70`; **v0.5.0-beta.3** publishes 17.1–17.4: all seven implemented Workspace tools optional, scoped Today progress, reviewed actual-app screenshots, tool/file/notification fixes, patched runtime PCRE2 and faster CI/fixtures. Main CI and the tagged release workflow passed. GitHub prerelease: https://github.com/crimsonclyde/vergissmeinnicht/releases/tag/v0.5.0-beta.3. Owner-provided mock-ups/screenshots are preserved. The original pause handoff is historical. Nothing was deployed to the running Unraid installation. Next product step remains **16.8 Equipment**; no product decision blocks it.
 
 **Latest accepted update (2026-10-02):** documentation reorganisation done (17.0). All-tool Workspace switches (17.1), scoped Today progress (17.2) and actual demo screenshots (17.3) are implemented on the review branch. These requirements supersede the older fixed-navigation/action-only rules as stated in section 17.
 
@@ -1977,13 +1977,17 @@ GitHub pre-release created after the user approved the command: `https://github.
 **Out of scope (this pass):** mandatory MFA, folders, generic tasks, calendar events, recurring schedules/cron, Kanban, comments/chat, attachments, photos, geolocation, AI, Web Push, SMS, WhatsApp, analytics, branching, queues/Redis/Kubernetes.
 
 ### 12.22 Release 0.5.0-beta.3
-**Status:** IN PROGRESS (2026-10-04)
+**Status:** DONE (2026-10-04)
 
 **Request:** stabilize PR #15, review it, test the upgrade/restore, measure and shorten validation, then commit, push and publish a release with notes. The next beta is `v0.5.0-beta.3`; image `ghcr.io/crimsonclyde/vergissmeinnicht:0.5.0-beta.3`. Release publishing is authorised; no deployment to the running Unraid installation.
 
 **Scope:** 17.1–17.3 (all implemented tools optional, scoped Today progress, actual demo screenshots), verified tool/file/notification security fixes, PCRE2 runtime patch and faster CI/fixture validation (17.4). Migrations 0035/0036 bring the schema from 35 to 37 migrations; upgrades preserve core availability/house flags and content, new Workspaces start with every tool off. Template and Unraid guide point to the new exact beta tag. Release remains gated on the complete CI, both native publishing smoke tests/scans, multi-architecture manifest, signatures and SBOM.
 
-**Checks:** populated fictional beta.2 upgrade with verified backup/restore and original bytes/history intact; fixture-isolation/FK/mode regression; full validation and native release results to record before publication. Security surface and remaining limits are documented in 17.1–17.4 and security §15. Real production-data upgrade, physical devices, screen reader and Unraid resource/restart checks are not performed here.
+**Checks:** populated fictional beta.2 upgrade with verified backup/restore and original bytes/history intact; fixture-isolation/FK/mode regression; full local suite 143 files / 1138 tests, typecheck/lint, schema generation (no drift), production image build/smoke and diff checks passed. PR CI 37214175964, main CI 37214457266 and release workflow 37214476732 all passed. Browser checks: 3 passed / 1 intentional mobile-flow skip; amd64/arm64 validation and publishing smoke/scans passed with no fixable HIGH/CRITICAL finding. Security surface and remaining limits are documented in 17.1–17.4 and security §15. Real production-data upgrade, physical devices, screen reader and Unraid resource/restart checks are not performed here.
+
+**Published:** stabilization commit `3de6fa5`, PR #15 merged as `799bb70a9bcb9081a8c63f2e45fc2702218d6c57`; annotated tag `v0.5.0-beta.3` on that merge commit. Multi-architecture index `sha256:f278032b4a8ef071eeca07f9de9f278b9d0d8339c5fd997f2eccb83fd7264e77` inspected directly (linux/amd64, linux/arm64); signing and CycloneDX attestation steps succeeded. GitHub prerelease with feature/security/upgrade/performance notes: https://github.com/crimsonclyde/vergissmeinnicht/releases/tag/v0.5.0-beta.3. Only the exact beta image tag was published; `latest` was not moved. Completion is recorded in a follow-up documentation commit after publication.
+
+**Observed speed:** complete PR CI 5m18 → 3m00 (~43% reduction); CI unit/integration step 1m52 → 1m11 (~37% reduction), including two added regressions. Same-machine unchanged local suite 32.7 → 29.1 seconds (~11% in one paired sample). Tests, security/authentication settings, accessibility checks and release scan gates are retained. Times vary with runner/load; no guaranteed speedup is claimed.
 
 ### 13.1 Offline device data: sign-out cleanup and account binding
 **Status:** DONE
@@ -3536,13 +3540,13 @@ Capture a small, reviewed set from the actual app using `test-env` fictional dem
 **Security impact:** LOW — public assets use fictional demo data; no new application feature.
 
 ### 17.4 Stabilize CI and reduce validation time
-**Status:** IN PROGRESS (user request, 2026-10-04)
+**Status:** DONE (2026-10-04; `3de6fa5`, merged through PR #15)
 
 **Implemented:** runtime PCRE2 upgraded via signed Debian repositories, with minimum fixed-version assertion (10.42-1+deb12u2); both native scanner gates remain. Quality and browser CI jobs run in parallel with image validation; aggregate `check` requires success from every job. Duplicate web build removed. Ordinary test fixtures reuse closed, real-migrated empty-schema bytes in independent private DBs; no production/crypto settings or tests removed.
 
-**Checks so far:** unchanged local suite 1136 tests took 32.7 s; same suite with template fixtures took 29.1 s (~11% reduction in this one paired measurement; varies with load). Prior CI quality step took 1m52, browser 2m01; parallel workflow time will be recorded after it runs. Added fixture-isolation/FK/mode regression and populated beta.2 backup→upgrade→restore→upgrade regression, both pass; typecheck/lint pass. Built image holds fixed PCRE2; container smoke checks pass. Real migrator/schema generation checked separately. Final local suite: 143 files / 1138 tests passed; typecheck/lint, production image build/smoke and `git diff --check` passed. Schema generation reports no drift. Native CI scans and parallel job timing still to record.
+**Checks so far:** unchanged local suite 1136 tests took 32.7 s; same suite with template fixtures took 29.1 s (~11% reduction in this one paired measurement; varies with load). Prior CI quality step took 1m52, browser 2m01; stabilized PR CI took 3m00 versus 5m18 before (~43% faster observed). Its unit/integration step took 1m11 versus 1m52 (~37% faster), including two added regressions. Different runs/runners/load prevent treating these as guarantees. Added fixture-isolation/FK/mode regression and populated beta.2 backup→upgrade→restore→upgrade regression, both pass; typecheck/lint pass. Built image holds fixed PCRE2; container smoke checks pass. Real migrator/schema generation checked separately. Final local suite: 143 files / 1138 tests passed; typecheck/lint, production image build/smoke and `git diff --check` passed. Schema generation reports no drift. PR CI run 37214175964 passed quality, browser, both native image smoke/scans and aggregate gate; no fixable HIGH/CRITICAL image finding.
 
-**Security impact:** MEDIUM — runtime dependency patch and fail-closed CI execution; no new product attack surface. Full controls/checks in security §15. **Remaining:** final CI/release results; physical-device, screen-reader and live Unraid checks remain outside this run.
+**Security impact:** MEDIUM — runtime dependency patch and fail-closed CI execution; no new product attack surface. Full controls/checks in security §15. **Remaining:** release publication recorded in 12.22; physical-device, screen-reader and live Unraid checks remain outside this run.
 
 ---
 
