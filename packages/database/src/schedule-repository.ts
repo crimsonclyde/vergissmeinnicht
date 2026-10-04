@@ -41,6 +41,7 @@ import { roleHasCapability } from '@vergissmeinnicht/permissions';
 import { IMMEDIATE, actorAllowed, type Transaction, type UserActor } from './actor-guard.ts';
 import { recordAuditEvent } from './audit-events.ts';
 import type { AppDatabase } from './connection.ts';
+import { enabledScheduleSource, toolEnabled } from './tool-policy.ts';
 import { toRun } from './run-repository.ts';
 import {
   memberships,
@@ -175,14 +176,14 @@ function toOccurrence(row: OccurrenceJoin): ScheduledOccurrence {
 
 function findScheduleIn(tx: Reader, workspaceId: string, scheduleId: string): Schedule | undefined {
   const row = selectSchedules(tx)
-    .where(and(eq(schedules.workspaceId, workspaceId), eq(schedules.id, scheduleId)))
+    .where(and(enabledScheduleSource, eq(schedules.workspaceId, workspaceId), eq(schedules.id, scheduleId)))
     .get();
   return row === undefined ? undefined : toSchedule(row);
 }
 
 function findOccurrenceIn(tx: Reader, workspaceId: string, occurrenceId: string): ScheduledOccurrence | undefined {
   const row = selectOccurrences(tx)
-    .where(and(eq(occurrences.workspaceId, workspaceId), eq(occurrences.id, occurrenceId)))
+    .where(and(enabledScheduleSource, eq(occurrences.workspaceId, workspaceId), eq(occurrences.id, occurrenceId)))
     .get();
   return row === undefined ? undefined : toOccurrence(row);
 }
@@ -360,7 +361,7 @@ function scheduleRowIn(tx: Reader, workspaceId: string, scheduleId: string): Sch
   return tx
     .select()
     .from(schedules)
-    .where(and(eq(schedules.workspaceId, workspaceId), eq(schedules.id, scheduleId)))
+    .where(and(enabledScheduleSource, eq(schedules.workspaceId, workspaceId), eq(schedules.id, scheduleId)))
     .get();
 }
 
@@ -369,7 +370,7 @@ function occurrenceRowIn(tx: Reader, workspaceId: string, occurrenceId: string):
     .select({ occurrence: occurrences, schedule: schedules })
     .from(occurrences)
     .innerJoin(schedules, eq(schedules.id, occurrences.scheduleId))
-    .where(and(eq(occurrences.workspaceId, workspaceId), eq(occurrences.id, occurrenceId)))
+    .where(and(enabledScheduleSource, eq(occurrences.workspaceId, workspaceId), eq(occurrences.id, occurrenceId)))
     .get();
   return row;
 }
@@ -505,6 +506,7 @@ export function createScheduleRepository({ db }: Pick<AppDatabase, 'db'>): Sched
     async create(input, actor, guard) {
       return db.transaction((tx): ScheduleWriteResult => {
         if (!actorAllowed(tx, input.workspaceId, actor, guard)) return { status: 'forbidden' };
+        if (!toolEnabled(tx, input.workspaceId, input.kind === 'PROCEDURE' ? 'PROCEDURES' : 'REMINDERS')) return { status: 'not_found' };
         if (input.kind === 'PROCEDURE') {
           const procedure =
             input.procedureId === null
@@ -815,7 +817,7 @@ export function createScheduleRepository({ db }: Pick<AppDatabase, 'db'>): Sched
 
     async listSchedules(workspaceId, limit) {
       return selectSchedules(db)
-        .where(and(eq(schedules.workspaceId, workspaceId), inArray(schedules.state, ['ACTIVE', 'PAUSED'])))
+        .where(and(enabledScheduleSource, eq(schedules.workspaceId, workspaceId), inArray(schedules.state, ['ACTIVE', 'PAUSED'])))
         .orderBy(asc(schedules.createdAt))
         .limit(limit)
         .all()
@@ -824,7 +826,7 @@ export function createScheduleRepository({ db }: Pick<AppDatabase, 'db'>): Sched
 
     async history(workspaceId, scheduleId, limit) {
       const items = selectOccurrences(db)
-        .where(and(eq(occurrences.workspaceId, workspaceId), eq(occurrences.scheduleId, scheduleId)))
+        .where(and(enabledScheduleSource, eq(occurrences.workspaceId, workspaceId), eq(occurrences.scheduleId, scheduleId)))
         .orderBy(desc(occurrences.dueDate), desc(occurrences.createdAt))
         .limit(limit)
         .all()
@@ -850,7 +852,7 @@ export function createScheduleRepository({ db }: Pick<AppDatabase, 'db'>): Sched
 
     async listOpen(workspaceId, limit) {
       return selectOccurrences(db)
-        .where(and(eq(occurrences.workspaceId, workspaceId), inArray(occurrences.state, ['OPEN', 'IN_PROGRESS'])))
+        .where(and(enabledScheduleSource, eq(occurrences.workspaceId, workspaceId), inArray(occurrences.state, ['OPEN', 'IN_PROGRESS'])))
         .orderBy(asc(occurrences.dueDate), asc(occurrences.time), asc(occurrences.createdAt))
         .limit(limit)
         .all()
@@ -859,7 +861,7 @@ export function createScheduleRepository({ db }: Pick<AppDatabase, 'db'>): Sched
 
     async listRecentlyClosed(workspaceId, since, limit) {
       return selectOccurrences(db)
-        .where(and(eq(occurrences.workspaceId, workspaceId), inArray(occurrences.state, ['COMPLETED', 'SKIPPED']), gte(occurrences.closedAt, since)))
+        .where(and(enabledScheduleSource, eq(occurrences.workspaceId, workspaceId), inArray(occurrences.state, ['COMPLETED', 'SKIPPED']), gte(occurrences.closedAt, since)))
         .orderBy(desc(occurrences.closedAt))
         .limit(limit)
         .all()
@@ -868,7 +870,7 @@ export function createScheduleRepository({ db }: Pick<AppDatabase, 'db'>): Sched
 
     async listDueBetween(workspaceId, from, to, limit) {
       return selectOccurrences(db)
-        .where(and(eq(occurrences.workspaceId, workspaceId), ne(occurrences.state, 'CANCELLED'), gte(occurrences.dueDate, from), lte(occurrences.dueDate, to)))
+        .where(and(enabledScheduleSource, eq(occurrences.workspaceId, workspaceId), ne(occurrences.state, 'CANCELLED'), gte(occurrences.dueDate, from), lte(occurrences.dueDate, to)))
         .orderBy(asc(occurrences.dueDate), asc(occurrences.time), asc(occurrences.createdAt))
         .limit(limit)
         .all()
@@ -880,6 +882,7 @@ export function createScheduleRepository({ db }: Pick<AppDatabase, 'db'>): Sched
       const series = selectSchedules(db)
         .where(
           and(
+            enabledScheduleSource,
             eq(schedules.workspaceId, workspaceId),
             eq(schedules.state, 'ACTIVE'),
             eq(schedules.recurrenceKind, 'FIXED'),
@@ -935,7 +938,7 @@ export function createScheduleRepository({ db }: Pick<AppDatabase, 'db'>): Sched
         .select()
         .from(schedules)
         .leftJoin(procedures, eq(procedures.id, schedules.procedureId))
-        .where(and(eq(schedules.state, 'ACTIVE'), eq(schedules.recurrenceKind, 'FIXED'), or(isNull(schedules.procedureId), isNull(procedures.deletedAt))))
+        .where(and(enabledScheduleSource, eq(schedules.state, 'ACTIVE'), eq(schedules.recurrenceKind, 'FIXED'), or(isNull(schedules.procedureId), isNull(procedures.deletedAt))))
         .all();
       let created = 0;
       for (const { schedules: schedule } of candidates) {
@@ -943,6 +946,7 @@ export function createScheduleRepository({ db }: Pick<AppDatabase, 'db'>): Sched
         const latest = latestDueDate(db, schedule.id);
         if (latest !== undefined && latest >= todayOf(schedule, now)) continue;
         created += db.transaction((tx) => {
+          if (!toolEnabled(tx, schedule.workspaceId, schedule.kind === 'PROCEDURE' ? 'PROCEDURES' : 'REMINDERS')) return 0;
           // Re-read inside the write lock: another worker may have advanced it meanwhile (idempotent anyway).
           const fresh = scheduleRowIn(tx, schedule.workspaceId, schedule.id);
           return fresh === undefined ? 0 : ensureFixedOccurrences(tx, fresh, now).length;

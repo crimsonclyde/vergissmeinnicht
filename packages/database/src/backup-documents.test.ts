@@ -21,7 +21,7 @@ import { createDocumentFileRepository } from './document-file-repository.ts';
 import { createWorkspaceToolRepository } from './document-repository.ts';
 import { runMigrations } from './migrate.ts';
 import { createUserRepository } from './user-repository.ts';
-import { createWorkspaceRepository } from './workspace-repository.ts';
+import { createConfiguredWorkspaceRepository as createWorkspaceRepository } from './test-support.ts';
 
 const sha256 = (bytes: Uint8Array | string) => createHash('sha256').update(bytes).digest('hex');
 /** Every test file is a one-page "PDF"; its preview and thumbnail are small texts derived from it. */
@@ -56,7 +56,7 @@ describe('backups with document files (16.1, HT2)', () => {
     const files = createDocumentFileRepository(database);
     const store = createDocumentFileStore(documents);
     const tools = createWorkspaceToolRepository(database);
-    await tools.set({ workspaceId: home.id, tool: 'DOCUMENTS', enabled: true, at: now }, { kind: 'user', userId: ada.id, displayName: ada.displayName }, { actorMay: () => true });
+    await tools.set({ workspaceId: home.id, tool: 'DOCUMENTS', enabled: true, expectedRevision: 0, at: now }, { kind: 'user', userId: ada.id, displayName: ada.displayName }, { actorMay: () => true });
     deps = { workspaces, tools, files, store, processor, clock, previews: createPreviewQueue({ files, store, processor, clock }), policy: async () => ({ maxFileBytes: 50_000_000, formats: ['PDF'] }) };
   });
   afterEach(() => {

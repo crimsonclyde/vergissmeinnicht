@@ -20,17 +20,19 @@ import {
   type ReminderDeps,
   type ReminderNotifier,
   type ReminderQueue,
+  setWorkspaceTool,
   type ScheduleDeps,
 } from '@vergissmeinnicht/application';
 import { normalizeEmail, type Schedule, type User, type Workspace } from '@vergissmeinnicht/domain';
 import { openDatabase } from './connection.ts';
 import { createNotificationPreferencesRepository } from './notification-preferences-repository.ts';
 import { createProcedureRepository } from './procedure-repository.ts';
+import { createWorkspaceToolRepository } from './document-repository.ts';
 import { createReminderQueue } from './reminder-queue.ts';
 import { createScheduleRepository } from './schedule-repository.ts';
 import { createTestDatabase } from './test-support.ts';
 import { createUserRepository } from './user-repository.ts';
-import { createWorkspaceRepository } from './workspace-repository.ts';
+import { createConfiguredWorkspaceRepository as createWorkspaceRepository } from './test-support.ts';
 
 const STEP = { description: '', icon: null, required: true, critical: false, skipReasonPolicy: 'OPTIONAL', notApplicableReasonPolicy: 'OPTIONAL' } as const;
 const PROCEDURE: ProcedureInput = { title: 'Buy groceries', description: '', icon: 'food', tags: [], sections: [{ title: 'Shop', description: '', steps: [{ ...STEP, title: 'Milk' }] }] };
@@ -111,6 +113,44 @@ describe('reminder dispatch (13.5, 14.1)', () => {
   afterEach(() => database.dispose());
 
   describe('normal delivery', () => {
+    it('pauses disabled source deliveries, rechecks after provider eligibility, and Calendar never stops delivery', async () => {
+      await reminder();
+      at('2027-05-15T07:00:00Z');
+      const tools = createWorkspaceToolRepository(database);
+      const switchTool = (tool: string, enabled: boolean) => setWorkspaceTool({ workspaces: scheduleDeps.workspaces, tools, clock }, { actor: admin, workspaceId: home.id, tool, enabled });
+      await switchTool('REMINDERS', false);
+      expect(await dispatch()).toMatchObject({ sent: 0 });
+      expect(deliveries()).toEqual([]);
+      const pending = unprocessed();
+      await switchTool('REMINDERS', true);
+      const disableDuringEligibility = { ...email.notifier, enabledFor: async () => { await switchTool('REMINDERS', false); return true; } };
+      expect(await dispatch({ notifiers: [disableDuringEligibility] })).toMatchObject({ sent: 0 });
+      expect(email.sent).toEqual([]);
+      expect(unprocessed()).toBe(pending);
+      await switchTool('REMINDERS', true);
+      await switchTool('CALENDAR', false);
+      expect(await dispatch()).toMatchObject({ sent: 2 });
+      expect(await dispatch()).toMatchObject({ sent: 0 });
+    });
+
+    it('reenable catches up recent notifications and drops older ones without changing Occurrences', async () => {
+      await reminder({ title: 'Old notification', date: '2027-05-14', reminders: [{ unit: 'DAYS', amount: 0 }] });
+      await reminder({ title: 'Recent notification', date: '2027-05-15', reminders: [{ unit: 'DAYS', amount: 0 }] });
+      const tools = createWorkspaceToolRepository(database);
+      const switchTool = (enabled: boolean) => setWorkspaceTool({ workspaces: scheduleDeps.workspaces, tools, clock }, { actor: admin, workspaceId: home.id, tool: 'REMINDERS', enabled });
+      await switchTool(false);
+      at('2027-05-15T12:00:00Z');
+      expect(await dispatch()).toMatchObject({ sent: 0 });
+      const before = database.sqlite.prepare('SELECT * FROM occurrences ORDER BY id').all();
+      await switchTool(true);
+      expect(await dispatch()).toMatchObject({ sent: 2, summaries: 0 });
+      expect(email.sent[0]?.message.body).toContain('Recent notification');
+      expect(email.sent[0]?.message.body).not.toContain('Old notification');
+      expect(superseded()).toBe(1);
+      expect(database.sqlite.prepare('SELECT * FROM occurrences ORDER BY id').all()).toEqual(before);
+      expect(await dispatch()).toMatchObject({ sent: 0 });
+    });
+
     it('sends each reminder once per channel at its time, with the current status and a stable key', async () => {
       await reminder();
       expect(await dispatch()).toMatchObject({ sent: 0 });
@@ -306,6 +346,23 @@ describe('reminder dispatch (13.5, 14.1)', () => {
       expect(telegram.sent).toHaveLength(1);
       expect(unprocessed()).toBe(0);
       expect(deliveries().every((row) => row.status === 'SENT')).toBe(true);
+    });
+
+    it('omits a disabled source from a mixed summary without stopping enabled Procedure notifications', async () => {
+      await reminder({ title: 'Hidden tax', reminders: [{ unit: 'MONTHS', amount: 1 }] });
+      const procedure = await createProcedure({ ...scheduleDeps, procedures: createProcedureRepository(database) }, { actor: admin, workspaceId: home.id, content: PROCEDURE });
+      await reminder({ title: 'Visible groceries', procedureId: procedure.procedure.id, reminders: [{ unit: 'MONTHS', amount: 1 }] });
+      at('2027-05-20T08:00:00Z');
+      email.failWith(new NotificationDeliveryError('email_failed', true));
+      await dispatch({ notifiers: [email.notifier] });
+      await setWorkspaceTool({ workspaces: scheduleDeps.workspaces, tools: createWorkspaceToolRepository(database), clock }, { actor: admin, workspaceId: home.id, tool: 'REMINDERS', enabled: false });
+      at(new Date(now.getTime() + RETRY_DELAYS_MS[0] + 1000).toISOString());
+      await dispatch({ notifiers: [email.notifier] });
+      expect(email.sent).toHaveLength(1);
+      expect(email.sent[0]?.message.body).toContain('Buy groceries');
+      expect(email.sent[0]?.message.body).not.toContain('Hidden tax');
+      expect(email.sent[0]?.message.subject).not.toContain('2 items');
+      expect(summaries()[0]?.status).toBe('SENT');
     });
 
     it('drops members that became ineligible before a summary retry', async () => {

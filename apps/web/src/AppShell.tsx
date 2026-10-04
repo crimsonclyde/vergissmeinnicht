@@ -28,6 +28,8 @@ import { Runs } from './Runs.tsx';
 import { SettingsLayout } from './SettingsLayout.tsx';
 import { SettingsMenu } from './SettingsMenu.tsx';
 import { SourceFooter } from './SourceFooter.tsx';
+import { CoreToolsContext } from './core-tools.ts';
+import { ScheduleHistory } from './ScheduleHistory.tsx';
 import { Today } from './Today.tsx';
 import { UiIcon, type UiIconName } from './ui-icons.tsx';
 import type { WorkspaceContext } from './workspace-context.ts';
@@ -79,7 +81,7 @@ export function destinations(workspaceId: string, tools: readonly string[] = [])
   const maintenance: Destination = { href: paths.maintenance(workspaceId), label: t('shell.maintenance'), icon: 'maintenance', pages: ['maintenance'] };
   const optional = [...(tools.includes('DOCUMENTS') ? [documents] : []), ...(tools.includes('CONTACTS') ? [contacts] : []), ...(tools.includes('MAINTENANCE') ? [maintenance] : [])];
   const more: Destination = { href: paths.more(workspaceId), label: t('shell.more'), icon: 'more', pages: ['more', 'reminders', 'calendar', 'history', ...optional.flatMap((tool) => tool.pages)] };
-  return { side: [today, procedures, reminders, lists, calendar, ...optional], bar: [today, procedures, lists, more] };
+  return { side: [today, ...(tools.includes('PROCEDURES') ? [procedures] : []), ...(tools.includes('REMINDERS') ? [reminders] : []), ...(tools.includes('LISTS') ? [lists] : []), ...(tools.includes('CALENDAR') ? [calendar] : []), ...optional], bar: [today, ...(tools.includes('PROCEDURES') ? [procedures] : []), ...(tools.includes('LISTS') ? [lists] : []), more] };
 }
 
 function NavLinks({ items, page }: { items: readonly Destination[]; page: Page }) {
@@ -109,17 +111,17 @@ function WorkspacePage(props: {
   const load = useCallback(() => {
     api.workspace(route.workspaceId).then(
       (result) => {
-        setContext({ workspace: result.workspace, capabilities: result.capabilities, tools: result.tools });
+        setContext({ workspace: result.workspace, capabilities: result.capabilities, tools: result.tools, toolsRevision: result.toolsRevision });
         setMessage(null);
         rememberWorkspace(result.workspace.id);
-        void offlineStore.saveWorkspace(userId, { workspace: result.workspace, capabilities: result.capabilities });
+        void offlineStore.saveWorkspace(userId, { workspace: { ...result.workspace, tools: result.tools }, capabilities: result.capabilities });
       },
       async (caught: unknown) => {
         // Offline: the Workspace as last seen on this device (UI only; the server decides on every change).
         const saved = isNetworkError(caught) ? await offlineStore.loadWorkspace(userId, route.workspaceId) : undefined;
         if (saved !== undefined) {
-          // Optional tools do not work offline: none are offered from the saved copy.
-          setContext({ workspace: saved.workspace, capabilities: saved.capabilities, tools: [] });
+          // Stored flags guide navigation only; online requests always recheck current server settings.
+          setContext({ workspace: saved.workspace, capabilities: saved.capabilities, tools: saved.workspace.tools ?? [], toolsRevision: 0 });
           setMessage(null);
           return;
         }
@@ -129,6 +131,10 @@ function WorkspacePage(props: {
     );
   }, [route.workspaceId, userId]);
   useEffect(load, [load]);
+  useEffect(() => {
+    window.addEventListener('online', load);
+    return () => window.removeEventListener('online', load);
+  }, [load]);
 
   if (message !== null) return <p role="alert">{message}</p>;
   if (context === null || context.workspace.id !== route.workspaceId) return <p>{t('common.loading')}</p>;
@@ -140,13 +146,13 @@ function WorkspacePage(props: {
   /** What the person may create here (UI only): drives the Add chooser. */
   const documentsOn = context.tools.includes('DOCUMENTS');
   const contactsOn = context.tools.includes('CONTACTS');
-  const canAdd = { procedure: can('procedure.edit'), reminder: can('schedule.manage'), list: can('list.edit'), document: documentsOn && can('document.manage') };
+  const canAdd = { procedure: context.tools.includes('PROCEDURES') && can('procedure.edit'), reminder: context.tools.includes('REMINDERS') && can('schedule.manage'), list: context.tools.includes('LISTS') && can('list.edit'), document: documentsOn && can('document.manage') };
   const settings = (current: 'settings' | 'members' | 'knots', content: ReactNode) => (
     <SettingsLayout
       title={t('menu.workspaceSettings')}
       subtitle={context.workspace.name}
       navLabel={t('menu.workspaceSettings')}
-      sections={workspaceSettingsSections(route.workspaceId, context.capabilities, current)}
+      sections={workspaceSettingsSections(route.workspaceId, context.tools.includes('PROCEDURES') ? context.capabilities : context.capabilities.filter((capability) => capability !== 'knot.manage'), current)}
     >
       {content}
     </SettingsLayout>
@@ -154,6 +160,8 @@ function WorkspacePage(props: {
 
   const openRun = (runId: string) => navigate(paths.run(route.workspaceId, runId));
   const page = (): ReactNode => {
+    const required = ({ procedures: 'PROCEDURES', 'procedure-edit': 'PROCEDURES', run: 'PROCEDURES', history: 'PROCEDURES', knots: 'PROCEDURES', reminders: 'REMINDERS', lists: 'LISTS', calendar: 'CALENDAR' } as Record<string, string>)[route.page];
+    if (required !== undefined && !context.tools.includes(required) && !(route.page === 'run' && !navigator.onLine)) return <p role="alert">{t('error.tool_not_enabled')}</p>;
     switch (route.page) {
     case 'workspace':
       return (
@@ -164,6 +172,8 @@ function WorkspacePage(props: {
           canSchedule={can('schedule.manage')}
           canExecute={can('run.execute')}
           canAdd={canAdd}
+          tools={context.tools}
+          canChooseTools={can('workspace.tools.manage')}
           onOpenRun={openRun}
         />
       );
@@ -192,6 +202,8 @@ function WorkspacePage(props: {
           onOpenRun={openRun}
         />
       );
+    case 'schedule-history':
+      return <ScheduleHistory key={route.scheduleId} workspaceId={route.workspaceId} scheduleId={route.scheduleId} />;
     case 'more':
       return <MorePage workspaceId={route.workspaceId} tools={context.tools} />;
     case 'documents':
@@ -274,9 +286,9 @@ function WorkspacePage(props: {
   };
   // Pages of other tools show linked Documents only where the Documents tool is on (16.5).
   return (
-    <DocumentsToolContext.Provider value={{ enabled: documentsOn, canManage: documentsOn && can('document.manage'), canRemoveKept: documentsOn && can('run.document.remove') }}>
+    <CoreToolsContext.Provider value={context.tools}><DocumentsToolContext.Provider value={{ enabled: documentsOn, canManage: documentsOn && can('document.manage'), canRemoveKept: documentsOn && can('run.document.remove') }}>
       <ContactsToolContext.Provider value={{ enabled: contactsOn, canManage: contactsOn && can('contact.manage') }}>{page()}</ContactsToolContext.Provider>
-    </DocumentsToolContext.Provider>
+    </DocumentsToolContext.Provider></CoreToolsContext.Provider>
   );
 }
 

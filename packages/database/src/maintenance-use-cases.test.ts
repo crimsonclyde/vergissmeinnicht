@@ -73,7 +73,7 @@ import { createRunRepository } from './run-repository.ts';
 import { createScheduleRepository } from './schedule-repository.ts';
 import { createTestDatabase } from './test-support.ts';
 import { createUserRepository } from './user-repository.ts';
-import { createWorkspaceRepository } from './workspace-repository.ts';
+import { createConfiguredWorkspaceRepository as createWorkspaceRepository } from './test-support.ts';
 
 const processor: DocumentFileProcessor = {
   inspect: async () => ({ format: 'JPEG', pageCount: 1, width: 3024, height: 4032, encrypted: false, activeContent: false }),
@@ -579,6 +579,9 @@ describe('Maintenance (16.7)', () => {
     await setWorkspaceTool(docs, { ...ref(admin), tool: 'MAINTENANCE', enabled: true });
     // A Document moved to Trash: unnamed for a guest (who cannot open Trash); removing the Link removes neither record.
     await deleteDocument(docs, { ...ref(uma), documentId: invoice.id });
+    const guestEvidence = (await listMaintenanceLinks(deps, { ...ref(gus), recordId: record.id })).find((each) => each.id === evidence.id);
+    expect(guestEvidence?.record).toMatchObject({ type: 'document', state: 'trash', title: null, goneByName: null });
+    expect((await listMaintenanceLinks(deps, { ...ref(admin), recordId: record.id })).find((each) => each.id === evidence.id)?.record.title).toBe(invoice.title);
     await expect(link({ type: 'document', id: invoice.id }, uma, home, (await add({ title: 'Other' })).id)).rejects.toThrow(LinkTargetNotFoundError);
     tick();
     await removeMaintenanceLink(deps, { ...ref(uma), linkId: evidence.id });

@@ -29,7 +29,7 @@ import { DomainValidationError, MAX_ITEMS_PER_LIST, MAX_LISTS_PER_WORKSPACE, nor
 import { createListRepository } from './list-repository.ts';
 import { createTestDatabase } from './test-support.ts';
 import { createUserRepository } from './user-repository.ts';
-import { createWorkspaceRepository } from './workspace-repository.ts';
+import { createConfiguredWorkspaceRepository as createWorkspaceRepository } from './test-support.ts';
 
 describe('Lists (grocery lists)', () => {
   let database: ReturnType<typeof createTestDatabase>;

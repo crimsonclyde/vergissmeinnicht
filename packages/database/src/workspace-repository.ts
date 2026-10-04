@@ -15,7 +15,7 @@ import type {
   WorkspaceRole,
 } from '@vergissmeinnicht/domain';
 import type { AppDatabase } from './connection.ts';
-import { memberships, users, workspaces } from './schema.ts';
+import { memberships, users, workspaceTools, workspaces } from './schema.ts';
 import { IMMEDIATE, actorAllowed, type Transaction, type UserActor } from './actor-guard.ts';
 import { recordSecurityEvent } from './security-events.ts';
 
@@ -97,6 +97,9 @@ function guardedChange(
 export function createWorkspaceRepository(database: Pick<AppDatabase, 'db'>): WorkspaceRepository {
   const { db } = database;
   return {
+    async enabledTools(workspaceId) {
+      return db.select({ tool: workspaceTools.tool }).from(workspaceTools).where(and(eq(workspaceTools.workspaceId, workspaceId), eq(workspaceTools.enabled, true))).all().map((row) => row.tool);
+    },
     async create(input, actor) {
       return db.transaction((tx) => {
         const row = tx

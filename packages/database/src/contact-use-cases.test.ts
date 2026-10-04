@@ -62,7 +62,7 @@ import { fillContactKeys } from './migrate.ts';
 import { createProcedureRepository } from './procedure-repository.ts';
 import { createTestDatabase } from './test-support.ts';
 import { createUserRepository } from './user-repository.ts';
-import { createWorkspaceRepository } from './workspace-repository.ts';
+import { createConfiguredWorkspaceRepository as createWorkspaceRepository } from './test-support.ts';
 
 const processor: DocumentFileProcessor = {
   inspect: async () => ({ format: 'JPEG', pageCount: 1, width: 3024, height: 4032, encrypted: false, activeContent: false }),

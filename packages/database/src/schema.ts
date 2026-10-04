@@ -297,6 +297,8 @@ export const workspaces = sqliteTable(
     storageQuotaBytes: integer('storage_quota_bytes').notNull().default(5_000_000_000),
     /** The Workspace admin's own lower limit (16.4); NULL = none, the ceiling applies; never above the ceiling (trigger in migration 0030). */
     storageLimitBytes: integer('storage_limit_bytes'),
+    /** Compare-and-set version of Workspace tool settings, independent of content revisions. */
+    toolsRevision: integer('tools_revision').notNull().default(0),
   },
   (table) => [
     check('workspaces_id_uuid', sql`length(${table.id}) = 36`),

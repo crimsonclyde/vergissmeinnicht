@@ -1,3 +1,4 @@
+import { enabledTool } from './tool-policy.ts';
 import { randomUUID } from 'node:crypto';
 import { and, asc, count, desc, eq, inArray, isNotNull, isNull, sql } from 'drizzle-orm';
 import { IMAGE_PENDING_MS, type ProcedureDetail, type ProcedureRepository, type ProcedureWriteResult } from '@vergissmeinnicht/application';
@@ -38,6 +39,7 @@ function toProcedure(row: typeof procedures.$inferSelect): Procedure {
 /** Scoped to the Workspace *and* not deleted: the only way Procedure rows are addressed. */
 export const activeIn = (workspaceId: WorkspaceId, procedureId?: ProcedureId) =>
   and(
+    enabledTool(workspaceId, 'PROCEDURES'),
     eq(procedures.workspaceId, workspaceId),
     isNull(procedures.deletedAt),
     procedureId === undefined ? undefined : eq(procedures.id, procedureId),
@@ -174,7 +176,7 @@ export function createProcedureRepository({ db }: Pick<AppDatabase, 'db'>): Proc
         const row = tx
           .select()
           .from(procedures)
-          .where(and(eq(procedures.workspaceId, workspaceId), eq(procedures.id, procedureId), isNotNull(procedures.deletedAt)))
+          .where(and(enabledTool(workspaceId, 'PROCEDURES'), eq(procedures.workspaceId, workspaceId), eq(procedures.id, procedureId), isNotNull(procedures.deletedAt)))
           .get();
         return row && { procedure: toProcedure(row), sections: loadSections(tx, row.id) };
       });
@@ -269,7 +271,7 @@ export function createProcedureRepository({ db }: Pick<AppDatabase, 'db'>): Proc
         .select({ procedure: procedures, displayName: users.name })
         .from(procedures)
         .innerJoin(users, eq(users.id, procedures.deletedByUserId))
-        .where(and(eq(procedures.workspaceId, workspaceId), isNotNull(procedures.deletedAt)))
+        .where(and(enabledTool(workspaceId, 'PROCEDURES'), eq(procedures.workspaceId, workspaceId), isNotNull(procedures.deletedAt)))
         .orderBy(desc(procedures.deletedAt), asc(procedures.id))
         .all()
         .map(({ procedure, displayName }) => ({

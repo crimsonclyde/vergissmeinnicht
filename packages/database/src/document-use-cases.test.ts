@@ -14,6 +14,7 @@ import {
   NameTakenError,
   NotAuthorizedError,
   ToolNotEnabledError,
+  ToolSettingsConflictError,
   WorkspaceNotFoundError,
   addMember,
   changeMemberRole,
@@ -55,7 +56,7 @@ import { createDocumentFileRepository } from './document-file-repository.ts';
 import { createDocumentRepository, createWorkspaceToolRepository } from './document-repository.ts';
 import { createTestDatabase } from './test-support.ts';
 import { createUserRepository } from './user-repository.ts';
-import { createWorkspaceRepository } from './workspace-repository.ts';
+import { createConfiguredWorkspaceRepository as createWorkspaceRepository } from './test-support.ts';
 
 /** Every test file is a one-page image with a small preview (the real parsers are tested in `packages/media`). */
 const processor: DocumentFileProcessor = {
@@ -140,11 +141,30 @@ describe('Folders and Documents (16.2)', () => {
   });
 
   describe('the Documents tool', () => {
+    it('rejects stale settings, including an on/off/on cycle, and commits revision with the audit event', async () => {
+      const start = await deps.tools.settings(home.id);
+      await setWorkspaceTool(deps, { ...ref(admin), tool: 'CONTACTS', enabled: true, expectedRevision: start.revision });
+      const changed = await deps.tools.settings(home.id);
+      expect(changed.revision).toBe(start.revision + 1);
+      await expect(setWorkspaceTool(deps, { ...ref(admin), tool: 'DOCUMENTS', enabled: false, expectedRevision: start.revision })).rejects.toThrow(ToolSettingsConflictError);
+      expect(await deps.tools.settings(home.id)).toEqual(changed);
+      await setWorkspaceTool(deps, { ...ref(admin), tool: 'CONTACTS', enabled: false, expectedRevision: changed.revision });
+      await expect(setWorkspaceTool(deps, { ...ref(admin), tool: 'CONTACTS', enabled: false, expectedRevision: start.revision })).rejects.toThrow(ToolSettingsConflictError);
+      const current = await deps.tools.settings(home.id);
+      const auditCount = events().length;
+      await setWorkspaceTool(deps, { ...ref(admin), tool: 'DOCUMENTS', enabled: true, expectedRevision: current.revision });
+      expect(await deps.tools.settings(home.id)).toEqual(current); // a current no-op does not change the version
+      expect(events()).toHaveLength(auditCount);
+      database.sqlite.exec("CREATE TRIGGER tool_audit_fails BEFORE INSERT ON audit_events BEGIN SELECT RAISE(ABORT, 'audit unavailable'); END");
+      await expect(setWorkspaceTool(deps, { ...ref(admin), tool: 'DOCUMENTS', enabled: false, expectedRevision: current.revision })).rejects.toThrow('audit unavailable');
+      expect(await deps.tools.settings(home.id)).toEqual(current);
+    });
+
     it('is off until a Workspace admin switches it on; nobody else can; switching off hides everything and keeps the data', async () => {
       const users = createUserRepository(database);
       const fresh = await createWorkspace({ users, workspaces: deps.workspaces, clock }, { actor: admin, name: 'Club' });
       await addMember({ users, workspaces: deps.workspaces, clock }, { actor: admin, workspaceId: fresh.id, email: uma.email, role: 'USER' });
-      expect(await enabledTools(deps, ref(uma, fresh))).toEqual([]);
+      expect(await enabledTools(deps, ref(uma, fresh))).toEqual(['CALENDAR', 'LISTS', 'PROCEDURES', 'REMINDERS']);
       await expect(listFolders(deps, ref(uma, fresh))).rejects.toThrow(ToolNotEnabledError);
       await expect(createFolder(deps, { ...ref(admin, fresh), name: 'Water', parentId: null })).rejects.toThrow(ToolNotEnabledError);
       for (const actor of [gus, uma, eddie]) await expect(setWorkspaceTool(deps, { ...ref(actor), tool: 'DOCUMENTS', enabled: false })).rejects.toThrow(NotAuthorizedError);
@@ -155,13 +175,13 @@ describe('Folders and Documents (16.2)', () => {
 
       const water = await folder('Water');
       const bill = await document('Water bill', water.id);
-      expect(await setWorkspaceTool(deps, { ...ref(admin), tool: 'DOCUMENTS', enabled: false })).toEqual([]);
+      expect(await setWorkspaceTool(deps, { ...ref(admin), tool: 'DOCUMENTS', enabled: false })).toEqual(['CALENDAR', 'LISTS', 'PROCEDURES', 'REMINDERS']);
       for (const actor of [admin, uma, gus]) {
         await expect(listFolders(deps, ref(actor))).rejects.toThrow(ToolNotEnabledError);
         await expect(getDocument(deps, { ...ref(actor), documentId: bill.id })).rejects.toThrow(ToolNotEnabledError);
       }
       await expect(renameFolder(deps, { ...ref(uma), folderId: water.id, name: 'Acqua', expectedRevision: 1 })).rejects.toThrow(ToolNotEnabledError);
-      expect(await setWorkspaceTool(deps, { ...ref(admin), tool: 'DOCUMENTS', enabled: true })).toEqual(['DOCUMENTS']);
+      expect(await setWorkspaceTool(deps, { ...ref(admin), tool: 'DOCUMENTS', enabled: true })).toEqual(['CALENDAR', 'DOCUMENTS', 'LISTS', 'PROCEDURES', 'REMINDERS']);
       expect((await getDocument(deps, { ...ref(gus), documentId: bill.id })).title).toBe('Water bill'); // the same data, for every member
       expect(await names()).toEqual(['Water']);
       const switches = events().filter((event) => event.type.startsWith('WORKSPACE_TOOL_'));

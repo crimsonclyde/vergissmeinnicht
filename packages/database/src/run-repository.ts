@@ -1,3 +1,4 @@
+import { enabledTool } from './tool-policy.ts';
 import { randomUUID } from 'node:crypto';
 import { and, asc, count, desc, eq, gt, inArray, lt, or, type SQL } from 'drizzle-orm';
 import { InvalidCursorError, toPage, type FinishRunResult, type RunRepository, type StartRunResult, type StepStateChangeResult } from '@vergissmeinnicht/application';
@@ -193,7 +194,8 @@ export function createRunRepository({ db }: Pick<AppDatabase, 'db'>): RunReposit
     async list(workspaceId, filter) {
       return db.transaction((tx) => {
         const scope = and(
-          eq(runs.workspaceId, workspaceId),
+          enabledTool(workspaceId, 'PROCEDURES'),
+    eq(runs.workspaceId, workspaceId),
           filter.state === undefined ? undefined : eq(runs.state, filter.state),
           filter.procedureId === undefined ? undefined : eq(runs.procedureId, filter.procedureId),
         );
@@ -359,7 +361,7 @@ export function createRunRepository({ db }: Pick<AppDatabase, 'db'>): RunReposit
 
     async find(workspaceId, runId) {
       return db.transaction((tx): RunDetail | undefined => {
-        const row = tx.select().from(runs).where(and(eq(runs.workspaceId, workspaceId), eq(runs.id, runId))).get();
+        const row = tx.select().from(runs).where(and(enabledTool(workspaceId, 'PROCEDURES'), eq(runs.workspaceId, workspaceId), eq(runs.id, runId))).get();
         return row && { run: toRun(row), sections: loadRunSections(tx, row.id) };
       });
     },

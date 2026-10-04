@@ -72,3 +72,7 @@ describe('offline queue (8.5)', () => {
     expect(dependents(list, list[1] as QueuedChange)).toEqual([]);
   });
 });
+
+it('retains pending changes while Procedures is disabled', () => {
+  expect(outcomeOf(new ApiError(404, 'tool_not_enabled'))).toBe('tool-disabled');
+});

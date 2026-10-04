@@ -19,6 +19,7 @@ import {
   type ListDeps,
   type ProcedureDeps,
   type HomeDeps,
+  type TodayDeps,
   type NotificationDeps,
   type ReminderDeps,
   type RunDeps,
@@ -72,6 +73,7 @@ import {
   createUserRepository,
   createWorkspaceRepository,
   createWorkspaceToolRepository,
+  createTodayRepository,
   migrationStatus,
   sessions,
   users,
@@ -134,6 +136,7 @@ export interface AppServices {
   readonly reminders: ReminderDeps;
   /** Home, Procedure cards and personal pins (13.9–13.13). */
   readonly home: HomeDeps;
+  readonly today: TodayDeps;
   /** In-process fan-out of committed Run changes to SSE subscribers. */
   readonly runChanges: RunChangeHub;
   /** Stream timing overrides (tests). */
@@ -268,6 +271,7 @@ export function createServices(config: AppConfig, database: AppDatabase) {
       procedures: { workspaces: workspaceDeps.workspaces, procedures: createProcedureRepository(database), clock: systemClock },
       runs,
       schedules: { ...runs, schedules: scheduleRepository, notificationPreferences },
+      today: { workspaces: workspaceDeps.workspaces, progress: createTodayRepository(database), clock: systemClock },
       home: {
         workspaces: runs.workspaces,
         procedures: createProcedureRepository(database),

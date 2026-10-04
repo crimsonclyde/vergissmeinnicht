@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState, type ReactNode } from 'react';
+import { RecentCompletions, TodayProgressCard } from './TodayProgress.tsx';
 import { AddChooser, type CanAdd } from './AddChooser.tsx';
 import { api, isNetworkError, messageFor, type HomeOverview, type ListSummary, type Occurrence, type PersonRef, type RunSummary } from './api.ts';
 import { t } from './i18n/index.ts';
@@ -65,6 +66,8 @@ export function Today(props: {
   canSchedule: boolean;
   canExecute: boolean;
   canAdd: CanAdd;
+  tools: readonly string[];
+  canChooseTools: boolean;
   onOpenRun: (runId: string) => void;
 }) {
   const { workspaceId } = props;
@@ -78,7 +81,7 @@ export function Today(props: {
   const [notice, setNotice] = useState<Undoable | null>(null);
 
   const load = useCallback(() => {
-    api.home(workspaceId).then(
+    api.home(workspaceId, filter).then(
       (loaded) => {
         setHome(loaded);
         setOfflineActive(null);
@@ -97,8 +100,9 @@ export function Today(props: {
       },
     );
     // Lists are an extra on Today: without them (offline, error) the rest still shows.
-    api.lists(workspaceId).then(setLists, () => undefined);
-  }, [workspaceId, userId, reportReachable, reportUnreachable]);
+    if (props.tools.includes('LISTS')) api.lists(workspaceId).then(setLists, () => undefined);
+    else setLists([]);
+  }, [workspaceId, userId, reportReachable, reportUnreachable, props.tools, filter]);
   useEffect(load, [load]);
   // Changes by other members arrive without a reload: refresh while visible, and when coming back.
   useEffect(() => {
@@ -129,10 +133,9 @@ export function Today(props: {
     }
   };
   const can = { canStart: props.canStart, canSchedule: props.canSchedule, canExecute: props.canExecute };
-  const all = home === null ? null : todayView(home);
-  // The filter is only offered when someone is responsible for something; otherwise everything is "shared".
-  const assigned = all !== null && [...all.continueOccurrences, ...all.overdue, ...all.today].some((item) => item.responsible !== null);
-  const applied: Filter = assigned ? filter : 'ALL';
+  // Offer the same scope choices for the summary and next actions, including empty results.
+  const assigned = props.tools.includes('PROCEDURES') || props.tools.includes('REMINDERS');
+  const applied: Filter = filter;
   const view =
     home === null ? null : todayView(home, (item) => applied === 'ALL' || (applied === 'MINE' ? item.responsible?.id === props.userId : item.responsible === null));
   const continueRuns = view?.continueRuns ?? offlineActive ?? [];
@@ -163,12 +166,13 @@ export function Today(props: {
     <OccurrenceItem key={item.id} workspaceId={workspaceId} item={item} older={older} can={can} members={members} onOpenRun={props.onOpenRun} onChanged={load} onCompleted={undoComplete} />
   );
   const elsewhere: { href: string; icon: UiIconName; label: string }[] = [
-    { href: paths.calendar(workspaceId), icon: 'calendar', label: view !== null && view.upcomingCount > 0 ? t('today.upcomingLink', { count: view.upcomingCount }) : t('today.calendarLink') },
-    { href: paths.reminders(workspaceId), icon: 'reminders', label: t('shell.reminders') },
-    { href: paths.procedures(workspaceId), icon: 'procedures', label: t('today.proceduresLink') },
-    { href: paths.history(workspaceId), icon: 'history', label: t('shell.history') },
+    ...(props.tools.includes('CALENDAR') ? [{ href: paths.calendar(workspaceId), icon: 'calendar' as const, label: view !== null && view.upcomingCount > 0 ? t('today.upcomingLink', { count: view.upcomingCount }) : t('today.calendarLink') }] : []),
+    ...(props.tools.includes('REMINDERS') ? [{ href: paths.reminders(workspaceId), icon: 'reminders' as const, label: t('shell.reminders') }] : []),
+    ...(props.tools.includes('PROCEDURES') ? [{ href: paths.procedures(workspaceId), icon: 'procedures' as const, label: t('today.proceduresLink') }] : []),
+    ...(props.tools.includes('PROCEDURES') ? [{ href: paths.history(workspaceId), icon: 'history' as const, label: t('shell.history') }] : []),
   ];
 
+  if (props.tools.length === 0 && offlineActive === null) return <section className="card stack"><h2>{t('shell.today')}</h2><p>{t('tools.empty')}</p>{props.canChooseTools && <Link className="button" href={paths.settings(workspaceId)}>{t('tools.choose')}</Link>}</section>;
   return (
     <section aria-labelledby="today-heading">
       <div className="page-header page-header-tool">
@@ -191,6 +195,7 @@ export function Today(props: {
           ))}
         </div>
       )}
+      {home?.progress !== undefined && <TodayProgressCard progress={home.progress} />}
       {(continueRuns.length > 0 || (view !== null && view.continueOccurrences.length > 0)) &&
         section(
           'today-continue',
@@ -204,6 +209,7 @@ export function Today(props: {
         )}
       {overdue.length > 0 && section('today-attention', t('today.needsAttention'), overdue.map(({ item, older }) => row(item, older)), 'attention')}
       {view !== null && view.today.length > 0 && section('today-today', t('today.dueToday'), view.today.map((item) => row(item)))}
+      {home?.progress !== undefined && <RecentCompletions workspaceId={workspaceId} progress={home.progress} />}
       {calm && (
         <p className="card calm">
           <UiIcon name="check" size="1.4em" /> {t('home.nothingNeedsAttention')}

@@ -37,7 +37,7 @@ import { createRunRepository } from './run-repository.ts';
 import { createScheduleRepository } from './schedule-repository.ts';
 import { createTestDatabase } from './test-support.ts';
 import { createUserRepository } from './user-repository.ts';
-import { createWorkspaceRepository } from './workspace-repository.ts';
+import { createConfiguredWorkspaceRepository as createWorkspaceRepository } from './test-support.ts';
 
 const STEP = { description: '', icon: null, required: true, critical: false, skipReasonPolicy: 'OPTIONAL', notApplicableReasonPolicy: 'OPTIONAL' } as const;
 const procedure = (title: string): ProcedureInput => ({ title, description: '', icon: 'home', tags: [], sections: [{ title: 'All', description: '', steps: [{ ...STEP, title: 'Do it' }] }] });

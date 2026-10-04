@@ -36,7 +36,7 @@ import { createWorkspaceToolRepository } from './document-repository.ts';
 import { createInstanceSettingsRepository } from './instance-settings-repository.ts';
 import { createTestDatabase } from './test-support.ts';
 import { createUserRepository } from './user-repository.ts';
-import { createWorkspaceRepository } from './workspace-repository.ts';
+import { createConfiguredWorkspaceRepository as createWorkspaceRepository } from './test-support.ts';
 
 const text = (value: string) => new TextEncoder().encode(value);
 const sha256 = (bytes: Uint8Array) => createHash('sha256').update(bytes).digest('hex');
@@ -240,6 +240,37 @@ describe('document files (16.1)', () => {
     expect(database.sqlite.prepare('SELECT count(*) AS n FROM document_files').get()).toEqual({ n: 0 });
     expect(await deps.files.usage(home.id, now)).toEqual(before);
     expect(readdirSync(join(root, '.staging'))).toEqual([]);
+  });
+
+  it('pauses queued previews when Documents is disabled, without consuming quota or retry attempts', async () => {
+    const original = deps.processor;
+    const workspaces = createWorkspaceRepository(database);
+    let disableOnce = true;
+    let usedAtDisable = 0;
+    const processor = {
+      ...original,
+      renderPage: async (path: string, format: DocumentFileFormat, page: number) => {
+        if (page === 1 && disableOnce) {
+          disableOnce = false;
+          await setWorkspaceTool({ workspaces, tools: deps.tools, clock }, { actor: admin, workspaceId: home.id, tool: 'DOCUMENTS', enabled: false });
+          usedAtDisable = (await deps.files.usage(home.id, now)).used;
+        }
+        return original.renderPage(path, format, page);
+      },
+    };
+    deps = { ...deps, processor, previews: createPreviewQueue({ ...deps, processor }) };
+    const uploaded = upload(content('PDF 3'));
+    // Disabling during a background render may also precede the upload response.
+    await uploaded.catch((error: unknown) => { if (!(error instanceof ToolNotEnabledError)) throw error; });
+    await deps.previews.idle();
+    const row = database.sqlite.prepare('SELECT id, preview_state AS state, preview_attempts AS attempts FROM document_files').get() as { id: string; state: string; attempts: number };
+    expect(row).toMatchObject({ state: 'PENDING', attempts: 0 });
+    expect((await deps.files.usage(home.id, now)).used).toBe(usedAtDisable);
+    expect(await deps.previews.resume()).toBe(0);
+    await setWorkspaceTool({ workspaces, tools: deps.tools, clock }, { actor: admin, workspaceId: home.id, tool: 'DOCUMENTS', enabled: true });
+    expect(await deps.previews.resume()).toBe(1);
+    await deps.previews.idle();
+    expect(await deps.files.findById(row.id as Parameters<typeof deps.files.findById>[0])).toMatchObject({ previewState: 'READY', previewPages: 3 });
   });
 
   it('refuses a disabled actor and re-checks the role inside the write', async () => {

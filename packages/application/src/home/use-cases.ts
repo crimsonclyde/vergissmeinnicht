@@ -17,6 +17,7 @@ import {
   type User,
   type WorkspaceId,
 } from '@vergissmeinnicht/domain';
+import type { TodayFilter } from '../ports/today.ts';
 import type { Clock } from '../ports/clock.ts';
 import type { InstanceSettingsRepository } from '../ports/instance-settings-repository.ts';
 import type { ProcedureActivity, ProcedureActivityRepository } from '../ports/procedure-activity.ts';
@@ -124,22 +125,25 @@ export interface HomeOverview {
  * is going on (Active), what one uses (Pinned, Recent). Each Occurrence is judged by its own Schedule's
  * time zone. One read model with the calendar: the Occurrences of the Schedule repository.
  */
-export async function getHome(deps: HomeDeps, input: { readonly actor: User; readonly workspaceId: WorkspaceId }): Promise<HomeOverview> {
-  await authorizeWorkspace(deps, input.actor, input.workspaceId, 'procedure.view');
+export async function getHome(deps: HomeDeps, input: { readonly actor: User; readonly workspaceId: WorkspaceId; readonly filter?: TodayFilter }): Promise<HomeOverview> {
+  await authorizeWorkspace(deps, input.actor, input.workspaceId, 'procedure.view', null);
+  const on = await deps.workspaces.enabledTools(input.workspaceId);
+  const proceduresOn = on.includes('PROCEDURES');
   const now = deps.clock.now();
   const { recentProceduresLimit } = await deps.settings.get();
   const [cards, open, recentlyDone, active, recentIds] = await Promise.all([
-    listProcedureCards(deps, input),
+    proceduresOn ? listProcedureCards(deps, input) : Promise.resolve([]),
     deps.schedules.listOpen(input.workspaceId, OCCURRENCE_LIST_LIMIT),
     deps.schedules.listRecentlyClosed(input.workspaceId, new Date(now.getTime() - RECENTLY_DONE_MS), RECENTLY_DONE_LIMIT),
-    deps.runs.list(input.workspaceId, { state: 'ACTIVE', limit: HOME_ACTIVE_LIMIT }),
-    deps.activity.recentIds(input.actor.id, input.workspaceId, recentProceduresLimit),
+    proceduresOn ? deps.runs.list(input.workspaceId, { state: 'ACTIVE', limit: HOME_ACTIVE_LIMIT }) : Promise.resolve({ items: [] }),
+    proceduresOn ? deps.activity.recentIds(input.actor.id, input.workspaceId, recentProceduresLimit) : Promise.resolve([]),
   ]);
   const overdue: OverviewItem[] = [];
   const today: OverviewItem[] = [];
   const upcoming: OverviewItem[] = [];
   let later = 0;
-  for (const item of open) {
+  const shown = (item: ScheduledOccurrence) => input.filter === undefined || input.filter === 'ALL' || (input.filter === 'MINE' ? (item.occurrence.assignee ?? item.schedule.assignee)?.userId === input.actor.id : (item.occurrence.assignee ?? item.schedule.assignee) === null);
+  for (const item of open.filter(shown)) {
     const timeliness = timelinessAt({ dueDate: item.occurrence.dueDate, timeZone: item.schedule.timeZone }, now);
     if (timeliness === 'OVERDUE') overdue.push({ ...item, timeliness });
     else if (timeliness === 'TODAY') today.push({ ...item, timeliness });
@@ -153,8 +157,8 @@ export async function getHome(deps: HomeDeps, input: { readonly actor: User; rea
     today,
     upcoming,
     later,
-    recentlyDone,
-    active: active.items.filter((summary) => !shownRuns.has(summary.run.id)),
+    recentlyDone: recentlyDone.filter(shown),
+    active: (input.filter === 'MINE' ? [] : active.items).filter((summary) => !shownRuns.has(summary.run.id)),
     pinned: cards.filter((card) => card.pinned),
     recent: recentIds.flatMap((id) => byId.get(id) ?? []),
     recentLimit: recentProceduresLimit,
@@ -194,7 +198,7 @@ export async function occurrencesInRange(
   deps: HomeDeps,
   input: { readonly actor: User; readonly workspaceId: WorkspaceId; readonly from: string; readonly to: string },
 ): Promise<CalendarRange> {
-  await authorizeWorkspace(deps, input.actor, input.workspaceId, 'procedure.view');
+  await authorizeWorkspace(deps, input.actor, input.workspaceId, 'procedure.view', 'CALENDAR');
   const from = parseLocalDate(input.from);
   const to = parseLocalDate(input.to);
   const days = daysBetween(from, to);

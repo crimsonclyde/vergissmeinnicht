@@ -4,6 +4,8 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import type { WorkspaceId } from '@vergissmeinnicht/domain';
 import { openDatabase, type AppDatabase } from './connection.ts';
+import { workspaceTools } from './schema.ts';
+import { createWorkspaceRepository } from './workspace-repository.ts';
 import { runMigrations } from './migrate.ts';
 
 /** Fresh, fully migrated database in a temp directory. Test-only helper. */
@@ -106,4 +108,22 @@ export function insertLegacyProcedure(
   });
   if (input.deleted === true) sqlite.prepare('UPDATE procedures SET deleted_at = ?, deleted_by_user_id = ?, revision = 2 WHERE id = ?').run(now, input.userId, id);
   return { id };
+}
+
+/** Existing feature suites use a configured Workspace; fresh-default tests use the real repository. */
+export function createConfiguredWorkspaceRepository(database: Pick<AppDatabase, 'db'>) {
+  const repository = createWorkspaceRepository(database);
+  return {
+    ...repository,
+    async create(...args: Parameters<typeof repository.create>) {
+      const workspace = await repository.create(...args);
+      for (const tool of ['PROCEDURES', 'REMINDERS', 'LISTS', 'CALENDAR'] as const) database.db.insert(workspaceTools).values({ workspaceId: workspace.id, tool, enabled: true, updatedAt: args[0].at, updatedByUserId: args[0].creatorId }).run();
+      return workspace;
+    },
+  };
+}
+
+export function enableCoreTools(database: Pick<AppDatabase, 'sqlite'>, workspaceId: string, userId: string): void {
+  const insert = database.sqlite.prepare('INSERT INTO workspace_tools (workspace_id, tool, enabled, updated_at, updated_by_user_id) VALUES (?, ?, 1, ?, ?) ON CONFLICT (workspace_id, tool) DO UPDATE SET enabled = 1');
+  for (const tool of ['PROCEDURES', 'REMINDERS', 'LISTS', 'CALENDAR']) insert.run(workspaceId, tool, Date.now(), userId);
 }

@@ -1,3 +1,4 @@
+import { useCoreTools } from './core-tools.ts';
 import { useCallback, useEffect, useId, useRef, useState, type DragEvent, type FormEvent } from 'react';
 import {
   ApiError,
@@ -623,6 +624,7 @@ type LinkChoice = 'document' | 'procedure' | 'run' | 'remind';
 function RecordLinks(props: { workspaceId: string; record: MaintenanceRecord; canManage: boolean; canSchedule: boolean }) {
   const { workspaceId, record } = props;
   const documentsTool = useDocumentsTool();
+  const core = useCoreTools();
   const id = useId();
   const [links, setLinks] = useState<readonly DocumentLink[]>([]);
   const [dialog, setDialog] = useState<LinkChoice | null>(null);
@@ -701,13 +703,13 @@ function RecordLinks(props: { workspaceId: string; record: MaintenanceRecord; ca
               <UiIcon name="documents" /> {t('maintenance.links.addEvidence')}
             </button>
           )}
-          <button type="button" onClick={() => open('procedure')}>
+          {core.procedures && <button type="button" onClick={() => open('procedure')}>
             {t('contacts.links.addProcedure')}
-          </button>
-          <button type="button" onClick={() => open('run')}>
+          </button>}
+          {core.procedures && <button type="button" onClick={() => open('run')}>
             {t('maintenance.links.addRun')}
-          </button>
-          {props.canSchedule && (
+          </button>}
+          {props.canSchedule && (core.procedures || core.reminders) && (
             <button type="button" onClick={() => open('remind')}>
               {t('links.remind.button')}
             </button>

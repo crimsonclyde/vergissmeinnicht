@@ -117,18 +117,32 @@ function WorkspaceTools(props: { context: WorkspaceContext; onChanged: () => voi
   const [busy, setBusy] = useState(false);
   // Shown at once; put back if the server refuses.
   const [on, setOn] = useState<readonly string[]>(context.tools);
+  const [revision, setRevision] = useState(context.toolsRevision);
+  const [receivedRevision, setReceivedRevision] = useState(context.toolsRevision);
+  if (receivedRevision !== context.toolsRevision) {
+    setReceivedRevision(context.toolsRevision);
+    setRevision(context.toolsRevision);
+    setOn(context.tools);
+  }
   const tools = [
+    { tool: 'PROCEDURES', name: t('shell.procedures'), hint: t('tools.proceduresHint') },
+    { tool: 'REMINDERS', name: t('shell.reminders'), hint: t('tools.remindersHint') },
+    { tool: 'LISTS', name: t('shell.lists'), hint: t('more.listsHint') },
+    { tool: 'CALENDAR', name: t('shell.calendar'), hint: t('more.calendarHint') },
     { tool: 'DOCUMENTS', name: t('tools.documents'), hint: t('tools.documentsHint') },
     { tool: 'CONTACTS', name: t('tools.contacts'), hint: t('tools.contactsHint') },
     { tool: 'MAINTENANCE', name: t('tools.maintenance'), hint: t('tools.maintenanceHint') },
   ];
   async function set(tool: string, name: string, enabled: boolean) {
+    if (!enabled && (tool === 'PROCEDURES' || tool === 'REMINDERS') && !window.confirm(t('tools.stopNotifications', { tool: name }))) return;
     const before = on;
     setBusy(true);
     setMessage(null);
     setOn(enabled ? [...on, tool] : on.filter((each) => each !== tool));
     try {
-      await api.setWorkspaceTool(context.workspace.id, tool, enabled);
+      const result = await api.setWorkspaceTool(context.workspace.id, tool, enabled, revision);
+      setOn(result.tools);
+      setRevision(result.revision);
       setStatus(t(enabled ? 'tools.on' : 'tools.off', { tool: name }));
       props.onChanged();
     } catch (caught) {

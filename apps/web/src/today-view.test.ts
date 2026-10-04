@@ -69,7 +69,13 @@ describe('Reminders', () => {
 });
 
 describe('tool navigation', () => {
-  const nav = destinations(W);
+  const nav = destinations(W, ['PROCEDURES', 'REMINDERS', 'LISTS', 'CALENDAR']);
+
+  it('keeps Today and More with all tools off and never offers a disabled destination', () => {
+    expect(destinations(W, []).side.map((item) => item.label)).toEqual(['Today']);
+    expect(destinations(W, []).bar.map((item) => item.label)).toEqual(['Today', 'More']);
+    expect(destinations(W, ['LISTS']).bar.map((item) => item.label)).toEqual(['Today', 'Lists', 'More']);
+  });
 
   it('has the five tools in the desktop sidebar', () => {
     expect(nav.side.map((item) => item.label)).toEqual(['Today', 'Procedures', 'Reminders', 'Lists', 'Calendar']);
@@ -84,7 +90,7 @@ describe('tool navigation', () => {
   });
 
   it('adds an enabled optional tool to the sidebar and to More — never to the phone bar (16.2)', () => {
-    const withDocuments = destinations(W, ['DOCUMENTS']);
+    const withDocuments = destinations(W, ['PROCEDURES', 'REMINDERS', 'LISTS', 'CALENDAR', 'DOCUMENTS']);
     expect(withDocuments.side.map((item) => item.label)).toEqual(['Today', 'Procedures', 'Reminders', 'Lists', 'Calendar', 'Documents']);
     expect(withDocuments.side.at(-1)?.href).toBe(`/w/${W}/documents`);
     expect(withDocuments.bar.map((item) => item.label)).toEqual(['Today', 'Procedures', 'Lists', 'More']); // still exactly four
@@ -92,7 +98,7 @@ describe('tool navigation', () => {
     // Not switched on: it appears nowhere.
     expect(nav.side.some((item) => item.pages.includes('documents'))).toBe(false);
     expect(nav.bar.some((item) => item.pages.includes('documents'))).toBe(false);
-    expect(destinations(W, ['UNKNOWN']).side).toHaveLength(5);
+    expect(destinations(W, ['UNKNOWN']).side).toHaveLength(1);
   });
 
   it('marks exactly one destination for every tool page', () => {

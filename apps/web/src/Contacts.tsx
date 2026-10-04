@@ -1,3 +1,4 @@
+import { useCoreTools } from './core-tools.ts';
 import { useCallback, useEffect, useId, useRef, useState, type FormEvent } from 'react';
 import {
   ApiError,
@@ -425,6 +426,7 @@ function ContactList(props: { workspaceId: string; canManage: boolean; canExport
 /** What a Contact is linked to: Procedures, and — where the Documents tool is on — Documents. References only. */
 function ContactLinks(props: { workspaceId: string; contact: Contact; canManage: boolean }) {
   const { workspaceId, contact } = props;
+  const core = useCoreTools();
   const documentsTool = useDocumentsTool();
   const id = useId();
   const [procedures, setProcedures] = useState<readonly ContactProcedureLink[]>([]);
@@ -435,12 +437,12 @@ function ContactLinks(props: { workspaceId: string; contact: Contact; canManage:
   const [message, setMessage] = useState<string | null>(null);
   const [status, setStatus] = useState<string | null>(null);
   const load = useCallback(() => {
-    void api.contactProcedures(workspaceId, contact.id).then(setProcedures, () => undefined);
+    if (core.procedures) void api.contactProcedures(workspaceId, contact.id).then(setProcedures, () => undefined);
     if (documentsTool.enabled) void api.linkedDocuments(workspaceId, { type: 'contact', id: contact.id }).then(setDocuments, () => undefined);
-  }, [workspaceId, contact.id, documentsTool.enabled]);
+  }, [workspaceId, contact.id, documentsTool.enabled, core.procedures]);
   useEffect(load, [load]);
   const canLinkDocuments = documentsTool.enabled && documentsTool.canManage;
-  if (!props.canManage && procedures.length === 0 && documents.length === 0) return null;
+  if ((!core.procedures && !documentsTool.enabled) || (!props.canManage && procedures.length === 0 && documents.length === 0)) return null;
   const removed = (name: string) => () => {
     setStatus(t('links.removed', { name }));
     load();
@@ -502,7 +504,7 @@ function ContactLinks(props: { workspaceId: string; contact: Contact; canManage:
       )}
       {props.canManage && (
         <div className="row">
-          <button
+          {core.procedures && (<button
             type="button"
             onClick={() => {
               setChoice('');
@@ -511,7 +513,7 @@ function ContactLinks(props: { workspaceId: string; contact: Contact; canManage:
             }}
           >
             {t('contacts.links.addProcedure')}
-          </button>
+          </button>)}
           {canLinkDocuments && (
             <button type="button" onClick={() => (setChoice(''), setDialog('document'))}>
               {t('contacts.links.addDocument')}

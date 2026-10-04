@@ -127,17 +127,30 @@ async function deliver(
 async function sendSummary(deps: ReminderDeps, summaryId: string, claim: Extract<DeliveryClaim, { status: 'claimed' }>, now: Date, counts: Counts): Promise<void> {
   const summary = await deps.queue.summary(summaryId);
   if (summary === undefined) return;
-  const eligible = summary.members.filter(mayReceive);
-  const dropped = summary.members.filter((member) => !mayReceive(member));
+  const current = await Promise.all(summary.members.map((member) => deps.queue.current(member.reminderId)));
+  const eligible = current.filter((member): member is DueReminder => member !== undefined).filter(mayReceive);
+  const dropped = summary.members.filter((_member, index) => { const canonical = current[index]; return canonical === undefined || !mayReceive(canonical); });
   if (dropped.length > 0) await deps.queue.dropFromSummary(dropped.map((member) => member.deliveryId), now, 'not_eligible');
   const notifier = deps.notifiers.find((candidate) => candidate.channel === summary.channel);
   if (eligible.length === 0 || notifier === undefined || !(await notifier.enabledFor(summary.recipient))) {
     await deps.queue.summarySkipped(summaryId, now, eligible.length === 0 ? 'nothing_left' : 'channel_off');
     counts.skipped++;
   } else {
-    const items = [...eligible]
+    const beforeSend = await Promise.all(eligible.map((member) => deps.queue.current(member.reminderId)));
+    const newlyDropped = eligible.filter((_member, index) => { const canonical = beforeSend[index]; return canonical === undefined || !mayReceive(canonical); });
+    if (newlyDropped.length > 0) {
+      const ids = new Set(newlyDropped.map((member) => member.reminderId));
+      await deps.queue.dropFromSummary(summary.members.filter((member) => ids.has(member.reminderId)).map((member) => member.deliveryId), now, 'not_eligible');
+    }
+    const items = beforeSend.filter((member): member is DueReminder => member !== undefined && mayReceive(member))
       .sort((a, b) => a.occurrence.dueDate.localeCompare(b.occurrence.dueDate))
       .map((member) => textInput(member, now, ''));
+    if (items.length === 0) {
+      await deps.queue.summarySkipped(summaryId, now, 'nothing_left');
+      counts.skipped++;
+      for (const member of summary.members) await deps.queue.settleDelivered(member.reminderId, now);
+      return;
+    }
     const input = { items: items.slice(0, CATCH_UP_LISTED), more: Math.max(0, items.length - CATCH_UP_LISTED), url: `${deps.publicOrigin}/` };
     const message: OutgoingNotification = { subject: emailTextsEn.catchUp.subject(input), body: emailTextsEn.catchUp.body(input), key: messageKey('s', summaryId, summary.channel) };
     const sent = await deliver(
@@ -232,13 +245,15 @@ export async function dispatchDueReminders(deps: ReminderDeps): Promise<Dispatch
     for (const notifier of deps.notifiers) {
       if (await notifier.enabledFor(reminder.recipient)) channels.push(notifier);
     }
-    const text = textInput(reminder, now, reminderUrl(deps.publicOrigin, reminder.schedule.workspaceId));
     for (const notifier of channels) {
       const claim = await deps.queue.claim(reminder.reminderId, notifier.channel, now, DELIVERY_LEASE_MS);
       if (claim.status !== 'claimed') continue;
-      const message: OutgoingNotification = { subject: emailTextsEn.reminder.subject(text), body: emailTextsEn.reminder.body(text), key: messageKey('r', reminder.reminderId, notifier.channel) };
+      const current = await deps.queue.current(reminder.reminderId);
+      if (current === undefined || !mayReceive(current)) continue;
+      const canonicalText = textInput(current, now, reminderUrl(deps.publicOrigin, current.schedule.workspaceId));
+      const message: OutgoingNotification = { subject: emailTextsEn.reminder.subject(canonicalText), body: emailTextsEn.reminder.body(canonicalText), key: messageKey('r', reminder.reminderId, notifier.channel) };
       const sent = await deliver(
-        () => notifier.send(reminder.recipient, message),
+        () => notifier.send(current.recipient, message),
         claim,
         now,
         {

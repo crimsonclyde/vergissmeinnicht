@@ -246,7 +246,11 @@ export async function listMaintenanceLinks(deps: MaintenanceDeps, input: Ref & {
   const found = await deps.maintenance.links(input.workspaceId, parseMaintenanceRecordId(input.recordId), scope);
   if (found === undefined) throw new MaintenanceRecordNotFoundError();
   // A Link never reveals a record its viewer may not read.
-  return found.filter((link) => link.record.type in VIEW_OF && roleHasCapability(membership.role, VIEW_OF[link.record.type as keyof typeof VIEW_OF]));
+  return found
+    .filter((link) => link.record.type in VIEW_OF && roleHasCapability(membership.role, VIEW_OF[link.record.type as keyof typeof VIEW_OF]))
+    .map((link) => link.record.type === 'document' && link.record.state === 'trash' && !roleHasCapability(membership.role, 'document.manage')
+      ? { ...link, record: { ...link.record, title: null, goneByName: null } }
+      : link);
 }
 
 /**
@@ -259,7 +263,7 @@ export async function addMaintenanceLink(deps: MaintenanceDeps, input: Ref & { r
   const scope = await enter(deps, input, 'maintenance.manage');
   const target = parseMaintenanceLinkTarget(input.target);
   if (target.type === 'document') await authorizeTool(deps, input.actor, input.workspaceId, 'DOCUMENTS', 'document.view');
-  else await authorizeWorkspace(deps, input.actor, input.workspaceId, VIEW_OF[target.type]);
+  else await authorizeWorkspace(deps, input.actor, input.workspaceId, VIEW_OF[target.type], target.type === 'schedule' ? null : undefined);
   const linker: ActorGuard = { actorMay: (role) => roleHasCapability(role, 'maintenance.manage') && roleHasCapability(role, VIEW_OF[target.type]) };
   return ok(await deps.maintenance.addLink({ workspaceId: input.workspaceId, recordId: parseMaintenanceRecordId(input.recordId), target, at: deps.clock.now(), scope }, userActor(input.actor), linker)).link;
 }

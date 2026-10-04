@@ -13,7 +13,7 @@ import { MIGRATIONS_FOLDER, runMigrations } from './migrate.ts';
 import { createProcedureRepository } from './procedure-repository.ts';
 import { insertLegacyProcedure, insertLegacyRun, insertLegacyWorkspace } from './test-support.ts';
 import { createUserRepository } from './user-repository.ts';
-import { createWorkspaceRepository } from './workspace-repository.ts';
+import { createConfiguredWorkspaceRepository as createWorkspaceRepository } from './test-support.ts';
 
 const PROCEDURE: ProcedureInput = {
   title: 'Leave the house',

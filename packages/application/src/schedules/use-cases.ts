@@ -24,6 +24,7 @@ import {
   type WorkspaceId,
 } from '@vergissmeinnicht/domain';
 import { roleHasCapability, type WorkspaceCapability } from '@vergissmeinnicht/permissions';
+import { ToolNotEnabledError } from '../documents/errors.ts';
 import { NotAuthorizedError } from '../invitations/errors.ts';
 import type { Clock } from '../ports/clock.ts';
 import type {
@@ -151,9 +152,9 @@ export async function createSchedule(
   deps: ScheduleDeps,
   input: { readonly actor: User; readonly workspaceId: WorkspaceId; readonly kind?: ScheduleKind | undefined; readonly procedureId?: string | undefined } & ScheduleRequest,
 ): Promise<Schedule> {
-  await authorizeWorkspace(deps, input.actor, input.workspaceId, 'schedule.manage');
   const kind: ScheduleKind = input.kind ?? (input.procedureId === undefined ? 'REMINDER' : 'PROCEDURE');
   if (kind === 'PROCEDURE' && input.procedureId === undefined) throw new ProcedureNotFoundError();
+  await authorizeWorkspace(deps, input.actor, input.workspaceId, 'schedule.manage', kind === 'PROCEDURE' ? 'PROCEDURES' : 'REMINDERS');
   const content = contentFrom(kind, input, undefined, deps.clock.now());
   return schedule(
     await deps.schedules.create(
@@ -191,6 +192,7 @@ export async function updateSchedule(
 type ScheduleCommand = { readonly actor: User; readonly workspaceId: WorkspaceId; readonly scheduleId: string; readonly expectedRevision: number };
 
 export async function pauseSchedule(deps: ScheduleDeps, input: ScheduleCommand): Promise<Schedule> {
+  await getSchedule(deps, input);
   await authorizeWorkspace(deps, input.actor, input.workspaceId, 'schedule.manage');
   const scheduleId = parseScheduleId(input.scheduleId);
   return schedule(
@@ -200,6 +202,7 @@ export async function pauseSchedule(deps: ScheduleDeps, input: ScheduleCommand):
 
 /** Fixed series keep their anchor; Occurrences that fell into the pause are created and skipped when `skipElapsed` (D3). */
 export async function resumeSchedule(deps: ScheduleDeps, input: ScheduleCommand & { readonly skipElapsed: boolean }): Promise<Schedule> {
+  await getSchedule(deps, input);
   await authorizeWorkspace(deps, input.actor, input.workspaceId, 'schedule.manage');
   const scheduleId = parseScheduleId(input.scheduleId);
   return schedule(
@@ -213,6 +216,7 @@ export async function resumeSchedule(deps: ScheduleDeps, input: ScheduleCommand 
 
 /** Ends a Schedule: its OPEN Occurrences are cancelled, history stays. */
 export async function endSchedule(deps: ScheduleDeps, input: ScheduleCommand): Promise<Schedule> {
+  await getSchedule(deps, input);
   await authorizeWorkspace(deps, input.actor, input.workspaceId, 'schedule.manage');
   const scheduleId = parseScheduleId(input.scheduleId);
   return schedule(
@@ -225,6 +229,7 @@ export async function skipOlderOccurrences(
   deps: ScheduleDeps,
   input: { readonly actor: User; readonly workspaceId: WorkspaceId; readonly scheduleId: string; readonly before: string; readonly reason?: string | undefined },
 ): Promise<number> {
+  await getSchedule(deps, input);
   await authorizeWorkspace(deps, input.actor, input.workspaceId, 'schedule.manage');
   const result = await deps.schedules.skipOlder(
     { workspaceId: input.workspaceId, scheduleId: parseScheduleId(input.scheduleId), before: parseLocalDate(input.before), reason: normalizeSkipReason(input.reason), at: deps.clock.now() },
@@ -242,7 +247,8 @@ async function occurrenceCommand<T>(
   capability: WorkspaceCapability,
   run: (ref: { workspaceId: WorkspaceId; occurrenceId: ReturnType<typeof parseOccurrenceId>; at: Date }, guard: ReturnType<typeof guardFor>) => Promise<T>,
 ): Promise<T> {
-  await authorizeWorkspace(deps, input.actor, input.workspaceId, capability);
+  await getOccurrence(deps, input);
+  await authorizeWorkspace(deps, input.actor, input.workspaceId, capability, null);
   return run({ workspaceId: input.workspaceId, occurrenceId: parseOccurrenceId(input.occurrenceId), at: deps.clock.now() }, guardFor(capability));
 }
 
@@ -324,14 +330,14 @@ export async function startSchedule(deps: ScheduleDeps & RunDeps, input: { reado
 }
 
 export async function getSchedule(deps: ScheduleDeps, input: { readonly actor: User; readonly workspaceId: WorkspaceId; readonly scheduleId: string }): Promise<Schedule> {
-  await authorizeWorkspace(deps, input.actor, input.workspaceId, 'procedure.view');
+  await authorizeWorkspace(deps, input.actor, input.workspaceId, 'procedure.view', null);
   const found = await deps.schedules.findSchedule(input.workspaceId, parseScheduleId(input.scheduleId));
   if (found === undefined) throw new ScheduleNotFoundError();
   return found;
 }
 
 export async function getOccurrence(deps: ScheduleDeps, input: OccurrenceCommand): Promise<ScheduledOccurrence> {
-  await authorizeWorkspace(deps, input.actor, input.workspaceId, 'procedure.view');
+  await authorizeWorkspace(deps, input.actor, input.workspaceId, 'procedure.view', null);
   const found = await deps.schedules.findOccurrence(input.workspaceId, parseOccurrenceId(input.occurrenceId));
   if (found === undefined) throw new ScheduleNotFoundError();
   return found;
@@ -339,7 +345,9 @@ export async function getOccurrence(deps: ScheduleDeps, input: OccurrenceCommand
 
 /** Active and paused Schedules of the Workspace (anyone who can see its Procedures). */
 export async function listSchedules(deps: ScheduleDeps, input: { readonly actor: User; readonly workspaceId: WorkspaceId }): Promise<Schedule[]> {
-  await authorizeWorkspace(deps, input.actor, input.workspaceId, 'procedure.view');
+  await authorizeWorkspace(deps, input.actor, input.workspaceId, 'procedure.view', null);
+  const on = await deps.workspaces.enabledTools(input.workspaceId);
+  if (!on.includes('PROCEDURES') && !on.includes('REMINDERS')) throw new ToolNotEnabledError();
   return deps.schedules.listSchedules(input.workspaceId, SCHEDULE_LIST_LIMIT);
 }
 
@@ -354,7 +362,9 @@ export async function scheduleHistory(
 
 /** OPEN and IN_PROGRESS Occurrences of the Workspace, earliest due first. */
 export async function listOpenOccurrences(deps: ScheduleDeps, input: { readonly actor: User; readonly workspaceId: WorkspaceId }): Promise<ScheduledOccurrence[]> {
-  await authorizeWorkspace(deps, input.actor, input.workspaceId, 'procedure.view');
+  await authorizeWorkspace(deps, input.actor, input.workspaceId, 'procedure.view', null);
+  const on = await deps.workspaces.enabledTools(input.workspaceId);
+  if (!on.includes('PROCEDURES') && !on.includes('REMINDERS')) throw new ToolNotEnabledError();
   return deps.schedules.listOpen(input.workspaceId, OCCURRENCE_LIST_LIMIT);
 }
 

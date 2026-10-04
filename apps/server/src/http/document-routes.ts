@@ -89,7 +89,7 @@ const exportQuery = z.strictObject({ folder: uuid.optional(), document: z.union(
 const exportRequest = (query: z.infer<typeof exportQuery>) => ({ folder: query.folder, documents: query.document === undefined ? undefined : typeof query.document === 'string' ? [query.document] : query.document });
 const MINUTE_MS = 60_000;
 const typeBody = z.strictObject({ name });
-const toolBody = z.strictObject({ tool: z.string().max(32), enabled: z.boolean() });
+const toolBody = z.strictObject({ tool: z.string().max(32), enabled: z.boolean(), expectedRevision: z.number().int().min(0).max(Number.MAX_SAFE_INTEGER) });
 
 /** Metadata and notes of one Document; never files. */
 const BODY_LIMIT = 64 * 1024;
@@ -161,13 +161,15 @@ export async function workspaceToolRoutes(app: FastifyInstance, { services }: { 
 
   app.get('/', async (request) => {
     const { workspaceId } = parse(workspaceParams, request.params);
-    return { tools: await enabledTools(deps, ref(request, workspaceId)) };
+    await enabledTools(deps, ref(request, workspaceId));
+    return deps.tools.settings(workspaceId as WorkspaceId);
   });
 
   app.post('/', { bodyLimit: 1024 }, async (request) => {
     const { workspaceId } = parse(workspaceParams, request.params);
     const body = parse(toolBody, request.body);
-    return { tools: await setWorkspaceTool(deps, { ...ref(request, workspaceId), ...body }) };
+    await setWorkspaceTool(deps, { ...ref(request, workspaceId), ...body });
+    return deps.tools.settings(workspaceId as WorkspaceId);
   });
 }
 

@@ -34,7 +34,7 @@ import { createProcedureRepository } from './procedure-repository.ts';
 import { createRunRepository } from './run-repository.ts';
 import { createTestDatabase } from './test-support.ts';
 import { createUserRepository } from './user-repository.ts';
-import { createWorkspaceRepository } from './workspace-repository.ts';
+import { createConfiguredWorkspaceRepository as createWorkspaceRepository } from './test-support.ts';
 
 /** Stands in for sharp: "processes" to the same bytes (sizes are chosen by the test); `bad…` is refused. */
 const fakeProcessor: ImageProcessor = {

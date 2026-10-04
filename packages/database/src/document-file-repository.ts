@@ -10,6 +10,8 @@ import { storageUsageIn } from './storage-usage.ts';
 type Reader = Pick<Transaction, 'select'>;
 type Row = typeof documentFiles.$inferSelect;
 
+const documentsEnabled = (workspaceId: string | typeof documentFiles.workspaceId) => sql`exists (select 1 from ${workspaceTools} where ${workspaceTools.workspaceId} = ${workspaceId} and ${workspaceTools.tool} = 'DOCUMENTS' and ${workspaceTools.enabled} = 1)`;
+
 const previewPages = sql<number>`(select count(*) from ${documentFileDerivatives} where ${documentFileDerivatives.fileId} = ${documentFiles.id} and ${documentFileDerivatives.kind} = 'PREVIEW')`;
 
 const toRecord = (row: Row, pages: number): DocumentFileRecord => ({
@@ -37,6 +39,8 @@ const toRecord = (row: Row, pages: number): DocumentFileRecord => ({
  * that decides what housekeeping may delete (the backup applies the same rule to rows whose file is
  * already gone).
  */
+const visibleFile: SQL = sql`(not exists (select 1 from ${runDocumentFiles} where ${runDocumentFiles.fileId} = ${documentFiles.id}) or exists (select 1 from ${documentPages} where ${documentPages.fileId} = ${documentFiles.id}) or exists (select 1 from ${workspaceTools} where ${workspaceTools.workspaceId} = ${documentFiles.workspaceId} and ${workspaceTools.tool} = 'PROCEDURES' and ${workspaceTools.enabled} = 1))`;
+
 const unreferenced: SQL = sql`not exists (select 1 from ${documentPages} where ${documentPages.fileId} = ${documentFiles.id}) and not exists (select 1 from ${runDocumentFiles} where ${runDocumentFiles.fileId} = ${documentFiles.id})`;
 
 /** Instruction images uploaded within this time count towards the combined storage before a Step uses them (14.3). */
@@ -104,11 +108,16 @@ export function createDocumentFileRepository({ db }: Pick<AppDatabase, 'db'>): D
     },
 
     async find(workspaceId, fileId) {
-      return findIn(db, and(eq(documentFiles.workspaceId, workspaceId), eq(documentFiles.id, fileId)));
+      return findIn(db, and(visibleFile, eq(documentFiles.workspaceId, workspaceId), eq(documentFiles.id, fileId)));
     },
 
     async findById(fileId) {
       return findIn(db, eq(documentFiles.id, fileId));
+    },
+
+    async previewAllowed(fileId) {
+      return db.select({ id: documentFiles.id }).from(documentFiles)
+        .where(and(eq(documentFiles.id, fileId), documentsEnabled(documentFiles.workspaceId))).get() !== undefined;
     },
 
     async findDerivative(workspaceId, fileId, kind, page) {
@@ -116,7 +125,7 @@ export function createDocumentFileRepository({ db }: Pick<AppDatabase, 'db'>): D
         .select({ derivative: documentFileDerivatives })
         .from(documentFileDerivatives)
         .innerJoin(documentFiles, eq(documentFiles.id, documentFileDerivatives.fileId))
-        .where(and(eq(documentFiles.workspaceId, workspaceId), eq(documentFileDerivatives.fileId, fileId), eq(documentFileDerivatives.kind, kind), eq(documentFileDerivatives.page, page)))
+        .where(and(visibleFile, eq(documentFiles.workspaceId, workspaceId), eq(documentFileDerivatives.fileId, fileId), eq(documentFileDerivatives.kind, kind), eq(documentFileDerivatives.page, page)))
         .get();
       if (row === undefined) return undefined;
       const { sha256, bytes, width, height } = row.derivative;
@@ -131,6 +140,7 @@ export function createDocumentFileRepository({ db }: Pick<AppDatabase, 'db'>): D
       return db.transaction((tx) => {
         const file = tx.select({ workspaceId: documentFiles.workspaceId }).from(documentFiles).where(eq(documentFiles.id, fileId)).get();
         if (file === undefined) return 'gone';
+        if (tx.select({ id: documentFiles.id }).from(documentFiles).where(and(eq(documentFiles.id, fileId), documentsEnabled(file.workspaceId))).get() === undefined) return 'paused';
         const key = and(eq(documentFileDerivatives.fileId, fileId), eq(documentFileDerivatives.kind, derivative.kind), eq(documentFileDerivatives.page, derivative.page));
         if (tx.select({ page: documentFileDerivatives.page }).from(documentFileDerivatives).where(key).get() !== undefined) return 'ok';
         const known =
@@ -160,12 +170,12 @@ export function createDocumentFileRepository({ db }: Pick<AppDatabase, 'db'>): D
       return db.transaction((tx) => {
         tx.update(documentFiles)
           .set({ previewState: 'FAILED' })
-          .where(and(eq(documentFiles.previewState, 'PENDING'), sql`${documentFiles.previewAttempts} >= ${maxAttempts}`))
+          .where(and(eq(documentFiles.previewState, 'PENDING'), sql`${documentFiles.previewAttempts} >= ${maxAttempts}`, documentsEnabled(documentFiles.workspaceId)))
           .run();
         return tx
           .select({ file: documentFiles, pages: previewPages })
           .from(documentFiles)
-          .where(eq(documentFiles.previewState, 'PENDING'))
+          .where(and(eq(documentFiles.previewState, 'PENDING'), documentsEnabled(documentFiles.workspaceId)))
           .orderBy(asc(documentFiles.createdAt))
           .limit(limit)
           .all()

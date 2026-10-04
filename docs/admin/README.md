@@ -12,15 +12,4 @@
 
 Currently Documents, Contacts and Maintenance can be switched on or off per Workspace. Disabling keeps their data. Equipment and Mail are planned.
 
-**Planned:** switches for every functional tool, with all tools off in new Workspaces. Today and settings remain available so an admin can choose what the Workspace needs. This is not implemented yet; migration, cross-tool dependencies and notification behaviour are specified in [step 17.1](../development/steps.md#171-every-workspace-tool-is-optional).
-
-## First Workspace setup
-
-1. Open the bootstrap invitation, choose your name and password, and sign in.
-2. In **Profile & settings**, enable two-factor authentication (recommended for admins).
-3. In **Server admin**, create a Workspace and invite the people who will use it.
-4. On the Workspace's **Members** page, assign roles: User can execute, Editor can also write Procedures.
-5. In Workspace settings, enable Documents, Contacts or Maintenance if you need them.
-6. Create a Procedure and choose **Start**, or create a Reminder or Grocery list.
-
-These steps describe the current beta. The all-tool opt-in setup is planned in step 17.1.
+**Workspace tools:** all seven implemented functional tools default off for new Workspaces. Workspace admins choose them in Settings → General → Tools; Today and settings stay available. Upgrade migration 0036 enables previously available Procedures, Reminders, Lists and Calendar and preserves house flags. Disabling hides access for every role but keeps data, history and storage usage. Procedures and standalone Reminders own their schedules independently; disabling a source stops its outbound notifications. Calendar disable affects only its view. Reenable catches up the last 24 hours, supersedes older pending notifications and preserves delivery deduplication; it never completes an item. Concurrent settings writes require the revision seen by the admin; a conflict asks for a reload. Equipment/Mail remain unavailable until implemented. Take and verify the normal pre-upgrade backup before migrating.

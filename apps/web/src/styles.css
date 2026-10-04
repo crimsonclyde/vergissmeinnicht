@@ -262,6 +262,7 @@ html {
   display: flex;
   align-items: center;
   gap: 0.6rem;
+  font-size: clamp(1.25rem, 6vw, 2rem);
 }
 
 .brand-short {
@@ -475,7 +476,8 @@ html {
     bottom: 0;
     z-index: 15;
     display: grid;
-    grid-template-columns: repeat(4, minmax(0, 1fr));
+    grid-auto-flow: column;
+    grid-auto-columns: minmax(0, 1fr);
     padding: 0 var(--safe-right) var(--safe-bottom) var(--safe-left);
     background: var(--surface);
     border-top: 1px solid var(--border);
@@ -3582,7 +3584,8 @@ input.list-check {
 /* Maintenance (16.7). The board: the four statuses side by side where there is room … */
 .maintenance-board {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-auto-flow: column;
+    grid-auto-columns: minmax(0, 1fr);
   gap: 0.75rem;
   align-items: start;
 }
@@ -3720,3 +3723,17 @@ input.list-check {
 .maintenance-switcher {
   margin-top: 0.75rem;
 }
+
+.progress-card { border-inline-start: 3px solid var(--accent); }
+.progress-card h3, .progress-card h4, .progress-card p { margin: 0; }
+.progress-counts { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .5rem 1rem; margin: 0; }
+.progress-counts dt { color: var(--text-muted); font-size: .875rem; }
+.progress-counts dd { font-size: 1.35rem; font-weight: 700; margin: .25rem 0 0; }
+.progress-item { display: flex; flex-wrap: wrap; justify-content: space-between; gap: .5rem; padding-block: .5rem; }
+.progress-item a { min-height: 44px; display: inline-flex; align-items: center; overflow-wrap: anywhere; }
+
+.progress-card > * + * { margin-top: .5rem; }
+.progress-card .progress-item { padding-block: 0; gap: 0 .5rem; }
+.progress-item time { align-self: center; font-size: .8rem; }
+.progress-card .plain-list > li + li { margin-top: 0; }
+@media (min-width: 600px) { .progress-counts { grid-template-columns: repeat(4, minmax(0, 1fr)); } }

@@ -1,3 +1,4 @@
+import { enabledTool } from './tool-policy.ts';
 import { randomUUID } from 'node:crypto';
 import { and, eq, inArray, lt, sql } from 'drizzle-orm';
 import type { ImageRepository, RegisterImageResult, StepImageRecord } from '@vergissmeinnicht/application';
@@ -73,7 +74,7 @@ export function createImageRepository({ db }: Pick<AppDatabase, 'db'>): ImageRep
       const row = db
         .select()
         .from(stepImages)
-        .where(and(eq(stepImages.workspaceId, workspaceId), eq(stepImages.id, imageId)))
+        .where(and(enabledTool(workspaceId, 'PROCEDURES'), eq(stepImages.workspaceId, workspaceId), eq(stepImages.id, imageId)))
         .get();
       return row === undefined ? undefined : toRecord(row);
     },
@@ -110,7 +111,7 @@ export function createImageRepository({ db }: Pick<AppDatabase, 'db'>): ImageRep
     async release(workspaceId, imageIds) {
       if (imageIds.length === 0) return;
       db.delete(stepImages)
-        .where(and(eq(stepImages.workspaceId, workspaceId), inArray(stepImages.id, [...imageIds]), sql`not ${imageReferencedByStep}`, sql`not ${imageReferencedByRun}`))
+        .where(and(enabledTool(workspaceId, 'PROCEDURES'), eq(stepImages.workspaceId, workspaceId), inArray(stepImages.id, [...imageIds]), sql`not ${imageReferencedByStep}`, sql`not ${imageReferencedByRun}`))
         .run();
     },
 

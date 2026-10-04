@@ -55,7 +55,7 @@ import { createImageRepository } from './image-repository.ts';
 import { createStorageRepository } from './storage-usage.ts';
 import { createTestDatabase } from './test-support.ts';
 import { createUserRepository } from './user-repository.ts';
-import { createWorkspaceRepository } from './workspace-repository.ts';
+import { createConfiguredWorkspaceRepository as createWorkspaceRepository } from './test-support.ts';
 
 const PREVIEW = 100;
 const THUMBNAIL = 20;

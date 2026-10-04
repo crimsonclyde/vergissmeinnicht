@@ -2,7 +2,7 @@ import type { ActorGuard } from '@vergissmeinnicht/application';
 import type { Actor, WorkspaceId } from '@vergissmeinnicht/domain';
 import { and, eq } from 'drizzle-orm';
 import type { AppDatabase } from './connection.ts';
-import { memberships, users } from './schema.ts';
+import { memberships, users, workspaceTools } from './schema.ts';
 
 export type Transaction = Parameters<Parameters<AppDatabase['db']['transaction']>[0]>[0];
 export type UserActor = Actor & { readonly kind: 'user' };
@@ -19,5 +19,5 @@ export function actorAllowed(tx: Transaction, workspaceId: WorkspaceId, actor: U
     .innerJoin(users, eq(users.id, memberships.userId))
     .where(and(eq(memberships.workspaceId, workspaceId), eq(memberships.userId, actor.userId), eq(users.status, 'ACTIVE')))
     .get();
-  return row !== undefined && guard.actorMay(row.role);
+  return row !== undefined && guard.actorMay(row.role) && (guard.tool === undefined || tx.select({ enabled: workspaceTools.enabled }).from(workspaceTools).where(and(eq(workspaceTools.workspaceId, workspaceId), eq(workspaceTools.tool, guard.tool))).get()?.enabled === true);
 }

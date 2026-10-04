@@ -1,3 +1,4 @@
+import { STALE_AFTER_MS } from '@vergissmeinnicht/application';
 import { randomUUID } from 'node:crypto';
 import { and, asc, count, desc, eq, gt, inArray, isNotNull, isNull, lt, or, sql, type SQL } from 'drizzle-orm';
 import type {
@@ -52,9 +53,10 @@ import {
 import { IMMEDIATE, actorAllowed, type Transaction, type UserActor } from './actor-guard.ts';
 import { recordAuditEvent } from './audit-events.ts';
 import type { AppDatabase } from './connection.ts';
+import { recordToolEnabled } from './tool-policy.ts';
 import { fileRecords } from './document-file-repository.ts';
 import { markLinksOfPurgedDocuments } from './link-repository.ts';
-import { documentFileDerivatives, documentFiles, documentFolders, documentPages, documentTypes, documents, links, procedures, runDocuments, runs, schedules, workspaceTools } from './schema.ts';
+import { documentFileDerivatives, documentFiles, documentFolders, documentPages, documentTypes, documents, links, procedures, runDocuments, runs, schedules, scheduledReminders, occurrences, workspaceTools, workspaces } from './schema.ts';
 
 type Reader = Pick<Transaction, 'select'>;
 type FolderRow = typeof documentFolders.$inferSelect;
@@ -82,6 +84,15 @@ function toolEnabled(tx: Reader, workspaceId: string, tool: WorkspaceTool): bool
 /** Which optional tools a Workspace has switched on. */
 export function createWorkspaceToolRepository({ db }: Pick<AppDatabase, 'db'>): WorkspaceToolRepository {
   return {
+    async revision(workspaceId) {
+      return db.select({ revision: workspaces.toolsRevision }).from(workspaces).where(eq(workspaces.id, workspaceId)).get()?.revision ?? 0;
+    },
+    async settings(workspaceId) {
+      return db.transaction((tx) => ({
+        tools: tx.select({ tool: workspaceTools.tool }).from(workspaceTools).where(and(eq(workspaceTools.workspaceId, workspaceId), eq(workspaceTools.enabled, true))).all().map((row) => row.tool),
+        revision: tx.select({ revision: workspaces.toolsRevision }).from(workspaces).where(eq(workspaces.id, workspaceId)).get()?.revision ?? 0,
+      }));
+    },
     async enabled(workspaceId) {
       return db
         .select({ tool: workspaceTools.tool })
@@ -94,12 +105,22 @@ export function createWorkspaceToolRepository({ db }: Pick<AppDatabase, 'db'>): 
     async set(input, actor, guard) {
       return db.transaction((tx) => {
         if (!actorAllowed(tx, input.workspaceId, actor, guard)) return 'forbidden';
+        const revision = tx.select({ revision: workspaces.toolsRevision }).from(workspaces).where(eq(workspaces.id, input.workspaceId)).get()?.revision;
+        if (revision !== input.expectedRevision) return 'conflict';
         if (toolEnabled(tx, input.workspaceId, input.tool) === input.enabled) return 'ok'; // nothing to change, nothing to record
+        tx.update(workspaces).set({ toolsRevision: revision + 1 }).where(eq(workspaces.id, input.workspaceId)).run();
         const values = { enabled: input.enabled, updatedAt: input.at, updatedByUserId: actor.userId };
         tx.insert(workspaceTools)
           .values({ workspaceId: input.workspaceId, tool: input.tool, ...values })
           .onConflictDoUpdate({ target: [workspaceTools.workspaceId, workspaceTools.tool], set: values })
           .run();
+        // Reenable catches up only the last 24 hours; older notifications are retained as superseded.
+        // This is part of the same flag/revision/audit transaction and never changes an Occurrence.
+        if (input.enabled && (input.tool === 'PROCEDURES' || input.tool === 'REMINDERS')) {
+          const kind = input.tool === 'PROCEDURES' ? 'PROCEDURE' : 'REMINDER';
+          tx.update(scheduledReminders).set({ processedAt: input.at, supersededAt: input.at, nextAttemptAt: null })
+            .where(and(isNull(scheduledReminders.processedAt), lt(scheduledReminders.remindAt, new Date(input.at.getTime() - STALE_AFTER_MS)), sql`${scheduledReminders.occurrenceId} in (select ${occurrences.id} from ${occurrences} join ${schedules} on ${schedules.id} = ${occurrences.scheduleId} where ${schedules.workspaceId} = ${input.workspaceId} and ${schedules.kind} = ${kind})`)).run();
+        }
         recordAuditEvent(tx, {
           workspaceId: input.workspaceId,
           type: input.enabled ? 'WORKSPACE_TOOL_ENABLED' : 'WORKSPACE_TOOL_DISABLED',
@@ -305,6 +326,7 @@ function exportedLinks(tx: Reader, workspaceId: string): Map<string, ExportedLin
   const scheduleRows = new Map(tx.select({ id: schedules.id, kind: schedules.kind, title: schedules.title, procedureId: schedules.procedureId }).from(schedules).where(eq(schedules.workspaceId, workspaceId)).all().map((row) => [row.id, row]));
   const documentTitles = new Map(tx.select({ id: documents.id, title: documents.title }).from(documents).where(and(eq(documents.workspaceId, workspaceId), isNull(documents.deletedAt))).all().map((row) => [row.id, row.title]));
   for (const row of tx.select().from(links).where(and(eq(links.workspaceId, workspaceId), isNull(links.fromGoneAt), isNull(links.toGoneAt))).all()) {
+    if (!recordToolEnabled(tx, workspaceId, row.fromType, row.fromId) || !recordToolEnabled(tx, workspaceId, row.toType, row.toId)) continue;
     if (row.toType === 'procedure') {
       const title = procedureTitles.get(row.toId);
       if (title !== undefined) add(row.fromId, { type: 'procedure', id: row.toId, title });
@@ -320,6 +342,7 @@ function exportedLinks(tx: Reader, workspaceId: string): Map<string, ExportedLin
     }
   }
   for (const row of tx.select({ documentId: runDocuments.sourceDocumentId, runId: runs.id, title: runs.title }).from(runDocuments).innerJoin(runs, eq(runs.id, runDocuments.runId)).where(eq(runDocuments.workspaceId, workspaceId)).all()) {
+    if (!recordToolEnabled(tx, workspaceId, 'run', row.runId)) continue;
     add(row.documentId, { type: 'run', id: row.runId, title: row.title });
   }
   return byDocument;

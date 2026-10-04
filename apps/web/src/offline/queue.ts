@@ -53,11 +53,12 @@ export function withQueuedChanges(run: RunDetail, queued: readonly QueuedChange[
  * - `sign-in`: the session is gone — keep everything and ask the user to sign in again;
  * - `retry`: still offline or the server is unreachable — keep everything and try later.
  */
-export type SendOutcome = 'sent' | 'rejected' | 'sign-in' | 'retry';
+export type SendOutcome = 'sent' | 'rejected' | 'sign-in' | 'retry' | 'tool-disabled';
 
 export function outcomeOf(error: unknown): SendOutcome {
   if (error === undefined) return 'sent';
   if (!(error instanceof ApiError)) return 'retry';
+  if (error.code === 'tool_not_enabled') return 'tool-disabled';
   if (error.status === 401) return 'sign-in';
   // Another account's session (e.g. signed in in another tab): keep the change for its own account.
   if (error.code === 'offline_account_mismatch') return 'sign-in';

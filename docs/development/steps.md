@@ -18,9 +18,15 @@ For every completed task, add a concise completion note, tests/checks performed,
 
 ## Current state — resume here
 
-**Latest accepted update (2026-10-02):** documentation reorganisation done (17.0). All-tool Workspace switches, default off for new Workspaces (17.1), a progress-oriented Today (17.2), and reviewed product screenshots (17.3) are TODO. Existing implementation behaviour is unchanged. These requirements supersede the older fixed-navigation/action-only rules as stated in section 17.
+**Resumed and implemented 2026-10-04:** branch `development/optional-tools-review` completes 17.1–17.3 and the verified review fixes below. All seven available tools are optional; Today has scoped progress and recent completions. The original pause handoff is historical. Owner-provided mock-ups/screenshots are preserved. This work is for a PR against main; no merge, tag, release or deployment.
 
-**Independent review in progress (2026-10-03):** dedicated branch `development/optional-tools-review`, based on main after documentation PR #8 merged. Existing untracked mock-ups and screenshots are preserved. Confirmed and fixed: a Document upload could register metadata and consume quota after Documents was disabled during processing; registration now checks the switch inside the same IMMEDIATE transaction as the role and quota. The new regression failed before the fix (successful upload, 1277 bytes charged) and passes after it; the complete document-file use-case suite passes (20 tests). Orphan bytes from a refused staged upload remain subject to existing housekeeping, never become a visible file. Security impact: closes a tool-boundary race; no new capability or data flow. Broader review, UI inspection and steps 17.1–17.3 remain in progress and are not validated by this test.
+**Latest accepted update (2026-10-02):** documentation reorganisation done (17.0). All-tool Workspace switches (17.1), scoped Today progress (17.2) and actual demo screenshots (17.3) are implemented on the review branch. These requirements supersede the older fixed-navigation/action-only rules as stated in section 17.
+
+**Independent review in progress (2026-10-03):** dedicated branch `development/optional-tools-review`, based on main after documentation PR #8 merged. Existing untracked mock-ups and screenshots are preserved. Confirmed and fixed: a Document upload could register metadata and consume quota after Documents was disabled during processing; registration now checks the switch inside the same IMMEDIATE transaction as the role and quota. The new regression failed before the fix (successful upload, 1277 bytes charged) and passes after it; the complete document-file use-case suite passes (20 tests). Orphan bytes from a refused staged upload remain subject to existing housekeeping, never become a visible file. Security impact: closes a tool-boundary race; no new capability or data flow. The additional verified fixes, broader checks and steps 17.1–17.3 are recorded below; this single regression is not whole-app security certification.
+
+Second confirmed finding: Maintenance evidence links exposed a trashed Document's title and the deleting actor to a GUEST, bypassing the ordinary Document-link visibility rule. `listMaintenanceLinks` now strips both values unless the current role has `document.manage`. The regression failed before the fix with `Invoice 2026` / `Uma`, and passes after it; an admin still sees the title. No stored links or history are rewritten. Security impact: closes a cross-tool disclosure. Baseline checks after the upload fix: 138 Vitest files / 1121 tests passed; typecheck and lint passed; Playwright 3 passed, 1 intentionally skipped (the mobile project skips the long account flow; desktop flow includes responsive checks); dependency audit: one moderate advisory, no high/critical advisories.
+
+Third confirmed finding: queued PDF previews ran through tool disable and added to quota. The preview queue now checks the switch before each page and inside the derivative transaction; disabled files stay PENDING without consuming attempts, resume scans omit disabled Workspaces, and re-enable restores the existing continuation. A render already in flight may finish, but its derivative is not registered while disabled. The regression failed before the fix (READY / one attempt) and passes afterward (PENDING / zero attempts / unchanged quota, then READY on re-enable and resume). Upload metadata is re-authorized before responding. Security impact: closes a background-processing tool-boundary gap. No original, history, stored link or membership is rewritten.
 
 
 _Last updated: 2026-10-02 (0.5.0-beta.2 released from `main`: section 16 through 16.7 — links, Contacts, Maintenance; before it 0.5.0-beta.1: Phase 1 — Documents)_
@@ -3443,7 +3449,7 @@ GitHub pre-release created after the user approved the command: `https://github.
 
 **Objective (user):** bring documentation up to date with the broader product; make the README a short entry point to audience-specific guides; let Workspace admins choose every tool, all off by default; make Today more interesting with useful statistics and a sense of progress rather than a feeling of having missed something.
 
-**Scope:** documentation is updated now. Tool controls and Today changes below are accepted requirements, **not implemented**. This section supersedes the fixed core navigation of 15.1 and the “actionable only / no recently done” Today requirement for exactly the progress overview in 17.2. It extends the optional-tool rule of section 16 to all functional tools. It does not approve cost reporting, budgets, rankings, external analytics or a general analytics dashboard.
+**Scope:** tool controls, Today changes and product screenshots below were implemented on 2026-10-04. The requirements were accepted before implementation. This section supersedes the fixed core navigation of 15.1 and the “actionable only / no recently done” Today requirement for exactly the progress overview in 17.2. It extends the optional-tool rule of section 16 to all functional tools. It does not approve cost reporting, budgets, rankings, external analytics or a general analytics dashboard.
 
 ### 17.0 Documentation organisation and README
 **Status:** DONE  
@@ -3455,10 +3461,20 @@ GitHub pre-release created after the user approved the command: `https://github.
 
 **Security impact:** NONE — no executable behaviour, permissions, configuration defaults or endpoints changed. Planned checks are added to the security policy for 17.1–17.2.  
 **Security docs updated:** YES (planned requirements only).  
-**Remaining:** implement 17.1 and 17.2; capture and review screenshots in 17.3. Old external links to `docu` need updating by their owners.
+**Remaining:** old external links to `docu` need updating by their owners. Implementation and remaining validation limits are recorded below.
 
 ### 17.1 Every Workspace tool is optional
-**Status:** TODO
+**Status:** DONE (review branch, 2026-10-04)
+
+**Implemented:** Procedures (including Runs, history, Knots and instruction images), Reminders, Lists and Calendar join Documents, Contacts and Maintenance in Workspace-admin tool settings. New Workspaces have no enabled tools. Migration 0035 adds a revision; 0036 enables the four previously available core tools for existing Workspaces while preserving house flags and audit history. Settings writes require the seen revision; stale/ABA writes return 409, no-ops preserve history, and flag/revision/audit commit atomically.
+
+Central application capability/tool checks and transactional repository guards protect mutations. Source-aware Schedule queries filter before pagination; standalone Reminders work without Procedures, and Procedure schedules work without Reminders. Calendar is only a view. Today, links, exports and retained-only Run files omit disabled sources; SSE closes after disable, Knots fail uniformly and offline replay retains pending device changes with an explanation. Desktop/phone navigation and cross-tool controls follow flags; phone navigation has two to four labelled destinations. All-tools-off Today offers admin setup or a member explanation. Disable preserves records and quota.
+
+Workers recheck sources at selection, claiming and immediately before provider send. Normal deliveries pause; reenable supersedes unprocessed notifications older than 24 hours atomically with the flag, without changing Occurrences. Mixed catch-up summaries remove unavailable members without blocking enabled sources. Older grouped notifications follow existing bounded outage catch-up/drop semantics; recurrence anchors and deduplication keys are preserved. Documents previews pause without attempts/quota changes and resume the same file. Review also fixed upload-registration disable races and GUEST disclosure of trashed Document titles/deleting actors in Maintenance links.
+
+**Checks:** final validation below, with fresh/upgrade migration fixtures, stale/concurrent/no-op/audit rollback settings, exhaustive registered core route sweep, disabled streams, retained-only originals, cross-tool links, preview pause/resume and normal/mixed-summary notification regressions. Existing feature tests explicitly enable core tools in fixtures; production defaults remain off.
+
+**Security impact:** HIGH — extends server tool boundaries and source-aware background delivery. No new role, credential or outbound host type. See security §15. **Remaining:** Equipment and Mail are unavailable until implemented; translations for new text use English fallback. Physical-device/screen-reader and real production-data upgrade checks remain unperformed.
 
 **Requirements:**
 - A **Workspace ADMIN** chooses which functional tools are enabled in Workspace settings: **Procedures (including Runs and completed history), Reminders, Lists, Calendar, Documents, Contacts, Maintenance, Equipment and Mail**. Equipment and Mail controls become available when those tools are implemented; enabling a flag must never expose an unfinished tool.
@@ -3473,10 +3489,15 @@ GitHub pre-release created after the user approved the command: `https://github.
 
 **Required checks:** fresh defaults; upgrade preservation; ADMIN vs USER/EDITOR/GUEST and cross-Workspace writes; stale concurrent settings updates; every disabled-tool route, feed and cross-tool count; no leaks through Calendar, Today, Links, Knots, retained Run documents or exports; notification and sync workers while disabled and after re-enable; offline replay; data and quota unchanged after disable/re-enable; Light/Dark and keyboard/phone navigation down to 320 px.
 
-**Security impact (planned):** HIGH — broader server-enforced tool boundary, aggregate visibility and background-delivery rules. Update architecture, user/admin guides and security checks with the implementation. No runtime changes in this documentation task.
+**Security impact:** HIGH — server-enforced tool boundaries, aggregate visibility and background-delivery rules are implemented and documented.
 
 ### 17.2 Today: progress, activity and useful statistics
-**Status:** TODO
+**Status:** DONE (review branch, 2026-10-04)
+
+**Implemented:** a compact text-based progress card shows completed Occurrences today, completed Runs this week, active Runs and due today; unavailable measures are omitted. Occurrence dates use each Schedule’s time zone (including DST). Run reporting uses the explicitly labelled UTC Monday–Sunday range, because Workspaces have no reporting-time-zone setting. Measures stay separate. Only canonical COMPLETED states count; undo/reopen removes entries. All/Assigned to me/Shared applies to counts, activity and next actions; unlinked Runs are Shared. Recent completions use bounded SQL queries (ten per source, ten merged), and the compact card displays the latest three. A linked completed Run is represented by its completed Occurrence. Occurrence links open a read-only authorised history view. No costs, rankings, percentages or external analytics.
+
+**Checks:** completion/undo, linked deduplication, selected-filter/role/Workspace scope, disabled sources, UTC week rollover, Schedule local midnight and DST regressions. Actual desktop/phone captures in both themes and 320 px overflow checks; semantic token contrast tests and browser accessibility checks pass. **Security impact:** MEDIUM — new aggregate/history reads enforce active membership, capability, tool and selected scope in database queries. **Remaining:** live physical-device and screen-reader checks remain unperformed; week reporting intentionally uses UTC.
+
 
 **Requirements:**
 - Today remains the Workspace landing page and a useful place to act, with a welcoming **progress summary**, a small recent-accomplishments area and the next actions. It should convey both “what we have done” and “what is next”.
@@ -3489,16 +3510,21 @@ GitHub pre-release created after the user approved the command: `https://github.
 
 **Required checks:** count semantics and linked-Run deduplication; completion/undo/reopen; day/week boundaries and DST; empty/new Workspaces; active and overdue states; role/filter/Workspace scope and disabled-source tools; efficient bounded queries; keyboard, screen reader, Light/Dark, phone and 320 px layout. Record the final design and screenshots, and update the user guide only once implemented.
 
-**Security impact (planned):** MEDIUM — new aggregate queries and activity views must enforce the same access as their underlying records. No runtime changes in this documentation task.
+**Security impact:** MEDIUM — aggregate queries and activity views enforce the same access as their underlying records.
 
 ### 17.3 Current product screenshots
-**Status:** TODO
+**Status:** DONE (review branch, 2026-10-04)
+
+**Implemented:** six optimised WebP captures from the real local fictional demo under `assets/screenshots/workspace-tools-2026-10-04/`, with a capture guide and compact README section. `test-env/capture-screenshots.ts` prepares only missing fictional content through authenticated APIs and records viewport/theme/check metadata in the temporary capture directory. Existing owner assets remain unstaged. **Checks:** visual review of every selected image, no credentials/token URLs/private data, no alerts or horizontal overflow, desktop 1440×1000 and phone 390×844; Today/settings/More also checked at 320 px in both themes. **Security impact:** LOW — reviewed public fictional assets, no new runtime feature. **Remaining:** screenshots represent this review branch, not a deployed release.
+
 
 Capture a small, reviewed set from the actual app using `test-env` fictional demo data: Today (after 17.2), Procedure builder, phone Run execution, and optional Documents/Maintenance. Include desktop and phone, Light and Dark; use realistic helpful content, no real users, house documents, credentials, token URLs or notifications. Store only selected, optimised images under `assets/screenshots/` with a short capture guide identifying the version, seed, viewport and theme. Distinguish implemented UI from `assets/mock-ups` design references; never fabricate screenshots. Keep bulk QA captures and temporary outputs out of git. Add a compact screenshot section to the README after visual review.
 
+**Final validation (2026-10-04):** `pnpm test` — 141 files / 1136 tests passed; `pnpm typecheck`, `pnpm lint`, production build and `git diff --check` passed. Browser suite: three passed, one intentionally skipped (long mobile account flow; mobile smoke runs). Fictional demo captures and 320 px overflow checks passed. Earlier expanded-role failures were fixed and rerun; one concurrent QA run exceeded the existing 500-page preview timeout, and the final full suite passed without changing the timeout. Dependency audit: one moderate transitive esbuild development-server advisory, zero high/critical; documented in security §15, remains open. Existing ~752 kB web chunk warning remains. No physical-device/screen-reader, real production-data migration, Unraid/container resource validation or deployment performed. New strings use existing English fallback in other locales.
+
 **Required checks:** actual UI/version matches the guide, readable text at README size, no private data or secrets, correct relative image paths and useful alt text.
 
-**Security impact (planned):** LOW — public assets require privacy review; no new application feature.
+**Security impact:** LOW — public assets use fictional demo data; no new application feature.
 
 ---
 

@@ -30,3 +30,5 @@ export { createNotificationPreferencesRepository } from './notification-preferen
 export { createReminderQueue } from './reminder-queue.ts';
 export { createNotificationProviderRepository, createTelegramRepository } from './notification-repositories.ts';
 export { createProcedureActivityRepository } from './procedure-activity-repository.ts';
+
+export { createTodayRepository } from './today-repository.ts';

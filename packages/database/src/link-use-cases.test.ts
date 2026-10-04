@@ -72,7 +72,7 @@ import { createScheduleRepository } from './schedule-repository.ts';
 import { createStorageRepository } from './storage-usage.ts';
 import { createTestDatabase } from './test-support.ts';
 import { createUserRepository } from './user-repository.ts';
-import { createWorkspaceRepository } from './workspace-repository.ts';
+import { createConfiguredWorkspaceRepository as createWorkspaceRepository } from './test-support.ts';
 
 let serial = 0;
 const bytesOf = (size: number, label = 'file') => {
@@ -411,6 +411,10 @@ describe('Links between Documents, Procedures, Reminders and Runs (16.5)', () =>
       await purgeDocumentTrash(docs, { ...ref(admin), items: 'all' });
       now = new Date(now.getTime() + DOCUMENT_FILE_PENDING_MS + 60_000);
       expect((await purgeUnusedDocumentFiles(files)).files).toBeGreaterThan(0); // the replacement page, which nothing keeps, goes
+      expect(await shown()).toEqual({ ...original, source: 'gone' });
+      await setWorkspaceTool(docs, { ...ref(admin), tool: 'PROCEDURES', enabled: false });
+      await expect(openOriginal(files, { ...ref(gus), fileId: fileIds[0] ?? '' })).rejects.toThrow(DocumentFileNotFoundError);
+      await setWorkspaceTool(docs, { ...ref(admin), tool: 'PROCEDURES', enabled: true });
       expect(await shown()).toEqual({ ...original, source: 'gone' });
       await expect(openOriginal(files, { ...ref(gus), fileId: replacement.id })).rejects.toThrow();
       // What the Run keeps still counts towards storage, under its own line.

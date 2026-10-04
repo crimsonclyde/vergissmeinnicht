@@ -2,27 +2,35 @@ import { and, asc, desc, eq, isNull, max } from 'drizzle-orm';
 import type { ProcedureActivity, ProcedureActivityRepository } from '@vergissmeinnicht/application';
 import type { ProcedureId, RunId } from '@vergissmeinnicht/domain';
 import type { AppDatabase } from './connection.ts';
+import { IMMEDIATE } from './actor-guard.ts';
+import { toolEnabled } from './tool-policy.ts';
 import { activeIn } from './procedure-repository.ts';
-import { procedurePins, procedures, runs } from './schema.ts';
+import { memberships, users, procedurePins, procedures, runs } from './schema.ts';
 
 export function createProcedureActivityRepository({ db }: Pick<AppDatabase, 'db'>): ProcedureActivityRepository {
   return {
     async pin(input) {
-      const procedure = db.select({ id: procedures.id }).from(procedures).where(activeIn(input.workspaceId, input.procedureId)).get();
+      return db.transaction((tx) => {
+      if (!toolEnabled(tx, input.workspaceId, 'PROCEDURES') || tx.select({ id: memberships.userId }).from(memberships).innerJoin(users, eq(users.id, memberships.userId)).where(and(eq(memberships.workspaceId, input.workspaceId), eq(memberships.userId, input.userId), eq(users.status, 'ACTIVE'))).get() === undefined) return false;
+      const procedure = tx.select({ id: procedures.id }).from(procedures).where(activeIn(input.workspaceId, input.procedureId)).get();
       if (procedure === undefined) return false;
-      db.insert(procedurePins)
+      tx.insert(procedurePins)
         .values({ userId: input.userId, procedureId: procedure.id, workspaceId: input.workspaceId, pinnedAt: input.at })
         .onConflictDoNothing()
         .run();
       return true;
+      }, IMMEDIATE);
     },
 
     async unpin(userId, workspaceId, procedureId) {
-      if (db.select({ id: procedures.id }).from(procedures).where(activeIn(workspaceId, procedureId)).get() === undefined) return false;
-      db.delete(procedurePins)
+      return db.transaction((tx) => {
+      if (!toolEnabled(tx, workspaceId, 'PROCEDURES') || tx.select({ id: memberships.userId }).from(memberships).innerJoin(users, eq(users.id, memberships.userId)).where(and(eq(memberships.workspaceId, workspaceId), eq(memberships.userId, userId), eq(users.status, 'ACTIVE'))).get() === undefined) return false;
+      if (tx.select({ id: procedures.id }).from(procedures).where(activeIn(workspaceId, procedureId)).get() === undefined) return false;
+      tx.delete(procedurePins)
         .where(and(eq(procedurePins.userId, userId), eq(procedurePins.workspaceId, workspaceId), eq(procedurePins.procedureId, procedureId)))
         .run();
       return true;
+      }, IMMEDIATE);
     },
 
     async pinnedIds(userId, workspaceId) {

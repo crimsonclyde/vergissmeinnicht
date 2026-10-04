@@ -14,6 +14,13 @@ export interface ToolDeps {
   readonly clock: Clock;
 }
 
+export class ToolSettingsConflictError extends Error {
+  constructor() {
+    super('Workspace tools were changed meanwhile');
+    this.name = 'ToolSettingsConflictError';
+  }
+}
+
 /**
  * The gate of every route of an optional tool: the actor is a member with the capability **and** the
  * tool is switched on in this Workspace. A disabled tool looks like an unknown resource (404) — to
@@ -37,12 +44,14 @@ export async function enabledTools(deps: Pick<ToolDeps, 'workspaces' | 'tools'>,
  * A Workspace admin switches an optional tool on or off (`workspace.tools.manage`). Switching off hides
  * the tool from everyone and deletes nothing; switching on again shows the same data. Audited.
  */
-export async function setWorkspaceTool(deps: ToolDeps, input: { readonly actor: User; readonly workspaceId: WorkspaceId; readonly tool: string; readonly enabled: boolean }): Promise<WorkspaceTool[]> {
+export async function setWorkspaceTool(deps: ToolDeps, input: { readonly actor: User; readonly workspaceId: WorkspaceId; readonly tool: string; readonly enabled: boolean; readonly expectedRevision?: number }): Promise<WorkspaceTool[]> {
   await authorizeWorkspace(deps, input.actor, input.workspaceId, 'workspace.tools.manage');
   const tool = parseWorkspaceTool(input.tool);
-  const result = await deps.tools.set({ workspaceId: input.workspaceId, tool, enabled: input.enabled, at: deps.clock.now() }, userActor(input.actor), {
+  const expectedRevision = input.expectedRevision ?? await deps.tools.revision(input.workspaceId);
+  const result = await deps.tools.set({ workspaceId: input.workspaceId, tool, enabled: input.enabled, expectedRevision, at: deps.clock.now() }, userActor(input.actor), {
     actorMay: (role) => roleHasCapability(role, 'workspace.tools.manage'),
   });
   if (result === 'forbidden') throw new NotAuthorizedError();
+  if (result === 'conflict') throw new ToolSettingsConflictError();
   return deps.tools.enabled(input.workspaceId);
 }
