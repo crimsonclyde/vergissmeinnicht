@@ -18,7 +18,7 @@ For every completed task, add a concise completion note, tests/checks performed,
 
 ## Current state — resume here
 
-**Active correction (2026-10-04):** the individual Contact page lacked a device-save action in beta.4. The one-Contact `.vcf` action is implemented and checked; beta.5 release preparation is in progress, recorded below.
+**Released correction (2026-10-04): v0.5.0-beta.5** adds **Add to device contacts** on individual Contact pages; beta.4 only offered bulk export from the list. PR #17 merged as `240a1c9`; PR/main/tagged CI passed. Release: https://github.com/crimsonclyde/vergissmeinnicht/releases/tag/v0.5.0-beta.5. Container `ghcr.io/crimsonclyde/vergissmeinnicht:0.5.0-beta.5` inspected for amd64/arm64; no new migration after beta.4. Update the running installation to use the action; VMN cannot perform the phone’s native import itself. Physical-phone import remains to be verified; no live Unraid deployment was performed.
 
 **Released 2026-10-04: 16.8 Equipment and phone-compatible Contacts export**, explicitly requested by the owner, published as **v0.5.0-beta.4** after fix/review/test/commit/push. PR #16 merged as `1012613`; PR CI, main CI and tagged release workflow all passed. GitHub prerelease: https://github.com/crimsonclyde/vergissmeinnicht/releases/tag/v0.5.0-beta.4. Image `ghcr.io/crimsonclyde/vergissmeinnicht:0.5.0-beta.4` has amd64/arm64 manifests, workflow signing and CycloneDX attestation. Equipment is off until enabled by a Workspace admin; upgrade includes migration 0037 (38 migrations, 0000–0037). Nothing was deployed to the running Unraid installation; owner-provided untracked assets remain preserved.
 
@@ -2009,11 +2009,13 @@ GitHub pre-release created after the user approved the command: `https://github.
 **Validation:** implementation and local checks recorded in 16.8 (146 files / 1154 tests, 27.30 s; Playwright 3 passed / 1 intentional skip; typecheck/lint/build/schema checks). Final PR CI `37218359808`, main CI `37218652596` and release `37218676293` succeeded. Both native validation and publishing images passed smoke tests and fixable HIGH/CRITICAL vulnerability scans; manifest publishing, workflow signing and CycloneDX attestation succeeded. Completion is recorded in a documentation commit after publication. Physical-phone imports, live Unraid upgrade and the existing development-only moderate esbuild finding remain open. Security surface: MEDIUM, documented in `security.md`; release validation must remain fail-closed.
 
 ### 12.24 Release 0.5.0-beta.5
-**Status:** IN PROGRESS (2026-10-04)
+**Status:** DONE (2026-10-04)
 
 **Correction:** the owner found no way to add an individual Contact to their iPhone contacts in beta.4. Contact detail now offers **Add to device contacts**, downloading exactly one `.vcf` for native import; bulk export remains available on the list. Existing server permissions, active-record/Workspace scope, in-transaction checks, audit privacy and rate limits remain. User guidance includes the iPhone Mail/Messages attachment fallback. No phone/cloud sync or automatic address-book write.
 
-**Validation:** 146 files / 1155 tests; Playwright 3 passed / 1 intentional skip, including phone-width one-card download and axe; typecheck/lint/build/whitespace checks. See the 16.8 follow-up and security checklist. No new migration since beta.4. Container/template `0.5.0-beta.5`; no live Unraid deployment. CI, release image and notes evidence to be recorded after publishing.
+**Validation:** 146 files / 1155 tests; Playwright 3 passed / 1 intentional skip, including phone-width one-card download and axe; typecheck/lint/build/whitespace checks. See the 16.8 follow-up and security checklist. No new migration since beta.4. Container/template `0.5.0-beta.5`; no live Unraid deployment. PR CI `37222869968`, main CI `37223130002` and tagged release `37223135640` succeeded.
+
+**Published:** commit `8f4127d`, PR #17 merged as `240a1c99727005430719df1b807c4decd8d01fe1`; annotated `v0.5.0-beta.5` points to that merge. GitHub prerelease with import/upgrade directions: https://github.com/crimsonclyde/vergissmeinnicht/releases/tag/v0.5.0-beta.5. Index `sha256:73000e6951673c4fcaa03c9d5df9b98e4d5ec677550fb53bb8bffa4505b931fa` inspected directly: linux/amd64 and linux/arm64. Native validation/publishing image smoke tests and fixable HIGH/CRITICAL scans, manifest signing and CycloneDX attestation succeeded. Only the exact beta tag was published, not `latest`. Completion recorded in a documentation commit after publishing. Physical phone import still needs verification.
 
 ### 13.1 Offline device data: sign-out cleanup and account binding
 **Status:** DONE
