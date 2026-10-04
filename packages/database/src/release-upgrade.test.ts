@@ -1,0 +1,75 @@
+import { cpSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { migrate } from 'drizzle-orm/better-sqlite3/migrator';
+import { expect, it } from 'vitest';
+import { createDocument, createPreviewQueue, uploadDocumentFile } from '@vergissmeinnicht/application';
+import { normalizeEmail } from '@vergissmeinnicht/domain';
+import { createDocumentFileProcessor, createDocumentFileStore } from '@vergissmeinnicht/media';
+import { backupDatabase, defaultDocumentsPath, documentFilePath, restoreDatabase, verifyDatabase } from './backup.ts';
+import { openDatabase } from './connection.ts';
+import { createDocumentFileRepository } from './document-file-repository.ts';
+import { createDocumentRepository, createWorkspaceToolRepository } from './document-repository.ts';
+import { MIGRATIONS_FOLDER, runMigrations } from './migrate.ts';
+import { insertLegacyProcedure, insertLegacyRun, insertLegacyWorkspace } from './test-support.ts';
+import { createUserRepository } from './user-repository.ts';
+import { createWorkspaceRepository } from './workspace-repository.ts';
+
+it('upgrades a populated beta.2 database and restores its verified backup with original files and history intact', async () => {
+  const dir = mkdtempSync(join(tmpdir(), 'vmn-release-upgrade-'));
+  const path = join(dir, 'data', 'db.sqlite');
+  const before = join(dir, 'old-migrations');
+  cpSync(MIGRATIONS_FOLDER, before, { recursive: true });
+  const journalPath = join(before, 'meta', '_journal.json');
+  const journal = JSON.parse(readFileSync(journalPath, 'utf8')) as { entries: { tag: string }[] };
+  journal.entries = journal.entries.filter((entry) => entry.tag < '0035');
+  expect(journal.entries).toHaveLength(35); // Released v0.5.0-beta.2 schema, not the template helper.
+  writeFileSync(journalPath, JSON.stringify(journal));
+  let database = openDatabase(path);
+  const processor = createDocumentFileProcessor();
+  try {
+    migrate(database.db, { migrationsFolder: before });
+    const user = await createUserRepository(database).create({ email: normalizeEmail('upgrade@example.org'), displayName: 'Fictional upgrade', emailVerified: true, status: 'ACTIVE', serverAdmin: true });
+    const home = insertLegacyWorkspace(database, { name: 'Upgrade household', adminUserId: user.id });
+    database.sqlite.prepare("INSERT INTO workspace_tools VALUES (?, 'DOCUMENTS', 1, 1, ?), (?, 'CONTACTS', 0, 1, ?)").run(home.id, user.id, home.id, user.id);
+    const procedure = insertLegacyProcedure(database, { workspaceId: home.id, userId: user.id, title: 'Historical procedure', steps: [{ title: 'Checked' }] });
+    insertLegacyRun(database, { workspaceId: home.id, procedureId: procedure.id, user, state: 'COMPLETED' });
+    const clock = { now: () => new Date() };
+    const workspaces = createWorkspaceRepository(database);
+    const tools = createWorkspaceToolRepository(database);
+    const files = createDocumentFileRepository(database);
+    const store = createDocumentFileStore(defaultDocumentsPath(path));
+    const previews = createPreviewQueue({ files, store, processor, clock });
+    const original = readFileSync(join(import.meta.dirname, '../../media/src/fixtures/three-pages.pdf'));
+    const upload = await uploadDocumentFile({ workspaces, tools, files, store, processor, previews, clock, policy: async () => ({ maxFileBytes: 50_000_000, formats: ['PDF'] }) }, { actor: user, workspaceId: home.id, name: 'fictional.pdf', source: (async function* () { yield original; })() });
+    await previews.idle();
+    await createDocument({ workspaces, tools, documents: createDocumentRepository(database), clock }, { actor: user, workspaceId: home.id, folderId: null, fileIds: [upload.file.id], content: { title: 'Fictional bill' } });
+    const tables = ['users', 'memberships', 'procedures', 'procedure_sections', 'procedure_steps', 'runs', 'run_sections', 'run_steps', 'documents', 'document_pages', 'document_files', 'document_file_derivatives', 'audit_events'];
+    const snapshot = () => tables.map((table) => database.sqlite.prepare(`SELECT * FROM ${table} ORDER BY rowid`).all());
+    const expected = snapshot();
+    const backup = join(dir, 'backups', 'before-upgrade.sqlite');
+    await backupDatabase(path, backup);
+    expect(verifyDatabase(backup).migrationsPending).toBe(true);
+    database.close();
+    runMigrations(path);
+    database = openDatabase(path);
+    expect(snapshot()).toEqual(expected);
+    expect(await createWorkspaceRepository(database).enabledTools(home.id)).toEqual(['CALENDAR', 'DOCUMENTS', 'LISTS', 'PROCEDURES', 'REMINDERS']);
+    expect(verifyDatabase(path).migrationsPending).toBe(false);
+    expect(readFileSync(documentFilePath(defaultDocumentsPath(path), upload.file.sha256))).toEqual(original);
+    database.close();
+    const restored = join(dir, 'restored', 'db.sqlite');
+    expect(restoreDatabase(backup, restored).migrationsPending).toBe(true);
+    runMigrations(restored);
+    database = openDatabase(restored);
+    expect(snapshot()).toEqual(expected);
+    expect(readFileSync(documentFilePath(defaultDocumentsPath(restored), upload.file.sha256))).toEqual(original);
+    expect(verifyDatabase(restored).migrationsPending).toBe(false);
+    expect(database.sqlite.pragma('foreign_key_check')).toEqual([]);
+    expect(database.sqlite.pragma('integrity_check', { simple: true })).toBe('ok');
+  } finally {
+    await processor.close();
+    database.close();
+    rmSync(dir, { recursive: true, force: true });
+  }
+});

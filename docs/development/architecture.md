@@ -27,6 +27,7 @@ User-facing text lives in `apps/web/src/i18n/en.ts` and is looked up with `t(key
 ### Testing
 - Vitest for unit/integration tests
 - Playwright for end-to-end/browser tests
+- Independent private database fixtures cloned from real migrated empty-schema bytes; upgrade tests run the migrator directly. CI quality/browser/native-image checks run concurrently behind one fail-closed aggregate gate.
 
 ### Package manager
 - pnpm preferred
