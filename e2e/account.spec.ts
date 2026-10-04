@@ -1492,6 +1492,23 @@ test('first server admin: bootstrap link, account creation, sign-in, Workspace c
   const site = page.getByRole('link', { name: 'https://rossi.example/' });
   await expect(site).toHaveAttribute('rel', 'noopener noreferrer');
   await expect(site).toHaveAttribute('target', '_blank');
+  // A phone user can export this Contact from its detail page, without the whole address book.
+  await page.setViewportSize({ width: 390, height: 844 });
+  const saveContact = page.getByRole('link', { name: 'Add to device contacts', exact: true });
+  await expect(saveContact).toBeVisible();
+  await expect(saveContact).toHaveAttribute('href', /export\?format=vcard&contact=/);
+  const singleDownloadEvent = page.waitForEvent('download');
+  await saveContact.click();
+  const singleContactDownload = await singleDownloadEvent;
+  expect(singleContactDownload.suggestedFilename()).toMatch(/^Contact - \d{4}-\d{2}-\d{2}\.vcf$/);
+  const singleContactPath = await singleContactDownload.path();
+  if (singleContactPath === null) throw new Error('Single-contact download failed');
+  const singleContactText = readFileSync(singleContactPath, 'utf8');
+  expect(singleContactText.match(/BEGIN:VCARD/g)).toHaveLength(1);
+  expect(singleContactText).toContain('FN:Plumber Rossi');
+  expect(singleContactText).toContain('TEL;TYPE=VOICE:+39 0471 12 34 56');
+  await expectAccessible(page, 'single contact phone export');
+  await page.setViewportSize({ width: 1100, height: 900 });
   // Linked to a procedure and to a document: references, shown from both ends.
   await page.getByRole('button', { name: 'Link to a procedure…' }).click();
   const linkProcedure = page.getByRole('dialog', { name: 'Link “Plumber Rossi” to a procedure' });

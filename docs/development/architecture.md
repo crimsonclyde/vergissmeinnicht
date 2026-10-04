@@ -527,7 +527,7 @@ GET  …/contacts/trash                            contact.manage
 POST …/contacts/trash/purge { contactIds } | { all: true }   contact.purge (ADMIN)
 POST …/contacts/import/preview?format=csv|vcard  contact.manage: the file as the raw body → entries, duplicates, problems; saves nothing
 POST …/contacts/import { format, contacts }      contact.manage: saves the confirmed entries, all or nothing
-GET  …/contacts/export?format=csv|vcard          contact.export: a download
+GET  …/contacts/export?format=csv|vcard[&contact=<id>]  contact.export: all live Contacts or exactly one
 GET  …/contacts/{cid}/procedures                 contact.view + procedure.view
 POST …/contacts/{cid}/procedures { procedureId } contact.manage
 GET  …/contact-links?procedure=<id>              contact.view + procedure.view: the Contacts of a Procedure

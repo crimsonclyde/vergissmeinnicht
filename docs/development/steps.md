@@ -18,6 +18,8 @@ For every completed task, add a concise completion note, tests/checks performed,
 
 ## Current state — resume here
 
+**Active correction (2026-10-04):** the individual Contact page lacked a device-save action in beta.4. The one-Contact `.vcf` action is implemented and checked; beta.5 release preparation is in progress, recorded below.
+
 **Released 2026-10-04: 16.8 Equipment and phone-compatible Contacts export**, explicitly requested by the owner, published as **v0.5.0-beta.4** after fix/review/test/commit/push. PR #16 merged as `1012613`; PR CI, main CI and tagged release workflow all passed. GitHub prerelease: https://github.com/crimsonclyde/vergissmeinnicht/releases/tag/v0.5.0-beta.4. Image `ghcr.io/crimsonclyde/vergissmeinnicht:0.5.0-beta.4` has amd64/arm64 manifests, workflow signing and CycloneDX attestation. Equipment is off until enabled by a Workspace admin; upgrade includes migration 0037 (38 migrations, 0000–0037). Nothing was deployed to the running Unraid installation; owner-provided untracked assets remain preserved.
 
 **Next:** manual beta.4/upgrade checks on the owner’s installation and physical iPhone/Android .vcf imports. Next product phase is 16.9, still TODO and untouched; P5 plus HT9/HT10 must be settled before implementation. No OCR/AI/Mail work is authorised by the 16.8 implementation. Section 16.8 records the remaining limitations; section 12.23 records release evidence.
@@ -2006,6 +2008,13 @@ GitHub pre-release created after the user approved the command: `https://github.
 
 **Validation:** implementation and local checks recorded in 16.8 (146 files / 1154 tests, 27.30 s; Playwright 3 passed / 1 intentional skip; typecheck/lint/build/schema checks). Final PR CI `37218359808`, main CI `37218652596` and release `37218676293` succeeded. Both native validation and publishing images passed smoke tests and fixable HIGH/CRITICAL vulnerability scans; manifest publishing, workflow signing and CycloneDX attestation succeeded. Completion is recorded in a documentation commit after publication. Physical-phone imports, live Unraid upgrade and the existing development-only moderate esbuild finding remain open. Security surface: MEDIUM, documented in `security.md`; release validation must remain fail-closed.
 
+### 12.24 Release 0.5.0-beta.5
+**Status:** IN PROGRESS (2026-10-04)
+
+**Correction:** the owner found no way to add an individual Contact to their iPhone contacts in beta.4. Contact detail now offers **Add to device contacts**, downloading exactly one `.vcf` for native import; bulk export remains available on the list. Existing server permissions, active-record/Workspace scope, in-transaction checks, audit privacy and rate limits remain. User guidance includes the iPhone Mail/Messages attachment fallback. No phone/cloud sync or automatic address-book write.
+
+**Validation:** 146 files / 1155 tests; Playwright 3 passed / 1 intentional skip, including phone-width one-card download and axe; typecheck/lint/build/whitespace checks. See the 16.8 follow-up and security checklist. No new migration since beta.4. Container/template `0.5.0-beta.5`; no live Unraid deployment. CI, release image and notes evidence to be recorded after publishing.
+
 ### 13.1 Offline device data: sign-out cleanup and account binding
 **Status:** DONE
 **Completed:** 2026-09-29
@@ -3301,6 +3310,8 @@ GitHub pre-release created after the user approved the command: `https://github.
 **Remaining / limitations:** physical iPhone/Android .vcf import and a real screen reader remain manual checks; automated .vcf round-trip and responsive browser checks are not device validation. No live Unraid upgrade/deployment was performed. Existing Documents ZIP omissions for Contacts/Maintenance also cover Equipment relationships. Reverse Maintenance listing on Procedure/Run/Contact pages remains deferred. Reminder creation and Equipment linking are separate explicit requests; a failed link leaves the independently created Reminder in Reminders.
 
 **Security impact:** MEDIUM — new routes, metadata and cross-tool permission boundaries, protected by existing authenticated/CSRF/capability/Workspace/tool controls; no new credentials, file store or outbound connection. Controls and checks are recorded in `security.md`.
+
+**Follow-up — individual device export (2026-10-04):** beta.4 offered only the bulk export on the Contacts list; the owner correctly reported that a newly created Contact had no device-save action. The Contact detail now offers **Add to device contacts**, downloading one vCard using the existing export route’s optional `contact` selector. Selection, current role/tool checks and name-free audit happen in one transaction; unknown/foreign/trashed selection never falls back to bulk export. Guests remain unable to export. User directions explain native import and the iPhone Mail/Messages attachment fallback; no synchronization is claimed. Checks: 146 Vitest files / 1155 tests passed (28.71 s); Playwright 3 passed / 1 intentional skip (1.9 min), including a one-card download from the detail page at 390 px and axe. Typecheck, lint, build and whitespace checks passed. Physical-phone import still requires owner verification. Security surface: existing authenticated export selector extended, no new permission/credential/outbound connection.
 
 ### 16.9 Phase 4 — Text recognition, rule-based suggestions, later optional local AI (later)
 **Status:** TODO (later phase)

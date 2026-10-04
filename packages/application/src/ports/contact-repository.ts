@@ -97,8 +97,8 @@ export interface ContactRepository {
   purge(input: { readonly workspaceId: WorkspaceId; readonly contactIds: readonly ContactId[] | 'all'; readonly at: Date }, actor: UserActor, guard: ActorGuard): Promise<ContactWrite<{ purged: number }>>;
   /** All or nothing: every Contact of an import is created, or none. One audit event with the number. */
   importMany(input: { readonly workspaceId: WorkspaceId; readonly contents: readonly ContactContent[]; readonly format: 'csv' | 'vcard'; readonly at: Date }, actor: UserActor, guard: ActorGuard): Promise<ContactWrite<{ created: number }>>;
-  /** Every Contact that is not in Trash, by name; records who exported, in which format and how many. */
-  exportAll(input: { readonly workspaceId: WorkspaceId; readonly format: 'csv' | 'vcard'; readonly at: Date }, actor: UserActor, guard: ActorGuard): Promise<ContactWrite<{ contacts: ContactRecord[] }>>;
+  /** All active Contacts, or exactly one requested live Contact; records ids/counts only in audit. */
+  exportAll(input: { readonly workspaceId: WorkspaceId; readonly format: 'csv' | 'vcard'; readonly contactId?: ContactId; readonly at: Date }, actor: UserActor, guard: ActorGuard): Promise<ContactWrite<{ contacts: ContactRecord[] }>>;
 
   /** The Procedures linked to a Contact. `undefined` = no such Contact. */
   procedureLinks(workspaceId: WorkspaceId, contactId: ContactId): Promise<ContactProcedureLink[] | undefined>;

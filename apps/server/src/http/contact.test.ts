@@ -214,13 +214,42 @@ describe('Contacts over HTTP (16.6)', () => {
     expect(error(await t.post(`${api()}/contacts/${contact.id}/restore`, {}, user))).toEqual({ status: 404, error: 'contact_not_found' });
   });
 
+  it('exports exactly the selected live Contact, scoped and audited without names', async () => {
+    const selected = await create({ name: 'Phone-only contact', phones: [{ value: '+49 171 7654321', label: 'Mobile' }], emails: [{ value: 'phone-only@example.org', label: 'Work' }] });
+    const other = await create({ name: 'Unselected contact' });
+    const url = (id: string, workspace = home) => `${api(workspace)}/contacts/export?format=vcard&contact=${id}`;
+    const response = await t.get(url(selected.id), user);
+    expect(response.statusCode).toBe(200);
+    expect(response.headers['content-type']).toContain('text/vcard');
+    expect(response.headers['content-disposition']).toMatch(/^attachment;.*Contact - /);
+    expect(response.body.match(/BEGIN:VCARD/g)).toHaveLength(1);
+    expect(response.body).toContain('FN:Phone-only contact');
+    expect(response.body).toContain('TEL;TYPE=CELL:+49 171 7654321');
+    expect(response.body).not.toContain('Unselected contact');
+    expect(response.body).not.toContain('Rossi');
+    const events = t.database.sqlite.prepare("SELECT metadata FROM audit_events WHERE type='CONTACTS_EXPORTED'").all() as { metadata: string }[];
+    expect(JSON.parse(events.at(-1)?.metadata ?? '{}')).toMatchObject({ format: 'vcard', contacts: 1, contactId: selected.id });
+    expect(JSON.stringify(events)).not.toContain('Phone-only contact');
+    expect(error(await t.app.inject({ method: 'GET', url: url(selected.id) }))).toEqual({ status: 401, error: 'unauthenticated' });
+    expect(error(await t.get(url(selected.id), guest))).toEqual({ status: 403, error: 'forbidden' });
+    expect((await t.get(url(selected.id), outsider)).statusCode).toBe(404);
+    expect(error(await t.get(url(selected.id, office), outsider))).toEqual({ status: 404, error: 'contact_not_found' });
+    expect(error(await t.get(url('3f1c2b9a-6d4e-4f8a-9b7c-1a2b3c4d5e6f'), owner))).toEqual({ status: 404, error: 'contact_not_found' });
+    expect(error(await t.get(url('bad'), owner))).toEqual({ status: 400, error: 'invalid_request' });
+    await t.post(`${api()}/contacts/${selected.id}/delete`, {}, user);
+    expect(error(await t.get(url(selected.id), owner))).toEqual({ status: 404, error: 'contact_not_found' });
+    expect(t.database.sqlite.prepare("SELECT count(*) AS n FROM audit_events WHERE type='CONTACTS_EXPORTED'").get()).toEqual({ n: events.length });
+    // Leave no additional active Contact for later suite expectations.
+    await t.post(`${api()}/contacts/${other.id}/delete`, {}, user);
+  });
+
   it('writes no name, address or number of a Contact to the log, and hides everything again when switched off', async () => {
     const logged = t.logs;
     for (const secret of ['Rossi', 'Segreto', '7777777', 'known@example.org', 'formula@example.org', 'Bianchi']) expect({ secret, logged: logged.includes(secret) }).toEqual({ secret, logged: false });
     const total = (await t.get(`${api()}/contacts`, guest)).json().total as number;
     await t.post(`${api()}/tools`, { tool: 'CONTACTS', enabled: false }, owner);
     for (const cookie of [owner, user, guest]) {
-      for (const path of ['/contacts', '/contacts/categories', '/contacts/trash', '/contacts/export?format=csv', '/contact-links?procedure=3f1c2b9a-6d4e-4f8a-9b7c-1a2b3c4d5e6f']) expect({ path, ...error(await t.get(`${api()}${path}`, cookie)) }).toEqual({ path, status: 404, error: 'tool_not_enabled' });
+      for (const path of ['/contacts', '/contacts/categories', '/contacts/trash', '/contacts/export?format=csv', '/contacts/export?format=vcard&contact=3f1c2b9a-6d4e-4f8a-9b7c-1a2b3c4d5e6f', '/contact-links?procedure=3f1c2b9a-6d4e-4f8a-9b7c-1a2b3c4d5e6f']) expect({ path, ...error(await t.get(`${api()}${path}`, cookie)) }).toEqual({ path, status: 404, error: 'tool_not_enabled' });
       expect(error(await t.post(`${api()}/contacts`, { name: 'x' }, cookie))).toEqual({ status: 404, error: 'tool_not_enabled' });
       expect(error(await preview('csv', 'Name\nx', cookie))).toEqual({ status: 404, error: 'tool_not_enabled' });
     }

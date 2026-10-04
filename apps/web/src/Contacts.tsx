@@ -566,7 +566,7 @@ function ContactLinks(props: { workspaceId: string; contact: Contact; canManage:
 }
 
 /** One Contact: who they are, how to reach them (tap a number to call), what they are linked to. */
-function ContactPage(props: { workspaceId: string; contactId: string; canManage: boolean }) {
+function ContactPage(props: { workspaceId: string; contactId: string; canManage: boolean; canExport: boolean }) {
   const { workspaceId, contactId } = props;
   const [contact, setContact] = useState<Contact | null>(null);
   const [duplicates, setDuplicates] = useState<readonly ContactDuplicate[]>([]);
@@ -630,6 +630,10 @@ function ContactPage(props: { workspaceId: string; contactId: string; canManage:
           {status}
         </p>
       )}
+      {props.canExport && <div className="card stack">
+        <a className="button primary" href={contactExportUrl(workspaceId, 'vcard', contact.id)}>{t('contacts.export.device')}</a>
+        <p className="muted">{t('contacts.export.deviceHelp')}</p>
+      </div>}
       <DuplicateHint workspaceId={workspaceId} duplicates={duplicates} />
       <div className="card stack contact-details">
         {contact.phones.length > 0 && (
@@ -1059,7 +1063,7 @@ export function Contacts(props: { workspaceId: string; route: ContactsRoute; can
       {t('contacts.manageOnly')} <Link href={paths.contacts(workspaceId)}>{t('contacts.back')}</Link>
     </p>
   );
-  if (route.view === 'contact' && route.contactId !== null) return <ContactPage workspaceId={workspaceId} contactId={route.contactId} canManage={canManage} />;
+  if (route.view === 'contact' && route.contactId !== null) return <ContactPage workspaceId={workspaceId} contactId={route.contactId} canManage={canManage} canExport={props.canExport} />;
   if (route.view === 'import') return canManage ? <ContactImport workspaceId={workspaceId} /> : readOnly;
   if (route.view === 'trash') return canManage ? <ContactTrash workspaceId={workspaceId} canPurge={props.canPurge} /> : readOnly;
   return <ContactList workspaceId={workspaceId} canManage={canManage} canExport={props.canExport} />;
