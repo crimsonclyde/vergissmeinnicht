@@ -205,7 +205,7 @@ describe('Workspace and Membership use-cases', () => {
       await join(home, alice, 'GUEST');
       await expect(getWorkspace(deps, { actor: alice, workspaceId: home.id })).resolves.toMatchObject({
         role: 'GUEST',
-        capabilities: ['workspace.view', 'procedure.view', 'run.view', 'list.view', 'document.view', 'contact.view', 'maintenance.view'],
+        capabilities: ['workspace.view', 'procedure.view', 'run.view', 'list.view', 'document.view', 'contact.view', 'maintenance.view', 'equipment.view'],
       });
       await expect(listMembers(deps, { actor: alice, workspaceId: home.id })).rejects.toThrow(NotAuthorizedError);
     });

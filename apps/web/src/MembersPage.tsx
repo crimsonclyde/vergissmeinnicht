@@ -131,6 +131,7 @@ function WorkspaceTools(props: { context: WorkspaceContext; onChanged: () => voi
     { tool: 'CALENDAR', name: t('shell.calendar'), hint: t('more.calendarHint') },
     { tool: 'DOCUMENTS', name: t('tools.documents'), hint: t('tools.documentsHint') },
     { tool: 'CONTACTS', name: t('tools.contacts'), hint: t('tools.contactsHint') },
+    { tool: 'EQUIPMENT', name:t('shell.equipment'), hint:t('tools.equipmentHint') },
     { tool: 'MAINTENANCE', name: t('tools.maintenance'), hint: t('tools.maintenanceHint') },
   ];
   async function set(tool: string, name: string, enabled: boolean) {

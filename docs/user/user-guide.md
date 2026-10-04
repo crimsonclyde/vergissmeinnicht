@@ -149,10 +149,15 @@ Opening a Workspace shows **Today** — a compact progress summary and one clear
 - **Possibly the same as …:** when a contact has the same email address, the same phone number or the same name as another one, VMN says so — while you type, after saving, and on the contact. **Nothing is merged and nothing is refused:** both stay, and you decide. (A number written once with and once without the country code is recognised as the same when the last eight digits agree.)
 - **Linked:** a contact can be linked to a **procedure** ("whom to call" — the procedure then shows *Contacts* with the number) and, where Documents is switched on, to **documents** (a bill and the provider it came from). A link is a reference: removing it removes neither side.
 - **Import** (**⋯ → Import from a file…**): choose a **CSV** file or a **vCard** file (.vcf) — for example an export from your phone or mail program; at most 1 MB and 1000 contacts. **You see everything before anything is saved:** every contact found, those that **may already exist** (listed first and not ticked — tick one to import it anyway), those that **cannot be imported** with the reason, and what was not used from the file. Only what is ticked is saved when you choose **Import**. Photos inside a vCard file are not imported.
-- **Export** (**⋯ → Export as CSV / Export as vCard**): all contacts as one file. Users, Editors and Admins can export; guests cannot. The file is a copy outside VMN — keep it as carefully as the contacts themselves. In the CSV file, a value that a spreadsheet would treat as a formula starts with an apostrophe.
+- **Export** (**⋯ → Export as CSV / Export for iPhone / Android…**): all contacts as one file. Users, Editors and Admins can export; guests cannot. The file is a copy outside VMN — keep it as carefully as the contacts themselves. In the CSV file, a value that a spreadsheet would treat as a formula starts with an apostrophe.
 - **Delete:** **⋯ → Delete…** moves a contact to Trash; right afterwards you can **Undo**, and later **Restore** it under **⋯ → Trash**. While it is in Trash, what it was linked to shows "a deleted contact". **Deleting for good** is for Workspace admins, in Trash: it cannot be undone, and nothing of the person stays — the history keeps that a contact was deleted, not who it was. Copies in backups of the server stay until those backups are replaced.
 - **Who can do what:** everyone in the Workspace, including **guests**, can see all contacts. **Users, Editors and Admins** can add, change, link, import, export and delete them. There are no private contacts.
 - Contacts are other people's personal data. Keep only what you need, and remember that every member of the Workspace can read it.
+
+**Import VMN contacts on your phone:** expand **Export for iPhone / Android…** and choose **Download contacts (.vcf)**. This downloads every active Contact in this Workspace as one UTF-8 vCard file; guests cannot export. It is a copy, with no automatic synchronisation.
+
+- **iPhone:** open the `.vcf` as an attachment in Mail or Messages, then add the contacts. See [Apple’s contact import instructions](https://support.apple.com/en-mide/guide/iphone/iph356499f31/26/ios/26).
+- **Android (Google Contacts):** choose **Organise → Import from file**, select the `.vcf`, then select the account. See [Google’s import instructions](https://support.google.com/contacts/answer/15147365?co=GENIE.Platform%3DAndroid&hl=en). Menus in other Contacts apps can differ.
 
 ## Maintenance
 
@@ -162,7 +167,7 @@ Opening a Workspace shows **Today** — a compact progress summary and one clear
 
 - **Add a record:** type what needs doing and choose **Add as planned**. **More details…** opens the full form: category (for example *Heating*), the date it is planned for, a responsible contact (if Contacts is switched on), what it cost, and a description. Only the first field is required.
 - **The board** shows one column per status. To change a status, **drag the card** to another column — or use the **status menu on the card**, which also works with the keyboard and on a phone. On a phone the board shows one status at a time; the buttons above it switch between them and show how many records each has.
-- **The list** shows every record, newest first. You can search and filter by status, category, responsible contact and year. Completed records are filed under the day they were completed.
+- **The list** shows every record, newest first. You can search and filter by status, category, responsible contact, Equipment (where enabled) and year. Completed records are filed under the day they were completed.
 - **A record is completed only when someone says so.** Linking an execution, or finishing that execution, does not complete it — and completing a record changes nothing else. When you set *Completed*, the record gets today's date as its completion date; setting it back removes that date.
 - **Cancelled is not completed:** a cancelled record never shows a completion date.
 - **If someone else changed the record meanwhile**, your change is not applied; you are told, and you see the current state.
@@ -170,6 +175,20 @@ Opening a Workspace shows **Today** — a compact progress summary and one clear
 - **Linked:** on a record you can **Add or link evidence…** (a document: the invoice, a photo, the report), **Link to a procedure…**, **Link an execution…**, and **Remind me…**. Links are references: nothing is copied, and removing a link removes neither side. **Remind me…** creates an ordinary reminder (or schedules a procedure) with its own date and notifications — the record's own date reminds nobody.
 - **Delete:** **⋯ → Delete…** moves a record to Trash; right afterwards you can **Undo**, and later **Restore** it under **⋯ → Trash**. Workspace admins can delete for good from Trash; that cannot be undone.
 - **Who can do what:** everyone in the Workspace, including **guests**, sees all records and their costs. **Users, Editors and Admins** add, change, link and delete them.
+
+## Equipment
+
+*Only where a Workspace admin enabled Equipment. It requires a connection.*
+
+Choose **Add equipment** and enter a name — for example *Boiler*. Later, **Edit equipment** can add a category, location, manufacturer, model, serial number, purchase date, warranty expiry and notes. Categories, locations and manufacturers offer values already used in this Workspace. Search and filters find live records; **Show more** continues the list.
+
+The detail page links existing manuals, receipts, warranties and photos in Documents, service Contacts, MaintenanceRecords and Procedures. Nothing is copied and a Link grants no access. Maintenance history shows its dates and statuses, newest first; completing maintenance remains a separate manual action. A deleted Contact is unnamed. Switched-off tools contribute no links or controls. On a MaintenanceRecord, **Link equipment…** adds the same reference; the Maintenance list also has an Equipment filter.
+
+**Remind me 1 month before the warranty ends…** proposes a normal Reminder with the warranty expiry date and a one-calendar-month notification offset. Review the title, date, repetition and notifications before **Create reminder**. **Remind me…** also handles ordinary servicing reminders or scheduled Procedures. Generated reminder titles use only the Equipment name, never its serial number. Reminders appear in the ordinary Reminders and Calendar views when those tools are enabled.
+
+Changing a warranty date changes no Reminder. If a Reminder is linked, VMN offers **Review reminder…**; only saving that separate dialog updates the Reminder. Disabling Equipment keeps its data and leaves ordinary Reminders running according to their own tool settings.
+
+**Move to Trash** preserves the record and links; **Undo** restores it immediately, and **Equipment Trash** offers Restore later. Workspace admins can permanently delete from Trash with confirmation. Linked Documents, Contacts, MaintenanceRecords and Reminders survive; backups keep older copies until they rotate. Guests read all Equipment metadata, including serial numbers. Users, Editors and Admins manage records; only Admins delete permanently. Concurrent edits are refused instead of overwriting someone else’s work.
 
 ## Calendar
 
@@ -246,7 +265,7 @@ Editors and Admins can **Share as Knot link…** from a Procedure (under **⋯**
 
 **Settings → Workspace settings**:
 
-- **General** — the Workspace's name (Admins can change it), **Tools** (Admins: switch **Procedures**, **Reminders**, **Lists**, **Calendar**, **Documents**, **Contacts** and **Maintenance** on or off for the whole Workspace — switching one off hides it for everyone and keeps everything in it; there is no personal hiding), **Storage** (Admins: how much the Workspace stores — instruction photos, documents, previews, Trash — and of how much; you can set a lower limit of your own, never a higher one than the server admin allows; lowering it deletes nothing, it only refuses new files until less is stored), your role, and **Leave Workspace**.
+- **General** — the Workspace's name (Admins can change it), **Tools** (Admins: switch **Procedures**, **Reminders**, **Lists**, **Calendar**, **Documents**, **Contacts**, **Maintenance** and **Equipment** on or off for the whole Workspace — switching one off hides it for everyone and keeps everything in it; there is no personal hiding), **Storage** (Admins: how much the Workspace stores — instruction photos, documents, previews, Trash — and of how much; you can set a lower limit of your own, never a higher one than the server admin allows; lowering it deletes nothing, it only refuses new files until less is stored), your role, and **Leave Workspace**.
 - **Members** — who is in the Workspace and their role; Admins add members, change roles and remove members.
 - **Sharing links** (Editors and Admins) — every Knot link, with **Revoke**.
 
@@ -263,4 +282,4 @@ Editors and Admins can **Share as Knot link…** from a Procedure (under **⋯**
 
 ## Planned changes
 
-All implemented functional tools are selectable now. Equipment and Mail remain planned and have no controls. New text may use English where a translation is not yet available.
+All implemented functional tools are selectable now. Mail remains planned and has no control. New text may use English where a translation is not yet available.

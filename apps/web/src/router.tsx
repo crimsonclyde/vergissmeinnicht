@@ -94,6 +94,7 @@ export type Route =
   /** Contacts (16.6): the list, one Contact, the import of a file, or Trash. */
   | { readonly page: 'contacts'; readonly workspaceId: string; readonly view: 'list' | 'contact' | 'import' | 'trash'; readonly contactId: string | null }
   /** Maintenance (16.7): the board and list, one record, or Trash. */
+  | { readonly page: 'equipment'; readonly workspaceId:string; readonly view:'overview'|'record'|'trash'; readonly recordId:string|null }
   | { readonly page: 'maintenance'; readonly workspaceId: string; readonly view: 'overview' | 'record' | 'trash'; readonly recordId: string | null }
   /** Calendar and agenda of Occurrences (14.4). */
   | { readonly page: 'calendar'; readonly workspaceId: string }
@@ -152,6 +153,8 @@ export function parseRoute(pathname: string): Route {
     return { page: 'contacts', workspaceId: match[1] ?? '', view: match[2] === '/import' ? 'import' : match[2] === '/trash' ? 'trash' : 'list', contactId: null };
   }
   if ((match = new RegExp(`^/w/${ID}/contacts/${ID}$`).exec(path))) return { page: 'contacts', workspaceId: match[1] ?? '', view: 'contact', contactId: match[2] ?? null };
+  if ((match = new RegExp(`^/w/${ID}/equipment(/trash)?$`).exec(path))) return {page:'equipment',workspaceId:match[1] ?? '',view:match[2] === undefined ? 'overview':'trash',recordId:null};
+  if ((match = new RegExp(`^/w/${ID}/equipment/${ID}$`).exec(path))) return {page:'equipment',workspaceId:match[1] ?? '',view:'record',recordId:match[2] ?? null};
   if ((match = new RegExp(`^/w/${ID}/maintenance(/trash)?$`).exec(path))) return { page: 'maintenance', workspaceId: match[1] ?? '', view: match[2] === undefined ? 'overview' : 'trash', recordId: null };
   if ((match = new RegExp(`^/w/${ID}/maintenance/${ID}$`).exec(path))) return { page: 'maintenance', workspaceId: match[1] ?? '', view: 'record', recordId: match[2] ?? null };
   if ((match = new RegExp(`^/w/${ID}/schedules/${ID}/history$`).exec(path))) return { page: 'schedule-history', workspaceId: match[1] ?? '', scheduleId: match[2] ?? '' };
@@ -192,6 +195,9 @@ export const paths = {
   contact: (workspaceId: string, contactId: string) => `/w/${workspaceId}/contacts/${contactId}`,
   contactImport: (workspaceId: string) => `/w/${workspaceId}/contacts/import`,
   contactTrash: (workspaceId: string) => `/w/${workspaceId}/contacts/trash`,
+  equipment:(workspaceId:string)=>`/w/${workspaceId}/equipment`,
+  equipmentRecord:(workspaceId:string,id:string)=>`/w/${workspaceId}/equipment/${id}`,
+  equipmentTrash:(workspaceId:string)=>`/w/${workspaceId}/equipment/trash`,
   maintenance: (workspaceId: string) => `/w/${workspaceId}/maintenance`,
   maintenanceRecord: (workspaceId: string, recordId: string) => `/w/${workspaceId}/maintenance/${recordId}`,
   maintenanceTrash: (workspaceId: string) => `/w/${workspaceId}/maintenance/trash`,

@@ -49,6 +49,10 @@ function bodyFor(route: string, ids: Record<string, string>): object {
   if (url.endsWith('/contacts/import')) return { format: 'csv', contacts: [{ name: 'Stolen contact' }] };
   if (url.endsWith('/contacts/:contactId/update')) return { name: 'Taken over', expectedRevision: 1 };
   if (url.endsWith('/contacts/:contactId/procedures')) return { procedureId: ids.procedureId ?? '' };
+  if(url.endsWith('/equipment')) return {name:'Stolen equipment'};
+  if(url.endsWith('/equipment/:recordId/update')) return {name:'Taken over',expectedRevision:1};
+  if(url.endsWith('/equipment/:recordId/links')) return {target:{type:'procedure',id:ids.procedureId ?? ''}};
+  if(url.endsWith('/equipment/trash/purge')) return {recordIds:[ids.equipmentId ?? ids.recordId ?? '']};
   if (url.endsWith('/maintenance')) return { title: 'Stolen record' };
   if (url.endsWith('/maintenance/trash/purge')) return { recordIds: [ids.recordId ?? ''] };
   if (url.endsWith('/maintenance/:recordId/update')) return { title: 'Taken over', expectedRevision: 1 };
@@ -85,6 +89,7 @@ function bodyFor(route: string, ids: Record<string, string>): object {
 }
 
 function fill(url: string, values: Record<string, string>): string {
+  if(url.includes('/equipment/') && values.recordId === values.maintenanceId)values={...values,recordId:values.equipmentId ?? values.recordId ?? ''};
   return url.replace(/:([A-Za-z]+)/g, (_match, name: string) => values[name] ?? `missing-${name}`);
 }
 
@@ -145,6 +150,8 @@ describe('security properties of every route (13.2)', () => {
     const contact = (await t.post(`/api/workspaces/${home}/contacts`, { name: 'Idraulico Rossi', phones: [{ value: '0471 123456' }] }, owner)).json().contact;
     await t.post(`/api/workspaces/${home}/contacts/${contact.id}/procedures`, { procedureId: procedure.id }, owner);
     // Maintenance (16.7), in both.
+    await t.post(`/api/workspaces/${home}/tools`, { tool: 'EQUIPMENT', enabled: true }, owner);
+    await t.post(`/api/workspaces/${office}/tools`, { tool: 'EQUIPMENT', enabled: true }, outsider);
     await t.post(`/api/workspaces/${home}/tools`, { tool: 'MAINTENANCE', enabled: true }, owner);
     await t.post(`/api/workspaces/${office}/tools`, { tool: 'MAINTENANCE', enabled: true }, outsider);
     const record = (await t.post(`/api/workspaces/${home}/maintenance`, { title: 'Boiler service', contactId: contact.id, cost: { amount: '120.00', currency: 'EUR' } }, owner)).json().record;
@@ -165,7 +172,10 @@ describe('security properties of every route (13.2)', () => {
     // Links (16.5): the Document linked to the Procedure, and a version of it retained for the Run.
     const link = (await t.post(`/api/workspaces/${home}/documents/${document.id}/links`, { target: { type: 'procedure', id: procedure.id } }, owner)).json().link;
     const runDocument = (await t.post(`/api/workspaces/${home}/runs/${run.id}/documents`, { documentId: document.id }, owner)).json().document;
+    const equipment=(await t.post(`/api/workspaces/${home}/equipment`,{name:'Boiler'},owner)).json().record;
     homeIds = {
+      equipmentId:equipment.id,
+      maintenanceId:record.id,
       workspaceId: home,
       procedureId: procedure.id,
       runId: run.id,

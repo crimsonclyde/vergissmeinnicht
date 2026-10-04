@@ -63,6 +63,7 @@ export interface TrashedMaintenanceRecord {
 }
 
 export interface MaintenanceLink {
+  readonly sourceType?: string;
   readonly id: LinkId;
   readonly record: LinkedRecord;
   readonly createdAt: Date;

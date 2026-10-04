@@ -68,6 +68,8 @@ export function ScheduleDialog(props: {
   title?: string;
   /** A new Reminder: the title to start from (the person reviews and can change it). */
   suggestedTitle?: string;
+  suggestedDate?:string;
+  suggestedReminders?:readonly ReminderOffset[];
   /** Editing an existing Schedule: its current values. */
   initial?: ScheduleInput;
   /** Members to choose a responsible person from; null when the viewer cannot list them. */
@@ -85,7 +87,7 @@ export function ScheduleDialog(props: {
   const today = todayIn(timeZone);
   const [title, setTitle] = useState(initial?.title ?? props.suggestedTitle ?? '');
   const [description, setDescription] = useState(initial?.description ?? '');
-  const [date, setDate] = useState(initial?.date ?? addDays(today, 1));
+  const [date, setDate] = useState(initial?.date ?? props.suggestedDate ?? addDays(today, 1));
   const [time, setTime] = useState(initial?.time ?? '');
   const [repeat, setRepeat] = useState<Recurrence['kind']>(initial?.recurrence.kind ?? 'ONCE');
   const initialRule = initial?.recurrence.kind === 'ONCE' || initial === undefined ? null : initial.recurrence;
@@ -93,7 +95,7 @@ export function ScheduleDialog(props: {
   const [interval, setEvery] = useState(String(initialRule?.interval ?? 1));
   const [weekdays, setWeekdays] = useState<readonly number[]>(initialRule?.kind === 'FIXED' ? (initialRule.weekdays ?? []) : []);
   const [lastDay, setLastDay] = useState(initialRule?.kind === 'FIXED' && initialRule.lastDayOfMonth);
-  const [reminders, setReminders] = useState<readonly ReminderOffset[]>(initial?.reminders ?? [{ unit: 'DAYS', amount: 0 }]);
+  const [reminders, setReminders] = useState<readonly ReminderOffset[]>(initial?.reminders ?? props.suggestedReminders ?? [{ unit: 'DAYS', amount: 0 }]);
   const [assignee, setAssignee] = useState(initial?.assigneeUserId ?? '');
   const [customAmount, setCustomAmount] = useState('3');
   const [customUnit, setCustomUnit] = useState<ReminderUnit>('HOURS');

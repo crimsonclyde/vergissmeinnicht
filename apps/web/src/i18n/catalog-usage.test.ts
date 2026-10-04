@@ -57,6 +57,9 @@ const DYNAMIC_PREFIXES = [
   'documents.find.view.',
   // Contacts (16.6): why an import file was refused, by the server's stable code.
   'contacts.importRefused.',
+  // Equipment form fields and link choices are selected from closed domain/UI lists.
+  'equipment.field.',
+  'equipment.link.',
 ];
 
 describe('message catalog', () => {

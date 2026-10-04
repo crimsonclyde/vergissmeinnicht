@@ -92,8 +92,8 @@ describe('Maintenance (16.7)', () => {
   });
 
   it('parses what the List can be asked for', () => {
-    expect(parseMaintenanceQuery({})).toEqual({ terms: [], status: null, category: null, contactId: null, year: null });
-    expect(parseMaintenanceQuery({ q: ' BOILER  Müll ', status: 'COMPLETED', category: ' Heizung ', contact: ID, year: 2026 })).toEqual({ terms: ['boiler', 'mull'], status: 'COMPLETED', category: 'heizung', contactId: ID, year: 2026 });
+    expect(parseMaintenanceQuery({})).toEqual({ terms: [], status: null, category: null, contactId: null, equipmentId:null, year: null });
+    expect(parseMaintenanceQuery({ q: ' BOILER  Müll ', status: 'COMPLETED', category: ' Heizung ', contact: ID, year: 2026 })).toEqual({ terms: ['boiler', 'mull'], status: 'COMPLETED', category: 'heizung', contactId: ID, equipmentId:null, year: 2026 });
     expect(codeOf(() => parseMaintenanceQuery({ status: 'DONE' }))).toBe('invalid_maintenance_status');
     expect(codeOf(() => parseMaintenanceQuery({ contact: 'x' }))).toBe('invalid_contact_id');
     expect(codeOf(() => parseMaintenanceQuery({ year: 1800 }))).toBe('invalid_document_year');

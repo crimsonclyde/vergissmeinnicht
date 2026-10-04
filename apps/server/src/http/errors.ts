@@ -80,6 +80,9 @@ import {
   ContactImportRefusedError,
   ContactLimitReachedError,
   ContactNotFoundError,
+  EquipmentConflictError,
+  EquipmentLimitReachedError,
+  EquipmentRecordNotFoundError,
   MaintenanceConflictError,
   MaintenanceLimitReachedError,
   MaintenanceRecordNotFoundError,
@@ -208,6 +211,9 @@ export function errorHandler(error: FastifyError | Error, request: FastifyReques
   if (error instanceof AlreadyLinkedError) return reply.code(409).send({ error: 'already_linked' });
   if (error instanceof RunFinishedError) return reply.code(409).send({ error: 'run_document_kept' });
   if (error instanceof RunStillActiveError) return reply.code(409).send({ error: 'run_still_active' });
+  if (error instanceof EquipmentRecordNotFoundError) return reply.code(404).send({ error: 'equipment_not_found' });
+  if (error instanceof EquipmentConflictError) return reply.code(409).send({ error: 'equipment_conflict' });
+  if (error instanceof EquipmentLimitReachedError) return reply.code(409).send({ error: 'equipment_limit_reached' });
   // Contacts (16.6).
   if (error instanceof ContactNotFoundError) return reply.code(404).send({ error: 'contact_not_found' });
   if (error instanceof ContactConflictError) return reply.code(409).send({ error: 'contact_conflict' });

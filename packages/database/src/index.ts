@@ -32,3 +32,4 @@ export { createNotificationProviderRepository, createTelegramRepository } from '
 export { createProcedureActivityRepository } from './procedure-activity-repository.ts';
 
 export { createTodayRepository } from './today-repository.ts';
+export { createEquipmentRepository } from './equipment-repository.ts';

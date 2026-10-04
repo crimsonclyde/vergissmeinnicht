@@ -219,16 +219,16 @@ export function contactsToVcard(contacts: readonly ExportableContact[]): string 
     if (contact.organisation !== '') lines.push(`ORG:${escapeVcardText(contact.organisation)}`);
     if (contact.category !== '') lines.push(`ROLE:${escapeVcardText(contact.category)}`);
     let item = 0;
-    const point = (property: string, value: string, label: string) => {
-      if (label === '') {
-        lines.push(`${property}:${escapeVcardText(value)}`);
-        return;
-      }
+    const point = (property: 'TEL' | 'EMAIL', value: string, label: string) => {
+      const standard = ({mobile:'CELL',cell:'CELL',home:'HOME',work:'WORK',fax:'FAX',pager:'PAGER'} as Readonly<Record<string,string>>)[label.toLowerCase()];
+      const types = property === 'EMAIL' ? ['INTERNET',...(standard === 'HOME' || standard === 'WORK' ? [standard]:[])] : standard === undefined ? ['VOICE'] : [standard];
+      const header = `${property};TYPE=${types.join(',')}`;
+      if (label === '') {lines.push(`${header}:${escapeVcardText(value)}`);return;}
       item++;
-      lines.push(`item${item}.${property}:${escapeVcardText(value)}`, `item${item}.X-ABLabel:${escapeVcardText(label)}`);
+      lines.push(`item${item}.${header}:${escapeVcardText(value)}`,`item${item}.X-ABLabel:${escapeVcardText(label)}`);
     };
-    for (const email of contact.emails) point('EMAIL;TYPE=INTERNET', email.value, email.label);
-    for (const phone of contact.phones) point('TEL', phone.value, phone.label);
+    for (const email of contact.emails) point('EMAIL',email.value,email.label);
+    for (const phone of contact.phones) point('TEL',phone.value,phone.label);
     if (contact.address !== '') lines.push(`ADR:;;${escapeVcardText(contact.address)};;;;`);
     if (contact.website !== '') lines.push(`URL:${escapeVcardText(contact.website)}`);
     if (contact.notes !== '') lines.push(`NOTE:${escapeVcardText(contact.notes)}`);

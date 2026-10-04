@@ -13,8 +13,8 @@ describe('Workspace role policy', () => {
     // Changing this table is a security-relevant change: update docs/development/security.md §3 as well.
     const matrix = Object.fromEntries(WORKSPACE_ROLES.map((role) => [role, capabilitiesOf(role)]));
     expect(matrix).toEqual({
-      GUEST: ['workspace.view', 'procedure.view', 'run.view', 'list.view', 'document.view', 'contact.view', 'maintenance.view'],
-      USER: ['workspace.view', 'workspace.members.view', 'procedure.view', 'run.view', 'run.start', 'run.execute', 'run.abort', 'schedule.manage', 'list.view', 'list.edit', 'document.view', 'document.manage', 'contact.view', 'contact.manage', 'contact.export', 'maintenance.view', 'maintenance.manage'],
+      GUEST: ['workspace.view', 'procedure.view', 'run.view', 'list.view', 'document.view', 'contact.view', 'maintenance.view', 'equipment.view'],
+      USER: ['workspace.view', 'workspace.members.view', 'procedure.view', 'run.view', 'run.start', 'run.execute', 'run.abort', 'schedule.manage', 'list.view', 'list.edit', 'document.view', 'document.manage', 'contact.view', 'contact.manage', 'contact.export', 'maintenance.view', 'maintenance.manage', 'equipment.view', 'equipment.manage'],
       EDITOR: [
         'workspace.view',
         'workspace.members.view',
@@ -36,6 +36,8 @@ describe('Workspace role policy', () => {
         'contact.export',
         'maintenance.view',
         'maintenance.manage',
+        'equipment.view',
+        'equipment.manage',
       ],
       ADMIN: [...WORKSPACE_CAPABILITIES],
     });

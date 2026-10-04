@@ -52,6 +52,7 @@ const listQuery = z.strictObject({
   status: z.string().max(32).optional(),
   category: line.optional(),
   contact: uuid.optional(),
+  equipment: uuid.optional(),
   year: z.string().regex(/^\d{4}$/).optional(),
   cursor: z.string().max(8192).regex(/^[A-Za-z0-9_-]+$/).optional(),
 });

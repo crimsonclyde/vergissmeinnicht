@@ -18,7 +18,10 @@ For every completed task, add a concise completion note, tests/checks performed,
 
 ## Current state — resume here
 
-**Released 2026-10-04:** PR #15 merged as `799bb70`; **v0.5.0-beta.3** publishes 17.1–17.4: all seven implemented Workspace tools optional, scoped Today progress, reviewed actual-app screenshots, tool/file/notification fixes, patched runtime PCRE2 and faster CI/fixtures. Main CI and the tagged release workflow passed. GitHub prerelease: https://github.com/crimsonclyde/vergissmeinnicht/releases/tag/v0.5.0-beta.3. Owner-provided mock-ups/screenshots are preserved. The original pause handoff is historical. Nothing was deployed to the running Unraid installation. Next product step remains **16.8 Equipment**; no product decision blocks it.
+**Completed implementation (2026-10-04): 16.8 Equipment and phone-compatible Contacts export**, explicitly requested by the owner. Regression and browser checks pass; release preparation follows the authorised commit/push/release workflow. 16.9 is untouched. The latest published release remains 0.5.0-beta.3 until beta.4 publishing completes.
+
+
+**Released 2026-10-04:** PR #15 merged as `799bb70`; **v0.5.0-beta.3** publishes 17.1–17.4: all seven implemented Workspace tools optional, scoped Today progress, reviewed actual-app screenshots, tool/file/notification fixes, patched runtime PCRE2 and faster CI/fixtures. Main CI and the tagged release workflow passed. GitHub prerelease: https://github.com/crimsonclyde/vergissmeinnicht/releases/tag/v0.5.0-beta.3. Owner-provided mock-ups/screenshots are preserved. The original pause handoff is historical. Nothing was deployed to the running Unraid installation. 16.8 has since been implemented; Phase 4 (16.9) still requires P5 and technical evaluations before implementation.
 
 **Latest accepted update (2026-10-02):** documentation reorganisation done (17.0). All-tool Workspace switches (17.1), scoped Today progress (17.2) and actual demo screenshots (17.3) are implemented on the review branch. These requirements supersede the older fixed-navigation/action-only rules as stated in section 17.
 
@@ -1989,6 +1992,16 @@ GitHub pre-release created after the user approved the command: `https://github.
 
 **Observed speed:** complete PR CI 5m18 → 3m00 (~43% reduction); CI unit/integration step 1m52 → 1m11 (~37% reduction), including two added regressions. Same-machine unchanged local suite 32.7 → 29.1 seconds (~11% in one paired sample). Tests, security/authentication settings, accessibility checks and release scan gates are retained. Times vary with runner/load; no guaranteed speedup is claimed.
 
+
+### 12.23 Release 0.5.0-beta.4
+**Status:** IN PROGRESS (2026-10-04)
+
+**Scope:** 16.8 Equipment and iPhone/Android-compatible Contacts .vcf exports. Continue the owner's requested fix/review/test, commit, push and release workflow. Tag `v0.5.0-beta.4`; image `ghcr.io/crimsonclyde/vergissmeinnicht:0.5.0-beta.4`. Unraid template and guide point to the new exact beta. No deployment to the running Unraid installation.
+
+**Upgrade:** migration 0037 adds Equipment metadata and typed links and expands the Workspace tool constraint while preserving existing tool flags/revision. Equipment is off on upgrade and in new Workspaces until a Workspace admin enables it. Back up database and file storage before updating, apply the normal migration command, then optionally enable Equipment. No OCR/AI/Mail implementation (16.9–16.11).
+
+**Validation:** implementation and checks recorded in 16.8. GitHub CI, tagged image publishing, signing/SBOM and release notes remain to be recorded after completion. Physical-phone imports, live Unraid upgrade and the existing development-only moderate esbuild finding remain open. Security surface: MEDIUM, documented in `security.md`; release validation must remain fail-closed.
+
 ### 13.1 Offline device data: sign-out cleanup and account binding
 **Status:** DONE
 **Completed:** 2026-09-29
@@ -2635,7 +2648,7 @@ GitHub pre-release created after the user approved the command: `https://github.
 
 **Objective (user, 2026-10-01):** VMN should support managing a house while keeping its focused, ADHD-friendly, tool-based navigation. The tools gain **Documents** first and, in later phases, **Contacts**, **Maintenance**, **Equipment** and **Mail**. Today stays focused on upcoming actions and reminders. Light and Dark, phone and desktop are delivered alike. House management is **optional**: a general-purpose Workspace stays fully useful without any house-specific information.
 
-**Status of this section:** 16.0–16.7 are implemented; 16.8–16.11 remain planned. Each task has its own status and completion note. The product decisions were confirmed by the user on 2026-10-01 and are integrated below (table in 16.12). What is still open is listed in 16.12: technical choices to be settled by evaluation while implementing, and a few product points that the decisions did not cover. Values marked *(engineering default)* are implementation starting points, not product decisions.
+**Status of this section:** 16.0–16.8 are implemented; 16.9–16.11 remain planned. Each task has its own status and completion note. The product decisions were confirmed by the user on 2026-10-01 and are integrated below (table in 16.12). What is still open is listed in 16.12: technical choices to be settled by evaluation while implementing, and a few product points that the decisions did not cover. Values marked *(engineering default)* are implementation starting points, not product decisions.
 
 **Phases:** 1 — Documents (16.1–16.4) · 2 — links to Procedures, Runs and Reminders; Contacts (16.5, 16.6) · 3 — Maintenance and Equipment (16.7, 16.8) · 4 — text recognition, rule-based suggestions, later optional local AI suggestions (16.9) · 5 — optional IMAP/SMTP Mail and its integrations (16.10, 16.11). Each phase is releasable by itself; no earlier phase depends on a later one, and Documents waits for no decision about OCR, AI, Maintenance or Mail.
 
@@ -3255,7 +3268,7 @@ GitHub pre-release created after the user approved the command: `https://github.
 **Security impact:** MEDIUM — a new permission boundary (three capabilities, one tool switch) that guests can read including costs, a state machine whose changes must be attributable and never automatic, and one more kind of record in the shared link table. See `security.md` "Security check: Maintenance (Step 16.7)".
 
 ### 16.8 Phase 3 — Equipment
-**Status:** TODO
+**Status:** DONE (2026-10-04)
 **Depends on:** 16.4, 16.5, 16.6; 16.7 may follow or precede (each links to the other when both exist); 14.1; product point P3 before release.
 
 **Requirements:**
@@ -3266,16 +3279,24 @@ GitHub pre-release created after the user approved the command: `https://github.
 - Serial numbers never appear in notification texts. Trash, Restore, permanent deletion as 16.4; audit.
 
 **Tasks:**
-1. TODO — Domain, migration, capabilities, use cases, audit events.
-2. TODO — Routes and read model.
-3. TODO — Web: Equipment in the sidebar and under More, list, detail with documents, contacts, maintenance history and reminders.
-4. TODO — Docs, demo data, `security.md` check.
+1. DONE — Domain, migration 0037, capabilities, use cases, audit events.
+2. DONE — Routes and read model, including both-direction Maintenance links and Equipment filtering.
+3. DONE — Web: Equipment in the sidebar and under More, list, detail with documents, contacts, dated maintenance history and explicitly reviewed reminders.
+4. DONE — User/admin/architecture documentation, fictional demo data and `security.md` check.
 
 **Acceptance criteria:** a boiler is created with only its name, later gets model, serial number and a warranty expiry; its manual and receipt are linked Documents (not re-uploaded); "Remind me 1 month before the warranty ends" creates a normal Reminder visible in Reminders and the Calendar after the user confirmed it; its detail page lists two MaintenanceRecords chronologically; deleting the service Contact leaves "deleted contact" on the boiler; all isolation and permission negatives hold.
 
 **Checks:** validation; link lifecycle; reminder creation only via Schedules; permission and isolation negatives; e2e; axe.
 
-**Security impact (expected):** MEDIUM.
+**Implemented:** Equipment is the eighth selectable Workspace tool, off by default, with metadata CRUD, name paging, literal search, category/location/manufacturer filters and suggestions, Trash/Restore/admin permanent deletion and atomic audit. Existing manuals/receipts, Contacts, Procedures, MaintenanceRecords and Schedules are referenced, never copied. Maintenance supports Equipment links and filtering; either detail page displays both link directions and maintenance dates/statuses. Warranty and servicing proposals use ordinary Schedule dialogs; a changed warranty offers review and never updates an existing Schedule silently. All roles may read serial numbers; only USER and above manage. Serial numbers/notes stay out of search, audit and generated reminder text. Categories use free text with Workspace suggestions, as for Maintenance, rather than a separate managed category table (engineering choice).
+
+**Contacts follow-up:** existing vCard 3.0 export now supplies standard closed-map telephone/email TYPE labels as well as custom labels, retaining escaping, UTF-8 folding and CRLF. The Contacts overview offers “Export for iPhone / Android…” with .vcf download and import instructions. No sync, cloud credentials or external processing was added.
+
+**Checks:** 145 Vitest files / 1153 tests passed (27.32 s); Playwright 3 passed / 1 intentionally skipped (1.9 min), including Equipment lifecycle, linked actual Documents/Maintenance, warranty proposal/update cancellation, phone-width navigation, Light/Dark layout and axe checks. Typecheck, lint, web build, schema generation (53 tables; no drift) and whitespace checks passed. Security negatives cover every disabled Equipment route for all roles, guest writes, foreign Workspace ids/links/filters, stale revisions, audit rollback, transactional role/tool rechecks, raw DB integrity, deleted Contact privacy and linked-content preservation. The final review additionally refuses Equipment/Maintenance unlink requests while the other endpoint’s tool is disabled.
+
+**Remaining / limitations:** physical iPhone/Android .vcf import and a real screen reader remain manual checks; automated .vcf round-trip and responsive browser checks are not device validation. No live Unraid upgrade/deployment was performed. Existing Documents ZIP omissions for Contacts/Maintenance also cover Equipment relationships. Reverse Maintenance listing on Procedure/Run/Contact pages remains deferred. Reminder creation and Equipment linking are separate explicit requests; a failed link leaves the independently created Reminder in Reminders.
+
+**Security impact:** MEDIUM — new routes, metadata and cross-tool permission boundaries, protected by existing authenticated/CSRF/capability/Workspace/tool controls; no new credentials, file store or outbound connection. Controls and checks are recorded in `security.md`.
 
 ### 16.9 Phase 4 — Text recognition, rule-based suggestions, later optional local AI (later)
 **Status:** TODO (later phase)
@@ -3412,7 +3433,7 @@ GitHub pre-release created after the user approved the command: `https://github.
 | H22 | **Read / unread, moves and deletions are synchronised with the real mail server**, clearly communicated; ordinary Delete moves messages to the configured server Trash, and stays unavailable until an administrator configures one; **the application never automatically permanently deletes or expunges**; explicit permanent remote deletion is not approved initially (P7); saving locally leaves the remote message unchanged; sync errors and conflicts are visible; sending stays an explicit action through SMTP |
 | P1 | **Default combined storage quota: 5 GB per Workspace**; the instance admin configures the ceiling, Workspace admins may set a lower limit; a **usage limit, not preallocated or reserved disk space**; combined accounting unchanged (documents, instruction images, previews, retained versions, derivatives, Trash) |
 | P4 | **A Workspace admin may remove a Document version retained by a finished Run, with an audit entry and a permanent removal note** (decided 2026-10-02): explicit confirmation and a non-empty reason; the note shows who, when and why and holds nothing of the document; the original Document, other Runs' versions, Run results and earlier history stay unchanged; while a Run is ACTIVE the existing removal rule applies (16.5) |
-| P3 | **A GUEST may view everything of Maintenance and Equipment, read-only** — Maintenance incl. costs (decided 2026-10-02, implemented in 16.7); **Equipment incl. costs and serial numbers** (decided 2026-10-02 with the request for release 0.5.0-beta.2; to be implemented in 16.8). Manage = USER and above; permanent deletion = ADMIN |
+| P3 | **A GUEST may view everything of Maintenance and Equipment, read-only** — Maintenance incl. costs (decided 2026-10-02, implemented in 16.7); **Equipment incl. costs and serial numbers** (decided 2026-10-02 with the request for release 0.5.0-beta.2; implemented in 16.8). Manage = USER and above; permanent deletion = ADMIN |
 | P2 | **GUEST members may bulk-export Documents** (originals, metadata, HTML index), consistent with their view/download access; authorisation and resource limits apply; an export never exposes Mail records or other linked content the exporter cannot access |
 | — | New (Mail): a **technical evaluation of existing maintained open-source components** precedes building Mail (16.10 task 1, HT13); nothing is selected without it and an embedded webmail application is not assumed |
 
@@ -3452,7 +3473,7 @@ GitHub pre-release created after the user approved the command: `https://github.
 **Prerequisites by phase:**
 - **Phase 1 (Documents): complete** — 16.0, 16.1, 16.2 (2026-10-01), 16.3 and 16.4 (2026-10-02); HT1–HT7 settled; released in 0.5.0-beta.1. HEIC previews are deferred (HT1).
 - **Phase 2:** 16.5 done (2026-10-02, HT8 settled; P4 decided and implemented the same day); 16.6 done (2026-10-02) — Phase 2 complete; next 16.7 (Phase 3).
-- **Phase 3:** 16.7 done (2026-10-02); **P3 resolved for Maintenance and Equipment (2026-10-02)**; next 16.8 — no open product point blocks it.
+- **Phase 3: complete.** 16.7 done (2026-10-02), 16.8 done (2026-10-04); P3 implemented for both.
 - **Phase 4:** HT9, HT10, P5; HT14 and a separate plan before any AI work.
 - **Phase 5:** the outbound-connection policy in `security.md` (§14, written in 16.0), the component evaluation (HT13), HT11, HT12, P6.
 

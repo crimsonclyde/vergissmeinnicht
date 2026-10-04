@@ -106,6 +106,12 @@ describe('Contact files (16.6)', () => {
       expect(inputs(parseContactsCsv('Name,Phone\n,112'))).toMatchObject([{ name: '', phones: [{ value: '112' }] }]);
     });
 
+    it('writes phone and email TYPE labels understood without Apple custom-label support',()=>{
+      const content=normalizeContactContent({name:'Müller; Heating',phones:[{value:'+49 171 1234567',label:'Mobile'},{value:'+49 30 123456',label:'Work'}],emails:[{value:'service@example.org',label:'Work'}],notes:'Line one\nLine two'});
+      const vcf=contactsToVcard([content]);
+      expect(vcf).toContain('TEL;TYPE=CELL:+49 171 1234567');expect(vcf).toContain('TEL;TYPE=WORK:+49 30 123456');expect(vcf).toContain('EMAIL;TYPE=INTERNET,WORK:service@example.org');
+      expect(inputs(parseContactsVcard(vcf.replace(/^item\d+\.X-ABLabel:.*\r\n/gm,'')))).toMatchObject([{phones:[{label:'Mobile'},{label:'Work'}],emails:[{label:'Work'}]}]);
+    });
     it('writes values that a spreadsheet cannot run as formulas', () => {
       for (const value of ['=1+1', '+39 0471', '-2', '@SUM(A1)', '\tx', '\rx', "'x"]) expect(neutraliseCsvValue(value)).toBe(`'${value}`);
       for (const value of ['Mario', '39 0471', 'a=b', '']) expect(neutraliseCsvValue(value)).toBe(value);

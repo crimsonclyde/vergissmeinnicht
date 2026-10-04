@@ -11,7 +11,7 @@ export type LinkedState = 'ok' | 'deleted' | 'trash' | 'paused' | 'ended' | 'gon
 /** The other end of a Link, as far as it may be shown: a title and a state — never content. */
 export interface LinkedRecord {
   /** A Run and a MaintenanceRecord can be the other end of a Link as well (16.7); a Document links to neither by itself. */
-  readonly type: LinkTargetType | 'run' | 'maintenance';
+  readonly type: LinkTargetType | 'run' | 'maintenance' | 'equipment';
   readonly id: string;
   /** `null` when the record is gone. */
   readonly title: string | null;
@@ -19,6 +19,8 @@ export interface LinkedRecord {
   /** A Schedule: a Reminder or a scheduled Procedure. */
   readonly scheduleKind?: 'REMINDER' | 'PROCEDURE' | undefined;
   /** A Run: whether it is still going — shown as a fact, never used to change anything. */
+  readonly maintenanceDate?: string | null;
+  readonly maintenanceStatus?: 'PLANNED'|'IN_PROGRESS'|'COMPLETED'|'CANCELLED';
   readonly runState?: 'ACTIVE' | 'COMPLETED' | 'ABORTED' | undefined;
   /** A Schedule: the next open due date, if any. */
   readonly nextDue?: string | null | undefined;
@@ -28,6 +30,7 @@ export interface LinkedRecord {
 }
 
 export interface LinkView {
+  readonly sourceType?: string;
   readonly id: LinkId;
   readonly record: LinkedRecord;
   readonly createdAt: Date;

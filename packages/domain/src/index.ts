@@ -25,3 +25,4 @@ export * from './storage.ts';
 export * from './link.ts';
 export * from './contact.ts';
 export * from './maintenance.ts';
+export * from './equipment.ts';

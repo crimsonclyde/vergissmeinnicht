@@ -10,6 +10,7 @@ import { offlineStore } from './offline/store.ts';
 import { api, isNetworkError, messageFor, type CurrentUser, type WorkspaceSummary } from './api.ts';
 import { DocumentsToolContext } from './documents-tool.ts';
 import { Contacts } from './Contacts.tsx';
+import { Equipment } from './Equipment.tsx';
 import { Maintenance } from './Maintenance.tsx';
 import { ContactsToolContext } from './contacts-tool.ts';
 import { Calendar } from './Calendar.tsx';
@@ -79,7 +80,8 @@ export function destinations(workspaceId: string, tools: readonly string[] = [])
   const documents: Destination = { href: paths.documents(workspaceId), label: t('shell.documents'), icon: 'documents', pages: ['documents'] };
   const contacts: Destination = { href: paths.contacts(workspaceId), label: t('shell.contacts'), icon: 'contacts', pages: ['contacts'] };
   const maintenance: Destination = { href: paths.maintenance(workspaceId), label: t('shell.maintenance'), icon: 'maintenance', pages: ['maintenance'] };
-  const optional = [...(tools.includes('DOCUMENTS') ? [documents] : []), ...(tools.includes('CONTACTS') ? [contacts] : []), ...(tools.includes('MAINTENANCE') ? [maintenance] : [])];
+  const equipment:Destination={href:paths.equipment(workspaceId),label:t('shell.equipment'),icon:'equipment',pages:['equipment']};
+  const optional = [...(tools.includes('DOCUMENTS') ? [documents] : []), ...(tools.includes('CONTACTS') ? [contacts] : []), ...(tools.includes('MAINTENANCE') ? [maintenance] : []),...(tools.includes('EQUIPMENT') ? [equipment]:[])];
   const more: Destination = { href: paths.more(workspaceId), label: t('shell.more'), icon: 'more', pages: ['more', 'reminders', 'calendar', 'history', ...optional.flatMap((tool) => tool.pages)] };
   return { side: [today, ...(tools.includes('PROCEDURES') ? [procedures] : []), ...(tools.includes('REMINDERS') ? [reminders] : []), ...(tools.includes('LISTS') ? [lists] : []), ...(tools.includes('CALENDAR') ? [calendar] : []), ...optional], bar: [today, ...(tools.includes('PROCEDURES') ? [procedures] : []), ...(tools.includes('LISTS') ? [lists] : []), more] };
 }
@@ -224,6 +226,8 @@ function WorkspacePage(props: {
           {t('shell.notFound')} <Link href={paths.home(route.workspaceId)}>{t('common.startPage')}</Link>.
         </p>
       );
+    case 'equipment':
+      return context.tools.includes('EQUIPMENT') ? <Equipment key={`${route.view}:${route.recordId ?? ''}`} workspaceId={route.workspaceId} route={route} canManage={can('equipment.manage')} canPurge={can('equipment.purge')} canSchedule={can('schedule.manage')} tools={context.tools} /> : <p role="alert">{t('shell.notFound')}</p>;
     case 'maintenance':
       // Not switched on here: the tool does not exist for this Workspace (the server answers 404 as well).
       return context.tools.includes('MAINTENANCE') ? (

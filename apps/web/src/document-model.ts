@@ -352,6 +352,7 @@ export function linkedKind(record: Pick<LinkedRecord, 'type' | 'scheduleKind'>):
   if (record.type === 'document') return t('links.kind.document');
   if (record.type === 'procedure') return t('links.kind.procedure');
   if (record.type === 'contact') return t('links.kind.contact');
+  if (record.type === 'equipment') return t('shell.equipment');
   if (record.type === 'maintenance') return t('links.kind.maintenance');
   if (record.type === 'run') return t('links.kind.run');
   return t(record.scheduleKind === 'PROCEDURE' ? 'links.kind.scheduledProcedure' : 'links.kind.reminder');
@@ -367,6 +368,7 @@ export function linkedRecordText(record: LinkedRecord): { title: string; note: s
     const note = record.goneAt === null || record.goneBy === null ? null : t('links.goneNote', { when: formatDateTime(record.goneAt), name: record.goneBy });
     return { title: t(record.type === 'document' ? 'links.documentGone' : record.type === 'contact' ? 'links.contactGone' : record.type === 'maintenance' ? 'links.maintenanceGone' : 'links.recordGone'), note, open: false };
   }
+  if(record.type === 'equipment' && record.state !== 'ok') return {title:t(record.state === 'trash' ? 'equipment.inTrash':'equipment.gone'),note:null,open:false};
   // A Contact in Trash is a deleted contact as well: never named.
   if (record.type === 'contact' && record.state === 'trash') return { title: t('links.contactGone'), note: null, open: false };
   if (record.type === 'maintenance' && record.state !== 'ok') return { title: t(record.state === 'trash' ? 'links.maintenanceInTrash' : 'links.maintenanceGone'), note: null, open: false };
