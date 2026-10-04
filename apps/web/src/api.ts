@@ -642,13 +642,15 @@ const documentFilePath = (workspaceId: string, fileId: string, rest = '') => `/a
 
 /** The other end of a Link as it may be shown: kind, title and where it stands today — never content. */
 export interface LinkedRecord {
-  readonly type: 'document' | 'procedure' | 'schedule' | 'contact' | 'run' | 'maintenance';
+  readonly type: 'document' | 'procedure' | 'schedule' | 'contact' | 'run' | 'maintenance' | 'equipment';
   readonly id: string;
   /** `null`: gone for good, or in Trash and not for this viewer to see (a Contact in Trash is never named). */
   readonly title: string | null;
   readonly state: 'ok' | 'deleted' | 'trash' | 'paused' | 'ended' | 'gone';
   readonly scheduleKind: 'REMINDER' | 'PROCEDURE' | null;
   /** An execution as the other end of a Link: whether it is still going. */
+  readonly maintenanceDate?:string;
+  readonly maintenanceStatus?:MaintenanceStatus;
   readonly runState?: RunState | null;
   readonly nextDue: string | null;
   readonly goneAt: string | null;
@@ -656,6 +658,7 @@ export interface LinkedRecord {
 }
 
 export interface DocumentLink {
+  readonly sourceType?:string;
   readonly id: string;
   readonly record: LinkedRecord;
   readonly createdAt: string;
@@ -791,6 +794,12 @@ export interface ContactImportEntry {
   readonly duplicates: readonly ContactDuplicate[];
   readonly sameAs: readonly { readonly entry: number; readonly reasons: readonly ('email' | 'phone' | 'name')[] }[];
 }
+
+export interface EquipmentInput { readonly name:string; readonly category?:string; readonly location?:string; readonly manufacturer?:string; readonly model?:string; readonly serialNumber?:string; readonly purchaseDate?:string|null; readonly warrantyExpiry?:string|null; readonly notes?:string }
+export interface EquipmentRecord {readonly id:string;readonly name:string;readonly category:string;readonly location:string;readonly manufacturer:string;readonly model:string;readonly serialNumber:string;readonly purchaseDate:string|null;readonly warrantyExpiry:string|null;readonly notes:string;readonly revision:number;readonly createdAt:string;readonly createdBy:string;readonly modifiedAt:string;readonly modifiedBy:string}
+export interface EquipmentFilters {readonly categories:string[];readonly locations:string[];readonly manufacturers:string[]}
+export interface TrashedEquipment {readonly id:string;readonly name:string;readonly deletedAt:string;readonly deletedBy:string}
+const equipmentPath=(workspaceId:string,rest='')=>`/workspaces/${encodeURIComponent(workspaceId)}/equipment${rest}`;
 
 export type MaintenanceStatus = 'PLANNED' | 'IN_PROGRESS' | 'COMPLETED' | 'CANCELLED';
 
@@ -1063,6 +1072,18 @@ export const api = {
   addDocumentLink: async (workspaceId: string, documentId: string, target: { type: 'document' | 'procedure' | 'schedule' | 'contact'; id: string }) =>
     (await request<{ link: DocumentLink }>('POST', documentsPath(workspaceId, `/${encodeURIComponent(documentId)}/links`), { target })).link,
   removeDocumentLink: (workspaceId: string, linkId: string) => request<undefined>('POST', `/workspaces/${encodeURIComponent(workspaceId)}/document-links/${encodeURIComponent(linkId)}/delete`, {}),
+  equipment:(workspaceId:string,query='')=>request<{records:EquipmentRecord[];nextCursor:string|null;total:number|null}>('GET',equipmentPath(workspaceId,query === '' ? '' : `?${query}`)),
+  equipmentRecord:async(workspaceId:string,id:string)=>(await request<{record:EquipmentRecord}>('GET',equipmentPath(workspaceId,`/${encodeURIComponent(id)}`))).record,
+  equipmentFilters:async(workspaceId:string)=>(await request<{filters:EquipmentFilters}>('GET',equipmentPath(workspaceId,'/filters'))).filters,
+  createEquipment:async(workspaceId:string,input:EquipmentInput)=>(await request<{record:EquipmentRecord}>('POST',equipmentPath(workspaceId),input)).record,
+  updateEquipment:async(workspaceId:string,id:string,input:EquipmentInput,expectedRevision:number)=>(await request<{record:EquipmentRecord}>('POST',equipmentPath(workspaceId,`/${encodeURIComponent(id)}/update`),{...input,expectedRevision})).record,
+  deleteEquipment:(workspaceId:string,id:string)=>request<undefined>('POST',equipmentPath(workspaceId,`/${encodeURIComponent(id)}/delete`),{}),
+  restoreEquipment:async(workspaceId:string,id:string)=>(await request<{record:EquipmentRecord}>('POST',equipmentPath(workspaceId,`/${encodeURIComponent(id)}/restore`),{})).record,
+  equipmentTrash:async(workspaceId:string)=>(await request<{records:TrashedEquipment[]}>('GET',equipmentPath(workspaceId,'/trash'))).records,
+  purgeEquipment:async(workspaceId:string,ids:readonly string[]|'all')=>(await request<{purged:number}>('POST',equipmentPath(workspaceId,'/trash/purge'),ids === 'all' ? {all:true}:{recordIds:ids})).purged,
+  equipmentLinks:async(workspaceId:string,id:string)=>(await request<{links:DocumentLink[]}>('GET',equipmentPath(workspaceId,`/${encodeURIComponent(id)}/links`))).links,
+  addEquipmentLink:async(workspaceId:string,id:string,target:{type:string;id:string})=>(await request<{link:DocumentLink}>('POST',equipmentPath(workspaceId,`/${encodeURIComponent(id)}/links`),{target})).link,
+  removeEquipmentLink:(workspaceId:string,id:string)=>request<undefined>('POST',`/workspaces/${encodeURIComponent(workspaceId)}/equipment-links/${encodeURIComponent(id)}/delete`,{}),
   maintenanceBoard: async (workspaceId: string) => (await request<{ columns: MaintenanceColumn[] }>('GET', maintenancePath(workspaceId, '/board'))).columns,
   maintenance: (workspaceId: string, query: string) => request<{ records: MaintenanceSummary[]; nextCursor: string | null; total: number | null }>('GET', maintenancePath(workspaceId, query === '' ? '' : `?${query}`)),
   maintenanceFilters: (workspaceId: string) => request<{ filters: MaintenanceFilterValues; currencies: string[] }>('GET', maintenancePath(workspaceId, '/filters')),
@@ -1078,7 +1099,7 @@ export const api = {
   maintenanceTrash: async (workspaceId: string) => (await request<{ records: TrashedMaintenanceRecord[] }>('GET', maintenancePath(workspaceId, '/trash'))).records,
   purgeMaintenance: async (workspaceId: string, recordIds: readonly string[] | 'all') => (await request<{ purged: number }>('POST', maintenancePath(workspaceId, '/trash/purge'), recordIds === 'all' ? { all: true } : { recordIds })).purged,
   maintenanceLinks: async (workspaceId: string, recordId: string) => (await request<{ links: DocumentLink[] }>('GET', maintenancePath(workspaceId, `/${encodeURIComponent(recordId)}/links`))).links,
-  addMaintenanceLink: async (workspaceId: string, recordId: string, target: { type: 'document' | 'procedure' | 'run' | 'schedule'; id: string }) =>
+  addMaintenanceLink: async (workspaceId: string, recordId: string, target: { type: 'document' | 'procedure' | 'run' | 'schedule' | 'equipment'; id: string }) =>
     (await request<{ link: DocumentLink }>('POST', maintenancePath(workspaceId, `/${encodeURIComponent(recordId)}/links`), { target })).link,
   removeMaintenanceLink: (workspaceId: string, linkId: string) => request<undefined>('POST', `/workspaces/${encodeURIComponent(workspaceId)}/maintenance-links/${encodeURIComponent(linkId)}/delete`, {}),
   contacts: (workspaceId: string, query: string) => request<{ contacts: ContactSummary[]; nextCursor: string | null; total: number | null }>('GET', contactsPath(workspaceId, query === '' ? '' : `?${query}`)),

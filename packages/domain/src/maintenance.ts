@@ -28,7 +28,7 @@ export const MAX_LINKS_PER_MAINTENANCE_RECORD = 50;
 export const MAX_MAINTENANCE_RECORDS_PER_PURGE = 200;
 
 /** What a MaintenanceRecord can be linked to: evidence (a Document), how it is done (a Procedure), an execution (a Run), a Reminder or scheduled Procedure (a Schedule). */
-export const MAINTENANCE_LINK_TYPES = ['document', 'procedure', 'run', 'schedule'] as const;
+export const MAINTENANCE_LINK_TYPES = ['document', 'procedure', 'run', 'schedule', 'equipment'] as const;
 export type MaintenanceLinkType = (typeof MAINTENANCE_LINK_TYPES)[number];
 
 export function parseMaintenanceRecordId(value: string): MaintenanceRecordId {
@@ -142,14 +142,17 @@ export interface MaintenanceQuery {
   /** Folded. */
   readonly category: string | null;
   readonly contactId: string | null;
+  readonly equipmentId: string | null;
   /** The year of the day a record is filed under. */
   readonly year: number | null;
 }
 
-export function parseMaintenanceQuery(input: { readonly q?: string | undefined; readonly status?: string | undefined; readonly category?: string | undefined; readonly contact?: string | undefined; readonly year?: number | undefined }): MaintenanceQuery {
+export function parseMaintenanceQuery(input: { readonly q?: string | undefined; readonly status?: string | undefined; readonly category?: string | undefined; readonly contact?: string | undefined; readonly year?: number | undefined; readonly equipment?: string | undefined }): MaintenanceQuery {
   if (input.contact !== undefined && !UUID_V4.test(input.contact)) throw new DomainValidationError('contact', 'invalid_contact_id', 'Id must be a lower-case UUIDv4');
   if (input.year !== undefined && (!Number.isInteger(input.year) || input.year < 1900 || input.year > 2200)) throw new DomainValidationError('year', 'invalid_document_year', 'The year must be between 1900 and 2200');
+  if (input.equipment !== undefined && !UUID_V4.test(input.equipment)) throw new DomainValidationError('equipment','invalid_equipment_id','Invalid id');
   return {
+    equipmentId: input.equipment ?? null,
     terms: parseSearchTerms(input.q ?? ''),
     status: input.status === undefined ? null : parseMaintenanceStatus(input.status),
     category: input.category === undefined ? null : maintenanceCategoryKey(normalizeSingleLineName(input.category, { field: 'category', codePrefix: 'maintenance_category', label: 'Category', maxLength: MAX_MAINTENANCE_CATEGORY_LENGTH })),

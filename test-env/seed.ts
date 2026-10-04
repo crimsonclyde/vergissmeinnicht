@@ -287,5 +287,9 @@ await api('POST', `/workspaces/${household}/maintenance/${pipe.id}/links`, { tar
 await api('POST', `/workspaces/${household}/procedures/${procedureIds[0]}/pin`, {}, member);
 await api('POST', '/auth/sign-out', {}, member);
 // The admin stays signed in until here: switching the optional tools on needs a Workspace admin.
+await api('POST', `/workspaces/${household}/tools`, {tool:'EQUIPMENT',enabled:true},admin);
+const heating=await api<{record:{id:string}}>('POST', `/workspaces/${household}/equipment`,{name:'Boiler',category:'Heating',location:'Cellar',manufacturer:'Example Heating',model:'Demo 200',serialNumber:'DEMO-001',purchaseDate:'2024-03-01',warrantyExpiry:localDate(365)},member);
+await api('POST', `/workspaces/${household}/equipment/${heating.data.record.id}/links`,{target:{type:'contact',id:plumber}},member);
+await api('POST', `/workspaces/${household}/equipment/${heating.data.record.id}/links`,{target:{type:'maintenance',id:boiler.id}},member);
 await api('POST', '/auth/sign-out', {}, admin);
 console.log(`Created ${people.length + 1} accounts, 2 Workspaces, ${procedures.length} Procedures, 1 Run, 2 scheduled Procedures, 2 Reminders, 1 grocery list, 3 document folders with 1 document, 2 contacts, 3 maintenance records and 1 pin.`);

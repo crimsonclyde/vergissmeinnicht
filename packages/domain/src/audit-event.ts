@@ -89,10 +89,11 @@ export const AUDIT_EVENT_TYPES = [
   'MAINTENANCE_PURGED',
   'MAINTENANCE_LINK_ADDED',
   'MAINTENANCE_LINK_REMOVED',
+  'EQUIPMENT_CREATED', 'EQUIPMENT_UPDATED', 'EQUIPMENT_DELETED', 'EQUIPMENT_RESTORED', 'EQUIPMENT_PURGED', 'EQUIPMENT_LINK_ADDED', 'EQUIPMENT_LINK_REMOVED',
 ] as const;
 export type AuditEventType = (typeof AUDIT_EVENT_TYPES)[number];
 
-export type AuditSubjectType = 'procedure' | 'run' | 'run_step' | 'knot' | 'schedule' | 'occurrence' | 'list' | 'workspace' | 'folder' | 'document' | 'document_type' | 'contact' | 'maintenance';
+export type AuditSubjectType = 'procedure' | 'run' | 'run_step' | 'knot' | 'schedule' | 'occurrence' | 'list' | 'workspace' | 'folder' | 'document' | 'document_type' | 'contact' | 'maintenance' | 'equipment';
 
 /** A recorded event as read back for history views. */
 export interface AuditEvent {

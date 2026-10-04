@@ -21,7 +21,7 @@ import { recordAuditEvent } from './audit-events.ts';
 import type { AppDatabase } from './connection.ts';
 import { recordToolEnabled } from './tool-policy.ts';
 import { fileRecords } from './document-file-repository.ts';
-import { contacts, maintenanceRecords, documentFileDerivatives, documentFiles, documentPages, documentTypes, documents, links, occurrences, procedures, runDocumentFiles, runDocumentRemovals, runDocuments, runs, schedules, workspaceTools } from './schema.ts';
+import { contacts, equipmentRecords, maintenanceRecords, documentFileDerivatives, documentFiles, documentPages, documentTypes, documents, links, occurrences, procedures, runDocumentFiles, runDocumentRemovals, runDocuments, runs, schedules, workspaceTools } from './schema.ts';
 
 type Reader = Pick<Transaction, 'select'>;
 type LinkRow = typeof links.$inferSelect;
@@ -60,16 +60,21 @@ export function linkedRecord(tx: Reader, workspaceId: string, kind: string, id: 
       .get();
     return row === undefined ? { type: 'run', id, title: null, state: 'gone' } : { type: 'run', id, title: row.title, state: 'ok', runState: row.state };
   }
+  if (kind === 'equipment') {
+    if (gone.at !== null) return {type:'equipment',id,title:null,state:'gone',goneAt:gone.at,goneByName:gone.by};
+    const row=tx.select({name:equipmentRecords.name,deletedAt:equipmentRecords.deletedAt}).from(equipmentRecords).where(and(eq(equipmentRecords.workspaceId,workspaceId),eq(equipmentRecords.id,id))).get();
+    return row === undefined ? {type:'equipment',id,title:null,state:'gone'} : {type:'equipment',id,title:row.deletedAt === null ? row.name : null,state:row.deletedAt === null ? 'ok':'trash'};
+  }
   if (kind === 'maintenance') {
     if (gone.at !== null) return { type: 'maintenance', id, title: null, state: 'gone', goneAt: gone.at, goneByName: gone.by };
     const row = tx
-      .select({ title: maintenanceRecords.title, deletedAt: maintenanceRecords.deletedAt })
+      .select({ title: maintenanceRecords.title, deletedAt: maintenanceRecords.deletedAt,date:maintenanceRecords.sortDate,status:maintenanceRecords.status })
       .from(maintenanceRecords)
       .where(and(eq(maintenanceRecords.workspaceId, workspaceId), eq(maintenanceRecords.id, id)))
       .get();
     if (row === undefined) return { type: 'maintenance', id, title: null, state: 'gone', goneAt: null, goneByName: null };
     // In Trash: that a record is linked, not which one.
-    return row.deletedAt === null ? { type: 'maintenance', id, title: row.title, state: 'ok' } : { type: 'maintenance', id, title: null, state: 'trash' };
+    return row.deletedAt === null ? { type: 'maintenance', id, title: row.title, state: 'ok',maintenanceDate:row.date,maintenanceStatus:row.status } : { type: 'maintenance', id, title: null, state: 'trash' };
   }
   if (kind !== 'procedure' && kind !== 'schedule' && kind !== 'contact') return { type: 'procedure', id, title: null, state: 'gone' };
   const type: LinkTargetType = kind;
@@ -496,7 +501,7 @@ export function createLinkRepository({ db }: Pick<AppDatabase, 'db'>): LinkRepos
  * Link whose both ends are gone says nothing to anybody and is removed. Called inside the purging
  * transaction.
  */
-export function markLinksOfPurged(tx: Transaction, workspaceId: string, type: 'document' | 'contact' | 'maintenance', recordIds: readonly string[], at: Date, byName: string): void {
+export function markLinksOfPurged(tx: Transaction, workspaceId: string, type: 'document' | 'contact' | 'maintenance' | 'equipment', recordIds: readonly string[], at: Date, byName: string): void {
   if (recordIds.length === 0) return;
   const ids = [...recordIds];
   tx.update(links)

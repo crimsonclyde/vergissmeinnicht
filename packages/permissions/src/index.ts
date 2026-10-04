@@ -67,19 +67,22 @@ export const WORKSPACE_CAPABILITIES = [
   'maintenance.manage',
   /** Delete MaintenanceRecords for good — only out of Trash, only a Workspace admin. */
   'maintenance.purge',
+  'equipment.view',
+  'equipment.manage',
+  'equipment.purge',
   /** Switch the optional tools of the Workspace (Documents, …) on and off (16.2). */
   'workspace.tools.manage',
 ] as const;
 export type WorkspaceCapability = (typeof WORKSPACE_CAPABILITIES)[number];
 
 /** Read-only: Workspace content and history, no execution. */
-const GUEST: readonly WorkspaceCapability[] = ['workspace.view', 'procedure.view', 'run.view', 'list.view', 'document.view', 'contact.view', 'maintenance.view'];
+const GUEST: readonly WorkspaceCapability[] = ['workspace.view', 'procedure.view', 'run.view', 'list.view', 'document.view', 'contact.view', 'maintenance.view', 'equipment.view'];
 /** Executes Runs. */
-const USER: readonly WorkspaceCapability[] = [...GUEST, 'workspace.members.view', 'run.start', 'run.execute', 'run.abort', 'schedule.manage', 'list.edit', 'document.manage', 'contact.manage', 'contact.export', 'maintenance.manage'];
+const USER: readonly WorkspaceCapability[] = [...GUEST, 'workspace.members.view', 'run.start', 'run.execute', 'run.abort', 'schedule.manage', 'list.edit', 'document.manage', 'contact.manage', 'contact.export', 'maintenance.manage', 'equipment.manage'];
 /** Authors Procedures. */
 const EDITOR: readonly WorkspaceCapability[] = [...USER, 'procedure.edit', 'procedure.restore', 'knot.manage'];
 /** Manages membership, roles and settings. */
-const ADMIN: readonly WorkspaceCapability[] = [...EDITOR, 'workspace.members.manage', 'workspace.settings.manage', 'workspace.tools.manage', 'document.purge', 'run.document.remove', 'contact.purge', 'maintenance.purge'];
+const ADMIN: readonly WorkspaceCapability[] = [...EDITOR, 'workspace.members.manage', 'workspace.settings.manage', 'workspace.tools.manage', 'document.purge', 'run.document.remove', 'contact.purge', 'maintenance.purge', 'equipment.purge'];
 
 const ROLE_CAPABILITIES: Readonly<Record<WorkspaceRole, ReadonlySet<WorkspaceCapability>>> = Object.freeze({
   GUEST: new Set(GUEST),
@@ -119,6 +122,7 @@ export function toolForCapability(capability: WorkspaceCapability): WorkspaceToo
     case 'document': return 'DOCUMENTS';
     case 'contact': return 'CONTACTS';
     case 'maintenance': return 'MAINTENANCE';
+    case 'equipment': return 'EQUIPMENT';
     default: return null;
   }
 }

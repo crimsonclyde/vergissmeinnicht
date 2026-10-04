@@ -278,7 +278,7 @@ function ContactList(props: { workspaceId: string; canManage: boolean; canExport
     ...(props.canExport
       ? [
           { label: t('contacts.export.csv'), onSelect: () => window.location.assign(contactExportUrl(workspaceId, 'csv')) },
-          { label: t('contacts.export.vcard'), onSelect: () => window.location.assign(contactExportUrl(workspaceId, 'vcard')) },
+          { label: t('contacts.export.phone'), onSelect: () => window.location.assign(contactExportUrl(workspaceId, 'vcard')) },
         ]
       : []),
     ...(canManage ? [{ label: t('contacts.trash.open'), onSelect: () => navigate(paths.contactTrash(workspaceId)) }] : []),
@@ -286,6 +286,7 @@ function ContactList(props: { workspaceId: string; canManage: boolean; canExport
   const searching = find.q.trim() !== '' || find.category !== '';
   return (
     <section aria-labelledby="contacts-heading">
+      {props.canExport && <details className="option-group"><summary>{t('contacts.export.phone')}</summary><div className="stack option-body"><p>{t('contacts.export.phoneHelp')}</p><a className="button" href={contactExportUrl(workspaceId,'vcard')}>{t('contacts.export.downloadVcf')}</a></div></details>}
       <div className="page-header page-header-tool">
         <div>
           <h2 id="contacts-heading">{t('shell.contacts')}</h2>

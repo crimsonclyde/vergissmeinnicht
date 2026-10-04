@@ -70,10 +70,11 @@ export const inputOfForm = (form: MaintenanceForm): MaintenanceInput => ({
   cost: form.amount.trim() === '' ? null : { amount: form.amount.trim(), currency: form.currency },
 });
 
-export function maintenanceListingParams(find: { readonly q: string; readonly status: string; readonly category: string; readonly contact: string; readonly year: string }, cursor: string | null = null): string {
+export function maintenanceListingParams(find: { readonly q: string; readonly status: string; readonly category: string; readonly contact: string; readonly year: string;readonly equipment?:string }, cursor: string | null = null): string {
   const params = new URLSearchParams();
   if (find.q.trim() !== '') params.set('q', find.q.trim());
   for (const key of ['status', 'category', 'contact', 'year'] as const) if (find[key] !== '') params.set(key, find[key]);
+  if (find.equipment) params.set('equipment',find.equipment);
   if (cursor !== null) params.set('cursor', cursor);
   return params.toString();
 }

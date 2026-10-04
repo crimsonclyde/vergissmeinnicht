@@ -3737,3 +3737,8 @@ input.list-check {
 .progress-item time { align-self: center; font-size: .8rem; }
 .progress-card .plain-list > li + li { margin-top: 0; }
 @media (min-width: 600px) { .progress-counts { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
+
+.equipment-details { display: grid; gap: 1rem; }
+.equipment-details dt { color: var(--text-muted); }
+.equipment-details dd { margin: 0.25rem 0 0; }
+.equipment-value { white-space: pre-wrap; overflow-wrap: anywhere; }

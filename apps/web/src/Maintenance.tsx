@@ -1,3 +1,4 @@
+import { EquipmentPickerDialog } from './Equipment.tsx';
 import { useCoreTools } from './core-tools.ts';
 import { useCallback, useEffect, useId, useRef, useState, type DragEvent, type FormEvent } from 'react';
 import {
@@ -349,7 +350,11 @@ function List(props: { workspaceId: string; canManage: boolean; version: number;
   const { workspaceId, filters } = props;
   const id = useId();
   const contactsTool = useContactsTool();
-  const [find, setFind] = useState({ q: '', status: '', category: '', contact: '', year: '' });
+  const core=useCoreTools();
+  const [equipment,setEquipment]=useState<readonly {id:string;name:string}[]>([]);
+  const [equipmentSearch,setEquipmentSearch]=useState('');
+  useEffect(()=>{if(!core.equipment)return;let active=true;api.equipment(workspaceId,equipmentSearch === '' ? '' : new URLSearchParams({q:equipmentSearch}).toString()).then(page=>active && setEquipment(page.records),()=>undefined);return ()=>{active=false;};},[workspaceId,core.equipment,equipmentSearch]);
+  const [find, setFind] = useState({ q: '', status: '', category: '', contact: '', year: '',equipment:'' });
   const [records, setRecords] = useState<readonly MaintenanceSummary[] | null>(null);
   const [next, setNext] = useState<string | null>(null);
   const [total, setTotal] = useState<number | null>(null);
@@ -390,7 +395,7 @@ function List(props: { workspaceId: string; canManage: boolean; version: number;
       [onRefused, load],
     ),
   );
-  const select = (key: 'status' | 'category' | 'contact' | 'year', label: string, all: string, options: readonly { value: string; label: string }[]) => (
+  const select = (key: 'status' | 'category' | 'contact' | 'year' | 'equipment', label: string, all: string, options: readonly { value: string; label: string }[]) => (
     <div className="field">
       <label htmlFor={`${id}-${key}`}>{label}</label>
       <select id={`${id}-${key}`} value={find[key]} onChange={(event) => setFind({ ...find, [key]: event.target.value })}>
@@ -414,6 +419,7 @@ function List(props: { workspaceId: string; canManage: boolean; version: number;
         {select('status', t('maintenance.find.status'), t('maintenance.find.allStatuses'), STATUSES.map((status) => ({ value: status, label: statusLabel(status) })))}
         {(filters?.categories.length ?? 0) > 0 && select('category', t('maintenance.find.category'), t('maintenance.find.allCategories'), (filters?.categories ?? []).map((category) => ({ value: category, label: category })))}
         {contactsTool.enabled && (filters?.contacts.length ?? 0) > 0 && select('contact', t('maintenance.find.contact'), t('maintenance.find.allContacts'), (filters?.contacts ?? []).map((contact) => ({ value: contact.id, label: contact.name })))}
+        {core.equipment && <><div className="field"><label htmlFor={`${id}-equipment-search`}>{t('equipment.search')}</label><input id={`${id}-equipment-search`} type="search" maxLength={100} value={equipmentSearch} onChange={e=>setEquipmentSearch(e.target.value)}/></div>{select('equipment',t('shell.equipment'),t('equipment.all'),equipment.map(r=>({value:r.id,label:r.name})))}</>}
         {(filters?.years.length ?? 0) > 0 && select('year', t('maintenance.find.year'), t('maintenance.find.allYears'), (filters?.years ?? []).map((year) => ({ value: String(year), label: String(year) })))}
       </div>
       {message !== null && <p role="alert">{message}</p>}
@@ -614,7 +620,7 @@ function Overview(props: { workspaceId: string; canManage: boolean }) {
   );
 }
 
-type LinkChoice = 'document' | 'procedure' | 'run' | 'remind';
+type LinkChoice = 'document' | 'procedure' | 'run' | 'remind' | 'equipment';
 
 /**
  * What a record is linked to: evidence (Documents), a Procedure, executions, Reminders. References —
@@ -645,7 +651,7 @@ function RecordLinks(props: { workspaceId: string; record: MaintenanceRecord; ca
   };
   const taken = (type: string) => links.filter((link) => link.record.type === type).map((link) => link.record.id);
   const hrefOf = (link: DocumentLink): string =>
-    link.record.type === 'document' ? paths.document(workspaceId, link.record.id) : link.record.type === 'procedure' ? paths.procedure(workspaceId, link.record.id) : link.record.type === 'run' ? paths.run(workspaceId, link.record.id) : paths.reminders(workspaceId);
+    link.record.type === 'equipment' ? paths.equipmentRecord(workspaceId,link.record.id) : link.record.type === 'document' ? paths.document(workspaceId, link.record.id) : link.record.type === 'procedure' ? paths.procedure(workspaceId, link.record.id) : link.record.type === 'run' ? paths.run(workspaceId, link.record.id) : paths.reminders(workspaceId);
   if (!props.canManage && links.length === 0) return null;
   const options = dialog === 'procedure' ? (procedures ?? []).filter((each) => !taken('procedure').includes(each.id)).map((each) => ({ id: each.id, label: each.title })) : (runs ?? []).filter((each) => !taken('run').includes(each.id)).map((each) => ({ id: each.id, label: `${each.title} — ${formatDateTime(each.startedAt)} (${t(`runState.${each.state}`)})` }));
   return (
@@ -679,7 +685,7 @@ function RecordLinks(props: { workspaceId: string; record: MaintenanceRecord; ca
                     className="quiet"
                     aria-label={t('links.removeNamed', { name: text.title })}
                     onClick={() =>
-                      void api.removeMaintenanceLink(workspaceId, link.id).then(
+                      void (link.sourceType === 'equipment' ? api.removeEquipmentLink(workspaceId,link.id):api.removeMaintenanceLink(workspaceId,link.id)).then(
                         () => {
                           setStatus(t('links.removed', { name: text.title }));
                           load();
@@ -703,6 +709,7 @@ function RecordLinks(props: { workspaceId: string; record: MaintenanceRecord; ca
               <UiIcon name="documents" /> {t('maintenance.links.addEvidence')}
             </button>
           )}
+          {core.equipment && <button type="button" onClick={()=>open('equipment')}>{t('equipment.linkEquipment')}</button>}
           {core.procedures && <button type="button" onClick={() => open('procedure')}>
             {t('contacts.links.addProcedure')}
           </button>}
@@ -729,7 +736,8 @@ function RecordLinks(props: { workspaceId: string; record: MaintenanceRecord; ca
           }}
         />
       )}
-      {dialog !== null && dialog !== 'remind' && (
+      {dialog === 'equipment' && <EquipmentPickerDialog workspaceId={workspaceId} exclude={taken('equipment')} onClose={()=>setDialog(null)} onLink={async id=>{await api.addMaintenanceLink(workspaceId,record.id,{type:'equipment',id});setDialog(null);load();}}/>}
+      {dialog !== null && dialog !== 'remind' && dialog !== 'equipment' && (
         <FormDialog
           title={t(dialog === 'document' ? 'maintenance.links.evidenceHeading' : dialog === 'procedure' ? 'maintenance.links.procedureHeading' : 'maintenance.links.runHeading', { title: record.title })}
           submitLabel={t('links.addConfirm')}

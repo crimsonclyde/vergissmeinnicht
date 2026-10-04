@@ -57,3 +57,5 @@ export * from './maintenance/use-cases.ts';
 
 export * from './ports/today.ts';
 export * from './home/progress.ts';
+export * from './ports/equipment-repository.ts';
+export * from './equipment/use-cases.ts';

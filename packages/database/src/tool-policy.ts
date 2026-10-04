@@ -16,6 +16,6 @@ export function recordToolEnabled(tx: Reader, workspaceId: string, type: string,
     const row = tx.select({ kind: schedules.kind }).from(schedules).where(and(eq(schedules.workspaceId, workspaceId), eq(schedules.id, id))).get();
     return row === undefined ? toolEnabled(tx, workspaceId, 'PROCEDURES') || toolEnabled(tx, workspaceId, 'REMINDERS') : toolEnabled(tx, workspaceId, row.kind === 'PROCEDURE' ? 'PROCEDURES' : 'REMINDERS');
   }
-  const tool = ({ procedure: 'PROCEDURES', run: 'PROCEDURES', document: 'DOCUMENTS', contact: 'CONTACTS', maintenance: 'MAINTENANCE' } as const)[type as 'procedure'];
+  const tool = ({ procedure: 'PROCEDURES', run: 'PROCEDURES', document: 'DOCUMENTS', contact: 'CONTACTS', maintenance: 'MAINTENANCE', equipment:'EQUIPMENT' } as const)[type as 'procedure'];
   return tool !== undefined && toolEnabled(tx, workspaceId, tool);
 }

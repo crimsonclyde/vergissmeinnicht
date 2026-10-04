@@ -141,8 +141,9 @@ function requireContact(tx: Reader, workspaceId: string, contactId: string | nul
 }
 
 const linkOf = (tx: Reader, row: typeof links.$inferSelect): MaintenanceLink => ({
+  sourceType:row.fromType,
   id: row.id as LinkId,
-  record: linkedRecord(tx, row.workspaceId, row.toType, row.toId, { at: row.toGoneAt, by: row.toGoneByDisplayName }),
+  record: row.fromType === 'maintenance' ? linkedRecord(tx,row.workspaceId,row.toType,row.toId,{at:row.toGoneAt,by:row.toGoneByDisplayName}) : linkedRecord(tx,row.workspaceId,row.fromType,row.fromId,{at:row.fromGoneAt,by:row.fromGoneByDisplayName}),
   createdAt: row.createdAt,
   createdByName: row.createdByDisplayName,
 });
@@ -185,6 +186,7 @@ export function createMaintenanceRepository({ db }: Pick<AppDatabase, 'db'>): Ma
 
     async find(workspaceId, query, after, limit, scope) {
       const where: SQL[] = [];
+      if (query.equipmentId !== null) where.push(sql`exists (select 1 from links l where exists (select 1 from equipment_records e where e.id=${query.equipmentId} and e.workspace_id=${workspaceId} and e.deleted_at is null) and l.workspace_id = ${workspaceId} and ((l.from_type='equipment' and l.from_id=${query.equipmentId} and l.to_type='maintenance' and l.to_id=${maintenanceRecords.id} and l.from_gone_at is null) or (l.from_type='maintenance' and l.from_id=${maintenanceRecords.id} and l.to_type='equipment' and l.to_id=${query.equipmentId} and l.to_gone_at is null)))`);
       if (query.status !== null) where.push(eq(maintenanceRecords.status, query.status));
       if (query.category !== null) where.push(eq(maintenanceRecords.categoryKey, query.category));
       if (query.contactId !== null) where.push(eq(maintenanceRecords.contactId, query.contactId));
@@ -380,10 +382,10 @@ export function createMaintenanceRepository({ db }: Pick<AppDatabase, 'db'>): Ma
       return db
         .select()
         .from(links)
-        .where(and(eq(links.workspaceId, workspaceId), eq(links.fromType, 'maintenance'), eq(links.fromId, recordId)))
+        .where(and(eq(links.workspaceId, workspaceId), or(and(eq(links.fromType,'maintenance'),eq(links.fromId,recordId)),and(eq(links.fromType,'equipment'),eq(links.toType,'maintenance'),eq(links.toId,recordId)))))
         .orderBy(asc(links.createdAt), asc(links.id))
         .all()
-        .filter((row) => (scope.documents || row.toType !== 'document') && recordToolEnabled(db, workspaceId, row.toType, row.toId))
+        .filter((row) => (scope.documents || row.toType !== 'document') && recordToolEnabled(db,workspaceId,row.fromType === 'maintenance' ? row.toType:row.fromType,row.fromType === 'maintenance' ? row.toId:row.fromId))
         .map((row) => linkOf(db, row));
     },
 
@@ -397,6 +399,7 @@ export function createMaintenanceRepository({ db }: Pick<AppDatabase, 'db'>): Ma
         // The other end must be a record of this Workspace that is there. (The database checks the Workspace once more.)
         const target = linkedRecord(tx, input.workspaceId, input.target.type, input.target.id, { at: null, by: null });
         if (target.state === 'gone' || target.state === 'deleted' || target.state === 'trash') throw new Refusal('target_not_found');
+        if(tx.select({id:links.id}).from(links).where(and(eq(links.workspaceId,input.workspaceId),eq(links.fromType,input.target.type),eq(links.fromId,input.target.id),eq(links.toType,'maintenance'),eq(links.toId,current.id))).get() !== undefined) throw new Refusal('already_linked');
         const mine = and(eq(links.workspaceId, input.workspaceId), eq(links.fromType, 'maintenance'), eq(links.fromId, current.id));
         if (tx.select({ id: links.id }).from(links).where(and(mine, eq(links.toType, input.target.type), eq(links.toId, input.target.id))).get() !== undefined) throw new Refusal('already_linked');
         if ((tx.select({ n: count() }).from(links).where(mine).get()?.n ?? 0) >= MAX_LINKS_PER_MAINTENANCE_RECORD) throw new Refusal('limit_reached');
@@ -429,6 +432,7 @@ export function createMaintenanceRepository({ db }: Pick<AppDatabase, 'db'>): Ma
           .where(and(eq(links.workspaceId, input.workspaceId), eq(links.id, input.linkId), eq(links.fromType, 'maintenance')))
           .get();
         if (row === undefined) throw new Refusal('link_not_found');
+        if (!recordToolEnabled(tx, input.workspaceId, row.toType, row.toId)) throw new Refusal('target_not_found');
         tx.delete(links).where(eq(links.id, row.id)).run();
         recordAuditEvent(tx, { workspaceId: input.workspaceId, type: 'MAINTENANCE_LINK_REMOVED', actor, subjectType: 'maintenance', subjectId: row.fromId, occurredAt: input.at, metadata: { linkedType: row.toType, linkedId: row.toId } });
         return {};

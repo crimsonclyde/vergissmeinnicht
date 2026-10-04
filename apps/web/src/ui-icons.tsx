@@ -73,6 +73,7 @@ const ICONS = {
   upload: IconUpload,
   contacts: IconUsers,
   maintenance: IconTool,
+  equipment: IconTool,
 } as const;
 
 export type UiIconName = keyof typeof ICONS;

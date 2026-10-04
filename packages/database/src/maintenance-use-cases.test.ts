@@ -541,7 +541,7 @@ describe('Maintenance (16.7)', () => {
     await link({ type: 'schedule', id: reminder.id });
     expect((await listMaintenanceLinks(deps, { ...ref(gus), recordId: record.id })).map((each) => `${each.record.type}: ${each.record.title}`)).toEqual(['document: Invoice 2026', 'procedure: Boiler service', 'run: Boiler service', 'schedule: Service the boiler']);
     // From the Document's side: the record it is evidence for.
-    expect((await listDocumentLinks(links, { ...ref(gus), documentId: invoice.id })).links.map((each) => each.record)).toEqual([{ type: 'maintenance', id: record.id, title: 'Boiler service', state: 'ok' }]);
+    expect((await listDocumentLinks(links, { ...ref(gus), documentId: invoice.id })).links.map((each) => each.record)).toEqual([{ type: 'maintenance', id: record.id, title: 'Boiler service', state: 'ok',maintenanceDate:'2026-10-02',maintenanceStatus:'PLANNED' }]);
     await expect(link({ type: 'document', id: invoice.id })).rejects.toThrow(AlreadyLinkedError);
     // Never across Workspaces — by the use-case and by the database.
     for (const target of [{ type: 'document', id: theirDocument.id }, { type: 'procedure', id: theirProcedure }, { type: 'run', id: theirRun }]) await expect(link(target)).rejects.toThrow(LinkTargetNotFoundError);

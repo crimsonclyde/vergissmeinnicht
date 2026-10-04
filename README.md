@@ -15,7 +15,7 @@
   <img alt="Self-hosted" src="https://img.shields.io/badge/self--hosted-Docker%20Compose-2496ED">
 </p>
 
-**VergissMeinNicht** (**VMN**) helps households and teams organise everyday responsibilities in shared Workspaces. Write reusable Procedures, carry them out together, schedule recurring obligations, keep shopping lists and organise Documents, Contacts and Maintenance.
+**VergissMeinNicht** (**VMN**) helps households and teams organise everyday responsibilities in shared Workspaces. Write reusable Procedures, carry them out together, schedule recurring obligations, keep shopping lists and organise Documents, Contacts, Maintenance and Equipment.
 
 The interface focuses on clear actions, manageable steps and easy undo. Runs preserve what was done, by whom and when, independently of later edits to a Procedure. VMN is self-hosted, open source, and usable on phones and desktops, with Light and Dark themes.
 
@@ -44,7 +44,7 @@ The [documentation index](docs/README.md) links to all guides. Setup commands, f
 
 ## Project status
 
-VMN is in beta. Procedures, collaborative Runs, scheduling, email and optional Telegram reminders, grocery Lists, Documents, Contacts and Maintenance are implemented. Equipment, text recognition and Mail are planned. The [implementation ledger](docs/development/steps.md) records released work, validation gaps and upcoming changes, including implemented Workspace tool switches and scoped Today progress. New Workspaces start with all functional tools off; admins choose what to enable.
+VMN is in beta. Procedures, collaborative Runs, scheduling, email and optional Telegram reminders, grocery Lists, Documents, Contacts, Maintenance and Equipment are implemented. Text recognition and Mail are planned. The [implementation ledger](docs/development/steps.md) records released work, validation gaps and upcoming changes, including implemented Workspace tool switches and scoped Today progress. New Workspaces start with all functional tools off; admins choose what to enable.
 
 ## The name
 

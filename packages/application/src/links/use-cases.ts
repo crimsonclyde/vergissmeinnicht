@@ -123,7 +123,7 @@ export async function listDocumentLinks(deps: LinkDeps, input: Ref & { readonly 
   const on = await deps.tools.enabled(input.workspaceId);
   const membership = await authorizeWorkspace(deps, input.actor, input.workspaceId, 'workspace.view');
   const shown = (type: string): boolean =>
-    type === 'procedure' || type === 'run' ? on.includes('PROCEDURES') : type === 'contact' ? on.includes('CONTACTS') : type === 'maintenance' ? on.includes('MAINTENANCE') && roleHasCapability(membership.role, 'maintenance.view') : true;
+    type === 'procedure' || type === 'run' ? on.includes('PROCEDURES') : type === 'contact' ? on.includes('CONTACTS') : type === 'equipment' ? on.includes('EQUIPMENT') && roleHasCapability(membership.role, 'equipment.view') : type === 'maintenance' ? on.includes('MAINTENANCE') && roleHasCapability(membership.role, 'maintenance.view') : true;
   return { links: withoutHiddenTitles(found.links, seesTrash).filter((link) => shown(link.record.type)), runs: on.includes('PROCEDURES') ? found.runs : [] };
 }
 

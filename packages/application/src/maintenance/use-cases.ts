@@ -144,10 +144,11 @@ export async function maintenanceBoard(deps: MaintenanceDeps, input: Ref): Promi
 /** One page of the List, newest first, searched and filtered by status, category, responsible Contact and year. Never anything in Trash. */
 export async function findMaintenance(
   deps: MaintenanceDeps,
-  input: Ref & { readonly query: { readonly q?: string | undefined; readonly status?: string | undefined; readonly category?: string | undefined; readonly contact?: string | undefined; readonly year?: number | undefined }; readonly cursor?: unknown },
+  input: Ref & { readonly query: { readonly q?: string | undefined; readonly status?: string | undefined; readonly category?: string | undefined; readonly contact?: string | undefined; readonly year?: number | undefined; readonly equipment?: string | undefined }; readonly cursor?: unknown },
 ): Promise<MaintenanceListing> {
   const scope = await enter(deps, input, 'maintenance.view');
   const query = parseMaintenanceQuery(input.query);
+  if (query.equipmentId !== null) await authorizeTool(deps,input.actor,input.workspaceId,'EQUIPMENT','equipment.view');
   // A filter by Contact exists only where Contacts are shown.
   if (query.contactId !== null && !scope.contacts) throw new ToolNotEnabledError();
   let after: MaintenanceCursor | null = null;
@@ -238,7 +239,7 @@ export async function purgeMaintenanceTrash(deps: MaintenanceDeps, input: Ref & 
 // ---- Links: evidence (Documents), Procedures, Runs, Reminders. References — nothing is copied, nobody gains access.
 
 /** What each kind of linked record needs to be read by its own rules. */
-const VIEW_OF = { document: 'document.view', procedure: 'procedure.view', run: 'run.view', schedule: 'procedure.view' } as const;
+const VIEW_OF = { equipment:'equipment.view', document: 'document.view', procedure: 'procedure.view', run: 'run.view', schedule: 'procedure.view' } as const;
 
 export async function listMaintenanceLinks(deps: MaintenanceDeps, input: Ref & { readonly recordId: string }): Promise<MaintenanceLink[]> {
   const scope = await enter(deps, input, 'maintenance.view');

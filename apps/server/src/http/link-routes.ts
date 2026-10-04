@@ -48,8 +48,9 @@ function principalOf(request: FastifyRequest): Principal {
 const ref = (request: FastifyRequest, workspaceId: string) => ({ actor: principalOf(request).user, workspaceId: workspaceId as WorkspaceId });
 
 /** The other end of a Link: its kind, id, title and state — display names only, never content. */
-export const linkView = (link: Pick<LinkView, 'id' | 'record' | 'createdAt' | 'createdByName'>) => ({
+export const linkView = (link: Pick<LinkView, 'id' | 'record' | 'createdAt' | 'createdByName' | 'sourceType'>) => ({
   id: link.id,
+  sourceType:link.sourceType,
   record: {
     type: link.record.type,
     id: link.record.id,
@@ -57,6 +58,8 @@ export const linkView = (link: Pick<LinkView, 'id' | 'record' | 'createdAt' | 'c
     state: link.record.state,
     scheduleKind: link.record.scheduleKind ?? null,
     runState: link.record.runState ?? null,
+    maintenanceDate:link.record.maintenanceDate,
+    maintenanceStatus:link.record.maintenanceStatus,
     nextDue: link.record.nextDue ?? null,
     goneAt: link.record.goneAt?.toISOString() ?? null,
     goneBy: link.record.goneByName ?? null,

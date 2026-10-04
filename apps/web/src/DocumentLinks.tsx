@@ -12,10 +12,11 @@ import { ScheduleDialog } from './ScheduleDialog.tsx';
 import { UiIcon } from './ui-icons.tsx';
 
 /** Where a linked record can be opened, if it still can. Reminders have no page of their own: they are on the Reminders page. */
-function hrefOf(workspaceId: string, record: LinkedRecord): string {
+export function hrefOf(workspaceId: string, record: LinkedRecord): string {
   if (record.type === 'document') return paths.document(workspaceId, record.id);
   if (record.type === 'procedure') return paths.procedure(workspaceId, record.id);
   if (record.type === 'contact') return paths.contact(workspaceId, record.id);
+  if (record.type === 'equipment') return paths.equipmentRecord(workspaceId,record.id);
   if (record.type === 'maintenance') return paths.maintenanceRecord(workspaceId, record.id);
   if (record.type === 'run') return paths.run(workspaceId, record.id);
   return paths.reminders(workspaceId);

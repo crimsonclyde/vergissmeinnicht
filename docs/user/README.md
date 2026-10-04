@@ -5,8 +5,8 @@ Start with the [user guide](user-guide.md) for signing in, choosing a Workspace 
 - Procedures and collaborative Runs, including history and offline execution.
 - Today, Reminders, recurrence, Calendar and email or Telegram notifications.
 - Grocery Lists, themes and account preferences.
-- Documents, Contacts and Maintenance, where enabled by your Workspace admin.
+- Documents, Contacts, Maintenance and Equipment, where enabled by your Workspace admin.
 
-Equipment and Mail are planned. The [roadmap](../development/steps.md) also describes a future Today page with progress statistics and recent accomplishments, and switches for every Workspace tool. These changes are not available yet.
+Mail and text recognition are planned. Today includes scoped progress and recent accomplishments; Workspace admins choose all implemented functional tools. See the [roadmap](../development/steps.md) for implementation and release status.
 
 For installation and server operation, use the [admin documentation](../admin/README.md).

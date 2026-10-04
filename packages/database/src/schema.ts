@@ -1803,3 +1803,20 @@ export const runDocumentRemovals = sqliteTable(
     check('run_document_removals_reason_present', sql`length(trim(${table.reason})) > 0 and length(${table.reason}) <= 500`),
   ],
 );
+
+/** Appliances and installations (16.8). Linked records are references in links. */
+export const equipmentRecords = sqliteTable('equipment_records', {
+ id:text('id').primaryKey(),workspaceId:text('workspace_id').notNull().references(()=>workspaces.id),
+ name:text('name').notNull(), category:text('category').notNull().default(''),location:text('location').notNull().default(''),manufacturer:text('manufacturer').notNull().default(''),model:text('model').notNull().default(''),serialNumber:text('serial_number').notNull().default(''),purchaseDate:text('purchase_date'),warrantyExpiry:text('warranty_expiry'),notes:text('notes').notNull().default(''),
+ categoryKey:text('category_key').notNull(),locationKey:text('location_key').notNull(),manufacturerKey:text('manufacturer_key').notNull(),sortKey:text('sort_key').notNull(),searchText:text('search_text').notNull(),revision:integer('revision').notNull().default(1),
+ createdByUserId:text('created_by_user_id').notNull().references(()=>users.id),createdByDisplayName:text('created_by_display_name').notNull(),createdAt:integer('created_at',{mode:'timestamp_ms'}).notNull(),
+ updatedByUserId:text('updated_by_user_id').notNull().references(()=>users.id),updatedByDisplayName:text('updated_by_display_name').notNull(),updatedAt:integer('updated_at',{mode:'timestamp_ms'}).notNull(),
+ deletedAt:integer('deleted_at',{mode:'timestamp_ms'}),deletedByUserId:text('deleted_by_user_id').references(()=>users.id),deletedByDisplayName:text('deleted_by_display_name'),
+},table=>[
+ uniqueIndex('equipment_records_id_workspace_unique').on(table.id,table.workspaceId),index('equipment_records_list_idx').on(table.workspaceId,table.sortKey,table.id).where(sql`${table.deletedAt} is null`),
+ check('equipment_records_name_present',sql`length(trim(${table.name})) > 0 and length(${table.name}) <= 200`),
+ check('equipment_records_text_bounded',sql`length(${table.category}) <= 60 and length(${table.location}) <= 200 and length(${table.manufacturer}) <= 200 and length(${table.model}) <= 200 and length(${table.serialNumber}) <= 200 and length(${table.notes}) <= 4000`),
+ check('equipment_records_dates_format',sql`(${table.purchaseDate} is null or ${table.purchaseDate} glob '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]') and (${table.warrantyExpiry} is null or ${table.warrantyExpiry} glob '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]')`),
+ check('equipment_records_revision_positive',sql`${table.revision} >= 1`),
+ check('equipment_records_deletion_consistent',sql`(${table.deletedAt} is null) = (${table.deletedByUserId} is null) and (${table.deletedAt} is null) = (${table.deletedByDisplayName} is null)`),
+]);
