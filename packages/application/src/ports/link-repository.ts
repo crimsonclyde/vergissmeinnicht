@@ -89,6 +89,8 @@ export type LinkWrite<T> = ({ readonly status: 'ok' } & T) | { readonly status: 
  * nothing here grants access to either end.
  */
 export interface LinkRepository {
+  linkToolsEnabled(workspaceId: WorkspaceId, linkId: LinkId): Promise<boolean>;
+  targetToolEnabled(workspaceId: WorkspaceId, target: LinkTarget): Promise<boolean>;
   /** What a Document (not in Trash) is linked to, and the Runs that retain a version of it. `undefined` = no such Document. */
   listForDocument(workspaceId: WorkspaceId, documentId: DocumentId): Promise<{ readonly links: LinkView[]; readonly runs: RunLinkView[] } | undefined>;
   /** The Documents linked to a Procedure or a Schedule — as `LinkView`s whose record is the Document. */

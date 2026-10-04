@@ -37,18 +37,22 @@ export function createPreviewQueue(deps: PreviewDeps): PreviewQueue {
   let working: Promise<void> | undefined;
 
   async function finish(file: DocumentFileRecord): Promise<void> {
+    if (!(await deps.files.previewAllowed(file.id))) return;
     const pages = previewPageCount(file.format, file.pageCount);
     const path = await deps.store.locate(file.sha256);
     if (path === undefined) return deps.files.setPreviewState(file.id, 'FAILED', true);
     for (let page = 0; page < pages; page++) {
-      if ((await deps.files.findDerivative(file.workspaceId, file.id, 'PREVIEW', page)) !== undefined) continue;
+      if (!(await deps.files.previewAllowed(file.id))) return;
+      const previewExists = (await deps.files.findDerivative(file.workspaceId, file.id, 'PREVIEW', page)) !== undefined;
+      // A disable between storing page 1 and its thumbnail must leave both resumable.
+      if (previewExists && (page !== 0 || (await deps.files.findDerivative(file.workspaceId, file.id, 'THUMBNAIL', 0)) !== undefined)) continue;
       const image = await deps.processor.renderPage(path, file.format, page);
       if (image === undefined) return deps.files.setPreviewState(file.id, 'FAILED', true);
       const stored = await storePreviewPage(deps, file.id, page, image);
-      if (stored === 'gone') return;
+      if (stored === 'gone' || stored === 'paused') return;
       if (stored === 'storage_full') return deps.files.setPreviewState(file.id, 'PARTIAL', true);
     }
-    return deps.files.setPreviewState(file.id, 'READY', true);
+    if (await deps.files.previewAllowed(file.id)) await deps.files.setPreviewState(file.id, 'READY', true);
   }
 
   async function work(): Promise<void> {
@@ -60,7 +64,7 @@ export function createPreviewQueue(deps: PreviewDeps): PreviewQueue {
       } catch (error) {
         deps.onError?.(error);
         // Counted as an attempt; `resume` tries again until the attempts are used up.
-        await deps.files.setPreviewState(fileId, 'PENDING', true).catch(() => undefined);
+        if (await deps.files.previewAllowed(fileId).catch(() => false)) await deps.files.setPreviewState(fileId, 'PENDING', true).catch(() => undefined);
       }
     }
     working = undefined;

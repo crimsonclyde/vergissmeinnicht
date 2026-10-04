@@ -18,6 +18,7 @@ import type { KnotListEntry, KnotRepository } from '../ports/knot-repository.ts'
 import type { WorkspaceRepository } from '../ports/workspace-repository.ts';
 import { userActor } from '../user-actor.ts';
 import { WorkspaceNotFoundError } from '../workspaces/errors.ts';
+import { ToolNotEnabledError } from '../documents/errors.ts';
 import { authorizeWorkspace } from '../workspaces/use-cases.ts';
 import {
   KnotAlreadyRevokedError,
@@ -39,7 +40,7 @@ export interface KnotDeps {
 export const MAX_ACTIVE_KNOTS_PER_WORKSPACE = 500;
 export const KNOT_LIST_LIMIT = 1000;
 
-const manage = { actorMay: (role: Parameters<typeof roleHasCapability>[0]) => roleHasCapability(role, 'knot.manage') };
+const manage = { tool: 'PROCEDURES' as const, actorMay: (role: Parameters<typeof roleHasCapability>[0]) => roleHasCapability(role, 'knot.manage') };
 
 /**
  * Creates a Knot link to a Procedure or Run of the Workspace (`knot.manage`: EDITOR, ADMIN).
@@ -135,7 +136,7 @@ export async function resolveKnot(
   try {
     await authorizeWorkspace(deps, input.actor, knot.workspaceId, knot.target.type === 'PROCEDURE' ? 'procedure.view' : 'run.view');
   } catch (caught) {
-    if (caught instanceof WorkspaceNotFoundError || caught instanceof NotAuthorizedError) throw new KnotNotFoundError();
+    if (caught instanceof WorkspaceNotFoundError || caught instanceof NotAuthorizedError || caught instanceof ToolNotEnabledError) throw new KnotNotFoundError();
     throw caught;
   }
   if (!(await deps.knots.targetAvailable(knot))) throw new KnotNotFoundError();

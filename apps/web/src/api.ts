@@ -216,7 +216,19 @@ export interface ScheduleInput {
   readonly assigneeUserId: string | null;
 }
 
+export interface TodayProgress {
+  readonly filter: 'ALL' | 'MINE' | 'SHARED';
+  readonly weekFrom: string;
+  readonly weekTo: string;
+  readonly completedOccurrencesToday: number | null;
+  readonly completedRunsThisWeek: number | null;
+  readonly activeRuns: number | null;
+  readonly dueToday: number | null;
+  readonly recentlyCompleted: readonly { readonly type: 'run' | 'occurrence'; readonly id: string; readonly scheduleId: string | null; readonly title: string; readonly completedAt: string }[];
+}
+
 export interface HomeOverview {
+  readonly progress?: TodayProgress;
   readonly overdue: readonly Occurrence[];
   readonly today: readonly Occurrence[];
   /** The next 90 days. */
@@ -980,12 +992,12 @@ export const api = {
   createWorkspace: async (name: string) =>
     (await request<{ workspace: WorkspaceSummary }>('POST', '/workspaces', { name })).workspace,
   workspace: (id: string) =>
-    request<{ workspace: WorkspaceSummary; capabilities: string[]; tools: string[] }>('GET', `/workspaces/${encodeURIComponent(id)}`),
+    request<{ workspace: WorkspaceSummary; capabilities: string[]; tools: string[]; toolsRevision: number }>('GET', `/workspaces/${encodeURIComponent(id)}`),
   renameWorkspace: (id: string, name: string) =>
     request<undefined>('POST', `/workspaces/${encodeURIComponent(id)}/rename`, { name }),
   procedures: async (workspaceId: string) =>
     (await request<{ procedures: ProcedureCard[] }>('GET', `/workspaces/${encodeURIComponent(workspaceId)}/procedures`)).procedures,
-  home: (workspaceId: string) => request<HomeOverview>('GET', `/workspaces/${encodeURIComponent(workspaceId)}/home`),
+  home: (workspaceId: string, filter: 'ALL' | 'MINE' | 'SHARED' = 'ALL') => request<HomeOverview>('GET', `/workspaces/${encodeURIComponent(workspaceId)}/home?filter=${filter}`),
   calendar: (workspaceId: string, from: string, to: string) =>
     request<CalendarRange>('GET', `/workspaces/${encodeURIComponent(workspaceId)}/calendar?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`),
   pinProcedure: (workspaceId: string, id: string, pinned: boolean) =>
@@ -1021,7 +1033,7 @@ export const api = {
   unlinkRun: async (workspaceId: string, id: string) =>
     (await request<{ occurrence: Occurrence }>('POST', `${occurrencePath(workspaceId, id)}/unlink-run`, {})).occurrence,
   // Optional tools of a Workspace (16.2).
-  setWorkspaceTool: async (workspaceId: string, tool: string, enabled: boolean) => (await request<{ tools: string[] }>('POST', `/workspaces/${encodeURIComponent(workspaceId)}/tools`, { tool, enabled })).tools,
+  setWorkspaceTool: (workspaceId: string, tool: string, enabled: boolean, expectedRevision: number) => request<{ tools: string[]; revision: number }>('POST', `/workspaces/${encodeURIComponent(workspaceId)}/tools`, { tool, enabled, expectedRevision }),
   // Documents (16.1, 16.2).
   uploadDocumentFile,
   documentFile: async (workspaceId: string, fileId: string) => (await request<{ file: DocumentFile }>('GET', documentFilePath(workspaceId, fileId).slice('/api'.length))).file,

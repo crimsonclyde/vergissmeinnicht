@@ -27,7 +27,7 @@ import { createSecurityEventReader } from './security-events.ts';
 import { createMfaChallengeRepository, createTotpRepository } from './mfa-repository.ts';
 import { createTestDatabase } from './test-support.ts';
 import { createUserRepository } from './user-repository.ts';
-import { createWorkspaceRepository } from './workspace-repository.ts';
+import { createConfiguredWorkspaceRepository as createWorkspaceRepository } from './test-support.ts';
 
 const ADMIN_PASSWORD = 'admin passphrase for status';
 const PASSWORD = 'member passphrase 12345';

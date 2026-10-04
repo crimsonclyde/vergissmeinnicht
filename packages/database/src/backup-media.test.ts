@@ -13,7 +13,7 @@ import { runMigrations } from './migrate.ts';
 import { createProcedureRepository } from './procedure-repository.ts';
 import { createRunRepository } from './run-repository.ts';
 import { createUserRepository } from './user-repository.ts';
-import { createWorkspaceRepository } from './workspace-repository.ts';
+import { createConfiguredWorkspaceRepository as createWorkspaceRepository } from './test-support.ts';
 
 const passThrough = { process: async (input: Uint8Array) => ({ jpeg: input, width: 10, height: 10 }) };
 const STEP = { description: '', icon: null, required: true, critical: false, skipReasonPolicy: 'OPTIONAL', notApplicableReasonPolicy: 'OPTIONAL' } as const;

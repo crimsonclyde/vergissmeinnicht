@@ -29,6 +29,7 @@ import { and, asc, count, desc, eq, inArray, isNotNull, isNull, lt, ne, or, sql,
 import { IMMEDIATE, actorAllowed, type Transaction, type UserActor } from './actor-guard.ts';
 import { recordAuditEvent } from './audit-events.ts';
 import type { AppDatabase } from './connection.ts';
+import { recordToolEnabled, toolEnabled as linkedToolEnabled } from './tool-policy.ts';
 import { linkedRecord, markLinksOfPurged } from './link-repository.ts';
 import { contacts, links, maintenanceRecords, workspaceTools } from './schema.ts';
 
@@ -130,6 +131,7 @@ const day = (at: Date): string => at.toISOString().slice(0, 10);
 /** The responsible Contact must be a Contact of this Workspace that is not in Trash. */
 function requireContact(tx: Reader, workspaceId: string, contactId: string | null): void {
   if (contactId === null) return;
+  if (!linkedToolEnabled(tx, workspaceId, 'CONTACTS')) throw new Refusal('contact_not_found');
   const contact = tx
     .select({ id: contacts.id })
     .from(contacts)
@@ -381,7 +383,7 @@ export function createMaintenanceRepository({ db }: Pick<AppDatabase, 'db'>): Ma
         .where(and(eq(links.workspaceId, workspaceId), eq(links.fromType, 'maintenance'), eq(links.fromId, recordId)))
         .orderBy(asc(links.createdAt), asc(links.id))
         .all()
-        .filter((row) => scope.documents || row.toType !== 'document')
+        .filter((row) => (scope.documents || row.toType !== 'document') && recordToolEnabled(db, workspaceId, row.toType, row.toId))
         .map((row) => linkOf(db, row));
     },
 
@@ -390,6 +392,7 @@ export function createMaintenanceRepository({ db }: Pick<AppDatabase, 'db'>): Ma
         const current = liveRecord(tx, input.workspaceId, input.recordId);
         if (current === undefined) throw new Refusal('record_not_found');
         // A Document only where the Documents tool is on: a tool that is off does not exist.
+        if (!recordToolEnabled(tx, input.workspaceId, input.target.type, input.target.id)) throw new Refusal('target_not_found');
         if (input.target.type === 'document' && !input.scope.documents) throw new Refusal('target_not_found');
         // The other end must be a record of this Workspace that is there. (The database checks the Workspace once more.)
         const target = linkedRecord(tx, input.workspaceId, input.target.type, input.target.id, { at: null, by: null });

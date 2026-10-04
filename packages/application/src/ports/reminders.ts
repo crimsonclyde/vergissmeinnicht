@@ -58,6 +58,8 @@ export interface CatchUpSummary {
  * claim held longer than the lease counts as interrupted and may be retried (bounded attempts).
  */
 export interface ReminderQueue {
+  /** Canonical source, state and role immediately before sending; absent while source tool is off. */
+  current(reminderId: string): Promise<DueReminder | undefined>;
   /** Unprocessed, not cancelled reminders due at `now` (not waiting for a retry, not in a summary), oldest first. */
   due(now: Date, limit: number): Promise<DueReminder[]>;
   claim(reminderId: string, channel: NotificationChannel, now: Date, leaseMs: number): Promise<DeliveryClaim>;

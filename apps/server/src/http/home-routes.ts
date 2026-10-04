@@ -1,4 +1,4 @@
-import { getHome, occurrencesInRange } from '@vergissmeinnicht/application';
+import { getTodayProgress, getHome, occurrencesInRange } from '@vergissmeinnicht/application';
 import { UUID_V4, type WorkspaceId } from '@vergissmeinnicht/domain';
 import type { FastifyInstance, FastifyRequest } from 'fastify';
 import { z } from 'zod';
@@ -25,8 +25,12 @@ export async function homeRoutes(app: FastifyInstance, { services }: { services:
   app.get('/', async (request) => {
     const parsed = workspaceParams.safeParse(request.params);
     if (!parsed.success) throw new InvalidRequestError();
-    const home = await getHome(services.home, { actor: principalOf(request).user, workspaceId: parsed.data.workspaceId as WorkspaceId });
+    const query = z.strictObject({ filter: z.enum(['ALL', 'MINE', 'SHARED']).default('ALL') }).safeParse(request.query);
+    if (!query.success) throw new InvalidRequestError();
+    const progress = await getTodayProgress(services.today, { actor: principalOf(request).user, workspaceId: parsed.data.workspaceId as WorkspaceId, filter: query.data.filter });
+    const home = await getHome(services.home, { actor: principalOf(request).user, workspaceId: parsed.data.workspaceId as WorkspaceId, filter: query.data.filter });
     return {
+      progress,
       overdue: home.overdue.map(occurrenceView),
       today: home.today.map(occurrenceView),
       upcoming: home.upcoming.map(occurrenceView),

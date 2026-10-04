@@ -77,7 +77,7 @@ export async function startRun(
       fromOccurrence: input.fromOccurrence,
     },
     userActor(input.actor),
-    { actorMay: (role) => roleHasCapability(role, 'run.start') },
+    { tool: 'PROCEDURES' as const, actorMay: (role) => roleHasCapability(role, 'run.start') },
   );
   switch (result.status) {
     case 'ok':
@@ -181,7 +181,7 @@ export async function changeStepState(
       offline,
     },
     userActor(input.actor),
-    { actorMay: (role) => roleHasCapability(role, 'run.execute') },
+    { tool: 'PROCEDURES' as const, actorMay: (role) => roleHasCapability(role, 'run.execute') },
     (current) => validateStepTransition(current, input.to, input.reason),
   );
   switch (result.status) {
@@ -250,7 +250,7 @@ export async function completeRun(
     await deps.runs.finish(
       { workspaceId: input.workspaceId, runId: input.runId, to: 'COMPLETED', at: deps.clock.now() },
       userActor(input.actor),
-      { actorMay: (role) => roleHasCapability(role, 'run.execute') },
+      { tool: 'PROCEDURES' as const, actorMay: (role) => roleHasCapability(role, 'run.execute') },
       (steps) => {
         const blockers = completionBlockers(steps);
         if (blockers.length > 0) throw new RunIncompleteError(blockers.length);
@@ -272,7 +272,7 @@ export async function abortRun(
     await deps.runs.finish(
       { workspaceId: input.workspaceId, runId: input.runId, to: 'ABORTED', at: deps.clock.now() },
       userActor(input.actor),
-      { actorMay: (role) => roleHasCapability(role, 'run.abort') },
+      { tool: 'PROCEDURES' as const, actorMay: (role) => roleHasCapability(role, 'run.abort') },
       () => ({ reason }),
     ),
   );

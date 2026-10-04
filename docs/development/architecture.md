@@ -27,6 +27,7 @@ User-facing text lives in `apps/web/src/i18n/en.ts` and is looked up with `t(key
 ### Testing
 - Vitest for unit/integration tests
 - Playwright for end-to-end/browser tests
+- Independent private database fixtures cloned from real migrated empty-schema bytes; upgrade tests run the migrator directly. CI quality/browser/native-image checks run concurrently behind one fail-closed aggregate gate.
 
 ### Package manager
 - pnpm preferred
@@ -415,6 +416,8 @@ Ports (`packages/application/src/ports/media.ts`): `ImageProcessor` and `MediaSt
 
 ## Document files (Step 16.1)
 
+Independent review (2026-10-03): file registration re-checks the Documents switch in its IMMEDIATE transaction. Preview processing checks it before each page and when registering a derivative. Disabled files remain PENDING with no extra retry attempt or quota charge; resume scans select only enabled Workspaces. The existing hourly/startup scan continues unfinished previews after re-enable. A render already in progress may finish, leaving only unreachable orphan bytes if registration is refused; housekeeping applies unchanged. Upload responses re-check authorization after asynchronous processing.
+
 The foundation under Documents: files. An uploaded file is provisional — removed after 24 hours — until it becomes a page of a Document (16.2, next section).
 
 ```text
@@ -443,7 +446,7 @@ serve:   GET …/document-files/:id            facts (format, pages, preview pro
 
 ```text
 GET  /api/workspaces/{id}/tools                         every member: which optional tools are on (also in GET /workspaces and /workspaces/{id})
-POST /api/workspaces/{id}/tools { tool, enabled }       workspace.tools.manage (ADMIN); audited; never touches content
+POST /api/workspaces/{id}/tools { tool, enabled, expectedRevision }  workspace.tools.manage (ADMIN); audited; never touches content
 GET  /api/workspaces/{id}/document-folders              document.view: the whole tree (live Folders, with their Document counts)
 POST /api/workspaces/{id}/document-folders { name, parentId }                       document.manage
 POST …/document-folders/{fid}/rename|move { …, expectedRevision }  ·  /delete  ·  /restore
@@ -458,6 +461,7 @@ GET|POST …/document-types  ·  POST …/document-types/{tid}/rename|retire
 ```
 
 - **Optional tools** (`workspace_tools`, `packages/application/src/documents/tools.ts`): `authorizeTool(actor, workspace, tool, capability)` is the gate of every route of an optional tool — membership, then the switch, then the capability — and repositories check the switch again inside their write transaction. A tool that is off is `404 tool_not_enabled` for everyone. The web shell gets the enabled tools with the Workspace list and adds them to the sidebar and to **More**; the phone bar keeps four destinations (`destinations(workspaceId, tools)`). Further tools add a value to `WORKSPACE_TOOLS`, their routes behind `authorizeTool`, and a navigation entry.
+- **Versioned settings** (migration 0035): `GET /tools` and its POST response return `{ tools, revision }`; Workspace detail includes `toolsRevision`. POST requires `expectedRevision`; the IMMEDIATE transaction checks it before a change or no-op and returns 409 on conflict. Actual changes increment revision and write their audit together; a no-op does neither. Existing flags and history are preserved on upgrade.
 - **Model** (`packages/domain/src/document.ts`, migration 0028): `document_folders` (a tree by `parent_id`; `name_key` for sibling uniqueness), `documents` (title, optional type — a built-in key or a row of `document_types` —, document date, year, notes, tags; `created_*` = uploaded, immutable; `updated_*` = last modified), `document_pages` (ordered file ids; a file is a page of one Document; this table is what keeps an uploaded file). Folder and Document carry a `revision` for compare-and-set.
 - **Tree rules are pure** and shared: placement (cycle, depth, sibling name), restore target and restored name are functions over a list of Folders, used by the repository on the tree it reads inside its `IMMEDIATE` transaction and tested on their own, including a randomised invariant test. A trigger and indexes repeat the essential ones in the database.
 - **Trash**: `deleted_at / by` on Folders and Documents. Deleting a Folder marks everything live below it with that Folder's id (`deleted_with_folder_id`), which makes "restore what went with it" exact and leaves what was deleted separately alone. Restoring a part of a trashed Folder moves it to the nearest ancestor that still exists. Nothing is ever deleted by this step (triggers refuse it); permanent deletion and the storage view are 16.4.
@@ -634,3 +638,11 @@ Do not implement yet, but avoid coupling that prevents:
 - in-process background jobs (reminders, later previews, text recognition, mail synchronisation) -> a separate worker process of the same deployment.
 
 These potential extensions do not justify microservices in V1.
+
+### Optional core tools and Today reporting (17.1–17.2)
+
+All seven implemented tools are Workspace flags. New Workspaces insert none; migration 0036 enables Procedures, Reminders, Lists and Calendar on upgrade and preserves existing house flags. Equipment/Mail are absent until implemented. Today, Workspace selection/membership/settings are structural. Phone navigation retains Today and More and conditionally adds Procedures/Lists (two to four destinations).
+
+`toolForCapability` centralises application defaults; structural and source-aware Schedule operations explicitly override it. Repository actor guards enforce switches in mutation transactions; source-aware SQL filters Schedule/Occurrence reads and generator candidates before limits. Links require both source tools; retained-only Run file access additionally requires Procedures. Calendar controls only its view. Notification workers select/claim canonical enabled source records and reread immediately before sending; mixed catch-up summaries exclude disabled members. Normal queued deliveries and recurrence anchors survive disable. Source reenable marks unprocessed notifications older than 24 hours superseded in the same flag/revision/audit transaction; it never completes or changes an Occurrence. Disabling is not storage reclamation.
+
+`TodayRepository.read` rechecks membership, capabilities and flags in a transaction and computes SQL counts with assignment filters. Occurrence reporting uses each Schedule's local date; the SQLite deterministic `vmn_local_date` function delegates to domain time-zone logic. Run weeks are labelled UTC Monday–Sunday. Only canonical completed states count; unlinked Runs are Shared. Bounded activity queries read ten rows per source, deduplicate linked completed Runs, merge ten, and the UI shows three. A read-only history view reuses the source-aware Schedule endpoint. No materialised metrics, new cache, queue or analytics service.

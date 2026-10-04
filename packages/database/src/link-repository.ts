@@ -19,6 +19,7 @@ import { and, asc, count, desc, eq, inArray, isNull, or, sql } from 'drizzle-orm
 import { IMMEDIATE, actorAllowed, type Transaction, type UserActor } from './actor-guard.ts';
 import { recordAuditEvent } from './audit-events.ts';
 import type { AppDatabase } from './connection.ts';
+import { recordToolEnabled } from './tool-policy.ts';
 import { fileRecords } from './document-file-repository.ts';
 import { contacts, maintenanceRecords, documentFileDerivatives, documentFiles, documentPages, documentTypes, documents, links, occurrences, procedures, runDocumentFiles, runDocumentRemovals, runDocuments, runs, schedules, workspaceTools } from './schema.ts';
 
@@ -55,7 +56,7 @@ export function linkedRecord(tx: Reader, workspaceId: string, kind: string, id: 
     const row = tx
       .select({ title: runs.title, state: runs.state })
       .from(runs)
-      .where(and(eq(runs.workspaceId, workspaceId), eq(runs.id, id)))
+      .where(and(sql`exists (select 1 from workspace_tools where workspace_id = ${workspaceId} and tool = 'PROCEDURES' and enabled = 1)`, eq(runs.workspaceId, workspaceId), eq(runs.id, id)))
       .get();
     return row === undefined ? { type: 'run', id, title: null, state: 'gone' } : { type: 'run', id, title: row.title, state: 'ok', runState: row.state };
   }
@@ -206,6 +207,13 @@ export function createLinkRepository({ db }: Pick<AppDatabase, 'db'>): LinkRepos
   }
 
   return {
+    async linkToolsEnabled(workspaceId, linkId) {
+      return db.transaction((tx) => {
+        const row = tx.select().from(links).where(and(eq(links.workspaceId, workspaceId), eq(links.id, linkId), eq(links.fromType, 'document'))).get();
+        return row !== undefined && recordToolEnabled(tx, workspaceId, row.fromType, row.fromId) && recordToolEnabled(tx, workspaceId, row.toType, row.toId);
+      });
+    },
+    async targetToolEnabled(workspaceId, target) { return recordToolEnabled(db, workspaceId, target.type, target.id); },
     async listForDocument(workspaceId, documentId) {
       if (liveDocument(db, workspaceId, documentId) === undefined) return undefined;
       const rows = db.select().from(links).where(linksOf(workspaceId, documentId)).orderBy(asc(links.createdAt), asc(links.id)).all();
@@ -218,7 +226,7 @@ export function createLinkRepository({ db }: Pick<AppDatabase, 'db'>): LinkRepos
         .orderBy(desc(runDocuments.linkedAt))
         .all();
       return {
-        links: rows.map((row) => viewFrom(db, row, documentId)),
+        links: rows.filter((row) => recordToolEnabled(db, workspaceId, row.fromType, row.fromId) && recordToolEnabled(db, workspaceId, row.toType, row.toId)).map((row) => viewFrom(db, row, documentId)),
         runs: retained.map(
           (row): RunLinkView => ({
             id: row.link.id as RunDocumentId,
@@ -234,6 +242,7 @@ export function createLinkRepository({ db }: Pick<AppDatabase, 'db'>): LinkRepos
     },
 
     async listForTarget(workspaceId, target) {
+      if (!recordToolEnabled(db, workspaceId, target.type, target.id)) return [];
       return db
         .select()
         .from(links)
@@ -250,7 +259,7 @@ export function createLinkRepository({ db }: Pick<AppDatabase, 'db'>): LinkRepos
         // The other end must be a record of this Workspace that is there: a Document or Contact not in
         // Trash, a Procedure that is not deleted, a Schedule. (The database checks the Workspace once more.)
         // A Contact only where the Contacts tool is on: a tool that is off does not exist.
-        if (input.target.type === 'contact' && !toolEnabled(tx, input.workspaceId, 'CONTACTS')) throw new Refusal('target_not_found');
+        if (!recordToolEnabled(tx, input.workspaceId, input.target.type, input.target.id)) throw new Refusal('target_not_found');
         const target = linkedRecord(tx, input.workspaceId, input.target.type, input.target.id, { at: null, by: null });
         if (target.state === 'gone' || target.state === 'deleted' || target.state === 'trash') throw new Refusal('target_not_found');
         const [fromId, toId] = input.target.type === 'document' ? relatedPair(input.documentId, input.target.id as DocumentId) : [input.documentId, input.target.id];
@@ -290,6 +299,7 @@ export function createLinkRepository({ db }: Pick<AppDatabase, 'db'>): LinkRepos
           // A Document's Link only: a Link between a Contact and a Procedure is the Contacts tool's to remove.
           .where(and(eq(links.workspaceId, input.workspaceId), eq(links.id, input.linkId), eq(links.fromType, 'document')))
           .get();
+        if (row !== undefined && (!recordToolEnabled(tx, input.workspaceId, row.fromType, row.fromId) || !recordToolEnabled(tx, input.workspaceId, row.toType, row.toId))) throw new Refusal('link_not_found');
         if (row === undefined) throw new Refusal('link_not_found');
         tx.delete(links).where(eq(links.id, row.id)).run();
         const from = documentRecord(tx, input.workspaceId, row.fromId, { at: row.fromGoneAt, by: row.fromGoneByDisplayName });
@@ -311,7 +321,7 @@ export function createLinkRepository({ db }: Pick<AppDatabase, 'db'>): LinkRepos
       const run = db
         .select({ id: runs.id })
         .from(runs)
-        .where(and(eq(runs.workspaceId, workspaceId), eq(runs.id, runId)))
+        .where(and(sql`exists (select 1 from workspace_tools where workspace_id = ${workspaceId} and tool = 'PROCEDURES' and enabled = 1)`, eq(runs.workspaceId, workspaceId), eq(runs.id, runId)))
         .get();
       if (run === undefined) return undefined;
       const kept = db
@@ -333,6 +343,7 @@ export function createLinkRepository({ db }: Pick<AppDatabase, 'db'>): LinkRepos
 
     async removeFromFinishedRun(input, actor, guard) {
       return write(input.workspaceId, actor, guard, (tx) => {
+        if (!toolEnabled(tx, input.workspaceId, 'PROCEDURES')) throw new Refusal('run_not_found');
         const row = tx
           .select({ link: runDocuments, state: runs.state })
           .from(runDocuments)
@@ -393,10 +404,11 @@ export function createLinkRepository({ db }: Pick<AppDatabase, 'db'>): LinkRepos
 
     async linkRun(input, actor, guard) {
       return write(input.workspaceId, actor, guard, (tx) => {
+        if (!toolEnabled(tx, input.workspaceId, 'PROCEDURES')) throw new Refusal('run_not_found');
         const run = tx
           .select({ id: runs.id, title: runs.title })
           .from(runs)
-          .where(and(eq(runs.workspaceId, input.workspaceId), eq(runs.id, input.runId)))
+          .where(and(sql`exists (select 1 from workspace_tools where workspace_id = ${input.workspaceId} and tool = 'PROCEDURES' and enabled = 1)`, eq(runs.workspaceId, input.workspaceId), eq(runs.id, input.runId)))
           .get();
         if (run === undefined) throw new Refusal('run_not_found');
         const document = liveDocument(tx, input.workspaceId, input.documentId);
@@ -450,6 +462,7 @@ export function createLinkRepository({ db }: Pick<AppDatabase, 'db'>): LinkRepos
 
     async unlinkRun(input, actor, guard) {
       return write(input.workspaceId, actor, guard, (tx) => {
+        if (!toolEnabled(tx, input.workspaceId, 'PROCEDURES')) throw new Refusal('run_not_found');
         const row = tx
           .select({ link: runDocuments, state: runs.state })
           .from(runDocuments)

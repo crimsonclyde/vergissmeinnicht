@@ -173,6 +173,12 @@ test('first server admin: bootstrap link, account creation, sign-in, Workspace c
   await expect(page.getByRole('alert').filter({ hasText: 'at least one active admin' })).toBeVisible();
   await expect(page.getByText('Your role: Admin')).toBeVisible();
   await expectAccessible(page, 'workspace settings');
+  // A fresh Workspace starts empty; configure the tools explicitly through the admin UI.
+  await expect(page.getByRole('navigation', { name: 'Tools' }).getByRole('link')).toHaveText(['Today']);
+  for (const tool of ['Procedures', 'Reminders', 'Lists', 'Calendar']) {
+    await page.getByRole('checkbox', { name: new RegExp(`^${tool}`) }).check();
+    await expect(page.getByRole('checkbox', { name: new RegExp(`^${tool}`) })).toBeEnabled();
+  }
   // The tools (15.1): a persistent sidebar on desktop.
   const sections = page.getByRole('navigation', { name: 'Tools' });
   await expect(sections.getByRole('link')).toHaveText(['Today', 'Procedures', 'Reminders', 'Lists', 'Calendar']);

@@ -246,6 +246,20 @@
       "when": 1790959150440,
       "tag": "0034_maintenance",
       "breakpoints": true
+    },
+    {
+      "idx": 35,
+      "version": "6",
+      "when": 1791010980983,
+      "tag": "0035_workspace_tool_revision",
+      "breakpoints": true
+    },
+    {
+      "idx": 36,
+      "version": "6",
+      "when": 1791101328472,
+      "tag": "0036_optional_core_tools",
+      "breakpoints": true
     }
   ]
 }

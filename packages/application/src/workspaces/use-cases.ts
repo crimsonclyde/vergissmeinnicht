@@ -8,12 +8,14 @@ import {
   type Workspace,
   type WorkspaceId,
   type WorkspaceRole,
+  type WorkspaceTool,
 } from '@vergissmeinnicht/domain';
 import {
   canCreateWorkspace,
   capabilitiesOf,
   roleHasCapability,
   rolesWithCapability,
+  toolForCapability,
   type WorkspaceCapability,
 } from '@vergissmeinnicht/permissions';
 import { NotAuthorizedError } from '../invitations/errors.ts';
@@ -26,6 +28,7 @@ import type {
   WorkspaceRepository,
 } from '../ports/workspace-repository.ts';
 import { UnknownAccountError } from '../recovery/errors.ts';
+import { ToolNotEnabledError } from '../documents/errors.ts';
 import { userActor } from '../user-actor.ts';
 import {
   AlreadyMemberError,
@@ -54,9 +57,11 @@ export async function authorizeWorkspace(
   actor: User,
   workspaceId: WorkspaceId,
   capability: WorkspaceCapability,
+  tool: WorkspaceTool | null = toolForCapability(capability),
 ): Promise<Membership> {
   const membership = canAuthenticate(actor) ? await deps.workspaces.findMembership(workspaceId, actor.id) : undefined;
   if (membership === undefined) throw new WorkspaceNotFoundError();
+  if (tool !== null && !(await deps.workspaces.enabledTools(workspaceId)).includes(tool)) throw new ToolNotEnabledError();
   if (!roleHasCapability(membership.role, capability)) throw new NotAuthorizedError();
   return membership;
 }

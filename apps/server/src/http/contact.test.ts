@@ -46,8 +46,8 @@ describe('Contacts over HTTP (16.6)', () => {
     expect(error(await t.get(`${api()}/contacts`, owner))).toEqual({ status: 404, error: 'tool_not_enabled' });
     expect(error(await t.post(`${api()}/contacts`, { name: 'Early' }, owner))).toEqual({ status: 404, error: 'tool_not_enabled' });
     expect(error(await t.post(`${api()}/tools`, { tool: 'CONTACTS', enabled: true }, user))).toEqual({ status: 403, error: 'forbidden' });
-    expect((await t.post(`${api()}/tools`, { tool: 'CONTACTS', enabled: true }, owner)).json()).toEqual({ tools: ['CONTACTS'] });
-    expect((await t.get(`${api()}`, guest)).json()).toMatchObject({ tools: ['CONTACTS'], capabilities: expect.arrayContaining(['contact.view']) });
+    expect((await t.post(`${api()}/tools`, { tool: 'CONTACTS', enabled: true }, owner)).json()).toEqual({ tools: ['CALENDAR', 'CONTACTS', 'LISTS', 'PROCEDURES', 'REMINDERS'], revision: 1 });
+    expect((await t.get(`${api()}`, guest)).json()).toMatchObject({ tools: ['CALENDAR', 'CONTACTS', 'LISTS', 'PROCEDURES', 'REMINDERS'], capabilities: expect.arrayContaining(['contact.view']) });
     expect((await t.get(`${api()}/contacts`, guest)).json()).toEqual({ contacts: [], nextCursor: null, total: 0 });
   });
 

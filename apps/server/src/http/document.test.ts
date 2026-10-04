@@ -38,7 +38,7 @@ describe('Folders and Documents over HTTP (16.2)', () => {
   afterAll(async () => t.close());
 
   it('does not exist until a Workspace admin switches Documents on; then every member sees it', async () => {
-    expect((await t.get(api(), user)).json().tools).toEqual([]);
+    expect((await t.get(api(), user)).json().tools).toEqual(['CALENDAR', 'LISTS', 'PROCEDURES', 'REMINDERS']);
     for (const [method, path, body] of [
       ['GET', '/document-folders', undefined],
       ['GET', '/documents', undefined],
@@ -61,13 +61,13 @@ describe('Folders and Documents over HTTP (16.2)', () => {
     expect((await t.post(`${api()}/tools`, { tool: 'DOCUMENTS', enabled: true })).statusCode).toBe(401);
     expect(error(await t.post(`${api()}/tools`, { tool: 'MAIL', enabled: true }, owner))).toEqual({ status: 400, error: 'invalid_tool' });
     expect((await t.post(`${api()}/tools`, { tool: 'DOCUMENTS', enabled: true, forAll: true }, owner)).statusCode).toBe(400);
-    expect((await t.post(`${api()}/tools`, { tool: 'DOCUMENTS', enabled: true }, owner)).json()).toEqual({ tools: ['DOCUMENTS'] });
+    expect((await t.post(`${api()}/tools`, { tool: 'DOCUMENTS', enabled: true }, owner)).json()).toEqual({ tools: ['CALENDAR', 'DOCUMENTS', 'LISTS', 'PROCEDURES', 'REMINDERS'], revision: 1 });
     for (const cookie of [owner, user, guest]) {
-      expect((await t.get(api(), cookie)).json().tools).toEqual(['DOCUMENTS']);
-      expect((await t.get(`${api()}/tools`, cookie)).json()).toEqual({ tools: ['DOCUMENTS'] });
+      expect((await t.get(api(), cookie)).json().tools).toEqual(['CALENDAR', 'DOCUMENTS', 'LISTS', 'PROCEDURES', 'REMINDERS']);
+      expect((await t.get(`${api()}/tools`, cookie)).json()).toEqual({ tools: ['CALENDAR', 'DOCUMENTS', 'LISTS', 'PROCEDURES', 'REMINDERS'], revision: 1 });
       expect((await t.get(`${api()}/document-folders`, cookie)).json()).toEqual({ folders: [] }); // nothing is pre-created
     }
-    expect((await t.get(api(office), outsider)).json().tools).toEqual([]);
+    expect((await t.get(api(office), outsider)).json().tools).toEqual(['CALENDAR', 'LISTS', 'PROCEDURES', 'REMINDERS']);
   });
 
   it("the user's example over the API: a Water folder, three photos as one bill, ordered, dated, previewed, downloaded", async () => {
@@ -95,6 +95,22 @@ describe('Folders and Documents over HTTP (16.2)', () => {
     const body = JSON.stringify(seen);
     expect(body).not.toMatch(/@example\.org|[0-9a-f]{64}/);
     expect(body).not.toContain('userId');
+  });
+
+  it('requires a version and rejects concurrent stale settings without changing tools', async () => {
+    const settings = (await t.get(`${api()}/tools`, owner)).json();
+    const write = (payload: object) => t.app.inject({ method: 'POST', url: `${api()}/tools`, headers: { origin: ORIGIN, cookie: owner }, payload });
+    expect((await write({ tool: 'CONTACTS', enabled: true })).statusCode).toBe(400);
+    const results = await Promise.all([
+      write({ tool: 'CONTACTS', enabled: true, expectedRevision: settings.revision }),
+      write({ tool: 'MAINTENANCE', enabled: true, expectedRevision: settings.revision }),
+    ]);
+    expect(results.map((result) => result.statusCode).sort()).toEqual([200, 409]);
+    expect(results.find((result) => result.statusCode === 409)?.json()).toEqual({ error: 'tool_settings_conflict' });
+    const updated = (await t.get(`${api()}/tools`, owner)).json();
+    expect(updated.revision).toBe(settings.revision + 1);
+    const added = updated.tools.find((tool: string) => !settings.tools.includes(tool));
+    await t.post(`${api()}/tools`, { tool: added, enabled: false, expectedRevision: updated.revision }, owner);
   });
 
   it('refuses a GUEST on every write and an outsider on everything, with ids of Home under Office resolving to nothing', async () => {
@@ -265,9 +281,9 @@ describe('Folders and Documents over HTTP (16.2)', () => {
   });
 
   it('hides everything again when the admin switches the tool off, and writes nothing of a Document to the log', async () => {
-    expect((await t.post(`${api()}/tools`, { tool: 'DOCUMENTS', enabled: false }, owner)).json()).toEqual({ tools: [] });
+    expect((await t.post(`${api()}/tools`, { tool: 'DOCUMENTS', enabled: false }, owner)).json()).toMatchObject({ tools: ['CALENDAR', 'LISTS', 'PROCEDURES', 'REMINDERS'] });
     expect(error(await t.get(`${api()}/document-folders`, owner))).toEqual({ status: 404, error: 'tool_not_enabled' });
-    expect((await t.get(api(), guest)).json().tools).toEqual([]);
+    expect((await t.get(api(), guest)).json().tools).toEqual(['CALENDAR', 'LISTS', 'PROCEDURES', 'REMINDERS']);
     await t.post(`${api()}/tools`, { tool: 'DOCUMENTS', enabled: true }, owner);
     expect((await t.get(`${api()}/document-folders`, guest)).json().folders).toHaveLength(2);
     // … nor anything that was searched for (query strings are not logged).

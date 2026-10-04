@@ -5,6 +5,7 @@ import type { LocalDate, LocalTime, TimeZoneName } from '@vergissmeinnicht/domai
 import { IMMEDIATE, type Transaction } from './actor-guard.ts';
 import type { AppDatabase } from './connection.ts';
 import { memberships, notificationSummaries, occurrences, procedures, reminderDeliveries, scheduledReminders, schedules, users, workspaces } from './schema.ts';
+import { enabledScheduleSource } from './tool-policy.ts';
 import { toUser } from './user-repository.ts';
 
 const FINAL = ['SENT', 'FAILED', 'SKIPPED'] as const;
@@ -91,10 +92,15 @@ export function createReminderQueue({ db }: Pick<AppDatabase, 'db'>): ReminderQu
   const unprocessed = and(isNull(scheduledReminders.processedAt), isNull(scheduledReminders.cancelledAt));
 
   return {
+    async current(reminderId) {
+      const row = selectDue(db).where(and(enabledScheduleSource, eq(scheduledReminders.id, reminderId), isNull(scheduledReminders.supersededAt), isNull(scheduledReminders.cancelledAt))).get();
+      return row === undefined ? undefined : toDue(row);
+    },
     async due(now, limit) {
       return selectDue(db)
         .where(
           and(
+            enabledScheduleSource,
             unprocessed,
             lte(scheduledReminders.remindAt, now),
             or(isNull(scheduledReminders.nextAttemptAt), lte(scheduledReminders.nextAttemptAt, now)),
@@ -115,6 +121,7 @@ export function createReminderQueue({ db }: Pick<AppDatabase, 'db'>): ReminderQu
 
     async claim(reminderId, channel, now, leaseMs) {
       return db.transaction((tx): DeliveryClaim => {
+        if (selectDue(tx).where(and(enabledScheduleSource, eq(scheduledReminders.id, reminderId), isNull(scheduledReminders.supersededAt), isNull(scheduledReminders.cancelledAt))).get() === undefined) return { status: 'busy' };
         const existing = tx
           .select()
           .from(reminderDeliveries)

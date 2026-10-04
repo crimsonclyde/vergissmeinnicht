@@ -18,6 +18,7 @@ import { and, asc, count, desc, eq, gt, inArray, isNotNull, isNull, ne, or, sql,
 import { IMMEDIATE, actorAllowed, type Transaction, type UserActor } from './actor-guard.ts';
 import { recordAuditEvent } from './audit-events.ts';
 import type { AppDatabase } from './connection.ts';
+import { recordToolEnabled } from './tool-policy.ts';
 import { markLinksOfPurged } from './link-repository.ts';
 import { contactKeys, contacts, links, procedures, workspaceTools } from './schema.ts';
 
@@ -341,6 +342,7 @@ export function createContactRepository({ db }: Pick<AppDatabase, 'db'>): Contac
 
     async linkProcedure(input, actor, guard) {
       return write(input.workspaceId, actor, guard, (tx) => {
+        if (!recordToolEnabled(tx, input.workspaceId, 'procedure', '')) throw new Refusal('procedure_not_found');
         const contact = liveContact(tx, input.workspaceId, input.contactId);
         if (contact === undefined) throw new Refusal('contact_not_found');
         const procedure = tx
@@ -364,6 +366,7 @@ export function createContactRepository({ db }: Pick<AppDatabase, 'db'>): Contac
 
     async unlinkProcedure(input, actor, guard) {
       return write(input.workspaceId, actor, guard, (tx) => {
+        if (!recordToolEnabled(tx, input.workspaceId, 'procedure', '')) throw new Refusal('procedure_not_found');
         const row = tx
           .select()
           .from(links)

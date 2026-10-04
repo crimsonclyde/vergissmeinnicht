@@ -55,7 +55,7 @@ export async function uploadStepImage(
       replacing,
     },
     userActor(input.actor),
-    { actorMay: (role) => roleHasCapability(role, 'procedure.edit') },
+    { tool: 'PROCEDURES' as const, actorMay: (role) => roleHasCapability(role, 'procedure.edit') },
   );
   // A refused upload leaves only an unreferenced file behind; housekeeping removes it.
   if (result.status === 'forbidden') throw new NotAuthorizedError();

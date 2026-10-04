@@ -52,6 +52,7 @@ function normalizeInput(input: ProcedureInput) {
 }
 
 const guard = (capability: WorkspaceCapability): ActorGuard => ({
+  tool: 'PROCEDURES',
   actorMay: (role) => roleHasCapability(role, capability),
 });
 

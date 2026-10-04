@@ -40,7 +40,7 @@ function bodyFor(route: string, ids: Record<string, string>): object {
   if (url.endsWith('/occurrences/:occurrenceId/move')) return { date: TOMORROW };
   if (url.endsWith('/occurrences/:occurrenceId/assign')) return { assigneeUserId: null };
   if (url.endsWith('/occurrences/:occurrenceId/link-run')) return { runId: ids.runId ?? '' };
-  if (url.endsWith('/tools')) return { tool: 'DOCUMENTS', enabled: true };
+  if (url.endsWith('/tools')) return { tool: 'DOCUMENTS', enabled: true, expectedRevision: 0 };
   if (url.endsWith('/documents/:documentId/links')) return { target: { type: 'procedure', id: ids.procedureId ?? '' } };
   if (url.endsWith('/runs/:runId/documents')) return { documentId: ids.documentId ?? '' };
   if (url.endsWith('/remove-kept')) return { reason: 'Taken away', confirm: true };
@@ -191,6 +191,38 @@ describe('security properties of every route (13.2)', () => {
   });
 
   afterAll(async () => t.close());
+
+  it('guards every disabled core-tool route, including files, SSE, replay and cross-tool linked reads', async () => {
+    const coreRoutes = routes.filter((route) => route.includes('/workspaces/:workspaceId/') && /\/(procedures|runs|knots|images|lists|calendar|schedules|occurrences|document-links|contact-links)(?:[/?]|$)/.test(route));
+    expect(coreRoutes.length).toBeGreaterThan(40);
+    const workspaceId = homeIds.workspaceId ?? '';
+    const before = t.database.sqlite.prepare('SELECT * FROM runs').all();
+    for (const tool of ['PROCEDURES', 'REMINDERS', 'LISTS', 'CALENDAR']) await t.post(`/api/workspaces/${workspaceId}/tools`, { tool, enabled: false }, owner);
+    await t.restart();
+    try {
+      for (const role of ['ADMIN', 'USER', 'EDITOR', 'GUEST'] as const) {
+        const cookie = role === 'ADMIN' ? owner : plainUser;
+        if (role !== 'ADMIN') await t.post(`/api/workspaces/${workspaceId}/members/${homeIds.userId}/role`, { role }, owner);
+        for (const route of coreRoutes) {
+          const response = await call(route, cookie, homeIds);
+          expect({ route, status: response.statusCode }).toEqual({ route, status: 404 });
+          expect(response.body).not.toContain('Leave the house');
+          expect(response.body).not.toContain('Groceries');
+        }
+        await t.restart();
+      }
+      const home = (await t.get(`/api/workspaces/${workspaceId}/home`, owner)).json();
+      expect(home).toMatchObject({ active: [], overdue: [], today: [], upcoming: [], pinned: [], recent: [], progress: { completedRunsThisWeek: null, activeRuns: null, dueToday: null, recentlyCompleted: [] } });
+      const linked = (await t.get(`/api/workspaces/${workspaceId}/documents/${homeIds.documentId}/links`, owner)).json();
+      expect(linked.links).toEqual([]);
+      expect(linked.runs).toEqual([]);
+      expect(t.database.sqlite.prepare('SELECT * FROM runs').all()).toEqual(before);
+    } finally {
+      await t.post(`/api/workspaces/${workspaceId}/members/${homeIds.userId}/role`, { role: 'USER' }, owner);
+      for (const tool of ['PROCEDURES', 'REMINDERS', 'LISTS', 'CALENDAR']) await t.post(`/api/workspaces/${workspaceId}/tools`, { tool, enabled: true }, owner);
+      await t.restart();
+    }
+  });
 
   it('pins the list of public routes', () => {
     for (const route of PUBLIC_ROUTES) expect(routes).toContain(route);

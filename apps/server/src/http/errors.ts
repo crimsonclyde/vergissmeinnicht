@@ -18,6 +18,7 @@ import {
   FolderNotFoundError,
   NameTakenError,
   ToolNotEnabledError,
+  ToolSettingsConflictError,
   AlreadyLinkedError,
   DocumentFileRejectedError,
   LinkNotFoundError,
@@ -179,6 +180,7 @@ export function errorHandler(error: FastifyError | Error, request: FastifyReques
   if (error instanceof ImageRejectedError) return reply.code(422).send({ error: 'image_rejected', reason: error.code });
   // A tool that is not switched on does not exist for this Workspace.
   if (error instanceof ToolNotEnabledError) return reply.code(404).send({ error: 'tool_not_enabled' });
+  if (error instanceof ToolSettingsConflictError) return reply.code(409).send({ error: 'tool_settings_conflict' });
   if (error instanceof FolderNotFoundError) return reply.code(404).send({ error: 'folder_not_found' });
   if (error instanceof DocumentNotFoundError) return reply.code(404).send({ error: 'document_not_found' });
   if (error instanceof DocumentTypeNotFoundError) return reply.code(404).send({ error: 'document_type_not_found' });

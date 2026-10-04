@@ -15,7 +15,7 @@ export type DocumentId = string & { readonly __brand: 'DocumentId' };
 export type DocumentTypeId = string & { readonly __brand: 'DocumentTypeId' };
 
 /** The optional tools a Workspace admin can enable (section 16): Documents (16.2), Contacts (16.6) and Maintenance (16.7) so far. */
-export const WORKSPACE_TOOLS = ['DOCUMENTS', 'CONTACTS', 'MAINTENANCE'] as const;
+export const WORKSPACE_TOOLS = ['PROCEDURES', 'REMINDERS', 'LISTS', 'CALENDAR', 'DOCUMENTS', 'CONTACTS', 'MAINTENANCE'] as const;
 export type WorkspaceTool = (typeof WORKSPACE_TOOLS)[number];
 
 export const MAX_FOLDER_NAME_LENGTH = 80;

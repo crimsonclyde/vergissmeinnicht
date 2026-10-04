@@ -131,6 +131,7 @@ export type DocumentStorageUsage = StorageUsage;
 export type RegisterDocumentFileResult =
   | { readonly status: 'ok'; readonly file: DocumentFileRecord; readonly usage: DocumentStorageUsage }
   | { readonly status: 'forbidden' }
+  | { readonly status: 'tool_disabled' }
   | { readonly status: 'storage_full'; readonly usage: DocumentStorageUsage };
 
 /**
@@ -158,13 +159,15 @@ export interface DocumentFileRepository {
   find(workspaceId: WorkspaceId, fileId: DocumentFileId): Promise<DocumentFileRecord | undefined>;
   /** For background work only (previews): never used to answer a request. */
   findById(fileId: DocumentFileId): Promise<DocumentFileRecord | undefined>;
+  /** Background previews run only while their Workspace's Documents tool is enabled. */
+  previewAllowed(fileId: DocumentFileId): Promise<boolean>;
   findDerivative(workspaceId: WorkspaceId, fileId: DocumentFileId, kind: DerivativeKind, page: number): Promise<DerivativeRecord | undefined>;
   usage(workspaceId: WorkspaceId, now: Date): Promise<DocumentStorageUsage>;
   /**
    * Adds a derived file (no-op when that page already has one). 'storage_full' when it does not fit:
    * previews stop, the original stays readable. 'gone' when the file no longer exists.
    */
-  addDerivative(fileId: DocumentFileId, derivative: DerivativeRecord, at: Date): Promise<'ok' | 'storage_full' | 'gone'>;
+  addDerivative(fileId: DocumentFileId, derivative: DerivativeRecord, at: Date): Promise<'ok' | 'storage_full' | 'gone' | 'paused'>;
   /** Records how far the previews are; counts an attempt when `attempted`. */
   setPreviewState(fileId: DocumentFileId, state: PreviewState, attempted: boolean): Promise<void>;
   /**

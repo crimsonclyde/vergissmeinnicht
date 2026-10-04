@@ -27,7 +27,7 @@ export interface ListDeps {
 }
 
 /** Re-checked inside every write transaction (concurrent demotion, removal or disabling). */
-const edit: ActorGuard = { actorMay: (role) => roleHasCapability(role, 'list.edit') };
+const edit: ActorGuard = { tool: 'LISTS', actorMay: (role) => roleHasCapability(role, 'list.edit') };
 
 type Refused = 'forbidden' | 'list_not_found' | 'item_not_found' | 'conflict';
 

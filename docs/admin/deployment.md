@@ -36,6 +36,8 @@ export VMN_IMAGE=ghcr.io/crimsonclyde/vergissmeinnicht:1.2.3@sha256:<digest show
 docker compose pull app      # instead of `docker compose build`
 ```
 
+The Node base is pinned by digest. The runtime layer upgrades PCRE2 from Debian’s signed repositories and refuses a package older than `10.42-1+deb12u2` (CVE-2026-103111); the final image is still scanned on both architectures before publication.
+
 Maintainers: push a tag `vX.Y.Z` to release; the first published package is private on GitHub until its visibility is set to public.
 
 ## Quick start (Docker Compose)

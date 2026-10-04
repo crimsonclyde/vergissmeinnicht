@@ -6,4 +6,5 @@ export interface WorkspaceContext {
   readonly capabilities: readonly string[];
   /** The optional tools switched on in this Workspace (16.2): what the navigation offers. */
   readonly tools: readonly string[];
+  readonly toolsRevision: number;
 }

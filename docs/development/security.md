@@ -866,11 +866,41 @@ A host resolving to `127.0.0.1`, `10.0.0.5`, `192.168.1.10`, `100.64.0.1`, `169.
 
 **Reviewed:** 2026-10-01 (policy only; to be re-reviewed with its first implementation in 16.10)
 
-## 15. Planned all-tool switches and Today aggregates (steps 17.1–17.2)
+## 15. All-tool switches and Today aggregates (steps 17.1–17.2)
 
-**Status: requirements only; not implemented.** Extends the existing house-tool boundary to Procedures/Runs, Reminders, Lists, Calendar and every later functional tool. A Workspace admin changes flags with the existing authenticated, CSRF-protected, in-transaction permission checks and an atomic audit entry. New Workspace flags default off; upgrade preserves currently available core tools and existing flags. Disabling preserves data and quota.
+### Independent review: Document upload during tool disable (2026-10-03)
 
-Required negative checks with implementation:
+**Verified finding:** `uploadDocumentFile` checked Documents before staging/processing, but `DocumentFileRepository.register` only re-checked membership/role and quota. A member could start an upload, then have it accepted and charged after an admin disabled Documents. The regression disables Documents inside the processor, before registration; before the fix it returned a READY file and increased usage by 1277 bytes.
+
+**Fix:** registration checks the Documents switch in its IMMEDIATE transaction, before quota or insertion; a disabled switch returns `tool_disabled`, translated to the existing unknown-resource error. No file metadata or derivatives are registered and usage stays unchanged. Staged content already committed to the immutable store can remain orphaned until ordinary housekeeping; it is unreachable through the API.
+
+**Validation:** `packages/database/src/document-file-use-cases.test.ts` (20 tests), including the failing-before/passing-after regression and existing demotion, cross-Workspace, guest, byte-identity, quota and housekeeping checks. This finding does not establish the security of other routes or workers; that review remains ongoing.
+
+### Independent review: trashed Document title in Maintenance links (2026-10-03)
+
+**Verified finding:** `listMaintenanceLinks` filtered the other end's view capability but returned its Trash title and deleting actor to guests, unlike `listDocumentLinks`. A guest could call `GET …/maintenance/{id}/links` after linked evidence went to Trash and receive its title despite having no permission to open Document Trash.
+
+**Fix:** the application strips the title and deleting display name of a trashed Document unless the current membership has `document.manage`. The link's existence and Trash state follow the existing Document-link policy; stored links and audit events are unchanged, and authorized managers still see the title.
+
+**Negative test:** `packages/database/src/maintenance-use-cases.test.ts` reproduces guest disclosure before the fix and asserts null title/actor afterward, alongside a positive admin assertion. The existing HTTP Maintenance suite exercises the same use-case. No credential, parser, role or storage policy was added.
+
+### Independent review: previews while Documents is disabled (2026-10-03)
+
+**Verified finding:** the preview queue and derivative-writing transaction did not consult the Documents switch. A queued PDF continued to READY after disable, consuming additional quota and a retry attempt. The regression disables Documents during rendering of the second page; before the fix all three pages were stored.
+
+**Controls:** enabled-tool checks before processing each page and inside the IMMEDIATE derivative transaction; resume queries select enabled Workspaces only. A disable pauses the file in PENDING without using a retry attempt; re-enable followed by the existing resume scan continues the same file. A parser job already in flight may finish, but its output cannot be registered or charged while disabled. The upload also re-authorizes before returning metadata after asynchronous preview work. A partial first-page/thumbnail pair is resumable.
+
+**Negative test:** `packages/database/src/document-file-use-cases.test.ts` asserts unchanged quota, PENDING/zero attempts, no resume while disabled, and READY with three previews after re-enable. Orphan derivative bytes remain unreachable and follow ordinary housekeeping. This is an in-process queue; no new worker or infrastructure was introduced.
+
+### Versioned Workspace tool settings (2026-10-04)
+
+**Controls:** migration 0035 adds `tools_revision` without rewriting flags or history. HTTP changes require a nonnegative safe integer `expectedRevision`. The IMMEDIATE settings transaction checks current membership/capability and revision, then changes flag, increments revision and records the audit event atomically. Stale writes (including an off/on ABA) return 409; a current no-op changes nothing. GET returns flags and revision from one read transaction.
+
+**Validation:** missing version rejected, concurrent same-version requests yield one success and one conflict, ABA refused, no-op stable, audit failure rolls everything back, upgrade preserves flags/history and initializes revisions. Full suite: 139 files / 1125 tests, typecheck and lint passed. Core-tool boundaries and aggregate rules are implemented below.
+
+**Implemented 2026-10-04.** Extends the existing house-tool boundary to Procedures/Runs, Reminders, Lists, Calendar and every later functional tool. A Workspace admin changes flags with the existing authenticated, CSRF-protected, in-transaction permission checks and an atomic audit entry. New Workspace flags default off; upgrade preserves currently available core tools and existing flags. Disabling preserves data and quota.
+
+Required regression checks:
 
 - Non-admin and cross-Workspace requests cannot change flags; stale writes cannot overwrite another admin's change.
 - Every disabled tool's read/write/file/export/stream/Knot/offline-replay route resolves as unknown; enabled tools cannot reveal its titles, linked data or counts. Role permissions still apply after enabling.
@@ -878,4 +908,24 @@ Required negative checks with implementation:
 - Aggregate statistics and recent activity use the same Workspace, role, enabled-tool and selected-filter scope as their source records, including at query time; unauthorised and disabled records are absent from totals. No cross-Workspace caches or revealing counts.
 - Tool disable/re-enable keeps stored records, immutable history, retained versions and quota accounting unchanged.
 
-No security boundary or runtime default changed with the documentation update. The implemented security sections above remain normative until these steps are delivered.
+### Implemented boundary and aggregate controls
+
+Capability-to-tool mapping protects application reads; actor guards recheck active membership, capability and switches inside writes. Schedule source kind chooses PROCEDURES or REMINDERS independently; SQL filters sources before limits/generation. Calendar has its own view flag. Link mutations recheck both endpoints transactionally; reads/exports omit disabled endpoints. A file retained only by Runs requires Procedures as well as Documents. Storage usage retains all disabled-tool data. Knots cannot bypass switches; Run SSE reauthorises and closes after disable. Offline 404 `tool_not_enabled` retains the device queue and explains the blocked sync.
+
+Reminder selection/claims and canonical pre-send rereads enforce source flags and current recipient eligibility. Mixed catch-up summaries discard ineligible grouped members without revealing their titles/counts or pausing enabled sources. Normal queued reminders remain pending while disabled; reenable atomically marks those older than 24 hours superseded, preserving their rows and all Occurrence/history state. Recent reminders retain delivery deduplication. A switch after the final check cannot recall a provider request already in flight. Documents processing checks before pages and derivative registration; an in-flight parser may finish but cannot register/charge while off.
+
+Today counts and activity execute within a transaction that rechecks active membership, role and switches, filtered to the Workspace and selected assignment scope before limits. Only COMPLETED records count; linked Run/Occurrence activity is deduplicated. Schedule-zone local dates handle DST; Run weeks are explicitly UTC Monday–Sunday. The API merges at most ten recent entries, and the UI shows three. No private cross-Workspace cache, costs or member rankings. Read-only Occurrence history uses the existing authorised source-aware Schedule endpoint.
+
+**Regression coverage:** settings non-admin/cross-Workspace/stale/concurrent/ABA/no-op/audit rollback; upgrade/fresh defaults; exhaustive disabled core route sweep and live stream close; retained-only originals; preview pause/resume; source delivery disable races and mixed-summary retries; canonical progress/undo/filter/role/Workspace/DST/week boundaries. Equipment/Mail are not implemented or selectable; their future workers still require dedicated checks.
+
+**Review limits:** automated checks and fictional-demo inspection are not whole-app security certification. No physical-device/screen-reader or real production-database upgrade was performed. Dependency audit found one moderate transitive esbuild advisory and zero high/critical advisories (2026-10-04). [GHSA-67mh-4wv8-2f99](https://github.com/advisories/GHSA-67mh-4wv8-2f99) concerns esbuild's development serving feature; the installed 0.18.20 copy comes through drizzle-kit tooling. VMN builds with Vite and does not invoke that esbuild serving feature. The dependency finding remains open; no unvalidated transitive override was applied.
+
+### Release stabilization and faster validation (2026-10-04)
+
+The pinned Node/Bookworm runtime contained `libpcre2-8-0` 10.42-1+deb12u1; both native CI image scans refused CVE-2026-103111. The runtime layer now upgrades only that package via signed Debian repositories and requires at least 10.42-1+deb12u2. No scanner exception, severity reduction or dependency-ignore entry was introduced. The original digest stays pinned and final artifacts remain scanned, signed and SBOM-attested by the release workflow. [Debian’s tracker](https://security-tracker.debian.org/tracker/CVE-2026-103111) describes the PCRE2 flaw; the package candidate/fix was verified directly from Bookworm’s signed repository, beyond the older tracker snapshot.
+
+CI quality and browser checks run independently alongside native images. The final `check` uses `always()` and explicit success comparisons for all three job results, so failures, cancellations and skips fail closed. Release still waits for the complete reusable CI workflow and scans/smoke-tests both publishing images; validation is not bypassed or reused from another commit.
+
+The fixture optimisation reuses closed empty-schema bytes, never mutable connections or populated data. Each test database has a separate private directory/file, WAL and foreign keys. Regression checks prove schema/data isolation, restrictive modes and FK enforcement; real migration tests bypass the template. Authentication hash parameters, security tests, accessibility checks and production DB settings are unchanged.
+
+A populated 35-migration beta.2 fixture, with a completed historical Run, Document original/previews, flags and audit events, was backed up and verified, upgraded through 0035/0036, then restored to a separate path and upgraded again. Assertions compare all historical/content/file rows and original bytes, flags, integrity and foreign keys. This is fictional-data upgrade evidence, not a claim that the owner’s live Unraid database was upgraded. Security impact: reduces a runtime dependency vulnerability and preserves fail-closed validation; no new endpoint, credential or permission boundary.

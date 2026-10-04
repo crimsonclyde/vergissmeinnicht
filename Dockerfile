@@ -61,6 +61,12 @@ RUN node deploy/server-notices.ts node_modules/.pnpm > third-party-notices-serve
 
 # ---- Runtime image.
 FROM ${NODE_IMAGE} AS runtime
+# The pinned Node image predates the Bookworm PCRE2 security update (CVE-2026-103111).
+# Use Debian's signed repositories, require the fixed version, and keep the image scan gate.
+RUN apt-get update \
+  && apt-get install -y --only-upgrade --no-install-recommends libpcre2-8-0 \
+  && dpkg --compare-versions "$(dpkg-query -W -f='${Version}' libpcre2-8-0)" ge 10.42-1+deb12u2 \
+  && rm -rf /var/lib/apt/lists/*
 LABEL org.opencontainers.image.title="VergissMeinNicht" \
       org.opencontainers.image.description="Repeatable procedures with trustworthy execution history" \
       org.opencontainers.image.licenses="AGPL-3.0-only"

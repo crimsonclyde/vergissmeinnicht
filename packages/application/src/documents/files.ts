@@ -25,7 +25,7 @@ import {
 import type { WorkspaceToolRepository } from '../ports/document-repository.ts';
 import type { WorkspaceRepository } from '../ports/workspace-repository.ts';
 import { userActor } from '../user-actor.ts';
-import { DocumentFileNotFoundError, StorageFullError, TooManyUploadsError } from './errors.ts';
+import { DocumentFileNotFoundError, StorageFullError, TooManyUploadsError, ToolNotEnabledError } from './errors.ts';
 import type { PreviewQueue } from './previews.ts';
 import { authorizeTool } from './tools.ts';
 
@@ -77,7 +77,7 @@ export async function storePreviewPage(
   fileId: DocumentFileId,
   page: number,
   preview: RenderedImage,
-): Promise<'ok' | 'storage_full' | 'gone'> {
+): Promise<'ok' | 'storage_full' | 'gone' | 'paused'> {
   const stored = await storeDerivative(deps, fileId, 'PREVIEW', page, preview);
   if (stored !== 'ok' || page !== 0) return stored;
   return storeDerivative(deps, fileId, 'THUMBNAIL', 0, await deps.processor.thumbnail(preview.jpeg));
@@ -119,15 +119,17 @@ export async function uploadDocumentFile(
       );
       // A refused upload leaves only an unreferenced file behind; housekeeping removes it.
       if (result.status === 'forbidden') throw new NotAuthorizedError();
+      if (result.status === 'tool_disabled') throw new ToolNotEnabledError();
       if (result.status === 'storage_full') throw new StorageFullError(result.usage);
       let state: PreviewState = previewState;
       if (first !== undefined) {
         const stored = await storePreviewPage(deps, result.file.id, 0, first);
-        state = stored === 'storage_full' ? 'PARTIAL' : pages > 1 ? 'PENDING' : 'READY';
+        state = stored === 'paused' ? 'PENDING' : stored === 'storage_full' ? 'PARTIAL' : pages > 1 ? 'PENDING' : 'READY';
         if (state !== 'PENDING') await deps.files.setPreviewState(result.file.id, state, true);
         else deps.previews.enqueue(result.file.id);
       }
       const file = await deps.files.find(input.workspaceId, result.file.id);
+      await authorizeTool(deps, input.actor, input.workspaceId, 'DOCUMENTS', 'document.manage');
       return { file: file ?? { ...result.file, previewState: state }, usage: await deps.files.usage(input.workspaceId, deps.clock.now()) };
     } finally {
       await staged.discard();

@@ -17,7 +17,7 @@ VMN exists so you do not forget the things you have to do again and again.
 
 VMN is organised around what you want to do. Choose a tool and it has the screen to itself:
 
-- **Today** — what needs you now: unfinished executions, what is overdue, what is due today.
+- **Today** — progress and next actions: recent completions, unfinished executions, what is overdue and due today.
 - **Procedures** — the reusable checklists: start, schedule, write and change them.
 - **Reminders** — single things to remember, with a date.
 - **Lists** — grocery lists.
@@ -26,7 +26,7 @@ VMN is organised around what you want to do. Choose a tool and it has the screen
 - **Contacts** — the people and organisations you deal with, with their numbers to call. An optional tool as well.
 - **Maintenance** — work on the house: planned, in progress, completed or cancelled, on a board and in a list. An optional tool as well.
 
-On a computer the tools are in the bar on the left, with the Workspace above them and **Settings** at the bottom. On a phone the Workspace and the **Settings** button (⚙) are at the top, and four destinations are at the bottom: **Today**, **Procedures**, **Lists** and **More** — More leads to Reminders, the Calendar, the completed history and — where it is switched on — Documents. Addresses from before still work (bookmarks, Knot links, links in reminder messages).
+On a computer the tools are in the bar on the left, with the Workspace above them and **Settings** at the bottom. On a phone the Workspace and the **Settings** button (⚙) are at the top, and two to four destinations are at the bottom: **Today**, enabled **Procedures**/**Lists**, and **More** — More leads to Reminders, the Calendar, the completed history and — where it is switched on — Documents. Only enabled tools appear. Existing addresses still work while their tool is enabled; disabled tools answer as unknown resources. A new Workspace starts with all tools off: its admin can choose tools from Today. Switching a tool off keeps its data and storage usage for later.
 
 **Settings** has three areas, each split into named sections so you never scroll past unrelated forms: **Profile & settings** (yours), **Workspace settings** (name, members, sharing links — what you see depends on your role) and **Server admin** (server admins only). **Sign out** is in the same menu.
 
@@ -73,16 +73,17 @@ Procedures can be exported as a `.vmn.json` file (**Export as JSON** — without
 
 ## Today
 
-Opening a Workspace shows **Today** — only what needs you now, one clear action per card:
+Opening a Workspace shows **Today** — a compact progress summary and one clear next action per card:
 
+- **Progress** — completed Occurrences today (each Schedule’s local time zone), completed Runs this week (the labelled UTC Monday–Sunday range), active Runs and due today. Runs and Occurrences are separate counts. Only completed work counts; undo/reopening updates the summary. **Recently completed** shows the latest three permitted completions, representing a linked Run and completed Occurrence once. Disabled tools have no counts or activity.
 - **Continue** — executions that are not finished, with how far they are and **Continue**.
 - **Needs attention** — dates that have passed and are not done yet (marked **Overdue**). They stay until you complete or skip them; nothing is marked done by itself. If a repeating item is overdue several times, it is shown once ("3 overdue") with **⋯ → Skip the older ones…**.
 - **Due today** — a Reminder offers **Done**, a Procedure **Start**.
 - **To buy** — grocery lists that still have something on them, with **Open list**.
 - Each card shows the title and one line: when it is due and who is responsible (**Assigned to …** or **Shared**). **⋯** holds the rest: *Details* (Reminder or Procedure, how it repeats, its reminders), *Skip…* (with an optional reason), *Move this date…*, *Assign…*, *Link an execution…*, *Edit schedule…*, *Pause* / *Resume*, *End schedule…*.
 - After **Done** a notice offers **Undo**.
-- **All / Assigned to me / Shared** appears when something is assigned to someone, and filters the cards (remembered in this browser).
-- Upcoming dates, what was completed, and the Procedures themselves are not on Today — the links at the bottom lead to the **Calendar** (with the number of upcoming dates), **Reminders**, **All Procedures** and the **Completed history**.
+- **All / Assigned to me / Shared** appears when Procedures or Reminders is enabled, and filters the summary, recent activity and cards (remembered in this browser).
+- Upcoming dates and full completed history are available through the enabled **Calendar**, **Reminders**, **All Procedures** and **Completed history** links.
 
 **Add** (top right) offers **Procedure** — reusable steps, **Reminder** — remember one thing, and **Grocery list** — quick shared shopping, and opens what you chose at once. You only see what your role may create.
 
@@ -122,6 +123,7 @@ Opening a Workspace shows **Today** — only what needs you now, one clear actio
 - **Open a document** to see its details and pages. Each page shows a **preview** — a picture made from the file, never the file itself; select it to enlarge it and read small print. **Download original** gives you the file exactly as it was uploaded; **Download all originals** fetches every page's file.
   - **iPhone photos (HEIC)** are stored and can be downloaded, but show **"Preview unavailable for this format"**: VMN does not yet include the software to display them. Tip: iPhones can save photos as JPEG (*Settings → Camera → Formats → Most Compatible*), which do get a preview.
   - A **password-protected PDF** is kept without a preview. A PDF with many pages gets its previews a little after uploading; at most the first 500 pages are previewed.
+  - Switching Documents off pauses unfinished previews and keeps the originals and existing previews. After switching it back on, unfinished previews resume on the next background scan (hourly, or when the server starts).
 - **The document date** is the date written on the paper. **Year** is the year it belongs to — a tax notice for 2026 may be dated January 2027. Lists always say which date they show ("Document date …" or "Uploaded …"). Who uploaded a document and when never changes; **Last modified** shows who changed it last.
 - **Pages**: *Move up* / *Move down* change the order, *Remove page* takes a file out (it is then deleted), **Add files** adds pages. The order is the same for everyone.
 - **⋯** on a document: *Edit details*, *Move* (to another folder), *Move to Trash*. **⋯** in a folder: *Rename*, *Move* (everything inside moves along; a folder cannot go into itself), *Select documents* (to move several at once), *Document types…* (your own types, such as "Condominium minutes"; a type you retire stays on the documents that have it), *Trash*, and *Move folder to Trash*.
@@ -191,7 +193,7 @@ A **Reminder** is something to remember without steps (a title and optional note
 
 Every date is its own entry: completing last year's never completes this year's. **Responsible** (optional) names who is expected to do it and who gets the reminders; it grants no extra rights, and anyone allowed to execute may complete it (VMN records who actually did). **Pause** stops new dates and reminders; **Resume** offers to skip the dates that fell into the pause. **End** keeps the history.
 
-Reminders can come *on the due date*, *N days/weeks/months before* (at your default reminder time) or *N hours before* a timed date — up to 5. They go to the responsible person, otherwise to whoever created the schedule. If VMN was unavailable when a reminder was due and it is more than a day late, you get **one short summary** of what was missed ("Missed reminders: …") describing each item's current date and status — never a flood of old messages. Today, Reminders and the Calendar are always the reliable overview, whether a message arrived or not.
+Reminders can come *on the due date*, *N days/weeks/months before* (at your default reminder time) or *N hours before* a timed date — up to 5. They go to the responsible person, otherwise to whoever created the schedule. If VMN was unavailable when a reminder was due and it is more than a day late, you get **one short summary** of what was missed ("Missed reminders: …") describing each item's current date and status — never a flood of old messages. Today and enabled Reminders/Calendar provide the reliable overview, whether a message arrived or not. Disabling Procedures or Reminders stops notifications for its own scheduled items and hides them; records and recurrence dates stay intact. Calendar disable only hides the view. Reenable catches up notifications from the last 24 hours and drops older notifications, without completing any item or flooding your channels.
 
 ## Start or schedule a Procedure
 
@@ -244,7 +246,7 @@ Editors and Admins can **Share as Knot link…** from a Procedure (under **⋯**
 
 **Settings → Workspace settings**:
 
-- **General** — the Workspace's name (Admins can change it), **Tools** (Admins: switch the optional tools **Documents**, **Contacts** and **Maintenance** on or off for the whole Workspace — switching one off hides it for everyone and keeps everything in it; there is no personal hiding), **Storage** (Admins: how much the Workspace stores — instruction photos, documents, previews, Trash — and of how much; you can set a lower limit of your own, never a higher one than the server admin allows; lowering it deletes nothing, it only refuses new files until less is stored), your role, and **Leave Workspace**.
+- **General** — the Workspace's name (Admins can change it), **Tools** (Admins: switch **Procedures**, **Reminders**, **Lists**, **Calendar**, **Documents**, **Contacts** and **Maintenance** on or off for the whole Workspace — switching one off hides it for everyone and keeps everything in it; there is no personal hiding), **Storage** (Admins: how much the Workspace stores — instruction photos, documents, previews, Trash — and of how much; you can set a lower limit of your own, never a higher one than the server admin allows; lowering it deletes nothing, it only refuses new files until less is stored), your role, and **Leave Workspace**.
 - **Members** — who is in the Workspace and their role; Admins add members, change roles and remove members.
 - **Sharing links** (Editors and Admins) — every Knot link, with **Revoke**.
 
@@ -261,4 +263,4 @@ Editors and Admins can **Share as Knot link…** from a Procedure (under **⋯**
 
 ## Planned changes
 
-The next navigation update will let Workspace admins choose every functional tool, all off in new Workspaces. Existing Workspaces will keep their available tools on upgrade. Today is also planned to gain compact progress statistics and recent completions alongside next actions. These are roadmap items, not current behaviour; see [section 17](../development/steps.md#17--documentation-optional-workspace-tools-and-a-more-encouraging-today-accepted-2026-10-02).
+All implemented functional tools are selectable now. Equipment and Mail remain planned and have no controls. New text may use English where a translation is not yet available.

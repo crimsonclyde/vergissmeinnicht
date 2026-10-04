@@ -52,7 +52,7 @@ export async function importProcedureArchive(
       const outcome = await deps.images.register(
         { workspaceId: input.workspaceId, sha256, bytes: result.jpeg.byteLength, width: result.width, height: result.height, at: now, pendingSince, replacing: null },
         userActor(input.actor),
-        { actorMay: (role) => roleHasCapability(role, 'procedure.edit') },
+        { tool: 'PROCEDURES' as const, actorMay: (role) => roleHasCapability(role, 'procedure.edit') },
       );
       if (outcome.status === 'forbidden') throw new NotAuthorizedError();
       if (outcome.status === 'quota_exceeded') throw new StorageFullError(outcome.usage);

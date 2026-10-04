@@ -278,13 +278,16 @@ export async function listProcedureContacts(deps: ContactDeps, input: Ref & { re
 
 /** Links a Contact to a Procedure of the same Workspace: a reference, nothing is copied and nobody gains access. Audited. */
 export async function linkContactProcedure(deps: ContactDeps, input: Ref & { readonly contactId: string; readonly procedureId: string }): Promise<ContactProcedureLink> {
-  await write(deps, input);
+  await view(deps, input);
   await authorizeWorkspace(deps, input.actor, input.workspaceId, 'procedure.view');
+  await write(deps, input);
   const values = { workspaceId: input.workspaceId, contactId: parseContactId(input.contactId), procedureId: parseProcedureId(input.procedureId), at: deps.clock.now() };
   return ok(await deps.contacts.linkProcedure(values, userActor(input.actor), linker)).link;
 }
 
 export async function unlinkContactProcedure(deps: ContactDeps, input: Ref & { readonly linkId: string }): Promise<void> {
+  await view(deps, input);
+  await authorizeWorkspace(deps, input.actor, input.workspaceId, 'procedure.view');
   await write(deps, input);
   ok(await deps.contacts.unlinkProcedure({ workspaceId: input.workspaceId, linkId: parseLinkId(input.linkId), at: deps.clock.now() }, userActor(input.actor), linker));
 }

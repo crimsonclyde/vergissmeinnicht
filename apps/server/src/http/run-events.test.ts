@@ -126,6 +126,17 @@ describe('Run events (SSE)', () => {
     expect((await stream(events(run.id), guest)).response.status).toBe(204);
   });
 
+  it('closes an already-open stream when Procedures is disabled and preserves the Run', async () => {
+    const run = await startRun();
+    const connection = await stream(events(run.id), guest);
+    expect((await connection.next())?.event).toBe('ready');
+    expect((await t.post(`/api/workspaces/${home}/tools`, { tool: 'PROCEDURES', enabled: false }, t.admin)).statusCode).toBe(200);
+    expect(await connection.next()).toBeNull();
+    expect((await stream(events(run.id), guest)).response.status).toBe(404);
+    await t.post(`/api/workspaces/${home}/tools`, { tool: 'PROCEDURES', enabled: true }, t.admin);
+    expect((await t.get(`/api/workspaces/${home}/runs/${run.id}`, guest)).json().run.id).toBe(run.id);
+  });
+
   it('authorizes the subscription like reading the Run', async () => {
     const run = await startRun();
     expect((await stream(events(run.id))).response.status).toBe(401);

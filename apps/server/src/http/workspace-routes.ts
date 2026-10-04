@@ -88,8 +88,8 @@ export async function workspaceRoutes(app: FastifyInstance, { services }: { serv
     const { workspaceId } = parse(workspaceParams, request.params);
     const result = await getWorkspace(deps, { actor: principalOf(request).user, workspaceId: workspaceId as WorkspaceId });
     // The optional tools switched on here (16.2): what the navigation offers. Every request to a tool is still checked.
-    const tools = await services.documents.tools.enabled(workspaceId as WorkspaceId);
-    return { workspace: { ...workspaceView(result.workspace), role: result.role }, capabilities: result.capabilities, tools };
+    const { tools, revision: toolsRevision } = await services.documents.tools.settings(workspaceId as WorkspaceId);
+    return { workspace: { ...workspaceView(result.workspace), role: result.role }, capabilities: result.capabilities, tools, toolsRevision };
   });
 
   app.post('/:workspaceId/rename', { bodyLimit: 1024 }, async (request, reply) => {

@@ -7,6 +7,7 @@ import type {
   Workspace,
   WorkspaceId,
   WorkspaceRole,
+  WorkspaceTool,
 } from '@vergissmeinnicht/domain';
 import type { ActorGuard } from './actor-guard.ts';
 
@@ -32,6 +33,7 @@ export type MembershipChangeResult = 'ok' | 'forbidden' | 'member_not_found' | '
  * Nothing is written unless the result is 'ok'.
  */
 export interface WorkspaceRepository {
+  enabledTools(workspaceId: WorkspaceId): Promise<WorkspaceTool[]>;
   /** Creates the Workspace and the creator's Membership. */
   create(
     input: { readonly name: string; readonly creatorId: UserId; readonly creatorRole: WorkspaceRole; readonly at: Date },

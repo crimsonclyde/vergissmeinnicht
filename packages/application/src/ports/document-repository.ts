@@ -7,8 +7,11 @@ type UserActor = Actor & { readonly kind: 'user' };
 /** Which optional tools a Workspace has switched on (16.2). */
 export interface WorkspaceToolRepository {
   enabled(workspaceId: WorkspaceId): Promise<WorkspaceTool[]>;
+  revision(workspaceId: WorkspaceId): Promise<number>;
+  /** A consistent snapshot for a settings form. */
+  settings(workspaceId: WorkspaceId): Promise<{ tools: WorkspaceTool[]; revision: number }>;
   /** In one IMMEDIATE transaction: re-checks the guard, sets the switch and records the audit event. Data is never touched. */
-  set(input: { readonly workspaceId: WorkspaceId; readonly tool: WorkspaceTool; readonly enabled: boolean; readonly at: Date }, actor: UserActor, guard: ActorGuard): Promise<'ok' | 'forbidden'>;
+  set(input: { readonly workspaceId: WorkspaceId; readonly tool: WorkspaceTool; readonly enabled: boolean; readonly expectedRevision: number; readonly at: Date }, actor: UserActor, guard: ActorGuard): Promise<'ok' | 'forbidden' | 'conflict'>;
 }
 
 export interface FolderRecord {

@@ -22,6 +22,10 @@ function requireEnv(name: string): string {
 }
 
 async function api<T>(method: 'GET' | 'POST', path: string, body?: object, cookie?: string): Promise<{ data: T; headers: Headers }> {
+  if (method === 'POST' && path.endsWith('/tools') && body !== undefined) {
+    const current = await api<{ revision: number }>('GET', path, undefined, cookie);
+    body = { ...body, expectedRevision: current.data.revision };
+  }
   const response = await fetch(`${origin}/api${path}`, {
     method,
     headers: {
@@ -94,6 +98,13 @@ for (const person of people) {
 type Created = { workspace: { id: string } };
 const household = (await api<Created>('POST', '/workspaces', { name: 'Demo Household' }, admin)).data.workspace.id;
 const office = (await api<Created>('POST', '/workspaces', { name: 'Demo Office' }, admin)).data.workspace.id;
+// The demo deliberately enables the tools it showcases; fresh Workspaces otherwise start empty.
+for (const workspaceId of [household, office]) {
+  for (const tool of ['PROCEDURES', 'REMINDERS', 'LISTS', 'CALENDAR']) {
+    const { data } = await api<{ revision: number }>('GET', `/workspaces/${workspaceId}/tools`, undefined, admin);
+    await api('POST', `/workspaces/${workspaceId}/tools`, { tool, enabled: true, expectedRevision: data.revision }, admin);
+  }
+}
 const memberships = [
   [household, 'editor@vmn.test', 'EDITOR'],
   [household, 'user@vmn.test', 'USER'],

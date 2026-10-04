@@ -1,3 +1,4 @@
+import { enabledTool } from './tool-policy.ts';
 import { randomUUID } from 'node:crypto';
 import { and, asc, count, desc, eq, gt, isNull, or } from 'drizzle-orm';
 import type { CreateKnotResult, KnotRepository, RevokeKnotResult } from '@vergissmeinnicht/application';
@@ -115,7 +116,7 @@ export function createKnotRepository({ db }: Pick<AppDatabase, 'db'>): KnotRepos
         tx
           .select()
           .from(knots)
-          .where(eq(knots.workspaceId, workspaceId))
+          .where(and(enabledTool(workspaceId, 'PROCEDURES'), eq(knots.workspaceId, workspaceId)))
           .orderBy(desc(knots.createdAt), asc(knots.id))
           .limit(limit)
           .all()

@@ -14,4 +14,4 @@ Keep user instructions in `docs/user`, operator instructions in `docs/admin`, an
 
 ## Screenshots
 
-There are no approved current product screenshots for the README. The brand illustration is not an application screenshot, and mockups are design references. Step [17.3](steps.md#173-current-product-screenshots) tracks a small, reproducible set of screenshots from a seeded demo instance, with fictional data, desktop and phone layouts, and Light and Dark themes. Add screenshots to the README only after visual review; keep the larger QA capture set out of git.
+Six reviewed actual-app screenshots from fictional demo data are in [the capture guide](../../assets/screenshots/workspace-tools-2026-10-04/README.md) and the root README. They show steps 17.1–17.2 on desktop and phone in Light/Dark. Mock-ups remain design references; bulk QA captures and credentials stay out of git.

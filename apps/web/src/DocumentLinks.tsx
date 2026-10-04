@@ -1,3 +1,4 @@
+import { useCoreTools } from './core-tools.ts';
 import { useCallback, useEffect, useId, useState } from 'react';
 import { api, documentFileUrls, messageFor, type DocumentLink, type DocumentSummary, type LinkedRecord, type PersonRef, type ProcedureCard, type RunDocument, type RunDocumentRemoval, type RunLink, type RunState, type Schedule } from './api.ts';
 import { ContactPicker } from './ContactPicker.tsx';
@@ -311,7 +312,8 @@ function LinkDialog(props: { workspaceId: string; documentId: string; linked: re
   const { workspaceId } = props;
   const contactsTool = useContactsTool();
   const id = useId();
-  const [kind, setKind] = useState<LinkKind>('procedure');
+  const core = useCoreTools();
+  const [kind, setKind] = useState<LinkKind>(core.procedures ? 'procedure' : core.reminders ? 'schedule' : 'document');
   const [procedures, setProcedures] = useState<readonly ProcedureCard[] | null>(null);
   const [schedules, setSchedules] = useState<readonly Schedule[] | null>(null);
   const [choice, setChoice] = useState('');
@@ -344,8 +346,8 @@ function LinkDialog(props: { workspaceId: string; documentId: string; linked: re
       <div className="field">
         <label htmlFor={`${id}-kind`}>{t('links.pick.kind')}</label>
         <select id={`${id}-kind`} value={kind} onChange={(event) => (setKind(event.target.value as LinkKind), setChoice(''))}>
-          <option value="procedure">{t('links.kind.procedure')}</option>
-          <option value="schedule">{t('links.kind.schedule')}</option>
+          {core.procedures && <option value="procedure">{t('links.kind.procedure')}</option>}
+          {(core.procedures || core.reminders) && <option value="schedule">{t('links.kind.schedule')}</option>}
           <option value="document">{t('links.kind.document')}</option>
           {contactsTool.enabled && <option value="contact">{t('links.kind.contact')}</option>}
         </select>
@@ -380,7 +382,8 @@ function LinkDialog(props: { workspaceId: string; documentId: string; linked: re
 export function RemindDialog(props: { workspaceId: string; suggestedTitle: string; heading?: string; link: (scheduleId: string) => Promise<unknown>; onClose: () => void; onDone: (title: string) => void }) {
   const { workspaceId } = props;
   const id = useId();
-  const [kind, setKind] = useState<'REMINDER' | 'PROCEDURE'>('REMINDER');
+  const core = useCoreTools();
+  const [kind, setKind] = useState<'REMINDER' | 'PROCEDURE'>(core.reminders ? 'REMINDER' : 'PROCEDURE');
   const [procedures, setProcedures] = useState<readonly ProcedureCard[] | null>(null);
   const [procedureId, setProcedureId] = useState('');
   const [members, setMembers] = useState<readonly PersonRef[] | null>(null);
@@ -423,22 +426,22 @@ export function RemindDialog(props: { workspaceId: string; suggestedTitle: strin
     >
       <fieldset className="stack plain-fieldset">
         <legend>{t('links.remind.question')}</legend>
-        <label className="option-label">
+        {core.reminders && (<label className="option-label">
           <input type="radio" name={`${id}-kind`} checked={kind === 'REMINDER'} onChange={() => setKind('REMINDER')} />
           <span>
             <strong>{t('links.remind.reminder')}</strong>
             <br />
             <small className="muted">{t('links.remind.reminderHint')}</small>
           </span>
-        </label>
-        <label className="option-label">
+        </label>)}
+        {core.procedures && (<label className="option-label">
           <input type="radio" name={`${id}-kind`} checked={kind === 'PROCEDURE'} onChange={() => setKind('PROCEDURE')} />
           <span>
             <strong>{t('links.remind.procedure')}</strong>
             <br />
             <small className="muted">{t('links.remind.procedureHint')}</small>
           </span>
-        </label>
+        </label>)}
       </fieldset>
       {kind === 'PROCEDURE' && (
         <div className="field">
@@ -469,6 +472,7 @@ export function DocumentLinksSection(props: { workspaceId: string; documentId: s
   const { workspaceId, documentId } = props;
   const [links, setLinks] = useState<readonly DocumentLink[]>([]);
   const [runs, setRuns] = useState<readonly RunLink[]>([]);
+  const core = useCoreTools();
   const [dialog, setDialog] = useState<'link' | 'remind' | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [status, setStatus] = useState<string | null>(null);
@@ -538,7 +542,7 @@ export function DocumentLinksSection(props: { workspaceId: string; documentId: s
             {t('links.add')}
           </button>
           {props.canSchedule && (
-            <button type="button" onClick={() => setDialog('remind')}>
+            (core.procedures || core.reminders) && <button type="button" onClick={() => setDialog('remind')}>
               {t('links.remind.button')}
             </button>
           )}

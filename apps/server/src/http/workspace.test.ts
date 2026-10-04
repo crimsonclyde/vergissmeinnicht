@@ -158,6 +158,7 @@ describe('Workspace HTTP API', () => {
         'workspace.tools.manage',
       ],
       tools: [],
+      toolsRevision: 0,
     });
     // A Workspace ADMIN without the server-admin flag still cannot create Workspaces.
     await addMember(id, 'bob@example.org', 'ADMIN');

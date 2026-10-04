@@ -102,7 +102,7 @@ function ok<T>(result: LinkWrite<T>): { readonly status: 'ok' } & T {
 /** Reading Links needs the Documents tool, `document.view`, and the view capability of the other kind of record. */
 async function reader(deps: LinkDeps, input: Ref, also: 'procedure.view' | 'run.view'): Promise<{ readonly seesTrash: boolean }> {
   await authorizeTool(deps, input.actor, input.workspaceId, 'DOCUMENTS', 'document.view');
-  const membership = await authorizeWorkspace(deps, input.actor, input.workspaceId, also);
+  const membership = await authorizeWorkspace(deps, input.actor, input.workspaceId, also, also === 'run.view' ? 'PROCEDURES' : null);
   return { seesTrash: roleHasCapability(membership.role, 'document.manage') };
 }
 
@@ -123,8 +123,8 @@ export async function listDocumentLinks(deps: LinkDeps, input: Ref & { readonly 
   const on = await deps.tools.enabled(input.workspaceId);
   const membership = await authorizeWorkspace(deps, input.actor, input.workspaceId, 'workspace.view');
   const shown = (type: string): boolean =>
-    type === 'contact' ? on.includes('CONTACTS') : type === 'maintenance' ? on.includes('MAINTENANCE') && roleHasCapability(membership.role, 'maintenance.view') : true;
-  return { links: withoutHiddenTitles(found.links, seesTrash).filter((link) => shown(link.record.type)), runs: found.runs };
+    type === 'procedure' || type === 'run' ? on.includes('PROCEDURES') : type === 'contact' ? on.includes('CONTACTS') : type === 'maintenance' ? on.includes('MAINTENANCE') && roleHasCapability(membership.role, 'maintenance.view') : true;
+  return { links: withoutHiddenTitles(found.links, seesTrash).filter((link) => shown(link.record.type)), runs: on.includes('PROCEDURES') ? found.runs : [] };
 }
 
 /** The Documents linked to a Procedure or to a Schedule (shown on the Reminder and on its Occurrences). */
@@ -132,6 +132,7 @@ export async function listLinkedDocuments(deps: LinkDeps, input: Ref & { readonl
   const { seesTrash } = await reader(deps, input, 'procedure.view');
   const target = parseLinkTarget(input.target);
   if (target.type === 'contact') await authorizeTool(deps, input.actor, input.workspaceId, 'CONTACTS', 'contact.view');
+  if (!(await deps.links.targetToolEnabled(input.workspaceId, target))) throw new LinkTargetNotFoundError();
   return withoutHiddenTitles(await deps.links.listForTarget(input.workspaceId, target), seesTrash);
 }
 
@@ -141,9 +142,11 @@ export async function listLinkedDocuments(deps: LinkDeps, input: Ref & { readonl
  * nobody gains access to anything. Audited.
  */
 export async function addDocumentLink(deps: LinkDeps, input: Ref & { readonly documentId: string; readonly target: { readonly type: string; readonly id: string } }): Promise<LinkView> {
-  await authorizeTool(deps, input.actor, input.workspaceId, 'DOCUMENTS', 'document.manage');
-  await authorizeWorkspace(deps, input.actor, input.workspaceId, 'procedure.view');
+  await authorizeTool(deps, input.actor, input.workspaceId, 'DOCUMENTS', 'document.view');
+  await authorizeWorkspace(deps, input.actor, input.workspaceId, 'procedure.view', null);
   const target: LinkTarget = parseLinkTarget(input.target);
+  if (!(await deps.links.targetToolEnabled(input.workspaceId, target))) throw new ToolNotEnabledError();
+  await authorizeTool(deps, input.actor, input.workspaceId, 'DOCUMENTS', 'document.manage');
   // A Contact as the other end: the Contacts tool must be on, and its Contacts readable.
   if (target.type === 'contact') await authorizeTool(deps, input.actor, input.workspaceId, 'CONTACTS', 'contact.view');
   return ok(await deps.links.add({ workspaceId: input.workspaceId, documentId: parseDocumentId(input.documentId), target, at: deps.clock.now() }, userActor(input.actor), linker)).link;
@@ -151,6 +154,8 @@ export async function addDocumentLink(deps: LinkDeps, input: Ref & { readonly do
 
 /** Removes a Link (never either record). Audited. */
 export async function removeDocumentLink(deps: LinkDeps, input: Ref & { readonly linkId: string }): Promise<void> {
+  await authorizeTool(deps, input.actor, input.workspaceId, 'DOCUMENTS', 'document.view');
+  if (!(await deps.links.linkToolsEnabled(input.workspaceId, parseLinkId(input.linkId)))) throw new LinkNotFoundError();
   await authorizeTool(deps, input.actor, input.workspaceId, 'DOCUMENTS', 'document.manage');
   ok(await deps.links.remove({ workspaceId: input.workspaceId, linkId: parseLinkId(input.linkId), at: deps.clock.now() }, userActor(input.actor), linker));
 }
@@ -170,8 +175,8 @@ export async function listRunDocuments(deps: LinkDeps, input: Ref & { readonly r
  * recorded in the Run's history. This is not a completion photo and proves nothing by itself (14.5).
  */
 export async function linkRunDocument(deps: LinkDeps, input: Ref & { readonly runId: string; readonly documentId: string }): Promise<RunDocumentView> {
-  await authorizeTool(deps, input.actor, input.workspaceId, 'DOCUMENTS', 'document.manage');
   await authorizeWorkspace(deps, input.actor, input.workspaceId, 'run.view');
+  await authorizeTool(deps, input.actor, input.workspaceId, 'DOCUMENTS', 'document.manage');
   const values = { workspaceId: input.workspaceId, runId: parseRunId(input.runId), documentId: parseDocumentId(input.documentId), at: deps.clock.now() };
   return ok(await deps.links.linkRun(values, userActor(input.actor), linker)).document;
 }
@@ -200,6 +205,7 @@ export async function removeRunDocumentFromFinishedRun(
 
 /** Removes a retained Document version from a Run that is still ACTIVE (anyone who manages Documents). From a finished Run: `removeRunDocumentFromFinishedRun`. Audited. */
 export async function unlinkRunDocument(deps: LinkDeps, input: Ref & { readonly runId: string; readonly runDocumentId: string }): Promise<void> {
+  await authorizeWorkspace(deps, input.actor, input.workspaceId, 'run.view');
   await authorizeTool(deps, input.actor, input.workspaceId, 'DOCUMENTS', 'document.manage');
   const values = { workspaceId: input.workspaceId, runId: parseRunId(input.runId), runDocumentId: parseRunDocumentId(input.runDocumentId), at: deps.clock.now() };
   ok(await deps.links.unlinkRun(values, userActor(input.actor), linker));

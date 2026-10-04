@@ -113,3 +113,11 @@ The server runs TypeScript directly via Node's built-in type stripping; only era
 Boundaries are enforced by pnpm (packages can import only declared dependencies) and by ESLint `no-restricted-imports` rules in `eslint.config.js`. Do not weaken these rules to make an import work; move the code to the right layer instead.
 
 When commands change, update this document and `docs/development/steps.md`.
+
+## Test duration and isolation
+
+`pnpm test` retains every unit/integration/security test. Ordinary fixtures build an empty schema with the real migrations once per isolated test module, then write independent private database files from the closed template bytes. Each copy still uses production WAL/foreign-key settings, with separate data and connections. Migration and backup/restore tests run the real migration paths directly; production migration behaviour and Argon2 parameters are unchanged.
+
+CI runs the quality job (audit, lint, typecheck, unit/integration tests), browser job (production build and all Playwright checks) and native image jobs concurrently. The final `check` requires every job to succeed, including both HIGH/CRITICAL image scans. A failed or cancelled dependency cannot pass that gate. Browser accessibility/state checks have not been removed to shorten runtime. `pnpm test:e2e` already builds the web assets; CI no longer builds them twice.
+
+For a comparable local measurement, avoid running image builds/browser captures beside the suite. `pnpm test --reporter=json --outputFile=/tmp/vmn-tests.json` records individual suite timing; compare runs on the same machine and treat one-run differences as approximate. Use file arguments for focused development checks, then run the full required suite before release.

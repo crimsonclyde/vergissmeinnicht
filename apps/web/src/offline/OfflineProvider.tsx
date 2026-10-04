@@ -91,6 +91,10 @@ export function OfflineProvider({ userId, children }: { userId: string; children
           error = caught;
         }
         const outcome = outcomeOf(error);
+        if (outcome === 'tool-disabled') {
+          setNotices((current) => current.includes(t('offline.toolDisabled')) ? current : [...current, t('offline.toolDisabled')]);
+          break;
+        }
         if (outcome === 'retry') {
           setUnreachable(true);
           break;

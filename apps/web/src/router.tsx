@@ -100,6 +100,7 @@ export type Route =
   /** Phone: what does not fit the bottom bar — Reminders, Calendar, Completed history. */
   | { readonly page: 'more'; readonly workspaceId: string }
   /** Completed history (13.14): finished executions. */
+  | { readonly page: 'schedule-history'; readonly workspaceId: string; readonly scheduleId: string }
   | { readonly page: 'history'; readonly workspaceId: string }
   /** One execution (Run). */
   | { readonly page: 'run'; readonly workspaceId: string; readonly runId: string }
@@ -153,6 +154,7 @@ export function parseRoute(pathname: string): Route {
   if ((match = new RegExp(`^/w/${ID}/contacts/${ID}$`).exec(path))) return { page: 'contacts', workspaceId: match[1] ?? '', view: 'contact', contactId: match[2] ?? null };
   if ((match = new RegExp(`^/w/${ID}/maintenance(/trash)?$`).exec(path))) return { page: 'maintenance', workspaceId: match[1] ?? '', view: match[2] === undefined ? 'overview' : 'trash', recordId: null };
   if ((match = new RegExp(`^/w/${ID}/maintenance/${ID}$`).exec(path))) return { page: 'maintenance', workspaceId: match[1] ?? '', view: 'record', recordId: match[2] ?? null };
+  if ((match = new RegExp(`^/w/${ID}/schedules/${ID}/history$`).exec(path))) return { page: 'schedule-history', workspaceId: match[1] ?? '', scheduleId: match[2] ?? '' };
   if ((match = new RegExp(`^/w/${ID}/calendar$`).exec(path))) return { page: 'calendar', workspaceId: match[1] ?? '' };
   if ((match = new RegExp(`^/w/${ID}/more$`).exec(path))) return { page: 'more', workspaceId: match[1] ?? '' };
   // `/runs` is the address of the former Run list (bookmarks keep working).
@@ -195,6 +197,7 @@ export const paths = {
   maintenanceTrash: (workspaceId: string) => `/w/${workspaceId}/maintenance/trash`,
   calendar: (workspaceId: string) => `/w/${workspaceId}/calendar`,
   more: (workspaceId: string) => `/w/${workspaceId}/more`,
+  scheduleHistory: (workspaceId: string, scheduleId: string) => `/w/${workspaceId}/schedules/${scheduleId}/history`,
   history: (workspaceId: string) => `/w/${workspaceId}/history`,
   run: (workspaceId: string, runId: string) => `/w/${workspaceId}/runs/${runId}`,
   procedures: (workspaceId: string) => `/w/${workspaceId}/procedures`,

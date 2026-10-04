@@ -1,3 +1,4 @@
+import { enabledTool } from './tool-policy.ts';
 import { randomUUID } from 'node:crypto';
 import { and, asc, count, eq, isNotNull, isNull, max, sql } from 'drizzle-orm';
 import type { ListRepository, ListSummary, ListWithItems } from '@vergissmeinnicht/application';
@@ -47,7 +48,7 @@ function findRow(db: Reader, workspaceId: WorkspaceId, listId: ListId, deleted =
   return db
     .select()
     .from(lists)
-    .where(and(eq(lists.workspaceId, workspaceId), eq(lists.id, listId), deleted ? isNotNull(lists.deletedAt) : isNull(lists.deletedAt)))
+    .where(and(enabledTool(workspaceId, 'LISTS'), eq(lists.workspaceId, workspaceId), eq(lists.id, listId), deleted ? isNotNull(lists.deletedAt) : isNull(lists.deletedAt)))
     .get();
 }
 
@@ -78,7 +79,7 @@ function touch(tx: Transaction, listId: string, at: Date) {
 }
 
 const liveLists = (tx: Reader, workspaceId: WorkspaceId) =>
-  tx.select({ n: count() }).from(lists).where(and(eq(lists.workspaceId, workspaceId), isNull(lists.deletedAt))).get()?.n ?? 0;
+  tx.select({ n: count() }).from(lists).where(and(enabledTool(workspaceId, 'LISTS'), eq(lists.workspaceId, workspaceId), isNull(lists.deletedAt))).get()?.n ?? 0;
 
 const liveItems = (tx: Reader, listId: string) => tx.select({ n: count() }).from(listItems).where(itemsOf(listId)).get()?.n ?? 0;
 
@@ -89,7 +90,7 @@ export function createListRepository({ db }: Pick<AppDatabase, 'db'>): ListRepos
         tx
           .select()
           .from(lists)
-          .where(and(eq(lists.workspaceId, workspaceId), isNull(lists.deletedAt)))
+          .where(and(enabledTool(workspaceId, 'LISTS'), eq(lists.workspaceId, workspaceId), isNull(lists.deletedAt)))
           .orderBy(asc(lists.createdAt), asc(lists.id))
           .all()
           .map((row) => {

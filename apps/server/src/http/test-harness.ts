@@ -1,3 +1,4 @@
+import { enableCoreTools } from '../../../../packages/database/src/test-support.ts';
 // Test-only helper: a production-configured app on a fresh database, with captured email and
 // signed-in demo users. Not imported by application code.
 import { randomBytes } from 'node:crypto';
@@ -71,13 +72,19 @@ export async function startTestApp(
   const ready = services;
 
   /** `origin: null` omits the header. */
-  const post = (url: string, payload?: object, cookie?: string, origin: string | null = ORIGIN) =>
-    app.inject({
+  const post = async (url: string, payload?: object, cookie?: string, origin: string | null = ORIGIN) => {
+    // Fixture setup uses the current revision; tests of stale/missing revisions use app.inject directly.
+    if (url.endsWith('/tools') && payload !== undefined && !('expectedRevision' in payload)) {
+      const id = url.split('/')[3];
+      if (id !== undefined) payload = { ...payload, expectedRevision: await ready.documents.tools.revision(id as Parameters<typeof ready.documents.tools.revision>[0]) };
+    }
+    return app.inject({
       method: 'POST',
       url,
       headers: { ...(origin === null ? {} : { origin }), ...(cookie === undefined ? {} : { cookie }) },
       ...(payload === undefined ? {} : { payload }),
     });
+  };
   const get = (url: string, cookie?: string) =>
     app.inject({ method: 'GET', url, headers: cookie === undefined ? {} : { cookie } });
 
@@ -106,7 +113,10 @@ export async function startTestApp(
   async function createWorkspace(name: string): Promise<string> {
     const response = await post('/api/workspaces', { name }, admin);
     if (response.statusCode !== 201) throw new Error(`workspace creation failed: ${response.statusCode}`);
-    return (response.json() as { workspace: { id: string } }).workspace.id;
+    const id = (response.json() as { workspace: { id: string } }).workspace.id;
+    const creator = database.sqlite.prepare('SELECT created_by_user_id AS id FROM workspaces WHERE id = ?').get(id) as { id: string };
+    enableCoreTools(database, id, creator.id);
+    return id;
   }
 
   const addMember = (workspaceId: string, email: string, role: string) =>
