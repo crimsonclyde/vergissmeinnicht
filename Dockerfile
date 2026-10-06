@@ -69,11 +69,13 @@ RUN node deploy/server-notices.ts node_modules/.pnpm > third-party-notices-serve
 
 # ---- Runtime image.
 FROM ${NODE_IMAGE} AS runtime
-# The pinned Node image predates the Bookworm PCRE2 security update (CVE-2026-103111).
-# Use Debian's signed repositories, require the fixed version, and keep the image scan gate.
+# The pinned Node image predates Bookworm security updates of PCRE2 (CVE-2026-103111) and Perl
+# (perl-base; CVE-2026-13221, -8376, -42496, -42497, -48962, -57432, -57433). Use Debian's signed
+# repositories, require the fixed versions, and keep the image scan gate.
 RUN apt-get update \
-  && apt-get install -y --only-upgrade --no-install-recommends libpcre2-8-0 \
+  && apt-get install -y --only-upgrade --no-install-recommends libpcre2-8-0 perl-base \
   && dpkg --compare-versions "$(dpkg-query -W -f='${Version}' libpcre2-8-0)" ge 10.42-1+deb12u2 \
+  && dpkg --compare-versions "$(dpkg-query -W -f='${Version}' perl-base)" ge 5.36.0-7+deb12u4 \
   && rm -rf /var/lib/apt/lists/*
 LABEL org.opencontainers.image.title="VergissMeinNicht" \
       org.opencontainers.image.description="Repeatable procedures with trustworthy execution history" \

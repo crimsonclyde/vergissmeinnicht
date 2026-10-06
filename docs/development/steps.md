@@ -3363,6 +3363,8 @@ GitHub pre-release created after the user approved the command: `https://github.
 - *Remaining / limitations:* rules are simple and tuned on synthetic examples; real household documents may need more words and formats (owner beta). No suggestion for tags or folders; no Contact matching for the supplier. Optional local AI (task 7) needs its own plan and an `AGENTS.md` scope entry.
 - *Security surface changed:* YES (small) — one read and one write route over derived text; nothing applies itself. `security.md`: the suggestion item is checked.
 
+**Release preparation (2026-10-06):** PR #18's first CI run failed two scan gates for advisories published since beta.5: `source-map-js` 1.2.1 (GHSA-68fv-2mgg-jv7q / CVE-2026-93749, HIGH, build tooling and a transitive runtime copy) → 1.2.2 in the lockfile (published 2026-09-30, passes `minimumReleaseAge`); Debian `perl-base` in the pinned Node base image (CVE-2026-13221, -8376, -42496 CRITICAL; -42497, -48962, -57432, -57433 HIGH) → upgraded in the runtime stage to `5.36.0-7+deb12u4` with a version gate, like PCRE2 before. Verified in a local image build. Security surface: unchanged (patched dependencies only).
+
 **Security impact (expected):** HIGH (new native or large parsers on hostile input; derived sensitive text).
 
 ### 16.10 Phase 5 — Mail: Mailboxes, reading and sending (optional, later)
