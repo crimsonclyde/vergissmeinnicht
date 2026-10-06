@@ -18,7 +18,7 @@ For every completed task, add a concise completion note, tests/checks performed,
 
 ## Current state — resume here
 
-**Done (2026-10-06, uncommitted, not released): 16.9 text recognition and rule-based suggestions, tasks 1–6.** HT9 (Tesseract as WebAssembly, `tessdata_best` eng/deu/ita), HT10 (MuPDF) and P5 (owner: automatic on upload, Workspace switch by admins, existing files processed too) are settled in 16.12. Implemented: migration 0038, background queue, OCR and embedded-text extraction, search with snippets, Retry, Workspace switch, storage accounting, deletion, suggestions with Use / Add to notes / Remind me… / Dismiss, docs. **Next:** owner review and checks on real scans and on the Unraid host (`deploy/memory-check.sh`); commit/release only when the owner says so. Task 7 (local AI) parked: the Unraid CPU cannot run a model. Not planned (owner, 2026-10-06): 2.6 external sign-in, 14.5 completion photos, 16.10–16.11 Mail. No further product step is planned after 16.9.
+**Released 2026-10-06 as v0.5.0-beta.6 (12.25): 16.9 text recognition and rule-based suggestions, tasks 1–6.** HT9 (Tesseract as WebAssembly, `tessdata_best` eng/deu/ita), HT10 (MuPDF) and P5 (owner: automatic on upload, Workspace switch by admins, existing files processed too) are settled in 16.12. Implemented: migration 0038, background queue, OCR and embedded-text extraction, search with snippets, Retry, Workspace switch, storage accounting, deletion, suggestions with Use / Add to notes / Remind me… / Dismiss, docs. **Next:** owner checks with real scans and on the Unraid host (`deploy/memory-check.sh`, fixed in 12.25); 17.5 offline-first is the next planned phase. Task 7 (local AI) parked: the Unraid CPU cannot run a model. Not planned (owner, 2026-10-06): 2.6 external sign-in, 14.5 completion photos, 16.10–16.11 Mail. No further product step is planned after 16.9.
 
 **Released correction (2026-10-04): v0.5.0-beta.5** adds **Add to device contacts** on individual Contact pages; beta.4 only offered bulk export from the list. PR #17 merged as `240a1c9`; PR/main/tagged CI passed. Release: https://github.com/crimsonclyde/vergissmeinnicht/releases/tag/v0.5.0-beta.5. Container `ghcr.io/crimsonclyde/vergissmeinnicht:0.5.0-beta.5` inspected for amd64/arm64; no new migration after beta.4. Update the running installation to use the action; VMN cannot perform the phone’s native import itself. The owner confirmed successful Contact import on a physical iPhone on 2026-10-04; Android import remains unverified. No live Unraid deployment was performed by the agent.
 
@@ -2010,6 +2010,13 @@ GitHub pre-release created after the user approved the command: `https://github.
 
 **Validation:** implementation and local checks recorded in 16.8 (146 files / 1154 tests, 27.30 s; Playwright 3 passed / 1 intentional skip; typecheck/lint/build/schema checks). Final PR CI `37218359808`, main CI `37218652596` and release `37218676293` succeeded. Both native validation and publishing images passed smoke tests and fixable HIGH/CRITICAL vulnerability scans; manifest publishing, workflow signing and CycloneDX attestation succeeded. Completion is recorded in a documentation commit after publication. Physical-phone imports, live Unraid upgrade and the existing development-only moderate esbuild finding remain open. Security surface: MEDIUM, documented in `security.md`; release validation must remain fail-closed.
 
+### 12.25 Release 0.5.0-beta.6
+**Status:** DONE (2026-10-06) — 16.9 text recognition and rule-based suggestions, at the owner's request ("merge and release when green").
+
+PR #18 merged as `81d4134` after its second CI run (the first failed the scan gates on new `source-map-js` and Debian `perl-base` advisories, patched in `d3e2e2f`). Main CI and the tagged Release workflow (`37489838343`: checks, native amd64/arm64 images, publish) succeeded. Annotated tag `v0.5.0-beta.6` on `81d4134`. Image index `ghcr.io/crimsonclyde/vergissmeinnicht:0.5.0-beta.6` = `sha256:d0bf553cd782e4f0728680b327bba08764f876c521f68b50c54fc2cfc04584c7` (amd64 `sha256:8b052ef7…`, arm64 `sha256:ecbf7b69…`), inspected. GitHub pre-release: https://github.com/crimsonclyde/vergissmeinnicht/releases/tag/v0.5.0-beta.6. Upgrade needs `migrate` (migration 0038); existing files are then read in the background. Unraid template and `unraid.md` point to beta.6. Nothing was deployed to the running installation.
+
+**Memory check:** `deploy/memory-check.sh` had been broken since 17.1 — it switched Documents on without the tool-settings revision (400), so every later request answered 404 and its new recognition phase would have waited 45 minutes. Fixed (switches Documents, Lists and Procedures with the current revision; a missing recognition status fails at once). A run against the released image was started on the development machine; its result is still to be recorded. The run on the Unraid host remains the owner's check.
+
 ### 12.24 Release 0.5.0-beta.5
 **Status:** DONE (2026-10-04)
 
@@ -3321,7 +3328,7 @@ GitHub pre-release created after the user approved the command: `https://github.
 **Owner device validation (2026-10-04):** after finding **Add to device contacts**, the owner tested the flow on a physical iPhone and confirmed that importing the Contact works. This closes the outstanding single-Contact iPhone import check for that tested device; iOS/browser/version and detailed import path were not supplied, so no broader device or bulk-import compatibility is claimed. Android import remains unverified. Checks: owner-reported manual test and `git diff --check`; application tests unnecessary for this evidence-only update. Security surface changed: NO — documentation only, no change to export permissions or data flow. Matching validation evidence added to `security.md`.
 
 ### 16.9 Phase 4 — Text recognition, rule-based suggestions, later optional local AI (later)
-**Status:** DONE for tasks 1–6 (2026-10-06, uncommitted); task 7 (optional local AI) later, separate plan
+**Status:** DONE for tasks 1–6 (2026-10-06, released in 0.5.0-beta.6); task 7 (optional local AI) later, separate plan
 **Depends on:** 16.1–16.4 (Documents work completely without it); 16.5 for reminder suggestions; technical choices HT9, HT10 (and HT14 for the AI part); product point P5.
 
 **Requirements:**

@@ -164,7 +164,11 @@ async function previews(id: string | undefined, label: string): Promise<string> 
 await call('POST', '/invitations/accept', { token: inviteToken, displayName: 'Memory Check', password: PASSWORD });
 if ((await call('POST', '/auth/sign-in', { email: 'admin@example.org', password: PASSWORD })).status !== 200 || cookie === '') throw new Error('sign-in failed');
 workspace = ((await call('POST', '/workspaces', { name: 'Memory check' })).json as { workspace: { id: string } }).workspace.id;
-await call('POST', `/workspaces/${workspace}/tools`, { tool: 'DOCUMENTS', enabled: true });
+// Tool settings are compare-and-set since 17.1: switch on what the ordinary requests below use, with the current revision.
+for (const tool of ['DOCUMENTS', 'LISTS', 'PROCEDURES']) {
+  const { revision } = (await call('GET', `/workspaces/${workspace}/tools`)).json as { revision: number };
+  if ((await call('POST', `/workspaces/${workspace}/tools`, { tool, enabled: true, expectedRevision: revision })).status !== 200) throw new Error(`could not switch ${tool} on`);
+}
 await call('POST', `/workspaces/${workspace}/lists`, { title: 'Groceries' });
 await call('POST', `/workspaces/${workspace}/document-folders`, { name: 'Water', parentId: null });
 
@@ -253,9 +257,13 @@ await phase('Text recognition of everything uploaded above, in the background (o
   for (;;) {
     const info = (await call('GET', `/workspaces/${workspace}/text-recognition`)).json as { textRecognition?: { files: Record<string, number> } };
     const files = info.textRecognition?.files;
-    const waiting = files === undefined ? Number.NaN : (files.QUEUED ?? 0) + (files.PROCESSING ?? 0);
+    if (files === undefined) {
+      failed = true;
+      return ['FAIL text recognition status not available'];
+    }
+    const waiting = (files.QUEUED ?? 0) + (files.PROCESSING ?? 0);
     if (waiting === 0) {
-      return [`ok   all files settled after ${((performance.now() - started) / 1000).toFixed(0)} s: ${files?.DONE ?? 0} read, ${files?.FAILED ?? 0} could not be read, ${files?.NOT_APPLICABLE ?? 0} not readable`];
+      return [`ok   all files settled after ${((performance.now() - started) / 1000).toFixed(0)} s: ${files.DONE ?? 0} read, ${files.FAILED ?? 0} could not be read, ${files.NOT_APPLICABLE ?? 0} not readable`];
     }
     if (performance.now() - started > 45 * 60_000) {
       failed = true;
