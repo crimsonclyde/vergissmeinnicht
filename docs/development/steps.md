@@ -2017,6 +2017,8 @@ PR #18 merged as `81d4134` after its second CI run (the first failed the scan ga
 
 **Memory check:** `deploy/memory-check.sh` had been broken since 17.1 — it switched Documents on without the tool-settings revision (400), so every later request answered 404 and its new recognition phase would have waited 45 minutes. Fixed (switches Documents, Lists and Procedures with the current revision; a missing recognition status fails at once). Run against the released image on the development machine (4 GiB limit): **passed** — peak 3 511 MB = 82 % of the limit (before 16.9: 2.9 GB / 68 %; the extra is OCR running alongside previews of large and hostile PDFs), nothing killed or restarted, 9 668 ordinary requests without a failure (median 3 ms, slowest 116 ms), all 16 files' text read. The 4 GiB default holds with less headroom. The run on the Unraid host remains the owner's check.
 
+**Owner check on the Unraid host (2026-10-06):** the owner upgraded the running installation to `0.5.0-beta.6`. Uploading a new image used about 600 MB of memory with CPU briefly around 160 %; `RestartCount 0`, `OOMKilled false`. This is real-use evidence for single uploads, not the hostile-file memory check (`deploy/memory-check.sh` needs Node and the repository on the host and was not run there); whether the backlog of existing files has finished was not reported.
+
 ### 12.24 Release 0.5.0-beta.5
 **Status:** DONE (2026-10-04)
 
