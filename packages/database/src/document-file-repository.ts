@@ -1,10 +1,10 @@
 import { randomUUID } from 'node:crypto';
 import { and, asc, eq, inArray, lt, sql, type SQL } from 'drizzle-orm';
 import { IMAGE_PENDING_MS, type DerivativeRecord, type DocumentFileRecord, type DocumentFileRepository, type RegisterDocumentFileResult } from '@vergissmeinnicht/application';
-import { fitsStorage, type DocumentFileId, type WorkspaceId } from '@vergissmeinnicht/domain';
+import { fitsStorage, type DocumentFileId, type TextState, type WorkspaceId } from '@vergissmeinnicht/domain';
 import { IMMEDIATE, actorAllowed, type Transaction } from './actor-guard.ts';
 import type { AppDatabase } from './connection.ts';
-import { documentFileDerivatives, documentFiles, documentPages, runDocumentFiles, workspaceTools } from './schema.ts';
+import { documentFileDerivatives, documentFileTexts, documentFiles, documentPages, runDocumentFiles, workspaceTools } from './schema.ts';
 import { storageUsageIn } from './storage-usage.ts';
 
 type Reader = Pick<Transaction, 'select'>;
@@ -14,7 +14,10 @@ const documentsEnabled = (workspaceId: string | typeof documentFiles.workspaceId
 
 const previewPages = sql<number>`(select count(*) from ${documentFileDerivatives} where ${documentFileDerivatives.fileId} = ${documentFiles.id} and ${documentFileDerivatives.kind} = 'PREVIEW')`;
 
-const toRecord = (row: Row, pages: number): DocumentFileRecord => ({
+/** The file's text-recognition state (16.9); null when it has none (nothing queued yet). */
+const textState = sql<TextState | null>`(select ${documentFileTexts.state} from ${documentFileTexts} where ${documentFileTexts.fileId} = ${documentFiles.id})`;
+
+const toRecord = (row: Row, pages: number, text: TextState | null = null): DocumentFileRecord => ({
   id: row.id as DocumentFileId,
   workspaceId: row.workspaceId as WorkspaceId,
   sha256: row.sha256,
@@ -28,6 +31,7 @@ const toRecord = (row: Row, pages: number): DocumentFileRecord => ({
   activeContent: row.activeContent,
   previewState: row.previewState,
   previewPages: Number(pages),
+  textState: text,
   uploadedByUserId: row.uploadedByUserId,
   uploadedByName: row.uploadedByDisplayName,
   uploadedAt: row.createdAt,
@@ -47,19 +51,19 @@ const unreferenced: SQL = sql`not exists (select 1 from ${documentPages} where $
 const pendingSince = (at: Date) => new Date(at.getTime() - IMAGE_PENDING_MS);
 
 function findIn(tx: Reader, where: SQL | undefined): DocumentFileRecord | undefined {
-  const row = tx.select({ file: documentFiles, pages: previewPages }).from(documentFiles).where(where).get();
-  return row === undefined ? undefined : toRecord(row.file, row.pages);
+  const row = tx.select({ file: documentFiles, pages: previewPages, text: textState }).from(documentFiles).where(where).get();
+  return row === undefined ? undefined : toRecord(row.file, row.pages, row.text);
 }
 
 /** The files with these ids, for the pages of a Document (order is the caller's). */
 export function fileRecords(tx: Reader, fileIds: readonly string[]): Map<string, DocumentFileRecord> {
   if (fileIds.length === 0) return new Map();
   const rows = tx
-    .select({ file: documentFiles, pages: previewPages })
+    .select({ file: documentFiles, pages: previewPages, text: textState })
     .from(documentFiles)
     .where(inArray(documentFiles.id, [...fileIds]))
     .all();
-  return new Map(rows.map((row) => [row.file.id, toRecord(row.file, row.pages)]));
+  return new Map(rows.map((row) => [row.file.id, toRecord(row.file, row.pages, row.text)]));
 }
 
 /** Document file metadata (16.1). See `DocumentFileRepository`. */
@@ -103,7 +107,13 @@ export function createDocumentFileRepository({ db }: Pick<AppDatabase, 'db'>): D
           })
           .returning()
           .get();
-        return { status: 'ok', file: toRecord(row, 0), usage: { ...usage, originals: usage.originals + adding, used: usage.used + adding } };
+        // Text recognition (16.9, P5): queued with the file, in the same transaction — ahead of existing
+        // files. Nothing can be read from a password-protected PDF or a HEIC (no decoder, HT1).
+        const readable = input.inspected.format !== 'HEIC' && !input.inspected.encrypted;
+        tx.insert(documentFileTexts)
+          .values({ fileId: row.id, workspaceId: input.workspaceId, state: readable ? 'QUEUED' : 'NOT_APPLICABLE', priority: 0, queuedAt: input.at, updatedAt: input.at })
+          .run();
+        return { status: 'ok', file: toRecord(row, 0, readable ? 'QUEUED' : 'NOT_APPLICABLE'), usage: { ...usage, originals: usage.originals + adding, used: usage.used + adding } };
       }, IMMEDIATE);
     },
 
@@ -194,6 +204,7 @@ export function createDocumentFileRepository({ db }: Pick<AppDatabase, 'db'>): D
         const ids = stale.map((row) => row.id);
         const derived = tx.select({ sha256: documentFileDerivatives.sha256 }).from(documentFileDerivatives).where(inArray(documentFileDerivatives.fileId, ids)).all();
         tx.delete(documentFileDerivatives).where(inArray(documentFileDerivatives.fileId, ids)).run();
+        tx.delete(documentFileTexts).where(inArray(documentFileTexts.fileId, ids)).run();
         tx.delete(documentFiles).where(inArray(documentFiles.id, ids)).run();
         const hashes = [...new Set([...stale, ...derived].map((row) => row.sha256))];
         const stillUsed = new Set([

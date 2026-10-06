@@ -50,6 +50,17 @@ export interface DocumentSummary {
   readonly uploadedByName: string;
   readonly modifiedAt: Date;
   readonly modifiedByName: string;
+  /**
+   * Where a search term was found in text recognised from one of its files (16.9): the file's position
+   * (1-based), the page in that file and plain text around the hit. Only in search results.
+   */
+  readonly textMatch?: DocumentTextMatch | null;
+}
+
+export interface DocumentTextMatch {
+  readonly file: number;
+  readonly page: number;
+  readonly snippet: string;
 }
 
 export interface DocumentRecord extends DocumentSummary {

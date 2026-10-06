@@ -245,6 +245,26 @@ await phase('Hostile PDFs together with large uploads: 30 pages of 430 MB bitmap
   ];
 });
 
+// Text recognition (16.9) runs in the background on everything above — embedded text where a page has
+// it, OCR (about 255 MB while it runs, at most 50 pages per file) where not — one file at a time,
+// alongside the previews and the ordinary requests.
+await phase('Text recognition of everything uploaded above, in the background (one file at a time)', async () => {
+  const started = performance.now();
+  for (;;) {
+    const info = (await call('GET', `/workspaces/${workspace}/text-recognition`)).json as { textRecognition?: { files: Record<string, number> } };
+    const files = info.textRecognition?.files;
+    const waiting = files === undefined ? Number.NaN : (files.QUEUED ?? 0) + (files.PROCESSING ?? 0);
+    if (waiting === 0) {
+      return [`ok   all files settled after ${((performance.now() - started) / 1000).toFixed(0)} s: ${files?.DONE ?? 0} read, ${files?.FAILED ?? 0} could not be read, ${files?.NOT_APPLICABLE ?? 0} not readable`];
+    }
+    if (performance.now() - started > 45 * 60_000) {
+      failed = true;
+      return [`FAIL text recognition not finished after 45 minutes (${waiting} files waiting)`];
+    }
+    await new Promise((resolve) => setTimeout(resolve, 5000));
+  }
+});
+
 activity.running = false;
 await Promise.all(background);
 

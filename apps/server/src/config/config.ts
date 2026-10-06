@@ -170,6 +170,8 @@ export interface AppConfig {
   readonly mediaPath: string;
   /** Files of Documents (16.1): `documents/` next to the database — originals, previews and uploads in progress. */
   readonly documentsPath: string;
+  /** OCR language data (16.9, HT9): shipped with the application, never downloaded at runtime. */
+  readonly tessdataPath: string;
   readonly authSecret: Secret;
   /** True when no AUTH_SECRET was configured outside production and a per-process secret was generated. */
   readonly authSecretEphemeral: boolean;
@@ -235,6 +237,7 @@ export function loadConfig(env: NodeJS.ProcessEnv, readFile: (path: string) => s
     databasePath: resolve(REPO_ROOT, values.DATABASE_PATH ?? '.var/vergissmeinnicht.sqlite'),
     mediaPath: defaultMediaPath(resolve(REPO_ROOT, values.DATABASE_PATH ?? '.var/vergissmeinnicht.sqlite')),
     documentsPath: defaultDocumentsPath(resolve(REPO_ROOT, values.DATABASE_PATH ?? '.var/vergissmeinnicht.sqlite')),
+    tessdataPath: resolve(REPO_ROOT, 'packages/media/tessdata'),
     authSecret: new Secret(values.AUTH_SECRET ?? randomBytes(32).toString('base64url')),
     authSecretEphemeral: values.AUTH_SECRET === undefined,
     dataEncryptionKey: new Secret(values.DATA_ENCRYPTION_KEY ?? randomBytes(32).toString('base64url')),

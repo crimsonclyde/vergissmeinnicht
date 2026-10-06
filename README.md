@@ -75,7 +75,7 @@ Browse all guides in the [documentation index](docs/README.md).
 **VMN is in beta.**
 
 - **Available today:** reusable Procedures and collaborative Runs with history; scheduling, email and optional Telegram reminders; grocery Lists and Calendar; Documents, Contacts, Maintenance and Equipment. Today brings together work to do, progress and recent completions.
-- **Planned:** text recognition for Documents and a Mail tool for connected mailboxes.
+- **Text recognition** (unreleased): words printed in Documents become searchable, with suggestions you accept or dismiss — read on your own server only.
 
 See the [implementation ledger](docs/development/steps.md) for release details, known limitations and upcoming work.
 

@@ -1,11 +1,11 @@
 import { Worker } from 'node:worker_threads';
 import type { WorkerFailure, WorkerJob, WorkerResult } from './document-worker.ts';
 
-/** The file made the parser fail or exceed its limits; `too_complex` = time or memory ran out. */
+/** The file made the parser fail or exceed its limits; `too_complex` = time or memory ran out; `unavailable` = the OCR engine or its data is missing. */
 export class WorkerJobError extends Error {
-  readonly code: WorkerFailure | 'too_complex';
+  readonly code: WorkerFailure | 'too_complex' | 'unavailable';
 
-  constructor(code: WorkerFailure | 'too_complex') {
+  constructor(code: WorkerFailure | 'too_complex' | 'unavailable') {
     super(`document worker: ${code}`);
     this.name = 'WorkerJobError';
     this.code = code;
@@ -27,9 +27,17 @@ export interface DocumentWorkerOptions {
   readonly idleMs?: number;
 }
 
-export interface DocumentWorker {
-  run<T extends WorkerResult['op']>(job: WorkerJob & { readonly op: T }): Promise<WorkerResult & { readonly op: T }>;
+export interface WorkerHost<Job extends { readonly op: string }, Result extends { readonly op: string }> {
+  run<T extends Result['op']>(job: Job & { readonly op: T }): Promise<Result & { readonly op: T }>;
   close(): Promise<void>;
+}
+
+export type DocumentWorker = WorkerHost<WorkerJob, WorkerResult>;
+
+/** Where a worker's code is and what it is started with. */
+interface WorkerScript {
+  readonly url: URL;
+  readonly workerData?: unknown;
 }
 
 /**
@@ -40,6 +48,11 @@ export interface DocumentWorker {
  * which returns all of its memory.
  */
 export function createDocumentWorker(options: DocumentWorkerOptions = {}): DocumentWorker {
+  return createWorkerHost<WorkerJob, WorkerResult>({ url: new URL('./document-worker.ts', import.meta.url) }, options);
+}
+
+/** The same one-job-at-a-time host for another worker script (the OCR worker, 16.9). */
+export function createWorkerHost<Job extends { readonly op: string }, Result extends { readonly op: string }>(script: WorkerScript, options: DocumentWorkerOptions = {}): WorkerHost<Job, Result> {
   const timeoutMs = options.timeoutMs ?? 30_000;
   const maxGrowth = options.maxMemoryGrowthBytes ?? 1_500_000_000;
   const idleMs = options.idleMs ?? 30_000;
@@ -56,18 +69,18 @@ export function createDocumentWorker(options: DocumentWorkerOptions = {}): Docum
     void current?.terminate();
   }
 
-  function execute(job: WorkerJob): Promise<WorkerResult> {
+  function execute(job: Job): Promise<Result> {
     if (closed) return Promise.reject(new WorkerJobError('failed'));
     clearTimeout(idleTimer);
     // The JavaScript heap is small by design; the parser's own (WebAssembly) memory is bounded by the module.
     if (worker === undefined) {
-      worker = new Worker(new URL('./document-worker.ts', import.meta.url), { resourceLimits: { maxOldGenerationSizeMb: 256 } });
+      worker = new Worker(script.url, { resourceLimits: { maxOldGenerationSizeMb: 256 }, workerData: script.workerData });
       // Never the reason the process stays alive.
       worker.unref();
     }
     const current = worker;
     const id = nextId++;
-    return new Promise<WorkerResult>((resolve, reject) => {
+    return new Promise<Result>((resolve, reject) => {
       const baseline = process.memoryUsage().rss;
       const end = (settle: () => void, kill: boolean) => {
         clearTimeout(timer);
@@ -82,9 +95,9 @@ export function createDocumentWorker(options: DocumentWorkerOptions = {}): Docum
         }
         settle();
       };
-      const onMessage = (message: { id: number; ok: boolean; result?: WorkerResult; code?: WorkerFailure }) => {
+      const onMessage = (message: { id: number; ok: boolean; result?: Result; code?: WorkerFailure | 'unavailable' }) => {
         if (message.id !== id) return;
-        if (message.ok && message.result !== undefined) end(() => resolve(message.result as WorkerResult), false);
+        if (message.ok && message.result !== undefined) end(() => resolve(message.result as Result), false);
         else end(() => reject(new WorkerJobError(message.code ?? 'failed')), false);
       };
       const onFailure = () => end(() => reject(new WorkerJobError('too_complex')), true);

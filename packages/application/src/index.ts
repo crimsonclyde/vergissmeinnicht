@@ -31,6 +31,7 @@ export * from './ports/media.ts';
 export * from './ports/storage.ts';
 export * from './ports/link-repository.ts';
 export * from './ports/document-files.ts';
+export * from './ports/document-texts.ts';
 export * from './ports/document-repository.ts';
 export * from './ports/password-hasher.ts';
 export * from './ports/user-repository.ts';

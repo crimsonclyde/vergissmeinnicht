@@ -1,5 +1,7 @@
 import { finished } from 'node:stream';
 import {
+  dismissSuggestion,
+  documentSuggestions,
   checkDocumentExport,
   createDocument,
   createDocumentType,
@@ -66,6 +68,7 @@ const moveFolderBody = z.strictObject({ parentId: folderRef, expectedRevision: r
 const createDocumentBody = z.strictObject({ ...content, folderId: folderRef, fileIds });
 const updateDocumentBody = z.strictObject({ ...content, expectedRevision: revision });
 const filesBody = z.strictObject({ fileIds, expectedRevision: revision });
+const dismissBody = z.strictObject({ field: z.string().max(40), value: z.string().max(300) });
 const moveDocumentsBody = z.strictObject({ documentIds: z.array(uuid).max(1000), folderId: folderRef });
 // A listing (16.3). Everything is optional and bounded here; the domain decides what each value may be.
 // A repeated `tag=` arrives as an array, a single one as a string.
@@ -125,6 +128,8 @@ const summaryView = (document: DocumentSummary) => ({
   uploadedBy: document.uploadedByName,
   modifiedAt: document.modifiedAt.toISOString(),
   modifiedBy: document.modifiedByName,
+  // Where a search term was found in recognised text (16.9): plain text, shown as text, never markup.
+  ...(document.textMatch === undefined ? {} : { textMatch: document.textMatch }),
 });
 
 const documentView = (document: DocumentRecord) => ({ ...summaryView(document), notes: document.notes, pages: document.pages.map(fileView) });
@@ -309,6 +314,20 @@ export async function documentRoutes(app: FastifyInstance, { services }: { servi
   app.get('/:documentId', async (request) => {
     const { workspaceId, documentId } = parse(documentParams, request.params);
     return { document: documentView(await getDocument(deps, { ...ref(request, workspaceId), documentId })) };
+  });
+
+  // Suggestions from recognised text (16.9 task 5): offered to those who may change the Document;
+  // nothing is applied here — accepting goes through the ordinary update, a due date through "Remind me…".
+  app.get('/:documentId/suggestions', async (request) => {
+    const { workspaceId, documentId } = parse(documentParams, request.params);
+    return { suggestions: await documentSuggestions(services.suggestions, { ...ref(request, workspaceId), documentId }) };
+  });
+
+  app.post('/:documentId/suggestions/dismiss', { bodyLimit: 2048 }, async (request, reply) => {
+    const { workspaceId, documentId } = parse(documentParams, request.params);
+    const body = parse(dismissBody, request.body);
+    await dismissSuggestion(services.suggestions, { ...ref(request, workspaceId), documentId, field: body.field, value: body.value });
+    return reply.code(204).send();
   });
 
   app.post('/:documentId/update', { bodyLimit: BODY_LIMIT }, async (request) => {

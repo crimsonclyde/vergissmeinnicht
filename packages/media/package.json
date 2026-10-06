@@ -14,7 +14,8 @@
     "@vergissmeinnicht/application": "workspace:*",
     "@vergissmeinnicht/domain": "workspace:*",
     "mupdf": "1.28.1",
-    "sharp": "0.35.5"
+    "sharp": "0.35.5",
+    "tesseract.js-core": "7.0.0"
   },
   "devDependencies": {
     "@types/node": "24.13.6"

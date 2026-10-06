@@ -21,7 +21,8 @@
     "db:restore": "pnpm --filter @vergissmeinnicht/database db:ops restore",
     "db:housekeeping": "pnpm --filter @vergissmeinnicht/database db:ops housekeeping",
     "admin:bootstrap": "NODE_ENV=development node --env-file-if-exists=.env apps/server/src/cli/admin-bootstrap.ts",
-    "admin:recover": "NODE_ENV=development node --env-file-if-exists=.env apps/server/src/cli/admin-recover.ts"
+    "admin:recover": "NODE_ENV=development node --env-file-if-exists=.env apps/server/src/cli/admin-recover.ts",
+    "ocr:data": "node packages/media/scripts/fetch-tessdata.ts"
   },
   "devDependencies": {
     "@axe-core/playwright": "4.13.0",

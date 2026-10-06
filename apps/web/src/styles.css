@@ -3296,6 +3296,26 @@ input.list-check {
   background: var(--surface-muted);
 }
 
+/* Text recognition (16.9): the state of a file's text, and where a search term was found. */
+.document-text-state {
+  margin: 0.5rem 0 0;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.document-suggestion {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  overflow-wrap: anywhere;
+}
+
+.document-text-match {
+  display: block;
+  color: var(--text);
+  overflow-wrap: anywhere;
+}
+
 .document-page-actions {
   margin-top: 0.75rem;
   align-items: center;

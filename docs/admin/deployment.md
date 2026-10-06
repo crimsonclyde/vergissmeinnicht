@@ -178,6 +178,17 @@ Schedules (steps.md 14.1 — standalone Reminders and scheduled Procedures, once
   - Do not set a webhook for the bot elsewhere (polling does not work while a webhook is set), and use the bot for VMN only.
   - Telegram (and mail servers) see the reminder text: the Procedure title, date and Workspace name.
 
+## Text recognition (16.9)
+
+The server reads the text of uploaded Document files so they can be found by words printed on them: the text a PDF page contains (MuPDF), and **OCR** for scans and photos (Tesseract 5 compiled to WebAssembly, English + German + Italian). **Everything runs inside the app container; no file, page or text leaves the server, and recognition opens no network connection** — the language data ships in the image (`/app/packages/media/tessdata`, from `tesseract-ocr/tessdata_best`, pinned and checked by SHA-256 when the image is built; licence in `third-party-notices-server.txt`). There is no setting to use an outside service.
+
+- **On by default** in every Workspace with Documents (owner's decision P5); a Workspace admin switches it off for that Workspace under *Workspace settings → General*. There is no server-wide switch yet.
+- **After upgrading to the release with migration 0038, existing files are read too** — behind new uploads, one file at a time. A Workspace with thousands of scanned pages keeps one CPU core busy for hours after the upgrade (about 2 s per scanned page on a fast desktop CPU; expect 2–4× that on a NAS). Embedded PDF text costs almost nothing.
+- **Resources:** one file at a time; OCR takes about **255 MB** of memory while it runs (its worker thread stops when idle and returns the memory), at most 120 s per page, at most 50 scanned pages and 500 pages per file, 200 000 characters stored per file. Recognised text counts towards the Workspace's storage. `deploy/memory-check.sh` now waits for the text of everything it uploaded, so its result covers previews and OCR together — run it on your own hardware.
+- **Image size:** about 36 MB more (the OCR engine and the three languages).
+- **Failures** are shown on the file with *Retry*; the Document stays fully usable. If the language data were missing (a broken image), files wait without using up their attempts and the log says `text recognition failed` with the code `unavailable`.
+- Recognised text is in the database and therefore in every backup. Building from source outside Docker: run `pnpm ocr:data` once (downloads and verifies the language data into `packages/media/tessdata`).
+
 ## Housekeeping
 
 The server deletes rows that can no longer be used at start and then hourly: expired sessions and verification values, used or expired sign-in challenges, TOTP enrollments not confirmed within 10 minutes, expired rate-limit windows, and invitations / account-recovery links that were accepted, revoked or expired **more than 30 days ago**. Security events, audit history, Runs and Knots are never deleted. Only counts are logged. `pnpm db:housekeeping` (or the `housekeeping` image command) runs the same purge on demand.

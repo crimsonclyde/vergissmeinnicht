@@ -121,3 +121,11 @@ export class ExportRunningError extends Error {
     this.name = 'ExportRunningError';
   }
 }
+
+/** A dismissed suggestion must name a known field and a value (16.9 task 5). */
+export class InvalidSuggestionError extends Error {
+  constructor() {
+    super('Unknown suggestion');
+    this.name = 'InvalidSuggestionError';
+  }
+}

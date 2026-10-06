@@ -3,6 +3,10 @@ import {
   systemClock,
   telegramReminderNotifier,
   createPreviewQueue,
+  createTextRecognizer,
+  type TextRecognitionUseCaseDeps,
+  type SuggestionDeps,
+  type TextRecognizer,
   type AccountAdminDeps,
   type DocumentExportDeps,
   type DocumentFileDeps,
@@ -48,6 +52,7 @@ import {
   createCredentialRepository,
   createDocumentFileRepository,
   createDocumentRepository,
+  createDocumentTextRepository,
   createStorageRepository,
   createLinkRepository,
   createContactRepository,
@@ -86,7 +91,7 @@ import {
 } from '@vergissmeinnicht/database';
 import { canAuthenticate, type UserId } from '@vergissmeinnicht/domain';
 import { createSmtpEmailSender } from '@vergissmeinnicht/email';
-import { createDocumentFileProcessor, createDocumentFileStore, createFileMediaStore, createSharpImageProcessor } from '@vergissmeinnicht/media';
+import { createDocumentFileProcessor, createDocumentFileStore, createDocumentWorker, createFileMediaStore, createSharpImageProcessor, createTextExtractor } from '@vergissmeinnicht/media';
 import { createTelegramBotApi } from '@vergissmeinnicht/notifications';
 import { createRunChangeHub, type RunChangeHub } from '@vergissmeinnicht/realtime';
 import type { FastifyBaseLogger } from 'fastify';
@@ -131,7 +136,13 @@ export interface AppServices {
   readonly documentFiles: DocumentFileDeps;
   /** Folders, Documents, document types and the Workspace's optional tools (16.2). */
   readonly documents: DocumentExportDeps;
-  /** Stops the document worker thread and waits for running previews (shutdown, tests). */
+  /** Text recognition of document files (16.9): Retry and the Workspace switch. */
+  readonly textRecognition: TextRecognitionUseCaseDeps;
+  /** Suggestions from recognised text (16.9 task 5). */
+  readonly suggestions: SuggestionDeps;
+  /** The background text recognizer; the server wakes it periodically for retries that became due. */
+  readonly recognizer: TextRecognizer;
+  /** Stops the document and OCR worker threads and waits for running previews (shutdown, tests). */
   readonly closeDocumentFiles: () => Promise<void>;
   /** Notification providers, a person's reminder settings and Telegram pairing (13.6–13.8). */
   readonly notifications: NotificationDeps;
@@ -242,13 +253,25 @@ export function createServices(config: AppConfig, database: AppDatabase) {
     };
     const settingsRepository = createInstanceSettingsRepository(database);
     const tools = createWorkspaceToolRepository(database);
-    const documentProcessor = createDocumentFileProcessor();
+    // One MuPDF thread for previews and embedded text: PDFs are parsed in one place (16.1, 16.9).
+    const pdfWorker = createDocumentWorker();
+    const documentProcessor = createDocumentFileProcessor({ pdfWorker });
     const documentFiles = {
       files: createDocumentFileRepository(database),
       store: createDocumentFileStore(config.documentsPath),
       processor: documentProcessor,
       clock: systemClock,
     };
+    const textExtractor = createTextExtractor({ pdf: pdfWorker, tessdataPath: config.tessdataPath });
+    const texts = createDocumentTextRepository(database);
+    const recognizer = createTextRecognizer({
+      texts,
+      store: documentFiles.store,
+      extractor: textExtractor,
+      clock: systemClock,
+      // The error type and code only: a parser's message could quote a file.
+      onError: (error) => logger?.warn({ err: { type: (error as Error).name, code: (error as { code?: unknown }).code } }, 'text recognition failed'),
+    });
     const previews = createPreviewQueue({
       ...documentFiles,
       // The error type only: a parser's message could quote a file.
@@ -302,6 +325,7 @@ export function createServices(config: AppConfig, database: AppDatabase) {
         workspaces: workspaceDeps.workspaces,
         tools,
         previews,
+        recognizer,
         policy: async () => {
           const settings = await settingsRepository.get();
           return { maxFileBytes: settings.documentMaxFileBytes, formats: settings.documentFormats };
@@ -313,8 +337,13 @@ export function createServices(config: AppConfig, database: AppDatabase) {
       equipment: { workspaces: workspaceDeps.workspaces, tools, equipment: createEquipmentRepository(database), clock: systemClock },
       maintenance: { workspaces: workspaceDeps.workspaces, tools, maintenance: createMaintenanceRepository(database), clock: systemClock },
       documents: { workspaces: workspaceDeps.workspaces, tools, documents: createDocumentRepository(database), store: documentFiles.store, clock: systemClock },
+      textRecognition: { workspaces: workspaceDeps.workspaces, tools, texts, recognizer, clock: systemClock },
+      recognizer,
+      suggestions: { workspaces: workspaceDeps.workspaces, tools, documents: createDocumentRepository(database), texts, clock: systemClock },
       closeDocumentFiles: async () => {
+        await recognizer.stop();
         await previews.idle();
+        await textExtractor.close();
         await documentProcessor.close();
       },
       securityEvents,

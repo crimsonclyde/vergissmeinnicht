@@ -88,8 +88,9 @@ export interface DocumentFileProcessorHandle extends DocumentFileProcessor {
  * a memory watchdog (HT3). HEIC files are validated by their container only and get no preview (HT1).
  * Every preview is a re-encoded, metadata-free JPEG.
  */
-export function createDocumentFileProcessor(options: { readonly worker?: DocumentWorkerOptions } = {}): DocumentFileProcessorHandle {
-  const worker: DocumentWorker = createDocumentWorker(options.worker);
+export function createDocumentFileProcessor(options: { readonly worker?: DocumentWorkerOptions; readonly pdfWorker?: DocumentWorker } = {}): DocumentFileProcessorHandle {
+  // The PDF worker may be shared with text recognition (16.9), so PDFs are parsed in one thread.
+  const worker: DocumentWorker = options.pdfWorker ?? createDocumentWorker(options.worker);
 
   /** Parser failures become refusals with a stable code; a timeout or memory stop is `too_complex`. */
   const refusal = (error: unknown): DocumentFileRejectedError =>

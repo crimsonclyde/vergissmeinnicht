@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState, type FormEvent } from 'react';
 import { api, messageFor, WORKSPACE_ROLES, type WorkspaceMember, type WorkspaceRole } from './api.ts';
 import { WorkspaceStorageCard } from './Storage.tsx';
+import { TextRecognitionCard } from './TextRecognition.tsx';
 import { navigate, paths } from './router.tsx';
 import type { WorkspaceContext } from './workspace-context.ts';
 import { t } from './i18n/index.ts';
@@ -213,6 +214,7 @@ export function WorkspaceGeneral(props: { context: WorkspaceContext; onWorkspace
       )}
       {context.capabilities.includes('workspace.tools.manage') && <WorkspaceTools context={context} onChanged={props.onWorkspacesChanged} />}
       {context.capabilities.includes('workspace.settings.manage') && <WorkspaceStorageCard workspaceId={context.workspace.id} />}
+      {context.capabilities.includes('workspace.settings.manage') && context.tools.includes('DOCUMENTS') && <TextRecognitionCard workspaceId={context.workspace.id} />}
       <div className="card stack">
         <h3 style={{ marginTop: 0 }}>{t('workspaceSettings.roleHeading')}</h3>
         <p style={{ margin: 0 }}>{t('members.yourRole', { role: roleLabel(context.workspace.role), help: roleHelp(context.workspace.role) })}</p>

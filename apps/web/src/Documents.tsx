@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useId, useRef, useState } from 'react';
+import { DocumentSuggestions } from './DocumentSuggestions.tsx';
 import { ApiError, api, documentExportUrl, documentFileUrls, type ExportSize, type DocumentDetail, type DocumentFile, type DocumentFilterValues, type DocumentFolder, type DocumentListing, type DocumentSummary, type DocumentTypes, type TrashEntry } from './api.ts';
 import { DocumentFormFields, DocumentTypesDialog, FileChooser, FolderSelect, UploadList, failureText, useUploads } from './DocumentFields.tsx';
 import {
@@ -26,6 +27,8 @@ import {
   moveTargets,
   moved,
   previewNote,
+  textMatchLine,
+  textNote,
   purgeTotals,
   restoreMessage,
   sortedDateLine,
@@ -393,6 +396,7 @@ function DocumentList(props: {
               {/* The title is always written out: the picture alone never tells two Documents apart. */}
               <strong>{each.title}</strong>
               <small className="muted">{sortedDateLine(each, props.sort)}</small>
+              {each.textMatch != null && <small className="document-text-match">{textMatchLine(each.textMatch, each.files)}</small>}
             </Link>
           ) : (
             <Link href={paths.document(workspaceId, each.id)} className="card link-card">
@@ -400,6 +404,7 @@ function DocumentList(props: {
               <span className="item-body">
                 <strong>{each.title}</strong>
                 <small className="muted">{listLine(each, props.sort, props.place(each))}</small>
+                {each.textMatch != null && <small className="document-text-match">{textMatchLine(each.textMatch, each.files)}</small>}
               </span>
               <UiIcon name="chevron" />
             </Link>
@@ -935,10 +940,11 @@ function NewDocument(props: { workspaceId: string; folderId: string | null }) {
 }
 
 /** One file of a Document: its preview pages (or why there are none) and the download of the original. */
-function PageCard(props: { workspaceId: string; file: DocumentFile; index: number; total: number; onOpen: (src: string, label: string) => void; actions: React.ReactNode }) {
+function PageCard(props: { workspaceId: string; file: DocumentFile; index: number; total: number; onOpen: (src: string, label: string) => void; onRetryText: (() => void) | null; actions: React.ReactNode }) {
   const { workspaceId, file } = props;
   const [shown, setShown] = useState(PAGES_PER_STEP);
   const note = previewNote(file);
+  const text = textNote(file);
   const label = t('documents.pages.label', { n: props.index + 1, total: props.total, name: file.name });
   const visible = Math.min(file.preview.pages, shown);
   return (
@@ -976,6 +982,16 @@ function PageCard(props: { workspaceId: string; file: DocumentFile; index: numbe
         </>
       )}
       {file.activeContent && <p className="muted">{t('documents.preview.activeContent')}</p>}
+      {text !== null && (
+        <p className="muted row document-text-state">
+          {text}
+          {file.text === 'FAILED' && props.onRetryText !== null && (
+            <button type="button" className="quiet" aria-label={t('documents.text.retryNamed', { name: file.name })} onClick={props.onRetryText}>
+              {t('documents.text.retry')}
+            </button>
+          )}
+        </p>
+      )}
       <div className="row document-page-actions">
         <a className="button" href={documentFileUrls.original(workspaceId, file.id)} download aria-label={t('documents.downloadNamed', { name: file.name })}>
           <UiIcon name="download" /> {t('documents.downloadOriginal')}
@@ -1080,6 +1096,19 @@ function DocumentPage(props: { workspaceId: string; documentId: string; canManag
   const removePage = (page: DocumentFile) => {
     if (!window.confirm(t('documents.pages.removeConfirm', { name: page.name }))) return;
     change(api.setDocumentFiles(workspaceId, doc.id, doc.pages.filter((each) => each.id !== page.id).map((each) => each.id), doc.revision), t('documents.pages.removed', { name: page.name }));
+  };
+  const retryText = (page: DocumentFile) => {
+    api.retryDocumentText(workspaceId, page.id).then(
+      () => {
+        setMessage(null);
+        setStatus(t('documents.text.retried', { name: page.name }));
+        load();
+      },
+      (caught: unknown) => {
+        setMessage(failureText(caught));
+        load();
+      },
+    );
   };
   const downloadAll = () => {
     // One download per original, a moment apart (browsers ask once whether several downloads are allowed).
@@ -1207,6 +1236,7 @@ function DocumentPage(props: { workspaceId: string; documentId: string; canManag
             index={index}
             total={doc.pages.length}
             onOpen={(src, label) => setViewer({ src, label })}
+            onRetryText={canManage ? () => retryText(page) : null}
             actions={
               canManage && doc.pages.length > 1 ? (
                 <>
@@ -1231,6 +1261,17 @@ function DocumentPage(props: { workspaceId: string; documentId: string; canManag
           <FileChooser label={t('documents.pages.add')} onFiles={adding.add} />
           <UploadList uploads={adding} />
         </div>
+      )}
+      {canManage && (
+        <DocumentSuggestions
+          workspaceId={workspaceId}
+          document={doc}
+          canSchedule={props.canSchedule}
+          onChanged={(updated) => {
+            if (updated === null) load();
+            else setDoc(updated);
+          }}
+        />
       )}
       <DocumentLinksSection workspaceId={workspaceId} documentId={doc.id} documentTitle={doc.title} canManage={canManage} canSchedule={props.canSchedule} />
       <p className="muted">{dateLine(doc)}</p>

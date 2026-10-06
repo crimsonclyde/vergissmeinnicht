@@ -1,5 +1,5 @@
 import { resolve } from 'node:path';
-import { purgeUnusedDocumentFiles, purgeUnusedImages } from '@vergissmeinnicht/application';
+import { TEXT_POLL_MS, purgeUnusedDocumentFiles, purgeUnusedImages } from '@vergissmeinnicht/application';
 import { openDatabase } from '@vergissmeinnicht/database';
 import { buildApp } from './app.ts';
 import { createServices } from './composition.ts';
@@ -50,12 +50,19 @@ const stopHousekeeping = scheduleHousekeeping(
 );
 // Optional automatic backups (BACKUP_INTERVAL_HOURS, BACKUP_KEEP; Step 10.5).
 const stopBackups = scheduleBackups(config.databasePath, app.log, config.backup);
+// Text recognition (16.9) wakes on uploads; this also picks up retries that became due and work a
+// restart interrupted.
+const recognizer = built?.recognizer;
+recognizer?.wake();
+const recognitionTimer = recognizer === undefined ? undefined : setInterval(() => recognizer.wake(), TEXT_POLL_MS);
+recognitionTimer?.unref();
 // Reminders of scheduled Procedures and Telegram pairing (13.5, 13.7), within this process.
 const stopReminders = built === undefined ? () => undefined : scheduleReminders(built, app.log);
 app.addHook('onClose', async () => {
   stopHousekeeping();
   stopBackups();
   stopReminders();
+  clearInterval(recognitionTimer);
   database.close();
 });
 

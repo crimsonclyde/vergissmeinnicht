@@ -31,6 +31,7 @@ import {
   documentSearchText,
   documentTagKeys,
   documentTitleKey,
+  findSnippet,
   foldSearchText,
   folderDepth,
   folderNameKey,
@@ -55,8 +56,9 @@ import { recordAuditEvent } from './audit-events.ts';
 import type { AppDatabase } from './connection.ts';
 import { recordToolEnabled } from './tool-policy.ts';
 import { fileRecords } from './document-file-repository.ts';
+import { deleteTextsOfFiles } from './document-text-repository.ts';
 import { markLinksOfPurgedDocuments } from './link-repository.ts';
-import { documentFileDerivatives, documentFiles, documentFolders, documentPages, documentTypes, documents, links, procedures, runDocuments, runs, schedules, scheduledReminders, occurrences, workspaceTools, workspaces } from './schema.ts';
+import { documentFileDerivatives, documentFileTexts, documentFiles, documentSuggestionDismissals, documentFolders, documentPages, documentTypes, documents, links, procedures, runDocumentFiles, runDocuments, runs, schedules, scheduledReminders, occurrences, workspaceTools, workspaces } from './schema.ts';
 
 type Reader = Pick<Transaction, 'select'>;
 type FolderRow = typeof documentFolders.$inferSelect;
@@ -211,6 +213,27 @@ function summary(tx: Reader, row: DocumentRow): DocumentSummary {
   };
 }
 
+/**
+ * The first place a search term occurs in text recognised from the Document's files, in page order
+ * (16.9). Called only for Documents already in the asking member's results, so a snippet never says
+ * more than the listing itself may.
+ */
+function withTextMatch(tx: Reader, document: DocumentSummary, terms: readonly string[]): DocumentSummary {
+  if (terms.length === 0) return document;
+  const any = or(...terms.map((term) => sql`${documentFileTexts.searchText} like ${containsPattern(term)} escape '\\'`));
+  const rows = tx
+    .select({ position: documentPages.position, text: documentFileTexts.text })
+    .from(documentPages)
+    .innerJoin(documentFileTexts, eq(documentFileTexts.fileId, documentPages.fileId))
+    .where(and(eq(documentPages.documentId, document.id), eq(documentFileTexts.state, 'DONE'), any))
+    .orderBy(asc(documentPages.position))
+    .limit(1)
+    .all();
+  const row = rows[0];
+  const snippet = row === undefined ? undefined : findSnippet(row.text, terms);
+  return { ...document, textMatch: row === undefined || snippet === undefined ? null : { file: row.position + 1, page: snippet.page, snippet: snippet.text } };
+}
+
 function record(tx: Reader, row: DocumentRow): DocumentRecord {
   const ids = pageFileIds(tx, row.id);
   const files = fileRecords(tx, ids);
@@ -248,7 +271,11 @@ function matching(query: DocumentQuery, folderIds: readonly string[] | null): SQ
   if (query.year !== null) where.push(eq(documents.year, query.year));
   if (query.uploader !== null) where.push(eq(documents.createdByDisplayName, query.uploader));
   for (const tag of query.tags) where.push(sql`exists (select 1 from json_each(${documents.tagKeys}) where value = ${tag})`);
-  for (const term of query.terms) where.push(sql`${documents.searchText} like ${containsPattern(term)} escape '\\'`);
+  // Each term in the title, tags or notes — or in text recognised from one of the Document's files (16.9).
+  for (const term of query.terms) {
+    const pattern = containsPattern(term);
+    where.push(sql`(${documents.searchText} like ${pattern} escape '\\' or exists (select 1 from ${documentPages} inner join ${documentFileTexts} on ${documentFileTexts.fileId} = ${documentPages.fileId} where ${documentPages.documentId} = ${documents.id} and ${documentFileTexts.state} = 'DONE' and ${documentFileTexts.searchText} like ${pattern} escape '\\'))`);
+  }
   return where;
 }
 
@@ -620,7 +647,7 @@ export function createDocumentRepository({ db }: Pick<AppDatabase, 'db'>): Docum
       const last = shown.at(-1);
       // Counting reads every match: done once, for the first page.
       const total = after === null ? (rows.length <= limit ? rows.length : (db.select({ n: count() }).from(documents).where(scope).get()?.n ?? 0)) : null;
-      return { documents: shown.map((row) => summary(db, row)), next: rows.length > limit && last !== undefined ? cursorOf(query, last) : null, total };
+      return { documents: shown.map((row) => withTextMatch(db, summary(db, row), query.terms)), next: rows.length > limit && last !== undefined ? cursorOf(query, last) : null, total };
     },
 
     async filterValues(workspaceId): Promise<DocumentFilterValues> {
@@ -959,7 +986,12 @@ export function createDocumentRepository({ db }: Pick<AppDatabase, 'db'>): Docum
             const chunk = ids.slice(start, start + 500);
             // Links to them say "deleted for good" from now on; Document versions retained for Runs are untouched.
             markLinksOfPurgedDocuments(tx, input.workspaceId, chunk, input.at, actor.displayName);
-            files += tx.delete(documentPages).where(inArray(documentPages.documentId, chunk)).returning({ fileId: documentPages.fileId }).all().length;
+            const released = tx.delete(documentPages).where(inArray(documentPages.documentId, chunk)).returning({ fileId: documentPages.fileId }).all().map((row) => row.fileId);
+            files += released.length;
+            // Recognised text goes with the Document (16.9) — except for a version a Run retains (16.5).
+            const kept = new Set(released.length === 0 ? [] : tx.select({ fileId: runDocumentFiles.fileId }).from(runDocumentFiles).where(inArray(runDocumentFiles.fileId, released)).all().map((row) => row.fileId));
+            deleteTextsOfFiles(tx, released.filter((fileId) => !kept.has(fileId)));
+            tx.delete(documentSuggestionDismissals).where(and(eq(documentSuggestionDismissals.workspaceId, input.workspaceId), inArray(documentSuggestionDismissals.documentId, chunk))).run();
             tx.delete(documents).where(and(eq(documents.workspaceId, input.workspaceId), inArray(documents.id, chunk), isNotNull(documents.deletedAt))).run();
           }
           return files;

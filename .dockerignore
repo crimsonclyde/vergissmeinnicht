@@ -17,3 +17,4 @@ docu
 assets
 **/*.test.ts
 **/*.sqlite*
+packages/media/tessdata

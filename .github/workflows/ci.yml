@@ -31,6 +31,8 @@ jobs:
       - run: pnpm audit --audit-level high
       - run: pnpm lint
       - run: pnpm typecheck
+      # OCR language data (16.9): pinned and hash-verified; the OCR tests refuse to skip in CI.
+      - run: pnpm ocr:data
       - run: pnpm test
 
   browser:
