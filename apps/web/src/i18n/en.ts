@@ -1645,7 +1645,7 @@ export const en = {
   'documents.find.results': 'Results',
   'documents.find.search': 'Search documents',
   'documents.find.searchIn': 'Search in “{name}”',
-  'documents.find.placeholder': 'Title, notes or tags',
+  'documents.find.placeholder': 'Title, notes, tags or text in the files',
   'documents.find.sort': 'Sort by',
   'documents.find.sort.uploaded.desc': 'Upload date — newest first',
   'documents.find.sort.uploaded.asc': 'Upload date — oldest first',

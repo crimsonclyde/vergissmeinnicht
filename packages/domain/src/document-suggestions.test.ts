@@ -41,6 +41,17 @@ describe('rule-based suggestions (16.9 task 5)', () => {
     expect(found.amount).toMatchObject({ value: '163.78 GBP', page: 2 });
   });
 
+  it('reads a French invoice: type, company form, month names, apostrophes, total TTC', () => {
+    const found = byField(['EDF ENERGIE SAS', 'Facture n° 2026-1144', 'Date de facture : 3 septembre 2026', 'Montant TTC : 64,90 €', 'Date d’échéance : 18/09/2026'].join('\n'));
+    expect(found.type?.value).toBe('bill');
+    expect(found.supplier?.value).toBe('EDF ENERGIE SAS');
+    expect(found.title?.value).toBe('Facture EDF ENERGIE SAS');
+    expect(found.documentDate?.value).toBe('2026-09-03');
+    expect(found.dueDate?.value).toBe('2026-09-18');
+    expect(found.amount?.value).toBe('64.90 EUR');
+    expect(byField('IKEA SARL\nTicket de caisse\nTotal TTC 104,50 EUR').type?.value).toBe('receipt');
+  });
+
   it('suggests nothing from text that does not clearly say it', () => {
     expect(suggestFromText('')).toEqual([]);
     expect(suggestFromText('Ciao Maria, ci vediamo il 12/07/2026 alle 18.\nA presto')).toEqual([]);

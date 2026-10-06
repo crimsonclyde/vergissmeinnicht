@@ -12,8 +12,8 @@ import { parentPort, workerData } from 'node:worker_threads';
 export type TextWorkerJob = { readonly op: 'ocr'; readonly png: Uint8Array };
 export type TextWorkerResult = { readonly op: 'ocr'; readonly text: string };
 
-/** The languages read (16.9: at least English, German and Italian), all at once: a household mixes them. */
-export const OCR_LANGUAGES = ['eng', 'deu', 'ita'] as const;
+/** The languages read (16.9: at least English, German and Italian; French added 2026-10-06), all at once: a household mixes them. */
+export const OCR_LANGUAGES = ['eng', 'deu', 'ita', 'fra'] as const;
 
 // A file must not be able to write to the server log through the engine's diagnostics.
 console.log = console.info = console.warn = console.error = () => undefined;
