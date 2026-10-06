@@ -18,6 +18,8 @@ import {
   FolderNotFoundError,
   NameTakenError,
   ToolNotEnabledError,
+  TextRetryNotPossibleError,
+  InvalidSuggestionError,
   ToolSettingsConflictError,
   AlreadyLinkedError,
   DocumentFileRejectedError,
@@ -193,6 +195,8 @@ export function errorHandler(error: FastifyError | Error, request: FastifyReques
   if (error instanceof DocumentLimitReachedError) return reply.code(409).send({ error: 'document_limit_reached' });
   if (error instanceof FileInUseError) return reply.code(409).send({ error: 'file_in_use' });
   if (error instanceof DocumentFileNotFoundError) return reply.code(404).send({ error: 'file_not_found' });
+  if (error instanceof TextRetryNotPossibleError) return reply.code(409).send({ error: 'text_retry_not_possible' });
+  if (error instanceof InvalidSuggestionError) return reply.code(400).send({ error: 'invalid_suggestion' });
   // The stable reason only; `too_large` is the usual "payload too large".
   if (error instanceof DocumentFileRejectedError) return reply.code(error.code === 'too_large' ? 413 : 422).send({ error: 'file_rejected', reason: error.code });
   // One combined limit per Workspace (16.4): the same answer for a Document file and an instruction image.

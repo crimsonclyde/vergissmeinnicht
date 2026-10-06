@@ -64,6 +64,8 @@ The app is organised around tools (accepted 2026-10-01, `docs/development/steps.
 
 House management is an **optional** addition (accepted 2026-10-01, `docs/development/steps.md` section 16; planned in five phases, implemented step by step): the tools **Documents**, **Contacts**, **Maintenance**, **Equipment** and **Mail**. Each is enabled per Workspace by a Workspace admin; a Workspace without them stays fully useful, and no house-specific information is ever required. Today stays actionable: these tools add no sections to it, and planned maintenance, warranty expiry or servicing reach Today only as ordinary Occurrences of the existing Schedules. `docs/development/steps.md` 16.12 holds the decisions; read it before any 16.x step and do not reopen what is decided there.
 
+**Not planned (owner, 2026-10-06):** the **Mail** tool (16.10, 16.11) — the effort and attack surface are not worth it; mail attachments reach Documents by ordinary upload. A small import of saved `.eml` files into Documents is a possible later step (no mailbox connection, no stored credentials). Mail-related rules below stay as constraints should it ever be revived. Also not planned: completion photos, required photo evidence and annotations (14.5), and external identity providers (2.6).
+
 Do not turn it into a generic project-management suite or an enterprise workflow engine.
 
 ## Security rules
@@ -279,7 +281,7 @@ Do not add without an accepted requirement:
 - chat;
 - calendar features beyond the accepted calendar/agenda view of Occurrences (no external calendar sync, no drag-and-drop planning);
 - notification channels beyond the accepted email and Telegram reminders;
-- photos beyond the accepted instruction image per Procedure Step (`docs/development/steps.md` 14.3); completion photos, required photo evidence and annotations are not accepted yet (14.5);
+- photos beyond the accepted instruction image per Procedure Step (`docs/development/steps.md` 14.3); completion photos, required photo evidence and annotations are not planned (14.5, owner 2026-10-06);
 - other attachments — superseded for exactly the accepted house-management tools Documents, Contacts, Maintenance, Equipment and Mail (`docs/development/steps.md` section 16), each only as specified in its step; a Run retaining the Document version linked to it (16.5) is not approval of completion photos;
 - list types beyond the accepted grocery list, list categories, or links between Lists and Schedules or Documents (`docs/development/steps.md` 15.3);
 - Kanban or other boards — superseded for exactly the Maintenance status board with its four fixed statuses (`docs/development/steps.md` 16.7); no boards elsewhere, no custom columns, swimlanes or limits;
@@ -295,7 +297,7 @@ Do not add without an accepted requirement:
 - Kubernetes;
 - analytics dashboards.
 
-Product points that touch privacy, permissions, destructive behaviour or scope are decided by the user, never silently by an implementation (open ones: P5–P7 in `docs/development/steps.md` 16.12).
+Product points that touch privacy, permissions, destructive behaviour or scope are decided by the user, never silently by an implementation (none open: P6–P7 lapsed with Mail not planned, `docs/development/steps.md` 16.12).
 
 Design extension seams, but do not implement speculative systems.
 

@@ -30,6 +30,12 @@ COPY packages/permissions/package.json packages/permissions/
 COPY packages/realtime/package.json packages/realtime/
 COPY packages/ui/package.json packages/ui/
 
+# ---- OCR language data (16.9, HT9): English, German, Italian from tessdata_best, pinned to one
+# commit and verified by SHA-256 while building — the running server never downloads anything.
+FROM toolchain AS tessdata
+COPY packages/media/scripts/fetch-tessdata.ts packages/media/scripts/
+RUN node packages/media/scripts/fetch-tessdata.ts /tessdata
+
 # ---- Web build: all dependencies, then the static bundle.
 FROM toolchain AS web
 RUN pnpm install --frozen-lockfile
@@ -52,7 +58,9 @@ RUN cd node_modules/.pnpm \
     chai@* assertion-error@* tinybench@* tinyexec@* why-is-node-running@* expect-type@* \
   && cd better-sqlite3@*/node_modules/better-sqlite3 \
   && find prebuilds -type f ! -name "linux-$(node -p process.arch).node" -delete \
-  && rm -rf deps src build
+  && rm -rf deps src build \
+  && cd /app/node_modules/.pnpm/tesseract.js-core@*/node_modules/tesseract.js-core \
+  && find . -maxdepth 1 -name 'tesseract-core*' ! -name 'tesseract-core-simd-lstm.js' ! -name 'tesseract-core-simd-lstm.wasm' -delete
 # Licence notices of exactly this runtime tree (sharp's libvips binaries include LGPL-3.0 libraries;
 # their texts are in /usr/share/common-licenses of the base image). Served nowhere; shipped in /app.
 COPY deploy/server-notices.ts deploy/
@@ -61,11 +69,13 @@ RUN node deploy/server-notices.ts node_modules/.pnpm > third-party-notices-serve
 
 # ---- Runtime image.
 FROM ${NODE_IMAGE} AS runtime
-# The pinned Node image predates the Bookworm PCRE2 security update (CVE-2026-103111).
-# Use Debian's signed repositories, require the fixed version, and keep the image scan gate.
+# The pinned Node image predates Bookworm security updates of PCRE2 (CVE-2026-103111) and Perl
+# (perl-base; CVE-2026-13221, -8376, -42496, -42497, -48962, -57432, -57433). Use Debian's signed
+# repositories, require the fixed versions, and keep the image scan gate.
 RUN apt-get update \
-  && apt-get install -y --only-upgrade --no-install-recommends libpcre2-8-0 \
+  && apt-get install -y --only-upgrade --no-install-recommends libpcre2-8-0 perl-base \
   && dpkg --compare-versions "$(dpkg-query -W -f='${Version}' libpcre2-8-0)" ge 10.42-1+deb12u2 \
+  && dpkg --compare-versions "$(dpkg-query -W -f='${Version}' perl-base)" ge 5.36.0-7+deb12u4 \
   && rm -rf /var/lib/apt/lists/*
 LABEL org.opencontainers.image.title="VergissMeinNicht" \
       org.opencontainers.image.description="Repeatable procedures with trustworthy execution history" \
@@ -79,11 +89,13 @@ COPY --from=server-deps /app /app
 COPY apps/server/src apps/server/src
 COPY packages packages
 COPY --from=web /app/apps/web/dist apps/web/dist
+COPY --from=tessdata /tessdata packages/media/tessdata
 COPY LICENSE ./
 COPY deploy/docker-entrypoint.sh /usr/local/bin/vergissmeinnicht
 # npm/npx/corepack/yarn are not needed at runtime (the server runs with plain node): less attack
 # surface, fewer scanner findings.
-RUN rm -rf /usr/local/lib/node_modules/npm /usr/local/lib/node_modules/corepack /opt/yarn-* \
+RUN cat packages/media/tessdata/NOTICE.txt >> third-party-notices-server.txt \
+  && rm -rf /usr/local/lib/node_modules/npm /usr/local/lib/node_modules/corepack /opt/yarn-* \
     /usr/local/bin/npm /usr/local/bin/npx /usr/local/bin/corepack /usr/local/bin/yarn /usr/local/bin/yarnpkg \
   && chmod 0755 /usr/local/bin/vergissmeinnicht \
   && mkdir -p /data \

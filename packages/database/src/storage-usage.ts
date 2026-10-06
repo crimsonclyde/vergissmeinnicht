@@ -4,7 +4,7 @@ import { and, asc, eq, sql, type SQL } from 'drizzle-orm';
 import { IMMEDIATE, actorAllowed, type Transaction } from './actor-guard.ts';
 import { recordAuditEvent } from './audit-events.ts';
 import type { AppDatabase } from './connection.ts';
-import { documentFileDerivatives, documentFiles, documentPages, documents, procedureSteps, runDocumentFiles, runSteps, stepImages, users, workspaces } from './schema.ts';
+import { documentFileDerivatives, documentFileTexts, documentFiles, documentPages, documents, procedureSteps, runDocumentFiles, runSteps, stepImages, users, workspaces } from './schema.ts';
 import { recordSecurityEvent } from './security-events.ts';
 
 type Reader = Pick<Transaction, 'select'>;
@@ -59,6 +59,13 @@ export function storageUsageIn(tx: Reader, workspaceId: string, pendingSince: Da
       sql`(select max(${documentFileDerivatives.bytes}) as bytes, ${fileClass} as class from ${documentFileDerivatives} inner join ${documentFiles} on ${documentFiles.id} = ${documentFileDerivatives.fileId} left join ${documentPages} on ${documentPages.fileId} = ${documentFiles.id} left join ${documents} on ${documents.id} = ${documentPages.documentId} where ${documentFiles.workspaceId} = ${workspaceId} group by ${documentFileDerivatives.sha256})`,
     )
     .get();
+  // Recognised text (16.9) is derived like a preview and counts the same way, per file.
+  const texts = tx
+    .select(split)
+    .from(
+      sql`(select max(${documentFileTexts.bytes}) as bytes, ${fileClass} as class from ${documentFileTexts} inner join ${documentFiles} on ${documentFiles.id} = ${documentFileTexts.fileId} left join ${documentPages} on ${documentPages.fileId} = ${documentFiles.id} left join ${documents} on ${documents.id} = ${documentPages.documentId} where ${documentFileTexts.workspaceId} = ${workspaceId} and ${documentFileTexts.bytes} > 0 group by ${documentFileTexts.fileId})`,
+    )
+    .get();
   const limits = tx.select({ ceiling: workspaces.storageQuotaBytes, own: workspaces.storageLimitBytes }).from(workspaces).where(eq(workspaces.id, workspaceId)).get();
   const ceiling = limits?.ceiling ?? DEFAULT_WORKSPACE_STORAGE_BYTES;
   const ownLimit = limits?.own ?? null;
@@ -66,10 +73,11 @@ export function storageUsageIn(tx: Reader, workspaceId: string, pendingSince: Da
     images: Number(images),
     originals: Number(originals?.live ?? 0),
     previews: Number(previews?.live ?? 0),
-    trash: Number(originals?.trash ?? 0) + Number(previews?.trash ?? 0),
-    retained: Number(originals?.retained ?? 0) + Number(previews?.retained ?? 0),
+    text: Number(texts?.live ?? 0),
+    trash: Number(originals?.trash ?? 0) + Number(previews?.trash ?? 0) + Number(texts?.trash ?? 0),
+    retained: Number(originals?.retained ?? 0) + Number(previews?.retained ?? 0) + Number(texts?.retained ?? 0),
   };
-  return { ...usage, used: usage.images + usage.originals + usage.previews + usage.trash + usage.retained, limit: effectiveStorageLimit(ceiling, ownLimit), ceiling, ownLimit };
+  return { ...usage, used: usage.images + usage.originals + usage.previews + usage.text + usage.trash + usage.retained, limit: effectiveStorageLimit(ceiling, ownLimit), ceiling, ownLimit };
 }
 
 /** Workspace storage: usage by tool, the ceiling and the Workspace's own limit (16.4). See `StorageRepository`. */

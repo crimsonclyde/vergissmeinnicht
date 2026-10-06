@@ -37,6 +37,8 @@ export interface StorageUsage {
   readonly originals: number;
   /** Documents: previews and thumbnails of those originals. */
   readonly previews: number;
+  /** Documents: text recognised from those originals (16.9). */
+  readonly text: number;
   /** Documents in Trash: their originals and previews. Trash counts. */
   readonly trash: number;
   /** Document versions kept for Runs (16.5) whose Document no longer holds these files — changed, or deleted for good. */

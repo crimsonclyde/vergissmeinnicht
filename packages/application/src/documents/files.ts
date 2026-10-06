@@ -39,6 +39,8 @@ export interface DocumentFileDeps {
   /** What the instance admin allows right now (size limit, formats). */
   readonly policy: () => Promise<DocumentFilePolicy>;
   readonly previews: PreviewQueue;
+  /** Told that a file was queued for text recognition (16.9); absent where nothing reads text. */
+  readonly recognizer?: { wake(): void };
   readonly clock: Clock;
 }
 
@@ -128,6 +130,7 @@ export async function uploadDocumentFile(
         if (state !== 'PENDING') await deps.files.setPreviewState(result.file.id, state, true);
         else deps.previews.enqueue(result.file.id);
       }
+      if (result.file.textState === 'QUEUED') deps.recognizer?.wake();
       const file = await deps.files.find(input.workspaceId, result.file.id);
       await authorizeTool(deps, input.actor, input.workspaceId, 'DOCUMENTS', 'document.manage');
       return { file: file ?? { ...result.file, previewState: state }, usage: await deps.files.usage(input.workspaceId, deps.clock.now()) };

@@ -274,6 +274,8 @@ async function copyDocuments(targetPath: string, liveDocumentsPath: string, now:
         const expired = expiredUploads.all(sha256, now.getTime() - DOCUMENT_FILE_GRACE_MS) as { id: string }[];
         for (const { id } of expired) {
           backup.prepare('DELETE FROM document_file_derivatives WHERE file_id = ?').run(id);
+          // … and its recognised text (16.9; the table exists from migration 0038).
+          if (hasTable(backup, 'document_file_texts')) backup.prepare('DELETE FROM document_file_texts WHERE file_id = ?').run(id);
           backup.prepare('DELETE FROM document_files WHERE id = ?').run(id);
         }
         if (backup.prepare('SELECT 1 FROM document_files WHERE sha256 = ?').get(sha256) !== undefined) throw new BackupError('a document file is missing');

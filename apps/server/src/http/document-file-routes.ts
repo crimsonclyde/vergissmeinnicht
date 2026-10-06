@@ -4,6 +4,7 @@ import {
   getDocumentFile,
   openDerivative,
   openOriginal,
+  retryTextRecognition,
   uploadDocumentFile,
   type DocumentFileRecord,
   type DocumentStorageUsage,
@@ -70,6 +71,8 @@ export const fileView = (file: DocumentFileRecord) => ({
     // Why a file has no preview at all: its format has none (HEIC, for now) or it is password-protected.
     unavailable: file.previewState !== 'NONE' ? null : file.encrypted ? 'password_protected' : 'format',
   },
+  // Text recognition (16.9): the state only — the text itself is never sent with a file.
+  text: file.textState,
   uploadedBy: file.uploadedByName,
   uploadedAt: file.uploadedAt.toISOString(),
 });
@@ -151,6 +154,14 @@ export async function documentFileRoutes(app: FastifyInstance, { services }: { s
   app.get('/:fileId', async (request) => {
     const { workspaceId, fileId } = parse(fileParams, request.params);
     return { file: fileView(await getDocumentFile(deps, { actor: principalOf(request).user, workspaceId: workspaceId as WorkspaceId, fileId })) };
+  });
+
+  // Text that could not be read is tried again on request (16.9): `document.manage`, like changing the files.
+  app.post('/:fileId/text/retry', async (request, reply) => {
+    const { workspaceId, fileId } = parse(fileParams, request.params);
+    parse(noQuery, request.query);
+    await retryTextRecognition(services.textRecognition, { actor: principalOf(request).user, workspaceId: workspaceId as WorkspaceId, fileId });
+    return reply.code(204).send();
   });
 
   app.get('/:fileId/original', async (request, reply) => {

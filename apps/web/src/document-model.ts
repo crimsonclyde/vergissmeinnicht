@@ -1,4 +1,4 @@
-import type { DocumentDetail, DocumentFields, DocumentFile, DocumentFilterValues, DocumentFolder, DocumentSummary, DocumentTypeView, DocumentTypes, LinkedRecord, RestoreOutcome, RunDocument, TrashEntry } from './api.ts';
+import type { DocumentDetail, DocumentFields, DocumentFile, DocumentFilterValues, DocumentFolder, DocumentSummary, DocumentTypeView, DocumentTypes, LinkedRecord, DocumentSuggestion, RestoreOutcome, RunDocument, TrashEntry } from './api.ts';
 import { formatCalendarDate, formatDateTime, formatNumber, hasMessage, t } from './i18n/index.ts';
 
 /** What the file picker offers; the server decides from the content, not from this list or the name. */
@@ -310,6 +310,76 @@ export function previewNote(file: DocumentFile): string | null {
   if (file.preview.state === 'PENDING') return t('documents.preview.pending');
   if (file.preview.state === 'PARTIAL') return t('documents.preview.storageFull');
   return t('documents.preview.failed');
+}
+
+/** What to say about a file's recognised text (16.9), or `null` when nothing was queued. */
+export function textNote(file: DocumentFile): string | null {
+  switch (file.text) {
+    case 'QUEUED':
+    case 'PROCESSING':
+      return t('documents.text.pending');
+    case 'DONE':
+      return t('documents.text.done');
+    case 'FAILED':
+      return t('documents.text.failed');
+    case 'NOT_APPLICABLE':
+      return t('documents.text.notApplicable');
+    default:
+      return null;
+  }
+}
+
+/** Where a search term was found in a Document's recognised text: "File 2, page 3: …". */
+export function textMatchLine(match: { readonly file: number; readonly page: number; readonly snippet: string }, files: number): string {
+  const where = files > 1 ? t('documents.text.matchFilePage', { file: match.file, page: match.page }) : t('documents.text.matchPage', { page: match.page });
+  return `${where} ${match.snippet}`;
+}
+
+/** How a suggestion is shown: what it would set, in words ("Type: Bill", "Due date: 15 Aug 2026"). */
+export function suggestionText(suggestion: DocumentSuggestion): string {
+  const value =
+    suggestion.field === 'type'
+      ? (typeLabel({ kind: 'builtin', key: suggestion.value }) ?? suggestion.value)
+      : suggestion.field === 'documentDate' || suggestion.field === 'dueDate'
+        ? formatCalendarDate(suggestion.value)
+        : suggestion.value;
+  const keys = {
+    title: 'documents.suggest.field.title',
+    type: 'documents.suggest.field.type',
+    documentDate: 'documents.suggest.field.documentDate',
+    dueDate: 'documents.suggest.field.dueDate',
+    amount: 'documents.suggest.field.amount',
+    supplier: 'documents.suggest.field.supplier',
+  } as const;
+  return t(keys[suggestion.field], { value });
+}
+
+/** Where a suggestion was read: "From the text on page 1" (and the file, when the Document has several). */
+export const suggestionSource = (suggestion: DocumentSuggestion, files: number): string =>
+  files > 1 ? t('documents.suggest.sourceFile', { file: suggestion.file, page: suggestion.page }) : t('documents.suggest.source', { page: suggestion.page });
+
+/**
+ * The Document's fields after accepting a suggestion (the person's action, saved as an ordinary
+ * change). Amount and supplier have no field of their own: they are added to the notes as a line.
+ * A due date changes no field — it leads to "Remind me…" instead (`undefined`).
+ */
+export function acceptedFields(document: DocumentDetail, suggestion: DocumentSuggestion): DocumentFields | undefined {
+  const fields = fieldsOf(formOf(document));
+  const note = (label: string) => ({ ...fields, notes: [fields.notes.trimEnd(), `${label}: ${suggestion.value}`].filter((line) => line !== '').join('\n') });
+  switch (suggestion.field) {
+    case 'title':
+      return { ...fields, title: suggestion.value };
+    case 'type':
+      return { ...fields, type: { builtIn: suggestion.value } };
+    case 'documentDate':
+      return { ...fields, documentDate: suggestion.value, year: fields.year ?? Number(suggestion.value.slice(0, 4)) };
+    case 'amount':
+      return note(t('documents.suggest.noteAmount'));
+    case 'supplier':
+      return note(t('documents.suggest.noteSupplier'));
+    case 'dueDate':
+      return undefined;
+  }
 }
 
 /** What a restore did, in words — including where the item went and under which name when its place was gone or taken. */

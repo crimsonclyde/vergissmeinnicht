@@ -56,6 +56,8 @@ export interface StorageInfo extends ImageUsage {
   /** Original files of Documents that are not in Trash. */
   readonly documentBytes: number;
   readonly previewBytes: number;
+  /** Text recognised from Documents (16.9). */
+  readonly textBytes: number;
   readonly trashBytes: number;
   /** What the server admin allows this Workspace. */
   readonly ceilingBytes: number;
@@ -526,6 +528,14 @@ async function uploadImage(workspaceId: string, image: Blob, replacing?: string)
 
 export type DocumentFileFormat = 'PDF' | 'JPEG' | 'PNG' | 'HEIC';
 
+export type TextState = 'QUEUED' | 'PROCESSING' | 'DONE' | 'FAILED' | 'NOT_APPLICABLE';
+
+/** Text recognition of a Workspace (16.9, P5): on or off, and files by state — for Workspace admins. */
+export interface TextRecognitionInfo {
+  readonly enabled: boolean;
+  readonly files: Readonly<Record<TextState, number>>;
+}
+
 /** One file of a Document: an original with what the server found out about it. Never a storage name. */
 export interface DocumentFile {
   readonly id: string;
@@ -545,6 +555,8 @@ export interface DocumentFile {
     /** Why there is no preview at all: the format has none, or the PDF needs a password. */
     readonly unavailable: 'format' | 'password_protected' | null;
   };
+  /** Text recognition (16.9); null when nothing was queued. The text itself is never sent with a file. */
+  readonly text: TextState | null;
   readonly uploadedBy: string;
   readonly uploadedAt: string;
 }
@@ -575,6 +587,8 @@ export interface DocumentSummary {
   readonly uploadedBy: string;
   readonly modifiedAt: string;
   readonly modifiedBy: string;
+  /** In search results: where a term was found in recognised text — plain text, never markup (16.9). */
+  readonly textMatch?: { readonly file: number; readonly page: number; readonly snippet: string } | null;
 }
 
 /** One page of a listing (16.3): fifty at most; `total` only comes with the first page. */
@@ -604,6 +618,17 @@ export interface DocumentFields {
   readonly year: number | null;
   readonly notes: string;
   readonly tags: readonly string[];
+}
+
+/** A suggestion from a Document's recognised text (16.9 task 5): offered, never applied by itself. */
+export interface DocumentSuggestion {
+  readonly field: 'title' | 'type' | 'documentDate' | 'dueDate' | 'amount' | 'supplier';
+  /** An ISO date, a built-in type key, an amount like `87.40 EUR`, or text. */
+  readonly value: string;
+  readonly file: number;
+  readonly page: number;
+  /** The line it was read from, as printed — plain text. */
+  readonly excerpt: string;
 }
 
 export interface DocumentTypes {
@@ -1045,6 +1070,10 @@ export const api = {
   setWorkspaceTool: (workspaceId: string, tool: string, enabled: boolean, expectedRevision: number) => request<{ tools: string[]; revision: number }>('POST', `/workspaces/${encodeURIComponent(workspaceId)}/tools`, { tool, enabled, expectedRevision }),
   // Documents (16.1, 16.2).
   uploadDocumentFile,
+  retryDocumentText: (workspaceId: string, fileId: string) => request<undefined>('POST', documentFilePath(workspaceId, fileId, '/text/retry').slice('/api'.length)),
+  textRecognition: async (workspaceId: string) => (await request<{ textRecognition: TextRecognitionInfo }>('GET', `/workspaces/${encodeURIComponent(workspaceId)}/text-recognition`)).textRecognition,
+  setTextRecognition: async (workspaceId: string, enabled: boolean) =>
+    (await request<{ textRecognition: TextRecognitionInfo }>('POST', `/workspaces/${encodeURIComponent(workspaceId)}/text-recognition`, { enabled })).textRecognition,
   documentFile: async (workspaceId: string, fileId: string) => (await request<{ file: DocumentFile }>('GET', documentFilePath(workspaceId, fileId).slice('/api'.length))).file,
   documentFolders: async (workspaceId: string) => (await request<{ folders: DocumentFolder[] }>('GET', foldersPath(workspaceId))).folders,
   createDocumentFolder: async (workspaceId: string, name: string, parentId: string | null) => (await request<{ folder: DocumentFolder }>('POST', foldersPath(workspaceId), { name, parentId })).folder,
@@ -1060,6 +1089,10 @@ export const api = {
   document: async (workspaceId: string, documentId: string) => (await request<{ document: DocumentDetail }>('GET', documentsPath(workspaceId, `/${encodeURIComponent(documentId)}`))).document,
   createDocument: async (workspaceId: string, folderId: string | null, fields: DocumentFields, fileIds: readonly string[]) =>
     (await request<{ document: DocumentDetail }>('POST', documentsPath(workspaceId), { ...fields, folderId, fileIds })).document,
+  documentSuggestions: async (workspaceId: string, documentId: string) =>
+    (await request<{ suggestions: DocumentSuggestion[] }>('GET', documentsPath(workspaceId, `/${documentId}/suggestions`))).suggestions,
+  dismissSuggestion: (workspaceId: string, documentId: string, suggestion: Pick<DocumentSuggestion, 'field' | 'value'>) =>
+    request<undefined>('POST', documentsPath(workspaceId, `/${documentId}/suggestions/dismiss`), { field: suggestion.field, value: suggestion.value }),
   updateDocument: async (workspaceId: string, documentId: string, fields: DocumentFields, expectedRevision: number) =>
     (await request<{ document: DocumentDetail }>('POST', documentsPath(workspaceId, `/${documentId}/update`), { ...fields, expectedRevision })).document,
   setDocumentFiles: async (workspaceId: string, documentId: string, fileIds: readonly string[], expectedRevision: number) =>

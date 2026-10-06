@@ -9,11 +9,15 @@ import * as mupdf from 'mupdf';
 
 export type WorkerJob =
   | { readonly op: 'inspectPdf'; readonly path: string }
-  | { readonly op: 'renderPdfPage'; readonly path: string; readonly page: number; readonly dpi: number; readonly maxEdge: number };
+  | { readonly op: 'renderPdfPage'; readonly path: string; readonly page: number; readonly dpi: number; readonly maxEdge: number }
+  | { readonly op: 'pdfPageText'; readonly path: string; readonly page: number }
+  | { readonly op: 'renderPdfPageGray'; readonly path: string; readonly page: number; readonly dpi: number; readonly maxEdge: number };
 
 export type WorkerResult =
   | { readonly op: 'inspectPdf'; readonly encrypted: boolean; readonly pageCount: number | null; readonly activeContent: boolean }
-  | { readonly op: 'renderPdfPage'; readonly jpeg: Uint8Array; readonly width: number; readonly height: number };
+  | { readonly op: 'renderPdfPage'; readonly jpeg: Uint8Array; readonly width: number; readonly height: number }
+  | { readonly op: 'pdfPageText'; readonly text: string }
+  | { readonly op: 'renderPdfPageGray'; readonly png: Uint8Array };
 
 /** Failures a file can cause; anything else is a bug and reported as `failed`. */
 export type WorkerFailure = 'unreadable' | 'failed';
@@ -106,12 +110,60 @@ function renderPdfPage(job: WorkerJob & { op: 'renderPdfPage' }): WorkerResult {
   }
 }
 
+/** Opens one page of a readable PDF, or refuses. */
+function withPage<T>(path: string, index: number, use: (page: mupdf.Page) => T): T {
+  const document = documentAt(path);
+  if (document.needsPassword()) throw new Refused('unreadable');
+  try {
+    const page = document.loadPage(index);
+    try {
+      return use(page);
+    } finally {
+      page.destroy();
+    }
+  } catch (error) {
+    throw error instanceof Refused ? error : new Refused('unreadable');
+  }
+}
+
+/** The text a page carries itself (16.9, HT10): what MuPDF extracts, with whitespace kept. */
+function pdfPageText(job: WorkerJob & { op: 'pdfPageText' }): WorkerResult {
+  return withPage(job.path, job.page, (page) => {
+    const text = page.toStructuredText('preserve-whitespace');
+    try {
+      return { op: 'pdfPageText', text: text.asText() };
+    } finally {
+      text.destroy();
+    }
+  });
+}
+
+/** A page drawn in gray for OCR (16.9): finer than a preview, as a PNG that only this server reads. */
+function renderPdfPageGray(job: WorkerJob & { op: 'renderPdfPageGray' }): WorkerResult {
+  return withPage(job.path, job.page, (page) => {
+    const [x0 = 0, y0 = 0, x1 = 0, y1 = 0] = page.getBounds();
+    const longest = Math.max(x1 - x0, y1 - y0);
+    if (!(longest > 0)) throw new Refused('unreadable');
+    const scale = Math.min(job.dpi / 72, job.maxEdge / longest);
+    const pixmap = page.toPixmap(mupdf.Matrix.scale(scale, scale), mupdf.ColorSpace.DeviceGray, false, false);
+    try {
+      return { op: 'renderPdfPageGray', png: pixmap.asPNG() };
+    } finally {
+      pixmap.destroy();
+    }
+  });
+}
+
 async function run(job: WorkerJob): Promise<WorkerResult> {
   switch (job.op) {
     case 'inspectPdf':
       return inspectPdf(job.path);
     case 'renderPdfPage':
       return renderPdfPage(job);
+    case 'pdfPageText':
+      return pdfPageText(job);
+    case 'renderPdfPageGray':
+      return renderPdfPageGray(job);
   }
 }
 

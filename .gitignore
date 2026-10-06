@@ -115,3 +115,6 @@ compose.override.yml
 # Deployment: local configuration and Docker secrets
 deploy/vergissmeinnicht.env
 deploy/secrets/
+
+# OCR language data (16.9): fetched and verified by packages/media/scripts/fetch-tessdata.ts
+packages/media/tessdata/

@@ -380,7 +380,7 @@ function LinkDialog(props: { workspaceId: string; documentId: string; linked: re
  * taken from the Document but a proposed title; nothing is created before that dialog is confirmed.
  * The result is an ordinary Schedule, linked to the Document.
  */
-export function RemindDialog(props: { workspaceId: string; suggestedTitle: string; heading?: string; link: (scheduleId: string) => Promise<unknown>; onClose: () => void; onDone: (title: string) => void }) {
+export function RemindDialog(props: { workspaceId: string; suggestedTitle: string; suggestedDate?: string; heading?: string; link: (scheduleId: string) => Promise<unknown>; onClose: () => void; onDone: (title: string) => void }) {
   const { workspaceId } = props;
   const id = useId();
   const core = useCoreTools();
@@ -403,6 +403,7 @@ export function RemindDialog(props: { workspaceId: string; suggestedTitle: strin
       <ScheduleDialog
         kind={kind}
         {...(kind === 'PROCEDURE' ? { title: procedure?.title ?? '' } : { suggestedTitle: props.suggestedTitle.slice(0, 120) })}
+        {...(props.suggestedDate === undefined ? {} : { suggestedDate: props.suggestedDate })}
         members={members}
         onClose={props.onClose}
         onSubmit={async (input) => {

@@ -1,4 +1,4 @@
-import type { Actor, DerivativeKind, DocumentFileFormat, DocumentFileId, PreviewState, StorageUsage, WorkspaceId } from '@vergissmeinnicht/domain';
+import type { Actor, DerivativeKind, DocumentFileFormat, DocumentFileId, PreviewState, StorageUsage, TextState, WorkspaceId } from '@vergissmeinnicht/domain';
 import type { ActorGuard } from './actor-guard.ts';
 
 type UserActor = Actor & { readonly kind: 'user' };
@@ -111,6 +111,8 @@ export interface DocumentFileRecord {
   readonly previewState: PreviewState;
   /** Preview pages that exist (PDF: of `pageCount`, at most 500). */
   readonly previewPages: number;
+  /** Text recognition (16.9); null when nothing was queued for this file. */
+  readonly textState: TextState | null;
   readonly uploadedByUserId: string;
   readonly uploadedByName: string;
   readonly uploadedAt: Date;

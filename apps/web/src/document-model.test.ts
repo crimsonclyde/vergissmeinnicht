@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { DocumentFile, DocumentFolder, DocumentSummary, LinkedRecord } from './api.ts';
+import { t } from './i18n/index.ts';
 import {
   EMPTY_FORM,
   childFolders,
@@ -33,6 +34,11 @@ import {
   parseTags,
   previewNote,
   restoreMessage,
+  acceptedFields,
+  suggestionSource,
+  suggestionText,
+  textMatchLine,
+  textNote,
   titleFromFileName,
   typeFromValue,
   typeLabel,
@@ -55,6 +61,7 @@ const file = (preview: DocumentFile['preview'], extra: Partial<DocumentFile> = {
   passwordProtected: false,
   activeContent: false,
   preview,
+  text: null,
   uploadedBy: 'Uma',
   uploadedAt: '2026-10-01T08:00:00.000Z',
   ...extra,
@@ -268,5 +275,44 @@ describe('Documents view model (16.2)', () => {
     );
     expect(restoreMessage('2026', { folders: 0, documents: 0, renamedTo: null, movedTo: { id: null, name: null, because: 'Water' } })).toBe('“2026” restored. Restored to the top level because “Water” is in Trash.');
     expect(restoreMessage('Bill', { folders: 0, documents: 1, renamedTo: null, movedTo: { id: 'w', name: 'Water', because: '2024' } })).toBe('“Bill” restored. Restored to “Water” because “2024” is in Trash.');
+  });
+});
+
+describe('recognised text (16.9)', () => {
+  const ready = { state: 'READY', pages: 3, unavailable: null } as const;
+  it('says what happened to a file’s text, and nothing when none was queued', () => {
+    expect(textNote(file(ready))).toBeNull();
+    expect(textNote(file(ready, { text: 'QUEUED' }))).toBe(t('documents.text.pending'));
+    expect(textNote(file(ready, { text: 'PROCESSING' }))).toBe(t('documents.text.pending'));
+    expect(textNote(file(ready, { text: 'DONE' }))).toBe(t('documents.text.done'));
+    expect(textNote(file(ready, { text: 'FAILED' }))).toBe(t('documents.text.failed'));
+    expect(textNote(file(ready, { text: 'NOT_APPLICABLE' }))).toBe(t('documents.text.notApplicable'));
+  });
+
+  it('names the file only when a Document has more than one', () => {
+    expect(textMatchLine({ file: 1, page: 2, snippet: '…Bolletta acqua…' }, 1)).toBe('Page 2: …Bolletta acqua…');
+    expect(textMatchLine({ file: 2, page: 1, snippet: 'Bolletta' }, 3)).toBe('File 2, page 1: Bolletta');
+  });
+});
+
+describe('suggestions from recognised text (16.9 task 5)', () => {
+  const doc = { id: 'd', folderId: null, title: 'scan', type: null, documentDate: null, year: null, tags: ['water'], revision: 3, files: 1, cover: null, uploadedAt: '', uploadedBy: 'Uma', modifiedAt: '', modifiedBy: 'Uma', notes: 'Paid by card', pages: [] } as const;
+  const suggestion = (field: 'title' | 'type' | 'documentDate' | 'dueDate' | 'amount' | 'supplier', value: string) => ({ field, value, file: 1, page: 2, excerpt: 'x' });
+
+  it('accepting changes exactly one thing and keeps everything else', () => {
+    expect(acceptedFields(doc, suggestion('title', 'Bolletta ACQUEDOTTO'))).toMatchObject({ title: 'Bolletta ACQUEDOTTO', tags: ['water'], notes: 'Paid by card' });
+    expect(acceptedFields(doc, suggestion('type', 'bill'))?.type).toEqual({ builtIn: 'bill' });
+    expect(acceptedFields(doc, suggestion('documentDate', '2026-07-12'))).toMatchObject({ documentDate: '2026-07-12', year: 2026 });
+    expect(acceptedFields({ ...doc, year: 2025 }, suggestion('documentDate', '2026-01-12'))?.year).toBe(2025);
+    expect(acceptedFields(doc, suggestion('amount', '87.40 EUR'))?.notes).toBe('Paid by card\nAmount: 87.40 EUR');
+    expect(acceptedFields({ ...doc, notes: '' }, suggestion('supplier', 'ACME GmbH'))?.notes).toBe('From: ACME GmbH');
+    // A due date changes no field: it leads to "Remind me…".
+    expect(acceptedFields(doc, suggestion('dueDate', '2026-08-15'))).toBeUndefined();
+  });
+
+  it('says what it is and where it was read', () => {
+    expect(suggestionText(suggestion('type', 'bill'))).toBe(t('documents.suggest.field.type', { value: t('documents.type.bill') }));
+    expect(suggestionSource(suggestion('title', 'x'), 1)).toBe('From the text on page 2:');
+    expect(suggestionSource(suggestion('title', 'x'), 3)).toBe('From the text of file 1, page 2:');
   });
 });

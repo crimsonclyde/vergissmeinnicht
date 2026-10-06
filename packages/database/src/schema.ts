@@ -14,6 +14,8 @@ import {
   DOCUMENT_FILE_FORMATS,
   LIST_KINDS,
   PREVIEW_STATES,
+  TEXT_SOURCES,
+  TEXT_STATES,
   WORKSPACE_TOOLS,
   PROCEDURE_ICONS,
   REASON_POLICIES,
@@ -299,6 +301,8 @@ export const workspaces = sqliteTable(
     storageLimitBytes: integer('storage_limit_bytes'),
     /** Compare-and-set version of Workspace tool settings, independent of content revisions. */
     toolsRevision: integer('tools_revision').notNull().default(0),
+    /** Text recognition of document files (16.9, P5): on unless a Workspace admin switched it off. */
+    textRecognition: integer('text_recognition', { mode: 'boolean' }).notNull().default(true),
   },
   (table) => [
     check('workspaces_id_uuid', sql`length(${table.id}) = 36`),
@@ -1536,6 +1540,73 @@ export const documentPages = sqliteTable(
     foreignKey({ name: 'document_pages_document_fk', columns: [table.documentId, table.workspaceId], foreignColumns: [documents.id, documents.workspaceId] }),
     foreignKey({ name: 'document_pages_file_fk', columns: [table.fileId, table.workspaceId], foreignColumns: [documentFiles.id, documentFiles.workspaceId] }),
     check('document_pages_position_bounded', sql`${table.position} between 0 and 49`),
+  ],
+);
+
+/**
+ * Recognised text of a document file (16.9): derived from the original — embedded PDF text or OCR —
+ * and also the file's job in the recognition queue (the 13.5 / 14.1 pattern: atomic claim, a lease,
+ * bounded attempts; no external queue). One row per file, deleted with the file. `text` is what is shown
+ * in snippets, `search_text` its folded form for `LIKE` (HT7); pages are separated by a form feed.
+ * `priority` 0 = a new upload, 1 = an existing file queued when recognition was switched on (P5).
+ */
+export const documentFileTexts = sqliteTable(
+  'document_file_texts',
+  {
+    fileId: text('file_id').primaryKey(),
+    workspaceId: text('workspace_id').notNull(),
+    state: text('state', { enum: TEXT_STATES }).notNull(),
+    priority: integer('priority').notNull().default(0),
+    attempts: integer('attempts').notNull().default(0),
+    /** While PROCESSING: when the lease ends (a crashed worker's job becomes claimable again). Otherwise when a retry is due. */
+    leaseUntil: integer('lease_until', { mode: 'timestamp_ms' }),
+    /** A stable code of the last failure — never a message from a parser. */
+    errorCode: text('error_code'),
+    source: text('source', { enum: TEXT_SOURCES }),
+    text: text('text').notNull().default(''),
+    searchText: text('search_text').notNull().default(''),
+    /** Bytes of `text` (UTF-8), counted in the Workspace's storage. */
+    bytes: integer('bytes').notNull().default(0),
+    /** Pages read; pages beyond the limits are left out (`truncated`). */
+    pages: integer('pages').notNull().default(0),
+    truncated: integer('truncated', { mode: 'boolean' }).notNull().default(false),
+    queuedAt: integer('queued_at', { mode: 'timestamp_ms' }).notNull(),
+    updatedAt: integer('updated_at', { mode: 'timestamp_ms' }).notNull(),
+  },
+  (table) => [
+    foreignKey({ name: 'document_file_texts_file_fk', columns: [table.fileId, table.workspaceId], foreignColumns: [documentFiles.id, documentFiles.workspaceId] }),
+    index('document_file_texts_queue_idx').on(table.state, table.priority, table.queuedAt),
+    index('document_file_texts_workspace_idx').on(table.workspaceId, table.state),
+    check('document_file_texts_state_valid', oneOf('state', TEXT_STATES)),
+    check('document_file_texts_source_valid', sql`${table.source} is null or ${table.source} in ('EMBEDDED', 'OCR', 'MIXED', 'NONE')`),
+    check('document_file_texts_priority_valid', sql`${table.priority} in (0, 1)`),
+    check('document_file_texts_attempts_valid', sql`${table.attempts} >= 0`),
+    check('document_file_texts_text_bounded', sql`length(${table.text}) <= 200000 and ${table.bytes} >= 0 and ${table.pages} >= 0`),
+    check('document_file_texts_done_consistent', sql`(${table.state} = 'DONE') = (${table.source} is not null) and (${table.state} = 'DONE' or ${table.text} = '')`),
+    check('document_file_texts_error_bounded', sql`${table.errorCode} is null or length(${table.errorCode}) <= 40`),
+  ],
+);
+
+/**
+ * Suggestions from recognised text that a person dismissed (16.9 task 5). Suggestions themselves are
+ * computed from the text when asked for and never stored; only "not this" is remembered, by field and
+ * folded value, so the same suggestion does not come back after the text is read again.
+ */
+export const documentSuggestionDismissals = sqliteTable(
+  'document_suggestion_dismissals',
+  {
+    documentId: text('document_id').notNull(),
+    workspaceId: text('workspace_id').notNull(),
+    key: text('key').notNull(),
+    dismissedByUserId: text('dismissed_by_user_id')
+      .notNull()
+      .references(() => users.id),
+    dismissedAt: integer('dismissed_at', { mode: 'timestamp_ms' }).notNull(),
+  },
+  (table) => [
+    primaryKey({ columns: [table.documentId, table.key] }),
+    foreignKey({ name: 'document_suggestion_dismissals_document_fk', columns: [table.documentId, table.workspaceId], foreignColumns: [documents.id, documents.workspaceId] }),
+    check('document_suggestion_dismissals_key_bounded', sql`length(${table.key}) between 1 and 300`),
   ],
 );
 

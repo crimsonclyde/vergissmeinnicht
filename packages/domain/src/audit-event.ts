@@ -59,6 +59,10 @@ export const AUDIT_EVENT_TYPES = [
   'FOLDER_PURGED',
   'DOCUMENTS_EXPORTED',
   'WORKSPACE_STORAGE_LIMIT_CHANGED',
+  // Text recognition (16.9, P5): switched on or off for the Workspace by a Workspace admin. Recognised
+  // text itself is derived data, never an event.
+  'TEXT_RECOGNITION_ENABLED',
+  'TEXT_RECOGNITION_DISABLED',
   // Links (16.5): a Document linked to a Procedure, a Schedule or another Document; and a Document
   // version retained for a Run (recorded with the Run's id — an addition beside the Run, never a change to it).
   'DOCUMENT_LINK_ADDED',

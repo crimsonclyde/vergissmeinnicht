@@ -21,7 +21,7 @@ import { recordAuditEvent } from './audit-events.ts';
 import type { AppDatabase } from './connection.ts';
 import { recordToolEnabled } from './tool-policy.ts';
 import { fileRecords } from './document-file-repository.ts';
-import { contacts, equipmentRecords, maintenanceRecords, documentFileDerivatives, documentFiles, documentPages, documentTypes, documents, links, occurrences, procedures, runDocumentFiles, runDocumentRemovals, runDocuments, runs, schedules, workspaceTools } from './schema.ts';
+import { contacts, equipmentRecords, maintenanceRecords, documentFileDerivatives, documentFileTexts, documentFiles, documentPages, documentTypes, documents, links, occurrences, procedures, runDocumentFiles, runDocumentRemovals, runDocuments, runs, schedules, workspaceTools } from './schema.ts';
 
 type Reader = Pick<Transaction, 'select'>;
 type LinkRow = typeof links.$inferSelect;
@@ -389,6 +389,7 @@ export function createLinkRepository({ db }: Pick<AppDatabase, 'db'>): LinkRepos
             tx.select({ fileId: runDocumentFiles.fileId }).from(runDocumentFiles).where(eq(runDocumentFiles.fileId, fileId)).get() !== undefined;
           if (needed) continue;
           tx.delete(documentFileDerivatives).where(eq(documentFileDerivatives.fileId, fileId)).run();
+          tx.delete(documentFileTexts).where(eq(documentFileTexts.fileId, fileId)).run();
           tx.delete(documentFiles).where(and(eq(documentFiles.workspaceId, input.workspaceId), eq(documentFiles.id, fileId))).run();
           released++;
         }

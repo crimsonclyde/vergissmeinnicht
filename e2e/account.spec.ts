@@ -1196,6 +1196,9 @@ test('first server admin: bootstrap link, account creation, sign-in, Workspace c
     await page.setViewportSize({ width, height: 800 });
     expect(await page.evaluate('document.documentElement.scrollWidth <= document.documentElement.clientWidth')).toBe(true);
     for (const button of await page.getByRole('button', { name: /^Move “/ }).all()) expect((await button.boundingBox())?.height).toBeGreaterThanOrEqual(44);
+    // From the top, as the page is opened: content scrolls under the fixed bottom bar, and wherever the
+    // test last scrolled to would decide which button axe finds partly covered by it.
+    await page.evaluate('window.scrollTo(0, 0)');
     await expectAccessible(page, `document at ${width} px (dark)`);
   }
   await expect(sections.getByRole('link')).toHaveText(['Today', 'Procedures', 'Lists', 'More']);

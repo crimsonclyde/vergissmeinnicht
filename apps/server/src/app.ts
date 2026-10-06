@@ -11,6 +11,7 @@ import { authRoutes } from './http/auth-routes.ts';
 import { errorHandler } from './http/errors.ts';
 import { calendarRoutes, homeRoutes } from './http/home-routes.ts';
 import { documentFileRoutes } from './http/document-file-routes.ts';
+import { textRecognitionRoutes } from './http/text-recognition-routes.ts';
 import { documentFolderRoutes, documentRoutes, documentTypeRoutes, workspaceToolRoutes } from './http/document-routes.ts';
 import { imageRoutes } from './http/image-routes.ts';
 import { adminStorageRoutes, workspaceStorageRoutes } from './http/storage-routes.ts';
@@ -203,6 +204,7 @@ export async function buildApp(options: AppOptions = {}) {
         await api.register(maintenanceRoutes, { prefix: '/workspaces/:workspaceId', services });
         await api.register(workspaceToolRoutes, { prefix: '/workspaces/:workspaceId/tools', services });
         await api.register(documentFileRoutes, { prefix: '/workspaces/:workspaceId/document-files', services });
+        await api.register(textRecognitionRoutes, { prefix: '/workspaces/:workspaceId/text-recognition', services });
         await api.register(documentFolderRoutes, { prefix: '/workspaces/:workspaceId/document-folders', services });
         await api.register(documentRoutes, { prefix: '/workspaces/:workspaceId/documents', services });
         await api.register(documentTypeRoutes, { prefix: '/workspaces/:workspaceId/document-types', services });
