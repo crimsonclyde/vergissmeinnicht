@@ -3630,6 +3630,14 @@ Capture a small, reviewed set from the actual app using `test-env` fictional dem
 ### 17.5 Offline-first / PWA production resilience
 **Status:** TODO (important production-readiness phase; implement before VMN is treated as connectivity-dependent for everyday critical use)
 
+**Narrowed by the owner (2026-10-06) — this is the scope to implement now; the text below stays as the long-term direction:**
+- **Already in place (8.5, 13.1, released):** installable app shell (`manifest.webmanifest`, `sw.js`), offline execution of Runs opened on the device (IndexedDB), a durable queue of Step changes with `clientChangeId` replayed in order and re-authorised by the server, device time labelled, sign-out clearing that account's offline data across tabs. Active Runs are **not** reworked in this phase; only gaps found while testing Lists are fixed.
+- **Focus: Grocery Lists only.** Other tools, the Today snapshot, offline storage controls and offline Documents stay out of this phase.
+- **Availability:** whenever the app is opened online on a device, **all Lists of the current Workspace the member may see are synced to that device** (not only Lists that were opened, no "Available offline" marker). Cleared on sign-out; partitioned by account and Workspace.
+- **Offline actions: items and Lists.** Add, edit, check/uncheck and remove items; also create, rename and delete Lists — each as a queued semantic operation with a stable client id, replayed once and re-checked by the server (membership, `list.edit`, Lists tool on).
+- **Conflicts: simple deterministic rules plus a notice, no review screen.** Changes to different items always merge. Same item: the later change wins; a removal wins over an edit or a check. Same List: a deletion wins over offline item changes or a rename; a List created offline is created once. Whenever a local change was overridden or refused, a short notice says what happened and by whom. Refused replays (access or tool removed meanwhile) are kept visible with the reason, never applied.
+- **Still required:** the supermarket acceptance test (open online → airplane mode → reload → change → close/reopen → reconnect → synced exactly once, another member sees it), two-device merge tests, refused replay after role/tool change, sign-out isolation, an app update with queued List changes losing nothing, physical iPhone and Android checks.
+
 **Why:** VMN is moving from a convenient web application toward a tool people rely on while shopping, travelling, working around a house and carrying out Procedures. Mobile connectivity cannot be assumed. A temporary loss of Wi-Fi or cellular service must not make an already prepared grocery list or an in-progress Run unusable.
 
 **Scope and principles:**
