@@ -1082,6 +1082,7 @@ test('first server admin: bootstrap link, account creation, sign-in, Workspace c
   await expect(page.getByRole('link', { name: 'Open list Weekly shop' })).toContainText('2 to buy');
   await expectAccessible(page, 'lists');
 
+
   // Phone navigation (15.1): four labelled destinations at the bottom; More leads to Reminders, Calendar and history.
   await page.setViewportSize({ width: 390, height: 844 });
   await expect(sections.getByRole('link')).toHaveText(['Today', 'Procedures', 'Lists', 'More']);
@@ -1191,6 +1192,19 @@ test('first server admin: bootstrap link, account creation, sign-in, Workspace c
   expect(savedHeic.suggestedFilename()).toBe('IMG_0004.HEIC');
   expect(readFileSync(await savedHeic.path()).equals(heic)).toBe(true);
   await expectAccessible(page, 'document with a HEIC page (dark)');
+  // Recognised text (16.13): nothing can be read from a HEIC, so a person types in what it says. The
+  // section is folded under each file; the typed text is kept apart from any machine reading.
+  const heicCard = page.getByRole('listitem').filter({ has: page.getByRole('heading', { name: 'Page 4 of 4: IMG_0004.HEIC' }) });
+  await heicCard.getByText('Recognised text', { exact: true }).click();
+  await expect(heicCard.getByText('There is no text for this file.')).toBeVisible();
+  await heicCard.getByRole('button', { name: 'Edit the text of IMG_0004.HEIC' }).click();
+  await heicCard.getByLabel('Text of IMG_0004.HEIC').fill('Zählerstand Wasser 4711 m³');
+  await heicCard.getByRole('button', { name: 'Save text' }).click();
+  await expect(heicCard.getByText('Recognised text (corrected)')).toBeVisible();
+  await expect(heicCard.getByText(/^Corrected by Ada Admin on /)).toBeVisible();
+  await expect(heicCard.getByRole('region', { name: 'Recognised text of IMG_0004.HEIC' })).toHaveText('Zählerstand Wasser 4711 m³');
+  await expect(heicCard.getByRole('button', { name: 'Restore recognised text' })).toBeVisible();
+  await expectAccessible(page, 'document with corrected text (dark)');
   // Phones: nothing scrolls sideways at 390 and 320 px; the tool is reached through More, the bar keeps four places.
   for (const width of [390, 320]) {
     await page.setViewportSize({ width, height: 800 });

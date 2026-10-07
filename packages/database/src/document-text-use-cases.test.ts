@@ -9,17 +9,20 @@ import {
   TextRetryNotPossibleError,
   ToolNotEnabledError,
   addMember,
+  correctDocumentText,
   createDocument,
   createPreviewQueue,
   createTextRecognizer,
   createWorkspace,
   deleteDocument,
   dismissSuggestion,
+  documentFileText,
   documentSuggestions,
   updateDocument,
   findDocuments,
   getDocument,
   purgeDocumentTrash,
+  restoreDocumentText,
   retryTextRecognition,
   setTextRecognition,
   setWorkspaceTool,
@@ -369,6 +372,115 @@ describe('Text recognition of Documents (16.9)', () => {
       // Deleting for good takes the dismissals along.
       await purgeDocumentTrash(deps, { ...ref(admin), items: [{ kind: 'document', id: bill.id }] });
       expect(database.sqlite.prepare('SELECT count(*) AS n FROM document_suggestion_dismissals').get()).toEqual({ n: 0 });
+    });
+  });
+  describe('view and correct recognised text (16.13)', () => {
+    const fileOf = async (documentId: string) => (await getDocument(deps, { ...ref(gus), documentId })).pages[0]?.id ?? '';
+    const view = (fileId: string, actor = gus, workspace = home) => documentFileText(textDeps, { ...ref(actor, workspace), fileId });
+    const correct = (fileId: string, text: string, revision: number, actor = uma, workspace = home) => correctDocumentText(textDeps, { ...ref(actor, workspace), fileId, text, revision });
+    const audit = () => database.sqlite.prepare("SELECT type, subject_id AS subject, actor_display_name AS actor, metadata FROM audit_events WHERE type LIKE 'DOCUMENT_TEXT_%' ORDER BY rowid").all() as { type: string; subject: string; actor: string; metadata: string }[];
+
+    it('everyone who sees the Document sees its text; only those who may change it correct it; outsiders get nothing', async () => {
+      const bill = await add('Water', 'Bolletta acqua 4512');
+      await recognizer.idle();
+      const fileId = await fileOf(bill.id);
+      expect(await view(fileId)).toMatchObject({ state: 'DONE', source: 'OCR', text: 'Bolletta acqua 4512', correction: null, revision: 0 });
+      expect(await reason(correct(fileId, 'Bolletta gas', 0, gus))).toBe('NotAuthorizedError');
+      expect(await reason(view(fileId, otto, office))).toBe('DocumentFileNotFoundError');
+      expect(await reason(view(fileId, otto))).toBe('WorkspaceNotFoundError');
+      expect(await reason(correct(fileId, 'Bolletta gas', 0, otto, office))).toBe('DocumentFileNotFoundError');
+      expect(await reason(restoreDocumentText(textDeps, { ...ref(gus), fileId, revision: 0 }))).toBe('NotAuthorizedError');
+      expect(database.sqlite.prepare('SELECT corrected_text AS text FROM document_file_texts WHERE file_id = ?').get(fileId)).toEqual({ text: null });
+    });
+
+    it('a correction is what search, snippets and suggestions use; restoring brings back the recognised text', async () => {
+      const bill = await add('scan', 'ACQUED0TT0 PUGL1ESE\nTota1e: EUR 87,4O');
+      await recognizer.idle();
+      const fileId = await fileOf(bill.id);
+      const corrected = await correct(fileId, 'ACQUEDOTTO PUGLIESE\nTotale: EUR 87,40\nScadenza pagamento: 15/08/2026', 0);
+      expect(corrected).toMatchObject({ text: 'ACQUED0TT0 PUGL1ESE\nTota1e: EUR 87,4O', correction: { byName: 'Uma', at: now }, revision: 1 });
+      expect((await find('acquedotto'))[0]).toMatchObject({ id: bill.id, textMatch: { file: 1, page: null } });
+      expect((await find('acquedotto'))[0]?.textMatch?.snippet).toContain('ACQUEDOTTO PUGLIESE');
+      expect(await find('acqued0tt0')).toEqual([]);
+      const suggestionDeps = { workspaces: deps.workspaces, tools: deps.tools, documents: deps.documents, texts, clock };
+      expect((await documentSuggestions(suggestionDeps, { ...ref(uma), documentId: bill.id })).find((each) => each.field === 'dueDate')?.value).toBe('2026-08-15');
+      const restored = await restoreDocumentText(textDeps, { ...ref(uma), fileId, revision: 1 });
+      expect(restored).toMatchObject({ correction: null, revision: 2 });
+      expect((await find('acqued0tt0')).map((each) => each.id)).toEqual([bill.id]);
+      expect(await find('acquedotto')).toEqual([]);
+      // History: who and when, the Document and the file — never the text.
+      expect(audit().map((each) => [each.type, each.subject, each.actor])).toEqual([
+        ['DOCUMENT_TEXT_CORRECTED', bill.id, 'Uma'],
+        ['DOCUMENT_TEXT_RESTORED', bill.id, 'Uma'],
+      ]);
+      expect(JSON.stringify(audit())).not.toMatch(/ACQUED|PUGLIESE|Totale|Scadenza|EUR/i);
+      expect(JSON.parse(audit()[0]?.metadata ?? '{}')).toEqual({ fileId, file: 1 });
+    });
+
+    it('text can be typed in where nothing could be read, and reading the file again never replaces it', async () => {
+      behaviour = 'fail';
+      const note = await add('Note', 'handwriting');
+      for (let attempt = 1; attempt <= MAX_TEXT_ATTEMPTS; attempt++) {
+        await recognizer.idle();
+        now = new Date(now.getTime() + 60 * 60_000);
+        recognizer.wake();
+      }
+      await recognizer.idle();
+      const fileId = await fileOf(note.id);
+      expect(stateOf(fileId).state).toBe('FAILED');
+      await correct(fileId, 'Latte, pane, Zettel für Oma', 0);
+      expect((await find('oma')).map((each) => each.id)).toEqual([note.id]);
+      behaviour = 'read';
+      await retryTextRecognition(textDeps, { ...ref(uma), fileId });
+      await recognizer.idle();
+      expect(await view(fileId)).toMatchObject({ state: 'DONE', text: 'handwriting', correction: { text: 'Latte, pane, Zettel für Oma' }, revision: 1 });
+      expect((await find('oma')).map((each) => each.id)).toEqual([note.id]);
+      expect(await find('handwriting')).toEqual([]);
+      // The same content uploaded again is read (or copied) without the correction: a correction belongs to its file.
+      const copy = await add('Copy', 'handwriting');
+      await recognizer.idle();
+      expect(await view(await fileOf(copy.id))).toMatchObject({ text: 'handwriting', correction: null });
+    });
+
+    it('refuses an edit based on an older revision, and keeps the text clean, bounded and counted', async () => {
+      const bill = await add('Water', 'Bolletta');
+      await recognizer.idle();
+      const fileId = await fileOf(bill.id);
+      await correct(fileId, 'Bolletta acqua', 0);
+      expect(await reason(correct(fileId, 'Bolletta luce', 0))).toBe('DocumentConflictError');
+      expect(await reason(restoreDocumentText(textDeps, { ...ref(uma), fileId, revision: 0 }))).toBe('DocumentConflictError');
+      // Untrusted like recognised text: controls, bidi overrides and page separators do not survive.
+      const cleaned = await correct(fileId, 'Bolletta\u202Egas\fpagina\u0000due', 1);
+      expect(cleaned.correction?.text).toBe('Bolletta gas pagina due');
+      const usage = await createStorageRepository(database).usage(home.id, now);
+      expect(usage?.text).toBe(new TextEncoder().encode('Bolletta').byteLength + new TextEncoder().encode('Bolletta gas pagina due').byteLength);
+      // Storage full: a longer correction is refused, a shorter one is still possible.
+      database.sqlite.prepare('UPDATE workspaces SET storage_limit_bytes = ? WHERE id = ?').run(usage?.used ?? 0, home.id);
+      expect(await reason(correct(fileId, 'Bolletta gas pagina due, scadenza 15/08', 2))).toBe('StorageFullError');
+      expect((await correct(fileId, 'Bolletta gas', 2)).correction?.text).toBe('Bolletta gas');
+    });
+
+    it('a Document in Trash or a switched-off tool allows neither viewing nor correcting', async () => {
+      const bill = await add('Water', 'Bolletta');
+      await recognizer.idle();
+      const fileId = await fileOf(bill.id);
+      await deleteDocument(deps, { ...ref(uma), documentId: bill.id });
+      expect(await reason(view(fileId))).toBe('DocumentFileNotFoundError');
+      expect(await reason(correct(fileId, 'x', 0))).toBe('DocumentFileNotFoundError');
+      const other = await add('Gas', 'Bolletta gas');
+      await setWorkspaceTool(deps, { ...ref(admin), tool: 'DOCUMENTS', enabled: false });
+      const otherFile = database.sqlite.prepare('SELECT file_id AS id FROM document_pages WHERE document_id = ?').get(other.id) as { id: string };
+      expect(await reason(view(otherFile.id))).toBe('ToolNotEnabledError');
+      expect(await reason(correct(otherFile.id, 'x', 0))).toBe('ToolNotEnabledError');
+    });
+
+    it('saves the correction and its history together, or neither', async () => {
+      const bill = await add('Water', 'Bolletta');
+      await recognizer.idle();
+      const fileId = await fileOf(bill.id);
+      database.sqlite.exec("CREATE TRIGGER audit_fails BEFORE INSERT ON audit_events BEGIN SELECT RAISE(ABORT, 'audit unavailable'); END");
+      await expect(correct(fileId, 'Bolletta acqua', 0)).rejects.toThrow();
+      expect(database.sqlite.prepare('SELECT corrected_text AS text, text_revision AS revision FROM document_file_texts WHERE file_id = ?').get(fileId)).toEqual({ text: null, revision: 0 });
     });
   });
 });

@@ -65,6 +65,14 @@ export function joinPageTexts(pages: readonly string[]): string {
   return [...joined].slice(0, MAX_TEXT_CHARS).join('');
 }
 
+/**
+ * A person's correction of a file's text (16.13): one plain text for the whole file, at most as long
+ * as recognised text may be. Cleaned like recognised text — it is just as untrusted — so it never
+ * holds a page separator.
+ */
+export const MAX_CORRECTION_CHARS = MAX_TEXT_CHARS;
+export const cleanCorrectedText = (text: string): string => cleanRecognizedText(text, MAX_CORRECTION_CHARS);
+
 /** The folded form a search compares against (as titles and notes, HT7). */
 export const recognizedSearchText = (text: string): string => foldSearchText(text);
 

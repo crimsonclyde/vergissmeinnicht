@@ -1,4 +1,4 @@
-import type { DocumentDetail, DocumentFields, DocumentFile, DocumentFilterValues, DocumentFolder, DocumentSummary, DocumentTypeView, DocumentTypes, LinkedRecord, DocumentSuggestion, RestoreOutcome, RunDocument, TrashEntry } from './api.ts';
+import type { DocumentDetail, DocumentFields, DocumentFile, DocumentFilterValues, DocumentFolder, FileTextInfo, DocumentSummary, DocumentTypeView, DocumentTypes, LinkedRecord, DocumentSuggestion, RestoreOutcome, RunDocument, TrashEntry } from './api.ts';
 import { formatCalendarDate, formatDateTime, formatNumber, hasMessage, t } from './i18n/index.ts';
 
 /** What the file picker offers; the server decides from the content, not from this list or the name. */
@@ -329,11 +329,37 @@ export function textNote(file: DocumentFile): string | null {
   }
 }
 
-/** Where a search term was found in a Document's recognised text: "File 2, page 3: …". */
-export function textMatchLine(match: { readonly file: number; readonly page: number; readonly snippet: string }, files: number): string {
-  const where = files > 1 ? t('documents.text.matchFilePage', { file: match.file, page: match.page }) : t('documents.text.matchPage', { page: match.page });
+/** Where a search term was found in a Document's recognised text: "File 2, page 3: …" ("File 2: …" in a correction, which has no pages). */
+export function textMatchLine(match: { readonly file: number; readonly page: number | null; readonly snippet: string }, files: number): string {
+  const where =
+    match.page === null
+      ? files > 1
+        ? t('documents.text.matchFile', { file: match.file })
+        : t('documents.text.matchText')
+      : files > 1
+        ? t('documents.text.matchFilePage', { file: match.file, page: match.page })
+        : t('documents.text.matchPage', { page: match.page });
   return `${where} ${match.snippet}`;
 }
+
+/** Where a file's text came from (16.13): read from the PDF, by OCR, both, or nothing found. */
+export function textSourceLine(text: FileTextInfo): string | null {
+  switch (text.source) {
+    case 'EMBEDDED':
+      return t('documents.text.sourceEmbedded');
+    case 'OCR':
+      return t('documents.text.sourceOcr');
+    case 'MIXED':
+      return t('documents.text.sourceMixed');
+    case 'NONE':
+      return t('documents.text.sourceNone');
+    default:
+      return null;
+  }
+}
+
+/** The text shown and copied as one: pages separated by an empty line. */
+export const joinedText = (text: FileTextInfo): string => text.pages.join('\n\n');
 
 /** How a suggestion is shown: what it would set, in words ("Type: Bill", "Due date: 15 Aug 2026"). */
 export function suggestionText(suggestion: DocumentSuggestion): string {

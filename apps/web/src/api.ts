@@ -530,6 +530,19 @@ export type DocumentFileFormat = 'PDF' | 'JPEG' | 'PNG' | 'HEIC';
 
 export type TextState = 'QUEUED' | 'PROCESSING' | 'DONE' | 'FAILED' | 'NOT_APPLICABLE';
 
+/**
+ * The text of one file (16.13): a person's correction while there is one (one text, no pages), else
+ * the recognised text page by page. Plain strings, always rendered as text.
+ */
+export interface FileTextInfo {
+  readonly state: TextState;
+  readonly source: 'EMBEDDED' | 'OCR' | 'MIXED' | 'NONE' | null;
+  readonly pages: readonly string[];
+  readonly truncated: boolean;
+  readonly corrected: { readonly by: string; readonly at: string } | null;
+  readonly revision: number;
+}
+
 /** Text recognition of a Workspace (16.9, P5): on or off, and files by state — for Workspace admins. */
 export interface TextRecognitionInfo {
   readonly enabled: boolean;
@@ -588,7 +601,8 @@ export interface DocumentSummary {
   readonly modifiedAt: string;
   readonly modifiedBy: string;
   /** In search results: where a term was found in recognised text — plain text, never markup (16.9). */
-  readonly textMatch?: { readonly file: number; readonly page: number; readonly snippet: string } | null;
+  /** `page` is null for a hit in a person's correction, which has no pages (16.13). */
+  readonly textMatch?: { readonly file: number; readonly page: number | null; readonly snippet: string } | null;
 }
 
 /** One page of a listing (16.3): fifty at most; `total` only comes with the first page. */
@@ -1071,6 +1085,11 @@ export const api = {
   // Documents (16.1, 16.2).
   uploadDocumentFile,
   retryDocumentText: (workspaceId: string, fileId: string) => request<undefined>('POST', documentFilePath(workspaceId, fileId, '/text/retry').slice('/api'.length)),
+  documentFileText: async (workspaceId: string, fileId: string) => (await request<{ text: FileTextInfo }>('GET', documentFilePath(workspaceId, fileId, '/text').slice('/api'.length))).text,
+  correctDocumentText: async (workspaceId: string, fileId: string, text: string, revision: number) =>
+    (await request<{ text: FileTextInfo }>('POST', documentFilePath(workspaceId, fileId, '/text/correct').slice('/api'.length), { text, revision })).text,
+  restoreDocumentText: async (workspaceId: string, fileId: string, revision: number) =>
+    (await request<{ text: FileTextInfo }>('POST', documentFilePath(workspaceId, fileId, '/text/restore').slice('/api'.length), { revision })).text,
   textRecognition: async (workspaceId: string) => (await request<{ textRecognition: TextRecognitionInfo }>('GET', `/workspaces/${encodeURIComponent(workspaceId)}/text-recognition`)).textRecognition,
   setTextRecognition: async (workspaceId: string, enabled: boolean) =>
     (await request<{ textRecognition: TextRecognitionInfo }>('POST', `/workspaces/${encodeURIComponent(workspaceId)}/text-recognition`, { enabled })).textRecognition,

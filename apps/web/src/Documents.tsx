@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useId, useRef, useState } from 'react';
 import { DocumentSuggestions } from './DocumentSuggestions.tsx';
+import { DocumentText } from './DocumentText.tsx';
 import { ApiError, api, documentExportUrl, documentFileUrls, type ExportSize, type DocumentDetail, type DocumentFile, type DocumentFilterValues, type DocumentFolder, type DocumentListing, type DocumentSummary, type DocumentTypes, type TrashEntry } from './api.ts';
 import { DocumentFormFields, DocumentTypesDialog, FileChooser, FolderSelect, UploadList, failureText, useUploads } from './DocumentFields.tsx';
 import {
@@ -940,7 +941,7 @@ function NewDocument(props: { workspaceId: string; folderId: string | null }) {
 }
 
 /** One file of a Document: its preview pages (or why there are none) and the download of the original. */
-function PageCard(props: { workspaceId: string; file: DocumentFile; index: number; total: number; onOpen: (src: string, label: string) => void; onRetryText: (() => void) | null; actions: React.ReactNode }) {
+function PageCard(props: { workspaceId: string; file: DocumentFile; index: number; total: number; canManage: boolean; onOpen: (src: string, label: string) => void; onRetryText: (() => void) | null; actions: React.ReactNode }) {
   const { workspaceId, file } = props;
   const [shown, setShown] = useState(PAGES_PER_STEP);
   const note = previewNote(file);
@@ -992,6 +993,7 @@ function PageCard(props: { workspaceId: string; file: DocumentFile; index: numbe
           )}
         </p>
       )}
+      {file.text !== null && <DocumentText workspaceId={workspaceId} file={file} canManage={props.canManage} />}
       <div className="row document-page-actions">
         <a className="button" href={documentFileUrls.original(workspaceId, file.id)} download aria-label={t('documents.downloadNamed', { name: file.name })}>
           <UiIcon name="download" /> {t('documents.downloadOriginal')}
@@ -1235,6 +1237,7 @@ function DocumentPage(props: { workspaceId: string; documentId: string; canManag
             file={page}
             index={index}
             total={doc.pages.length}
+            canManage={canManage}
             onOpen={(src, label) => setViewer({ src, label })}
             onRetryText={canManage ? () => retryText(page) : null}
             actions={

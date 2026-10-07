@@ -61,6 +61,8 @@ function bodyFor(route: string, ids: Record<string, string>): object {
   if (url.endsWith('/storage/limit')) return { bytes: null };
   if (url.endsWith('/text-recognition')) return { enabled: true };
   if (url.endsWith('/suggestions/dismiss')) return { field: 'title', value: 'x' };
+  if (url.endsWith('/text/correct')) return { text: 'Taken over', revision: 0 };
+  if (url.endsWith('/text/restore')) return { revision: 0 };
   if (url.endsWith('/trash/purge')) return { items: [{ kind: 'document', id: ids.documentId ?? '' }] };
   if (url.endsWith('/ceiling')) return { bytes: 1_000_000_000 };
   if (url.endsWith('/document-folders')) return { name: 'Stolen', parentId: ids.folderId ?? null };

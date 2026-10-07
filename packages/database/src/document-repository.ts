@@ -56,6 +56,7 @@ import { recordAuditEvent } from './audit-events.ts';
 import type { AppDatabase } from './connection.ts';
 import { recordToolEnabled } from './tool-policy.ts';
 import { fileRecords } from './document-file-repository.ts';
+import { effectiveSearchText, effectiveText, textCounts } from './document-text-repository.ts';
 import { deleteTextsOfFiles } from './document-text-repository.ts';
 import { markLinksOfPurgedDocuments } from './link-repository.ts';
 import { documentFileDerivatives, documentFileTexts, documentFiles, documentSuggestionDismissals, documentFolders, documentPages, documentTypes, documents, links, procedures, runDocumentFiles, runDocuments, runs, schedules, scheduledReminders, occurrences, workspaceTools, workspaces } from './schema.ts';
@@ -220,18 +221,19 @@ function summary(tx: Reader, row: DocumentRow): DocumentSummary {
  */
 function withTextMatch(tx: Reader, document: DocumentSummary, terms: readonly string[]): DocumentSummary {
   if (terms.length === 0) return document;
-  const any = or(...terms.map((term) => sql`${documentFileTexts.searchText} like ${containsPattern(term)} escape '\\'`));
+  const any = or(...terms.map((term) => sql`${effectiveSearchText} like ${containsPattern(term)} escape '\\'`));
   const rows = tx
-    .select({ position: documentPages.position, text: documentFileTexts.text })
+    .select({ position: documentPages.position, text: effectiveText, corrected: sql<number>`${documentFileTexts.correctedText} is not null` })
     .from(documentPages)
     .innerJoin(documentFileTexts, eq(documentFileTexts.fileId, documentPages.fileId))
-    .where(and(eq(documentPages.documentId, document.id), eq(documentFileTexts.state, 'DONE'), any))
+    .where(and(eq(documentPages.documentId, document.id), textCounts, any))
     .orderBy(asc(documentPages.position))
     .limit(1)
     .all();
   const row = rows[0];
   const snippet = row === undefined ? undefined : findSnippet(row.text, terms);
-  return { ...document, textMatch: row === undefined || snippet === undefined ? null : { file: row.position + 1, page: snippet.page, snippet: snippet.text } };
+  // A correction is one text for the whole file (16.13): its hits have no page.
+  return { ...document, textMatch: row === undefined || snippet === undefined ? null : { file: row.position + 1, page: Number(row.corrected) === 1 ? null : snippet.page, snippet: snippet.text } };
 }
 
 function record(tx: Reader, row: DocumentRow): DocumentRecord {
@@ -274,7 +276,7 @@ function matching(query: DocumentQuery, folderIds: readonly string[] | null): SQ
   // Each term in the title, tags or notes — or in text recognised from one of the Document's files (16.9).
   for (const term of query.terms) {
     const pattern = containsPattern(term);
-    where.push(sql`(${documents.searchText} like ${pattern} escape '\\' or exists (select 1 from ${documentPages} inner join ${documentFileTexts} on ${documentFileTexts.fileId} = ${documentPages.fileId} where ${documentPages.documentId} = ${documents.id} and ${documentFileTexts.state} = 'DONE' and ${documentFileTexts.searchText} like ${pattern} escape '\\'))`);
+    where.push(sql`(${documents.searchText} like ${pattern} escape '\\' or exists (select 1 from ${documentPages} inner join ${documentFileTexts} on ${documentFileTexts.fileId} = ${documentPages.fileId} where ${documentPages.documentId} = ${documents.id} and ${textCounts} and ${effectiveSearchText} like ${pattern} escape '\\'))`);
   }
   return where;
 }

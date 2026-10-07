@@ -4,7 +4,7 @@ import { foldSearchText } from './document-search.ts';
 
 /**
  * Rule-based suggestions from recognised text (steps.md 16.9 task 5). Deterministic patterns for
- * Italian, German and English household documents — no model, no network. A suggestion is only ever
+ * Italian, German, English and French household documents — no model, no network. A suggestion is only ever
  * **shown**: it names its source ("from the text on page 1") and is accepted or dismissed one by one
  * by a person; it never changes a field, creates a Reminder or a Contact by itself. Because the rules
  * are pure functions of the stored text, suggestions are computed when asked for and never stored —
@@ -32,26 +32,28 @@ const MONTHS: Readonly<Record<string, number>> = {
   januar: 1, februar: 2, marz: 3, mai: 5, juni: 6, juli: 7, oktober: 10, okt: 10, dezember: 12, dez: 12,
   // Italian
   gennaio: 1, gen: 1, febbraio: 2, marzo: 3, aprile: 4, maggio: 5, mag: 5, giugno: 6, giu: 6, luglio: 7, lug: 7, agosto: 8, ago: 8, settembre: 9, set: 9, ottobre: 10, ott: 10, novembre: 11, dicembre: 12, dic: 12,
+  // French (folded: février → fevrier, août → aout)
+  janvier: 1, janv: 1, fevrier: 2, fevr: 2, mars: 3, avril: 4, avr: 4, juin: 6, juillet: 7, juil: 7, aout: 8, septembre: 9, octobre: 10, decembre: 12, // novembre: as in Italian
 };
 
 /** Words before a payment due date. Folded (no accents, lower case, ß → ss). */
-const DUE_WORDS = ['scadenza', 'scade il', 'da pagare entro', 'entro il', 'pagare entro', 'faelligkeit', 'falligkeit', 'fallig am', 'fallig', 'zahlbar bis', 'zahlungsziel', 'bitte zahlen sie bis', 'due date', 'payment due', 'pay by', 'due by', 'due on'];
+const DUE_WORDS = ['scadenza', 'scade il', 'da pagare entro', 'entro il', 'pagare entro', 'faelligkeit', 'falligkeit', 'fallig am', 'fallig', 'zahlbar bis', 'zahlungsziel', 'bitte zahlen sie bis', 'due date', 'payment due', 'pay by', 'due by', 'due on', 'date d echeance', 'date limite de paiement', 'echeance', 'a payer avant le', 'a regler avant le', 'payable avant le'];
 /** Words before the date of the document itself. */
-const DATE_WORDS = ['data emissione', 'data fattura', 'data documento', 'del', 'rechnungsdatum', 'datum', 'ausstellungsdatum', 'invoice date', 'date of issue', 'issue date', 'date'];
+const DATE_WORDS = ['data emissione', 'data fattura', 'data documento', 'del', 'rechnungsdatum', 'datum', 'ausstellungsdatum', 'invoice date', 'date of issue', 'issue date', 'date de facture', 'date d emission', 'date'];
 /** Words before the amount to pay. Longer phrases first: the first one found on a line wins. */
-const AMOUNT_WORDS = ['totale da pagare', 'importo da pagare', 'totale fattura', 'importo totale', 'totale', 'importo', 'gesamtbetrag', 'rechnungsbetrag', 'zu zahlender betrag', 'zahlbetrag', 'endbetrag', 'jahresbeitrag', 'betrag', 'amount due', 'balance due', 'total due', 'grand total', 'total'];
+const AMOUNT_WORDS = ['totale da pagare', 'importo da pagare', 'totale fattura', 'importo totale', 'totale', 'importo', 'gesamtbetrag', 'rechnungsbetrag', 'zu zahlender betrag', 'zahlbetrag', 'endbetrag', 'jahresbeitrag', 'betrag', 'amount due', 'balance due', 'total due', 'grand total', 'montant a payer', 'net a payer', 'total ttc', 'montant ttc', 'total'];
 /** Types by words that name them — the word as printed becomes part of a suggested title. */
 const TYPE_WORDS: readonly (readonly [BuiltInDocumentType, readonly string[]])[] = [
-  ['receipt', ['ricevuta', 'scontrino', 'quittung', 'kassenbon', 'kassenbeleg', 'receipt']],
-  ['tax_notice', ['avviso di pagamento imu', 'cartella esattoriale', 'steuerbescheid', 'tax notice', 'tax bill']],
+  ['receipt', ['ricevuta', 'scontrino', 'quittung', 'kassenbon', 'kassenbeleg', 'receipt', 'ticket de caisse', 'recu']],
+  ['tax_notice', ['avviso di pagamento imu', 'cartella esattoriale', 'steuerbescheid', 'tax notice', 'tax bill', 'avis d imposition', 'avis de taxe fonciere']],
   ['warranty', ['garanzia', 'garantieschein', 'garantie', 'warranty']],
-  ['inspection_report', ['verbale di ispezione', 'prufbericht', 'prufprotokoll', 'inspection report']],
-  ['contract', ['contratto', 'vertrag', 'contract', 'agreement']],
-  ['manual', ['manuale', 'istruzioni per l', 'bedienungsanleitung', 'gebrauchsanweisung', 'user manual', 'instruction manual']],
-  ['bill', ['bolletta', 'fattura', 'rechnung', 'invoice', 'bill']],
+  ['inspection_report', ['verbale di ispezione', 'prufbericht', 'prufprotokoll', 'inspection report', 'rapport d inspection']],
+  ['contract', ['contratto', 'vertrag', 'contract', 'agreement', 'contrat']],
+  ['manual', ['manuale', 'istruzioni per l', 'bedienungsanleitung', 'gebrauchsanweisung', 'user manual', 'instruction manual', 'notice d utilisation', 'mode d emploi']],
+  ['bill', ['bolletta', 'fattura', 'rechnung', 'invoice', 'bill', 'facture']],
 ];
 /** Legal forms that mark a line as the name of an organisation. */
-const ORGANISATION = /\b(s\.?p\.?a\.?|s\.?r\.?l\.?s?|s\.?n\.?c\.?|s\.?a\.?s\.?|gmbh|ag|kg|ohg|e\.?\s?v\.?|ug|ltd\.?|limited|llc|inc\.?|plc|co\.)(?=\s|$|,)/i;
+const ORGANISATION = /\b(s\.?p\.?a\.?|s\.?r\.?l\.?s?|s\.?n\.?c\.?|s\.?a\.?s\.?u?|s\.?a\.?r\.?l\.?|e\.?u\.?r\.?l\.?|gmbh|ag|kg|ohg|e\.?\s?v\.?|ug|ltd\.?|limited|llc|inc\.?|plc|co\.)(?=\s|$|,)/i;
 const CURRENCIES: Readonly<Record<string, string>> = { '€': 'EUR', eur: 'EUR', euro: 'EUR', '£': 'GBP', gbp: 'GBP', chf: 'CHF', fr: 'CHF', $: 'USD', usd: 'USD' };
 
 interface Line {
@@ -66,7 +68,7 @@ function linesOf(text: string): Line[] {
       .split('\n')
       .map((line) => line.trim())
       .filter((line) => line !== '')
-      .map((line) => ({ text: line, folded: foldSearchText(line), page: index + 1 })),
+      .map((line) => ({ text: line, folded: foldSearchText(line).replace(/['’`]/g, ' '), page: index + 1 })),
   );
 }
 

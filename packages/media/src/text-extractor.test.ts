@@ -17,6 +17,7 @@ if (!haveData && process.env.CI !== undefined) throw new Error('OCR language dat
 const LINES = {
   ita: ['Bolletta acqua n. 2026/004512', 'Totale da pagare: EUR 87,40', 'Scadenza pagamento: 15/08/2026', 'Modalità di pagamento: addebito diretto'],
   deu: ['Hausratversicherung für Ihre Wohnung', 'Jahresbeitrag einschließlich Versicherungsteuer', 'Fälligkeit: 01.11.2026', 'Überspannungsschäden sind mitversichert.'],
+  fra: ['Facture électricité n° 2026-1144', 'Montant à payer : 64,90 €', 'Date d’échéance : 18/09/2026', 'Prélèvement automatique'],
   eng: ['NORTHWIND HARDWARE LTD', 'Cordless drill 18V 129.99', 'Warranty: 24 months from date of purchase', 'Keep this receipt for returns.'],
 };
 
@@ -62,7 +63,7 @@ describe.skipIf(!haveData)('text extraction (16.9, HT9 / HT10)', () => {
     const path = join(dir, `${language}.jpg`);
     writeFileSync(path, await photo(lines));
     const found = words(await extractor.recognizeImage(path));
-    for (const word of ['bolletta', 'pagamento', 'hausratversicherung', 'falligkeit', 'warranty', 'receipt'].filter((word) => foldSearchText(lines.join(' ')).includes(word))) {
+    for (const word of ['bolletta', 'pagamento', 'hausratversicherung', 'falligkeit', 'warranty', 'receipt', 'facture', 'electricite', 'prelevement'].filter((word) => foldSearchText(lines.join(' ')).includes(word))) {
       expect(found.has(word), word).toBe(true);
     }
   }, 60_000);

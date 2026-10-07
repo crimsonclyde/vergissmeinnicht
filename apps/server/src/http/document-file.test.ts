@@ -284,6 +284,10 @@ describe('document files over HTTP (16.1)', () => {
   });
 
   it('refuses when the Workspace storage is full and keeps everything readable', async () => {
+    // Previews and recognised text of earlier uploads count towards storage: let them finish first, so
+    // the usage read here is the one the refusal reports.
+    await settle();
+    await t.services.recognizer.idle();
     const usage = (await t.get(`${files()}/usage`, guest)).json().usage;
     t.database.sqlite.prepare('UPDATE workspaces SET storage_quota_bytes = ? WHERE id = ?').run(usage.usedBytes + 100, home);
     const jpeg = await sharp({ create: { width: 500, height: 500, channels: 3, background: '#fc0' } }).jpeg().toBuffer();

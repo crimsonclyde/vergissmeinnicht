@@ -292,6 +292,9 @@ describe('recognised text (16.9)', () => {
   it('names the file only when a Document has more than one', () => {
     expect(textMatchLine({ file: 1, page: 2, snippet: '…Bolletta acqua…' }, 1)).toBe('Page 2: …Bolletta acqua…');
     expect(textMatchLine({ file: 2, page: 1, snippet: 'Bolletta' }, 3)).toBe('File 2, page 1: Bolletta');
+    // A hit in a person's correction has no page (16.13).
+    expect(textMatchLine({ file: 1, page: null, snippet: 'Bolletta' }, 1)).toBe('In the text: Bolletta');
+    expect(textMatchLine({ file: 2, page: null, snippet: 'Bolletta' }, 3)).toBe('File 2: Bolletta');
   });
 });
 

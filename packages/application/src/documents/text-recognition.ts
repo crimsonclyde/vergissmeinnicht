@@ -2,6 +2,7 @@ import {
   MAX_OCR_PAGES,
   MAX_TEXT_ATTEMPTS,
   MAX_TEXT_PAGES,
+  cleanCorrectedText,
   cleanRecognizedText,
   hasUsableEmbeddedText,
   joinPageTexts,
@@ -16,10 +17,10 @@ import { NotAuthorizedError } from '../invitations/errors.ts';
 import type { Clock } from '../ports/clock.ts';
 import type { DocumentFileStore } from '../ports/document-files.ts';
 import type { WorkspaceToolRepository } from '../ports/document-repository.ts';
-import { TextExtractionError, type DocumentTextRepository, type TextExtractor, type TextJob, type TextRecognitionSettings, type TextResult } from '../ports/document-texts.ts';
+import { TextExtractionError, type DocumentTextRepository, type FileText, type TextExtractor, type TextJob, type TextRecognitionSettings, type TextResult } from '../ports/document-texts.ts';
 import type { WorkspaceRepository } from '../ports/workspace-repository.ts';
 import { userActor } from '../user-actor.ts';
-import { DocumentFileNotFoundError } from './errors.ts';
+import { DocumentConflictError, DocumentFileNotFoundError, StorageFullError } from './errors.ts';
 import { authorizeTool } from './tools.ts';
 
 /** A claim is held this long and extended after every page; a crashed worker's file is picked up again after it. */
@@ -206,4 +207,49 @@ export async function setTextRecognition(deps: TextRecognitionUseCaseDeps, input
   if (result === 'forbidden') throw new NotAuthorizedError();
   if (input.enabled) deps.recognizer.wake();
   return deps.texts.settings(input.workspaceId);
+}
+
+const manageGuard = { tool: 'DOCUMENTS', actorMay: (role) => roleHasCapability(role, 'document.manage') } as const satisfies Parameters<DocumentTextRepository['correct']>[2];
+
+/**
+ * The text of one file of a live Document (16.13): for everyone who may see the Document, guests
+ * included — they can already find these words by search. Another Workspace's file is "not found".
+ */
+export async function documentFileText(deps: TextRecognitionUseCaseDeps, input: { readonly actor: User; readonly workspaceId: WorkspaceId; readonly fileId: string }): Promise<FileText> {
+  await authorizeTool(deps, input.actor, input.workspaceId, 'DOCUMENTS', 'document.view');
+  const text = await deps.texts.fileText(input.workspaceId, parseDocumentFileId(input.fileId));
+  if (text === undefined) throw new DocumentFileNotFoundError();
+  return text;
+}
+
+/**
+ * A person corrects a file's text, or types it in where nothing could be read (16.13,
+ * `document.manage`). Kept apart from the machine reading — reading the file again never replaces
+ * it — and used by search, snippets and suggestions while it exists. Refused when `revision` is no
+ * longer current. Audited without the text.
+ */
+export async function correctDocumentText(
+  deps: TextRecognitionUseCaseDeps,
+  input: { readonly actor: User; readonly workspaceId: WorkspaceId; readonly fileId: string; readonly text: string; readonly revision: number },
+): Promise<FileText> {
+  await authorizeTool(deps, input.actor, input.workspaceId, 'DOCUMENTS', 'document.manage');
+  const fileId = parseDocumentFileId(input.fileId);
+  const text = cleanCorrectedText(input.text);
+  const result = await deps.texts.correct({ workspaceId: input.workspaceId, fileId, text, searchText: recognizedSearchText(text), revision: input.revision, at: deps.clock.now() }, userActor(input.actor), manageGuard);
+  if (result.status === 'forbidden') throw new NotAuthorizedError();
+  if (result.status === 'not_found') throw new DocumentFileNotFoundError();
+  if (result.status === 'stale') throw new DocumentConflictError();
+  if (result.status === 'storage_full') throw new StorageFullError(result.usage);
+  return documentFileText(deps, input);
+}
+
+/** Discards a correction, so the recognised text counts again (16.13, `document.manage`); audited. */
+export async function restoreDocumentText(deps: TextRecognitionUseCaseDeps, input: { readonly actor: User; readonly workspaceId: WorkspaceId; readonly fileId: string; readonly revision: number }): Promise<FileText> {
+  await authorizeTool(deps, input.actor, input.workspaceId, 'DOCUMENTS', 'document.manage');
+  const fileId = parseDocumentFileId(input.fileId);
+  const result = await deps.texts.restore({ workspaceId: input.workspaceId, fileId, revision: input.revision, at: deps.clock.now() }, userActor(input.actor), manageGuard);
+  if (result === 'forbidden') throw new NotAuthorizedError();
+  if (result === 'not_found') throw new DocumentFileNotFoundError();
+  if (result === 'stale') throw new DocumentConflictError();
+  return documentFileText(deps, input);
 }
