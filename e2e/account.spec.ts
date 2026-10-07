@@ -1101,13 +1101,18 @@ test('first server admin: bootstrap link, account creation, sign-in, Workspace c
   await page.getByLabel('Item', { exact: true }).fill('Eggs');
   await page.keyboard.press('Enter');
   await expect(shopList.getByRole('listitem').filter({ hasText: 'Eggs' })).toContainText('Saved on this device · not sent yet');
-  await expect(page.getByRole('status').filter({ hasText: 'Offline.' })).toContainText('2 changes are saved on this device');
+  // A quantity the server will not accept: kept like any change, refused cleanly when sent.
+  await page.getByLabel('Item', { exact: true }).fill('Butter');
+  await page.getByLabel('Quantity', { exact: true }).fill('lots');
+  await page.keyboard.press('Enter');
+  await expect(shopList.getByRole('listitem').filter({ hasText: 'Butter' })).toContainText('Saved on this device · not sent yet');
+  await expect(page.getByRole('status').filter({ hasText: 'Offline.' })).toContainText('3 changes are saved on this device');
   await expectAccessible(page, 'grocery list offline');
-  // VMN opened again without a connection (a new tab): the changes are still there.
+  // VMN opened again without a connection (a new tab): the changes are still there. The tab stays
+  // open while the connection comes back: both tabs are online then, and still everything is sent once.
   const reopened = await shop.newPage();
   await reopened.goto(listUrl);
-  await expect(reopened.getByRole('list', { name: 'To buy' }).getByRole('listitem')).toHaveText([/Milk/, /Eggs.*Saved on this device/]);
-  await reopened.close();
+  await expect(reopened.getByRole('list', { name: 'To buy' }).getByRole('listitem')).toHaveText([/Milk/, /Eggs.*Saved on this device/, /Butter.*Saved on this device/]);
   // Meanwhile another device, online, ticks Milk.
   const otherPhone = await browser.newContext(testInfo.project.use.baseURL === undefined ? {} : { baseURL: testInfo.project.use.baseURL });
   const otherPhonePage = await otherPhone.newPage();
@@ -1119,11 +1124,17 @@ test('first server admin: bootstrap link, account creation, sign-in, Workspace c
   await otherPhonePage.goto(listUrl);
   await otherPhonePage.getByRole('checkbox', { name: /Milk/ }).click();
   await expect(otherPhonePage.getByRole('status').filter({ hasText: '“Milk” purchased.' })).toBeVisible();
-  // Back online: sent once, merged, nothing waits any more.
+  // Back online: sent once, merged, nothing waits any more; the refused quantity is explained once.
   await shop.setOffline(false);
   await expect(page.getByRole('status').filter({ hasText: /Offline\.|Sending/ })).toHaveCount(0, { timeout: 15_000 });
   await expect(shopList.getByRole('listitem')).toHaveText([/Eggs/], { timeout: 15_000 });
   await expect(page.getByText('Saved on this device · not sent yet')).toHaveCount(0);
+  const butterNotice = (tab: typeof page) => tab.getByRole('alert').filter({ hasText: '“Butter”: your change was not applied — The quantity must be a number above 0' });
+  await expect.poll(async () => (await butterNotice(page).count()) + (await butterNotice(reopened).count()), { timeout: 15_000 }).toBe(1);
+  await reopened.reload();
+  await expect(reopened.getByRole('list', { name: 'To buy' }).getByRole('listitem')).toHaveText([/Eggs/]);
+  await reopened.close();
+  if ((await butterNotice(page).count()) > 0) await page.getByRole('button', { name: 'OK' }).click();
   await page.reload();
   await expect(shopList.getByRole('listitem')).toHaveText([/Eggs/]);
   await expect(page.getByText('Purchased (2)')).toBeVisible();
@@ -1160,6 +1171,77 @@ test('first server admin: bootstrap link, account creation, sign-in, Workspace c
   await otherPhone.close();
   await page.goto(listUrl);
   await expect(shopList.getByRole('listitem')).toHaveText([/Eggs/]);
+  // A new version is deployed while a change made offline is still on its way: VMN says so, but offers
+  // no reload until the change has been sent — then it does, and nothing is lost.
+  let sendReplay: () => void = () => undefined;
+  const replayHeld = new Promise<void>((resolve) => (sendReplay = resolve));
+  await page.route(
+    (url) => url.pathname.endsWith('/lists/replay'),
+    async (route) => {
+      await replayHeld;
+      await route.continue();
+    },
+  );
+  await page.route(
+    (url) => url.searchParams.has('vmn-version-check'),
+    async (route) => {
+      const response = await route.fetch();
+      await route.fulfill({ response, body: (await response.text()).replace(/\/assets\/index-[^"]+\.js/, '/assets/index-NEWVERSION.js') });
+    },
+  );
+  await shop.setOffline(true);
+  await page.getByRole('checkbox', { name: /Eggs/ }).click();
+  await shop.setOffline(false);
+  const updateNotice = page.getByRole('status').filter({ hasText: 'A new version of VMN is available.' });
+  await expect(updateNotice).toContainText('1 change saved on this device is sent first', { timeout: 15_000 });
+  await expect(updateNotice.getByRole('button', { name: 'Reload now' })).toHaveCount(0);
+  await expectAccessible(page, 'update available while a change waits');
+  sendReplay();
+  await expect(updateNotice.getByRole('button', { name: 'Reload now' })).toBeVisible({ timeout: 15_000 });
+  await page.unrouteAll({ behavior: 'wait' });
+  await updateNotice.getByRole('button', { name: 'Reload now' }).click();
+  await expect(page.getByText('Purchased (3)')).toBeVisible();
+  await expect(page.getByRole('status').filter({ hasText: 'A new version of VMN is available.' })).toHaveCount(0);
+  // An app update meets the device database of the previous release (version 2, as beta.7 leaves it):
+  // the new app adds its List stores and keeps what was there. Prepared from a page of the same site
+  // that runs no app (the JSON health check), so nothing else holds the database meanwhile.
+  const probeTab = await shop.newPage();
+  await probeTab.goto('/api/health');
+  const userIdNow = await probeTab.evaluate(async () => ((await (await fetch('/api/auth/session')).json()) as { user: { id: string } }).user.id);
+  // (Browser code as a string: the e2e project is type-checked without DOM types.)
+  await probeTab.evaluate(`new Promise((resolve, reject) => {
+    const removed = indexedDB.deleteDatabase('vmn-offline');
+    removed.onerror = () => reject(new Error('delete failed'));
+    removed.onsuccess = () => {
+      const opened = indexedDB.open('vmn-offline', 2);
+      opened.onupgradeneeded = () => {
+        const db = opened.result;
+        db.createObjectStore('runs', { keyPath: 'key' });
+        db.createObjectStore('queue', { keyPath: 'clientChangeId' });
+        db.createObjectStore('context', { keyPath: 'key' }).put({ key: 'upgrade-probe', userId: ${JSON.stringify(userIdNow)}, value: 'kept across the update' });
+        db.createObjectStore('images', { keyPath: 'key' });
+      };
+      opened.onsuccess = () => { opened.result.close(); resolve(); };
+      opened.onerror = () => reject(new Error('open failed'));
+    };
+  })`);
+  await page.reload();
+  await expect(shopList).toHaveCount(0); // everything is purchased; the page is the List again
+  await expect(page.getByText('Purchased (3)')).toBeVisible();
+  const upgraded = (await probeTab.evaluate(`new Promise((resolve, reject) => {
+    const opened = indexedDB.open('vmn-offline');
+    opened.onsuccess = () => {
+      const db = opened.result;
+      const read = db.transaction('context').objectStore('context').get('upgrade-probe');
+      read.onsuccess = () => { resolve({ version: db.version, stores: [...db.objectStoreNames], probe: read.result && read.result.value }); db.close(); };
+      read.onerror = () => reject(new Error('read failed'));
+    };
+    opened.onerror = () => reject(new Error('open failed'));
+  })`)) as { version: number; stores: string[]; probe: unknown };
+  expect(upgraded.version).toBe(3);
+  expect(upgraded.stores).toEqual(expect.arrayContaining(['lists', 'list-queue', 'queue', 'context']));
+  expect(upgraded.probe).toBe('kept across the update');
+  await probeTab.close();
 
   // Phone navigation (15.1): four labelled destinations at the bottom; More leads to Reminders, Calendar and history.
   await page.setViewportSize({ width: 390, height: 844 });

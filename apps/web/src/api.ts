@@ -469,8 +469,17 @@ export function messageFor(error: unknown, fallback: string = t('error.generic')
   return hasMessage(key) ? t(key) : fallback;
 }
 
-/** The request never got an answer (offline, server unreachable) — as opposed to an error answer. */
-export const isNetworkError = (error: unknown): boolean => !(error instanceof ApiError) && error instanceof TypeError;
+/** The request never got an answer (offline, server unreachable, or no answer in time) — as opposed to an error answer. */
+export const isNetworkError = (error: unknown): boolean =>
+  !(error instanceof ApiError) && (error instanceof TypeError || (typeof DOMException !== 'undefined' && error instanceof DOMException && error.name === 'TimeoutError'));
+
+/**
+ * How long a List read or a replayed change may take before it counts as "no connection" (17.5: weak
+ * signal in a shop). Only for requests that are safe to send again.
+ */
+export const LIST_READ_TIMEOUT_MS = 8000;
+export const LIST_SYNC_TIMEOUT_MS = 20_000;
+const within = (ms: number): { signal?: AbortSignal } => (typeof AbortSignal !== 'undefined' && 'timeout' in AbortSignal ? { signal: AbortSignal.timeout(ms) } : {});
 
 export class ApiError extends Error {
   readonly status: number;
@@ -489,12 +498,13 @@ export class ApiError extends Error {
 
 const afterQuery = (after: string | undefined) => (after === undefined ? '' : `?after=${encodeURIComponent(after)}`);
 
-async function request<T>(method: 'GET' | 'POST', path: string, body?: unknown): Promise<T> {
+async function request<T>(method: 'GET' | 'POST', path: string, body?: unknown, options: { signal?: AbortSignal } = {}): Promise<T> {
   const response = await fetch(`/api${path}`, {
     method,
     credentials: 'same-origin',
     headers: body === undefined ? {} : { 'content-type': 'application/json' },
     ...(body === undefined ? {} : { body: JSON.stringify(body) }),
+    ...options,
   });
   if (!response.ok) {
     const { error, ...details } = (await response.json().catch(() => ({}))) as { error?: string } & Record<string, unknown>;
@@ -1219,8 +1229,8 @@ export const api = {
   renameDocumentType: (workspaceId: string, typeId: string, name: string) => request<unknown>('POST', documentTypesPath(workspaceId, `/${typeId}/rename`), { name }),
   retireDocumentType: (workspaceId: string, typeId: string) => request<unknown>('POST', documentTypesPath(workspaceId, `/${typeId}/retire`), {}),
   // Lists (15.3). Every change answers with the canonical List, items included.
-  lists: async (workspaceId: string) => (await request<{ lists: ListSummary[] }>('GET', listPath(workspaceId))).lists,
-  list: (workspaceId: string, listId: string) => listOf(request('GET', listPath(workspaceId, listId))),
+  lists: async (workspaceId: string) => (await request<{ lists: ListSummary[] }>('GET', listPath(workspaceId), undefined, within(LIST_READ_TIMEOUT_MS))).lists,
+  list: (workspaceId: string, listId: string) => listOf(request('GET', listPath(workspaceId, listId), undefined, within(LIST_READ_TIMEOUT_MS))),
   createList: (workspaceId: string, title: string) => listOf(request('POST', listPath(workspaceId), { title })),
   renameList: (workspaceId: string, listId: string, title: string, expectedTitle: string) => listOf(request('POST', `${listPath(workspaceId, listId)}/rename`, { title, expectedTitle })),
   deleteList: (workspaceId: string, listId: string) => listOf(request('POST', `${listPath(workspaceId, listId)}/delete`, {})),
@@ -1232,10 +1242,10 @@ export const api = {
   removeListItem: (workspaceId: string, listId: string, itemId: string) => listOf(request('POST', `${listItemPath(workspaceId, listId, itemId)}/remove`, {})),
   restoreListItem: (workspaceId: string, listId: string, itemId: string) => listOf(request('POST', `${listItemPath(workspaceId, listId, itemId)}/restore`, {})),
   /** Every List of the Workspace with its items, kept on this device for offline use (17.5). */
-  listSnapshot: (workspaceId: string) => request<{ lists: ListDetail[]; at: string }>('GET', `${listPath(workspaceId)}/snapshot`),
+  listSnapshot: (workspaceId: string) => request<{ lists: ListDetail[]; at: string }>('GET', `${listPath(workspaceId)}/snapshot`, undefined, within(LIST_SYNC_TIMEOUT_MS)),
   /** Sends one change made offline; sending it again is harmless (same `clientChangeId`, same answer). */
   replayListChange: (workspaceId: string, body: { clientChangeId: string; userId: string; deviceTime: string; change: ListChangeInput }) =>
-    request<ListReplayAnswer>('POST', `${listPath(workspaceId)}/replay`, body),
+    request<ListReplayAnswer>('POST', `${listPath(workspaceId)}/replay`, body, within(LIST_SYNC_TIMEOUT_MS)),
   procedure: async (workspaceId: string, id: string) =>
     (
       await request<{ procedure: ProcedureDetail }>(

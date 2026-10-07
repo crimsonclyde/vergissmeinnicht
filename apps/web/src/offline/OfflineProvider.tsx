@@ -1,6 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { ApiError, api, isNetworkError, messageFor, type ListChangeInput, type ListReplayAnswer } from '../api.ts';
 import { t } from '../i18n/index.ts';
+import { UPDATE_CHECK_MS, UPDATE_CHECK_URL, isNewerShell, runningScript, updateAction } from './app-update.ts';
 import { droppedNotice, followers, listSendOutcome, noticeFor, refusedReason, refusedText, type QueuedListChange, type RefusedReason } from './list-queue.ts';
 import { dependents, outcomeOf, type QueuedChange } from './queue.ts';
 import { offlineStore } from './store.ts';
@@ -40,6 +41,33 @@ interface OfflineValue {
 
 const OfflineContext = createContext<OfflineValue | null>(null);
 
+/**
+ * Runs `send` only if no other tab of this browser is sending (Web Locks); without the API, it just
+ * runs — the server answers a change sent twice with its first answer anyway.
+ */
+async function withSendLock(send: () => Promise<void>): Promise<void> {
+  const locks = typeof navigator === 'undefined' ? undefined : (navigator as Navigator & { locks?: LockManager }).locks;
+  if (locks === undefined) return send();
+  await locks.request('vmn-offline-send', { ifAvailable: true }, async (lock) => {
+    if (lock !== null) await send();
+  });
+}
+
+/**
+ * Asks the browser once to keep this site's data (17.5): without it, browsers may delete it when space
+ * runs low, and Safari after weeks without use — unsent changes included. Browsers decide on their own
+ * (Chrome and Safari silently; Firefox may ask the person).
+ */
+let persistenceAsked = false;
+function askToKeepData(): void {
+  if (persistenceAsked || typeof navigator === 'undefined' || navigator.storage?.persist === undefined) return;
+  persistenceAsked = true;
+  void navigator.storage
+    .persisted()
+    .then((kept) => (kept ? true : navigator.storage.persist()))
+    .catch(() => undefined);
+}
+
 export function useOffline(): OfflineValue {
   const value = useContext(OfflineContext);
   if (value === null) throw new Error('useOffline outside OfflineProvider');
@@ -73,6 +101,7 @@ export function OfflineProvider({ userId, children }: { userId: string; children
       try {
         const snapshot = await api.listSnapshot(workspaceId);
         await offlineStore.saveLists(userId, workspaceId, snapshot.lists, snapshot.at);
+        askToKeepData();
       } catch (caught) {
         if (isNetworkError(caught)) {
           setUnreachable(true);
@@ -149,71 +178,74 @@ export function OfflineProvider({ userId, children }: { userId: string; children
     if (sending.current) return;
     sending.current = true;
     try {
-      let pending = await offlineStore.queued(userId);
-      const listPending = (await offlineStore.listChanges(userId)).filter((change) => change.refused === undefined);
-      if (pending.length === 0 && listPending.length === 0) return;
-      // Queued changes go out only under the session of the account that made them (13.1): after
-      // a sign-out or another account's sign-in in another tab, the shared cookie belongs to
-      // someone else — then nothing is sent (the server refuses such changes as well).
-      let current: Awaited<ReturnType<typeof api.currentUser>>;
-      try {
-        current = await api.currentUser();
-      } catch {
-        setUnreachable(true);
-        return;
-      }
-      if (current === null || current.id !== userId) {
-        setNeedsSignIn(true);
-        return;
-      }
-      let sent = false;
-      let stopped = false;
-      while (pending.length > 0) {
-        const change = pending[0] as QueuedChange;
-        let error: unknown;
+      // One tab at a time (17.5): another VMN tab of this browser that is already sending sends everything.
+      await withSendLock(async () => {
+        let pending = await offlineStore.queued(userId);
+        const listPending = (await offlineStore.listChanges(userId)).filter((change) => change.refused === undefined);
+        if (pending.length === 0 && listPending.length === 0) return;
+        // Queued changes go out only under the session of the account that made them (13.1): after
+        // a sign-out or another account's sign-in in another tab, the shared cookie belongs to
+        // someone else — then nothing is sent (the server refuses such changes as well).
+        let current: Awaited<ReturnType<typeof api.currentUser>>;
         try {
-          await api.changeStepState(
-            change.workspaceId,
-            change.runId,
-            change.stepId,
-            {
-              expectedState: change.expectedState,
-              state: change.to,
-              ...(change.reason === undefined ? {} : { reason: change.reason }),
-            },
-            { clientChangeId: change.clientChangeId, userId: change.userId, deviceTime: change.deviceTime },
-          );
-        } catch (caught) {
-          error = caught;
-        }
-        const outcome = outcomeOf(error);
-        if (outcome === 'tool-disabled') {
-          setNotices((current) => current.includes(t('offline.toolDisabled')) ? current : [...current, t('offline.toolDisabled')]);
-          break;
-        }
-        if (outcome === 'retry') {
+          current = await api.currentUser();
+        } catch {
           setUnreachable(true);
-          stopped = true;
-          break;
+          return;
         }
-        if (outcome === 'sign-in') {
+        if (current === null || current.id !== userId) {
           setNeedsSignIn(true);
-          stopped = true;
-          break;
+          return;
         }
-        setUnreachable(false);
-        setNeedsSignIn(false);
-        sent = true;
-        const removed = outcome === 'sent' ? [change] : [change, ...dependents(pending, change)];
-        await offlineStore.dequeue(removed.map((entry) => entry.clientChangeId));
-        if (outcome === 'rejected') {
-          setNotices((current) => [...current, t('offline.rejected', { title: change.stepTitle, reason: messageFor(error) })]);
+        let sent = false;
+        let stopped = false;
+        while (pending.length > 0) {
+          const change = pending[0] as QueuedChange;
+          let error: unknown;
+          try {
+            await api.changeStepState(
+              change.workspaceId,
+              change.runId,
+              change.stepId,
+              {
+                expectedState: change.expectedState,
+                state: change.to,
+                ...(change.reason === undefined ? {} : { reason: change.reason }),
+              },
+              { clientChangeId: change.clientChangeId, userId: change.userId, deviceTime: change.deviceTime },
+            );
+          } catch (caught) {
+            error = caught;
+          }
+          const outcome = outcomeOf(error);
+          if (outcome === 'tool-disabled') {
+            setNotices((current) => current.includes(t('offline.toolDisabled')) ? current : [...current, t('offline.toolDisabled')]);
+            break;
+          }
+          if (outcome === 'retry') {
+            setUnreachable(true);
+            stopped = true;
+            break;
+          }
+          if (outcome === 'sign-in') {
+            setNeedsSignIn(true);
+            stopped = true;
+            break;
+          }
+          setUnreachable(false);
+          setNeedsSignIn(false);
+          sent = true;
+          const removed = outcome === 'sent' ? [change] : [change, ...dependents(pending, change)];
+          await offlineStore.dequeue(removed.map((entry) => entry.clientChangeId));
+          if (outcome === 'rejected') {
+            setNotices((current) => [...current, t('offline.rejected', { title: change.stepTitle, reason: messageFor(error) })]);
+          }
+          pending = pending.filter((entry) => !removed.includes(entry));
         }
-        pending = pending.filter((entry) => !removed.includes(entry));
-      }
-      if (sent) setSentVersion((version) => version + 1);
-      // List changes (17.5) are independent of Run changes; they wait only while the server is unreachable or the session is gone.
-      if (!stopped && listPending.length > 0) await sendListChanges(listPending);
+        if (sent) setSentVersion((version) => version + 1);
+        // List changes (17.5) are independent of Run changes; they wait only while the server is unreachable or the session is gone.
+        if (!stopped && listPending.length > 0) await sendListChanges(listPending);
+      });
     } finally {
       sending.current = false;
       await reload();
@@ -234,11 +266,17 @@ export function OfflineProvider({ userId, children }: { userId: string; children
       void send();
     };
     const goOffline = () => setBrowserOnline(false);
+    // A phone resumes a frozen tab without an `online` event (iOS): try again when it is shown.
+    const shown = () => {
+      if (document.visibilityState === 'visible') void send();
+    };
     window.addEventListener('online', goOnline);
     window.addEventListener('offline', goOffline);
+    document.addEventListener('visibilitychange', shown);
     return () => {
       window.removeEventListener('online', goOnline);
       window.removeEventListener('offline', goOffline);
+      document.removeEventListener('visibilitychange', shown);
     };
   }, [userId, send]);
 
@@ -353,6 +391,53 @@ function RefusedListChanges(props: { changes: readonly QueuedListChange[]; onDis
   );
 }
 
+/**
+ * "A new version is available" (17.5). Checked now and then, when the tab is shown again and when it
+ * comes online — never reloads by itself. Reload is offered only while nothing waits on this device
+ * to be sent (and with a connection, which a reload needs to fetch the new version).
+ */
+function UpdateNotice(props: { unsent: number; online: boolean }) {
+  const [available, setAvailable] = useState(false);
+  useEffect(() => {
+    const running = runningScript();
+    if (running === null || available) return;
+    const check = () => {
+      if (document.visibilityState !== 'visible') return;
+      fetch(UPDATE_CHECK_URL, { cache: 'no-store', credentials: 'same-origin' })
+        .then((response) => (response.ok ? response.text() : ''))
+        .then((html) => {
+          if (isNewerShell(running, html)) setAvailable(true);
+        })
+        .catch(() => undefined);
+    };
+    check();
+    const timer = window.setInterval(check, UPDATE_CHECK_MS);
+    window.addEventListener('online', check);
+    document.addEventListener('visibilitychange', check);
+    return () => {
+      window.clearInterval(timer);
+      window.removeEventListener('online', check);
+      document.removeEventListener('visibilitychange', check);
+    };
+  }, [available]);
+  if (!available) return null;
+  const action = updateAction(props.unsent, props.online);
+  return (
+    <div role="status" className="card stack update-notice">
+      <strong>{t('update.available')}</strong>
+      {action.kind === 'send-first' && <p style={{ margin: 0 }}>{t('update.sendFirst', { count: action.count })}</p>}
+      {action.kind === 'offline' && <p style={{ margin: 0 }}>{t('update.offline')}</p>}
+      {action.kind === 'reload' && (
+        <div className="row">
+          <button type="button" className="primary" onClick={() => window.location.reload()}>
+            {t('update.reload')}
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
 /** Status line for the whole app: offline, changes waiting, sign in again, refused changes. */
 export function OfflineBanner() {
   const offline = useOffline();
@@ -369,6 +454,7 @@ export function OfflineBanner() {
   const refused = offline.listChanges.filter((change) => change.refused !== undefined);
   return (
     <>
+      <UpdateNotice unsent={count} online={offline.online} />
       <RefusedListChanges changes={refused} onDiscard={() => void offline.removeListChanges(refused.map((change) => change.clientChangeId))} />
       {text !== null && (
         <p role="status" className="offline-banner">

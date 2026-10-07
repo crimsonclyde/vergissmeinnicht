@@ -80,6 +80,13 @@ export const en = {
   'offline.signInAgain': { one: 'Your session has ended. Sign in again to send the {count} change saved on this device.', other: 'Your session has ended. Sign in again to send the {count} changes saved on this device.' },
   'offline.rejected': 'Your offline change to “{title}” was not applied: {reason}',
   'offline.dismiss': 'OK',
+  'update.available': 'A new version of VMN is available.',
+  'update.reload': 'Reload now',
+  'update.sendFirst': {
+    one: '{count} change saved on this device is sent first — Reload appears here once it has been sent. Nothing is lost in the meantime.',
+    other: '{count} changes saved on this device are sent first — Reload appears here once they have been sent. Nothing is lost in the meantime.',
+  },
+  'update.offline': 'Reload when you are online again — without a connection a reload brings back this version.',
   'offline.queuedStep': 'Saved on this device · not sent yet',
   'offline.savedCopy': 'Offline: showing the copy saved on this device at {time}.',
   'offline.savedList': 'Offline: showing the active Runs saved on this device.',

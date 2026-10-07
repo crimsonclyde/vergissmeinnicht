@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { ApiError, type ListChangeInput, type ListDetail } from '../api.ts';
+import { ApiError, isNetworkError, type ListChangeInput, type ListDetail } from '../api.ts';
 import { activeChanges, followers, listSendOutcome, noticeFor, refusedReason, summaryOf, waitingIds, withQueuedListChanges, type QueuedListChange } from './list-queue.ts';
 
 const LIST = 'aaaaaaaa-0000-4000-8000-000000000001';
@@ -68,6 +68,10 @@ describe('Lists on this device (17.5)', () => {
   it('keeps changes for a later try when unreachable or signed out, keeps refused ones, drops invalid ones', () => {
     expect(listSendOutcome(undefined)).toBe('sent');
     expect(listSendOutcome(new TypeError('Failed to fetch'))).toBe('retry');
+    // No answer in time (weak signal): kept for a later try — a repeat is harmless (same change id).
+    expect(listSendOutcome(new DOMException('signal timed out', 'TimeoutError'))).toBe('retry');
+    expect(isNetworkError(new DOMException('signal timed out', 'TimeoutError'))).toBe(true);
+    expect(isNetworkError(new ApiError(504, 'timeout'))).toBe(false);
     expect(listSendOutcome(new ApiError(503, 'unavailable'))).toBe('retry');
     expect(listSendOutcome(new ApiError(429, 'rate_limited'))).toBe('retry');
     expect(listSendOutcome(new ApiError(401, 'unauthenticated'))).toBe('sign-in');

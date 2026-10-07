@@ -1,9 +1,14 @@
-// VergissMeinNicht service worker (Step 8.5): keeps the app shell — the HTML page and its hashed
+// VergissMeinNicht service worker (Step 8.5, 17.5): keeps the app shell — the HTML page and its hashed
 // scripts and styles, the same for every user — so the app opens without a connection. It never
 // caches /api (no Workspace data here: Runs saved for offline use live in IndexedDB, per user, and
 // are deleted on sign-out), and it only handles same-origin GET requests.
 const CACHE = 'vmn-shell-v1';
 const SHELL = '/';
+/**
+ * With weak signal (17.5: in a shop) a page load could hang for a minute before failing. After this
+ * long the saved shell is used; the network answer, if it still comes, updates the saved shell.
+ */
+const NAVIGATION_TIMEOUT_MS = 4000;
 const ASSET = /(?:src|href)="(\/assets\/[^"]+)"/g;
 
 const assetsOf = (html) => [...html.matchAll(ASSET)].map((match) => match[1]);
@@ -46,17 +51,23 @@ self.addEventListener('fetch', (event) => {
   if (url.origin !== self.location.origin || url.pathname.startsWith('/api/')) return;
 
   if (request.mode === 'navigate') {
-    // Network first. Every page (also /knot/…) is the same app shell, stored under "/" only.
+    // Network first, but not forever. Every page (also /knot/…) is the same app shell, stored under "/" only.
+    let stored = Promise.resolve();
+    const network = fetch(request).then((response) => {
+      if (response.ok && (response.headers.get('content-type') ?? '').includes('text/html')) stored = storeShell(response.clone());
+      return response;
+    });
+    // Keeps the worker alive until a late answer has been stored as the new shell.
+    event.waitUntil(network.then(() => stored).catch(() => undefined));
     event.respondWith(
       (async () => {
+        const saved = await caches.match(SHELL);
+        if (saved === undefined) return network.catch(() => Response.error());
+        const late = new Promise((resolve) => setTimeout(() => resolve(undefined), NAVIGATION_TIMEOUT_MS));
         try {
-          const response = await fetch(request);
-          if (response.ok && (response.headers.get('content-type') ?? '').includes('text/html')) {
-            event.waitUntil(storeShell(response.clone()));
-          }
-          return response;
+          return (await Promise.race([network, late])) ?? saved;
         } catch {
-          return (await caches.match(SHELL)) ?? Response.error();
+          return saved;
         }
       })(),
     );
