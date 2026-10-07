@@ -14,6 +14,7 @@ import {
   DOCUMENT_FILE_FORMATS,
   LIST_KINDS,
   PREVIEW_STATES,
+  LIST_REPLAY_OUTCOMES,
   TEXT_SOURCES,
   TEXT_STATES,
   WORKSPACE_TOOLS,
@@ -1216,6 +1217,12 @@ export const lists = sqliteTable(
     deletedAt: integer('deleted_at', { mode: 'timestamp_ms' }),
     deletedByUserId: text('deleted_by_user_id').references(() => users.id),
     deletedByDisplayName: text('deleted_by_display_name'),
+    /**
+     * When and by whom the name was last set (17.5): an offline rename made earlier than this does not
+     * replace it ("the later change wins"). For an offline change the time is the device's, capped.
+     */
+    titleChangedAt: integer('title_changed_at', { mode: 'timestamp_ms' }).notNull(),
+    titleChangedByDisplayName: text('title_changed_by_display_name').notNull(),
   },
   (table) => [
     index('lists_workspace_idx').on(table.workspaceId, table.deletedAt),
@@ -1257,6 +1264,16 @@ export const listItems = sqliteTable(
     checkedByUserId: text('checked_by_user_id').references(() => users.id),
     checkedByDisplayName: text('checked_by_display_name'),
     deletedAt: integer('deleted_at', { mode: 'timestamp_ms' }),
+    /** Who removed it (17.5, for "removed by …" notices); NULL for items removed before 17.5. */
+    deletedByDisplayName: text('deleted_by_display_name'),
+    /**
+     * When and by whom name, quantity and unit, and the checked state, were last set (17.5): the later
+     * change wins, each part on its own — a check and an edit of the same item both apply.
+     */
+    contentChangedAt: integer('content_changed_at', { mode: 'timestamp_ms' }).notNull(),
+    contentChangedByDisplayName: text('content_changed_by_display_name').notNull(),
+    checkChangedAt: integer('check_changed_at', { mode: 'timestamp_ms' }).notNull(),
+    checkChangedByDisplayName: text('check_changed_by_display_name').notNull(),
   },
   (table) => [
     foreignKey({ name: 'list_items_list_fk', columns: [table.listId, table.workspaceId], foreignColumns: [lists.id, lists.workspaceId] }),
@@ -1271,6 +1288,36 @@ export const listItems = sqliteTable(
       'list_items_check_consistent',
       sql`(${table.checkedAt} is null) = (${table.checkedByUserId} is null) and (${table.checkedAt} is null) = (${table.checkedByDisplayName} is null)`,
     ),
+  ],
+);
+
+/**
+ * List changes made offline and replayed (17.5): one row per change a device sent, so that sending it
+ * again — after a lost answer, a reload, an app update — applies it once and gets the same answer.
+ * Keyed by the account that made it; kept for `LIST_CHANGE_KEEP_MS`, then pruned.
+ */
+export const listClientChanges = sqliteTable(
+  'list_client_changes',
+  {
+    userId: text('user_id')
+      .notNull()
+      .references(() => users.id),
+    clientChangeId: text('client_change_id').notNull(),
+    workspaceId: text('workspace_id')
+      .notNull()
+      .references(() => workspaces.id),
+    listId: text('list_id').notNull(),
+    outcome: text('outcome', { enum: LIST_REPLAY_OUTCOMES }).notNull(),
+    /** Whose change won, for the notice ("… by Ada at 10:00"); NULL when it was applied or nobody is known. */
+    byDisplayName: text('by_display_name'),
+    at: integer('at', { mode: 'timestamp_ms' }),
+    appliedAt: integer('applied_at', { mode: 'timestamp_ms' }).notNull(),
+  },
+  (table) => [
+    primaryKey({ columns: [table.userId, table.clientChangeId] }),
+    index('list_client_changes_age_idx').on(table.appliedAt),
+    check('list_client_changes_id_uuid', sql`length(${table.clientChangeId}) = 36 and length(${table.listId}) = 36`),
+    check('list_client_changes_outcome_valid', oneOf('outcome', LIST_REPLAY_OUTCOMES)),
   ],
 );
 

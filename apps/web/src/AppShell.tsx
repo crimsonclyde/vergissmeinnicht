@@ -109,7 +109,7 @@ function WorkspacePage(props: {
   const [context, setContext] = useState<WorkspaceContext | null>(null);
   const [message, setMessage] = useState<string | null>(null);
 
-  const { userId } = useOffline();
+  const { userId, syncLists } = useOffline();
   const load = useCallback(() => {
     api.workspace(route.workspaceId).then(
       (result) => {
@@ -117,6 +117,9 @@ function WorkspacePage(props: {
         setMessage(null);
         rememberWorkspace(result.workspace.id);
         void offlineStore.saveWorkspace(userId, { workspace: { ...result.workspace, tools: result.tools }, capabilities: result.capabilities });
+        // Opened online: every List of this Workspace is kept on this device for the shop (17.5) — or forgotten when Lists are off.
+        if (result.tools.includes('LISTS')) void syncLists(result.workspace.id);
+        else void offlineStore.deleteLists(userId, result.workspace.id);
       },
       async (caught: unknown) => {
         // Offline: the Workspace as last seen on this device (UI only; the server decides on every change).
@@ -131,7 +134,7 @@ function WorkspacePage(props: {
         setMessage(messageFor(caught));
       },
     );
-  }, [route.workspaceId, userId]);
+  }, [route.workspaceId, userId, syncLists]);
   useEffect(load, [load]);
   useEffect(() => {
     window.addEventListener('online', load);
@@ -363,10 +366,11 @@ function widthOf(route: Route): 'narrow' | 'wide' | undefined {
 
 export function AppShell(props: { user: CurrentUser; route: Route; onSignOut: () => void }) {
   const { user, route } = props;
-  const { queued } = useOffline();
+  const { queued, listChanges } = useOffline();
   // Unsent offline changes are deleted with the rest of the device data on sign-out: ask first.
   const signOut = () => {
-    if (queued.length > 0 && !window.confirm(t('offline.signOutConfirm', { count: queued.length }))) return;
+    const unsent = queued.length + listChanges.length;
+    if (unsent > 0 && !window.confirm(t('offline.signOutConfirm', { count: unsent }))) return;
     props.onSignOut();
   };
   const [workspaces, setWorkspaces] = useState<WorkspaceSummary[] | null>(null);

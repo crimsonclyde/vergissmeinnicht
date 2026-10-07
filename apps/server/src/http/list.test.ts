@@ -151,4 +151,60 @@ describe('List HTTP API (grocery lists)', () => {
     expect(after.items).toMatchObject([{ title: 'Milk', revision: 1 }]);
     expect((await t.get(lists(), user)).json().lists).toHaveLength(1);
   });
+  describe('offline use (17.5)', () => {
+    const userId = async (cookie: string) => (await t.get('/api/auth/session', cookie)).json().user.id as string;
+    const replay = async (change: object, cookie = user, extra: { clientChangeId?: string; userId?: string; deviceTime?: string; workspaceId?: string } = {}) =>
+      t.post(
+        `${lists(extra.workspaceId)}/replay`,
+        { clientChangeId: extra.clientChangeId ?? crypto.randomUUID(), userId: extra.userId ?? (await userId(cookie)), deviceTime: extra.deviceTime ?? new Date().toISOString(), change },
+        cookie,
+      );
+
+    it('gives the device every List with its items, and applies a change made offline once', async () => {
+      const list = await create();
+      const snapshot = (await t.get(`${lists()}/snapshot`, guest)).json();
+      expect(snapshot.lists).toMatchObject([{ id: list.id, title: 'Groceries', items: [] }]);
+      expect(typeof snapshot.at).toBe('string');
+      const itemId = crypto.randomUUID();
+      const clientChangeId = crypto.randomUUID();
+      const add = { kind: 'addItem', listId: list.id, itemId, title: 'Eggs', quantity: '6', unit: null };
+      const first = await replay(add, user, { clientChangeId });
+      expect(first.json()).toMatchObject({ outcome: 'APPLIED', duplicate: false, by: null, byAt: null, list: { items: [{ id: itemId, title: 'Eggs', addedBy: 'Uma' }] } });
+      const again = await replay(add, user, { clientChangeId });
+      expect(again.json()).toMatchObject({ outcome: 'APPLIED', duplicate: true });
+      expect((await t.get(`${lists()}/${list.id}`, user)).json().list.items).toHaveLength(1);
+    });
+
+    it('says whose change won when the later change was someone else’s', async () => {
+      const list = await create();
+      const milk = (await addItem(list.id, { title: 'Milk' })).json().itemId as string;
+      const deviceTime = new Date(Date.now() - 60_000).toISOString();
+      await t.post(`${lists()}/${list.id}/items/${milk}/update`, { title: 'Milk', quantity: '2', expectedRevision: 1 }, editor);
+      const late = (await replay({ kind: 'editItem', listId: list.id, itemId: milk, title: 'Milk', quantity: '3', unit: null }, user, { deviceTime })).json();
+      expect(late).toMatchObject({ outcome: 'OVERRIDDEN', by: 'Eddie' });
+      expect(late.list.items[0].quantity).toBe('2');
+    });
+
+    it('refuses what the same request online would be refused, and validates strictly', async () => {
+      const list = await create();
+      const check = { kind: 'checkItem', listId: list.id, itemId: crypto.randomUUID(), checked: true };
+      expect((await replay(check, guest)).statusCode).toBe(403);
+      expect((await replay(check, outsider, { workspaceId: home })).statusCode).toBe(404);
+      expect((await replay(check, user, { userId: await userId(editor) })).json()).toEqual({ error: 'offline_account_mismatch' });
+      expect((await replay({ ...check, extra: 1 })).statusCode).toBe(400);
+      expect((await replay({ kind: 'dropTable', listId: list.id })).statusCode).toBe(400);
+      expect((await replay(check, user, { deviceTime: 'yesterday' })).statusCode).toBe(400);
+      expect((await replay(check, user, { clientChangeId: 'not-a-uuid' })).statusCode).toBe(400);
+      expect((await replay({ kind: 'createList', listId: crypto.randomUUID(), title: 'x'.repeat(81) })).statusCode).toBe(400);
+      const noOrigin = await t.post(`${lists()}/replay`, { clientChangeId: crypto.randomUUID(), userId: await userId(user), deviceTime: new Date().toISOString(), change: check }, user, null);
+      expect(noOrigin.statusCode).toBe(403);
+      expect((await t.get(`${lists()}/snapshot`, outsider)).statusCode).toBe(404);
+      // Lists switched off while the device was offline: the replay is refused, the snapshot is gone.
+      await t.post(`/api/workspaces/${home}/tools`, { tool: 'LISTS', enabled: false }, t.admin);
+      for (const cookie of [user, guest]) {
+        expect((await replay(check, cookie)).json()).toEqual({ error: 'tool_not_enabled' });
+        expect((await t.get(`${lists()}/snapshot`, cookie)).json()).toEqual({ error: 'tool_not_enabled' });
+      }
+    });
+  });
 });

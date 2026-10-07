@@ -1,9 +1,12 @@
 import { useCallback, useEffect, useId, useRef, useState, type FormEvent, type RefObject } from 'react';
-import { ApiError, api, isNetworkError, messageFor, type ListDetail, type ListItem, type ListItemInput, type ListSummary } from './api.ts';
+import { ApiError, api, isNetworkError, messageFor, type ListChangeInput, type ListDetail, type ListItem, type ListItemInput, type ListSummary } from './api.ts';
 import { FormDialog } from './FormDialog.tsx';
 import { clearHandOver, handOver, handedOver } from './handoff.ts';
-import { formatRelative, hasMessage, t } from './i18n/index.ts';
+import { formatDateTime, formatRelative, hasMessage, t } from './i18n/index.ts';
 import { amountLabel, isCurrent, splitItems, withChecked } from './list-model.ts';
+import { activeChanges, summaryOf, waitingIds, withQueuedListChanges } from './offline/list-queue.ts';
+import { useOffline } from './offline/OfflineProvider.tsx';
+import { offlineStore, type SavedLists } from './offline/store.ts';
 import { MoreMenu } from './MoreMenu.tsx';
 import { Link, navigate, paths } from './router.tsx';
 import { UiIcon } from './ui-icons.tsx';
@@ -19,6 +22,37 @@ interface DeletedList {
   readonly workspaceId: string;
   readonly listId: string;
   readonly title: string;
+  /** Deleted on this device and not sent yet (17.5): Undo takes the change back. */
+  readonly clientChangeId?: string | undefined;
+}
+
+/**
+ * The Lists of this Workspace as kept on this device (17.5): as last received, with this account's
+ * changes that are not sent yet applied. `device` is true while the page shows this copy — offline,
+ * or while changes of this Workspace are still on their way (so nothing jumps back and forth).
+ */
+function useDeviceLists(workspaceId: string) {
+  const offline = useOffline();
+  const { userId, listsVersion } = offline;
+  const [saved, setSaved] = useState<SavedLists | null | undefined>(undefined);
+  useEffect(() => {
+    let current = true;
+    void offlineStore.loadLists(userId, workspaceId).then((entry) => {
+      if (current) setSaved(entry ?? null);
+    });
+    return () => {
+      current = false;
+    };
+  }, [userId, workspaceId, listsVersion]);
+  const pending = activeChanges(offline.listChanges, workspaceId);
+  const lists = saved === undefined || saved === null ? null : withQueuedListChanges(saved.lists, pending, t('lists.you'));
+  return { offline, saved, lists, pending, waiting: waitingIds(pending), device: !offline.online || pending.length > 0 };
+}
+
+/** "Offline — showing the Lists saved on this device at …", while that copy is shown without a connection. */
+function DeviceCopyNote(props: { saved: SavedLists | null | undefined; online: boolean }) {
+  if (props.online || props.saved === undefined || props.saved === null) return null;
+  return <p className="muted list-device-note">{t('lists.offlineCopy', { time: formatDateTime(props.saved.savedAt) })}</p>;
 }
 
 const failure = (caught: unknown): string => (isNetworkError(caught) ? t('lists.offline') : messageFor(caught));
@@ -40,7 +74,10 @@ function useRefresh(load: () => void, everyMs: number) {
 /** The Lists of the Workspace: name, what is left to buy, and Open. `creating`: the New list dialog is open. */
 function ListOverview(props: { workspaceId: string; creating: boolean; canEdit: boolean }) {
   const { workspaceId } = props;
-  const [lists, setLists] = useState<readonly ListSummary[] | null>(null);
+  const local = useDeviceLists(workspaceId);
+  const { offline, device } = local;
+  const { reportReachable, reportUnreachable } = offline;
+  const [fetched, setFetched] = useState<readonly ListSummary[] | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [notice, setNotice] = useState<Undoable | null>(null);
   const [name, setName] = useState('');
@@ -49,27 +86,54 @@ function ListOverview(props: { workspaceId: string; creating: boolean; canEdit: 
   const load = useCallback(() => {
     api.lists(workspaceId).then(
       (loaded) => {
-        setLists(loaded);
+        setFetched(loaded);
         setMessage(null);
+        reportReachable();
       },
-      (caught: unknown) => setMessage(failure(caught)),
+      (caught: unknown) => {
+        // No answer: the copy on this device is shown instead (17.5).
+        if (isNetworkError(caught)) reportUnreachable();
+        else setMessage(failure(caught));
+      },
     );
-  }, [workspaceId]);
-  useEffect(load, [load]);
+  }, [workspaceId, reportReachable, reportUnreachable]);
+  useEffect(() => {
+    if (!device) load();
+  }, [load, device]);
   useRefresh(load, OVERVIEW_REFRESH_MS);
+  const lists: readonly ListSummary[] | null = device ? (local.lists?.map(summaryOf) ?? null) : fetched;
   // Arriving here right after deleting a List: offer Undo.
   const [deleted, setDeleted] = useState(() => {
     const handed = handedOver<DeletedList>(DELETED_LIST);
     return handed?.workspaceId === workspaceId ? handed : null;
   });
   useEffect(() => clearHandOver(DELETED_LIST), []);
-  const shownNotice: Undoable | null =
-    deleted === null
-      ? notice
-      : {
-          message: t('lists.deleted', { title: deleted.title }),
-          undo: () => void api.restoreList(workspaceId, deleted.listId).then(load, (caught: unknown) => setMessage(failure(caught))),
-        };
+  const undoDelete = (gone: DeletedList) => {
+    // Not sent yet: take the change back on this device. Sent: put the List back, which needs the server.
+    if (gone.clientChangeId !== undefined && local.pending.some((change) => change.clientChangeId === gone.clientChangeId)) {
+      void offline.removeListChanges([gone.clientChangeId]);
+      return;
+    }
+    if (!offline.online) {
+      setMessage(t('lists.offlineUndoNeedsConnection'));
+      return;
+    }
+    void api.restoreList(workspaceId, gone.listId).then(
+      () => {
+        load();
+        void offline.syncLists(workspaceId);
+      },
+      (caught: unknown) => setMessage(failure(caught)),
+    );
+  };
+  const shownNotice: Undoable | null = deleted === null ? notice : { message: t('lists.deleted', { title: deleted.title }), undo: () => undoDelete(deleted) };
+  /** A List made on this device while offline gets its id here and is created on the server once (17.5). */
+  const createOnDevice = async (title: string) => {
+    const listId = crypto.randomUUID();
+    const id = await offline.enqueueList(workspaceId, { kind: 'createList', listId, title: title.trim() }, title.trim());
+    if (id === null) throw new Error(t('offline.cannotSave', { title }));
+    return listId;
+  };
 
   return (
     <section aria-labelledby="lists-heading">
@@ -84,9 +148,10 @@ function ListOverview(props: { workspaceId: string; creating: boolean; canEdit: 
           </button>
         )}
       </div>
+      <DeviceCopyNote saved={local.saved} online={offline.online} />
       {message !== null && <p role="alert">{message}</p>}
       {lists === null ? (
-        message === null && <p>{t('common.loading')}</p>
+        message === null && (device && local.saved === null ? <p role="alert">{t('lists.offline')}</p> : <p>{t('common.loading')}</p>)
       ) : lists.length === 0 ? (
         <p className="card calm">{t(props.canEdit ? 'lists.noneHint' : 'lists.none')}</p>
       ) : (
@@ -102,6 +167,7 @@ function ListOverview(props: { workspaceId: string; creating: boolean; canEdit: 
                   <small className="muted">
                     {list.open + list.checked === 0 ? t('lists.emptyShort') : `${t('lists.toBuy', { count: list.open })} · ${t('lists.purchasedCount', { count: list.checked })}`}
                   </small>
+                  {local.waiting.has(list.id) && <small className="muted">{t('lists.offlineWaiting')}</small>}
                 </span>
                 <UiIcon name="chevron" />
               </Link>
@@ -124,9 +190,19 @@ function ListOverview(props: { workspaceId: string; creating: boolean; canEdit: 
             if (!created.current) navigate(paths.lists(workspaceId), { replace: true });
           }}
           onSubmit={async () => {
-            const list = await api.createList(workspaceId, name);
+            let listId: string;
+            if (device) listId = await createOnDevice(name);
+            else {
+              try {
+                listId = (await api.createList(workspaceId, name)).id;
+              } catch (caught) {
+                if (!isNetworkError(caught)) throw caught;
+                offline.reportUnreachable();
+                listId = await createOnDevice(name);
+              }
+            }
             created.current = true;
-            navigate(paths.list(workspaceId, list.id), { replace: true });
+            navigate(paths.list(workspaceId, listId), { replace: true });
           }}
         >
           <p className="muted" style={{ margin: 0 }}>
@@ -248,7 +324,10 @@ function EditItemDialog(props: { item: ListItem; onSave: (value: ListItemInput) 
  */
 function ListPage(props: { workspaceId: string; listId: string; canEdit: boolean }) {
   const { workspaceId, listId } = props;
-  const [list, setList] = useState<ListDetail | null>(null);
+  const local = useDeviceLists(workspaceId);
+  const { offline, device } = local;
+  const { userId, reportReachable, reportUnreachable, enqueueList, removeListChanges } = offline;
+  const [serverList, setList] = useState<ListDetail | null>(null);
   const shown = useRef<ListDetail | null>(null);
   /** Changes on their way: a refresh that started before one of them finished must not replace its answer. */
   const pending = useRef(0);
@@ -263,42 +342,82 @@ function ListPage(props: { workspaceId: string; listId: string; canEdit: boolean
   const [newName, setNewName] = useState('');
   const titleRef = useRef<HTMLInputElement>(null);
 
-  const show = useCallback((next: ListDetail) => {
-    if (!isCurrent(shown.current, next)) return;
-    shown.current = next;
-    setList(next);
-  }, []);
+  /** The List as the server answered, kept on this device too (17.5). */
+  const keep = useCallback(
+    (answer: ListDetail) => {
+      shown.current = answer;
+      setList(answer);
+      void offlineStore.saveList(userId, workspaceId, listId, answer);
+    },
+    [userId, workspaceId, listId],
+  );
   const load = useCallback(() => {
     if (pending.current > 0) return;
     api.list(workspaceId, listId).then(
       (loaded) => {
-        if (pending.current === 0) show(loaded);
+        if (pending.current === 0 && isCurrent(shown.current, loaded)) keep(loaded);
         setMessage(null);
+        reportReachable();
       },
       (caught: unknown) => {
-        if (caught instanceof ApiError && caught.status === 404) setMissing(true);
+        // No answer: the copy on this device is shown instead (17.5).
+        if (isNetworkError(caught)) {
+          reportUnreachable();
+          return;
+        }
+        if (caught instanceof ApiError && caught.status === 404) {
+          setMissing(true);
+          void offlineStore.saveList(userId, workspaceId, listId, null);
+        }
         setMessage(failure(caught));
       },
     );
-  }, [workspaceId, listId, show]);
-  useEffect(load, [load]);
+  }, [workspaceId, listId, userId, keep, reportReachable, reportUnreachable]);
+  useEffect(() => {
+    if (!device) load();
+  }, [load, device]);
   useRefresh(load, REFRESH_MS);
+  const deviceList = local.lists?.find((each) => each.id === listId) ?? null;
+  const list = device ? deviceList : serverList;
 
-  /** Sends a change; the answer is the canonical List. `undo` is offered once it is saved. */
-  async function change(action: () => Promise<ListDetail>, undo?: Undoable, optimistic?: ListDetail): Promise<boolean> {
+  /** Kept on this device and sent when the server is reachable (17.5); `undo` is offered at once. */
+  async function onDevice(next: ListChangeInput, label: string, undo?: Undoable): Promise<string | null> {
+    setMessage(null);
+    const id = await enqueueList(workspaceId, next, label);
+    if (id === null) setMessage(t('offline.cannotSave', { title: label }));
+    else if (undo !== undefined) setNotice(undo);
+    return id;
+  }
+
+  /** Undo of a change kept on this device: taken back while it is not sent; otherwise `online` (needs the server). */
+  const undoKept = (clientChangeId: string, online: () => void) => () =>
+    void offlineStore.listChanges(userId).then((kept) => {
+      if (kept.some((each) => each.clientChangeId === clientChangeId && each.refused === undefined)) void removeListChanges([clientChangeId]);
+      else if (navigator.onLine) online();
+      else setMessage(t('lists.offlineUndoNeedsConnection'));
+    });
+
+  /**
+   * Sends a change; the answer is the canonical List. `undo` is offered once it is saved. When the
+   * server cannot be reached, `instead` keeps the change on this device (17.5).
+   */
+  async function change(action: () => Promise<ListDetail>, undo?: Undoable, optimistic?: ListDetail, instead?: () => Promise<unknown>): Promise<boolean> {
     setMessage(null);
     setNotice(null);
     pending.current += 1;
     if (optimistic !== undefined) setList(optimistic);
     try {
-      const answer = await action();
-      shown.current = answer;
-      setList(answer);
+      keep(await action());
       if (undo !== undefined) setNotice(undo);
       return true;
     } catch (caught) {
       // Back to what the server last said, with the reason — then ask it again (someone else may have changed it).
       setList(shown.current);
+      if (instead !== undefined && isNetworkError(caught)) {
+        reportUnreachable();
+        await instead();
+        return true;
+      }
       setMessage(failure(caught));
       return false;
     } finally {
@@ -310,17 +429,28 @@ function ListPage(props: { workspaceId: string; listId: string; canEdit: boolean
   const changeOrReload = async (...args: Parameters<typeof change>) => {
     if (!(await change(...args))) load();
   };
-  const setChecked = (item: ListItem, checked: boolean) =>
+  const checkChange = (item: ListItem, checked: boolean): ListChangeInput => ({ kind: 'checkItem', listId, itemId: item.id, checked });
+  const setChecked = (item: ListItem, checked: boolean) => {
+    const message = t(checked ? 'lists.checkedNotice' : 'lists.uncheckedNotice', { title: item.title });
+    const back = () => onDevice(checkChange(item, !checked), item.title);
+    const kept = () => onDevice(checkChange(item, checked), item.title, { message, undo: () => void back() });
+    if (device) return void kept();
     void changeOrReload(
       () => api.checkListItem(workspaceId, listId, item.id, checked),
-      { message: t(checked ? 'lists.checkedNotice' : 'lists.uncheckedNotice', { title: item.title }), undo: () => void changeOrReload(() => api.checkListItem(workspaceId, listId, item.id, !checked)) },
+      { message, undo: () => void changeOrReload(() => api.checkListItem(workspaceId, listId, item.id, !checked), undefined, undefined, back) },
       list === null ? undefined : withChecked(list, item.id, checked, t('lists.you'), new Date().toISOString()),
+      kept,
     );
-  const remove = (item: ListItem) =>
-    void changeOrReload(() => api.removeListItem(workspaceId, listId, item.id), {
-      message: t('lists.removedNotice', { title: item.title }),
-      undo: () => void changeOrReload(() => api.restoreListItem(workspaceId, listId, item.id)),
-    });
+  };
+  const putBack = (item: ListItem) => () => void changeOrReload(() => api.restoreListItem(workspaceId, listId, item.id));
+  const removeOnDevice = async (item: ListItem) => {
+    const id = await onDevice({ kind: 'removeItem', listId, itemId: item.id }, item.title);
+    if (id !== null) setNotice({ message: t('lists.removedNotice', { title: item.title }), undo: undoKept(id, putBack(item)) });
+  };
+  const remove = (item: ListItem) => {
+    if (device) return void removeOnDevice(item);
+    void changeOrReload(() => api.removeListItem(workspaceId, listId, item.id), { message: t('lists.removedNotice', { title: item.title }), undo: putBack(item) }, undefined, () => removeOnDevice(item));
+  };
 
   async function add(event: FormEvent) {
     event.preventDefault();
@@ -328,13 +458,25 @@ function ListPage(props: { workspaceId: string; listId: string; canEdit: boolean
     setAddError(null);
     setAdding(true);
     pending.current += 1;
+    const content = cleaned(draft);
+    // The item's id is this device's, so it can be checked or edited before it reaches the server.
+    const addOnDevice = async () => {
+      const title = content.title.trim();
+      if ((await onDevice({ kind: 'addItem', listId, itemId: crypto.randomUUID(), title, quantity: content.quantity, unit: content.unit }, title)) !== null) setDraft(EMPTY_ITEM);
+    };
     try {
-      const answer = await api.addListItem(workspaceId, listId, cleaned(draft));
-      shown.current = answer;
-      setList(answer);
-      setDraft(EMPTY_ITEM);
-      setMessage(null);
+      if (device) await addOnDevice();
+      else {
+        keep(await api.addListItem(workspaceId, listId, content));
+        setDraft(EMPTY_ITEM);
+        setMessage(null);
+      }
     } catch (caught) {
+      if (isNetworkError(caught)) {
+        reportUnreachable();
+        await addOnDevice();
+        return;
+      }
       // What was typed stays; the message goes next to the field it is about.
       const found = fieldError(caught);
       if (found === null) setMessage(failure(caught));
@@ -348,11 +490,25 @@ function ListPage(props: { workspaceId: string; listId: string; canEdit: boolean
 
   async function deleteList() {
     if (list === null || !window.confirm(t('lists.deleteConfirm', { title: list.title }))) return;
+    const title = list.title;
+    const deleteOnDevice = async () => {
+      const id = await onDevice({ kind: 'deleteList', listId }, title);
+      if (id === null) return;
+      handOver(DELETED_LIST, { workspaceId, listId, title, clientChangeId: id } satisfies DeletedList);
+      navigate(paths.lists(workspaceId), { replace: true });
+    };
+    if (device) return deleteOnDevice();
     try {
       await api.deleteList(workspaceId, listId);
-      handOver(DELETED_LIST, { workspaceId, listId, title: list.title } satisfies DeletedList);
+      void offlineStore.saveList(userId, workspaceId, listId, null);
+      handOver(DELETED_LIST, { workspaceId, listId, title } satisfies DeletedList);
       navigate(paths.lists(workspaceId), { replace: true });
     } catch (caught) {
+      if (isNetworkError(caught)) {
+        reportUnreachable();
+        await deleteOnDevice();
+        return;
+      }
       setMessage(failure(caught));
     }
   }
@@ -365,15 +521,17 @@ function ListPage(props: { workspaceId: string; listId: string; canEdit: boolean
     </p>
   );
   if (list === null) {
+    // Offline and not on this device (never received, or deleted meanwhile): say so instead of an empty List.
+    const unavailable = device && local.saved !== undefined ? t(local.saved === null ? 'lists.offline' : 'lists.offlineNotSaved') : null;
     return (
       <section aria-label={t('shell.lists')}>
         {back}
-        {message !== null ? <p role="alert">{message}</p> : <p>{t('common.loading')}</p>}
+        {message !== null ? <p role="alert">{message}</p> : unavailable !== null ? <p role="alert">{unavailable}</p> : <p>{t('common.loading')}</p>}
       </section>
     );
   }
   const { toBuy, purchased } = splitItems(list.items);
-  const editable = props.canEdit && !missing;
+  const editable = props.canEdit && (device || !missing);
   const row = (item: ListItem) => {
     const amount = amountLabel(item);
     const text = (
@@ -386,6 +544,7 @@ function ListPage(props: { workspaceId: string; listId: string; canEdit: boolean
             {t('lists.purchasedBy', { name: item.checked.by, ago: formatRelative(item.checked.at) })}
           </small>
         )}
+        {local.waiting.has(item.id) && <small className="muted">{t('lists.offlineWaiting')}</small>}
       </span>
     );
     return (
@@ -442,6 +601,7 @@ function ListPage(props: { workspaceId: string; listId: string; canEdit: boolean
           />
         )}
       </div>
+      <DeviceCopyNote saved={local.saved} online={offline.online} />
       {message !== null && <p role="alert">{message}</p>}
       {editable && (
         <form className="card add-item" onSubmit={(event) => void add(event)} aria-label={t('lists.addHeading')}>
@@ -490,15 +650,22 @@ function ListPage(props: { workspaceId: string; listId: string; canEdit: boolean
           item={editing}
           onClose={() => setEditing(null)}
           onSave={async (value) => {
+            const edit: ListChangeInput = { kind: 'editItem', listId, itemId: editing.id, title: value.title.trim(), quantity: value.quantity, unit: value.unit };
+            if (device) {
+              await onDevice(edit, editing.title);
+              return;
+            }
             pending.current += 1;
             try {
-              const answer = await api.updateListItem(workspaceId, listId, editing.id, value, editing.revision);
-              shown.current = answer;
-              setList(answer);
+              keep(await api.updateListItem(workspaceId, listId, editing.id, value, editing.revision));
+            } catch (caught) {
+              if (!isNetworkError(caught)) throw caught;
+              reportUnreachable();
+              await onDevice(edit, editing.title);
             } finally {
               pending.current -= 1;
               // Also after a refusal (e.g. someone else edited it): show what is on the server now.
-              if (pending.current === 0) load();
+              if (pending.current === 0 && !device) load();
             }
           }}
         />
@@ -509,9 +676,18 @@ function ListPage(props: { workspaceId: string; listId: string; canEdit: boolean
           submitLabel={t('lists.save')}
           onClose={() => setRenaming(false)}
           onSubmit={async () => {
-            const answer = await api.renameList(workspaceId, listId, newName, list.title);
-            shown.current = answer;
-            setList(answer);
+            const rename: ListChangeInput = { kind: 'renameList', listId, title: newName.trim() };
+            if (device) {
+              await onDevice(rename, newName.trim());
+              return;
+            }
+            try {
+              keep(await api.renameList(workspaceId, listId, newName, list.title));
+            } catch (caught) {
+              if (!isNetworkError(caught)) throw caught;
+              reportUnreachable();
+              await onDevice(rename, newName.trim());
+            }
           }}
         >
           <label>

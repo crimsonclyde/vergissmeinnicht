@@ -147,7 +147,7 @@ Every page shows "VergissMeinNicht (VMN) with 🖤 by CrimsonClyde - Licence: AG
 
 ## Offline use
 
-The web app installs a service worker (production builds) that keeps the app shell, so Runs opened on a device can be executed without a connection (steps.md 8.5). Service workers require HTTPS (or `localhost`); nothing needs to be configured. Reverse proxies must not cache `/api/*` (the app sends `Cache-Control: no-store`) and should pass `/sw.js` through unchanged. After an upgrade, browsers pick up the new app shell on their next online page load.
+The web app installs a service worker (production builds) that keeps the app shell, so Runs opened on a device can be executed and Grocery Lists used without a connection (steps.md 8.5, 17.5). List data and unsent changes live in the browser's IndexedDB per account, never in the service worker cache, and are removed on sign-out. Upgrading the server needs migration 0040 for offline Lists; changes waiting on devices are kept across the upgrade and sent afterwards. Open tabs learn about a new version by loading the app page (`/?vmn-version-check=1`) now and then and show a reload note; a reverse proxy must not cache `/` for long (the server sends it with `max-age=0`). Service workers require HTTPS (or `localhost`); nothing needs to be configured. Reverse proxies must not cache `/api/*` (the app sends `Cache-Control: no-store`) and should pass `/sw.js` through unchanged. After an upgrade, browsers pick up the new app shell on their next online page load.
 
 ## Reminders and notification providers
 

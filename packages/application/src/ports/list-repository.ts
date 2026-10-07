@@ -1,4 +1,4 @@
-import type { Actor, List, ListId, ListItem, ListItemId, ListKind, WorkspaceId } from '@vergissmeinnicht/domain';
+import type { Actor, List, ListChange, ListId, ListItem, ListItemId, ListKind, ListReplayOutcome, WorkspaceId } from '@vergissmeinnicht/domain';
 import type { ActorGuard } from './actor-guard.ts';
 
 /** A List in the overview: how much is still to buy and how much is checked off. */
@@ -20,6 +20,37 @@ export type ListChangeResult<Code extends string = never> = { readonly status: '
 
 type UserActor = Actor & { readonly kind: 'user' };
 
+/** A List change made offline, as the server applies it (17.5): normalized, with the time it counts as made. */
+export interface ListReplayInput {
+  readonly workspaceId: WorkspaceId;
+  readonly clientChangeId: string;
+  readonly change: ListChange;
+  /** When the change counts as made (`offlineChangeTime`): what "the later change wins" compares. */
+  readonly madeAt: Date;
+  /** The server's time. */
+  readonly at: Date;
+  readonly maxLists: number;
+  readonly maxItems: number;
+  /** Remembered changes older than this are forgotten (`LIST_CHANGE_KEEP_MS`). */
+  readonly keepSince: Date;
+}
+
+export type ListReplayResult =
+  | {
+      readonly status: 'done';
+      readonly outcome: ListReplayOutcome;
+      /** The change had been received before: nothing was done again; the first answer is repeated. */
+      readonly duplicate: boolean;
+      /** Whose change won and when, for the notice — when it was not this one. */
+      readonly by: string | null;
+      readonly byAt: Date | null;
+      /** The List now, when it exists and is not deleted. */
+      readonly list: ListWithItems | null;
+    }
+  | { readonly status: 'forbidden' }
+  /** The client id of a new List or item, or the change id, is already used for something else. */
+  | { readonly status: 'id_taken' };
+
 /**
  * Lists are addressed by Workspace id + List id, items by Workspace id + List id + item id: an id of
  * another Workspace or List behaves like an unknown id. Every write happens in one transaction that
@@ -29,6 +60,14 @@ type UserActor = Actor & { readonly kind: 'user' };
 export interface ListRepository {
   /** Lists of the Workspace that are not deleted, oldest first. */
   listForWorkspace(workspaceId: WorkspaceId): Promise<ListSummary[]>;
+  /** Every List of the Workspace that is not deleted, with its items — what a device keeps for offline use (17.5). */
+  snapshot(workspaceId: WorkspaceId): Promise<ListWithItems[]>;
+  /**
+   * Applies one change made offline (17.5) in one IMMEDIATE transaction: re-checks the guard, answers
+   * a change id it has seen before with the first answer (nothing is applied twice), applies the
+   * merge rules of `ListChange`, records List-level audit events and remembers the outcome.
+   */
+  replay(input: ListReplayInput, actor: UserActor, guard: ActorGuard): Promise<ListReplayResult>;
   /** `undefined` for unknown, foreign and deleted Lists. */
   find(workspaceId: WorkspaceId, listId: ListId): Promise<ListWithItems | undefined>;
   create(

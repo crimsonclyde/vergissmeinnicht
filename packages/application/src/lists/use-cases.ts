@@ -1,10 +1,15 @@
 import {
+  LIST_CHANGE_KEEP_MS,
   MAX_ITEMS_PER_LIST,
   MAX_LISTS_PER_WORKSPACE,
+  offlineChangeTime,
+  parseListId,
+  parseListItemId,
   normalizeListItemQuantity,
   normalizeListItemTitle,
   normalizeListItemUnit,
   normalizeListTitle,
+  type ListChange,
   type ListId,
   type ListItemId,
   type User,
@@ -14,7 +19,8 @@ import { roleHasCapability } from '@vergissmeinnicht/permissions';
 import { NotAuthorizedError } from '../invitations/errors.ts';
 import type { ActorGuard } from '../ports/actor-guard.ts';
 import type { Clock } from '../ports/clock.ts';
-import type { ListRepository, ListSummary, ListWithItems } from '../ports/list-repository.ts';
+import type { ListReplayResult, ListRepository, ListSummary, ListWithItems } from '../ports/list-repository.ts';
+import { OfflineAccountMismatchError } from '../runs/errors.ts';
 import type { WorkspaceRepository } from '../ports/workspace-repository.ts';
 import { userActor } from '../user-actor.ts';
 import { authorizeWorkspace } from '../workspaces/use-cases.ts';
@@ -174,4 +180,71 @@ export async function restoreListItem(deps: ListDeps, input: ItemRef): Promise<L
   if (result.status === 'ok') return result.list;
   if (result.status === 'limit_reached') throw new ListItemLimitReachedError();
   return refuse(result.status);
+}
+
+/** Every List of the Workspace with its items, for a device to keep for offline use (17.5; `list.view`, guests too). */
+export async function listSnapshot(deps: ListDeps, input: { readonly actor: User; readonly workspaceId: WorkspaceId }): Promise<ListWithItems[]> {
+  await authorizeWorkspace(deps, input.actor, input.workspaceId, 'list.view');
+  return deps.lists.snapshot(input.workspaceId);
+}
+
+/** A change as a device sends it: ids and text not yet checked. */
+export type RawListChange =
+  | { readonly kind: 'createList' | 'renameList'; readonly listId: string; readonly title: string }
+  | { readonly kind: 'deleteList'; readonly listId: string }
+  | ({ readonly kind: 'addItem' | 'editItem'; readonly listId: string; readonly itemId: string } & ItemContent)
+  | { readonly kind: 'checkItem'; readonly listId: string; readonly itemId: string; readonly checked: boolean }
+  | { readonly kind: 'removeItem'; readonly listId: string; readonly itemId: string };
+
+/** Ids parsed and text normalized exactly as for the same change made online. */
+function normalizeChange(raw: RawListChange): ListChange {
+  const listId = parseListId(raw.listId);
+  switch (raw.kind) {
+    case 'createList':
+    case 'renameList':
+      return { kind: raw.kind, listId, title: normalizeListTitle(raw.title) };
+    case 'deleteList':
+      return { kind: raw.kind, listId };
+    case 'addItem':
+    case 'editItem':
+      return { kind: raw.kind, listId, itemId: parseListItemId(raw.itemId), ...itemContent(raw) };
+    case 'checkItem':
+      return { kind: raw.kind, listId, itemId: parseListItemId(raw.itemId), checked: raw.checked };
+    case 'removeItem':
+      return { kind: raw.kind, listId, itemId: parseListItemId(raw.itemId) };
+  }
+}
+
+/**
+ * Applies a List change a device made offline (17.5) — sent once, or again after a lost answer:
+ * the same change id gets the same answer and is never applied twice. Authorized exactly like the
+ * same change made online today (membership, `list.edit`, Lists switched on — re-checked in the
+ * transaction); a change made by another account than the one signed in is refused before anything
+ * is written. The device's time decides "the later change wins", capped by `offlineChangeTime`.
+ */
+export async function replayListChange(
+  deps: ListDeps,
+  input: { readonly actor: User; readonly workspaceId: WorkspaceId; readonly clientChangeId: string; readonly madeBy: string; readonly deviceTime: Date; readonly change: RawListChange },
+): Promise<Extract<ListReplayResult, { status: 'done' }>> {
+  await authorizeWorkspace(deps, input.actor, input.workspaceId, 'list.edit');
+  if (input.madeBy !== input.actor.id) throw new OfflineAccountMismatchError();
+  const change = normalizeChange(input.change);
+  const now = deps.clock.now();
+  const result = await deps.lists.replay(
+    {
+      workspaceId: input.workspaceId,
+      clientChangeId: input.clientChangeId,
+      change,
+      madeAt: offlineChangeTime(input.deviceTime, now),
+      at: now,
+      maxLists: MAX_LISTS_PER_WORKSPACE,
+      maxItems: MAX_ITEMS_PER_LIST,
+      keepSince: new Date(now.getTime() - LIST_CHANGE_KEEP_MS),
+    },
+    userActor(input.actor),
+    edit,
+  );
+  if (result.status === 'forbidden') throw new NotAuthorizedError();
+  if (result.status === 'id_taken') throw new ListConflictError();
+  return result;
 }

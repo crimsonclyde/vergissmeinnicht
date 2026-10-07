@@ -21,6 +21,46 @@ export const MAX_LIST_ITEM_UNIT_LENGTH = 16;
 export const MAX_LISTS_PER_WORKSPACE = 100;
 export const MAX_ITEMS_PER_LIST = 300;
 
+/**
+ * Offline changes (17.5). A device that lost its connection keeps List changes and sends each one
+ * later, once, with a stable client id. The server applies it under today's permissions and these
+ * rules: changes to different items always merge; for the same part of an item (name/quantity/unit,
+ * or checked) or a List's name the **later change wins**, judged by when it was made — for an offline
+ * change the device's clock (owner, 2026-10-07), capped by `offlineChangeTime`; a removal wins over an
+ * edit or a check, and deleting a List wins over offline changes to it.
+ */
+export type ListChange =
+  | { readonly kind: 'createList'; readonly listId: ListId; readonly title: string }
+  | { readonly kind: 'renameList'; readonly listId: ListId; readonly title: string }
+  | { readonly kind: 'deleteList'; readonly listId: ListId }
+  | { readonly kind: 'addItem'; readonly listId: ListId; readonly itemId: ListItemId; readonly title: string; readonly quantity: string | null; readonly unit: string | null }
+  | { readonly kind: 'editItem'; readonly listId: ListId; readonly itemId: ListItemId; readonly title: string; readonly quantity: string | null; readonly unit: string | null }
+  | { readonly kind: 'checkItem'; readonly listId: ListId; readonly itemId: ListItemId; readonly checked: boolean }
+  | { readonly kind: 'removeItem'; readonly listId: ListId; readonly itemId: ListItemId };
+
+/**
+ * What became of a replayed change: applied; `OVERRIDDEN` — a later change of the same thing was
+ * kept; `ITEM_REMOVED` / `LIST_DELETED` — the removal or deletion won; `NOT_FOUND` — the List or item
+ * does not exist (e.g. its creation was refused); `LIMIT_REACHED` — the List or Workspace is full.
+ */
+export const LIST_REPLAY_OUTCOMES = ['APPLIED', 'OVERRIDDEN', 'ITEM_REMOVED', 'LIST_DELETED', 'NOT_FOUND', 'LIMIT_REACHED'] as const;
+export type ListReplayOutcome = (typeof LIST_REPLAY_OUTCOMES)[number];
+
+/** An offline change counts as made no earlier than this before it reached the server. */
+export const OFFLINE_CHANGE_MAX_AGE_MS = 30 * 24 * 60 * 60_000;
+/** How long the server remembers a replayed change, so that sending it again changes nothing. */
+export const LIST_CHANGE_KEEP_MS = 90 * 24 * 60 * 60_000;
+
+/**
+ * When an offline change counts as made: the device's clock, but never later than the server's time
+ * (a clock running ahead cannot win the future) and never earlier than `OFFLINE_CHANGE_MAX_AGE_MS`.
+ */
+export function offlineChangeTime(deviceTime: Date, now: Date): Date {
+  const at = deviceTime.getTime();
+  if (!Number.isFinite(at)) return now;
+  return new Date(Math.min(now.getTime(), Math.max(now.getTime() - OFFLINE_CHANGE_MAX_AGE_MS, at)));
+}
+
 /** Who did something and when: internal id plus the display name at that time. */
 export interface ListActorStamp {
   readonly at: Date;
