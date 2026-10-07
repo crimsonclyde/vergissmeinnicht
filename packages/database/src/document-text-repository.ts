@@ -1,5 +1,5 @@
 import { and, asc, eq, inArray, isNull, lte, or, sql, type SQL } from 'drizzle-orm';
-import type { DocumentTextRepository, TextJob } from '@vergissmeinnicht/application';
+import type { CorrectTextResult, DocumentTextRepository, FileText, TextJob } from '@vergissmeinnicht/application';
 import { IMAGE_PENDING_MS } from '@vergissmeinnicht/application';
 import { TEXT_STATES, fitsStorage, type DocumentFileId, type TextState, type WorkspaceId } from '@vergissmeinnicht/domain';
 import { IMMEDIATE, actorAllowed, type Transaction } from './actor-guard.ts';
@@ -27,6 +27,40 @@ const allowedFor = (tx: Reader, fileId: string): boolean =>
   tx.select({ id: documentFileTexts.fileId }).from(documentFileTexts).where(and(eq(documentFileTexts.fileId, fileId), recognitionAllowed)).get() !== undefined;
 
 const byteLength = (text: string): number => Buffer.byteLength(text, 'utf8');
+
+/** The text that counts for search, snippets and suggestions (16.13): a person's correction while there is one, else what was read. */
+export const effectiveText = sql<string>`coalesce(${documentFileTexts.correctedText}, ${documentFileTexts.text})`;
+export const effectiveSearchText = sql<string>`coalesce(${documentFileTexts.correctedSearchText}, ${documentFileTexts.searchText})`;
+/** A file whose text counts: read — or corrected by a person, also where reading failed or is impossible (handwriting, HEIC). */
+export const textCounts: SQL = sql`(${documentFileTexts.state} = 'DONE' or ${documentFileTexts.correctedText} is not null)`;
+
+/** The Document (and position) a file is a page of — only a live Document of this Workspace. */
+const pageOf = (tx: Reader, workspaceId: string, fileId: string) =>
+  tx
+    .select({ documentId: documents.id, position: documentPages.position })
+    .from(documentPages)
+    .innerJoin(documents, eq(documents.id, documentPages.documentId))
+    .where(and(eq(documents.workspaceId, workspaceId), eq(documentPages.fileId, fileId), isNull(documents.deletedAt)))
+    .get();
+
+const textRow = (tx: Reader, workspaceId: string, fileId: string) =>
+  tx
+    .select()
+    .from(documentFileTexts)
+    .where(and(eq(documentFileTexts.workspaceId, workspaceId), eq(documentFileTexts.fileId, fileId)))
+    .get();
+
+const toFileText = (row: typeof documentFileTexts.$inferSelect): FileText => ({
+  state: row.state,
+  source: row.source,
+  text: row.text,
+  truncated: row.truncated,
+  correction:
+    row.correctedText === null || row.correctedAt === null || row.correctedByDisplayName === null
+      ? null
+      : { text: row.correctedText, byName: row.correctedByDisplayName, at: row.correctedAt },
+  revision: row.textRevision,
+});
 
 /** Text recognition queue and recognised text (16.9). See `DocumentTextRepository`. */
 export function createDocumentTextRepository({ db }: Pick<AppDatabase, 'db'>): DocumentTextRepository {
@@ -139,11 +173,11 @@ export function createDocumentTextRepository({ db }: Pick<AppDatabase, 'db'>): D
 
     async suggestionSource(workspaceId, documentId) {
       const row = db
-        .select({ position: documentPages.position, text: documentFileTexts.text })
+        .select({ position: documentPages.position, text: effectiveText })
         .from(documentPages)
         .innerJoin(documents, eq(documents.id, documentPages.documentId))
         .innerJoin(documentFileTexts, eq(documentFileTexts.fileId, documentPages.fileId))
-        .where(and(eq(documents.workspaceId, workspaceId), eq(documents.id, documentId), isNull(documents.deletedAt), eq(documentFileTexts.state, 'DONE'), sql`${documentFileTexts.text} <> ''`))
+        .where(and(eq(documents.workspaceId, workspaceId), eq(documents.id, documentId), isNull(documents.deletedAt), textCounts, sql`${effectiveText} <> ''`))
         .orderBy(asc(documentPages.position))
         .limit(1)
         .get();
@@ -170,6 +204,76 @@ export function createDocumentTextRepository({ db }: Pick<AppDatabase, 'db'>): D
           .values({ documentId: input.documentId, workspaceId: input.workspaceId, key: input.key, dismissedByUserId: actor.userId, dismissedAt: input.at })
           .onConflictDoNothing()
           .run();
+        return 'ok';
+      }, IMMEDIATE);
+    },
+
+    async fileText(workspaceId, fileId) {
+      return db.transaction((tx) => {
+        if (pageOf(tx, workspaceId, fileId) === undefined) return undefined;
+        const row = textRow(tx, workspaceId, fileId);
+        return row === undefined ? undefined : toFileText(row);
+      });
+    },
+
+    async correct(input, actor, guard) {
+      return db.transaction((tx): CorrectTextResult => {
+        if (!actorAllowed(tx, input.workspaceId, actor, guard)) return { status: 'forbidden' };
+        const page = pageOf(tx, input.workspaceId, input.fileId);
+        const row = page === undefined ? undefined : textRow(tx, input.workspaceId, input.fileId);
+        if (page === undefined || row === undefined) return { status: 'not_found' };
+        if (row.textRevision !== input.revision) return { status: 'stale' };
+        const bytes = byteLength(input.text);
+        // A correction replaces the previous one: only growth needs room (shrinking is always possible).
+        const usage = storageUsageIn(tx, input.workspaceId, new Date(input.at.getTime() - IMAGE_PENDING_MS));
+        if (bytes > row.correctionBytes && !fitsStorage(usage.used - row.correctionBytes, bytes, usage.limit)) return { status: 'storage_full', usage };
+        tx.update(documentFileTexts)
+          .set({
+            correctedText: input.text,
+            correctedSearchText: input.searchText,
+            correctionBytes: bytes,
+            correctedByUserId: actor.userId,
+            correctedByDisplayName: actor.displayName,
+            correctedAt: input.at,
+            textRevision: row.textRevision + 1,
+          })
+          .where(eq(documentFileTexts.fileId, input.fileId))
+          .run();
+        // Who, when, which Document and file — never the text.
+        recordAuditEvent(tx, {
+          workspaceId: input.workspaceId,
+          type: 'DOCUMENT_TEXT_CORRECTED',
+          actor,
+          subjectType: 'document',
+          subjectId: page.documentId,
+          occurredAt: input.at,
+          metadata: { fileId: input.fileId, file: page.position + 1 },
+        });
+        return { status: 'ok' };
+      }, IMMEDIATE);
+    },
+
+    async restore(input, actor, guard) {
+      return db.transaction((tx) => {
+        if (!actorAllowed(tx, input.workspaceId, actor, guard)) return 'forbidden';
+        const page = pageOf(tx, input.workspaceId, input.fileId);
+        const row = page === undefined ? undefined : textRow(tx, input.workspaceId, input.fileId);
+        if (page === undefined || row === undefined) return 'not_found';
+        if (row.textRevision !== input.revision) return 'stale';
+        if (row.correctedText === null) return 'ok';
+        tx.update(documentFileTexts)
+          .set({ correctedText: null, correctedSearchText: null, correctionBytes: 0, correctedByUserId: null, correctedByDisplayName: null, correctedAt: null, textRevision: row.textRevision + 1 })
+          .where(eq(documentFileTexts.fileId, input.fileId))
+          .run();
+        recordAuditEvent(tx, {
+          workspaceId: input.workspaceId,
+          type: 'DOCUMENT_TEXT_RESTORED',
+          actor,
+          subjectType: 'document',
+          subjectId: page.documentId,
+          occurredAt: input.at,
+          metadata: { fileId: input.fileId, file: page.position + 1 },
+        });
         return 'ok';
       }, IMMEDIATE);
     },

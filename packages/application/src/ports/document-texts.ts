@@ -1,5 +1,6 @@
 import type { Actor, DocumentFileFormat, DocumentFileId, DocumentId, TextSource, TextState, WorkspaceId } from '@vergissmeinnicht/domain';
 import type { ActorGuard } from './actor-guard.ts';
+import type { DocumentStorageUsage } from './document-files.ts';
 
 type UserActor = Actor & { readonly kind: 'user' };
 
@@ -21,6 +22,29 @@ export interface TextResult {
   readonly pages: number;
   readonly truncated: boolean;
 }
+
+/** A person's correction of a file's text (16.13): who made it and when — the text is in `FileText`. */
+export interface TextCorrection {
+  readonly text: string;
+  readonly byName: string;
+  readonly at: Date;
+}
+
+/** The text of one file on a live Document (16.13): the machine reading and, apart from it, a correction. */
+export interface FileText {
+  readonly state: TextState;
+  readonly source: TextSource | null;
+  /** Recognised text, pages joined by `PAGE_SEPARATOR`; '' until read. */
+  readonly text: string;
+  readonly truncated: boolean;
+  readonly correction: TextCorrection | null;
+  /** Raised by each correction and restore; an edit must name the revision it was based on. */
+  readonly revision: number;
+}
+
+export type CorrectTextResult =
+  | { readonly status: 'ok' | 'forbidden' | 'not_found' | 'stale' }
+  | { readonly status: 'storage_full'; readonly usage: DocumentStorageUsage };
 
 export interface TextRecognitionSettings {
   readonly enabled: boolean;
@@ -64,6 +88,19 @@ export interface DocumentTextRepository {
   dismissals(workspaceId: WorkspaceId, documentId: DocumentId): Promise<Set<string>>;
   /** Remembers one dismissed suggestion; the Document must be live in this Workspace. */
   dismiss(input: { readonly workspaceId: WorkspaceId; readonly documentId: DocumentId; readonly key: string; readonly at: Date }, actor: UserActor, guard: ActorGuard): Promise<'ok' | 'forbidden' | 'not_found'>;
+  /** The text of a file that is a page of a live Document in this Workspace (16.13). */
+  fileText(workspaceId: WorkspaceId, fileId: DocumentFileId): Promise<FileText | undefined>;
+  /**
+   * Saves a correction (16.13) — only if `revision` is still current, the file is a page of a live
+   * Document and the bytes fit the Workspace's storage; audited without the text.
+   */
+  correct(
+    input: { readonly workspaceId: WorkspaceId; readonly fileId: DocumentFileId; readonly text: string; readonly searchText: string; readonly revision: number; readonly at: Date },
+    actor: UserActor,
+    guard: ActorGuard,
+  ): Promise<CorrectTextResult>;
+  /** Discards the correction, so the recognised text counts again (16.13); audited. Nothing to discard is not an event. */
+  restore(input: { readonly workspaceId: WorkspaceId; readonly fileId: DocumentFileId; readonly revision: number; readonly at: Date }, actor: UserActor, guard: ActorGuard): Promise<'ok' | 'forbidden' | 'not_found' | 'stale'>;
   /** Switches recognition for the Workspace and records it in the audit history (only when it changes). */
   setEnabled(input: { readonly workspaceId: WorkspaceId; readonly enabled: boolean; readonly at: Date }, actor: UserActor, guard: ActorGuard): Promise<'ok' | 'forbidden'>;
 }

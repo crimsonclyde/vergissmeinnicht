@@ -63,6 +63,10 @@ export const AUDIT_EVENT_TYPES = [
   // text itself is derived data, never an event.
   'TEXT_RECOGNITION_ENABLED',
   'TEXT_RECOGNITION_DISABLED',
+  // A person corrected a file's recognised text, or restored the recognised text (16.13): who, when,
+  // the Document and the file — never the text.
+  'DOCUMENT_TEXT_CORRECTED',
+  'DOCUMENT_TEXT_RESTORED',
   // Links (16.5): a Document linked to a Procedure, a Schedule or another Document; and a Document
   // version retained for a Run (recorded with the Run's id — an addition beside the Run, never a change to it).
   'DOCUMENT_LINK_ADDED',

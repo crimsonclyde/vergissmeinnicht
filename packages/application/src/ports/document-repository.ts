@@ -59,7 +59,8 @@ export interface DocumentSummary {
 
 export interface DocumentTextMatch {
   readonly file: number;
-  readonly page: number;
+  /** Null when the hit is in a person's correction, which has no pages (16.13). */
+  readonly page: number | null;
   readonly snippet: string;
 }
 

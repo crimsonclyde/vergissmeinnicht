@@ -60,7 +60,7 @@ export class DocumentTypeNotFoundError extends Error {
   }
 }
 
-/** Someone else changed the Folder or Document in the meantime. */
+/** Someone else changed the Folder or Document — or the corrected text of one of its files (16.13) — in the meantime. */
 export class DocumentConflictError extends Error {
   constructor() {
     super('Changed by someone else');

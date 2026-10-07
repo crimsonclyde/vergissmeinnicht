@@ -1570,6 +1570,20 @@ export const documentFileTexts = sqliteTable(
     /** Pages read; pages beyond the limits are left out (`truncated`). */
     pages: integer('pages').notNull().default(0),
     truncated: integer('truncated', { mode: 'boolean' }).notNull().default(false),
+    /**
+     * A person's correction of the text (16.13), kept apart from the machine reading: search,
+     * snippets and suggestions use it while it exists; reading the file again never replaces it;
+     * "Restore recognised text" removes it. One text for the whole file (no page separators).
+     */
+    correctedText: text('corrected_text'),
+    correctedSearchText: text('corrected_search_text'),
+    /** Bytes of `corrected_text` (UTF-8), counted in the Workspace's storage besides `bytes`. */
+    correctionBytes: integer('correction_bytes').notNull().default(0),
+    correctedByUserId: text('corrected_by_user_id').references(() => users.id),
+    correctedByDisplayName: text('corrected_by_display_name'),
+    correctedAt: integer('corrected_at', { mode: 'timestamp_ms' }),
+    /** Raised by every correction and restore: an edit based on an older revision is refused. */
+    textRevision: integer('text_revision').notNull().default(0),
     queuedAt: integer('queued_at', { mode: 'timestamp_ms' }).notNull(),
     updatedAt: integer('updated_at', { mode: 'timestamp_ms' }).notNull(),
   },
@@ -1584,6 +1598,11 @@ export const documentFileTexts = sqliteTable(
     check('document_file_texts_text_bounded', sql`length(${table.text}) <= 200000 and ${table.bytes} >= 0 and ${table.pages} >= 0`),
     check('document_file_texts_done_consistent', sql`(${table.state} = 'DONE') = (${table.source} is not null) and (${table.state} = 'DONE' or ${table.text} = '')`),
     check('document_file_texts_error_bounded', sql`${table.errorCode} is null or length(${table.errorCode}) <= 40`),
+    check(
+      'document_file_texts_correction_consistent',
+      sql`(${table.correctedText} is null) = (${table.correctedSearchText} is null) and (${table.correctedText} is null) = (${table.correctedAt} is null) and (${table.correctedText} is null) = (${table.correctedByDisplayName} is null) and (${table.correctedText} is not null or ${table.correctionBytes} = 0)`,
+    ),
+    check('document_file_texts_correction_bounded', sql`(${table.correctedText} is null or length(${table.correctedText}) <= 200000) and ${table.correctionBytes} >= 0 and ${table.textRevision} >= 0`),
   ],
 );
 

@@ -59,11 +59,11 @@ export function storageUsageIn(tx: Reader, workspaceId: string, pendingSince: Da
       sql`(select max(${documentFileDerivatives.bytes}) as bytes, ${fileClass} as class from ${documentFileDerivatives} inner join ${documentFiles} on ${documentFiles.id} = ${documentFileDerivatives.fileId} left join ${documentPages} on ${documentPages.fileId} = ${documentFiles.id} left join ${documents} on ${documents.id} = ${documentPages.documentId} where ${documentFiles.workspaceId} = ${workspaceId} group by ${documentFileDerivatives.sha256})`,
     )
     .get();
-  // Recognised text (16.9) is derived like a preview and counts the same way, per file.
+  // Recognised text (16.9) is derived like a preview and counts the same way, per file — with a person's correction (16.13).
   const texts = tx
     .select(split)
     .from(
-      sql`(select max(${documentFileTexts.bytes}) as bytes, ${fileClass} as class from ${documentFileTexts} inner join ${documentFiles} on ${documentFiles.id} = ${documentFileTexts.fileId} left join ${documentPages} on ${documentPages.fileId} = ${documentFiles.id} left join ${documents} on ${documents.id} = ${documentPages.documentId} where ${documentFileTexts.workspaceId} = ${workspaceId} and ${documentFileTexts.bytes} > 0 group by ${documentFileTexts.fileId})`,
+      sql`(select max(${documentFileTexts.bytes} + ${documentFileTexts.correctionBytes}) as bytes, ${fileClass} as class from ${documentFileTexts} inner join ${documentFiles} on ${documentFiles.id} = ${documentFileTexts.fileId} left join ${documentPages} on ${documentPages.fileId} = ${documentFiles.id} left join ${documents} on ${documents.id} = ${documentPages.documentId} where ${documentFileTexts.workspaceId} = ${workspaceId} and ${documentFileTexts.bytes} + ${documentFileTexts.correctionBytes} > 0 group by ${documentFileTexts.fileId})`,
     )
     .get();
   const limits = tx.select({ ceiling: workspaces.storageQuotaBytes, own: workspaces.storageLimitBytes }).from(workspaces).where(eq(workspaces.id, workspaceId)).get();

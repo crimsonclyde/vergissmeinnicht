@@ -116,4 +116,47 @@ describe.skipIf(!haveData)('Text recognition over HTTP (16.9)', () => {
     // Offering suggestions changed nothing on the Document.
     expect((await t.get(`${api()}/documents/${created.id}`, user)).json().document).toMatchObject({ title: 'scan', type: null, documentDate: null, revision: created.revision });
   });
+  it('shows the text to everyone who sees the Document and lets those who may change it correct it (16.13)', async () => {
+    const file = await upload(await photo(['Fattura luce n. 77', 'Totale EUR 41,20']));
+    const created = (await t.post(`${api()}/documents`, { title: 'Light', folderId: null, fileIds: [file.id] }, user)).json().document;
+    await t.services.recognizer.idle();
+    const path = `${api()}/document-files/${file.id}/text`;
+    const shown = (await t.get(path, guest)).json().text;
+    expect(shown).toMatchObject({ state: 'DONE', source: 'OCR', truncated: false, corrected: null, revision: 0 });
+    expect(shown.pages.join(' ')).toContain('Fattura luce');
+    // Guests read, but do not change; another Workspace gets nothing.
+    expect(error(await t.post(`${path}/correct`, { text: 'x', revision: 0 }, guest))).toEqual({ status: 403, error: 'forbidden' });
+    expect((await t.get(`${api(office)}/document-files/${file.id}/text`, outsider)).statusCode).toBe(404);
+    expect((await t.get(path, outsider)).statusCode).toBe(404);
+    expect((await t.post(`${api(office)}/document-files/${file.id}/text/correct`, { text: 'x', revision: 0 }, outsider)).statusCode).toBe(404);
+    // Strict bodies, a bounded text, and the Origin check on a change.
+    expect((await t.post(`${path}/correct`, { text: 'x', revision: 0, extra: 1 }, user)).statusCode).toBe(400);
+    expect((await t.post(`${path}/correct`, { text: 'x', revision: -1 }, user)).statusCode).toBe(400);
+    expect((await t.post(`${path}/correct`, { text: 'x'.repeat(200_001), revision: 0 }, user)).statusCode).toBe(400);
+    expect((await t.post(`${path}/correct`, { text: 'x', revision: 0 }, user, null)).statusCode).toBe(403);
+    const corrected = (await t.post(`${path}/correct`, { text: 'Fattura luce n. 77\nTotale EUR 41,20\nPagata il 03/10/2026', revision: 0 }, user)).json().text;
+    expect(corrected).toMatchObject({ pages: ['Fattura luce n. 77\nTotale EUR 41,20\nPagata il 03/10/2026'], corrected: { by: 'Uma' }, revision: 1 });
+    expect(error(await t.post(`${path}/correct`, { text: 'stale', revision: 0 }, user))).toEqual({ status: 409, error: 'document_conflict' });
+    const found = (await t.get(`${api()}/documents?q=pagata`, guest)).json().documents;
+    expect(found[0]).toMatchObject({ id: created.id, textMatch: { file: 1, page: null } });
+    // The file JSON still carries the state only.
+    expect(JSON.stringify((await t.get(`${api()}/documents/${created.id}`, guest)).json())).not.toContain('Pagata');
+    const restored = (await t.post(`${path}/restore`, { revision: 1 }, user)).json().text;
+    expect(restored).toMatchObject({ corrected: null, revision: 2 });
+    expect((await t.get(`${api()}/documents?q=pagata`, guest)).json().documents).toEqual([]);
+  });
+
+  it('answers as unknown on the text routes while Documents is switched off (16.13)', async () => {
+    const file = await upload(await photo(['Scontrino']));
+    await t.post(`${api()}/tools`, { tool: 'DOCUMENTS', enabled: false }, owner);
+    try {
+      for (const cookie of [owner, user, guest]) {
+        expect(error(await t.get(`${api()}/document-files/${file.id}/text`, cookie))).toEqual({ status: 404, error: 'tool_not_enabled' });
+        expect(error(await t.post(`${api()}/document-files/${file.id}/text/correct`, { text: 'x', revision: 0 }, cookie))).toEqual({ status: 404, error: 'tool_not_enabled' });
+        expect(error(await t.post(`${api()}/document-files/${file.id}/text/restore`, { revision: 0 }, cookie))).toEqual({ status: 404, error: 'tool_not_enabled' });
+      }
+    } finally {
+      await t.post(`${api()}/tools`, { tool: 'DOCUMENTS', enabled: true }, owner);
+    }
+  });
 });
