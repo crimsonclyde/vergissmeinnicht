@@ -37,7 +37,7 @@ ls -ln secrets    # must show 99 100 and -r-------- for every file
    (Without the terminal: the flash drive is also the network share `flash` — copy [`deploy/unraid/vergissmeinnicht.xml`](../../deploy/unraid/vergissmeinnicht.xml) into `config/plugins/dockerMan/templates-user/` there and rename it to `my-VergissMeinNicht.xml`.)
 2. **Docker** tab → **Add Container** (button at the bottom) → **Template** drop-down → under *User templates* choose **VergissMeinNicht**. The form fills itself from the template.
 3. Fill in:
-   - **Repository:** `ghcr.io/crimsonclyde/vergissmeinnicht:0.5.0-beta.7` (or a newer release — pin an exact version, not `latest`).
+   - **Repository:** `ghcr.io/crimsonclyde/vergissmeinnicht:0.5.0-beta.8` (or a newer release — pin an exact version, not `latest`).
    - **Use Tailscale:** *Yes*. **Tailscale Hostname:** `vergissmeinnicht`. **Tailscale Serve:** *Serve* (port `3000`, taken from the WebUI field). Leave *Funnel* off — that would publish the app on the internet.
    - **Tailscale State Directory** (Tailscale settings, if shown): `/data/.tailscale_state` — keeps the container's Tailscale identity across updates.
    - **Public address:** `https://vergissmeinnicht.<your-tailnet>.ts.net` — exactly the name Tailscale shows for the container.
