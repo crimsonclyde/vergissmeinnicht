@@ -77,6 +77,7 @@ function bodyFor(route: string, ids: Record<string, string>): object {
   if (url.endsWith('/lists')) return { title: 'Groceries' };
   if (url.endsWith('/lists/:listId/rename')) return { title: 'Taken over', expectedTitle: 'Groceries' };
   if (url.endsWith('/lists/:listId/items')) return { title: 'Stolen milk' };
+  if (url.endsWith('/lists/replay')) return { clientChangeId: '00000000-0000-4000-8000-000000000001', userId: ids.userId ?? '', deviceTime: new Date().toISOString(), change: { kind: 'checkItem', listId: ids.listId ?? '', itemId: ids.itemId ?? '', checked: true } };
   if (url.endsWith('/items/:itemId/update')) return { title: 'Stolen milk', expectedRevision: 1 };
   if (url.endsWith('/items/:itemId/check')) return { checked: true };
   if (url.endsWith('/procedures')) return PROCEDURE;

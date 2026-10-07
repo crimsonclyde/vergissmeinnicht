@@ -100,7 +100,11 @@ Opening a Workspace shows **Today** — a compact progress summary and one clear
 - **Tick** an item when it is bought. It moves to **Purchased** (folded away, with who bought it); untick it there to buy it again. Two people ticking the same item is fine.
 - **⋯** on an item: *Edit…* or *Remove*. After ticking, unticking or removing, **Undo** takes it back.
 - **⋯** next to the list's name: *Rename list…* or *Delete list* (Undo right afterwards).
-- Changes by others appear within about ten seconds. If someone else edited the same item just before you, your edit is refused with a message instead of replacing theirs. Lists need a connection.
+- Changes by others appear within about ten seconds. If someone else edited the same item just before you, your edit is refused with a message instead of replacing theirs.
+- **In the shop without a connection:** whenever you open VMN with a connection, **all lists of the Workspace** are kept on your device. Without a connection — also after reloading or reopening VMN — the lists open from your device ("Offline — showing the Lists saved on this device at …"). You can tick, untick, add, edit and remove items, and create, rename and delete lists; each change shows **Saved on this device · not sent yet** and is sent once, automatically, when the connection is back. **Undo** takes back a change that has not been sent yet.
+- **When others changed the same thing meanwhile:** changes to different items always come together. For the same item (or a list's name) the **later change wins** — by when it was made, using your device's clock for changes made offline; a removed item or a deleted list wins over changes to it. Whenever your change was not applied, a short message says what happened and by whom.
+- If your access changed while you were offline (no longer a member, no longer allowed to change lists, or Lists switched off), your waiting changes are **not** applied: they stay on your device with the reason until you choose **Discard these changes**.
+- Signing out removes the lists and any unsent changes from the device (VMN asks first if changes are waiting). Browsers can delete stored website data on their own, especially on iPhones after long non-use — open VMN online now and then.
 - Guests can read lists; Users, Editors and Admins can change them. A Workspace can have 100 lists with up to 300 items each.
 
 ## Documents

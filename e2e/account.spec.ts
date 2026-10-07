@@ -1082,6 +1082,84 @@ test('first server admin: bootstrap link, account creation, sign-in, Workspace c
   await expect(page.getByRole('link', { name: 'Open list Weekly shop' })).toContainText('2 to buy');
   await expectAccessible(page, 'lists');
 
+  // Offline Grocery Lists (17.5) — the supermarket test. Opened online, every List of the Workspace is
+  // kept on this device. In airplane mode the List still opens after a reload; ticking and adding are
+  // kept on the device, survive opening VMN again without a connection, and are sent exactly once when
+  // the connection is back — merged with what another device changed meanwhile.
+  expect(await page.evaluate('navigator.serviceWorker.ready.then(() => true)')).toBe(true);
+  await page.reload();
+  await page.getByRole('link', { name: 'Open list Weekly shop' }).click();
+  const shopList = page.getByRole('list', { name: 'To buy' });
+  await expect(shopList.getByRole('listitem')).toHaveCount(2);
+  const listUrl = page.url();
+  const shop = page.context();
+  await shop.setOffline(true);
+  await page.reload();
+  await expect(page.getByText(/^Offline — showing the Lists saved on this device at /)).toBeVisible();
+  await expect(shopList.getByRole('listitem')).toHaveText([/Milk/, /Rye bread/]);
+  await page.getByRole('checkbox', { name: /Rye bread/ }).click();
+  await page.getByLabel('Item', { exact: true }).fill('Eggs');
+  await page.keyboard.press('Enter');
+  await expect(shopList.getByRole('listitem').filter({ hasText: 'Eggs' })).toContainText('Saved on this device · not sent yet');
+  await expect(page.getByRole('status').filter({ hasText: 'Offline.' })).toContainText('2 changes are saved on this device');
+  await expectAccessible(page, 'grocery list offline');
+  // VMN opened again without a connection (a new tab): the changes are still there.
+  const reopened = await shop.newPage();
+  await reopened.goto(listUrl);
+  await expect(reopened.getByRole('list', { name: 'To buy' }).getByRole('listitem')).toHaveText([/Milk/, /Eggs.*Saved on this device/]);
+  await reopened.close();
+  // Meanwhile another device, online, ticks Milk.
+  const otherPhone = await browser.newContext(testInfo.project.use.baseURL === undefined ? {} : { baseURL: testInfo.project.use.baseURL });
+  const otherPhonePage = await otherPhone.newPage();
+  await otherPhonePage.goto('/');
+  await otherPhonePage.getByLabel('Email').fill('admin@example.org');
+  await otherPhonePage.getByLabel('Password').fill(PASSWORD);
+  await otherPhonePage.getByRole('button', { name: 'Sign in' }).click();
+  await expect(otherPhonePage.getByRole('button', { name: /^Settings/ })).toBeVisible();
+  await otherPhonePage.goto(listUrl);
+  await otherPhonePage.getByRole('checkbox', { name: /Milk/ }).click();
+  await expect(otherPhonePage.getByRole('status').filter({ hasText: '“Milk” purchased.' })).toBeVisible();
+  // Back online: sent once, merged, nothing waits any more.
+  await shop.setOffline(false);
+  await expect(page.getByRole('status').filter({ hasText: /Offline\.|Sending/ })).toHaveCount(0, { timeout: 15_000 });
+  await expect(shopList.getByRole('listitem')).toHaveText([/Eggs/], { timeout: 15_000 });
+  await expect(page.getByText('Saved on this device · not sent yet')).toHaveCount(0);
+  await page.reload();
+  await expect(shopList.getByRole('listitem')).toHaveText([/Eggs/]);
+  await expect(page.getByText('Purchased (2)')).toBeVisible();
+  await otherPhonePage.reload();
+  await expect(otherPhonePage.getByRole('list', { name: 'To buy' }).getByRole('listitem')).toHaveText([/Eggs/]);
+  // Lists switched off while this device was offline: its change is refused and kept with the reason —
+  // shown wherever one is, never applied (also not once Lists are on again) — until it is discarded.
+  const shopWorkspace = listUrl.split('/')[4] ?? '';
+  const switchLists = (on: boolean) =>
+    otherPhonePage.evaluate(
+      async ({ id, enabled }) => {
+        const current = (await (await fetch(`/api/workspaces/${id}`)).json()) as { toolsRevision: number };
+        const response = await fetch(`/api/workspaces/${id}/tools`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ tool: 'LISTS', enabled, expectedRevision: current.toolsRevision }) });
+        return response.status;
+      },
+      { id: shopWorkspace, enabled: on },
+    );
+  await shop.setOffline(true);
+  await page.getByRole('checkbox', { name: /Eggs/ }).click();
+  await expect(page.getByRole('status').filter({ hasText: 'Offline.' })).toContainText('1 change is saved on this device');
+  expect(await switchLists(false)).toBeLessThan(300);
+  await shop.setOffline(false);
+  const refusedBox = page.getByRole('region', { name: '1 change saved on this device cannot be sent' });
+  await expect(refusedBox).toContainText('Lists are switched off in this Workspace', { timeout: 15_000 });
+  await expect(refusedBox).toContainText('Eggs');
+  await expectAccessible(page, 'list change refused after Lists were switched off');
+  expect(await switchLists(true)).toBeLessThan(300);
+  await page.reload();
+  await expect(refusedBox).toBeVisible();
+  await otherPhonePage.reload();
+  await expect(otherPhonePage.getByRole('list', { name: 'To buy' }).getByRole('listitem')).toHaveText([/Eggs/]);
+  await refusedBox.getByRole('button', { name: 'Discard these changes' }).click();
+  await expect(refusedBox).toHaveCount(0);
+  await otherPhone.close();
+  await page.goto(listUrl);
+  await expect(shopList.getByRole('listitem')).toHaveText([/Eggs/]);
 
   // Phone navigation (15.1): four labelled destinations at the bottom; More leads to Reminders, Calendar and history.
   await page.setViewportSize({ width: 390, height: 844 });

@@ -1,6 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import { api, messageFor } from '../api.ts';
+import { ApiError, api, isNetworkError, messageFor, type ListChangeInput, type ListReplayAnswer } from '../api.ts';
 import { t } from '../i18n/index.ts';
+import { droppedNotice, followers, listSendOutcome, noticeFor, refusedReason, refusedText, type QueuedListChange, type RefusedReason } from './list-queue.ts';
 import { dependents, outcomeOf, type QueuedChange } from './queue.ts';
 import { offlineStore } from './store.ts';
 
@@ -22,6 +23,16 @@ interface OfflineValue {
   /** Increases after queued changes were sent, so views can refetch the canonical state. */
   readonly sentVersion: number;
   readonly enqueue: (change: NewChange) => Promise<boolean>;
+  /** This user's List changes kept on this device (17.5), in order — also those refused for good. */
+  readonly listChanges: readonly QueuedListChange[];
+  /** Increases whenever the Lists kept on this device changed (received, or changes sent). */
+  readonly listsVersion: number;
+  /** Keeps a List change on this device and sends it as soon as the server is reachable; its id, or null when it could not be kept. */
+  readonly enqueueList: (workspaceId: string, change: ListChangeInput, label: string) => Promise<string | null>;
+  /** Removes List changes from this device without sending them (Undo before sending, Discard). */
+  readonly removeListChanges: (clientChangeIds: readonly string[]) => Promise<void>;
+  /** Receives every List of the Workspace for this device (17.5); forgets them when access or the tool is gone. */
+  readonly syncLists: (workspaceId: string) => Promise<void>;
   readonly reportUnreachable: () => void;
   readonly reportReachable: () => void;
   readonly dismissNotices: () => void;
@@ -36,8 +47,9 @@ export function useOffline(): OfflineValue {
 }
 
 /**
- * Offline execution of active Runs (Step 8.5): keeps the signed-in user's queued Step changes and
- * sends them — strictly in order, each once — when the server is reachable again. The server still
+ * Offline execution of active Runs (Step 8.5) and offline Grocery Lists (17.5): keeps the signed-in
+ * user's queued Step and List changes and sends them — strictly in order, each once — when the server
+ * is reachable again. The server still
  * decides: a change it refuses is dropped and explained, never retried as something else.
  */
 export function OfflineProvider({ userId, children }: { userId: string; children: ReactNode }) {
@@ -47,16 +59,99 @@ export function OfflineProvider({ userId, children }: { userId: string; children
   const [needsSignIn, setNeedsSignIn] = useState(false);
   const [notices, setNotices] = useState<readonly string[]>([]);
   const [sentVersion, setSentVersion] = useState(0);
+  const [listChanges, setListChanges] = useState<readonly QueuedListChange[]>([]);
+  const [listsVersion, setListsVersion] = useState(0);
   const sending = useRef(false);
 
-  const reload = useCallback(async () => setQueued(await offlineStore.queued(userId)), [userId]);
+  const reload = useCallback(async () => {
+    setQueued(await offlineStore.queued(userId));
+    setListChanges(await offlineStore.listChanges(userId));
+  }, [userId]);
+
+  const syncLists = useCallback(
+    async (workspaceId: string) => {
+      try {
+        const snapshot = await api.listSnapshot(workspaceId);
+        await offlineStore.saveLists(userId, workspaceId, snapshot.lists, snapshot.at);
+      } catch (caught) {
+        if (isNetworkError(caught)) {
+          setUnreachable(true);
+          return;
+        }
+        // No access any more, or Lists switched off: nothing of them stays on this device.
+        if (caught instanceof ApiError && (caught.code === 'tool_not_enabled' || caught.code === 'workspace_not_found')) await offlineStore.deleteLists(userId, workspaceId);
+        return;
+      }
+      setListsVersion((version) => version + 1);
+    },
+    [userId],
+  );
+
+  /**
+   * Sends List changes (17.5) strictly in order, each once. The server answers what it did; a change
+   * that did not apply as made is explained and removed with those that depended on it. Changes the
+   * server refuses because access or the tool is gone stay on this device, marked, never applied.
+   * Returns false when sending must stop (offline, signed out).
+   */
+  const sendListChanges = useCallback(
+    async (pending: readonly QueuedListChange[]): Promise<boolean> => {
+      let queue = [...pending];
+      const touched = new Set<string>();
+      try {
+        while (queue.length > 0) {
+          const entry = queue[0] as QueuedListChange;
+          let answer: ListReplayAnswer | undefined;
+          let error: unknown;
+          try {
+            answer = await api.replayListChange(entry.workspaceId, { clientChangeId: entry.clientChangeId, userId: entry.userId, deviceTime: entry.deviceTime, change: entry.change });
+          } catch (caught) {
+            error = caught;
+          }
+          const outcome = listSendOutcome(error);
+          if (outcome === 'retry') {
+            setUnreachable(true);
+            return false;
+          }
+          if (outcome === 'sign-in') {
+            setNeedsSignIn(true);
+            return false;
+          }
+          setUnreachable(false);
+          setNeedsSignIn(false);
+          if (outcome === 'refused') {
+            const reason = refusedReason(error);
+            const held = queue.filter((other) => other.workspaceId === entry.workspaceId);
+            for (const other of held) await offlineStore.putListChange({ ...other, refused: reason });
+            if (reason !== 'forbidden') await offlineStore.deleteLists(userId, entry.workspaceId);
+            touched.add(entry.workspaceId);
+            queue = queue.filter((other) => !held.includes(other));
+            continue;
+          }
+          const gone = [entry, ...followers(queue, entry, answer?.outcome ?? 'dropped')];
+          await offlineStore.removeListChanges(gone.map((each) => each.clientChangeId));
+          const notice = answer === undefined ? droppedNotice(entry, error) : noticeFor(entry, answer);
+          if (notice !== null) setNotices((current) => [...current, notice]);
+          if (answer !== undefined) await offlineStore.saveList(userId, entry.workspaceId, entry.change.listId, answer.list);
+          touched.add(entry.workspaceId);
+          queue = queue.filter((other) => !gone.includes(other));
+        }
+        return true;
+      } finally {
+        // What the server has now, including others' changes made meanwhile.
+        for (const workspaceId of touched) await syncLists(workspaceId);
+        if (touched.size > 0) setListsVersion((version) => version + 1);
+      }
+    },
+    [userId, syncLists],
+  );
 
   const send = useCallback(async () => {
     if (sending.current) return;
     sending.current = true;
     try {
       let pending = await offlineStore.queued(userId);
-      if (pending.length === 0) return;
+      const listPending = (await offlineStore.listChanges(userId)).filter((change) => change.refused === undefined);
+      if (pending.length === 0 && listPending.length === 0) return;
       // Queued changes go out only under the session of the account that made them (13.1): after
       // a sign-out or another account's sign-in in another tab, the shared cookie belongs to
       // someone else — then nothing is sent (the server refuses such changes as well).
@@ -72,6 +167,7 @@ export function OfflineProvider({ userId, children }: { userId: string; children
         return;
       }
       let sent = false;
+      let stopped = false;
       while (pending.length > 0) {
         const change = pending[0] as QueuedChange;
         let error: unknown;
@@ -97,10 +193,12 @@ export function OfflineProvider({ userId, children }: { userId: string; children
         }
         if (outcome === 'retry') {
           setUnreachable(true);
+          stopped = true;
           break;
         }
         if (outcome === 'sign-in') {
           setNeedsSignIn(true);
+          stopped = true;
           break;
         }
         setUnreachable(false);
@@ -114,17 +212,20 @@ export function OfflineProvider({ userId, children }: { userId: string; children
         pending = pending.filter((entry) => !removed.includes(entry));
       }
       if (sent) setSentVersion((version) => version + 1);
+      // List changes (17.5) are independent of Run changes; they wait only while the server is unreachable or the session is gone.
+      if (!stopped && listPending.length > 0) await sendListChanges(listPending);
     } finally {
       sending.current = false;
       await reload();
     }
-  }, [userId, reload]);
+  }, [userId, reload, sendListChanges]);
 
   // Load this user's queue, then send whenever the browser comes back online and periodically while
   // anything waits.
   useEffect(() => {
-    void offlineStore.queued(userId).then((list) => {
-      setQueued(list);
+    void Promise.all([offlineStore.queued(userId), offlineStore.listChanges(userId)]).then(([runs, lists]) => {
+      setQueued(runs);
+      setListChanges(lists);
       void send();
     });
     const goOnline = () => {
@@ -141,7 +242,7 @@ export function OfflineProvider({ userId, children }: { userId: string; children
     };
   }, [userId, send]);
 
-  const waiting = queued.length > 0;
+  const waiting = queued.length > 0 || listChanges.some((change) => change.refused === undefined);
   useEffect(() => {
     if (!waiting) return;
     const timer = setInterval(() => void send(), RETRY_MS);
@@ -164,6 +265,34 @@ export function OfflineProvider({ userId, children }: { userId: string; children
     [userId, reload],
   );
 
+  const enqueueList = useCallback(
+    async (workspaceId: string, change: ListChangeInput, label: string) => {
+      const last = (await offlineStore.listChanges(userId)).at(-1);
+      const clientChangeId = crypto.randomUUID();
+      const stored = await offlineStore.putListChange({
+        clientChangeId,
+        userId,
+        workspaceId,
+        change,
+        label,
+        deviceTime: new Date().toISOString(),
+        seq: (last?.seq ?? 0) + 1,
+      });
+      await reload();
+      if (browserOnline) void send();
+      return stored ? clientChangeId : null;
+    },
+    [userId, reload, browserOnline, send],
+  );
+
+  const removeListChanges = useCallback(
+    async (clientChangeIds: readonly string[]) => {
+      await offlineStore.removeListChanges(clientChangeIds);
+      await reload();
+    },
+    [reload],
+  );
+
   const reportUnreachable = useCallback(() => setUnreachable(true), []);
   const reportReachable = useCallback(() => {
     setUnreachable(false);
@@ -180,19 +309,54 @@ export function OfflineProvider({ userId, children }: { userId: string; children
       notices,
       sentVersion,
       enqueue,
+      listChanges,
+      listsVersion,
+      enqueueList,
+      removeListChanges,
+      syncLists,
       reportUnreachable,
       reportReachable,
       dismissNotices,
     }),
-    [userId, browserOnline, unreachable, queued, needsSignIn, notices, sentVersion, enqueue, reportUnreachable, reportReachable, dismissNotices],
+    [userId, browserOnline, unreachable, queued, needsSignIn, notices, sentVersion, enqueue, listChanges, listsVersion, enqueueList, removeListChanges, syncLists, reportUnreachable, reportReachable, dismissNotices],
   );
   return <OfflineContext.Provider value={value}>{children}</OfflineContext.Provider>;
+}
+
+/**
+ * List changes kept on this device that the server refused because access or the tool is gone (17.5):
+ * shown wherever the person is — the Lists page may not exist any more — never applied, discardable.
+ */
+function RefusedListChanges(props: { changes: readonly QueuedListChange[]; onDiscard: () => void }) {
+  if (props.changes.length === 0) return null;
+  const heading = t('lists.offlineRefusedHeading', { count: props.changes.length });
+  const reasons = [...new Set(props.changes.map((change) => change.refused).filter((reason): reason is RefusedReason => reason !== undefined))];
+  return (
+    <div className="card stack offline-notices" role="region" aria-label={heading}>
+      <strong>{heading}</strong>
+      {reasons.map((reason) => (
+        <p key={reason} className="muted" style={{ margin: 0 }}>
+          {refusedText(reason)}
+        </p>
+      ))}
+      <ul>
+        {props.changes.map((change) => (
+          <li key={change.clientChangeId}>{change.label}</li>
+        ))}
+      </ul>
+      <div className="row">
+        <button type="button" onClick={props.onDiscard}>
+          {t('lists.offlineDiscard')}
+        </button>
+      </div>
+    </div>
+  );
 }
 
 /** Status line for the whole app: offline, changes waiting, sign in again, refused changes. */
 export function OfflineBanner() {
   const offline = useOffline();
-  const count = offline.queued.length;
+  const count = offline.queued.length + offline.listChanges.filter((change) => change.refused === undefined).length;
   const text = offline.needsSignIn
     ? t('offline.signInAgain', { count })
     : !offline.online
@@ -202,8 +366,10 @@ export function OfflineBanner() {
       : count > 0
         ? t('offline.sending', { count })
         : null;
+  const refused = offline.listChanges.filter((change) => change.refused !== undefined);
   return (
     <>
+      <RefusedListChanges changes={refused} onDiscard={() => void offline.removeListChanges(refused.map((change) => change.clientChangeId))} />
       {text !== null && (
         <p role="status" className="offline-banner">
           {text}

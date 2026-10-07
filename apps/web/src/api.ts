@@ -281,6 +281,25 @@ export interface ListItemInput {
   readonly unit: string | null;
 }
 
+/** A List change made on this device while offline (17.5), as it is sent later. Ids of new Lists and items are the device's. */
+export type ListChangeInput =
+  | { readonly kind: 'createList'; readonly listId: string; readonly title: string }
+  | { readonly kind: 'renameList'; readonly listId: string; readonly title: string }
+  | { readonly kind: 'deleteList'; readonly listId: string }
+  | { readonly kind: 'addItem'; readonly listId: string; readonly itemId: string; readonly title: string; readonly quantity: string | null; readonly unit: string | null }
+  | { readonly kind: 'editItem'; readonly listId: string; readonly itemId: string; readonly title: string; readonly quantity: string | null; readonly unit: string | null }
+  | { readonly kind: 'checkItem'; readonly listId: string; readonly itemId: string; readonly checked: boolean }
+  | { readonly kind: 'removeItem'; readonly listId: string; readonly itemId: string };
+
+/** What the server did with a replayed change: `by`/`byAt` name whose change won when it was not this one. */
+export interface ListReplayAnswer {
+  readonly outcome: 'APPLIED' | 'OVERRIDDEN' | 'ITEM_REMOVED' | 'LIST_DELETED' | 'NOT_FOUND' | 'LIMIT_REACHED';
+  readonly duplicate: boolean;
+  readonly by: string | null;
+  readonly byAt: string | null;
+  readonly list: ListDetail | null;
+}
+
 export interface NotificationSettings {
   readonly reminderTime: string;
   readonly email: { readonly available: boolean; readonly enabled: boolean };
@@ -1212,6 +1231,11 @@ export const api = {
   checkListItem: (workspaceId: string, listId: string, itemId: string, checked: boolean) => listOf(request('POST', `${listItemPath(workspaceId, listId, itemId)}/check`, { checked })),
   removeListItem: (workspaceId: string, listId: string, itemId: string) => listOf(request('POST', `${listItemPath(workspaceId, listId, itemId)}/remove`, {})),
   restoreListItem: (workspaceId: string, listId: string, itemId: string) => listOf(request('POST', `${listItemPath(workspaceId, listId, itemId)}/restore`, {})),
+  /** Every List of the Workspace with its items, kept on this device for offline use (17.5). */
+  listSnapshot: (workspaceId: string) => request<{ lists: ListDetail[]; at: string }>('GET', `${listPath(workspaceId)}/snapshot`),
+  /** Sends one change made offline; sending it again is harmless (same `clientChangeId`, same answer). */
+  replayListChange: (workspaceId: string, body: { clientChangeId: string; userId: string; deviceTime: string; change: ListChangeInput }) =>
+    request<ListReplayAnswer>('POST', `${listPath(workspaceId)}/replay`, body),
   procedure: async (workspaceId: string, id: string) =>
     (
       await request<{ procedure: ProcedureDetail }>(

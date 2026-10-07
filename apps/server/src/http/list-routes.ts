@@ -4,6 +4,8 @@ import {
   deleteList,
   getList,
   listLists,
+  listSnapshot,
+  replayListChange,
   removeListItem,
   renameList,
   restoreList,
@@ -33,6 +35,23 @@ const renameBody = z.strictObject({ title, expectedTitle: title });
 const itemBody = z.strictObject({ title, quantity: optionalText, unit: optionalText });
 const itemUpdateBody = z.strictObject({ title, quantity: optionalText, unit: optionalText, expectedRevision: z.number().int().min(1) });
 const checkBody = z.strictObject({ checked: z.boolean() });
+const itemContent = { title, quantity: optionalText, unit: optionalText };
+/** One change made offline (17.5): what it is, and who made it when — the server decides what it does. */
+const replayBody = z.strictObject({
+  clientChangeId: uuid,
+  /** The account that made the change; must be the one signed in (13.1). */
+  userId: uuid,
+  deviceTime: z.iso.datetime({ offset: true }),
+  change: z.discriminatedUnion('kind', [
+    z.strictObject({ kind: z.literal('createList'), listId: uuid, title }),
+    z.strictObject({ kind: z.literal('renameList'), listId: uuid, title }),
+    z.strictObject({ kind: z.literal('deleteList'), listId: uuid }),
+    z.strictObject({ kind: z.literal('addItem'), listId: uuid, itemId: uuid, ...itemContent }),
+    z.strictObject({ kind: z.literal('editItem'), listId: uuid, itemId: uuid, ...itemContent }),
+    z.strictObject({ kind: z.literal('checkItem'), listId: uuid, itemId: uuid, checked: z.boolean() }),
+    z.strictObject({ kind: z.literal('removeItem'), listId: uuid, itemId: uuid }),
+  ]),
+});
 
 /** Small bodies only: a List name or one item. */
 const BODY_LIMIT = 4096;
@@ -106,6 +125,33 @@ export async function listRoutes(app: FastifyInstance, { services }: { services:
     const body = parse(createBody, request.body);
     const created = await createList(deps, { actor: principalOf(request).user, workspaceId: workspaceId as WorkspaceId, title: body.title });
     return reply.code(201).send({ list: detailView(created) });
+  });
+
+  // Offline use (17.5): every List with its items for the device, and one change made offline.
+  app.get('/snapshot', async (request) => {
+    const { workspaceId } = parse(workspaceParams, request.params);
+    const entries = await listSnapshot(deps, { actor: principalOf(request).user, workspaceId: workspaceId as WorkspaceId });
+    return { lists: entries.map(detailView), at: new Date().toISOString() };
+  });
+
+  app.post('/replay', post, async (request) => {
+    const { workspaceId } = parse(workspaceParams, request.params);
+    const body = parse(replayBody, request.body);
+    const result = await replayListChange(deps, {
+      actor: principalOf(request).user,
+      workspaceId: workspaceId as WorkspaceId,
+      clientChangeId: body.clientChangeId,
+      madeBy: body.userId,
+      deviceTime: new Date(body.deviceTime),
+      change: body.change,
+    });
+    return {
+      outcome: result.outcome,
+      duplicate: result.duplicate,
+      by: result.by,
+      byAt: result.byAt === null ? null : result.byAt.toISOString(),
+      list: result.list === null ? null : detailView(result.list),
+    };
   });
 
   app.get('/:listId', async (request) => ({ list: detailView(await getList(deps, listRef(request))) }));

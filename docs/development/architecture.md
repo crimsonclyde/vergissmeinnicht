@@ -402,6 +402,22 @@ The server remains the only authority: the queue is a list of ordinary requests,
 
 Hardened in 13.1: a queued change carries the id of the account that made it (`offline.userId`), and the server refuses it under any other session; the client also checks the session's account before sending. Sign-out tells other tabs (BroadcastChannel `vmn-session`, messages tagged with the sending tab so a tab ignores its own), empties every store, then deletes the database — a deletion blocked by another tab is never reported as done.
 
+## Offline Grocery Lists (Step 17.5)
+
+```text
+online:   Workspace opened ──► GET …/lists/snapshot ──► IndexedDB `lists` (per account + Workspace)
+          List page / answers ──► same entry updated (one transaction)
+offline:  change ──► IndexedDB `list-queue` (clientChangeId, userId, workspaceId, deviceTime, ListChange; ids of new Lists/items from the device)
+          view = saved Lists + unsent changes, in order (`withQueuedListChanges`)
+online:   queue ──► POST …/lists/replay in order (after Run changes, same account check)
+          server: guard re-check ──► seen change id? first answer : applyChange (later per part by *_changed_at vs capped device time;
+                  removal / List deletion win) ──► remember outcome (`list_client_changes`)
+          → APPLIED / OVERRIDDEN / ITEM_REMOVED / LIST_DELETED / NOT_FOUND / LIMIT_REACHED: remove (+ notice with by/at, + dependants)
+          → 403 / tool off / not a member: keep, marked refused, never sent again   401 / mismatch: keep, sign in   unreachable: keep
+```
+
+The online routes keep their compare-and-set behaviour; the replay route is the only place where "the later change wins" is decided, by when each part (item content, checked state, List name) was last set. Online changes stamp the same columns with the server time.
+
 ## Instruction images (Step 14.3)
 
 ```text
