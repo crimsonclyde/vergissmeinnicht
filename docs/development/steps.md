@@ -18,7 +18,7 @@ For every completed task, add a concise completion note, tests/checks performed,
 
 ## Current state — resume here
 
-**Released 2026-10-06 as v0.5.0-beta.6 (12.25): 16.9 text recognition and rule-based suggestions, tasks 1–6.** HT9 (Tesseract as WebAssembly, `tessdata_best` eng/deu/ita), HT10 (MuPDF) and P5 (owner: automatic on upload, Workspace switch by admins, existing files processed too) are settled in 16.12. Implemented: migration 0038, background queue, OCR and embedded-text extraction, search with snippets, Retry, Workspace switch, storage accounting, deletion, suggestions with Use / Add to notes / Remind me… / Dismiss, docs. **Released 2026-10-07 as v0.5.0-beta.7 (12.26): French OCR and 16.13** (view and correct recognised text, migration 0039). **Released 2026-10-07 as v0.5.0-beta.8 (12.27): 17.5** offline Grocery Lists (migration 0040) with the phone hardening and the "new version available" note; open: the owner's physical iPhone (Safari, Home Screen app) and Android checks. **Next:** no further product step is planned — 17.5 task 8 (more offline surfaces) only from real use. Owner checks: suggestions on a typical Italian or German bill. Task 7 (local AI) parked: the Unraid CPU cannot run a model. Not planned (owner, 2026-10-06): 2.6 external sign-in, 14.5 completion photos, 16.10–16.11 Mail. No further product step is planned after 16.9.
+**Released 2026-10-06 as v0.5.0-beta.6 (12.25): 16.9 text recognition and rule-based suggestions, tasks 1–6.** HT9 (Tesseract as WebAssembly, `tessdata_best` eng/deu/ita), HT10 (MuPDF) and P5 (owner: automatic on upload, Workspace switch by admins, existing files processed too) are settled in 16.12. Implemented: migration 0038, background queue, OCR and embedded-text extraction, search with snippets, Retry, Workspace switch, storage accounting, deletion, suggestions with Use / Add to notes / Remind me… / Dismiss, docs. **Released 2026-10-07 as v0.5.0-beta.7 (12.26): French OCR and 16.13** (view and correct recognised text, migration 0039). **Released 2026-10-07 as v0.5.0-beta.8 (12.27): 17.5** offline Grocery Lists (migration 0040) with the phone hardening and the "new version available" note; open: the owner's physical iPhone (Safari, Home Screen app) and Android checks. **Next:** the owner's real-phone checks of beta.8; then **19** (a calm, configurable Today — decisions T1–T5 accepted 2026-10-07; Bring / Transfer is a candidate, 19.5) and **18** (Workspace backup and restore — decisions B1–B6 accepted 2026-10-07), not yet implemented. 17.5 task 8 (more offline surfaces) only from real use. Owner checks: suggestions on a typical Italian or German bill. Task 7 (local AI) parked: the Unraid CPU cannot run a model. Not planned (owner, 2026-10-06): 2.6 external sign-in, 14.5 completion photos, 16.10–16.11 Mail. No further product step is planned after 16.9.
 
 **Released correction (2026-10-04): v0.5.0-beta.5** adds **Add to device contacts** on individual Contact pages; beta.4 only offered bulk export from the list. PR #17 merged as `240a1c9`; PR/main/tagged CI passed. Release: https://github.com/crimsonclyde/vergissmeinnicht/releases/tag/v0.5.0-beta.5. Container `ghcr.io/crimsonclyde/vergissmeinnicht:0.5.0-beta.5` inspected for amd64/arm64; no new migration after beta.4. Update the running installation to use the action; VMN cannot perform the phone’s native import itself. The owner confirmed successful Contact import on a physical iPhone on 2026-10-04; Android import remains unverified. No live Unraid deployment was performed by the agent.
 
@@ -2714,7 +2714,7 @@ PR #18 merged as `81d4134` after its second CI run (the first failed the scan ga
 
 **Navigation (decided):** the tools follow the existing focused tool-chooser design of section 15. Desktop sidebar: enabled tools are added below the existing ones. Phones keep exactly the **four** bottom destinations (Today, Procedures, Lists, More); Documents and the later tools are reached through **More** — no further bottom-bar destination. How several enabled tools are grouped in the sidebar and on More so that neither becomes a long list is an engineering choice (16.2). The Add chooser offers "Document — keep a scan, PDF or photo" when Documents is enabled and the role may create one. Existing addresses keep working; new ones are added to `router.test.ts`.
 
-**Today stays actionable:** Documents, Contacts, Equipment and Mail add **no** sections to Today. Planned maintenance, warranty expiry and servicing appear on Today only through ordinary Occurrences of the existing Schedules. No "new mail" or "recently added documents" block on Today.
+**Today stays actionable:** Documents, Contacts, Equipment and Mail add **no** sections to Today. Planned maintenance, warranty expiry and servicing appear on Today only through ordinary Occurrences of the existing Schedules. No "new mail" or "recently added documents" block on Today. *(Superseded for exactly one card by 19.0 T5, owner 2026-10-07: a compact **Maintenance due soon** card, shown only when planned maintenance is coming up — applies once 19.1 is implemented.)*
 
 **Permissions (decided for Documents and Contacts; Mail in 16.10):**
 - Access is **Workspace-wide**; there are no per-folder permissions.
@@ -3750,6 +3750,199 @@ Capture a small, reviewed set from the actual app using `test-env` fictional dem
 **Required checks:** airplane-mode browser tests; reload/restart persistence; online → offline → edit → reconnect; two-device/multi-user merge and same-record conflict cases; duplicate replay/idempotency; server rejection after role/member/tool changes; sign-out and user-switch isolation; quota/eviction tests that protect the outbox; service-worker/app-version migration with pending changes; Light/Dark, keyboard, screen reader and 320 px sync/conflict UI; physical iPhone and Android checks because PWA lifecycle/storage behaviour cannot be validated completely by desktop emulation.
 
 **Security impact (expected):** HIGH — authenticated Workspace data and unsynchronised mutations persist on end-user devices, and a new replay path reaches ordinary server mutations. Server-side authorisation remains mandatory on every replay; sensitive tools are excluded from offline storage until explicitly designed.
+
+---
+
+## 18 — Workspace backup and restore (planned 2026-10-07; owner decisions B1–B6 accepted 2026-10-07; not implemented)
+
+**Why:** a Workspace now holds a household's Procedures and their execution history, Schedules, Lists, Documents with their files and text, Contacts, Maintenance and Equipment. Today there are only two partial ways out: the **server backup** (`vergissmeinnicht backup` / `restore`, 9.x/12.x — the whole instance, all Workspaces, restorable only as a whole onto the same server and key) and **one-way exports** of single tools (Procedure JSON/archive 4.4, Documents ZIP 16.4, Contacts CSV/vCard 16.6) — none of them restores a Workspace. A portable **Workspace backup** fills the gap: one file per Workspace that can be restored into a new Workspace, on the same or another VMN server.
+
+**Relation to earlier decisions:** 16.12 settled "no export import" for the Documents ZIP as an engineering default; this section supersedes that **only** for the Workspace backup package defined here (the Documents ZIP stays one-way). It adds no automatic sending of backups anywhere and no cloud storage.
+
+### 18.0 Decisions and repository instructions
+**Status:** DECIDED (owner, 2026-10-07): the recommendations below are accepted; B3 as changed by the owner (email included).
+
+**Owner decisions (product, privacy, permissions):**
+- **B1 — Who may export:** **Workspace ADMIN only** — the package holds everything, including Contacts, all Documents and the full history. (GUESTs can already bulk-export Documents, 16.4; that stays separate.)
+- **B2 — Who may restore:** restoring creates a Workspace, which only **server admins** may do (`canCreateWorkspace`): server admins restore; the restoring admin becomes the new Workspace's only ADMIN, other members are re-invited.
+- **B3 — Members in the package (owner, 2026-10-07):** each member's **display name, role and email address** — intentionally, so the right people can be identified and re-invited after a restore. Accounts are **not** recreated automatically. **Never included:** passwords or password hashes, TOTP secrets, recovery codes, sessions, authentication/invitation/recovery tokens, personal notification credentials or secrets (Telegram chat links, notification settings), and personal Profile data such as Today preferences and weather locations (19.2, 19.4).
+- **B4 — Encryption of the package:** the file contains the most sensitive household data. Accepted: (a) a plain ZIP first, protected like the server's own backups (documented: it now also holds members' email addresses); (b) optional passphrase encryption with an established, reviewed format and library (e.g. *age* scrypt recipients — never self-made cryptography) as a follow-up step with its own review.
+- **B5 — History on restore:** restore Runs, their steps, reasons and audit history **as history of the original people**: actor display names and times are kept exactly; internal user ids of people who have no account on the target server become an explicit "imported person" marker — never the restoring admin, never silently another user.
+- **B6 — Assignments and notification settings:** restore assignee *names* as history but clear active assignments (assignment is per account), and do not carry personal reminder channels (email/Telegram settings are per account, not Workspace data).
+
+**Technical choices to settle while implementing (recorded in the step):** package layout and manifest schema; how imported actors are stored (nullable actor id + "imported" flag vs. placeholder rows); size limits (a Workspace can hold up to its storage limit, 5 GB by default — streaming in both directions, ZIP64); whether the server keeps the uploaded package in its data volume while restoring.
+
+**Repository instructions:** add the Workspace backup to `AGENTS.md` (scope list: "export import" allowed for exactly this package) and a checklist section to `security.md` before 18.1.
+
+### 18.1 Workspace backup package and export
+**Status:** PLANNED
+**Depends on:** 18.0.
+
+**Requirements:**
+- **One portable file** (`.vmnbackup`, a ZIP): `manifest.json` + one JSON document per record type + the original files of Documents (byte-identical, by content hash) + derived data that is expensive to regenerate (recognised text **and corrections**, 16.9/16.13). Previews and thumbnails are **not** included — they are regenerated after restore.
+- **Manifest:** format name and **schema version**, VMN version that wrote it, time, source Workspace name, counts per record type, and a **SHA-256 for every entry** (JSON documents and files). The manifest itself carries a hash over the entry list, so a missing, added or changed entry is detected.
+- **Content (where the tool exists in the Workspace):** Workspace name and **tool configuration** (which tools are on, text recognition on/off, own storage limit); Procedures with Sections, Steps and instruction images (pins are personal and not included); **Runs** with their snapshots, step states, reasons, device times and audit history; **Schedules** with recurrence, reminders (offsets) and **Occurrences** with their history; standalone **Reminders**; **Grocery Lists** with items and their change stamps (17.5); **Documents**: Folders, types, Documents, pages, files, tags, notes, Trash (decide: included, marked), recognised text and corrections; **Links** between records (16.5) and Document versions retained for Runs; **Contacts**; **Maintenance** records and **Equipment**; dismissed suggestions. **Members** per B3: display name, role and email address only.
+- **Never included:** passwords, password hashes, TOTP seeds and recovery codes, sessions, invitation and recovery tokens, **Knot tokens** (Knots are not restored), Telegram bot token and chat links, personal notification settings, personal Profile data (Today layout, weather location), email/notification delivery records, `AUTH_SECRET`, `DATA_ENCRYPTION_KEY`, any value sealed with it, server settings, other Workspaces. A test enumerates the schema's tables and fails when a new table is neither exported nor explicitly excluded with a reason.
+- **Consistent:** exported from one read transaction (SQLite snapshot) so relationships are coherent; files are streamed after it by hash (they are immutable).
+- **Manual download first:** Workspace settings → *Backup* → **Download backup** (shows size first; one running export per Workspace; audited `WORKSPACE_BACKUP_EXPORTED` with who, when, size and counts — never content).
+
+**Checks:** non-ADMIN refused (incl. GUEST), other Workspace not found, members' email addresses present and nothing else of their accounts, disabled tools' records still included or excluded consistently (decide: a switched-off tool keeps data, so it is included), secrets absent (search the package for every secret column and every token), table-coverage test, size streaming with a large Workspace, audit entry.
+
+### 18.2 Validation and restore into a new Workspace
+**Status:** PLANNED
+**Depends on:** 18.1.
+
+**Requirements:**
+- **Upload** (server admin per B2): the package is hostile input — streamed to a temporary file in the data volume with a size cap; ZIP read with limits (entry count, total uncompressed size, compression ratio, no absolute or `..` paths, no links, no duplicate names); strict JSON schemas per record type and schema version.
+- **Validate everything before writing anything:** manifest and every hash; schema version supported; every reference resolves inside the package; every value passes the same domain rules as an online change (names, lengths, dates, recurrence, quantities, enums); every file passes the 16.1 file checks again (signature, active content, limits) — a renamed executable stays refused. Result: either a **preview** (Workspace name, counts per type, size, VMN version of the source, warnings such as "3 people will be shown as imported", and the members' names, roles and email addresses to re-invite) or a **refusal with a specific, stable reason** (`corrupt`, `unsupported_version`, `newer_version`, `too_large`, `invalid_record`, `missing_file`, `hash_mismatch`).
+- **Restore = a new Workspace**, never a merge into an existing one, in **one transaction** for the database part (files are stored by hash first, outside the transaction, and counted against the new Workspace's storage limit); either everything is restored or nothing.
+- **Id remapping:** every record gets a **new** id; all references are rewritten through one mapping table, so a package can never address or overwrite records of other Workspaces (also when restored twice, or onto the server it came from). Original ids are not kept.
+- **Older packages:** each supported schema version has an upgrade function to the current one (tested with fixtures of every released version); **newer** packages are refused with "made by a newer VMN — update first".
+- **After restore:** previews are regenerated in the background (16.1 queue); recognised text is used as restored (no re-reading); Knots, members other than the restoring admin, and notification channels must be set up again — the summary says so. Audited `WORKSPACE_RESTORED` in the new Workspace (source name, VMN version, counts).
+
+**Checks:** every refusal reason with a crafted package (truncated ZIP, changed byte in a file, missing file, extra file, path traversal, zip bomb, oversized JSON, unknown enum, dangling reference, newer schema, older schema fixture); restore twice → two independent Workspaces; restore onto the source server leaves the source untouched; transaction failure leaves nothing; storage limit refusal; non-server-admin refused.
+
+### 18.3 Round-trip tests and documentation
+**Status:** PLANNED
+**Depends on:** 18.1, 18.2 (written alongside them).
+
+- **Export → restore → compare:** a test Workspace with every record type, every relationship (Links, retained Document versions, Run ↔ Occurrence, Contact ↔ Procedure, Maintenance ↔ Equipment), Trash, corrections and List change stamps is exported, restored and compared record by record after mapping ids (content, order, times, actors, history) and file by file (byte-identical originals, regenerated previews). Then the restored Workspace is exported again and the two packages' contents compared (except ids and times of export).
+- Upgrade fixtures: a package from each released version restores on the current one.
+- `docs/user/user-guide.md` (Workspace admins), `docs/admin/deployment.md` and `unraid.md` (how the Workspace backup differs from the server backup; keeping packages safe), `security.md` check.
+
+**Security impact (expected for section 18):** HIGH — a complete, portable copy of a Workspace's most sensitive data, and an import path that writes many record types from an uploaded, hostile file.
+
+### 18.4 (later) Scheduled Workspace backups
+**Status:** LATER — not planned in detail.
+Automatic Workspace backups on a schedule into the data volume (as the server backups), with retention; only after 18.1–18.3 have been used manually. No sending to external storage without a separate decision (outbound connections, credentials).
+
+---
+
+## 19 — A calm, configurable Today (planned 2026-10-07; owner decisions T1–T5 accepted 2026-10-07; not implemented)
+
+**Why:** Today answers *"What needs my attention now?"*, but the current page reads like a report: a **"Making progress"** card with four statistics and a sentence about Schedule time zones and the UTC Run week; **"Recently completed"** shown whenever anything was ever completed recently (up to ten); every Grocery List with its items under **"To buy"**; filter buttons, a lead sentence and an "Elsewhere" link list. On a phone the page grows long before the important part is clear.
+
+**Principle: simple by default, flexible when wanted.** Today feels like a personal home screen, not a report: numbers, icons, very short labels, compact rows and cards, useful whitespace. No explanatory paragraphs, no technical text, no unnecessary zeros, no empty cards, no large report-style statistic blocks; details live behind a disclosure or in the Profile. Each person chooses their own cards.
+
+**Visibility rule (owner, 2026-10-07):** a card is shown only when **the person enabled it in their Profile AND the Workspace tool it belongs to is on AND it has something to show**. Example: Grocery Lists off in the Workspace → no To buy card, whatever the Profile says; Lists on but the person switched the card off → hidden for that person only. Personal cards without a tool (Clock & date, Weather) depend only on the Profile (and, for Weather, on the server switch and a configured location).
+
+**Relation to earlier decisions:**
+- Replaces the presentation of **17.2** (progress statistics and recent completions stay available, but compact and optional — Progress is off by default); the 17.2 counting rules (no double counting, canonical states only) stay.
+- **Not analytics:** no charts, history reports, comparisons between members, streaks or scores (AGENTS scope). Historical statistics can live elsewhere later.
+- **Today cards in the Profile are personal presentation preferences, not "personal preferences for hiding tools"** (AGENTS): tools stay on or off per Workspace for everyone; a person only chooses which Today cards they see, and can never make a card of a switched-off tool appear.
+- **Supersedes "house-management tools add no sections to Today"** (16.0 cross-cutting requirements, 16.12, AGENTS) **for exactly one card: Maintenance due soon** (T5). Documents, Contacts and Equipment still add nothing to Today; planned maintenance with a Schedule still also appears as Occurrences.
+- **Weather** is personal (T4): a location in the person's Profile, entered by hand — no browser geolocation (AGENTS scope); the server fetches from one provider host fixed in the code (outside §14's user-chosen-host policy, like `api.telegram.org`, but with its own Security check).
+
+### 19.0 Decisions and repository instructions
+**Status:** DECIDED (owner, 2026-10-07) — repository instructions to be applied at the start of 19.1.
+
+**Owner decisions:**
+- **T1 — Default cards: accepted** as proposed in 19.1 (calm default layout). **Progress stays off by default.** Addition: a **Bring / Transfer** card as a *candidate* — see 19.5; it needs its own product decision before it exists.
+- **T2 — Recently completed: default retention 3 days**; choices Today only · 24 hours · 3 days · 7 days · Off. The card disappears entirely when nothing was completed in the chosen window.
+- **T3 — Today is configured in the person's Profile** (Profile & settings → Today): which cards they see, their order, density. One layout per person, applied in every Workspace; visibility follows the rule above. Saved layouts must keep working when later versions add cards (19.2).
+- **T4 — Weather: accepted, optional and personal.** Each person may set **their own** weather location in their Profile (place name or coordinates; no browser geolocation). No location → no weather card; Weather switched off in the Today preferences → no weather card. The server fetches and caches, so phones never contact the provider. Very small: icon, today's temperature, short condition, high/low if useful, tomorrow as a tiny second line.
+- **Clock & date: accepted** as an optional card in the Profile — meant mainly to make Today a pleasant home screen on a desktop browser, wall tablet or laptop; off by default.
+- **T5 — Maintenance due soon: accepted.** A compact card, shown only when relevant planned Maintenance is coming up; never an empty Maintenance section.
+
+**Repository instructions (applied at the start of 19.1, with the owner's approval of the wording):**
+- `AGENTS.md`, product objective / house management: replace "these tools add no sections to it" by "these tools add no sections to it, except the compact **Maintenance due soon** card (steps.md 19, T5)".
+- `AGENTS.md`, UI/UX: "Today cards are personal presentation preferences in the Profile (card visible = enabled by the person AND its tool on in the Workspace); they are not tool hiding — there are still no personal preferences for hiding tools."
+- `AGENTS.md`, scope: weather allowed exactly as 19.4 (optional, personal Profile location, manual only, server-side fetch from one fixed provider, server-admin switch); geolocation stays excluded.
+- `steps.md` 16.0 "Today stays actionable": add the supersession note for the Maintenance card.
+- `security.md`: preference validation (19.2), per-person location data and the weather Security check (19.4).
+
+### 19.1 Today as cards: default layout, empty state, compact content
+**Status:** PLANNED
+**Depends on:** 19.0.
+
+**Card model.** Today is a list of **cards** from a fixed registry. Each registry entry has: a stable id, the **tool(s) it needs** (none for personal cards), its default visibility and position, its options schema, and a title of one or two words with an icon. A card has a **count** where it has one, at most a few rows, and one primary action. A card with nothing to show is **not rendered** (no empty headings, no zeros). Cards are fed by the existing Today/home queries plus one bounded query per new card, under the same membership, capability, tool and filter checks as 17.2; a card of a switched-off tool is never queried.
+
+**Initial cards:**
+
+| Card | Needs tool | Shows | Default |
+|---|---|---|---|
+| **Needs attention** | Reminders or Procedures | Overdue + due today together: count badge, up to 5 rows (title, due time or "overdue since", one action: Start / Complete / Continue); "+N more" leads to Reminders/Calendar | on |
+| **Continue** | Procedures | Active Runs: title, "3 / 8", Continue | on |
+| **Next up** | Reminders or Procedures | The next 1–3 items within 7 days: title + relative time | on |
+| **To buy** | Lists | One card for all Lists: list name + open count per row (up to 3 lists, configurable 1–10); tap opens the List; expands to items on request; hidden when every List is empty | on |
+| **Recently completed** | Reminders or Procedures | Completions within the retention (default **3 days**), up to 5, title + time; hidden when empty | on |
+| **Maintenance due soon** | Maintenance | Planned or In-progress MaintenanceRecords with a date from today up to **14 days** ahead (and Planned ones whose date has passed), up to 3 rows: title, date, Equipment name if linked; tap opens the record; read-only; hidden when none | on |
+| **Progress** | Reminders or Procedures | Two or three numbers in one row (done today, this week, active), one-word labels; the time-zone note behind a details disclosure | off |
+| **Clock & date** | — (personal) | Large time, weekday and date (19.3) | off |
+| **Weather** | — (personal; server switch + Profile location) | Today, tomorrow as a tiny line (19.4) | off |
+| **Calendar** | Calendar | Next calendar items as a compact agenda | off |
+| *(candidate)* **Bring** | to be decided (19.5) | Pending things to bring, compact | — |
+
+The **All / Assigned to me / Shared** filter stays, as a compact segmented control at the top, only when assignment is in use. The lead sentence and the "Elsewhere" link list are removed (navigation already leads there); the time-zone sentence moves into Progress's details. A small **Customize** link at the bottom of Today leads to the Profile.
+
+**Default layout (no preferences saved):**
+1. *(only when enabled)* Clock & date and Weather as one slim **glance** row.
+2. **Needs attention** — or, when nothing needs attention, a single calm line **"Nothing needs attention right now"** with a check mark.
+3. **Continue** (only with active Runs).
+4. **Next up**.
+5. **To buy** (only when a List has open items).
+6. **Maintenance due soon** (only when something is coming up).
+7. **Recently completed** (only when something was completed in the last 3 days).
+
+**Quiet day:** with nothing due, overdue or active, Today is just: the glance row (if enabled), "Nothing needs attention right now", the next item if there is one, and To buy / Maintenance only if they have something. No statistic cards, no empty sections.
+
+**Phone (≤ 600 px):** one column in the person's order; every card full width; counts as badges next to the title; at most 3–5 rows per card with "+N more"; touch targets ≥ 44 × 44 px; nothing scrolls sideways from 320 px; the glance row is one line (time · date · weather icon + temperature). No four-column statistic tables.
+
+**Desktop, laptop, wall tablet:** a two-column grid — main column for Needs attention, Continue, Next up; a narrower side column for the glance (Clock & date larger here: the "home screen" feel), To buy, Maintenance, Recently completed, Progress — collapsing to one column on narrow windows. Keyboard and screen-reader order follow the visual order (main column first). Wide cards (19.2) span both columns.
+
+**Light and Dark:** only semantic tokens; identical layout and hierarchy in both; badges and icons never carry meaning by colour alone (overdue keeps its text label and glyph); the contrast test (`apps/web/src/contrast.test.ts`) gains the card, badge and glance tokens; weather icons are monochrome in the text colour.
+
+**Checks:** each card hidden when empty; the visibility rule for every card (Profile on/off × tool on/off); quiet day; filter scope per card; Maintenance card: only `maintenance.view` holders (all roles, P3), only within the window, Cancelled/Completed never shown, other Workspaces never; offline Today (saved active Runs, 8.5) still shown; 320/390 px, keyboard order, screen reader (counts read with their label), Light/Dark, axe.
+
+### 19.2 Today in the Profile: personal layout and preferences
+**Status:** PLANNED
+**Depends on:** 19.1.
+
+- **Where:** Profile & settings → **Today** (and the Customize link on Today). Per card: on/off, Move up / Move down (keyboard and touch; no drag-only interaction), size Normal/Wide where sensible (desktop only; phones ignore it), the card's options (To buy: lists shown 1–10; Recently completed: retention; Weather: location, °C/°F, tomorrow on/off; Clock: 24 h); plus **Compact / Comfortable** density and **Reset to default**. Cards of tools that are off in the current Workspace are listed with a short note ("Not used in this Workspace") so the setting is understood but cannot make them appear. Changes apply immediately and are saved; nothing claims autosave that does not exist.
+- **Storage:** per user on the server, beside the account preferences (`user_preferences`, 8.7): a table `user_today_layouts (user_id PK → users, layout JSON, version, updated_at)`. The JSON is bounded and strictly validated: `{ version, density, cards: [{ id, visible, size?, options? }] }`; `id` from the registry, each at most once; options per card from a fixed schema; no free text except the weather place name (bounded, plain text). Read and written only for the signed-in user; kept on the device for offline use with the account context (8.5 store) and deleted on sign-out.
+- **Future cards without breaking saved layouts:** a saved layout stores the person's choices, the **registry decides the rest**. Reading = registry order and defaults, overridden by the saved entries: saved cards keep their saved position and visibility; registry cards missing from the saved layout (added by a later version) are inserted at their registry position with their registry default; saved ids the registry no longer knows are ignored (kept in storage until the next save, never an error); options that no longer validate fall back to the card's defaults. `version` allows an explicit migration if a card's options ever change shape. Tested with layouts saved by every earlier version.
+- **Recently completed retention:** **3 days** by default; Today only (since local midnight in the viewer's time zone) · 24 hours · 3 days · 7 days · Off. The server receives the window as a validated start time, returns at most 5 entries, and the card disappears when there are none. Undo/reopen removes entries (17.2 rules).
+
+**Checks:** strict schema on write (unknown fields, duplicates, too many cards, invalid options refused), tolerant read (unknown and missing ids, layouts from older versions), another user's layout unreachable, reset, retention boundaries (local midnight, DST day), visibility rule with tools switched on and off, offline (saved layout used), sign-out removes it from the device.
+
+### 19.3 Clock and date card
+**Status:** PLANNED
+**Depends on:** 19.2.
+
+- Pure client feature, no server data: large time (hours:minutes, updated each minute, no seconds), weekday and date below, in the browser's locale and time zone (12/24 h from the locale; option to force 24 h). No explanatory text.
+- Meant mainly for desktop browsers, laptops and wall tablets (the "home screen" feel); on phones it shrinks into the one-line glance row.
+- Accessibility: not a live region (no announcement every minute); a `<time>` element with a full label.
+- Off by default; switched on and off in the Profile like every card.
+
+### 19.4 Weather card (personal)
+**Status:** PLANNED — accepted (T4).
+**Depends on:** 19.2.
+
+**Design (revised 2026-10-07: per-person Profile location instead of a Workspace location):**
+- **Location per person, in the Profile:** a place name chosen from a search (the server looks the name up once, on an explicit action) or coordinates entered directly. Stored with the person's Today preferences, **rounded to 2 decimals (≈ 1 km)** — all a forecast needs — plus the chosen place name for display. Visible only to that person; never part of a Workspace, never shown to other members, never in a Workspace backup (18). No location → no Weather card. No browser geolocation.
+- **Provider (investigation 2026-10-07, revised for per-person place search):** *Open-Meteo* (api.open-meteo.com and its geocoding API): free for **non-commercial** use (a self-hosted household instance), no API key, CC BY 4.0 attribution, open source and self-hostable, **forecast and place search from one provider** — so one fixed host family, one adapter, one Security check. Alternatives documented: *MET Norway Locationforecast 2.0* (free, global, CC BY 4.0, no key, identifying User-Agent and caching required — but no place search, so a second provider would be needed for names); *Bright Sky* (Germany only); key-based commercial APIs not recommended (account + stored secret). **Recommendation: Open-Meteo**; the adapter is a port, so the provider can be swapped.
+- **Who connects:** the **server**, never the browser — phones of the household do not contact the provider. Hosts fixed in the code; HTTPS with certificate verification, no redirects, timeouts, response size caps, strict parsing of a few fields, values treated as untrusted.
+- **Server switch:** a server-admin setting "Weather" (on/off). Engineering default **on**, because nothing is sent until a person enters a location themselves; the owner may prefer default off — noted for review with 19.4.
+- **Privacy:** the provider learns the server's IP address and the rounded coordinates of locations people configured (and typed place names when searching) — not who looks at Today. Said next to the location field and in the user and admin docs.
+- **Caching:** server-side per rounded location (shared by everyone who chose the same ~1 km cell, which reveals nothing — only weather is returned), 30–60 minutes or the provider's expiry; at most one request per location per period; backoff after failures; entries for locations nobody uses any more expire.
+- **Offline / unavailable:** the browser keeps the last forecast with its time; older than about 6 hours, or the provider failing → the card shows nothing (or a dash). Today never waits for weather and never shows an error banner for it.
+- **Display:** monochrome icon from the app's own icon set (mapped from the provider's weather code — no remote images), today's temperature, a one- or two-word condition, high/low; tomorrow as a tiny second line (optional). Attribution in the card's details. °C/°F from the locale, switchable.
+
+**Checks:** server switch off → card not offered, no request ever (network blocked in the test); no location → no card and no request; provider timeout, 5xx, malformed and oversized answers → card hidden, Today unaffected; coordinates rounded before storage and before sending; another person's location unreachable and absent from every Workspace response; cache bounded; Light/Dark icons; offline.
+
+### 19.5 (candidate) Bring / Transfer
+**Status:** CANDIDATE — needs its own product decision (BT1–BT3 below) before it is planned in detail. Not part of 19.1–19.4.
+
+**Need (owner, 2026-10-07):** remembering physical things to take from one place to another — Germany → Italy, one flat → another, home → car, house → cantina. Lightweight and actionable ("Bring drill to Casa Nostra", from Germany, to Triora, optional due date, optional responsible person, done / not done); **not** an inventory or logistics system (no stock, no locations of things, no history of where something is).
+
+**Models considered:**
+1. **A special Reminder / task type** (a Schedule with one Occurrence plus "from" and "to"): reuses due dates, assignment, Today and notifications — but one notified obligation per object is heavy, clutters Reminders and Calendar, and "pack 6 things for the trip" becomes 6 reminders. Not recommended.
+2. **A standalone tool** with its own records (item, from, to, due, responsible, done): most flexible, but a new tool, new tables, new permissions, new screens and new offline work for a small need. Not recommended as a first step.
+3. **A second List kind: "Bring" (recommended).** Lists already have a `kind` seam (15.3: "the first and so far only kind is the grocery list"). A *Bring list* is one trip or route: **from** and **to** (free-text place names with suggestions from earlier Bring lists — no managed place records), an **optional due date** (when the trip is) and an **optional responsible person** (a member, as for Schedules: assignment grants no access); its items are the things to bring, ticked when brought. It inherits everything Lists have: shared in the Workspace, GUEST read-only, Undo, conflicts, **offline use (17.5)** — which matters on the road. A single thing is a one-item Bring list. Today shows a compact **Bring** card: Bring lists with open items whose due date is within 7 days (or that have none), "Germany → Triora · 3 to bring · Sat".
+
+**Owner decisions needed:** **BT1** — accept the model (List kind "Bring"), which supersedes AGENTS' "list types beyond the accepted grocery list" and 15.3 for exactly this kind; **BT2** — whether a Bring list may notify (recommended: no — the due date is shown, reminders stay Schedules' job; a person who wants a reminder creates one); **BT3** — whether the Bring card belongs to the Lists tool switch (recommended: yes, no separate tool).
+
+**Security impact (expected for section 19):** LOW for 19.1–19.3 (presentation and a validated per-user preference; one new read-only Maintenance query under existing permissions); MEDIUM for 19.4 (a new outbound connection and stored personal location data); 19.5 to be assessed with its decision.
 
 ---
 
