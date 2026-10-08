@@ -116,7 +116,7 @@ describe('MET Norway', () => {
     const answer = await provider.forecast({ ...TRIORA, latitude: 43.99, elevation: 780 });
     expect(seen[0]?.url.origin + (seen[0]?.url.pathname ?? '')).toBe('https://api.met.no/weatherapi/locationforecast/2.0/compact');
     expect(Object.fromEntries(seen[0]?.url.searchParams ?? [])).toEqual({ lat: '43.99', lon: '7.77', altitude: '780' });
-    expect((seen[0]?.init?.headers as Record<string, string>)['user-agent']).toBe('VergissMeinNicht (+https://github.com/crimsonclyde/vergissmeinnicht; weather@example.org)');
+    expect((seen[0]?.init?.headers as Record<string, string>)['user-agent']).toBe('VergissMeinNicht/development (+https://github.com/crimsonclyde/vergissmeinnicht; weather@example.org)');
     expect(seen[0]?.init).toMatchObject({ redirect: 'error' });
     if (answer.kind !== 'forecast') throw new Error('expected a forecast');
     expect(answer.expiresAt?.toISOString()).toBe('2026-10-08T08:55:53.000Z');
@@ -159,6 +159,7 @@ describe('MET Norway', () => {
   });
 
   it('names the project without a contact when the server admin set none', () => {
-    expect(metUserAgent(null)).toBe('VergissMeinNicht (+https://github.com/crimsonclyde/vergissmeinnicht)');
+    expect(metUserAgent(null)).toBe('VergissMeinNicht/development (+https://github.com/crimsonclyde/vergissmeinnicht)');
+    expect(metUserAgent('a@example.org', '0.6.0-beta.3')).toBe('VergissMeinNicht/0.6.0-beta.3 (+https://github.com/crimsonclyde/vergissmeinnicht; a@example.org)');
   });
 });

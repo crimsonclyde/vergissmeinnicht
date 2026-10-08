@@ -17,6 +17,7 @@ describe('parseRoute', () => {
     expect(parseRoute(paths.procedures(W))).toEqual({ page: 'procedures', workspaceId: W, procedureId: null });
     expect(parseRoute(paths.procedure(W, R))).toEqual({ page: 'procedures', workspaceId: W, procedureId: R });
     expect(parseRoute(paths.knots(W))).toEqual({ page: 'knots', workspaceId: W });
+    expect(parseRoute(paths.backup(W))).toEqual({ page: 'backup', workspaceId: W });
     expect(parseRoute('/knot/abc_DEF-123')).toEqual({ page: 'knot', token: 'abc_DEF-123' });
     expect(parseRoute(paths.members(W))).toEqual({ page: 'members', workspaceId: W });
     expect(parseRoute('/invite/abc_DEF-123')).toEqual({ page: 'invite', token: 'abc_DEF-123' });

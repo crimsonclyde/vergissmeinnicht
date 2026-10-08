@@ -299,6 +299,21 @@ export interface Comparison {
   readonly reason?: string;
 }
 
+/** A Workspace backup job (section 18a) — status only. */
+export interface BackupJob {
+  readonly id: string;
+  readonly state: 'QUEUED' | 'RUNNING' | 'READY' | 'FAILED' | 'CANCELLED' | 'EXPIRED';
+  readonly phase: string | null;
+  readonly progressDone: number;
+  readonly progressTotal: number;
+  readonly sizeBytes: number | null;
+  readonly counts: Readonly<Record<string, number>> | null;
+  readonly errorCode: string | null;
+  readonly createdAt: string;
+  readonly finishedAt: string | null;
+  readonly expiresAt: string | null;
+}
+
 export interface ServerWeather {
   readonly enabled: boolean;
   readonly allowed: readonly WeatherProviderId[];
@@ -1112,6 +1127,11 @@ export const api = {
   weatherModels: async (location: WeatherLocation) => (await request<{ models: ModelChoice[] }>('POST', '/account/weather/models', { location })).models,
   /** `days`: Today asks for 2; the Weather page for everything the provider offers. */
   myForecast: (days?: number) => request<MyForecast>('GET', `/account/weather/forecast${days === undefined ? '' : `?days=${days}`}`),
+  workspaceBackups: async (workspaceId: string) => (await request<{ jobs: BackupJob[] }>('GET', `/workspaces/${encodeURIComponent(workspaceId)}/backups`)).jobs,
+  createWorkspaceBackup: async (workspaceId: string) => (await request<{ job: BackupJob }>('POST', `/workspaces/${encodeURIComponent(workspaceId)}/backups`, {})).job,
+  cancelWorkspaceBackup: async (workspaceId: string, jobId: string) => (await request<{ job: BackupJob }>('POST', `/workspaces/${encodeURIComponent(workspaceId)}/backups/${encodeURIComponent(jobId)}/cancel`, {})).job,
+  /** A plain link: the browser downloads it with the session cookie; it works for nobody else. */
+  workspaceBackupDownloadUrl: (workspaceId: string, jobId: string) => `/api/workspaces/${encodeURIComponent(workspaceId)}/backups/${encodeURIComponent(jobId)}/download`,
   /** Compare sources for the person's place; paid sources are fetched only with `fetchPaid` (19.4c). */
   compareForecasts: (sources: readonly { provider: WeatherProviderId; model?: OpenMeteoModelId }[], fetchPaid: boolean) => request<Comparison>('POST', '/account/weather/compare', { sources, fetchPaid }),
   savePersonalCredential: async (provider: CredentialProviderId, credential: WeatherCredential | undefined, dailyBudget: number) =>

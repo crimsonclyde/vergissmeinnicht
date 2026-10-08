@@ -81,6 +81,7 @@ describe('Workspace role policy', () => {
     expect(rolesWithCapability('maintenance.view')).toEqual(['GUEST', 'USER', 'EDITOR', 'ADMIN']);
     expect(rolesWithCapability('maintenance.manage')).toEqual(['USER', 'EDITOR', 'ADMIN']);
     expect(rolesWithCapability('maintenance.purge')).toEqual(['ADMIN']);
+    expect(rolesWithCapability('workspace.backup')).toEqual(['ADMIN']);
     expect(rolesWithCapability('workspace.settings.manage')).toEqual(['ADMIN']); // also: the Workspace's storage limit
   });
 

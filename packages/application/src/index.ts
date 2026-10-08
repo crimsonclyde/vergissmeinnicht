@@ -63,3 +63,5 @@ export * from './ports/equipment-repository.ts';
 export * from './equipment/use-cases.ts';
 export * from './ports/weather.ts';
 export * from './weather/use-cases.ts';
+export * from './ports/workspace-backup.ts';
+export * from './workspace-backup/use-cases.ts';

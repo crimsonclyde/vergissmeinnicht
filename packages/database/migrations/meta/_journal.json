@@ -309,6 +309,13 @@
       "when": 1791451123371,
       "tag": "0043_weather_credentials",
       "breakpoints": true
+    },
+    {
+      "idx": 44,
+      "version": "6",
+      "when": 1791461753182,
+      "tag": "0044_workspace_backup_jobs",
+      "breakpoints": true
     }
   ]
 }

@@ -266,6 +266,7 @@ Never commit or log:
 - Knot tokens;
 - notification provider credentials (Telegram bot token) and Telegram pairing tokens;
 - weather provider credentials (OpenWeather API keys, Meteomatics usernames and passwords — 19.4b), server-wide and personal;
+- Workspace backup packages (section 18): never logged, never served statically, deleted 24 h after completion;
 - Mailbox credentials (IMAP/SMTP passwords and app passwords, later OAuth tokens — 16.10);
 - contents of Documents, extracted text, mail bodies and attachment contents (section 16: never in logs, audit metadata or error payloads);
 - encryption keys;
@@ -972,6 +973,22 @@ Today counts and activity execute within a transaction that rechecks active memb
   - `POST /api/account/weather/compare` acts only for the signed-in person; sources are validated (known provider, known model, Open-Meteo only for models, no duplicates, at most 8); credential providers only through the same resolution as Today (own credential, else the server's when shared) and the same cache scope — a person never receives another person's credential-scoped result (tested). Per-account rate limit 20 / 15 min; 404 while weather is off.
   - **No unnoticed paid use:** paid sources are answered from the cache unless the request carries `fetchPaid` (sent only by an explicit button that states the number of paid requests); budgets are consumed before any request and count every query; refusals never bypass the budget. No polling.
   - Each source is fetched independently; a provider failure becomes a stable reason in that source's entry.
+
+### Workspace backup and restore (section 18; checklist written 2026-10-08 before 18a)
+
+**Security surface: HIGH** — a complete, portable copy of a Workspace's most sensitive data, and (18b) an import path writing many record types from an uploaded, hostile file.
+
+Checklist (ticked as the stages implement it):
+- [x] **Export permission:** Workspace ADMIN only (`workspace.backup`), re-checked when the job starts and on every download; GUEST, USER, EDITOR refused; another Workspace's id → not found.
+- [x] **Explicit allowlist:** every table of the schema is classified as exported (with its row filter and transformed columns) or excluded with a reason; a test fails on any unclassified table. Never exported: password hashes, sessions, accounts, verification values, TOTP seeds, recovery codes, MFA challenges, account recoveries, invitations, Knots and their tokens, security events, rate limits, notification settings/providers/deliveries, Telegram links and pairings, Procedure pins, Today layouts, weather settings and credentials, instance and server weather settings, offline-sync bookkeeping, `AUTH_SECRET`, `DATA_ENCRYPTION_KEY`, any sealed value, other Workspaces.
+- [x] **No server-specific identities:** user ids are replaced by package-local person references; members appear as display name, role and email only (B3); the Workspace's own id is replaced by `@workspace` everywhere (also inside audit metadata). Tested by searching the whole package for every user id and the Workspace id.
+- [x] **Consistency:** records from one read transaction; files hard-linked (or copied) into a private staging folder inside that snapshot, so a permanent deletion during a long export cannot break it; every file re-hashed while it is written into the package.
+- [x] **Integrity, not authenticity:** SHA-256 per entry and over the entry list — detects corruption and truncation, proves nothing about origin; every package is validated as hostile input on restore (18b).
+- [x] **Temporary files:** `0700` directory / `0600` files in the data volume, never served statically; deleted 24 h after completion, on cancel, on failure and after an interrupted job (server restart).
+- [x] **Download:** only through the signed-in route (session + ADMIN re-check), `Cache-Control: no-store`, `Content-Disposition: attachment`, no standalone link or token; audited (`WORKSPACE_BACKUP_EXPORTED`, `WORKSPACE_BACKUP_DOWNLOADED` — who, when, size, counts; never content).
+- [x] **Resources:** streaming in both directions, ZIP64, bounded memory, free-space check before writing, one running export per Workspace, per-account rate limit.
+*18a implemented 2026-10-08 — evidence: `apps/server/src/http/workspace-backup.test.ts`, `packages/database/src/workspace-backup-tables.test.ts`, e2e Backup step.*
+- [ ] **Restore (18b):** server admins only; ZIP limits (entry names from a fixed pattern, counts, sizes, compression ratio, no links), every hash, schema level, domain rules per record, references inside the package only, 16.1 file checks; new ids for everything; one database transaction; files byte-identical; historical identities without sign-in, notifications or memberships; Schedules paused; source Workspace untouched.
 
 ### Release stabilization and faster validation (2026-10-04)
 

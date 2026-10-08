@@ -72,6 +72,8 @@ export const WORKSPACE_CAPABILITIES = [
   'equipment.purge',
   /** Switch the optional tools of the Workspace (Documents, …) on and off (16.2). */
   'workspace.tools.manage',
+  // Section 18 (B1): the Workspace backup holds everything — ADMIN only.
+  'workspace.backup',
 ] as const;
 export type WorkspaceCapability = (typeof WORKSPACE_CAPABILITIES)[number];
 
@@ -82,7 +84,7 @@ const USER: readonly WorkspaceCapability[] = [...GUEST, 'workspace.members.view'
 /** Authors Procedures. */
 const EDITOR: readonly WorkspaceCapability[] = [...USER, 'procedure.edit', 'procedure.restore', 'knot.manage'];
 /** Manages membership, roles and settings. */
-const ADMIN: readonly WorkspaceCapability[] = [...EDITOR, 'workspace.members.manage', 'workspace.settings.manage', 'workspace.tools.manage', 'document.purge', 'run.document.remove', 'contact.purge', 'maintenance.purge', 'equipment.purge'];
+const ADMIN: readonly WorkspaceCapability[] = [...EDITOR, 'workspace.members.manage', 'workspace.settings.manage', 'workspace.tools.manage', 'document.purge', 'run.document.remove', 'contact.purge', 'maintenance.purge', 'equipment.purge', 'workspace.backup'];
 
 const ROLE_CAPABILITIES: Readonly<Record<WorkspaceRole, ReadonlySet<WorkspaceCapability>>> = Object.freeze({
   GUEST: new Set(GUEST),

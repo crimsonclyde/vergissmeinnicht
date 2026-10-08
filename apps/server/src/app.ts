@@ -9,6 +9,7 @@ import { adminAccountRoutes, adminSecurityEventRoutes, adminSettingsRoutes } fro
 import { accountRoutes } from './http/account-routes.ts';
 import { authRoutes } from './http/auth-routes.ts';
 import { errorHandler } from './http/errors.ts';
+import { workspaceBackupRoutes } from './http/workspace-backup-routes.ts';
 import { accountWeatherCredentialRoutes, accountWeatherRoutes, adminWeatherCredentialRoutes, adminWeatherRoutes } from './http/weather-routes.ts';
 import { calendarRoutes, homeRoutes } from './http/home-routes.ts';
 import { documentFileRoutes } from './http/document-file-routes.ts';
@@ -208,6 +209,7 @@ export async function buildApp(options: AppOptions = {}) {
         await api.register(equipmentRoutes, { prefix: '/workspaces/:workspaceId', services });
         await api.register(maintenanceRoutes, { prefix: '/workspaces/:workspaceId', services });
         await api.register(workspaceToolRoutes, { prefix: '/workspaces/:workspaceId/tools', services });
+        await api.register(workspaceBackupRoutes, { prefix: '/workspaces/:workspaceId/backups', services });
         await api.register(documentFileRoutes, { prefix: '/workspaces/:workspaceId/document-files', services });
         await api.register(textRecognitionRoutes, { prefix: '/workspaces/:workspaceId/text-recognition', services });
         await api.register(documentFolderRoutes, { prefix: '/workspaces/:workspaceId/document-folders', services });

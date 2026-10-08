@@ -178,7 +178,10 @@ describe('security properties of every route (13.2)', () => {
     const link = (await t.post(`/api/workspaces/${home}/documents/${document.id}/links`, { target: { type: 'procedure', id: procedure.id } }, owner)).json().link;
     const runDocument = (await t.post(`/api/workspaces/${home}/runs/${run.id}/documents`, { documentId: document.id }, owner)).json().document;
     const equipment=(await t.post(`/api/workspaces/${home}/equipment`,{name:'Boiler'},owner)).json().record;
+    // A Workspace backup job (section 18a), so its routes are reached with a real id.
+    const backupJob = (await t.post(`/api/workspaces/${home}/backups`, {}, owner)).json().job;
     homeIds = {
+      jobId: backupJob.id,
       equipmentId:equipment.id,
       maintenanceId:record.id,
       workspaceId: home,

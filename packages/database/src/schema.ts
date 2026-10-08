@@ -832,6 +832,47 @@ export const userWeatherSettings = sqliteTable(
 );
 
 /**
+ * Workspace backup jobs (section 18): an export of one Workspace (18a) or — from 18b — the validation and
+ * restore of an uploaded package. The package itself lives in a private folder of the data volume
+ * (`workspace-backups/<id>/`), never in the database; `expires_at` says when it is deleted.
+ */
+export const workspaceBackupJobs = sqliteTable(
+  'workspace_backup_jobs',
+  {
+    id: text('id').primaryKey(),
+    kind: text('kind', { enum: ['EXPORT', 'RESTORE'] }).notNull(),
+    /** EXPORT: the Workspace exported. RESTORE: the Workspace created, once restored. */
+    workspaceId: text('workspace_id').references(() => workspaces.id),
+    state: text('state', { enum: ['QUEUED', 'RUNNING', 'READY', 'FAILED', 'CANCELLED', 'EXPIRED'] }).notNull(),
+    requestedByUserId: text('requested_by_user_id')
+      .notNull()
+      .references(() => users.id),
+    /** What is being done now (e.g. `snapshot`, `archive`) and how far: bytes or records, as the phase says. */
+    phase: text('phase'),
+    progressDone: integer('progress_done').notNull(),
+    progressTotal: integer('progress_total').notNull(),
+    cancelRequested: integer('cancel_requested', { mode: 'boolean' }).notNull(),
+    sizeBytes: integer('size_bytes'),
+    /** Counts per record type (JSON object), for the person and the audit entry — never content. */
+    counts: text('counts'),
+    errorCode: text('error_code'),
+    leaseUntil: integer('lease_until', { mode: 'timestamp_ms' }),
+    createdAt: integer('created_at', { mode: 'timestamp_ms' }).notNull(),
+    startedAt: integer('started_at', { mode: 'timestamp_ms' }),
+    finishedAt: integer('finished_at', { mode: 'timestamp_ms' }),
+    expiresAt: integer('expires_at', { mode: 'timestamp_ms' }),
+  },
+  (table) => [
+    // One running export per Workspace (D3).
+    uniqueIndex('workspace_backup_jobs_one_export').on(table.workspaceId).where(sql`${table.kind} = 'EXPORT' and ${table.state} in ('QUEUED', 'RUNNING')`),
+    index('workspace_backup_jobs_workspace_idx').on(table.workspaceId, table.createdAt),
+    check('workspace_backup_jobs_export_has_workspace', sql`${table.kind} <> 'EXPORT' or ${table.workspaceId} is not null`),
+    check('workspace_backup_jobs_progress_valid', sql`${table.progressDone} >= 0 and ${table.progressTotal} >= 0`),
+    check('workspace_backup_jobs_bounded', sql`(${table.counts} is null or (json_valid(${table.counts}) and length(${table.counts}) <= 4096)) and (${table.errorCode} is null or length(${table.errorCode}) <= 64) and (${table.phase} is null or length(${table.phase}) <= 32)`),
+  ],
+);
+
+/**
  * Weather provider credentials (19.4b): server-wide (server admins) or one person's own. The secret is
  * sealed (AES-256-GCM, owner and provider bound in as associated data); everything else is status.
  */

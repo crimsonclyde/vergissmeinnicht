@@ -56,6 +56,12 @@ const recognizer = built?.recognizer;
 recognizer?.wake();
 const recognitionTimer = recognizer === undefined ? undefined : setInterval(() => recognizer.wake(), TEXT_POLL_MS);
 recognitionTimer?.unref();
+// Workspace backups (section 18): queued jobs run in the background; on start, jobs a stop interrupted are
+// marked failed and their files removed; every minute expired packages are deleted.
+const backupRunner = built?.backupRunner;
+void backupRunner?.wake();
+const backupTimer = backupRunner === undefined ? undefined : setInterval(() => void backupRunner.wake(), 60_000);
+backupTimer?.unref();
 // Reminders of scheduled Procedures and Telegram pairing (13.5, 13.7), within this process.
 const stopReminders = built === undefined ? () => undefined : scheduleReminders(built, app.log);
 app.addHook('onClose', async () => {
@@ -63,6 +69,7 @@ app.addHook('onClose', async () => {
   stopBackups();
   stopReminders();
   clearInterval(recognitionTimer);
+  clearInterval(backupTimer);
   database.close();
 });
 

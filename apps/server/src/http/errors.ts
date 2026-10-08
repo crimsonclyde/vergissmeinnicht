@@ -93,6 +93,8 @@ import {
   TotpAlreadyEnabledError,
   TotpLockedError,
   TotpNotEnabledError,
+  BackupAlreadyRunningError,
+  BackupNotFoundError,
   WeatherOffError,
   WeatherProviderError,
 } from '@vergissmeinnicht/application';
@@ -177,6 +179,9 @@ export function errorHandler(error: FastifyError | Error, request: FastifyReques
   if (error instanceof KnotAlreadyRevokedError) return reply.code(409).send({ error: 'knot_already_revoked' });
   if (error instanceof KnotTargetNotFoundError) return reply.code(404).send({ error: 'knot_target_not_found' });
   if (error instanceof KnotLimitReachedError) return reply.code(409).send({ error: 'knot_limit_reached' });
+  // Workspace backup (section 18).
+  if (error instanceof BackupAlreadyRunningError) return reply.code(409).send({ error: 'backup_running' });
+  if (error instanceof BackupNotFoundError) return reply.code(404).send({ error: 'backup_not_found' });
   // Weather (19.4): switched off on this server — like an unknown resource; a provider failure — its stable reason only.
   if (error instanceof WeatherOffError) return reply.code(404).send({ error: 'weather_off' });
   if (error instanceof WeatherProviderError) {

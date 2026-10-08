@@ -1,3 +1,4 @@
+import { dirname, join } from 'node:path';
 import {
   emailReminderNotifier,
   systemClock,
@@ -19,6 +20,8 @@ import {
   type PreferencesDeps,
   type TodayLayoutDeps,
   type WeatherDeps,
+  type WorkspaceBackupDeps,
+  createBackupRunner,
   createWeatherService,
   type HistoryDeps,
   type ImageDeps,
@@ -71,6 +74,7 @@ import {
   createTodayLayoutRepository,
   createWeatherSettingsRepository,
   createWeatherCredentialRepository,
+  createBackupJobRepository,
   createServerWeatherSettingsRepository,
   createProcedureRepository,
   createRateLimitCounter,
@@ -100,6 +104,7 @@ import { canAuthenticate, type UserId } from '@vergissmeinnicht/domain';
 import { createSmtpEmailSender } from '@vergissmeinnicht/email';
 import { createDocumentFileProcessor, createDocumentFileStore, createDocumentWorker, createFileMediaStore, createSharpImageProcessor, createTextExtractor } from '@vergissmeinnicht/media';
 import { createTelegramBotApi } from '@vergissmeinnicht/notifications';
+import { createWorkspaceBackupStore } from './workspace-backup/workspace-backup-store.ts';
 import { createMeteomatics, createMetNorway, createOpenMeteo, createOpenWeather, metUserAgent } from '@vergissmeinnicht/weather';
 import { createRunChangeHub, type RunChangeHub } from '@vergissmeinnicht/realtime';
 import type { FastifyBaseLogger } from 'fastify';
@@ -120,6 +125,9 @@ export interface AppServices {
   readonly preferences: PreferencesDeps;
   readonly todayLayouts: TodayLayoutDeps;
   readonly weather: WeatherDeps;
+  readonly workspaceBackups: WorkspaceBackupDeps;
+  /** Section 18: runs queued backup jobs in this process (woken on request and by a timer). */
+  readonly backupRunner: ReturnType<typeof createBackupRunner>;
   /** Settings of this server (footer), changed by server admins. */
   readonly instanceSettings: InstanceSettingsDeps;
   readonly workspaces: WorkspaceDeps;
@@ -198,7 +206,7 @@ export function createServices(config: AppConfig, database: AppDatabase, overrid
   const weatherService = createWeatherService({
     providers: [
       openMeteo,
-      createMetNorway({ fetch: weatherFetch, userAgent: async () => metUserAgent((await serverWeather.get()).metContact) }),
+      createMetNorway({ fetch: weatherFetch, userAgent: async () => metUserAgent((await serverWeather.get()).metContact, config.appVersion) }),
       // Optional, only with credentials (19.4b): never needed for weather to work.
       createOpenWeather({ fetch: weatherFetch }),
       createMeteomatics({ fetch: weatherFetch }),
@@ -207,6 +215,14 @@ export function createServices(config: AppConfig, database: AppDatabase, overrid
     geocoder: openMeteo,
     clock: systemClock,
   });
+  // Workspace backups (section 18): packages in the data volume next to documents/ (`/data/workspace-backups`).
+  const workspaceBackups: WorkspaceBackupDeps = {
+    workspaces: createWorkspaceRepository(database),
+    backupJobs: createBackupJobRepository(database),
+    backupStore: createWorkspaceBackupStore({ database, root: join(dirname(config.documentsPath), 'workspace-backups'), documentsPath: config.documentsPath, mediaPath: config.mediaPath, appVersion: config.appVersion }),
+    clock: systemClock,
+  };
+  const backupRunner = createBackupRunner(workspaceBackups);
   // Without a logger (CLI), Better Auth warnings and errors go to stderr.
   return (logger?: FastifyBaseLogger): AppServices => {
     const userRepository = createUserRepository(database);
@@ -320,6 +336,8 @@ export function createServices(config: AppConfig, database: AppDatabase, overrid
       },
       preferences: { preferences: createPreferencesRepository(database), clock: systemClock },
       todayLayouts: { todayLayouts: createTodayLayoutRepository(database), clock: systemClock },
+      workspaceBackups,
+      backupRunner,
       weather: {
         weatherSettings: createWeatherSettingsRepository(database),
         serverWeather,

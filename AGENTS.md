@@ -140,6 +140,8 @@ Use these terms consistently:
 - Schedule — a series that produces Occurrences of a Reminder or a Procedure (one-time, fixed calendar, or after completion)
 - Occurrence — one dated instance of a Schedule with its own status and history
 - Assignee — the optional responsible member of a Schedule or Occurrence; assignment grants no access
+- Workspace backup — a portable, versioned `.vmnbackup` package of one Workspace (section 18): allowlisted data, original files, members' name/role/email; never secrets, credentials or other Workspaces
+- historical identity — a person kept in restored history (status `IMPORTED`): display name and attribution only; never signs in, is notified, becomes a member or is matched to an account
 - List — lightweight shared content of a Workspace with items that are checked off; so far only the grocery list
 - ListItem — one entry of a List: a title, an optional quantity and unit, purchased or not
 - WeatherProvider — an allow-listed forecast source with an endpoint fixed in code (Open-Meteo, MET Norway, OpenWeather, Meteomatics; 19.4)
@@ -281,6 +283,7 @@ Use opaque non-sequential public identifiers.
 
 Do not add without an accepted requirement:
 
+- import of exported data — superseded for exactly the **Workspace backup** package (`docs/development/steps.md` section 18: export by Workspace admins, restore into a new Workspace by server admins; never a merge into an existing Workspace); other exports (Documents ZIP, Contacts) stay one-way;
 - AI features — superseded for exactly optional AI-assisted suggestions on VMN's own infrastructure, disabled by default, planned after text recognition (`docs/development/steps.md` 16.9); they need their own detailed plan and scope entry here before any implementation, and external processing is neither a default nor an approved option;
 - chat;
 - calendar features beyond the accepted calendar/agenda view of Occurrences (no external calendar sync, no drag-and-drop planning);
@@ -326,6 +329,7 @@ Examples:
 - GUEST cannot change a List, and a List or item id of another Workspace resolves to nothing;
 - a tool that is not switched on in a Workspace answers like an unknown resource on every one of its routes, for every role, and switching it off deletes nothing;
 - editing or moving a Step in the Procedure builder keeps its id, a duplicate gets a new one, and an outline is never saved while a Step has unapplied changes.
+- only a Workspace ADMIN exports and only a server admin restores; a Workspace backup contains no secret, credential, token, personal setting or other Workspace's data (a test classifies every table); a restore creates a new Workspace, never touches the source, and either restores everything or nothing; restored originals are byte-identical; restored Schedules start paused and send nothing;
 - a personal provider credential is never readable, usable or overwritable by anyone but its owner, and never reaches another user through a cache; weather tests never call live providers.
 
 House management (section 16; each applies from the step that implements it):

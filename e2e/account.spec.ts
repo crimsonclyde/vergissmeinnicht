@@ -780,6 +780,29 @@ test('first server admin: bootstrap link, account creation, sign-in, Workspace c
   await expect(visitorPage).toHaveURL(/\/w\/[0-9a-f-]{36}\/procedures\/[0-9a-f-]{36}$/);
   await expect(visitorPage.getByRole('heading', { name: 'Travel Leave the flat', level: 2 })).toBeVisible();
 
+  // Workspace backup (section 18a): Workspace admins make one in the background and download it.
+  await fromMenu(page, 'Workspace settings');
+  await settingsSection(page, 'Workspace settings', 'Backup');
+  await expect(page).toHaveURL(/\/backup$/);
+  await expect(page.getByText('The file is not encrypted and contains everything in this Workspace')).toBeVisible();
+  await expectAccessible(page, 'workspace backup');
+  await page.getByRole('button', { name: 'Create backup' }).click();
+  const backupList = page.getByRole('list', { name: 'Recent backups' });
+  await expect(backupList.getByRole('listitem').first()).toContainText('Ready', { timeout: 30_000 });
+  await expect(backupList.getByRole('listitem').first()).toContainText('available until');
+  const [backupFile] = await Promise.all([page.waitForEvent('download'), backupList.getByRole('link', { name: 'Download' }).first().click()]);
+  expect(backupFile.suggestedFilename()).toMatch(/^vergissmeinnicht-workspace-[0-9-]+\.vmnbackup$/);
+  const backupBytes = readFileSync(await backupFile.path());
+  expect(backupBytes.subarray(0, 2).toString('latin1')).toBe('PK');
+  expect(backupBytes.includes(Buffer.from('manifest.json'))).toBe(true);
+  await page.setViewportSize({ width: 390, height: 844 });
+  expect(await noSidewaysScroll()).toBe(true);
+  await expectAccessible(page, 'workspace backup on a phone');
+  await page.setViewportSize({ width: 1280, height: 720 });
+  // Deleted early on request: no longer downloadable.
+  await backupList.getByRole('button', { name: 'Delete now' }).first().click();
+  await expect(backupList.getByRole('listitem').first()).toContainText('Cancelled or deleted');
+
   // Sharing links are a section of Workspace settings (15.1).
   await fromMenu(page, 'Workspace settings');
   await settingsSection(page, 'Workspace settings', 'Sharing links');

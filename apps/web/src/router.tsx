@@ -112,6 +112,7 @@ export type Route =
   | { readonly page: 'settings'; readonly workspaceId: string }
   | { readonly page: 'members'; readonly workspaceId: string }
   | { readonly page: 'knots'; readonly workspaceId: string }
+  | { readonly page: 'backup'; readonly workspaceId: string }
   | { readonly page: 'not-found' };
 
 const TOKEN = '([A-Za-z0-9_-]+)';
@@ -176,6 +177,7 @@ export function parseRoute(pathname: string): Route {
   if ((match = new RegExp(`^/w/${ID}/settings$`).exec(path))) return { page: 'settings', workspaceId: match[1] ?? '' };
   if ((match = new RegExp(`^/w/${ID}/members$`).exec(path))) return { page: 'members', workspaceId: match[1] ?? '' };
   if ((match = new RegExp(`^/w/${ID}/knots$`).exec(path))) return { page: 'knots', workspaceId: match[1] ?? '' };
+  if ((match = new RegExp(`^/w/${ID}/backup$`).exec(path))) return { page: 'backup', workspaceId: match[1] ?? '' };
   return { page: 'not-found' };
 }
 
@@ -212,6 +214,7 @@ export const paths = {
   editProcedure: (workspaceId: string, procedureId: string) => `/w/${workspaceId}/procedures/${procedureId}/edit`,
   settings: (workspaceId: string) => `/w/${workspaceId}/settings`,
   knots: (workspaceId: string) => `/w/${workspaceId}/knots`,
+  backup: (workspaceId: string) => `/w/${workspaceId}/backup`,
   members: (workspaceId: string) => `/w/${workspaceId}/members`,
   account: (section: AccountSection) => (section === 'notifications' ? '/account' : `/account/${section}`),
   admin: (section: AdminSection) => (section === 'workspaces' ? '/admin' : `/admin/${section}`),

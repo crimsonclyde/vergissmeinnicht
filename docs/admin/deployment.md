@@ -242,7 +242,7 @@ A backup is a complete copy of everything sensitive: accounts and password hashe
 **What to back up**
 
 1. The database with its instruction photos and document files, via the backup command (never by copying the live file: a copy taken while the server writes can be inconsistent, and the WAL file holds recent changes). The command also puts every photo the backup uses into `/data/backups/media/` and every document file into `/data/backups/documents/` (next to the backup files, shared between backups): **a backup is the `.sqlite` file together with the `media/` and `documents/` directories next to it** — always copy all three. The simplest rule: copy the whole `/data/backups` directory; it is complete by itself, and `/data/media` and `/data/documents` need no separate copy.
-2. `DATA_ENCRYPTION_KEY` — separately (password manager). Without it, restored TOTP enrollments do not work (users fall back to recovery codes/admin reset); stored together with the database it would defeat the encryption.
+2. `DATA_ENCRYPTION_KEY` — separately (password manager). It encrypts **TOTP authenticator secrets**, the **Telegram bot token** and **weather provider credentials** (server-wide and personal). Without it, a restored server cannot open any of them: users fall back to recovery codes or an admin reset for two-factor sign-in, and the Telegram token and every weather credential must be entered again. Stored together with the database it would defeat the encryption.
 3. Your configuration (`vergissmeinnicht.env`, Caddyfile). `AUTH_SECRET` does not need a backup: a new one only signs everyone out.
 
 **Create a backup** (the server keeps running):
@@ -270,6 +270,8 @@ What this means: a file that is deleted permanently in the app (or lost through 
 **Contacts deleted for good** (Workspace admins, from Trash) are gone from the application at once — including from its history, which never holds a contact’s name; existing backups keep them until they rotate.
 
 **Removing a document from a finished execution** (Workspace admins) behaves the same way towards backups: the application forgets the kept version at once, existing backups keep it until they rotate.
+
+**Workspace backups** (Workspace settings → Backup, Workspace admins; section 18) are a different thing: one portable file per Workspace that a server admin can restore as a new Workspace, here or on another server. They are made in the background into `/data/workspace-backups/` (private to the app, deleted 24 hours after they are ready) and contain no passwords, sign-in data, credentials or other Workspaces — but everything of that Workspace, including members' email addresses, unencrypted. They do **not** replace the server backup: accounts, sign-in, server settings and other Workspaces are only in the server backup.
 
 **Exports** (the ZIP download under Documents) are made on request and streamed to the browser; they are never stored on the server and are no substitute for a backup: they hold the documents a person may see, not the database.
 

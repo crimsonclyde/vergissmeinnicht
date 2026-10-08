@@ -81,7 +81,10 @@ RUN apt-get update \
 LABEL org.opencontainers.image.title="VergissMeinNicht" \
       org.opencontainers.image.description="Repeatable procedures with trustworthy execution history" \
       org.opencontainers.image.licenses="AGPL-3.0-only"
+# The release workflow passes the tag's version (18, D9): Workspace backups and MET Norway's User-Agent name it.
+ARG VMN_VERSION=development
 ENV NODE_ENV=production \
+    VMN_VERSION=${VMN_VERSION} \
     HOST=0.0.0.0 \
     PORT=3000 \
     DATABASE_PATH=/data/vergissmeinnicht.sqlite
