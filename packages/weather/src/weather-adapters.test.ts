@@ -41,7 +41,7 @@ describe('Open-Meteo', () => {
     const answer = await provider.forecast({ ...TRIORA, model: 'best_match' });
     expect(seen[0]?.url.origin).toBe('https://api.open-meteo.com');
     expect(seen[0]?.init).toMatchObject({ method: 'GET', redirect: 'error' });
-    expect(Object.fromEntries(seen[0]?.url.searchParams ?? [])).toMatchObject({ latitude: '43.99', longitude: '7.77', timezone: 'Europe/Rome', models: 'best_match', forecast_days: '3' });
+    expect(Object.fromEntries(seen[0]?.url.searchParams ?? [])).toMatchObject({ latitude: '43.99', longitude: '7.77', timezone: 'Europe/Rome', models: 'best_match', forecast_days: '16' });
     expect(seen[0]?.url.searchParams.has('elevation')).toBe(false);
     if (answer.kind !== 'forecast') throw new Error('expected a forecast');
     expect(answer.forecast).toEqual({

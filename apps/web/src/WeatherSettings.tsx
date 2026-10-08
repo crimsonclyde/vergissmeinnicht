@@ -1,9 +1,10 @@
-import { DEFAULT_WEATHER_SETTINGS, WEATHER_UNITS, type OpenMeteoModelId, type WeatherLocation, type WeatherProviderChoice, type WeatherSettings as Settings } from '@vergissmeinnicht/domain';
+import { DEFAULT_WEATHER_SETTINGS, KEYLESS_PROVIDERS, WEATHER_UNITS, type OpenMeteoModelId, type WeatherLocation, type WeatherProviderChoice, type WeatherSettings as Settings } from '@vergissmeinnicht/domain';
 import { useEffect, useId, useState, type FormEvent } from 'react';
 import { ApiError, api, messageFor, type ModelChoice, type MyForecast, type MyWeather, type PlaceResult } from './api.ts';
 import { formatCalendarDate, formatDateTime, t, type MessageKey } from './i18n/index.ts';
 import { browserTimeZone } from './schedule-dates.ts';
 import { UiIcon } from './ui-icons.tsx';
+import { WeatherCredentialForm } from './WeatherCredentialForm.tsx';
 import { ATTRIBUTION, PROVIDER_NAMES, conditionIcon, sourceLabel, temperature } from './weather-view.ts';
 
 const zones = (() => {
@@ -15,7 +16,11 @@ const zones = (() => {
 })();
 
 /** The detailed forecast: up to 3 days with every value the provider has — "—" where it has none. */
+/** Days shown before "Show all": a week fits a phone screen; the rest is one tap away. */
+const FIRST_DAYS = 7;
+
 function ForecastDetails({ answer }: { answer: MyForecast | null }) {
+  const [all, setAll] = useState(false);
   if (answer === null) return <p>{t('common.loading')}</p>;
   if (answer.forecast === null) return <p className="muted">{t(`weather.noForecast.${answer.reason}` as MessageKey)}</p>;
   const { forecast, unit } = answer;
@@ -27,12 +32,13 @@ function ForecastDetails({ answer }: { answer: MyForecast | null }) {
         {forecast.current?.temperature !== undefined && <strong>{temperature(forecast.current.temperature, unit)} </strong>}
         {forecast.current?.condition !== undefined && t(`weather.condition.${forecast.current.condition}`)}
       </p>
+      <p className="muted">{t('weather.horizon', { count: answer.horizon })}</p>
       <ul className="plain-list weather-days">
-        {forecast.days.map((day) => (
+        {(all ? forecast.days : forecast.days.slice(0, FIRST_DAYS)).map((day) => (
           <li key={day.date}>
             <strong>{formatCalendarDate(day.date)}</strong>
             {day.partial === true && <small className="muted"> · {t('weather.partial')}</small>}
-            <p className="row" style={{ margin: '0.35rem 0 0' }}>
+            <p className="row weather-day-condition">
               <UiIcon name={conditionIcon(day.condition)} size="1.5em" /> {day.condition === undefined ? t('weather.missing') : t(`weather.condition.${day.condition}`)}
             </p>
             <dl>
@@ -50,6 +56,11 @@ function ForecastDetails({ answer }: { answer: MyForecast | null }) {
           </li>
         ))}
       </ul>
+      {forecast.days.length > FIRST_DAYS && (
+        <button type="button" className="quiet" aria-expanded={all} onClick={() => setAll((value) => !value)}>
+          {all ? t('weather.showFewer') : t('weather.showAll', { count: forecast.days.length })}
+        </button>
+      )}
       <p className="muted">
         {t('weather.source', { source: sourceLabel(forecast.provider, forecast.model) })}
         {answer.fellBackFrom !== null && ` — ${t('weather.fellBackFrom', { provider: PROVIDER_NAMES[answer.fellBackFrom] })}`}
@@ -249,8 +260,17 @@ export function WeatherSettings() {
           {mine.providers.map((provider) => (
             <option key={provider} value={provider}>
               {PROVIDER_NAMES[provider]}
+              {!KEYLESS_PROVIDERS.includes(provider) && ` — ${t('weather.withCredentials')}`}
             </option>
           ))}
+          {/* Optional providers without a usable credential are listed, not selectable: what they need is said. */}
+          {mine.credentialProviders
+            .filter((entry) => entry.allowed && !mine.providers.includes(entry.provider))
+            .map((entry) => (
+              <option key={entry.provider} value={entry.provider} disabled>
+                {PROVIDER_NAMES[entry.provider]} — {t('weather.needsCredentials')}
+              </option>
+            ))}
         </select>
         {(draft.provider === 'AUTO' || draft.provider === 'OPEN_METEO') && mine.providers.includes('OPEN_METEO') && place !== null && (
           <>
@@ -296,6 +316,35 @@ export function WeatherSettings() {
           {t('weather.save')}
         </button>
       </form>
+
+      {mine.credentialProviders.some((entry) => entry.allowed) && (
+        <details className="weather-credentials">
+          <summary>{t('weather.credentials.heading')}</summary>
+          <p className="muted">{t('weather.credentials.lead')}</p>
+          {mine.credentialProviders
+            .filter((entry) => entry.allowed)
+            .map((entry) => (
+              <div key={entry.provider} className="stack">
+                {entry.serverAvailable && <p className="muted">{t(entry.personal === null ? 'weather.credentials.serverInUse' : 'weather.credentials.serverOverridden')}</p>}
+                <WeatherCredentialForm
+                  provider={entry.provider}
+                  status={entry.personal}
+                  server={false}
+                  onSave={async (credential, budget) => {
+                    const saved = await api.savePersonalCredential(entry.provider, credential, budget);
+                    setMine(await api.myWeather());
+                    return saved;
+                  }}
+                  onTest={() => api.testPersonalCredential(entry.provider)}
+                  onRemove={async () => {
+                    await api.removePersonalCredential(entry.provider);
+                    setMine(await api.myWeather());
+                  }}
+                />
+              </div>
+            ))}
+        </details>
+      )}
 
       <section aria-labelledby={`${id}-forecast`}>
         <h3 id={`${id}-forecast`}>{t('weather.forecast')}</h3>

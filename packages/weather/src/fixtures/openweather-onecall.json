@@ -1,0 +1,23 @@
+{
+  "lat": 43.99,
+  "lon": 7.77,
+  "timezone": "Europe/Rome",
+  "timezone_offset": 7200,
+  "current": {
+    "dt": 1791448200,
+    "temp": 15.4,
+    "wind_speed": 2.1,
+    "rain": { "1h": 0.3 },
+    "weather": [{ "id": 500, "main": "Rain", "description": "light rain", "icon": "10d" }]
+  },
+  "daily": [
+    { "dt": 1791457200, "temp": { "min": 11.8, "max": 18.2 }, "pop": 0.82, "rain": 6.4, "wind_speed": 4.5, "weather": [{ "id": 501, "main": "Rain" }] },
+    { "dt": 1791543600, "temp": { "min": 9.6, "max": 19.1 }, "pop": 0.1, "wind_speed": 3.2, "weather": [{ "id": 801, "main": "Clouds" }] },
+    { "dt": 1791630000, "temp": { "min": 9.9, "max": 17.4 }, "pop": 0.45, "rain": 1.2, "snow": 0.4, "wind_speed": 2.9, "weather": [{ "id": 616, "main": "Snow" }] },
+    { "dt": 1791716400, "temp": { "min": 8.7, "max": 16.9 }, "pop": 0, "wind_speed": 2.2, "weather": [{ "id": 800, "main": "Clear" }] },
+    { "dt": 1791802800, "temp": { "min": 8.1, "max": 16.2 }, "pop": 0, "wind_speed": 1.9, "weather": [{ "id": 800, "main": "Clear" }] },
+    { "dt": 1791889200, "temp": { "min": 9.0, "max": 17.0 }, "pop": 0.2, "wind_speed": 2.4, "weather": [{ "id": 803, "main": "Clouds" }] },
+    { "dt": 1791975600, "temp": { "min": 10.1, "max": 18.0 }, "pop": 0.6, "rain": 2.0, "wind_speed": 3.6, "weather": [{ "id": 211, "main": "Thunderstorm" }] },
+    { "dt": 1792062000, "temp": { "min": 10.4, "max": 17.6 }, "pop": 0.3, "wind_speed": 3.0, "weather": [{ "id": 741, "main": "Fog" }] }
+  ]
+}

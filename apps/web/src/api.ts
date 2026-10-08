@@ -1,5 +1,5 @@
 /** Thin JSON client for the same-origin API. The browser adds the `Origin` header the server checks. */
-import type { OpenMeteoModelId, ProcedureIcon, ReasonPolicy, RunState, StepState, TodayLayout, UserPreferences, WeatherForecast, WeatherLocation, WeatherProviderId, WeatherSettings, WorkspaceRole } from '@vergissmeinnicht/domain';
+import type { CredentialProviderId, OpenMeteoModelId, ProcedureIcon, ReasonPolicy, RunState, StepState, TodayLayout, UserPreferences, WeatherCredential, WeatherForecast, WeatherLocation, WeatherProviderId, WeatherSettings, WorkspaceRole } from '@vergissmeinnicht/domain';
 import { hasMessage, t } from './i18n/index.ts';
 
 // Shared vocabulary comes from the domain package (browser-safe, no server code). The server still
@@ -230,9 +230,22 @@ export interface TodayProgress {
 }
 
 /** The person's weather (19.4): their settings and the providers they can choose on this server. */
+/** A credential's status — the secret never comes back (19.4b). `readable: false` = enter it again. */
+export interface CredentialStatus {
+  readonly provider: CredentialProviderId;
+  readonly readable: boolean;
+  readonly dailyBudget: number;
+  readonly usedToday: number;
+  readonly lastTest: { readonly at: string; readonly ok: boolean } | null;
+  readonly availableToUsers: boolean;
+  readonly updatedAt: string;
+}
+
 export interface MyWeather {
   readonly settings: WeatherSettings;
   readonly providers: readonly WeatherProviderId[];
+  /** Optional credential providers: allowed here, the person's own credential, the server's availability. */
+  readonly credentialProviders: readonly { readonly provider: CredentialProviderId; readonly allowed: boolean; readonly personal: CredentialStatus | null; readonly serverAvailable: boolean }[];
 }
 
 export interface PlaceResult {
@@ -257,6 +270,8 @@ export interface ModelChoice {
 export type MyForecast =
   | {
       readonly forecast: WeatherForecast;
+      /** How many days the provider offers (the forecast may hold fewer when fewer were asked for). */
+      readonly horizon: number;
       readonly location: Pick<WeatherLocation, 'name' | 'timeZone'>;
       readonly fetchedAt: string;
       readonly stale: boolean;
@@ -1077,7 +1092,17 @@ export const api = {
   saveMyWeather: (settings: WeatherSettings) => request<MyWeather>('POST', '/account/weather', { settings }),
   searchPlaces: async (text: string, language: string) => (await request<{ places: PlaceResult[] }>('GET', `/account/weather/places?q=${encodeURIComponent(text)}&lang=${encodeURIComponent(language)}`)).places,
   weatherModels: async (location: WeatherLocation) => (await request<{ models: ModelChoice[] }>('POST', '/account/weather/models', { location })).models,
-  myForecast: () => request<MyForecast>('GET', '/account/weather/forecast'),
+  /** `days`: Today asks for 2; the Weather page for everything the provider offers. */
+  myForecast: (days?: number) => request<MyForecast>('GET', `/account/weather/forecast${days === undefined ? '' : `?days=${days}`}`),
+  savePersonalCredential: async (provider: CredentialProviderId, credential: WeatherCredential | undefined, dailyBudget: number) =>
+    (await request<{ status: CredentialStatus }>('POST', '/account/weather/credentials', { provider, ...(credential === undefined ? {} : { credential }), dailyBudget })).status,
+  testPersonalCredential: async (provider: CredentialProviderId) => (await request<{ status: CredentialStatus }>('POST', '/account/weather/credentials/test', { provider })).status,
+  removePersonalCredential: (provider: CredentialProviderId) => request<undefined>('POST', '/account/weather/credentials/delete', { provider }),
+  serverCredentials: async () => (await request<{ credentials: CredentialStatus[] }>('GET', '/admin/weather/credentials')).credentials,
+  saveServerCredential: async (provider: CredentialProviderId, credential: WeatherCredential | undefined, dailyBudget: number, availableToUsers: boolean) =>
+    (await request<{ status: CredentialStatus }>('POST', '/admin/weather/credentials', { provider, ...(credential === undefined ? {} : { credential }), dailyBudget, availableToUsers })).status,
+  testServerCredential: async (provider: CredentialProviderId) => (await request<{ status: CredentialStatus }>('POST', '/admin/weather/credentials/test', { provider })).status,
+  removeServerCredential: (provider: CredentialProviderId) => request<undefined>('POST', '/admin/weather/credentials/delete', { provider }),
   serverWeather: async () => (await request<{ settings: ServerWeather }>('GET', '/admin/weather')).settings,
   saveServerWeather: async (settings: ServerWeather) => (await request<{ settings: ServerWeather }>('POST', '/admin/weather', settings)).settings,
   /** The person's Today layout as saved (19.2) — possibly by an earlier version; `null` = defaults. */

@@ -70,6 +70,7 @@ import {
   createPreferencesRepository,
   createTodayLayoutRepository,
   createWeatherSettingsRepository,
+  createWeatherCredentialRepository,
   createServerWeatherSettingsRepository,
   createProcedureRepository,
   createRateLimitCounter,
@@ -99,7 +100,7 @@ import { canAuthenticate, type UserId } from '@vergissmeinnicht/domain';
 import { createSmtpEmailSender } from '@vergissmeinnicht/email';
 import { createDocumentFileProcessor, createDocumentFileStore, createDocumentWorker, createFileMediaStore, createSharpImageProcessor, createTextExtractor } from '@vergissmeinnicht/media';
 import { createTelegramBotApi } from '@vergissmeinnicht/notifications';
-import { createMetNorway, createOpenMeteo, metUserAgent } from '@vergissmeinnicht/weather';
+import { createMeteomatics, createMetNorway, createOpenMeteo, createOpenWeather, metUserAgent } from '@vergissmeinnicht/weather';
 import { createRunChangeHub, type RunChangeHub } from '@vergissmeinnicht/realtime';
 import type { FastifyBaseLogger } from 'fastify';
 import type { AppConfig } from './config/index.ts';
@@ -195,7 +196,13 @@ export function createServices(config: AppConfig, database: AppDatabase, overrid
   const weatherFetch = overrides.weatherFetch ?? fetch;
   const openMeteo = createOpenMeteo({ fetch: weatherFetch });
   const weatherService = createWeatherService({
-    providers: [openMeteo, createMetNorway({ fetch: weatherFetch, userAgent: async () => metUserAgent((await serverWeather.get()).metContact) })],
+    providers: [
+      openMeteo,
+      createMetNorway({ fetch: weatherFetch, userAgent: async () => metUserAgent((await serverWeather.get()).metContact) }),
+      // Optional, only with credentials (19.4b): never needed for weather to work.
+      createOpenWeather({ fetch: weatherFetch }),
+      createMeteomatics({ fetch: weatherFetch }),
+    ],
     models: openMeteo,
     geocoder: openMeteo,
     clock: systemClock,
@@ -313,7 +320,15 @@ export function createServices(config: AppConfig, database: AppDatabase, overrid
       },
       preferences: { preferences: createPreferencesRepository(database), clock: systemClock },
       todayLayouts: { todayLayouts: createTodayLayoutRepository(database), clock: systemClock },
-      weather: { weatherSettings: createWeatherSettingsRepository(database), serverWeather, weather: weatherService, clock: systemClock },
+      weather: {
+        weatherSettings: createWeatherSettingsRepository(database),
+        serverWeather,
+        weather: weatherService,
+        credentials: createWeatherCredentialRepository(database),
+        // The same secret box as TOTP seeds and the Telegram token (DATA_ENCRYPTION_KEY); production refuses to start without the key.
+        secrets: createSecretBox(config.dataEncryptionKey.reveal()),
+        clock: systemClock,
+      },
       instanceSettings: { settings: createInstanceSettingsRepository(database), clock: systemClock },
       workspaces: workspaceDeps,
       procedures: { workspaces: workspaceDeps.workspaces, procedures: createProcedureRepository(database), clock: systemClock },

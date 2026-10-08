@@ -14,7 +14,8 @@ export function useMyForecast(userId: string, wanted: boolean): Shown | null {
   useEffect(() => {
     if (!wanted) return;
     let active = true;
-    api.myForecast().then(
+    // Today needs today and tomorrow only; the server answers from the same cached forecast either way.
+    api.myForecast(2).then(
       (answer) => {
         if (!active) return;
         if (answer.forecast === null) {

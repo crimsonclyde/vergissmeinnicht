@@ -1131,6 +1131,9 @@ test('first server admin: bootstrap link, account creation, sign-in, Workspace c
   await page.getByLabel('Contact email for MET Norway (optional)').fill('weather@example.org');
   await page.getByRole('button', { name: 'Save', exact: true }).click();
   await expect(page.getByRole('status').filter({ hasText: 'Saved.' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Server-wide provider credentials (optional)' })).toBeVisible();
+  await expect(page.getByRole('form', { name: /Meteomatics/ })).toContainText('non-commercial use only');
+  await expect(page.getByRole('form', { name: /Meteomatics/ }).getByLabel('People without their own credentials may use these')).not.toBeChecked();
   await expectAccessible(page, 'server weather settings');
   await fromMenu(page, 'Profile & settings');
   await settingsSection(page, 'Profile & settings', 'Weather');
@@ -1150,7 +1153,27 @@ test('first server admin: bootstrap link, account creation, sign-in, Workspace c
   // Stored rounded to about 1 km.
   await expect(page.getByText('43.99, 7.76 · 780 m · Europe/Rome')).toBeVisible();
   await expect(page.getByText('This provider is not available on this server.')).toBeVisible();
-  await expectAccessible(page, 'weather settings');
+  // Optional commercial providers (19.4b): listed with what they need, never required.
+  await expect(page.getByLabel('Provider').locator('option', { hasText: 'OpenWeather — needs credentials' })).toBeDisabled();
+  await page.locator('summary', { hasText: 'Optional providers with your own credentials' }).click();
+  const openWeather = page.getByRole('form', { name: /OpenWeather/ });
+  await expect(openWeather).toContainText('Status: not set');
+  await expect(openWeather).toContainText('1,000 calls a day are free, more are charged automatically');
+  await expect(openWeather.getByLabel('Daily call budget')).toHaveValue('500');
+  await expect(openWeather.getByLabel('Daily call budget')).toHaveAttribute('max', '1000');
+  await expect(openWeather.getByRole('button', { name: 'Save and test' })).toBeDisabled();
+  // Saving is answered here: a real save tests the key with OpenWeather, and tests never reach a provider.
+  await page.route('**/api/account/weather/credentials', (route) =>
+    route.fulfill({ json: { status: { provider: 'OPENWEATHER', readable: true, dailyBudget: 200, usedToday: 1, lastTest: { at: new Date().toISOString(), ok: true }, availableToUsers: false, updatedAt: new Date().toISOString() } } }),
+  );
+  await openWeather.getByLabel('API key').fill('0123456789abcdef0123456789abcdef');
+  await openWeather.getByLabel('Daily call budget').fill('200');
+  await openWeather.getByRole('button', { name: 'Save and test' }).click();
+  await expect(openWeather).toContainText('Status: set · 1 of 200 calls used today');
+  // The secret leaves the page once stored; the field now asks for a replacement only.
+  await expect(openWeather.getByLabel('New API key (leave empty to keep the stored one)')).toHaveValue('');
+  await page.unroute('**/api/account/weather/credentials');
+  await expectAccessible(page, 'weather settings with credentials');
   const forecast = {
     forecast: {
       provider: 'OPEN_METEO',
@@ -1161,6 +1184,7 @@ test('first server admin: bootstrap link, account creation, sign-in, Workspace c
         { date: '2026-10-09', min: 9.1, max: 18.6, precipitationSum: 0, condition: 'CLOUDY' },
       ],
     },
+    horizon: 2,
     location: { name: 'Triora', timeZone: 'Europe/Rome' },
     fetchedAt: new Date().toISOString(),
     stale: false,
@@ -1168,7 +1192,7 @@ test('first server admin: bootstrap link, account creation, sign-in, Workspace c
     unit: 'C',
     showTomorrow: true,
   };
-  await page.route('**/api/account/weather/forecast', (route) => route.fulfill({ json: forecast }));
+  await page.route('**/api/account/weather/forecast*', (route) => route.fulfill({ json: forecast }));
   await sections.getByRole('link', { name: 'Today' }).click();
   await page.getByRole('link', { name: 'Customize Today' }).click();
   await cardSettings.getByLabel('Weather', { exact: true }).check();
@@ -1186,7 +1210,7 @@ test('first server admin: bootstrap link, account creation, sign-in, Workspace c
   await page.setViewportSize({ width: 1280, height: 720 });
   await expectAccessible(page, 'today with weather');
   // Switched off by the server admin: no Weather anywhere for anyone, saved settings kept.
-  await page.unroute('**/api/account/weather/forecast');
+  await page.unroute('**/api/account/weather/forecast*');
   await fromMenu(page, 'Server admin');
   await settingsSection(page, 'Server administration', 'Weather');
   await page.getByLabel('Weather on this server').uncheck();

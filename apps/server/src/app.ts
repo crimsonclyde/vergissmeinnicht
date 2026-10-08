@@ -9,7 +9,7 @@ import { adminAccountRoutes, adminSecurityEventRoutes, adminSettingsRoutes } fro
 import { accountRoutes } from './http/account-routes.ts';
 import { authRoutes } from './http/auth-routes.ts';
 import { errorHandler } from './http/errors.ts';
-import { accountWeatherRoutes, adminWeatherRoutes } from './http/weather-routes.ts';
+import { accountWeatherCredentialRoutes, accountWeatherRoutes, adminWeatherCredentialRoutes, adminWeatherRoutes } from './http/weather-routes.ts';
 import { calendarRoutes, homeRoutes } from './http/home-routes.ts';
 import { documentFileRoutes } from './http/document-file-routes.ts';
 import { textRecognitionRoutes } from './http/text-recognition-routes.ts';
@@ -182,6 +182,7 @@ export async function buildApp(options: AppOptions = {}) {
         await api.register(accountRoutes, { prefix: '/account', services });
         await api.register(accountNotificationRoutes, { prefix: '/account/notifications', services });
         await api.register(accountWeatherRoutes, { prefix: '/account/weather', services });
+        await api.register(accountWeatherCredentialRoutes, { prefix: '/account/weather/credentials', services });
         await api.register(invitationRoutes, { prefix: '/invitations', services });
         await api.register(adminInvitationRoutes, { prefix: '/admin/invitations', services });
         await api.register(recoveryRoutes, { prefix: '/recoveries', services });
@@ -192,6 +193,7 @@ export async function buildApp(options: AppOptions = {}) {
         await api.register(adminNotificationRoutes, { prefix: '/admin/notifications', services });
         await api.register(adminStorageRoutes, { prefix: '/admin/storage', services });
         await api.register(adminWeatherRoutes, { prefix: '/admin/weather', services });
+        await api.register(adminWeatherCredentialRoutes, { prefix: '/admin/weather/credentials', services });
         await api.register(workspaceRoutes, { prefix: '/workspaces', services });
         await api.register(procedureRoutes, { prefix: '/workspaces/:workspaceId/procedures', services });
         await api.register(runRoutes, { prefix: '/workspaces/:workspaceId/runs', services });

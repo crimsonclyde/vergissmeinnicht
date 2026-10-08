@@ -4208,3 +4208,60 @@ a.today-row:hover .today-row-title {
 .weather-settings small {
   display: block;
 }
+
+/* Optional provider credentials (19.4b): one block per provider. */
+.weather-credentials > summary {
+  min-height: 2.75rem;
+  display: flex;
+  align-items: center;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.weather-credential {
+  padding-top: 0.75rem;
+  border-top: 1px solid var(--border);
+}
+
+.weather-credential h4 {
+  margin: 0;
+}
+
+.weather-day-condition {
+  margin: 0.35rem 0 0;
+}
+
+/* Long forecasts on phones (19.4b): one compact block per day — values in one wrapping line. */
+@media (max-width: 600px) {
+  .weather-days {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 0;
+  }
+
+  .weather-days > li {
+    border: 0;
+    border-radius: 0;
+    border-top: 1px solid var(--border);
+    padding: 0.5rem 0;
+  }
+
+  .weather-days .weather-day-condition {
+    display: inline-flex;
+    margin: 0 0 0 0.5rem;
+  }
+
+  .weather-days dl {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0 0.75rem;
+    margin-top: 0.25rem;
+  }
+
+  .weather-days dl > dt::after {
+    content: ':';
+  }
+
+  .weather-days dl > dd {
+    margin-inline-start: -0.5rem;
+  }
+}

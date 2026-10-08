@@ -1,11 +1,36 @@
-import { WEATHER_PROVIDERS, type WeatherProviderId } from '@vergissmeinnicht/domain';
+import { CREDENTIAL_PROVIDERS, WEATHER_PROVIDERS, isCredentialProvider } from '@vergissmeinnicht/domain';
 import { useEffect, useId, useState, type FormEvent } from 'react';
-import { api, messageFor, type ServerWeather } from './api.ts';
+import { api, messageFor, type CredentialStatus, type ServerWeather } from './api.ts';
 import { t } from './i18n/index.ts';
+import { WeatherCredentialForm } from './WeatherCredentialForm.tsx';
 import { PROVIDER_NAMES } from './weather-view.ts';
 
-/** Credential providers come with 19.4b: until then they can be allowed but not used. */
-const NEEDS_CREDENTIALS: readonly WeatherProviderId[] = ['OPENWEATHER', 'METEOMATICS'];
+/** Server-wide credentials of the optional providers (19.4b): status only, never the secret. */
+function ServerCredentials({ allowed }: { allowed: readonly string[] }) {
+  const [credentials, setCredentials] = useState<readonly CredentialStatus[] | null>(null);
+  const [message, setMessage] = useState<string | null>(null);
+  useEffect(() => {
+    api.serverCredentials().then(setCredentials, (caught: unknown) => setMessage(messageFor(caught)));
+  }, []);
+  if (credentials === null) return message === null ? <p>{t('common.loading')}</p> : <p role="alert">{message}</p>;
+  return (
+    <section className="card stack" aria-labelledby="server-weather-credentials">
+      <h3 id="server-weather-credentials">{t('weather.admin.credentials')}</h3>
+      <p className="muted">{t('weather.admin.credentialsLead')}</p>
+      {CREDENTIAL_PROVIDERS.filter((provider) => allowed.includes(provider)).map((provider) => (
+        <WeatherCredentialForm
+          key={provider}
+          provider={provider}
+          status={credentials.find((each) => each.provider === provider) ?? null}
+          server
+          onSave={(credential, budget, available) => api.saveServerCredential(provider, credential, budget, available)}
+          onTest={() => api.testServerCredential(provider)}
+          onRemove={() => api.removeServerCredential(provider)}
+        />
+      ))}
+    </section>
+  );
+}
 
 /** Server admin → Weather (19.4): the master switch, allowed providers and MET Norway's contact. */
 export function WeatherAdmin() {
@@ -30,6 +55,7 @@ export function WeatherAdmin() {
     );
   };
   return (
+    <>
     <form className="card stack" onSubmit={save}>
       <h3>{t('weather.admin.heading')}</h3>
       <p className="muted">{t('weather.admin.lead')}</p>
@@ -49,7 +75,7 @@ export function WeatherAdmin() {
               onChange={(event) => setSettings({ ...settings, allowed: event.target.checked ? [...settings.allowed, provider] : settings.allowed.filter((each) => each !== provider) })}
             />
             {PROVIDER_NAMES[provider]}
-            {NEEDS_CREDENTIALS.includes(provider) && <small className="muted"> — {t('weather.admin.needsCredentials')}</small>}
+            {isCredentialProvider(provider) && <small className="muted"> — {t('weather.admin.needsCredentials')}</small>}
           </label>
         ))}
       </fieldset>
@@ -63,5 +89,7 @@ export function WeatherAdmin() {
         {t('weather.admin.save')}
       </button>
     </form>
+    {settings.enabled && <ServerCredentials allowed={settings.allowed} />}
+    </>
   );
 }

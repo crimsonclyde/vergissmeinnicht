@@ -7,7 +7,8 @@ const FORECAST_URL = 'https://api.open-meteo.com/v1/forecast';
 const GEOCODING_URL = 'https://geocoding-api.open-meteo.com/v1/search';
 const DAILY = ['temperature_2m_max', 'temperature_2m_min', 'precipitation_sum', 'precipitation_probability_max', 'weather_code', 'wind_speed_10m_max'] as const;
 const CURRENT = ['temperature_2m', 'weather_code', 'wind_speed_10m', 'precipitation'] as const;
-export const FORECAST_DAYS = 3;
+/** Open-Meteo's longest horizon; a model with fewer days simply has no values for the rest (they are left out). */
+export const FORECAST_DAYS = 16;
 const COVERAGE_DAYS = 16;
 const PLACES = 8;
 
@@ -44,7 +45,7 @@ export function createOpenMeteo(options: { readonly fetch?: Fetch } = {}): Weath
       const daily = body.daily;
       const dates = array(daily.time);
       const days: WeatherDay[] = [];
-      dates.slice(0, FORECAST_DAYS).forEach((date, index) => {
+      dates.forEach((date, index) => {
         if (typeof date !== 'string' || !DATE.test(date)) return;
         const at = (name: (typeof DAILY)[number]) => finite(array(daily[name])[index]);
         const day: WeatherDay = {

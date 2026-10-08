@@ -39,6 +39,8 @@ export const SECURITY_EVENT_TYPES = [
   'TELEGRAM_DISCONNECTED',
   // Weather (19.4): the server's weather settings changed by a server admin (switch, allowed providers, MET contact).
   'WEATHER_SETTINGS_CHANGED',
+  // A weather provider credential set, replaced or removed (19.4b) — server-wide or personal; never the value.
+  'WEATHER_CREDENTIAL_CHANGED',
   'WORKSPACE_CREATED',
   'WORKSPACE_RENAMED',
   'MEMBERSHIP_ADDED',

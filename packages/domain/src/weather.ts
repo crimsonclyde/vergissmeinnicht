@@ -201,3 +201,72 @@ export function conditionFromMetSymbol(symbol: string | null | undefined): Weath
   if (base === 'cloudy') return 'CLOUDY';
   return 'UNKNOWN';
 }
+
+/** Providers that need credentials (19.4b): optional integrations, never needed for weather to work. */
+export const CREDENTIAL_PROVIDERS = ['OPENWEATHER', 'METEOMATICS'] as const;
+export type CredentialProviderId = (typeof CREDENTIAL_PROVIDERS)[number];
+export const isCredentialProvider = (id: WeatherProviderId): id is CredentialProviderId => (CREDENTIAL_PROVIDERS as readonly string[]).includes(id);
+
+export type WeatherCredential = { readonly provider: 'OPENWEATHER'; readonly apiKey: string } | { readonly provider: 'METEOMATICS'; readonly username: string; readonly password: string };
+
+/**
+ * VMN's own daily call budget per credential (W5): the default stays well inside the provider's free
+ * allowance, and the highest value a person can choose is that allowance — VMN never causes paid calls
+ * on its own. (OpenWeather: 1 000 free calls/day, charged automatically above; Meteomatics Basic: 500/day.)
+ */
+export const CREDENTIAL_BUDGETS: Record<CredentialProviderId, { readonly default: number; readonly max: number }> = {
+  OPENWEATHER: { default: 500, max: 1000 },
+  METEOMATICS: { default: 250, max: 500 },
+};
+
+const OPENWEATHER_KEY = /^[A-Za-z0-9]{16,64}$/;
+const METEOMATICS_USER = /^[A-Za-z0-9_.@-]{1,64}$/;
+
+/** Strict: the format each provider uses, nothing else. Never echoes the value in an error. */
+export function parseWeatherCredential(input: unknown): WeatherCredential {
+  if (!isRecord(input)) refuse('credential', 'invalid_credential');
+  if (input.provider === 'OPENWEATHER') {
+    onlyKeys(input, ['provider', 'apiKey'], 'credential');
+    if (typeof input.apiKey !== 'string' || !OPENWEATHER_KEY.test(input.apiKey.trim())) refuse('apiKey', 'invalid_credential');
+    return { provider: 'OPENWEATHER', apiKey: input.apiKey.trim() };
+  }
+  if (input.provider === 'METEOMATICS') {
+    onlyKeys(input, ['provider', 'username', 'password'], 'credential');
+    if (typeof input.username !== 'string' || !METEOMATICS_USER.test(input.username.trim())) refuse('username', 'invalid_credential');
+    // Printable ASCII only (HTTP Basic); bounded.
+    if (typeof input.password !== 'string' || !/^[\x21-\x7e]{1,128}$/.test(input.password)) refuse('password', 'invalid_credential');
+    return { provider: 'METEOMATICS', username: input.username.trim(), password: input.password };
+  }
+  refuse('provider', 'invalid_credential');
+}
+
+export function parseCredentialBudget(provider: CredentialProviderId, value: unknown): number {
+  const { max } = CREDENTIAL_BUDGETS[provider];
+  if (typeof value !== 'number' || !Number.isInteger(value) || value < 1 || value > max) refuse('dailyBudget', 'invalid_budget');
+  return value;
+}
+
+/** OpenWeather condition ids (2xx thunderstorm … 8xx clouds). */
+export function conditionFromOpenWeather(id: number | null | undefined): WeatherCondition | undefined {
+  if (id === null || id === undefined || !Number.isInteger(id)) return undefined;
+  if (id >= 200 && id < 300) return 'THUNDER';
+  if (id >= 300 && id < 400) return 'DRIZZLE';
+  if (id === 511) return 'SLEET';
+  if (id >= 520 && id < 600) return 'SHOWERS';
+  if (id >= 500 && id < 600) return 'RAIN';
+  if (id >= 611 && id <= 616) return 'SLEET';
+  if (id >= 600 && id < 700) return 'SNOW';
+  if (id === 701 || id === 741) return 'FOG';
+  if (id === 800) return 'CLEAR';
+  if (id === 801 || id === 802) return 'PARTLY_CLOUDY';
+  if (id === 803 || id === 804) return 'CLOUDY';
+  return 'UNKNOWN';
+}
+
+/** Meteomatics weather symbols (`weather_symbol_*:idx`; night = day + 100; 0 = undetermined). */
+export function conditionFromMeteomatics(index: number | null | undefined): WeatherCondition | undefined {
+  if (index === null || index === undefined || !Number.isInteger(index)) return undefined;
+  const day = index > 100 ? index - 100 : index;
+  const map: Record<number, WeatherCondition> = { 1: 'CLEAR', 2: 'PARTLY_CLOUDY', 3: 'PARTLY_CLOUDY', 4: 'CLOUDY', 5: 'RAIN', 6: 'SLEET', 7: 'SNOW', 8: 'SHOWERS', 9: 'SNOW', 10: 'SLEET', 11: 'FOG', 12: 'FOG', 13: 'SLEET', 14: 'THUNDER', 15: 'DRIZZLE' };
+  return map[day] ?? 'UNKNOWN';
+}

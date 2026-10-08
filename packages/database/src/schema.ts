@@ -831,6 +831,38 @@ export const userWeatherSettings = sqliteTable(
   ],
 );
 
+/**
+ * Weather provider credentials (19.4b): server-wide (server admins) or one person's own. The secret is
+ * sealed (AES-256-GCM, owner and provider bound in as associated data); everything else is status.
+ */
+export const weatherCredentials = sqliteTable(
+  'weather_credentials',
+  {
+    id: text('id').primaryKey(),
+    scope: text('scope', { enum: ['SERVER', 'USER'] }).notNull(),
+    userId: text('user_id').references(() => users.id),
+    provider: text('provider').notNull(),
+    sealed: text('sealed').notNull(),
+    availableToUsers: integer('available_to_users', { mode: 'boolean' }).notNull(),
+    dailyBudget: integer('daily_budget').notNull(),
+    usageDay: text('usage_day'),
+    usedToday: integer('used_today').notNull(),
+    lastTestAt: integer('last_test_at', { mode: 'timestamp_ms' }),
+    lastTestOk: integer('last_test_ok', { mode: 'boolean' }),
+    createdAt: integer('created_at', { mode: 'timestamp_ms' }).notNull(),
+    updatedAt: integer('updated_at', { mode: 'timestamp_ms' }).notNull(),
+  },
+  (table) => [
+    uniqueIndex('weather_credentials_server_unique').on(table.provider).where(sql`${table.scope} = 'SERVER'`),
+    uniqueIndex('weather_credentials_user_unique').on(table.userId, table.provider).where(sql`${table.scope} = 'USER'`),
+    check('weather_credentials_scope_owner', sql`(${table.scope} = 'SERVER') = (${table.userId} is null) and (${table.scope} = 'SERVER' or ${table.availableToUsers} = 0)`),
+    check('weather_credentials_provider_valid', sql`${table.provider} in ('OPENWEATHER', 'METEOMATICS')`),
+    check('weather_credentials_sealed_format', sql`${table.sealed} like 'v1.%' and length(${table.sealed}) <= 2048`),
+    check('weather_credentials_budget_valid', sql`${table.dailyBudget} between 1 and 1000 and ${table.usedToday} >= 0`),
+    check('weather_credentials_test_consistent', sql`(${table.lastTestAt} is null) = (${table.lastTestOk} is null)`),
+  ],
+);
+
 /** The server's weather settings (19.4; server admins): master switch, allowed providers, MET contact. One row (id 1); none = defaults. */
 export const serverWeatherSettings = sqliteTable(
   'server_weather_settings',

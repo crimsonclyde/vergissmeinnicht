@@ -36,6 +36,11 @@ describe('Weather over HTTP (19.4a)', () => {
     expect((await t.get('/api/account/weather', bob)).json()).toEqual({
       settings: { location: null, provider: 'AUTO', model: 'best_match', fallback: false, unit: 'C', showTomorrow: true },
       providers: ['OPEN_METEO', 'MET_NORWAY'],
+      // Optional commercial providers are listed, unusable without credentials (19.4b).
+      credentialProviders: [
+        { provider: 'OPENWEATHER', allowed: true, personal: null, serverAvailable: false },
+        { provider: 'METEOMATICS', allowed: true, personal: null, serverAvailable: false },
+      ],
     });
     const saved = (await t.post('/api/account/weather', { settings: SETTINGS }, bob)).json();
     // Rounded to 2 decimals before storage (≈ 1 km).

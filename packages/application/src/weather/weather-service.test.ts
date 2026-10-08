@@ -33,6 +33,8 @@ function setup(options: { openMeteo?: () => Promise<ForecastAnswer>; met?: () =>
     weatherSettings: { find: async () => stored, save: async (_id, settings) => void (stored = settings) },
     serverWeather: { get: async () => server, save: async () => true },
     weather: service,
+    credentials: { find: async () => undefined, list: async () => [], save: async () => true, remove: async () => true, consume: async () => true, recordTest: async () => undefined },
+    secrets: { seal: (plain) => plain, open: (sealed) => sealed },
     clock,
   };
   return { deps, calls, advance: (ms: number) => (now = new Date(now.getTime() + ms)) };

@@ -1,4 +1,4 @@
-import { WeatherProviderError } from '@vergissmeinnicht/application';
+import { WeatherProviderError, type WeatherFailure } from '@vergissmeinnicht/application';
 
 export type Fetch = typeof fetch;
 
@@ -18,7 +18,8 @@ export interface ProviderResponse {
  * JSON only. The URL is never logged or put into an error — with credentials (19.4b) it may hold a key.
  * Every failure becomes a `WeatherProviderError` with a stable reason.
  */
-export async function getJson(doFetch: Fetch, url: URL, headers: Record<string, string>, timeoutMs = TIMEOUT_MS): Promise<ProviderResponse> {
+export async function getJson(doFetch: Fetch, url: URL, headers: Record<string, string>, options: { readonly timeoutMs?: number; readonly classify?: (status: number) => WeatherFailure | undefined } = {}): Promise<ProviderResponse> {
+  const timeoutMs = options.timeoutMs ?? TIMEOUT_MS;
   if (url.protocol !== 'https:') throw new WeatherProviderError('unavailable');
   let response: Response;
   try {
@@ -29,6 +30,12 @@ export async function getJson(doFetch: Fetch, url: URL, headers: Record<string, 
   if (response.status === 304) {
     await response.body?.cancel();
     return { status: 304, headers: response.headers, body: undefined };
+  }
+  // A provider's own meaning of a status (e.g. 401 = bad credentials) first; credentials never appear in the error.
+  const special = response.ok ? undefined : options.classify?.(response.status);
+  if (special !== undefined) {
+    await response.body?.cancel();
+    throw new WeatherProviderError(special);
   }
   if (response.status === 429) {
     await response.body?.cancel();

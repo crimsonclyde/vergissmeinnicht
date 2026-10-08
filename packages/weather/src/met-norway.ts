@@ -1,7 +1,7 @@
 import { WeatherProviderError, type WeatherProviderAdapter } from '@vergissmeinnicht/application';
 import { conditionFromMetSymbol, type WeatherCondition, type WeatherDay } from '@vergissmeinnicht/domain';
 import { finite, getJson, isRecord, round1, type Fetch } from './http.ts';
-import { FORECAST_DAYS, optional } from './open-meteo.ts';
+import { optional } from './open-meteo.ts';
 
 /** The only URL this adapter talks to (Locationforecast 2.0, verified 2026-10-08). */
 const COMPACT_URL = 'https://api.met.no/weatherapi/locationforecast/2.0/compact';
@@ -106,7 +106,9 @@ export function createMetNorway(options: { readonly fetch?: Fetch; readonly user
         coveredUntil = slot.at.getTime() + use.hours * 3_600_000;
       }
 
-      const days: WeatherDay[] = [...byDay.entries()].slice(0, FORECAST_DAYS).map(([date, entries]) => {
+      // Every day MET gives (about 9–10); none is added.
+      const dayList = [...byDay.entries()];
+      const days: WeatherDay[] = dayList.map(([date, entries], dayIndex) => {
         const temperatures = entries.flatMap(({ slot }) => (slot.temperature === undefined ? [] : [slot.temperature]));
         const winds = entries.flatMap(({ slot }) => (slot.windSpeed === undefined ? [] : [slot.windSpeed]));
         // The daytime picture: the 12-hour period starting nearest to 06:00, else the 6-hour one nearest to noon.
@@ -125,7 +127,9 @@ export function createMetNorway(options: { readonly fetch?: Fetch; readonly user
           ...optional('precipitationSum', round1(rain.get(date))),
           ...optional('windSpeedMax', winds.length === 0 ? undefined : round1(Math.max(...winds))),
           ...optional('condition', condition),
-          ...(Math.min(...hours) > 1 || Math.max(...hours) < 18 ? { partial: true } : {}),
+          // Only the first day (data from now on) or the last (data ending early) can be partial; later days are
+          // built from 6-hourly values, which is coarser but covers the whole day.
+          ...((dayIndex === 0 && Math.min(...hours) > 1) || (dayIndex === dayList.length - 1 && Math.max(...hours) < 12) ? { partial: true } : {}),
         };
       });
 
