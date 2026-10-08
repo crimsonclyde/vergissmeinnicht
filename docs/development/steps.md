@@ -18,7 +18,7 @@ For every completed task, add a concise completion note, tests/checks performed,
 
 ## Current state — resume here
 
-**Released 2026-10-06 as v0.5.0-beta.6 (12.25): 16.9 text recognition and rule-based suggestions, tasks 1–6.** HT9 (Tesseract as WebAssembly, `tessdata_best` eng/deu/ita), HT10 (MuPDF) and P5 (owner: automatic on upload, Workspace switch by admins, existing files processed too) are settled in 16.12. Implemented: migration 0038, background queue, OCR and embedded-text extraction, search with snippets, Retry, Workspace switch, storage accounting, deletion, suggestions with Use / Add to notes / Remind me… / Dismiss, docs. **Released 2026-10-07 as v0.5.0-beta.7 (12.26): French OCR and 16.13** (view and correct recognised text, migration 0039). **Released 2026-10-07 as v0.5.0-beta.8 (12.27): 17.5** offline Grocery Lists (migration 0040) with the phone hardening and the "new version available" note; open: the owner's physical iPhone (Safari, Home Screen app) and Android checks. **Next:** the owner's real-phone checks of beta.8; then **19** (a calm, configurable Today — decisions T1–T5 accepted 2026-10-07; Bring / Transfer is a candidate, 19.5) and **18** (Workspace backup and restore — decisions B1–B6 accepted 2026-10-07), not yet implemented. 17.5 task 8 (more offline surfaces) only from real use. Owner checks: suggestions on a typical Italian or German bill. Task 7 (local AI) parked: the Unraid CPU cannot run a model. Not planned (owner, 2026-10-06): 2.6 external sign-in, 14.5 completion photos, 16.10–16.11 Mail. No further product step is planned after 16.9.
+**Released 2026-10-06 as v0.5.0-beta.6 (12.25): 16.9 text recognition and rule-based suggestions, tasks 1–6.** HT9 (Tesseract as WebAssembly, `tessdata_best` eng/deu/ita), HT10 (MuPDF) and P5 (owner: automatic on upload, Workspace switch by admins, existing files processed too) are settled in 16.12. Implemented: migration 0038, background queue, OCR and embedded-text extraction, search with snippets, Retry, Workspace switch, storage accounting, deletion, suggestions with Use / Add to notes / Remind me… / Dismiss, docs. **Released 2026-10-07 as v0.5.0-beta.7 (12.26): French OCR and 16.13** (view and correct recognised text, migration 0039). **Released 2026-10-07 as v0.5.0-beta.8 (12.27): 17.5** offline Grocery Lists (migration 0040) with the phone hardening and the "new version available" note; open: the owner's physical iPhone (Safari, Home Screen app) and Android checks. **Next:** the owner's real-phone checks of beta.8; then **19** (a calm, configurable Today — decisions T1–T5 accepted 2026-10-07, weather server switch on by default), **18** (Workspace backup and restore — B1–B6 accepted) and **20** (Bring: transfer reminders between places — BT1–BT6 accepted), not yet implemented. 17.5 task 8 (more offline surfaces) only from real use. Owner checks: suggestions on a typical Italian or German bill. Task 7 (local AI) parked: the Unraid CPU cannot run a model. Not planned (owner, 2026-10-06): 2.6 external sign-in, 14.5 completion photos, 16.10–16.11 Mail. No further product step is planned after 16.9.
 
 **Released correction (2026-10-04): v0.5.0-beta.5** adds **Add to device contacts** on individual Contact pages; beta.4 only offered bulk export from the list. PR #17 merged as `240a1c9`; PR/main/tagged CI passed. Release: https://github.com/crimsonclyde/vergissmeinnicht/releases/tag/v0.5.0-beta.5. Container `ghcr.io/crimsonclyde/vergissmeinnicht:0.5.0-beta.5` inspected for amd64/arm64; no new migration after beta.4. Update the running installation to use the action; VMN cannot perform the phone’s native import itself. The owner confirmed successful Contact import on a physical iPhone on 2026-10-04; Android import remains unverified. No live Unraid deployment was performed by the agent.
 
@@ -3781,7 +3781,7 @@ Capture a small, reviewed set from the actual app using `test-env` fictional dem
 **Requirements:**
 - **One portable file** (`.vmnbackup`, a ZIP): `manifest.json` + one JSON document per record type + the original files of Documents (byte-identical, by content hash) + derived data that is expensive to regenerate (recognised text **and corrections**, 16.9/16.13). Previews and thumbnails are **not** included — they are regenerated after restore.
 - **Manifest:** format name and **schema version**, VMN version that wrote it, time, source Workspace name, counts per record type, and a **SHA-256 for every entry** (JSON documents and files). The manifest itself carries a hash over the entry list, so a missing, added or changed entry is detected.
-- **Content (where the tool exists in the Workspace):** Workspace name and **tool configuration** (which tools are on, text recognition on/off, own storage limit); Procedures with Sections, Steps and instruction images (pins are personal and not included); **Runs** with their snapshots, step states, reasons, device times and audit history; **Schedules** with recurrence, reminders (offsets) and **Occurrences** with their history; standalone **Reminders**; **Grocery Lists** with items and their change stamps (17.5); **Documents**: Folders, types, Documents, pages, files, tags, notes, Trash (decide: included, marked), recognised text and corrections; **Links** between records (16.5) and Document versions retained for Runs; **Contacts**; **Maintenance** records and **Equipment**; dismissed suggestions. **Members** per B3: display name, role and email address only.
+- **Content (where the tool exists in the Workspace):** Workspace name and **tool configuration** (which tools are on, text recognition on/off, own storage limit); Procedures with Sections, Steps and instruction images (pins are personal and not included); **Runs** with their snapshots, step states, reasons, device times and audit history; **Schedules** with recurrence, reminders (offsets) and **Occurrences** with their history; standalone **Reminders**; **Grocery Lists** with items and their change stamps (17.5); **Documents**: Folders, types, Documents, pages, files, tags, notes, Trash (decide: included, marked), recognised text and corrections; **Links** between records (16.5) and Document versions retained for Runs; **Contacts**; **Maintenance** records and **Equipment**; dismissed suggestions; **Bring** items once section 20 exists (BT6). **Members** per B3: display name, role and email address only.
 - **Never included:** passwords, password hashes, TOTP seeds and recovery codes, sessions, invitation and recovery tokens, **Knot tokens** (Knots are not restored), Telegram bot token and chat links, personal notification settings, personal Profile data (Today layout, weather location), email/notification delivery records, `AUTH_SECRET`, `DATA_ENCRYPTION_KEY`, any value sealed with it, server settings, other Workspaces. A test enumerates the schema's tables and fails when a new table is neither exported nor explicitly excluded with a reason.
 - **Consistent:** exported from one read transaction (SQLite snapshot) so relationships are coherent; files are streamed after it by hash (they are immutable).
 - **Manual download first:** Workspace settings → *Backup* → **Download backup** (shows size first; one running export per Workspace; audited `WORKSPACE_BACKUP_EXPORTED` with who, when, size and counts — never content).
@@ -3837,17 +3837,17 @@ Automatic Workspace backups on a schedule into the data volume (as the server ba
 **Status:** DECIDED (owner, 2026-10-07) — repository instructions to be applied at the start of 19.1.
 
 **Owner decisions:**
-- **T1 — Default cards: accepted** as proposed in 19.1 (calm default layout). **Progress stays off by default.** Addition: a **Bring / Transfer** card as a *candidate* — see 19.5; it needs its own product decision before it exists.
+- **T1 — Default cards: accepted** as proposed in 19.1 (calm default layout). **Progress stays off by default.** Addition: a **Bring** card — planned with its tool in section 20 (BT1–BT3 accepted 2026-10-07; card 20.3).
 - **T2 — Recently completed: default retention 3 days**; choices Today only · 24 hours · 3 days · 7 days · Off. The card disappears entirely when nothing was completed in the chosen window.
 - **T3 — Today is configured in the person's Profile** (Profile & settings → Today): which cards they see, their order, density. One layout per person, applied in every Workspace; visibility follows the rule above. Saved layouts must keep working when later versions add cards (19.2).
-- **T4 — Weather: accepted, optional and personal.** Each person may set **their own** weather location in their Profile (place name or coordinates; no browser geolocation). No location → no weather card; Weather switched off in the Today preferences → no weather card. The server fetches and caches, so phones never contact the provider. Very small: icon, today's temperature, short condition, high/low if useful, tomorrow as a tiny second line.
+- **T4 — Weather: accepted, optional and personal; server switch default ON (owner, 2026-10-07).** Each person may set **their own** weather location in their Profile (place name or coordinates; no browser geolocation). No location → no weather card; Weather switched off in the Today preferences → no weather card. The server fetches and caches, so phones never contact the provider. Very small: icon, today's temperature, short condition, high/low if useful, tomorrow as a tiny second line.
 - **Clock & date: accepted** as an optional card in the Profile — meant mainly to make Today a pleasant home screen on a desktop browser, wall tablet or laptop; off by default.
 - **T5 — Maintenance due soon: accepted.** A compact card, shown only when relevant planned Maintenance is coming up; never an empty Maintenance section.
 
 **Repository instructions (applied at the start of 19.1, with the owner's approval of the wording):**
 - `AGENTS.md`, product objective / house management: replace "these tools add no sections to it" by "these tools add no sections to it, except the compact **Maintenance due soon** card (steps.md 19, T5)".
 - `AGENTS.md`, UI/UX: "Today cards are personal presentation preferences in the Profile (card visible = enabled by the person AND its tool on in the Workspace); they are not tool hiding — there are still no personal preferences for hiding tools."
-- `AGENTS.md`, scope: weather allowed exactly as 19.4 (optional, personal Profile location, manual only, server-side fetch from one fixed provider, server-admin switch); geolocation stays excluded.
+- `AGENTS.md`, scope: weather allowed exactly as 19.4 (optional, personal Profile location, manual only, server-side fetch from one fixed provider, server-admin switch on by default); geolocation stays excluded.
 - `steps.md` 16.0 "Today stays actionable": add the supersession note for the Maintenance card.
 - `security.md`: preference validation (19.2), per-person location data and the weather Security check (19.4).
 
@@ -3869,9 +3869,9 @@ Automatic Workspace backups on a schedule into the data volume (as the server ba
 | **Maintenance due soon** | Maintenance | Planned or In-progress MaintenanceRecords with a date from today up to **14 days** ahead (and Planned ones whose date has passed), up to 3 rows: title, date, Equipment name if linked; tap opens the record; read-only; hidden when none | on |
 | **Progress** | Reminders or Procedures | Two or three numbers in one row (done today, this week, active), one-word labels; the time-zone note behind a details disclosure | off |
 | **Clock & date** | — (personal) | Large time, weekday and date (19.3) | off |
-| **Weather** | — (personal; server switch + Profile location) | Today, tomorrow as a tiny line (19.4) | off |
+| **Weather** | — (personal; server switch, on by default, + Profile location) | Today, tomorrow as a tiny line (19.4); not offered at all while the server switch is off | off |
 | **Calendar** | Calendar | Next calendar items as a compact agenda | off |
-| *(candidate)* **Bring** | to be decided (19.5) | Pending things to bring, compact | — |
+| **Bring** | Bring (section 20) | Relevant open transfer items, compact, with Done (20.3) — added with 20.3 | on |
 
 The **All / Assigned to me / Shared** filter stays, as a compact segmented control at the top, only when assignment is in use. The lead sentence and the "Elsewhere" link list are removed (navigation already leads there); the time-zone sentence moves into Progress's details. A small **Customize** link at the bottom of Today leads to the Profile.
 
@@ -3922,27 +3922,90 @@ The **All / Assigned to me / Shared** filter stays, as a compact segmented contr
 - **Location per person, in the Profile:** a place name chosen from a search (the server looks the name up once, on an explicit action) or coordinates entered directly. Stored with the person's Today preferences, **rounded to 2 decimals (≈ 1 km)** — all a forecast needs — plus the chosen place name for display. Visible only to that person; never part of a Workspace, never shown to other members, never in a Workspace backup (18). No location → no Weather card. No browser geolocation.
 - **Provider (investigation 2026-10-07, revised for per-person place search):** *Open-Meteo* (api.open-meteo.com and its geocoding API): free for **non-commercial** use (a self-hosted household instance), no API key, CC BY 4.0 attribution, open source and self-hostable, **forecast and place search from one provider** — so one fixed host family, one adapter, one Security check. Alternatives documented: *MET Norway Locationforecast 2.0* (free, global, CC BY 4.0, no key, identifying User-Agent and caching required — but no place search, so a second provider would be needed for names); *Bright Sky* (Germany only); key-based commercial APIs not recommended (account + stored secret). **Recommendation: Open-Meteo**; the adapter is a port, so the provider can be swapped.
 - **Who connects:** the **server**, never the browser — phones of the household do not contact the provider. Hosts fixed in the code; HTTPS with certificate verification, no redirects, timeouts, response size caps, strict parsing of a few fields, values treated as untrusted.
-- **Server switch:** a server-admin setting "Weather" (on/off). Engineering default **on**, because nothing is sent until a person enters a location themselves; the owner may prefer default off — noted for review with 19.4.
+- **Server switch (owner, 2026-10-07): default ON.** A server-admin setting "Weather" (on/off). On by default because Weather stays optional per person and nothing is sent to the provider until a person has entered a location. A server admin can switch it off for the whole server to avoid any outbound weather connection; then the **Weather card and the weather location fields are not offered** in anyone's Profile or on Today, no request is made (also no place search), and locations already saved stay stored but unused until it is switched on again.
 - **Privacy:** the provider learns the server's IP address and the rounded coordinates of locations people configured (and typed place names when searching) — not who looks at Today. Said next to the location field and in the user and admin docs.
 - **Caching:** server-side per rounded location (shared by everyone who chose the same ~1 km cell, which reveals nothing — only weather is returned), 30–60 minutes or the provider's expiry; at most one request per location per period; backoff after failures; entries for locations nobody uses any more expire.
 - **Offline / unavailable:** the browser keeps the last forecast with its time; older than about 6 hours, or the provider failing → the card shows nothing (or a dash). Today never waits for weather and never shows an error banner for it.
 - **Display:** monochrome icon from the app's own icon set (mapped from the provider's weather code — no remote images), today's temperature, a one- or two-word condition, high/low; tomorrow as a tiny second line (optional). Attribution in the card's details. °C/°F from the locale, switchable.
 
-**Checks:** server switch off → card not offered, no request ever (network blocked in the test); no location → no card and no request; provider timeout, 5xx, malformed and oversized answers → card hidden, Today unaffected; coordinates rounded before storage and before sending; another person's location unreachable and absent from every Workspace response; cache bounded; Light/Dark icons; offline.
+**Checks:** server switch on by default on a new installation; switched off → neither the card nor the location fields offered (Profile and Today), saved locations kept but unused, no request ever — forecast or place search (network blocked in the test); no location → no card and no request; provider timeout, 5xx, malformed and oversized answers → card hidden, Today unaffected; coordinates rounded before storage and before sending; another person's location unreachable and absent from every Workspace response; cache bounded; Light/Dark icons; offline.
 
-### 19.5 (candidate) Bring / Transfer
-**Status:** CANDIDATE — needs its own product decision (BT1–BT3 below) before it is planned in detail. Not part of 19.1–19.4.
+### 19.5 Bring card → planned as section 20
+The Bring / Transfer candidate of 2026-10-07 became its own planned tool after the owner's decisions BT1–BT3: **section 20** (the Today card is 20.3, after 19.2). The List-kind model considered here was dropped — see 20, "Model decision".
 
-**Need (owner, 2026-10-07):** remembering physical things to take from one place to another — Germany → Italy, one flat → another, home → car, house → cantina. Lightweight and actionable ("Bring drill to Casa Nostra", from Germany, to Triora, optional due date, optional responsible person, done / not done); **not** an inventory or logistics system (no stock, no locations of things, no history of where something is).
+**Security impact (expected for section 19):** LOW for 19.1–19.3 (presentation and a validated per-user preference; one new read-only Maintenance query under existing permissions); MEDIUM for 19.4 (a new outbound connection and stored personal location data). The Bring card is assessed with section 20.
 
-**Models considered:**
-1. **A special Reminder / task type** (a Schedule with one Occurrence plus "from" and "to"): reuses due dates, assignment, Today and notifications — but one notified obligation per object is heavy, clutters Reminders and Calendar, and "pack 6 things for the trip" becomes 6 reminders. Not recommended.
-2. **A standalone tool** with its own records (item, from, to, due, responsible, done): most flexible, but a new tool, new tables, new permissions, new screens and new offline work for a small need. Not recommended as a first step.
-3. **A second List kind: "Bring" (recommended).** Lists already have a `kind` seam (15.3: "the first and so far only kind is the grocery list"). A *Bring list* is one trip or route: **from** and **to** (free-text place names with suggestions from earlier Bring lists — no managed place records), an **optional due date** (when the trip is) and an **optional responsible person** (a member, as for Schedules: assignment grants no access); its items are the things to bring, ticked when brought. It inherits everything Lists have: shared in the Workspace, GUEST read-only, Undo, conflicts, **offline use (17.5)** — which matters on the road. A single thing is a one-item Bring list. Today shows a compact **Bring** card: Bring lists with open items whose due date is within 7 days (or that have none), "Germany → Triora · 3 to bring · Sat".
 
-**Owner decisions needed:** **BT1** — accept the model (List kind "Bring"), which supersedes AGENTS' "list types beyond the accepted grocery list" and 15.3 for exactly this kind; **BT2** — whether a Bring list may notify (recommended: no — the due date is shown, reminders stay Schedules' job; a person who wants a reminder creates one); **BT3** — whether the Bring card belongs to the Lists tool switch (recommended: yes, no separate tool).
+---
 
-**Security impact (expected for section 19):** LOW for 19.1–19.3 (presentation and a validated per-user preference; one new read-only Maintenance query under existing permissions); MEDIUM for 19.4 (a new outbound connection and stored personal location data); 19.5 to be assessed with its decision.
+## 20 — Bring: transfer reminders between places (planned 2026-10-07; owner decisions BT1–BT3 accepted 2026-10-07, BT4–BT6 2026-10-08; not implemented)
+
+**Why (owner, 2026-10-07):** people move physical things between places — Germany ↔ Italy, one flat → another, home → car, house → cantina — and need to remember *what to take where*: "Bring drill from Germany to Triora", "Take the documents to the other flat", "Bring the router to Casa Nostra".
+
+**Product boundary.** Bring answers exactly one question: **"What do we need to take from one place to another?"** It is a short-lived reminder that ends when the thing has been taken (or is no longer needed). It must **not** become inventory, storage-location tracking ("where is the drill now?"), equipment ownership, stock quantities, or shipping/logistics management. Places are free text on an item, not records; nothing remembers where a thing is after it was brought. Any of those needs requires a **separate product decision** — not an extension of this tool.
+
+**Placement:** a section of its own after 19 — Bring is a new optional tool (own records, permissions and page), not a part of the Today redesign; only its Today card depends on 19 (the card registry and Profile preferences of 19.1–19.2). The tool itself (20.1–20.2) has no dependency on 19 and could be built earlier if wanted; the Today card (20.3) comes after 19.2.
+
+**Model decision (revises the 19.5 candidate of 2026-10-07):** the accepted data (BT3: per-item from, to, due date, assignee, notes; status open / completed / cancelled) does not fit a Grocery List item, which only knows "bought or not" and has no per-item date, assignee or cancellation. Bring items are therefore **their own small records in their own optional tool** — not a List kind, not a Reminder type (a Reminder needs a date and notifies; Bring's due date is optional and Bring does not notify). Consequence: AGENTS' "no list types beyond the grocery list" is **not** touched.
+
+### 20.0 Decisions and repository instructions
+**Status:** DECIDED (owner, 2026-10-07) — repository instructions to be applied at the start of 20.1.
+
+**Owner decisions:**
+- **BT1 — Scope: lightweight transfer reminders only** (the boundary above). Not inventory, stock, asset management or permanent object-location tracking.
+- **BT2 — Sharing and assignment:** items belong to the Workspace and are visible to its members; **optionally assigned to one member**. Unassigned items are shared Workspace items. As everywhere: assignment grants no access (AGENTS).
+- **BT3 — Minimum data:** title (required); from, to, due date, assignee, notes (all optional); status **Open / Completed / Cancelled**. Completed and Cancelled items leave the active view and stay available as history. Intentionally small: no quantity, no category, no photo, no place records.
+
+**Engineering defaults (changeable while implementing, recorded in the step):**
+- Tool switch `BRING` (off for new Workspaces, like every tool since 17.1); name in the UI **"Bring"**; capabilities `transfer.view` (every role, GUEST read-only) and `transfer.manage` (USER, EDITOR, ADMIN) — an assigned GUEST still cannot complete (assignment grants no access).
+- Places: free text (≤ 80 characters) with suggestions from the Workspace's earlier items; no place management.
+- Status changes only through one status request (as Maintenance, 16.7), with the expected revision; Completed records who and when; Cancelled never carries a completion.
+- Audit: created, status changed, deleted — with the title, never the notes (as Maintenance).
+- No notifications: the due date is shown (list, Today); anyone who wants a push creates a Reminder.
+
+**Repository instructions (applied at the start of 20.1, with the owner's approval of the wording):** `AGENTS.md` — Bring as an optional tool with the product boundary above (scope list: "no inventory, storage-location tracking, stock quantities or logistics"); vocabulary entry **BringItem** — "one thing to take from one place to another: title, optional from/to/due/assignee/notes, Open/Completed/Cancelled; not an inventory record"; required negative tests; `security.md` checklist lines.
+
+**BT4–BT6 decided 2026-10-08 (see the end of this section).**
+
+### 20.1 Bring items: domain, database, API
+**Status:** PLANNED
+**Depends on:** 20.0.
+
+- **Record `BringItem`:** id, Workspace, title (1–120), from (≤ 80), to (≤ 80), due date (local date, optional), assignee (a member, optional), notes (plain text, ≤ 2000), status (OPEN / COMPLETED / CANCELLED), completed at/by, cancelled at/by, created at/by, updated at/by, revision. Migration with CHECKs (status consistency: COMPLETED ⇔ completed stamps, CANCELLED ⇔ cancelled stamps, OPEN has neither) and a composite foreign key keeping the item in its Workspace.
+- **Rules:** create/edit while Open; complete, cancel and reopen through the status request with the expected revision (a stale request is refused); an assignee must be an active member — a member who leaves is unassigned (as Schedules); a switched-off tool answers like an unknown resource on every route and keeps its data (17.1).
+- **API:** list (Open by default; Completed/Cancelled as history, newest first, paged), get, create, update, status, delete (direct, with Undo — BT4); `transfer.view` / `transfer.manage`, re-checked in the write transaction; ids of another Workspace resolve to nothing.
+
+**Checks:** GUEST reads but cannot change (also when assigned); another Workspace's item id → not found; tool off → unknown for every role and route, data kept; stale status change refused; Cancelled never gets a completion; assignee must be a member, leaving unassigns; audit holds the title, never the notes; field limits and untrusted text rendered as text.
+
+### 20.2 Bring page
+**Status:** PLANNED
+**Depends on:** 20.1.
+
+- An optional tool in the sidebar below the existing tools and under **More** on phones (bottom bar unchanged).
+- **Open items first**, grouped by destination ("→ Triora", "→ Casa Nostra", "No destination") with due date and assignee; one tap **Done**; ⋯ for Edit, Cancel, Delete. **History** folded: Completed and Cancelled, with who and when, and Reopen.
+- Add: title first, then From/To (with suggestions), due date, assignee, notes — folded like the schedule dialog's options.
+- All / Assigned to me / Shared filter as on Today. Phone first: compact rows, 44 px targets, nothing sideways from 320 px; Light/Dark tokens; keyboard and screen reader.
+- **Offline:** not in the first version (17.5 covers Grocery Lists only); a later step if real use asks for it.
+
+### 20.3 Bring card on Today
+**Status:** PLANNED
+**Depends on:** 20.1, 19.2.
+
+- Registry card **Bring**, needs tool `BRING`, default **on** (it only appears when there is something relevant). Visible = enabled in the person's Profile AND Bring on in the Workspace AND something to show (19).
+- **Relevant open items:** overdue, or due within the next 7 days, or without a due date but assigned to the viewer — respecting the All / Assigned to me / Shared filter; up to 3 rows, "+N more" opens the Bring page.
+- **Compact row:** the title, and below it `From → To · due Friday` (only the parts that exist), or a single line "Bring drill to Triora" when only a destination is set — final wording decided with the 19.1 design. No notes on Today.
+- **Quick completion:** a Done control per row for those with `transfer.manage` (with Undo, like Today's other completions); GUESTs see the rows without the control.
+- Hidden entirely when nothing is relevant.
+
+**Checks:** card absent with the tool off, with the card off in the Profile, and with nothing relevant; relevance window and filter; Done with Undo and the stale-revision refusal; GUEST without Done; 320 px, Light/Dark, screen reader.
+
+**Security impact (expected for section 20):** MEDIUM — a new Workspace resource with its own routes, capabilities and audit events, under the existing optional-tool and assignment rules.
+
+**Decisions BT4–BT6 (owner, 2026-10-08 — recommendations accepted):**
+- **BT4 — Deleting: direct deletion with Undo** (as Lists) — no Trash; Bring items are short-lived and Cancelled already keeps a history.
+- **BT5 — History retention: keep** Completed/Cancelled items; a bulk "Clear history" for Workspace admins may follow later if needed.
+- **BT6 — Workspace backup (18): included** like every Workspace record — added to 18.1's content list once 20 exists.
+*(Engineering defaults above — tool name "Bring", capabilities, no notifications, no offline in the first version — stand unless the owner changes them.)*
 
 ---
 
