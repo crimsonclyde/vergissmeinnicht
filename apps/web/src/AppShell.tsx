@@ -30,6 +30,7 @@ import { SettingsLayout } from './SettingsLayout.tsx';
 import { SettingsMenu } from './SettingsMenu.tsx';
 import { SourceFooter } from './SourceFooter.tsx';
 import { CoreToolsContext } from './core-tools.ts';
+import { TodaySettings } from './TodaySettings.tsx';
 import { ScheduleHistory } from './ScheduleHistory.tsx';
 import { Today } from './Today.tsx';
 import { UiIcon, type UiIconName } from './ui-icons.tsx';
@@ -319,7 +320,7 @@ function NoWorkspace({ user }: { user: CurrentUser }) {
 }
 
 /** Profile & settings (15.1): personal notifications, appearance, password and security, confirmations. */
-function AccountPage({ user, section }: { user: CurrentUser; section: Extract<Route, { page: 'account' }>['section'] }) {
+function AccountPage({ user, section, tools }: { user: CurrentUser; section: Extract<Route, { page: 'account' }>['section']; tools: readonly string[] | null }) {
   return (
     <SettingsLayout
       title={t('account.heading')}
@@ -330,6 +331,11 @@ function AccountPage({ user, section }: { user: CurrentUser; section: Extract<Ro
       {section === 'notifications' && (
         <div className="card">
           <NotificationSettings serverAdmin={user.serverAdmin} />
+        </div>
+      )}
+      {section === 'today' && (
+        <div className="card">
+          <TodaySettings userId={user.id} tools={tools} />
         </div>
       )}
       {section === 'appearance' && (
@@ -359,7 +365,8 @@ function AccountPage({ user, section }: { user: CurrentUser; section: Extract<Ro
 /** How wide the page may get: forms and lists stay readable, the builder uses the screen. */
 function widthOf(route: Route): 'narrow' | 'wide' | undefined {
   if (route.page === 'procedure-edit') return 'wide';
-  if (route.page === 'lists' || route.page === 'more' || route.page === 'workspace' || route.page === 'reminders') return 'narrow';
+  // Today sets its own width: two columns of cards on a wide screen, a reading width with one (19.1).
+  if (route.page === 'lists' || route.page === 'more' || route.page === 'reminders') return 'narrow';
   if (route.page === 'documents' && route.view === 'new') return 'narrow';
   return undefined;
 }
@@ -409,7 +416,8 @@ export function AppShell(props: { user: CurrentUser; route: Route; onSignOut: ()
 
   let content;
   if (route.page === 'account') {
-    content = <AccountPage user={user} section={route.section} />;
+    // Today cards of tools that are off where the person last was are marked as such (UI only).
+    content = <AccountPage user={user} section={route.section} tools={workspaces?.find((workspace) => workspace.id === rememberedWorkspace())?.tools ?? null} />;
   } else if (route.page === 'admin') {
     content = user.serverAdmin ? (
       <AdminPage section={route.section} currentUserId={user.id} onWorkspacesChanged={refresh} />

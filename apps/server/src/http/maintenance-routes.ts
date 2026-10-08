@@ -8,6 +8,7 @@ import {
   listMaintenanceLinks,
   listMaintenanceTrash,
   maintenanceBoard,
+  maintenanceDueSoon,
   maintenanceFilterValues,
   purgeMaintenanceTrash,
   removeMaintenanceLink,
@@ -126,6 +127,14 @@ export async function maintenanceRoutes(app: FastifyInstance, { services }: { se
     const { workspaceId } = parse(workspaceParams, request.params);
     parse(noQuery, request.query);
     return { statuses: MAINTENANCE_STATUSES, columns: (await maintenanceBoard(deps, ref(request, workspaceId))).map((column) => ({ status: column.status, total: column.total, records: column.records.map(summaryView) })) };
+  });
+
+  // Today's Maintenance due soon card (19.1): a few soonest open records, read-only. `today` is the viewer's local date.
+  app.get('/maintenance/due-soon', async (request) => {
+    const { workspaceId } = parse(workspaceParams, request.params);
+    const { today } = parse(z.strictObject({ today: z.string().max(10) }), request.query);
+    const found = await maintenanceDueSoon(deps, { ...ref(request, workspaceId), today });
+    return { items: found.items, total: found.total };
   });
 
   // The List: newest first; `q`, `status`, `category`, `contact`, `year`, `cursor`.

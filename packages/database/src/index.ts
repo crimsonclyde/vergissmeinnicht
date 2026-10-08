@@ -16,6 +16,7 @@ export { createAccountAdminRepository } from './account-admin-repository.ts';
 export { FINISHED_LINK_RETENTION_MS, purgeExpired, type HousekeepingResult } from './housekeeping.ts';
 export { createRateLimitCounter, type RateLimitCounter, type RateLimitState } from './rate-limit-counter.ts';
 export { createPreferencesRepository } from './preferences-repository.ts';
+export { createTodayLayoutRepository } from './today-layout-repository.ts';
 export { backupIfDue, defaultDocumentsPath, defaultMediaPath, listAutomaticBackups } from './backup.ts';
 export { createInstanceSettingsRepository } from './instance-settings-repository.ts';
 export { createScheduleRepository } from './schedule-repository.ts';

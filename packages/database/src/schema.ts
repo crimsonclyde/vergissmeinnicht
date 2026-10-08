@@ -780,6 +780,26 @@ export const userPreferences = sqliteTable(
 );
 
 /**
+ * A person's Today layout (19.2): cards, order, size, options, density — validated JSON, bounded.
+ * Personal, never part of a Workspace; no row = the registry's defaults.
+ */
+export const userTodayLayouts = sqliteTable(
+  'user_today_layouts',
+  {
+    userId: text('user_id')
+      .primaryKey()
+      .references(() => users.id),
+    layout: text('layout').notNull(),
+    version: integer('version').notNull(),
+    updatedAt: integer('updated_at', { mode: 'timestamp_ms' }).notNull(),
+  },
+  (table) => [
+    check('user_today_layouts_layout_bounded', sql`json_valid(${table.layout}) and length(${table.layout}) <= 4096`),
+    check('user_today_layouts_version_positive', sql`${table.version} >= 1`),
+  ],
+);
+
+/**
  * Settings of this server (Step 8.10), changed by server admins only. Exactly one row (id 1); no row
  * yet = defaults.
  */

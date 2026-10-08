@@ -111,8 +111,8 @@ describe('security properties of every route (13.2)', () => {
 
   const call = (route: string, cookie: string | undefined, values: Record<string, string>): Promise<InjectResponse> => {
     const [method, pattern] = route.split(' ') as [string, string];
-    // The calendar needs a valid range to reach the lookup instead of stopping at 400.
-    const url = fill(pattern, values) + (/\/calendar\/?$/.test(pattern) ? `?from=${TOMORROW}&to=${TOMORROW}` : /\/(document|contact)-links$/.test(pattern) ? `?procedure=${values.procedureId ?? ''}` : /\/contacts\/(export|import\/preview)$/.test(pattern) ? '?format=csv' : '');
+    // The calendar and Today's Maintenance card need valid dates to reach the lookup instead of stopping at 400.
+    const url = fill(pattern, values) + (/\/calendar\/?$/.test(pattern) ? `?from=${TOMORROW}&to=${TOMORROW}` : /\/maintenance\/due-soon$/.test(pattern) ? `?today=${TOMORROW}` : /\/(document|contact)-links$/.test(pattern) ? `?procedure=${values.procedureId ?? ''}` : /\/contacts\/(export|import\/preview)$/.test(pattern) ? '?format=csv' : '');
     return method === 'GET' ? t.get(url, cookie) : t.post(url, bodyFor(route, values), cookie);
   };
 

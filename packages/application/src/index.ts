@@ -46,6 +46,7 @@ export * from './ports/procedure-activity.ts';
 export * from './ports/audit-history.ts';
 export * from './ports/paging.ts';
 export * from './ports/preferences-repository.ts';
+export * from './ports/today-layout-repository.ts';
 export * from './ports/instance-settings-repository.ts';
 export * from './ports/security-event-reader.ts';
 export * from './storage/use-cases.ts';

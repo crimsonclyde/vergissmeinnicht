@@ -62,7 +62,7 @@ It also helps people remember everyday responsibilities and see what needs atten
 
 The app is organised around tools (accepted 2026-10-01, `docs/development/steps.md` section 15): **Today** brings what is actionable together; **Procedures**, **Reminders** and **Lists** each have their own place; the **Calendar** is an optional planning view. Reusable Procedures, scheduled Reminders and lightweight grocery Lists stay conceptually distinct.
 
-House management is an **optional** addition (accepted 2026-10-01, `docs/development/steps.md` section 16; planned in five phases, implemented step by step): the tools **Documents**, **Contacts**, **Maintenance**, **Equipment** and **Mail**. Each is enabled per Workspace by a Workspace admin; a Workspace without them stays fully useful, and no house-specific information is ever required. Today stays actionable: these tools add no sections to it, and planned maintenance, warranty expiry or servicing reach Today only as ordinary Occurrences of the existing Schedules. `docs/development/steps.md` 16.12 holds the decisions; read it before any 16.x step and do not reopen what is decided there.
+House management is an **optional** addition (accepted 2026-10-01, `docs/development/steps.md` section 16; planned in five phases, implemented step by step): the tools **Documents**, **Contacts**, **Maintenance**, **Equipment** and **Mail**. Each is enabled per Workspace by a Workspace admin; a Workspace without them stays fully useful, and no house-specific information is ever required. Today stays actionable: these tools add no sections to it, except the compact **Maintenance due soon** card (`docs/development/steps.md` 19, T5), and planned maintenance, warranty expiry or servicing reach Today only as ordinary Occurrences of the existing Schedules. `docs/development/steps.md` 16.12 holds the decisions; read it before any 16.x step and do not reopen what is decided there.
 
 **Not planned (owner, 2026-10-06):** the **Mail** tool (16.10, 16.11) — the effort and attack surface are not worth it; mail attachments reach Documents by ordinary upload. A small import of saved `.eml` files into Documents is a possible later step (no mailbox connection, no stored credentials). Mail-related rules below stay as constraints should it ever be revived. Also not planned: completion photos, required photo evidence and annotations (14.5), and external identity providers (2.6).
 
@@ -248,6 +248,8 @@ Navigation (section 15): a persistent sidebar on desktop (Today, Procedures, Rem
 
 Optional tools (section 16): an enabled tool is added to the sidebar below the existing ones and is reached through **More** on phones — the bottom bar keeps exactly four destinations. A disabled tool appears nowhere (no navigation entry, no fields, no prompts) and its routes answer as for an unknown resource; disabling keeps its data. There are no personal preferences for hiding tools.
 
+Today (section 19, accepted 2026-10-07): Today is a set of cards. Today cards are personal presentation preferences in the Profile (card visible = enabled by the person AND its tool on in the Workspace AND something to show); they are not tool hiding — there are still no personal preferences for hiding tools.
+
 Keep cards concise (title, one line of context, the next action); secondary facts and management actions belong in details or ⋯ menus. Touch targets are at least 44 × 44 px; nothing scrolls sideways from 320 px up. Never claim autosave or draft persistence that does not exist.
 
 Initial modes:
@@ -290,7 +292,8 @@ Do not add without an accepted requirement:
 - automatic sending, replying, forwarding or filing of mail, mail rules, or automatic permanent deletion or expunging of remote mail;
 - mail servers on a LAN, VPN-only or private addresses; any outbound connection to a user-chosen host before the outbound-connection policy in `docs/development/security.md` covers it;
 - text recognition or any other processing of Documents or mail outside VMN's own infrastructure;
-- geolocation;
+- weather beyond exactly `docs/development/steps.md` 19.4 (optional, personal Profile location entered by hand, server-side fetch from one provider fixed in the code, server-admin switch on by default);
+- geolocation (also not for weather);
 - QR/NFC;
 - complex branching workflows;
 - distributed infrastructure (also no Redis, queue service or search server for section 16);

@@ -27,6 +27,7 @@ import type { Clock } from '../ports/clock.ts';
 import type { WorkspaceToolRepository } from '../ports/document-repository.ts';
 import type {
   MaintenanceColumn,
+  MaintenanceDueSoonItem,
   MaintenanceFilterValues,
   MaintenanceLink,
   MaintenanceListing,
@@ -158,6 +159,26 @@ export async function findMaintenance(
     after = parsed;
   }
   return deps.maintenance.find(input.workspaceId, query, after, MAINTENANCE_PAGE_SIZE, scope);
+}
+
+/** How far ahead Today's Maintenance due soon card looks, and how many rows it shows (19.1, T5). */
+export const MAINTENANCE_DUE_SOON_DAYS = 14;
+export const MAINTENANCE_DUE_SOON_LIMIT = 3;
+
+/**
+ * Today's Maintenance due soon card (`maintenance.view`: every role, P3). `today` is the viewer's local
+ * date; it must lie within a day of the server's UTC date (every time zone does).
+ */
+export async function maintenanceDueSoon(deps: MaintenanceDeps, input: Ref & { readonly today: string }): Promise<{ readonly items: MaintenanceDueSoonItem[]; readonly total: number }> {
+  await enter(deps, input, 'maintenance.view');
+  const today = parseDocumentDate(input.today);
+  const serverToday = deps.clock.now().toISOString().slice(0, 10);
+  if (Math.abs(Date.parse(`${today}T00:00:00Z`) - Date.parse(`${serverToday}T00:00:00Z`)) > 86_400_000) throw new DomainValidationError('today', 'out_of_range', 'The date must be within a day of the server date');
+  const until = new Date(Date.parse(`${today}T00:00:00Z`) + MAINTENANCE_DUE_SOON_DAYS * 86_400_000).toISOString().slice(0, 10);
+  const on = await deps.tools.enabled(input.workspaceId);
+  const membership = await authorizeWorkspace(deps, input.actor, input.workspaceId, 'workspace.view');
+  const equipment = on.includes('EQUIPMENT') && roleHasCapability(membership.role, 'equipment.view');
+  return deps.maintenance.dueSoon(input.workspaceId, { today, until, limit: MAINTENANCE_DUE_SOON_LIMIT, equipment });
 }
 
 export async function maintenanceFilterValues(deps: MaintenanceDeps, input: Ref): Promise<MaintenanceFilterValues> {

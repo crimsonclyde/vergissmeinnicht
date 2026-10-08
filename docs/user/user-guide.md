@@ -73,17 +73,21 @@ Procedures can be exported as a `.vmn.json` file (**Export as JSON** — without
 
 ## Today
 
-Opening a Workspace shows **Today** — a compact progress summary and one clear next action per card:
+Opening a Workspace shows **Today** — a few compact cards with what needs you now. A card appears only when its tool is switched on in the Workspace and it has something to show; on a quiet day Today is just **Nothing needs attention right now** (plus what is coming up, if anything). On a wide screen the cards stand in two columns: what to act on on the left, the rest beside it; on a phone they are one column.
 
-- **Progress** — completed Occurrences today (each Schedule’s local time zone), completed Runs this week (the labelled UTC Monday–Sunday range), active Runs and due today. Runs and Occurrences are separate counts. Only completed work counts; undo/reopening updates the summary. **Recently completed** shows the latest three permitted completions, representing a linked Run and completed Occurrence once. Disabled tools have no counts or activity.
+- **Needs attention** — what is overdue (marked **Overdue**) and what is due today, with a count: a Reminder offers **Done**, a Procedure **Start**. Overdue dates stay until you complete or skip them; nothing is marked done by itself. If a repeating item is overdue several times, it is shown once ("3 overdue") with **⋯ → Skip the older ones…**. At most five are listed; **N more** leads to Reminders (or the Calendar).
 - **Continue** — executions that are not finished, with how far they are and **Continue**.
-- **Needs attention** — dates that have passed and are not done yet (marked **Overdue**). They stay until you complete or skip them; nothing is marked done by itself. If a repeating item is overdue several times, it is shown once ("3 overdue") with **⋯ → Skip the older ones…**.
-- **Due today** — a Reminder offers **Done**, a Procedure **Start**.
-- **To buy** — grocery lists that still have something on them, with **Open list**.
-- Each card shows the title and one line: when it is due and who is responsible (**Assigned to …** or **Shared**). **⋯** holds the rest: *Details* (Reminder or Procedure, how it repeats, its reminders), *Skip…* (with an optional reason), *Move this date…*, *Assign…*, *Link an execution…*, *Edit schedule…*, *Pause* / *Resume*, *End schedule…*.
+- **Next up** — the next few dates within a week (*tomorrow*, *in 3 days*), with the way to the **Calendar**.
+- **To buy** — grocery lists that still have something on them and how many items; tap one to open it.
+- **Maintenance** — with the Maintenance tool on: planned work from today up to two weeks ahead, and planned work whose date has passed, with the linked equipment where Equipment is on. Tap one to open it. Read-only here; it never shows costs.
+- **Recently completed** — what was finished in the last 3 days, newest first (at most five). A linked Run and its date count once; undoing a completion removes it.
+- **Progress** (off unless you switch it on) — done today, this week and active, without zeros; *How this is counted* explains the time zones.
+- **Calendar** (off unless you switch it on, with the Calendar tool) — the next few dates as a short agenda.
+- **Customize Today** at the bottom leads to **Profile & settings → Today**, where you choose your own cards (see *Make it yours*).
+- Each item shows the title and one line: when it is due and who is responsible (**Assigned to …** or **Shared**). **⋯** holds the rest: *Details* (Reminder or Procedure, how it repeats, its reminders), *Skip…* (with an optional reason), *Move this date…*, *Assign…*, *Link an execution…*, *Edit schedule…*, *Pause* / *Resume*, *End schedule…*.
 - After **Done** a notice offers **Undo**.
-- **All / Assigned to me / Shared** appears when Procedures or Reminders is enabled, and filters the summary, recent activity and cards (remembered in this browser).
-- Upcoming dates and full completed history are available through the enabled **Calendar**, **Reminders**, **All Procedures** and **Completed history** links.
+- **All / Assigned to me / Shared** appears when Procedures or Reminders is enabled, and filters the cards (remembered in this browser).
+- The full completed history is under **Procedures → ⋯ Manage Procedures → Completed history** (on a phone: **More → Completed history**).
 
 **Add** (top right) offers **Procedure** — reusable steps, **Reminder** — remember one thing, and **Grocery list** — quick shared shopping, and opens what you chose at once. You only see what your role may create.
 
@@ -271,6 +275,7 @@ Editors and Admins can **Share as Knot link…** from a Procedure (under **⋯**
 **Settings → Profile & settings**, one section at a time:
 
 - **Notifications** — your default reminder time (09:00 unless you change it), email reminders on/off, and Telegram. Once your server admin has set up a Telegram bot, connect **your own** chat: **Connect Telegram** → open the link in Telegram and press *Start* → come back (the page notices it by itself) → **Confirm** the chat (only if it is yours — otherwise *Not me*) → connected, shown with your Telegram name. You never type a chat ID. *Disconnect Telegram* stops it at any time.
+- **Today** — your own Today: switch each card on or off, move it up or down, make it **Wide** (spans both columns on a large screen; phones always show one column), choose how many lists **To buy** shows (1–10) and how far back **Recently completed** looks (*Today*, *the last 24 hours*, *3 days* — the default —, *7 days* or *Off*), and **Compact** or **Comfortable** spacing. Every change is saved to your account at once (the page says *Saved.*) and applies in every Workspace; **Reset to default** brings back the standard layout. A card of a tool your Workspace does not use is marked *Not used in this Workspace* and never appears — choosing cards here never hides or shows a tool for anyone else. Your layout is kept on this device for offline use and deleted when you sign out.
 - **Appearance** — System (follows your device, also when it changes), Light, Dark or **Memento Mori** (pure black with crimson accents). Light and Dark look and work the same; only the colours differ. Saved to your account, so it follows you to every device.
 - **Password & security** — change your password; two-factor authentication.
 - **Confirmations** — how critical Steps are confirmed: press and hold, or tap then confirm.

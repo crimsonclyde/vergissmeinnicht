@@ -40,6 +40,16 @@ export interface MaintenanceColumn {
   readonly records: MaintenanceSummary[];
 }
 
+/** One row of Today's Maintenance due soon card (19.1): read-only, nothing of costs, Contacts or notes. */
+export interface MaintenanceDueSoonItem {
+  readonly id: MaintenanceRecordId;
+  readonly title: string;
+  readonly date: string;
+  readonly status: 'PLANNED' | 'IN_PROGRESS';
+  /** A linked Equipment's name — only with `equipment` in the request (tool on, `equipment.view`). */
+  readonly equipment: string | null;
+}
+
 export interface MaintenanceListing {
   readonly records: MaintenanceSummary[];
   readonly next: MaintenanceCursor | null;
@@ -89,6 +99,11 @@ export interface MaintenanceRepository {
   board(workspaceId: WorkspaceId, scope: MaintenanceScope, perColumn: number): Promise<MaintenanceColumn[]>;
   find(workspaceId: WorkspaceId, query: MaintenanceQuery, after: MaintenanceCursor | null, limit: number, scope: MaintenanceScope): Promise<MaintenanceListing>;
   filterValues(workspaceId: WorkspaceId, scope: MaintenanceScope): Promise<MaintenanceFilterValues>;
+  /**
+   * What Today's Maintenance due soon card shows: Planned or In progress with a date from `today` up to `until`,
+   * and Planned ones whose date has passed; soonest first, at most `limit`, with the total.
+   */
+  dueSoon(workspaceId: WorkspaceId, window: { readonly today: string; readonly until: string; readonly limit: number; readonly equipment: boolean }): Promise<{ readonly items: MaintenanceDueSoonItem[]; readonly total: number }>;
   /** A record that is not in Trash. */
   get(workspaceId: WorkspaceId, recordId: MaintenanceRecordId, scope: MaintenanceScope): Promise<MaintenanceRecord | undefined>;
   create(input: { readonly workspaceId: WorkspaceId; readonly content: MaintenanceContent; readonly at: Date; readonly scope: MaintenanceScope }, actor: UserActor, guard: ActorGuard): Promise<MaintenanceWrite<{ record: MaintenanceRecord }>>;
