@@ -2010,6 +2010,11 @@ GitHub pre-release created after the user approved the command: `https://github.
 
 **Validation:** implementation and local checks recorded in 16.8 (146 files / 1154 tests, 27.30 s; Playwright 3 passed / 1 intentional skip; typecheck/lint/build/schema checks). Final PR CI `37218359808`, main CI `37218652596` and release `37218676293` succeeded. Both native validation and publishing images passed smoke tests and fixable HIGH/CRITICAL vulnerability scans; manifest publishing, workflow signing and CycloneDX attestation succeeded. Completion is recorded in a documentation commit after publication. Physical-phone imports, live Unraid upgrade and the existing development-only moderate esbuild finding remain open. Security surface: MEDIUM, documented in `security.md`; release validation must remain fail-closed.
 
+### 12.30 Release 0.6.0-beta.3
+**Status:** DONE (2026-10-08) — section 18 Workspace Backup & Restore (18a export, 18b restore, 18c administration and integration review) and database version protection (18.5), at the owner's request; a focused release without other features.
+
+Branch `development/workspace-backup-18` from `main` (`d04d448`): `e7ac7f8` (18a, migration 0044), `915fc7a` (18b, migration 0045), `7d50ddd` (18c, migration 0046), `f699e5d` (database version protection), `d49b2b7` (Unraid template and `unraid.md` → 0.6.0-beta.3). Local checks on the release tree: typecheck, lint, 1360 tests (174 files, including the end-to-end recovery test with re-export comparison), `drizzle-kit check` and no drift, e2e (3 passed, 1 skipped as usual), Docker build + `deploy/smoke-test.sh`, `deploy/upgrade-check.sh` from the published 0.6.0-beta.2 image (a populated volume: pre-migration backup, 0044–0046 applied, every row unchanged, foreign keys and integrity clean, then export and restore on the upgraded server), container check of `database_newer` (server up with `503 database_newer`, `migrate`/`verify`/`restore` refused, database byte-identical). PR #23 (https://github.com/crimsonclyde/vergissmeinnicht/pull/23) CI `37810346326` passed; merged as `080cdf4` (tree identical to the branch head). Main CI `37810929936`: the arm64 image job hung in `pnpm install` inside the image build (a runner/network stall — the same step took about a minute on the PR and in the rerun); the run was cancelled and the job re-run on the same commit, then passed. Annotated tag `v0.6.0-beta.3` on `080cdf4`; Release workflow `37812693367` succeeded. Image index `ghcr.io/crimsonclyde/vergissmeinnicht:0.6.0-beta.3` = `sha256:06adf9c05f248af926d6e05ce4b06f1ce7848ad6024f6cc2447d72790bce7aad` (amd64 `sha256:4e65339d…`, arm64 `sha256:be8b4a54…`), labels version `0.6.0-beta.3` and revision `080cdf4`, `VMN_VERSION=0.6.0-beta.3`, migrations end at 0046; against the published image: `deploy/smoke-test.sh`, the upgrade check from 0.6.0-beta.2 and the `database_newer` check passed. GitHub pre-release: https://github.com/crimsonclyde/vergissmeinnicht/releases/tag/v0.6.0-beta.3. Upgrade needs `migrate` (0044, 0045 — `users` rebuilt, all rows kept — and 0046; on Unraid *Migrate on start* backs up first); no new environment variables; after upgrading, an older image refuses the database (`database_newer`). Security decisions: B1–B6, D1–D14 (section 18), 18.5. Known limitations (in the release notes): `.vmnbackup` files neither encrypted nor signed; server admins see previous members' addresses in restore previews (up to 24 h); historical identities cannot be cleaned up in the UI; no Workspace deletion yet; a restore briefly holds the write lock; real-device and screen-reader testing pending. Nothing was deployed to the running installation. **Next milestone:** section 20 (Bring), not started.
+
 ### 12.29 Release 0.6.0-beta.2
 **Status:** DONE (2026-10-08) — 19.3 Clock & date and 19.4a–c personal weather (Open-Meteo, MET Norway, optional OpenWeather and Meteomatics with sealed credentials, flexible forecast length, forecast comparison), at the owner's request after the integration review.
 
@@ -3763,7 +3768,7 @@ Capture a small, reviewed set from the actual app using `test-env` fictional dem
 
 ---
 
-## 18 — Workspace backup and restore (planned 2026-10-07; owner decisions B1–B6 accepted 2026-10-07, D1–D14 2026-10-08; 18a–18c done locally, not released)
+## 18 — Workspace backup and restore (planned 2026-10-07; owner decisions B1–B6 accepted 2026-10-07, D1–D14 2026-10-08; released in 0.6.0-beta.3)
 
 **Why:** a Workspace now holds a household's Procedures and their execution history, Schedules, Lists, Documents with their files and text, Contacts, Maintenance and Equipment. Today there are only two partial ways out: the **server backup** (`vergissmeinnicht backup` / `restore`, 9.x/12.x — the whole instance, all Workspaces, restorable only as a whole onto the same server and key) and **one-way exports** of single tools (Procedure JSON/archive 4.4, Documents ZIP 16.4, Contacts CSV/vCard 16.6) — none of them restores a Workspace. A portable **Workspace backup** fills the gap: one file per Workspace that can be restored into a new Workspace, on the same or another VMN server.
 
@@ -3802,7 +3807,7 @@ Capture a small, reviewed set from the actual app using `test-env` fictional dem
 **Stages:** 18a export format, jobs, permissions, integrity, download interface · 18b validation, restore, historical identities, relationships, rollback · 18c administration UI, end-to-end recovery tests, documentation, integration review. Each stage tested and committed locally; nothing published without the owner's approval.
 
 ### 18.1 Workspace backup package and export
-**Status:** DONE (18a, 2026-10-08) — local checkpoint commit; not pushed or released
+**Status:** DONE — released in 0.6.0-beta.3 (12.30); commit `e7ac7f8`
 **Depends on:** 18.0.
 
 **Implemented (18a, 2026-10-08):**
@@ -3827,7 +3832,7 @@ Capture a small, reviewed set from the actual app using `test-env` fictional dem
 **Checks:** non-ADMIN refused (incl. GUEST), other Workspace not found, members' email addresses present and nothing else of their accounts, disabled tools' records still included or excluded consistently (decide: a switched-off tool keeps data, so it is included), secrets absent (search the package for every secret column and every token), table-coverage test, size streaming with a large Workspace, audit entry.
 
 ### 18.2 Validation and restore into a new Workspace
-**Status:** DONE (18b, 2026-10-08) — local checkpoint commit `915fc7a`; not pushed or released. Administration screen in 18c (18.3).
+**Status:** DONE — released in 0.6.0-beta.3 (12.30); commit `915fc7a`. Administration screen in 18c (18.3).
 **Depends on:** 18.1.
 
 **Implemented (18b, 2026-10-08):**
@@ -3862,7 +3867,7 @@ Capture a small, reviewed set from the actual app using `test-env` fictional dem
 **Checks:** every refusal reason with a crafted package (truncated ZIP, changed byte in a file, missing file, extra file, path traversal, zip bomb, oversized JSON, unknown enum, dangling reference, newer schema, older schema fixture); restore twice → two independent Workspaces; restore onto the source server leaves the source untouched; transaction failure leaves nothing; storage limit refusal; non-server-admin refused.
 
 ### 18.3 Round-trip tests and documentation
-**Status:** DONE (18c, 2026-10-08) — local checkpoint commit; not pushed or released.
+**Status:** DONE — released in 0.6.0-beta.3 (12.30); commit `7d50ddd`.
 **Depends on:** 18.1, 18.2 (written alongside them).
 
 **Owner decisions (2026-10-08, with the approval of 18b):** **D12** — the restore-in-progress exception for the four history triggers is approved as built: historical records are kept even when what they refer to was deleted for good; live validation is not weakened; the mark is not reachable through any application API, exists only inside the restore transaction and never remains on a Workspace; normal operations cannot use it (tested). **D13** — the six-hour deadline applies to the restore upload only; every other route keeps its limits; stalled connections are closed. **D14** — 20 restore uploads per hour per account, plus limits on simultaneous restores and temporary storage; interrupted, rejected and expired uploads release their files.
@@ -3894,7 +3899,7 @@ Capture a small, reviewed set from the actual app using `test-env` fictional dem
 **Security impact (expected for section 18):** HIGH — a complete, portable copy of a Workspace's most sensitive data, and an import path that writes many record types from an uploaded, hostile file.
 
 ### 18.5 Database version protection (release 0.6.0-beta.3)
-**Status:** DONE (2026-10-08) — separate local commit before the release.
+**Status:** DONE — released in 0.6.0-beta.3 (12.30); commit `f699e5d`.
 **Decision (owner, 2026-10-08):** an older VMN must refuse to work on a database whose migration level is newer than it supports; nothing is modified or downgraded automatically; the existing readiness and migration design is used — no separate version system.
 
 **Implemented:**
