@@ -112,7 +112,7 @@ export function createWeatherService(deps: { readonly providers: readonly Weathe
      * with a person's own credential is cached for that person only (19.4b). `beforeFetch` runs only when
      * a request really goes out (budget check); a cache hit costs nothing.
      */
-    async forecast(provider: WeatherProviderId, query: ForecastQuery, scope = 'none', beforeFetch?: () => Promise<void>): Promise<{ readonly entry: CacheEntry; readonly stale: boolean }> {
+    async forecast(provider: WeatherProviderId, query: ForecastQuery, scope = 'none', beforeFetch?: () => Promise<void>): Promise<{ readonly entry: CacheEntry; readonly stale: boolean; readonly failure?: WeatherFailure }> {
       const adapter = deps.providers.find((each) => each.id === provider);
       if (adapter === undefined) throw new WeatherProviderError('not_allowed');
       const key = [provider, query.model ?? '-', query.latitude, query.longitude, query.elevation ?? '-', query.timeZone, scope].join('|');
@@ -129,7 +129,9 @@ export function createWeatherService(deps: { readonly providers: readonly Weathe
       try {
         return { entry: await running, stale: false };
       } catch (error) {
-        if (cached !== undefined && deps.clock.now().getTime() - cached.fetchedAt.getTime() <= WEATHER_STALE_MAX_MS) return { entry: cached, stale: true };
+        if (cached !== undefined && deps.clock.now().getTime() - cached.fetchedAt.getTime() <= WEATHER_STALE_MAX_MS) {
+          return { entry: cached, stale: true, ...(error instanceof WeatherProviderError ? { failure: error.reason } : {}) };
+        }
         throw error;
       }
     },
@@ -157,6 +159,15 @@ export function createWeatherService(deps: { readonly providers: readonly Weathe
     },
 
     search: (text: string, language: string) => deps.geocoder.search(text, language),
+
+    /** What the cache holds for a source without asking the provider (≤ 6 h old), and whether it is still fresh. */
+    peek(provider: WeatherProviderId, query: ForecastQuery, scope: string): { readonly entry: CacheEntry; readonly fresh: boolean } | undefined {
+      const key = [provider, query.model ?? '-', query.latitude, query.longitude, query.elevation ?? '-', query.timeZone, scope].join('|');
+      const entry = cache.get(key);
+      const now = deps.clock.now().getTime();
+      if (entry === undefined || now - entry.fetchedAt.getTime() > WEATHER_STALE_MAX_MS) return undefined;
+      return { entry, fresh: entry.freshUntil.getTime() > now };
+    },
 
     queriesPerForecast: (provider: WeatherProviderId) => deps.providers.find((each) => each.id === provider)?.queriesPerForecast ?? 1,
 
@@ -342,6 +353,46 @@ export class NoForecastError extends Error {
   }
 }
 
+/** How one source is asked for: the query (with a credential, if any), its cache scope and the budget check. */
+interface SourceRequest {
+  readonly query: ForecastQuery;
+  readonly scope: string;
+  readonly beforeFetch?: () => Promise<void>;
+  /** A credential provider: fetching uses the credential's (paid) quota. */
+  readonly paid: boolean;
+  readonly queries: number;
+}
+
+/**
+ * The one place that decides how a source is fetched for a person — used by Today's forecast and by the
+ * comparison alike: credential providers use the person's own credential, else the server's if shared
+ * (W3); their results are cached per credential scope; the budget is checked before a request goes out.
+ */
+async function sourceRequest(deps: WeatherDeps, user: User, location: WeatherLocation, provider: WeatherProviderId, model: OpenMeteoModelId): Promise<SourceRequest> {
+  const base: ForecastQuery = {
+    latitude: location.latitude,
+    longitude: location.longitude,
+    elevation: location.elevation,
+    timeZone: location.timeZone,
+    ...(provider === 'OPEN_METEO' ? { model } : {}),
+  };
+  const queries = deps.weather.queriesPerForecast(provider);
+  if (!isCredentialProvider(provider)) return { query: base, scope: 'none', paid: false, queries };
+  const stored = await credentialFor(deps, user, provider);
+  if (stored === undefined) throw new WeatherProviderError('needs_credentials');
+  const credential = openCredential(deps, stored);
+  if (credential === undefined) throw new WeatherProviderError('needs_reentry');
+  return {
+    query: { ...base, credential },
+    scope: stored.scope.kind === 'SERVER' ? 'server' : `user:${stored.scope.userId}`,
+    beforeFetch: async () => {
+      if (!(await deps.credentials.consume(stored.id, today(deps), queries))) throw new WeatherProviderError('budget_reached');
+    },
+    paid: true,
+    queries,
+  };
+}
+
 /**
  * The person's forecast: their provider (Automatic = Open-Meteo, then MET Norway — keyless only, so it
  * never spends anyone's quota), their model for Open-Meteo, labelled fallback when allowed (W4), a stale
@@ -361,27 +412,7 @@ export async function myForecast(deps: WeatherDeps, input: { readonly user: User
   for (const provider of order) {
     try {
       if (!allowed.includes(provider)) throw new WeatherProviderError('not_allowed');
-      let query: ForecastQuery = {
-        latitude: location.latitude,
-        longitude: location.longitude,
-        elevation: location.elevation,
-        timeZone: location.timeZone,
-        ...(provider === 'OPEN_METEO' ? { model: settings.model } : {}),
-      };
-      let scope = 'none';
-      let beforeFetch: (() => Promise<void>) | undefined;
-      if (isCredentialProvider(provider)) {
-        const stored = await credentialFor(deps, input.user, provider);
-        if (stored === undefined) throw new WeatherProviderError('needs_credentials');
-        const credential = openCredential(deps, stored);
-        if (credential === undefined) throw new WeatherProviderError('needs_reentry');
-        query = { ...query, credential };
-        scope = stored.scope.kind === 'SERVER' ? 'server' : `user:${stored.scope.userId}`;
-        const queries = deps.weather.queriesPerForecast(provider);
-        beforeFetch = async () => {
-          if (!(await deps.credentials.consume(stored.id, today(deps), queries))) throw new WeatherProviderError('budget_reached');
-        };
-      }
+      const { query, scope, beforeFetch } = await sourceRequest(deps, input.user, location, provider, settings.model);
       const { entry, stale } = await deps.weather.forecast(provider, query, scope, beforeFetch);
       const chosen = settings.provider === 'AUTO' ? order[0] : settings.provider;
       const days = input.days === undefined ? entry.forecast.days : entry.forecast.days.slice(0, input.days);
@@ -402,6 +433,91 @@ export async function myForecast(deps: WeatherDeps, input: { readonly user: User
     }
   }
   throw new NoForecastError(failure ?? 'not_allowed');
+}
+
+/** At most this many sources in one comparison. */
+export const COMPARE_MAX_SOURCES = 8;
+
+export interface CompareSource {
+  readonly provider: WeatherProviderId;
+  /** Open-Meteo only; `best_match` when omitted. */
+  readonly model?: OpenMeteoModelId;
+}
+
+/**
+ * One source's result. `fresh`: fetched now or within its freshness; `cached`: an older copy (≤ 6 h) shown
+ * with its time; `not_fetched`: a paid source with nothing cached — fetching needs an explicit request;
+ * `failed`: the reason (the other sources are unaffected).
+ */
+export type CompareResult = {
+  readonly provider: WeatherProviderId;
+  readonly model: OpenMeteoModelId | null;
+  readonly paid: boolean;
+  /** Provider queries a refresh of this source uses (counted against the credential's budget). */
+  readonly queries: number;
+} & (
+  | { readonly state: 'fresh' | 'cached'; readonly forecast: WeatherForecast; readonly fetchedAt: Date; readonly horizon: number; readonly refreshFailed: WeatherFailure | null }
+  | { readonly state: 'not_fetched' }
+  | { readonly state: 'failed'; readonly reason: WeatherFailure }
+);
+
+export interface Comparison {
+  readonly location: WeatherLocation;
+  readonly results: readonly CompareResult[];
+}
+
+/**
+ * Compare forecasts for the person's place (19.4c): any sources they can use — providers, and several
+ * Open-Meteo models — independent of their Today provider. Free sources follow the usual cache rules.
+ * Paid sources (credential providers) answer from the cache unless `fetchPaid` is set — the person's
+ * explicit action — and then only within the credential's budget. Nothing is averaged or ranked.
+ */
+export async function compareForecasts(deps: WeatherDeps, input: { readonly user: User; readonly sources: readonly unknown[]; readonly fetchPaid: boolean }): Promise<Comparison> {
+  const server = await enter(deps, input.user);
+  const settings = (await deps.weatherSettings.find(input.user.id)) ?? DEFAULT_WEATHER_SETTINGS;
+  const location = settings.location;
+  if (location === null) throw new NoForecastError('no_location');
+  if (input.sources.length === 0 || input.sources.length > COMPARE_MAX_SOURCES) throw new DomainValidationError('sources', 'invalid_sources', `Compare 1 to ${COMPARE_MAX_SOURCES} sources`);
+  const sources: CompareSource[] = input.sources.map((raw) => {
+    if (typeof raw !== 'object' || raw === null) throw new DomainValidationError('sources', 'invalid_sources', 'Unknown source');
+    const { provider, model } = raw as { provider?: unknown; model?: unknown };
+    if (typeof provider !== 'string' || !(WEATHER_PROVIDERS as readonly string[]).includes(provider)) throw new DomainValidationError('sources', 'invalid_sources', 'Unknown provider');
+    if (model !== undefined && (provider !== 'OPEN_METEO' || typeof model !== 'string' || !(OPEN_METEO_MODEL_IDS as readonly string[]).includes(model))) throw new DomainValidationError('sources', 'invalid_sources', 'Unknown model');
+    return { provider: provider as WeatherProviderId, ...(model === undefined ? {} : { model: model as OpenMeteoModelId }) };
+  });
+  const keys = sources.map((source) => `${source.provider}|${source.model ?? ''}`);
+  if (new Set(keys).size !== keys.length) throw new DomainValidationError('sources', 'invalid_sources', 'A source is listed twice');
+  const available = await usable(deps, server, input.user);
+
+  const results = await Promise.all(
+    sources.map(async (source): Promise<CompareResult> => {
+      const model = source.provider === 'OPEN_METEO' ? (source.model ?? 'best_match') : null;
+      const head = { provider: source.provider, model, paid: isCredentialProvider(source.provider), queries: deps.weather.queriesPerForecast(source.provider) };
+      try {
+        if (!available.includes(source.provider)) throw new WeatherProviderError(isCredentialProvider(source.provider) && server.allowed.includes(source.provider) ? 'needs_credentials' : 'not_allowed');
+        const request = await sourceRequest(deps, input.user, location, source.provider, model ?? 'best_match');
+        const cached = deps.weather.peek(source.provider, request.query, request.scope);
+        // A paid source is never fetched without the person asking; whatever is cached is shown with its time.
+        if (request.paid && !input.fetchPaid && cached?.fresh !== true) {
+          return cached === undefined ? { ...head, state: 'not_fetched' } : { ...head, state: 'cached', forecast: cached.entry.forecast, fetchedAt: cached.entry.fetchedAt, horizon: cached.entry.forecast.days.length, refreshFailed: null };
+        }
+        try {
+          const { entry, stale, failure } = await deps.weather.forecast(source.provider, request.query, request.scope, request.beforeFetch);
+          return { ...head, state: stale ? 'cached' : 'fresh', forecast: entry.forecast, fetchedAt: entry.fetchedAt, horizon: entry.forecast.days.length, refreshFailed: failure ?? null };
+        } catch (error) {
+          // The refresh failed, but a copy is there (e.g. budget reached): show it, say why it is not newer.
+          if (error instanceof WeatherProviderError && cached !== undefined) {
+            return { ...head, state: 'cached', forecast: cached.entry.forecast, fetchedAt: cached.entry.fetchedAt, horizon: cached.entry.forecast.days.length, refreshFailed: error.reason };
+          }
+          throw error;
+        }
+      } catch (error) {
+        if (!(error instanceof WeatherProviderError)) throw error;
+        return { ...head, state: 'failed', reason: error.reason };
+      }
+    }),
+  );
+  return { location, results };
 }
 
 /** Rejects a credential provider that is not allowed on this server (or has no adapter). */

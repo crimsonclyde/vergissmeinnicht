@@ -4,6 +4,7 @@ import { ApiError, api, messageFor, type ModelChoice, type MyForecast, type MyWe
 import { formatCalendarDate, formatDateTime, t, type MessageKey } from './i18n/index.ts';
 import { browserTimeZone } from './schedule-dates.ts';
 import { UiIcon } from './ui-icons.tsx';
+import { WeatherCompare } from './WeatherCompare.tsx';
 import { WeatherCredentialForm } from './WeatherCredentialForm.tsx';
 import { ATTRIBUTION, PROVIDER_NAMES, conditionIcon, sourceLabel, temperature } from './weather-view.ts';
 
@@ -350,6 +351,9 @@ export function WeatherSettings() {
         <h3 id={`${id}-forecast`}>{t('weather.forecast')}</h3>
         <ForecastDetails answer={forecast} />
       </section>
+
+      {/* Compares the saved place (19.4c); independent of the provider chosen for Today. */}
+      {mine.settings.location !== null && (models !== null || !mine.providers.includes('OPEN_METEO')) && <WeatherCompare key={`${mine.settings.location.latitude},${mine.settings.location.longitude}`} mine={mine} models={models ?? []} unit={mine.settings.unit} />}
     </div>
   );
 }

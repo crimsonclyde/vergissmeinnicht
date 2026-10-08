@@ -4265,3 +4265,111 @@ a.today-row:hover .today-row-title {
     margin-inline-start: -0.5rem;
   }
 }
+
+/* Forecast comparison (19.4c): one block per source; a grid on wide screens, a list on phones. */
+.weather-compare-sources label {
+  min-height: 2.75rem;
+}
+
+.weather-compare-paid {
+  padding: 0.75rem 1rem;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius);
+}
+
+.weather-compare-paid p {
+  margin: 0 0 0.5rem;
+}
+
+.weather-compare-day select {
+  flex: 1 1 12rem;
+  min-width: 0;
+}
+
+.weather-compare-day button {
+  min-width: 2.75rem;
+  min-height: 2.75rem;
+}
+
+.weather-compare-spread {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem 1.25rem;
+  margin: 0;
+}
+
+.weather-compare-spread dt {
+  color: var(--text-muted);
+  font-size: 0.875rem;
+}
+
+.weather-compare-spread dd {
+  margin: 0;
+  font-weight: 600;
+}
+
+.weather-compare-results {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr));
+  gap: 0.75rem;
+}
+
+.weather-compare-source {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  padding: 0.75rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.weather-compare-source dl {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 0.15rem 0.6rem;
+  margin: 0.25rem 0 0;
+}
+
+.weather-compare-source dt {
+  color: var(--text-muted);
+}
+
+.weather-compare-source dd {
+  margin: 0;
+}
+
+.weather-compare-attribution {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+@media (max-width: 600px) {
+  .weather-compare-results {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 0;
+  }
+
+  .weather-compare-source {
+    border: 0;
+    border-radius: 0;
+    border-top: 1px solid var(--border);
+    padding: 0.5rem 0;
+  }
+
+  .weather-compare-source dl {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0 0.75rem;
+  }
+
+  .weather-compare-source dl > dt::after {
+    content: ':';
+  }
+
+  .weather-compare-source dl > dd {
+    margin-inline-start: -0.5rem;
+  }
+}

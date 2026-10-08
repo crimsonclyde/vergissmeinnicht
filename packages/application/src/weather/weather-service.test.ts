@@ -1,7 +1,7 @@
 import { DEFAULT_WEATHER_SETTINGS, type User, type UserId, type WeatherSettings } from '@vergissmeinnicht/domain';
 import { describe, expect, it } from 'vitest';
-import { DEFAULT_SERVER_WEATHER, WeatherProviderError, type ForecastAnswer, type ServerWeatherSettings, type WeatherProviderAdapter } from '../ports/weather.ts';
-import { NoForecastError, WeatherOffError, createWeatherService, myForecast, saveMyWeather, type WeatherDeps } from './use-cases.ts';
+import { DEFAULT_SERVER_WEATHER, WeatherProviderError, type ForecastAnswer, type ServerWeatherSettings, type StoredWeatherCredential, type WeatherProviderAdapter } from '../ports/weather.ts';
+import { NoForecastError, WeatherOffError, compareForecasts, createWeatherService, myForecast, saveMyWeather, type WeatherDeps } from './use-cases.ts';
 
 const TRIORA = { name: 'Triora', latitude: 43.99, longitude: 7.77, timeZone: 'Europe/Rome', elevation: null };
 const user = { id: 'u1' as UserId, status: 'ACTIVE', emailVerified: true, serverAdmin: false } as unknown as User;
@@ -107,5 +107,35 @@ describe('weather forecasts (19.4)', () => {
     await deps.weatherSettings.save(user.id, { ...DEFAULT_WEATHER_SETTINGS, location: { ...TRIORA, elevation: 780 }, provider: 'OPEN_METEO', model: 'italia_meteo_arpae_icon_2i' }, new Date());
     await myForecast(deps, { user });
     expect(calls.openMeteo.n).toBe(3);
+  });
+});
+
+describe('forecast comparison with a paid source (19.4c)', () => {
+  it('shows an older cached paid forecast with its time and why it was not refreshed, when the budget is used up', async () => {
+    let now = new Date('2026-10-08T10:00:00Z');
+    const clock = { now: () => now };
+    const calls = { n: 0 };
+    const paid: WeatherProviderAdapter = { id: 'OPENWEATHER', queriesPerForecast: 1, forecast: async () => (calls.n++, ok('OPENWEATHER')) };
+    const service = createWeatherService({ providers: [paid, provider('OPEN_METEO', async () => ok('OPEN_METEO'), { n: 0 })], models: { coverage: async () => [] }, geocoder: { search: async () => [] }, clock });
+    let budgetLeft = 1;
+    const stored: StoredWeatherCredential = { id: 'c1', scope: { kind: 'USER', userId: user.id }, provider: 'OPENWEATHER', sealed: JSON.stringify({ provider: 'OPENWEATHER', apiKey: 'a1b2c3d4e5f60718293a4b5c6d7e8f90' }), availableToUsers: false, dailyBudget: 1, usedToday: 0, usageDay: null, lastTest: null, updatedAt: now };
+    const deps: WeatherDeps = {
+      weatherSettings: { find: async () => ({ ...DEFAULT_WEATHER_SETTINGS, location: TRIORA }), save: async () => undefined },
+      serverWeather: { get: async () => DEFAULT_SERVER_WEATHER, save: async () => true },
+      weather: service,
+      credentials: { find: async (scope) => (scope.kind === 'USER' ? stored : undefined), list: async () => [stored], save: async () => true, remove: async () => true, consume: async () => (budgetLeft-- > 0), recordTest: async () => undefined },
+      secrets: { seal: (plain) => plain, open: (sealed) => sealed },
+      clock,
+    };
+    const first = await compareForecasts(deps, { user, sources: [{ provider: 'OPENWEATHER' }], fetchPaid: true });
+    expect(first.results[0]).toMatchObject({ state: 'fresh' });
+    now = new Date('2026-10-08T11:00:00Z'); // older than fresh (30 min), younger than 6 h
+    const without = await compareForecasts(deps, { user, sources: [{ provider: 'OPENWEATHER' }, { provider: 'OPEN_METEO' }], fetchPaid: false });
+    expect(without.results[0]).toMatchObject({ state: 'cached', refreshFailed: null, fetchedAt: new Date('2026-10-08T10:00:00Z') });
+    expect(calls.n).toBe(1);
+    const refused = await compareForecasts(deps, { user, sources: [{ provider: 'OPENWEATHER' }, { provider: 'OPEN_METEO' }], fetchPaid: true });
+    expect(refused.results[0]).toMatchObject({ state: 'cached', refreshFailed: 'budget_reached' });
+    expect(refused.results[1]).toMatchObject({ state: 'fresh' });
+    expect(calls.n).toBe(1);
   });
 });

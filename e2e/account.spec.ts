@@ -1174,6 +1174,64 @@ test('first server admin: bootstrap link, account creation, sign-in, Workspace c
   await expect(openWeather.getByLabel('New API key (leave empty to keep the stored one)')).toHaveValue('');
   await page.unroute('**/api/account/weather/credentials');
   await expectAccessible(page, 'weather settings with credentials');
+  // Compare forecasts (19.4c) — answered here so that nothing reaches a provider: free sources ticked by default,
+  // paid ones only fetched on an explicit second request, missing values said as such, one day at a time.
+  const forecastDay = (date: string, extra: object) => ({ date, condition: 'CLOUDY', ...extra });
+  const comparison = {
+    location: { name: 'Triora', timeZone: 'Europe/Rome' },
+    results: [
+      { provider: 'OPEN_METEO', model: 'best_match', paid: false, queries: 1, state: 'fresh', fetchedAt: new Date().toISOString(), horizon: 16, refreshFailed: null, forecast: { provider: 'OPEN_METEO', model: 'best_match', current: { temperature: 16 }, days: [forecastDay(localDate(0), { max: 19, min: 13, precipitationSum: 3.4, precipitationProbabilityMax: 70 }), forecastDay(localDate(1), { max: 18, min: 11, precipitationSum: 0 })] } },
+      { provider: 'OPEN_METEO', model: 'italia_meteo_arpae_icon_2i', paid: false, queries: 1, state: 'fresh', fetchedAt: new Date().toISOString(), horizon: 1, refreshFailed: null, forecast: { provider: 'OPEN_METEO', model: 'italia_meteo_arpae_icon_2i', days: [forecastDay(localDate(0), { max: 18, min: 12, precipitationSum: 11.9 })] } },
+      { provider: 'MET_NORWAY', model: null, paid: false, queries: 1, state: 'failed', reason: 'unavailable' },
+      { provider: 'OPENWEATHER', model: null, paid: true, queries: 1, state: 'not_fetched' },
+    ],
+  };
+  await page.route('**/api/account/weather', (route) =>
+    route.request().method() === 'GET'
+      ? route.fulfill({ json: { settings: { location: { name: 'Triora', latitude: 43.99, longitude: 7.76, timeZone: 'Europe/Rome', elevation: 780 }, provider: 'AUTO', model: 'best_match', fallback: false, unit: 'C', showTomorrow: true }, providers: ['OPEN_METEO', 'MET_NORWAY', 'OPENWEATHER'], credentialProviders: [{ provider: 'OPENWEATHER', allowed: true, personal: { provider: 'OPENWEATHER', readable: true, dailyBudget: 200, usedToday: 1, lastTest: null, availableToUsers: false, updatedAt: new Date().toISOString() }, serverAvailable: false }] } })
+      : route.fallback(),
+  );
+  await page.route('**/api/account/weather/models', (route) =>
+    route.fulfill({ json: { models: [{ id: 'best_match', label: 'Automatic (best match)', days: null, hasCondition: null, hasPrecipitationProbability: null }, { id: 'italia_meteo_arpae_icon_2i', label: 'ItaliaMeteo ARPAE ICON-2I (Italy, 2 km)', days: 3, hasCondition: true, hasPrecipitationProbability: false }] } }),
+  );
+  const compareRequests: { fetchPaid: boolean }[] = [];
+  await page.route('**/api/account/weather/compare', (route) => {
+    compareRequests.push(route.request().postDataJSON() as { fetchPaid: boolean });
+    return route.fulfill({ json: comparison });
+  });
+  await page.reload();
+  const compareView = page.getByRole('region', { name: 'Compare forecasts' });
+  await expect(compareView.getByLabel(/Open-Meteo · Automatic/)).toBeChecked();
+  await expect(compareView.getByLabel(/ItaliaMeteo ARPAE ICON-2I/)).toBeChecked();
+  await expect(compareView.getByLabel('MET Norway')).toBeChecked();
+  await expect(compareView.getByLabel(/OpenWeather/)).not.toBeChecked();
+  await compareView.getByLabel(/OpenWeather/).check();
+  await compareView.getByRole('button', { name: 'Compare', exact: true }).click();
+  expect(compareRequests.at(-1)?.fetchPaid).toBe(false);
+  await expect(compareView).toContainText('Paid sources were not fetched. Fetching them now uses 1 OpenWeather request from the daily budget.');
+  await expect(compareView.getByRole('combobox')).toHaveValue(localDate(0));
+  const sourcesShown = compareView.getByRole('listitem');
+  await expect(sourcesShown.filter({ hasText: 'ICON-2I' })).toContainText('11.9 mm');
+  await expect(sourcesShown.filter({ hasText: 'ICON-2I' })).toContainText(/Rain chance:?\s*not given/);
+  await expect(sourcesShown.filter({ hasText: 'MET Norway' })).toContainText('cannot be reached');
+  await expect(sourcesShown.filter({ hasText: 'OpenWeather' })).toContainText('Not fetched');
+  await expect(compareView.getByRole('definition').first()).toHaveText('19° – 18°'.replace('19° – 18°', '18° – 19°'));
+  // The next day: ICON-2I has no forecast for it — said, not hidden or invented.
+  await compareView.getByRole('button', { name: 'Next day' }).click();
+  await expect(sourcesShown.filter({ hasText: 'ICON-2I' })).toContainText('No forecast for this day — this source offers 1 day.');
+  await expect(sourcesShown.filter({ hasText: 'Automatic' }).or(sourcesShown.filter({ hasText: /^Open-Meteo/ })).first()).toContainText('0 mm');
+  await compareView.getByRole('button', { name: 'Fetch paid forecasts now' }).click();
+  expect(compareRequests.at(-1)?.fetchPaid).toBe(true);
+  await expectAccessible(page, 'forecast comparison');
+  await page.setViewportSize({ width: 320, height: 700 });
+  expect(await noSidewaysScroll()).toBe(true);
+  await page.emulateMedia({ colorScheme: 'dark' });
+  await expectAccessible(page, 'forecast comparison on a phone, dark');
+  await page.emulateMedia({ colorScheme: 'light' });
+  await page.setViewportSize({ width: 1280, height: 720 });
+  await page.unroute('**/api/account/weather');
+  await page.unroute('**/api/account/weather/models');
+  await page.unroute('**/api/account/weather/compare');
   const forecast = {
     forecast: {
       provider: 'OPEN_METEO',

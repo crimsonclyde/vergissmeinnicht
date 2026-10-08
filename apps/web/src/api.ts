@@ -281,6 +281,24 @@ export type MyForecast =
     }
   | { readonly forecast: null; readonly reason: string };
 
+/** One source of a forecast comparison (19.4c). */
+export type CompareResult = {
+  readonly provider: WeatherProviderId;
+  readonly model: OpenMeteoModelId | null;
+  readonly paid: boolean;
+  readonly queries: number;
+} & (
+  | { readonly state: 'fresh' | 'cached'; readonly forecast: WeatherForecast; readonly fetchedAt: string; readonly horizon: number; readonly refreshFailed: string | null }
+  | { readonly state: 'not_fetched' }
+  | { readonly state: 'failed'; readonly reason: string }
+);
+
+export interface Comparison {
+  readonly location: Pick<WeatherLocation, 'name' | 'timeZone'> | null;
+  readonly results: readonly CompareResult[];
+  readonly reason?: string;
+}
+
 export interface ServerWeather {
   readonly enabled: boolean;
   readonly allowed: readonly WeatherProviderId[];
@@ -1094,6 +1112,8 @@ export const api = {
   weatherModels: async (location: WeatherLocation) => (await request<{ models: ModelChoice[] }>('POST', '/account/weather/models', { location })).models,
   /** `days`: Today asks for 2; the Weather page for everything the provider offers. */
   myForecast: (days?: number) => request<MyForecast>('GET', `/account/weather/forecast${days === undefined ? '' : `?days=${days}`}`),
+  /** Compare sources for the person's place; paid sources are fetched only with `fetchPaid` (19.4c). */
+  compareForecasts: (sources: readonly { provider: WeatherProviderId; model?: OpenMeteoModelId }[], fetchPaid: boolean) => request<Comparison>('POST', '/account/weather/compare', { sources, fetchPaid }),
   savePersonalCredential: async (provider: CredentialProviderId, credential: WeatherCredential | undefined, dailyBudget: number) =>
     (await request<{ status: CredentialStatus }>('POST', '/account/weather/credentials', { provider, ...(credential === undefined ? {} : { credential }), dailyBudget })).status,
   testPersonalCredential: async (provider: CredentialProviderId) => (await request<{ status: CredentialStatus }>('POST', '/account/weather/credentials/test', { provider })).status,

@@ -1,4 +1,5 @@
 import {
+  compareForecasts,
   getMyWeather,
   getServerWeather,
   listServerCredentials,
@@ -14,6 +15,7 @@ import {
   testPersonalCredential,
   testServerCredential,
   NoForecastError,
+  type CompareResult,
   type CredentialStatus,
   type MyForecast,
   type MyWeather,
@@ -68,6 +70,9 @@ const myWeatherView = (mine: MyWeather) => ({
 const credentialBody = z.strictObject({ provider: z.string().max(32), credential: z.unknown().optional(), dailyBudget: z.number().int() });
 const providerBody = z.strictObject({ provider: z.string().max(32) });
 
+const compareView = (result: CompareResult) =>
+  result.state === 'fresh' || result.state === 'cached' ? { ...result, fetchedAt: result.fetchedAt.toISOString() } : result;
+
 const forecastView = (result: MyForecast) => ({
   forecast: result.forecast,
   horizon: result.horizon,
@@ -103,6 +108,18 @@ export async function accountWeatherRoutes(app: FastifyInstance, { services }: {
   app.post('/models', { bodyLimit: 2048, config: perAccount('models', 30) }, async (request) => {
     const body = parse(z.strictObject({ location: z.unknown() }), request.body);
     return { models: await modelsFor(deps, { user: userOf(request), location: body.location }) };
+  });
+
+  // Compare forecasts (19.4c): only on the person's request, never polled; paid sources only with `fetchPaid`.
+  app.post('/compare', { bodyLimit: 2048, config: perAccount('compare', 20) }, async (request) => {
+    const body = parse(z.strictObject({ sources: z.array(z.unknown()).max(16), fetchPaid: z.boolean() }), request.body);
+    try {
+      const comparison = await compareForecasts(deps, { user: userOf(request), sources: body.sources, fetchPaid: body.fetchPaid });
+      return { location: { name: comparison.location.name, timeZone: comparison.location.timeZone }, results: comparison.results.map(compareView) };
+    } catch (error) {
+      if (error instanceof NoForecastError) return { location: null, results: [], reason: error.reason };
+      throw error;
+    }
   });
 
   // No forecast is not an error for Today: it simply shows nothing; the Weather page shows the reason.
