@@ -2262,6 +2262,7 @@ export const en = {
   'historical.unknownOrigin': 'From a restored Workspace',
   'historical.more': 'Showing the newest {shown} of {total}.',
   'error.invalid_restore_limit': 'Choose a limit between 0.1 GB and 1000 GB.',
+  'error.database_newer': 'This server runs an older VergissMeinNicht version than its database. Ask the server operator to start the newer version again.',
   'error.restore_limit_reached': 'Three restores are already open. Finish or cancel one first.',
   'error.restore_not_confirmable': 'This restore is not waiting for confirmation (any more).',
   'error.restore_too_large': 'This backup is larger than the server accepts for a restore.',

@@ -40,6 +40,12 @@ export interface AppOptions {
   logger?: FastifyServerOptions['logger'];
   /** Application services. Without them only health and static assets are served (tests of the HTTP baseline). */
   services?: ((log: FastifyBaseLogger) => AppServices) | undefined;
+  /**
+   * The server must not work on its database (e.g. it was migrated by a newer version): no services are built, the
+   * readiness check reports the reason, and every other API request is refused with it (503). Health and the web app
+   * itself are still served, so the operator sees the problem.
+   */
+  unavailable?: { readonly reason: 'database_newer' } | undefined;
   /** Reverse proxies (IPs/CIDRs, `loopback`) whose X-Forwarded-For is trusted; empty = none (default). */
   trustedProxies?: readonly string[] | undefined;
   /** Strict-Transport-Security max-age in seconds; 0 or undefined = no HSTS header. */
@@ -181,6 +187,11 @@ export async function buildApp(options: AppOptions = {}) {
         reply.header('Cache-Control', 'no-store');
       });
       api.get('/health', async () => ({ status: 'ok' }));
+      const unavailable = options.unavailable;
+      if (unavailable !== undefined) {
+        api.get('/health/ready', async (_request, reply) => reply.code(503).send({ status: 'not_ready', reason: unavailable.reason }));
+        api.all('/*', async (_request, reply) => reply.code(503).send({ error: unavailable.reason }));
+      }
       if (services !== undefined) {
         // Readiness for container health checks: no details beyond a reason code.
         api.get('/health/ready', async (_request, reply) => {

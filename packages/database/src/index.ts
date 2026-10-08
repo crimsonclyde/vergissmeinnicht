@@ -1,5 +1,5 @@
 export { openDatabase, type AppDatabase } from './connection.ts';
-export { migrationStatus, runMigrations } from './migrate.ts';
+export { assertNotNewer, DatabaseNewerError, migrationStatus, runMigrations } from './migrate.ts';
 export { createUserRepository } from './user-repository.ts';
 export { createInvitationRepository } from './invitation-repository.ts';
 export { createSecurityEventLog, createSecurityEventReader, type SecurityEventLog, type SecurityEventRecord } from './security-events.ts';

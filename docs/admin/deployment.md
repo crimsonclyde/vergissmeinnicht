@@ -127,6 +127,17 @@ docker compose up -d
 
 Without Docker: `NODE_ENV=production DATABASE_PATH=/data/vergissmeinnicht.sqlite node packages/database/src/ops-cli.ts migrate`. Migrations are committed files; a failed migration leaves the pre-migration backup to restore (see Backups).
 
+### Database is newer
+
+Since 0.6.0-beta.3 a version never works on a database that a **newer** version has migrated (for example after going back to an older image tag, or restoring an older image over newer data):
+
+- The server starts **nothing** — no sign-in, no API, no reminders, backups, housekeeping or background jobs, no writes — and reports `GET /api/health/ready` → `503 {"status":"not_ready","reason":"database_newer"}` (container `unhealthy`); every API request answers `503 database_newer`, and the log says *The database was migrated by a newer VergissMeinNicht version than this one*.
+- `migrate` refuses (*Failed: The database was migrated by a newer VergissMeinNicht version …*, exit code 1) before writing anything, also no pre-migration backup.
+- `verify` and `restore` refuse a server backup made by a newer version (*the backup was made by a newer VergissMeinNicht version*); the database it would replace is untouched.
+- Nothing is ever downgraded or changed automatically. A Workspace backup made by a newer version is refused by the restore's own check (`unsupported_version`).
+
+**Resolution:** run the version that migrated the database — or any newer one — again (`docker compose` / Unraid *Repository*: the newer tag). If you really must go back to the older version, restore the server backup made **before** the upgrade (the `…-pre-migration.sqlite` that `migrate` wrote) with that older version; changes made since the upgrade are then lost.
+
 ## Reverse proxy, HTTPS and rate limits
 
 HTTPS is mandatory; the Compose setup uses Caddy, which obtains and renews certificates automatically. Sign-in, invitation, Knot and global request limits count per client address, so the app must know the real client:
@@ -318,13 +329,13 @@ When the server itself is lost — disk, host, Unraid box — recovery means the
 | `DATA_ENCRYPTION_KEY` | password manager, **not** with the backups | TOTP stops working for everyone (recovery codes or an admin reset), the Telegram bot token and every weather credential (server-wide and personal) must be entered again |
 | `AUTH_SECRET` | configuration | nothing is lost: a new one only signs everyone out |
 | Configuration (`vergissmeinnicht.env` / Unraid template values, `PUBLIC_ORIGIN`, SMTP, `TRUSTED_PROXIES`, Caddyfile or Tailscale state) | your notes / repository | the server starts with wrong addresses or without email |
-| The image version the backup was made with | release notes, `docker inspect` | you might restore onto an older version — see step 3 |
+| The image version the backup was made with | release notes, `docker inspect` | an older image refuses it — see step 3 |
 
 **Checklist on the new machine** (Docker Compose; Unraid in [unraid.md](unraid.md#disaster-recovery)):
 
 1. Install Docker and create the data volume (or folder) — empty. Do **not** start the server on it yet.
 2. Put the configuration in place with the **same `DATA_ENCRYPTION_KEY`** (and the same `PUBLIC_ORIGIN` if the address stays). A new `AUTH_SECRET` is fine.
-3. Use the **same image version** the backup was made with, or a newer one — **never an older one**: an older image does not recognise a database made by a newer version and would run on it without its newer migrations (not detected automatically yet).
+3. Use the **same image version** the backup was made with, or a newer one. An older image refuses the backup (`verify`/`restore`: *made by a newer VergissMeinNicht version*) — see [Database is newer](#database-is-newer).
 4. Copy the backup into the volume: `docker compose cp ./vergissmeinnicht-<time>.sqlite app:/data/backups/`, then `media/` and `documents/` next to it.
 5. `docker compose run --rm app verify /data/backups/<file>.sqlite` — every photo and document file is hashed; stop here if it fails and use an older backup.
 6. `docker compose run --rm app restore /data/backups/<file>.sqlite` (the server must not run). On a fresh volume there is nothing to replace.

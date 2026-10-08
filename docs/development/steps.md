@@ -3884,7 +3884,7 @@ Capture a small, reviewed set from the actual app using `test-env` fictional dem
 **Intentional differences after export → restore → re-export** (asserted by `workspace-recovery.test.ts`): all ids are new; people are historical identities (same names); memberships are only the restoring admin's; Schedules are `PAUSED` (paused at the restore) and unassigned, Occurrences unassigned; recognised text that was being read is queued again; people named only by a membership or assignment have no historical identity (they appear only in the re-invite list); the restoring admin is a member with an address. Everything else — every record of every type, its order, times, actors, reasons, Trash, links, retained versions, corrections — and every original file is equal.
 
 **Remaining / limits:** packages neither encrypted nor signed (B4/D10; age passphrase encryption remains a later step); previous members' addresses visible to all server admins for up to 24 h; historical identities are listed but cannot be cleaned up (documented above); real-phone and screen-reader checks of the restore screen pending; a restore holds the database's write lock for its transaction; Workspaces cannot be deleted yet (so a test restore stays — rename it).
-**Outstanding decision (pre-existing, found in the integration review):** an *older* image started on a database migrated by a *newer* one is not detected (`migrationStatus` reports only pending migrations) — proposal: readiness `database_newer` and `migrate`/`restore` refusing it. Documented as "never an older image" until decided.
+**Decided after 18c (owner, 2026-10-08) and implemented before the release:** database version protection — see 18.5.
 **Security impact:** MEDIUM on top of 18b (new admin screens and setting, a read-only identity list, a server-local table; no new credential or outbound connection). `security.md`: "restore administration and integration review (18c)".
 
 - **Export → restore → compare:** a test Workspace with every record type, every relationship (Links, retained Document versions, Run ↔ Occurrence, Contact ↔ Procedure, Maintenance ↔ Equipment), Trash, corrections and List change stamps is exported, restored and compared record by record after mapping ids (content, order, times, actors, history) and file by file (byte-identical originals, regenerated previews). Then the restored Workspace is exported again and the two packages' contents compared (except ids and times of export).
@@ -3892,6 +3892,21 @@ Capture a small, reviewed set from the actual app using `test-env` fictional dem
 - `docs/user/user-guide.md` (Workspace admins), `docs/admin/deployment.md` and `unraid.md` (how the Workspace backup differs from the server backup; keeping packages safe), `security.md` check.
 
 **Security impact (expected for section 18):** HIGH — a complete, portable copy of a Workspace's most sensitive data, and an import path that writes many record types from an uploaded, hostile file.
+
+### 18.5 Database version protection (release 0.6.0-beta.3)
+**Status:** DONE (2026-10-08) — separate local commit before the release.
+**Decision (owner, 2026-10-08):** an older VMN must refuse to work on a database whose migration level is newer than it supports; nothing is modified or downgraded automatically; the existing readiness and migration design is used — no separate version system.
+
+**Implemented:**
+- `migrationStatus` now also reports `newer`: an applied migration timestamp that this version's journal does not ship, or later than its newest (`packages/database/src/migrate.ts`); `DatabaseNewerError`, `assertNotNewer`.
+- **Startup** (`apps/server/src/main.ts`): on a newer database no services are built — no routes but health, no housekeeping, scheduled backups, reminders, Telegram polling, text recognition, previews or backup jobs, no writes; `GET /api/health/ready` → `503 database_newer`, every other API request `503 {"error":"database_newer"}` (`buildApp({ unavailable })`), one error log line. At runtime (a newer version migrated the shared database while this one runs) readiness reports `database_newer` as well.
+- **`migrate`**: `runMigrations` refuses before touching the file (no migration, no back-fill), and the CLI refuses before writing the pre-migration backup (exit 1, clear message).
+- **Server backup `verify`/`restore`**: a backup made by a newer version is refused; the database it would replace stays untouched. (A newer *live* database also makes `backup`'s own verification fail — that version must make its backups.)
+- **Workspace restore**: unchanged — its own archive check (`isRestorableLevel`) already refuses packages from a newer level (`unsupported_version`).
+- Docs: `docs/admin/deployment.md` ("Database is newer": symptoms, resolution; recovery checklist), `docs/admin/unraid.md` (troubleshooting, recovery), web error text.
+
+**Tests/checks:** `packages/database/src/database-version.test.ts` (4: status up to date / older / newer / unknown earlier migration; `runMigrations` refuses with the file byte-identical; the `migrate` command exits 1 with the message and writes no backup; `verify` and `restore` refuse a newer backup and leave the database byte-identical, an own backup still verifies), `apps/server/src/http/hardening.test.ts` (+2: runtime readiness `database_newer`; the unavailable app answers health, `503 database_newer` for readiness and for API requests of every kind). Container: see the release entry.
+**Security impact:** LOW, protective — prevents an older version from writing data it does not understand (schema it does not know, triggers it would not expect); no new surface.
 
 ### 18.4 (later) Scheduled Workspace backups
 **Status:** LATER — not planned in detail.

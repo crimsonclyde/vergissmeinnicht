@@ -177,7 +177,7 @@ export interface AppServices {
   /** Persistent counters for the security-sensitive rate limits (Step 2.9). */
   readonly rateLimits: RateLimitCounter;
   /** Readiness: the database answers and every shipped migration is applied. Never throws. */
-  readonly readiness: () => { readonly ready: boolean; readonly reason?: 'database_unavailable' | 'migrations_pending' };
+  readonly readiness: () => { readonly ready: boolean; readonly reason?: 'database_unavailable' | 'migrations_pending' | 'database_newer' };
   /** `Secure` + `__Secure-` cookies (production). */
   readonly secureCookies: boolean;
 }
@@ -423,7 +423,10 @@ export function createServices(config: AppConfig, database: AppDatabase, overrid
       rateLimits: createRateLimitCounter(database),
       readiness: () => {
         try {
-          return migrationStatus(database.sqlite).pending ? { ready: false, reason: 'migrations_pending' } : { ready: true };
+          const status = migrationStatus(database.sqlite);
+          // A newer version migrated the database while this one runs: not ready (start-up refuses it outright).
+          if (status.newer) return { ready: false, reason: 'database_newer' };
+          return status.pending ? { ready: false, reason: 'migrations_pending' } : { ready: true };
         } catch {
           return { ready: false, reason: 'database_unavailable' };
         }
