@@ -20,9 +20,19 @@ export type AccountStatusChangeResult =
   /** Disabling would leave these Workspaces without an ACTIVE member holding a managing role. */
   | { readonly outcome: 'sole_workspace_manager'; readonly workspaces: readonly { readonly id: WorkspaceId; readonly name: string }[] };
 
+/** A historical identity (section 18) as server admins see it: a name in restored history, never an account. */
+export interface HistoricalIdentitySummary {
+  readonly id: UserId;
+  readonly displayName: string;
+  /** The Workspace it was restored for and when (null for an identity whose origin was not recorded). */
+  readonly origin: { readonly workspaceId: WorkspaceId; readonly workspaceName: string; readonly restoredAt: Date } | null;
+}
+
 export interface AccountAdminRepository {
   /** Every account, ordered by display name. */
   list(): Promise<AccountSummary[]>;
+  /** Historical identities, newest restore first (at most `limit`), and how many there are. Read only. */
+  historicalIdentities(limit: number): Promise<{ readonly total: number; readonly items: readonly HistoricalIdentitySummary[] }>;
   /**
    * In one IMMEDIATE transaction: re-checks that the actor is still an ACTIVE server admin, refuses
    * self-changes and (when disabling) changes that would leave a Workspace without an ACTIVE member

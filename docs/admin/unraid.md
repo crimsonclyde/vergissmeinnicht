@@ -84,6 +84,17 @@ Change the version in *Repository* and **Apply**. With *Migrate on start* the co
 
   (the replaced database is kept next to it as `….before-restore-<time>`), then start the container again.
 
+## Disaster recovery
+
+The checklist is in [Deployment → Disaster recovery](deployment.md#disaster-recovery-a-new-server); on Unraid:
+
+1. Keep, away from the server: the `backups` folder (with `media` and `documents`), `secrets/data_encryption_key` (**separately**), and the template values (*Repository* version, `PUBLIC_ORIGIN`, SMTP, Tailscale settings).
+2. On the new box: create `appdata/vergissmeinnicht/data` and `secrets`, put `data_encryption_key` back, add the container from the template with the **same or a newer** version — never an older one — and leave it **stopped**.
+3. Copy the `backups` folder into `data/`, then in the Unraid terminal: `docker run --rm --user 99:100 -v /mnt/user/appdata/vergissmeinnicht/data:/data ghcr.io/crimsonclyde/vergissmeinnicht:<version> verify /data/backups/<file>.sqlite`, then the same with `restore` instead of `verify` (see *Backups*), and with `migrate` if the version is newer than the backup's (or keep *Migrate on start* on).
+4. Start the container; check sign-in with two-factor (proves the key), a document original, a Telegram test message and the weather card; make a fresh backup.
+
+A Workspace backup (*Workspace settings → Backup*) is no substitute: it holds one Workspace without accounts, sign-in, members or server settings.
+
 ## Troubleshooting
 
 - **"Email or password is not correct" for the first admin, although the password is right:** look at the line `Server-admin invitation created for …` — an address with an odd character (e.g. `�` from a paste) is a different address. Since 0.1.0-beta.4 such addresses are refused. On a fresh install without other data: stop the container, delete only `data/vergissmeinnicht.sqlite*` (keep `.tailscale_state` and `backups`), start it and run `admin-bootstrap` again with the address typed by hand.

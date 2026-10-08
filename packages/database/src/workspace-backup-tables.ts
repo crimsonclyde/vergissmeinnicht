@@ -66,7 +66,9 @@ const SPECS: readonly Spec[] = [
   { table: 'links', name: 'links', from: own('links'), userColumns: ['created_by_user_id'], omit: [] },
 ];
 
-export const EXPORTED_TABLES: readonly ExportedTable[] = SPECS.map((spec) => ({ ...spec, select: 'SELECT t.* FROM ' + spec.from }));
+// Rows in insertion order (rowid): the package is deterministic, and a restore — inserting in package order —
+// keeps that order, so a restored Workspace exports its records in the same order as the original (18c).
+export const EXPORTED_TABLES: readonly ExportedTable[] = SPECS.map((spec) => ({ ...spec, select: 'SELECT t.* FROM ' + spec.from + ' ORDER BY t.rowid' }));
 
 /** Never in a Workspace backup, with the reason (section 18, B3, 18.1 "never included"). */
 export const EXCLUDED_TABLES: Readonly<Record<string, string>> = {
@@ -102,4 +104,5 @@ export const EXCLUDED_TABLES: Readonly<Record<string, string>> = {
   document_file_derivatives: 'previews — regenerated after a restore',
   workspace_backup_jobs: 'backup jobs themselves',
   workspace_restore_marks: 'exists only inside a restore’s own transaction',
+  historical_identity_origins: 'server-local origin of historical identities (people appear as person references)',
 };

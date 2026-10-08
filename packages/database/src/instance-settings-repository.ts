@@ -19,6 +19,7 @@ export function createInstanceSettingsRepository({ db }: Pick<AppDatabase, 'db'>
         recentProceduresLimit: row.recentProceduresLimit,
         documentMaxFileBytes: row.documentMaxFileBytes,
         documentFormats: formatsOf(row.documentFormats),
+        workspaceRestoreMaxBytes: row.workspaceRestoreMaxBytes,
       };
     },
 
@@ -31,6 +32,7 @@ export function createInstanceSettingsRepository({ db }: Pick<AppDatabase, 'db'>
           recentProceduresLimit: settings.recentProceduresLimit,
           documentMaxFileBytes: settings.documentMaxFileBytes,
           documentFormats: settings.documentFormats.join(','),
+          workspaceRestoreMaxBytes: settings.workspaceRestoreMaxBytes,
           updatedAt: at,
           updatedByUserId: actor.userId,
         };
@@ -49,6 +51,7 @@ export function createInstanceSettingsRepository({ db }: Pick<AppDatabase, 'db'>
             recentProceduresLimit: settings.recentProceduresLimit,
             documentMaxFileBytes: settings.documentMaxFileBytes,
             documentFormats: settings.documentFormats.join(','),
+            workspaceRestoreMaxBytes: settings.workspaceRestoreMaxBytes,
           },
         });
         return true;

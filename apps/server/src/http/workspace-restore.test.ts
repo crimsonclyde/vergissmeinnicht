@@ -4,7 +4,7 @@ import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { EXPORTED_TABLES } from '@vergissmeinnicht/database';
 import { openWorkspaceBackup, writeWorkspaceBackupArchive, type ArchiveSource, type WorkspaceBackupManifest } from '@vergissmeinnicht/import-export';
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import { PASSWORD, startTestApp } from './test-harness.ts';
 
 const ORIGIN = 'https://vmn.example.org';
@@ -182,7 +182,7 @@ describe('Workspace restore (section 18b)', () => {
     const before = { workspaces: workspaceCount(), imported: importedCount() };
     const ready = await validated(homePackage);
     expect(ready, JSON.stringify(ready)).toMatchObject({ state: 'READY', phase: 'validated', errorCode: null, workspaceId: null });
-    expect(ready.preview).toMatchObject({ workspaceName: 'Home ✨ Ferienhaus', databaseLevel: '0045_imported_identities', schedulesPaused: 2, assignmentsCleared: 1 });
+    expect(ready.preview).toMatchObject({ workspaceName: 'Home ✨ Ferienhaus', databaseLevel: '0046_restore_administration', schedulesPaused: 2, assignmentsCleared: 1 });
     expect(ready.preview.counts).toMatchObject({ procedures: 1, runs: 2, documents: 2, document_files: 3, links: 3, run_document_removals: 1, contacts: 1, list_items: 3 });
     // Previous members, for inviting them again by hand — the restore itself invites and matches nobody.
     expect(ready.preview.previousMembers.map((member) => `${member.displayName}:${member.email}:${member.role}`).sort()).toEqual(['Ada:admin@example.org:ADMIN', 'Eddie:editor@example.org:EDITOR', 'Gus:guest@example.org:GUEST', 'Olga Öwner:owner@example.org:ADMIN', 'Uma 🌸:user@example.org:USER']);
@@ -254,6 +254,8 @@ describe('Workspace restore (section 18b)', () => {
     }
     expect(files.map((file) => file.sha256).sort()).toEqual([sha(PNG), sha(PNG), sha(PNG2)].sort());
     const usage = async (workspaceId: string, cookie: string) => (await t.get(`${api(workspaceId)}/document-files/usage`, cookie)).json().usage;
+    // Previews are made again in the background after a restore; once done, the accounting is the source's.
+    await t.services.documentFiles.previews.idle();
     expect(await usage(restored, t.admin)).toEqual(await usage(home, owner));
     expect(all('SELECT sha256 FROM step_images')).toEqual(expect.arrayContaining(otherImages));
 
@@ -367,19 +369,87 @@ describe('Workspace restore (section 18b)', () => {
       await refused(await repack(homePackage, (files) => write(files, 'workspace', lines(files, 'workspace').map((row) => ({ ...row, storage_limit_bytes: 10 })))), 'storage_limit');
     });
 
-    it('an upload above the server’s restore limit', async () => {
-      const adminId = one<{ id: string }>("SELECT id FROM users WHERE email = 'admin@example.org'").id;
-      sql('INSERT INTO instance_settings (id, updated_at, updated_by_user_id, workspace_restore_max_bytes) VALUES (1, 0, ?, 1000) ON CONFLICT(id) DO UPDATE SET workspace_restore_max_bytes = 1000', adminId);
+    it('an upload above the server’s restore limit — refused by its declared size, and while it streams', async () => {
+      const limit = vi.spyOn(t.services.workspaceBackups.backupJobs, 'restoreMaxBytes').mockResolvedValue(1000);
       try {
+        sql('DELETE FROM rate_limits');
         const response = await upload(RESTORES, t.admin, homePackage);
         expect(response.statusCode).toBe(413);
+        expect(response.json()).toEqual({ error: 'restore_too_large' });
         const [latest] = (await t.get(RESTORES, t.admin)).json().restores as Job[];
         expect(latest).toMatchObject({ state: 'FAILED', errorCode: 'too_large' });
         expect(existsSync(join(backupRoot(), (latest as Job).id))).toBe(false);
       } finally {
-        sql('UPDATE instance_settings SET workspace_restore_max_bytes = 20000000000 WHERE id = 1');
+        limit.mockRestore();
       }
+      // Without a declared size (a chunked body) the count while streaming decides.
+      const store = t.services.workspaceBackups.backupStore;
+      const chunks = async function* () {
+        for (let index = 0; index < 4; index++) yield new Uint8Array(400);
+      };
+      const id = randomUUID();
+      await expect(store.receiveUpload(id, chunks(), { maxBytes: 1000, declaredBytes: null, onProgress: () => undefined })).rejects.toMatchObject({ code: 'too_large' });
+      store.remove(id);
+      expect(existsSync(join(backupRoot(), id))).toBe(false);
     });
+  });
+
+  it('lets server admins set the restore limit within its bounds — checked by the server and the database', async () => {
+    expect((await t.post('/api/admin/settings', { workspaceRestoreMaxBytes: 5_000_000_000 }, owner)).statusCode).toBe(403);
+    for (const bytes of [99_999_999, 1_000_000_000_001, 1.5]) expect((await t.post('/api/admin/settings', { workspaceRestoreMaxBytes: bytes }, t.admin)).statusCode).toBe(400);
+    const saved = await t.post('/api/admin/settings', { workspaceRestoreMaxBytes: 5_000_000_000 }, t.admin);
+    expect(saved.json().settings.workspaceRestoreMaxBytes).toBe(5_000_000_000);
+    expect(await t.services.workspaceBackups.backupJobs.restoreMaxBytes()).toBe(5_000_000_000);
+    expect(() => sql('UPDATE instance_settings SET workspace_restore_max_bytes = 1000 WHERE id = 1')).toThrow(/invalid restore upload limit/);
+    expect(one<{ metadata: string }>("SELECT metadata FROM security_events WHERE type = 'INSTANCE_SETTINGS_CHANGED' ORDER BY occurred_at DESC LIMIT 1").metadata).toContain('"workspaceRestoreMaxBytes":5000000000');
+    expect((await t.post('/api/admin/settings', { workspaceRestoreMaxBytes: 20_000_000_000 }, t.admin)).statusCode).toBe(200);
+  });
+
+  it('keeps at most three restores open, and releases files and previews of discarded ones', async () => {
+    const opened: Job[] = [];
+    for (let index = 0; index < 3; index++) opened.push(await validated(homePackage));
+    sql('DELETE FROM rate_limits');
+    const fourth = await upload(RESTORES, t.admin, homePackage);
+    expect(fourth.statusCode).toBe(409);
+    expect(fourth.json()).toEqual({ error: 'restore_limit_reached' });
+    for (const job of opened) {
+      expect((await t.post(`${RESTORES}/${job.id}/cancel`, {}, t.admin)).json().restore.state).toBe('CANCELLED');
+      expect(existsSync(join(backupRoot(), job.id))).toBe(false);
+      expect(one('SELECT preview FROM workspace_backup_jobs WHERE id = ?', job.id)).toEqual({ preview: null });
+    }
+    // A validated restore that is never confirmed expires: its file and preview go.
+    const forgotten = await validated(homePackage);
+    sql('UPDATE workspace_backup_jobs SET expires_at = 1 WHERE id = ?', forgotten.id);
+    await runQueue();
+    expect(await job(forgotten.id)).toMatchObject({ state: 'EXPIRED', preview: null });
+    expect(existsSync(join(backupRoot(), forgotten.id))).toBe(false);
+    expect((await t.post(`${RESTORES}/${forgotten.id}/confirm`, {}, t.admin)).statusCode).toBe(409);
+  });
+
+  it('shows server admins the historical identities with their origin — read only, never as accounts, never with an address', async () => {
+    const url = '/api/admin/accounts/historical-identities';
+    for (const cookie of [owner, user]) expect((await t.get(url, cookie)).statusCode).toBe(403);
+    expect((await t.get(url)).statusCode).toBe(401);
+    const listed = (await t.get(url, t.admin)).json() as { total: number; identities: { id: string; displayName: string; origin: { workspaceId: string; workspaceName: string } | null }[] };
+    expect(listed.total).toBe(importedCount());
+    expect(listed.identities.find((identity) => identity.origin?.workspaceId === restored && identity.displayName === 'Olga Öwner')).toMatchObject({ origin: { workspaceName: 'Home ✨ Ferienhaus' } });
+    expect(JSON.stringify(listed)).not.toMatch(/@|example\.org|imported\.invalid/);
+    expect(one<{ n: number }>("SELECT count(*) AS n FROM users u LEFT JOIN historical_identity_origins o ON o.user_id = u.id WHERE u.status = 'IMPORTED' AND o.user_id IS NULL").n).toBe(0);
+    // An origin only for a historical identity, and never rewritten.
+    const adminId = one<{ id: string }>("SELECT id FROM users WHERE email = 'admin@example.org'").id;
+    expect(() => sql('INSERT INTO historical_identity_origins (user_id, workspace_id, restore_job_id, restored_at) VALUES (?, ?, ?, 1)', adminId, home, randomUUID())).toThrow(/only a historical identity/);
+    expect(() => sql('UPDATE historical_identity_origins SET workspace_id = ?', home)).toThrow(/a restore origin is history/);
+  });
+
+  it('leaves no restore mark behind and keeps live validation after a restore', async () => {
+    expect(one<{ n: number }>('SELECT count(*) AS n FROM workspace_restore_marks').n).toBe(0);
+    // The restored Workspace is an ordinary live Workspace now: a link to its trashed Document is refused like anywhere.
+    const trashed = one<{ id: string }>('SELECT id FROM documents WHERE workspace_id = ? AND deleted_at IS NOT NULL', restored);
+    const procedure = one<{ id: string }>('SELECT id FROM procedures WHERE workspace_id = ? LIMIT 1', restored);
+    expect((await t.post(`${api(restored)}/documents/${trashed.id}/links`, { target: { type: 'procedure', id: procedure.id } }, t.admin)).statusCode).toBeGreaterThanOrEqual(400);
+    const adminId = one<{ id: string }>("SELECT id FROM users WHERE email = 'admin@example.org'").id;
+    expect(() => sql('INSERT INTO workspace_restore_marks (workspace_id) VALUES (?)', restored)).toThrow(/only a workspace being restored/);
+    expect(() => sql("INSERT INTO links (id, workspace_id, from_type, from_id, to_type, to_id, created_by_user_id, created_by_display_name, created_at) VALUES (?, ?, 'document', ?, 'procedure', ?, ?, 'Ada', 1)", randomUUID(), restored, randomUUID(), procedure.id, adminId)).toThrow(/a link needs two records/);
   });
 
   it('rolls everything back when the database fails during the restore, and never deletes files another Workspace uses', async () => {

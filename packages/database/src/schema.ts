@@ -855,6 +855,27 @@ export const workspaceRestoreMarks = sqliteTable('workspace_restore_marks', {
     .references(() => workspaces.id),
 });
 
+/**
+ * Where a historical identity (status IMPORTED, section 18) came from: the restore that created it and the
+ * Workspace it was created for — shown to server admins so these entries are never mistaken for accounts.
+ * Written in the restore's transaction; a trigger (migration 0046) refuses a row for anyone but an IMPORTED user.
+ * Server-local bookkeeping, never part of a Workspace backup.
+ */
+export const historicalIdentityOrigins = sqliteTable(
+  'historical_identity_origins',
+  {
+    userId: text('user_id')
+      .primaryKey()
+      .references(() => users.id),
+    workspaceId: text('workspace_id')
+      .notNull()
+      .references(() => workspaces.id),
+    restoreJobId: text('restore_job_id').notNull(),
+    restoredAt: integer('restored_at', { mode: 'timestamp_ms' }).notNull(),
+  },
+  (table) => [index('historical_identity_origins_workspace_idx').on(table.workspaceId)],
+);
+
 export const workspaceBackupJobs = sqliteTable(
   'workspace_backup_jobs',
   {

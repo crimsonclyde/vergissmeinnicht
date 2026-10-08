@@ -14,6 +14,16 @@ export const BACKUP_LEASE_MS = 2 * 60_000;
 export const BACKUP_LIST_LIMIT = 5;
 /** How many recent restores the server administration lists. */
 export const RESTORE_LIST_LIMIT = 10;
+/** Restores holding files at the same time, server-wide (uploading, validating, waiting for confirmation, restoring; D14). */
+export const MAX_OPEN_RESTORES = 3;
+
+/** Too many restores hold files already: finish, cancel or let one expire first. */
+export class RestoreLimitReachedError extends Error {
+  constructor() {
+    super('Too many restores are open');
+    this.name = 'RestoreLimitReachedError';
+  }
+}
 
 export class BackupAlreadyRunningError extends Error {
   constructor() {
@@ -114,16 +124,21 @@ async function restoreJob(deps: WorkspaceBackupDeps, jobId: string): Promise<Bac
  * Receives a `.vmnbackup` for a restore (streamed into a private job folder, never buffered) and queues its
  * validation. A server stopped during the upload leaves an `interrupted` job; a refused upload keeps nothing.
  */
-export async function uploadWorkspaceRestore(deps: WorkspaceBackupDeps, input: { readonly actor: User; readonly source: AsyncIterable<Uint8Array> }): Promise<BackupJob> {
+export async function uploadWorkspaceRestore(
+  deps: WorkspaceBackupDeps,
+  input: { readonly actor: User; readonly source: AsyncIterable<Uint8Array>; readonly declaredBytes: number | null },
+): Promise<BackupJob> {
   enterRestore(input.actor);
   const now = deps.clock.now();
-  const created = await deps.backupJobs.createRestore({ at: now, leaseUntil: new Date(now.getTime() + BACKUP_LEASE_MS) }, userActor(input.actor));
+  const created = await deps.backupJobs.createRestore({ at: now, leaseUntil: new Date(now.getTime() + BACKUP_LEASE_MS), maxOpen: MAX_OPEN_RESTORES }, userActor(input.actor));
+  if (created.status === 'too_many') throw new RestoreLimitReachedError();
   if (created.status !== 'ok') throw new NotAuthorizedError();
   const job = created.job;
   let lastReport = 0;
   try {
     const size = await deps.backupStore.receiveUpload(job.id, input.source, {
       maxBytes: await deps.backupJobs.restoreMaxBytes(),
+      declaredBytes: input.declaredBytes,
       onProgress: (done) => {
         const at = Date.now();
         if (at - lastReport < 1000) return;

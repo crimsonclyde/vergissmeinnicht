@@ -1,4 +1,4 @@
-import { DEFAULT_MAX_DOCUMENT_FILE_BYTES, DOCUMENT_FILE_FORMATS, type Actor, type DocumentFileFormat } from '@vergissmeinnicht/domain';
+import { DEFAULT_MAX_DOCUMENT_FILE_BYTES, DEFAULT_WORKSPACE_RESTORE_MAX_BYTES, DOCUMENT_FILE_FORMATS, type Actor, type DocumentFileFormat } from '@vergissmeinnicht/domain';
 
 /** Settings of this server; none of them is secret. */
 export interface InstanceSettings {
@@ -10,6 +10,8 @@ export interface InstanceSettings {
   readonly documentMaxFileBytes: number;
   /** Accepted document formats: a subset of what the server can validate, never more. */
   readonly documentFormats: readonly DocumentFileFormat[];
+  /** Largest Workspace backup a server admin may upload for a restore (18, D4): 100 MB to 1 TB, 20 GB by default. */
+  readonly workspaceRestoreMaxBytes: number;
 }
 
 export const RECENT_PROCEDURES_LIMIT_RANGE = Object.freeze({ min: 0, max: 20 });
@@ -19,6 +21,7 @@ export const DEFAULT_INSTANCE_SETTINGS: InstanceSettings = Object.freeze({
   recentProceduresLimit: 5,
   documentMaxFileBytes: DEFAULT_MAX_DOCUMENT_FILE_BYTES,
   documentFormats: DOCUMENT_FILE_FORMATS,
+  workspaceRestoreMaxBytes: DEFAULT_WORKSPACE_RESTORE_MAX_BYTES,
 });
 
 export interface InstanceSettingsRepository {

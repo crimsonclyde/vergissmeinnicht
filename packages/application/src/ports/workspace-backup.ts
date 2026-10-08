@@ -81,7 +81,10 @@ export interface BackupJobRepository {
    * Starts a restore for an upload: RUNNING in phase `upload` with a lease (renewed while bytes arrive), so a
    * server stopped mid-upload leaves an `interrupted` job. Re-checks an ACTIVE server admin in the transaction.
    */
-  createRestore(input: { readonly at: Date; readonly leaseUntil: Date }, actor: UserActor): Promise<{ readonly status: 'ok'; readonly job: BackupJob } | { readonly status: 'forbidden' }>;
+  createRestore(
+    input: { readonly at: Date; readonly leaseUntil: Date; readonly maxOpen: number },
+    actor: UserActor,
+  ): Promise<{ readonly status: 'ok'; readonly job: BackupJob } | { readonly status: 'forbidden' | 'too_many' }>;
   /** The upload is complete: QUEUED for validation; records WORKSPACE_RESTORE_UPLOADED. */
   restoreUploaded(jobId: string, sizeBytes: number, at: Date): Promise<void>;
   /** Validation passed: READY in phase `validated`, waiting for confirmation until `expiresAt`. */
@@ -109,7 +112,11 @@ export interface WorkspaceBackupStore {
    * Receives a restore upload into the job's private folder, counting while it streams: more than `maxBytes`,
    * or more than the volume can hold, fails (`too_large`, `insufficient_space`) — nothing is kept then.
    */
-  receiveUpload(jobId: string, source: AsyncIterable<Uint8Array>, options: { readonly maxBytes: number; readonly onProgress: (done: number) => void }): Promise<number>;
+  receiveUpload(
+    jobId: string,
+    source: AsyncIterable<Uint8Array>,
+    options: { readonly maxBytes: number; readonly declaredBytes: number | null; readonly onProgress: (done: number) => void },
+  ): Promise<number>;
   /** Validates the uploaded package completely and checks the restore without committing it. */
   validateRestore(
     job: { readonly id: string; readonly requestedByUserId: UserId },

@@ -81,7 +81,9 @@ export async function workspaceRestoreRoutes(app: FastifyInstance, { services }:
     async (request, reply) => {
       parse(noQuery, request.query);
       const source: AsyncIterable<Uint8Array> = request.body instanceof Readable ? request.body.iterator({ destroyOnReturn: false }) : Readable.from([]);
-      const job = await uploadWorkspaceRestore(deps, { actor: userOf(request), source });
+      const length = Number(request.headers['content-length']);
+      const declaredBytes = Number.isSafeInteger(length) && length >= 0 ? length : null;
+      const job = await uploadWorkspaceRestore(deps, { actor: userOf(request), source, declaredBytes });
       void services.backupRunner.wake();
       return reply.code(202).send({ restore: jobView(job) });
     },

@@ -1,10 +1,10 @@
-import { and, asc, count, eq, gt, inArray, isNull, ne } from 'drizzle-orm';
+import { and, asc, count, desc, eq, gt, inArray, isNull, ne } from 'drizzle-orm';
 import type { AccountAdminRepository, AccountStatusChangeResult } from '@vergissmeinnicht/application';
 import type { NormalizedEmail, UserId, WorkspaceId, WorkspaceRole } from '@vergissmeinnicht/domain';
 import { revokeAllAccess } from './access-revocation.ts';
 import { IMMEDIATE, type Transaction } from './actor-guard.ts';
 import type { AppDatabase } from './connection.ts';
-import { accountRecoveries, invitations, memberships, totpCredentials, users, workspaces } from './schema.ts';
+import { accountRecoveries, historicalIdentityOrigins, invitations, memberships, totpCredentials, users, workspaces } from './schema.ts';
 import { recordSecurityEvent } from './security-events.ts';
 
 /** Thrown inside the transaction so better-sqlite3 rolls it back; carries the result to report. */
@@ -71,6 +71,28 @@ export function createAccountAdminRepository({ db }: Pick<AppDatabase, 'db'>): A
           email: row.email as NormalizedEmail,
           totpEnabled: totpEnabledAt !== null,
         }));
+    },
+
+    async historicalIdentities(limit) {
+      const total = db.select({ n: count() }).from(users).where(eq(users.status, 'IMPORTED')).get()?.n ?? 0;
+      // No email (a reserved placeholder), no credentials — there are none: name and origin only.
+      const rows = db
+        .select({ id: users.id, displayName: users.name, workspaceId: historicalIdentityOrigins.workspaceId, workspaceName: workspaces.name, restoredAt: historicalIdentityOrigins.restoredAt })
+        .from(users)
+        .leftJoin(historicalIdentityOrigins, eq(historicalIdentityOrigins.userId, users.id))
+        .leftJoin(workspaces, eq(workspaces.id, historicalIdentityOrigins.workspaceId))
+        .where(eq(users.status, 'IMPORTED'))
+        .orderBy(desc(historicalIdentityOrigins.restoredAt), asc(users.name), asc(users.id))
+        .limit(limit)
+        .all();
+      return {
+        total,
+        items: rows.map((row) => ({
+          id: row.id as UserId,
+          displayName: row.displayName,
+          origin: row.workspaceId === null || row.workspaceName === null || row.restoredAt === null ? null : { workspaceId: row.workspaceId as WorkspaceId, workspaceName: row.workspaceName, restoredAt: row.restoredAt },
+        })),
+      };
     },
 
     async setStatus(input, actor) {

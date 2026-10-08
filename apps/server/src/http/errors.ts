@@ -96,6 +96,7 @@ import {
   BackupAlreadyRunningError,
   BackupNotFoundError,
   RestoreNotConfirmableError,
+  RestoreLimitReachedError,
   WorkspaceBackupStoreError,
   WeatherOffError,
   WeatherProviderError,
@@ -185,6 +186,7 @@ export function errorHandler(error: FastifyError | Error, request: FastifyReques
   if (error instanceof BackupAlreadyRunningError) return reply.code(409).send({ error: 'backup_running' });
   if (error instanceof BackupNotFoundError) return reply.code(404).send({ error: 'backup_not_found' });
   if (error instanceof RestoreNotConfirmableError) return reply.code(409).send({ error: 'restore_not_confirmable' });
+  if (error instanceof RestoreLimitReachedError) return reply.code(409).send({ error: 'restore_limit_reached' });
   // A refused restore upload (18b): too large for the instance setting, or not enough room on the volume.
   if (error instanceof WorkspaceBackupStoreError) {
     if (error.code === 'too_large') return reply.code(413).send({ error: 'restore_too_large' });

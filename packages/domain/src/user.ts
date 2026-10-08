@@ -21,6 +21,18 @@ export type UserStatus = (typeof USER_STATUSES)[number];
 export const ACCOUNT_STATUSES = ['ACTIVE', 'DISABLED'] as const;
 /** The reserved address domain of historical identities (`.invalid` never resolves, RFC 2606). */
 export const IMPORTED_EMAIL_DOMAIN = 'imported.invalid';
+/**
+ * The restore upload limit (section 18, D4): 20 GB by default; server admins choose between 100 MB and 1 TB.
+ * Also bounded by a trigger (migration 0046). Packages are streamed — the bound protects the volume, not memory.
+ */
+export const WORKSPACE_RESTORE_BYTES_RANGE = Object.freeze({ min: 100_000_000, max: 1_000_000_000_000 });
+export const DEFAULT_WORKSPACE_RESTORE_MAX_BYTES = 20_000_000_000;
+export function parseWorkspaceRestoreMaxBytes(bytes: number): number {
+  if (!Number.isInteger(bytes) || bytes < WORKSPACE_RESTORE_BYTES_RANGE.min || bytes > WORKSPACE_RESTORE_BYTES_RANGE.max) {
+    throw new DomainValidationError('workspaceRestoreMaxBytes', 'invalid_restore_limit', 'Choose a limit between 100 MB and 1 TB');
+  }
+  return bytes;
+}
 export const isImportedIdentity = (user: { readonly status: UserStatus }): boolean => user.status === 'IMPORTED';
 
 export interface User {

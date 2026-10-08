@@ -13,6 +13,9 @@ const code = Object.entries(sources)
 const DYNAMIC_PREFIXES = [
   'backup.state.',
   'backup.error.',
+  'restore.error.',
+  'restore.count.',
+  'restore.warning.',
   'weather.credential.terms.',
   'weather.condition.',
   'weather.noForecast.',

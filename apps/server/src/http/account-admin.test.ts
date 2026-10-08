@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { PASSWORD, startTestApp } from './test-harness.ts';
 
 /** The document file limits of a fresh server (16.1). */
-const DOCUMENT_DEFAULTS = { documentMaxFileBytes: 50_000_000, documentFormats: ['PDF', 'JPEG', 'PNG', 'HEIC'] };
+const DOCUMENT_DEFAULTS = { documentMaxFileBytes: 50_000_000, documentFormats: ['PDF', 'JPEG', 'PNG', 'HEIC'], workspaceRestoreMaxBytes: 20_000_000_000 };
 
 describe('server-admin account status API', () => {
   let t: Awaited<ReturnType<typeof startTestApp>>;

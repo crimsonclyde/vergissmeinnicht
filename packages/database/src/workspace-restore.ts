@@ -75,6 +75,8 @@ export interface WorkspaceRestoreInput {
   readonly files: { readonly documents: ReadonlyMap<string, RestoredDocumentFileFacts>; readonly images: ReadonlyMap<string, { readonly bytes: number }> };
   /** The server admin restoring: the new Workspace's only member (ADMIN). */
   readonly admin: { readonly userId: string };
+  /** The restore job (recorded as the origin of each historical identity). */
+  readonly jobId: string;
   readonly at: Date;
   /** false: check only (everything is rolled back). Otherwise `finish` runs in the same transaction before commit. */
   readonly commit: false | { readonly finish: (tx: Transaction, outcome: WorkspaceRestoreOutcome) => void };
@@ -349,6 +351,7 @@ export function restoreWorkspace(database: AppDatabase, input: WorkspaceRestoreI
       const workspaceId = randomUUID();
       const usedPersons = new Map<string, string>();
       const createPerson = sqlite.prepare("INSERT INTO users (id, display_name, email, email_verified, image, status, server_admin, created_at, updated_at) VALUES (?, ?, ?, 0, NULL, 'IMPORTED', 0, ?, ?)");
+      const recordOrigin = sqlite.prepare('INSERT INTO historical_identity_origins (user_id, workspace_id, restore_job_id, restored_at) VALUES (?, ?, ?, ?)');
       const personId = (ref: unknown, table: string): string | null => {
         if (ref === null) return null;
         if (typeof ref !== 'string' || !persons.has(ref)) throw new WorkspaceRestoreError('broken_reference', table);
@@ -529,6 +532,8 @@ export function restoreWorkspace(database: AppDatabase, input: WorkspaceRestoreI
         const contact = contactRow.get(contactId) as { name: string; emails: string; phones: string };
         for (const key of contactKeys({ name: contact.name, emails: JSON.parse(contact.emails) as ContactPoint[], phones: JSON.parse(contact.phones) as ContactPoint[] })) insertKey.run(contactId, workspaceId, key.kind, key.key);
       }
+      // Where each historical identity came from (the Workspace exists by now).
+      for (const id of usedPersons.values()) recordOrigin.run(id, workspaceId, input.jobId, at);
       sqlite.prepare('DELETE FROM workspace_restore_marks WHERE workspace_id = ?').run(workspaceId);
       const usage = storageUsageIn(tx, workspaceId, input.at);
       const imageLimit = (sqlite.prepare('SELECT image_quota_bytes AS n FROM workspaces WHERE id = ?').get(workspaceId) as { n: number }).n;

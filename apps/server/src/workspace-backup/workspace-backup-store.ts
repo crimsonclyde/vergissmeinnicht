@@ -120,6 +120,12 @@ export function createWorkspaceBackupStore(options: {
       const dir = folder(jobId);
       mkdirSync(options.root, { recursive: true, mode: 0o700 });
       mkdirSync(dir, { mode: 0o700 });
+      // A declared size is checked before a byte is stored (the count below still decides): above the limit, or
+      // more than the volume can hold three times over (upload, extraction, restored originals) plus its margin.
+      if (upload.declaredBytes !== null) {
+        if (upload.declaredBytes > upload.maxBytes) throw new WorkspaceBackupStoreError('too_large');
+        if (freeBytes(options.root) < 3 * upload.declaredBytes + SPACE_MARGIN_BYTES) throw new WorkspaceBackupStoreError('insufficient_space');
+      }
       const handle = await open(join(dir, UPLOAD), 'wx', 0o600);
       let size = 0;
       try {
@@ -147,7 +153,7 @@ export function createWorkspaceBackupStore(options: {
       const facts = await inspectFiles(restore.processor, extracted, progress);
       progress.onProgress('check', 0, 0);
       try {
-        const outcome = restoreWorkspace(restore.database, { data: extracted.data, files: facts, admin: { userId: job.requestedByUserId }, at: now(), commit: false });
+        const outcome = restoreWorkspace(restore.database, { data: extracted.data, files: facts, admin: { userId: job.requestedByUserId }, jobId: job.id, at: now(), commit: false });
         const manifest = extracted.manifest;
         const preview: RestorePreview = {
           workspaceName: outcome.workspaceName,
@@ -207,6 +213,7 @@ export function createWorkspaceBackupStore(options: {
           data: extracted.data,
           files: facts,
           admin: { userId: job.requestedByUserId },
+          jobId: job.id,
           at,
           commit: {
             finish: (tx, outcome) =>

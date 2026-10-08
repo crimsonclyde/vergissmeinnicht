@@ -1,8 +1,8 @@
 import { randomUUID } from 'node:crypto';
 import type { BackupJob, BackupJobRepository, RestorePreview } from '@vergissmeinnicht/application';
-import type { UserId, WorkspaceId } from '@vergissmeinnicht/domain';
+import { DEFAULT_WORKSPACE_RESTORE_MAX_BYTES, type UserId, type WorkspaceId } from '@vergissmeinnicht/domain';
 import { roleHasCapability } from '@vergissmeinnicht/permissions';
-import { and, asc, desc, eq, gt, inArray, isNotNull, lt, ne } from 'drizzle-orm';
+import { and, asc, desc, eq, gt, inArray, isNotNull, lt, ne, or } from 'drizzle-orm';
 import type { Transaction } from './actor-guard.ts';
 import { IMMEDIATE } from './actor-guard.ts';
 import type { AppDatabase } from './connection.ts';
@@ -20,8 +20,6 @@ function json<T>(text: string | null): T | null {
   }
 }
 
-/** Default upload limit for a restore when no instance settings exist yet (D4: 20 GB). */
-const DEFAULT_RESTORE_MAX_BYTES = 20_000_000_000;
 
 function jobOf(row: Row): BackupJob {
   const counts = json<Record<string, number>>(row.counts);
@@ -127,7 +125,7 @@ export function createBackupJobRepository({ db }: Pick<AppDatabase, 'db'>): Back
 
     async fail(jobId, errorCode, at) {
       // A finished job (a completed export or restore) is never turned into a failure afterwards.
-      db.update(workspaceBackupJobs).set({ state: 'FAILED', errorCode: errorCode.slice(0, 64), finishedAt: at, leaseUntil: null }).where(and(eq(workspaceBackupJobs.id, jobId), ne(workspaceBackupJobs.state, 'READY'))).run();
+      db.update(workspaceBackupJobs).set({ state: 'FAILED', errorCode: errorCode.slice(0, 64), finishedAt: at, leaseUntil: null, preview: null }).where(and(eq(workspaceBackupJobs.id, jobId), ne(workspaceBackupJobs.state, 'READY'))).run();
     },
 
     async requestCancel(jobId, at) {
@@ -137,7 +135,7 @@ export function createBackupJobRepository({ db }: Pick<AppDatabase, 'db'>): Back
         // A restore that has happened is history, not something to cancel (its Workspace exists).
         if (row.kind === 'RESTORE' && row.phase === 'restored') return false;
         if (row.state === 'QUEUED' || row.state === 'READY') {
-          tx.update(workspaceBackupJobs).set({ state: 'CANCELLED', cancelRequested: true, finishedAt: at, expiresAt: null }).where(eq(workspaceBackupJobs.id, jobId)).run();
+          tx.update(workspaceBackupJobs).set({ state: 'CANCELLED', cancelRequested: true, finishedAt: at, expiresAt: null, preview: null }).where(eq(workspaceBackupJobs.id, jobId)).run();
           return true;
         }
         if (row.state === 'RUNNING') {
@@ -149,13 +147,13 @@ export function createBackupJobRepository({ db }: Pick<AppDatabase, 'db'>): Back
     },
 
     async markCancelled(jobId, at) {
-      db.update(workspaceBackupJobs).set({ state: 'CANCELLED', finishedAt: at, leaseUntil: null, expiresAt: null }).where(and(eq(workspaceBackupJobs.id, jobId), ne(workspaceBackupJobs.state, 'READY'))).run();
+      db.update(workspaceBackupJobs).set({ state: 'CANCELLED', finishedAt: at, leaseUntil: null, expiresAt: null, preview: null }).where(and(eq(workspaceBackupJobs.id, jobId), ne(workspaceBackupJobs.state, 'READY'))).run();
     },
 
     async failInterrupted(at) {
       return db.transaction((tx) => {
         const stale = tx.select({ id: workspaceBackupJobs.id }).from(workspaceBackupJobs).where(and(eq(workspaceBackupJobs.state, 'RUNNING'), lt(workspaceBackupJobs.leaseUntil, at))).all().map((row) => row.id);
-        if (stale.length > 0) tx.update(workspaceBackupJobs).set({ state: 'FAILED', errorCode: 'interrupted', finishedAt: at, leaseUntil: null }).where(inArray(workspaceBackupJobs.id, stale)).run();
+        if (stale.length > 0) tx.update(workspaceBackupJobs).set({ state: 'FAILED', errorCode: 'interrupted', finishedAt: at, leaseUntil: null, preview: null }).where(inArray(workspaceBackupJobs.id, stale)).run();
         return stale;
       }, IMMEDIATE);
     },
@@ -187,13 +185,26 @@ export function createBackupJobRepository({ db }: Pick<AppDatabase, 'db'>): Back
     },
 
     async restoreMaxBytes() {
-      return db.select({ bytes: instanceSettings.workspaceRestoreMaxBytes }).from(instanceSettings).where(eq(instanceSettings.id, 1)).get()?.bytes ?? DEFAULT_RESTORE_MAX_BYTES;
+      return db.select({ bytes: instanceSettings.workspaceRestoreMaxBytes }).from(instanceSettings).where(eq(instanceSettings.id, 1)).get()?.bytes ?? DEFAULT_WORKSPACE_RESTORE_MAX_BYTES;
     },
 
     async createRestore(input, actor) {
       return db.transaction((tx) => {
         const admin = tx.select({ status: users.status, serverAdmin: users.serverAdmin }).from(users).where(eq(users.id, actor.userId)).get();
         if (admin?.status !== 'ACTIVE' || !admin.serverAdmin) return { status: 'forbidden' as const };
+        // Restores holding files (uploading, waiting, validated and waiting for confirmation, restoring) are
+        // limited server-wide, so uploads cannot pile up on the volume (D14).
+        const open = tx
+          .select({ id: workspaceBackupJobs.id })
+          .from(workspaceBackupJobs)
+          .where(
+            and(
+              eq(workspaceBackupJobs.kind, 'RESTORE'),
+              or(inArray(workspaceBackupJobs.state, ['QUEUED', 'RUNNING']), and(eq(workspaceBackupJobs.state, 'READY'), eq(workspaceBackupJobs.phase, 'validated'))),
+            ),
+          )
+          .all().length;
+        if (open >= input.maxOpen) return { status: 'too_many' as const };
         const id = randomUUID();
         tx.insert(workspaceBackupJobs)
           .values({ id, kind: 'RESTORE', workspaceId: null, state: 'RUNNING', phase: 'upload', requestedByUserId: actor.userId, progressDone: 0, progressTotal: 0, cancelRequested: false, createdAt: input.at, startedAt: input.at, leaseUntil: input.leaseUntil })

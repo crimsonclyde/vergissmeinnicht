@@ -23,6 +23,18 @@ export async function listAccounts(deps: AccountAdminDeps, input: { readonly act
   return deps.accounts.list();
 }
 
+/** How many historical identities the server administration lists at most (newest restore first). */
+export const HISTORICAL_IDENTITY_LIST_LIMIT = 200;
+
+/**
+ * Server admins see historical identities (section 18) — read only: a name and the restore it came from. They
+ * cannot be activated, converted, invited, recovered or deleted here (see `docs/development/steps.md` 18.3).
+ */
+export async function listHistoricalIdentities(deps: AccountAdminDeps, input: { readonly actor: User }) {
+  if (!isActiveServerAdmin(input.actor)) throw new NotAuthorizedError();
+  return deps.accounts.historicalIdentities(HISTORICAL_IDENTITY_LIST_LIMIT);
+}
+
 /**
  * A server admin disables or re-enables another account. Requires step-up (password, plus TOTP if
  * enabled). Disabling ends every session at once; it is refused while the account is the only
