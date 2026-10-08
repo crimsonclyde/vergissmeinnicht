@@ -101,5 +101,29 @@ it('uses Schedule-local completion days across midnight and DST, and bounds rece
     if (itemId === undefined) throw new Error('missing occurrence');
     await completeOccurrence(scheduleDeps, { actor: owner, workspaceId: home.id, occurrenceId: itemId });
   }
-  expect((await read()).recentlyCompleted).toHaveLength(10);
+  expect((await read()).recentlyCompleted).toHaveLength(5);
+});
+
+it('shows Recently completed only within the chosen window (default 3 days), held to at most 8 days back', async () => {
+  const done = async (title: string) => {
+    const item = await reminder(title);
+    const itemId = await occurrence(item.id);
+    if (itemId === undefined) throw new Error('missing occurrence');
+    await completeOccurrence(scheduleDeps, { actor: owner, workspaceId: home.id, occurrenceId: itemId });
+  };
+  const days = (n: number) => n * 24 * 60 * 60_000;
+  const start = now.getTime();
+  await done('Ten days ago');
+  now = new Date(start + days(5));
+  await done('Five days ago');
+  now = new Date(start + days(9));
+  await done('One day ago');
+  now = new Date(start + days(10));
+  const titles = async (recentSince?: Date) => (await getTodayProgress(deps, { actor: owner, workspaceId: home.id, filter: 'ALL', recentSince })).recentlyCompleted.map((item) => item.title);
+  expect(await titles()).toEqual(['One day ago']);
+  expect(await titles(new Date(now.getTime() - days(7)))).toEqual(['One day ago', 'Five days ago']);
+  // Further back than 8 days is held at 8; a start in the future shows nothing and refuses nothing.
+  expect(await titles(new Date(now.getTime() - days(30)))).toEqual(['One day ago', 'Five days ago']);
+  expect(await titles(new Date(now.getTime() + days(1)))).toEqual([]);
+  await expect(titles(new Date(Number.NaN))).rejects.toThrow();
 });

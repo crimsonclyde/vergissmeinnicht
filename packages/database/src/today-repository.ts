@@ -1,12 +1,12 @@
 import { and, desc, eq, gte, lt, sql, type SQL } from 'drizzle-orm';
 import { addDays, localDateAt, type LocalDate, type TimeZoneName } from '@vergissmeinnicht/domain';
 import { roleHasCapability } from '@vergissmeinnicht/permissions';
-import type { TodayProgress, TodayRepository } from '@vergissmeinnicht/application';
+import { RECENTLY_COMPLETED_LIMIT, type TodayProgress, type TodayRepository } from '@vergissmeinnicht/application';
 import type { AppDatabase } from './connection.ts';
 import { enabledScheduleSource, toolEnabled } from './tool-policy.ts';
 import { memberships, occurrenceRuns, occurrences, procedures, runs, schedules, users } from './schema.ts';
 
-/** Counts are SQL aggregates; activity reads at most ten of each source, with all filters before LIMIT. */
+/** Counts are SQL aggregates; activity reads at most five of each source within the window, with all filters before LIMIT. */
 export function createTodayRepository({ db, sqlite }: Pick<AppDatabase, 'db' | 'sqlite'>): TodayRepository {
   sqlite.function('vmn_local_date', { deterministic: true }, (at, zone) => localDateAt(new Date(Number(at)), String(zone) as TimeZoneName));
   return {
@@ -35,12 +35,12 @@ export function createTodayRepository({ db, sqlite }: Pick<AppDatabase, 'db' | '
         const runCount = (where: SQL | undefined) => tx.select({ n: sql<number>`count(*)` }).from(runs).where(where).get()?.n ?? 0;
         const completedRunsThisWeek = proceduresOn ? runCount(and(runWhere, eq(runs.state, 'COMPLETED'), gte(runs.endedAt, from), lt(runs.endedAt, until))) : null;
         const activeRuns = proceduresOn ? runCount(and(runWhere, eq(runs.state, 'ACTIVE'))) : null;
-        const occurrenceActivity = schedulesOn ? tx.select({ id: occurrences.id, scheduleId: schedules.id, title: sql<string>`coalesce(${schedules.title}, ${procedures.title}, '')`, at: occurrences.closedAt }).from(occurrences).innerJoin(schedules, eq(schedules.id, occurrences.scheduleId)).leftJoin(procedures, eq(procedures.id, schedules.procedureId)).where(and(occurrenceWhere, eq(occurrences.state, 'COMPLETED'))).orderBy(desc(occurrences.closedAt), desc(occurrences.id)).limit(10).all() : [];
-        const runActivity = proceduresOn ? tx.select({ id: runs.id, title: runs.title, at: runs.endedAt }).from(runs).where(and(runWhere, eq(runs.state, 'COMPLETED'), sql`not exists (select 1 from ${occurrenceRuns} join ${occurrences} on ${occurrences.id} = ${occurrenceRuns.occurrenceId} where ${occurrenceRuns.runId} = ${runs.id} and ${occurrenceRuns.endedAt} is null and ${occurrences.state} = 'COMPLETED')`)).orderBy(desc(runs.endedAt), desc(runs.id)).limit(10).all() : [];
+        const occurrenceActivity = schedulesOn ? tx.select({ id: occurrences.id, scheduleId: schedules.id, title: sql<string>`coalesce(${schedules.title}, ${procedures.title}, '')`, at: occurrences.closedAt }).from(occurrences).innerJoin(schedules, eq(schedules.id, occurrences.scheduleId)).leftJoin(procedures, eq(procedures.id, schedules.procedureId)).where(and(occurrenceWhere, eq(occurrences.state, 'COMPLETED'), gte(occurrences.closedAt, input.recentSince))).orderBy(desc(occurrences.closedAt), desc(occurrences.id)).limit(RECENTLY_COMPLETED_LIMIT).all() : [];
+        const runActivity = proceduresOn ? tx.select({ id: runs.id, title: runs.title, at: runs.endedAt }).from(runs).where(and(runWhere, eq(runs.state, 'COMPLETED'), gte(runs.endedAt, input.recentSince), sql`not exists (select 1 from ${occurrenceRuns} join ${occurrences} on ${occurrences.id} = ${occurrenceRuns.occurrenceId} where ${occurrenceRuns.runId} = ${runs.id} and ${occurrenceRuns.endedAt} is null and ${occurrences.state} = 'COMPLETED')`)).orderBy(desc(runs.endedAt), desc(runs.id)).limit(RECENTLY_COMPLETED_LIMIT).all() : [];
         const recentlyCompleted = [
           ...occurrenceActivity.flatMap((row) => row.at === null ? [] : [{ type: 'occurrence' as const, id: row.id, scheduleId: row.scheduleId, title: row.title, completedAt: row.at }]),
           ...runActivity.flatMap((row) => row.at === null ? [] : [{ type: 'run' as const, id: row.id, scheduleId: null, title: row.title, completedAt: row.at }]),
-        ].sort((a, b) => b.completedAt.getTime() - a.completedAt.getTime() || b.id.localeCompare(a.id)).slice(0, 10);
+        ].sort((a, b) => b.completedAt.getTime() - a.completedAt.getTime() || b.id.localeCompare(a.id)).slice(0, RECENTLY_COMPLETED_LIMIT);
         return { filter: input.filter, weekFrom: weekFrom as LocalDate, weekTo, completedOccurrencesToday, completedRunsThisWeek, activeRuns, dueToday, recentlyCompleted };
       });
     },

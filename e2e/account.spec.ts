@@ -731,10 +731,11 @@ test('first server admin: bootstrap link, account creation, sign-in, Workspace c
   await expect(history.filter({ hasText: 'Close windows: Done → Pending (undo)' })).toHaveCount(2);
   await expect(history.last()).toContainText('Ada Admin completed it');
   await expectAccessible(page, 'finished run with history');
-  // The completed history stays reachable: from Today, from the Procedures menu, and at its old address.
+  // The completed history stays reachable: from the Procedures menu, and at its old address (Today links only to recent Runs since 19.1).
   const toHistory = async () => {
-    await sections.getByRole('link', { name: 'Today' }).click();
-    await page.getByRole('navigation', { name: 'Elsewhere' }).getByRole('link', { name: 'Completed history' }).click();
+    await sections.getByRole('link', { name: 'Procedures' }).click();
+    await page.getByRole('button', { name: 'Manage Procedures' }).click();
+    await page.getByRole('button', { name: 'Completed history' }).click();
     await expect(page).toHaveURL(/\/history$/);
   };
   await toHistory();
@@ -852,13 +853,15 @@ test('first server admin: bootstrap link, account creation, sign-in, Workspace c
 
   // Today (15.1, 14.2): what is due today, with Start. Upcoming dates are not here — the Calendar has them.
   await sections.getByRole('link', { name: 'Today' }).click();
-  const todayList = page.getByRole('list', { name: 'Today' });
+  const todayList = page.getByRole('list', { name: 'Needs attention' });
   await expect(todayList.getByRole('listitem')).toHaveCount(1);
   await expect(todayList).toContainText('Today');
   await expect(todayList).toContainText('Shared');
   await expect(page.getByRole('list', { name: 'Upcoming' })).toHaveCount(0);
   await expect(page.getByRole('list', { name: 'Continue' })).toHaveCount(0);
-  await expect(page.getByRole('navigation', { name: 'Elsewhere' })).toContainText('1 upcoming — Calendar');
+  // Next up (19.1): the upcoming date as a compact row, with the way to the Calendar.
+  await expect(page.getByRole('region', { name: 'Next up' })).toContainText('Leave the flat');
+  await expect(page.getByRole('region', { name: 'Next up' }).getByRole('link', { name: 'Calendar' })).toBeVisible();
   // Cards are concise: reminders and type are one tap away under ⋯ → Details.
   await expect(todayList).not.toContainText('Procedure · ');
   await todayList.getByRole('button', { name: 'More for Leave the flat' }).click();
@@ -889,7 +892,7 @@ test('first server admin: bootstrap link, account creation, sign-in, Workspace c
   await upcoming.getByRole('button', { name: 'End schedule…' }).click();
   await page.getByRole('button', { name: 'Month', exact: true }).click();
   await sections.getByRole('link', { name: 'Today' }).click();
-  await expect(page.getByRole('navigation', { name: 'Elsewhere' })).not.toContainText('upcoming');
+  await expect(page.getByRole('region', { name: 'Next up' })).toHaveCount(0);
   // Start what is due today: a normal execution, linked to this date.
   await todayList.getByRole('button', { name: 'Start Leave the flat' }).click();
   await expect(page).toHaveURL(/\/runs\/[0-9a-f-]{36}$/);
@@ -907,14 +910,14 @@ test('first server admin: bootstrap link, account creation, sign-in, Workspace c
   const continueList = page.getByRole('list', { name: 'Continue' });
   await expect(continueList).toContainText('In progress — started by Ada Admin');
   await expect(continueList.getByRole('listitem')).toHaveCount(1);
-  await expect(page.getByRole('list', { name: 'Today' })).toHaveCount(0);
+  await expect(page.getByRole('list', { name: 'Needs attention' })).toHaveCount(0);
   await continueList.getByRole('link', { name: 'Continue Leave the flat' }).click();
   await run.getByRole('button', { name: 'Abort…' }).click();
   await run.getByRole('button', { name: 'Abort', exact: true }).click();
   await expect(run.getByRole('status').filter({ hasText: 'Aborted by Ada Admin' })).toBeVisible();
   // Aborted: the date is open again (Start), nothing was completed.
   await page.getByRole('button', { name: '← Today' }).click();
-  await expect(page.getByRole('list', { name: 'Today' }).getByRole('button', { name: 'Start Leave the flat' })).toBeVisible();
+  await expect(page.getByRole('list', { name: 'Needs attention' }).getByRole('button', { name: 'Start Leave the flat' })).toBeVisible();
 
   // A standalone Reminder (14.1, 15.3) from Add: what and when first; repetition, responsible person and
   // notifications behind summaries that show their (unchanged) defaults.
@@ -948,7 +951,7 @@ test('first server admin: bootstrap link, account creation, sign-in, Workspace c
   await expect(reminderToday).toContainText('Assigned to Ada Admin');
   await expectAccessible(page, 'reminders');
   await sections.getByRole('link', { name: 'Today' }).click();
-  const taxToday = page.getByRole('list', { name: 'Today' }).getByRole('listitem').filter({ hasText: 'Pay annual tax' });
+  const taxToday = page.getByRole('list', { name: 'Needs attention' }).getByRole('listitem').filter({ hasText: 'Pay annual tax' });
   await expect(taxToday).toContainText('Assigned to Ada Admin');
   // Filters: assigned to me shows it, shared hides it.
   await page.getByRole('button', { name: 'Shared', exact: true }).click();

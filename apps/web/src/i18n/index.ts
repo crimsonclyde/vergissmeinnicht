@@ -109,6 +109,12 @@ export function weekdayNames(width: 'short' | 'long'): string[] {
   return Array.from({ length: 7 }, (_unused, index) => format.format(new Date(Date.UTC(2024, 0, 1 + index, 12))));
 }
 
+/** "tomorrow", "in 3 days", "yesterday" for a calendar date `YYYY-MM-DD`, counted from `today` (also `YYYY-MM-DD`). */
+export function formatRelativeDay(date: string, today: string): string {
+  const days = Math.round((Date.parse(`${date}T00:00:00Z`) - Date.parse(`${today}T00:00:00Z`)) / 86_400_000);
+  return new Intl.RelativeTimeFormat(formatLocale(), { numeric: 'auto' }).format(days, 'day');
+}
+
 /** "18 minutes ago", "in 2 days" — rounded to the largest sensible unit. */
 export function formatRelative(value: string | Date, now: Date = new Date()): string {
   const seconds = (toDate(value).getTime() - now.getTime()) / 1000;

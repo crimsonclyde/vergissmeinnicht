@@ -180,4 +180,49 @@ describe('Maintenance over HTTP (16.7)', () => {
     await t.post(`${api()}/tools`, { tool: 'MAINTENANCE', enabled: true }, owner);
     expect((await t.get(`${api()}/maintenance`, guest)).json().total).toBe(total); // nothing was deleted
   });
+
+  it("feeds Today's Maintenance due soon card: open, dated, soon — read-only, per Workspace, Equipment only where shown (19.1)", async () => {
+    const cabin = await t.createWorkspace('Cabin');
+    await t.addMember(cabin, 'uma@example.org', 'USER');
+    await t.addMember(cabin, 'gus@example.org', 'GUEST');
+    const soon = (cookie: string, today = day(0), workspaceId = cabin) => t.get(`${api(workspaceId)}/maintenance/due-soon?today=${today}`, cookie);
+    function day(offset: number) {
+      return new Date(Date.now() + offset * 86_400_000).toISOString().slice(0, 10);
+    }
+    expect(error(await soon(guest))).toEqual({ status: 404, error: 'tool_not_enabled' });
+    await t.post(`${api(cabin)}/tools`, { tool: 'MAINTENANCE', enabled: true }, t.admin);
+    expect((await soon(guest)).json()).toEqual({ items: [], total: 0 });
+    const overdue = await create({ title: 'Chimney sweep', date: day(-20) }, user, cabin);
+    const running = await create({ title: 'Roof repair', date: day(-2) }, user, cabin);
+    await t.post(`${api(cabin)}/maintenance/${running.id}/status`, { status: 'IN_PROGRESS', expectedRevision: running.revision }, user);
+    await create({ title: 'Gutter cleaning', date: day(3) }, user, cabin);
+    await create({ title: 'Boiler check', date: day(14) }, user, cabin);
+    await create({ title: 'Far away', date: day(15) }, user, cabin);
+    await create({ title: 'Undated' }, user, cabin);
+    const cancelled = await create({ title: 'Called off', date: day(1) }, user, cabin);
+    await t.post(`${api(cabin)}/maintenance/${cancelled.id}/status`, { status: 'CANCELLED', expectedRevision: cancelled.revision }, user);
+    const finished = await create({ title: 'Already done', date: day(1) }, user, cabin);
+    await t.post(`${api(cabin)}/maintenance/${finished.id}/status`, { status: 'COMPLETED', expectedRevision: finished.revision, completedOn: day(0) }, user);
+    const trashed = await create({ title: 'Thrown away', date: day(1) }, user, cabin);
+    await t.post(`${api(cabin)}/maintenance/${trashed.id}/delete`, {}, user);
+    // Planned and overdue stays; In progress from the past does not; three rows, soonest first, with the total.
+    const answer = (await soon(guest)).json() as { items: { title: string; status: string; equipment: string | null }[]; total: number };
+    expect(answer.items.map((item) => item.title)).toEqual(['Chimney sweep', 'Gutter cleaning', 'Boiler check']);
+    expect(answer.total).toBe(3);
+    expect(Object.keys(answer.items[0] ?? {}).sort()).toEqual(['date', 'equipment', 'id', 'status', 'title']);
+    // A linked Equipment is named only while Equipment is on.
+    const heater = (await t.post(`${api(cabin)}/equipment`, { name: 'Wood stove' }, t.admin)).json().record as { id: string } | undefined;
+    expect(heater).toBeUndefined();
+    await t.post(`${api(cabin)}/tools`, { tool: 'EQUIPMENT', enabled: true }, t.admin);
+    const stove = (await t.post(`${api(cabin)}/equipment`, { name: 'Wood stove' }, t.admin)).json().record as { id: string };
+    await t.post(`${api(cabin)}/maintenance/${overdue.id}/links`, { target: { type: 'equipment', id: stove.id } }, user);
+    expect(((await soon(guest)).json().items as { equipment: string | null }[])[0]?.equipment).toBe('Wood stove');
+    await t.post(`${api(cabin)}/tools`, { tool: 'EQUIPMENT', enabled: false }, t.admin);
+    expect(((await soon(guest)).json().items as { equipment: string | null }[])[0]?.equipment).toBeNull();
+    // Other Workspaces, outsiders and dates far from the server's day get nothing.
+    expect((await soon(outsider, day(0), office)).json().items.map((item: { title: string }) => item.title)).not.toContain('Chimney sweep');
+    expect((await soon(outsider)).statusCode).toBe(404);
+    expect(error(await soon(guest, day(3)))).toMatchObject({ status: 400 });
+    expect((await t.get(`${api(cabin)}/maintenance/due-soon`, guest)).statusCode).toBe(400);
+  });
 });

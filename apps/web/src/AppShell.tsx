@@ -359,7 +359,8 @@ function AccountPage({ user, section }: { user: CurrentUser; section: Extract<Ro
 /** How wide the page may get: forms and lists stay readable, the builder uses the screen. */
 function widthOf(route: Route): 'narrow' | 'wide' | undefined {
   if (route.page === 'procedure-edit') return 'wide';
-  if (route.page === 'lists' || route.page === 'more' || route.page === 'workspace' || route.page === 'reminders') return 'narrow';
+  // Today sets its own width: two columns of cards on a wide screen, a reading width with one (19.1).
+  if (route.page === 'lists' || route.page === 'more' || route.page === 'reminders') return 'narrow';
   if (route.page === 'documents' && route.view === 'new') return 'narrow';
   return undefined;
 }

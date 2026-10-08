@@ -3,6 +3,7 @@ import type {
   ActorGuard,
   MaintenanceColumn,
   MaintenanceContactRef,
+  MaintenanceDueSoonItem,
   MaintenanceLink,
   MaintenanceRecord,
   MaintenanceRefusal,
@@ -31,7 +32,7 @@ import { recordAuditEvent } from './audit-events.ts';
 import type { AppDatabase } from './connection.ts';
 import { recordToolEnabled, toolEnabled as linkedToolEnabled } from './tool-policy.ts';
 import { linkedRecord, markLinksOfPurged } from './link-repository.ts';
-import { contacts, links, maintenanceRecords, workspaceTools } from './schema.ts';
+import { contacts, equipmentRecords, links, maintenanceRecords, workspaceTools } from './schema.ts';
 
 type Reader = Pick<Transaction, 'select'>;
 type Row = typeof maintenanceRecords.$inferSelect;
@@ -182,6 +183,49 @@ export function createMaintenanceRepository({ db }: Pick<AppDatabase, 'db'>): Ma
       }
       const refs = contactRefs(db, workspaceId, columns.flatMap((column) => column.rows), scope);
       return columns.map((column): MaintenanceColumn => ({ status: column.status, total: column.total, records: column.rows.map((row) => summaryOf(row, refs)) }));
+    },
+
+    async dueSoon(workspaceId, window) {
+      const where = and(
+        eq(maintenanceRecords.workspaceId, workspaceId),
+        isNull(maintenanceRecords.deletedAt),
+        isNotNull(maintenanceRecords.date),
+        or(
+          and(inArray(maintenanceRecords.status, ['PLANNED', 'IN_PROGRESS']), sql`${maintenanceRecords.date} >= ${window.today}`, sql`${maintenanceRecords.date} <= ${window.until}`),
+          and(eq(maintenanceRecords.status, 'PLANNED'), sql`${maintenanceRecords.date} < ${window.today}`),
+        ),
+      );
+      const rows = db
+        .select({ id: maintenanceRecords.id, title: maintenanceRecords.title, date: maintenanceRecords.date, status: maintenanceRecords.status })
+        .from(maintenanceRecords)
+        .where(where)
+        .orderBy(asc(maintenanceRecords.date), asc(maintenanceRecords.id))
+        .limit(window.limit)
+        .all();
+      const total = rows.length < window.limit ? rows.length : (db.select({ n: count() }).from(maintenanceRecords).where(where).get()?.n ?? 0);
+      const names = new Map<string, string>();
+      if (window.equipment && rows.length > 0) {
+        const ids = rows.map((row) => row.id);
+        // A live Equipment linked either way, with a Link that is not gone; the first by name per record.
+        const linked = db
+          .select({ recordId: sql<string>`case when ${links.fromType} = 'maintenance' then ${links.fromId} else ${links.toId} end`, name: equipmentRecords.name })
+          .from(links)
+          .innerJoin(equipmentRecords, and(eq(equipmentRecords.workspaceId, workspaceId), isNull(equipmentRecords.deletedAt), sql`${equipmentRecords.id} = case when ${links.fromType} = 'equipment' then ${links.fromId} else ${links.toId} end`))
+          .where(
+            and(
+              eq(links.workspaceId, workspaceId),
+              or(
+                and(eq(links.fromType, 'maintenance'), inArray(links.fromId, ids), eq(links.toType, 'equipment'), isNull(links.toGoneAt)),
+                and(eq(links.fromType, 'equipment'), eq(links.toType, 'maintenance'), inArray(links.toId, ids), isNull(links.fromGoneAt)),
+              ),
+            ),
+          )
+          .orderBy(asc(equipmentRecords.name))
+          .all();
+        for (const link of linked) if (!names.has(link.recordId)) names.set(link.recordId, link.name);
+      }
+      const items = rows.map((row): MaintenanceDueSoonItem => ({ id: row.id as MaintenanceRecordId, title: row.title, date: row.date ?? '', status: row.status === 'IN_PROGRESS' ? 'IN_PROGRESS' : 'PLANNED', equipment: names.get(row.id) ?? null }));
+      return { items, total };
     },
 
     async find(workspaceId, query, after, limit, scope) {

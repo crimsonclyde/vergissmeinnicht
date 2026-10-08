@@ -872,6 +872,16 @@ const equipmentPath=(workspaceId:string,rest='')=>`/workspaces/${encodeURICompon
 export type MaintenanceStatus = 'PLANNED' | 'IN_PROGRESS' | 'COMPLETED' | 'CANCELLED';
 
 /** A MaintenanceRecord as a card or a row shows it. */
+/** One row of Today's Maintenance due soon card: read-only, no costs, Contacts or notes. */
+export interface MaintenanceDueSoonItem {
+  readonly id: string;
+  readonly title: string;
+  readonly date: string;
+  readonly status: 'PLANNED' | 'IN_PROGRESS';
+  /** A linked Equipment's name, only where Equipment is on and may be seen. */
+  readonly equipment: string | null;
+}
+
 export interface MaintenanceSummary {
   readonly id: string;
   readonly title: string;
@@ -1074,7 +1084,9 @@ export const api = {
     request<undefined>('POST', `/workspaces/${encodeURIComponent(id)}/rename`, { name }),
   procedures: async (workspaceId: string) =>
     (await request<{ procedures: ProcedureCard[] }>('GET', `/workspaces/${encodeURIComponent(workspaceId)}/procedures`)).procedures,
-  home: (workspaceId: string, filter: 'ALL' | 'MINE' | 'SHARED' = 'ALL') => request<HomeOverview>('GET', `/workspaces/${encodeURIComponent(workspaceId)}/home?filter=${filter}`),
+  /** `recentSince`: where the Recently completed window starts (19.1–19.2); the server holds it to at most 8 days back. */
+  home: (workspaceId: string, filter: 'ALL' | 'MINE' | 'SHARED' = 'ALL', recentSince?: Date) =>
+    request<HomeOverview>('GET', `/workspaces/${encodeURIComponent(workspaceId)}/home?filter=${filter}${recentSince === undefined ? '' : `&recentSince=${encodeURIComponent(recentSince.toISOString())}`}`),
   calendar: (workspaceId: string, from: string, to: string) =>
     request<CalendarRange>('GET', `/workspaces/${encodeURIComponent(workspaceId)}/calendar?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`),
   pinProcedure: (workspaceId: string, id: string, pinned: boolean) =>
@@ -1165,6 +1177,8 @@ export const api = {
   equipmentLinks:async(workspaceId:string,id:string)=>(await request<{links:DocumentLink[]}>('GET',equipmentPath(workspaceId,`/${encodeURIComponent(id)}/links`))).links,
   addEquipmentLink:async(workspaceId:string,id:string,target:{type:string;id:string})=>(await request<{link:DocumentLink}>('POST',equipmentPath(workspaceId,`/${encodeURIComponent(id)}/links`),{target})).link,
   removeEquipmentLink:(workspaceId:string,id:string)=>request<undefined>('POST',`/workspaces/${encodeURIComponent(workspaceId)}/equipment-links/${encodeURIComponent(id)}/delete`,{}),
+  /** Today's Maintenance due soon card (19.1); `today` is the viewer's local date. */
+  maintenanceDueSoon: (workspaceId: string, today: string) => request<{ items: MaintenanceDueSoonItem[]; total: number }>('GET', maintenancePath(workspaceId, `/due-soon?today=${encodeURIComponent(today)}`)),
   maintenanceBoard: async (workspaceId: string) => (await request<{ columns: MaintenanceColumn[] }>('GET', maintenancePath(workspaceId, '/board'))).columns,
   maintenance: (workspaceId: string, query: string) => request<{ records: MaintenanceSummary[]; nextCursor: string | null; total: number | null }>('GET', maintenancePath(workspaceId, query === '' ? '' : `?${query}`)),
   maintenanceFilters: (workspaceId: string) => request<{ filters: MaintenanceFilterValues; currencies: string[] }>('GET', maintenancePath(workspaceId, '/filters')),

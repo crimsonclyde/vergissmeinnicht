@@ -73,17 +73,19 @@ Procedures can be exported as a `.vmn.json` file (**Export as JSON** — without
 
 ## Today
 
-Opening a Workspace shows **Today** — a compact progress summary and one clear next action per card:
+Opening a Workspace shows **Today** — a few compact cards with what needs you now. A card appears only when its tool is switched on in the Workspace and it has something to show; on a quiet day Today is just **Nothing needs attention right now** (plus what is coming up, if anything). On a wide screen the cards stand in two columns: what to act on on the left, the rest beside it; on a phone they are one column.
 
-- **Progress** — completed Occurrences today (each Schedule’s local time zone), completed Runs this week (the labelled UTC Monday–Sunday range), active Runs and due today. Runs and Occurrences are separate counts. Only completed work counts; undo/reopening updates the summary. **Recently completed** shows the latest three permitted completions, representing a linked Run and completed Occurrence once. Disabled tools have no counts or activity.
+- **Needs attention** — what is overdue (marked **Overdue**) and what is due today, with a count: a Reminder offers **Done**, a Procedure **Start**. Overdue dates stay until you complete or skip them; nothing is marked done by itself. If a repeating item is overdue several times, it is shown once ("3 overdue") with **⋯ → Skip the older ones…**. At most five are listed; **N more** leads to Reminders (or the Calendar).
 - **Continue** — executions that are not finished, with how far they are and **Continue**.
-- **Needs attention** — dates that have passed and are not done yet (marked **Overdue**). They stay until you complete or skip them; nothing is marked done by itself. If a repeating item is overdue several times, it is shown once ("3 overdue") with **⋯ → Skip the older ones…**.
-- **Due today** — a Reminder offers **Done**, a Procedure **Start**.
-- **To buy** — grocery lists that still have something on them, with **Open list**.
-- Each card shows the title and one line: when it is due and who is responsible (**Assigned to …** or **Shared**). **⋯** holds the rest: *Details* (Reminder or Procedure, how it repeats, its reminders), *Skip…* (with an optional reason), *Move this date…*, *Assign…*, *Link an execution…*, *Edit schedule…*, *Pause* / *Resume*, *End schedule…*.
+- **Next up** — the next few dates within a week (*tomorrow*, *in 3 days*), with the way to the **Calendar**.
+- **To buy** — grocery lists that still have something on them and how many items; tap one to open it.
+- **Maintenance** — with the Maintenance tool on: planned work from today up to two weeks ahead, and planned work whose date has passed, with the linked equipment where Equipment is on. Tap one to open it. Read-only here; it never shows costs.
+- **Recently completed** — what was finished in the last 3 days, newest first (at most five). A linked Run and its date count once; undoing a completion removes it.
+- **Progress** is a card that is off for now; choosing your own cards follows in **Profile & settings → Today**.
+- Each item shows the title and one line: when it is due and who is responsible (**Assigned to …** or **Shared**). **⋯** holds the rest: *Details* (Reminder or Procedure, how it repeats, its reminders), *Skip…* (with an optional reason), *Move this date…*, *Assign…*, *Link an execution…*, *Edit schedule…*, *Pause* / *Resume*, *End schedule…*.
 - After **Done** a notice offers **Undo**.
-- **All / Assigned to me / Shared** appears when Procedures or Reminders is enabled, and filters the summary, recent activity and cards (remembered in this browser).
-- Upcoming dates and full completed history are available through the enabled **Calendar**, **Reminders**, **All Procedures** and **Completed history** links.
+- **All / Assigned to me / Shared** appears when Procedures or Reminders is enabled, and filters the cards (remembered in this browser).
+- The full completed history is under **Procedures → ⋯ Manage Procedures → Completed history** (on a phone: **More → Completed history**).
 
 **Add** (top right) offers **Procedure** — reusable steps, **Reminder** — remember one thing, and **Grocery list** — quick shared shopping, and opens what you chose at once. You only see what your role may create.
 

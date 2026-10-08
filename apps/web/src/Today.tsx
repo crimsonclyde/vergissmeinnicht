@@ -1,13 +1,15 @@
 import { useCallback, useEffect, useState, type ReactNode } from 'react';
-import { RecentCompletions, TodayProgressCard } from './TodayProgress.tsx';
+import { ProgressCard, RecentCard } from './TodayProgress.tsx';
 import { AddChooser, type CanAdd } from './AddChooser.tsx';
-import { api, isNetworkError, messageFor, type HomeOverview, type ListSummary, type Occurrence, type PersonRef, type RunSummary } from './api.ts';
-import { t } from './i18n/index.ts';
-import { ActiveRunItem, OccurrenceItem, groupOverdue } from './Occurrences.tsx';
+import { api, isNetworkError, messageFor, type HomeOverview, type ListSummary, type MaintenanceDueSoonItem, type Occurrence, type PersonRef, type RunSummary } from './api.ts';
+import { formatCalendarDate, formatRelativeDay, t } from './i18n/index.ts';
+import { ActiveRunItem, OccurrenceItem, groupOverdue, when } from './Occurrences.tsx';
 import { useOffline } from './offline/OfflineProvider.tsx';
 import { offlineStore } from './offline/store.ts';
 import { Link, paths } from './router.tsx';
 import { summaryOf } from './Runs.tsx';
+import { browserTimeZone, todayIn } from './schedule-dates.ts';
+import { ATTENTION_ROWS, TO_BUY_LISTS, nextUp, recentSince, todayCards, type TodayCardDefinition, type TodayCardId } from './today-cards.ts';
 import { UiIcon, type UiIconName } from './ui-icons.tsx';
 import { UndoNotice, type Undoable } from './UndoNotice.tsx';
 
@@ -15,8 +17,6 @@ import { UndoNotice, type Undoable } from './UndoNotice.tsx';
 const REFRESH_MS = 30_000;
 const FILTER_KEY = 'vmn.homeFilter';
 type Filter = 'ALL' | 'MINE' | 'SHARED';
-/** Lists with something to buy shown on Today; the Lists tool has all of them. */
-const LISTS_ON_TODAY = 3;
 
 function storedFilter(): Filter {
   try {
@@ -54,10 +54,49 @@ export function todayView(home: Pick<HomeOverview, 'overdue' | 'today' | 'upcomi
 }
 
 /**
- * Today (15.1; the former Workspace Home): unfinished Runs with Continue, what is overdue, and what is due
- * today — one clear next action per card. Upcoming dates, completed activity and the Procedures themselves
- * stay out of the way: each has its own tool, linked at the bottom. The Add button creates a Procedure,
- * a Reminder or a grocery list.
+ * One Today card (19.1): a title of a word or two with an icon, a count where it has one, a few rows
+ * and at most one way on. A card with nothing to show is never rendered — callers check first.
+ */
+function TodayCard(props: { id: TodayCardId; icon: UiIconName; title: string; count?: number; attention?: boolean; footer?: ReactNode; children: ReactNode }) {
+  const heading = `today-card-${props.id}`;
+  return (
+    <section aria-labelledby={heading} className={props.attention === true ? 'card today-card today-card-attention' : 'card today-card'} data-card={props.id}>
+      <h3 id={heading} className="today-card-title">
+        <UiIcon name={props.icon} />
+        <span>{props.title}</span>
+        {props.count !== undefined && (
+          <span className={props.attention === true ? 'badge badge-overdue' : 'badge'}>
+            <span aria-hidden="true">{props.count}</span>
+            <span className="visually-hidden">{t('today.count', { count: props.count })}</span>
+          </span>
+        )}
+      </h3>
+      <ul className="plain-list today-rows" aria-labelledby={heading}>
+        {props.children}
+      </ul>
+      {props.footer !== undefined && <div className="today-card-footer">{props.footer}</div>}
+    </section>
+  );
+}
+
+/** A quiet row that is one link: title, and one line of context. */
+function LinkRow(props: { href: string; title: string; context: ReactNode; label?: string }) {
+  return (
+    <li>
+      <Link href={props.href} className="today-row" aria-label={props.label}>
+        <span className="today-row-title">{props.title}</span>
+        <small className="muted">{props.context}</small>
+        <UiIcon name="forward" />
+      </Link>
+    </li>
+  );
+}
+
+/**
+ * Today (15.1, as cards since 19.1): what needs the person now, as a few compact cards — Needs attention,
+ * Continue, Next up, To buy, Maintenance due soon, Recently completed. A card appears only when it is on,
+ * its tool is on in the Workspace and it has something to show; on a quiet day Today is one calm line.
+ * The Add button creates a Procedure, a Reminder or a grocery list.
  */
 export function Today(props: {
   workspaceId: string;
@@ -74,14 +113,16 @@ export function Today(props: {
   const { userId, reportReachable, reportUnreachable } = useOffline();
   const [home, setHome] = useState<HomeOverview | null>(null);
   const [lists, setLists] = useState<readonly ListSummary[]>([]);
+  const [maintenance, setMaintenance] = useState<{ items: readonly MaintenanceDueSoonItem[]; total: number } | null>(null);
   const [offlineActive, setOfflineActive] = useState<readonly RunSummary[] | null>(null);
   const [members, setMembers] = useState<readonly PersonRef[] | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [filter, setFilter] = useState<Filter>(storedFilter);
   const [notice, setNotice] = useState<Undoable | null>(null);
+  const cards = todayCards(props.tools);
 
   const load = useCallback(() => {
-    api.home(workspaceId, filter).then(
+    api.home(workspaceId, filter, recentSince()).then(
       (loaded) => {
         setHome(loaded);
         setOfflineActive(null);
@@ -99,9 +140,11 @@ export function Today(props: {
         setOfflineActive(saved.map((entry) => summaryOf(entry.run)));
       },
     );
-    // Lists are an extra on Today: without them (offline, error) the rest still shows.
-    if (props.tools.includes('LISTS')) api.lists(workspaceId).then(setLists, () => undefined);
-    else setLists([]);
+    // The other cards are extras: without them (offline, error) the rest still shows. A card that is not
+    // shown — its tool off, or switched off by the person — is never asked for (and never rendered).
+    const shown = todayCards(props.tools).map((card) => card.id);
+    if (shown.includes('toBuy')) api.lists(workspaceId).then(setLists, () => undefined);
+    if (shown.includes('maintenance')) api.maintenanceDueSoon(workspaceId, todayIn(browserTimeZone())).then(setMaintenance, () => undefined);
   }, [workspaceId, userId, reportReachable, reportUnreachable, props.tools, filter]);
   useEffect(load, [load]);
   // Changes by other members arrive without a reload: refresh while visible, and when coming back.
@@ -133,15 +176,18 @@ export function Today(props: {
     }
   };
   const can = { canStart: props.canStart, canSchedule: props.canSchedule, canExecute: props.canExecute };
-  // Offer the same scope choices for the summary and next actions, including empty results.
   const assigned = props.tools.includes('PROCEDURES') || props.tools.includes('REMINDERS');
-  const applied: Filter = filter;
-  const view =
-    home === null ? null : todayView(home, (item) => applied === 'ALL' || (applied === 'MINE' ? item.responsible?.id === props.userId : item.responsible === null));
+  const shown = (item: Occurrence) => filter === 'ALL' || (filter === 'MINE' ? item.responsible?.id === props.userId : item.responsible === null);
+  const view = home === null ? null : todayView(home, shown);
   const continueRuns = view?.continueRuns ?? offlineActive ?? [];
-  const overdue = groupOverdue(view?.overdue ?? []);
-  const listsToBuy = lists.filter((list) => list.open > 0).slice(0, LISTS_ON_TODAY);
-  const calm = view !== null && view.continueOccurrences.length + continueRuns.length + overdue.length + view.today.length === 0;
+  const attention = [...groupOverdue(view?.overdue ?? []), ...(view?.today ?? []).map((item) => ({ item, older: [] as Occurrence[] }))];
+  const upcoming = home === null ? [] : nextUp(home.upcoming.filter(shown));
+  const listsToBuy = lists.filter((list) => list.open > 0);
+  const recent = home?.progress?.recentlyCompleted ?? [];
+  const continuing = (view?.continueOccurrences.length ?? 0) + continueRuns.length;
+  const calm = view !== null && continuing + attention.length === 0;
+  const localToday = todayIn(browserTimeZone());
+  const allDue = props.tools.includes('REMINDERS') ? paths.reminders(workspaceId) : props.tools.includes('CALENDAR') ? paths.calendar(workspaceId) : null;
 
   const undoComplete = (item: Occurrence) =>
     setNotice({
@@ -152,41 +198,113 @@ export function Today(props: {
           load();
         }),
     });
-  const section = (id: string, label: string, children: ReactNode, tone?: 'attention') => (
-    <section aria-labelledby={id} className="home-section">
-      <h3 id={id} className={tone === 'attention' ? 'section-label section-attention' : 'section-label'}>
-        {label}
-      </h3>
-      <ul className="plain-list" aria-labelledby={id}>
-        {children}
-      </ul>
-    </section>
-  );
   const row = (item: Occurrence, older: readonly Occurrence[] = []) => (
     <OccurrenceItem key={item.id} workspaceId={workspaceId} item={item} older={older} can={can} members={members} onOpenRun={props.onOpenRun} onChanged={load} onCompleted={undoComplete} />
   );
-  const elsewhere: { href: string; icon: UiIconName; label: string }[] = [
-    ...(props.tools.includes('CALENDAR') ? [{ href: paths.calendar(workspaceId), icon: 'calendar' as const, label: view !== null && view.upcomingCount > 0 ? t('today.upcomingLink', { count: view.upcomingCount }) : t('today.calendarLink') }] : []),
-    ...(props.tools.includes('REMINDERS') ? [{ href: paths.reminders(workspaceId), icon: 'reminders' as const, label: t('shell.reminders') }] : []),
-    ...(props.tools.includes('PROCEDURES') ? [{ href: paths.procedures(workspaceId), icon: 'procedures' as const, label: t('today.proceduresLink') }] : []),
-    ...(props.tools.includes('PROCEDURES') ? [{ href: paths.history(workspaceId), icon: 'history' as const, label: t('shell.history') }] : []),
-  ];
+  const more = (hidden: number, href: string | null) =>
+    hidden > 0 && href !== null ? (
+      <Link href={href} className="today-more">
+        {t('today.more', { count: hidden })} <UiIcon name="forward" />
+      </Link>
+    ) : undefined;
+
+  const render = (card: TodayCardDefinition): ReactNode => {
+    switch (card.id) {
+      case 'attention':
+        if (calm)
+          return (
+            <p key="calm" className="card calm today-calm">
+              <UiIcon name="check" size="1.4em" /> {t('home.nothingNeedsAttention')}
+            </p>
+          );
+        if (attention.length === 0) return null;
+        return (
+          <TodayCard key={card.id} id={card.id} icon="warning" title={t('today.needsAttention')} count={attention.length} attention footer={more(attention.length - ATTENTION_ROWS, allDue)}>
+            {attention.slice(0, ATTENTION_ROWS).map(({ item, older }) => row(item, older))}
+          </TodayCard>
+        );
+      case 'continue':
+        if (continuing === 0) return null;
+        return (
+          <TodayCard key={card.id} id={card.id} icon="procedures" title={t('today.continue')} count={continuing}>
+            {view?.continueOccurrences.map((item) => row(item))}
+            {continueRuns.map((run) => (
+              <ActiveRunItem key={run.id} workspaceId={workspaceId} run={run} />
+            ))}
+          </TodayCard>
+        );
+      case 'next':
+        if (upcoming.length === 0) return null;
+        return (
+          <TodayCard
+            key={card.id}
+            id={card.id}
+            icon="calendar"
+            title={t('today.nextUp')}
+            footer={props.tools.includes('CALENDAR') ? <Link href={paths.calendar(workspaceId)} className="today-more">{t('today.calendarLink')} <UiIcon name="forward" /></Link> : undefined}
+          >
+            {upcoming.map((item) => (
+              <li key={item.id} className="today-row today-row-static">
+                <span className="today-row-title">{item.schedule.title}</span>
+                <small className="muted">
+                  <time dateTime={item.dueDate} title={when(item)}>
+                    {formatRelativeDay(item.dueDate, todayIn(item.schedule.timeZone))}
+                    {item.time !== null && `, ${item.time}`}
+                  </time>
+                </small>
+              </li>
+            ))}
+          </TodayCard>
+        );
+      case 'toBuy':
+        if (listsToBuy.length === 0) return null;
+        return (
+          <TodayCard key={card.id} id={card.id} icon="grocery" title={t('today.lists')} footer={more(listsToBuy.length - TO_BUY_LISTS, paths.lists(workspaceId))}>
+            {listsToBuy.slice(0, TO_BUY_LISTS).map((list) => (
+              <LinkRow key={list.id} href={paths.list(workspaceId, list.id)} title={list.title} context={t('lists.toBuy', { count: list.open })} label={t('lists.openNamed', { title: list.title })} />
+            ))}
+          </TodayCard>
+        );
+      case 'maintenance':
+        if (maintenance === null || maintenance.items.length === 0) return null;
+        return (
+          <TodayCard key={card.id} id={card.id} icon="maintenance" title={t('today.maintenance')} count={maintenance.total} footer={more(maintenance.total - maintenance.items.length, paths.maintenance(workspaceId))}>
+            {maintenance.items.map((item) => (
+              <LinkRow
+                key={item.id}
+                href={paths.maintenanceRecord(workspaceId, item.id)}
+                title={item.title}
+                context={[
+                  item.date < localToday ? t('home.wasDue', { date: formatCalendarDate(item.date) }) : formatRelativeDay(item.date, localToday),
+                  ...(item.status === 'IN_PROGRESS' ? [t('maintenance.status.IN_PROGRESS')] : []),
+                  ...(item.equipment === null ? [] : [item.equipment]),
+                ].join(' · ')}
+              />
+            ))}
+          </TodayCard>
+        );
+      case 'recent':
+        return recent.length === 0 ? null : <RecentCard key={card.id} workspaceId={workspaceId} items={recent} />;
+      case 'progress':
+        return home?.progress === undefined ? null : <ProgressCard key={card.id} progress={home.progress} />;
+    }
+  };
+  const column = (which: 'main' | 'side') => cards.filter((card) => card.column === which).map(render).filter((node) => node !== null);
+  const main = column('main');
+  const side = column('side');
 
   if (props.tools.length === 0 && offlineActive === null) return <section className="card stack"><h2>{t('shell.today')}</h2><p>{t('tools.empty')}</p>{props.canChooseTools && <Link className="button" href={paths.settings(workspaceId)}>{t('tools.choose')}</Link>}</section>;
   return (
-    <section aria-labelledby="today-heading">
+    <section aria-labelledby="today-heading" className={side.length > 0 && main.length > 0 ? 'today today-two' : 'today'}>
       <div className="page-header page-header-tool">
-        <div>
-          <h2 id="today-heading">{t('shell.today')}</h2>
-          <p className="muted page-lead">{t('today.lead')}</p>
-        </div>
+        <h2 id="today-heading">{t('shell.today')}</h2>
         <AddChooser workspaceId={workspaceId} can={props.canAdd} />
       </div>
       {message !== null && <p role="alert">{message}</p>}
       {home === null && offlineActive === null && message === null && <p>{t('common.loading')}</p>}
       {offlineActive !== null && <p className="muted">{t('offline.savedList')}</p>}
       {assigned && (
-        <div className="row home-filter" role="group" aria-label={t('home.filter')}>
+        <div className="row home-filter today-filter" role="group" aria-label={t('home.filter')}>
           {(['ALL', 'MINE', 'SHARED'] as const).map((value) => (
             <button key={value} type="button" className="quiet" aria-pressed={filter === value} onClick={() => chooseFilter(value)}>
               {filter === value && <span aria-hidden="true">✓ </span>}
@@ -195,59 +313,10 @@ export function Today(props: {
           ))}
         </div>
       )}
-      {home?.progress !== undefined && <TodayProgressCard progress={home.progress} />}
-      {(continueRuns.length > 0 || (view !== null && view.continueOccurrences.length > 0)) &&
-        section(
-          'today-continue',
-          t('today.continue'),
-          <>
-            {view?.continueOccurrences.map((item) => row(item))}
-            {continueRuns.map((run) => (
-              <ActiveRunItem key={run.id} workspaceId={workspaceId} run={run} />
-            ))}
-          </>,
-        )}
-      {overdue.length > 0 && section('today-attention', t('today.needsAttention'), overdue.map(({ item, older }) => row(item, older)), 'attention')}
-      {view !== null && view.today.length > 0 && section('today-today', t('today.dueToday'), view.today.map((item) => row(item)))}
-      {home?.progress !== undefined && <RecentCompletions workspaceId={workspaceId} progress={home.progress} />}
-      {calm && (
-        <p className="card calm">
-          <UiIcon name="check" size="1.4em" /> {t('home.nothingNeedsAttention')}
-        </p>
-      )}
-      {listsToBuy.length > 0 &&
-        section(
-          'today-lists',
-          t('today.lists'),
-          listsToBuy.map((list) => (
-            <li key={list.id} className="card item-card">
-              <div className="item-main">
-                <span className="item-icon">
-                  <UiIcon name="grocery" size="1.4em" />
-                </span>
-                <div className="item-body">
-                  <span className="item-title">
-                    <strong>{list.title}</strong>
-                  </span>
-                  <small className="muted">{t('lists.toBuy', { count: list.open })}</small>
-                </div>
-                <div className="item-actions">
-                  <Link href={paths.list(workspaceId, list.id)} className="button" aria-label={t('lists.openNamed', { title: list.title })}>
-                    {t('lists.open')} <UiIcon name="forward" />
-                  </Link>
-                </div>
-              </div>
-            </li>
-          )),
-        )}
-      {/* Everything that is not for now has its own place. */}
-      <nav aria-label={t('today.elsewhere')} className="quiet-links">
-        {elsewhere.map((link) => (
-          <Link key={link.href} href={link.href}>
-            <UiIcon name={link.icon} /> {link.label}
-          </Link>
-        ))}
-      </nav>
+      <div className="today-grid">
+        {main.length > 0 && <div className="today-column">{main}</div>}
+        {side.length > 0 && <div className="today-column today-side">{side}</div>}
+      </div>
       <UndoNotice notice={notice} onDismiss={() => setNotice(null)} />
     </section>
   );
