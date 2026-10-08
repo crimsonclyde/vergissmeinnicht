@@ -1,5 +1,5 @@
 /** Thin JSON client for the same-origin API. The browser adds the `Origin` header the server checks. */
-import type { ProcedureIcon, ReasonPolicy, RunState, StepState, TodayLayout, UserPreferences, WorkspaceRole } from '@vergissmeinnicht/domain';
+import type { CredentialProviderId, OpenMeteoModelId, ProcedureIcon, ReasonPolicy, RunState, StepState, TodayLayout, UserPreferences, WeatherCredential, WeatherForecast, WeatherLocation, WeatherProviderId, WeatherSettings, WorkspaceRole } from '@vergissmeinnicht/domain';
 import { hasMessage, t } from './i18n/index.ts';
 
 // Shared vocabulary comes from the domain package (browser-safe, no server code). The server still
@@ -227,6 +227,82 @@ export interface TodayProgress {
   readonly activeRuns: number | null;
   readonly dueToday: number | null;
   readonly recentlyCompleted: readonly { readonly type: 'run' | 'occurrence'; readonly id: string; readonly scheduleId: string | null; readonly title: string; readonly completedAt: string }[];
+}
+
+/** The person's weather (19.4): their settings and the providers they can choose on this server. */
+/** A credential's status — the secret never comes back (19.4b). `readable: false` = enter it again. */
+export interface CredentialStatus {
+  readonly provider: CredentialProviderId;
+  readonly readable: boolean;
+  readonly dailyBudget: number;
+  readonly usedToday: number;
+  readonly lastTest: { readonly at: string; readonly ok: boolean } | null;
+  readonly availableToUsers: boolean;
+  readonly updatedAt: string;
+}
+
+export interface MyWeather {
+  readonly settings: WeatherSettings;
+  readonly providers: readonly WeatherProviderId[];
+  /** Optional credential providers: allowed here, the person's own credential, the server's availability. */
+  readonly credentialProviders: readonly { readonly provider: CredentialProviderId; readonly allowed: boolean; readonly personal: CredentialStatus | null; readonly serverAvailable: boolean }[];
+}
+
+export interface PlaceResult {
+  readonly name: string;
+  readonly context: string;
+  readonly latitude: number;
+  readonly longitude: number;
+  readonly elevation: number | null;
+  readonly timeZone: string;
+}
+
+/** An Open-Meteo model covering a place, with what it lacks there (W2); `days: null` = Automatic. */
+export interface ModelChoice {
+  readonly id: OpenMeteoModelId;
+  readonly label: string;
+  readonly days: number | null;
+  readonly hasCondition: boolean | null;
+  readonly hasPrecipitationProbability: boolean | null;
+}
+
+/** The forecast for the person's place, or why there is none (no location, provider unavailable, …). */
+export type MyForecast =
+  | {
+      readonly forecast: WeatherForecast;
+      /** How many days the provider offers (the forecast may hold fewer when fewer were asked for). */
+      readonly horizon: number;
+      readonly location: Pick<WeatherLocation, 'name' | 'timeZone'>;
+      readonly fetchedAt: string;
+      readonly stale: boolean;
+      readonly fellBackFrom: WeatherProviderId | null;
+      readonly unit: 'C' | 'F';
+      readonly showTomorrow: boolean;
+    }
+  | { readonly forecast: null; readonly reason: string };
+
+/** One source of a forecast comparison (19.4c). */
+export type CompareResult = {
+  readonly provider: WeatherProviderId;
+  readonly model: OpenMeteoModelId | null;
+  readonly paid: boolean;
+  readonly queries: number;
+} & (
+  | { readonly state: 'fresh' | 'cached'; readonly forecast: WeatherForecast; readonly fetchedAt: string; readonly horizon: number; readonly refreshFailed: string | null }
+  | { readonly state: 'not_fetched' }
+  | { readonly state: 'failed'; readonly reason: string }
+);
+
+export interface Comparison {
+  readonly location: Pick<WeatherLocation, 'name' | 'timeZone'> | null;
+  readonly results: readonly CompareResult[];
+  readonly reason?: string;
+}
+
+export interface ServerWeather {
+  readonly enabled: boolean;
+  readonly allowed: readonly WeatherProviderId[];
+  readonly metContact: string | null;
 }
 
 export interface HomeOverview {
@@ -1030,6 +1106,25 @@ export const api = {
     request<{ user: CurrentUser } | { mfaRequired: true }>('POST', '/auth/sign-in', { email, password }),
   completeMfa: async (factor: SecondFactor) => (await request<{ user: CurrentUser }>('POST', '/auth/mfa', factor)).user,
   mfaStatus: () => request<MfaStatus>('GET', '/account/mfa'),
+  myWeather: () => request<MyWeather>('GET', '/account/weather'),
+  saveMyWeather: (settings: WeatherSettings) => request<MyWeather>('POST', '/account/weather', { settings }),
+  searchPlaces: async (text: string, language: string) => (await request<{ places: PlaceResult[] }>('GET', `/account/weather/places?q=${encodeURIComponent(text)}&lang=${encodeURIComponent(language)}`)).places,
+  weatherModels: async (location: WeatherLocation) => (await request<{ models: ModelChoice[] }>('POST', '/account/weather/models', { location })).models,
+  /** `days`: Today asks for 2; the Weather page for everything the provider offers. */
+  myForecast: (days?: number) => request<MyForecast>('GET', `/account/weather/forecast${days === undefined ? '' : `?days=${days}`}`),
+  /** Compare sources for the person's place; paid sources are fetched only with `fetchPaid` (19.4c). */
+  compareForecasts: (sources: readonly { provider: WeatherProviderId; model?: OpenMeteoModelId }[], fetchPaid: boolean) => request<Comparison>('POST', '/account/weather/compare', { sources, fetchPaid }),
+  savePersonalCredential: async (provider: CredentialProviderId, credential: WeatherCredential | undefined, dailyBudget: number) =>
+    (await request<{ status: CredentialStatus }>('POST', '/account/weather/credentials', { provider, ...(credential === undefined ? {} : { credential }), dailyBudget })).status,
+  testPersonalCredential: async (provider: CredentialProviderId) => (await request<{ status: CredentialStatus }>('POST', '/account/weather/credentials/test', { provider })).status,
+  removePersonalCredential: (provider: CredentialProviderId) => request<undefined>('POST', '/account/weather/credentials/delete', { provider }),
+  serverCredentials: async () => (await request<{ credentials: CredentialStatus[] }>('GET', '/admin/weather/credentials')).credentials,
+  saveServerCredential: async (provider: CredentialProviderId, credential: WeatherCredential | undefined, dailyBudget: number, availableToUsers: boolean) =>
+    (await request<{ status: CredentialStatus }>('POST', '/admin/weather/credentials', { provider, ...(credential === undefined ? {} : { credential }), dailyBudget, availableToUsers })).status,
+  testServerCredential: async (provider: CredentialProviderId) => (await request<{ status: CredentialStatus }>('POST', '/admin/weather/credentials/test', { provider })).status,
+  removeServerCredential: (provider: CredentialProviderId) => request<undefined>('POST', '/admin/weather/credentials/delete', { provider }),
+  serverWeather: async () => (await request<{ settings: ServerWeather }>('GET', '/admin/weather')).settings,
+  saveServerWeather: async (settings: ServerWeather) => (await request<{ settings: ServerWeather }>('POST', '/admin/weather', settings)).settings,
   /** The person's Today layout as saved (19.2) — possibly by an earlier version; `null` = defaults. */
   todayLayout: async () => (await request<{ layout: unknown }>('GET', '/account/today')).layout,
   /** Saves (or with `null` resets) the person's Today layout; the server validates it strictly. */

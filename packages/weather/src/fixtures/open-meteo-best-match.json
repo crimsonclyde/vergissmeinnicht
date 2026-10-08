@@ -1,0 +1,71 @@
+{
+    "latitude": 43.98869,
+    "longitude": 7.773423,
+    "generationtime_ms": 4.565715789794922,
+    "utc_offset_seconds": 7200,
+    "timezone": "Europe/Rome",
+    "timezone_abbreviation": "GMT+2",
+    "elevation": 654.0,
+    "current_units": {
+        "time": "iso8601",
+        "interval": "seconds",
+        "temperature_2m": "\u00b0C",
+        "weather_code": "wmo code",
+        "wind_speed_10m": "km/h",
+        "precipitation": "mm"
+    },
+    "current": {
+        "time": "2026-10-08T10:15",
+        "interval": 900,
+        "temperature_2m": 16.2,
+        "weather_code": 3,
+        "wind_speed_10m": 3.9,
+        "precipitation": 0.0
+    },
+    "daily_units": {
+        "time": "iso8601",
+        "temperature_2m_max": "\u00b0C",
+        "temperature_2m_min": "\u00b0C",
+        "precipitation_sum": "mm",
+        "precipitation_probability_max": "%",
+        "weather_code": "wmo code",
+        "wind_speed_10m_max": "km/h"
+    },
+    "daily": {
+        "time": [
+            "2026-10-08",
+            "2026-10-09",
+            "2026-10-10"
+        ],
+        "temperature_2m_max": [
+            19.1,
+            18.4,
+            17.8
+        ],
+        "temperature_2m_min": [
+            12.8,
+            10.1,
+            10.2
+        ],
+        "precipitation_sum": [
+            3.4,
+            0.0,
+            0.0
+        ],
+        "precipitation_probability_max": [
+            70,
+            70,
+            3
+        ],
+        "weather_code": [
+            81,
+            3,
+            3
+        ],
+        "wind_speed_10m_max": [
+            7.2,
+            11.5,
+            8.0
+        ]
+    }
+}

@@ -3,7 +3,7 @@
 // Auth-related tables follow Better Auth's core schema: Drizzle *property* names are the
 // Better Auth field names (e.g. `name`, `emailVerified`), while *column* names are snake_case.
 import { sql } from 'drizzle-orm';
-import { check, foreignKey, index, integer, primaryKey, sqliteTable, text, uniqueIndex } from 'drizzle-orm/sqlite-core';
+import { check, foreignKey, index, integer, primaryKey, real, sqliteTable, text, uniqueIndex } from 'drizzle-orm/sqlite-core';
 import {
   CONTACT_KEY_KINDS,
   MAINTENANCE_STATUSES,
@@ -796,6 +796,88 @@ export const userTodayLayouts = sqliteTable(
   (table) => [
     check('user_today_layouts_layout_bounded', sql`json_valid(${table.layout}) and length(${table.layout}) <= 4096`),
     check('user_today_layouts_version_positive', sql`${table.version} >= 1`),
+  ],
+);
+
+/**
+ * A person's weather settings (19.4): location (rounded to 2 decimals), provider, Open-Meteo model and
+ * display options. Personal only — never part of a Workspace or its backup. No row = defaults.
+ */
+export const userWeatherSettings = sqliteTable(
+  'user_weather_settings',
+  {
+    userId: text('user_id')
+      .primaryKey()
+      .references(() => users.id),
+    placeName: text('place_name'),
+    latitude: real('latitude'),
+    longitude: real('longitude'),
+    timeZone: text('time_zone'),
+    elevation: integer('elevation'),
+    provider: text('provider').notNull(),
+    model: text('model').notNull(),
+    fallback: integer('fallback', { mode: 'boolean' }).notNull(),
+    unit: text('unit').notNull(),
+    showTomorrow: integer('show_tomorrow', { mode: 'boolean' }).notNull(),
+    updatedAt: integer('updated_at', { mode: 'timestamp_ms' }).notNull(),
+  },
+  (table) => [
+    check('user_weather_settings_location_complete', sql`(${table.placeName} is null) = (${table.latitude} is null) and (${table.placeName} is null) = (${table.longitude} is null) and (${table.placeName} is null) = (${table.timeZone} is null) and (${table.placeName} is not null or ${table.elevation} is null)`),
+    check('user_weather_settings_location_valid', sql`${table.placeName} is null or (length(${table.placeName}) between 1 and 480 and ${table.latitude} between -90 and 90 and ${table.longitude} between -180 and 180 and length(${table.timeZone}) <= 64)`),
+    check('user_weather_settings_elevation_valid', sql`${table.elevation} is null or ${table.elevation} between -500 and 9000`),
+    check('user_weather_settings_provider_valid', sql`${table.provider} in ('AUTO', 'OPEN_METEO', 'MET_NORWAY', 'OPENWEATHER', 'METEOMATICS')`),
+    check('user_weather_settings_model_valid', sql`length(${table.model}) between 1 and 64`),
+    check('user_weather_settings_unit_valid', sql`${table.unit} in ('C', 'F')`),
+  ],
+);
+
+/**
+ * Weather provider credentials (19.4b): server-wide (server admins) or one person's own. The secret is
+ * sealed (AES-256-GCM, owner and provider bound in as associated data); everything else is status.
+ */
+export const weatherCredentials = sqliteTable(
+  'weather_credentials',
+  {
+    id: text('id').primaryKey(),
+    scope: text('scope', { enum: ['SERVER', 'USER'] }).notNull(),
+    userId: text('user_id').references(() => users.id),
+    provider: text('provider').notNull(),
+    sealed: text('sealed').notNull(),
+    availableToUsers: integer('available_to_users', { mode: 'boolean' }).notNull(),
+    dailyBudget: integer('daily_budget').notNull(),
+    usageDay: text('usage_day'),
+    usedToday: integer('used_today').notNull(),
+    lastTestAt: integer('last_test_at', { mode: 'timestamp_ms' }),
+    lastTestOk: integer('last_test_ok', { mode: 'boolean' }),
+    createdAt: integer('created_at', { mode: 'timestamp_ms' }).notNull(),
+    updatedAt: integer('updated_at', { mode: 'timestamp_ms' }).notNull(),
+  },
+  (table) => [
+    uniqueIndex('weather_credentials_server_unique').on(table.provider).where(sql`${table.scope} = 'SERVER'`),
+    uniqueIndex('weather_credentials_user_unique').on(table.userId, table.provider).where(sql`${table.scope} = 'USER'`),
+    check('weather_credentials_scope_owner', sql`(${table.scope} = 'SERVER') = (${table.userId} is null) and (${table.scope} = 'SERVER' or ${table.availableToUsers} = 0)`),
+    check('weather_credentials_provider_valid', sql`${table.provider} in ('OPENWEATHER', 'METEOMATICS')`),
+    check('weather_credentials_sealed_format', sql`${table.sealed} like 'v1.%' and length(${table.sealed}) <= 2048`),
+    check('weather_credentials_budget_valid', sql`${table.dailyBudget} between 1 and 1000 and ${table.usedToday} >= 0`),
+    check('weather_credentials_test_consistent', sql`(${table.lastTestAt} is null) = (${table.lastTestOk} is null)`),
+  ],
+);
+
+/** The server's weather settings (19.4; server admins): master switch, allowed providers, MET contact. One row (id 1); none = defaults. */
+export const serverWeatherSettings = sqliteTable(
+  'server_weather_settings',
+  {
+    id: integer('id').primaryKey(),
+    enabled: integer('enabled', { mode: 'boolean' }).notNull(),
+    /** Comma-separated provider ids. */
+    allowed: text('allowed').notNull(),
+    metContact: text('met_contact'),
+    updatedAt: integer('updated_at', { mode: 'timestamp_ms' }).notNull(),
+    updatedByUserId: text('updated_by_user_id').references(() => users.id),
+  },
+  (table) => [
+    check('server_weather_settings_single_row', sql`${table.id} = 1`),
+    check('server_weather_settings_bounded', sql`length(${table.allowed}) <= 100 and (${table.metContact} is null or length(${table.metContact}) <= 254)`),
   ],
 );
 

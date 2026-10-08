@@ -110,7 +110,7 @@ test('first server admin: bootstrap link, account creation, sign-in, Workspace c
   await expect(menuButton).toBeFocused();
   await fromMenu(page, 'Server admin');
   // Server admin shows one named section at a time (15.1); each has its own address.
-  await expect(page.getByRole('navigation', { name: 'Server administration' }).getByRole('link')).toHaveText(['Workspaces', 'Invitations', 'Accounts & recovery', 'Notification providers', 'Server & storage', 'Security log']);
+  await expect(page.getByRole('navigation', { name: 'Server administration' }).getByRole('link')).toHaveText(['Workspaces', 'Invitations', 'Accounts & recovery', 'Notification providers', 'Weather', 'Server & storage', 'Security log']);
   await expect(page.getByLabel('Email address to invite')).toHaveCount(0);
   // Invitations are managed here (no mail server in this test, so delivery reports a failure).
   await settingsSection(page, 'Server administration', 'Invitations');
@@ -1078,8 +1078,25 @@ test('first server admin: bootstrap link, account creation, sign-in, Workspace c
   await page.getByRole('link', { name: 'Customize Today' }).click();
   await expect(page).toHaveURL(/\/account\/today$/);
   const cardSettings = page.getByRole('list', { name: 'Cards' });
-  await expect(cardSettings.getByRole('listitem').first()).toContainText('Needs attention');
+  await expect(cardSettings.getByRole('listitem').first()).toContainText('Clock & date');
+  await expect(cardSettings.getByRole('listitem').nth(1)).toContainText('Weather');
+  await expect(cardSettings.getByRole('listitem').nth(2)).toContainText('Needs attention');
   await expectAccessible(page, 'today settings');
+  // Clock & date (19.3): a personal card, off by default; switched on it tops Today, quietly (no live region).
+  await cardSettings.getByLabel('Clock & date', { exact: true }).check();
+  await cardSettings.getByLabel('Always 24-hour').check();
+  await expect(cardSettings.getByLabel('Always 24-hour')).toBeChecked();
+  await expect(page.getByRole('status').filter({ hasText: 'Saved.' })).toBeVisible();
+  await sections.getByRole('link', { name: 'Today' }).click();
+  const clock = page.getByRole('region', { name: 'Clock & date' });
+  await expect(clock.locator('time')).toHaveText(/\b([01]\d|2[0-3]):[0-5]\d\b/);
+  await expect(clock.locator('[aria-live]')).toHaveCount(0);
+  // The glance row: full width above the cards, on a phone too.
+  await expect(page.locator('.today-glance').first().locator('.today-card')).toHaveAttribute('data-card', 'clock');
+  await page.setViewportSize({ width: 390, height: 844 });
+  expect((await clock.boundingBox())?.height).toBeLessThan(80);
+  await page.setViewportSize({ width: 1280, height: 720 });
+  await page.getByRole('link', { name: 'Customize Today' }).click();
   await cardSettings.getByLabel('To buy', { exact: true }).uncheck();
   await expect(page.getByRole('status').filter({ hasText: 'Saved.' })).toBeVisible();
   await cardSettings.getByLabel('Progress', { exact: true }).check();
@@ -1093,6 +1110,7 @@ test('first server admin: bootstrap link, account creation, sign-in, Workspace c
   await sections.getByRole('link', { name: 'Today' }).click();
   await expect(page.getByRole('region', { name: 'Progress' })).toBeVisible();
   await expect(page.locator('.today-side .today-card').first()).toHaveAttribute('data-card', 'progress');
+  await expect(page.getByRole('region', { name: 'Clock & date' })).toBeVisible();
   await expect(page.getByRole('list', { name: 'To buy' })).toHaveCount(0);
   // Back to the defaults: To buy returns, Progress is off again.
   await page.getByRole('link', { name: 'Customize Today' }).click();
@@ -1101,6 +1119,177 @@ test('first server admin: bootstrap link, account creation, sign-in, Workspace c
   await sections.getByRole('link', { name: 'Today' }).click();
   await expect(page.getByRole('list', { name: 'To buy' })).toContainText('Weekly shop');
   await expect(page.getByRole('region', { name: 'Progress' })).toHaveCount(0);
+  await expect(page.getByRole('region', { name: 'Clock & date' })).toHaveCount(0);
+
+  // Weather (19.4a). The test never reaches a provider: the server admin first allows none of them (no
+  // outbound request is possible), and the forecast the browser shows is supplied here.
+  await fromMenu(page, 'Server admin');
+  await settingsSection(page, 'Server administration', 'Weather');
+  await expect(page.getByLabel('Weather on this server')).toBeChecked();
+  await page.getByLabel('Open-Meteo', { exact: true }).uncheck();
+  await page.getByLabel('MET Norway', { exact: true }).uncheck();
+  await page.getByLabel('Contact email for MET Norway (optional)').fill('weather@example.org');
+  await page.getByRole('button', { name: 'Save', exact: true }).click();
+  await expect(page.getByRole('status').filter({ hasText: 'Saved.' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Server-wide provider credentials (optional)' })).toBeVisible();
+  await expect(page.getByRole('form', { name: /Meteomatics/ })).toContainText('non-commercial use only');
+  await expect(page.getByRole('form', { name: /Meteomatics/ }).getByLabel('People without their own credentials may use these')).not.toBeChecked();
+  await expectAccessible(page, 'server weather settings');
+  await fromMenu(page, 'Profile & settings');
+  await settingsSection(page, 'Profile & settings', 'Weather');
+  await expect(page.getByRole('heading', { name: 'Weather', level: 3 }).first()).toBeVisible();
+  // No search without Open-Meteo; a place by its coordinates — any place, never the device's position.
+  await expect(page.getByRole('search')).toHaveCount(0);
+  await page.locator('summary', { hasText: 'Enter coordinates instead' }).click();
+  await page.getByLabel('Name shown').fill('Triora');
+  await page.getByLabel('Latitude').fill('43.993');
+  await page.getByLabel('Longitude').fill('7.7637');
+  await page.getByLabel('Time zone').selectOption('Europe/Rome');
+  await page.getByRole('button', { name: 'Use these coordinates' }).click();
+  await expect(page.getByText('43.993, 7.7637')).toBeVisible();
+  await page.getByLabel('Elevation (m, optional)').fill('780');
+  await page.getByRole('button', { name: 'Save weather settings' }).click();
+  await expect(page.getByRole('status').filter({ hasText: 'Saved.' })).toBeVisible();
+  // Stored rounded to about 1 km.
+  await expect(page.getByText('43.99, 7.76 · 780 m · Europe/Rome')).toBeVisible();
+  await expect(page.getByText('This provider is not available on this server.')).toBeVisible();
+  // Optional commercial providers (19.4b): listed with what they need, never required.
+  await expect(page.getByLabel('Provider').locator('option', { hasText: 'OpenWeather — needs credentials' })).toBeDisabled();
+  await page.locator('summary', { hasText: 'Optional providers with your own credentials' }).click();
+  const openWeather = page.getByRole('form', { name: /OpenWeather/ });
+  await expect(openWeather).toContainText('Status: not set');
+  await expect(openWeather).toContainText('1,000 calls a day are free, more are charged automatically');
+  await expect(openWeather.getByLabel('Daily call budget')).toHaveValue('500');
+  await expect(openWeather.getByLabel('Daily call budget')).toHaveAttribute('max', '1000');
+  await expect(openWeather.getByRole('button', { name: 'Save and test' })).toBeDisabled();
+  // Saving is answered here: a real save tests the key with OpenWeather, and tests never reach a provider.
+  await page.route('**/api/account/weather/credentials', (route) =>
+    route.fulfill({ json: { status: { provider: 'OPENWEATHER', readable: true, dailyBudget: 200, usedToday: 1, lastTest: { at: new Date().toISOString(), ok: true }, availableToUsers: false, updatedAt: new Date().toISOString() } } }),
+  );
+  await openWeather.getByLabel('API key').fill('0123456789abcdef0123456789abcdef');
+  await openWeather.getByLabel('Daily call budget').fill('200');
+  await openWeather.getByRole('button', { name: 'Save and test' }).click();
+  await expect(openWeather).toContainText('Status: set · 1 of 200 calls used today');
+  // The secret leaves the page once stored; the field now asks for a replacement only.
+  await expect(openWeather.getByLabel('New API key (leave empty to keep the stored one)')).toHaveValue('');
+  await page.unroute('**/api/account/weather/credentials');
+  await expectAccessible(page, 'weather settings with credentials');
+  // Compare forecasts (19.4c) — answered here so that nothing reaches a provider: free sources ticked by default,
+  // paid ones only fetched on an explicit second request, missing values said as such, one day at a time.
+  const forecastDay = (date: string, extra: object) => ({ date, condition: 'CLOUDY', ...extra });
+  const comparison = {
+    location: { name: 'Triora', timeZone: 'Europe/Rome' },
+    results: [
+      { provider: 'OPEN_METEO', model: 'best_match', paid: false, queries: 1, state: 'fresh', fetchedAt: new Date().toISOString(), horizon: 16, refreshFailed: null, forecast: { provider: 'OPEN_METEO', model: 'best_match', current: { temperature: 16 }, days: [forecastDay(localDate(0), { max: 19, min: 13, precipitationSum: 3.4, precipitationProbabilityMax: 70 }), forecastDay(localDate(1), { max: 18, min: 11, precipitationSum: 0 })] } },
+      { provider: 'OPEN_METEO', model: 'italia_meteo_arpae_icon_2i', paid: false, queries: 1, state: 'fresh', fetchedAt: new Date().toISOString(), horizon: 1, refreshFailed: null, forecast: { provider: 'OPEN_METEO', model: 'italia_meteo_arpae_icon_2i', days: [forecastDay(localDate(0), { max: 18, min: 12, precipitationSum: 11.9 })] } },
+      { provider: 'MET_NORWAY', model: null, paid: false, queries: 1, state: 'failed', reason: 'unavailable' },
+      { provider: 'OPENWEATHER', model: null, paid: true, queries: 1, state: 'not_fetched' },
+    ],
+  };
+  await page.route('**/api/account/weather', (route) =>
+    route.request().method() === 'GET'
+      ? route.fulfill({ json: { settings: { location: { name: 'Triora', latitude: 43.99, longitude: 7.76, timeZone: 'Europe/Rome', elevation: 780 }, provider: 'AUTO', model: 'best_match', fallback: false, unit: 'C', showTomorrow: true }, providers: ['OPEN_METEO', 'MET_NORWAY', 'OPENWEATHER'], credentialProviders: [{ provider: 'OPENWEATHER', allowed: true, personal: { provider: 'OPENWEATHER', readable: true, dailyBudget: 200, usedToday: 1, lastTest: null, availableToUsers: false, updatedAt: new Date().toISOString() }, serverAvailable: false }] } })
+      : route.fallback(),
+  );
+  await page.route('**/api/account/weather/models', (route) =>
+    route.fulfill({ json: { models: [{ id: 'best_match', label: 'Automatic (best match)', days: null, hasCondition: null, hasPrecipitationProbability: null }, { id: 'italia_meteo_arpae_icon_2i', label: 'ItaliaMeteo ARPAE ICON-2I (Italy, 2 km)', days: 3, hasCondition: true, hasPrecipitationProbability: false }] } }),
+  );
+  const compareRequests: { fetchPaid: boolean }[] = [];
+  await page.route('**/api/account/weather/compare', (route) => {
+    compareRequests.push(route.request().postDataJSON() as { fetchPaid: boolean });
+    return route.fulfill({ json: comparison });
+  });
+  await page.reload();
+  const compareView = page.getByRole('region', { name: 'Compare forecasts' });
+  await expect(compareView.getByLabel(/Open-Meteo · Automatic/)).toBeChecked();
+  await expect(compareView.getByLabel(/ItaliaMeteo ARPAE ICON-2I/)).toBeChecked();
+  await expect(compareView.getByLabel('MET Norway')).toBeChecked();
+  await expect(compareView.getByLabel(/OpenWeather/)).not.toBeChecked();
+  await compareView.getByLabel(/OpenWeather/).check();
+  await compareView.getByRole('button', { name: 'Compare', exact: true }).click();
+  expect(compareRequests.at(-1)?.fetchPaid).toBe(false);
+  await expect(compareView).toContainText('Paid sources were not fetched. Fetching them now uses 1 OpenWeather request from the daily budget.');
+  await expect(compareView.getByRole('combobox')).toHaveValue(localDate(0));
+  const sourcesShown = compareView.getByRole('listitem');
+  await expect(sourcesShown.filter({ hasText: 'ICON-2I' })).toContainText('11.9 mm');
+  await expect(sourcesShown.filter({ hasText: 'ICON-2I' })).toContainText(/Rain chance:?\s*not given/);
+  await expect(sourcesShown.filter({ hasText: 'MET Norway' })).toContainText('cannot be reached');
+  await expect(sourcesShown.filter({ hasText: 'OpenWeather' })).toContainText('Not fetched');
+  await expect(compareView.getByRole('definition').first()).toHaveText('19° – 18°'.replace('19° – 18°', '18° – 19°'));
+  // The next day: ICON-2I has no forecast for it — said, not hidden or invented.
+  await compareView.getByRole('button', { name: 'Next day' }).click();
+  await expect(sourcesShown.filter({ hasText: 'ICON-2I' })).toContainText('No forecast for this day — this source offers 1 day.');
+  await expect(sourcesShown.filter({ hasText: 'Automatic' }).or(sourcesShown.filter({ hasText: /^Open-Meteo/ })).first()).toContainText('0 mm');
+  await compareView.getByRole('button', { name: 'Fetch paid forecasts now' }).click();
+  expect(compareRequests.at(-1)?.fetchPaid).toBe(true);
+  await expectAccessible(page, 'forecast comparison');
+  await page.setViewportSize({ width: 320, height: 700 });
+  expect(await noSidewaysScroll()).toBe(true);
+  await page.emulateMedia({ colorScheme: 'dark' });
+  await expectAccessible(page, 'forecast comparison on a phone, dark');
+  await page.emulateMedia({ colorScheme: 'light' });
+  await page.setViewportSize({ width: 1280, height: 720 });
+  await page.unroute('**/api/account/weather');
+  await page.unroute('**/api/account/weather/models');
+  await page.unroute('**/api/account/weather/compare');
+  const forecast = {
+    forecast: {
+      provider: 'OPEN_METEO',
+      model: 'italia_meteo_arpae_icon_2i',
+      current: { temperature: 16, condition: 'CLOUDY' },
+      days: [
+        { date: '2026-10-08', min: 12.1, max: 17.9, precipitationSum: 11.9, condition: 'SHOWERS' },
+        { date: '2026-10-09', min: 9.1, max: 18.6, precipitationSum: 0, condition: 'CLOUDY' },
+      ],
+    },
+    horizon: 2,
+    location: { name: 'Triora', timeZone: 'Europe/Rome' },
+    fetchedAt: new Date().toISOString(),
+    stale: false,
+    fellBackFrom: null,
+    unit: 'C',
+    showTomorrow: true,
+  };
+  await page.route('**/api/account/weather/forecast*', (route) => route.fulfill({ json: forecast }));
+  await sections.getByRole('link', { name: 'Today' }).click();
+  await page.getByRole('link', { name: 'Customize Today' }).click();
+  await cardSettings.getByLabel('Weather', { exact: true }).check();
+  await expect(page.getByRole('status').filter({ hasText: 'Saved.' })).toBeVisible();
+  await sections.getByRole('link', { name: 'Today' }).click();
+  const weatherCard = page.getByRole('region', { name: 'Weather in Triora' });
+  // Rain as the provider gives it: no probability from this model, so the amount; who supplied it, with the model.
+  await expect(weatherCard).toContainText('16°');
+  await expect(weatherCard).toContainText('Cloudy · 18° / 12° · 11.9 mm rain');
+  await expect(weatherCard).toContainText('Open-Meteo · ItaliaMeteo ARPAE ICON-2I');
+  await expect(weatherCard).toContainText('Tomorrow: Cloudy · 19° / 9°');
+  await expect(page.locator('.today-glance').first().locator('[data-card="weather"]')).toHaveCount(1);
+  await page.setViewportSize({ width: 320, height: 700 });
+  expect(await noSidewaysScroll()).toBe(true);
+  await page.setViewportSize({ width: 1280, height: 720 });
+  await expectAccessible(page, 'today with weather');
+  // Switched off by the server admin: no Weather anywhere for anyone, saved settings kept.
+  await page.unroute('**/api/account/weather/forecast*');
+  await fromMenu(page, 'Server admin');
+  await settingsSection(page, 'Server administration', 'Weather');
+  await page.getByLabel('Weather on this server').uncheck();
+  await page.getByRole('button', { name: 'Save', exact: true }).click();
+  await expect(page.getByRole('status').filter({ hasText: 'Saved.' })).toBeVisible();
+  await sections.getByRole('link', { name: 'Today' }).click();
+  await expect(page.getByRole('list', { name: 'To buy' })).toContainText('Weekly shop');
+  await expect(page.locator('[data-card="weather"]')).toHaveCount(0);
+  await fromMenu(page, 'Profile & settings');
+  await expect(page.getByRole('navigation', { name: 'Profile & settings' }).getByRole('link', { name: 'Weather' })).toHaveCount(0);
+  // Back to how the rest of the flow expects it: the card off, then weather on with every provider allowed.
+  await settingsSection(page, 'Profile & settings', 'Today');
+  await page.getByRole('button', { name: 'Reset to default' }).click();
+  await fromMenu(page, 'Server admin');
+  await settingsSection(page, 'Server administration', 'Weather');
+  await page.getByLabel('Weather on this server').check();
+  await page.getByLabel('Open-Meteo', { exact: true }).check();
+  await page.getByLabel('MET Norway', { exact: true }).check();
+  await page.getByRole('button', { name: 'Save', exact: true }).click();
+  await expect(page.getByRole('status').filter({ hasText: 'Saved.' })).toBeVisible();
+  await sections.getByRole('link', { name: 'Today' }).click();
   await page.getByRole('link', { name: 'Open list Weekly shop' }).click();
   // Delete the list and take that back from the overview.
   page.once('dialog', (dialog) => void dialog.accept());
@@ -2233,7 +2422,7 @@ test('first server admin: bootstrap link, account creation, sign-in, Workspace c
 
   // Profile & settings (15.1): named sections instead of one long page.
   await fromMenu(page, 'Profile & settings');
-  await expect(page.getByRole('navigation', { name: 'Profile & settings' }).getByRole('link')).toHaveText(['Notifications', 'Today', 'Appearance', 'Password & security', 'Confirmations']);
+  await expect(page.getByRole('navigation', { name: 'Profile & settings' }).getByRole('link')).toHaveText(['Notifications', 'Today', 'Weather', 'Appearance', 'Password & security', 'Confirmations']);
   await expect(page.getByRole('radio', { name: /^Dark/ })).toHaveCount(0);
   await settingsSection(page, 'Profile & settings', 'Appearance');
   await expect(page).toHaveURL(/\/account\/appearance$/);

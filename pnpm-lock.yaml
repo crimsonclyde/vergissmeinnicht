@@ -238,6 +238,9 @@ importers:
       '@vergissmeinnicht/realtime':
         specifier: workspace:*
         version: link:../../packages/realtime
+      '@vergissmeinnicht/weather':
+        specifier: workspace:*
+        version: link:../../packages/weather
       fastify:
         specifier: 5.12.5
         version: 5.12.5
@@ -460,6 +463,19 @@ importers:
         version: link:../domain
 
   packages/ui: {}
+
+  packages/weather:
+    dependencies:
+      '@vergissmeinnicht/application':
+        specifier: workspace:*
+        version: link:../application
+      '@vergissmeinnicht/domain':
+        specifier: workspace:*
+        version: link:../domain
+    devDependencies:
+      '@types/node':
+        specifier: 24.13.6
+        version: 24.13.6
 
 packages:
 

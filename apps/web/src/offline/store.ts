@@ -274,6 +274,19 @@ export const offlineStore = {
       return entry?.userId === userId ? entry.value : undefined;
     }, undefined),
 
+  /** The person's last forecast (19.4), for Today while offline — shown at most 6 hours, with its time. Deleted on sign-out. */
+  saveForecast: (userId: string, forecast: unknown) =>
+    safely(async () => {
+      const entry: ContextEntry = { key: `weather:${userId}`, userId, value: forecast };
+      await withStore(CONTEXT, 'readwrite', (store) => store.put(entry));
+    }, undefined),
+
+  loadForecast: (userId: string) =>
+    safely(async () => {
+      const entry = await withStore<ContextEntry | undefined>(CONTEXT, 'readonly', (store) => store.get(`weather:${userId}`) as IDBRequest<ContextEntry | undefined>);
+      return entry?.userId === userId ? entry.value : undefined;
+    }, undefined),
+
   saveWorkspaceList: (userId: string, list: readonly WorkspaceSummary[]) =>
     safely(async () => {
       const entry: ContextEntry = { key: `workspaces:${userId}`, userId, value: list };

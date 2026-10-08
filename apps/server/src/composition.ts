@@ -18,6 +18,8 @@ import {
   type InstanceSettingsDeps,
   type PreferencesDeps,
   type TodayLayoutDeps,
+  type WeatherDeps,
+  createWeatherService,
   type HistoryDeps,
   type ImageDeps,
   type InvitationDeps,
@@ -67,6 +69,9 @@ import {
   createMfaChallengeRepository,
   createPreferencesRepository,
   createTodayLayoutRepository,
+  createWeatherSettingsRepository,
+  createWeatherCredentialRepository,
+  createServerWeatherSettingsRepository,
   createProcedureRepository,
   createRateLimitCounter,
   createNotificationPreferencesRepository,
@@ -95,6 +100,7 @@ import { canAuthenticate, type UserId } from '@vergissmeinnicht/domain';
 import { createSmtpEmailSender } from '@vergissmeinnicht/email';
 import { createDocumentFileProcessor, createDocumentFileStore, createDocumentWorker, createFileMediaStore, createSharpImageProcessor, createTextExtractor } from '@vergissmeinnicht/media';
 import { createTelegramBotApi } from '@vergissmeinnicht/notifications';
+import { createMeteomatics, createMetNorway, createOpenMeteo, createOpenWeather, metUserAgent } from '@vergissmeinnicht/weather';
 import { createRunChangeHub, type RunChangeHub } from '@vergissmeinnicht/realtime';
 import type { FastifyBaseLogger } from 'fastify';
 import type { AppConfig } from './config/index.ts';
@@ -113,6 +119,7 @@ export interface AppServices {
   readonly accounts: AccountAdminDeps;
   readonly preferences: PreferencesDeps;
   readonly todayLayouts: TodayLayoutDeps;
+  readonly weather: WeatherDeps;
   /** Settings of this server (footer), changed by server admins. */
   readonly instanceSettings: InstanceSettingsDeps;
   readonly workspaces: WorkspaceDeps;
@@ -182,7 +189,24 @@ export function invitationDeps(config: AppConfig, database: AppDatabase): Invita
   };
 }
 
-export function createServices(config: AppConfig, database: AppDatabase) {
+/** `weatherFetch`: replaces the network for weather providers (tests never reach a provider). */
+export function createServices(config: AppConfig, database: AppDatabase, overrides: { readonly weatherFetch?: typeof fetch } = {}) {
+  // Weather (19.4): one forecast cache per server process, shared by every request.
+  const serverWeather = createServerWeatherSettingsRepository(database);
+  const weatherFetch = overrides.weatherFetch ?? fetch;
+  const openMeteo = createOpenMeteo({ fetch: weatherFetch });
+  const weatherService = createWeatherService({
+    providers: [
+      openMeteo,
+      createMetNorway({ fetch: weatherFetch, userAgent: async () => metUserAgent((await serverWeather.get()).metContact) }),
+      // Optional, only with credentials (19.4b): never needed for weather to work.
+      createOpenWeather({ fetch: weatherFetch }),
+      createMeteomatics({ fetch: weatherFetch }),
+    ],
+    models: openMeteo,
+    geocoder: openMeteo,
+    clock: systemClock,
+  });
   // Without a logger (CLI), Better Auth warnings and errors go to stderr.
   return (logger?: FastifyBaseLogger): AppServices => {
     const userRepository = createUserRepository(database);
@@ -296,6 +320,15 @@ export function createServices(config: AppConfig, database: AppDatabase) {
       },
       preferences: { preferences: createPreferencesRepository(database), clock: systemClock },
       todayLayouts: { todayLayouts: createTodayLayoutRepository(database), clock: systemClock },
+      weather: {
+        weatherSettings: createWeatherSettingsRepository(database),
+        serverWeather,
+        weather: weatherService,
+        credentials: createWeatherCredentialRepository(database),
+        // The same secret box as TOTP seeds and the Telegram token (DATA_ENCRYPTION_KEY); production refuses to start without the key.
+        secrets: createSecretBox(config.dataEncryptionKey.reveal()),
+        clock: systemClock,
+      },
       instanceSettings: { settings: createInstanceSettingsRepository(database), clock: systemClock },
       workspaces: workspaceDeps,
       procedures: { workspaces: workspaceDeps.workspaces, procedures: createProcedureRepository(database), clock: systemClock },

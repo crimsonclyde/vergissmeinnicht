@@ -9,7 +9,7 @@ import { DomainValidationError } from './errors.ts';
 export const TODAY_LAYOUT_VERSION = 1;
 
 /** Every card the server accepts in a saved layout. Later versions add ids; none is ever reused. */
-export const TODAY_CARD_IDS = ['attention', 'continue', 'next', 'toBuy', 'maintenance', 'recent', 'progress', 'calendar'] as const;
+export const TODAY_CARD_IDS = ['attention', 'continue', 'next', 'toBuy', 'maintenance', 'recent', 'progress', 'calendar', 'clock', 'weather'] as const;
 export type TodayCardId = (typeof TODAY_CARD_IDS)[number];
 
 export const TODAY_DENSITIES = ['COMPACT', 'COMFORTABLE'] as const;
@@ -30,6 +30,8 @@ export interface TodayCardOptions {
   readonly lists?: number;
   /** Recently completed: how far back. */
   readonly retention?: RecentRetention;
+  /** Clock & date (19.3): always 24-hour instead of the locale's choice. */
+  readonly hour24?: boolean;
 }
 
 export interface TodayCardChoice {
@@ -76,6 +78,11 @@ function optionsOf(id: TodayCardId, value: unknown): TodayCardOptions {
     case 'recent':
       onlyKeys(value, ['retention'], 'options');
       return value.retention === undefined ? {} : { retention: oneOf(RECENT_RETENTIONS, value.retention, 'options.retention') };
+    case 'clock':
+      onlyKeys(value, ['hour24'], 'options');
+      if (value.hour24 === undefined) return {};
+      if (typeof value.hour24 !== 'boolean') refuse('options.hour24');
+      return { hour24: value.hour24 };
     default:
       onlyKeys(value, [], 'options');
       return {};

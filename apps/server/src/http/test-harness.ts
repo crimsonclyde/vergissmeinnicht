@@ -21,6 +21,11 @@ const SESSION_COOKIE = '__Secure-vmn.session_token';
 const INVITE_LINK = /\/invite\/([A-Za-z0-9_-]{43})/;
 
 type App = Awaited<ReturnType<typeof buildApp>>;
+
+/** Tests never reach a weather provider: without fixtures every request fails like a blocked network. */
+const blockedWeatherFetch: typeof fetch = async () => {
+  throw new TypeError('network blocked in tests');
+};
 export type InjectResponse = Awaited<ReturnType<App['inject']>>;
 
 export async function startTestApp(
@@ -29,6 +34,8 @@ export async function startTestApp(
     trustedProxies?: readonly string[];
     /** Replaces the real Telegram client (tests never reach api.telegram.org). */
     telegramApi?: TelegramBotApi;
+    /** Answers weather provider requests (19.4); by default every one fails as if the network were blocked. */
+    weatherFetch?: typeof fetch;
     /** Capture the server log (info level, production serializers) into `logs`. */
     captureLogs?: boolean;
   } = {},
@@ -60,7 +67,7 @@ export async function startTestApp(
       trustedProxies: options.trustedProxies,
       ...(options.captureLogs === true ? { logger: { ...loggerOptions('info'), stream: logStream } } : {}),
       services: (log) => {
-        const built = createServices(testConfig, database)(log);
+        const built = createServices(testConfig, database, { weatherFetch: options.weatherFetch ?? blockedWeatherFetch })(log);
         const email = { send: async (message: EmailMessage) => void outbox.push(message) };
         const notifications = { ...built.notifications, email, ...(options.telegramApi === undefined ? {} : { telegramApi: options.telegramApi }) };
         services = { ...built, invitations: { ...built.invitations, email }, notifications, runEvents: options.runEvents };

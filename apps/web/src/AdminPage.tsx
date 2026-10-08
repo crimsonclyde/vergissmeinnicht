@@ -1,3 +1,4 @@
+import { WeatherAdmin } from './WeatherAdmin.tsx';
 import { useCallback, useEffect, useState, type FormEvent } from 'react';
 import { ApiError, api, messageFor, type AccountInfo, type NotificationProviders as NotificationProvidersInfo, type PendingInvitation, type SecurityLogEntry } from './api.ts';
 import { formatDateTime, hasMessage, t } from './i18n/index.ts';
@@ -834,6 +835,7 @@ export function AdminPage({ section, currentUserId, onWorkspacesChanged }: { sec
         </>
       )}
       {section === 'notifications' && <NotificationProviders />}
+      {section === 'weather' && <WeatherAdmin />}
       {section === 'server' && (
         <>
           <ServerSettings />

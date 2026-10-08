@@ -1,4 +1,5 @@
 import { parseTodayLayout } from '@vergissmeinnicht/domain';
+import { formatClock } from './i18n/index.ts';
 import { describe, expect, it } from 'vitest';
 import type { Occurrence, Schedule } from './api.ts';
 import { NEXT_UP_ROWS, TODAY_CARDS, agenda, changeCard, layoutOf, moveCard, nextUp, recentSince, resolveTodayLayout, todayCards } from './today-cards.ts';
@@ -21,12 +22,13 @@ describe('Today cards (19.1)', () => {
   });
 
   it('never offers a card whose tool is off, whatever the person chose', () => {
-    expect(todayCards([], everything)).toEqual([]);
-    expect(ids(todayCards(['LISTS'], everything))).toEqual(['toBuy']);
-    expect(ids(todayCards(['REMINDERS'], everything))).toEqual(['attention', 'next', 'recent', 'progress']);
+    // Clock & date (19.3) and Weather (19.4, W1) need no Workspace tool; every other card needs one of its tools.
+    expect(ids(todayCards([], everything))).toEqual(['clock', 'weather']);
+    expect(ids(todayCards(['LISTS'], everything))).toEqual(['clock', 'weather', 'toBuy']);
+    expect(ids(todayCards(['REMINDERS'], everything))).toEqual(['clock', 'weather', 'attention', 'next', 'recent', 'progress']);
     // Maintenance due soon is the one house-management card (T5); Documents, Contacts and Equipment add none.
-    expect(todayCards(['DOCUMENTS', 'CONTACTS', 'EQUIPMENT'], everything)).toEqual([]);
-    expect(ids(todayCards(['MAINTENANCE', 'CALENDAR'], everything))).toEqual(['maintenance', 'calendar']);
+    expect(ids(todayCards(['DOCUMENTS', 'CONTACTS', 'EQUIPMENT'], everything))).toEqual(['clock', 'weather']);
+    expect(ids(todayCards(['MAINTENANCE', 'CALENDAR'], everything))).toEqual(['clock', 'weather', 'maintenance', 'calendar']);
   });
 
   it('lets the person switch a card off for themselves only', () => {
@@ -41,7 +43,7 @@ describe('Today cards (19.1)', () => {
 describe('Today layout in the Profile (19.2)', () => {
   it('saves exactly what the server accepts, and reads it back unchanged', () => {
     let settings = moveCard(changeCard(defaults, 'recent', { retention: 'DAYS_7', size: 'WIDE' }), 'recent', -1);
-    settings = changeCard({ ...settings, density: 'COMFORTABLE' }, 'toBuy', { lists: 7 });
+    settings = changeCard(changeCard({ ...settings, density: 'COMFORTABLE' }, 'toBuy', { lists: 7 }), 'clock', { visible: true, hour24: true });
     const layout = layoutOf(settings);
     expect(parseTodayLayout(JSON.parse(JSON.stringify(layout)))).toEqual(layout);
     expect(resolveTodayLayout(layout)).toEqual(settings);
@@ -65,7 +67,10 @@ describe('Today layout in the Profile (19.2)', () => {
     const read = resolveTodayLayout(old);
     expect(read.density).toBe('COMFORTABLE');
     // Saved cards keep their order; missing ones go right after the registry card before them.
-    expect(ids(read.cards)).toEqual(['recent', 'attention', 'continue', 'next', 'toBuy', 'maintenance', 'progress', 'calendar']);
+    // Clock & date did not exist then either: it comes first, as in the registry, and stays off.
+    expect(ids(read.cards)).toEqual(['clock', 'weather', 'recent', 'attention', 'continue', 'next', 'toBuy', 'maintenance', 'progress', 'calendar']);
+    expect(read.cards[0]).toMatchObject({ visible: false, hour24: false });
+    expect(read.cards[1]).toMatchObject({ visible: false });
     const setting = (id: string) => read.cards.find((each) => each.card.id === id);
     expect(setting('recent')?.visible).toBe(false);
     expect(setting('attention')).toMatchObject({ visible: true, size: 'WIDE' });
@@ -82,8 +87,8 @@ describe('Today layout in the Profile (19.2)', () => {
   });
 
   it('moves cards one place at a time and stops at the ends', () => {
-    expect(ids(moveCard(defaults, 'continue', -1).cards).slice(0, 2)).toEqual(['continue', 'attention']);
-    expect(moveCard(defaults, 'attention', -1)).toBe(defaults);
+    expect(ids(moveCard(defaults, 'continue', -1).cards).slice(2, 4)).toEqual(['continue', 'attention']);
+    expect(moveCard(defaults, 'clock', -1)).toBe(defaults);
     expect(moveCard(defaults, 'calendar', 1)).toBe(defaults);
   });
 });
@@ -128,5 +133,25 @@ describe('Recently completed window', () => {
       expect(since?.getMinutes()).toBe(0);
       expect(since?.toDateString()).toBe(instant.toDateString());
     }
+  });
+});
+
+describe('Clock & date (19.3)', () => {
+  const afternoon = new Date(2026, 9, 8, 15, 5, 42);
+
+  it('shows hours and minutes without seconds, 24-hour when the person wants it', () => {
+    expect(formatClock(afternoon, true).time).toBe('15:05');
+    // Otherwise the locale decides (12- or 24-hour); never seconds.
+    expect(formatClock(afternoon, false).time).toMatch(/^(15:05|3:05\s?PM)$/);
+    const { date, full } = formatClock(afternoon, true);
+    for (const part of ['Thursday', 'October', '8']) expect(date).toContain(part);
+    // One sentence for assistive technology: weekday, full date with the year, and time.
+    for (const part of ['Thursday', 'October', '8', '2026', '15:05']) expect(full).toContain(part);
+  });
+
+  it('is off by default and keeps its option through a save', () => {
+    const clock = defaults.cards.find((setting) => setting.card.id === 'clock');
+    expect(clock).toMatchObject({ visible: false, hour24: false });
+    expect(layoutOf(changeCard(defaults, 'clock', { hour24: true })).cards[0]).toEqual({ id: 'clock', visible: false, size: 'NORMAL', options: { hour24: true } });
   });
 });

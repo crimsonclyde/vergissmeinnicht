@@ -1,0 +1,68 @@
+{
+  "version": "3.0",
+  "user": "example",
+  "dateGenerated": "2026-10-08T08:30:00Z",
+  "status": "OK",
+  "data": [
+    {
+      "parameter": "t_2m:C",
+      "coordinates": [
+        {
+          "lat": 43.99,
+          "lon": 7.77,
+          "dates": [
+            {
+              "date": "2026-10-08T08:30:00Z",
+              "value": 15.9
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "parameter": "weather_symbol_1h:idx",
+      "coordinates": [
+        {
+          "lat": 43.99,
+          "lon": 7.77,
+          "dates": [
+            {
+              "date": "2026-10-08T08:30:00Z",
+              "value": 108
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "parameter": "precip_1h:mm",
+      "coordinates": [
+        {
+          "lat": 43.99,
+          "lon": 7.77,
+          "dates": [
+            {
+              "date": "2026-10-08T08:30:00Z",
+              "value": 0.4
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "parameter": "wind_speed_10m:kmh",
+      "coordinates": [
+        {
+          "lat": 43.99,
+          "lon": 7.77,
+          "dates": [
+            {
+              "date": "2026-10-08T08:30:00Z",
+              "value": 9.0
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
