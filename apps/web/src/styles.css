@@ -4250,26 +4250,28 @@ a.today-row:hover .today-row-title {
     margin: 0 0 0 0.5rem;
   }
 
-  .weather-days dl {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0 0.75rem;
-    margin-top: 0.25rem;
-  }
 
-  .weather-days dl > dt::after {
-    content: ':';
-  }
-
-  .weather-days dl > dd {
-    margin-inline-start: -0.5rem;
-  }
 }
 
 /* Forecast comparison (19.4c): one block per source; a grid on wide screens, a list on phones. */
 .weather-compare-sources label {
+  flex-wrap: nowrap;
+  align-items: flex-start;
   min-height: 2.75rem;
 }
+
+.weather-compare-sources label > span {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.weather-compare-sources details > summary {
+  min-height: 2.75rem;
+  display: flex;
+  align-items: center;
+  cursor: pointer;
+}
+
 
 .weather-compare-paid {
   padding: 0.75rem 1rem;
@@ -4359,17 +4361,15 @@ a.today-row:hover .today-row-title {
     padding: 0.5rem 0;
   }
 
+
+}
+
+/* Phones: two label–value pairs per line, nothing cut when a line is full. */
+@media (max-width: 600px) {
+  .weather-days dl,
   .weather-compare-source dl {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0 0.75rem;
-  }
-
-  .weather-compare-source dl > dt::after {
-    content: ':';
-  }
-
-  .weather-compare-source dl > dd {
-    margin-inline-start: -0.5rem;
+    grid-template-columns: auto minmax(0, 1fr) auto minmax(0, 1fr);
+    gap: 0.1rem 0.5rem;
+    margin-top: 0.25rem;
   }
 }

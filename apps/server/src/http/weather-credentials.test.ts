@@ -181,4 +181,14 @@ describe('Weather provider credentials over HTTP (19.4b)', () => {
     expect((await t.get('/api/account/weather/forecast', bob)).json()).toEqual({ forecast: null, reason: 'not_allowed' });
     expect((await t.post('/api/account/weather/credentials/delete', { provider: 'OPENWEATHER' }, bob)).statusCode).toBe(204);
   });
+
+  it('limits credential tests per account (5 per 15 minutes), so nobody can drain a quota by hammering the button', async () => {
+    await t.post('/api/account/weather/credentials', { provider: 'OPENWEATHER', credential: { provider: 'OPENWEATHER', apiKey: BOB_KEY }, dailyBudget: 100 }, bob);
+    const statuses: number[] = [];
+    for (let attempt = 0; attempt < 6; attempt++) statuses.push((await t.post('/api/account/weather/credentials/test', { provider: 'OPENWEATHER' }, bob)).statusCode);
+    expect(statuses).toEqual([200, 200, 200, 200, 200, 429]);
+    // Per account: Carol is not affected by Bob's attempts.
+    expect((await t.post('/api/account/weather/credentials/test', { provider: 'OPENWEATHER' }, carol)).statusCode).toBe(404);
+  });
 });
+

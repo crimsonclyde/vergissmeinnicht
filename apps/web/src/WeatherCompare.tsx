@@ -18,7 +18,8 @@ const reasonText = (reason: string) => t(`weather.noForecast.${reason}` as Messa
  */
 export function WeatherCompare({ mine, models, unit }: { mine: MyWeather; models: readonly ModelChoice[]; unit: 'C' | 'F' }) {
   const id = useId();
-  const [selected, setSelected] = useState<readonly SourceChoice[]>(() => defaultSources(mine.providers, models));
+  const [initial] = useState<readonly SourceChoice[]>(() => defaultSources(mine.providers, models));
+  const [selected, setSelected] = useState<readonly SourceChoice[]>(initial);
   const [comparison, setComparison] = useState<Comparison | null>(null);
   const [date, setDate] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -40,6 +41,17 @@ export function WeatherCompare({ mine, models, unit }: { mine: MyWeather; models
       })),
   ];
   const isSelected = (choice: SourceChoice) => selected.some((each) => sourceKey(each) === sourceKey(choice));
+  // The many other Open-Meteo models are folded away unless one of them is ticked — the list stays short on a phone.
+  const folded = (choice: SourceChoice) => choice.provider === 'OPEN_METEO' && !initial.some((each) => sourceKey(each) === sourceKey(choice));
+  const checkbox = (choice: (typeof choices)[number]) => (
+    <label key={sourceKey(choice)} className="row">
+      <input type="checkbox" checked={isSelected(choice)} disabled={!isSelected(choice) && selected.length >= MAX_SOURCES} onChange={() => toggle(choice)} />
+      <span>
+        {choice.label}
+        {choice.note !== undefined && <small className="muted"> · {choice.note}</small>}
+      </span>
+    </label>
+  );
   const toggle = (choice: SourceChoice) => setSelected((current) => (isSelected(choice) ? current.filter((each) => sourceKey(each) !== sourceKey(choice)) : [...current, { provider: choice.provider, ...(choice.model === undefined ? {} : { model: choice.model }) }]));
 
   const run = (fetchPaid: boolean) => {
@@ -71,7 +83,10 @@ export function WeatherCompare({ mine, models, unit }: { mine: MyWeather; models
     if (date === null) return null;
     const found = spread(results, date, field);
     if (found === null) return null;
-    return `${found.low === found.high ? format(found.low) : `${format(found.low)} – ${format(found.high)}`}${found.missing > 0 ? ` (${t('weather.compare.notGiven', { count: found.missing })})` : ''}`;
+    // Compared as shown: 17.9° and 18.4° both read "18°" — one value, not "18° – 18°".
+    const low = format(found.low);
+    const high = format(found.high);
+    return `${low === high ? low : `${low} – ${high}`}${found.missing > 0 ? ` (${t('weather.compare.notGiven', { count: found.missing })})` : ''}`;
   };
   const temp = (value: number) => temperature(value, unit) ?? '—';
 
@@ -81,15 +96,13 @@ export function WeatherCompare({ mine, models, unit }: { mine: MyWeather; models
       <p className="muted">{t('weather.compare.lead')}</p>
       <fieldset className="weather-compare-sources">
         <legend>{t('weather.compare.sources')}</legend>
-        {choices.map((choice) => (
-          <label key={sourceKey(choice)} className="row">
-            <input type="checkbox" checked={isSelected(choice)} disabled={!isSelected(choice) && selected.length >= MAX_SOURCES} onChange={() => toggle(choice)} />
-            <span>
-              {choice.label}
-              {choice.note !== undefined && <small className="muted"> · {choice.note}</small>}
-            </span>
-          </label>
-        ))}
+        {choices.filter((choice) => !folded(choice)).map(checkbox)}
+        {choices.some(folded) && (
+          <details>
+            <summary>{t('weather.compare.moreModels', { count: choices.filter(folded).length })}</summary>
+            {choices.filter(folded).map(checkbox)}
+          </details>
+        )}
       </fieldset>
       <button type="button" className="primary" disabled={busy || selected.length === 0} onClick={() => run(false)}>
         {t('weather.compare.run')}

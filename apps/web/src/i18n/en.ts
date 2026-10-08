@@ -2123,6 +2123,7 @@ export const en = {
   'weather.compare.heading': 'Compare forecasts',
   'weather.compare.lead': 'See what different providers and models say for your place, one day at a time. No forecast is marked as right — the differences are the point. Nothing is fetched until you press Compare.',
   'weather.compare.sources': 'Sources (up to 8)',
+  'weather.compare.moreModels': { one: 'One more Open-Meteo model', other: '{count} more Open-Meteo models' },
   'weather.compare.paidOwn': 'paid API · your credentials · {used} of {budget} used today',
   'weather.compare.paidServer': 'paid API · shared by your server admin',
   'weather.compare.run': 'Compare',
