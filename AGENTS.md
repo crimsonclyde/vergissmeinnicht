@@ -141,7 +141,7 @@ Use these terms consistently:
 - Occurrence — one dated instance of a Schedule with its own status and history
 - Assignee — the optional responsible member of a Schedule or Occurrence; assignment grants no access
 - Workspace backup — a portable, versioned `.vmnbackup` package of one Workspace (section 18): allowlisted data, original files, members' name/role/email; never secrets, credentials or other Workspaces
-- historical identity — a person kept in restored history (status `IMPORTED`): display name and attribution only; never signs in, is notified, becomes a member or is matched to an account
+- historical identity — a person kept in restored history (status `IMPORTED`, a reserved `@imported.invalid` address): display name and attribution only; never signs in, is notified, becomes a member, is activated or is matched to an account — enforced by the application **and** the database (CHECK and triggers, migration 0045)
 - List — lightweight shared content of a Workspace with items that are checked off; so far only the grocery list
 - ListItem — one entry of a List: a title, an optional quantity and unit, purchased or not
 - WeatherProvider — an allow-listed forecast source with an endpoint fixed in code (Open-Meteo, MET Norway, OpenWeather, Meteomatics; 19.4)
@@ -330,6 +330,8 @@ Examples:
 - a tool that is not switched on in a Workspace answers like an unknown resource on every one of its routes, for every role, and switching it off deletes nothing;
 - editing or moving a Step in the Procedure builder keeps its id, a duplicate gets a new one, and an outline is never saved while a Step has unapplied changes.
 - only a Workspace ADMIN exports and only a server admin restores; a Workspace backup contains no secret, credential, token, personal setting or other Workspace's data (a test classifies every table); a restore creates a new Workspace, never touches the source, and either restores everything or nothing; restored originals are byte-identical; restored Schedules start paused and send nothing;
+- a restore treats every package as hostile: unexpected, linked, duplicate, oversized or over-compressed entries, a changed byte, a newer version, a malformed record, a reference outside the package and a renamed executable are each refused and create nothing; every restored record has a new id and no source id reaches the new Workspace; a validated restore is confirmed at most once; a historical identity can never sign in, be recovered, invited, added, activated or reminded; the runner never takes the server down;
+- a new column ending in `_id` in an exported table must be classified for restore (foreign key, person, or loose reference in `workspace-restore.ts`) — the restore refuses to run otherwise; a migration that changes an exported table's columns needs an upgrade path for older packages (`isRestorableLevel`).
 - a personal provider credential is never readable, usable or overwritable by anyone but its owner, and never reaches another user through a cache; weather tests never call live providers.
 
 House management (section 16; each applies from the step that implements it):

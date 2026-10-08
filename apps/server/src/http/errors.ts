@@ -95,6 +95,8 @@ import {
   TotpNotEnabledError,
   BackupAlreadyRunningError,
   BackupNotFoundError,
+  RestoreNotConfirmableError,
+  WorkspaceBackupStoreError,
   WeatherOffError,
   WeatherProviderError,
 } from '@vergissmeinnicht/application';
@@ -182,6 +184,13 @@ export function errorHandler(error: FastifyError | Error, request: FastifyReques
   // Workspace backup (section 18).
   if (error instanceof BackupAlreadyRunningError) return reply.code(409).send({ error: 'backup_running' });
   if (error instanceof BackupNotFoundError) return reply.code(404).send({ error: 'backup_not_found' });
+  if (error instanceof RestoreNotConfirmableError) return reply.code(409).send({ error: 'restore_not_confirmable' });
+  // A refused restore upload (18b): too large for the instance setting, or not enough room on the volume.
+  if (error instanceof WorkspaceBackupStoreError) {
+    if (error.code === 'too_large') return reply.code(413).send({ error: 'restore_too_large' });
+    if (error.code === 'insufficient_space') return reply.code(507).send({ error: 'restore_insufficient_space' });
+    return reply.code(400).send({ error: 'restore_upload_failed' });
+  }
   // Weather (19.4): switched off on this server — like an unknown resource; a provider failure — its stable reason only.
   if (error instanceof WeatherOffError) return reply.code(404).send({ error: 'weather_off' });
   if (error instanceof WeatherProviderError) {

@@ -2,6 +2,29 @@ import type { Actor, UserId, WorkspaceId } from '@vergissmeinnicht/domain';
 
 export type BackupJobState = 'QUEUED' | 'RUNNING' | 'READY' | 'FAILED' | 'CANCELLED' | 'EXPIRED';
 
+/**
+ * What a restore would create (18b), found by validating the whole package and performing the restore once
+ * without committing it — shown before the server admin confirms. Previous members are listed for re-inviting
+ * by hand; nobody is invited, matched or notified.
+ */
+export interface RestorePreview {
+  readonly workspaceName: string;
+  readonly sourceAppVersion: string;
+  readonly databaseLevel: string;
+  readonly createdAt: string;
+  readonly packageBytes: number;
+  /** Sum of the package's entries (records and originals) as extracted. */
+  readonly contentBytes: number;
+  readonly counts: Readonly<Record<string, number>>;
+  /** Historical identities the restore creates. */
+  readonly persons: number;
+  readonly previousMembers: readonly { readonly displayName: string; readonly email: string | null; readonly role: string }[];
+  readonly warnings: readonly string[];
+  readonly schedulesPaused: number;
+  readonly assignmentsCleared: number;
+  readonly storage: { readonly used: number; readonly limit: number; readonly images: number; readonly imageLimit: number };
+}
+
 /** A Workspace backup job (section 18) — status only; the package is a file in the data volume. */
 export interface BackupJob {
   readonly id: string;
@@ -15,6 +38,8 @@ export interface BackupJob {
   readonly cancelRequested: boolean;
   readonly sizeBytes: number | null;
   readonly counts: Readonly<Record<string, number>> | null;
+  /** RESTORE: what validation found (until the job expires). */
+  readonly preview: RestorePreview | null;
   readonly errorCode: string | null;
   readonly createdAt: Date;
   readonly startedAt: Date | null;
@@ -48,6 +73,25 @@ export interface BackupJobRepository {
   /** Jobs whose folders may be removed: finished more than `before` ago and not READY. */
   finishedBefore(before: Date): Promise<string[]>;
   recordDownload(jobId: string, actor: UserActor, at: Date): Promise<void>;
+
+  // ---- Restore (18b): server admins only; a restore always creates a new Workspace.
+  /** The upload limit for a restore (instance setting, D4). */
+  restoreMaxBytes(): Promise<number>;
+  /**
+   * Starts a restore for an upload: RUNNING in phase `upload` with a lease (renewed while bytes arrive), so a
+   * server stopped mid-upload leaves an `interrupted` job. Re-checks an ACTIVE server admin in the transaction.
+   */
+  createRestore(input: { readonly at: Date; readonly leaseUntil: Date }, actor: UserActor): Promise<{ readonly status: 'ok'; readonly job: BackupJob } | { readonly status: 'forbidden' }>;
+  /** The upload is complete: QUEUED for validation; records WORKSPACE_RESTORE_UPLOADED. */
+  restoreUploaded(jobId: string, sizeBytes: number, at: Date): Promise<void>;
+  /** Validation passed: READY in phase `validated`, waiting for confirmation until `expiresAt`. */
+  saveRestorePreview(jobId: string, preview: RestorePreview, at: Date, expiresAt: Date): Promise<void>;
+  /**
+   * Confirms a validated restore exactly once: READY/`validated` and not expired → QUEUED/`restore`, in one
+   * conditional update. False when it is not (any more) waiting — a second or concurrent confirmation.
+   */
+  confirmRestore(jobId: string, at: Date): Promise<boolean>;
+  listRestores(limit: number): Promise<BackupJob[]>;
 }
 
 /** Writes and holds the packages (infrastructure: the data volume). */
@@ -61,6 +105,24 @@ export interface WorkspaceBackupStore {
   packagePath(jobId: string): string | undefined;
   /** Removes everything of a job (staging, package, partial files). Never throws for a missing folder. */
   remove(jobId: string): void;
+  /**
+   * Receives a restore upload into the job's private folder, counting while it streams: more than `maxBytes`,
+   * or more than the volume can hold, fails (`too_large`, `insufficient_space`) — nothing is kept then.
+   */
+  receiveUpload(jobId: string, source: AsyncIterable<Uint8Array>, options: { readonly maxBytes: number; readonly onProgress: (done: number) => void }): Promise<number>;
+  /** Validates the uploaded package completely and checks the restore without committing it. */
+  validateRestore(
+    job: { readonly id: string; readonly requestedByUserId: UserId },
+    options: { readonly onProgress: (phase: string, done: number, total: number) => void; readonly isCancelled: () => boolean },
+  ): Promise<RestorePreview>;
+  /**
+   * Restores the validated package into a new Workspace: originals into the content-addressed stores (bytes
+   * verified), then one transaction that also completes the job — so a restore is either complete or absent.
+   */
+  restore(
+    job: { readonly id: string; readonly requestedByUserId: UserId },
+    options: { readonly onProgress: (phase: string, done: number, total: number) => void; readonly isCancelled: () => boolean },
+  ): Promise<{ readonly workspaceId: WorkspaceId }>;
 }
 
 /** A failure of the package writer with a stable, user-facing reason. */

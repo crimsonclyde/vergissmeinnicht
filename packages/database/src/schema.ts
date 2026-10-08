@@ -68,6 +68,12 @@ export const users = sqliteTable(
       'users_status_valid',
       sql.raw(`status in (${USER_STATUSES.map((status) => `'${status}'`).join(', ')})`),
     ),
+    // Section 18: a historical identity is recognisable by its reserved address, can never be a server admin
+    // or verified — and no account can take that address. Changing the status alone cannot activate it.
+    check(
+      'users_imported_identity',
+      sql`(${table.status} = 'IMPORTED') = (${table.email} like '%@imported.invalid') and (${table.status} <> 'IMPORTED' or (${table.serverAdmin} = 0 and ${table.emailVerified} = 0))`,
+    ),
   ],
 );
 
@@ -836,6 +842,19 @@ export const userWeatherSettings = sqliteTable(
  * restore of an uploaded package. The package itself lives in a private folder of the data volume
  * (`workspace-backups/<id>/`), never in the database; `expires_at` says when it is deleted.
  */
+/**
+ * Section 18 restore: a row exists only inside the restore's own transaction (inserted after the new Workspace,
+ * deleted before commit — never visible to anyone else). While it exists, the four insert triggers that require a link
+ * end, a Run's source Document, a removed Run document or a maintenance contact to be present (and not in Trash) accept that Workspace's
+ * history as it was (ends deleted for good, records in Trash); the restore checks every reference itself first.
+ * A trigger (migration 0045) refuses a mark for a Workspace that has members — so never for a live one.
+ */
+export const workspaceRestoreMarks = sqliteTable('workspace_restore_marks', {
+  workspaceId: text('workspace_id')
+    .primaryKey()
+    .references(() => workspaces.id),
+});
+
 export const workspaceBackupJobs = sqliteTable(
   'workspace_backup_jobs',
   {
@@ -855,6 +874,8 @@ export const workspaceBackupJobs = sqliteTable(
     sizeBytes: integer('size_bytes'),
     /** Counts per record type (JSON object), for the person and the audit entry — never content. */
     counts: text('counts'),
+    /** RESTORE: what validation found (JSON: Workspace name, versions, sizes, warnings, members to re-invite) — shown before confirming. */
+    preview: text('preview'),
     errorCode: text('error_code'),
     leaseUntil: integer('lease_until', { mode: 'timestamp_ms' }),
     createdAt: integer('created_at', { mode: 'timestamp_ms' }).notNull(),
@@ -938,6 +959,8 @@ export const instanceSettings = sqliteTable(
     documentMaxFileBytes: integer('document_max_file_bytes').notNull().default(50_000_000),
     /** Accepted document formats, comma-separated in canonical order — a subset of PDF,JPEG,PNG,HEIC. */
     documentFormats: text('document_formats').notNull().default('PDF,JPEG,PNG,HEIC'),
+    /** Largest Workspace backup a server admin may upload for a restore (section 18, D4); bounded by the application. */
+    workspaceRestoreMaxBytes: integer('workspace_restore_max_bytes').notNull().default(20_000_000_000),
     updatedAt: integer('updated_at', { mode: 'timestamp_ms' }).notNull(),
     updatedByUserId: text('updated_by_user_id')
       .notNull()

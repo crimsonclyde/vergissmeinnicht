@@ -140,7 +140,7 @@ describe('Workspace backup export (section 18a)', () => {
   });
 
   it('writes a self-describing, versioned package whose every entry matches its SHA-256', () => {
-    expect(manifest).toMatchObject({ format: WORKSPACE_BACKUP_FORMAT, formatVersion: 1, databaseLevel: '0044_workspace_backup_jobs', appVersion: 'development', workspace: { name: 'Home ✨ Ferienhaus' } });
+    expect(manifest).toMatchObject({ format: WORKSPACE_BACKUP_FORMAT, formatVersion: 1, databaseLevel: '0045_imported_identities', appVersion: 'development', workspace: { name: 'Home ✨ Ferienhaus' } });
     expect(manifest.integrity).toMatch(/do not prove who made this package/);
     expect(entriesSha256(manifest.entries)).toBe(manifest.entriesSha256);
     expect(new Set(contents.keys())).toEqual(new Set(['manifest.json', ...manifest.entries.map((entry) => entry.path)]));

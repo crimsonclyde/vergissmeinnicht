@@ -45,6 +45,8 @@ export const SECURITY_EVENT_TYPES = [
   // Section 18: a Workspace backup made (who asked, size, counts) and downloaded — never its content.
   'WORKSPACE_BACKUP_EXPORTED',
   'WORKSPACE_BACKUP_DOWNLOADED',
+  'WORKSPACE_RESTORE_UPLOADED',
+  'WORKSPACE_RESTORED',
   'WORKSPACE_RENAMED',
   'MEMBERSHIP_ADDED',
   'MEMBERSHIP_ROLE_CHANGED',

@@ -1,24 +1,30 @@
 import { randomUUID } from 'node:crypto';
-import type { BackupJob, BackupJobRepository } from '@vergissmeinnicht/application';
+import type { BackupJob, BackupJobRepository, RestorePreview } from '@vergissmeinnicht/application';
 import type { UserId, WorkspaceId } from '@vergissmeinnicht/domain';
 import { roleHasCapability } from '@vergissmeinnicht/permissions';
-import { and, asc, desc, eq, inArray, isNotNull, lt } from 'drizzle-orm';
+import { and, asc, desc, eq, gt, inArray, isNotNull, lt, ne } from 'drizzle-orm';
+import type { Transaction } from './actor-guard.ts';
 import { IMMEDIATE } from './actor-guard.ts';
 import type { AppDatabase } from './connection.ts';
-import { memberships, users, workspaceBackupJobs } from './schema.ts';
+import { instanceSettings, memberships, users, workspaceBackupJobs } from './schema.ts';
 import { recordSecurityEvent } from './security-events.ts';
 
 type Row = typeof workspaceBackupJobs.$inferSelect;
 
-function jobOf(row: Row): BackupJob {
-  let counts: Record<string, number> | null = null;
-  if (row.counts !== null) {
-    try {
-      counts = JSON.parse(row.counts) as Record<string, number>;
-    } catch {
-      counts = null;
-    }
+function json<T>(text: string | null): T | null {
+  if (text === null) return null;
+  try {
+    return JSON.parse(text) as T;
+  } catch {
+    return null;
   }
+}
+
+/** Default upload limit for a restore when no instance settings exist yet (D4: 20 GB). */
+const DEFAULT_RESTORE_MAX_BYTES = 20_000_000_000;
+
+function jobOf(row: Row): BackupJob {
+  const counts = json<Record<string, number>>(row.counts);
   return {
     id: row.id,
     kind: row.kind,
@@ -31,6 +37,7 @@ function jobOf(row: Row): BackupJob {
     cancelRequested: row.cancelRequested,
     sizeBytes: row.sizeBytes,
     counts,
+    preview: json<RestorePreview>(row.preview),
     errorCode: row.errorCode,
     createdAt: row.createdAt,
     startedAt: row.startedAt,
@@ -119,13 +126,16 @@ export function createBackupJobRepository({ db }: Pick<AppDatabase, 'db'>): Back
     },
 
     async fail(jobId, errorCode, at) {
-      db.update(workspaceBackupJobs).set({ state: 'FAILED', errorCode: errorCode.slice(0, 64), finishedAt: at, leaseUntil: null }).where(eq(workspaceBackupJobs.id, jobId)).run();
+      // A finished job (a completed export or restore) is never turned into a failure afterwards.
+      db.update(workspaceBackupJobs).set({ state: 'FAILED', errorCode: errorCode.slice(0, 64), finishedAt: at, leaseUntil: null }).where(and(eq(workspaceBackupJobs.id, jobId), ne(workspaceBackupJobs.state, 'READY'))).run();
     },
 
     async requestCancel(jobId, at) {
       return db.transaction((tx) => {
         const row = tx.select().from(workspaceBackupJobs).where(eq(workspaceBackupJobs.id, jobId)).get();
         if (row === undefined) return false;
+        // A restore that has happened is history, not something to cancel (its Workspace exists).
+        if (row.kind === 'RESTORE' && row.phase === 'restored') return false;
         if (row.state === 'QUEUED' || row.state === 'READY') {
           tx.update(workspaceBackupJobs).set({ state: 'CANCELLED', cancelRequested: true, finishedAt: at, expiresAt: null }).where(eq(workspaceBackupJobs.id, jobId)).run();
           return true;
@@ -139,7 +149,7 @@ export function createBackupJobRepository({ db }: Pick<AppDatabase, 'db'>): Back
     },
 
     async markCancelled(jobId, at) {
-      db.update(workspaceBackupJobs).set({ state: 'CANCELLED', finishedAt: at, leaseUntil: null, expiresAt: null }).where(eq(workspaceBackupJobs.id, jobId)).run();
+      db.update(workspaceBackupJobs).set({ state: 'CANCELLED', finishedAt: at, leaseUntil: null, expiresAt: null }).where(and(eq(workspaceBackupJobs.id, jobId), ne(workspaceBackupJobs.state, 'READY'))).run();
     },
 
     async failInterrupted(at) {
@@ -153,7 +163,8 @@ export function createBackupJobRepository({ db }: Pick<AppDatabase, 'db'>): Back
     async expire(at) {
       return db.transaction((tx) => {
         const due = tx.select({ id: workspaceBackupJobs.id }).from(workspaceBackupJobs).where(and(eq(workspaceBackupJobs.state, 'READY'), lt(workspaceBackupJobs.expiresAt, at))).all().map((row) => row.id);
-        if (due.length > 0) tx.update(workspaceBackupJobs).set({ state: 'EXPIRED' }).where(inArray(workspaceBackupJobs.id, due)).run();
+        // A restore's preview (previous members' names and addresses) goes with it.
+        if (due.length > 0) tx.update(workspaceBackupJobs).set({ state: 'EXPIRED', preview: null }).where(inArray(workspaceBackupJobs.id, due)).run();
         return due;
       }, IMMEDIATE);
     },
@@ -174,5 +185,94 @@ export function createBackupJobRepository({ db }: Pick<AppDatabase, 'db'>): Back
         recordSecurityEvent(tx, { type: 'WORKSPACE_BACKUP_DOWNLOADED', actor, subjectType: 'workspace', subjectId: row.workspaceId, occurredAt: at, metadata: { jobId, sizeBytes: row.size ?? 0 } });
       }, IMMEDIATE);
     },
+
+    async restoreMaxBytes() {
+      return db.select({ bytes: instanceSettings.workspaceRestoreMaxBytes }).from(instanceSettings).where(eq(instanceSettings.id, 1)).get()?.bytes ?? DEFAULT_RESTORE_MAX_BYTES;
+    },
+
+    async createRestore(input, actor) {
+      return db.transaction((tx) => {
+        const admin = tx.select({ status: users.status, serverAdmin: users.serverAdmin }).from(users).where(eq(users.id, actor.userId)).get();
+        if (admin?.status !== 'ACTIVE' || !admin.serverAdmin) return { status: 'forbidden' as const };
+        const id = randomUUID();
+        tx.insert(workspaceBackupJobs)
+          .values({ id, kind: 'RESTORE', workspaceId: null, state: 'RUNNING', phase: 'upload', requestedByUserId: actor.userId, progressDone: 0, progressTotal: 0, cancelRequested: false, createdAt: input.at, startedAt: input.at, leaseUntil: input.leaseUntil })
+          .run();
+        const row = tx.select().from(workspaceBackupJobs).where(eq(workspaceBackupJobs.id, id)).get();
+        if (row === undefined) throw new Error('backup job vanished');
+        return { status: 'ok' as const, job: jobOf(row) };
+      }, IMMEDIATE);
+    },
+
+    async restoreUploaded(jobId, sizeBytes, at) {
+      db.transaction((tx) => {
+        const row = tx.select().from(workspaceBackupJobs).where(and(eq(workspaceBackupJobs.id, jobId), eq(workspaceBackupJobs.kind, 'RESTORE'), eq(workspaceBackupJobs.state, 'RUNNING'), eq(workspaceBackupJobs.phase, 'upload'))).get();
+        if (row === undefined) return;
+        tx.update(workspaceBackupJobs).set({ state: 'QUEUED', phase: 'validate', sizeBytes, progressDone: 0, progressTotal: 0, leaseUntil: null }).where(eq(workspaceBackupJobs.id, jobId)).run();
+        const requester = tx.select({ name: users.name }).from(users).where(eq(users.id, row.requestedByUserId)).get();
+        recordSecurityEvent(tx, {
+          type: 'WORKSPACE_RESTORE_UPLOADED',
+          actor: { kind: 'user', userId: row.requestedByUserId, displayName: requester?.name ?? '' },
+          subjectType: 'instance',
+          subjectId: jobId,
+          occurredAt: at,
+          metadata: { jobId, sizeBytes },
+        });
+      }, IMMEDIATE);
+    },
+
+    async saveRestorePreview(jobId, preview, at, expiresAt) {
+      db.update(workspaceBackupJobs)
+        .set({ state: 'READY', phase: 'validated', preview: JSON.stringify(preview), finishedAt: at, expiresAt, leaseUntil: null })
+        .where(and(eq(workspaceBackupJobs.id, jobId), eq(workspaceBackupJobs.kind, 'RESTORE'), eq(workspaceBackupJobs.state, 'RUNNING')))
+        .run();
+    },
+
+    async confirmRestore(jobId, at) {
+      const result = db
+        .update(workspaceBackupJobs)
+        .set({ state: 'QUEUED', phase: 'restore', progressDone: 0, progressTotal: 0, finishedAt: null, expiresAt: null })
+        .where(
+          and(
+            eq(workspaceBackupJobs.id, jobId),
+            eq(workspaceBackupJobs.kind, 'RESTORE'),
+            eq(workspaceBackupJobs.state, 'READY'),
+            eq(workspaceBackupJobs.phase, 'validated'),
+            eq(workspaceBackupJobs.cancelRequested, false),
+            gt(workspaceBackupJobs.expiresAt, at),
+          ),
+        )
+        .run();
+      return result.changes === 1;
+    },
+
+    async listRestores(limit) {
+      return db.select().from(workspaceBackupJobs).where(eq(workspaceBackupJobs.kind, 'RESTORE')).orderBy(desc(workspaceBackupJobs.createdAt), desc(workspaceBackupJobs.id)).limit(limit).all().map(jobOf);
+    },
   };
+}
+
+/**
+ * Completes a restore job inside the restore's own transaction (with the new Workspace): READY/`restored`, the
+ * new Workspace's id, and WORKSPACE_RESTORED in the security log — so a committed restore is never reported as
+ * failed, and a failed one never as done. Kept for `BACKUP_KEEP_MS`; its preview goes when it expires.
+ */
+export function completeRestoreIn(tx: Transaction, input: { readonly jobId: string; readonly workspaceId: string; readonly counts: Readonly<Record<string, number>>; readonly persons: number; readonly at: Date; readonly expiresAt: Date }): void {
+  const row = tx.select().from(workspaceBackupJobs).where(and(eq(workspaceBackupJobs.id, input.jobId), eq(workspaceBackupJobs.kind, 'RESTORE'), eq(workspaceBackupJobs.state, 'RUNNING'))).get();
+  // The job must still be the running, confirmed restore (phase `restore`, or one of its steps `restore-…`):
+  // otherwise — failed as interrupted meanwhile, or never confirmed — nothing is committed.
+  if (row === undefined || row.workspaceId !== null || (row.phase !== 'restore' && !row.phase?.startsWith('restore-'))) throw new Error('restore job is not running');
+  tx.update(workspaceBackupJobs)
+    .set({ state: 'READY', phase: 'restored', workspaceId: input.workspaceId, counts: JSON.stringify(input.counts), finishedAt: input.at, expiresAt: input.expiresAt, leaseUntil: null })
+    .where(eq(workspaceBackupJobs.id, input.jobId))
+    .run();
+  const requester = tx.select({ name: users.name }).from(users).where(eq(users.id, row.requestedByUserId)).get();
+  recordSecurityEvent(tx, {
+    type: 'WORKSPACE_RESTORED',
+    actor: { kind: 'user', userId: row.requestedByUserId, displayName: requester?.name ?? '' },
+    subjectType: 'workspace',
+    subjectId: input.workspaceId,
+    occurredAt: input.at,
+    metadata: { jobId: input.jobId, persons: input.persons, ...input.counts },
+  });
 }

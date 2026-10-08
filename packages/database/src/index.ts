@@ -36,6 +36,7 @@ export { createProcedureActivityRepository } from './procedure-activity-reposito
 
 export { createTodayRepository } from './today-repository.ts';
 export { createEquipmentRepository } from './equipment-repository.ts';
-export { createBackupJobRepository } from './workspace-backup-repository.ts';
+export { completeRestoreIn, createBackupJobRepository } from './workspace-backup-repository.ts';
+export { isRestorableLevel, RESTORE_DATA_NAMES, restoreWorkspace, WorkspaceRestoreError, type PreviousMember, type RestoredDocumentFileFacts, type WorkspaceRestoreErrorCode, type WorkspaceRestoreInput, type WorkspaceRestoreOutcome } from './workspace-restore.ts';
 export { databaseLevel, snapshotWorkspace, WORKSPACE_REFERENCE, WorkspaceExportError, type StagedEntry, type WorkspaceSnapshot } from './workspace-export.ts';
 export { EXCLUDED_TABLES, EXPORTED_TABLES } from './workspace-backup-tables.ts';

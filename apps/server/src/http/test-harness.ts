@@ -139,6 +139,8 @@ export async function startTestApp(
       app = await build();
     },
     database,
+    /** Where originals are stored (the Workspace backup folder is next to it). */
+    documentsPath: testConfig.documentsPath,
     /** The services of the running app (e.g. to run a scheduler task directly). */
     get services(): AppServices {
       if (services === undefined) throw new Error('services were not built');

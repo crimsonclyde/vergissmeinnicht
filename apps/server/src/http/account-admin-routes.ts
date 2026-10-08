@@ -1,5 +1,5 @@
 import { getInstanceSettingsForAdmin, listAccounts, listSecurityEvents, setAccountStatus, updateInstanceSettings } from '@vergissmeinnicht/application';
-import { USER_STATUSES } from '@vergissmeinnicht/domain';
+import { ACCOUNT_STATUSES } from '@vergissmeinnicht/domain';
 import type { FastifyInstance, FastifyRequest } from 'fastify';
 import { z } from 'zod';
 import type { AppServices } from '../composition.ts';
@@ -12,7 +12,7 @@ const userParams = z.strictObject({ userId: z.uuid({ version: 'v4' }) });
 const logQuery = z.strictObject({ before: z.uuid({ version: 'v4' }).optional(), userId: z.uuid({ version: 'v4' }).optional() });
 const statusBody = z
   .strictObject({
-    status: z.enum(USER_STATUSES),
+    status: z.enum(ACCOUNT_STATUSES),
     /** The acting admin's own password (step-up). */
     password: z.string().max(1024),
     code: z.string().max(32).optional(),

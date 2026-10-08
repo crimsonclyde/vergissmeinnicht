@@ -61,6 +61,8 @@ export function createAccountAdminRepository({ db }: Pick<AppDatabase, 'db'>): A
         })
         .from(users)
         .leftJoin(totpCredentials, eq(totpCredentials.userId, users.id))
+        // Historical identities (section 18) are names in restored history, not accounts to manage.
+        .where(ne(users.status, 'IMPORTED'))
         .orderBy(asc(users.name), asc(users.id))
         .all()
         .map(({ totpEnabledAt, ...row }) => ({
@@ -79,7 +81,8 @@ export function createAccountAdminRepository({ db }: Pick<AppDatabase, 'db'>): A
             return { outcome: 'forbidden' };
           }
           const target = tx.select({ status: users.status }).from(users).where(eq(users.id, input.userId)).get();
-          if (target === undefined) return { outcome: 'not_found' };
+          // A historical identity is never enabled or disabled: it is no account (answered like an unknown one).
+          if (target === undefined || target.status === 'IMPORTED') return { outcome: 'not_found' };
           if (target.status === input.status) return { outcome: 'unchanged' };
 
           const event = { actor, subjectType: 'user' as const, subjectId: input.userId, occurredAt: input.at };

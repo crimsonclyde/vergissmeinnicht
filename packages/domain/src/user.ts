@@ -10,8 +10,18 @@ export type UserId = string & { readonly __brand: 'UserId' };
 /** Trimmed, NFC-normalized, lower-cased email address. The unit of uniqueness and invite binding. */
 export type NormalizedEmail = string & { readonly __brand: 'NormalizedEmail' };
 
-export const USER_STATUSES = ['ACTIVE', 'DISABLED'] as const;
+/**
+ * `IMPORTED` (section 18): a historical identity from a restored Workspace backup — a name in history, never an
+ * account: no sign-in, credentials, recovery, invitations, notifications or memberships, enforced by the
+ * application and by the database (`users_imported_identity`, triggers in migration 0045).
+ */
+export const USER_STATUSES = ['ACTIVE', 'DISABLED', 'IMPORTED'] as const;
 export type UserStatus = (typeof USER_STATUSES)[number];
+/** What a server admin may set on an account: never `IMPORTED` (and never on an `IMPORTED` identity). */
+export const ACCOUNT_STATUSES = ['ACTIVE', 'DISABLED'] as const;
+/** The reserved address domain of historical identities (`.invalid` never resolves, RFC 2606). */
+export const IMPORTED_EMAIL_DOMAIN = 'imported.invalid';
+export const isImportedIdentity = (user: { readonly status: UserStatus }): boolean => user.status === 'IMPORTED';
 
 export interface User {
   readonly id: UserId;

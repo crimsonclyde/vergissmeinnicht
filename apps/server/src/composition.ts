@@ -215,14 +215,6 @@ export function createServices(config: AppConfig, database: AppDatabase, overrid
     geocoder: openMeteo,
     clock: systemClock,
   });
-  // Workspace backups (section 18): packages in the data volume next to documents/ (`/data/workspace-backups`).
-  const workspaceBackups: WorkspaceBackupDeps = {
-    workspaces: createWorkspaceRepository(database),
-    backupJobs: createBackupJobRepository(database),
-    backupStore: createWorkspaceBackupStore({ database, root: join(dirname(config.documentsPath), 'workspace-backups'), documentsPath: config.documentsPath, mediaPath: config.mediaPath, appVersion: config.appVersion }),
-    clock: systemClock,
-  };
-  const backupRunner = createBackupRunner(workspaceBackups);
   // Without a logger (CLI), Better Auth warnings and errors go to stderr.
   return (logger?: FastifyBaseLogger): AppServices => {
     const userRepository = createUserRepository(database);
@@ -320,6 +312,32 @@ export function createServices(config: AppConfig, database: AppDatabase, overrid
       // The error type only: a parser's message could quote a file.
       onError: (error) => logger?.error({ err: { type: (error as Error).name } }, 'document preview failed'),
     });
+    // Workspace backups (section 18): packages in the data volume next to documents/ (`/data/workspace-backups`).
+    // A restore (18b) checks originals with the same processor as uploads and writes them to the same stores.
+    const workspaceBackups: WorkspaceBackupDeps = {
+      workspaces: createWorkspaceRepository(database),
+      backupJobs: createBackupJobRepository(database),
+      backupStore: createWorkspaceBackupStore({
+        database,
+        root: join(dirname(config.documentsPath), 'workspace-backups'),
+        documentsPath: config.documentsPath,
+        mediaPath: config.mediaPath,
+        appVersion: config.appVersion,
+        restore: {
+          database,
+          processor: documentProcessor,
+          documents: documentFiles.store,
+          images: createFileMediaStore(config.mediaPath),
+          afterRestore: () => {
+            void previews.resume();
+            recognizer.wake();
+          },
+        },
+      }),
+      clock: systemClock,
+    };
+    // The error type only: a message could quote a file or a record of a package.
+    const backupRunner = createBackupRunner(workspaceBackups, { onError: (error) => logger?.error({ err: { type: (error as Error).name, code: (error as { code?: unknown }).code } }, 'workspace backup job failed') });
     return {
       publicOrigin: config.publicOrigin,
       sourceCodeUrl: config.sourceCodeUrl,

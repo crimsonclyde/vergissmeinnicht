@@ -101,4 +101,5 @@ export const EXCLUDED_TABLES: Readonly<Record<string, string>> = {
   contact_keys: 'derived — recalculated on restore (D8)',
   document_file_derivatives: 'previews — regenerated after a restore',
   workspace_backup_jobs: 'backup jobs themselves',
+  workspace_restore_marks: 'exists only inside a restore’s own transaction',
 };

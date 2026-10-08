@@ -10,8 +10,7 @@ import {
   type AccountRecovery,
   type CommonPasswordList,
   type Actor,
-  type User,
-} from '@vergissmeinnicht/domain';
+  type User, isImportedIdentity } from '@vergissmeinnicht/domain';
 import { emailTextsEn } from '../email-texts/en.ts';
 import { NotAuthorizedError } from '../invitations/errors.ts';
 import { ReauthenticationFailedError } from '../mfa/errors.ts';
@@ -100,7 +99,8 @@ export async function issueAccountRecovery(
   if (!isActiveServerAdmin(input.admin)) throw new NotAuthorizedError();
   await verifyStepUp(deps.mfa, { user: input.admin, password: input.adminPassword, factor: input.adminFactor });
   const target = await deps.users.findByEmail(normalizeEmail(input.email));
-  if (target === undefined) throw new UnknownAccountError();
+  // A historical identity (section 18) is no account: nothing to recover — answered like an unknown address.
+  if (target === undefined || isImportedIdentity(target)) throw new UnknownAccountError();
   // Own credentials are changed in account settings, never through the admin path.
   if (target.id === input.admin.id) throw new NotAuthorizedError();
 
@@ -124,7 +124,7 @@ export async function issueOperatorRecovery(
   input: { readonly email: string; readonly scope: RecoveryScope },
 ): Promise<{ recovery: AccountRecovery; url: string }> {
   const target = await deps.users.findByEmail(normalizeEmail(input.email));
-  if (target === undefined) throw new UnknownAccountError();
+  if (target === undefined || isImportedIdentity(target)) throw new UnknownAccountError();
   const { recovery, token } = await createRecovery(deps, target, input.scope, { kind: 'system', label: 'cli:admin-recover' });
   return { recovery, url: recoveryUrl(deps.publicOrigin, token) };
 }

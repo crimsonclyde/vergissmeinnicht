@@ -9,8 +9,7 @@ import {
   validateNewPassword,
   type CommonPasswordList,
   type NormalizedEmail,
-  type User,
-} from '@vergissmeinnicht/domain';
+  type User, DomainValidationError, IMPORTED_EMAIL_DOMAIN } from '@vergissmeinnicht/domain';
 import type { Clock } from '../ports/clock.ts';
 import type { EmailSender } from '../ports/email-sender.ts';
 import type { InvitationRepository } from '../ports/invitation-repository.ts';
@@ -51,6 +50,8 @@ async function createInvitation(
   grantsServerAdmin: boolean,
   actor: Actor,
 ): Promise<{ invitation: Invitation; token: string }> {
+  // The address domain of historical identities (section 18) is reserved: nobody is invited under it.
+  if (email.endsWith(`@${IMPORTED_EMAIL_DOMAIN}`)) throw new DomainValidationError('email', 'reserved_email', 'This address cannot be invited');
   if (await deps.users.findByEmail(email)) {
     throw new AccountAlreadyExistsError();
   }
