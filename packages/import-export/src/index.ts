@@ -5,3 +5,5 @@ export * from './documents-archive.ts';
 export * from './contacts-file.ts';
 export * from './contacts-csv.ts';
 export * from './contacts-vcard.ts';
+export * from './workspace-backup.ts';
+export * from './workspace-backup-read.ts';

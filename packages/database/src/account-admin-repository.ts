@@ -1,10 +1,10 @@
-import { and, asc, count, eq, gt, inArray, isNull, ne } from 'drizzle-orm';
+import { and, asc, count, desc, eq, gt, inArray, isNull, ne } from 'drizzle-orm';
 import type { AccountAdminRepository, AccountStatusChangeResult } from '@vergissmeinnicht/application';
 import type { NormalizedEmail, UserId, WorkspaceId, WorkspaceRole } from '@vergissmeinnicht/domain';
 import { revokeAllAccess } from './access-revocation.ts';
 import { IMMEDIATE, type Transaction } from './actor-guard.ts';
 import type { AppDatabase } from './connection.ts';
-import { accountRecoveries, invitations, memberships, totpCredentials, users, workspaces } from './schema.ts';
+import { accountRecoveries, historicalIdentityOrigins, invitations, memberships, totpCredentials, users, workspaces } from './schema.ts';
 import { recordSecurityEvent } from './security-events.ts';
 
 /** Thrown inside the transaction so better-sqlite3 rolls it back; carries the result to report. */
@@ -61,6 +61,8 @@ export function createAccountAdminRepository({ db }: Pick<AppDatabase, 'db'>): A
         })
         .from(users)
         .leftJoin(totpCredentials, eq(totpCredentials.userId, users.id))
+        // Historical identities (section 18) are names in restored history, not accounts to manage.
+        .where(ne(users.status, 'IMPORTED'))
         .orderBy(asc(users.name), asc(users.id))
         .all()
         .map(({ totpEnabledAt, ...row }) => ({
@@ -71,6 +73,28 @@ export function createAccountAdminRepository({ db }: Pick<AppDatabase, 'db'>): A
         }));
     },
 
+    async historicalIdentities(limit) {
+      const total = db.select({ n: count() }).from(users).where(eq(users.status, 'IMPORTED')).get()?.n ?? 0;
+      // No email (a reserved placeholder), no credentials — there are none: name and origin only.
+      const rows = db
+        .select({ id: users.id, displayName: users.name, workspaceId: historicalIdentityOrigins.workspaceId, workspaceName: workspaces.name, restoredAt: historicalIdentityOrigins.restoredAt })
+        .from(users)
+        .leftJoin(historicalIdentityOrigins, eq(historicalIdentityOrigins.userId, users.id))
+        .leftJoin(workspaces, eq(workspaces.id, historicalIdentityOrigins.workspaceId))
+        .where(eq(users.status, 'IMPORTED'))
+        .orderBy(desc(historicalIdentityOrigins.restoredAt), asc(users.name), asc(users.id))
+        .limit(limit)
+        .all();
+      return {
+        total,
+        items: rows.map((row) => ({
+          id: row.id as UserId,
+          displayName: row.displayName,
+          origin: row.workspaceId === null || row.workspaceName === null || row.restoredAt === null ? null : { workspaceId: row.workspaceId as WorkspaceId, workspaceName: row.workspaceName, restoredAt: row.restoredAt },
+        })),
+      };
+    },
+
     async setStatus(input, actor) {
       try {
         return db.transaction((tx): AccountStatusChangeResult => {
@@ -79,7 +103,8 @@ export function createAccountAdminRepository({ db }: Pick<AppDatabase, 'db'>): A
             return { outcome: 'forbidden' };
           }
           const target = tx.select({ status: users.status }).from(users).where(eq(users.id, input.userId)).get();
-          if (target === undefined) return { outcome: 'not_found' };
+          // A historical identity is never enabled or disabled: it is no account (answered like an unknown one).
+          if (target === undefined || target.status === 'IMPORTED') return { outcome: 'not_found' };
           if (target.status === input.status) return { outcome: 'unchanged' };
 
           const event = { actor, subjectType: 'user' as const, subjectId: input.userId, occurredAt: input.at };

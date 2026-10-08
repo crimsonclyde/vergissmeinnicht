@@ -407,7 +407,10 @@ export function verifyDatabase(
     if ((sqlite.pragma('foreign_key_check') as unknown[]).length > 0) throw new BackupError('foreign key check failed');
     verifyMedia(sqlite, options.mediaPath ?? backupMediaPath(path));
     verifyDocuments(sqlite, options.documentsPath ?? backupDocumentsPath(path), options.documents ?? 'full');
-    return { migrationsPending: migrationStatus(sqlite).pending };
+    const status = migrationStatus(sqlite);
+    // A backup made by a newer version cannot be checked or restored by this one (its schema is unknown here).
+    if (status.newer) throw new BackupError('the backup was made by a newer VergissMeinNicht version than this one; restore it with that version or a newer one');
+    return { migrationsPending: status.pending };
   } finally {
     sqlite.close();
   }

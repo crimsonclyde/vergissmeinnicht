@@ -1,5 +1,5 @@
 export { openDatabase, type AppDatabase } from './connection.ts';
-export { migrationStatus, runMigrations } from './migrate.ts';
+export { assertNotNewer, DatabaseNewerError, migrationStatus, runMigrations } from './migrate.ts';
 export { createUserRepository } from './user-repository.ts';
 export { createInvitationRepository } from './invitation-repository.ts';
 export { createSecurityEventLog, createSecurityEventReader, type SecurityEventLog, type SecurityEventRecord } from './security-events.ts';
@@ -36,3 +36,7 @@ export { createProcedureActivityRepository } from './procedure-activity-reposito
 
 export { createTodayRepository } from './today-repository.ts';
 export { createEquipmentRepository } from './equipment-repository.ts';
+export { completeRestoreIn, createBackupJobRepository } from './workspace-backup-repository.ts';
+export { isRestorableLevel, RESTORE_DATA_NAMES, restoreWorkspace, WorkspaceRestoreError, type PreviousMember, type RestoredDocumentFileFacts, type WorkspaceRestoreErrorCode, type WorkspaceRestoreInput, type WorkspaceRestoreOutcome } from './workspace-restore.ts';
+export { databaseLevel, snapshotWorkspace, WORKSPACE_REFERENCE, WorkspaceExportError, type StagedEntry, type WorkspaceSnapshot } from './workspace-export.ts';
+export { EXCLUDED_TABLES, EXPORTED_TABLES } from './workspace-backup-tables.ts';

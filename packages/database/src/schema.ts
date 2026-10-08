@@ -68,6 +68,12 @@ export const users = sqliteTable(
       'users_status_valid',
       sql.raw(`status in (${USER_STATUSES.map((status) => `'${status}'`).join(', ')})`),
     ),
+    // Section 18: a historical identity is recognisable by its reserved address, can never be a server admin
+    // or verified — and no account can take that address. Changing the status alone cannot activate it.
+    check(
+      'users_imported_identity',
+      sql`(${table.status} = 'IMPORTED') = (${table.email} like '%@imported.invalid') and (${table.status} <> 'IMPORTED' or (${table.serverAdmin} = 0 and ${table.emailVerified} = 0))`,
+    ),
   ],
 );
 
@@ -832,6 +838,83 @@ export const userWeatherSettings = sqliteTable(
 );
 
 /**
+ * Workspace backup jobs (section 18): an export of one Workspace (18a) or — from 18b — the validation and
+ * restore of an uploaded package. The package itself lives in a private folder of the data volume
+ * (`workspace-backups/<id>/`), never in the database; `expires_at` says when it is deleted.
+ */
+/**
+ * Section 18 restore: a row exists only inside the restore's own transaction (inserted after the new Workspace,
+ * deleted before commit — never visible to anyone else). While it exists, the four insert triggers that require a link
+ * end, a Run's source Document, a removed Run document or a maintenance contact to be present (and not in Trash) accept that Workspace's
+ * history as it was (ends deleted for good, records in Trash); the restore checks every reference itself first.
+ * A trigger (migration 0045) refuses a mark for a Workspace that has members — so never for a live one.
+ */
+export const workspaceRestoreMarks = sqliteTable('workspace_restore_marks', {
+  workspaceId: text('workspace_id')
+    .primaryKey()
+    .references(() => workspaces.id),
+});
+
+/**
+ * Where a historical identity (status IMPORTED, section 18) came from: the restore that created it and the
+ * Workspace it was created for — shown to server admins so these entries are never mistaken for accounts.
+ * Written in the restore's transaction; a trigger (migration 0046) refuses a row for anyone but an IMPORTED user.
+ * Server-local bookkeeping, never part of a Workspace backup.
+ */
+export const historicalIdentityOrigins = sqliteTable(
+  'historical_identity_origins',
+  {
+    userId: text('user_id')
+      .primaryKey()
+      .references(() => users.id),
+    workspaceId: text('workspace_id')
+      .notNull()
+      .references(() => workspaces.id),
+    restoreJobId: text('restore_job_id').notNull(),
+    restoredAt: integer('restored_at', { mode: 'timestamp_ms' }).notNull(),
+  },
+  (table) => [index('historical_identity_origins_workspace_idx').on(table.workspaceId)],
+);
+
+export const workspaceBackupJobs = sqliteTable(
+  'workspace_backup_jobs',
+  {
+    id: text('id').primaryKey(),
+    kind: text('kind', { enum: ['EXPORT', 'RESTORE'] }).notNull(),
+    /** EXPORT: the Workspace exported. RESTORE: the Workspace created, once restored. */
+    workspaceId: text('workspace_id').references(() => workspaces.id),
+    state: text('state', { enum: ['QUEUED', 'RUNNING', 'READY', 'FAILED', 'CANCELLED', 'EXPIRED'] }).notNull(),
+    requestedByUserId: text('requested_by_user_id')
+      .notNull()
+      .references(() => users.id),
+    /** What is being done now (e.g. `snapshot`, `archive`) and how far: bytes or records, as the phase says. */
+    phase: text('phase'),
+    progressDone: integer('progress_done').notNull(),
+    progressTotal: integer('progress_total').notNull(),
+    cancelRequested: integer('cancel_requested', { mode: 'boolean' }).notNull(),
+    sizeBytes: integer('size_bytes'),
+    /** Counts per record type (JSON object), for the person and the audit entry — never content. */
+    counts: text('counts'),
+    /** RESTORE: what validation found (JSON: Workspace name, versions, sizes, warnings, members to re-invite) — shown before confirming. */
+    preview: text('preview'),
+    errorCode: text('error_code'),
+    leaseUntil: integer('lease_until', { mode: 'timestamp_ms' }),
+    createdAt: integer('created_at', { mode: 'timestamp_ms' }).notNull(),
+    startedAt: integer('started_at', { mode: 'timestamp_ms' }),
+    finishedAt: integer('finished_at', { mode: 'timestamp_ms' }),
+    expiresAt: integer('expires_at', { mode: 'timestamp_ms' }),
+  },
+  (table) => [
+    // One running export per Workspace (D3).
+    uniqueIndex('workspace_backup_jobs_one_export').on(table.workspaceId).where(sql`${table.kind} = 'EXPORT' and ${table.state} in ('QUEUED', 'RUNNING')`),
+    index('workspace_backup_jobs_workspace_idx').on(table.workspaceId, table.createdAt),
+    check('workspace_backup_jobs_export_has_workspace', sql`${table.kind} <> 'EXPORT' or ${table.workspaceId} is not null`),
+    check('workspace_backup_jobs_progress_valid', sql`${table.progressDone} >= 0 and ${table.progressTotal} >= 0`),
+    check('workspace_backup_jobs_bounded', sql`(${table.counts} is null or (json_valid(${table.counts}) and length(${table.counts}) <= 4096)) and (${table.errorCode} is null or length(${table.errorCode}) <= 64) and (${table.phase} is null or length(${table.phase}) <= 32)`),
+  ],
+);
+
+/**
  * Weather provider credentials (19.4b): server-wide (server admins) or one person's own. The secret is
  * sealed (AES-256-GCM, owner and provider bound in as associated data); everything else is status.
  */
@@ -897,6 +980,8 @@ export const instanceSettings = sqliteTable(
     documentMaxFileBytes: integer('document_max_file_bytes').notNull().default(50_000_000),
     /** Accepted document formats, comma-separated in canonical order — a subset of PDF,JPEG,PNG,HEIC. */
     documentFormats: text('document_formats').notNull().default('PDF,JPEG,PNG,HEIC'),
+    /** Largest Workspace backup a server admin may upload for a restore (section 18, D4); bounded by the application. */
+    workspaceRestoreMaxBytes: integer('workspace_restore_max_bytes').notNull().default(20_000_000_000),
     updatedAt: integer('updated_at', { mode: 'timestamp_ms' }).notNull(),
     updatedByUserId: text('updated_by_user_id')
       .notNull()

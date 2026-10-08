@@ -56,6 +56,8 @@ export function runMigrations(databasePath: string): 'applied' | 'none' {
   }
   const { db, sqlite, close } = openDatabase(databasePath);
   try {
+    // A newer database is never touched: not migrated, not back-filled (fillDocumentSearch would write).
+    assertNotNewer(sqlite);
     // SQLite's table-rebuild procedure (e.g. migration 0019) needs foreign keys off while tables are
     // swapped; the pragma is a no-op inside the migrator's transaction, so it is set around it.
     sqlite.pragma('foreign_keys = OFF');
@@ -76,18 +78,40 @@ export function runMigrations(databasePath: string): 'applied' | 'none' {
 }
 
 /**
- * Whether every migration shipped with this version is applied. Like drizzle's migrator, it compares
- * the newest applied migration's timestamp with the newest one in the journal.
+ * The database was migrated by a newer VergissMeinNicht than this one: it holds migrations this version does not
+ * ship. This version never works on it — no `migrate`, no restore of such a backup, no server services — and
+ * never changes or downgrades it. The way out is the newer version (or a backup made before the upgrade).
  */
-export function migrationStatus(sqlite: Database.Database): { readonly pending: boolean } {
+export class DatabaseNewerError extends Error {
+  constructor() {
+    super('The database was migrated by a newer VergissMeinNicht version than this one. Use that version (or newer); this version does not change the database.');
+    this.name = 'DatabaseNewerError';
+  }
+}
+
+/**
+ * Whether every migration shipped with this version is applied (`pending`), and whether the database holds a
+ * migration this version does not know (`newer`: applied by a newer version). Like drizzle's migrator, it works
+ * with the migrations' timestamps; an applied timestamp that is not in this version's journal, or later than its
+ * newest, means newer.
+ */
+export function migrationStatus(sqlite: Database.Database): { readonly pending: boolean; readonly newer: boolean } {
   const journal = JSON.parse(readFileSync(join(MIGRATIONS_FOLDER, 'meta', '_journal.json'), 'utf8')) as {
     entries: { when: number }[];
   };
-  const newestShipped = Math.max(0, ...journal.entries.map((entry) => entry.when));
+  const shipped = new Set(journal.entries.map((entry) => entry.when));
+  const newestShipped = Math.max(0, ...shipped);
   const table = sqlite.prepare("SELECT name FROM sqlite_master WHERE type = 'table' AND name = '__drizzle_migrations'").get();
-  const newestApplied =
-    table === undefined ? 0 : ((sqlite.prepare('SELECT max(created_at) AS at FROM __drizzle_migrations').get() as { at: number | null }).at ?? 0);
-  return { pending: newestApplied < newestShipped };
+  if (table === undefined) return { pending: newestShipped > 0, newer: false };
+  const applied = (sqlite.prepare('SELECT created_at AS at FROM __drizzle_migrations').all() as { at: number | string | null }[]).map((row) => Number(row.at ?? 0));
+  const newestApplied = Math.max(0, ...applied);
+  const newer = applied.some((at) => at > newestShipped || !shipped.has(at));
+  return { pending: !newer && newestApplied < newestShipped, newer };
+}
+
+/** Refuses (throws `DatabaseNewerError`) when the database at `databasePath` was migrated by a newer version. */
+export function assertNotNewer(sqlite: Database.Database): void {
+  if (migrationStatus(sqlite).newer) throw new DatabaseNewerError();
 }
 
 if (import.meta.main) {

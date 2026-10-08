@@ -5,7 +5,7 @@ import Database from 'better-sqlite3';
 import { BackupError, backupDatabase, defaultBackupPath, restoreDatabase, verifyDatabase } from './backup.ts';
 import { openDatabase } from './connection.ts';
 import { purgeExpired } from './housekeeping.ts';
-import { migrationStatus, runMigrations } from './migrate.ts';
+import { DatabaseNewerError, migrationStatus, runMigrations } from './migrate.ts';
 
 /**
  * Operator commands for the database (Steps 10.1/10.2). DATABASE_PATH selects the database
@@ -30,7 +30,10 @@ const [command, file] = positionals;
 function pending(): boolean {
   const sqlite = new Database(databasePath, { readonly: true, fileMustExist: true });
   try {
-    return migrationStatus(sqlite).pending;
+    const status = migrationStatus(sqlite);
+    // Refused before anything is written (not even the pre-migration backup): a newer version made this database.
+    if (status.newer) throw new DatabaseNewerError();
+    return status.pending;
   } finally {
     sqlite.close();
   }
@@ -82,7 +85,7 @@ try {
       process.exit(2);
   }
 } catch (error) {
-  if (error instanceof BackupError) {
+  if (error instanceof BackupError || error instanceof DatabaseNewerError) {
     console.error(`Failed: ${error.message}`);
     process.exit(1);
   }

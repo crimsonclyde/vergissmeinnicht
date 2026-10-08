@@ -159,6 +159,7 @@ describe('Workspace HTTP API', () => {
         'equipment.manage',
         'equipment.purge',
         'workspace.tools.manage',
+        'workspace.backup',
       ],
       tools: [],
       toolsRevision: 0,

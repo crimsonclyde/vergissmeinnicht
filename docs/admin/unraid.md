@@ -37,7 +37,7 @@ ls -ln secrets    # must show 99 100 and -r-------- for every file
    (Without the terminal: the flash drive is also the network share `flash` — copy [`deploy/unraid/vergissmeinnicht.xml`](../../deploy/unraid/vergissmeinnicht.xml) into `config/plugins/dockerMan/templates-user/` there and rename it to `my-VergissMeinNicht.xml`.)
 2. **Docker** tab → **Add Container** (button at the bottom) → **Template** drop-down → under *User templates* choose **VergissMeinNicht**. The form fills itself from the template.
 3. Fill in:
-   - **Repository:** `ghcr.io/crimsonclyde/vergissmeinnicht:0.6.0-beta.2` (or a newer release — pin an exact version, not `latest`).
+   - **Repository:** `ghcr.io/crimsonclyde/vergissmeinnicht:0.6.0-beta.3` (or a newer release — pin an exact version, not `latest`).
    - **Use Tailscale:** *Yes*. **Tailscale Hostname:** `vergissmeinnicht`. **Tailscale Serve:** *Serve* (port `3000`, taken from the WebUI field). Leave *Funnel* off — that would publish the app on the internet.
    - **Tailscale State Directory** (Tailscale settings, if shown): `/data/.tailscale_state` — keeps the container's Tailscale identity across updates.
    - **Public address:** `https://vergissmeinnicht.<your-tailnet>.ts.net` — exactly the name Tailscale shows for the container.
@@ -84,7 +84,20 @@ Change the version in *Repository* and **Apply**. With *Migrate on start* the co
 
   (the replaced database is kept next to it as `….before-restore-<time>`), then start the container again.
 
+## Disaster recovery
+
+The checklist is in [Deployment → Disaster recovery](deployment.md#disaster-recovery-a-new-server); on Unraid:
+
+1. Keep, away from the server: the `backups` folder (with `media` and `documents`), `secrets/data_encryption_key` (**separately**), and the template values (*Repository* version, `PUBLIC_ORIGIN`, SMTP, Tailscale settings).
+2. On the new box: create `appdata/vergissmeinnicht/data` and `secrets`, put `data_encryption_key` back, add the container from the template with the **same or a newer** version (an older one refuses the backup) and leave it **stopped**.
+3. Copy the `backups` folder into `data/`, then in the Unraid terminal: `docker run --rm --user 99:100 -v /mnt/user/appdata/vergissmeinnicht/data:/data ghcr.io/crimsonclyde/vergissmeinnicht:<version> verify /data/backups/<file>.sqlite`, then the same with `restore` instead of `verify` (see *Backups*), and with `migrate` if the version is newer than the backup's (or keep *Migrate on start* on).
+4. Start the container; check sign-in with two-factor (proves the key), a document original, a Telegram test message and the weather card; make a fresh backup.
+
+A Workspace backup (*Workspace settings → Backup*) is no substitute: it holds one Workspace without accounts, sign-in, members or server settings.
+
 ## Troubleshooting
+
+- **Unhealthy with `database_newer`** (log: *The database was migrated by a newer VergissMeinNicht version*): the *Repository* tag is older than the version that last migrated the data. Set the newer tag again and **Apply**; nothing was changed. See [Deployment → Database is newer](deployment.md#database-is-newer).
 
 - **"Email or password is not correct" for the first admin, although the password is right:** look at the line `Server-admin invitation created for …` — an address with an odd character (e.g. `�` from a paste) is a different address. Since 0.1.0-beta.4 such addresses are refused. On a fresh install without other data: stop the container, delete only `data/vergissmeinnicht.sqlite*` (keep `.tailscale_state` and `backups`), start it and run `admin-bootstrap` again with the address typed by hand.
 - **`SqliteError: unable to open database file` (`SQLITE_CANTOPEN`):** the data folder or database belongs to another user (e.g. created before `--user 0:0` was set). Since 0.1.0-beta.4 the container fixes the ownership of the data folder itself when it starts as root; with older versions stop the container and run `chown -R 99:100 /mnt/user/appdata/vergissmeinnicht/data`.

@@ -84,4 +84,29 @@ describe('production hardening (10.3)', () => {
     expect(pending.statusCode).toBe(503);
     expect(pending.json()).toEqual({ status: 'not_ready', reason: 'migrations_pending' });
   });
+
+  it('reports a database migrated by a newer version as not ready (database_newer)', async () => {
+    t = await startTestApp();
+    t.database.sqlite.prepare("INSERT INTO __drizzle_migrations (hash, created_at) VALUES ('from-a-newer-version', (SELECT max(created_at) FROM __drizzle_migrations) + 86400000)").run();
+    const newer = await t.get('/api/health/ready');
+    expect(newer.statusCode).toBe(503);
+    expect(newer.json()).toEqual({ status: 'not_ready', reason: 'database_newer' });
+  });
+
+  it('starts without any service on a newer database: health only, every API request refused with the reason', async () => {
+    const app = await buildApp({ unavailable: { reason: 'database_newer' } });
+    try {
+      expect((await app.inject({ method: 'GET', url: '/api/health' })).statusCode).toBe(200);
+      const ready = await app.inject({ method: 'GET', url: '/api/health/ready' });
+      expect(ready.statusCode).toBe(503);
+      expect(ready.json()).toEqual({ status: 'not_ready', reason: 'database_newer' });
+      for (const [method, url] of [['GET', '/api/workspaces'], ['POST', '/api/auth/sign-in'], ['POST', '/api/admin/workspace-restores'], ['GET', '/api/about']] as const) {
+        const response = await app.inject(method === 'POST' ? { method, url, headers: { origin: 'http://localhost', 'content-type': 'application/json' }, payload: '{}' } : { method, url });
+        expect(response.statusCode, url).toBe(503);
+        expect(response.json()).toEqual({ error: 'database_newer' });
+      }
+    } finally {
+      await app.close();
+    }
+  });
 });

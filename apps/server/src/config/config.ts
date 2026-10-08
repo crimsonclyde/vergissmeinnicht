@@ -81,6 +81,8 @@ const envSchema = z
     INVITATION_TTL_HOURS: z.coerce.number().int().min(1).max(720).optional(),
     // Operators running a modified version must point this at their own source (AGPL-3.0 §13).
     SOURCE_CODE_URL: z.url({ protocol: /^https$/, error: 'SOURCE_CODE_URL must be an https URL' }).optional(),
+    // Set by the image build from the release tag (18, D9); `development` elsewhere.
+    VMN_VERSION: z.string().regex(/^[0-9A-Za-z.+-]{1,40}$/, 'VMN_VERSION must be a version such as 0.6.0-beta.3').optional(),
     // Reverse proxies whose X-Forwarded-For is believed (comma-separated IPs/CIDRs or `loopback`).
     TRUSTED_PROXIES: z
       .string()
@@ -187,6 +189,8 @@ export interface AppConfig {
   readonly invitationTtlHours: number;
   /** Where users can obtain the source of the running version (AGPL-3.0 §13). */
   readonly sourceCodeUrl: string;
+  /** The running release (`VMN_VERSION`, set in the image), or `development`. */
+  readonly appVersion: string;
   /** Proxies allowed to set the client address via X-Forwarded-For; empty = trust nobody. */
   readonly trustedProxies: readonly string[];
   /** Strict-Transport-Security max-age in seconds; 0 = header not sent. */
@@ -257,6 +261,7 @@ export function loadConfig(env: NodeJS.ProcessEnv, readFile: (path: string) => s
     }),
     invitationTtlHours: values.INVITATION_TTL_HOURS ?? 72,
     sourceCodeUrl: values.SOURCE_CODE_URL ?? UPSTREAM_SOURCE_URL,
+    appVersion: values.VMN_VERSION ?? 'development',
     trustedProxies: Object.freeze([...(values.TRUSTED_PROXIES ?? [])]),
     // HSTS only makes sense (and is only honoured) on https origins; loopback http never gets it.
     hstsMaxAge: new URL(values.PUBLIC_ORIGIN ?? 'http://localhost').protocol === 'https:' ? (values.HSTS_MAX_AGE ?? DEFAULT_HSTS_MAX_AGE) : 0,

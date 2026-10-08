@@ -127,6 +127,17 @@ docker compose up -d
 
 Without Docker: `NODE_ENV=production DATABASE_PATH=/data/vergissmeinnicht.sqlite node packages/database/src/ops-cli.ts migrate`. Migrations are committed files; a failed migration leaves the pre-migration backup to restore (see Backups).
 
+### Database is newer
+
+Since 0.6.0-beta.3 a version never works on a database that a **newer** version has migrated (for example after going back to an older image tag, or restoring an older image over newer data):
+
+- The server starts **nothing** — no sign-in, no API, no reminders, backups, housekeeping or background jobs, no writes — and reports `GET /api/health/ready` → `503 {"status":"not_ready","reason":"database_newer"}` (container `unhealthy`); every API request answers `503 database_newer`, and the log says *The database was migrated by a newer VergissMeinNicht version than this one*.
+- `migrate` refuses (*Failed: The database was migrated by a newer VergissMeinNicht version …*, exit code 1) before writing anything, also no pre-migration backup.
+- `verify` and `restore` refuse a server backup made by a newer version (*the backup was made by a newer VergissMeinNicht version*); the database it would replace is untouched.
+- Nothing is ever downgraded or changed automatically. A Workspace backup made by a newer version is refused by the restore's own check (`unsupported_version`).
+
+**Resolution:** run the version that migrated the database — or any newer one — again (`docker compose` / Unraid *Repository*: the newer tag). If you really must go back to the older version, restore the server backup made **before** the upgrade (the `…-pre-migration.sqlite` that `migrate` wrote) with that older version; changes made since the upgrade are then lost.
+
 ## Reverse proxy, HTTPS and rate limits
 
 HTTPS is mandatory; the Compose setup uses Caddy, which obtains and renews certificates automatically. Sign-in, invitation, Knot and global request limits count per client address, so the app must know the real client:
@@ -242,7 +253,7 @@ A backup is a complete copy of everything sensitive: accounts and password hashe
 **What to back up**
 
 1. The database with its instruction photos and document files, via the backup command (never by copying the live file: a copy taken while the server writes can be inconsistent, and the WAL file holds recent changes). The command also puts every photo the backup uses into `/data/backups/media/` and every document file into `/data/backups/documents/` (next to the backup files, shared between backups): **a backup is the `.sqlite` file together with the `media/` and `documents/` directories next to it** — always copy all three. The simplest rule: copy the whole `/data/backups` directory; it is complete by itself, and `/data/media` and `/data/documents` need no separate copy.
-2. `DATA_ENCRYPTION_KEY` — separately (password manager). Without it, restored TOTP enrollments do not work (users fall back to recovery codes/admin reset); stored together with the database it would defeat the encryption.
+2. `DATA_ENCRYPTION_KEY` — separately (password manager). It encrypts **TOTP authenticator secrets**, the **Telegram bot token** and **weather provider credentials** (server-wide and personal). Without it, a restored server cannot open any of them: users fall back to recovery codes or an admin reset for two-factor sign-in, and the Telegram token and every weather credential must be entered again. Stored together with the database it would defeat the encryption.
 3. Your configuration (`vergissmeinnicht.env`, Caddyfile). `AUTH_SECRET` does not need a backup: a new one only signs everyone out.
 
 **Create a backup** (the server keeps running):
@@ -270,6 +281,12 @@ What this means: a file that is deleted permanently in the app (or lost through 
 **Contacts deleted for good** (Workspace admins, from Trash) are gone from the application at once — including from its history, which never holds a contact’s name; existing backups keep them until they rotate.
 
 **Removing a document from a finished execution** (Workspace admins) behaves the same way towards backups: the application forgets the kept version at once, existing backups keep it until they rotate.
+
+**Workspace backups** (Workspace settings → Backup, Workspace admins; section 18) are a different thing: one portable file per Workspace that a server admin can restore as a new Workspace, here or on another server. They are made in the background into `/data/workspace-backups/` (private to the app, deleted 24 hours after they are ready) and contain no passwords, sign-in data, credentials or other Workspaces — but everything of that Workspace, including members' email addresses, unencrypted. They do **not** replace the server backup: accounts, sign-in, server settings and other Workspaces are only in the server backup.
+
+**Restoring a Workspace backup** (server admins: *Server admin → Workspaces → Restore from backup*; section 18): choose the `.vmnbackup` file; the upload (with progress) goes into `/data/workspace-backups/<job>/` and is checked completely before anything is created — structure, every hash, the version (any package made by a VMN release with Workspace backups, up to this server's own version — a package from a newer server is refused until this one is updated), every record and reference, every original with the upload checks. The page then shows the Workspace's name, when the backup was made, the version, counts, size, warnings and the **previous members** (names, roles, email addresses) to invite again by hand; nothing happens until you confirm in a dialog. A restore always creates a **new** Workspace — it never changes or replaces an existing one, also on the server the backup came from — with you as its only member; the page links to it when it is done. People in the restored history are kept as **historical identities** (their names, no accounts: they cannot sign in, be invited, recovered or reminded; listed read-only under *Server admin → Accounts & recovery → Historical identities* with the restore they came from); every Schedule is paused and every assignment cleared, so nothing is sent until a Workspace admin resumes it.
+
+Limits: uploads up to **20 GB** by default (*Server admin → Server & storage → Restoring Workspaces*, 0.1 to 1000 GB; checked by its declared size before anything is stored and again while it arrives); at most **three restores** may hold files at the same time (uploading, being checked, waiting for confirmation, restoring); 20 uploads per hour per admin; an upload may take up to 6 hours, and a connection that sends nothing for a minute is closed. Plan about **three times the package's size** of free space for the duration (upload, extraction, restored originals) — the server refuses a restore it cannot hold. A checked restore waits **24 hours** for confirmation; then it expires and its file and preview (with the previous members' addresses) are deleted. A failed, discarded, interrupted or completed restore leaves no upload behind; originals already copied by a failed restore are removed by housekeeping once nothing uses them. The integrity hashes detect damage, not origin: Workspace backups are **neither encrypted nor signed** — restore only packages you trust, and store and transfer them as carefully as the server backup.
 
 **Exports** (the ZIP download under Documents) are made on request and streamed to the browser; they are never stored on the server and are no substitute for a backup: they hold the documents a person may see, not the database.
 
@@ -299,3 +316,40 @@ docker compose up -d
 `restore` refuses to run while any process has the database open (it needs an exclusive SQLite lock), verifies the backup first (a missing or altered photo or document file refuses the restore), puts the backup's photos into `/data/media` and its document files into `/data/documents`, and keeps the replaced database as `vergissmeinnicht.sqlite.before-restore-<time>` (plus its WAL/SHM files) — delete that manually once the restore is confirmed. Sessions in the backup are valid again after a restore; rotate `AUTH_SECRET` if you restore after a suspected compromise.
 
 **Tested procedure** (2026-09-27, `docs/development/steps.md` 10.2): automated tests back up a database with uncheckpointed WAL changes, restore it, and check contents, file modes, refusal while the database is open (also idle with an empty WAL) and rejection of damaged or foreign files. The full container drill — migrate, start behind Caddy, create data, `backup` while running, change data, restore refused while running, stop, restore, start, data back to the backup state, healthy — was run against the image. Repeat a restore drill on a spare machine regularly: a backup that was never restored is not verified.
+
+## Disaster recovery: a new server
+
+When the server itself is lost — disk, host, Unraid box — recovery means the **server backup** plus the secrets that are not in it. A **Workspace backup cannot replace this**: it holds one Workspace, without accounts, passwords, two-factor sign-in, memberships, server settings, notification providers, other Workspaces or the security log; restored people become historical names only. Use Workspace backups to move or copy one Workspace, the server backup to recover the server.
+
+**Keep these, before anything happens** (and test them — see the drill below):
+
+| What | Where it lives | Without it |
+|---|---|---|
+| Server backup: `/data/backups/<file>.sqlite` **with** `backups/media/` and `backups/documents/` | data volume, copied off the host encrypted | everything is lost |
+| `DATA_ENCRYPTION_KEY` | password manager, **not** with the backups | TOTP stops working for everyone (recovery codes or an admin reset), the Telegram bot token and every weather credential (server-wide and personal) must be entered again |
+| `AUTH_SECRET` | configuration | nothing is lost: a new one only signs everyone out |
+| Configuration (`vergissmeinnicht.env` / Unraid template values, `PUBLIC_ORIGIN`, SMTP, `TRUSTED_PROXIES`, Caddyfile or Tailscale state) | your notes / repository | the server starts with wrong addresses or without email |
+| The image version the backup was made with | release notes, `docker inspect` | an older image refuses it — see step 3 |
+
+**Checklist on the new machine** (Docker Compose; Unraid in [unraid.md](unraid.md#disaster-recovery)):
+
+1. Install Docker and create the data volume (or folder) — empty. Do **not** start the server on it yet.
+2. Put the configuration in place with the **same `DATA_ENCRYPTION_KEY`** (and the same `PUBLIC_ORIGIN` if the address stays). A new `AUTH_SECRET` is fine.
+3. Use the **same image version** the backup was made with, or a newer one. An older image refuses the backup (`verify`/`restore`: *made by a newer VergissMeinNicht version*) — see [Database is newer](#database-is-newer).
+4. Copy the backup into the volume: `docker compose cp ./vergissmeinnicht-<time>.sqlite app:/data/backups/`, then `media/` and `documents/` next to it.
+5. `docker compose run --rm app verify /data/backups/<file>.sqlite` — every photo and document file is hashed; stop here if it fails and use an older backup.
+6. `docker compose run --rm app restore /data/backups/<file>.sqlite` (the server must not run). On a fresh volume there is nothing to replace.
+7. `docker compose run --rm app migrate` — if the image is newer than the backup it brings the database up to date (backing it up first); otherwise it reports that nothing is pending.
+8. `docker compose up -d`, then `GET /api/health/ready` must answer `ready`.
+9. **Verify**: sign in as a server admin; open a Workspace, a Run's history and a Document original; sign in with TOTP (proves the key); *Server admin → Notification providers*: send a test message (Telegram needs the key); a weather card shows a forecast if credentials are used; check the security log.
+10. Make a new server backup on the new machine and copy it off the host.
+
+**Rollback**: until you have confirmed the new server, keep the old backup files untouched. `restore` keeps the database it replaces as `…before-restore-<time>`; `migrate` writes `/data/backups/…-pre-migration.sqlite` before it changes anything.
+
+**After a failed migration**: a migration that fails is not applied at all (all pending migrations run in one transaction); the server stays up and reports `503 migrations_pending`. After the transaction `migrate` also checks integrity and foreign keys — if that check fails, it says so and the pre-migration backup is the way back. Stop the server, keep the pre-migration backup, read the `migrate` output, and either fix the cause (e.g. disk space) and run `migrate` again, or `restore /data/backups/…-pre-migration.sqlite` with the **previous** image version and stay on it until the problem is solved.
+
+**If `DATA_ENCRYPTION_KEY` is lost**: restore anyway — everything except the encrypted secrets works. Users sign in with password and a recovery code (or an admin/operator resets their TOTP, see Account recovery), the Telegram bot token and weather credentials are entered again. There is no way to decrypt them without the key.
+
+**Drill**: once in a while restore the latest server backup on a spare machine with this checklist. A backup that was never restored is not verified.
+
+**Upgrades with data (for releases):** `deploy/upgrade-check.sh <new image> [<published image>]` populates a throw-away volume through the published image's API, upgrades it with the new image (row counts, foreign keys and integrity compared) and then exports and restores a Workspace on the upgraded server. Fictional data and secrets only.

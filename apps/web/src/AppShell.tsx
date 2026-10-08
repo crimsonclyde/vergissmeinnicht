@@ -31,6 +31,7 @@ import { SettingsMenu } from './SettingsMenu.tsx';
 import { SourceFooter } from './SourceFooter.tsx';
 import { CoreToolsContext } from './core-tools.ts';
 import { TodaySettings } from './TodaySettings.tsx';
+import { WorkspaceBackupPage } from './WorkspaceBackupPage.tsx';
 import { WeatherSettings } from './WeatherSettings.tsx';
 import { ScheduleHistory } from './ScheduleHistory.tsx';
 import { Today } from './Today.tsx';
@@ -154,7 +155,7 @@ function WorkspacePage(props: {
   const documentsOn = context.tools.includes('DOCUMENTS');
   const contactsOn = context.tools.includes('CONTACTS');
   const canAdd = { procedure: context.tools.includes('PROCEDURES') && can('procedure.edit'), reminder: context.tools.includes('REMINDERS') && can('schedule.manage'), list: context.tools.includes('LISTS') && can('list.edit'), document: documentsOn && can('document.manage') };
-  const settings = (current: 'settings' | 'members' | 'knots', content: ReactNode) => (
+  const settings = (current: 'settings' | 'members' | 'knots' | 'backup', content: ReactNode) => (
     <SettingsLayout
       title={t('menu.workspaceSettings')}
       subtitle={context.workspace.name}
@@ -291,6 +292,8 @@ function WorkspacePage(props: {
       return settings('members', <MembersPage context={context} currentUserId={props.user.id} />);
     case 'knots':
       return settings('knots', can('knot.manage') ? <KnotsPage workspaceId={route.workspaceId} /> : <p role="alert">{t('knot.manageOnly')}</p>);
+    case 'backup':
+      return settings('backup', can('workspace.backup') ? <WorkspaceBackupPage workspaceId={route.workspaceId} /> : <p role="alert">{t('backup.adminOnly')}</p>);
     }
   };
   // Pages of other tools show linked Documents only where the Documents tool is on (16.5).

@@ -9,6 +9,8 @@ import { adminAccountRoutes, adminSecurityEventRoutes, adminSettingsRoutes } fro
 import { accountRoutes } from './http/account-routes.ts';
 import { authRoutes } from './http/auth-routes.ts';
 import { errorHandler } from './http/errors.ts';
+import { workspaceBackupRoutes } from './http/workspace-backup-routes.ts';
+import { workspaceRestoreRoutes } from './http/workspace-restore-routes.ts';
 import { accountWeatherCredentialRoutes, accountWeatherRoutes, adminWeatherCredentialRoutes, adminWeatherRoutes } from './http/weather-routes.ts';
 import { calendarRoutes, homeRoutes } from './http/home-routes.ts';
 import { documentFileRoutes } from './http/document-file-routes.ts';
@@ -38,6 +40,12 @@ export interface AppOptions {
   logger?: FastifyServerOptions['logger'];
   /** Application services. Without them only health and static assets are served (tests of the HTTP baseline). */
   services?: ((log: FastifyBaseLogger) => AppServices) | undefined;
+  /**
+   * The server must not work on its database (e.g. it was migrated by a newer version): no services are built, the
+   * readiness check reports the reason, and every other API request is refused with it (503). Health and the web app
+   * itself are still served, so the operator sees the problem.
+   */
+  unavailable?: { readonly reason: 'database_newer' } | undefined;
   /** Reverse proxies (IPs/CIDRs, `loopback`) whose X-Forwarded-For is trusted; empty = none (default). */
   trustedProxies?: readonly string[] | undefined;
   /** Strict-Transport-Security max-age in seconds; 0 or undefined = no HSTS header. */
@@ -55,11 +63,19 @@ export interface RouteEntry {
 const REQUEST_BODY_DEADLINE_MS = 30_000;
 /** Routes that receive a large file (`config.slowBody`) get this long: 100 MB at about 1 Mbit/s. */
 const SLOW_BODY_DEADLINE_MS = 15 * 60_000;
+/**
+ * The hard limit for any request: the server-admin upload of a Workspace backup for a restore (18b,
+ * `slowBody: 'backup'`) — 20 GB at about 10 Mbit/s. Every other route keeps its own, shorter deadline below.
+ */
+const BACKUP_UPLOAD_DEADLINE_MS = 6 * 60 * 60_000;
 
 declare module 'fastify' {
   interface FastifyContextConfig {
-    /** The route receives a large streamed body (a document upload): the short body deadline does not apply. */
-    slowBody?: boolean;
+    /**
+     * The route receives a large streamed body: `true` (a document upload) — 15 minutes instead of 30 seconds;
+     * `'backup'` (a restore upload, server admins only) — the server's hard limit of 6 hours.
+     */
+    slowBody?: boolean | 'backup';
   }
   interface FastifyRequest {
     bodyDeadline: NodeJS.Timeout | null;
@@ -81,10 +97,10 @@ export async function buildApp(options: AppOptions = {}) {
     // Forwarding headers are believed only from explicitly configured proxies (TRUSTED_PROXIES, 10.3);
     // otherwise the socket address is the client address.
     trustProxy: options.trustedProxies !== undefined && options.trustedProxies.length > 0 ? [...options.trustedProxies] : false,
-    // The hard limit for receiving any request — sized for document uploads (16.1). Every other route
-    // keeps the 30-second deadline through the hook below; a connection idle for a minute is closed in
-    // either case. Neither limits SSE responses.
-    requestTimeout: SLOW_BODY_DEADLINE_MS,
+    // The hard limit for receiving any request — sized for restore uploads (18b). Every other route keeps
+    // its own deadline through the hook below (30 seconds; 15 minutes for document uploads); a connection
+    // idle for a minute is closed in every case. Neither limits SSE responses.
+    requestTimeout: BACKUP_UPLOAD_DEADLINE_MS,
     connectionTimeout: 60_000,
     // JSON bodies are small; routes that need more (e.g. imports) must raise this explicitly.
     bodyLimit: 64 * 1024,
@@ -101,11 +117,16 @@ export async function buildApp(options: AppOptions = {}) {
     request.bodyDeadline = null;
   };
   app.addHook('onRequest', async (request) => {
-    if (request.routeOptions.config.slowBody === true) return;
-    request.bodyDeadline = setTimeout(() => request.raw.destroy(), REQUEST_BODY_DEADLINE_MS);
+    const slowBody = request.routeOptions.config.slowBody;
+    if (slowBody === 'backup') return;
+    request.bodyDeadline = setTimeout(() => request.raw.destroy(), slowBody === true ? SLOW_BODY_DEADLINE_MS : REQUEST_BODY_DEADLINE_MS);
     request.bodyDeadline.unref();
+    // A streamed upload is handed on before it has arrived: its deadline ends when the whole body has.
+    if (slowBody === true) request.raw.once('end', () => void clearBodyDeadline(request));
   });
-  app.addHook('preValidation', clearBodyDeadline);
+  app.addHook('preValidation', async (request) => {
+    if (request.routeOptions.config.slowBody !== true) await clearBodyDeadline(request);
+  });
   app.addHook('onResponse', clearBodyDeadline);
   app.addHook('onRequestAbort', clearBodyDeadline);
   // Every registered route, so tests can prove authentication and Workspace isolation for all of
@@ -166,6 +187,11 @@ export async function buildApp(options: AppOptions = {}) {
         reply.header('Cache-Control', 'no-store');
       });
       api.get('/health', async () => ({ status: 'ok' }));
+      const unavailable = options.unavailable;
+      if (unavailable !== undefined) {
+        api.get('/health/ready', async (_request, reply) => reply.code(503).send({ status: 'not_ready', reason: unavailable.reason }));
+        api.all('/*', async (_request, reply) => reply.code(503).send({ error: unavailable.reason }));
+      }
       if (services !== undefined) {
         // Readiness for container health checks: no details beyond a reason code.
         api.get('/health/ready', async (_request, reply) => {
@@ -194,6 +220,7 @@ export async function buildApp(options: AppOptions = {}) {
         await api.register(adminStorageRoutes, { prefix: '/admin/storage', services });
         await api.register(adminWeatherRoutes, { prefix: '/admin/weather', services });
         await api.register(adminWeatherCredentialRoutes, { prefix: '/admin/weather/credentials', services });
+        await api.register(workspaceRestoreRoutes, { prefix: '/admin/workspace-restores', services });
         await api.register(workspaceRoutes, { prefix: '/workspaces', services });
         await api.register(procedureRoutes, { prefix: '/workspaces/:workspaceId/procedures', services });
         await api.register(runRoutes, { prefix: '/workspaces/:workspaceId/runs', services });
@@ -208,6 +235,7 @@ export async function buildApp(options: AppOptions = {}) {
         await api.register(equipmentRoutes, { prefix: '/workspaces/:workspaceId', services });
         await api.register(maintenanceRoutes, { prefix: '/workspaces/:workspaceId', services });
         await api.register(workspaceToolRoutes, { prefix: '/workspaces/:workspaceId/tools', services });
+        await api.register(workspaceBackupRoutes, { prefix: '/workspaces/:workspaceId/backups', services });
         await api.register(documentFileRoutes, { prefix: '/workspaces/:workspaceId/document-files', services });
         await api.register(textRecognitionRoutes, { prefix: '/workspaces/:workspaceId/text-recognition', services });
         await api.register(documentFolderRoutes, { prefix: '/workspaces/:workspaceId/document-folders', services });

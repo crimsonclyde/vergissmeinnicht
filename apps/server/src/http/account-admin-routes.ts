@@ -1,5 +1,5 @@
-import { getInstanceSettingsForAdmin, listAccounts, listSecurityEvents, setAccountStatus, updateInstanceSettings } from '@vergissmeinnicht/application';
-import { USER_STATUSES } from '@vergissmeinnicht/domain';
+import { getInstanceSettingsForAdmin, listAccounts, listHistoricalIdentities, listSecurityEvents, setAccountStatus, updateInstanceSettings } from '@vergissmeinnicht/application';
+import { ACCOUNT_STATUSES } from '@vergissmeinnicht/domain';
 import type { FastifyInstance, FastifyRequest } from 'fastify';
 import { z } from 'zod';
 import type { AppServices } from '../composition.ts';
@@ -12,7 +12,7 @@ const userParams = z.strictObject({ userId: z.uuid({ version: 'v4' }) });
 const logQuery = z.strictObject({ before: z.uuid({ version: 'v4' }).optional(), userId: z.uuid({ version: 'v4' }).optional() });
 const statusBody = z
   .strictObject({
-    status: z.enum(USER_STATUSES),
+    status: z.enum(ACCOUNT_STATUSES),
     /** The acting admin's own password (step-up). */
     password: z.string().max(1024),
     code: z.string().max(32).optional(),
@@ -47,6 +47,19 @@ export async function adminAccountRoutes(app: FastifyInstance, { services }: { s
         serverAdmin: account.serverAdmin,
         totpEnabled: account.totpEnabled,
         createdAt: account.createdAt.toISOString(),
+      })),
+    };
+  });
+
+  // Historical identities (section 18): names in restored history with their origin — read only, never accounts.
+  app.get('/historical-identities', async (request) => {
+    const { total, items } = await listHistoricalIdentities(deps, { actor: principalOf(request).user });
+    return {
+      total,
+      identities: items.map((item) => ({
+        id: item.id,
+        displayName: item.displayName,
+        origin: item.origin === null ? null : { workspaceId: item.origin.workspaceId, workspaceName: item.origin.workspaceName, restoredAt: item.origin.restoredAt.toISOString() },
       })),
     };
   });
@@ -112,6 +125,7 @@ const settingsBody = z
     // Coarse transport bounds; the exact rules (1–100 MB, known formats only) are the domain's.
     documentMaxFileBytes: z.number().int().min(0).max(Number.MAX_SAFE_INTEGER).optional(),
     documentFormats: z.array(z.string().max(16)).max(16).optional(),
+    workspaceRestoreMaxBytes: z.number().int().min(0).max(Number.MAX_SAFE_INTEGER).optional(),
   })
   .refine((body) => Object.values(body).some((value) => value !== undefined));
 
@@ -131,6 +145,7 @@ export async function adminSettingsRoutes(app: FastifyInstance, { services }: { 
         ...(body.documentMaxFileBytes === undefined ? {} : { documentMaxFileBytes: body.documentMaxFileBytes }),
         // Checked against the formats the server validates by the use-case; anything else is refused.
         ...(body.documentFormats === undefined ? {} : { documentFormats: body.documentFormats as never }),
+        ...(body.workspaceRestoreMaxBytes === undefined ? {} : { workspaceRestoreMaxBytes: body.workspaceRestoreMaxBytes }),
       },
     });
     return { settings };

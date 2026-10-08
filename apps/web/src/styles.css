@@ -4373,3 +4373,89 @@ a.today-row:hover .today-row-title {
     margin-top: 0.25rem;
   }
 }
+
+/* Workspace backup (section 18a). */
+.backup-facts {
+  margin: 0;
+  padding-left: 1.25rem;
+}
+
+.backup-warning {
+  display: flex;
+  gap: 0.5rem;
+  align-items: flex-start;
+  padding: 0.75rem 1rem;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius);
+}
+
+.backup-jobs > li {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  padding: 0.75rem 0;
+  border-top: 1px solid var(--border);
+}
+
+/* Restore from backup (18c): facts as a two-column list on wide screens, stacked on phones; long addresses wrap. */
+.restore-facts {
+  display: grid;
+  grid-template-columns: minmax(8rem, max-content) 1fr;
+  gap: 0.35rem 1rem;
+  margin: 0;
+}
+
+.restore-facts dt {
+  font-weight: 600;
+}
+
+.restore-facts dd {
+  margin: 0;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+@media (max-width: 480px) {
+  .restore-facts {
+    grid-template-columns: 1fr;
+    gap: 0.1rem;
+  }
+
+  .restore-facts dd {
+    margin-bottom: 0.4rem;
+  }
+}
+
+.restore-counts {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(11rem, 1fr));
+  gap: 0.25rem 1rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.restore-members > li,
+.historical-list > li {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem 0.5rem;
+  align-items: baseline;
+  padding: 0.5rem 0;
+  border-top: 1px solid var(--border);
+  min-width: 0;
+}
+
+.restore-email {
+  flex-basis: 100%;
+  overflow-wrap: anywhere;
+  color: var(--text-muted);
+}
+
+.historical-list small {
+  flex-basis: 100%;
+}
+
+.workspace-restore input[type='file'] {
+  max-width: 100%;
+}

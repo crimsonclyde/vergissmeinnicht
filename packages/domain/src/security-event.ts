@@ -42,6 +42,11 @@ export const SECURITY_EVENT_TYPES = [
   // A weather provider credential set, replaced or removed (19.4b) — server-wide or personal; never the value.
   'WEATHER_CREDENTIAL_CHANGED',
   'WORKSPACE_CREATED',
+  // Section 18: a Workspace backup made (who asked, size, counts) and downloaded — never its content.
+  'WORKSPACE_BACKUP_EXPORTED',
+  'WORKSPACE_BACKUP_DOWNLOADED',
+  'WORKSPACE_RESTORE_UPLOADED',
+  'WORKSPACE_RESTORED',
   'WORKSPACE_RENAMED',
   'MEMBERSHIP_ADDED',
   'MEMBERSHIP_ROLE_CHANGED',

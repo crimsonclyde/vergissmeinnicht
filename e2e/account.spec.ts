@@ -780,6 +780,103 @@ test('first server admin: bootstrap link, account creation, sign-in, Workspace c
   await expect(visitorPage).toHaveURL(/\/w\/[0-9a-f-]{36}\/procedures\/[0-9a-f-]{36}$/);
   await expect(visitorPage.getByRole('heading', { name: 'Travel Leave the flat', level: 2 })).toBeVisible();
 
+  // Workspace backup (section 18a): Workspace admins make one in the background and download it.
+  await fromMenu(page, 'Workspace settings');
+  await settingsSection(page, 'Workspace settings', 'Backup');
+  await expect(page).toHaveURL(/\/backup$/);
+  await expect(page.getByText('The file is not encrypted and contains everything in this Workspace')).toBeVisible();
+  await expectAccessible(page, 'workspace backup');
+  await page.getByRole('button', { name: 'Create backup' }).click();
+  const backupList = page.getByRole('list', { name: 'Recent backups' });
+  await expect(backupList.getByRole('listitem').first()).toContainText('Ready', { timeout: 30_000 });
+  await expect(backupList.getByRole('listitem').first()).toContainText('available until');
+  const [backupFile] = await Promise.all([page.waitForEvent('download'), backupList.getByRole('link', { name: 'Download' }).first().click()]);
+  expect(backupFile.suggestedFilename()).toMatch(/^vergissmeinnicht-workspace-[0-9-]+\.vmnbackup$/);
+  const backupBytes = readFileSync(await backupFile.path());
+  expect(backupBytes.subarray(0, 2).toString('latin1')).toBe('PK');
+  expect(backupBytes.includes(Buffer.from('manifest.json'))).toBe(true);
+  await page.setViewportSize({ width: 390, height: 844 });
+  expect(await noSidewaysScroll()).toBe(true);
+  await expectAccessible(page, 'workspace backup on a phone');
+  await page.setViewportSize({ width: 1280, height: 720 });
+  // Deleted early on request: no longer downloadable.
+  await backupList.getByRole('button', { name: 'Delete now' }).first().click();
+  await expect(backupList.getByRole('listitem').first()).toContainText('Cancelled or deleted');
+
+  const backupWorkspaceId = /\/w\/([0-9a-f-]{36})\//.exec(page.url())?.[1] ?? '';
+  // Restore from backup (section 18c): a server admin uploads the file, reads what the check found, confirms —
+  // and gets a new Workspace. Nothing existing is changed and nobody is invited.
+  const workspacesBeforeRestore = await page.evaluate(async () => ((await (await fetch('/api/workspaces')).json()) as { workspaces: unknown[] }).workspaces.length);
+  await fromMenu(page, 'Server admin');
+  await settingsSection(page, 'Server administration', 'Workspaces');
+  const restoreCard = page.locator('section', { has: page.getByRole('heading', { name: 'Restore from backup', level: 3 }) });
+  await expect(restoreCard.getByText('A restore always creates a new Workspace')).toBeVisible();
+  await expect(restoreCard.getByText('not encrypted and not signed')).toBeVisible();
+  await expectAccessible(page, 'restore from backup');
+  await restoreCard.getByLabel('Backup file').setInputFiles({ name: 'home.vmnbackup', mimeType: 'application/octet-stream', buffer: backupBytes });
+  await restoreCard.getByRole('button', { name: 'Upload and check' }).click();
+  const previewHeading = restoreCard.getByRole('heading', { name: 'What this backup contains' });
+  await expect(previewHeading).toBeVisible({ timeout: 30_000 });
+  // The result takes the focus, so keyboard and screen-reader users land on it.
+  await expect(previewHeading).toBeFocused();
+  await expect(restoreCard.getByText('compatible with this server')).toBeVisible();
+  await expect(restoreCard.getByRole('heading', { name: 'Previous members' })).toBeVisible();
+  await expect(restoreCard.getByText('admin@example.org')).toBeVisible();
+  await expect(restoreCard.getByText('Not invited automatically')).toBeVisible();
+  await expect(restoreCard.getByText(/people will appear in the history as historical names only/)).toBeVisible();
+  await expectAccessible(page, 'restore preview');
+  for (const width of [390, 320]) {
+    await page.setViewportSize({ width, height: 800 });
+    expect(await noSidewaysScroll()).toBe(true);
+    await page.emulateMedia({ colorScheme: 'dark' });
+    await expectAccessible(page, `restore preview at ${width} px, dark`);
+    await page.emulateMedia({ colorScheme: 'light' });
+  }
+  await page.setViewportSize({ width: 1280, height: 720 });
+  // Explicit confirmation in a dialog, by keyboard: Escape keeps everything as it is.
+  await restoreCard.getByRole('button', { name: 'Restore as a new Workspace…' }).focus();
+  await page.keyboard.press('Enter');
+  const confirmDialog = page.getByRole('dialog', { name: /Restore “.+” as a new Workspace\?/ });
+  await expect(confirmDialog).toBeVisible();
+  await expectAccessible(page, 'restore confirmation');
+  await page.keyboard.press('Escape');
+  await expect(confirmDialog).toBeHidden();
+  await expect(restoreCard.getByRole('button', { name: 'Restore as a new Workspace…' })).toBeFocused();
+  await restoreCard.getByRole('button', { name: 'Restore as a new Workspace…' }).click();
+  await confirmDialog.getByRole('button', { name: 'Restore', exact: true }).click();
+  const restoredHeading = restoreCard.getByRole('heading', { name: /was restored as a new Workspace/ });
+  await expect(restoredHeading).toBeVisible({ timeout: 30_000 });
+  await expect(restoredHeading).toBeFocused();
+  await expectAccessible(page, 'restore done');
+  expect(await page.evaluate(async () => ((await (await fetch('/api/workspaces')).json()) as { workspaces: unknown[] }).workspaces.length)).toBe(workspacesBeforeRestore + 1);
+  // The result links to the new Workspace; then back to the one this flow works in.
+  await restoreCard.getByRole('link', { name: /^Open “/ }).click();
+  await expect(page).toHaveURL(/\/w\/[0-9a-f-]{36}$/);
+  expect(page.url()).not.toContain(backupWorkspaceId);
+  // The restored copy carries the original's name; renamed here so later steps can tell the two apart.
+  const restoredId = /\/w\/([0-9a-f-]{36})$/.exec(page.url())?.[1] ?? '';
+  expect(await page.evaluate(async (id) => (await fetch(`/api/workspaces/${id}/rename`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ name: 'Restored copy' }) })).status, restoredId)).toBeLessThan(300);
+  await fromMenu(page, 'Server admin');
+  // People of the backup are historical identities, shown as such to server admins — never as accounts.
+  await settingsSection(page, 'Server administration', 'Accounts & recovery');
+  const historical = page.locator('section', { has: page.getByRole('heading', { name: 'Historical identities' }) });
+  await expect(historical.getByText('History only').first()).toBeVisible();
+  await expect(historical.getByText(/From the restore of/).first()).toBeVisible();
+  await expectAccessible(page, 'historical identities');
+  // The restore limit is a server setting.
+  await settingsSection(page, 'Server administration', 'Server & storage');
+  const restoreLimitCard = page.getByRole('region', { name: 'Restoring Workspaces' });
+  const restoreLimit = restoreLimitCard.getByLabel('Largest backup file (GB)');
+  await expect(restoreLimit).toHaveValue('20');
+  await restoreLimit.fill('5');
+  await restoreLimitCard.getByRole('button', { name: 'Save limit' }).click();
+  await expect(restoreLimitCard.getByRole('status')).toHaveText(/^Restores accept backups up to 5(\.0+)? GB\.$/);
+  await restoreLimit.fill('20');
+  await restoreLimitCard.getByRole('button', { name: 'Save limit' }).click();
+  await expect(restoreLimitCard.getByRole('status')).toHaveText(/^Restores accept backups up to 20(\.0+)? GB\.$/);
+  await expectAccessible(page, 'restore limit setting');
+  await page.goto(`/w/${backupWorkspaceId}`);
+
   // Sharing links are a section of Workspace settings (15.1).
   await fromMenu(page, 'Workspace settings');
   await settingsSection(page, 'Workspace settings', 'Sharing links');

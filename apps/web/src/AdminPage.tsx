@@ -1,4 +1,5 @@
 import { WeatherAdmin } from './WeatherAdmin.tsx';
+import { HistoricalIdentities, RestoreFromBackup, RestoreLimitSettings } from './WorkspaceRestore.tsx';
 import { useCallback, useEffect, useState, type FormEvent } from 'react';
 import { ApiError, api, messageFor, type AccountInfo, type NotificationProviders as NotificationProvidersInfo, type PendingInvitation, type SecurityLogEntry } from './api.ts';
 import { formatDateTime, hasMessage, t } from './i18n/index.ts';
@@ -826,12 +827,18 @@ export function AdminPage({ section, currentUserId, onWorkspacesChanged }: { sec
       navLabel={t('admin.heading')}
       sections={ADMIN_SECTIONS.map((value) => ({ href: paths.admin(value), label: t(`admin.section.${value}`), current: value === section }))}
     >
-      {section === 'workspaces' && <CreateWorkspace onCreated={onWorkspacesChanged} />}
+      {section === 'workspaces' && (
+        <>
+          <CreateWorkspace onCreated={onWorkspacesChanged} />
+          <RestoreFromBackup onRestored={onWorkspacesChanged} />
+        </>
+      )}
       {section === 'invitations' && <Invitations />}
       {section === 'accounts' && (
         <>
           <Accounts currentUserId={currentUserId} />
           <AccountRecovery />
+          <HistoricalIdentities />
         </>
       )}
       {section === 'notifications' && <NotificationProviders />}
@@ -841,6 +848,7 @@ export function AdminPage({ section, currentUserId, onWorkspacesChanged }: { sec
           <ServerSettings />
           <AdminStorage />
           <DocumentFileSettings />
+          <RestoreLimitSettings />
         </>
       )}
       {section === 'log' && <SecurityLog />}

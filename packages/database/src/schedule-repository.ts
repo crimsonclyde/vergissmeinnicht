@@ -209,6 +209,9 @@ function refreshReminders(tx: Transaction, occurrence: OccurrenceRow, schedule: 
   cancelReminders(tx, occurrence.id, now);
   if (occurrence.state !== 'OPEN' || schedule.state !== 'ACTIVE') return;
   const recipient = reminderRecipientId(schedule, occurrence);
+  // A historical identity (section 18 — e.g. the creator of a restored Schedule) is never reminded: nothing is
+  // planned for it. (A disabled account keeps its planned reminders; delivery skips them while it is disabled.)
+  if (tx.select({ status: users.status }).from(users).where(eq(users.id, recipient)).get()?.status === 'IMPORTED') return;
   const reminderTime = (tx.select({ time: notificationPreferences.reminderTime }).from(notificationPreferences).where(eq(notificationPreferences.userId, recipient)).get()?.time ??
     DEFAULT_REMINDER_TIME) as LocalTime;
   const upcoming = upcomingReminders(

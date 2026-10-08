@@ -100,10 +100,12 @@ function RenameWorkspace({ context, onRenamed }: { context: WorkspaceContext; on
 }
 
 /** Capabilities only adapt the UI; the server authorizes every request. */
-export const workspaceSettingsSections = (workspaceId: string, capabilities: readonly string[], current: 'settings' | 'members' | 'knots') => [
+export const workspaceSettingsSections = (workspaceId: string, capabilities: readonly string[], current: 'settings' | 'members' | 'knots' | 'backup') => [
   { href: paths.settings(workspaceId), label: t('workspaceSettings.general'), current: current === 'settings' },
   { href: paths.members(workspaceId), label: t('members.heading'), current: current === 'members' },
   ...(capabilities.includes('knot.manage') ? [{ href: paths.knots(workspaceId), label: t('workspaceSettings.sharing'), current: current === 'knots' }] : []),
+  // Section 18: Workspace admins only (B1).
+  ...(capabilities.includes('workspace.backup') ? [{ href: paths.backup(workspaceId), label: t('backup.heading'), current: current === 'backup' }] : []),
 ];
 
 /** Workspace settings → General: the name (for those who manage settings), the own role, leaving. */

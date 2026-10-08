@@ -12,9 +12,9 @@ const MS_TO_KMH = 3.6;
  * MET Norway's terms (W6): every request identifies the application with a contact — VMN's project page,
  * plus the server admin's address when one is set.
  */
-export function metUserAgent(contact: string | null): string {
-  // No version: the server does not know its release number at run time (MET makes the version optional).
-  return `VergissMeinNicht (+${PROJECT}${contact === null ? '' : `; ${contact}`})`;
+export function metUserAgent(contact: string | null, version = 'development'): string {
+  // The release version comes from the image (VMN_VERSION, 18 D9); a development build says so.
+  return `VergissMeinNicht/${version} (+${PROJECT}${contact === null ? '' : `; ${contact}`})`;
 }
 
 interface Slot {

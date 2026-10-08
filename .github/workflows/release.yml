@@ -47,6 +47,7 @@ jobs:
       - name: Build
         run: >-
           docker build
+          --build-arg "VMN_VERSION=${{ steps.meta.outputs.version }}"
           --label "org.opencontainers.image.version=${{ steps.meta.outputs.version }}"
           --label "org.opencontainers.image.revision=${GITHUB_SHA}"
           --label "org.opencontainers.image.source=https://github.com/${GITHUB_REPOSITORY}"

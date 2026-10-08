@@ -299,6 +299,64 @@ export interface Comparison {
   readonly reason?: string;
 }
 
+/** A Workspace backup job (section 18a) — status only. */
+export interface BackupJob {
+  readonly id: string;
+  readonly state: 'QUEUED' | 'RUNNING' | 'READY' | 'FAILED' | 'CANCELLED' | 'EXPIRED';
+  readonly phase: string | null;
+  readonly progressDone: number;
+  readonly progressTotal: number;
+  readonly sizeBytes: number | null;
+  readonly counts: Readonly<Record<string, number>> | null;
+  readonly errorCode: string | null;
+  readonly createdAt: string;
+  readonly finishedAt: string | null;
+  readonly expiresAt: string | null;
+}
+
+/** What validating a Workspace backup found (18b/18c) — server admins only. */
+export interface RestorePreview {
+  readonly workspaceName: string;
+  readonly sourceAppVersion: string;
+  readonly databaseLevel: string;
+  /** When the backup was made (ISO time). */
+  readonly createdAt: string;
+  readonly packageBytes: number;
+  readonly contentBytes: number;
+  readonly counts: Readonly<Record<string, number>>;
+  readonly persons: number;
+  readonly previousMembers: readonly { readonly displayName: string; readonly email: string | null; readonly role: WorkspaceRole }[];
+  readonly warnings: readonly string[];
+  readonly schedulesPaused: number;
+  readonly assignmentsCleared: number;
+  readonly storage: { readonly used: number; readonly limit: number; readonly images: number; readonly imageLimit: number };
+}
+
+/** A restore job (section 18): upload → validate → (confirm) → restore. */
+export interface RestoreJob {
+  readonly id: string;
+  readonly state: 'QUEUED' | 'RUNNING' | 'READY' | 'FAILED' | 'CANCELLED' | 'EXPIRED';
+  /** `upload`, `validate[-step]`, `validated` (waiting for confirmation), `restore[-step]`, `restored`. */
+  readonly phase: string | null;
+  readonly progressDone: number;
+  readonly progressTotal: number;
+  readonly sizeBytes: number | null;
+  readonly preview: RestorePreview | null;
+  /** The new Workspace, once restored. */
+  readonly workspaceId: string | null;
+  readonly errorCode: string | null;
+  readonly createdAt: string;
+  readonly finishedAt: string | null;
+  readonly expiresAt: string | null;
+}
+
+/** A historical identity (section 18): a name in restored history, never an account. */
+export interface HistoricalIdentity {
+  readonly id: string;
+  readonly displayName: string;
+  readonly origin: { readonly workspaceId: string; readonly workspaceName: string; readonly restoredAt: string } | null;
+}
+
 export interface ServerWeather {
   readonly enabled: boolean;
   readonly allowed: readonly WeatherProviderId[];
@@ -399,6 +457,8 @@ export interface InstanceSettings {
   /** Largest accepted document file, in bytes (1 MB to 100 MB). */
   readonly documentMaxFileBytes: number;
   readonly documentFormats: readonly DocumentFileFormat[];
+  /** Largest Workspace backup accepted for a restore, in bytes (100 MB to 1 TB). */
+  readonly workspaceRestoreMaxBytes: number;
 }
 
 export interface DeletedProcedure extends Procedure {
@@ -1058,6 +1118,33 @@ function uploadDocumentFile(workspaceId: string, file: Blob, name: string, optio
   });
 }
 
+/**
+ * Uploads a Workspace backup for a restore (server admins), as it is, reporting the bytes sent. XMLHttpRequest,
+ * because `fetch` cannot report upload progress. The server checks everything; this only carries the file.
+ */
+function uploadWorkspaceRestore(file: Blob, options: { onProgress?: (loaded: number, total: number) => void; signal?: AbortSignal } = {}): Promise<RestoreJob> {
+  return new Promise((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    xhr.open('POST', '/api/admin/workspace-restores');
+    xhr.withCredentials = true;
+    xhr.responseType = 'json';
+    xhr.setRequestHeader('content-type', 'application/octet-stream');
+    xhr.upload.onprogress = (event) => options.onProgress?.(event.loaded, event.lengthComputable ? event.total : file.size);
+    xhr.onload = () => {
+      const body = (xhr.response ?? {}) as { restore?: RestoreJob; error?: string } & Record<string, unknown>;
+      if (xhr.status === 202 && body.restore !== undefined) return resolve(body.restore);
+      const { error, ...details } = body;
+      reject(new ApiError(xhr.status, error ?? 'request_failed', details));
+    };
+    xhr.onerror = () => reject(new TypeError('upload failed'));
+    xhr.onabort = () => reject(new DOMException('cancelled', 'AbortError'));
+    options.signal?.addEventListener('abort', () => xhr.abort());
+    xhr.send(file);
+  });
+}
+
+const restorePath = (jobId: string) => `/admin/workspace-restores/${encodeURIComponent(jobId)}`;
+
 const listPath = (workspaceId: string, listId?: string) => `/workspaces/${encodeURIComponent(workspaceId)}/lists${listId === undefined ? '' : `/${encodeURIComponent(listId)}`}`;
 const listItemPath = (workspaceId: string, listId: string, itemId: string) => `${listPath(workspaceId, listId)}/items/${encodeURIComponent(itemId)}`;
 const listOf = async (response: Promise<{ list: ListDetail }>) => (await response).list;
@@ -1112,6 +1199,11 @@ export const api = {
   weatherModels: async (location: WeatherLocation) => (await request<{ models: ModelChoice[] }>('POST', '/account/weather/models', { location })).models,
   /** `days`: Today asks for 2; the Weather page for everything the provider offers. */
   myForecast: (days?: number) => request<MyForecast>('GET', `/account/weather/forecast${days === undefined ? '' : `?days=${days}`}`),
+  workspaceBackups: async (workspaceId: string) => (await request<{ jobs: BackupJob[] }>('GET', `/workspaces/${encodeURIComponent(workspaceId)}/backups`)).jobs,
+  createWorkspaceBackup: async (workspaceId: string) => (await request<{ job: BackupJob }>('POST', `/workspaces/${encodeURIComponent(workspaceId)}/backups`, {})).job,
+  cancelWorkspaceBackup: async (workspaceId: string, jobId: string) => (await request<{ job: BackupJob }>('POST', `/workspaces/${encodeURIComponent(workspaceId)}/backups/${encodeURIComponent(jobId)}/cancel`, {})).job,
+  /** A plain link: the browser downloads it with the session cookie; it works for nobody else. */
+  workspaceBackupDownloadUrl: (workspaceId: string, jobId: string) => `/api/workspaces/${encodeURIComponent(workspaceId)}/backups/${encodeURIComponent(jobId)}/download`,
   /** Compare sources for the person's place; paid sources are fetched only with `fetchPaid` (19.4c). */
   compareForecasts: (sources: readonly { provider: WeatherProviderId; model?: OpenMeteoModelId }[], fetchPaid: boolean) => request<Comparison>('POST', '/account/weather/compare', { sources, fetchPaid }),
   savePersonalCredential: async (provider: CredentialProviderId, credential: WeatherCredential | undefined, dailyBudget: number) =>
@@ -1168,6 +1260,13 @@ export const api = {
     return request<{ events: SecurityLogEntry[]; nextCursor: string | null }>('GET', `/admin/security-events${suffix}`);
   },
   accounts: async () => (await request<{ accounts: AccountInfo[] }>('GET', '/admin/accounts')).accounts,
+  historicalIdentities: () => request<{ total: number; identities: HistoricalIdentity[] }>('GET', '/admin/accounts/historical-identities'),
+  // Restore from a Workspace backup (section 18): server admins only.
+  uploadWorkspaceRestore,
+  workspaceRestores: async () => (await request<{ restores: RestoreJob[] }>('GET', '/admin/workspace-restores')).restores,
+  workspaceRestore: async (jobId: string) => (await request<{ restore: RestoreJob }>('GET', restorePath(jobId))).restore,
+  confirmWorkspaceRestore: async (jobId: string) => (await request<{ restore: RestoreJob }>('POST', `${restorePath(jobId)}/confirm`, {})).restore,
+  cancelWorkspaceRestore: async (jobId: string) => (await request<{ restore: RestoreJob }>('POST', `${restorePath(jobId)}/cancel`, {})).restore,
   setAccountStatus: (userId: string, input: { status: AccountInfo['status']; password: string; code?: string }) =>
     request<{ status: AccountInfo['status']; sessionsRevoked: number }>(
       'POST',

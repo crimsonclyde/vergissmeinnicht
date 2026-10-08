@@ -1,4 +1,4 @@
-import { DomainValidationError, isActiveServerAdmin, parseDocumentFormats, parseMaxDocumentFileBytes, type User } from '@vergissmeinnicht/domain';
+import { DomainValidationError, isActiveServerAdmin, parseDocumentFormats, parseMaxDocumentFileBytes, parseWorkspaceRestoreMaxBytes, type User } from '@vergissmeinnicht/domain';
 import { NotAuthorizedError } from '../invitations/errors.ts';
 import type { Clock } from '../ports/clock.ts';
 import { RECENT_PROCEDURES_LIMIT_RANGE, type InstanceSettings, type InstanceSettingsRepository } from '../ports/instance-settings-repository.ts';
@@ -40,6 +40,8 @@ export async function updateInstanceSettings(
     ...input.settings,
     documentMaxFileBytes: input.settings.documentMaxFileBytes === undefined ? current.documentMaxFileBytes : parseMaxDocumentFileBytes(input.settings.documentMaxFileBytes),
     documentFormats: input.settings.documentFormats === undefined ? current.documentFormats : parseDocumentFormats(input.settings.documentFormats),
+    // Applies to uploads that start after the change; one already arriving keeps the limit it started with.
+    workspaceRestoreMaxBytes: input.settings.workspaceRestoreMaxBytes === undefined ? current.workspaceRestoreMaxBytes : parseWorkspaceRestoreMaxBytes(input.settings.workspaceRestoreMaxBytes),
   };
   if (!(await deps.settings.save(next, deps.clock.now(), userActor(input.actor)))) throw new NotAuthorizedError();
   return deps.settings.get();
