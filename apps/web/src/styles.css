@@ -3806,10 +3806,34 @@ input.list-check {
 }
 
 @media (min-width: 900px) {
-  .today-two .today-grid {
+  .today-two .today-grid:not(.today-grid-one) {
     grid-template-columns: minmax(0, 3fr) minmax(0, 2fr);
     align-items: start;
   }
+}
+
+/* Comfortable density (19.2): more air in and between cards. */
+.today-comfortable .today-card {
+  padding: 1rem 1.25rem;
+  margin-bottom: 1.25rem;
+}
+
+.today-comfortable .today-row {
+  padding: 0.6rem 0;
+}
+
+.today-customize {
+  margin: 0.5rem 0 0;
+  text-align: center;
+}
+
+.today-customize a {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  min-height: 2.75rem;
+  padding: 0 0.6rem;
+  color: var(--text-muted);
 }
 
 .today-card {
@@ -3979,3 +4003,56 @@ a.today-row:hover .today-row-title {
 .equipment-details dt { color: var(--text-muted); }
 .equipment-details dd { margin: 0.25rem 0 0; }
 .equipment-value { white-space: pre-wrap; overflow-wrap: anywhere; }
+
+/* Profile & settings → Today (19.2): one compact row per card, its options folded under it. */
+.today-settings h3 {
+  margin: 0;
+}
+
+.today-settings-cards > li {
+  padding: 0.5rem 0;
+}
+
+.today-settings-cards > li + li {
+  margin-top: 0;
+  border-top: 1px solid var(--border);
+}
+
+.today-settings-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.today-settings-toggle {
+  flex: 1 1 auto;
+  min-height: 2.75rem;
+  margin: 0;
+}
+
+.today-settings-move {
+  display: flex;
+  flex: none;
+  gap: 0.25rem;
+}
+
+.today-settings-move button {
+  min-width: 2.75rem;
+  min-height: 2.75rem;
+}
+
+.today-settings-options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem 1.25rem;
+  padding-left: 2rem;
+}
+
+.today-settings-options label {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  font-weight: 400;
+}

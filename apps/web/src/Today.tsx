@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { ProgressCard, RecentCard } from './TodayProgress.tsx';
 import { AddChooser, type CanAdd } from './AddChooser.tsx';
 import { api, isNetworkError, messageFor, type HomeOverview, type ListSummary, type MaintenanceDueSoonItem, type Occurrence, type PersonRef, type RunSummary } from './api.ts';
@@ -9,7 +9,8 @@ import { offlineStore } from './offline/store.ts';
 import { Link, paths } from './router.tsx';
 import { summaryOf } from './Runs.tsx';
 import { browserTimeZone, todayIn } from './schedule-dates.ts';
-import { ATTENTION_ROWS, TO_BUY_LISTS, nextUp, recentSince, todayCards, type TodayCardDefinition, type TodayCardId } from './today-cards.ts';
+import { ATTENTION_ROWS, agenda, nextUp, recentSince, todayCards, type TodayCardId, type TodayCardSetting } from './today-cards.ts';
+import { useTodaySettings } from './today-settings.ts';
 import { UiIcon, type UiIconName } from './ui-icons.tsx';
 import { UndoNotice, type Undoable } from './UndoNotice.tsx';
 
@@ -119,10 +120,16 @@ export function Today(props: {
   const [message, setMessage] = useState<string | null>(null);
   const [filter, setFilter] = useState<Filter>(storedFilter);
   const [notice, setNotice] = useState<Undoable | null>(null);
-  const cards = todayCards(props.tools);
+  const { settings, loaded } = useTodaySettings(userId);
+  const cards = todayCards(props.tools, settings);
+  // Plain values for the loader: which cards need data, and the Recently completed window.
+  const shownIds = useMemo(() => todayCards(props.tools, settings).map((setting) => setting.card.id).join(' '), [props.tools, settings]);
+  const retention = useMemo(() => settings.cards.find((setting) => setting.card.id === 'recent')?.retention ?? 'DAYS_3', [settings]);
 
   const load = useCallback(() => {
-    api.home(workspaceId, filter, recentSince()).then(
+    // Until the person's layout is known nothing is asked for twice.
+    if (!loaded) return;
+    api.home(workspaceId, filter, recentSince(retention) ?? undefined).then(
       (loaded) => {
         setHome(loaded);
         setOfflineActive(null);
@@ -142,10 +149,10 @@ export function Today(props: {
     );
     // The other cards are extras: without them (offline, error) the rest still shows. A card that is not
     // shown — its tool off, or switched off by the person — is never asked for (and never rendered).
-    const shown = todayCards(props.tools).map((card) => card.id);
+    const shown = shownIds.split(' ');
     if (shown.includes('toBuy')) api.lists(workspaceId).then(setLists, () => undefined);
     if (shown.includes('maintenance')) api.maintenanceDueSoon(workspaceId, todayIn(browserTimeZone())).then(setMaintenance, () => undefined);
-  }, [workspaceId, userId, reportReachable, reportUnreachable, props.tools, filter]);
+  }, [workspaceId, userId, reportReachable, reportUnreachable, shownIds, retention, loaded, filter]);
   useEffect(load, [load]);
   // Changes by other members arrive without a reload: refresh while visible, and when coming back.
   useEffect(() => {
@@ -208,7 +215,8 @@ export function Today(props: {
       </Link>
     ) : undefined;
 
-  const render = (card: TodayCardDefinition): ReactNode => {
+  const render = (setting: TodayCardSetting): ReactNode => {
+    const { card } = setting;
     switch (card.id) {
       case 'attention':
         if (calm)
@@ -259,8 +267,8 @@ export function Today(props: {
       case 'toBuy':
         if (listsToBuy.length === 0) return null;
         return (
-          <TodayCard key={card.id} id={card.id} icon="grocery" title={t('today.lists')} footer={more(listsToBuy.length - TO_BUY_LISTS, paths.lists(workspaceId))}>
-            {listsToBuy.slice(0, TO_BUY_LISTS).map((list) => (
+          <TodayCard key={card.id} id={card.id} icon="grocery" title={t('today.lists')} footer={more(listsToBuy.length - setting.lists, paths.lists(workspaceId))}>
+            {listsToBuy.slice(0, setting.lists).map((list) => (
               <LinkRow key={list.id} href={paths.list(workspaceId, list.id)} title={list.title} context={t('lists.toBuy', { count: list.open })} label={t('lists.openNamed', { title: list.title })} />
             ))}
           </TodayCard>
@@ -284,18 +292,47 @@ export function Today(props: {
           </TodayCard>
         );
       case 'recent':
-        return recent.length === 0 ? null : <RecentCard key={card.id} workspaceId={workspaceId} items={recent} />;
+        return recent.length === 0 || setting.retention === 'OFF' ? null : <RecentCard key={card.id} workspaceId={workspaceId} items={recent} />;
       case 'progress':
         return home?.progress === undefined ? null : <ProgressCard key={card.id} progress={home.progress} />;
+      case 'calendar': {
+        const dates = home === null ? [] : agenda(home.upcoming.filter(shown));
+        if (dates.length === 0) return null;
+        return (
+          <TodayCard key={card.id} id={card.id} icon="calendar" title={t('today.calendar')} footer={<Link href={paths.calendar(workspaceId)} className="today-more">{t('today.calendarLink')} <UiIcon name="forward" /></Link>}>
+            {dates.map((item) => (
+              <li key={item.id} className="today-row today-row-static">
+                <span className="today-row-title">{item.schedule.title}</span>
+                <small className="muted">
+                  <time dateTime={item.dueDate}>{when(item)}</time>
+                </small>
+              </li>
+            ))}
+          </TodayCard>
+        );
+      }
     }
   };
-  const column = (which: 'main' | 'side') => cards.filter((card) => card.column === which).map(render).filter((node) => node !== null);
-  const main = column('main');
-  const side = column('side');
+  // Wide cards (desktop) span both columns and split the page into blocks; within a block the main column
+  // holds what to act on and the side column the rest, each in the person's order.
+  const blocks: ({ kind: 'columns'; main: ReactNode[]; side: ReactNode[] } | { kind: 'wide'; node: ReactNode })[] = [];
+  for (const setting of cards) {
+    const node = render(setting);
+    if (node === null) continue;
+    if (setting.size === 'WIDE') {
+      blocks.push({ kind: 'wide', node });
+      continue;
+    }
+    const last = blocks.at(-1);
+    const block = last?.kind === 'columns' ? last : { kind: 'columns' as const, main: [], side: [] };
+    if (block !== last) blocks.push(block);
+    (setting.card.column === 'main' ? block.main : block.side).push(node);
+  }
+  const twoColumns = blocks.some((block) => block.kind === 'wide' || (block.main.length > 0 && block.side.length > 0));
 
   if (props.tools.length === 0 && offlineActive === null) return <section className="card stack"><h2>{t('shell.today')}</h2><p>{t('tools.empty')}</p>{props.canChooseTools && <Link className="button" href={paths.settings(workspaceId)}>{t('tools.choose')}</Link>}</section>;
   return (
-    <section aria-labelledby="today-heading" className={side.length > 0 && main.length > 0 ? 'today today-two' : 'today'}>
+    <section aria-labelledby="today-heading" className={['today', twoColumns ? 'today-two' : '', settings.density === 'COMFORTABLE' ? 'today-comfortable' : ''].filter(Boolean).join(' ')}>
       <div className="page-header page-header-tool">
         <h2 id="today-heading">{t('shell.today')}</h2>
         <AddChooser workspaceId={workspaceId} can={props.canAdd} />
@@ -313,10 +350,23 @@ export function Today(props: {
           ))}
         </div>
       )}
-      <div className="today-grid">
-        {main.length > 0 && <div className="today-column">{main}</div>}
-        {side.length > 0 && <div className="today-column today-side">{side}</div>}
-      </div>
+      {blocks.map((block, index) =>
+        block.kind === 'wide' ? (
+          <div key={index} className="today-wide">
+            {block.node}
+          </div>
+        ) : (
+          <div key={index} className={block.main.length > 0 && block.side.length > 0 ? 'today-grid' : 'today-grid today-grid-one'}>
+            {block.main.length > 0 && <div className="today-column">{block.main}</div>}
+            {block.side.length > 0 && <div className="today-column today-side">{block.side}</div>}
+          </div>
+        ),
+      )}
+      <p className="today-customize">
+        <Link href={paths.account('today')}>
+          <UiIcon name="settings" /> {t('today.customize')}
+        </Link>
+      </p>
       <UndoNotice notice={notice} onDismiss={() => setNotice(null)} />
     </section>
   );

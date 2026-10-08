@@ -3,8 +3,10 @@ import {
   confirmTotpEnrollment,
   disableTotp,
   getPreferences,
+  getTodayLayout,
   mfaStatus,
   regenerateRecoveryCodes,
+  saveTodayLayout,
   startTotpEnrollment,
   updatePreferences,
 } from '@vergissmeinnicht/application';
@@ -72,6 +74,17 @@ export async function accountRoutes(app: FastifyInstance, { services }: { servic
       },
     });
     return { preferences };
+  });
+
+  // Today layout (19.2): the person's own cards, order and options. Strictly validated on write; `null` resets.
+  app.get('/today', async (request) => {
+    const stored = await getTodayLayout(services.todayLayouts, { user: userOf(request) });
+    return { layout: stored === null ? null : stored.layout };
+  });
+  app.post('/today', { bodyLimit: 8192 }, async (request) => {
+    const body = parse(z.strictObject({ layout: z.unknown() }), request.body);
+    if (body.layout === undefined) throw new InvalidRequestError();
+    return { layout: await saveTodayLayout(services.todayLayouts, { user: userOf(request), layout: body.layout }) };
   });
 
   app.post('/password', { bodyLimit: 4096, config: perAccount }, async (request, reply) => {

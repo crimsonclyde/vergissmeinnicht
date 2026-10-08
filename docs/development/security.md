@@ -931,6 +931,17 @@ Today counts and activity execute within a transaction that rechecks active memb
 - **Visibility rule:** the browser asks for a card's data only when the card is shown (person's choice AND tool on); this is not a boundary — the server answers a switched-off tool's route with 404 regardless. Today cards are presentation, not tool hiding (AGENTS.md).
 - Untrusted titles (Reminders, Lists, Maintenance, Equipment) are rendered as React text; no HTML, no links built from record content.
 
+### Security check: personal Today layout (19.2, 2026-10-08)
+
+**Security surface changed: LOW.** A per-user presentation preference, owner-only; no Workspace data, no capability, no outbound connection.
+
+- **Storage:** `user_today_layouts` (migration 0041), one row per user, `json_valid` and ≤ 4096 bytes enforced by CHECK constraints as well as by the application. Never part of a Workspace, never shown to other members; not to be included in the Workspace backup (18).
+- **Routes:** `GET/POST /api/account/today` act only on the signed-in user (no user id accepted — an extra field is refused by the strict body schema); session required (401), Origin/CSRF check as for every state-changing cookie request (403), body limit 8 KiB.
+- **Strict write validation** (`parseTodayLayout`): exact keys, known version, density and size enums, card ids from a fixed list each at most once, per-card option schema (integer 1–10, retention enum), no free text; anything else → 400 and nothing stored. Reads are tolerant only in the browser (unknown ids ignored), so a layout from another version never causes an error.
+- **Not a security boundary:** the layout only selects which cards the browser renders and asks for; every card's data comes from routes that check membership, capability and tool switches themselves. A layout naming a card of a switched-off tool shows nothing (tested in `today-cards.test.ts`; server gates covered by the existing tool-switch sweeps).
+- **Device copy:** kept in the IndexedDB context store keyed by user and removed with all device data on sign-out or when another account signs in (8.5 cleanup).
+- Negative tests: `apps/server/src/http/today-layout.test.ts`.
+
 ### Release stabilization and faster validation (2026-10-04)
 
 The pinned Node/Bookworm runtime contained `libpcre2-8-0` 10.42-1+deb12u1; both native CI image scans refused CVE-2026-103111. The runtime layer now upgrades only that package via signed Debian repositories and requires at least 10.42-1+deb12u2. No scanner exception, severity reduction or dependency-ignore entry was introduced. The original digest stays pinned and final artifacts remain scanned, signed and SBOM-attested by the release workflow. [Debian’s tracker](https://security-tracker.debian.org/tracker/CVE-2026-103111) describes the PCRE2 flaw; the package candidate/fix was verified directly from Bookworm’s signed repository, beyond the older tracker snapshot.

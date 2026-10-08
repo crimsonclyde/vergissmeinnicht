@@ -81,7 +81,9 @@ Opening a Workspace shows **Today** — a few compact cards with what needs you 
 - **To buy** — grocery lists that still have something on them and how many items; tap one to open it.
 - **Maintenance** — with the Maintenance tool on: planned work from today up to two weeks ahead, and planned work whose date has passed, with the linked equipment where Equipment is on. Tap one to open it. Read-only here; it never shows costs.
 - **Recently completed** — what was finished in the last 3 days, newest first (at most five). A linked Run and its date count once; undoing a completion removes it.
-- **Progress** is a card that is off for now; choosing your own cards follows in **Profile & settings → Today**.
+- **Progress** (off unless you switch it on) — done today, this week and active, without zeros; *How this is counted* explains the time zones.
+- **Calendar** (off unless you switch it on, with the Calendar tool) — the next few dates as a short agenda.
+- **Customize Today** at the bottom leads to **Profile & settings → Today**, where you choose your own cards (see *Make it yours*).
 - Each item shows the title and one line: when it is due and who is responsible (**Assigned to …** or **Shared**). **⋯** holds the rest: *Details* (Reminder or Procedure, how it repeats, its reminders), *Skip…* (with an optional reason), *Move this date…*, *Assign…*, *Link an execution…*, *Edit schedule…*, *Pause* / *Resume*, *End schedule…*.
 - After **Done** a notice offers **Undo**.
 - **All / Assigned to me / Shared** appears when Procedures or Reminders is enabled, and filters the cards (remembered in this browser).
@@ -273,6 +275,7 @@ Editors and Admins can **Share as Knot link…** from a Procedure (under **⋯**
 **Settings → Profile & settings**, one section at a time:
 
 - **Notifications** — your default reminder time (09:00 unless you change it), email reminders on/off, and Telegram. Once your server admin has set up a Telegram bot, connect **your own** chat: **Connect Telegram** → open the link in Telegram and press *Start* → come back (the page notices it by itself) → **Confirm** the chat (only if it is yours — otherwise *Not me*) → connected, shown with your Telegram name. You never type a chat ID. *Disconnect Telegram* stops it at any time.
+- **Today** — your own Today: switch each card on or off, move it up or down, make it **Wide** (spans both columns on a large screen; phones always show one column), choose how many lists **To buy** shows (1–10) and how far back **Recently completed** looks (*Today*, *the last 24 hours*, *3 days* — the default —, *7 days* or *Off*), and **Compact** or **Comfortable** spacing. Every change is saved to your account at once (the page says *Saved.*) and applies in every Workspace; **Reset to default** brings back the standard layout. A card of a tool your Workspace does not use is marked *Not used in this Workspace* and never appears — choosing cards here never hides or shows a tool for anyone else. Your layout is kept on this device for offline use and deleted when you sign out.
 - **Appearance** — System (follows your device, also when it changes), Light, Dark or **Memento Mori** (pure black with crimson accents). Light and Dark look and work the same; only the colours differ. Saved to your account, so it follows you to every device.
 - **Password & security** — change your password; two-factor authentication.
 - **Confirmations** — how critical Steps are confirmed: press and hold, or tap then confirm.

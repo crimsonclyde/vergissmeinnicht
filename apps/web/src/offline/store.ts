@@ -261,6 +261,19 @@ export const offlineStore = {
       return entry?.value as CurrentUser | undefined;
     }, undefined),
 
+  /** The person's Today layout as last received (19.2), so Today keeps their cards offline. Deleted on sign-out. */
+  saveTodayLayout: (userId: string, layout: unknown) =>
+    safely(async () => {
+      const entry: ContextEntry = { key: `today-layout:${userId}`, userId, value: layout };
+      await withStore(CONTEXT, 'readwrite', (store) => store.put(entry));
+    }, undefined),
+
+  loadTodayLayout: (userId: string) =>
+    safely(async () => {
+      const entry = await withStore<ContextEntry | undefined>(CONTEXT, 'readonly', (store) => store.get(`today-layout:${userId}`) as IDBRequest<ContextEntry | undefined>);
+      return entry?.userId === userId ? entry.value : undefined;
+    }, undefined),
+
   saveWorkspaceList: (userId: string, list: readonly WorkspaceSummary[]) =>
     safely(async () => {
       const entry: ContextEntry = { key: `workspaces:${userId}`, userId, value: list };

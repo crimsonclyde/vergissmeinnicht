@@ -1074,6 +1074,33 @@ test('first server admin: bootstrap link, account creation, sign-in, Workspace c
   await sections.getByRole('link', { name: 'Today' }).click();
   await expect(page.getByRole('list', { name: 'To buy' })).toContainText('Weekly shop');
   await expect(page.getByRole('list', { name: 'To buy' })).toContainText('2 to buy');
+  // Today in the Profile (19.2): the person's own cards, order and options; Customize leads there.
+  await page.getByRole('link', { name: 'Customize Today' }).click();
+  await expect(page).toHaveURL(/\/account\/today$/);
+  const cardSettings = page.getByRole('list', { name: 'Cards' });
+  await expect(cardSettings.getByRole('listitem').first()).toContainText('Needs attention');
+  await expectAccessible(page, 'today settings');
+  await cardSettings.getByLabel('To buy', { exact: true }).uncheck();
+  await expect(page.getByRole('status').filter({ hasText: 'Saved.' })).toBeVisible();
+  await cardSettings.getByLabel('Progress', { exact: true }).check();
+  await expect(cardSettings.getByLabel('Progress', { exact: true })).toBeChecked();
+  const progressUp = page.getByRole('button', { name: 'Move Progress up' });
+  while (await progressUp.isEnabled()) {
+    await progressUp.click();
+    await expect(page.getByRole('status').filter({ hasText: 'Saved.' })).toBeVisible();
+  }
+  await expect(cardSettings.getByRole('listitem').first()).toContainText('Progress');
+  await sections.getByRole('link', { name: 'Today' }).click();
+  await expect(page.getByRole('region', { name: 'Progress' })).toBeVisible();
+  await expect(page.locator('.today-side .today-card').first()).toHaveAttribute('data-card', 'progress');
+  await expect(page.getByRole('list', { name: 'To buy' })).toHaveCount(0);
+  // Back to the defaults: To buy returns, Progress is off again.
+  await page.getByRole('link', { name: 'Customize Today' }).click();
+  await page.getByRole('button', { name: 'Reset to default' }).click();
+  await expect(cardSettings.getByLabel('To buy', { exact: true })).toBeChecked();
+  await sections.getByRole('link', { name: 'Today' }).click();
+  await expect(page.getByRole('list', { name: 'To buy' })).toContainText('Weekly shop');
+  await expect(page.getByRole('region', { name: 'Progress' })).toHaveCount(0);
   await page.getByRole('link', { name: 'Open list Weekly shop' }).click();
   // Delete the list and take that back from the overview.
   page.once('dialog', (dialog) => void dialog.accept());
@@ -2206,7 +2233,7 @@ test('first server admin: bootstrap link, account creation, sign-in, Workspace c
 
   // Profile & settings (15.1): named sections instead of one long page.
   await fromMenu(page, 'Profile & settings');
-  await expect(page.getByRole('navigation', { name: 'Profile & settings' }).getByRole('link')).toHaveText(['Notifications', 'Appearance', 'Password & security', 'Confirmations']);
+  await expect(page.getByRole('navigation', { name: 'Profile & settings' }).getByRole('link')).toHaveText(['Notifications', 'Today', 'Appearance', 'Password & security', 'Confirmations']);
   await expect(page.getByRole('radio', { name: /^Dark/ })).toHaveCount(0);
   await settingsSection(page, 'Profile & settings', 'Appearance');
   await expect(page).toHaveURL(/\/account\/appearance$/);

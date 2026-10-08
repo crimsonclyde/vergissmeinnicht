@@ -1,5 +1,5 @@
 /** Thin JSON client for the same-origin API. The browser adds the `Origin` header the server checks. */
-import type { ProcedureIcon, ReasonPolicy, RunState, StepState, UserPreferences, WorkspaceRole } from '@vergissmeinnicht/domain';
+import type { ProcedureIcon, ReasonPolicy, RunState, StepState, TodayLayout, UserPreferences, WorkspaceRole } from '@vergissmeinnicht/domain';
 import { hasMessage, t } from './i18n/index.ts';
 
 // Shared vocabulary comes from the domain package (browser-safe, no server code). The server still
@@ -1030,6 +1030,10 @@ export const api = {
     request<{ user: CurrentUser } | { mfaRequired: true }>('POST', '/auth/sign-in', { email, password }),
   completeMfa: async (factor: SecondFactor) => (await request<{ user: CurrentUser }>('POST', '/auth/mfa', factor)).user,
   mfaStatus: () => request<MfaStatus>('GET', '/account/mfa'),
+  /** The person's Today layout as saved (19.2) — possibly by an earlier version; `null` = defaults. */
+  todayLayout: async () => (await request<{ layout: unknown }>('GET', '/account/today')).layout,
+  /** Saves (or with `null` resets) the person's Today layout; the server validates it strictly. */
+  saveTodayLayout: async (layout: TodayLayout | null) => (await request<{ layout: TodayLayout | null }>('POST', '/account/today', { layout })).layout,
   preferences: async () => (await request<{ preferences: UserPreferences }>('GET', '/account/preferences')).preferences,
   updatePreferences: async (changes: Partial<UserPreferences>) =>
     (await request<{ preferences: UserPreferences }>('POST', '/account/preferences', changes)).preferences,
