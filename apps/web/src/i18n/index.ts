@@ -109,6 +109,18 @@ export function weekdayNames(width: 'short' | 'long'): string[] {
   return Array.from({ length: 7 }, (_unused, index) => format.format(new Date(Date.UTC(2024, 0, 1 + index, 12))));
 }
 
+/**
+ * Clock & date (19.3) in the browser's locale and time zone: the time (hours and minutes; 12- or 24-hour as
+ * the locale says unless `hour24`), the weekday with the date, and both in one sentence for assistive technology.
+ */
+export function formatClock(now: Date, hour24: boolean): { readonly time: string; readonly date: string; readonly full: string } {
+  const locale = formatLocale();
+  const time = new Intl.DateTimeFormat(locale, { hour: 'numeric', minute: '2-digit', ...(hour24 ? { hourCycle: 'h23' as const } : {}) }).format(now);
+  const date = new Intl.DateTimeFormat(locale, { weekday: 'long', day: 'numeric', month: 'long' }).format(now);
+  const full = new Intl.DateTimeFormat(locale, { dateStyle: 'full' }).format(now);
+  return { time, date, full: `${full}, ${time}` };
+}
+
 /** "tomorrow", "in 3 days", "yesterday" for a calendar date `YYYY-MM-DD`, counted from `today` (also `YYYY-MM-DD`). */
 export function formatRelativeDay(date: string, today: string): string {
   const days = Math.round((Date.parse(`${date}T00:00:00Z`) - Date.parse(`${today}T00:00:00Z`)) / 86_400_000);

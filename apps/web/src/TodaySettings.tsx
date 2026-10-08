@@ -4,6 +4,7 @@ import { messageFor } from './api.ts';
 import { t, type MessageKey } from './i18n/index.ts';
 import { changeCard, moveCard, type TodaySettings as Settings } from './today-cards.ts';
 import { useTodaySettings } from './today-settings.ts';
+import { Link, paths } from './router.tsx';
 
 const TITLES: Record<TodayCardId, MessageKey> = {
   attention: 'today.needsAttention',
@@ -14,6 +15,8 @@ const TITLES: Record<TodayCardId, MessageKey> = {
   recent: 'progress.recent',
   progress: 'progress.heading',
   calendar: 'today.calendar',
+  clock: 'today.clock',
+  weather: 'today.weather',
 };
 
 /**
@@ -22,7 +25,7 @@ const TITLES: Record<TodayCardId, MessageKey> = {
  * the Workspace is listed with a note and never appears, whatever is chosen here.
  * `tools`: the tools of the Workspace last opened, for that note (UI only); `null` when unknown.
  */
-export function TodaySettings({ userId, tools }: { userId: string; tools: readonly string[] | null }) {
+export function TodaySettings({ userId, tools, weatherOn }: { userId: string; tools: readonly string[] | null; weatherOn: boolean }) {
   const { settings, loaded, save } = useTodaySettings(userId);
   const [message, setMessage] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
@@ -46,8 +49,10 @@ export function TodaySettings({ userId, tools }: { userId: string; tools: readon
       <ol className="plain-list today-settings-cards" aria-label={t('todaySettings.cards')}>
         {settings.cards.map((setting, index) => {
           const { card } = setting;
+          // Weather is not offered at all while the server has it switched off (W1); its place in the order is kept.
+          if (card.id === 'weather' && !weatherOn) return null;
           const title = t(TITLES[card.id]);
-          const unused = tools !== null && !card.anyOf.some((tool) => tools.includes(tool));
+          const unused = tools !== null && card.anyOf.length > 0 && !card.anyOf.some((tool) => tools.includes(tool));
           const id = `today-card-setting-${card.id}`;
           return (
             <li key={card.id} className="today-settings-card">
@@ -87,6 +92,15 @@ export function TodaySettings({ userId, tools }: { userId: string; tools: readon
                           </option>
                         ))}
                       </select>
+                    </label>
+                  )}
+                  {card.id === 'weather' && (
+                    <Link href={paths.account('weather')}>{t('todaySettings.weatherSettings')}</Link>
+                  )}
+                  {card.id === 'clock' && (
+                    <label className="row">
+                      <input type="checkbox" checked={setting.hour24} onChange={(event) => apply(changeCard(settings, card.id, { hour24: event.target.checked }))} />
+                      {t('todaySettings.hour24')}
                     </label>
                   )}
                   {card.id === 'recent' && (

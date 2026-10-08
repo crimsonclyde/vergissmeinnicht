@@ -37,6 +37,8 @@ export const SECURITY_EVENT_TYPES = [
   'NOTIFICATION_PROVIDER_CHANGED',
   'TELEGRAM_CONNECTED',
   'TELEGRAM_DISCONNECTED',
+  // Weather (19.4): the server's weather settings changed by a server admin (switch, allowed providers, MET contact).
+  'WEATHER_SETTINGS_CHANGED',
   'WORKSPACE_CREATED',
   'WORKSPACE_RENAMED',
   'MEMBERSHIP_ADDED',

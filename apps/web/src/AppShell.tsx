@@ -31,6 +31,7 @@ import { SettingsMenu } from './SettingsMenu.tsx';
 import { SourceFooter } from './SourceFooter.tsx';
 import { CoreToolsContext } from './core-tools.ts';
 import { TodaySettings } from './TodaySettings.tsx';
+import { WeatherSettings } from './WeatherSettings.tsx';
 import { ScheduleHistory } from './ScheduleHistory.tsx';
 import { Today } from './Today.tsx';
 import { UiIcon, type UiIconName } from './ui-icons.tsx';
@@ -321,12 +322,20 @@ function NoWorkspace({ user }: { user: CurrentUser }) {
 
 /** Profile & settings (15.1): personal notifications, appearance, password and security, confirmations. */
 function AccountPage({ user, section, tools }: { user: CurrentUser; section: Extract<Route, { page: 'account' }>['section']; tools: readonly string[] | null }) {
+  // Weather (19.4) is offered only while the server allows it (W1); unknown until asked.
+  const [weatherOn, setWeatherOn] = useState<boolean | null>(null);
+  useEffect(() => {
+    api.myWeather().then(
+      () => setWeatherOn(true),
+      () => setWeatherOn(false),
+    );
+  }, []);
   return (
     <SettingsLayout
       title={t('account.heading')}
       subtitle={t('account.identity', { name: user.displayName, email: user.email })}
       navLabel={t('account.heading')}
-      sections={ACCOUNT_SECTIONS.map((value) => ({ href: paths.account(value), label: t(`account.section.${value}`), current: value === section }))}
+      sections={ACCOUNT_SECTIONS.filter((value) => value !== 'weather' || weatherOn === true || section === 'weather').map((value) => ({ href: paths.account(value), label: t(`account.section.${value}`), current: value === section }))}
     >
       {section === 'notifications' && (
         <div className="card">
@@ -335,7 +344,12 @@ function AccountPage({ user, section, tools }: { user: CurrentUser; section: Ext
       )}
       {section === 'today' && (
         <div className="card">
-          <TodaySettings userId={user.id} tools={tools} />
+          <TodaySettings userId={user.id} tools={tools} weatherOn={weatherOn === true} />
+        </div>
+      )}
+      {section === 'weather' && (
+        <div className="card">
+          <WeatherSettings />
         </div>
       )}
       {section === 'appearance' && (

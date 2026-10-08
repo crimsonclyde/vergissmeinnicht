@@ -4056,3 +4056,155 @@ a.today-row:hover .today-row-title {
   gap: 0.5rem;
   font-weight: 400;
 }
+
+/* Clock & date (19.3): the glance row — large time with the date beside it on a wide screen, one quiet line on a phone. */
+.today-clock time {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.25rem 1rem;
+}
+
+.today-clock-time {
+  font-size: 3rem;
+  font-weight: 700;
+  line-height: 1.1;
+  font-variant-numeric: tabular-nums;
+}
+
+.today-clock-date {
+  color: var(--text-muted);
+  font-size: 1.15rem;
+}
+
+@media (max-width: 600px) {
+  .today-clock {
+    padding: 0.5rem 1rem;
+  }
+
+  .today-clock time {
+    gap: 0 0.6rem;
+  }
+
+  .today-clock-time {
+    font-size: 1.35rem;
+  }
+
+  .today-clock-date {
+    font-size: 0.95rem;
+  }
+}
+
+/* The glance row (19.4): Clock & date and Weather side by side when there is room, one under the other on a phone. */
+.today-glance {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0 1rem;
+}
+
+.today-glance > .today-card {
+  flex: 1 1 18rem;
+  min-width: 0;
+}
+
+/* Weather on Today: the whole card opens the detailed forecast. */
+.today-weather-link {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  min-height: 2.75rem;
+  color: var(--text);
+  text-decoration: none;
+}
+
+.today-weather-link:hover strong {
+  text-decoration: underline;
+}
+
+.today-weather-main {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.today-weather-now {
+  font-size: 2.25rem;
+  font-weight: 700;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+
+.today-weather-text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.today-weather-source,
+.today-weather-tomorrow {
+  overflow-wrap: anywhere;
+}
+
+@media (max-width: 600px) {
+  .today-weather {
+    padding: 0.5rem 1rem;
+  }
+
+  .today-weather-now {
+    font-size: 1.35rem;
+  }
+
+  .today-weather-tomorrow {
+    display: none;
+  }
+}
+
+/* Profile → Weather (19.4). */
+.weather-places > li + li {
+  border-top: 1px solid var(--border);
+}
+
+.weather-places button {
+  width: 100%;
+  justify-content: flex-start;
+  text-align: start;
+  min-height: 2.75rem;
+}
+
+.weather-days {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr));
+  gap: 0.75rem;
+}
+
+.weather-days > li {
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 0.75rem;
+}
+
+.weather-days dl {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 0.15rem 0.6rem;
+  margin: 0.5rem 0 0;
+}
+
+.weather-days dt {
+  color: var(--text-muted);
+}
+
+.weather-days dd {
+  margin: 0;
+}
+
+.weather-coordinates {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr));
+  gap: 0.5rem 1rem;
+}
+
+.weather-settings small {
+  display: block;
+}

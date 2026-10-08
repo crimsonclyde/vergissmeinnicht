@@ -93,6 +93,8 @@ import {
   TotpAlreadyEnabledError,
   TotpLockedError,
   TotpNotEnabledError,
+  WeatherOffError,
+  WeatherProviderError,
 } from '@vergissmeinnicht/application';
 import { DomainValidationError, MAX_EXPORT_BYTES, MAX_EXPORT_FILES } from '@vergissmeinnicht/domain';
 import { ContactFileError, ProcedureImportError } from '@vergissmeinnicht/import-export';
@@ -175,6 +177,9 @@ export function errorHandler(error: FastifyError | Error, request: FastifyReques
   if (error instanceof KnotAlreadyRevokedError) return reply.code(409).send({ error: 'knot_already_revoked' });
   if (error instanceof KnotTargetNotFoundError) return reply.code(404).send({ error: 'knot_target_not_found' });
   if (error instanceof KnotLimitReachedError) return reply.code(409).send({ error: 'knot_limit_reached' });
+  // Weather (19.4): switched off on this server — like an unknown resource; a provider failure — its stable reason only.
+  if (error instanceof WeatherOffError) return reply.code(404).send({ error: 'weather_off' });
+  if (error instanceof WeatherProviderError) return reply.code(error.reason === 'not_allowed' ? 404 : 502).send({ error: 'weather_unavailable', reason: error.reason });
   if (error instanceof ListNotFoundError) return reply.code(404).send({ error: 'list_not_found' });
   if (error instanceof ListItemNotFoundError) return reply.code(404).send({ error: 'list_item_not_found' });
   if (error instanceof ListConflictError) return reply.code(409).send({ error: 'list_conflict' });

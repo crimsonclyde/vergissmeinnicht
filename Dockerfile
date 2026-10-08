@@ -29,6 +29,7 @@ COPY packages/notifications/package.json packages/notifications/
 COPY packages/permissions/package.json packages/permissions/
 COPY packages/realtime/package.json packages/realtime/
 COPY packages/ui/package.json packages/ui/
+COPY packages/weather/package.json packages/weather/
 
 # ---- OCR language data (16.9, HT9): English, German, Italian from tessdata_best, pinned to one
 # commit and verified by SHA-256 while building — the running server never downloads anything.

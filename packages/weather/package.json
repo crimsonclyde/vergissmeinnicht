@@ -1,0 +1,20 @@
+{
+  "name": "@vergissmeinnicht/weather",
+  "private": true,
+  "license": "AGPL-3.0-only",
+  "description": "Weather provider adapters (19.4): allow-listed hosts fixed in code, normalised forecasts.",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc -p ."
+  },
+  "dependencies": {
+    "@vergissmeinnicht/application": "workspace:*",
+    "@vergissmeinnicht/domain": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/node": "24.13.6"
+  }
+}

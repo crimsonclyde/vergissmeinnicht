@@ -11,6 +11,9 @@ const code = Object.entries(sources)
 
 /** Keys built at runtime, e.g. t(`state.${state}`); `error.*` keys are chosen by server error codes. */
 const DYNAMIC_PREFIXES = [
+  'weather.condition.',
+  'weather.noForecast.',
+  'weather.unit.',
   'todaySettings.retention.',
   'todaySettings.density.',
   'state.',

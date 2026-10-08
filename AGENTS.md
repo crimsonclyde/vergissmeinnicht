@@ -142,6 +142,8 @@ Use these terms consistently:
 - Assignee — the optional responsible member of a Schedule or Occurrence; assignment grants no access
 - List — lightweight shared content of a Workspace with items that are checked off; so far only the grocery list
 - ListItem — one entry of a List: a title, an optional quantity and unit, purchased or not
+- WeatherProvider — an allow-listed forecast source with an endpoint fixed in code (Open-Meteo, MET Norway, OpenWeather, Meteomatics; 19.4)
+- provider credential — a sealed secret for a WeatherProvider, server-wide (managed by server admins) or personal (its owner only); never returned or logged
 
 House management (section 16; a term is in use once its step is implemented):
 
@@ -292,7 +294,7 @@ Do not add without an accepted requirement:
 - automatic sending, replying, forwarding or filing of mail, mail rules, or automatic permanent deletion or expunging of remote mail;
 - mail servers on a LAN, VPN-only or private addresses; any outbound connection to a user-chosen host before the outbound-connection policy in `docs/development/security.md` covers it;
 - text recognition or any other processing of Documents or mail outside VMN's own infrastructure;
-- weather beyond exactly `docs/development/steps.md` 19.4 (optional, personal Profile location entered by hand, server-side fetch from one provider fixed in the code, server-admin switch on by default);
+- weather beyond exactly `docs/development/steps.md` 19.4 (optional and personal; provider endpoints fixed and allow-listed in code — Open-Meteo, MET Norway, OpenWeather, Meteomatics; per-person location, provider and model; optional sealed server-wide and personal provider credentials; server-side fetching and caching only; a server-admin switch, no Workspace switch; no automatic paid subscriptions);
 - geolocation (also not for weather);
 - QR/NFC;
 - complex branching workflows;
@@ -324,6 +326,7 @@ Examples:
 - GUEST cannot change a List, and a List or item id of another Workspace resolves to nothing;
 - a tool that is not switched on in a Workspace answers like an unknown resource on every one of its routes, for every role, and switching it off deletes nothing;
 - editing or moving a Step in the Procedure builder keeps its id, a duplicate gets a new one, and an outline is never saved while a Step has unapplied changes.
+- a personal provider credential is never readable, usable or overwritable by anyone but its owner, and never reaches another user through a cache; weather tests never call live providers.
 
 House management (section 16; each applies from the step that implements it):
 

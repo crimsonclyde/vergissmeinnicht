@@ -178,6 +178,16 @@ Schedules (steps.md 14.1 — standalone Reminders and scheduled Procedures, once
   - Do not set a webhook for the bot elsewhere (polling does not work while a webhook is set), and use the bot for VMN only.
   - Telegram (and mail servers) see the reminder text: the Procedure title, date and Workspace name.
 
+## Weather (19.4)
+
+Weather is personal: each person chooses a place, a provider and (for Open-Meteo) a model under **Profile & settings → Weather** and shows the card on their own Today. As server admin you decide under **Server admin → Weather** whether this server fetches weather at all (**on** by default) and from which providers.
+
+- **Outbound connections.** Only the server talks to providers — browsers and phones never do — and only to hosts fixed in the code: `api.open-meteo.com` and `geocoding-api.open-meteo.com` (Open-Meteo), `api.met.no` (MET Norway). HTTPS only, no redirects followed, 8 s timeout, at most 512 KiB per answer. Requests happen only when someone looks at Today or the Weather page (no background polling); forecasts are cached in the server process (Open-Meteo 30 minutes, MET Norway as long as its `Expires` header says) and one request serves everyone asking for the same place. If your firewall restricts outbound traffic, allow those hosts on port 443 — or switch Weather off.
+- **What providers learn:** this server's IP address and the places people chose, rounded to about 1 km (and typed place names when someone searches). Not who is looking.
+- **Terms.** Open-Meteo's free API is for **non-commercial** use only (a household or private installation is fine; running VMN commercially needs an Open-Meteo plan). MET Norway requires every application to identify itself: VMN sends `VergissMeinNicht (+https://github.com/crimsonclyde/vergissmeinnicht)` and, if you enter one, your contact address. Both data sets are CC BY 4.0; VMN shows the attribution with every forecast.
+- **Switched off**, no weather request of any kind is made and nobody sees weather settings or the card; people's saved settings are kept for when you switch it on again.
+- OpenWeather and Meteomatics (with credentials) follow in a later step.
+
 ## Text recognition (16.9)
 
 The server reads the text of uploaded Document files so they can be found by words printed on them: the text a PDF page contains (MuPDF), and **OCR** for scans and photos (Tesseract 5 compiled to WebAssembly, English + German + Italian + French). **Everything runs inside the app container; no file, page or text leaves the server, and recognition opens no network connection** — the language data ships in the image (`/app/packages/media/tessdata`, from `tesseract-ocr/tessdata_best`, pinned and checked by SHA-256 when the image is built; licence in `third-party-notices-server.txt`). There is no setting to use an outside service.

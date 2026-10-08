@@ -1,5 +1,5 @@
 /** Thin JSON client for the same-origin API. The browser adds the `Origin` header the server checks. */
-import type { ProcedureIcon, ReasonPolicy, RunState, StepState, TodayLayout, UserPreferences, WorkspaceRole } from '@vergissmeinnicht/domain';
+import type { OpenMeteoModelId, ProcedureIcon, ReasonPolicy, RunState, StepState, TodayLayout, UserPreferences, WeatherForecast, WeatherLocation, WeatherProviderId, WeatherSettings, WorkspaceRole } from '@vergissmeinnicht/domain';
 import { hasMessage, t } from './i18n/index.ts';
 
 // Shared vocabulary comes from the domain package (browser-safe, no server code). The server still
@@ -227,6 +227,49 @@ export interface TodayProgress {
   readonly activeRuns: number | null;
   readonly dueToday: number | null;
   readonly recentlyCompleted: readonly { readonly type: 'run' | 'occurrence'; readonly id: string; readonly scheduleId: string | null; readonly title: string; readonly completedAt: string }[];
+}
+
+/** The person's weather (19.4): their settings and the providers they can choose on this server. */
+export interface MyWeather {
+  readonly settings: WeatherSettings;
+  readonly providers: readonly WeatherProviderId[];
+}
+
+export interface PlaceResult {
+  readonly name: string;
+  readonly context: string;
+  readonly latitude: number;
+  readonly longitude: number;
+  readonly elevation: number | null;
+  readonly timeZone: string;
+}
+
+/** An Open-Meteo model covering a place, with what it lacks there (W2); `days: null` = Automatic. */
+export interface ModelChoice {
+  readonly id: OpenMeteoModelId;
+  readonly label: string;
+  readonly days: number | null;
+  readonly hasCondition: boolean | null;
+  readonly hasPrecipitationProbability: boolean | null;
+}
+
+/** The forecast for the person's place, or why there is none (no location, provider unavailable, …). */
+export type MyForecast =
+  | {
+      readonly forecast: WeatherForecast;
+      readonly location: Pick<WeatherLocation, 'name' | 'timeZone'>;
+      readonly fetchedAt: string;
+      readonly stale: boolean;
+      readonly fellBackFrom: WeatherProviderId | null;
+      readonly unit: 'C' | 'F';
+      readonly showTomorrow: boolean;
+    }
+  | { readonly forecast: null; readonly reason: string };
+
+export interface ServerWeather {
+  readonly enabled: boolean;
+  readonly allowed: readonly WeatherProviderId[];
+  readonly metContact: string | null;
 }
 
 export interface HomeOverview {
@@ -1030,6 +1073,13 @@ export const api = {
     request<{ user: CurrentUser } | { mfaRequired: true }>('POST', '/auth/sign-in', { email, password }),
   completeMfa: async (factor: SecondFactor) => (await request<{ user: CurrentUser }>('POST', '/auth/mfa', factor)).user,
   mfaStatus: () => request<MfaStatus>('GET', '/account/mfa'),
+  myWeather: () => request<MyWeather>('GET', '/account/weather'),
+  saveMyWeather: (settings: WeatherSettings) => request<MyWeather>('POST', '/account/weather', { settings }),
+  searchPlaces: async (text: string, language: string) => (await request<{ places: PlaceResult[] }>('GET', `/account/weather/places?q=${encodeURIComponent(text)}&lang=${encodeURIComponent(language)}`)).places,
+  weatherModels: async (location: WeatherLocation) => (await request<{ models: ModelChoice[] }>('POST', '/account/weather/models', { location })).models,
+  myForecast: () => request<MyForecast>('GET', '/account/weather/forecast'),
+  serverWeather: async () => (await request<{ settings: ServerWeather }>('GET', '/admin/weather')).settings,
+  saveServerWeather: async (settings: ServerWeather) => (await request<{ settings: ServerWeather }>('POST', '/admin/weather', settings)).settings,
   /** The person's Today layout as saved (19.2) — possibly by an earlier version; `null` = defaults. */
   todayLayout: async () => (await request<{ layout: unknown }>('GET', '/account/today')).layout,
   /** Saves (or with `null` resets) the person's Today layout; the server validates it strictly. */

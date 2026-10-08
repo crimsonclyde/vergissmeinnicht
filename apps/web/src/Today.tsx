@@ -1,4 +1,6 @@
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
+import { ClockCard } from './TodayClock.tsx';
+import { WeatherCard, useMyForecast } from './TodayWeather.tsx';
 import { ProgressCard, RecentCard } from './TodayProgress.tsx';
 import { AddChooser, type CanAdd } from './AddChooser.tsx';
 import { api, isNetworkError, messageFor, type HomeOverview, type ListSummary, type MaintenanceDueSoonItem, type Occurrence, type PersonRef, type RunSummary } from './api.ts';
@@ -125,6 +127,8 @@ export function Today(props: {
   // Plain values for the loader: which cards need data, and the Recently completed window.
   const shownIds = useMemo(() => todayCards(props.tools, settings).map((setting) => setting.card.id).join(' '), [props.tools, settings]);
   const retention = useMemo(() => settings.cards.find((setting) => setting.card.id === 'recent')?.retention ?? 'DAYS_3', [settings]);
+
+  const weather = useMyForecast(userId, loaded && shownIds.split(' ').includes('weather'));
 
   const load = useCallback(() => {
     // Until the person's layout is known nothing is asked for twice.
@@ -295,6 +299,10 @@ export function Today(props: {
         return recent.length === 0 || setting.retention === 'OFF' ? null : <RecentCard key={card.id} workspaceId={workspaceId} items={recent} />;
       case 'progress':
         return home?.progress === undefined ? null : <ProgressCard key={card.id} progress={home.progress} />;
+      case 'clock':
+        return <ClockCard key={card.id} hour24={setting.hour24} />;
+      case 'weather':
+        return weather === null ? null : <WeatherCard key={card.id} data={weather} />;
       case 'calendar': {
         const dates = home === null ? [] : agenda(home.upcoming.filter(shown));
         if (dates.length === 0) return null;
@@ -315,20 +323,26 @@ export function Today(props: {
   };
   // Wide cards (desktop) span both columns and split the page into blocks; within a block the main column
   // holds what to act on and the side column the rest, each in the person's order.
-  const blocks: ({ kind: 'columns'; main: ReactNode[]; side: ReactNode[] } | { kind: 'wide'; node: ReactNode })[] = [];
+  const blocks: ({ kind: 'columns'; main: ReactNode[]; side: ReactNode[] } | { kind: 'wide'; node: ReactNode } | { kind: 'glance'; nodes: ReactNode[] })[] = [];
   for (const setting of cards) {
     const node = render(setting);
     if (node === null) continue;
+    const last = blocks.at(-1);
+    // Clock & date and Weather form the glance row (19.1, 19.3, 19.4): full width, together when next to each other.
+    if (setting.card.id === 'clock' || setting.card.id === 'weather') {
+      if (last?.kind === 'glance') last.nodes.push(node);
+      else blocks.push({ kind: 'glance', nodes: [node] });
+      continue;
+    }
     if (setting.size === 'WIDE') {
       blocks.push({ kind: 'wide', node });
       continue;
     }
-    const last = blocks.at(-1);
     const block = last?.kind === 'columns' ? last : { kind: 'columns' as const, main: [], side: [] };
     if (block !== last) blocks.push(block);
     (setting.card.column === 'main' ? block.main : block.side).push(node);
   }
-  const twoColumns = blocks.some((block) => block.kind === 'wide' || (block.main.length > 0 && block.side.length > 0));
+  const twoColumns = blocks.some((block) => block.kind !== 'columns' || (block.main.length > 0 && block.side.length > 0));
 
   if (props.tools.length === 0 && offlineActive === null) return <section className="card stack"><h2>{t('shell.today')}</h2><p>{t('tools.empty')}</p>{props.canChooseTools && <Link className="button" href={paths.settings(workspaceId)}>{t('tools.choose')}</Link>}</section>;
   return (
@@ -351,7 +365,11 @@ export function Today(props: {
         </div>
       )}
       {blocks.map((block, index) =>
-        block.kind === 'wide' ? (
+        block.kind === 'glance' ? (
+          <div key={index} className="today-glance">
+            {block.nodes}
+          </div>
+        ) : block.kind === 'wide' ? (
           <div key={index} className="today-wide">
             {block.node}
           </div>

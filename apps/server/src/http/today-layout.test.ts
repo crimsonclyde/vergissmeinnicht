@@ -8,6 +8,7 @@ const LAYOUT = {
     { id: 'recent', visible: true, size: 'WIDE', options: { retention: 'DAYS_7' } },
     { id: 'toBuy', visible: false, options: { lists: 5 } },
     { id: 'progress', visible: true },
+    { id: 'clock', visible: true, options: { hour24: true } },
   ],
 };
 
@@ -50,6 +51,8 @@ describe('Today layout API (19.2)', () => {
       { ...LAYOUT, cards: [{ id: 'toBuy', visible: true, options: { lists: 11 } }] },
       { ...LAYOUT, cards: [{ id: 'toBuy', visible: true, options: { lists: 1.5 } }] },
       { ...LAYOUT, cards: [{ id: 'progress', visible: true, options: { anything: 1 } }] },
+      { ...LAYOUT, cards: [{ id: 'clock', visible: true, options: { hour24: 'yes' } }] },
+      { ...LAYOUT, cards: [{ id: 'clock', visible: true, options: { seconds: true } }] },
       'layout',
       [],
     ]) {

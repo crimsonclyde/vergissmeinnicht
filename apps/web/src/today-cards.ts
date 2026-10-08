@@ -24,7 +24,7 @@ export type { TodayCardId } from '@vergissmeinnicht/domain';
  */
 export interface TodayCardDefinition {
   readonly id: TodayCardId;
-  /** Shown only while at least one of these tools is on. */
+  /** Shown only while at least one of these tools is on; empty for a personal card that needs no tool (Clock & date). */
   readonly anyOf: readonly string[];
   readonly defaultVisible: boolean;
   /** Desktop: the main column for what to act on, the narrower side column for the rest. */
@@ -35,6 +35,10 @@ export interface TodayCardDefinition {
 
 /** In default order. Later versions add cards here; a saved layout only overrides the person's choices. */
 export const TODAY_CARDS: readonly TodayCardDefinition[] = [
+  // First, so that when switched on it is the top of the page: a full-width glance row, large on a wide screen, one line on a phone (19.3).
+  { id: 'clock', anyOf: [], defaultVisible: false, column: 'side', canBeWide: false },
+  // Personal, no Workspace tool (W1): shown when the server allows weather and the person set a place (19.4).
+  { id: 'weather', anyOf: [], defaultVisible: false, column: 'side', canBeWide: false },
   { id: 'attention', anyOf: ['REMINDERS', 'PROCEDURES'], defaultVisible: true, column: 'main', canBeWide: true },
   { id: 'continue', anyOf: ['PROCEDURES'], defaultVisible: true, column: 'main', canBeWide: true },
   { id: 'next', anyOf: ['REMINDERS', 'PROCEDURES'], defaultVisible: true, column: 'main', canBeWide: true },
@@ -55,6 +59,8 @@ export interface TodayCardSetting {
   readonly size: TodayCardSize;
   readonly lists: number;
   readonly retention: RecentRetention;
+  /** Clock & date: always 24-hour. */
+  readonly hour24: boolean;
 }
 
 export interface TodaySettings {
@@ -66,7 +72,7 @@ export interface TodaySettings {
 const isRecord = (value: unknown): value is Record<string, unknown> => typeof value === 'object' && value !== null && !Array.isArray(value);
 const pick = <T extends string>(values: readonly T[], value: unknown, fallback: T): T => (typeof value === 'string' && (values as readonly string[]).includes(value) ? (value as T) : fallback);
 
-const defaultSetting = (card: TodayCardDefinition): TodayCardSetting => ({ card, visible: card.defaultVisible, size: 'NORMAL', lists: DEFAULT_TO_BUY_LISTS, retention: DEFAULT_RETENTION });
+const defaultSetting = (card: TodayCardDefinition): TodayCardSetting => ({ card, visible: card.defaultVisible, size: 'NORMAL', lists: DEFAULT_TO_BUY_LISTS, retention: DEFAULT_RETENTION, hour24: false });
 
 /**
  * Reads a saved layout tolerantly (19.2): saved cards keep their position and choices; cards the registry
@@ -89,6 +95,7 @@ export function resolveTodayLayout(saved: unknown): TodaySettings {
       size: card.canBeWide ? pick(TODAY_CARD_SIZES, entry.size, 'NORMAL') : 'NORMAL',
       lists,
       retention: pick(RECENT_RETENTIONS, options.retention, DEFAULT_RETENTION),
+      hour24: options.hour24 === true,
     });
   }
   // New cards go right after the registry card before them (or first), so a saved order is never shuffled.
@@ -106,11 +113,11 @@ export function layoutOf(settings: TodaySettings): TodayLayout {
   return {
     version: TODAY_LAYOUT_VERSION,
     density: settings.density,
-    cards: settings.cards.map(({ card, visible, size, lists, retention }) => ({
+    cards: settings.cards.map(({ card, visible, size, lists, retention, hour24 }) => ({
       id: card.id,
       visible,
       size,
-      options: card.id === 'toBuy' ? { lists } : card.id === 'recent' ? { retention } : {},
+      options: card.id === 'toBuy' ? { lists } : card.id === 'recent' ? { retention } : card.id === 'clock' ? { hour24 } : {},
     })),
   };
 }
@@ -131,7 +138,7 @@ export function changeCard(settings: TodaySettings, id: TodayCardId, change: Par
 
 /** The cards that may appear, in the person's order: switched on by them and needing a tool that is on. */
 export function todayCards(tools: readonly string[], settings: TodaySettings = resolveTodayLayout(null)): TodayCardSetting[] {
-  return settings.cards.filter((setting) => setting.visible && setting.card.anyOf.some((tool) => tools.includes(tool)));
+  return settings.cards.filter((setting) => setting.visible && (setting.card.anyOf.length === 0 || setting.card.anyOf.some((tool) => tools.includes(tool))));
 }
 
 /** Rows a card lists before "+N more". */
