@@ -277,8 +277,8 @@ importers:
         version: 19.3.0(react@19.3.0)
     devDependencies:
       '@tabler/icons':
-        specifier: 3.48.0
-        version: 3.48.0
+        specifier: 3.49.0
+        version: 3.49.0
       '@types/react':
         specifier: 19.3.0
         version: 19.3.0
@@ -1595,6 +1595,9 @@ packages:
 
   '@tabler/icons@3.48.0':
     resolution: {integrity: sha512-lQk06gVHNVBnJp0UOgtth54mcZBJM7rdYKsAxKOProj1bbSAx+/xiuOWfHlyvgdL3M+Y+I0HINrjHa3ygp8eXQ==}
+
+  '@tabler/icons@3.49.0':
+    resolution: {integrity: sha512-l+GnSkFETx0U26icxv1VUFnxxiTqXfCcVRiRAnyMwibupM2S2L/hSaZ9gmSgz01rkrsH/93NvLsxykqdanc6lw==}
 
   '@types/better-sqlite3@9.6.0':
     resolution: {integrity: sha512-ZEEwBSgMu7GYJOynoagg5X9JbxfL6dTJDsgViJIqh67jV44kyOr9RXfmFjLK5rzC4MWssP06t9hu/JwGDnUbCg==}
@@ -3614,6 +3617,8 @@ snapshots:
       react: 19.3.0
 
   '@tabler/icons@3.48.0': {}
+
+  '@tabler/icons@3.49.0': {}
 
   '@types/better-sqlite3@9.6.0':
     dependencies:
