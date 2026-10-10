@@ -23,7 +23,7 @@
   },
   "devDependencies": {
     "@types/better-sqlite3": "9.6.0",
-    "@types/node": "24.13.6",
+    "@types/node": "26.6.4",
     "@vergissmeinnicht/auth": "workspace:*",
     "@vergissmeinnicht/import-export": "workspace:*",
     "@vergissmeinnicht/media": "workspace:*",
