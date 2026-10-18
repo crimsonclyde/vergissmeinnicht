@@ -55,6 +55,16 @@ describe('normalizeProcedureStructure', () => {
     );
   });
 
+  it('keeps an optional Section icon and rejects an unknown one (22.1)', () => {
+    const draft = normalizeProcedureStructure([
+      { title: 'Kitchen', description: '', icon: 'kitchen', steps: [] },
+      { title: 'No icon', description: '', icon: null, steps: [] },
+      { title: 'Older client', description: '', steps: [] },
+    ]);
+    expect(draft.sections.map((section) => section.icon)).toEqual(['kitchen', null, null]);
+    expect(codeOf(() => normalizeProcedureStructure([{ title: 'S', description: '', icon: 'javascript:alert(1)', steps: [] }]))).toBe('invalid_icon');
+  });
+
   it('rejects malformed and duplicate ids, also across Sections and Steps', () => {
     expect(codeOf(() => normalizeProcedureStructure([{ id: 'x', title: 'S', description: '', steps: [] }]))).toBe('invalid_item_id');
     expect(
@@ -99,8 +109,8 @@ describe('summarizeStructureChange', () => {
     image: null,
   });
   const before: ProcedureSection[] = [
-    { id: 's1' as SectionId, title: 'One', description: '', steps: [step(ID_A, 'a'), step(ID_B, 'b')] },
-    { id: 's2' as SectionId, title: 'Two', description: '', steps: [] },
+    { id: 's1' as SectionId, title: 'One', description: '', icon: null, steps: [step(ID_A, 'a'), step(ID_B, 'b')] },
+    { id: 's2' as SectionId, title: 'Two', description: '', icon: null, steps: [] },
   ];
 
   it('is empty for identical structures', () => {
@@ -109,8 +119,8 @@ describe('summarizeStructureChange', () => {
 
   it('counts additions, removals, edits and moves', () => {
     const after: ProcedureSection[] = [
-      { id: 's2' as SectionId, title: 'Two', description: '', steps: [step(ID_B, 'b')] },
-      { id: 's3' as SectionId, title: 'Three', description: '', steps: [step('new', 'c')] },
+      { id: 's2' as SectionId, title: 'Two', description: '', icon: null, steps: [step(ID_B, 'b')] },
+      { id: 's3' as SectionId, title: 'Three', description: '', icon: null, steps: [step('new', 'c')] },
     ];
     expect(summarizeStructureChange(before, after)).toEqual({
       sectionsAdded: 1,
@@ -120,5 +130,10 @@ describe('summarizeStructureChange', () => {
       stepsRemoved: 1,
       stepsChanged: 1,
     });
+  });
+
+  it('counts a changed Section icon as a changed Section (22.1)', () => {
+    const after: ProcedureSection[] = before.map((section, index) => (index === 0 ? { ...section, icon: 'kitchen' } : section));
+    expect(summarizeStructureChange(before, after)).toMatchObject({ sectionsChanged: 1, stepsChanged: 0 });
   });
 });

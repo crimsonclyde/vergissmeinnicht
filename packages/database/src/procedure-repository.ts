@@ -63,6 +63,7 @@ export function loadSections(db: Reader, procedureId: string): ProcedureSection[
       id: section.id as SectionId,
       title: section.title,
       description: section.description,
+      icon: section.icon,
       steps: steps
         .filter((step) => step.sectionId === section.id)
         .map((step) => ({
@@ -134,7 +135,7 @@ function writeSections(tx: Transaction, procedureId: string, sections: readonly 
   tx.delete(procedureSections).where(eq(procedureSections.procedureId, procedureId)).run();
   sections.forEach((section, position) => {
     tx.insert(procedureSections)
-      .values({ id: section.id, procedureId, position, title: section.title, description: section.description })
+      .values({ id: section.id, procedureId, position, title: section.title, description: section.description, icon: section.icon })
       .run();
     section.steps.forEach((step, stepPosition) => {
       const { image, ...fields } = step;

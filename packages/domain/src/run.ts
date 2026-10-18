@@ -111,6 +111,8 @@ export interface RunSection {
   readonly id: RunSectionId;
   readonly title: string;
   readonly description: string;
+  /** Snapshot of the Section icon (22.1); null when none was chosen. */
+  readonly icon: ProcedureIcon | null;
   readonly steps: readonly RunStep[];
 }
 

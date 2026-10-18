@@ -34,8 +34,8 @@ const SAVED: ProcedureContent = {
   icon: 'home',
   tags: ['house', 'travel'],
   sections: [
-    { id: 'sec-utilities', title: 'Utilities', description: 'In the cellar.', steps: [step('s-water', 'Switch off the water', { critical: true, skipReasonPolicy: 'REQUIRED' }), step('s-heating', 'Turn off heating'), step('s-plugs', 'Unplug appliances', { required: false })] },
-    { id: 'sec-kitchen', title: 'Kitchen', description: '', steps: [step('s-fridge', 'Empty the fridge', { image: { id: 'img-1', caption: 'Fridge door open' } }), step('s-bin', 'Take out the bin')] },
+    { id: 'sec-utilities', title: 'Utilities', description: 'In the cellar.', icon: 'water', steps: [step('s-water', 'Switch off the water', { critical: true, skipReasonPolicy: 'REQUIRED' }), step('s-heating', 'Turn off heating'), step('s-plugs', 'Unplug appliances', { required: false })] },
+    { id: 'sec-kitchen', title: 'Kitchen', description: '', icon: null, steps: [step('s-fridge', 'Empty the fridge', { image: { id: 'img-1', caption: 'Fridge door open' } }), step('s-bin', 'Take out the bin')] },
   ],
 };
 const saved = (): Draft => draftFrom(SAVED, 'Steps');

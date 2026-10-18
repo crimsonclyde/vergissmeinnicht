@@ -668,3 +668,9 @@ export function AppIcon(props: { name: string; decorative?: boolean; size?: numb
     </span>
   );
 }
+
+/** The icon shown for a Section without a chosen one (22.1). */
+export const DEFAULT_SECTION_ICON: VmnIconKey = 'checklist';
+
+/** A Section's icon, or the default one when none was chosen (also for Runs saved by an older version). */
+export const sectionIcon = (section: { readonly icon?: VmnIconKey | null }): VmnIconKey => section.icon ?? DEFAULT_SECTION_ICON;

@@ -48,6 +48,7 @@ const section = z.strictObject({
   id: itemId,
   title: text(512),
   description: text(16_384).default(''),
+  icon: text(64).nullable().default(null),
   steps: z.array(step).max(250).default([]),
 });
 const content = {

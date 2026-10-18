@@ -49,7 +49,7 @@ export const NEW_STEP: StepInput = {
 };
 
 export const newStep = (title: string): DraftStep => ({ ...NEW_STEP, title, key: newKey() });
-export const newSection = (title: string): DraftSection => ({ key: newKey(), title, description: '', steps: [] });
+export const newSection = (title: string): DraftSection => ({ key: newKey(), title, description: '', icon: null, steps: [] });
 
 /** A draft from saved content. A Procedure without Sections starts with one (named by the caller, e.g. "Steps"). */
 export function draftFrom(content: ProcedureContent, defaultSectionTitle: string): Draft {
@@ -99,6 +99,7 @@ export function toContent(draft: Draft): ProcedureContent {
       ...(section.id === undefined ? {} : { id: section.id }),
       title: section.title.trim(),
       description: section.description,
+      icon: section.icon ?? null,
       steps: section.steps.map(toStepInput),
     })),
   };
@@ -190,7 +191,7 @@ export function moveSectionTo(sections: Sections, sectionKey: string, index: num
   return next;
 }
 
-export function updateSection(sections: Sections, sectionKey: string, patch: { readonly title?: string; readonly description?: string }): DraftSection[] {
+export function updateSection(sections: Sections, sectionKey: string, patch: { readonly title?: string; readonly description?: string; readonly icon?: ProcedureIcon | null }): DraftSection[] {
   return mapSection(sections, sectionKey, (section) => ({ ...section, ...patch }));
 }
 

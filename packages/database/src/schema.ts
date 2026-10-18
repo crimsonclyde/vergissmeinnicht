@@ -446,6 +446,8 @@ export const procedureSections = sqliteTable(
     position: integer('position').notNull(),
     title: text('title').notNull(),
     description: text('description').notNull().default(''),
+    /** Optional trusted icon key (22.1). */
+    icon: text('icon', { enum: PROCEDURE_ICONS }).references(() => procedureIcons.key),
   },
   (table) => [
     uniqueIndex('procedure_sections_position_unique').on(table.procedureId, table.position),
@@ -570,6 +572,8 @@ export const runSections = sqliteTable(
     sourceSectionId: text('source_section_id').notNull(),
     title: text('title').notNull(),
     description: text('description').notNull(),
+    /** Snapshot of the Section icon (22.1), immutable like the rest (trigger in migration 0047). */
+    icon: text('icon', { enum: PROCEDURE_ICONS }).references(() => procedureIcons.key),
   },
   (table) => [
     uniqueIndex('run_sections_position_unique').on(table.runId, table.position),

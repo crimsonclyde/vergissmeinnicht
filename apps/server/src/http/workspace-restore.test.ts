@@ -182,7 +182,7 @@ describe('Workspace restore (section 18b)', () => {
     const before = { workspaces: workspaceCount(), imported: importedCount() };
     const ready = await validated(homePackage);
     expect(ready, JSON.stringify(ready)).toMatchObject({ state: 'READY', phase: 'validated', errorCode: null, workspaceId: null });
-    expect(ready.preview).toMatchObject({ workspaceName: 'Home ✨ Ferienhaus', databaseLevel: '0046_restore_administration', schedulesPaused: 2, assignmentsCleared: 1 });
+    expect(ready.preview).toMatchObject({ workspaceName: 'Home ✨ Ferienhaus', databaseLevel: '0047_section_icons', schedulesPaused: 2, assignmentsCleared: 1 });
     expect(ready.preview.counts).toMatchObject({ procedures: 1, runs: 2, documents: 2, document_files: 3, links: 3, run_document_removals: 1, contacts: 1, list_items: 3 });
     // Previous members, for inviting them again by hand — the restore itself invites and matches nobody.
     expect(ready.preview.previousMembers.map((member) => `${member.displayName}:${member.email}:${member.role}`).sort()).toEqual(['Ada:admin@example.org:ADMIN', 'Eddie:editor@example.org:EDITOR', 'Gus:guest@example.org:GUEST', 'Olga Öwner:owner@example.org:ADMIN', 'Uma 🌸:user@example.org:USER']);
@@ -303,6 +303,29 @@ describe('Workspace restore (section 18b)', () => {
     const actorsOf = (workspaceId: string) => new Set(all<{ id: string }>('SELECT DISTINCT actor_user_id AS id FROM audit_events WHERE workspace_id = ?', workspaceId).map((row) => row.id));
     const overlap = [...actorsOf(second)].filter((id) => actorsOf(restored).has(id));
     expect(overlap).toEqual([]);
+  });
+
+  it('restores Section icons, and packages written before them (0046) with no icon (22.1)', async () => {
+    const icons = (workspaceId: string) => all<{ icon: string | null }>('SELECT s.icon FROM procedure_sections s JOIN procedures p ON p.id = s.procedure_id WHERE p.workspace_id = ? UNION ALL SELECT s.icon FROM run_sections s JOIN runs r ON r.id = s.run_id WHERE r.workspace_id = ?', workspaceId, workspaceId).map((row) => row.icon);
+    const withIcons = await repack(homePackage, (files) => {
+      for (const name of ['procedure_sections', 'run_sections']) write(files, name, lines(files, name).map((row) => ({ ...row, icon: 'kitchen' })));
+    });
+    const restoredIcons = icons((await restore(withIcons)).workspaceId);
+    expect(restoredIcons.length).toBeGreaterThan(0);
+    expect(new Set(restoredIcons)).toEqual(new Set(['kitchen']));
+    const older = await repack(
+      homePackage,
+      (files) => {
+        for (const name of ['procedure_sections', 'run_sections']) write(files, name, lines(files, name).map((row) => Object.fromEntries(Object.entries(row).filter(([column]) => column !== 'icon'))));
+      },
+      { databaseLevel: '0046_restore_administration' },
+    );
+    expect(new Set(icons((await restore(older)).workspaceId))).toEqual(new Set([null]));
+    // Only a known icon key is kept; anything else becomes "no icon", like other icons (icon_unavailable).
+    const unknown = await repack(homePackage, (files) => write(files, 'procedure_sections', lines(files, 'procedure_sections').map((row) => ({ ...row, icon: '<svg onload=alert(1)>' }))));
+    const { job, workspaceId } = await restore(unknown);
+    expect(job.preview?.warnings).toContain('icon_unavailable');
+    expect(new Set(icons(workspaceId))).toEqual(new Set([null]));
   });
 
   it('works for a Workspace whose optional tools are all off', async () => {

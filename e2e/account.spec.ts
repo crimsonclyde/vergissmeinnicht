@@ -559,6 +559,8 @@ test('first server admin: bootstrap link, account creation, sign-in, Workspace c
   // time VMN warns that one is already active — starting another stays allowed (13.18).
   const run = page.getByRole('article');
   const stepItem = (title: string) => run.getByRole('listitem').filter({ hasText: title });
+  // These checks use the full list of Steps; the guided view (22.2, the default) is checked further down.
+  await page.evaluate("localStorage.setItem('vmn.runView', 'list')");
   for (let i = 0; i < 2; i++) {
     await sections.getByRole('link', { name: 'Procedures' }).click();
     await page.getByRole('list', { name: 'Procedures' }).getByRole('link').first().click();
@@ -587,16 +589,18 @@ test('first server admin: bootstrap link, account creation, sign-in, Workspace c
   await page.keyboard.press('Escape');
   await expect(viewer).toBeHidden();
   await expect(page).toHaveURL(/\/runs\/[0-9a-f-]{36}$/);
-  // Today (15.1) puts unfinished executions first: both under Continue.
+  // Today (15.1) puts unfinished executions first: one in the prominent card (22.3), the other under Continue.
   await sections.getByRole('link', { name: 'Today' }).click();
   await expect(page.getByRole('heading', { name: 'Today', level: 2 })).toBeVisible();
+  const pickUp = page.getByRole('region', { name: 'Pick up where you left off' });
+  await expect(pickUp).toContainText('0 of 2 resolved');
   const activeRuns = page.getByRole('list', { name: 'Continue' });
-  await expect(activeRuns.getByRole('listitem')).toHaveCount(2);
+  await expect(activeRuns.getByRole('listitem')).toHaveCount(1);
   await expect(activeRuns.getByRole('listitem').first()).toContainText('0 of 2 resolved');
   await expectAccessible(page, 'today with unfinished runs');
 
-  // Execute: Done, Skip with a required reason, Undo.
-  await activeRuns.getByRole('link').first().click();
+  // Execute: Done, Skip with a required reason, Undo — in the full list (the guided view is checked below).
+  await pickUp.getByRole('link').click();
 
   // A second device of the same person follows the Run live (6.1).
   const secondDevice = await browser.newContext(testInfo.project.use.baseURL === undefined ? {} : { baseURL: testInfo.project.use.baseURL });
@@ -610,6 +614,7 @@ test('first server admin: bootstrap link, account creation, sign-in, Workspace c
   const run2 = page2.getByRole('article');
   const stepItem2 = (title: string) => run2.getByRole('listitem').filter({ hasText: title });
   await expect(run2).toContainText('● Live');
+  await run2.getByRole('button', { name: 'Show all Steps as a list' }).click();
   await expect(run).toContainText('● Live');
 
   await run.getByRole('button', { name: 'Done: Close windows' }).click();
@@ -742,9 +747,34 @@ test('first server admin: bootstrap link, account creation, sign-in, Workspace c
   await expect(page.getByRole('list', { name: 'Finished' })).toContainText('✔ 2 done');
   await expectAccessible(page, 'completed history');
 
-  // Abort the other execution with a reason.
+  // The other execution, guided (22.2): the Sections as tiles, then one Step at a time with a cheer.
   await page.getByRole('button', { name: 'Go to Today' }).click();
-  await page.getByRole('list', { name: 'Continue' }).getByRole('link').click();
+  await expect(page.getByRole('list', { name: 'Continue' })).toHaveCount(0);
+  await page.getByRole('region', { name: 'Pick up where you left off' }).getByRole('link').click();
+  await run.getByRole('button', { name: 'Guided view' }).click();
+  const tiles = run.getByRole('list', { name: 'Sections' });
+  await expect(tiles.getByRole('button')).toHaveText([/Upstairs/, /Ground floor/]);
+  await expectAccessible(page, 'guided run: sections');
+  await tiles.getByRole('button', { name: /Upstairs/ }).click();
+  await expect(page).toHaveURL(/\/runs\/[0-9a-f-]{36}\/sections\/[0-9a-f-]{36}$/);
+  const upstairs = page.getByRole('region', { name: 'Section: Upstairs' });
+  await expect(upstairs).toContainText('Step 1 of 1');
+  await expectAccessible(page, 'guided run: one step');
+  await upstairs.getByRole('button', { name: 'Done: Close windows' }).click();
+  await expect(upstairs.getByRole('status').filter({ hasText: 'Nice!' })).toBeVisible();
+  await expect(upstairs.getByRole('heading', { name: 'Upstairs done!' })).toBeVisible();
+  await upstairs.getByRole('button', { name: 'Next: Ground floor' }).click();
+  const groundFloor = page.getByRole('region', { name: 'Section: Ground floor' });
+  await expect(groundFloor.getByRole('button', { name: 'Hold to mark done: Turn off stove' })).toBeVisible();
+  await page.setViewportSize({ width: 320, height: 640 });
+  expect(await noSidewaysScroll()).toBe(true);
+  await page.setViewportSize({ width: 1280, height: 720 });
+  // Back returns to the Sections; the Upstairs tile is finished.
+  await groundFloor.getByRole('button', { name: 'Back to Sections' }).click();
+  await expect(page).toHaveURL(/\/runs\/[0-9a-f-]{36}$/);
+  await expect(tiles.getByRole('button', { name: /Upstairs/ })).toHaveAttribute('data-finished', 'true');
+
+  // Abort it with a reason.
   await run.getByRole('button', { name: 'Abort…' }).click();
   await run.getByLabel('Why is it aborted? (optional)').fill('Plans changed');
   await run.getByRole('button', { name: 'Abort', exact: true }).click();
@@ -1003,12 +1033,12 @@ test('first server admin: bootstrap link, account creation, sign-in, Workspace c
   await expectAccessible(page, 'run view on a phone, started from Today');
   await page.setViewportSize({ width: 1280, height: 720 });
   await page.getByRole('button', { name: '← Today' }).click();
-  // The date shows its execution under Continue instead of a second Start.
-  const continueList = page.getByRole('list', { name: 'Continue' });
-  await expect(continueList).toContainText('In progress — started by Ada Admin');
-  await expect(continueList.getByRole('listitem')).toHaveCount(1);
+  // The date shows its execution in the prominent card (22.3) instead of a second Start.
+  const pickUpAgain = page.getByRole('region', { name: 'Pick up where you left off' });
+  await expect(pickUpAgain).toContainText('In progress — started by Ada Admin');
+  await expect(page.getByRole('list', { name: 'Continue' })).toHaveCount(0);
   await expect(page.getByRole('list', { name: 'Needs attention' })).toHaveCount(0);
-  await continueList.getByRole('link', { name: 'Continue Leave the flat' }).click();
+  await pickUpAgain.getByRole('link', { name: 'Continue Leave the flat' }).click();
   await run.getByRole('button', { name: 'Abort…' }).click();
   await run.getByRole('button', { name: 'Abort', exact: true }).click();
   await expect(run.getByRole('status').filter({ hasText: 'Aborted by Ada Admin' })).toBeVisible();
@@ -2565,6 +2595,8 @@ test('first server admin: bootstrap link, account creation, sign-in, Workspace c
   await page.getByRole('radio', { name: /^Tap, then confirm/ }).check();
   await expect(page.getByRole('radio', { name: /^Tap, then confirm/ })).toBeChecked();
   await page.goto('/');
+  // The full list again for the checks below (the guided view was chosen above).
+  await page.evaluate("localStorage.setItem('vmn.runView', 'list')");
   await sections.getByRole('link', { name: 'Procedures' }).click();
   await page.getByRole('list', { name: 'Procedures' }).getByRole('link').first().click();
   await procedure.getByRole('button', { name: 'Start Leave the flat' }).click();
@@ -2610,6 +2642,7 @@ test('first server admin: bootstrap link, account creation, sign-in, Workspace c
   await otherPage.getByRole('button', { name: 'Sign in' }).click();
   await expect(otherPage.getByRole('button', { name: /^Settings/ })).toBeVisible();
   await otherPage.goto(page.url());
+  await otherPage.getByRole('article').getByRole('button', { name: 'Show all Steps as a list' }).click();
   await context.setOffline(true);
   await stepItem('Close windows').getByRole('button', { name: 'Undo: Close windows' }).click();
   await expect(stepItem('Close windows')).toContainText('Saved on this device · not sent yet');

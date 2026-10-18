@@ -35,7 +35,7 @@ import {
   type PasteProblem,
   type SaveState,
 } from './procedure-draft.ts';
-import { AppIcon } from './procedure-icons.tsx';
+import { AppIcon, sectionIcon } from './procedure-icons.tsx';
 import { ProcedurePreview } from './ProcedurePreview.tsx';
 import { navigate, paths, setNavigationGuard } from './router.tsx';
 import { StartControl } from './StartProcedure.tsx';
@@ -108,17 +108,21 @@ function PasteDialog(props: { sectionTitle: string; room: number; onAdd: (titles
   );
 }
 
-/** Name and optional description of a Section (adding one, or changing it). */
-function SectionDialog(props: { heading: string; submitLabel: string; initial: { title: string; description: string }; onSubmit: (value: { title: string; description: string }) => void; onClose: () => void }) {
+type SectionValue = { title: string; description: string; icon: ProcedureIcon | null };
+
+/** Name, optional icon (22.1) and optional description of a Section (adding one, or changing it). */
+function SectionDialog(props: { heading: string; submitLabel: string; initial: SectionValue; onSubmit: (value: SectionValue) => void; onClose: () => void }) {
   const [title, setTitle] = useState(props.initial.title);
   const [description, setDescription] = useState(props.initial.description);
+  const [icon, setIcon] = useState(props.initial.icon);
   return (
-    <FormDialog title={props.heading} submitLabel={props.submitLabel} onClose={props.onClose} onSubmit={() => props.onSubmit({ title: title.trim(), description })}>
+    <FormDialog title={props.heading} submitLabel={props.submitLabel} onClose={props.onClose} onSubmit={() => props.onSubmit({ title: title.trim(), description, icon })}>
       <label>
         {t('builder.sectionName')}
         <br />
         <input required maxLength={120} value={title} onFocus={(e) => e.target.select()} onChange={(e) => setTitle(e.target.value)} />
       </label>
+      <IconPicker label={t('builder.sectionIcon')} value={icon} allowNone onChange={setIcon} />
       <label>
         {t('builder.sectionDescription')} <span className="muted">{t('common.optional')}</span>
         <br />
@@ -617,6 +621,7 @@ export function ProcedureBuilder(props: {
                     {...drag({ kind: 'section', key: section.key })}
                     onClick={() => setOpenSection(section.key)}
                   >
+                    <AppIcon name={sectionIcon(section)} decorative />
                     <span className="rail-text">
                       <strong>{sectionName(section)}</strong>
                       <small className="muted">{t('builder.stepCount', { count: section.steps.length })}</small>
@@ -646,7 +651,9 @@ export function ProcedureBuilder(props: {
                   <div className="outline-section-head">
                     <h2 id={headingId}>
                       <button type="button" className="section-toggle" aria-expanded={isOpen} onClick={() => setOpenSection(section.key)}>
-                        <span>{sectionName(section)}</span>
+                        <span>
+                          <AppIcon name={sectionIcon(section)} decorative /> {sectionName(section)}
+                        </span>
                         <small className="muted">{t('builder.stepCount', { count: section.steps.length })}</small>
                       </button>
                     </h2>
@@ -762,10 +769,10 @@ export function ProcedureBuilder(props: {
         <SectionDialog
           heading={t('builder.addSection')}
           submitLabel={t('builder.addSection')}
-          initial={{ title: t('builder.newSectionTitle', { number: sections.length + 1 }), description: '' }}
+          initial={{ title: t('builder.newSectionTitle', { number: sections.length + 1 }), description: '', icon: null }}
           onClose={() => setDialog(null)}
           onSubmit={(value) => {
-            const added = { ...newSection(value.title), description: value.description };
+            const added = { ...newSection(value.title), description: value.description, icon: value.icon };
             change([...sections, added]);
             setOpenSection(added.key);
           }}
@@ -778,7 +785,7 @@ export function ProcedureBuilder(props: {
             <SectionDialog
               heading={t('builder.editSectionHeading', { title: sectionName(section) })}
               submitLabel={t('builder.applySection')}
-              initial={{ title: section.title, description: section.description }}
+              initial={{ title: section.title, description: section.description, icon: section.icon ?? null }}
               onClose={() => setDialog(null)}
               onSubmit={(value) => change(updateSection(sections, section.key, value))}
             />

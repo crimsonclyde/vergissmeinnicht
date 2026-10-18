@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import type { Occurrence, RunSummary, Schedule } from './api.ts';
 import { destinations } from './AppShell.tsx';
 import { remindersView } from './Reminders.tsx';
-import { todayView } from './Today.tsx';
+import { firstName, greetingKey, todayHero, todayRing, todayView } from './Today.tsx';
 
 const W = '3f1c2b9a-6d4e-4f8a-9b7c-1a2b3c4d5e6f';
 
@@ -112,5 +112,34 @@ describe('tool navigation', () => {
     for (const page of ['settings', 'members', 'knots', 'account', 'admin'] as const) {
       expect(nav.side.some((item) => item.pages.includes(page))).toBe(false);
     }
+  });
+});
+
+describe('a livelier Today (22.3)', () => {
+  it('puts a loose unfinished Run in the prominent card first, else a started Occurrence', () => {
+    const view = todayView({ overdue: [inProgress('boiler')], today: [], upcoming: [], later: 0, active: [run] });
+    expect(todayHero(view)).toEqual({ kind: 'run', run });
+    expect(todayHero({ ...view, continueRuns: [] })).toMatchObject({ kind: 'occurrence', runId: 'run-boiler' });
+    expect(todayHero({ continueRuns: [], continueOccurrences: [] })).toBeNull();
+  });
+
+  it('counts the ring as done today out of done plus still due, and hides it when there is nothing', () => {
+    expect(todayRing(2, 3)).toEqual({ done: 2, total: 5 });
+    expect(todayRing(null, 1)).toEqual({ done: 0, total: 1 });
+    expect(todayRing(0, 0)).toBeNull();
+  });
+
+  it('greets by the time of day and the first name', () => {
+    expect([5, 11, 12, 17, 18, 23].map(greetingKey)).toEqual([
+      'today.greeting.morning',
+      'today.greeting.morning',
+      'today.greeting.afternoon',
+      'today.greeting.afternoon',
+      'today.greeting.evening',
+      'today.greeting.evening',
+    ]);
+    expect(firstName('  Ada Admin ')).toBe('Ada');
+    expect(firstName('Uma 🌸')).toBe('Uma');
+    expect(firstName('Cher')).toBe('Cher');
   });
 });

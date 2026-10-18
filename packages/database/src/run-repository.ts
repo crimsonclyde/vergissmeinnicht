@@ -86,6 +86,7 @@ function loadRunSections(db: Reader, runId: string): RunSection[] {
       id: section.id as RunSectionId,
       title: section.title,
       description: section.description,
+      icon: section.icon,
       steps: steps
         .filter((step) => step.runSectionId === section.id)
         .map(toRunStep),
@@ -143,6 +144,7 @@ export function createRunRepository({ db }: Pick<AppDatabase, 'db'>): RunReposit
               sourceSectionId: section.id,
               title: section.title,
               description: section.description,
+              icon: section.icon,
             })
             .run();
           section.steps.forEach((step, stepPosition) => {

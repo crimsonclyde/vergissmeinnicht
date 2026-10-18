@@ -4493,3 +4493,743 @@ a.today-row:hover .today-row-title {
 .section-actions {
   margin-top: 0.75rem;
 }
+
+/* ---- Guided Run (22.2) ------------------------------------------------------------------- */
+
+.ring {
+  position: relative;
+  display: inline-grid;
+  place-items: center;
+  flex: none;
+}
+
+.ring > svg {
+  position: absolute;
+  inset: 0;
+}
+
+.ring-track {
+  stroke: var(--surface-muted);
+}
+
+.ring-fill {
+  stroke: var(--state-done);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .ring-fill {
+    transition: stroke-dashoffset 500ms ease-out;
+  }
+}
+
+.ring-center {
+  position: relative;
+  font-weight: 700;
+  font-size: 0.85rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.ring[data-complete='true'] .ring-center {
+  color: var(--state-done);
+}
+
+.guide-hero {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.guide-hero .ring-center {
+  font-size: 1.05rem;
+}
+
+.guide-hero-text {
+  flex: 1;
+  min-width: 0;
+}
+
+.guide-hero-text h2 {
+  margin: 0 0 0.35rem;
+  font-size: 1.35rem;
+  overflow-wrap: anywhere;
+}
+
+.guide-view-switch {
+  align-self: flex-start;
+}
+
+.guide-big {
+  width: 100%;
+  min-height: 3.5rem;
+  font-size: 1.1rem;
+  border-radius: 14px;
+}
+
+.guide-continue {
+  margin: 0 0 1rem;
+}
+
+.guide-tiles {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 15rem), 1fr));
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+}
+
+.guide-tiles > li + li {
+  margin-top: 0;
+}
+
+.guide-tile {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 0.8rem;
+  width: 100%;
+  min-height: 4.75rem;
+  padding: 0.75rem 0.9rem;
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  background: var(--surface);
+  box-shadow: var(--shadow);
+  text-align: left;
+}
+
+.guide-tile[data-next='true'] {
+  border: 2px solid var(--accent);
+}
+
+.guide-tile[data-finished='true'] {
+  background: var(--state-done-bg);
+  border-color: var(--state-done);
+}
+
+.guide-tile-icon,
+.guide-step-icon {
+  display: inline-grid;
+  place-items: center;
+  flex: none;
+  width: 3rem;
+  height: 3rem;
+  border-radius: 14px;
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+.guide-tile[data-finished='true'] .guide-tile-icon {
+  background: var(--surface);
+  color: var(--state-done);
+}
+
+.guide-tile-text {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.guide-tile-text strong {
+  overflow-wrap: anywhere;
+}
+
+.guide-next {
+  position: absolute;
+  top: -0.6rem;
+  right: 0.8rem;
+  margin: 0;
+  background: var(--accent);
+  color: var(--accent-text);
+}
+
+/* One Section: a slim head, the Step as one large card, and the Step dots within thumb reach. */
+.guide {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.guide-head {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.guide-head-title {
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  flex: 1;
+  min-width: 0;
+  font-size: 1.1rem;
+}
+
+.guide-head-title strong {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.guide-head-count {
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-muted);
+}
+
+.guide-bar {
+  height: 0.6rem;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .guide-bar > span {
+    transition: width 400ms ease-out;
+  }
+}
+
+.guide-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.6rem;
+  margin: 0;
+  padding: 1.25rem 1rem 1rem;
+  border-radius: 20px;
+  text-align: center;
+  min-height: 18rem;
+  outline-offset: 4px;
+}
+
+.guide-card[data-state='DONE'] {
+  border-color: var(--state-done);
+}
+
+.guide-step-icon {
+  width: 4.25rem;
+  height: 4.25rem;
+  border-radius: 20px;
+}
+
+.guide-count {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 0.85rem;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+}
+
+.guide-step-title {
+  margin: 0;
+  font-size: 1.45rem;
+  line-height: 1.25;
+  overflow-wrap: anywhere;
+}
+
+.guide-description {
+  margin: 0;
+  max-width: 36rem;
+  white-space: pre-wrap;
+  text-align: left;
+}
+
+.guide-resolved {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  margin: 0;
+}
+
+.guide-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  width: 100%;
+  max-width: 28rem;
+  margin-top: auto;
+  padding-top: 0.5rem;
+}
+
+.guide-actions .guide-done,
+.guide-actions .hold,
+.guide-actions .tap-confirm {
+  width: 100%;
+  min-height: 3.5rem;
+  font-size: 1.15rem;
+  border-radius: 14px;
+}
+
+.guide-secondary {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.guide-secondary button {
+  flex: 1 1 0;
+  min-width: 0;
+}
+
+.guide-card form {
+  width: 100%;
+  max-width: 28rem;
+  text-align: left;
+}
+
+/* The cheer after a resolved Step: a mark that pops in, and a few words. */
+.guide-cheer {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.4rem;
+  margin-top: auto;
+  font-size: 1.2rem;
+}
+
+.guide-cheer-mark {
+  display: inline-grid;
+  place-items: center;
+  width: 4.5rem;
+  height: 4.5rem;
+  border-radius: 50%;
+  background: var(--state-done);
+  color: var(--state-done-text);
+}
+
+.guide-cheer-mark[data-state='SKIPPED'] {
+  background: var(--state-skipped);
+  color: var(--surface);
+}
+
+.guide-cheer-mark[data-state='NOT_APPLICABLE'] {
+  background: var(--state-na);
+  color: var(--surface);
+}
+
+@keyframes guide-pop {
+  0% {
+    transform: scale(0.3);
+    opacity: 0;
+  }
+  60% {
+    transform: scale(1.15);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+/* Movement only, never a fade: text is readable (and has its contrast) from the first frame. */
+@keyframes guide-slide {
+  from {
+    transform: translateY(0.6rem);
+  }
+  to {
+    transform: none;
+  }
+}
+
+@keyframes guide-rise {
+  from {
+    transform: translateY(0.6rem);
+    opacity: 0;
+  }
+  to {
+    transform: none;
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .guide-cheer-mark {
+    animation: guide-pop 450ms cubic-bezier(0.2, 0.9, 0.3, 1.3);
+  }
+
+  .guide-cheer strong {
+    animation: guide-slide 350ms 120ms ease-out both;
+  }
+
+  .guide-card:not([data-cheer='true']) {
+    animation: guide-slide 220ms ease-out;
+  }
+}
+
+.guide-nav {
+  position: sticky;
+  bottom: calc(var(--safe-bottom) + 0.5rem);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  padding: 0.25rem;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--surface-raised);
+  box-shadow: var(--shadow-raised);
+}
+
+.guide-dots {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0;
+  min-width: 0;
+}
+
+.guide-dots > li + li {
+  margin-top: 0;
+}
+
+/* Each dot is a 44 px target; the visible dot is drawn inside it. */
+.guide-dot {
+  position: relative;
+  min-width: 1.6rem;
+  min-height: 2.75rem;
+  padding: 0;
+  border: 0;
+  background: transparent;
+}
+
+.guide-dot::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 0.7rem;
+  height: 0.7rem;
+  border: 2px solid var(--border-strong);
+  border-radius: 50%;
+  transform: translate(-50%, -50%);
+}
+
+.guide-dot[data-state='DONE']::after {
+  background: var(--state-done);
+  border-color: var(--state-done);
+}
+
+.guide-dot[data-state='SKIPPED']::after {
+  background: var(--state-skipped);
+  border-color: var(--state-skipped);
+}
+
+.guide-dot[data-state='NOT_APPLICABLE']::after {
+  background: var(--state-na);
+  border-color: var(--state-na);
+}
+
+.guide-dot[aria-current='step']::after {
+  width: 1rem;
+  height: 1rem;
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+/* The end of a Section or of the Run: big ring, a few words, the one way on. */
+.guide-finish {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.9rem;
+  overflow: hidden;
+  padding: 1.5rem 1rem;
+  border-radius: 20px;
+  text-align: center;
+}
+
+.guide-finish h3 {
+  margin: 0;
+  font-size: 1.5rem;
+}
+
+.guide-finish .ring-center {
+  font-size: 1.4rem;
+}
+
+.guide-finish > section {
+  width: 100%;
+  max-width: 28rem;
+  margin: 0;
+  text-align: left;
+}
+
+.guide-finish-more {
+  justify-content: center;
+}
+
+.confetti {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.confetti > span {
+  position: absolute;
+  top: -1rem;
+  width: 0.5rem;
+  height: 0.9rem;
+  border-radius: 2px;
+  background: var(--accent);
+  animation: confetti-fall 1600ms ease-in forwards;
+}
+
+.confetti > span:nth-child(3n) {
+  background: var(--state-done);
+}
+
+.confetti > span:nth-child(3n + 1) {
+  background: var(--state-skipped);
+}
+
+@keyframes confetti-fall {
+  from {
+    transform: translateY(0) rotate(0);
+    opacity: 1;
+  }
+  to {
+    transform: translateY(18rem) rotate(540deg);
+    opacity: 0;
+  }
+}
+
+.guide-cheer[role='status'],
+.guide-finish[role='status'] {
+  border: 1px solid var(--border);
+  background: var(--surface);
+  padding: 1.5rem 1rem;
+  border-radius: 20px;
+}
+
+.guide-cheer[role='status'] {
+  border: 0;
+  background: none;
+  padding: 0;
+}
+
+.ring-center {
+  display: grid;
+  place-items: center;
+}
+
+.ring-center .ui-icon,
+.ring-center svg {
+  display: block;
+}
+
+.guide-end {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 1rem;
+}
+
+/* ---- A livelier Today (22.3) ------------------------------------------------------------- */
+
+.today-hello {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin: 1.25rem 0 0.75rem;
+}
+
+.today-hello-text {
+  min-width: 0;
+}
+
+.today-eyebrow {
+  margin: 0;
+  font-size: 0.85rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--accent);
+}
+
+.today-date {
+  color: var(--text-muted);
+  font-weight: 600;
+  text-transform: none;
+  letter-spacing: 0;
+}
+
+.today-greeting {
+  margin: 0.15rem 0 0;
+  font-size: clamp(1.45rem, 1.1rem + 1.6vw, 2.1rem);
+  font-weight: 700;
+  line-height: 1.15;
+  overflow-wrap: anywhere;
+}
+
+.today-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin: 0 0 1rem;
+}
+
+.today-toolbar-end {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  margin-left: auto;
+}
+
+/* A segmented control: the chosen option is raised and bold — never shown by colour alone. */
+.segmented {
+  display: inline-flex;
+  padding: 0.2rem;
+  border-radius: 999px;
+  background: var(--surface-muted);
+}
+
+.segmented button {
+  min-height: 2.75rem;
+  padding: 0.3rem 0.85rem;
+  border: 1px solid transparent;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 0.92rem;
+}
+
+.segmented button[aria-pressed='true'] {
+  background: var(--surface-raised);
+  border-color: var(--border);
+  box-shadow: var(--shadow);
+  color: var(--text);
+  font-weight: 700;
+}
+
+.today-hero {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  margin: 0 0 1rem;
+  padding: 1.1rem 1.1rem;
+  border-radius: 20px;
+  background: linear-gradient(135deg, var(--accent), color-mix(in srgb, var(--accent) 70%, #000));
+  color: var(--accent-text);
+  box-shadow: var(--shadow-raised);
+}
+
+.today-hero .ring-track {
+  stroke: color-mix(in srgb, var(--accent-text) 25%, transparent);
+}
+
+.today-hero .ring-fill {
+  stroke: var(--accent-text);
+}
+
+.today-hero .ring[data-complete='true'] .ring-center {
+  color: var(--accent-text);
+}
+
+.today-hero-icon {
+  display: inline-grid;
+  place-items: center;
+  flex: none;
+  width: 4rem;
+  height: 4rem;
+  border-radius: 18px;
+  background: color-mix(in srgb, var(--accent-text) 18%, transparent);
+}
+
+.today-hero-text {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.today-hero-text strong {
+  font-size: 1.25rem;
+  overflow-wrap: anywhere;
+}
+
+.today-hero-text small {
+  opacity: 0.9;
+}
+
+a.button.today-hero-go {
+  flex: none;
+  background: var(--accent-text);
+  border-color: var(--accent-text);
+  color: var(--accent);
+  font-weight: 700;
+  border-radius: 999px;
+  padding-inline: 1.1rem;
+  text-decoration: none;
+}
+
+@media (max-width: 30rem) {
+  .today-hero {
+    flex-wrap: wrap;
+  }
+
+  a.button.today-hero-go {
+    flex: 1 1 100%;
+  }
+}
+
+/* Coloured icon tiles in the card titles: a quick way to tell the cards apart (the title says it, too). */
+.today-card-title > .ui-icon {
+  display: inline-grid;
+  place-items: center;
+  width: 2rem;
+  height: 2rem;
+  border-radius: 10px;
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+.today-card[data-card='attention'] .today-card-title > .ui-icon {
+  background: var(--state-pending-bg);
+  color: var(--state-pending);
+}
+
+.today-card[data-card='recent'] .today-card-title > .ui-icon,
+.today-card[data-card='progress'] .today-card-title > .ui-icon {
+  background: var(--state-done-bg);
+  color: var(--state-done);
+}
+
+.today-card[data-card='toBuy'] .today-card-title > .ui-icon,
+.today-card[data-card='maintenance'] .today-card-title > .ui-icon {
+  background: var(--state-skipped-bg);
+  color: var(--state-skipped);
+}
+
+.today-card {
+  border-radius: 16px;
+}
+
+.today-calm {
+  display: flex;
+  align-items: center;
+  gap: 0.9rem;
+  padding: 1rem 1.1rem;
+  border-radius: 16px;
+}
+
+.today-calm-mark {
+  display: inline-grid;
+  place-items: center;
+  flex: none;
+  width: 3.25rem;
+  height: 3.25rem;
+  border-radius: 50%;
+  background: var(--state-done-bg);
+  color: var(--state-done);
+}
+
+/* Only the mark moves: text never fades in (it must be readable, and measurable, at once). */
+@media (prefers-reduced-motion: no-preference) {
+  .today-calm-mark {
+    animation: guide-rise 300ms ease-out;
+  }
+}

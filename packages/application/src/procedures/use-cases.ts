@@ -153,6 +153,7 @@ export async function duplicateProcedure(
     sections: source.sections.map((section) => ({
       title: section.title,
       description: section.description,
+      icon: section.icon,
       steps: section.steps.map((step) => ({
         title: step.title,
         description: step.description,

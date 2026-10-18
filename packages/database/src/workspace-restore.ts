@@ -31,8 +31,9 @@ const FIRST_BACKUP_LEVEL = '0044_workspace_backup_jobs';
 
 /**
  * Whether a package written at `level` can be restored here: a level this server knows, from the first one with
- * backups up to its own. A newer level is refused (this server cannot know its records). Every exported table has
- * had the same columns since 0044; a migration that changes one must add an upgrade of older packages here.
+ * backups up to its own. A newer level is refused (this server cannot know its records). A migration that changes an
+ * exported table's columns must add an upgrade of older packages here — so far only nullable columns were added,
+ * and a package written before them simply lacks them (`ADDED_COLUMNS`).
  */
 export function isRestorableLevel(sqlite: AppDatabase['sqlite'], level: string): boolean {
   const tags = (JSON.parse(readFileSync(join(MIGRATIONS_FOLDER, 'meta', '_journal.json'), 'utf8')) as { entries: { tag: string }[] }).entries.map((entry) => entry.tag);
@@ -258,8 +259,20 @@ function* records(path: string | undefined, table: string): Generator<Record<str
   }
 }
 
+/**
+ * Nullable columns added to exported tables after the first backup level (0044), by table. A package written before
+ * a column existed lacks it; the restore then stores NULL. Nothing else may be missing.
+ *  - 0047 (22.1): the optional Section icon of Procedures and of the Run snapshot.
+ */
+const ADDED_COLUMNS: Readonly<Record<string, readonly string[]>> = {
+  procedure_sections: ['icon'],
+  run_sections: ['icon'],
+};
+
 /** A package row: exactly the expected columns, every value a string, a finite number or null. */
 function checkRow(plan: TablePlan, row: Record<string, unknown>): void {
+  // An older package (see ADDED_COLUMNS): the column it could not have is NULL.
+  for (const column of ADDED_COLUMNS[plan.spec.table] ?? []) if (plan.expected.has(column) && !Object.hasOwn(row, column)) row[column] = null;
   const keys = Object.keys(row);
   if (keys.length !== plan.expected.size || !keys.every((key) => plan.expected.has(key))) throw new WorkspaceRestoreError('malformed_records', plan.spec.name);
   for (const key of keys) {

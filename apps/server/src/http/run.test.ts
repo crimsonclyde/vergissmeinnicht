@@ -57,6 +57,18 @@ describe('Run HTTP API', () => {
     expect((await t.get(`${runs(home)}?state=COMPLETED`, guest)).json().runs).toEqual([]);
   });
 
+  it('copies the Section icon into the Run and keeps it after the Procedure changes (22.1)', async () => {
+    const withIcons = { ...PROCEDURE, sections: [{ title: 'Kitchen', icon: 'kitchen', steps: [STEP] }, { title: 'Door', steps: [STEP] }] };
+    const id = (await t.post(`/api/workspaces/${home}/procedures`, withIcons, editor)).json().procedure.id as string;
+    const detail = (await t.get(`/api/workspaces/${home}/procedures/${id}`, editor)).json().procedure;
+    expect(detail.sections.map((section: { icon: string | null }) => section.icon)).toEqual(['kitchen', null]);
+    expect((await t.post(`/api/workspaces/${home}/procedures`, { ...PROCEDURE, sections: [{ title: 'X', icon: '<img src=x>', steps: [] }] }, editor)).statusCode).toBe(400);
+    const run = (await start(user, home, id)).json().run;
+    expect(run.sections.map((section: { icon: string | null }) => section.icon)).toEqual(['kitchen', null]);
+    await t.post(`/api/workspaces/${home}/procedures/${id}/update`, { ...withIcons, sections: [{ ...withIcons.sections[0], icon: 'car' }], expectedRevision: 1 }, editor);
+    expect((await t.get(`${runs(home)}/${run.id}`, user)).json().run.sections[0].icon).toBe('kitchen');
+  });
+
   it('enforces session, Origin, roles and Workspace scope', async () => {
     const runId = (await start(user)).json().run.id;
     expect((await t.get(runs(home))).statusCode).toBe(401);

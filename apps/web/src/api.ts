@@ -87,6 +87,8 @@ export interface SectionInput {
   readonly id?: string;
   readonly title: string;
   readonly description: string;
+  /** Optional (22.1); the guided Run shows a default icon when there is none. */
+  readonly icon?: ProcedureIcon | null;
   readonly steps: readonly StepInput[];
 }
 
@@ -476,6 +478,7 @@ export interface ProcedureSection {
   readonly id: string;
   readonly title: string;
   readonly description: string;
+  readonly icon?: ProcedureIcon | null;
   readonly steps: readonly ProcedureStep[];
 }
 
@@ -527,7 +530,16 @@ export interface RunStep {
 }
 
 export interface RunDetail extends RunInfo {
-  readonly sections: readonly { readonly id: string; readonly title: string; readonly description: string; readonly steps: readonly RunStep[] }[];
+  /** `icon` is missing on a Run saved on this device by an older version (offline copy): shown as the default. */
+  readonly sections: readonly RunSection[];
+}
+
+export interface RunSection {
+  readonly id: string;
+  readonly title: string;
+  readonly description: string;
+  readonly icon?: ProcedureIcon | null;
+  readonly steps: readonly RunStep[];
 }
 
 export interface HistoryEvent {

@@ -4285,6 +4285,49 @@ The Bring / Transfer candidate of 2026-10-07 became its own planned tool after t
 **Security docs updated:** YES — `security.md` §9 note in "Security check: rate limits by matched route (21.1)".  
 **Remaining:** Run *Abort…* and *Complete* stay text buttons on purpose (important, irreversible actions).
 
+## 22 — A guided Run and a livelier Today (accepted 2026-10-18, owner)
+
+Owner request (2026-10-18): on phones it is hard to see what is still open in a Run and what is done; the Run is the focus. Lead the person through a Run like a wizard instead of showing every Step with all its buttons at once: first the Sections as icons, then the Steps of a Section one at a time, with encouraging feedback when a Step is done (in the spirit of Duolingo). Today should look of this century and be more inviting on phones and computers, with less text and without overwhelming.
+
+Decisions (owner, 2026-10-18):
+- **G1** A Run opens on its Sections, shown as icon tiles; a Section without a chosen icon gets a default icon.
+- **G2** Inside a Section the Steps come one at a time; the full list stays one tap away (for an overview and Undo).
+- **G3** Feedback on Done: a short animation, a vibration where the phone allows it (not on iPhones), a message when a Section is finished and an end screen with Complete. Less motion when the device asks for it. Complete and Abort stay text buttons (they cannot be undone).
+- **G4** Today: a greeting with the date and a progress ring, one prominent card for the most important thing, coloured icon tiles, less text; nothing added that is not already on Today.
+
+### 22.1 Section icons
+
+**Status:** DONE (review branch, not released)  
+**Completed:** 2026-10-18  
+An optional icon per Section from the existing trusted icon catalogue (`procedure_icons`), chosen in the Procedure builder like a Step icon, copied into the Run snapshot when a Run starts (immutable like the other snapshot columns) and carried by Procedure export/import and the Workspace backup (older packages and documents without it still restore/import, as "no icon"). Shown with a default icon when none is chosen.
+
+**Implemented:** migration **0047** (`procedure_sections.icon`, `run_sections.icon`, both nullable and referencing `procedure_icons`; `run_sections` stays immutable through the 0011 trigger); domain `SectionInput.icon` (optional) validated by `parseProcedureIcon`, part of the structure change summary; saved, duplicated, copied into the Run snapshot and returned by the API; Procedure documents write `icon` only when a Section has one and read it optionally (files without it stay valid, also for older versions); the Workspace restore accepts packages written before 0047 without the column (`ADDED_COLUMNS`) and turns an unknown key into "no icon" with `icon_unavailable`, like other icons. Builder: **Icon** in the Section dialog (add, rename/describe), the icon in the Section rail and outline; the Procedure view shows it in the Section headings. Default icon: `checklist` (`DEFAULT_SECTION_ICON`, `sectionIcon()`).  
+**Tests/checks:** `procedure-structure.test.ts` (kept, omitted, unknown/`javascript:` refused; icon change counts as a changed Section), `procedure-document.test.ts`, `run.test.ts` (snapshot survives a later edit; markup refused with 400), `workspace-restore.test.ts` (icons restored; a 0046 package without the column; unknown key), `workspace-backup-tables.test.ts`, `release-upgrade.test.ts` (beta.2 database upgraded: only the new NULL column differs), `procedure-draft.test.ts`, `run-guide.test.ts` (default icon).  
+**Security impact:** LOW — one more trusted-icon column on an existing authorised write path. **Security docs updated:** YES (`security.md` "Section icons, guided Run and livelier Today").  
+**Remaining:** none known.
+
+### 22.2 Guided Run
+
+**Status:** DONE (review branch, not released)  
+**Completed:** 2026-10-18  
+The Run page shows the Sections as tiles (icon, title, done/total, a check when finished); a Run with one Section opens straight into it. A Section has its own address (`/w/{id}/runs/{id}/sections/{id}`) so the phone's Back returns to the Sections. One Step at a time: icon, title, marks, description and image, one large main action (Done or the critical-Step confirmation), Skip and Not applicable as smaller icon buttons, Back/Next, and dots for the Section's Steps. After Done the next pending Step follows by itself; a finished Section shows a short celebration and leads back or to the next open Section; when nothing required is open the end screen offers Complete. A **List** switch shows the familiar full list (Undo, reasons, who/when). Live updates, offline queueing and server-side checks are unchanged.
+
+**Implemented:** `apps/web/src/RunGuide.tsx` (`Ring`, `SectionTiles`, `SectionGuide`, `Confetti`, `nextPendingIndex`, `nextOpenSection`) and the guided mode of `RunView` in `Runs.tsx`: a hero with a progress ring, **Continue with …** for the next open Section, Section tiles (icon, ring, *Next*, finished in green with a check), Abort as a quiet button; **Complete** appears on the finish screen once nothing is pending. In a Section: a slim head (Back, icon, title, n/total, list switch), a progress bar, one large Step card (Step n of m, icon, title, marks, who/when, description, photo, a large **Done** or the critical confirmation, Skip and Not applicable side by side, Undo when resolved, the reason form in place), and a floating bar with ‹ dots › (each dot a 44 px target with the Step's state in its name). After a resolved Step: a cheer (four short phrases in turn, a mark that pops, a short vibration via `navigator.vibrate` where available), then the next pending Step; the last one leads to "*Section* done!" with confetti and **Next: …** or the finish controls; **Review** goes back through the Steps. Reduced motion: no confetti, no pop, a shorter pause. Route `/w/{id}/runs/{id}/sections/{id}` (Back from a Section uses the browser history when the Section was opened from the tiles; *Next: …* replaces the address). The list view stays (☰), with a grid button back to the guide; the choice is kept per device (`vmn.runView`).  
+**Tests/checks:** `run-guide.test.ts`, `router.test.ts`; e2e: the existing list checks now choose the list explicitly, and a new guided segment (tiles, Section address, Step 1 of 1, Done → "Nice!" → "Upstairs done!" → Next: Ground floor, the critical Step's hold button, no sideways scroll at 320 px, Back to the Sections, finished tile, Abort) with axe checks of both views; screenshots at 390, 320 and 1440 px, light and dark.  
+**Security impact:** LOW — presentation only (see 22.1 for the data). **Security docs updated:** YES.  
+**Remaining:** swipe gestures between Steps were not added (dots and ‹ › instead); no sounds. The Procedure builder's *Preview* still shows the list.
+
+### 22.3 A livelier Today
+
+**Status:** DONE (review branch, not released)  
+**Completed:** 2026-10-18  
+A greeting with the person's name and the date, and a ring for today's progress (done today out of done plus still due today); a prominent card for the single most important item (the Run to continue, otherwise the first item that needs attention) with one large action; coloured icon tiles in card titles; the All/Mine/Shared filter as a compact control; a friendly "all clear" state; *Customize Today* as an icon. Card preferences (19.2) keep working.
+
+**Implemented:** `Today.tsx`: eyebrow heading "Today · *weekday, date*" (still the page's h2) above "Good morning/afternoon/evening, *first name*"; a ring (done today out of done plus still due) when there is anything today; the filter as a segmented control **All / Mine / Shared** (accessible names keep "Assigned to me"); ⚙ (Customize Today) and **Add** side by side; **Pick up where you left off** — the first unfinished Run (a loose Run first, else a started Occurrence) as a gradient card with its progress ring or icon and a large **Continue**; the Continue card lists only the others; coloured icon tiles in the card titles (attention red, done green, lists and maintenance amber, others accent); "All clear" with a check instead of a plain line. Text never fades in (contrast from the first frame).  
+**Tests/checks:** `today-view.test.ts` (hero choice, ring, greeting, first name); e2e updated (prominent card, Continue count, in-progress Occurrence in the prominent card) and axe-checked; screenshots at 390, 320 and 1440 px, light and dark, no sideways scroll.  
+**Security impact:** NONE — presentation of data Today already loads. **Security docs updated:** YES (one line in the 22 check).  
+**Remaining:** the prominent card shows a ring only for Runs of no Occurrence (the Occurrence answer carries no Step counts).
+
 ---
 
 ## 11 — Licensing
