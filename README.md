@@ -24,7 +24,7 @@ In fair **VergissMeinNicht**, where we lay our lists, forgotten chores need not 
 
 Turn familiar routines into reusable **Procedures**, work through them together, and schedule recurring obligations. Keep shopping lists, documents, contacts and maintenance alongside them. Each shared **Workspace** is yours to shape: switch every tool on or off and keep only what you need.
 
-Clear actions, manageable steps and easy undo keep things moving. Completed **Runs** remember what was done, by whom and when—even after the original Procedure changes.
+A **Run** guides you one Step at a time, with a little cheer for each Step done and easy undo. Finished Runs remember what was done, by whom and when—even after the original Procedure changes.
 
 Self-hosted and open source, with Light and Dark themes on phones and desktops. For one household, two households, or a whole team with unfinished business.
 
@@ -40,23 +40,25 @@ Workspace admins choose which tools to enable. New Workspaces start with all fun
 
 ## Screenshots
 
-Real app captures from a fictional demo Workspace, in Light and Dark themes.
-
 <p align="center">
-  <img src="assets/screenshots/workspace-tools-2026-10-04/today-desktop-light.webp" alt="Desktop Today in Light mode, showing completed work, an active Leave the house Run and recently completed routines and reminders" width="900">
+  <img src="assets/screenshots/guided-run-2026-10-18/today-desktop-dark.webp" alt="Desktop Today in Dark mode: a greeting, a progress ring, a large Pick up where you left off card for Holiday departure, and cards for attention, Runs to continue, what's next, groceries and maintenance" width="900">
 </p>
 
-**Today · desktop, Light:** see recent progress and pick up an unfinished routine.
-
 <p align="center">
-  <img src="assets/screenshots/workspace-tools-2026-10-04/run-phone-light.webp" alt="Phone Run execution in Light mode, with a pending Critical Step and Hold to confirm" width="260">
-  <img src="assets/screenshots/workspace-tools-2026-10-04/maintenance-phone-dark.webp" alt="Phone Maintenance in Dark mode, showing the four work statuses and a planned Check smoke alarms record" width="260">
+  <img src="assets/screenshots/guided-run-2026-10-18/run-sections-phone-dark.webp" alt="Phone Run in Dark mode: Sections as icon tiles with progress rings, Bathroom finished and Kitchen marked next" width="240">
+  <img src="assets/screenshots/guided-run-2026-10-18/run-step-phone-dark.webp" alt="Phone Run in Dark mode: one Step at a time, Windows closed, with a large Done button and Skip and Not applicable below" width="240">
+  <img src="assets/screenshots/guided-run-2026-10-18/run-cheer-phone-dark.webp" alt="Phone Run in Dark mode: the Step just done, with a green check and Nice!" width="240">
 </p>
 
-- **Run execution · phone, Light:** follow the next step, with deliberate confirmation for critical checks.
-- **Maintenance · phone, Dark:** keep planned work in view and update its status as you go.
+<p align="center"><b>Pick a Section, do one Step at a time, get a cheer for each one.</b></p>
 
-[Capture details and additional views](assets/screenshots/workspace-tools-2026-10-04/README.md), including the Procedure builder, Documents and phone Today.
+<p align="center">
+  <img src="assets/screenshots/guided-run-2026-10-18/today-phone-light.webp" alt="Phone Today in Light mode with the greeting, progress ring and Pick up where you left off card" width="240">
+  <img src="assets/screenshots/guided-run-2026-10-18/run-step-phone-light.webp" alt="Phone Run step in Light mode with a large Done button" width="240">
+  <img src="assets/screenshots/workspace-tools-2026-10-04/maintenance-phone-dark.webp" alt="Phone Maintenance in Dark mode, showing the four work statuses and a planned Check smoke alarms record" width="240">
+</p>
+
+<p align="center"><sub>Fictional demo Workspace, Light and Dark. <a href="assets/screenshots/guided-run-2026-10-18/README.md">Capture details</a> · <a href="assets/screenshots/workspace-tools-2026-10-04/README.md">builder, Documents and more</a></sub></p>
 
 ## Documentation
 
@@ -74,8 +76,7 @@ Browse all guides in the [documentation index](docs/README.md).
 
 **VMN is in beta.**
 
-- **Available today:** reusable Procedures and collaborative Runs with history; scheduling, email and optional Telegram reminders; grocery Lists and Calendar; Documents, Contacts, Maintenance and Equipment. Today brings together work to do, progress and recent completions.
-- **Text recognition** (unreleased): words printed in Documents become searchable, with suggestions you accept or dismiss — read on your own server only.
+- **Available today:** reusable Procedures and guided, collaborative Runs with history; scheduling, email and optional Telegram reminders; grocery Lists and Calendar; Documents with text recognition on your own server, Contacts, Maintenance and Equipment; Workspace backup and restore. Today brings together work to do, progress and recent completions.
 
 See the [implementation ledger](docs/development/steps.md) for release details, known limitations and upcoming work.
 
