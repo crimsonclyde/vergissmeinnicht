@@ -417,7 +417,7 @@ describe('document files (16.1)', () => {
       const { file } = await upload(content('PDF 502'));
       await deps.previews.idle();
       expect(await getDocumentFile(deps, { actor: gus, workspaceId: home.id, fileId: file.id })).toMatchObject({ pageCount: 502, previewState: 'READY', previewPages: 500 });
-    });
+    }, 30_000); // 500 pages, one at a time: about 2 s locally, past 5 s on a slow CI runner (release run 39158171631).
 
     it('stops when storage is full, and takes unfinished files up again after a restart', async () => {
       previewBytes = 1000;
