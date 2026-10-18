@@ -1404,6 +1404,15 @@ a.button.primary {
   border-color: transparent;
 }
 
+/* A menu opened from a labelled button looks like any other button. */
+.more-menu-button.with-text {
+  padding: 0.45rem 0.9rem;
+  font-size: inherit;
+  line-height: inherit;
+  background: var(--surface-muted);
+  border-color: var(--border-strong);
+}
+
 .more-menu-panel {
   position: absolute;
   right: 0;
@@ -4013,9 +4022,6 @@ a.today-row:hover .today-row-title {
   font-weight: 700;
 }
 
-.equipment-details { display: grid; gap: 1rem; }
-.equipment-details dt { color: var(--text-muted); }
-.equipment-details dd { margin: 0.25rem 0 0; }
 .equipment-value { white-space: pre-wrap; overflow-wrap: anywhere; }
 
 /* Profile & settings → Today (19.2): one compact row per card, its options folded under it. */
@@ -4472,4 +4478,18 @@ a.today-row:hover .today-row-title {
 
 .workspace-restore input[type='file'] {
   max-width: 100%;
+}
+
+/* Search and filters side by side where there is room; one column on phones. */
+.filter-bar {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr));
+  gap: 0.75rem;
+  align-items: end;
+  margin-bottom: 1rem;
+}
+
+/* Actions under a list of linked records keep a little distance from it. */
+.section-actions {
+  margin-top: 0.75rem;
 }

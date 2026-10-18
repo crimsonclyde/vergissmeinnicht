@@ -513,11 +513,11 @@ function ContactLinks(props: { workspaceId: string; contact: Contact; canManage:
               void api.procedures(workspaceId).then(setOptions, () => setOptions([]));
             }}
           >
-            {t('contacts.links.addProcedure')}
+            <UiIcon name="procedures" /> {t('contacts.links.addProcedure')}
           </button>)}
           {canLinkDocuments && (
             <button type="button" onClick={() => (setChoice(''), setDialog('document'))}>
-              {t('contacts.links.addDocument')}
+              <UiIcon name="documents" /> {t('contacts.links.addDocument')}
             </button>
           )}
         </div>

@@ -1100,4 +1100,5 @@ The CI scan gates found new advisories: `source-map-js` < 1.2.2 (DoS on malforme
 
 ### Security check: rate limits by matched route (21.1, 2026-10-18)
 - [x] Whether a request is limited is decided by the route it matched (`request.routeOptions.url`), not by the raw URL: percent-encoded or otherwise re-spelled paths that reach an API handler count against the same global and route limits. Only non-API routes (static web files) are exempt. Regression tests in `hardening.test.ts` (global limit and sign-in limit via `/%61pi/...`).
+- [x] Token redaction in request logs matches the decoded path with repeated slashes collapsed (`redactUrl`, 21.2): `/%6Bnot/{token}` and `//knot/{token}` are redacted like `/knot/{token}`.
 - [x] **Review trigger:** any future decision that depends on the request path (logging redaction, allow-lists, guards) must use the matched route or a normalised path, never `request.url` as sent.

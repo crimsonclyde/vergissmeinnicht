@@ -261,7 +261,7 @@ function FindBar(props: {
         <div className="row home-filter" role="group" aria-label={t('documents.find.view')}>
           {(['LIST', 'GRID'] as const).map((value) => (
             <button key={value} type="button" className="quiet" aria-pressed={props.view === value} onClick={() => props.onView(value)}>
-              {t(`documents.find.view.${value}`)}
+              <UiIcon name={value === 'GRID' ? 'grid' : 'lists'} /> {t(`documents.find.view.${value}`)}
             </button>
           ))}
         </div>
