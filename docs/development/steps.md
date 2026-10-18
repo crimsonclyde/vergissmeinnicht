@@ -2010,6 +2010,15 @@ GitHub pre-release created after the user approved the command: `https://github.
 
 **Validation:** implementation and local checks recorded in 16.8 (146 files / 1154 tests, 27.30 s; Playwright 3 passed / 1 intentional skip; typecheck/lint/build/schema checks). Final PR CI `37218359808`, main CI `37218652596` and release `37218676293` succeeded. Both native validation and publishing images passed smoke tests and fixable HIGH/CRITICAL vulnerability scans; manifest publishing, workflow signing and CycloneDX attestation succeeded. Completion is recorded in a documentation commit after publication. Physical-phone imports, live Unraid upgrade and the existing development-only moderate esbuild finding remain open. Security surface: MEDIUM, documented in `security.md`; release validation must remain fail-closed.
 
+### 12.32 Release 0.6.0-beta.5
+**Status:** PREPARED (2026-10-18) — waiting for the owner to publish the GitHub pre-release, which creates tag `v0.6.0-beta.5` on the merge commit (this session cannot push tags).
+
+**Scope:** 22.1–22.3 (Section icons, guided Run, livelier Today; PR #37 merged as `55fc6bd`), plus the README refreshed with new Light and Dark screenshots (`assets/screenshots/guided-run-2026-10-18/`, mostly Dark) and corrected status text (text recognition was released in 0.5.0-beta.6; Workspace backup and restore listed). Unraid template and `unraid.md` point to 0.6.0-beta.5.
+
+**Upgrade:** migration 0047 adds an optional `icon` to `procedure_sections` and `run_sections` (nullable, no data rewritten); back up first or use *Migrate on start* on Unraid. No new environment variables. Workspace backups from earlier versions restore with no Section icons.
+
+**Validation:** PR #37 local checks (typecheck, lint, 1363 tests, e2e) and CI passed. Not done here: smoke and upgrade checks against the published image, real phones and a screen reader.
+
 ### 12.31 Release 0.6.0-beta.4
 **Status:** DONE (2026-10-18) — 21.1 and 21.2 (security and usability review), at the owner's request: a release once the improvements are visible.
 
@@ -4258,7 +4267,7 @@ The Bring / Transfer candidate of 2026-10-07 became its own planned tool after t
 
 ### 21.1 Rate limits by matched route; icon buttons and compact Step actions
 
-**Status:** DONE (review branch, not released)  
+**Status:** DONE — released in 0.6.0-beta.4 (12.31)  
 **Completed:** 2026-10-18  
 **Implemented:**
 - **Security fix:** the global `@fastify/rate-limit` allow-list decided "is this the API?" from the raw `request.url`. The router percent-decodes paths, so `/%61pi/auth/sign-in` reached the sign-in handler while the allow-list saw a non-API path and skipped **every** limit on it — the global limit and the route limits (sign-in 10/min per client, MFA, recovery, invitations, Knot resolve). Only the per-account login limit (application logic) still applied, so password spraying across accounts from one address was unlimited. The allow-list now uses the matched route pattern (`request.routeOptions.url`): only non-API routes (static files) are exempt, however the path is spelled.
@@ -4272,7 +4281,7 @@ The Bring / Transfer candidate of 2026-10-07 became its own planned tool after t
 
 ### 21.2 Calmer Equipment and Maintenance pages; icons on actions; log redaction for re-spelled paths
 
-**Status:** DONE (review branch, not released)  
+**Status:** DONE — released in 0.6.0-beta.4 (12.31)  
 **Completed:** 2026-10-18  
 **Implemented:**
 - **Equipment:** *Add equipment* with a + icon and Trash in the ⋯ menu (no loose link); records are cards with an icon and a chevron, like Folders; the three filters (category, location, manufacturer) sit side by side and fold into **Filters** under the search (they no longer stack as three full-width fields); the detail page shows the facts as a compact two-column table, linked records as one list with icon remove buttons, one **Link to…** menu instead of four buttons, *Edit* with a pencil and *Move to Trash* in ⋯; the back link sits above the heading like on the other pages; "Remind me 1 month before the warranty ends…" is now **Warranty reminder…**.
@@ -4297,7 +4306,7 @@ Decisions (owner, 2026-10-18):
 
 ### 22.1 Section icons
 
-**Status:** DONE (review branch, not released)  
+**Status:** DONE — merged in PR #37 (`55fc6bd`); release 0.6.0-beta.5 prepared (12.32)  
 **Completed:** 2026-10-18  
 An optional icon per Section from the existing trusted icon catalogue (`procedure_icons`), chosen in the Procedure builder like a Step icon, copied into the Run snapshot when a Run starts (immutable like the other snapshot columns) and carried by Procedure export/import and the Workspace backup (older packages and documents without it still restore/import, as "no icon"). Shown with a default icon when none is chosen.
 
@@ -4308,7 +4317,7 @@ An optional icon per Section from the existing trusted icon catalogue (`procedur
 
 ### 22.2 Guided Run
 
-**Status:** DONE (review branch, not released)  
+**Status:** DONE — merged in PR #37 (`55fc6bd`); release 0.6.0-beta.5 prepared (12.32)  
 **Completed:** 2026-10-18  
 The Run page shows the Sections as tiles (icon, title, done/total, a check when finished); a Run with one Section opens straight into it. A Section has its own address (`/w/{id}/runs/{id}/sections/{id}`) so the phone's Back returns to the Sections. One Step at a time: icon, title, marks, description and image, one large main action (Done or the critical-Step confirmation), Skip and Not applicable as smaller icon buttons, Back/Next, and dots for the Section's Steps. After Done the next pending Step follows by itself; a finished Section shows a short celebration and leads back or to the next open Section; when nothing required is open the end screen offers Complete. A **List** switch shows the familiar full list (Undo, reasons, who/when). Live updates, offline queueing and server-side checks are unchanged.
 
@@ -4319,7 +4328,7 @@ The Run page shows the Sections as tiles (icon, title, done/total, a check when 
 
 ### 22.3 A livelier Today
 
-**Status:** DONE (review branch, not released)  
+**Status:** DONE — merged in PR #37 (`55fc6bd`); release 0.6.0-beta.5 prepared (12.32)  
 **Completed:** 2026-10-18  
 A greeting with the person's name and the date, and a ring for today's progress (done today out of done plus still due today); a prominent card for the single most important item (the Run to continue, otherwise the first item that needs attention) with one large action; coloured icon tiles in card titles; the All/Mine/Shared filter as a compact control; a friendly "all clear" state; *Customize Today* as an icon. Card preferences (19.2) keep working.
 
