@@ -1,4 +1,4 @@
-import { useEffect, useId, useLayoutEffect, useRef, useState } from 'react';
+import { useEffect, useId, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
 
 export interface MoreMenuItem {
   readonly label: string;
@@ -44,7 +44,8 @@ export function useKeepInViewport(open: boolean) {
  * actions the person may use — unavailable ones are left out, not shown disabled. UI only: the
  * server authorizes every request.
  */
-export function MoreMenu(props: { label: string; items: readonly MoreMenuItem[]; buttonText?: string }) {
+/** With `buttonText` the menu opens from an ordinary labelled button instead of ⋯. */
+export function MoreMenu(props: { label: string; items: readonly MoreMenuItem[]; buttonText?: ReactNode }) {
   const [open, setOpen] = useState(false);
   const panelId = useId();
   const rootRef = useRef<HTMLDivElement>(null);
@@ -75,7 +76,7 @@ export function MoreMenu(props: { label: string; items: readonly MoreMenuItem[];
       <button
         ref={buttonRef}
         type="button"
-        className="more-menu-button"
+        className={props.buttonText === undefined ? 'more-menu-button' : 'more-menu-button with-text'}
         aria-expanded={open}
         aria-controls={panelId}
         aria-label={props.label}

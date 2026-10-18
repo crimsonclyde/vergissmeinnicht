@@ -17,6 +17,11 @@ describe('redactUrl', () => {
     ['/api/health?token=abc', '/api/health?[REDACTED]'],
     ['/runs/123#frag', '/runs/123?[REDACTED]'],
     ['/api/health', '/api/health'],
+    // Re-spelled paths are redacted too.
+    ['/%6Bnot/abcDEF123', '/knot/[REDACTED]'],
+    ['//knot/abcDEF123', '/knot/[REDACTED]'],
+    ['/%61pi/recoveries/abcDEF123', '/api/recoveries/[REDACTED]'],
+    ['/knot/%E0%A4%A', '/knot/[REDACTED]'],
   ])('%s -> %s', (input, expected) => {
     expect(redactUrl(input)).toBe(expected);
   });

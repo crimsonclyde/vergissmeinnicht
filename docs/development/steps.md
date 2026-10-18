@@ -4265,6 +4265,21 @@ The Bring / Transfer candidate of 2026-10-07 became its own planned tool after t
 **Security docs updated:** YES — `security.md` "Security check: rate limits by matched route (21.1)".  
 **Remaining:** other text-heavy controls (Maintenance *Add as planned* / *More details…*, Board/List switch, Run *Abort…*) were left as they are; the not-found handler still classifies `/%61pi/...` paths that match no route as web pages (serves the app shell instead of a JSON 404 — no data, no limit concern).
 
+### 21.2 Calmer Equipment and Maintenance pages; icons on actions; log redaction for re-spelled paths
+
+**Status:** DONE (review branch, not released)  
+**Completed:** 2026-10-18  
+**Implemented:**
+- **Equipment:** *Add equipment* with a + icon and Trash in the ⋯ menu (no loose link); records are cards with an icon and a chevron, like Folders; the three filters (category, location, manufacturer) sit side by side and fold into **Filters** under the search (they no longer stack as three full-width fields); the detail page shows the facts as a compact two-column table, linked records as one list with icon remove buttons, one **Link to…** menu instead of four buttons, *Edit* with a pencil and *Move to Trash* in ⋯; the back link sits above the heading like on the other pages; "Remind me 1 month before the warranty ends…" is now **Warranty reminder…**.
+- **Maintenance:** a one-line lead, **Add** with a + icon (it still adds as Planned), Board/List with icons.
+- **Icons on actions:** Start (play), Documents List/Grid, *Link to…*, *Remind me…*, the Contact and Maintenance link buttons. `MoreMenu` can open from a labelled button (`buttonText`).
+- **Security hardening:** log redaction of tokens in paths now matches the decoded path with repeated slashes collapsed, so `/%6Bnot/{token}` or `//knot/{token}` cannot carry a token into the logs (the 21.1 review trigger).
+
+**Tests/checks:** four new `redactUrl` cases (three fail without the change); e2e updated for the ⋯ and *Link to…* menus and the shorter warranty label; `pnpm lint`, `pnpm typecheck`, `pnpm test`, Playwright e2e; screenshots at 1440, 390 and 320 px.  
+**Security impact:** LOW — hardening of log redaction; the UI changes are presentation only (every action keeps its server-side check and accessible name).  
+**Security docs updated:** YES — `security.md` §9 note in "Security check: rate limits by matched route (21.1)".  
+**Remaining:** Run *Abort…* and *Complete* stay text buttons on purpose (important, irreversible actions).
+
 ---
 
 ## 11 — Licensing

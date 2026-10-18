@@ -3,6 +3,7 @@ import { api, messageFor, type PersonRef, type RunDetail, type RunSummary, type 
 import { formatCalendarDate, formatRelative, t } from './i18n/index.ts';
 import { useKeepInViewport } from './MoreMenu.tsx';
 import { ScheduleDialog } from './ScheduleDialog.tsx';
+import { UiIcon } from './ui-icons.tsx';
 
 /**
  * Warns before starting a Procedure that already has an active execution (13.18). Several active
@@ -158,7 +159,7 @@ export function StartControl(props: {
         disabled={flow.busy}
         onClick={() => setOpen((value) => !value)}
       >
-        {t('start.button')} <span aria-hidden="true">▾</span>
+        <UiIcon name="preview" /> {t('start.button')} <span aria-hidden="true">▾</span>
       </button>
       {open && (
         <div id={panelId} ref={panelRef} className="more-menu-panel">

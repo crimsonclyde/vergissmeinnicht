@@ -557,7 +557,7 @@ function Overview(props: { workspaceId: string; canManage: boolean }) {
               <input id={`${id}-new`} maxLength={MAINTENANCE_LIMITS.title} autoComplete="off" placeholder={t('maintenance.new.example')} value={title} onChange={(event) => setTitle(event.target.value)} />
             </div>
             <button type="submit" className="primary" disabled={saving || title.trim() === ''}>
-              {t('maintenance.new.add')}
+              <UiIcon name="add" /> {t('maintenance.new.add')}
             </button>
             <button type="button" onClick={() => setDetails(true)}>
               {t('contacts.new.more')}
@@ -578,7 +578,7 @@ function Overview(props: { workspaceId: string; canManage: boolean }) {
       <div className="row home-filter" role="group" aria-label={t('documents.find.view')}>
         {(['BOARD', 'LIST'] as const).map((value) => (
           <button key={value} type="button" aria-pressed={view === value} onClick={() => choose(value)}>
-            {t(value === 'BOARD' ? 'maintenance.view.BOARD' : 'maintenance.view.LIST')}
+            <UiIcon name={value === 'BOARD' ? 'board' : 'lists'} /> {t(value === 'BOARD' ? 'maintenance.view.BOARD' : 'maintenance.view.LIST')}
           </button>
         ))}
       </div>
@@ -710,16 +710,16 @@ function RecordLinks(props: { workspaceId: string; record: MaintenanceRecord; ca
               <UiIcon name="documents" /> {t('maintenance.links.addEvidence')}
             </button>
           )}
-          {core.equipment && <button type="button" onClick={()=>open('equipment')}>{t('equipment.linkEquipment')}</button>}
+          {core.equipment && <button type="button" onClick={()=>open('equipment')}><UiIcon name="equipment" /> {t('equipment.linkEquipment')}</button>}
           {core.procedures && <button type="button" onClick={() => open('procedure')}>
-            {t('contacts.links.addProcedure')}
+            <UiIcon name="procedures" /> {t('contacts.links.addProcedure')}
           </button>}
           {core.procedures && <button type="button" onClick={() => open('run')}>
-            {t('maintenance.links.addRun')}
+            <UiIcon name="history" /> {t('maintenance.links.addRun')}
           </button>}
           {props.canSchedule && (core.procedures || core.reminders) && (
             <button type="button" onClick={() => open('remind')}>
-              {t('links.remind.button')}
+              <UiIcon name="reminders" /> {t('links.remind.button')}
             </button>
           )}
         </div>

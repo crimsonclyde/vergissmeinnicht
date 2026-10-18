@@ -9,6 +9,7 @@ import { FormDialog } from './FormDialog.tsx';
 import { formatCalendarDate, t } from './i18n/index.ts';
 import { Link, navigate, paths, type Route } from './router.tsx';
 import { ScheduleDialog } from './ScheduleDialog.tsx';
+import { MoreMenu } from './MoreMenu.tsx';
 import { UiIcon } from './ui-icons.tsx';
 const FIELDS = ['name', 'category', 'location', 'manufacturer', 'model', 'serialNumber', 'purchaseDate', 'warrantyExpiry', 'notes'] as const;
 const empty = (): EquipmentInput => ({ name: '', category: '', location: '', manufacturer: '', model: '', serialNumber: '', purchaseDate: null, warrantyExpiry: null, notes: '' });
@@ -79,6 +80,9 @@ export function EquipmentPickerDialog(props: {
 }) {
     return <PickLink {...props} kind="equipment"/>;
 }
+/** What an Equipment record can be linked to, each offered only while its tool is on. */
+const LINK_KINDS = [['document', 'DOCUMENTS'], ['contact', 'CONTACTS'], ['maintenance', 'MAINTENANCE'], ['procedure', 'PROCEDURES']] as const;
+
 export function Equipment(props: Props) {
     const { workspaceId, route } = props;
     const id = useId();
@@ -93,6 +97,7 @@ export function Equipment(props: Props) {
     const [status, setStatus] = useState<string | null>(null);
     const [dialog, setDialog] = useState<string | null>(null);
     const [purge, setPurge] = useState<TrashedEquipment | 'all' | null>(null);
+    const [filtersOpen, setFiltersOpen] = useState(false);
     const [removed, setRemoved] = useState<{
         id: string;
         name: string;
@@ -148,27 +153,28 @@ export function Equipment(props: Props) {
     }
     const heading = route.view === 'trash' ? t('equipment.trash') : record?.name ?? t('shell.equipment');
     return <section aria-labelledby={`${id}-heading`}>
+  {route.view !== 'overview' && <p className="back-row"><Link href={paths.equipment(workspaceId)} className="back-link"><UiIcon name="back" /> {t('shell.equipment')}</Link></p>}
   <div className="page-header"><h2 id={`${id}-heading`}>{heading}</h2><div className="row">
-   {route.view !== 'overview' && <Link href={paths.equipment(workspaceId)}>{t('shell.equipment')}</Link>}
-   {route.view === 'overview' && props.canManage && <><button className="primary" type="button" onClick={() => setDialog('edit')}>{t('equipment.add')}</button><Link href={paths.equipmentTrash(workspaceId)}>{t('equipment.trash')}</Link></>}
-   {record !== null && route.view === 'record' && props.canManage && <><button type="button" onClick={() => setDialog('edit')}>{t('equipment.edit')}</button><button type="button" onClick={() => setDialog('delete')}>{t('equipment.delete')}</button></>}
+   {route.view === 'overview' && props.canManage && <><button className="primary" type="button" onClick={() => setDialog('edit')}><UiIcon name="add" /> {t('equipment.add')}</button><MoreMenu label={t('equipment.moreActions')} items={[{ label: t('equipment.trash'), onSelect: () => navigate(paths.equipmentTrash(workspaceId)) }]} /></>}
+   {record !== null && route.view === 'record' && props.canManage && <><button type="button" onClick={() => setDialog('edit')}><UiIcon name="edit" /> {t('equipment.edit')}</button><MoreMenu label={t('equipment.moreActionsNamed', { name: record.name })} items={[{ label: t('equipment.delete'), danger: true, onSelect: () => setDialog('delete') }]} /></>}
   </div></div>
   {message !== null && <p role="alert">{message}</p>}{status !== null && <p role="status">{status}</p>}
   {removed !== null && <p role="status">{t('equipment.deleted', { name: removed.name })} <button type="button" onClick={() => void api.restoreEquipment(workspaceId, removed.id).then(() => { setRemoved(null); load(); }, fail)}>{t('common.undo')}</button></p>}
   {route.view === 'overview' && <>
-   <div className="filter-bar"><div className="field"><label htmlFor={`${id}-search`}>{t('equipment.search')}</label><input id={`${id}-search`} type="search" maxLength={100} value={find.q} onChange={e => setFind({ ...find, q: e.target.value })}/></div>
+   <div className="field"><label htmlFor={`${id}-search`}>{t('equipment.search')}</label><input id={`${id}-search`} type="search" maxLength={100} value={find.q} onChange={e => setFind({ ...find, q: e.target.value })}/></div>
+   <details className="calendar-filter-box" open={filtersOpen} onToggle={e => setFiltersOpen(e.currentTarget.open)}><summary>{t('documents.find.filters')}</summary><div className="filter-bar">
     {(['category', 'location', 'manufacturer'] as const).map(key => <div className="field" key={key}><label htmlFor={`${id}-filter-${key}`}>{t(`equipment.field.${key}`)}</label><select id={`${id}-filter-${key}`} value={find[key]} onChange={e => setFind({ ...find, [key]: e.target.value })}><option value="">{t('equipment.all')}</option>{(key === 'category' ? filters?.categories : key === 'location' ? filters?.locations : filters?.manufacturers)?.map(value => <option key={value} value={value}>{value}</option>)}</select></div>)}
-   </div>
-   {records === null ? message === null && <p>{t('common.loading')}</p> : records.length === 0 ? <p>{t('equipment.none')}</p> : <ul className="plain-list">{records.map(r => <li key={r.id} className="card"><Link href={paths.equipmentRecord(workspaceId, r.id)}><strong>{r.name}</strong></Link>{contextOf(r) !== '' && <p className="muted">{contextOf(r)}</p>}</li>)}</ul>}
+   </div></details>
+   {records === null ? message === null && <p>{t('common.loading')}</p> : records.length === 0 ? <p>{t('equipment.none')}</p> : <ul className="plain-list">{records.map(r => <li key={r.id}><Link href={paths.equipmentRecord(workspaceId, r.id)} className="card link-card"><span className="item-icon"><UiIcon name="equipment" size="1.5em" /></span><span className="item-body"><strong>{r.name}</strong>{contextOf(r) !== '' && <small className="muted">{contextOf(r)}</small>}</span><UiIcon name="chevron" /></Link></li>)}</ul>}
    {next !== null && <button type="button" onClick={() => void api.equipment(workspaceId, query(next)).then(page => { setRecords([...(records ?? []), ...page.records]); setNext(page.nextCursor); }, fail)}>{t('equipment.more')}</button>}
   </>}
   {route.view === 'record' && record !== null && <>
-   <dl className="card equipment-details">{FIELDS.filter(key => key !== 'name' && record[key]).map(key => <div key={key}><dt>{t(`equipment.field.${key}`)}</dt><dd className="equipment-value">{key === 'purchaseDate' || key === 'warrantyExpiry' ? formatCalendarDate(record[key] ?? '') : record[key]}</dd></div>)}</dl>
+   <dl className="card card-facts document-facts">{FIELDS.filter(key => key !== 'name' && record[key]).map(key => <div key={key}><dt>{t(`equipment.field.${key}`)}</dt><dd className="equipment-value">{key === 'purchaseDate' || key === 'warrantyExpiry' ? formatCalendarDate(record[key] ?? '') : record[key]}</dd></div>)}</dl>
    <h3>{t('equipment.linked')}</h3>
    {warrantyChanged && props.canSchedule && props.tools.includes('REMINDERS') && <p role="status">{t('equipment.warrantyChanged')}</p>}
-   <ul className="plain-list">{links.map(link => { const text = linkedRecordText(link.record); const href = hrefOf(workspaceId, link.record); return <li key={link.id} className="card"><small>{linkedKind(link.record)}</small><div>{text.open && href !== null ? <Link href={href}>{text.title}</Link> : text.title}</div>{link.record.maintenanceDate !== undefined && <p className="muted">{formatCalendarDate(link.record.maintenanceDate)} · {link.record.maintenanceStatus === undefined ? '' : statusLabel(link.record.maintenanceStatus)}</p>}{text.note !== null && <p className="muted">{text.note}</p>}{props.canManage && <button type="button" className="quiet icon-button" title={t('equipment.unlink')} aria-label={t('equipment.unlinkNamed', { name: text.title })} onClick={() => void (link.sourceType === 'maintenance' ? api.removeMaintenanceLink(workspaceId, link.id) : api.removeEquipmentLink(workspaceId, link.id)).then(load, fail)}><UiIcon name="unlink" /></button>}{link.record.type === 'schedule' && link.record.scheduleKind === 'REMINDER' && props.canSchedule && <button type="button" onClick={() => void reviewReminder(link)}>{t('equipment.reviewReminder')}</button>}</li>; })}</ul>
-   {props.canManage && <div className="row">{[['document', 'DOCUMENTS'], ['contact', 'CONTACTS'], ['maintenance', 'MAINTENANCE'], ['procedure', 'PROCEDURES']].filter(([, tool]) => props.tools.includes(tool ?? '')).map(([kind]) => <button type="button" key={kind} onClick={() => setDialog(kind ?? null)}>{t(`equipment.link.${kind as 'document' | 'contact' | 'maintenance' | 'procedure'}`)}</button>)}</div>}
-   {props.canManage && props.canSchedule && (props.tools.includes('REMINDERS') || props.tools.includes('PROCEDURES')) && <div className="row"><button type="button" onClick={() => setDialog('remind')}>{t('links.remind.button')}</button>{props.tools.includes('REMINDERS') && record.warrantyExpiry !== null && <button type="button" onClick={() => setDialog('warranty')}>{t('equipment.warrantyReminder')}</button>}</div>}
+   {links.length > 0 && <ul className="card plain-list">{links.map(link => { const text = linkedRecordText(link.record); const href = hrefOf(workspaceId, link.record); return <li key={link.id} className="link-line"><span className="item-body"><span><small className="muted">{linkedKind(link.record)}: </small>{text.open && href !== null ? <Link href={href}>{text.title}</Link> : text.title}</span>{link.record.maintenanceDate !== undefined && <small className="muted">{formatCalendarDate(link.record.maintenanceDate)} · {link.record.maintenanceStatus === undefined ? '' : statusLabel(link.record.maintenanceStatus)}</small>}{text.note !== null && <small className="muted">{text.note}</small>}</span><span className="row">{props.canManage && <button type="button" className="quiet icon-button" title={t('equipment.unlink')} aria-label={t('equipment.unlinkNamed', { name: text.title })} onClick={() => void (link.sourceType === 'maintenance' ? api.removeMaintenanceLink(workspaceId, link.id) : api.removeEquipmentLink(workspaceId, link.id)).then(load, fail)}><UiIcon name="unlink" /></button>}{link.record.type === 'schedule' && link.record.scheduleKind === 'REMINDER' && props.canSchedule && <button type="button" onClick={() => void reviewReminder(link)}>{t('equipment.reviewReminder')}</button>}</span></li>; })}</ul>}
+   {props.canManage && <div className="row section-actions"><MoreMenu label={t('links.add')} buttonText={<><UiIcon name="link" /> {t('links.add')}</>} items={LINK_KINDS.filter(([, tool]) => props.tools.includes(tool)).map(([kind]) => ({ label: t(`equipment.link.${kind}`), onSelect: () => setDialog(kind) }))} /></div>}
+   {props.canManage && props.canSchedule && (props.tools.includes('REMINDERS') || props.tools.includes('PROCEDURES')) && <div className="row"><button type="button" onClick={() => setDialog('remind')}><UiIcon name="reminders" /> {t('links.remind.button')}</button>{props.tools.includes('REMINDERS') && record.warrantyExpiry !== null && <button type="button" onClick={() => setDialog('warranty')}><UiIcon name="reminders" /> {t('equipment.warrantyReminder')}</button>}</div>}
   </>}
   {route.view === 'trash' && <>
    {props.canPurge && (trash?.length ?? 0) > 0 && <button type="button" onClick={() => setPurge('all')}>{t('contacts.purge.all')}</button>}

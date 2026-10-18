@@ -542,11 +542,11 @@ export function DocumentLinksSection(props: { workspaceId: string; documentId: s
       {props.canManage && (
         <div className="row">
           <button type="button" onClick={() => setDialog('link')}>
-            {t('links.add')}
+            <UiIcon name="link" /> {t('links.add')}
           </button>
           {props.canSchedule && (
             (core.procedures || core.reminders) && <button type="button" onClick={() => setDialog('remind')}>
-              {t('links.remind.button')}
+              <UiIcon name="reminders" /> {t('links.remind.button')}
             </button>
           )}
         </div>
