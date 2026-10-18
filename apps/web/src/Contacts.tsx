@@ -475,8 +475,8 @@ function ContactLinks(props: { workspaceId: string; contact: Contact; canManage:
                   {link.state === 'deleted' && <small className="muted">{t('links.procedureDeleted')}</small>}
                 </span>
                 {props.canManage && (
-                  <button type="button" className="quiet" aria-label={t('links.removeNamed', { name: title })} onClick={() => void api.unlinkContactProcedure(workspaceId, link.id).then(removed(title), failed)}>
-                    {t('links.remove')}
+                  <button type="button" className="quiet icon-button" title={t('links.remove')} aria-label={t('links.removeNamed', { name: title })} onClick={() => void api.unlinkContactProcedure(workspaceId, link.id).then(removed(title), failed)}>
+                    <UiIcon name="unlink" />
                   </button>
                 )}
               </li>
@@ -494,8 +494,8 @@ function ContactLinks(props: { workspaceId: string; contact: Contact; canManage:
                   {text.note !== null && <small className="muted">{text.note}</small>}
                 </span>
                 {canLinkDocuments && (
-                  <button type="button" className="quiet" aria-label={t('links.removeNamed', { name: text.title })} onClick={() => void api.removeDocumentLink(workspaceId, link.id).then(removed(text.title), failed)}>
-                    {t('links.remove')}
+                  <button type="button" className="quiet icon-button" title={t('links.remove')} aria-label={t('links.removeNamed', { name: text.title })} onClick={() => void api.removeDocumentLink(workspaceId, link.id).then(removed(text.title), failed)}>
+                    <UiIcon name="unlink" />
                   </button>
                 )}
               </li>
@@ -618,7 +618,7 @@ function ContactPage(props: { workspaceId: string; contactId: string; canManage:
                 void api.contactCategories(workspaceId).then(setCategories, () => undefined);
               }}
             >
-              {t('contacts.edit.button')}
+              <UiIcon name="edit" /> {t('contacts.edit.button')}
             </button>
             <MoreMenu label={t('contacts.moreActionsNamed', { name: contact.name })} items={[{ label: t('contacts.delete.button'), danger: true, onSelect: () => setDeleting(true) }]} />
           </div>
@@ -630,9 +630,12 @@ function ContactPage(props: { workspaceId: string; contactId: string; canManage:
           {status}
         </p>
       )}
-      {props.canExport && <div className="card stack">
-        <a className="button primary" href={contactExportUrl(workspaceId, 'vcard', contact.id)}>{t('contacts.export.device')}</a>
-        <p className="muted">{t('contacts.export.deviceHelp')}</p>
+      {props.canExport && <div className="stack">
+        <p className="row"><a className="button primary" href={contactExportUrl(workspaceId, 'vcard', contact.id)}><UiIcon name="download" /> {t('contacts.export.device')}</a></p>
+        <details>
+          <summary>{t('contacts.export.deviceHelpSummary')}</summary>
+          <p className="muted">{t('contacts.export.deviceHelp')}</p>
+        </details>
       </div>}
       <DuplicateHint workspaceId={workspaceId} duplicates={duplicates} />
       <div className="card stack contact-details">
@@ -1038,8 +1041,8 @@ export function LinkedContacts(props: { workspaceId: string; procedureId: string
                 </a>
               )}
               {link.contact === null && tool.canManage && (
-                <button type="button" className="quiet" aria-label={t('links.removeNamed', { name: t('contacts.deletedContact') })} onClick={() => void api.unlinkContactProcedure(workspaceId, link.id).then(() => setLinks(links.filter((each) => each.id !== link.id)), () => undefined)}>
-                  {t('links.remove')}
+                <button type="button" className="quiet icon-button" title={t('links.remove')} aria-label={t('links.removeNamed', { name: t('contacts.deletedContact') })} onClick={() => void api.unlinkContactProcedure(workspaceId, link.id).then(() => setLinks(links.filter((each) => each.id !== link.id)), () => undefined)}>
+                  <UiIcon name="unlink" />
                 </button>
               )}
             </li>

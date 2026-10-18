@@ -649,6 +649,11 @@ button.danger {
   border-color: transparent;
 }
 
+/* Icon buttons that belong together (e.g. move up, move down, remove) wrap as one group. */
+.icon-group {
+  gap: 0.25rem;
+}
+
 /* The positive action ("mark done") is green, never the red used for pending/danger. */
 button.done-action {
   background: var(--state-done);
@@ -1110,6 +1115,15 @@ caption {
 @media (max-width: 40rem) {
   .step-actions button {
     flex: 1 1 100%;
+  }
+
+  /* Skip and Not applicable share one row under the full-width main action: one row less per Step. */
+  .step-actions > span {
+    flex: 1 1 100%;
+  }
+
+  .step-actions button.step-secondary {
+    flex: 1 1 auto;
   }
 }
 

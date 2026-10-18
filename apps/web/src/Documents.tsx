@@ -1242,17 +1242,17 @@ function DocumentPage(props: { workspaceId: string; documentId: string; canManag
             onRetryText={canManage ? () => retryText(page) : null}
             actions={
               canManage && doc.pages.length > 1 ? (
-                <>
-                  <button type="button" className="quiet" disabled={index === 0} aria-label={t('documents.pages.moveUpNamed', { name: page.name })} onClick={() => reorder(index, -1)}>
-                    {t('documents.pages.moveUp')}
+                <span className="row icon-group">
+                  <button type="button" className="quiet icon-button" disabled={index === 0} aria-label={t('documents.pages.moveUpNamed', { name: page.name })} title={t('documents.pages.moveUp')} onClick={() => reorder(index, -1)}>
+                    <UiIcon name="moveUp" />
                   </button>
-                  <button type="button" className="quiet" disabled={index === doc.pages.length - 1} aria-label={t('documents.pages.moveDownNamed', { name: page.name })} onClick={() => reorder(index, 1)}>
-                    {t('documents.pages.moveDown')}
+                  <button type="button" className="quiet icon-button" disabled={index === doc.pages.length - 1} aria-label={t('documents.pages.moveDownNamed', { name: page.name })} title={t('documents.pages.moveDown')} onClick={() => reorder(index, 1)}>
+                    <UiIcon name="moveDown" />
                   </button>
-                  <button type="button" className="quiet danger-text" aria-label={t('documents.pages.removeNamed', { name: page.name })} onClick={() => removePage(page)}>
-                    {t('documents.pages.remove')}
+                  <button type="button" className="quiet icon-button danger-text" aria-label={t('documents.pages.removeNamed', { name: page.name })} title={t('documents.pages.remove')} onClick={() => removePage(page)}>
+                    <UiIcon name="trash" />
                   </button>
-                </>
+                </span>
               ) : null
             }
           />

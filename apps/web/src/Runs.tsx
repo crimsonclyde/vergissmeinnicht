@@ -27,6 +27,7 @@ import { useOffline } from './offline/OfflineProvider.tsx';
 import { expectedStateFor, withQueuedChanges } from './offline/queue.ts';
 import { offlineStore } from './offline/store.ts';
 import { useRunLiveUpdates, type AnnouncedChange, type LiveStatus } from './useRunLiveUpdates.ts';
+import { UiIcon } from './ui-icons.tsx';
 
 /** How long "Uma changed … at …" stays visible. */
 const REMOTE_NOTICE_MS = 10_000;
@@ -207,11 +208,11 @@ function StepItem(props: {
                   {t('step.doneShort')}
                 </button>
               )}
-              <button type="button" disabled={busy} onClick={() => choose('SKIPPED')}>
-                {t('step.skip')}
+              <button type="button" className="step-secondary" disabled={busy} onClick={() => choose('SKIPPED')}>
+                <UiIcon name="skip" /> {t('step.skip')}
               </button>
-              <button type="button" disabled={busy} onClick={() => choose('NOT_APPLICABLE')}>
-                {t('step.notApplicable')}
+              <button type="button" className="step-secondary" disabled={busy} onClick={() => choose('NOT_APPLICABLE')}>
+                <UiIcon name="notApplicable" /> {t('step.notApplicable')}
               </button>
             </>
           ) : (

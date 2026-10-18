@@ -55,6 +55,7 @@ export const en = {
   'equipment.warrantyChanged': "The warranty date changed. Linked reminders are unchanged; review a reminder below to update its date.",
   'equipment.reviewReminder': "Review reminder…",
   'contacts.export.device': 'Add to device contacts',
+  'contacts.export.deviceHelpSummary': 'How to import on a phone',
   'contacts.export.deviceHelp': 'Downloads just this contact as a .vcf file. Open it and confirm the import on your phone. On iPhone, if the download does not offer Add Contact, open the file as an attachment in Mail or Messages. On Android, use Contacts → Organise → Import from file. This is a copy; later changes in VMN do not sync.',
   'contacts.export.phone': "Export for iPhone / Android…",
   'contacts.export.downloadVcf': "Download contacts (.vcf)",

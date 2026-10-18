@@ -306,7 +306,7 @@ export function Procedures(props: {
             <StartControl workspaceId={workspaceId} procedure={shown} canStart={canStartRun} canSchedule={canSchedule} onOpenRun={onOpenRun} onScheduled={refresh} />
             {canEdit && (
               <Link href={paths.editProcedure(workspaceId, shown.id)} className="button">
-                {t('procedure.edit')}
+                <UiIcon name="edit" /> {t('procedure.edit')}
               </Link>
             )}
             <MoreMenu label={t('procedure.moreFor', { title: shown.title })} items={moreItems(shown, true).filter((item) => item.label !== t('procedure.edit'))} />

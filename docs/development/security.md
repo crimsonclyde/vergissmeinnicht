@@ -25,7 +25,7 @@ This file is normative and must evolve with the application.
 - [x] Parameter choices are documented and tested. (m=64 MiB, t=3, p=1, 32-byte output, 16-byte salt; `packages/auth/src/password-hashing.ts` + test.)
 - [x] Compare secrets using library primitives designed for the purpose. (Argon2 `verify`; cookie signatures verified by Better Auth.)
 - [x] Login errors do not reveal whether an account exists. (One `401 invalid_credentials` for every failure; unknown users still cost one hash.)
-- [x] Login attempts are rate-limited. (10/min per client address, 10/15 min per account.)
+- [x] Login attempts are rate-limited. (10/min per client address, 10/15 min per account. Limits apply by the matched route, never the raw URL spelling — 21.1.)
 - [x] Successful login rotates the session identifier. (New session per login; a session presented with the login request is revoked.)
 - [x] Password changes invalidate relevant old sessions as policy requires. (Self-service change and recovery reset delete all sessions of the user in the same transaction; the changing client gets a fresh session.)
 - [x] Password values never appear in application logs, traces, analytics, or error payloads. (Verified by log capture in `apps/server/src/http/auth.test.ts`.)
@@ -1097,3 +1097,7 @@ The existing export endpoint accepts an optional canonical Contact UUID. Selecti
 
 ### Dependency patches before 0.5.0-beta.6 (2026-10-06)
 The CI scan gates found new advisories: `source-map-js` < 1.2.2 (DoS on malformed indexed source maps; build tooling plus a transitive copy in the runtime tree — VMN never parses untrusted source maps) and Debian `perl-base` in the base image (several CRITICAL/HIGH CVEs; Perl is not used by VMN at runtime but ships in the base image). Fixed by updating the lockfile to 1.2.2 and upgrading `perl-base` from Debian's signed repositories in the runtime stage with a version check that fails the build if the fix is missing. The scan gate stays fail-closed.
+
+### Security check: rate limits by matched route (21.1, 2026-10-18)
+- [x] Whether a request is limited is decided by the route it matched (`request.routeOptions.url`), not by the raw URL: percent-encoded or otherwise re-spelled paths that reach an API handler count against the same global and route limits. Only non-API routes (static web files) are exempt. Regression tests in `hardening.test.ts` (global limit and sign-in limit via `/%61pi/...`).
+- [x] **Review trigger:** any future decision that depends on the request path (logging redaction, allow-lists, guards) must use the matched route or a normalised path, never `request.url` as sent.

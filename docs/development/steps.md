@@ -4249,6 +4249,24 @@ The Bring / Transfer candidate of 2026-10-07 became its own planned tool after t
 
 ---
 
+## 21 — Security and usability review (2026-10-18)
+
+### 21.1 Rate limits by matched route; icon buttons and compact Step actions
+
+**Status:** DONE (review branch, not released)  
+**Completed:** 2026-10-18  
+**Implemented:**
+- **Security fix:** the global `@fastify/rate-limit` allow-list decided "is this the API?" from the raw `request.url`. The router percent-decodes paths, so `/%61pi/auth/sign-in` reached the sign-in handler while the allow-list saw a non-API path and skipped **every** limit on it — the global limit and the route limits (sign-in 10/min per client, MFA, recovery, invitations, Knot resolve). Only the per-account login limit (application logic) still applied, so password spraying across accounts from one address was unlimited. The allow-list now uses the matched route pattern (`request.routeOptions.url`): only non-API routes (static files) are exempt, however the path is spelled.
+- **Demo seed fix:** `test-env/seed.ts` signed the editor out before creating Equipment with that session, so a fresh `install.sh` failed with 401; the sign-out moved after the last use.
+- **UI (less text, more icons):** Document page order and removal (Move up / Move down / Remove page, also in the upload list) and every *Remove link* button (Documents, Contacts, Maintenance, Equipment, Runs) are icon buttons with the existing named `aria-label` and a `title` tooltip; *Edit* on Procedures and Contacts carries a pencil icon; *Skip* and *Not applicable* carry icons and share one row under the full-width main action on phones (wrapping to two rows at 320 px); the long phone-import explanation for *Add to device contacts* is folded into "How to import on a phone".
+
+**Tests/checks:** two regressions in `apps/server/src/http/hardening.test.ts` (an encoded API path counts against the global limit; an encoded sign-in path still gets `429` after ten attempts) fail before the fix and pass after it; `pnpm lint`, `pnpm typecheck`, `pnpm test`; screenshots of every page at 1440, 390 and 320 px from the test environment (no horizontal overflow).  
+**Security impact:** MEDIUM — closes a rate-limit bypass on sign-in and the other sensitive endpoints; no new capability, data flow or credential. The UI change is presentation only (every action keeps its server-side check and accessible name).  
+**Security docs updated:** YES — `security.md` "Security check: rate limits by matched route (21.1)".  
+**Remaining:** other text-heavy controls (Maintenance *Add as planned* / *More details…*, Board/List switch, Run *Abort…*) were left as they are; the not-found handler still classifies `/%61pi/...` paths that match no route as web pages (serves the app shell instead of a JSON 404 — no data, no limit concern).
+
+---
+
 ## 11 — Licensing
 
 ### 11.1 AGPL-3.0

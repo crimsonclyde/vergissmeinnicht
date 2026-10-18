@@ -682,7 +682,8 @@ function RecordLinks(props: { workspaceId: string; record: MaintenanceRecord; ca
                 {props.canManage && (
                   <button
                     type="button"
-                    className="quiet"
+                    className="quiet icon-button"
+                    title={t('links.remove')}
                     aria-label={t('links.removeNamed', { name: text.title })}
                     onClick={() =>
                       void (link.sourceType === 'equipment' ? api.removeEquipmentLink(workspaceId,link.id):api.removeMaintenanceLink(workspaceId,link.id)).then(
@@ -694,7 +695,7 @@ function RecordLinks(props: { workspaceId: string; record: MaintenanceRecord; ca
                       )
                     }
                   >
-                    {t('links.remove')}
+                    <UiIcon name="unlink" />
                   </button>
                 )}
               </li>
