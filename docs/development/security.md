@@ -1103,6 +1103,15 @@ The CI scan gates found new advisories: `source-map-js` < 1.2.2 (DoS on malforme
 - [x] Token redaction in request logs matches the decoded path with repeated slashes collapsed (`redactUrl`, 21.2): `/%6Bnot/{token}` and `//knot/{token}` are redacted like `/knot/{token}`.
 - [x] **Review trigger:** any future decision that depends on the request path (logging redaction, allow-lists, guards) must use the matched route or a normalised path, never `request.url` as sent.
 
+### Security check: Step photo gallery (23.1, 2026-10-18)
+
+**Security surface changed: LOW.** Three read-only routes; no new stored data, capability or dependency.
+
+- [x] **Who sees the gallery:** `GET …/images` and `…/images/:id/uses` need `procedure.edit` (EDITOR, ADMIN); USER and GUEST get 403, non-members and other Workspaces 404, and every route answers like an unknown resource when Procedures is switched off (route-security sweep). Answers carry id, size, dates, counts and a caption — never the content hash, the uploader or another Workspace's data.
+- [x] **Thumbnails** (`…/images/:id/thumb`) have exactly the access rule of the photo (`procedure.view`) and its headers (`image/jpeg`, nosniff, no-store). They are made from the stored, already-cleaned JPEG and kept only in memory, keyed by the immutable content hash, after the Workspace check — a cached thumbnail is never served without that check.
+- [x] **Input:** strict query (`q` ≤100 characters, `after` an opaque cursor that must decode to a time and a UUID; anything else → 400); the search is a parameterised `LIKE` with `%`, `_` and `\` escaped.
+- [x] **Picking a photo uploads nothing:** the Step only references the image; the existing save check still refuses a photo of another Workspace or an upload past its grace (`imagesBelongTo`), so the gallery cannot attach anything the save would not.
+
 ### Security check: crop and turn Step photos (23.3, 2026-10-18)
 
 **Security surface changed: NONE on the server.** The editor runs in the browser before the existing upload; no new route, capability, stored data, dependency or outbound connection.

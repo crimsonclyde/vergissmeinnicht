@@ -1,5 +1,5 @@
-import { imageUsage, readStepImage, uploadStepImage, type ImageUsage } from '@vergissmeinnicht/application';
-import { MAX_IMAGE_UPLOAD_BYTES, UUID_V4, type WorkspaceId } from '@vergissmeinnicht/domain';
+import { imageUsage, listImageUses, listWorkspaceImages, MAX_GALLERY_SEARCH_LENGTH, readStepImage, readStepImageThumbnail, uploadStepImage, type GalleryCursor, type ImageUsage } from '@vergissmeinnicht/application';
+import { MAX_IMAGE_UPLOAD_BYTES, UUID_V4, type StepImageId, type WorkspaceId } from '@vergissmeinnicht/domain';
 import type { FastifyInstance, FastifyRequest } from 'fastify';
 import { z } from 'zod';
 import type { AppServices } from '../composition.ts';
@@ -11,6 +11,18 @@ const uuid = z.string().regex(UUID_V4);
 const workspaceParams = z.strictObject({ workspaceId: uuid });
 const imageParams = z.strictObject({ workspaceId: uuid, imageId: uuid });
 const uploadQuery = z.strictObject({ replacing: uuid.optional() });
+const galleryQuery = z.strictObject({ q: z.string().max(MAX_GALLERY_SEARCH_LENGTH).optional(), after: z.string().max(80).optional() });
+
+/** Opaque page cursor: `<created-at ms>.<image id>`, base64url. Anything else is an invalid request. */
+function encodeCursor(cursor: GalleryCursor): string {
+  return Buffer.from(`${cursor.createdAt.getTime()}.${cursor.id}`).toString('base64url');
+}
+
+function decodeCursor(value: string): GalleryCursor {
+  const match = /^(\d{1,15})\.([0-9a-f-]{36})$/.exec(Buffer.from(value, 'base64url').toString('utf8'));
+  if (match === null || !UUID_V4.test(match[2] ?? '')) throw new InvalidRequestError();
+  return { createdAt: new Date(Number(match[1])), id: match[2] as StepImageId };
+}
 
 function parse<T>(schema: z.ZodType<T>, value: unknown): T {
   const parsed = schema.safeParse(value);
@@ -63,6 +75,42 @@ export async function imageRoutes(app: FastifyInstance, { services }: { services
   app.get('/usage', async (request) => {
     const { workspaceId } = parse(workspaceParams, request.params);
     return { usage: usageView(await imageUsage(deps, { actor: principalOf(request).user, workspaceId: workspaceId as WorkspaceId })) };
+  });
+
+  // The gallery (23.1): photos a Step may use, newest first; `procedure.edit` only.
+  app.get('/', async (request) => {
+    const { workspaceId } = parse(workspaceParams, request.params);
+    const { q, after } = parse(galleryQuery, request.query);
+    const page = await listWorkspaceImages(deps, {
+      actor: principalOf(request).user,
+      workspaceId: workspaceId as WorkspaceId,
+      search: q,
+      after: after === undefined ? undefined : decodeCursor(after),
+    });
+    return {
+      images: page.images.map((image) => ({
+        id: image.id,
+        width: image.width,
+        height: image.height,
+        bytes: image.bytes,
+        createdAt: image.createdAt.toISOString(),
+        steps: image.steps,
+        procedures: image.procedures,
+        caption: image.caption,
+      })),
+      next: page.next === null ? null : encodeCursor(page.next),
+    };
+  });
+
+  app.get('/:imageId/uses', async (request) => {
+    const { workspaceId, imageId } = parse(imageParams, request.params);
+    return { uses: await listImageUses(deps, { actor: principalOf(request).user, workspaceId: workspaceId as WorkspaceId, imageId }) };
+  });
+
+  app.get('/:imageId/thumb', async (request, reply) => {
+    const { workspaceId, imageId } = parse(imageParams, request.params);
+    const bytes = await readStepImageThumbnail(deps, { actor: principalOf(request).user, workspaceId: workspaceId as WorkspaceId, imageId });
+    return reply.type('image/jpeg').header('Content-Disposition', 'inline; filename="thumbnail.jpg"').send(Buffer.from(bytes));
   });
 
   app.get('/:imageId', async (request, reply) => {

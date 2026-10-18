@@ -4,6 +4,7 @@ import { formatBytes } from './document-model.ts';
 import { formatNumber, hasMessage, t } from './i18n/index.ts';
 import { decodeImage, encodeEdited, MAX_UPLOAD_BYTES, originalUpload } from './image-prep.ts';
 import { PhotoEditor } from './PhotoEditor.tsx';
+import { GalleryPicker } from './PhotoGallery.tsx';
 import type { PhotoEdit } from './photo-edit.ts';
 import { UiIcon } from './ui-icons.tsx';
 import { offlineStore } from './offline/store.ts';
@@ -147,6 +148,8 @@ export function StepImageField(props: {
   const [message, setMessage] = useState<string | null>(null);
   /** The photo open in the crop-and-turn editor (23.3), before anything is uploaded. */
   const [editing, setEditing] = useState<HTMLImageElement | null>(null);
+  /** The Workspace's photos are open to pick one (23.1): no upload, no new storage. */
+  const [picking, setPicking] = useState(false);
   const captionId = useId();
 
   const resetInputs = () => {
@@ -262,6 +265,9 @@ export function StepImageField(props: {
         <button type="button" disabled={busy} onClick={() => library.current?.click()}>
           {props.image === null ? t('image.choosePhoto') : t('image.replacePhoto')}
         </button>
+        <button type="button" className="icon-button" aria-label={t('image.fromGallery')} title={t('image.fromGallery')} disabled={busy} onClick={() => setPicking(true)}>
+          <UiIcon name="photo" />
+        </button>
         {props.image !== null && (
           <button type="button" className="icon-button" aria-label={t('image.editPhoto')} title={t('image.editPhoto')} disabled={busy} onClick={() => void editCurrent()}>
             <UiIcon name="crop" />
@@ -274,6 +280,16 @@ export function StepImageField(props: {
         )}
         {busy && <span className="muted">{t('image.uploading')}</span>}
       </div>
+      {picking && (
+        <GalleryPicker
+          workspaceId={props.workspaceId}
+          onClose={() => setPicking(false)}
+          onPick={(image) => {
+            setMessage(null);
+            props.onChange({ id: image.id, caption: image.caption ?? props.image?.caption ?? '' });
+          }}
+        />
+      )}
       {editing !== null && <PhotoEditor image={editing} busy={busy} onDone={(edit) => void finishEditing(edit)} onCancel={() => setEditing(null)} />}
     </div>
   );

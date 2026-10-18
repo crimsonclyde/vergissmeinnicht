@@ -107,6 +107,8 @@ export type Route =
   /** `sectionId`: one Section of the guided Run (22.2); null = the Run's Sections. */
   | { readonly page: 'run'; readonly workspaceId: string; readonly runId: string; readonly sectionId: string | null }
   | { readonly page: 'procedures'; readonly workspaceId: string; readonly procedureId: string | null }
+  /** The Workspace's Step photos (23.1). */
+  | { readonly page: 'photos'; readonly workspaceId: string }
   /** The Procedure builder (15.2): a new Procedure (`procedureId` null) or an existing one. */
   | { readonly page: 'procedure-edit'; readonly workspaceId: string; readonly procedureId: string | null }
   /** Workspace settings (15.1): general, members, sharing links. */
@@ -169,6 +171,7 @@ export function parseRoute(pathname: string): Route {
   }
   if ((match = new RegExp(`^/w/${ID}/procedures$`).exec(path))) return { page: 'procedures', workspaceId: match[1] ?? '', procedureId: null };
   if ((match = new RegExp(`^/w/${ID}/procedures/new$`).exec(path))) return { page: 'procedure-edit', workspaceId: match[1] ?? '', procedureId: null };
+  if ((match = new RegExp(`^/w/${ID}/procedures/photos$`).exec(path))) return { page: 'photos', workspaceId: match[1] ?? '' };
   if ((match = new RegExp(`^/w/${ID}/procedures/${ID}$`).exec(path))) {
     return { page: 'procedures', workspaceId: match[1] ?? '', procedureId: match[2] ?? null };
   }
@@ -212,6 +215,7 @@ export const paths = {
   runSection: (workspaceId: string, runId: string, sectionId: string) => `/w/${workspaceId}/runs/${runId}/sections/${sectionId}`,
   procedures: (workspaceId: string) => `/w/${workspaceId}/procedures`,
   newProcedure: (workspaceId: string) => `/w/${workspaceId}/procedures/new`,
+  photos: (workspaceId: string) => `/w/${workspaceId}/procedures/photos`,
   procedure: (workspaceId: string, procedureId: string) => `/w/${workspaceId}/procedures/${procedureId}`,
   editProcedure: (workspaceId: string, procedureId: string) => `/w/${workspaceId}/procedures/${procedureId}/edit`,
   settings: (workspaceId: string) => `/w/${workspaceId}/settings`,

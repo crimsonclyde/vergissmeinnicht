@@ -1573,6 +1573,91 @@ a.button.primary {
   object-fit: contain;
 }
 
+/* The Workspace's photos (23.1): a grid of square thumbnails, three across on phones. */
+.gallery-dialog {
+  width: min(48rem, calc(100vw - 1rem));
+}
+
+.gallery-dialog-head {
+  display: flex;
+  gap: 0.75rem;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 0.5rem;
+}
+
+.gallery-dialog-head h2 {
+  margin: 0;
+  font-size: 1.2rem;
+}
+
+.gallery-search {
+  margin: 0;
+}
+
+.gallery-search input {
+  width: 100%;
+}
+
+.gallery-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(6.5rem, 1fr));
+  gap: 0.5rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+@media (max-width: 30rem) {
+  .gallery-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+.gallery-tile {
+  position: relative;
+  display: block;
+  width: 100%;
+  min-height: 2.75rem;
+  aspect-ratio: 1;
+  padding: 0;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface-muted);
+}
+
+.gallery-tile img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.gallery-badge {
+  position: absolute;
+  right: 0.25rem;
+  bottom: 0.25rem;
+  padding: 0 0.4rem;
+  border-radius: 999px;
+  color: var(--text);
+  background: var(--surface-raised);
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+
+.gallery-photo {
+  display: block;
+  max-width: 100%;
+  max-height: 55dvh;
+  margin: 0 auto;
+  border-radius: var(--radius);
+}
+
+.gallery-uses {
+  padding-left: 1.25rem;
+}
+
 /* Crop and turn a photo before upload (23.3): the photo fills the free space, tools below it. */
 .photo-editor h2 {
   flex: 1;

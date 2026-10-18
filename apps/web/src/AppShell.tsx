@@ -4,6 +4,7 @@ import { AdminPage } from './AdminPage.tsx';
 import { AppearanceSettings } from './AppearanceSettings.tsx';
 import { CriticalConfirmSettings } from './CriticalConfirmSettings.tsx';
 import { Documents } from './Documents.tsx';
+import { PhotosPage } from './PhotoGallery.tsx';
 import { PreferencesProvider } from './preferences.tsx';
 import { OfflineBanner, useOffline } from './offline/OfflineProvider.tsx';
 import { offlineStore } from './offline/store.ts';
@@ -74,7 +75,7 @@ interface Destination {
  */
 export function destinations(workspaceId: string, tools: readonly string[] = []): { side: Destination[]; bar: Destination[] } {
   const today: Destination = { href: paths.home(workspaceId), label: t('shell.today'), icon: 'today', pages: ['workspace'] };
-  const procedures: Destination = { href: paths.procedures(workspaceId), label: t('shell.procedures'), icon: 'procedures', pages: ['procedures', 'procedure-edit'] };
+  const procedures: Destination = { href: paths.procedures(workspaceId), label: t('shell.procedures'), icon: 'procedures', pages: ['procedures', 'procedure-edit', 'photos'] };
   const reminders: Destination = { href: paths.reminders(workspaceId), label: t('shell.reminders'), icon: 'reminders', pages: ['reminders'] };
   const lists: Destination = { href: paths.lists(workspaceId), label: t('shell.lists'), icon: 'lists', pages: ['lists'] };
   const calendar: Destination = { href: paths.calendar(workspaceId), label: t('shell.calendar'), icon: 'calendar', pages: ['calendar'] };
@@ -168,7 +169,7 @@ function WorkspacePage(props: {
 
   const openRun = (runId: string) => navigate(paths.run(route.workspaceId, runId));
   const page = (): ReactNode => {
-    const required = ({ procedures: 'PROCEDURES', 'procedure-edit': 'PROCEDURES', run: 'PROCEDURES', history: 'PROCEDURES', knots: 'PROCEDURES', reminders: 'REMINDERS', lists: 'LISTS', calendar: 'CALENDAR' } as Record<string, string>)[route.page];
+    const required = ({ procedures: 'PROCEDURES', 'procedure-edit': 'PROCEDURES', photos: 'PROCEDURES', run: 'PROCEDURES', history: 'PROCEDURES', knots: 'PROCEDURES', reminders: 'REMINDERS', lists: 'LISTS', calendar: 'CALENDAR' } as Record<string, string>)[route.page];
     if (required !== undefined && !context.tools.includes(required) && !(route.page === 'run' && !navigator.onLine)) return <p role="alert">{t('error.tool_not_enabled')}</p>;
     switch (route.page) {
     case 'workspace':
@@ -273,6 +274,8 @@ function WorkspacePage(props: {
           onOpenRun={openRun}
         />
       );
+    case 'photos':
+      return can('procedure.edit') ? <PhotosPage workspaceId={route.workspaceId} /> : <p role="alert">{t('builder.editOnly')}</p>;
     case 'procedure-edit':
       return can('procedure.edit') ? (
         <ProcedureBuilder

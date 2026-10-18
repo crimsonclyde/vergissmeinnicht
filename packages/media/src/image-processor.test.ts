@@ -140,4 +140,15 @@ describe('instruction image processing (14.3)', () => {
     const result = await processor.process(polyglot);
     expect(Buffer.from(result.jpeg).includes('<script>')).toBe(false);
   });
+
+  it('makes small metadata-free gallery thumbnails of stored images, never enlarging (23.1)', async () => {
+    const stored = await processor.process(new Uint8Array(await sharp({ create: { width: 1600, height: 1200, channels: 3, background: { r: 10, g: 90, b: 200 } } }).jpeg().toBuffer()));
+    const thumbnail = await processor.thumbnail?.(stored.jpeg, 320);
+    expect(thumbnail).toBeDefined();
+    const meta = await sharp(thumbnail).metadata();
+    expect([meta.format, meta.width, meta.height]).toEqual(['jpeg', 320, 240]);
+    expect(meta.exif).toBeUndefined();
+    const tiny = await processor.thumbnail?.(new Uint8Array(await sharp({ create: { width: 100, height: 50, channels: 3, background: '#fff' } }).jpeg().toBuffer()), 320);
+    expect((await sharp(tiny).metadata()).width).toBe(100);
+  });
 });

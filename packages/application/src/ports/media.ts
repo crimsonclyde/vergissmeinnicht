@@ -30,6 +30,11 @@ export class ImageRejectedError extends Error {
  */
 export interface ImageProcessor {
   process(input: Uint8Array): Promise<ProcessedImage>;
+  /**
+   * A small JPEG (long edge at most `maxEdge`, never enlarged, no metadata) of an image already stored
+   * — the gallery's thumbnails (23.1). Optional: without it the stored image is served.
+   */
+  thumbnail?(stored: Uint8Array, maxEdge: number): Promise<Uint8Array>;
 }
 
 /**
@@ -58,6 +63,33 @@ export interface StepImageRecord {
 
 /** The combined storage of the Workspace and its limit (16.4): instruction images share it with Documents. */
 export type ImageUsage = StorageUsage;
+
+/** One photo of the Workspace gallery (23.1): what an author needs to pick it, nothing about who uploaded it. */
+export interface GalleryImage {
+  readonly id: StepImageId;
+  readonly width: number;
+  readonly height: number;
+  readonly bytes: number;
+  readonly createdAt: Date;
+  /** Steps of current (not deleted) Procedures that show it, and how many Procedures that is. */
+  readonly steps: number;
+  readonly procedures: number;
+  /** The caption last used with it (current Steps first, else a Run's), to prefill a new one. */
+  readonly caption: string | null;
+}
+
+export interface GalleryCursor {
+  readonly createdAt: Date;
+  readonly id: StepImageId;
+}
+
+/** A current Procedure Step that shows an image (where a gallery photo is used). */
+export interface ImageUse {
+  readonly procedureId: string;
+  readonly procedureTitle: string;
+  readonly stepId: string;
+  readonly stepTitle: string;
+}
 
 export type RegisterImageResult =
   | { readonly status: 'ok'; readonly image: StepImageRecord; readonly usage: ImageUsage }
@@ -91,6 +123,17 @@ export interface ImageRepository {
     guard: ActorGuard,
   ): Promise<RegisterImageResult>;
   find(workspaceId: WorkspaceId, imageId: StepImageId): Promise<StepImageRecord | undefined>;
+  /**
+   * The gallery (23.1): the Workspace's photos a Step may use — referenced by a Step or a Run snapshot,
+   * or uploaded since `pendingSince` — newest first, `limit` per page after `after`. `search` matches
+   * captions and current Step titles (plain text, no wildcards). Nothing when Procedures is switched off.
+   */
+  gallery(
+    workspaceId: WorkspaceId,
+    input: { readonly pendingSince: Date; readonly search: string | null; readonly after: GalleryCursor | null; readonly limit: number },
+  ): Promise<{ readonly images: readonly GalleryImage[]; readonly next: GalleryCursor | null }>;
+  /** Current (not deleted) Procedure Steps of the Workspace showing this image, by Procedure title. */
+  uses(workspaceId: WorkspaceId, imageId: StepImageId): Promise<readonly ImageUse[]>;
   usage(workspaceId: WorkspaceId, pendingSince: Date): Promise<ImageUsage>;
   /**
    * Housekeeping: deletes image rows referenced by nothing and created before `before`; returns the

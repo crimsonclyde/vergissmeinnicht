@@ -174,6 +174,45 @@ describe('instruction images over HTTP (14.3)', () => {
     expect(copy.json().procedure.sections[0].steps[0].image).toEqual({ id: image.id, caption: 'Valve' });
   });
 
+  it('lists the gallery for editors, with thumbnails and uses behind the access rule of the photo (23.1)', async () => {
+    const image = (await upload(home, png(1200, 900), editor)).json().image;
+    const procedure = { title: 'Gallery use', icon: 'home', sections: [{ title: 'S', steps: [{ ...STEP, image: { id: image.id, caption: 'Valve near the boiler' } }] }] };
+    expect((await t.post(`/api/workspaces/${home}/procedures`, procedure, editor)).statusCode).toBe(201);
+
+    const listed = await t.get(`/api/workspaces/${home}/images?q=boiler`, editor);
+    expect(listed.statusCode).toBe(200);
+    expect(listed.headers['cache-control']).toBe('no-store');
+    const entry = listed.json().images.find((candidate: { id: string }) => candidate.id === image.id);
+    expect(entry).toMatchObject({ steps: 1, procedures: 1, caption: 'Valve near the boiler', width: 1200, height: 900 });
+    expect(Object.keys(entry).sort()).toEqual(['bytes', 'caption', 'createdAt', 'height', 'id', 'procedures', 'steps', 'width']);
+    expect((await t.get(`/api/workspaces/${home}/images?q=nothing-like-this`, editor)).json()).toEqual({ images: [], next: null });
+    // Only those who may edit Procedures; another Workspace's member, a bad cursor or an unknown parameter get nothing.
+    expect((await t.get(`/api/workspaces/${home}/images`, user)).statusCode).toBe(403);
+    expect((await t.get(`/api/workspaces/${home}/images`, guest)).statusCode).toBe(403);
+    expect((await t.get(`/api/workspaces/${home}/images`, outsider)).statusCode).toBe(404);
+    expect((await t.get(`/api/workspaces/${home}/images`)).statusCode).toBe(401);
+    expect((await t.get(`/api/workspaces/${office}/images`, outsider)).json().images.map((candidate: { id: string }) => candidate.id)).not.toContain(image.id);
+    expect((await t.get(`/api/workspaces/${home}/images?after=bm90LWEtY3Vyc29y`, editor)).statusCode).toBe(400);
+    expect((await t.get(`/api/workspaces/${home}/images?q=${'x'.repeat(101)}`, editor)).statusCode).toBe(400);
+    expect((await t.get(`/api/workspaces/${home}/images?sort=bytes`, editor)).statusCode).toBe(400);
+
+    const uses = await t.get(`/api/workspaces/${home}/images/${image.id}/uses`, editor);
+    expect(uses.json().uses).toEqual([expect.objectContaining({ procedureTitle: 'Gallery use', stepTitle: 'Close the main water valve' })]);
+    expect((await t.get(`/api/workspaces/${home}/images/${image.id}/uses`, guest)).statusCode).toBe(403);
+    expect((await t.get(`/api/workspaces/${office}/images/${image.id}/uses`, outsider)).statusCode).toBe(404);
+
+    // A thumbnail: a small metadata-free JPEG with the photo's own access rule (GUEST may view).
+    const thumb = await t.get(`/api/workspaces/${home}/images/${image.id}/thumb`, guest);
+    expect(thumb.statusCode).toBe(200);
+    expect(thumb.headers['content-type']).toBe('image/jpeg');
+    expect(thumb.headers['x-content-type-options']).toBe('nosniff');
+    expect(thumb.rawPayload.subarray(0, 3)).toEqual(Buffer.from([0xff, 0xd8, 0xff]));
+    expect(thumb.rawPayload.byteLength).toBeLessThan(image.bytes);
+    expect((await t.get(`/api/workspaces/${home}/images/${image.id}/thumb`)).statusCode).toBe(401);
+    expect((await t.get(`/api/workspaces/${home}/images/${image.id}/thumb`, outsider)).statusCode).toBe(404);
+    expect((await t.get(`/api/workspaces/${office}/images/${image.id}/thumb`, outsider)).statusCode).toBe(404);
+  });
+
   it('charges images to the combined Workspace storage, whose ceiling only a server admin sets (16.4)', async () => {
     const storage = await t.get('/api/admin/storage', t.admin);
     expect(storage.statusCode).toBe(200);

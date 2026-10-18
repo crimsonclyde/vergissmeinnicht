@@ -4341,7 +4341,7 @@ A greeting with the person's name and the date, and a ring for today's progress 
 
 ---
 
-## 23 — Step photos: Workspace gallery, replace everywhere, crop and rotate (planned 2026-10-18; SG3 confirmed by the owner 2026-10-18; 23.3 done, 23.1–23.2 not implemented)
+## 23 — Step photos: Workspace gallery, replace everywhere, crop and rotate (planned 2026-10-18; SG3 confirmed by the owner 2026-10-18; 23.3 and 23.1 done, 23.2 not implemented)
 
 Owner request (2026-10-18): on- and offboarding are mostly the same procedure, so the same photos are needed again; reuse photos that already exist in the Workspace instead of taking new ones, replace photos from a gallery, and crop or rotate a photo after taking it.
 
@@ -4358,7 +4358,8 @@ Owner request (2026-10-18): on- and offboarding are mostly the same procedure, s
 
 ### 23.1 Workspace photo gallery and picking an existing photo
 
-**Status:** PLANNED  
+**Status:** DONE  
+**Completed:** 2026-10-18  
 **Depends on:** 14.3, 15.2 (Step editor).
 
 **Requirements:**
@@ -4370,6 +4371,12 @@ Owner request (2026-10-18): on- and offboarding are mostly the same procedure, s
 **Tests/checks (security, required):** USER and GUEST cannot list or open the gallery (route and UI); a Workspace B member gets nothing for Workspace A's list, thumbnails or ids; a photo of another Workspace or an unused photo past the grace cannot be attached (existing check, add the gallery path to the test); the list never contains a hash, uploader or another Workspace's photo; thumbnails have the 14.3 headers and return 401/404 like the full image; pagination and search with odd input (`%`, `_`, very long text); a photo picked from the gallery adds no bytes to the quota; route-security sweep covers the new routes; e2e: pick a photo on a second Procedure, start a Run, the photo shows; axe on the sheet; screenshots at 390, 320 and 1440 px, light and dark.
 
 **Security impact (expected):** LOW–MEDIUM — a new listing of Workspace content and a new derived file per image, both behind the existing Workspace authorisation.
+
+**Implemented:** `ImageRepository.gallery` / `uses` (`image-repository.ts`: attachable photos — referenced by a Step or Run snapshot, or uploaded within the grace — of the Workspace only, behind the Procedures switch; newest first with an `(created_at, id)` cursor; counts of current Steps and Procedures; the last caption, from the most recently saved Procedure, else the latest Run snapshot; search in captions and current Step titles with the escaped `containsPattern`); use cases `listWorkspaceImages` and `listImageUses` (`procedure.edit`) and `readStepImageThumbnail` (`procedure.view`, like the photo) in `application/media/use-cases.ts`; `ImageProcessor.thumbnail` (sharp, ≤320 px, JPEG 75, same two processing slots). Routes: `GET /api/workspaces/:ws/images?q=&after=` (strict query, search ≤100 characters, cursor validated), `GET …/images/:id/uses`, `GET …/images/:id/thumb`. Web: `PhotoGallery.tsx` (`GalleryGrid` with search and *Show more*, `GalleryPicker` dialog, `PhotosPage` at `/w/{id}/procedures/photos` with usage and a details dialog listing the Procedures and Steps that use a photo, linked); the Step editor has a gallery icon (**Choose from this Workspace’s photos**) next to *Take photo* / *Choose photo* — picking sets the reference without uploading and fills the caption with the photo's last one; *Manage Procedures → Photos*.  
+**Deviation from the plan:** thumbnails are not stored as files. They are made on demand from the stored JPEG and kept in a bounded in-memory cache keyed by the (immutable) content hash, filled and read only after the Workspace check — no migration, no new files to purge or back up. The existing Step and Run thumbnails still load the full photo (unchanged, so the offline copy and the full-screen viewer share it).  
+**Tests/checks:** `image-use-cases.test.ts` (gallery: newest first, counts, last caption, past-grace and other-Workspace photos absent, nothing about the uploader, ADMIN/EDITOR only, deleted Procedures no longer counted; search incl. `%`/`_` literal and Step titles; 50 photos over two pages without duplicates; thumbnails and uses behind their access rules), `image.test.ts` (HTTP: fields exactly, 401/403/404, bad cursor, long search and unknown parameters → 400, thumbnail headers and size), `image-processor.test.ts` (thumbnail size, no EXIF, never enlarged); the route-security sweep covers the new routes with Procedures switched off; e2e: pick Step 1's photo for Step 2 (no upload, axe on the picker), the Photos page (badge, search, details with a link, axe); screenshots at 1440, 390 and 320 px, light and dark; `pnpm lint`, `pnpm typecheck`.  
+**Security impact:** LOW — a read-only listing and thumbnails behind the existing Workspace authorisation; no new stored data. **Security docs updated:** YES ("Security check: Step photo gallery (23.1)").  
+**Remaining:** 23.2 (replace everywhere); the gallery shows no photos of Documents (SG6).
 
 ### 23.2 Replace a photo everywhere
 
