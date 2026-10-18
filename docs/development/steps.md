@@ -4341,7 +4341,7 @@ A greeting with the person's name and the date, and a ring for today's progress 
 
 ---
 
-## 23 — Step photos: Workspace gallery, replace everywhere, crop and rotate (planned 2026-10-18; SG3 confirmed by the owner 2026-10-18; not implemented)
+## 23 — Step photos: Workspace gallery, replace everywhere, crop and rotate (planned 2026-10-18; SG3 confirmed by the owner 2026-10-18; 23.3 done, 23.1–23.2 not implemented)
 
 Owner request (2026-10-18): on- and offboarding are mostly the same procedure, so the same photos are needed again; reuse photos that already exist in the Workspace instead of taking new ones, replace photos from a gallery, and crop or rotate a photo after taking it.
 
@@ -4387,7 +4387,8 @@ Owner request (2026-10-18): on- and offboarding are mostly the same procedure, s
 
 ### 23.3 Crop and rotate
 
-**Status:** PLANNED  
+**Status:** DONE (real-phone check open — see Remaining)  
+**Completed:** 2026-10-18  
 **Depends on:** 14.3 (`apps/web/src/image-prep.ts`).
 
 **Requirements:**
@@ -4399,6 +4400,11 @@ Owner request (2026-10-18): on- and offboarding are mostly the same procedure, s
 **Tests/checks:** unit tests for the geometry (rotated bounding box, frame clamped inside the photo, minimum size, 90° swaps width and height); e2e: crop a test photo → stored dimensions are smaller; turn 90° → width and height swap; Cancel uploads nothing; axe on the editor; real phone check (iPhone Safari and Android Chrome: drag handles, slider, camera photo upright).
 
 **Security impact (expected):** NONE on the server (no new route, same upload path); presentation only.
+
+**Implemented:** `apps/web/src/photo-edit.ts` (pure geometry: quarter turns that carry the crop along, straightening with the photo enlarged just enough to cover the frame, crop clamped inside the photo and ≥200 px, output ≤1600 px, `drawEdited` for preview and result) and `apps/web/src/PhotoEditor.tsx` (full-screen `<dialog>` "Edit photo": ✕ Cancel, **✓ Done** focused on open, the photo with a darkened outside and a crop frame with 44 px corner handles — pointer drag, arrows move, Shift+arrows resize — then ↺ / ↻, a **Straighten** slider with its value, and ⟳ Reset). `image-prep.ts` now exposes `decodeImage`, `encodeEdited` and `originalUpload`; `prepareImage` keeps its behaviour. Step editor (`StepImage.tsx`): a chosen or taken photo opens the editor before upload (a photo the browser cannot decode — HEIC outside Safari — is sent as before so the server can explain); a crop icon (**Crop or turn photo**) next to a stored photo loads it through the authorised route and saves the edit as a new image. Escape and Cancel upload nothing. New UI icons: crop, turn left/right, reset (Tabler, already a dependency).  
+**Tests/checks:** `photo-edit.test.ts` (9 tests: quarter turns swap the size, no enlarging, cover scale keeps every frame corner inside the photo, crop clamping/minimum/moving/resizing, turning the crop and four turns = none, the drawn transform for unedited, turned and cropped photos); e2e (builder segment): Done focused, axe on the editor, Turn right + 3 × Shift+← → the stored photo is 226 × 320 from a 320 × 240 PNG, Crop or turn → Turn left → Cancel keeps the photo; `pnpm lint`, `pnpm typecheck`, web unit tests.  
+**Security impact:** NONE on the server. **Security docs updated:** YES ("Security check: crop and turn Step photos (23.3)").  
+**Remaining:** real-phone check (iPhone Safari, Android Chrome: dragging the handles, the slider, a camera photo upright after editing); no pinch-zoom inside the editor; no fixed aspect ratios.
 
 ### Order
 

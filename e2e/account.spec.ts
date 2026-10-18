@@ -282,7 +282,24 @@ test('first server admin: bootstrap link, account creation, sign-in, Workspace c
   const chooserEvent = page.waitForEvent('filechooser');
   await editor.getByRole('button', { name: 'Choose photo' }).click();
   await (await chooserEvent).setFiles({ name: 'window.png', mimeType: 'image/png', buffer: photo() });
+  // Crop and turn before upload (23.3): Done is focused, so an unchanged photo costs one tap.
+  const photoEditor = page.getByRole('dialog', { name: 'Edit photo' });
+  await expect(photoEditor.getByRole('button', { name: 'Done' })).toBeFocused();
+  await expectAccessible(page, 'photo editor');
+  await photoEditor.getByRole('button', { name: 'Turn right' }).click();
+  await photoEditor.getByRole('group', { name: 'Crop area' }).focus();
+  for (let i = 0; i < 3; i += 1) await page.keyboard.press('Shift+ArrowLeft');
+  await photoEditor.getByRole('button', { name: 'Done' }).click();
+  await expect(photoEditor).toHaveCount(0);
   await expect(editor.getByRole('button', { name: 'Replace photo' })).toBeVisible();
+  // Turned (320 × 240 → 240 × 320), then 6 % narrower; the server keeps that size.
+  await expect.poll(() => editor.locator('.step-image-open img').evaluate((img: { naturalWidth: number; naturalHeight: number }) => `${img.naturalWidth}×${img.naturalHeight}`)).toBe('226×320');
+  // Cancel leaves the photo as it was and uploads nothing.
+  await editor.getByRole('button', { name: 'Crop or turn photo' }).click();
+  await photoEditor.getByRole('button', { name: 'Turn left' }).click();
+  await photoEditor.getByRole('button', { name: 'Cancel' }).click();
+  await expect(photoEditor).toHaveCount(0);
+  await expect(editor.locator('.step-image-open img')).toHaveCount(1);
   await expect(editor.getByText(/Storage of this Workspace: [\d.,]+ (bytes|KB|MB) of 5 GB used\.$/)).toBeVisible(); // one limit for the whole Workspace (16.4)
   // Unapplied Step changes are named, and Save procedure waits for them.
   await expect(builderState).toHaveText(/Step has unapplied changes/);

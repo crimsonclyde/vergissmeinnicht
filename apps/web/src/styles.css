@@ -1573,6 +1573,123 @@ a.button.primary {
   object-fit: contain;
 }
 
+/* Crop and turn a photo before upload (23.3): the photo fills the free space, tools below it. */
+.photo-editor h2 {
+  flex: 1;
+  margin: 0;
+  font-size: 1.1rem;
+  text-align: center;
+}
+
+.photo-editor-stage {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+  align-items: center;
+  justify-content: center;
+  padding: 1.5rem;
+  overflow: hidden;
+}
+
+.photo-editor-photo {
+  position: relative;
+  flex: none;
+  touch-action: none;
+  user-select: none;
+}
+
+.photo-editor-photo canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.photo-editor-crop {
+  position: absolute;
+  box-sizing: border-box;
+  border: 2px solid #ffffff;
+  outline: 1px solid rgb(0 0 0 / 60%);
+  /* Darkens everything outside the crop. */
+  box-shadow: 0 0 0 100vmax rgb(0 0 0 / 55%);
+  cursor: move;
+  touch-action: none;
+}
+
+.photo-editor-crop:focus-visible {
+  outline: 3px solid var(--focus);
+  outline-offset: 2px;
+}
+
+/* 44 px touch targets centred on the corners; the visible mark is the inner square. */
+.photo-editor-handle {
+  position: absolute;
+  width: 2.75rem;
+  height: 2.75rem;
+  touch-action: none;
+}
+
+.photo-editor-handle::after {
+  content: '';
+  position: absolute;
+  inset: 0.9rem;
+  border: 2px solid #1a1816;
+  border-radius: 3px;
+  background: #ffffff;
+}
+
+.photo-editor-handle-nw {
+  top: -1.375rem;
+  left: -1.375rem;
+  cursor: nwse-resize;
+}
+
+.photo-editor-handle-ne {
+  top: -1.375rem;
+  right: -1.375rem;
+  cursor: nesw-resize;
+}
+
+.photo-editor-handle-sw {
+  bottom: -1.375rem;
+  left: -1.375rem;
+  cursor: nesw-resize;
+}
+
+.photo-editor-handle-se {
+  right: -1.375rem;
+  bottom: -1.375rem;
+  cursor: nwse-resize;
+}
+
+.photo-editor-tools {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem 1rem;
+  align-items: center;
+  justify-content: center;
+  padding: 0.75rem 1rem calc(0.75rem + var(--safe-bottom));
+}
+
+.photo-editor-straighten {
+  display: flex;
+  flex: 1 1 12rem;
+  gap: 0.5rem;
+  align-items: center;
+  max-width: 24rem;
+}
+
+.photo-editor-straighten input {
+  flex: 1;
+  min-width: 0;
+  min-height: 2.75rem;
+}
+
+.photo-editor-straighten output {
+  min-width: 3.5ch;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
 /* ---- Calendar and agenda (14.4) ------------------------------------------------------------ */
 
 .calendar-nav {
