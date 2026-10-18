@@ -42,6 +42,37 @@ describe('production hardening (10.3)', () => {
     }
   });
 
+  it('limits an API route however its path is spelled (percent-encoded segments)', async () => {
+    const app = await buildApp({ apiRateLimitPerMinute: 5 });
+    try {
+      // `/%61pi/health` reaches the same handler as `/api/health`; it must count against the same limit.
+      expect((await app.inject({ url: '/%61pi/health' })).statusCode).toBe(200);
+      const statuses: number[] = [];
+      for (let i = 0; i < 5; i += 1) statuses.push((await app.inject({ url: i % 2 === 0 ? '/%61pi/health' : '/api/health' })).statusCode);
+      expect(statuses.slice(0, 4).every((status) => status === 200)).toBe(true);
+      expect(statuses[4]).toBe(429);
+    } finally {
+      await app.close();
+    }
+  });
+
+  it('keeps the sign-in limit for a percent-encoded sign-in path', async () => {
+    t = await startTestApp();
+    const statuses: number[] = [];
+    for (let i = 0; i < 11; i += 1) {
+      const response = await t.app.inject({
+        method: 'POST',
+        url: '/%61pi/auth/sign-in',
+        remoteAddress: '198.51.100.44',
+        headers: { origin: ORIGIN },
+        payload: { email: `spray${i}@example.org`, password: 'wrong password, wrong password' },
+      });
+      statuses.push(response.statusCode);
+    }
+    expect(statuses.slice(0, 10).every((status) => status === 401)).toBe(true);
+    expect(statuses[10]).toBe(429);
+  });
+
   it('applies a configured global API limit (API_RATE_LIMIT_PER_MINUTE)', async () => {
     const app = await buildApp({ apiRateLimitPerMinute: 60 });
     try {
