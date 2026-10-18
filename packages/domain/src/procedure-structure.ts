@@ -42,6 +42,8 @@ export interface ProcedureSection {
   readonly id: SectionId;
   readonly title: string;
   readonly description: string;
+  /** Optional icon of the Section (22.1); the guided Run shows a default icon when there is none. */
+  readonly icon: ProcedureIcon | null;
   /** In display order. */
   readonly steps: readonly ProcedureStep[];
 }
@@ -69,6 +71,8 @@ export interface SectionInput {
   readonly id?: string | undefined;
   readonly title: string;
   readonly description: string;
+  /** Omitted or null: no icon (22.1). */
+  readonly icon?: string | null | undefined;
   readonly steps: readonly StepInput[];
 }
 
@@ -81,6 +85,7 @@ export interface StructureDraft {
     readonly id: SectionId | undefined;
     readonly title: string;
     readonly description: string;
+    readonly icon: ProcedureIcon | null;
     readonly steps: readonly (Omit<ProcedureStep, 'id'> & { readonly id: StepId | undefined })[];
   }[];
 }
@@ -120,6 +125,7 @@ export function normalizeProcedureStructure(sections: readonly SectionInput[]): 
         maxLength: MAX_SECTION_TITLE_LENGTH,
       }),
       description: normalizeProcedureDescription(section.description),
+      icon: section.icon === undefined || section.icon === null ? null : parseProcedureIcon(section.icon),
       steps: section.steps.map((step) => ({
         id: parseItemId<StepId>('steps', step.id, seen),
         kind: 'CHECK' as const,
@@ -159,7 +165,7 @@ export function summarizeStructureChange(
     const sectionMap = new Map<string, string>();
     const stepMap = new Map<string, string>();
     sections.forEach((section, position) => {
-      sectionMap.set(section.id, JSON.stringify([position, section.title, section.description]));
+      sectionMap.set(section.id, JSON.stringify([position, section.title, section.description, section.icon]));
       section.steps.forEach((step, stepPosition) =>
         stepMap.set(step.id, JSON.stringify([section.id, stepPosition, { ...step, id: undefined }])),
       );

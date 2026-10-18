@@ -24,6 +24,8 @@ export interface ProcedureDocumentV1 {
     readonly sections: readonly {
       readonly title: string;
       readonly description: string;
+      /** Optional (22.1): written only when the Section has an icon, so files without icons stay readable by older versions. */
+      readonly icon?: ProcedureIcon;
       readonly steps: readonly {
         readonly kind: 'CHECK';
         readonly title: string;
@@ -53,6 +55,7 @@ export function toProcedureDocument(detail: {
       sections: detail.sections.map((section) => ({
         title: section.title,
         description: section.description,
+        ...(section.icon === null ? {} : { icon: section.icon }),
         steps: section.steps.map((step) => ({
           kind: step.kind,
           title: step.title,
@@ -107,6 +110,7 @@ const documentV1 = z.strictObject({
         z.strictObject({
           title: text(512),
           description: text(16_384),
+          icon: text(64).nullable().optional(),
           steps: z.array(stepV1).max(250),
         }),
       )
@@ -143,6 +147,7 @@ export function parseProcedureDocument(input: unknown): ImportedProcedure {
     sections: procedure.sections.map((section) => ({
       title: section.title,
       description: section.description,
+      icon: section.icon ?? null,
       steps: section.steps.map((step) => ({
         title: step.title,
         description: step.description,

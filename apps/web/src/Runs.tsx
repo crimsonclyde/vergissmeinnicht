@@ -19,7 +19,7 @@ import { TapToConfirm } from './TapToConfirm.tsx';
 import { KnotShare } from './Knots.tsx';
 import { RunDocuments } from './DocumentLinks.tsx';
 import { formatDateTime, formatTime, formatWhen, t } from './i18n/index.ts';
-import { AppIcon } from './procedure-icons.tsx';
+import { AppIcon, sectionIcon } from './procedure-icons.tsx';
 import { StepImage } from './StepImage.tsx';
 import { StepMarks } from './StepMarks.tsx';
 import { applyStepResult, isNewer, withPendingChanges, type PendingStepChange } from './run-updates.ts';
@@ -28,6 +28,8 @@ import { expectedStateFor, withQueuedChanges } from './offline/queue.ts';
 import { offlineStore } from './offline/store.ts';
 import { useRunLiveUpdates, type AnnouncedChange, type LiveStatus } from './useRunLiveUpdates.ts';
 import { UiIcon } from './ui-icons.tsx';
+import { navigate, paths } from './router.tsx';
+import { Confetti, Ring, SectionGuide, SectionTiles, nextOpenSection } from './RunGuide.tsx';
 
 /** How long "Uma changed … at …" stays visible. */
 const REMOTE_NOTICE_MS = 10_000;
@@ -44,7 +46,7 @@ export function StateBadge({ state }: { state: StepState }) {
   );
 }
 
-function RunStateBadge({ state }: { state: RunState }) {
+export function RunStateBadge({ state }: { state: RunState }) {
   return <span className={`state-badge state-${RUN_STATE_BADGE[state]}`}>{t(`runState.${state}`)}</span>;
 }
 
@@ -65,7 +67,7 @@ function StateSummary({ counts }: { counts: Readonly<Record<StepState, number>> 
   );
 }
 
-function countStates(steps: readonly RunStep[]): Record<StepState, number> {
+export function countStates(steps: readonly RunStep[]): Record<StepState, number> {
   const counts: Record<StepState, number> = { PENDING: 0, DONE: 0, SKIPPED: 0, NOT_APPLICABLE: 0 };
   for (const step of steps) counts[step.state] += 1;
   return counts;
@@ -89,16 +91,16 @@ function Progress({ resolved, total }: { resolved: number; total: number }) {
   );
 }
 
-type StepAction = { readonly to: StepState; readonly reason?: string };
+export type StepAction = { readonly to: StepState; readonly reason?: string };
 
-function policyFor(step: RunStep, to: StepState): ReasonPolicy {
+export function policyFor(step: RunStep, to: StepState): ReasonPolicy {
   if (to === 'SKIPPED') return step.skipReasonPolicy;
   if (to === 'NOT_APPLICABLE') return step.notApplicableReasonPolicy;
   return 'DISABLED';
 }
 
 /** Asks for a reason when the Step's policy allows or requires one (the server enforces the policy). */
-function ReasonForm(props: { step: RunStep; to: StepState; onSubmit: (reason: string) => void; onCancel: () => void }) {
+export function ReasonForm(props: { step: RunStep; to: StepState; onSubmit: (reason: string) => void; onCancel: () => void }) {
   const [reason, setReason] = useState('');
   const required = policyFor(props.step, props.to) === 'REQUIRED';
   function submit(event: FormEvent) {
@@ -244,6 +246,24 @@ function StepItem(props: {
 
 const stepElementId = (stepId: string) => `step-${stepId}`;
 
+/** Guided (22.2) or the full list; remembered on this device only (a convenience, never required). */
+type RunViewMode = 'guide' | 'list';
+const RUN_VIEW_KEY = 'vmn.runView';
+function storedRunView(): RunViewMode {
+  try {
+    return window.localStorage.getItem(RUN_VIEW_KEY) === 'list' ? 'list' : 'guide';
+  } catch {
+    return 'guide';
+  }
+}
+function rememberRunView(mode: RunViewMode): void {
+  try {
+    window.localStorage.setItem(RUN_VIEW_KEY, mode);
+  } catch {
+    /* per-device convenience only */
+  }
+}
+
 /** Brings a Step into view and moves keyboard focus to it (no smooth scrolling if the user prefers less motion). */
 function goToStep(stepId: string) {
   const element = document.getElementById(stepElementId(stepId));
@@ -276,7 +296,7 @@ function RunDock({ steps, next }: { steps: readonly RunStep[]; next: RunStep | u
 }
 
 /** Required Steps that block completion (mirrors the server rule; the server decides). */
-function openRequired(run: RunDetail): RunStep[] {
+export function openRequired(run: RunDetail): RunStep[] {
   return run.sections
     .flatMap((section) => section.steps)
     .filter((step) => step.required && step.state !== 'DONE' && step.state !== 'NOT_APPLICABLE');
@@ -291,13 +311,15 @@ function RunEndControls(props: {
   needsConnection: boolean;
   onComplete: () => void;
   onAbort: (reason: string) => void;
+  /** Only the controls, without the card and its heading (the guided Run's Sections view). */
+  compact?: boolean;
 }) {
   const [aborting, setAborting] = useState(false);
   const [reason, setReason] = useState('');
   const open = openRequired(props.run);
   return (
-    <section aria-label={t('finish.heading')} className="card stack">
-      <h3 style={{ marginTop: 0 }}>{t('finish.heading')}</h3>
+    <section aria-label={t('finish.heading')} className={props.compact === true ? 'stack' : 'card stack'}>
+      {props.compact !== true && <h3 style={{ marginTop: 0 }}>{t('finish.heading')}</h3>}
       {props.needsConnection && <p className="muted">{t('offline.finishNeedsConnection')}</p>}
       {props.canExecute && (
         <div className="stack">
@@ -368,6 +390,11 @@ function RunView(props: {
   onComplete: () => void;
   onAbort: (reason: string) => void;
   loadHistory: (after?: string) => Promise<HistoryPage>;
+  /** The open Section of the guided Run (from the address), or null for the Sections. */
+  sectionId: string | null;
+  onOpenSection: (sectionId: string, replace: boolean) => void;
+  onSections: () => void;
+  onHome: () => void;
 }) {
   const { run } = props;
   const { userId } = useOffline();
@@ -377,8 +404,155 @@ function RunView(props: {
   // Less clutter on demand; resolved Steps stay one click away (and undo stays possible).
   const [hideResolved, setHideResolved] = useState(false);
   const hiding = hideResolved && run.state === 'ACTIVE';
+  const [view, setView] = useState<RunViewMode>(storedRunView);
+  const chooseView = (next: RunViewMode) => {
+    setView(next);
+    rememberRunView(next);
+  };
+  const resolved = steps.filter((step) => step.state !== 'PENDING').length;
+  const endControlsOf = (compact: boolean) => run.state === 'ACTIVE' && (props.canExecute || props.canAbort) && (
+    <RunEndControls
+      compact={compact}
+      run={run}
+      canExecute={props.canExecute}
+      canAbort={props.canAbort}
+      busy={props.busy || props.saving.size > 0}
+      needsConnection={props.needsConnection}
+      onComplete={props.onComplete}
+      onAbort={props.onAbort}
+    />
+  );
+  const endControls = endControlsOf(false);
+  const liveNotice = (
+    <p role="status" className="live-status" style={{ margin: 0 }}>
+      {props.remoteChange !== null && describeChange(run, props.remoteChange)}
+    </p>
+  );
+  const ended = run.ended !== null && (
+    <p role="status">
+      {run.ended.reason === null
+        ? t('run.ended', { state: t(`runState.${run.state}`), name: run.ended.by, time: formatDateTime(run.ended.at) })
+        : t('run.endedWithReason', {
+            state: t(`runState.${run.state}`),
+            name: run.ended.by,
+            time: formatDateTime(run.ended.at),
+            reason: run.ended.reason,
+          })}{' '}
+      {t('run.history')}
+    </p>
+  );
+  const more = (
+    <>
+      {/* Execution first (13.17): history and sharing stay one tap away instead of competing with the Steps. */}
+      <RunDocuments key={`documents-${run.id}`} workspaceId={props.workspaceId} runId={run.id} runState={run.state} />
+      <details className="more-actions run-more" open={run.state !== 'ACTIVE'}>
+        <summary>{t(props.canManageKnots ? 'run.moreWithShare' : 'run.more')}</summary>
+        <History key={`${run.id}-${run.state}`} label={t('run.historyLabel')} load={props.loadHistory} />
+        {props.canManageKnots && <KnotShare key={run.id} workspaceId={props.workspaceId} target={{ type: 'RUN', id: run.id }} defaultLabel={run.title} />}
+      </details>
+    </>
+  );
+  const backHome = (
+    <p>
+      <button type="button" className="link-like" onClick={props.onHome}>
+        {t('runs.back')}
+      </button>
+    </p>
+  );
+
+  // The guided Run (22.2): one Section at a time; a Run with one Section opens straight into it.
+  if (view === 'guide') {
+    const single = run.sections.length === 1;
+    const section = run.sections.find((each) => each.id === props.sectionId) ?? (single ? run.sections[0] : undefined);
+    if (section !== undefined) {
+      return (
+        <SectionGuide
+          key={section.id}
+          run={run}
+          section={section}
+          workspaceId={props.workspaceId}
+          offlineUserId={run.state === 'ACTIVE' ? userId : undefined}
+          canExecute={canExecute}
+          busy={props.busy}
+          saving={props.saving}
+          queued={props.queued}
+          hasOverview={!single}
+          finish={endControlsOf(true) || ended}
+          canFinish={openRequired(run).length === 0}
+          liveNotice={liveNotice}
+          onStep={props.onStep}
+          onBack={single ? props.onHome : props.onSections}
+          onOpenSection={(id) => props.onOpenSection(id, true)}
+          onList={() => chooseView('list')}
+        />
+      );
+    }
+    const allResolved = run.state === 'ACTIVE' && next === undefined && steps.length > 0;
+    const open = nextOpenSection(run.sections, null);
+    return (
+      <article aria-labelledby="run-title" className="guide-overview">
+        {backHome}
+        <div className="card guide-hero">
+          <Ring done={resolved} total={steps.length} size={84} label={t('run.progress', { resolved, count: steps.length })} />
+          <div className="guide-hero-text">
+            <h2 id="run-title">
+              <AppIcon name={run.icon} /> {run.title}
+            </h2>
+            <span className="row">
+              {run.state === 'ACTIVE' ? (
+                <span className={`live-chip live-${props.live}`} title={t(`live.${props.live}`)} role="status">
+                  {t(`live.short.${props.live}`)}
+                </span>
+              ) : (
+                <RunStateBadge state={run.state} />
+              )}
+              <small className="muted">{t('run.started', { name: run.startedBy, time: formatWhen(run.startedAt) })}</small>
+            </span>
+          </div>
+          <button type="button" className="icon-button guide-view-switch" aria-label={t('guide.showList')} title={t('guide.showList')} onClick={() => chooseView('list')}>
+            <UiIcon name="lists" />
+          </button>
+        </div>
+        {ended}
+        {run.description !== '' && <p className="muted" style={{ whiteSpace: 'pre-wrap' }}>{run.description}</p>}
+        {props.offlineCopy !== null && <p className="muted">{t('offline.savedCopy', { time: formatWhen(props.offlineCopy) })}</p>}
+        {liveNotice}
+        {allResolved && (
+          <div className="card guide-finish" role="status">
+            <Confetti />
+            <h3>{t('guide.allDone')}</h3>
+            {endControlsOf(true)}
+          </div>
+        )}
+        {open !== undefined && (
+          <button type="button" className="primary guide-big guide-continue" onClick={() => props.onOpenSection(open.id, false)}>
+            <AppIcon name={sectionIcon(open)} decorative /> {resolved === 0 ? t('guide.start', { title: open.title }) : t('guide.continue', { title: open.title })}
+          </button>
+        )}
+        <SectionTiles run={run} onOpen={(id) => props.onOpenSection(id, false)} />
+        {/* Complete waits on the finish screen; until then only Abort is offered here (quietly). */}
+        {!allResolved && run.state === 'ACTIVE' && props.canAbort && (
+          <div className="guide-end">
+            <RunEndControls
+              run={run}
+              canExecute={false}
+              canAbort={props.canAbort}
+              compact
+              busy={props.busy || props.saving.size > 0}
+              needsConnection={props.needsConnection}
+              onComplete={props.onComplete}
+              onAbort={props.onAbort}
+            />
+          </div>
+        )}
+        {more}
+      </article>
+    );
+  }
+
   return (
     <article aria-labelledby="run-title">
+      {backHome}
       <div className="card stack">
         <div className="row" style={{ justifyContent: 'space-between' }}>
           <h2 id="run-title" style={{ margin: 0 }}>
@@ -391,6 +565,9 @@ function RunView(props: {
               </span>
             )}
             <RunStateBadge state={run.state} />
+            <button type="button" className="icon-button" aria-label={t('guide.showGuide')} title={t('guide.showGuide')} onClick={() => chooseView('guide')}>
+              <UiIcon name="grid" />
+            </button>
           </span>
         </div>
         <Progress resolved={steps.filter((step) => step.state !== 'PENDING').length} total={steps.length} />
@@ -450,26 +627,8 @@ function RunView(props: {
         </section>
         );
       })}
-      {run.state === 'ACTIVE' && (props.canExecute || props.canAbort) && (
-        <div style={{ marginTop: '1.5rem' }}>
-          <RunEndControls
-            run={run}
-            canExecute={props.canExecute}
-            canAbort={props.canAbort}
-            busy={props.busy || props.saving.size > 0}
-            needsConnection={props.needsConnection}
-            onComplete={props.onComplete}
-            onAbort={props.onAbort}
-          />
-        </div>
-      )}
-      {/* Execution first (13.17): history and sharing stay one tap away instead of competing with the Steps. */}
-      <RunDocuments key={`documents-${run.id}`} workspaceId={props.workspaceId} runId={run.id} runState={run.state} />
-      <details className="more-actions run-more" open={run.state !== 'ACTIVE'}>
-        <summary>{t(props.canManageKnots ? 'run.moreWithShare' : 'run.more')}</summary>
-        <History key={`${run.id}-${run.state}`} label={t('run.historyLabel')} load={props.loadHistory} />
-        {props.canManageKnots && <KnotShare key={run.id} workspaceId={props.workspaceId} target={{ type: 'RUN', id: run.id }} defaultLabel={run.title} />}
-      </details>
+      {endControls !== false && <div style={{ marginTop: '1.5rem' }}>{endControls}</div>}
+      {more}
       {run.state === 'ACTIVE' && <RunDock steps={steps} next={next} />}
     </article>
   );
@@ -517,6 +676,8 @@ export function Runs(props: {
   canStart: boolean;
   canManageKnots: boolean;
   openRunId: string | null;
+  /** The open Section of the guided Run (22.2), from the address. */
+  sectionId: string | null;
   onOpen: (runId: string | null) => void;
   /** Back to the Workspace Home (from an execution). */
   onHome: () => void;
@@ -744,6 +905,8 @@ export function Runs(props: {
     }
   }
 
+  /** Whether the open Section was reached from the Sections view in this visit (so Back can go back there). */
+  const openedFromSections = useRef(false);
   const active = runs?.filter((run) => run.state === 'ACTIVE') ?? [];
   const finished = runs?.filter((run) => run.state !== 'ACTIVE') ?? [];
 
@@ -751,11 +914,6 @@ export function Runs(props: {
     <section aria-label={t('runs.heading')}>
       {openRunId !== null ? (
         <>
-          <p>
-            <button type="button" className="link-like" onClick={props.onHome}>
-              {t('runs.back')}
-            </button>
-          </p>
           {message !== null && <p role="alert">{message}</p>}
           {shown === null ? (
             <p>{t('common.loading')}</p>
@@ -777,6 +935,19 @@ export function Runs(props: {
               onComplete={() => void finish(shown, () => api.completeRun(workspaceId, shown.id))}
               onAbort={(reason) => void finish(shown, () => api.abortRun(workspaceId, shown.id, reason))}
               loadHistory={(after) => api.runHistory(workspaceId, shown.id, after)}
+              sectionId={props.sectionId}
+              onOpenSection={(sectionId, replace) => {
+                // Opened from the Sections: Back in the Section returns there through the browser history.
+                if (!replace) openedFromSections.current = true;
+                navigate(paths.runSection(workspaceId, shown.id, sectionId), { replace });
+              }}
+              onSections={() => {
+                if (openedFromSections.current) {
+                  openedFromSections.current = false;
+                  window.history.back();
+                } else navigate(paths.run(workspaceId, shown.id), { replace: true });
+              }}
+              onHome={props.onHome}
             />
           )}
         </>

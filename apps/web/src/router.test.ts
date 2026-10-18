@@ -13,7 +13,8 @@ describe('parseRoute', () => {
     expect(parseRoute(paths.home(W))).toEqual({ page: 'workspace', workspaceId: W });
     expect(parseRoute(paths.calendar(W))).toEqual({ page: 'calendar', workspaceId: W });
     expect(parseRoute(paths.history(W))).toEqual({ page: 'history', workspaceId: W });
-    expect(parseRoute(paths.run(W, R))).toEqual({ page: 'run', workspaceId: W, runId: R });
+    expect(parseRoute(paths.run(W, R))).toEqual({ page: 'run', workspaceId: W, runId: R, sectionId: null });
+    expect(parseRoute(paths.runSection(W, R, W))).toEqual({ page: 'run', workspaceId: W, runId: R, sectionId: W });
     expect(parseRoute(paths.procedures(W))).toEqual({ page: 'procedures', workspaceId: W, procedureId: null });
     expect(parseRoute(paths.procedure(W, R))).toEqual({ page: 'procedures', workspaceId: W, procedureId: R });
     expect(parseRoute(paths.knots(W))).toEqual({ page: 'knots', workspaceId: W });
@@ -44,7 +45,7 @@ describe('parseRoute', () => {
     expect(parseRoute(`/w/${W}/calendar`).page).toBe('calendar');
     expect(parseRoute(`/w/${W}/history`).page).toBe('history');
     expect(parseRoute(`/w/${W}/runs`)).toEqual({ page: 'history', workspaceId: W });
-    expect(parseRoute(`/w/${W}/runs/${R}`)).toEqual({ page: 'run', workspaceId: W, runId: R });
+    expect(parseRoute(`/w/${W}/runs/${R}`)).toEqual({ page: 'run', workspaceId: W, runId: R, sectionId: null });
     expect(parseRoute(`/w/${W}/procedures`).page).toBe('procedures');
     expect(parseRoute(`/w/${W}/procedures/${R}`)).toEqual({ page: 'procedures', workspaceId: W, procedureId: R });
     expect(parseRoute(`/w/${W}/members`).page).toBe('members');

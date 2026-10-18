@@ -176,6 +176,7 @@ function WorkspacePage(props: {
         <Today
           workspaceId={route.workspaceId}
           userId={props.user.id}
+          userName={props.user.displayName}
           canStart={can('run.start')}
           canSchedule={can('schedule.manage')}
           canExecute={can('run.execute')}
@@ -253,6 +254,7 @@ function WorkspacePage(props: {
           canStart={can('run.start')}
           canManageKnots={can('knot.manage')}
           openRunId={route.page === 'run' ? route.runId : null}
+          sectionId={route.page === 'run' ? route.sectionId : null}
           onOpen={(runId) => navigate(runId === null ? paths.history(route.workspaceId) : paths.run(route.workspaceId, runId))}
           onHome={() => navigate(paths.home(route.workspaceId))}
         />

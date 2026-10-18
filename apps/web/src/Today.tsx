@@ -4,7 +4,9 @@ import { WeatherCard, useMyForecast } from './TodayWeather.tsx';
 import { ProgressCard, RecentCard } from './TodayProgress.tsx';
 import { AddChooser, type CanAdd } from './AddChooser.tsx';
 import { api, isNetworkError, messageFor, type HomeOverview, type ListSummary, type MaintenanceDueSoonItem, type Occurrence, type PersonRef, type RunSummary } from './api.ts';
-import { formatCalendarDate, formatRelativeDay, t } from './i18n/index.ts';
+import { formatCalendarDate, formatClock, formatRelative, formatRelativeDay, t } from './i18n/index.ts';
+import { AppIcon } from './procedure-icons.tsx';
+import { Ring } from './RunGuide.tsx';
 import { ActiveRunItem, OccurrenceItem, groupOverdue, when } from './Occurrences.tsx';
 import { useOffline } from './offline/OfflineProvider.tsx';
 import { offlineStore } from './offline/store.ts';
@@ -56,6 +58,68 @@ export function todayView(home: Pick<HomeOverview, 'overdue' | 'today' | 'upcomi
   };
 }
 
+/** What the prominent card on Today shows (22.3): the Run to pick up again, if there is one. */
+export type TodayHero =
+  | { readonly kind: 'run'; readonly run: RunSummary }
+  | { readonly kind: 'occurrence'; readonly item: Occurrence; readonly runId: string };
+
+/** The one unfinished Run Today puts first (22.3): a Run of no Occurrence, else a started Occurrence. */
+export function todayHero(view: Pick<TodayView, 'continueRuns' | 'continueOccurrences'>): TodayHero | null {
+  const run = view.continueRuns[0];
+  if (run !== undefined) return { kind: 'run', run };
+  const item = view.continueOccurrences.find((each) => each.run !== null && each.run.state === 'ACTIVE');
+  return item?.run == null ? null : { kind: 'occurrence', item, runId: item.run.id };
+}
+
+/** Today's ring (22.3): what was done today out of that plus what is still due today or overdue. */
+export function todayRing(doneToday: number | null | undefined, stillDue: number): { done: number; total: number } | null {
+  const done = doneToday ?? 0;
+  const total = done + stillDue;
+  return total === 0 ? null : { done, total };
+}
+
+/** "Good morning", "Good afternoon" or "Good evening" for the local hour. */
+export function greetingKey(hour: number): 'today.greeting.morning' | 'today.greeting.afternoon' | 'today.greeting.evening' {
+  if (hour < 12) return 'today.greeting.morning';
+  if (hour < 18) return 'today.greeting.afternoon';
+  return 'today.greeting.evening';
+}
+
+/** The first word of a display name, for a friendly greeting (the whole name when it has no space). */
+export const firstName = (displayName: string): string => displayName.trim().split(/\s+/)[0] ?? displayName;
+
+/** The prominent card: one unfinished Run, its progress as a ring, and one large way back into it. */
+function HeroCard({ workspaceId, hero }: { workspaceId: string; hero: TodayHero }) {
+  const title = hero.kind === 'run' ? hero.run.title : hero.item.schedule.title;
+  const runId = hero.kind === 'run' ? hero.run.id : hero.runId;
+  const icon = hero.kind === 'run' ? hero.run.icon : (hero.item.schedule.procedure?.icon ?? 'checklist');
+  const counts = hero.kind === 'run' ? hero.run.stepCounts : null;
+  const total = counts === null ? 0 : Object.values(counts).reduce((sum, n) => sum + n, 0);
+  const done = counts === null ? 0 : total - counts.PENDING;
+  return (
+    <section className="today-hero" aria-label={t('today.pickUp')} data-card="hero">
+      {counts === null ? (
+        <span className="today-hero-icon">
+          <AppIcon name={icon} decorative size="2em" />
+        </span>
+      ) : (
+        <Ring done={done} total={total} size={72} label={t('run.progress', { resolved: done, count: total })}>
+          <AppIcon name={icon} decorative size="1.6em" />
+        </Ring>
+      )}
+      <div className="today-hero-text">
+        <small>{t('today.pickUp')}</small>
+        <strong>{title}</strong>
+        {counts !== null && <small>{t('home.progress', { resolved: done, total })}</small>}
+        {hero.kind === 'occurrence' && hero.item.run !== null && <small>{t('home.inProgressBy', { name: hero.item.run.startedBy, ago: formatRelative(hero.item.run.startedAt) })}</small>}
+      </div>
+      <Link href={paths.run(workspaceId, runId)} className="button today-hero-go" aria-label={t('home.continueNamed', { title })}>
+        {t('home.continue')} <UiIcon name="forward" />
+      </Link>
+    </section>
+  );
+}
+
 /**
  * One Today card (19.1): a title of a word or two with an icon, a count where it has one, a few rows
  * and at most one way on. A card with nothing to show is never rendered — callers check first.
@@ -104,6 +168,8 @@ function LinkRow(props: { href: string; title: string; context: ReactNode; label
 export function Today(props: {
   workspaceId: string;
   userId: string;
+  /** For the greeting (22.3). */
+  userName: string;
   canStart: boolean;
   canSchedule: boolean;
   canExecute: boolean;
@@ -198,6 +264,9 @@ export function Today(props: {
   const continuing = (view?.continueOccurrences.length ?? 0) + continueRuns.length;
   const calm = view !== null && continuing + attention.length === 0;
   const localToday = todayIn(browserTimeZone());
+  const hero = view === null ? (continueRuns[0] === undefined ? null : ({ kind: 'run', run: continueRuns[0] } as const)) : todayHero({ continueRuns, continueOccurrences: view.continueOccurrences });
+  const ring = view === null ? null : todayRing(home?.progress?.completedOccurrencesToday, attention.length);
+  const now = new Date();
   const allDue = props.tools.includes('REMINDERS') ? paths.reminders(workspaceId) : props.tools.includes('CALENDAR') ? paths.calendar(workspaceId) : null;
 
   const undoComplete = (item: Occurrence) =>
@@ -225,9 +294,16 @@ export function Today(props: {
       case 'attention':
         if (calm)
           return (
-            <p key="calm" className="card calm today-calm">
-              <UiIcon name="check" size="1.4em" /> {t('home.nothingNeedsAttention')}
-            </p>
+            <div key="calm" className="card today-calm">
+              <span className="today-calm-mark" aria-hidden="true">
+                <UiIcon name="check" size="1.8em" />
+              </span>
+              <span>
+                <strong>{t('today.allClear')}</strong>
+                <br />
+                <small className="muted">{t('home.nothingNeedsAttention')}</small>
+              </span>
+            </div>
           );
         if (attention.length === 0) return null;
         return (
@@ -235,16 +311,20 @@ export function Today(props: {
             {attention.slice(0, ATTENTION_ROWS).map(({ item, older }) => row(item, older))}
           </TodayCard>
         );
-      case 'continue':
-        if (continuing === 0) return null;
+      case 'continue': {
+        // The first unfinished Run is the prominent card at the top; the others stay here.
+        const otherOccurrences = (view?.continueOccurrences ?? []).filter((item) => !(hero?.kind === 'occurrence' && hero.item.id === item.id));
+        const otherRuns = continueRuns.filter((run) => !(hero?.kind === 'run' && hero.run.id === run.id));
+        if (otherOccurrences.length + otherRuns.length === 0) return null;
         return (
-          <TodayCard key={card.id} id={card.id} icon="procedures" title={t('today.continue')} count={continuing}>
-            {view?.continueOccurrences.map((item) => row(item))}
-            {continueRuns.map((run) => (
+          <TodayCard key={card.id} id={card.id} icon="procedures" title={t('today.continue')} count={otherOccurrences.length + otherRuns.length}>
+            {otherOccurrences.map((item) => row(item))}
+            {otherRuns.map((run) => (
               <ActiveRunItem key={run.id} workspaceId={workspaceId} run={run} />
             ))}
           </TodayCard>
         );
+      }
       case 'next':
         if (upcoming.length === 0) return null;
         return (
@@ -347,23 +427,36 @@ export function Today(props: {
   if (props.tools.length === 0 && offlineActive === null) return <section className="card stack"><h2>{t('shell.today')}</h2><p>{t('tools.empty')}</p>{props.canChooseTools && <Link className="button" href={paths.settings(workspaceId)}>{t('tools.choose')}</Link>}</section>;
   return (
     <section aria-labelledby="today-heading" className={['today', twoColumns ? 'today-two' : '', settings.density === 'COMFORTABLE' ? 'today-comfortable' : ''].filter(Boolean).join(' ')}>
-      <div className="page-header page-header-tool">
-        <h2 id="today-heading">{t('shell.today')}</h2>
-        <AddChooser workspaceId={workspaceId} can={props.canAdd} />
+      <div className="today-hello">
+        <div className="today-hello-text">
+          <h2 id="today-heading" className="today-eyebrow">
+            {t('shell.today')} <span className="today-date">· {formatClock(now, false).date}</span>
+          </h2>
+          <p className="today-greeting">{t(greetingKey(now.getHours()), { name: firstName(props.userName) })}</p>
+        </div>
+        {ring !== null && <Ring done={ring.done} total={ring.total} size={64} label={t('today.ringLabel', { done: ring.done, total: ring.total })} />}
       </div>
+      <div className="today-toolbar">
+        {assigned && (
+          <div className="segmented" role="group" aria-label={t('home.filter')}>
+            {(['ALL', 'MINE', 'SHARED'] as const).map((value) => (
+              <button key={value} type="button" aria-pressed={filter === value} aria-label={t(`home.filter.short.${value}`) === t(`home.filter.${value}`) ? undefined : `${t(`home.filter.short.${value}`)} (${t(`home.filter.${value}`)})`} onClick={() => chooseFilter(value)}>
+                {t(`home.filter.short.${value}`)}
+              </button>
+            ))}
+          </div>
+        )}
+        <span className="today-toolbar-end">
+          <Link href={paths.account('today')} className="button icon-button quiet" aria-label={t('today.customize')} title={t('today.customize')}>
+            <UiIcon name="settings" />
+          </Link>
+          <AddChooser workspaceId={workspaceId} can={props.canAdd} />
+        </span>
+      </div>
+      {hero !== null && cards.some((setting) => setting.card.id === 'continue') && <HeroCard workspaceId={workspaceId} hero={hero} />}
       {message !== null && <p role="alert">{message}</p>}
       {home === null && offlineActive === null && message === null && <p>{t('common.loading')}</p>}
       {offlineActive !== null && <p className="muted">{t('offline.savedList')}</p>}
-      {assigned && (
-        <div className="row home-filter today-filter" role="group" aria-label={t('home.filter')}>
-          {(['ALL', 'MINE', 'SHARED'] as const).map((value) => (
-            <button key={value} type="button" className="quiet" aria-pressed={filter === value} onClick={() => chooseFilter(value)}>
-              {filter === value && <span aria-hidden="true">✓ </span>}
-              {t(`home.filter.${value}`)}
-            </button>
-          ))}
-        </div>
-      )}
       {blocks.map((block, index) =>
         block.kind === 'glance' ? (
           <div key={index} className="today-glance">
@@ -380,11 +473,6 @@ export function Today(props: {
           </div>
         ),
       )}
-      <p className="today-customize">
-        <Link href={paths.account('today')}>
-          <UiIcon name="settings" /> {t('today.customize')}
-        </Link>
-      </p>
       <UndoNotice notice={notice} onDismiss={() => setNotice(null)} />
     </section>
   );

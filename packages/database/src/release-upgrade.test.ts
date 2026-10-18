@@ -57,7 +57,10 @@ it('upgrades a populated beta.2 database and restores its verified backup with o
     database.close();
     runMigrations(path);
     database = openDatabase(path);
-    expect(snapshot()).toEqual(expected);
+    // Unchanged, apart from columns added since beta.2 with no value for older rows (0047: Section icons).
+    const added: Record<string, Record<string, null>> = { procedure_sections: { icon: null }, run_sections: { icon: null } };
+    const upgraded = expected.map((rows, index) => rows.map((row) => ({ ...(row as object), ...added[tables[index] ?? ''] })));
+    expect(snapshot()).toEqual(upgraded);
     // P5: recognition is on after the upgrade, and the existing file waits behind new uploads.
     expect(database.sqlite.prepare('SELECT state, priority, attempts FROM document_file_texts WHERE file_id = ?').get(upload.file.id)).toEqual({ state: 'QUEUED', priority: 1, attempts: 0 });
     expect(database.sqlite.prepare('SELECT text_recognition FROM workspaces WHERE id = ?').get(home.id)).toEqual({ text_recognition: 1 });
@@ -69,7 +72,7 @@ it('upgrades a populated beta.2 database and restores its verified backup with o
     expect(restoreDatabase(backup, restored).migrationsPending).toBe(true);
     runMigrations(restored);
     database = openDatabase(restored);
-    expect(snapshot()).toEqual(expected);
+    expect(snapshot()).toEqual(upgraded);
     expect(readFileSync(documentFilePath(defaultDocumentsPath(restored), upload.file.sha256))).toEqual(original);
     expect(verifyDatabase(restored).migrationsPending).toBe(false);
     expect(database.sqlite.pragma('foreign_key_check')).toEqual([]);

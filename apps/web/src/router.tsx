@@ -104,7 +104,8 @@ export type Route =
   | { readonly page: 'schedule-history'; readonly workspaceId: string; readonly scheduleId: string }
   | { readonly page: 'history'; readonly workspaceId: string }
   /** One execution (Run). */
-  | { readonly page: 'run'; readonly workspaceId: string; readonly runId: string }
+  /** `sectionId`: one Section of the guided Run (22.2); null = the Run's Sections. */
+  | { readonly page: 'run'; readonly workspaceId: string; readonly runId: string; readonly sectionId: string | null }
   | { readonly page: 'procedures'; readonly workspaceId: string; readonly procedureId: string | null }
   /** The Procedure builder (15.2): a new Procedure (`procedureId` null) or an existing one. */
   | { readonly page: 'procedure-edit'; readonly workspaceId: string; readonly procedureId: string | null }
@@ -163,8 +164,8 @@ export function parseRoute(pathname: string): Route {
   if ((match = new RegExp(`^/w/${ID}/more$`).exec(path))) return { page: 'more', workspaceId: match[1] ?? '' };
   // `/runs` is the address of the former Run list (bookmarks keep working).
   if ((match = new RegExp(`^/w/${ID}/(?:history|runs)$`).exec(path))) return { page: 'history', workspaceId: match[1] ?? '' };
-  if ((match = new RegExp(`^/w/${ID}/runs/${ID}$`).exec(path))) {
-    return { page: 'run', workspaceId: match[1] ?? '', runId: match[2] ?? '' };
+  if ((match = new RegExp(`^/w/${ID}/runs/${ID}(?:/sections/${ID})?$`).exec(path))) {
+    return { page: 'run', workspaceId: match[1] ?? '', runId: match[2] ?? '', sectionId: match[3] ?? null };
   }
   if ((match = new RegExp(`^/w/${ID}/procedures$`).exec(path))) return { page: 'procedures', workspaceId: match[1] ?? '', procedureId: null };
   if ((match = new RegExp(`^/w/${ID}/procedures/new$`).exec(path))) return { page: 'procedure-edit', workspaceId: match[1] ?? '', procedureId: null };
@@ -208,6 +209,7 @@ export const paths = {
   scheduleHistory: (workspaceId: string, scheduleId: string) => `/w/${workspaceId}/schedules/${scheduleId}/history`,
   history: (workspaceId: string) => `/w/${workspaceId}/history`,
   run: (workspaceId: string, runId: string) => `/w/${workspaceId}/runs/${runId}`,
+  runSection: (workspaceId: string, runId: string, sectionId: string) => `/w/${workspaceId}/runs/${runId}/sections/${sectionId}`,
   procedures: (workspaceId: string) => `/w/${workspaceId}/procedures`,
   newProcedure: (workspaceId: string) => `/w/${workspaceId}/procedures/new`,
   procedure: (workspaceId: string, procedureId: string) => `/w/${workspaceId}/procedures/${procedureId}`,

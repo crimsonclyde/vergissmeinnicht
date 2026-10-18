@@ -13,6 +13,7 @@ const SECTIONS: ProcedureSection[] = [
     id: '11111111-1111-4111-8111-111111111111' as SectionId,
     title: 'Kitchen',
     description: 'First',
+    icon: null,
     steps: [
       {
         id: '22222222-2222-4222-8222-222222222222' as StepId,
@@ -47,6 +48,16 @@ function codeOf(input: unknown): ImportErrorCode {
 const valid = () => JSON.parse(JSON.stringify(toProcedureDocument(DETAIL))) as Record<string, unknown> & {
   procedure: Record<string, unknown> & { sections: (Record<string, unknown> & { steps: Record<string, unknown>[] })[] };
 };
+
+describe('Section icons (22.1)', () => {
+  it('writes a Section icon only when there is one, and reads files with or without it', () => {
+    const withIcon = toProcedureDocument({ ...DETAIL, sections: SECTIONS.map((section) => ({ ...section, icon: 'kitchen' as const })) });
+    expect(withIcon.procedure.sections[0]?.icon).toBe('kitchen');
+    expect(parseProcedureDocument(JSON.parse(JSON.stringify(withIcon))).sections[0]?.icon).toBe('kitchen');
+    expect('icon' in (toProcedureDocument(DETAIL).procedure.sections[0] ?? {})).toBe(false);
+    expect(parseProcedureDocument(valid()).sections[0]?.icon).toBeNull();
+  });
+});
 
 describe('toProcedureDocument', () => {
   it('exports the definition only: no ids, Workspace, users or timestamps', () => {

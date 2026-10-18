@@ -7,7 +7,7 @@ import { formatCalendarDate, formatDateTime, formatRelative, t } from './i18n/in
 import { KnotShare } from './Knots.tsx';
 import { MoreMenu, type MoreMenuItem } from './MoreMenu.tsx';
 import { StepMarks } from './StepMarks.tsx';
-import { AppIcon } from './procedure-icons.tsx';
+import { AppIcon, sectionIcon } from './procedure-icons.tsx';
 import { archiveFileName, downloadBlob, downloadJson, exportFileName, isArchive, MAX_ARCHIVE_BYTES, readImportFile } from './procedure-files.ts';
 import { Link, navigate, paths } from './router.tsx';
 import { StepImage } from './StepImage.tsx';
@@ -63,7 +63,9 @@ function ProcedureView({ detail, workspaceId }: { detail: ProcedureDetail; works
       {detail.sections.every((section) => section.steps.length === 0) && <p className="muted">{t('procedure.noSteps')}</p>}
       {detail.sections.map((section) => (
         <section key={section.id} aria-label={t('procedure.sectionLabel', { title: section.title })} className="card">
-          <h3 style={{ marginTop: 0 }}>{section.title}</h3>
+          <h3 style={{ marginTop: 0 }}>
+            <AppIcon name={sectionIcon(section)} decorative /> {section.title}
+          </h3>
           {section.description !== '' && <p style={{ whiteSpace: 'pre-wrap' }}>{section.description}</p>}
           <ol>
             {section.steps.map((step) => (
