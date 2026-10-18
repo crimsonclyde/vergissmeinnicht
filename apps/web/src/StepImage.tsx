@@ -2,7 +2,10 @@ import { useEffect, useId, useRef, useState } from 'react';
 import { ApiError, api, imageUrl, messageFor, type ImageUsage, type StepImageRef } from './api.ts';
 import { formatBytes } from './document-model.ts';
 import { formatNumber, hasMessage, t } from './i18n/index.ts';
-import { MAX_UPLOAD_BYTES, prepareImage } from './image-prep.ts';
+import { decodeImage, encodeEdited, MAX_UPLOAD_BYTES, originalUpload } from './image-prep.ts';
+import { PhotoEditor } from './PhotoEditor.tsx';
+import type { PhotoEdit } from './photo-edit.ts';
+import { UiIcon } from './ui-icons.tsx';
 import { offlineStore } from './offline/store.ts';
 
 const MB = 1_000_000;
@@ -142,27 +145,81 @@ export function StepImageField(props: {
   const library = useRef<HTMLInputElement>(null);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
+  /** The photo open in the crop-and-turn editor (23.3), before anything is uploaded. */
+  const [editing, setEditing] = useState<HTMLImageElement | null>(null);
   const captionId = useId();
 
+  const resetInputs = () => {
+    if (camera.current !== null) camera.current.value = '';
+    if (library.current !== null) library.current.value = '';
+  };
+
+  async function upload(blob: Blob) {
+    const uploaded = await api.uploadImage(props.workspaceId, blob, props.image?.id);
+    props.onUsage(uploaded.usage);
+    props.onChange({ id: uploaded.image.id, caption: props.image?.caption ?? '' });
+  }
+
+  /** A new photo opens in the editor; one the browser cannot read is sent as it is (the server explains). */
   async function choose(file: File | undefined) {
     if (file === undefined) return;
+    setMessage(null);
+    let image: HTMLImageElement;
+    try {
+      image = await decodeImage(file);
+    } catch {
+      setBusy(true);
+      try {
+        const original = originalUpload(file);
+        if (original.kind === 'too_large') {
+          setMessage(t('image.rejected.too_large', { max: formatMegabytes(MAX_UPLOAD_BYTES) }));
+          return;
+        }
+        await upload(original.blob);
+      } catch (caught) {
+        setMessage(imageErrorMessage(caught));
+      } finally {
+        setBusy(false);
+        resetInputs();
+      }
+      return;
+    }
+    resetInputs();
+    setEditing(image);
+  }
+
+  /** Editing a stored photo starts from the stored JPEG and saves a new image; Runs keep the old one. */
+  async function editCurrent() {
+    if (props.image === null) return;
+    setMessage(null);
+    setBusy(true);
+    try {
+      const response = await fetch(imageUrl(props.workspaceId, props.image.id), { credentials: 'same-origin' });
+      if (!response.ok) throw new Error(String(response.status));
+      setEditing(await decodeImage(await response.blob()));
+    } catch {
+      setMessage(t('photoEditor.loadFailed'));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function finishEditing(edit: PhotoEdit) {
+    if (editing === null) return;
     setBusy(true);
     setMessage(null);
     try {
-      const prepared = await prepareImage(file);
-      if (prepared.kind === 'too_large') {
-        setMessage(t('image.rejected.too_large', { max: formatMegabytes(MAX_UPLOAD_BYTES) }));
+      const blob = await encodeEdited(editing, edit);
+      if (blob === null) {
+        setMessage(t('image.rejected.unreadable'));
         return;
       }
-      const uploaded = await api.uploadImage(props.workspaceId, prepared.blob, props.image?.id);
-      props.onUsage(uploaded.usage);
-      props.onChange({ id: uploaded.image.id, caption: props.image?.caption ?? '' });
+      await upload(blob);
     } catch (caught) {
       setMessage(imageErrorMessage(caught));
     } finally {
       setBusy(false);
-      if (camera.current !== null) camera.current.value = '';
-      if (library.current !== null) library.current.value = '';
+      setEditing(null);
     }
   }
 
@@ -206,12 +263,18 @@ export function StepImageField(props: {
           {props.image === null ? t('image.choosePhoto') : t('image.replacePhoto')}
         </button>
         {props.image !== null && (
+          <button type="button" className="icon-button" aria-label={t('image.editPhoto')} title={t('image.editPhoto')} disabled={busy} onClick={() => void editCurrent()}>
+            <UiIcon name="crop" />
+          </button>
+        )}
+        {props.image !== null && (
           <button type="button" className="quiet" disabled={busy} onClick={() => props.onChange(null)}>
             {t('image.remove')}
           </button>
         )}
         {busy && <span className="muted">{t('image.uploading')}</span>}
       </div>
+      {editing !== null && <PhotoEditor image={editing} busy={busy} onDone={(edit) => void finishEditing(edit)} onCancel={() => setEditing(null)} />}
     </div>
   );
 }

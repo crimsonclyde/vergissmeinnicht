@@ -1103,6 +1103,14 @@ The CI scan gates found new advisories: `source-map-js` < 1.2.2 (DoS on malforme
 - [x] Token redaction in request logs matches the decoded path with repeated slashes collapsed (`redactUrl`, 21.2): `/%6Bnot/{token}` and `//knot/{token}` are redacted like `/knot/{token}`.
 - [x] **Review trigger:** any future decision that depends on the request path (logging redaction, allow-lists, guards) must use the matched route or a normalised path, never `request.url` as sent.
 
+### Security check: crop and turn Step photos (23.3, 2026-10-18)
+
+**Security surface changed: NONE on the server.** The editor runs in the browser before the existing upload; no new route, capability, stored data, dependency or outbound connection.
+
+- [x] **The server still trusts nothing:** the edited JPEG goes through the unchanged 14.3 upload (`procedure.edit`, CSRF, rate limit, size while streaming, content-based format check, pixel limit, re-encoding, metadata removal, quota). Crop, turn and straighten values never reach the server.
+- [x] **Editing a stored photo** loads it through the authorised image route (same-origin, `credentials: same-origin`) and uploads the result as a **new** image (`replacing` the Step's old one); stored images stay immutable and Runs keep the photo from their Start.
+- [x] **No new library:** own canvas and pointer-event code (`photo-edit.ts`, `PhotoEditor.tsx`); geometry is clamped (finite values, crop inside the photo, at least 200 px, straightening within ±15°). Tests: `photo-edit.test.ts`; e2e turn + crop + Cancel with an axe check.
+
 ### Security check: Section icons, guided Run and livelier Today (22.1–22.3, 2026-10-18)
 
 **Security surface changed: LOW.** One new optional field (a Section icon) on an existing, already authorised write path and in the Run snapshot; the guided Run and Today are presentation only. No new route, capability, credential, file or outbound connection.
