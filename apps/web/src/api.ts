@@ -663,6 +663,21 @@ async function request<T>(method: 'GET' | 'POST', path: string, body?: unknown, 
 
 /** The image as served to members of the Workspace (same-origin, session cookie). */
 export const imageUrl = (workspaceId: string, imageId: string) => `/api/workspaces/${encodeURIComponent(workspaceId)}/images/${encodeURIComponent(imageId)}`;
+/** A small version of the photo for grids (23.1); same access rule as the photo. */
+export const imageThumbUrl = (workspaceId: string, imageId: string) => `${imageUrl(workspaceId, imageId)}/thumb`;
+
+/** One photo of the Workspace gallery (23.1). */
+export type GalleryImage = {
+  id: string;
+  width: number;
+  height: number;
+  bytes: number;
+  createdAt: string;
+  steps: number;
+  procedures: number;
+  caption: string | null;
+};
+export type ImageUse = { procedureId: string; procedureTitle: string; stepId: string; stepTitle: string };
 
 /** Sends raw bytes (image or archive) and maps error answers like `request`. */
 async function sendBytes<T>(path: string, body: Blob): Promise<T> {
@@ -1165,6 +1180,15 @@ const occurrencePath = (workspaceId: string, id: string) => `/workspaces/${encod
 
 export const api = {
   uploadImage,
+  gallery: async (workspaceId: string, options: { search?: string; after?: string | null } = {}, signal?: AbortSignal) => {
+    const query = new URLSearchParams();
+    if (options.search !== undefined && options.search.trim() !== '') query.set('q', options.search.trim().slice(0, 100));
+    if (options.after != null) query.set('after', options.after);
+    const suffix = query.toString() === '' ? '' : `?${query.toString()}`;
+    return request<{ images: GalleryImage[]; next: string | null }>('GET', `/workspaces/${encodeURIComponent(workspaceId)}/images${suffix}`, undefined, signal === undefined ? {} : { signal });
+  },
+  imageUses: async (workspaceId: string, imageId: string) =>
+    (await request<{ uses: ImageUse[] }>('GET', `/workspaces/${encodeURIComponent(workspaceId)}/images/${encodeURIComponent(imageId)}/uses`)).uses,
   imageUsage: async (workspaceId: string) => (await request<{ usage: ImageUsage }>('GET', `/workspaces/${encodeURIComponent(workspaceId)}/images/usage`)).usage,
   // Storage (16.4): the Workspace's own view and limit; every Workspace and its ceiling for the server admin.
   workspaceStorage: async (workspaceId: string) => (await request<{ storage: StorageInfo }>('GET', `/workspaces/${encodeURIComponent(workspaceId)}/storage`)).storage,
@@ -1268,7 +1292,7 @@ export const api = {
     const query = new URLSearchParams();
     if (page.before !== undefined) query.set('before', page.before);
     if (page.userId !== undefined) query.set('userId', page.userId);
-    const suffix = query.size === 0 ? '' : `?${query.toString()}`;
+    const suffix = query.toString() === '' ? '' : `?${query.toString()}`;
     return request<{ events: SecurityLogEntry[]; nextCursor: string | null }>('GET', `/admin/security-events${suffix}`);
   },
   accounts: async () => (await request<{ accounts: AccountInfo[] }>('GET', '/admin/accounts')).accounts,
@@ -1528,7 +1552,7 @@ export const api = {
     if (page.state !== undefined) query.set('state', page.state);
     if (page.procedureId !== undefined) query.set('procedureId', page.procedureId);
     if (page.before !== undefined) query.set('before', page.before);
-    const suffix = query.size === 0 ? '' : `?${query.toString()}`;
+    const suffix = query.toString() === '' ? '' : `?${query.toString()}`;
     return request<{ runs: RunSummary[]; nextCursor: string | null }>('GET', `/workspaces/${encodeURIComponent(workspaceId)}/runs${suffix}`);
   },
   run: async (workspaceId: string, id: string) =>

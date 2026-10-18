@@ -268,6 +268,7 @@ export function Procedures(props: {
 
   const manageItems: MoreMenuItem[] = [
     ...(canEdit ? [{ label: t('procedures.import'), onSelect: () => importRef.current?.click() }] : []),
+    ...(canEdit ? [{ label: t('gallery.open'), onSelect: () => navigate(paths.photos(workspaceId)) }] : []),
     { label: t('shell.history'), onSelect: () => navigate(paths.history(workspaceId)) },
     ...(canRestore ? [{ label: t('procedures.showDeleted'), onSelect: showDeleted }] : []),
   ];

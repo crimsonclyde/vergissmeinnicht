@@ -319,6 +319,15 @@ test('first server admin: bootstrap link, account creation, sign-in, Workspace c
   // Cancel discards only what was not applied — after asking.
   await page.getByRole('button', { name: /^Step 2: Turn off stove/ }).click();
   await editor.getByLabel('Step title').fill('Something else');
+  // The Workspace's photos (23.1): Step 1's photo can be used again without uploading it.
+  await editor.getByRole('button', { name: 'Choose from this Workspace’s photos' }).click();
+  const picker = page.getByRole('dialog', { name: 'Choose a photo' });
+  await expect(picker.getByRole('list', { name: 'Photos of this Workspace' }).getByRole('listitem')).toHaveCount(1);
+  await expectAccessible(page, 'photo picker');
+  await picker.getByRole('list', { name: 'Photos of this Workspace' }).getByRole('button').click();
+  await expect(picker).toHaveCount(0);
+  await expect(editor.locator('.step-image-open img')).toHaveCount(1);
+  await expect(editor.getByLabel('What the photo shows (Step 2)')).toHaveValue('');
   page.once('dialog', (dialog) => void dialog.accept());
   await editor.getByRole('button', { name: 'Cancel' }).click();
   await expect(outline.getByRole('listitem').nth(1)).toContainText('Turn off stove');
@@ -399,6 +408,21 @@ test('first server admin: bootstrap link, account creation, sign-in, Workspace c
   await expect(page.getByLabel('Procedure name')).toBeVisible();
   await page.setViewportSize({ width: 1280, height: 720 });
   await page.getByRole('button', { name: 'Back to the Procedure' }).click();
+  await expect(page.getByRole('article')).toBeVisible();
+  // Procedures → Photos (23.1): every photo with where it is used.
+  await page.goto(page.url().replace(/\/procedures\/[0-9a-f-]{36}.*$/, '/procedures/photos'));
+  await expect(page.getByRole('heading', { name: 'Photos', level: 2 })).toBeVisible();
+  const photoTile = page.getByRole('list', { name: 'Photos of this Workspace' }).getByRole('button', { name: 'Blue handle on the left window' });
+  await expect(photoTile).toContainText('1×');
+  await page.getByRole('searchbox', { name: 'Search photos' }).fill('stove');
+  await expect(page.getByText('No photo matches.')).toBeVisible();
+  await page.getByRole('searchbox', { name: 'Search photos' }).fill('window');
+  await photoTile.click();
+  const details = page.getByRole('dialog', { name: 'Blue handle on the left window' });
+  await expect(details.getByRole('link', { name: 'Leave the house', exact: true })).toBeVisible();
+  await expect(details).toContainText('Close windows');
+  await expectAccessible(page, 'photo details');
+  await details.getByRole('link', { name: 'Leave the house', exact: true }).click();
 
   const procedure = page.getByRole('article');
   await expect(procedure.getByRole('heading', { name: 'Travel Leave the house' })).toBeVisible();
