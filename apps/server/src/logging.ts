@@ -10,8 +10,20 @@ const TOKEN_PATH_PATTERN = /^(\/(?:api\/)?(?:knots?|invite|invitations|recover|r
 export function redactUrl(url: string): string {
   const queryStart = url.search(/[?#]/);
   const path = queryStart === -1 ? url : url.slice(0, queryStart);
-  const redactedPath = path.replace(TOKEN_PATH_PATTERN, '$1[REDACTED]');
+  // Matched on the decoded path with repeated slashes collapsed, so a re-spelled path (`/%6Bnot/…`,
+  // `//knot/…`) cannot carry a token past the pattern (21.1 review trigger).
+  const redactedPath = normalisedPath(path).replace(TOKEN_PATH_PATTERN, '$1[REDACTED]');
   return queryStart === -1 ? redactedPath : `${redactedPath}?[REDACTED]`;
+}
+
+function normalisedPath(path: string): string {
+  let decoded = path;
+  try {
+    decoded = decodeURIComponent(path);
+  } catch {
+    // Malformed escapes: match the raw path.
+  }
+  return decoded.replace(/\/{2,}/g, '/');
 }
 
 export function loggerOptions(level: string): Exclude<FastifyServerOptions['logger'], boolean | undefined> {
