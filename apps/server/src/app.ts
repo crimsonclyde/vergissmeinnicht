@@ -91,6 +91,11 @@ const PERMISSIONS_POLICY = ['camera', 'microphone', 'geolocation', 'payment', 'u
   .map((feature) => `${feature}=()`)
   .join(', ');
 
+/** Whether a matched route pattern belongs to the API; requests that matched no route count as API. */
+function isApiRoute(routeUrl: string | undefined): boolean {
+  return routeUrl === undefined || routeUrl === '/api' || routeUrl.startsWith('/api/');
+}
+
 export async function buildApp(options: AppOptions = {}) {
   const app = Fastify({
     logger: options.logger ?? false,
@@ -151,7 +156,9 @@ export async function buildApp(options: AppOptions = {}) {
     ipv6Subnet: 56,
     // The limits protect the API. The web app's static files (page shell, hashed assets, icon, service
     // worker) never touch the database; counting them made every page load cost several requests.
-    allowList: (request) => request.url !== '/api' && !request.url.startsWith('/api/'),
+    // Decided by the matched route, not the raw URL: `/%61pi/...` routes to the same API handler as
+    // `/api/...`, and must not escape every limit (sign-in included) by its spelling.
+    allowList: (request) => !isApiRoute(request.routeOptions.url),
     errorResponseBuilder: (_request, context) => ({ statusCode: context.statusCode, error: 'rate_limited' }),
     // Limits marked `persist` (sign-in, MFA, recovery, invitations, account security) live in the database.
     store: rateLimitStore(services?.rateLimits),

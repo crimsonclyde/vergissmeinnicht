@@ -36,8 +36,8 @@ function LinkLine(props: { workspaceId: string; link: DocumentLink; onRemove?: (
         {text.note !== null && <small className="muted">{text.note}</small>}
       </span>
       {props.onRemove !== undefined && (
-        <button type="button" className="quiet" aria-label={t('links.removeNamed', { name: text.title })} onClick={props.onRemove}>
-          {t('links.remove')}
+        <button type="button" className="quiet icon-button" title={t('links.remove')} aria-label={t('links.removeNamed', { name: text.title })} onClick={props.onRemove}>
+          <UiIcon name="unlink" />
         </button>
       )}
     </li>
@@ -210,7 +210,8 @@ export function RunDocuments(props: { workspaceId: string; runId: string; runSta
                 <div>
                   <button
                     type="button"
-                    className="quiet danger-text"
+                    className="quiet danger-text icon-button"
+                    title={t('links.remove')}
                     aria-label={t('links.removeNamed', { name: document.title })}
                     onClick={() =>
                       void api.unlinkRunDocument(workspaceId, runId, document.id).then(
@@ -222,7 +223,7 @@ export function RunDocuments(props: { workspaceId: string; runId: string; runSta
                       )
                     }
                   >
-                    {t('links.remove')}
+                    <UiIcon name="unlink" />
                   </button>
                 </div>
               )}

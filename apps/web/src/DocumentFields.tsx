@@ -277,11 +277,11 @@ export function UploadList(props: { uploads: ReturnType<typeof useUploads> }) {
             )}
             {items.length > 1 && (
               <>
-                <button type="button" className="quiet" disabled={index === 0} aria-label={t('documents.pages.moveUpNamed', { name: item.file.name })} onClick={() => props.uploads.move(index, -1)}>
-                  {t('documents.pages.moveUp')}
+                <button type="button" className="quiet icon-button" disabled={index === 0} aria-label={t('documents.pages.moveUpNamed', { name: item.file.name })} title={t('documents.pages.moveUp')} onClick={() => props.uploads.move(index, -1)}>
+                  <UiIcon name="moveUp" />
                 </button>
-                <button type="button" className="quiet" disabled={index === items.length - 1} aria-label={t('documents.pages.moveDownNamed', { name: item.file.name })} onClick={() => props.uploads.move(index, 1)}>
-                  {t('documents.pages.moveDown')}
+                <button type="button" className="quiet icon-button" disabled={index === items.length - 1} aria-label={t('documents.pages.moveDownNamed', { name: item.file.name })} title={t('documents.pages.moveDown')} onClick={() => props.uploads.move(index, 1)}>
+                  <UiIcon name="moveDown" />
                 </button>
               </>
             )}
