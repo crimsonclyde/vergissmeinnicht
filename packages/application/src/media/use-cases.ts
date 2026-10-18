@@ -2,7 +2,7 @@ import { parseStepImageId, type StepImageId, type User, type WorkspaceId } from 
 import { roleHasCapability } from '@vergissmeinnicht/permissions';
 import { NotAuthorizedError } from '../invitations/errors.ts';
 import type { Clock } from '../ports/clock.ts';
-import type { ImageProcessor, ImageRepository, ImageUsage, MediaStore, StepImageRecord } from '../ports/media.ts';
+import type { GalleryCursor, GalleryImage, ImageProcessor, ImageRepository, ImageUsage, ImageUse, MediaStore, StepImageRecord } from '../ports/media.ts';
 import type { WorkspaceRepository } from '../ports/workspace-repository.ts';
 import { userActor } from '../user-actor.ts';
 import { authorizeWorkspace } from '../workspaces/use-cases.ts';
@@ -74,6 +74,85 @@ export async function readStepImage(deps: ImageDeps, input: { readonly actor: Us
   const bytes = await deps.store.read(record.sha256);
   if (bytes === undefined) throw new ImageNotFoundError();
   return bytes;
+}
+
+/** Photos per gallery page (23.1). */
+export const GALLERY_PAGE_SIZE = 48;
+/** Longest edge of a gallery thumbnail (23.1). */
+export const THUMBNAIL_EDGE = 320;
+/** Longest gallery search text. */
+export const MAX_GALLERY_SEARCH_LENGTH = 100;
+
+/**
+ * The Workspace's photo gallery (23.1): the photos a Step may use, newest first. Only for people who
+ * may edit Procedures (`procedure.edit`) — they are the ones who pick photos. Answers like an unknown
+ * resource for another Workspace or when Procedures is switched off (`authorizeWorkspace`).
+ */
+export async function listWorkspaceImages(
+  deps: ImageDeps,
+  input: { readonly actor: User; readonly workspaceId: WorkspaceId; readonly search?: string | undefined; readonly after?: GalleryCursor | undefined },
+): Promise<{ readonly images: readonly GalleryImage[]; readonly next: GalleryCursor | null }> {
+  await authorizeWorkspace(deps, input.actor, input.workspaceId, 'procedure.edit');
+  const search = (input.search ?? '').trim().slice(0, MAX_GALLERY_SEARCH_LENGTH);
+  return deps.images.gallery(input.workspaceId, {
+    pendingSince: pendingSince(deps.clock.now()),
+    search: search === '' ? null : search,
+    after: input.after ?? null,
+    limit: GALLERY_PAGE_SIZE,
+  });
+}
+
+/** Where a photo of the Workspace is used: current Procedure Steps (`procedure.edit`, 23.1). */
+export async function listImageUses(deps: ImageDeps, input: { readonly actor: User; readonly workspaceId: WorkspaceId; readonly imageId: string }): Promise<readonly ImageUse[]> {
+  await authorizeWorkspace(deps, input.actor, input.workspaceId, 'procedure.edit');
+  const imageId = parseStepImageId(input.imageId) as StepImageId;
+  if ((await deps.images.find(input.workspaceId, imageId)) === undefined) throw new ImageNotFoundError();
+  return deps.images.uses(input.workspaceId, imageId);
+}
+
+/**
+ * Thumbnails by content hash: stored images never change under a hash, so a thumbnail made once stays
+ * right. Bounded (oldest first out); only ever filled and read after the Workspace check.
+ */
+const THUMBNAIL_CACHE_ENTRIES = 300;
+const thumbnails = new Map<string, Promise<Uint8Array>>();
+
+function cachedThumbnail(sha256: string, make: () => Promise<Uint8Array>): Promise<Uint8Array> {
+  const known = thumbnails.get(sha256);
+  if (known !== undefined) {
+    thumbnails.delete(sha256);
+    thumbnails.set(sha256, known); // most recently used last
+    return known;
+  }
+  const made = make();
+  thumbnails.set(sha256, made);
+  made.catch(() => thumbnails.delete(sha256));
+  while (thumbnails.size > THUMBNAIL_CACHE_ENTRIES) {
+    const oldest = thumbnails.keys().next().value;
+    if (oldest === undefined) break;
+    thumbnails.delete(oldest);
+  }
+  return made;
+}
+
+/**
+ * A small version of an image of the Workspace (23.1), with exactly the access rule of the image itself
+ * (`procedure.view`). Made on demand from the stored JPEG and kept in memory only; the full image is
+ * served when no thumbnail can be made.
+ */
+export async function readStepImageThumbnail(deps: ImageDeps, input: { readonly actor: User; readonly workspaceId: WorkspaceId; readonly imageId: string }): Promise<Uint8Array> {
+  await authorizeWorkspace(deps, input.actor, input.workspaceId, 'procedure.view');
+  const record = await deps.images.find(input.workspaceId, parseStepImageId(input.imageId) as StepImageId);
+  if (record === undefined) throw new ImageNotFoundError();
+  const bytes = await deps.store.read(record.sha256);
+  if (bytes === undefined) throw new ImageNotFoundError();
+  const thumbnail = deps.processor.thumbnail;
+  if (thumbnail === undefined || Math.max(record.width, record.height) <= THUMBNAIL_EDGE) return bytes;
+  try {
+    return await cachedThumbnail(record.sha256, () => thumbnail.call(deps.processor, bytes, THUMBNAIL_EDGE));
+  } catch {
+    return bytes;
+  }
 }
 
 /** The Workspace's combined storage and its limit, as far as an author needs it (used and limit). */

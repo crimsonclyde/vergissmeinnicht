@@ -99,5 +99,16 @@ export function createSharpImageProcessor(options: { readonly maxStoredBytes?: n
         throw new ImageRejectedError('too_complex');
       });
     },
+
+    /** A gallery thumbnail (23.1) of an image this processor stored: smaller, still metadata-free. */
+    async thumbnail(stored: Uint8Array, maxEdge: number): Promise<Uint8Array> {
+      return withSlot(async () => {
+        const data = await decoder(stored)
+          .resize({ width: maxEdge, height: maxEdge, fit: 'inside', withoutEnlargement: true })
+          .jpeg({ quality: 75, mozjpeg: true })
+          .toBuffer();
+        return new Uint8Array(data);
+      });
+    },
   };
 }

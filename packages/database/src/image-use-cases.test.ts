@@ -14,7 +14,11 @@ import {
   createProcedure,
   createWorkspace,
   deleteProcedure,
+  GALLERY_PAGE_SIZE,
   imageUsage,
+  listImageUses,
+  listWorkspaceImages,
+  readStepImageThumbnail,
   listWorkspaceStorage,
   purgeUnusedImages,
   readStepImage,
@@ -250,6 +254,74 @@ describe('instruction images (14.3)', () => {
       await updateProcedure(procedureDeps(), { actor: eddie, workspaceId: home.id, procedureId: procedure.procedure.id as ProcedureId, expectedRevision: procedure.procedure.revision + 1, content: content(null) });
       expect((await imageUsage(deps, { actor: gus, workspaceId: home.id })).used).toBe(withRun);
     }, 60_000);
+  });
+
+  describe('Workspace photo gallery (23.1)', () => {
+    const gallery = (actor: User, search?: string, workspace = home) => listWorkspaceImages(deps, { actor, workspaceId: workspace.id, search });
+
+    it('lists the photos a Step may use, newest first, with where they are used, for editors only', async () => {
+      const { image: valve } = await upload(1000);
+      now = new Date(now.getTime() + 1000);
+      const { image: meter } = await upload(1000);
+      now = new Date(now.getTime() + 1000);
+      const { image: stale } = await upload(1000);
+      const first = await createProcedure(procedureDeps(), { actor: eddie, workspaceId: home.id, content: content(valve.id) });
+      now = new Date(now.getTime() + 1000);
+      await createProcedure(procedureDeps(), { actor: eddie, workspaceId: home.id, content: content(valve.id, 'Newest caption') });
+      await startRun(runDeps(), { actor: uma, workspaceId: home.id, procedureId: first.procedure.id as ProcedureId });
+      await upload(1000, otto, office); // another Workspace's photo never shows up
+      now = new Date(now.getTime() + IMAGE_PENDING_MS + 60_000); // `stale` and `meter` were never used: no longer attachable
+      const page = await gallery(eddie);
+      expect(page.images.map((entry) => entry.id)).toEqual([valve.id]);
+      expect(page.images[0]).toMatchObject({ steps: 2, procedures: 2, caption: 'Newest caption', bytes: 1000, width: 800, height: 600 });
+      expect(page.next).toBeNull();
+      expect(JSON.stringify(page)).not.toMatch(/sha|created_by|eddie/i);
+      expect([meter.id, stale.id]).not.toContain(page.images[0]?.id);
+      // Admins too; USER, GUEST and non-members not.
+      expect((await gallery(admin)).images).toHaveLength(1);
+      await expect(gallery(uma)).rejects.toThrow(NotAuthorizedError);
+      await expect(gallery(gus)).rejects.toThrow(NotAuthorizedError);
+      await expect(gallery(otto)).rejects.toThrow(WorkspaceNotFoundError);
+      // A deleted Procedure no longer counts as a use; its Run snapshot keeps the photo attachable.
+      await deleteProcedure(procedureDeps(), { actor: eddie, workspaceId: home.id, procedureId: first.procedure.id as ProcedureId });
+      expect((await gallery(eddie)).images[0]).toMatchObject({ steps: 1, procedures: 1 });
+      const uses = await listImageUses(deps, { actor: eddie, workspaceId: home.id, imageId: valve.id });
+      expect(uses).toEqual([expect.objectContaining({ procedureTitle: 'Leave the house', stepTitle: 'Close the main water valve' })]);
+    });
+
+    it('searches captions and Step titles as plain text, and pages through many photos', async () => {
+      const { image: valve } = await upload(1000);
+      await createProcedure(procedureDeps(), { actor: eddie, workspaceId: home.id, content: content(valve.id, 'Lever 100% open') });
+      expect((await gallery(eddie, 'lever')).images.map((entry) => entry.id)).toEqual([valve.id]);
+      expect((await gallery(eddie, 'water valve')).images).toHaveLength(1); // the Step title
+      expect((await gallery(eddie, '100%')).images).toHaveLength(1);
+      expect((await gallery(eddie, '%')).images).toHaveLength(1);
+      expect((await gallery(eddie, '_')).images).toHaveLength(0); // literal, not a wildcard
+      expect((await gallery(eddie, 'boiler')).images).toHaveLength(0);
+      expect((await gallery(eddie, '   ')).images).toHaveLength(1); // blank: no filter
+      for (let i = 0; i < GALLERY_PAGE_SIZE + 2; i += 1) await upload(100);
+      const first = await gallery(eddie);
+      expect(first.images).toHaveLength(GALLERY_PAGE_SIZE);
+      expect(first.next).not.toBeNull();
+      const second = await listWorkspaceImages(deps, { actor: eddie, workspaceId: home.id, after: first.next ?? undefined });
+      expect(second.images).toHaveLength(3);
+      expect(second.next).toBeNull();
+      const ids = [...first.images, ...second.images].map((entry) => entry.id);
+      expect(new Set(ids).size).toBe(ids.length);
+    }, 60_000);
+
+    it('serves thumbnails with the access rule of the photo itself', async () => {
+      const { image: valve } = await upload(1000);
+      const small = new Uint8Array([1, 2, 3]);
+      const thumbnailing = { ...deps, processor: { ...fakeProcessor, thumbnail: async () => small } };
+      expect(await readStepImageThumbnail(thumbnailing, { actor: gus, workspaceId: home.id, imageId: valve.id })).toEqual(small);
+      // Without a thumbnail maker the photo itself is served.
+      expect((await readStepImageThumbnail(deps, { actor: gus, workspaceId: home.id, imageId: valve.id })).byteLength).toBe(1000);
+      await expect(readStepImageThumbnail(thumbnailing, { actor: otto, workspaceId: home.id, imageId: valve.id })).rejects.toThrow(WorkspaceNotFoundError);
+      await expect(readStepImageThumbnail(thumbnailing, { actor: otto, workspaceId: office.id, imageId: valve.id })).rejects.toThrow(ImageNotFoundError);
+      await expect(listImageUses(deps, { actor: otto, workspaceId: office.id, imageId: valve.id })).rejects.toThrow(ImageNotFoundError);
+      await expect(listImageUses(deps, { actor: gus, workspaceId: home.id, imageId: valve.id })).rejects.toThrow(NotAuthorizedError);
+    });
   });
 
   it('keeps image and caption together in the database', async () => {
