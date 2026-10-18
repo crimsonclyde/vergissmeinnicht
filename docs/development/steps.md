@@ -2011,13 +2011,15 @@ GitHub pre-release created after the user approved the command: `https://github.
 **Validation:** implementation and local checks recorded in 16.8 (146 files / 1154 tests, 27.30 s; Playwright 3 passed / 1 intentional skip; typecheck/lint/build/schema checks). Final PR CI `37218359808`, main CI `37218652596` and release `37218676293` succeeded. Both native validation and publishing images passed smoke tests and fixable HIGH/CRITICAL vulnerability scans; manifest publishing, workflow signing and CycloneDX attestation succeeded. Completion is recorded in a documentation commit after publication. Physical-phone imports, live Unraid upgrade and the existing development-only moderate esbuild finding remain open. Security surface: MEDIUM, documented in `security.md`; release validation must remain fail-closed.
 
 ### 12.32 Release 0.6.0-beta.5
-**Status:** PREPARED (2026-10-18) — waiting for the owner to publish the GitHub pre-release, which creates tag `v0.6.0-beta.5` on the merge commit (this session cannot push tags).
+**Status:** DONE (2026-10-18) — 22.1–22.3 (Section icons, guided Run, livelier Today), at the owner's request.
 
-**Scope:** 22.1–22.3 (Section icons, guided Run, livelier Today; PR #37 merged as `55fc6bd`), plus the README refreshed with new Light and Dark screenshots (`assets/screenshots/guided-run-2026-10-18/`, mostly Dark) and corrected status text (text recognition was released in 0.5.0-beta.6; Workspace backup and restore listed). Unraid template and `unraid.md` point to 0.6.0-beta.5.
+**Scope:** PR #37 (22.1–22.3) merged as `55fc6bd`; PR #38 (README refreshed with new, mostly Dark screenshots in `assets/screenshots/guided-run-2026-10-18/`, corrected status text, Unraid template and `unraid.md` → 0.6.0-beta.5) merged as `ed7e8d8`.
+
+**Published:** the owner published the GitHub pre-release, which created tag `v0.6.0-beta.5` on `ed7e8d8` (this session cannot push tags). Release workflow `39158171631`: attempt 1 failed in `checks / quality` because `document-file-use-cases.test.ts` › "previews at most 500 pages of a PDF" passed its 5 s timeout on the runner (the same commit passed main CI `39158134775`); the failed jobs were re-run once and attempt 2 succeeded (checks, native amd64/arm64 images, publish). The test now has a 30 s timeout. Image index `ghcr.io/crimsonclyde/vergissmeinnicht:0.6.0-beta.5` = `sha256:8703abc565990c239f8581bc15cc082279918f34b8e5407e1fe6337be3e08ba8` (amd64 `sha256:e0c11993963d…`, arm64 `sha256:e931607f9495…`). GitHub pre-release: https://github.com/crimsonclyde/vergissmeinnicht/releases/tag/v0.6.0-beta.5.
 
 **Upgrade:** migration 0047 adds an optional `icon` to `procedure_sections` and `run_sections` (nullable, no data rewritten); back up first or use *Migrate on start* on Unraid. No new environment variables. Workspace backups from earlier versions restore with no Section icons.
 
-**Validation:** PR #37 local checks (typecheck, lint, 1363 tests, e2e) and CI passed. Not done here: smoke and upgrade checks against the published image, real phones and a screen reader.
+**Validation:** PR #37 local checks (typecheck, lint, 1363 tests, e2e) and CI passed; PR #38 CI passed. Not done here: smoke and upgrade checks against the published image from this session, real phones and a screen reader. Nothing was deployed to the running installation.
 
 ### 12.31 Release 0.6.0-beta.4
 **Status:** DONE (2026-10-18) — 21.1 and 21.2 (security and usability review), at the owner's request: a release once the improvements are visible.
@@ -4306,7 +4308,7 @@ Decisions (owner, 2026-10-18):
 
 ### 22.1 Section icons
 
-**Status:** DONE — merged in PR #37 (`55fc6bd`); release 0.6.0-beta.5 prepared (12.32)  
+**Status:** DONE — merged in PR #37 (`55fc6bd`); released in 0.6.0-beta.5 (12.32)  
 **Completed:** 2026-10-18  
 An optional icon per Section from the existing trusted icon catalogue (`procedure_icons`), chosen in the Procedure builder like a Step icon, copied into the Run snapshot when a Run starts (immutable like the other snapshot columns) and carried by Procedure export/import and the Workspace backup (older packages and documents without it still restore/import, as "no icon"). Shown with a default icon when none is chosen.
 
@@ -4317,7 +4319,7 @@ An optional icon per Section from the existing trusted icon catalogue (`procedur
 
 ### 22.2 Guided Run
 
-**Status:** DONE — merged in PR #37 (`55fc6bd`); release 0.6.0-beta.5 prepared (12.32)  
+**Status:** DONE — merged in PR #37 (`55fc6bd`); released in 0.6.0-beta.5 (12.32)  
 **Completed:** 2026-10-18  
 The Run page shows the Sections as tiles (icon, title, done/total, a check when finished); a Run with one Section opens straight into it. A Section has its own address (`/w/{id}/runs/{id}/sections/{id}`) so the phone's Back returns to the Sections. One Step at a time: icon, title, marks, description and image, one large main action (Done or the critical-Step confirmation), Skip and Not applicable as smaller icon buttons, Back/Next, and dots for the Section's Steps. After Done the next pending Step follows by itself; a finished Section shows a short celebration and leads back or to the next open Section; when nothing required is open the end screen offers Complete. A **List** switch shows the familiar full list (Undo, reasons, who/when). Live updates, offline queueing and server-side checks are unchanged.
 
@@ -4328,7 +4330,7 @@ The Run page shows the Sections as tiles (icon, title, done/total, a check when 
 
 ### 22.3 A livelier Today
 
-**Status:** DONE — merged in PR #37 (`55fc6bd`); release 0.6.0-beta.5 prepared (12.32)  
+**Status:** DONE — merged in PR #37 (`55fc6bd`); released in 0.6.0-beta.5 (12.32)  
 **Completed:** 2026-10-18  
 A greeting with the person's name and the date, and a ring for today's progress (done today out of done plus still due today); a prominent card for the single most important item (the Run to continue, otherwise the first item that needs attention) with one large action; coloured icon tiles in card titles; the All/Mine/Shared filter as a compact control; a friendly "all clear" state; *Customize Today* as an icon. Card preferences (19.2) keep working.
 
