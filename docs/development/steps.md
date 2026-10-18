@@ -4341,17 +4341,17 @@ A greeting with the person's name and the date, and a ring for today's progress 
 
 ---
 
-## 23 — Step photos: Workspace gallery, replace everywhere, crop and rotate (planned 2026-10-18; owner decisions open; not implemented)
+## 23 — Step photos: Workspace gallery, replace everywhere, crop and rotate (planned 2026-10-18; SG3 confirmed by the owner 2026-10-18; not implemented)
 
 Owner request (2026-10-18): on- and offboarding are mostly the same procedure, so the same photos are needed again; reuse photos that already exist in the Workspace instead of taking new ones, replace photos from a gallery, and crop or rotate a photo after taking it.
 
 **How Step photos work today (14.3, checked 2026-10-18):** a photo is not owned by a Step. It is stored once per Workspace in `step_images` (unique per Workspace + SHA-256, immutable, ≤1600 px JPEG ≤500 KB); a Step and a Run snapshot only hold a reference (`image_id`) plus their own caption. The server already accepts any image of the same Workspace on any Step, as long as it is in use or uploaded within the 24 h grace (`imagesBelongTo` in `procedure-repository.ts`); uploading identical bytes again already reuses the stored image and is charged once; duplicating a Procedure keeps its images. What is missing is the way to *find and pick* an existing photo: the Step editor only offers camera and file picker, and there is no list of a Workspace's photos. So the gallery is mostly UI plus one list route, not a new storage model.
 
-### 23.0 Decisions (proposed defaults; owner to confirm before 23.2)
+### 23.0 Decisions (SG3 confirmed by the owner 2026-10-18; the others are proposed defaults)
 
 - **SG1** The gallery is a picker inside the Step editor and a page under the Procedures tool (*Procedures → ⋯ → Photos*), not a new Workspace tool and not a navigation entry. Only people who may edit Procedures (`procedure.edit`, EDITOR and ADMIN) open it; everyone else keeps seeing photos only on Steps and Runs.
 - **SG2** Picking a photo from the gallery references the existing image (no copy, no new bytes, no quota change). The caption stays per Step and is prefilled with the most recent caption used for that photo (still required, editable).
-- **SG3** *Replace* in the gallery swaps the photo in **every current Procedure Step** of the Workspace that uses it, after a confirmation that names the count ("Used in 5 Steps in 2 Procedures"). Captions stay. Runs are never changed: started Runs keep the photo from their Start. Soft-deleted (restorable) Procedures are not changed. Replacing on one Step stays in the Step editor (as today).
+- **SG3** (owner, 2026-10-18: "change everywhere it's used, since we do corrections here") *Replace* in the gallery swaps the photo in **every current Procedure Step** of the Workspace that uses it, after a confirmation that names the count ("Used in 5 Steps in 2 Procedures"). Captions stay. Runs are never changed: started Runs keep the photo from their Start. Soft-deleted (restorable) Procedures are not changed. Replacing on one Step stays in the Step editor (as today).
 - **SG4** Crop and rotate happen in the browser before upload: turn 90° left/right, straighten ±15°, free crop with corner handles, Reset, Done. The result is uploaded through the unchanged 14.3 pipeline (validated and re-processed on the server). Editing an existing photo creates a new image; the old one stays for Runs that use it. No filters, drawing or annotations (14.5 stays not planned).
 - **SG5** No new dependency for the editor (own canvas and pointer-event code, a few hundred lines); a library is chosen only if the touch handling proves unreliable on real phones.
 - **SG6** Not included: folders, tags or names for photos; deleting photos by hand (unused photos disappear through the existing housekeeping); using photos from Documents as Step photos (possible later step, as a copy through the 14.3 pipeline).
@@ -4373,7 +4373,7 @@ Owner request (2026-10-18): on- and offboarding are mostly the same procedure, s
 
 ### 23.2 Replace a photo everywhere
 
-**Status:** PLANNED (needs SG3 confirmed)  
+**Status:** PLANNED  
 **Depends on:** 23.1.
 
 **Requirements:**
@@ -4402,7 +4402,7 @@ Owner request (2026-10-18): on- and offboarding are mostly the same procedure, s
 
 ### Order
 
-23.3 first (smallest, no server change, useful right away), then 23.1, then 23.2 once SG3 is confirmed. No migration is expected for 23.1–23.3 (thumbnails are files, usage is computed); the Workspace backup is unchanged.
+23.3 first (smallest, no server change, useful right away), then 23.1, then 23.2. No migration is expected for 23.1–23.3 (thumbnails are files, usage is computed); the Workspace backup is unchanged.
 
 ---
 
