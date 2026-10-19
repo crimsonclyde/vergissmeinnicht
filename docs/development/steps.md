@@ -2011,13 +2011,15 @@ GitHub pre-release created after the user approved the command: `https://github.
 **Validation:** implementation and local checks recorded in 16.8 (146 files / 1154 tests, 27.30 s; Playwright 3 passed / 1 intentional skip; typecheck/lint/build/schema checks). Final PR CI `37218359808`, main CI `37218652596` and release `37218676293` succeeded. Both native validation and publishing images passed smoke tests and fixable HIGH/CRITICAL vulnerability scans; manifest publishing, workflow signing and CycloneDX attestation succeeded. Completion is recorded in a documentation commit after publication. Physical-phone imports, live Unraid upgrade and the existing development-only moderate esbuild finding remain open. Security surface: MEDIUM, documented in `security.md`; release validation must remain fail-closed.
 
 ### 12.34 Release 0.6.0-beta.7
-**Status:** PREPARED (2026-10-19) — 23.2 (replace or crop a Step photo everywhere) and 21.3 (iOS bottom bar), at the owner's request once the photo plan (section 23) was complete; published once the owner creates the GitHub pre-release.
+**Status:** DONE (2026-10-19) — 23.2 (replace or crop a Step photo everywhere) and 21.3 (iOS bottom bar), at the owner's request once the photo plan (section 23) was complete.
 
 **Scope:** PR #44 (21.3, phone bottom bar floating up on iOS Safari) merged as `676fcbf`; PR #45 (23.2: crop/turn, replace with a new photo or with another photo of the Workspace, everywhere it is used; Runs keep theirs) merged as `a9d18ad`; the release PR points the Unraid template and `unraid.md` to 0.6.0-beta.7.
 
+**Published:** the owner published the GitHub pre-release on 2026-10-19, which created tag `v0.6.0-beta.7` on `7688f42` (this session cannot push tags). Release workflow `39261397980` succeeded on the first attempt (checks, native amd64/arm64 images, publish). Image index `ghcr.io/crimsonclyde/vergissmeinnicht:0.6.0-beta.7` = `sha256:dcd2ad945fb880410b07448d8cb44d17397f982d274fe8d07b13400f9f9beafd` (amd64 `sha256:8932d640eba4…`, arm64 `sha256:2a863b488fbc…`). GitHub pre-release: https://github.com/crimsonclyde/vergissmeinnicht/releases/tag/v0.6.0-beta.7.
+
 **Upgrade:** no migration (still 0047), no new environment variables, no new outbound connection. One new write route (`POST /api/workspaces/:ws/images/:id/replace`, `procedure.edit`), see `security.md` (23.2).
 
-**Validation:** PR #44 and #45 local checks (lint, typecheck, full test suite, desktop e2e flow incl. crop everywhere and replace with a gallery photo) and CI passed. Not done here: a real iPhone (the bottom bar fix and the photo editor both need a check on the device), a screen reader. Nothing was deployed to the running installation.
+**Validation:** PR #44 and #45 local checks (lint, typecheck, full test suite, desktop e2e flow incl. crop everywhere and replace with a gallery photo) and CI passed; after publishing, `deploy/smoke-test.sh` passed against the pulled amd64 image. No upgrade check: the migration level is unchanged (0047), for which `upgrade-check.sh` fails by design. Not done here: a real iPhone (the bottom bar fix and the photo editor both need a check on the device), a screen reader. Nothing was deployed to the running installation.
 
 ### 12.33 Release 0.6.0-beta.6
 **Status:** DONE (2026-10-19) — 23.3 (crop and turn Step photos) and 23.1 (Workspace photo gallery), at the owner's request.
