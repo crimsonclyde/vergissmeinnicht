@@ -3,8 +3,10 @@ import { createRoot } from 'react-dom/client';
 import { App } from './App.tsx';
 import './styles.css';
 import { initTheme } from './theme.ts';
+import { watchViewportDrift } from './viewport-drift.ts';
 
 initTheme();
+watchViewportDrift();
 
 // Offline use of active Runs (8.5): the service worker keeps the app shell. Production builds only.
 if (import.meta.env.PROD && 'serviceWorker' in navigator) {

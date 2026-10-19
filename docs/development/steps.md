@@ -4307,6 +4307,17 @@ The Bring / Transfer candidate of 2026-10-07 became its own planned tool after t
 **Security docs updated:** YES — `security.md` §9 note in "Security check: rate limits by matched route (21.1)".  
 **Remaining:** Run *Abort…* and *Complete* stay text buttons on purpose (important, irreversible actions).
 
+### 21.3 Phone bottom bar floating up on iOS Safari
+
+**Status:** DONE (not released yet)  
+**Completed:** 2026-10-19  
+**Implemented:** the owner reported (iPhone, 0.6.0-beta.6) that the phone bottom bar starts at the bottom, floats up into the page while scrolling and is back at the bottom at the end of the page. This matches a known iOS Safari bug (WebKit bug 297779, Apple Feedback FB19889436; it also shows on apple.com): the visible area drifts below the layout viewport, and `position: fixed; bottom: 0` follows the layout viewport. New `apps/web/src/viewport-drift.ts` measures the drift from `visualViewport` (`offsetTop + height − innerHeight`) once per frame on scroll and resize and moves the bar down by it with a CSS variable (`--viewport-drift`, a `transform` on `.tab-bar`). An open keyboard (visible area smaller, not lower), pinch-zoom and sub-pixel rounding count as no drift, and browsers without the bug measure 0, so nothing changes there.
+
+**Tests/checks:** `viewport-drift.test.ts` (drift, keyboard, rounding, zoom, NaN); `pnpm lint`, `pnpm typecheck`, web unit tests. Not verified here: a real iPhone (no iOS device in this environment); whether the measured values reflect the drift on the owner's iOS version has to be confirmed on the device after the next release.  
+**Security impact:** NONE — presentation only; no data flow, request or permission changes.  
+**Security docs updated:** NO (nothing security-relevant).  
+**Remaining:** if the bar still floats on the device, the fallback is to make the page scroll inside an inner container instead of the document (bigger change: scroll restoration, sticky bars, `scroll-padding`). Sticky bottom bars (Run progress dock, editor save bar) are not adjusted; none was reported.
+
 ## 22 — A guided Run and a livelier Today (accepted 2026-10-18, owner)
 
 Owner request (2026-10-18): on phones it is hard to see what is still open in a Run and what is done; the Run is the focus. Lead the person through a Run like a wizard instead of showing every Step with all its buttons at once: first the Sections as icons, then the Steps of a Section one at a time, with encouraging feedback when a Step is done (in the spirit of Duolingo). Today should look of this century and be more inviting on phones and computers, with less text and without overwhelming.
