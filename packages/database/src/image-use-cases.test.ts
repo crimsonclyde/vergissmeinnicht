@@ -9,6 +9,9 @@ import {
   ImageRejectedError,
   InvalidProcedureReferenceError,
   NotAuthorizedError,
+  ProcedureConflictError,
+  getProcedure,
+  replaceStepImageEverywhere,
   WorkspaceNotFoundError,
   addMember,
   createProcedure,
@@ -321,6 +324,104 @@ describe('instruction images (14.3)', () => {
       await expect(readStepImageThumbnail(thumbnailing, { actor: otto, workspaceId: office.id, imageId: valve.id })).rejects.toThrow(ImageNotFoundError);
       await expect(listImageUses(deps, { actor: otto, workspaceId: office.id, imageId: valve.id })).rejects.toThrow(ImageNotFoundError);
       await expect(listImageUses(deps, { actor: gus, workspaceId: home.id, imageId: valve.id })).rejects.toThrow(NotAuthorizedError);
+    });
+  });
+
+  describe('replace a photo everywhere (23.2)', () => {
+    const replace = (actor: User, imageId: string, replacement: string, workspace = home) =>
+      replaceStepImageEverywhere(deps, { actor, workspaceId: workspace.id, imageId, replacement });
+    const twoSteps = (imageId: string): ProcedureInput => ({
+      ...content(imageId),
+      title: 'Arrive home',
+      sections: [
+        {
+          title: 'Utilities',
+          description: '',
+          steps: [
+            { ...STEP, title: 'Open the main water valve', image: { id: imageId, caption: 'Valve' } },
+            { ...STEP, title: 'Check the valve again', image: { id: imageId, caption: 'Valve, again' } },
+          ],
+        },
+      ],
+    });
+
+    it('swaps the photo in every current Procedure, keeps captions, Runs and deleted Procedures, and records it', async () => {
+      const { image: old } = await upload(1000);
+      const leave = await createProcedure(procedureDeps(), { actor: eddie, workspaceId: home.id, content: content(old.id) });
+      const arrive = await createProcedure(procedureDeps(), { actor: eddie, workspaceId: home.id, content: twoSteps(old.id) });
+      const gone = await createProcedure(procedureDeps(), { actor: eddie, workspaceId: home.id, content: { ...content(old.id), title: 'Old checklist' } });
+      const run = await startRun(runDeps(), { actor: uma, workspaceId: home.id, procedureId: leave.procedure.id as ProcedureId });
+      await deleteProcedure(procedureDeps(), { actor: eddie, workspaceId: home.id, procedureId: gone.procedure.id as ProcedureId });
+      const { image: fresh } = await upload(1000, eddie, home, old.id);
+
+      expect(await replace(eddie, old.id, fresh.id)).toEqual({ procedures: 2, steps: 3 });
+
+      const load = (id: string) => getProcedure(procedureDeps(), { actor: eddie, workspaceId: home.id, procedureId: id as ProcedureId });
+      const leaveAfter = await load(leave.procedure.id);
+      const arriveAfter = await load(arrive.procedure.id);
+      expect(leaveAfter.sections[0]?.steps[0]?.image).toEqual({ id: fresh.id, caption: 'Blue lever left of the meter' });
+      expect(arriveAfter.sections[0]?.steps.map((step) => step.image)).toEqual([
+        { id: fresh.id, caption: 'Valve' },
+        { id: fresh.id, caption: 'Valve, again' },
+      ]);
+      expect(leaveAfter.procedure.revision).toBe(leave.procedure.revision + 1);
+      expect(arriveAfter.procedure.revision).toBe(arrive.procedure.revision + 1);
+      // The started Run and the deleted (restorable) Procedure keep the old photo.
+      const snapshot = database.sqlite.prepare('SELECT image_id FROM run_steps WHERE run_id = ?').all(run.run.id) as { image_id: string }[];
+      expect(snapshot.map((row) => row.image_id)).toEqual([old.id]);
+      const deletedSteps = database.sqlite.prepare('SELECT image_id FROM procedure_steps WHERE procedure_id = ?').all(gone.procedure.id) as { image_id: string }[];
+      expect(deletedSteps.map((row) => row.image_id)).toEqual([old.id]);
+      // Exactly one audit event per changed Procedure.
+      const events = database.sqlite
+        .prepare("SELECT subject_id, metadata FROM audit_events WHERE type = 'PROCEDURE_UPDATED' ORDER BY subject_id")
+        .all() as { subject_id: string; metadata: string }[];
+      expect(events.map((event) => event.subject_id).sort()).toEqual([leave.procedure.id, arrive.procedure.id].sort());
+      const arriveEvent = JSON.parse(events.find((event) => event.subject_id === arrive.procedure.id)?.metadata ?? '{}') as Record<string, unknown>;
+      expect(arriveEvent).toMatchObject({ fields: ['structure'], revision: arrive.procedure.revision + 1, stepsChanged: 2, photoReplaced: 2 });
+      // An editor still holding the old revision gets the usual conflict.
+      await expect(
+        updateProcedure(procedureDeps(), { actor: eddie, workspaceId: home.id, procedureId: leave.procedure.id as ProcedureId, expectedRevision: leave.procedure.revision, content: content(old.id) }),
+      ).rejects.toThrow(ProcedureConflictError);
+      // Replacing with the same photo changes nothing.
+      expect(await replace(eddie, fresh.id, fresh.id)).toEqual({ procedures: 0, steps: 0 });
+      expect((await load(leave.procedure.id)).procedure.revision).toBe(leave.procedure.revision + 1);
+    });
+
+    it('is for editors of this Workspace only and refuses photos of another Workspace or past the grace', async () => {
+      const { image: old } = await upload(1000);
+      const leave = await createProcedure(procedureDeps(), { actor: eddie, workspaceId: home.id, content: content(old.id) });
+      const { image: fresh } = await upload(1000);
+      const { image: foreign } = await upload(1000, otto, office);
+      await expect(replace(uma, old.id, fresh.id)).rejects.toThrow(NotAuthorizedError);
+      await expect(replace(gus, old.id, fresh.id)).rejects.toThrow(NotAuthorizedError);
+      await expect(replace(otto, old.id, fresh.id)).rejects.toThrow(WorkspaceNotFoundError);
+      await expect(replace(eddie, old.id, foreign.id)).rejects.toThrow(InvalidProcedureReferenceError);
+      await expect(replace(eddie, foreign.id, fresh.id)).rejects.toThrow(ImageNotFoundError);
+      await expect(replace(otto, old.id, foreign.id, office)).rejects.toThrow(ImageNotFoundError);
+      await expect(replace(eddie, old.id, '3f1c2b9a-6d4e-4f8a-9b7c-1a2b3c4d5e6f')).rejects.toThrow(InvalidProcedureReferenceError);
+      // An upload left unused past the grace is no longer charged, so it cannot be put on Steps.
+      now = new Date(now.getTime() + IMAGE_PENDING_MS + 60_000);
+      await expect(replace(eddie, old.id, fresh.id)).rejects.toThrow(InvalidProcedureReferenceError);
+      // Nothing was changed by any refused attempt.
+      const after = await getProcedure(procedureDeps(), { actor: eddie, workspaceId: home.id, procedureId: leave.procedure.id as ProcedureId });
+      expect(after.procedure.revision).toBe(leave.procedure.revision);
+      expect(after.sections[0]?.steps[0]?.image?.id).toBe(old.id);
+    });
+
+    it('changes everything or nothing', async () => {
+      const { image: old } = await upload(1000);
+      const leave = await createProcedure(procedureDeps(), { actor: eddie, workspaceId: home.id, content: content(old.id) });
+      await createProcedure(procedureDeps(), { actor: eddie, workspaceId: home.id, content: twoSteps(old.id) });
+      const { image: fresh } = await upload(1000);
+      // The second audit event fails: the first Procedure's change must be rolled back too.
+      database.sqlite.exec(`CREATE TEMP TRIGGER fail_second AFTER INSERT ON audit_events
+        WHEN (SELECT count(*) FROM audit_events WHERE type = 'PROCEDURE_UPDATED') > 1 BEGIN SELECT RAISE(ABORT, 'boom'); END`);
+      await expect(replace(eddie, old.id, fresh.id)).rejects.toThrow(/boom/);
+      database.sqlite.exec('DROP TRIGGER fail_second');
+      const rows = database.sqlite.prepare('SELECT DISTINCT image_id FROM procedure_steps').all() as { image_id: string }[];
+      expect(rows.map((row) => row.image_id)).toEqual([old.id]);
+      const after = await getProcedure(procedureDeps(), { actor: eddie, workspaceId: home.id, procedureId: leave.procedure.id as ProcedureId });
+      expect(after.procedure.revision).toBe(leave.procedure.revision);
     });
   });
 

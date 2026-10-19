@@ -58,6 +58,7 @@ function bodyFor(route: string, ids: Record<string, string>): object {
   if (url.endsWith('/maintenance/:recordId/update')) return { title: 'Taken over', expectedRevision: 1 };
   if (url.endsWith('/maintenance/:recordId/status')) return { status: 'COMPLETED', expectedRevision: 1 };
   if (url.endsWith('/maintenance/:recordId/links')) return { target: { type: 'procedure', id: ids.procedureId ?? '' } };
+  if (url.endsWith('/images/:imageId/replace')) return { replacement: ids.imageId ?? '' };
   if (url.endsWith('/storage/limit')) return { bytes: null };
   if (url.endsWith('/text-recognition')) return { enabled: true };
   if (url.endsWith('/suggestions/dismiss')) return { field: 'title', value: 'x' };

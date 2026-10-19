@@ -1103,6 +1103,15 @@ The CI scan gates found new advisories: `source-map-js` < 1.2.2 (DoS on malforme
 - [x] Token redaction in request logs matches the decoded path with repeated slashes collapsed (`redactUrl`, 21.2): `/%6Bnot/{token}` and `//knot/{token}` are redacted like `/knot/{token}`.
 - [x] **Review trigger:** any future decision that depends on the request path (logging redaction, allow-lists, guards) must use the matched route or a normalised path, never `request.url` as sent.
 
+### Security check: replace a Step photo everywhere (23.2, 2026-10-19)
+
+**Security surface changed: MEDIUM.** The first bulk change across several Procedures: one new write route; no new capability, stored data type, dependency or outbound connection.
+
+- [x] **Same permission as editing one Procedure:** `POST …/images/:id/replace` (`{ replacement }`, strict body) needs `procedure.edit`; USER and GUEST get 403, non-members and other Workspaces 404, and it answers like an unknown resource when Procedures is switched off (route-security sweep). Cookie requests need the same-origin `Origin` like every write; own rate limit (30 per 15 minutes per user).
+- [x] **Workspace scoping on both sides:** the old photo must be an image of this Workspace (else 404); the new one must be an image of this Workspace that a Step may use — in use, or uploaded within the grace, so it is already charged to the quota (else 400 `invalid_item_reference`). The new photo itself is uploaded first through the unchanged 14.3 pipeline (validation, re-encoding, metadata removal, quota with `replacing`).
+- [x] **Atomic and audited:** one IMMEDIATE transaction changes only Steps of current Procedures of the Workspace, raises each changed Procedure's revision and records one `PROCEDURE_UPDATED` event per Procedure (actor, time, `photoReplaced`); a failure in the middle changes nothing. An editor holding an older revision gets the usual conflict.
+- [x] **History stays true:** Run snapshots are never changed (the database also refuses it), deleted (restorable) Procedures keep their photo, and stored images stay immutable. Tests: `image-use-cases.test.ts` (Runs, deleted Procedures, captions, audit, conflict, same photo = no change, other Workspace, past grace, rollback), `image.test.ts` (HTTP status codes, cross-origin, strict body).
+
 ### Security check: Step photo gallery (23.1, 2026-10-18)
 
 **Security surface changed: LOW.** Three read-only routes; no new stored data, capability or dependency.

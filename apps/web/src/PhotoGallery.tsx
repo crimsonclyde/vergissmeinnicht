@@ -2,7 +2,11 @@ import { useEffect, useId, useRef, useState } from 'react';
 import { api, imageThumbUrl, imageUrl, messageFor, type GalleryImage, type ImageUsage, type ImageUse } from './api.ts';
 import { formatBytes } from './document-model.ts';
 import { formatDateTime, t } from './i18n/index.ts';
+import { decodeImage, encodeEdited, MAX_UPLOAD_BYTES, originalUpload } from './image-prep.ts';
+import { PhotoEditor } from './PhotoEditor.tsx';
+import type { PhotoEdit } from './photo-edit.ts';
 import { Link, paths } from './router.tsx';
+import { formatMegabytes, imageErrorMessage } from './StepImage.tsx';
 import { UiIcon } from './ui-icons.tsx';
 
 /** Waits this long after typing before searching. */
@@ -121,12 +125,22 @@ export function GalleryPicker(props: { workspaceId: string; onPick: (image: Gall
   );
 }
 
-/** One photo with where it is used (23.1); replacing it everywhere follows in 23.2. */
-function PhotoDetails(props: { workspaceId: string; image: GalleryImage; onClose: () => void }) {
+/**
+ * One photo with where it is used (23.1), and — when current Procedures use it — crop/turn or replace
+ * it in all of them at once (23.2, SG3). The new photo is uploaded first (checked and re-encoded on the
+ * server, like any upload), then a confirmation swaps it in every Step listed. Runs keep the old one.
+ */
+function PhotoDetails(props: { workspaceId: string; image: GalleryImage; onClose: () => void; onReplaced: (steps: number) => void }) {
   const dialog = useRef<HTMLDialogElement>(null);
+  const file = useRef<HTMLInputElement>(null);
   const headingId = useId();
   const [uses, setUses] = useState<ImageUse[] | null>(null);
   const [message, setMessage] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  /** The photo open in the crop-and-turn editor, before anything is uploaded. */
+  const [editing, setEditing] = useState<HTMLImageElement | null>(null);
+  /** The uploaded new photo, waiting for the confirmation. */
+  const [replacement, setReplacement] = useState<string | null>(null);
   useEffect(() => {
     const element = dialog.current;
     if (element !== null && !element.open) element.showModal();
@@ -138,6 +152,82 @@ function PhotoDetails(props: { workspaceId: string; image: GalleryImage; onClose
     entry.steps.push(use.stepTitle);
     byProcedure.set(use.procedureId, entry);
   }
+  const used = uses !== null && uses.length > 0;
+
+  /** Crop or turn: starts from the stored photo. */
+  async function editThis() {
+    setMessage(null);
+    setBusy(true);
+    try {
+      const response = await fetch(imageUrl(props.workspaceId, props.image.id), { credentials: 'same-origin' });
+      if (!response.ok) throw new Error(String(response.status));
+      setEditing(await decodeImage(await response.blob()));
+    } catch {
+      setMessage(t('photoEditor.loadFailed'));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  /** A different photo: opens in the editor too; one the browser cannot read is sent as it is. */
+  async function choose(chosen: File | undefined) {
+    if (file.current !== null) file.current.value = '';
+    if (chosen === undefined) return;
+    setMessage(null);
+    try {
+      setEditing(await decodeImage(chosen));
+    } catch {
+      const original = originalUpload(chosen);
+      if (original.kind === 'too_large') {
+        setMessage(t('image.rejected.too_large', { max: formatMegabytes(MAX_UPLOAD_BYTES) }));
+        return;
+      }
+      await uploadReplacement(original.blob);
+    }
+  }
+
+  async function uploadReplacement(blob: Blob) {
+    setBusy(true);
+    try {
+      const uploaded = await api.uploadImage(props.workspaceId, blob, props.image.id);
+      // Identical content is the same photo: nothing to replace.
+      setReplacement(uploaded.image.id === props.image.id ? null : uploaded.image.id);
+    } catch (caught) {
+      setMessage(imageErrorMessage(caught));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function finishEditing(edit: PhotoEdit) {
+    if (editing === null) return;
+    setBusy(true);
+    setMessage(null);
+    try {
+      const blob = await encodeEdited(editing, edit);
+      if (blob === null) setMessage(t('image.rejected.unreadable'));
+      else await uploadReplacement(blob);
+    } finally {
+      setBusy(false);
+      setEditing(null);
+    }
+  }
+
+  async function confirmReplace() {
+    if (replacement === null) return;
+    setBusy(true);
+    setMessage(null);
+    try {
+      const result = await api.replaceImage(props.workspaceId, props.image.id, replacement);
+      props.onReplaced(result.steps);
+      dialog.current?.close();
+    } catch (caught) {
+      setMessage(messageFor(caught));
+    } finally {
+      setBusy(false);
+    }
+  }
+
   return (
     <dialog ref={dialog} className="dialog gallery-dialog" aria-labelledby={headingId} onClose={props.onClose}>
       <div className="gallery-dialog-head">
@@ -146,13 +236,41 @@ function PhotoDetails(props: { workspaceId: string; image: GalleryImage; onClose
           <UiIcon name="close" />
         </button>
       </div>
-      <img className="gallery-photo" src={imageUrl(props.workspaceId, props.image.id)} alt={photoName(props.image)} />
+      <img className="gallery-photo" src={replacement === null ? imageUrl(props.workspaceId, props.image.id) : imageUrl(props.workspaceId, replacement)} alt={photoName(props.image)} />
       <p className="muted">
         {t('gallery.facts', { width: props.image.width, height: props.image.height, size: formatBytes(props.image.bytes), date: formatDateTime(props.image.createdAt) })}
       </p>
       {message !== null && <p role="alert">{message}</p>}
+      {used && replacement === null && (
+        <div className="row icon-group">
+          <button type="button" className="icon-button" aria-label={t('gallery.editEverywhere')} title={t('gallery.editEverywhere')} disabled={busy} onClick={() => void editThis()}>
+            <UiIcon name="crop" />
+          </button>
+          <button type="button" className="icon-button" aria-label={t('gallery.replaceEverywhere')} title={t('gallery.replaceEverywhere')} disabled={busy} onClick={() => file.current?.click()}>
+            <UiIcon name="replace" />
+          </button>
+          <input ref={file} type="file" accept="image/*" hidden onChange={(event) => void choose(event.target.files?.[0])} />
+        </div>
+      )}
+      {used && replacement !== null && (
+        <div className="stack gallery-confirm" role="group" aria-label={t('gallery.replaceEverywhere')}>
+          <p>
+            <strong>{t('gallery.confirmReplace', { count: uses.length })}</strong>
+            <br />
+            <span className="muted">{t('gallery.keepsRuns')}</span>
+          </p>
+          <div className="row">
+            <button type="button" disabled={busy} onClick={() => setReplacement(null)}>
+              {t('common.cancel')}
+            </button>
+            <button type="button" className="primary" disabled={busy} onClick={() => void confirmReplace()}>
+              <UiIcon name="replace" /> {t('gallery.replace')}
+            </button>
+          </div>
+        </div>
+      )}
       {uses !== null && uses.length === 0 && <p>{t('gallery.unused')}</p>}
-      {uses !== null && uses.length > 0 && (
+      {used && (
         <>
           <h3>{t('gallery.usedIn')}</h3>
           <ul className="gallery-uses">
@@ -165,6 +283,7 @@ function PhotoDetails(props: { workspaceId: string; image: GalleryImage; onClose
           </ul>
         </>
       )}
+      {editing !== null && <PhotoEditor image={editing} busy={busy} onDone={(edit) => void finishEditing(edit)} onCancel={() => setEditing(null)} />}
     </dialog>
   );
 }
@@ -173,9 +292,12 @@ function PhotoDetails(props: { workspaceId: string; image: GalleryImage; onClose
 export function PhotosPage(props: { workspaceId: string }) {
   const [usage, setUsage] = useState<ImageUsage | null>(null);
   const [open, setOpen] = useState<GalleryImage | null>(null);
+  /** Bumped after a replacement, so the grid loads again. */
+  const [version, setVersion] = useState(0);
+  const [status, setStatus] = useState<string | null>(null);
   useEffect(() => {
     api.imageUsage(props.workspaceId).then(setUsage, () => setUsage(null));
-  }, [props.workspaceId]);
+  }, [props.workspaceId, version]);
   return (
     <section aria-labelledby="photos-heading" className="stack">
       <p>
@@ -189,8 +311,22 @@ export function PhotosPage(props: { workspaceId: string }) {
           {usage !== null && <p className="muted page-lead">{t('image.usage', { used: formatBytes(usage.usedBytes), limit: formatBytes(usage.limitBytes) })}</p>}
         </div>
       </div>
-      <GalleryGrid workspaceId={props.workspaceId} onPick={setOpen} />
-      {open !== null && <PhotoDetails key={open.id} workspaceId={props.workspaceId} image={open} onClose={() => setOpen(null)} />}
+      <p role="status" className={status === null ? 'visually-hidden' : undefined}>
+        {status}
+      </p>
+      <GalleryGrid key={version} workspaceId={props.workspaceId} onPick={(image) => { setStatus(null); setOpen(image); }} />
+      {open !== null && (
+        <PhotoDetails
+          key={open.id}
+          workspaceId={props.workspaceId}
+          image={open}
+          onClose={() => setOpen(null)}
+          onReplaced={(steps) => {
+            setStatus(t('gallery.replaced', { count: steps }));
+            setVersion((current) => current + 1);
+          }}
+        />
+      )}
     </section>
   );
 }

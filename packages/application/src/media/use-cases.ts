@@ -7,6 +7,7 @@ import type { WorkspaceRepository } from '../ports/workspace-repository.ts';
 import { userActor } from '../user-actor.ts';
 import { authorizeWorkspace } from '../workspaces/use-cases.ts';
 import { StorageFullError } from '../documents/errors.ts';
+import { InvalidProcedureReferenceError } from '../procedures/errors.ts';
 import { ImageNotFoundError } from './errors.ts';
 
 export interface ImageDeps {
@@ -108,6 +109,38 @@ export async function listImageUses(deps: ImageDeps, input: { readonly actor: Us
   const imageId = parseStepImageId(input.imageId) as StepImageId;
   if ((await deps.images.find(input.workspaceId, imageId)) === undefined) throw new ImageNotFoundError();
   return deps.images.uses(input.workspaceId, imageId);
+}
+
+/**
+ * Replace a photo everywhere (23.2, owner decision SG3): every Step of a current Procedure of the
+ * Workspace that shows `imageId` shows `replacement` instead — one transaction, a new revision and an
+ * audit event per changed Procedure. Runs keep the photo of their Start; deleted Procedures are left as
+ * they were. Same permission as editing one Procedure (`procedure.edit`). The replacement must be a
+ * photo of this Workspace a Step may use (uploaded first through `uploadStepImage`).
+ */
+export async function replaceStepImageEverywhere(
+  deps: ImageDeps,
+  input: { readonly actor: User; readonly workspaceId: WorkspaceId; readonly imageId: string; readonly replacement: string },
+): Promise<{ readonly procedures: number; readonly steps: number }> {
+  await authorizeWorkspace(deps, input.actor, input.workspaceId, 'procedure.edit');
+  const from = parseStepImageId(input.imageId) as StepImageId;
+  const to = parseStepImageId(input.replacement) as StepImageId;
+  const now = deps.clock.now();
+  const result = await deps.images.replaceEverywhere(
+    { workspaceId: input.workspaceId, from, to, at: now, pendingSince: pendingSince(now) },
+    userActor(input.actor),
+    { tool: 'PROCEDURES' as const, actorMay: (role) => roleHasCapability(role, 'procedure.edit') },
+  );
+  switch (result.status) {
+    case 'ok':
+      return { procedures: result.procedures, steps: result.steps };
+    case 'forbidden':
+      throw new NotAuthorizedError();
+    case 'not_found':
+      throw new ImageNotFoundError();
+    case 'invalid_reference':
+      throw new InvalidProcedureReferenceError();
+  }
 }
 
 /**

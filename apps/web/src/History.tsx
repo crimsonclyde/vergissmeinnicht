@@ -45,7 +45,8 @@ export function describeEvent(event: HistoryEvent): string {
         count(m.sectionsChanged, 'history.sectionsChanged'),
         count(m.stepsAdded, 'history.stepsAdded'),
         count(m.stepsRemoved, 'history.stepsRemoved'),
-        count(m.stepsChanged, 'history.stepsChanged'),
+        // A photo replaced everywhere (23.2) says so instead of "n Steps changed".
+        typeof m.photoReplaced === 'number' ? count(m.photoReplaced, 'history.photoReplaced') : count(m.stepsChanged, 'history.stepsChanged'),
       ].filter((part): part is string => part !== null);
       const parts = [...(fields.length > 0 ? [t('history.changedFields', { fields: fields.join(', ') })] : []), ...structure];
       return t('history.revision', { changes: parts.join('; '), revision: text(m.revision) });

@@ -1,10 +1,12 @@
 import { enabledTool } from './tool-policy.ts';
 import { randomUUID } from 'node:crypto';
-import { and, asc, desc, eq, inArray, isNull, lt, or, sql } from 'drizzle-orm';
-import type { GalleryImage, ImageRepository, RegisterImageResult, StepImageRecord } from '@vergissmeinnicht/application';
+import { and, asc, count, desc, eq, inArray, isNull, lt, or, sql } from 'drizzle-orm';
+import type { GalleryImage, ImageRepository, RegisterImageResult, ReplaceImageResult, StepImageRecord } from '@vergissmeinnicht/application';
 import { containsPattern, fitsStorage, type StepImageId, type WorkspaceId } from '@vergissmeinnicht/domain';
 import { IMMEDIATE, actorAllowed, type Transaction } from './actor-guard.ts';
+import { recordAuditEvent } from './audit-events.ts';
 import type { AppDatabase } from './connection.ts';
+import { activeIn } from './procedure-repository.ts';
 import { procedureSteps, procedures, runSteps, stepImages } from './schema.ts';
 import { imageReferencedByRun, imageReferencedByStep, storageUsageIn } from './storage-usage.ts';
 
@@ -131,6 +133,48 @@ export function createImageRepository({ db }: Pick<AppDatabase, 'db'>): ImageRep
       );
       const last = images.at(-1);
       return { images, next: rows.length > input.limit && last !== undefined ? { createdAt: last.createdAt, id: last.id } : null };
+    },
+
+    async replaceEverywhere(input, actor, guard) {
+      return db.transaction((tx): ReplaceImageResult => {
+        if (!actorAllowed(tx, input.workspaceId, actor, guard)) return { status: 'forbidden' };
+        const inWorkspace = and(enabledTool(input.workspaceId, 'PROCEDURES'), eq(stepImages.workspaceId, input.workspaceId));
+        const from = tx.select({ id: stepImages.id }).from(stepImages).where(and(inWorkspace, eq(stepImages.id, input.from))).get();
+        if (from === undefined) return { status: 'not_found' };
+        // The new photo must already be charged to this Workspace: in use, or uploaded within the grace.
+        const attachable = sql`(${stepImages.createdAt} >= ${input.pendingSince.getTime()} or ${imageReferencedByStep} or ${imageReferencedByRun})`;
+        const to = tx.select({ id: stepImages.id }).from(stepImages).where(and(inWorkspace, eq(stepImages.id, input.to), attachable)).get();
+        if (to === undefined) return { status: 'invalid_reference' };
+        if (from.id === to.id) return { status: 'ok', procedures: 0, steps: 0 };
+        const affected = tx
+          .select({ id: procedures.id, revision: procedures.revision, steps: count(procedureSteps.id) })
+          .from(procedureSteps)
+          .innerJoin(procedures, eq(procedures.id, procedureSteps.procedureId))
+          .where(and(activeIn(input.workspaceId), eq(procedureSteps.imageId, from.id)))
+          .groupBy(procedures.id)
+          .orderBy(asc(procedures.id))
+          .all();
+        let steps = 0;
+        for (const procedure of affected) {
+          const revision = procedure.revision + 1;
+          tx.update(procedures).set({ revision, updatedAt: input.at }).where(eq(procedures.id, procedure.id)).run();
+          tx.update(procedureSteps)
+            .set({ imageId: to.id })
+            .where(and(eq(procedureSteps.procedureId, procedure.id), eq(procedureSteps.imageId, from.id)))
+            .run();
+          steps += procedure.steps;
+          recordAuditEvent(tx, {
+            workspaceId: input.workspaceId,
+            type: 'PROCEDURE_UPDATED',
+            actor,
+            subjectType: 'procedure',
+            subjectId: procedure.id,
+            occurredAt: input.at,
+            metadata: { fields: ['structure'], revision, stepsChanged: procedure.steps, photoReplaced: procedure.steps },
+          });
+        }
+        return { status: 'ok', procedures: affected.length, steps };
+      }, IMMEDIATE);
     },
 
     async uses(workspaceId, imageId) {
