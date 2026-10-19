@@ -481,6 +481,8 @@ html {
     padding: 0 var(--safe-right) var(--safe-bottom) var(--safe-left);
     background: var(--surface);
     border-top: 1px solid var(--border);
+    /* iOS Safari can let the bar float up while scrolling; viewport-drift.ts measures it. */
+    transform: translateY(var(--viewport-drift, 0px));
   }
 
   .tab-bar a {
