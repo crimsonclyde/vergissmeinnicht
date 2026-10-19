@@ -139,8 +139,10 @@ function PhotoDetails(props: { workspaceId: string; image: GalleryImage; onClose
   const [busy, setBusy] = useState(false);
   /** The photo open in the crop-and-turn editor, before anything is uploaded. */
   const [editing, setEditing] = useState<HTMLImageElement | null>(null);
-  /** The uploaded new photo, waiting for the confirmation. */
+  /** The uploaded or picked new photo, waiting for the confirmation. */
   const [replacement, setReplacement] = useState<string | null>(null);
+  /** Another photo of the Workspace is being picked as the replacement (no upload). */
+  const [picking, setPicking] = useState(false);
   useEffect(() => {
     const element = dialog.current;
     if (element !== null && !element.open) element.showModal();
@@ -229,7 +231,15 @@ function PhotoDetails(props: { workspaceId: string; image: GalleryImage; onClose
   }
 
   return (
-    <dialog ref={dialog} className="dialog gallery-dialog" aria-labelledby={headingId} onClose={props.onClose}>
+    <dialog
+      ref={dialog}
+      className="dialog gallery-dialog"
+      aria-labelledby={headingId}
+      // React passes the close of a dialog opened inside (the picker) up to this one: only our own counts.
+      onClose={(event) => {
+        if (event.target === event.currentTarget) props.onClose();
+      }}
+    >
       <div className="gallery-dialog-head">
         <h2 id={headingId}>{photoName(props.image)}</h2>
         <button type="button" className="icon-button" aria-label={t('common.close')} title={t('common.close')} onClick={() => dialog.current?.close()}>
@@ -248,6 +258,9 @@ function PhotoDetails(props: { workspaceId: string; image: GalleryImage; onClose
           </button>
           <button type="button" className="icon-button" aria-label={t('gallery.replaceEverywhere')} title={t('gallery.replaceEverywhere')} disabled={busy} onClick={() => file.current?.click()}>
             <UiIcon name="replace" />
+          </button>
+          <button type="button" className="icon-button" aria-label={t('gallery.replaceFromGallery')} title={t('gallery.replaceFromGallery')} disabled={busy} onClick={() => setPicking(true)}>
+            <UiIcon name="photo" />
           </button>
           <input ref={file} type="file" accept="image/*" hidden onChange={(event) => void choose(event.target.files?.[0])} />
         </div>
@@ -282,6 +295,16 @@ function PhotoDetails(props: { workspaceId: string; image: GalleryImage; onClose
             ))}
           </ul>
         </>
+      )}
+      {picking && (
+        <GalleryPicker
+          workspaceId={props.workspaceId}
+          onPick={(picked) => {
+            setMessage(null);
+            setReplacement(picked.id === props.image.id ? null : picked.id);
+          }}
+          onClose={() => setPicking(false)}
+        />
       )}
       {editing !== null && <PhotoEditor image={editing} busy={busy} onDone={(edit) => void finishEditing(edit)} onCancel={() => setEditing(null)} />}
     </dialog>

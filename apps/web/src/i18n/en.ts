@@ -1271,6 +1271,7 @@ export const en = {
   'gallery.backToProcedures': 'Procedures',
   'gallery.editEverywhere': 'Crop or turn this photo everywhere',
   'gallery.replaceEverywhere': 'Replace this photo everywhere',
+  'gallery.replaceFromGallery': 'Replace everywhere with another photo of this Workspace',
   'gallery.confirmReplace': { one: 'Use the new photo in the Step listed below?', other: 'Use the new photo in all {count} Steps listed below?' },
   'gallery.keepsRuns': 'Executions already started keep the old photo.',
   'gallery.replace': 'Replace',
