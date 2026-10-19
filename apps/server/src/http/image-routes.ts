@@ -1,4 +1,4 @@
-import { imageUsage, listImageUses, listWorkspaceImages, MAX_GALLERY_SEARCH_LENGTH, readStepImage, readStepImageThumbnail, uploadStepImage, type GalleryCursor, type ImageUsage } from '@vergissmeinnicht/application';
+import { imageUsage, listImageUses, replaceStepImageEverywhere, listWorkspaceImages, MAX_GALLERY_SEARCH_LENGTH, readStepImage, readStepImageThumbnail, uploadStepImage, type GalleryCursor, type ImageUsage } from '@vergissmeinnicht/application';
 import { MAX_IMAGE_UPLOAD_BYTES, UUID_V4, type StepImageId, type WorkspaceId } from '@vergissmeinnicht/domain';
 import type { FastifyInstance, FastifyRequest } from 'fastify';
 import { z } from 'zod';
@@ -11,6 +11,7 @@ const uuid = z.string().regex(UUID_V4);
 const workspaceParams = z.strictObject({ workspaceId: uuid });
 const imageParams = z.strictObject({ workspaceId: uuid, imageId: uuid });
 const uploadQuery = z.strictObject({ replacing: uuid.optional() });
+const replaceBody = z.strictObject({ replacement: uuid });
 const galleryQuery = z.strictObject({ q: z.string().max(MAX_GALLERY_SEARCH_LENGTH).optional(), after: z.string().max(80).optional() });
 
 /** Opaque page cursor: `<created-at ms>.<image id>`, base64url. Anything else is an invalid request. */
@@ -106,6 +107,26 @@ export async function imageRoutes(app: FastifyInstance, { services }: { services
     const { workspaceId, imageId } = parse(imageParams, request.params);
     return { uses: await listImageUses(deps, { actor: principalOf(request).user, workspaceId: workspaceId as WorkspaceId, imageId }) };
   });
+
+  // Replace everywhere (23.2): every current Procedure Step showing the photo gets the new one.
+  app.post(
+    '/:imageId/replace',
+    {
+      config: {
+        rateLimit: {
+          max: 30,
+          timeWindow: 15 * MINUTE_MS,
+          hook: 'preHandler',
+          keyGenerator: (request: FastifyRequest) => `image-replace:${request.principal?.user.id ?? request.ip}`,
+        },
+      },
+    },
+    async (request) => {
+      const { workspaceId, imageId } = parse(imageParams, request.params);
+      const { replacement } = parse(replaceBody, request.body);
+      return replaceStepImageEverywhere(deps, { actor: principalOf(request).user, workspaceId: workspaceId as WorkspaceId, imageId, replacement });
+    },
+  );
 
   app.get('/:imageId/thumb', async (request, reply) => {
     const { workspaceId, imageId } = parse(imageParams, request.params);

@@ -91,6 +91,10 @@ export interface ImageUse {
   readonly stepTitle: string;
 }
 
+export type ReplaceImageResult =
+  | { readonly status: 'ok'; readonly procedures: number; readonly steps: number }
+  | { readonly status: 'forbidden' | 'not_found' | 'invalid_reference' };
+
 export type RegisterImageResult =
   | { readonly status: 'ok'; readonly image: StepImageRecord; readonly usage: ImageUsage }
   | { readonly status: 'forbidden' }
@@ -132,6 +136,17 @@ export interface ImageRepository {
     workspaceId: WorkspaceId,
     input: { readonly pendingSince: Date; readonly search: string | null; readonly after: GalleryCursor | null; readonly limit: number },
   ): Promise<{ readonly images: readonly GalleryImage[]; readonly next: GalleryCursor | null }>;
+  /**
+   * Replace everywhere (23.2): in one IMMEDIATE transaction, every Step of a current (not deleted)
+   * Procedure of the Workspace showing `from` shows `to` instead (captions kept); each changed Procedure
+   * gets a new revision and one audit event. Runs and deleted Procedures are not touched. `to` must be a
+   * photo a Step may use (in use, or uploaded since `pendingSince`); `from` any photo of the Workspace.
+   */
+  replaceEverywhere(
+    input: { readonly workspaceId: WorkspaceId; readonly from: StepImageId; readonly to: StepImageId; readonly at: Date; readonly pendingSince: Date },
+    actor: UserActor,
+    guard: ActorGuard,
+  ): Promise<ReplaceImageResult>;
   /** Current (not deleted) Procedure Steps of the Workspace showing this image, by Procedure title. */
   uses(workspaceId: WorkspaceId, imageId: StepImageId): Promise<readonly ImageUse[]>;
   usage(workspaceId: WorkspaceId, pendingSince: Date): Promise<ImageUsage>;

@@ -422,6 +422,27 @@ test('first server admin: bootstrap link, account creation, sign-in, Workspace c
   await expect(details.getByRole('link', { name: 'Leave the house', exact: true })).toBeVisible();
   await expect(details).toContainText('Close windows');
   await expectAccessible(page, 'photo details');
+  // Crop or turn it everywhere (23.2): a new photo, confirmed, then in every Step that used it.
+  await details.getByRole('button', { name: 'Crop or turn this photo everywhere' }).click();
+  await expect(photoEditor.getByRole('button', { name: 'Done' })).toBeFocused();
+  await photoEditor.getByRole('button', { name: 'Turn right' }).click();
+  await photoEditor.getByRole('button', { name: 'Done' }).click();
+  const confirmReplace = details.getByRole('group', { name: 'Replace this photo everywhere' });
+  await expect(confirmReplace).toContainText('Use the new photo in the Step listed below?');
+  await expectAccessible(page, 'replace everywhere confirmation');
+  await confirmReplace.getByRole('button', { name: 'Replace' }).click();
+  await expect(details).toHaveCount(0);
+  await expect(page.getByRole('status')).toHaveText('Photo replaced in 1 Step.');
+  await photoTile.click();
+  await expect.poll(() => details.locator('.gallery-photo').evaluate((img: { naturalWidth: number; naturalHeight: number }) => `${img.naturalWidth}×${img.naturalHeight}`)).toBe('320×226');
+  // Or with another photo of the Workspace (no upload): back to the earlier one, now unused.
+  await details.getByRole('button', { name: 'Replace everywhere with another photo of this Workspace' }).click();
+  await picker.getByRole('list', { name: 'Photos of this Workspace' }).getByRole('button', { name: 'Photo without description' }).click();
+  await expect(picker).toHaveCount(0);
+  await confirmReplace.getByRole('button', { name: 'Replace' }).click();
+  await expect(page.getByRole('status')).toHaveText('Photo replaced in 1 Step.');
+  await photoTile.click();
+  await expect.poll(() => details.locator('.gallery-photo').evaluate((img: { naturalWidth: number; naturalHeight: number }) => `${img.naturalWidth}×${img.naturalHeight}`)).toBe('226×320');
   await details.getByRole('link', { name: 'Leave the house', exact: true }).click();
 
   const procedure = page.getByRole('article');

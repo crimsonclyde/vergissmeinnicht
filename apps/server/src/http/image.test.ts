@@ -213,6 +213,39 @@ describe('instruction images over HTTP (14.3)', () => {
     expect((await t.get(`/api/workspaces/${office}/images/${image.id}/thumb`, outsider)).statusCode).toBe(404);
   });
 
+  it('replaces a photo in every current Procedure for editors only, and keeps Runs (23.2)', async () => {
+    const old = (await upload(home, png(320, 240), editor)).json().image;
+    const procedure = { title: 'Replace use', icon: 'home', sections: [{ title: 'S', steps: [{ ...STEP, image: { id: old.id, caption: 'Old valve' } }] }] };
+    const created = (await t.post(`/api/workspaces/${home}/procedures`, procedure, editor)).json().procedure;
+    const run = (await t.post(`/api/workspaces/${home}/runs`, { procedureId: created.id }, user)).json().run;
+    const fresh = (await upload(home, png(330, 240), editor, { query: `?replacing=${old.id}` })).json().image;
+    const replace = (body: object, cookie?: string, workspace = home, imageId: string = old.id) =>
+      t.post(`/api/workspaces/${workspace}/images/${imageId}/replace`, body, cookie);
+
+    expect((await replace({ replacement: fresh.id }, user)).statusCode).toBe(403);
+    expect((await replace({ replacement: fresh.id }, guest)).statusCode).toBe(403);
+    expect((await replace({ replacement: fresh.id }, outsider)).statusCode).toBe(404);
+    expect((await replace({ replacement: fresh.id })).statusCode).toBe(401);
+    expect((await replace({ replacement: fresh.id }, outsider, office)).statusCode).toBe(404);
+    expect((await replace({ replacement: 'nope' }, editor)).statusCode).toBe(400);
+    expect((await replace({ replacement: fresh.id, steps: 'all' }, editor)).statusCode).toBe(400);
+    const cross = t.app.inject({
+      method: 'POST',
+      url: `/api/workspaces/${home}/images/${old.id}/replace`,
+      headers: { 'content-type': 'application/json', origin: 'https://evil.example', cookie: editor },
+      payload: JSON.stringify({ replacement: fresh.id }),
+    });
+    expect((await cross).statusCode).toBe(403);
+
+    const done = await replace({ replacement: fresh.id }, editor);
+    expect(done.statusCode).toBe(200);
+    expect(done.json()).toMatchObject({ procedures: 1, steps: 1 });
+    const after = (await t.get(`/api/workspaces/${home}/procedures/${created.id}`, editor)).json().procedure;
+    expect(after.sections[0].steps[0].image).toEqual({ id: fresh.id, caption: 'Old valve' });
+    const started = (await t.get(`/api/workspaces/${home}/runs/${run.id}`, user)).json().run;
+    expect(started.sections[0].steps[0].image).toEqual({ id: old.id, caption: 'Old valve' });
+  });
+
   it('charges images to the combined Workspace storage, whose ceiling only a server admin sets (16.4)', async () => {
     const storage = await t.get('/api/admin/storage', t.admin);
     expect(storage.statusCode).toBe(200);

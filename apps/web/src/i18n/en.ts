@@ -505,6 +505,7 @@ export const en = {
   'history.stepsAdded': { one: '{count} Step added', other: '{count} Steps added' },
   'history.stepsRemoved': { one: '{count} Step removed', other: '{count} Steps removed' },
   'history.stepsChanged': { one: '{count} Step changed', other: '{count} Steps changed' },
+  'history.photoReplaced': { one: 'photo replaced in {count} Step', other: 'photo replaced in {count} Steps' },
 
   // ---- Knot links
   'knot.target.PROCEDURE': 'Procedure',
@@ -1268,6 +1269,13 @@ export const en = {
   'gallery.unused': 'Not used by any Procedure right now.',
   'gallery.usedIn': 'Used in',
   'gallery.backToProcedures': 'Procedures',
+  'gallery.editEverywhere': 'Crop or turn this photo everywhere',
+  'gallery.replaceEverywhere': 'Replace this photo everywhere',
+  'gallery.replaceFromGallery': 'Replace everywhere with another photo of this Workspace',
+  'gallery.confirmReplace': { one: 'Use the new photo in the Step listed below?', other: 'Use the new photo in all {count} Steps listed below?' },
+  'gallery.keepsRuns': 'Executions already started keep the old photo.',
+  'gallery.replace': 'Replace',
+  'gallery.replaced': { one: 'Photo replaced in 1 Step.', other: 'Photo replaced in {count} Steps.' },
   'photoEditor.title': 'Edit photo',
   'photoEditor.done': 'Done',
   'photoEditor.cancel': 'Cancel',

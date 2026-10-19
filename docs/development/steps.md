@@ -4363,7 +4363,7 @@ A greeting with the person's name and the date, and a ring for today's progress 
 
 ---
 
-## 23 — Step photos: Workspace gallery, replace everywhere, crop and rotate (planned 2026-10-18; SG3 confirmed by the owner 2026-10-18; 23.3 and 23.1 done, 23.2 not implemented)
+## 23 — Step photos: Workspace gallery, replace everywhere, crop and rotate (planned 2026-10-18; SG3 confirmed by the owner 2026-10-18; 23.1–23.3 done)
 
 Owner request (2026-10-18): on- and offboarding are mostly the same procedure, so the same photos are needed again; reuse photos that already exist in the Workspace instead of taking new ones, replace photos from a gallery, and crop or rotate a photo after taking it.
 
@@ -4402,7 +4402,8 @@ Owner request (2026-10-18): on- and offboarding are mostly the same procedure, s
 
 ### 23.2 Replace a photo everywhere
 
-**Status:** PLANNED  
+**Status:** DONE (not released yet)  
+**Completed:** 2026-10-19  
 **Depends on:** 23.1.
 
 **Requirements:**
@@ -4413,6 +4414,12 @@ Owner request (2026-10-18): on- and offboarding are mostly the same procedure, s
 **Tests/checks:** USER/GUEST refused; ids of another Workspace refused for either side; Runs keep the old photo, also an active one; every changed Procedure has exactly one audit event and a new revision, atomically with the change (failure in the middle changes nothing); stale builder save gets a conflict; quota at the limit; replacing with the same photo changes nothing.
 
 **Security impact (expected):** MEDIUM — the first bulk change across several Procedures; same permission as editing one.
+
+**Implemented:** the owner asked (2026-10-19) to crop or turn a photo from the gallery, not only inside one Step. `ImageRepository.replaceEverywhere` (`image-repository.ts`): one IMMEDIATE transaction — the old photo must be of this Workspace, the new one of this Workspace and attachable (in use or within the grace, so already charged); every Step of a current Procedure showing the old photo gets the new one (captions kept); each changed Procedure gets revision + 1 and one `PROCEDURE_UPDATED` event (`fields: ['structure']`, `stepsChanged`, `photoReplaced`); Runs and deleted Procedures are untouched; the same photo changes nothing. Use case `replaceStepImageEverywhere` (`procedure.edit`); route `POST /api/workspaces/:ws/images/:id/replace` with `{ replacement }` (strict, own rate limit 30 per 15 min). Web: the photo details on *Procedures → Photos* show, when current Procedures use the photo, an icon **Crop or turn this photo everywhere** (opens the 23.3 editor on the stored photo) and an icon **Replace this photo everywhere** (choose a file, then the editor) and an icon **Replace everywhere with another photo of this Workspace** (the 23.1 picker; nothing is uploaded); the result is uploaded as usual, the new photo is shown with "Use the new photo in all n Steps listed below? Executions already started keep the old photo." and **Cancel** / **Replace**; afterwards the grid reloads and says "Photo replaced in n Steps.". History shows "photo replaced in n Steps".  
+**Deviation from the plan:** the actions are three icon buttons instead of a ⋯ menu (owner's icon-first direction); a photo picked from the gallery is used as it is (crop it afterwards with the crop button if needed); the confirmation names the count, and the Procedures are listed right below it. A dialog opened inside the details (the picker) no longer closes the details when it closes (React passes `close` up the component tree).  
+**Tests/checks:** `image-use-cases.test.ts` (3 tests: two Procedures / three Steps changed with captions kept, Run snapshot and deleted Procedure unchanged, one audit event per Procedure with revision, stale builder save → conflict, same photo → nothing; USER/GUEST/non-member refused, other Workspace's photo on either side, unknown id, past-grace upload; a failing second audit event rolls everything back); `image.test.ts` (HTTP: 401/403/404, cross-origin 403, bad and extra body fields 400, Run keeps the old photo); route-security sweep covers the route; e2e (desktop; the phone project skips this flow): Photos → crop everywhere → Turn right → Done → confirmation (axe) → Replace → "Photo replaced in 1 Step." and the stored photo is now 320 × 226; then *Replace everywhere with another photo* → the earlier photo → Replace → back to 226 × 320; `pnpm lint`, `pnpm typecheck`, `pnpm test`.  
+**Security impact:** MEDIUM — see `security.md` "Security check: replace a Step photo everywhere (23.2)". **Security docs updated:** YES.  
+**Remaining:** real-phone check together with 23.3; no undo other than replacing again (Runs keep their photo, and the earlier photo can be picked again while it is still in the gallery).
 
 ### 23.3 Crop and rotate
 
