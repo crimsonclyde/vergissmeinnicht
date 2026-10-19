@@ -2010,6 +2010,15 @@ GitHub pre-release created after the user approved the command: `https://github.
 
 **Validation:** implementation and local checks recorded in 16.8 (146 files / 1154 tests, 27.30 s; Playwright 3 passed / 1 intentional skip; typecheck/lint/build/schema checks). Final PR CI `37218359808`, main CI `37218652596` and release `37218676293` succeeded. Both native validation and publishing images passed smoke tests and fixable HIGH/CRITICAL vulnerability scans; manifest publishing, workflow signing and CycloneDX attestation succeeded. Completion is recorded in a documentation commit after publication. Physical-phone imports, live Unraid upgrade and the existing development-only moderate esbuild finding remain open. Security surface: MEDIUM, documented in `security.md`; release validation must remain fail-closed.
 
+### 12.34 Release 0.6.0-beta.7
+**Status:** PREPARED (2026-10-19) — 23.2 (replace or crop a Step photo everywhere) and 21.3 (iOS bottom bar), at the owner's request once the photo plan (section 23) was complete; published once the owner creates the GitHub pre-release.
+
+**Scope:** PR #44 (21.3, phone bottom bar floating up on iOS Safari) merged as `676fcbf`; PR #45 (23.2: crop/turn, replace with a new photo or with another photo of the Workspace, everywhere it is used; Runs keep theirs) merged as `a9d18ad`; the release PR points the Unraid template and `unraid.md` to 0.6.0-beta.7.
+
+**Upgrade:** no migration (still 0047), no new environment variables, no new outbound connection. One new write route (`POST /api/workspaces/:ws/images/:id/replace`, `procedure.edit`), see `security.md` (23.2).
+
+**Validation:** PR #44 and #45 local checks (lint, typecheck, full test suite, desktop e2e flow incl. crop everywhere and replace with a gallery photo) and CI passed. Not done here: a real iPhone (the bottom bar fix and the photo editor both need a check on the device), a screen reader. Nothing was deployed to the running installation.
+
 ### 12.33 Release 0.6.0-beta.6
 **Status:** DONE (2026-10-19) — 23.3 (crop and turn Step photos) and 23.1 (Workspace photo gallery), at the owner's request.
 
@@ -4309,7 +4318,7 @@ The Bring / Transfer candidate of 2026-10-07 became its own planned tool after t
 
 ### 21.3 Phone bottom bar floating up on iOS Safari
 
-**Status:** DONE (not released yet)  
+**Status:** DONE — released in 0.6.0-beta.7 (12.34)  
 **Completed:** 2026-10-19  
 **Implemented:** the owner reported (iPhone, 0.6.0-beta.6) that the phone bottom bar starts at the bottom, floats up into the page while scrolling and is back at the bottom at the end of the page. This matches a known iOS Safari bug (WebKit bug 297779, Apple Feedback FB19889436; it also shows on apple.com): the visible area drifts below the layout viewport, and `position: fixed; bottom: 0` follows the layout viewport. New `apps/web/src/viewport-drift.ts` measures the drift from `visualViewport` (`offsetTop + height − innerHeight`) once per frame on scroll and resize and moves the bar down by it with a CSS variable (`--viewport-drift`, a `transform` on `.tab-bar`). An open keyboard (visible area smaller, not lower), pinch-zoom and sub-pixel rounding count as no drift, and browsers without the bug measure 0, so nothing changes there.
 
@@ -4402,7 +4411,7 @@ Owner request (2026-10-18): on- and offboarding are mostly the same procedure, s
 
 ### 23.2 Replace a photo everywhere
 
-**Status:** DONE (not released yet)  
+**Status:** DONE — released in 0.6.0-beta.7 (12.34)  
 **Completed:** 2026-10-19  
 **Depends on:** 23.1.
 
