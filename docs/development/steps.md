@@ -2011,13 +2011,15 @@ GitHub pre-release created after the user approved the command: `https://github.
 **Validation:** implementation and local checks recorded in 16.8 (146 files / 1154 tests, 27.30 s; Playwright 3 passed / 1 intentional skip; typecheck/lint/build/schema checks). Final PR CI `37218359808`, main CI `37218652596` and release `37218676293` succeeded. Both native validation and publishing images passed smoke tests and fixable HIGH/CRITICAL vulnerability scans; manifest publishing, workflow signing and CycloneDX attestation succeeded. Completion is recorded in a documentation commit after publication. Physical-phone imports, live Unraid upgrade and the existing development-only moderate esbuild finding remain open. Security surface: MEDIUM, documented in `security.md`; release validation must remain fail-closed.
 
 ### 12.33 Release 0.6.0-beta.6
-**Status:** PREPARED (2026-10-18) — 23.3 (crop and turn Step photos) and 23.1 (Workspace photo gallery), at the owner's request; published once the owner creates the GitHub pre-release.
+**Status:** DONE (2026-10-19) — 23.3 (crop and turn Step photos) and 23.1 (Workspace photo gallery), at the owner's request.
 
-**Scope:** PR #40 (section 23 plan with SG3, 23.3) merged as `7605749`; PR #41 (23.1) merged as `e9c1808`; the release PR points the Unraid template and `unraid.md` to 0.6.0-beta.6.
+**Scope:** PR #40 (section 23 plan with SG3, 23.3) merged as `7605749`; PR #41 (23.1) merged as `e9c1808`; PR #42 (Unraid template and `unraid.md` → 0.6.0-beta.6) merged as `edab142`.
+
+**Published:** the owner published the GitHub pre-release on 2026-10-19, which created tag `v0.6.0-beta.6` on `edab142` (this session cannot push tags). Release workflow `39238596371` succeeded on the first attempt (checks, native amd64/arm64 images, publish). Image index `ghcr.io/crimsonclyde/vergissmeinnicht:0.6.0-beta.6` = `sha256:17dcde26244e56885a31302be93bcc81f6a7fb37601c337d07b1498e5c867f95` (amd64 `sha256:9f756d1b4edb…`, arm64 `sha256:b5dbf47a1c16…`). GitHub pre-release: https://github.com/crimsonclyde/vergissmeinnicht/releases/tag/v0.6.0-beta.6.
 
 **Upgrade:** no migration (still 0047), no new environment variables, no new outbound connection. Gallery thumbnails live in server memory only (bounded cache), so no new files on the data volume and nothing new in backups.
 
-**Validation:** PR #40 and #41 local checks (typecheck, lint, full test suite 1377 passed, e2e desktop flow) and CI passed; the release PR's CI builds the amd64 and arm64 images. A local image build was not possible in this session (`apt-get` inside the build has no network here), so `deploy/smoke-test.sh` was not run against the new image. Not done here: real phones (dragging the crop handles and the slider on iPhone Safari and Android Chrome), a screen reader. Nothing was deployed to the running installation.
+**Validation:** PR #40 and #41 local checks (typecheck, lint, full test suite 1377 passed, e2e desktop flow) and CI passed; the release PR's CI builds the amd64 and arm64 images. A local image build was not possible before publishing (`apt-get` inside the build has no network here); after publishing, `deploy/smoke-test.sh` passed against the pulled amd64 image. No upgrade check: the migration level is unchanged (0047), for which `upgrade-check.sh` fails by design. Not done here: real phones (dragging the crop handles and the slider on iPhone Safari and Android Chrome), a screen reader. Nothing was deployed to the running installation.
 
 ### 12.32 Release 0.6.0-beta.5
 **Status:** DONE (2026-10-18) — 22.1–22.3 (Section icons, guided Run, livelier Today), at the owner's request.
