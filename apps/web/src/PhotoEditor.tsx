@@ -12,11 +12,12 @@ const CORNERS: readonly Corner[] = ['nw', 'ne', 'sw', 'se'];
 
 /** Which value the one slider changes (23.7): straightening, brightness or contrast. */
 type Adjusting = 'straighten' | 'brightness' | 'contrast';
-const ADJUSTMENTS: readonly { readonly key: Adjusting; readonly icon: 'straighten' | 'brightness' | 'contrast' }[] = [
-  { key: 'straighten', icon: 'straighten' },
-  { key: 'brightness', icon: 'brightness' },
-  { key: 'contrast', icon: 'contrast' },
+const ADJUSTMENTS: readonly { readonly key: Adjusting; readonly icon: 'straighten' | 'brightness' | 'contrast'; readonly label: () => string }[] = [
+  { key: 'straighten', icon: 'straighten', label: () => t('photoEditor.straighten') },
+  { key: 'brightness', icon: 'brightness', label: () => t('photoEditor.brightness') },
+  { key: 'contrast', icon: 'contrast', label: () => t('photoEditor.contrast') },
 ];
+const labelOf = (key: Adjusting) => ADJUSTMENTS.find((choice) => choice.key === key)?.label() ?? '';
 
 type Drag = { readonly kind: 'move' | Corner; readonly pointerId: number; readonly startX: number; readonly startY: number; readonly start: Crop };
 
@@ -179,8 +180,8 @@ export function PhotoEditor(props: { image: HTMLImageElement; busy?: boolean; on
               type="button"
               className="icon-button"
               aria-pressed={adjusting === choice.key}
-              aria-label={t(`photoEditor.${choice.key}`)}
-              title={t(`photoEditor.${choice.key}`)}
+              aria-label={choice.label()}
+              title={choice.label()}
               disabled={props.busy}
               onClick={() => setAdjusting(choice.key)}
             >
@@ -189,7 +190,7 @@ export function PhotoEditor(props: { image: HTMLImageElement; busy?: boolean; on
           ))}
         </div>
         <label htmlFor={sliderId} className="photo-editor-straighten">
-          <span>{t(`photoEditor.${adjusting}`)}</span>
+          <span>{labelOf(adjusting)}</span>
           {adjusting === 'straighten' ? (
             <input
               id={sliderId}
