@@ -2010,6 +2010,15 @@ GitHub pre-release created after the user approved the command: `https://github.
 
 **Validation:** implementation and local checks recorded in 16.8 (146 files / 1154 tests, 27.30 s; Playwright 3 passed / 1 intentional skip; typecheck/lint/build/schema checks). Final PR CI `37218359808`, main CI `37218652596` and release `37218676293` succeeded. Both native validation and publishing images passed smoke tests and fixable HIGH/CRITICAL vulnerability scans; manifest publishing, workflow signing and CycloneDX attestation succeeded. Completion is recorded in a documentation commit after publication. Physical-phone imports, live Unraid upgrade and the existing development-only moderate esbuild finding remain open. Security surface: MEDIUM, documented in `security.md`; release validation must remain fail-closed.
 
+### 12.36 Release 0.7.0-beta.1
+**Status:** PREPARED (2026-10-20) — 24.1 (Tokyo Nights theme: neon night city, flip clock, level tiles), at the owner's request; published once the owner creates the GitHub pre-release.
+
+**Scope:** PR #51 merged as `ad074a8`; the release PR points the Unraid template and `unraid.md` to 0.7.0-beta.1. The minor version marks the first new theme with its own scene and motion.
+
+**Upgrade:** one migration (`0049_tokyo_nights_theme`: `user_preferences` rebuilt with the wider theme CHECK, rows copied), no new environment variables, no new route, no new outbound connection. See `security.md` (24.1).
+
+**Validation:** PR #51 local checks (lint, typecheck, full test suite, e2e account flow on desktop) and CI passed. Not done here: real phones (smoothness of the moving city and glass bars, iPhone Safari), a screen reader. Nothing was deployed to the running installation.
+
 ### 12.35 Release 0.6.0-beta.8
 **Status:** DONE (2026-10-20) — 23.4–23.8 (Step photos: delete unused, Not used filter, zoom, brightness/contrast, hide areas), at the owner's request.
 
