@@ -91,13 +91,14 @@ export const MAX_GALLERY_SEARCH_LENGTH = 100;
  */
 export async function listWorkspaceImages(
   deps: ImageDeps,
-  input: { readonly actor: User; readonly workspaceId: WorkspaceId; readonly search?: string | undefined; readonly after?: GalleryCursor | undefined },
+  input: { readonly actor: User; readonly workspaceId: WorkspaceId; readonly search?: string | undefined; readonly unused?: boolean | undefined; readonly after?: GalleryCursor | undefined },
 ): Promise<{ readonly images: readonly GalleryImage[]; readonly next: GalleryCursor | null }> {
   await authorizeWorkspace(deps, input.actor, input.workspaceId, 'procedure.edit');
   const search = (input.search ?? '').trim().slice(0, MAX_GALLERY_SEARCH_LENGTH);
   return deps.images.gallery(input.workspaceId, {
     pendingSince: pendingSince(deps.clock.now()),
     search: search === '' ? null : search,
+    unused: input.unused === true,
     after: input.after ?? null,
     limit: GALLERY_PAGE_SIZE,
   });

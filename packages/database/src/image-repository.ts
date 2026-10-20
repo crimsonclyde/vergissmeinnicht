@@ -116,7 +116,7 @@ export function createImageRepository({ db }: Pick<AppDatabase, 'db'>): ImageRep
           caption: lastCaption,
         })
         .from(stepImages)
-        .where(and(enabledTool(workspaceId, 'PROCEDURES'), eq(stepImages.workspaceId, workspaceId), attachable, sql`not ${removedFromGallery}`, matches, after))
+        .where(and(enabledTool(workspaceId, 'PROCEDURES'), eq(stepImages.workspaceId, workspaceId), attachable, sql`not ${removedFromGallery}`, input.unused ? sql`not exists (select 1 from ${currentSteps})` : undefined, matches, after))
         .orderBy(desc(stepImages.createdAt), desc(stepImages.id))
         .limit(input.limit + 1)
         .all();

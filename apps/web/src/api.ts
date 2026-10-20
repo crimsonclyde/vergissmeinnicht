@@ -1180,9 +1180,10 @@ const occurrencePath = (workspaceId: string, id: string) => `/workspaces/${encod
 
 export const api = {
   uploadImage,
-  gallery: async (workspaceId: string, options: { search?: string; after?: string | null } = {}, signal?: AbortSignal) => {
+  gallery: async (workspaceId: string, options: { search?: string; unused?: boolean; after?: string | null } = {}, signal?: AbortSignal) => {
     const query = new URLSearchParams();
     if (options.search !== undefined && options.search.trim() !== '') query.set('q', options.search.trim().slice(0, 100));
+    if (options.unused === true) query.set('unused', '1');
     if (options.after != null) query.set('after', options.after);
     const suffix = query.toString() === '' ? '' : `?${query.toString()}`;
     return request<{ images: GalleryImage[]; next: string | null }>('GET', `/workspaces/${encodeURIComponent(workspaceId)}/images${suffix}`, undefined, signal === undefined ? {} : { signal });

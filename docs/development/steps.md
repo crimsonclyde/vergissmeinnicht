@@ -4374,7 +4374,7 @@ A greeting with the person's name and the date, and a ring for today's progress 
 
 ---
 
-## 23 — Step photos: Workspace gallery, replace everywhere, crop and rotate (planned 2026-10-18; SG3 confirmed by the owner 2026-10-18; 23.1–23.4 done; 23.5–23.8 accepted by the owner 2026-10-20)
+## 23 — Step photos: Workspace gallery, replace everywhere, crop and rotate (planned 2026-10-18; SG3 confirmed by the owner 2026-10-18; 23.1–23.5 done; 23.6–23.8 accepted by the owner 2026-10-20)
 
 Owner request (2026-10-18): on- and offboarding are mostly the same procedure, so the same photos are needed again; reuse photos that already exist in the Workspace instead of taking new ones, replace photos from a gallery, and crop or rotate a photo after taking it.
 
@@ -4468,8 +4468,12 @@ Owner request (2026-10-18): on- and offboarding are mostly the same procedure, s
 
 ### 23.5 Filter: unused photos
 
-**Status:** PLANNED (owner accepted 2026-10-20)  
-A filter on *Procedures → Photos*: **All** / **Not used** (photos no current Step shows), so tidying up with 23.4 takes a few taps. Server: an optional `unused=1` on the gallery route (strict query, same `procedure.edit`, same Workspace scoping); counts stay as today. Tests: filter returns exactly the unused photos, combines with search and paging, other Workspaces never appear; e2e: filter, delete, list shrinks. Security impact: NONE (read of the same data, same rule).
+**Status:** DONE  
+**Completed:** 2026-10-20  
+**Planned (owner accepted 2026-10-20):** a filter on *Procedures → Photos*: **All** / **Not used** (photos no current Step shows), so tidying up with 23.4 takes a few taps. Server: an optional `unused=1` on the gallery route (strict query, same `procedure.edit`, same Workspace scoping); counts stay as today. Tests: filter returns exactly the unused photos, combines with search and paging, other Workspaces never appear; e2e: filter, delete, list shrinks. Security impact: NONE (read of the same data, same rule).  
+**Implemented:** `ImageRepository.gallery` takes `unused` (only photos no Step of a current Procedure shows; combines with search, paging and the 23.4 marks); `listWorkspaceImages` passes it; `GET …/images?unused=1` (strict: any other value → 400). Web: on *Procedures → Photos* only (not in the Step editor's picker), a two-button group **All** / **Not used** (`aria-pressed`) under the search; after a delete or replace the grid reloads and keeps search and filter; "Every photo is used by a Step." when nothing is unused.  
+**Tests/checks:** `image-use-cases.test.ts` (unused only: Run-only and pending photos in, used ones out, with search and over two pages; USER and non-members refused); `image.test.ts` (`unused=1` with search, `unused=true` → 400, USER 403); e2e (desktop): Not used → the used photo disappears → delete one → still filtered → All; `pnpm lint`, `pnpm typecheck`.  
+**Security impact:** NONE (same route, rule and data). **Security docs updated:** NO (nothing new to check).
 
 ### 23.6 Zoom in the photo viewer
 

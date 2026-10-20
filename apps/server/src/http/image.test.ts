@@ -195,6 +195,12 @@ describe('instruction images over HTTP (14.3)', () => {
     expect((await t.get(`/api/workspaces/${home}/images?after=bm90LWEtY3Vyc29y`, editor)).statusCode).toBe(400);
     expect((await t.get(`/api/workspaces/${home}/images?q=${'x'.repeat(101)}`, editor)).statusCode).toBe(400);
     expect((await t.get(`/api/workspaces/${home}/images?sort=bytes`, editor)).statusCode).toBe(400);
+    // Not used only (23.5): this photo is used, so it is left out; any other value is refused.
+    const unused = await t.get(`/api/workspaces/${home}/images?unused=1&q=boiler`, editor);
+    expect(unused.statusCode).toBe(200);
+    expect(unused.json()).toEqual({ images: [], next: null });
+    expect((await t.get(`/api/workspaces/${home}/images?unused=true`, editor)).statusCode).toBe(400);
+    expect((await t.get(`/api/workspaces/${home}/images?unused=1`, user)).statusCode).toBe(403);
 
     const uses = await t.get(`/api/workspaces/${home}/images/${image.id}/uses`, editor);
     expect(uses.json().uses).toEqual([expect.objectContaining({ procedureTitle: 'Gallery use', stepTitle: 'Close the main water valve' })]);

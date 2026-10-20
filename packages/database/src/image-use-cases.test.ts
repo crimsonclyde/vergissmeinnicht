@@ -316,6 +316,35 @@ describe('instruction images (14.3)', () => {
       expect(new Set(ids).size).toBe(ids.length);
     }, 60_000);
 
+    it('filters to the photos no current Step shows (23.5), with search and paging', async () => {
+      const unused = (search?: string, after?: Parameters<typeof listWorkspaceImages>[1]['after']) =>
+        listWorkspaceImages(deps, { actor: eddie, workspaceId: home.id, search, unused: true, after });
+      const { image: shown } = await upload(1000);
+      const { image: history } = await upload(1000);
+      await createProcedure(procedureDeps(), { actor: eddie, workspaceId: home.id, content: content(shown.id) });
+      const old = await createProcedure(procedureDeps(), { actor: eddie, workspaceId: home.id, content: content(history.id, 'Old meter') });
+      await startRun(runDeps(), { actor: uma, workspaceId: home.id, procedureId: old.procedure.id as ProcedureId });
+      await deleteProcedure(procedureDeps(), { actor: eddie, workspaceId: home.id, procedureId: old.procedure.id as ProcedureId });
+      now = new Date(now.getTime() + 1000);
+      const { image: fresh } = await upload(1000);
+      await upload(1000, otto, office);
+      expect((await unused()).images.map((entry) => entry.id)).toEqual([fresh.id, history.id]);
+      expect((await unused('meter')).images.map((entry) => entry.id)).toEqual([history.id]);
+      expect((await unused('lever')).images).toEqual([]); // only `shown` has that caption on a current Step
+      await expect(listWorkspaceImages(deps, { actor: uma, workspaceId: home.id, unused: true })).rejects.toThrow(NotAuthorizedError);
+      await expect(listWorkspaceImages(deps, { actor: otto, workspaceId: home.id, unused: true })).rejects.toThrow(WorkspaceNotFoundError);
+      for (let i = 0; i < GALLERY_PAGE_SIZE; i += 1) await upload(100);
+      const first = await unused();
+      expect(first.images).toHaveLength(GALLERY_PAGE_SIZE);
+      const second = await unused(undefined, first.next ?? undefined);
+      expect(second.next).toBeNull();
+      const ids = [...first.images, ...second.images].map((entry) => entry.id);
+      expect(ids).toHaveLength(GALLERY_PAGE_SIZE + 2); // the new ones, `fresh` and `history` (oldest, last)
+      expect(new Set(ids).size).toBe(ids.length);
+      expect(ids.at(-1)).toBe(history.id);
+      expect(ids).not.toContain(shown.id);
+    }, 60_000);
+
     it('serves thumbnails with the access rule of the photo itself', async () => {
       const { image: valve } = await upload(1000);
       const small = new Uint8Array([1, 2, 3]);

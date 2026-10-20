@@ -13,7 +13,7 @@ const imageParams = z.strictObject({ workspaceId: uuid, imageId: uuid });
 const uploadQuery = z.strictObject({ replacing: uuid.optional() });
 const replaceBody = z.strictObject({ replacement: uuid });
 const emptyBody = z.strictObject({});
-const galleryQuery = z.strictObject({ q: z.string().max(MAX_GALLERY_SEARCH_LENGTH).optional(), after: z.string().max(80).optional() });
+const galleryQuery = z.strictObject({ q: z.string().max(MAX_GALLERY_SEARCH_LENGTH).optional(), unused: z.literal('1').optional(), after: z.string().max(80).optional() });
 
 /** Opaque page cursor: `<created-at ms>.<image id>`, base64url. Anything else is an invalid request. */
 function encodeCursor(cursor: GalleryCursor): string {
@@ -82,11 +82,12 @@ export async function imageRoutes(app: FastifyInstance, { services }: { services
   // The gallery (23.1): photos a Step may use, newest first; `procedure.edit` only.
   app.get('/', async (request) => {
     const { workspaceId } = parse(workspaceParams, request.params);
-    const { q, after } = parse(galleryQuery, request.query);
+    const { q, unused, after } = parse(galleryQuery, request.query);
     const page = await listWorkspaceImages(deps, {
       actor: principalOf(request).user,
       workspaceId: workspaceId as WorkspaceId,
       search: q,
+      unused: unused === '1',
       after: after === undefined ? undefined : decodeCursor(after),
     });
     return {

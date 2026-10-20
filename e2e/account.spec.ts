@@ -445,7 +445,14 @@ test('first server admin: bootstrap link, account creation, sign-in, Workspace c
   await expect.poll(() => details.locator('.gallery-photo').evaluate((img: { naturalWidth: number; naturalHeight: number }) => `${img.naturalWidth}×${img.naturalHeight}`)).toBe('226×320');
   // The turned photo is now used by no Step: delete it from the gallery (23.4).
   await details.getByRole('button', { name: 'Close' }).click();
+  // Not used only (23.5): the photos a Step shows are left out.
+  await page.getByRole('searchbox', { name: 'Search photos' }).fill('');
+  const showPhotos = page.getByRole('group', { name: 'Show photos' });
+  await showPhotos.getByRole('button', { name: 'Not used' }).click();
+  await expect(showPhotos.getByRole('button', { name: 'Not used' })).toHaveAttribute('aria-pressed', 'true');
+  await expect(photoTile).toHaveCount(0);
   const unusedTiles = page.getByRole('list', { name: 'Photos of this Workspace' }).getByRole('button', { name: 'Photo without description' });
+  await expect(unusedTiles.first()).toBeVisible();
   const unusedBefore = await unusedTiles.count();
   await unusedTiles.first().click();
   const unusedDetails = page.getByRole('dialog', { name: 'Photo without description' });
@@ -458,6 +465,8 @@ test('first server admin: bootstrap link, account creation, sign-in, Workspace c
   await expect(unusedDetails).toHaveCount(0);
   await expect(page.getByRole('status')).toHaveText('Photo deleted.');
   await expect(unusedTiles).toHaveCount(unusedBefore - 1);
+  await expect(showPhotos.getByRole('button', { name: 'Not used' })).toHaveAttribute('aria-pressed', 'true');
+  await showPhotos.getByRole('button', { name: 'All' }).click();
   await photoTile.click();
   await details.getByRole('link', { name: 'Leave the house', exact: true }).click();
 

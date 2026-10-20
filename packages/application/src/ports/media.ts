@@ -135,11 +135,11 @@ export interface ImageRepository {
   /**
    * The gallery (23.1): the Workspace's photos a Step may use — referenced by a Step or a Run snapshot,
    * or uploaded since `pendingSince`, and not deleted from the gallery unless a current Step uses it again (23.4) — newest first, `limit` per page after `after`. `search` matches
-   * captions and current Step titles (plain text, no wildcards). Nothing when Procedures is switched off.
+   * captions and current Step titles (plain text, no wildcards); `unused`: only photos no current Step shows (23.5). Nothing when Procedures is switched off.
    */
   gallery(
     workspaceId: WorkspaceId,
-    input: { readonly pendingSince: Date; readonly search: string | null; readonly after: GalleryCursor | null; readonly limit: number },
+    input: { readonly pendingSince: Date; readonly search: string | null; readonly unused: boolean; readonly after: GalleryCursor | null; readonly limit: number },
   ): Promise<{ readonly images: readonly GalleryImage[]; readonly next: GalleryCursor | null }>;
   /**
    * Replace everywhere (23.2): in one IMMEDIATE transaction, every Step of a current (not deleted)
