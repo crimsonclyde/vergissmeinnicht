@@ -2011,13 +2011,15 @@ GitHub pre-release created after the user approved the command: `https://github.
 **Validation:** implementation and local checks recorded in 16.8 (146 files / 1154 tests, 27.30 s; Playwright 3 passed / 1 intentional skip; typecheck/lint/build/schema checks). Final PR CI `37218359808`, main CI `37218652596` and release `37218676293` succeeded. Both native validation and publishing images passed smoke tests and fixable HIGH/CRITICAL vulnerability scans; manifest publishing, workflow signing and CycloneDX attestation succeeded. Completion is recorded in a documentation commit after publication. Physical-phone imports, live Unraid upgrade and the existing development-only moderate esbuild finding remain open. Security surface: MEDIUM, documented in `security.md`; release validation must remain fail-closed.
 
 ### 12.36 Release 0.7.0-beta.1
-**Status:** PREPARED (2026-10-20) — 24.1 (Tokyo Nights theme: neon night city, flip clock, level tiles), at the owner's request; published once the owner creates the GitHub pre-release.
+**Status:** DONE (2026-10-20) — 24.1 (Tokyo Nights theme: neon night city, flip clock, level tiles), at the owner's request.
 
-**Scope:** PR #51 merged as `ad074a8`; the release PR points the Unraid template and `unraid.md` to 0.7.0-beta.1. The minor version marks the first new theme with its own scene and motion.
+**Scope:** PR #51 merged as `ad074a8`; PR #52 (Unraid template and `unraid.md` → 0.7.0-beta.1) merged as `5135533`. The minor version marks the first new theme with its own scene and motion.
+
+**Published:** the owner published the GitHub pre-release on 2026-10-20, which created tag `v0.7.0-beta.1` on `5135533` (this session cannot push tags). Release workflow `39418214173` succeeded on the first attempt. Image index `ghcr.io/crimsonclyde/vergissmeinnicht:0.7.0-beta.1` = `sha256:d32c73e22724d354a7106a2b9fbf8190da9baf3be4f5f914789e9300fa8bf26b` (amd64 `sha256:d6af3b98c087…`, arm64 `sha256:ec992cc20406…`). GitHub pre-release: https://github.com/crimsonclyde/vergissmeinnicht/releases/tag/v0.7.0-beta.1.
 
 **Upgrade:** one migration (`0049_tokyo_nights_theme`: `user_preferences` rebuilt with the wider theme CHECK, rows copied), no new environment variables, no new route, no new outbound connection. See `security.md` (24.1).
 
-**Validation:** PR #51 local checks (lint, typecheck, full test suite, e2e account flow on desktop) and CI passed. Not done here: real phones (smoothness of the moving city and glass bars, iPhone Safari), a screen reader. Nothing was deployed to the running installation.
+**Validation:** PR #51 local checks (lint, typecheck, full test suite, e2e account flow on desktop) and CI passed; after publishing, `deploy/smoke-test.sh` passed against the pulled amd64 image, and `deploy/upgrade-check.sh` passed from 0.6.0-beta.8 (pre-migration backup written, migration 0049 applied, foreign keys and integrity clean, Workspace backup and restore still work; its seed has no saved preferences, so copying existing preference rows is covered by the migration tests, not by this check). Not done here: real phones (smoothness of the moving city and glass bars, iPhone Safari), a screen reader. Nothing was deployed to the running installation.
 
 ### 12.35 Release 0.6.0-beta.8
 **Status:** DONE (2026-10-20) — 23.4–23.8 (Step photos: delete unused, Not used filter, zoom, brightness/contrast, hide areas), at the owner's request.
