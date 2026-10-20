@@ -4,6 +4,7 @@ import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import {
   IMAGE_PENDING_MS,
+  ImageInUseError,
   ImageNotFoundError,
   StorageFullError,
   ImageRejectedError,
@@ -11,7 +12,9 @@ import {
   NotAuthorizedError,
   ProcedureConflictError,
   getProcedure,
+  removeStepImage,
   replaceStepImageEverywhere,
+  restoreProcedure,
   WorkspaceNotFoundError,
   addMember,
   createProcedure,
@@ -422,6 +425,80 @@ describe('instruction images (14.3)', () => {
       expect(rows.map((row) => row.image_id)).toEqual([old.id]);
       const after = await getProcedure(procedureDeps(), { actor: eddie, workspaceId: home.id, procedureId: leave.procedure.id as ProcedureId });
       expect(after.procedure.revision).toBe(leave.procedure.revision);
+    });
+  });
+
+  describe('delete a photo from the gallery (23.4)', () => {
+    const remove = (actor: User, imageId: string, workspace = home) => removeStepImage(deps, { actor, workspaceId: workspace.id, imageId });
+    const galleryIds = async () => (await listWorkspaceImages(deps, { actor: eddie, workspaceId: home.id })).images.map((photo) => photo.id);
+    const removals = () => database.sqlite.prepare("SELECT metadata FROM audit_events WHERE type = 'STEP_IMAGE_REMOVED' ORDER BY rowid").all() as { metadata: string }[];
+
+    it('refuses a photo a current Step shows, deletes an unused one and only hides one that history still shows', async () => {
+      const { image: shown } = await upload(1000);
+      const { image: loose } = await upload(1000);
+      const { image: history } = await upload(1000);
+      await createProcedure(procedureDeps(), { actor: eddie, workspaceId: home.id, content: content(shown.id) });
+      const old = await createProcedure(procedureDeps(), { actor: eddie, workspaceId: home.id, content: { ...content(history.id), title: 'Old checklist' } });
+      const run = await startRun(runDeps(), { actor: uma, workspaceId: home.id, procedureId: old.procedure.id as ProcedureId });
+      await deleteProcedure(procedureDeps(), { actor: eddie, workspaceId: home.id, procedureId: old.procedure.id as ProcedureId });
+      const before = await imageUsage(deps, { actor: eddie, workspaceId: home.id });
+
+      await expect(remove(eddie, shown.id)).rejects.toThrow(ImageInUseError);
+      expect(await remove(eddie, loose.id)).toEqual({ kept: false });
+      expect(await remove(eddie, history.id)).toEqual({ kept: true });
+
+      expect(await galleryIds()).toEqual([shown.id]);
+      // The unused photo is gone and no longer charged; the other one stays for its Run and the deleted Procedure.
+      expect(database.sqlite.prepare('SELECT id FROM step_images WHERE id = ?').get(loose.id)).toBeUndefined();
+      expect((await imageUsage(deps, { actor: eddie, workspaceId: home.id })).used).toBe(before.used - 1000);
+      const snapshot = database.sqlite.prepare('SELECT image_id FROM run_steps WHERE run_id = ?').all(run.run.id) as { image_id: string }[];
+      expect(snapshot.map((row) => row.image_id)).toEqual([history.id]);
+      expect(await readStepImage(deps, { actor: uma, workspaceId: home.id, imageId: history.id })).toHaveLength(1000);
+      expect(removals().map((row) => JSON.parse(row.metadata) as unknown)).toEqual([
+        { image: loose.id, kept: false },
+        { image: history.id, kept: true },
+      ]);
+      // Restoring the Procedure shows the photo on a current Step again, so the gallery lists it again.
+      await restoreProcedure(procedureDeps(), { actor: eddie, workspaceId: home.id, procedureId: old.procedure.id as ProcedureId });
+      expect((await galleryIds()).sort()).toEqual([shown.id, history.id].sort());
+      // A deleted photo is unknown afterwards.
+      await expect(remove(eddie, loose.id)).rejects.toThrow(ImageNotFoundError);
+    });
+
+    it('is for editors of this Workspace only and changes nothing when refused', async () => {
+      const { image: loose } = await upload(1000);
+      const { image: foreign } = await upload(1000, otto, office);
+      await expect(remove(uma, loose.id)).rejects.toThrow(NotAuthorizedError);
+      await expect(remove(gus, loose.id)).rejects.toThrow(NotAuthorizedError);
+      await expect(remove(otto, loose.id)).rejects.toThrow(WorkspaceNotFoundError);
+      await expect(remove(eddie, foreign.id)).rejects.toThrow(ImageNotFoundError);
+      await expect(remove(otto, loose.id, office)).rejects.toThrow(ImageNotFoundError);
+      await expect(remove(eddie, '3f1c2b9a-6d4e-4f8a-9b7c-1a2b3c4d5e6f')).rejects.toThrow(ImageNotFoundError);
+      await expect(remove(eddie, 'not-an-id')).rejects.toThrow(DomainValidationError);
+      expect(await galleryIds()).toEqual([loose.id]);
+      expect(database.sqlite.prepare('SELECT count(*) AS n FROM step_images').get()).toEqual({ n: 2 });
+      expect(removals()).toEqual([]);
+    });
+
+    it('deletes and records together, or neither', async () => {
+      const { image: loose } = await upload(1000);
+      database.sqlite.exec("CREATE TEMP TRIGGER fail_audit BEFORE INSERT ON audit_events WHEN NEW.type = 'STEP_IMAGE_REMOVED' BEGIN SELECT RAISE(ABORT, 'boom'); END");
+      await expect(remove(eddie, loose.id)).rejects.toThrow(/boom/);
+      database.sqlite.exec('DROP TRIGGER fail_audit');
+      expect(await galleryIds()).toEqual([loose.id]);
+    });
+
+    it('lets housekeeping delete a hidden photo once nothing shows it, mark included', async () => {
+      const { image: history } = await upload(1000);
+      const old = await createProcedure(procedureDeps(), { actor: eddie, workspaceId: home.id, content: content(history.id) });
+      await deleteProcedure(procedureDeps(), { actor: eddie, workspaceId: home.id, procedureId: old.procedure.id as ProcedureId });
+      expect(await remove(eddie, history.id)).toEqual({ kept: true });
+      // The deleted Procedure goes for good (as a purge would): nothing references the photo any more.
+      database.sqlite.prepare('DELETE FROM procedure_steps WHERE procedure_id = ?').run(old.procedure.id);
+      now = new Date(now.getTime() + IMAGE_PENDING_MS + 60_000);
+      await purgeUnusedImages(deps);
+      expect(database.sqlite.prepare('SELECT count(*) AS n FROM step_image_removals').get()).toEqual({ n: 0 });
+      expect(database.sqlite.prepare('SELECT count(*) AS n FROM step_images').get()).toEqual({ n: 0 });
     });
   });
 

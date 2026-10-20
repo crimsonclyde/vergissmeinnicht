@@ -1660,6 +1660,16 @@ a.button.primary {
   padding-left: 1.25rem;
 }
 
+/* "Not used" with its delete button (23.4): the text takes the room, the button stays at the end. */
+.gallery-unused {
+  flex-wrap: nowrap;
+  justify-content: space-between;
+}
+
+.gallery-unused p {
+  margin: 0;
+}
+
 /* Crop and turn a photo before upload (23.3): the photo fills the free space, tools below it. */
 .photo-editor h2 {
   flex: 1;

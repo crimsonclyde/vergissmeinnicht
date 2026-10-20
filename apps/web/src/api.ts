@@ -1192,6 +1192,8 @@ export const api = {
   /** Replace everywhere (23.2): every current Procedure Step showing `imageId` gets `replacement`. */
   replaceImage: (workspaceId: string, imageId: string, replacement: string) =>
     request<{ procedures: number; steps: number }>('POST', `/workspaces/${encodeURIComponent(workspaceId)}/images/${encodeURIComponent(imageId)}/replace`, { replacement }),
+  deleteImage: (workspaceId: string, imageId: string) =>
+    request<{ kept: boolean }>('POST', `/workspaces/${encodeURIComponent(workspaceId)}/images/${encodeURIComponent(imageId)}/delete`, {}),
   imageUsage: async (workspaceId: string) => (await request<{ usage: ImageUsage }>('GET', `/workspaces/${encodeURIComponent(workspaceId)}/images/usage`)).usage,
   // Storage (16.4): the Workspace's own view and limit; every Workspace and its ceiling for the server admin.
   workspaceStorage: async (workspaceId: string) => (await request<{ storage: StorageInfo }>('GET', `/workspaces/${encodeURIComponent(workspaceId)}/storage`)).storage,

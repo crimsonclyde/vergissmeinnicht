@@ -246,6 +246,42 @@ describe('instruction images over HTTP (14.3)', () => {
     expect(started.sections[0].steps[0].image).toEqual({ id: old.id, caption: 'Old valve' });
   });
 
+  it('deletes a photo from the gallery for editors only, never one a current Step shows, and Runs keep theirs (23.4)', async () => {
+    const shown = (await upload(home, png(300, 240), editor)).json().image;
+    const procedure = { title: 'Delete use', icon: 'home', sections: [{ title: 'S', steps: [{ ...STEP, image: { id: shown.id, caption: 'Valve' } }] }] };
+    const created = (await t.post(`/api/workspaces/${home}/procedures`, procedure, editor)).json().procedure;
+    const run = (await t.post(`/api/workspaces/${home}/runs`, { procedureId: created.id }, user)).json().run;
+    const remove = (imageId: string, cookie?: string, workspace = home) => t.post(`/api/workspaces/${workspace}/images/${imageId}/delete`, {}, cookie);
+
+    expect((await remove(shown.id, user)).statusCode).toBe(403);
+    expect((await remove(shown.id, guest)).statusCode).toBe(403);
+    expect((await remove(shown.id, outsider)).statusCode).toBe(404);
+    expect((await remove(shown.id)).statusCode).toBe(401);
+    expect((await remove(shown.id, outsider, office)).statusCode).toBe(404);
+    expect((await remove('nope', editor)).statusCode).toBe(400);
+    expect((await t.post(`/api/workspaces/${home}/images/${shown.id}/delete`, { everywhere: true }, editor)).statusCode).toBe(400);
+    const cross = t.app.inject({
+      method: 'POST',
+      url: `/api/workspaces/${home}/images/${shown.id}/delete`,
+      headers: { 'content-type': 'application/json', origin: 'https://evil.example', cookie: editor },
+      payload: '{}',
+    });
+    expect((await cross).statusCode).toBe(403);
+    const inUse = await remove(shown.id, editor);
+    expect(inUse.statusCode).toBe(409);
+    expect(inUse.json()).toEqual({ error: 'image_in_use' });
+
+    // Once no current Step shows it, it leaves the gallery; the Run still shows it.
+    expect((await t.post(`/api/workspaces/${home}/procedures/${created.id}/delete`, {}, editor)).statusCode).toBeLessThan(300);
+    const done = await remove(shown.id, editor);
+    expect(done.statusCode).toBe(200);
+    expect(done.json()).toEqual({ kept: true });
+    const gallery = (await t.get(`/api/workspaces/${home}/images`, editor)).json().images as { id: string }[];
+    expect(gallery.map((photo) => photo.id)).not.toContain(shown.id);
+    expect((await t.get(`/api/workspaces/${home}/runs/${run.id}`, user)).json().run.sections[0].steps[0].image).toEqual({ id: shown.id, caption: 'Valve' });
+    expect((await t.get(`/api/workspaces/${home}/images/${shown.id}`, user)).statusCode).toBe(200);
+  });
+
   it('charges images to the combined Workspace storage, whose ceiling only a server admin sets (16.4)', async () => {
     const storage = await t.get('/api/admin/storage', t.admin);
     expect(storage.statusCode).toBe(200);

@@ -443,6 +443,22 @@ test('first server admin: bootstrap link, account creation, sign-in, Workspace c
   await expect(page.getByRole('status')).toHaveText('Photo replaced in 1 Step.');
   await photoTile.click();
   await expect.poll(() => details.locator('.gallery-photo').evaluate((img: { naturalWidth: number; naturalHeight: number }) => `${img.naturalWidth}×${img.naturalHeight}`)).toBe('226×320');
+  // The turned photo is now used by no Step: delete it from the gallery (23.4).
+  await details.getByRole('button', { name: 'Close' }).click();
+  const unusedTiles = page.getByRole('list', { name: 'Photos of this Workspace' }).getByRole('button', { name: 'Photo without description' });
+  const unusedBefore = await unusedTiles.count();
+  await unusedTiles.first().click();
+  const unusedDetails = page.getByRole('dialog', { name: 'Photo without description' });
+  await expect(unusedDetails).toContainText('Not used by any Procedure right now.');
+  await unusedDetails.getByRole('button', { name: 'Delete this photo' }).click();
+  const confirmDelete = unusedDetails.getByRole('group', { name: 'Delete this photo' });
+  await expect(confirmDelete).toContainText('Executions that used it keep showing it.');
+  await expectAccessible(page, 'delete photo confirmation');
+  await confirmDelete.getByRole('button', { name: 'Delete', exact: true }).click();
+  await expect(unusedDetails).toHaveCount(0);
+  await expect(page.getByRole('status')).toHaveText('Photo deleted.');
+  await expect(unusedTiles).toHaveCount(unusedBefore - 1);
+  await photoTile.click();
   await details.getByRole('link', { name: 'Leave the house', exact: true }).click();
 
   const procedure = page.getByRole('article');

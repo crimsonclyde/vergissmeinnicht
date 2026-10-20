@@ -104,5 +104,6 @@ export const EXCLUDED_TABLES: Readonly<Record<string, string>> = {
   document_file_derivatives: 'previews — regenerated after a restore',
   workspace_backup_jobs: 'backup jobs themselves',
   workspace_restore_marks: 'exists only inside a restore’s own transaction',
+  step_image_removals: 'gallery tidy-up marks (23.4); after a restore such a photo shows in the gallery again, its Runs unchanged',
   historical_identity_origins: 'server-local origin of historical identities (people appear as person references)',
 };

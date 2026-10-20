@@ -97,6 +97,8 @@ export const AUDIT_EVENT_TYPES = [
   'MAINTENANCE_PURGED',
   'MAINTENANCE_LINK_ADDED',
   'MAINTENANCE_LINK_REMOVED',
+  // A photo deleted from the Workspace gallery (23.4): its id and whether Runs or deleted Procedures still show it.
+  'STEP_IMAGE_REMOVED',
   'EQUIPMENT_CREATED', 'EQUIPMENT_UPDATED', 'EQUIPMENT_DELETED', 'EQUIPMENT_RESTORED', 'EQUIPMENT_PURGED', 'EQUIPMENT_LINK_ADDED', 'EQUIPMENT_LINK_REMOVED',
 ] as const;
 export type AuditEventType = (typeof AUDIT_EVENT_TYPES)[number];

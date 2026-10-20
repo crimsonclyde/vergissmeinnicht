@@ -130,7 +130,7 @@ export function GalleryPicker(props: { workspaceId: string; onPick: (image: Gall
  * it in all of them at once (23.2, SG3). The new photo is uploaded first (checked and re-encoded on the
  * server, like any upload), then a confirmation swaps it in every Step listed. Runs keep the old one.
  */
-function PhotoDetails(props: { workspaceId: string; image: GalleryImage; onClose: () => void; onReplaced: (steps: number) => void }) {
+function PhotoDetails(props: { workspaceId: string; image: GalleryImage; onClose: () => void; onReplaced: (steps: number) => void; onDeleted: () => void }) {
   const dialog = useRef<HTMLDialogElement>(null);
   const file = useRef<HTMLInputElement>(null);
   const headingId = useId();
@@ -143,6 +143,7 @@ function PhotoDetails(props: { workspaceId: string; image: GalleryImage; onClose
   const [replacement, setReplacement] = useState<string | null>(null);
   /** Another photo of the Workspace is being picked as the replacement (no upload). */
   const [picking, setPicking] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   useEffect(() => {
     const element = dialog.current;
     if (element !== null && !element.open) element.showModal();
@@ -215,6 +216,21 @@ function PhotoDetails(props: { workspaceId: string; image: GalleryImage; onClose
     }
   }
 
+  async function confirmDelete() {
+    setBusy(true);
+    setMessage(null);
+    try {
+      await api.deleteImage(props.workspaceId, props.image.id);
+      props.onDeleted();
+      dialog.current?.close();
+    } catch (caught) {
+      setMessage(messageFor(caught));
+      setDeleting(false);
+    } finally {
+      setBusy(false);
+    }
+  }
+
   async function confirmReplace() {
     if (replacement === null) return;
     setBusy(true);
@@ -282,7 +298,33 @@ function PhotoDetails(props: { workspaceId: string; image: GalleryImage; onClose
           </div>
         </div>
       )}
-      {uses !== null && uses.length === 0 && <p>{t('gallery.unused')}</p>}
+      {uses !== null && uses.length === 0 && (
+        <div className="row gallery-unused">
+          <p>{t('gallery.unused')}</p>
+          {!deleting && (
+            <button type="button" className="icon-button" aria-label={t('gallery.delete')} title={t('gallery.delete')} disabled={busy} onClick={() => setDeleting(true)}>
+              <UiIcon name="trash" />
+            </button>
+          )}
+        </div>
+      )}
+      {uses !== null && uses.length === 0 && deleting && (
+        <div className="stack gallery-confirm" role="group" aria-label={t('gallery.delete')}>
+          <p>
+            <strong>{t('gallery.confirmDelete')}</strong>
+            <br />
+            <span className="muted">{t('gallery.deleteKeepsRuns')}</span>
+          </p>
+          <div className="row">
+            <button type="button" disabled={busy} onClick={() => setDeleting(false)}>
+              {t('common.cancel')}
+            </button>
+            <button type="button" className="danger" disabled={busy} onClick={() => void confirmDelete()}>
+              <UiIcon name="trash" /> {t('gallery.deleteShort')}
+            </button>
+          </div>
+        </div>
+      )}
       {used && (
         <>
           <h3>{t('gallery.usedIn')}</h3>
@@ -346,6 +388,10 @@ export function PhotosPage(props: { workspaceId: string }) {
           onClose={() => setOpen(null)}
           onReplaced={(steps) => {
             setStatus(t('gallery.replaced', { count: steps }));
+            setVersion((current) => current + 1);
+          }}
+          onDeleted={() => {
+            setStatus(t('gallery.deleted'));
             setVersion((current) => current + 1);
           }}
         />

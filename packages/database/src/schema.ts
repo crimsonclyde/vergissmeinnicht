@@ -351,6 +351,24 @@ export const stepImages = sqliteTable(
 );
 
 /**
+ * Photos deleted from the Workspace gallery (23.4) that a Run snapshot or a deleted Procedure still shows,
+ * so the row (immutable, referenced) stays: the gallery leaves them out until a current Step uses them
+ * again. Removed with the image when housekeeping deletes it.
+ */
+export const stepImageRemovals = sqliteTable('step_image_removals', {
+  imageId: text('image_id')
+    .primaryKey()
+    .references(() => stepImages.id, { onDelete: 'cascade' }),
+  workspaceId: text('workspace_id')
+    .notNull()
+    .references(() => workspaces.id),
+  removedByUserId: text('removed_by_user_id')
+    .notNull()
+    .references(() => users.id),
+  removedAt: integer('removed_at', { mode: 'timestamp_ms' }).notNull(),
+});
+
+/**
  * Memberships: one role per User and Workspace. Removal deletes the row (recorded as a
  * MEMBERSHIP_REMOVED security event); every authorization reads this table, so it takes effect
  * on the next request.

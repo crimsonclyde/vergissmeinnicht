@@ -8,7 +8,7 @@ import { userActor } from '../user-actor.ts';
 import { authorizeWorkspace } from '../workspaces/use-cases.ts';
 import { StorageFullError } from '../documents/errors.ts';
 import { InvalidProcedureReferenceError } from '../procedures/errors.ts';
-import { ImageNotFoundError } from './errors.ts';
+import { ImageInUseError, ImageNotFoundError } from './errors.ts';
 
 export interface ImageDeps {
   readonly workspaces: WorkspaceRepository;
@@ -140,6 +140,29 @@ export async function replaceStepImageEverywhere(
       throw new ImageNotFoundError();
     case 'invalid_reference':
       throw new InvalidProcedureReferenceError();
+  }
+}
+
+/**
+ * Delete a photo from the Workspace gallery (23.4): `procedure.edit`, like replacing it. Only a photo no
+ * current Procedure Step shows; Runs keep theirs (`kept`), history is never changed.
+ */
+export async function removeStepImage(deps: ImageDeps, input: { readonly actor: User; readonly workspaceId: WorkspaceId; readonly imageId: string }): Promise<{ readonly kept: boolean }> {
+  await authorizeWorkspace(deps, input.actor, input.workspaceId, 'procedure.edit');
+  const imageId = parseStepImageId(input.imageId) as StepImageId;
+  const result = await deps.images.remove({ workspaceId: input.workspaceId, imageId, at: deps.clock.now() }, userActor(input.actor), {
+    tool: 'PROCEDURES' as const,
+    actorMay: (role) => roleHasCapability(role, 'procedure.edit'),
+  });
+  switch (result.status) {
+    case 'ok':
+      return { kept: result.kept };
+    case 'forbidden':
+      throw new NotAuthorizedError();
+    case 'not_found':
+      throw new ImageNotFoundError();
+    case 'in_use':
+      throw new ImageInUseError();
   }
 }
 

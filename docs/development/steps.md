@@ -4374,7 +4374,7 @@ A greeting with the person's name and the date, and a ring for today's progress 
 
 ---
 
-## 23 — Step photos: Workspace gallery, replace everywhere, crop and rotate (planned 2026-10-18; SG3 confirmed by the owner 2026-10-18; 23.1–23.3 done)
+## 23 — Step photos: Workspace gallery, replace everywhere, crop and rotate (planned 2026-10-18; SG3 confirmed by the owner 2026-10-18; 23.1–23.4 done; 23.5–23.8 accepted by the owner 2026-10-20)
 
 Owner request (2026-10-18): on- and offboarding are mostly the same procedure, so the same photos are needed again; reuse photos that already exist in the Workspace instead of taking new ones, replace photos from a gallery, and crop or rotate a photo after taking it.
 
@@ -4387,7 +4387,7 @@ Owner request (2026-10-18): on- and offboarding are mostly the same procedure, s
 - **SG3** (owner, 2026-10-18: "change everywhere it's used, since we do corrections here") *Replace* in the gallery swaps the photo in **every current Procedure Step** of the Workspace that uses it, after a confirmation that names the count ("Used in 5 Steps in 2 Procedures"). Captions stay. Runs are never changed: started Runs keep the photo from their Start. Soft-deleted (restorable) Procedures are not changed. Replacing on one Step stays in the Step editor (as today).
 - **SG4** Crop and rotate happen in the browser before upload: turn 90° left/right, straighten ±15°, free crop with corner handles, Reset, Done. The result is uploaded through the unchanged 14.3 pipeline (validated and re-processed on the server). Editing an existing photo creates a new image; the old one stays for Runs that use it. No filters, drawing or annotations (14.5 stays not planned).
 - **SG5** No new dependency for the editor (own canvas and pointer-event code, a few hundred lines); a library is chosen only if the touch handling proves unreliable on real phones.
-- **SG6** Not included: folders, tags or names for photos; deleting photos by hand (unused photos disappear through the existing housekeeping); using photos from Documents as Step photos (possible later step, as a copy through the 14.3 pipeline).
+- **SG6** Not included: folders, tags or names for photos; ~~deleting photos by hand~~ (superseded by the owner 2026-10-20: delete a photo no Step uses, 23.4); using photos from Documents as Step photos (possible later step, as a copy through the 14.3 pipeline).
 
 ### 23.1 Workspace photo gallery and picking an existing photo
 
@@ -4453,9 +4453,42 @@ Owner request (2026-10-18): on- and offboarding are mostly the same procedure, s
 **Security impact:** NONE on the server. **Security docs updated:** YES ("Security check: crop and turn Step photos (23.3)").  
 **Remaining:** real-phone check (iPhone Safari, Android Chrome: dragging the handles, the slider, a camera photo upright after editing); no pinch-zoom inside the editor; no fixed aspect ratios.
 
+### 23.4 Delete a photo from the gallery
+
+**Status:** DONE  
+**Completed:** 2026-10-20  
+**Requested:** owner, 2026-10-20 ("when a photo is not associated with a step we should be able to delete the photo"); supersedes the "no deleting by hand" part of SG6.
+
+**Decision (default, history rule):** only a photo that no Step of a current Procedure shows can be deleted. Runs are never changed, so a photo a Run snapshot (or a deleted, restorable Procedure) still shows stays stored and visible there; it only leaves the gallery. A photo nothing references is deleted right away (no longer charged; its file goes with housekeeping).
+
+**Implemented:** migration `0048_step_image_removals` (table `step_image_removals`: image, Workspace, who, when; cascades with the image when housekeeping deletes it; `step_images` stays immutable). `ImageRepository.remove` (`image-repository.ts`): one IMMEDIATE transaction — actor re-checked, photo of this Workspace behind the Procedures switch (else `not_found`), refused while a current Step shows it (`in_use`); unreferenced → row deleted; referenced by a Run snapshot or a deleted Procedure → marked; one `STEP_IMAGE_REMOVED` audit event (subject: the Workspace; metadata: image id and `kept`). The gallery leaves marked photos out unless a current Step shows them again (e.g. a restored Procedure). Use case `removeStepImage` (`procedure.edit`); route `POST /api/workspaces/:ws/images/:id/delete` (empty strict body, rate limit 60 per 15 min, `409 image_in_use`). Web: the photo details show a trash icon **Delete this photo** next to "Not used by any Procedure right now.", then "Delete this photo from the gallery? Executions that used it keep showing it." with **Cancel** / **Delete**; the grid reloads and says "Photo deleted.". The marks are not part of a Workspace backup (excluded with a reason: after a restore such a photo shows in the gallery again, its Runs unchanged).  
+**Tests/checks:** `image-use-cases.test.ts` (4 tests: in use refused, unused deleted and no longer charged, Run-only photo hidden while the Run and its photo stay readable, audit events, restoring a Procedure brings the photo back to the gallery; USER/GUEST/non-member/other Workspace/unknown/malformed id refused with nothing changed; a failing audit event rolls the deletion back; housekeeping deletes a hidden photo and its mark once nothing references it); `image.test.ts` (HTTP: 401/403/404/400, cross-origin 403, extra body field 400, 409 `image_in_use`, Run keeps the photo); route-security sweep covers the route; backup allowlist test; e2e (desktop): after replacing back, the turned photo is unused → Delete → confirmation (axe) → "Photo deleted." and one tile fewer; `pnpm lint`, `pnpm typecheck`, `pnpm test`.  
+**Security impact:** LOW — a new write route behind `procedure.edit` that never changes history; see `security.md` "Security check: delete a Step photo from the gallery (23.4)". **Security docs updated:** YES.  
+**Remaining:** no undo (re-upload the photo, or restore the Procedure that used it); no bulk delete.
+
+### 23.5 Filter: unused photos
+
+**Status:** PLANNED (owner accepted 2026-10-20)  
+A filter on *Procedures → Photos*: **All** / **Not used** (photos no current Step shows), so tidying up with 23.4 takes a few taps. Server: an optional `unused=1` on the gallery route (strict query, same `procedure.edit`, same Workspace scoping); counts stay as today. Tests: filter returns exactly the unused photos, combines with search and paging, other Workspaces never appear; e2e: filter, delete, list shrinks. Security impact: NONE (read of the same data, same rule).
+
+### 23.6 Zoom in the photo viewer
+
+**Status:** PLANNED (owner accepted 2026-10-20)  
+The full-screen photo viewer (Steps, Runs, gallery details) zooms: pinch and double-tap on phones, +/− and keyboard on desktop, drag to move when zoomed, reset on close. Shows the stored photo (≤1600 px), so no new route or size. Own pointer-event code like the editor (SG5). Tests: unit tests for the zoom/pan limits; e2e: double-tap/+ zooms, Escape and Back still close; real-phone check (iOS Safari must not zoom the page). Security impact: NONE.
+
+### 23.7 Brightness and contrast in the photo editor
+
+**Status:** PLANNED (owner accepted 2026-10-20)  
+Straightening (±15°) already exists (23.3, SG4). Adds two sliders to the 23.3 editor: **Brightness** and **Contrast** (±50 %), applied on the canvas before upload, Reset clears them. No filters or presets (SG4 stays). Tests: unit test of the pixel transform, e2e: a brighter result is stored. Security impact: NONE (same upload pipeline).
+
+### 23.8 Blur part of a photo
+
+**Status:** PLANNED (owner accepted 2026-10-20; owner chose it although it is close to the annotations of 14.5, which stay not planned — this is hiding, not drawing)  
+In the 23.3 editor: drag a rectangle (or several) to hide a serial number, address or face. The area is replaced by coarse pixel blocks computed from the area's average colour (not a reversible light blur), before upload. Like every edit it creates a new photo; **the original stays wherever it was used before** — Runs keep it (history is never changed), and in the gallery it can be replaced everywhere (23.2) and then deleted (23.4). The editor says this in one line. Tests: unit test that no pixel of the hidden area equals the original's; e2e: hidden area stored blurred. Security impact: LOW (privacy aid; must not suggest that earlier copies are gone) — add a security.md check when built.
+
 ### Order
 
-23.3 first (smallest, no server change, useful right away), then 23.1, then 23.2. No migration is expected for 23.1–23.3 (thumbnails are files, usage is computed); the Workspace backup is unchanged.
+23.3 first (smallest, no server change, useful right away), then 23.1, then 23.2. 23.4 (2026-10-20), then 23.5, 23.6, 23.7 and 23.8. No migration is expected for 23.1–23.3 (thumbnails are files, usage is computed); the Workspace backup is unchanged.
 
 ---
 
