@@ -111,6 +111,10 @@ const TOKYO_SURFACES: readonly [string, string, number][] = [
   ['text', '#181443', 4.5],
   ['text-muted', '#181443', 4.5],
   ['#f4f1ff', '#1b1442', 4.5],
+  // Flip-clock tiles (both flaps) and the neon date on the clock card.
+  ['#f4f1ff', '#262a56', 4.5],
+  ['#f4f1ff', '#1d2047', 4.5],
+  ['accent', '#1b1745', 4.5],
   // The greeting on the page.
   ['#f4f1ff', 'bg', 4.5],
 ];

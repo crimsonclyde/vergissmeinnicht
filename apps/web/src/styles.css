@@ -4421,6 +4421,11 @@ a.today-row:hover .today-row-title {
   font-size: 1.15rem;
 }
 
+/* The running-minute bar exists for themes that draw it (Tokyo Nights); others never show it. */
+.clock-minute {
+  display: none;
+}
+
 @media (max-width: 600px) {
   .today-clock {
     padding: 0.5rem 1rem;

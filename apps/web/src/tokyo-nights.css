@@ -32,38 +32,82 @@
   background-color: var(--bg);
 }
 
-/* Stars, the sun on the horizon and the skyline: one fixed layer, never in the way of a tap. */
-:root[data-theme='tokyo-nights'] body::before {
-  content: '';
+/*
+ * The city (CityScene.tsx): one fixed layer behind the page, never in the way of a tap. The sky with
+ * stars and a faint aurora, the skyline drawn in SVG (Fuji, the sun, Tokyo Tower, windows, neon signs),
+ * and the Tron floor in perspective from the horizon to the bottom of the screen.
+ */
+.city {
+  display: none;
+}
+
+:root[data-theme='tokyo-nights'] .city {
+  display: block;
   position: fixed;
   inset: 0;
   z-index: -1;
+  overflow: hidden;
   pointer-events: none;
-  background:
-    url('./tokyo-nights/skyline.svg') center bottom 18vh / auto 26vh repeat-x,
-    url('./tokyo-nights/sun.svg') 88% calc(100% - 18vh - 1vh) / 24vh 24vh no-repeat,
-    radial-gradient(closest-side, rgb(255 92 205 / 22%), transparent) 89% calc(100% - 12vh) / 60vh 44vh no-repeat,
-    url('./tokyo-nights/stars.svg') 0 0 / 240px 240px repeat;
-  mask-image: linear-gradient(180deg, rgb(0 0 0 / 70%) 0%, #000 60%, #000 100%);
 }
 
-/* The Tron floor: a neon grid in perspective that slowly runs towards you. */
-:root[data-theme='tokyo-nights'] body::after {
-  content: '';
-  position: fixed;
-  left: -50%;
-  right: -50%;
-  bottom: -6vh;
-  z-index: -1;
-  height: 48vh;
-  pointer-events: none;
+:root[data-theme='tokyo-nights'] .city-sky {
+  position: absolute;
+  inset: 0;
   background:
-    linear-gradient(rgb(255 92 205 / 55%) 2px, transparent 2px) 0 0 / 64px 64px,
-    linear-gradient(90deg, rgb(53 230 255 / 45%) 2px, transparent 2px) 0 0 / 64px 64px;
+    url('./tokyo-nights/stars.svg') 0 0 / 240px 240px repeat,
+    radial-gradient(60% 40% at 20% 8%, rgb(53 230 255 / 9%), transparent 70%),
+    radial-gradient(50% 35% at 75% 14%, rgb(157 124 255 / 12%), transparent 70%);
+  mask-image: linear-gradient(180deg, #000 0%, #000 45%, transparent 80%);
+}
+
+/* The skyline stands on the horizon, a little above the bottom of the screen. */
+:root[data-theme='tokyo-nights'] .city-skyline {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 15vh;
+  width: 100%;
+  height: 38vh;
+}
+
+/* The floor: a neon grid on a plane tilted away from you; its far edge meets the horizon. */
+:root[data-theme='tokyo-nights'] .city-floor {
+  position: absolute;
+  left: -35%;
+  right: -35%;
+  bottom: 0;
+  height: 110vh;
+  background:
+    linear-gradient(rgb(255 92 205 / 80%) 2px, transparent 2px) 0 0 / 64px 64px,
+    linear-gradient(90deg, rgb(53 230 255 / 65%) 2px, transparent 2px) 0 0 / 64px 64px,
+    linear-gradient(180deg, #120d2c, #1c1240);
   transform-origin: 50% 100%;
-  transform: perspective(28vh) rotateX(58deg);
-  mask-image: linear-gradient(180deg, transparent 0%, rgb(0 0 0 / 55%) 25%, #000 100%);
-  opacity: 0.8;
+  transform: perspective(30vh) rotateX(58deg);
+  mask-image: linear-gradient(180deg, transparent 0%, rgb(0 0 0 / 40%) 30%, #000 70%);
+}
+
+/* A glow on the horizon, where the city meets the floor. */
+:root[data-theme='tokyo-nights'] .city::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: calc(15vh - 3rem);
+  height: 6rem;
+  background: radial-gradient(60% 50% at 66% 50%, rgb(255 92 205 / 35%), transparent 70%);
+}
+
+/* A shooting star, now and then (only with motion). */
+:root[data-theme='tokyo-nights'] .city-star {
+  position: absolute;
+  top: 9%;
+  left: 70%;
+  width: 9rem;
+  height: 2px;
+  border-radius: 2px;
+  background: linear-gradient(90deg, #fff, rgb(53 230 255 / 60%) 30%, transparent);
+  opacity: 0;
+  transform: rotate(-18deg);
 }
 
 /* ---- Navigation: a dark glass sidebar and bottom bar with neon edges ------------------------- */
@@ -353,6 +397,133 @@
   box-shadow: var(--glow-done);
 }
 
+/* Clock & date: a flip clock — every digit on its own tile with a split line; a changed digit flips in. */
+:root[data-theme='tokyo-nights'] .today-clock {
+  position: relative;
+  overflow: hidden;
+  background:
+    repeating-linear-gradient(180deg, rgb(255 255 255 / 2.2%) 0 1px, transparent 1px 4px) padding-box,
+    linear-gradient(165deg, #1b1745, #11132b) padding-box,
+    linear-gradient(140deg, rgb(53 230 255 / 60%), rgb(157 124 255 / 25%) 45%, rgb(255 92 205 / 60%)) border-box;
+}
+
+:root[data-theme='tokyo-nights'] .today-clock time {
+  align-items: center;
+}
+
+:root[data-theme='tokyo-nights'] .today-clock-time {
+  font-size: 3.6rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.12em;
+  perspective: 6em;
+}
+
+:root[data-theme='tokyo-nights'] .clock-digit {
+  position: relative;
+  display: inline-grid;
+  place-items: center;
+  width: 0.92em;
+  height: 1.28em;
+  border-radius: 0.16em;
+  background: linear-gradient(180deg, #262a56 0 50%, #1d2047 50% 100%);
+  box-shadow: inset 0 0 0 1px rgb(53 230 255 / 45%), 0 0 0.35em rgb(53 230 255 / 25%), 0 0.08em 0 #080918;
+  color: #f4f1ff;
+  text-shadow: 0 0 0.25em rgb(53 230 255 / 70%);
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+}
+
+/* The split between the two flaps. */
+:root[data-theme='tokyo-nights'] .clock-digit::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: calc(50% - 1px);
+  height: 2px;
+  background: rgb(8 9 24 / 85%);
+}
+
+@media (max-width: 600px) {
+  :root[data-theme='tokyo-nights'] .today-clock-time {
+    font-size: 2rem;
+  }
+}
+
+:root[data-theme='tokyo-nights'] .clock-sep {
+  color: var(--brand);
+  text-shadow: 0 0 0.3em rgb(255 92 205 / 75%);
+  white-space: pre;
+}
+
+:root[data-theme='tokyo-nights'] .today-clock-date {
+  color: var(--neon-a);
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  text-shadow: 0 0 0.5rem rgb(53 230 255 / 55%);
+}
+
+:root[data-theme='tokyo-nights'] .clock-minute {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 3px;
+  background: linear-gradient(90deg, var(--neon-a), var(--neon-c), var(--neon-b));
+  box-shadow: 0 0 0.5rem rgb(53 230 255 / 70%);
+  transform-origin: left center;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  :root[data-theme='tokyo-nights'] .clock-digit {
+    animation: tn-flip 650ms cubic-bezier(0.2, 0.9, 0.25, 1.15) both;
+  }
+
+  :root[data-theme='tokyo-nights'] .clock-sep {
+    animation: tn-colon 2s steps(1) infinite;
+  }
+
+  :root[data-theme='tokyo-nights'] .clock-minute {
+    display: block;
+    animation: tn-minute 60s linear both;
+  }
+}
+
+@keyframes tn-flip {
+  0% {
+    transform: rotateX(-95deg);
+    filter: brightness(1.8);
+  }
+  60% {
+    filter: brightness(1.25);
+  }
+  100% {
+    transform: rotateX(0);
+    filter: none;
+  }
+}
+
+@keyframes tn-colon {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.35;
+  }
+}
+
+@keyframes tn-minute {
+  from {
+    transform: scaleX(0);
+  }
+  to {
+    transform: scaleX(1);
+  }
+}
+
 /* ---- The guided Run: an arcade level select ------------------------------------------------ */
 
 :root[data-theme='tokyo-nights'] .guide-hero {
@@ -567,8 +738,29 @@
 
 @media (prefers-reduced-motion: no-preference) {
   /* The floor runs towards you, one grid cell every few seconds. */
-  :root[data-theme='tokyo-nights'] body::after {
+  :root[data-theme='tokyo-nights'] .city-floor {
     animation: tn-floor 3.2s linear infinite;
+  }
+
+  /* City lights: the tower's beacon blinks, signs flicker now and then, some windows switch. */
+  :root[data-theme='tokyo-nights'] .city-beacon {
+    animation: tn-beacon 2.4s steps(1) infinite;
+  }
+
+  :root[data-theme='tokyo-nights'] .city-sign-0 {
+    animation: tn-sign 7s steps(1) infinite;
+  }
+
+  :root[data-theme='tokyo-nights'] .city-sign-1 {
+    animation: tn-sign 11s steps(1) 2s infinite;
+  }
+
+  :root[data-theme='tokyo-nights'] .city-windows-alt {
+    animation: tn-windows 9s steps(1) infinite;
+  }
+
+  :root[data-theme='tokyo-nights'] .city-star {
+    animation: tn-star 13s ease-in 4s infinite;
   }
 
   /* The neon frame of the cabinet turns slowly. */
@@ -590,10 +782,68 @@
 
 @keyframes tn-floor {
   from {
-    transform: perspective(28vh) rotateX(58deg) translateY(0);
+    transform: perspective(30vh) rotateX(58deg) translateY(0);
   }
   to {
-    transform: perspective(28vh) rotateX(58deg) translateY(64px);
+    transform: perspective(30vh) rotateX(58deg) translateY(64px);
+  }
+}
+
+@keyframes tn-beacon {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.2;
+  }
+}
+
+@keyframes tn-sign {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  80% {
+    opacity: 0.35;
+  }
+  83% {
+    opacity: 1;
+  }
+  86% {
+    opacity: 0.35;
+  }
+  89% {
+    opacity: 1;
+  }
+}
+
+@keyframes tn-windows {
+  0%,
+  100% {
+    opacity: 0.7;
+  }
+  50% {
+    opacity: 0.4;
+  }
+}
+
+/* Flies across the top of the sky in under a second, then rests. */
+@keyframes tn-star {
+  0% {
+    opacity: 0;
+    transform: rotate(-18deg) translateX(0);
+  }
+  1% {
+    opacity: 1;
+  }
+  6% {
+    opacity: 0;
+    transform: rotate(-18deg) translateX(-28rem);
+  }
+  100% {
+    opacity: 0;
+    transform: rotate(-18deg) translateX(-28rem);
   }
 }
 
@@ -631,8 +881,7 @@
 
 /* Forced colours (Windows high contrast): no scene, no glow — the system colours take over. */
 @media (forced-colors: active) {
-  :root[data-theme='tokyo-nights'] body::before,
-  :root[data-theme='tokyo-nights'] body::after,
+  :root[data-theme='tokyo-nights'] .city,
   :root[data-theme='tokyo-nights'] .today-hero::before,
   :root[data-theme='tokyo-nights'] .today-hero::after {
     display: none;
