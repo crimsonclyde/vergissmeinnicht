@@ -2011,13 +2011,15 @@ GitHub pre-release created after the user approved the command: `https://github.
 **Validation:** implementation and local checks recorded in 16.8 (146 files / 1154 tests, 27.30 s; Playwright 3 passed / 1 intentional skip; typecheck/lint/build/schema checks). Final PR CI `37218359808`, main CI `37218652596` and release `37218676293` succeeded. Both native validation and publishing images passed smoke tests and fixable HIGH/CRITICAL vulnerability scans; manifest publishing, workflow signing and CycloneDX attestation succeeded. Completion is recorded in a documentation commit after publication. Physical-phone imports, live Unraid upgrade and the existing development-only moderate esbuild finding remain open. Security surface: MEDIUM, documented in `security.md`; release validation must remain fail-closed.
 
 ### 12.35 Release 0.6.0-beta.8
-**Status:** PREPARED (2026-10-20) — 23.4–23.8 (Step photos: delete unused, Not used filter, zoom, brightness/contrast, hide areas), at the owner's request; published once the owner creates the GitHub pre-release.
+**Status:** DONE (2026-10-20) — 23.4–23.8 (Step photos: delete unused, Not used filter, zoom, brightness/contrast, hide areas), at the owner's request.
 
-**Scope:** PR #48 merged as `fc1a0a1`; the release PR points the Unraid template and `unraid.md` to 0.6.0-beta.8.
+**Scope:** PR #48 merged as `fc1a0a1`; PR #49 (Unraid template and `unraid.md` → 0.6.0-beta.8) merged as `8d7c087`.
+
+**Published:** the owner published the GitHub pre-release on 2026-10-20, which created tag `v0.6.0-beta.8` on `8d7c087` (this session cannot push tags). Release workflow `39396551593` succeeded on the first attempt (checks, native amd64/arm64 images, publish). Image index `ghcr.io/crimsonclyde/vergissmeinnicht:0.6.0-beta.8` = `sha256:ef977fca999b5d4ce1b9367046c465960ecc00f8d2378301d4d7973f805ecc73` (amd64 `sha256:694324bf8b79…`, arm64 `sha256:c33e4ec88faf…`). GitHub pre-release: https://github.com/crimsonclyde/vergissmeinnicht/releases/tag/v0.6.0-beta.8.
 
 **Upgrade:** one migration (`0048_step_image_removals`, a new table; nothing existing changes), no new environment variables, no new outbound connection. One new write route (`POST /api/workspaces/:ws/images/:id/delete`, `procedure.edit`), see `security.md` (23.4, 23.8).
 
-**Validation:** PR #48 local checks (lint, typecheck, full test suite 1398 passed, e2e on both projects) and CI passed. Not done here: real phones (pinch-zoom, dragging hidden areas, sliders; the 21.3 bottom bar), a screen reader. Nothing was deployed to the running installation.
+**Validation:** PR #48 local checks (lint, typecheck, full test suite 1398 passed, e2e on both projects) and CI passed; after publishing, `deploy/smoke-test.sh` passed against the pulled amd64 image, and `deploy/upgrade-check.sh` passed from 0.6.0-beta.7 (pre-migration backup written, migration 0048 applied, foreign keys and integrity clean, Workspace backup and restore still work). Not done here: real phones (pinch-zoom, dragging hidden areas, sliders; the 21.3 bottom bar), a screen reader. Nothing was deployed to the running installation.
 
 ### 12.34 Release 0.6.0-beta.7
 **Status:** DONE (2026-10-19) — 23.2 (replace or crop a Step photo everywhere) and 21.3 (iOS bottom bar), at the owner's request once the photo plan (section 23) was complete.
