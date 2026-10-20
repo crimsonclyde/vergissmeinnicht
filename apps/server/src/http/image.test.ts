@@ -195,6 +195,12 @@ describe('instruction images over HTTP (14.3)', () => {
     expect((await t.get(`/api/workspaces/${home}/images?after=bm90LWEtY3Vyc29y`, editor)).statusCode).toBe(400);
     expect((await t.get(`/api/workspaces/${home}/images?q=${'x'.repeat(101)}`, editor)).statusCode).toBe(400);
     expect((await t.get(`/api/workspaces/${home}/images?sort=bytes`, editor)).statusCode).toBe(400);
+    // Not used only (23.5): this photo is used, so it is left out; any other value is refused.
+    const unused = await t.get(`/api/workspaces/${home}/images?unused=1&q=boiler`, editor);
+    expect(unused.statusCode).toBe(200);
+    expect(unused.json()).toEqual({ images: [], next: null });
+    expect((await t.get(`/api/workspaces/${home}/images?unused=true`, editor)).statusCode).toBe(400);
+    expect((await t.get(`/api/workspaces/${home}/images?unused=1`, user)).statusCode).toBe(403);
 
     const uses = await t.get(`/api/workspaces/${home}/images/${image.id}/uses`, editor);
     expect(uses.json().uses).toEqual([expect.objectContaining({ procedureTitle: 'Gallery use', stepTitle: 'Close the main water valve' })]);
@@ -244,6 +250,42 @@ describe('instruction images over HTTP (14.3)', () => {
     expect(after.sections[0].steps[0].image).toEqual({ id: fresh.id, caption: 'Old valve' });
     const started = (await t.get(`/api/workspaces/${home}/runs/${run.id}`, user)).json().run;
     expect(started.sections[0].steps[0].image).toEqual({ id: old.id, caption: 'Old valve' });
+  });
+
+  it('deletes a photo from the gallery for editors only, never one a current Step shows, and Runs keep theirs (23.4)', async () => {
+    const shown = (await upload(home, png(300, 240), editor)).json().image;
+    const procedure = { title: 'Delete use', icon: 'home', sections: [{ title: 'S', steps: [{ ...STEP, image: { id: shown.id, caption: 'Valve' } }] }] };
+    const created = (await t.post(`/api/workspaces/${home}/procedures`, procedure, editor)).json().procedure;
+    const run = (await t.post(`/api/workspaces/${home}/runs`, { procedureId: created.id }, user)).json().run;
+    const remove = (imageId: string, cookie?: string, workspace = home) => t.post(`/api/workspaces/${workspace}/images/${imageId}/delete`, {}, cookie);
+
+    expect((await remove(shown.id, user)).statusCode).toBe(403);
+    expect((await remove(shown.id, guest)).statusCode).toBe(403);
+    expect((await remove(shown.id, outsider)).statusCode).toBe(404);
+    expect((await remove(shown.id)).statusCode).toBe(401);
+    expect((await remove(shown.id, outsider, office)).statusCode).toBe(404);
+    expect((await remove('nope', editor)).statusCode).toBe(400);
+    expect((await t.post(`/api/workspaces/${home}/images/${shown.id}/delete`, { everywhere: true }, editor)).statusCode).toBe(400);
+    const cross = t.app.inject({
+      method: 'POST',
+      url: `/api/workspaces/${home}/images/${shown.id}/delete`,
+      headers: { 'content-type': 'application/json', origin: 'https://evil.example', cookie: editor },
+      payload: '{}',
+    });
+    expect((await cross).statusCode).toBe(403);
+    const inUse = await remove(shown.id, editor);
+    expect(inUse.statusCode).toBe(409);
+    expect(inUse.json()).toEqual({ error: 'image_in_use' });
+
+    // Once no current Step shows it, it leaves the gallery; the Run still shows it.
+    expect((await t.post(`/api/workspaces/${home}/procedures/${created.id}/delete`, {}, editor)).statusCode).toBeLessThan(300);
+    const done = await remove(shown.id, editor);
+    expect(done.statusCode).toBe(200);
+    expect(done.json()).toEqual({ kept: true });
+    const gallery = (await t.get(`/api/workspaces/${home}/images`, editor)).json().images as { id: string }[];
+    expect(gallery.map((photo) => photo.id)).not.toContain(shown.id);
+    expect((await t.get(`/api/workspaces/${home}/runs/${run.id}`, user)).json().run.sections[0].steps[0].image).toEqual({ id: shown.id, caption: 'Valve' });
+    expect((await t.get(`/api/workspaces/${home}/images/${shown.id}`, user)).statusCode).toBe(200);
   });
 
   it('charges images to the combined Workspace storage, whose ceiling only a server admin sets (16.4)', async () => {

@@ -95,6 +95,11 @@ export type ReplaceImageResult =
   | { readonly status: 'ok'; readonly procedures: number; readonly steps: number }
   | { readonly status: 'forbidden' | 'not_found' | 'invalid_reference' };
 
+/** `kept`: a Run snapshot or a deleted Procedure still shows the photo, so it only left the gallery. */
+export type RemoveImageResult =
+  | { readonly status: 'ok'; readonly kept: boolean }
+  | { readonly status: 'forbidden' | 'not_found' | 'in_use' };
+
 export type RegisterImageResult =
   | { readonly status: 'ok'; readonly image: StepImageRecord; readonly usage: ImageUsage }
   | { readonly status: 'forbidden' }
@@ -129,12 +134,12 @@ export interface ImageRepository {
   find(workspaceId: WorkspaceId, imageId: StepImageId): Promise<StepImageRecord | undefined>;
   /**
    * The gallery (23.1): the Workspace's photos a Step may use — referenced by a Step or a Run snapshot,
-   * or uploaded since `pendingSince` — newest first, `limit` per page after `after`. `search` matches
-   * captions and current Step titles (plain text, no wildcards). Nothing when Procedures is switched off.
+   * or uploaded since `pendingSince`, and not deleted from the gallery unless a current Step uses it again (23.4) — newest first, `limit` per page after `after`. `search` matches
+   * captions and current Step titles (plain text, no wildcards); `unused`: only photos no current Step shows (23.5). Nothing when Procedures is switched off.
    */
   gallery(
     workspaceId: WorkspaceId,
-    input: { readonly pendingSince: Date; readonly search: string | null; readonly after: GalleryCursor | null; readonly limit: number },
+    input: { readonly pendingSince: Date; readonly search: string | null; readonly unused: boolean; readonly after: GalleryCursor | null; readonly limit: number },
   ): Promise<{ readonly images: readonly GalleryImage[]; readonly next: GalleryCursor | null }>;
   /**
    * Replace everywhere (23.2): in one IMMEDIATE transaction, every Step of a current (not deleted)
@@ -147,6 +152,13 @@ export interface ImageRepository {
     actor: UserActor,
     guard: ActorGuard,
   ): Promise<ReplaceImageResult>;
+  /**
+   * Delete from the gallery (23.4), in one IMMEDIATE transaction: refused (`in_use`) while a Step of a
+   * current Procedure shows the photo. A photo nothing references is deleted (its file goes with
+   * housekeeping); one a Run snapshot or a deleted Procedure still shows is only marked, so history keeps
+   * it and the gallery leaves it out. One audit event either way.
+   */
+  remove(input: { readonly workspaceId: WorkspaceId; readonly imageId: StepImageId; readonly at: Date }, actor: UserActor, guard: ActorGuard): Promise<RemoveImageResult>;
   /** Current (not deleted) Procedure Steps of the Workspace showing this image, by Procedure title. */
   uses(workspaceId: WorkspaceId, imageId: StepImageId): Promise<readonly ImageUse[]>;
   usage(workspaceId: WorkspaceId, pendingSince: Date): Promise<ImageUsage>;

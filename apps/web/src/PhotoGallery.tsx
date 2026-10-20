@@ -19,29 +19,32 @@ const photoName = (image: GalleryImage) => image.caption ?? t('gallery.untitled'
  * The Workspace's photos as a grid of thumbnails with a search field (23.1): newest first, more on
  * demand. Tapping one calls `onPick`. Only people who may edit Procedures see it (the server checks).
  */
-export function GalleryGrid(props: { workspaceId: string; onPick: (image: GalleryImage) => void; autoFocus?: boolean }) {
+export function GalleryGrid(props: { workspaceId: string; onPick: (image: GalleryImage) => void; autoFocus?: boolean; filter?: boolean; reload?: number }) {
   const searchId = useId();
   const [search, setSearch] = useState('');
-  const [query, setQuery] = useState('');
+  const [typed, setTyped] = useState('');
+  /** *Not used* only (23.5): offered on the Photos page, where unused photos can be deleted. */
+  const [unused, setUnused] = useState(false);
+  const query = `${unused ? 'unused:' : 'all:'}${typed}`;
   /** The answer for `query`; a different query shows as loading until its answer arrives. */
   const [result, setResult] = useState<{ query: string; images: GalleryImage[]; next: string | null; message: string | null } | null>(null);
   const [loadingMore, setLoadingMore] = useState(false);
 
   useEffect(() => {
-    const timer = window.setTimeout(() => setQuery(search.trim()), SEARCH_DELAY_MS);
+    const timer = window.setTimeout(() => setTyped(search.trim()), SEARCH_DELAY_MS);
     return () => window.clearTimeout(timer);
   }, [search]);
 
   useEffect(() => {
     const controller = new AbortController();
-    api.gallery(props.workspaceId, { search: query }, controller.signal).then(
+    api.gallery(props.workspaceId, { search: typed, unused }, controller.signal).then(
       (page) => setResult({ query, images: page.images, next: page.next, message: null }),
       (caught: unknown) => {
         if (!controller.signal.aborted) setResult({ query, images: [], next: null, message: messageFor(caught) });
       },
     );
     return () => controller.abort();
-  }, [props.workspaceId, query]);
+  }, [props.workspaceId, query, typed, unused, props.reload]);
 
   const current = result?.query === query ? result : null;
   const images = current === null || current.message !== null ? null : current.images;
@@ -52,7 +55,7 @@ export function GalleryGrid(props: { workspaceId: string; onPick: (image: Galler
     if (next === null) return;
     setLoadingMore(true);
     try {
-      const page = await api.gallery(props.workspaceId, { search: query, after: next });
+      const page = await api.gallery(props.workspaceId, { search: typed, unused, after: next });
       setResult((known) => (known === null || known.query !== query ? known : { ...known, images: [...known.images, ...page.images], next: page.next }));
     } catch (caught) {
       setResult((known) => (known === null ? known : { ...known, message: messageFor(caught) }));
@@ -69,9 +72,18 @@ export function GalleryGrid(props: { workspaceId: string; onPick: (image: Galler
         </label>
         <input id={searchId} type="search" maxLength={100} value={search} placeholder={t('gallery.search')} autoFocus={props.autoFocus} onChange={(event) => setSearch(event.target.value)} />
       </p>
+      {props.filter === true && (
+        <div className="row home-filter" role="group" aria-label={t('gallery.show')}>
+          {([false, true] as const).map((value) => (
+            <button key={String(value)} type="button" className="quiet" aria-pressed={unused === value} onClick={() => setUnused(value)}>
+              {t(value ? 'gallery.showUnused' : 'gallery.showAll')}
+            </button>
+          ))}
+        </div>
+      )}
       {message !== null && <p role="alert">{message}</p>}
       {images === null && message === null && <p className="muted">{t('common.loading')}</p>}
-      {images !== null && images.length === 0 && <p className="muted">{query === '' ? t('gallery.empty') : t('gallery.noMatch')}</p>}
+      {images !== null && images.length === 0 && <p className="muted">{typed !== '' ? t('gallery.noMatch') : unused ? t('gallery.noneUnused') : t('gallery.empty')}</p>}
       {images !== null && images.length > 0 && (
         <ul className="gallery-grid" aria-label={t('gallery.photos')}>
           {images.map((image) => (
@@ -130,7 +142,7 @@ export function GalleryPicker(props: { workspaceId: string; onPick: (image: Gall
  * it in all of them at once (23.2, SG3). The new photo is uploaded first (checked and re-encoded on the
  * server, like any upload), then a confirmation swaps it in every Step listed. Runs keep the old one.
  */
-function PhotoDetails(props: { workspaceId: string; image: GalleryImage; onClose: () => void; onReplaced: (steps: number) => void }) {
+function PhotoDetails(props: { workspaceId: string; image: GalleryImage; onClose: () => void; onReplaced: (steps: number) => void; onDeleted: () => void }) {
   const dialog = useRef<HTMLDialogElement>(null);
   const file = useRef<HTMLInputElement>(null);
   const headingId = useId();
@@ -143,6 +155,7 @@ function PhotoDetails(props: { workspaceId: string; image: GalleryImage; onClose
   const [replacement, setReplacement] = useState<string | null>(null);
   /** Another photo of the Workspace is being picked as the replacement (no upload). */
   const [picking, setPicking] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   useEffect(() => {
     const element = dialog.current;
     if (element !== null && !element.open) element.showModal();
@@ -215,6 +228,21 @@ function PhotoDetails(props: { workspaceId: string; image: GalleryImage; onClose
     }
   }
 
+  async function confirmDelete() {
+    setBusy(true);
+    setMessage(null);
+    try {
+      await api.deleteImage(props.workspaceId, props.image.id);
+      props.onDeleted();
+      dialog.current?.close();
+    } catch (caught) {
+      setMessage(messageFor(caught));
+      setDeleting(false);
+    } finally {
+      setBusy(false);
+    }
+  }
+
   async function confirmReplace() {
     if (replacement === null) return;
     setBusy(true);
@@ -282,7 +310,33 @@ function PhotoDetails(props: { workspaceId: string; image: GalleryImage; onClose
           </div>
         </div>
       )}
-      {uses !== null && uses.length === 0 && <p>{t('gallery.unused')}</p>}
+      {uses !== null && uses.length === 0 && (
+        <div className="row gallery-unused">
+          <p>{t('gallery.unused')}</p>
+          {!deleting && (
+            <button type="button" className="icon-button" aria-label={t('gallery.delete')} title={t('gallery.delete')} disabled={busy} onClick={() => setDeleting(true)}>
+              <UiIcon name="trash" />
+            </button>
+          )}
+        </div>
+      )}
+      {uses !== null && uses.length === 0 && deleting && (
+        <div className="stack gallery-confirm" role="group" aria-label={t('gallery.delete')}>
+          <p>
+            <strong>{t('gallery.confirmDelete')}</strong>
+            <br />
+            <span className="muted">{t('gallery.deleteKeepsRuns')}</span>
+          </p>
+          <div className="row">
+            <button type="button" disabled={busy} onClick={() => setDeleting(false)}>
+              {t('common.cancel')}
+            </button>
+            <button type="button" className="danger" disabled={busy} onClick={() => void confirmDelete()}>
+              <UiIcon name="trash" /> {t('gallery.deleteShort')}
+            </button>
+          </div>
+        </div>
+      )}
       {used && (
         <>
           <h3>{t('gallery.usedIn')}</h3>
@@ -315,7 +369,7 @@ function PhotoDetails(props: { workspaceId: string; image: GalleryImage; onClose
 export function PhotosPage(props: { workspaceId: string }) {
   const [usage, setUsage] = useState<ImageUsage | null>(null);
   const [open, setOpen] = useState<GalleryImage | null>(null);
-  /** Bumped after a replacement, so the grid loads again. */
+  /** Bumped after a replacement or deletion, so the grid loads again (keeping search and filter). */
   const [version, setVersion] = useState(0);
   const [status, setStatus] = useState<string | null>(null);
   useEffect(() => {
@@ -337,7 +391,7 @@ export function PhotosPage(props: { workspaceId: string }) {
       <p role="status" className={status === null ? 'visually-hidden' : undefined}>
         {status}
       </p>
-      <GalleryGrid key={version} workspaceId={props.workspaceId} onPick={(image) => { setStatus(null); setOpen(image); }} />
+      <GalleryGrid reload={version} filter workspaceId={props.workspaceId} onPick={(image) => { setStatus(null); setOpen(image); }} />
       {open !== null && (
         <PhotoDetails
           key={open.id}
@@ -346,6 +400,10 @@ export function PhotosPage(props: { workspaceId: string }) {
           onClose={() => setOpen(null)}
           onReplaced={(steps) => {
             setStatus(t('gallery.replaced', { count: steps }));
+            setVersion((current) => current + 1);
+          }}
+          onDeleted={() => {
+            setStatus(t('gallery.deleted'));
             setVersion((current) => current + 1);
           }}
         />

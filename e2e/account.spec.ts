@@ -300,6 +300,63 @@ test('first server admin: bootstrap link, account creation, sign-in, Workspace c
   await photoEditor.getByRole('button', { name: 'Cancel' }).click();
   await expect(photoEditor).toHaveCount(0);
   await expect(editor.locator('.step-image-open img')).toHaveCount(1);
+  // Brightness (23.7): one slider, chosen with an icon; the stored photo is brighter, its size unchanged.
+  const meanOf = () =>
+    editor.locator('.step-image-open img').evaluate((img: { naturalWidth: number; naturalHeight: number; complete: boolean }) => {
+      type Context = { drawImage(image: unknown, x: number, y: number): void; getImageData(x: number, y: number, w: number, h: number): { data: ArrayLike<number> } };
+      type Canvas = { width: number; height: number; getContext(kind: '2d'): Context | null };
+      const canvas = (globalThis as unknown as { document: { createElement(tag: 'canvas'): Canvas } }).document.createElement('canvas');
+      canvas.width = img.naturalWidth;
+      canvas.height = img.naturalHeight;
+      const context = canvas.getContext('2d');
+      if (context === null || !img.complete || img.naturalWidth === 0) return 0;
+      context.drawImage(img, 0, 0);
+      const data = context.getImageData(0, 0, canvas.width, canvas.height).data;
+      let sum = 0;
+      for (let i = 0; i < data.length; i += 4) sum += (data[i] ?? 0) + (data[i + 1] ?? 0) + (data[i + 2] ?? 0);
+      return sum / (data.length / 4) / 3;
+    });
+  await expect.poll(meanOf).toBeGreaterThan(0);
+  const darker = await meanOf();
+  await editor.getByRole('button', { name: 'Crop or turn photo' }).click();
+  await photoEditor.getByRole('group', { name: 'Adjust' }).getByRole('button', { name: 'Brightness' }).click();
+  await photoEditor.getByRole('slider', { name: 'Brightness' }).fill('40');
+  await expect(photoEditor.locator('canvas')).toHaveCSS('filter', /brightness\(1\.4\)/);
+  await expectAccessible(page, 'photo editor brightness');
+  await photoEditor.getByRole('button', { name: 'Done' }).click();
+  await expect(photoEditor).toHaveCount(0);
+  await expect.poll(async () => (await meanOf()) > darker + 15).toBe(true);
+  await expect.poll(() => editor.locator('.step-image-open img').evaluate((img: { naturalWidth: number; naturalHeight: number }) => `${img.naturalWidth}×${img.naturalHeight}`)).toBe('226×320');
+  // Hide part of the photo (23.8): the middle becomes coarse flat blocks in the stored photo.
+  const differenceAcross = () =>
+    editor.locator('.step-image-open img').evaluate((img: { naturalWidth: number; naturalHeight: number; complete: boolean }) => {
+      type Context = { drawImage(image: unknown, x: number, y: number): void; getImageData(x: number, y: number, w: number, h: number): { data: ArrayLike<number> } };
+      type Canvas = { width: number; height: number; getContext(kind: '2d'): Context | null };
+      const canvas = (globalThis as unknown as { document: { createElement(tag: 'canvas'): Canvas } }).document.createElement('canvas');
+      canvas.width = img.naturalWidth;
+      canvas.height = img.naturalHeight;
+      const context = canvas.getContext('2d');
+      if (context === null || !img.complete || img.naturalWidth === 0) return -1;
+      context.drawImage(img, 0, 0);
+      // Two points 8 px apart inside the first block of the hidden area (a third in, five twelfths down).
+      const x = Math.ceil(img.naturalWidth / 3) + 2;
+      const y = Math.floor((img.naturalHeight * 5) / 12) + 6;
+      const sum = (px: number) => {
+        const d = context.getImageData(px, y, 1, 1).data;
+        return (d[0] ?? 0) + (d[1] ?? 0) + (d[2] ?? 0);
+      };
+      return Math.abs(sum(x + 8) - sum(x));
+    });
+  await expect.poll(differenceAcross).toBeGreaterThan(8);
+  await editor.getByRole('button', { name: 'Crop or turn photo' }).click();
+  await photoEditor.getByRole('button', { name: 'Hide part of the photo' }).click();
+  await expect(photoEditor.getByRole('group', { name: 'Hidden area 1' })).toBeVisible();
+  await expect(photoEditor).toContainText('Executions that already used the old photo keep it.');
+  await expect(photoEditor.getByRole('button', { name: 'Remove hidden area 1' })).toBeVisible();
+  await expectAccessible(page, 'photo editor hidden area');
+  await photoEditor.getByRole('button', { name: 'Done' }).click();
+  await expect(photoEditor).toHaveCount(0);
+  await expect.poll(async () => { const d = await differenceAcross(); return d >= 0 && d < 5; }).toBe(true);
   await expect(editor.getByText(/Storage of this Workspace: [\d.,]+ (bytes|KB|MB) of 5 GB used\.$/)).toBeVisible(); // one limit for the whole Workspace (16.4)
   // Unapplied Step changes are named, and Save procedure waits for them.
   await expect(builderState).toHaveText(/Step has unapplied changes/);
@@ -322,9 +379,10 @@ test('first server admin: bootstrap link, account creation, sign-in, Workspace c
   // The Workspace's photos (23.1): Step 1's photo can be used again without uploading it.
   await editor.getByRole('button', { name: 'Choose from this Workspace’s photos' }).click();
   const picker = page.getByRole('dialog', { name: 'Choose a photo' });
-  await expect(picker.getByRole('list', { name: 'Photos of this Workspace' }).getByRole('listitem')).toHaveCount(1);
+  // Step 1's photo (newest) and the ones before brightening and hiding (still within their grace).
+  await expect(picker.getByRole('list', { name: 'Photos of this Workspace' }).getByRole('listitem')).toHaveCount(3);
   await expectAccessible(page, 'photo picker');
-  await picker.getByRole('list', { name: 'Photos of this Workspace' }).getByRole('button').click();
+  await picker.getByRole('list', { name: 'Photos of this Workspace' }).getByRole('button').first().click();
   await expect(picker).toHaveCount(0);
   await expect(editor.locator('.step-image-open img')).toHaveCount(1);
   await expect(editor.getByLabel('What the photo shows (Step 2)')).toHaveValue('');
@@ -437,12 +495,37 @@ test('first server admin: bootstrap link, account creation, sign-in, Workspace c
   await expect.poll(() => details.locator('.gallery-photo').evaluate((img: { naturalWidth: number; naturalHeight: number }) => `${img.naturalWidth}×${img.naturalHeight}`)).toBe('320×226');
   // Or with another photo of the Workspace (no upload): back to the earlier one, now unused.
   await details.getByRole('button', { name: 'Replace everywhere with another photo of this Workspace' }).click();
-  await picker.getByRole('list', { name: 'Photos of this Workspace' }).getByRole('button', { name: 'Photo without description' }).click();
+  await picker.getByRole('list', { name: 'Photos of this Workspace' }).getByRole('button', { name: 'Photo without description' }).first().click();
   await expect(picker).toHaveCount(0);
   await confirmReplace.getByRole('button', { name: 'Replace' }).click();
   await expect(page.getByRole('status')).toHaveText('Photo replaced in 1 Step.');
   await photoTile.click();
   await expect.poll(() => details.locator('.gallery-photo').evaluate((img: { naturalWidth: number; naturalHeight: number }) => `${img.naturalWidth}×${img.naturalHeight}`)).toBe('226×320');
+  // The turned photo is now used by no Step: delete it from the gallery (23.4).
+  await details.getByRole('button', { name: 'Close' }).click();
+  // Not used only (23.5): the photos a Step shows are left out.
+  await page.getByRole('searchbox', { name: 'Search photos' }).fill('');
+  const showPhotos = page.getByRole('group', { name: 'Show photos' });
+  await showPhotos.getByRole('button', { name: 'Not used' }).click();
+  await expect(showPhotos.getByRole('button', { name: 'Not used' })).toHaveAttribute('aria-pressed', 'true');
+  await expect(photoTile).toHaveCount(0);
+  const unusedTiles = page.getByRole('list', { name: 'Photos of this Workspace' }).getByRole('button', { name: 'Photo without description' });
+  await expect(unusedTiles.first()).toBeVisible();
+  const unusedBefore = await unusedTiles.count();
+  await unusedTiles.first().click();
+  const unusedDetails = page.getByRole('dialog', { name: 'Photo without description' });
+  await expect(unusedDetails).toContainText('Not used by any Procedure right now.');
+  await unusedDetails.getByRole('button', { name: 'Delete this photo' }).click();
+  const confirmDelete = unusedDetails.getByRole('group', { name: 'Delete this photo' });
+  await expect(confirmDelete).toContainText('Executions that used it keep showing it.');
+  await expectAccessible(page, 'delete photo confirmation');
+  await confirmDelete.getByRole('button', { name: 'Delete', exact: true }).click();
+  await expect(unusedDetails).toHaveCount(0);
+  await expect(page.getByRole('status')).toHaveText('Photo deleted.');
+  await expect(unusedTiles).toHaveCount(unusedBefore - 1);
+  await expect(showPhotos.getByRole('button', { name: 'Not used' })).toHaveAttribute('aria-pressed', 'true');
+  await showPhotos.getByRole('button', { name: 'All' }).click();
+  await photoTile.click();
   await details.getByRole('link', { name: 'Leave the house', exact: true }).click();
 
   const procedure = page.getByRole('article');
@@ -648,6 +731,20 @@ test('first server admin: bootstrap link, account creation, sign-in, Workspace c
   const viewer = page.getByRole('dialog', { name: 'Blue handle on the left window' });
   await expect(viewer.getByRole('img', { name: 'Blue handle on the left window' })).toBeVisible();
   await expectAccessible(page, 'photo viewer');
+  // Zoom (23.6): the buttons, a double tap/click back to the fitted photo, and the keys.
+  const viewerPhoto = viewer.getByRole('img', { name: 'Blue handle on the left window' });
+  const scaleOf = () => viewerPhoto.evaluate((img: { style: { transform: string } }) => /scale\(([\d.]+)\)/.exec(img.style.transform)?.[1] ?? '');
+  await expect(viewer.getByRole('button', { name: 'Zoom out' })).toBeDisabled();
+  await expect.poll(scaleOf).toBe('1');
+  await viewer.getByRole('button', { name: 'Zoom in' }).click();
+  await expect.poll(scaleOf).toBe('2');
+  await expect(viewer.getByRole('button', { name: 'Zoom out' })).toBeEnabled();
+  await viewerPhoto.dblclick();
+  await expect.poll(scaleOf).toBe('1');
+  await page.keyboard.press('+');
+  await expect.poll(scaleOf).toBe('2');
+  await page.keyboard.press('0');
+  await expect.poll(scaleOf).toBe('1');
   await page.keyboard.press('Escape');
   await expect(viewer).toBeHidden();
   await expect(page).toHaveURL(/\/runs\/[0-9a-f-]{36}$/);

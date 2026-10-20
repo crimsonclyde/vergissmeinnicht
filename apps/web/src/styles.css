@@ -1575,6 +1575,53 @@ a.button.primary {
   object-fit: contain;
 }
 
+/* Zoomable photo (23.6): the stage takes the free space; gestures stay on it (no page zoom or scroll). */
+.photo-zoom {
+  position: relative;
+  display: flex;
+  flex: 1;
+  min-height: 0;
+}
+
+.photo-zoom-stage {
+  position: relative;
+  flex: 1;
+  overflow: hidden;
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.photo-zoom-stage.zoomed {
+  cursor: grab;
+}
+
+.image-viewer .photo-zoom-stage img {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  flex: none;
+  width: 100%;
+  height: 100%;
+  max-width: none;
+  object-fit: contain;
+  transform-origin: center;
+  -webkit-user-drag: none;
+}
+
+.photo-zoom-controls {
+  position: absolute;
+  right: 0.75rem;
+  bottom: calc(0.75rem + env(safe-area-inset-bottom));
+  display: flex;
+  gap: 0.5rem;
+}
+
+.photo-zoom-controls .icon-button {
+  background: var(--surface);
+  border: 1px solid var(--border-strong);
+}
+
 /* The Workspace's photos (23.1): a grid of square thumbnails, three across on phones. */
 .gallery-dialog {
   width: min(48rem, calc(100vw - 1rem));
@@ -1660,6 +1707,16 @@ a.button.primary {
   padding-left: 1.25rem;
 }
 
+/* "Not used" with its delete button (23.4): the text takes the room, the button stays at the end. */
+.gallery-unused {
+  flex-wrap: nowrap;
+  justify-content: space-between;
+}
+
+.gallery-unused p {
+  margin: 0;
+}
+
 /* Crop and turn a photo before upload (23.3): the photo fills the free space, tools below it. */
 .photo-editor h2 {
   flex: 1;
@@ -1705,6 +1762,32 @@ a.button.primary {
 .photo-editor-crop:focus-visible {
   outline: 3px solid var(--focus);
   outline-offset: 2px;
+}
+
+/* Hidden areas (23.8): the blocks are drawn on the canvas; the box only marks and moves the area. */
+.photo-editor-hidden {
+  position: absolute;
+  box-sizing: border-box;
+  border: 2px dashed #ffffff;
+  outline: 1px solid rgb(0 0 0 / 60%);
+  cursor: move;
+  touch-action: none;
+}
+
+.photo-editor-hidden.selected {
+  border-style: solid;
+}
+
+.photo-editor-hidden:focus-visible {
+  outline: 3px solid var(--focus);
+  outline-offset: 2px;
+}
+
+.photo-editor-note {
+  margin: 0;
+  padding: 0 1rem;
+  text-align: center;
+  font-size: 0.9rem;
 }
 
 /* 44 px touch targets centred on the corners; the visible mark is the inner square. */

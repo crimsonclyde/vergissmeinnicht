@@ -1,13 +1,13 @@
 import { enabledTool } from './tool-policy.ts';
 import { randomUUID } from 'node:crypto';
 import { and, asc, count, desc, eq, inArray, isNull, lt, or, sql } from 'drizzle-orm';
-import type { GalleryImage, ImageRepository, RegisterImageResult, ReplaceImageResult, StepImageRecord } from '@vergissmeinnicht/application';
+import type { GalleryImage, ImageRepository, RegisterImageResult, RemoveImageResult, ReplaceImageResult, StepImageRecord } from '@vergissmeinnicht/application';
 import { containsPattern, fitsStorage, type StepImageId, type WorkspaceId } from '@vergissmeinnicht/domain';
 import { IMMEDIATE, actorAllowed, type Transaction } from './actor-guard.ts';
 import { recordAuditEvent } from './audit-events.ts';
 import type { AppDatabase } from './connection.ts';
 import { activeIn } from './procedure-repository.ts';
-import { procedureSteps, procedures, runSteps, stepImages } from './schema.ts';
+import { procedureSteps, procedures, runSteps, stepImageRemovals, stepImages } from './schema.ts';
 import { imageReferencedByRun, imageReferencedByStep, storageUsageIn } from './storage-usage.ts';
 
 type Reader = Pick<Transaction, 'select'>;
@@ -36,6 +36,8 @@ function isUnreferenced(tx: Reader, imageId: string): boolean {
 // Steps of current (not deleted) Procedures showing the image.
 const currentSteps = sql`${procedureSteps} join ${procedures} on ${procedures.id} = ${procedureSteps.procedureId} and ${procedures.deletedAt} is null where ${procedureSteps.imageId} = ${stepImages.id}`;
 const stepCount = sql<number>`(select count(*) from ${currentSteps})`;
+// Deleted from the gallery (23.4) and not shown by a current Step again since.
+const removedFromGallery = sql`(exists (select 1 from ${stepImageRemovals} where ${stepImageRemovals.imageId} = ${stepImages.id}) and not exists (select 1 from ${currentSteps}))`;
 const procedureCount = sql<number>`(select count(distinct ${procedureSteps.procedureId}) from ${currentSteps})`;
 // The caption last used: on a current Step of the most recently saved Procedure, else in the latest Run snapshot.
 const lastCaption = sql<string | null>`coalesce(
@@ -114,7 +116,7 @@ export function createImageRepository({ db }: Pick<AppDatabase, 'db'>): ImageRep
           caption: lastCaption,
         })
         .from(stepImages)
-        .where(and(enabledTool(workspaceId, 'PROCEDURES'), eq(stepImages.workspaceId, workspaceId), attachable, matches, after))
+        .where(and(enabledTool(workspaceId, 'PROCEDURES'), eq(stepImages.workspaceId, workspaceId), attachable, sql`not ${removedFromGallery}`, input.unused ? sql`not exists (select 1 from ${currentSteps})` : undefined, matches, after))
         .orderBy(desc(stepImages.createdAt), desc(stepImages.id))
         .limit(input.limit + 1)
         .all();
@@ -174,6 +176,39 @@ export function createImageRepository({ db }: Pick<AppDatabase, 'db'>): ImageRep
           });
         }
         return { status: 'ok', procedures: affected.length, steps };
+      }, IMMEDIATE);
+    },
+
+    async remove(input, actor, guard) {
+      return db.transaction((tx): RemoveImageResult => {
+        if (!actorAllowed(tx, input.workspaceId, actor, guard)) return { status: 'forbidden' };
+        const image = tx
+          .select({ id: stepImages.id, shown: stepCount, referenced: sql<number>`(${imageReferencedByStep} or ${imageReferencedByRun})` })
+          .from(stepImages)
+          .where(and(enabledTool(input.workspaceId, 'PROCEDURES'), eq(stepImages.workspaceId, input.workspaceId), eq(stepImages.id, input.imageId)))
+          .get();
+        if (image === undefined) return { status: 'not_found' };
+        if (Number(image.shown) > 0) return { status: 'in_use' };
+        const kept = Boolean(image.referenced);
+        if (kept) {
+          // Immutable and still shown by history: only the gallery leaves it out (again, if a restored Procedure brought it back).
+          tx.insert(stepImageRemovals)
+            .values({ imageId: image.id, workspaceId: input.workspaceId, removedByUserId: actor.userId, removedAt: input.at })
+            .onConflictDoUpdate({ target: stepImageRemovals.imageId, set: { removedByUserId: actor.userId, removedAt: input.at } })
+            .run();
+        } else {
+          tx.delete(stepImages).where(eq(stepImages.id, image.id)).run();
+        }
+        recordAuditEvent(tx, {
+          workspaceId: input.workspaceId,
+          type: 'STEP_IMAGE_REMOVED',
+          actor,
+          subjectType: 'workspace',
+          subjectId: input.workspaceId,
+          occurredAt: input.at,
+          metadata: { image: image.id, kept },
+        });
+        return { status: 'ok', kept };
       }, IMMEDIATE);
     },
 

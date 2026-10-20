@@ -6,6 +6,7 @@ import { decodeImage, encodeEdited, MAX_UPLOAD_BYTES, originalUpload } from './i
 import { PhotoEditor } from './PhotoEditor.tsx';
 import { GalleryPicker } from './PhotoGallery.tsx';
 import type { PhotoEdit } from './photo-edit.ts';
+import { ZoomablePhoto } from './PhotoZoom.tsx';
 import { UiIcon } from './ui-icons.tsx';
 import { offlineStore } from './offline/store.ts';
 
@@ -86,6 +87,8 @@ export function StepImage(props: { workspaceId: string; image: StepImageRef; off
   const { src, missing } = useImageSource(props.workspaceId, props.image.id, props.offlineUserId);
   const dialog = useRef<HTMLDialogElement>(null);
   const headingId = useId();
+  /** The zoomable photo is mounted only while the viewer is open, so each opening starts fitted (23.6). */
+  const [viewing, setViewing] = useState(false);
   // Back closes the viewer (phones): opening adds a history entry for the same page, and going back
   // closes the dialog; closing it otherwise (Escape, button) removes that entry again.
   useEffect(() => {
@@ -96,10 +99,12 @@ export function StepImage(props: { workspaceId: string; image: StepImageRef; off
     return () => window.removeEventListener('popstate', onBack);
   }, []);
   const openViewer = () => {
+    setViewing(true);
     dialog.current?.showModal();
     window.history.pushState({ [VIEWER_STATE]: true }, '', window.location.href);
   };
   const onViewerClosed = () => {
+    setViewing(false);
     if ((window.history.state as Record<string, unknown> | null)?.[VIEWER_STATE] === true) window.history.back();
   };
   if (missing) {
@@ -123,7 +128,7 @@ export function StepImage(props: { workspaceId: string; image: StepImageRef; off
             {t('image.close')}
           </button>
         </form>
-        {src !== null && <img src={src} alt={props.image.caption === '' ? t('image.noCaption') : props.image.caption} />}
+        {src !== null && viewing && <ZoomablePhoto src={src} alt={props.image.caption === '' ? t('image.noCaption') : props.image.caption} />}
       </dialog>
     </figure>
   );

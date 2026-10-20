@@ -1180,9 +1180,10 @@ const occurrencePath = (workspaceId: string, id: string) => `/workspaces/${encod
 
 export const api = {
   uploadImage,
-  gallery: async (workspaceId: string, options: { search?: string; after?: string | null } = {}, signal?: AbortSignal) => {
+  gallery: async (workspaceId: string, options: { search?: string; unused?: boolean; after?: string | null } = {}, signal?: AbortSignal) => {
     const query = new URLSearchParams();
     if (options.search !== undefined && options.search.trim() !== '') query.set('q', options.search.trim().slice(0, 100));
+    if (options.unused === true) query.set('unused', '1');
     if (options.after != null) query.set('after', options.after);
     const suffix = query.toString() === '' ? '' : `?${query.toString()}`;
     return request<{ images: GalleryImage[]; next: string | null }>('GET', `/workspaces/${encodeURIComponent(workspaceId)}/images${suffix}`, undefined, signal === undefined ? {} : { signal });
@@ -1192,6 +1193,8 @@ export const api = {
   /** Replace everywhere (23.2): every current Procedure Step showing `imageId` gets `replacement`. */
   replaceImage: (workspaceId: string, imageId: string, replacement: string) =>
     request<{ procedures: number; steps: number }>('POST', `/workspaces/${encodeURIComponent(workspaceId)}/images/${encodeURIComponent(imageId)}/replace`, { replacement }),
+  deleteImage: (workspaceId: string, imageId: string) =>
+    request<{ kept: boolean }>('POST', `/workspaces/${encodeURIComponent(workspaceId)}/images/${encodeURIComponent(imageId)}/delete`, {}),
   imageUsage: async (workspaceId: string) => (await request<{ usage: ImageUsage }>('GET', `/workspaces/${encodeURIComponent(workspaceId)}/images/usage`)).usage,
   // Storage (16.4): the Workspace's own view and limit; every Workspace and its ceiling for the server admin.
   workspaceStorage: async (workspaceId: string) => (await request<{ storage: StorageInfo }>('GET', `/workspaces/${encodeURIComponent(workspaceId)}/storage`)).storage,

@@ -1103,6 +1103,24 @@ The CI scan gates found new advisories: `source-map-js` < 1.2.2 (DoS on malforme
 - [x] Token redaction in request logs matches the decoded path with repeated slashes collapsed (`redactUrl`, 21.2): `/%6Bnot/{token}` and `//knot/{token}` are redacted like `/knot/{token}`.
 - [x] **Review trigger:** any future decision that depends on the request path (logging redaction, allow-lists, guards) must use the matched route or a normalised path, never `request.url` as sent.
 
+### Security check: hide part of a Step photo (23.8, 2026-10-20)
+
+**Security surface changed: LOW (privacy aid).** Browser-only; no new route, stored data, dependency or outbound connection.
+
+- [x] **Hidden means gone from the new photo:** areas are replaced on the pixels themselves before the JPEG is made (not by a CSS filter or an overlay), with flat blocks of a quarter of the area's shorter side (≥8 px) — no light blur that could be reversed. Area edges are rounded outwards, so no edge pixel stays visible. The server re-encodes the upload as for every photo. Test: `photo-edit.test.ts`; e2e compares pixels before and after.
+- [x] **No false promise:** an edit creates a new photo; the original stays where it was used (Runs never change). The editor says so while areas exist, and the user guide explains how to replace the old photo everywhere and delete it. A Run that already used the original keeps showing it to whoever may see that Run.
+- [x] **Bounded input:** at most 10 areas, at least 24 px, clamped inside the frame (finite values only).
+
+### Security check: delete a Step photo from the gallery (23.4, 2026-10-20)
+
+**Security surface changed: LOW.** One new write route and one small table (`step_image_removals`); no new capability, credential, dependency or outbound connection.
+
+- [x] **Same permission as replacing a photo:** `POST …/images/:id/delete` (empty strict body) needs `procedure.edit`; USER and GUEST get 403, non-members and other Workspaces 404, and it answers like an unknown resource when Procedures is switched off (route-security sweep). Same-origin `Origin` like every cookie write; own rate limit (60 per 15 minutes per user).
+- [x] **History is never changed:** a photo a current Step shows is refused (409 `image_in_use`, checked inside the IMMEDIATE transaction, so a concurrent save cannot race it). A photo a Run snapshot or a deleted (restorable) Procedure shows is only marked and keeps being served to whoever may see that Run; `step_images` stays immutable and the foreign keys still make deleting a referenced photo impossible. Only an unreferenced photo row is deleted (its file goes with housekeeping).
+- [x] **Atomic and audited:** the deletion or mark and one `STEP_IMAGE_REMOVED` event (actor, time, image id, `kept`) commit together; a failing audit write changes nothing (test).
+- [x] **Not a privacy erase:** deleting from the gallery does not remove a photo from Runs that used it; the UI says so ("Executions that used it keep showing it.").
+- [x] **Backup:** the marks are excluded from Workspace backups with a reason (allowlist test); they hold no secret. Tests: `image-use-cases.test.ts`, `image.test.ts`, `route-security.test.ts`, `workspace-backup-tables.test.ts`.
+
 ### Security check: replace a Step photo everywhere (23.2, 2026-10-19)
 
 **Security surface changed: MEDIUM.** The first bulk change across several Procedures: one new write route; no new capability, stored data type, dependency or outbound connection.

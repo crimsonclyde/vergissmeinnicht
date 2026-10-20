@@ -1,5 +1,13 @@
 import { describe, expect, it } from 'vitest';
 import {
+  adjustLight,
+  hiddenInOutput,
+  MIN_HIDDEN_PIXELS,
+  newHiddenArea,
+  pixelate,
+  clampLight,
+  lightFilter,
+  MAX_LIGHT_PERCENT,
   clampCrop,
   clampStraighten,
   coverScale,
@@ -112,7 +120,7 @@ describe('photo edit geometry (23.3)', () => {
   });
 
   it('turns the crop with the photo, and four turns change nothing', () => {
-    const edit: PhotoEdit = { quarterTurns: 0, straighten: 5, crop: { x: 0.1, y: 0.2, width: 0.3, height: 0.4 } };
+    const edit: PhotoEdit = { ...NO_EDIT, straighten: 5, crop: { x: 0.1, y: 0.2, width: 0.3, height: 0.4 } };
     const right = turn(edit, 1);
     expect(right.quarterTurns).toBe(1);
     expect(right.crop.x).toBeCloseTo(0.4);
@@ -154,5 +162,87 @@ describe('photo edit geometry (23.3)', () => {
     // Image space is centred: the photo's centre (0, 0) is the crop's top-left corner.
     close(apply(0, 0), 0, 0);
     close(apply(200, 150), 200, 150);
+  });
+
+  it('changes brightness and contrast like the CSS filters of the preview (23.7)', () => {
+    expect(clampLight(80)).toBe(MAX_LIGHT_PERCENT);
+    expect(clampLight(-80)).toBe(-MAX_LIGHT_PERCENT);
+    expect(clampLight(Number.NaN)).toBe(0);
+    expect(clampLight(12.6)).toBe(13);
+    expect(lightFilter(NO_EDIT)).toBeUndefined();
+    expect(lightFilter({ brightness: 20, contrast: -10 })).toBe('brightness(1.2) contrast(0.9)');
+    expect(isUnedited({ ...NO_EDIT, brightness: 5 })).toBe(false);
+    // R, G, B, A of two pixels: alpha is never touched.
+    const pixels = new Uint8ClampedArray([100, 128, 250, 7, 0, 64, 200, 255]);
+    adjustLight(pixels, { brightness: 0, contrast: 0 });
+    expect([...pixels]).toEqual([100, 128, 250, 7, 0, 64, 200, 255]);
+    adjustLight(pixels, { brightness: 20, contrast: 0 });
+    expect([...pixels]).toEqual([120, 154, 255, 7, 0, 77, 240, 255]);
+    adjustLight(pixels, { brightness: 0, contrast: 50 });
+    // (v − 128) · 1.5 + 128, clamped
+    expect([...pixels]).toEqual([116, 167, 255, 7, 0, 52, 255, 255]);
+  });
+
+  it('hides areas with coarse blocks that keep nothing of the original detail (23.8)', () => {
+    // A 32 × 32 checkerboard of 1-px black and white pixels: hidden as 8-px blocks, each a flat grey.
+    const width = 32;
+    const pixels = new Uint8ClampedArray(width * width * 4);
+    for (let i = 0; i < width * width; i += 1) {
+      const value = ((i % width) + Math.floor(i / width)) % 2 === 0 ? 0 : 255;
+      pixels.set([value, value, value, 200], i * 4);
+    }
+    const before = pixels.slice();
+    pixelate(pixels, width, { x: 0, y: 0, width: 16, height: 16 });
+    for (let y = 0; y < 16; y += 1) {
+      for (let x = 0; x < 16; x += 1) {
+        const i = (y * width + x) * 4;
+        expect([pixels[i], pixels[i + 1], pixels[i + 2], pixels[i + 3]]).toEqual([128, 128, 128, 200]);
+      }
+    }
+    // Outside the area nothing changed.
+    expect(pixels.slice(16 * 4, 32 * 4)).toEqual(before.slice(16 * 4, 32 * 4));
+    expect(pixels.slice(16 * width * 4)).toEqual(before.slice(16 * width * 4));
+  });
+
+  it('places hidden areas in the output, turns them with the photo and keeps them a minimum size', () => {
+    const frame = { width: 1000, height: 500 };
+    const area = newHiddenArea(NO_EDIT, frame);
+    expect(area.width).toBeCloseTo(1 / 3);
+    expect(area.height).toBeCloseTo(1 / 6);
+    expect(area.x).toBeCloseTo(1 / 3);
+    const edit: PhotoEdit = { ...NO_EDIT, crop: { x: 0.5, y: 0, width: 0.5, height: 1 }, hidden: [{ x: 0.6, y: 0.5, width: 0.2, height: 0.25 }, { x: 0, y: 0, width: 0.1, height: 0.1 }] };
+    // In a 500 × 500 output of the right half: the first area only; the second lies outside the crop.
+    // Whole pixels, grown outwards by at most one pixel (rounding never leaves an edge visible).
+    const covers = (got: { x: number; y: number; width: number; height: number } | undefined, want: { x: number; y: number; width: number; height: number }) => {
+      expect(got).toBeDefined();
+      if (got === undefined) return;
+      expect(got.x).toBeLessThanOrEqual(want.x);
+      expect(got.y).toBeLessThanOrEqual(want.y);
+      expect(got.x).toBeGreaterThanOrEqual(want.x - 1);
+      expect(got.y).toBeGreaterThanOrEqual(want.y - 1);
+      expect(got.x + got.width).toBeGreaterThanOrEqual(want.x + want.width);
+      expect(got.y + got.height).toBeGreaterThanOrEqual(want.y + want.height);
+      expect(got.x + got.width).toBeLessThanOrEqual(want.x + want.width + 1);
+      expect(got.y + got.height).toBeLessThanOrEqual(want.y + want.height + 1);
+    };
+    const inCrop = hiddenInOutput(edit, { width: 500, height: 500 });
+    expect(inCrop).toHaveLength(1);
+    covers(inCrop[0], { x: 100, y: 250, width: 200, height: 125 });
+    const whole = hiddenInOutput(edit, { width: 1000, height: 500 }, true);
+    expect(whole).toHaveLength(2);
+    covers(whole[0], { x: 600, y: 250, width: 200, height: 125 });
+    expect(whole[1]).toEqual({ x: 0, y: 0, width: 100, height: 50 });
+    // A quarter turn moves the hidden areas with the photo (four turns: back where they were).
+    const turned = turn(edit, 1);
+    const near = (got: { x: number; y: number; width: number; height: number } | undefined, want: { x: number; y: number; width: number; height: number }) => {
+      for (const key of ['x', 'y', 'width', 'height'] as const) expect(got?.[key]).toBeCloseTo(want[key]);
+    };
+    near(turned.hidden[0], { x: 0.25, y: 0.6, width: 0.25, height: 0.2 });
+    const back = turn(turn(turn(turned, 1), 1), 1).hidden;
+    edit.hidden.forEach((area, index) => near(back[index], area));
+    // Smaller than the minimum is not possible.
+    const tiny = resizeCrop({ x: 0.5, y: 0.5, width: 0.1, height: 0.1 }, 'se', -1, -1, frame, MIN_HIDDEN_PIXELS);
+    expect(tiny.width * frame.width).toBeCloseTo(MIN_HIDDEN_PIXELS);
+    expect(isUnedited({ ...NO_EDIT, hidden: [area] })).toBe(false);
   });
 });

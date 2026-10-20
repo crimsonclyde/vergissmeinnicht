@@ -8,6 +8,7 @@ import {
   KnotRecordNotFoundError,
   KnotTargetNotFoundError,
   ImageNotFoundError,
+  ImageInUseError,
   DocumentFileNotFoundError,
   DocumentConflictError,
   DocumentLimitReachedError,
@@ -205,6 +206,7 @@ export function errorHandler(error: FastifyError | Error, request: FastifyReques
   if (error instanceof ListLimitReachedError) return reply.code(409).send({ error: 'list_limit_reached' });
   if (error instanceof ListItemLimitReachedError) return reply.code(409).send({ error: 'list_item_limit_reached' });
   if (error instanceof ImageNotFoundError) return reply.code(404).send({ error: 'image_not_found' });
+  if (error instanceof ImageInUseError) return reply.code(409).send({ error: 'image_in_use' });
   // The stable reason only (e.g. heic_unsupported); never anything about the file's content.
   if (error instanceof ImageRejectedError) return reply.code(422).send({ error: 'image_rejected', reason: error.code });
   // A tool that is not switched on does not exist for this Workspace.

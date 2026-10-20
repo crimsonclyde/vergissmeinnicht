@@ -1,5 +1,6 @@
 import {
   IconAlertTriangle,
+  IconAngle,
   IconArrowBackUp,
   IconArrowDown,
   IconArrowLeft,
@@ -7,6 +8,8 @@ import {
   IconArrowUp,
   IconBan,
   IconBell,
+  IconBlur,
+  IconBrightnessUp,
   IconCalendar,
   IconCheck,
   IconChevronDown,
@@ -16,6 +19,7 @@ import {
   IconCloudRain,
   IconCloudSnow,
   IconCloudStorm,
+  IconContrast,
   IconCopy,
   IconCrop,
   IconDatabase,
@@ -56,6 +60,8 @@ import {
   IconUser,
   IconUsers,
   IconX,
+  IconZoomIn,
+  IconZoomOut,
 } from '@tabler/icons-react';
 
 /**
@@ -93,6 +99,12 @@ const ICONS = {
   turnRight: IconRotateClockwise,
   reset: IconRefresh,
   replace: IconReplace,
+  zoomIn: IconZoomIn,
+  zoomOut: IconZoomOut,
+  straighten: IconAngle,
+  brightness: IconBrightnessUp,
+  contrast: IconContrast,
+  blur: IconBlur,
   warning: IconAlertTriangle,
   undo: IconArrowBackUp,
   moveUp: IconArrowUp,
