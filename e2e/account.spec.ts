@@ -2754,9 +2754,9 @@ test('first server admin: bootstrap link, account creation, sign-in, Workspace c
   await expect(page.locator('meta[name="theme-color"]')).toHaveAttribute('content', '#0a0b1a');
   await expectAccessible(page, 'account page (tokyo nights)');
   const floorAnimation = () =>
-    page.evaluate(() => {
-      const view = globalThis as unknown as { document: { body: object }; getComputedStyle(element: object, pseudo: string): { animationName: string } };
-      return view.getComputedStyle(view.document.body, '::after').animationName;
+    page.locator('.city-floor').evaluate((floor) => {
+      const view = globalThis as unknown as { getComputedStyle(element: object): { animationName: string } };
+      return view.getComputedStyle(floor).animationName;
     });
   await page.emulateMedia({ reducedMotion: 'reduce' });
   expect(await floorAnimation()).toBe('none');
