@@ -3,7 +3,8 @@ import { defineConfig } from 'vitest/config';
 export default defineConfig({
   test: {
     include: ['apps/*/src/**/*.test.{ts,tsx}', 'packages/*/src/**/*.test.{ts,tsx}'],
-    // The contrast test reads the real theme tokens (`styles.css?raw`); other CSS stays unprocessed.
-    css: { include: [/apps\/web\/src\/styles\.css/] },
+    // The contrast test reads the real theme tokens (`styles.css?raw`) and the Tokyo Nights surfaces
+    // (`tokyo-nights.css?raw`); other CSS stays unprocessed.
+    css: { include: [/apps\/web\/src\/styles\.css/, /apps\/web\/src\/tokyo-nights\.css/] },
   },
 });

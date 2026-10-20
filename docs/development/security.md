@@ -1103,6 +1103,15 @@ The CI scan gates found new advisories: `source-map-js` < 1.2.2 (DoS on malforme
 - [x] Token redaction in request logs matches the decoded path with repeated slashes collapsed (`redactUrl`, 21.2): `/%6Bnot/{token}` and `//knot/{token}` are redacted like `/knot/{token}`.
 - [x] **Review trigger:** any future decision that depends on the request path (logging redaction, allow-lists, guards) must use the matched route or a normalised path, never `request.url` as sent.
 
+### Security check: Tokyo Nights theme (24.1, 2026-10-20)
+
+**Security surface changed: LOW.** One more allowed value of an existing personal preference; everything else is stylesheet presentation. No new route, dependency, outbound connection or stored data kind.
+
+- [x] **Validated twice:** `theme` is still a strict enum at the API (`z.enum(THEME_PREFERENCES)`; other spellings are 400) and in the database (CHECK, rebuilt in migration 0049 with existing rows copied). Test: `preferences.test.ts`.
+- [x] **No new loading:** the city is inline SVG drawn by the app (`CityScene.tsx`, from a fixed seed, no user data) and the other images are small SVGs bundled into the stylesheet as `data:` URLs (already allowed by `img-src`); no web fonts or remote styles (`style-src`/`font-src 'self'` unchanged). The ring gradient is set through the CSSOM (React `style`), which CSP does not restrict, as before.
+- [x] **Presentation only:** no control is hidden, added or reordered; authorization, confirmations (press and hold for critical Steps), and the irreversible Complete/Abort text buttons are unchanged. Contrast of text on every surface the preset paints is tested (`contrast.test.ts`).
+- [x] **Motion is safe:** nothing flashes faster than three times per second (the one-time wordmark flicker changes only the glow, twice in 1.6 s; the city's signs flicker briefly at most every 7 s, the beacon and the clock colon change once per second or slower); all motion stops under `prefers-reduced-motion`, and the scene is removed under forced colours.
+
 ### Security check: hide part of a Step photo (23.8, 2026-10-20)
 
 **Security surface changed: LOW (privacy aid).** Browser-only; no new route, stored data, dependency or outbound connection.

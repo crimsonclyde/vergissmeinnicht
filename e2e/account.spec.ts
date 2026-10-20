@@ -2747,6 +2747,23 @@ test('first server admin: bootstrap link, account creation, sign-in, Workspace c
   await other.getByRole('button', { name: 'Sign in' }).click();
   await expect(other.locator('html')).toHaveAttribute('data-theme', 'memento-mori');
   await otherBrowser.close();
+  // Tokyo Nights (0.7.0): the neon preset; the city scene moves only when the device allows motion.
+  await page.getByRole('radio', { name: /^Tokyo Nights/ }).check();
+  await expect(html).toHaveAttribute('data-theme', 'tokyo-nights');
+  await expect(page.locator('body')).toHaveCSS('background-color', 'rgb(10, 11, 26)');
+  await expect(page.locator('meta[name="theme-color"]')).toHaveAttribute('content', '#0a0b1a');
+  await expectAccessible(page, 'account page (tokyo nights)');
+  const floorAnimation = () =>
+    page.locator('.city-floor').evaluate((floor) => {
+      const view = globalThis as unknown as { getComputedStyle(element: object): { animationName: string } };
+      return view.getComputedStyle(floor).animationName;
+    });
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  expect(await floorAnimation()).toBe('none');
+  await page.emulateMedia({ reducedMotion: 'no-preference' });
+  expect(await floorAnimation()).toBe('tn-floor');
+  await page.reload();
+  await expect(page.getByRole('radio', { name: /^Tokyo Nights/ })).toBeChecked();
   await page.getByRole('radio', { name: /^System/ }).check();
 
   // Critical Steps without holding (8.7): tap, then confirm; Escape backs out.

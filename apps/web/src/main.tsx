@@ -1,7 +1,9 @@
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { App } from './App.tsx';
+import { CityScene } from './CityScene.tsx';
 import './styles.css';
+import './tokyo-nights.css';
 import { initTheme } from './theme.ts';
 import { watchViewportDrift } from './viewport-drift.ts';
 
@@ -18,6 +20,7 @@ if (!root) throw new Error('Root element #root not found');
 
 createRoot(root).render(
   <StrictMode>
+    <CityScene />
     <App />
   </StrictMode>,
 );

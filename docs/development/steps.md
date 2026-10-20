@@ -4519,6 +4519,27 @@ Owner request (2026-10-18): on- and offboarding are mostly the same procedure, s
 
 ---
 
+## 24 — Tokyo Nights: a neon arcade theme (accepted 2026-10-20, owner; planned for 0.7.0-beta.1)
+
+Owner request (2026-10-20): a new, re-arranged theme "Tokyo Nights", inspired by old arcades and Tron: subtle, smooth neon colours, more images, the latest features (guided Run, livelier Today, photos) shown in a new way; user focused, easy, not cluttered but exciting, moving and animated.
+
+Decisions (defaults chosen 2026-10-20, shown to the owner with screenshots before finishing):
+- **TN1** A named preset next to System / Light / Dark / Memento Mori, chosen in *Settings → Appearance* and saved to the account like the others (8.7). It replaces nothing.
+- **TN2** Presentation only: the same controls, in the same order, with the same names and the same server checks as every theme. The preset may re-arrange how things are laid out (Section tiles as square "levels") and add decoration and motion, never hide or add functions.
+- **TN3** Motion is slow, uses only transform/opacity, never fades text in, and stops entirely when the device asks for less motion (`prefers-reduced-motion`). Forced colours (Windows high contrast) drop the scene and glow.
+- **TN4** Images are small SVGs bundled into the stylesheet (no requests, no new dependency, no web font; CSP unchanged), so they also work offline.
+
+### 24.1 Tokyo Nights theme
+
+**Status:** DONE  
+**Completed:** 2026-10-20  
+**Implemented:** domain `THEME_PREFERENCES` gains `tokyo-nights`; migration **0049** rebuilds `user_preferences` with the wider CHECK (rows kept; the table is personal and not part of the Workspace backup). Web: token block `:root[data-theme='tokyo-nights']` in `styles.css` (deep indigo, neon cyan actions, neon magenta brand, focus yellow) and `tokyo-nights.css` for everything a token cannot say, scoped to the preset: a fixed night-city scene behind every page (`CityScene.tsx`, rendered only while the preset is chosen: stars and a faint aurora, Mount Fuji, a striped sunset sun, a two-layer skyline with Tokyo Tower, lit windows, neon roof rims and signs, a glowing horizon) and a Tron grid floor in perspective reaching from the horizon to the bottom of the screen; the city is generated from a fixed seed, so it looks the same everywhere; glass sidebar and phone bar with neon edges, the current destination in a glowing capsule; cards with a thin neon edge; glowing primary buttons; rings with a neon gradient stroke (`RingPaint`, a shared `<linearGradient>` in `AppShell`, coloured from the theme's tokens) and glowing progress bars. Today: neon eyebrow and greeting; *Pick up where you left off* as an arcade screen (scanlines, a horizon grid, a rotating neon frame); card-title icons as small neon signs; *All clear* with the sun rising over a grid. Guided Run: Sections as square level tiles (two per row on phones; *Next* glowing pink with a centred badge; finished tiles glow green); each Step as an arcade screen with scanlines; cheer text glows; the finish screen gets the sun and neon-pixel confetti. *Clock & date* (19.3) as a flip clock: each digit on its own tile with a split line, a changed digit flips in (digits are keyed by value, so only the changed tile animates), the colon blinks gently and a neon bar fills over the running minute; other themes still show plain text (owner request 2026-10-20). Motion (only without reduced motion): the grid floor runs towards the viewer, the tower's beacon blinks, two signs flicker now and then, some windows switch, a shooting star crosses the sky every few seconds, the cabinet frame turns slowly, the wordmark's glow flickers on once, the next level and *Continue* breathe. *Settings → Appearance* now shows every theme as a small picture (page, card, main button) with its name and one line; the browser bar colour (`theme-color`) follows the chosen theme.  
+**Tests/checks:** `contrast.test.ts` (Tokyo Nights defines every token and meets every pair; text on the surfaces the preset paints itself — cabinet, level tiles, finished tile, *Next* badge, all-clear, finish and the flip-clock tiles — meets 4.5:1, and those colours are checked to still be in the stylesheet), `theme.test.ts`, `preferences.test.ts` (accepted; spellings `Tokyo Nights`/`tokyo_nights` refused; the database CHECK refuses an unknown theme past the API), database migration and upgrade tests; e2e (account flow): choose Tokyo Nights, page colour and `theme-color`, axe, the floor animation is `none` under reduced motion and runs otherwise, the choice survives a reload. Screenshots at 1440, 390 and 320 px (Today, Run Sections and Step, Procedures, Lists, Maintenance, Appearance, sign-in), no sideways scroll: `/mnt/project-files/ui-review/2026-10-20-tokyo-nights/` (project share, not in the repository). `pnpm lint`, `pnpm typecheck`.  
+**Security impact:** LOW — one more allowed value of an existing personal preference (validated by the API and by the database), plus stylesheet-only presentation. **Security docs updated:** YES ("Security check: Tokyo Nights theme (24.1)").  
+**Remaining:** real-phone check (smoothness of the moving floor and the glass bars on older phones, iPhone Safari's bottom bar); the Procedure builder and dialogs use the preset's colours and edges but no special arrangement; no sounds.
+
+---
+
 
 ## 11 — Licensing
 

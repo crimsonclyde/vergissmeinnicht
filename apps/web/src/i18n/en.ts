@@ -578,6 +578,8 @@ export const en = {
   'appearance.darkHint': 'Always dark: black and grey with red accents.',
   'appearance.memento-mori': 'Memento Mori',
   'appearance.memento-moriHint': 'Pure black, bone-white text and deep crimson accents.',
+  'appearance.tokyo-nights': 'Tokyo Nights',
+  'appearance.tokyo-nightsHint': 'A neon city at night, like the old arcades: glowing colours, gentle motion.',
   'criticalConfirm.legend': 'Critical Steps',
   'criticalConfirm.intro': 'Critical Steps need a deliberate confirmation so they are not marked done by accident.',
   'criticalConfirm.hold': 'Press and hold',

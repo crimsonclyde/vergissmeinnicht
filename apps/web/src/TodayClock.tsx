@@ -38,8 +38,22 @@ export function ClockCard({ hour24 }: { hour24: boolean }) {
     <section className="card today-card today-clock" aria-label={t('today.clock')} data-card="clock">
       <time dateTime={now.toISOString().slice(0, 16)}>
         <span className="today-clock-time" aria-hidden="true">
-          {time}
+          {/* Each digit is its own tile, keyed by its value: a changed digit is a new tile, which a theme
+              may animate (Tokyo Nights flips it in). Other themes show plain text. */}
+          {[...time].map((character, index) =>
+            /\d/.test(character) ? (
+              <span key={`${index}-${character}`} className="clock-digit">
+                {character}
+              </span>
+            ) : (
+              <span key={`s${index}`} className="clock-sep">
+                {character}
+              </span>
+            ),
+          )}
         </span>
+        {/* The running minute as a thin bar (only drawn by themes that want it); restarts with each minute. */}
+        <span key={now.getTime()} className="clock-minute" aria-hidden="true" style={{ animationDelay: `-${now.getSeconds() + now.getMilliseconds() / 1000}s` }} />
         <span className="today-clock-date" aria-hidden="true">
           {date}
         </span>

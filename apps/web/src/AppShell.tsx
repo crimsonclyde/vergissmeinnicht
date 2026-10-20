@@ -26,6 +26,7 @@ import { ProcedureBuilder } from './ProcedureBuilder.tsx';
 import { Procedures } from './Procedures.tsx';
 import { Reminders } from './Reminders.tsx';
 import { ACCOUNT_SECTIONS, Link, navigate, paths, type Route } from './router.tsx';
+import { RingPaint } from './RunGuide.tsx';
 import { Runs } from './Runs.tsx';
 import { SettingsLayout } from './SettingsLayout.tsx';
 import { SettingsMenu } from './SettingsMenu.tsx';
@@ -463,6 +464,7 @@ export function AppShell(props: { user: CurrentUser; route: Route; onSignOut: ()
 
   return (
     <PreferencesProvider>
+      <RingPaint />
       <a
         className="skip-link"
         href="#main"
