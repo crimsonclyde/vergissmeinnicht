@@ -4374,7 +4374,7 @@ A greeting with the person's name and the date, and a ring for today's progress 
 
 ---
 
-## 23 — Step photos: Workspace gallery, replace everywhere, crop and rotate (planned 2026-10-18; SG3 confirmed by the owner 2026-10-18; 23.1–23.5 done; 23.6–23.8 accepted by the owner 2026-10-20)
+## 23 — Step photos: Workspace gallery, replace everywhere, crop and rotate (planned 2026-10-18; SG3 confirmed by the owner 2026-10-18; 23.1–23.6 done; 23.7–23.8 accepted by the owner 2026-10-20)
 
 Owner request (2026-10-18): on- and offboarding are mostly the same procedure, so the same photos are needed again; reuse photos that already exist in the Workspace instead of taking new ones, replace photos from a gallery, and crop or rotate a photo after taking it.
 
@@ -4477,8 +4477,12 @@ Owner request (2026-10-18): on- and offboarding are mostly the same procedure, s
 
 ### 23.6 Zoom in the photo viewer
 
-**Status:** PLANNED (owner accepted 2026-10-20)  
-The full-screen photo viewer (Steps, Runs, gallery details) zooms: pinch and double-tap on phones, +/− and keyboard on desktop, drag to move when zoomed, reset on close. Shows the stored photo (≤1600 px), so no new route or size. Own pointer-event code like the editor (SG5). Tests: unit tests for the zoom/pan limits; e2e: double-tap/+ zooms, Escape and Back still close; real-phone check (iOS Safari must not zoom the page). Security impact: NONE.
+**Status:** DONE (real-phone check open)  
+**Completed:** 2026-10-20  
+**Planned (owner accepted 2026-10-20):** the full-screen photo viewer (Steps, Runs, gallery details) zooms: pinch and double-tap on phones, +/− and keyboard on desktop, drag to move when zoomed, reset on close. Shows the stored photo (≤1600 px), so no new route or size. Own pointer-event code like the editor (SG5). Tests: unit tests for the zoom/pan limits; e2e: double-tap/+ zooms, Escape and Back still close; real-phone check (iOS Safari must not zoom the page). Security impact: NONE.  
+**Implemented:** `apps/web/src/photo-zoom.ts` (pure: fit, scale 1–4×, pan limited so no empty border appears where the photo is larger than the screen, zoom around the finger/pointer, double-tap toggle 1× ↔ 2×) and `apps/web/src/PhotoZoom.tsx` (`ZoomablePhoto`: pointer events for pinch, drag and double tap; the wheel zooms around the pointer; keys + / − / 0 and arrows; **Zoom out** / **Zoom in** icon buttons at the bottom right; `touch-action: none` and `gesturestart` stopped so iOS does not zoom the page). Used by the full-screen viewer of Step and Run photos (`StepImage.tsx`); mounted only while the viewer is open, so every opening starts fitted. The gallery details keep their plain larger photo (not in scope after all: they are for managing, and the Step viewer covers looking closely). No new route, no new size.  
+**Tests/checks:** `photo-zoom.test.ts` (5 tests: fit, scale limits incl. NaN, pan limits per axis, the point under the finger stays put, double-tap toggle); e2e (both projects): Zoom out disabled when fitted, Zoom in → 2×, double click → 1×, + → 2×, 0 → 1×, Escape still closes; `pnpm lint`, `pnpm typecheck`.  
+**Security impact:** NONE (presentation only). **Remaining:** real-phone check (pinch on iPhone Safari and Android Chrome; the page itself must not zoom).
 
 ### 23.7 Brightness and contrast in the photo editor
 

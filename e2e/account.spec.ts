@@ -673,6 +673,20 @@ test('first server admin: bootstrap link, account creation, sign-in, Workspace c
   const viewer = page.getByRole('dialog', { name: 'Blue handle on the left window' });
   await expect(viewer.getByRole('img', { name: 'Blue handle on the left window' })).toBeVisible();
   await expectAccessible(page, 'photo viewer');
+  // Zoom (23.6): the buttons, a double tap/click back to the fitted photo, and the keys.
+  const viewerPhoto = viewer.getByRole('img', { name: 'Blue handle on the left window' });
+  const scaleOf = () => viewerPhoto.evaluate((img: { style: { transform: string } }) => /scale\(([\d.]+)\)/.exec(img.style.transform)?.[1] ?? '');
+  await expect(viewer.getByRole('button', { name: 'Zoom out' })).toBeDisabled();
+  await expect.poll(scaleOf).toBe('1');
+  await viewer.getByRole('button', { name: 'Zoom in' }).click();
+  await expect.poll(scaleOf).toBe('2');
+  await expect(viewer.getByRole('button', { name: 'Zoom out' })).toBeEnabled();
+  await viewerPhoto.dblclick();
+  await expect.poll(scaleOf).toBe('1');
+  await page.keyboard.press('+');
+  await expect.poll(scaleOf).toBe('2');
+  await page.keyboard.press('0');
+  await expect.poll(scaleOf).toBe('1');
   await page.keyboard.press('Escape');
   await expect(viewer).toBeHidden();
   await expect(page).toHaveURL(/\/runs\/[0-9a-f-]{36}$/);

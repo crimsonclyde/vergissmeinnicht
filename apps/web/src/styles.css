@@ -1575,6 +1575,53 @@ a.button.primary {
   object-fit: contain;
 }
 
+/* Zoomable photo (23.6): the stage takes the free space; gestures stay on it (no page zoom or scroll). */
+.photo-zoom {
+  position: relative;
+  display: flex;
+  flex: 1;
+  min-height: 0;
+}
+
+.photo-zoom-stage {
+  position: relative;
+  flex: 1;
+  overflow: hidden;
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.photo-zoom-stage.zoomed {
+  cursor: grab;
+}
+
+.image-viewer .photo-zoom-stage img {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  flex: none;
+  width: 100%;
+  height: 100%;
+  max-width: none;
+  object-fit: contain;
+  transform-origin: center;
+  -webkit-user-drag: none;
+}
+
+.photo-zoom-controls {
+  position: absolute;
+  right: 0.75rem;
+  bottom: calc(0.75rem + env(safe-area-inset-bottom));
+  display: flex;
+  gap: 0.5rem;
+}
+
+.photo-zoom-controls .icon-button {
+  background: var(--surface);
+  border: 1px solid var(--border-strong);
+}
+
 /* The Workspace's photos (23.1): a grid of square thumbnails, three across on phones. */
 .gallery-dialog {
   width: min(48rem, calc(100vw - 1rem));

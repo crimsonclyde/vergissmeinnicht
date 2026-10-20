@@ -56,6 +56,8 @@ import {
   IconUser,
   IconUsers,
   IconX,
+  IconZoomIn,
+  IconZoomOut,
 } from '@tabler/icons-react';
 
 /**
@@ -93,6 +95,8 @@ const ICONS = {
   turnRight: IconRotateClockwise,
   reset: IconRefresh,
   replace: IconReplace,
+  zoomIn: IconZoomIn,
+  zoomOut: IconZoomOut,
   warning: IconAlertTriangle,
   undo: IconArrowBackUp,
   moveUp: IconArrowUp,
