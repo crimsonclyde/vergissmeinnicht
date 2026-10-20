@@ -4374,7 +4374,7 @@ A greeting with the person's name and the date, and a ring for today's progress 
 
 ---
 
-## 23 — Step photos: Workspace gallery, replace everywhere, crop and rotate (planned 2026-10-18; SG3 confirmed by the owner 2026-10-18; 23.1–23.7 done; 23.8 accepted by the owner 2026-10-20)
+## 23 — Step photos: Workspace gallery, replace everywhere, crop and rotate (planned 2026-10-18; SG3 confirmed by the owner 2026-10-18; 23.1–23.8 done)
 
 Owner request (2026-10-18): on- and offboarding are mostly the same procedure, so the same photos are needed again; reuse photos that already exist in the Workspace instead of taking new ones, replace photos from a gallery, and crop or rotate a photo after taking it.
 
@@ -4495,8 +4495,12 @@ Owner request (2026-10-18): on- and offboarding are mostly the same procedure, s
 
 ### 23.8 Blur part of a photo
 
-**Status:** PLANNED (owner accepted 2026-10-20; owner chose it although it is close to the annotations of 14.5, which stay not planned — this is hiding, not drawing)  
-In the 23.3 editor: drag a rectangle (or several) to hide a serial number, address or face. The area is replaced by coarse pixel blocks computed from the area's average colour (not a reversible light blur), before upload. Like every edit it creates a new photo; **the original stays wherever it was used before** — Runs keep it (history is never changed), and in the gallery it can be replaced everywhere (23.2) and then deleted (23.4). The editor says this in one line. Tests: unit test that no pixel of the hidden area equals the original's; e2e: hidden area stored blurred. Security impact: LOW (privacy aid; must not suggest that earlier copies are gone) — add a security.md check when built.
+**Status:** DONE (real-phone check open)  
+**Completed:** 2026-10-20  
+**Planned (owner accepted 2026-10-20; owner chose it although it is close to the annotations of 14.5, which stay not planned — this is hiding, not drawing):** in the 23.3 editor: drag a rectangle (or several) to hide a serial number, address or face. The area is replaced by coarse pixel blocks computed from the area's average colour (not a reversible light blur), before upload. Like every edit it creates a new photo; **the original stays wherever it was used before** — Runs keep it (history is never changed), and in the gallery it can be replaced everywhere (23.2) and then deleted (23.4). The editor says this in one line. Tests: unit test that no pixel of the hidden area equals the original's; e2e: hidden area stored blurred. Security impact: LOW (privacy aid; must not suggest that earlier copies are gone) — add a security.md check when built.  
+**Implemented:** `PhotoEdit.hidden` (up to 10 rectangles in frame fractions, at least 24 px; turned with the photo like the crop). `pixelate` replaces each block of an area by the block's average colour, blocks a quarter of the area's shorter side (≥8 px) — a few flat patches, nothing readable; `hiddenInOutput` maps areas into the output in whole pixels grown outwards (an edge pixel is never left out) and drops areas outside the crop; `finishPixels` applies light and hidden areas on the pixels before the JPEG is made (`encodeEdited`), and the preview canvas shows the same blocks. Editor: **Hide part of the photo** (icon) adds an area in the middle of the crop, selected, with corner handles; drag or arrow keys move it, Shift+arrows size it, Delete/Backspace or **Remove hidden area n** removes it; **Reset** clears everything. While areas exist the editor says "Hidden areas are blocked out in the new photo. Executions that already used the old photo keep it." The original is never changed on the server: as with every edit a new photo is uploaded (re-encoded, metadata removed); the old one stays for Runs and can be replaced everywhere (23.2) and deleted (23.4).  
+**Tests/checks:** `photo-edit.test.ts` (a 1-px checkerboard becomes flat grey blocks, alpha and the outside untouched; areas in output pixels for crop and whole frame, never smaller than the area; four turns bring areas back; minimum size; a hidden area counts as an edit); e2e (desktop): two points inside the area differ before and are equal (± JPEG noise) after hiding; the note, the area group and its remove button, axe; `pnpm lint`, `pnpm typecheck`.  
+**Security impact:** LOW. **Security docs updated:** YES ("Security check: hide part of a Step photo (23.8)"). **Remaining:** real-phone check (dragging small areas on iPhone and Android); no free-form shapes.
 
 ### Order
 

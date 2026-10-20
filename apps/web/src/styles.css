@@ -1764,6 +1764,32 @@ a.button.primary {
   outline-offset: 2px;
 }
 
+/* Hidden areas (23.8): the blocks are drawn on the canvas; the box only marks and moves the area. */
+.photo-editor-hidden {
+  position: absolute;
+  box-sizing: border-box;
+  border: 2px dashed #ffffff;
+  outline: 1px solid rgb(0 0 0 / 60%);
+  cursor: move;
+  touch-action: none;
+}
+
+.photo-editor-hidden.selected {
+  border-style: solid;
+}
+
+.photo-editor-hidden:focus-visible {
+  outline: 3px solid var(--focus);
+  outline-offset: 2px;
+}
+
+.photo-editor-note {
+  margin: 0;
+  padding: 0 1rem;
+  text-align: center;
+  font-size: 0.9rem;
+}
+
 /* 44 px touch targets centred on the corners; the visible mark is the inner square. */
 .photo-editor-handle {
   position: absolute;

@@ -1103,6 +1103,14 @@ The CI scan gates found new advisories: `source-map-js` < 1.2.2 (DoS on malforme
 - [x] Token redaction in request logs matches the decoded path with repeated slashes collapsed (`redactUrl`, 21.2): `/%6Bnot/{token}` and `//knot/{token}` are redacted like `/knot/{token}`.
 - [x] **Review trigger:** any future decision that depends on the request path (logging redaction, allow-lists, guards) must use the matched route or a normalised path, never `request.url` as sent.
 
+### Security check: hide part of a Step photo (23.8, 2026-10-20)
+
+**Security surface changed: LOW (privacy aid).** Browser-only; no new route, stored data, dependency or outbound connection.
+
+- [x] **Hidden means gone from the new photo:** areas are replaced on the pixels themselves before the JPEG is made (not by a CSS filter or an overlay), with flat blocks of a quarter of the area's shorter side (≥8 px) — no light blur that could be reversed. Area edges are rounded outwards, so no edge pixel stays visible. The server re-encodes the upload as for every photo. Test: `photo-edit.test.ts`; e2e compares pixels before and after.
+- [x] **No false promise:** an edit creates a new photo; the original stays where it was used (Runs never change). The editor says so while areas exist, and the user guide explains how to replace the old photo everywhere and delete it. A Run that already used the original keeps showing it to whoever may see that Run.
+- [x] **Bounded input:** at most 10 areas, at least 24 px, clamped inside the frame (finite values only).
+
 ### Security check: delete a Step photo from the gallery (23.4, 2026-10-20)
 
 **Security surface changed: LOW.** One new write route and one small table (`step_image_removals`); no new capability, credential, dependency or outbound connection.
