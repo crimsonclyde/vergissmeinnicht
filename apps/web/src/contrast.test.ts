@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import css from './styles.css?raw';
+import scene from './tokyo-nights.css?raw';
 
 /** Token values of one `selector { … }` block of the stylesheet. */
 function tokens(selector: string): Record<string, string> {
@@ -27,6 +28,7 @@ const themes = {
   light,
   dark: { ...light, ...tokens(":root[data-theme='dark']") },
   'memento-mori': { ...light, ...tokens(":root[data-theme='memento-mori']") },
+  'tokyo-nights': { ...light, ...tokens(":root[data-theme='tokyo-nights']") },
 };
 
 /** [foreground, background, minimum]: 4.5 for text (WCAG AA), 3 for non-text UI such as borders and focus rings. */
@@ -88,11 +90,48 @@ const PAIRS: readonly [string, string, number][] = [
   ['focus', 'surface-raised', 4.5],
 ];
 
+/*
+ * Tokyo Nights paints a few of its own surfaces (tokyo-nights.css): the arcade card on Today, the level
+ * tiles and the "all clear" card. Text on them must meet the same minimum as on the token surfaces.
+ */
+const TOKYO_SURFACES: readonly [string, string, number][] = [
+  // Pick up where you left off: muted text, the pink eyebrow and the cyan ring numbers on the cabinet.
+  ['text-muted', '#1d1446', 4.5],
+  ['brand', '#1d1446', 4.5],
+  ['accent', '#1d1446', 4.5],
+  ['text', '#1d1446', 4.5],
+  // Level tiles: text and score on the tile, finished tile.
+  ['text', '#191c3c', 4.5],
+  ['text-muted', '#191c3c', 4.5],
+  ['text', '#0f3329', 4.5],
+  ['state-done', '#0f3329', 4.5],
+  // The NEXT badge: dark text on the brand pink.
+  ['#14031a', 'brand', 4.5],
+  // All clear and the finish screen.
+  ['text', '#181443', 4.5],
+  ['text-muted', '#181443', 4.5],
+  ['#f4f1ff', '#1b1442', 4.5],
+  // The greeting on the page.
+  ['#f4f1ff', 'bg', 4.5],
+];
+
 describe('theme contrast (WCAG AA)', () => {
+  it('tokyo-nights: text on the surfaces the preset paints itself meets its minimum', () => {
+    const values = themes['tokyo-nights'];
+    const colour = (key: string): string => (key.startsWith('#') ? key : (values[key] ?? 'missing'));
+    const failures = TOKYO_SURFACES.flatMap(([fg, bg, min]) => {
+      // The fixed colours must still be the ones in the stylesheet, or this check would test nothing.
+      for (const fixed of [fg, bg].filter((key) => key.startsWith('#'))) if (!scene.includes(fixed)) return [`${fixed} is no longer in tokyo-nights.css`];
+      const ratio = contrast(colour(fg), colour(bg));
+      return ratio >= min ? [] : [`${fg} on ${bg}: ${ratio.toFixed(2)} < ${min}`];
+    });
+    expect(failures).toEqual([]);
+  });
+
   it('reads every theme token block from the stylesheet, each complete', () => {
     expect(Object.keys(light).length).toBeGreaterThanOrEqual(24);
     // Presets must define every colour token themselves (no accidental fallback to light values).
-    for (const selector of [":root[data-theme='dark']", ":root[data-theme='memento-mori']"]) {
+    for (const selector of [":root[data-theme='dark']", ":root[data-theme='memento-mori']", ":root[data-theme='tokyo-nights']"]) {
       expect(Object.keys(tokens(selector)).sort()).toEqual(Object.keys(light).sort());
     }
   });

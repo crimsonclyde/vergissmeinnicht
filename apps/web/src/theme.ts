@@ -13,7 +13,7 @@ export const THEME_MODES = THEME_PREFERENCES;
 export type ThemeMode = ThemePreference;
 
 /** Theme ids = `data-theme` values; each has a token block (incl. `color-scheme`) in styles.css. */
-export const THEMES = ['light', 'dark', 'memento-mori'] as const;
+export const THEMES = ['light', 'dark', 'memento-mori', 'tokyo-nights'] as const;
 export type ThemeId = (typeof THEMES)[number];
 
 const STORAGE_KEY = 'vmn.theme';
@@ -56,6 +56,9 @@ function systemPrefersDark(): boolean {
 
 function apply(): void {
   document.documentElement.dataset.theme = resolveTheme(currentMode, systemPrefersDark());
+  // The phone's browser bar takes the page colour of the theme.
+  const bg = getComputedStyle(document.documentElement).getPropertyValue('--bg').trim();
+  if (bg !== '') document.querySelector('meta[name="theme-color"]')?.setAttribute('content', bg);
 }
 
 /** Called once before the first render so the page never shows the wrong theme. */

@@ -15,9 +15,9 @@ export function AppearanceSettings() {
         {t('appearance.savedToAccount')}
       </p>
       {message !== null && <p role="alert">{message}</p>}
-      <div className="stack">
+      <div className="theme-options">
         {THEME_MODES.map((value) => (
-          <label key={value} className="row" style={{ fontWeight: 400 }}>
+          <label key={value} className="theme-option">
             <input
               type="radio"
               name="theme"
@@ -28,8 +28,17 @@ export function AppearanceSettings() {
                 update({ theme: value }).catch((caught: unknown) => setMessage(messageFor(caught)));
               }}
             />
-            <span>
-              <strong>{t(`appearance.${value}`)}</strong> — {t(`appearance.${value}Hint`)}
+            {/* A small picture of the theme: page, a card, the main button and the brand colour. */}
+            <span className="theme-swatch" data-swatch={value} aria-hidden="true">
+              <span className="theme-swatch-card">
+                <span className="theme-swatch-line" />
+                <span className="theme-swatch-line theme-swatch-short" />
+                <span className="theme-swatch-button" />
+              </span>
+            </span>
+            <span className="theme-option-text">
+              <strong>{t(`appearance.${value}`)}</strong>
+              <small className="muted">{t(`appearance.${value}Hint`)}</small>
             </span>
           </label>
         ))}

@@ -118,6 +118,43 @@
   --overlay: rgb(0 0 0 / 65%);
 }
 
+:root[data-theme='tokyo-nights'] {
+  /*
+   * Named preset "Tokyo Nights" (0.7.0): a city at night in the style of old arcades and Tron —
+   * deep indigo, neon cyan for actions, neon magenta for the brand. The scene, glow and motion live
+   * in tokyo-nights.css; these are the semantic tokens every component already uses.
+   */
+  color-scheme: dark;
+  --bg: #0a0b1a;
+  --surface: #13152c;
+  --surface-muted: #1d2042;
+  --surface-raised: #181b38;
+  --text: #e8ebff;
+  --text-muted: #a6aedb;
+  --border: #2a2f5e;
+  --border-strong: #6d77c4;
+  --accent: #35e6ff;
+  --accent-text: #070818;
+  --accent-soft: #0f2c45;
+  --danger: #ff6f91;
+  --focus: #ffe45e;
+  --brand: #ff5ccd;
+  --link: #8fdcff;
+  --on-pending: #0a0b1a;
+  --state-pending: #ff6f91;
+  --state-pending-bg: #361329;
+  --state-done: #4ff5a8;
+  --state-done-bg: #0d2e26;
+  --state-done-text: #04120c;
+  --state-skipped: #ffc46b;
+  --state-skipped-bg: #33250f;
+  --state-na: #bcc3ee;
+  --state-na-bg: #242849;
+  --shadow: none;
+  --shadow-raised: 0 12px 36px rgb(0 0 0 / 65%);
+  --overlay: rgb(4 5 18 / 72%);
+}
+
 /* Before the script sets a theme (and without JavaScript), follow the system for the page background. */
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme]) {
@@ -5519,4 +5556,136 @@ a.button.today-hero-go {
   .today-calm-mark {
     animation: guide-rise 300ms ease-out;
   }
+}
+
+/* ---- Appearance: the themes as small pictures (Settings → Appearance) ------------------------ */
+
+.theme-options {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 9rem), 1fr));
+  gap: 0.75rem;
+}
+
+.theme-option {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+  padding: 0.6rem 0.6rem 0.75rem;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: var(--surface);
+  font-weight: 400;
+  cursor: pointer;
+}
+
+/* The chosen theme: a heavy outline and the radio's own check (never colour alone). */
+.theme-option:has(input:checked) {
+  border: 2px solid var(--accent);
+  padding: calc(0.6rem - 1px) calc(0.6rem - 1px) calc(0.75rem - 1px);
+}
+
+.theme-option:has(input:focus-visible) {
+  outline: 3px solid var(--focus);
+  outline-offset: 2px;
+}
+
+.theme-option input {
+  position: absolute;
+  top: 1.1rem;
+  right: 1.1rem;
+  width: 1.25rem;
+  height: 1.25rem;
+  margin: 0;
+}
+
+.theme-option-text {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+}
+
+.theme-option-text small {
+  line-height: 1.35;
+}
+
+/*
+ * The pictures show each theme's own colours, so they are the one place with fixed theme colours
+ * outside the token blocks (they must look the same whichever theme is active).
+ */
+.theme-swatch {
+  --sw-bg: #ffffff;
+  --sw-surface: #f6f5f2;
+  --sw-line: #8c8880;
+  --sw-accent: #8b1020;
+  display: flex;
+  align-items: flex-end;
+  height: 4.75rem;
+  padding: 0.6rem;
+  border-radius: 10px;
+  background: var(--sw-bg);
+  box-shadow: inset 0 0 0 1px rgb(127 127 127 / 35%);
+  overflow: hidden;
+}
+
+.theme-swatch[data-swatch='dark'] {
+  --sw-bg: #0e0e10;
+  --sw-surface: #17171a;
+  --sw-line: #71717c;
+  --sw-accent: #a3172b;
+}
+
+.theme-swatch[data-swatch='memento-mori'] {
+  --sw-bg: #000000;
+  --sw-surface: #0c0a0a;
+  --sw-line: #7d7272;
+  --sw-accent: #e0343f;
+}
+
+.theme-swatch[data-swatch='system'] {
+  background: linear-gradient(115deg, #ffffff 0 50%, #0e0e10 50% 100%);
+  --sw-surface: #8a8a90;
+  --sw-line: #ffffff;
+}
+
+.theme-swatch[data-swatch='tokyo-nights'] {
+  --sw-surface: rgb(19 21 44 / 92%);
+  --sw-line: #6d77c4;
+  --sw-accent: #35e6ff;
+  background:
+    url('./tokyo-nights/sun.svg') right 0.8rem bottom 0.9rem / 2.6rem 2.6rem no-repeat,
+    linear-gradient(rgb(255 92 205 / 55%) 1px, transparent 1px) 0 100% / 100% 7px,
+    linear-gradient(180deg, #070816, #1b1240);
+}
+
+.theme-swatch-card {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  width: 65%;
+  padding: 0.45rem;
+  border-radius: 7px;
+  background: var(--sw-surface);
+  box-shadow: inset 0 0 0 1px rgb(127 127 127 / 30%);
+}
+
+.theme-swatch-line {
+  height: 0.3rem;
+  border-radius: 99px;
+  background: var(--sw-line);
+}
+
+.theme-swatch-short {
+  width: 60%;
+}
+
+.theme-swatch-button {
+  width: 45%;
+  height: 0.65rem;
+  border-radius: 99px;
+  background: var(--sw-accent);
+}
+
+.theme-swatch[data-swatch='tokyo-nights'] .theme-swatch-button {
+  box-shadow: 0 0 0.4rem #35e6ff;
 }

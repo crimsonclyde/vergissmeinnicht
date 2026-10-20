@@ -27,8 +27,14 @@ describe('account preferences API (Step 8.7)', () => {
     expect((await t.get('/api/account/preferences', t.admin)).json().preferences.theme).toBe('system');
   });
 
+  it('accepts Tokyo Nights, and the database refuses an unknown theme even past the API (0049)', async () => {
+    expect((await t.post('/api/account/preferences', { theme: 'tokyo-nights' }, bob)).json().preferences.theme).toBe('tokyo-nights');
+    expect(() => t.database.sqlite.prepare("UPDATE user_preferences SET theme = 'neon'").run()).toThrow(/CHECK constraint failed/);
+    expect((await t.get('/api/account/preferences', bob)).json().preferences.theme).toBe('tokyo-nights');
+  });
+
   it('validates strictly and requires a session and Origin', async () => {
-    for (const body of [{}, { theme: 'neon' }, { criticalConfirm: 'none' }, { theme: 'dark', userId: 'x' }]) {
+    for (const body of [{}, { theme: 'neon' }, { theme: 'Tokyo Nights' }, { theme: 'tokyo_nights' }, { criticalConfirm: 'none' }, { theme: 'dark', userId: 'x' }]) {
       expect((await t.post('/api/account/preferences', body, bob)).statusCode).toBe(400);
     }
     expect((await t.get('/api/account/preferences')).statusCode).toBe(401);

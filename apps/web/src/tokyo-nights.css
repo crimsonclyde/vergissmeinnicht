@@ -1,0 +1,640 @@
+/*
+ * Tokyo Nights (0.7.0): a named preset in the style of old arcades and Tron. The colours are the
+ * semantic tokens in styles.css; this file adds what a token cannot say — the night city behind the
+ * page, neon edges and glow, and a little motion. Everything here applies only while
+ * `<html data-theme='tokyo-nights'>`; the other themes never see it.
+ *
+ * Rules of the preset:
+ * - presentation only: the same controls in the same order as every other theme, nothing hidden;
+ * - text sits on the token surfaces (contrast is tested on them); the scene is decoration behind;
+ * - text never fades in, and all motion stops when the device asks for less (prefers-reduced-motion);
+ * - motion uses transform/opacity only, slowly, so phones stay cool.
+ */
+
+:root[data-theme='tokyo-nights'] {
+  --neon-a: #35e6ff;
+  --neon-b: #ff5ccd;
+  --neon-c: #9d7cff;
+  --neon-sun: #ffc46b;
+  --glow-a: 0 0 0.5rem rgb(53 230 255 / 45%), 0 0 1.6rem rgb(53 230 255 / 22%);
+  --glow-b: 0 0 0.5rem rgb(255 92 205 / 45%), 0 0 1.6rem rgb(255 92 205 / 22%);
+  --glow-done: 0 0 0.5rem rgb(79 245 168 / 45%), 0 0 1.4rem rgb(79 245 168 / 20%);
+  --neon-edge: linear-gradient(120deg, var(--neon-a), var(--neon-c) 50%, var(--neon-b));
+  --radius: 14px;
+}
+
+/* ---- The night city behind the page ------------------------------------------------------- */
+
+:root[data-theme='tokyo-nights'] body {
+  background:
+    radial-gradient(120% 60% at 50% 100%, rgb(157 124 255 / 16%), transparent 60%),
+    linear-gradient(180deg, #070816 0%, var(--bg) 45%, #14102e 100%) fixed;
+  background-color: var(--bg);
+}
+
+/* Stars, the sun on the horizon and the skyline: one fixed layer, never in the way of a tap. */
+:root[data-theme='tokyo-nights'] body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background:
+    url('./tokyo-nights/skyline.svg') center bottom 18vh / auto 26vh repeat-x,
+    url('./tokyo-nights/sun.svg') 88% calc(100% - 18vh - 1vh) / 24vh 24vh no-repeat,
+    radial-gradient(closest-side, rgb(255 92 205 / 22%), transparent) 89% calc(100% - 12vh) / 60vh 44vh no-repeat,
+    url('./tokyo-nights/stars.svg') 0 0 / 240px 240px repeat;
+  mask-image: linear-gradient(180deg, rgb(0 0 0 / 70%) 0%, #000 60%, #000 100%);
+}
+
+/* The Tron floor: a neon grid in perspective that slowly runs towards you. */
+:root[data-theme='tokyo-nights'] body::after {
+  content: '';
+  position: fixed;
+  left: -50%;
+  right: -50%;
+  bottom: -6vh;
+  z-index: -1;
+  height: 48vh;
+  pointer-events: none;
+  background:
+    linear-gradient(rgb(255 92 205 / 55%) 2px, transparent 2px) 0 0 / 64px 64px,
+    linear-gradient(90deg, rgb(53 230 255 / 45%) 2px, transparent 2px) 0 0 / 64px 64px;
+  transform-origin: 50% 100%;
+  transform: perspective(28vh) rotateX(58deg);
+  mask-image: linear-gradient(180deg, transparent 0%, rgb(0 0 0 / 55%) 25%, #000 100%);
+  opacity: 0.8;
+}
+
+/* ---- Navigation: a dark glass sidebar and bottom bar with neon edges ------------------------- */
+
+:root[data-theme='tokyo-nights'] .shell-side {
+  background: rgb(14 15 34 / 88%);
+  border-right: 1px solid transparent;
+  border-image: linear-gradient(180deg, transparent, var(--neon-c), var(--neon-b), transparent) 1;
+  backdrop-filter: blur(10px);
+}
+
+:root[data-theme='tokyo-nights'] .brand-accent {
+  color: var(--brand);
+  text-shadow: 0 0 0.35rem rgb(255 92 205 / 70%), 0 0 1.2rem rgb(255 92 205 / 40%);
+}
+
+:root[data-theme='tokyo-nights'] .brand-icon {
+  box-shadow: 0 0 0 1px var(--neon-b), var(--glow-b);
+}
+
+:root[data-theme='tokyo-nights'] .side-nav a {
+  position: relative;
+  transition: background-color 160ms ease, transform 160ms ease;
+}
+
+:root[data-theme='tokyo-nights'] .side-nav a:hover {
+  background: var(--surface-muted);
+}
+
+/* The current tool: a glowing neon pill instead of a flat fill (still bold, still aria-current). */
+:root[data-theme='tokyo-nights'] .side-nav a[aria-current='page'] {
+  background: linear-gradient(90deg, rgb(53 230 255 / 22%), rgb(157 124 255 / 14%) 70%, transparent);
+  color: var(--text);
+  box-shadow: inset 3px 0 0 var(--neon-a);
+}
+
+:root[data-theme='tokyo-nights'] .side-nav a[aria-current='page'] .ui-icon {
+  color: var(--neon-a);
+  filter: drop-shadow(0 0 0.3rem rgb(53 230 255 / 80%));
+}
+
+@media (max-width: 56rem) {
+  :root[data-theme='tokyo-nights'] .shell-side {
+    border-right: 0;
+    border-bottom: 1px solid transparent;
+    border-image: linear-gradient(90deg, transparent, var(--neon-a), var(--neon-b), transparent) 1;
+  }
+
+  :root[data-theme='tokyo-nights'] .tab-bar {
+    background: rgb(14 15 34 / 90%);
+    border-top: 1px solid transparent;
+    border-image: linear-gradient(90deg, transparent, var(--neon-a), var(--neon-b), transparent) 1;
+    backdrop-filter: blur(12px);
+  }
+
+  :root[data-theme='tokyo-nights'] .tab-bar a[aria-current='page'] {
+    border-top-color: transparent;
+    color: var(--text);
+  }
+
+  /* The current destination: its icon sits in a glowing capsule (the label is bold, too). */
+  :root[data-theme='tokyo-nights'] .tab-bar a[aria-current='page'] .ui-icon {
+    padding: 0.2rem 0.9rem;
+    border-radius: 999px;
+    background: rgb(255 92 205 / 16%);
+    color: var(--brand);
+    box-shadow: var(--glow-b);
+  }
+}
+
+/* ---- Cards, controls ----------------------------------------------------------------------- */
+
+:root[data-theme='tokyo-nights'] .card {
+  background: rgb(19 21 44 / 97%);
+  border-color: var(--border);
+}
+
+/* A thin neon edge on the cards that matter on Today and in a Run. */
+:root[data-theme='tokyo-nights'] .today-card,
+:root[data-theme='tokyo-nights'] .guide-hero,
+:root[data-theme='tokyo-nights'] .guide-card,
+:root[data-theme='tokyo-nights'] .guide-finish {
+  border: 1px solid transparent;
+  background:
+    linear-gradient(rgb(19 21 44 / 98%), rgb(19 21 44 / 98%)) padding-box,
+    linear-gradient(140deg, rgb(53 230 255 / 55%), rgb(157 124 255 / 25%) 45%, rgb(255 92 205 / 55%)) border-box;
+}
+
+:root[data-theme='tokyo-nights'] button,
+:root[data-theme='tokyo-nights'] .button {
+  transition: box-shadow 160ms ease, transform 120ms ease, background-color 160ms ease;
+}
+
+:root[data-theme='tokyo-nights'] button:hover:not(:disabled),
+:root[data-theme='tokyo-nights'] .button:hover {
+  filter: none;
+  border-color: var(--neon-a);
+  box-shadow: var(--glow-a);
+}
+
+:root[data-theme='tokyo-nights'] button.primary,
+:root[data-theme='tokyo-nights'] .button.primary {
+  background: linear-gradient(135deg, #5cf0ff, var(--accent) 55%, #22b8ff);
+  border-color: var(--accent);
+  box-shadow: 0 0 0.9rem rgb(53 230 255 / 35%);
+  text-shadow: none;
+}
+
+:root[data-theme='tokyo-nights'] button.primary:hover:not(:disabled) {
+  box-shadow: 0 0 0.6rem rgb(53 230 255 / 70%), 0 0 2rem rgb(53 230 255 / 35%);
+}
+
+:root[data-theme='tokyo-nights'] button:active:not(:disabled),
+:root[data-theme='tokyo-nights'] .button:active {
+  transform: translateY(1px) scale(0.98);
+}
+
+:root[data-theme='tokyo-nights'] button.danger {
+  box-shadow: none;
+}
+
+:root[data-theme='tokyo-nights'] button.danger:hover:not(:disabled) {
+  border-color: var(--danger);
+  box-shadow: 0 0 0.6rem rgb(255 111 145 / 50%);
+}
+
+:root[data-theme='tokyo-nights'] :focus-visible {
+  outline-color: var(--focus);
+  box-shadow: 0 0 0.9rem rgb(255 228 94 / 45%);
+}
+
+:root[data-theme='tokyo-nights'] .segmented {
+  background: rgb(29 32 66 / 85%);
+  box-shadow: inset 0 0 0 1px var(--border);
+}
+
+:root[data-theme='tokyo-nights'] .segmented button[aria-pressed='true'] {
+  background: var(--surface-raised);
+  border-color: var(--neon-a);
+  box-shadow: var(--glow-a);
+}
+
+/* ---- Rings and progress: neon strokes that glow --------------------------------------------- */
+
+:root[data-theme='tokyo-nights'] .ring-track {
+  stroke: rgb(109 119 196 / 28%);
+}
+
+:root[data-theme='tokyo-nights'] .ring-fill {
+  stroke: url(#vmn-neon-ring);
+  filter: drop-shadow(0 0 4px rgb(53 230 255 / 75%));
+}
+
+:root[data-theme='tokyo-nights'] .ring[data-complete='true'] .ring-fill {
+  stroke: var(--state-done);
+  filter: drop-shadow(0 0 5px rgb(79 245 168 / 80%));
+}
+
+:root[data-theme='tokyo-nights'] .progress > span,
+:root[data-theme='tokyo-nights'] .guide-bar > span {
+  background: linear-gradient(90deg, var(--neon-a), var(--neon-c), var(--neon-b));
+  box-shadow: 0 0 0.6rem rgb(53 230 255 / 55%);
+}
+
+/* ---- Today ------------------------------------------------------------------------------- */
+
+:root[data-theme='tokyo-nights'] .today-eyebrow {
+  color: var(--neon-a);
+  letter-spacing: 0.22em;
+  text-shadow: 0 0 0.5rem rgb(53 230 255 / 65%);
+}
+
+:root[data-theme='tokyo-nights'] .today-date {
+  letter-spacing: 0.02em;
+  text-shadow: none;
+}
+
+/* The greeting as a neon sign: light text with a coloured halo (the letters keep full contrast). */
+:root[data-theme='tokyo-nights'] .today-greeting {
+  color: #f4f1ff;
+  text-shadow: 0 0 0.6rem rgb(255 92 205 / 55%), 0 0 1.8rem rgb(157 124 255 / 45%);
+  letter-spacing: 0.01em;
+}
+
+/* "Pick up where you left off" becomes an arcade cabinet screen: a rotating neon frame, the sun behind. */
+:root[data-theme='tokyo-nights'] .today-hero {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  background: #12142e;
+  color: var(--text);
+  border: 0;
+  box-shadow: var(--glow-b), inset 0 0 0 1px rgb(255 92 205 / 35%);
+}
+
+:root[data-theme='tokyo-nights'] .today-hero::before {
+  content: '';
+  position: absolute;
+  inset: -60%;
+  z-index: -2;
+  background: conic-gradient(from 0deg, transparent 0 55%, var(--neon-a) 65%, var(--neon-b) 75%, transparent 85%);
+  opacity: 0.85;
+}
+
+:root[data-theme='tokyo-nights'] .today-hero::after {
+  content: '';
+  position: absolute;
+  inset: 2px;
+  z-index: -1;
+  border-radius: 18px;
+  background:
+    repeating-linear-gradient(180deg, rgb(255 255 255 / 3%) 0 1px, transparent 1px 4px),
+    linear-gradient(180deg, transparent 72%, rgb(255 92 205 / 22%) 72%, transparent 73%) no-repeat,
+    repeating-linear-gradient(90deg, rgb(53 230 255 / 10%) 0 1px, transparent 1px 2.25rem) left bottom / 100% 28% no-repeat,
+    linear-gradient(160deg, #1d1446 0%, #13152e 60%, #0c0d24 100%);
+}
+
+:root[data-theme='tokyo-nights'] .today-hero-text small {
+  color: var(--text-muted);
+  opacity: 1;
+}
+
+:root[data-theme='tokyo-nights'] .today-hero-text > small:first-child {
+  color: var(--neon-b);
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+
+:root[data-theme='tokyo-nights'] .today-hero .ring-track {
+  stroke: rgb(109 119 196 / 35%);
+}
+
+:root[data-theme='tokyo-nights'] .today-hero .ring-fill {
+  stroke: url(#vmn-neon-ring);
+}
+
+:root[data-theme='tokyo-nights'] .today-hero .ring[data-complete='true'] .ring-center,
+:root[data-theme='tokyo-nights'] .today-hero .ring-center {
+  color: var(--neon-a);
+}
+
+:root[data-theme='tokyo-nights'] .today-hero-icon {
+  background: rgb(53 230 255 / 12%);
+  color: var(--neon-a);
+  box-shadow: var(--glow-a);
+}
+
+:root[data-theme='tokyo-nights'] a.button.today-hero-go {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--accent-text);
+  box-shadow: 0 0 0.8rem rgb(53 230 255 / 60%), 0 0 2.2rem rgb(53 230 255 / 25%);
+}
+
+/* Card titles: icons as small neon signs. */
+:root[data-theme='tokyo-nights'] .today-card-title > .ui-icon {
+  background: transparent;
+  box-shadow: inset 0 0 0 1px currentColor, 0 0 0.6rem color-mix(in srgb, currentColor 45%, transparent);
+  filter: drop-shadow(0 0 0.25rem color-mix(in srgb, currentColor 60%, transparent));
+}
+
+:root[data-theme='tokyo-nights'] .today-card-attention {
+  box-shadow: 0 0 1.4rem rgb(255 111 145 / 18%);
+}
+
+:root[data-theme='tokyo-nights'] .today-row:hover .today-row-title,
+:root[data-theme='tokyo-nights'] .today-more:hover {
+  color: var(--neon-a);
+  text-shadow: 0 0 0.5rem rgb(53 230 255 / 55%);
+}
+
+/* "All clear": the sun rises over a quiet grid. */
+:root[data-theme='tokyo-nights'] .today-calm {
+  position: relative;
+  overflow: hidden;
+  min-height: 6.5rem;
+  padding-right: 8rem;
+  background:
+    url('./tokyo-nights/sun.svg') right 1.2rem bottom -2.6rem / 6.5rem 6.5rem no-repeat,
+    linear-gradient(rgb(255 92 205 / 30%) 1px, transparent 1px) 0 100% / 100% 12px,
+    linear-gradient(160deg, #181443, #12142c);
+}
+
+:root[data-theme='tokyo-nights'] .today-calm-mark {
+  background: rgb(79 245 168 / 12%);
+  box-shadow: var(--glow-done);
+}
+
+/* ---- The guided Run: an arcade level select ------------------------------------------------ */
+
+:root[data-theme='tokyo-nights'] .guide-hero {
+  position: relative;
+  overflow: hidden;
+}
+
+:root[data-theme='tokyo-nights'] .guide-hero-text h2 {
+  text-shadow: 0 0 0.6rem rgb(157 124 255 / 55%);
+}
+
+:root[data-theme='tokyo-nights'] .guide-continue {
+  border-radius: 999px;
+  letter-spacing: 0.02em;
+}
+
+/* Sections as square level tiles, two side by side on phones: icon on top, then title and score. */
+:root[data-theme='tokyo-nights'] .guide-tiles {
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 9.5rem), 1fr));
+}
+
+:root[data-theme='tokyo-nights'] .guide-tile {
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  gap: 0.55rem;
+  min-height: 9.5rem;
+  padding: 1.1rem 0.75rem 0.9rem;
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  background:
+    linear-gradient(rgb(255 255 255 / 2.5%) 1px, transparent 1px) 0 0 / 100% 10px,
+    linear-gradient(170deg, #191c3c, #10122a);
+  text-align: center;
+}
+
+:root[data-theme='tokyo-nights'] .guide-tile-text {
+  align-items: center;
+  flex: none;
+}
+
+:root[data-theme='tokyo-nights'] .guide-tile-icon {
+  width: 3.5rem;
+  height: 3.5rem;
+  border-radius: 16px;
+  background: rgb(53 230 255 / 10%);
+  color: var(--neon-a);
+  box-shadow: inset 0 0 0 1px rgb(53 230 255 / 50%), var(--glow-a);
+}
+
+:root[data-theme='tokyo-nights'] .guide-tile:hover:not(:disabled) {
+  border-color: var(--neon-a);
+  transform: translateY(-2px);
+}
+
+:root[data-theme='tokyo-nights'] .guide-tile[data-next='true'] {
+  border: 2px solid var(--brand);
+  box-shadow: var(--glow-b);
+}
+
+:root[data-theme='tokyo-nights'] .guide-tile[data-next='true'] .guide-tile-icon {
+  background: rgb(255 92 205 / 12%);
+  color: var(--brand);
+  box-shadow: inset 0 0 0 1px rgb(255 92 205 / 55%), var(--glow-b);
+}
+
+:root[data-theme='tokyo-nights'] .guide-tile[data-finished='true'] {
+  background: linear-gradient(170deg, #0f3329, #0b1f1c);
+  border-color: var(--state-done);
+  box-shadow: var(--glow-done);
+}
+
+:root[data-theme='tokyo-nights'] .guide-tile[data-finished='true'] .guide-tile-icon {
+  background: rgb(79 245 168 / 10%);
+  color: var(--state-done);
+  box-shadow: inset 0 0 0 1px rgb(79 245 168 / 55%), var(--glow-done);
+}
+
+:root[data-theme='tokyo-nights'] .guide-next {
+  top: -0.7rem;
+  right: 50%;
+  transform: translateX(50%);
+  background: var(--brand);
+  color: #14031a;
+  letter-spacing: 0.14em;
+  box-shadow: var(--glow-b);
+}
+
+/* One Step: an arcade screen with faint scanlines. */
+:root[data-theme='tokyo-nights'] .guide-card {
+  border-radius: 22px;
+  background:
+    repeating-linear-gradient(180deg, rgb(255 255 255 / 2.2%) 0 1px, transparent 1px 4px) padding-box,
+    linear-gradient(175deg, #181a3a, #101129) padding-box,
+    linear-gradient(140deg, rgb(53 230 255 / 60%), rgb(157 124 255 / 25%) 45%, rgb(255 92 205 / 60%)) border-box;
+  box-shadow: 0 0 2.4rem rgb(157 124 255 / 18%);
+}
+
+:root[data-theme='tokyo-nights'] .guide-card[data-state='DONE'] {
+  background:
+    repeating-linear-gradient(180deg, rgb(255 255 255 / 2.2%) 0 1px, transparent 1px 4px) padding-box,
+    linear-gradient(175deg, #142c2b, #0e1626) padding-box,
+    linear-gradient(140deg, var(--state-done), rgb(53 230 255 / 50%)) border-box;
+  box-shadow: var(--glow-done);
+}
+
+:root[data-theme='tokyo-nights'] .guide-count {
+  color: var(--neon-a);
+  letter-spacing: 0.2em;
+  text-shadow: 0 0 0.45rem rgb(53 230 255 / 60%);
+}
+
+:root[data-theme='tokyo-nights'] .guide-step-icon {
+  background: rgb(53 230 255 / 10%);
+  color: var(--neon-a);
+  box-shadow: inset 0 0 0 1px rgb(53 230 255 / 55%), var(--glow-a);
+}
+
+:root[data-theme='tokyo-nights'] .guide-step-title {
+  text-shadow: 0 0 0.7rem rgb(157 124 255 / 50%);
+}
+
+:root[data-theme='tokyo-nights'] .guide-actions .guide-done {
+  box-shadow: 0 0 1rem rgb(79 245 168 / 40%);
+}
+
+:root[data-theme='tokyo-nights'] .guide-cheer-mark {
+  box-shadow: 0 0 0 6px rgb(79 245 168 / 12%), var(--glow-done);
+}
+
+:root[data-theme='tokyo-nights'] .guide-cheer strong {
+  color: var(--state-done);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  text-shadow: 0 0 0.6rem rgb(79 245 168 / 60%);
+}
+
+:root[data-theme='tokyo-nights'] .guide-nav {
+  background: rgb(24 27 56 / 92%);
+  border-color: rgb(109 119 196 / 45%);
+  box-shadow: 0 0 1.4rem rgb(157 124 255 / 20%), var(--shadow-raised);
+  backdrop-filter: blur(10px);
+}
+
+:root[data-theme='tokyo-nights'] .guide-dot[data-state='DONE']::after {
+  box-shadow: 0 0 0.45rem rgb(79 245 168 / 80%);
+}
+
+:root[data-theme='tokyo-nights'] .guide-dot[aria-current='step']::after {
+  outline-color: var(--brand);
+  box-shadow: 0 0 0.6rem rgb(255 92 205 / 80%);
+}
+
+/* A finished Section or Run: the sun rises behind the ring, the confetti are neon pixels. */
+:root[data-theme='tokyo-nights'] .guide-finish {
+  position: relative;
+  overflow: hidden;
+  /* Room at the bottom for the sun, so no text or button ever sits on it. */
+  padding-bottom: 5.5rem;
+  background:
+    url('./tokyo-nights/sun.svg') center bottom -3.4rem / 8rem 8rem no-repeat padding-box,
+    linear-gradient(rgb(255 92 205 / 28%) 1px, transparent 1px) left bottom / 100% 14px no-repeat padding-box,
+    linear-gradient(175deg, #1b1442, #101129) padding-box,
+    linear-gradient(140deg, var(--neon-a), var(--neon-c) 45%, var(--neon-b)) border-box;
+}
+
+:root[data-theme='tokyo-nights'] .guide-finish h3 {
+  color: #f4f1ff;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  text-shadow: 0 0 0.6rem rgb(255 92 205 / 70%), 0 0 1.8rem rgb(53 230 255 / 45%);
+}
+
+:root[data-theme='tokyo-nights'] .confetti > span {
+  width: 0.45rem;
+  height: 0.45rem;
+  border-radius: 1px;
+  background: var(--neon-a);
+  box-shadow: 0 0 0.5rem currentColor;
+  color: var(--neon-a);
+}
+
+:root[data-theme='tokyo-nights'] .confetti > span:nth-child(3n) {
+  background: var(--neon-b);
+  color: var(--neon-b);
+}
+
+:root[data-theme='tokyo-nights'] .confetti > span:nth-child(3n + 1) {
+  background: var(--neon-sun);
+  color: var(--neon-sun);
+}
+
+/* ---- Sign-in and other public pages: the full scene ---------------------------------------- */
+
+:root[data-theme='tokyo-nights'] .public-brand {
+  text-shadow: 0 0 0.8rem rgb(157 124 255 / 45%);
+}
+
+:root[data-theme='tokyo-nights'] .public-main > .card,
+:root[data-theme='tokyo-nights'] .public-main form {
+  backdrop-filter: blur(6px);
+}
+
+/* ---- Theme picker swatches (Settings → Appearance) ------------------------------------------- */
+
+:root[data-theme='tokyo-nights'] .theme-option:has(input:checked) {
+  border-color: var(--neon-a);
+  box-shadow: var(--glow-a);
+}
+
+/* ---- Motion: slow and gentle, and none at all when the device asks for less ---------------- */
+
+@media (prefers-reduced-motion: no-preference) {
+  /* The floor runs towards you, one grid cell every few seconds. */
+  :root[data-theme='tokyo-nights'] body::after {
+    animation: tn-floor 3.2s linear infinite;
+  }
+
+  /* The neon frame of the cabinet turns slowly. */
+  :root[data-theme='tokyo-nights'] .today-hero::before {
+    animation: tn-spin 9s linear infinite;
+  }
+
+  /* The wordmark lights up like a neon sign once, when the app opens. */
+  :root[data-theme='tokyo-nights'] .brand-accent {
+    animation: tn-flicker 1.6s ease-out 0.2s 1 both;
+  }
+
+  /* The next level breathes. */
+  :root[data-theme='tokyo-nights'] .guide-tile[data-next='true'] .guide-tile-icon,
+  :root[data-theme='tokyo-nights'] a.button.today-hero-go {
+    animation: tn-breathe 2.8s ease-in-out infinite;
+  }
+}
+
+@keyframes tn-floor {
+  from {
+    transform: perspective(28vh) rotateX(58deg) translateY(0);
+  }
+  to {
+    transform: perspective(28vh) rotateX(58deg) translateY(64px);
+  }
+}
+
+@keyframes tn-spin {
+  to {
+    transform: rotate(1turn);
+  }
+}
+
+/* Only the glow flickers; the letters are readable from the first frame. */
+@keyframes tn-flicker {
+  0%,
+  18%,
+  22%,
+  52%,
+  56% {
+    text-shadow: none;
+  }
+  20%,
+  54%,
+  100% {
+    text-shadow: 0 0 0.35rem rgb(255 92 205 / 70%), 0 0 1.2rem rgb(255 92 205 / 40%);
+  }
+}
+
+@keyframes tn-breathe {
+  0%,
+  100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.05);
+  }
+}
+
+/* Forced colours (Windows high contrast): no scene, no glow — the system colours take over. */
+@media (forced-colors: active) {
+  :root[data-theme='tokyo-nights'] body::before,
+  :root[data-theme='tokyo-nights'] body::after,
+  :root[data-theme='tokyo-nights'] .today-hero::before,
+  :root[data-theme='tokyo-nights'] .today-hero::after {
+    display: none;
+  }
+}

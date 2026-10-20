@@ -83,6 +83,24 @@ export function Ring(props: { done: number; total: number; size?: number; label?
   );
 }
 
+/**
+ * Shared paint for the rings, referenced from the stylesheet only by themes that want it (Tokyo Nights:
+ * `stroke: url(#vmn-neon-ring)`). The colours are theme tokens; other themes never reference it.
+ */
+export function RingPaint() {
+  return (
+    <svg width="0" height="0" aria-hidden="true" focusable="false" style={{ position: 'absolute' }}>
+      <defs>
+        <linearGradient id="vmn-neon-ring" x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0" style={{ stopColor: 'var(--neon-a, var(--state-done))' }} />
+          <stop offset="0.5" style={{ stopColor: 'var(--neon-c, var(--state-done))' }} />
+          <stop offset="1" style={{ stopColor: 'var(--neon-b, var(--state-done))' }} />
+        </linearGradient>
+      </defs>
+    </svg>
+  );
+}
+
 /** A few falling pieces for a finished Section or Run; nothing at all when less motion is asked for. */
 export function Confetti() {
   if (reducedMotion()) return null;

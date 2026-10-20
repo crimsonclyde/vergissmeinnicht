@@ -262,7 +262,7 @@ Initial modes:
 - Light
 - Dark
 
-`Memento Mori` is reserved as a likely named dark theme.
+Named presets: `Memento Mori` (8.7) and `Tokyo Nights` (`docs/development/steps.md` 24.1: neon arcade scene and gentle motion in `tokyo-nights.css`). A preset may re-arrange presentation and add decoration and motion, but keeps the same controls, order and names; its motion stops under `prefers-reduced-motion`, and text on any surface it paints passes the contrast test.
 
 ## Data and persistence
 

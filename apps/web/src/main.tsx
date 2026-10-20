@@ -2,6 +2,7 @@ import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { App } from './App.tsx';
 import './styles.css';
+import './tokyo-nights.css';
 import { initTheme } from './theme.ts';
 import { watchViewportDrift } from './viewport-drift.ts';
 
