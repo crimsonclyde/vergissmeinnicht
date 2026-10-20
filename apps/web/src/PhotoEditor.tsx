@@ -1,7 +1,7 @@
 import { useEffect, useId, useLayoutEffect, useRef, useState, type KeyboardEvent, type PointerEvent } from 'react';
 import { formatNumber, t } from './i18n/index.ts';
 import { fittedSize } from './image-prep.ts';
-import { clampStraighten, drawEdited, frameSize, MAX_STRAIGHTEN_DEGREES, moveCrop, NO_EDIT, resizeCrop, turn, type Corner, type Crop, type PhotoEdit } from './photo-edit.ts';
+import { clampLight, clampStraighten, drawEdited, frameSize, lightFilter, MAX_LIGHT_PERCENT, MAX_STRAIGHTEN_DEGREES, moveCrop, NO_EDIT, resizeCrop, turn, type Corner, type Crop, type PhotoEdit } from './photo-edit.ts';
 import { UiIcon } from './ui-icons.tsx';
 
 /** Preview resolution: enough for a sharp screen image without drawing 48 MP on every change. */
@@ -9,6 +9,14 @@ const PREVIEW_MAX_EDGE = 1200;
 /** Keyboard step for moving or resizing the crop, as a fraction of the photo. */
 const KEY_STEP = 0.02;
 const CORNERS: readonly Corner[] = ['nw', 'ne', 'sw', 'se'];
+
+/** Which value the one slider changes (23.7): straightening, brightness or contrast. */
+type Adjusting = 'straighten' | 'brightness' | 'contrast';
+const ADJUSTMENTS: readonly { readonly key: Adjusting; readonly icon: 'straighten' | 'brightness' | 'contrast' }[] = [
+  { key: 'straighten', icon: 'straighten' },
+  { key: 'brightness', icon: 'brightness' },
+  { key: 'contrast', icon: 'contrast' },
+];
 
 type Drag = { readonly kind: 'move' | Corner; readonly pointerId: number; readonly startX: number; readonly startY: number; readonly start: Crop };
 
@@ -28,6 +36,7 @@ export function PhotoEditor(props: { image: HTMLImageElement; busy?: boolean; on
   const cropHintId = useId();
   const [edit, setEdit] = useState<PhotoEdit>(NO_EDIT);
   const [drag, setDrag] = useState<Drag | null>(null);
+  const [adjusting, setAdjusting] = useState<Adjusting>('straighten');
   const [stageBox, setStageBox] = useState<{ width: number; height: number } | null>(null);
   const source = { width: props.image.naturalWidth, height: props.image.naturalHeight };
   const frame = frameSize(source.width, source.height, edit.quarterTurns);
@@ -134,7 +143,7 @@ export function PhotoEditor(props: { image: HTMLImageElement; busy?: boolean; on
           onPointerUp={endDrag}
           onPointerCancel={endDrag}
         >
-          <canvas ref={canvas} aria-hidden="true" />
+          <canvas ref={canvas} aria-hidden="true" style={{ filter: lightFilter(edit) }} />
           <div
             className="photo-editor-crop"
             role="group"
@@ -163,23 +172,57 @@ export function PhotoEditor(props: { image: HTMLImageElement; busy?: boolean; on
             <UiIcon name="turnRight" />
           </button>
         </div>
+        <div className="row icon-group" role="group" aria-label={t('photoEditor.adjust')}>
+          {ADJUSTMENTS.map((choice) => (
+            <button
+              key={choice.key}
+              type="button"
+              className="icon-button"
+              aria-pressed={adjusting === choice.key}
+              aria-label={t(`photoEditor.${choice.key}`)}
+              title={t(`photoEditor.${choice.key}`)}
+              disabled={props.busy}
+              onClick={() => setAdjusting(choice.key)}
+            >
+              <UiIcon name={choice.icon} />
+            </button>
+          ))}
+        </div>
         <label htmlFor={sliderId} className="photo-editor-straighten">
-          <span>{t('photoEditor.straighten')}</span>
-          <input
-            id={sliderId}
-            type="range"
-            min={-MAX_STRAIGHTEN_DEGREES}
-            max={MAX_STRAIGHTEN_DEGREES}
-            step={0.5}
-            value={edit.straighten}
-            disabled={props.busy}
-            aria-valuetext={t('photoEditor.degrees', { value: formatNumber(edit.straighten, 1) })}
-            onChange={(event) => {
-              const straighten = clampStraighten(Number(event.target.value));
-              setEdit((current) => ({ ...current, straighten }));
-            }}
-          />
-          <output aria-hidden="true">{formatNumber(edit.straighten, 1)}°</output>
+          <span>{t(`photoEditor.${adjusting}`)}</span>
+          {adjusting === 'straighten' ? (
+            <input
+              id={sliderId}
+              type="range"
+              min={-MAX_STRAIGHTEN_DEGREES}
+              max={MAX_STRAIGHTEN_DEGREES}
+              step={0.5}
+              value={edit.straighten}
+              disabled={props.busy}
+              aria-valuetext={t('photoEditor.degrees', { value: formatNumber(edit.straighten, 1) })}
+              onChange={(event) => {
+                const straighten = clampStraighten(Number(event.target.value));
+                setEdit((current) => ({ ...current, straighten }));
+              }}
+            />
+          ) : (
+            <input
+              id={sliderId}
+              key={adjusting}
+              type="range"
+              min={-MAX_LIGHT_PERCENT}
+              max={MAX_LIGHT_PERCENT}
+              step={1}
+              value={edit[adjusting]}
+              disabled={props.busy}
+              aria-valuetext={t('photoEditor.percent', { value: formatSigned(edit[adjusting]) })}
+              onChange={(event) => {
+                const value = clampLight(Number(event.target.value));
+                setEdit((current) => ({ ...current, [adjusting]: value }));
+              }}
+            />
+          )}
+          <output aria-hidden="true">{adjusting === 'straighten' ? `${formatNumber(edit.straighten, 1)}°` : `${formatSigned(edit[adjusting])} %`}</output>
         </label>
         <button type="button" className="icon-button" aria-label={t('photoEditor.reset')} title={t('photoEditor.reset')} disabled={props.busy} onClick={() => setEdit(NO_EDIT)}>
           <UiIcon name="reset" />
@@ -188,3 +231,6 @@ export function PhotoEditor(props: { image: HTMLImageElement; busy?: boolean; on
     </dialog>
   );
 }
+
+/** +12 / −5 / 0 for the light sliders. */
+const formatSigned = (value: number) => (value > 0 ? `+${formatNumber(value, 0)}` : value < 0 ? `−${formatNumber(-value, 0)}` : '0');

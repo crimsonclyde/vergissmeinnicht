@@ -300,6 +300,33 @@ test('first server admin: bootstrap link, account creation, sign-in, Workspace c
   await photoEditor.getByRole('button', { name: 'Cancel' }).click();
   await expect(photoEditor).toHaveCount(0);
   await expect(editor.locator('.step-image-open img')).toHaveCount(1);
+  // Brightness (23.7): one slider, chosen with an icon; the stored photo is brighter, its size unchanged.
+  const meanOf = () =>
+    editor.locator('.step-image-open img').evaluate((img: { naturalWidth: number; naturalHeight: number; complete: boolean }) => {
+      type Context = { drawImage(image: unknown, x: number, y: number): void; getImageData(x: number, y: number, w: number, h: number): { data: ArrayLike<number> } };
+      type Canvas = { width: number; height: number; getContext(kind: '2d'): Context | null };
+      const canvas = (globalThis as unknown as { document: { createElement(tag: 'canvas'): Canvas } }).document.createElement('canvas');
+      canvas.width = img.naturalWidth;
+      canvas.height = img.naturalHeight;
+      const context = canvas.getContext('2d');
+      if (context === null || !img.complete || img.naturalWidth === 0) return 0;
+      context.drawImage(img, 0, 0);
+      const data = context.getImageData(0, 0, canvas.width, canvas.height).data;
+      let sum = 0;
+      for (let i = 0; i < data.length; i += 4) sum += (data[i] ?? 0) + (data[i + 1] ?? 0) + (data[i + 2] ?? 0);
+      return sum / (data.length / 4) / 3;
+    });
+  await expect.poll(meanOf).toBeGreaterThan(0);
+  const darker = await meanOf();
+  await editor.getByRole('button', { name: 'Crop or turn photo' }).click();
+  await photoEditor.getByRole('group', { name: 'Adjust' }).getByRole('button', { name: 'Brightness' }).click();
+  await photoEditor.getByRole('slider', { name: 'Brightness' }).fill('40');
+  await expect(photoEditor.locator('canvas')).toHaveCSS('filter', /brightness\(1\.4\)/);
+  await expectAccessible(page, 'photo editor brightness');
+  await photoEditor.getByRole('button', { name: 'Done' }).click();
+  await expect(photoEditor).toHaveCount(0);
+  await expect.poll(async () => (await meanOf()) > darker + 15).toBe(true);
+  await expect.poll(() => editor.locator('.step-image-open img').evaluate((img: { naturalWidth: number; naturalHeight: number }) => `${img.naturalWidth}×${img.naturalHeight}`)).toBe('226×320');
   await expect(editor.getByText(/Storage of this Workspace: [\d.,]+ (bytes|KB|MB) of 5 GB used\.$/)).toBeVisible(); // one limit for the whole Workspace (16.4)
   // Unapplied Step changes are named, and Save procedure waits for them.
   await expect(builderState).toHaveText(/Step has unapplied changes/);
@@ -322,9 +349,10 @@ test('first server admin: bootstrap link, account creation, sign-in, Workspace c
   // The Workspace's photos (23.1): Step 1's photo can be used again without uploading it.
   await editor.getByRole('button', { name: 'Choose from this Workspace’s photos' }).click();
   const picker = page.getByRole('dialog', { name: 'Choose a photo' });
-  await expect(picker.getByRole('list', { name: 'Photos of this Workspace' }).getByRole('listitem')).toHaveCount(1);
+  // Step 1's photo (newest) and the one before brightening (still within its grace).
+  await expect(picker.getByRole('list', { name: 'Photos of this Workspace' }).getByRole('listitem')).toHaveCount(2);
   await expectAccessible(page, 'photo picker');
-  await picker.getByRole('list', { name: 'Photos of this Workspace' }).getByRole('button').click();
+  await picker.getByRole('list', { name: 'Photos of this Workspace' }).getByRole('button').first().click();
   await expect(picker).toHaveCount(0);
   await expect(editor.locator('.step-image-open img')).toHaveCount(1);
   await expect(editor.getByLabel('What the photo shows (Step 2)')).toHaveValue('');
@@ -437,7 +465,7 @@ test('first server admin: bootstrap link, account creation, sign-in, Workspace c
   await expect.poll(() => details.locator('.gallery-photo').evaluate((img: { naturalWidth: number; naturalHeight: number }) => `${img.naturalWidth}×${img.naturalHeight}`)).toBe('320×226');
   // Or with another photo of the Workspace (no upload): back to the earlier one, now unused.
   await details.getByRole('button', { name: 'Replace everywhere with another photo of this Workspace' }).click();
-  await picker.getByRole('list', { name: 'Photos of this Workspace' }).getByRole('button', { name: 'Photo without description' }).click();
+  await picker.getByRole('list', { name: 'Photos of this Workspace' }).getByRole('button', { name: 'Photo without description' }).first().click();
   await expect(picker).toHaveCount(0);
   await confirmReplace.getByRole('button', { name: 'Replace' }).click();
   await expect(page.getByRole('status')).toHaveText('Photo replaced in 1 Step.');

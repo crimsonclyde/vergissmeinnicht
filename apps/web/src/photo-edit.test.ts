@@ -1,5 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import {
+  adjustLight,
+  clampLight,
+  lightFilter,
+  MAX_LIGHT_PERCENT,
   clampCrop,
   clampStraighten,
   coverScale,
@@ -112,7 +116,7 @@ describe('photo edit geometry (23.3)', () => {
   });
 
   it('turns the crop with the photo, and four turns change nothing', () => {
-    const edit: PhotoEdit = { quarterTurns: 0, straighten: 5, crop: { x: 0.1, y: 0.2, width: 0.3, height: 0.4 } };
+    const edit: PhotoEdit = { ...NO_EDIT, straighten: 5, crop: { x: 0.1, y: 0.2, width: 0.3, height: 0.4 } };
     const right = turn(edit, 1);
     expect(right.quarterTurns).toBe(1);
     expect(right.crop.x).toBeCloseTo(0.4);
@@ -154,5 +158,24 @@ describe('photo edit geometry (23.3)', () => {
     // Image space is centred: the photo's centre (0, 0) is the crop's top-left corner.
     close(apply(0, 0), 0, 0);
     close(apply(200, 150), 200, 150);
+  });
+
+  it('changes brightness and contrast like the CSS filters of the preview (23.7)', () => {
+    expect(clampLight(80)).toBe(MAX_LIGHT_PERCENT);
+    expect(clampLight(-80)).toBe(-MAX_LIGHT_PERCENT);
+    expect(clampLight(Number.NaN)).toBe(0);
+    expect(clampLight(12.6)).toBe(13);
+    expect(lightFilter(NO_EDIT)).toBeUndefined();
+    expect(lightFilter({ brightness: 20, contrast: -10 })).toBe('brightness(1.2) contrast(0.9)');
+    expect(isUnedited({ ...NO_EDIT, brightness: 5 })).toBe(false);
+    // R, G, B, A of two pixels: alpha is never touched.
+    const pixels = new Uint8ClampedArray([100, 128, 250, 7, 0, 64, 200, 255]);
+    adjustLight(pixels, { brightness: 0, contrast: 0 });
+    expect([...pixels]).toEqual([100, 128, 250, 7, 0, 64, 200, 255]);
+    adjustLight(pixels, { brightness: 20, contrast: 0 });
+    expect([...pixels]).toEqual([120, 154, 255, 7, 0, 77, 240, 255]);
+    adjustLight(pixels, { brightness: 0, contrast: 50 });
+    // (v − 128) · 1.5 + 128, clamped
+    expect([...pixels]).toEqual([116, 167, 255, 7, 0, 52, 255, 255]);
   });
 });

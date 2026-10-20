@@ -5,7 +5,7 @@
  * leave the device. This is a convenience only: the server checks and re-encodes every upload anyway.
  * When the browser cannot decode a file, the original is sent and the server explains the refusal.
  */
-import { drawEdited, NO_EDIT, outputSize, type PhotoEdit } from './photo-edit.ts';
+import { adjustLight, drawEdited, NO_EDIT, outputSize, type PhotoEdit } from './photo-edit.ts';
 
 export const PREPARED_MAX_EDGE = 1600;
 const JPEG_QUALITY = 0.9;
@@ -54,6 +54,12 @@ export async function encodeEdited(image: HTMLImageElement, edit: PhotoEdit): Pr
   // Transparent areas become white, as on the server.
   context.imageSmoothingQuality = 'high';
   drawEdited(context, image, source, edit, size);
+  // Brightness and contrast on the pixels themselves (23.7): `context.filter` is missing in older Safari.
+  if (edit.brightness !== 0 || edit.contrast !== 0) {
+    const pixels = context.getImageData(0, 0, size.width, size.height);
+    adjustLight(pixels.data, edit);
+    context.putImageData(pixels, 0, 0);
+  }
   const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, 'image/jpeg', JPEG_QUALITY));
   canvas.width = 0; // frees the pixels at once (iOS keeps canvas memory otherwise)
   return blob;

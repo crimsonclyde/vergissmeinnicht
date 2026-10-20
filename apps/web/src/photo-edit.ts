@@ -9,6 +9,8 @@
  */
 
 export const MAX_STRAIGHTEN_DEGREES = 15;
+/** Brightness and contrast change by at most this many percent either way (23.7). */
+export const MAX_LIGHT_PERCENT = 50;
 /** Smallest crop in photo pixels, so labels and switches stay legible (smaller photos: the whole photo). */
 export const MIN_CROP_PIXELS = 200;
 
@@ -20,14 +22,46 @@ export type PhotoEdit = {
   /** Straightening in degrees, clockwise positive, within ±MAX_STRAIGHTEN_DEGREES. */
   readonly straighten: number;
   readonly crop: Crop;
+  /** Brightness and contrast in percent, within ±MAX_LIGHT_PERCENT (0: unchanged; 23.7). */
+  readonly brightness: number;
+  readonly contrast: number;
 };
 
 export const FULL_CROP: Crop = { x: 0, y: 0, width: 1, height: 1 };
-export const NO_EDIT: PhotoEdit = { quarterTurns: 0, straighten: 0, crop: FULL_CROP };
+export const NO_EDIT: PhotoEdit = { quarterTurns: 0, straighten: 0, crop: FULL_CROP, brightness: 0, contrast: 0 };
 
 export function isUnedited(edit: PhotoEdit): boolean {
   const { crop } = edit;
-  return edit.quarterTurns === 0 && edit.straighten === 0 && crop.x === 0 && crop.y === 0 && crop.width === 1 && crop.height === 1;
+  return edit.quarterTurns === 0 && edit.straighten === 0 && edit.brightness === 0 && edit.contrast === 0 && crop.x === 0 && crop.y === 0 && crop.width === 1 && crop.height === 1;
+}
+
+/** A brightness or contrast value from a slider: a finite whole percent within ±MAX_LIGHT_PERCENT. */
+export function clampLight(percent: number): number {
+  if (!Number.isFinite(percent)) return 0;
+  return Math.round(Math.min(MAX_LIGHT_PERCENT, Math.max(-MAX_LIGHT_PERCENT, percent))) || 0;
+}
+
+/** The CSS filter that previews brightness and contrast exactly like `adjustLight` (brightness first). */
+export function lightFilter(edit: Pick<PhotoEdit, 'brightness' | 'contrast'>): string | undefined {
+  if (edit.brightness === 0 && edit.contrast === 0) return undefined;
+  return `brightness(${1 + edit.brightness / 100}) contrast(${1 + edit.contrast / 100})`;
+}
+
+/**
+ * Applies brightness, then contrast, to RGBA pixels in place (alpha unchanged), as the CSS filters
+ * `brightness()` and `contrast()` do: v·b, then (v − 128)·c + 128, clamped to 0–255.
+ */
+export function adjustLight(pixels: Uint8ClampedArray, edit: Pick<PhotoEdit, 'brightness' | 'contrast'>): void {
+  if (edit.brightness === 0 && edit.contrast === 0) return;
+  const b = 1 + clampLight(edit.brightness) / 100;
+  const c = 1 + clampLight(edit.contrast) / 100;
+  const table = new Uint8ClampedArray(256);
+  for (let v = 0; v < 256; v += 1) table[v] = (v * b - 128) * c + 128;
+  for (let i = 0; i < pixels.length; i += 4) {
+    pixels[i] = table[pixels[i] ?? 0] ?? 0;
+    pixels[i + 1] = table[pixels[i + 1] ?? 0] ?? 0;
+    pixels[i + 2] = table[pixels[i + 2] ?? 0] ?? 0;
+  }
 }
 
 /** The photo's size after the quarter turns: width and height swap on an odd number of turns. */

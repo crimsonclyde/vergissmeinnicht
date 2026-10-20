@@ -4374,7 +4374,7 @@ A greeting with the person's name and the date, and a ring for today's progress 
 
 ---
 
-## 23 — Step photos: Workspace gallery, replace everywhere, crop and rotate (planned 2026-10-18; SG3 confirmed by the owner 2026-10-18; 23.1–23.6 done; 23.7–23.8 accepted by the owner 2026-10-20)
+## 23 — Step photos: Workspace gallery, replace everywhere, crop and rotate (planned 2026-10-18; SG3 confirmed by the owner 2026-10-18; 23.1–23.7 done; 23.8 accepted by the owner 2026-10-20)
 
 Owner request (2026-10-18): on- and offboarding are mostly the same procedure, so the same photos are needed again; reuse photos that already exist in the Workspace instead of taking new ones, replace photos from a gallery, and crop or rotate a photo after taking it.
 
@@ -4486,8 +4486,12 @@ Owner request (2026-10-18): on- and offboarding are mostly the same procedure, s
 
 ### 23.7 Brightness and contrast in the photo editor
 
-**Status:** PLANNED (owner accepted 2026-10-20)  
-Straightening (±15°) already exists (23.3, SG4). Adds two sliders to the 23.3 editor: **Brightness** and **Contrast** (±50 %), applied on the canvas before upload, Reset clears them. No filters or presets (SG4 stays). Tests: unit test of the pixel transform, e2e: a brighter result is stored. Security impact: NONE (same upload pipeline).
+**Status:** DONE (real-phone check open)  
+**Completed:** 2026-10-20  
+**Planned (owner accepted 2026-10-20):** straightening (±15°) already exists (23.3, SG4). Adds two sliders to the 23.3 editor: **Brightness** and **Contrast** (±50 %), applied on the canvas before upload, Reset clears them. No filters or presets (SG4 stays). Tests: unit test of the pixel transform, e2e: a brighter result is stored. Security impact: NONE (same upload pipeline).  
+**Implemented:** `PhotoEdit` has `brightness` and `contrast` (whole percent, ±50, `clampLight`); `adjustLight` changes the pixels like the CSS filters (brightness, then contrast, alpha untouched, via a 256-entry table) and `encodeEdited` applies it with `getImageData`/`putImageData` after drawing (not `context.filter`, which older Safari lacks); the preview canvas uses the identical CSS filter (`lightFilter`). Editor: an **Adjust** group of three icon buttons (**Straighten**, **Brightness**, **Contrast**, `aria-pressed`) chooses what the one slider changes, so the toolbar stays one row on phones; the value shows as ° or ± %; **Reset** clears all.  
+**Tests/checks:** `photo-edit.test.ts` (clamping, the CSS filter text, unchanged without values, exact pixel values for brightness and contrast, alpha untouched); e2e (desktop): Crop or turn → Brightness → 40 → the preview has `brightness(1.4)` (axe) → Done → the stored photo is clearly brighter and keeps its size; `pnpm lint`, `pnpm typecheck`.  
+**Security impact:** NONE (presentation; the server re-encodes every upload as before).
 
 ### 23.8 Blur part of a photo
 
