@@ -90,7 +90,7 @@ describe('notification HTTP API (13.7, 13.8)', () => {
     expect(pairing.url).toMatch(/^https:\/\/t\.me\/vmn_home_bot\?start=[A-Za-z0-9_-]{43}$/);
     const token = new URL(pairing.url).searchParams.get('start') ?? '';
     expect((await t.post('/api/account/notifications/telegram/confirm', undefined, user)).json()).toEqual({ error: 'nothing_to_confirm' });
-    telegram.push([{ updateId: 1, chatId: '555', chatType: 'private', text: `/start ${token}`, fromLabel: '@uma_t' }]);
+    telegram.push([{ updateId: 1, chatId: '8642097531', chatType: 'private', text: `/start ${token}`, fromLabel: '@uma_t' }]);
     // The server's poller (13.7) — run once here instead of waiting for the interval.
     await pollTelegramPairings(t.services.notifications);
     // Another account cannot confirm Uma's pairing.
@@ -98,7 +98,7 @@ describe('notification HTTP API (13.7, 13.8)', () => {
     expect((await t.post('/api/account/notifications/telegram/confirm', undefined, bob)).json()).toEqual({ error: 'nothing_to_confirm' });
     const confirmed = await t.post('/api/account/notifications/telegram/confirm', undefined, user);
     expect(confirmed.json().settings.telegram).toMatchObject({ connected: { label: '@uma_t' }, pairing: null });
-    expect(confirmed.body).not.toMatch(/555|chatId/);
+    expect(confirmed.body).not.toMatch(/8642097531|chatId/);
     expect(t.logs).not.toContain(token);
     const disconnected = await t.post('/api/account/notifications/telegram/disconnect', undefined, user);
     expect(disconnected.json().settings.telegram.connected).toBeNull();
