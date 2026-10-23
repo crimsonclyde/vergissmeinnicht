@@ -29,4 +29,3 @@ An organic sparse climbing ivy spray along the LEFT EDGE, growing from a slender
 - `old-ivy.webp`: 360 × 540, alpha retained, 42,932 bytes.
 
 WebP encoded with the repository's existing sharp dependency (quality 76–78, no embedded metadata). Portrait variants are independent crops of the artwork, chosen through a responsive picture; CSS uses object-fit: cover. Larger source PNGs are authoring outputs, not shipped assets. No external runtime image service, canvas or SVG filter. The forest perspective is painted into one static layer, with separate botanical, light, star, shade, mist and firefly layers. This avoids large independently composited tree textures. The ivy is reused at the sidebar edge and upper right; no tiling.
-
