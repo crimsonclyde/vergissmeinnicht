@@ -580,6 +580,8 @@ export const en = {
   'appearance.memento-moriHint': 'Pure black, bone-white text and deep crimson accents.',
   'appearance.tokyo-nights': 'Tokyo Nights',
   'appearance.tokyo-nightsHint': 'A neon city at night, like the old arcades: glowing colours, gentle motion.',
+  'appearance.witch-forest': 'Witch Forest',
+  'appearance.witch-forestHint': 'An old forest at night: mist, moonlight, ivy and a sundial, set like an old book.',
   'criticalConfirm.legend': 'Critical Steps',
   'criticalConfirm.intro': 'Critical Steps need a deliberate confirmation so they are not marked done by accident.',
   'criticalConfirm.hold': 'Press and hold',

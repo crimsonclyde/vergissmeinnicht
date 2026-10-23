@@ -9,11 +9,12 @@ describe('theme selection', () => {
     expect(resolveTheme('dark', false)).toBe('dark');
     expect(resolveTheme('memento-mori', false)).toBe('memento-mori');
     expect(resolveTheme('tokyo-nights', false)).toBe('tokyo-nights');
+    expect(resolveTheme('witch-forest', false)).toBe('witch-forest');
   });
 
   it('accepts only known modes from storage', () => {
     for (const mode of THEME_MODES) expect(isThemeMode(mode)).toBe(true);
-    for (const value of [null, '', 'Dark', 'Memento Mori', 'Tokyo Nights', 'tokyo_nights', '__proto__', 1]) expect(isThemeMode(value)).toBe(false);
+    for (const value of [null, '', 'Dark', 'Memento Mori', 'Tokyo Nights', 'tokyo_nights', 'Witch Forest', 'witch_forest', '__proto__', 1]) expect(isThemeMode(value)).toBe(false);
   });
 
   it('resolves every mode to a theme that exists', () => {

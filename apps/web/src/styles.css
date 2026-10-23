@@ -155,6 +155,78 @@
   --overlay: rgb(4 5 18 / 72%);
 }
 
+:root[data-theme='witch-forest'] {
+  /*
+   * Named preset "Witch Forest" (25.1): an old forest at night — near-black green, moss and lichen,
+   * bone-white text, a little amethyst for the brand and pale candle gold for focus. Serious, not
+   * playful. The scene, the old-book type and the motion live in witch-forest.css.
+   */
+  color-scheme: dark;
+  --bg: #0a110e;
+  --surface: #111a15;
+  --surface-muted: #1a261f;
+  --surface-raised: #15201a;
+  --text: #e8e4d2;
+  --text-muted: #a9b5a2;
+  --border: #26362c;
+  --border-strong: #6f8a72;
+  --accent: #9ccf8f;
+  --accent-text: #0b140e;
+  --accent-soft: #1d3324;
+  --danger: #e58a8a;
+  --focus: #e6d27a;
+  --brand: #b9a6e6;
+  --link: #b5d9a8;
+  --on-pending: #0a110e;
+  --state-pending: #e58a8a;
+  --state-pending-bg: #3a1a1c;
+  --state-done: #8fdcae;
+  --state-done-bg: #10291c;
+  --state-done-text: #06130b;
+  --state-skipped: #d8c27a;
+  --state-skipped-bg: #2d2712;
+  --state-na: #b8c2bd;
+  --state-na-bg: #212b27;
+  --shadow: none;
+  --shadow-raised: 0 14px 40px rgb(0 0 0 / 70%);
+  --overlay: rgb(4 8 6 / 76%);
+}
+
+/*
+ * Witch Forest's grimoire pages: the Step in a guided Run and "Pick up where you left off" are aged
+ * paper with dark ink. Everything inside them (buttons, badges, the hold-to-confirm fill) uses these
+ * tokens, and contrast.test.ts checks every pair on them like any theme.
+ */
+:root[data-theme='witch-forest'] :is(.guide-card, .today-hero) {
+  color-scheme: light;
+  --bg: #ddd0ad;
+  --surface: #e4dabd;
+  --surface-muted: #d6caa8;
+  --surface-raised: #ece4cb;
+  --text: #241d12;
+  --text-muted: #54482f;
+  --border: #bcae88;
+  --border-strong: #7a6a45;
+  --accent: #264a2c;
+  --accent-text: #f3eedc;
+  --accent-soft: #d2d6b0;
+  --danger: #8e2424;
+  --focus: #241d12;
+  --brand: #4f3a78;
+  --link: #2f4a2a;
+  --on-pending: #fbf7ea;
+  --state-pending: #8e2424;
+  --state-pending-bg: #efd6c8;
+  --state-done: #2b6439;
+  --state-done-bg: #d3e2c0;
+  --state-done-text: #f6f2e2;
+  --state-skipped: #6a4f08;
+  --state-skipped-bg: #ecdcab;
+  --state-na: #47473f;
+  --state-na-bg: #dad3be;
+  color: var(--text);
+}
+
 /* Before the script sets a theme (and without JavaScript), follow the system for the page background. */
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme]) {
@@ -4426,6 +4498,13 @@ a.today-row:hover .today-row-title {
   display: none;
 }
 
+/* The sundial is drawn only in Witch Forest; the moon of a progress ring likewise. */
+.sundial,
+.ring-moon-disc,
+.ring-moon-lit {
+  display: none;
+}
+
 @media (max-width: 600px) {
   .today-clock {
     padding: 0.5rem 1rem;
@@ -5661,6 +5740,15 @@ a.button.today-hero-go {
     url('./tokyo-nights/sun.svg') right 0.8rem bottom 0.9rem / 2.6rem 2.6rem no-repeat,
     linear-gradient(rgb(255 92 205 / 55%) 1px, transparent 1px) 0 100% / 100% 7px,
     linear-gradient(180deg, #070816, #1b1240);
+}
+
+.theme-swatch[data-swatch='witch-forest'] {
+  --sw-surface: rgb(17 26 21 / 92%);
+  --sw-line: #6f8a72;
+  --sw-accent: #9ccf8f;
+  background:
+    url('./witch-forest/moon-pines.svg') right 0 bottom 0 / 5.5rem auto no-repeat,
+    linear-gradient(180deg, #040806, #12221c);
 }
 
 .theme-swatch-card {

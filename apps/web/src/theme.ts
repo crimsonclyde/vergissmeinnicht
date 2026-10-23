@@ -13,7 +13,7 @@ export const THEME_MODES = THEME_PREFERENCES;
 export type ThemeMode = ThemePreference;
 
 /** Theme ids = `data-theme` values; each has a token block (incl. `color-scheme`) in styles.css. */
-export const THEMES = ['light', 'dark', 'memento-mori', 'tokyo-nights'] as const;
+export const THEMES = ['light', 'dark', 'memento-mori', 'tokyo-nights', 'witch-forest'] as const;
 export type ThemeId = (typeof THEMES)[number];
 
 const STORAGE_KEY = 'vmn.theme';

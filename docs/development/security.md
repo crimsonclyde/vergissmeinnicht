@@ -1095,6 +1095,9 @@ The existing export endpoint accepts an optional canonical Contact UUID. Selecti
 **Open risks:** (1) A device that is never signed out keeps the Lists of every Workspace opened on it readable to whoever uses that browser profile (as for saved Runs, 8.5). (2) A member can claim a device time up to the server's time and up to 30 days back — enough to win or lose a "later wins" comparison within that window; the result is always reported to the losing side's device, and List-level changes stay audited with server time. (3) Item edits, checks and removals are still not audit events (15.3); offline ones neither. (4) Browsers may evict IndexedDB (notably iOS Safari after weeks without use): unsent changes would be lost — not yet checked on physical devices. (5) A client-chosen id that is refused tells the sender that the UUID exists somewhere; UUIDv4 ids are not guessable, so this reveals nothing usable.
 **Reviewed:** 2026-10-07 (implementation review by the agent; no independent review yet)
 
+### Dependency patch: vite 8.3.5 (2026-10-23)
+The CI audit gate found GHSA-587h-7wmj-h5pm (high, `launch-editor` in `vite` 8.3.0–8.3.2: an existence check can be bypassed on Windows; dev server only, never part of the production image). Fixed by updating `vite` to 8.3.5 (published more than 24 hours earlier, per `minimumReleaseAge`); every copy in the lockfile now resolves to 8.3.5 and `pnpm audit --audit-level high` passes. The gate stays fail-closed.
+
 ### Dependency patches before 0.5.0-beta.6 (2026-10-06)
 The CI scan gates found new advisories: `source-map-js` < 1.2.2 (DoS on malformed indexed source maps; build tooling plus a transitive copy in the runtime tree — VMN never parses untrusted source maps) and Debian `perl-base` in the base image (several CRITICAL/HIGH CVEs; Perl is not used by VMN at runtime but ships in the base image). Fixed by updating the lockfile to 1.2.2 and upgrading `perl-base` from Debian's signed repositories in the runtime stage with a version check that fails the build if the fix is missing. The scan gate stays fail-closed.
 
@@ -1102,6 +1105,15 @@ The CI scan gates found new advisories: `source-map-js` < 1.2.2 (DoS on malforme
 - [x] Whether a request is limited is decided by the route it matched (`request.routeOptions.url`), not by the raw URL: percent-encoded or otherwise re-spelled paths that reach an API handler count against the same global and route limits. Only non-API routes (static web files) are exempt. Regression tests in `hardening.test.ts` (global limit and sign-in limit via `/%61pi/...`).
 - [x] Token redaction in request logs matches the decoded path with repeated slashes collapsed (`redactUrl`, 21.2): `/%6Bnot/{token}` and `//knot/{token}` are redacted like `/knot/{token}`.
 - [x] **Review trigger:** any future decision that depends on the request path (logging redaction, allow-lists, guards) must use the matched route or a normalised path, never `request.url` as sent.
+
+### Security check: Witch Forest theme (25.1, 2026-10-23)
+
+**Security surface changed: LOW.** One more allowed value of an existing personal preference; everything else is presentation. No new route, dependency, outbound connection or stored data kind.
+
+- [x] **Validated twice:** `theme` is a strict enum at the API (other spellings are 400) and in the database (CHECK, rebuilt in migration 0050 with existing rows copied). Test: `preferences.test.ts`.
+- [x] **No new loading:** the forest and the sundial are inline SVG drawn by the app (`ForestScene.tsx`, `TodayClock.tsx`, from fixed values, no user data); the other images are small SVGs bundled into the stylesheet as `data:` URLs (already allowed by `img-src`). The typeface is the system's own serif: no web font, `font-src` unchanged. Firefly timing is set through the CSSOM (React `style`), which CSP does not restrict.
+- [x] **Presentation only:** no control is hidden, added or reordered; authorization, confirmations and the irreversible Complete/Abort text buttons are unchanged. The paper pages carry a complete token set, and contrast of every pair on them and of text on every surface the preset paints is tested (`contrast.test.ts`).
+- [x] **Motion is safe:** nothing flashes; the candle only dims between 70% and 100% over seconds, fireflies glow up over seconds; all motion stops under `prefers-reduced-motion`, and the scene and ornaments are removed under forced colours.
 
 ### Security check: Tokyo Nights theme (24.1, 2026-10-20)
 

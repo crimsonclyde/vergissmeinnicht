@@ -33,8 +33,13 @@ describe('account preferences API (Step 8.7)', () => {
     expect((await t.get('/api/account/preferences', bob)).json().preferences.theme).toBe('tokyo-nights');
   });
 
+  it('accepts Witch Forest (0050)', async () => {
+    expect((await t.post('/api/account/preferences', { theme: 'witch-forest' }, bob)).json().preferences.theme).toBe('witch-forest');
+    expect((await t.get('/api/account/preferences', bob)).json().preferences.theme).toBe('witch-forest');
+  });
+
   it('validates strictly and requires a session and Origin', async () => {
-    for (const body of [{}, { theme: 'neon' }, { theme: 'Tokyo Nights' }, { theme: 'tokyo_nights' }, { criticalConfirm: 'none' }, { theme: 'dark', userId: 'x' }]) {
+    for (const body of [{}, { theme: 'neon' }, { theme: 'Tokyo Nights' }, { theme: 'tokyo_nights' }, { theme: 'Witch Forest' }, { theme: 'witch_forest' }, { criticalConfirm: 'none' }, { theme: 'dark', userId: 'x' }]) {
       expect((await t.post('/api/account/preferences', body, bob)).statusCode).toBe(400);
     }
     expect((await t.get('/api/account/preferences')).statusCode).toBe(401);
