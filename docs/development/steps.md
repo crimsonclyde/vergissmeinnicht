@@ -2010,6 +2010,15 @@ GitHub pre-release created after the user approved the command: `https://github.
 
 **Validation:** implementation and local checks recorded in 16.8 (146 files / 1154 tests, 27.30 s; Playwright 3 passed / 1 intentional skip; typecheck/lint/build/schema checks). Final PR CI `37218359808`, main CI `37218652596` and release `37218676293` succeeded. Both native validation and publishing images passed smoke tests and fixable HIGH/CRITICAL vulnerability scans; manifest publishing, workflow signing and CycloneDX attestation succeeded. Completion is recorded in a documentation commit after publication. Physical-phone imports, live Unraid upgrade and the existing development-only moderate esbuild finding remain open. Security surface: MEDIUM, documented in `security.md`; release validation must remain fail-closed.
 
+### 12.38 Release 0.7.0-beta.3
+**Status:** PREPARED (2026-10-23) — 25.2 (Witch Forest refinement: readable text over the scene, deeper forest, lighter motion, narrow-phone Run layout), at the owner's request; published once the owner creates the GitHub pre-release.
+
+**Scope:** PR #57 merged as `b6dd5af`; the release PR points the Unraid template and `unraid.md` to 0.7.0-beta.3.
+
+**Upgrade:** no migration (level stays `0050_witch_forest_theme`), no new environment variables, no new route, no new outbound connection, no dependency change. Presentation only.
+
+**Validation:** PR #57 local checks (full vitest, lint, typecheck, build, e2e account flow on desktop) and CI passed. Not done here: real phones, a screen reader. Nothing was deployed to the running installation.
+
 ### 12.37 Release 0.7.0-beta.2
 **Status:** DONE (2026-10-23) — 25.1 (Witch Forest theme: misty forest scene, stone sundial, waxing-moon progress, stepping-stone Sections, paper Step pages), at the owner's request.
 
