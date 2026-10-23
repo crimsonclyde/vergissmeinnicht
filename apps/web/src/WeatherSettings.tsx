@@ -154,6 +154,7 @@ export function WeatherSettings() {
         setMine(result);
         setDraft(result.settings);
         setSaved(true);
+        window.dispatchEvent(new Event('vmn-location-changed'));
         setForecast(null);
         api.myForecast().then(setForecast, (caught: unknown) => setMessage(messageFor(caught)));
       },
@@ -309,6 +310,11 @@ export function WeatherSettings() {
           <input type="checkbox" checked={draft.showTomorrow} onChange={(event) => setDraft({ ...draft, showTomorrow: event.target.checked })} />
           {t('weather.showTomorrow')}
         </label>
+        <label className="row">
+          <input type="checkbox" checked={draft.useWorkspaceLocation === true} onChange={(event) => { setSaved(false); setDraft({ ...draft, useWorkspaceLocation: event.target.checked }); }} />
+          {t('weather.useWorkspaceLocation')}
+        </label>
+        <p className="muted">{t('weather.workspaceLocationHint')}</p>
         <p className="muted">{t('weather.privacy')}</p>
         <p role="status" className="muted">
           {saved ? t('weather.saved') : ''}

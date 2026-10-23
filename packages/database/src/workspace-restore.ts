@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { closeSync, openSync, readFileSync, readSync } from 'node:fs';
 import { join } from 'node:path';
-import { contactKeys, documentSearchText, documentTagKeys, documentTitleKey, IMPORTED_EMAIL_DOMAIN, MAX_WORKSPACE_NAME_LENGTH, WORKSPACE_ROLES, type ContactPoint } from '@vergissmeinnicht/domain';
+import { parseWeatherLocation, contactKeys, documentSearchText, documentTagKeys, documentTitleKey, IMPORTED_EMAIL_DOMAIN, MAX_WORKSPACE_NAME_LENGTH, WORKSPACE_ROLES, type ContactPoint } from '@vergissmeinnicht/domain';
 import { IMMEDIATE, type Transaction } from './actor-guard.ts';
 import type { AppDatabase } from './connection.ts';
 import { storageUsageIn } from './storage-usage.ts';
@@ -150,7 +150,15 @@ const metadata: JsonShape = (value) =>
   typeof value === 'object' && value !== null && !Array.isArray(value) && Object.values(value).every((item) => ['string', 'number', 'boolean'].includes(typeof item) || stringArray(item));
 
 /** JSON columns and the shape their content must have (the database checks only that some have arrays). */
+const workspaceLocation: JsonShape = (value) => {
+  try {
+    const normalized = parseWeatherLocation(value);
+    return Object.entries(normalized).every(([key, entry]) => (value as Record<string, unknown>)[key] === entry);
+  } catch { return false; }
+};
+
 const JSON_COLUMNS: Readonly<Record<string, Readonly<Record<string, JsonShape>>>> = {
+  workspaces: { location: workspaceLocation },
   procedures: { tags: stringArray },
   runs: { tags: stringArray },
   documents: { tags: stringArray },
@@ -265,6 +273,7 @@ function* records(path: string | undefined, table: string): Generator<Record<str
  *  - 0047 (22.1): the optional Section icon of Procedures and of the Run snapshot.
  */
 const ADDED_COLUMNS: Readonly<Record<string, readonly string[]>> = {
+  workspaces: ['location'],
   procedure_sections: ['icon'],
   run_sections: ['icon'],
 };

@@ -119,6 +119,7 @@ describe('Workspace recovery end to end (section 18c): export → restore → co
     await t.invite('guest@example.org', 'Gus');
     const helperId = one<{ id: string }>("SELECT id FROM users WHERE email = 'helper@example.org'").id;
     home = await t.createWorkspace('Ferienhaus Triora 🏡');
+    expect((await t.post(`${api()}/location`, { location: { name: 'Triora', latitude: 43.99, longitude: 7.76, timeZone: 'Europe/Rome', elevation: 780 }, expectedLocation: null }, t.admin)).statusCode).toBe(200);
     await t.addMember(home, 'owner@example.org', 'ADMIN');
     await t.addMember(home, 'helper@example.org', 'USER');
     await t.addMember(home, 'guest@example.org', 'GUEST');

@@ -182,7 +182,7 @@ describe('Workspace restore (section 18b)', () => {
     const before = { workspaces: workspaceCount(), imported: importedCount() };
     const ready = await validated(homePackage);
     expect(ready, JSON.stringify(ready)).toMatchObject({ state: 'READY', phase: 'validated', errorCode: null, workspaceId: null });
-    expect(ready.preview).toMatchObject({ workspaceName: 'Home ✨ Ferienhaus', databaseLevel: '0050_witch_forest_theme', schedulesPaused: 2, assignmentsCleared: 1 });
+    expect(ready.preview).toMatchObject({ workspaceName: 'Home ✨ Ferienhaus', databaseLevel: '0051_workspace_location', schedulesPaused: 2, assignmentsCleared: 1 });
     expect(ready.preview.counts).toMatchObject({ procedures: 1, runs: 2, documents: 2, document_files: 3, links: 3, run_document_removals: 1, contacts: 1, list_items: 3 });
     // Previous members, for inviting them again by hand — the restore itself invites and matches nobody.
     expect(ready.preview.previousMembers.map((member) => `${member.displayName}:${member.email}:${member.role}`).sort()).toEqual(['Ada:admin@example.org:ADMIN', 'Eddie:editor@example.org:EDITOR', 'Gus:guest@example.org:GUEST', 'Olga Öwner:owner@example.org:ADMIN', 'Uma 🌸:user@example.org:USER']);
@@ -303,6 +303,21 @@ describe('Workspace restore (section 18b)', () => {
     const actorsOf = (workspaceId: string) => new Set(all<{ id: string }>('SELECT DISTINCT actor_user_id AS id FROM audit_events WHERE workspace_id = ?', workspaceId).map((row) => row.id));
     const overlap = [...actorsOf(second)].filter((id) => actorsOf(restored).has(id));
     expect(overlap).toEqual([]);
+  });
+
+  it('restores shared locations, upgrades older packages to unset, and rejects hostile locations atomically', async () => {
+    const location = { name: 'Shared Triora', latitude: 43.99, longitude: 7.76, timeZone: 'Europe/Rome', elevation: 780 };
+    const withLocation = await repack(homePackage, (files) => write(files, 'workspace', lines(files, 'workspace').map((row) => ({ ...row, location: JSON.stringify(location) }))));
+    const added = await restore(withLocation);
+    expect((await t.get(`${api(added.workspaceId)}/location`, t.admin)).json().location).toEqual(location);
+    const older = await repack(withLocation, (files) => write(files, 'workspace', lines(files, 'workspace').map((row) => Object.fromEntries(Object.entries(row).filter(([key]) => key !== 'location')))), { databaseLevel: '0050_witch_forest_theme' });
+    expect((await t.get(`${api((await restore(older)).workspaceId)}/location`, t.admin)).json().location).toBeNull();
+    for (const bad of ['{}', 'not-json', JSON.stringify({ ...location, latitude: 91 }), JSON.stringify({ ...location, extra: 'unreviewed' }), JSON.stringify({ ...location, timeZone: 'Mars/Olympus' })]) {
+      const before = workspaceCount();
+      const hostile = await repack(withLocation, (files) => write(files, 'workspace', lines(files, 'workspace').map((row) => ({ ...row, location: bad }))));
+      expect((await validated(hostile)).state).toBe('FAILED');
+      expect(workspaceCount()).toBe(before);
+    }
   });
 
   it('restores Section icons, and packages written before them (0046) with no icon (22.1)', async () => {

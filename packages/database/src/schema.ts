@@ -2,6 +2,7 @@
 //
 // Auth-related tables follow Better Auth's core schema: Drizzle *property* names are the
 // Better Auth field names (e.g. `name`, `emailVerified`), while *column* names are snake_case.
+import type { WeatherLocation } from '@vergissmeinnicht/domain';
 import { sql } from 'drizzle-orm';
 import { check, foreignKey, index, integer, primaryKey, real, sqliteTable, text, uniqueIndex } from 'drizzle-orm/sqlite-core';
 import {
@@ -292,6 +293,7 @@ export const workspaces = sqliteTable(
   {
     id: text('id').primaryKey(),
     name: text('name').notNull(),
+    location: text('location', { mode: 'json' }).$type<WeatherLocation>(),
     createdByUserId: text('created_by_user_id')
       .notNull()
       .references(() => users.id),
@@ -842,6 +844,7 @@ export const userWeatherSettings = sqliteTable(
     longitude: real('longitude'),
     timeZone: text('time_zone'),
     elevation: integer('elevation'),
+    useWorkspaceLocation: integer('use_workspace_location', { mode: 'boolean' }).notNull().default(false),
     provider: text('provider').notNull(),
     model: text('model').notNull(),
     fallback: integer('fallback', { mode: 'boolean' }).notNull(),

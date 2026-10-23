@@ -8,6 +8,8 @@ import {
   listMyWorkspaces,
   removeMember,
   renameWorkspace,
+  getWorkspaceLocation,
+  saveWorkspaceLocation,
   type VisibleMember,
 } from '@vergissmeinnicht/application';
 import {
@@ -90,6 +92,17 @@ export async function workspaceRoutes(app: FastifyInstance, { services }: { serv
     // The optional tools switched on here (16.2): what the navigation offers. Every request to a tool is still checked.
     const { tools, revision: toolsRevision } = await services.documents.tools.settings(workspaceId as WorkspaceId);
     return { workspace: { ...workspaceView(result.workspace), role: result.role }, capabilities: result.capabilities, tools, toolsRevision };
+  });
+
+  app.get('/:workspaceId/location', async (request) => {
+    const { workspaceId } = parse(workspaceParams, request.params);
+    return { location: await getWorkspaceLocation(deps, { actor: principalOf(request).user, workspaceId: workspaceId as WorkspaceId }) };
+  });
+
+  app.post('/:workspaceId/location', { bodyLimit: 4096 }, async (request) => {
+    const { workspaceId } = parse(workspaceParams, request.params);
+    const body = parse(z.strictObject({ location: z.unknown(), expectedLocation: z.unknown() }), request.body);
+    return { location: await saveWorkspaceLocation(deps, { actor: principalOf(request).user, workspaceId: workspaceId as WorkspaceId, location: body.location, expectedLocation: body.expectedLocation }) };
   });
 
   app.post('/:workspaceId/rename', { bodyLimit: 1024 }, async (request, reply) => {

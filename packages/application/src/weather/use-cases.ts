@@ -21,6 +21,7 @@ import {
   type WeatherLocation,
   type WeatherProviderId,
   type WeatherSettings,
+  type WorkspaceId,
 } from '@vergissmeinnicht/domain';
 import { NotAuthorizedError } from '../invitations/errors.ts';
 import type { Clock } from '../ports/clock.ts';
@@ -41,6 +42,10 @@ import {
   type WeatherSecrets,
   type WeatherSettingsRepository,
 } from '../ports/weather.ts';
+import type { UserRepository } from '../ports/user-repository.ts';
+import type { WorkspaceRepository } from '../ports/workspace-repository.ts';
+import { authorizeWorkspace } from '../workspaces/use-cases.ts';
+import { WorkspaceNotFoundError } from '../workspaces/errors.ts';
 import { userActor } from '../user-actor.ts';
 
 /** Weather is switched off on this server (W1): every weather route answers like an unknown resource. */
@@ -183,6 +188,8 @@ export function createWeatherService(deps: { readonly providers: readonly Weathe
 export type WeatherService = ReturnType<typeof createWeatherService>;
 
 export interface WeatherDeps {
+  readonly workspaces?: WorkspaceRepository;
+  readonly users?: UserRepository;
   readonly weatherSettings: WeatherSettingsRepository;
   readonly serverWeather: ServerWeatherSettingsRepository;
   readonly weather: WeatherService;
@@ -284,10 +291,32 @@ async function myWeatherOf(deps: WeatherDeps, server: ServerWeatherSettings, use
   return { settings, providers: await usable(deps, server, user), credentialProviders };
 }
 
+async function settingsFor(deps: WeatherDeps, user: User, workspaceId?: WorkspaceId): Promise<WeatherSettings> {
+  const settings = (await deps.weatherSettings.find(user.id)) ?? DEFAULT_WEATHER_SETTINGS;
+  if (workspaceId === undefined) return settings;
+  if (deps.workspaces === undefined) throw new WorkspaceNotFoundError();
+  await authorizeWorkspace({ workspaces: deps.workspaces }, user, workspaceId, 'workspace.view');
+  const workspace = await deps.workspaces.findById(workspaceId);
+  if (workspace === undefined) throw new WorkspaceNotFoundError();
+  // Personal provider/credentials stay personal. Automatic model covers locations beyond a regional model.
+  return settings.useWorkspaceLocation && workspace.location != null ? { ...settings, location: workspace.location, model: 'best_match' } : settings;
+}
+
+async function recheckWorkspace(deps: WeatherDeps, user: User, workspaceId?: WorkspaceId) {
+  if (workspaceId !== undefined) {
+    if (deps.workspaces === undefined) throw new WorkspaceNotFoundError();
+    const current = deps.users === undefined ? user : await deps.users.findById(user.id);
+    if (current === undefined) throw new WorkspaceNotFoundError();
+    await authorizeWorkspace({ workspaces: deps.workspaces }, current, workspaceId, 'workspace.view');
+  }
+}
+
 /** The person's own weather settings (defaults when never saved) and what they can choose. */
-export async function getMyWeather(deps: WeatherDeps, input: { readonly user: User }): Promise<MyWeather> {
+export async function getMyWeather(deps: WeatherDeps, input: { readonly user: User; readonly workspaceId?: WorkspaceId }): Promise<MyWeather> {
   const server = await enter(deps, input.user);
-  return myWeatherOf(deps, server, input.user, (await deps.weatherSettings.find(input.user.id)) ?? DEFAULT_WEATHER_SETTINGS);
+  const result = await myWeatherOf(deps, server, input.user, await settingsFor(deps, input.user, input.workspaceId));
+  await recheckWorkspace(deps, input.user, input.workspaceId);
+  return result;
 }
 
 /** Saves the person's settings after strict validation; nothing is fetched here. */
@@ -399,9 +428,9 @@ async function sourceRequest(deps: WeatherDeps, user: User, location: WeatherLoc
  * copy only with its time. Credential providers use the person's own credential, else the server's when
  * available (W3), within the credential's daily budget (W5). `days`: how many days to return (all when omitted).
  */
-export async function myForecast(deps: WeatherDeps, input: { readonly user: User; readonly days?: number }): Promise<MyForecast> {
+export async function myForecast(deps: WeatherDeps, input: { readonly user: User; readonly days?: number; readonly workspaceId?: WorkspaceId }): Promise<MyForecast> {
   const server = await enter(deps, input.user);
-  const settings = (await deps.weatherSettings.find(input.user.id)) ?? DEFAULT_WEATHER_SETTINGS;
+  const settings = await settingsFor(deps, input.user, input.workspaceId);
   const location = settings.location;
   if (location === null) throw new NoForecastError('no_location');
   const allowed = WEATHER_PROVIDERS.filter((id) => server.allowed.includes(id) && deps.weather.providerIds.includes(id));
@@ -416,6 +445,7 @@ export async function myForecast(deps: WeatherDeps, input: { readonly user: User
       const { entry, stale } = await deps.weather.forecast(provider, query, scope, beforeFetch);
       const chosen = settings.provider === 'AUTO' ? order[0] : settings.provider;
       const days = input.days === undefined ? entry.forecast.days : entry.forecast.days.slice(0, input.days);
+      await recheckWorkspace(deps, input.user, input.workspaceId);
       return {
         forecast: { ...entry.forecast, days },
         horizon: entry.forecast.days.length,

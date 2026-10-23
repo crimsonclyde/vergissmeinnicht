@@ -7,7 +7,7 @@ import { EXCLUDED_TABLES, EXPORTED_TABLES } from './workspace-backup-tables.ts';
  * fail until someone decides whether it belongs in a Workspace backup (and adds it to `omit` if not).
  */
 const REVIEWED_COLUMNS: Record<string, string> = {
-  workspaces: 'id name created_by_user_id created_at updated_at image_quota_bytes storage_quota_bytes storage_limit_bytes tools_revision text_recognition',
+  workspaces: 'id name created_by_user_id created_at updated_at image_quota_bytes storage_quota_bytes storage_limit_bytes tools_revision text_recognition location',
   workspace_tools: 'workspace_id tool enabled updated_at updated_by_user_id',
   memberships: 'workspace_id user_id role created_at updated_at',
   step_images: 'id workspace_id sha256 bytes width height created_by_user_id created_at',

@@ -168,6 +168,22 @@ test('first server admin: bootstrap link, account creation, sign-in, Workspace c
   await expect(page.getByRole('alert')).toHaveText(/no active account/);
   await settingsSection(page, 'Workspace settings', 'General');
   await expect(page).toHaveURL(/\/w\/[0-9a-f-]{36}\/settings$/);
+  // Shared Workspace location is optional, admin-managed, and immediately saved/cleared.
+  await page.getByLabel('Set a shared location', { exact: true }).check();
+  const locationCard = page.getByRole('region', { name: 'Location (optional)', exact: true });
+  await locationCard.getByLabel('Name shown').fill('Home Triora');
+  await locationCard.getByLabel('Latitude').fill('43.993');
+  await locationCard.getByLabel('Longitude').fill('7.7637');
+  await locationCard.getByLabel('Time zone').fill('Europe/Rome');
+  await locationCard.getByRole('button', { name: 'Save location', exact: true }).click();
+  await expect(locationCard.getByRole('status')).toHaveText('Location saved.');
+  await page.reload();
+  await expect(page.getByLabel('Set a shared location', { exact: true })).toBeChecked();
+  await expect(locationCard.getByLabel('Latitude')).toHaveValue('43.99');
+  await expectAccessible(page, 'shared Workspace location');
+  await page.getByLabel('Set a shared location', { exact: true }).uncheck();
+  await locationCard.getByRole('button', { name: 'Save location', exact: true }).click();
+  await expect(locationCard.getByRole('status')).toHaveText('Location saved.');
   page.once('dialog', (dialog) => void dialog.accept());
   await page.getByRole('button', { name: 'Leave Workspace' }).click();
   await expect(page.getByRole('alert').filter({ hasText: 'at least one active admin' })).toBeVisible();
@@ -1434,6 +1450,16 @@ test('first server admin: bootstrap link, account creation, sign-in, Workspace c
   await page.getByRole('button', { name: 'Use these coordinates' }).click();
   await expect(page.getByText('43.993, 7.7637')).toBeVisible();
   await page.getByLabel('Elevation (m, optional)').fill('780');
+  await page.getByRole('button', { name: 'Save weather settings' }).click();
+  await expect(page.getByRole('status').filter({ hasText: 'Saved.' })).toBeVisible();
+  const useWorkspacePlace = page.getByLabel('Use the current Workspace’s location when available', { exact: true });
+  await expect(useWorkspacePlace).not.toBeChecked();
+  await useWorkspacePlace.check();
+  await page.getByRole('button', { name: 'Save weather settings' }).click();
+  await expect(page.getByRole('status').filter({ hasText: 'Saved.' })).toBeVisible();
+  await page.reload();
+  await expect(useWorkspacePlace).toBeChecked();
+  await useWorkspacePlace.uncheck();
   await page.getByRole('button', { name: 'Save weather settings' }).click();
   await expect(page.getByRole('status').filter({ hasText: 'Saved.' })).toBeVisible();
   // Stored rounded to about 1 km.

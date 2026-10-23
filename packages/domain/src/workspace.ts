@@ -1,3 +1,4 @@
+import type { WeatherLocation } from './weather.ts';
 import { DomainValidationError } from './errors.ts';
 import type { WorkspaceRole } from './states.ts';
 import { normalizeSingleLineName } from './text.ts';
@@ -12,6 +13,7 @@ export type WorkspaceId = string & { readonly __brand: 'WorkspaceId' };
 export interface Workspace {
   readonly id: WorkspaceId;
   readonly name: string;
+  readonly location?: WeatherLocation | null;
   readonly createdAt: Date;
   readonly updatedAt: Date;
 }

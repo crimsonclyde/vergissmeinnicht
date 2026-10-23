@@ -1,5 +1,6 @@
 import {
   canAuthenticate,
+  parseWeatherLocation,
   type Membership,
   type NormalizedEmail,
   normalizeWorkspaceName,
@@ -228,4 +229,22 @@ export async function leaveWorkspace(
       guardFor('workspace.view'),
     ),
   );
+}
+
+/** Shared location is optional Workspace data. Only settings admins may change it. */
+export async function getWorkspaceLocation(deps: WorkspaceDeps, input: { actor: User; workspaceId: WorkspaceId }) {
+  const { workspace } = await getWorkspace(deps, input);
+  return workspace.location ?? null;
+}
+
+export class WorkspaceLocationConflictError extends Error {}
+
+export async function saveWorkspaceLocation(deps: WorkspaceDeps, input: { actor: User; workspaceId: WorkspaceId; location: unknown; expectedLocation: unknown }) {
+  await authorizeWorkspace(deps, input.actor, input.workspaceId, 'workspace.settings.manage');
+  const location = input.location === null ? null : parseWeatherLocation(input.location);
+  const expectedLocation = input.expectedLocation === null ? null : parseWeatherLocation(input.expectedLocation);
+  const result = await deps.workspaces.saveLocation({ workspaceId: input.workspaceId, location, expectedLocation, at: deps.clock.now() }, userActor(input.actor), guardFor('workspace.settings.manage'));
+  if (result === 'forbidden') throw new NotAuthorizedError();
+  if (result === 'conflict') throw new WorkspaceLocationConflictError();
+  return location;
 }

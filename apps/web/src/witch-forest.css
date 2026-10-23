@@ -18,6 +18,23 @@
   --wf-moss: #9ccf8f;
   --wf-lichen: #c9d8b4;
   --wf-moon: #dfe6cf;
+  --wf-firefly: #e9edc5;
+  --wf-dial-stone-light: #a0a18d;
+  --wf-dial-stone: #444b3e;
+  --wf-dial-slate-light: #8c9180;
+  --wf-dial-slate: #686f5e;
+  --wf-dial-edge: #424e3e;
+  --wf-dial-bronze: #8f8259;
+  --wf-dial-gold: #c5b789;
+  --wf-dial-patina: #485744;
+  --wf-dial-letter: #cec7a5;
+  --wf-dial-shadow: #050c09;
+  --wf-dial-iron-light: #a2aa8b;
+  --wf-dial-cut: #303b2e;
+  --wf-dial-blood: #721b25;
+  --wf-dial-blood-light: #a03942;
+  --wf-dial-blood-dark: #350c14;
+  --wf-dial-blood-glint: #d2938f;
   --wf-rule: rgb(156 207 143 / 16%);
   --wf-ink-rule: rgb(84 72 47 / 55%);
   --radius: 5px;
@@ -60,7 +77,7 @@
 
 /*
  * Words that sit straight on the forest (a page lead, a Run's description, labels, the footer) carry a soft
- * halo of the page colour, so the moon, the candlelit window or a firefly behind them never costs contrast.
+ * halo of the page colour, so the moonlit mist or a firefly behind them never costs contrast.
  * On a dark card the halo is barely darker than the card and reads as a crisper edge.
  */
 :root[data-theme='witch-forest'] :is(.app-main, .public-main) {
@@ -87,168 +104,110 @@
   pointer-events: none;
 }
 
-/* The sky: near black above, a cold green mist towards the trees, and a few faint stars. */
-:root[data-theme='witch-forest'] .forest-sky {
+/* 25.3: compressed independent woodland; cover crops, never stretches a tree. */
+:root[data-theme='witch-forest'] .forest-art {
   position: absolute;
   inset: 0;
-  background:
-    radial-gradient(1px 1px at 12% 14%, rgb(223 230 207 / 70%), transparent 2px),
-    radial-gradient(1px 1px at 27% 6%, rgb(223 230 207 / 50%), transparent 2px),
-    radial-gradient(1.5px 1.5px at 41% 19%, rgb(223 230 207 / 55%), transparent 2px),
-    radial-gradient(1px 1px at 58% 9%, rgb(223 230 207 / 45%), transparent 2px),
-    radial-gradient(1px 1px at 66% 26%, rgb(223 230 207 / 40%), transparent 2px),
-    radial-gradient(1.5px 1.5px at 91% 8%, rgb(223 230 207 / 55%), transparent 2px),
-    radial-gradient(1px 1px at 8% 31%, rgb(223 230 207 / 35%), transparent 2px),
-    radial-gradient(70% 45% at 78% 20%, rgb(159 188 176 / 10%), transparent 70%),
-    radial-gradient(45% 22% at 74% 64%, rgb(190 210 196 / 7%), transparent 75%),
-    linear-gradient(180deg, #040806 0%, #08100d 35%, #12221c 70%, #1a2e27 100%);
-}
-
-/* The moon, high on the right, with a cold halo. */
-:root[data-theme='witch-forest'] .forest-moon {
-  position: absolute;
-  top: clamp(4rem, 12vh, 8rem);
-  right: 7vw;
-  width: clamp(7rem, 16vw, 13rem);
-  aspect-ratio: 1;
-  border-radius: 50%;
-  background: radial-gradient(closest-side, rgb(223 230 207 / 20%) 30%, rgb(223 230 207 / 5%) 60%, transparent);
-  /* Veiled by mist: words often pass in front of it, and it should never outshine them. */
-  opacity: 0.62;
-}
-
-:root[data-theme='witch-forest'] .forest-moon svg {
   width: 100%;
   height: 100%;
+  object-fit: cover;
+  object-position: center;
 }
 
-/* A long thin cloud that drifts across the moon. */
-:root[data-theme='witch-forest'] .forest-cloud {
+:root[data-theme='witch-forest'] :is(.forest-moonlight, .forest-stars, .forest-shade) {
   position: absolute;
-  top: calc(clamp(4rem, 12vh, 8rem) + clamp(2.5rem, 7vw, 5.5rem));
-  right: -10vw;
-  width: 70vw;
-  height: 3.2rem;
+  inset: 0;
+}
+
+/* Phase affects only a faint atmospheric wash, never the content surfaces or text tokens. */
+:root[data-theme='witch-forest'] .forest-moonlight {
+  background: radial-gradient(ellipse at 83% 20%, rgb(176 200 187 / 45%), transparent 65%);
+}
+
+:root[data-theme='witch-forest'] .forest-stars {
   background:
-    radial-gradient(40% 50% at 30% 50%, rgb(26 40 35 / 85%), transparent 70%),
-    radial-gradient(35% 40% at 62% 60%, rgb(26 40 35 / 75%), transparent 70%),
-    radial-gradient(25% 35% at 85% 40%, rgb(26 40 35 / 65%), transparent 70%);
+    radial-gradient(1px 1px at 48% 12%, var(--wf-moon), transparent 2px),
+    radial-gradient(1px 1px at 56% 8%, var(--wf-moon), transparent 2px),
+    radial-gradient(1px 1px at 64% 22%, var(--wf-moon), transparent 2px),
+    radial-gradient(1px 1px at 70% 10%, var(--wf-moon), transparent 2px);
 }
 
-/* On phones the greeting fills the top, so the moon sits lower, mostly behind the cards. */
-@media (max-width: 56rem) {
-  :root[data-theme='witch-forest'] .forest-moon {
-    top: auto;
-    bottom: 44vh;
-    right: 6vw;
-    width: 5.5rem;
-  }
-
-  :root[data-theme='witch-forest'] .forest-cloud {
-    top: auto;
-    bottom: calc(44vh + 1.2rem);
-  }
+/* Quiet upper reading area; the lower valley retains its depth and botanical detail. */
+:root[data-theme='witch-forest'] .forest-shade {
+  background: linear-gradient(180deg, rgb(4 10 7 / 64%), rgb(4 10 7 / 24%) 45%, rgb(4 10 7 / 12%));
 }
 
-/* The land: ridges, pines, the hut, the old trees — anchored to the bottom, two thirds of the height. */
-:root[data-theme='witch-forest'] .forest-land {
-  position: absolute;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  width: 100%;
-  height: 72vh;
-}
-
-/* Mist lying between the trees; each band is twice as wide as the screen so it can drift. */
+/* Small transparent gradients, with generous overscan for a very short transform-only drift. */
 :root[data-theme='witch-forest'] .forest-fog {
   position: absolute;
-  left: 0;
-  width: 200%;
-  background-repeat: repeat-x;
-  background-size: 50% 100%;
+  left: -5%;
+  width: 110%;
 }
 
 :root[data-theme='witch-forest'] .forest-fog-far {
-  bottom: 24vh;
-  height: 16vh;
-  background-image:
-    radial-gradient(30% 45% at 20% 55%, rgb(159 188 176 / 13%), transparent 70%),
-    radial-gradient(25% 40% at 55% 45%, rgb(159 188 176 / 10%), transparent 70%),
-    radial-gradient(30% 45% at 85% 60%, rgb(159 188 176 / 12%), transparent 70%);
+  bottom: 22%;
+  height: 28%;
+  background:
+    radial-gradient(ellipse at 60% 55%, rgb(159 188 176 / 11%), transparent 65%),
+    radial-gradient(ellipse at 83% 70%, rgb(159 188 176 / 7%), transparent 60%);
 }
 
 :root[data-theme='witch-forest'] .forest-fog-near {
   bottom: 0;
-  height: 22vh;
-  background-image:
-    radial-gradient(35% 50% at 15% 70%, rgb(170 196 185 / 14%), transparent 70%),
-    radial-gradient(30% 40% at 50% 80%, rgb(170 196 185 / 11%), transparent 70%),
-    radial-gradient(35% 45% at 80% 65%, rgb(170 196 185 / 13%), transparent 70%),
-    linear-gradient(180deg, transparent, rgb(140 168 156 / 10%));
+  height: 22%;
+  background: radial-gradient(ellipse at 45% 80%, rgb(159 188 176 / 10%), transparent 70%);
 }
 
-/* Fireflies: tiny pale-green lights near the ground. */
+/* Ten tiny lights, mostly invisible: size, depth and the two independent rhythms are seeded. */
 :root[data-theme='witch-forest'] .forest-fireflies > span {
   position: absolute;
-  width: 2px;
-  height: 2px;
   border-radius: 50%;
-  background: #e9f5b8;
-  box-shadow: 0 0 4px 1px rgb(214 236 140 / 45%);
-  opacity: 0.5;
+  background: var(--wf-firefly);
+  box-shadow: 0 0 4px 1px rgb(221 228 168 / 24%);
+  opacity: 0.18;
 }
 
-/* Every third one is further away: smaller and fainter. */
 :root[data-theme='witch-forest'] .forest-fireflies > span:nth-child(3n) {
-  width: 1.5px;
-  height: 1.5px;
-  box-shadow: 0 0 3px 1px rgb(214 236 140 / 30%);
+  opacity: 0.08;
 }
 
-/* Ivy hanging from the top corners. */
+/* One botanical edge layer; no repeating strings or vegetation around every card. */
 :root[data-theme='witch-forest'] .forest-ivy {
   position: absolute;
-  top: 0;
-  width: clamp(7rem, 20vw, 18rem);
-  height: auto;
-  aspect-ratio: 300 / 270;
+  top: -1rem;
+  right: -1rem;
+  width: clamp(5rem, 11vw, 12rem);
+  height: clamp(9rem, 21vw, 22rem);
+  background: url('./witch-forest/old-ivy.webp') left top / contain no-repeat;
+  transform: scaleX(-1);
+  opacity: 0.65;
 }
 
-:root[data-theme='witch-forest'] .forest-ivy-left {
-  left: 0;
-}
+@media (max-width: 37.5rem) {
+  :root[data-theme='witch-forest'] .forest-art {
+    object-position: 55% center;
+  }
 
-:root[data-theme='witch-forest'] .forest-ivy-right {
-  right: 0;
-}
+  :root[data-theme='witch-forest'] .forest-shade {
+    background: linear-gradient(180deg, rgb(4 10 7 / 68%), rgb(4 10 7 / 35%) 50%, rgb(4 10 7 / 20%));
+  }
 
-:root[data-theme='witch-forest'] .forest-vine {
-  transform-box: fill-box;
-  transform-origin: 50% 0;
-}
+  :root[data-theme='witch-forest'] .forest-ivy {
+    width: 4.5rem;
+    height: 8rem;
+    opacity: 0.4;
+  }
 
-/* A crow that glides across the sky now and then (only with motion). */
-:root[data-theme='witch-forest'] .forest-crow-flying {
-  position: absolute;
-  top: 22vh;
-  left: -6rem;
-  width: 3rem;
-  opacity: 0;
-}
-
-:root[data-theme='witch-forest'] .forest-smoke circle,
-:root[data-theme='witch-forest'] .forest-candle,
-:root[data-theme='witch-forest'] .forest-candle-glow {
-  transform-box: fill-box;
-  transform-origin: 50% 100%;
+  :root[data-theme='witch-forest'] .forest-fireflies > span:nth-child(n + 7) {
+    display: none;
+  }
 }
 
 /* ---- Navigation: dark bark with ivy climbing its edge --------------------------------------- */
 
 :root[data-theme='witch-forest'] .shell-side {
   background:
-    url('./witch-forest/vine-strip.svg') right -6px top 0 / 22px auto repeat-y,
+    url('./witch-forest/old-ivy.webp') right -1.5rem top 3rem / 5.5rem auto no-repeat,
     linear-gradient(180deg, rgb(10 17 14 / 94%), rgb(13 22 18 / 94%));
   border-right: 1px solid #1f2d25;
 }
@@ -304,7 +263,6 @@
 
   :root[data-theme='witch-forest'] .tab-bar {
     background:
-      url('./witch-forest/vine-strip.svg') left -2px top -10px / 22px auto repeat-x,
       rgb(10 17 14 / 95%);
     border-top: 1px solid #22322a;
   }
@@ -587,18 +545,14 @@
 :root[data-theme='witch-forest'] .sundial {
   display: block;
   flex: none;
-  width: 8.5rem;
-  height: 8.5rem;
-  filter: drop-shadow(0 6px 10px rgb(0 0 0 / 55%));
+  width: 9.25rem;
+  height: 8rem;
+  overflow: visible;
 }
 
 :root[data-theme='witch-forest'] .sundial-numerals {
   font-family: var(--wf-serif);
   font-weight: 600;
-}
-
-:root[data-theme='witch-forest'] .sundial-shadow path {
-  transition: transform 900ms ease-out;
 }
 
 :root[data-theme='witch-forest'] .today-clock time {
@@ -621,9 +575,11 @@
 }
 
 @media (max-width: 600px) {
+  :root[data-theme='witch-forest'] .sundial-minor { display: none; }
+
   :root[data-theme='witch-forest'] .sundial {
-    width: 4.25rem;
-    height: 4.25rem;
+    width: 4.75rem;
+    height: 4.1rem;
   }
 
   :root[data-theme='witch-forest'] .today-clock {
@@ -980,63 +936,19 @@
 /* ---- Motion: slow, and none at all when the device asks for less ----------------------------- */
 
 @media (prefers-reduced-motion: no-preference) {
-  /* Mist drifts sideways, the near band faster than the far one. */
   :root[data-theme='witch-forest'] .forest-fog-far {
-    animation: wf-drift 140s linear infinite;
+    animation: wf-drift 140s ease-in-out infinite alternate;
   }
 
   :root[data-theme='witch-forest'] .forest-fog-near {
-    animation: wf-drift 90s linear infinite reverse;
+    animation: wf-drift 97s ease-in-out -31s infinite alternate-reverse;
   }
 
-  :root[data-theme='witch-forest'] .forest-cloud {
-    animation: wf-cloud 110s linear infinite;
-  }
-
-  /* Fireflies wander and glow up now and then; each has its own rhythm (set inline). */
   :root[data-theme='witch-forest'] .forest-fireflies > span {
     animation-name: wf-wander, wf-glow;
     animation-timing-function: ease-in-out, ease-in-out;
     animation-iteration-count: infinite, infinite;
-    animation-direction: alternate, alternate;
-  }
-
-  /* The ivy sways a little, each strand on its own beat. */
-  :root[data-theme='witch-forest'] .forest-vine-0 {
-    animation: wf-sway 9s ease-in-out infinite alternate;
-  }
-
-  :root[data-theme='witch-forest'] .forest-vine-1 {
-    animation: wf-sway 12s ease-in-out -3s infinite alternate-reverse;
-  }
-
-  :root[data-theme='witch-forest'] .forest-vine-2 {
-    animation: wf-sway 10.5s ease-in-out -6s infinite alternate;
-  }
-
-  /* Smoke rises from the chimney; the candle in the window flickers softly. */
-  :root[data-theme='witch-forest'] .forest-smoke circle {
-    animation: wf-smoke 12s ease-out infinite;
-  }
-
-  :root[data-theme='witch-forest'] .forest-smoke circle:nth-child(2) {
-    animation-delay: -3s;
-  }
-
-  :root[data-theme='witch-forest'] .forest-smoke circle:nth-child(3) {
-    animation-delay: -6s;
-  }
-
-  :root[data-theme='witch-forest'] .forest-smoke circle:nth-child(4) {
-    animation-delay: -9s;
-  }
-
-  :root[data-theme='witch-forest'] .forest-candle-glow {
-    animation: wf-candle 3.7s ease-in-out infinite alternate;
-  }
-
-  :root[data-theme='witch-forest'] .forest-crow-flying {
-    animation: wf-crow 48s linear 12s infinite;
+    animation-direction: alternate, normal;
   }
 
   :root[data-theme='witch-forest'] .ring-moon-lit {
@@ -1044,105 +956,28 @@
   }
 }
 
-@keyframes wf-drift {
-  from {
-    transform: translateX(0);
-  }
-  to {
-    transform: translateX(-50%);
-  }
+/* Pause all ambient motion while hidden; reduced motion stays a complete static scene. */
+:root[data-theme='witch-forest'] .forest[data-paused='true'] * {
+  animation-play-state: paused;
 }
 
-@keyframes wf-cloud {
-  from {
-    transform: translateX(10vw);
-  }
-  to {
-    transform: translateX(-90vw);
-  }
+@keyframes wf-drift {
+  from { transform: translateX(-2%); }
+  to { transform: translateX(2%); }
 }
 
 @keyframes wf-wander {
-  0% {
-    transform: translate(0, 0);
-  }
-  33% {
-    transform: translate(1.4rem, -1.1rem);
-  }
-  66% {
-    transform: translate(-0.8rem, -2.2rem);
-  }
-  100% {
-    transform: translate(0.6rem, -3rem);
-  }
+  0% { transform: translate(0, 0); }
+  45% { transform: translate(0.4rem, -0.5rem); }
+  100% { transform: translate(-0.3rem, -0.9rem); }
 }
 
+/* Short, gentle glimpses separated by long darkness; each fly has a different period and offset. */
 @keyframes wf-glow {
-  0%,
-  40% {
-    opacity: 0.15;
-  }
-  100% {
-    opacity: 0.9;
-  }
-}
-
-@keyframes wf-sway {
-  from {
-    transform: rotate(-1.4deg);
-  }
-  to {
-    transform: rotate(1.4deg);
-  }
-}
-
-@keyframes wf-smoke {
-  0% {
-    transform: translate(0, 0) scale(0.6);
-    opacity: 0;
-  }
-  25% {
-    opacity: 1;
-  }
-  100% {
-    transform: translate(22px, -70px) scale(2.2);
-    opacity: 0;
-  }
-}
-
-@keyframes wf-candle {
-  0% {
-    opacity: 0.7;
-  }
-  45% {
-    opacity: 1;
-  }
-  60% {
-    opacity: 0.82;
-  }
-  100% {
-    opacity: 0.95;
-  }
-}
-
-/* Glides across the upper sky in about seven seconds, then rests out of sight. */
-@keyframes wf-crow {
-  0% {
-    opacity: 0;
-    transform: translate(0, 0);
-  }
-  1% {
-    opacity: 0.85;
-  }
-  14% {
-    opacity: 0.85;
-    transform: translate(calc(100vw + 12rem), -6vh);
-  }
-  15%,
-  100% {
-    opacity: 0;
-    transform: translate(calc(100vw + 12rem), -6vh);
-  }
+  0%, 58%, 77%, 100% { opacity: 0; }
+  65% { opacity: 0.48; }
+  69% { opacity: 0.16; }
+  72% { opacity: 0.3; }
 }
 
 /* Fireflies after a finished Section: they rise and fade (replaces the falling confetti). */

@@ -16,7 +16,8 @@
     "@vergissmeinnicht/domain": "workspace:*",
     "qrcode-generator": "2.0.4",
     "react": "19.3.0",
-    "react-dom": "19.3.0"
+    "react-dom": "19.3.0",
+    "suncalc": "2.0.1"
   },
   "devDependencies": {
     "@tabler/icons": "3.48.0",

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState, type ReactNode } from 'react';
 import { AcceptInvitation } from './AcceptInvitation.tsx';
 import { api, isNetworkError, type CurrentUser } from './api.ts';
+import { ForestScene } from './ForestScene.tsx';
 import { AppShell } from './AppShell.tsx';
 import { OfflineProvider } from './offline/OfflineProvider.tsx';
 import { announceSession, onSessionMessage, reactionTo } from './offline/session-channel.ts';
@@ -14,15 +15,18 @@ import { t } from './i18n/index.ts';
 /** Pages reachable without signing in (sign-in, invitation and recovery links). */
 function PublicLayout({ children }: { children: ReactNode }) {
   return (
-    <main className="app-main public-main">
-      <h1 className="public-brand">
-        <img className="brand-icon" src="/icon.svg" alt="" width={40} height={40} />
-        VergissMeinNicht
-      </h1>
-      <p className="muted">{t('public.tagline')}</p>
-      <div className="card">{children}</div>
-      <SourceFooter />
-    </main>
+    <>
+      <ForestScene />
+      <main className="app-main public-main">
+        <h1 className="public-brand">
+          <img className="brand-icon" src="/icon.svg" alt="" width={40} height={40} />
+          VergissMeinNicht
+        </h1>
+        <p className="muted">{t('public.tagline')}</p>
+        <div className="card">{children}</div>
+        <SourceFooter />
+      </main>
+    </>
   );
 }
 
@@ -100,7 +104,7 @@ export function App() {
       </PublicLayout>
     );
   }
-  if (user === undefined) return <p className="app-main public-main">{t('common.loading')}</p>;
+  if (user === undefined) return <><ForestScene /><p className="app-main public-main">{t('common.loading')}</p></>;
   if (user === null) {
     return (
       <PublicLayout>
@@ -120,6 +124,7 @@ export function App() {
   }
   return (
     <OfflineProvider key={user.id} userId={user.id}>
+      <ForestScene userId={user.id} workspaceId={'workspaceId' in route ? route.workspaceId : undefined} />
       <AppShell
         user={user}
         route={route}

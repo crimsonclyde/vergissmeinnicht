@@ -20,6 +20,7 @@ export function createWeatherSettingsRepository({ db }: Pick<AppDatabase, 'db'>)
       // Values from an older or newer version that this one does not know fall back to the defaults.
       return {
         location,
+        ...(row.useWorkspaceLocation ? { useWorkspaceLocation: true } : {}),
         provider: (WEATHER_PROVIDER_CHOICES as readonly string[]).includes(row.provider) ? (row.provider as WeatherProviderChoice) : DEFAULT_WEATHER_SETTINGS.provider,
         model: (OPEN_METEO_MODEL_IDS as readonly string[]).includes(row.model) ? (row.model as OpenMeteoModelId) : DEFAULT_WEATHER_SETTINGS.model,
         fallback: row.fallback,
@@ -30,6 +31,7 @@ export function createWeatherSettingsRepository({ db }: Pick<AppDatabase, 'db'>)
 
     async save(userId, settings, at) {
       const values = {
+        useWorkspaceLocation: settings.useWorkspaceLocation === true,
         placeName: settings.location?.name ?? null,
         latitude: settings.location?.latitude ?? null,
         longitude: settings.location?.longitude ?? null,

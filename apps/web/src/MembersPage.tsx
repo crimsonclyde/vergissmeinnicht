@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState, type FormEvent } from 'react';
 import { api, messageFor, WORKSPACE_ROLES, type WorkspaceMember, type WorkspaceRole } from './api.ts';
+import { WorkspaceLocationCard } from './WorkspaceLocation.tsx';
 import { WorkspaceStorageCard } from './Storage.tsx';
 import { TextRecognitionCard } from './TextRecognition.tsx';
 import { navigate, paths } from './router.tsx';
@@ -214,6 +215,7 @@ export function WorkspaceGeneral(props: { context: WorkspaceContext; onWorkspace
           <p style={{ margin: 0 }}>{context.workspace.name}</p>
         </div>
       )}
+      <WorkspaceLocationCard key={context.workspace.id} workspaceId={context.workspace.id} canManage={context.capabilities.includes('workspace.settings.manage')} />
       {context.capabilities.includes('workspace.tools.manage') && <WorkspaceTools context={context} onChanged={props.onWorkspacesChanged} />}
       {context.capabilities.includes('workspace.settings.manage') && <WorkspaceStorageCard workspaceId={context.workspace.id} />}
       {context.capabilities.includes('workspace.settings.manage') && context.tools.includes('DOCUMENTS') && <TextRecognitionCard workspaceId={context.workspace.id} />}

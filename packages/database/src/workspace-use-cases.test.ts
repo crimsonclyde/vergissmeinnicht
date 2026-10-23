@@ -15,6 +15,7 @@ import {
   listMyWorkspaces,
   removeMember,
   renameWorkspace,
+  saveWorkspaceLocation,
   type WorkspaceDeps,
 } from '@vergissmeinnicht/application';
 import {
@@ -370,6 +371,12 @@ describe('Workspace and Membership use-cases', () => {
         addMember(deps, { actor: alice, workspaceId: home.id, email: bob.email, role: 'USER' }),
       ).rejects.toThrow(NotAuthorizedError);
     });
+  });
+
+  it('rechecks the location writer inside the transaction with a stale active User object', async () => {
+    setStatus(serverAdmin, 'DISABLED');
+    await expect(saveWorkspaceLocation(deps, { actor: serverAdmin, workspaceId: home.id, location: { name: 'Triora', latitude: 44, longitude: 8, timeZone: 'Europe/Rome', elevation: null }, expectedLocation: null })).rejects.toThrow(NotAuthorizedError);
+    expect((await deps.workspaces.findById(home.id))?.location).toBeNull();
   });
 
   describe('atomicity and storage constraints', () => {

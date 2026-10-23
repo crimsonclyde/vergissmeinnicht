@@ -1235,12 +1235,19 @@ export const api = {
     request<{ user: CurrentUser } | { mfaRequired: true }>('POST', '/auth/sign-in', { email, password }),
   completeMfa: async (factor: SecondFactor) => (await request<{ user: CurrentUser }>('POST', '/auth/mfa', factor)).user,
   mfaStatus: () => request<MfaStatus>('GET', '/account/mfa'),
-  myWeather: () => request<MyWeather>('GET', '/account/weather'),
+  myWeather: (workspaceId?: string) => request<MyWeather>('GET', `/account/weather${workspaceId === undefined ? '' : `?workspaceId=${encodeURIComponent(workspaceId)}`}`),
+  workspaceLocation: async (workspaceId: string) => (await request<{ location: WeatherLocation | null }>('GET', `/workspaces/${encodeURIComponent(workspaceId)}/location`)).location,
+  saveWorkspaceLocation: async (workspaceId: string, location: WeatherLocation | null, expectedLocation: WeatherLocation | null) => (await request<{ location: WeatherLocation | null }>('POST', `/workspaces/${encodeURIComponent(workspaceId)}/location`, { location, expectedLocation })).location,
   saveMyWeather: (settings: WeatherSettings) => request<MyWeather>('POST', '/account/weather', { settings }),
   searchPlaces: async (text: string, language: string) => (await request<{ places: PlaceResult[] }>('GET', `/account/weather/places?q=${encodeURIComponent(text)}&lang=${encodeURIComponent(language)}`)).places,
   weatherModels: async (location: WeatherLocation) => (await request<{ models: ModelChoice[] }>('POST', '/account/weather/models', { location })).models,
   /** `days`: Today asks for 2; the Weather page for everything the provider offers. */
-  myForecast: (days?: number) => request<MyForecast>('GET', `/account/weather/forecast${days === undefined ? '' : `?days=${days}`}`),
+  myForecast: (days?: number, workspaceId?: string) => {
+    const query = new URLSearchParams();
+    if (days !== undefined) query.set('days', String(days));
+    if (workspaceId !== undefined) query.set('workspaceId', workspaceId);
+    return request<MyForecast>('GET', `/account/weather/forecast?${query.toString()}`);
+  },
   workspaceBackups: async (workspaceId: string) => (await request<{ jobs: BackupJob[] }>('GET', `/workspaces/${encodeURIComponent(workspaceId)}/backups`)).jobs,
   createWorkspaceBackup: async (workspaceId: string) => (await request<{ job: BackupJob }>('POST', `/workspaces/${encodeURIComponent(workspaceId)}/backups`, {})).job,
   cancelWorkspaceBackup: async (workspaceId: string, jobId: string) => (await request<{ job: BackupJob }>('POST', `/workspaces/${encodeURIComponent(workspaceId)}/backups/${encodeURIComponent(jobId)}/cancel`, {})).job,

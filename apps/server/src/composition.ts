@@ -357,6 +357,8 @@ export function createServices(config: AppConfig, database: AppDatabase, overrid
       workspaceBackups,
       backupRunner,
       weather: {
+        workspaces: workspaceDeps.workspaces,
+        users: workspaceDeps.users,
         weatherSettings: createWeatherSettingsRepository(database),
         serverWeather,
         weather: weatherService,

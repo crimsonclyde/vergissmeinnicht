@@ -20,7 +20,7 @@ import {
   type MyForecast,
   type MyWeather,
 } from '@vergissmeinnicht/application';
-import { WEATHER_PROVIDERS } from '@vergissmeinnicht/domain';
+import { WEATHER_PROVIDERS, UUID_V4, type WorkspaceId } from '@vergissmeinnicht/domain';
 import type { FastifyInstance, FastifyRequest } from 'fastify';
 import { z } from 'zod';
 import type { AppServices } from '../composition.ts';
@@ -92,7 +92,10 @@ export async function accountWeatherRoutes(app: FastifyInstance, { services }: {
   const deps = services.weather;
   app.addHook('preHandler', requireUser(services));
 
-  app.get('/', async (request) => myWeatherView(await getMyWeather(deps, { user: userOf(request) })));
+  app.get('/', async (request) => {
+    const query = parse(z.strictObject({ workspaceId: z.string().regex(UUID_V4).optional() }), request.query);
+    return myWeatherView(await getMyWeather(deps, { user: userOf(request), ...(query.workspaceId === undefined ? {} : { workspaceId: query.workspaceId as WorkspaceId }) }));
+  });
 
   app.post('/', { bodyLimit: 4096 }, async (request) => {
     const body = parse(z.strictObject({ settings: z.unknown() }), request.body);
@@ -125,9 +128,9 @@ export async function accountWeatherRoutes(app: FastifyInstance, { services }: {
   // No forecast is not an error for Today: it simply shows nothing; the Weather page shows the reason.
   // `days`: Today asks for 2; the Weather page for all the provider offers.
   app.get('/forecast', async (request) => {
-    const query = parse(z.strictObject({ days: z.coerce.number().int().min(1).max(16).optional() }), request.query);
+    const query = parse(z.strictObject({ workspaceId: z.string().regex(UUID_V4).optional(), days: z.coerce.number().int().min(1).max(16).optional() }), request.query);
     try {
-      return forecastView(await myForecast(deps, { user: userOf(request), ...(query.days === undefined ? {} : { days: query.days }) }));
+      return forecastView(await myForecast(deps, { user: userOf(request), ...(query.days === undefined ? {} : { days: query.days }), ...(query.workspaceId === undefined ? {} : { workspaceId: query.workspaceId as WorkspaceId }) }));
     } catch (error) {
       if (error instanceof NoForecastError) return { forecast: null, reason: error.reason };
       throw error;

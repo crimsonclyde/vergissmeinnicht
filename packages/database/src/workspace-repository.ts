@@ -20,7 +20,7 @@ import { IMMEDIATE, actorAllowed, type Transaction, type UserActor } from './act
 import { recordSecurityEvent } from './security-events.ts';
 
 function toWorkspace(row: typeof workspaces.$inferSelect): Workspace {
-  return { id: row.id as WorkspaceId, name: row.name, createdAt: row.createdAt, updatedAt: row.updatedAt };
+  return { id: row.id as WorkspaceId, name: row.name, location: row.location, createdAt: row.createdAt, updatedAt: row.updatedAt };
 }
 
 function toMembership(row: typeof memberships.$inferSelect): Membership {
@@ -182,6 +182,18 @@ export function createWorkspaceRepository(database: Pick<AppDatabase, 'db'>): Wo
             email: row.email as NormalizedEmail,
           }),
         );
+    },
+
+    async saveLocation(input, actor, guard) {
+      return db.transaction((tx) => {
+        if (!actorAllowed(tx, input.workspaceId, actor, guard)) return 'forbidden';
+        const previous = tx.select({ location: workspaces.location }).from(workspaces).where(eq(workspaces.id, input.workspaceId)).get();
+        if (previous === undefined) return 'forbidden';
+        if (JSON.stringify(previous.location) !== JSON.stringify(input.expectedLocation)) return 'conflict';
+        tx.update(workspaces).set({ location: input.location, updatedAt: input.at }).where(eq(workspaces.id, input.workspaceId)).run();
+        recordSecurityEvent(tx, { type: 'WORKSPACE_LOCATION_CHANGED', actor, subjectType: 'workspace', subjectId: input.workspaceId, occurredAt: input.at, metadata: { locationSet: input.location !== null } });
+        return 'ok';
+      }, IMMEDIATE);
     },
 
     async rename(input, actor, guard) {

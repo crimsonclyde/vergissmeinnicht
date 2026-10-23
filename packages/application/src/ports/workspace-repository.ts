@@ -8,6 +8,7 @@ import type {
   WorkspaceId,
   WorkspaceRole,
   WorkspaceTool,
+  WeatherLocation,
 } from '@vergissmeinnicht/domain';
 import type { ActorGuard } from './actor-guard.ts';
 
@@ -44,6 +45,7 @@ export interface WorkspaceRepository {
   /** Workspaces the user is a member of, with the user's role, ordered by name. */
   listForUser(userId: UserId): Promise<{ workspace: Workspace; role: WorkspaceRole }[]>;
   listMembers(workspaceId: WorkspaceId): Promise<WorkspaceMember[]>;
+  saveLocation(input: { readonly workspaceId: WorkspaceId; readonly location: WeatherLocation | null; readonly expectedLocation: WeatherLocation | null; readonly at: Date }, actor: Actor & { readonly kind: 'user' }, guard: MembershipGuard): Promise<'ok' | 'forbidden' | 'conflict'>;
   rename(
     input: { readonly workspaceId: WorkspaceId; readonly name: string; readonly at: Date },
     actor: Actor & { readonly kind: 'user' },

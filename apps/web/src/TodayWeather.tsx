@@ -9,33 +9,33 @@ import { conditionIcon, rainIndication, showable, sourceLabel, temperature } fro
 type Shown = Extract<MyForecast, { forecast: object }>;
 
 /** The person's forecast for Today, kept on the device for a while (offline, a provider outage). */
-export function useMyForecast(userId: string, wanted: boolean): Shown | null {
-  const [shown, setShown] = useState<Shown | null>(null);
+export function useMyForecast(userId: string, wanted: boolean, workspaceId?: string): Shown | null {
+  const [shown, setShown] = useState<{ workspaceId: string | undefined; data: Shown } | null>(null);
   useEffect(() => {
     if (!wanted) return;
     let active = true;
     // Today needs today and tomorrow only; the server answers from the same cached forecast either way.
-    api.myForecast(2).then(
+    api.myForecast(2, workspaceId).then(
       (answer) => {
         if (!active) return;
         if (answer.forecast === null) {
           setShown(null);
           return;
         }
-        setShown(answer);
-        void offlineStore.saveForecast(userId, answer);
+        setShown({ workspaceId, data: answer });
+        void offlineStore.saveForecast(userId, answer, workspaceId);
       },
       async (caught: unknown) => {
         // Weather never shows an error on Today: offline, the last forecast (≤ 6 h, with its time); otherwise nothing.
-        const saved = isNetworkError(caught) ? ((await offlineStore.loadForecast(userId)) as Shown | undefined) : undefined;
-        if (active) setShown(saved !== undefined && showable(saved.fetchedAt) ? { ...saved, stale: true } : null);
+        const saved = isNetworkError(caught) ? ((await offlineStore.loadForecast(userId, workspaceId)) as Shown | undefined) : undefined;
+        if (active) setShown(saved !== undefined && showable(saved.fetchedAt) ? { workspaceId, data: { ...saved, stale: true } } : null);
       },
     );
     return () => {
       active = false;
     };
-  }, [userId, wanted]);
-  return shown !== null && showable(shown.fetchedAt) ? shown : null;
+  }, [userId, wanted, workspaceId]);
+  return wanted && shown !== null && shown.workspaceId === workspaceId && showable(shown.data.fetchedAt) ? shown.data : null;
 }
 
 /**

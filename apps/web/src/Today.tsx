@@ -194,7 +194,7 @@ export function Today(props: {
   const shownIds = useMemo(() => todayCards(props.tools, settings).map((setting) => setting.card.id).join(' '), [props.tools, settings]);
   const retention = useMemo(() => settings.cards.find((setting) => setting.card.id === 'recent')?.retention ?? 'DAYS_3', [settings]);
 
-  const weather = useMyForecast(userId, loaded && shownIds.split(' ').includes('weather'));
+  const weather = useMyForecast(userId, loaded && shownIds.split(' ').includes('weather'), workspaceId);
 
   const load = useCallback(() => {
     // Until the person's layout is known nothing is asked for twice.

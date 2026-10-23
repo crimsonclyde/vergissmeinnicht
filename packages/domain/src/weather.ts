@@ -102,6 +102,8 @@ export interface WeatherLocation {
 }
 
 export interface WeatherSettings {
+  /** Opt-in: use the current Workspace location, falling back to the personal location. */
+  readonly useWorkspaceLocation?: boolean;
   readonly location: WeatherLocation | null;
   readonly provider: WeatherProviderChoice;
   readonly model: OpenMeteoModelId;
@@ -157,10 +159,12 @@ export function parseWeatherLocation(input: unknown): WeatherLocation {
 /** Strict: unknown fields and values out of range are refused, never dropped. */
 export function parseWeatherSettings(input: unknown): WeatherSettings {
   if (!isRecord(input)) refuse('settings');
-  onlyKeys(input, ['location', 'provider', 'model', 'fallback', 'unit', 'showTomorrow'], 'settings');
+  onlyKeys(input, ['location', 'provider', 'model', 'fallback', 'unit', 'showTomorrow', 'useWorkspaceLocation'], 'settings');
+  if (input.useWorkspaceLocation !== undefined && typeof input.useWorkspaceLocation !== 'boolean') refuse('useWorkspaceLocation');
   if (typeof input.fallback !== 'boolean') refuse('fallback');
   if (typeof input.showTomorrow !== 'boolean') refuse('showTomorrow');
   return {
+    ...(input.useWorkspaceLocation === true ? { useWorkspaceLocation: true } : {}),
     location: input.location === null ? null : parseWeatherLocation(input.location),
     provider: oneOf(WEATHER_PROVIDER_CHOICES, input.provider, 'provider'),
     model: oneOf(OPEN_METEO_MODEL_IDS, input.model, 'model'),
