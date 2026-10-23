@@ -43,10 +43,33 @@
   letter-spacing: 0.01em;
 }
 
-/* Card and page titles in small capitals, like chapter heads. */
-:root[data-theme='witch-forest'] :is(.today-card-title, .page-header h2, .guide-head-title, .guide-count) {
+/*
+ * Fixed labels (card titles, page names, section labels, the Step count) in small capitals, like chapter
+ * heads. Titles people write themselves (a Run, a Section) stay in their own case: small capitals make a
+ * long title twice as tall on a phone and harder to read.
+ */
+:root[data-theme='witch-forest'] :is(.today-card-title, .page-header h2, .section-label, .guide-count) {
   font-variant: small-caps;
   letter-spacing: 0.05em;
+}
+
+:root[data-theme='witch-forest'] .section-label {
+  font-size: 1rem;
+  letter-spacing: 0.07em;
+}
+
+/*
+ * Words that sit straight on the forest (a page lead, a Run's description, labels, the footer) carry a soft
+ * halo of the page colour, so the moon, the candlelit window or a firefly behind them never costs contrast.
+ * On a dark card the halo is barely darker than the card and reads as a crisper edge.
+ */
+:root[data-theme='witch-forest'] :is(.app-main, .public-main) {
+  text-shadow: 0 0 0.1rem var(--bg), 0 0 0.35rem var(--bg), 0 0 0.9rem var(--bg);
+}
+
+/* (The halo's colour is fixed where it is declared, so paper and light controls switch it off themselves.) */
+:root[data-theme='witch-forest'] :is(.app-main, .public-main) :is(.guide-card, .today-hero, button.primary, .button.primary, input, select, textarea, .guide-next, .theme-swatch) {
+  text-shadow: none;
 }
 
 /* ---- The forest behind the page ------------------------------------------------------------ */
@@ -77,6 +100,7 @@
     radial-gradient(1.5px 1.5px at 91% 8%, rgb(223 230 207 / 55%), transparent 2px),
     radial-gradient(1px 1px at 8% 31%, rgb(223 230 207 / 35%), transparent 2px),
     radial-gradient(70% 45% at 78% 20%, rgb(159 188 176 / 10%), transparent 70%),
+    radial-gradient(45% 22% at 74% 64%, rgb(190 210 196 / 7%), transparent 75%),
     linear-gradient(180deg, #040806 0%, #08100d 35%, #12221c 70%, #1a2e27 100%);
 }
 
@@ -88,7 +112,9 @@
   width: clamp(7rem, 16vw, 13rem);
   aspect-ratio: 1;
   border-radius: 50%;
-  background: radial-gradient(closest-side, rgb(223 230 207 / 22%) 30%, rgb(223 230 207 / 6%) 60%, transparent);
+  background: radial-gradient(closest-side, rgb(223 230 207 / 20%) 30%, rgb(223 230 207 / 5%) 60%, transparent);
+  /* Veiled by mist: words often pass in front of it, and it should never outshine them. */
+  opacity: 0.62;
 }
 
 :root[data-theme='witch-forest'] .forest-moon svg {
@@ -107,7 +133,6 @@
     radial-gradient(40% 50% at 30% 50%, rgb(26 40 35 / 85%), transparent 70%),
     radial-gradient(35% 40% at 62% 60%, rgb(26 40 35 / 75%), transparent 70%),
     radial-gradient(25% 35% at 85% 40%, rgb(26 40 35 / 65%), transparent 70%);
-  filter: blur(2px);
 }
 
 /* On phones the greeting fills the top, so the moon sits lower, mostly behind the cards. */
@@ -116,7 +141,7 @@
     top: auto;
     bottom: 44vh;
     right: 6vw;
-    width: 6.5rem;
+    width: 5.5rem;
   }
 
   :root[data-theme='witch-forest'] .forest-cloud {
@@ -166,12 +191,19 @@
 /* Fireflies: tiny pale-green lights near the ground. */
 :root[data-theme='witch-forest'] .forest-fireflies > span {
   position: absolute;
-  width: 3px;
-  height: 3px;
+  width: 2px;
+  height: 2px;
   border-radius: 50%;
   background: #e9f5b8;
-  box-shadow: 0 0 6px 2px rgb(214 236 140 / 55%), 0 0 16px 4px rgb(214 236 140 / 18%);
-  opacity: 0.55;
+  box-shadow: 0 0 4px 1px rgb(214 236 140 / 45%);
+  opacity: 0.5;
+}
+
+/* Every third one is further away: smaller and fainter. */
+:root[data-theme='witch-forest'] .forest-fireflies > span:nth-child(3n) {
+  width: 1.5px;
+  height: 1.5px;
+  box-shadow: 0 0 3px 1px rgb(214 236 140 / 30%);
 }
 
 /* Ivy hanging from the top corners. */
@@ -219,7 +251,6 @@
     url('./witch-forest/vine-strip.svg') right -6px top 0 / 22px auto repeat-y,
     linear-gradient(180deg, rgb(10 17 14 / 94%), rgb(13 22 18 / 94%));
   border-right: 1px solid #1f2d25;
-  backdrop-filter: blur(6px);
 }
 
 :root[data-theme='witch-forest'] .brand-long {
@@ -276,7 +307,6 @@
       url('./witch-forest/vine-strip.svg') left -2px top -10px / 22px auto repeat-x,
       rgb(10 17 14 / 95%);
     border-top: 1px solid #22322a;
-    backdrop-filter: blur(8px);
   }
 
   :root[data-theme='witch-forest'] .tab-bar a[aria-current='page'] {
@@ -364,6 +394,32 @@
 :root[data-theme='witch-forest'] :focus-visible {
   outline-color: var(--focus);
   box-shadow: 0 0 0.9rem rgb(230 210 122 / 35%);
+}
+
+:root[data-theme='witch-forest'] :is(input, select, textarea) {
+  border-radius: 4px;
+  box-shadow: inset 0 1px 3px rgb(0 0 0 / 35%);
+}
+
+/* Menus and dialogs: the card's engraved inner rule, squarer corners. */
+:root[data-theme='witch-forest'] :is(.more-menu-panel, .dialog) {
+  border-color: #33463a;
+  border-radius: 4px;
+  box-shadow: inset 0 0 0 3px var(--surface-raised), inset 0 0 0 4px var(--wf-rule), var(--shadow-raised);
+}
+
+:root[data-theme='witch-forest'] .more-menu-panel button {
+  border-radius: 3px;
+}
+
+:root[data-theme='witch-forest'] .more-menu-panel .danger-text {
+  border-top-color: var(--wf-rule);
+}
+
+:root[data-theme='witch-forest'] .dialog h2,
+:root[data-theme='witch-forest'] .dialog h3 {
+  font-variant: small-caps;
+  letter-spacing: 0.04em;
 }
 
 :root[data-theme='witch-forest'] .segmented button[aria-pressed='true'] {
@@ -478,6 +534,30 @@
   border-radius: 4px;
 }
 
+/* Narrow phones: the paper's corner vine shrinks so it never touches the first line, and the eyebrow tightens. */
+@media (max-width: 30rem) {
+  :root[data-theme='witch-forest'] .today-hero::after {
+    width: 2rem;
+    height: 2rem;
+    opacity: 0.6;
+  }
+
+  :root[data-theme='witch-forest'] .today-hero-text > small:first-child {
+    letter-spacing: 0.06em;
+  }
+
+  :root[data-theme='witch-forest'] .today-eyebrow {
+    letter-spacing: 0.08em;
+  }
+}
+
+/* The book face runs wider than the system face: on the narrowest phones the tab labels step down a little. */
+@media (max-width: 22rem) {
+  :root[data-theme='witch-forest'] .tab-bar a {
+    font-size: 0.74rem;
+  }
+}
+
 /* "All clear": the moon over the pines. */
 :root[data-theme='witch-forest'] .today-calm {
   position: relative;
@@ -558,8 +638,25 @@
 /* ---- The guided Run: a path of stepping stones through the forest --------------------------- */
 
 :root[data-theme='witch-forest'] .guide-hero-text h2 {
-  font-variant: small-caps;
-  letter-spacing: 0.04em;
+  line-height: 1.25;
+  letter-spacing: 0.01em;
+}
+
+@media (max-width: 30rem) {
+  :root[data-theme='witch-forest'] .guide-hero {
+    display: grid;
+    grid-template-columns: auto 1fr auto;
+    gap: 0.6rem 0.9rem;
+  }
+
+  :root[data-theme='witch-forest'] .guide-hero-text {
+    grid-row: 2;
+    grid-column: 1 / -1;
+  }
+
+  :root[data-theme='witch-forest'] .guide-view-switch {
+    grid-column: 3;
+  }
 }
 
 /* One column; the stones wind left and right, joined by a dotted footpath. */
@@ -695,17 +792,53 @@
   padding-left: 2.8rem;
 }
 
+/*
+ * Narrow phones: the stones take 92% of the width (the middles are then 38/92 of a stone apart), sit a
+ * little tighter, and the seal rides the stone's top edge, so the title keeps the full width.
+ */
 @media (max-width: 30rem) {
+  :root[data-theme='witch-forest'] .guide-tiles {
+    gap: 1.6rem;
+  }
+
   :root[data-theme='witch-forest'] .guide-tiles > li {
-    width: 86%;
+    width: 92%;
+  }
+
+  :root[data-theme='witch-forest'] .guide-tiles > li + li::before {
+    height: 1.6rem;
   }
 
   :root[data-theme='witch-forest'] .guide-tiles > li:nth-child(even)::before {
-    left: calc(100% * 29 / 86);
+    left: calc(100% * 38 / 92);
   }
 
   :root[data-theme='witch-forest'] .guide-tiles > li:nth-child(odd)::before {
-    right: calc(100% * 29 / 86);
+    right: calc(100% * 38 / 92);
+  }
+
+  :root[data-theme='witch-forest'] .guide-tile {
+    gap: 0.65rem;
+    padding: 0.7rem 0.8rem;
+  }
+
+  :root[data-theme='witch-forest'] .guide-tiles > li:nth-child(n) .guide-tile[data-next='true'] {
+    padding-inline: 0.8rem;
+  }
+
+  :root[data-theme='witch-forest'] .guide-tiles > li:nth-child(n) .guide-next {
+    top: -1.1rem;
+    right: 1.2rem;
+    left: auto;
+    width: 2.7rem;
+    height: 2.7rem;
+    margin-top: 0;
+    font-size: 0.66rem;
+  }
+
+  :root[data-theme='witch-forest'] .guide-tiles > li:nth-child(even) .guide-next {
+    right: auto;
+    left: 1.2rem;
   }
 }
 
@@ -786,11 +919,10 @@
 }
 
 :root[data-theme='witch-forest'] .guide-nav {
-  background: rgb(17 26 21 / 94%);
+  background: rgb(17 26 21 / 97%);
   border-color: #33463a;
   border-radius: 6px;
-  box-shadow: inset 0 0 0 3px rgb(17 26 21 / 94%), inset 0 0 0 4px var(--wf-rule), var(--shadow-raised);
-  backdrop-filter: blur(6px);
+  box-shadow: inset 0 0 0 3px rgb(17 26 21 / 97%), inset 0 0 0 4px var(--wf-rule), var(--shadow-raised);
 }
 
 /* A finished Section or Run: the moon rises over the pines; fireflies drift up instead of confetti. */
@@ -832,11 +964,6 @@
 
 :root[data-theme='witch-forest'] .public-brand {
   font-style: italic;
-}
-
-:root[data-theme='witch-forest'] .public-main > .card,
-:root[data-theme='witch-forest'] .public-main form {
-  backdrop-filter: blur(4px);
 }
 
 /* ---- Theme picker ------------------------------------------------------------------------- */
@@ -889,19 +1016,19 @@
 
   /* Smoke rises from the chimney; the candle in the window flickers softly. */
   :root[data-theme='witch-forest'] .forest-smoke circle {
-    animation: wf-smoke 9s ease-out infinite;
+    animation: wf-smoke 12s ease-out infinite;
   }
 
   :root[data-theme='witch-forest'] .forest-smoke circle:nth-child(2) {
-    animation-delay: -2.2s;
+    animation-delay: -3s;
   }
 
   :root[data-theme='witch-forest'] .forest-smoke circle:nth-child(3) {
-    animation-delay: -4.5s;
+    animation-delay: -6s;
   }
 
   :root[data-theme='witch-forest'] .forest-smoke circle:nth-child(4) {
-    animation-delay: -6.7s;
+    animation-delay: -9s;
   }
 
   :root[data-theme='witch-forest'] .forest-candle-glow {
@@ -910,12 +1037,6 @@
 
   :root[data-theme='witch-forest'] .forest-crow-flying {
     animation: wf-crow 48s linear 12s infinite;
-  }
-
-  /* The next stone breathes, very slightly. */
-  :root[data-theme='witch-forest'] .guide-tile[data-next='true'] .guide-tile-icon,
-  :root[data-theme='witch-forest'] a.button.today-hero-go {
-    animation: wf-breathe 3.6s ease-in-out infinite;
   }
 
   :root[data-theme='witch-forest'] .ring-moon-lit {
@@ -980,11 +1101,11 @@
     transform: translate(0, 0) scale(0.6);
     opacity: 0;
   }
-  15% {
+  25% {
     opacity: 1;
   }
   100% {
-    transform: translate(18px, -60px) scale(1.8);
+    transform: translate(22px, -70px) scale(2.2);
     opacity: 0;
   }
 }
@@ -1024,16 +1145,6 @@
   }
 }
 
-@keyframes wf-breathe {
-  0%,
-  100% {
-    transform: scale(1);
-  }
-  50% {
-    transform: scale(1.04);
-  }
-}
-
 /* Fireflies after a finished Section: they rise and fade (replaces the falling confetti). */
 @keyframes wf-rise {
   from {
@@ -1057,7 +1168,27 @@
   :root[data-theme='witch-forest'] .today-hero::after,
   :root[data-theme='witch-forest'] .guide-card::before,
   :root[data-theme='witch-forest'] .guide-card::after,
-  :root[data-theme='witch-forest'] .guide-tiles > li::before {
+  :root[data-theme='witch-forest'] .guide-tiles > li::before,
+  :root[data-theme='witch-forest'] .ring-moon-disc,
+  :root[data-theme='witch-forest'] .ring-moon-lit,
+  :root[data-theme='witch-forest'] .sundial {
     display: none;
+  }
+
+  :root[data-theme='witch-forest'] .ring-track,
+  :root[data-theme='witch-forest'] .ring-fill {
+    display: inline;
+  }
+
+  :root[data-theme='witch-forest'] .ring-track {
+    stroke: GrayText;
+  }
+
+  :root[data-theme='witch-forest'] .ring-fill {
+    stroke: Highlight;
+  }
+
+  :root[data-theme='witch-forest'] :is(.app-main, .public-main) {
+    text-shadow: none;
   }
 }

@@ -4,7 +4,8 @@ import { useThemeMode } from './theme.ts';
 /**
  * The forest at night behind every page in the Witch Forest preset (25.1): a pale moon behind drifting
  * cloud, ridges of pines fading into mist, a crooked hut with one candlelit window, gnarled old trees at the
- * edges, a crow, fireflies, and ivy hanging from the top corners. Pure decoration
+ * edges, a crow, fireflies, and ivy hanging from the top corners. Depth comes from atmospheric perspective:
+ * three ranges of hills, each lighter and flatter with distance, with mist lying between them. Pure decoration
  * (aria-hidden, no pointer events), rendered only while the preset is chosen. Its motion (fog, fireflies,
  * smoke, the candle, the swaying ivy) lives in witch-forest.css and stops under prefers-reduced-motion.
  */
@@ -201,6 +202,13 @@ function fireflies(random: () => number) {
 }
 
 const Forest = memo(function Forest() {
+  // The most distant hills have their own seed, so adding them left the rest of the forest as it was.
+  const haze = seeded(1031);
+  const distantRidge = ridge(haze, 430, 80, 11);
+  const distantPines = Array.from({ length: 90 }, (_, index) => {
+    const x = (index / 90) * W + haze() * 16;
+    return pine(haze, r1(x), 452 + haze() * 10, 22 + haze() * 34, 10 + haze() * 9);
+  }).join('');
   const random = seeded(20261023);
   const farRidge = ridge(random, 470, 70, 9);
   const farPines = Array.from({ length: 64 }, (_, index) => {
@@ -273,10 +281,20 @@ const Forest = memo(function Forest() {
             <stop offset="1" stopColor="#6e3412" />
           </radialGradient>
           <path id="forest-leaf" d={LEAF} />
-          <filter id="forest-blur" x="-50%" y="-50%" width="200%" height="200%">
-            <feGaussianBlur stdDeviation="7" />
-          </filter>
+          {/* Smoke puffs are soft by their own gradient: no blur filter, which would be redrawn every frame. */}
+          <radialGradient id="forest-puff">
+            <stop offset="0" stopColor="#a9bdb3" stopOpacity="1" />
+            <stop offset="0.5" stopColor="#a9bdb3" stopOpacity="0.45" />
+            <stop offset="1" stopColor="#a9bdb3" stopOpacity="0" />
+          </radialGradient>
         </defs>
+        {/*
+          Depth by atmospheric perspective: the further a layer, the lighter, greener-grey and flatter it is,
+          with a band of mist between layers; the nearest trees are almost black.
+        */}
+        <path d={distantRidge} fill="#1b3029" />
+        <path d={distantPines} fill="#1a2e27" />
+        <rect y="340" width={W} height="160" fill="url(#forest-mist)" />
         {/* Far: a ridge and a line of pines, pale with distance. */}
         <path d={farRidge} fill="#13241e" />
         <path d={farPines} fill="#14271f" />
@@ -305,12 +323,13 @@ const Forest = memo(function Forest() {
           <path d="M902 444Q912 432 926 434" stroke="#070e0a" strokeWidth="3" fill="none" strokeLinecap="round" />
           {/* Chimney and its smoke. */}
           <path d="M938 512L936 470L952 468L954 520Z" fill="#070e0a" />
-          <g className="forest-smoke" fill="#a9bdb3" filter="url(#forest-blur)">
-            <circle cx="945" cy="458" r="8" opacity="0.13" />
-            <circle cx="948" cy="444" r="10" opacity="0.1" />
-            <circle cx="946" cy="428" r="12" opacity="0.08" />
-            <circle cx="952" cy="410" r="15" opacity="0.06" />
-            <circle cx="958" cy="390" r="19" opacity="0.04" />
+          {/* Each puff's strength is its fill-opacity, so the rise-and-fade animation (opacity) scales it, not replaces it. */}
+          <g className="forest-smoke" fill="url(#forest-puff)">
+            <circle cx="945" cy="456" r="16" fillOpacity="0.16" />
+            <circle cx="948" cy="440" r="20" fillOpacity="0.12" />
+            <circle cx="947" cy="422" r="24" fillOpacity="0.09" />
+            <circle cx="953" cy="402" r="28" fillOpacity="0.07" />
+            <circle cx="959" cy="380" r="32" fillOpacity="0.05" />
           </g>
           {/* One pumpkin by the door, the only orange in the forest. */}
           <g transform="translate(948 590)">

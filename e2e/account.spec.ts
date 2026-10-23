@@ -2779,6 +2779,19 @@ test('first server admin: bootstrap link, account creation, sign-in, Workspace c
   expect(await fogAnimation()).toBe('none');
   await page.emulateMedia({ reducedMotion: 'no-preference' });
   expect(await fogAnimation()).toBe('wf-drift');
+  // Refinement (25.2): nothing blurs the moving scene behind a bar (costly on phones), words on the forest
+  // carry a halo, and in forced colours the scene is gone and the halo with it.
+  const styleOf = (selector: string, property: string) =>
+    page.locator(selector).first().evaluate((element, name) => {
+      const view = globalThis as unknown as { getComputedStyle(element: object): { getPropertyValue(name: string): string } };
+      return view.getComputedStyle(element).getPropertyValue(name);
+    }, property);
+  expect(await styleOf('.shell-side', 'backdrop-filter')).toBe('none');
+  expect(await styleOf('.app-main', 'text-shadow')).not.toBe('none');
+  await page.emulateMedia({ forcedColors: 'active' });
+  expect(await styleOf('.forest', 'display')).toBe('none');
+  expect(await styleOf('.app-main', 'text-shadow')).toBe('none');
+  await page.emulateMedia({ forcedColors: 'none' });
   await page.reload();
   await expect(page.getByRole('radio', { name: /^Witch Forest/ })).toBeChecked();
   await page.getByRole('radio', { name: /^System/ }).check();
