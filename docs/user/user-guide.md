@@ -317,3 +317,16 @@ A Workspace admin can set an optional place under **Workspace settings → Gener
 Under **Profile & settings → Weather**, each person can enable **Use the current Workspace’s location when available**, then Save weather settings. It starts off. When enabled, Today weather and Witch Forest moonlight use the current Workspace's shared place. Without a shared place, they use your existing personal location. Your provider, units and credentials remain yours; the model becomes Automatic for a shared place. Your personal Weather settings and its detailed forecast/comparison continue to show your personal fallback place.
 
 A Workspace can represent Home, another home, a Van or a Car, but its location is entered manually: VMN never tracks a vehicle or device. Coordinates are rounded to about 1 km. This setting does not change Schedule time zones or the clock's existing local-time display. Weather's server switch and provider restrictions continue to apply; the forest keeps its phase-only fallback when location settings are unavailable.
+
+
+### Moon card
+
+A Workspace admin can enable **The Moon** under **Workspace settings → General → Tools**. It then appears on Today; each person can hide or reorder it in **Profile & settings → Today**. It shows the calculated phase, illuminated percentage and next full moon. A saved shared Workspace location adds today's local moonrise and moonset, with the time zone shown. Days without a rise or set say so. No location is required for phase information; the card does not use device geolocation, Weather providers or personal Weather settings.
+
+### Journal
+
+An admin enables **Journal** in the Workspace's Tools. Every member, including guests, can read shared entries; users, editors and admins can create/edit them. Shared entries are included in Workspace backups. Disabling Journal hides it and preserves its entries.
+
+Your **Private journal** is under **Profile & settings** (also linked from the shared journal). Only you can read/edit those entries through the app; Workspace and server admins have no private-entry override. These entries are excluded from Workspace backups. Full server backups still contain stored private account data; this is not end-to-end encryption.
+
+Choose **New entry**, enter a title, date and note, and use **Save entry**. Saves are explicit; there is no autosave or offline draft storage. Leaving an unsaved edit asks first. If someone else has saved a shared entry meanwhile, your save is refused and your text stays in the editor so you can copy it before reloading. Search finds entry titles/text; **Show archived entries** opens the archive. Archive is reversible with **Restore entry**. The initial version supports text notes, with up to 1,000 entries per private account or shared Workspace journal and 50,000 characters per note. Private entries cannot be turned into shared entries in place.

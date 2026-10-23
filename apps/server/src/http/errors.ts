@@ -1,3 +1,4 @@
+import { JournalNotFoundError, JournalConflictError } from '@vergissmeinnicht/application';
 import {
   AccountStatusUnchangedError,
   InvalidCursorError,
@@ -126,6 +127,8 @@ export function errorHandler(error: FastifyError | Error, request: FastifyReques
   if (error instanceof InvalidRequestError) return reply.code(400).send({ error: 'invalid_request' });
   if (error instanceof InvalidCursorError) return reply.code(400).send({ error: 'invalid_cursor' });
   if (error instanceof ProcedureImportError) return reply.code(400).send({ error: error.code });
+  if (error instanceof JournalNotFoundError) return reply.code(404).send({ error: 'journal_not_found' });
+  if (error instanceof JournalConflictError) return reply.code(409).send({ error: 'journal_conflict' });
   if (error instanceof WorkspaceLocationConflictError) return reply.code(409).send({ error: 'workspace_location_conflict' });
   if (error instanceof NotAuthorizedError) return reply.code(403).send({ error: 'forbidden' });
   if (error instanceof InvalidInvitationError) return reply.code(404).send({ error: 'invalid_invitation' });

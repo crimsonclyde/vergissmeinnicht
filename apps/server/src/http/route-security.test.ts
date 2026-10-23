@@ -40,6 +40,7 @@ function bodyFor(route: string, ids: Record<string, string>): object {
   if (url.endsWith('/occurrences/:occurrenceId/move')) return { date: TOMORROW };
   if (url.endsWith('/occurrences/:occurrenceId/assign')) return { assigneeUserId: null };
   if (url.endsWith('/occurrences/:occurrenceId/link-run')) return { runId: ids.runId ?? '' };
+  if (url.endsWith('/journal') || url.endsWith('/journal/:entryId')) return { content: { kind: 'note', version: 1, title: 'Entry', date: '2026-10-23', body: 'Note' }, expectedRevision: 0, archived: false };
   if (url.endsWith('/location')) return { location: null, expectedLocation: null };
   if (url.endsWith('/tools')) return { tool: 'DOCUMENTS', enabled: true, expectedRevision: 0 };
   if (url.endsWith('/documents/:documentId/links')) return { target: { type: 'procedure', id: ids.procedureId ?? '' } };
@@ -183,7 +184,10 @@ describe('security properties of every route (13.2)', () => {
     const equipment=(await t.post(`/api/workspaces/${home}/equipment`,{name:'Boiler'},owner)).json().record;
     // A Workspace backup job (section 18a), so its routes are reached with a real id.
     const backupJob = (await t.post(`/api/workspaces/${home}/backups`, {}, owner)).json().job;
+    for (const id of [home, office]) for (const tool of ['JOURNAL', 'MOON']) await t.post(`/api/workspaces/${id}/tools`, { tool, enabled: true }, id === home ? owner : outsider);
+    const journalEntry = (await t.post(`/api/workspaces/${home}/journal`, { content: { kind: 'note', version: 1, title: 'Entry', date: '2026-10-23', body: 'Note' }, expectedRevision: 0, archived: false }, owner)).json().entry;
     homeIds = {
+      entryId: journalEntry.id,
       jobId: backupJob.id,
       equipmentId:equipment.id,
       maintenanceId:record.id,

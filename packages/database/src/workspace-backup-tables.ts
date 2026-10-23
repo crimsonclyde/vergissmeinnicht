@@ -39,6 +39,7 @@ const SPECS: readonly Spec[] = [
   { table: 'procedures', name: 'procedures', from: own('procedures'), userColumns: ['created_by_user_id', 'deleted_by_user_id'], omit: [] },
   { table: 'procedure_sections', name: 'procedure_sections', from: of('procedure_sections', 'procedure_id', 'procedures'), userColumns: [], omit: [] },
   { table: 'procedure_steps', name: 'procedure_steps', from: of('procedure_steps', 'procedure_id', 'procedures'), userColumns: [], omit: [] },
+  { table: 'journal_entries', name: 'journal_entries', from: own('journal_entries'), userColumns: ['created_by_user_id', 'updated_by_user_id'], omit: [] },
   { table: 'contacts', name: 'contacts', from: own('contacts'), userColumns: ['created_by_user_id', 'updated_by_user_id', 'deleted_by_user_id'], omit: [] },
   { table: 'document_types', name: 'document_types', from: own('document_types'), userColumns: ['created_by_user_id'], omit: [] },
   { table: 'document_folders', name: 'document_folders', from: own('document_folders'), userColumns: ['created_by_user_id', 'deleted_by_user_id'], omit: [] },
@@ -72,6 +73,7 @@ export const EXPORTED_TABLES: readonly ExportedTable[] = SPECS.map((spec) => ({ 
 
 /** Never in a Workspace backup, with the reason (section 18, B3, 18.1 "never included"). */
 export const EXCLUDED_TABLES: Readonly<Record<string, string>> = {
+  private_journal_entries: 'account-private journal entries; never Workspace data',
   users: 'accounts are not Workspace data; people appear as person references (name, and email for members)',
   sessions: 'sign-in sessions',
   accounts: 'password hashes and provider tokens',

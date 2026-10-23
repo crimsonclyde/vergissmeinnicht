@@ -1,3 +1,4 @@
+import { JournalPage } from './modules/journal/JournalPage.tsx';
 import { useCallback, useEffect, useState, type ReactNode } from 'react';
 import { AccountSecurity } from './AccountSecurity.tsx';
 import { AdminPage } from './AdminPage.tsx';
@@ -86,7 +87,8 @@ export function destinations(workspaceId: string, tools: readonly string[] = [])
   const contacts: Destination = { href: paths.contacts(workspaceId), label: t('shell.contacts'), icon: 'contacts', pages: ['contacts'] };
   const maintenance: Destination = { href: paths.maintenance(workspaceId), label: t('shell.maintenance'), icon: 'maintenance', pages: ['maintenance'] };
   const equipment:Destination={href:paths.equipment(workspaceId),label:t('shell.equipment'),icon:'equipment',pages:['equipment']};
-  const optional = [...(tools.includes('DOCUMENTS') ? [documents] : []), ...(tools.includes('CONTACTS') ? [contacts] : []), ...(tools.includes('MAINTENANCE') ? [maintenance] : []),...(tools.includes('EQUIPMENT') ? [equipment]:[])];
+  const journal: Destination = { href: paths.journal(workspaceId), label: t('journal.heading'), icon: 'documents', pages: ['journal'] };
+  const optional = [...(tools.includes('JOURNAL') ? [journal] : []),...(tools.includes('DOCUMENTS') ? [documents] : []), ...(tools.includes('CONTACTS') ? [contacts] : []), ...(tools.includes('MAINTENANCE') ? [maintenance] : []),...(tools.includes('EQUIPMENT') ? [equipment]:[])];
   const more: Destination = { href: paths.more(workspaceId), label: t('shell.more'), icon: 'more', pages: ['more', 'reminders', 'calendar', 'history', ...optional.flatMap((tool) => tool.pages)] };
   return { side: [today, ...(tools.includes('PROCEDURES') ? [procedures] : []), ...(tools.includes('REMINDERS') ? [reminders] : []), ...(tools.includes('LISTS') ? [lists] : []), ...(tools.includes('CALENDAR') ? [calendar] : []), ...optional], bar: [today, ...(tools.includes('PROCEDURES') ? [procedures] : []), ...(tools.includes('LISTS') ? [lists] : []), more] };
 }
@@ -235,6 +237,8 @@ function WorkspacePage(props: {
           {t('shell.notFound')} <Link href={paths.home(route.workspaceId)}>{t('common.startPage')}</Link>.
         </p>
       );
+    case 'journal':
+      return context.tools.includes('JOURNAL') ? <JournalPage key={route.workspaceId} workspaceId={route.workspaceId} canWrite={can('journal.manage')} /> : <p role="alert">{t('shell.notFound')}</p>;
     case 'equipment':
       return context.tools.includes('EQUIPMENT') ? <Equipment key={`${route.view}:${route.recordId ?? ''}`} workspaceId={route.workspaceId} route={route} canManage={can('equipment.manage')} canPurge={can('equipment.purge')} canSchedule={can('schedule.manage')} tools={context.tools} /> : <p role="alert">{t('shell.notFound')}</p>;
     case 'maintenance':
@@ -346,6 +350,7 @@ function AccountPage({ user, section, tools }: { user: CurrentUser; section: Ext
       navLabel={t('account.heading')}
       sections={ACCOUNT_SECTIONS.filter((value) => value !== 'weather' || weatherOn === true || section === 'weather').map((value) => ({ href: paths.account(value), label: t(`account.section.${value}`), current: value === section }))}
     >
+      {section === 'journal' && <JournalPage key={user.id} canWrite={true} />}
       {section === 'notifications' && (
         <div className="card">
           <NotificationSettings serverAdmin={user.serverAdmin} />

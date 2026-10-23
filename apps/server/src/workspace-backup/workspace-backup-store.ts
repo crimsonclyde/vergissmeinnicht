@@ -153,7 +153,7 @@ export function createWorkspaceBackupStore(options: {
       const facts = await inspectFiles(restore.processor, extracted, progress);
       progress.onProgress('check', 0, 0);
       try {
-        const outcome = restoreWorkspace(restore.database, { data: extracted.data, files: facts, admin: { userId: job.requestedByUserId }, jobId: job.id, at: now(), commit: false });
+        const outcome = restoreWorkspace(restore.database, { data: extracted.data, databaseLevel: extracted.manifest.databaseLevel, files: facts, admin: { userId: job.requestedByUserId }, jobId: job.id, at: now(), commit: false });
         const manifest = extracted.manifest;
         const preview: RestorePreview = {
           workspaceName: outcome.workspaceName,
@@ -210,7 +210,7 @@ export function createWorkspaceBackupStore(options: {
       try {
         const at = now();
         workspaceId = restoreWorkspace(restore.database, {
-          data: extracted.data,
+          data: extracted.data, databaseLevel: extracted.manifest.databaseLevel,
           files: facts,
           admin: { userId: job.requestedByUserId },
           jobId: job.id,

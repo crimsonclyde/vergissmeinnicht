@@ -38,6 +38,7 @@ export const TODAY_CARDS: readonly TodayCardDefinition[] = [
   // First, so that when switched on it is the top of the page: a full-width glance row, large on a wide screen, one line on a phone (19.3).
   { id: 'clock', anyOf: [], defaultVisible: false, column: 'side', canBeWide: false },
   // Personal, no Workspace tool (W1): shown when the server allows weather and the person set a place (19.4).
+  { id: 'moon', anyOf: ['MOON'], defaultVisible: true, column: 'side', canBeWide: false },
   { id: 'weather', anyOf: [], defaultVisible: false, column: 'side', canBeWide: false },
   { id: 'attention', anyOf: ['REMINDERS', 'PROCEDURES'], defaultVisible: true, column: 'main', canBeWide: true },
   { id: 'continue', anyOf: ['PROCEDURES'], defaultVisible: true, column: 'main', canBeWide: true },

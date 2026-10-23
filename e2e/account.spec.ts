@@ -204,6 +204,64 @@ test('first server admin: bootstrap link, account creation, sign-in, Workspace c
   await expect(sections.getByRole('link', { name: 'Today' })).toHaveAttribute('aria-current', 'page');
   await expectAccessible(page, 'empty Today');
 
+  // Moon and bundled Journal (27): admin gate, explicit Save, private/shared separation and archive.
+  const moduleHome = new URL(page.url()).pathname;
+  await page.goto(`${moduleHome}/settings`);
+  for (const name of ['The Moon', 'Journal']) {
+    const toggle = page.getByRole('checkbox', { name: new RegExp(`^${name}`) });
+    await toggle.check(); await expect(toggle).toBeEnabled();
+  }
+  await sections.getByRole('link', { name: 'Today', exact: true }).click();
+  const moonCard = page.getByRole('region', { name: 'The Moon', exact: true });
+  await expect(moonCard).toContainText('Illumination');
+  await expect(moonCard).toContainText('Next full moon');
+  await expect(moonCard).toContainText('Set a Workspace location');
+  await expectAccessible(page, 'Moon card');
+  await sections.getByRole('link', { name: 'Journal', exact: true }).click();
+  await expect(page.getByText('Shared with every member', { exact: false })).toBeVisible();
+  await page.getByRole('button', { name: 'New entry', exact: true }).click();
+  await page.getByLabel('Title', { exact: true }).fill('Shared forest log');
+  await page.getByLabel('Entry date', { exact: true }).fill('2026-10-23');
+  await page.getByLabel('Note', { exact: true }).fill('<script>window.journalUnsafe = true</script>\nA quiet woodland.');
+  await page.getByRole('button', { name: 'Save entry', exact: true }).click();
+  await expect(page.getByRole('status').filter({ hasText: 'Entry saved.' })).toBeVisible();
+  await expectAccessible(page, 'shared journal editor');
+  await page.reload();
+  await page.getByRole('button', { name: /Shared forest log/ }).click();
+  await expect(page.getByLabel('Note', { exact: true })).toHaveValue(/A quiet woodland/);
+  expect(await page.evaluate('window.journalUnsafe')).toBeUndefined();
+  await page.getByRole('button', { name: 'Archive entry', exact: true }).click();
+  await expect(page.getByRole('button', { name: 'Restore entry', exact: true })).toBeVisible();
+  await page.getByRole('button', { name: 'Back to entries', exact: true }).click();
+  await expect(page.getByRole('button', { name: /Shared forest log/ })).toHaveCount(0);
+  await page.getByLabel('Show archived entries', { exact: true }).check();
+  await page.getByRole('button', { name: /Shared forest log/ }).click();
+  await page.getByRole('button', { name: 'Restore entry', exact: true }).click();
+  await page.getByRole('link', { name: 'Open your private journal', exact: true }).click();
+  await page.getByRole('button', { name: 'New entry', exact: true }).click();
+  await page.getByLabel('Title', { exact: true }).fill('My private field notes');
+  await page.getByLabel('Note', { exact: true }).fill('Private account notebook.');
+  await page.getByRole('button', { name: 'Save entry', exact: true }).click();
+  await expect(page.getByRole('status').filter({ hasText: 'Entry saved.' })).toBeVisible();
+  await expectAccessible(page, 'private journal');
+  await page.getByLabel('Note', { exact: true }).fill('Unsent revision');
+  page.once('dialog', (dialog) => void dialog.dismiss());
+  await page.getByRole('link', { name: 'Appearance', exact: true }).click();
+  await expect(page.getByLabel('Note', { exact: true })).toHaveValue('Unsent revision');
+  page.once('dialog', (dialog) => void dialog.accept());
+  await page.getByRole('link', { name: 'Appearance', exact: true }).click();
+  await page.goto(`${moduleHome}/journal`);
+  await expect(page.getByRole('button', { name: /Shared forest log/ })).toBeVisible();
+  await expect(page.getByRole('button', { name: /My private field notes/ })).toHaveCount(0);
+  // Restore the tool set expected by the older checks below; disabling preserves the entries.
+  await page.goto(`${moduleHome}/settings`);
+  for (const name of ['The Moon', 'Journal']) {
+    const toggle = page.getByRole('checkbox', { name: new RegExp(`^${name}`) });
+    await toggle.uncheck(); await expect(toggle).toBeEnabled();
+  }
+  await sections.getByRole('link', { name: 'Today', exact: true }).click();
+  await expect(page.getByRole('region', { name: 'The Moon', exact: true })).toHaveCount(0);
+
   // Add (15.1): a chooser with what this person may create; Escape closes it and focus returns.
   const addButton = page.getByRole('button', { name: 'Add', exact: true });
   await addButton.click();
@@ -1381,8 +1439,9 @@ test('first server admin: bootstrap link, account creation, sign-in, Workspace c
   await expect(page).toHaveURL(/\/account\/today$/);
   const cardSettings = page.getByRole('list', { name: 'Cards' });
   await expect(cardSettings.getByRole('listitem').first()).toContainText('Clock & date');
-  await expect(cardSettings.getByRole('listitem').nth(1)).toContainText('Weather');
-  await expect(cardSettings.getByRole('listitem').nth(2)).toContainText('Needs attention');
+  await expect(cardSettings.getByRole('listitem').nth(1)).toContainText('The Moon');
+  await expect(cardSettings.getByRole('listitem').nth(2)).toContainText('Weather');
+  await expect(cardSettings.getByRole('listitem').nth(3)).toContainText('Needs attention');
   await expectAccessible(page, 'today settings');
   // Clock & date (19.3): a personal card, off by default; switched on it tops Today, quietly (no live region).
   await cardSettings.getByLabel('Clock & date', { exact: true }).check();
@@ -2738,7 +2797,7 @@ test('first server admin: bootstrap link, account creation, sign-in, Workspace c
 
   // Profile & settings (15.1): named sections instead of one long page.
   await fromMenu(page, 'Profile & settings');
-  await expect(page.getByRole('navigation', { name: 'Profile & settings' }).getByRole('link')).toHaveText(['Notifications', 'Today', 'Weather', 'Appearance', 'Password & security', 'Confirmations']);
+  await expect(page.getByRole('navigation', { name: 'Profile & settings' }).getByRole('link')).toHaveText(['Notifications', 'Today', 'Weather', 'Appearance', 'Password & security', 'Confirmations', 'Private journal']);
   await expect(page.getByRole('radio', { name: /^Dark/ })).toHaveCount(0);
   await settingsSection(page, 'Profile & settings', 'Appearance');
   await expect(page).toHaveURL(/\/account\/appearance$/);

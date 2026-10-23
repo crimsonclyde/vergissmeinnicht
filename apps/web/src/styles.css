@@ -5453,7 +5453,7 @@ a.today-row:hover .today-row-title {
   font-weight: 700;
   letter-spacing: 0.06em;
   text-transform: uppercase;
-  color: var(--accent);
+  color: var(--text-muted);
 }
 
 .today-date {
@@ -5782,3 +5782,22 @@ a.button.today-hero-go {
 .theme-swatch[data-swatch='tokyo-nights'] .theme-swatch-button {
   box-shadow: 0 0 0.4rem #35e6ff;
 }
+
+/* Optional Moon module: semantic colours in every theme, no motion or filter. */
+.moon-content { display: flex; align-items: center; gap: 1rem; min-width: 0; }
+.moon-content > .stack { display: grid; min-width: 0; gap: .4rem; }
+.moon-content > .stack > * { margin: 0; }
+.today-moon > .row { justify-content: space-between; flex-wrap: wrap; }
+.today-moon .badge { max-width: 100%; overflow-wrap: anywhere; }
+.moon-disc { width: 6rem; height: 6rem; flex: 0 0 6rem; }
+.moon-dark { fill: var(--surface-muted); }
+.moon-lit { fill: var(--text); opacity: .85; }
+.moon-crater { fill: var(--text-muted); opacity: .18; }
+.moon-rim { stroke: var(--border); }
+.moon-facts { margin: .2rem 0; }
+.moon-facts div { display: flex; gap: .75rem; flex-wrap: wrap; justify-content: space-between; }
+.moon-facts dd { margin: 0; }
+.journal-note { white-space: pre-wrap; overflow-wrap: anywhere; }
+.journal-editor textarea { width: 100%; min-height: 18rem; resize: vertical; }
+@media (max-width: 24rem) { .moon-disc { width: 4rem; height: 4rem; flex-basis: 4rem; } }
+@media (forced-colors: active) { .moon-disc { display: none; } }

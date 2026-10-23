@@ -141,3 +141,6 @@ export function formatRelative(value: string | Date, now: Date = new Date()): st
   }
   return format.format(0, 'minute');
 }
+
+/** Location-local lunar events; the zone is printed so it cannot be mistaken for device time. */
+export function formatMoonTime(value: Date, timeZone: string): string { return new Intl.DateTimeFormat(formatLocale(), { timeZone, hour: '2-digit', minute: '2-digit', timeZoneName: 'short' }).format(value); }

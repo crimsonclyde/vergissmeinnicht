@@ -8,6 +8,7 @@ import { UiIcon, type UiIconName } from './ui-icons.tsx';
  */
 export function MorePage({ workspaceId, tools }: { workspaceId: string; tools: readonly string[] }) {
   const links: { href: string; icon: UiIconName; label: string; hint: string }[] = [
+    ...(tools.includes('JOURNAL') ? [{ href: paths.journal(workspaceId), icon: 'documents' as const, label: t('journal.heading'), hint: t('journal.toolHint') }] : []),
     ...(tools.includes('DOCUMENTS') ? [{ href: paths.documents(workspaceId), icon: 'documents' as const, label: t('shell.documents'), hint: t('more.documentsHint') }] : []),
     ...(tools.includes('CONTACTS') ? [{ href: paths.contacts(workspaceId), icon: 'contacts' as const, label: t('shell.contacts'), hint: t('more.contactsHint') }] : []),
     ...(tools.includes('EQUIPMENT') ? [{href:paths.equipment(workspaceId),icon:'equipment' as const,label:t('shell.equipment'),hint:t('tools.equipmentHint')}]:[]),

@@ -1,3 +1,4 @@
+import { MoonCard } from './TodayMoon.tsx';
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { ClockCard } from './TodayClock.tsx';
 import { WeatherCard, useMyForecast } from './TodayWeather.tsx';
@@ -381,6 +382,8 @@ export function Today(props: {
         return home?.progress === undefined ? null : <ProgressCard key={card.id} progress={home.progress} />;
       case 'clock':
         return <ClockCard key={card.id} hour24={setting.hour24} />;
+      case 'moon':
+        return <MoonCard key={`${workspaceId}:moon`} workspaceId={workspaceId} />;
       case 'weather':
         return weather === null ? null : <WeatherCard key={card.id} data={weather} />;
       case 'calendar': {
@@ -409,7 +412,7 @@ export function Today(props: {
     if (node === null) continue;
     const last = blocks.at(-1);
     // Clock & date and Weather form the glance row (19.1, 19.3, 19.4): full width, together when next to each other.
-    if (setting.card.id === 'clock' || setting.card.id === 'weather') {
+    if (setting.card.id === 'clock' || setting.card.id === 'weather' || setting.card.id === 'moon') {
       if (last?.kind === 'glance') last.nodes.push(node);
       else blocks.push({ kind: 'glance', nodes: [node] });
       continue;

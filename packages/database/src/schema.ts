@@ -4,7 +4,7 @@
 // Better Auth field names (e.g. `name`, `emailVerified`), while *column* names are snake_case.
 import type { WeatherLocation } from '@vergissmeinnicht/domain';
 import { sql } from 'drizzle-orm';
-import { check, foreignKey, index, integer, primaryKey, real, sqliteTable, text, uniqueIndex } from 'drizzle-orm/sqlite-core';
+import { check, foreignKey, index, integer, primaryKey, real, sqliteTable, text, uniqueIndex, type AnySQLiteColumn } from 'drizzle-orm/sqlite-core';
 import {
   CONTACT_KEY_KINDS,
   MAINTENANCE_STATUSES,
@@ -2169,3 +2169,32 @@ export const equipmentRecords = sqliteTable('equipment_records', {
  check('equipment_records_revision_positive',sql`${table.revision} >= 1`),
  check('equipment_records_deletion_consistent',sql`(${table.deletedAt} is null) = (${table.deletedByUserId} is null) and (${table.deletedAt} is null) = (${table.deletedByDisplayName} is null)`),
 ]);
+
+// Journal module: private records are physically separate and never part of Workspace export.
+const journalFields = () => ({
+  id: text('id').primaryKey(),
+  kind: text('kind', { enum: ['note'] }).notNull(),
+  version: integer('version').notNull(),
+  title: text('title').notNull(),
+  date: text('date').notNull(),
+  body: text('body').notNull(),
+  revision: integer('revision').notNull(),
+  archived: integer('archived', { mode: 'boolean' }).notNull().default(false),
+  createdByUserId: text('created_by_user_id').notNull().references(() => users.id),
+  createdBy: text('created_by').notNull(),
+  updatedByUserId: text('updated_by_user_id').notNull().references(() => users.id),
+  updatedBy: text('updated_by').notNull(),
+  createdAt: timestampMs('created_at'),
+  updatedAt: timestampMs('updated_at'),
+});
+const journalChecks = (prefix: string, table: Record<keyof ReturnType<typeof journalFields>, AnySQLiteColumn>) => [
+  check(`${prefix}_kind`, sql`${table.kind} = 'note' and ${table.version} = 1`),
+  check(`${prefix}_bounds`, sql`length(${table.title}) between 1 and 160 and length(${table.body}) <= 50000 and ${table.revision} >= 1 and ${table.archived} in (0, 1)`),
+  check(`${prefix}_date`, sql`length(${table.date}) = 10 and date(${table.date}, '+0 days') is not null and date(${table.date}, '+0 days') = ${table.date}`),
+];
+export const journalEntries = sqliteTable('journal_entries', {
+  ...journalFields(), workspaceId: text('workspace_id').notNull().references(() => workspaces.id),
+}, (table) => [...journalChecks('journal', table), index('journal_workspace_date').on(table.workspaceId, table.archived, table.date, table.id)]);
+export const privateJournalEntries = sqliteTable('private_journal_entries', {
+  ...journalFields(), ownerId: text('owner_id').notNull().references(() => users.id),
+}, (table) => [...journalChecks('private_journal', table), index('private_journal_owner_date').on(table.ownerId, table.archived, table.date, table.id), check('private_journal_owner', sql`${table.ownerId} = ${table.createdByUserId} and ${table.ownerId} = ${table.updatedByUserId}`)]);

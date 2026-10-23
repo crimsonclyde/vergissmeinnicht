@@ -67,6 +67,8 @@ export const WORKSPACE_CAPABILITIES = [
   'maintenance.manage',
   /** Delete MaintenanceRecords for good — only out of Trash, only a Workspace admin. */
   'maintenance.purge',
+  'journal.view',
+  'journal.manage',
   'equipment.view',
   'equipment.manage',
   'equipment.purge',
@@ -78,9 +80,9 @@ export const WORKSPACE_CAPABILITIES = [
 export type WorkspaceCapability = (typeof WORKSPACE_CAPABILITIES)[number];
 
 /** Read-only: Workspace content and history, no execution. */
-const GUEST: readonly WorkspaceCapability[] = ['workspace.view', 'procedure.view', 'run.view', 'list.view', 'document.view', 'contact.view', 'maintenance.view', 'equipment.view'];
+const GUEST: readonly WorkspaceCapability[] = ['workspace.view', 'procedure.view', 'run.view', 'list.view', 'document.view', 'contact.view', 'maintenance.view', 'equipment.view', 'journal.view'];
 /** Executes Runs. */
-const USER: readonly WorkspaceCapability[] = [...GUEST, 'workspace.members.view', 'run.start', 'run.execute', 'run.abort', 'schedule.manage', 'list.edit', 'document.manage', 'contact.manage', 'contact.export', 'maintenance.manage', 'equipment.manage'];
+const USER: readonly WorkspaceCapability[] = [...GUEST, 'workspace.members.view', 'run.start', 'run.execute', 'run.abort', 'schedule.manage', 'list.edit', 'document.manage', 'contact.manage', 'contact.export', 'maintenance.manage', 'equipment.manage', 'journal.manage'];
 /** Authors Procedures. */
 const EDITOR: readonly WorkspaceCapability[] = [...USER, 'procedure.edit', 'procedure.restore', 'knot.manage'];
 /** Manages membership, roles and settings. */
@@ -125,6 +127,7 @@ export function toolForCapability(capability: WorkspaceCapability): WorkspaceToo
     case 'contact': return 'CONTACTS';
     case 'maintenance': return 'MAINTENANCE';
     case 'equipment': return 'EQUIPMENT';
+    case 'journal': return 'JOURNAL';
     default: return null;
   }
 }

@@ -68,9 +68,10 @@ describe('Today layout in the Profile (19.2)', () => {
     expect(read.density).toBe('COMFORTABLE');
     // Saved cards keep their order; missing ones go right after the registry card before them.
     // Clock & date did not exist then either: it comes first, as in the registry, and stays off.
-    expect(ids(read.cards)).toEqual(['clock', 'weather', 'recent', 'attention', 'continue', 'next', 'toBuy', 'maintenance', 'progress', 'calendar']);
+    expect(ids(read.cards)).toEqual(['clock', 'moon', 'weather', 'recent', 'attention', 'continue', 'next', 'toBuy', 'maintenance', 'progress', 'calendar']);
     expect(read.cards[0]).toMatchObject({ visible: false, hour24: false });
-    expect(read.cards[1]).toMatchObject({ visible: false });
+    expect(read.cards.find((item) => item.card.id === 'weather')).toMatchObject({ visible: false });
+    expect(read.cards.find((item) => item.card.id === 'moon')).toMatchObject({ visible: true });
     const setting = (id: string) => read.cards.find((each) => each.card.id === id);
     expect(setting('recent')?.visible).toBe(false);
     expect(setting('attention')).toMatchObject({ visible: true, size: 'WIDE' });
@@ -87,10 +88,16 @@ describe('Today layout in the Profile (19.2)', () => {
   });
 
   it('moves cards one place at a time and stops at the ends', () => {
-    expect(ids(moveCard(defaults, 'continue', -1).cards).slice(2, 4)).toEqual(['continue', 'attention']);
+    expect(ids(moveCard(defaults, 'continue', -1).cards).slice(3, 5)).toEqual(['continue', 'attention']);
     expect(moveCard(defaults, 'clock', -1)).toBe(defaults);
     expect(moveCard(defaults, 'calendar', 1)).toBe(defaults);
   });
+});
+
+it('shows the Moon only when its Workspace admin enabled it, while preserving personal hiding', () => {
+  expect(ids(todayCards(['MOON']))).toContain('moon');
+  expect(ids(todayCards([]))).not.toContain('moon');
+  expect(ids(todayCards(['MOON'], changeCard(resolveTodayLayout(null), 'moon', { visible: false })))).not.toContain('moon');
 });
 
 describe('Next up and Calendar', () => {

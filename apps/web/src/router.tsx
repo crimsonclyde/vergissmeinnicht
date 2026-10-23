@@ -68,12 +68,13 @@ export function Link(props: AnchorHTMLAttributes<HTMLAnchorElement> & { href: st
 }
 
 /** Sections of Profile & settings and of Server admin (15.1): one page each, so nothing unrelated has to be scrolled past. */
-export const ACCOUNT_SECTIONS = ['notifications', 'today', 'weather', 'appearance', 'security', 'confirmations'] as const;
+export const ACCOUNT_SECTIONS = ['notifications', 'today', 'weather', 'appearance', 'security', 'confirmations', 'journal'] as const;
 export type AccountSection = (typeof ACCOUNT_SECTIONS)[number];
 export const ADMIN_SECTIONS = ['workspaces', 'invitations', 'accounts', 'notifications', 'weather', 'server', 'log'] as const;
 export type AdminSection = (typeof ADMIN_SECTIONS)[number];
 
 export type Route =
+  | { readonly page: 'journal'; readonly workspaceId: string }
   | { readonly page: 'home' }
   | { readonly page: 'invite'; readonly token: string }
   | { readonly page: 'recover'; readonly token: string }
@@ -153,6 +154,7 @@ export function parseRoute(pathname: string): Route {
     return { page: 'documents', workspaceId: match[1] ?? '', view: match[3] === undefined ? 'folder' : 'new', folderId: match[2] ?? null, documentId: null };
   }
   if ((match = new RegExp(`^/w/${ID}/documents/${ID}$`).exec(path))) return { page: 'documents', workspaceId: match[1] ?? '', view: 'document', folderId: null, documentId: match[2] ?? null };
+  if ((match = new RegExp(`^/w/${ID}/journal$`).exec(path))) return { page: 'journal', workspaceId: match[1] ?? '' };
   if ((match = new RegExp(`^/w/${ID}/contacts(/import|/trash)?$`).exec(path))) {
     return { page: 'contacts', workspaceId: match[1] ?? '', view: match[2] === '/import' ? 'import' : match[2] === '/trash' ? 'trash' : 'list', contactId: null };
   }
@@ -197,6 +199,7 @@ export const paths = {
   newDocument: (workspaceId: string, folderId: string | null = null) => `${paths.documents(workspaceId, folderId)}/new`,
   document: (workspaceId: string, documentId: string) => `/w/${workspaceId}/documents/${documentId}`,
   documentTrash: (workspaceId: string) => `/w/${workspaceId}/documents/trash`,
+  journal: (workspaceId: string) => `/w/${workspaceId}/journal`,
   contacts: (workspaceId: string) => `/w/${workspaceId}/contacts`,
   contact: (workspaceId: string, contactId: string) => `/w/${workspaceId}/contacts/${contactId}`,
   contactImport: (workspaceId: string) => `/w/${workspaceId}/contacts/import`,

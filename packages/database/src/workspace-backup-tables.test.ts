@@ -14,6 +14,7 @@ const REVIEWED_COLUMNS: Record<string, string> = {
   procedures: 'id workspace_id title description icon tags revision created_by_user_id created_at updated_at deleted_at deleted_by_user_id',
   procedure_sections: 'id procedure_id position title description icon',
   procedure_steps: 'id procedure_id section_id position kind title description icon required critical skip_reason_policy not_applicable_reason_policy image_id image_caption',
+  journal_entries: 'id kind version title date body revision archived created_by_user_id created_by updated_by_user_id updated_by created_at updated_at workspace_id',
   contacts: 'id workspace_id name organisation category emails phones address website notes sort_key category_key search_text revision created_by_user_id created_by_display_name created_at updated_by_user_id updated_by_display_name updated_at deleted_at deleted_by_user_id deleted_by_display_name',
   document_types: 'id workspace_id name name_key retired_at created_by_user_id created_at',
   document_folders: 'id workspace_id parent_id name name_key revision created_by_user_id created_by_display_name created_at updated_at deleted_at deleted_by_user_id deleted_by_display_name deleted_with_folder_id',

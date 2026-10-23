@@ -1,3 +1,5 @@
+import type { JournalDeps } from '@vergissmeinnicht/application';
+import { createJournalRepository } from '@vergissmeinnicht/database';
 import { dirname, join } from 'node:path';
 import {
   emailReminderNotifier,
@@ -150,6 +152,7 @@ export interface AppServices {
   /** MaintenanceRecords of a Workspace (16.7). */
   readonly maintenance: MaintenanceDeps;
   readonly equipment: EquipmentDeps;
+  readonly journal: JournalDeps;
   /** Files of Documents (16.1): metadata in SQLite, originals and previews under `documentsPath`. */
   readonly documentFiles: DocumentFileDeps;
   /** Folders, Documents, document types and the Workspace's optional tools (16.2). */
@@ -409,6 +412,7 @@ export function createServices(config: AppConfig, database: AppDatabase, overrid
       storage: { workspaces: workspaceDeps.workspaces, storage: createStorageRepository(database), clock: systemClock },
       links: { workspaces: workspaceDeps.workspaces, tools, links: createLinkRepository(database), clock: systemClock },
       contacts: { workspaces: workspaceDeps.workspaces, tools, contacts: createContactRepository(database), clock: systemClock },
+      journal: { workspaces: workspaceDeps.workspaces, users: createUserRepository(database), tools, journal: createJournalRepository(database), clock: systemClock },
       equipment: { workspaces: workspaceDeps.workspaces, tools, equipment: createEquipmentRepository(database), clock: systemClock },
       maintenance: { workspaces: workspaceDeps.workspaces, tools, maintenance: createMaintenanceRepository(database), clock: systemClock },
       documents: { workspaces: workspaceDeps.workspaces, tools, documents: createDocumentRepository(database), store: documentFiles.store, clock: systemClock },

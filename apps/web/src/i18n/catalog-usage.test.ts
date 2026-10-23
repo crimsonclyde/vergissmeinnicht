@@ -18,6 +18,7 @@ const DYNAMIC_PREFIXES = [
   'restore.warning.',
   'weather.credential.terms.',
   'weather.condition.',
+  'moon.phase.',
   'weather.noForecast.',
   'weather.unit.',
   'todaySettings.retention.',

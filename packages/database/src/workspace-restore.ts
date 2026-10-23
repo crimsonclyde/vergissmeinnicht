@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { closeSync, openSync, readFileSync, readSync } from 'node:fs';
 import { join } from 'node:path';
-import { parseWeatherLocation, contactKeys, documentSearchText, documentTagKeys, documentTitleKey, IMPORTED_EMAIL_DOMAIN, MAX_WORKSPACE_NAME_LENGTH, WORKSPACE_ROLES, type ContactPoint } from '@vergissmeinnicht/domain';
+import { parseJournalContent, parseWeatherLocation, contactKeys, documentSearchText, documentTagKeys, documentTitleKey, IMPORTED_EMAIL_DOMAIN, MAX_WORKSPACE_NAME_LENGTH, WORKSPACE_ROLES, type ContactPoint } from '@vergissmeinnicht/domain';
 import { IMMEDIATE, type Transaction } from './actor-guard.ts';
 import type { AppDatabase } from './connection.ts';
 import { storageUsageIn } from './storage-usage.ts';
@@ -72,6 +72,7 @@ export interface RestoredDocumentFileFacts {
 export interface WorkspaceRestoreInput {
   /** Record type (`data/<name>.ndjson` without folder and extension) → extracted file. */
   readonly data: ReadonlyMap<string, string>;
+  readonly databaseLevel?: string;
   /** Verified originals by SHA-256. */
   readonly files: { readonly documents: ReadonlyMap<string, RestoredDocumentFileFacts>; readonly images: ReadonlyMap<string, { readonly bytes: number }> };
   /** The server admin restoring: the new Workspace's only member (ADMIN). */
@@ -232,8 +233,11 @@ function planTables(sqlite: AppDatabase['sqlite']): Map<string, TablePlan> {
 }
 
 /** The package's records of one type, one JSON object per line, with a bounded line length; strict UTF-8. */
-function* records(path: string | undefined, table: string): Generator<Record<string, unknown>> {
-  if (path === undefined) throw new WorkspaceRestoreError('malformed_records', table);
+function* records(path: string | undefined, table: string, allowMissing = false): Generator<Record<string, unknown>> {
+  if (path === undefined) {
+    if (allowMissing) return;
+    throw new WorkspaceRestoreError('malformed_records', table);
+  }
   const decoder = new TextDecoder('utf-8', { fatal: true });
   const parse = (bytes: Buffer): Record<string, unknown> => {
     let value: unknown;
@@ -288,6 +292,13 @@ function checkRow(plan: TablePlan, row: Record<string, unknown>): void {
     const value = row[key];
     if (value !== null && typeof value !== 'string' && !(typeof value === 'number' && Number.isFinite(value))) throw new WorkspaceRestoreError('malformed_records', plan.spec.name);
   }
+  if (plan.spec.table === 'journal_entries') {
+    try {
+      const content = { kind: row.kind, version: row.version, title: row.title, date: row.date, body: row.body };
+      const normalized = parseJournalContent(content);
+      if (Object.entries(normalized).some(([key, value]) => row[key] !== value)) throw new Error('Noncanonical journal content');
+    } catch { throw new WorkspaceRestoreError('malformed_records', plan.spec.name); }
+  }
   const shapes = JSON_COLUMNS[plan.spec.table];
   if (shapes !== undefined) {
     for (const [column, shape] of Object.entries(shapes)) {
@@ -329,6 +340,7 @@ class CheckOnly extends Error {
  */
 export function restoreWorkspace(database: AppDatabase, input: WorkspaceRestoreInput): WorkspaceRestoreOutcome {
   const { sqlite, db } = database;
+  if (input.databaseLevel !== undefined && !isRestorableLevel(sqlite, input.databaseLevel)) throw new WorkspaceRestoreError('malformed_records');
   const plans = planTables(sqlite);
   const at = input.at.getTime();
   try {
@@ -352,7 +364,7 @@ export function restoreWorkspace(database: AppDatabase, input: WorkspaceRestoreI
       const tableOf = new Map<string, string>();
       for (const plan of plans.values()) {
         if (!plan.hasId || plan.spec.table === 'workspaces') continue;
-        for (const row of records(input.data.get(plan.spec.name), plan.spec.name)) {
+        for (const row of records(input.data.get(plan.spec.name), plan.spec.name, plan.spec.name === 'journal_entries' && input.databaseLevel !== undefined && input.databaseLevel < '0052_moon_journal')) {
           const id = row.id;
           if (typeof id !== 'string' || !UUID.test(id) || ids.has(id)) throw new WorkspaceRestoreError('malformed_records', plan.spec.name);
           ids.set(id, randomUUID());
@@ -456,8 +468,9 @@ export function restoreWorkspace(database: AppDatabase, input: WorkspaceRestoreI
         if (table === 'workspaces') continue;
         const statement = table === 'memberships' ? undefined : sqlite.prepare(plan.insert);
         let rows = 0;
-        for (const row of records(input.data.get(plan.spec.name), plan.spec.name)) {
+        for (const row of records(input.data.get(plan.spec.name), plan.spec.name, plan.spec.name === 'journal_entries' && input.databaseLevel !== undefined && input.databaseLevel < '0052_moon_journal')) {
           checkRow(plan, row);
+          if (table === 'journal_entries' && rows >= 1000) throw new WorkspaceRestoreError('malformed_records', plan.spec.name);
           if (table === 'memberships') {
             // Not restored (D1): shown so the admin can invite people again — by hand.
             const role = row.role;

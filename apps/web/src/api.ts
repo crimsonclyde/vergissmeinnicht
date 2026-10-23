@@ -1,3 +1,4 @@
+import type { JournalContent, JournalEntry } from '@vergissmeinnicht/domain';
 /** Thin JSON client for the same-origin API. The browser adds the `Origin` header the server checks. */
 import type { CredentialProviderId, OpenMeteoModelId, ProcedureIcon, ReasonPolicy, RunState, StepState, TodayLayout, UserPreferences, WeatherCredential, WeatherForecast, WeatherLocation, WeatherProviderId, WeatherSettings, WorkspaceRole } from '@vergissmeinnicht/domain';
 import { hasMessage, t } from './i18n/index.ts';
@@ -1178,7 +1179,14 @@ const listOf = async (response: Promise<{ list: ListDetail }>) => (await respons
 const schedulePath = (workspaceId: string, scheduleId: string) => `/workspaces/${encodeURIComponent(workspaceId)}/schedules/${encodeURIComponent(scheduleId)}`;
 const occurrencePath = (workspaceId: string, id: string) => `/workspaces/${encodeURIComponent(workspaceId)}/occurrences/${encodeURIComponent(id)}`;
 
+export type JournalView = Omit<JournalEntry, 'createdAt' | 'updatedAt'> & { createdAt: string; updatedAt: string };
+const journalPath = (workspaceId?: string) => workspaceId === undefined ? '/account/journal' : `/workspaces/${encodeURIComponent(workspaceId)}/journal`;
+
 export const api = {
+  moon: (workspaceId: string) => request<{ location: import('@vergissmeinnicht/domain').WeatherLocation | null }>('GET', `/workspaces/${encodeURIComponent(workspaceId)}/moon`),
+  journal: (workspaceId: string | undefined, q: string, archived: boolean, offset: number) => request<{ entries: JournalView[]; more: boolean }>('GET', `${journalPath(workspaceId)}?${new URLSearchParams({ q, archived: String(archived), offset: String(offset) })}`),
+  journalEntry: (workspaceId: string | undefined, id: string) => request<{ entry: JournalView }>('GET', `${journalPath(workspaceId)}/${encodeURIComponent(id)}`).then((answer) => answer.entry),
+  saveJournal: (workspaceId: string | undefined, id: string | undefined, content: JournalContent, expectedRevision: number, archived: boolean) => request<{ entry: JournalView }>('POST', `${journalPath(workspaceId)}${id === undefined ? '' : `/${encodeURIComponent(id)}`}`, { content, expectedRevision, archived }).then((answer) => answer.entry),
   uploadImage,
   gallery: async (workspaceId: string, options: { search?: string; unused?: boolean; after?: string | null } = {}, signal?: AbortSignal) => {
     const query = new URLSearchParams();
