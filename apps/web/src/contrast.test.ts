@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import css from './styles.css?raw';
 import scene from './tokyo-nights.css?raw';
+import forest from './witch-forest.css?raw';
 
 /** Token values of one `selector { … }` block of the stylesheet. */
 function tokens(selector: string): Record<string, string> {
@@ -29,7 +30,16 @@ const themes = {
   dark: { ...light, ...tokens(":root[data-theme='dark']") },
   'memento-mori': { ...light, ...tokens(":root[data-theme='memento-mori']") },
   'tokyo-nights': { ...light, ...tokens(":root[data-theme='tokyo-nights']") },
+  'witch-forest': { ...light, ...tokens(":root[data-theme='witch-forest']") },
+  // Witch Forest's grimoire pages (the Step card, "Pick up where you left off") have their own tokens.
+  'witch-forest page': { ...light, ...tokens(":root[data-theme='witch-forest'] :is(.guide-card, .today-hero)") },
 };
+
+/** `fg` laid over `bg` with the given opacity, as one opaque colour. */
+function blend(fg: string, alpha: number, bg: string): string {
+  const channel = (hex: string, i: number): number => parseInt(hex.slice(i, i + 2), 16);
+  return `#${[1, 3, 5].map((i) => Math.round(channel(fg, i) * alpha + channel(bg, i) * (1 - alpha)).toString(16).padStart(2, '0')).join('')}`;
+}
 
 /** [foreground, background, minimum]: 4.5 for text (WCAG AA), 3 for non-text UI such as borders and focus rings. */
 const PAIRS: readonly [string, string, number][] = [
@@ -119,7 +129,55 @@ const TOKYO_SURFACES: readonly [string, string, number][] = [
   ['#f4f1ff', 'bg', 4.5],
 ];
 
+/*
+ * Witch Forest paints a few surfaces itself (witch-forest.css): the stepping stones, the "all clear" and
+ * clock cards, the wax seal, the darkened edges of the paper pages, and the lit part of the progress moon
+ * (the text colour at 20% over whatever is below). Text on them must meet the same minimum.
+ */
+const forestDark = themes['witch-forest'];
+const forestPage = themes['witch-forest page'];
+const PAGE_EDGE = blend('#6e5424', 0.18, forestPage.bg ?? 'missing');
+const WITCH_SURFACES: readonly [string, string, number, Record<string, string>][] = [
+  // Stepping stones: text, muted text and the moon's numbers on the stone; a finished, mossy stone.
+  ['text', '#1c2822', 4.5, forestDark],
+  ['text', '#121a16', 4.5, forestDark],
+  ['text-muted', '#1c2822', 4.5, forestDark],
+  ['text', '#1a3324', 4.5, forestDark],
+  ['state-done', '#1a3324', 4.5, forestDark],
+  // The wax seal ("Next"): light text on the wine-red wax, at its lightest and its darkest.
+  ['#f2e6dc', '#7a3045', 4.5, forestDark],
+  ['#f2e6dc', '#431624', 4.5, forestDark],
+  // All clear and the finish screen.
+  ['text', '#142019', 4.5, forestDark],
+  ['text-muted', '#142019', 4.5, forestDark],
+  // The clock's date in lichen green.
+  ['#c9d8b4', 'surface', 4.5, forestDark],
+  // The progress moon: numbers on its lit part, on cards, stones and paper.
+  ['text', blend(forestDark.text ?? 'missing', 0.2, forestDark.surface ?? 'missing'), 4.5, forestDark],
+  ['state-done', blend(forestDark.text ?? 'missing', 0.2, forestDark.surface ?? 'missing'), 4.5, forestDark],
+  ['text', blend(forestDark.text ?? 'missing', 0.2, '#1c2822'), 4.5, forestDark],
+  ['text', blend(forestPage.text ?? 'missing', 0.2, forestPage.bg ?? 'missing'), 4.5, forestPage],
+  // Paper pages: ink at the darkened edges of the page, and on the paper's lighter top.
+  ['text', PAGE_EDGE, 4.5, forestPage],
+  ['text-muted', PAGE_EDGE, 4.5, forestPage],
+  ['text-muted', '#e4dabd', 4.5, forestPage],
+  ['accent', PAGE_EDGE, 4.5, forestPage],
+];
+
 describe('theme contrast (WCAG AA)', () => {
+  it('witch-forest: text on the surfaces the preset paints itself meets its minimum', () => {
+    expect(forest).toContain('rgb(110 84 36 / 18%)');
+    expect(forest).toContain('color-mix(in srgb, var(--text) 20%, transparent)');
+    // The fixed colours must still be the ones in the stylesheet, or this check would test nothing.
+    for (const fixed of ['#1c2822', '#121a16', '#1a3324', '#f2e6dc', '#7a3045', '#431624', '#142019', '#c9d8b4', '#e4dabd']) expect(forest).toContain(fixed);
+    const failures = WITCH_SURFACES.flatMap(([fg, bg, min, values]) => {
+      const colour = (key: string): string => (key.startsWith('#') ? key : (values[key] ?? 'missing'));
+      const ratio = contrast(colour(fg), colour(bg));
+      return ratio >= min ? [] : [`${fg} on ${bg}: ${ratio.toFixed(2)} < ${min}`];
+    });
+    expect(failures).toEqual([]);
+  });
+
   it('tokyo-nights: text on the surfaces the preset paints itself meets its minimum', () => {
     const values = themes['tokyo-nights'];
     const colour = (key: string): string => (key.startsWith('#') ? key : (values[key] ?? 'missing'));
@@ -135,7 +193,7 @@ describe('theme contrast (WCAG AA)', () => {
   it('reads every theme token block from the stylesheet, each complete', () => {
     expect(Object.keys(light).length).toBeGreaterThanOrEqual(24);
     // Presets must define every colour token themselves (no accidental fallback to light values).
-    for (const selector of [":root[data-theme='dark']", ":root[data-theme='memento-mori']", ":root[data-theme='tokyo-nights']"]) {
+    for (const selector of [":root[data-theme='dark']", ":root[data-theme='memento-mori']", ":root[data-theme='tokyo-nights']", ":root[data-theme='witch-forest']", ":root[data-theme='witch-forest'] :is(.guide-card, .today-hero)"]) {
       expect(Object.keys(tokens(selector)).sort()).toEqual(Object.keys(light).sort());
     }
   });

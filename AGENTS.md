@@ -262,7 +262,7 @@ Initial modes:
 - Light
 - Dark
 
-Named presets: `Memento Mori` (8.7) and `Tokyo Nights` (`docs/development/steps.md` 24.1: neon arcade scene and gentle motion in `tokyo-nights.css`). A preset may re-arrange presentation and add decoration and motion, but keeps the same controls, order and names; its motion stops under `prefers-reduced-motion`, and text on any surface it paints passes the contrast test.
+Named presets: `Memento Mori` (8.7), `Tokyo Nights` (`docs/development/steps.md` 24.1: neon arcade scene and gentle motion in `tokyo-nights.css`) and `Witch Forest` (25.1: forest at night, sundial and old-book pages in `witch-forest.css`). A preset may re-arrange presentation and add decoration and motion, but keeps the same controls, order and names; its motion stops under `prefers-reduced-motion`, and text on any surface it paints passes the contrast test.
 
 ## Data and persistence
 

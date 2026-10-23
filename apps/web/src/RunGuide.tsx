@@ -51,6 +51,18 @@ export function nextOpenSection(sections: readonly RunSection[], afterId: string
   return undefined;
 }
 
+/**
+ * The lit part of a moon for a share between 0 and 1, waxing from the right: a thin crescent, half, then
+ * gibbous, then full. The outer edge is the right half of the disc; the terminator is half an ellipse.
+ */
+export function moonPath(cx: number, cy: number, r: number, share: number): string {
+  const lit = Math.min(1, Math.max(0, share));
+  if (lit <= 0) return '';
+  if (lit >= 1) return `M${cx} ${cy - r}A${r} ${r} 0 1 1 ${cx} ${cy + r}A${r} ${r} 0 1 1 ${cx} ${cy - r}Z`;
+  const rx = Math.abs(1 - 2 * lit) * r;
+  return `M${cx} ${cy - r}A${r} ${r} 0 0 1 ${cx} ${cy + r}A${rx} ${r} 0 0 ${lit < 0.5 ? 0 : 1} ${cx} ${cy - r}Z`;
+}
+
 /** A progress ring; the numbers in the middle say the same as the ring (colour is never the only sign). */
 export function Ring(props: { done: number; total: number; size?: number; label?: string; children?: ReactNode }) {
   const size = props.size ?? 56;
@@ -62,6 +74,9 @@ export function Ring(props: { done: number; total: number; size?: number; label?
   return (
     <span className="ring" data-complete={complete} style={{ width: size, height: size }} role="img" aria-label={props.label ?? t('guide.ringLabel', { done: props.done, total: props.total })}>
       <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} aria-hidden="true" focusable="false">
+        {/* The moon (drawn only by themes that want it, Witch Forest): the dark disc, and the lit part growing with progress. */}
+        <circle className="ring-moon-disc" cx={size / 2} cy={size / 2} r={size / 2 - 1.5} />
+        <path className="ring-moon-lit" d={moonPath(size / 2, size / 2, size / 2 - 1.5, share)} />
         <circle className="ring-track" cx={size / 2} cy={size / 2} r={radius} strokeWidth={stroke} fill="none" />
         <circle
           className="ring-fill"

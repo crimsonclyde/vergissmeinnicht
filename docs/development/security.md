@@ -1103,6 +1103,15 @@ The CI scan gates found new advisories: `source-map-js` < 1.2.2 (DoS on malforme
 - [x] Token redaction in request logs matches the decoded path with repeated slashes collapsed (`redactUrl`, 21.2): `/%6Bnot/{token}` and `//knot/{token}` are redacted like `/knot/{token}`.
 - [x] **Review trigger:** any future decision that depends on the request path (logging redaction, allow-lists, guards) must use the matched route or a normalised path, never `request.url` as sent.
 
+### Security check: Witch Forest theme (25.1, 2026-10-23)
+
+**Security surface changed: LOW.** One more allowed value of an existing personal preference; everything else is presentation. No new route, dependency, outbound connection or stored data kind.
+
+- [x] **Validated twice:** `theme` is a strict enum at the API (other spellings are 400) and in the database (CHECK, rebuilt in migration 0050 with existing rows copied). Test: `preferences.test.ts`.
+- [x] **No new loading:** the forest and the sundial are inline SVG drawn by the app (`ForestScene.tsx`, `TodayClock.tsx`, from fixed values, no user data); the other images are small SVGs bundled into the stylesheet as `data:` URLs (already allowed by `img-src`). The typeface is the system's own serif: no web font, `font-src` unchanged. Firefly timing is set through the CSSOM (React `style`), which CSP does not restrict.
+- [x] **Presentation only:** no control is hidden, added or reordered; authorization, confirmations and the irreversible Complete/Abort text buttons are unchanged. The paper pages carry a complete token set, and contrast of every pair on them and of text on every surface the preset paints is tested (`contrast.test.ts`).
+- [x] **Motion is safe:** nothing flashes; the candle only dims between 70% and 100% over seconds, fireflies glow up over seconds; all motion stops under `prefers-reduced-motion`, and the scene and ornaments are removed under forced colours.
+
 ### Security check: Tokyo Nights theme (24.1, 2026-10-20)
 
 **Security surface changed: LOW.** One more allowed value of an existing personal preference; everything else is stylesheet presentation. No new route, dependency, outbound connection or stored data kind.

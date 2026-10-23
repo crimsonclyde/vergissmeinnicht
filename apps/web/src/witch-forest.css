@@ -1,0 +1,1063 @@
+/*
+ * Witch Forest (25.1): a named preset — an old forest at night, set like an engraved herbarium or an
+ * alchemist's book. The colours are the semantic tokens in styles.css (plus the "grimoire page" tokens
+ * for the Step card and "Pick up where you left off"); this file adds what a token cannot say: the forest
+ * behind the page, the old-book typeface, engraved frames and ivy, the sundial, the moon that fills as a
+ * Run progresses, the Sections as a path of stepping stones, and slow motion. Everything applies only
+ * while `<html data-theme='witch-forest'>`.
+ *
+ * Rules of the preset (as for every preset):
+ * - presentation only: the same controls in the same order as every other theme, nothing hidden;
+ * - text sits on token surfaces or on the fixed surfaces checked in contrast.test.ts;
+ * - text never fades in, and all motion stops when the device asks for less (prefers-reduced-motion);
+ * - motion uses transform/opacity only, slowly; serious, never playful.
+ */
+
+:root[data-theme='witch-forest'] {
+  --wf-serif: 'Iowan Old Style', 'Palatino Linotype', Palatino, 'Book Antiqua', 'URW Palladio L', P052, Charter, 'Bitstream Charter', Georgia, 'Noto Serif', 'DejaVu Serif', serif;
+  --wf-moss: #9ccf8f;
+  --wf-lichen: #c9d8b4;
+  --wf-moon: #dfe6cf;
+  --wf-rule: rgb(156 207 143 / 16%);
+  --wf-ink-rule: rgb(84 72 47 / 55%);
+  --radius: 5px;
+}
+
+/* ---- Type: an old-book serif, a little larger, calm and readable ------------------------------ */
+
+:root[data-theme='witch-forest'] body {
+  font-family: var(--wf-serif);
+  font-size: 17px;
+  line-height: 1.55;
+  background: linear-gradient(180deg, #050a08 0%, var(--bg) 40%, #0f1c17 100%) fixed;
+  background-color: var(--bg);
+}
+
+/* Form controls keep the page's typeface (browsers give them their own by default). */
+:root[data-theme='witch-forest'] :is(button, input, select, textarea, .button) {
+  font-family: inherit;
+}
+
+:root[data-theme='witch-forest'] :is(h1, h2, h3, h4) {
+  font-weight: 600;
+  letter-spacing: 0.01em;
+}
+
+/* Card and page titles in small capitals, like chapter heads. */
+:root[data-theme='witch-forest'] :is(.today-card-title, .page-header h2, .guide-head-title, .guide-count) {
+  font-variant: small-caps;
+  letter-spacing: 0.05em;
+}
+
+/* ---- The forest behind the page ------------------------------------------------------------ */
+
+.forest {
+  display: none;
+}
+
+:root[data-theme='witch-forest'] .forest {
+  display: block;
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+/* The sky: near black above, a cold green mist towards the trees, and a few faint stars. */
+:root[data-theme='witch-forest'] .forest-sky {
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(1px 1px at 12% 14%, rgb(223 230 207 / 70%), transparent 2px),
+    radial-gradient(1px 1px at 27% 6%, rgb(223 230 207 / 50%), transparent 2px),
+    radial-gradient(1.5px 1.5px at 41% 19%, rgb(223 230 207 / 55%), transparent 2px),
+    radial-gradient(1px 1px at 58% 9%, rgb(223 230 207 / 45%), transparent 2px),
+    radial-gradient(1px 1px at 66% 26%, rgb(223 230 207 / 40%), transparent 2px),
+    radial-gradient(1.5px 1.5px at 91% 8%, rgb(223 230 207 / 55%), transparent 2px),
+    radial-gradient(1px 1px at 8% 31%, rgb(223 230 207 / 35%), transparent 2px),
+    radial-gradient(70% 45% at 78% 20%, rgb(159 188 176 / 10%), transparent 70%),
+    linear-gradient(180deg, #040806 0%, #08100d 35%, #12221c 70%, #1a2e27 100%);
+}
+
+/* The moon, high on the right, with a cold halo. */
+:root[data-theme='witch-forest'] .forest-moon {
+  position: absolute;
+  top: clamp(4rem, 12vh, 8rem);
+  right: 7vw;
+  width: clamp(7rem, 16vw, 13rem);
+  aspect-ratio: 1;
+  border-radius: 50%;
+  background: radial-gradient(closest-side, rgb(223 230 207 / 22%) 30%, rgb(223 230 207 / 6%) 60%, transparent);
+}
+
+:root[data-theme='witch-forest'] .forest-moon svg {
+  width: 100%;
+  height: 100%;
+}
+
+/* A long thin cloud that drifts across the moon. */
+:root[data-theme='witch-forest'] .forest-cloud {
+  position: absolute;
+  top: calc(clamp(4rem, 12vh, 8rem) + clamp(2.5rem, 7vw, 5.5rem));
+  right: -10vw;
+  width: 70vw;
+  height: 3.2rem;
+  background:
+    radial-gradient(40% 50% at 30% 50%, rgb(26 40 35 / 85%), transparent 70%),
+    radial-gradient(35% 40% at 62% 60%, rgb(26 40 35 / 75%), transparent 70%),
+    radial-gradient(25% 35% at 85% 40%, rgb(26 40 35 / 65%), transparent 70%);
+  filter: blur(2px);
+}
+
+/* On phones the greeting fills the top, so the moon sits lower, mostly behind the cards. */
+@media (max-width: 56rem) {
+  :root[data-theme='witch-forest'] .forest-moon {
+    top: auto;
+    bottom: 44vh;
+    right: 6vw;
+    width: 6.5rem;
+  }
+
+  :root[data-theme='witch-forest'] .forest-cloud {
+    top: auto;
+    bottom: calc(44vh + 1.2rem);
+  }
+}
+
+/* The land: ridges, pines, the hut, the old trees — anchored to the bottom, two thirds of the height. */
+:root[data-theme='witch-forest'] .forest-land {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  width: 100%;
+  height: 72vh;
+}
+
+/* Mist lying between the trees; each band is twice as wide as the screen so it can drift. */
+:root[data-theme='witch-forest'] .forest-fog {
+  position: absolute;
+  left: 0;
+  width: 200%;
+  background-repeat: repeat-x;
+  background-size: 50% 100%;
+}
+
+:root[data-theme='witch-forest'] .forest-fog-far {
+  bottom: 24vh;
+  height: 16vh;
+  background-image:
+    radial-gradient(30% 45% at 20% 55%, rgb(159 188 176 / 13%), transparent 70%),
+    radial-gradient(25% 40% at 55% 45%, rgb(159 188 176 / 10%), transparent 70%),
+    radial-gradient(30% 45% at 85% 60%, rgb(159 188 176 / 12%), transparent 70%);
+}
+
+:root[data-theme='witch-forest'] .forest-fog-near {
+  bottom: 0;
+  height: 22vh;
+  background-image:
+    radial-gradient(35% 50% at 15% 70%, rgb(170 196 185 / 14%), transparent 70%),
+    radial-gradient(30% 40% at 50% 80%, rgb(170 196 185 / 11%), transparent 70%),
+    radial-gradient(35% 45% at 80% 65%, rgb(170 196 185 / 13%), transparent 70%),
+    linear-gradient(180deg, transparent, rgb(140 168 156 / 10%));
+}
+
+/* Fireflies: tiny pale-green lights near the ground. */
+:root[data-theme='witch-forest'] .forest-fireflies > span {
+  position: absolute;
+  width: 3px;
+  height: 3px;
+  border-radius: 50%;
+  background: #e9f5b8;
+  box-shadow: 0 0 6px 2px rgb(214 236 140 / 55%), 0 0 16px 4px rgb(214 236 140 / 18%);
+  opacity: 0.55;
+}
+
+/* Ivy hanging from the top corners. */
+:root[data-theme='witch-forest'] .forest-ivy {
+  position: absolute;
+  top: 0;
+  width: clamp(7rem, 20vw, 18rem);
+  height: auto;
+  aspect-ratio: 300 / 270;
+}
+
+:root[data-theme='witch-forest'] .forest-ivy-left {
+  left: 0;
+}
+
+:root[data-theme='witch-forest'] .forest-ivy-right {
+  right: 0;
+}
+
+:root[data-theme='witch-forest'] .forest-vine {
+  transform-box: fill-box;
+  transform-origin: 50% 0;
+}
+
+/* A crow that glides across the sky now and then (only with motion). */
+:root[data-theme='witch-forest'] .forest-crow-flying {
+  position: absolute;
+  top: 22vh;
+  left: -6rem;
+  width: 3rem;
+  opacity: 0;
+}
+
+:root[data-theme='witch-forest'] .forest-smoke circle,
+:root[data-theme='witch-forest'] .forest-candle,
+:root[data-theme='witch-forest'] .forest-candle-glow {
+  transform-box: fill-box;
+  transform-origin: 50% 100%;
+}
+
+/* ---- Navigation: dark bark with ivy climbing its edge --------------------------------------- */
+
+:root[data-theme='witch-forest'] .shell-side {
+  background:
+    url('./witch-forest/vine-strip.svg') right -6px top 0 / 22px auto repeat-y,
+    linear-gradient(180deg, rgb(10 17 14 / 94%), rgb(13 22 18 / 94%));
+  border-right: 1px solid #1f2d25;
+  backdrop-filter: blur(6px);
+}
+
+:root[data-theme='witch-forest'] .brand-long {
+  font-family: var(--wf-serif);
+  font-style: italic;
+  letter-spacing: 0.01em;
+}
+
+:root[data-theme='witch-forest'] .brand-accent {
+  color: var(--brand);
+}
+
+:root[data-theme='witch-forest'] .brand-icon {
+  border-radius: 50%;
+  box-shadow: 0 0 0 1px #3b4f42, 0 0 0 4px rgb(156 207 143 / 8%);
+}
+
+/* The current tool: a sprig of leaf and an engraved underline instead of a filled block. */
+:root[data-theme='witch-forest'] .side-nav a {
+  position: relative;
+  border-radius: 3px;
+}
+
+:root[data-theme='witch-forest'] .side-nav a[aria-current='page'] {
+  background: linear-gradient(90deg, rgb(156 207 143 / 16%), rgb(156 207 143 / 4%) 75%, transparent);
+  color: var(--text);
+  box-shadow: inset 0 -1px 0 rgb(156 207 143 / 40%);
+}
+
+:root[data-theme='witch-forest'] .side-nav a[aria-current='page'] .ui-icon {
+  color: var(--wf-moss);
+}
+
+:root[data-theme='witch-forest'] .side-nav a[aria-current='page']::after {
+  content: '';
+  position: absolute;
+  right: 0.6rem;
+  top: 50%;
+  width: 1rem;
+  height: 1rem;
+  margin-top: -0.5rem;
+  background: url('./witch-forest/leaf.svg') center / contain no-repeat;
+}
+
+@media (max-width: 56rem) {
+  :root[data-theme='witch-forest'] .shell-side {
+    background: rgb(10 17 14 / 94%);
+    border-right: 0;
+    border-bottom: 1px solid #22322a;
+  }
+
+  :root[data-theme='witch-forest'] .tab-bar {
+    background:
+      url('./witch-forest/vine-strip.svg') left -2px top -10px / 22px auto repeat-x,
+      rgb(10 17 14 / 95%);
+    border-top: 1px solid #22322a;
+    backdrop-filter: blur(8px);
+  }
+
+  :root[data-theme='witch-forest'] .tab-bar a[aria-current='page'] {
+    border-top-color: transparent;
+    color: var(--text);
+  }
+
+  /* The current destination: its icon sits in a dark-green seal with a moss ring (the label is bold, too). */
+  :root[data-theme='witch-forest'] .tab-bar a[aria-current='page'] .ui-icon {
+    padding: 0.2rem 0.85rem;
+    border-radius: 999px;
+    background: #1d3324;
+    color: var(--wf-moss);
+    box-shadow: inset 0 0 0 1px rgb(156 207 143 / 45%);
+  }
+}
+
+/* ---- Cards: engraved frames with a curl of ivy in the corner -------------------------------- */
+
+:root[data-theme='witch-forest'] .card {
+  background: rgb(17 26 21 / 97%);
+  border-color: var(--border);
+  box-shadow: inset 0 0 0 3px rgb(17 26 21 / 97%), inset 0 0 0 4px var(--wf-rule);
+}
+
+:root[data-theme='witch-forest'] .today-card {
+  position: relative;
+}
+
+:root[data-theme='witch-forest'] .today-card::after {
+  content: '';
+  position: absolute;
+  top: 1px;
+  right: 1px;
+  width: 2.4rem;
+  height: 2.4rem;
+  background: url('./witch-forest/corner.svg') right top / contain no-repeat;
+  opacity: 0.5;
+  pointer-events: none;
+}
+
+/* Card-title icons as small engraved medallions. */
+:root[data-theme='witch-forest'] .today-card-title > .ui-icon {
+  border-radius: 50%;
+  background: transparent;
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, currentColor 60%, transparent), 0 0 0 3px rgb(156 207 143 / 6%);
+}
+
+:root[data-theme='witch-forest'] .today-row:hover .today-row-title,
+:root[data-theme='witch-forest'] .today-more:hover {
+  color: var(--wf-lichen);
+}
+
+/* ---- Controls: quiet, squarer, a soft moonlight glow on hover --------------------------------- */
+
+:root[data-theme='witch-forest'] button,
+:root[data-theme='witch-forest'] .button {
+  border-radius: 4px;
+  transition: box-shadow 200ms ease, background-color 200ms ease, transform 120ms ease;
+}
+
+:root[data-theme='witch-forest'] button:hover:not(:disabled),
+:root[data-theme='witch-forest'] .button:hover {
+  filter: none;
+  box-shadow: 0 0 0 1px rgb(223 230 207 / 25%), 0 0 0.9rem rgb(223 230 207 / 12%);
+}
+
+:root[data-theme='witch-forest'] button.primary,
+:root[data-theme='witch-forest'] .button.primary {
+  background: linear-gradient(180deg, #acd99f, var(--accent) 60%, #86bb7a);
+  border-color: #6f9f64;
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 25%), 0 2px 0 #08100c;
+  letter-spacing: 0.02em;
+}
+
+:root[data-theme='witch-forest'] button:active:not(:disabled),
+:root[data-theme='witch-forest'] .button:active {
+  transform: translateY(1px);
+}
+
+:root[data-theme='witch-forest'] button.danger:hover:not(:disabled) {
+  box-shadow: 0 0 0.6rem rgb(229 138 138 / 35%);
+}
+
+:root[data-theme='witch-forest'] :focus-visible {
+  outline-color: var(--focus);
+  box-shadow: 0 0 0.9rem rgb(230 210 122 / 35%);
+}
+
+:root[data-theme='witch-forest'] .segmented button[aria-pressed='true'] {
+  background: var(--surface-raised);
+  box-shadow: inset 0 -2px 0 var(--wf-moss);
+}
+
+:root[data-theme='witch-forest'] .progress > span,
+:root[data-theme='witch-forest'] .guide-bar > span {
+  background: linear-gradient(90deg, #5f8f5a, var(--wf-moss), var(--wf-lichen));
+}
+
+/* ---- The moon: progress rings become a moon that waxes as Steps are resolved ----------------- */
+
+:root[data-theme='witch-forest'] .ring-track,
+:root[data-theme='witch-forest'] .ring-fill {
+  display: none;
+}
+
+:root[data-theme='witch-forest'] .ring-moon-disc {
+  display: inline;
+  fill: color-mix(in srgb, var(--text) 4%, transparent);
+  stroke: color-mix(in srgb, var(--text) 45%, transparent);
+  stroke-width: 1;
+}
+
+/* The lit part is a pale wash of the text colour, so the numbers on it keep their contrast (tested). */
+:root[data-theme='witch-forest'] .ring-moon-lit {
+  display: inline;
+  fill: color-mix(in srgb, var(--text) 20%, transparent);
+}
+
+:root[data-theme='witch-forest'] .ring[data-complete='true'] .ring-moon-disc {
+  stroke: var(--state-done);
+  stroke-width: 1.5;
+}
+
+:root[data-theme='witch-forest'] .ring[data-complete='true'] {
+  border-radius: 50%;
+  box-shadow: 0 0 0.9rem rgb(223 230 207 / 22%);
+}
+
+/* ---- Today ------------------------------------------------------------------------------- */
+
+:root[data-theme='witch-forest'] .today-eyebrow {
+  color: var(--wf-moss);
+  font-variant: small-caps;
+  letter-spacing: 0.14em;
+}
+
+:root[data-theme='witch-forest'] .today-greeting {
+  font-style: italic;
+  letter-spacing: 0.01em;
+}
+
+/* "Pick up where you left off": a grimoire page — aged paper, dark ink, a double rule and a vine. */
+:root[data-theme='witch-forest'] .today-hero {
+  position: relative;
+  isolation: isolate;
+  border-radius: 4px;
+  background:
+    radial-gradient(ellipse at 50% 45%, transparent 55%, rgb(110 84 36 / 18%) 100%),
+    linear-gradient(170deg, #e4dabd, #ddd0ad);
+  color: var(--text);
+  box-shadow: 0 1rem 2.4rem rgb(0 0 0 / 55%), 0 0 0 1px #8f7f58;
+}
+
+:root[data-theme='witch-forest'] .today-hero::before {
+  content: '';
+  position: absolute;
+  inset: 5px;
+  z-index: -1;
+  border: 3px double var(--wf-ink-rule);
+  border-radius: 2px;
+  pointer-events: none;
+}
+
+:root[data-theme='witch-forest'] .today-hero::after {
+  content: '';
+  position: absolute;
+  top: 7px;
+  right: 7px;
+  z-index: -1;
+  width: 3rem;
+  height: 3rem;
+  background: url('./witch-forest/corner.svg') right top / contain no-repeat;
+  opacity: 0.85;
+  pointer-events: none;
+}
+
+:root[data-theme='witch-forest'] .today-hero-text small {
+  color: var(--text-muted);
+  opacity: 1;
+}
+
+:root[data-theme='witch-forest'] .today-hero-text > small:first-child {
+  font-variant: small-caps;
+  letter-spacing: 0.12em;
+}
+
+:root[data-theme='witch-forest'] .today-hero-icon {
+  border-radius: 50%;
+  background: rgb(47 90 53 / 10%);
+  color: var(--accent);
+  box-shadow: inset 0 0 0 1px var(--wf-ink-rule);
+}
+
+:root[data-theme='witch-forest'] a.button.today-hero-go {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--accent-text);
+  border-radius: 4px;
+}
+
+/* "All clear": the moon over the pines. */
+:root[data-theme='witch-forest'] .today-calm {
+  position: relative;
+  min-height: 6.5rem;
+  padding-right: 9.5rem;
+  border-radius: 5px;
+  background:
+    url('./witch-forest/moon-pines.svg') right 0.6rem bottom 0 / 9rem auto no-repeat,
+    linear-gradient(170deg, #142019, #0d1612);
+}
+
+:root[data-theme='witch-forest'] .today-calm-mark {
+  background: transparent;
+  box-shadow: inset 0 0 0 1px rgb(143 220 174 / 55%), 0 0 0 5px rgb(143 220 174 / 7%);
+}
+
+/* Clock & date: the stone sundial beside the time, set in the book face. */
+:root[data-theme='witch-forest'] .today-clock {
+  display: flex;
+  align-items: center;
+  gap: 1.1rem;
+  background:
+    radial-gradient(60% 90% at 0% 50%, rgb(156 207 143 / 7%), transparent 70%),
+    rgb(17 26 21 / 97%);
+}
+
+:root[data-theme='witch-forest'] .sundial {
+  display: block;
+  flex: none;
+  width: 8.5rem;
+  height: 8.5rem;
+  filter: drop-shadow(0 6px 10px rgb(0 0 0 / 55%));
+}
+
+:root[data-theme='witch-forest'] .sundial-numerals {
+  font-family: var(--wf-serif);
+  font-weight: 600;
+}
+
+:root[data-theme='witch-forest'] .sundial-shadow path {
+  transition: transform 900ms ease-out;
+}
+
+:root[data-theme='witch-forest'] .today-clock time {
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.1rem;
+}
+
+:root[data-theme='witch-forest'] .today-clock-time {
+  font-size: 3.2rem;
+  font-weight: 500;
+  letter-spacing: 0.03em;
+  font-variant-numeric: lining-nums tabular-nums;
+}
+
+:root[data-theme='witch-forest'] .today-clock-date {
+  color: var(--wf-lichen);
+  font-style: italic;
+  font-size: 1.1rem;
+}
+
+@media (max-width: 600px) {
+  :root[data-theme='witch-forest'] .sundial {
+    width: 4.25rem;
+    height: 4.25rem;
+  }
+
+  :root[data-theme='witch-forest'] .today-clock {
+    gap: 0.8rem;
+  }
+
+  :root[data-theme='witch-forest'] .today-clock-time {
+    font-size: 1.7rem;
+  }
+}
+
+/* ---- The guided Run: a path of stepping stones through the forest --------------------------- */
+
+:root[data-theme='witch-forest'] .guide-hero-text h2 {
+  font-variant: small-caps;
+  letter-spacing: 0.04em;
+}
+
+/* One column; the stones wind left and right, joined by a dotted footpath. */
+:root[data-theme='witch-forest'] .guide-tiles {
+  display: flex;
+  flex-direction: column;
+  gap: 1.9rem;
+  max-width: 40rem;
+  margin-inline: auto;
+  padding-top: 0.4rem;
+}
+
+:root[data-theme='witch-forest'] .guide-tiles > li {
+  position: relative;
+  width: 74%;
+}
+
+:root[data-theme='witch-forest'] .guide-tiles > li:nth-child(odd) {
+  margin-right: auto;
+}
+
+:root[data-theme='witch-forest'] .guide-tiles > li:nth-child(even) {
+  margin-left: auto;
+}
+
+/*
+ * The footpath from the previous stone's middle to this one's. A stone is 74% wide, so the middles are
+ * 11/74 of a stone in from where this stone starts; on a stone to the left the path is mirrored.
+ */
+:root[data-theme='witch-forest'] .guide-tiles > li + li::before {
+  content: '';
+  position: absolute;
+  bottom: 100%;
+  height: 1.9rem;
+  background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 40' preserveAspectRatio='none'%3E%3Cpath d='M1 0C1 22 99 18 99 40' fill='none' stroke='%236f8a72' stroke-width='2.5' stroke-dasharray='1 7' stroke-linecap='round' vector-effect='non-scaling-stroke'/%3E%3C/svg%3E") 0 0 / 100% 100% no-repeat;
+  pointer-events: none;
+}
+
+:root[data-theme='witch-forest'] .guide-tiles > li:nth-child(even)::before {
+  left: calc(100% * 11 / 74);
+  right: 50%;
+}
+
+:root[data-theme='witch-forest'] .guide-tiles > li:nth-child(odd)::before {
+  left: 50%;
+  right: calc(100% * 11 / 74);
+  transform: scaleX(-1);
+}
+
+/* A stone: irregular, weathered, with moss along its upper edge. */
+:root[data-theme='witch-forest'] .guide-tile {
+  min-height: 4.6rem;
+  padding: 0.75rem 1.1rem;
+  border: 1px solid #33463a;
+  border-radius: 2.4rem 1.6rem 2.1rem 1.3rem / 1.9rem 2.3rem 1.5rem 2.2rem;
+  background:
+    radial-gradient(45% 35% at 22% 6%, rgb(95 127 71 / 38%), transparent 70%),
+    radial-gradient(60% 60% at 30% 30%, rgb(255 255 255 / 4%), transparent 70%),
+    linear-gradient(170deg, #1c2822, #121a16);
+  box-shadow: inset 0 2px 0 rgb(255 255 255 / 4%), inset 0 -8px 14px rgb(0 0 0 / 35%), 0 8px 16px rgb(0 0 0 / 50%);
+}
+
+:root[data-theme='witch-forest'] .guide-tiles > li:nth-child(even) .guide-tile {
+  border-radius: 1.5rem 2.4rem 1.4rem 2.2rem / 2.2rem 1.6rem 2.3rem 1.7rem;
+}
+
+:root[data-theme='witch-forest'] .guide-tile-icon {
+  border-radius: 50%;
+  background: rgb(156 207 143 / 8%);
+  color: var(--wf-moss);
+  box-shadow: inset 0 0 0 1px rgb(156 207 143 / 35%);
+}
+
+:root[data-theme='witch-forest'] .guide-tile:hover:not(:disabled) {
+  border-color: #6f8a72;
+  box-shadow: inset 0 2px 0 rgb(255 255 255 / 4%), inset 0 -8px 14px rgb(0 0 0 / 35%), 0 0 1.2rem rgb(223 230 207 / 10%);
+}
+
+/* The next stone is lit by moonlight; a wax seal marks it. */
+:root[data-theme='witch-forest'] .guide-tile[data-next='true'] {
+  border: 2px solid var(--wf-moss);
+  box-shadow: inset 0 2px 0 rgb(255 255 255 / 5%), inset 0 -8px 14px rgb(0 0 0 / 30%), 0 0 1.6rem rgb(156 207 143 / 18%);
+}
+
+/* A finished stone is grown over with moss. */
+:root[data-theme='witch-forest'] .guide-tile[data-finished='true'] {
+  border-color: #4d7a5a;
+  background:
+    radial-gradient(70% 55% at 30% 0%, rgb(95 127 71 / 55%), transparent 75%),
+    radial-gradient(40% 40% at 85% 95%, rgb(95 127 71 / 30%), transparent 75%),
+    linear-gradient(170deg, #1a3324, #11221a);
+}
+
+:root[data-theme='witch-forest'] .guide-tile[data-finished='true'] .guide-tile-icon {
+  background: transparent;
+  color: var(--state-done);
+  box-shadow: inset 0 0 0 1px rgb(143 220 174 / 55%);
+}
+
+/* "Next" as a wax seal on the stone's edge. */
+:root[data-theme='witch-forest'] .guide-next {
+  top: 50%;
+  right: -0.9rem;
+  display: grid;
+  place-items: center;
+  width: 3.3rem;
+  height: 3.3rem;
+  margin-top: -1.65rem;
+  padding: 0;
+  border-radius: 47% 53% 50% 50% / 52% 48% 52% 48%;
+  background: radial-gradient(circle at 38% 32%, #7a3045, #5a1f30 60%, #431624);
+  color: #f2e6dc;
+  font-size: 0.72rem;
+  font-weight: 700;
+  font-variant: small-caps;
+  letter-spacing: 0.06em;
+  box-shadow: inset 0 0 0 3px rgb(0 0 0 / 22%), inset 0 0 0 4px rgb(242 230 220 / 18%), 0 3px 6px rgb(0 0 0 / 50%);
+  transform: rotate(-8deg);
+}
+
+:root[data-theme='witch-forest'] .guide-tiles > li:nth-child(even) .guide-next {
+  right: auto;
+  left: -0.9rem;
+  transform: rotate(7deg);
+}
+
+/* Room on the seal's side, so it never covers the title or the moon. */
+:root[data-theme='witch-forest'] .guide-tiles > li:nth-child(odd) .guide-tile[data-next='true'] {
+  padding-right: 2.8rem;
+}
+
+:root[data-theme='witch-forest'] .guide-tiles > li:nth-child(even) .guide-tile[data-next='true'] {
+  padding-left: 2.8rem;
+}
+
+@media (max-width: 30rem) {
+  :root[data-theme='witch-forest'] .guide-tiles > li {
+    width: 86%;
+  }
+
+  :root[data-theme='witch-forest'] .guide-tiles > li:nth-child(even)::before {
+    left: calc(100% * 29 / 86);
+  }
+
+  :root[data-theme='witch-forest'] .guide-tiles > li:nth-child(odd)::before {
+    right: calc(100% * 29 / 86);
+  }
+}
+
+/* One Step: a grimoire page (tokens in styles.css), with a double rule and a vine in the corner. */
+:root[data-theme='witch-forest'] .guide-card {
+  isolation: isolate;
+  border: 1px solid #8f7f58;
+  border-radius: 4px;
+  background:
+    radial-gradient(ellipse at 50% 45%, transparent 58%, rgb(110 84 36 / 18%) 100%),
+    linear-gradient(175deg, #e4dabd, #ddd0ad);
+  box-shadow: 0 1.2rem 2.6rem rgb(0 0 0 / 60%);
+}
+
+:root[data-theme='witch-forest'] .guide-card::before {
+  content: '';
+  position: absolute;
+  inset: 6px;
+  z-index: -1;
+  border: 3px double var(--wf-ink-rule);
+  border-radius: 2px;
+  pointer-events: none;
+}
+
+:root[data-theme='witch-forest'] .guide-card::after {
+  content: '';
+  position: absolute;
+  top: 9px;
+  right: 9px;
+  z-index: -1;
+  width: 3.4rem;
+  height: 3.4rem;
+  background: url('./witch-forest/corner.svg') right top / contain no-repeat;
+  opacity: 0.85;
+  pointer-events: none;
+}
+
+:root[data-theme='witch-forest'] .guide-card[data-state='DONE'] {
+  border-color: var(--state-done);
+}
+
+:root[data-theme='witch-forest'] .guide-count {
+  color: var(--text-muted);
+  text-transform: none;
+  letter-spacing: 0.1em;
+}
+
+/* A small ornament under the count, like a printer's flourish. */
+:root[data-theme='witch-forest'] .guide-count::after {
+  content: '❦';
+  display: block;
+  margin-top: 0.15rem;
+  font-size: 0.95rem;
+  letter-spacing: 0;
+  color: #6b5c3a;
+}
+
+:root[data-theme='witch-forest'] .guide-step-icon {
+  border-radius: 50%;
+  background: rgb(47 90 53 / 9%);
+  color: var(--accent);
+  box-shadow: inset 0 0 0 1px var(--wf-ink-rule), 0 0 0 5px rgb(47 90 53 / 5%);
+}
+
+:root[data-theme='witch-forest'] .guide-step-title {
+  font-size: 1.6rem;
+  font-weight: 600;
+}
+
+:root[data-theme='witch-forest'] .guide-description {
+  font-size: 1.05rem;
+  line-height: 1.6;
+}
+
+:root[data-theme='witch-forest'] .guide-cheer strong {
+  color: var(--state-done);
+  font-style: italic;
+}
+
+:root[data-theme='witch-forest'] .guide-nav {
+  background: rgb(17 26 21 / 94%);
+  border-color: #33463a;
+  border-radius: 6px;
+  box-shadow: inset 0 0 0 3px rgb(17 26 21 / 94%), inset 0 0 0 4px var(--wf-rule), var(--shadow-raised);
+  backdrop-filter: blur(6px);
+}
+
+/* A finished Section or Run: the moon rises over the pines; fireflies drift up instead of confetti. */
+:root[data-theme='witch-forest'] .guide-finish {
+  position: relative;
+  overflow: hidden;
+  padding-bottom: 6.5rem;
+  background:
+    url('./witch-forest/moon-pines.svg') center bottom / 12rem auto no-repeat,
+    radial-gradient(60% 60% at 50% 100%, rgb(159 188 176 / 12%), transparent 70%),
+    linear-gradient(175deg, #142019, #0d1612);
+}
+
+:root[data-theme='witch-forest'] .guide-finish h3 {
+  font-style: italic;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
+:root[data-theme='witch-forest'] .confetti > span {
+  top: auto;
+  bottom: 1rem;
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: #e9f5b8;
+  box-shadow: 0 0 6px 2px rgb(214 236 140 / 55%);
+  animation-name: wf-rise;
+  animation-duration: 2600ms;
+  animation-timing-function: ease-out;
+}
+
+:root[data-theme='witch-forest'] .confetti > span:nth-child(3n),
+:root[data-theme='witch-forest'] .confetti > span:nth-child(3n + 1) {
+  background: #e9f5b8;
+}
+
+/* ---- Sign-in and other public pages: the full scene ---------------------------------------- */
+
+:root[data-theme='witch-forest'] .public-brand {
+  font-style: italic;
+}
+
+:root[data-theme='witch-forest'] .public-main > .card,
+:root[data-theme='witch-forest'] .public-main form {
+  backdrop-filter: blur(4px);
+}
+
+/* ---- Theme picker ------------------------------------------------------------------------- */
+
+:root[data-theme='witch-forest'] .theme-option {
+  border-radius: 5px;
+}
+
+:root[data-theme='witch-forest'] .theme-option:has(input:checked) {
+  border-color: var(--wf-moss);
+  box-shadow: 0 0 1rem rgb(156 207 143 / 15%);
+}
+
+/* ---- Motion: slow, and none at all when the device asks for less ----------------------------- */
+
+@media (prefers-reduced-motion: no-preference) {
+  /* Mist drifts sideways, the near band faster than the far one. */
+  :root[data-theme='witch-forest'] .forest-fog-far {
+    animation: wf-drift 140s linear infinite;
+  }
+
+  :root[data-theme='witch-forest'] .forest-fog-near {
+    animation: wf-drift 90s linear infinite reverse;
+  }
+
+  :root[data-theme='witch-forest'] .forest-cloud {
+    animation: wf-cloud 110s linear infinite;
+  }
+
+  /* Fireflies wander and glow up now and then; each has its own rhythm (set inline). */
+  :root[data-theme='witch-forest'] .forest-fireflies > span {
+    animation-name: wf-wander, wf-glow;
+    animation-timing-function: ease-in-out, ease-in-out;
+    animation-iteration-count: infinite, infinite;
+    animation-direction: alternate, alternate;
+  }
+
+  /* The ivy sways a little, each strand on its own beat. */
+  :root[data-theme='witch-forest'] .forest-vine-0 {
+    animation: wf-sway 9s ease-in-out infinite alternate;
+  }
+
+  :root[data-theme='witch-forest'] .forest-vine-1 {
+    animation: wf-sway 12s ease-in-out -3s infinite alternate-reverse;
+  }
+
+  :root[data-theme='witch-forest'] .forest-vine-2 {
+    animation: wf-sway 10.5s ease-in-out -6s infinite alternate;
+  }
+
+  /* Smoke rises from the chimney; the candle in the window flickers softly. */
+  :root[data-theme='witch-forest'] .forest-smoke circle {
+    animation: wf-smoke 9s ease-out infinite;
+  }
+
+  :root[data-theme='witch-forest'] .forest-smoke circle:nth-child(2) {
+    animation-delay: -2.2s;
+  }
+
+  :root[data-theme='witch-forest'] .forest-smoke circle:nth-child(3) {
+    animation-delay: -4.5s;
+  }
+
+  :root[data-theme='witch-forest'] .forest-smoke circle:nth-child(4) {
+    animation-delay: -6.7s;
+  }
+
+  :root[data-theme='witch-forest'] .forest-candle-glow {
+    animation: wf-candle 3.7s ease-in-out infinite alternate;
+  }
+
+  :root[data-theme='witch-forest'] .forest-crow-flying {
+    animation: wf-crow 48s linear 12s infinite;
+  }
+
+  /* The next stone breathes, very slightly. */
+  :root[data-theme='witch-forest'] .guide-tile[data-next='true'] .guide-tile-icon,
+  :root[data-theme='witch-forest'] a.button.today-hero-go {
+    animation: wf-breathe 3.6s ease-in-out infinite;
+  }
+
+  :root[data-theme='witch-forest'] .ring-moon-lit {
+    transition: d 500ms ease-out;
+  }
+}
+
+@keyframes wf-drift {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-50%);
+  }
+}
+
+@keyframes wf-cloud {
+  from {
+    transform: translateX(10vw);
+  }
+  to {
+    transform: translateX(-90vw);
+  }
+}
+
+@keyframes wf-wander {
+  0% {
+    transform: translate(0, 0);
+  }
+  33% {
+    transform: translate(1.4rem, -1.1rem);
+  }
+  66% {
+    transform: translate(-0.8rem, -2.2rem);
+  }
+  100% {
+    transform: translate(0.6rem, -3rem);
+  }
+}
+
+@keyframes wf-glow {
+  0%,
+  40% {
+    opacity: 0.15;
+  }
+  100% {
+    opacity: 0.9;
+  }
+}
+
+@keyframes wf-sway {
+  from {
+    transform: rotate(-1.4deg);
+  }
+  to {
+    transform: rotate(1.4deg);
+  }
+}
+
+@keyframes wf-smoke {
+  0% {
+    transform: translate(0, 0) scale(0.6);
+    opacity: 0;
+  }
+  15% {
+    opacity: 1;
+  }
+  100% {
+    transform: translate(18px, -60px) scale(1.8);
+    opacity: 0;
+  }
+}
+
+@keyframes wf-candle {
+  0% {
+    opacity: 0.7;
+  }
+  45% {
+    opacity: 1;
+  }
+  60% {
+    opacity: 0.82;
+  }
+  100% {
+    opacity: 0.95;
+  }
+}
+
+/* Glides across the upper sky in about seven seconds, then rests out of sight. */
+@keyframes wf-crow {
+  0% {
+    opacity: 0;
+    transform: translate(0, 0);
+  }
+  1% {
+    opacity: 0.85;
+  }
+  14% {
+    opacity: 0.85;
+    transform: translate(calc(100vw + 12rem), -6vh);
+  }
+  15%,
+  100% {
+    opacity: 0;
+    transform: translate(calc(100vw + 12rem), -6vh);
+  }
+}
+
+@keyframes wf-breathe {
+  0%,
+  100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.04);
+  }
+}
+
+/* Fireflies after a finished Section: they rise and fade (replaces the falling confetti). */
+@keyframes wf-rise {
+  from {
+    transform: translate(0, 0);
+    opacity: 0;
+  }
+  20% {
+    opacity: 1;
+  }
+  to {
+    transform: translate(1.5rem, -14rem);
+    opacity: 0;
+  }
+}
+
+/* Forced colours (Windows high contrast): no scene, no paper, no ornaments — system colours take over. */
+@media (forced-colors: active) {
+  :root[data-theme='witch-forest'] .forest,
+  :root[data-theme='witch-forest'] .today-card::after,
+  :root[data-theme='witch-forest'] .today-hero::before,
+  :root[data-theme='witch-forest'] .today-hero::after,
+  :root[data-theme='witch-forest'] .guide-card::before,
+  :root[data-theme='witch-forest'] .guide-card::after,
+  :root[data-theme='witch-forest'] .guide-tiles > li::before {
+    display: none;
+  }
+}

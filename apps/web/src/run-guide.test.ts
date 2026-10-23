@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { RunSection, RunStep, StepState } from './api.ts';
 import { sectionIcon } from './procedure-icons.tsx';
-import { nextOpenSection, nextPendingIndex, resolvedCount } from './RunGuide.tsx';
+import { moonPath, nextOpenSection, nextPendingIndex, resolvedCount } from './RunGuide.tsx';
 
 const step = (id: string, state: StepState): RunStep => ({ id, state }) as unknown as RunStep;
 const section = (id: string, states: StepState[], icon: RunSection['icon'] = null): RunSection => ({ id, title: id, description: '', icon, steps: states.map((state, index) => step(`${id}-${index}`, state)) });
@@ -28,5 +28,19 @@ describe('guided Run (22.2)', () => {
     expect(sectionIcon(section('a', [], 'kitchen'))).toBe('kitchen');
     expect(sectionIcon(section('a', []))).toBe('checklist');
     expect(sectionIcon({})).toBe('checklist');
+  });
+
+  it('draws the Witch Forest moon from nothing through crescent and gibbous to full (25.1)', () => {
+    expect(moonPath(20, 20, 10, 0)).toBe('');
+    expect(moonPath(20, 20, 10, -1)).toBe('');
+    // A crescent: the terminator bulges towards the lit edge (sweep 0) and is a narrow ellipse.
+    expect(moonPath(20, 20, 10, 0.25)).toBe('M20 10A10 10 0 0 1 20 30A5 10 0 0 0 20 10Z');
+    // Half: the terminator is a straight line.
+    expect(moonPath(20, 20, 10, 0.5)).toBe('M20 10A10 10 0 0 1 20 30A0 10 0 0 1 20 10Z');
+    // Gibbous: the terminator bulges the other way.
+    expect(moonPath(20, 20, 10, 0.75)).toBe('M20 10A10 10 0 0 1 20 30A5 10 0 0 1 20 10Z');
+    // Full (and anything beyond): the whole disc.
+    expect(moonPath(20, 20, 10, 1)).toBe('M20 10A10 10 0 1 1 20 30A10 10 0 1 1 20 10Z');
+    expect(moonPath(20, 20, 10, 3)).toBe(moonPath(20, 20, 10, 1));
   });
 });

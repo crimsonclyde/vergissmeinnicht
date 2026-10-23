@@ -2764,6 +2764,23 @@ test('first server admin: bootstrap link, account creation, sign-in, Workspace c
   expect(await floorAnimation()).toBe('tn-floor');
   await page.reload();
   await expect(page.getByRole('radio', { name: /^Tokyo Nights/ })).toBeChecked();
+  // Witch Forest (25.1): the forest preset; its mist drifts only when the device allows motion.
+  await page.getByRole('radio', { name: /^Witch Forest/ }).check();
+  await expect(html).toHaveAttribute('data-theme', 'witch-forest');
+  await expect(page.locator('body')).toHaveCSS('background-color', 'rgb(10, 17, 14)');
+  await expect(page.locator('meta[name="theme-color"]')).toHaveAttribute('content', '#0a110e');
+  await expectAccessible(page, 'account page (witch forest)');
+  const fogAnimation = () =>
+    page.locator('.forest-fog-far').evaluate((fog) => {
+      const view = globalThis as unknown as { getComputedStyle(element: object): { animationName: string } };
+      return view.getComputedStyle(fog).animationName;
+    });
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  expect(await fogAnimation()).toBe('none');
+  await page.emulateMedia({ reducedMotion: 'no-preference' });
+  expect(await fogAnimation()).toBe('wf-drift');
+  await page.reload();
+  await expect(page.getByRole('radio', { name: /^Witch Forest/ })).toBeChecked();
   await page.getByRole('radio', { name: /^System/ }).check();
 
   // Critical Steps without holding (8.7): tap, then confirm; Escape backs out.
