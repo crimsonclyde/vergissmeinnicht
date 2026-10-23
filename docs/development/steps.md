@@ -2010,6 +2010,15 @@ GitHub pre-release created after the user approved the command: `https://github.
 
 **Validation:** implementation and local checks recorded in 16.8 (146 files / 1154 tests, 27.30 s; Playwright 3 passed / 1 intentional skip; typecheck/lint/build/schema checks). Final PR CI `37218359808`, main CI `37218652596` and release `37218676293` succeeded. Both native validation and publishing images passed smoke tests and fixable HIGH/CRITICAL vulnerability scans; manifest publishing, workflow signing and CycloneDX attestation succeeded. Completion is recorded in a documentation commit after publication. Physical-phone imports, live Unraid upgrade and the existing development-only moderate esbuild finding remain open. Security surface: MEDIUM, documented in `security.md`; release validation must remain fail-closed.
 
+### 12.37 Release 0.7.0-beta.2
+**Status:** PREPARED (2026-10-23) — 25.1 (Witch Forest theme: misty forest scene, stone sundial, waxing-moon progress, stepping-stone Sections, paper Step pages), at the owner's request; published once the owner creates the GitHub pre-release.
+
+**Scope:** PR #54 merged as `0ef7276` (also `vite` 8.3.5 for GHSA-587h-7wmj-h5pm, dev tooling only); the release PR points the Unraid template and `unraid.md` to 0.7.0-beta.2.
+
+**Upgrade:** one migration (`0050_witch_forest_theme`: `user_preferences` rebuilt with the wider theme CHECK, rows copied), no new environment variables, no new route, no new outbound connection. See `security.md` (25.1).
+
+**Validation:** PR #54 local checks (lint, typecheck, web/server/database tests, e2e account flow on desktop) and CI passed. Not done here: real phones (smoothness of mist and fireflies, which serif each phone picks), a screen reader. Nothing was deployed to the running installation.
+
 ### 12.36 Release 0.7.0-beta.1
 **Status:** DONE (2026-10-20) — 24.1 (Tokyo Nights theme: neon night city, flip clock, level tiles), at the owner's request.
 
