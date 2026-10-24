@@ -1068,6 +1068,9 @@ test('first server admin: bootstrap link, account creation, sign-in, Workspace c
   expect(backupBytes.includes(Buffer.from('manifest.json'))).toBe(true);
   await page.setViewportSize({ width: 390, height: 844 });
   expect(await noSidewaysScroll()).toBe(true);
+  // From the top of the page: after the download click the page may stop with a settings tile just
+  // under the sticky header, which axe reports as an obscured target depending on the exact offset.
+  await page.evaluate(() => window.scrollTo(0, 0));
   await expectAccessible(page, 'workspace backup on a phone');
   await page.setViewportSize({ width: 1280, height: 720 });
   // Deleted early on request: no longer downloadable.
