@@ -1,4 +1,4 @@
-import { JournalNotFoundError, JournalConflictError } from '@vergissmeinnicht/application';
+import { AvatarNotFoundError, JournalNotFoundError, JournalConflictError } from '@vergissmeinnicht/application';
 import {
   AccountStatusUnchangedError,
   InvalidCursorError,
@@ -150,6 +150,7 @@ export function errorHandler(error: FastifyError | Error, request: FastifyReques
   }
   if (error instanceof NothingToRecoverError) return reply.code(409).send({ error: 'nothing_to_recover' });
   if (error instanceof NoPendingEnrollmentError) return reply.code(409).send({ error: 'no_pending_enrollment' });
+  if (error instanceof AvatarNotFoundError) return reply.code(404).send({ error: 'avatar_not_found' });
   if (error instanceof WorkspaceNotFoundError) return reply.code(404).send({ error: 'workspace_not_found' });
   if (error instanceof MemberNotFoundError) return reply.code(404).send({ error: 'member_not_found' });
   if (error instanceof AlreadyMemberError) return reply.code(409).send({ error: 'already_member' });

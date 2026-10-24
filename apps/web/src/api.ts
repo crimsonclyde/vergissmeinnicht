@@ -13,6 +13,8 @@ export interface CurrentUser {
   readonly email: string;
   readonly displayName: string;
   readonly serverAdmin: boolean;
+  /** The profile picture's version (section 29), or null; absent in copies saved before it existed. */
+  readonly avatar?: string | null;
 }
 
 
@@ -29,6 +31,8 @@ export interface WorkspaceMember {
   readonly displayName: string;
   readonly role: WorkspaceRole;
   readonly memberSince: string;
+  /** The member's profile picture version (section 29), or null. */
+  readonly avatar?: string | null;
   /** Only returned to members who manage the Workspace. */
   readonly email?: string;
   readonly status?: string;
@@ -690,6 +694,22 @@ async function sendBytes<T>(path: string, body: Blob): Promise<T> {
   return (await response.json()) as T;
 }
 
+/** Profile pictures (section 29): the address changes with the version, so a new picture shows at once. */
+export const ownAvatarUrl = (version: string) => `/api/account/avatar?v=${encodeURIComponent(version)}`;
+export const memberAvatarUrl = (workspaceId: string, userId: string, version: string) =>
+  `/api/workspaces/${encodeURIComponent(workspaceId)}/members/${encodeURIComponent(userId)}/avatar?v=${encodeURIComponent(version)}`;
+
+/** Raw bytes: the server checks, crops and re-encodes the picture; answers its version. */
+async function uploadAvatar(image: Blob): Promise<string> {
+  try {
+    return (await sendBytes<{ avatar: string }>('/account/avatar', image)).avatar;
+  } catch (error) {
+    // 413 comes from the body limit, before any route code.
+    if (error instanceof ApiError && error.status === 413) throw new ApiError(413, 'image_too_large', {});
+    throw error;
+  }
+}
+
 /** A Procedure archive (JSON document + images) as a file to save. */
 async function exportProcedureArchive(workspaceId: string, id: string): Promise<Blob> {
   const response = await fetch(`/api/workspaces/${encodeURIComponent(workspaceId)}/procedures/${encodeURIComponent(id)}/archive`, { credentials: 'same-origin' });
@@ -1188,6 +1208,8 @@ export const api = {
   journalEntry: (workspaceId: string | undefined, id: string) => request<{ entry: JournalView }>('GET', `${journalPath(workspaceId)}/${encodeURIComponent(id)}`).then((answer) => answer.entry),
   saveJournal: (workspaceId: string | undefined, id: string | undefined, content: JournalContent, expectedRevision: number, archived: boolean) => request<{ entry: JournalView }>('POST', `${journalPath(workspaceId)}${id === undefined ? '' : `/${encodeURIComponent(id)}`}`, { content, expectedRevision, archived }).then((answer) => answer.entry),
   uploadImage,
+  uploadAvatar,
+  removeAvatar: () => request<{ avatar: null }>('POST', '/account/avatar/delete', {}),
   gallery: async (workspaceId: string, options: { search?: string; unused?: boolean; after?: string | null } = {}, signal?: AbortSignal) => {
     const query = new URLSearchParams();
     if (options.search !== undefined && options.search.trim() !== '') query.set('q', options.search.trim().slice(0, 100));

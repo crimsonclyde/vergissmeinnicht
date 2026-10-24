@@ -1206,6 +1206,18 @@ The CI scan gates found new advisories: `source-map-js` < 1.2.2 (DoS on malforme
 **Scope:** no new external endpoint or credential, geolocation, auto-updated position, public location route, schedule time-zone change, clock time-zone change or Run/history mutation. The sundial redraw (25.4) remains noninteractive, aria-hidden, static SVG with no filter or new data flow. The earlier 25.3 personal-only location review describes that historical step; this section records its shared-location extension. This review is not whole-app security certification.
 
 
+### Security check: profile pictures (29, 2026-10-24)
+
+**Security surface changed: MEDIUM** — a new upload type (personal image) and a read of another person's data across a Workspace.
+
+- **Upload:** `POST /api/account/avatar` takes raw bytes only (`application/octet-stream`, 10 MB body limit, 20 uploads per 15 minutes per account), the signed-in person's own account only (the user id never comes from the request), same-origin CSRF check. The format is identified from the content (JPEG, PNG, WebP); HEIC, animated or multi-page images, images above 50 MP (checked from the header before decoding) and anything sharp cannot decode (SVG, text, polyglots) are refused with a stable reason code. Processing runs in the same bounded sharp pool as instruction images (two at a time, `failOn: 'error'`, `limitInputPixels`).
+- **Metadata:** the stored picture is always the server's own re-encode (orientation applied, centre-cropped 256 px square, flattened, sRGB, JPEG ≤ 60 KB); libvips writes no EXIF, GPS, XMP, ICC or comments, and nothing appended to the original file survives. The browser also re-encodes before upload, so the original's metadata normally never leaves the device; the server does not rely on that.
+- **Storage:** `user_avatars` in SQLite (BLOB), CHECK: blob type, 4–60 000 bytes, JPEG SOI marker; written only for an ACTIVE account, rechecked inside an IMMEDIATE transaction. No file path, file name or user-supplied content type is ever stored.
+- **Reads:** `GET /api/account/avatar` (own). `GET /api/workspaces/{id}/members/{userId}/avatar` requires `workspace.members.view` in that Workspace (GUEST cannot, like the member list) and returns the picture only if the person is a current member there with an ACTIVE account; everything else answers the same 404 (`avatar_not_found`), unknown/foreign Workspaces answer 404 as before. Served as `image/jpeg`, `nosniff`, `no-store`, `Content-Disposition: inline`; the `?v=` query is digits only and changes only the address. The member list and session carry only a version (a timestamp), never the image.
+- **Backup/restore:** `user_avatars` is excluded from Workspace backups (personal data); full server backups contain it. Not audited: presentation data, like themes.
+
+**Verification:** `apps/server/src/http/avatar.test.ts` (metadata stripped incl. GPS/maker text, refusals keep the old picture, GUEST 403, other Workspace/non-member/disabled 404, strict query/body, session and Origin required, SQL CHECK backstops, disabled account refused in the transaction); the route security sweep includes the new routes.
+
 ### Security check: default Workspace and theme per Workspace (28, 2026-10-24)
 
 **Security surface changed: LOW** — a new personal table and three account routes; presentation only, no new permission, credential, host or shared data.

@@ -164,10 +164,10 @@ test('first server admin: bootstrap link, account creation, sign-in, Workspace c
   await expect(page).toHaveURL(/\/w\/[0-9a-f-]{36}\/members$/);
   await expect(page.getByRole('heading', { name: 'Workspace settings', level: 2 })).toBeVisible();
   await expect(page.getByRole('combobox', { name: 'Workspace' })).toContainText('Household (Admin)');
-  await expect(page.getByText('Your role: Admin')).toBeVisible();
-  const members = page.getByRole('table', { name: 'Members' });
-  await expect(members.getByRole('row')).toHaveCount(2);
-  await expect(members.getByRole('cell', { name: 'admin@example.org' })).toBeVisible();
+  await expect(page.getByText('Household · Admin', { exact: true })).toBeVisible();
+  const members = page.getByRole('list', { name: 'Members' });
+  await expect(members.getByRole('listitem')).toHaveCount(1);
+  await expect(members.getByText('admin@example.org', { exact: true })).toBeVisible();
   await expectAccessible(page, 'members page');
   await page.getByLabel('Member email').fill('nobody@example.org');
   await page.getByRole('button', { name: 'Add', exact: true }).click();
@@ -2198,7 +2198,8 @@ test('first server admin: bootstrap link, account creation, sign-in, Workspace c
   await expect(page.getByRole('link', { name: /^Water( \(restored\))?\s*\d+ document/ })).toHaveText([/Water \(restored\)\s*1 document/]);
   // Switched off again: gone from the navigation for everyone, and its address answers like an unknown page. Nothing was deleted.
   await fromMenu(page, 'Workspace settings');
-  // Storage (16.4): what the Workspace stores, by tool, and its own limit below what the server admin allows.
+  // Storage (16.4; its own section since 29): what the Workspace stores, by tool, and its own limit below what the server admin allows.
+  await settingsSection(page, 'Workspace settings', 'Storage');
   const storageCard = page.locator('.card').filter({ has: page.getByRole('heading', { name: 'Storage', exact: true }) });
   await expect(storageCard).toContainText(/of 5 GB used/);
   await expect(storageCard).toContainText('Documents — original files');
@@ -2786,6 +2787,7 @@ test('first server admin: bootstrap link, account creation, sign-in, Workspace c
 
   // Account → Notifications (13.8): own default reminder time and channels; no provider secrets here.
   await fromMenu(page, 'Profile & settings');
+  await settingsSection(page, 'Profile & settings', 'Notifications');
   const notifications = page.getByRole('region', { name: 'Notifications' });
   await expect(notifications.getByLabel('Default reminder time')).toHaveValue('09:00');
   await notifications.getByLabel('Default reminder time').fill('07:30');
@@ -2806,7 +2808,7 @@ test('first server admin: bootstrap link, account creation, sign-in, Workspace c
 
   // Profile & settings (15.1): named sections instead of one long page.
   await fromMenu(page, 'Profile & settings');
-  await expect(page.getByRole('navigation', { name: 'Profile & settings' }).getByRole('link')).toHaveText(['Notifications', 'Today', 'Weather', 'Appearance', 'Password & security', 'Confirmations', 'Private journal']);
+  await expect(page.getByRole('navigation', { name: 'Profile & settings' }).getByRole('link')).toHaveText(['Profile', 'Password & security', 'Appearance', 'Today', 'Confirmations', 'Notifications', 'Weather', 'Private journal']);
   await expect(page.getByRole('radio', { name: /^Dark/ })).toHaveCount(0);
   await settingsSection(page, 'Profile & settings', 'Appearance');
   await expect(page).toHaveURL(/\/account\/appearance$/);

@@ -379,6 +379,13 @@
       "when": 1792827143993,
       "tag": "0053_workspace_preferences",
       "breakpoints": true
+    },
+    {
+      "idx": 54,
+      "version": "6",
+      "when": 1792829058515,
+      "tag": "0054_profile_avatars",
+      "breakpoints": true
     }
   ]
 }

@@ -1,4 +1,12 @@
 import {
+  IconArchive,
+  IconCamera,
+  IconDatabaseExport,
+  IconHandStop,
+  IconLayoutDashboard,
+  IconPalette,
+  IconShare,
+  IconShieldLock,
   IconAlertTriangle,
   IconAngle,
   IconArrowBackUp,
@@ -151,6 +159,15 @@ const ICONS = {
   weatherSnow: IconCloudSnow,
   weatherThunder: IconCloudStorm,
   weatherUnknown: IconCloudQuestion,
+  // Settings sections (section 29).
+  appearance: IconPalette,
+  security: IconShieldLock,
+  confirmations: IconHandStop,
+  layout: IconLayoutDashboard,
+  camera: IconCamera,
+  storage: IconArchive,
+  backup: IconDatabaseExport,
+  share: IconShare,
 } as const;
 
 export type UiIconName = keyof typeof ICONS;

@@ -1,5 +1,6 @@
 import { useEffect, useId, useRef, useState } from 'react';
-import type { CurrentUser } from './api.ts';
+import { ownAvatarUrl, type CurrentUser } from './api.ts';
+import { Avatar } from './Avatar.tsx';
 import { t, type MessageKey } from './i18n/index.ts';
 import { Link, paths } from './router.tsx';
 import { UiIcon, type UiIconName } from './ui-icons.tsx';
@@ -18,7 +19,7 @@ export interface SettingsLink {
  */
 export function settingsLinks(user: Pick<CurrentUser, 'serverAdmin'>, workspaceId: string | null): SettingsLink[] {
   return [
-    { href: paths.account('notifications'), label: 'menu.profile', icon: 'profile' },
+    { href: paths.account('profile'), label: 'menu.profile', icon: 'profile' },
     ...(workspaceId === null ? [] : [{ href: paths.settings(workspaceId), label: 'menu.workspaceSettings' as const, icon: 'settings' as const }]),
     ...(user.serverAdmin ? [{ href: paths.admin('workspaces'), label: 'shell.serverAdmin' as const, icon: 'server' as const, note: 'menu.adminOnly' as const }] : []),
   ];
@@ -29,7 +30,8 @@ export function settingsLinks(user: Pick<CurrentUser, 'serverAdmin'>, workspaceI
  * A disclosure, not an ARIA menu: the panel holds ordinary links and a button, reachable with Tab;
  * Escape or a click outside closes it and focus returns to the button.
  */
-export function SettingsMenu(props: { user: CurrentUser; workspaceId: string | null; currentPath: string; onSignOut: () => void }) {
+export function SettingsMenu(props: { user: CurrentUser; avatar?: string | null; workspaceId: string | null; currentPath: string; onSignOut: () => void }) {
+  const avatar = props.avatar ?? null;
   const [open, setOpen] = useState(false);
   const panelId = useId();
   const rootRef = useRef<HTMLDivElement>(null);
@@ -58,18 +60,22 @@ export function SettingsMenu(props: { user: CurrentUser; workspaceId: string | n
   return (
     <div className="settings-menu" ref={rootRef}>
       <button ref={buttonRef} type="button" className="settings-button" aria-expanded={open} aria-controls={panelId} aria-label={t('menu.open')} onClick={() => setOpen((value) => !value)}>
-        <UiIcon name="settings" />
+        {/* The person's own picture once they have one (section 29); the gear otherwise. */}
+        {avatar === null ? <UiIcon name="settings" /> : <Avatar name={props.user.displayName} seed={props.user.id} src={ownAvatarUrl(avatar)} />}
         <span className="settings-label" aria-hidden="true">
           {t('menu.settings')}
         </span>
       </button>
       {open && (
         <div id={panelId} className="menu-panel">
-          <p className="menu-identity">
-            <strong>{props.user.displayName}</strong>
-            <br />
-            <small className="muted">{props.user.email}</small>
-          </p>
+          <div className="menu-identity">
+            <Avatar name={props.user.displayName} seed={props.user.id} src={avatar === null ? null : ownAvatarUrl(avatar)} size="medium" />
+            <p>
+              <strong>{props.user.displayName}</strong>
+              <br />
+              <small className="muted">{props.user.email}</small>
+            </p>
+          </div>
           <nav aria-label={t('menu.settings')}>
             {settingsLinks(props.user, props.workspaceId).map((link) => (
               <Link key={link.href} href={link.href} onClick={close} aria-current={props.currentPath.startsWith(link.href) ? 'page' : undefined}>

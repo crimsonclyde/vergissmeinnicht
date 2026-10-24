@@ -10,6 +10,7 @@ import {
   renameWorkspace,
   getWorkspaceLocation,
   saveWorkspaceLocation,
+  readMemberAvatar,
   type VisibleMember,
 } from '@vergissmeinnicht/application';
 import {
@@ -23,6 +24,7 @@ import {
 import type { FastifyInstance, FastifyRequest } from 'fastify';
 import { z } from 'zod';
 import type { AppServices } from '../composition.ts';
+import { avatarQuery } from './avatar-routes.ts';
 import { InvalidRequestError } from './errors.ts';
 import { requireUser, type Principal } from './session.ts';
 
@@ -53,10 +55,12 @@ function workspaceView(workspace: Workspace) {
   return { id: workspace.id, name: workspace.name };
 }
 
-function memberView(member: VisibleMember) {
+function memberView(member: VisibleMember, avatar: string | null = null) {
   return {
     userId: member.userId,
     displayName: member.displayName,
+    // The picture's version (section 29), or null; the picture itself needs its own authorized request.
+    avatar,
     role: member.role,
     memberSince: member.memberSince.toISOString(),
     // Present only for members who manage the Workspace (decided in the use-case).
@@ -125,7 +129,16 @@ export async function workspaceRoutes(app: FastifyInstance, { services }: { serv
   app.get('/:workspaceId/members', async (request) => {
     const { workspaceId } = parse(workspaceParams, request.params);
     const members = await listMembers(deps, { actor: principalOf(request).user, workspaceId: workspaceId as WorkspaceId });
-    return { members: members.map(memberView) };
+    const avatars = await services.avatars.avatars.versions(members.map((member) => member.userId));
+    return { members: members.map((member) => memberView(member, avatars.get(member.userId) ?? null)) };
+  });
+
+  // A member's profile picture (section 29): `workspace.members.view` and a current, ACTIVE member only.
+  app.get('/:workspaceId/members/:userId/avatar', async (request, reply) => {
+    const { workspaceId, userId } = parse(memberParams, request.params);
+    parse(avatarQuery, request.query);
+    const jpeg = await readMemberAvatar(services.avatars, { actor: principalOf(request).user, workspaceId: workspaceId as WorkspaceId, userId: userId as UserId });
+    return reply.type('image/jpeg').header('Content-Disposition', 'inline; filename="avatar.jpg"').send(Buffer.from(jpeg));
   });
 
   app.post(

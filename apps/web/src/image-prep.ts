@@ -78,3 +78,40 @@ export async function prepareImage(file: Blob): Promise<Prepared> {
   const blob = await encodeEdited(image, NO_EDIT);
   return blob === null ? originalUpload(file) : { kind: 'prepared', blob };
 }
+
+/** Edge of the square a profile picture is prepared at (section 29); the server makes it 256 px. */
+export const AVATAR_PREPARED_EDGE = 512;
+
+/** The largest centred square of a `width`×`height` picture: where to cut it from. */
+export function centreSquare(width: number, height: number): { x: number; y: number; size: number } {
+  const size = Math.min(width, height);
+  return { x: Math.round((width - size) / 2), y: Math.round((height - size) / 2), size };
+}
+
+/**
+ * Prepares a profile picture in the browser: decoded with its orientation, cut to the centred square
+ * and re-encoded as a 512 px JPEG — so EXIF/GPS never leave the device. The server re-checks and
+ * re-encodes it anyway; when the browser cannot decode it, the original goes and the server explains.
+ */
+export async function prepareAvatar(file: Blob): Promise<Prepared> {
+  let image: HTMLImageElement;
+  try {
+    image = await decodeImage(file);
+  } catch {
+    return originalUpload(file);
+  }
+  const square = centreSquare(image.naturalWidth, image.naturalHeight);
+  const edge = Math.min(AVATAR_PREPARED_EDGE, square.size);
+  const canvas = document.createElement('canvas');
+  canvas.width = edge;
+  canvas.height = edge;
+  const context = canvas.getContext('2d');
+  if (context === null || edge < 1) return originalUpload(file);
+  context.fillStyle = '#ffffff';
+  context.fillRect(0, 0, edge, edge);
+  context.imageSmoothingQuality = 'high';
+  context.drawImage(image, square.x, square.y, square.size, square.size, 0, 0, edge, edge);
+  const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, 'image/jpeg', JPEG_QUALITY));
+  canvas.width = 0;
+  return blob === null ? originalUpload(file) : { kind: 'prepared', blob };
+}

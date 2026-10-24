@@ -1,4 +1,5 @@
 import { CLIENT_IP_HEADER, SESSION_POLICY } from '@vergissmeinnicht/auth';
+import { ownAvatarVersion } from '@vergissmeinnicht/application';
 import { canAuthenticate, type User, type UserId } from '@vergissmeinnicht/domain';
 import type { FastifyReply, FastifyRequest } from 'fastify';
 import type { AppServices } from '../composition.ts';
@@ -38,6 +39,11 @@ export function forwardCookies(from: Headers, reply: FastifyReply): void {
 
 export function publicUser(user: User) {
   return { id: user.id, email: user.email, displayName: user.displayName, serverAdmin: user.serverAdmin };
+}
+
+/** The signed-in person as the client sees them, with their profile picture's version (section 29) or null. */
+export async function sessionUser(services: AppServices, user: User) {
+  return { ...publicUser(user), avatar: await ownAvatarVersion(services.avatars, { user }) };
 }
 
 /** Deletes the server-side session named by the request cookie and clears the cookie. */
