@@ -4700,6 +4700,8 @@ Decisions (defaults chosen 2026-10-23, shown to the owner with screenshots):
 
 **Tests/checks:** new `workspace-preferences.test.ts` (6 tests) and `theme.test.ts` cases; backup/restore level expectations updated to 0053; full Vitest suite, lint, typecheck and web build pass. Browser check on a throwaway server at 1440/390/320 px: default Workspace opens first in the default theme (Witch Forest), the other Workspace shows its own theme (Tokyo Nights), switching Workspaces in the sidebar switches the theme without reload, the first paint after reload is already right, no horizontal overflow, no page errors.
 
+Also bumps **zod 4.6.5 → 4.6.6** (GHSA-mrhx-c7xc-m3w5, high, published after the last release; CI `pnpm audit --audit-level high` failed on it).
+
 **Security impact:** LOW — personal presentation data and three account routes; membership checked on every write. **Security docs updated:** YES (section 28 check).
 
 **Remaining:** no e2e spec in `e2e/` yet (checked by a throwaway Playwright script); physical-device review; a release when the owner wants one.
