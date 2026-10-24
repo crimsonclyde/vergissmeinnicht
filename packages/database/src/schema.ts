@@ -857,6 +857,55 @@ export const userWorkspacePreferences = sqliteTable(
 );
 
 /**
+ * A person's own Places settings for one Workspace (section 30): validated JSON (background choice,
+ * focal points, overlay, blur, vignette, atmosphere). Personal presentation, never part of a Workspace
+ * or its backup; rows of a Workspace the person has left are ignored on read and removed by housekeeping.
+ */
+export const userPlacePreferences = sqliteTable(
+  'user_place_preferences',
+  {
+    userId: text('user_id')
+      .notNull()
+      .references(() => users.id),
+    workspaceId: text('workspace_id')
+      .notNull()
+      .references(() => workspaces.id),
+    settings: text('settings').notNull(),
+    updatedAt: integer('updated_at', { mode: 'timestamp_ms' }).notNull(),
+  },
+  (table) => [
+    primaryKey({ columns: [table.userId, table.workspaceId] }),
+    check('user_place_preferences_settings_valid', sql`json_valid(${table.settings}) and json_type(${table.settings}) = 'object' and length(${table.settings}) <= 2000`),
+  ],
+);
+
+/**
+ * A person's own Places background photo for one Workspace (section 30): only the server's re-encoded
+ * JPEG (metadata removed), at most 700 KB, one per person and Workspace. Personal data: not counted in
+ * the Workspace's storage, never part of its backup, readable only by its owner while a member.
+ */
+export const userPlaceBackgrounds = sqliteTable(
+  'user_place_backgrounds',
+  {
+    userId: text('user_id')
+      .notNull()
+      .references(() => users.id),
+    workspaceId: text('workspace_id')
+      .notNull()
+      .references(() => workspaces.id),
+    jpeg: blob('jpeg', { mode: 'buffer' }).notNull(),
+    width: integer('width').notNull(),
+    height: integer('height').notNull(),
+    updatedAt: integer('updated_at', { mode: 'timestamp_ms' }).notNull(),
+  },
+  (table) => [
+    primaryKey({ columns: [table.userId, table.workspaceId] }),
+    check('user_place_backgrounds_jpeg_valid', sql`typeof(${table.jpeg}) = 'blob' and length(${table.jpeg}) between 4 and 700000 and substr(${table.jpeg}, 1, 3) = x'ffd8ff'`),
+    check('user_place_backgrounds_size_valid', sql`${table.width} between 1 and 2400 and ${table.height} between 1 and 2400`),
+  ],
+);
+
+/**
  * A person's Today layout (19.2): cards, order, size, options, density — validated JSON, bounded.
  * Personal, never part of a Workspace; no row = the registry's defaults.
  */

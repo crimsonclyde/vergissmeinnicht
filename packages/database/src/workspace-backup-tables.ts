@@ -90,6 +90,8 @@ export const EXCLUDED_TABLES: Readonly<Record<string, string>> = {
   user_today_layouts: 'personal Today layouts',
   user_workspace_preferences: 'personal default Workspace and per-Workspace themes',
   user_avatars: 'personal profile pictures',
+  user_place_preferences: 'personal Places settings per Workspace',
+  user_place_backgrounds: 'personal Places background photos',
   user_weather_settings: 'personal weather settings and locations',
   weather_credentials: 'weather provider credentials (sealed), any scope',
   server_weather_settings: 'server settings',

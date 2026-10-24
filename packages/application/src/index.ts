@@ -29,6 +29,7 @@ export * from './ports/list-repository.ts';
 export * from './ports/mfa.ts';
 export * from './ports/media.ts';
 export * from './ports/avatars.ts';
+export * from './ports/places.ts';
 export * from './ports/storage.ts';
 export * from './ports/link-repository.ts';
 export * from './ports/document-files.ts';
