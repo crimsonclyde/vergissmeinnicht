@@ -427,7 +427,7 @@ export function Today(props: {
   }
   const twoColumns = blocks.some((block) => block.kind !== 'columns' || (block.main.length > 0 && block.side.length > 0));
 
-  if (props.tools.length === 0 && offlineActive === null) return <section className="card stack"><h2>{t('shell.today')}</h2><p>{t('tools.empty')}</p>{props.canChooseTools && <Link className="button" href={paths.settings(workspaceId)}>{t('tools.choose')}</Link>}</section>;
+  if (props.tools.length === 0 && offlineActive === null) return <section className="card stack"><h2>{t('shell.today')}</h2><p>{t('tools.empty')}</p>{props.canChooseTools && <Link className="button" href={paths.plugins(workspaceId)}>{t('tools.choose')}</Link>}</section>;
   return (
     <section aria-labelledby="today-heading" className={['today', twoColumns ? 'today-two' : '', settings.density === 'COMFORTABLE' ? 'today-comfortable' : ''].filter(Boolean).join(' ')}>
       <div className="today-hello">

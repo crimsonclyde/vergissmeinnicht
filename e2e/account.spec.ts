@@ -42,6 +42,12 @@ async function fromMenu(page: Page, item: 'Profile & settings' | 'Workspace sett
   await page.getByRole(role, { name: item }).click();
 }
 
+/** Workspace settings → Plugins: the on/off switch of every tool. */
+async function openPlugins(page: Page) {
+  await fromMenu(page, 'Workspace settings');
+  await settingsSection(page, 'Workspace settings', 'Plugins');
+}
+
 /** A named section of a settings area (Profile & settings, Workspace settings, Server admin). */
 async function settingsSection(page: Page, area: 'Profile & settings' | 'Workspace settings' | 'Server administration', section: string) {
   await page.getByRole('navigation', { name: area }).getByRole('link', { name: section, exact: true }).click();
@@ -191,6 +197,8 @@ test('first server admin: bootstrap link, account creation, sign-in, Workspace c
   await expectAccessible(page, 'workspace settings');
   // A fresh Workspace starts empty; configure the tools explicitly through the admin UI.
   await expect(page.getByRole('navigation', { name: 'Tools' }).getByRole('link')).toHaveText(['Today']);
+  await settingsSection(page, 'Workspace settings', 'Plugins');
+  await expect(page).toHaveURL(/\/w\/[0-9a-f-]{36}\/plugins$/);
   for (const tool of ['Procedures', 'Reminders', 'Lists', 'Calendar']) {
     await page.getByRole('checkbox', { name: new RegExp(`^${tool}`) }).check();
     await expect(page.getByRole('checkbox', { name: new RegExp(`^${tool}`) })).toBeEnabled();
@@ -206,7 +214,7 @@ test('first server admin: bootstrap link, account creation, sign-in, Workspace c
 
   // Moon and bundled Journal (27): admin gate, explicit Save, private/shared separation and archive.
   const moduleHome = new URL(page.url()).pathname;
-  await page.goto(`${moduleHome}/settings`);
+  await page.goto(`${moduleHome}/plugins`);
   for (const name of ['The Moon', 'Journal']) {
     const toggle = page.getByRole('checkbox', { name: new RegExp(`^${name}`) });
     await toggle.check(); await expect(toggle).toBeEnabled();
@@ -254,7 +262,7 @@ test('first server admin: bootstrap link, account creation, sign-in, Workspace c
   await expect(page.getByRole('button', { name: /Shared forest log/ })).toBeVisible();
   await expect(page.getByRole('button', { name: /My private field notes/ })).toHaveCount(0);
   // Restore the tool set expected by the older checks below; disabling preserves the entries.
-  await page.goto(`${moduleHome}/settings`);
+  await page.goto(`${moduleHome}/plugins`);
   for (const name of ['The Moon', 'Journal']) {
     const toggle = page.getByRole('checkbox', { name: new RegExp(`^${name}`) });
     await toggle.uncheck(); await expect(toggle).toBeEnabled();
@@ -1859,7 +1867,7 @@ test('first server admin: bootstrap link, account creation, sign-in, Workspace c
   await expect(sections.getByRole('link', { name: 'Documents' })).toHaveCount(0);
   await page.goto(`${workspacePath}/documents`);
   await expect(page.getByRole('alert')).toContainText('This page does not exist');
-  await fromMenu(page, 'Workspace settings');
+  await openPlugins(page);
   const documentsSwitch = page.getByRole('checkbox', { name: /^Documents/ });
   await expect(documentsSwitch).not.toBeChecked();
   await expectAccessible(page, 'workspace settings with the tool switch');
@@ -2202,12 +2210,13 @@ test('first server admin: bootstrap link, account creation, sign-in, Workspace c
   await expectAccessible(page, 'workspace settings with storage');
   await storageCard.getByRole('button', { name: 'Remove own limit' }).click();
   await expect(storageCard.getByRole('status')).toHaveText('Own limit removed. The limit is now 5 GB.');
+  await settingsSection(page, 'Workspace settings', 'Plugins');
   await page.getByRole('checkbox', { name: /^Documents/ }).uncheck();
   await expect(page.getByRole('status').filter({ hasText: 'Documents is switched off. Nothing was deleted.' })).toBeVisible();
   await expect(sections.getByRole('link', { name: 'Documents' })).toHaveCount(0);
   await page.goto(`${workspacePath}/documents`);
   await expect(page.getByRole('alert')).toContainText('This page does not exist');
-  await fromMenu(page, 'Workspace settings');
+  await openPlugins(page);
   await page.getByRole('checkbox', { name: /^Documents/ }).check();
   await sections.getByRole('link', { name: 'Documents' }).click();
   await expect(page.getByRole('link', { name: /^Water \(restored\)/ })).toBeVisible();
@@ -2219,7 +2228,7 @@ test('first server admin: bootstrap link, account creation, sign-in, Workspace c
   await expect(sections.getByRole('link', { name: 'Contacts' })).toHaveCount(0);
   await page.goto(`${workspacePath}/contacts`);
   await expect(page.getByRole('alert')).toContainText('This page does not exist');
-  await fromMenu(page, 'Workspace settings');
+  await openPlugins(page);
   await page.getByRole('checkbox', { name: /^Contacts/ }).check();
   await expect(page.getByRole('status').filter({ hasText: 'Contacts is switched on for everyone in this Workspace.' })).toBeVisible();
   await expect(sections.getByRole('link')).toHaveText(['Today', 'Procedures', 'Reminders', 'Lists', 'Calendar', 'Documents', 'Contacts']);
@@ -2395,13 +2404,13 @@ test('first server admin: bootstrap link, account creation, sign-in, Workspace c
   await expect(afterPurge).toContainText('A deleted contact');
   await expect(afterPurge).not.toContainText('Rossi');
   // Switched off: gone from the navigation, its address unknown, nothing deleted.
-  await fromMenu(page, 'Workspace settings');
+  await openPlugins(page);
   await page.getByRole('checkbox', { name: /^Contacts/ }).uncheck();
   await expect(page.getByRole('status').filter({ hasText: 'Contacts is switched off. Nothing was deleted.' })).toBeVisible();
   await expect(sections.getByRole('link', { name: 'Contacts' })).toHaveCount(0);
   await page.goto(`${workspacePath}/contacts`);
   await expect(page.getByRole('alert')).toContainText('This page does not exist');
-  await fromMenu(page, 'Workspace settings');
+  await openPlugins(page);
   await page.getByRole('checkbox', { name: /^Contacts/ }).check();
   await sections.getByRole('link', { name: 'Contacts' }).click();
   await expect(contactCards).toHaveCount(3);
@@ -2412,7 +2421,7 @@ test('first server admin: bootstrap link, account creation, sign-in, Workspace c
   await expect(sections.getByRole('link', { name: 'Maintenance' })).toHaveCount(0);
   await page.goto(`${workspacePath}/maintenance`);
   await expect(page.getByRole('alert')).toContainText('This page does not exist');
-  await fromMenu(page, 'Workspace settings');
+  await openPlugins(page);
   await page.getByRole('checkbox', { name: /^Maintenance/ }).check();
   await expect(page.getByRole('status').filter({ hasText: 'Maintenance is switched on for everyone in this Workspace.' })).toBeVisible();
   await expect(sections.getByRole('link')).toHaveText(['Today', 'Procedures', 'Reminders', 'Lists', 'Calendar', 'Documents', 'Contacts', 'Maintenance']);
@@ -2560,13 +2569,13 @@ test('first server admin: bootstrap link, account creation, sign-in, Workspace c
   await purgeRecord.getByRole('button', { name: 'Delete permanently' }).click();
   await expect(page.getByRole('status').filter({ hasText: '1 record was deleted for good.' })).toBeVisible();
   // Switched off: gone from the navigation, its address unknown, nothing deleted.
-  await fromMenu(page, 'Workspace settings');
+  await openPlugins(page);
   await page.getByRole('checkbox', { name: /^Maintenance/ }).uncheck();
   await expect(page.getByRole('status').filter({ hasText: 'Maintenance is switched off. Nothing was deleted.' })).toBeVisible();
   await expect(sections.getByRole('link', { name: 'Maintenance' })).toHaveCount(0);
   await page.goto(`${workspacePath}/maintenance`);
   await expect(page.getByRole('alert')).toContainText('This page does not exist');
-  await fromMenu(page, 'Workspace settings');
+  await openPlugins(page);
   await page.getByRole('checkbox', { name: /^Maintenance/ }).check();
   await sections.getByRole('link', { name: 'Maintenance' }).click();
   await expect(column('Completed').getByRole('listitem')).toHaveText([/Boiler service/]);
@@ -2575,7 +2584,7 @@ test('first server admin: bootstrap link, account creation, sign-in, Workspace c
   // Equipment (16.8): explicit metadata, existing links, reviewed warranty reminders and Trash.
   await page.goto(`${workspacePath}/equipment`);
   await expect(page.getByRole('alert')).toContainText('This page does not exist');
-  await fromMenu(page, 'Workspace settings');
+  await openPlugins(page);
   await page.getByRole('checkbox', {name:/^Equipment/}).check();
   await expect(page.getByRole('status').filter({hasText:'Equipment is switched on'})).toBeVisible();
   await sections.getByRole('link',{name:'Equipment',exact:true}).click();
@@ -2653,7 +2662,7 @@ test('first server admin: bootstrap link, account creation, sign-in, Workspace c
   expect(vcfDownload.suggestedFilename()).toMatch(/\.vcf$/);
   const vcfPath=await vcfDownload.path();
   expect(readFileSync(vcfPath ?? '', 'utf8')).toContain('VERSION:3.0');
-  await fromMenu(page,'Workspace settings');
+  await openPlugins(page);
   await page.getByRole('checkbox',{name:/^Equipment/}).uncheck();
   await expect(page.getByRole('status').filter({hasText:'Equipment is switched off'})).toBeVisible();
   await expect(sections.getByRole('link',{name:'Equipment',exact:true})).toHaveCount(0);

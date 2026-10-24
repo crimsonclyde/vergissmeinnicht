@@ -22,6 +22,7 @@ import { t } from './i18n/index.ts';
 import { KnotOpener, KnotsPage } from './Knots.tsx';
 import { Lists } from './Lists.tsx';
 import { MembersPage, WorkspaceGeneral, roleLabel, workspaceSettingsSections } from './MembersPage.tsx';
+import { PluginsPage } from './PluginsPage.tsx';
 import { MorePage } from './MorePage.tsx';
 import { ProcedureBuilder } from './ProcedureBuilder.tsx';
 import { Procedures } from './Procedures.tsx';
@@ -159,7 +160,7 @@ function WorkspacePage(props: {
   const documentsOn = context.tools.includes('DOCUMENTS');
   const contactsOn = context.tools.includes('CONTACTS');
   const canAdd = { procedure: context.tools.includes('PROCEDURES') && can('procedure.edit'), reminder: context.tools.includes('REMINDERS') && can('schedule.manage'), list: context.tools.includes('LISTS') && can('list.edit'), document: documentsOn && can('document.manage') };
-  const settings = (current: 'settings' | 'members' | 'knots' | 'backup', content: ReactNode) => (
+  const settings = (current: 'settings' | 'members' | 'plugins' | 'knots' | 'backup', content: ReactNode) => (
     <SettingsLayout
       title={t('menu.workspaceSettings')}
       subtitle={context.workspace.name}
@@ -300,6 +301,8 @@ function WorkspacePage(props: {
       return settings('settings', <WorkspaceGeneral key={context.workspace.name} context={context} onWorkspacesChanged={reload} />);
     case 'members':
       return settings('members', <MembersPage context={context} currentUserId={props.user.id} />);
+    case 'plugins':
+      return settings('plugins', can('workspace.tools.manage') ? <PluginsPage context={context} onChanged={reload} /> : <p role="alert">{t('plugins.adminOnly')}</p>);
     case 'knots':
       return settings('knots', can('knot.manage') ? <KnotsPage workspaceId={route.workspaceId} /> : <p role="alert">{t('knot.manageOnly')}</p>);
     case 'backup':

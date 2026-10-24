@@ -289,7 +289,8 @@ Editors and Admins can **Share as Knot link…** from a Procedure (under **⋯**
 
 **Settings → Workspace settings**:
 
-- **General** — the Workspace's name (Admins can change it), **Tools** (Admins: switch **Procedures**, **Reminders**, **Lists**, **Calendar**, **Documents**, **Contacts**, **Maintenance** and **Equipment** on or off for the whole Workspace — switching one off hides it for everyone and keeps everything in it; there is no personal hiding), **Storage** (Admins: how much the Workspace stores — instruction photos, documents, previews, Trash — and of how much; you can set a lower limit of your own, never a higher one than the server admin allows; lowering it deletes nothing, it only refuses new files until less is stored), your role, and **Leave Workspace**.
+- **General** — the Workspace's name (Admins can change it), **Storage** (Admins: how much the Workspace stores — instruction photos, documents, previews, Trash — and of how much; you can set a lower limit of your own, never a higher one than the server admin allows; lowering it deletes nothing, it only refuses new files until less is stored), your role, and **Leave Workspace**.
+- **Plugins** (Admins only) — one tile per tool with its icon and an on/off switch: **Procedures**, **Reminders**, **Lists**, **Calendar**, **Documents**, **Contacts**, **Maintenance**, **Equipment**, **Journal** and **The Moon**. A tool switched on appears for everyone in the Workspace; switching it off hides it for everyone and keeps everything in it (there is no personal hiding). The ⓘ button shows what a tool does.
 - **Backup** (Admins) — **Create backup** makes one file with everything in this Workspace: Procedures and their history, Reminders and schedules, lists, documents with their original files, contacts, maintenance, equipment, links, Trash, the tool settings, and the members' names, roles and email addresses. It is made in the background (the page shows the progress) and kept for 24 hours for you to **Download**, or **Delete now**. Not included: passwords, sign-in data, sharing links, personal and notification settings, credentials, other Workspaces. The file is **not encrypted** — keep it as safe as the data itself. A server admin can restore it as a new Workspace.
 - **Members** — who is in the Workspace and their role; Admins add members, change roles and remove members.
 - **Sharing links** (Editors and Admins) — every Knot link, with **Revoke**.
@@ -321,7 +322,7 @@ A Workspace can represent Home, another home, a Van or a Car, but its location i
 
 ### Moon card
 
-A Workspace admin can enable **The Moon** under **Workspace settings → General → Tools**. It then appears on Today; each person can hide or reorder it in **Profile & settings → Today**. It shows the calculated phase, illuminated percentage and next full moon. A saved shared Workspace location adds today's local moonrise and moonset, with the time zone shown. Days without a rise or set say so. No location is required for phase information; the card does not use device geolocation, Weather providers or personal Weather settings.
+A Workspace admin can enable **The Moon** under **Workspace settings → Plugins**. It then appears on Today; each person can hide or reorder it in **Profile & settings → Today**. It shows the calculated phase, illuminated percentage and next full moon. A saved shared Workspace location adds today's local moonrise and moonset, with the time zone shown. Days without a rise or set say so. No location is required for phase information; the card does not use device geolocation, Weather providers or personal Weather settings.
 
 ### Journal
 

@@ -101,91 +101,17 @@ function RenameWorkspace({ context, onRenamed }: { context: WorkspaceContext; on
 }
 
 /** Capabilities only adapt the UI; the server authorizes every request. */
-export const workspaceSettingsSections = (workspaceId: string, capabilities: readonly string[], current: 'settings' | 'members' | 'knots' | 'backup') => [
+export const workspaceSettingsSections = (workspaceId: string, capabilities: readonly string[], current: 'settings' | 'members' | 'plugins' | 'knots' | 'backup') => [
   { href: paths.settings(workspaceId), label: t('workspaceSettings.general'), current: current === 'settings' },
   { href: paths.members(workspaceId), label: t('members.heading'), current: current === 'members' },
+  // Workspace admins only: the on/off switches of every tool.
+  ...(capabilities.includes('workspace.tools.manage') ? [{ href: paths.plugins(workspaceId), label: t('workspaceSettings.plugins'), current: current === 'plugins' }] : []),
   ...(capabilities.includes('knot.manage') ? [{ href: paths.knots(workspaceId), label: t('workspaceSettings.sharing'), current: current === 'knots' }] : []),
   // Section 18: Workspace admins only (B1).
   ...(capabilities.includes('workspace.backup') ? [{ href: paths.backup(workspaceId), label: t('backup.heading'), current: current === 'backup' }] : []),
 ];
 
 /** Workspace settings → General: the name (for those who manage settings), the own role, leaving. */
-/**
- * The optional tools of the Workspace (16.2), for Workspace admins: a tool switched on appears for every
- * member; switched off it is hidden for everyone and its content is kept. There is no personal hiding.
- */
-function WorkspaceTools(props: { context: WorkspaceContext; onChanged: () => void }) {
-  const { context } = props;
-  const [status, setStatus] = useState<string | null>(null);
-  const [message, setMessage] = useState<string | null>(null);
-  const [busy, setBusy] = useState(false);
-  // Shown at once; put back if the server refuses.
-  const [on, setOn] = useState<readonly string[]>(context.tools);
-  const [revision, setRevision] = useState(context.toolsRevision);
-  const [receivedRevision, setReceivedRevision] = useState(context.toolsRevision);
-  if (receivedRevision !== context.toolsRevision) {
-    setReceivedRevision(context.toolsRevision);
-    setRevision(context.toolsRevision);
-    setOn(context.tools);
-  }
-  const tools = [
-    { tool: 'PROCEDURES', name: t('shell.procedures'), hint: t('tools.proceduresHint') },
-    { tool: 'REMINDERS', name: t('shell.reminders'), hint: t('tools.remindersHint') },
-    { tool: 'LISTS', name: t('shell.lists'), hint: t('more.listsHint') },
-    { tool: 'CALENDAR', name: t('shell.calendar'), hint: t('more.calendarHint') },
-    { tool: 'DOCUMENTS', name: t('tools.documents'), hint: t('tools.documentsHint') },
-    { tool: 'CONTACTS', name: t('tools.contacts'), hint: t('tools.contactsHint') },
-    { tool: 'EQUIPMENT', name:t('shell.equipment'), hint:t('tools.equipmentHint') },
-    { tool: 'MOON', name: t('moon.heading'), hint: t('moon.toolHint') },
-    { tool: 'JOURNAL', name: t('journal.heading'), hint: t('journal.toolHint') },
-    { tool: 'MAINTENANCE', name: t('tools.maintenance'), hint: t('tools.maintenanceHint') },
-  ];
-  async function set(tool: string, name: string, enabled: boolean) {
-    if (!enabled && (tool === 'PROCEDURES' || tool === 'REMINDERS') && !window.confirm(t('tools.stopNotifications', { tool: name }))) return;
-    const before = on;
-    setBusy(true);
-    setMessage(null);
-    setOn(enabled ? [...on, tool] : on.filter((each) => each !== tool));
-    try {
-      const result = await api.setWorkspaceTool(context.workspace.id, tool, enabled, revision);
-      setOn(result.tools);
-      setRevision(result.revision);
-      setStatus(t(enabled ? 'tools.on' : 'tools.off', { tool: name }));
-      props.onChanged();
-    } catch (caught) {
-      setOn(before);
-      setStatus(null);
-      setMessage(messageFor(caught));
-    } finally {
-      setBusy(false);
-    }
-  }
-  return (
-    <div className="card stack">
-      <h3 style={{ marginTop: 0 }}>{t('tools.heading')}</h3>
-      <p className="muted" style={{ margin: 0 }}>
-        {t('tools.hint')}
-      </p>
-      {message !== null && <p role="alert">{message}</p>}
-      {tools.map(({ tool, name, hint }) => (
-        <label key={tool} className="option-label tool-switch">
-          <input type="checkbox" checked={on.includes(tool)} disabled={busy} aria-describedby={`tool-${tool}-hint`} onChange={(event) => void set(tool, name, event.target.checked)} />
-          <span>
-            <strong>{name}</strong>
-            <br />
-            <small id={`tool-${tool}-hint`} className="muted">
-              {hint}
-            </small>
-          </span>
-        </label>
-      ))}
-      <p role="status" style={{ margin: 0 }}>
-        {status ?? ''}
-      </p>
-    </div>
-  );
-}
-
 export function WorkspaceGeneral(props: { context: WorkspaceContext; onWorkspacesChanged: () => void }) {
   const { context } = props;
   const [message, setMessage] = useState<string | null>(null);
@@ -218,7 +144,6 @@ export function WorkspaceGeneral(props: { context: WorkspaceContext; onWorkspace
         </div>
       )}
       <WorkspaceLocationCard key={context.workspace.id} workspaceId={context.workspace.id} canManage={context.capabilities.includes('workspace.settings.manage')} />
-      {context.capabilities.includes('workspace.tools.manage') && <WorkspaceTools context={context} onChanged={props.onWorkspacesChanged} />}
       {context.capabilities.includes('workspace.settings.manage') && <WorkspaceStorageCard workspaceId={context.workspace.id} />}
       {context.capabilities.includes('workspace.settings.manage') && context.tools.includes('DOCUMENTS') && <TextRecognitionCard workspaceId={context.workspace.id} />}
       <div className="card stack">
