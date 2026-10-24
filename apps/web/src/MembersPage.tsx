@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useState, type FormEvent } from 'react';
-import { api, messageFor, WORKSPACE_ROLES, type WorkspaceMember, type WorkspaceRole } from './api.ts';
+import { api, memberAvatarUrl, messageFor, WORKSPACE_ROLES, type WorkspaceMember, type WorkspaceRole } from './api.ts';
+import { Avatar } from './Avatar.tsx';
+import { UiIcon } from './ui-icons.tsx';
 import { WorkspaceLocationCard } from './WorkspaceLocation.tsx';
 import { WorkspaceStorageCard } from './Storage.tsx';
 import { TextRecognitionCard } from './TextRecognition.tsx';
@@ -100,92 +102,42 @@ function RenameWorkspace({ context, onRenamed }: { context: WorkspaceContext; on
   );
 }
 
-/** Capabilities only adapt the UI; the server authorizes every request. */
-export const workspaceSettingsSections = (workspaceId: string, capabilities: readonly string[], current: 'settings' | 'members' | 'knots' | 'backup') => [
-  { href: paths.settings(workspaceId), label: t('workspaceSettings.general'), current: current === 'settings' },
-  { href: paths.members(workspaceId), label: t('members.heading'), current: current === 'members' },
-  ...(capabilities.includes('knot.manage') ? [{ href: paths.knots(workspaceId), label: t('workspaceSettings.sharing'), current: current === 'knots' }] : []),
-  // Section 18: Workspace admins only (B1).
-  ...(capabilities.includes('workspace.backup') ? [{ href: paths.backup(workspaceId), label: t('backup.heading'), current: current === 'backup' }] : []),
-];
+export type WorkspaceSettingsPage = 'settings' | 'members' | 'plugins' | 'knots' | 'storage' | 'backup';
 
-/** Workspace settings → General: the name (for those who manage settings), the own role, leaving. */
 /**
- * The optional tools of the Workspace (16.2), for Workspace admins: a tool switched on appears for every
- * member; switched off it is hidden for everyone and its content is kept. There is no personal hiding.
+ * The Workspace settings sections (15.1; icons and groups since section 29): Workspace (General,
+ * Members), Tools (Plugins, Sharing links), Data (Storage, Backup). Capabilities only adapt the UI;
+ * the server authorizes every request.
  */
-function WorkspaceTools(props: { context: WorkspaceContext; onChanged: () => void }) {
-  const { context } = props;
-  const [status, setStatus] = useState<string | null>(null);
-  const [message, setMessage] = useState<string | null>(null);
-  const [busy, setBusy] = useState(false);
-  // Shown at once; put back if the server refuses.
-  const [on, setOn] = useState<readonly string[]>(context.tools);
-  const [revision, setRevision] = useState(context.toolsRevision);
-  const [receivedRevision, setReceivedRevision] = useState(context.toolsRevision);
-  if (receivedRevision !== context.toolsRevision) {
-    setReceivedRevision(context.toolsRevision);
-    setRevision(context.toolsRevision);
-    setOn(context.tools);
-  }
-  const tools = [
-    { tool: 'PROCEDURES', name: t('shell.procedures'), hint: t('tools.proceduresHint') },
-    { tool: 'REMINDERS', name: t('shell.reminders'), hint: t('tools.remindersHint') },
-    { tool: 'LISTS', name: t('shell.lists'), hint: t('more.listsHint') },
-    { tool: 'CALENDAR', name: t('shell.calendar'), hint: t('more.calendarHint') },
-    { tool: 'DOCUMENTS', name: t('tools.documents'), hint: t('tools.documentsHint') },
-    { tool: 'CONTACTS', name: t('tools.contacts'), hint: t('tools.contactsHint') },
-    { tool: 'EQUIPMENT', name:t('shell.equipment'), hint:t('tools.equipmentHint') },
-    { tool: 'MOON', name: t('moon.heading'), hint: t('moon.toolHint') },
-    { tool: 'JOURNAL', name: t('journal.heading'), hint: t('journal.toolHint') },
-    { tool: 'MAINTENANCE', name: t('tools.maintenance'), hint: t('tools.maintenanceHint') },
+export const workspaceSettingsSections = (workspaceId: string, capabilities: readonly string[], current: WorkspaceSettingsPage) => {
+  const workspace = t('settings.group.workspace');
+  const tools = t('settings.group.tools');
+  const data = t('settings.group.data');
+  return [
+    { href: paths.settings(workspaceId), label: t('workspaceSettings.general'), current: current === 'settings', icon: 'settings' as const, group: workspace },
+    { href: paths.members(workspaceId), label: t('members.heading'), current: current === 'members', icon: 'contacts' as const, group: workspace },
+    // Workspace admins only: the on/off switches of every tool.
+    ...(capabilities.includes('workspace.tools.manage') ? [{ href: paths.plugins(workspaceId), label: t('workspaceSettings.plugins'), current: current === 'plugins', icon: 'plugins' as const, group: tools }] : []),
+    ...(capabilities.includes('knot.manage') ? [{ href: paths.knots(workspaceId), label: t('workspaceSettings.sharing'), current: current === 'knots', icon: 'share' as const, group: tools }] : []),
+    // The shared storage limit and text recognition: those who manage the Workspace's settings.
+    ...(capabilities.includes('workspace.settings.manage') ? [{ href: paths.storage(workspaceId), label: t('workspaceSettings.storage'), current: current === 'storage', icon: 'storage' as const, group: data }] : []),
+    // Section 18: Workspace admins only (B1).
+    ...(capabilities.includes('workspace.backup') ? [{ href: paths.backup(workspaceId), label: t('backup.heading'), current: current === 'backup', icon: 'backup' as const, group: data }] : []),
   ];
-  async function set(tool: string, name: string, enabled: boolean) {
-    if (!enabled && (tool === 'PROCEDURES' || tool === 'REMINDERS') && !window.confirm(t('tools.stopNotifications', { tool: name }))) return;
-    const before = on;
-    setBusy(true);
-    setMessage(null);
-    setOn(enabled ? [...on, tool] : on.filter((each) => each !== tool));
-    try {
-      const result = await api.setWorkspaceTool(context.workspace.id, tool, enabled, revision);
-      setOn(result.tools);
-      setRevision(result.revision);
-      setStatus(t(enabled ? 'tools.on' : 'tools.off', { tool: name }));
-      props.onChanged();
-    } catch (caught) {
-      setOn(before);
-      setStatus(null);
-      setMessage(messageFor(caught));
-    } finally {
-      setBusy(false);
-    }
-  }
+};
+
+/** Workspace settings → Storage (section 29): the shared limit and, with Documents on, text recognition. */
+export function WorkspaceStoragePage(props: { context: WorkspaceContext }) {
+  const { context } = props;
   return (
-    <div className="card stack">
-      <h3 style={{ marginTop: 0 }}>{t('tools.heading')}</h3>
-      <p className="muted" style={{ margin: 0 }}>
-        {t('tools.hint')}
-      </p>
-      {message !== null && <p role="alert">{message}</p>}
-      {tools.map(({ tool, name, hint }) => (
-        <label key={tool} className="option-label tool-switch">
-          <input type="checkbox" checked={on.includes(tool)} disabled={busy} aria-describedby={`tool-${tool}-hint`} onChange={(event) => void set(tool, name, event.target.checked)} />
-          <span>
-            <strong>{name}</strong>
-            <br />
-            <small id={`tool-${tool}-hint`} className="muted">
-              {hint}
-            </small>
-          </span>
-        </label>
-      ))}
-      <p role="status" style={{ margin: 0 }}>
-        {status ?? ''}
-      </p>
-    </div>
+    <>
+      <WorkspaceStorageCard workspaceId={context.workspace.id} />
+      {context.tools.includes('DOCUMENTS') && <TextRecognitionCard workspaceId={context.workspace.id} />}
+    </>
   );
 }
 
+/** Workspace settings → General: the name (for those who manage settings), the location, the own role, leaving. */
 export function WorkspaceGeneral(props: { context: WorkspaceContext; onWorkspacesChanged: () => void }) {
   const { context } = props;
   const [message, setMessage] = useState<string | null>(null);
@@ -218,9 +170,6 @@ export function WorkspaceGeneral(props: { context: WorkspaceContext; onWorkspace
         </div>
       )}
       <WorkspaceLocationCard key={context.workspace.id} workspaceId={context.workspace.id} canManage={context.capabilities.includes('workspace.settings.manage')} />
-      {context.capabilities.includes('workspace.tools.manage') && <WorkspaceTools context={context} onChanged={props.onWorkspacesChanged} />}
-      {context.capabilities.includes('workspace.settings.manage') && <WorkspaceStorageCard workspaceId={context.workspace.id} />}
-      {context.capabilities.includes('workspace.settings.manage') && context.tools.includes('DOCUMENTS') && <TextRecognitionCard workspaceId={context.workspace.id} />}
       <div className="card stack">
         <h3 style={{ marginTop: 0 }}>{t('workspaceSettings.roleHeading')}</h3>
         <p style={{ margin: 0 }}>{t('members.yourRole', { role: roleLabel(context.workspace.role), help: roleHelp(context.workspace.role) })}</p>
@@ -269,60 +218,48 @@ export function MembersPage(props: { context: WorkspaceContext; currentUserId: s
 
   return (
     <>
-      <p className="muted" style={{ marginTop: 0 }}>
-        {t('members.yourRole', { role: roleLabel(context.workspace.role), help: roleHelp(context.workspace.role) })}
-      </p>
       {message !== null && <p role="alert">{message}</p>}
       {!canView ? (
         <p className="muted">{t('members.guestsCannotSee')}</p>
       ) : members === null ? (
         <p>{t('common.loading')}</p>
       ) : (
-        <div className="card table-wrap">
-          <table>
-            <caption>{t('members.heading')}</caption>
-            <thead>
-              <tr>
-                <th scope="col">{t('members.column.name')}</th>
-                {canManage && <th scope="col">{t('members.column.email')}</th>}
-                <th scope="col">{t('members.column.role')}</th>
-                {canManage && <th scope="col">{t('members.column.actions')}</th>}
-              </tr>
-            </thead>
-            <tbody>
-              {members.map((member) => (
-                <tr key={member.userId}>
-                  <td>
+        // Section 29: one row per person — picture, name (and email for admins), role, remove.
+        <div className="card">
+          <h3 style={{ marginTop: 0 }}>{t('members.heading')}</h3>
+          <ul className="member-list" aria-label={t('members.heading')}>
+            {members.map((member) => (
+              <li key={member.userId}>
+                <Avatar name={member.displayName} seed={member.userId} src={member.avatar == null ? null : memberAvatarUrl(workspaceId, member.userId, member.avatar)} size="medium" />
+                <span className="member-who">
+                  <strong>
                     {member.displayName}
                     {member.userId === props.currentUserId && <span className="muted">{t('members.you')}</span>}
-                    {member.status === 'DISABLED' && t('members.disabled')}
-                  </td>
-                  {canManage && <td>{member.email}</td>}
-                  <td>
-                    {canManage ? (
-                      <RoleSelect
-                        label={t('members.roleOf', { name: member.displayName })}
-                        value={member.role}
-                        disabled={busy}
-                        onChange={(role) => void act(() => api.changeMemberRole(workspaceId, member.userId, role))}
-                      />
-                    ) : (
-                      roleLabel(member.role)
-                    )}
-                  </td>
-                  {canManage && (
-                    <td>
-                      {member.userId !== props.currentUserId && (
-                        <button type="button" className="quiet" disabled={busy} onClick={() => void act(() => api.removeMember(workspaceId, member.userId))}>
-                          {t('members.remove', { name: member.displayName })}
-                        </button>
-                      )}
-                    </td>
-                  )}
-                </tr>
-              ))}
-            </tbody>
-          </table>
+                    {member.status === 'DISABLED' && <span className="muted">{t('members.disabled')}</span>}
+                  </strong>
+                  {canManage && member.email !== undefined && <small className="muted">{member.email}</small>}
+                </span>
+                {canManage ? (
+                  <RoleSelect
+                    label={t('members.roleOf', { name: member.displayName })}
+                    value={member.role}
+                    disabled={busy}
+                    onChange={(role) => void act(() => api.changeMemberRole(workspaceId, member.userId, role))}
+                  />
+                ) : (
+                  <span className="badge">{roleLabel(member.role)}</span>
+                )}
+                {canManage &&
+                  (member.userId !== props.currentUserId ? (
+                    <button type="button" className="icon-button quiet" disabled={busy} aria-label={t('members.remove', { name: member.displayName })} title={t('members.remove', { name: member.displayName })} onClick={() => void act(() => api.removeMember(workspaceId, member.userId))}>
+                      <UiIcon name="trash" />
+                    </button>
+                  ) : (
+                    <span className="member-action-spacer" aria-hidden="true" />
+                  ))}
+              </li>
+            ))}
+          </ul>
         </div>
       )}
       {canManage && <AddMember workspaceId={workspaceId} onAdded={refresh} />}

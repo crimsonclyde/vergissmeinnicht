@@ -4,7 +4,7 @@
 // Better Auth field names (e.g. `name`, `emailVerified`), while *column* names are snake_case.
 import type { WeatherLocation } from '@vergissmeinnicht/domain';
 import { sql } from 'drizzle-orm';
-import { check, foreignKey, index, integer, primaryKey, real, sqliteTable, text, uniqueIndex, type AnySQLiteColumn } from 'drizzle-orm/sqlite-core';
+import { blob, check, foreignKey, index, integer, primaryKey, real, sqliteTable, text, uniqueIndex, type AnySQLiteColumn } from 'drizzle-orm/sqlite-core';
 import {
   CONTACT_KEY_KINDS,
   MAINTENANCE_STATUSES,
@@ -806,6 +806,25 @@ export const userPreferences = sqliteTable(
       'user_preferences_critical_confirm_valid',
       sql.raw(`critical_confirm in (${CRITICAL_CONFIRM_MODES.map((value) => `'${value}'`).join(', ')})`),
     ),
+  ],
+);
+
+/**
+ * A person's profile picture (section 29): only the server's re-encoded square JPEG (no metadata),
+ * at most 60 KB. Personal data of the account, never part of a Workspace or its backup.
+ */
+export const userAvatars = sqliteTable(
+  'user_avatars',
+  {
+    userId: text('user_id')
+      .primaryKey()
+      .references(() => users.id),
+    jpeg: blob('jpeg', { mode: 'buffer' }).notNull(),
+    updatedAt: integer('updated_at', { mode: 'timestamp_ms' }).notNull(),
+  },
+  (table) => [
+    // A JPEG (SOI marker) within the stored-size limit; anything else cannot be stored.
+    check('user_avatars_jpeg_valid', sql`typeof(${table.jpeg}) = 'blob' and length(${table.jpeg}) between 4 and 60000 and substr(${table.jpeg}, 1, 3) = x'ffd8ff'`),
   ],
 );
 

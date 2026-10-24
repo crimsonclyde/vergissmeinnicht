@@ -50,3 +50,10 @@ export function parseImageQuota(bytes: number): ImageQuota {
   }
   return bytes as ImageQuota;
 }
+
+/**
+ * Profile pictures (section 29): one per account, re-encoded on the server as a square JPEG of this
+ * edge (centre crop, metadata removed) and stored within this size.
+ */
+export const AVATAR_EDGE = 256;
+export const MAX_STORED_AVATAR_BYTES = 60_000;

@@ -17,7 +17,7 @@ import {
   endSession,
   forwardCookies,
   issueSession,
-  publicUser,
+  sessionUser,
   readChallengeCookie,
   setChallengeCookie,
 } from './session.ts';
@@ -153,7 +153,7 @@ export async function authRoutes(app: FastifyInstance, { services }: { services:
       // Recorded before the cookie is sent: if this fails, the client never receives the session.
       recordLogin(services, user, session.session.id, 'password');
       forwardCookies(response.headers, reply);
-      return { user: publicUser(user) };
+      return { user: await sessionUser(services, user) };
     },
   );
 
@@ -172,7 +172,7 @@ export async function authRoutes(app: FastifyInstance, { services }: { services:
         clearChallengeCookie(services, reply);
         const sessionId = await issueSession(services, request, reply, user.id);
         recordLogin(services, user, sessionId, method);
-        return { user: publicUser(user) };
+        return { user: await sessionUser(services, user) };
       } catch (error) {
         if (error instanceof MfaChallengeInvalidError) clearChallengeCookie(services, reply);
         throw error;
@@ -199,6 +199,6 @@ export async function authRoutes(app: FastifyInstance, { services }: { services:
   app.get('/session', async (request, reply) => {
     const principal = await authenticate(services, request, reply);
     if (principal === undefined) return reply.code(401).send({ error: 'unauthenticated' });
-    return { user: publicUser(principal.user) };
+    return { user: await sessionUser(services, principal.user) };
   });
 }

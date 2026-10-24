@@ -7,6 +7,7 @@ import Fastify, { type FastifyBaseLogger, type FastifyServerOptions } from 'fast
 import type { AppServices } from './composition.ts';
 import { getInstanceSettings } from '@vergissmeinnicht/application';
 import { adminAccountRoutes, adminSecurityEventRoutes, adminSettingsRoutes } from './http/account-admin-routes.ts';
+import { avatarRoutes } from './http/avatar-routes.ts';
 import { accountRoutes } from './http/account-routes.ts';
 import { authRoutes } from './http/auth-routes.ts';
 import { errorHandler } from './http/errors.ts';
@@ -217,6 +218,7 @@ export async function buildApp(options: AppOptions = {}) {
         await api.register(journalRoutes, { prefix: '/workspaces/:workspaceId/journal', services, shared: true });
         await api.register(moonRoutes, { prefix: '/workspaces/:workspaceId/moon', services });
         await api.register(accountRoutes, { prefix: '/account', services });
+        await api.register(avatarRoutes, { prefix: '/account/avatar', services });
         await api.register(accountNotificationRoutes, { prefix: '/account/notifications', services });
         await api.register(accountWeatherRoutes, { prefix: '/account/weather', services });
         await api.register(accountWeatherCredentialRoutes, { prefix: '/account/weather/credentials', services });

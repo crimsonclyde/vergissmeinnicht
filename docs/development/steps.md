@@ -4708,6 +4708,47 @@ Also bumps **zod 4.6.5 → 4.6.6** (GHSA-mrhx-c7xc-m3w5, high, published after t
 
 ---
 
+## 28 — Plugins tab and tool registry (owner request 2026-10-24)
+
+**Status:** DONE (2026-10-24, review branch; not released).
+
+**Request (owner, 2026-10-24):** a **Plugins** tab in Workspace settings, next to Members and Sharing links, listing everything in Tools with an on/off switch; and a report on how tools are implemented today and whether a more real plugin approach is possible so a new tool does not touch the whole site.
+
+**Report (summary):** each of the ten switchable tools is wired in by hand in about a dozen central places (domain `WORKSPACE_TOOLS`, the `workspace_tools` CHECK constraint, capabilities, `tool-policy.ts`, server route registration and composition, backup/restore table lists, sidebar, More, router, Today cards, settings, catalog). Adding Moon and Journal (27) touched about 50 code files and a table-rebuild migration. Recommended direction: built-in plugins, one manifest per tool (icon, texts, pages/navigation, Today cards, capabilities, routes, backup tables, record types, dependencies) read from a registry by the core; schema stays in reviewed migrations; no runtime or remote plugin loading (security.md). Suggested order: (1) Plugins tab on a web-side registry — this step; (2) navigation, More, router and Today cards from the registry; (3) server manifests for routes, capabilities, tool policy and backup tables, dropping the tool-name CHECK constraint in one last migration; (4) move one tool (Equipment) fully into a module folder as the template. Steps 2–4 await the owner's go-ahead.
+
+**Implemented:** `apps/web/src/tool-registry.ts` (`TOOL_PLUGINS`: tool, icon, name, hint, `confirmOff` for Procedures and Reminders), `PluginsPage.tsx` at `/w/{id}/plugins` — a responsive grid of tiles with icon, name, the existing `.switch` checkbox and an ⓘ button that reveals the hint (always the switch's accessible description). The section appears only with `workspace.tools.manage`; the page answers with a notice otherwise. The switches moved out of *General*; Today's "Choose tools" link goes to Plugins. New UI icons: Journal (notebook), The Moon, Equipment (washing machine, no longer the same as Maintenance), info, plug. Same API, revision handling, optimistic update with rollback and notification confirmation as before.
+
+**Tests/checks:** `tool-registry.test.ts` (registry equals `WORKSPACE_TOOLS`; only Procedures and Reminders confirm), router test for `/plugins`; web Vitest 37 files / 235 tests; repository lint and typecheck; desktop Playwright 4 passed incl. the full account flow (all tool switches now go through the Plugins tab, axe check on it). Screenshots at 320/390/1440 px in light, dark, Memento Mori, Tokyo Nights and Witch Forest without horizontal overflow (owner review folder `ui-review/2026-10-24-plugins/`).
+
+**Security impact:** NONE — presentation only; no route, capability, schema or data flow changed; the server still authorizes every switch. **Security docs updated:** N/A.
+
+**Remaining:** steps 2–4 of the plugin approach (owner decision); real-phone check.
+
+---
+
+## 29 — Profile pictures and a clearer Profile and Workspace settings (owner request 2026-10-24)
+
+**Status:** DONE (2026-10-24; review branch on top of PRs #60 and #61; not released)
+
+**Request (owner, 2026-10-24):** after the per-Workspace themes (28) and the Plugins tab (28), a general restructure of the Workspace admin and the profile: a profile picture and a cleaner, better structured settings/profile.
+
+**Decisions (defaults, posted to the owner before building):**
+- **P1 Structure.** Sections get icons and named groups, a grouped list on wide screens and a grid of icon tiles on phones (nothing scrolls sideways). Profile & settings: *You* (Profile — new start page at `/account`, Password & security), *Look & feel* (Appearance, Today, Confirmations), *Stay informed* (Notifications — now `/account/notifications`, Weather), *Journal*. Workspace settings: *Workspace* (General, Members), *Tools* (Plugins, Sharing links), *Data* (Storage — new `/w/{id}/storage`, moved out of General with Text recognition; Backup). The heading shows the person's picture (Profile) or the Workspace name and role.
+- **P2 Members** become a list of people (picture, name, email for admins, role select, bin icon for remove) instead of a table that overflowed on phones; the duplicated role line moved to the heading.
+- **P3 Picture handling.** Like instruction photos (14.3): the browser cuts the centred square and re-encodes it (512 px JPEG, EXIF/GPS never leave the device); the server identifies the format from the content (JPEG/PNG/WebP), refuses HEIC, animated/multi-page, pixel bombs and anything unreadable (SVG is never decoded), applies the orientation, crops to a 256 px square, flattens to white, sRGB, JPEG ≤ 60 KB; libvips writes no EXIF/XMP/ICC/comment. Only that JPEG is stored, in the database (`user_avatars`, a BLOB; no file store, so no orphan sweep or path handling).
+- **P4 Visibility.** Your own picture; other people's only for members with `workspace.members.view` (USER and up; not GUEST, like the member list) and only of a current, ACTIVE member of that Workspace. Not audited (presentation, like themes and pins). Excluded from Workspace backups as personal data; full server backups contain it like the rest of the account.
+- **P5** Changing the display name is not part of this step (owner can ask for it).
+
+**Implemented:** migration **0054_profile_avatars** (`user_avatars`: user PK/FK, `jpeg` BLOB with CHECK — blob type, 4–60 000 bytes, JPEG SOI marker — `updated_at`). Domain `AVATAR_EDGE`, `MAX_STORED_AVATAR_BYTES`; port `AvatarProcessor`/`AvatarRepository`; use-cases `uploadAvatar`, `removeAvatar`, `readOwnAvatar`, `readMemberAvatar`, `ownAvatarVersion`; `createSharpAvatarProcessor` sharing the instruction-image checks (`precheck`/`inspect` refactor); `createAvatarRepository` (ACTIVE recheck in an IMMEDIATE transaction; member reads join membership + ACTIVE). Routes `GET/POST /api/account/avatar`, `POST /api/account/avatar/delete`, `GET /api/workspaces/{id}/members/{userId}/avatar`; strict `?v=` version query; member list and session user carry the picture version. Web: `SettingsLayout` with icons/groups, `Avatar` (picture or initials on a per-person hue), `ProfileSettings`, avatar in the Settings button and menu, `WorkspaceStoragePage`, members list.
+
+**Tests/checks:** new `apps/server/src/http/avatar.test.ts` (6 tests: re-encoded 256 px JPEG with no EXIF/XMP/ICC/comment and none of the original's text, ≤ 60 KB, nosniff/no-store; SVG, text, HEIC, GIF, empty refused and the old picture kept; member visibility — admin yes, GUEST 403, other Workspace 404, not-a-member 404, disabled 404; removal; session/Origin/strict query/body and SQL CHECK backstops; disabled account refused inside the transaction); `auth.test.ts` session shape; router tests for `/account` → Profile and `/storage`; e2e `account.spec.ts` updated for the new menu order, Storage section and members list. Full Vitest, lint, typecheck. Screenshots on the test environment at 1440 and 390 px, light and dark.
+
+**Security impact:** MEDIUM — a new upload type and a new cross-member read of personal data. **Security docs updated:** YES (section 29 check).
+
+**Remaining:** no avatar e2e upload test (covered by server tests and a scripted browser upload); display-name change not offered; real-phone check (camera picker on iPhone/Android, HEIC from the iPhone camera is converted by Safari before upload).
+
+---
+
 ## 11 — Licensing
 
 ### 11.1 AGPL-3.0

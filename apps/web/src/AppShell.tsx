@@ -18,15 +18,17 @@ import { ContactsToolContext } from './contacts-tool.ts';
 import { Calendar } from './Calendar.tsx';
 import { ChangePassword } from './ChangePassword.tsx';
 import { NotificationSettings } from './NotificationSettings.tsx';
-import { t } from './i18n/index.ts';
+import { t, type MessageKey } from './i18n/index.ts';
 import { KnotOpener, KnotsPage } from './Knots.tsx';
 import { Lists } from './Lists.tsx';
-import { MembersPage, WorkspaceGeneral, roleLabel, workspaceSettingsSections } from './MembersPage.tsx';
+import { MembersPage, WorkspaceGeneral, WorkspaceStoragePage, roleLabel, workspaceSettingsSections, type WorkspaceSettingsPage } from './MembersPage.tsx';
+import { PluginsPage } from './PluginsPage.tsx';
 import { MorePage } from './MorePage.tsx';
 import { ProcedureBuilder } from './ProcedureBuilder.tsx';
 import { Procedures } from './Procedures.tsx';
 import { Reminders } from './Reminders.tsx';
-import { ACCOUNT_SECTIONS, Link, navigate, paths, type Route } from './router.tsx';
+import { ProfileIdentity, ProfileSettings } from './ProfileSettings.tsx';
+import { ACCOUNT_SECTIONS, Link, navigate, paths, type AccountSection, type Route } from './router.tsx';
 import { RingPaint } from './RunGuide.tsx';
 import { Runs } from './Runs.tsx';
 import { SettingsLayout } from './SettingsLayout.tsx';
@@ -159,10 +161,21 @@ function WorkspacePage(props: {
   const documentsOn = context.tools.includes('DOCUMENTS');
   const contactsOn = context.tools.includes('CONTACTS');
   const canAdd = { procedure: context.tools.includes('PROCEDURES') && can('procedure.edit'), reminder: context.tools.includes('REMINDERS') && can('schedule.manage'), list: context.tools.includes('LISTS') && can('list.edit'), document: documentsOn && can('document.manage') };
-  const settings = (current: 'settings' | 'members' | 'knots' | 'backup', content: ReactNode) => (
+  const settings = (current: WorkspaceSettingsPage, content: ReactNode) => (
     <SettingsLayout
       title={t('menu.workspaceSettings')}
       subtitle={context.workspace.name}
+      identity={
+        <div className="settings-identity">
+          <span className="settings-identity-icon" aria-hidden="true">
+            <UiIcon name="settings" />
+          </span>
+          <div>
+            <h2>{t('menu.workspaceSettings')}</h2>
+            <span className="muted">{t('workspaceSettings.subtitle', { name: context.workspace.name, role: roleLabel(context.workspace.role) })}</span>
+          </div>
+        </div>
+      }
       navLabel={t('menu.workspaceSettings')}
       sections={workspaceSettingsSections(route.workspaceId, context.tools.includes('PROCEDURES') ? context.capabilities : context.capabilities.filter((capability) => capability !== 'knot.manage'), current)}
     >
@@ -300,6 +313,10 @@ function WorkspacePage(props: {
       return settings('settings', <WorkspaceGeneral key={context.workspace.name} context={context} onWorkspacesChanged={reload} />);
     case 'members':
       return settings('members', <MembersPage context={context} currentUserId={props.user.id} />);
+    case 'plugins':
+      return settings('plugins', can('workspace.tools.manage') ? <PluginsPage context={context} onChanged={reload} /> : <p role="alert">{t('plugins.adminOnly')}</p>);
+    case 'storage':
+      return settings('storage', can('workspace.settings.manage') ? <WorkspaceStoragePage context={context} /> : <p role="alert">{t('workspaceSettings.storageAdminOnly')}</p>);
     case 'knots':
       return settings('knots', can('knot.manage') ? <KnotsPage workspaceId={route.workspaceId} /> : <p role="alert">{t('knot.manageOnly')}</p>);
     case 'backup':
@@ -333,8 +350,30 @@ function NoWorkspace({ user }: { user: CurrentUser }) {
   );
 }
 
-/** Profile & settings (15.1): personal notifications, appearance, password and security, confirmations. */
-function AccountPage({ user, section, tools, workspaces }: { user: CurrentUser; section: Extract<Route, { page: 'account' }>['section']; tools: readonly string[] | null; workspaces: readonly WorkspaceSummary[] | null }) {
+/** Icons and groups of the Profile & settings sections (section 29). */
+const ACCOUNT_SECTION_ICONS: Record<AccountSection, UiIconName> = {
+  profile: 'profile',
+  security: 'security',
+  appearance: 'appearance',
+  today: 'layout',
+  confirmations: 'confirmations',
+  notifications: 'reminders',
+  weather: 'weatherPartlyCloudy',
+  journal: 'journal',
+};
+const ACCOUNT_SECTION_GROUPS: Record<AccountSection, MessageKey> = {
+  profile: 'settings.group.you',
+  security: 'settings.group.you',
+  appearance: 'settings.group.look',
+  today: 'settings.group.look',
+  confirmations: 'settings.group.look',
+  notifications: 'settings.group.informed',
+  weather: 'settings.group.informed',
+  journal: 'settings.group.journal',
+};
+
+/** Profile & settings (15.1, regrouped in section 29): profile, security, look & feel, notifications, journal. */
+function AccountPage({ user, section, tools, workspaces, avatar, onAvatarChanged }: { user: CurrentUser; section: Extract<Route, { page: 'account' }>['section']; tools: readonly string[] | null; workspaces: readonly WorkspaceSummary[] | null; avatar: string | null; onAvatarChanged: (version: string | null) => void }) {
   // Weather (19.4) is offered only while the server allows it (W1); unknown until asked.
   const [weatherOn, setWeatherOn] = useState<boolean | null>(null);
   useEffect(() => {
@@ -346,10 +385,19 @@ function AccountPage({ user, section, tools, workspaces }: { user: CurrentUser; 
   return (
     <SettingsLayout
       title={t('account.heading')}
+      // The Profile section shows the picture large; elsewhere it sits next to the title.
       subtitle={t('account.identity', { name: user.displayName, email: user.email })}
+      identity={section === 'profile' ? undefined : <ProfileIdentity user={user} avatar={avatar} />}
       navLabel={t('account.heading')}
-      sections={ACCOUNT_SECTIONS.filter((value) => value !== 'weather' || weatherOn === true || section === 'weather').map((value) => ({ href: paths.account(value), label: t(`account.section.${value}`), current: value === section }))}
+      sections={ACCOUNT_SECTIONS.filter((value) => value !== 'weather' || weatherOn === true || section === 'weather').map((value) => ({
+        href: paths.account(value),
+        label: t(`account.section.${value}`),
+        current: value === section,
+        icon: ACCOUNT_SECTION_ICONS[value],
+        group: t(ACCOUNT_SECTION_GROUPS[value]),
+      }))}
     >
+      {section === 'profile' && <ProfileSettings user={user} avatar={avatar} onAvatarChanged={onAvatarChanged} workspaces={workspaces} />}
       {section === 'journal' && <JournalPage key={user.id} canWrite={true} />}
       {section === 'notifications' && (
         <div className="card">
@@ -426,6 +474,8 @@ export function AppShell(props: { user: CurrentUser; route: Route; onSignOut: ()
   };
   const [workspaces, setWorkspaces] = useState<WorkspaceSummary[] | null>(null);
   const [message, setMessage] = useState<string | null>(null);
+  // The person's picture version (section 29); changed on the Profile page, shown in the Settings button.
+  const [avatar, setAvatar] = useState<string | null>(user.avatar ?? null);
 
   const refresh = useCallback(() => {
     api.workspaces().then(
@@ -453,7 +503,7 @@ export function AppShell(props: { user: CurrentUser; route: Route; onSignOut: ()
   let content;
   if (route.page === 'account') {
     // Today cards of tools that are off where the person last was are marked as such (UI only).
-    content = <AccountPage user={user} section={route.section} tools={workspaces?.find((workspace) => workspace.id === rememberedWorkspace())?.tools ?? null} workspaces={workspaces} />;
+    content = <AccountPage user={user} section={route.section} tools={workspaces?.find((workspace) => workspace.id === rememberedWorkspace())?.tools ?? null} workspaces={workspaces} avatar={avatar} onAvatarChanged={setAvatar} />;
   } else if (route.page === 'admin') {
     content = user.serverAdmin ? (
       <AdminPage section={route.section} currentUserId={user.id} onWorkspacesChanged={refresh} />
@@ -518,7 +568,7 @@ export function AppShell(props: { user: CurrentUser; route: Route; onSignOut: ()
               <NavLinks items={nav.side} page={route.page} />
             </nav>
           )}
-          <SettingsMenu user={user} workspaceId={navWorkspaceId} currentPath={window.location.pathname} onSignOut={signOut} />
+          <SettingsMenu user={user} avatar={avatar} workspaceId={navWorkspaceId} currentPath={window.location.pathname} onSignOut={signOut} />
         </header>
         <div className="shell-main">
           <main id="main" tabIndex={-1} className="app-main" data-width={widthOf(route)}>

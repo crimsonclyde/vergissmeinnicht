@@ -7,7 +7,8 @@ const R = '8a1c2b9a-6d4e-4f8a-9b7c-1a2b3c4d5e60';
 describe('parseRoute', () => {
   it('maps every page', () => {
     expect(parseRoute('/')).toEqual({ page: 'home' });
-    expect(parseRoute('/account/')).toEqual({ page: 'account', section: 'notifications' });
+    expect(parseRoute('/account/')).toEqual({ page: 'account', section: 'profile' });
+    expect(parseRoute('/account/notifications')).toEqual({ page: 'account', section: 'notifications' });
     expect(parseRoute('/admin')).toEqual({ page: 'admin', section: 'workspaces' });
     expect(parseRoute(`/w/${W}`)).toEqual({ page: 'workspace', workspaceId: W });
     expect(parseRoute(paths.home(W))).toEqual({ page: 'workspace', workspaceId: W });
@@ -19,6 +20,8 @@ describe('parseRoute', () => {
     expect(parseRoute(paths.procedure(W, R))).toEqual({ page: 'procedures', workspaceId: W, procedureId: R });
     expect(parseRoute(paths.knots(W))).toEqual({ page: 'knots', workspaceId: W });
     expect(parseRoute(paths.backup(W))).toEqual({ page: 'backup', workspaceId: W });
+    expect(parseRoute(paths.plugins(W))).toEqual({ page: 'plugins', workspaceId: W });
+    expect(parseRoute(paths.storage(W))).toEqual({ page: 'storage', workspaceId: W });
     expect(parseRoute('/knot/abc_DEF-123')).toEqual({ page: 'knot', token: 'abc_DEF-123' });
     expect(parseRoute(paths.members(W))).toEqual({ page: 'members', workspaceId: W });
     expect(parseRoute('/invite/abc_DEF-123')).toEqual({ page: 'invite', token: 'abc_DEF-123' });

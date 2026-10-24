@@ -68,7 +68,8 @@ export function Link(props: AnchorHTMLAttributes<HTMLAnchorElement> & { href: st
 }
 
 /** Sections of Profile & settings and of Server admin (15.1): one page each, so nothing unrelated has to be scrolled past. */
-export const ACCOUNT_SECTIONS = ['notifications', 'today', 'weather', 'appearance', 'security', 'confirmations', 'journal'] as const;
+/** In menu order (section 29): you, look & feel, staying informed, the journal. */
+export const ACCOUNT_SECTIONS = ['profile', 'security', 'appearance', 'today', 'confirmations', 'notifications', 'weather', 'journal'] as const;
 export type AccountSection = (typeof ACCOUNT_SECTIONS)[number];
 export const ADMIN_SECTIONS = ['workspaces', 'invitations', 'accounts', 'notifications', 'weather', 'server', 'log'] as const;
 export type AdminSection = (typeof ADMIN_SECTIONS)[number];
@@ -115,6 +116,9 @@ export type Route =
   /** Workspace settings (15.1): general, members, sharing links. */
   | { readonly page: 'settings'; readonly workspaceId: string }
   | { readonly page: 'members'; readonly workspaceId: string }
+  | { readonly page: 'plugins'; readonly workspaceId: string }
+  /** Workspace settings → Storage (section 29): the shared limit and text recognition. */
+  | { readonly page: 'storage'; readonly workspaceId: string }
   | { readonly page: 'knots'; readonly workspaceId: string }
   | { readonly page: 'backup'; readonly workspaceId: string }
   | { readonly page: 'not-found' };
@@ -132,7 +136,7 @@ export function parseRoute(pathname: string): Route {
   if ((match = new RegExp(`^/invite/${TOKEN}$`).exec(path))) return { page: 'invite', token: match[1] ?? '' };
   if ((match = new RegExp(`^/recover/${TOKEN}$`).exec(path))) return { page: 'recover', token: match[1] ?? '' };
   if ((match = new RegExp(`^/knot/${TOKEN}$`).exec(path))) return { page: 'knot', token: match[1] ?? '' };
-  if (path === '/account') return { page: 'account', section: 'notifications' };
+  if (path === '/account') return { page: 'account', section: 'profile' };
   if ((match = /^\/account\/([a-z]+)$/.exec(path))) {
     const section = oneOf(ACCOUNT_SECTIONS, match[1]);
     return section === undefined ? { page: 'not-found' } : { page: 'account', section };
@@ -182,6 +186,8 @@ export function parseRoute(pathname: string): Route {
   }
   if ((match = new RegExp(`^/w/${ID}/settings$`).exec(path))) return { page: 'settings', workspaceId: match[1] ?? '' };
   if ((match = new RegExp(`^/w/${ID}/members$`).exec(path))) return { page: 'members', workspaceId: match[1] ?? '' };
+  if ((match = new RegExp(`^/w/${ID}/plugins$`).exec(path))) return { page: 'plugins', workspaceId: match[1] ?? '' };
+  if ((match = new RegExp(`^/w/${ID}/storage$`).exec(path))) return { page: 'storage', workspaceId: match[1] ?? '' };
   if ((match = new RegExp(`^/w/${ID}/knots$`).exec(path))) return { page: 'knots', workspaceId: match[1] ?? '' };
   if ((match = new RegExp(`^/w/${ID}/backup$`).exec(path))) return { page: 'backup', workspaceId: match[1] ?? '' };
   return { page: 'not-found' };
@@ -225,6 +231,8 @@ export const paths = {
   knots: (workspaceId: string) => `/w/${workspaceId}/knots`,
   backup: (workspaceId: string) => `/w/${workspaceId}/backup`,
   members: (workspaceId: string) => `/w/${workspaceId}/members`,
-  account: (section: AccountSection) => (section === 'notifications' ? '/account' : `/account/${section}`),
+  plugins: (workspaceId: string) => `/w/${workspaceId}/plugins`,
+  storage: (workspaceId: string) => `/w/${workspaceId}/storage`,
+  account: (section: AccountSection) => (section === 'profile' ? '/account' : `/account/${section}`),
   admin: (section: AdminSection) => (section === 'workspaces' ? '/admin' : `/admin/${section}`),
 };

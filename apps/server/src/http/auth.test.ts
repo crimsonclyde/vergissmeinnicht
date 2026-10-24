@@ -185,7 +185,7 @@ describe('authentication and invitation HTTP API', () => {
       const response = await signIn('  ADMIN@example.org ', ADMIN_PASSWORD);
       expect(response.statusCode).toBe(200);
       expect(response.json()).toEqual({
-        user: { id: expect.any(String), email: 'admin@example.org', displayName: 'Ada Admin', serverAdmin: true },
+        user: { id: expect.any(String), email: 'admin@example.org', displayName: 'Ada Admin', serverAdmin: true, avatar: null },
       });
       const cookie = [response.headers['set-cookie'] ?? []].flat().find((c) => c.startsWith(`${SESSION_COOKIE}=`));
       expect(cookie).toMatch(/; HttpOnly/i);

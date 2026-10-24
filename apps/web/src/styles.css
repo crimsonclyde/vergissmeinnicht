@@ -2473,18 +2473,39 @@ a.button.primary {
 .settings-nav {
   display: flex;
   flex-direction: column;
-  gap: 0.2rem;
+  gap: 0.9rem;
+}
+
+/* Section 29: sections in small named groups, each with its icon. */
+.settings-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+
+.settings-group-label {
+  padding: 0 0.75rem 0.15rem;
+  color: var(--text-muted);
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
 }
 
 .settings-nav a {
   display: flex;
   align-items: center;
+  gap: 0.65rem;
   min-height: 2.75rem;
   padding: 0 0.75rem;
   border-radius: 8px;
   border-left: 3px solid transparent;
   color: var(--text);
   text-decoration: none;
+}
+
+.settings-nav a .ui-icon {
+  color: var(--text-muted);
 }
 
 .settings-nav a:hover {
@@ -2498,8 +2519,40 @@ a.button.primary {
   font-weight: 700;
 }
 
+.settings-nav a[aria-current='page'] .ui-icon {
+  color: var(--brand);
+}
+
 .settings-content {
   min-width: 0;
+}
+
+/* The heading of a settings area: a picture or icon, the title and one muted line. */
+.settings-identity {
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+  min-width: 0;
+}
+
+.settings-identity h2 {
+  margin: 0;
+}
+
+.settings-identity .muted {
+  overflow-wrap: anywhere;
+}
+
+.settings-identity-icon {
+  display: inline-grid;
+  place-items: center;
+  flex: none;
+  width: 3rem;
+  height: 3rem;
+  border-radius: 50%;
+  background: var(--accent-soft);
+  color: var(--brand);
+  font-size: 1.3rem;
 }
 
 @media (max-width: 56rem) {
@@ -2508,17 +2561,224 @@ a.button.primary {
     gap: 1rem;
   }
 
-  /* The sections wrap onto further lines; nothing scrolls sideways. */
+  /* Phones: one grid of icon tiles with a short label; groups flatten; nothing scrolls sideways. */
   .settings-nav {
-    flex-direction: row;
-    flex-wrap: wrap;
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(4.9rem, 1fr));
     gap: 0.4rem;
   }
 
-  .settings-nav a {
-    border: 1px solid var(--border);
-    border-left-width: 3px;
+  .settings-group {
+    display: contents;
   }
+
+  .settings-group-label {
+    display: none;
+  }
+
+  .settings-nav a {
+    flex-direction: column;
+    justify-content: center;
+    gap: 0.2rem;
+    min-height: 4.1rem;
+    padding: 0.4rem 0.25rem;
+    border: 1px solid var(--border);
+    border-bottom-width: 3px;
+    text-align: center;
+    font-size: 0.78rem;
+    line-height: 1.15;
+  }
+
+  .settings-nav a .ui-icon {
+    font-size: 1.35rem;
+  }
+
+  .settings-nav a[aria-current='page'] {
+    border-left-color: var(--border);
+    border-bottom-color: var(--brand);
+  }
+
+  .settings-nav-label {
+    overflow-wrap: break-word;
+    hyphens: auto;
+  }
+}
+
+/* ---- Profile pictures (section 29) ---------------------------------------------------------- */
+
+.avatar {
+  display: inline-grid;
+  place-items: center;
+  flex: none;
+  width: 1.75rem;
+  height: 1.75rem;
+  border-radius: 50%;
+  object-fit: cover;
+  background: var(--surface-muted);
+  box-shadow: 0 0 0 1px var(--border);
+}
+
+.avatar[data-size='medium'] {
+  width: 3rem;
+  height: 3rem;
+}
+
+.avatar[data-size='large'] {
+  width: 7.5rem;
+  height: 7.5rem;
+}
+
+/* Initials on a calm, per-person hue; dark text on a light tint keeps the contrast in every theme. */
+.avatar-initials {
+  background: hsl(var(--avatar-hue, 210) 45% 86%);
+  color: hsl(var(--avatar-hue, 210) 45% 22%);
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  /* Its own background: no theme halo (Witch Forest) around the letters. */
+  text-shadow: none;
+  user-select: none;
+}
+
+.avatar-initials[data-size='medium'] {
+  font-size: 1.1rem;
+}
+
+.avatar-initials[data-size='large'] {
+  font-size: 2.6rem;
+}
+
+.profile-card {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 1.25rem 1.5rem;
+}
+
+.profile-picture {
+  position: relative;
+  flex: none;
+}
+
+/* The picture's actions sit on its lower edge, like a camera badge. */
+.profile-picture-actions {
+  position: absolute;
+  right: -0.4rem;
+  bottom: -0.3rem;
+  display: flex;
+  gap: 0.3rem;
+}
+
+.profile-picture-actions .icon-button {
+  border-radius: 50%;
+  background: var(--surface-raised);
+  box-shadow: var(--shadow-raised);
+}
+
+.profile-name {
+  flex: 1 1 14rem;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.profile-name h3 {
+  margin: 0 0 0.15rem;
+}
+
+.profile-name p {
+  margin: 0.2rem 0 0;
+}
+
+.profile-workspaces {
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.profile-workspaces li {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  min-height: 2.9rem;
+  border-top: 1px solid var(--border);
+}
+
+.profile-workspaces li:first-child {
+  border-top: 0;
+}
+
+.profile-workspaces li > a:first-child {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.profile-default {
+  color: var(--brand);
+}
+
+.member-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.member-list li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem 0.8rem;
+  padding: 0.6rem 0;
+  border-top: 1px solid var(--border);
+}
+
+.member-list li:first-child {
+  border-top: 0;
+}
+
+.member-who {
+  display: flex;
+  flex: 1 1 9rem;
+  flex-direction: column;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.member-who strong {
+  font-weight: 600;
+}
+
+.member-action-spacer {
+  width: 2.75rem;
+}
+
+/* Phones: the role (and remove) go on their own line, aligned with the name. */
+@media (max-width: 30rem) {
+  .member-list li select {
+    margin-left: 3.8rem;
+  }
+
+  .member-action-spacer {
+    display: none;
+  }
+}
+
+.settings-button .avatar {
+  width: 1.6rem;
+  height: 1.6rem;
+}
+
+.menu-identity {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+}
+
+.menu-identity p {
+  margin: 0;
+  min-width: 0;
 }
 
 /* ---- Options behind a summary that names the current value (schedule dialog, builder) ------ */
@@ -3911,6 +4171,70 @@ input.list-check {
 
 .type-add .field {
   flex: 1 1 10rem;
+}
+
+/* Workspace settings → Plugins: one tile per tool, icon, name and an on/off switch. */
+.plugin-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 15rem), 1fr));
+  gap: 0.75rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.plugin-tile {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: center;
+  gap: 0.25rem 0.5rem;
+  margin: 0;
+  padding: 0.5rem 0.5rem 0.5rem 0.75rem;
+}
+
+.plugin-tile.plugin-on {
+  border-color: var(--accent);
+}
+
+.plugin-switch {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  min-height: 2.75rem;
+  min-width: 0;
+  cursor: pointer;
+}
+
+.plugin-icon {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: 2.5rem;
+  height: 2.5rem;
+  border-radius: 50%;
+  background: var(--surface-muted);
+  color: var(--text-muted);
+}
+
+.plugin-on .plugin-icon {
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+.plugin-name {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.plugin-hint {
+  grid-column: 1 / -1;
+  padding: 0 0.25rem 0.25rem;
+}
+
+.plugin-switch input.switch {
+  margin: 0;
 }
 
 .tool-switch {
