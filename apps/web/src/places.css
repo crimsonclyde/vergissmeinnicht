@@ -39,7 +39,7 @@
   text-shadow: 0 0 0.15rem var(--bg), 0 0 0.6rem var(--bg);
 }
 
-:root[data-theme='places'] :is(.app-main, .public-main) :is(.card, button, .button, input, select, textarea, .badge, dialog, .theme-swatch, .place-preview, .today-card, .tab-bar, .settings-nav) {
+:root[data-theme='places'] :is(.app-main, .public-main) :is(.card, [data-card], .today-hero, article, table, button, .button, input, select, textarea, .badge, dialog, [role='dialog'], [role='menu'], .theme-swatch, .place-preview, .today-card, .tab-bar, .settings-nav) {
   text-shadow: none;
 }
 
