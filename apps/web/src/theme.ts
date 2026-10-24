@@ -1,4 +1,6 @@
-import { THEME_PREFERENCES, type ThemePreference } from '@vergissmeinnicht/domain';
+import { THEME_PREFERENCES, placeOfTheme, type ThemePreference } from '@vergissmeinnicht/domain';
+import { PLACES } from './places/registry.ts';
+import { PLACE_TOKEN_NAMES } from './places/types.ts';
 import { useCallback, useSyncExternalStore } from 'react';
 
 /**
@@ -12,8 +14,11 @@ import { useCallback, useSyncExternalStore } from 'react';
 export const THEME_MODES = THEME_PREFERENCES;
 export type ThemeMode = ThemePreference;
 
-/** Theme ids = `data-theme` values; each has a token block (incl. `color-scheme`) in styles.css. */
-export const THEMES = ['light', 'dark', 'memento-mori', 'tokyo-nights', 'witch-forest'] as const;
+/**
+ * Theme ids = `data-theme` values; each has a token block (incl. `color-scheme`) in styles.css — except
+ * `places` (section 30), whose tokens come from the country registry and are set on <html> by `apply`.
+ */
+export const THEMES = ['light', 'dark', 'memento-mori', 'tokyo-nights', 'witch-forest', 'places'] as const;
 export type ThemeId = (typeof THEMES)[number];
 
 const STORAGE_KEY = 'vmn.theme';
@@ -25,8 +30,26 @@ const DARK_QUERY = '(prefers-color-scheme: dark)';
 
 export function resolveTheme(mode: ThemeMode, systemPrefersDark: boolean): ThemeId {
   if (mode === 'system') return systemPrefersDark ? 'dark' : 'light';
-  return mode;
+  if (placeOfTheme(mode) !== null) return 'places';
+  return mode as Exclude<ThemeMode, 'system' | `places-${string}`>;
 }
+
+/**
+ * What a Places theme sets on <html>: the country, the scheme (a Places country follows the device's
+ * light/dark setting, like System), and every colour token as a custom property. Null for other themes.
+ */
+export function placeAttributes(mode: ThemeMode, systemPrefersDark: boolean): { place: string; scheme: 'light' | 'dark'; properties: Record<string, string> } | null {
+  const id = placeOfTheme(mode);
+  if (id === null) return null;
+  const config = PLACES[id];
+  const scheme = systemPrefersDark ? 'dark' : 'light';
+  const { tokens, gradient } = config[scheme];
+  const properties: Record<string, string> = Object.fromEntries(PLACE_TOKEN_NAMES.map((name) => [`--${name}`, tokens[name]]));
+  properties['--place-gradient'] = `linear-gradient(180deg, ${gradient.join(', ')})`;
+  return { place: id, scheme, properties };
+}
+
+const PLACE_PROPERTIES = [...PLACE_TOKEN_NAMES.map((name) => `--${name}`), '--place-gradient'];
 
 export function isThemeMode(value: unknown): value is ThemeMode {
   return typeof value === 'string' && (THEME_MODES as readonly string[]).includes(value);
@@ -104,7 +127,22 @@ function systemPrefersDark(): boolean {
 }
 
 function apply(): void {
-  document.documentElement.dataset.theme = resolveTheme(effectiveMode(currentMode, workspaceMode), systemPrefersDark());
+  const root = document.documentElement;
+  const mode = effectiveMode(currentMode, workspaceMode);
+  const dark = systemPrefersDark();
+  root.dataset.theme = resolveTheme(mode, dark);
+  const place = placeAttributes(mode, dark);
+  if (place === null) {
+    delete root.dataset.place;
+    delete root.dataset.scheme;
+    for (const name of PLACE_PROPERTIES) root.style.removeProperty(name);
+    root.style.removeProperty('color-scheme');
+  } else {
+    root.dataset.place = place.place;
+    root.dataset.scheme = place.scheme;
+    for (const [name, value] of Object.entries(place.properties)) root.style.setProperty(name, value);
+    root.style.setProperty('color-scheme', place.scheme);
+  }
   // The phone's browser bar takes the page colour of the theme.
   const bg = getComputedStyle(document.documentElement).getPropertyValue('--bg').trim();
   if (bg !== '') document.querySelector('meta[name="theme-color"]')?.setAttribute('content', bg);
@@ -117,7 +155,8 @@ export function initTheme(): void {
   apply();
   // "System" follows changes of the operating-system setting while the app is open.
   window.matchMedia?.(DARK_QUERY).addEventListener('change', () => {
-    if (effectiveMode(currentMode, workspaceMode) === 'system') apply();
+    const mode = effectiveMode(currentMode, workspaceMode);
+    if (mode === 'system' || placeOfTheme(mode) !== null) apply();
   });
 }
 

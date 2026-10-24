@@ -2,6 +2,8 @@ import { useCallback, useEffect, useState, type ReactNode } from 'react';
 import { AcceptInvitation } from './AcceptInvitation.tsx';
 import { api, isNetworkError, type CurrentUser } from './api.ts';
 import { ForestScene } from './ForestScene.tsx';
+import { PlaceScene } from './places/PlaceScene.tsx';
+import { clearPlaceCopies } from './places/settings-store.ts';
 import { AppShell } from './AppShell.tsx';
 import { OfflineProvider } from './offline/OfflineProvider.tsx';
 import { announceSession, onSessionMessage, reactionTo } from './offline/session-channel.ts';
@@ -17,6 +19,7 @@ function PublicLayout({ children }: { children: ReactNode }) {
   return (
     <>
       <ForestScene />
+      <PlaceScene prominence="today" />
       <main className="app-main public-main">
         <h1 className="public-brand">
           <img className="brand-icon" src="/icon.svg" alt="" width={40} height={40} />
@@ -104,7 +107,7 @@ export function App() {
       </PublicLayout>
     );
   }
-  if (user === undefined) return <><ForestScene /><p className="app-main public-main">{t('common.loading')}</p></>;
+  if (user === undefined) return <><ForestScene /><PlaceScene prominence="today" /><p className="app-main public-main">{t('common.loading')}</p></>;
   if (user === null) {
     return (
       <PublicLayout>
@@ -133,7 +136,10 @@ export function App() {
           void api
             .signOut()
             .catch(() => undefined)
-            .then(() => offlineStore.clear())
+            .then(() => {
+              clearPlaceCopies();
+              return offlineStore.clear();
+            })
             .then((result) => {
               setCleanupFailed(result === 'failed');
               setUser(null);

@@ -32,6 +32,9 @@ import { ACCOUNT_SECTIONS, Link, navigate, paths, type AccountSection, type Rout
 import { RingPaint } from './RunGuide.tsx';
 import { Runs } from './Runs.tsx';
 import { SettingsLayout } from './SettingsLayout.tsx';
+import { PlaceScene } from './places/PlaceScene.tsx';
+import { PlacesSettings } from './places/PlacesSettings.tsx';
+import { placeOfWorkspace } from './places/registry.ts';
 import { SettingsMenu } from './SettingsMenu.tsx';
 import { SourceFooter } from './SourceFooter.tsx';
 import { CoreToolsContext } from './core-tools.ts';
@@ -355,6 +358,7 @@ const ACCOUNT_SECTION_ICONS: Record<AccountSection, UiIconName> = {
   profile: 'profile',
   security: 'security',
   appearance: 'appearance',
+  places: 'places',
   today: 'layout',
   confirmations: 'confirmations',
   notifications: 'reminders',
@@ -365,6 +369,7 @@ const ACCOUNT_SECTION_GROUPS: Record<AccountSection, MessageKey> = {
   profile: 'settings.group.you',
   security: 'settings.group.you',
   appearance: 'settings.group.look',
+  places: 'settings.group.look',
   today: 'settings.group.look',
   confirmations: 'settings.group.look',
   notifications: 'settings.group.informed',
@@ -373,7 +378,10 @@ const ACCOUNT_SECTION_GROUPS: Record<AccountSection, MessageKey> = {
 };
 
 /** Profile & settings (15.1, regrouped in section 29): profile, security, look & feel, notifications, journal. */
-function AccountPage({ user, section, tools, workspaces, avatar, onAvatarChanged }: { user: CurrentUser; section: Extract<Route, { page: 'account' }>['section']; tools: readonly string[] | null; workspaces: readonly WorkspaceSummary[] | null; avatar: string | null; onAvatarChanged: (version: string | null) => void }) {
+function AccountPage({ user, section, tools, workspaces, activeWorkspace, avatar, onAvatarChanged }: { user: CurrentUser; section: Extract<Route, { page: 'account' }>['section']; tools: readonly string[] | null; workspaces: readonly WorkspaceSummary[] | null; activeWorkspace: WorkspaceSummary | null; avatar: string | null; onAvatarChanged: (version: string | null) => void }) {
+  // Places (section 30): the tab is there only while the Workspace in use shows a Places theme.
+  const { preferences, workspacePreferences } = usePreferences();
+  const place = placeOfWorkspace(preferences.theme, workspacePreferences.themes, activeWorkspace?.id ?? null);
   // Weather (19.4) is offered only while the server allows it (W1); unknown until asked.
   const [weatherOn, setWeatherOn] = useState<boolean | null>(null);
   useEffect(() => {
@@ -389,7 +397,7 @@ function AccountPage({ user, section, tools, workspaces, avatar, onAvatarChanged
       subtitle={t('account.identity', { name: user.displayName, email: user.email })}
       identity={section === 'profile' ? undefined : <ProfileIdentity user={user} avatar={avatar} />}
       navLabel={t('account.heading')}
-      sections={ACCOUNT_SECTIONS.filter((value) => value !== 'weather' || weatherOn === true || section === 'weather').map((value) => ({
+      sections={ACCOUNT_SECTIONS.filter((value) => (value !== 'weather' || weatherOn === true || section === 'weather') && (value !== 'places' || place !== null || section === 'places')).map((value) => ({
         href: paths.account(value),
         label: t(`account.section.${value}`),
         current: value === section,
@@ -404,6 +412,7 @@ function AccountPage({ user, section, tools, workspaces, avatar, onAvatarChanged
           <NotificationSettings serverAdmin={user.serverAdmin} />
         </div>
       )}
+      {section === 'places' && <PlacesSettings userId={user.id} workspace={place === null ? null : activeWorkspace} config={place} />}
       {section === 'today' && (
         <div className="card">
           <TodaySettings userId={user.id} tools={tools} weatherOn={weatherOn === true} />
@@ -503,7 +512,17 @@ export function AppShell(props: { user: CurrentUser; route: Route; onSignOut: ()
   let content;
   if (route.page === 'account') {
     // Today cards of tools that are off where the person last was are marked as such (UI only).
-    content = <AccountPage user={user} section={route.section} tools={workspaces?.find((workspace) => workspace.id === rememberedWorkspace())?.tools ?? null} workspaces={workspaces} avatar={avatar} onAvatarChanged={setAvatar} />;
+    content = (
+      <AccountPage
+        user={user}
+        section={route.section}
+        tools={workspaces?.find((workspace) => workspace.id === rememberedWorkspace())?.tools ?? null}
+        workspaces={workspaces}
+        activeWorkspace={workspaces?.find((workspace) => workspace.id === navWorkspaceId) ?? null}
+        avatar={avatar}
+        onAvatarChanged={setAvatar}
+      />
+    );
   } else if (route.page === 'admin') {
     content = user.serverAdmin ? (
       <AdminPage section={route.section} currentUserId={user.id} onWorkspacesChanged={refresh} />
@@ -530,6 +549,8 @@ export function AppShell(props: { user: CurrentUser; route: Route; onSignOut: ()
     // the person chose for the Workspace shown (or last used) applies (section 28).
     <PreferencesProvider workspaceId={route.page === 'account' && route.section === 'appearance' ? null : navWorkspaceId}>
       <RingPaint />
+      {/* Places (section 30): the person's own look of the Workspace shown; strongest on Today. */}
+      <PlaceScene userId={user.id} workspaceId={navWorkspaceId} prominence={route.page === 'workspace' ? 'today' : 'page'} />
       <a
         className="skip-link"
         href="#main"

@@ -99,7 +99,6 @@ export function scene() {
     return out.join('');
   };
   for (let fl = 0; fl < 4; fl++) {
-    const top = floors[fl] - 200 + (fl === 3 ? 0 : 0);
     const height = [0, 190, 180, 170][fl] || 175;
     if (fl === 0) continue;
     for (let c = 0; c < cols; c++) h.push(sash(X0 + step * (c + 0.5), floors[fl] + 26, height));

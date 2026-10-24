@@ -39,7 +39,7 @@ export function createPlacesRepository({ db }: Pick<AppDatabase, 'db'>): PlacesR
           .from(userPlaceBackgrounds)
           .where(photoKey(userId, workspaceId))
           .get();
-        let stored: unknown = null;
+        let stored: unknown;
         try {
           stored = settings === undefined ? null : JSON.parse(settings.settings);
         } catch {

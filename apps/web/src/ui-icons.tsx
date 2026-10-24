@@ -1,5 +1,14 @@
 import {
   IconArchive,
+  IconBuilding,
+  IconBuildingCommunity,
+  IconDeviceDesktop,
+  IconDeviceMobile,
+  IconFocusCentered,
+  IconPhotoOff,
+  IconSquareHalf,
+  IconSunMoon,
+  IconVignette,
   IconCamera,
   IconDatabaseExport,
   IconHandStop,
@@ -168,6 +177,16 @@ const ICONS = {
   storage: IconArchive,
   backup: IconDatabaseExport,
   share: IconShare,
+  // Places (section 30): the tab, the three backgrounds, the preview frames and the adjustments.
+  places: IconBuildingCommunity,
+  illustration: IconBuilding,
+  noImage: IconPhotoOff,
+  desktop: IconDeviceDesktop,
+  phone: IconDeviceMobile,
+  focus: IconFocusCentered,
+  overlay: IconSquareHalf,
+  vignette: IconVignette,
+  atmosphere: IconSunMoon,
 } as const;
 
 export type UiIconName = keyof typeof ICONS;
