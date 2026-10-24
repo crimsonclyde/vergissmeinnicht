@@ -2014,6 +2014,14 @@ GitHub pre-release created after the user approved the command: `https://github.
 
 **Validation:** implementation and local checks recorded in 16.8 (146 files / 1154 tests, 27.30 s; Playwright 3 passed / 1 intentional skip; typecheck/lint/build/schema checks). Final PR CI `37218359808`, main CI `37218652596` and release `37218676293` succeeded. Both native validation and publishing images passed smoke tests and fixable HIGH/CRITICAL vulnerability scans; manifest publishing, workflow signing and CycloneDX attestation succeeded. Completion is recorded in a documentation commit after publication. Physical-phone imports, live Unraid upgrade and the existing development-only moderate esbuild finding remain open. Security surface: MEDIUM, documented in `security.md`; release validation must remain fail-closed.
 
+### 12.42 Release 0.7.2-beta.0
+
+**Status:** PREPARED (2026-10-24). Release PR bumps the Unraid template and guide to `ghcr.io/crimsonclyde/vergissmeinnicht:0.7.2-beta.0`. The owner publishes the GitHub prerelease, which creates tag `v0.7.2-beta.0` on the merge commit and starts `release.yml`.
+
+**Scope:** section 30 Places — country themes (Germany, Italy, UK, Scotland) with a personal background per person and Workspace (PR #66). Artwork is interim (drawn by code); final painted artwork is open.
+
+**Upgrade:** migration **0055_places** (56 migrations, 0000–0055). Back up first. New tables `user_place_preferences` and `user_place_backgrounds` start empty and are excluded from Workspace backups; `user_preferences` and `user_workspace_preferences` are rebuilt with the wider theme CHECK, rows preserved. No new environment variables. Older images refuse the newer database.
+
 ### 12.41 Release 0.7.1-beta.1
 
 **Status:** DONE (2026-10-24). Release PR #63 merged as `e2bcfb84aae3138fb9d6d2afe0fc7ee7066f62d0`; the owner published the GitHub prerelease, which created tag `v0.7.1-beta.1` on that commit. Unraid template and guide pin `ghcr.io/crimsonclyde/vergissmeinnicht:0.7.1-beta.1`.
