@@ -2014,6 +2014,16 @@ GitHub pre-release created after the user approved the command: `https://github.
 
 **Validation:** implementation and local checks recorded in 16.8 (146 files / 1154 tests, 27.30 s; Playwright 3 passed / 1 intentional skip; typecheck/lint/build/schema checks). Final PR CI `37218359808`, main CI `37218652596` and release `37218676293` succeeded. Both native validation and publishing images passed smoke tests and fixable HIGH/CRITICAL vulnerability scans; manifest publishing, workflow signing and CycloneDX attestation succeeded. Completion is recorded in a documentation commit after publication. Physical-phone imports, live Unraid upgrade and the existing development-only moderate esbuild finding remain open. Security surface: MEDIUM, documented in `security.md`; release validation must remain fail-closed.
 
+### 12.41 Release 0.7.1-beta.1
+
+**Status:** PREPARED (2026-10-24). Release PR bumps the Unraid template and guide to `ghcr.io/crimsonclyde/vergissmeinnicht:0.7.1-beta.1`. The owner publishes the GitHub prerelease, which creates tag `v0.7.1-beta.1` on the merge commit and starts `release.yml`.
+
+**Scope:** section 28 default Workspace and a theme per Workspace (PR #60); section 28 Workspace settings → Plugins tab with the web tool registry (PR #61, step 1 only; refactor steps 2–4 not approved); section 29 profile pictures and regrouped Profile/Workspace settings (PR #62).
+
+**Upgrade:** migrations **0053_workspace_preferences** and **0054_profile_avatars** (55 migrations, 0000–0054). Back up first. New tables `user_workspace_preferences` and `user_avatars` start empty and are excluded from Workspace backups. No new environment variables. Older images refuse the newer database.
+
+**Validation:** PR CI for #60 and #62 (quality, browser, amd64/arm64 images) passed before merge. Local image of the release code passed `deploy/smoke-test.sh` and `deploy/upgrade-check.sh` from published `0.7.1-beta.0` with populated data: pre-migration backup, row counts preserved, level 55, clean foreign keys/integrity, Workspace export/restore. The cloud session cannot reach Debian mirrors, so the local test image used `node:24.21.0-bookworm` for the build stage and skipped the two OS-package upgrade steps; the release workflow builds and scans the real image. Real-phone check of avatars and new settings layout remains open.
+
 ### 12.40 Release 0.7.1-beta.0
 
 **Status:** DONE (2026-10-23). Committed, pushed and released as `0.7.1-beta.0` at the owner’s explicit request, directly on main.
