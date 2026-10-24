@@ -52,6 +52,8 @@ import {
   IconRotateClockwise,
   IconSettings,
   IconShoppingCart,
+  IconStar,
+  IconStarFilled,
   IconSun,
   IconSunLow,
   IconTool,
@@ -125,6 +127,9 @@ const ICONS = {
   maintenance: IconTool,
   equipment: IconTool,
   place: IconMapPin,
+  // The default Workspace (section 28): outlined = not the default, filled = the default.
+  star: IconStar,
+  starFilled: IconStarFilled,
   // Weather conditions (19.4): monochrome, in the text colour; the condition is always also written out.
   weatherClear: IconSun,
   weatherPartlyCloudy: IconSunLow,

@@ -3,14 +3,17 @@ import {
   confirmTotpEnrollment,
   disableTotp,
   getPreferences,
+  getWorkspacePreferences,
   getTodayLayout,
   mfaStatus,
   regenerateRecoveryCodes,
   saveTodayLayout,
+  setDefaultWorkspace,
+  setWorkspaceTheme,
   startTotpEnrollment,
   updatePreferences,
 } from '@vergissmeinnicht/application';
-import { CRITICAL_CONFIRM_MODES, THEME_PREFERENCES } from '@vergissmeinnicht/domain';
+import { CRITICAL_CONFIRM_MODES, THEME_PREFERENCES, type WorkspaceId } from '@vergissmeinnicht/domain';
 import type { FastifyInstance, FastifyRequest } from 'fastify';
 import { z } from 'zod';
 import type { AppServices } from '../composition.ts';
@@ -29,6 +32,10 @@ const changePasswordBody = z.strictObject({ currentPassword: password, newPasswo
 const preferencesBody = z
   .strictObject({ theme: z.enum(THEME_PREFERENCES).optional(), criticalConfirm: z.enum(CRITICAL_CONFIRM_MODES).optional() })
   .refine((body) => body.theme !== undefined || body.criticalConfirm !== undefined);
+// Section 28: ids are UUIDs; `null` clears (the default theme, or no default Workspace).
+const workspaceIdSchema = z.uuid({ version: 'v4' });
+const workspaceThemeBody = z.strictObject({ workspaceId: workspaceIdSchema, theme: z.enum(THEME_PREFERENCES).nullable() });
+const defaultWorkspaceBody = z.strictObject({ workspaceId: workspaceIdSchema.nullable() });
 
 function parse<T>(schema: z.ZodType<T>, value: unknown): T {
   const parsed = schema.safeParse(value);
@@ -74,6 +81,17 @@ export async function accountRoutes(app: FastifyInstance, { services }: { servic
       },
     });
     return { preferences };
+  });
+
+  // Per-Workspace choices (section 28): the person's own view only; membership is checked on every write.
+  app.get('/workspace-preferences', async (request) => ({ workspacePreferences: await getWorkspacePreferences(services.preferences, { user: userOf(request) }) }));
+  app.post('/workspace-preferences/theme', { bodyLimit: 1024 }, async (request) => {
+    const body = parse(workspaceThemeBody, request.body);
+    return { workspacePreferences: await setWorkspaceTheme(services.preferences, { user: userOf(request), workspaceId: body.workspaceId as WorkspaceId, theme: body.theme }) };
+  });
+  app.post('/workspace-preferences/default', { bodyLimit: 1024 }, async (request) => {
+    const body = parse(defaultWorkspaceBody, request.body);
+    return { workspacePreferences: await setDefaultWorkspace(services.preferences, { user: userOf(request), workspaceId: body.workspaceId as WorkspaceId | null }) };
   });
 
   // Today layout (19.2): the person's own cards, order and options. Strictly validated on write; `null` resets.

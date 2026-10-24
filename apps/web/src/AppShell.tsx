@@ -6,7 +6,7 @@ import { AppearanceSettings } from './AppearanceSettings.tsx';
 import { CriticalConfirmSettings } from './CriticalConfirmSettings.tsx';
 import { Documents } from './Documents.tsx';
 import { PhotosPage } from './PhotoGallery.tsx';
-import { PreferencesProvider } from './preferences.tsx';
+import { PreferencesProvider, usePreferences } from './preferences.tsx';
 import { OfflineBanner, useOffline } from './offline/OfflineProvider.tsx';
 import { offlineStore } from './offline/store.ts';
 import { api, isNetworkError, messageFor, type CurrentUser, type WorkspaceSummary } from './api.ts';
@@ -334,7 +334,7 @@ function NoWorkspace({ user }: { user: CurrentUser }) {
 }
 
 /** Profile & settings (15.1): personal notifications, appearance, password and security, confirmations. */
-function AccountPage({ user, section, tools }: { user: CurrentUser; section: Extract<Route, { page: 'account' }>['section']; tools: readonly string[] | null }) {
+function AccountPage({ user, section, tools, workspaces }: { user: CurrentUser; section: Extract<Route, { page: 'account' }>['section']; tools: readonly string[] | null; workspaces: readonly WorkspaceSummary[] | null }) {
   // Weather (19.4) is offered only while the server allows it (W1); unknown until asked.
   const [weatherOn, setWeatherOn] = useState<boolean | null>(null);
   useEffect(() => {
@@ -368,7 +368,7 @@ function AccountPage({ user, section, tools }: { user: CurrentUser; section: Ext
       )}
       {section === 'appearance' && (
         <div className="card">
-          <AppearanceSettings />
+          <AppearanceSettings workspaces={workspaces} />
         </div>
       )}
       {section === 'security' && (
@@ -388,6 +388,22 @@ function AccountPage({ user, section, tools }: { user: CurrentUser; section: Ext
       )}
     </SettingsLayout>
   );
+}
+
+/**
+ * The start page opens the person's default Workspace (section 28), else the last used, else the first.
+ * Waits for the account's choice (or its failure, offline) so it never jumps twice.
+ */
+function OpenFirstWorkspace({ workspaces }: { workspaces: readonly WorkspaceSummary[] }) {
+  const { workspacePreferences, workspacePreferencesSettled } = usePreferences();
+  useEffect(() => {
+    if (!workspacePreferencesSettled) return;
+    const last = rememberedWorkspace();
+    const target =
+      workspaces.find((workspace) => workspace.id === workspacePreferences.defaultWorkspaceId) ?? workspaces.find((workspace) => workspace.id === last) ?? workspaces[0];
+    if (target !== undefined) navigate(paths.home(target.id), { replace: true });
+  }, [workspaces, workspacePreferences.defaultWorkspaceId, workspacePreferencesSettled]);
+  return <p>{t('common.loading')}</p>;
 }
 
 /** How wide the page may get: forms and lists stay readable, the builder uses the screen. */
@@ -426,14 +442,6 @@ export function AppShell(props: { user: CurrentUser; route: Route; onSignOut: ()
   }, [user.id]);
   useEffect(refresh, [refresh]);
 
-  // The start page opens the last used (or first) Workspace.
-  useEffect(() => {
-    if (route.page !== 'home' || workspaces === null || workspaces.length === 0) return;
-    const last = rememberedWorkspace();
-    const target = workspaces.find((workspace) => workspace.id === last) ?? workspaces[0];
-    if (target !== undefined) navigate(paths.home(target.id), { replace: true });
-  }, [route.page, workspaces]);
-
   const workspaceId = 'workspaceId' in route ? route.workspaceId : null;
   // On pages without a Workspace (settings, admin) the tools stay reachable: they lead to the last used one.
   const remembered = workspaceId === null ? rememberedWorkspace() : null;
@@ -445,7 +453,7 @@ export function AppShell(props: { user: CurrentUser; route: Route; onSignOut: ()
   let content;
   if (route.page === 'account') {
     // Today cards of tools that are off where the person last was are marked as such (UI only).
-    content = <AccountPage user={user} section={route.section} tools={workspaces?.find((workspace) => workspace.id === rememberedWorkspace())?.tools ?? null} />;
+    content = <AccountPage user={user} section={route.section} tools={workspaces?.find((workspace) => workspace.id === rememberedWorkspace())?.tools ?? null} workspaces={workspaces} />;
   } else if (route.page === 'admin') {
     content = user.serverAdmin ? (
       <AdminPage section={route.section} currentUserId={user.id} onWorkspacesChanged={refresh} />
@@ -458,7 +466,7 @@ export function AppShell(props: { user: CurrentUser; route: Route; onSignOut: ()
     content = <WorkspacePage route={route} user={user} onWorkspacesChanged={refresh} />;
   } else if (route.page === 'home') {
     const loading = <p>{t('common.loading')}</p>;
-    content = workspaces === null ? loading : workspaces.length === 0 ? <NoWorkspace user={user} /> : loading;
+    content = workspaces === null ? loading : workspaces.length === 0 ? <NoWorkspace user={user} /> : <OpenFirstWorkspace workspaces={workspaces} />;
   } else {
     content = (
       <p role="alert">
@@ -468,7 +476,9 @@ export function AppShell(props: { user: CurrentUser; route: Route; onSignOut: ()
   }
 
   return (
-    <PreferencesProvider>
+    // Appearance shows the default theme, so choosing it there is seen at once; elsewhere the theme
+    // the person chose for the Workspace shown (or last used) applies (section 28).
+    <PreferencesProvider workspaceId={route.page === 'account' && route.section === 'appearance' ? null : navWorkspaceId}>
       <RingPaint />
       <a
         className="skip-link"

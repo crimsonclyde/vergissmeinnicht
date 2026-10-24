@@ -15,3 +15,16 @@ export interface UserPreferences {
 }
 
 export const DEFAULT_PREFERENCES: UserPreferences = Object.freeze({ theme: 'system', criticalConfirm: 'hold' });
+
+/**
+ * A person's own choices per Workspace (section 28): which Workspace opens first, and a theme for a
+ * Workspace that differs from their default theme. Presentation only; never shared, never in a backup.
+ * Only Workspaces the person is currently a member of are listed.
+ */
+export interface WorkspacePreferences {
+  readonly defaultWorkspaceId: string | null;
+  /** Workspace id → theme. A Workspace without an entry uses the default theme. */
+  readonly themes: Readonly<Record<string, ThemePreference>>;
+}
+
+export const EMPTY_WORKSPACE_PREFERENCES: WorkspacePreferences = Object.freeze({ defaultWorkspaceId: null, themes: Object.freeze({}) });

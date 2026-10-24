@@ -1,6 +1,6 @@
 import type { JournalContent, JournalEntry } from '@vergissmeinnicht/domain';
 /** Thin JSON client for the same-origin API. The browser adds the `Origin` header the server checks. */
-import type { CredentialProviderId, OpenMeteoModelId, ProcedureIcon, ReasonPolicy, RunState, StepState, TodayLayout, UserPreferences, WeatherCredential, WeatherForecast, WeatherLocation, WeatherProviderId, WeatherSettings, WorkspaceRole } from '@vergissmeinnicht/domain';
+import type { CredentialProviderId, OpenMeteoModelId, ProcedureIcon, ReasonPolicy, RunState, StepState, ThemePreference, TodayLayout, UserPreferences, WeatherCredential, WeatherForecast, WeatherLocation, WeatherProviderId, WeatherSettings, WorkspacePreferences, WorkspaceRole } from '@vergissmeinnicht/domain';
 import { hasMessage, t } from './i18n/index.ts';
 
 // Shared vocabulary comes from the domain package (browser-safe, no server code). The server still
@@ -1281,6 +1281,14 @@ export const api = {
   preferences: async () => (await request<{ preferences: UserPreferences }>('GET', '/account/preferences')).preferences,
   updatePreferences: async (changes: Partial<UserPreferences>) =>
     (await request<{ preferences: UserPreferences }>('POST', '/account/preferences', changes)).preferences,
+  /** Default Workspace and per-Workspace themes (section 28). */
+  workspacePreferences: async () => (await request<{ workspacePreferences: WorkspacePreferences }>('GET', '/account/workspace-preferences')).workspacePreferences,
+  /** `null` returns the Workspace to the default theme. */
+  setWorkspaceTheme: async (workspaceId: string, theme: ThemePreference | null) =>
+    (await request<{ workspacePreferences: WorkspacePreferences }>('POST', '/account/workspace-preferences/theme', { workspaceId, theme })).workspacePreferences,
+  /** `null`: no default — the last used Workspace opens first. */
+  setDefaultWorkspace: async (workspaceId: string | null) =>
+    (await request<{ workspacePreferences: WorkspacePreferences }>('POST', '/account/workspace-preferences/default', { workspaceId })).workspacePreferences,
   startTotp: (password: string) => request<{ secret: string; uri: string }>('POST', '/account/mfa/totp/setup', { password }),
   confirmTotp: (code: string) => request<{ recoveryCodes: string[] }>('POST', '/account/mfa/totp/confirm', { code }),
   disableTotp: (password: string, factor: SecondFactor) =>
