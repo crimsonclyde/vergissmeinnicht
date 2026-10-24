@@ -4688,6 +4688,26 @@ Decisions (defaults chosen 2026-10-23, shown to the owner with screenshots):
 
 **Remaining / limits:** physical devices and screen readers not tested; Chromium emulation is not real-device certification. SunCalc predictions are calculated estimates, not observatory ephemerides. Private journal privacy is enforced by the application, not end-to-end encryption; full server backups retain account data. Initial extension is bundled text notes only: richer entry types require a reviewed parser/renderer and migration when persistence changes. No autosave/offline drafts, attachments, remote plugins, automatic publishing or permanent deletion. Existing large JavaScript chunk warning remains. Released in 0.7.1-beta.0 (12.40) at the owner’s later request. No live deployment.
 
+## 28 — Default Workspace and a theme per Workspace (owner request 2026-10-24)
+
+**Status:** DONE (2026-10-24; not released)
+
+**Request:** in the profile, a person picks their own default Workspace and a theme per Workspace they belong to (e.g. Tokyo Nights for A, Witch Forest for B), so Workspaces look distinctly different; anything not chosen falls back to the default theme.
+
+**Decisions (defaults, shown to the owner in the PR):** personal presentation only, like the theme (8.7) and pins (13.12): not shared, not audited, not in Workspace backups; any role including GUEST may choose for themselves. The default Workspace opens from the start page (`/`); without one the last used, then the first Workspace opens as before. Account pages use the theme of the Workspace last used, except *Profile & settings → Appearance*, which shows the default theme so choosing it is seen at once.
+
+**Implemented:** migration **0053_workspace_preferences** adds `user_workspace_preferences` (user, Workspace, nullable theme, default flag; CHECKs, partial unique index for one default; no empty rows). `getWorkspacePreferences`, `setWorkspaceTheme`, `setDefaultWorkspace` use-cases and `GET /api/account/workspace-preferences`, `POST …/theme`, `POST …/default`. The repository rechecks ACTIVE account and membership in an IMMEDIATE transaction; reads list only current memberships. Web: `theme.ts` shows the Workspace's theme over the default (`effectiveMode`), with a browser copy for the first paint; `PreferencesProvider` takes the current Workspace; the start page waits for the account's default. *Appearance* has a **Per Workspace** list: star icon button (aria-pressed) = opens first, a small theme picture, the name and a theme select (Default (…) + every theme). Table excluded from Workspace backups.
+
+**Tests/checks:** new `workspace-preferences.test.ts` (6 tests) and `theme.test.ts` cases; backup/restore level expectations updated to 0053; full Vitest suite, lint, typecheck and web build pass. Browser check on a throwaway server at 1440/390/320 px: default Workspace opens first in the default theme (Witch Forest), the other Workspace shows its own theme (Tokyo Nights), switching Workspaces in the sidebar switches the theme without reload, the first paint after reload is already right, no horizontal overflow, no page errors.
+
+Also bumps **zod 4.6.5 → 4.6.6** (GHSA-mrhx-c7xc-m3w5, high, published after the last release; CI `pnpm audit --audit-level high` failed on it).
+
+**Security impact:** LOW — personal presentation data and three account routes; membership checked on every write. **Security docs updated:** YES (section 28 check).
+
+**Remaining:** no e2e spec in `e2e/` yet (checked by a throwaway Playwright script); physical-device review; a release when the owner wants one.
+
+---
+
 ## 11 — Licensing
 
 ### 11.1 AGPL-3.0

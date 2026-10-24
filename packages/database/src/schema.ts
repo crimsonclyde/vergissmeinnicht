@@ -810,6 +810,34 @@ export const userPreferences = sqliteTable(
 );
 
 /**
+ * A person's own choices for one Workspace (section 28): a theme other than their default, and whether
+ * it is the Workspace that opens first (at most one per person). Personal, never part of a Workspace or
+ * its backup; rows of a Workspace the person has left are ignored on read. No row = default theme.
+ */
+export const userWorkspacePreferences = sqliteTable(
+  'user_workspace_preferences',
+  {
+    userId: text('user_id')
+      .notNull()
+      .references(() => users.id),
+    workspaceId: text('workspace_id')
+      .notNull()
+      .references(() => workspaces.id),
+    theme: text('theme', { enum: THEME_PREFERENCES }),
+    isDefault: integer('is_default', { mode: 'boolean' }).notNull().default(false),
+    updatedAt: integer('updated_at', { mode: 'timestamp_ms' }).notNull(),
+  },
+  (table) => [
+    primaryKey({ columns: [table.userId, table.workspaceId] }),
+    uniqueIndex('user_workspace_preferences_one_default').on(table.userId).where(sql`${table.isDefault} = 1`),
+    check('user_workspace_preferences_theme_valid', sql.raw(`theme is null or theme in (${THEME_PREFERENCES.map((value) => `'${value}'`).join(', ')})`)),
+    check('user_workspace_preferences_is_default_bool', sql`${table.isDefault} in (0, 1)`),
+    // A row that changes nothing is deleted instead of kept.
+    check('user_workspace_preferences_not_empty', sql`${table.theme} is not null or ${table.isDefault} = 1`),
+  ],
+);
+
+/**
  * A person's Today layout (19.2): cards, order, size, options, density — validated JSON, bounded.
  * Personal, never part of a Workspace; no row = the registry's defaults.
  */

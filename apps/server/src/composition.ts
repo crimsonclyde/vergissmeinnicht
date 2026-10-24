@@ -355,7 +355,7 @@ export function createServices(config: AppConfig, database: AppDatabase, overrid
         mfa,
         clock: systemClock,
       },
-      preferences: { preferences: createPreferencesRepository(database), clock: systemClock },
+      preferences: { preferences: createPreferencesRepository(database), workspaces: createWorkspaceRepository(database), clock: systemClock },
       todayLayouts: { todayLayouts: createTodayLayoutRepository(database), clock: systemClock },
       workspaceBackups,
       backupRunner,

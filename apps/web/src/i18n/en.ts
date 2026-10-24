@@ -620,6 +620,12 @@ export const en = {
 
   // ---- Appearance
   'appearance.legend': 'Appearance',
+  'appearance.workspaces': 'Per Workspace',
+  'appearance.workspacesHint': 'Star the Workspace that opens first. A theme here replaces your default in that Workspace.',
+  'appearance.makeDefault': 'Open {name} first',
+  'appearance.isDefault': '{name} opens first. Select to stop.',
+  'appearance.themeFor': 'Theme for {name}',
+  'appearance.useDefault': 'Default ({theme})',
   'appearance.savedToAccount': 'Saved to your account, so it applies on all your devices.',
   'appearance.system': 'System',
   'appearance.systemHint': 'Follow the setting of this device.',

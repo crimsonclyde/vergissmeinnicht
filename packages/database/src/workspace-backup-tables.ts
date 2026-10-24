@@ -88,6 +88,7 @@ export const EXCLUDED_TABLES: Readonly<Record<string, string>> = {
   rate_limits: 'server rate-limit counters',
   user_preferences: 'personal presentation settings',
   user_today_layouts: 'personal Today layouts',
+  user_workspace_preferences: 'personal default Workspace and per-Workspace themes',
   user_weather_settings: 'personal weather settings and locations',
   weather_credentials: 'weather provider credentials (sealed), any scope',
   server_weather_settings: 'server settings',

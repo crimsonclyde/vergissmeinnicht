@@ -1206,6 +1206,18 @@ The CI scan gates found new advisories: `source-map-js` < 1.2.2 (DoS on malforme
 **Scope:** no new external endpoint or credential, geolocation, auto-updated position, public location route, schedule time-zone change, clock time-zone change or Run/history mutation. The sundial redraw (25.4) remains noninteractive, aria-hidden, static SVG with no filter or new data flow. The earlier 25.3 personal-only location review describes that historical step; this section records its shared-location extension. This review is not whole-app security certification.
 
 
+### Security check: default Workspace and theme per Workspace (28, 2026-10-24)
+
+**Security surface changed: LOW** — a new personal table and three account routes; presentation only, no new permission, credential, host or shared data.
+
+- **Ownership:** `/api/account/workspace-preferences` (GET) and `…/theme`, `…/default` (POST) act only on the authenticated User; the user id never comes from the request. Bodies are strict (`workspaceId` lower-case UUID v4, theme from the fixed allowlist or `null`), 1 KB limit, same-origin CSRF and normal API limits.
+- **Membership:** writes call `authorizeWorkspace(…, 'workspace.view')` (every role, also GUEST — it changes only their own view) and recheck an ACTIVE account and current membership inside an IMMEDIATE transaction; a foreign or unknown Workspace answers 404 and writes nothing. Reads join current memberships, so a Workspace the person left is never listed (its name or id never comes back).
+- **Database backstops:** CHECKs for theme allowlist, boolean flag and no empty rows; a partial unique index allows at most one default per person.
+- **Backup/restore:** `user_workspace_preferences` is explicitly excluded from Workspace backups as personal data; nothing changes for restore.
+- **Client:** this browser keeps a copy of the theme map (`vmn.workspaceThemes`) for the first paint only; it is parsed defensively (known theme, UUID-shaped key) and never trusted for anything else. No audit event: like pins and Today layouts these are personal presentation preferences.
+
+**Verification:** `apps/server/src/http/workspace-preferences.test.ts` covers per-account isolation, GUEST allowed, foreign/unknown Workspace 404 with no rows, removed membership hidden and refused, disabled account refused inside the transaction, strict validation, missing session/Origin and SQL CHECK/UNIQUE backstops; the route security sweep includes the new routes.
+
 ### Security check: Moon and bundled Journal (27, 2026-10-23)
 
 **Security surface changed: HIGH** — account-private text alongside shared Workspace content and new routes/storage. Owner explicitly chose account-private entries plus shared Workspace entries; no private entries in Workspace backups. “Private” is application authorization, not encryption from the host operator: full server backups and the underlying database retain account data.
