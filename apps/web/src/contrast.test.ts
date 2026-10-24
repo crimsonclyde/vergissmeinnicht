@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import css from './styles.css?raw';
 import scene from './tokyo-nights.css?raw';
 import forest from './witch-forest.css?raw';
+import { PLACE_LIST } from './places/registry.ts';
 
 /** Token values of one `selector { … }` block of the stylesheet. */
 function tokens(selector: string): Record<string, string> {
@@ -34,6 +35,15 @@ const themes = {
   // Witch Forest's grimoire pages (the Step card, "Pick up where you left off") have their own tokens.
   'witch-forest page': { ...light, ...tokens(":root[data-theme='witch-forest'] :is(.guide-card, .today-hero)") },
 };
+
+/** Places (section 30): each country defines every token itself, for the light and the dark scheme. */
+const placeThemes: Record<string, Record<string, string>> = Object.fromEntries(
+  PLACE_LIST.flatMap((place) => [
+    [`places-${place.id} light`, { ...place.light.tokens }],
+    [`places-${place.id} dark`, { ...place.dark.tokens }],
+  ]),
+);
+const allThemes: Record<string, Record<string, string>> = { ...themes, ...placeThemes };
 
 /** `fg` laid over `bg` with the given opacity, as one opaque colour. */
 function blend(fg: string, alpha: number, bg: string): string {
@@ -190,6 +200,17 @@ describe('theme contrast (WCAG AA)', () => {
     expect(failures).toEqual([]);
   });
 
+  it('places: every country defines every token of the stylesheet, as #rrggbb, in both schemes', () => {
+    for (const place of PLACE_LIST) {
+      for (const scheme of [place.light, place.dark]) {
+        expect(Object.keys(scheme.tokens).sort()).toEqual(Object.keys(light).sort());
+        for (const value of [...Object.values(scheme.tokens), ...scheme.gradient]) expect(value).toMatch(/^#[0-9a-f]{6}$/);
+        // Errors, warnings and success keep their established meaning: the same hue family as the fixed themes.
+        expect(scheme.tokens.danger).not.toBe(scheme.tokens.accent);
+      }
+    }
+  });
+
   it('reads every theme token block from the stylesheet, each complete', () => {
     expect(Object.keys(light).length).toBeGreaterThanOrEqual(24);
     // Presets must define every colour token themselves (no accidental fallback to light values).
@@ -198,7 +219,7 @@ describe('theme contrast (WCAG AA)', () => {
     }
   });
 
-  for (const [name, values] of Object.entries(themes)) {
+  for (const [name, values] of Object.entries(allThemes)) {
     it(`${name}: every text/background and UI pair meets its minimum`, () => {
       const failures = PAIRS.flatMap(([fg, bg, min]) => {
         const a = values[fg];
@@ -212,7 +233,7 @@ describe('theme contrast (WCAG AA)', () => {
   }
 
   it('separates the surfaces of each theme from the page and from each other', () => {
-    for (const values of Object.values(themes)) {
+    for (const values of Object.values(allThemes)) {
       expect(new Set([values.bg, values.surface, values['surface-muted'], values['surface-raised']]).size).toBeGreaterThanOrEqual(3);
       expect(values.surface).not.toBe(values.bg);
       // A primary (accent) button and a destructive (danger) one never look the same: different colour, and danger is an outline.
@@ -222,7 +243,7 @@ describe('theme contrast (WCAG AA)', () => {
 
   it('keeps the four Step states distinguishable from each other, not only by hue', () => {
     // Different glyph + text already carry the meaning; the colours must still differ visibly.
-    for (const values of Object.values(themes)) {
+    for (const values of Object.values(allThemes)) {
       const states = ['state-pending', 'state-done', 'state-skipped', 'state-na'].map((key) => values[key] ?? '');
       expect(new Set(states).size).toBe(4);
     }

@@ -15,6 +15,7 @@ export * from './step-transition.ts';
 export * from './user.ts';
 export * from './workspace.ts';
 export * from './preferences.ts';
+export * from './places.ts';
 export * from './today-layout.ts';
 export * from './weather.ts';
 export * from './schedule.ts';

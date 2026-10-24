@@ -21,6 +21,7 @@ import {
   type InstanceSettingsDeps,
   type PreferencesDeps,
   type AvatarDeps,
+  type PlacesDeps,
   type TodayLayoutDeps,
   type WeatherDeps,
   type WorkspaceBackupDeps,
@@ -75,6 +76,7 @@ import {
   createMfaChallengeRepository,
   createPreferencesRepository,
   createAvatarRepository,
+  createPlacesRepository,
   createTodayLayoutRepository,
   createWeatherSettingsRepository,
   createWeatherCredentialRepository,
@@ -106,7 +108,7 @@ import {
 } from '@vergissmeinnicht/database';
 import { canAuthenticate, type UserId } from '@vergissmeinnicht/domain';
 import { createSmtpEmailSender } from '@vergissmeinnicht/email';
-import { createDocumentFileProcessor, createDocumentFileStore, createDocumentWorker, createFileMediaStore, createSharpAvatarProcessor, createSharpImageProcessor, createTextExtractor } from '@vergissmeinnicht/media';
+import { createDocumentFileProcessor, createDocumentFileStore, createDocumentWorker, createFileMediaStore, createSharpAvatarProcessor, createSharpImageProcessor, createSharpPlaceBackgroundProcessor, createTextExtractor } from '@vergissmeinnicht/media';
 import { createTelegramBotApi } from '@vergissmeinnicht/notifications';
 import { createWorkspaceBackupStore } from './workspace-backup/workspace-backup-store.ts';
 import { createMeteomatics, createMetNorway, createOpenMeteo, createOpenWeather, metUserAgent } from '@vergissmeinnicht/weather';
@@ -129,6 +131,8 @@ export interface AppServices {
   readonly preferences: PreferencesDeps;
   /** Profile pictures (section 29). */
   readonly avatars: AvatarDeps;
+  /** Places (section 30): personal look and background photo per Workspace. */
+  readonly places: PlacesDeps;
   readonly todayLayouts: TodayLayoutDeps;
   readonly weather: WeatherDeps;
   readonly workspaceBackups: WorkspaceBackupDeps;
@@ -361,6 +365,7 @@ export function createServices(config: AppConfig, database: AppDatabase, overrid
       },
       preferences: { preferences: createPreferencesRepository(database), workspaces: createWorkspaceRepository(database), clock: systemClock },
       avatars: { avatars: createAvatarRepository(database), processor: createSharpAvatarProcessor(), workspaces: createWorkspaceRepository(database), clock: systemClock },
+      places: { places: createPlacesRepository(database), processor: createSharpPlaceBackgroundProcessor(), workspaces: createWorkspaceRepository(database), clock: systemClock },
       todayLayouts: { todayLayouts: createTodayLayoutRepository(database), clock: systemClock },
       workspaceBackups,
       backupRunner,

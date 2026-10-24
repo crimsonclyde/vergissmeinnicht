@@ -1,4 +1,4 @@
-import type { JournalContent, JournalEntry } from '@vergissmeinnicht/domain';
+import type { JournalContent, JournalEntry, PlacePreferences, PlaceSettings } from '@vergissmeinnicht/domain';
 /** Thin JSON client for the same-origin API. The browser adds the `Origin` header the server checks. */
 import type { CredentialProviderId, OpenMeteoModelId, ProcedureIcon, ReasonPolicy, RunState, StepState, ThemePreference, TodayLayout, UserPreferences, WeatherCredential, WeatherForecast, WeatherLocation, WeatherProviderId, WeatherSettings, WorkspacePreferences, WorkspaceRole } from '@vergissmeinnicht/domain';
 import { hasMessage, t } from './i18n/index.ts';
@@ -710,6 +710,18 @@ async function uploadAvatar(image: Blob): Promise<string> {
   }
 }
 
+/** Places (section 30): the person's own background photo for one Workspace; the address changes with it. */
+export const placeBackgroundUrl = (workspaceId: string, version: string) => `/api/account/places/${encodeURIComponent(workspaceId)}/background?v=${encodeURIComponent(version)}`;
+
+async function uploadPlaceBackground(workspaceId: string, image: Blob): Promise<PlaceSettings> {
+  try {
+    return (await sendBytes<{ places: PlaceSettings }>(`/account/places/${encodeURIComponent(workspaceId)}/background`, image)).places;
+  } catch (error) {
+    if (error instanceof ApiError && error.status === 413) throw new ApiError(413, 'image_too_large', {});
+    throw error;
+  }
+}
+
 /** A Procedure archive (JSON document + images) as a file to save. */
 async function exportProcedureArchive(workspaceId: string, id: string): Promise<Blob> {
   const response = await fetch(`/api/workspaces/${encodeURIComponent(workspaceId)}/procedures/${encodeURIComponent(id)}/archive`, { credentials: 'same-origin' });
@@ -1304,6 +1316,12 @@ export const api = {
   updatePreferences: async (changes: Partial<UserPreferences>) =>
     (await request<{ preferences: UserPreferences }>('POST', '/account/preferences', changes)).preferences,
   /** Default Workspace and per-Workspace themes (section 28). */
+  placeSettings: async (workspaceId: string) => (await request<{ places: PlaceSettings }>('GET', `/account/places/${encodeURIComponent(workspaceId)}`)).places,
+  savePlaceSettings: async (workspaceId: string, preferences: PlacePreferences) =>
+    (await request<{ places: PlaceSettings }>('POST', `/account/places/${encodeURIComponent(workspaceId)}`, { preferences })).places,
+  resetPlaceSettings: async (workspaceId: string) => (await request<{ places: PlaceSettings }>('POST', `/account/places/${encodeURIComponent(workspaceId)}/reset`, {})).places,
+  removePlaceBackground: async (workspaceId: string) => (await request<{ places: PlaceSettings }>('POST', `/account/places/${encodeURIComponent(workspaceId)}/background/delete`, {})).places,
+  uploadPlaceBackground,
   workspacePreferences: async () => (await request<{ workspacePreferences: WorkspacePreferences }>('GET', '/account/workspace-preferences')).workspacePreferences,
   /** `null` returns the Workspace to the default theme. */
   setWorkspaceTheme: async (workspaceId: string, theme: ThemePreference | null) =>

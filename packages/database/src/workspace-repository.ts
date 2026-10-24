@@ -15,7 +15,7 @@ import type {
   WorkspaceRole,
 } from '@vergissmeinnicht/domain';
 import type { AppDatabase } from './connection.ts';
-import { memberships, users, workspaceTools, workspaces } from './schema.ts';
+import { memberships, userPlaceBackgrounds, userPlacePreferences, users, workspaceTools, workspaces } from './schema.ts';
 import { IMMEDIATE, actorAllowed, type Transaction, type UserActor } from './actor-guard.ts';
 import { recordSecurityEvent } from './security-events.ts';
 
@@ -266,6 +266,9 @@ export function createWorkspaceRepository(database: Pick<AppDatabase, 'db'>): Wo
         tx.delete(memberships)
           .where(and(eq(memberships.workspaceId, input.workspaceId), eq(memberships.userId, input.userId)))
           .run();
+        // The person's own Places look of this Workspace (section 30) goes with the membership.
+        tx.delete(userPlaceBackgrounds).where(and(eq(userPlaceBackgrounds.workspaceId, input.workspaceId), eq(userPlaceBackgrounds.userId, input.userId))).run();
+        tx.delete(userPlacePreferences).where(and(eq(userPlacePreferences.workspaceId, input.workspaceId), eq(userPlacePreferences.userId, input.userId))).run();
         recordSecurityEvent(tx, {
           type: 'MEMBERSHIP_REMOVED',
           actor,

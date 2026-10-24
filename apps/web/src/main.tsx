@@ -5,6 +5,7 @@ import { CityScene } from './CityScene.tsx';
 import './styles.css';
 import './tokyo-nights.css';
 import './witch-forest.css';
+import './places.css';
 import { initTheme } from './theme.ts';
 import { watchViewportDrift } from './viewport-drift.ts';
 

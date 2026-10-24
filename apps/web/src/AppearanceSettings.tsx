@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { useState, type CSSProperties } from 'react';
+import { placeForTheme } from './places/registry.ts';
 import { messageFor, type WorkspaceSummary } from './api.ts';
 import { t } from './i18n/index.ts';
 import { usePreferences } from './preferences.tsx';
@@ -7,8 +8,27 @@ import { UiIcon } from './ui-icons.tsx';
 
 /** A small picture of a theme: page, a card, the main button and the brand colour. */
 function ThemeSwatch({ mode, mini = false }: { mode: string; mini?: boolean }) {
+  // A Places country paints its swatch from the registry: its own palette and a corner of its artwork.
+  const place = placeForTheme(mode);
+  const style =
+    place === null
+      ? undefined
+      : ({
+          '--swatch-bg': place.light.tokens.bg,
+          '--swatch-surface': place.light.tokens.surface,
+          '--swatch-border': place.light.tokens.border,
+          '--swatch-text': place.light.tokens['text-muted'],
+          '--swatch-accent': place.light.tokens.accent,
+          '--swatch-art': `url("${place.artwork.day.wideSmall}")`,
+        } as CSSProperties);
   return (
-    <span className={mini ? 'theme-swatch theme-swatch-mini' : 'theme-swatch'} data-swatch={mode} aria-hidden="true">
+    <span
+      className={mini ? 'theme-swatch theme-swatch-mini' : 'theme-swatch'}
+      data-swatch={mode}
+      data-place={place?.id}
+      style={style}
+      aria-hidden="true"
+    >
       <span className="theme-swatch-card">
         <span className="theme-swatch-line" />
         <span className="theme-swatch-line theme-swatch-short" />
@@ -17,6 +37,18 @@ function ThemeSwatch({ mode, mini = false }: { mode: string; mini?: boolean }) {
     </span>
   );
 }
+
+/** The fixed themes first, then the Places countries as their own group. */
+const THEME_GROUPS = [
+  {
+    key: 'base',
+    modes: THEME_MODES.filter((mode) => placeForTheme(mode) === null),
+  },
+  {
+    key: 'places',
+    modes: THEME_MODES.filter((mode) => placeForTheme(mode) !== null),
+  },
+] as const;
 
 /**
  * Theme choice, saved to the account (Step 8.7) so it follows the user to every device; and per
@@ -34,27 +66,38 @@ export function AppearanceSettings({ workspaces = null }: { workspaces?: readonl
         <p className="muted" style={{ marginTop: 0 }}>
           {t('appearance.savedToAccount')}
         </p>
-        <div className="theme-options">
-          {THEME_MODES.map((value) => (
-            <label key={value} className="theme-option">
-              <input
-                type="radio"
-                name="theme"
-                value={value}
-                checked={preferences.theme === value}
-                onChange={() => {
-                  setMessage(null);
-                  update({ theme: value }).catch(failed);
-                }}
-              />
-              <ThemeSwatch mode={value} />
-              <span className="theme-option-text">
-                <strong>{t(`appearance.${value}`)}</strong>
-                <small className="muted">{t(`appearance.${value}Hint`)}</small>
-              </span>
-            </label>
-          ))}
-        </div>
+        {THEME_GROUPS.map(({ key, modes }) => (
+          <div key={key} className="theme-group">
+            {key === 'places' && (
+              <p className="theme-group-head">
+                <UiIcon name="places" size="1.2em" />
+                <strong>{t('appearance.places')}</strong>
+                <small className="muted">{t('appearance.placesHint')}</small>
+              </p>
+            )}
+            <div className="theme-options">
+              {modes.map((value) => (
+                <label key={value} className="theme-option">
+                  <input
+                    type="radio"
+                    name="theme"
+                    value={value}
+                    checked={preferences.theme === value}
+                    onChange={() => {
+                      setMessage(null);
+                      update({ theme: value }).catch(failed);
+                    }}
+                  />
+                  <ThemeSwatch mode={value} />
+                  <span className="theme-option-text">
+                    <strong>{t(`appearance.${value}`)}</strong>
+                    <small className="muted">{t(`appearance.${value}Hint`)}</small>
+                  </span>
+                </label>
+              ))}
+            </div>
+          </div>
+        ))}
       </fieldset>
       {workspaces !== null && workspaces.length > 0 && (
         <section className="workspace-looks" aria-labelledby="workspace-looks-heading">
@@ -91,7 +134,11 @@ export function AppearanceSettings({ workspaces = null }: { workspaces?: readonl
                       setWorkspaceTheme(workspace.id, isThemeMode(value) ? value : null).catch(failed);
                     }}
                   >
-                    <option value="">{t('appearance.useDefault', { theme: t(`appearance.${preferences.theme}`) })}</option>
+                    <option value="">
+                      {t('appearance.useDefault', {
+                        theme: t(`appearance.${preferences.theme}`),
+                      })}
+                    </option>
                     {THEME_MODES.map((value) => (
                       <option key={value} value={value}>
                         {t(`appearance.${value}`)}

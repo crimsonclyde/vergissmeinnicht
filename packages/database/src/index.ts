@@ -17,6 +17,7 @@ export { FINISHED_LINK_RETENTION_MS, purgeExpired, type HousekeepingResult } fro
 export { createRateLimitCounter, type RateLimitCounter, type RateLimitState } from './rate-limit-counter.ts';
 export { createPreferencesRepository } from './preferences-repository.ts';
 export { createAvatarRepository } from './avatar-repository.ts';
+export { createPlacesRepository } from './places-repository.ts';
 export { createTodayLayoutRepository } from './today-layout-repository.ts';
 export { createServerWeatherSettingsRepository, createWeatherCredentialRepository, createWeatherSettingsRepository } from './weather-repositories.ts';
 export { backupIfDue, defaultDocumentsPath, defaultMediaPath, listAutomaticBackups } from './backup.ts';

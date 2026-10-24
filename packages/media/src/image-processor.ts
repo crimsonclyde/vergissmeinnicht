@@ -1,6 +1,6 @@
 import sharp, { type Metadata, type OutputInfo } from 'sharp';
-import { ImageRejectedError, type AvatarProcessor, type ImageProcessor, type ProcessedImage } from '@vergissmeinnicht/application';
-import { AVATAR_EDGE, MAX_STORED_AVATAR_BYTES, MAX_IMAGE_EDGE, MAX_IMAGE_PIXELS, MAX_IMAGE_UPLOAD_BYTES, MAX_STORED_IMAGE_BYTES } from '@vergissmeinnicht/domain';
+import { ImageRejectedError, type AvatarProcessor, type ImageProcessor, type PlaceBackgroundProcessor, type ProcessedImage } from '@vergissmeinnicht/application';
+import { AVATAR_EDGE, MAX_STORED_AVATAR_BYTES, MAX_STORED_PLACE_BACKGROUND_BYTES, PLACE_BACKGROUND_EDGE, MAX_IMAGE_EDGE, MAX_IMAGE_PIXELS, MAX_IMAGE_UPLOAD_BYTES, MAX_STORED_IMAGE_BYTES } from '@vergissmeinnicht/domain';
 
 /**
  * Encoding attempts, in order: JPEG quality from 80 down to a floor of 60 at the full size, then smaller
@@ -106,6 +106,49 @@ export function createSharpAvatarProcessor(): AvatarProcessor {
             throw new ImageRejectedError('unreadable');
           }
           if (data.byteLength <= MAX_STORED_AVATAR_BYTES) return new Uint8Array(data);
+        }
+        throw new ImageRejectedError('too_complex');
+      });
+    },
+  };
+}
+
+/** Places background encodings (section 30), in order; the first within the stored-size limit wins. */
+export const PLACE_BACKGROUND_ATTEMPTS: readonly { readonly edge: number; readonly quality: number }[] = [
+  { edge: PLACE_BACKGROUND_EDGE, quality: 80 },
+  { edge: PLACE_BACKGROUND_EDGE, quality: 70 },
+  { edge: 2048, quality: 70 },
+  { edge: 1920, quality: 64 },
+  { edge: 1600, quality: 64 },
+  { edge: 1280, quality: 60 },
+];
+
+/**
+ * Personal Places backgrounds (section 30): the same checks as instruction images, then orientation,
+ * flattened onto black (a background, not a document), sRGB, at most 2400 px on the long edge (never
+ * enlarged, never cropped or distorted — the client frames it with `object-fit: cover`), JPEG within
+ * 700 KB. libvips writes no EXIF, GPS, XMP, ICC or comment; only that JPEG is returned.
+ */
+export function createSharpPlaceBackgroundProcessor(): PlaceBackgroundProcessor {
+  return {
+    async background(input: Uint8Array) {
+      precheck(input);
+      return withSlot(async () => {
+        await inspect(input);
+        for (const attempt of PLACE_BACKGROUND_ATTEMPTS) {
+          let result: { data: Buffer; info: OutputInfo };
+          try {
+            result = await decoder(input)
+              .rotate()
+              .flatten({ background: '#000000' })
+              .toColourspace('srgb')
+              .resize({ width: attempt.edge, height: attempt.edge, fit: 'inside', withoutEnlargement: true })
+              .jpeg({ quality: attempt.quality, mozjpeg: true })
+              .toBuffer({ resolveWithObject: true });
+          } catch {
+            throw new ImageRejectedError('unreadable');
+          }
+          if (result.data.byteLength <= MAX_STORED_PLACE_BACKGROUND_BYTES) return { jpeg: new Uint8Array(result.data), width: result.info.width, height: result.info.height };
         }
         throw new ImageRejectedError('too_complex');
       });

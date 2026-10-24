@@ -69,7 +69,7 @@ export function Link(props: AnchorHTMLAttributes<HTMLAnchorElement> & { href: st
 
 /** Sections of Profile & settings and of Server admin (15.1): one page each, so nothing unrelated has to be scrolled past. */
 /** In menu order (section 29): you, look & feel, staying informed, the journal. */
-export const ACCOUNT_SECTIONS = ['profile', 'security', 'appearance', 'today', 'confirmations', 'notifications', 'weather', 'journal'] as const;
+export const ACCOUNT_SECTIONS = ['profile', 'security', 'appearance', 'places', 'today', 'confirmations', 'notifications', 'weather', 'journal'] as const;
 export type AccountSection = (typeof ACCOUNT_SECTIONS)[number];
 export const ADMIN_SECTIONS = ['workspaces', 'invitations', 'accounts', 'notifications', 'weather', 'server', 'log'] as const;
 export type AdminSection = (typeof ADMIN_SECTIONS)[number];

@@ -115,3 +115,33 @@ export async function prepareAvatar(file: Blob): Promise<Prepared> {
   canvas.width = 0;
   return blob === null ? originalUpload(file) : { kind: 'prepared', blob };
 }
+
+/** Long edge a Places background is prepared at (section 30); the server keeps at most 2400 px too. */
+export const PLACE_PREPARED_EDGE = 2400;
+
+/**
+ * Prepares a personal Places background in the browser: decoded with its orientation and re-encoded as
+ * a JPEG of at most 2400 px — never cropped, so the focal point can be chosen later — so EXIF/GPS never
+ * leave the device. The server re-checks and re-encodes it anyway.
+ */
+export async function preparePlaceBackground(file: Blob): Promise<Prepared> {
+  let image: HTMLImageElement;
+  try {
+    image = await decodeImage(file);
+  } catch {
+    return originalUpload(file);
+  }
+  const size = fittedSize(image.naturalWidth, image.naturalHeight, PLACE_PREPARED_EDGE);
+  const canvas = document.createElement('canvas');
+  canvas.width = size.width;
+  canvas.height = size.height;
+  const context = canvas.getContext('2d');
+  if (context === null) return originalUpload(file);
+  context.fillStyle = '#000000';
+  context.fillRect(0, 0, size.width, size.height);
+  context.imageSmoothingQuality = 'high';
+  context.drawImage(image, 0, 0, size.width, size.height);
+  const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, 'image/jpeg', 0.86));
+  canvas.width = 0;
+  return blob === null ? originalUpload(file) : { kind: 'prepared', blob };
+}

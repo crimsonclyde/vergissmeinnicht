@@ -2,8 +2,12 @@
  * Per-account presentation preferences (Step 8.7). Not security-relevant: they change how the web
  * client looks and how critical Steps are confirmed, never what the server allows.
  */
-export const THEME_PREFERENCES = ['system', 'light', 'dark', 'memento-mori', 'tokyo-nights', 'witch-forest'] as const;
-export type ThemePreference = (typeof THEME_PREFERENCES)[number];
+import { PLACE_THEMES, type PlaceTheme } from './places.ts';
+
+/** Fixed themes; then one theme per Places country (section 30), generated from `PLACE_IDS`. */
+export const BASE_THEME_PREFERENCES = ['system', 'light', 'dark', 'memento-mori', 'tokyo-nights', 'witch-forest'] as const;
+export type ThemePreference = (typeof BASE_THEME_PREFERENCES)[number] | PlaceTheme;
+export const THEME_PREFERENCES = [...BASE_THEME_PREFERENCES, ...PLACE_THEMES] as unknown as readonly [ThemePreference, ...ThemePreference[]];
 
 /** `hold`: press and hold for one second (5.3). `tap-confirm`: tap, then confirm in a second step. */
 export const CRITICAL_CONFIRM_MODES = ['hold', 'tap-confirm'] as const;
