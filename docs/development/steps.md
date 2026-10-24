@@ -4708,6 +4708,24 @@ Also bumps **zod 4.6.5 → 4.6.6** (GHSA-mrhx-c7xc-m3w5, high, published after t
 
 ---
 
+## 28 — Plugins tab and tool registry (owner request 2026-10-24)
+
+**Status:** DONE (2026-10-24, review branch; not released).
+
+**Request (owner, 2026-10-24):** a **Plugins** tab in Workspace settings, next to Members and Sharing links, listing everything in Tools with an on/off switch; and a report on how tools are implemented today and whether a more real plugin approach is possible so a new tool does not touch the whole site.
+
+**Report (summary):** each of the ten switchable tools is wired in by hand in about a dozen central places (domain `WORKSPACE_TOOLS`, the `workspace_tools` CHECK constraint, capabilities, `tool-policy.ts`, server route registration and composition, backup/restore table lists, sidebar, More, router, Today cards, settings, catalog). Adding Moon and Journal (27) touched about 50 code files and a table-rebuild migration. Recommended direction: built-in plugins, one manifest per tool (icon, texts, pages/navigation, Today cards, capabilities, routes, backup tables, record types, dependencies) read from a registry by the core; schema stays in reviewed migrations; no runtime or remote plugin loading (security.md). Suggested order: (1) Plugins tab on a web-side registry — this step; (2) navigation, More, router and Today cards from the registry; (3) server manifests for routes, capabilities, tool policy and backup tables, dropping the tool-name CHECK constraint in one last migration; (4) move one tool (Equipment) fully into a module folder as the template. Steps 2–4 await the owner's go-ahead.
+
+**Implemented:** `apps/web/src/tool-registry.ts` (`TOOL_PLUGINS`: tool, icon, name, hint, `confirmOff` for Procedures and Reminders), `PluginsPage.tsx` at `/w/{id}/plugins` — a responsive grid of tiles with icon, name, the existing `.switch` checkbox and an ⓘ button that reveals the hint (always the switch's accessible description). The section appears only with `workspace.tools.manage`; the page answers with a notice otherwise. The switches moved out of *General*; Today's "Choose tools" link goes to Plugins. New UI icons: Journal (notebook), The Moon, Equipment (washing machine, no longer the same as Maintenance), info, plug. Same API, revision handling, optimistic update with rollback and notification confirmation as before.
+
+**Tests/checks:** `tool-registry.test.ts` (registry equals `WORKSPACE_TOOLS`; only Procedures and Reminders confirm), router test for `/plugins`; web Vitest 37 files / 235 tests; repository lint and typecheck; desktop Playwright 4 passed incl. the full account flow (all tool switches now go through the Plugins tab, axe check on it). Screenshots at 320/390/1440 px in light, dark, Memento Mori, Tokyo Nights and Witch Forest without horizontal overflow (owner review folder `ui-review/2026-10-24-plugins/`).
+
+**Security impact:** NONE — presentation only; no route, capability, schema or data flow changed; the server still authorizes every switch. **Security docs updated:** N/A.
+
+**Remaining:** steps 2–4 of the plugin approach (owner decision); real-phone check.
+
+---
+
 ## 11 — Licensing
 
 ### 11.1 AGPL-3.0

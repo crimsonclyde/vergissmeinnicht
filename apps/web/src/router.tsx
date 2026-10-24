@@ -115,6 +115,7 @@ export type Route =
   /** Workspace settings (15.1): general, members, sharing links. */
   | { readonly page: 'settings'; readonly workspaceId: string }
   | { readonly page: 'members'; readonly workspaceId: string }
+  | { readonly page: 'plugins'; readonly workspaceId: string }
   | { readonly page: 'knots'; readonly workspaceId: string }
   | { readonly page: 'backup'; readonly workspaceId: string }
   | { readonly page: 'not-found' };
@@ -182,6 +183,7 @@ export function parseRoute(pathname: string): Route {
   }
   if ((match = new RegExp(`^/w/${ID}/settings$`).exec(path))) return { page: 'settings', workspaceId: match[1] ?? '' };
   if ((match = new RegExp(`^/w/${ID}/members$`).exec(path))) return { page: 'members', workspaceId: match[1] ?? '' };
+  if ((match = new RegExp(`^/w/${ID}/plugins$`).exec(path))) return { page: 'plugins', workspaceId: match[1] ?? '' };
   if ((match = new RegExp(`^/w/${ID}/knots$`).exec(path))) return { page: 'knots', workspaceId: match[1] ?? '' };
   if ((match = new RegExp(`^/w/${ID}/backup$`).exec(path))) return { page: 'backup', workspaceId: match[1] ?? '' };
   return { page: 'not-found' };
@@ -225,6 +227,7 @@ export const paths = {
   knots: (workspaceId: string) => `/w/${workspaceId}/knots`,
   backup: (workspaceId: string) => `/w/${workspaceId}/backup`,
   members: (workspaceId: string) => `/w/${workspaceId}/members`,
+  plugins: (workspaceId: string) => `/w/${workspaceId}/plugins`,
   account: (section: AccountSection) => (section === 'notifications' ? '/account' : `/account/${section}`),
   admin: (section: AdminSection) => (section === 'workspaces' ? '/admin' : `/admin/${section}`),
 };
