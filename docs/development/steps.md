@@ -2016,13 +2016,15 @@ GitHub pre-release created after the user approved the command: `https://github.
 
 ### 12.41 Release 0.7.1-beta.1
 
-**Status:** PREPARED (2026-10-24). Release PR bumps the Unraid template and guide to `ghcr.io/crimsonclyde/vergissmeinnicht:0.7.1-beta.1`. The owner publishes the GitHub prerelease, which creates tag `v0.7.1-beta.1` on the merge commit and starts `release.yml`.
+**Status:** DONE (2026-10-24). Release PR #63 merged as `e2bcfb84aae3138fb9d6d2afe0fc7ee7066f62d0`; the owner published the GitHub prerelease, which created tag `v0.7.1-beta.1` on that commit. Unraid template and guide pin `ghcr.io/crimsonclyde/vergissmeinnicht:0.7.1-beta.1`.
 
 **Scope:** section 28 default Workspace and a theme per Workspace (PR #60); section 28 Workspace settings → Plugins tab with the web tool registry (PR #61, step 1 only; refactor steps 2–4 not approved); section 29 profile pictures and regrouped Profile/Workspace settings (PR #62).
 
 **Upgrade:** migrations **0053_workspace_preferences** and **0054_profile_avatars** (55 migrations, 0000–0054). Back up first. New tables `user_workspace_preferences` and `user_avatars` start empty and are excluded from Workspace backups. No new environment variables. Older images refuse the newer database.
 
 **Validation:** PR CI for #60 and #62 (quality, browser, amd64/arm64 images) passed before merge. Local image of the release code passed `deploy/smoke-test.sh` and `deploy/upgrade-check.sh` from published `0.7.1-beta.0` with populated data: pre-migration backup, row counts preserved, level 55, clean foreign keys/integrity, Workspace export/restore. The cloud session cannot reach Debian mirrors, so the local test image used `node:24.21.0-bookworm` for the build stage and skipped the two OS-package upgrade steps; the release workflow builds and scans the real image. Real-phone check of avatars and new settings layout remains open.
+
+**Published:** release workflow `40086637683` succeeded. GitHub prerelease: https://github.com/crimsonclyde/vergissmeinnicht/releases/tag/v0.7.1-beta.1. Multi-architecture index `sha256:305515e00b50b5712ef0f7afc6180fe3b1fff877e41361714647a453f54ba6e7` inspected directly, with linux/amd64 `sha256:e152fc19606af68df1e17cc608339aecdcac957fc2ebc7c7ca740a70bbc44b3d` and linux/arm64 `sha256:e71ea37cac05e209f320b8df0371193d79d0850fc7498c8d6a3919a1d94b096d`. The exact pulled amd64 image passed `deploy/smoke-test.sh` and the populated 0.7.1-beta.0 → 0.7.1-beta.1 upgrade/backup/restore check; labels confirm version `0.7.1-beta.1` and revision `e2bcfb8`. Exact beta tag only; `latest` was not moved. Nothing deployed to the running installation.
 
 ### 12.40 Release 0.7.1-beta.0
 
