@@ -18,7 +18,9 @@ For every completed task, add a concise completion note, tests/checks performed,
 
 ## Current state — resume here
 
-**Latest release (2026-10-23): v0.7.1-beta.0 (12.40)** — section 27 Moon card, shared Workspace Journal and account-private Journal, with bundled extension registries and the Dark Today-heading contrast correction. Feature/release commit `709cff1` is on main; main CI and tagged release passed on their first run. Signed amd64/arm64 image is published; pulled-image smoke and populated beta.4 upgrade/backup/restore passed. Migration 0052 is required. Moon/shared Journal start off until enabled by a Workspace admin. No live installation was changed.
+**Latest release (2026-10-25): v0.7.2-beta.1 (12.43)** — section 31 Open horizon Places, Equipment reference details and private app-wide points/seedling encouragement. PR #68 merged as `1892e38`; PR/main/tagged CI passed. Signed amd64/arm64 image and CycloneDX attestation published; exact pulled-image smoke and populated beta.0 upgrade/Workspace export/restore passed. Migration 0056 required; back up database and file storage before upgrading. No live installation changed.
+
+**Earlier release (2026-10-23): v0.7.1-beta.0 (12.40)** — section 27 Moon card, shared Workspace Journal and account-private Journal, with bundled extension registries and the Dark Today-heading contrast correction. Feature/release commit `709cff1` is on main; main CI and tagged release passed on their first run. Signed amd64/arm64 image is published; pulled-image smoke and populated beta.4 upgrade/backup/restore passed. Migration 0052 is required. Moon/shared Journal start off until enabled by a Workspace admin. No live installation was changed.
 
 **Previous release (2026-10-23): v0.7.0-beta.4 (12.39)** — 25.3 Old Forest, 25.4 current stone sundial and 26 shared optional Workspace location. Feature commit `6a4c5d3` is on main; main CI and the signed multi-architecture release passed. Published image smoke and populated beta.3 → beta.4 upgrade/backup/restore passed. Migration 0051 is required; shared locations start unset and personal opt-in defaults off. Word-clock exploration is deferred. No live installation was changed. Older resume notes below are historical.
 
@@ -2016,15 +2018,17 @@ GitHub pre-release created after the user approved the command: `https://github.
 
 ### 12.43 Release 0.7.2-beta.1
 
-**Status:** IN PROGRESS (2026-10-25). Owner requested commit, push and release of section 31. Exact image tag: `ghcr.io/crimsonclyde/vergissmeinnicht:0.7.2-beta.1`. Unraid template and guide updated. No live installation deployment requested.
+**Status:** DONE (2026-10-25). Owner requested commit, push and release of section 31. Exact image tag: `ghcr.io/crimsonclyde/vergissmeinnicht:0.7.2-beta.1`. Unraid template and guide updated. No live installation deployment requested.
 
 **Scope:** Open horizon Places with Munich/Triora/London/Scotland landscapes, modern dock and optional gentle effects; Equipment reference cards, replacement details and optional custom fields; private app-wide points and seedling encouragement. Stable theme ids and personal backgrounds retained.
 
 **Upgrade:** migration **0056_equipment_progress** (57 migrations, 0000–0056). Back up database and file storage before upgrading. Adds nullable Equipment fields in place, preserves existing guards/history, and creates an empty private progress ledger. No historical/import awards or new environment variables. Older binaries refuse the newer database. Workspace backups include Equipment details and exclude personal points.
 
-**Validation:** section 31 records 1509 automated tests, 8 browser checks, typecheck/lint/build and migration/restore checks. Release remains gated on GitHub CI, native image smoke tests and vulnerability scans, multi-architecture publication, signing and SBOM. Completion evidence will be recorded after publication.
+**Published:** implementation commit `4b11084`; PR [#68](https://github.com/crimsonclyde/vergissmeinnicht/pull/68) merged as `1892e38f9edf1e4b847f4b0b745202e593f56bfe`. Annotated tag `v0.7.2-beta.1` points to that merge. [GitHub prerelease](https://github.com/crimsonclyde/vergissmeinnicht/releases/tag/v0.7.2-beta.1). Multi-architecture index `sha256:c2f40af1d0a5f061dafaaacf8cc2fd7bd83740bd01db8681494dcf6009929d13` inspected directly: linux/amd64 and linux/arm64. Only the exact beta tag was published; latest was not moved.
 
-**Security impact:** MEDIUM, inherited from section 31; release packaging adds no new application boundary. **Security docs updated:** YES (31). **Remaining:** remote validation and publication; physical-device/screen-reader limitations remain.
+**Validation:** section 31 records 1509 automated tests, 8 browser checks, typecheck/lint/build and migration/restore checks. PR CI `40184593645`, main CI `40184982069` and release `40185000852` succeeded. Both native release images passed smoke tests and fixable HIGH/CRITICAL vulnerability scans; multi-architecture publication, keyless signing and CycloneDX SBOM attestation passed. Local production-image smoke and populated `0.7.2-beta.0` → `0.7.2-beta.1` upgrade/Workspace export/restore passed: all existing row counts retained, migration count 56 → 57, integrity OK, no FK failures and no restore awards. The exact GHCR image was pulled and smoke-tested successfully after publication.
+
+**Security impact:** MEDIUM, inherited from section 31; release packaging adds no new application boundary. **Security docs updated:** YES (31). **Remaining:** physical-device/screen-reader limitations remain. No live installation deployed.
 
 ### 12.42 Release 0.7.2-beta.0
 
@@ -4854,7 +4858,7 @@ Also bumps **zod 4.6.5 → 4.6.6** (GHSA-mrhx-c7xc-m3w5, high, published after t
 
 **Security impact:** MEDIUM — bounded shared Equipment content and a new private account aggregate/ledger; no new credential, upload or authorization capability. **Security docs updated:** YES (31); architecture, user guide, deployment guide and AGENTS acceptance updated.
 
-**Remaining/limitations:** real physical devices and screen readers remain untested; the artwork is an artistic landscape, not a geographical/archaeological representation. Existing large JavaScript chunk warning remains. Migration 0056 is included and tested; production migration has not been performed. Release requested; publication tracked in 12.43. No live installation deployed.
+**Remaining/limitations:** real physical devices and screen readers remain untested; the artwork is an artistic landscape, not a geographical/archaeological representation. Existing large JavaScript chunk warning remains. Migration 0056 is included and tested; production migration has not been performed. Released as v0.7.2-beta.1 (12.43). No live installation deployed.
 
 ---
 
