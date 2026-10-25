@@ -18,6 +18,10 @@ For every completed task, add a concise completion note, tests/checks performed,
 
 ## Current state — resume here
 
+> **Do not miss: a special 42nd release.** Owner's milestone count, recorded **2026-10-25: 40**. The next release is **41st**; the following **42nd must receive special treatment**. The owner has not chosen the details yet. Check this note during every release preparation, call out the milestone in advance, and update this owner-counted ordinal after publication. Do not confuse it with version numbers, ledger subsection numbers or counts of GitHub Release objects. Agent release instructions are also recorded prominently in `AGENTS.md`.
+
+**Milestone reminder recorded (2026-10-25):** added the durable release checkpoint here and to mandatory agent instructions. Checks: documentation/whitespace review only; no application behavior changed. Security surface changed: NO. Remaining: agree the special treatment with the owner before preparing the 42nd release.
+
 **Latest release (2026-10-25): v0.7.2-beta.3 (12.45)** — named characters, personal menu order and optional unified Gamification (31.2–31.4). PR #70 merged as `a242e33`; PR/main/tagged CI passed. Signed amd64/arm64 image and CycloneDX attestation published; the exact pulled image passed smoke and populated beta.2 upgrade/backup/Workspace export/restore checks. Migrations 0057–0058 required (59 migrations); back up database and files first. Existing Workspaces retain Gamification on, new Workspaces start off. No live installation changed.
 
 **Earlier release (2026-10-25): v0.7.2-beta.1 (12.43)** — section 31 Open horizon Places, Equipment reference details and private app-wide points/seedling encouragement. PR #68 merged as `1892e38`; PR/main/tagged CI passed. Signed amd64/arm64 image and CycloneDX attestation published; exact pulled-image smoke and populated beta.0 upgrade/Workspace export/restore passed. Migration 0056 required; back up database and file storage before upgrading. No live installation changed.

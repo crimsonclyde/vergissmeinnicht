@@ -2,6 +2,12 @@
 
 This file contains mandatory instructions for all coding agents and contributors, including Codex, Claude Code, and similar tools.
 
+## Release milestone — do not miss the 42nd release
+
+The owner wants **something special for the 42nd release** (2026-10-25). The owner's current milestone count is **40**: next is **41**, then **42**. This ordinal is separate from semantic versions, ledger subsection numbers and the number of GitHub Release objects; do not silently replace the owner's count with one of those.
+
+Before preparing any release, check the milestone note in `docs/development/steps.md` and include the next ordinal in the release plan. Call out the approaching 42nd release, bring its special treatment to the owner's attention before publishing it, and update the milestone count after publication. **What the special treatment will be is still undecided; do not invent it or quietly ship the 42nd as an ordinary release.**
+
 ## Prime directive
 
 **Security is the highest-priority requirement of this project.**
