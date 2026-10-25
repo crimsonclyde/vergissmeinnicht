@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { closeSync, openSync, readFileSync, readSync } from 'node:fs';
 import { join } from 'node:path';
-import { parseJournalContent, parseWeatherLocation, contactKeys, documentSearchText, documentTagKeys, documentTitleKey, IMPORTED_EMAIL_DOMAIN, MAX_WORKSPACE_NAME_LENGTH, WORKSPACE_ROLES, type ContactPoint } from '@vergissmeinnicht/domain';
+import { normalizeEquipmentContent, parseEquipmentFields, parseJournalContent, parseWeatherLocation, contactKeys, documentSearchText, documentTagKeys, documentTitleKey, IMPORTED_EMAIL_DOMAIN, MAX_WORKSPACE_NAME_LENGTH, WORKSPACE_ROLES, type ContactPoint } from '@vergissmeinnicht/domain';
 import { IMMEDIATE, type Transaction } from './actor-guard.ts';
 import type { AppDatabase } from './connection.ts';
 import { storageUsageIn } from './storage-usage.ts';
@@ -163,7 +163,7 @@ const JSON_COLUMNS: Readonly<Record<string, Readonly<Record<string, JsonShape>>>
   procedures: { tags: stringArray },
   runs: { tags: stringArray },
   documents: { tags: stringArray },
-  equipment_records: { tags: stringArray },
+  equipment_records: { custom_fields: value => { try { return JSON.stringify(parseEquipmentFields(value)) === JSON.stringify(value); } catch { return false; } } },
   contacts: { emails: contactPoints, phones: contactPoints },
   schedules: { reminders, recurrence_weekdays: weekdays },
   audit_events: { metadata },
@@ -283,7 +283,8 @@ const ADDED_COLUMNS: Readonly<Record<string, readonly string[]>> = {
 };
 
 /** A package row: exactly the expected columns, every value a string, a finite number or null. */
-function checkRow(plan: TablePlan, row: Record<string, unknown>): void {
+function checkRow(plan: TablePlan, row: Record<string, unknown>, level?: string): void {
+  if (plan.spec.table === 'equipment_records' && level !== undefined && level < '0056_equipment_progress') for (const key of ['replacement_parts', 'custom_fields']) if (!Object.hasOwn(row, key)) row[key] = null;
   // An older package (see ADDED_COLUMNS): the column it could not have is NULL.
   for (const column of ADDED_COLUMNS[plan.spec.table] ?? []) if (plan.expected.has(column) && !Object.hasOwn(row, column)) row[column] = null;
   const keys = Object.keys(row);
@@ -298,6 +299,9 @@ function checkRow(plan: TablePlan, row: Record<string, unknown>): void {
       const normalized = parseJournalContent(content);
       if (Object.entries(normalized).some(([key, value]) => row[key] !== value)) throw new Error('Noncanonical journal content');
     } catch { throw new WorkspaceRestoreError('malformed_records', plan.spec.name); }
+  }
+  if (plan.spec.table === 'equipment_records' && row.replacement_parts !== null) {
+    try { if (typeof row.replacement_parts !== 'string' || normalizeEquipmentContent({ name: 'check', replacementParts: row.replacement_parts }).replacementParts !== row.replacement_parts) throw new Error('Noncanonical parts'); } catch { throw new WorkspaceRestoreError('malformed_records', plan.spec.name); }
   }
   const shapes = JSON_COLUMNS[plan.spec.table];
   if (shapes !== undefined) {
@@ -444,7 +448,7 @@ export function restoreWorkspace(database: AppDatabase, input: WorkspaceRestoreI
       let workspaceRow: Record<string, unknown> | undefined;
       for (const row of records(input.data.get('workspace'), 'workspace')) {
         if (workspaceRow !== undefined) throw new WorkspaceRestoreError('malformed_records', 'workspace');
-        checkRow(workspacePlan, row);
+        checkRow(workspacePlan, row, input.databaseLevel);
         workspaceRow = row;
       }
       if (workspaceRow === undefined) throw new WorkspaceRestoreError('malformed_records', 'workspace');
@@ -469,7 +473,7 @@ export function restoreWorkspace(database: AppDatabase, input: WorkspaceRestoreI
         const statement = table === 'memberships' ? undefined : sqlite.prepare(plan.insert);
         let rows = 0;
         for (const row of records(input.data.get(plan.spec.name), plan.spec.name, plan.spec.name === 'journal_entries' && input.databaseLevel !== undefined && input.databaseLevel < '0052_moon_journal')) {
-          checkRow(plan, row);
+          checkRow(plan, row, input.databaseLevel);
           if (table === 'journal_entries' && rows >= 1000) throw new WorkspaceRestoreError('malformed_records', plan.spec.name);
           if (table === 'memberships') {
             // Not restored (D1): shown so the admin can invite people again — by hand.

@@ -1,3 +1,22 @@
+# Places artwork — Open horizon (31)
+
+Current defaults: **Munich**, **Triora**, **London**, **Scotland**. The old country theme identifiers stay unchanged so saved preferences survive.
+
+- Munich uses the owner-supplied “Munich to Lake Garda Panorama.png” (2026-10-25). Its original is unchanged; only compressed/resized derivatives ship.
+- Triora, London and Scotland were generated with the built-in imagegen tool, using that panorama as a style reference. Triora has a small mountain village, woodland and ground mist; London a riverside pub and small stone lion; Scotland an imagined northern coast with standing stones. They are artistic scenes, not geographical/archaeological claims.
+- Exact prompts and generation provenance: [design review](../../../../docs/development/places-design-review.md#revised-artwork-and-provenance).
+- Each `art/<id>/landscape-*.webp` set contains wide (maximum 1536 px), small (1024 px), portrait (768 × 1152) and phone (480 × 720) variants. The initial approved portrait versions are crops. Only the selected responsive variant loads. Wide files are approximately 237–424 kB; phone variants are smaller.
+- `countries/<id>-art.ts` references these files. `artwork.lights` is optional and unused for these landscapes. Old façade files and `assets/places/` are retained as historical source, not loaded by the current presets.
+- Mist, fireflies, a bee and leaves are separate transform/opacity decoration. They pause when hidden and stop under reduced motion. They are absent over a personal photo or No image. No provider or device location is queried for decoration.
+
+## Adding a place now
+
+Add an append-only domain id and reviewed migration for persisted theme allowlists, four compressed image variants, a declarative config with all semantic tokens in both schemes and framing/effects, and translated labels. Never rename stored ids. Verify contrast, responsive assets, forced colours, reduced motion, personal-photo/No image fallbacks and own-account preference isolation. Keep prompts/provenance and the execution ledger current.
+
+## Archived section 30 specification
+
+The following describes the superseded initial façades and their procedural renderer, retained for historical context.
+
 # Places artwork and countries (section 30)
 
 ## Status of the artwork

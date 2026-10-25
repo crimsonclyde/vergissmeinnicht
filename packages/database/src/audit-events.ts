@@ -1,3 +1,4 @@
+import { awardProgress } from './progress-repository.ts';
 import { randomUUID } from 'node:crypto';
 import { and, asc, eq, gt, or, sql, type SQL } from 'drizzle-orm';
 import { InvalidCursorError, toPage, type AuditHistory, type HistoryPageRequest } from '@vergissmeinnicht/application';
@@ -38,6 +39,7 @@ export function recordAuditEvent(tx: Transaction, event: AuditEventRecord): void
       clientChangeId: event.clientChangeId ?? null,
     })
     .run();
+  awardProgress(tx, event.actor.userId, `${event.workspaceId}:${event.subjectId}`, event.type, event.occurredAt, event.metadata);
 }
 
 function toAuditEvent(row: typeof auditEvents.$inferSelect): AuditEvent {

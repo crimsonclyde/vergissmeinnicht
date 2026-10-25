@@ -27,7 +27,7 @@ function toolEnabled(tx: Reader, workspaceId: string): boolean {
 }
 function recordOf(row: Row): EquipmentRecord {
     const { id, name, category, location, manufacturer, model, serialNumber, purchaseDate, warrantyExpiry, notes, revision, createdAt, updatedAt } = row;
-    return { id: id as EquipmentId, name, category, location, manufacturer, model, serialNumber, purchaseDate, warrantyExpiry, notes, revision, createdAt, updatedAt, createdByName: row.createdByDisplayName, updatedByName: row.updatedByDisplayName };
+    return { replacementParts: row.replacementParts ?? '', customFields: row.customFields ?? [], id: id as EquipmentId, name, category, location, manufacturer, model, serialNumber, purchaseDate, warrantyExpiry, notes, revision, createdAt, updatedAt, createdByName: row.createdByDisplayName, updatedByName: row.updatedByDisplayName };
 }
 function liveRecord(tx: Reader, workspaceId: string, recordId: string): Row | undefined {
     return tx

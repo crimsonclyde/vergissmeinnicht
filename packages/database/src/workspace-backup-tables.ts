@@ -73,6 +73,7 @@ export const EXPORTED_TABLES: readonly ExportedTable[] = SPECS.map((spec) => ({ 
 
 /** Never in a Workspace backup, with the reason (section 18, B3, 18.1 "never included"). */
 export const EXCLUDED_TABLES: Readonly<Record<string, string>> = {
+  progress_awards: 'personal encouragement totals and deduplication; never Workspace data',
   private_journal_entries: 'account-private journal entries; never Workspace data',
   users: 'accounts are not Workspace data; people appear as person references (name, and email for members)',
   sessions: 'sign-in sessions',

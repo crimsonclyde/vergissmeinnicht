@@ -1,3 +1,4 @@
+import { personalProgress } from '@vergissmeinnicht/application';
 import {
   changePassword,
   confirmTotpEnrollment,
@@ -66,6 +67,8 @@ const perAccount = {
 export async function accountRoutes(app: FastifyInstance, { services }: { services: AppServices }) {
   const deps = services.mfa;
   app.addHook('preHandler', requireUser(services));
+
+  app.get('/progress', async (request) => { parse(z.strictObject({}), request.query); return personalProgress(services.progress, userOf(request)); });
 
   app.get('/mfa', async (request) => mfaStatus(deps, userOf(request)));
 

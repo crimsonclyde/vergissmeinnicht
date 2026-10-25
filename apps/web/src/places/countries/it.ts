@@ -9,8 +9,8 @@ export const italy: PlaceConfig = {
   id: 'it',
   name: 'appearance.places-it',
   hint: 'appearance.places-itHint',
-  region: 'Liguria',
-  style: 'Ligurian townhouse',
+  region: 'Triora',
+  style: 'Mountain village and woodland',
   light: {
     gradient: ['#efe6d2', '#f4ede0', '#e2d2b8'],
     tokens: {
@@ -72,6 +72,6 @@ export const italy: PlaceConfig = {
     },
   },
   artwork: { ...artworkFiles, focusDesktop: { x: 50, y: 42 }, focusMobile: { x: 46, y: 45 } },
-  defaults: { overlay: 36, vignette: 22 },
-  effects: ['window-glow', 'haze', 'drift'],
+  defaults: { overlay: 18, vignette: 12 },
+  effects: ['mist', 'drift', 'fireflies', 'bee'],
 };

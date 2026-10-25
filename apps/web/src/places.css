@@ -457,3 +457,84 @@
 .theme-group-head small {
   flex-basis: 100%;
 }
+
+/* Open horizon: one header, one floating dock, an open scene around the work. */
+:root[data-theme='places'] { --radius: 18px; }
+:root[data-theme='places'] .shell { display: block; }
+:root[data-theme='places'] .shell-side { position: relative; height: auto; min-height: 5.5rem; flex-direction: row; align-items: center; padding: 1.25rem 2rem; gap: 1rem; overflow: visible; background: transparent; border: 0; }
+:root[data-theme='places'] .shell-side .side-nav { display: none; }
+:root[data-theme='places'] .brand-heading { margin: 0; }
+:root[data-theme='places'] .brand { border-radius: 99px; padding: .5rem .85rem; background: var(--surface); color: var(--text); }
+:root[data-theme='places'] .brand-long { font-family: inherit; font-size: .95rem; }
+:root[data-theme='places'] .workspace-select { width: min(19rem, 40vw); min-width: 0; flex: 0 1 auto; }
+:root[data-theme='places'] .workspace-select select { background: var(--surface); border-radius: 1rem; }
+:root[data-theme='places'] .settings-menu { margin: 0 0 0 auto; }
+:root[data-theme='places'] .settings-button { width: auto; min-width: 2.75rem; border: 1px solid var(--border); border-radius: 99px; padding: .5rem .8rem; background: var(--surface); }
+:root[data-theme='places'] .settings-label { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
+:root[data-theme='places'] .menu-panel { top: calc(100% + .5rem); bottom: auto; right: 0; left: auto; }
+:root[data-theme='places'] .shell-main { padding: 0 clamp(1rem, 3vw, 3rem); }
+:root[data-theme='places'] .app-main { padding-top: 1.5rem; padding-bottom: 9rem; }
+:root[data-theme='places'] .shell[data-page='workspace'] .app-main { width: min(48rem, 53%); max-width: none; margin: 0; padding-bottom: 15rem; }
+:root[data-theme='places'] .today-grid { grid-template-columns: minmax(0, 1fr); }
+:root[data-theme='places'] .today-glance { flex-wrap: wrap; }
+:root[data-theme='places'] .today-greeting { font-family: var(--places-serif); font-size: clamp(2rem, 4vw, 3.2rem); line-height: 1.12; font-weight: 400; letter-spacing: -.04em; }
+:root[data-theme='places'] .today-card { border-radius: 1.5rem; background: var(--surface); }
+:root[data-theme='places'] .places-dock { position: fixed; z-index: 25; display: flex; justify-content: center; gap: .3rem; left: 50%; right: auto; bottom: max(1.25rem, env(safe-area-inset-bottom, 0px)); transform: translateX(-50%); width: max-content; max-width: calc(100% - 2rem); border: 1px solid var(--border-strong); border-radius: 1.5rem; padding: .45rem; background: var(--surface); box-shadow: 0 .7rem 2.5rem rgb(0 0 0 / 18%); }
+:root[data-theme='places'] .places-dock > :is(a, button) { display: flex; flex-direction: row; align-items: center; justify-content: center; gap: .5rem; padding: .6rem 1rem; border: 0; border-radius: 1rem; text-decoration: none; font-size: .88rem; font-weight: 500; color: var(--text); background: transparent; min-height: 2.75rem; }
+:root[data-theme='places'] .places-dock > :is(a, button)[aria-current='page'] { background: var(--accent); color: var(--accent-text); }
+.places-tools { position: absolute; bottom: calc(100% + .75rem); left: 50%; transform: translateX(-50%); width: min(26rem, calc(100vw - 2rem)); max-height: min(36rem, 70dvh); overflow-y: auto; padding: 1rem; border: 1px solid var(--border-strong); border-radius: 1.25rem; background: var(--surface-raised); color: var(--text); box-shadow: 0 1rem 3rem rgb(0 0 0 / 20%); }
+.places-tools-heading { display: flex; align-items: center; justify-content: space-between; margin-bottom: .5rem; }
+.places-tool-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: .5rem; }
+:root[data-theme='places'] .places-tool-grid a { display: flex; flex-direction: column; align-items: center; gap: .4rem; padding: 1rem .4rem; min-height: 4.5rem; background: var(--surface-muted); color: var(--text); border-radius: 1rem; text-align: center; font-size: .8rem; overflow-wrap: anywhere; text-decoration: none; }
+:root[data-theme='places'] .places-tool-grid a[aria-current='page'] { box-shadow: inset 0 0 0 2px var(--accent); }
+:root[data-theme='places'] .places-all-tools { display: flex; align-items: center; justify-content: space-between; padding: 1rem .5rem 0; color: var(--link); }
+.place-scene::after { content: ''; position: absolute; inset: 0; background: linear-gradient(90deg, var(--bg), color-mix(in srgb, var(--bg) 91%, transparent) 28%, color-mix(in srgb, var(--bg) 48%, transparent) 52%, transparent 78%); }
+.place-scene-caption { position: fixed; z-index: 4; right: 2rem; bottom: 8rem; width: min(22rem, 36vw); padding: 1rem; border: 1px solid var(--border); border-radius: 1.2rem; background: var(--surface); color: var(--text); box-shadow: 0 .5rem 2rem rgb(0 0 0 / 12%); }
+.place-scene-caption > div { display: flex; align-items: center; gap: .75rem; }
+.place-scene-caption small { display: block; color: var(--text-muted); margin-top: .25rem; }
+.place-scene-caption button { margin-top: .5rem; }
+.place-scene-caption p { font-size: .85rem; }
+.place-life { pointer-events: none; }
+.place-fireflies span { position: absolute; width: 3px; height: 3px; border-radius: 50%; left: 76%; top: 50%; background: #fff0a2; box-shadow: 0 0 8px 3px #ffdf8177; opacity: 0; animation: place-firefly 13s ease-in-out infinite; }
+.place-fireflies span:nth-child(2) { left: 86%; top: 62%; animation-delay: -4s; }
+.place-fireflies span:nth-child(3) { left: 67%; top: 71%; animation-delay: -8s; }
+.place-fireflies span:nth-child(4) { left: 91%; top: 38%; animation-delay: -2s; }
+.place-fireflies span:nth-child(5) { left: 58%; top: 48%; animation-delay: -6s; }
+.place-fireflies span:nth-child(6) { left: 80%; top: 80%; animation-delay: -10s; }
+.place-bee { position: absolute; left: 76%; top: 56%; width: 13px; height: 8px; background: repeating-linear-gradient(90deg, #d5a337 0 4px, #403b2d 4px 6px); border-radius: 50%; opacity: 0; animation: place-bee-trip 26s ease-in-out infinite; }
+.place-bee::before, .place-bee::after { content: ''; position: absolute; top: -5px; width: 7px; height: 6px; border-radius: 80%; background: #f5f6eadd; transform: rotate(-30deg); }
+.place-bee::after { left: 6px; transform: rotate(35deg); }
+.place-leaf { position: absolute; left: 82%; top: 32%; width: 9px; height: 14px; background: #b5a36e; border-radius: 0 80% 0 80%; opacity: 0; animation: place-leaf-fall 28s ease-in-out infinite; }
+@keyframes place-firefly { 0%,40%,100% { opacity: 0; transform: translate(0,0); } 60% { opacity: .8; transform: translate(-20px,-15px); } 80% { opacity: .2; transform: translate(12px,-30px); } }
+@keyframes place-bee-trip { 0%,58%,100% { opacity: 0; transform: translate(0,0); } 62% { opacity: 1; transform: translate(10px,-10px) rotate(-10deg); } 70% { opacity: 1; transform: translate(-65px,-30px) rotate(10deg); } 80% { opacity: 1; transform: translate(-35px,-90px) rotate(-12deg); } 88% { opacity: 0; transform: translate(70px,-110px); } }
+@keyframes place-leaf-fall { 0%,65%,100% { opacity: 0; transform: translate(0,0) rotate(0); } 70% { opacity: .8; } 94% { opacity: 0; transform: translate(-60px,220px) rotate(150deg); } }
+.place-backdrop[data-paused='true'] *, .place-backdrop[data-paused='true'] *::before, .place-backdrop[data-paused='true'] *::after { animation-play-state: paused !important; }
+:root[data-theme='places'] .shell[data-focus='edit'] .shell-side, :root[data-theme='places'] .shell[data-focus='edit'] .places-dock { display: none; }
+@media (max-width: 70rem) { :root[data-theme='places'] .shell[data-page='workspace'] .app-main { width: min(42rem, 64%); } :root[data-theme='places'] .brand-long { display: none; } }
+@media (max-width: 56rem) {
+  :root[data-theme='places'] .shell-side { padding: 1rem; gap: .65rem; }
+  :root[data-theme='places'] .workspace-select { width: auto; flex: 1; }
+  :root[data-theme='places'] .shell[data-page='workspace'] .app-main { width: 100%; }
+  :root[data-theme='places'] .shell-main { padding: 0 1rem; }
+  :root[data-theme='places'] .places-dock { width: min(29rem, calc(100% - 2rem)); }
+  :root[data-theme='places'] .places-dock > :is(a, button) { flex: 1; flex-direction: column; gap: .2rem; font-size: .75rem; padding: .45rem .3rem; min-height: 3.3rem; }
+  .place-scene::after { background: linear-gradient(180deg, color-mix(in srgb, var(--bg) 90%, transparent), color-mix(in srgb, var(--bg) 82%, transparent) 60%, transparent 95%); }
+  .place-scene-caption { position: relative; right: auto; bottom: auto; width: auto; margin: 0 1rem; }
+  :root[data-theme='places'] .shell[data-focus='run'] .places-dock { display: none; }
+}
+@media (prefers-reduced-motion: reduce) { .place-backdrop *, .place-backdrop *::before, .place-backdrop *::after { animation: none !important; } .place-bee, .place-leaf { display: none; } }
+@media (forced-colors: active) { .place-life { display: none; } :root[data-theme='places'] .brand { border: 1px solid CanvasText; } }
+@media (max-width: 56rem) {
+  .place-scene-caption { position: fixed; left: 1rem; right: 1rem; bottom: 7.2rem; margin: 0; display: flex; align-items: center; justify-content: space-between; gap: .5rem; padding: .65rem .85rem; }
+  .place-scene-caption small { display: none; }
+  .place-scene-caption button { margin: 0; flex: none; font-size: .8rem; }
+  .place-scene-caption p { position: absolute; bottom: 100%; left: 0; right: 0; background: var(--surface); padding: .5rem; }
+}
+:root[data-theme='places'] .places-dock > [aria-current='page'] .ui-icon { color: inherit; }
+@media (max-width: 37.5rem) {
+  :root[data-theme='places'] .places-dock > :is(a, button) { font-size: .6875rem; padding-left: .1rem; padding-right: .1rem; }
+  :root[data-theme='places'] .places-dock > :is(a, button) > span { max-width: none; text-overflow: clip; }
+}
+@media (forced-colors: active) {
+  :root[data-theme='places'] :is(.app-main, .public-main) { text-shadow: none; }
+}

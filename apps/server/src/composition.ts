@@ -1,3 +1,5 @@
+import type { ProgressRepository } from '@vergissmeinnicht/application';
+import { createProgressRepository } from '@vergissmeinnicht/database';
 import type { JournalDeps } from '@vergissmeinnicht/application';
 import { createJournalRepository } from '@vergissmeinnicht/database';
 import { dirname, join } from 'node:path';
@@ -128,6 +130,7 @@ export interface AppServices {
   readonly mfa: MfaDeps;
   readonly recovery: RecoveryDeps;
   readonly accounts: AccountAdminDeps;
+  readonly progress: ProgressRepository;
   readonly preferences: PreferencesDeps;
   /** Profile pictures (section 29). */
   readonly avatars: AvatarDeps;
@@ -363,6 +366,7 @@ export function createServices(config: AppConfig, database: AppDatabase, overrid
         mfa,
         clock: systemClock,
       },
+      progress: createProgressRepository(database),
       preferences: { preferences: createPreferencesRepository(database), workspaces: createWorkspaceRepository(database), clock: systemClock },
       avatars: { avatars: createAvatarRepository(database), processor: createSharpAvatarProcessor(), workspaces: createWorkspaceRepository(database), clock: systemClock },
       places: { places: createPlacesRepository(database), processor: createSharpPlaceBackgroundProcessor(), workspaces: createWorkspaceRepository(database), clock: systemClock },

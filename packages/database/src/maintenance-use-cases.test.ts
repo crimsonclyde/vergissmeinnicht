@@ -149,10 +149,10 @@ describe('Maintenance (16.7)', () => {
       metadata: JSON.parse(event.metadata) as Record<string, unknown>,
     }));
   const row = (id: string) => database.sqlite.prepare('SELECT * FROM maintenance_records WHERE id = ?').get(id);
-  /** Every table but those Maintenance itself writes: what must stay exactly as it is when a record changes. */
+  /** Every table but Maintenance history and the private encouragement ledger: what must stay exactly as it is when a record changes. */
   const everythingElse = () =>
     JSON.stringify(
-      (database.sqlite.prepare("SELECT name FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite_%' AND name NOT IN ('maintenance_records', 'audit_events', 'links') ORDER BY name").all() as { name: string }[]).map((table) => [
+      (database.sqlite.prepare("SELECT name FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite_%' AND name NOT IN ('maintenance_records', 'audit_events', 'links', 'progress_awards') ORDER BY name").all() as { name: string }[]).map((table) => [
         table.name,
         database.sqlite.prepare(`SELECT * FROM "${table.name}"`).all(),
       ]),

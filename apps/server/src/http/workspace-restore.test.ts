@@ -182,7 +182,7 @@ describe('Workspace restore (section 18b)', () => {
     const before = { workspaces: workspaceCount(), imported: importedCount() };
     const ready = await validated(homePackage);
     expect(ready, JSON.stringify(ready)).toMatchObject({ state: 'READY', phase: 'validated', errorCode: null, workspaceId: null });
-    expect(ready.preview).toMatchObject({ workspaceName: 'Home ✨ Ferienhaus', databaseLevel: '0055_places', schedulesPaused: 2, assignmentsCleared: 1 });
+    expect(ready.preview).toMatchObject({ workspaceName: 'Home ✨ Ferienhaus', databaseLevel: '0056_equipment_progress', schedulesPaused: 2, assignmentsCleared: 1 });
     expect(ready.preview.counts).toMatchObject({ procedures: 1, runs: 2, documents: 2, document_files: 3, links: 3, run_document_removals: 1, contacts: 1, list_items: 3 });
     // Previous members, for inviting them again by hand — the restore itself invites and matches nobody.
     expect(ready.preview.previousMembers.map((member) => `${member.displayName}:${member.email}:${member.role}`).sort()).toEqual(['Ada:admin@example.org:ADMIN', 'Eddie:editor@example.org:EDITOR', 'Gus:guest@example.org:GUEST', 'Olga Öwner:owner@example.org:ADMIN', 'Uma 🌸:user@example.org:USER']);
@@ -309,6 +309,26 @@ describe('Workspace restore (section 18b)', () => {
     const old = await repack(homePackage, (files) => files.delete('data/journal_entries.ndjson'), { databaseLevel: '0051_workspace_location' });
     expect((await restore(old)).workspaceId).toBeTruthy();
     expect((await validated(await repack(homePackage, (files) => files.delete('data/journal_entries.ndjson')))).errorCode).toBe('malformed_records');
+  });
+
+  it('restores reference details, accepts pre-0056 Equipment, rejects hostile/current-missing fields and never awards restored activity', async () => {
+    const enriched = await repack(homePackage, files => write(files, 'equipment_records', lines(files, 'equipment_records').map(row => ({...row,replacement_parts:'Filter HCF-18',custom_fields:JSON.stringify([{label:'Cover',value:'C-40'}])}))));
+    const marksBefore = all('SELECT * FROM progress_awards ORDER BY key');
+    const restored = (await restore(enriched)).workspaceId;
+    expect(one('SELECT replacement_parts,custom_fields FROM equipment_records WHERE workspace_id=?',restored)).toEqual({replacement_parts:'Filter HCF-18',custom_fields:JSON.stringify([{label:'Cover',value:'C-40'}])});
+    expect(all('SELECT * FROM progress_awards ORDER BY key')).toEqual(marksBefore);
+    const omit = (files: Map<string,Buffer>) => write(files,'equipment_records',lines(files,'equipment_records').map(row=>Object.fromEntries(Object.entries(row).filter(([key])=>!['replacement_parts','custom_fields'].includes(key)))));
+    const older = await repack(enriched,omit,{databaseLevel:'0055_places'});
+    expect(one('SELECT replacement_parts,custom_fields FROM equipment_records WHERE workspace_id=?',(await restore(older)).workspaceId)).toEqual({replacement_parts:null,custom_fields:null});
+    for (const hostile of [
+      await repack(enriched,omit),
+      await repack(enriched,files=>write(files,'equipment_records',lines(files,'equipment_records').map(row=>({...row,custom_fields:JSON.stringify([{label:'x',value:'a'},{label:'X',value:'b'}])})))),
+      await repack(enriched,files=>write(files,'equipment_records',lines(files,'equipment_records').map(row=>({...row,replacement_parts:'\u202e'})))),
+    ]) {
+      const id=(await validated(hostile)).id;
+      expect((await job(id)).state).toBe('FAILED');
+      expect(all('SELECT * FROM progress_awards ORDER BY key')).toEqual(marksBefore);
+    }
   });
 
   it('restores shared locations, upgrades older packages to unset, and rejects hostile locations atomically', async () => {

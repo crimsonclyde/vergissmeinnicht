@@ -6191,3 +6191,30 @@ a.button.today-hero-go {
 .theme-swatch-mini .theme-swatch-button {
   height: 0.3rem;
 }
+
+/* Equipment reference collection and private encouragement (31). */
+.equipment-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 23rem), 1fr)); gap: 1rem; }
+.equipment-grid > li + li { margin-top: 0; }
+.equipment-grid .link-card { height: 100%; align-items: flex-start; border-radius: 1.25rem; padding: 1.25rem; }
+.equipment-grid .item-body { min-width: 0; gap: .4rem; }
+.equipment-model { font-weight: 600; overflow-wrap: anywhere; }
+.equipment-parts-preview { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; white-space: pre-wrap; color: var(--text-muted); }
+.equipment-reference { border-radius: 1.5rem; padding: 1.5rem; margin-bottom: 1rem; }
+.equipment-reference-heading { display: flex; align-items: center; flex-wrap: wrap; gap: 1rem; }
+.equipment-reference-heading > div { flex: 1; min-width: min(100%, 12rem); overflow-wrap: anywhere; }
+.equipment-reference-heading h3 { margin: .25rem 0; font-size: 1.35rem; }
+.equipment-reference-heading p { margin: 0; }
+.equipment-reference-icon { background: var(--accent-soft); color: var(--accent); padding: 1rem; border-radius: 1rem; }
+.equipment-replacement { margin-top: 1.25rem; padding: 1rem; border-radius: 1rem; background: var(--surface-muted); }
+.equipment-replacement h3 { font-size: 1rem; margin-top: 0; }
+.equipment-custom-field { display: flex; flex-wrap: wrap; align-items: end; gap: .5rem; }
+.equipment-custom-field .field { flex: 1; min-width: min(100%, 10rem); }
+.personal-points { display: inline-flex; align-items: center; gap: .4rem; font-weight: 600; color: var(--text); }
+.menu-points { padding: .6rem 1rem; }
+.progress-summary { margin-bottom: 1rem; }
+.progress-cheer { position: fixed; bottom: calc(6rem + env(safe-area-inset-bottom, 0px)); right: 1rem; max-width: min(26rem, calc(100% - 2rem)); z-index: 60; display: flex; align-items: center; gap: .75rem; padding: 1rem; border: 1px solid var(--border-strong); border-radius: 1.25rem; background: var(--surface-raised); color: var(--text); box-shadow: 0 1rem 3rem rgb(0 0 0 / 20%); }
+.progress-cheer small { display: block; color: var(--text-muted); }
+.progress-seedling { position: relative; flex: none; width: 2.6rem; height: 2.6rem; border-radius: 45% 50% 44% 42%; background: var(--accent-soft); color: var(--text); display: grid; place-items: center; animation: progress-hop .5s ease-out 1; }
+.progress-seedling::before { content: ''; position: absolute; top: -.5rem; left: .6rem; width: 1.2rem; height: .7rem; border-radius: 0 1rem 0 1rem; background: var(--accent); transform: rotate(-20deg); }
+@keyframes progress-hop { 50% { transform: translateY(-.4rem) rotate(-7deg); } }
+@media (prefers-reduced-motion: reduce) { .progress-seedling { animation: none; } }

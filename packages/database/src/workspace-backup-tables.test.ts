@@ -23,7 +23,7 @@ const REVIEWED_COLUMNS: Record<string, string> = {
   document_pages: 'document_id workspace_id position file_id',
   document_file_texts: 'file_id workspace_id state priority attempts lease_until error_code source text search_text bytes pages truncated corrected_text corrected_search_text correction_bytes corrected_by_user_id corrected_by_display_name corrected_at text_revision queued_at updated_at',
   document_suggestion_dismissals: 'document_id workspace_id key dismissed_by_user_id dismissed_at',
-  equipment_records: 'id workspace_id name category location manufacturer model serial_number purchase_date warranty_expiry notes category_key location_key manufacturer_key sort_key search_text revision created_by_user_id created_by_display_name created_at updated_by_user_id updated_by_display_name updated_at deleted_at deleted_by_user_id deleted_by_display_name',
+  equipment_records: 'id workspace_id name category location manufacturer model serial_number purchase_date warranty_expiry notes category_key location_key manufacturer_key sort_key search_text revision created_by_user_id created_by_display_name created_at updated_by_user_id updated_by_display_name updated_at deleted_at deleted_by_user_id deleted_by_display_name replacement_parts custom_fields',
   maintenance_records: 'id workspace_id title category date status completed_on description contact_id cost_amount cost_currency category_key sort_date search_text revision created_by_user_id created_by_display_name created_at updated_by_user_id updated_by_display_name updated_at deleted_at deleted_by_user_id deleted_by_display_name',
   runs: 'id workspace_id procedure_id procedure_revision title description icon tags state revision started_by_user_id started_by_display_name started_at ended_by_user_id ended_by_display_name ended_at end_reason',
   run_sections: 'id run_id position source_section_id title description icon',
@@ -61,7 +61,7 @@ describe('Workspace backup allowlist (section 18)', () => {
 
   it('never exports a table holding secrets, tokens, sessions or personal settings', () => {
     const exported = new Set(EXPORTED_TABLES.map((spec) => spec.table));
-    for (const secret of ['users', 'sessions', 'accounts', 'verifications', 'totp_credentials', 'recovery_codes', 'mfa_challenges', 'account_recoveries', 'invitations', 'knots', 'security_events', 'notification_providers', 'telegram_links', 'telegram_pairings', 'weather_credentials', 'user_weather_settings', 'user_today_layouts', 'notification_preferences', 'procedure_pins']) {
+    for (const secret of ['progress_awards', 'users', 'sessions', 'accounts', 'verifications', 'totp_credentials', 'recovery_codes', 'mfa_challenges', 'account_recoveries', 'invitations', 'knots', 'security_events', 'notification_providers', 'telegram_links', 'telegram_pairings', 'weather_credentials', 'user_weather_settings', 'user_today_layouts', 'notification_preferences', 'procedure_pins']) {
       expect({ secret, exported: exported.has(secret) }).toEqual({ secret, exported: false });
     }
   });

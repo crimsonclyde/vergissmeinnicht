@@ -56,14 +56,14 @@ export interface PlaceArtwork {
   /** The façade by day (shown at every hour; time of day is layered on top). */
   readonly day: PlaceArtworkSet;
   /** Only the lit windows, on transparent: fades in after sunset when the atmosphere is on. */
-  readonly lights: PlaceArtworkSet;
+  readonly lights?: PlaceArtworkSet;
   /** Framing of the artwork on wide screens and on phones (percent of the image). */
   readonly focusDesktop: PlaceFocus;
   readonly focusMobile: PlaceFocus;
 }
 
 /** Quiet effects a country supports; each is optional and stops for reduced motion. */
-export const PLACE_EFFECTS = ['window-glow', 'mist', 'haze', 'drift'] as const;
+export const PLACE_EFFECTS = ['window-glow', 'mist', 'haze', 'drift', 'fireflies', 'bee', 'leaves'] as const;
 export type PlaceEffect = (typeof PLACE_EFFECTS)[number];
 
 /**

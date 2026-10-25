@@ -1,3 +1,4 @@
+import { ProgressSummary } from './Progress.tsx';
 import { useRef, useState } from 'react';
 import { api, ownAvatarUrl, type CurrentUser, type WorkspaceSummary } from './api.ts';
 import { Avatar } from './Avatar.tsx';
@@ -69,6 +70,7 @@ export function ProfileSettings(props: { user: CurrentUser; avatar: string | nul
 
   return (
     <>
+      <ProgressSummary />
       <div className="card profile-card">
         <div className="profile-picture">
           <Avatar name={user.displayName} seed={user.id} src={avatar === null ? null : ownAvatarUrl(avatar)} size="large" />

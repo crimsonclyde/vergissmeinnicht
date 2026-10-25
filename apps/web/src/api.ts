@@ -663,7 +663,9 @@ async function request<T>(method: 'GET' | 'POST', path: string, body?: unknown, 
     const { error, ...details } = (await response.json().catch(() => ({}))) as { error?: string } & Record<string, unknown>;
     throw new ApiError(response.status, error ?? 'request_failed', details);
   }
-  return (response.status === 204 ? undefined : await response.json()) as T;
+  const result = (response.status === 204 ? undefined : await response.json()) as T;
+  if (method === 'POST') window.dispatchEvent(new Event('vmn-mutation-succeeded'));
+  return result;
 }
 
 /** The image as served to members of the Workspace (same-origin, session cookie). */
@@ -1059,8 +1061,8 @@ export interface ContactImportEntry {
   readonly sameAs: readonly { readonly entry: number; readonly reasons: readonly ('email' | 'phone' | 'name')[] }[];
 }
 
-export interface EquipmentInput { readonly name:string; readonly category?:string; readonly location?:string; readonly manufacturer?:string; readonly model?:string; readonly serialNumber?:string; readonly purchaseDate?:string|null; readonly warrantyExpiry?:string|null; readonly notes?:string }
-export interface EquipmentRecord {readonly id:string;readonly name:string;readonly category:string;readonly location:string;readonly manufacturer:string;readonly model:string;readonly serialNumber:string;readonly purchaseDate:string|null;readonly warrantyExpiry:string|null;readonly notes:string;readonly revision:number;readonly createdAt:string;readonly createdBy:string;readonly modifiedAt:string;readonly modifiedBy:string}
+export interface EquipmentInput { readonly replacementParts?:string; readonly customFields?:readonly {label:string;value:string}[]; readonly name:string; readonly category?:string; readonly location?:string; readonly manufacturer?:string; readonly model?:string; readonly serialNumber?:string; readonly purchaseDate?:string|null; readonly warrantyExpiry?:string|null; readonly notes?:string }
+export interface EquipmentRecord { readonly replacementParts:string; readonly customFields:readonly {label:string;value:string}[];readonly id:string;readonly name:string;readonly category:string;readonly location:string;readonly manufacturer:string;readonly model:string;readonly serialNumber:string;readonly purchaseDate:string|null;readonly warrantyExpiry:string|null;readonly notes:string;readonly revision:number;readonly createdAt:string;readonly createdBy:string;readonly modifiedAt:string;readonly modifiedBy:string}
 export interface EquipmentFilters {readonly categories:string[];readonly locations:string[];readonly manufacturers:string[]}
 export interface TrashedEquipment {readonly id:string;readonly name:string;readonly deletedAt:string;readonly deletedBy:string}
 const equipmentPath=(workspaceId:string,rest='')=>`/workspaces/${encodeURIComponent(workspaceId)}/equipment${rest}`;
@@ -1215,6 +1217,7 @@ export type JournalView = Omit<JournalEntry, 'createdAt' | 'updatedAt'> & { crea
 const journalPath = (workspaceId?: string) => workspaceId === undefined ? '/account/journal' : `/workspaces/${encodeURIComponent(workspaceId)}/journal`;
 
 export const api = {
+  personalProgress: () => request<{points:number}>('GET', '/account/progress'),
   moon: (workspaceId: string) => request<{ location: import('@vergissmeinnicht/domain').WeatherLocation | null }>('GET', `/workspaces/${encodeURIComponent(workspaceId)}/moon`),
   journal: (workspaceId: string | undefined, q: string, archived: boolean, offset: number) => request<{ entries: JournalView[]; more: boolean }>('GET', `${journalPath(workspaceId)}?${new URLSearchParams({ q, archived: String(archived), offset: String(offset) })}`),
   journalEntry: (workspaceId: string | undefined, id: string) => request<{ entry: JournalView }>('GET', `${journalPath(workspaceId)}/${encodeURIComponent(id)}`).then((answer) => answer.entry),

@@ -1,3 +1,4 @@
+import { ProgressPoints } from './Progress.tsx';
 import { useEffect, useId, useRef, useState } from 'react';
 import { ownAvatarUrl, type CurrentUser } from './api.ts';
 import { Avatar } from './Avatar.tsx';
@@ -76,6 +77,7 @@ export function SettingsMenu(props: { user: CurrentUser; avatar?: string | null;
               <small className="muted">{props.user.email}</small>
             </p>
           </div>
+          <div className="menu-points"><ProgressPoints /></div>
           <nav aria-label={t('menu.settings')}>
             {settingsLinks(props.user, props.workspaceId).map((link) => (
               <Link key={link.href} href={link.href} onClick={close} aria-current={props.currentPath.startsWith(link.href) ? 'page' : undefined}>

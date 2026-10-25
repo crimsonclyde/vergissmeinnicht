@@ -1,3 +1,5 @@
+import { ProgressProvider } from './Progress.tsx';
+import { PlacesNavigation } from './places/PlacesNavigation.tsx';
 import { JournalPage } from './modules/journal/JournalPage.tsx';
 import { useCallback, useEffect, useState, type ReactNode } from 'react';
 import { AccountSecurity } from './AccountSecurity.tsx';
@@ -547,7 +549,7 @@ export function AppShell(props: { user: CurrentUser; route: Route; onSignOut: ()
   return (
     // Appearance shows the default theme, so choosing it there is seen at once; elsewhere the theme
     // the person chose for the Workspace shown (or last used) applies (section 28).
-    <PreferencesProvider workspaceId={route.page === 'account' && route.section === 'appearance' ? null : navWorkspaceId}>
+    <ProgressProvider key={user.id} userId={user.id}><PreferencesProvider workspaceId={route.page === 'account' && route.section === 'appearance' ? null : navWorkspaceId}>
       <RingPaint />
       {/* Places (section 30): the person's own look of the Workspace shown; strongest on Today. */}
       <PlaceScene userId={user.id} workspaceId={navWorkspaceId} prominence={route.page === 'workspace' ? 'today' : 'page'} />
@@ -561,7 +563,7 @@ export function AppShell(props: { user: CurrentUser; route: Route; onSignOut: ()
       >
         {t('shell.skipToContent')}
       </a>
-      <div className="shell" data-focus={focus}>
+      <div className="shell" data-focus={focus} data-page={route.page}>
         <header className="shell-side">
           {/* The product name is the page's level-one heading; each page's own title is a level-two heading. */}
           <h1 className="brand-heading">
@@ -600,11 +602,9 @@ export function AppShell(props: { user: CurrentUser; route: Route; onSignOut: ()
           </main>
         </div>
         {nav !== null && (
-          <nav aria-label={t('shell.tools')} className="tab-bar">
-            <NavLinks items={nav.bar} page={route.page} />
-          </nav>
+          <PlacesNavigation items={nav.bar} all={nav.side} page={route.page} />
         )}
       </div>
-    </PreferencesProvider>
+    </PreferencesProvider></ProgressProvider>
   );
 }

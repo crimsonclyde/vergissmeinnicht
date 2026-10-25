@@ -130,7 +130,16 @@ export async function updateEquipmentRecord(deps: EquipmentDeps, input: Ref & {
     readonly expectedRevision: number;
 }): Promise<EquipmentRecord> {
     await enter(deps, input, 'equipment.manage');
-    const values = { workspaceId: input.workspaceId, recordId: parseEquipmentId(input.recordId), content: normalizeEquipmentContent(input.content), expectedRevision: input.expectedRevision, at: deps.clock.now() };
+    const recordId = parseEquipmentId(input.recordId);
+    const current = await deps.equipment.get(input.workspaceId, recordId);
+    if (current === undefined) throw new EquipmentRecordNotFoundError();
+    // A browser open before the upgrade does not know these fields. Omission preserves them;
+    // an explicit empty string/array clears them. The transaction still compares the revision.
+    const content = normalizeEquipmentContent({ ...input.content,
+        replacementParts: input.content.replacementParts === undefined ? current.replacementParts : input.content.replacementParts,
+        customFields: input.content.customFields === undefined ? current.customFields : input.content.customFields,
+    });
+    const values = { workspaceId: input.workspaceId, recordId, content, expectedRevision: input.expectedRevision, at: deps.clock.now() };
     return ok(await deps.equipment.update(values, userActor(input.actor), manage)).record;
 }
 /** Moves a record to Trash. */
