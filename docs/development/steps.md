@@ -18,9 +18,9 @@ For every completed task, add a concise completion note, tests/checks performed,
 
 ## Current state — resume here
 
-**Release in progress (2026-10-25): v0.7.2-beta.3 (12.45)** — named characters, personal menu order and optional unified Gamification (31.2–31.4). Migrations 0057–0058; existing Workspaces retain Gamification on, new Workspaces start off. Local checks passed; commit/push, CI and publication in progress.
+**Latest release (2026-10-25): v0.7.2-beta.3 (12.45)** — named characters, personal menu order and optional unified Gamification (31.2–31.4). PR #70 merged as `a242e33`; PR/main/tagged CI passed. Signed amd64/arm64 image and CycloneDX attestation published; the exact pulled image passed smoke and populated beta.2 upgrade/backup/Workspace export/restore checks. Migrations 0057–0058 required (59 migrations); back up database and files first. Existing Workspaces retain Gamification on, new Workspaces start off. No live installation changed.
 
-**Latest release (2026-10-25): v0.7.2-beta.1 (12.43)** — section 31 Open horizon Places, Equipment reference details and private app-wide points/seedling encouragement. PR #68 merged as `1892e38`; PR/main/tagged CI passed. Signed amd64/arm64 image and CycloneDX attestation published; exact pulled-image smoke and populated beta.0 upgrade/Workspace export/restore passed. Migration 0056 required; back up database and file storage before upgrading. No live installation changed.
+**Earlier release (2026-10-25): v0.7.2-beta.1 (12.43)** — section 31 Open horizon Places, Equipment reference details and private app-wide points/seedling encouragement. PR #68 merged as `1892e38`; PR/main/tagged CI passed. Signed amd64/arm64 image and CycloneDX attestation published; exact pulled-image smoke and populated beta.0 upgrade/Workspace export/restore passed. Migration 0056 required; back up database and file storage before upgrading. No live installation changed.
 
 **Earlier release (2026-10-23): v0.7.1-beta.0 (12.40)** — section 27 Moon card, shared Workspace Journal and account-private Journal, with bundled extension registries and the Dark Today-heading contrast correction. Feature/release commit `709cff1` is on main; main CI and tagged release passed on their first run. Signed amd64/arm64 image is published; pulled-image smoke and populated beta.4 upgrade/backup/restore passed. Migration 0052 is required. Moon/shared Journal start off until enabled by a Workspace admin. No live installation was changed.
 
@@ -2020,27 +2020,29 @@ GitHub pre-release created after the user approved the command: `https://github.
 
 ### 12.45 Release 0.7.2-beta.3
 
-**Status:** IN PROGRESS (2026-10-25). Owner requested commit, push and release of 31.2–31.4. Exact image `ghcr.io/crimsonclyde/vergissmeinnicht:0.7.2-beta.3`; Unraid template and guide updated. Release publication is distinct from updating a running installation.
+**Status:** DONE (2026-10-25). Owner requested commit, push and release of 31.2–31.4. Exact image `ghcr.io/crimsonclyde/vergissmeinnicht:0.7.2-beta.3`; Unraid template and guide updated. Release publication is distinct from updating a running installation.
 
 **Scope:** simplified Herr Fuchsky, Count Duckula and Fester Fiesta; personal tool ordering with fixed Today/More; Workspace-admin Gamification switch with shared character/upward-confetti renderer and independent private-Journal setting. Server-scoped awards, zero-point off-period consumption, retained totals, no separate optimistic Run cheer. Extension guide in the bundled module.
 
 **Upgrade:** migrations **0057_navigation_order** and **0058_gamification** (59 migrations, 0000–0058). Back up database and file storage first. Existing themes, tool flags, points, navigation guards and history are retained. Existing Workspaces gain Gamification on with a new tool-settings revision; new Workspaces start off. Private Journal retains its prior default on, independently switchable in Profile. Workspace backup includes the shared switch, never private preferences/points; older packages without the flag restore off. No new environment variable or service. Older binaries refuse the newer database.
 
-**Validation:** implementation ledger records 194 files / 1519 passing tests, focused negative/upgrade/recovery checks, successful browser workflow, typecheck/lint/build and schema consistency. The populated image-upgrade harness now requires exactly one added enabled Gamification flag per existing Workspace across 0058; all other row counts, FK/integrity and Workspace export/restore checks remain strict. PR/main/tagged CI and exact pulled-image validation pending.
+**Validation:** implementation ledger records 194 files / 1519 passing tests, focused negative/upgrade/recovery checks, successful browser workflow, typecheck/lint/build and schema consistency. The populated image-upgrade harness now requires exactly one added enabled Gamification flag per existing Workspace across 0058; all other row counts, FK/integrity and Workspace export/restore checks remain strict. PR CI `40212084586`, main CI `40212499273` and tagged release `40212548366` all passed. Tagged browser checks: 11 passed / 1 intentional bootstrap skip. Both native validation/publishing images passed smoke tests and fixable HIGH/CRITICAL scans; signing and CycloneDX attestation passed. The exact digest-pinned pulled amd64 image passed smoke and a populated beta.2 upgrade/backup/Workspace export/restore rehearsal: 57→59 migrations, all existing rows preserved, one new enabled Gamification flag per existing Workspace, clean foreign keys/integrity, successful restore. Version/revision labels match `0.7.2-beta.3` / `a242e33cbdbed556a1c0d64d25a1ee5b0e9baf1f`.
 
-**Security impact:** LOW, inherited bounded presentation preferences and optional server award gate; no new permission, credential, upload or external processing. Security checks updated in 31.3–31.4. **Remaining:** remote validation/publication; physical-device/screen-reader review and live installation update remain unperformed.
+**Security impact:** LOW, inherited bounded presentation preferences and optional server award gate; no new permission, credential, upload or external processing. Security checks updated in 31.3–31.4. **Remaining:** physical-device/screen-reader review and live installation update remain unperformed; existing large-chunk warning remains. Only the exact beta tag was published; `latest` was not moved. Unrelated owner mock-ups/screenshots remain untracked and preserved.
+
+**Published:** feature commit `496e362320caa661dbdd802c97c6451a5a0f7ee7`; [PR #70](https://github.com/crimsonclyde/vergissmeinnicht/pull/70) merged as `a242e33cbdbed556a1c0d64d25a1ee5b0e9baf1f`. Annotated tag `v0.7.2-beta.3` points to that merge. [GitHub prerelease](https://github.com/crimsonclyde/vergissmeinnicht/releases/tag/v0.7.2-beta.3) published. Multi-architecture index `sha256:dc9136d36aa50b7ddb34c65f98d929e1695e5a57857a5fbfd26253e0341f3942` inspected directly: linux/amd64 `sha256:591830377ffab47b95f99b44034f9e7dec8be393e9e4e4bc207ac0773d875181`, linux/arm64 `sha256:66f1b917cc540f6cacb0a1be9c4b14da411c31f5986c5ca6ef3ce9fae9c19981`. Workflow signing/attestation evidence, not an independent local cosign verification. Completion recorded in a documentation follow-up; no running installation was updated.
 
 ### 12.44 Release 0.7.2-beta.2
 
-**Status:** IN PROGRESS (2026-10-25). Owner requested commit, push and release of 31.1. Exact image `ghcr.io/crimsonclyde/vergissmeinnicht:0.7.2-beta.2`; Unraid template and guide updated. No live deployment requested.
+**Status:** DONE (2026-10-25). Owner requested commit, push and release of 31.1. Exact image `ghcr.io/crimsonclyde/vergissmeinnicht:0.7.2-beta.2`; Unraid template and guide updated. No live deployment requested.
 
 **Scope:** centered Places Today; place description and Effects only in Places settings; saved per-person/per-Workspace Today card opacity with local preview and explicit Save/Cancel. Text and controls remain opaque. Existing settings default to solid cards.
 
 **Upgrade:** no new migration, environment variable or service; schema remains at 0056 (57 migrations). Back up database and files as usual. Earlier images do not support the opacity setting.
 
-**Validation:** 31.1 records 1510 passing tests, 5 passing browser checks/1 intentional bootstrap skip, typecheck/lint/build and visual checks. Publication remains gated on CI, both native image smoke tests and vulnerability scans, multi-architecture manifest, signing and SBOM.
+**Validation:** 31.1 records 1510 passing tests, 5 passing browser checks/1 intentional bootstrap skip, typecheck/lint/build and visual checks. PR #69 merged as `2c465764fc892edd4c44a65b285c51a4506e8854`; main CI `40203132811` and tagged image release `40203161886` succeeded. The published beta.2 image was pulled successfully and used as the populated source for the beta.3 upgrade rehearsal.
 
-**Security impact:** LOW, bounded preference through the existing owner-only API; security review in 31.1. **Remaining:** remote validation/publication; physical-device/screen-reader limits remain.
+**Security impact:** LOW, bounded preference through the existing owner-only API; security review in 31.1. **Remaining:** physical-device/screen-reader limits remain. No running installation was updated.
 
 ### 12.43 Release 0.7.2-beta.1
 
@@ -4913,6 +4915,8 @@ Also bumps **zod 4.6.5 → 4.6.6** (GHSA-mrhx-c7xc-m3w5, high, published after t
 
 **Remaining/limitations:** physical-device/screen-reader review remains unperformed. Companions require no migration; the accompanying menu-order task requires 0057. No deployment performed.
 
+**Released:** v0.7.2-beta.3 (12.45); no live installation updated.
+
 ### 31.3 Personal tool menu order (owner requested 2026-10-25)
 
 **Status:** DONE
@@ -4927,6 +4931,8 @@ Also bumps **zod 4.6.5 → 4.6.6** (GHSA-mrhx-c7xc-m3w5, high, published after t
 **Security surface changed:** LOW — bounded own-account presentation setting; no new capability, credential, upload, external flow or tool activation. Security policy updated with negative checks and private-data handling.
 
 **Remaining/limitations:** real-device/screen-reader testing unperformed. Migration 0057 required on upgrade; no deployment performed.
+
+**Released:** v0.7.2-beta.3 (12.45); no live installation updated.
 
 ### 31.4 Optional unified Gamification (owner requested 2026-10-25)
 
@@ -4944,6 +4950,9 @@ One shared UI provider compares server totals only after successful same-scope m
 **Security surface changed:** LOW — optional gate and bounded private boolean, no new permission/credential/endpoint/upload/external processing. Normative security checks updated.
 
 **Remaining/limitations:** real-device/screen-reader testing unperformed; frontend reflects canonical switch changes at next mutation/focus/visible poll, server rewards always gate at commit. Existing large-chunk warning remains. Migration 0058 required; no deployment performed.
+
+**Released:** v0.7.2-beta.3 (12.45); no live installation updated.
+
 
 ---
 
