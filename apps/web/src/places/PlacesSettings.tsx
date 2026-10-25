@@ -7,7 +7,7 @@ import {
   type PlaceFocus,
   type PlacePreferences,
 } from '@vergissmeinnicht/domain';
-import { useId, useRef, useState, type KeyboardEvent, type PointerEvent, type ReactNode } from 'react';
+import { useId, useRef, useState, type CSSProperties, type KeyboardEvent, type PointerEvent, type ReactNode } from 'react';
 import { messageFor, type WorkspaceSummary } from '../api.ts';
 import { t, type MessageKey } from '../i18n/index.ts';
 import { preparePlaceBackground } from '../image-prep.ts';
@@ -170,6 +170,7 @@ function Editor({ userId, workspace, config }: { userId: string; workspace: Work
           <h3 style={{ margin: 0 }}>{t(config.name)}</h3>
           <span className="muted">{t('places.lookOf', { name: workspace.name })}</span>
         </div>
+        <p className="muted" style={{ margin: 0 }}>{t(config.hint)}</p>
         <p className="muted" style={{ margin: 0 }}>
           {t('places.onlyYou')}
         </p>
@@ -205,7 +206,7 @@ function Editor({ userId, workspace, config }: { userId: string; workspace: Work
             onPointerCancel={() => (dragging.current = false)}
           >
             <PlaceBackdrop look={look} light={light} prominence="today" frame={frame} />
-            <div className="place-preview-ui" aria-hidden="true">
+            <div className="place-preview-ui" aria-hidden="true" style={{ '--place-card-opacity': `${draft.cardOpacity}%` } as CSSProperties}>
               <span className="place-preview-title">{t('shell.today')}</span>
               <div className="place-preview-card">
                 <strong>{t('places.previewCard')}</strong>
@@ -287,6 +288,8 @@ function Editor({ userId, workspace, config }: { userId: string; workspace: Work
         />
 
         <div className="place-sliders">
+          <Slider icon="overlay" label={t('places.cardOpacity')} value={draft.cardOpacity} min={0} max={100} unit="%" onChange={(value) => change({ cardOpacity: value })} />
+          <small className="muted">{t('places.cardOpacityHint')}</small>
           <Slider icon="overlay" label={t('places.overlay')} value={look.overlay} min={PLACE_OVERLAY_MIN} max={PLACE_OVERLAY_MAX} unit="%" disabled={!showsImage} onChange={(value) => change({ overlay: value })} />
           <Slider icon="blur" label={t('places.blur')} value={look.blur} min={0} max={PLACE_BLUR_MAX} unit="px" disabled={!showsImage} onChange={(value) => change({ blur: value })} />
           <Slider icon="vignette" label={t('places.vignette')} value={look.vignette} min={0} max={PLACE_VIGNETTE_MAX} unit="%" onChange={(value) => change({ vignette: value })} />

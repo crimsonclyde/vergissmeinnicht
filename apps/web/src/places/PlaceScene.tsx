@@ -6,8 +6,6 @@ import { placeLook, type PlaceProminence } from './look.ts';
 import { PlaceBackdrop } from './PlaceBackdrop.tsx';
 import { placeForTheme } from './registry.ts';
 import { usePlaceSettings } from './settings-store.ts';
-import { t } from '../i18n/index.ts';
-import { UiIcon } from '../ui-icons.tsx';
 
 /**
  * The Places background behind every page (section 30), only while a Places theme is shown. Before
@@ -76,15 +74,15 @@ export function useSlowClock(): Date {
 
 const Scene = memo(function Scene({ configId, userId, workspaceId, prominence }: { configId: string; userId: string | undefined; workspaceId: string | null; prominence: PlaceProminence }) {
   const config = placeForTheme(`places-${configId}`);
-  const { settings, loaded, save } = usePlaceSettings(userId, workspaceId);
-  const [busy, setBusy] = useState(false);
-  const [failed, setFailed] = useState(false);
+  const { settings } = usePlaceSettings(userId, workspaceId);
+  useEffect(() => {
+    document.documentElement.style.setProperty('--place-card-opacity', `${settings.preferences.cardOpacity}%`);
+    return () => { document.documentElement.style.removeProperty('--place-card-opacity'); };
+  }, [settings.preferences.cardOpacity]);
   const clock = useWorkspaceClock(workspaceId, userId !== undefined);
   const now = useSlowClock();
   if (config === null) return null;
   // The weather integration point stays unused: no forecast is requested for decoration.
   const light = placeLight(now, clock, null);
-  return <><PlaceBackdrop className="place-scene" look={placeLook(config, settings, workspaceId)} light={light} prominence={prominence} />
-    {prominence === 'today' && userId !== undefined && workspaceId !== null && loaded && <aside className="place-scene-caption" aria-label={t('places.scene')}><div><UiIcon name="place" /><span><strong>{t(config.name)}</strong><small>{t(config.hint)}</small></span></div><button type="button" className="quiet" disabled={busy} aria-pressed={settings.preferences.atmosphere} onClick={() => { setBusy(true); setFailed(false); void save({ ...settings.preferences, atmosphere: !settings.preferences.atmosphere }).catch(() => setFailed(true)).finally(() => setBusy(false)); }}><UiIcon name="atmosphere" />{t(settings.preferences.atmosphere ? 'places.effectsOn' : 'places.effectsOff')}</button>{failed && <p role="status">{t('places.effectsError')}</p>}</aside>}
-  </>;
+  return <PlaceBackdrop className="place-scene" look={placeLook(config, settings, workspaceId)} light={light} prominence={prominence} />;
 });

@@ -21,6 +21,11 @@ describe('Places (section 30)', () => {
     expect(parsePlacePreferences(valid)).toEqual(valid);
     expect(parsePlacePreferences(DEFAULT_PLACE_PREFERENCES)).toEqual(DEFAULT_PLACE_PREFERENCES);
     for (const bad of [
+      { ...valid, cardOpacity: -1 },
+      { ...valid, cardOpacity: 101 },
+      { ...valid, cardOpacity: 20.5 },
+      { ...valid, cardOpacity: null },
+      { ...valid, cardOpacity: '0%; color:red' },
       { ...valid, overlay: 14 },
       { ...valid, overlay: 86 },
       { ...valid, blur: 13 },
@@ -37,6 +42,15 @@ describe('Places (section 30)', () => {
     ]) {
       expect(() => parsePlacePreferences(bad)).toThrow();
     }
+  });
+
+  it('keeps older settings solid and accepts transparent and opaque card endpoints', () => {
+    const old: Record<string, unknown> = { ...DEFAULT_PLACE_PREFERENCES };
+    delete old.cardOpacity;
+    expect(parsePlacePreferences(old).cardOpacity).toBe(100);
+    expect(normalizePlacePreferences(old).cardOpacity).toBe(100);
+    expect(normalizePlacePreferences({ ...old, cardOpacity: 'invalid' }).cardOpacity).toBe(100);
+    for (const cardOpacity of [0, 35, 100]) expect(parsePlacePreferences({ ...old, cardOpacity }).cardOpacity).toBe(cardOpacity);
   });
 
   it('reads stored or cached settings tolerantly, field by field', () => {

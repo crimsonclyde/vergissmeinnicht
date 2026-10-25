@@ -27,7 +27,7 @@ function photo(shade = 7): Promise<Buffer> {
     .toBuffer();
 }
 
-const custom = { ...DEFAULT_PLACE_PREFERENCES, background: 'photo', focusDesktop: { x: 20, y: 70 }, focusMobile: { x: 60, y: 40 }, overlay: 50, blur: 4, vignette: 10, atmosphere: false };
+const custom = { ...DEFAULT_PLACE_PREFERENCES, background: 'photo', focusDesktop: { x: 20, y: 70 }, focusMobile: { x: 60, y: 40 }, overlay: 50, blur: 4, vignette: 10, atmosphere: false, cardOpacity: 35 };
 
 describe('Places personal settings (section 30)', { timeout: 30_000 }, () => {
   let t: Awaited<ReturnType<typeof startTestApp>>;
@@ -92,6 +92,10 @@ describe('Places personal settings (section 30)', { timeout: 30_000 }, () => {
   it('validates strictly and keeps the previous settings on a refusal', async () => {
     await t.post(base(home), { preferences: custom }, bob);
     for (const preferences of [
+      { ...custom, cardOpacity: -1 },
+      { ...custom, cardOpacity: 101 },
+      { ...custom, cardOpacity: null },
+      { ...custom, cardOpacity: '35%' },
       { ...custom, overlay: 0 }, // below the readability floor
       { ...custom, overlay: 99 },
       { ...custom, blur: 40 },
