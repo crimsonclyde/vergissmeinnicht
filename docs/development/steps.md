@@ -2016,6 +2016,18 @@ GitHub pre-release created after the user approved the command: `https://github.
 
 **Validation:** implementation and local checks recorded in 16.8 (146 files / 1154 tests, 27.30 s; Playwright 3 passed / 1 intentional skip; typecheck/lint/build/schema checks). Final PR CI `37218359808`, main CI `37218652596` and release `37218676293` succeeded. Both native validation and publishing images passed smoke tests and fixable HIGH/CRITICAL vulnerability scans; manifest publishing, workflow signing and CycloneDX attestation succeeded. Completion is recorded in a documentation commit after publication. Physical-phone imports, live Unraid upgrade and the existing development-only moderate esbuild finding remain open. Security surface: MEDIUM, documented in `security.md`; release validation must remain fail-closed.
 
+### 12.44 Release 0.7.2-beta.2
+
+**Status:** IN PROGRESS (2026-10-25). Owner requested commit, push and release of 31.1. Exact image `ghcr.io/crimsonclyde/vergissmeinnicht:0.7.2-beta.2`; Unraid template and guide updated. No live deployment requested.
+
+**Scope:** centered Places Today; place description and Effects only in Places settings; saved per-person/per-Workspace Today card opacity with local preview and explicit Save/Cancel. Text and controls remain opaque. Existing settings default to solid cards.
+
+**Upgrade:** no new migration, environment variable or service; schema remains at 0056 (57 migrations). Back up database and files as usual. Earlier images do not support the opacity setting.
+
+**Validation:** 31.1 records 1510 passing tests, 5 passing browser checks/1 intentional bootstrap skip, typecheck/lint/build and visual checks. Publication remains gated on CI, both native image smoke tests and vulnerability scans, multi-architecture manifest, signing and SBOM.
+
+**Security impact:** LOW, bounded preference through the existing owner-only API; security review in 31.1. **Remaining:** remote validation/publication; physical-device/screen-reader limits remain.
+
 ### 12.43 Release 0.7.2-beta.1
 
 **Status:** DONE (2026-10-25). Owner requested commit, push and release of section 31. Exact image tag: `ghcr.io/crimsonclyde/vergissmeinnicht:0.7.2-beta.1`. Unraid template and guide updated. No live installation deployment requested.
@@ -4859,6 +4871,19 @@ Also bumps **zod 4.6.5 → 4.6.6** (GHSA-mrhx-c7xc-m3w5, high, published after t
 **Security impact:** MEDIUM — bounded shared Equipment content and a new private account aggregate/ledger; no new credential, upload or authorization capability. **Security docs updated:** YES (31); architecture, user guide, deployment guide and AGENTS acceptance updated.
 
 **Remaining/limitations:** real physical devices and screen readers remain untested; the artwork is an artistic landscape, not a geographical/archaeological representation. Existing large JavaScript chunk warning remains. Migration 0056 is included and tested; production migration has not been performed. Released as v0.7.2-beta.1 (12.43). No live installation deployed.
+
+### 31.1 Centered Today and theme-only controls (owner requested 2026-10-25)
+
+**Status:** DONE
+**Completed:** 2026-10-25
+
+**Implemented:** removed the floating place-description/Effects panel from Today and placed the description beside the existing image/Effects controls in Places settings. Today now uses the standard centered 60rem content area; the asymmetric left scrim is removed. A personal **Today card opacity** slider previews 0–100% card-background paint and persists only with Save through existing per-person/per-Workspace settings. Clock, Moon, Weather, other Today cards and the continuation hero follow it; text/controls/navigation and other pages remain opaque. Existing data defaults to 100%; forced colours stays solid. No migration or new endpoint.
+
+**Tests/checks:** full Vitest 191 files / **1510 tests passed**; focused Places/domain/API/contrast checks 4 files / 46 tests passed. Typecheck, lint, production build and diff checks pass. Playwright: **5 passed / 1 intentional mobile-bootstrap skip**; desktop account workflow includes 1440/390/320 px scenes and accessibility checks, centered-main geometry, absent panel, keyboard slider endpoints, live preview, Save/Cancel/reload, Effects persistence and 35% card backgrounds over an uploaded photo. Standalone Places tests also cover mobile/desktop reduced motion, hidden pause, forced colours and public-page privacy. Desktop/320 px and personal-photo screenshots visually inspected. Removed obsolete caption messages after catalog-usage verification; one security-sweep timeout while running browsers concurrently passed in the final standalone full run. Existing large-chunk build warning remains.
+
+**Security impact:** LOW — bounded presentation field on the existing private preference API, no new permission or upload boundary. **Security docs updated:** YES; architecture and user guide updated.
+
+**Remaining/limitations:** real-device/screen-reader testing remains unperformed. Low user-selected opacity over arbitrary photos can reduce contrast; defaults stay solid and the editor provides a preview/readability guidance. No migration needed. Release requested and tracked in 12.44; no live deployment.
 
 ---
 

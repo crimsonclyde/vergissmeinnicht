@@ -53,6 +53,8 @@ export interface PlacePreferences {
   readonly vignette: number | null;
   /** Quiet atmosphere (light of the time of day, mist, a lit window); motion also stops for reduced motion. */
   readonly atmosphere: boolean;
+  /** Today card backgrounds, in percent: 0 transparent, 100 solid. */
+  readonly cardOpacity: number;
 }
 
 /** Readability floor and ceiling of the overlay (percent): text never sits on a bare busy photo. */
@@ -74,6 +76,7 @@ export const DEFAULT_PLACE_PREFERENCES: PlacePreferences = Object.freeze({
   blur: 0,
   vignette: null,
   atmosphere: true,
+  cardOpacity: 100,
 });
 
 /** A personal background photo: one per person and Workspace, re-encoded on the server. */
@@ -99,7 +102,7 @@ function focusOf(value: unknown, field: string): PlaceFocus | null {
   return { x: integerIn(value.x, 0, 100, field), y: integerIn(value.y, 0, 100, field) };
 }
 
-const KEYS = ['version', 'background', 'focusDesktop', 'focusMobile', 'overlay', 'blur', 'vignette', 'atmosphere'] as const;
+const KEYS = ['version', 'background', 'focusDesktop', 'focusMobile', 'overlay', 'blur', 'vignette', 'atmosphere', 'cardOpacity'] as const;
 
 /** Strict validation of what a person saves: exactly the version-1 fields, every value in range. */
 export function parsePlacePreferences(input: unknown): PlacePreferences {
@@ -117,6 +120,7 @@ export function parsePlacePreferences(input: unknown): PlacePreferences {
     blur: integerIn(input.blur, 0, PLACE_BLUR_MAX, 'blur'),
     vignette: input.vignette === null ? null : integerIn(input.vignette, 0, PLACE_VIGNETTE_MAX, 'vignette'),
     atmosphere: input.atmosphere,
+    cardOpacity: input.cardOpacity === undefined ? 100 : integerIn(input.cardOpacity, 0, 100, 'cardOpacity'),
   };
 }
 
@@ -143,6 +147,7 @@ export function normalizePlacePreferences(input: unknown): PlacePreferences {
     blur: pick(() => integerIn(input.blur, 0, PLACE_BLUR_MAX, 'blur'), d.blur),
     vignette: pick(() => (input.vignette === null ? null : integerIn(input.vignette, 0, PLACE_VIGNETTE_MAX, 'vignette')), d.vignette),
     atmosphere: typeof input.atmosphere === 'boolean' ? input.atmosphere : d.atmosphere,
+    cardOpacity: pick(() => integerIn(input.cardOpacity, 0, 100, 'cardOpacity'), d.cardOpacity),
   };
 }
 
