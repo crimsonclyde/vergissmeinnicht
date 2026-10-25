@@ -10,7 +10,7 @@ OLD="${2:-ghcr.io/crimsonclyde/vergissmeinnicht:0.6.0-beta.2}"
 VOL=vmn-upgrade-check
 PORT=3298
 ENVS=(-e NODE_ENV=production -e PUBLIC_ORIGIN=http://localhost:$PORT -e AUTH_SECRET=8c0c6d3e0a9b4f7aa1b2c3d4e5f60718293a4b5c6d7e8f90a1b2c3d4e5f60718 -e DATA_ENCRYPTION_KEY=q6Zr3lWb0n0b1i1o2u3yGmZ0c2VjcmV0a2V5MTIzNDU= -e SMTP_HOST=localhost -e SMTP_SECURITY=none -e MAIL_FROM_ADDRESS=vmn@example.org)
-COUNT_JS='const D=require("better-sqlite3");const d=new D("/data/vergissmeinnicht.sqlite",{readonly:true});const t=d.prepare("SELECT name FROM sqlite_master WHERE type=? AND name NOT LIKE ? AND name NOT LIKE ? ORDER BY name").all("table","sqlite_%","__drizzle%").map(r=>r.name);const o={};for(const n of t)o[n]=d.prepare("SELECT count(*) AS c FROM \""+n+"\"").get().c;o.__level=d.prepare("SELECT count(*) AS c FROM __drizzle_migrations").get().c;o.__fk=d.pragma("foreign_key_check").length;o.__integrity=d.pragma("integrity_check",{simple:true});console.log(JSON.stringify(o));'
+COUNT_JS='const D=require("better-sqlite3");const d=new D("/data/vergissmeinnicht.sqlite",{readonly:true});const t=d.prepare("SELECT name FROM sqlite_master WHERE type=? AND name NOT LIKE ? AND name NOT LIKE ? ORDER BY name").all("table","sqlite_%","__drizzle%").map(r=>r.name);const o={};for(const n of t)o[n]=d.prepare("SELECT count(*) AS c FROM \""+n+"\"").get().c;o.__gamification=d.prepare("SELECT count(*) AS c FROM workspace_tools WHERE tool = ? AND enabled = 1").get("GAMIFICATION").c;o.__level=d.prepare("SELECT count(*) AS c FROM __drizzle_migrations").get().c;o.__fk=d.pragma("foreign_key_check").length;o.__integrity=d.pragma("integrity_check",{simple:true});console.log(JSON.stringify(o));'
 count() { docker run --rm -v $VOL:/data -w /app/packages/database --entrypoint node "$1" -e "$COUNT_JS"; }
 wait_ready() { for _ in $(seq 1 60); do curl -sf http://localhost:$PORT/api/health/ready >/dev/null && return 0; sleep 1; done; echo "not ready"; docker logs "$1" | tail -20; return 1; }
 cleanup() { docker rm -f vmn-upgrade-old vmn-upgrade-new >/dev/null 2>&1 || true; docker volume rm -f $VOL >/dev/null 2>&1 || true; }
@@ -29,8 +29,9 @@ before=$(count $OLD); echo "before: $before"
 echo "== new image: migrate (backup first), check rows, serve, export + restore"
 docker run --rm -v $VOL:/data "${ENVS[@]}" "$NEW" migrate | tail -2
 after=$(count "$NEW"); echo "after:  $after"
-# Every row that existed is still there; foreign keys and integrity hold.
-node -e 'const [b,a]=process.argv.slice(1).map((x)=>JSON.parse(x));const bad=Object.keys(b).filter((k)=>k!=="__level"&&b[k]!==a[k]);if(bad.length>0||a.__fk!==0||a.__integrity!=="ok"||a.__level<=b.__level){console.error("upgrade changed:",bad,a.__fk,a.__integrity);process.exit(1)}' "$before" "$after"
+# Every existing row stays. Migration 0058 adds one enabled Gamification flag per old Workspace;
+# both the flag count and total tool-row increase must match exactly. All other counts stay equal.
+node -e 'const [b,a]=process.argv.slice(1).map((x)=>JSON.parse(x));const gamificationUpgrade=b.__level<59&&a.__level>=59;const expected=(k)=>gamificationUpgrade&&(k==="workspace_tools"||k==="__gamification")?b[k]+b.workspaces:b[k];const bad=Object.keys(b).filter((k)=>k!=="__level"&&expected(k)!==a[k]);if(bad.length>0||a.__fk!==0||a.__integrity!=="ok"||a.__level<=b.__level){console.error("upgrade changed:",bad,a.__fk,a.__integrity);process.exit(1)}' "$before" "$after"
 docker run -d --name vmn-upgrade-new -v $VOL:/data -p $PORT:3000 "${ENVS[@]}" "$NEW" >/dev/null
 wait_ready vmn-upgrade-new
 node "$here/upgrade-check-client.mjs" verify http://localhost:$PORT

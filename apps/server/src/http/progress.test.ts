@@ -13,6 +13,7 @@ describe('private progress and Equipment reference details', () => {
     user = await t.invite('reference@example.org', 'Ada'); guest = await t.invite('reference-guest@example.org', 'Guest'); other = await t.invite('other-progress@example.org', 'Other');
     await t.addMember(home, 'reference@example.org', 'USER'); await t.addMember(home, 'reference-guest@example.org', 'GUEST');
     await t.post(`/api/workspaces/${home}/tools`, { tool: 'EQUIPMENT', enabled: true }, t.admin);
+    await t.post(`/api/workspaces/${home}/tools`, { tool: 'GAMIFICATION', enabled: true }, t.admin);
     userId = (await t.get('/api/auth/session', user)).json().user.id as string;
   });
   afterAll(async () => t.close());
@@ -96,15 +97,15 @@ describe('private progress and Equipment reference details', () => {
     const source=randomUUID(), now=new Date('2030-01-01T12:00:00Z');
     const otherId=(await t.get('/api/auth/session',other)).json().user.id as string;
     t.database.db.transaction(tx=>{
-      awardProgress(tx,userId,source,'STEP_STATE_CHANGED',now,{to:'DONE'});
-      awardProgress(tx,userId,source,'STEP_STATE_CHANGED',new Date('2030-01-02'),{to:'DONE'});
-      awardProgress(tx,otherId,source,'STEP_STATE_CHANGED',now,{to:'DONE'});
-      for(let i=0;i<30;i++) awardProgress(tx,userId,randomUUID(),'EQUIPMENT_CREATED',now);
+      awardProgress(tx,userId,{workspaceId:home},source,'STEP_STATE_CHANGED',now,{to:'DONE'});
+      awardProgress(tx,userId,{workspaceId:home},source,'STEP_STATE_CHANGED',new Date('2030-01-02'),{to:'DONE'});
+      awardProgress(tx,otherId,{workspaceId:home},source,'STEP_STATE_CHANGED',now,{to:'DONE'});
+      for(let i=0;i<30;i++) awardProgress(tx,userId,{workspaceId:home},randomUUID(),'EQUIPMENT_CREATED',now);
     },{behavior:'immediate'});
     expect(t.database.sqlite.prepare('SELECT sum(points) n FROM progress_awards WHERE at >= ?').get(now.getTime())).toEqual({n:100});
     expect(await points(other)).toBe(0);
     t.database.sqlite.prepare("UPDATE users SET status='DISABLED' WHERE id=?").run(otherId);
-    t.database.db.transaction(tx=>awardProgress(tx,otherId,randomUUID(),'EQUIPMENT_CREATED',now));
+    t.database.db.transaction(tx=>awardProgress(tx,otherId,{workspaceId:home},randomUUID(),'EQUIPMENT_CREATED',now));
     expect((await t.get('/api/account/progress',other)).statusCode).toBe(401);
     expect(()=>t.database.sqlite.prepare('INSERT INTO progress_awards VALUES(?,?,?,?)').run('a'.repeat(64),otherId,10,now.getTime())).toThrow();
   });

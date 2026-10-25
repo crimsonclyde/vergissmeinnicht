@@ -33,7 +33,7 @@ it('preserves configured house flags and history on upgrade, enables old core to
     expect(database.sqlite.prepare("SELECT * FROM workspace_tools WHERE tool IN ('DOCUMENTS', 'CONTACTS') ORDER BY tool").all()).toEqual(flags);
     expect(database.sqlite.prepare('SELECT * FROM audit_events').all()).toEqual(history);
     const repo = createWorkspaceRepository(database);
-    expect(await repo.enabledTools(old.id)).toEqual(['CALENDAR', 'DOCUMENTS', 'LISTS', 'PROCEDURES', 'REMINDERS']);
+    expect(await repo.enabledTools(old.id)).toEqual(['CALENDAR', 'DOCUMENTS', 'GAMIFICATION', 'LISTS', 'PROCEDURES', 'REMINDERS']);
     const fresh = await repo.create({ name: 'Fresh', creatorId: user.id, creatorRole: 'ADMIN', at: new Date() }, { kind: 'user', userId: user.id, displayName: user.displayName });
     expect(await repo.enabledTools(fresh.id)).toEqual([]);
     expect(database.sqlite.prepare('SELECT count(*) AS n FROM lists WHERE workspace_id = ?').get(fresh.id)).toEqual({ n: 0 });

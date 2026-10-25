@@ -18,6 +18,8 @@ For every completed task, add a concise completion note, tests/checks performed,
 
 ## Current state — resume here
 
+**Release in progress (2026-10-25): v0.7.2-beta.3 (12.45)** — named characters, personal menu order and optional unified Gamification (31.2–31.4). Migrations 0057–0058; existing Workspaces retain Gamification on, new Workspaces start off. Local checks passed; commit/push, CI and publication in progress.
+
 **Latest release (2026-10-25): v0.7.2-beta.1 (12.43)** — section 31 Open horizon Places, Equipment reference details and private app-wide points/seedling encouragement. PR #68 merged as `1892e38`; PR/main/tagged CI passed. Signed amd64/arm64 image and CycloneDX attestation published; exact pulled-image smoke and populated beta.0 upgrade/Workspace export/restore passed. Migration 0056 required; back up database and file storage before upgrading. No live installation changed.
 
 **Earlier release (2026-10-23): v0.7.1-beta.0 (12.40)** — section 27 Moon card, shared Workspace Journal and account-private Journal, with bundled extension registries and the Dark Today-heading contrast correction. Feature/release commit `709cff1` is on main; main CI and tagged release passed on their first run. Signed amd64/arm64 image is published; pulled-image smoke and populated beta.4 upgrade/backup/restore passed. Migration 0052 is required. Moon/shared Journal start off until enabled by a Workspace admin. No live installation was changed.
@@ -2015,6 +2017,18 @@ GitHub pre-release created after the user approved the command: `https://github.
 **Published:** commits `704b01c` and `0c0f0bd`; PR #16 merged as `1012613282557a26c556abd038d8f40ea1346983`. Annotated tag `v0.5.0-beta.4` points to that merge. GitHub prerelease with feature, security, validation and upgrade notes: https://github.com/crimsonclyde/vergissmeinnicht/releases/tag/v0.5.0-beta.4. Published image index `sha256:ef993baa822e904f884325bf7c88c139807ee9b4acd42351b12cd5402ff265b9` inspected directly: linux/amd64 and linux/arm64. Only the exact beta tag was published; `latest` was not moved.
 
 **Validation:** implementation and local checks recorded in 16.8 (146 files / 1154 tests, 27.30 s; Playwright 3 passed / 1 intentional skip; typecheck/lint/build/schema checks). Final PR CI `37218359808`, main CI `37218652596` and release `37218676293` succeeded. Both native validation and publishing images passed smoke tests and fixable HIGH/CRITICAL vulnerability scans; manifest publishing, workflow signing and CycloneDX attestation succeeded. Completion is recorded in a documentation commit after publication. Physical-phone imports, live Unraid upgrade and the existing development-only moderate esbuild finding remain open. Security surface: MEDIUM, documented in `security.md`; release validation must remain fail-closed.
+
+### 12.45 Release 0.7.2-beta.3
+
+**Status:** IN PROGRESS (2026-10-25). Owner requested commit, push and release of 31.2–31.4. Exact image `ghcr.io/crimsonclyde/vergissmeinnicht:0.7.2-beta.3`; Unraid template and guide updated. Release publication is distinct from updating a running installation.
+
+**Scope:** simplified Herr Fuchsky, Count Duckula and Fester Fiesta; personal tool ordering with fixed Today/More; Workspace-admin Gamification switch with shared character/upward-confetti renderer and independent private-Journal setting. Server-scoped awards, zero-point off-period consumption, retained totals, no separate optimistic Run cheer. Extension guide in the bundled module.
+
+**Upgrade:** migrations **0057_navigation_order** and **0058_gamification** (59 migrations, 0000–0058). Back up database and file storage first. Existing themes, tool flags, points, navigation guards and history are retained. Existing Workspaces gain Gamification on with a new tool-settings revision; new Workspaces start off. Private Journal retains its prior default on, independently switchable in Profile. Workspace backup includes the shared switch, never private preferences/points; older packages without the flag restore off. No new environment variable or service. Older binaries refuse the newer database.
+
+**Validation:** implementation ledger records 194 files / 1519 passing tests, focused negative/upgrade/recovery checks, successful browser workflow, typecheck/lint/build and schema consistency. The populated image-upgrade harness now requires exactly one added enabled Gamification flag per existing Workspace across 0058; all other row counts, FK/integrity and Workspace export/restore checks remain strict. PR/main/tagged CI and exact pulled-image validation pending.
+
+**Security impact:** LOW, inherited bounded presentation preferences and optional server award gate; no new permission, credential, upload or external processing. Security checks updated in 31.3–31.4. **Remaining:** remote validation/publication; physical-device/screen-reader review and live installation update remain unperformed.
 
 ### 12.44 Release 0.7.2-beta.2
 
@@ -4884,6 +4898,52 @@ Also bumps **zod 4.6.5 → 4.6.6** (GHSA-mrhx-c7xc-m3w5, high, published after t
 **Security impact:** LOW — bounded presentation field on the existing private preference API, no new permission or upload boundary. **Security docs updated:** YES; architecture and user guide updated.
 
 **Remaining/limitations:** real-device/screen-reader testing remains unperformed. Low user-selected opacity over arbitrary photos can reduce contrast; defaults stay solid and the editor provides a preview/readability guidance. No migration needed. Release requested and tracked in 12.44; no live deployment.
+
+
+### 31.2 Named random celebration companions (owner requested 2026-10-25)
+
+**Status:** DONE
+**Completed:** 2026-10-25
+
+**Implemented:** replaced the seedling with three simplified transparent illustrations based on the owner's supplied plush references: **Herr Fuchsky** the fox, **Count Duckula** (softer golden yellow) and **Fester Fiesta** with his sombrero. Revised from owner feedback: both ducks have no feet, Count Duckula keeps the photo's closed cloak and reserved vegetarian-vampire expression, and Fester wears a Mexican charro jacket. Each celebration independently selects one with equal probability, and shows its name as ordinary text. Bundled 256px WebP assets display at 72px, with the existing brief hop disabled by reduced motion. Fresh celebration objects restart the dismissal timer even for consecutive identical point increases. Neutral Equipment feedback, explicit dismissal and existing server scoring remain. Artwork provenance and exact prompts live in `apps/web/src/companions/ARTWORK.md`; architecture and user guide updated.
+
+**Tests/checks:** full Vitest **192 files / 1514 tests passed**; focused points, contrast and catalog checks: 3 files / 28 tests passed. Repository typecheck, lint and production build passed. Initial Playwright account flow passed with all three named companions, 320px geometry, loaded transparent images, reduced motion, accessibility and dismissal. Revised ducks visually inspected; final combined Playwright account flow passed with all three companions, 320px geometry, loaded images, reduced motion, accessibility and dismissal. Toast screenshots visually inspected in `test-results/.../places-centered/companion-{0,1,2}-320.png`. Artwork/prompts recorded in `apps/web/src/companions/ARTWORK.md`.
+
+**Security surface changed:** NO — static bundled artwork and transient presentation selection only; no endpoint, credential, permission, upload, stored preference or scoring change. No security-policy update required.
+
+**Remaining/limitations:** physical-device/screen-reader review remains unperformed. Companions require no migration; the accompanying menu-order task requires 0057. No deployment performed.
+
+### 31.3 Personal tool menu order (owner requested 2026-10-25)
+
+**Status:** DONE
+**Completed:** 2026-10-25
+
+**Accepted:** Today fixed first and More fixed last on phones; all other enabled tools reorderable by the person. Order only, no personal hiding. First two enabled choices occupy phone slots; sidebar, Places disclosure and More follow the saved account-wide order. Existing tool gates and access checks remain authoritative.
+
+**Implemented:** Profile → Tool menu order, keyboard/touch move controls, explicit Save/Cancel and default reset. Only enabled tools of the current Workspace are offered; other saved positions are retained. Changes apply after a successful server response and persist across sessions/devices. Shared navigation builder keeps every enabled tool reachable, with omitted/future defaults appended. Existing menus remain until a personal order is saved. Nullable bounded JSON in existing private account preferences, strict key/uniqueness validation at HTTP and SQL boundaries, ACTIVE write-time recheck, in-place migration **0057_navigation_order** and generated snapshot. Older partial preferences updates preserve order. No Workspace backup/export format change. AGENTS, architecture, security, user and deployment guides updated.
+
+**Tests/checks:** full Vitest **192 files / 1514 tests passed** with two workers; typecheck, lint, production build, whitespace and Drizzle no-drift checks passed. Focused preference/upgrade/recovery checks: 4 files / 9 tests passed; route-security/backup/restore checks: 3 files / 41 tests passed. Navigation, contrast and catalog checks passed. Initial full-run backup version expectations were updated to 0057; two security-sweep resource timeouts passed in the bounded-worker full rerun. Final Playwright account workflow: **1 passed**. Browser coverage includes explicit Save, unchanged menu during draft edits, persisted reload, first-two phone slots, Places disclosure, standard Light/Dark sidebar and More order, 320px overflow/accessibility and default reset. Both 320px settings screenshots visually inspected in `test-results/.../places-centered/menu-order-{light,dark}-320.png`. Existing large-chunk build warning remains.
+
+**Security surface changed:** LOW — bounded own-account presentation setting; no new capability, credential, upload, external flow or tool activation. Security policy updated with negative checks and private-data handling.
+
+**Remaining/limitations:** real-device/screen-reader testing unperformed. Migration 0057 required on upgrade; no deployment performed.
+
+### 31.4 Optional unified Gamification (owner requested 2026-10-25)
+
+**Status:** DONE
+**Completed:** 2026-10-25
+
+**Accepted:** one bundled Workspace-admin-controlled Gamification plugin across tools, random approved characters and occasional bottom-up confetti, with a registry for future reviewed styles. Off stops new points and celebrations, retaining earned totals and normal operational progress/history. New Workspaces off; existing behavior preserved on upgrade. Private Journal uses a separate own-account preference.
+
+**Implemented:** `GAMIFICATION` in the existing revision-checked/audited plugin settings, never a navigation destination or Today card. Award hooks take explicit Workspace/private scope and read the relevant gate inside the authorized mutation/audit transaction; zero-point opaque marks consume off/capped actions to prevent later replay/backfill. Lifetime totals and existing caps/immutability remain. Private Journal's boolean is in Profile and persists through the existing strict account preferences route. Migration **0058_gamification** preserves existing Workspace flags/settings/points, enables existing Workspaces with an advanced tool revision, defaults new Workspaces off, and keeps the navigation SQL guards. Shared flags round-trip in Workspace backups; older packages lacking it restore off; private data stays excluded.
+
+One shared UI provider compares server totals only after successful same-scope mutations, reads canonical flags, suppresses effects on failed gate reads, and never celebrates initial/focus/poll/scope refreshes. Three named characters and rising confetti use a typed bundled renderer registry; 24 pointer-transparent particles, semantic colors, reduced motion/forced colors and dismissal. Removed Run-specific cheers/confetti/vibration and Equipment's local neutral event; guided Runs keep saved-state feedback and confirm canonical state before advancing. An otherwise empty Workspace still offers tool setup when only Gamification is enabled. Extension guidance: `apps/web/src/modules/gamification/README.md`. AGENTS, architecture, security, user and deployment guides updated.
+
+**Tests/checks:** full Vitest **194 files / 1519 tests passed** (four workers); final focused API/navigation/contrast/catalog checks: 5 files / 45 tests passed. Gamification API negatives: 4 tests; migration/recovery: 2 tests; older populated migration regressions updated for the new flag/revision: 5 tests. Typecheck, lint, production build, whitespace and Drizzle no-drift passed. Playwright account workflow: **1 passed**, including all four deterministic styles, canonical server-total changes, ordinary guided-Run progression, 320px geometry/accessibility, reduced motion, forced colors, dismissal, canonical off suppression and remote enable with a stale Workspace-list hint. The switch fixture sends the required seen revision. Character and rising-confetti screenshots visually inspected in `test-results/.../places-centered/celebration-*-320.png` and `confetti-rise-320.png`.
+
+**Security surface changed:** LOW — optional gate and bounded private boolean, no new permission/credential/endpoint/upload/external processing. Normative security checks updated.
+
+**Remaining/limitations:** real-device/screen-reader testing unperformed; frontend reflects canonical switch changes at next mutation/focus/visible poll, server rewards always gate at commit. Existing large-chunk warning remains. Migration 0058 required; no deployment performed.
 
 ---
 

@@ -2,7 +2,7 @@
 //
 // Auth-related tables follow Better Auth's core schema: Drizzle *property* names are the
 // Better Auth field names (e.g. `name`, `emailVerified`), while *column* names are snake_case.
-import type { EquipmentField, WeatherLocation } from '@vergissmeinnicht/domain';
+import type { EquipmentField, NavigationTool, WeatherLocation } from '@vergissmeinnicht/domain';
 import { sql } from 'drizzle-orm';
 import { blob, check, foreignKey, index, integer, primaryKey, real, sqliteTable, text, uniqueIndex, type AnySQLiteColumn } from 'drizzle-orm/sqlite-core';
 import {
@@ -798,10 +798,14 @@ export const userPreferences = sqliteTable(
       .references(() => users.id),
     theme: text('theme', { enum: THEME_PREFERENCES }).notNull(),
     criticalConfirm: text('critical_confirm', { enum: CRITICAL_CONFIRM_MODES }).notNull(),
+    privateGamification: integer('private_gamification', { mode: 'boolean' }).notNull().default(true),
+    navigationOrder: text('navigation_order', { mode: 'json' }).$type<readonly NavigationTool[]>(),
     updatedAt: integer('updated_at', { mode: 'timestamp_ms' }).notNull(),
   },
   () => [
     check('user_preferences_theme_valid', sql.raw(`theme in (${THEME_PREFERENCES.map((value) => `'${value}'`).join(', ')})`)),
+    check('user_preferences_private_gamification', sql`private_gamification in (0, 1)`),
+    check('user_preferences_navigation_bound', sql`navigation_order is null or (json_valid(navigation_order) and json_type(navigation_order) = 'array' and json_array_length(navigation_order) <= 9 and length(navigation_order) <= 256)`),
     check(
       'user_preferences_critical_confirm_valid',
       sql.raw(`critical_confirm in (${CRITICAL_CONFIRM_MODES.map((value) => `'${value}'`).join(', ')})`),

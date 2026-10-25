@@ -39,7 +39,7 @@ export function recordAuditEvent(tx: Transaction, event: AuditEventRecord): void
       clientChangeId: event.clientChangeId ?? null,
     })
     .run();
-  awardProgress(tx, event.actor.userId, `${event.workspaceId}:${event.subjectId}`, event.type, event.occurredAt, event.metadata);
+  awardProgress(tx, event.actor.userId, { workspaceId: event.workspaceId }, `${event.workspaceId}:${event.subjectId}`, event.type, event.occurredAt, event.metadata);
 }
 
 function toAuditEvent(row: typeof auditEvents.$inferSelect): AuditEvent {

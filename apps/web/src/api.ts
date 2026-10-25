@@ -664,7 +664,7 @@ async function request<T>(method: 'GET' | 'POST', path: string, body?: unknown, 
     throw new ApiError(response.status, error ?? 'request_failed', details);
   }
   const result = (response.status === 204 ? undefined : await response.json()) as T;
-  if (method === 'POST') window.dispatchEvent(new Event('vmn-mutation-succeeded'));
+  if (method === 'POST') window.dispatchEvent(new CustomEvent('vmn-mutation-succeeded', { detail: { path } }));
   return result;
 }
 

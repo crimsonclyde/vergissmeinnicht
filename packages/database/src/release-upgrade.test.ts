@@ -64,7 +64,7 @@ it('upgrades a populated beta.2 database and restores its verified backup with o
     // P5: recognition is on after the upgrade, and the existing file waits behind new uploads.
     expect(database.sqlite.prepare('SELECT state, priority, attempts FROM document_file_texts WHERE file_id = ?').get(upload.file.id)).toEqual({ state: 'QUEUED', priority: 1, attempts: 0 });
     expect(database.sqlite.prepare('SELECT text_recognition FROM workspaces WHERE id = ?').get(home.id)).toEqual({ text_recognition: 1 });
-    expect(await createWorkspaceRepository(database).enabledTools(home.id)).toEqual(['CALENDAR', 'DOCUMENTS', 'LISTS', 'PROCEDURES', 'REMINDERS']);
+    expect(await createWorkspaceRepository(database).enabledTools(home.id)).toEqual(['CALENDAR', 'DOCUMENTS', 'GAMIFICATION', 'LISTS', 'PROCEDURES', 'REMINDERS']);
     expect(verifyDatabase(path).migrationsPending).toBe(false);
     expect(readFileSync(documentFilePath(defaultDocumentsPath(path), upload.file.sha256))).toEqual(original);
     database.close();

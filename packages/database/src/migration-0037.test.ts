@@ -32,13 +32,13 @@ it('0037 preserves beta.3 tool flags, their revision and audit history while Equ
     database.close();
     runMigrations(path);
     database = openDatabase(path);
-    expect(database.sqlite.prepare('SELECT * FROM workspace_tools ORDER BY workspace_id, tool').all()).toEqual(flags);
+    expect(database.sqlite.prepare("SELECT * FROM workspace_tools WHERE tool <> 'GAMIFICATION' ORDER BY workspace_id, tool").all()).toEqual(flags); // 0058 adds only Gamification.
     expect(database.sqlite.prepare('SELECT * FROM audit_events').all()).toEqual(history);
-    expect(database.sqlite.prepare('SELECT tools_revision FROM workspaces WHERE id = ?').get(old.id)).toEqual({ tools_revision: 9 });
+    expect(database.sqlite.prepare('SELECT tools_revision FROM workspaces WHERE id = ?').get(old.id)).toEqual({ tools_revision: 10 }); // 0058 advances the revision.
     expect(database.sqlite.prepare('SELECT count(*) AS n FROM equipment_records').get()).toEqual({ n: 0 });
     expect(database.sqlite.pragma('integrity_check', { simple: true })).toBe('ok');
     const repo = createWorkspaceRepository(database);
-    expect(await repo.enabledTools(old.id)).toEqual(['DOCUMENTS', 'MAINTENANCE']);
+    expect(await repo.enabledTools(old.id)).toEqual(['DOCUMENTS', 'GAMIFICATION', 'MAINTENANCE']);
     const fresh = await repo.create({ name: 'Fresh', creatorId: user.id, creatorRole: 'ADMIN', at: new Date() }, { kind: 'user', userId: user.id, displayName: user.displayName });
     expect(await repo.enabledTools(fresh.id)).toEqual([]);
     expect(database.sqlite.prepare('SELECT count(*) AS n FROM lists WHERE workspace_id = ?').get(fresh.id)).toEqual({ n: 0 });

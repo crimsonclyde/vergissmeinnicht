@@ -200,7 +200,7 @@ function applyChange(tx: Transaction, input: ListReplayInput, actor: UserActor):
         })
         .where(eq(listItems.id, item.id))
         .run();
-      if (change.checked) awardProgress(tx, actor.userId, `${input.workspaceId}:${item.id}`, 'LIST_ITEM_CHECKED', at);
+      if (change.checked) awardProgress(tx, actor.userId, { workspaceId: input.workspaceId }, `${input.workspaceId}:${item.id}`, 'LIST_ITEM_CHECKED', at);
       break;
     }
     case 'removeItem':
@@ -445,7 +445,7 @@ export function createListRepository({ db }: Pick<AppDatabase, 'db'>): ListRepos
           )
           .where(eq(listItems.id, item.id))
           .run();
-        if (input.checked) awardProgress(tx, actor.userId, `${input.workspaceId}:${item.id}`, 'LIST_ITEM_CHECKED', input.at);
+        if (input.checked) awardProgress(tx, actor.userId, { workspaceId: input.workspaceId }, `${input.workspaceId}:${item.id}`, 'LIST_ITEM_CHECKED', input.at);
         return { status: 'ok', list: withItems(tx, touch(tx, row.id, input.at)) } as const;
       }, IMMEDIATE);
     },

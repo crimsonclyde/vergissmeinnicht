@@ -1,4 +1,5 @@
 import { ProgressSummary } from './Progress.tsx';
+import { NavigationSettings } from './NavigationSettings.tsx';
 import { useRef, useState } from 'react';
 import { api, ownAvatarUrl, type CurrentUser, type WorkspaceSummary } from './api.ts';
 import { Avatar } from './Avatar.tsx';
@@ -28,7 +29,7 @@ export function ProfileIdentity({ user, avatar }: { user: CurrentUser; avatar: s
  * person belongs to. The picture is cut to a square and re-encoded on the device first; the server
  * checks and re-encodes it again and keeps no metadata.
  */
-export function ProfileSettings(props: { user: CurrentUser; avatar: string | null; onAvatarChanged: (version: string | null) => void; workspaces: readonly WorkspaceSummary[] | null }) {
+export function ProfileSettings(props: { user: CurrentUser; avatar: string | null; onAvatarChanged: (version: string | null) => void; workspaces: readonly WorkspaceSummary[] | null; tools: readonly string[] | null }) {
   const { user, avatar } = props;
   const input = useRef<HTMLInputElement>(null);
   const [busy, setBusy] = useState(false);
@@ -71,6 +72,7 @@ export function ProfileSettings(props: { user: CurrentUser; avatar: string | nul
   return (
     <>
       <ProgressSummary />
+      <NavigationSettings tools={props.tools} />
       <div className="card profile-card">
         <div className="profile-picture">
           <Avatar name={user.displayName} seed={user.id} src={avatar === null ? null : ownAvatarUrl(avatar)} size="large" />

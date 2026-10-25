@@ -123,7 +123,7 @@ describe('Workspace recovery end to end (section 18c): export → restore → co
     await t.addMember(home, 'owner@example.org', 'ADMIN');
     await t.addMember(home, 'helper@example.org', 'USER');
     await t.addMember(home, 'guest@example.org', 'GUEST');
-    for (const tool of ['DOCUMENTS', 'CONTACTS', 'MAINTENANCE', 'EQUIPMENT', 'MOON', 'JOURNAL']) await t.post(`${api()}/tools`, { tool, enabled: true }, owner);
+    for (const tool of ['DOCUMENTS', 'CONTACTS', 'MAINTENANCE', 'EQUIPMENT', 'MOON', 'JOURNAL', 'GAMIFICATION']) await t.post(`${api()}/tools`, { tool, enabled: true }, owner);
 
     const note = { kind: 'note', version: 1, title: 'Shared field notes', date: '2026-10-23', body: 'Moss on the northern wall.' };
     expect((await t.post(`${api()}/journal`, { content: note, expectedRevision: 0, archived: false }, owner)).statusCode).toBe(201);

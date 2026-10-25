@@ -13,12 +13,22 @@ export const THEME_PREFERENCES = [...BASE_THEME_PREFERENCES, ...PLACE_THEMES] as
 export const CRITICAL_CONFIRM_MODES = ['hold', 'tap-confirm'] as const;
 export type CriticalConfirmMode = (typeof CRITICAL_CONFIRM_MODES)[number];
 
+/** Navigable tools only: Today and More are structural, Moon is a Today card. */
+export const NAVIGATION_TOOLS = ['PROCEDURES', 'LISTS', 'REMINDERS', 'CALENDAR', 'JOURNAL', 'DOCUMENTS', 'CONTACTS', 'MAINTENANCE', 'EQUIPMENT'] as const;
+export type NavigationTool = typeof NAVIGATION_TOOLS[number];
+/** Partial orders keep future/new tools reachable by appending the remaining defaults. */
+export function orderedNavigationTools(order: readonly NavigationTool[] | null): readonly NavigationTool[] {
+  return [...(order ?? []), ...NAVIGATION_TOOLS.filter(tool => !order?.includes(tool))];
+}
+
 export interface UserPreferences {
   readonly theme: ThemePreference;
   readonly criticalConfirm: CriticalConfirmMode;
+  readonly privateGamification: boolean;
+  readonly navigationOrder: readonly NavigationTool[] | null;
 }
 
-export const DEFAULT_PREFERENCES: UserPreferences = Object.freeze({ theme: 'system', criticalConfirm: 'hold' });
+export const DEFAULT_PREFERENCES: UserPreferences = Object.freeze({ theme: 'system', criticalConfirm: 'hold', navigationOrder: null, privateGamification: true });
 
 /**
  * A person's own choices per Workspace (section 28): which Workspace opens first, and a theme for a

@@ -1,13 +1,16 @@
-import { t } from './i18n/index.ts';
+import { t, type MessageKey } from './i18n/index.ts';
+import { destinations } from './navigation.ts';
+import { usePreferences } from './preferences.tsx';
 import { Link, paths } from './router.tsx';
 import { UiIcon, type UiIconName } from './ui-icons.tsx';
 
 /**
  * The tools that do not fit the phone bottom bar (15.1): Reminders, Calendar, the completed history —
- * and the optional tools the Workspace has switched on (16.2), which never get a bottom-bar place.
+ * and all enabled tools in the person's saved order, plus completed history.
  */
 export function MorePage({ workspaceId, tools }: { workspaceId: string; tools: readonly string[] }) {
-  const links: { href: string; icon: UiIconName; label: string; hint: string }[] = [
+  const { preferences } = usePreferences();
+  let links: { href: string; icon: UiIconName; label: string; hint: string }[] = [
     ...(tools.includes('JOURNAL') ? [{ href: paths.journal(workspaceId), icon: 'documents' as const, label: t('journal.heading'), hint: t('journal.toolHint') }] : []),
     ...(tools.includes('DOCUMENTS') ? [{ href: paths.documents(workspaceId), icon: 'documents' as const, label: t('shell.documents'), hint: t('more.documentsHint') }] : []),
     ...(tools.includes('CONTACTS') ? [{ href: paths.contacts(workspaceId), icon: 'contacts' as const, label: t('shell.contacts'), hint: t('more.contactsHint') }] : []),
@@ -17,6 +20,11 @@ export function MorePage({ workspaceId, tools }: { workspaceId: string; tools: r
     ...(tools.includes('CALENDAR') ? [{ href: paths.calendar(workspaceId), icon: 'calendar' as const, label: t('shell.calendar'), hint: t('more.calendarHint') }] : []),
     ...(tools.includes('PROCEDURES') ? [{ href: paths.history(workspaceId), icon: 'history' as const, label: t('shell.history'), hint: t('more.historyHint') }] : []),
   ];
+  if (preferences.navigationOrder !== null) {
+    const hints: Record<string, MessageKey> = { procedures: 'tools.proceduresHint', lists: 'more.listsHint', reminders: 'more.remindersHint', calendar: 'more.calendarHint', journal: 'journal.toolHint', documents: 'more.documentsHint', contacts: 'more.contactsHint', maintenance: 'more.maintenanceHint', equipment: 'tools.equipmentHint' };
+    const history = links.filter(link => link.href === paths.history(workspaceId));
+    links = [...destinations(workspaceId, tools, preferences.navigationOrder).side.slice(1).map(item => ({ ...item, hint: t(hints[item.pages[0] ?? ''] ?? 'tools.proceduresHint') })), ...history];
+  }
   return (
     <section aria-labelledby="more-heading">
       <div className="page-header">
