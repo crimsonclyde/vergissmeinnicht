@@ -47,7 +47,7 @@ describe('Places registry (section 30)', () => {
       expect(en[place.name]).toBeTruthy();
       expect(en[place.hint]).toBeTruthy();
       expect(place.style.length).toBeGreaterThan(0);
-      for (const set of [place.artwork.day, place.artwork.lights]) {
+      for (const set of [place.artwork.day, ...(place.artwork.lights ? [place.artwork.lights] : [])]) {
         for (const file of [set.wide, set.wideSmall, set.portrait, set.portraitSmall]) expect(typeof file).toBe('string');
       }
       for (const focus of [place.artwork.focusDesktop, place.artwork.focusMobile]) {

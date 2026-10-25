@@ -178,7 +178,7 @@ describe('Workspace recovery end to end (section 18c): export → restore → co
     for (const title of ['Olivenöl', 'Brot', 'Caffè']) await t.post(`${api()}/lists/${list.id}/items`, { title }, owner);
     const contact = (await t.post(`${api()}/contacts`, { name: 'Elettricista Bianchi', phones: [{ value: '+39 0184 000000' }] }, owner)).json().contact as { id: string };
     await t.post(`${api()}/maintenance`, { title: 'Heizung warten', contactId: contact.id }, owner);
-    await t.post(`${api()}/equipment`, { name: 'Wärmepumpe' }, owner);
+    await t.post(`${api()}/equipment`, { name: 'Wärmepumpe', replacementParts: 'Filter HCF-18', customFields: [{label:'Cover',value:'C-40 matt white'}] }, owner);
     await t.post(`${api()}/tools`, { tool: 'EQUIPMENT', enabled: false }, owner);
   }, 180_000);
   afterAll(async () => {

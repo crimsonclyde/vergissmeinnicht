@@ -9,8 +9,8 @@ export const scotland: PlaceConfig = {
   id: 'scotland',
   name: 'appearance.places-scotland',
   hint: 'appearance.places-scotlandHint',
-  region: 'Edinburgh',
-  style: 'Stone tenement',
+  region: 'Northern coast',
+  style: 'Standing stones and open sea',
   light: {
     gradient: ['#dfe5e6', '#e8ecec', '#cdd4d3'],
     tokens: {
@@ -72,6 +72,6 @@ export const scotland: PlaceConfig = {
     },
   },
   artwork: { ...artworkFiles, focusDesktop: { x: 50, y: 40 }, focusMobile: { x: 44, y: 45 } },
-  defaults: { overlay: 42, vignette: 30 },
-  effects: ['window-glow', 'mist', 'drift'],
+  defaults: { overlay: 18, vignette: 12 },
+  effects: ['mist', 'drift', 'fireflies'],
 };

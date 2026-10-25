@@ -353,3 +353,7 @@ When the server itself is lost — disk, host, Unraid box — recovery means the
 **Drill**: once in a while restore the latest server backup on a spare machine with this checklist. A backup that was never restored is not verified.
 
 **Upgrades with data (for releases):** `deploy/upgrade-check.sh <new image> [<published image>]` populates a throw-away volume through the published image's API, upgrades it with the new image (row counts, foreign keys and integrity compared) and then exports and restores a Workspace on the upgraded server. Fictional data and secrets only.
+
+### Equipment reference details and private progress (migration 0056)
+
+Apply migrations through the usual `db:migrate` deployment step before starting this version. Migration 0056 adds two nullable Equipment columns in place and a private `progress_awards` table; it preserves existing records, tool settings and personal Places backgrounds. Workspace packages include the new Equipment fields; validated older packages upgrade with no extra details. Personal points are excluded from Workspace packages and included in full server backups. No historical points are backfilled, and restoring Workspace history awards nothing. No new environment variable, provider connection or service is required. Older binaries still refuse a database migrated by a newer version.

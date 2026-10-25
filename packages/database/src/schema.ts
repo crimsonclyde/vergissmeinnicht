@@ -2,7 +2,7 @@
 //
 // Auth-related tables follow Better Auth's core schema: Drizzle *property* names are the
 // Better Auth field names (e.g. `name`, `emailVerified`), while *column* names are snake_case.
-import type { WeatherLocation } from '@vergissmeinnicht/domain';
+import type { EquipmentField, WeatherLocation } from '@vergissmeinnicht/domain';
 import { sql } from 'drizzle-orm';
 import { blob, check, foreignKey, index, integer, primaryKey, real, sqliteTable, text, uniqueIndex, type AnySQLiteColumn } from 'drizzle-orm/sqlite-core';
 import {
@@ -2252,6 +2252,7 @@ export const runDocumentRemovals = sqliteTable(
 /** Appliances and installations (16.8). Linked records are references in links. */
 export const equipmentRecords = sqliteTable('equipment_records', {
  id:text('id').primaryKey(),workspaceId:text('workspace_id').notNull().references(()=>workspaces.id),
+ replacementParts:text('replacement_parts'),customFields:text('custom_fields',{mode:'json'}).$type<readonly EquipmentField[]>(),
  name:text('name').notNull(), category:text('category').notNull().default(''),location:text('location').notNull().default(''),manufacturer:text('manufacturer').notNull().default(''),model:text('model').notNull().default(''),serialNumber:text('serial_number').notNull().default(''),purchaseDate:text('purchase_date'),warrantyExpiry:text('warranty_expiry'),notes:text('notes').notNull().default(''),
  categoryKey:text('category_key').notNull(),locationKey:text('location_key').notNull(),manufacturerKey:text('manufacturer_key').notNull(),sortKey:text('sort_key').notNull(),searchText:text('search_text').notNull(),revision:integer('revision').notNull().default(1),
  createdByUserId:text('created_by_user_id').notNull().references(()=>users.id),createdByDisplayName:text('created_by_display_name').notNull(),createdAt:integer('created_at',{mode:'timestamp_ms'}).notNull(),
@@ -2259,6 +2260,8 @@ export const equipmentRecords = sqliteTable('equipment_records', {
  deletedAt:integer('deleted_at',{mode:'timestamp_ms'}),deletedByUserId:text('deleted_by_user_id').references(()=>users.id),deletedByDisplayName:text('deleted_by_display_name'),
 },table=>[
  uniqueIndex('equipment_records_id_workspace_unique').on(table.id,table.workspaceId),index('equipment_records_list_idx').on(table.workspaceId,table.sortKey,table.id).where(sql`${table.deletedAt} is null`),
+ check('equipment_parts_bound',sql`${table.replacementParts} is null or length(${table.replacementParts}) <= 2000`),
+ check('equipment_fields_bound',sql`${table.customFields} is null or (json_valid(${table.customFields}) and json_type(${table.customFields}) = 'array' and json_array_length(${table.customFields}) <= 16 and length(${table.customFields}) <= 24000)`),
  check('equipment_records_name_present',sql`length(trim(${table.name})) > 0 and length(${table.name}) <= 200`),
  check('equipment_records_text_bounded',sql`length(${table.category}) <= 60 and length(${table.location}) <= 200 and length(${table.manufacturer}) <= 200 and length(${table.model}) <= 200 and length(${table.serialNumber}) <= 200 and length(${table.notes}) <= 4000`),
  check('equipment_records_dates_format',sql`(${table.purchaseDate} is null or ${table.purchaseDate} glob '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]') and (${table.warrantyExpiry} is null or ${table.warrantyExpiry} glob '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]')`),
@@ -2294,3 +2297,8 @@ export const journalEntries = sqliteTable('journal_entries', {
 export const privateJournalEntries = sqliteTable('private_journal_entries', {
   ...journalFields(), ownerId: text('owner_id').notNull().references(() => users.id),
 }, (table) => [...journalChecks('private_journal', table), index('private_journal_owner_date').on(table.ownerId, table.archived, table.date, table.id), check('private_journal_owner', sql`${table.ownerId} = ${table.createdByUserId} and ${table.ownerId} = ${table.updatedByUserId}`)]);
+
+/** Private encouragement, excluded from Workspace packages. Keys are hashes, never content. */
+export const progressAwards = sqliteTable('progress_awards', {
+ key:text('key').primaryKey(),userId:text('user_id').notNull().references(()=>users.id),points:integer('points').notNull(),at:integer('at',{mode:'timestamp_ms'}).notNull(),
+},t=>[index('progress_owner_time').on(t.userId,t.at),check('progress_key',sql`length(${t.key}) = 64 and ${t.key} not glob '*[^0-9a-f]*'`),check('progress_points',sql`typeof(${t.points}) = 'integer' and ${t.points} between 0 and 20`)]);

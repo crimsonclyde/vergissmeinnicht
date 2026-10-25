@@ -10,6 +10,21 @@ export const EQUIPMENT_PAGE_SIZE = 50;
 export const MAX_EQUIPMENT_RECORDS_PER_WORKSPACE = 20000;
 export const MAX_EQUIPMENT_RECORDS_PER_PURGE = 200;
 export const MAX_LINKS_PER_EQUIPMENT_RECORD = 50;
+export interface EquipmentField { readonly label: string; readonly value: string }
+export function parseEquipmentFields(input: unknown): readonly EquipmentField[] {
+    if (!Array.isArray(input) || input.length > 16) throw new DomainValidationError('customFields', 'equipment_fields_invalid', 'Use at most 16 details');
+    const seen = new Set<string>();
+    return input.map((field: unknown) => {
+        if (typeof field !== 'object' || field === null || Array.isArray(field) || Object.keys(field).length !== 2 || !Object.hasOwn(field, 'label') || !Object.hasOwn(field, 'value')) throw new DomainValidationError('customFields', 'equipment_fields_invalid', 'Invalid detail');
+        const { label, value } = field as Record<string, unknown>;
+        if (typeof label !== 'string' || typeof value !== 'string') throw new DomainValidationError('customFields', 'equipment_fields_invalid', 'Invalid detail');
+        const normalized = { label: normalizeSingleLineName(label, { field: 'customFields', codePrefix: 'equipment_field', label: 'Label', maxLength: 60 }), value: normalizeSingleLineName(value, { field: 'customFields', codePrefix: 'equipment_field', label: 'Value', maxLength: 500 }) };
+        const key = foldSearchText(normalized.label);
+        if (seen.has(key)) throw new DomainValidationError('customFields', 'equipment_fields_invalid', 'Detail labels must be different');
+        seen.add(key);
+        return normalized;
+    });
+}
 export const EQUIPMENT_LINK_TYPES = ['document', 'contact', 'maintenance', 'procedure', 'schedule'] as const;
 export type EquipmentLinkType = (typeof EQUIPMENT_LINK_TYPES)[number];
 export interface EquipmentContent {
@@ -22,6 +37,8 @@ export interface EquipmentContent {
     readonly purchaseDate: string | null;
     readonly warrantyExpiry: string | null;
     readonly notes: string;
+    readonly replacementParts: string;
+    readonly customFields: readonly EquipmentField[];
 }
 export type EquipmentInput = Pick<EquipmentContent, 'name'> & {
     [K in Exclude<keyof EquipmentContent, 'name'>]?: EquipmentContent[K] | undefined;
@@ -34,6 +51,8 @@ export function parseEquipmentId(id: string): EquipmentId {
 export function normalizeEquipmentContent(input: EquipmentInput): EquipmentContent {
     const line = (field: string, value: string, maxLength = 200) => value.trim() === '' ? '' : normalizeSingleLineName(value, { field, codePrefix: `equipment_${field}`, label: field, maxLength });
     const notes = (input.notes ?? '').replace(/\r\n?/g, '\n').normalize('NFC').trim();
+    const replacementParts = (input.replacementParts ?? '').replace(/\r\n?/g, '\n').normalize('NFC').trim();
+    if ([...replacementParts].length > 2000 || new RegExp(`(?![\\n\\t])${CONTROL_CHARS.source}`, 'u').test(replacementParts) || BIDI_CONTROLS.test(replacementParts)) throw new DomainValidationError('replacementParts', 'equipment_parts_invalid', 'Replacement details are invalid');
     if ([...notes].length > 4000)
         throw new DomainValidationError('notes', 'equipment_notes_too_long', 'Notes are too long');
     if (new RegExp(`(?![\\n\\t])${CONTROL_CHARS.source}`, 'u').test(notes) || BIDI_CONTROLS.test(notes))
@@ -46,10 +65,12 @@ export function normalizeEquipmentContent(input: EquipmentInput): EquipmentConte
         purchaseDate: input.purchaseDate ? parseDocumentDate(input.purchaseDate) : null,
         warrantyExpiry: input.warrantyExpiry ? parseDocumentDate(input.warrantyExpiry) : null,
         notes,
+        replacementParts,
+        customFields: parseEquipmentFields(input.customFields ?? []),
     };
 }
 // Search intentionally excludes serial numbers and private free-form notes.
-export const equipmentSearchText = (c: EquipmentContent) => foldSearchText([c.name, c.category, c.location, c.manufacturer, c.model].join('\n'));
+export const equipmentSearchText = (c: EquipmentContent) => foldSearchText([c.name, c.category, c.location, c.manufacturer, c.model, c.replacementParts].join('\n'));
 export const equipmentCategoryKey = foldSearchText;
 export interface EquipmentQuery {
     readonly terms: readonly string[];

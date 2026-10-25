@@ -1,5 +1,5 @@
 import { execFileSync } from 'node:child_process';
-import { readFileSync } from 'node:fs';
+import { mkdirSync, readFileSync } from 'node:fs';
 import { crc32, deflateSync } from 'node:zlib';
 import { expect, test, type Page } from '@playwright/test';
 import { TOTP } from 'otpauth';
@@ -2591,7 +2591,7 @@ test('first server admin: bootstrap link, account creation, sign-in, Workspace c
   await openPlugins(page);
   await page.getByRole('checkbox', {name:/^Equipment/}).check();
   await expect(page.getByRole('status').filter({hasText:'Equipment is switched on'})).toBeVisible();
-  await sections.getByRole('link',{name:'Equipment',exact:true}).click();
+  await sections.getByRole('link',{name:'Equipment',exact:true}).click({timeout:10000});
   await page.getByRole('button',{name:'Add equipment',exact:true}).click();
   const equipmentForm=page.getByRole('dialog',{name:'Add equipment'});
   await equipmentForm.getByLabel('Name',{exact:false}).fill('House boiler');
@@ -2601,6 +2601,7 @@ test('first server admin: bootstrap link, account creation, sign-in, Workspace c
   await page.getByRole('button',{name:'Edit equipment',exact:true}).click();
   const equipmentEdit=page.getByRole('dialog',{name:'Edit equipment'});
   await equipmentEdit.getByLabel('Model',{exact:true}).fill('Demo 200');
+  for (const detail of ['Serial number', 'Warranty expiry', 'Location']) await equipmentEdit.getByLabel('Add field', {exact:true}).selectOption({label:detail});
   await equipmentEdit.getByLabel('Serial number',{exact:true}).fill('DEMO-SERIAL-123');
   await equipmentEdit.getByLabel('Warranty expiry',{exact:true}).fill('2028-01-31');
   await equipmentEdit.getByLabel('Location',{exact:true}).fill('Cellar');
@@ -2893,7 +2894,106 @@ test('first server admin: bootstrap link, account creation, sign-in, Workspace c
   await page.emulateMedia({ forcedColors: 'none' });
   await page.reload();
   await expect(page.getByRole('radio', { name: /^Witch Forest/ })).toBeChecked();
+  // Open horizon (31): same enabled tools in one dock; reference fields, private points and own backgrounds.
+  page.setDefaultTimeout(15000);
+  const placeShots='assets/screenshots/open-horizon-31';
+  mkdirSync(placeShots,{recursive:true});
+  const workspaceIdForPlaces=workspacePath.split('/')[2] ?? '';
+  // Browser fetch preserves production Secure-cookie behavior on the loopback test origin.
+  const requestForPlaces=(path:string,data?:object)=>page.evaluate(async({path,data})=>{
+    const response=await fetch(path,{method:data===undefined?'GET':'POST',credentials:'same-origin',...(data===undefined?{}:{headers:{'content-type':'application/json'},body:JSON.stringify(data)})});
+    return {status:response.status,body:await response.json().catch(()=>null) as unknown};
+  },{path,data});
+  expect((await requestForPlaces('/api/account/workspace-preferences/theme',{workspaceId:workspaceIdForPlaces,theme:null})).status).toBe(200);
+  for (const [name,id] of [['Munich','de'],['Triora','it'],['London','uk'],['Scotland','scotland']] as const) {
+    await page.getByRole('radio',{name:new RegExp('^'+name)}).check();
+    await expect(html).toHaveAttribute('data-place',id);
+    await page.goto(workspacePath);
+    await expect(page.locator('.places-dock')).toBeVisible();
+    await expect(page.locator('.place-scene .place-art')).toBeVisible();
+    for (const width of [1440,390,320]) {
+      await page.setViewportSize({width,height:1000});
+      expect(await page.evaluate('document.documentElement.scrollWidth <= innerWidth')).toBe(true);
+      await expectAccessible(page,`Places ${name} ${width}`);
+      await page.screenshot({path:`${placeShots}/${id}-${width}.png`,fullPage:true,animations:'disabled'});
+    }
+    await page.setViewportSize({width:1440,height:1000});
+    await fromMenu(page,'Profile & settings');
+    await settingsSection(page,'Profile & settings','Appearance');
+  }
+  await page.getByRole('radio',{name:/^Triora/}).check();
+  await page.goto(workspacePath);
+  const effects=page.getByRole('button',{name:'Effects on',exact:true});
+  await effects.click();
+  await expect(page.getByRole('button',{name:'Effects off',exact:true})).toBeVisible();
+  await page.reload();
+  await expect(page.getByRole('button',{name:'Effects off',exact:true})).toBeVisible();
+  await page.getByRole('button',{name:'Effects off',exact:true}).click();
+  const beforeEquipmentEnable=(await requestForPlaces(`/api/workspaces/${workspaceIdForPlaces}`)).body as {toolsRevision:number};
+  expect((await requestForPlaces(`/api/workspaces/${workspaceIdForPlaces}/tools`,{tool:'EQUIPMENT',enabled:true,expectedRevision:beforeEquipmentEnable.toolsRevision})).status).toBe(200);
+  await page.reload();
+  await page.locator('.places-dock').getByRole('button',{name:'More',exact:true}).click();
+  await expectAccessible(page,'Places tools disclosure');
+  await page.locator('.places-tool-grid').getByRole('link',{name:'Equipment',exact:true}).click({timeout:10000});
+  await page.getByRole('button',{name:'Add equipment',exact:true}).click();
+  const referenceForm=page.getByRole('dialog',{name:'Add equipment'});
+  await expect(referenceForm.getByLabel('Purchase date',{exact:true})).toHaveCount(0);
+  await referenceForm.getByLabel('Name',{exact:false}).fill('Terrace supply');
+  await referenceForm.getByLabel('Brand / manufacturer',{exact:true}).fill('Nordwerk');
+  await referenceForm.getByLabel('Model',{exact:true}).fill('PS-24C');
+  await referenceForm.getByLabel('Replacement parts & compatibility',{exact:true}).fill('Cover C-40 · matt white');
+  await referenceForm.getByLabel('Add field',{exact:true}).selectOption({label:'Custom detail'});
+  await referenceForm.getByLabel('Detail 1: label',{exact:true}).fill('Output');
+  await referenceForm.getByLabel('Detail 1: value',{exact:true}).fill('24 V');
+  await referenceForm.getByRole('button',{name:'Save',exact:true}).click();
+  await expect(page.getByRole('heading',{name:'Terrace supply',exact:true})).toBeVisible();
+  await expect(page.locator('.progress-cheer')).toBeVisible();
+  await expect(page.getByText('24 V',{exact:true})).toBeVisible();
+  await page.bringToFront();
+  await page.context().grantPermissions(['clipboard-read','clipboard-write'],{origin:new URL(page.url()).origin});
+  await page.getByRole('button',{name:'Copy model',exact:true}).click();
+  await expect(page.getByRole('status').filter({hasText:'Copied.'})).toBeVisible();
+  expect(await page.evaluate<string>('navigator.clipboard.readText()')).toBe('PS-24C');
+  await page.evaluate(()=>Object.defineProperty(navigator,'clipboard',{configurable:true,value:{writeText:async()=>{throw new Error('clipboard denied');}}}));
+  await page.getByRole('button',{name:'Copy replacement details',exact:true}).click();
+  await expect(page.getByRole('status').filter({hasText:'Copy is unavailable.'})).toBeVisible();
+  await page.setViewportSize({width:320,height:850});
+  expect(await page.evaluate('document.documentElement.scrollWidth <= innerWidth')).toBe(true);
+  await expectAccessible(page,'Equipment reference in Places on a narrow phone');
+  await page.screenshot({path:`${placeShots}/equipment-320.png`,fullPage:true,animations:'disabled'});
+  await page.setViewportSize({width:1440,height:1000});
+  await fromMenu(page,'Profile & settings');
+  await settingsSection(page,'Profile & settings','Places');
+  await page.getByText('My photo',{exact:true}).click();
+  await expect(page.getByRole('radio',{name:'My photo',exact:true})).toBeChecked();
+  await page.locator('input[type=file]').setInputFiles({name:'own-background.png',mimeType:'image/png',buffer:photo(500,400)});
+  await expect(page.getByRole('button',{name:'Save',exact:true})).toBeEnabled();
+  await page.getByRole('button',{name:'Save',exact:true}).click();
+  await expect(page.getByRole('status').filter({hasText:/^Saved\.$/})).toBeVisible();
+  await page.goto(workspacePath);
+  await expect(page.locator('.place-scene')).toHaveAttribute('data-background','photo');
+  await expect(page.locator('.place-life')).toHaveCount(0);
+  await expect(page.locator('.place-scene .place-mist')).toHaveCount(0);
+  await fromMenu(page,'Profile & settings');
+  await settingsSection(page,'Profile & settings','Places');
+  await page.getByText('No image',{exact:true}).click();
+  await expect(page.getByRole('radio',{name:'No image',exact:true})).toBeChecked();
+  await page.getByRole('button',{name:'Save',exact:true}).click();
+  await expect(page.getByRole('status').filter({hasText:/^Saved\.$/})).toBeVisible();
+  await page.goto(workspacePath);
+  await expect(page.locator('.place-scene .place-art')).toHaveCount(0);
+  await fromMenu(page,'Profile & settings');
+  await settingsSection(page,'Profile & settings','Places');
+  await page.getByText('Illustration',{exact:true}).click();
+  await expect(page.getByRole('radio',{name:'Illustration',exact:true})).toBeChecked();
+  await page.getByRole('button',{name:'Save',exact:true}).click();
+  await expect(page.getByRole('status').filter({hasText:/^Saved\.$/})).toBeVisible();
+  const beforeEquipmentDisable=(await requestForPlaces(`/api/workspaces/${workspaceIdForPlaces}`)).body as {toolsRevision:number};
+  expect((await requestForPlaces(`/api/workspaces/${workspaceIdForPlaces}/tools`,{tool:'EQUIPMENT',enabled:false,expectedRevision:beforeEquipmentDisable.toolsRevision})).status).toBe(200);
+  await settingsSection(page,'Profile & settings','Appearance');
   await page.getByRole('radio', { name: /^System/ }).check();
+
+  page.setDefaultTimeout(0);
 
   // Critical Steps without holding (8.7): tap, then confirm; Escape backs out.
   await settingsSection(page, 'Profile & settings', 'Confirmations');

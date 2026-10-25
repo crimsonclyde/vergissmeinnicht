@@ -9,8 +9,8 @@ export const germany: PlaceConfig = {
   id: 'de',
   name: 'appearance.places-de',
   hint: 'appearance.places-deHint',
-  region: 'Berlin / Leipzig',
-  style: 'Gründerzeit Altbau',
+  region: 'Munich / Alps',
+  style: 'Illustrated Alpine panorama',
   light: {
     gradient: ['#e9e1d1', '#f2ecdf', '#d9cdb8'],
     tokens: {
@@ -72,6 +72,6 @@ export const germany: PlaceConfig = {
     },
   },
   artwork: { ...artworkFiles, focusDesktop: { x: 50, y: 40 }, focusMobile: { x: 52, y: 45 } },
-  defaults: { overlay: 38, vignette: 25 },
-  effects: ['window-glow', 'haze', 'drift'],
+  defaults: { overlay: 18, vignette: 12 },
+  effects: ['haze', 'drift', 'fireflies', 'leaves'],
 };

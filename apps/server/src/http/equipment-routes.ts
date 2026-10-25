@@ -15,6 +15,7 @@ const linkParams = z.strictObject({ workspaceId: uuid, linkId: uuid });
 const line = z.string().max(2048);
 const date = z.string().max(10);
 const content = {
+    replacementParts: z.string().max(8000).optional(), customFields: z.array(z.strictObject({label:z.string().max(240),value:z.string().max(2000)})).max(16).optional(),
     name: line, category: line.optional(), location: line.optional(), manufacturer: line.optional(), model: line.optional(), serialNumber: line.optional(), purchaseDate: date.nullable().optional(), warrantyExpiry: date.nullable().optional(), notes: z.string().max(20000).optional(),
 };
 const revision = z.number().int().min(1);
@@ -37,7 +38,7 @@ function principalOf(request: FastifyRequest): Principal {
     return request.principal;
 }
 const ref = (request: FastifyRequest, workspaceId: string) => ({ actor: principalOf(request).user, workspaceId: workspaceId as WorkspaceId });
-const summaryView = (record: EquipmentSummary) => ({ id: record.id, name: record.name, category: record.category, location: record.location, manufacturer: record.manufacturer, model: record.model, serialNumber: record.serialNumber, purchaseDate: record.purchaseDate, warrantyExpiry: record.warrantyExpiry, notes: record.notes, revision: record.revision });
+const summaryView = (record: EquipmentSummary) => ({ replacementParts: record.replacementParts, customFields: record.customFields, id: record.id, name: record.name, category: record.category, location: record.location, manufacturer: record.manufacturer, model: record.model, serialNumber: record.serialNumber, purchaseDate: record.purchaseDate, warrantyExpiry: record.warrantyExpiry, notes: record.notes, revision: record.revision });
 const recordView = (record: EquipmentRecord) => ({ ...summaryView(record), createdAt: record.createdAt.toISOString(), createdBy: record.createdByName, modifiedAt: record.updatedAt.toISOString(), modifiedBy: record.updatedByName });
 const trashView = (record: TrashedEquipmentRecord) => ({ id: record.id, name: record.name, deletedAt: record.deletedAt.toISOString(), deletedBy: record.deletedByName });
 /** A cursor travels as base64url JSON: opaque to the client, and only a position — it carries no authority. */

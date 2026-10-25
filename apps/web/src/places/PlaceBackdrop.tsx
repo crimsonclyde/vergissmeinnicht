@@ -1,4 +1,4 @@
-import { useState, type CSSProperties } from 'react';
+import { useEffect, useState, type CSSProperties } from 'react';
 import type { PlaceLight } from './atmosphere.ts';
 import { effectiveOverlay, type PlaceLook, type PlaceProminence } from './look.ts';
 
@@ -20,13 +20,15 @@ export function PlaceBackdrop(props: {
 }) {
   const { look, light, prominence, frame } = props;
   const [failed, setFailed] = useState<string | null>(null);
+  const [paused, setPaused] = useState(() => typeof document === 'undefined' || document.hidden);
+  useEffect(() => { const changed = () => setPaused(document.hidden); document.addEventListener('visibilitychange', changed); return () => document.removeEventListener('visibilitychange', changed); }, []);
   const art = look.config.artwork;
   // A photo that cannot be loaded (removed elsewhere, offline) falls back to the illustration.
   // Remembers which address failed, so a new photo (new version) is tried again.
   const photoFailed = look.photoUrl !== null && failed === look.photoUrl;
   const background = look.background === 'photo' && photoFailed ? 'illustration' : look.background;
   const glow = look.atmosphere && background === 'illustration' && look.config.effects.includes('window-glow') ? light.windows : 0;
-  const mist = look.atmosphere && (look.config.effects.includes('mist') || look.config.effects.includes('haze')) ? 0.35 + light.mist * 0.65 : light.mist;
+  const mist = look.atmosphere && background === 'illustration' && (look.config.effects.includes('mist') || look.config.effects.includes('haze')) ? 0.35 + light.mist * 0.65 : 0;
   const style = {
     '--place-focus-d': `${look.focusDesktop.x}% ${look.focusDesktop.y}%`,
     '--place-focus-m': `${look.focusMobile.x}% ${look.focusMobile.y}%`,
@@ -42,8 +44,8 @@ export function PlaceBackdrop(props: {
   const image = (set: typeof art.day, className: string, onError?: () => void) =>
     frame === undefined ? (
       <picture>
-        <source media="(max-width: 37.5rem), (max-aspect-ratio: 4/5)" srcSet={`${set.portraitSmall} 600w, ${set.portrait} 960w`} sizes="100vw" />
-        <img className={className} src={set.wide} srcSet={`${set.wideSmall} 1280w, ${set.wide} 1920w`} sizes="100vw" alt="" decoding="async" onError={onError} />
+        <source media="(max-width: 37.5rem), (max-aspect-ratio: 4/5)" srcSet={`${set.portraitSmall} 480w, ${set.portrait} 768w`} sizes="100vw" />
+        <img className={className} src={set.wide} srcSet={`${set.wideSmall} 1024w, ${set.wide} 1536w`} sizes="100vw" alt="" decoding="async" onError={onError} />
       </picture>
     ) : (
       <img className={className} src={frame === 'mobile' ? (small ? set.portraitSmall : set.portrait) : set.wideSmall} alt="" decoding="async" onError={onError} />
@@ -58,16 +60,22 @@ export function PlaceBackdrop(props: {
       data-blur={look.blur > 0}
       data-frame={frame}
       data-atmosphere={look.atmosphere}
+      data-paused={paused}
       style={style}
     >
       <div className="place-gradient" />
       {background === 'illustration' && image(art.day, 'place-art')}
       {background === 'photo' && look.photoUrl !== null && <img className="place-art" src={look.photoUrl} alt="" decoding="async" onError={() => setFailed(look.photoUrl)} />}
       <div className="place-tint" />
-      {glow > 0 && image(art.lights, 'place-art place-lights')}
+      {glow > 0 && art.lights !== undefined && image(art.lights, 'place-art place-lights')}
       {mist > 0 && <div className="place-mist" />}
       <div className="place-overlay" />
       <div className="place-vignette" />
+      {look.atmosphere && background === 'illustration' && <div className="place-life">
+        {look.config.effects.includes('fireflies') && ['night', 'evening', 'dusk'].includes(light.phase) && <div className="place-fireflies">{[0, 1, 2, 3, 4, 5].map(n => <span key={n} />)}</div>}
+        {look.config.effects.includes('bee') && ['morning', 'day'].includes(light.phase) && <span className="place-bee" />}
+        {look.config.effects.includes('leaves') && <span className="place-leaf" />}
+      </div>}
     </div>
   );
 }

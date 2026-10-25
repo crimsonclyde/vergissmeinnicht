@@ -2014,6 +2014,18 @@ GitHub pre-release created after the user approved the command: `https://github.
 
 **Validation:** implementation and local checks recorded in 16.8 (146 files / 1154 tests, 27.30 s; Playwright 3 passed / 1 intentional skip; typecheck/lint/build/schema checks). Final PR CI `37218359808`, main CI `37218652596` and release `37218676293` succeeded. Both native validation and publishing images passed smoke tests and fixable HIGH/CRITICAL vulnerability scans; manifest publishing, workflow signing and CycloneDX attestation succeeded. Completion is recorded in a documentation commit after publication. Physical-phone imports, live Unraid upgrade and the existing development-only moderate esbuild finding remain open. Security surface: MEDIUM, documented in `security.md`; release validation must remain fail-closed.
 
+### 12.43 Release 0.7.2-beta.1
+
+**Status:** IN PROGRESS (2026-10-25). Owner requested commit, push and release of section 31. Exact image tag: `ghcr.io/crimsonclyde/vergissmeinnicht:0.7.2-beta.1`. Unraid template and guide updated. No live installation deployment requested.
+
+**Scope:** Open horizon Places with Munich/Triora/London/Scotland landscapes, modern dock and optional gentle effects; Equipment reference cards, replacement details and optional custom fields; private app-wide points and seedling encouragement. Stable theme ids and personal backgrounds retained.
+
+**Upgrade:** migration **0056_equipment_progress** (57 migrations, 0000–0056). Back up database and file storage before upgrading. Adds nullable Equipment fields in place, preserves existing guards/history, and creates an empty private progress ledger. No historical/import awards or new environment variables. Older binaries refuse the newer database. Workspace backups include Equipment details and exclude personal points.
+
+**Validation:** section 31 records 1509 automated tests, 8 browser checks, typecheck/lint/build and migration/restore checks. Release remains gated on GitHub CI, native image smoke tests and vulnerability scans, multi-architecture publication, signing and SBOM. Completion evidence will be recorded after publication.
+
+**Security impact:** MEDIUM, inherited from section 31; release packaging adds no new application boundary. **Security docs updated:** YES (31). **Remaining:** remote validation and publication; physical-device/screen-reader limitations remain.
+
 ### 12.42 Release 0.7.2-beta.0
 
 **Status:** PREPARED (2026-10-24). Release PR bumps the Unraid template and guide to `ghcr.io/crimsonclyde/vergissmeinnicht:0.7.2-beta.0`. The owner publishes the GitHub prerelease, which creates tag `v0.7.2-beta.0` on the merge commit and starts `release.yml`.
@@ -4790,6 +4802,59 @@ Also bumps **zod 4.6.5 → 4.6.6** (GHSA-mrhx-c7xc-m3w5, high, published after t
 **Security impact:** MEDIUM — a new personal image upload and new per-person rows keyed by Workspace. **Security docs updated:** YES (section 30 check).
 
 **Remaining:** final painted artwork (spec in `ARTWORK.md`); no e2e test for the Places tab (server and unit tests cover the logic); real-phone check of the focal-point drag, safe areas and scroll performance with blur; weather-driven effects when a forecast is already loaded (integration point only).
+
+---
+
+### 30.1 Places redesign — three mock-ups (owner request 2026-10-25)
+
+**Status:** DONE — design mock-ups only; production redesign awaits the owner's selection.
+**Completed:** 2026-10-25.
+
+**Request:** more recognisable country defaults and a complete Places-specific look and navigation, with optional ambient life; keep personal background uploads. The owner subsequently requested two or three mock-ups before implementation. The earlier Equipment reference-collection redesign and the owner's choice of private encouragement points across the app remain pending implementation.
+
+**Implemented:** three interactive proposals: **Open courtyard** (recommended, immersive scene with a floating labelled tool dock), **Window seat** (architectural picture window and focused agenda), **Neighbourhood studio** (inset workspace with panoramic header and one horizontal tool shelf). Four new country illustrations show Berlin courtyard architecture, Ligurian shutters/stepped lanes, London brick terraces and Edinburgh sandstone/haar. Each proposal supports all four country previews, evening light, optional ambient effects, profile/tool disclosures, and a practical Equipment preview with brand/model search and optional fields. An original seedling companion and illustrative points show completion feedback. All interactions are local prototype state; no app/API/persistence changes. Artwork, exact prompts, source locations and limits: [Places design review](places-design-review.md).
+
+**Tests/checks:** Chromium checks at 1024, 600, 390 and 320 px for each layout (12 layout checks, zero horizontal overflow); Equipment search, Add field, primary navigation, tool/profile disclosures, all four country selections, effects off/on and completion/undo feedback passed for all three. Dark/reduced-motion captures and animation checks passed. Product-scoped axe checks: zero violations in all three; zero page errors. An overlapping Effects control and missing progressbar role were found and corrected. The standalone visualization wrapper's carousel count has its own contrast warning outside the mock-ups. Source fragment is 592 kB, embeds its images and makes no application requests. `git diff --check` passed. No production-code tests/build required for this prototype/documentation-only work.
+
+**Security impact:** NONE — mock-ups and documentation only; no authentication, authorization, upload, storage, account activity, credential, backup or network boundary changed. **Security docs updated:** N/A.
+
+**Remaining:** owner selection/art review; production theme implementation with existing custom-photo preferences preserved; actual Equipment schema/UI/backup work; server-authoritative app-wide points and companion implementation with a documented privacy/reward policy and negative tests. Mock forms do not persist records and copy-model feedback does not write the clipboard. Physical devices, real screen readers and production performance have not been tested.
+
+---
+
+### 30.2 Places review — open landscapes and place names (owner request 2026-10-25)
+
+**Status:** DONE — revised mock-ups only; production work remains pending review.
+**Completed:** 2026-10-25.
+
+**Implemented:** country-wide preview labels become **Munich**, **Triora**, **London** and **Scotland**. Munich uses the owner's supplied illustrated Munich-to-Garda panorama (original unchanged; compressed preview copies). Three new illustrations use its vintage print texture: Triora is a small village among wooded mountain ridges, sunlight and ground mist; Scotland is an imagined northern coastal moor with standing stones, sea and wide sky; London explores the owner's old-pub idea with an open riverside garden and a small watchful stone lion. This London option remains a proposal. The three layout alternatives and local Equipment/companion previews are retained. Open courtyard becomes **Open horizon**, Neighbourhood studio becomes **Panorama studio**. Profile/design controls say Place, and all four views work in each layout. Existing production theme ids, personal photos and settings are untouched. Exact generation prompts, source attribution and outputs: [Places design review](places-design-review.md#landscape-revision--2026-10-25).
+
+**Tests/checks:** repeated three-layout interaction/axe review at 1024/600/390/320 px: zero horizontal overflow, zero product-scoped axe violations, zero page errors; all place choices, Equipment search/Add field, effects and celebration checks pass. Additional final Open horizon review: all four places at 1024/390/320 px (12 checks), zero overflow, caption/Effects overlap or axe violations; Dark and reduced motion pass for each place. A longer place caption overlapped Effects at 320 px and was corrected before final screenshots. Revised self-contained fragment is approximately 606 kB; no app requests. `git diff --check` passed.
+
+**Security impact:** NONE — presentation proposals/documentation only. **Security docs updated:** N/A.
+
+**Remaining:** owner scene/layout review, eventual production artwork and theme implementation, Equipment rewrite and actual app-wide points/companion. No production schema, API, stored identifiers, permissions or account activity changed. Preview geography is artistic, not a map or a representation of a verified stone-circle location. Real-device/screen-reader review remains unperformed.
+
+---
+
+## 31 — Open horizon Places, Equipment references and private encouragement (owner approved 2026-10-25)
+
+**Status:** DONE
+**Completed:** 2026-10-25
+
+**Scope:** owner approved the selected Open horizon mock-up after refining the four scenes to Munich, Triora, London and Scotland. The original Equipment redesign and private lifetime points across the app are included. No new photo upload path, notification channel, public leaderboard, permission or reminder engine.
+
+**Implemented:** Places keeps the existing stored theme ids and personal/Workspace preferences, custom-photo and No image choices. The approved owner-supplied Munich panorama and three generated print-style landscapes replace the initial façades, with four responsive image sizes per place. One top header and a floating labelled Today/Procedures/Lists/More dock replace the desktop Places sidebar; More discloses only existing enabled destinations. Other themes retain their navigation. Focused editing, accessible links and existing addresses remain. Effects follow the existing personal Atmosphere setting, with a persisted Today toggle, mist, occasional night fireflies, a passing Triora bee and a Munich leaf; CSS transforms/opacity only, hidden-page pause, reduced-motion stop, forced-colours removal and no effects over a personal photo/No image. No provider or device-location call.
+
+**Equipment:** responsive searchable reference cards put brand/model and compatible replacement parts up front. The short form has name, manufacturer, model and replacement details; only the name is required. Add field reveals existing optional metadata or up to 16 custom label/value details. Existing details are retained in editing. Exact model/replacement Copy actions have a manual fallback. Existing roles (including read-only guests), tool gates, Links/manuals/history, revisions, Trash and ordinary Schedule reminders remain. Replacement text is searchable; serials, notes and arbitrary custom values are not. Migration **0056_equipment_progress** adds two nullable columns in place and retains all existing guards; current/legacy package validation and round-trip restoration cover the new fields.
+
+**Encouragement:** own-account server total in the Settings menu/Profile; original small seedling with dismissible success feedback. Fixed rewards for useful additions/completions across Procedures, Runs/Steps, Reminders, Lists, Documents, Contacts, Equipment, Maintenance and shared/private Journal. One award per logical record/action across actors, undo and replay; 100 points per server UTC day, no retroactive/history/import awards, no second award for an automatically closed Procedure Occurrence. Private `progress_awards` contains only hashed source keys, owner, bounded points and server time; excluded from Workspace backups. The authenticated own-only read route accepts no person selector or client score. Mutation/audit/award commit together. The companion can celebrate Equipment neutrally when no points are earned. No streak, penalty, ranking, monetary value or permission effect.
+
+**Tests/checks:** full Vitest **191 files / 1509 tests passed** outside the sandbox (existing loopback SMTP/SSE tests require it). Focused upgrade/points/restore/theme checks: 6 files / 64 tests passed; after the older-client Equipment update safeguard, Equipment/progress/route-security checks: 3 files / 24 tests passed. Repository typecheck, lint, production build, whitespace and Drizzle no-drift checks pass. Main Playwright workflow/smoke/forest checks: 4 passed, including all four Places at 1440/390/320 px with accessibility checks, persisted Effects, Equipment optional/custom fields, companion, successful/manual-fallback Copy, personal-photo upload and No image. Additional Places desktop/mobile checks: 4 passed at widths 320/390/844/1440/2560, reduced motion, hidden-tab pause, forced colours, public-page privacy and no Places assets in Light. Browser checks caught and corrected a redundant Equipment heading and a mist animation specificity issue preventing hidden-tab pause. Screenshots: `assets/screenshots/open-horizon-31/`; artwork provenance: `apps/web/src/places/ARTWORK.md`.
+
+**Security impact:** MEDIUM — bounded shared Equipment content and a new private account aggregate/ledger; no new credential, upload or authorization capability. **Security docs updated:** YES (31); architecture, user guide, deployment guide and AGENTS acceptance updated.
+
+**Remaining/limitations:** real physical devices and screen readers remain untested; the artwork is an artistic landscape, not a geographical/archaeological representation. Existing large JavaScript chunk warning remains. Migration 0056 is included and tested; production migration has not been performed. Release requested; publication tracked in 12.43. No live installation deployed.
 
 ---
 

@@ -10,7 +10,7 @@ export const unitedKingdom: PlaceConfig = {
   name: 'appearance.places-uk',
   hint: 'appearance.places-ukHint',
   region: 'London',
-  style: 'Victorian terrace house',
+  style: 'Riverside pub garden',
   light: {
     gradient: ['#e2e1dd', '#ecebe7', '#d3d0c8'],
     tokens: {
@@ -72,6 +72,6 @@ export const unitedKingdom: PlaceConfig = {
     },
   },
   artwork: { ...artworkFiles, focusDesktop: { x: 48, y: 42 }, focusMobile: { x: 56, y: 50 } },
-  defaults: { overlay: 40, vignette: 28 },
-  effects: ['window-glow', 'mist', 'drift'],
+  defaults: { overlay: 18, vignette: 12 },
+  effects: ['haze', 'drift', 'fireflies'],
 };

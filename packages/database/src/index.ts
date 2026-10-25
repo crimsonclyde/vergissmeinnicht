@@ -43,3 +43,4 @@ export { isRestorableLevel, RESTORE_DATA_NAMES, restoreWorkspace, WorkspaceResto
 export { databaseLevel, snapshotWorkspace, WORKSPACE_REFERENCE, WorkspaceExportError, type StagedEntry, type WorkspaceSnapshot } from './workspace-export.ts';
 export { EXCLUDED_TABLES, EXPORTED_TABLES } from './workspace-backup-tables.ts';
 export { createJournalRepository } from './journal/repository.ts';
+export { createProgressRepository } from './progress-repository.ts';

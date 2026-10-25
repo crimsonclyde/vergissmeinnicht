@@ -1,12 +1,12 @@
 import { DomainValidationError } from './errors.ts';
 
 /**
- * Places (section 30): a family of country-inspired themes. Each country is one theme in the existing
+ * Places (section 30): a family of place-inspired themes. Each place is one theme in the existing
  * theme choice (`places-<id>`), so the theme a person picks for a Workspace (section 28) also picks its
- * country. Everything visual about a country lives in the web client's registry
+ * place. Everything visual about a place lives in the web client's registry
  * (`apps/web/src/places/`); the server only needs to know which ids exist.
  *
- * Adding a country: add its id here, run `pnpm db:generate` (the theme CHECK constraints are generated
+ * Adding a place: add its id here, run `pnpm db:generate` (the theme CHECK constraints are generated
  * from this list), and register its configuration and artwork in the web registry.
  */
 export const PLACE_IDS = ['de', 'it', 'uk', 'scotland'] as const;
@@ -15,7 +15,7 @@ export type PlaceId = (typeof PLACE_IDS)[number];
 export type PlaceTheme = `places-${PlaceId}`;
 export const PLACE_THEMES = PLACE_IDS.map((id) => `places-${id}` as const) as readonly PlaceTheme[];
 
-/** The country of a Places theme, or null for every other theme. */
+/** The place of a Places theme, or null for every other theme. */
 export function placeOfTheme(theme: string | null | undefined): PlaceId | null {
   if (typeof theme !== 'string' || !theme.startsWith('places-')) return null;
   const id = theme.slice('places-'.length);
@@ -24,12 +24,12 @@ export function placeOfTheme(theme: string | null | undefined): PlaceId | null {
 
 /**
  * A person's own look of Places in one Workspace. Personal presentation only: it never changes the
- * Workspace, its theme, its country or anyone else's view. Stored as validated JSON per person and
+ * Workspace, its theme, its place or anyone else's view. Stored as validated JSON per person and
  * Workspace, so later versions can add fields; unknown fields of a newer version are ignored on read.
  */
 export const PLACE_PREFERENCES_VERSION = 1;
 
-/** `illustration`: the country's artwork (default). `photo`: the person's own picture. `none`: palette only. */
+/** `illustration`: the place’s artwork (default). `photo`: the person's own picture. `none`: palette only. */
 export const PLACE_BACKGROUNDS = ['illustration', 'photo', 'none'] as const;
 export type PlaceBackground = (typeof PLACE_BACKGROUNDS)[number];
 

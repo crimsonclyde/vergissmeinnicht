@@ -32,7 +32,7 @@ const clampPercent = (value: number) => Math.max(0, Math.min(100, Math.round(val
 
 /**
  * Profile & settings → Places (section 30): the person's own look of the Workspace being used, only
- * while that Workspace shows a Places theme. It never changes the country (that is the theme, chosen in
+ * while that Workspace shows a Places theme. It never changes the place (that is the theme, chosen in
  * Appearance), the Workspace, or anyone else's view. Changes are previewed first and kept only with Save;
  * Cancel returns to what is saved. The photo itself is stored as soon as it is uploaded (privately).
  */
