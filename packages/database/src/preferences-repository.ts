@@ -1,5 +1,5 @@
 import { and, eq } from 'drizzle-orm';
-import type { PreferencesRepository } from '@vergissmeinnicht/application';
+import { NotAuthorizedError, type PreferencesRepository } from '@vergissmeinnicht/application';
 import type { ThemePreference, UserId, WorkspaceId } from '@vergissmeinnicht/domain';
 import type { AppDatabase } from './connection.ts';
 import { IMMEDIATE, type Transaction as Tx } from './actor-guard.ts';
@@ -42,14 +42,17 @@ export function createPreferencesRepository({ db }: Pick<AppDatabase, 'db'>): Pr
   return {
     async find(userId) {
       const row = db.select().from(userPreferences).where(eq(userPreferences.userId, userId)).get();
-      return row && { theme: row.theme, criticalConfirm: row.criticalConfirm };
+      return row && { theme: row.theme, criticalConfirm: row.criticalConfirm, navigationOrder: row.navigationOrder, privateGamification: row.privateGamification };
     },
 
     async save(userId, preferences, at) {
-      db.insert(userPreferences)
+      db.transaction((tx) => {
+        if (!tx.select({ id: users.id }).from(users).where(and(eq(users.id, userId), eq(users.status, 'ACTIVE'))).get()) throw new NotAuthorizedError();
+        tx.insert(userPreferences)
         .values({ userId, ...preferences, updatedAt: at })
         .onConflictDoUpdate({ target: userPreferences.userId, set: { ...preferences, updatedAt: at } })
         .run();
+      }, IMMEDIATE);
     },
 
     async workspacePreferences(userId) {

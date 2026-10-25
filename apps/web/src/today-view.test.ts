@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { Occurrence, RunSummary, Schedule } from './api.ts';
-import { destinations } from './AppShell.tsx';
+import { destinations } from './navigation.ts';
 import { remindersView } from './Reminders.tsx';
 import { firstName, greetingKey, todayHero, todayRing, todayView } from './Today.tsx';
 
@@ -70,6 +70,17 @@ describe('Reminders', () => {
 
 describe('tool navigation', () => {
   const nav = destinations(W, ['PROCEDURES', 'REMINDERS', 'LISTS', 'CALENDAR']);
+
+  it('pins the first two enabled personal choices, keeps every tool reachable and marks exactly one phone destination', () => {
+    const custom = destinations(W, ['PROCEDURES', 'LISTS', 'EQUIPMENT', 'JOURNAL', 'CALENDAR'], ['DOCUMENTS', 'EQUIPMENT', 'JOURNAL', 'LISTS']);
+    expect(custom.side.map(item => item.label)).toEqual(['Today', 'Equipment', 'Journal', 'Lists', 'Procedures', 'Calendar']);
+    expect(custom.bar.map(item => item.label)).toEqual(['Today', 'Equipment', 'Journal', 'More']);
+    for (const page of ['workspace', 'equipment', 'journal', 'lists', 'procedures', 'calendar', 'history', 'more'] as const) {
+      expect(custom.bar.filter(item => item.pages.includes(page))).toHaveLength(1);
+    }
+    expect(destinations(W, [], ['DOCUMENTS']).bar.map(item => item.label)).toEqual(['Today', 'More']);
+    expect(destinations(W, ['LISTS'], ['DOCUMENTS', 'LISTS']).bar.map(item => item.label)).toEqual(['Today', 'Lists', 'More']);
+  });
 
   it('keeps Today and More with all tools off and never offers a disabled destination', () => {
     expect(destinations(W, []).side.map((item) => item.label)).toEqual(['Today']);

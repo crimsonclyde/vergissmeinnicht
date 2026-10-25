@@ -357,3 +357,11 @@ When the server itself is lost — disk, host, Unraid box — recovery means the
 ### Equipment reference details and private progress (migration 0056)
 
 Apply migrations through the usual `db:migrate` deployment step before starting this version. Migration 0056 adds two nullable Equipment columns in place and a private `progress_awards` table; it preserves existing records, tool settings and personal Places backgrounds. Workspace packages include the new Equipment fields; validated older packages upgrade with no extra details. Personal points are excluded from Workspace packages and included in full server backups. No historical points are backfilled, and restoring Workspace history awards nothing. No new environment variable, provider connection or service is required. Older binaries still refuse a database migrated by a newer version.
+
+### Personal menu ordering (31.3)
+
+Migration **0057_navigation_order** adds a nullable personal order to `user_preferences` in place and validates its bounded allowlisted keys. Back up the database and file storage before upgrade as usual. Existing accounts retain their current menus until they explicitly save a personal order; older theme/confirmation updates retain it. Orders stay out of Workspace packages and inside full server backups. No new service or environment variable. Updated companion illustrations are bundled static assets.
+
+### Optional unified Gamification (31.4)
+
+Migration **0058_gamification** expands the Workspace tool allowlist, preserves existing flags and enables Gamification for existing Workspaces, advancing their tool-settings revision. New Workspaces remain off. It adds the private-Journal boolean in place to account preferences, default on to preserve prior behavior; previous theme, navigation and SQL validators remain. Existing points are retained. Back up database and file storage before upgrade. The shared switch is in Workspace packages; old packages without it restore off. Account preferences/points remain excluded from Workspace backups and included in full server backups. No new environment variable, service, outbound connection or runtime plugin loader.

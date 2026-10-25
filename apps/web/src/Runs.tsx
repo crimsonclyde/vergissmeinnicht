@@ -29,7 +29,7 @@ import { offlineStore } from './offline/store.ts';
 import { useRunLiveUpdates, type AnnouncedChange, type LiveStatus } from './useRunLiveUpdates.ts';
 import { UiIcon } from './ui-icons.tsx';
 import { navigate, paths } from './router.tsx';
-import { Confetti, Ring, SectionGuide, SectionTiles, nextOpenSection } from './RunGuide.tsx';
+import { Ring, SectionGuide, SectionTiles, nextOpenSection } from './RunGuide.tsx';
 
 /** How long "Uma changed … at …" stays visible. */
 const REMOTE_NOTICE_MS = 10_000;
@@ -519,7 +519,6 @@ function RunView(props: {
         {liveNotice}
         {allResolved && (
           <div className="card guide-finish" role="status">
-            <Confetti />
             <h3>{t('guide.allDone')}</h3>
             {endControlsOf(true)}
           </div>

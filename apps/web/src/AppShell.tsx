@@ -1,3 +1,4 @@
+import { destinations, type Destination } from './navigation.ts';
 import { ProgressProvider } from './Progress.tsx';
 import { PlacesNavigation } from './places/PlacesNavigation.tsx';
 import { JournalPage } from './modules/journal/JournalPage.tsx';
@@ -69,36 +70,6 @@ function rememberedWorkspace(): string | null {
 type WorkspaceRoute = Extract<Route, { workspaceId: string }>;
 type Page = Route['page'];
 
-interface Destination {
-  readonly href: string;
-  readonly label: string;
-  readonly icon: UiIconName;
-  /** Pages on which this destination is the current one. */
-  readonly pages: readonly Page[];
-}
-
-/**
- * The tools (15.1). Desktop sidebar: Today, Procedures, Reminders, Lists, Calendar. Phone bottom bar:
- * Today, Procedures, Lists and More — More leads to Reminders, Calendar and the completed history.
- * `tools`: the optional tools the Workspace has switched on (UI only; every request is checked).
- */
-export function destinations(workspaceId: string, tools: readonly string[] = []): { side: Destination[]; bar: Destination[] } {
-  const today: Destination = { href: paths.home(workspaceId), label: t('shell.today'), icon: 'today', pages: ['workspace'] };
-  const procedures: Destination = { href: paths.procedures(workspaceId), label: t('shell.procedures'), icon: 'procedures', pages: ['procedures', 'procedure-edit', 'photos'] };
-  const reminders: Destination = { href: paths.reminders(workspaceId), label: t('shell.reminders'), icon: 'reminders', pages: ['reminders'] };
-  const lists: Destination = { href: paths.lists(workspaceId), label: t('shell.lists'), icon: 'lists', pages: ['lists'] };
-  const calendar: Destination = { href: paths.calendar(workspaceId), label: t('shell.calendar'), icon: 'calendar', pages: ['calendar'] };
-  // Optional tools (16.2) follow the fixed ones in the sidebar; on phones they are reached through More —
-  // the bottom bar keeps exactly four destinations.
-  const documents: Destination = { href: paths.documents(workspaceId), label: t('shell.documents'), icon: 'documents', pages: ['documents'] };
-  const contacts: Destination = { href: paths.contacts(workspaceId), label: t('shell.contacts'), icon: 'contacts', pages: ['contacts'] };
-  const maintenance: Destination = { href: paths.maintenance(workspaceId), label: t('shell.maintenance'), icon: 'maintenance', pages: ['maintenance'] };
-  const equipment:Destination={href:paths.equipment(workspaceId),label:t('shell.equipment'),icon:'equipment',pages:['equipment']};
-  const journal: Destination = { href: paths.journal(workspaceId), label: t('journal.heading'), icon: 'documents', pages: ['journal'] };
-  const optional = [...(tools.includes('JOURNAL') ? [journal] : []),...(tools.includes('DOCUMENTS') ? [documents] : []), ...(tools.includes('CONTACTS') ? [contacts] : []), ...(tools.includes('MAINTENANCE') ? [maintenance] : []),...(tools.includes('EQUIPMENT') ? [equipment]:[])];
-  const more: Destination = { href: paths.more(workspaceId), label: t('shell.more'), icon: 'more', pages: ['more', 'reminders', 'calendar', 'history', ...optional.flatMap((tool) => tool.pages)] };
-  return { side: [today, ...(tools.includes('PROCEDURES') ? [procedures] : []), ...(tools.includes('REMINDERS') ? [reminders] : []), ...(tools.includes('LISTS') ? [lists] : []), ...(tools.includes('CALENDAR') ? [calendar] : []), ...optional], bar: [today, ...(tools.includes('PROCEDURES') ? [procedures] : []), ...(tools.includes('LISTS') ? [lists] : []), more] };
-}
 
 function NavLinks({ items, page }: { items: readonly Destination[]; page: Page }) {
   return (
@@ -111,6 +82,13 @@ function NavLinks({ items, page }: { items: readonly Destination[]; page: Page }
       ))}
     </>
   );
+}
+
+/** Read preferences inside their account-keyed provider, so Save updates both shells together. */
+function ToolNavigation({ workspaceId, tools, page, phone = false }: { workspaceId: string; tools: readonly string[]; page: Page; phone?: boolean }) {
+  const { preferences } = usePreferences();
+  const nav = destinations(workspaceId, tools, preferences.navigationOrder);
+  return phone ? <PlacesNavigation items={nav.bar} all={nav.side} page={page} /> : <nav aria-label={t('shell.tools')} className="side-nav"><NavLinks items={nav.side} page={page} /></nav>;
 }
 
 /** Loads the Workspace (name, role, capabilities) for the Workspace pages. */
@@ -407,7 +385,7 @@ function AccountPage({ user, section, tools, workspaces, activeWorkspace, avatar
         group: t(ACCOUNT_SECTION_GROUPS[value]),
       }))}
     >
-      {section === 'profile' && <ProfileSettings user={user} avatar={avatar} onAvatarChanged={onAvatarChanged} workspaces={workspaces} />}
+      {section === 'profile' && <ProfileSettings user={user} avatar={avatar} onAvatarChanged={onAvatarChanged} workspaces={workspaces} tools={tools} />}
       {section === 'journal' && <JournalPage key={user.id} canWrite={true} />}
       {section === 'notifications' && (
         <div className="card">
@@ -507,7 +485,7 @@ export function AppShell(props: { user: CurrentUser; route: Route; onSignOut: ()
   // On pages without a Workspace (settings, admin) the tools stay reachable: they lead to the last used one.
   const remembered = workspaceId === null ? rememberedWorkspace() : null;
   const navWorkspaceId = workspaceId ?? workspaces?.find((workspace) => workspace.id === remembered)?.id ?? null;
-  const nav = navWorkspaceId === null ? null : destinations(navWorkspaceId, workspaces?.find((workspace) => workspace.id === navWorkspaceId)?.tools ?? []);
+  const navTools = workspaces?.find((workspace) => workspace.id === navWorkspaceId)?.tools ?? [];
   // Focused work hides the global navigation: the builder everywhere, an execution on phones.
   const focus = route.page === 'procedure-edit' ? 'edit' : route.page === 'run' ? 'run' : undefined;
 
@@ -549,7 +527,7 @@ export function AppShell(props: { user: CurrentUser; route: Route; onSignOut: ()
   return (
     // Appearance shows the default theme, so choosing it there is seen at once; elsewhere the theme
     // the person chose for the Workspace shown (or last used) applies (section 28).
-    <ProgressProvider key={user.id} userId={user.id}><PreferencesProvider workspaceId={route.page === 'account' && route.section === 'appearance' ? null : navWorkspaceId}>
+    <PreferencesProvider key={user.id} workspaceId={route.page === 'account' && route.section === 'appearance' ? null : navWorkspaceId}><ProgressProvider userId={user.id} workspaceId={workspaceId} tools={navTools} privateScope={route.page === 'account' && route.section === 'journal'}>
       <RingPaint />
       {/* Places (section 30): the person's own look of the Workspace shown; strongest on Today. */}
       <PlaceScene userId={user.id} workspaceId={navWorkspaceId} prominence={route.page === 'workspace' ? 'today' : 'page'} />
@@ -586,11 +564,7 @@ export function AppShell(props: { user: CurrentUser; route: Route; onSignOut: ()
               </select>
             </label>
           )}
-          {nav !== null && (
-            <nav aria-label={t('shell.tools')} className="side-nav">
-              <NavLinks items={nav.side} page={route.page} />
-            </nav>
-          )}
+          {navWorkspaceId !== null && <ToolNavigation workspaceId={navWorkspaceId} tools={navTools} page={route.page} />}
           <SettingsMenu user={user} avatar={avatar} workspaceId={navWorkspaceId} currentPath={window.location.pathname} onSignOut={signOut} />
         </header>
         <div className="shell-main">
@@ -601,10 +575,8 @@ export function AppShell(props: { user: CurrentUser; route: Route; onSignOut: ()
             <SourceFooter />
           </main>
         </div>
-        {nav !== null && (
-          <PlacesNavigation items={nav.bar} all={nav.side} page={route.page} />
-        )}
+        {navWorkspaceId !== null && <ToolNavigation workspaceId={navWorkspaceId} tools={navTools} page={route.page} phone />}
       </div>
-    </PreferencesProvider></ProgressProvider>
+    </ProgressProvider></PreferencesProvider>
   );
 }

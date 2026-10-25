@@ -400,6 +400,20 @@
       "when": 1792918714865,
       "tag": "0056_equipment_progress",
       "breakpoints": true
+    },
+    {
+      "idx": 57,
+      "version": "6",
+      "when": 1792941993512,
+      "tag": "0057_navigation_order",
+      "breakpoints": true
+    },
+    {
+      "idx": 58,
+      "version": "6",
+      "when": 1792943643054,
+      "tag": "0058_gamification",
+      "breakpoints": true
     }
   ]
 }

@@ -199,7 +199,7 @@ test('first server admin: bootstrap link, account creation, sign-in, Workspace c
   await expect(page.getByRole('navigation', { name: 'Tools' }).getByRole('link')).toHaveText(['Today']);
   await settingsSection(page, 'Workspace settings', 'Plugins');
   await expect(page).toHaveURL(/\/w\/[0-9a-f-]{36}\/plugins$/);
-  for (const tool of ['Procedures', 'Reminders', 'Lists', 'Calendar']) {
+  for (const tool of ['Procedures', 'Reminders', 'Lists', 'Calendar', 'Gamification']) {
     await page.getByRole('checkbox', { name: new RegExp(`^${tool}`) }).check();
     await expect(page.getByRole('checkbox', { name: new RegExp(`^${tool}`) })).toBeEnabled();
   }
@@ -1002,7 +1002,7 @@ test('first server admin: bootstrap link, account creation, sign-in, Workspace c
   await expect(upstairs).toContainText('Step 1 of 1');
   await expectAccessible(page, 'guided run: one step');
   await upstairs.getByRole('button', { name: 'Done: Close windows' }).click();
-  await expect(upstairs.getByRole('status').filter({ hasText: 'Nice!' })).toBeVisible();
+  await expect(upstairs.locator('.guide-cheer')).toHaveCount(0);
   await expect(upstairs.getByRole('heading', { name: 'Upstairs done!' })).toBeVisible();
   await upstairs.getByRole('button', { name: 'Next: Ground floor' }).click();
   const groundFloor = page.getByRole('region', { name: 'Section: Ground floor' });
@@ -2973,7 +2973,67 @@ test('first server admin: bootstrap link, account creation, sign-in, Workspace c
   await referenceForm.getByLabel('Detail 1: value',{exact:true}).fill('24 V');
   await referenceForm.getByRole('button',{name:'Save',exact:true}).click();
   await expect(page.getByRole('heading',{name:'Terrace supply',exact:true})).toBeVisible();
-  await expect(page.locator('.progress-cheer')).toBeVisible();
+  // The backend tests cover actual scoring/caps. Drive deterministic server-total responses here
+  // to exercise every visual style even when this long flow has already reached its daily cap.
+  let celebrationPoints = ((await requestForPlaces('/api/account/progress')).body as {points:number}).points;
+  await page.route('**/api/account/progress', route => route.fulfill({json:{points:celebrationPoints}}));
+  await page.evaluate('globalThis.__vmnOriginalRandom = Math.random');
+  await page.setViewportSize({width:320,height:850});
+  await page.emulateMedia({reducedMotion:'reduce'});
+  for (const [index, id] of ['herr-fuchsky','count-duckula','fester-fiesta','confetti'].entries()) {
+    celebrationPoints++;
+    await page.evaluate(`Math.random = () => (${index} + .5) / 4; window.dispatchEvent(new CustomEvent('vmn-mutation-succeeded', {detail:{path:'/workspaces/${workspaceIdForPlaces}/equipment'}}))`);
+    const cheer = page.locator('.progress-cheer');
+    await expect(cheer).toHaveAttribute('data-celebration',id);
+    await expect(cheer).toContainText('+1 points');
+    if (id !== 'confetti') {
+      await expect.poll(() => cheer.locator('img').evaluate((image) => 'complete' in image && image.complete && 'naturalWidth' in image && Number(image.naturalWidth) > 0)).toBe(true);
+      await expect(cheer.locator('img')).toHaveCSS('animation-name','none');
+    } else {
+      await expect(cheer.locator('img')).toHaveCount(0);
+      await expect(cheer.locator('.celebration-confetti')).toHaveCSS('display','none');
+    }
+    const cheerBox=await cheer.boundingBox();
+    expect(cheerBox?.x).toBeGreaterThanOrEqual(0);
+    expect((cheerBox?.x??0)+(cheerBox?.width??0)).toBeLessThanOrEqual(320);
+    await page.screenshot({path:`${placeShots}/celebration-${id}-320.png`,animations:'disabled'});
+  }
+  await expectAccessible(page,'Shared celebrations on a narrow phone');
+  await page.emulateMedia({reducedMotion:'no-preference'});
+  celebrationPoints++;
+  await page.evaluate(`window.dispatchEvent(new CustomEvent('vmn-mutation-succeeded',{detail:{path:'/workspaces/${workspaceIdForPlaces}/equipment'}}))`);
+  await expect(page.locator('.celebration-confetti > span').first()).toHaveCSS('animation-name','celebration-rise');
+  await expect(page.locator('.celebration-confetti > span')).toHaveCount(24);
+  await expect(page.locator('.celebration-confetti > span').first()).toHaveCSS('opacity', /^(?:1|0\.[1-9])/);
+  await page.screenshot({path:`${placeShots}/confetti-rise-320.png`});
+  await page.emulateMedia({forcedColors:'active'});
+  await expect(page.locator('.celebration-confetti')).toHaveCSS('display','none');
+  await page.emulateMedia({forcedColors:'none'});
+  expect(await page.evaluate('document.documentElement.scrollWidth <= innerWidth')).toBe(true);
+  await page.getByRole('button',{name:'Dismiss celebration'}).click();
+  await expect(page.locator('.progress-cheer')).toHaveCount(0);
+  const gammaOffRevision=((await requestForPlaces(`/api/workspaces/${workspaceIdForPlaces}`)).body as {toolsRevision:number}).toolsRevision;
+  expect((await requestForPlaces(`/api/workspaces/${workspaceIdForPlaces}/tools`,{tool:'GAMIFICATION',enabled:false,expectedRevision:gammaOffRevision})).status).toBe(200);
+  celebrationPoints++;
+  const disabledRefresh=page.waitForResponse('**/api/account/progress');
+  await page.evaluate(`window.dispatchEvent(new CustomEvent('vmn-mutation-succeeded',{detail:{path:'/workspaces/${workspaceIdForPlaces}/equipment'}}))`);
+  await disabledRefresh;
+  await expect(page.locator('.progress-cheer')).toHaveCount(0);
+  await expect(page.getByRole('heading',{name:'Terrace supply',exact:true})).toBeVisible();
+  await page.evaluate('Math.random = globalThis.__vmnOriginalRandom; delete globalThis.__vmnOriginalRandom');
+  const offBaseline=page.waitForResponse('**/api/account/progress');
+  await page.reload(); await offBaseline;
+  const gammaOnRevision=((await requestForPlaces(`/api/workspaces/${workspaceIdForPlaces}`)).body as {toolsRevision:number}).toolsRevision;
+  expect((await requestForPlaces(`/api/workspaces/${workspaceIdForPlaces}/tools`,{tool:'GAMIFICATION',enabled:true,expectedRevision:gammaOnRevision})).status).toBe(200);
+  // The page's Workspace-list hint still says off: the canonical gate must notice remote enable.
+  celebrationPoints++;
+  await page.evaluate(`globalThis.__vmnOriginalRandom=Math.random; Math.random=()=>.99; window.dispatchEvent(new CustomEvent('vmn-mutation-succeeded',{detail:{path:'/workspaces/${workspaceIdForPlaces}/equipment'}}))`);
+  await expect(page.locator('.progress-cheer')).toHaveAttribute('data-celebration','confetti');
+  await page.getByRole('button',{name:'Dismiss celebration'}).click();
+  await page.evaluate('Math.random = globalThis.__vmnOriginalRandom; delete globalThis.__vmnOriginalRandom');
+  await page.unroute('**/api/account/progress');
+  await page.setViewportSize({width:1440,height:1000});
+  await page.reload();
   await expect(page.getByText('24 V',{exact:true})).toBeVisible();
   await page.bringToFront();
   await page.context().grantPermissions(['clipboard-read','clipboard-write'],{origin:new URL(page.url()).origin});
@@ -2989,6 +3049,42 @@ test('first server admin: bootstrap link, account creation, sign-in, Workspace c
   await page.screenshot({path:`${placeShots}/equipment-320.png`,fullPage:true,animations:'disabled'});
   await page.setViewportSize({width:1440,height:1000});
   await fromMenu(page,'Profile & settings');
+  const menuOrder = page.getByRole('region', { name: 'Tool menu order' });
+  for (let n=0; n<9; n++) {
+    const moveUp = menuOrder.getByRole('button', { name: 'Move Equipment up', exact: true });
+    if (await moveUp.isDisabled()) break;
+    await moveUp.click();
+  }
+  await expect(page.locator('.places-dock > a')).toHaveText(['Today', 'Procedures', 'Lists']);
+  await menuOrder.getByRole('button', { name: 'Save menu order' }).click();
+  await expect(menuOrder.getByRole('status')).toHaveText('Tool menu order saved.');
+  await expect(page.locator('.places-dock > a')).toHaveText(['Today', 'Equipment', 'Procedures']);
+  await page.reload();
+  await expect(menuOrder.getByRole('list').locator('li strong').first()).toHaveText('Equipment');
+  await page.locator('.places-dock').getByRole('button', { name: 'More', exact: true }).click();
+  await expect(page.locator('.places-tool-grid a').nth(1)).toHaveText('Equipment');
+  await page.locator('.places-tools').getByRole('button', { name: 'Close', exact: true }).click();
+  const savedMenuTheme = ((await requestForPlaces('/api/account/preferences')).body as { preferences: { theme: string } }).preferences.theme;
+  for (const theme of ['light', 'dark']) {
+    expect((await requestForPlaces('/api/account/preferences', { theme })).status).toBe(200);
+    await page.reload();
+    await expect(page.locator('.shell-side nav a').nth(1)).toHaveText('Equipment');
+    await page.setViewportSize({width:320,height:850});
+    await expect(page.locator('.tab-bar > a')).toHaveText(['Today', 'Equipment', 'Procedures', 'More']);
+    expect(await page.evaluate('document.documentElement.scrollWidth <= innerWidth')).toBe(true);
+    await expectAccessible(page, `Personal menu order ${theme} at 320px`);
+    await page.screenshot({path:`${placeShots}/menu-order-${theme}-320.png`,fullPage:true,animations:'disabled'});
+    await page.locator('.tab-bar').getByRole('link', { name: 'More', exact: true }).click();
+    await expect(page.locator('main .plain-list .item-body strong').first()).toHaveText('Equipment');
+    await page.goto('/account');
+    await page.setViewportSize({width:1440,height:1000});
+  }
+  expect((await requestForPlaces('/api/account/preferences', { theme: savedMenuTheme })).status).toBe(200);
+  await page.reload();
+  await menuOrder.getByRole('button', { name: 'Use default order' }).click();
+  await menuOrder.getByRole('button', { name: 'Save menu order' }).click();
+  await expect(menuOrder.getByRole('status')).toHaveText('Tool menu order saved.');
+  await expect(page.locator('.places-dock > a')).toHaveText(['Today', 'Procedures', 'Lists']);
   await settingsSection(page,'Profile & settings','Places');
   await page.getByText('My photo',{exact:true}).click();
   await expect(page.getByRole('radio',{name:'My photo',exact:true})).toBeChecked();

@@ -116,7 +116,6 @@ export function Equipment(props: Props) {
         setWarrantyChanged(record !== null && record.warrantyExpiry !== r.warrantyExpiry && links.some(l => l.record.type === 'schedule' && l.record.scheduleKind === 'REMINDER'));
         setDialog(null);
         setStatus(t('equipment.saved'));
-        if (route.view === 'overview') window.dispatchEvent(new Event('vmn-equipment-added'));
         setRecord(r);
         navigate(paths.equipmentRecord(workspaceId, r.id));
         load();

@@ -32,7 +32,7 @@ it('0035 preserves existing flags and history and starts tool settings at revisi
     database = openDatabase(path);
     expect(database.sqlite.prepare("SELECT * FROM workspace_tools WHERE tool IN ('DOCUMENTS', 'CONTACTS', 'MAINTENANCE') ORDER BY tool").all()).toEqual(flags);
     expect(database.sqlite.prepare('SELECT * FROM audit_events').all()).toEqual(history);
-    expect(database.sqlite.prepare('SELECT tools_revision FROM workspaces WHERE id = ?').get(home.id)).toEqual({ tools_revision: 0 });
+    expect(database.sqlite.prepare('SELECT tools_revision FROM workspaces WHERE id = ?').get(home.id)).toEqual({ tools_revision: 1 }); // 0058 enables Gamification for existing Workspaces.
     const fresh = insertLegacyWorkspace(database, { name: 'New Home', adminUserId: actor.id });
     expect(database.sqlite.prepare('SELECT tools_revision FROM workspaces WHERE id = ?').get(fresh.id)).toEqual({ tools_revision: 0 });
   } finally {

@@ -64,7 +64,8 @@ export function PreferencesProvider({ workspaceId, children }: { workspaceId: st
   useEffect(() => storeWorkspaceThemes(workspacePreferences.themes), [workspacePreferences.themes]);
 
   const update = useCallback(async (changes: Partial<UserPreferences>) => {
-    setPreferences((current) => ({ ...current, ...changes }));
+    // Menu ordering applies only after the server confirms Save; failed saves keep the current menu.
+    if (changes.navigationOrder === undefined && changes.privateGamification === undefined) setPreferences((current) => ({ ...current, ...changes }));
     if (changes.theme !== undefined) setThemeMode(changes.theme);
     setPreferences(await api.updatePreferences(changes));
   }, []);

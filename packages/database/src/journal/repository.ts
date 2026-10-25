@@ -45,7 +45,7 @@ export function createJournalRepository({ db }: AppDatabase): JournalRepository 
         } else {
           tx.update(table).set({ title: entry.title, date: entry.date, body: entry.body, revision: previous.revision + 1, archived, updatedByUserId: actor.id, updatedBy: current.name, updatedAt: at }).where(and(filter, eq(table.id, nextId), eq(table.revision, expectedRevision))).run();
         }
-        if (previous === undefined) awardProgress(tx, actor.id, nextId, 'JOURNAL_CREATED', at);
+        if (previous === undefined) awardProgress(tx, actor.id, 'workspaceId' in scope ? { workspaceId: scope.workspaceId } : { private: true }, nextId, 'JOURNAL_CREATED', at);
         recordSecurityEvent(tx, { type: 'JOURNAL_ENTRY_CHANGED', actor: { kind: 'user', userId: actor.id, displayName: current.name }, subjectType: 'workspaceId' in scope ? 'workspace' : 'user', subjectId: 'workspaceId' in scope ? scope.workspaceId : scope.ownerId, occurredAt: at, metadata: { scope: 'workspaceId' in scope ? 'workspace' : 'private', revision: (previous?.revision ?? 0) + 1, archived } });
         const result = tx.select().from(table).where(and(filter, eq(table.id, nextId))).get();
         if (result === undefined) throw new Error('Journal save lost its row');

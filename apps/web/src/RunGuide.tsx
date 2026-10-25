@@ -11,24 +11,10 @@ import { TapToConfirm } from './TapToConfirm.tsx';
 import { UiIcon } from './ui-icons.tsx';
 
 /**
- * The guided Run (22.2): the Sections as tiles, then the Steps of one Section one at a time, with a little
- * celebration when a Step is resolved. Presentation only — every change goes through the same `onStep` as the
+ * The guided Run (22.2): the Sections as tiles, then the Steps of one Section one at a time, with normal
+ * confirmed-state feedback when a Step is resolved. Presentation only — every change goes through the same `onStep` as the
  * list, and the server decides as before.
  */
-
-/** Short encouragements after a resolved Step, in turn. */
-const CHEERS = ['guide.cheer.1', 'guide.cheer.2', 'guide.cheer.3', 'guide.cheer.4'] as const;
-
-const reducedMotion = (): boolean => window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false;
-
-/** A short buzz on phones that allow it (Android; iPhones do not). Never required, never an error. */
-function buzz(pattern: number | number[]): void {
-  try {
-    navigator.vibrate?.(pattern);
-  } catch {
-    /* not supported */
-  }
-}
 
 export const resolvedCount = (steps: readonly RunStep[]): number => steps.filter((step) => step.state !== 'PENDING').length;
 
@@ -116,18 +102,6 @@ export function RingPaint() {
   );
 }
 
-/** A few falling pieces for a finished Section or Run; nothing at all when less motion is asked for. */
-export function Confetti() {
-  if (reducedMotion()) return null;
-  return (
-    <span className="confetti" aria-hidden="true">
-      {Array.from({ length: 14 }, (_, index) => (
-        <span key={index} style={{ left: `${(index * 37) % 100}%`, animationDelay: `${(index % 5) * 70}ms` }} />
-      ))}
-    </span>
-  );
-}
-
 /** The Sections of a Run as tiles (22.2): icon, title, how far it is, a check when finished. */
 export function SectionTiles(props: { run: RunDetail; onOpen: (sectionId: string) => void }) {
   const next = props.run.state === 'ACTIVE' ? nextOpenSection(props.run.sections, null) : undefined;
@@ -173,10 +147,9 @@ function MainAction(props: { step: RunStep; disabled: boolean; onDone: () => voi
   );
 }
 
-const STATE_ICON: Record<Exclude<StepState, 'PENDING'>, 'check' | 'skip' | 'notApplicable'> = { DONE: 'check', SKIPPED: 'skip', NOT_APPLICABLE: 'notApplicable' };
 
 /**
- * One Section, one Step at a time (22.2). After a Step is resolved here, a short cheer shows and the next
+ * One Section, one Step at a time (22.2). After a Step is resolved here, its saved status shows and the next
  * pending Step of the Section follows by itself; when none is left, the Section's finish screen appears.
  */
 export function SectionGuide(props: {
@@ -206,10 +179,9 @@ export function SectionGuide(props: {
     const first = steps.findIndex((step) => step.state === 'PENDING');
     return first === -1 ? 0 : first;
   });
-  const [cheer, setCheer] = useState<{ stepId: string; text: string } | null>(null);
+  const [transition, setTransition] = useState<{ stepId: string } | null>(null);
   const [finished, setFinished] = useState(false);
   const [asking, setAsking] = useState<StepState | null>(null);
-  const cheers = useRef(0);
   const latest = useRef(steps);
   useEffect(() => {
     latest.current = steps;
@@ -230,35 +202,32 @@ export function SectionGuide(props: {
 
   const go = (to: number) => {
     setAsking(null);
-    setCheer(null);
+    setTransition(null);
     setIndex(to);
     // Keep the keyboard and screen-reader position on the new Step.
     window.requestAnimationFrame(() => cardRef.current?.focus({ preventScroll: true }));
   };
 
-  /** Resolve the shown Step, cheer, then move on (to the next pending Step, or the Section's finish screen). */
+  /** Resolve the shown Step, wait for canonical state, then move on (to the next pending Step, or the Section's finish screen). */
   const act = (target: RunStep, action: StepAction) => {
     setAsking(null);
     props.onStep(target, action);
     if (action.to === 'PENDING') return;
-    const text = t(CHEERS[cheers.current % CHEERS.length] ?? 'guide.cheer.1');
-    cheers.current += 1;
-    setCheer({ stepId: target.id, text });
-    buzz(action.to === 'DONE' ? 30 : 15);
+    setTransition({ stepId: target.id });
     if (timer.current !== null) clearTimeout(timer.current);
     timer.current = setTimeout(
       () => {
         timer.current = null;
-        setCheer(null);
+        setTransition(null);
         const current = latest.current;
         const from = current.findIndex((each) => each.id === target.id);
+        if (current.find(each => each.id === target.id)?.state === 'PENDING') return;
         const next = nextPendingIndex(current, from === -1 ? 0 : from);
         if (next === -1) {
           setFinished(true);
-          buzz([40, 60, 40]);
         } else go(next);
       },
-      reducedMotion() ? 450 : 1000,
+      450,
     );
   };
 
@@ -314,7 +283,6 @@ export function SectionGuide(props: {
         {header}
         {bar}
         <div className="card guide-finish" role="status">
-          <Confetti />
           <Ring done={done} total={steps.length} size={96} />
           <h3>{nextSection === undefined && props.canFinish ? t('guide.allDone') : t('guide.sectionDone', { title: section.title })}</h3>
           {nextSection !== undefined ? (
@@ -342,12 +310,12 @@ export function SectionGuide(props: {
 
   const saving = props.saving.has(step.id);
   const busy = props.busy || saving;
-  const cheering = cheer?.stepId === step.id;
+  const transitioning = transition?.stepId === step.id;
   return (
     <section className="guide" aria-label={t('run.sectionLabel', { title: section.title })}>
       {header}
       {bar}
-      <article ref={cardRef} tabIndex={-1} className="card guide-card" data-state={step.state} data-cheer={cheering} aria-labelledby={`guide-step-${step.id}`}>
+      <article ref={cardRef} tabIndex={-1} className="card guide-card" data-state={step.state} aria-labelledby={`guide-step-${step.id}`}>
         <p className="guide-count">{t('guide.stepOf', { number: position + 1, total: steps.length })}</p>
         <span className="guide-step-icon">
           <AppIcon name={step.icon ?? sectionIcon(section)} decorative size="2em" />
@@ -356,7 +324,7 @@ export function SectionGuide(props: {
           {step.title}
           <StepMarks required={step.required} critical={step.critical} />
         </h3>
-        {step.state !== 'PENDING' && !cheering && (
+        {step.state !== 'PENDING' && !transitioning && (
           <p className="guide-resolved">
             <StateBadge state={step.state} />
             {step.stateChange !== null && (
@@ -370,15 +338,10 @@ export function SectionGuide(props: {
         {props.queued.has(step.id) && <small className="muted">{t('offline.queuedStep')}</small>}
         {step.description !== '' && <p className="guide-description">{step.description}</p>}
         {step.image != null && <StepImage workspaceId={props.workspaceId} image={step.image} offlineUserId={props.offlineUserId} />}
-        {cheering && (
-          <div className="guide-cheer" role="status">
-            <span className="guide-cheer-mark" data-state={step.state}>
-              <UiIcon name={step.state === 'PENDING' ? 'check' : STATE_ICON[step.state]} size="2.2em" />
-            </span>
-            <strong>{cheer.text}</strong>
-          </div>
+        {transitioning && (
+          <p className="muted" role="status">{step.state === 'PENDING' ? t('guide.saving') : t(`state.${step.state}`)}</p>
         )}
-        {props.canExecute && !cheering && asking === null && (
+        {props.canExecute && !transitioning && asking === null && (
           <div className="guide-actions">
             {step.state === 'PENDING' ? (
               <>
