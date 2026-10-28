@@ -122,3 +122,20 @@ jobs:
         run: |
           cosign sign --yes "$REF"
           cosign attest --yes --type cyclonedx --predicate sbom.cdx.json "$REF"
+
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: .nvmrc
+      - name: Verify exact published image and populated upgrade
+        env:
+          REF: ${{ steps.meta.outputs.image }}@${{ steps.manifest.outputs.digest }}
+          VERSION: ${{ steps.meta.outputs.version }}
+        run: |
+          docker pull "$REF"
+          test "$(docker inspect --format '{{index .Config.Labels "org.opencontainers.image.version"}}' "$REF")" = "$VERSION"
+          test "$(docker inspect --format '{{index .Config.Labels "org.opencontainers.image.revision"}}' "$REF")" = "$GITHUB_SHA"
+          deploy/smoke-test.sh "$REF"
+          deploy/upgrade-check.sh "$REF" ghcr.io/crimsonclyde/vergissmeinnicht@sha256:dc9136d36aa50b7ddb34c65f98d929e1695e5a57857a5fbfd26253e0341f3942
