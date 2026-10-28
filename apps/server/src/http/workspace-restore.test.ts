@@ -182,7 +182,7 @@ describe('Workspace restore (section 18b)', () => {
     const before = { workspaces: workspaceCount(), imported: importedCount() };
     const ready = await validated(homePackage);
     expect(ready, JSON.stringify(ready)).toMatchObject({ state: 'READY', phase: 'validated', errorCode: null, workspaceId: null });
-    expect(ready.preview).toMatchObject({ workspaceName: 'Home ✨ Ferienhaus', databaseLevel: '0058_gamification', schedulesPaused: 2, assignmentsCleared: 1 });
+    expect(ready.preview).toMatchObject({ workspaceName: 'Home ✨ Ferienhaus', databaseLevel: '0059_bring', schedulesPaused: 2, assignmentsCleared: 1 });
     expect(ready.preview.counts).toMatchObject({ procedures: 1, runs: 2, documents: 2, document_files: 3, links: 3, run_document_removals: 1, contacts: 1, list_items: 3 });
     // Previous members, for inviting them again by hand — the restore itself invites and matches nobody.
     expect(ready.preview.previousMembers.map((member) => `${member.displayName}:${member.email}:${member.role}`).sort()).toEqual(['Ada:admin@example.org:ADMIN', 'Eddie:editor@example.org:EDITOR', 'Gus:guest@example.org:GUEST', 'Olga Öwner:owner@example.org:ADMIN', 'Uma 🌸:user@example.org:USER']);
@@ -309,6 +309,31 @@ describe('Workspace restore (section 18b)', () => {
     const old = await repack(homePackage, (files) => files.delete('data/journal_entries.ndjson'), { databaseLevel: '0051_workspace_location' });
     expect((await restore(old)).workspaceId).toBeTruthy();
     expect((await validated(await repack(homePackage, (files) => files.delete('data/journal_entries.ndjson')))).errorCode).toBe('malformed_records');
+    expect((await validated(await repack(homePackage, files => files.delete('data/bring_items.ndjson')))).errorCode).toBe('malformed_records');
+    expect((await restore(await repack(homePackage, files => files.delete('data/bring_items.ndjson'), { databaseLevel: '0058_gamification' }))).workspaceId).toBeTruthy();
+  });
+
+  it('revalidates hostile Bring content, status stamps, person references and collection bounds atomically', async () => {
+    const withItems = async (mutate: (row: Record<string, unknown>) => Record<string, unknown>[]) => repack(homePackage, files => {
+      const person = lines(files, 'procedures')[0]?.created_by_user_id;
+      const row = { id: randomUUID(), title: 'Bring drill', from_place: 'Munich', to_place: 'Van', due_date: null, assignee_user_id: null, notes: 'Keep dry', status: 'OPEN', completed_at: null, completed_by_user_id: null, completed_by: null, cancelled_at: null, cancelled_by_user_id: null, cancelled_by: null, created_at: 1, created_by_user_id: person, created_by: 'Olga', updated_at: 1, updated_by_user_id: person, updated_by: 'Olga', revision: 1, deleted: 0 };
+      write(files, 'bring_items', mutate(row));
+    });
+    const valid = await restore(await withItems(row => [row]));
+    expect(one('SELECT title,status FROM bring_items WHERE workspace_id=?', valid.workspaceId)).toEqual({ title: 'Bring drill', status: 'OPEN' });
+    const count = workspaceCount(); const marks = all('SELECT * FROM progress_awards ORDER BY key');
+    for (const change of [
+      (row: Record<string, unknown>) => [{ ...row, title: ' leading space' }],
+      (row: Record<string, unknown>) => [{ ...row, notes: '\u202e' }],
+      (row: Record<string, unknown>) => [{ ...row, due_date: '2026-02-30' }],
+      (row: Record<string, unknown>) => [{ ...row, status: 'COMPLETED' }],
+      (row: Record<string, unknown>) => [{ ...row, assignee_user_id: 'person-999999' }],
+      (row: Record<string, unknown>) => Array.from({ length: 1001 }, () => ({ ...row, id: randomUUID() })),
+    ]) {
+      expect((await validated(await withItems(change))).state).toBe('FAILED');
+      expect(workspaceCount()).toBe(count); expect(all('SELECT * FROM progress_awards ORDER BY key')).toEqual(marks);
+      expect(one('SELECT count(*) n FROM workspace_restore_marks')).toEqual({ n: 0 });
+    }
   });
 
   it('restores reference details, accepts pre-0056 Equipment, rejects hostile/current-missing fields and never awards restored activity', async () => {

@@ -1,7 +1,7 @@
 /*
  * Semantic design tokens (docs/development/steps.md 8.3, 15.1). Components use only these variables, so themes
- * (System / Light / Dark and the named preset "Memento Mori") change values, not components.
- * `:root` holds the light theme: white page, soft neutral surfaces, visible borders, deep crimson.
+ * (System / the light theme / Memento Mori) change values, not components.
+ * `:root` holds the light theme: ivory paper, ink, teal actions and clay details.
  * State colors always come with a glyph and text (8.2): color is never the only signal.
  *
  * Roles: `bg` page · `surface` cards and bars · `surface-muted` quiet controls · `surface-raised` menus,
@@ -11,31 +11,31 @@
  */
 :root {
   color-scheme: light;
-  --bg: #ffffff;
-  --surface: #f6f5f2;
-  --surface-muted: #ebe9e4;
+  --bg: #f7f3ea;
+  --surface: #fffdf8;
+  --surface-muted: #eae5d9;
   --surface-raised: #ffffff;
-  --text: #1a1816;
-  --text-muted: #57534e;
-  --border: #d3d0c9;
-  --border-strong: #8c8880;
-  --accent: #8b1020;
-  --accent-text: #ffffff;
-  --accent-soft: #f6e6e8;
-  --danger: #b3261e;
-  --focus: #1a1816;
-  --brand: #8b1020;
-  --link: #1a1816;
-  --on-pending: #ffffff;
-  --state-pending: #b3261e;
-  --state-pending-bg: #fdecea;
-  --state-done: #1e6b34;
-  --state-done-bg: #e6f4ea;
-  --state-done-text: #ffffff;
-  --state-skipped: #8a5a00;
-  --state-skipped-bg: #fff4dc;
-  --state-na: #4a4f5c;
-  --state-na-bg: #eceef2;
+  --text: #242b29;
+  --text-muted: #53605b;
+  --border: #d4cbbc;
+  --border-strong: #7d8275;
+  --accent: #245b58;
+  --accent-text: #fffdf8;
+  --accent-soft: #e0ece6;
+  --danger: #b02e3d;
+  --focus: #98452e;
+  --brand: #8c422e;
+  --link: #245b58;
+  --on-pending: #fffdf8;
+  --state-pending: #b02e3d;
+  --state-pending-bg: #f9e8e6;
+  --state-done: #296441;
+  --state-done-bg: #e1eee3;
+  --state-done-text: #fffdf8;
+  --state-skipped: #805510;
+  --state-skipped-bg: #f4ead0;
+  --state-na: #505b67;
+  --state-na-bg: #e5e8eb;
   --radius: 10px;
   --shadow: 0 1px 2px rgb(0 0 0 / 8%);
   --shadow-raised: 0 8px 28px rgb(0 0 0 / 18%);
@@ -51,68 +51,68 @@
 /*
  * Themes are selected by `data-theme` on <html> (set by theme.ts from the user's System / Light /
  * Dark choice). A named preset is one more block like this one.
- * Dark: charcoal page, clearly separate surfaces, warm white text, restrained crimson.
+ * Legacy Dark mirrors Memento Mori: warm black, bone, burgundy and brass.
  */
 :root[data-theme='dark'] {
   color-scheme: dark;
-  --bg: #0e0e10;
-  --surface: #17171a;
-  --surface-muted: #222227;
-  --surface-raised: #1d1d21;
-  --text: #f3efe8;
-  --text-muted: #aba69d;
-  --border: #34343b;
-  --border-strong: #71717c;
-  --accent: #a3172b;
-  --accent-text: #ffffff;
-  --accent-soft: #33121a;
-  --danger: #ff6b5e;
-  --focus: #f3efe8;
-  --brand: #d42c48;
-  --link: #f3efe8;
-  --on-pending: #0e0e10;
-  --state-pending: #ff6b5e;
-  --state-pending-bg: #331513;
-  --state-done: #5fd07e;
-  --state-done-bg: #11291a;
-  --state-done-text: #0b0b0c;
-  --state-skipped: #f2b84b;
-  --state-skipped-bg: #33260b;
-  --state-na: #b4b8c4;
-  --state-na-bg: #24262c;
+  --bg: #141111;
+  --surface: #201b1c;
+  --surface-muted: #30292a;
+  --surface-raised: #282123;
+  --text: #eee7da;
+  --text-muted: #c0b3a4;
+  --border: #514346;
+  --border-strong: #968378;
+  --accent: #9f3746;
+  --accent-text: #fff0dc;
+  --accent-soft: #382026;
+  --danger: #ff9596;
+  --focus: #e4c58c;
+  --brand: #d8b47c;
+  --link: #e6c49d;
+  --on-pending: #261013;
+  --state-pending: #ff9596;
+  --state-pending-bg: #462429;
+  --state-done: #a9c5a0;
+  --state-done-bg: #233526;
+  --state-done-text: #142015;
+  --state-skipped: #e3c084;
+  --state-skipped-bg: #40331d;
+  --state-na: #c3bccb;
+  --state-na-bg: #34303c;
   --shadow: none;
   --shadow-raised: 0 10px 32px rgb(0 0 0 / 60%);
   --overlay: rgb(0 0 0 / 60%);
 }
 
 :root[data-theme='memento-mori'] {
-  /* Named preset (8.7): pure black, bone-white text, deep crimson accents. */
+  /* Memento Mori: warm black, bone, burgundy and candlelit brass (33). */
   color-scheme: dark;
-  --bg: #000000;
-  --surface: #0c0a0a;
-  --surface-muted: #1a1616;
-  --surface-raised: #141010;
-  --text: #f1ece2;
-  --text-muted: #b5ad9f;
-  --border: #3b3434;
-  --border-strong: #7d7272;
-  --accent: #e0343f;
-  --accent-text: #000000;
-  --accent-soft: #2b0c10;
-  --danger: #ff4d5e;
-  --focus: #f1ece2;
-  --brand: #e0343f;
-  --link: #f1ece2;
-  --on-pending: #000000;
-  --state-pending: #ff4d5e;
-  --state-pending-bg: #2e0b10;
-  --state-done: #6fd98a;
-  --state-done-bg: #0e2416;
-  --state-done-text: #000000;
-  --state-skipped: #f2bd4d;
-  --state-skipped-bg: #2d2108;
-  --state-na: #bfc3cc;
-  --state-na-bg: #1f2025;
+  --bg: #141111;
+  --surface: #201b1c;
+  --surface-muted: #30292a;
+  --surface-raised: #282123;
+  --text: #eee7da;
+  --text-muted: #c0b3a4;
+  --border: #514346;
+  --border-strong: #968378;
+  --accent: #9f3746;
+  --accent-text: #fff0dc;
+  --accent-soft: #382026;
+  --danger: #ff9596;
+  --focus: #e4c58c;
+  --brand: #d8b47c;
+  --link: #e6c49d;
+  --on-pending: #261013;
+  --state-pending: #ff9596;
+  --state-pending-bg: #462429;
+  --state-done: #a9c5a0;
+  --state-done-bg: #233526;
+  --state-done-text: #142015;
+  --state-skipped: #e3c084;
+  --state-skipped-bg: #40331d;
+  --state-na: #c3bccb;
+  --state-na-bg: #34303c;
   --shadow: none;
   --shadow-raised: 0 10px 32px rgb(0 0 0 / 70%);
   --overlay: rgb(0 0 0 / 65%);
@@ -231,8 +231,8 @@
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme]) {
     color-scheme: dark;
-    --bg: #0e0e10;
-    --text: #f3efe8;
+    --bg: #141111;
+    --text: #eee7da;
   }
 }
 
@@ -6022,10 +6022,10 @@ a.button.today-hero-go {
  * outside the token blocks (they must look the same whichever theme is active).
  */
 .theme-swatch {
-  --sw-bg: #ffffff;
-  --sw-surface: #f6f5f2;
-  --sw-line: #8c8880;
-  --sw-accent: #8b1020;
+  --sw-bg: #f7f3ea;
+  --sw-surface: #fffdf8;
+  --sw-line: #7d8275;
+  --sw-accent: #245b58;
   display: flex;
   align-items: flex-end;
   height: 4.75rem;
@@ -6037,23 +6037,23 @@ a.button.today-hero-go {
 }
 
 .theme-swatch[data-swatch='dark'] {
-  --sw-bg: #0e0e10;
-  --sw-surface: #17171a;
-  --sw-line: #71717c;
-  --sw-accent: #a3172b;
+  --sw-bg: #141111;
+  --sw-surface: #201b1c;
+  --sw-line: #968378;
+  --sw-accent: #9f3746;
 }
 
 .theme-swatch[data-swatch='memento-mori'] {
-  --sw-bg: #000000;
-  --sw-surface: #0c0a0a;
-  --sw-line: #7d7272;
-  --sw-accent: #e0343f;
+  --sw-bg: #141111;
+  --sw-surface: #201b1c;
+  --sw-line: #968378;
+  --sw-accent: #9f3746;
 }
 
 .theme-swatch[data-swatch='system'] {
-  background: linear-gradient(115deg, #ffffff 0 50%, #0e0e10 50% 100%);
+  background: linear-gradient(115deg, #f7f3ea 0 50%, #141111 50% 100%);
   --sw-surface: #8a8a90;
-  --sw-line: #ffffff;
+  --sw-line: #f7f3ea;
 }
 
 .theme-swatch[data-swatch='tokyo-nights'] {
@@ -6228,3 +6228,10 @@ a.button.today-hero-go {
 .celebration-confetti > span:nth-child(3n + 1) { background: var(--state-skipped); }
 @keyframes celebration-rise { 0% { transform: translate(0, 0) rotate(0); opacity: 0; } 12% { opacity: 1; } 100% { transform: translate(var(--confetti-drift), -75vh) rotate(540deg); opacity: 0; } }
 @media (prefers-reduced-motion: reduce), (forced-colors: active) { .celebration-confetti { display: none; } }
+
+
+/* Bring's disclosures keep full touch targets, including the compact actions menu. */
+.bring label { display: flex; flex-direction: column; gap: 0.35rem; }
+.bring summary { display: flex; align-items: center; gap: 0.4rem; min-width: 2.75rem; min-height: 2.75rem; cursor: pointer; }
+.bring summary::before { content: '▸'; }
+.bring details[open] > summary::before { transform: rotate(90deg); }

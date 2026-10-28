@@ -1,3 +1,4 @@
+import type { BringContent, BringItem, BringStatus } from '@vergissmeinnicht/domain';
 import type { JournalContent, JournalEntry, PlacePreferences, PlaceSettings } from '@vergissmeinnicht/domain';
 /** Thin JSON client for the same-origin API. The browser adds the `Origin` header the server checks. */
 import type { CredentialProviderId, OpenMeteoModelId, ProcedureIcon, ReasonPolicy, RunState, StepState, ThemePreference, TodayLayout, UserPreferences, WeatherCredential, WeatherForecast, WeatherLocation, WeatherProviderId, WeatherSettings, WorkspacePreferences, WorkspaceRole } from '@vergissmeinnicht/domain';
@@ -1216,7 +1217,15 @@ const occurrencePath = (workspaceId: string, id: string) => `/workspaces/${encod
 export type JournalView = Omit<JournalEntry, 'createdAt' | 'updatedAt'> & { createdAt: string; updatedAt: string };
 const journalPath = (workspaceId?: string) => workspaceId === undefined ? '/account/journal' : `/workspaces/${encodeURIComponent(workspaceId)}/journal`;
 
+export type BringView = Omit<BringItem, 'createdAt' | 'updatedAt' | 'completedAt' | 'cancelledAt'> & { createdAt: string; updatedAt: string; completedAt: string | null; cancelledAt: string | null };
+export type BringTodayView = Pick<BringView, 'id' | 'title' | 'from' | 'to' | 'dueDate' | 'assigneeId' | 'assigneeName' | 'status' | 'revision'>;
+const bringPath = (workspaceId: string, rest = '') => `/workspaces/${encodeURIComponent(workspaceId)}/bring${rest}`;
 export const api = {
+  bring: (workspaceId: string, status = 'OPEN', filter = 'ALL', offset = 0) => request<{ items: BringView[]; total: number; places: string[] }>('GET', bringPath(workspaceId, '?' + new URLSearchParams({ status, filter, offset: String(offset) }))),
+  bringToday: (workspaceId: string, filter: string, today: string) => request<{ items: BringTodayView[]; total: number }>('GET', bringPath(workspaceId, '?' + new URLSearchParams({ filter, today }))),
+  saveBring: (workspaceId: string, content: BringContent, item?: BringView) => request<{ item: BringView }>('POST', bringPath(workspaceId, item === undefined ? '' : `/${item.id}/update`), { content, expectedRevision: item?.revision ?? 0 }).then(r => r.item),
+  bringStatus: (workspaceId: string, item: Pick<BringView, 'id' | 'revision'>, status: BringStatus) => request<{ item: BringView }>('POST', bringPath(workspaceId, `/${item.id}/status`), { status, expectedRevision: item.revision }).then(r => r.item),
+  bringDelete: (workspaceId: string, item: BringView, restore = false) => request<{ item: BringView }>('POST', bringPath(workspaceId, `/${item.id}/${restore ? 'restore' : 'delete'}`), { expectedRevision: item.revision }).then(r => r.item),
   personalProgress: () => request<{points:number}>('GET', '/account/progress'),
   moon: (workspaceId: string) => request<{ location: import('@vergissmeinnicht/domain').WeatherLocation | null }>('GET', `/workspaces/${encodeURIComponent(workspaceId)}/moon`),
   journal: (workspaceId: string | undefined, q: string, archived: boolean, offset: number) => request<{ entries: JournalView[]; more: boolean }>('GET', `${journalPath(workspaceId)}?${new URLSearchParams({ q, archived: String(archived), offset: String(offset) })}`),

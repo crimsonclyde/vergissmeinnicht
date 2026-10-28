@@ -1,3 +1,6 @@
+import { EverydaySigil } from './EverydaySigil.tsx';
+import { bringContext } from './Bring.tsx';
+import type { BringTodayView } from './api.ts';
 import { MoonCard } from './TodayMoon.tsx';
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { ClockCard } from './TodayClock.tsx';
@@ -174,6 +177,7 @@ export function Today(props: {
   canStart: boolean;
   canSchedule: boolean;
   canExecute: boolean;
+  canBring: boolean;
   canAdd: CanAdd;
   tools: readonly string[];
   canChooseTools: boolean;
@@ -182,6 +186,8 @@ export function Today(props: {
   const { workspaceId } = props;
   const { userId, reportReachable, reportUnreachable } = useOffline();
   const [home, setHome] = useState<HomeOverview | null>(null);
+  const [bring, setBring] = useState<{ items: BringTodayView[]; total: number } | null>(null);
+  const [bringBusy, setBringBusy] = useState(false);
   const [lists, setLists] = useState<readonly ListSummary[]>([]);
   const [maintenance, setMaintenance] = useState<{ items: readonly MaintenanceDueSoonItem[]; total: number } | null>(null);
   const [offlineActive, setOfflineActive] = useState<readonly RunSummary[] | null>(null);
@@ -221,6 +227,7 @@ export function Today(props: {
     // The other cards are extras: without them (offline, error) the rest still shows. A card that is not
     // shown — its tool off, or switched off by the person — is never asked for (and never rendered).
     const shown = shownIds.split(' ');
+    if (shown.includes('bring')) api.bringToday(workspaceId, filter, todayIn(browserTimeZone())).then(setBring, () => setBring(null));
     if (shown.includes('toBuy')) api.lists(workspaceId).then(setLists, () => undefined);
     if (shown.includes('maintenance')) api.maintenanceDueSoon(workspaceId, todayIn(browserTimeZone())).then(setMaintenance, () => undefined);
   }, [workspaceId, userId, reportReachable, reportUnreachable, shownIds, retention, loaded, filter]);
@@ -254,7 +261,7 @@ export function Today(props: {
     }
   };
   const can = { canStart: props.canStart, canSchedule: props.canSchedule, canExecute: props.canExecute };
-  const assigned = props.tools.includes('PROCEDURES') || props.tools.includes('REMINDERS');
+  const assigned = props.tools.includes('BRING') || props.tools.includes('PROCEDURES') || props.tools.includes('REMINDERS');
   const shown = (item: Occurrence) => filter === 'ALL' || (filter === 'MINE' ? item.responsible?.id === props.userId : item.responsible === null);
   const view = home === null ? null : todayView(home, shown);
   const continueRuns = view?.continueRuns ?? offlineActive ?? [];
@@ -358,6 +365,16 @@ export function Today(props: {
             ))}
           </TodayCard>
         );
+      case 'bring':
+        if (bring === null || bring.items.length === 0) return null;
+        return <TodayCard key={card.id} id="bring" icon="forward" title={t('bring.heading')} count={bring.total} footer={more(bring.total - bring.items.length, paths.bring(workspaceId))}>
+          {bring.items.map(item => <li key={item.id} className="today-row today-row-static"><Link className="today-row-title" href={paths.bring(workspaceId)}>{item.title}</Link><small className="muted">{bringContext(item)}</small>{props.canBring && <button type="button" disabled={bringBusy} aria-label={t('bring.doneNamed', { title: item.title })} onClick={() => {
+            setBringBusy(true);
+            api.bringStatus(workspaceId, item, 'COMPLETED').then(result => {
+              setNotice({ message: t('bring.completed'), undo: () => { void api.bringStatus(workspaceId, result, 'OPEN').then(load, (caught: unknown) => { setMessage(messageFor(caught)); load(); }); } }); load();
+            }, (caught: unknown) => { setMessage(messageFor(caught)); load(); }).finally(() => setBringBusy(false));
+          }}>{t('bring.done')}</button>}</li>)}
+        </TodayCard>;
       case 'maintenance':
         if (maintenance === null || maintenance.items.length === 0) return null;
         return (
@@ -431,6 +448,7 @@ export function Today(props: {
   return (
     <section aria-labelledby="today-heading" className={['today', twoColumns ? 'today-two' : '', settings.density === 'COMFORTABLE' ? 'today-comfortable' : ''].filter(Boolean).join(' ')}>
       <div className="today-hello">
+        <EverydaySigil />
         <div className="today-hello-text">
           <h2 id="today-heading" className="today-eyebrow">
             {t('shell.today')} <span className="today-date">· {formatClock(now, false).date}</span>

@@ -44,3 +44,5 @@ export { databaseLevel, snapshotWorkspace, WORKSPACE_REFERENCE, WorkspaceExportE
 export { EXCLUDED_TABLES, EXPORTED_TABLES } from './workspace-backup-tables.ts';
 export { createJournalRepository } from './journal/repository.ts';
 export { createProgressRepository } from './progress-repository.ts';
+
+export { createBringRepository } from './bring-repository.ts';

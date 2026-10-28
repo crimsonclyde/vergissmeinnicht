@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import css from './styles.css?raw';
 import scene from './tokyo-nights.css?raw';
+import everyday from './everyday-themes.css?raw';
 import forest from './witch-forest.css?raw';
 import { PLACE_LIST } from './places/registry.ts';
 
@@ -231,6 +232,24 @@ describe('theme contrast (WCAG AA)', () => {
       expect(failures).toEqual([]);
     });
   }
+
+  it('everyday themes: text and controls retain contrast on the tinted page corners', () => {
+    expect(everyday).toContain('color-mix(in srgb, var(--brand) 6%, transparent)');
+    for (const name of ['light', 'dark', 'memento-mori'] as const) {
+      const values = themes[name];
+      const tinted = blend(values.brand ?? '', 0.06, values.bg ?? '');
+      for (const [foreground, background, minimum] of PAIRS.filter(([, background]) => background === 'bg')) {
+        expect(contrast(values[foreground] ?? '', tinted), `${name}: ${foreground} on tinted ${background}`).toBeGreaterThanOrEqual(minimum);
+      }
+    }
+  });
+
+  it('everyday themes: line art and icons are readable on their soft surfaces', () => {
+    for (const name of ['light', 'dark', 'memento-mori'] as const) {
+      const values = themes[name];
+      expect(contrast(values.brand ?? '', values['accent-soft'] ?? '')).toBeGreaterThanOrEqual(3);
+    }
+  });
 
   it('separates the surfaces of each theme from the page and from each other', () => {
     for (const values of Object.values(allThemes)) {

@@ -1,0 +1,189 @@
+{
+  "capturedAt": "2026-10-28T22:05:43.550Z",
+  "fixture": "Northstar studio; isolated test-env only",
+  "checks": [
+    {
+      "name": "today-memento",
+      "theme": "memento-mori",
+      "viewport": {
+        "width": 1440,
+        "height": 1000
+      },
+      "overflow": false,
+      "axeViolations": 0
+    },
+    {
+      "name": "today-light",
+      "theme": "light",
+      "viewport": {
+        "width": 1440,
+        "height": 1000
+      },
+      "overflow": false,
+      "axeViolations": 0
+    },
+    {
+      "name": "procedures",
+      "theme": "light",
+      "viewport": {
+        "width": 1440,
+        "height": 1000
+      },
+      "overflow": false,
+      "axeViolations": 0
+    },
+    {
+      "name": "builder",
+      "theme": "light",
+      "viewport": {
+        "width": 1440,
+        "height": 1000
+      },
+      "overflow": false,
+      "axeViolations": 0
+    },
+    {
+      "name": "equipment",
+      "theme": "memento-mori",
+      "viewport": {
+        "width": 1440,
+        "height": 1000
+      },
+      "overflow": false,
+      "axeViolations": 0
+    },
+    {
+      "name": "documents",
+      "theme": "light",
+      "viewport": {
+        "width": 1440,
+        "height": 1000
+      },
+      "overflow": false,
+      "axeViolations": 0
+    },
+    {
+      "name": "journal",
+      "theme": "light",
+      "viewport": {
+        "width": 1440,
+        "height": 1000
+      },
+      "overflow": false,
+      "axeViolations": 0
+    },
+    {
+      "name": "run-phone",
+      "theme": "memento-mori",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "overflow": false,
+      "axeViolations": 0
+    },
+    {
+      "name": "bring-phone",
+      "theme": "light",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "overflow": false,
+      "axeViolations": 0
+    },
+    {
+      "name": "lists-phone",
+      "theme": "memento-mori",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "overflow": false,
+      "axeViolations": 0
+    },
+    {
+      "name": "tokyo-nights",
+      "theme": "tokyo-nights",
+      "viewport": {
+        "width": 1440,
+        "height": 1000
+      },
+      "overflow": false,
+      "axeViolations": 0
+    },
+    {
+      "name": "old-forest",
+      "theme": "witch-forest",
+      "viewport": {
+        "width": 1440,
+        "height": 1000
+      },
+      "overflow": false,
+      "axeViolations": 0
+    },
+    {
+      "name": "munich",
+      "theme": "places-de",
+      "viewport": {
+        "width": 1440,
+        "height": 1000
+      },
+      "overflow": false,
+      "axeViolations": 0
+    },
+    {
+      "name": "triora",
+      "theme": "places-it",
+      "viewport": {
+        "width": 1440,
+        "height": 1000
+      },
+      "overflow": false,
+      "axeViolations": 0
+    },
+    {
+      "name": "london",
+      "theme": "places-uk",
+      "viewport": {
+        "width": 1440,
+        "height": 1000
+      },
+      "overflow": false,
+      "axeViolations": 0
+    },
+    {
+      "name": "scotland",
+      "theme": "places-scotland",
+      "viewport": {
+        "width": 1440,
+        "height": 1000
+      },
+      "overflow": false,
+      "axeViolations": 0
+    },
+    {
+      "name": "minimum-width-light",
+      "viewport": {
+        "width": 320,
+        "height": 844
+      },
+      "overflow": false,
+      "axeViolations": 0
+    },
+    {
+      "name": "minimum-width-memento-mori",
+      "viewport": {
+        "width": 320,
+        "height": 844
+      },
+      "overflow": false,
+      "axeViolations": 0
+    }
+  ],
+  "compatibility": {
+    "legacyAccount": true,
+    "legacyWorkspace": true
+  },
+  "pageErrors": 0
+}

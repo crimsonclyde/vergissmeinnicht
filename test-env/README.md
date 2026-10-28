@@ -38,3 +38,8 @@ The test environment never uses or modifies your development `.env`, `.var/vergi
 - deletes only `.var/test-env/`.
 
 This is a local testing aid, not a deployment. The generated secrets and the demo password protect nothing but throwaway data. Never point it at real data and never expose port 3200 beyond your machine.
+
+
+## README gallery
+
+`node test-env/capture-readme.ts` captures the real app with a separate fictional **Northstar studio** Workspace in this demo instance. It uses the normal authenticated APIs, updates only fictional data and the demo admin's presentation settings, writes WebP screenshots and accessibility/overflow results to `assets/screenshots/readme-2026-10-28/`, and verifies legacy theme choices. It prints no credentials. See that directory's README for fixture limitations and selective recapture. Never point the capture tooling at a real installation.

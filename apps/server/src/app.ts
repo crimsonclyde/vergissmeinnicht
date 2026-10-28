@@ -1,3 +1,4 @@
+import { bringRoutes } from './http/bring-routes.ts';
 import { journalRoutes, moonRoutes } from './http/journal-routes.ts';
 import { existsSync } from 'node:fs';
 import fastifyHelmet from '@fastify/helmet';
@@ -215,6 +216,7 @@ export async function buildApp(options: AppOptions = {}) {
           footerHidden: (await getInstanceSettings(services.instanceSettings)).footerHidden,
         }));
         await api.register(authRoutes, { prefix: '/auth', services });
+        await api.register(bringRoutes, { prefix: '/workspaces/:workspaceId/bring', services });
         await api.register(journalRoutes, { prefix: '/account/journal', services, shared: false });
         await api.register(journalRoutes, { prefix: '/workspaces/:workspaceId/journal', services, shared: true });
         await api.register(moonRoutes, { prefix: '/workspaces/:workspaceId/moon', services });

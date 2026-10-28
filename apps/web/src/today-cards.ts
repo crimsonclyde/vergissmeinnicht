@@ -44,6 +44,7 @@ export const TODAY_CARDS: readonly TodayCardDefinition[] = [
   { id: 'continue', anyOf: ['PROCEDURES'], defaultVisible: true, column: 'main', canBeWide: true },
   { id: 'next', anyOf: ['REMINDERS', 'PROCEDURES'], defaultVisible: true, column: 'main', canBeWide: true },
   { id: 'toBuy', anyOf: ['LISTS'], defaultVisible: true, column: 'side', canBeWide: true },
+  { id: 'bring', anyOf: ['BRING'], defaultVisible: true, column: 'side', canBeWide: true },
   { id: 'maintenance', anyOf: ['MAINTENANCE'], defaultVisible: true, column: 'side', canBeWide: true },
   { id: 'recent', anyOf: ['REMINDERS', 'PROCEDURES'], defaultVisible: true, column: 'side', canBeWide: true },
   { id: 'progress', anyOf: ['REMINDERS', 'PROCEDURES'], defaultVisible: false, column: 'side', canBeWide: false },

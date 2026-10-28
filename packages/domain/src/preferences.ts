@@ -4,7 +4,8 @@
  */
 import { PLACE_THEMES, type PlaceTheme } from './places.ts';
 
-/** Fixed themes; then one theme per Places country (section 30), generated from `PLACE_IDS`. */
+/** Persisted allowlist: `dark` remains a compatibility alias of `memento-mori` in presentation.
+ * Fixed themes; then one theme per Places country (section 30), generated from `PLACE_IDS`. */
 export const BASE_THEME_PREFERENCES = ['system', 'light', 'dark', 'memento-mori', 'tokyo-nights', 'witch-forest'] as const;
 export type ThemePreference = (typeof BASE_THEME_PREFERENCES)[number] | PlaceTheme;
 export const THEME_PREFERENCES = [...BASE_THEME_PREFERENCES, ...PLACE_THEMES] as unknown as readonly [ThemePreference, ...ThemePreference[]];
@@ -14,7 +15,7 @@ export const CRITICAL_CONFIRM_MODES = ['hold', 'tap-confirm'] as const;
 export type CriticalConfirmMode = (typeof CRITICAL_CONFIRM_MODES)[number];
 
 /** Navigable tools only: Today and More are structural, Moon is a Today card. */
-export const NAVIGATION_TOOLS = ['PROCEDURES', 'LISTS', 'REMINDERS', 'CALENDAR', 'JOURNAL', 'DOCUMENTS', 'CONTACTS', 'MAINTENANCE', 'EQUIPMENT'] as const;
+export const NAVIGATION_TOOLS = ['PROCEDURES', 'LISTS', 'REMINDERS', 'CALENDAR', 'JOURNAL', 'DOCUMENTS', 'CONTACTS', 'MAINTENANCE', 'EQUIPMENT', 'BRING'] as const;
 export type NavigationTool = typeof NAVIGATION_TOOLS[number];
 /** Partial orders keep future/new tools reachable by appending the remaining defaults. */
 export function orderedNavigationTools(order: readonly NavigationTool[] | null): readonly NavigationTool[] {

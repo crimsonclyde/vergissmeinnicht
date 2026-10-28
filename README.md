@@ -10,55 +10,103 @@
 </p>
 
 <p align="center">
+  <a href="#features">Features</a> ·
   <a href="#screenshots">Screenshots</a> ·
-  <a href="#documentation">Documentation</a> ·
-  <a href="#project-status">Project status</a>
+  <a href="#themes">Themes</a> ·
+  <a href="#documentation">Documentation</a>
 </p>
 
-**Two households, both alike in dignity.\
-And both convinced someone else turned off the water.**
+**Remember the work. Keep the history.**
 
-In fair **VergissMeinNicht**, where we lay our lists, forgotten chores need not become a tragedy.
+VergissMeinNicht (VMN) is a self-hosted workspace for routines, shared responsibilities and the information behind them.
 
-**VergissMeinNicht (VMN)** helps you keep everyday life in order—at home, at your holiday flat, or wherever people share responsibilities. Remember what needs doing, make leaving the house less of a guessing game, and spare yourselves another round of “I thought you’d done that.”
+Turn repeatable work into **Procedures**, see what needs attention, and keep a record of who did what and when. Each Workspace uses only the tools it needs.
 
-Turn familiar routines into reusable **Procedures**, work through them together, and schedule recurring obligations. Keep shopping lists, documents, contacts and maintenance alongside them. Each shared **Workspace** is yours to shape: switch every tool on or off and keep only what you need.
+<p align="center">
+  <a href="assets/screenshots/readme-2026-10-28/today-memento.webp"><img src="assets/screenshots/readme-2026-10-28/today-memento.webp" alt="Today in Memento Mori: a fictional studio’s active closing routine, upcoming reminders, supplies, Bring items and maintenance" width="1040"></a>
+</p>
 
-A **Run** guides you one Step at a time, with a little cheer for each Step done and easy undo. Finished Runs remember what was done, by whom and when—even after the original Procedure changes.
+## Features
 
-Self-hosted and open source, with Light and Dark themes on phones and desktops. For one household, two households, or a whole team with unfinished business.
+| Tool / capability | What it does |
+|---|---|
+| **Today** | Due dates, active Runs and next actions, arranged in your own card layout. |
+| **Procedures & Runs** | Reusable instructions and guided execution. History keeps the actor, time and original instructions after later edits. |
+| **Reminders & Calendar** | One-off and recurring obligations, optional assignment, email and Telegram reminders. |
+| **Lists & Bring** | Shared grocery lists and reminders for things to take between places. |
+| **Documents** | Folders, original files, previews and text recognition on your own server. |
+| **Contacts** | Shared people and organisations, links, CSV and vCard import/export. |
+| **Equipment & Maintenance** | Models, compatible replacement parts, linked manuals and servicing records. |
+| **Journal** | Shared Workspace notes and separate, account-private notes. |
+| **Workspaces & roles** | Enable tools as needed; give members Guest, User, Editor or Admin access. |
+| **Backup & restore** | Workspace-admin exports; server-admin restore into a new Workspace. |
+| **Offline essentials** | Saved active Runs and grocery Lists, with queued changes sent after reconnecting. |
+| **Personal touches** | Themes, backgrounds, menu order and optional private points and companions. |
+| **Self-hosting** | Docker deployment, SQLite, invite-only accounts and optional TOTP. |
 
-**Less household drama. More getting things done.**
-
-## Made for everyday life
-
-- **At home:** share the weekly chores so everyone can see what still needs doing.
-- **At a holiday home:** follow an arrival or departure routine for the water, heating and locks.
-- **With a team:** reuse a handover routine and see who completed each step.
-
-Workspace admins choose which tools to enable. New Workspaces start with all functional tools off; disabling a tool keeps its data for when you need it again.
+New Workspaces start with tools off. Switching a tool off keeps its data.
 
 ## Screenshots
 
-<p align="center">
-  <img src="assets/screenshots/guided-run-2026-10-18/today-desktop-dark.webp" alt="Desktop Today in Dark mode: a greeting, a progress ring, a large Pick up where you left off card for Holiday departure, and cards for attention, Runs to continue, what's next, groceries and maintenance" width="900">
-</p>
+Real app screens, fictional **Northstar studio** data. Click any image for the full view.
+
+### Write it once. Follow it together.
+
+| Procedures, ready to reuse | A focused Procedure builder |
+|---|---|
+| [![Reusable studio Procedures](assets/screenshots/readme-2026-10-28/procedures.webp)](assets/screenshots/readme-2026-10-28/procedures.webp) | [![Procedure outline and Steps in the light theme](assets/screenshots/readme-2026-10-28/builder.webp)](assets/screenshots/readme-2026-10-28/builder.webp) |
 
 <p align="center">
-  <img src="assets/screenshots/guided-run-2026-10-18/run-sections-phone-dark.webp" alt="Phone Run in Dark mode: Sections as icon tiles with progress rings, Bathroom finished and Kitchen marked next" width="240">
-  <img src="assets/screenshots/guided-run-2026-10-18/run-step-phone-dark.webp" alt="Phone Run in Dark mode: one Step at a time, Windows closed, with a large Done button and Skip and Not applicable below" width="240">
-  <img src="assets/screenshots/guided-run-2026-10-18/run-cheer-phone-dark.webp" alt="Phone Run in Dark mode: the Step just done, with a green check and Nice!" width="240">
+  <a href="assets/screenshots/readme-2026-10-28/run-phone.webp"><img src="assets/screenshots/readme-2026-10-28/run-phone.webp" alt="Phone: one Step of a studio closing Run, with Done, Skip and Not applicable controls" width="255"></a>
+  <a href="assets/screenshots/readme-2026-10-28/bring-phone.webp"><img src="assets/screenshots/readme-2026-10-28/bring-phone.webp" alt="Phone: Bring reminders grouped by destination, with due dates and Done" width="255"></a>
+  <a href="assets/screenshots/readme-2026-10-28/lists-phone.webp"><img src="assets/screenshots/readme-2026-10-28/lists-phone.webp" alt="Phone: a shared grocery List for studio supplies" width="255"></a>
 </p>
+<p align="center"><sub>Follow a Run · Remember what to bring · Pick up the supplies</sub></p>
 
-<p align="center"><b>Pick a Section, do one Step at a time, get a cheer for each one.</b></p>
+### Keep the useful details close.
 
-<p align="center">
-  <img src="assets/screenshots/guided-run-2026-10-18/today-phone-light.webp" alt="Phone Today in Light mode with the greeting, progress ring and Pick up where you left off card" width="240">
-  <img src="assets/screenshots/guided-run-2026-10-18/run-step-phone-light.webp" alt="Phone Run step in Light mode with a large Done button" width="240">
-  <img src="assets/screenshots/workspace-tools-2026-10-04/maintenance-phone-dark.webp" alt="Phone Maintenance in Dark mode, showing the four work statuses and a planned Check smoke alarms record" width="240">
-</p>
+| Equipment & replacement parts | Documents & reference material |
+|---|---|
+| [![Equipment cards with models and compatible replacement parts](assets/screenshots/readme-2026-10-28/equipment.webp)](assets/screenshots/readme-2026-10-28/equipment.webp) | [![Documents and folders for studio reference material](assets/screenshots/readme-2026-10-28/documents.webp)](assets/screenshots/readme-2026-10-28/documents.webp) |
 
-<p align="center"><sub>Fictional demo Workspace, Light and Dark. <a href="assets/screenshots/guided-run-2026-10-18/README.md">Capture details</a> · <a href="assets/screenshots/workspace-tools-2026-10-04/README.md">builder, Documents and more</a></sub></p>
+<details>
+<summary>See the shared Journal</summary>
+
+[![Shared studio Journal](assets/screenshots/readme-2026-10-28/journal.webp)](assets/screenshots/readme-2026-10-28/journal.webp)
+
+Shared entries belong to the Workspace. Account-private entries stay separate and are excluded from Workspace backups.
+
+</details>
+
+## Themes
+
+Two restrained everyday themes, with distinct palettes and quiet line-art details. **System** follows your device. Tokyo Nights, Witch Forest and the four Places remain available.
+
+| **Memento Mori (dark)** | **Don't go into the (light)** |
+|---|---|
+| Warm black, bone, burgundy and candlelit brass. | Ivory, ink and deep teal, with a little daylight. |
+| [![Today in Memento Mori](assets/screenshots/readme-2026-10-28/today-memento.webp)](assets/screenshots/readme-2026-10-28/today-memento.webp) | [![Today in Don't go into the light](assets/screenshots/readme-2026-10-28/today-light.webp)](assets/screenshots/readme-2026-10-28/today-light.webp) |
+
+<details>
+<summary>Explore Tokyo Nights, the forest and Places</summary>
+
+| Tokyo Nights | Witch Forest |
+|---|---|
+| [![Tokyo Nights: neon arcade Today](assets/screenshots/readme-2026-10-28/tokyo-nights.webp)](assets/screenshots/readme-2026-10-28/tokyo-nights.webp) | [![Witch Forest: woodland Today and an old-book Run card](assets/screenshots/readme-2026-10-28/old-forest.webp)](assets/screenshots/readme-2026-10-28/old-forest.webp) |
+
+| Munich | Triora |
+|---|---|
+| [![Munich landscape and floating tool dock](assets/screenshots/readme-2026-10-28/munich.webp)](assets/screenshots/readme-2026-10-28/munich.webp) | [![Triora landscape and floating tool dock](assets/screenshots/readme-2026-10-28/triora.webp)](assets/screenshots/readme-2026-10-28/triora.webp) |
+
+| London | Scotland |
+|---|---|
+| [![London riverside landscape](assets/screenshots/readme-2026-10-28/london.webp)](assets/screenshots/readme-2026-10-28/london.webp) | [![Scottish coastal landscape](assets/screenshots/readme-2026-10-28/scotland.webp)](assets/screenshots/readme-2026-10-28/scotland.webp) |
+
+Places also supports a personal background photo or no image. Decorative motion respects reduced-motion settings.
+
+</details>
+
+[Capture details and checks](assets/screenshots/readme-2026-10-28/README.md).
 
 ## Documentation
 
@@ -76,7 +124,7 @@ Browse all guides in the [documentation index](docs/README.md).
 
 **VMN is in beta.**
 
-- **Available today:** reusable Procedures and guided, collaborative Runs with history; scheduling, email and optional Telegram reminders; grocery Lists and Calendar; Documents with text recognition on your own server, Contacts, Maintenance and Equipment; Workspace backup and restore. Today brings together work to do, progress and recent completions.
+Features in this README describe the current source tree; published releases can lag behind it.
 
 See the [implementation ledger](docs/development/steps.md) for release details, known limitations and upcoming work.
 

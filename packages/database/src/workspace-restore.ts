@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { closeSync, openSync, readFileSync, readSync } from 'node:fs';
 import { join } from 'node:path';
-import { normalizeEquipmentContent, parseEquipmentFields, parseJournalContent, parseWeatherLocation, contactKeys, documentSearchText, documentTagKeys, documentTitleKey, IMPORTED_EMAIL_DOMAIN, MAX_WORKSPACE_NAME_LENGTH, WORKSPACE_ROLES, type ContactPoint } from '@vergissmeinnicht/domain';
+import { parseBringContent, normalizeEquipmentContent, parseEquipmentFields, parseJournalContent, parseWeatherLocation, contactKeys, documentSearchText, documentTagKeys, documentTitleKey, IMPORTED_EMAIL_DOMAIN, MAX_WORKSPACE_NAME_LENGTH, WORKSPACE_ROLES, type ContactPoint } from '@vergissmeinnicht/domain';
 import { IMMEDIATE, type Transaction } from './actor-guard.ts';
 import type { AppDatabase } from './connection.ts';
 import { storageUsageIn } from './storage-usage.ts';
@@ -293,6 +293,13 @@ function checkRow(plan: TablePlan, row: Record<string, unknown>, level?: string)
     const value = row[key];
     if (value !== null && typeof value !== 'string' && !(typeof value === 'number' && Number.isFinite(value))) throw new WorkspaceRestoreError('malformed_records', plan.spec.name);
   }
+  if (plan.spec.table === 'bring_items') {
+    try {
+      const content = { title: row.title, from: row.from_place, to: row.to_place, dueDate: row.due_date, assigneeId: null, notes: row.notes };
+      const parsed = parseBringContent(content);
+      if (Object.entries(parsed).some(([key, value]) => key !== 'assigneeId' && content[key as keyof typeof content] !== value)) throw new Error('Noncanonical Bring');
+    } catch { throw new WorkspaceRestoreError('malformed_records', plan.spec.name); }
+  }
   if (plan.spec.table === 'journal_entries') {
     try {
       const content = { kind: row.kind, version: row.version, title: row.title, date: row.date, body: row.body };
@@ -368,7 +375,7 @@ export function restoreWorkspace(database: AppDatabase, input: WorkspaceRestoreI
       const tableOf = new Map<string, string>();
       for (const plan of plans.values()) {
         if (!plan.hasId || plan.spec.table === 'workspaces') continue;
-        for (const row of records(input.data.get(plan.spec.name), plan.spec.name, plan.spec.name === 'journal_entries' && input.databaseLevel !== undefined && input.databaseLevel < '0052_moon_journal')) {
+        for (const row of records(input.data.get(plan.spec.name), plan.spec.name, input.databaseLevel !== undefined && ((plan.spec.name === 'journal_entries' && input.databaseLevel < '0052_moon_journal') || (plan.spec.name === 'bring_items' && input.databaseLevel < '0059_bring')))) {
           const id = row.id;
           if (typeof id !== 'string' || !UUID.test(id) || ids.has(id)) throw new WorkspaceRestoreError('malformed_records', plan.spec.name);
           ids.set(id, randomUUID());
@@ -472,9 +479,9 @@ export function restoreWorkspace(database: AppDatabase, input: WorkspaceRestoreI
         if (table === 'workspaces') continue;
         const statement = table === 'memberships' ? undefined : sqlite.prepare(plan.insert);
         let rows = 0;
-        for (const row of records(input.data.get(plan.spec.name), plan.spec.name, plan.spec.name === 'journal_entries' && input.databaseLevel !== undefined && input.databaseLevel < '0052_moon_journal')) {
+        for (const row of records(input.data.get(plan.spec.name), plan.spec.name, input.databaseLevel !== undefined && ((plan.spec.name === 'journal_entries' && input.databaseLevel < '0052_moon_journal') || (plan.spec.name === 'bring_items' && input.databaseLevel < '0059_bring')))) {
           checkRow(plan, row, input.databaseLevel);
-          if (table === 'journal_entries' && rows >= 1000) throw new WorkspaceRestoreError('malformed_records', plan.spec.name);
+          if ((table === 'journal_entries' || table === 'bring_items') && rows >= 1000) throw new WorkspaceRestoreError('malformed_records', plan.spec.name);
           if (table === 'memberships') {
             // Not restored (D1): shown so the admin can invite people again — by hand.
             const role = row.role;
@@ -529,6 +536,9 @@ export function restoreWorkspace(database: AppDatabase, input: WorkspaceRestoreI
               values.set('paused_at', at);
               schedulesPaused++;
             }
+          } else if (table === 'bring_items') {
+            if (values.get('assignee_user_id') !== null) assignmentsCleared++;
+            values.set('assignee_user_id', null);
           } else if (table === 'occurrences') {
             if (values.get('assignee_user_id') !== null) assignmentsCleared++;
             values.set('assignee_user_id', null);

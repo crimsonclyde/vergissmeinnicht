@@ -18,6 +18,13 @@ For every completed task, add a concise completion note, tests/checks performed,
 
 ## Current state — resume here
 
+**Commit/push checkpoint (owner, 2026-10-28):** sections 20.1–20.3, 32 and 33 are prepared together on `main`, with the recorded 1,534-test suite, browser workflow and screenshot checks. Owner explicitly deferred the release. No version bump, tag, GitHub Release, image publication or live deployment is part of this checkpoint; milestone count stays 40. Existing owner mock-ups and UX-refresh screenshots are outside the commit. Security surface changed by this checkpoint: NO (bookkeeping only; implementation impacts are recorded in each section).
+
+**Completed (2026-10-28): section 33 — README and everyday themes.** Concise product description, features table and fresh 16-image gallery; Memento Mori (dark) and Don't go into the (light), with the duplicate Dark choice consolidated and saved ids preserved. Full suite **197 files / 1,534 tests**, browser/account workflow, 18-view gallery accessibility/overflow checks, lint, typecheck and build passed. No release/deployment or migration.
+
+**Completed (2026-10-28): Bring 20.1–20.3 and dependency review 32.** Bring storage/API, page, Today card, backup integration and migration 0059 are implemented and verified. Full suite (1,530 tests), final focused checks, browser account workflow, typecheck, lint, build, lockfile and schema-drift checks passed; details and manual-test limitations below. Dependency graph patched; advisory re-audit reports zero known findings. Bring remains off until a Workspace admin enables it. No release or live deployment; the owner-counted next release remains 41st.
+
+
 > **Do not miss: a special 42nd release.** Owner's milestone count, recorded **2026-10-25: 40**. The next release is **41st**; the following **42nd must receive special treatment**. The owner has not chosen the details yet. Check this note during every release preparation, call out the milestone in advance, and update this owner-counted ordinal after publication. Do not confuse it with version numbers, ledger subsection numbers or counts of GitHub Release objects. Agent release instructions are also recorded prominently in `AGENTS.md`.
 
 **Milestone reminder recorded (2026-10-25):** added the durable release checkpoint here and to mandatory agent instructions. Checks: documentation/whitespace review only; no application behavior changed. Security surface changed: NO. Remaining: agree the special treatment with the owner before preparing the 42nd release.
@@ -4355,7 +4362,7 @@ The Bring / Transfer candidate of 2026-10-07 became its own planned tool after t
 
 ---
 
-## 20 — Bring: transfer reminders between places (planned 2026-10-07; owner decisions BT1–BT3 accepted 2026-10-07, BT4–BT6 2026-10-08; not implemented)
+## 20 — Bring: transfer reminders between places (owner decisions BT1–BT6 accepted; implemented 2026-10-28)
 
 **Why (owner, 2026-10-07):** people move physical things between places — Germany ↔ Italy, one flat → another, home → car, house → cantina — and need to remember *what to take where*: "Bring drill from Germany to Triora", "Take the documents to the other flat", "Bring the router to Casa Nostra".
 
@@ -4366,7 +4373,7 @@ The Bring / Transfer candidate of 2026-10-07 became its own planned tool after t
 **Model decision (revises the 19.5 candidate of 2026-10-07):** the accepted data (BT3: per-item from, to, due date, assignee, notes; status open / completed / cancelled) does not fit a Grocery List item, which only knows "bought or not" and has no per-item date, assignee or cancellation. Bring items are therefore **their own small records in their own optional tool** — not a List kind, not a Reminder type (a Reminder needs a date and notifies; Bring's due date is optional and Bring does not notify). Consequence: AGENTS' "no list types beyond the grocery list" is **not** touched.
 
 ### 20.0 Decisions and repository instructions
-**Status:** DECIDED (owner, 2026-10-07) — repository instructions to be applied at the start of 20.1.
+**Status:** DONE (2026-10-28) — accepted repository instructions applied to AGENTS.md and security.md.
 
 **Owner decisions:**
 - **BT1 — Scope: lightweight transfer reminders only** (the boundary above). Not inventory, stock, asset management or permanent object-location tracking.
@@ -4385,7 +4392,8 @@ The Bring / Transfer candidate of 2026-10-07 became its own planned tool after t
 **BT4–BT6 decided 2026-10-08 (see the end of this section).**
 
 ### 20.1 Bring items: domain, database, API
-**Status:** PLANNED
+**Status:** DONE
+**Completed:** 2026-10-28
 **Depends on:** 20.0.
 
 - **Record `BringItem`:** id, Workspace, title (1–120), from (≤ 80), to (≤ 80), due date (local date, optional), assignee (a member, optional), notes (plain text, ≤ 2000), status (OPEN / COMPLETED / CANCELLED), completed at/by, cancelled at/by, created at/by, updated at/by, revision. Migration with CHECKs (status consistency: COMPLETED ⇔ completed stamps, CANCELLED ⇔ cancelled stamps, OPEN has neither) and a composite foreign key keeping the item in its Workspace.
@@ -4395,7 +4403,8 @@ The Bring / Transfer candidate of 2026-10-07 became its own planned tool after t
 **Checks:** GUEST reads but cannot change (also when assigned); another Workspace's item id → not found; tool off → unknown for every role and route, data kept; stale status change refused; Cancelled never gets a completion; assignee must be a member, leaving unassigns; audit holds the title, never the notes; field limits and untrusted text rendered as text.
 
 ### 20.2 Bring page
-**Status:** PLANNED
+**Status:** DONE
+**Completed:** 2026-10-28
 **Depends on:** 20.1.
 
 - An optional tool in the sidebar below the existing tools and under **More** on phones (bottom bar unchanged).
@@ -4405,7 +4414,8 @@ The Bring / Transfer candidate of 2026-10-07 became its own planned tool after t
 - **Offline:** not in the first version (17.5 covers Grocery Lists only); a later step if real use asks for it.
 
 ### 20.3 Bring card on Today
-**Status:** PLANNED
+**Status:** DONE
+**Completed:** 2026-10-28
 **Depends on:** 20.1, 19.2.
 
 - Registry card **Bring**, needs tool `BRING`, default **on** (it only appears when there is something relevant). Visible = enabled in the person's Profile AND Bring on in the Workspace AND something to show (19).
@@ -4417,6 +4427,19 @@ The Bring / Transfer candidate of 2026-10-07 became its own planned tool after t
 **Checks:** card absent with the tool off, with the card off in the Profile, and with nothing relevant; relevance window and filter; Done with Undo and the stale-revision refusal; GUEST without Done; 320 px, Light/Dark, screen reader.
 
 **Security impact (expected for section 20):** MEDIUM — a new Workspace resource with its own routes, capabilities and audit events, under the existing optional-tool and assignment rules.
+
+**Implementation and verification (20.1–20.3, 2026-10-28):**
+
+- Domain validation/relevance, application-owned capability/tool/account checks, Drizzle repository and strict authenticated HTTP routes; migration **0059_bring** with status/date/length/revision/assignment/identity guards. IMMEDIATE mutations recheck membership/role/tool/ACTIVE state; event and gated/deduplicated private progress commit atomically. Create 5 points / first completion 10 under the existing cap/gate; off-period actions consume zero marks. Assignment clears on departure/disable; history retains actor/time; stale edits/status/delete/Undo refuse. Completed/Cancelled items only reopen, not edit. Direct deletion uses a hidden tombstone for revision-checked Undo, no Trash.
+- Explicit-Save Bring page with title-first form and folded options, destination groups, Workspace place suggestions, All/Mine/Shared, status/history, Done/reopen/cancel/edit/delete and Undo. Guests read notes/attribution/assignee names but have no writes. Native text rendering; navigation leave warnings for unsaved drafts. Enabled tool registry, More/sidebar/Places and private menu ordering; preference SQL guard expanded from nine to ten keys without changing saved choices.
+- Today registry/default-visible card, Profile visibility/order, no fetch when tool/card off; relevant Open entries filtered before scoped totals/pagination (3 rows, seven civil days, overdue or undated assigned to viewer). Earliest dated entries first. Compact server projection excludes notes/history metadata; guests have no Done, managers get revision-checked Done/Undo. No new notification or offline engine.
+- Workspace backups classify every new column and remap all ids/people; assignments clear and restore earns nothing. Canonical/hostile content and SQL invariants rechecked. Pre-0059 packages can omit Bring; current packages cannot. Recovery round trip includes Open/Completed items and historical attribution. Populated 0058→0059 migration preserves flags/settings/points and leaves Bring off. Demo seed includes a fictional Bring item before sign-out. User/admin/architecture/AGENTS/security documentation updated.
+
+**Checks:** full Vitest **197 files / 1,530 tests passed** (four workers), followed by an added hostile Bring restore case: **24 restore tests passed**. Final focused API/domain/migration/restore/card/contrast/catalog run: **7 files / 71 tests passed**; final direct SQL date/identity and migration checks: **2 files / 8 tests passed**. Typecheck, lint, production build, frozen-lockfile install, whitespace and Drizzle no-drift checks passed. Full Playwright account workflow passed after the History race correction; final UI run **1 passed (2.8 minutes)** after cancelled stale responses and touch-target styling. Browser covers Save/reload, Done/Undo on Today and Bring, Completed history/reopen, delete/Undo, disabled tool routing, script-like notes, Light/Dark at 1440/390/320 px, axe and overflow. Final screenshot set: `assets/screenshots/bring-20/` (desktop Light and 320px Light/Dark visually inspected). Browser testing caught a History selector accessible-name issue and stale list responses; explicit labels and cancelled superseded requests resolve both. Touch disclosures have 44px minimum targets.
+
+**Security impact:** MEDIUM — new shared Workspace resource, capabilities, routes and backup data; no credential/upload/outbound/provider/notification surface. **Security docs updated:** YES (Bring checklist and reviewed capability matrix).
+
+**Remaining/limits:** collection cap 1,000 stored records per Workspace including deleted/history rows, 30 rows/page, 100 place suggestions; no offline writes, notifications, inventory or automatic history purge. Physical-device and real screen-reader checks unperformed. Existing large frontend chunk warning remains. Migration 0059 required on upgrade; no release or live installation changed.
 
 **Decisions BT4–BT6 (owner, 2026-10-08 — recommendations accepted):**
 - **BT4 — Deleting: direct deletion with Undo** (as Lists) — no Trash; Bring items are short-lived and Cancelled already keeps a history.
@@ -4957,6 +4980,42 @@ One shared UI provider compares server totals only after successful same-scope m
 
 **Released:** v0.7.2-beta.3 (12.45); no live installation updated.
 
+
+---
+
+## 32 — Dependency security review (owner requested 2026-10-28)
+
+**Status:** DONE
+**Completed:** 2026-10-28
+
+**Implemented:** audited runtime/dev/optional pnpm graph; initial 22 findings (7 low, 13 moderate, 1 high, 1 critical). Confirmed high/critical Better Auth preconditions absent in VMN's password/TOTP-only allowlisted setup, then patched anyway. Exact pins: Better Auth 1.7.14 and matching adapters, Fastify 5.12.7, Nodemailer 10.2.1, Vitest 5.0.5; narrow same-major overrides for ip-address 10.7.5, fast-uri 3.1.9/4.2.3 and esbuild 0.25.12 below esbuild-kit/core-utils. Install passed existing release-age/trust/script policies without added exceptions. Final `pnpm audit --json`: **zero known advisories** across 442 dependency entries. [Detailed review and sources](dependency-review-2026-10-28.md).
+
+**Checks:** before/after registry audits; frozen-lockfile install and supply-chain verification; full Vitest 197 files / 1,530 tests passed, including local password/session/TOTP, SMTP and authorization regressions. Final focused 71 tests passed. Typecheck, lint, production build and schema-drift/whitespace checks passed. Final full account Playwright workflow **1 passed (2.8 minutes)**, including password/TOTP, reminders/SMTP-driven setup and the Bring interactions.
+
+**Security impact:** LOW, protective — dependency patching, no new authentication method or exposure. **Security docs updated:** YES.
+
+**Remaining/limits:** point-in-time advisory scan, not a complete source/provenance or container OS/native-library review. Deprecated upstream esbuild-kit tooling remains with its esbuild advisory patched. Repeat registry/image scans before release. No release or live deployment performed.
+
+---
+
+## 33 — Clearer README, current gallery and two everyday themes (owner requested 2026-10-28)
+
+**Status:** DONE
+**Completed:** 2026-10-28
+
+**Accepted:** describe VMN as a general-purpose shared workspace, without the one/two-household framing; concise introduction, features table and a substantially better gallery with new real-app screenshots. Consolidate the redundant Dark/Memento choices into **Memento Mori (dark)** and refresh Light as **Don't go into the (light)**. Preserve Tokyo Nights, Witch Forest and all Places themes; make the everyday pair more distinctive while restrained.
+
+**Implemented:** short product definition, scannable 13-row features table, a large Today overview, paired authoring/reference views, three phone views, theme comparison and an expandable six-theme gallery. **16 new WebP screenshots (~1.1 MB)** of a fictional **Northstar studio** Workspace, including Bring, current Equipment references and the opened Journal/List. Click-through full views, descriptive alt text, capture details and machine-readable checks; removed obsolete household copy and screenshots from the README, retaining previous assets. The README states that source-tree features can precede published releases.
+
+**Themes:** ivory/ink/teal/clay light palette; warm-black/bone/burgundy/brass Memento palette. Static original SVG hourglass/daylight sigils, serif page/greeting/Step headings, fine edges, solid readable hero surfaces and quiet tinted page corners. Typography, icon ink, swatches, first-paint fallback and phone browser colors follow the palettes. Existing controls/order, focused editing and all other theme selectors remain. No timers, animation, external fonts, images or packages added for these two themes. Decorations hide in forced colors. All text still uses semantic tokens.
+
+**Compatibility:** stored `light` and `memento-mori` ids unchanged; stored/API `dark` remains valid and canonically paints Memento, with one visible dark choice. Both account defaults and Workspace overrides display the canonical selection. No automatic stored-value rewrite, API allowlist change or migration. System follows the new pair. Legacy Dark CSS mirrors Memento for older clients. Documentation and AGENTS accepted follow-up updated.
+
+**Checks:** focused theme/contrast/catalog **3 files / 29 tests passed**, including text/UI tokens, tinted-corner contrast and icon ink. Capture verified **18 views**: 16 images plus both base themes at 320px, zero overflow/axe A/AA violations/page errors; normal authenticated APIs only. Additional selective capture refreshed the opened List and Journal and rechecked both aliases. Gallery images visually inspected (desktop/phone, both bases, builder, Run, Documents, Equipment, List/Journal). **Full Playwright account workflow: 1 passed (2.6 minutes)** with renamed choices, persistence, System changes and unchanged themed app flows. Typecheck, lint and production build passed. All local README links/images verified; whitespace check passed. **Full Vitest: 197 files / 1,534 tests passed** (two workers); final legacy-cache/Workspace compatibility unit checks also passed.
+
+**Security surface changed:** NO — presentation, public documentation and fictional local capture tooling only; no endpoint, stored data type, permission, credential, processing provider, upload or outbound flow. Existing server validation remains authoritative. **Security docs updated:** N/A; no normative security behavior changed.
+
+**Remaining/limitations:** physical devices and real screen readers untested; GitHub's own Markdown rendering was not operated directly. Existing large JavaScript chunk warning remains. Capture tooling reuses the isolated fictional demo; a partially populated first-run fixture may need tidying before rerun. No release, deployment or data migration performed; the owner-counted next release remains 41st, with special treatment still undecided for the 42nd.
 
 ---
 

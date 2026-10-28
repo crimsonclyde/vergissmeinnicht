@@ -1,0 +1,62 @@
+/* The two everyday themes: static line art and quiet editorial details, no scenery or motion. */
+.everyday-sigil { display: none; }
+:root:is([data-theme='light'], [data-theme='dark'], [data-theme='memento-mori']) body {
+  background-image: radial-gradient(ellipse at 90% 0%, color-mix(in srgb, var(--brand) 6%, transparent), transparent 42rem);
+  background-attachment: fixed;
+}
+:root:is([data-theme='light'], [data-theme='dark'], [data-theme='memento-mori']) :is(.page-header h2, .today-greeting, .guide-step-title) {
+  font-family: Georgia, 'Times New Roman', serif;
+  font-weight: 500;
+  letter-spacing: -0.035em;
+}
+:root:is([data-theme='light'], [data-theme='dark'], [data-theme='memento-mori']) .today-greeting { font-size: clamp(1.8rem, 3.5vw, 2.65rem); line-height: 1.12; }
+:root:is([data-theme='light'], [data-theme='dark'], [data-theme='memento-mori']) .shell-side {
+  border-inline-end-color: var(--border);
+  box-shadow: inset 3px 0 var(--brand);
+}
+:root:is([data-theme='light'], [data-theme='dark'], [data-theme='memento-mori']) .card {
+  box-shadow: 0 3px 0 color-mix(in srgb, var(--border) 28%, transparent), var(--shadow);
+}
+:root:is([data-theme='light'], [data-theme='dark'], [data-theme='memento-mori']) .today-card-title { letter-spacing: -0.015em; }
+:root:is([data-theme='light'], [data-theme='dark'], [data-theme='memento-mori']) .everyday-sigil {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 3.65rem;
+  height: 3.65rem;
+  color: var(--brand);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 50%;
+}
+.everyday-sigil svg { grid-area: 1 / 1; width: 3rem; height: 3rem; }
+.everyday-hourglass, .everyday-daylight { display: none; }
+:root:is([data-theme='dark'], [data-theme='memento-mori']) .everyday-hourglass { display: block; }
+:root[data-theme='light'] .everyday-daylight { display: block; }
+/* Solid token surfaces keep the same contrast as cards and primary buttons. */
+:root:is([data-theme='light'], [data-theme='dark'], [data-theme='memento-mori']) .today-hero {
+  color: var(--text);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-inline-start: 4px solid var(--brand);
+  box-shadow: var(--shadow);
+}
+:root:is([data-theme='light'], [data-theme='dark'], [data-theme='memento-mori']) .today-hero-icon { color: var(--brand); background: var(--accent-soft); }
+:root:is([data-theme='light'], [data-theme='dark'], [data-theme='memento-mori']) .today-hero-go { color: var(--accent-text); background: var(--accent); border-color: var(--accent); }
+:root:is([data-theme='light'], [data-theme='dark'], [data-theme='memento-mori']) .today-clock {
+  border-block-start: 2px solid var(--brand);
+}
+@media (max-width: 37.5rem) {
+  :root:is([data-theme='light'], [data-theme='dark'], [data-theme='memento-mori']) .everyday-sigil { width: 2.75rem; height: 2.75rem; }
+  .everyday-sigil svg { width: 2.5rem; height: 2.5rem; }
+}
+@media (forced-colors: active) {
+  :root:is([data-theme='light'], [data-theme='dark'], [data-theme='memento-mori']) body { background-image: none; }
+  :root:is([data-theme='light'], [data-theme='dark'], [data-theme='memento-mori']) .everyday-sigil { display: none; }
+}
+:root:is([data-theme='light'], [data-theme='dark'], [data-theme='memento-mori']) .today-hero .ring-track { stroke: var(--border-strong); }
+:root:is([data-theme='light'], [data-theme='dark'], [data-theme='memento-mori']) .today-hero .ring-fill { stroke: var(--brand); }
+:root:is([data-theme='light'], [data-theme='dark'], [data-theme='memento-mori']) .today-hero .ring[data-complete='true'] .ring-center { color: var(--text); }
+/* Decorative/action icons need a readable ink colour, rather than the dark button fill. */
+:root:is([data-theme='light'], [data-theme='dark'], [data-theme='memento-mori']) :is(.guide-step-icon, .equipment-reference-icon) { color: var(--brand); }
+:root:is([data-theme='light'], [data-theme='dark'], [data-theme='memento-mori']) .today-card[data-card='next'] .today-card-title > .ui-icon { color: var(--brand); }

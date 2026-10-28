@@ -155,6 +155,8 @@ describe('Workspace HTTP API', () => {
         'maintenance.view',
         'maintenance.manage',
         'maintenance.purge',
+        'transfer.view',
+        'transfer.manage',
         'journal.view',
         'journal.manage',
         'equipment.view',

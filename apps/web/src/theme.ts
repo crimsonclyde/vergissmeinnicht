@@ -11,7 +11,9 @@ import { useCallback, useSyncExternalStore } from 'react';
  * A named preset (such as "Memento Mori") is one more entry in THEMES plus one token block in the
  * stylesheet, and one more mode — no component changes.
  */
-export const THEME_MODES = THEME_PREFERENCES;
+// `dark` remains a valid saved/API value, but has one visible successor.
+export const THEME_MODES = THEME_PREFERENCES.filter(mode => mode !== 'dark');
+export const canonicalThemeMode = (mode: ThemePreference): ThemePreference => mode === 'dark' ? 'memento-mori' : mode;
 export type ThemeMode = ThemePreference;
 
 /**
@@ -29,7 +31,8 @@ const WORKSPACE_PATH = /^\/w\/([0-9a-f-]{36})(?:\/|$)/;
 const DARK_QUERY = '(prefers-color-scheme: dark)';
 
 export function resolveTheme(mode: ThemeMode, systemPrefersDark: boolean): ThemeId {
-  if (mode === 'system') return systemPrefersDark ? 'dark' : 'light';
+  if (mode === 'system') return systemPrefersDark ? 'memento-mori' : 'light';
+  if (mode === 'dark') return 'memento-mori';
   if (placeOfTheme(mode) !== null) return 'places';
   return mode as Exclude<ThemeMode, 'system' | `places-${string}`>;
 }
@@ -52,7 +55,7 @@ export function placeAttributes(mode: ThemeMode, systemPrefersDark: boolean): { 
 const PLACE_PROPERTIES = [...PLACE_TOKEN_NAMES.map((name) => `--${name}`), '--place-gradient'];
 
 export function isThemeMode(value: unknown): value is ThemeMode {
-  return typeof value === 'string' && (THEME_MODES as readonly string[]).includes(value);
+  return typeof value === 'string' && (THEME_PREFERENCES as readonly string[]).includes(value);
 }
 
 // Per-viewer convenience only: storage may be unavailable (private mode) and is never required.

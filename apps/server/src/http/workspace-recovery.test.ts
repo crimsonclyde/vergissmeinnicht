@@ -80,7 +80,7 @@ function normalise(packageContents: { tables: Map<string, Row[]>; persons: Map<s
         delete copy.paused_at;
         copy.assignee_user_id = null;
       }
-      if (spec.name === 'occurrences') copy.assignee_user_id = null;
+      if (spec.name === 'occurrences' || spec.name === 'bring_items') copy.assignee_user_id = null;
       if (spec.name === 'document_file_texts' && copy.state === 'PROCESSING') copy.state = 'QUEUED';
       return copy;
     });
@@ -160,6 +160,12 @@ describe('Workspace recovery end to end (section 18c): export → restore → co
     await t.post(`${api()}/documents/${purged.id}/delete`, {}, owner);
     expect((await t.post(`${api()}/documents/trash/purge`, { items: [{ kind: 'document', id: purged.id }] }, owner)).statusCode).toBe(200);
     const ownerId = one<{ id: string }>("SELECT id FROM users WHERE email = 'owner@example.org'").id;
+    await t.post(`${api()}/tools`, { tool: 'BRING', enabled: true }, owner);
+    const bring = (await t.post(`${api()}/bring`, { content: { title: 'Bring drill', from: 'Munich', to: 'Triora', dueDate: null, assigneeId: helperId, notes: 'Spare battery' }, expectedRevision: 0 }, owner)).json().item;
+    expect(bring.status).toBe('OPEN');
+    const completedBring = (await t.post(`${api()}/bring`, { content: { title: 'Bring papers', from: '', to: 'Van', dueDate: null, assigneeId: null, notes: '' }, expectedRevision: 0 }, owner)).json().item;
+    expect((await t.post(`${api()}/bring/${completedBring.id}/status`, { status: 'COMPLETED', expectedRevision: 1 }, owner)).statusCode).toBe(200);
+
     t.database.sqlite
       .prepare("UPDATE document_file_texts SET state = 'DONE', source = 'OCR', text = 'Strom', search_text = 'strom', bytes = 5, pages = 1, corrected_text = 'Strom 2026', corrected_search_text = 'strom 2026', correction_bytes = 10, corrected_by_user_id = ?, corrected_by_display_name = 'Olga Öwner', corrected_at = 1 WHERE workspace_id = ?")
       .run(ownerId, home);
@@ -252,6 +258,9 @@ describe('Workspace recovery end to end (section 18c): export → restore → co
     const again = await exportOf(restored, t.admin);
     const first = await contents(work, original);
     expect(first.tables.get('journal_entries')).toHaveLength(1);
+    expect(first.tables.get('bring_items')).toHaveLength(2);
+    expect((await t.get(`${api(restored)}/bring`, t.admin)).json().items).toMatchObject([{ title: 'Bring drill', assigneeId: null }]);
+    expect((await t.get(`${api(restored)}/bring?status=COMPLETED`, t.admin)).json().items[0]).toMatchObject({ title: 'Bring papers', completedBy: 'Olga Öwner' });
     expect(first.tables.has('private_journal_entries')).toBe(false);
     expect(JSON.stringify([...first.tables])).not.toContain('ACCOUNT_PRIVATE_DO_NOT_EXPORT');
     expect((await t.get(`${api(restored)}/journal`, t.admin)).json().entries).toHaveLength(1);

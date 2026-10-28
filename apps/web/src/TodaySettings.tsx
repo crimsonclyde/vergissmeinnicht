@@ -11,6 +11,7 @@ const TITLES: Record<TodayCardId, MessageKey> = {
   continue: 'today.continue',
   next: 'today.nextUp',
   toBuy: 'today.lists',
+  bring: 'bring.heading',
   maintenance: 'today.maintenance',
   recent: 'progress.recent',
   progress: 'progress.heading',

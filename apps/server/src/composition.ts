@@ -1,3 +1,5 @@
+import type { BringDeps } from '@vergissmeinnicht/application';
+import { createBringRepository } from '@vergissmeinnicht/database';
 import type { ProgressRepository } from '@vergissmeinnicht/application';
 import { createProgressRepository } from '@vergissmeinnicht/database';
 import type { JournalDeps } from '@vergissmeinnicht/application';
@@ -163,6 +165,7 @@ export interface AppServices {
   /** MaintenanceRecords of a Workspace (16.7). */
   readonly maintenance: MaintenanceDeps;
   readonly equipment: EquipmentDeps;
+  readonly bring: BringDeps;
   readonly journal: JournalDeps;
   /** Files of Documents (16.1): metadata in SQLite, originals and previews under `documentsPath`. */
   readonly documentFiles: DocumentFileDeps;
@@ -426,6 +429,7 @@ export function createServices(config: AppConfig, database: AppDatabase, overrid
       storage: { workspaces: workspaceDeps.workspaces, storage: createStorageRepository(database), clock: systemClock },
       links: { workspaces: workspaceDeps.workspaces, tools, links: createLinkRepository(database), clock: systemClock },
       contacts: { workspaces: workspaceDeps.workspaces, tools, contacts: createContactRepository(database), clock: systemClock },
+      bring: { workspaces: workspaceDeps.workspaces, users: createUserRepository(database), tools, bring: createBringRepository(database), clock: systemClock },
       journal: { workspaces: workspaceDeps.workspaces, users: createUserRepository(database), tools, journal: createJournalRepository(database), clock: systemClock },
       equipment: { workspaces: workspaceDeps.workspaces, tools, equipment: createEquipmentRepository(database), clock: systemClock },
       maintenance: { workspaces: workspaceDeps.workspaces, tools, maintenance: createMaintenanceRepository(database), clock: systemClock },

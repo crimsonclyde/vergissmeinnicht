@@ -69,3 +69,5 @@ export * from './ports/workspace-backup.ts';
 export * from './workspace-backup/use-cases.ts';
 export * from './journal/index.ts';
 export * from './progress.ts';
+
+export * from './bring.ts';

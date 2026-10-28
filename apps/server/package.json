@@ -23,7 +23,7 @@
     "@vergissmeinnicht/notifications": "workspace:*",
     "@vergissmeinnicht/realtime": "workspace:*",
     "@vergissmeinnicht/weather": "workspace:*",
-    "fastify": "5.12.5",
+    "fastify": "5.12.7",
     "zod": "4.6.6"
   },
   "devDependencies": {

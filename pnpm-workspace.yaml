@@ -18,3 +18,11 @@ trustPolicyExclude:
   - semver@6.3.1
 strictDepBuilds: true
 savePrefix: ''
+
+# Reviewed dependency security fixes (2026-10-28). Keep the existing major lines.
+overrides:
+  ip-address@10: 10.7.5
+  fast-uri@3: 3.1.9
+  fast-uri@4: 4.2.3
+  nodemailer@10: 10.2.1
+  '@esbuild-kit/core-utils>esbuild': 0.25.12

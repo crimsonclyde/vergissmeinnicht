@@ -4,7 +4,7 @@ import { messageFor } from './api.ts';
 import { t, type MessageKey } from './i18n/index.ts';
 import { usePreferences } from './preferences.tsx';
 
-const LABELS: Record<NavigationTool, MessageKey> = { PROCEDURES: 'shell.procedures', LISTS: 'shell.lists', REMINDERS: 'shell.reminders', CALENDAR: 'shell.calendar', JOURNAL: 'journal.heading', DOCUMENTS: 'shell.documents', CONTACTS: 'shell.contacts', MAINTENANCE: 'shell.maintenance', EQUIPMENT: 'shell.equipment' };
+const LABELS: Record<NavigationTool, MessageKey> = { PROCEDURES: 'shell.procedures', LISTS: 'shell.lists', REMINDERS: 'shell.reminders', CALENDAR: 'shell.calendar', JOURNAL: 'journal.heading', DOCUMENTS: 'shell.documents', CONTACTS: 'shell.contacts', MAINTENANCE: 'shell.maintenance', EQUIPMENT: 'shell.equipment', BRING: 'bring.heading' };
 
 /** One account-wide order, filtered by each Workspace's enabled tools. Save is explicit. */
 export function NavigationSettings({ tools }: { tools: readonly string[] | null }) {

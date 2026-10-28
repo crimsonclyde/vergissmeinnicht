@@ -1,3 +1,4 @@
+import { BringConflictError, BringNotFoundError } from '@vergissmeinnicht/application';
 import { AvatarNotFoundError, JournalNotFoundError, JournalConflictError, PlaceBackgroundNotFoundError } from '@vergissmeinnicht/application';
 import {
   AccountStatusUnchangedError,
@@ -211,6 +212,8 @@ export function errorHandler(error: FastifyError | Error, request: FastifyReques
   if (error instanceof ListItemNotFoundError) return reply.code(404).send({ error: 'list_item_not_found' });
   if (error instanceof ListConflictError) return reply.code(409).send({ error: 'list_conflict' });
   if (error instanceof ListLimitReachedError) return reply.code(409).send({ error: 'list_limit_reached' });
+  if (error instanceof BringConflictError) return reply.code(409).send({ error: 'bring_conflict' });
+  if (error instanceof BringNotFoundError) return reply.code(404).send({ error: 'bring_not_found' });
   if (error instanceof ListItemLimitReachedError) return reply.code(409).send({ error: 'list_item_limit_reached' });
   if (error instanceof ImageNotFoundError) return reply.code(404).send({ error: 'image_not_found' });
   if (error instanceof ImageInUseError) return reply.code(409).send({ error: 'image_in_use' });

@@ -805,7 +805,7 @@ export const userPreferences = sqliteTable(
   () => [
     check('user_preferences_theme_valid', sql.raw(`theme in (${THEME_PREFERENCES.map((value) => `'${value}'`).join(', ')})`)),
     check('user_preferences_private_gamification', sql`private_gamification in (0, 1)`),
-    check('user_preferences_navigation_bound', sql`navigation_order is null or (json_valid(navigation_order) and json_type(navigation_order) = 'array' and json_array_length(navigation_order) <= 9 and length(navigation_order) <= 256)`),
+    check('user_preferences_navigation_bound', sql`navigation_order is null or (json_valid(navigation_order) and json_type(navigation_order) = 'array' and json_array_length(navigation_order) <= 10 and length(navigation_order) <= 256)`),
     check(
       'user_preferences_critical_confirm_valid',
       sql.raw(`critical_confirm in (${CRITICAL_CONFIRM_MODES.map((value) => `'${value}'`).join(', ')})`),
@@ -2306,3 +2306,26 @@ export const privateJournalEntries = sqliteTable('private_journal_entries', {
 export const progressAwards = sqliteTable('progress_awards', {
  key:text('key').primaryKey(),userId:text('user_id').notNull().references(()=>users.id),points:integer('points').notNull(),at:integer('at',{mode:'timestamp_ms'}).notNull(),
 },t=>[index('progress_owner_time').on(t.userId,t.at),check('progress_key',sql`length(${t.key}) = 64 and ${t.key} not glob '*[^0-9a-f]*'`),check('progress_points',sql`typeof(${t.points}) = 'integer' and ${t.points} between 0 and 20`)]);
+
+
+export const bringItems = sqliteTable('bring_items', {
+  id: text('id').primaryKey(),
+  workspaceId: text('workspace_id').notNull().references(() => workspaces.id),
+  title: text('title').notNull(), from: text('from_place').notNull(), to: text('to_place').notNull(),
+  dueDate: text('due_date'), assigneeId: text('assignee_user_id').references(() => users.id), notes: text('notes').notNull(),
+  status: text('status', { enum: ['OPEN', 'COMPLETED', 'CANCELLED'] }).notNull(),
+  completedAt: integer('completed_at', { mode: 'timestamp_ms' }), completedByUserId: text('completed_by_user_id').references(() => users.id), completedBy: text('completed_by'),
+  cancelledAt: integer('cancelled_at', { mode: 'timestamp_ms' }), cancelledByUserId: text('cancelled_by_user_id').references(() => users.id), cancelledBy: text('cancelled_by'),
+  createdAt: timestampMs('created_at'), createdByUserId: text('created_by_user_id').notNull().references(() => users.id), createdBy: text('created_by').notNull(),
+  updatedAt: timestampMs('updated_at'), updatedByUserId: text('updated_by_user_id').notNull().references(() => users.id), updatedBy: text('updated_by').notNull(),
+  revision: integer('revision').notNull(), deleted: integer('deleted', { mode: 'boolean' }).notNull().default(false),
+}, table => [
+  uniqueIndex('bring_id_workspace').on(table.id, table.workspaceId),
+  index('bring_workspace_status').on(table.workspaceId, table.deleted, table.status, table.updatedAt),
+  check('bring_text', sql`length(trim(${table.title})) between 1 and 120 and length(${table.from}) <= 80 and length(${table.to}) <= 80 and length(${table.notes}) <= 2000`),
+  check('bring_status', sql`${table.status} in ('OPEN','COMPLETED','CANCELLED')`),
+  check('bring_revision', sql`${table.revision} >= 1 and ${table.deleted} in (0,1)`),
+  check('bring_date', sql`${table.dueDate} is null or (${table.dueDate} glob '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]' and date(${table.dueDate}, '+0 days') is not null and date(${table.dueDate}, '+0 days') = ${table.dueDate})`),
+  check('bring_completion', sql`(${table.status} = 'COMPLETED') = (${table.completedAt} is not null) and (${table.completedAt} is null) = (${table.completedByUserId} is null) and (${table.completedAt} is null) = (${table.completedBy} is null)`),
+  check('bring_cancellation', sql`(${table.status} = 'CANCELLED') = (${table.cancelledAt} is not null) and (${table.cancelledAt} is null) = (${table.cancelledByUserId} is null) and (${table.cancelledAt} is null) = (${table.cancelledBy} is null)`),
+]);

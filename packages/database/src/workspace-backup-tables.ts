@@ -39,6 +39,7 @@ const SPECS: readonly Spec[] = [
   { table: 'procedures', name: 'procedures', from: own('procedures'), userColumns: ['created_by_user_id', 'deleted_by_user_id'], omit: [] },
   { table: 'procedure_sections', name: 'procedure_sections', from: of('procedure_sections', 'procedure_id', 'procedures'), userColumns: [], omit: [] },
   { table: 'procedure_steps', name: 'procedure_steps', from: of('procedure_steps', 'procedure_id', 'procedures'), userColumns: [], omit: [] },
+  { table: 'bring_items', name: 'bring_items', from: own('bring_items'), userColumns: ['assignee_user_id', 'completed_by_user_id', 'cancelled_by_user_id', 'created_by_user_id', 'updated_by_user_id'], omit: [] },
   { table: 'journal_entries', name: 'journal_entries', from: own('journal_entries'), userColumns: ['created_by_user_id', 'updated_by_user_id'], omit: [] },
   { table: 'contacts', name: 'contacts', from: own('contacts'), userColumns: ['created_by_user_id', 'updated_by_user_id', 'deleted_by_user_id'], omit: [] },
   { table: 'document_types', name: 'document_types', from: own('document_types'), userColumns: ['created_by_user_id'], omit: [] },

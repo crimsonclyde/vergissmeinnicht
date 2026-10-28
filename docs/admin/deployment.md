@@ -365,3 +365,8 @@ Migration **0057_navigation_order** adds a nullable personal order to `user_pref
 ### Optional unified Gamification (31.4)
 
 Migration **0058_gamification** expands the Workspace tool allowlist, preserves existing flags and enables Gamification for existing Workspaces, advancing their tool-settings revision. New Workspaces remain off. It adds the private-Journal boolean in place to account preferences, default on to preserve prior behavior; previous theme, navigation and SQL validators remain. Existing points are retained. Back up database and file storage before upgrade. The shared switch is in Workspace packages; old packages without it restore off. Account preferences/points remain excluded from Workspace backups and included in full server backups. No new environment variable, service, outbound connection or runtime plugin loader.
+
+
+### Bring upgrade (migration 0059)
+
+Back up the database and file storage before upgrading. Run the existing `migrate` command before starting the new server. Migration `0059_bring` adds Bring records and guards, preserves all existing Workspace switches, points and account preferences, and expands personal tool ordering to ten choices. Bring starts off in every Workspace; enable it explicitly in Plugins. Old Workspace packages remain restorable without Bring data; current packages include it, and restored assignments are cleared. No new environment setting, provider, worker or credential is needed. No live upgrade has been performed by this development task. Dependency review: `docs/development/dependency-review-2026-10-28.md`; repeat the advisory audit and ordinary image scans during release preparation.

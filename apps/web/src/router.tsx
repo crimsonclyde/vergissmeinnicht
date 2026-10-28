@@ -75,6 +75,7 @@ export const ADMIN_SECTIONS = ['workspaces', 'invitations', 'accounts', 'notific
 export type AdminSection = (typeof ADMIN_SECTIONS)[number];
 
 export type Route =
+  | { readonly page: 'bring'; readonly workspaceId: string }
   | { readonly page: 'journal'; readonly workspaceId: string }
   | { readonly page: 'home' }
   | { readonly page: 'invite'; readonly token: string }
@@ -158,6 +159,7 @@ export function parseRoute(pathname: string): Route {
     return { page: 'documents', workspaceId: match[1] ?? '', view: match[3] === undefined ? 'folder' : 'new', folderId: match[2] ?? null, documentId: null };
   }
   if ((match = new RegExp(`^/w/${ID}/documents/${ID}$`).exec(path))) return { page: 'documents', workspaceId: match[1] ?? '', view: 'document', folderId: null, documentId: match[2] ?? null };
+  if ((match = new RegExp(`^/w/${ID}/bring$`).exec(path))) return { page: 'bring', workspaceId: match[1] ?? '' };
   if ((match = new RegExp(`^/w/${ID}/journal$`).exec(path))) return { page: 'journal', workspaceId: match[1] ?? '' };
   if ((match = new RegExp(`^/w/${ID}/contacts(/import|/trash)?$`).exec(path))) {
     return { page: 'contacts', workspaceId: match[1] ?? '', view: match[2] === '/import' ? 'import' : match[2] === '/trash' ? 'trash' : 'list', contactId: null };
@@ -205,6 +207,7 @@ export const paths = {
   newDocument: (workspaceId: string, folderId: string | null = null) => `${paths.documents(workspaceId, folderId)}/new`,
   document: (workspaceId: string, documentId: string) => `/w/${workspaceId}/documents/${documentId}`,
   documentTrash: (workspaceId: string) => `/w/${workspaceId}/documents/trash`,
+  bring: (workspaceId: string) => `/w/${workspaceId}/bring`,
   journal: (workspaceId: string) => `/w/${workspaceId}/journal`,
   contacts: (workspaceId: string) => `/w/${workspaceId}/contacts`,
   contact: (workspaceId: string, contactId: string) => `/w/${workspaceId}/contacts/${contactId}`,

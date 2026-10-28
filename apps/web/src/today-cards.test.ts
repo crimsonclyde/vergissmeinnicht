@@ -31,6 +31,15 @@ describe('Today cards (19.1)', () => {
     expect(ids(todayCards(['MAINTENANCE', 'CALENDAR'], everything))).toEqual(['clock', 'weather', 'maintenance', 'calendar']);
   });
 
+  it('gates Bring independently and inserts it into older saved layouts', () => {
+    expect(ids(todayCards(['BRING']))).toEqual(['bring']);
+    expect(ids(todayCards(['BRING'], changeCard(defaults, 'bring', { visible: false })))).toEqual([]);
+    const old = layoutOf(defaults);
+    const without = { ...old, cards: old.cards.filter(card => card.id !== 'bring') };
+    expect(ids(todayCards(['BRING'], resolveTodayLayout(without)))).toEqual(['bring']);
+    expect(() => parseTodayLayout(layoutOf(resolveTodayLayout(without)))).not.toThrow();
+  });
+
   it('lets the person switch a card off for themselves only', () => {
     expect(ids(todayCards(['LISTS', 'REMINDERS'], changeCard(defaults, 'toBuy', { visible: false })))).toEqual(['attention', 'next', 'recent']);
   });
@@ -68,7 +77,7 @@ describe('Today layout in the Profile (19.2)', () => {
     expect(read.density).toBe('COMFORTABLE');
     // Saved cards keep their order; missing ones go right after the registry card before them.
     // Clock & date did not exist then either: it comes first, as in the registry, and stays off.
-    expect(ids(read.cards)).toEqual(['clock', 'moon', 'weather', 'recent', 'attention', 'continue', 'next', 'toBuy', 'maintenance', 'progress', 'calendar']);
+    expect(ids(read.cards)).toEqual(['clock', 'moon', 'weather', 'recent', 'attention', 'continue', 'next', 'toBuy', 'bring', 'maintenance', 'progress', 'calendar']);
     expect(read.cards[0]).toMatchObject({ visible: false, hour24: false });
     expect(read.cards.find((item) => item.card.id === 'weather')).toMatchObject({ visible: false });
     expect(read.cards.find((item) => item.card.id === 'moon')).toMatchObject({ visible: true });

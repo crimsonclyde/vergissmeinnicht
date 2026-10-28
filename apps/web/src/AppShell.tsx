@@ -1,3 +1,4 @@
+import { BringPage } from './Bring.tsx';
 import { destinations, type Destination } from './navigation.ts';
 import { ProgressProvider } from './Progress.tsx';
 import { PlacesNavigation } from './places/PlacesNavigation.tsx';
@@ -181,6 +182,7 @@ function WorkspacePage(props: {
           canSchedule={can('schedule.manage')}
           canExecute={can('run.execute')}
           canAdd={canAdd}
+          canBring={can('transfer.manage')}
           tools={context.tools}
           canChooseTools={can('workspace.tools.manage')}
           onOpenRun={openRun}
@@ -233,6 +235,8 @@ function WorkspacePage(props: {
           {t('shell.notFound')} <Link href={paths.home(route.workspaceId)}>{t('common.startPage')}</Link>.
         </p>
       );
+    case 'bring':
+      return context.tools.includes('BRING') ? <BringPage key={route.workspaceId} workspaceId={route.workspaceId} canManage={can('transfer.manage')} /> : <p role="alert">{t('shell.notFound')}</p>;
     case 'journal':
       return context.tools.includes('JOURNAL') ? <JournalPage key={route.workspaceId} workspaceId={route.workspaceId} canWrite={can('journal.manage')} /> : <p role="alert">{t('shell.notFound')}</p>;
     case 'equipment':

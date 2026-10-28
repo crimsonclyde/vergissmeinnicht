@@ -3,7 +3,7 @@ import { placeForTheme } from './places/registry.ts';
 import { messageFor, type WorkspaceSummary } from './api.ts';
 import { t } from './i18n/index.ts';
 import { usePreferences } from './preferences.tsx';
-import { THEME_MODES, isThemeMode } from './theme.ts';
+import { THEME_MODES, canonicalThemeMode, isThemeMode } from './theme.ts';
 import { UiIcon } from './ui-icons.tsx';
 
 /** A small picture of a theme: page, a card, the main button and the brand colour. */
@@ -82,7 +82,7 @@ export function AppearanceSettings({ workspaces = null }: { workspaces?: readonl
                     type="radio"
                     name="theme"
                     value={value}
-                    checked={preferences.theme === value}
+                    checked={canonicalThemeMode(preferences.theme) === value}
                     onChange={() => {
                       setMessage(null);
                       update({ theme: value }).catch(failed);
@@ -123,11 +123,11 @@ export function AppearanceSettings({ workspaces = null }: { workspaces?: readonl
                   >
                     <UiIcon name={isDefault ? 'starFilled' : 'star'} size="1.5em" />
                   </button>
-                  <ThemeSwatch mode={own ?? preferences.theme} mini />
+                  <ThemeSwatch mode={canonicalThemeMode(own ?? preferences.theme)} mini />
                   <strong className="workspace-look-name">{name}</strong>
                   <select
                     aria-label={t('appearance.themeFor', { name })}
-                    value={own ?? ''}
+                    value={own === null ? '' : canonicalThemeMode(own)}
                     onChange={(event) => {
                       setMessage(null);
                       const value = event.target.value;
@@ -136,7 +136,7 @@ export function AppearanceSettings({ workspaces = null }: { workspaces?: readonl
                   >
                     <option value="">
                       {t('appearance.useDefault', {
-                        theme: t(`appearance.${preferences.theme}`),
+                        theme: t(`appearance.${canonicalThemeMode(preferences.theme)}`),
                       })}
                     </option>
                     {THEME_MODES.map((value) => (

@@ -3,6 +3,7 @@ import { createRoot } from 'react-dom/client';
 import { App } from './App.tsx';
 import { CityScene } from './CityScene.tsx';
 import './styles.css';
+import './everyday-themes.css';
 import './tokyo-nights.css';
 import './witch-forest.css';
 import './places.css';

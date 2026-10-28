@@ -9,7 +9,7 @@ import { DomainValidationError } from './errors.ts';
 export const TODAY_LAYOUT_VERSION = 1;
 
 /** Every card the server accepts in a saved layout. Later versions add ids; none is ever reused. */
-export const TODAY_CARD_IDS = ['attention', 'continue', 'next', 'toBuy', 'maintenance', 'recent', 'progress', 'calendar', 'clock', 'weather', 'moon'] as const;
+export const TODAY_CARD_IDS = ['attention', 'continue', 'next', 'toBuy', 'maintenance', 'recent', 'progress', 'calendar', 'clock', 'weather', 'moon', 'bring'] as const;
 export type TodayCardId = (typeof TODAY_CARD_IDS)[number];
 
 export const TODAY_DENSITIES = ['COMPACT', 'COMFORTABLE'] as const;

@@ -212,6 +212,67 @@ test('first server admin: bootstrap link, account creation, sign-in, Workspace c
   await expect(sections.getByRole('link', { name: 'Today' })).toHaveAttribute('aria-current', 'page');
   await expectAccessible(page, 'empty Today');
 
+  page.setDefaultTimeout(15_000);
+  // Bring: real forms, relevance, completion/history, Undo, responsive themes and retained data.
+  const bringHome = new URL(page.url()).pathname;
+  await page.goto(`${bringHome}/plugins`);
+  const bringToggle = page.getByRole('checkbox', { name: /^Bring/ });
+  await bringToggle.check(); await expect(bringToggle).toBeEnabled();
+  await page.goto(`${bringHome}/bring`);
+  await page.getByRole('button', { name: 'Add item', exact: true }).click();
+  await page.getByLabel('What to bring').fill('Bring the drill');
+  await page.getByText('Options', { exact: true }).click();
+  await page.getByLabel('From', { exact: true }).fill('Munich');
+  await page.getByLabel('To', { exact: true }).fill('Triora');
+  await page.getByLabel('Due date', { exact: true }).fill(new Date().toISOString().slice(0, 10));
+  await page.getByLabel('Notes', { exact: true }).fill('<script>window.bringUnsafe=true</script>Spare battery');
+  await page.getByRole('button', { name: 'Save', exact: true }).click();
+  await expect(page.getByRole('heading', { name: 'Triora', exact: true })).toBeVisible();
+  await expect(page.getByText('Bring the drill', { exact: true })).toBeVisible();
+  await page.reload();
+  await expect(page.getByText('Bring the drill', { exact: true })).toBeVisible();
+  const bringShots = testInfo.outputPath('bring'); mkdirSync(bringShots, { recursive: true });
+  for (const width of [1440, 390, 320]) {
+    await page.setViewportSize({ width, height: 900 });
+    for (const theme of ['light', 'dark']) {
+      await page.evaluate(`document.documentElement.setAttribute('data-theme', '${theme}')`);
+      await expectAccessible(page, `Bring ${theme} ${width}`);
+      expect(await page.evaluate('document.documentElement.scrollWidth <= window.innerWidth')).toBe(true);
+      await page.screenshot({ path: `${bringShots}/${theme}-${width}.png`, fullPage: true });
+    }
+  }
+  expect(await page.evaluate('window.bringUnsafe')).toBeUndefined();
+  await page.setViewportSize({ width: 1280, height: 900 });
+  await page.goto(bringHome);
+  const bringCard = page.locator('[data-card="bring"]');
+  await expect(bringCard).toContainText('Bring the drill');
+  await expect(bringCard).not.toContainText('Spare battery');
+  await bringCard.getByRole('button', { name: 'Mark Bring the drill as brought' }).click();
+  await expect(bringCard).toHaveCount(0);
+  await page.getByRole('button', { name: 'Undo', exact: true }).click();
+  await expect(bringCard).toContainText('Bring the drill');
+  await page.goto(`${bringHome}/bring`);
+  await page.getByRole('button', { name: 'Mark Bring the drill as brought' }).click();
+  await page.getByLabel('History', { exact: true }).selectOption('COMPLETED');
+  await expect(page.getByText(/^Completed ·/)).toBeVisible();
+  await expect(page.getByText('Bring the drill', { exact: true })).toBeVisible();
+  await page.getByLabel('Edit item', { exact: true }).click();
+  await page.getByRole('button', { name: 'Reopen', exact: true }).click();
+  await page.getByLabel('History', { exact: true }).selectOption('OPEN');
+  await expect(page.getByText('Bring the drill', { exact: true })).toBeVisible();
+  await page.getByLabel('Edit item', { exact: true }).click();
+  await page.getByRole('button', { name: 'Delete', exact: true }).click();
+  await expect(page.getByText('Bring the drill', { exact: true })).toHaveCount(0);
+  await page.getByRole('button', { name: 'Undo', exact: true }).click();
+  await expect(page.getByText('Bring the drill', { exact: true })).toBeVisible();
+  await page.goto(`${bringHome}/plugins`);
+  await page.getByRole('checkbox', { name: /^Bring/ }).uncheck();
+  await expect(page.getByRole('checkbox', { name: /^Bring/ })).toBeEnabled();
+  await page.goto(`${bringHome}/bring`);
+  await expect(page.getByRole('alert')).toBeVisible();
+  await page.goto(bringHome);
+
+  page.setDefaultTimeout(0);
   // Moon and bundled Journal (27): admin gate, explicit Save, private/shared separation and archive.
   const moduleHome = new URL(page.url()).pathname;
   await page.goto(`${moduleHome}/plugins`);
@@ -2813,31 +2874,31 @@ test('first server admin: bootstrap link, account creation, sign-in, Workspace c
   // Profile & settings (15.1): named sections instead of one long page.
   await fromMenu(page, 'Profile & settings');
   await expect(page.getByRole('navigation', { name: 'Profile & settings' }).getByRole('link')).toHaveText(['Profile', 'Password & security', 'Appearance', 'Today', 'Confirmations', 'Notifications', 'Weather', 'Private journal']);
-  await expect(page.getByRole('radio', { name: /^Dark/ })).toHaveCount(0);
+  await expect(page.getByRole('radio', { name: /^Memento Mori/ })).toHaveCount(0);
   await settingsSection(page, 'Profile & settings', 'Appearance');
   await expect(page).toHaveURL(/\/account\/appearance$/);
 
   // Appearance (8.3): the theme choice applies at once and survives a reload.
   const html = page.locator('html');
-  await page.getByRole('radio', { name: /^Dark/ }).check();
-  await expect(html).toHaveAttribute('data-theme', 'dark');
-  await expect(page.locator('body')).toHaveCSS('background-color', 'rgb(14, 14, 16)');
+  await page.getByRole('radio', { name: /^Memento Mori/ }).check();
+  await expect(html).toHaveAttribute('data-theme', 'memento-mori');
+  await expect(page.locator('body')).toHaveCSS('background-color', 'rgb(20, 17, 17)');
   await expectAccessible(page, 'account page (dark)');
   await page.reload();
-  await expect(page.getByRole('radio', { name: /^Dark/ })).toBeChecked();
-  await expect(html).toHaveAttribute('data-theme', 'dark');
-  await page.getByRole('radio', { name: /^Light/ }).check();
-  await expect(page.locator('body')).toHaveCSS('background-color', 'rgb(255, 255, 255)');
+  await expect(page.getByRole('radio', { name: /^Memento Mori/ })).toBeChecked();
+  await expect(html).toHaveAttribute('data-theme', 'memento-mori');
+  await page.getByRole('radio', { name: /^Don't go into the/ }).check();
+  await expect(page.locator('body')).toHaveCSS('background-color', 'rgb(247, 243, 234)');
   await expectAccessible(page, 'account page (light)');
   await page.getByRole('radio', { name: /^System/ }).check();
   await page.emulateMedia({ colorScheme: 'dark' });
-  await expect(html).toHaveAttribute('data-theme', 'dark');
+  await expect(html).toHaveAttribute('data-theme', 'memento-mori');
   await page.emulateMedia({ colorScheme: 'light' });
   await expect(html).toHaveAttribute('data-theme', 'light');
   // Memento Mori (8.7) is saved to the account: another browser gets it right after signing in.
   await page.getByRole('radio', { name: /^Memento Mori/ }).check();
   await expect(html).toHaveAttribute('data-theme', 'memento-mori');
-  await expect(page.locator('body')).toHaveCSS('background-color', 'rgb(0, 0, 0)');
+  await expect(page.locator('body')).toHaveCSS('background-color', 'rgb(20, 17, 17)');
   await expectAccessible(page, 'account page (memento mori)');
   const otherBrowser = await browser.newContext(testInfo.project.use.baseURL === undefined ? {} : { baseURL: testInfo.project.use.baseURL });
   const other = await otherBrowser.newPage();

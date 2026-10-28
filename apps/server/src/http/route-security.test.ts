@@ -40,6 +40,9 @@ function bodyFor(route: string, ids: Record<string, string>): object {
   if (url.endsWith('/occurrences/:occurrenceId/move')) return { date: TOMORROW };
   if (url.endsWith('/occurrences/:occurrenceId/assign')) return { assigneeUserId: null };
   if (url.endsWith('/occurrences/:occurrenceId/link-run')) return { runId: ids.runId ?? '' };
+  if (url.endsWith('/bring') || url.endsWith('/bring/:itemId/update')) return { content: { title: 'Drill', from: '', to: '', dueDate: null, assigneeId: null, notes: '' }, expectedRevision: 0 };
+  if (/\/bring\/:itemId\/(delete|restore)$/.test(url)) return { expectedRevision: 1 };
+  if (url.endsWith('/bring/:itemId/status')) return { expectedRevision: 1, status: 'COMPLETED' };
   if (url.endsWith('/journal') || url.endsWith('/journal/:entryId')) return { content: { kind: 'note', version: 1, title: 'Entry', date: '2026-10-23', body: 'Note' }, expectedRevision: 0, archived: false };
   if (url.endsWith('/location')) return { location: null, expectedLocation: null };
   if (url.endsWith('/tools')) return { tool: 'DOCUMENTS', enabled: true, expectedRevision: 0 };
@@ -116,7 +119,7 @@ describe('security properties of every route (13.2)', () => {
   const call = (route: string, cookie: string | undefined, values: Record<string, string>): Promise<InjectResponse> => {
     const [method, pattern] = route.split(' ') as [string, string];
     // The calendar and Today's Maintenance card need valid dates to reach the lookup instead of stopping at 400.
-    const url = fill(pattern, values) + (/\/calendar\/?$/.test(pattern) ? `?from=${TOMORROW}&to=${TOMORROW}` : /\/maintenance\/due-soon$/.test(pattern) ? `?today=${TOMORROW}` : /\/(document|contact)-links$/.test(pattern) ? `?procedure=${values.procedureId ?? ''}` : /\/contacts\/(export|import\/preview)$/.test(pattern) ? '?format=csv' : '');
+    const url = fill(pattern, pattern.includes('/bring/') && values.bringId !== undefined && values.itemId === homeIds.itemId ? { ...values, itemId: values.bringId } : values) + (/\/calendar\/?$/.test(pattern) ? `?from=${TOMORROW}&to=${TOMORROW}` : /\/maintenance\/due-soon$/.test(pattern) ? `?today=${TOMORROW}` : /\/(document|contact)-links$/.test(pattern) ? `?procedure=${values.procedureId ?? ''}` : /\/contacts\/(export|import\/preview)$/.test(pattern) ? '?format=csv' : '');
     return method === 'GET' ? t.get(url, cookie) : t.post(url, bodyFor(route, values), cookie);
   };
 
@@ -184,9 +187,11 @@ describe('security properties of every route (13.2)', () => {
     const equipment=(await t.post(`/api/workspaces/${home}/equipment`,{name:'Boiler'},owner)).json().record;
     // A Workspace backup job (section 18a), so its routes are reached with a real id.
     const backupJob = (await t.post(`/api/workspaces/${home}/backups`, {}, owner)).json().job;
-    for (const id of [home, office]) for (const tool of ['JOURNAL', 'MOON']) await t.post(`/api/workspaces/${id}/tools`, { tool, enabled: true }, id === home ? owner : outsider);
+    for (const id of [home, office]) for (const tool of ['JOURNAL', 'MOON', 'BRING']) await t.post(`/api/workspaces/${id}/tools`, { tool, enabled: true }, id === home ? owner : outsider);
     const journalEntry = (await t.post(`/api/workspaces/${home}/journal`, { content: { kind: 'note', version: 1, title: 'Entry', date: '2026-10-23', body: 'Note' }, expectedRevision: 0, archived: false }, owner)).json().entry;
+    const bringItem = (await t.post(`/api/workspaces/${home}/bring`, { content: { title: 'Drill', from: '', to: '', dueDate: null, assigneeId: null, notes: '' }, expectedRevision: 0 }, owner)).json().item;
     homeIds = {
+      bringId: bringItem.id,
       entryId: journalEntry.id,
       jobId: backupJob.id,
       equipmentId:equipment.id,

@@ -26,11 +26,12 @@ export function destinations(workspaceId: string, tools: readonly string[] = [],
   const contacts: Destination = { href: paths.contacts(workspaceId), label: t('shell.contacts'), icon: 'contacts', pages: ['contacts'] };
   const maintenance: Destination = { href: paths.maintenance(workspaceId), label: t('shell.maintenance'), icon: 'maintenance', pages: ['maintenance'] };
   const equipment:Destination={href:paths.equipment(workspaceId),label:t('shell.equipment'),icon:'equipment',pages:['equipment']};
+  const bring: Destination = { href: paths.bring(workspaceId), label: t('bring.heading'), icon: 'forward', pages: ['bring'] };
   const journal: Destination = { href: paths.journal(workspaceId), label: t('journal.heading'), icon: 'documents', pages: ['journal'] };
-  const optional = [...(tools.includes('JOURNAL') ? [journal] : []),...(tools.includes('DOCUMENTS') ? [documents] : []), ...(tools.includes('CONTACTS') ? [contacts] : []), ...(tools.includes('MAINTENANCE') ? [maintenance] : []),...(tools.includes('EQUIPMENT') ? [equipment]:[])];
+  const optional = [...(tools.includes('BRING') ? [bring] : []),...(tools.includes('JOURNAL') ? [journal] : []),...(tools.includes('DOCUMENTS') ? [documents] : []), ...(tools.includes('CONTACTS') ? [contacts] : []), ...(tools.includes('MAINTENANCE') ? [maintenance] : []),...(tools.includes('EQUIPMENT') ? [equipment]:[])];
   const more: Destination = { href: paths.more(workspaceId), label: t('shell.more'), icon: 'more', pages: ['more', 'reminders', 'calendar', 'history', ...optional.flatMap((tool) => tool.pages)] };
   if (order !== null) {
-    const registry: Record<NavigationTool, Destination> = { PROCEDURES: procedures, LISTS: lists, REMINDERS: reminders, CALENDAR: calendar, JOURNAL: journal, DOCUMENTS: documents, CONTACTS: contacts, MAINTENANCE: maintenance, EQUIPMENT: equipment };
+    const registry: Record<NavigationTool, Destination> = { PROCEDURES: procedures, LISTS: lists, REMINDERS: reminders, CALENDAR: calendar, JOURNAL: journal, DOCUMENTS: documents, CONTACTS: contacts, MAINTENANCE: maintenance, EQUIPMENT: equipment, BRING: bring };
     const sorted = orderedNavigationTools(order).filter(tool => tools.includes(tool)).map(tool => registry[tool]);
     const pinned = sorted.slice(0, 2);
     return { side: [today, ...sorted], bar: [today, ...pinned, { ...more, pages: ['more', 'history', ...sorted.slice(2).flatMap(item => item.pages)] }] };
