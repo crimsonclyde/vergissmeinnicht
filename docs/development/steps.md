@@ -18,6 +18,8 @@ For every completed task, add a concise completion note, tests/checks performed,
 
 ## Current state — resume here
 
+**Release 41 authorized (2026-10-28): v0.8.0-beta.0 (12.46).** Preparing Bring, everyday themes, README screenshots and dependency patches for publication. Source main `6b06ab0`; its CI `40778717311` passed quality, browser and native amd64/arm64 smoke/scan jobs. Publication and exact published-image upgrade/restore verification are pending; do not count this as published. The special 42nd release follows this one. No live deployment.
+
 **Commit/push checkpoint (owner, 2026-10-28):** sections 20.1–20.3, 32 and 33 are prepared together on `main`, with the recorded 1,534-test suite, browser workflow and screenshot checks. Owner explicitly deferred the release. No version bump, tag, GitHub Release, image publication or live deployment is part of this checkpoint; milestone count stays 40. Existing owner mock-ups and UX-refresh screenshots are outside the commit. Security surface changed by this checkpoint: NO (bookkeeping only; implementation impacts are recorded in each section).
 
 **Completed (2026-10-28): section 33 — README and everyday themes.** Concise product description, features table and fresh 16-image gallery; Memento Mori (dark) and Don't go into the (light), with the duplicate Dark choice consolidated and saved ids preserved. Full suite **197 files / 1,534 tests**, browser/account workflow, 18-view gallery accessibility/overflow checks, lint, typecheck and build passed. No release/deployment or migration.
@@ -2028,6 +2030,18 @@ GitHub pre-release created after the user approved the command: `https://github.
 **Published:** commits `704b01c` and `0c0f0bd`; PR #16 merged as `1012613282557a26c556abd038d8f40ea1346983`. Annotated tag `v0.5.0-beta.4` points to that merge. GitHub prerelease with feature, security, validation and upgrade notes: https://github.com/crimsonclyde/vergissmeinnicht/releases/tag/v0.5.0-beta.4. Published image index `sha256:ef993baa822e904f884325bf7c88c139807ee9b4acd42351b12cd5402ff265b9` inspected directly: linux/amd64 and linux/arm64. Only the exact beta tag was published; `latest` was not moved.
 
 **Validation:** implementation and local checks recorded in 16.8 (146 files / 1154 tests, 27.30 s; Playwright 3 passed / 1 intentional skip; typecheck/lint/build/schema checks). Final PR CI `37218359808`, main CI `37218652596` and release `37218676293` succeeded. Both native validation and publishing images passed smoke tests and fixable HIGH/CRITICAL vulnerability scans; manifest publishing, workflow signing and CycloneDX attestation succeeded. Completion is recorded in a documentation commit after publication. Physical-phone imports, live Unraid upgrade and the existing development-only moderate esbuild finding remain open. Security surface: MEDIUM, documented in `security.md`; release validation must remain fail-closed.
+
+### 12.46 Release 0.8.0-beta.0 — owner-counted release 41
+
+**Status:** IN PROGRESS (2026-10-28), explicitly authorized by the owner. Scope: Bring 20.1–20.3, dependency security review 32, everyday themes and README 33. Exact beta image planned: `ghcr.io/crimsonclyde/vergissmeinnicht:0.8.0-beta.0`; Unraid template and guide prepared. No live installation update authorized or performed.
+
+**Upgrade:** migration **0059_bring**, 60 migrations total (0000–0059). Back up database and file storage first. Existing preferences, tool flags, points and history remain; Bring stays off until a Workspace admin enables it. Validated older Workspace packages remain restorable; restored Bring assignments clear and earn no points. No new environment variables or services. Older binaries refuse the migrated database; rollback requires the pre-upgrade backup.
+
+**Validation:** source `6b06ab0f893c552ff2e51482acc775eb671062f2` passed main CI `40778717311`: quality (frozen install, high/critical audit gate, lint, typecheck and tests), browser workflow, native amd64/arm64 image builds, smoke checks and fixable HIGH/CRITICAL scans. Implementation ledger records 197 files / 1,534 passing tests and populated 0058→0059 migration/backup/recovery coverage. Release preparation changes are documentation/template only; reviewed exact-version references and whitespace. Tagged release CI, signing/SBOM and exact published-image smoke/populated upgrade/export/restore verification remain pending. Docker is unavailable in the current agent environment.
+
+**Security impact:** release preparation introduces no application surface; Bring's MEDIUM shared-resource/backup impact and dependency patches are documented in security.md. No gate or exception changed. Physical devices/screen readers and the existing large frontend chunk warning remain limitations.
+
+**Publication:** pending GitHub authentication for tag/Release creation; available connector cannot publish tags or Releases. Milestone count remains 40 until publication completes; this authorized release is 41st and the following 42nd needs the owner's still-undecided special treatment.
 
 ### 12.45 Release 0.7.2-beta.3
 
