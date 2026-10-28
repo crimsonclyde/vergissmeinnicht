@@ -2041,7 +2041,9 @@ GitHub pre-release created after the user approved the command: `https://github.
 
 **Security impact:** release preparation introduces no application surface; Bring's MEDIUM shared-resource/backup impact and dependency patches are documented in security.md. No gate or exception changed. Physical devices/screen readers and the existing large frontend chunk warning remain limitations.
 
-**Publication:** pending GitHub authentication for tag/Release creation; available connector cannot publish tags or Releases. Milestone count remains 40 until publication completes; this authorized release is 41st and the following 42nd needs the owner's still-undecided special treatment.
+**Release verification automation:** release publication now checks out the exact tag and pulls the published image by its manifest digest, checks version/revision labels, then runs smoke and populated upgrade/Workspace export/restore against the digest-pinned 0.7.2-beta.3 image. It reuses the existing reviewed harness on a disposable runner volume; no new permissions, secrets or live-system access. Workflow syntax and pinned actions reviewed; execution remains pending the tagged release.
+
+**Publication:** PR #71 merged as `a53fe6c`; GitHub browser authentication succeeded. Tag/Release creation is pending; available connector cannot publish tags or Releases. Milestone count remains 40 until publication completes; this authorized release is 41st and the following 42nd needs the owner's still-undecided special treatment.
 
 ### 12.45 Release 0.7.2-beta.3
 
