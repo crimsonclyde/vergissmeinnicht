@@ -4,9 +4,13 @@
 
 ## Reference image
 
-Expected asset: `space-interface-concept.png` — the approved desktop/mobile mockup from the 2026-10-30 design conversation.
+[Approved desktop/mobile mockup](space-interface-concept.png) from the 2026-10-30 design conversation:
 
-**Note:** The image is not yet checked into this branch. The binary asset must be added before this documentation PR is merged. Do not replace it with a newly generated approximation.
+![Cinematic space concept: desktop Today, guided execution and Calendar above five phone views for Clock, Weather, Today, execution and Calendar.](space-interface-concept.png)
+
+Copied byte-for-byte from the owner's `VMN_Release_42_Design_Reference.zip`, entry `docs/design/release-42/space-interface-concept.png`; PNG, 1536 × 1024, 2,272,401 bytes. SHA-256: `0bf8f706e0ee77d85cd35009df37189eab6d888b761e182f24f1e331df274532`. No regeneration or re-encoding. The ZIP's shorter README was reviewed as reference material; this PR's more explicit approval boundaries are retained.
+
+[Read-only readiness audit](readiness-audit.md) records architecture evidence, gaps, preservation requirements and proposed validation gates. Its recommendations do not authorize implementation.
 
 ## What is approved
 
@@ -33,4 +37,4 @@ Read this brief and the reference image as context during the **read-only Releas
 
 The next tasks are (1) audit architecture and constraints; (2) prototype navigation/contextual interaction separately; (3) specify accessible and responsive behaviour; (4) plan an incremental rollout with a fallback to the existing interface.
 
-**Release numbering:** the next owner-counted Release 42 is reserved for the major experience milestone. No tag, image or published release during preparation.
+**Release numbering:** the next owner-counted Release 42 is reserved for the major experience milestone; the count remains 41 after v0.8.0-beta.0. No version tag, container-image publication or published release during preparation. The reference PNG above is documentation only.

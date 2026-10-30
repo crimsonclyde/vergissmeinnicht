@@ -18,6 +18,8 @@ For every completed task, add a concise completion note, tests/checks performed,
 
 ## Current state — resume here
 
+**Release 42 preparation (2026-10-30):** reviewed draft PR #72, added the exact owner-supplied desktop/phone PNG and completed the [read-only readiness audit](../design/release-42/readiness-audit.md). Architecture supports a separately approved prototype; interaction/accessibility/feature coverage and fallback remain unspecified, so this is not implementation or release readiness. Preparation details and limits: section 34. No redesign, migration, version bump, tag, merge, publication or deployment. Owner count stays 41; the next release remains the special 42nd.
+
 **Released 41 (2026-10-28): v0.8.0-beta.0 (12.46).** Bring, refreshed everyday themes, README screenshots and dependency patches are published. PR #71 CI `40780932632`, final main CI `40781987643` and tagged Release `40782615890` passed. Full suite: 197 files / 1,534 tests; browser: 11 passed / 1 intentional skip. Native amd64/arm64 publishing images passed smoke tests and fixable HIGH/CRITICAL scans. Multi-architecture index `sha256:53a484d78ab93467c887cc2a72c1c3b45fedb181bd4732fd2f8ee09bc412c3d9` was signed and CycloneDX SBOM-attested by the workflow. The exact digest-pinned pulled amd64 image passed version/revision-label checks, smoke testing and populated upgrade/backup/Workspace export/restore from digest-pinned 0.7.2-beta.3: schema 59→60, existing row counts preserved, foreign keys clean, integrity ok, and a second restored Workspace created without lingering restore marks. This is workflow evidence, not independent local cosign verification. Source/tag commit `f6e843f4661fcff93e5ebf7bbc7b2596e107bfe2`; no live installation updated. The next owner-counted release is the special 42nd; its treatment remains undecided.
 
 **Commit/push checkpoint (owner, 2026-10-28):** sections 20.1–20.3, 32 and 33 are prepared together on `main`, with the recorded 1,534-test suite, browser workflow and screenshot checks. Owner explicitly deferred the release. No version bump, tag, GitHub Release, image publication or live deployment is part of this checkpoint; milestone count stays 40. Existing owner mock-ups and UX-refresh screenshots are outside the commit. Security surface changed by this checkpoint: NO (bookkeeping only; implementation impacts are recorded in each section).
@@ -5032,6 +5034,21 @@ One shared UI provider compares server totals only after successful same-scope m
 **Security surface changed:** NO — presentation, public documentation and fictional local capture tooling only; no endpoint, stored data type, permission, credential, processing provider, upload or outbound flow. Existing server validation remains authoritative. **Security docs updated:** N/A; no normative security behavior changed.
 
 **Remaining/limitations:** physical devices and real screen readers untested; GitHub's own Markdown rendering was not operated directly. Existing large JavaScript chunk warning remains. Capture tooling reuses the isolated fictional demo; a partially populated first-run fixture may need tidying before rerun. No release, deployment or data migration performed; the owner-counted next release remains 41st, with special treatment still undecided for the 42nd.
+
+---
+
+## 34 — Release 42 reference and read-only readiness audit (2026-10-30)
+
+**Status:** DONE (preparation/audit only; redesign not started)
+**Completed:** 2026-10-30
+
+**Implemented:** reviewed documentation-only draft PR #72 against current main `b2c52c7`; switched to its existing `docs/release-42-design-reference` branch, preserving unrelated untracked owner assets. Added `docs/design/release-42/space-interface-concept.png` byte-for-byte from the supplied ZIP (1536 × 1024; SHA-256 `0bf8f706e0ee77d85cd35009df37189eab6d888b761e182f24f1e331df274532`), embedded it in the existing approval brief and removed its missing-asset note. Retained the PR's more explicit boundaries rather than overwriting them with ZIP text. [Audit](../design/release-42/readiness-audit.md) maps shell/routing, themes, Today, guided Runs, Calendar, offline queues and security constraints to inspected code; records open interaction/accessibility/parity decisions, bounded scope and a proposed incremental/fallback validation sequence. This is documentation only, not implementation approval.
+
+**Tests/checks:** exact ZIP-entry/destination byte comparison, signature/dimensions/hash and visual inspection; focused presentation/navigation/theme/contrast/Today/Calendar/offline checks **10 files / 96 tests passed**; route-security/SSE/preferences/Today-layout/capability/offline-replay checks **6 files / 39 tests passed**. Local Markdown targets, documentation-only scope and `git diff --check` verified. No full-suite/build/browser, live-provider, new dependency/container scan, physical-device or screen-reader certification claimed; detailed commands and limits are in the audit.
+
+**Security surface changed:** NO — static reference and documentation only; no application, credential, permission, data flow, schema or dependency change. **Security docs updated:** N/A; current normative policy remains unchanged.
+
+**Remaining:** separately review an interaction prototype/specification, complete feature/role/state map, accessibility/phone behavior and rollout/fallback before authorizing implementation; run candidate-specific release gates later. No redesign, merge, version bump, tag, container publication, GitHub Release or deployment performed. The next owner-counted release is the reserved **42nd**; count remains **41** after v0.8.0-beta.0, with final milestone acceptance still to be agreed.
 
 ---
 
