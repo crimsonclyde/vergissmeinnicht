@@ -1,0 +1,19 @@
+{
+  "purpose": "Original floating everyday-world illustrations for the isolated Hitchhiker-inspired Guide prototype. Space-theme decoration only; no production upload, monitoring or AI feature.",
+  "tool": "built-in image_gen",
+  "transparent_background": true,
+  "prompts": [
+    {
+      "object": "fireplace",
+      "prompt": "Use case: stylized-concept. Asset type: transparent cutout illustration of a small floating island used as a labelled destination in a Hitchhiker's Guide-inspired galactic guidebook interface. Original eccentric, cinematic science-fiction miniature, tactile realistic materials, gentle absurdity, premium concept art, NOT cartoon or flat vector. Show the entire self-contained object and its little jagged floating asteroid, with generous transparent margin. Soft blue rim light and warm practical details, three-quarter view. Actual transparent background, no space backdrop, no room, no floor, no rectangular card, no text, no logo, no people, no planets. Subject: a recognizable rustic stone fireplace with a short chimney and a small warm orange fire, neatly kept iron fire tools beside it, all improbably balanced on one compact levitating rock. The fireplace itself is the recognizable hero, not a whole house. Amber firelight against cool shadow. Include all edges of the rock and chimney."
+    },
+    {
+      "object": "market",
+      "prompt": "Use case: stylized-concept. Asset type: transparent cutout illustration of a small floating island used as a labelled destination in a Hitchhiker's Guide-inspired galactic guidebook interface. Original eccentric, cinematic science-fiction miniature, tactile realistic materials, gentle absurdity, premium concept art, NOT cartoon or flat vector. Show the entire self-contained object and its little jagged floating asteroid, with generous transparent margin. Soft blue rim light and warm practical details, three-quarter view. Actual transparent background, no space backdrop, no room, no floor, no rectangular card, no text, no logo, no people, no planets. Subject: a tiny recognizable supermarket with front windows full of indistinct grocery shelves, teal-and-cream awning, one neat shopping trolley at the entrance, warm light inside, sitting on one chunky jagged rock floating in space. Charming eccentric roadside stop for interstellar groceries. No readable shop name or text. The supermarket building must be the clear hero, entire roof and rock visible."
+    },
+    {
+      "object": "power",
+      "prompt": "Use case: stylized-concept. Asset type: transparent cutout illustration of a small floating island used as a labelled destination in a Hitchhiker's Guide-inspired galactic guidebook interface. Original eccentric, cinematic science-fiction miniature, tactile realistic materials, gentle absurdity, premium concept art, NOT cartoon or flat vector. Show the entire self-contained object and its little jagged floating asteroid, with generous transparent margin. Soft blue rim light and warm practical details, three-quarter view. Actual transparent background, no space backdrop, no room, no floor, no rectangular card, no text, no logo, no people, no planets. Subject: a magnificent vintage Tesla coil, copper winding, ribbed dark ceramic insulators and a polished toroidal metal terminal, perched on a little levitating basalt rock. A few elegant violet-blue electrical arcs curl around the terminal. Recognizable singular Tesla coil as a visual metaphor for power, no schematic or instructions. Entire coil and rock visible."
+    }
+  ]
+}

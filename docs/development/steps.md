@@ -18,6 +18,8 @@ For every completed task, add a concise completion note, tests/checks performed,
 
 ## Current state — resume here
 
+**Release 42 full interactive Guide prototype (2026-10-30):** owner explicitly chose to finish the full prototype before production implementation. The [reviewable study](../design/release-42/full-guide-prototype.md) now has floating illustrations for every tool, including the requested fireplace/supermarket/Tesla coil and water pump, a one-column Guide chooser, all tool views and representative local workflows. Power illustrates Equipment and Water plants is an ordinary Reminder; neither adds utility monitoring. Details in 34.3; no production redesign, release or deployment authorized.
+
 **Release 42 Constellation refinement (2026-10-30):** owner favors Constellation for further design exploration; requested one column, more imagery and less text, and clarified **The Hitchhiker’s Guide to the Galaxy** as the required creative reference, not generic space decoration. The revised fictional local prototype explores a galactic guidebook with DON'T PANIC/42, retro tactile controls and larger illustrated cards; non-Space themes retain their own scenery/neutral surfaces. [Refinement and captures](../design/release-42/interaction-directions.md#constellation-refinement--one-column-more-imagery-less-text), details in 34.2. No production redesign or release authorized.
 
 **Release 42 interaction exploration (2026-10-30):** the owner approved preparing several alternatives across the full experience, prioritizing beauty/design and keeping existing themes compatible, with the current interface retained as fallback if feasible. Three fictional local visual studies — **Horizon, Atelier, Constellation** — now cover desktop/phone navigation and independent tool views; [comparison and captures](../design/release-42/interaction-directions.md), details in 34.1. No direction selected and no application redesign or publication performed.
@@ -5081,6 +5083,24 @@ One shared UI provider compares server totals only after successful same-scope m
 **Tests/checks:** local desktop/390/320 px walkthrough, tool destinations, 12 appearance choices, local List/Run feedback and fallback; no page errors or checked-view horizontal overflow. Four app-surface axe A/AA checks pass; Escape, reduced motion (zero active animations), forced colors and desktop/phone visual review. Documentation links/JSON, approved-reference integrity, diff scope and whitespace checked. No production suite/build or physical-device/screen-reader certification claimed.
 **Security surface changed:** NO. **Security docs updated:** N/A.
 **Remaining:** owner review of this refinement; detailed interaction, feature parity, accessibility, theme fidelity and fallback specification before production implementation. No merge, tag, publication or deployment. Count remains 41; the special 42nd is reserved.
+
+---
+
+### 34.3 Recognizable floating objects in the Guide (owner requested 2026-10-30)
+
+**Status:** DONE (isolated full interactive prototype)
+**Completed:** 2026-10-30
+**Accepted:** replace planetary destination art with a floating fireplace, a supermarket on a rock and a Tesla coil for power, within the Hitchhiker-inspired Guide direction and the existing one-column/less-text preference. Decorative objects are not a new data model or upload path; Power illustrates Equipment, not a new monitoring/automation tool.
+
+**Scope clarification:** the owner added water/other objects and explicitly chose **finish the full interactive prototype first**, not production implementation.
+
+**Implemented:** original transparent floating-object art for every tool: fireplace, supermarket, Tesla coil, water pump, guidebook, alarm clock, calendar/orrery, travel trunk, diary, filing cabinet, telephone booth and repair workshop. One-column illustrated Guide with all 13 choices (Today, ten navigable tools, Clock and Weather), all tool views, Profile/Workspace settings/history/Trash plus private Journal and a non-secret account-security overview. Representative local interactions include creation with escaped text, separate private/shared Journal collections, List checks, selected record statuses and a seven-Step Run with distinct states/reasons/Undo, completion blocking and local history. Twelve appearance choices and the existing-interface fallback sketch remain. New artifacts, captures, exact prompts, mapping and limitations: [full prototype record](../design/release-42/full-guide-prototype.md). No application source, dependency, schema, credentials, stored preferences or real user data changed; original approved PNG and unrelated owner assets preserved.
+
+**Tests/checks:** local Chromium walkthrough passed for all destinations, Water reminder, creation/escaping, List checks, guided states/reasons/Undo/incomplete-completion refusal/history, private/shared separation and account-security overview. Twelve appearance choices, fallback, desktop/390/320 px checked with no horizontal overflow/page errors. **16 app-surface axe A/AA scans passed**, plus Escape/forced colors/reduced motion (zero running animations). Only the bundled viewer's approved Floating UI/Lucide static CDN script loads were observed; no unexpected/application/provider requests. Asset alpha/integrity, representative screenshots, JS syntax, links/JSON, unchanged reference hash, sub-1-MB inline source, whitespace and documentation-only scope verified. No production suite/build/container or real-device/screen-reader certification claimed.
+
+**Security surface changed:** NO — fictional isolated prototype and documentation; no new application permission, upload, provider, private-data flow or AI feature. **Security docs updated:** N/A.
+
+**Remaining:** owner review, detailed production feature/role/offline/accessibility/theme/fallback specification and explicit implementation authorization. The prototype does not simulate every production/security/file/recovery/import/export operation. No merge, tag, publication or deployment. Count remains 41; the special 42nd is reserved.
 
 ---
 

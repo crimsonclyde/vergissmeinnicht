@@ -46,6 +46,12 @@ Exploratory image assets: [copper](directions/constellation-world-copper.webp), 
 
 ## Phone compositions
 
+### Floating everyday objects — next Constellation refinement
+
+The owner requested recognizable objects floating in the galactic scene: a **fireplace**, a **supermarket on a rock** for the grocery list, and a **Tesla coil** for power. The isolated Guide study replaces the planetary destination art with these original miniature floating-world illustrations. The one-column reading order and compact labels remain. Power is a visual Equipment entry in this prototype, not a new energy-management tool, telemetry feed, automation or permission.
+
+The objects are decorative Space-theme artwork, not uploads, inventory records, real Equipment photos or AI features in VMN. Other themes retain their own scenery/neutral presentation, and all existing tools remain available through Guide. Production redesign, final artwork acceptance and release remain outside this exploration.
+
 Each direction reflows independently on phones: Horizon stacks the clock and task group; Atelier becomes a short editorial reading sequence; Constellation becomes labelled orbital objects beneath the clock. Touch controls remain ordinary buttons. Reduced motion requires no motion to understand or navigate the study.
 
 | Horizon | Atelier | Constellation |

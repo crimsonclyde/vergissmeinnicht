@@ -14,6 +14,8 @@ Copied byte-for-byte from the owner's `VMN_Release_42_Design_Reference.zip`, ent
 
 [Three interaction studies](interaction-directions.md) explore Horizon, Atelier and Constellation after the owner's 2026-10-30 approval to prepare alternatives across the whole experience, prioritizing beauty/design and compatibility with existing themes. These are local visual prototypes, not application changes or a final navigation decision.
 
+[Full interactive Guide prototype](full-guide-prototype.md) carries the owner's preferred Constellation direction into a one-column, image-led galactic guidebook: floating fireplace, supermarket, Tesla coil, water pump and illustrations for every tool. The owner explicitly requested finishing the full prototype before production implementation. It uses fictional data and local-only interactions; the application remains unchanged.
+
 ## What is approved
 
 - A serious, cinematic deep-space atmosphere with restrained starfields, planetary horizons and subtle light.
