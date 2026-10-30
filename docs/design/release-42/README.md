@@ -16,6 +16,8 @@ Copied byte-for-byte from the owner's `VMN_Release_42_Design_Reference.zip`, ent
 
 [Full interactive Guide prototype](full-guide-prototype.md) carries the owner's preferred Constellation direction into a one-column, image-led galactic guidebook: floating fireplace, supermarket, Tesla coil, water pump and illustrations for every tool. The owner explicitly requested finishing the full prototype before production implementation. It uses fictional data and local-only interactions; the application remains unchanged.
 
+Latest presentation refinement: images inside translucent cards, the menu at the top, and no visible DON'T PANIC/42 branding marks. The Guide reference remains the creative direction; this is still prototype work only.
+
 ## What is approved
 
 - A serious, cinematic deep-space atmosphere with restrained starfields, planetary horizons and subtle light.

@@ -18,6 +18,8 @@ For every completed task, add a concise completion note, tests/checks performed,
 
 ## Current state — resume here
 
+**Release 42 glass-card refinement (2026-10-30):** owner requested images inside translucent cards, removal of the visible DON'T PANIC/42 marks and the menu at the top. The [latest full prototype](../design/release-42/full-guide-prototype.md) now follows those choices, with contained imagery, readable captions, desktop/phone top navigation and matching reading order. Details in 34.4. No production implementation or release.
+
 **Release 42 full interactive Guide prototype (2026-10-30):** owner explicitly chose to finish the full prototype before production implementation. The [reviewable study](../design/release-42/full-guide-prototype.md) now has floating illustrations for every tool, including the requested fireplace/supermarket/Tesla coil and water pump, a one-column Guide chooser, all tool views and representative local workflows. Power illustrates Equipment and Water plants is an ordinary Reminder; neither adds utility monitoring. Details in 34.3; no production redesign, release or deployment authorized.
 
 **Release 42 Constellation refinement (2026-10-30):** owner favors Constellation for further design exploration; requested one column, more imagery and less text, and clarified **The Hitchhiker’s Guide to the Galaxy** as the required creative reference, not generic space decoration. The revised fictional local prototype explores a galactic guidebook with DON'T PANIC/42, retro tactile controls and larger illustrated cards; non-Space themes retain their own scenery/neutral surfaces. [Refinement and captures](../design/release-42/interaction-directions.md#constellation-refinement--one-column-more-imagery-less-text), details in 34.2. No production redesign or release authorized.
@@ -5101,6 +5103,17 @@ One shared UI provider compares server totals only after successful same-scope m
 **Security surface changed:** NO — fictional isolated prototype and documentation; no new application permission, upload, provider, private-data flow or AI feature. **Security docs updated:** N/A.
 
 **Remaining:** owner review, detailed production feature/role/offline/accessibility/theme/fallback specification and explicit implementation authorization. The prototype does not simulate every production/security/file/recovery/import/export operation. No merge, tag, publication or deployment. Count remains 41; the special 42nd is reserved.
+
+---
+
+### 34.4 Translucent cards, contained imagery and top navigation (owner requested 2026-10-30)
+
+**Status:** DONE (isolated prototype only)
+**Completed:** 2026-10-30
+**Implemented:** placed the existing floating illustrations inside bounded translucent Space cards and applied the treatment to the Guide chooser, preserving a readable caption surface. Removed the visible DON'T PANIC slogan/42 badge; a screen-reader-only Today heading retains page structure. Moved navigation into the desktop top area and a second top row on phones, before the main content in DOM/tab order. Reflowed content/dialog space and kept solid forced-color surfaces. Earlier studies and the exact approved reference remain unchanged. No new artwork, application source, stored setting, endpoint, schema or dependency.
+**Tests/checks:** local complete-prototype walkthrough, twelve appearances/fallback, local creation/text escaping, shared/private Journal separation, List/Run/reason/Undo/completion/history and representative desktop/390/320 px layouts; no page errors or checked horizontal overflow. Sixteen axe A/AA app-surface checks pass; reduced motion/forced colors, no unexpected application/provider requests, targeted top-menu/reading-order/contained-image/removed-branding assertions and visual review. JS syntax, links, inline-size bound, reference hash, documentation-only scope and whitespace checked. No production suite/build or real-device/screen-reader certification claimed.
+**Security surface changed:** NO. **Security docs updated:** N/A.
+**Remaining:** owner visual review and detailed production specification/authorization; prototype actions stay fictional/local. No merge, tag, publication or deployment. Owner count remains 41 and the special 42nd remains reserved; removing the visible badge does not change the milestone.
 
 ---
 

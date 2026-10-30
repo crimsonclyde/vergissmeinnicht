@@ -1,12 +1,14 @@
 # Release 42 — full interactive Guide prototype
 
-**Status:** isolated design prototype complete for review, 2026-10-30. The owner explicitly chose **finish the full interactive prototype first**; production implementation remains unapproved. The creative reference is *The Hitchhiker’s Guide to the Galaxy*: an eccentric galactic guidebook, DON'T PANIC/42, a one-column reading order, recognizable floating everyday objects and concise labels.
+**Status:** isolated design prototype complete for review, 2026-10-30. The owner explicitly chose **finish the full interactive prototype first**; production implementation remains unapproved. The creative reference is *The Hitchhiker’s Guide to the Galaxy*: an eccentric galactic guidebook, a one-column reading order, recognizable floating everyday objects and concise labels. The latest owner-requested revision puts each image **inside a translucent card**, removes the visible **DON'T PANIC and 42 marks**, and moves the menu to the top. The release milestone ordinal remains unchanged in project documentation.
 
 The interactive version is presented in the design chat. It contains fictional Northstar studio data and local-only interactions. Neither the application nor any real Workspace is changed. The [approved reference](space-interface-concept.png), [readiness audit](readiness-audit.md) and earlier [interaction studies](interaction-directions.md) remain available.
 
-![Full Guide desktop prototype](directions/full-guide-desktop.webp)
+![Full Guide desktop prototype](directions/glass-guide-desktop.webp)
 
 ## Floating objects and existing meanings
+
+The Space cards now use translucent semantic surfaces with the existing scene visible through them. The images stay within the card bounds and the captions retain a stronger readable surface. The tool chooser follows the same card treatment. Top navigation sits in the desktop header and above the content on phones; its reading/tab order also precedes the main content. Forced colors uses solid system surfaces. No new artwork was generated for this revision, and the earlier studies remain preserved.
 
 | Illustration | Meaning in the prototype |
 | --- | --- |
@@ -37,11 +39,11 @@ The prototype covers the whole interface at design-review breadth. It does **not
 
 | Phone | Guide chooser |
 | --- | --- |
-| ![Full Guide at 320px](directions/full-guide-320.webp) | ![Illustrated Guide chooser](directions/full-guide-chooser.webp) |
+| ![Full Guide at 320px](directions/glass-guide-320.webp) | ![Illustrated Guide chooser](directions/glass-guide-chooser.webp) |
 
 | Calendar | Journal | Contacts |
 | --- | --- | --- |
-| ![Calendar prototype](directions/full-guide-calendar.webp) | ![Journal prototype](directions/full-guide-journal.webp) | ![Contacts prototype](directions/full-guide-contacts.webp) |
+| ![Calendar prototype](directions/glass-guide-calendar.webp) | ![Journal prototype](directions/glass-guide-journal.webp) | ![Contacts prototype](directions/glass-guide-contacts.webp) |
 
 ## Verification and limits
 
