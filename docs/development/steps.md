@@ -18,6 +18,8 @@ For every completed task, add a concise completion note, tests/checks performed,
 
 ## Current state — resume here
 
+**Release 42 Constellation refinement (2026-10-30):** owner favors Constellation for further design exploration; requested one column, more imagery and less text, and clarified **The Hitchhiker’s Guide to the Galaxy** as the required creative reference, not generic space decoration. The revised fictional local prototype explores a galactic guidebook with DON'T PANIC/42, retro tactile controls and larger illustrated cards; non-Space themes retain their own scenery/neutral surfaces. [Refinement and captures](../design/release-42/interaction-directions.md#constellation-refinement--one-column-more-imagery-less-text), details in 34.2. No production redesign or release authorized.
+
 **Release 42 interaction exploration (2026-10-30):** the owner approved preparing several alternatives across the full experience, prioritizing beauty/design and keeping existing themes compatible, with the current interface retained as fallback if feasible. Three fictional local visual studies — **Horizon, Atelier, Constellation** — now cover desktop/phone navigation and independent tool views; [comparison and captures](../design/release-42/interaction-directions.md), details in 34.1. No direction selected and no application redesign or publication performed.
 
 **Release 42 preparation (2026-10-30):** reviewed draft PR #72, added the exact owner-supplied desktop/phone PNG and completed the [read-only readiness audit](../design/release-42/readiness-audit.md). Architecture supports a separately approved prototype; interaction/accessibility/feature coverage and fallback remain unspecified, so this is not implementation or release readiness. Preparation details and limits: section 34. No redesign, migration, version bump, tag, merge, publication or deployment. Owner count stays 41; the next release remains the special 42nd.
@@ -5068,6 +5070,17 @@ One shared UI provider compares server totals only after successful same-scope m
 **Security surface changed:** NO — fictional local visual exploration and documentation; no application calls, live data, credentials, authorization or persistent domain changes. **Security docs updated:** N/A.
 
 **Remaining:** owner selects a direction or combination. Detailed feature/role/disabled/offline states, full theme fidelity, authoring/admin/security/recovery flows and rollout/fallback specification still require review before production work. No merge, version bump, tag, release, container push or deployment. Owner count remains 41; the special 42nd is reserved.
+
+---
+
+### 34.2 Constellation visual refinement (owner requested 2026-10-30)
+
+**Status:** DONE (local design study only)
+**Completed:** 2026-10-30
+**Implemented:** separate single-column Constellation study with three larger image-led cards, a compact Clock/Weather glance, shorter page headings and fewer secondary labels. Owner clarified the required Hitchhiker's Guide identity: the Space prototype explores a galactic guidebook with DON'T PANIC, decorative 42, retro electronic typography, tactile green/graphite controls and a Guide chooser. Generated copper/jade/ice planetary imagery supports that presentation; styling/art remain Space-specific, with other themes using their own scenery or neutral surfaces. Existing comparison and exact approved PNG preserved. Two review captures, three exploratory WebP assets and exact generation prompts recorded in [the design record](../design/release-42/interaction-directions.md). No production code, upload path, stored preference or application data changed.
+**Tests/checks:** local desktop/390/320 px walkthrough, tool destinations, 12 appearance choices, local List/Run feedback and fallback; no page errors or checked-view horizontal overflow. Four app-surface axe A/AA checks pass; Escape, reduced motion (zero active animations), forced colors and desktop/phone visual review. Documentation links/JSON, approved-reference integrity, diff scope and whitespace checked. No production suite/build or physical-device/screen-reader certification claimed.
+**Security surface changed:** NO. **Security docs updated:** N/A.
+**Remaining:** owner review of this refinement; detailed interaction, feature parity, accessibility, theme fidelity and fallback specification before production implementation. No merge, tag, publication or deployment. Count remains 41; the special 42nd is reserved.
 
 ---
 

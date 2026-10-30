@@ -28,6 +28,22 @@ A clock at the center of a quiet orbital composition, with labelled objects for 
 
 ![Constellation desktop study](directions/constellation-desktop.webp)
 
+### Constellation refinement — one column, more imagery, less text
+
+**Required creative reference, clarified by the owner:** *The Hitchhiker’s Guide to the Galaxy*, not generic space decoration. The revised Space presentation explores an eccentric galactic guidebook: a restrained **DON’T PANIC** masthead, decorative 42 mark, retro electronic typography, tactile green/graphite controls and a Guide tool chooser. Everyday tool names, actions, due dates and permissions remain clear; imagery supports the Guide identity. This is an original exploratory interpretation, not a reproduction of a film interface or approval for production implementation.
+
+The owner favored Constellation for further exploration and requested trying one column with more images and less text. The revised local study uses a single reading column on desktop and phone, a compact clock/weather glance, and three larger planetary-image cards. Each card keeps its title and one short due/count line; longer context stays in the tool views. Other page headings are shortened, the Procedure collection uses a single column and the guided Step has a larger illustrative surface while retaining its instruction text.
+
+The illustrative cards use copper, jade and ice-blue planets with subtle labelled tool symbols inside the Guide presentation. Planet artwork and Guide styling are confined to Space; other appearance previews reuse their own scenic background or neutral surfaces with the same controls. No image suppresses decorative card imagery. This is still a design study, not final artwork or approval for a new upload, automatic image-generation feature or data model.
+
+| Desktop | Phone |
+| --- | --- |
+| ![Constellation single-column space study](directions/constellation-images-desktop.webp) | ![Constellation single-column phone study](directions/constellation-images-phone.webp) |
+
+Exploratory image assets: [copper](directions/constellation-world-copper.webp), [jade](directions/constellation-world-jade.webp), [ice](directions/constellation-world-ice.webp). Generated with the built-in image tool; exact [prompts and purpose](directions/constellation-image-prompts.json) are recorded. The original three-way comparison and approved reference remain unchanged.
+
+**Checks for this iteration:** desktop and 390/320 px views, all listed tool destinations and 12 appearance choices, local List/Run feedback, fallback and zero page errors; no horizontal overflow in checked views. Four app-surface axe A/AA scans (home/chooser at desktop and 320 px) passed; Escape, zero active animations under reduced motion and forced colors checked. Desktop/phone captures visually inspected. Production behavior and security surface remain unchanged; final feature/theme/accessibility acceptance is still outstanding.
+
 ## Phone compositions
 
 Each direction reflows independently on phones: Horizon stacks the clock and task group; Atelier becomes a short editorial reading sequence; Constellation becomes labelled orbital objects beneath the clock. Touch controls remain ordinary buttons. Reduced motion requires no motion to understand or navigate the study.
