@@ -1,10 +1,10 @@
 # Release 42 — full interactive Guide prototype
 
-**Status:** isolated design prototype complete for review, 2026-10-30. The owner explicitly chose **finish the full interactive prototype first**; production implementation remains unapproved. The creative reference is *The Hitchhiker’s Guide to the Galaxy*: an eccentric galactic guidebook, a one-column reading order, recognizable floating everyday objects and concise labels. The latest owner-requested revision puts each image **inside a translucent card**, removes the visible **DON'T PANIC and 42 marks**, and moves the menu to the top. The release milestone ordinal remains unchanged in project documentation.
+**Status:** isolated design prototype complete for review, 2026-10-30. The owner explicitly chose **finish the full interactive prototype first**; production implementation remains unapproved. The creative reference is *The Hitchhiker’s Guide to the Galaxy*: an eccentric galactic guidebook, a one-column reading order, recognizable floating everyday objects and concise labels. The latest owner-requested revision puts each image **inside a translucent card**, removes the visible **DON'T PANIC and 42 marks**, and moves the menu to the top. Time and a compact weather icon/temperature now sit in the top bar; pressing either opens its larger view. Today no longer has a separate Clock/Weather row. The release milestone ordinal remains unchanged in project documentation.
 
 The interactive version is presented in the design chat. It contains fictional Northstar studio data and local-only interactions. Neither the application nor any real Workspace is changed. The [approved reference](space-interface-concept.png), [readiness audit](readiness-audit.md) and earlier [interaction studies](interaction-directions.md) remain available.
 
-![Full Guide desktop prototype](directions/glass-guide-desktop.webp)
+![Full Guide desktop prototype](directions/bar-guide-desktop.webp)
 
 ## Floating objects and existing meanings
 
@@ -39,19 +39,31 @@ The prototype covers the whole interface at design-review breadth. It does **not
 
 | Phone | Guide chooser |
 | --- | --- |
-| ![Full Guide at 320px](directions/glass-guide-320.webp) | ![Illustrated Guide chooser](directions/glass-guide-chooser.webp) |
+| ![Full Guide at 320px](directions/bar-guide-320.webp) | ![Illustrated Guide chooser](directions/bar-guide-chooser.webp) |
 
 | Calendar | Journal | Contacts |
 | --- | --- | --- |
-| ![Calendar prototype](directions/glass-guide-calendar.webp) | ![Journal prototype](directions/glass-guide-journal.webp) | ![Contacts prototype](directions/glass-guide-contacts.webp) |
+| ![Calendar prototype](directions/bar-guide-calendar.webp) | ![Journal prototype](directions/bar-guide-journal.webp) | ![Contacts prototype](directions/bar-guide-contacts.webp) |
+
+## Personal card appearance and compact weather
+
+The owner accepted the layout and requested future user-adjustable card backgrounds. Profile → Appearance previews **Glass** or **Starfield** with a **0–100% card-background opacity** control. Text and controls remain opaque with protected caption contrast; the setting changes the background paint only. This is a preview requirement for later implementation, not a new stored VMN preference. Saved theme identifiers, existing theme functionality, personal photo/No image choices and tool gates must remain supported. Production preference storage, validation and theme contrast need detailed review before implementation.
+
+The top bar shows time plus only a weather condition icon and temperature. Both controls open larger views; Weather has a clearer large condition icon and forecast. Sun, fog, rain and snow are available as fictional review fixtures in the viewer controls, not a proposed manual weather setting. Existing personal opt-in, server switch, provider allowlist, units and credential isolation remain requirements; no live forecast request is made.
+
+| Appearance controls | Expanded weather |
+| --- | --- |
+| ![Card background and opacity preview](directions/bar-appearance.webp) | ![Expanded weather preview](directions/bar-weather-1028.webp) |
+
+**Saved checkpoint:** latest interactive source is `galactic-guide-bar.html` in the design chat's durable visualization folder. Resume with owner review of this prototype, then detailed implementation planning; application implementation still requires explicit authorization. This local session is not scheduled to continue after computer shutdown.
 
 ## Verification and limits
 
 The local Chromium walkthrough checks all 13 Guide choices (11 structural/navigable destinations plus Clock and Weather), Water reminder navigation/status, contextual creation and literal HTML-like text, List checks, seven-Step reasons/Undo/completion blocking/history, private/shared Journal separation and the account-security overview. It checks 12 appearance choices, fallback switching and representative desktop/390/320 px layouts with no horizontal overflow or page errors.
 
-Sixteen app-surface axe A/AA scans cover Today, Guide, Run, Create, Reminder detail, Profile, private Journal and account security at desktop and 320 px. They pass with no violations. Escape, forced colors and reduced motion (zero running animations) were checked. The bundled standalone renderer loads three approved static CDN scripts (Floating UI core/dom and Lucide); no unexpected, application or forecast-provider requests were observed. These are prototype checks, not production authentication, accessibility, phone-device or screen-reader certification.
+Twenty app-surface axe A/AA scans cover Today, Guide, Run, Create, Reminder detail, Profile, private Journal account security, Clock and Weather at desktop and 320 px. They pass with no violations. Escape, forced colors and reduced motion (zero running animations) were checked. The bundled standalone renderer loads three approved static CDN scripts (Floating UI core/dom and Lucide); no unexpected, application or forecast-provider requests were observed. These are prototype checks, not production authentication, accessibility, phone-device or screen-reader certification.
 
-Image alpha/integrity, documentation links/JSON, unchanged approved-reference SHA-256, JavaScript syntax, whitespace and documentation-only Git scope were checked. The inline source is below 1 MB. Desktop/phone/chooser and representative tool captures were visually inspected. The production suite/build/container scans were not rerun because no production source, dependency, schema or configuration changed.
+Targeted checks also cover compact bar layout/taps, all four weather fixtures, Glass/Starfield and opacity endpoints/intermediate values. Image alpha/integrity, documentation links/JSON, unchanged approved-reference SHA-256, JavaScript syntax, whitespace and documentation-only Git scope were checked. The inline source is below 1 MB. Desktop/phone/chooser and representative tool captures were visually inspected. The production suite/build/container scans were not rerun because no production source, dependency, schema or configuration changed.
 
 ## Artwork provenance
 

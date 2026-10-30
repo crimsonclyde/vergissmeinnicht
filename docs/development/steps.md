@@ -18,7 +18,7 @@ For every completed task, add a concise completion note, tests/checks performed,
 
 ## Current state — resume here
 
-**Release 42 glass-card refinement (2026-10-30):** owner requested images inside translucent cards, removal of the visible DON'T PANIC/42 marks and the menu at the top. The [latest full prototype](../design/release-42/full-guide-prototype.md) now follows those choices, with contained imagery, readable captions, desktop/phone top navigation and matching reading order. Details in 34.4. No production implementation or release.
+**Release 42 prototype checkpoint (2026-10-30):** latest owner-requested refinement is complete: time and weather icon/temperature in the top bar, expanded weather on press, and Profile previews of Glass/Starfield card backgrounds with adjustable opacity. [Prototype record](../design/release-42/full-guide-prototype.md), details in 34.5. Latest interactive artifact: `galactic-guide-bar.html` in the design chat. Next: owner review, then detailed implementation planning; no production implementation or release authorized. Local work is not scheduled to continue after PC shutdown.
 
 **Release 42 full interactive Guide prototype (2026-10-30):** owner explicitly chose to finish the full prototype before production implementation. The [reviewable study](../design/release-42/full-guide-prototype.md) now has floating illustrations for every tool, including the requested fireplace/supermarket/Tesla coil and water pump, a one-column Guide chooser, all tool views and representative local workflows. Power illustrates Equipment and Water plants is an ordinary Reminder; neither adds utility monitoring. Details in 34.3; no production redesign, release or deployment authorized.
 
@@ -5114,6 +5114,18 @@ One shared UI provider compares server totals only after successful same-scope m
 **Tests/checks:** local complete-prototype walkthrough, twelve appearances/fallback, local creation/text escaping, shared/private Journal separation, List/Run/reason/Undo/completion/history and representative desktop/390/320 px layouts; no page errors or checked horizontal overflow. Sixteen axe A/AA app-surface checks pass; reduced motion/forced colors, no unexpected application/provider requests, targeted top-menu/reading-order/contained-image/removed-branding assertions and visual review. JS syntax, links, inline-size bound, reference hash, documentation-only scope and whitespace checked. No production suite/build or real-device/screen-reader certification claimed.
 **Security surface changed:** NO. **Security docs updated:** N/A.
 **Remaining:** owner visual review and detailed production specification/authorization; prototype actions stay fictional/local. No merge, tag, publication or deployment. Owner count remains 41 and the special 42nd remains reserved; removing the visible badge does not change the milestone.
+
+---
+
+### 34.5 Compact time/weather bar and personal card appearance (owner requested 2026-10-30)
+
+**Status:** DONE (isolated prototype only)
+**Completed:** 2026-10-30
+**Accepted:** future users can adjust card backgrounds and translucency through theme settings; preserve all existing themes. Reduce main-screen clutter by moving time and a weather condition icon/temperature into the top bar, opening larger views on press.
+**Implemented:** compact accessible time/weather controls; removed standalone Today Clock/Weather row; larger weather condition/forecast view. Profile previews Glass/Starfield backgrounds and 0–100% background opacity with protected readable captions. Four fictional weather fixtures support review, not manual production forecasts. Appearance choices remain viewer-only; no VMN preference storage, source, schema, provider call or credential change. Previous studies and original approved reference preserved. Updated captures and checkpoint in the full prototype record.
+**Tests/checks:** complete local Chromium destination/creation/escaping/private-shared Journal/List/Run reason/Undo/completion/history walkthrough; 12 appearances/fallback; desktop/390/320 px no checked overflow or page errors. Targeted top-bar layout/taps, four condition icons, background styles and opacity endpoints/intermediate values pass. Twenty axe A/AA app-surface scans pass; reduced motion zero animations, forced colors and visual review. Only approved viewer static CDN script loads; no unexpected application/provider requests. JS syntax, local links, source-size bound, unchanged approved PNG hash, documentation-only scope and whitespace checked. No production suite/build or physical-device/screen-reader certification claimed.
+**Security surface changed:** NO. **Security docs updated:** N/A.
+**Remaining:** owner review; production preference storage/validation, full theme contrast/fidelity and detailed feature/role/offline/accessibility/fallback specification before explicit implementation authorization. Future weather must retain existing opt-in/server/provider/credential gates. No merge, tag, release or deployment. Owner count remains 41; next is the special 42nd. Saved local checkpoint permits resumption after shutdown; no unattended continuation configured.
 
 ---
 
