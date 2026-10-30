@@ -12,6 +12,8 @@ Copied byte-for-byte from the owner's `VMN_Release_42_Design_Reference.zip`, ent
 
 [Read-only readiness audit](readiness-audit.md) records architecture evidence, gaps, preservation requirements and proposed validation gates. Its recommendations do not authorize implementation.
 
+[Three interaction studies](interaction-directions.md) explore Horizon, Atelier and Constellation after the owner's 2026-10-30 approval to prepare alternatives across the whole experience, prioritizing beauty/design and compatibility with existing themes. These are local visual prototypes, not application changes or a final navigation decision.
+
 ## What is approved
 
 - A serious, cinematic deep-space atmosphere with restrained starfields, planetary horizons and subtle light.

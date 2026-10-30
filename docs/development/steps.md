@@ -18,6 +18,8 @@ For every completed task, add a concise completion note, tests/checks performed,
 
 ## Current state — resume here
 
+**Release 42 interaction exploration (2026-10-30):** the owner approved preparing several alternatives across the full experience, prioritizing beauty/design and keeping existing themes compatible, with the current interface retained as fallback if feasible. Three fictional local visual studies — **Horizon, Atelier, Constellation** — now cover desktop/phone navigation and independent tool views; [comparison and captures](../design/release-42/interaction-directions.md), details in 34.1. No direction selected and no application redesign or publication performed.
+
 **Release 42 preparation (2026-10-30):** reviewed draft PR #72, added the exact owner-supplied desktop/phone PNG and completed the [read-only readiness audit](../design/release-42/readiness-audit.md). Architecture supports a separately approved prototype; interaction/accessibility/feature coverage and fallback remain unspecified, so this is not implementation or release readiness. Preparation details and limits: section 34. No redesign, migration, version bump, tag, merge, publication or deployment. Owner count stays 41; the next release remains the special 42nd.
 
 **Released 41 (2026-10-28): v0.8.0-beta.0 (12.46).** Bring, refreshed everyday themes, README screenshots and dependency patches are published. PR #71 CI `40780932632`, final main CI `40781987643` and tagged Release `40782615890` passed. Full suite: 197 files / 1,534 tests; browser: 11 passed / 1 intentional skip. Native amd64/arm64 publishing images passed smoke tests and fixable HIGH/CRITICAL scans. Multi-architecture index `sha256:53a484d78ab93467c887cc2a72c1c3b45fedb181bd4732fd2f8ee09bc412c3d9` was signed and CycloneDX SBOM-attested by the workflow. The exact digest-pinned pulled amd64 image passed version/revision-label checks, smoke testing and populated upgrade/backup/Workspace export/restore from digest-pinned 0.7.2-beta.3: schema 59→60, existing row counts preserved, foreign keys clean, integrity ok, and a second restored Workspace created without lingering restore marks. This is workflow evidence, not independent local cosign verification. Source/tag commit `f6e843f4661fcff93e5ebf7bbc7b2596e107bfe2`; no live installation updated. The next owner-counted release is the special 42nd; its treatment remains undecided.
@@ -5049,6 +5051,23 @@ One shared UI provider compares server totals only after successful same-scope m
 **Security surface changed:** NO — static reference and documentation only; no application, credential, permission, data flow, schema or dependency change. **Security docs updated:** N/A; current normative policy remains unchanged.
 
 **Remaining:** separately review an interaction prototype/specification, complete feature/role/state map, accessibility/phone behavior and rollout/fallback before authorizing implementation; run candidate-specific release gates later. No redesign, merge, version bump, tag, container publication, GitHub Release or deployment performed. The next owner-counted release is the reserved **42nd**; count remains **41** after v0.8.0-beta.0, with final milestone acceptance still to be agreed.
+
+---
+
+### 34.1 Full-experience interaction studies (owner approved 2026-10-30)
+
+**Status:** DONE (visual exploration only)
+**Completed:** 2026-10-30
+
+**Accepted:** prepare multiple navigation/interaction concepts; cover the whole experience with beauty/design as the emphasis; existing themes should work as well, retaining the current interface as a fallback if feasible. This authorizes isolated prototypes, not production implementation or release.
+
+**Implemented:** interactive in-chat comparison of **Horizon** (landscape + labelled dock), **Atelier** (editorial composition + tool curtain), and **Constellation** (spatial objects + Explore). Desktop/phone layouts include Today, Clock, Weather, Procedures, guided Run, Calendar and every other navigable tool, plus profile/Workspace settings/history/Trash and local detail/create surfaces. Local List/Step interactions demonstrate feedback only. Appearance previews cover Space, System, Light/Memento, Tokyo Nights, Witch Forest, four Places, a fictional photo substitute and No image; a clearly labelled current-interface fallback sketch demonstrates reachability, not a real application fallback. Two new generated Space background studies use desktop/portrait compositions; the exact approved reference is untouched. [Design record](../design/release-42/interaction-directions.md) holds concepts, limits, prompts and 11 WebP captures (~365 KB). No production source, schema, provider, dependency or stored preference changed; owner-provided untracked assets preserved.
+
+**Tests/checks:** local Chromium walkthrough of three directions, all listed destinations, 12 appearance choices, local List/Run state and fallback; zero page errors. Home and four representative tool/settings views at 390/320 px have no horizontal overflow after correcting an orbital decoration. Twelve axe A/AA app-surface checks pass (home/chooser, three directions, desktop/320 px); keyboard Escape, reduced-motion zero-animation and forced-colors checks performed. Bundled standalone wrapper counter contrast was flagged outside the mocked application; documented rather than modifying host controls. Representative desktop/phone/theme/Run captures visually inspected; local documentation links, unchanged approved PNG hash, diff scope and whitespace verified. No production full-suite/build or real-device/screen-reader certification claimed.
+
+**Security surface changed:** NO — fictional local visual exploration and documentation; no application calls, live data, credentials, authorization or persistent domain changes. **Security docs updated:** N/A.
+
+**Remaining:** owner selects a direction or combination. Detailed feature/role/disabled/offline states, full theme fidelity, authoring/admin/security/recovery flows and rollout/fallback specification still require review before production work. No merge, version bump, tag, release, container push or deployment. Owner count remains 41; the special 42nd is reserved.
 
 ---
 
