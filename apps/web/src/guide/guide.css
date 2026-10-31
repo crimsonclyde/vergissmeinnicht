@@ -45,7 +45,7 @@
 :root[data-theme='space-guide'] .shell[data-layout='guide'] .today-hero .guide-art { grid-column: 1 / -1; grid-row: 1; height: 12rem; }
 :root[data-theme='space-guide'] .shell[data-layout='guide'] .today-hero > :not(.guide-art) { background: var(--surface); padding: 1rem; align-self: stretch; }
 :root[data-theme='space-guide'] .shell[data-layout='guide'] .today-card { padding: 0; }
-:root[data-theme='space-guide'] .shell[data-layout='guide'] .today-card > :not(.guide-art) { background: var(--surface); margin: 0; padding: .9rem 1rem; }
+:root[data-theme='space-guide'] .shell[data-layout='guide'] .today-card:not(.today-moon) > :not(.guide-art) { background: var(--surface); margin: 0; padding: .9rem 1rem; }
 :root[data-theme='space-guide'] .shell[data-layout='guide'] .today-card .today-rows { padding-top: 0; }
 :root[data-theme='space-guide'] .shell[data-layout='guide'] .today-hello-text { padding: .6rem 1rem; border-radius: 1rem; background: var(--surface); }
 :root[data-theme='space-guide'] .shell[data-layout='guide'] :is(.today-toolbar, .source-footer) { background: var(--surface); border-radius: .75rem; padding: .5rem; }

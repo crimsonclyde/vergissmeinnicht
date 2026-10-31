@@ -135,3 +135,53 @@ test('Guide preserves routes, preferences, themes and private opt-in weather acr
   expect(requests.filter(url => !url.startsWith('http://127.0.0.1:3101/'))).toEqual([]);
   expect((await post('/api/account/preferences', { guide: DEFAULT_GUIDE_PREFERENCES })).status).toBe(200);
 });
+
+test('Celestial instrument preserves astronomy and reflows across themes at 320px through desktop', async ({ page }, testInfo) => {
+  test.setTimeout(180_000);
+  const email = `celestial-${randomUUID()}@example.org`;
+  const password = 'a fictional celestial review passphrase';
+  const database = openDatabase(guideServerEnv.DATABASE_PATH);
+  let workspaceId: string;
+  try {
+    const user = await createUserRepository(database).create({ email: normalizeEmail(email), displayName: 'Celestial reviewer', emailVerified: true, status: 'ACTIVE', serverAdmin: false });
+    database.sqlite.prepare("INSERT INTO accounts(id,account_id,provider_id,user_id,password,created_at,updated_at) VALUES(?,?,'credential',?,?,?,?)").run(randomUUID(), user.id, user.id, await hashPassword(password), Date.now(), Date.now());
+    workspaceId = insertLegacyWorkspace(database, { name: 'Fictional observatory', adminUserId: user.id }).id;
+    database.sqlite.prepare("INSERT INTO workspace_tools (workspace_id,tool,enabled,updated_at,updated_by_user_id) VALUES(?,'MOON',1,?,?)").run(workspaceId, Date.now(), user.id);
+    database.sqlite.prepare('UPDATE workspaces SET location=? WHERE id=?').run(JSON.stringify({ name: 'Göggingen', latitude: 48.33, longitude: 10.87, timeZone: 'Europe/Berlin', elevation: null }), workspaceId);
+  } finally { database.close(); }
+  const errors: string[] = [];
+  page.on('pageerror', error => errors.push(error.message));
+  await page.goto('/');
+  await page.getByLabel('Email').fill(email); await page.getByLabel('Password').fill(password);
+  await page.getByRole('button', { name: 'Sign in', exact: true }).click();
+  await expect(page.getByRole('button', { name: /^Settings/ })).toBeVisible();
+  await page.goto(`/w/${workspaceId}`);
+  const card = page.getByRole('region', { name: 'Celestial', exact: true });
+  await expect(card).toBeVisible();
+  await expect(card.locator('time')).toHaveCount(4);
+  for (const label of ['Sunrise', 'Sunset', 'Moonrise', 'Moonset', 'Illumination', 'Next full moon']) await expect(card).toContainText(label);
+  for (const theme of ['light', 'dark', 'tokyo-nights', 'witch-forest', 'places-de', 'space-guide']) {
+    const answer = await page.evaluate(async theme => fetch('/api/account/preferences', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ theme }) }).then(r => r.status), theme);
+    expect(answer).toBe(200); await page.reload(); await expect(card).toBeVisible();
+    for (const width of [320, 390, 768, 1440]) {
+      await page.setViewportSize({ width, height: 1000 });
+      expect(await page.evaluate('document.documentElement.scrollWidth <= innerWidth')).toBe(true);
+      const instrument = card.locator('.celestial-instrument');
+      expect(await instrument.evaluate(el => el.scrollWidth <= el.clientWidth)).toBe(true);
+      const sun = await card.locator('.celestial-sun').boundingBox();
+      const moon = await card.locator('.celestial-moon').boundingBox();
+      const art = await card.locator('.celestial-art').boundingBox();
+      if (sun === null || moon === null || art === null) throw new Error('Missing celestial layout');
+      expect(sun.x).toBeLessThan(moon.x);
+      if (width <= 390) { expect(sun.y).toBeGreaterThanOrEqual(art.y + art.height); expect(moon.y).toBe(sun.y); }
+      if (theme === 'light' || width === 320) await expectAccessible(page, `Celestial ${theme} ${width}`);
+      if (theme === 'space-guide') await card.screenshot({ path: `/tmp/celestial-${width}-${testInfo.project.name}.png` });
+    }
+  }
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  expect(await card.evaluate(el => el.getAnimations({ subtree: true }).length)).toBe(0);
+  await page.emulateMedia({ forcedColors: 'active' });
+  await expect(card.locator('.celestial-art')).toBeHidden();
+  await expect(card).toContainText('Sunrise'); await expect(card).toContainText('Moonrise');
+  expect(errors).toEqual([]);
+});

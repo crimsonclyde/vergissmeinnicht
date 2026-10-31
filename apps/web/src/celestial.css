@@ -1,0 +1,72 @@
+/* A contained astronomical instrument, shared by every application theme. No motion/downloads. */
+.today-moon {
+  --celestial-bg: #060f1d;
+  --celestial-text: #e7eef9;
+  --celestial-muted: #b8c8df;
+  --celestial-gold: #f2ca83;
+  --celestial-edge: #52627a;
+  container-type: inline-size;
+  min-width: 0;
+}
+.celestial-instrument {
+  color: var(--celestial-text);
+  background:
+    radial-gradient(ellipse at 48% 42%, #1a293c 0, transparent 60%),
+    radial-gradient(circle at 12% 22%, #9eafc4 0 1px, transparent 1.5px),
+    radial-gradient(circle at 80% 65%, #9eafc4 0 .7px, transparent 1.2px),
+    var(--celestial-bg);
+  background-size: auto, 97px 113px, 131px 89px, auto;
+  border: 1px solid var(--celestial-edge);
+  border-radius: 1rem;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  grid-template-areas: 'heading heading' 'art art' 'sun moon' 'footer footer';
+  align-items: center;
+  padding: clamp(.75rem, 3cqi, 1.5rem);
+  gap: .6rem 0;
+  isolation: isolate;
+  position: relative;
+  overflow: hidden;
+  font-family: var(--font-body, inherit);
+}
+.celestial-instrument :is(h3, h4, p, dl, dd) { margin: 0; color: inherit; }
+.celestial-heading { grid-area: heading; min-width: 0; text-align: center; }
+.celestial-heading > span { display: block; color: var(--celestial-muted); font-size: .75rem; letter-spacing: .14em; overflow-wrap: anywhere; }
+.celestial-heading h3 { font: 400 clamp(1.2rem, 5cqi, 1.8rem) Georgia, serif; letter-spacing: .22em; padding-block: .5rem; text-transform: uppercase; }
+.celestial-heading i { display: block; width: 2.3rem; height: 2px; background: var(--celestial-gold); margin: .2rem auto; }
+.celestial-art { grid-area: art; display: block; width: 100%; min-width: 0; height: auto; }
+.celestial-orbits { stroke: var(--celestial-gold); opacity: .65; }
+.celestial-orbit-points { fill: var(--celestial-gold); }
+.celestial-moon-dark { fill: #0d1a2b; }
+.celestial-readings { min-width: 0; align-self: stretch; padding: .5rem .4rem; text-align: center; }
+.celestial-sun { grid-area: sun; }
+.celestial-moon { grid-area: moon; border-left: 1px solid var(--celestial-edge); }
+.celestial-readings h4 { font-size: .8rem; text-transform: uppercase; letter-spacing: .22em; font-weight: 500; margin-bottom: .75rem; }
+.celestial-sun h4 { color: var(--celestial-gold); }
+.celestial-readings dl { display: grid; gap: .9rem; }
+.celestial-event { min-width: 0; display: flex; flex-direction: column; gap: .25rem; }
+.celestial-event dt { display: flex; flex-direction: column; align-items: center; font-size: .75rem; color: var(--celestial-muted); gap: .2rem; }
+.celestial-event dd { font-size: .95rem; line-height: 1.5; color: var(--celestial-gold); overflow-wrap: anywhere; font-variant-numeric: tabular-nums; }
+.celestial-event-icon { width: 1.5rem; height: 1.5rem; flex-shrink: 0; }
+.celestial-phase { font-size: .8rem; line-height: 1.5; }
+.celestial-instrument .celestial-illumination { font-size: .8rem; color: var(--celestial-gold); margin: .3rem 0 .9rem; }
+.celestial-zone { display: block; margin-bottom: .25rem; }
+.celestial-footer { grid-area: footer; text-align: center; font-size: .75rem; line-height: 1.6; color: var(--celestial-muted); padding-top: .5rem; overflow-wrap: anywhere; }
+@container (min-width: 46rem) {
+  .celestial-instrument {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 2.1fr) minmax(0, 1fr);
+    grid-template-areas: 'heading art moon' 'sun art moon' 'footer footer footer';
+    gap: .5rem;
+  }
+  .celestial-heading h3 { font-size: 1.4rem; letter-spacing: .16em; }
+  .celestial-readings dl { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .6rem; }
+  .celestial-event dd { font-size: 1.05rem; }
+  .celestial-moon { border: 0; align-self: center; }
+  .celestial-sun { align-self: start; }
+}
+@media (forced-colors: active) {
+  .celestial-art, .celestial-heading i { display: none; }
+  .celestial-instrument { color: CanvasText; background: Canvas; border-color: CanvasText; }
+  .celestial-instrument :is(h4, p, span, dt, dd) { color: CanvasText; }
+  .celestial-moon { border-color: CanvasText; }
+}
