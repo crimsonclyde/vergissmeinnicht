@@ -1,4 +1,5 @@
 import { randomUUID } from 'node:crypto';
+import { spawnSync } from 'node:child_process';
 import { cpSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -82,4 +83,19 @@ it('upgrades a populated beta.2 database and restores its verified backup with o
     database.close();
     rmSync(dir, { recursive: true, force: true });
   }
+});
+
+
+it('the image upgrade verifier permits a patch with no migration but still rejects data loss and downgrade', () => {
+  const shell = readFileSync(new URL('../../../deploy/upgrade-check.sh', import.meta.url), 'utf8');
+  const comparison = /node -e '([^']+)' "\$before" "\$after"/.exec(shell)?.[1];
+  if (comparison === undefined) throw new Error('Upgrade comparison missing');
+  const before = { workspaces: 1, workspace_tools: 8, users: 1, __gamification: 0, __level: 61, __fk: 0, __integrity: 'ok' };
+  const status = (old: typeof before, next: typeof before) => spawnSync(process.execPath, ['-e', comparison, JSON.stringify(old), JSON.stringify(next)]).status;
+  expect(status(before, before)).toBe(0);
+  expect(status(before, { ...before, __level: 62 })).toBe(0);
+  for (const next of [{ ...before, __level: 60 }, { ...before, users: 0 }, { ...before, __fk: 1 }, { ...before, __integrity: 'corrupt' }]) expect(status(before, next)).toBe(1);
+  const preGamification = { ...before, __level: 58 };
+  expect(status(preGamification, { ...before, workspace_tools: 9, __gamification: 1 })).toBe(0);
+  expect(status(preGamification, before)).toBe(1);
 });

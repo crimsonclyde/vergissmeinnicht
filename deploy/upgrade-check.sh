@@ -17,7 +17,7 @@ cleanup() { docker rm -f vmn-upgrade-old vmn-upgrade-new >/dev/null 2>&1 || true
 trap cleanup EXIT
 cleanup; docker volume rm -f $VOL >/dev/null
 
-echo "== beta.2: migrate, bootstrap, serve, populate"
+echo "== published image: migrate, bootstrap, serve, populate"
 docker run --rm -v $VOL:/data "${ENVS[@]}" $OLD migrate | tail -1
 link=$(docker run --rm -v $VOL:/data "${ENVS[@]}" $OLD admin-bootstrap --email admin@example.org | grep -o '/invite/[A-Za-z0-9_-]*')
 docker run -d --name vmn-upgrade-old -v $VOL:/data -p $PORT:3000 "${ENVS[@]}" $OLD >/dev/null
@@ -31,7 +31,8 @@ docker run --rm -v $VOL:/data "${ENVS[@]}" "$NEW" migrate | tail -2
 after=$(count "$NEW"); echo "after:  $after"
 # Every existing row stays. Migration 0058 adds one enabled Gamification flag per old Workspace;
 # both the flag count and total tool-row increase must match exactly. All other counts stay equal.
-node -e 'const [b,a]=process.argv.slice(1).map((x)=>JSON.parse(x));const gamificationUpgrade=b.__level<59&&a.__level>=59;const expected=(k)=>gamificationUpgrade&&(k==="workspace_tools"||k==="__gamification")?b[k]+b.workspaces:b[k];const bad=Object.keys(b).filter((k)=>k!=="__level"&&expected(k)!==a[k]);if(bad.length>0||a.__fk!==0||a.__integrity!=="ok"||a.__level<=b.__level){console.error("upgrade changed:",bad,a.__fk,a.__integrity);process.exit(1)}' "$before" "$after"
+# A patch may keep the schema level; a lower level still fails.
+node -e 'const [b,a]=process.argv.slice(1).map((x)=>JSON.parse(x));const gamificationUpgrade=b.__level<59&&a.__level>=59;const expected=(k)=>gamificationUpgrade&&(k==="workspace_tools"||k==="__gamification")?b[k]+b.workspaces:b[k];const bad=Object.keys(b).filter((k)=>k!=="__level"&&expected(k)!==a[k]);if(bad.length>0||a.__fk!==0||a.__integrity!=="ok"||a.__level<b.__level){console.error("upgrade changed:",bad,a.__fk,a.__integrity);process.exit(1)}' "$before" "$after"
 docker run -d --name vmn-upgrade-new -v $VOL:/data -p $PORT:3000 "${ENVS[@]}" "$NEW" >/dev/null
 wait_ready vmn-upgrade-new
 node "$here/upgrade-check-client.mjs" verify http://localhost:$PORT
