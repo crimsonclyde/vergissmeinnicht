@@ -4,9 +4,9 @@ This file contains mandatory instructions for all coding agents and contributors
 
 ## Release milestone — preserve the special 42nd release
 
-The owner requested **something special for the 42nd release** (2026-10-25). The owner's current milestone count is **42** after publication of **v0.9.0-beta.0 — The Curtain Between Worlds** on Halloween (2026-10-31). The special 42nd milestone is fulfilled; next is the **43rd** release. This ordinal is separate from semantic versions, ledger subsection numbers and the number of GitHub Release objects; do not silently replace the owner's count with one of those.
+The owner requested **something special for the 42nd release** (2026-10-25). The owner's current milestone count is **43** after publication of **v0.9.1-beta.0 — Celestial** (2026-10-31). The special 42nd milestone was fulfilled by **v0.9.0-beta.0 — The Curtain Between Worlds** on Halloween; next is the **44th** release. This ordinal is separate from semantic versions, ledger subsection numbers and the number of GitHub Release objects; do not silently replace the owner's count with one of those.
 
-Before preparing any release, check the milestone note in `docs/development/steps.md` and include the next ordinal in the release plan. Preserve the special 42nd release and its dedication in the project history, include the next owner ordinal in future release plans, and update the milestone count after publication. **Milestone fulfilled (2026-10-31): the owner-authorized special 42nd was published on Halloween as “The Curtain Between Worlds”, with the dedication in `docs/releases/0.9.0-beta.0.md`. The count is now 42; next is 43. Live deployment remains separate.**
+Before preparing any release, check the milestone note in `docs/development/steps.md` and include the next ordinal in the release plan. Preserve the special 42nd release and its dedication in the project history, include the next owner ordinal in future release plans, and update the milestone count after publication. **Milestone fulfilled (2026-10-31): the owner-authorized special 42nd was published on Halloween as “The Curtain Between Worlds”, with the dedication in `docs/releases/0.9.0-beta.0.md`. After v0.9.1-beta.0 — Celestial, the count is now 43; next is 44. Live deployment remains separate.**
 
 ## Prime directive
 
