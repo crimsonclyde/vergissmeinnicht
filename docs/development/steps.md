@@ -18,6 +18,8 @@ For every completed task, add a concise completion note, tests/checks performed,
 
 ## Current state — resume here
 
+**Release 42 implementation planning (2026-10-31):** resumed preparation and wrote the [incremental implementation plan](../design/release-42/implementation-plan.md), including full feature/state coverage, personal menu/Today preferences, existing Places opacity compatibility, clock/weather privacy, accessibility/assets and reversible rollout gates. Focused baseline: 8 files / 84 tests passed. Details in 34.6. Next: owner reviews final prototype and plan, resolves production navigation/preference-scope/fallback decisions and explicitly authorizes implementation. No production changes or release; count remains 41, next special 42nd.
+
 **Release 42 prototype checkpoint (2026-10-30):** latest owner-requested refinement is complete: time and weather icon/temperature in the top bar, expanded weather on press, and Profile previews of Glass/Starfield card backgrounds with adjustable opacity. [Prototype record](../design/release-42/full-guide-prototype.md), details in 34.5. Latest interactive artifact: `galactic-guide-bar.html` in the design chat. Next: owner review, then detailed implementation planning; no production implementation or release authorized. Local work is not scheduled to continue after PC shutdown.
 
 **Release 42 full interactive Guide prototype (2026-10-30):** owner explicitly chose to finish the full prototype before production implementation. The [reviewable study](../design/release-42/full-guide-prototype.md) now has floating illustrations for every tool, including the requested fireplace/supermarket/Tesla coil and water pump, a one-column Guide chooser, all tool views and representative local workflows. Power illustrates Equipment and Water plants is an ordinary Reminder; neither adds utility monitoring. Details in 34.3; no production redesign, release or deployment authorized.
@@ -5126,6 +5128,17 @@ One shared UI provider compares server totals only after successful same-scope m
 **Tests/checks:** complete local Chromium destination/creation/escaping/private-shared Journal/List/Run reason/Undo/completion/history walkthrough; 12 appearances/fallback; desktop/390/320 px no checked overflow or page errors. Targeted top-bar layout/taps, four condition icons, background styles and opacity endpoints/intermediate values pass. Twenty axe A/AA app-surface scans pass; reduced motion zero animations, forced colors and visual review. Only approved viewer static CDN script loads; no unexpected application/provider requests. JS syntax, local links, source-size bound, unchanged approved PNG hash, documentation-only scope and whitespace checked. No production suite/build or physical-device/screen-reader certification claimed.
 **Security surface changed:** NO. **Security docs updated:** N/A.
 **Remaining:** owner review; production preference storage/validation, full theme contrast/fidelity and detailed feature/role/offline/accessibility/fallback specification before explicit implementation authorization. Future weather must retain existing opt-in/server/provider/credential gates. No merge, tag, release or deployment. Owner count remains 41; next is the special 42nd. Saved local checkpoint permits resumption after shutdown; no unattended continuation configured.
+
+---
+
+### 34.6 Incremental implementation and compatibility plan (2026-10-31)
+
+**Status:** DONE (preparation/documentation only)
+**Completed:** 2026-10-31
+**Implemented:** resumed from the saved Guide prototype and created the [implementation plan](../design/release-42/implementation-plan.md). Records accepted design versus proposed storage/navigation/rollout decisions, seven reviewable work packages, all tool/account/security/offline states, theme compatibility, existing Places opacity preservation, saved personal menu/Today choices, weather opt-in/cache/credential boundaries, accessibility and proposed asset budgets. No application source, schema, stored preference or security behavior changed; no new imagery generated. Exact reference and unrelated owner assets preserved.
+**Tests/checks:** `pnpm exec vitest run apps/web/src/theme.test.ts apps/web/src/contrast.test.ts apps/web/src/today-cards.test.ts apps/web/src/today-view.test.ts packages/domain/src/places.test.ts apps/server/src/http/preferences.test.ts apps/server/src/http/workspace-preferences.test.ts apps/server/src/http/places.test.ts --maxWorkers=2` — **8 files / 84 tests passed**. These are existing baseline tests, not tests of an implemented redesign. Read-only source/architecture/security/ledger review; local documentation links, reference integrity, whitespace and documentation-only diff scope checked. No new browser/full-suite/build/device/advisory/container/performance result claimed.
+**Security surface changed:** NO. **Security docs updated:** N/A; plan requires security checklist/negatives with future preference persistence or sensitive-flow changes.
+**Remaining:** owner prototype/plan review, production navigation/persistence-scope/fallback decisions, explicit implementation authorization and subsequent candidate validation. No merge, migration, tag, publication or deployment. Owner count remains 41, next special 42nd; final treatment/version undecided.
 
 ---
 

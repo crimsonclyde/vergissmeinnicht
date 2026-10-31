@@ -57,11 +57,13 @@ The top bar shows time plus only a weather condition icon and temperature. Both 
 
 **Saved checkpoint:** latest interactive source is `galactic-guide-bar.html` in the design chat's durable visualization folder. Resume with owner review of this prototype, then detailed implementation planning; application implementation still requires explicit authorization. This local session is not scheduled to continue after computer shutdown.
 
+See the [incremental implementation plan](implementation-plan.md) for production feature coverage, compatibility and remaining decisions.
+
 ## Verification and limits
 
 The local Chromium walkthrough checks all 13 Guide choices (11 structural/navigable destinations plus Clock and Weather), Water reminder navigation/status, contextual creation and literal HTML-like text, List checks, seven-Step reasons/Undo/completion blocking/history, private/shared Journal separation and the account-security overview. It checks 12 appearance choices, fallback switching and representative desktop/390/320 px layouts with no horizontal overflow or page errors.
 
-Twenty app-surface axe A/AA scans cover Today, Guide, Run, Create, Reminder detail, Profile, private Journal account security, Clock and Weather at desktop and 320 px. They pass with no violations. Escape, forced colors and reduced motion (zero running animations) were checked. The bundled standalone renderer loads three approved static CDN scripts (Floating UI core/dom and Lucide); no unexpected, application or forecast-provider requests were observed. These are prototype checks, not production authentication, accessibility, phone-device or screen-reader certification.
+Twenty app-surface axe A/AA scans cover Today, Guide, Run, Create, Reminder detail, Profile, private Journal, account security, Clock and Weather at desktop and 320 px. They pass with no violations. Escape, forced colors and reduced motion (zero running animations) were checked. The bundled standalone renderer loads three approved static CDN scripts (Floating UI core/dom and Lucide); no unexpected, application or forecast-provider requests were observed. These are prototype checks, not production authentication, accessibility, phone-device or screen-reader certification.
 
 Targeted checks also cover compact bar layout/taps, all four weather fixtures, Glass/Starfield and opacity endpoints/intermediate values. Image alpha/integrity, documentation links/JSON, unchanged approved-reference SHA-256, JavaScript syntax, whitespace and documentation-only Git scope were checked. The inline source is below 1 MB. Desktop/phone/chooser and representative tool captures were visually inspected. The production suite/build/container scans were not rerun because no production source, dependency, schema or configuration changed.
 

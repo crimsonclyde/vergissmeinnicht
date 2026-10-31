@@ -46,3 +46,5 @@ The next tasks are (1) audit architecture and constraints; (2) prototype navigat
 **Release numbering:** the next owner-counted Release 42 is reserved for the major experience milestone; the count remains 41 after v0.8.0-beta.0. No version tag, container-image publication or published release during preparation. The reference PNG above is documentation only.
 
 Latest prototype checkpoint: compact time/weather top bar, expanded forecast on press, and preview controls for personal Glass/Starfield card backgrounds and opacity. See the [full prototype record](full-guide-prototype.md). Production implementation and release remain outside this task.
+
+[Incremental implementation plan](implementation-plan.md) (2026-10-31) records feature/state coverage, theme/preference compatibility, proposed work packages and remaining decisions. Planning does not authorize production implementation or publication.
