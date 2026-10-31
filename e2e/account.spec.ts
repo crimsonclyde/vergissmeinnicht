@@ -279,12 +279,12 @@ test('first server admin: bootstrap link, account creation, sign-in, Workspace c
   // Moon and bundled Journal (27): admin gate, explicit Save, private/shared separation and archive.
   const moduleHome = new URL(page.url()).pathname;
   await page.goto(`${moduleHome}/plugins`);
-  for (const name of ['The Moon', 'Journal']) {
+  for (const name of ['Celestial', 'Journal']) {
     const toggle = page.getByRole('checkbox', { name: new RegExp(`^${name}`) });
     await toggle.check(); await expect(toggle).toBeEnabled();
   }
   await sections.getByRole('link', { name: 'Today', exact: true }).click();
-  const moonCard = page.getByRole('region', { name: 'The Moon', exact: true });
+  const moonCard = page.getByRole('region', { name: 'Celestial', exact: true });
   await expect(moonCard).toContainText('Illumination');
   await expect(moonCard).toContainText('Next full moon');
   await expect(moonCard).toContainText('Set a Workspace location');
@@ -327,12 +327,12 @@ test('first server admin: bootstrap link, account creation, sign-in, Workspace c
   await expect(page.getByRole('button', { name: /My private field notes/ })).toHaveCount(0);
   // Restore the tool set expected by the older checks below; disabling preserves the entries.
   await page.goto(`${moduleHome}/plugins`);
-  for (const name of ['The Moon', 'Journal']) {
+  for (const name of ['Celestial', 'Journal']) {
     const toggle = page.getByRole('checkbox', { name: new RegExp(`^${name}`) });
     await toggle.uncheck(); await expect(toggle).toBeEnabled();
   }
   await sections.getByRole('link', { name: 'Today', exact: true }).click();
-  await expect(page.getByRole('region', { name: 'The Moon', exact: true })).toHaveCount(0);
+  await expect(page.getByRole('region', { name: 'Celestial', exact: true })).toHaveCount(0);
 
   // Add (15.1): a chooser with what this person may create; Escape closes it and focus returns.
   const addButton = page.getByRole('button', { name: 'Add', exact: true });
@@ -1514,7 +1514,7 @@ test('first server admin: bootstrap link, account creation, sign-in, Workspace c
   await expect(page).toHaveURL(/\/account\/today$/);
   const cardSettings = page.getByRole('list', { name: 'Cards' });
   await expect(cardSettings.getByRole('listitem').first()).toContainText('Clock & date');
-  await expect(cardSettings.getByRole('listitem').nth(1)).toContainText('The Moon');
+  await expect(cardSettings.getByRole('listitem').nth(1)).toContainText('Celestial');
   await expect(cardSettings.getByRole('listitem').nth(2)).toContainText('Weather');
   await expect(cardSettings.getByRole('listitem').nth(3)).toContainText('Needs attention');
   await expectAccessible(page, 'today settings');

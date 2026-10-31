@@ -142,5 +142,8 @@ export function formatRelative(value: string | Date, now: Date = new Date()): st
   return format.format(0, 'minute');
 }
 
-/** Location-local lunar events; the zone is printed so it cannot be mistaken for device time. */
-export function formatMoonTime(value: Date, timeZone: string): string { return new Intl.DateTimeFormat(formatLocale(), { timeZone, hour: '2-digit', minute: '2-digit', timeZoneName: 'short' }).format(value); }
+/** Location-local astronomical events; omit the repeated zone only when the card labels it once. */
+export function formatMoonTime(value: Date, timeZone: string, showZone = true): string { return new Intl.DateTimeFormat(formatLocale(), { timeZone, hour: '2-digit', minute: '2-digit', ...(showZone ? { timeZoneName: 'short' as const } : {}) }).format(value); }
+
+/** Astronomy instants use the configured place timezone, including next-full dates. */
+export function formatMoonDateTime(value: Date, timeZone?: string): string { return new Intl.DateTimeFormat(formatLocale(), { ...(timeZone === undefined ? {} : { timeZone }), dateStyle: 'medium', timeStyle: 'short' }).format(value); }

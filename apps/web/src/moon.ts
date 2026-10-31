@@ -1,4 +1,4 @@
-import { getMoonIllumination, getMoonTimes } from 'suncalc';
+import { getMoonIllumination, getMoonTimes, getTimes } from 'suncalc';
 import type { WeatherLocation } from '@vergissmeinnicht/domain';
 import { todayIn } from './schedule-dates.ts';
 
@@ -25,15 +25,20 @@ export function moonAt(now: Date, location: WeatherLocation | null) {
   const illumination = getMoonIllumination(now);
   const phase = MOON_PHASES[Math.round(illumination.phase * 8) % 8] as MoonPhase;
   let rise: Date | null = null; let set: Date | null = null;
+  let sunrise: Date | null = null; let sunset: Date | null = null;
   if (location !== null) {
     const day = todayIn(location.timeZone, now);
     const utcMidnight = Math.floor(now.getTime() / DAY) * DAY;
     // SunCalc v2 uses UTC days; select events by the location's civil date, including DST/polar days.
-    for (const offset of [-1, 0, 1]) {
+    for (const offset of [-2, -1, 0, 1, 2]) {
       const times = getMoonTimes(new Date(utcMidnight + offset * DAY), location.latitude, location.longitude);
+      // Standard apparent horizon: stored elevation is above sea level, not observer height above the horizon.
+      const sun = getTimes(new Date(utcMidnight + offset * DAY), location.latitude, location.longitude);
+      if (sun.sunrise != null && Number.isFinite(sun.sunrise.getTime()) && todayIn(location.timeZone, sun.sunrise) === day) sunrise = sun.sunrise;
+      if (sun.sunset != null && Number.isFinite(sun.sunset.getTime()) && todayIn(location.timeZone, sun.sunset) === day) sunset = sun.sunset;
       if (times.rise !== undefined && Number.isFinite(times.rise.getTime()) && todayIn(location.timeZone, times.rise) === day) rise = times.rise;
       if (times.set !== undefined && Number.isFinite(times.set.getTime()) && todayIn(location.timeZone, times.set) === day) set = times.set;
     }
   }
-  return { phase, fraction: illumination.fraction, waxing: illumination.waxing, nextFull: nextFullMoon(now), rise, set };
+  return { phase, fraction: illumination.fraction, waxing: illumination.waxing, nextFull: nextFullMoon(now), rise, set, sunrise, sunset };
 }

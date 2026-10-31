@@ -3,6 +3,7 @@ import css from './styles.css?raw';
 import scene from './tokyo-nights.css?raw';
 import everyday from './everyday-themes.css?raw';
 import forest from './witch-forest.css?raw';
+import celestial from './celestial.css?raw';
 import { PLACE_LIST } from './places/registry.ts';
 
 /** Token values of one `selector { … }` block of the stylesheet. */
@@ -268,4 +269,13 @@ describe('theme contrast (WCAG AA)', () => {
       expect(new Set(states).size).toBe(4);
     }
   });
+});
+
+it('keeps Celestial instrument labels readable on its brightest and darkest painted surfaces', () => {
+  const palette = Object.fromEntries([...celestial.matchAll(/--celestial-([a-z]+):\s*(#[0-9a-f]{6})/g)].map(match => [match[1], match[2]]));
+  for (const background of [palette['bg'], '#1a293c']) for (const key of ['text', 'muted', 'gold']) {
+    const foreground = palette[key];
+    if (foreground === undefined || background === undefined) throw new Error('Missing Celestial token');
+    expect(contrast(foreground, background)).toBeGreaterThanOrEqual(4.5);
+  }
 });
