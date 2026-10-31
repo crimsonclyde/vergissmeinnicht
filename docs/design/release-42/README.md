@@ -1,6 +1,6 @@
 # Release 42 — Approved visual direction
 
-> **Status:** The owner authorized implementation of the reviewed Guide prototype and plan on 2026-10-31. Earlier preparation-only instructions below record the original phase; ledger 34.7 records the implementation and validation. Publication is still unauthorized.
+> **Status:** The owner authorized implementation of the reviewed Guide prototype and plan on 2026-10-31. Earlier preparation-only instructions below record the original phase; ledger 34.7 records the implementation and validation. The owner subsequently authorized Halloween publication; [v0.9.0-beta.0 — The Curtain Between Worlds](https://github.com/crimsonclyde/vergissmeinnicht/releases/tag/v0.9.0-beta.0) is the published special 42nd release.
 
 ## Reference image
 

@@ -1,6 +1,6 @@
 # Guide implementation — 2026-10-31
 
-The owner authorized implementation after reviewing the prototype and plan. Guide is now the default authenticated interface across themes, with the optional **Galactic Guide** theme and an explicit **Existing interface** fallback in Profile → Appearance. No release, merge or deployment has been performed; owner count remains 41, next special 42nd.
+The owner authorized implementation after reviewing the prototype and plan. Guide is now the default authenticated interface across themes, with the optional **Galactic Guide** theme and an explicit **Existing interface** fallback in Profile → Appearance. Published on Halloween as [v0.9.0-beta.0 — The Curtain Between Worlds](https://github.com/crimsonclyde/vergissmeinnicht/releases/tag/v0.9.0-beta.0), the owner's special 42nd release. No live installation was changed.
 
 ![Implemented Guide on desktop](directions/implemented-guide-desktop.webp)
 
