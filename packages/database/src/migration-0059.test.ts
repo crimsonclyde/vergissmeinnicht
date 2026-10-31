@@ -22,10 +22,10 @@ it('0059 preserves populated flags/preferences/points and permits ten reviewed n
   db.sqlite.prepare("INSERT INTO user_preferences(user_id,theme,critical_confirm,private_gamification,navigation_order,updated_at) VALUES(?,'dark','tap-confirm',0,'[\"EQUIPMENT\"]',123)").run(user.id);
   db.sqlite.prepare('INSERT INTO progress_awards VALUES(?,?,10,123)').run('a'.repeat(64), user.id);
   const flags = db.sqlite.prepare('SELECT * FROM workspace_tools').all();
-  const prefs = db.sqlite.prepare('SELECT * FROM user_preferences').all();
+  const prefs = db.sqlite.prepare('SELECT user_id,theme,critical_confirm,private_gamification,navigation_order,updated_at FROM user_preferences').all();
   db.close(); runMigrations(path); db = openDatabase(path);
   expect(db.sqlite.prepare('SELECT * FROM workspace_tools').all()).toEqual(flags);
-  expect(db.sqlite.prepare('SELECT * FROM user_preferences').all()).toEqual(prefs);
+  expect(db.sqlite.prepare('SELECT user_id,theme,critical_confirm,private_gamification,navigation_order,updated_at FROM user_preferences').all()).toEqual(prefs);
   expect(db.sqlite.prepare('SELECT points FROM progress_awards').get()).toEqual({ points: 10 });
   expect(db.sqlite.prepare("SELECT count(*) n FROM workspace_tools WHERE tool='BRING'").get()).toEqual({ n: 0 });
   db.sqlite.prepare('UPDATE user_preferences SET navigation_order=?').run(JSON.stringify(NAVIGATION_TOOLS));

@@ -42,7 +42,7 @@ export function createPreferencesRepository({ db }: Pick<AppDatabase, 'db'>): Pr
   return {
     async find(userId) {
       const row = db.select().from(userPreferences).where(eq(userPreferences.userId, userId)).get();
-      return row && { theme: row.theme, criticalConfirm: row.criticalConfirm, navigationOrder: row.navigationOrder, privateGamification: row.privateGamification };
+      return row && { guide: row.guide, theme: row.theme, criticalConfirm: row.criticalConfirm, navigationOrder: row.navigationOrder, privateGamification: row.privateGamification };
     },
 
     async save(userId, preferences, at) {

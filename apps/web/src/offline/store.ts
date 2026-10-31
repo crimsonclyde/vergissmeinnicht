@@ -261,6 +261,18 @@ export const offlineStore = {
       return entry?.value as CurrentUser | undefined;
     }, undefined),
 
+  /** Private Guide presentation, using the same account-scoped cleanup as Today settings. */
+  saveGuidePreferences: (userId: string, guide: unknown) =>
+    safely(async () => {
+      const entry: ContextEntry = { key: `guide:${userId}`, userId, value: guide };
+      await withStore(CONTEXT, 'readwrite', (store) => store.put(entry));
+    }, undefined),
+  loadGuidePreferences: (userId: string) =>
+    safely(async () => {
+      const entry = await withStore<ContextEntry | undefined>(CONTEXT, 'readonly', (store) => store.get(`guide:${userId}`) as IDBRequest<ContextEntry | undefined>);
+      return entry?.userId === userId ? entry.value : undefined;
+    }, undefined),
+
   /** The person's Today layout as last received (19.2), so Today keeps their cards offline. Deleted on sign-out. */
   saveTodayLayout: (userId: string, layout: unknown) =>
     safely(async () => {

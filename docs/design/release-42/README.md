@@ -1,6 +1,6 @@
 # Release 42 — Approved visual direction
 
-> **Status:** Visual direction approved; interactions and implementation details remain exploratory. This folder is a design reference, not an instruction to start the redesign.
+> **Status:** The owner authorized implementation of the reviewed Guide prototype and plan on 2026-10-31. Earlier preparation-only instructions below record the original phase; ledger 34.7 records the implementation and validation. Publication is still unauthorized.
 
 ## Reference image
 
@@ -48,3 +48,7 @@ The next tasks are (1) audit architecture and constraints; (2) prototype navigat
 Latest prototype checkpoint: compact time/weather top bar, expanded forecast on press, and preview controls for personal Glass/Starfield card backgrounds and opacity. See the [full prototype record](full-guide-prototype.md). Production implementation and release remain outside this task.
 
 [Incremental implementation plan](implementation-plan.md) (2026-10-31) records feature/state coverage, theme/preference compatibility, proposed work packages and remaining decisions. Planning does not authorize production implementation or publication.
+
+Implementation authorization: “yeah thats it. Run the implementation” (2026-10-31). See ledger 34.7 and the decisions appended to the [plan](implementation-plan.md). The approved reference PNG remains unchanged.
+
+[Working implementation and validation](implementation-status.md) records the authorized implementation, real application captures, compatibility and remaining release gates.

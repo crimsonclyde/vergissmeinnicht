@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { createContext, useContext, useCallback, useEffect, useMemo, useState } from 'react';
 import { api } from './api.ts';
 import { offlineStore } from './offline/store.ts';
 import { layoutOf, resolveTodayLayout, type TodaySettings } from './today-cards.ts';
@@ -8,10 +8,18 @@ import { layoutOf, resolveTodayLayout, type TodaySettings } from './today-cards.
  * use (deleted on sign-out with the rest of the device data). Until it is known the defaults apply.
  * `save` shows the change at once and stores it; a refused save is reported and the saved state comes back.
  */
-export function useTodaySettings(userId: string): { settings: TodaySettings; loaded: boolean; save: (next: TodaySettings | null) => Promise<void> } {
+export interface TodaySettingsValue { settings: TodaySettings; loaded: boolean; save: (next: TodaySettings | null) => Promise<void> }
+export const TodaySettingsContext = createContext<TodaySettingsValue | null>(null);
+export function useTodaySettings(userId: string): TodaySettingsValue {
+  const shared = useContext(TodaySettingsContext);
+  const local = useStoredTodaySettings(userId, shared === null);
+  return shared ?? local;
+}
+function useStoredTodaySettings(userId: string, enabled: boolean): TodaySettingsValue {
   const [stored, setStored] = useState<unknown>(undefined);
 
   useEffect(() => {
+    if (!enabled) return;
     let active = true;
     api.todayLayout().then(
       (layout) => {
@@ -27,7 +35,7 @@ export function useTodaySettings(userId: string): { settings: TodaySettings; loa
     return () => {
       active = false;
     };
-  }, [userId]);
+  }, [userId, enabled]);
 
   const save = useCallback(
     async (next: TodaySettings | null) => {

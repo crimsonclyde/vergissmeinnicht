@@ -1,3 +1,7 @@
+import { TodaySettingsProvider } from './guide/TodaySettingsProvider.tsx';
+import { GuideNavigation } from './guide/GuideNavigation.tsx';
+import { GuideGlance } from './guide/GuideGlance.tsx';
+import type { CSSProperties } from 'react';
 import { BringPage } from './Bring.tsx';
 import { destinations, type Destination } from './navigation.ts';
 import { ProgressProvider } from './Progress.tsx';
@@ -90,6 +94,22 @@ function ToolNavigation({ workspaceId, tools, page, phone = false }: { workspace
   const { preferences } = usePreferences();
   const nav = destinations(workspaceId, tools, preferences.navigationOrder);
   return phone ? <PlacesNavigation items={nav.bar} all={nav.side} page={page} /> : <nav aria-label={t('shell.tools')} className="side-nav"><NavLinks items={nav.side} page={page} /></nav>;
+}
+
+
+function ShellFrame({ focus, page, children }: { focus: 'edit' | 'run' | undefined; page: Page; children: ReactNode }) {
+  const { preferences } = usePreferences();
+  const guide = preferences.guide;
+  return <div className="shell" data-layout={guide.layout} data-card-style={guide.cardStyle} data-guide-images={guide.images} data-focus={focus} data-page={page} style={{ '--guide-card-opacity': `${guide.cardOpacity}%` } as CSSProperties}>{children}</div>;
+}
+function ClassicNavigation({ workspaceId, tools, page, phone = false }: { workspaceId: string | null; tools: readonly string[]; page: Page; phone?: boolean }) {
+  const { preferences } = usePreferences();
+  return preferences.guide.layout === 'classic' && workspaceId !== null ? <ToolNavigation workspaceId={workspaceId} tools={tools} page={page} phone={phone} /> : null;
+}
+function GuideHeader({ workspaceId, tools, page, userId }: { workspaceId: string | null; tools: readonly string[]; page: Page; userId: string }) {
+  const { preferences } = usePreferences();
+  if (preferences.guide.layout !== 'guide') return null;
+  return <div className="guide-header-tools">{workspaceId !== null && <GuideNavigation key={`${workspaceId}:${page}:${tools.join(' ')}`} workspaceId={workspaceId} tools={tools} page={page} />}<GuideGlance key={workspaceId ?? 'account'} userId={userId} workspaceId={workspaceId} /></div>;
 }
 
 /** Loads the Workspace (name, role, capabilities) for the Workspace pages. */
@@ -531,7 +551,8 @@ export function AppShell(props: { user: CurrentUser; route: Route; onSignOut: ()
   return (
     // Appearance shows the default theme, so choosing it there is seen at once; elsewhere the theme
     // the person chose for the Workspace shown (or last used) applies (section 28).
-    <PreferencesProvider key={user.id} workspaceId={route.page === 'account' && route.section === 'appearance' ? null : navWorkspaceId}><ProgressProvider userId={user.id} workspaceId={workspaceId} tools={navTools} privateScope={route.page === 'account' && route.section === 'journal'}>
+    <PreferencesProvider key={user.id} userId={user.id} workspaceId={route.page === 'account' && route.section === 'appearance' ? null : navWorkspaceId}><ProgressProvider userId={user.id} workspaceId={workspaceId} tools={navTools} privateScope={route.page === 'account' && route.section === 'journal'}>
+      <TodaySettingsProvider userId={user.id}>
       <RingPaint />
       {/* Places (section 30): the person's own look of the Workspace shown; strongest on Today. */}
       <PlaceScene userId={user.id} workspaceId={navWorkspaceId} prominence={route.page === 'workspace' ? 'today' : 'page'} />
@@ -545,7 +566,7 @@ export function AppShell(props: { user: CurrentUser; route: Route; onSignOut: ()
       >
         {t('shell.skipToContent')}
       </a>
-      <div className="shell" data-focus={focus} data-page={route.page}>
+      <ShellFrame focus={focus} page={route.page}>
         <header className="shell-side">
           {/* The product name is the page's level-one heading; each page's own title is a level-two heading. */}
           <h1 className="brand-heading">
@@ -568,7 +589,8 @@ export function AppShell(props: { user: CurrentUser; route: Route; onSignOut: ()
               </select>
             </label>
           )}
-          {navWorkspaceId !== null && <ToolNavigation workspaceId={navWorkspaceId} tools={navTools} page={route.page} />}
+          <ClassicNavigation workspaceId={navWorkspaceId} tools={navTools} page={route.page} />
+          <GuideHeader workspaceId={navWorkspaceId} tools={navTools} page={route.page} userId={user.id} />
           <SettingsMenu user={user} avatar={avatar} workspaceId={navWorkspaceId} currentPath={window.location.pathname} onSignOut={signOut} />
         </header>
         <div className="shell-main">
@@ -579,8 +601,8 @@ export function AppShell(props: { user: CurrentUser; route: Route; onSignOut: ()
             <SourceFooter />
           </main>
         </div>
-        {navWorkspaceId !== null && <ToolNavigation workspaceId={navWorkspaceId} tools={navTools} page={route.page} phone />}
-      </div>
-    </ProgressProvider></PreferencesProvider>
+        <ClassicNavigation workspaceId={navWorkspaceId} tools={navTools} page={route.page} phone />
+      </ShellFrame>
+    </TodaySettingsProvider></ProgressProvider></PreferencesProvider>
   );
 }

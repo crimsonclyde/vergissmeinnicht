@@ -1,6 +1,6 @@
 # Release 42 — implementation plan for review
 
-**Prepared:** 2026-10-31. **Status:** planning only; no production implementation authorized. This plan follows the [full interactive prototype](full-guide-prototype.md) and [read-only readiness audit](readiness-audit.md). The owner chose Constellation and requested a full prototype first. “Continue” resumes that preparation; it does not override the earlier instruction not to implement or publish.
+**Prepared:** 2026-10-31. **Updated status:** owner subsequently authorized implementation (“yeah thats it. Run the implementation”). The text below preserves the reviewed plan; implemented decisions and checks are recorded in ledger 34.7. Publication remains unauthorized. This plan follows the [full interactive prototype](full-guide-prototype.md) and [read-only readiness audit](readiness-audit.md). The owner chose Constellation and requested a full prototype first. “Continue” resumes that preparation; it does not override the earlier instruction not to implement or publish.
 
 Owner-counted release **41** is published; the next is the special **42nd**. Its final treatment, semantic version and publication remain undecided. A prototype is evidence for design review, not release readiness.
 
@@ -85,3 +85,8 @@ Current evidence: the existing prototype has its documented walkthrough and 20 a
 After implementation authorization, each package needs focused regression checks, then the exact candidate must pass repository lint/typecheck/unit/browser, CSP, theme/contrast/reflow, role/tool isolation, offline replay/account cleanup, preference migration/upgrade and Workspace/server backup/restore. Run native amd64/arm64 smoke/security gates for a release candidate; publication remains a separate owner decision.
 
 **Readiness:** the prototype is available for review and the incremental plan is concrete. Production remains pending final navigation/storage/fallback decisions, authorization, implementation and the evidence above. **Security surface changed by this task:** NO; security-policy update N/A. No application changes, migration, merge, tag, release or deployment.
+
+
+## Implementation decisions after authorization
+
+Use existing personal shortcuts plus Guide in the top area, preserving saved order and enabled-tool gates. Existing Continue remains on its authorized Today Run card. The Guide/classic fallback and new Space card preferences are account-wide, private and excluded from Workspace backups; no new Workspace override is introduced. Guide is the default interface, while Space remains an optional theme. Glass/50%/images-on are defaults only for the new record; existing Places opacity is untouched. Both shells share the same routes and providers. The optional weather/clock presentation moves to the header with existing visibility; the full forecast/settings address is retained. Physical-device/screen-reader and release-candidate/container checks remain release work, not claimed by implementation validation.

@@ -1,5 +1,8 @@
 # Release 42 — full interactive Guide prototype
 
+> **2026-10-31 update:** the owner subsequently authorized implementation. See [working implementation and validation](implementation-status.md) and ledger 34.7. The original dated audit/prototype evidence below remains historical; publication is still outside scope.
+
+
 **Status:** isolated design prototype complete for review, 2026-10-30. The owner explicitly chose **finish the full interactive prototype first**; production implementation remains unapproved. The creative reference is *The Hitchhiker’s Guide to the Galaxy*: an eccentric galactic guidebook, a one-column reading order, recognizable floating everyday objects and concise labels. The latest owner-requested revision puts each image **inside a translucent card**, removes the visible **DON'T PANIC and 42 marks**, and moves the menu to the top. Time and a compact weather icon/temperature now sit in the top bar; pressing either opens its larger view. Today no longer has a separate Clock/Weather row. The release milestone ordinal remains unchanged in project documentation.
 
 The interactive version is presented in the design chat. It contains fictional Northstar studio data and local-only interactions. Neither the application nor any real Workspace is changed. The [approved reference](space-interface-concept.png), [readiness audit](readiness-audit.md) and earlier [interaction studies](interaction-directions.md) remain available.

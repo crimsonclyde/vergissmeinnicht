@@ -96,6 +96,9 @@ test('first server admin: bootstrap link, account creation, sign-in, Workspace c
   await page.getByLabel('Password').fill(PASSWORD);
   await page.getByRole('button', { name: 'Sign in' }).click();
   await expect(page.getByRole('heading', { name: 'Welcome, Ada Admin' })).toBeVisible();
+  // This long regression exercises the preserved interface. Guide has a separate real-server flow.
+  await page.evaluate(async () => { await fetch('/api/account/preferences', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ guide: { layout: 'classic', cardStyle: 'glass', cardOpacity: 50, images: true } }) }); });
+  await page.reload();
   const cookies = await page.context().cookies();
   const session = cookies.find((cookie) => cookie.name.endsWith('vmn.session_token'));
   expect(session).toMatchObject({ httpOnly: true, secure: true, sameSite: 'Strict' });
