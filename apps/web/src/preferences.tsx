@@ -1,10 +1,12 @@
-import { DEFAULT_PREFERENCES, type ThemePreference, type UserPreferences, type WorkspacePreferences } from '@vergissmeinnicht/domain';
-import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
+import { offlineStore } from './offline/store.ts';
+import { DEFAULT_PREFERENCES, NAVIGATION_TOOLS, readGuidePreferences, type ThemePreference, type UserPreferences, type WorkspacePreferences } from '@vergissmeinnicht/domain';
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { api } from './api.ts';
 import { setThemeMode, setWorkspaceThemeMode, storeWorkspaceThemes, storedWorkspaceThemes } from './theme.ts';
 
 interface PreferencesValue {
   readonly preferences: UserPreferences;
+  readonly preferencesSettled: boolean;
   /** Saves to the account; the new value is shown at once and kept if saving fails (next load corrects it). */
   readonly update: (changes: Partial<UserPreferences>) => Promise<void>;
   /** Default Workspace and per-Workspace themes (section 28). */
@@ -18,6 +20,7 @@ interface PreferencesValue {
 
 const PreferencesContext = createContext<PreferencesValue>({
   preferences: DEFAULT_PREFERENCES,
+  preferencesSettled: false,
   update: async () => undefined,
   workspacePreferences: { defaultWorkspaceId: null, themes: {} },
   workspacePreferencesSettled: true,
@@ -29,7 +32,10 @@ const PreferencesContext = createContext<PreferencesValue>({
  * Loads the signed-in user's preferences (Step 8.7, section 28) and applies the theme: the theme the
  * person chose for `workspaceId` (the Workspace being shown, or last used), else their default theme.
  */
-export function PreferencesProvider({ workspaceId, children }: { workspaceId: string | null; children: ReactNode }) {
+export function PreferencesProvider({ userId, workspaceId, children }: { userId: string; workspaceId: string | null; children: ReactNode }) {
+  const mounted = useRef(true);
+  useEffect(() => { mounted.current = true; return () => { mounted.current = false; }; }, []);
+  const [preferencesSettled, setPreferencesSettled] = useState(false);
   const [preferences, setPreferences] = useState<UserPreferences>(DEFAULT_PREFERENCES);
   // Until the account answers, this browser's copy keeps the first paint right.
   const [workspacePreferences, setWorkspacePreferences] = useState<WorkspacePreferences>(() => ({ defaultWorkspaceId: null, themes: storedWorkspaceThemes() }));
@@ -42,9 +48,20 @@ export function PreferencesProvider({ workspaceId, children }: { workspaceId: st
         if (!active) return;
         setPreferences(loaded);
         setThemeMode(loaded.theme);
+        setPreferencesSettled(true);
+        void offlineStore.saveGuidePreferences(userId, { guide: loaded.guide, navigationOrder: loaded.navigationOrder });
       },
       // Presentation only: without the account's values the defaults and this browser's theme stay.
-      () => undefined,
+      async () => {
+        const saved: unknown = await offlineStore.loadGuidePreferences(userId);
+        const copy = saved !== null && typeof saved === 'object' ? saved as Record<string, unknown> : {};
+        const guide = readGuidePreferences(copy.guide);
+        const order = copy.navigationOrder;
+        const navigationOrder = Array.isArray(order) && order.length <= NAVIGATION_TOOLS.length && new Set(order).size === order.length && order.every((tool: unknown) => typeof tool === 'string' && (NAVIGATION_TOOLS as readonly string[]).includes(tool)) ? order as UserPreferences['navigationOrder'] : null;
+        if (!active) return;
+        if (guide !== null) setPreferences(current => ({ ...current, guide, navigationOrder }));
+        setPreferencesSettled(true);
+      },
     );
     api.workspacePreferences().then(
       (loaded) => {
@@ -57,7 +74,7 @@ export function PreferencesProvider({ workspaceId, children }: { workspaceId: st
     return () => {
       active = false;
     };
-  }, []);
+  }, [userId]);
 
   const themeHere = workspaceId === null ? null : (workspacePreferences.themes[workspaceId] ?? null);
   useEffect(() => setWorkspaceThemeMode(themeHere), [themeHere]);
@@ -65,10 +82,13 @@ export function PreferencesProvider({ workspaceId, children }: { workspaceId: st
 
   const update = useCallback(async (changes: Partial<UserPreferences>) => {
     // Menu ordering applies only after the server confirms Save; failed saves keep the current menu.
-    if (changes.navigationOrder === undefined && changes.privateGamification === undefined) setPreferences((current) => ({ ...current, ...changes }));
+    if (changes.navigationOrder === undefined && changes.privateGamification === undefined && changes.guide === undefined) setPreferences((current) => ({ ...current, ...changes }));
     if (changes.theme !== undefined) setThemeMode(changes.theme);
-    setPreferences(await api.updatePreferences(changes));
-  }, []);
+    const saved = await api.updatePreferences(changes);
+    if (!mounted.current) return;
+    setPreferences(saved);
+    void offlineStore.saveGuidePreferences(userId, { guide: saved.guide, navigationOrder: saved.navigationOrder });
+  }, [userId]);
 
   const setWorkspaceTheme = useCallback(async (id: string, theme: ThemePreference | null) => {
     setWorkspacePreferences((current) => ({
@@ -84,8 +104,8 @@ export function PreferencesProvider({ workspaceId, children }: { workspaceId: st
   }, []);
 
   const value = useMemo(
-    () => ({ preferences, update, workspacePreferences, workspacePreferencesSettled: settled, setWorkspaceTheme, setDefaultWorkspace }),
-    [preferences, update, workspacePreferences, settled, setWorkspaceTheme, setDefaultWorkspace],
+    () => ({ preferences, preferencesSettled, update, workspacePreferences, workspacePreferencesSettled: settled, setWorkspaceTheme, setDefaultWorkspace }),
+    [preferences, preferencesSettled, update, workspacePreferences, settled, setWorkspaceTheme, setDefaultWorkspace],
   );
   return <PreferencesContext.Provider value={value}>{children}</PreferencesContext.Provider>;
 }

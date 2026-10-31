@@ -4,6 +4,27 @@
  * Plain text only — never HTML.
  */
 export const en = {
+  'appearance.space-guide': 'Galactic Guide',
+  'appearance.space-guideHint': 'Floating everyday objects in a quiet space scene.',
+  'guide.save': 'Save',
+  'guide.reset': 'Reset',
+  'guide.title': 'Guide',
+  'guide.appearance': 'Interface and cards',
+  'guide.layout': 'Interface',
+  'guide.modern': 'Guide · top navigation',
+  'guide.classic': 'Existing interface',
+  'guide.style': 'Card background',
+  'guide.glass': 'Glass',
+  'guide.starfield': 'Starfield',
+  'guide.opacity': 'Card background opacity',
+  'guide.images': 'Show decorative images in Galactic Guide',
+  'guide.settingsHint': 'Your interface choice follows your account across devices. Card backgrounds and decorative images apply to Galactic Guide; Places keeps its own opacity and photo settings. Text and controls stay readable.',
+  'guide.saved': 'Interface settings saved.',
+  'guide.clockOpen': 'Open clock and date',
+  'guide.weatherOpen': '{condition}, {temperature}{unit}. Open forecast.',
+  'guide.stale': 'Cached forecast',
+  'guide.preview': 'Card preview',
+
   'bring.options': 'Options',
   'error.bring_conflict': 'This item changed meanwhile. Refresh and try again.',
   'error.bring_not_found': 'This item is no longer available.',

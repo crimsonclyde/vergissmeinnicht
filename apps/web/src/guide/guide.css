@@ -1,0 +1,93 @@
+/* The interface is independent of the optional Space appearance. Existing routes and controls remain. */
+:root .shell[data-layout='guide'] { display: flex; flex-direction: column; min-height: 100dvh; --tabbar-height: 0px; }
+:root .shell[data-layout='guide'] .shell-side { position: sticky; top: 0; z-index: 25; display: flex; flex-flow: row wrap; align-items: center; gap: .75rem; width: 100%; height: auto; min-height: 0; padding: max(.65rem, var(--safe-top)) max(1rem, var(--safe-right)) .65rem max(1rem, var(--safe-left)); background: var(--surface); color: var(--text); border: 0; border-bottom: 1px solid var(--border); overflow: visible; }
+:root .shell[data-layout='guide'] .brand-heading { margin: 0; }
+:root .shell[data-layout='guide'] .brand { font-size: 1rem; }
+:root .shell[data-layout='guide'] .brand-icon { width: 28px; height: 28px; }
+:root .shell[data-layout='guide'] .workspace-select { margin: 0; max-width: 16rem; min-width: 0; flex: 0 1 auto; }
+:root .shell[data-layout='guide'] .workspace-select select { width: 100%; min-width: 0; text-overflow: ellipsis; }
+:root .shell[data-layout='guide'] .settings-menu { margin: 0 0 0 auto; }
+:root .shell[data-layout='guide'] .shell-main { min-width: 0; flex: 1; }
+:root .shell[data-layout='guide'] .app-main { padding-top: 1.5rem; padding-bottom: max(2rem, var(--safe-bottom)); margin-inline: auto; }
+:root .shell[data-layout='guide'] .app-main[data-width='wide'] { max-width: 82rem; }
+:root .shell[data-layout='guide'] .today { max-width: 54rem; margin-inline: auto; }
+:root .shell[data-layout='guide'] .today-wide { grid-column: auto; }
+:root .shell[data-layout='guide'][data-focus='edit'] .shell-side { display: none; }
+.guide-header-tools { display: flex; align-items: center; gap: .65rem; flex: 1; min-width: 0; }
+.guide-navigation { display: flex; flex-wrap: wrap; align-items: center; gap: .25rem; min-width: 0; }
+.guide-navigation > :is(a, button) { display: inline-flex; align-items: center; justify-content: center; gap: .45rem; min-height: 44px; min-width: 44px; padding: .55rem .8rem; color: var(--text); text-decoration: none; border: 1px solid transparent; border-radius: 1rem; background: transparent; }
+.guide-navigation > [aria-current='page'] { background: var(--accent-soft); border-color: var(--border-strong); }
+.guide-navigation > :is(a, button):hover { background: var(--surface-muted); }
+.guide-glance { margin-left: auto; display: flex; align-items: center; gap: .3rem; }
+.guide-glance > button { display: inline-flex; align-items: center; gap: .4rem; white-space: nowrap; min-width: 44px; min-height: 44px; padding: .5rem; border-color: var(--border); background: var(--surface); font-variant-numeric: tabular-nums; }
+.guide-weather small { max-width: 6rem; white-space: normal; font-size: .7rem; }
+.guide-dialog { width: min(40rem, calc(100vw - 2rem)); max-height: calc(100dvh - 2rem); padding: 1rem; }
+.guide-dialog-heading { display: flex; align-items: center; justify-content: space-between; gap: .5rem; margin-bottom: 1rem; }
+.guide-dialog-heading h2 { margin: 0; }
+.guide-destinations { display: grid; gap: .8rem; }
+.guide-destination { display: flex; flex-direction: column; overflow: hidden; position: relative; isolation: isolate; border: 1px solid var(--border-strong); border-radius: 1.25rem; background: var(--surface); color: var(--text); text-decoration: none; }
+.guide-destination-caption { display: flex; align-items: center; gap: .75rem; padding: 1rem; background: var(--surface); }
+.guide-destination-caption > :last-child { margin-left: auto; }
+.guide-history { display: flex; align-items: center; gap: .6rem; padding: .75rem; min-height: 44px; }
+.guide-art { display: block; width: 100%; height: 10rem; object-fit: contain; padding: .5rem; pointer-events: none; }
+.guide-appearance fieldset > label { display: grid; gap: .4rem; margin-block: 1rem; }
+.guide-appearance fieldset > label.check-label { display: flex; align-items: center; }
+.guide-appearance select { width: 100%; }
+.guide-card-preview { padding: 1rem; border-radius: 1rem; background: color-mix(in srgb, var(--surface) var(--guide-card-opacity), transparent); border: 1px solid var(--border-strong); }
+.guide-card-preview > span { display: inline-block; padding: .75rem; border-radius: .5rem; color: var(--text); background: var(--surface); }
+.guide-card-preview[data-card-style='starfield'] { background-image: linear-gradient(color-mix(in srgb, var(--surface) var(--guide-card-opacity), transparent), color-mix(in srgb, var(--surface) var(--guide-card-opacity), transparent)), url('./art/space.webp'); background-size: cover; }
+/* Space is opt-in. The protected surfaces carry text, while decorative paint can be transparent. */
+:root[data-theme='space-guide'] body { background: var(--bg); }
+:root[data-theme='space-guide'] .shell[data-layout='guide'][data-guide-images='true'] { background: linear-gradient(rgb(7 17 27 / 35%), rgb(7 17 27 / 65%)), url('./art/space.webp') center / cover fixed; }
+:root[data-theme='space-guide'] .shell[data-layout='guide'] :is(.today-card, .today-hero, .guide-destination) { position: relative; isolation: isolate; overflow: hidden; border: 1px solid var(--border-strong); border-radius: 1.4rem; background: color-mix(in srgb, var(--surface) var(--guide-card-opacity), transparent); box-shadow: var(--shadow-raised); }
+:root[data-theme='space-guide'] .shell[data-layout='guide'][data-card-style='starfield'][data-guide-images='true'] :is(.today-card, .today-hero, .guide-destination) { background-image: linear-gradient(color-mix(in srgb, var(--surface) var(--guide-card-opacity), transparent), color-mix(in srgb, var(--surface) var(--guide-card-opacity), transparent)), url('./art/space.webp'); background-size: cover; }
+:root[data-theme='space-guide'] .shell[data-layout='guide'] .today-hero { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 0; padding: 0; }
+:root[data-theme='space-guide'] .shell[data-layout='guide'] .today-hero .guide-art { grid-column: 1 / -1; grid-row: 1; height: 12rem; }
+:root[data-theme='space-guide'] .shell[data-layout='guide'] .today-hero > :not(.guide-art) { background: var(--surface); padding: 1rem; align-self: stretch; }
+:root[data-theme='space-guide'] .shell[data-layout='guide'] .today-card { padding: 0; }
+:root[data-theme='space-guide'] .shell[data-layout='guide'] .today-card > :not(.guide-art) { background: var(--surface); margin: 0; padding: .9rem 1rem; }
+:root[data-theme='space-guide'] .shell[data-layout='guide'] .today-card .today-rows { padding-top: 0; }
+:root[data-theme='space-guide'] .shell[data-layout='guide'] .today-hello-text { padding: .6rem 1rem; border-radius: 1rem; background: var(--surface); }
+:root[data-theme='space-guide'] .shell[data-layout='guide'] :is(.today-toolbar, .source-footer) { background: var(--surface); border-radius: .75rem; padding: .5rem; }
+:root[data-theme='space-guide'] [data-swatch='space-guide'] { --swatch-bg: var(--bg); --swatch-surface: var(--surface); --swatch-text: var(--text); --swatch-accent: var(--accent); background: #07111b url('./art/space.webp') center / cover; }
+@media (max-width: 55.99rem) {
+  :root .shell[data-layout='guide'] .shell-side { gap: .5rem; padding-inline: max(.65rem, var(--safe-left)); }
+  :root .shell[data-layout='guide'] .brand-long { display: none; }
+  :root .shell[data-layout='guide'] .workspace-select { flex: 1; max-width: none; }
+  :root .shell[data-layout='guide'] .guide-header-tools { order: 5; flex-basis: 100%; gap: .2rem; }
+  .guide-navigation { gap: 0; }
+  .guide-navigation > :is(a, button) { padding: .4rem .45rem; font-size: .8rem; flex-direction: column; gap: .1rem; }
+  .guide-navigation .ui-icon { width: 1rem; height: 1rem; }
+  .guide-glance { gap: .15rem; }
+  .guide-glance > button { padding: .35rem; font-size: .85rem; }
+  .guide-weather small { position: absolute; width: 1px; height: 1px; clip-path: inset(50%); overflow: hidden; }
+  .guide-weather:has(small)::after { content: '·'; color: var(--text); }
+  :root .shell[data-layout='guide'][data-focus='run'] .guide-header-tools { display: none; }
+  :root[data-theme='space-guide'] .shell[data-layout='guide'] .today-hero { grid-template-columns: minmax(0, 1fr) auto; }
+  :root[data-theme='space-guide'] .shell[data-layout='guide'] .today-hero-icon { display: none; }
+  :root[data-theme='space-guide'] .shell[data-layout='guide'] .today-hero > :not(.guide-art) { padding: .8rem; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .shell[data-layout='guide'] { scroll-behavior: auto; }
+}
+@media (forced-colors: active) {
+  :root[data-theme='space-guide'] .shell[data-layout='guide'], :root[data-theme='space-guide'] .shell[data-layout='guide'] :is(.today-card, .today-hero, .guide-destination), .guide-card-preview { background: Canvas !important; color: CanvasText; box-shadow: none; }
+  .guide-art { display: none; }
+}
+/* On narrow phones, scope/settings/glances share row one; all labelled shortcuts fit row two. */
+@media (max-width: 35rem) {
+  :root .shell[data-layout='guide'] .shell-side { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; gap: .4rem; }
+  :root .shell[data-layout='guide'] .brand-heading { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
+  :root .shell[data-layout='guide'] .workspace-select { grid-column: 1; grid-row: 1; }
+  :root .shell[data-layout='guide'] .guide-header-tools { display: contents; }
+  :root .shell[data-layout='guide'] .guide-navigation { grid-column: 1 / -1; grid-row: 2; justify-content: space-around; flex-wrap: nowrap; }
+  :root .shell[data-layout='guide'] .guide-navigation > :is(a, button) { flex: 1; }
+  :root .shell[data-layout='guide'] .guide-glance { grid-column: 2; grid-row: 1; margin: 0; }
+  :root .shell[data-layout='guide'] .settings-menu { grid-column: 3; grid-row: 1; margin: 0; }
+  :root .shell[data-layout='guide'][data-focus='run'] .guide-navigation, :root .shell[data-layout='guide'][data-focus='run'] .guide-glance { display: none; }
+}
+/* The existing sidebar menu opens upwards; the top-bar menu must open into the page. */
+:root .shell[data-layout='guide'] .settings-menu .menu-panel { top: calc(100% + .4rem); bottom: auto; left: auto; right: 0; }
+/* Working pages use a protected reading surface over the scenic background. */
+:root[data-theme='space-guide'] .shell[data-layout='guide']:not([data-page='workspace']) .app-main { width: calc(100% - 2rem); margin: 1.5rem auto; padding: 1.5rem; background: var(--surface); border: 1px solid var(--border); border-radius: 1rem; }
+:root[data-theme='space-guide'] .shell[data-layout='guide'] :is(.app-footer, .today-hello > .ring) { background: var(--surface); border-radius: .75rem; padding: .5rem; }

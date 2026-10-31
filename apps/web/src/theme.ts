@@ -20,7 +20,7 @@ export type ThemeMode = ThemePreference;
  * Theme ids = `data-theme` values; each has a token block (incl. `color-scheme`) in styles.css — except
  * `places` (section 30), whose tokens come from the country registry and are set on <html> by `apply`.
  */
-export const THEMES = ['light', 'dark', 'memento-mori', 'tokyo-nights', 'witch-forest', 'places'] as const;
+export const THEMES = ['light', 'dark', 'memento-mori', 'tokyo-nights', 'witch-forest', 'space-guide', 'places'] as const;
 export type ThemeId = (typeof THEMES)[number];
 
 const STORAGE_KEY = 'vmn.theme';

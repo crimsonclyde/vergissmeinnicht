@@ -6235,3 +6235,32 @@ a.button.today-hero-go {
 .bring summary { display: flex; align-items: center; gap: 0.4rem; min-width: 2.75rem; min-height: 2.75rem; cursor: pointer; }
 .bring summary::before { content: '▸'; }
 .bring details[open] > summary::before { transform: rotate(90deg); }
+
+:root[data-theme='space-guide'] {
+  color-scheme: dark;
+  --bg: #07111b;
+  --surface: #101d2a;
+  --surface-muted: #162738;
+  --surface-raised: #192b3b;
+  --text: #f2f3f0;
+  --text-muted: #bdcbd2;
+  --border: #526574;
+  --border-strong: #8299aa;
+  --accent: #b9dec6;
+  --accent-text: #102333;
+  --accent-soft: #203a32;
+  --danger: #ffb7b4;
+  --focus: #d7e9ab;
+  --brand: #b9dec6;
+  --link: #b9dec6;
+  --on-pending: #290807;
+  --state-pending: #ffb7b4;
+  --state-pending-bg: #3b1d27;
+  --state-done: #9fe1bb;
+  --state-done-bg: #153929;
+  --state-done-text: #102333;
+  --state-skipped: #f1d293;
+  --state-skipped-bg: #3a2f1c;
+  --state-na: #bacde6;
+  --state-na-bg: #243143;
+}

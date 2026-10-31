@@ -1,0 +1,61 @@
+{
+  "purpose": "Full isolated Guide prototype: floating illustrations for existing tools plus a Water plants Reminder. No production upload, water/power monitoring, AI feature or new tool.",
+  "tool": "built-in image_gen",
+  "transparent_background": true,
+  "assets": [
+    {
+      "object": "water",
+      "prompt": "Use case: stylized-concept. Asset: transparent cutout of one recognizable small floating-world object, for an original Hitchhiker-inspired galactic Guide UI. Same coherent style as a warm-lit miniature supermarket on a jagged asteroid: eccentric but serious cinematic miniature, tactile realistic materials, cool blue rim light, warm brass accents, gentle absurdity. Entire object and compact rock visible in a three-quarter view with transparent margin. Actual transparent background. No background scene, room or floor; no rectangular image card; no people, planets, text, readable labels, numbers, logos or UI. An old-fashioned hand-operated water pump on a tiny mossy floating rock, clear blue water trickling into a small stone basin, a few delicate suspended droplets. The pump and water are the clear focus.",
+      "file": "guide-water.webp",
+      "generatedFile": "exec-f2c05d1a-354a-4242-acaf-ef848bc3da15.png"
+    },
+    {
+      "object": "procedures",
+      "prompt": "Use case: stylized-concept. Asset: transparent cutout of one recognizable small floating-world object, for an original Hitchhiker-inspired galactic Guide UI. Same coherent style as a warm-lit miniature supermarket on a jagged asteroid: eccentric but serious cinematic miniature, tactile realistic materials, cool blue rim light, warm brass accents, gentle absurdity. Entire object and compact rock visible in a three-quarter view with transparent margin. Actual transparent background. No background scene, room or floor; no rectangular image card; no people, planets, text, readable labels, numbers, logos or UI. A beautiful open mechanical field guide on a small floating stone plinth, thick cream pages with abstract lines and a few round brass check-mark-like mechanisms, tiny tabs along its edge. A practical book of repeatable instructions, no legible text.",
+      "file": "guide-procedures.webp",
+      "generatedFile": "exec-44c8950e-d9eb-4b42-a7af-606b701a6c44.png"
+    },
+    {
+      "object": "reminders",
+      "prompt": "Use case: stylized-concept. Asset: transparent cutout of one recognizable small floating-world object, for an original Hitchhiker-inspired galactic Guide UI. Same coherent style as a warm-lit miniature supermarket on a jagged asteroid: eccentric but serious cinematic miniature, tactile realistic materials, cool blue rim light, warm brass accents, gentle absurdity. Entire object and compact rock visible in a three-quarter view with transparent margin. Actual transparent background. No background scene, room or floor; no rectangular image card; no people, planets, text, readable labels, numbers, logos or UI. A large charming brass twin-bell alarm clock on a tiny levitating basalt rock, simple ivory face without readable numerals, elegant exposed mechanical details. Recognizable familiar alarm clock, not a sci-fi planet.",
+      "file": "guide-reminders.webp",
+      "generatedFile": "exec-4323de65-d102-4cc1-b261-ace979f3d1c5.png"
+    },
+    {
+      "object": "calendar",
+      "prompt": "Use case: stylized-concept. Asset: transparent cutout of one recognizable small floating-world object, for an original Hitchhiker-inspired galactic Guide UI. Same coherent style as a warm-lit miniature supermarket on a jagged asteroid: eccentric but serious cinematic miniature, tactile realistic materials, cool blue rim light, warm brass accents, gentle absurdity. Entire object and compact rock visible in a three-quarter view with transparent margin. Actual transparent background. No background scene, room or floor; no rectangular image card; no people, planets, text, readable labels, numbers, logos or UI. A small brass orrery with a round date-dial and suspended blank paper calendar leaves above a compact asteroid base, elegant mechanical celestial planning instrument, readable silhouette, no numbers or lettering.",
+      "file": "guide-calendar.webp",
+      "generatedFile": "exec-9966e810-2afb-4546-8088-bfc8b63aa87f.png"
+    },
+    {
+      "object": "bring",
+      "prompt": "Use case: stylized-concept. Asset: transparent cutout of one recognizable small floating-world object, for an original Hitchhiker-inspired galactic Guide UI. Same coherent style as a warm-lit miniature supermarket on a jagged asteroid: eccentric but serious cinematic miniature, tactile realistic materials, cool blue rim light, warm brass accents, gentle absurdity. Entire object and compact rock visible in a three-quarter view with transparent margin. Actual transparent background. No background scene, room or floor; no rectangular image card; no people, planets, text, readable labels, numbers, logos or UI. A sturdy vintage travel trunk with leather straps and a little luggage trolley, perched on a tiny floating stone bridge fragment. A practical object being taken from one place to another, compact and recognizable.",
+      "file": "guide-bring.webp",
+      "generatedFile": "exec-8fd12d7a-1e51-4daf-9746-8b105854644a.png"
+    },
+    {
+      "object": "journal",
+      "prompt": "Use case: stylized-concept. Asset: transparent cutout of one recognizable small floating-world object, for an original Hitchhiker-inspired galactic Guide UI. Same coherent style as a warm-lit miniature supermarket on a jagged asteroid: eccentric but serious cinematic miniature, tactile realistic materials, cool blue rim light, warm brass accents, gentle absurdity. Entire object and compact rock visible in a three-quarter view with transparent margin. Actual transparent background. No background scene, room or floor; no rectangular image card; no people, planets, text, readable labels, numbers, logos or UI. A thick closed olive leather diary with a brass clasp and a fountain pen resting across it, a small paper bookmark, all on a tiny floating mossy rock. Intimate, tactile, recognizably a personal journal rather than a stack of files.",
+      "file": "guide-journal.webp",
+      "generatedFile": "exec-27c78d76-c287-4d72-bf5b-e23d42d416db.png"
+    },
+    {
+      "object": "documents",
+      "prompt": "Use case: stylized-concept. Asset: transparent cutout of one recognizable small floating-world object, for an original Hitchhiker-inspired galactic Guide UI. Same coherent style as a warm-lit miniature supermarket on a jagged asteroid: eccentric but serious cinematic miniature, tactile realistic materials, cool blue rim light, warm brass accents, gentle absurdity. Entire object and compact rock visible in a three-quarter view with transparent margin. Actual transparent background. No background scene, room or floor; no rectangular image card; no people, planets, text, readable labels, numbers, logos or UI. A whimsical compact old metal filing cabinet with three drawers, one open with neatly arranged blank folders and papers, on a small floating stone shelf. Warm brass fittings, readable as a document archive, no text.",
+      "file": "guide-documents.webp",
+      "generatedFile": "exec-0b26fc8d-4d90-4492-a96e-eafb5e1e73df.png"
+    },
+    {
+      "object": "contacts",
+      "prompt": "Use case: stylized-concept. Asset: transparent cutout of one recognizable small floating-world object, for an original Hitchhiker-inspired galactic Guide UI. Same coherent style as a warm-lit miniature supermarket on a jagged asteroid: eccentric but serious cinematic miniature, tactile realistic materials, cool blue rim light, warm brass accents, gentle absurdity. Entire object and compact rock visible in a three-quarter view with transparent margin. Actual transparent background. No background scene, room or floor; no rectangular image card; no people, planets, text, readable labels, numbers, logos or UI. A small original retro-futuristic telephone booth with a hanging curved receiver and warm amber interior light, on a tiny floating rock. Elegant green painted metal and glass. No recognizable brand or sign text; a clear metaphor for reaching people.",
+      "file": "guide-contacts.webp",
+      "generatedFile": "exec-6e05afd2-9477-42e2-b179-84799ff50ddf.png"
+    },
+    {
+      "object": "maintenance",
+      "prompt": "Use case: stylized-concept. Asset: transparent cutout of one recognizable small floating-world object, for an original Hitchhiker-inspired galactic Guide UI. Same coherent style as a warm-lit miniature supermarket on a jagged asteroid: eccentric but serious cinematic miniature, tactile realistic materials, cool blue rim light, warm brass accents, gentle absurdity. Entire object and compact rock visible in a three-quarter view with transparent margin. Actual transparent background. No background scene, room or floor; no rectangular image card; no people, planets, text, readable labels, numbers, logos or UI. A compact open-front repair workshop with a tiny wooden workbench, visible wrench and gears, warm work lamp, all on one little floating rocky island. Simple clear silhouette, a small workshop rather than a whole city.",
+      "file": "guide-maintenance.webp",
+      "generatedFile": "exec-8f64906b-c3aa-4b54-bedd-7752d5d52526.png"
+    }
+  ]
+}

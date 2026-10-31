@@ -1,3 +1,5 @@
+import { usePreferences } from './preferences.tsx';
+import { GuideArt } from './guide/GuideArt.tsx';
 import { EverydaySigil } from './EverydaySigil.tsx';
 import { bringContext } from './Bring.tsx';
 import type { BringTodayView } from './api.ts';
@@ -111,6 +113,7 @@ function HeroCard({ workspaceId, hero }: { workspaceId: string; hero: TodayHero 
           <AppIcon name={icon} decorative size="1.6em" />
         </Ring>
       )}
+      <GuideArt kind={icon === 'chimney' ? 'fireplace' : icon === 'water' || icon === 'plant' ? 'water' : 'procedures'} />
       <div className="today-hero-text">
         <small>{t('today.pickUp')}</small>
         <strong>{title}</strong>
@@ -132,6 +135,7 @@ function TodayCard(props: { id: TodayCardId; icon: UiIconName; title: string; co
   const heading = `today-card-${props.id}`;
   return (
     <section aria-labelledby={heading} className={props.attention === true ? 'card today-card today-card-attention' : 'card today-card'} data-card={props.id}>
+      <GuideArt kind={({ attention: 'reminders', continue: 'procedures', next: 'calendar', toBuy: 'lists', bring: 'bring', maintenance: 'maintenance', recent: 'procedures', progress: 'procedures', calendar: 'calendar', clock: 'reminders', weather: 'calendar', moon: 'calendar' } as const)[props.id]} />
       <h3 id={heading} className="today-card-title">
         <UiIcon name={props.icon} />
         <span>{props.title}</span>
@@ -184,6 +188,8 @@ export function Today(props: {
   onOpenRun: (runId: string) => void;
 }) {
   const { workspaceId } = props;
+  const { preferences } = usePreferences();
+  const guideLayout = preferences.guide.layout === 'guide';
   const { userId, reportReachable, reportUnreachable } = useOffline();
   const [home, setHome] = useState<HomeOverview | null>(null);
   const [bring, setBring] = useState<{ items: BringTodayView[]; total: number } | null>(null);
@@ -201,7 +207,7 @@ export function Today(props: {
   const shownIds = useMemo(() => todayCards(props.tools, settings).map((setting) => setting.card.id).join(' '), [props.tools, settings]);
   const retention = useMemo(() => settings.cards.find((setting) => setting.card.id === 'recent')?.retention ?? 'DAYS_3', [settings]);
 
-  const weather = useMyForecast(userId, loaded && shownIds.split(' ').includes('weather'), workspaceId);
+  const weather = useMyForecast(userId, loaded && !guideLayout && shownIds.split(' ').includes('weather'), workspaceId);
 
   const load = useCallback(() => {
     // Until the person's layout is known nothing is asked for twice.
@@ -425,6 +431,7 @@ export function Today(props: {
   // holds what to act on and the side column the rest, each in the person's order.
   const blocks: ({ kind: 'columns'; main: ReactNode[]; side: ReactNode[] } | { kind: 'wide'; node: ReactNode } | { kind: 'glance'; nodes: ReactNode[] })[] = [];
   for (const setting of cards) {
+    if (guideLayout && (setting.card.id === 'clock' || setting.card.id === 'weather')) continue;
     const node = render(setting);
     if (node === null) continue;
     const last = blocks.at(-1);
@@ -434,7 +441,7 @@ export function Today(props: {
       else blocks.push({ kind: 'glance', nodes: [node] });
       continue;
     }
-    if (setting.size === 'WIDE') {
+    if (guideLayout || setting.size === 'WIDE') {
       blocks.push({ kind: 'wide', node });
       continue;
     }

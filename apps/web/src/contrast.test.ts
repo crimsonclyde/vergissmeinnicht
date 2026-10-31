@@ -28,6 +28,7 @@ function contrast(a: string, b: string): number {
 
 const light = tokens(':root');
 const themes = {
+  'space-guide': { ...light, ...tokens(":root[data-theme='space-guide']") },
   light,
   dark: { ...light, ...tokens(":root[data-theme='dark']") },
   'memento-mori': { ...light, ...tokens(":root[data-theme='memento-mori']") },
@@ -215,7 +216,7 @@ describe('theme contrast (WCAG AA)', () => {
   it('reads every theme token block from the stylesheet, each complete', () => {
     expect(Object.keys(light).length).toBeGreaterThanOrEqual(24);
     // Presets must define every colour token themselves (no accidental fallback to light values).
-    for (const selector of [":root[data-theme='dark']", ":root[data-theme='memento-mori']", ":root[data-theme='tokyo-nights']", ":root[data-theme='witch-forest']", ":root[data-theme='witch-forest'] :is(.guide-card, .today-hero)"]) {
+    for (const selector of [":root[data-theme='space-guide']", ":root[data-theme='dark']", ":root[data-theme='memento-mori']", ":root[data-theme='tokyo-nights']", ":root[data-theme='witch-forest']", ":root[data-theme='witch-forest'] :is(.guide-card, .today-hero)"]) {
       expect(Object.keys(tokens(selector)).sort()).toEqual(Object.keys(light).sort());
     }
   });

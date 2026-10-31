@@ -2,7 +2,7 @@
 //
 // Auth-related tables follow Better Auth's core schema: Drizzle *property* names are the
 // Better Auth field names (e.g. `name`, `emailVerified`), while *column* names are snake_case.
-import type { EquipmentField, NavigationTool, WeatherLocation } from '@vergissmeinnicht/domain';
+import type { EquipmentField, GuidePreferences, NavigationTool, WeatherLocation } from '@vergissmeinnicht/domain';
 import { sql } from 'drizzle-orm';
 import { blob, check, foreignKey, index, integer, primaryKey, real, sqliteTable, text, uniqueIndex, type AnySQLiteColumn } from 'drizzle-orm/sqlite-core';
 import {
@@ -798,12 +798,14 @@ export const userPreferences = sqliteTable(
       .references(() => users.id),
     theme: text('theme', { enum: THEME_PREFERENCES }).notNull(),
     criticalConfirm: text('critical_confirm', { enum: CRITICAL_CONFIRM_MODES }).notNull(),
+    guide: text('guide', { mode: 'json' }).$type<GuidePreferences>().notNull().default(sql`'{"layout":"guide","cardStyle":"glass","cardOpacity":50,"images":true}'`),
     privateGamification: integer('private_gamification', { mode: 'boolean' }).notNull().default(true),
     navigationOrder: text('navigation_order', { mode: 'json' }).$type<readonly NavigationTool[]>(),
     updatedAt: integer('updated_at', { mode: 'timestamp_ms' }).notNull(),
   },
   () => [
     check('user_preferences_theme_valid', sql.raw(`theme in (${THEME_PREFERENCES.map((value) => `'${value}'`).join(', ')})`)),
+    check('user_preferences_guide_valid', sql`json_valid(guide) and length(guide) <= 256 and json_type(guide) = 'object' and json_extract(guide, '$.layout') in ('guide', 'classic') and json_extract(guide, '$.cardStyle') in ('glass', 'starfield') and json_type(guide, '$.cardOpacity') = 'integer' and json_extract(guide, '$.cardOpacity') between 0 and 100 and json_type(guide, '$.images') in ('true', 'false') and json_type(guide, '$.layout') is not null and json_type(guide, '$.cardStyle') is not null and json_type(guide, '$.cardOpacity') is not null and json_type(guide, '$.images') is not null`),
     check('user_preferences_private_gamification', sql`private_gamification in (0, 1)`),
     check('user_preferences_navigation_bound', sql`navigation_order is null or (json_valid(navigation_order) and json_type(navigation_order) = 'array' and json_array_length(navigation_order) <= 10 and length(navigation_order) <= 256)`),
     check(

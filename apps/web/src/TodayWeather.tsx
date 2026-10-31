@@ -10,7 +10,7 @@ type Shown = Extract<MyForecast, { forecast: object }>;
 
 /** The person's forecast for Today, kept on the device for a while (offline, a provider outage). */
 export function useMyForecast(userId: string, wanted: boolean, workspaceId?: string): Shown | null {
-  const [shown, setShown] = useState<{ workspaceId: string | undefined; data: Shown } | null>(null);
+  const [shown, setShown] = useState<{ userId: string; workspaceId: string | undefined; data: Shown } | null>(null);
   useEffect(() => {
     if (!wanted) return;
     let active = true;
@@ -22,20 +22,20 @@ export function useMyForecast(userId: string, wanted: boolean, workspaceId?: str
           setShown(null);
           return;
         }
-        setShown({ workspaceId, data: answer });
+        setShown({ userId, workspaceId, data: answer });
         void offlineStore.saveForecast(userId, answer, workspaceId);
       },
       async (caught: unknown) => {
         // Weather never shows an error on Today: offline, the last forecast (≤ 6 h, with its time); otherwise nothing.
         const saved = isNetworkError(caught) ? ((await offlineStore.loadForecast(userId, workspaceId)) as Shown | undefined) : undefined;
-        if (active) setShown(saved !== undefined && showable(saved.fetchedAt) ? { workspaceId, data: { ...saved, stale: true } } : null);
+        if (active) setShown(saved !== undefined && showable(saved.fetchedAt) ? { userId, workspaceId, data: { ...saved, stale: true } } : null);
       },
     );
     return () => {
       active = false;
     };
   }, [userId, wanted, workspaceId]);
-  return wanted && shown !== null && shown.workspaceId === workspaceId && showable(shown.data.fetchedAt) ? shown.data : null;
+  return wanted && shown !== null && shown.userId === userId && shown.workspaceId === workspaceId && showable(shown.data.fetchedAt) ? shown.data : null;
 }
 
 /**

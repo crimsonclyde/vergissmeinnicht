@@ -29,6 +29,24 @@ export const serverEnv = {
   API_RATE_LIMIT_PER_MINUTE: '2000',
 };
 
+/** Guide fixtures use a separate server/database, so account/bootstrap assertions stay independent. */
+export const guideServerEnv = {
+  ...serverEnv,
+  PORT: '3101',
+  PUBLIC_ORIGIN: 'http://127.0.0.1:3101',
+  DATABASE_PATH: (process.env.VMN_GUIDE_E2E_DATABASE_PATH ??= join(tmpdir(), `vergissmeinnicht-guide-e2e-${process.pid}`, 'vergissmeinnicht.sqlite')),
+};
+
+function webServer(env: typeof serverEnv) {
+  return {
+    command: 'node packages/database/src/migrate.ts && exec node apps/server/src/main.ts',
+    url: `${env.PUBLIC_ORIGIN}/api/health`,
+    env,
+    reuseExistingServer: false,
+    timeout: 120_000,
+  };
+}
+
 export default defineConfig({
   testDir: './e2e',
   forbidOnly: !!process.env.CI,
@@ -36,17 +54,10 @@ export default defineConfig({
   reporter: process.env.CI ? [['list'], ['github']] : [['list'], ['html', { open: 'never' }]],
   use: { baseURL: `http://127.0.0.1:${port}` },
   projects: [
-    { name: 'desktop-chromium', use: { ...devices['Desktop Chrome'] } },
-    { name: 'mobile-chromium', use: { ...devices['Pixel 7'] } },
+    { name: 'desktop-chromium', testIgnore: '**/guide.spec.ts', use: { ...devices['Desktop Chrome'] } },
+    { name: 'mobile-chromium', testIgnore: '**/guide.spec.ts', use: { ...devices['Pixel 7'] } },
+    { name: 'guide-desktop-chromium', testMatch: '**/guide.spec.ts', use: { ...devices['Desktop Chrome'], baseURL: guideServerEnv.PUBLIC_ORIGIN } },
+    { name: 'guide-mobile-chromium', testMatch: '**/guide.spec.ts', use: { ...devices['Pixel 7'], baseURL: guideServerEnv.PUBLIC_ORIGIN } },
   ],
-  webServer: {
-    // Started without a pnpm wrapper (`exec`) so Playwright's teardown stops the server process
-    // itself. `pnpm test:e2e` builds the web assets first.
-    command: 'node packages/database/src/migrate.ts && exec node apps/server/src/main.ts',
-    url: `http://127.0.0.1:${port}/api/health`,
-    // Production mode requires explicit configuration; use throwaway values for the test run.
-    env: serverEnv,
-    reuseExistingServer: false,
-    timeout: 120_000,
-  },
+  webServer: [webServer(serverEnv), webServer(guideServerEnv)],
 });

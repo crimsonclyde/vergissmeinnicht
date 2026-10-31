@@ -3,7 +3,7 @@ import { formatClock, t } from './i18n/index.ts';
 import { useThemeMode } from './theme.ts';
 
 /** The current minute, updated on the minute and when the page becomes visible again (a sleeping tab). */
-function useMinute(): Date {
+export function useMinute(): Date {
   const [now, setNow] = useState(() => new Date());
   useEffect(() => {
     let timer = 0;

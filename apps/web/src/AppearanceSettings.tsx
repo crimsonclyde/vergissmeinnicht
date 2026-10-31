@@ -1,3 +1,4 @@
+import { GuideAppearance } from './guide/GuideAppearance.tsx';
 import { useState, type CSSProperties } from 'react';
 import { placeForTheme } from './places/registry.ts';
 import { messageFor, type WorkspaceSummary } from './api.ts';
@@ -61,6 +62,7 @@ export function AppearanceSettings({ workspaces = null }: { workspaces?: readonl
   return (
     <>
       {message !== null && <p role="alert">{message}</p>}
+      <GuideAppearance />
       <fieldset>
         <legend>{t('appearance.legend')}</legend>
         <p className="muted" style={{ marginTop: 0 }}>

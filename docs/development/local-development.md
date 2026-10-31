@@ -94,7 +94,7 @@ The development defaults (`SMTP_HOST=127.0.0.1`, `SMTP_PORT=1025`, `SMTP_SECURIT
 | `pnpm build` | Build production web assets (`apps/web/dist`) |
 | `pnpm start` | Production server (serves API + built web assets); run `pnpm build` first |
 | `pnpm test` | Vitest unit/integration tests |
-| `pnpm test:e2e` | Builds web assets, then runs Playwright tests (smoke + bootstrap/invite/sign-in/TOTP/recovery flow) against a freshly migrated production-mode server on port 3100 |
+| `pnpm test:e2e` | Builds web assets, then runs Playwright tests (smoke + bootstrap/invite/sign-in/TOTP/recovery flow) against isolated freshly migrated production-mode servers on ports 3100 and 3101 |
 | `pnpm lint` | ESLint incl. architecture boundary rules |
 | `pnpm typecheck` | `tsc` for every package |
 | `pnpm db:generate` | Generate a migration from `packages/database/src/schema.ts` |
@@ -121,3 +121,6 @@ When commands change, update this document and `docs/development/steps.md`.
 CI runs the quality job (audit, lint, typecheck, unit/integration tests), browser job (production build and all Playwright checks) and native image jobs concurrently. The final `check` requires every job to succeed, including both HIGH/CRITICAL image scans. A failed or cancelled dependency cannot pass that gate. Browser accessibility/state checks have not been removed to shorten runtime. `pnpm test:e2e` already builds the web assets; CI no longer builds them twice.
 
 For a comparable local measurement, avoid running image builds/browser captures beside the suite. `pnpm test --reporter=json --outputFile=/tmp/vmn-tests.json` records individual suite timing; compare runs on the same machine and treat one-run differences as approximate. Use file arguments for focused development checks, then run the full required suite before release.
+
+
+Guide browser regressions use separate disposable servers/databases: existing checks run at `127.0.0.1:3100`, and `guide-desktop-chromium` / `guide-mobile-chromium` run at `127.0.0.1:3101`. `pnpm test:e2e` builds and runs both automatically. Guide fixture accounts never enter the bootstrap/account test's database. Both ports must be free; no live installation is used.

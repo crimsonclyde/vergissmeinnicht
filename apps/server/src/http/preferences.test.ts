@@ -1,3 +1,4 @@
+import { DEFAULT_GUIDE_PREFERENCES } from '@vergissmeinnicht/domain';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { startTestApp } from './test-harness.ts';
 
@@ -11,9 +12,9 @@ describe('account preferences API (Step 8.7)', () => {
   afterEach(() => t.close());
 
   it('returns defaults, stores partial changes per account and follows the user to other sessions', async () => {
-    expect((await t.get('/api/account/preferences', bob)).json()).toEqual({ preferences: { theme: 'system', criticalConfirm: 'hold', navigationOrder: null, privateGamification: true } });
+    expect((await t.get('/api/account/preferences', bob)).json()).toEqual({ preferences: { guide: DEFAULT_GUIDE_PREFERENCES, theme: 'system', criticalConfirm: 'hold', navigationOrder: null, privateGamification: true } });
     expect((await t.post('/api/account/preferences', { theme: 'memento-mori' }, bob)).json()).toEqual({
-      preferences: { theme: 'memento-mori', criticalConfirm: 'hold', navigationOrder: null, privateGamification: true },
+      preferences: { guide: DEFAULT_GUIDE_PREFERENCES, theme: 'memento-mori', criticalConfirm: 'hold', navigationOrder: null, privateGamification: true },
     });
     await t.post('/api/account/preferences', { criticalConfirm: 'tap-confirm' }, bob);
     const second = (await t.post('/api/auth/sign-in', { email: 'bob@example.org', password: 'violet anchor lantern marmalade' })).headers[
@@ -21,7 +22,7 @@ describe('account preferences API (Step 8.7)', () => {
     ];
     const cookie = [second ?? []].flat().find((c) => c.startsWith('__Secure-vmn.session_token='))?.split(';')[0] ?? '';
     expect((await t.get('/api/account/preferences', cookie)).json()).toEqual({
-      preferences: { theme: 'memento-mori', criticalConfirm: 'tap-confirm', navigationOrder: null, privateGamification: true },
+      preferences: { guide: DEFAULT_GUIDE_PREFERENCES, theme: 'memento-mori', criticalConfirm: 'tap-confirm', navigationOrder: null, privateGamification: true },
     });
     // Another account is unaffected.
     expect((await t.get('/api/account/preferences', t.admin)).json().preferences.theme).toBe('system');

@@ -7,6 +7,7 @@ import './everyday-themes.css';
 import './tokyo-nights.css';
 import './witch-forest.css';
 import './places.css';
+import './guide/guide.css';
 import { initTheme } from './theme.ts';
 import { watchViewportDrift } from './viewport-drift.ts';
 

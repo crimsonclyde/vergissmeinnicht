@@ -1,0 +1,18 @@
+{
+  "purpose": "Decorative planetary imagery for the isolated single-column Constellation design study; not production artwork, user content or a new upload path.",
+  "tool": "built-in image_gen",
+  "prompts": [
+    {
+      "card": "fireplace",
+      "prompt": "Use case: stylized-concept. Asset type: image-led card background for Constellation, a serious cinematic deep-space interface. This MUST look like outer space and planetary astronomy, not a photograph of an everyday room or object. A wide deep-navy starfield with a single large richly detailed planet occupying the left third, elegant restrained atmosphere and subtle distant light. Dark uncluttered negative space in center and right for readable UI. Premium science-fiction matte painting, believable sphere, gentle bloom, not cartoon. No people, houses, food, furniture, appliance, text, icons, interface, logo or watermark. Lower quarter dark. The planet is warm copper and amber, with a restrained luminous rim, distant solar eclipse glow and delicate volcanic texture, evokes a tiny warm world. Wide landscape composition."
+    },
+    {
+      "card": "groceries",
+      "prompt": "Use case: stylized-concept. Asset type: image-led card background for Constellation, a serious cinematic deep-space interface. This MUST look like outer space and planetary astronomy, not a photograph of an everyday room or object. A wide deep-navy starfield with a single large richly detailed planet occupying the left third, elegant restrained atmosphere and subtle distant light. Dark uncluttered negative space in center and right for readable UI. Premium science-fiction matte painting, believable sphere, gentle bloom, not cartoon. No people, houses, food, furniture, appliance, text, icons, interface, logo or watermark. Lower quarter dark. The planet is muted jade and teal with fine cloud bands and faint emerald atmospheric rim, an elegant living world in quiet dark space, subtle blue nebula far behind. Wide landscape composition."
+    },
+    {
+      "card": "heating",
+      "prompt": "Use case: stylized-concept. Asset type: image-led card background for Constellation, a serious cinematic deep-space interface. This MUST look like outer space and planetary astronomy, not a photograph of an everyday room or object. A wide deep-navy starfield with a single large richly detailed planet occupying the left third, elegant restrained atmosphere and subtle distant light. Dark uncluttered negative space in center and right for readable UI. Premium science-fiction matte painting, believable sphere, gentle bloom, not cartoon. No people, houses, food, furniture, appliance, text, icons, interface, logo or watermark. Lower quarter dark. The planet is ice-blue and silver, detailed cloud swirls, thin delicate rings curving in perspective, faint cold-white atmospheric rim, warm distant starlight. Wide landscape composition."
+    }
+  ]
+}
