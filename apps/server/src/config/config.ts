@@ -16,7 +16,7 @@ export const DEFAULT_API_RATE_LIMIT_PER_MINUTE = 300;
 /** One year; sent only when the public origin is https. */
 const DEFAULT_HSTS_MAX_AGE = 31_536_000;
 /** Secrets that may be given as a file (Docker/Kubernetes secrets) via `<NAME>_FILE`. */
-const FILE_SECRETS = ['AUTH_SECRET', 'DATA_ENCRYPTION_KEY', 'SMTP_PASSWORD'] as const;
+const FILE_SECRETS = ['OPENAI_RECIPE_IMAGE_KEY','AUTH_SECRET', 'DATA_ENCRYPTION_KEY', 'SMTP_PASSWORD'] as const;
 
 /** An IPv4/IPv6 address or CIDR range, or the `loopback` preset. Never "trust everything". */
 function isTrustedProxyEntry(entry: string): boolean {
@@ -58,7 +58,11 @@ const productionLogLevels = ['fatal', 'error', 'warn', 'info', 'silent'] as cons
 
 const envSchema = z
   .object({
-    NODE_ENV: modeSchema,
+    OPENAI_RECIPE_IMAGE_KEY:z.string().min(20).max(1024).optional(),
+    RECIPE_IMAGE_MONTHLY_LIMIT:z.coerce.number().int().min(0).max(10000).default(100),
+    RECIPE_IMAGE_USER_MONTHLY_LIMIT:z.coerce.number().int().min(0).max(1000).default(10),
+    MCP_ENABLED: z.enum(['true','false']).default('false').transform(value=>value==='true'),
+  NODE_ENV: modeSchema,
     HOST: z.string().min(1).default('127.0.0.1'),
     PORT: z.coerce.number().int().min(1).max(65535).default(3000),
     PUBLIC_ORIGIN: z.url({ protocol: /^https?$/ }).optional(),
@@ -162,6 +166,8 @@ const envSchema = z
 export type Mode = z.infer<typeof modeSchema>;
 
 export interface AppConfig {
+  readonly recipeImages:{key:string|undefined;monthlyLimit:number;perUserLimit:number};
+  readonly mcpEnabled:boolean;
   readonly mode: Mode;
   readonly host: string;
   readonly port: number;
@@ -234,6 +240,8 @@ export function loadConfig(env: NodeJS.ProcessEnv, readFile: (path: string) => s
   const production = values.NODE_ENV === 'production';
 
   return Object.freeze({
+    recipeImages:{key:values.OPENAI_RECIPE_IMAGE_KEY,monthlyLimit:values.RECIPE_IMAGE_MONTHLY_LIMIT,perUserLimit:values.RECIPE_IMAGE_USER_MONTHLY_LIMIT},
+    mcpEnabled:values.MCP_ENABLED,
     mode: values.NODE_ENV,
     host: values.HOST,
     port: values.PORT,

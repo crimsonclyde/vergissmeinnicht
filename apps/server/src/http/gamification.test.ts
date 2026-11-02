@@ -61,6 +61,7 @@ it('separates shared and private Journal switches and protects the account setti
   await t.post('/api/account/preferences', { theme: 'dark' }, user);
   expect((await t.get('/api/account/preferences', user)).json().preferences.privateGamification).toBe(false);
   expect((await t.get('/api/account/preferences', outsider)).json().preferences.privateGamification).toBe(true);
+  await t.post('/api/account/journal/privacy',{version:1},user);
   expect((await t.post('/api/account/journal', body, user)).statusCode).toBe(201);
   expect(await total()).toBe(before);
   await plugin(home, true);

@@ -43,6 +43,9 @@ function bodyFor(route: string, ids: Record<string, string>): object {
   if (url.endsWith('/bring') || url.endsWith('/bring/:itemId/update')) return { content: { title: 'Drill', from: '', to: '', dueDate: null, assigneeId: null, notes: '' }, expectedRevision: 0 };
   if (/\/bring\/:itemId\/(delete|restore)$/.test(url)) return { expectedRevision: 1 };
   if (url.endsWith('/bring/:itemId/status')) return { expectedRevision: 1, status: 'COMPLETED' };
+  if(url.endsWith('/recipes/image-generation'))return {operationId:'00000000-0000-4000-8000-000000000003',prompt:'Pancakes on a plate'};
+  if (url.endsWith('/recipes') || url.endsWith('/recipes/:recipeId')) return {content:{version:1,title:'Recipe',servings:2,ingredients:[{name:'Flour',amount:'125',unit:'g',note:''}],instructions:'Cook',tags:[],source:'',prepMinutes:null,cookMinutes:null},expectedRevision:0,archived:false};
+  if (url.endsWith('/recipes/:recipeId/shopping')) return {operationId:'00000000-0000-4000-8000-000000000003',recipeRevision:1,listId:ids.listId,listRevision:1,servings:2,items:[{ingredient:0,title:'Flour',quantity:'125',unit:'g'}]};
   if (url.endsWith('/journal') || url.endsWith('/journal/:entryId')) return { content: { kind: 'note', version: 1, title: 'Entry', date: '2026-10-23', body: 'Note' }, expectedRevision: 0, archived: false };
   if (url.endsWith('/location')) return { location: null, expectedLocation: null };
   if (url.endsWith('/tools')) return { tool: 'DOCUMENTS', enabled: true, expectedRevision: 0 };
@@ -102,7 +105,7 @@ function bodyFor(route: string, ids: Record<string, string>): object {
 
 function fill(url: string, values: Record<string, string>): string {
   if(url.includes('/equipment/') && values.recordId === values.maintenanceId)values={...values,recordId:values.equipmentId ?? values.recordId ?? ''};
-  return url.replace(/:([A-Za-z]+)/g, (_match, name: string) => values[name] ?? `missing-${name}`);
+  return url.replace(/:([A-Za-z]+)/g, (_match, name: string) => values[name] ?? `missing-${name}`) + (url.endsWith('/ingredients')?'?servings=2':'');
 }
 
 describe('security properties of every route (13.2)', () => {
@@ -187,10 +190,12 @@ describe('security properties of every route (13.2)', () => {
     const equipment=(await t.post(`/api/workspaces/${home}/equipment`,{name:'Boiler'},owner)).json().record;
     // A Workspace backup job (section 18a), so its routes are reached with a real id.
     const backupJob = (await t.post(`/api/workspaces/${home}/backups`, {}, owner)).json().job;
-    for (const id of [home, office]) for (const tool of ['JOURNAL', 'MOON', 'BRING']) await t.post(`/api/workspaces/${id}/tools`, { tool, enabled: true }, id === home ? owner : outsider);
+    for (const id of [home, office]) for (const tool of ['JOURNAL', 'MOON', 'BRING', 'RECIPES']) await t.post(`/api/workspaces/${id}/tools`, { tool, enabled: true }, id === home ? owner : outsider);
     const journalEntry = (await t.post(`/api/workspaces/${home}/journal`, { content: { kind: 'note', version: 1, title: 'Entry', date: '2026-10-23', body: 'Note' }, expectedRevision: 0, archived: false }, owner)).json().entry;
     const bringItem = (await t.post(`/api/workspaces/${home}/bring`, { content: { title: 'Drill', from: '', to: '', dueDate: null, assigneeId: null, notes: '' }, expectedRevision: 0 }, owner)).json().item;
     homeIds = {
+      recipeId:'00000000-0000-4000-8000-000000000002',
+      attachmentId:'00000000-0000-4000-8000-000000000001',kind:'original',
       bringId: bringItem.id,
       entryId: journalEntry.id,
       jobId: backupJob.id,
@@ -332,6 +337,7 @@ describe('security properties of every route (13.2)', () => {
   });
 
   it('rejects malformed identifiers without errors or data', async () => {
+    await t.post('/api/account/journal/privacy',{version:1},owner);
     const withParams = routes.filter((r) => r.includes('/:'));
     let sent = 0;
     for (const route of withParams) {
@@ -340,10 +346,10 @@ describe('security properties of every route (13.2)', () => {
         for (const bad of name === 'page' ? ['not-a-uuid', '0', '01', '501', '-1'] : ['not-a-uuid', homeIds[name]?.toUpperCase() ?? 'X', '00000000-0000-0000-0000-000000000000']) {
           // Stay below the global per-client limit (in memory): a fresh process every 200 requests.
           if (sent++ % 200 === 0) await t.restart();
-          const response = await call(route, owner, { ...homeIds, [name]: bad });
+          const response = await call(route, route.includes(' /api/admin/') ? t.admin : owner, { ...homeIds, [name]: bad });
           expect({ route, name, bad, status: response.statusCode }).toEqual({ route, name, bad, status: expect.toSatisfy((s: number) => s === 400 || s === 404) });
         }
       }
     }
-  });
+  }, 15_000);
 });

@@ -123,11 +123,20 @@ describe('Workspace recovery end to end (section 18c): export → restore → co
     await t.addMember(home, 'owner@example.org', 'ADMIN');
     await t.addMember(home, 'helper@example.org', 'USER');
     await t.addMember(home, 'guest@example.org', 'GUEST');
-    for (const tool of ['DOCUMENTS', 'CONTACTS', 'MAINTENANCE', 'EQUIPMENT', 'MOON', 'JOURNAL', 'GAMIFICATION']) await t.post(`${api()}/tools`, { tool, enabled: true }, owner);
+    for (const tool of ['DOCUMENTS', 'CONTACTS', 'MAINTENANCE', 'EQUIPMENT', 'MOON', 'JOURNAL', 'GAMIFICATION', 'RECIPES']) await t.post(`${api()}/tools`, { tool, enabled: true }, owner);
 
-    const note = { kind: 'note', version: 1, title: 'Shared field notes', date: '2026-10-23', body: 'Moss on the northern wall.' };
+    const uploadedNoteImage=await upload(`${api()}/journal/attachments`,owner,PNG,'shared note.png');expect(uploadedNoteImage.statusCode,uploadedNoteImage.body).toBe(201);const noteImage=uploadedNoteImage.json().attachment;
+    const uploadedRecipeImage=await upload(`${api()}/recipes/attachments`,owner,PNG,'pancakes.png');expect(uploadedRecipeImage.statusCode,uploadedRecipeImage.body).toBe(201);
+    const recipeImage=uploadedRecipeImage.json().attachment;
+    const recipeContent={version:1,title:'Portable pancakes',servings:2,ingredients:[{name:'Flour',amount:'125',unit:'g',note:''}],instructions:`Mix and cook.\n\n![Pancakes](attachments/${recipeImage.id}.png)`,tags:['Breakfast'],source:'https://example.org/recipe',prepMinutes:5,cookMinutes:10};
+    const savedRecipe=await t.post(`${api()}/recipes`,{content:recipeContent,expectedRevision:0,archived:false},owner);expect(savedRecipe.statusCode,savedRecipe.body).toBe(201);
+    const note = { kind: 'note', version: 2, title: 'Shared field notes', date: '2026-10-23', body: `Moss on the northern wall.\n\n![Moss](attachments/${noteImage.id}.png)` };
     expect((await t.post(`${api()}/journal`, { content: note, expectedRevision: 0, archived: false }, owner)).statusCode).toBe(201);
+    await t.post('/api/account/journal/privacy',{version:1},owner);
     expect((await t.post('/api/account/journal', { content: { ...note, title: 'Private sentinel', body: 'ACCOUNT_PRIVATE_DO_NOT_EXPORT' }, expectedRevision: 0, archived: false }, owner)).statusCode).toBe(201);
+
+    const privateFile=await upload('/api/account/journal/attachments',owner,PNG2,'PRIVATE_ORIGINAL_DO_NOT_EXPORT.png');expect(privateFile.statusCode).toBe(201);
+    await t.post('/api/account/journal',{content:{...note,title:'Private image',body:`![Private](attachments/${privateFile.json().attachment.id}.png)`},expectedRevision:0,archived:false},owner);
 
     // Procedures with an instruction image; a second one in Trash.
     const image = (await upload(`${api()}/images`, owner, PNG)).json().image as { id: string };
@@ -258,6 +267,15 @@ describe('Workspace recovery end to end (section 18c): export → restore → co
     const again = await exportOf(restored, t.admin);
     const first = await contents(work, original);
     expect(first.tables.get('journal_entries')).toHaveLength(1);
+    expect(first.tables.get('attachments')).toHaveLength(2);
+    expect(first.tables.get('recipes')).toHaveLength(1);
+    expect(JSON.stringify([...first.tables])).not.toContain('PRIVATE_ORIGINAL_DO_NOT_EXPORT');
+    const restoredFile=one<{id:string;charge_user_id:null}>("SELECT id,charge_user_id FROM attachments WHERE workspace_id=? AND policy_key='journal'",restored);expect(restoredFile.charge_user_id).toBeNull();
+    expect((await t.get(`${api(restored)}/journal/attachments/${restoredFile.id}/original`,t.admin)).rawPayload.equals(PNG)).toBe(true);
+    const restoredRecipeFile=one<{id:string;charge_user_id:null}>("SELECT id,charge_user_id FROM attachments WHERE workspace_id=? AND policy_key='recipes'",restored);expect(restoredRecipeFile.charge_user_id).toBeNull();
+    expect((await t.get(`${api(restored)}/recipes/attachments/${restoredRecipeFile.id}/original`,t.admin)).rawPayload.equals(PNG)).toBe(true);
+    const restoredRecipes=(await t.get(`${api(restored)}/recipes`,t.admin)).json().recipes;expect(restoredRecipes[0]).toMatchObject({title:'Portable pancakes',servings:2});expect(restoredRecipes[0].instructions).toContain(restoredRecipeFile.id);
+
     expect(first.tables.get('bring_items')).toHaveLength(2);
     expect((await t.get(`${api(restored)}/bring`, t.admin)).json().items).toMatchObject([{ title: 'Bring drill', assigneeId: null }]);
     expect((await t.get(`${api(restored)}/bring?status=COMPLETED`, t.admin)).json().items[0]).toMatchObject({ title: 'Bring papers', completedBy: 'Olga Öwner' });

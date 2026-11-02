@@ -20,6 +20,7 @@ export interface SettingsLink {
  */
 export function settingsLinks(user: Pick<CurrentUser, 'serverAdmin'>, workspaceId: string | null): SettingsLink[] {
   return [
+    { href: paths.account('journal'), label:'account.section.journal',icon:'documents' },
     { href: paths.account('profile'), label: 'menu.profile', icon: 'profile' },
     ...(workspaceId === null ? [] : [{ href: paths.settings(workspaceId), label: 'menu.workspaceSettings' as const, icon: 'settings' as const }]),
     ...(user.serverAdmin ? [{ href: paths.admin('workspaces'), label: 'shell.serverAdmin' as const, icon: 'server' as const, note: 'menu.adminOnly' as const }] : []),

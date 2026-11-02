@@ -73,8 +73,8 @@ describe('tool navigation', () => {
 
   it('pins the first two enabled personal choices, keeps every tool reachable and marks exactly one phone destination', () => {
     const custom = destinations(W, ['PROCEDURES', 'LISTS', 'EQUIPMENT', 'JOURNAL', 'CALENDAR'], ['DOCUMENTS', 'EQUIPMENT', 'JOURNAL', 'LISTS']);
-    expect(custom.side.map(item => item.label)).toEqual(['Today', 'Equipment', 'Journal', 'Lists', 'Procedures', 'Calendar']);
-    expect(custom.bar.map(item => item.label)).toEqual(['Today', 'Equipment', 'Journal', 'More']);
+    expect(custom.side.map(item => item.label)).toEqual(['Today', 'Equipment', 'Notes', 'Lists', 'Procedures', 'Calendar']);
+    expect(custom.bar.map(item => item.label)).toEqual(['Today', 'Equipment', 'Notes', 'More']);
     for (const page of ['workspace', 'equipment', 'journal', 'lists', 'procedures', 'calendar', 'history', 'more'] as const) {
       expect(custom.bar.filter(item => item.pages.includes(page))).toHaveLength(1);
     }

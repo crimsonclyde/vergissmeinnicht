@@ -4,6 +4,8 @@ import { navigate, paths } from './router.tsx';
 import { UiIcon, type UiIconName } from './ui-icons.tsx';
 
 export interface CanAdd {
+  readonly note?:boolean;
+  readonly journal?:boolean;
   readonly procedure: boolean;
   readonly reminder: boolean;
   readonly list: boolean;
@@ -20,6 +22,8 @@ interface Choice {
 }
 
 const CHOICES: readonly Choice[] = [
+  {key:'note',icon:'documents',label:'add.note',hint:'add.noteHint',href:paths.newNote},
+  {key:'journal',icon:'documents',label:'add.journal',hint:'add.journalHint',href:paths.newJournal},
   { key: 'procedure', icon: 'procedures', label: 'add.procedure', hint: 'add.procedureHint', href: paths.newProcedure },
   { key: 'reminder', icon: 'reminders', label: 'add.reminder', hint: 'add.reminderHint', href: paths.newReminder },
   { key: 'list', icon: 'grocery', label: 'add.list', hint: 'add.listHint', href: paths.newList },

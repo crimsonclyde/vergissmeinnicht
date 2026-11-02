@@ -21,6 +21,7 @@ export const bytesToGigabytes = (bytes: number): string => String(Math.round(byt
 /** What the Workspace stores, by tool — each line names what it counts; only lines with something in them, Trash always. */
 export function storageLines(storage: StorageInfo): { key: string; label: string; value: string }[] {
   return [
+    {key:'attachments',label:t('storage.line.attachments'),bytes:storage.attachmentBytes??0,always:false},
     { key: 'images', label: t('storage.line.images'), bytes: storage.imageBytes, always: false },
     { key: 'documents', label: t('storage.line.documents'), bytes: storage.documentBytes, always: false },
     { key: 'previews', label: t('storage.line.previews'), bytes: storage.previewBytes, always: false },

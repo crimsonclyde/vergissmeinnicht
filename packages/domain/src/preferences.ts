@@ -15,7 +15,7 @@ export const CRITICAL_CONFIRM_MODES = ['hold', 'tap-confirm'] as const;
 export type CriticalConfirmMode = (typeof CRITICAL_CONFIRM_MODES)[number];
 
 /** Navigable tools only: Today and More are structural, Moon is a Today card. */
-export const NAVIGATION_TOOLS = ['PROCEDURES', 'LISTS', 'REMINDERS', 'CALENDAR', 'JOURNAL', 'DOCUMENTS', 'CONTACTS', 'MAINTENANCE', 'EQUIPMENT', 'BRING'] as const;
+export const NAVIGATION_TOOLS = ['PROCEDURES', 'LISTS', 'REMINDERS', 'CALENDAR', 'JOURNAL', 'DOCUMENTS', 'CONTACTS', 'MAINTENANCE', 'EQUIPMENT', 'BRING', 'RECIPES'] as const;
 export type NavigationTool = typeof NAVIGATION_TOOLS[number];
 /** Partial orders keep future/new tools reachable by appending the remaining defaults. */
 export function orderedNavigationTools(order: readonly NavigationTool[] | null): readonly NavigationTool[] {

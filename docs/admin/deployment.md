@@ -10,8 +10,8 @@ Internet ──HTTPS──> Caddy (deploy/Caddyfile, automatic certificates, 172
                          ▼
                    app container (Dockerfile): Fastify API + web app, user `node`, read-only root FS
                          │
-                   volume `data` → /data: SQLite database, WAL files, media/ (instruction photos), documents/ (files of Documents),
-                   backups/ (incl. backups/media/ and backups/documents/)
+                   volume `data` → /data: SQLite database, WAL files, media/ (instruction photos), documents/ (files of Documents), attachments/ (Notes/Journal originals and derivatives),
+                   backups/ (incl. backups/media/, backups/documents/ and backups/attachments/ when present)
 ```
 
 - One application container; no ports published except Caddy's 80/443.
@@ -263,6 +263,7 @@ docker compose exec app vergissmeinnicht backup                        # → /da
 docker compose cp app:/data/backups/<file> ./                          # copy it off the server, then encrypt it
 docker compose cp app:/data/backups/media ./                           # … together with the photos it uses
 docker compose cp app:/data/backups/documents ./                       # … and the document files (may be gigabytes)
+docker compose cp app:/data/backups/attachments ./                     # … Notes/Journal originals and derivatives, if this folder exists
 ```
 
 The backup uses SQLite's online backup API (consistent, includes the WAL), is written with mode `0600`, converted to a single database file and verified (integrity check, foreign keys, expected tables, and every instruction photo present in `backups/media` with the right SHA-256) before the command reports success. Photos are immutable and named by their hash, so consecutive backups share them instead of copying them again; the scheduled backup removes a photo from `backups/media` once no backup file in `/data/backups` uses it any more.
@@ -325,7 +326,7 @@ When the server itself is lost — disk, host, Unraid box — recovery means the
 
 | What | Where it lives | Without it |
 |---|---|---|
-| Server backup: `/data/backups/<file>.sqlite` **with** `backups/media/` and `backups/documents/` | data volume, copied off the host encrypted | everything is lost |
+| Server backup: `/data/backups/<file>.sqlite` **with** `backups/media/`, `backups/documents/` and `backups/attachments/` when present | data volume, copied off the host encrypted | everything is lost |
 | `DATA_ENCRYPTION_KEY` | password manager, **not** with the backups | TOTP stops working for everyone (recovery codes or an admin reset), the Telegram bot token and every weather credential (server-wide and personal) must be entered again |
 | `AUTH_SECRET` | configuration | nothing is lost: a new one only signs everyone out |
 | Configuration (`vergissmeinnicht.env` / Unraid template values, `PUBLIC_ORIGIN`, SMTP, `TRUSTED_PROXIES`, Caddyfile or Tailscale state) | your notes / repository | the server starts with wrong addresses or without email |
@@ -375,3 +376,39 @@ Back up the database and file storage before upgrading. Run the existing `migrat
 ### Guide interface upgrade (Release 42 implementation, not yet published)
 
 Migration **0060_space_guide** rebuilds the two private preference tables to extend their theme allowlists and add bounded Guide settings. Back up the database and file storage before upgrading; use the normal migration command. Existing theme identifiers, confirmations, menu order, private encouragement and per-Workspace choices remain; Places opacity/photos and shared records are unchanged. Guide is the default interface, and users may choose **Profile & settings → Appearance → Existing interface**; the Galactic Guide theme itself is opt-in. No environment variable, service, provider or new upload path is needed. Workspace packages exclude these personal settings, while full server backups retain them. The current server accepts older supported Workspace packages; servers that do not know this migration refuse the newer database. Use a compatible newer build or a pre-upgrade server backup rather than downgrading the database. No release or live deployment is performed by this implementation task.
+
+
+### Notes and Journal image storage
+
+Server admin → Server & storage includes **Journal and Notes image storage**: decimal MB/GB limits,
+20 MB/image and 500 MB/person initially, JPEG/PNG allowlist, per-account overrides (blank inherits;
+zero stops new uploads), usage totals/largest consumers and an optional server managed-storage cap.
+This administration surface contains no private entry titles, bodies, file names, thumbnails or hashes.
+The cap is unset on upgrade and constrains new managed file storage, including Documents/Procedure
+images and profile/background images, when configured. Existing Documents per-file settings and
+Workspace ceilings remain independent. Lowered limits never delete data or block existing downloads.
+
+User quotas count logical original plus retained derivative bytes. Notes also counts toward the
+Workspace limit. Durable, bounded reservations protect concurrent uploads; receiving originals and
+retaining generated bytes each recheck capacity. The local adapter also keeps a free-space margin;
+monitor real disk usage because SQLite/WAL, archives, staging, off-host copies and retained backups
+need additional capacity outside personal live-file allowances. Restore uses its existing archive
+size/free-space checks and a final atomic managed-storage check; allow transient extraction/copy
+headroom. These limits do not reserve filesystem capacity against unrelated host writes.
+
+`/data/attachments` holds immutable originals and separately stored derivatives under random keys;
+identical uploads remain independent. SHA-256 is retained for integrity, not exposed as a download
+capability. Images are processed locally in a cancellable worker (15 seconds, 128 MB JS heap, 50 MP
+input bound; native decoder memory is additionally bounded by pixel/concurrency policy and the
+container memory limit). One attachment image job runs at a time, with bounded upload admission.
+No external image/Markdown/AI processor is used. Preview regeneration repairs the stored recipe only
+when its output matches the retained hash; a recipe migration needs separate reviewed handling.
+
+Full-server backup/verify/restore includes private and shared originals/derivatives in
+`backups/attachments`; keep that directory with its SQLite snapshots. Workspace `.vmnbackup` packages
+include only committed shared Notes references and originals (in the existing `files/documents`
+namespace); previews regenerate on restore. Restored shared files keep historical attribution and
+count toward Workspace/global storage with no historical/personal billing owner. Private content,
+drafts, consent and quota overrides are excluded from Workspace packages. Existing backups remain
+subject to their original format/migration-level checks; newer databases/packages remain refused.
+Deletion never erases older server backups or copies made elsewhere.

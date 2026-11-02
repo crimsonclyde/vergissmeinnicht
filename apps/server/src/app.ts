@@ -1,3 +1,8 @@
+import {registerMcpHttp} from './mcp/http.ts';
+import {registerMcpOAuth} from './mcp/oauth.ts';
+import {mcpAccountRoutes} from './http/mcp-account-routes.ts';
+import {recipeRoutes} from './http/recipe-routes.ts';
+import {attachmentRoutes,attachmentAdminRoutes} from './http/attachment-routes.ts';
 import { bringRoutes } from './http/bring-routes.ts';
 import { journalRoutes, moonRoutes } from './http/journal-routes.ts';
 import { existsSync } from 'node:fs';
@@ -216,7 +221,12 @@ export async function buildApp(options: AppOptions = {}) {
           footerHidden: (await getInstanceSettings(services.instanceSettings)).footerHidden,
         }));
         await api.register(authRoutes, { prefix: '/auth', services });
+        await api.register(mcpAccountRoutes,{prefix:'/account/mcp',services});
+        await api.register(recipeRoutes,{prefix:'/workspaces/:workspaceId/recipes',services});
         await api.register(bringRoutes, { prefix: '/workspaces/:workspaceId/bring', services });
+        await api.register(attachmentAdminRoutes,{prefix:'/admin/attachments',services});
+        await api.register(attachmentRoutes,{prefix:'/account/journal/attachments',services,shared:false});
+        await api.register(attachmentRoutes,{prefix:'/workspaces/:workspaceId/journal/attachments',services,shared:true});
         await api.register(journalRoutes, { prefix: '/account/journal', services, shared: false });
         await api.register(journalRoutes, { prefix: '/workspaces/:workspaceId/journal', services, shared: true });
         await api.register(moonRoutes, { prefix: '/workspaces/:workspaceId/moon', services });
@@ -281,5 +291,6 @@ export async function buildApp(options: AppOptions = {}) {
     return reply.code(404).send({ error: 'Not Found' });
   });
 
+  if(services?.mcpEnabled){await registerMcpOAuth(app,services);await registerMcpHttp(app,services);}
   return app;
 }

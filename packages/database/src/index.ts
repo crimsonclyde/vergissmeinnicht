@@ -46,3 +46,15 @@ export { createJournalRepository } from './journal/repository.ts';
 export { createProgressRepository } from './progress-repository.ts';
 
 export { createBringRepository } from './bring-repository.ts';
+
+export * from './attachment-repository.ts';
+export {journalAttachmentGuard,journalAttachmentPolicy} from './journal/repository.ts';
+export * from './attachment-housekeeping.ts';
+export {attachmentObjects} from './attachment-backup.ts';
+
+export * from './recipe-repository.ts';
+
+export * from './mcp-repository.ts';
+
+export * from './delegation-context.ts';
+export * from './recipe-image-repository.ts';

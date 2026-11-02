@@ -1,3 +1,7 @@
+import {purgeAttachmentFiles} from '@vergissmeinnicht/database';
+import {sweepAttachmentObjects} from '@vergissmeinnicht/media';
+import {dirname,join} from 'node:path';
+import {attachmentObjects} from '@vergissmeinnicht/database';
 import { resolve } from 'node:path';
 import { TEXT_POLL_MS, purgeUnusedDocumentFiles, purgeUnusedImages } from '@vergissmeinnicht/application';
 import { migrationStatus, openDatabase } from '@vergissmeinnicht/database';
@@ -51,6 +55,7 @@ const app = await buildApp({
 // restart interrupted are taken up again.
 const images = built?.images;
 const documentFiles = built?.documentFiles;
+const attachmentService=built?.attachments;
 const stopHousekeeping = databaseNewer
   ? () => undefined
   : scheduleHousekeeping(
@@ -59,6 +64,7 @@ const stopHousekeeping = databaseNewer
       undefined,
       images === undefined ? undefined : () => purgeUnusedImages(images),
       documentFiles === undefined ? undefined : { purge: () => purgeUnusedDocumentFiles(documentFiles), resumePreviews: () => documentFiles.previews.resume() },
+      attachmentService===undefined?undefined:async()=>{const result=await purgeAttachmentFiles(database,attachmentService.store);await sweepAttachmentObjects(join(dirname(config.documentsPath),'attachments'),new Set(attachmentObjects(database.sqlite).map(row=>row.key)),new Date(Date.now()-86400000));return result;},
     );
 // Optional automatic backups (BACKUP_INTERVAL_HOURS, BACKUP_KEEP; Step 10.5).
 const stopBackups = databaseNewer ? () => undefined : scheduleBackups(config.databasePath, app.log, config.backup);

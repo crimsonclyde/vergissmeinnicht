@@ -15,6 +15,7 @@ export function scheduleHousekeeping(
   intervalMs = HOUSEKEEPING_INTERVAL_MS,
   purgeImages?: () => Promise<{ readonly files: number }>,
   documents?: { readonly purge: () => Promise<{ readonly files: number }>; readonly resumePreviews: () => Promise<number> },
+  attachments?:()=>Promise<{readonly files:number}>,
 ) {
   const run = () => {
     try {
@@ -23,6 +24,7 @@ export function scheduleHousekeeping(
     } catch (error) {
       log.error({ err: { type: (error as Error).name } }, 'housekeeping failed');
     }
+    attachments?.().catch((error:unknown)=>log.error({err:{type:(error as Error).name}},'attachment housekeeping failed'));
     purgeImages?.().then(
       ({ files }) => {
         if (files > 0) log.info({ housekeeping: { imageFiles: files } }, 'unused image files deleted');

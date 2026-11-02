@@ -1,6 +1,7 @@
+import {attachmentPath} from './attachment-backup.ts';
 import { createHash } from 'node:crypto';
 import { closeSync, copyFileSync, existsSync, fsyncSync, linkSync, mkdirSync, openSync, readFileSync, statSync, writeSync } from 'node:fs';
-import { join } from 'node:path';
+import { dirname, join } from 'node:path';
 import { documentFilePath, mediaFilePath } from './backup.ts';
 import type { AppDatabase } from './connection.ts';
 import { MIGRATIONS_FOLDER } from './migrate.ts';
@@ -136,7 +137,7 @@ export function snapshotWorkspace(
           const key = `${spec.fileStore}/${sha}`;
           if (!files.has(key)) {
             files.add(key);
-            const source = spec.fileStore === 'documents' ? documentFilePath(input.documentsPath, sha) : mediaFilePath(input.mediaPath, sha);
+            const source = spec.table === 'attachments' ? attachmentPath(join(dirname(input.documentsPath),'attachments'),raw.original_key as string) : spec.fileStore === 'documents' ? documentFilePath(input.documentsPath, sha) : mediaFilePath(input.mediaPath, sha);
             if (!existsSync(source)) throw new WorkspaceExportError('missing_file');
             const target = join(input.stagingDir, 'files', spec.fileStore, sha);
             linkOrCopy(source, target);

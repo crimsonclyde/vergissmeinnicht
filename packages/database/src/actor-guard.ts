@@ -1,3 +1,4 @@
+import {delegationAllows} from './delegation-context.ts';
 import type { ActorGuard } from '@vergissmeinnicht/application';
 import type { Actor, WorkspaceId } from '@vergissmeinnicht/domain';
 import { and, eq } from 'drizzle-orm';
@@ -13,6 +14,7 @@ export const IMMEDIATE = { behavior: 'immediate' } as const;
 
 /** Inside a write transaction: the actor must still be an ACTIVE member whose current role passes the guard. */
 export function actorAllowed(tx: Transaction, workspaceId: WorkspaceId, actor: UserActor, guard: ActorGuard): boolean {
+  if(!delegationAllows(tx,actor.userId,workspaceId,guard.tool))return false;
   const row = tx
     .select({ role: memberships.role })
     .from(memberships)

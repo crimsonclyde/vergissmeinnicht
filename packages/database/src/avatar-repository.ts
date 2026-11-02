@@ -1,3 +1,5 @@
+import {globalStorageAllows} from './attachment-repository.ts';
+import {AttachmentError} from '@vergissmeinnicht/application';
 import { and, eq, inArray } from 'drizzle-orm';
 import type { AvatarRepository } from '@vergissmeinnicht/application';
 import type { UserId } from '@vergissmeinnicht/domain';
@@ -44,6 +46,7 @@ export function createAvatarRepository({ db }: Pick<AppDatabase, 'db'>): AvatarR
         const active = tx.select({ id: users.id }).from(users).where(and(eq(users.id, userId), eq(users.status, 'ACTIVE'))).get();
         if (active === undefined) return undefined;
         const bytes = Buffer.from(jpeg);
+        if(!globalStorageAllows(tx,bytes.byteLength))throw new AttachmentError('attachment_quota');
         tx.insert(userAvatars).values({ userId, jpeg: bytes, updatedAt: at }).onConflictDoUpdate({ target: userAvatars.userId, set: { jpeg: bytes, updatedAt: at } }).run();
         return versionOf(at);
       }, IMMEDIATE);

@@ -26,3 +26,7 @@ overrides:
   fast-uri@4: 4.2.3
   nodemailer@10: 10.2.1
   '@esbuild-kit/core-utils>esbuild': 0.25.12
+  # Milkdown's unused math parser still resolves KaTeX; keep that transitive package patched.
+  'katex@<0.18.2': 0.18.2
+  # Static-file glob enumeration retains its reviewed API; fixes both glob and minimatch advisories.
+  '@fastify/static>glob': 14.0.3

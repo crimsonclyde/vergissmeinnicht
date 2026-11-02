@@ -354,6 +354,145 @@ A dedicated security review and update to this file is mandatory before adding:
 
 ---
 
+## 35. Notes, personal Journal and shared attachments (2026-11-02)
+
+**Security surface changed: YES.** Owner approved implementation after the architectural audit.
+New sensitive flows are Markdown/editor rendering, private acknowledgement/drafts/history, scoped
+image uploads/references, quota admission, regeneration and portable export/backup recovery.
+
+- [x] Generic upload transport/application/store are separate from the consumer. Immutable policy keys
+  and the Journal policy adapter enforce ACTIVE actor, current tool, membership/capability, owner and
+  same-scope references. Provisional originals are uploader-only until bound. All variants/export/reuse
+  use server authorization. There is no private-content admin override or public object route.
+- [x] Exact originals are streamed with byte limits, SHA-256 and fsync, in private random-key storage.
+  Original bytes/embedded metadata are immutable; independent bounded metadata-free derivatives can
+  be repaired without changing originals. Tests cover byte equality after download, full server backup
+  and Workspace recovery, and rejection of tampered backup objects. Clipboard bytes are those supplied
+  by the browser. Shared original metadata is intentionally visible to authorized downloaders.
+- [x] Existing sessions/CSRF/rate limits apply. Filename/path validation, actual JPEG/PNG inspection,
+  markup/SVG/executable refusal, 50 MP processing bound, worker timeout/heap and serialized processing
+  reuse the established local media primitives. Processor admission stays locked until worker termination
+  completes. Upload failure removes allocated files and leases;
+  crash residue has bounded leases and orphan sweeping. Documents policies/allowlist remain separate.
+- [x] Durable admission reservations and IMMEDIATE transactions enforce actual retained originals and
+  derivatives against per-file/person/Workspace/configured global limits, including concurrent work
+  and policy changes before commit. Leases expire and cannot then commit. Lowered limits delete nothing;
+  reads remain available. Managed legacy media also observes an explicitly configured global cap.
+  This cap excludes DB/WAL, archives and backup copies: physical disk monitoring/headroom still applies.
+- [x] Administration exposes usage/limits/overrides without private filenames, bodies, hashes or entry
+  identifiers. Private API paths are log-redacted. Independent uploads never automatically deduplicate;
+  hashes stay private integrity data, not an existence/search oracle.
+- [x] Private writes (content, drafts, files) require per-account/version acknowledgement; migration does
+  not consent for existing users. Shared Notes keeps existing USER+ write policy, guests read-only.
+  Scope cannot change in place. Private data never enters Workspace backup, picker or shared search.
+- [x] CommonMark/GFM rendering disables raw HTML, unsafe protocols and remote images. Code/unknown source
+  is not executed. Unsupported syntax selects source mode instead of lossy conversion; old v1 stays
+  literal until explicit conversion. No AI/math/remote plugin execution, external image fetch or private
+  browser-content cache. Browser tests exercise mode round trips, tables/tasks/code and no external calls.
+- [x] Revision guards and audit/reference writes are atomic. Immutable history retains images. Drafts
+  are author-only, bounded, one per library; a different entry cannot replace that slot. Recovery is
+  explicit. Canonical Save is distinguished from draft recovery and failed/conflicting saves retain
+  editor text. Edits made while a save is in flight stay unsaved rather than being discarded.
+- [x] Cleanup marks unreferenced objects before deletion; history and active draft references retain
+  them. Unregistered future policies retain their files until their reviewed lifecycle adapter exists.
+  Accounting is released only after files are removed. Backup snapshots keep their own protected
+  copies. SQL scope guards reject cross-scope/reference corruption and new refs to deleting objects.
+- [x] New tables/id/person columns are classified; private rows are excluded. Supported old packages
+  default new fields/tables; newer schemas remain refused. Restore remaps parsed Markdown destinations,
+  generates fresh ids/keys/derivatives and verifies originals. Historical uploaders retain attribution
+  but no personal billing/ownership or rewards. Final Workspace/global admission is atomic; extraction
+  uses existing hostile-archive, temporary storage and free-space limits, not a host disk reservation.
+- [x] Portable Markdown/ZIP export contains authorized original files and safe relative names. Single
+  and multi-entry exports preserve useful metadata; included Notes links resolve within the package.
+  Existing Workspace backup hostility, atomic rollback and normalized round-trip tests apply.
+
+**Evidence:** `attachments.test.ts`, `journal.test.ts`, `route-security.test.ts`, logging negatives,
+`migration-0061.test.ts`, Workspace recovery/restore/allowlist tests and domain Markdown tests. Browser
+Notes/Journal flow covers actual visual/source edits, privacy, upload/export/reload and draft recovery;
+final suite results are recorded in ledger 35.1. No deployment-image, physical-device, assistive-tech or
+whole-application security certification is claimed by those tests.
+
+**Deferred gates:** portable import needs separate hostile ZIP/path/collision/bomb/confirmation tests;
+physical deduplication needs independently reviewed ownership, reference counting, cleanup and privacy
+oracle tests. New file categories/consumers need explicit policy/format/lifecycle review. A new derivative
+recipe needs migration/regeneration design. None is enabled implicitly by the shared service.
+
+## 36. Planned security gates — Recipes and MCP (2026-11-02)
+
+Documentation-only assessment in [recipes-mcp-plan.md](recipes-mcp-plan.md), ledger 36.0. These are
+**unchecked requirements for future implementation**, not newly implemented controls. Existing local-only
+Document/OCR/AI and private-Journal rules remain normative until explicitly superseded by an owner decision.
+
+- [ ] Recipes has independent server-side tool/capability and same-Workspace object/reference guards,
+  transaction-time authorization/revision checks, audit rollback and guest/foreign/disabled negatives.
+  Its attachment policy/lifecycle preserves exact originals, central quotas and historical references;
+  unrelated/private files remain inaccessible, and supported old backups still restore.
+- [ ] Recipe-to-List transfer is explicitly reviewed, same-Workspace, bounded, fully atomic and idempotent.
+  Both tools and source-read/target-edit access are rechecked with source/target revisions at commit.
+  No silent merge, unit conversion, partial batch, changed purchased item or replayed duplicate addition.
+- [ ] MCP transport, maintained SDK/auth implementation, credential issuance/expiry/rotation/revocation,
+  OAuth resource/audience/scope, Origin/DNS-rebinding and deployment rules receive review before exposure.
+  No cookie-CSRF weakening, browser cookie forwarding, MFA bypass, raw DB/SQL/shell access or arbitrary proxy.
+- [ ] Delegated permissions intersect current actor, selected Workspace, role, tool, explicit grant and
+  any shared-data policy, including inside write transactions and resumed requests. Disabled/IMPORTED
+  identities and revoked grants cannot use tools; private Journal/admin/security/credential fields are
+  excluded by default. Portable backups contain no grant/token/client-secret or cleanup-plan state.
+- [ ] Any external AI/voice processing has an explicit category/provider/privacy decision before content
+  leaves VMN, including who authorizes shared data. A generic MCP connection does not grant permission
+  to transmit Documents/OCR/originals or private Journal. No runtime outbound processing added by the plan.
+- [ ] Bulk cleanup proposals are exact, expiring, scoped, revision-checked and at-most-once; independently
+  authenticated VMN user review is required. A model-supplied confirmation flag is not approval. No initial
+  permanent purge, physical deduplication or rewrite of historical Runs. Audit and mutations are atomic.
+- [ ] Treat record/tool content as untrusted data, never authority. Test prompt injection, foreign ids,
+  stale/replayed plans, concurrent revocation, JSON-RPC bounds, token redaction, unintended private data
+  exposure and real chosen-client interoperability. Voice functionality needs actual client testing.
+
+Owner clarification (36.3) selects ordinary user read/write tasks through clients such as Claude.
+This narrowly permits designing delegated external-client Procedure/Run, Recipe and grocery interaction;
+Documents/OCR/private Journal and administration remain excluded. No runtime flow exists yet.
+
+- [ ] MCP Procedure edits require current procedure.edit capability and preserve stable Step ids and
+  historical Runs. “Step X done” resolves an actual authorized active RunStep and invokes the existing
+  execution/audit rules, never a Procedure mutation or silent whole-Run completion.
+- [ ] Serving projection uses authoritative exact decimal/rational arithmetic, bounded base/target
+  servings and explicit handling of nonnumeric/unrepresentable quantities; no silent unit conversion,
+  base-recipe rewrite or truncation. Both UI and MCP use the same application command.
+- [ ] Meal creation stages and validates genuine image bytes before atomic Recipe/reference/List/audit
+  changes. Partial failure and missing images are explicit. Stable operation ids prevent duplicate
+  Recipes, uploads/charges and shopping entries; mismatched payload reuse and stale targets are refused.
+- [ ] Ordinary explicitly requested user writes remain usable without the bulk-cleanup review gate;
+  ambiguity is resolved before writes, grants never widen from conversational text, and cleanup remains
+  a separate permission/catalog. Test actual Claude-compatible client behavior and image capability;
+  MCP support alone is not evidence of speech recognition or image generation.
+
+Owner then selected OpenAI API for Recipe image generation with a dedicated project key and initial
+roughly $10 budget. This is the sole newly selected server-side external image-processing category.
+
+- [ ] Provider key is a protected deployment secret or sealed credential, never sent to the browser,
+  Claude/MCP client, logs, source control or Workspace exports. Access to configuration is reviewed;
+  fixed official provider endpoint, no arbitrary host/image-URL proxy. Send only the recipe image prompt.
+- [ ] Model/size/quality/input/output/time/retry/concurrency and generation-spend admission are bounded;
+  concurrent jobs reserve admission, stable jobs prevent duplicated generations and uncertain billing
+  outcomes are reconciled. Quotas include actual retained images/derivatives. Generated provenance is
+  visible; originals remain byte-identical through downloads/exports/backup restore.
+- [ ] Desktop tailnet access still requires a scoped authenticated actor; local processes get no SQL or
+  browser cookie access. Remote Claude connector calls are cloud-originated; any desktop-mediated phone
+  route is tested explicitly. No public exposure/tunnel is created merely by enabling MCP.
+
+ChatGPT follow-up: evaluate official Secure MCP Tunnel as an outbound-only connector on the existing
+always-on container host. A VPS/public inbound listener is not required for that candidate transport.
+
+- [ ] Verify actual ChatGPT custom-plugin and Platform tunnel entitlements/association; keep tunnel
+  runtime credentials separate and least-privileged. Relay discovery/session ids never replace VMN
+  actor authentication, grant revocation or transaction-time authorization. Portable backups exclude
+  transport credentials. Review OAuth authorization-server reachability separately from tunneled MCP.
+- [ ] Test container-host private routing, outbound TLS, reconnect/replay/timeouts/revocation and mobile
+  operation with no desktop running. No public listener, VPS, Tailscale route or IP allowlist is created
+  automatically. Native voice-tool interoperability is verified independently of mobile text support.
+
+Security surface changed by this assessment: **NO**. Implementing it will add new credentials,
+permission boundaries and sensitive data flows and must update these gates with concrete evidence.
+
 ## Per-task security completion block
 
 For security-sensitive tasks, add/update a section in this file:
@@ -1349,3 +1488,9 @@ No additional application security surface from publication bookkeeping. The Gui
 ### Celestial release verification (0.9.1-beta.0, 2026-10-31)
 
 No additional application security surface. Candidate CI `41218264286` and main CI `41218881329` pass. Tagged `41218898950` passes all checks, both native publishing smoke/scans, keyless signing and CycloneDX attestation for index `sha256:dcfddc042ed5238b69f4fac01042ea4b25d63e40bbb166fd36dc9dafb53b39d5`; its final legacy verifier rejects an unchanged schema level. Corrected comparison permits equal levels but still rejects downgrade, row loss, FK/integrity failures and incorrect Gamification migration counts; regression negatives pass. Complete local verification of that immutable digest against immutable v0.9.0-beta.0 then passes 61→61, preserved rows, clean integrity/FKs and Workspace export/restore with no lingering marks. Registry platforms and exact pulled image version/revision labels match. No gate is suppressed, tag moved or image rebuilt to hide the failed assertion; the original workflow failure remains disclosed. Workflow signing evidence is not independent local cosign verification. No running installation changed; physical-device/screen-reader/performance limitations remain.
+
+### Recipes and delegated user tasks — implementation update (2026-11-02)
+
+Recipes, original images, serving-scaled grocery transfers and the optional OAuth MCP endpoint are implemented locally. Migrations 0063–0065 add Recipe records, scoped grants, hashed tokens and durable meal/image request outcomes. Writes recheck current user permissions and selected Workspaces. Image generation sends the explicit prompt to the configured OpenAI project and preserves the returned original. Uncertain requests do not automatically incur another charge.
+
+Security surface changed. Local tests cover PKCE, revocation, role enforcement, duplicate requests, atomic shopping updates, image preservation and backup recovery. Desktop and mobile browser checks cover Recipes and consent. Live ChatGPT tunnel eligibility, OAuth reachability, voice and paid image quality require deployment validation. See [operator setup](../admin/mcp.md).

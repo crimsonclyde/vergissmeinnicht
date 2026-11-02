@@ -151,6 +151,8 @@ test('Celestial instrument preserves astronomy and reflows across themes at 320p
   } finally { database.close(); }
   const errors: string[] = [];
   page.on('pageerror', error => errors.push(error.message));
+  // Pin the astronomy civil date: some real dates legitimately have no moonrise or moonset.
+  await page.clock.setFixedTime(new Date('2026-10-31T12:00:00Z'));
   await page.goto('/');
   await page.getByLabel('Email').fill(email); await page.getByLabel('Password').fill(password);
   await page.getByRole('button', { name: 'Sign in', exact: true }).click();
@@ -184,4 +186,78 @@ test('Celestial instrument preserves astronomy and reflows across themes at 320p
   await expect(card.locator('.celestial-art')).toBeHidden();
   await expect(card).toContainText('Sunrise'); await expect(card).toContainText('Moonrise');
   expect(errors).toEqual([]);
+});
+
+test('Notes and personal Journal preserve Markdown, originals, privacy and recoverable drafts',async({page},testInfo)=>{
+ test.setTimeout(180_000);page.setDefaultTimeout(15_000);
+ const email=`notes-${randomUUID()}@example.org`;const password='a fictional notebook passphrase';const database=openDatabase(guideServerEnv.DATABASE_PATH);let workspaceId:string;
+ try{const user=await createUserRepository(database).create({email:normalizeEmail(email),displayName:'Notebook reviewer',emailVerified:true,status:'ACTIVE',serverAdmin:false});database.sqlite.prepare("INSERT INTO accounts(id,account_id,provider_id,user_id,password,created_at,updated_at) VALUES(?,?,'credential',?,?,?,?)").run(randomUUID(),user.id,user.id,await hashPassword(password),Date.now(),Date.now());workspaceId=insertLegacyWorkspace(database,{name:'Fictional notebook studio',adminUserId:user.id}).id;enableCoreTools(database,workspaceId,user.id);}finally{database.close();}
+ const errors:string[]=[];const requests:string[]=[];page.on('pageerror',error=>errors.push(error.message));page.on('request',request=>requests.push(request.url()));
+ await page.goto('/');await page.getByLabel('Email').fill(email);await page.getByLabel('Password').fill(password);await page.getByRole('button',{name:'Sign in',exact:true}).click();await expect(page.getByRole('button',{name:/^Settings/})).toBeVisible();
+ await page.goto(`/w/${workspaceId}`);
+ await page.evaluate(async id=>{const response=await fetch(`/api/workspaces/${id}/tools`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({tool:'JOURNAL',enabled:true,expectedRevision:(await fetch(`/api/workspaces/${id}`).then(response=>response.json()) as {toolsRevision:number}).toolsRevision})});if(!response.ok)throw new Error('tool fixture '+response.status+' '+await response.text());},workspaceId);
+ await page.reload();await page.getByRole('button',{name:'Add',exact:true}).click();await expect(page.getByRole('button',{name:/Journal entry — Personal/})).toBeVisible();await page.getByRole('button',{name:/Note — Workspace/}).click();
+ await expect(page.getByRole('heading',{name:'Notes',exact:true})).toBeVisible();await page.getByLabel('Title',{exact:true}).fill('A portable garden note');
+ const editor=page.locator('.milkdown .ProseMirror');await expect(editor).toBeVisible();await editor.fill('Written visually.');await page.getByRole('button',{name:'Markdown source',exact:true}).click();
+ const source=page.getByLabel('Markdown source',{exact:true});await expect(source).toHaveValue(/Written visually/);
+ const markdown='# Garden\n\n## Materials\n\n- [ ] Bring seeds\n- [x] Find gloves\n\n| Item | Amount |\n| --- | --- |\n| Seeds | 2 |\n\n```javascript\nconst seeds = 2;\n```\n';
+ await source.fill(markdown);await page.getByRole('button',{name:'Visual',exact:true}).click();await expect(page.getByRole('cell',{name:'Seeds',exact:true})).toBeVisible();await expectAccessible(page,'Visual Markdown editor');await page.getByRole('button',{name:'Markdown source',exact:true}).click();await expect(source).toHaveValue(/const seeds = 2/);await expect(source).toHaveValue(/Bring seeds/);
+ await page.getByText('Images and originals',{exact:true}).click();await page.getByLabel('Upload original image',{exact:true}).setInputFiles({name:'garden.png',mimeType:'image/png',buffer:Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAIAAACQd1PeAAAADElEQVR4nGP4z8AAAAMBAQDJ/pLvAAAAAElFTkSuQmCC','base64')});
+ await expect(page.getByLabel('Markdown source',{exact:true})).toHaveValue(/attachments\/[0-9a-f-]+\.png/);
+ await page.getByRole('button',{name:'Save entry',exact:true}).click();await expect(page.getByRole('status').filter({hasText:'Entry saved.'})).toBeVisible();await expectAccessible(page,'Notes editor');
+ await page.screenshot({path:testInfo.outputPath('notes-editor.png'),fullPage:true});
+ await page.reload();await page.getByRole('button',{name:'Markdown source',exact:true}).click();await expect(page.getByLabel('Markdown source',{exact:true})).toHaveValue(/attachments\/[0-9a-f-]+\.png/);
+ const downloadPromise=page.waitForEvent('download');await page.getByRole('link',{name:'Export Markdown',exact:true}).click();const download=await downloadPromise;expect(download.suggestedFilename()).toBe('notes.zip');
+ await page.getByRole('button',{name:'Back to entries',exact:true}).click();await page.goto(`/w/${workspaceId}`);await page.getByRole('button',{name:'Add',exact:true}).click();await page.getByRole('button',{name:/Journal entry — Personal/}).click();
+ await expect(page.getByRole('heading',{name:'Your personal Journal',exact:true})).toBeVisible();
+ expect(await page.evaluate(async()=>fetch('/api/account/journal',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({content:{kind:'note',version:2,title:'Before consent',date:null,body:''},expectedRevision:0,archived:false})}).then(response=>response.status))).toBe(403);
+ await page.getByRole('button',{name:'Agree & Continue',exact:true}).click();await page.getByLabel('Title',{exact:true}).fill('A personal notebook');await page.getByRole('button',{name:'Markdown source',exact:true}).click();await page.getByLabel('Markdown source',{exact:true}).fill('Only this account.');await page.getByRole('button',{name:'Save entry',exact:true}).click();await expect(page.getByRole('status').filter({hasText:'Entry saved.'})).toBeVisible();
+ await page.getByLabel('Markdown source',{exact:true}).fill('A recoverable private draft.');await expect(page.getByRole('status').filter({hasText:'Draft saved for recovery.'})).toBeVisible();
+ page.once('dialog',dialog=>void dialog.accept());await page.reload();await expect(page.getByRole('heading',{name:'Your personal Journal',exact:true})).toHaveCount(0);await page.getByRole('button',{name:'Recover saved draft',exact:true}).click();await page.getByRole('button',{name:'Markdown source',exact:true}).click();await expect(page.getByLabel('Markdown source',{exact:true})).toHaveValue('A recoverable private draft.');
+ await page.getByRole('button',{name:'Save entry',exact:true}).click();await expect(page.getByRole('status').filter({hasText:'Entry saved.'})).toBeVisible();await expectAccessible(page,'Personal Journal editor');
+ for(const theme of ['light','memento-mori','tokyo-nights','witch-forest','places-de','space-guide']){
+  expect(await page.evaluate(async theme=>fetch('/api/account/preferences',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({theme})}).then(response=>response.status),theme)).toBe(200);
+  await page.reload();await expect(page.getByLabel('Title',{exact:true})).toHaveValue('A personal notebook');
+  await expectAccessible(page,`Journal ${theme}`);
+  if(theme==='memento-mori')await page.screenshot({path:testInfo.outputPath('journal-dark.png'),fullPage:true});
+ }
+ if(testInfo.project.name.includes('mobile'))await page.setViewportSize({width:320,height:720});
+ expect(await page.evaluate('document.documentElement.scrollWidth <= window.innerWidth')).toBe(true);expect(errors).toEqual([]);expect(requests.every(url=>url.startsWith(guideServerEnv.PUBLIC_ORIGIN))).toBe(true);
+});
+
+test('Recipes preserve originals and transfer ingredients for the requested servings', async ({page},testInfo)=>{
+ test.setTimeout(180_000);page.setDefaultTimeout(15_000);
+ if(testInfo.project.name.includes('mobile'))await page.setViewportSize({width:320,height:720});
+ const email=`recipes-${randomUUID()}@example.org`;const password='a fictional pancake passphrase';const database=openDatabase(guideServerEnv.DATABASE_PATH);let workspaceId:string;
+ try{const user=await createUserRepository(database).create({email:normalizeEmail(email),displayName:'Recipe reviewer',emailVerified:true,status:'ACTIVE',serverAdmin:false});database.sqlite.prepare("INSERT INTO accounts(id,account_id,provider_id,user_id,password,created_at,updated_at) VALUES(?,?,'credential',?,?,?,?)").run(randomUUID(),user.id,user.id,await hashPassword(password),Date.now(),Date.now());workspaceId=insertLegacyWorkspace(database,{name:'Fictional kitchen',adminUserId:user.id}).id;enableCoreTools(database,workspaceId,user.id);}finally{database.close();}
+ const errors:string[]=[];page.on('pageerror',error=>errors.push(error.message));
+ await page.goto('/');await page.getByLabel('Email').fill(email);await page.getByLabel('Password').fill(password);await page.getByRole('button',{name:'Sign in',exact:true}).click();await expect(page.getByRole('button',{name:/^Settings/})).toBeVisible();
+ const listId=await page.evaluate(async id=>{let response=await fetch(`/api/workspaces/${id}/tools`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({tool:'RECIPES',enabled:true,expectedRevision:((await fetch(`/api/workspaces/${id}`).then(response=>response.json())) as {toolsRevision:number}).toolsRevision})});if(!response.ok)throw new Error('Recipe tool fixture '+response.status+' '+await response.text());response=await fetch(`/api/workspaces/${id}/lists`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({title:'Pancake shopping'})});if(!response.ok)throw new Error('List fixture');return ((await response.json()) as {list:{id:string}}).list.id;},workspaceId);
+ await page.goto(`/w/${workspaceId}/recipes`);await page.getByRole('button',{name:'New recipe',exact:true}).click();await page.getByLabel('Title',{exact:true}).fill('Pancakes for breakfast');
+ const ingredient=(count:number)=>page.getByRole('group',{name:`Ingredient ${count}`,exact:true});
+ await ingredient(1).getByLabel('Ingredient name',{exact:true}).fill('Flour');await ingredient(1).getByLabel('Amount',{exact:true}).fill('125');await ingredient(1).getByLabel('Unit',{exact:true}).fill('g');
+ await page.getByRole('button',{name:'Add ingredient',exact:true}).click();await ingredient(2).getByLabel('Ingredient name',{exact:true}).fill('Eggs');await ingredient(2).getByLabel('Amount',{exact:true}).fill('1');
+ await page.getByRole('button',{name:'Markdown source',exact:true}).click();await page.getByLabel('Markdown source',{exact:true}).fill('Mix the batter.\n\nCook in a warm pan.');
+ await page.getByText('Images and originals',{exact:true}).click();await expect(async()=>{const response=page.waitForResponse(response=>response.request().method()==='POST'&&response.url().endsWith('/recipes/attachments'));await page.getByLabel('Upload original image',{exact:true}).setInputFiles({name:'pancakes.png',mimeType:'image/png',buffer:Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAIAAACQd1PeAAAADElEQVR4nGP4z8AAAAMBAQDJ/pLvAAAAAElFTkSuQmCC','base64')});expect((await response).status()).toBe(201);}).toPass({timeout:15000,intervals:[500,1000,2000]});
+ await expect(page.getByLabel('Markdown source',{exact:true})).toHaveValue(/attachments\/[0-9a-f-]+\.png/);
+ await page.getByRole('button',{name:'Save recipe',exact:true}).click();await expect(page.getByRole('status').filter({hasText:'Recipe saved.'})).toBeVisible();await expect(page.getByRole('img',{name:/pancakes.png/})).toBeVisible();
+ await page.getByLabel('Shopping for this many servings',{exact:true}).fill('4');await expect(ingredient(1).getByLabel('Amount',{exact:true})).toHaveValue('250');await expect(ingredient(2).getByLabel('Amount',{exact:true})).toHaveValue('2');
+ await page.getByRole('button',{name:'Add selected ingredients',exact:true}).click();await expect(page.getByRole('status').filter({hasText:'2 ingredients added.'})).toBeVisible();await expectAccessible(page,'Recipe and grocery transfer');
+ const downloadPromise=page.waitForEvent('download');await page.getByRole('link',{name:'Export recipe',exact:true}).click();expect((await downloadPromise).suggestedFilename()).toBe('recipes.zip');
+ await page.screenshot({path:testInfo.outputPath('recipe.png'),fullPage:true});expect(await page.evaluate('document.documentElement.scrollWidth <= innerWidth')).toBe(true);
+ await page.goto(`/w/${workspaceId}/lists/${listId}`);await expect(page.getByRole('list',{name:'To buy'})).toContainText('Flour');await expect(page.getByRole('list',{name:'To buy'})).toContainText('250');await expect(page.getByRole('list',{name:'To buy'}).getByRole('listitem')).toHaveCount(2);expect(errors).toEqual([]);
+});
+
+test('MCP requires visible consent and supports revoking a scoped user connection',async({page})=>{
+ test.setTimeout(90000);page.setDefaultTimeout(15000);
+ const email=`mcp-${randomUUID()}@example.org`,password='a fictional assistant review passphrase';const database=openDatabase(guideServerEnv.DATABASE_PATH);let workspaceId:string;
+ try{const user=await createUserRepository(database).create({email:normalizeEmail(email),displayName:'Assistant reviewer',emailVerified:true,status:'ACTIVE',serverAdmin:false});database.sqlite.prepare("INSERT INTO accounts(id,account_id,provider_id,user_id,password,created_at,updated_at) VALUES(?,?,'credential',?,?,?,?)").run(randomUUID(),user.id,user.id,await hashPassword(password),Date.now(),Date.now());workspaceId=insertLegacyWorkspace(database,{name:'Fictional assistant kitchen',adminUserId:user.id}).id;enableCoreTools(database,workspaceId,user.id);}finally{database.close();}
+ await page.goto('/');await page.getByLabel('Email').fill(email);await page.getByLabel('Password').fill(password);await page.getByRole('button',{name:'Sign in',exact:true}).click();await expect(page.getByRole('button',{name:/^Settings/})).toBeVisible();
+ const client=await page.evaluate(async()=>{const r=await fetch('/register',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({client_name:'Fictional AI assistant',redirect_uris:['https://client.example.org/callback'],token_endpoint_auth_method:'none'})});return await r.json() as {client_id:string};});
+ const authorization=new URLSearchParams({client_id:client.client_id,redirect_uri:'https://client.example.org/callback',response_type:'code',code_challenge:'a'.repeat(43),code_challenge_method:'S256',scope:'workspaces.read lists.read lists.write',resource:guideServerEnv.PUBLIC_ORIGIN+'/mcp'});
+ await page.goto('/authorize?'+authorization);await expect(page.getByRole('heading',{name:'Connect Fictional AI assistant'})).toBeVisible();await expectAccessible(page,'MCP consent');
+ await page.getByRole('checkbox',{name:'Fictional assistant kitchen',exact:true}).check();await page.getByRole('checkbox',{name:'Add grocery items',exact:true}).check();await page.route('https://client.example.org/**',route=>route.fulfill({contentType:'text/plain',body:'Fictional OAuth callback'}));
+ await page.getByRole('button',{name:'Allow connection',exact:true}).click();await expect(page).toHaveURL(/^https:\/\/client.example.org\/callback\?code=/);
+ await page.goto(guideServerEnv.PUBLIC_ORIGIN+'/account/connections');await expect(page.getByText('Fictional AI assistant',{exact:true})).toBeVisible();await page.getByRole('button',{name:'Revoke connection',exact:true}).click();await expect(page.getByText('Revoked',{exact:true})).toBeVisible();await page.evaluate('window.scrollTo(0,0)');await expectAccessible(page,'MCP revoked connection');
+ await page.setViewportSize({width:320,height:850});expect(await page.evaluate('document.documentElement.scrollWidth <= innerWidth')).toBe(true);
 });

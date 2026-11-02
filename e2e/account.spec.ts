@@ -275,11 +275,11 @@ test('first server admin: bootstrap link, account creation, sign-in, Workspace c
   await expect(page.getByRole('alert')).toBeVisible();
   await page.goto(bringHome);
 
-  page.setDefaultTimeout(0);
+  page.setDefaultTimeout(15_000);
   // Moon and bundled Journal (27): admin gate, explicit Save, private/shared separation and archive.
   const moduleHome = new URL(page.url()).pathname;
   await page.goto(`${moduleHome}/plugins`);
-  for (const name of ['Celestial', 'Journal']) {
+  for (const name of ['Celestial', 'Notes']) {
     const toggle = page.getByRole('checkbox', { name: new RegExp(`^${name}`) });
     await toggle.check(); await expect(toggle).toBeEnabled();
   }
@@ -289,18 +289,19 @@ test('first server admin: bootstrap link, account creation, sign-in, Workspace c
   await expect(moonCard).toContainText('Next full moon');
   await expect(moonCard).toContainText('Set a Workspace location');
   await expectAccessible(page, 'Moon card');
-  await sections.getByRole('link', { name: 'Journal', exact: true }).click();
+  await sections.getByRole('link', { name: 'Notes', exact: true }).click();
   await expect(page.getByText('Shared with every member', { exact: false })).toBeVisible();
   await page.getByRole('button', { name: 'New entry', exact: true }).click();
   await page.getByLabel('Title', { exact: true }).fill('Shared forest log');
-  await page.getByLabel('Entry date', { exact: true }).fill('2026-10-23');
-  await page.getByLabel('Note', { exact: true }).fill('<script>window.journalUnsafe = true</script>\nA quiet woodland.');
+  await page.getByLabel('Entry date (optional)', { exact: true }).fill('2026-10-23');
+  await page.getByRole('button', { name: 'Markdown source', exact: true }).click();
+  await page.getByLabel('Markdown source', { exact: true }).fill('<script>window.journalUnsafe = true</script>\nA quiet woodland.');
   await page.getByRole('button', { name: 'Save entry', exact: true }).click();
   await expect(page.getByRole('status').filter({ hasText: 'Entry saved.' })).toBeVisible();
   await expectAccessible(page, 'shared journal editor');
   await page.reload();
-  await page.getByRole('button', { name: /Shared forest log/ }).click();
-  await expect(page.getByLabel('Note', { exact: true })).toHaveValue(/A quiet woodland/);
+  await page.getByRole('button', { name: 'Markdown source', exact: true }).click();
+  await expect(page.getByLabel('Markdown source', { exact: true })).toHaveValue(/A quiet woodland/);
   expect(await page.evaluate('window.journalUnsafe')).toBeUndefined();
   await page.getByRole('button', { name: 'Archive entry', exact: true }).click();
   await expect(page.getByRole('button', { name: 'Restore entry', exact: true })).toBeVisible();
@@ -310,24 +311,26 @@ test('first server admin: bootstrap link, account creation, sign-in, Workspace c
   await page.getByRole('button', { name: /Shared forest log/ }).click();
   await page.getByRole('button', { name: 'Restore entry', exact: true }).click();
   await page.getByRole('link', { name: 'Open your private journal', exact: true }).click();
+  await page.getByRole('button', { name: 'Agree & Continue', exact: true }).click();
   await page.getByRole('button', { name: 'New entry', exact: true }).click();
+  await page.getByRole('button', { name: 'Markdown source', exact: true }).click();
   await page.getByLabel('Title', { exact: true }).fill('My private field notes');
-  await page.getByLabel('Note', { exact: true }).fill('Private account notebook.');
+  await page.getByLabel('Markdown source', { exact: true }).fill('Private account notebook.');
   await page.getByRole('button', { name: 'Save entry', exact: true }).click();
   await expect(page.getByRole('status').filter({ hasText: 'Entry saved.' })).toBeVisible();
   await expectAccessible(page, 'private journal');
-  await page.getByLabel('Note', { exact: true }).fill('Unsent revision');
+  await page.getByLabel('Markdown source', { exact: true }).fill('Unsent revision');
   page.once('dialog', (dialog) => void dialog.dismiss());
-  await page.getByRole('link', { name: 'Appearance', exact: true }).click();
-  await expect(page.getByLabel('Note', { exact: true })).toHaveValue('Unsent revision');
+  await page.getByRole('button', { name: 'Back to entries', exact: true }).click();
+  await expect(page.getByLabel('Markdown source', { exact: true })).toHaveValue('Unsent revision');
   page.once('dialog', (dialog) => void dialog.accept());
-  await page.getByRole('link', { name: 'Appearance', exact: true }).click();
+  await page.getByRole('button', { name: 'Back to entries', exact: true }).click();
   await page.goto(`${moduleHome}/journal`);
   await expect(page.getByRole('button', { name: /Shared forest log/ })).toBeVisible();
   await expect(page.getByRole('button', { name: /My private field notes/ })).toHaveCount(0);
   // Restore the tool set expected by the older checks below; disabling preserves the entries.
   await page.goto(`${moduleHome}/plugins`);
-  for (const name of ['Celestial', 'Journal']) {
+  for (const name of ['Celestial', 'Notes']) {
     const toggle = page.getByRole('checkbox', { name: new RegExp(`^${name}`) });
     await toggle.uncheck(); await expect(toggle).toBeEnabled();
   }
@@ -338,7 +341,7 @@ test('first server admin: bootstrap link, account creation, sign-in, Workspace c
   const addButton = page.getByRole('button', { name: 'Add', exact: true });
   await addButton.click();
   const chooser = page.getByRole('dialog', { name: 'What would you like to add?' });
-  await expect(chooser.getByRole('button')).toHaveText([/^$/, /Procedure.*Reusable steps/, /Reminder.*Remember one thing/, /Grocery list.*Quick shared shopping/]);
+  await expect(chooser.getByRole('button')).toHaveText([/^$/, /Journal entry — Personal/, /Procedure.*Reusable steps/, /Reminder.*Remember one thing/, /Grocery list.*Quick shared shopping/]);
   await expectAccessible(page, 'add chooser');
   await page.keyboard.press('Escape');
   await expect(chooser).toBeHidden();
@@ -2811,7 +2814,7 @@ test('first server admin: bootstrap link, account creation, sign-in, Workspace c
   await settingsSection(page, 'Server administration', 'Server & storage');
   await expect(page.getByLabel('Recently used Procedures')).toHaveValue('5');
   await page.getByLabel('Recently used Procedures').fill('0');
-  await page.getByRole('button', { name: 'Save', exact: true }).click();
+  await page.getByRole('region', {name:'This server',exact:true}).getByRole('button', { name: 'Save', exact: true }).click();
   await expect(page.getByRole('status').filter({ hasText: 'The Procedures page shows no recently used Procedures.' })).toBeVisible();
   await settingsSection(page, 'Server administration', 'Notification providers');
   const providers = page.getByRole('region', { name: 'Notification providers' });
@@ -2835,7 +2838,7 @@ test('first server admin: bootstrap link, account creation, sign-in, Workspace c
   await settingsSection(page, 'Server administration', 'Server & storage');
   await expect(page.getByLabel('Recently used Procedures')).toHaveValue('0');
   await page.getByLabel('Recently used Procedures').fill('5');
-  await page.getByRole('button', { name: 'Save', exact: true }).click();
+  await page.getByRole('region', {name:'This server',exact:true}).getByRole('button', { name: 'Save', exact: true }).click();
   await expect(page.getByRole('status').filter({ hasText: 'The Procedures page shows 5 recently used Procedures.' })).toBeVisible();
   // Storage (16.4): every Workspace with what it stores and the most it may store; file size and formats for new uploads.
   const allStorage = page.getByRole('region', { name: 'Workspace storage' });
@@ -2851,6 +2854,19 @@ test('first server admin: bootstrap link, account creation, sign-in, Workspace c
   await fileSettings.getByLabel('Largest file (MB, 1 to 100)').fill('40');
   await fileSettings.getByRole('button', { name: 'Save file settings' }).click();
   await expect(fileSettings.getByRole('status')).toHaveText('Saved: files up to 40 MB; formats: PDF, JPEG, PNG, HEIC.');
+  const imageStorage=page.getByRole('region',{name:'Image attachment storage',exact:true});
+  const imagePolicy=imageStorage.locator('form').filter({has:page.getByLabel('Maximum image upload (MB)',{exact:true})});
+  await expect(imagePolicy.getByLabel('Maximum image upload (MB)',{exact:true})).toHaveValue('20');
+  await imagePolicy.getByLabel('Maximum image upload (MB)',{exact:true}).fill('19');
+  await imagePolicy.getByLabel('Default allowance per user (MB)',{exact:true}).fill('450');
+  await imagePolicy.getByRole('button',{name:'Save',exact:true}).click();
+  await expect(imageStorage.getByRole('status')).toHaveText('Settings saved.');
+  await page.reload();await expect(imagePolicy.getByLabel('Maximum image upload (MB)',{exact:true})).toHaveValue('19');
+  await expect(imagePolicy.getByLabel('Default allowance per user (MB)',{exact:true})).toHaveValue('450');
+  await imagePolicy.getByLabel('Maximum image upload (MB)',{exact:true}).fill('20');
+  await imagePolicy.getByLabel('Default allowance per user (MB)',{exact:true}).fill('500');
+  await imagePolicy.getByRole('button',{name:'Save',exact:true}).click();
+  await expect(imageStorage.getByRole('status')).toHaveText('Settings saved.');
   await expectAccessible(page, 'server storage settings');
 
   // Account → Notifications (13.8): own default reminder time and channels; no provider secrets here.

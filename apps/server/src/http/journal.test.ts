@@ -7,7 +7,7 @@ const body = (revision = 0, archived = false) => ({ content, expectedRevision: r
 describe('Journal and Moon module boundaries', () => {
   let t: Awaited<ReturnType<typeof startTestApp>>; let ws: string; let other: string; let user: string; let guest: string;
   const shared = () => `/api/workspaces/${ws}/journal`;
-  beforeEach(async () => { t = await startTestApp({ captureLogs: true }); ws = await t.createWorkspace('Home'); other = await t.createWorkspace('Van'); user = await t.invite('member@example.org', 'Member'); guest = await t.invite('guest@example.org', 'Guest'); await t.addMember(ws, 'member@example.org', 'USER'); await t.addMember(ws, 'guest@example.org', 'GUEST'); });
+  beforeEach(async () => { t = await startTestApp({ captureLogs: true }); ws = await t.createWorkspace('Home'); other = await t.createWorkspace('Van'); user = await t.invite('member@example.org', 'Member'); guest = await t.invite('guest@example.org', 'Guest'); await t.addMember(ws, 'member@example.org', 'USER'); await t.addMember(ws, 'guest@example.org', 'GUEST'); for (const cookie of [user,guest,t.admin]) await t.post('/api/account/journal/privacy',{version:1},cookie); });
   afterEach(() => t.close());
   const enable = (tool: string) => t.post(`/api/workspaces/${ws}/tools`, { tool, enabled: true }, t.admin);
   it('keeps every shared route unknown while disabled and gates admin switches', async () => {
@@ -64,7 +64,7 @@ describe('Journal and Moon module boundaries', () => {
     expect(() => t.database.sqlite.prepare('UPDATE private_journal_entries SET owner_id = (SELECT id FROM users WHERE email = ?) WHERE id = ?').run('guest@example.org', entry.id)).toThrow();
   });
   it('validates bounded versioned content, dates and scope and rolls writes back when audit fails', async () => {
-    for (const change of [{ date: '2026-02-30' }, { kind: 'unknown' }, { version: 2 }, { body: 'x'.repeat(50_001) }, { body: '\u0000' }, { title: 'x\u202e' }]) expect((await t.post('/api/account/journal', { ...body(), content: { ...content, ...change } }, user)).statusCode).toBe(400);
+    for (const change of [{ date: '2026-02-30' }, { kind: 'unknown' }, { version: 3 }, { body: 'x'.repeat(50_001) }, { body: '\u0000' }, { title: 'x\u202e' }]) expect((await t.post('/api/account/journal', { ...body(), content: { ...content, ...change } }, user)).statusCode).toBe(400);
     t.database.sqlite.exec("CREATE TRIGGER no_journal_audit BEFORE INSERT ON security_events WHEN NEW.type = 'JOURNAL_ENTRY_CHANGED' BEGIN SELECT RAISE(ABORT, 'fail'); END");
     expect((await t.post('/api/account/journal', body(), user)).statusCode).toBe(500);
     expect((await t.get('/api/account/journal', user)).json().entries).toHaveLength(0);

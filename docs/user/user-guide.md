@@ -343,13 +343,64 @@ A Workspace can represent Home, another home, a Van or a Car, but its location i
 
 A Workspace admin can enable **Celestial** under **Workspace settings → Plugins**. It then appears on Today; each person can hide or reorder it in **Profile & settings → Today**. It shows equal Sun and Moon illustrations, the calculated lunar phase and illuminated percentage, and the next full moon. A saved shared Workspace location adds today’s local sunrise, sunset, moonrise and moonset; the card shows the configured time zone. Each event belongs to that location’s current civil date, so moonset can appear earlier than moonrise. Days without an event say so. On narrow screens the bodies remain side by side and two columns of readings sit below them. No location is required for phase information; the card does not use device geolocation, Weather providers or personal Weather settings.
 
-### Journal
+### Workspace Notes and personal Journal
 
-An admin enables **Journal** in the Workspace's Tools. Every member, including guests, can read shared entries; users, editors and admins can create/edit them. Shared entries are included in Workspace backups. Disabling Journal hides it and preserves its entries.
+**Add (+) → Note — Workspace** creates shared content in the active Workspace. An admin enables
+**Notes** in Workspace Tools; every member, including guests, reads it, and users/editors/admins write.
+Turning the tool off hides it and keeps its data. Existing shared Journal entries and addresses still
+work; their tool setting and saved menu position are preserved.
 
-Your **Private journal** is under **Profile & settings** (also linked from the shared journal). Only you can read/edit those entries through the app; Workspace and server admins have no private-entry override. These entries are excluded from Workspace backups. Full server backups still contain stored private account data; this is not end-to-end encryption.
+**Add (+) → Journal entry — Personal**, or **Settings → Private journal**, opens your personal account
+Journal. It works without selecting a Workspace. Other users, Workspace admins and server admins have
+no private-entry override in the app. On first access, acknowledge the privacy notice before writing:
+your entries are unencrypted, and the server operator can access the underlying data. Acknowledgement
+is saved per account and notice version. Private entries, drafts and images never enter Workspace
+backups or Workspace searches; full server backups include private account data.
 
-Choose **New entry**, enter a title, date and note, and use **Save entry**. Saves are explicit; there is no autosave or offline draft storage. Leaving an unsaved edit asks first. If someone else has saved a shared entry meanwhile, your save is refused and your text stays in the editor so you can copy it before reloading. Search finds entry titles/text; **Show archived entries** opens the archive. Archive is reversible with **Restore entry**. The initial version supports text notes, with up to 1,000 entries per private account or shared Workspace journal and 50,000 characters per note. Private entries cannot be turned into shared entries in place.
+New notes use **CommonMark with GFM**: headings, formatting, tables, task checkboxes, quotes, links and
+code. Use **Visual** or **Markdown source**. Unsupported syntax stays intact in source mode rather than
+being discarded. Existing entries stay plain text until you explicitly choose **Convert to Markdown**.
+A title is required; dates are optional for new Markdown entries. Collections/notebooks, comma-separated
+tags and pinning organize the library; search covers titles, text, collections and tags. Pinned entries
+come first, followed by recently saved entries. **@ Link to a Workspace record** searches enabled,
+authorized Workspace tools; it never searches personal Journals. **Outline** is optional.
+
+**Save entry** publishes the current entry after server confirmation. **Autosave** is optional and off
+initially. A valid, titled edit is saved separately as a recoverable server draft after a pause; the
+status explicitly distinguishes a draft from a saved entry. There is one recoverable draft per person
+per library. Recover or discard an existing draft before starting another; a draft for a different
+entry is not overwritten automatically. Drafts are private to the author even in a shared library.
+They are not an offline browser cache. A failed save preserves the editor text, and leaving unsaved
+changes asks first. Shared stale writes are refused rather than overwriting another member's changes.
+
+**Revision history** keeps saved versions, actor and time; restoring a version puts it in the editor
+for review and Save. Archive/restore is reversible. Archived entries and saved revisions keep their
+images and storage usage. Limits are 1,000 entries per library, 50,000 characters per body and 1,000
+retained revisions per entry. Scope never changes in place: a personal entry cannot become shared.
+
+**Images and originals** supports JPEG/PNG file selection, drag/drop and clipboard images, existing
+accessible images, original downloads and preview regeneration. Originals are never compressed,
+resized, stripped or overwritten; previews are separate metadata-free JPEGs. A clipboard original is
+exactly the blob supplied by the clipboard, not an earlier camera file. Embedded metadata, including
+possible location data, reaches anyone authorized to download a shared original. Remote image URLs
+are not fetched. Other formats require their own validation before being added to this image service;
+Documents retains its existing PDF/JPEG/PNG/HEIC support.
+
+The initial image limits are **20 MB/file** and **500 MB/person**, across Notes and personal Journal.
+Server admins can change them and set individual allowances. Originals plus retained previews and
+thumbnails count; repeated references to the same attachment count once, independent uploads count
+separately. Shared images also count toward Workspace storage. The image panel shows usage/remaining
+capacity. Lowering a limit deletes nothing and preserves downloads. Removing a visible image keeps
+files still used by history; unused provisional uploads are cleaned up after a day.
+
+**Export Markdown** exports one entry as `.md`, or as ZIP with originals when images are included.
+**Export collection** exports the current search/archive selection as a ZIP with UTF-8 Markdown,
+relative attachment paths and metadata. **Export complete archive** includes both active and archived
+entries, independent of the current search. Included Notes links resolve to exported Markdown files;
+other internal links retain their readable label/reference. No running VMN is needed to read the
+text or images. One export holds up to 2 GB of original images; use smaller search selections if your
+configured allowance exceeds that export bound. Markdown/ZIP import, backlinks, diagrams, mathematics and footnotes are future work;
+source mode preserves unsupported text today.
 
 ## Personal encouragement
 

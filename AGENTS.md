@@ -412,3 +412,68 @@ The visible base choices are **System**, **Don't go into the (light)** (stored `
 ## Accepted follow-up — Release 42 Guide interface (2026-10-31)
 
 The owner approved implementing the reviewed one-column Guide prototype and incremental plan. A theme-independent top menu exposes enabled tools in private saved order, with Workspace/account/settings and existing routes preserved; the previous interface remains an explicit private account fallback. The optional Galactic Guide theme uses the approved floating everyday-object direction (fireplace, supermarket, Tesla coil and water pump), contained art/translucent backgrounds, no visible DON'T PANIC/42 marks, and compact opt-in Clock/Weather in the top bar opening larger views. Card background style/opacity and decorative imagery are private account presentation choices; Places retains its own existing per-person/per-Workspace opacity/photo settings. Preserve all themes/aliases, tool gates, focused editing, saved Today choices, offline work, history and security flows. This supersedes navigation placement only; it authorizes no new tool, upload, search/AI service, monitoring or permission. Subsequent owner-authorized Halloween publication is recorded above. This implementation approval does not authorize future automatic releases or live deployment.
+
+
+## Accepted follow-up — Notes, personal Journal and shared attachments (2026-11-02)
+
+The owner approved implementing the reviewed Journal/Notes integration and explicitly requested a separated,
+reusable uploader. Workspace Notes evolves the existing shared Journal; retain stored `JOURNAL` gates,
+saved ordering and old addresses, with USER/EDITOR/ADMIN managing and GUEST reading. Personal Journal
+remains account-owned, independent of Workspace selection and inaccessible through other users' application
+permissions, Workspace search/references or Workspace backups. A versioned, per-user acknowledgement of the
+owner's exact unencrypted-Journal notice precedes new personal content, draft or image writes. Preserve all
+existing entries as literal legacy text until explicitly converted.
+
+Use shared CommonMark/GFM editing, explicit source preservation, scoped organization, draft recovery,
+revision conflicts/history and portable UTF-8 Markdown exports. Shared attachment transport, application,
+consumer authorization and storage/processing ports must stay separate. Preserve original upload bytes and
+metadata; previews/thumbnails are separate, bounded and regenerable, with original downloads and recovery.
+New image defaults are 20 MB/upload and 500 MB/person (decimal), with server-admin settings/overrides and
+an optional managed-storage cap. Existing Documents size/format/Workspace policies remain independent.
+Charge originals plus retained derivatives; protect concurrent admission with durable reservations and
+transaction-time permission/quota rechecks. Restored shared files retain historical attribution but use a
+Workspace recovery billing bucket, never a historical identity's personal allowance. Hashes are SHA-256,
+private storage facts, never capabilities or public duplicate probes. Physical deduplication and storage
+optimization remain deferred. Other tools gain reviewed extension seams, not new attachment fields.
+No external processor, remote editor service, AI execution or new identity provider is approved. Portable
+Markdown/ZIP import and broader backlink features remain follow-up work after the format/security review.
+Preserve Release 42 navigation/themes/fallback, existing files and old supported backups. This approval is
+for incremental implementation, not publication or live deployment; next owner-counted release remains 44.
+
+
+## Accepted follow-up — Recipes and user-task MCP (2026-11-02)
+
+Owner requested a shared Recipes tool with original images and **serving-scaled grocery-list transfer**,
+and clarified that MCP should help ordinary users through clients such as Claude: add Procedure Steps,
+mark actual RunSteps done, add shopping entries in an authorized Workspace, and turn a meal request into
+a saved pictured Recipe and a shopping list for the requested servings. Focus on these user tasks first;
+no account/server/Workspace administration, raw SQL/shell, security-setting changes or destructive cleanup.
+
+Use the existing application commands and preserve current capabilities: USER execution does not grant
+EDITOR Procedure authoring. Recheck actor, delegation, Workspace/tool/capability and revisions at commit;
+use idempotency, atomic required audit and clear results. Never mutate historical Runs while editing a
+Procedure. Shared recipe/image infrastructure keeps original bytes/metadata, separate derivatives,
+central quotas and backup compatibility. Scaling is server-authoritative and preserves the base recipe;
+never silently convert units, guess ambiguous servings or discard an unrepresentable amount.
+
+This narrowly authorizes designing external AI-client access to explicitly granted Procedure/Run context,
+Recipes and grocery Lists for these tasks. It does not expose private Journal, Documents/OCR, credentials,
+admin/security data or unrelated Workspaces, and does not select a paid provider, stored third-party key,
+server-side AI/image-generation service or arbitrary remote image fetching. AI-supplied text is untrusted
+content, never authority to widen a grant. Standard MCP stays client-independent; voice belongs to the
+chosen client. A real recipe image must come from validated supplied bytes or an explicitly configured
+image capability; do not claim a placeholder completes a requested pictured recipe. The detailed design
+and implementation gates are in docs/development/recipes-mcp-plan.md and security.md section 36.
+
+
+### Accepted image-provider follow-up (2026-11-02)
+
+Owner selected OpenAI API image generation using a dedicated project key, with roughly $10 as the initial
+budget. This narrowly permits a server-side, explicitly configured Recipe-image generator; use protected
+secrets/sealed credentials, bounded model/quality/size, quota/cost admission and idempotent jobs. Never
+expose the key to Claude, browsers, logs, source control or Workspace backups. Only recipe image prompts
+are sent; Documents/OCR, private Journal and unrelated records remain excluded. Store actual generated
+bytes as an original with independent derivatives and clear generated provenance. This is implementation
+direction, not authorization to create a subscription, charge an account, expose a public MCP endpoint or
+configure a tunnel. Claude Desktop local MCP over the user's tailnet is a proposed connection path;
+independent mobile versus a running-desktop bridge remains a product/deployment choice.

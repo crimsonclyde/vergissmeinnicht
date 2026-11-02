@@ -1,3 +1,4 @@
+import {copyAttachmentFiles,verifyAttachmentFiles,attachmentRoot,prepareAttachmentSnapshot,pruneAttachmentBackups} from './attachment-backup.ts';
 import { createHash, randomUUID } from 'node:crypto';
 import { chmodSync, closeSync, copyFileSync, createReadStream, existsSync, fsyncSync, linkSync, mkdirSync, openSync, readFileSync, readSync, readdirSync, renameSync, rmSync, statSync, utimesSync, writeSync } from 'node:fs';
 import { copyFile, link, open, rename, rm } from 'node:fs/promises';
@@ -406,6 +407,7 @@ export function verifyDatabase(
     if (!REQUIRED_TABLES.every((table) => tables.has(table))) throw new BackupError('not a VergissMeinNicht database');
     if ((sqlite.pragma('foreign_key_check') as unknown[]).length > 0) throw new BackupError('foreign key check failed');
     verifyMedia(sqlite, options.mediaPath ?? backupMediaPath(path));
+    verifyAttachmentFiles(sqlite, attachmentRoot(path));
     verifyDocuments(sqlite, options.documentsPath ?? backupDocumentsPath(path), options.documents ?? 'full');
     const status = migrationStatus(sqlite);
     // A backup made by a newer version cannot be checked or restored by this one (its schema is unknown here).
@@ -436,8 +438,10 @@ export async function backupDatabase(
   }
   chmodSync(targetPath, 0o600);
   try {
+    prepareAttachmentSnapshot(targetPath,options.now??new Date());
     copyMedia(targetPath, options.mediaPath ?? defaultMediaPath(sourcePath));
     await copyDocuments(targetPath, options.documentsPath ?? defaultDocumentsPath(sourcePath), options.now ?? new Date());
+    copyAttachmentFiles(targetPath,options.documentsPath?join(dirname(options.documentsPath),'attachments'):attachmentRoot(sourcePath),attachmentRoot(targetPath));
     finishBackup(targetPath);
   } catch (error) {
     // Our own unverified output is never left behind looking like a backup.
@@ -479,6 +483,7 @@ export function restoreDatabase(
   try {
     // Images first: if this fails, the current database is still in place (extra files are harmless).
     restoreMedia(backupPath, options.mediaPath ?? defaultMediaPath(targetPath));
+    copyAttachmentFiles(backupPath,attachmentRoot(backupPath),options.documentsPath?join(dirname(options.documentsPath),'attachments'):attachmentRoot(targetPath));
     restoreDocuments(backupPath, options.documentsPath ?? defaultDocumentsPath(targetPath));
     let previous: string | null = null;
     if (existsSync(targetPath)) {
@@ -580,5 +585,7 @@ export async function backupIfDue(
   pruneBackupMedia(join(dirname(databasePath), 'backups'), now);
   // … and document files (16.1).
   pruneBackupDocuments(join(dirname(databasePath), 'backups'), now);
+  const attachmentBackupDir=join(dirname(databasePath),'backups');
+  if(existsSync(attachmentBackupDir))pruneAttachmentBackups(attachmentBackupDir,readdirSync(attachmentBackupDir).filter(name=>name.endsWith('.sqlite')).map(name=>join(attachmentBackupDir,name)));
   return { written, removed };
 }

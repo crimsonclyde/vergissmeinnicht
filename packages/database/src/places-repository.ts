@@ -1,3 +1,5 @@
+import {globalStorageAllows} from './attachment-repository.ts';
+import {AttachmentError} from '@vergissmeinnicht/application';
 import { and, eq } from 'drizzle-orm';
 import type { PlacesRepository } from '@vergissmeinnicht/application';
 import { normalizePlacePreferences, type UserId, type WorkspaceId } from '@vergissmeinnicht/domain';
@@ -76,6 +78,7 @@ export function createPlacesRepository({ db }: Pick<AppDatabase, 'db'>): PlacesR
       const bytes = Buffer.from(jpeg);
       return db.transaction((tx) => {
         if (!activeMember(tx, userId, workspaceId)) return undefined;
+        if(!globalStorageAllows(tx,bytes.byteLength))throw new AttachmentError('attachment_quota');
         tx.insert(userPlaceBackgrounds)
           .values({ userId, workspaceId, jpeg: bytes, width, height, updatedAt: at })
           .onConflictDoUpdate({ target: [userPlaceBackgrounds.userId, userPlaceBackgrounds.workspaceId], set: { jpeg: bytes, width, height, updatedAt: at } })

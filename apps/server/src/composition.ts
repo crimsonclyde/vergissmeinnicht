@@ -1,3 +1,12 @@
+import {openAiRecipeImages} from './integrations/openai-recipe-images.ts';
+import {createRecipeImageJobs} from '@vergissmeinnicht/database';
+import type {RecipeImageDeps} from '@vergissmeinnicht/application';
+import {createMcpRepository} from '@vergissmeinnicht/database';
+import {createRecipeRepository,recipeAttachmentPolicy} from '@vergissmeinnicht/database';
+import type {RecipeDeps} from '@vergissmeinnicht/application';
+import {createAttachmentStore} from '@vergissmeinnicht/media';
+import {createAttachmentRepository,journalAttachmentPolicy,createAttachmentAdmin} from '@vergissmeinnicht/database';
+import type {AttachmentDeps} from '@vergissmeinnicht/application';
 import type { BringDeps } from '@vergissmeinnicht/application';
 import { createBringRepository } from '@vergissmeinnicht/database';
 import type { ProgressRepository } from '@vergissmeinnicht/application';
@@ -124,6 +133,9 @@ import type { RunEventsOptions } from './http/run-events.ts';
 /** Everything the HTTP layer needs. Built once per process by the composition root. */
 export interface AppServices {
   readonly publicOrigin: string;
+  readonly recipeImages:RecipeImageDeps;
+  readonly mcpEnabled:boolean;
+  readonly mcp:ReturnType<typeof createMcpRepository>;
   /** Offered to every user via `GET /api/about` (AGPL-3.0 §13). */
   readonly sourceCodeUrl: string;
   readonly auth: Auth;
@@ -165,7 +177,11 @@ export interface AppServices {
   /** MaintenanceRecords of a Workspace (16.7). */
   readonly maintenance: MaintenanceDeps;
   readonly equipment: EquipmentDeps;
+  readonly recipes: RecipeDeps;
+  readonly recipeAttachments: AttachmentDeps;
   readonly bring: BringDeps;
+  readonly attachments:AttachmentDeps;
+  readonly attachmentAdmin:ReturnType<typeof createAttachmentAdmin>;
   readonly journal: JournalDeps;
   /** Files of Documents (16.1): metadata in SQLite, originals and previews under `documentsPath`. */
   readonly documentFiles: DocumentFileDeps;
@@ -308,6 +324,8 @@ export function createServices(config: AppConfig, database: AppDatabase, overrid
     // One MuPDF thread for previews and embedded text: PDFs are parsed in one place (16.1, 16.9).
     const pdfWorker = createDocumentWorker();
     const documentProcessor = createDocumentFileProcessor({ pdfWorker });
+    const attachmentStorage=createAttachmentStore(join(dirname(config.documentsPath),'attachments'));
+    const recipeAttachments={repository:createAttachmentRepository(database,recipeAttachmentPolicy),store:attachmentStorage,processor:attachmentStorage};
     const documentFiles = {
       files: createDocumentFileRepository(database),
       store: createDocumentFileStore(config.documentsPath),
@@ -357,6 +375,8 @@ export function createServices(config: AppConfig, database: AppDatabase, overrid
     const backupRunner = createBackupRunner(workspaceBackups, { onError: (error) => logger?.error({ err: { type: (error as Error).name, code: (error as { code?: unknown }).code } }, 'workspace backup job failed') });
     return {
       publicOrigin: config.publicOrigin,
+      mcpEnabled:config.mcpEnabled,
+      mcp:createMcpRepository(database,config.publicOrigin+'/mcp'),
       sourceCodeUrl: config.sourceCodeUrl,
       auth,
       users: userRepository,
@@ -429,7 +449,12 @@ export function createServices(config: AppConfig, database: AppDatabase, overrid
       storage: { workspaces: workspaceDeps.workspaces, storage: createStorageRepository(database), clock: systemClock },
       links: { workspaces: workspaceDeps.workspaces, tools, links: createLinkRepository(database), clock: systemClock },
       contacts: { workspaces: workspaceDeps.workspaces, tools, contacts: createContactRepository(database), clock: systemClock },
+      recipeImages:{recipes:{ workspaces: workspaceDeps.workspaces, users: createUserRepository(database), tools, recipes: createRecipeRepository(database), clock: systemClock },attachments:recipeAttachments,jobs:createRecipeImageJobs(database,config.recipeImages.monthlyLimit,config.recipeImages.perUserLimit),provider:config.recipeImages.key?openAiRecipeImages(config.recipeImages.key):undefined},
+      recipes: { workspaces: workspaceDeps.workspaces, users: createUserRepository(database), tools, recipes: createRecipeRepository(database), clock: systemClock },
+      recipeAttachments,
       bring: { workspaces: workspaceDeps.workspaces, users: createUserRepository(database), tools, bring: createBringRepository(database), clock: systemClock },
+      attachments:{repository:createAttachmentRepository(database,journalAttachmentPolicy),store:attachmentStorage,processor:attachmentStorage},
+      attachmentAdmin:createAttachmentAdmin(database),
       journal: { workspaces: workspaceDeps.workspaces, users: createUserRepository(database), tools, journal: createJournalRepository(database), clock: systemClock },
       equipment: { workspaces: workspaceDeps.workspaces, tools, equipment: createEquipmentRepository(database), clock: systemClock },
       maintenance: { workspaces: workspaceDeps.workspaces, tools, maintenance: createMaintenanceRepository(database), clock: systemClock },
