@@ -5409,3 +5409,5 @@ Merge the Notes, Journal, Recipes, shared attachments and delegated MCP work thr
 Build the exact beta tag in GitHub Actions and verify the published image and populated upgrade.
 Operators should verify a full server backup and preserve the existing /data mount and secrets before
 switching images. Live Unraid deployment remains an operator action. Record publication after verification.
+
+Published owner milestone 44 on 2026-11-02. [Release workflow](https://github.com/crimsonclyde/vergissmeinnicht/actions/runs/41536887626) passed signing and the populated upgrade check. The image tag is `0.10.0-beta.0`. Next owner milestone is 45.
