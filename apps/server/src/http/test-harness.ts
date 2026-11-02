@@ -30,6 +30,7 @@ export type InjectResponse = Awaited<ReturnType<App['inject']>>;
 
 export async function startTestApp(
   options: {
+    mcpEnabled?:boolean;
     runEvents?: RunEventsOptions;
     trustedProxies?: readonly string[];
     /** Replaces the real Telegram client (tests never reach api.telegram.org). */
@@ -51,6 +52,7 @@ export async function startTestApp(
   });
   let services: AppServices | undefined;
   const config = loadConfig({
+    MCP_ENABLED:options.mcpEnabled?'true':'false',
     NODE_ENV: 'production',
     PUBLIC_ORIGIN: ORIGIN,
     DATABASE_PATH: '/unused/by/tests.sqlite',
@@ -130,6 +132,7 @@ export async function startTestApp(
     post(`/api/workspaces/${workspaceId}/members`, { email, role }, admin);
 
   return {
+    paths:{media:mediaDir,documents:testConfig.documentsPath,attachments:join(mediaDir,'attachments')},
     get app() {
       return app;
     },

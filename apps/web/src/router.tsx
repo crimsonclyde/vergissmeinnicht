@@ -28,6 +28,9 @@ export function navigate(path: string, options: { replace?: boolean; force?: boo
   for (const listener of listeners) listener();
 }
 
+// Canonicalize a saved editor address without remounting it or losing in-flight edits.
+export function replaceEditorPath(path:string):void{window.history.replaceState(null,'',path);shownPath=path.split('#')[0]??path;}
+
 export function usePathname(): string {
   const [pathname, setPathname] = useState(window.location.pathname);
   useEffect(() => {
@@ -69,19 +72,20 @@ export function Link(props: AnchorHTMLAttributes<HTMLAnchorElement> & { href: st
 
 /** Sections of Profile & settings and of Server admin (15.1): one page each, so nothing unrelated has to be scrolled past. */
 /** In menu order (section 29): you, look & feel, staying informed, the journal. */
-export const ACCOUNT_SECTIONS = ['profile', 'security', 'appearance', 'places', 'today', 'confirmations', 'notifications', 'weather', 'journal'] as const;
+export const ACCOUNT_SECTIONS = ['profile', 'security', 'connections', 'appearance', 'places', 'today', 'confirmations', 'notifications', 'weather', 'journal'] as const;
 export type AccountSection = (typeof ACCOUNT_SECTIONS)[number];
 export const ADMIN_SECTIONS = ['workspaces', 'invitations', 'accounts', 'notifications', 'weather', 'server', 'log'] as const;
 export type AdminSection = (typeof ADMIN_SECTIONS)[number];
 
 export type Route =
+  | { readonly page: 'recipes'; readonly workspaceId: string }
   | { readonly page: 'bring'; readonly workspaceId: string }
-  | { readonly page: 'journal'; readonly workspaceId: string }
+  | { readonly page: 'journal'; readonly workspaceId: string; readonly creating?: boolean;readonly entryId?:string }
   | { readonly page: 'home' }
   | { readonly page: 'invite'; readonly token: string }
   | { readonly page: 'recover'; readonly token: string }
   | { readonly page: 'knot'; readonly token: string }
-  | { readonly page: 'account'; readonly section: AccountSection }
+  | { readonly page: 'account'; readonly section: AccountSection; readonly creating?: boolean;readonly entryId?:string }
   | { readonly page: 'admin'; readonly section: AdminSection }
   /** Today (15.1; the former Workspace Home): unfinished Runs, what is overdue, what is due today. */
   | { readonly page: 'workspace'; readonly workspaceId: string }
@@ -137,6 +141,8 @@ export function parseRoute(pathname: string): Route {
   if ((match = new RegExp(`^/invite/${TOKEN}$`).exec(path))) return { page: 'invite', token: match[1] ?? '' };
   if ((match = new RegExp(`^/recover/${TOKEN}$`).exec(path))) return { page: 'recover', token: match[1] ?? '' };
   if ((match = new RegExp(`^/knot/${TOKEN}$`).exec(path))) return { page: 'knot', token: match[1] ?? '' };
+  if ((match=new RegExp(`^/account/journal/${ID}$`).exec(path)))return {page:'account',section:'journal',entryId:match[1]??''};
+  if (path === '/account/journal/new') return {page:'account',section:'journal',creating:true};
   if (path === '/account') return { page: 'account', section: 'profile' };
   if ((match = /^\/account\/([a-z]+)$/.exec(path))) {
     const section = oneOf(ACCOUNT_SECTIONS, match[1]);
@@ -159,8 +165,10 @@ export function parseRoute(pathname: string): Route {
     return { page: 'documents', workspaceId: match[1] ?? '', view: match[3] === undefined ? 'folder' : 'new', folderId: match[2] ?? null, documentId: null };
   }
   if ((match = new RegExp(`^/w/${ID}/documents/${ID}$`).exec(path))) return { page: 'documents', workspaceId: match[1] ?? '', view: 'document', folderId: null, documentId: match[2] ?? null };
+  if ((match = new RegExp(`^/w/${ID}/recipes$`).exec(path))) return {page:'recipes',workspaceId:match[1]??''};
   if ((match = new RegExp(`^/w/${ID}/bring$`).exec(path))) return { page: 'bring', workspaceId: match[1] ?? '' };
-  if ((match = new RegExp(`^/w/${ID}/journal$`).exec(path))) return { page: 'journal', workspaceId: match[1] ?? '' };
+  if ((match = new RegExp(`^/w/${ID}/(?:journal|notes)/${ID}$`).exec(path)))return {page:'journal',workspaceId:match[1]??'',entryId:match[2]??''};
+  if ((match = new RegExp(`^/w/${ID}/(?:journal|notes)(/new)?$`).exec(path))) return { page: 'journal', workspaceId: match[1] ?? '', ...(match[2] ? {creating:true}: {}) };
   if ((match = new RegExp(`^/w/${ID}/contacts(/import|/trash)?$`).exec(path))) {
     return { page: 'contacts', workspaceId: match[1] ?? '', view: match[2] === '/import' ? 'import' : match[2] === '/trash' ? 'trash' : 'list', contactId: null };
   }
@@ -207,8 +215,13 @@ export const paths = {
   newDocument: (workspaceId: string, folderId: string | null = null) => `${paths.documents(workspaceId, folderId)}/new`,
   document: (workspaceId: string, documentId: string) => `/w/${workspaceId}/documents/${documentId}`,
   documentTrash: (workspaceId: string) => `/w/${workspaceId}/documents/trash`,
+  recipes:(workspaceId:string)=>`/w/${workspaceId}/recipes`,
   bring: (workspaceId: string) => `/w/${workspaceId}/bring`,
-  journal: (workspaceId: string) => `/w/${workspaceId}/journal`,
+  journal: (workspaceId: string) => `/w/${workspaceId}/notes`,
+  note:(workspaceId:string,id:string)=>`/w/${workspaceId}/notes/${id}`,
+  newNote: (workspaceId:string) => `/w/${workspaceId}/notes/new`,
+  newJournal: () => '/account/journal/new',
+  journalEntry:(id:string)=>`/account/journal/${id}`,
   contacts: (workspaceId: string) => `/w/${workspaceId}/contacts`,
   contact: (workspaceId: string, contactId: string) => `/w/${workspaceId}/contacts/${contactId}`,
   contactImport: (workspaceId: string) => `/w/${workspaceId}/contacts/import`,

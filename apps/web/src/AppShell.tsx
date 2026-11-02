@@ -1,3 +1,6 @@
+import {McpConnections} from './McpConnections.tsx';
+import {lazy,Suspense} from 'react';
+const RecipesPage=lazy(()=>import('./modules/recipes/RecipesPage.tsx').then(module=>({default:module.RecipesPage})));
 import { TodaySettingsProvider } from './guide/TodaySettingsProvider.tsx';
 import { GuideNavigation } from './guide/GuideNavigation.tsx';
 import { GuideGlance } from './guide/GuideGlance.tsx';
@@ -6,7 +9,7 @@ import { BringPage } from './Bring.tsx';
 import { destinations, type Destination } from './navigation.ts';
 import { ProgressProvider } from './Progress.tsx';
 import { PlacesNavigation } from './places/PlacesNavigation.tsx';
-import { JournalPage } from './modules/journal/JournalPage.tsx';
+import { JournalPage } from './modules/journal/LazyJournalPage.tsx';
 import { useCallback, useEffect, useState, type ReactNode } from 'react';
 import { AccountSecurity } from './AccountSecurity.tsx';
 import { AdminPage } from './AdminPage.tsx';
@@ -164,7 +167,7 @@ function WorkspacePage(props: {
   /** What the person may create here (UI only): drives the Add chooser. */
   const documentsOn = context.tools.includes('DOCUMENTS');
   const contactsOn = context.tools.includes('CONTACTS');
-  const canAdd = { procedure: context.tools.includes('PROCEDURES') && can('procedure.edit'), reminder: context.tools.includes('REMINDERS') && can('schedule.manage'), list: context.tools.includes('LISTS') && can('list.edit'), document: documentsOn && can('document.manage') };
+  const canAdd = { note:context.tools.includes('JOURNAL') && can('journal.manage'), journal:true, procedure: context.tools.includes('PROCEDURES') && can('procedure.edit'), reminder: context.tools.includes('REMINDERS') && can('schedule.manage'), list: context.tools.includes('LISTS') && can('list.edit'), document: documentsOn && can('document.manage') };
   const settings = (current: WorkspaceSettingsPage, content: ReactNode) => (
     <SettingsLayout
       title={t('menu.workspaceSettings')}
@@ -255,10 +258,12 @@ function WorkspacePage(props: {
           {t('shell.notFound')} <Link href={paths.home(route.workspaceId)}>{t('common.startPage')}</Link>.
         </p>
       );
+    case 'recipes':
+      return context.tools.includes('RECIPES')?<Suspense fallback={<p>{t('journal.loading')}</p>}><RecipesPage key={route.workspaceId} workspaceId={route.workspaceId} canWrite={can('recipe.manage')} canShop={context.tools.includes('LISTS')&&can('list.edit')}/></Suspense>:<p role="alert">{t('shell.notFound')}</p>;
     case 'bring':
       return context.tools.includes('BRING') ? <BringPage key={route.workspaceId} workspaceId={route.workspaceId} canManage={can('transfer.manage')} /> : <p role="alert">{t('shell.notFound')}</p>;
     case 'journal':
-      return context.tools.includes('JOURNAL') ? <JournalPage key={route.workspaceId} workspaceId={route.workspaceId} canWrite={can('journal.manage')} /> : <p role="alert">{t('shell.notFound')}</p>;
+      return context.tools.includes('JOURNAL') ? <JournalPage key={route.workspaceId+String(route.creating)+(route.entryId??'')} {...(route.entryId?{entryId:route.entryId}:{})} creating={route.creating ?? false} workspaceId={route.workspaceId} canWrite={can('journal.manage')} /> : <p role="alert">{t('shell.notFound')}</p>;
     case 'equipment':
       return context.tools.includes('EQUIPMENT') ? <Equipment key={`${route.view}:${route.recordId ?? ''}`} workspaceId={route.workspaceId} route={route} canManage={can('equipment.manage')} canPurge={can('equipment.purge')} canSchedule={can('schedule.manage')} tools={context.tools} /> : <p role="alert">{t('shell.notFound')}</p>;
     case 'maintenance':
@@ -361,6 +366,7 @@ function NoWorkspace({ user }: { user: CurrentUser }) {
 const ACCOUNT_SECTION_ICONS: Record<AccountSection, UiIconName> = {
   profile: 'profile',
   security: 'security',
+  connections: 'security',
   appearance: 'appearance',
   places: 'places',
   today: 'layout',
@@ -372,6 +378,7 @@ const ACCOUNT_SECTION_ICONS: Record<AccountSection, UiIconName> = {
 const ACCOUNT_SECTION_GROUPS: Record<AccountSection, MessageKey> = {
   profile: 'settings.group.you',
   security: 'settings.group.you',
+  connections: 'settings.group.you',
   appearance: 'settings.group.look',
   places: 'settings.group.look',
   today: 'settings.group.look',
@@ -382,11 +389,13 @@ const ACCOUNT_SECTION_GROUPS: Record<AccountSection, MessageKey> = {
 };
 
 /** Profile & settings (15.1, regrouped in section 29): profile, security, look & feel, notifications, journal. */
-function AccountPage({ user, section, tools, workspaces, activeWorkspace, avatar, onAvatarChanged }: { user: CurrentUser; section: Extract<Route, { page: 'account' }>['section']; tools: readonly string[] | null; workspaces: readonly WorkspaceSummary[] | null; activeWorkspace: WorkspaceSummary | null; avatar: string | null; onAvatarChanged: (version: string | null) => void }) {
+function AccountPage({ user, section, creating = false, entryId, tools, workspaces, activeWorkspace, avatar, onAvatarChanged }: { user: CurrentUser; section: Extract<Route, { page: 'account' }>['section']; creating?:boolean;entryId?:string; tools: readonly string[] | null; workspaces: readonly WorkspaceSummary[] | null; activeWorkspace: WorkspaceSummary | null; avatar: string | null; onAvatarChanged: (version: string | null) => void }) {
   // Places (section 30): the tab is there only while the Workspace in use shows a Places theme.
   const { preferences, workspacePreferences } = usePreferences();
   const place = placeOfWorkspace(preferences.theme, workspacePreferences.themes, activeWorkspace?.id ?? null);
   // Weather (19.4) is offered only while the server allows it (W1); unknown until asked.
+  const [mcpOn,setMcpOn]=useState(false);
+  useEffect(()=>{api.mcpStatus().then(status=>setMcpOn(status.enabled),()=>setMcpOn(false));},[]);
   const [weatherOn, setWeatherOn] = useState<boolean | null>(null);
   useEffect(() => {
     api.myWeather().then(
@@ -394,6 +403,7 @@ function AccountPage({ user, section, tools, workspaces, activeWorkspace, avatar
       () => setWeatherOn(false),
     );
   }, []);
+  if(section==='journal')return <JournalPage key={user.id+String(creating)+(entryId??'')} {...(entryId?{entryId}:{})} creating={creating} canWrite={true}/>;
   return (
     <SettingsLayout
       title={t('account.heading')}
@@ -401,7 +411,7 @@ function AccountPage({ user, section, tools, workspaces, activeWorkspace, avatar
       subtitle={t('account.identity', { name: user.displayName, email: user.email })}
       identity={section === 'profile' ? undefined : <ProfileIdentity user={user} avatar={avatar} />}
       navLabel={t('account.heading')}
-      sections={ACCOUNT_SECTIONS.filter((value) => (value !== 'weather' || weatherOn === true || section === 'weather') && (value !== 'places' || place !== null || section === 'places')).map((value) => ({
+      sections={ACCOUNT_SECTIONS.filter((value) => (value!=='connections'||mcpOn) && (value !== 'weather' || weatherOn === true || section === 'weather') && (value !== 'places' || place !== null || section === 'places')).map((value) => ({
         href: paths.account(value),
         label: t(`account.section.${value}`),
         current: value === section,
@@ -410,7 +420,6 @@ function AccountPage({ user, section, tools, workspaces, activeWorkspace, avatar
       }))}
     >
       {section === 'profile' && <ProfileSettings user={user} avatar={avatar} onAvatarChanged={onAvatarChanged} workspaces={workspaces} tools={tools} />}
-      {section === 'journal' && <JournalPage key={user.id} canWrite={true} />}
       {section === 'notifications' && (
         <div className="card">
           <NotificationSettings serverAdmin={user.serverAdmin} />
@@ -432,6 +441,7 @@ function AccountPage({ user, section, tools, workspaces, activeWorkspace, avatar
           <AppearanceSettings workspaces={workspaces} />
         </div>
       )}
+      {section === 'connections' && <McpConnections workspaces={workspaces}/>}
       {section === 'security' && (
         <>
           <div className="card">
@@ -511,7 +521,9 @@ export function AppShell(props: { user: CurrentUser; route: Route; onSignOut: ()
   const navWorkspaceId = workspaceId ?? workspaces?.find((workspace) => workspace.id === remembered)?.id ?? null;
   const navTools = workspaces?.find((workspace) => workspace.id === navWorkspaceId)?.tools ?? [];
   // Focused work hides the global navigation: the builder everywhere, an execution on phones.
-  const focus = route.page === 'procedure-edit' ? 'edit' : route.page === 'run' ? 'run' : undefined;
+  const [journalEditing,setJournalEditing]=useState(false);
+  useEffect(()=>{const listener=(event:Event)=>setJournalEditing((event as CustomEvent<boolean>).detail);window.addEventListener('vmn-journal-editing',listener);return()=>window.removeEventListener('vmn-journal-editing',listener);},[]);
+  const focus = journalEditing ? 'edit' : route.page === 'procedure-edit' ? 'edit' : route.page === 'run' ? 'run' : undefined;
 
   let content;
   if (route.page === 'account') {
@@ -520,6 +532,8 @@ export function AppShell(props: { user: CurrentUser; route: Route; onSignOut: ()
       <AccountPage
         user={user}
         section={route.section}
+        creating={route.creating ?? false}
+        {...(route.entryId?{entryId:route.entryId}:{})}
         tools={workspaces?.find((workspace) => workspace.id === rememberedWorkspace())?.tools ?? null}
         workspaces={workspaces}
         activeWorkspace={workspaces?.find((workspace) => workspace.id === navWorkspaceId) ?? null}

@@ -31,6 +31,7 @@ export const serverEnv = {
 
 /** Guide fixtures use a separate server/database, so account/bootstrap assertions stay independent. */
 export const guideServerEnv = {
+  MCP_ENABLED:'true',
   ...serverEnv,
   PORT: '3101',
   PUBLIC_ORIGIN: 'http://127.0.0.1:3101',

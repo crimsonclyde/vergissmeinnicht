@@ -1,3 +1,4 @@
+import {receiveFile} from './receive-file.ts';
 import { createHash, randomUUID } from 'node:crypto';
 import { createReadStream, mkdirSync } from 'node:fs';
 import { open, readdir, rename, rm, stat, unlink } from 'node:fs/promises';
@@ -50,26 +51,7 @@ export function createDocumentFileStore(root: string): DocumentFileStore {
     async stage(source, maxBytes): Promise<StagedFile> {
       mkdirSync(staging, { recursive: true, mode: 0o700 });
       const path = join(staging, randomUUID());
-      const hash = createHash('sha256');
-      let bytes = 0;
-      const handle = await open(path, 'wx', 0o600);
-      try {
-        for await (const chunk of source) {
-          bytes += chunk.byteLength;
-          // Cut off while receiving: nothing beyond the limit is written.
-          if (bytes > maxBytes) throw new DocumentFileRejectedError('too_large');
-          hash.update(chunk);
-          await handle.writeFile(chunk);
-        }
-        if (bytes === 0) throw new DocumentFileRejectedError('empty');
-        await handle.sync();
-      } catch (error) {
-        await handle.close();
-        await rm(path, { force: true });
-        throw error;
-      }
-      await handle.close();
-      const sha256 = hash.digest('hex');
+      const {bytes,sha256}=await receiveFile(source,path,maxBytes,reason=>new DocumentFileRejectedError(reason));
       let done = false;
       return {
         path,

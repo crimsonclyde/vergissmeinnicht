@@ -1,3 +1,4 @@
+import {AttachmentSettings} from './AttachmentSettings.tsx';
 import { WeatherAdmin } from './WeatherAdmin.tsx';
 import { HistoricalIdentities, RestoreFromBackup, RestoreLimitSettings } from './WorkspaceRestore.tsx';
 import { useCallback, useEffect, useState, type FormEvent } from 'react';
@@ -847,6 +848,7 @@ export function AdminPage({ section, currentUserId, onWorkspacesChanged }: { sec
         <>
           <ServerSettings />
           <AdminStorage />
+          <AttachmentSettings />
           <DocumentFileSettings />
           <RestoreLimitSettings />
         </>

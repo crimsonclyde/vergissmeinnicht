@@ -12,7 +12,9 @@ export function redactUrl(url: string): string {
   const path = queryStart === -1 ? url : url.slice(0, queryStart);
   // Matched on the decoded path with repeated slashes collapsed, so a re-spelled path (`/%6Bnot/…`,
   // `//knot/…`) cannot carry a token past the pattern (21.1 review trigger).
-  const redactedPath = normalisedPath(path).replace(TOKEN_PATH_PATTERN, '$1[REDACTED]');
+  const redactedPath = normalisedPath(path).replace(TOKEN_PATH_PATTERN, '$1[REDACTED]')
+    .replace(/^(\/(?:api\/)?account\/journal\/)(?!(?:privacy|draft|export|attachments)(?:\/|$))[^/]+/, '$1[REDACTED]')
+    .replace(/^(\/(?:api\/)?account\/journal\/attachments\/)(?!usage(?:\/|$))[^/]+/, '$1[REDACTED]');
   return queryStart === -1 ? redactedPath : `${redactedPath}?[REDACTED]`;
 }
 

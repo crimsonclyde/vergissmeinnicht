@@ -18,6 +18,10 @@ For every completed task, add a concise completion note, tests/checks performed,
 
 ## Current state — resume here
 
+**Recipes and MCP follow-up (2026-11-02):** owner requested Recipes and an MCP interface for AI/possible voice control, and selected recipe library **plus grocery-list transfer**. [Assessment and concrete proposal](recipes-mcp-plan.md), section 36.0, covers reusable editor/attachment infrastructure, atomic reviewed ingredient transfer, delegated MCP authorization and reviewed cleanup. Owner authorized implementation on 2026-11-02; Recipes implementation is now underway. Owner subsequently selected user-task writes through a client such as Claude, including Procedure/Run tasks and serving-scaled Recipe/image/shopping creation (36.3). Documents/OCR/private Journal remain excluded; image capability and deployment/auth details still need implementation design. Notes/Journal work below remains complete and unchanged.
+
+**Notes/Journal/shared attachments integration (2026-11-02):** owner approved proceeding after the [architectural assessment](notes-journal-attachments-plan.md). Shared Notes/personal Journal, reusable Markdown and independent attachment transport/application/storage/authorization, exact originals, quotas/hashes, exports and compatible recovery implemented and verified; results in 35.1. No release/deployment. Owner count remains 43; next 44th.
+
 **Published Release 43 (2026-10-31): v0.9.1-beta.0 — Celestial (12.48).** Standalone Sun/Moon card refinement across all themes, retaining existing location/tool choices, with no new migration. PR #82, candidate/main CI and tagged validation/native smoke/scans pass. Signed dual-platform image index `sha256:dcfddc042ed5238b69f4fac01042ea4b25d63e40bbb166fd36dc9dafb53b39d5` verified. The tagged upgrade job exposed an old migration-increase assertion; corrected verifier/negatives and complete local exact-image 61→61 upgrade/backup/export/restore pass, with the original workflow failure disclosed (12.48). [Published prerelease](https://github.com/crimsonclyde/vergissmeinnicht/releases/tag/v0.9.1-beta.0). Owner count is **43**, next **44th**; special Release 42/dedication preserved. No live deployment.
 
 **Published special Release 42 (2026-10-31): v0.9.0-beta.0 — The Curtain Between Worlds (12.47).** The owner's Halloween dedication is published with the Guide interface. PR #72 merged as `fe9f9ef`; candidate CI `41199851871`, main CI `41200242787` and tagged Release `41200603302` passed. Signed amd64/arm64 image index `sha256:a0e75df6fbdc11eb02557bc23d0d0ff61d7b74c3befe07d4f2175c49cc5e0aee`, CycloneDX attestation and exact-image smoke/0.8.0-beta.0 upgrade/backup/export/restore succeeded (60→61 migrations, preserved rows, clean integrity/FKs). [Published prerelease](https://github.com/crimsonclyde/vergissmeinnicht/releases/tag/v0.9.0-beta.0). Owner count is now **42**; next is **43**. No live installation changed.
@@ -5187,6 +5191,181 @@ One shared UI provider compares server totals only after successful same-scope m
 **Remaining:** owner review of working implementation; physical iOS/Android, screen-reader/400% zoom, modest-device performance and release-candidate upgrade/fallback/native image gates before publication readiness. Build warns about a main JS chunk over 500 KB. No version bump, tag, merge, container/image publication, release or deployment. Owner count remains 41, next special 42nd; final special treatment/version/publication still require owner review.
 
 ---
+
+## 35 — Notes, personal Journal and shared attachments (assessment 2026-11-02)
+
+### 35.0 Architectural audit and proposed phases
+
+**Status:** DONE (assessment/documentation only)
+**Completed:** 2026-11-02
+**Implemented:** [Assessment and plan](notes-journal-attachments-plan.md) covering existing upload settings/stores, original preservation versus processed legacy photos, shared service/transport/storage/consumer boundaries, provisional/revision references, configurable quotas/reservations and global capacity, private hashes with deferred physical deduplication, editor candidates, portable Markdown/archive formats, privacy acknowledgement, Notes/Journal/navigation integration and migration/recovery strategy. Owner's follow-up preference for uploader separation incorporated. Existing Documents defaults remain 50 MB/file (1–100 MB configurable) and 5 GB/Workspace; proposed 20 MB/image and 500 MB/person apply to new Journal/Notes category only. True original bytes/metadata and separately regenerable previews required. Explicitly identifies proposed Notes rename, existing USER+ write-role interpretation, uploader billing, Workspace-recovery accounting and server cap configuration as approval points. No production code/schema/dependency or saved data changed.
+**Tests/checks:** source review of domain/application/media/database/HTTP/web boundaries, configuration, security and backup classification/restore; official editor documentation comparison. Focused existing Vitest baseline (command in plan): **5 files / 45 tests passed**, covering Document store/processor, Workspace storage, backup table classification and Journal routes. Local documentation links, diff scope and whitespace checked. No new-feature, full-suite, browser, load or physical-device result claimed.
+**Security surface changed:** NO — documentation only. Proposed implementation introduces sensitive upload, Markdown, draft/revision and quota flows and requires the planned section-35 checks before enabling consumers.
+**Security docs updated:** YES — unchecked future implementation gates; existing policy unchanged.
+**Follow-up:** owner subsequently approved implementation; see 35.1. This entry records the original documentation-only assessment. No release/deployment; owner count remains 43, next 44th; special Release 42/dedication preserved.
+
+### 35.1 Approved Notes/Journal integration and reusable attachments
+
+**Status:** DONE
+**Completed:** 2026-11-02
+**Implemented:** Notes library over the preserved JOURNAL gate/routes and personal Journal in Add/user
+menu, independent of Workspace selection; versioned privacy notice enforced before private writes.
+Legacy v1 text survives migration and converts only explicitly. Version 2 CommonMark/GFM with shared
+lazy visual/source editor, source preservation, task/table/code support, outline/anchors, scoped @
+links, collections/tags/pins/search, optional dates, explicit Save/opt-in autosave, author-only recovery
+drafts and immutable revision history. Portable Markdown/ZIP exports include original images.
+
+Feature-independent transport/application/store/processor with consumer policy adapter and immutable
+policy keys. Exact originals and independent derivatives, SHA-256, JPEG/PNG validation, durable bounded
+quota leases, default 20 MB/file and 500 MB/person, admin settings/overrides and metadata-only usage.
+Documents limits/CAS/OCR remain compatible; generic receiver/download headers extracted. Configured
+managed global safety cap also gates legacy media. Cleanup retains revisions/drafts; backup/restore
+includes correct shared/private originals, fresh scoped ids and historical attribution without personal
+billing. Migrations 0061/0062 preserve existing data and support older backup packages. Guide/classic
+navigation, personal ordering and themes retained. Fictional demo fixtures and user/admin/architecture
+instructions updated. Production dependency advisories resolved with narrow reviewed upgrades.
+
+**Tests/checks:** full Vitest: **204 files / 1,564 tests passed**. Attachment/recovery follow-up after worker/lifecycle hardening: **2 files / 9 passed**,
+including missing-preview repair with unchanged originals and custom storage-volume restore. Populated
+Release 42 DB migration and explicit old-package restore pass; current Workspace normalized round-trip
+and hostile backups pass. Lint has zero errors/warnings; typecheck/build pass; Drizzle reports no schema
+changes; production dependency audit reports no known vulnerabilities; diff whitespace clean. Full
+Playwright (`--workers=1`): **17 passed / 1 intentional mobile bootstrap skip**. Emitted editor fonts
+as same-origin assets to preserve the unchanged strict CSP. Notes/Journal desktop/mobile flows pass
+across six themes with axe, source/visual round trips,
+file/export/reload, privacy/draft recovery, no external requests and narrow layout. Full-suite findings
+fixed: stale menu/form selectors and a date-dependent astronomy fixture. Light/dark mobile captures
+visually inspected. No browser gate suppressed. Production build retains large optional editor/language
+chunk warnings; Journal is lazy-loaded, and physical low-memory phone performance remains unmeasured.
+**Security surface changed:** YES — scoped uploads, private drafts/history, Markdown and quota/export
+flows. Security checklist 35 updated with implemented boundaries, test evidence and future gates.
+**Remaining/limitations:** portable import, comprehensive backlinks/broken-reference management,
+additional syntax/image categories and physical deduplication deferred. One author-only recovery slot
+per library; no new offline writes. Managed cap excludes DB/WAL/archives/backups and does not reserve
+physical disk against host writes; restore uses existing staging limits plus final atomic admission.
+No release/live deployment, physical-device/screen-reader or container certification claimed.
+
+
+## 36 — Recipes and MCP follow-up (2026-11-02)
+
+### 36.0 Architecture assessment and first-version proposal
+
+**Status:** DONE (assessment/documentation only)
+**Completed:** 2026-11-02
+**Request:** owner wants a Recipe plugin and MCP server for AI operations/possible voice control.
+Owner selected **recipe library plus grocery-list transfer** in the scope question. MCP client and
+initial operation scopes remain unanswered; external processing is not implicitly approved.
+**Implemented:** [Concrete proposal](recipes-mcp-plan.md), auditing Workspace tool/capability gates,
+Lists validation/transactions, reusable Markdown/attachment consumers, cookie-only existing Principal,
+backup classification and current external-AI/security restrictions. Proposes a separate optional
+Recipes tool, reviewed all-or-nothing ingredient transfer with idempotency, independent attachment
+policy/lifecycle and portable recovery. MCP adapter goes through application commands and current
+user/grant/tool intersection; covers local/HTTP options, grant lifecycle, prompt injection, independent
+cleanup review and a client-owned voice layer. No dependency/protocol implementation selected yet.
+**Tests/checks:** source inspection, official MCP transport/authorization/tool specifications, local
+proposal links and `git diff --check`. No runtime tests required or claimed for documentation-only work;
+prior section-35 validation is unchanged and is not new-feature evidence.
+**Security surface changed:** NO — no routes, credentials, tables, remote model calls or data exposure.
+**Security docs updated:** YES — unchecked implementation gates for new consumer, bulk writes and MCP.
+**Remaining:** implement Recipes and reviewed grocery transfer; confirm MCP target client/transport,
+read/write scopes and external-sharing policy before introducing the sensitive grant boundary. The
+proposal does not approve external Document/OCR/private Journal processing, destructive cleanup,
+arbitrary SQL/shell tools or live deployment. Owner count remains 43; next release 44.
+
+### 36.1 Recipes implementation
+
+**Status:** IN PROGRESS (owner authorized implementation 2026-11-02)
+**Implemented so far:** exact decimal/rational serving projection with explicit unrepresentable-quantity
+review, bounded Recipe content, independent RECIPES tool/capabilities, migration0063, scoped storage/API,
+reversible archive, atomic audited/idempotent grocery transfer, independent shared attachment consumer,
+Recipe cleanup/backup/restore bindings and initial shared-editor/attachment UI. Existing capabilities
+remain; no live model/provider call or MCP credential created. Source and target permissions/revisions
+are rechecked inside transfer transactions; existing grocery items are not merged or modified.
+**Checks so far:** domain3 and Recipe HTTP4 tests pass (guest/foreign/tool/stale/archive boundaries,
+original-byte fidelity/policy isolation, serving projection, retry/mismatched payload and audit rollback).
+Existing Journal smoke7 pass. Full regressions running after updating schema/capability fixtures.
+**Security surface changed:** YES — new reviewed attachment consumer and cross-tool batch mutation.
+**Remaining:** complete UI/browser checks, populated Recipe recovery/export tests and regression gates;
+image generation and MCP36.2 are not yet implemented.
+
+### 36.2 MCP implementation
+
+**Status:** IN PROGRESS — owner authorized implementation. Official MCP SDK 1.32.2 (MIT) inspected/installed; OAuth/provider and transaction-time delegation integration next. No MCP route enabled yet. Selected initial client is ChatGPT via private Secure MCP Tunnel; Claude compatibility remains a standard-protocol seam.
+
+
+
+### Recipes and delegated user tasks — implementation update (2026-11-02)
+
+Recipes, original images, serving-scaled grocery transfers and the optional OAuth MCP endpoint are implemented locally. Migrations 0063–0065 add Recipe records, scoped grants, hashed tokens and durable meal/image request outcomes. Writes recheck current user permissions and selected Workspaces. Image generation sends the explicit prompt to the configured OpenAI project and preserves the returned original. Uncertain requests do not automatically incur another charge.
+
+Security surface changed. Local tests cover PKCE, revocation, role enforcement, duplicate requests, atomic shopping updates, image preservation and backup recovery. Desktop and mobile browser checks cover Recipes and consent. Live ChatGPT tunnel eligibility, OAuth reachability, voice and paid image quality require deployment validation. See [operator setup](../admin/mcp.md).
+
+### 36.3 Owner clarification — everyday AI assistance, servings and recipe images
+
+**Status:** DONE (requirements/design update only)
+**Completed:** 2026-11-02
+**Accepted:** client such as Claude should add Procedure Steps, mark actual RunSteps done, add grocery
+items in a chosen Workspace, and handle “pancakes for N people” by saving/reusing a pictured Recipe and
+updating shopping quantities for target servings. Initial MCP supports ordinary user read/write tasks;
+no administration. Existing capabilities still apply, including EDITOR/ADMIN for Procedure authorship.
+**Implemented:** rewrote the [proposal](recipes-mcp-plan.md) around these exact command flows; updated
+AGENTS.md's accepted scope and the planned security gates. Serving scaling moved into the first version,
+using authoritative decimal/rational projection without changing the base recipe. Added compound meal
+staging/atomic commit/idempotency and explicit image provenance/completeness. Ordinary clearly requested
+writes do not inherit the independent bulk-cleanup confirmation workflow. Claude is the compatibility
+example; standard MCP remains client-independent, and speech is supplied by the client.
+**Tests/checks:** inspected existing procedure.edit/run.execute capability split and application revision/
+state commands; checked official Claude connector/image capability documentation; documentation links
+and `git diff --check`. No runtime tests claimed; no code/dependencies/routes/schema changed here.
+**Security surface changed:** NO — this records the selected future boundary. External-client interaction
+is narrowly scoped to granted Procedure/Run context, Recipes and grocery Lists. Documents/OCR/private
+Journal, credentials, administration and unrelated Workspaces remain excluded. Runtime delegation still
+requires the section-36 review and tests; no provider key, paid model or remote-image fetch is selected.
+**Remaining:** implement 36.1/36.2, select/review OAuth/SDK, actual image capability and deployment reachability,
+and validate a real client end to end. Remote Claude connects from its infrastructure; a LAN-only server
+needs a deliberately supported deployment/transport. No release/deployment; owner count stays43, next44.
+
+
+### 36.4 OpenAI Recipe images and private-client connectivity assessment
+
+**Status:** DONE (documentation/verification only)
+**Completed:** 2026-11-02
+**Accepted direction:** owner chooses OpenAI API image generation via a dedicated project key, initially
+roughly $10, and asks whether Claude desktop/phone can reach a tailnet-local VMN installation.
+**Implemented:** recorded narrow external Recipe-image scope in AGENTS.md, detailed protected-key/
+original-byte/provenance/cost/job design in the proposal, and future credential/outbound/billing tests in
+security.md. Verified official current pricing: GPT Image1.5 medium1024 output $0.034 (~294/$10 before
+inputs/retries), as an example rather than a model guarantee. Distinguished Desktop local MCP through
+the computer's tailnet from cloud-originated remote connectors. Current Cowork local connectors may be
+mediated by an open Desktop app; actual account/client validation remains required. No mobile direct
+private-network access or always-off-desktop operation claimed.
+**Tests/checks:** OpenAI Docs skill, fetched official OpenAI image/project documentation and official
+Claude local/remote/Cowork documentation; local scope consistency and `git diff --check`. Documentation
+only; no API key requested/stored, paid generation, dependencies, schema, endpoints or tunnel configured.
+**Security surface changed:** NO (design only); future implementation adds a reviewed protected provider
+credential, fixed outbound image API and spending boundary. Other private/document processing remains
+excluded. **Remaining:** implementation36.1/36.2, model/SDK review and quality evaluation, and whether
+mobile must work independently or can rely on a running desktop. No release/deployment.
+
+
+### 36.5 ChatGPT Plus and outbound private MCP tunnel assessment
+
+**Status:** DONE (documentation/verification only)
+**Completed:** 2026-11-02
+**Request:** owner asks about ChatGPT Plus as the client and a possible tailnet-connected Hetzner VPS.
+**Implemented:** [proposal follow-up](recipes-mcp-plan.md) now evaluates official Secure MCP Tunnel:
+outbound tunnel-client beside the existing always-on VMN container, no desktop or public inbound MCP
+listener required. VPS is optional; running only the connector on a VPS over tailnet is also possible,
+without migrating VMN. Separates custom-plugin/account eligibility, Platform tunnel association/runtime
+credentials, VMN user authorization, OAuth reachability, image API project budget and mobile/voice testing.
+No claim that Plus automatically grants every capability or that native voice tool calls already work.
+**Tests/checks:** OpenAI Docs workflow; fetched official custom MCP, Secure MCP Tunnel, Plugins and Voice
+documentation; `git diff --check`. No runtime/network/account test or new-feature test claimed.
+**Security surface changed:** NO — design only. Future relay credentials and outbound boundary have
+unchecked gates in security.md. No VPS purchase, tunnel, secret/account change, billing request or public
+exposure. **Remaining:** validate account access then implement and test selected private transport and
+user workflows; no host migration or external service provisioned by the assessment.
+
 
 ## 11 — Licensing
 

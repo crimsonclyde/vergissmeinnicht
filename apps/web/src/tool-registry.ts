@@ -16,6 +16,7 @@ export interface ToolPlugin {
 }
 
 export const TOOL_PLUGINS: readonly ToolPlugin[] = [
+  {tool:'RECIPES',icon:'grocery',name:()=>t('recipes.heading'),hint:()=>t('recipes.hint')},
   { tool: 'PROCEDURES', icon: 'procedures', name: () => t('shell.procedures'), hint: () => t('tools.proceduresHint'), confirmOff: true },
   { tool: 'REMINDERS', icon: 'reminders', name: () => t('shell.reminders'), hint: () => t('tools.remindersHint'), confirmOff: true },
   { tool: 'LISTS', icon: 'lists', name: () => t('shell.lists'), hint: () => t('more.listsHint') },

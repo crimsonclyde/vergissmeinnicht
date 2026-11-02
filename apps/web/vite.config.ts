@@ -5,6 +5,8 @@ import { thirdPartyNotices } from './third-party-notices.ts';
 export default defineConfig({
   plugins: [react(), thirdPartyNotices()],
   build: {
+    // Keep bundled editor fonts compatible with the existing self-only production font CSP.
+    assetsInlineLimit: filePath => /\.(woff2?|ttf|otf)$/i.test(filePath) ? false : undefined,
     rolldownOptions: {
       output: {
         // The icon catalogue (Tabler artwork the registry imports, the generated labels and search words,

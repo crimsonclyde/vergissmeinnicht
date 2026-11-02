@@ -37,7 +37,7 @@ Turn repeatable work into **Procedures**, see what needs attention, and keep a r
 | **Documents** | Folders, original files, previews and text recognition on your own server. |
 | **Contacts** | Shared people and organisations, links, CSV and vCard import/export. |
 | **Equipment & Maintenance** | Models, compatible replacement parts, linked manuals and servicing records. |
-| **Journal** | Shared Workspace notes and separate, account-private notes. |
+| **Notes & Journal** | Shared Workspace Notes and a personal Journal, with Markdown, original images and portable exports. |
 | **Workspaces & roles** | Enable tools as needed; give members Guest, User, Editor or Admin access. |
 | **Backup & restore** | Workspace-admin exports; server-admin restore into a new Workspace. |
 | **Offline essentials** | Saved active Runs and grocery Lists, with queued changes sent after reconnecting. |

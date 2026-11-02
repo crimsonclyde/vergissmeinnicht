@@ -28,6 +28,7 @@ function principalOf(request: FastifyRequest): Principal {
 
 /** Storage by tool, the limit in force, the ceiling and the Workspace's own limit — numbers only. */
 export const storageView = (usage: StorageUsage) => ({
+  attachmentBytes:usage.attachments??0,
   imageBytes: usage.images,
   documentBytes: usage.originals,
   previewBytes: usage.previews,

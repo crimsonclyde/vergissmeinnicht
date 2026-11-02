@@ -17,6 +17,12 @@ describe('redactUrl', () => {
     ['/api/health?token=abc', '/api/health?[REDACTED]'],
     ['/runs/123#frag', '/runs/123?[REDACTED]'],
     ['/api/health', '/api/health'],
+    ['/account/journal/private-id','/account/journal/[REDACTED]'],
+    ['/api/account/journal/private-id/history','/api/account/journal/[REDACTED]/history'],
+    ['/api/account/journal/attachments/private-file/original','/api/account/journal/attachments/[REDACTED]/original'],
+    ['/%61pi/account/journal/attachments/private-file/preview','/api/account/journal/attachments/[REDACTED]/preview'],
+    ['/api/account/journal/privacy','/api/account/journal/privacy'],
+    ['/api/account/journal/attachments/usage','/api/account/journal/attachments/usage'],
     // Re-spelled paths are redacted too.
     ['/%6Bnot/abcDEF123', '/knot/[REDACTED]'],
     ['//knot/abcDEF123', '/knot/[REDACTED]'],

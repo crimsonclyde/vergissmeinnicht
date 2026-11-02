@@ -4,3 +4,4 @@ export * from './document-file-store.ts';
 export * from './document-file-processor.ts';
 export * from './text-extractor.ts';
 export { createDocumentWorker, type DocumentWorker } from './document-worker-host.ts';
+export * from './attachment-store.ts';

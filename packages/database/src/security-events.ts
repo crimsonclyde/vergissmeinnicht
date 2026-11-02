@@ -1,3 +1,4 @@
+import {currentDelegation} from './delegation-context.ts';
 import { randomUUID } from 'node:crypto';
 import { InvalidCursorError, toPage, type SecurityEventEntry, type SecurityEventReader } from '@vergissmeinnicht/application';
 import type { Actor, SecurityEventType } from '@vergissmeinnicht/domain';
@@ -28,7 +29,7 @@ export function recordSecurityEvent(tx: Transaction, event: SecurityEventRecord)
       actorLabel: event.actor.kind === 'user' ? event.actor.displayName : event.actor.label,
       subjectType: event.subjectType,
       subjectId: event.subjectId,
-      metadata: event.metadata ? { ...event.metadata } : null,
+      metadata: currentDelegation()?{...event.metadata,mcpClientId:currentDelegation()?.clientId??'',mcpGrantId:currentDelegation()?.grantId??''}:event.metadata ? { ...event.metadata } : null,
     })
     .run();
 }

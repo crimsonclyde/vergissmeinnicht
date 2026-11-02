@@ -428,6 +428,41 @@
       "when": 1793443737949,
       "tag": "0060_space_guide",
       "breakpoints": true
+    },
+    {
+      "idx": 61,
+      "version": "6",
+      "when": 1793628467209,
+      "tag": "0061_journal_notes",
+      "breakpoints": true
+    },
+    {
+      "idx": 62,
+      "version": "6",
+      "when": 1793629031979,
+      "tag": "0062_shared_attachments",
+      "breakpoints": true
+    },
+    {
+      "idx": 63,
+      "version": "6",
+      "when": 1793654626469,
+      "tag": "0063_recipes",
+      "breakpoints": true
+    },
+    {
+      "idx": 64,
+      "version": "6",
+      "when": 1793655747514,
+      "tag": "0064_mcp_delegation",
+      "breakpoints": true
+    },
+    {
+      "idx": 65,
+      "version": "6",
+      "when": 1793656557459,
+      "tag": "0065_recipe_generation",
+      "breakpoints": true
     }
   ]
 }

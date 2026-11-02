@@ -182,7 +182,7 @@ describe('Workspace restore (section 18b)', () => {
     const before = { workspaces: workspaceCount(), imported: importedCount() };
     const ready = await validated(homePackage);
     expect(ready, JSON.stringify(ready)).toMatchObject({ state: 'READY', phase: 'validated', errorCode: null, workspaceId: null });
-    expect(ready.preview).toMatchObject({ workspaceName: 'Home ✨ Ferienhaus', databaseLevel: '0060_space_guide', schedulesPaused: 2, assignmentsCleared: 1 });
+    expect(ready.preview).toMatchObject({ workspaceName: 'Home ✨ Ferienhaus', databaseLevel: '0065_recipe_generation', schedulesPaused: 2, assignmentsCleared: 1 });
     expect(ready.preview.counts).toMatchObject({ procedures: 1, runs: 2, documents: 2, document_files: 3, links: 3, run_document_removals: 1, contacts: 1, list_items: 3 });
     // Previous members, for inviting them again by hand — the restore itself invites and matches nobody.
     expect(ready.preview.previousMembers.map((member) => `${member.displayName}:${member.email}:${member.role}`).sort()).toEqual(['Ada:admin@example.org:ADMIN', 'Eddie:editor@example.org:EDITOR', 'Gus:guest@example.org:GUEST', 'Olga Öwner:owner@example.org:ADMIN', 'Uma 🌸:user@example.org:USER']);
@@ -311,6 +311,16 @@ describe('Workspace restore (section 18b)', () => {
     expect((await validated(await repack(homePackage, (files) => files.delete('data/journal_entries.ndjson')))).errorCode).toBe('malformed_records');
     expect((await validated(await repack(homePackage, files => files.delete('data/bring_items.ndjson')))).errorCode).toBe('malformed_records');
     expect((await restore(await repack(homePackage, files => files.delete('data/bring_items.ndjson'), { databaseLevel: '0058_gamification' }))).workspaceId).toBeTruthy();
+  });
+
+  it('restores a Release 42 plain Journal package without new fields or attachment tables', async () => {
+    const legacy = await repack(homePackage, files => {
+      const person = lines(files, 'procedures')[0]?.created_by_user_id;
+      write(files, 'journal_entries', [{ id: randomUUID(), kind: 'note', version: 1, title: 'Release 42 note', date: '2026-10-31', body: '**literal old text**', revision: 3, archived: 0, created_by_user_id: person, created_by: 'Olga', updated_by_user_id: person, updated_by: 'Olga', created_at: 1, updated_at: 2 }]);
+      for (const table of ['journal_revisions', 'attachments', 'journal_attachment_references']) files.delete(`data/${table}.ndjson`);
+    }, { databaseLevel: '0060_space_guide' });
+    const result = await restore(legacy);
+    expect(one('SELECT version,body,collection,tags,pinned FROM journal_entries WHERE workspace_id=?',result.workspaceId)).toEqual({version:1,body:'**literal old text**',collection:'',tags:'[]',pinned:0});
   });
 
   it('revalidates hostile Bring content, status stamps, person references and collection bounds atomically', async () => {

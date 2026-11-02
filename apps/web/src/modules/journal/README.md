@@ -1,15 +1,36 @@
-# Journal module
+# Notes and Journal module
 
-This is a bundled feature module in the modular monolith. It does not load third-party code at runtime.
+Bundled code in the modular monolith. Stored `JOURNAL` remains the optional shared Workspace gate;
+its UI label is Notes. Private Journal stays account-owned and independent of Workspace selection.
+Legacy routes/order/tool choices survive. Native Guide and classic fallback are both supported.
 
-- `packages/domain/src/journal/index.ts`: versioned, bounded content contract and `JOURNAL_TYPES` registry.
-- `packages/application/src/journal/index.ts`: authorization, owner/Workspace scope, use cases and repository port.
-- `packages/database/src/journal/repository.ts`: scoped persistence, transaction-time permission rechecks, revisions and value-free audit.
-- `apps/server/src/http/journal-routes.ts`: explicit authenticated HTTP registrations, strict request bounds and normal CSRF protection.
-- This directory: list/editor and `ENTRY_RENDERERS`, the presentation registry for entry types.
+Version 1 remains literal legacy text; version 2 is UTF-8 CommonMark/GFM with nullable date, collection,
+tags and pinning. `parseJournalContent` validates both. Convert is explicit. Never interpret old text
+as Markdown automatically or drop unsupported source. The shared Milkdown adapter captures canonical
+transactions synchronously, uses native checklist semantics and theme-token highlighting, and retains
+source mode after image insertion. No remote image/service/AI/math execution is enabled.
 
-Start with `note` version 1: title, civil entry date and plain text. New entry types need an explicit domain parser/contract and renderer; if the persisted contract changes, ship a schema migration and backup compatibility tests. Reuse the existing scope, authorization, revision, audit and HTTP boundaries. Adding a type does not require rewriting navigation, authentication, Runs, Procedures or unrelated tools. Register only reviewed built-in code; never interpret content as markup, a module path, SQL or executable code.
+Application/database writes recheck ACTIVE actor, owner or current Workspace tool/capability and
+expected revision. Personal writes additionally require per-user/version privacy acknowledgement.
+Private tables, drafts and attachment references are excluded from Workspace backups; no admin API
+bypass, scope conversion or private Workspace picker/backlink exists. Events contain no entry content
+or private identifiers. Private API paths are redacted in request logs.
 
-Private entries are account-owned and kept in `private_journal_entries`; shared entries live in `journal_entries`. Scope/ownership/kind/version/creation identity cannot change in place. Do not add a private-to-shared conversion without an explicit product/privacy decision. Workspace exports include only the shared table; private entries remain present in full server backups. Shared records restore with historical identity attribution. Disabling the Workspace tool preserves shared entries; the private account journal is independent.
+Drafts are author-only server recovery, one slot per account per library; existing recovery requires
+an explicit choice, and a different entry cannot silently replace that slot. They are not offline
+browser storage or published entries. Explicit Save remains; autosave is opt-in. Immutable revisions
+retain attachment references and conflicts preserve current editor text. Bounds: 1,000 entries per
+scope, 50,000 body characters and 1,000 revisions per entry.
 
-The first version has explicit Save, 30-entry pages, bounded title/body/search, a 1,000-entry limit per scope, search, stale-write conflicts and reversible archive. No autosave, offline drafts, attachments, rich text, notifications or permanent-delete endpoint. New navigation prompts before leaving unsaved changes; reload/closing uses the browser's standard warning. A failed save leaves the editor text in memory.
+`attachments` application ports/HTTP transport/media storage and processors are feature-independent.
+The reviewed `journalAttachmentPolicy` adapter supplies write guards and reference visibility; a stored
+immutable policy key prevents another future consumer from reading these files with a weaker gate.
+The Journal adapter owns typed shared/private binding tables and validates same-scope accessible ids.
+Original and derivative keys are separate, quota admission uses durable reservations, and hashes are
+private integrity facts. Other features require their own registered authorization and lifecycle
+adapters; new permissions or cross-scope sharing do not follow from uploader reuse.
+
+Exports are readable Markdown/ZIP plus original image bytes and metadata. AST-based remapping changes
+real destinations only, preserving code and unknown text. Workspace recovery classifies all tables,
+remaps fresh ids and excludes private content. Supported older packages upgrade explicitly. Physical
+deduplication, portable import, broader backlinks and additional syntax stay deferred.

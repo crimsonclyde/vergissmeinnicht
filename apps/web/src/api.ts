@@ -55,6 +55,7 @@ export interface ImageUsage {
 
 /** The combined storage of a Workspace by tool, for its admins and the server admin (16.4). */
 export interface StorageInfo extends ImageUsage {
+  readonly attachmentBytes?:number;
   /** Document versions kept for executions whose document no longer holds these files. */
   readonly retainedBytes: number;
   /** Instruction photos of Procedures. */
@@ -1220,14 +1221,39 @@ const journalPath = (workspaceId?: string) => workspaceId === undefined ? '/acco
 export type BringView = Omit<BringItem, 'createdAt' | 'updatedAt' | 'completedAt' | 'cancelledAt'> & { createdAt: string; updatedAt: string; completedAt: string | null; cancelledAt: string | null };
 export type BringTodayView = Pick<BringView, 'id' | 'title' | 'from' | 'to' | 'dueDate' | 'assigneeId' | 'assigneeName' | 'status' | 'revision'>;
 const bringPath = (workspaceId: string, rest = '') => `/workspaces/${encodeURIComponent(workspaceId)}/bring${rest}`;
+export interface McpConnection {id:string;clientName:string;workspaceIds:string[];scopes:import('@vergissmeinnicht/domain').McpScope[];expiresAt:string;revokedAt:string|null}
+export interface McpConsent {id:string;clientName:string;redirectOrigin:string;scopes:import('@vergissmeinnicht/domain').McpScope[];expiresAt:string}
 export const api = {
+  recipeImageStatus:(workspaceId:string)=>request<{enabled:boolean}>('GET',`/workspaces/${encodeURIComponent(workspaceId)}/recipes/image-generation/status`),
+  generateRecipeImage:(workspaceId:string,operationId:string,prompt:string)=>request<{job:{status:string};attachment:{id:string;name:string;format:string}|null}>('POST',`/workspaces/${encodeURIComponent(workspaceId)}/recipes/image-generation`,{operationId,prompt}),
+  mcpStatus:()=>request<{enabled:boolean}>('GET','/account/mcp/status'),
+  mcpConnections:()=>request<{connections:McpConnection[]}>('GET','/account/mcp/'),
+  mcpConsent:(id:string)=>request<McpConsent>('GET','/account/mcp/requests/'+encodeURIComponent(id)),
+  mcpApprove:(input:{requestId:string;allow:boolean;workspaceIds:string[];scopes:import('@vergissmeinnicht/domain').McpScope[]})=>request<{redirect:string}>('POST','/account/mcp/approve',input),
+  mcpRevoke:(id:string)=>request('POST','/account/mcp/'+encodeURIComponent(id)+'/revoke',{}),
   bring: (workspaceId: string, status = 'OPEN', filter = 'ALL', offset = 0) => request<{ items: BringView[]; total: number; places: string[] }>('GET', bringPath(workspaceId, '?' + new URLSearchParams({ status, filter, offset: String(offset) }))),
   bringToday: (workspaceId: string, filter: string, today: string) => request<{ items: BringTodayView[]; total: number }>('GET', bringPath(workspaceId, '?' + new URLSearchParams({ filter, today }))),
   saveBring: (workspaceId: string, content: BringContent, item?: BringView) => request<{ item: BringView }>('POST', bringPath(workspaceId, item === undefined ? '' : `/${item.id}/update`), { content, expectedRevision: item?.revision ?? 0 }).then(r => r.item),
   bringStatus: (workspaceId: string, item: Pick<BringView, 'id' | 'revision'>, status: BringStatus) => request<{ item: BringView }>('POST', bringPath(workspaceId, `/${item.id}/status`), { status, expectedRevision: item.revision }).then(r => r.item),
   bringDelete: (workspaceId: string, item: BringView, restore = false) => request<{ item: BringView }>('POST', bringPath(workspaceId, `/${item.id}/${restore ? 'restore' : 'delete'}`), { expectedRevision: item.revision }).then(r => r.item),
+  recipes: (workspaceId:string,q='',archived=false,offset=0)=>request<{recipes:RecipeView[];more:boolean}>('GET',`/workspaces/${encodeURIComponent(workspaceId)}/recipes?${new URLSearchParams({q,archived:String(archived),offset:String(offset)})}`),
+  recipe: (workspaceId:string,id:string)=>request<{recipe:RecipeView}>('GET',`/workspaces/${encodeURIComponent(workspaceId)}/recipes/${encodeURIComponent(id)}`).then(result=>result.recipe),
+  saveRecipe: (workspaceId:string,id:string|undefined,content:import('@vergissmeinnicht/domain').RecipeContent,expectedRevision:number,archived:boolean)=>request<{recipe:RecipeView}>('POST',`/workspaces/${encodeURIComponent(workspaceId)}/recipes${id?'/'+encodeURIComponent(id):''}`,{content,expectedRevision,archived}).then(result=>result.recipe),
+  recipeIngredients: (workspaceId:string,id:string,servings:number)=>request<{recipeRevision:number;servings:number;ingredients:ReturnType<typeof import('@vergissmeinnicht/domain').scaleRecipeIngredients>}>('GET',`/workspaces/${encodeURIComponent(workspaceId)}/recipes/${encodeURIComponent(id)}/ingredients?servings=${servings}`),
+  recipeShopping:(workspaceId:string,id:string,input:import('@vergissmeinnicht/domain').RecipeTransfer)=>request<{itemIds:string[];duplicate:boolean}>('POST',`/workspaces/${encodeURIComponent(workspaceId)}/recipes/${encodeURIComponent(id)}/shopping`,input),
   personalProgress: () => request<{points:number}>('GET', '/account/progress'),
   moon: (workspaceId: string) => request<{ location: import('@vergissmeinnicht/domain').WeatherLocation | null }>('GET', `/workspaces/${encodeURIComponent(workspaceId)}/moon`),
+  regenerateAttachment:(workspaceId:string|undefined,id:string)=>request('POST',`${journalPath(workspaceId)}/attachments/${encodeURIComponent(id)}/regenerate`,{}),
+  attachments: (workspaceId?:string)=>request<{attachments:AttachmentView[]}>('GET',`${journalPath(workspaceId)}/attachments`),
+  attachmentUsage: (workspaceId?:string)=>request<{usage:import('@vergissmeinnicht/domain').AttachmentUsage;policy:import('@vergissmeinnicht/domain').AttachmentPolicy}>('GET',`${journalPath(workspaceId)}/attachments/usage`),
+  attachmentAdmin: ()=>request<{settings:import('@vergissmeinnicht/domain').AttachmentPolicy;accounts:{id:string;name:string;override:number|null;used:number}[];global:{used:number;reserved:number;limit:number|null}}>('GET','/admin/attachments'),
+  saveAttachmentPolicy:(policy:import('@vergissmeinnicht/domain').AttachmentPolicy)=>request('POST','/admin/attachments',policy),
+  saveAttachmentQuota:(id:string,bytes:number|null)=>request('POST',`/admin/attachments/${encodeURIComponent(id)}`,{bytes}),
+  journalPrivacy: () => request<{acknowledged:boolean;version:number}>('GET','/account/journal/privacy'),
+  acknowledgeJournal: () => request<{acknowledged:boolean;version:number}>('POST','/account/journal/privacy',{version:1}),
+  journalDraft: (workspaceId?:string) => request<{draft:import('@vergissmeinnicht/domain').JournalDraft|null}>('GET',`${journalPath(workspaceId)}/draft`),
+  saveJournalDraft: (workspaceId:string|undefined,draft:Omit<import('@vergissmeinnicht/domain').JournalDraft,'updatedAt'>|null) => request('POST',`${journalPath(workspaceId)}/draft`,{draft}),
+  journalHistory: (workspaceId:string|undefined,id:string,before=1_000_000_001) => request<{revisions:import('@vergissmeinnicht/domain').JournalRevision[]}>('GET',`${journalPath(workspaceId)}/${encodeURIComponent(id)}/history?before=${before}`),
   journal: (workspaceId: string | undefined, q: string, archived: boolean, offset: number) => request<{ entries: JournalView[]; more: boolean }>('GET', `${journalPath(workspaceId)}?${new URLSearchParams({ q, archived: String(archived), offset: String(offset) })}`),
   journalEntry: (workspaceId: string | undefined, id: string) => request<{ entry: JournalView }>('GET', `${journalPath(workspaceId)}/${encodeURIComponent(id)}`).then((answer) => answer.entry),
   saveJournal: (workspaceId: string | undefined, id: string | undefined, content: JournalContent, expectedRevision: number, archived: boolean) => request<{ entry: JournalView }>('POST', `${journalPath(workspaceId)}${id === undefined ? '' : `/${encodeURIComponent(id)}`}`, { content, expectedRevision, archived }).then((answer) => answer.entry),
@@ -1700,3 +1726,24 @@ export const api = {
   acceptInvitation: (token: string, displayName: string, password: string) =>
     request<{ status: 'accepted' }>('POST', '/invitations/accept', { token, displayName, password }),
 };
+
+export interface AttachmentView {id:string;name:string;format:'JPEG'|'PNG';bytes:number;width:number;height:number}
+export const attachmentUrl=(workspaceId:string|undefined,id:string,kind='preview')=>`/api${journalPath(workspaceId)}/attachments/${encodeURIComponent(id)}/${kind}`;
+export async function uploadJournalImage(workspaceId:string|undefined,file:File):Promise<AttachmentView>{
+ const response=await fetch(`/api${journalPath(workspaceId)}/attachments`,{method:'POST',credentials:'same-origin',headers:{'content-type':'application/octet-stream','x-file-name':encodeURIComponent(file.name||'clipboard.png')},body:file});
+ const body=await response.json();if(!response.ok)throw new ApiError(response.status,body.error??'request_failed');return body.attachment;
+}
+
+export type RecipeView = Omit<import('@vergissmeinnicht/domain').Recipe,'updatedAt'> & {updatedAt:string};
+export interface AttachmentClient {
+ list():Promise<{attachments:AttachmentView[]}>;
+ usage():Promise<{usage:import('@vergissmeinnicht/domain').AttachmentUsage}>;
+ upload(file:File):Promise<AttachmentView>;
+ regenerate(id:string):Promise<unknown>;
+ url(id:string,kind?:string):string;
+}
+export function recipeAttachmentClient(workspaceId:string):AttachmentClient {
+ const base=`/workspaces/${encodeURIComponent(workspaceId)}/recipes/attachments`;
+ return {list:()=>request('GET',base),usage:()=>request('GET',base+'/usage'),regenerate:id=>request('POST',base+'/'+encodeURIComponent(id)+'/regenerate',{}),url:(id,kind='preview')=>'/api'+base+'/'+encodeURIComponent(id)+'/'+kind,
+ upload:async file=>{const response=await fetch('/api'+base,{method:'POST',credentials:'same-origin',headers:{'content-type':'application/octet-stream','x-file-name':encodeURIComponent(file.name||'clipboard.png')},body:file});const body=await response.json();if(!response.ok)throw new ApiError(response.status,body.error??'request_failed');return body.attachment;}};
+}

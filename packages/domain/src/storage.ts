@@ -31,6 +31,7 @@ export const effectiveStorageLimit = (ceiling: number, ownLimit: number | null):
  * that is both in a live Document and in one in Trash counts as live.
  */
 export interface StorageUsage {
+  readonly attachments?:number;
   /** Procedures: instruction images in use (or uploaded within the last day and not used yet). */
   readonly images: number;
   /** Documents: original files that are not in Trash (uploads not yet saved as a Document included). */

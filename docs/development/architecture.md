@@ -438,6 +438,13 @@ Ports (`packages/application/src/ports/media.ts`): `ImageProcessor` and `MediaSt
 
 ## Document files (Step 16.1)
 
+Shared attachment architecture: [Notes, Journal and attachments](notes-journal-attachments-plan.md)
+(section 35, implemented 2026-11-02). The modular monolith separates generic authenticated HTTP
+transport, application admission/lifecycle ports, consumer authorization/reference policy, metadata
+repository and local object store/processor. No new service or physical deduplication. Documents
+shares only the exact-byte receiver and safe download headers; its existing contracts remain.
+
+
 Independent review (2026-10-03): file registration re-checks the Documents switch in its IMMEDIATE transaction. Preview processing checks it before each page and when registering a derivative. Disabled files remain PENDING with no extra retry attempt or quota charge; resume scans select only enabled Workspaces. The existing hourly/startup scan continues unfinished previews after re-enable. A render already in progress may finish, leaving only unreachable orphan bytes if registration is refused; housekeeping applies unchanged. Upload responses re-check authorization after asynchronous processing.
 
 The foundation under Documents: files. An uploaded file is provisional — removed after 24 hours — until it becomes a page of a Document (16.2, next section).
@@ -734,3 +741,52 @@ The authenticated shell now defaults to a theme-independent top navigation (`gui
 Migration 0060 adds `space-guide` to both theme allowlists and a bounded strict `guide` JSON object to `user_preferences` (Guide/classic layout, Glass/Starfield, integer opacity, images). It preserves old values and recreates navigation guards. The API remains the existing own-account preference route; partial older updates preserve the object. Appearance offers explicit Save/Cancel/reset, applying Guide settings only after success. The provider stores a validated account-keyed Guide/menu-order copy in the existing offline context store, with existing sign-out/account-switch cleanup. Workspace backups still exclude all personal preference tables; no exported columns change. Existing Places settings and theme aliases keep their scope and defaults.
 
 `TodaySettingsProvider` shares existing Today choices with `GuideGlance` and Today. The header renders Clock/Weather only when selected; Guide suppresses their former Today row. Weather uses the existing forecast/cache contract, guards the account and Workspace identity, and retains stale/source details. Native Clock/Weather dialogs return focus and link to the existing full forecast settings. The optional Space stylesheet uses semantic tokens and local lazy decorative WebP cutouts; protected opaque captions/controls retain contrast at every opacity. Other themes retain their own decoration and functionality. Artwork provenance: `apps/web/src/guide/ARTWORK.md`.
+
+### Notes, personal Journal and shared attachments (35.1)
+
+Journal v1 remains literal; explicit conversion creates v2 CommonMark/GFM with optional date,
+collection, tags and pinning. Shared Notes retains the JOURNAL tool key and legacy routes; personal
+Journal is independent of Workspace selection and requires a versioned account privacy acknowledgement.
+The lazy reusable Milkdown visual/source adapter preserves unsupported source and uses synchronous
+transactions to capture edits before switching modes. Rendering rejects active HTML/unsafe schemes,
+remote images and external processing. Accessible native task controls and theme tokens are shared.
+
+Author-only server drafts have one slot per person per library, separate from canonical entries.
+Saving uses expected revisions, immutable snapshots and atomic audit/reference binding. Typed scoped
+references keep originals reachable through history; Markdown destinations are parsed structurally,
+never searched/replaced inside code. Existing drafts require explicit recovery/discard.
+
+Attachments use opaque logical ids and independent random physical keys for original/preview/thumb.
+Immutable policy keys bind each to its reviewed consumer guard. SHA-256 verifies exact originals and
+retained derivative recipes. Durable leases reserve user, Workspace and configured server capacity;
+admission is adjusted to actual retained bytes before commit, which rechecks current policy/access.
+Cleanup marks unreferenced files before unlinking and releasing accounting; current drafts/history
+prevent cleanup. The Journal lifecycle adapter handles only its registered policy; unknown future
+policies retain files until their lifecycle is implemented. No cross-scope reuse or public object route exists. Settings/overrides expose usage,
+never private content. JPEG/PNG are the initial reviewed category; other consumers/backends use ports.
+
+Portable exports contain Markdown, relative files and original bytes. Workspace backups include only
+shared entries/revisions and bound originals; restore generates fresh ids/physical keys and derivatives,
+retains historical uploader attribution but charges no historical personal account. Full server backups
+include private data and hash-verified attachment objects. Older supported packages upgrade explicitly.
+Archive extraction uses existing staging/free-space limits and final atomic managed-cap admission,
+not a disk-space reservation against unrelated host writes. Portable import/deduplication stay deferred.
+
+### Proposed Recipes and MCP follow-up (36, 2026-11-02)
+
+[Assessment and proposal](recipes-mcp-plan.md): owner selected Recipes plus grocery-list transfer.
+Recipes should be an independent optional Workspace consumer of shared editor/attachments; transfer
+needs an atomic reviewed application command, not chained item writes. MCP needs a new reviewed
+machine delegation boundary; existing authentication is cookie-only. Protocol adapters call ordinary
+application queries/commands under current capability/tool/grant intersection. Speech belongs to a
+chosen client. Owner subsequently selected everyday read/write actions through a client such as Claude:
+Procedure authoring under existing editor permissions, active RunStep execution, shopping and pictured
+Recipes with server-side serving scaling (36.3). Standard MCP stays client-independent. Image capability,
+deployment reachability and OAuth/SDK implementation remain work. Private Journal/Documents/OCR/admin
+access stays excluded. This is documentation only, not a new endpoint or model provider.
+
+### Recipes and delegated user tasks — implementation update (2026-11-02)
+
+Recipes, original images, serving-scaled grocery transfers and the optional OAuth MCP endpoint are implemented locally. Migrations 0063–0065 add Recipe records, scoped grants, hashed tokens and durable meal/image request outcomes. Writes recheck current user permissions and selected Workspaces. Image generation sends the explicit prompt to the configured OpenAI project and preserves the returned original. Uncertain requests do not automatically incur another charge.
+
+Security surface changed. Local tests cover PKCE, revocation, role enforcement, duplicate requests, atomic shopping updates, image preservation and backup recovery. Desktop and mobile browser checks cover Recipes and consent. Live ChatGPT tunnel eligibility, OAuth reachability, voice and paid image quality require deployment validation. See [operator setup](../admin/mcp.md).

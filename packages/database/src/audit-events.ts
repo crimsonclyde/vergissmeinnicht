@@ -1,3 +1,4 @@
+import {currentDelegation} from './delegation-context.ts';
 import { awardProgress } from './progress-repository.ts';
 import { randomUUID } from 'node:crypto';
 import { and, asc, eq, gt, or, sql, type SQL } from 'drizzle-orm';
@@ -35,7 +36,7 @@ export function recordAuditEvent(tx: Transaction, event: AuditEventRecord): void
       subjectType: event.subjectType,
       subjectId: event.subjectId,
       runId: event.runId ?? null,
-      metadata: event.metadata ? { ...event.metadata } : null,
+      metadata: currentDelegation()?{...event.metadata,mcpClientId:currentDelegation()?.clientId??'',mcpGrantId:currentDelegation()?.grantId??''}:event.metadata ? { ...event.metadata } : null,
       clientChangeId: event.clientChangeId ?? null,
     })
     .run();

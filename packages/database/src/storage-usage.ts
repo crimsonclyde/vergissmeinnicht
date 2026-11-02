@@ -4,7 +4,7 @@ import { and, asc, eq, sql, type SQL } from 'drizzle-orm';
 import { IMMEDIATE, actorAllowed, type Transaction } from './actor-guard.ts';
 import { recordAuditEvent } from './audit-events.ts';
 import type { AppDatabase } from './connection.ts';
-import { documentFileDerivatives, documentFileTexts, documentFiles, documentPages, documents, procedureSteps, runDocumentFiles, runSteps, stepImages, users, workspaces } from './schema.ts';
+import { attachments, documentFileDerivatives, documentFileTexts, documentFiles, documentPages, documents, procedureSteps, runDocumentFiles, runSteps, stepImages, users, workspaces } from './schema.ts';
 import { recordSecurityEvent } from './security-events.ts';
 
 type Reader = Pick<Transaction, 'select'>;
@@ -72,12 +72,13 @@ export function storageUsageIn(tx: Reader, workspaceId: string, pendingSince: Da
   const usage = {
     images: Number(images),
     originals: Number(originals?.live ?? 0),
+    attachments: Number(tx.select({n:sql<number>`coalesce(sum(${attachments.bytes}+${attachments.previewBytes}+${attachments.thumbnailBytes}),0)`}).from(attachments).where(eq(attachments.workspaceId,workspaceId)).get()?.n??0),
     previews: Number(previews?.live ?? 0),
     text: Number(texts?.live ?? 0),
     trash: Number(originals?.trash ?? 0) + Number(previews?.trash ?? 0) + Number(texts?.trash ?? 0),
     retained: Number(originals?.retained ?? 0) + Number(previews?.retained ?? 0) + Number(texts?.retained ?? 0),
   };
-  return { ...usage, used: usage.images + usage.originals + usage.previews + usage.text + usage.trash + usage.retained, limit: effectiveStorageLimit(ceiling, ownLimit), ceiling, ownLimit };
+  return { ...usage, used: usage.attachments + usage.images + usage.originals + usage.previews + usage.text + usage.trash + usage.retained, limit: effectiveStorageLimit(ceiling, ownLimit), ceiling, ownLimit };
 }
 
 /** Workspace storage: usage by tool, the ceiling and the Workspace's own limit (16.4). See `StorageRepository`. */

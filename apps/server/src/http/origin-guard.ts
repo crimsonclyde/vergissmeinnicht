@@ -1,5 +1,6 @@
 import type { FastifyReply, FastifyRequest } from 'fastify';
 
+declare module 'fastify' { interface FastifyContextConfig { mcpProtocol?:boolean } }
 const SAFE_METHODS = new Set(['GET', 'HEAD', 'OPTIONS']);
 
 /**
@@ -11,6 +12,10 @@ const SAFE_METHODS = new Set(['GET', 'HEAD', 'OPTIONS']);
  */
 export function originGuard(publicOrigin: string) {
   return async (request: FastifyRequest, reply: FastifyReply) => {
+    if(request.routeOptions.config.mcpProtocol===true){
+      if(request.headers.origin!==undefined&&![publicOrigin,'https://chatgpt.com','https://claude.ai'].includes(request.headers.origin))return reply.code(403).send({error:'forbidden_origin'});
+      return;
+    }
     if (SAFE_METHODS.has(request.method)) return;
     if (request.headers.origin !== publicOrigin) {
       return reply.code(403).send({ error: 'forbidden_origin' });

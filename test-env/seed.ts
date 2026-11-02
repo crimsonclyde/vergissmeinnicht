@@ -294,6 +294,12 @@ await api('POST', `/workspaces/${household}/equipment/${heating.data.record.id}/
 await api('POST', `/workspaces/${household}/tools`, { tool: 'BRING', enabled: true }, admin);
 await api('POST', `/workspaces/${household}/bring`, { content: { title: 'Bring the drill', from: 'Home', to: 'Van', dueDate: new Date().toISOString().slice(0,10), assigneeId: null, notes: 'Remember the spare battery.' }, expectedRevision: 0 }, admin);
 
+// Fictional Notes and personal Journal fixtures; consent applies only to this demo account.
+await api('POST', `/workspaces/${household}/tools`, { tool: 'JOURNAL', enabled: true }, admin);
+await api('POST', `/workspaces/${household}/journal`, { content: { kind: 'note', version: 2, title: 'Garden notebook', date: null, collection: 'Home', tags: ['garden'], pinned: true, body: '# Spring garden\n\n- [ ] Choose seeds\n- [x] Find gloves\n\n[Water bill](/w/' + household + '/documents/' + waterBill.data.document.id + ')' }, expectedRevision: 0, archived: false }, member);
+await api('POST', '/account/journal/privacy', { version: 1 }, member);
+await api('POST', '/account/journal', { content: { kind: 'note', version: 2, title: 'A fictional quiet morning', date: localDate(0), collection: 'Everyday', tags: [], pinned: false, body: 'Coffee, a short walk, and a page to remember the day.' }, expectedRevision: 0, archived: false }, member);
+
 await api('POST', '/auth/sign-out', {}, member);
 await api('POST', '/auth/sign-out', {}, admin);
 console.log(`Created ${people.length + 1} accounts, 2 Workspaces, ${procedures.length} Procedures, 1 Run, 2 scheduled Procedures, 2 Reminders, 1 grocery list, 3 document folders with 1 document, 2 contacts, 3 maintenance records, 1 Bring item and 1 pin.`);

@@ -1,6 +1,9 @@
+import {createInterface} from 'node:readline';
+import {createAttachmentStore} from '@vergissmeinnicht/media';
+import {recoverAttachmentObjects} from './attachment-recovery.ts';
 import { createReadStream, existsSync, mkdirSync, readFileSync, rmSync, statfsSync, statSync } from 'node:fs';
 import { open } from 'node:fs/promises';
-import { join } from 'node:path';
+import {dirname, join} from 'node:path';
 import { BACKUP_KEEP_MS, WorkspaceBackupStoreError, type DocumentFileProcessor, type DocumentFileStore, type MediaStore, type RestorePreview, type WorkspaceBackupStore } from '@vergissmeinnicht/application';
 import {
   completeRestoreIn,
@@ -151,9 +154,10 @@ export function createWorkspaceBackupStore(options: {
       const extracted = await extract(dir, progress);
       progress.onProgress('inspect', 0, extracted.files.documents.size + extracted.files.images.size);
       const facts = await inspectFiles(restore.processor, extracted, progress);
+      const attachmentObjects=await recoverAttachmentObjects(extracted.data,extracted.files.documents,createAttachmentStore(join(dir,'attachment-validation')));
       progress.onProgress('check', 0, 0);
       try {
-        const outcome = restoreWorkspace(restore.database, { data: extracted.data, databaseLevel: extracted.manifest.databaseLevel, files: facts, admin: { userId: job.requestedByUserId }, jobId: job.id, at: now(), commit: false });
+        const outcome = restoreWorkspace(restore.database, { data: extracted.data, databaseLevel: extracted.manifest.databaseLevel, files: facts, attachmentFiles:attachmentObjects.facts, admin: { userId: job.requestedByUserId }, jobId: job.id, at: now(), commit: false });
         const manifest = extracted.manifest;
         const preview: RestorePreview = {
           workspaceName: outcome.workspaceName,
@@ -173,7 +177,7 @@ export function createWorkspaceBackupStore(options: {
         return preview;
       } catch (error) {
         throw restoreFailure(error);
-      }
+      } finally {await attachmentObjects.cleanup();}
     },
 
     async restore(job, progress) {
@@ -183,12 +187,17 @@ export function createWorkspaceBackupStore(options: {
       // left over — the upload is the only input, and it is checked completely once more.
       const extracted = await extract(dir, progress);
       const facts = await inspectFiles(restore.processor, extracted, progress);
+
       // Originals into the content-addressed stores first, each verified by its hash as it is written. If the
       // transaction below fails they stay unreferenced and housekeeping removes them; nothing is ever deleted
       // here, so a file another Workspace uses is never touched.
       let done = 0;
       const total = extracted.files.documents.size + extracted.files.images.size;
+      const documentHashes=new Set<string>();
+      const documentData=extracted.data.get('document_files');
+      if(documentData)for await(const line of createInterface({input:createReadStream(documentData),crlfDelay:Infinity}))documentHashes.add(JSON.parse(line).sha256);
       for (const [sha256, file] of extracted.files.documents) {
+        if(!documentHashes.has(sha256))continue;
         if (progress.isCancelled()) throw new WorkspaceBackupStoreError('cancelled');
         const staged = await restore.documents.stage(createReadStream(file.path), file.size);
         if (staged.sha256 !== sha256 || staged.bytes !== file.size) {
@@ -206,12 +215,13 @@ export function createWorkspaceBackupStore(options: {
       }
       if (progress.isCancelled()) throw new WorkspaceBackupStoreError('cancelled');
       progress.onProgress('records', 0, 0);
+      const attachmentObjects=await recoverAttachmentObjects(extracted.data,extracted.files.documents,createAttachmentStore(join(dirname(options.documentsPath),'attachments')));
       let workspaceId: string;
       try {
         const at = now();
         workspaceId = restoreWorkspace(restore.database, {
           data: extracted.data, databaseLevel: extracted.manifest.databaseLevel,
-          files: facts,
+          files: facts, attachmentFiles:attachmentObjects.facts,
           admin: { userId: job.requestedByUserId },
           jobId: job.id,
           at,
@@ -221,6 +231,7 @@ export function createWorkspaceBackupStore(options: {
           },
         }).workspaceId;
       } catch (error) {
+        await attachmentObjects.cleanup();
         throw restoreFailure(error);
       }
       // Committed: previews and recognition of the new files start in the background — never a reason to fail.

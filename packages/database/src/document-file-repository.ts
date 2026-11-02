@@ -1,3 +1,4 @@
+import {globalStorageAllows,workspaceReservationBytesIn} from './attachment-repository.ts';
 import { randomUUID } from 'node:crypto';
 import { and, asc, eq, inArray, lt, sql, type SQL } from 'drizzle-orm';
 import { IMAGE_PENDING_MS, type DerivativeRecord, type DocumentFileRecord, type DocumentFileRepository, type RegisterDocumentFileResult } from '@vergissmeinnicht/application';
@@ -85,7 +86,7 @@ export function createDocumentFileRepository({ db }: Pick<AppDatabase, 'db'>): D
             .where(and(eq(documentFiles.workspaceId, input.workspaceId), eq(documentFiles.sha256, input.sha256)))
             .get() !== undefined;
         const adding = known ? 0 : input.bytes;
-        if (!fitsStorage(usage.used, adding, usage.limit)) return { status: 'storage_full', usage };
+        if (!globalStorageAllows(tx,adding) || !fitsStorage(usage.used+workspaceReservationBytesIn(tx,input.workspaceId), adding, usage.limit)) return { status: 'storage_full', usage };
         const row = tx
           .insert(documentFiles)
           .values({
@@ -161,7 +162,7 @@ export function createDocumentFileRepository({ db }: Pick<AppDatabase, 'db'>): D
             .where(and(eq(documentFiles.workspaceId, file.workspaceId), eq(documentFileDerivatives.sha256, derivative.sha256)))
             .get() !== undefined;
         const usage = storageUsageIn(tx, file.workspaceId, pendingSince(at));
-        if (!fitsStorage(usage.used, known ? 0 : derivative.bytes, usage.limit)) return 'storage_full';
+        if (!globalStorageAllows(tx,known?0:derivative.bytes) || !fitsStorage(usage.used+workspaceReservationBytesIn(tx,file.workspaceId), known ? 0 : derivative.bytes, usage.limit)) return 'storage_full';
         tx.insert(documentFileDerivatives)
           .values({ fileId, kind: derivative.kind, page: derivative.page, sha256: derivative.sha256, bytes: derivative.bytes, width: derivative.width, height: derivative.height, createdAt: at })
           .run();

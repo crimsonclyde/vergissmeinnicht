@@ -1,3 +1,4 @@
+import {globalStorageAllows,workspaceReservationBytesIn} from './attachment-repository.ts';
 import { enabledTool } from './tool-policy.ts';
 import { randomUUID } from 'node:crypto';
 import { and, asc, count, desc, eq, inArray, isNull, lt, or, sql } from 'drizzle-orm';
@@ -64,7 +65,7 @@ export function createImageRepository({ db }: Pick<AppDatabase, 'db'>): ImageRep
         if (existing !== undefined) tx.delete(stepImages).where(eq(stepImages.id, existing.id)).run();
         const usage = storageUsageIn(tx, input.workspaceId, input.pendingSince, input.replacing);
         // One limit for everything the Workspace stores (16.4): images and Documents together.
-        if (!fitsStorage(usage.used, input.bytes, usage.limit)) return { status: 'quota_exceeded', usage };
+        if (!globalStorageAllows(tx,input.bytes) || !fitsStorage(usage.used+workspaceReservationBytesIn(tx,input.workspaceId), input.bytes, usage.limit)) return { status: 'quota_exceeded', usage };
         const row = tx
           .insert(stepImages)
           .values({

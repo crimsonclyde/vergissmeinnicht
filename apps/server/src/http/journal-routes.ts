@@ -1,4 +1,5 @@
-import { getJournalEntry, listJournal, saveJournalEntry, authorizeTool, NotAuthorizedError } from '@vergissmeinnicht/application';
+import {registerJournalExport} from './journal-export.ts';
+import { authorizeJournal, journalPrivacy, journalHistory, journalDraft, getJournalEntry, listJournal, saveJournalEntry, authorizeTool, NotAuthorizedError } from '@vergissmeinnicht/application';
 import { UUID_V4, type WorkspaceId } from '@vergissmeinnicht/domain';
 import type { FastifyInstance, FastifyRequest } from 'fastify';
 import { z } from 'zod';
@@ -16,7 +17,23 @@ export async function journalRoutes(app: FastifyInstance, { services, shared }: 
     const params = parse(shared ? z.strictObject({ workspaceId: uuid, entryId: uuid.optional() }) : z.strictObject({ entryId: uuid.optional() }), request.params);
     return 'workspaceId' in params ? params.workspaceId as WorkspaceId : undefined;
   }
-  app.get('/', async (request) => {
+  registerJournalExport(app,services,shared);
+  if (!shared) {
+    app.get('/privacy', request => journalPrivacy(services.journal,actor(request)));
+    app.post('/privacy', {bodyLimit:256}, request => { parse(z.strictObject({version:z.literal(1)}),request.body); return journalPrivacy(services.journal,actor(request),true); });
+  }
+  app.get('/draft', request => journalDraft(services.journal,actor(request),scope(request)));
+  app.post('/draft', {bodyLimit:256*1024}, async request => {
+    await authorizeJournal(services.journal,actor(request),scope(request),true);
+    const input=parse(z.strictObject({draft:z.strictObject({entryId:uuid.nullable(),expectedRevision:z.number().int().min(0).max(1_000_000_000),content:z.unknown(),archived:z.boolean()}).nullable()}),request.body);
+    return journalDraft(services.journal,actor(request),scope(request), input.draft === null ? null : {...input.draft,content:input.draft.content as import('@vergissmeinnicht/domain').JournalContent,updatedAt:new Date()});
+  });
+  app.get('/:entryId/history', request => {
+    const {entryId}=parse(z.object({entryId:uuid}),request.params);
+    const {before}=parse(z.strictObject({before:z.coerce.number().int().min(1).max(1_000_000_001).default(1_000_000_001)}),request.query);
+    return journalHistory(services.journal,actor(request),scope(request),entryId,before);
+  });
+  app.get('/',  async (request) => {
     const query = parse(z.strictObject({ q: z.string().max(120).default(''), archived: z.enum(['true', 'false']).default('false'), offset: z.coerce.number().int().min(0).max(10000).default(0) }), request.query);
     return listJournal(services.journal, actor(request), scope(request), query.q, query.archived === 'true', query.offset);
   });
@@ -40,7 +57,7 @@ export async function journalRoutes(app: FastifyInstance, { services, shared }: 
 /** Moon metadata is returned only through the active Workspace/tool boundary, independent of Weather. */
 export async function moonRoutes(app: FastifyInstance, { services }: { services: AppServices }) {
   app.addHook('preHandler', requireUser(services));
-  app.get('/', async (request) => {
+  app.get('/',  async (request) => {
     const { workspaceId } = parse(z.strictObject({ workspaceId: uuid }), request.params);
     const id = workspaceId as WorkspaceId;
     await authorizeTool(services.documents, actor(request), id, 'MOON', 'workspace.view');

@@ -1,7 +1,9 @@
+import {normalizeOriginalFileName,remapMarkdownRecordLinks,remapMarkdownAttachments,type AttachmentRecord} from '@vergissmeinnicht/domain';
+import {globalStorageAllows} from './attachment-repository.ts';
 import { randomUUID } from 'node:crypto';
 import { closeSync, openSync, readFileSync, readSync } from 'node:fs';
 import { join } from 'node:path';
-import { parseBringContent, normalizeEquipmentContent, parseEquipmentFields, parseJournalContent, parseWeatherLocation, contactKeys, documentSearchText, documentTagKeys, documentTitleKey, IMPORTED_EMAIL_DOMAIN, MAX_WORKSPACE_NAME_LENGTH, WORKSPACE_ROLES, type ContactPoint } from '@vergissmeinnicht/domain';
+import { parseRecipeContent, parseBringContent, normalizeEquipmentContent, parseEquipmentFields, parseJournalContent, parseWeatherLocation, contactKeys, documentSearchText, documentTagKeys, documentTitleKey, IMPORTED_EMAIL_DOMAIN, MAX_WORKSPACE_NAME_LENGTH, WORKSPACE_ROLES, type ContactPoint } from '@vergissmeinnicht/domain';
 import { IMMEDIATE, type Transaction } from './actor-guard.ts';
 import type { AppDatabase } from './connection.ts';
 import { storageUsageIn } from './storage-usage.ts';
@@ -72,6 +74,7 @@ export interface RestoredDocumentFileFacts {
 export interface WorkspaceRestoreInput {
   /** Record type (`data/<name>.ndjson` without folder and extension) → extracted file. */
   readonly data: ReadonlyMap<string, string>;
+  readonly attachmentFiles?:ReadonlyMap<string,Omit<AttachmentRecord,'id'|'scope'|'uploadedBy'|'at'>>;
   readonly databaseLevel?: string;
   /** Verified originals by SHA-256. */
   readonly files: { readonly documents: ReadonlyMap<string, RestoredDocumentFileFacts>; readonly images: ReadonlyMap<string, { readonly bytes: number }> };
@@ -163,6 +166,9 @@ const JSON_COLUMNS: Readonly<Record<string, Readonly<Record<string, JsonShape>>>
   procedures: { tags: stringArray },
   runs: { tags: stringArray },
   documents: { tags: stringArray },
+  recipes: {content:value=>{try{return JSON.stringify(parseRecipeContent(value))===JSON.stringify(value);}catch{return false;}}},
+  journal_entries: {tags:stringArray},
+  journal_revisions: {content:value=>{try {parseJournalContent(value);return true;}catch{return false;}}},
   equipment_records: { custom_fields: value => { try { return JSON.stringify(parseEquipmentFields(value)) === JSON.stringify(value); } catch { return false; } } },
   contacts: { emails: contactPoints, phones: contactPoints },
   schedules: { reminders, recurrence_weekdays: weekdays },
@@ -225,7 +231,7 @@ function planTables(sqlite: AppDatabase['sqlite']): Map<string, TablePlan> {
     }
     // The package leaves out the Workspace id column (implied) and the columns the export omits.
     const expected = new Set(columns.filter((column) => column !== 'workspace_id' && !spec.omit.includes(column)));
-    const inserted = spec.table === 'workspaces' ? columns.filter((column) => column === 'id' || expected.has(column)) : columns.filter((column) => !spec.omit.includes(column) || column === 'preview_state' || column === 'preview_attempts');
+    const inserted = spec.table === 'attachments' ? columns : spec.table === 'workspaces' ? columns.filter((column) => column === 'id' || expected.has(column)) : columns.filter((column) => !spec.omit.includes(column) || column === 'preview_state' || column === 'preview_attempts');
     const statement = 'INSERT INTO "' + spec.table + '" (' + inserted.map((column) => '"' + column + '"').join(', ') + ') VALUES (' + inserted.map(() => '?').join(', ') + ')';
     plans.set(spec.table, { spec, columns: inserted, expected, rules, hasId, insert: statement });
   }
@@ -285,6 +291,7 @@ const ADDED_COLUMNS: Readonly<Record<string, readonly string[]>> = {
 /** A package row: exactly the expected columns, every value a string, a finite number or null. */
 function checkRow(plan: TablePlan, row: Record<string, unknown>, level?: string): void {
   if (plan.spec.table === 'equipment_records' && level !== undefined && level < '0056_equipment_progress') for (const key of ['replacement_parts', 'custom_fields']) if (!Object.hasOwn(row, key)) row[key] = null;
+  if (plan.spec.table === 'journal_entries' && level !== undefined && level < '0061_journal_notes') { row.collection ??= ''; row.tags ??= '[]'; row.pinned ??= 0; }
   // An older package (see ADDED_COLUMNS): the column it could not have is NULL.
   for (const column of ADDED_COLUMNS[plan.spec.table] ?? []) if (plan.expected.has(column) && !Object.hasOwn(row, column)) row[column] = null;
   const keys = Object.keys(row);
@@ -300,11 +307,12 @@ function checkRow(plan: TablePlan, row: Record<string, unknown>, level?: string)
       if (Object.entries(parsed).some(([key, value]) => key !== 'assigneeId' && content[key as keyof typeof content] !== value)) throw new Error('Noncanonical Bring');
     } catch { throw new WorkspaceRestoreError('malformed_records', plan.spec.name); }
   }
+  if(plan.spec.table==='attachments'&&(!['journal','recipes'].includes(row.policy_key as string)||typeof row.name!=='string'||normalizeOriginalFileName(row.name)!==row.name))throw new WorkspaceRestoreError('malformed_records',plan.spec.name);
   if (plan.spec.table === 'journal_entries') {
     try {
-      const content = { kind: row.kind, version: row.version, title: row.title, date: row.date, body: row.body };
+      const content = { kind: row.kind, version: row.version, title: row.title, date: row.date, body: row.body, collection: row.collection, tags: JSON.parse(row.tags as string), pinned:row.pinned === 1 };
       const normalized = parseJournalContent(content);
-      if (Object.entries(normalized).some(([key, value]) => row[key] !== value)) throw new Error('Noncanonical journal content');
+      if (Object.entries(normalized).some(([key, value]) => JSON.stringify(content[key as keyof typeof content]) !== JSON.stringify(value))) throw new Error('Noncanonical journal content');
     } catch { throw new WorkspaceRestoreError('malformed_records', plan.spec.name); }
   }
   if (plan.spec.table === 'equipment_records' && row.replacement_parts !== null) {
@@ -375,7 +383,7 @@ export function restoreWorkspace(database: AppDatabase, input: WorkspaceRestoreI
       const tableOf = new Map<string, string>();
       for (const plan of plans.values()) {
         if (!plan.hasId || plan.spec.table === 'workspaces') continue;
-        for (const row of records(input.data.get(plan.spec.name), plan.spec.name, input.databaseLevel !== undefined && ((plan.spec.name === 'journal_entries' && input.databaseLevel < '0052_moon_journal') || (plan.spec.name === 'bring_items' && input.databaseLevel < '0059_bring')))) {
+        for (const row of records(input.data.get(plan.spec.name), plan.spec.name, input.databaseLevel !== undefined && ((plan.spec.name === 'journal_entries' && input.databaseLevel < '0052_moon_journal') || (plan.spec.name === 'bring_items' && input.databaseLevel < '0059_bring') || (plan.spec.name === 'journal_revisions' && input.databaseLevel < '0061_journal_notes') || (['attachments','journal_attachment_references'].includes(plan.spec.name) && input.databaseLevel < '0062_shared_attachments') || (['recipes','recipe_attachment_references'].includes(plan.spec.name) && input.databaseLevel < '0063_recipes')))) {
           const id = row.id;
           if (typeof id !== 'string' || !UUID.test(id) || ids.has(id)) throw new WorkspaceRestoreError('malformed_records', plan.spec.name);
           ids.set(id, randomUUID());
@@ -479,7 +487,7 @@ export function restoreWorkspace(database: AppDatabase, input: WorkspaceRestoreI
         if (table === 'workspaces') continue;
         const statement = table === 'memberships' ? undefined : sqlite.prepare(plan.insert);
         let rows = 0;
-        for (const row of records(input.data.get(plan.spec.name), plan.spec.name, input.databaseLevel !== undefined && ((plan.spec.name === 'journal_entries' && input.databaseLevel < '0052_moon_journal') || (plan.spec.name === 'bring_items' && input.databaseLevel < '0059_bring')))) {
+        for (const row of records(input.data.get(plan.spec.name), plan.spec.name, input.databaseLevel !== undefined && ((plan.spec.name === 'journal_entries' && input.databaseLevel < '0052_moon_journal') || (plan.spec.name === 'bring_items' && input.databaseLevel < '0059_bring') || (plan.spec.name === 'journal_revisions' && input.databaseLevel < '0061_journal_notes') || (['attachments','journal_attachment_references'].includes(plan.spec.name) && input.databaseLevel < '0062_shared_attachments') || (['recipes','recipe_attachment_references'].includes(plan.spec.name) && input.databaseLevel < '0063_recipes')))) {
           checkRow(plan, row, input.databaseLevel);
           if ((table === 'journal_entries' || table === 'bring_items') && rows >= 1000) throw new WorkspaceRestoreError('malformed_records', plan.spec.name);
           if (table === 'memberships') {
@@ -509,6 +517,12 @@ export function restoreWorkspace(database: AppDatabase, input: WorkspaceRestoreI
             values.set('active_content', facts.activeContent ? 1 : 0);
             values.set('preview_state', 'PENDING');
             values.set('preview_attempts', 0);
+          } else if (table === 'attachments') {
+            const facts=input.attachmentFiles?.get(row.id as string);
+            if(!facts || facts.sha256!==row.sha256 || facts.bytes!==row.bytes || !input.files.documents.has(facts.sha256))throw new WorkspaceRestoreError('missing_file',plan.spec.name);
+            documentShas.add(facts.sha256);
+            values.set('deleting',0);values.set('owner_id',null);values.set('charge_user_id',null);
+            for(const [key,value] of Object.entries({original_key:facts.originalKey,preview_key:facts.previewKey,preview_bytes:facts.previewBytes,preview_hash:facts.previewHash,thumbnail_key:facts.thumbnailKey,thumbnail_bytes:facts.thumbnailBytes,thumbnail_hash:facts.thumbnailHash,width:facts.width,height:facts.height,format:facts.format}))values.set(key,value);
           } else if (table === 'step_images') {
             const sha = row.sha256;
             const facts = typeof sha === 'string' ? input.files.images.get(sha) : undefined;
@@ -560,6 +574,16 @@ export function restoreWorkspace(database: AppDatabase, input: WorkspaceRestoreI
             // Ids inside the metadata are rebuilt like any reference; the Workspace's own id is the new one.
             values.set('metadata', row.metadata.replace(UUID_IN_TEXT, (id) => ids.get(id) ?? fresh(id)).replaceAll(WORKSPACE_REFERENCE, workspaceId));
           }
+          if(table==='recipes') {
+            const content=JSON.parse(row.content as string);
+            content.instructions=remapMarkdownAttachments(content.instructions,id=>{if(tableOf.get(id)!=='attachments')throw new WorkspaceRestoreError('broken_reference',plan.spec.name);const target=ids.get(id);if(!target)throw new WorkspaceRestoreError('broken_reference',plan.spec.name);return target;});
+            content.instructions=remapMarkdownRecordLinks(content.instructions,target=>`/w/${workspaceId}/${target.kind}${target.kind==='reminders'?'#':'/'}${ids.get(target.id)??fresh(target.id)}`);
+            values.set('content',JSON.stringify(content));
+          }
+          if(table==='journal_entries' && row.version===2)values.set('body',remapMarkdownAttachments(row.body as string,id=>{if(tableOf.get(id)!=='attachments')throw new WorkspaceRestoreError('broken_reference',plan.spec.name);const target=ids.get(id);if(!target)throw new WorkspaceRestoreError('broken_reference',plan.spec.name);return target;}));
+          if(table==='journal_revisions') { const content=JSON.parse(row.content as string); if(content.version===2)content.body=remapMarkdownAttachments(content.body,id=>{if(tableOf.get(id)!=='attachments')throw new WorkspaceRestoreError('broken_reference',plan.spec.name);const target=ids.get(id);if(!target)throw new WorkspaceRestoreError('broken_reference',plan.spec.name);return target;});values.set('content',JSON.stringify(content)); }
+          if(table==='journal_entries'&&row.version===2)values.set('body',remapMarkdownRecordLinks(values.get('body') as string,target=>`/w/${workspaceId}/${target.kind}${target.kind==='reminders'?'#':'/'}${ids.get(target.id)??fresh(target.id)}`));
+          if(table==='journal_revisions'){const content=JSON.parse(values.get('content') as string);if(content.version===2)content.body=remapMarkdownRecordLinks(content.body,target=>`/w/${workspaceId}/${target.kind}${target.kind==='reminders'?'#':'/'}${ids.get(target.id)??fresh(target.id)}`);values.set('content',JSON.stringify(content));}
           if (table === 'contacts') restoredContacts.push(values.get('id') as string);
           try {
             (statement as ReturnType<typeof sqlite.prepare>).run(plan.columns.map((column) => values.get(column)));
@@ -586,6 +610,7 @@ export function restoreWorkspace(database: AppDatabase, input: WorkspaceRestoreI
       sqlite.prepare('DELETE FROM workspace_restore_marks WHERE workspace_id = ?').run(workspaceId);
       const usage = storageUsageIn(tx, workspaceId, input.at);
       const imageLimit = (sqlite.prepare('SELECT image_quota_bytes AS n FROM workspaces WHERE id = ?').get(workspaceId) as { n: number }).n;
+      if (!globalStorageAllows(tx,0))throw new WorkspaceRestoreError('storage_limit');
       if (usage.used > usage.limit || usage.images > imageLimit) throw new WorkspaceRestoreError('storage_limit');
 
       const outcome: WorkspaceRestoreOutcome = {

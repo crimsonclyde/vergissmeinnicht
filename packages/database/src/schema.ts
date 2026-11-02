@@ -807,7 +807,7 @@ export const userPreferences = sqliteTable(
     check('user_preferences_theme_valid', sql.raw(`theme in (${THEME_PREFERENCES.map((value) => `'${value}'`).join(', ')})`)),
     check('user_preferences_guide_valid', sql`json_valid(guide) and length(guide) <= 256 and json_type(guide) = 'object' and json_extract(guide, '$.layout') in ('guide', 'classic') and json_extract(guide, '$.cardStyle') in ('glass', 'starfield') and json_type(guide, '$.cardOpacity') = 'integer' and json_extract(guide, '$.cardOpacity') between 0 and 100 and json_type(guide, '$.images') in ('true', 'false') and json_type(guide, '$.layout') is not null and json_type(guide, '$.cardStyle') is not null and json_type(guide, '$.cardOpacity') is not null and json_type(guide, '$.images') is not null`),
     check('user_preferences_private_gamification', sql`private_gamification in (0, 1)`),
-    check('user_preferences_navigation_bound', sql`navigation_order is null or (json_valid(navigation_order) and json_type(navigation_order) = 'array' and json_array_length(navigation_order) <= 10 and length(navigation_order) <= 256)`),
+    check('user_preferences_navigation_bound', sql`navigation_order is null or (json_valid(navigation_order) and json_type(navigation_order) = 'array' and json_array_length(navigation_order) <= 11 and length(navigation_order) <= 256)`),
     check(
       'user_preferences_critical_confirm_valid',
       sql.raw(`critical_confirm in (${CRITICAL_CONFIRM_MODES.map((value) => `'${value}'`).join(', ')})`),
@@ -2281,8 +2281,11 @@ const journalFields = () => ({
   kind: text('kind', { enum: ['note'] }).notNull(),
   version: integer('version').notNull(),
   title: text('title').notNull(),
-  date: text('date').notNull(),
+  date: text('date'),
   body: text('body').notNull(),
+  collection: text('collection').notNull().default(''),
+  tags: text('tags', { mode: 'json' }).$type<string[]>().notNull().default(sql`'[]'`),
+  pinned: integer('pinned', { mode: 'boolean' }).notNull().default(false),
   revision: integer('revision').notNull(),
   archived: integer('archived', { mode: 'boolean' }).notNull().default(false),
   createdByUserId: text('created_by_user_id').notNull().references(() => users.id),
@@ -2293,9 +2296,10 @@ const journalFields = () => ({
   updatedAt: timestampMs('updated_at'),
 });
 const journalChecks = (prefix: string, table: Record<keyof ReturnType<typeof journalFields>, AnySQLiteColumn>) => [
-  check(`${prefix}_kind`, sql`${table.kind} = 'note' and ${table.version} = 1`),
+  check(`${prefix}_kind`, sql`${table.kind} = 'note' and ${table.version} in (1, 2)`),
+  check(`${prefix}_organization`, sql`length(${table.collection}) <= 80 and json_valid(${table.tags}) and json_type(${table.tags}) = 'array' and json_array_length(${table.tags}) <= 10 and length(${table.tags}) <= 2000 and ${table.pinned} in (0,1)`),
   check(`${prefix}_bounds`, sql`length(${table.title}) between 1 and 160 and length(${table.body}) <= 50000 and ${table.revision} >= 1 and ${table.archived} in (0, 1)`),
-  check(`${prefix}_date`, sql`length(${table.date}) = 10 and date(${table.date}, '+0 days') is not null and date(${table.date}, '+0 days') = ${table.date}`),
+  check(`${prefix}_date`, sql`(${table.date} is null and ${table.version} = 2) or (${table.date} is not null and length(${table.date}) = 10 and date(${table.date}, '+0 days') is not null and date(${table.date}, '+0 days') = ${table.date})`),
 ];
 export const journalEntries = sqliteTable('journal_entries', {
   ...journalFields(), workspaceId: text('workspace_id').notNull().references(() => workspaces.id),
@@ -2331,3 +2335,79 @@ export const bringItems = sqliteTable('bring_items', {
   check('bring_completion', sql`(${table.status} = 'COMPLETED') = (${table.completedAt} is not null) and (${table.completedAt} is null) = (${table.completedByUserId} is null) and (${table.completedAt} is null) = (${table.completedBy} is null)`),
   check('bring_cancellation', sql`(${table.status} = 'CANCELLED') = (${table.cancelledAt} is not null) and (${table.cancelledAt} is null) = (${table.cancelledByUserId} is null) and (${table.cancelledAt} is null) = (${table.cancelledBy} is null)`),
 ]);
+
+export const journalAcknowledgements = sqliteTable('journal_acknowledgements', {
+ userId: text('user_id').primaryKey().references(() => users.id), version: integer('version').notNull(), at: timestampMs('at'),
+}, t => [check('journal_notice_version', sql`${t.version} >= 1`)]);
+const revisionFields = () => ({
+ entryId: text('entry_id').notNull(), revision: integer('revision').notNull(), content: text('content', {mode:'json'}).$type<import('@vergissmeinnicht/domain').JournalContent>().notNull(),
+ archived: integer('archived', {mode:'boolean'}).notNull(), at: timestampMs('at'), by: text('by_name').notNull(), byUserId: text('by_user_id').notNull().references(() => users.id),
+});
+export const journalRevisions = sqliteTable('journal_revisions', {
+ ...revisionFields(), workspaceId: text('workspace_id').notNull().references(() => workspaces.id),
+}, t => [primaryKey({columns:[t.entryId,t.revision]}), foreignKey({columns:[t.entryId], foreignColumns:[journalEntries.id]}), check('journal_revision_content', sql`json_valid(${t.content}) and length(${t.content}) <= 400000 and ${t.revision} >= 1 and ${t.archived} in (0,1)`)]);
+export const privateJournalRevisions = sqliteTable('private_journal_revisions', {
+ ...revisionFields(), ownerId: text('owner_id').notNull().references(() => users.id),
+}, t => [primaryKey({columns:[t.entryId,t.revision]}), foreignKey({columns:[t.entryId], foreignColumns:[privateJournalEntries.id]}), check('private_journal_revision_content', sql`json_valid(${t.content}) and length(${t.content}) <= 400000 and ${t.revision} >= 1 and ${t.archived} in (0,1)`)]);
+export const journalDrafts = sqliteTable('journal_drafts', {
+ key: text('key').primaryKey(), userId: text('user_id').notNull().references(() => users.id), workspaceId: text('workspace_id').references(() => workspaces.id),
+ entryId: text('entry_id'), expectedRevision: integer('expected_revision').notNull(), content: text('content',{mode:'json'}).$type<import('@vergissmeinnicht/domain').JournalContent>().notNull(), archived: integer('archived',{mode:'boolean'}).notNull(), updatedAt: timestampMs('updated_at'),
+}, t => [check('journal_draft_content', sql`json_valid(${t.content}) and length(${t.content}) <= 400000 and ${t.expectedRevision} >= 0 and ${t.archived} in (0,1)`), uniqueIndex('journal_draft_scope').on(t.userId,t.workspaceId)]);
+
+/** Feature-independent immutable file metadata. The consuming module owns its reference tables. */
+export const attachments = sqliteTable('attachments', {
+ deleting:integer('deleting',{mode:'boolean'}).notNull().default(false),policyKey:text('policy_key').notNull().default('journal'),
+ id:text('id').primaryKey(), workspaceId:text('workspace_id').references(()=>workspaces.id),ownerId:text('owner_id').references(()=>users.id),uploadedBy:text('uploaded_by_user_id').references(()=>users.id),chargeUserId:text('charge_user_id').references(()=>users.id),
+ name:text('name').notNull(),format:text('format',{enum:['JPEG','PNG']}).notNull(),bytes:integer('bytes').notNull(),sha256:text('sha256').notNull(),originalKey:text('original_key').notNull(),
+ previewKey:text('preview_key').notNull(),previewBytes:integer('preview_bytes').notNull(),previewHash:text('preview_hash').notNull(),thumbnailKey:text('thumbnail_key').notNull(),thumbnailBytes:integer('thumbnail_bytes').notNull(),thumbnailHash:text('thumbnail_hash').notNull(),width:integer('width').notNull(),height:integer('height').notNull(),at:timestampMs('at'),
+},t=>[check('attachment_scope',sql`(${t.workspaceId} is null) != (${t.ownerId} is null)`),check('attachment_bounds',sql`${t.bytes} between 1 and 100000000 and ${t.previewBytes} between 1 and 1500000 and ${t.thumbnailBytes} between 1 and 500000 and ${t.width} > 0 and ${t.height} > 0 and ${t.width} * ${t.height} <= 50000000 and length(${t.name}) between 1 and 255 and ${t.format} in ('JPEG','PNG')`),check('attachment_hash',sql`length(${t.sha256}) = 64 and ${t.sha256} not glob '*[^0-9a-f]*'`),index('attachment_scope_owner').on(t.workspaceId,t.ownerId,t.uploadedBy)]);
+export const attachmentSettings = sqliteTable('attachment_settings',{
+ id:integer('id').primaryKey(), maxUploadBytes:integer('max_upload_bytes').notNull().default(20000000),defaultQuotaBytes:integer('default_quota_bytes').notNull().default(500000000),serverLimitBytes:integer('server_limit_bytes'),formats:text('formats',{mode:'json'}).$type<('JPEG'|'PNG')[]>().notNull().default(sql`'["JPEG","PNG"]'`),
+},t=>[check('attachment_settings_bounds',sql`${t.id} = 1 and ${t.maxUploadBytes} between 1000000 and 100000000 and ${t.defaultQuotaBytes} between 0 and 1000000000000 and (${t.serverLimitBytes} is null or ${t.serverLimitBytes} between 100000000 and 1000000000000000) and json_valid(${t.formats})`)]);
+export const attachmentQuotaOverrides = sqliteTable('attachment_quota_overrides',{userId:text('user_id').primaryKey().references(()=>users.id),bytes:integer('bytes').notNull()},t=>[check('attachment_override_bounds',sql`${t.bytes} between 0 and 1000000000000`)]);
+export const attachmentReservations = sqliteTable('attachment_reservations',{id:text('id').primaryKey(),keys:text('keys',{mode:'json'}).$type<string[]>().notNull(),userId:text('user_id').notNull().references(()=>users.id),workspaceId:text('workspace_id').references(()=>workspaces.id),bytes:integer('bytes').notNull(),expiresAt:timestampMs('expires_at')},t=>[check('attachment_reservation_bounds',sql`${t.bytes} between 1 and 102000000`)]);
+export const journalAttachmentReferences = sqliteTable('journal_attachment_references',{entryId:text('entry_id').notNull().references(()=>journalEntries.id),workspaceId:text('workspace_id').notNull().references(()=>workspaces.id),attachmentId:text('attachment_id').notNull().references(()=>attachments.id)},t=>[primaryKey({columns:[t.entryId,t.attachmentId]})]);
+export const privateJournalAttachmentReferences = sqliteTable('private_journal_attachment_references',{entryId:text('entry_id').notNull().references(()=>privateJournalEntries.id),ownerId:text('owner_id').notNull().references(()=>users.id),attachmentId:text('attachment_id').notNull().references(()=>attachments.id)},t=>[primaryKey({columns:[t.entryId,t.attachmentId]})]);
+
+
+/** Recipes are Workspace records; original images use the independent shared attachment policy. */
+export const recipes = sqliteTable('recipes', {
+  id: text('id').primaryKey(), workspaceId: text('workspace_id').notNull().references(() => workspaces.id),
+  content: text('content', {mode:'json'}).$type<import('@vergissmeinnicht/domain').RecipeContent>().notNull(),
+  revision: integer('revision').notNull(), archived: integer('archived',{mode:'boolean'}).notNull().default(false),
+  createdAt: timestampMs('created_at'), createdByUserId: text('created_by_user_id').notNull().references(() => users.id), createdBy: text('created_by').notNull(),
+  updatedAt: timestampMs('updated_at'), updatedByUserId: text('updated_by_user_id').notNull().references(() => users.id), updatedBy: text('updated_by').notNull(),
+}, t => [uniqueIndex('recipe_id_workspace').on(t.id,t.workspaceId), index('recipes_workspace_updated').on(t.workspaceId,t.archived,t.updatedAt), check('recipe_content',sql`json_valid(${t.content}) and length(${t.content}) <= 400000 and json_extract(${t.content}, '$.version') = 1 and ${t.revision} >= 1 and ${t.archived} in (0,1)`) ]);
+export const recipeAttachmentReferences = sqliteTable('recipe_attachment_references',{
+  recipeId: text('recipe_id').notNull().references(() => recipes.id), workspaceId: text('workspace_id').notNull().references(() => workspaces.id), attachmentId: text('attachment_id').notNull().references(() => attachments.id),
+},t => [primaryKey({columns:[t.recipeId,t.attachmentId]})]);
+/** Runtime retry outcomes, excluded from portable backups. Payload hashes prevent id reuse. */
+export const recipeShoppingOperations = sqliteTable('recipe_shopping_operations',{
+  id:text('id').primaryKey(), workspaceId:text('workspace_id').notNull().references(() => workspaces.id), userId:text('user_id').notNull().references(() => users.id), payloadHash:text('payload_hash').notNull(),
+  itemIds:text('item_ids',{mode:'json'}).$type<string[]>().notNull(), at:timestampMs('at'),
+});
+
+
+/** OAuth state is never portable Workspace data. All bearer credentials are stored as SHA-256 hashes. */
+export const mcpClients=sqliteTable('mcp_clients',{
+ id:text('id').primaryKey(),metadata:text('metadata',{mode:'json'}).$type<Record<string,unknown>>().notNull(),createdAt:timestampMs('created_at'),
+});
+export const mcpAuthorizationRequests=sqliteTable('mcp_authorization_requests',{
+ id:text('id').primaryKey(),clientId:text('client_id').notNull().references(()=>mcpClients.id),params:text('params',{mode:'json'}).$type<import('@vergissmeinnicht/domain').McpAuthorizationRequest>().notNull(),expiresAt:timestampMs('expires_at'),usedAt:integer('used_at',{mode:'timestamp_ms'}),
+});
+export const mcpGrants=sqliteTable('mcp_grants',{
+ id:text('id').primaryKey(),userId:text('user_id').notNull().references(()=>users.id),clientId:text('client_id').notNull().references(()=>mcpClients.id),
+ workspaceIds:text('workspace_ids',{mode:'json'}).$type<string[]>().notNull(),scopes:text('scopes',{mode:'json'}).$type<import('@vergissmeinnicht/domain').McpScope[]>().notNull(),resource:text('resource').notNull(),createdAt:timestampMs('created_at'),expiresAt:timestampMs('expires_at'),revokedAt:integer('revoked_at',{mode:'timestamp_ms'}),
+},t=>[index('mcp_grant_user').on(t.userId)]);
+export const mcpTokens=sqliteTable('mcp_tokens',{
+ hash:text('hash').primaryKey(),grantId:text('grant_id').notNull().references(()=>mcpGrants.id),kind:text('kind',{enum:['code','access','refresh']}).notNull(),expiresAt:timestampMs('expires_at'),usedAt:integer('used_at',{mode:'timestamp_ms'}),codeChallenge:text('code_challenge'),redirectUri:text('redirect_uri'),
+},t=>[index('mcp_token_grant').on(t.grantId),check('mcp_token_kind',sql`${t.kind} in ('code','access','refresh')`)]);
+
+/** Generation attempts are durable billing/idempotency state, never portable credentials. */
+export const recipeImageJobs=sqliteTable('recipe_image_jobs',{
+ id:text('id').primaryKey(),workspaceId:text('workspace_id').notNull().references(()=>workspaces.id),userId:text('user_id').notNull().references(()=>users.id),payloadHash:text('payload_hash').notNull(),
+ status:text('status',{enum:['STARTED','SUCCEEDED','FAILED','UNCERTAIN']}).notNull(),attachmentId:text('attachment_id').references(()=>attachments.id,{onDelete:'set null'}),model:text('model').notNull(),createdAt:timestampMs('created_at'),finishedAt:integer('finished_at',{mode:'timestamp_ms'}),
+},t=>[index('recipe_image_jobs_month').on(t.createdAt,t.userId)]);
+export const recipeMealOperations=sqliteTable('recipe_meal_operations',{
+ id:text('id').primaryKey(),workspaceId:text('workspace_id').notNull().references(()=>workspaces.id),userId:text('user_id').notNull().references(()=>users.id),payloadHash:text('payload_hash').notNull(),recipeId:text('recipe_id').notNull().references(()=>recipes.id),itemIds:text('item_ids',{mode:'json'}).$type<string[]>().notNull(),at:timestampMs('at'),
+});

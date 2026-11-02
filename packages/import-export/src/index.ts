@@ -7,3 +7,6 @@ export * from './contacts-csv.ts';
 export * from './contacts-vcard.ts';
 export * from './workspace-backup.ts';
 export * from './workspace-backup-read.ts';
+export * from './journal-archive.ts';
+
+export * from './recipe-archive.ts';

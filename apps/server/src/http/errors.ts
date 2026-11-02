@@ -1,5 +1,9 @@
+import {RecipeImageError} from '@vergissmeinnicht/application';
+import {McpCredentialError} from '@vergissmeinnicht/database';
+import {RecipeNotFoundError,RecipeConflictError} from '@vergissmeinnicht/application';
+import {AttachmentError} from '@vergissmeinnicht/application';
 import { BringConflictError, BringNotFoundError } from '@vergissmeinnicht/application';
-import { AvatarNotFoundError, JournalNotFoundError, JournalConflictError, PlaceBackgroundNotFoundError } from '@vergissmeinnicht/application';
+import { AvatarNotFoundError, JournalNotFoundError, JournalConflictError, JournalConsentError, PlaceBackgroundNotFoundError } from '@vergissmeinnicht/application';
 import {
   AccountStatusUnchangedError,
   InvalidCursorError,
@@ -128,7 +132,11 @@ export function errorHandler(error: FastifyError | Error, request: FastifyReques
   if (error instanceof InvalidRequestError) return reply.code(400).send({ error: 'invalid_request' });
   if (error instanceof InvalidCursorError) return reply.code(400).send({ error: 'invalid_cursor' });
   if (error instanceof ProcedureImportError) return reply.code(400).send({ error: error.code });
+  if (error instanceof AttachmentError) return reply.code(error.code==='attachment_not_found'?404:error.code==='attachment_quota'?409:error.code==='attachment_busy'?429:400).send({error:error.code});
+  if (error instanceof RecipeNotFoundError) return reply.code(404).send({error:'recipe_not_found'});
+  if (error instanceof RecipeConflictError) return reply.code(409).send({error:'recipe_conflict'});
   if (error instanceof JournalNotFoundError) return reply.code(404).send({ error: 'journal_not_found' });
+  if (error instanceof JournalConsentError) return reply.code(403).send({ error: 'journal_consent_required' });
   if (error instanceof JournalConflictError) return reply.code(409).send({ error: 'journal_conflict' });
   if (error instanceof WorkspaceLocationConflictError) return reply.code(409).send({ error: 'workspace_location_conflict' });
   if (error instanceof NotAuthorizedError) return reply.code(403).send({ error: 'forbidden' });
@@ -267,6 +275,8 @@ export function errorHandler(error: FastifyError | Error, request: FastifyReques
   if (error instanceof ContactImportRefusedError) return reply.code(422).send({ error: 'contact_import_refused', reason: error.code });
   if (error instanceof ContactFileError) return reply.code(error.code === 'contact_import_too_large' ? 413 : 422).send({ error: 'contact_import_refused', reason: error.code, line: error.line });
 
+  if(error instanceof RecipeImageError)return reply.code(error.code==='image_limit'?429:error.code==='image_disabled'?503:409).send({error:error.code});
+  if(error instanceof McpCredentialError)return reply.code(error.code==='temporarily_unavailable'?429:400).send({error:'invalid_mcp_request'});
   const statusCode = 'statusCode' in error && typeof error.statusCode === 'number' ? error.statusCode : 500;
   if (statusCode === 429) return reply.code(429).send({ error: 'rate_limited' });
   if (statusCode >= 400 && statusCode < 500) {
