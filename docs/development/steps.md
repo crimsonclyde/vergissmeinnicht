@@ -5402,3 +5402,10 @@ Agents should update a task with:
 **Security impact:** NONE / LOW / MEDIUM / HIGH / CRITICAL  
 **Security docs updated:** YES / NO / N/A  
 **Remaining:** any known follow-up
+
+### Release plan — owner milestone 44, v0.10.0-beta.0
+
+Merge the Notes, Journal, Recipes, shared attachments and delegated MCP work through PR 83.
+Build the exact beta tag in GitHub Actions and verify the published image and populated upgrade.
+Operators should verify a full server backup and preserve the existing /data mount and secrets before
+switching images. Live Unraid deployment remains an operator action. Record publication after verification.
