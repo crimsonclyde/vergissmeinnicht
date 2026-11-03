@@ -5801,3 +5801,9 @@ same fixture credentials, bounded to three attempts; no production limiter or se
 changed. Fixture timeouts allow that real rate-limit wait. The initial full run passed 26 browser
 tests with two intentional project skips and the two integration issues noted here. Final reruns
 verify the corrected account flow and complete Guide suite; source lint/typecheck passed again.
+
+Production container built locally as `vergissmeinnicht:phone-ux-59f5999`; project deployment smoke
+checks passed. The account regression also needed to accept the new intentional dirty-item discard
+confirmation after a stale List edit; added that acceptance and asserted the editor closes. No
+application/security behavior changed in these follow-up test corrections. Final account/Guide rerun
+continues; GitHub native image builds/scans and quality/browser jobs run on the pushed source.

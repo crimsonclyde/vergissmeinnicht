@@ -1502,7 +1502,9 @@ test('first server admin: bootstrap link, account creation, sign-in, Workspace c
   await editItem.getByLabel('Item', { exact: true }).fill('White bread');
   await editItem.getByRole('button', { name: 'Save' }).click();
   await expect(editItem.getByRole('alert')).toContainText('Someone else changed this just now.');
+  page.once('dialog', dialog => dialog.accept());
   await editItem.getByRole('button', { name: 'Cancel' }).click();
+  await expect(editItem).toHaveCount(0);
   await expect(toBuy.getByRole('listitem').filter({ hasText: 'Rye bread' })).toHaveCount(1);
   await shopper.close();
   // Remove with Undo; rename; the list shows on Today while something is left to buy.
