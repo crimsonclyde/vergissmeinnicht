@@ -487,11 +487,17 @@ independent mobile versus a running-desktop bridge remains a product/deployment 
 ## Accepted follow-up — Today instruments and focused Clock/Weather (2026-11-03)
 
 Each person independently chooses Celestial, Clock and Weather in Profile → Today. Among these three,
-only Celestial defaults on, and it still requires the Workspace `MOON` gate. When shown it is always the
-first tile, above the continuation hero; preserve other saved choices/order. Clock and Weather use
+only Celestial defaults on, and it still requires the Workspace `MOON` gate. Owner correction later the same day: enabled Clock/Weather comes first, then enabled Celestial,
+then the continuation hero; preserve other saved choices/order. The illustrated combined Clock/Weather
+card requires mockup approval before implementation. Existing personal/server switches remain; no new
+Workspace switches for Clock or Weather. Clock and Weather use
 Celestial-compatible contained instruments and dedicated screens, reusing the shared bottom action bar.
 Clock includes local Stopwatch/laps and Timer with presets/custom minutes. Timing is account-keyed tab
 memory across navigation only, reset on reload/sign-out/close; no alarm/background notification promise,
 persistence, reward or new permission. Existing Weather opt-in/server/provider/credential/cache rules
 remain; explicitly opening its screen can fetch without enabling its Today tile. No geolocation or new
 provider/data source.
+
+Notes and private Journal editing retain a Home action in the shared phone bar and desktop controls.
+Home returns to the current Workspace Today (or start-page fallback), keeps the existing unsaved-work
+confirmation, is disabled while saving and never saves or awards success merely for navigation.

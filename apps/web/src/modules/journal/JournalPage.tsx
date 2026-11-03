@@ -7,7 +7,8 @@ import { useCallback, useEffect, useLayoutEffect, useId, useRef, useState } from
 import type { JournalContent, JournalDraft, JournalRevision } from '@vergissmeinnicht/domain';
 import { api, attachmentUrl, uploadJournalImage, messageFor, type JournalView } from '../../api.ts';
 import { formatCalendarDate, formatDateTime, t } from '../../i18n/index.ts';
-import { Link, paths, replaceEditorPath, setNavigationGuard } from '../../router.tsx';
+import { Link, navigate, paths, replaceEditorPath, setNavigationGuard } from '../../router.tsx';
+import { UiIcon } from '../../ui-icons.tsx';
 import { Markdown } from '../../markdown/Markdown.tsx';
 import { MarkdownEditor } from '../../markdown/MarkdownEditor.tsx';
 
@@ -17,7 +18,7 @@ const SCREEN_LABELS = {write:'journal.writeScreen',details:'journal.detailsScree
 
 const contentOf = (entry: JournalView): JournalContent => ({kind:entry.kind,version:entry.version,title:entry.title,date:entry.date,body:entry.body,collection:entry.collection??'',tags:entry.tags??[],pinned:entry.pinned??false});
 const fresh = ():JournalContent=>({kind:'note',version:2,title:'',date:null,body:'',collection:'',tags:[],pinned:false});
-export function JournalPage({workspaceId,canWrite,creating=false,entryId}:{workspaceId?:string;canWrite:boolean;creating?:boolean;entryId?:string}) {
+export function JournalPage({workspaceId,canWrite,creating=false,entryId,homeHref}:{workspaceId?:string;canWrite:boolean;creating?:boolean;entryId?:string;homeHref?:string}) {
  const compact=useCompactLayout();const [editorStarted,setEditorStarted]=useState(false);const titleInput=useRef<HTMLInputElement>(null);
  const [screen,setScreen]=useState<EditorScreen>(()=>compact&&creating?'title':'write');
  const activeScreen=compact?(screen==='files'?'details':screen):(screen==='title'?'write':screen);const panelId=useId();
@@ -33,6 +34,7 @@ export function JournalPage({workspaceId,canWrite,creating=false,entryId}:{works
  useEffect(()=>{window.dispatchEvent(new CustomEvent('vmn-journal-editing',{detail:isEditing}));return()=>{window.dispatchEvent(new CustomEvent('vmn-journal-editing',{detail:false}));};},[isEditing]);
  const dirty=draft!==null&&JSON.stringify(draft)!==original;const current=useRef({draft,entry,busy,dirty});useLayoutEffect(()=>{current.current={draft,entry,busy,dirty};},[draft,entry,busy,dirty]);
  const leave=useCallback(()=>!dirty||window.confirm(t('journal.unsaved')),[dirty]);
+ const goHome=()=>{if(!busy)navigate(homeHref??(workspaceId?paths.home(workspaceId):'/'));};
  useEffect(()=>{setNavigationGuard(leave);const warn=(event:BeforeUnloadEvent)=>{if(dirty){event.preventDefault();event.returnValue='';}};window.addEventListener('beforeunload',warn);return()=>{setNavigationGuard(null);window.removeEventListener('beforeunload',warn);};},[leave,dirty]);
  useEffect(()=>{if(workspaceId!==undefined)return;let active=true;api.journalPrivacy().then(result=>{if(active)setConsent(result.acknowledged);},error=>{if(active)setMessage(messageFor(error));});return()=>{active=false;};},[workspaceId]);
  useEffect(()=>{if(!entryId||consent!==true)return;let active=true;api.journalEntry(workspaceId,entryId).then(result=>{if(active){setEntry(result);const content=contentOf(result);setDraft(content);setOriginal(JSON.stringify(content));setEditorKey(value=>value+1);}},error=>{if(active)setMessage(messageFor(error));}).finally(()=>{if(active)setLoadingEntry(false);});return()=>{active=false;};},[workspaceId,entryId,consent]);
@@ -74,7 +76,7 @@ export function JournalPage({workspaceId,canWrite,creating=false,entryId}:{works
   {message&&<p role="alert">{message}</p>}<p className="journal-status" role="status">{status||(dirty?t('journal.unsavedStatus'):'')}</p>
   {recovery&&<div className="card row wrap"><button type="button" disabled={busy} onClick={()=>void recover()}>{t('journal.recover')}</button><button type="button" disabled={busy} onClick={()=>{void api.saveJournalDraft(workspaceId,null).then(()=>{setRecovery(null);if(creating&&draft===null){const next=fresh();setDraft(next);setOriginal(JSON.stringify(next));}},error=>setMessage(messageFor(error)));}}>{t('journal.discardDraft')}</button></div>}
   {draft!==null?<div className="card stack journal-editor">
-   {!compact&&<div className="journal-actions"><button aria-label={t(screen==='write'?'journal.cancel':'journal.backWriting')} type="button" className="quiet" disabled={busy} onClick={()=>{if(canWrite&&screen!=='write'){showScreen('write');return;}if(leave()){replaceEditorPath(workspaceId?paths.journal(workspaceId):paths.account('journal'));setDraft(null);setEntry(null);setHistory(null);setStatus('');}}}>{t('journal.backShort')}</button>{canWrite&&<button type="submit" form={formId} aria-label={t('journal.save')} className="primary" disabled={busy||recovery!==null}>{t('journal.saveShort')}</button>}</div>}
+   {!compact&&<div className="journal-actions"><button type="button" className="quiet" disabled={busy} onClick={goHome}><UiIcon name="today" />{t('journal.home')}</button><button aria-label={t(screen==='write'?'journal.cancel':'journal.backWriting')} type="button" className="quiet" disabled={busy} onClick={()=>{if(canWrite&&screen!=='write'){showScreen('write');return;}if(leave()){replaceEditorPath(workspaceId?paths.journal(workspaceId):paths.account('journal'));setDraft(null);setEntry(null);setHistory(null);setStatus('');}}}>{t('journal.backShort')}</button>{canWrite&&<button type="submit" form={formId} aria-label={t('journal.save')} className="primary" disabled={busy||recovery!==null}>{t('journal.saveShort')}</button>}</div>}
    {canWrite?<form id={formId} className="stack" onInvalidCapture={event=>{const target=event.target as HTMLElement;const panel=target.closest<HTMLElement>('[data-editor-screen]');const next=panel?.dataset.editorScreen as EditorScreen|undefined;if(next&&next!==activeScreen){event.preventDefault();setScreen(next);window.requestAnimationFrame(()=>target.focus());}}} onSubmit={event=>{event.preventDefault();if(compact&&activeScreen!=='details'){advance();return;}void save();}}><fieldset className="stack" disabled={busy||recovery!==null}>
     {!compact&&<nav className="journal-screens" aria-label={t('journal.editorNavigation')}>{SCREENS.map(item=><button key={item} type="button" aria-current={screen===item?'page':undefined} aria-controls={panelId+item} onClick={()=>showScreen(item)}>{t(SCREEN_LABELS[item])}</button>)}</nav>}
     {compact&&<p className="journal-phone-step" aria-live="polite">{t('journal.stepOf',{step:activeScreen==='title'?1:activeScreen==='write'?2:3})}</p>}
@@ -109,6 +111,7 @@ export function JournalPage({workspaceId,canWrite,creating=false,entryId}:{works
    </div>
    {compact&&canWrite&&<MobileActionBar label={t('journal.phoneActions')}
     actions={[
+     {id:'home',label:t('journal.home'),icon:'today',disabled:busy,onClick:goHome},
      {id:'back',label:t(activeScreen==='title'?'journal.cancel':'journal.backShort'),icon:'back',disabled:busy,onClick:()=>{if(activeScreen==='title')closeEditor();else showScreen(activeScreen==='details'?'write':'title');}},
      {id:'cancel',label:t('journal.cancelEditing'),icon:'close',disabled:busy,onClick:closeEditor},
     ]}

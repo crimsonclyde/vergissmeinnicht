@@ -30,7 +30,7 @@ Turn repeatable work into **Procedures**, see what needs attention, and keep a r
 
 | Tool / capability | What it does |
 |---|---|
-| **Today** | Due dates, active Runs and next actions in your personal layout. Optional Celestial leads the tiles; Clock and Weather are your choice. |
+| **Today** | Due dates, active Runs and next actions in your personal layout. Chosen Clock/Weather instruments come first, followed by Celestial; every instrument is your choice. |
 | **Clock & Weather** | Dedicated instrument screens, local Stopwatch/Timer, and private weather forecasts with clear source and freshness. |
 | **Procedures & Runs** | Reusable instructions and guided execution. History keeps the actor, time and original instructions after later edits. |
 | **Reminders & Calendar** | One-off and recurring obligations, optional assignment, email and Telegram reminders. |

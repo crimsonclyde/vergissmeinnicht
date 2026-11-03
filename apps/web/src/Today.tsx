@@ -19,7 +19,7 @@ import { offlineStore } from './offline/store.ts';
 import { Link, paths } from './router.tsx';
 import { summaryOf } from './Runs.tsx';
 import { browserTimeZone, todayIn } from './schedule-dates.ts';
-import { ATTENTION_ROWS, agenda, nextUp, recentSince, todayCards, type TodayCardId, type TodayCardSetting } from './today-cards.ts';
+import { ATTENTION_ROWS, agenda, isTodayInstrument, nextUp, recentSince, todayCards, type TodayCardId, type TodayCardSetting } from './today-cards.ts';
 import { useTodaySettings } from './today-settings.ts';
 import { UiIcon, type UiIconName } from './ui-icons.tsx';
 import { UndoNotice, type Undoable } from './UndoNotice.tsx';
@@ -429,18 +429,12 @@ export function Today(props: {
   };
   // Wide cards (desktop) span both columns and split the page into blocks; within a block the main column
   // holds what to act on and the side column the rest, each in the person's order.
-  const blocks: ({ kind: 'columns'; main: ReactNode[]; side: ReactNode[] } | { kind: 'wide'; node: ReactNode } | { kind: 'glance'; nodes: ReactNode[] })[] = [];
+  const blocks: ({ kind: 'columns'; main: ReactNode[]; side: ReactNode[] } | { kind: 'wide'; node: ReactNode })[] = [];
   for (const setting of cards) {
-    if (setting.card.id === 'moon') continue; // Render Celestial before the continuation hero, in both layouts.
+    if (isTodayInstrument(setting.card.id)) continue; // Instruments precede Celestial and the continuation hero.
     const node = render(setting);
     if (node === null) continue;
     const last = blocks.at(-1);
-    // Clock & date and Weather form the glance row (19.1, 19.3, 19.4): full width, together when next to each other.
-    if (setting.card.id === 'clock' || setting.card.id === 'weather') {
-      if (last?.kind === 'glance') last.nodes.push(node);
-      else blocks.push({ kind: 'glance', nodes: [node] });
-      continue;
-    }
     if (guideLayout || setting.size === 'WIDE') {
       blocks.push({ kind: 'wide', node });
       continue;
@@ -481,17 +475,14 @@ export function Today(props: {
           <AddChooser workspaceId={workspaceId} can={props.canAdd} />
         </span>
       </div>
+      {cards.some(setting => setting.card.id === 'clock' || setting.card.id === 'weather') && <div className="today-glance">{cards.filter(setting => setting.card.id === 'clock' || setting.card.id === 'weather').map(render)}</div>}
       {cards.filter(setting => setting.card.id === 'moon').map(render)}
       {hero !== null && cards.some((setting) => setting.card.id === 'continue') && <HeroCard workspaceId={workspaceId} hero={hero} />}
       {message !== null && <p role="alert">{message}</p>}
       {home === null && offlineActive === null && message === null && <p>{t('common.loading')}</p>}
       {offlineActive !== null && <p className="muted">{t('offline.savedList')}</p>}
       {blocks.map((block, index) =>
-        block.kind === 'glance' ? (
-          <div key={index} className="today-glance">
-            {block.nodes}
-          </div>
-        ) : block.kind === 'wide' ? (
+        block.kind === 'wide' ? (
           <div key={index} className="today-wide">
             {block.node}
           </div>

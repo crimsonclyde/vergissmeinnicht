@@ -12,6 +12,7 @@ export async function checkPhoneJournal(page: Page, testInfo: TestInfo, workspac
   }, workspaceId);
   await page.reload();
   const bar = page.getByRole('navigation', {name:'Entry actions',exact:true});
+  const home = bar.getByRole('button', {name:'Home',exact:true});
   const next = bar.getByRole('button', {name:'Next',exact:true});
   const back = bar.getByRole('button', {name:'Back',exact:true});
   const save = bar.getByRole('button', {name:'Save entry',exact:true});
@@ -23,6 +24,8 @@ export async function checkPhoneJournal(page: Page, testInfo: TestInfo, workspac
   await expect(save).toHaveCount(0);
   await next.click(); await expect(title).toBeFocused();
   await title.fill('A portable phone note');
+  page.once('dialog', dialog => void dialog.dismiss()); await home.click();
+  await expect(title).toHaveValue('A portable phone note');
   await expectAccessible(page, 'Phone title and reusable icon bar');
   await page.screenshot({path:testInfo.outputPath('phone-title.png'),fullPage:true});
   await next.click(); await expect(editor).toBeVisible();
@@ -71,7 +74,8 @@ export async function checkPhoneJournal(page: Page, testInfo: TestInfo, workspac
   await expect(page.getByLabel('Collection / notebook',{exact:true})).toHaveValue('Garden');
   const downloadPromise = page.waitForEvent('download'); await page.getByRole('link',{name:'Export Markdown',exact:true}).click();
   expect((await downloadPromise).suggestedFilename()).toBe('notes.zip');
-  await cancel.click(); await expect(page.getByRole('button',{name:'Guide',exact:true})).toBeVisible();
+  await home.click(); await expect(page).toHaveURL(`/w/${workspaceId}`);
+  await expect(page.getByRole('button',{name:'Guide',exact:true})).toBeVisible();
   await expect(page.locator('.mobile-action-bar')).toHaveCount(0);
   await page.goto(`/w/${workspaceId}`);await page.getByRole('button',{name:'Add',exact:true}).click(); await page.getByRole('button',{name:/Journal entry — Personal/}).click();
   await page.getByRole('button',{name:'Agree & Continue',exact:true}).click();
@@ -93,7 +97,9 @@ export async function checkPhoneJournal(page: Page, testInfo: TestInfo, workspac
   await expect(page.getByRole('button',{name:'Bold',exact:true})).toBeEnabled();
   await editor.fill('Keep this edit.');await expect(page.getByRole('status').filter({hasText:'Unsaved changes'})).toBeVisible();
   page.once('dialog', dialog => void dialog.dismiss()); await cancel.click(); await expect(editor).toContainText('Keep this edit.');
-  page.once('dialog', dialog => void dialog.accept()); await cancel.click();
+  page.once('dialog', dialog => void dialog.dismiss()); await home.click(); await expect(editor).toContainText('Keep this edit.');
+  page.once('dialog', dialog => void dialog.accept()); await home.click();
+  await expect(page).toHaveURL(`/w/${workspaceId}`);
   await expect(page.getByRole('button',{name:'Guide',exact:true})).toBeVisible();
   expect(await page.evaluate('document.documentElement.scrollWidth<=window.innerWidth')).toBe(true);
   // Opaque syntax is never silently serialized through a lossy phone editor.

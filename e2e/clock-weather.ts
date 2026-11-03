@@ -4,7 +4,7 @@ import { expectAccessible } from './a11y.ts';
 
 /** Called inside a signed-in disposable Guide fixture; all weather is intercepted sample data. */
 export async function checkClockWeather(page: Page, workspaceId: string, screenshots: boolean) {
-  await expect(page.locator('.today [data-card]').first()).toHaveAttribute('data-card', 'moon');
+  expect(await page.locator('.today [data-card]').evaluateAll(nodes => nodes.slice(0,3).map(node => node.getAttribute('data-card')))).toEqual(['clock','weather','moon']);
   await expect(page.locator('[data-card="hero"]')).toBeVisible();
   await page.getByRole('link', { name: /Snow.*Open forecast/ }).click();
   await expect(page).toHaveURL('/weather');

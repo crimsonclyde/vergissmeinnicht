@@ -21,7 +21,8 @@ For every completed task, add a concise completion note, tests/checks performed,
 **Clock/Weather screen study (2026-11-03):** owner requested Celestial first on Today and
 dedicated Clock/Weather screens styled like Celestial, using the existing shared action bar.
 Interactive mockup and integration boundaries recorded in [the screen study](../design/clock-weather-screens.md).
-Design and implementation complete; final validation/release 46 in progress (27.2 below).
+Initial implementation passed release gates; owner correction 27.3 now holds the release draft for
+combined-card mockup approval. Local ordering/Home fixes are verified. Count 45, next 46.
 
 **Published owner release 45 (2026-11-03): v0.10.1-beta.0 — Within Reach.** Shared phone authoring,
 visual-editor refinements and Node/Brotli dependency security fixes. All tagged release checks, native
@@ -5924,3 +5925,41 @@ Final exact-build gallery rerun passed (one desktop fixture exercising 320/390/1
 flows, theme accessibility and eight final captures). The compact timing face now keeps ordinary
 minutes large while longer hour readings fit. Final source lint/typecheck/build and README-link/diff
 checks pass. Owner-authorized main commit/push and tagged release workflow are the next actions.
+
+### 27.3 Owner correction — combined illustrated card, order and Home (2026-11-03)
+
+Owner rejected the separate unequal Clock/Weather tiles and text-link footers. Requested one illustrated
+card with equal Clock/Weather halves, each whole picture opening its dedicated screen; **mockup approval
+is required before implementing this combined card**. Latest order supersedes 27.2's Celestial-first
+choice: enabled personal Clock/Weather first, then personally visible Workspace-enabled Celestial, then
+the continuation hero. Owner explicitly retained existing personal/server switches: no new Workspace
+Clock/Weather flags. Default among the three remains Celestial alone where `MOON` is enabled.
+
+**Implemented locally:** fixed instrument order without rewriting saved visibility/other-card order;
+Profile reflects fixed positions. Shared Notes and private Journal now offer Home in the existing phone
+action bar and desktop actions. Home returns to the current Workspace's Today (or start-page fallback),
+is disabled during a save, and goes through the existing navigation/unsaved-work guard. Back and Cancel
+retain their previous meanings. Browser negatives verify refusing Home keeps an unsaved shared Note or
+private Journal edit, and accepting Home reaches Today. Existing private recovery/storage behavior stays.
+
+**Mockup:** new original picturesque Clock/Weather artwork, one shared frame/equal clickable halves and
+Celestial below; in-chat responsive preview opens local screen previews without overlays. Artwork is a
+preview study only, not consumed by production. [Design record](../design/clock-weather-combined-review.md).
+No source/UI merge for item 1 before approval. Original generated image remains in the thread's generated
+images and a compressed preview is held with the visualization; no remote runtime image URL or upload
+path is added.
+
+**Checks:** lint/typecheck/build and focused ordering/catalog checks pass. Disposable browser account +
+desktop/phone instrument + shared/private Journal flows: **5 passed / 1 intentional bootstrap skip**.
+320px checks retain 48px action targets, no sideways scrolling and unsaved-work protection. The revised
+mockup independently verifies equal half geometry and picture navigation at 320/390/736px. Security
+surface unchanged by ordering/Home; no API, credential, permission, persistence or backup change.
+
+**Release held:** candidate source/tag `63324a65c225efe970a5f3271803f7c37b045241` completed main CI
+[41690287932](https://github.com/crimsonclyde/vergissmeinnicht/actions/runs/41690287932) and full tagged
+[release workflow 41691385232](https://github.com/crimsonclyde/vergissmeinnicht/actions/runs/41691385232),
+including signed native images and populated exact-image upgrade. Its `v0.11.0-beta.0` GitHub Release
+remains **draft/unpublished** after this owner correction; the versioned image was already produced by
+the workflow, with no live deployment. Do not move its tag. Revised candidate/tag (normally beta.1),
+gallery and release publication wait for the requested combined-card approval. Owner count remains
+**45**, next **46**; Release 42 dedication is preserved. Earlier release-plan notes above are historical.

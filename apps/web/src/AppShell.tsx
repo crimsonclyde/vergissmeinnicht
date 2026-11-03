@@ -406,7 +406,7 @@ function AccountPage({ user, section, creating = false, entryId, tools, workspac
       () => setWeatherOn(false),
     );
   }, []);
-  if(section==='journal')return <JournalPage key={user.id+String(creating)+(entryId??'')} {...(entryId?{entryId}:{})} creating={creating} canWrite={true}/>;
+  if(section==='journal')return <JournalPage key={user.id+String(creating)+(entryId??'')} {...(entryId?{entryId}:{})} creating={creating} canWrite={true} homeHref={activeWorkspace?paths.home(activeWorkspace.id):'/'}/>;
   return (
     <SettingsLayout
       title={t('account.heading')}

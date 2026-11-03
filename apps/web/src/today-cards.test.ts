@@ -109,12 +109,12 @@ it('shows the Moon only when its Workspace admin enabled it, while preserving pe
   expect(ids(todayCards(['MOON'], changeCard(resolveTodayLayout(null), 'moon', { visible: false })))).not.toContain('moon');
 });
 
-it('defaults to Celestial alone among the three instruments and pins it above any saved order without changing choices', () => {
+it('defaults to Celestial alone and orders chosen Clock/Weather before it without changing choices', () => {
   const original = resolveTodayLayout(null);
   expect(ids(todayCards(['MOON'], original))).toEqual(['moon']);
   const chosen = { ...original, cards: [...original.cards.filter(item => item.card.id !== 'moon').reverse(), ...original.cards.filter(item => item.card.id === 'moon')].map(item => ({ ...item, visible: true })) };
   const before = layoutOf(chosen);
-  expect(ids(todayCards(['MOON', ...ALL_TOOLS], chosen))[0]).toBe('moon');
+  expect(ids(todayCards(['MOON', ...ALL_TOOLS], chosen)).slice(0, 3)).toEqual(['clock', 'weather', 'moon']);
   expect(layoutOf(chosen)).toEqual(before);
   expect(moveCard(chosen, 'moon', -1)).toBe(chosen);
   expect(ids(todayCards([], chosen))).toEqual(expect.not.arrayContaining(['moon']));

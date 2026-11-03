@@ -897,7 +897,7 @@ Clock (`/clock`) and Weather (`/weather`) are authenticated focused presentation
 links preserve internal return context; direct bookmarks fall back to the current Workspace/starting
 page. They reuse `mobile/MobileActionBar`, including optional primary action, rather than a second
 navigation/action implementation. Profile → Today owns personal instrument visibility via the existing
-Today layout. Celestial is rendered before the continuation hero without rewriting other saved order;
+Today layout. Chosen Clock/Weather is rendered first, then Celestial before the continuation hero without rewriting other saved order;
 its Workspace gate and personal hiding remain independent.
 
 `applets/ForecastProvider.tsx` shares one existing forecast request among header, Today and Weather,
@@ -912,3 +912,7 @@ is stored in the database, offline queue or browser persistence; reload/sign-out
 alarm guarantee, system notification, sound or reward. The clock face uses device time, not weather or
 Workspace location. `instruments.css` uses a contained Celestial-compatible semantic palette with contrast
 checks, forced-colour fallback and no motion or remote assets.
+
+Owner correction (27.3): Note/private Journal Home uses ordinary guarded router navigation to the
+validated current Workspace Today, falling back to the start page. It does not clear drafts or bypass
+unsaved-work confirmation. The combined illustrated Clock/Weather card is still an approval study.

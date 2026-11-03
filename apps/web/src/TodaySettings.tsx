@@ -2,7 +2,7 @@ import { RECENT_RETENTIONS, TODAY_DENSITIES, TO_BUY_LISTS_MAX, TO_BUY_LISTS_MIN,
 import { useState } from 'react';
 import { messageFor } from './api.ts';
 import { t, type MessageKey } from './i18n/index.ts';
-import { changeCard, moveCard, type TodaySettings as Settings } from './today-cards.ts';
+import { changeCard, instrumentFirst, isTodayInstrument, moveCard, type TodaySettings as Settings } from './today-cards.ts';
 import { useTodaySettings } from './today-settings.ts';
 import { Link, paths } from './router.tsx';
 
@@ -54,9 +54,9 @@ export function TodaySettings({ userId, tools, weatherOn }: { userId: string; to
         {saved ? t('todaySettings.saved') : ''}
       </p>
       <ol className="plain-list today-settings-cards" aria-label={t('todaySettings.cards')}>
-        {[...settings.cards.filter(item => item.card.id === 'moon'), ...settings.cards.filter(item => item.card.id !== 'moon')].map((setting) => {
+        {instrumentFirst(settings.cards).map((setting) => {
           const { card } = setting;
-          const movable = settings.cards.filter(item => item.card.id !== 'moon');
+          const movable = settings.cards.filter(item => !isTodayInstrument(item.card.id));
           const index = movable.indexOf(setting);
           // Weather is not offered at all while the server has it switched off (W1); its place in the order is kept.
           if (card.id === 'weather' && !weatherOn) return null;
@@ -70,7 +70,7 @@ export function TodaySettings({ userId, tools, weatherOn }: { userId: string; to
                   <input type="checkbox" checked={setting.visible} onChange={(event) => apply(changeCard(settings, card.id, { visible: event.target.checked }))} />
                   <strong>{title}</strong>
                 </label>
-                {card.id === 'moon' ? <small className="muted">{t('todaySettings.celestialFirst')}</small> : <span className="today-settings-move">
+                {isTodayInstrument(card.id) ? <small className="muted">{t(card.id === 'moon' ? 'todaySettings.celestialFirst' : 'todaySettings.instrumentFirst')}</small> : <span className="today-settings-move">
                   <button type="button" className="quiet" disabled={index === 0} aria-label={t('todaySettings.moveUp', { title })} onClick={() => apply(moveCard(settings, card.id, -1))}>
                     ↑
                   </button>

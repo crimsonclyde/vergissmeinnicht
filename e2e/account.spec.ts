@@ -1526,9 +1526,9 @@ test('first server admin: bootstrap link, account creation, sign-in, Workspace c
   await page.getByRole('link', { name: 'Customize Today' }).click();
   await expect(page).toHaveURL(/\/account\/today$/);
   const cardSettings = page.getByRole('list', { name: 'Cards' });
-  await expect(cardSettings.getByRole('listitem').first()).toContainText('Celestial');
-  await expect(cardSettings.getByRole('listitem').nth(1)).toContainText('Clock & date');
-  await expect(cardSettings.getByRole('listitem').nth(2)).toContainText('Weather');
+  await expect(cardSettings.getByRole('listitem').first()).toContainText('Clock & date');
+  await expect(cardSettings.getByRole('listitem').nth(1)).toContainText('Weather');
+  await expect(cardSettings.getByRole('listitem').nth(2)).toContainText('Celestial');
   await expect(cardSettings.getByRole('listitem').nth(3)).toContainText('Needs attention');
   await expectAccessible(page, 'today settings');
   // Clock & date (19.3): a personal card, off by default; switched on it tops Today, quietly (no live region).
@@ -1556,7 +1556,7 @@ test('first server admin: bootstrap link, account creation, sign-in, Workspace c
     await progressUp.click();
     await expect(page.getByRole('status').filter({ hasText: 'Saved.' })).toBeVisible();
   }
-  await expect(cardSettings.getByRole('listitem').nth(1)).toContainText('Progress');
+  await expect(cardSettings.getByRole('listitem').nth(3)).toContainText('Progress');
   await sections.getByRole('link', { name: 'Today' }).click();
   await expect(page.getByRole('region', { name: 'Progress' })).toBeVisible();
   await expect(page.locator('.today-side .today-card').first()).toHaveAttribute('data-card', 'progress');
