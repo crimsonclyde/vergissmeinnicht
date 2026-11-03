@@ -44,13 +44,20 @@ export function TodaySettings({ userId, tools, weatherOn }: { userId: string; to
     <div className="stack today-settings">
       <h3>{t('todaySettings.heading')}</h3>
       <p className="muted">{t('todaySettings.lead')}</p>
+      <section className="card stack" aria-labelledby="today-instruments-heading">
+        <h4 id="today-instruments-heading">{t('todaySettings.instruments')}</h4>
+        <p>{t('todaySettings.instrumentDefaults')}</p>
+        <div className="row wrap"><Link href={paths.clock()}>{t('guide.clockOpen')}</Link>{weatherOn && <Link href={paths.weather()}>{t('guide.weatherOpenLink')}</Link>}</div>
+      </section>
       {message !== null && <p role="alert">{message}</p>}
       <p role="status" className="muted">
         {saved ? t('todaySettings.saved') : ''}
       </p>
       <ol className="plain-list today-settings-cards" aria-label={t('todaySettings.cards')}>
-        {settings.cards.map((setting, index) => {
+        {[...settings.cards.filter(item => item.card.id === 'moon'), ...settings.cards.filter(item => item.card.id !== 'moon')].map((setting) => {
           const { card } = setting;
+          const movable = settings.cards.filter(item => item.card.id !== 'moon');
+          const index = movable.indexOf(setting);
           // Weather is not offered at all while the server has it switched off (W1); its place in the order is kept.
           if (card.id === 'weather' && !weatherOn) return null;
           const title = t(TITLES[card.id]);
@@ -63,14 +70,14 @@ export function TodaySettings({ userId, tools, weatherOn }: { userId: string; to
                   <input type="checkbox" checked={setting.visible} onChange={(event) => apply(changeCard(settings, card.id, { visible: event.target.checked }))} />
                   <strong>{title}</strong>
                 </label>
-                <span className="today-settings-move">
+                {card.id === 'moon' ? <small className="muted">{t('todaySettings.celestialFirst')}</small> : <span className="today-settings-move">
                   <button type="button" className="quiet" disabled={index === 0} aria-label={t('todaySettings.moveUp', { title })} onClick={() => apply(moveCard(settings, card.id, -1))}>
                     ↑
                   </button>
-                  <button type="button" className="quiet" disabled={index === settings.cards.length - 1} aria-label={t('todaySettings.moveDown', { title })} onClick={() => apply(moveCard(settings, card.id, 1))}>
+                  <button type="button" className="quiet" disabled={index === movable.length - 1} aria-label={t('todaySettings.moveDown', { title })} onClick={() => apply(moveCard(settings, card.id, 1))}>
                     ↓
                   </button>
-                </span>
+                </span>}
               </div>
               {unused && <small className="muted">{t('todaySettings.notUsed')}</small>}
               {setting.visible && (

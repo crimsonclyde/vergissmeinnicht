@@ -890,3 +890,25 @@ modal owns its dirty navigation guard; Bring's former parallel guard was removed
 Equipment route changes occur only after their existing mutation succeeds and intentionally bypass the
 dirty guard. Lists retains inline quick-add and the existing offline queue; execution and browsing views
 keep their specialized layouts. No generic domain schema/form generator introduced.
+
+### Today instruments and timing (27.2, 2026-11-03)
+
+Clock (`/clock`) and Weather (`/weather`) are authenticated focused presentation screens. Their normal
+links preserve internal return context; direct bookmarks fall back to the current Workspace/starting
+page. They reuse `mobile/MobileActionBar`, including optional primary action, rather than a second
+navigation/action implementation. Profile → Today owns personal instrument visibility via the existing
+Today layout. Celestial is rendered before the continuation hero without rewriting other saved order;
+its Workspace gate and personal hiding remain independent.
+
+`applets/ForecastProvider.tsx` shares one existing forecast request among header, Today and Weather,
+waits for resolved Workspace context, tags results by account/Workspace/location revision, cancels old
+callbacks and keeps six-hour offline expiry. Explicit Weather page access can fetch without enabling
+an automatic Today tile. Existing API/provider/credential authorization is unchanged. Settings and
+shared-location changes invalidate the rendered result via the existing location-change event.
+
+`applets/ClockToolsProvider.tsx` owns account-keyed tab memory for independent Stopwatch/Timer state and
+bounded laps/duration. Elapsed timestamps, not interval counts, drive readings after suspension. Nothing
+is stored in the database, offline queue or browser persistence; reload/sign-out resets it. No background
+alarm guarantee, system notification, sound or reward. The clock face uses device time, not weather or
+Workspace location. `instruments.css` uses a contained Celestial-compatible semantic palette with contrast
+checks, forced-colour fallback and no motion or remote assets.

@@ -207,7 +207,7 @@ export function Today(props: {
   const shownIds = useMemo(() => todayCards(props.tools, settings).map((setting) => setting.card.id).join(' '), [props.tools, settings]);
   const retention = useMemo(() => settings.cards.find((setting) => setting.card.id === 'recent')?.retention ?? 'DAYS_3', [settings]);
 
-  const weather = useMyForecast(userId, loaded && !guideLayout && shownIds.split(' ').includes('weather'), workspaceId);
+  const weather = useMyForecast(loaded && shownIds.split(' ').includes('weather'));
 
   const load = useCallback(() => {
     // Until the person's layout is known nothing is asked for twice.
@@ -431,12 +431,12 @@ export function Today(props: {
   // holds what to act on and the side column the rest, each in the person's order.
   const blocks: ({ kind: 'columns'; main: ReactNode[]; side: ReactNode[] } | { kind: 'wide'; node: ReactNode } | { kind: 'glance'; nodes: ReactNode[] })[] = [];
   for (const setting of cards) {
-    if (guideLayout && (setting.card.id === 'clock' || setting.card.id === 'weather')) continue;
+    if (setting.card.id === 'moon') continue; // Render Celestial before the continuation hero, in both layouts.
     const node = render(setting);
     if (node === null) continue;
     const last = blocks.at(-1);
     // Clock & date and Weather form the glance row (19.1, 19.3, 19.4): full width, together when next to each other.
-    if (setting.card.id === 'clock' || setting.card.id === 'weather' || setting.card.id === 'moon') {
+    if (setting.card.id === 'clock' || setting.card.id === 'weather') {
       if (last?.kind === 'glance') last.nodes.push(node);
       else blocks.push({ kind: 'glance', nodes: [node] });
       continue;
@@ -451,7 +451,7 @@ export function Today(props: {
   }
   const twoColumns = blocks.some((block) => block.kind !== 'columns' || (block.main.length > 0 && block.side.length > 0));
 
-  if (!props.tools.some(tool => tool !== 'GAMIFICATION') && offlineActive === null) return <section className="card stack"><h2>{t('shell.today')}</h2><p>{t('tools.empty')}</p>{props.canChooseTools && <Link className="button" href={paths.plugins(workspaceId)}>{t('tools.choose')}</Link>}</section>;
+  if (!props.tools.some(tool => tool !== 'GAMIFICATION') && cards.length === 0 && offlineActive === null) return <section className="card stack"><h2>{t('shell.today')}</h2><p>{t('tools.empty')}</p>{props.canChooseTools && <Link className="button" href={paths.plugins(workspaceId)}>{t('tools.choose')}</Link>}</section>;
   return (
     <section aria-labelledby="today-heading" className={['today', twoColumns ? 'today-two' : '', settings.density === 'COMFORTABLE' ? 'today-comfortable' : ''].filter(Boolean).join(' ')}>
       <div className="today-hello">
@@ -481,6 +481,7 @@ export function Today(props: {
           <AddChooser workspaceId={workspaceId} can={props.canAdd} />
         </span>
       </div>
+      {cards.filter(setting => setting.card.id === 'moon').map(render)}
       {hero !== null && cards.some((setting) => setting.card.id === 'continue') && <HeroCard workspaceId={workspaceId} hero={hero} />}
       {message !== null && <p role="alert">{message}</p>}
       {home === null && offlineActive === null && message === null && <p>{t('common.loading')}</p>}

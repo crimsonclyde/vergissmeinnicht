@@ -1,6 +1,9 @@
 import { useEffect, useId, useState } from 'react';
 import { formatClock, t } from './i18n/index.ts';
 import { useThemeMode } from './theme.ts';
+import { UiIcon } from './ui-icons.tsx';
+import { Link, paths } from './router.tsx';
+import './applets/instruments.css';
 
 /** The current minute, updated on the minute and when the page becomes visible again (a sleeping tab). */
 export function useMinute(): Date {
@@ -38,30 +41,16 @@ export function ClockCard({ hour24 }: { hour24: boolean }) {
   const [mode] = useThemeMode();
   return (
     <section className="card today-card today-clock" aria-label={t('today.clock')} data-card="clock">
-      {mode === 'witch-forest' && <Sundial now={now} />}
-      <time dateTime={now.toISOString().slice(0, 16)}>
-        <span className="today-clock-time" aria-hidden="true">
-          {/* Each digit is its own tile, keyed by its value: a changed digit is a new tile, which a theme
-              may animate (Tokyo Nights flips it in). Other themes show plain text. */}
-          {[...time].map((character, index) =>
-            /\d/.test(character) ? (
-              <span key={`${index}-${character}`} className="clock-digit">
-                {character}
-              </span>
-            ) : (
-              <span key={`s${index}`} className="clock-sep">
-                {character}
-              </span>
-            ),
-          )}
-        </span>
-        {/* The running minute as a thin bar (only drawn by themes that want it); restarts with each minute. */}
-        <span key={now.getTime()} className="clock-minute" aria-hidden="true" style={{ animationDelay: `-${now.getSeconds() + now.getMilliseconds() / 1000}s` }} />
-        <span className="today-clock-date" aria-hidden="true">
-          {date}
-        </span>
-        <span className="visually-hidden">{full}</span>
-      </time>
+      <div className="instrument">
+        <header className="instrument-heading"><span>{t('clock.deviceTime')}</span><h3>{t('today.clock')}</h3><i aria-hidden="true" /></header>
+        {mode === 'witch-forest' && <Sundial now={now} />}
+        <time dateTime={now.toISOString()}>
+          <span className="instrument-time" aria-hidden="true">{time}</span>
+          <span className="instrument-caption" aria-hidden="true">{date}</span>
+          <span className="visually-hidden">{full}</span>
+        </time>
+      </div>
+      <Link href={paths.clock()} className="today-clock-link">{t('guide.clockOpen')} <UiIcon name="forward" /></Link>
     </section>
   );
 }

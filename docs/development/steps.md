@@ -18,6 +18,11 @@ For every completed task, add a concise completion note, tests/checks performed,
 
 ## Current state — resume here
 
+**Clock/Weather screen study (2026-11-03):** owner requested Celestial first on Today and
+dedicated Clock/Weather screens styled like Celestial, using the existing shared action bar.
+Interactive mockup and integration boundaries recorded in [the screen study](../design/clock-weather-screens.md).
+Design and implementation complete; final validation/release 46 in progress (27.2 below).
+
 **Published owner release 45 (2026-11-03): v0.10.1-beta.0 — Within Reach.** Shared phone authoring,
 visual-editor refinements and Node/Brotli dependency security fixes. All tagged release checks, native
 amd64/arm64 publishing scans/smoke, signing/SBOM and exact-image populated upgrade from v0.10.0-beta.0
@@ -4851,6 +4856,24 @@ Decisions (defaults chosen 2026-10-23, shown to the owner with screenshots):
 **Security surface changed:** NO — existing authenticated member/tool-gated shared location only; calculation/presentation changes, no external request, credential, persistence or permission change. **Security docs updated:** YES (calculation clarification; existing security negatives retained).
 **Remaining / limits:** physical devices and real screen readers not certified; vector surfaces are artistic, astronomical phase/times are calculated estimates from the existing pinned SunCalc. Existing large-JS-chunk build warning remains. Published v0.9.1-beta.0; no live deployment. Owner authorized commit/push/publication as standalone patch **v0.9.1-beta.0**, the **43rd** owner-counted release (not a Space-theme release); candidate/publication gates in 12.48. After publication the count is **43**, next **44th**, and the Release 42 dedication remains unchanged.
 
+### 27.2 Celestial priority and dedicated Clock/Weather screen study (2026-11-03)
+
+**Status:** DONE — design/mockup; production integration pending.
+**Recorded:** Celestial first among visible Today content (including before the continuation hero),
+dedicated Clock/Weather pages instead of overlays, Celestial instrument styling, and reuse of the
+existing shared icon action bar. Owner suggested Stopwatch/Timer; mockup includes their local
+Start/Pause/Resume/Reset, laps and duration presets. Weather uses existing normalized fields and
+labels location/source/time, with optional cached-state preview. [Design and implementation boundaries](../design/clock-weather-screens.md).
+**Checks:** local interactive browser preview at 320/390/736/1024px, screen changes and
+stopwatch/lap/reset/timer start/pause passed without horizontal overflow or page errors;
+desktop Clock/Weather and timing captures visually inspected. Fictional data only; no VMN API/provider calls.
+**Security surface changed:** NO. Security policy update N/A: design and documentation only,
+no production source, permission, credential, storage or data-flow change.
+**Remaining:** owner visual review; actual first-card placement and routes/component integration;
+timing persistence/concurrent modes/completion alerts need design decisions before implementation;
+production theme/contrast, accessibility, Back/return context and gate regressions. No release,
+deployment or milestone change; count 45, next 46. Existing owner assets preserved.
+
 ## 28 — Default Workspace and a theme per Workspace (owner request 2026-10-24)
 
 **Status:** DONE (2026-10-24; not released)
@@ -5853,3 +5876,51 @@ Registry manifest independently inspected. Exact beta only; latest not moved. AG
 45, next 46; release 42 dedication untouched. Completion record/docs only, no security-surface change.
 Remaining: physical-phone keyboard/screen-reader checks, specialized secondary dialogs and independent
 Dependabot updates. No live deployment. Owner asset folders excluded and preserved.
+
+### 27.2 Implementation and release plan — owner milestone 46 (2026-11-03)
+
+**Status:** IN PROGRESS — implementation complete, final verification/publication pending.
+Owner approved the mockup, shared action-bar reuse, profile-personalized Today instruments, README
+browser screenshots/features, commit/push to main and a new release. Plan: **v0.11.0-beta.0 — A Moment
+in Time**, owner release **46**. Current owner count stays **45** until publication; Release 42 and
+its dedication are preserved. No live deployment.
+
+Implemented dedicated `/clock` and `/weather` screens; contained Celestial-compatible instruments;
+Stopwatch/laps and bounded Timer with Start/Pause/Resume/Reset in the existing shared action bar;
+account-keyed ephemeral timing across navigation, explicitly reset on reload/sign-out/close without
+background-alarm promises. Clock/Weather opt-in tiles now render in Guide and classic; Celestial stays
+first above the hero when personally visible and Workspace-enabled. Profile explains defaults (only
+Celestial among these three), keeps independent personal choices and offers screen links without
+forcing a tile on. Shared scoped Weather request avoids header/Today duplicates, retains provider,
+credential, authorization/offline boundaries and explicitly labels missing/fallback/cached data.
+
+README features/gallery updated with real Chromium Space Guide and Memento Mori captures and fictional
+studio/sample Weather; capture recipe recorded beside them. User/architecture/security/design docs
+updated. No dependency, migration or new server endpoint. Unraid candidate reference and exact-image
+upgrade predecessor updated to published v0.10.1-beta.0 index
+`sha256:1b7b677df1d5cab8cb754d8aabfdf900874d535ca78caf6b74761e4888770976`.
+
+Initial full unit/security run: 209 files / 1,586 tests passed, with one catalog-usage check needing the
+new explicit dynamic Clock prefixes; corrected and focused 48 checks pass. Browser review corrected
+focused-screen heading hierarchy, a prohibited time label and an existing Space continuation-card text
+contrast issue revealed by the richer fixture. Full final lint/typecheck/build/unit/browser results and
+publication evidence follow below. Security surface LOW: existing personal Weather data reuse only;
+security policy updated with scope/cache/timing controls. Remaining: release gates, physical-device and
+real-screen-reader review; existing JavaScript chunk-size warnings.
+
+**Final local candidate checks (27.2):** full Vitest **210 files / 1,587 tests passed**. Final focused
+presentation/catalog/Weather-credential/server-gate checks **66 passed** after Weather invalidation and
+unit-label refinements. `pnpm lint`, `pnpm typecheck`, production `pnpm build` and `pnpm audit --audit-level
+high` pass (no known vulnerabilities). Browser full run passed 27 tests with two intentional skips;
+the remaining account expectation was updated for pinned Celestial/compact Weather, and the complete
+account plus desktop/phone instrument rerun passed **3 tests / 1 intentional skip**. Thus all 28 applicable
+browser scenarios are covered across those runs; tagged CI will rerun the complete suite on the exact
+source. Fresh optional gallery capture rerun follows the final reading-size refinement. README local
+links and `git diff --check` pass. Eight real-browser captures are compressed to WebP without compositional
+changes; user-supplied untracked assets remain excluded. Published predecessor digest independently
+verified against GHCR. Source ready for authorized commit/main push and release gates; count remains 45.
+
+Final exact-build gallery rerun passed (one desktop fixture exercising 320/390/1440px, timing/profile
+flows, theme accessibility and eight final captures). The compact timing face now keeps ordinary
+minutes large while longer hour readings fit. Final source lint/typecheck/build and README-link/diff
+checks pass. Owner-authorized main commit/push and tagged release workflow are the next actions.

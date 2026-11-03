@@ -1526,8 +1526,8 @@ test('first server admin: bootstrap link, account creation, sign-in, Workspace c
   await page.getByRole('link', { name: 'Customize Today' }).click();
   await expect(page).toHaveURL(/\/account\/today$/);
   const cardSettings = page.getByRole('list', { name: 'Cards' });
-  await expect(cardSettings.getByRole('listitem').first()).toContainText('Clock & date');
-  await expect(cardSettings.getByRole('listitem').nth(1)).toContainText('Celestial');
+  await expect(cardSettings.getByRole('listitem').first()).toContainText('Celestial');
+  await expect(cardSettings.getByRole('listitem').nth(1)).toContainText('Clock & date');
   await expect(cardSettings.getByRole('listitem').nth(2)).toContainText('Weather');
   await expect(cardSettings.getByRole('listitem').nth(3)).toContainText('Needs attention');
   await expectAccessible(page, 'today settings');
@@ -1543,7 +1543,8 @@ test('first server admin: bootstrap link, account creation, sign-in, Workspace c
   // The glance row: full width above the cards, on a phone too.
   await expect(page.locator('.today-glance').first().locator('.today-card')).toHaveAttribute('data-card', 'clock');
   await page.setViewportSize({ width: 390, height: 844 });
-  expect((await clock.boundingBox())?.height).toBeLessThan(80);
+  await expect(clock.locator('.instrument')).toBeVisible();
+  expect(await page.evaluate('document.documentElement.scrollWidth <= innerWidth')).toBe(true);
   await page.setViewportSize({ width: 1280, height: 720 });
   await page.getByRole('link', { name: 'Customize Today' }).click();
   await cardSettings.getByLabel('To buy', { exact: true }).uncheck();
@@ -1555,7 +1556,7 @@ test('first server admin: bootstrap link, account creation, sign-in, Workspace c
     await progressUp.click();
     await expect(page.getByRole('status').filter({ hasText: 'Saved.' })).toBeVisible();
   }
-  await expect(cardSettings.getByRole('listitem').first()).toContainText('Progress');
+  await expect(cardSettings.getByRole('listitem').nth(1)).toContainText('Progress');
   await sections.getByRole('link', { name: 'Today' }).click();
   await expect(page.getByRole('region', { name: 'Progress' })).toBeVisible();
   await expect(page.locator('.today-side .today-card').first()).toHaveAttribute('data-card', 'progress');
@@ -1718,7 +1719,9 @@ test('first server admin: bootstrap link, account creation, sign-in, Workspace c
   const weatherCard = page.getByRole('region', { name: 'Weather in Triora' });
   // Rain as the provider gives it: no probability from this model, so the amount; who supplied it, with the model.
   await expect(weatherCard).toContainText('16°');
-  await expect(weatherCard).toContainText('Cloudy · 18° / 12° · 11.9 mm rain');
+  await expect(weatherCard).toContainText('Cloudy');
+  await expect(weatherCard).toContainText('High 18° · Low 12°');
+  await expect(weatherCard).toContainText('11.9 mm rain');
   await expect(weatherCard).toContainText('Open-Meteo · ItaliaMeteo ARPAE ICON-2I');
   await expect(weatherCard).toContainText('Tomorrow: Cloudy · 19° / 9°');
   await expect(page.locator('.today-glance').first().locator('[data-card="weather"]')).toHaveCount(1);

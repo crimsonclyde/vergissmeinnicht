@@ -126,9 +126,11 @@ export function layoutOf(settings: TodaySettings): TodayLayout {
 
 /** Moves a card one place up (-1) or down (+1). */
 export function moveCard(settings: TodaySettings, id: TodayCardId, by: -1 | 1): TodaySettings {
+  if (id === 'moon') return settings;
   const cards = [...settings.cards];
   const from = cards.findIndex((setting) => setting.card.id === id);
-  const to = from + by;
+  let to = from + by;
+  if (cards[to]?.card.id === 'moon') to += by;
   if (from < 0 || to < 0 || to >= cards.length) return settings;
   [cards[from], cards[to]] = [cards[to] as TodayCardSetting, cards[from] as TodayCardSetting];
   return { ...settings, cards };
@@ -140,7 +142,9 @@ export function changeCard(settings: TodaySettings, id: TodayCardId, change: Par
 
 /** The cards that may appear, in the person's order: switched on by them and needing a tool that is on. */
 export function todayCards(tools: readonly string[], settings: TodaySettings = resolveTodayLayout(null)): TodayCardSetting[] {
-  return settings.cards.filter((setting) => setting.visible && (setting.card.anyOf.length === 0 || setting.card.anyOf.some((tool) => tools.includes(tool))));
+  const cards = settings.cards.filter((setting) => setting.visible && (setting.card.anyOf.length === 0 || setting.card.anyOf.some((tool) => tools.includes(tool))));
+  // Celestial leads presentation without rewriting any personal saved order or bypassing its gate.
+  return [...cards.filter(setting => setting.card.id === 'moon'), ...cards.filter(setting => setting.card.id !== 'moon')];
 }
 
 /** Rows a card lists before "+N more". */

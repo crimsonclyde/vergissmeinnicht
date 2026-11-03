@@ -1,83 +1,34 @@
-import { useEffect, useState } from 'react';
-import { api, isNetworkError, type MyForecast } from './api.ts';
-import { formatTime, t } from './i18n/index.ts';
-import { offlineStore } from './offline/store.ts';
+import { t } from './i18n/index.ts';
 import { Link, paths } from './router.tsx';
 import { UiIcon } from './ui-icons.tsx';
-import { conditionIcon, rainIndication, showable, sourceLabel, temperature } from './weather-view.ts';
+import { useForecast, type ShownForecast } from './applets/ForecastProvider.tsx';
 
-type Shown = Extract<MyForecast, { forecast: object }>;
+import { formatTime } from './i18n/index.ts';
+import { conditionIcon, rainIndication, sourceLabel, temperature } from './weather-view.ts';
+type Shown = ShownForecast;
 
 /** The person's forecast for Today, kept on the device for a while (offline, a provider outage). */
-export function useMyForecast(userId: string, wanted: boolean, workspaceId?: string): Shown | null {
-  const [shown, setShown] = useState<{ userId: string; workspaceId: string | undefined; data: Shown } | null>(null);
-  useEffect(() => {
-    if (!wanted) return;
-    let active = true;
-    // Today needs today and tomorrow only; the server answers from the same cached forecast either way.
-    api.myForecast(2, workspaceId).then(
-      (answer) => {
-        if (!active) return;
-        if (answer.forecast === null) {
-          setShown(null);
-          return;
-        }
-        setShown({ userId, workspaceId, data: answer });
-        void offlineStore.saveForecast(userId, answer, workspaceId);
-      },
-      async (caught: unknown) => {
-        // Weather never shows an error on Today: offline, the last forecast (≤ 6 h, with its time); otherwise nothing.
-        const saved = isNetworkError(caught) ? ((await offlineStore.loadForecast(userId, workspaceId)) as Shown | undefined) : undefined;
-        if (active) setShown(saved !== undefined && showable(saved.fetchedAt) ? { userId, workspaceId, data: { ...saved, stale: true } } : null);
-      },
-    );
-    return () => {
-      active = false;
-    };
-  }, [userId, wanted, workspaceId]);
-  return wanted && shown !== null && shown.userId === userId && shown.workspaceId === workspaceId && showable(shown.data.fetchedAt) ? shown.data : null;
+export function useMyForecast(wanted: boolean): Shown | null {
+  const { data } = useForecast();
+  return wanted ? data : null;
 }
 
-/**
- * Weather on Today (19.4): place, condition, temperature, today's high/low, rain (probability or amount,
- * whichever the provider has) and who supplied it; tomorrow as a small line. Opens the detailed forecast.
- * Monochrome icons; the condition is always written out.
- */
+/** A personal instrument tile, sharing the screen's canonical forecast and opt-in. */
 export function WeatherCard({ data }: { data: Shown }) {
   const { forecast, unit } = data;
-  const [today, tomorrow] = forecast.days;
-  const now = temperature(forecast.current?.temperature, unit);
+  const today = forecast.days[0];
   const condition = forecast.current?.condition ?? today?.condition;
   const rain = rainIndication(today);
-  const high = temperature(today?.max, unit);
-  const low = temperature(today?.min, unit);
-  return (
-    <section className="card today-card today-weather" aria-label={t('today.weatherIn', { place: data.location.name })} data-card="weather">
-      <Link href={paths.account('weather')} className="today-weather-link">
-        <span className="today-weather-main">
-          <UiIcon name={conditionIcon(condition)} size="2em" />
-          {now !== null && <span className="today-weather-now">{now}</span>}
-          <span className="today-weather-text">
-            <strong>{data.location.name}</strong>
-            <span>
-              {condition !== undefined && t(`weather.condition.${condition}`)}
-              {high !== null && low !== null && ` · ${t('weather.highLow', { high, low })}`}
-              {rain !== null && ` · ${rain.kind === 'probability' ? t('weather.rainChance', { value: rain.value }) : t('weather.rainAmount', { value: rain.value })}`}
-            </span>
-          </span>
-        </span>
-        {data.showTomorrow && tomorrow !== undefined && (
-          <small className="muted today-weather-tomorrow">
-            {t('weather.tomorrow')}: {tomorrow.condition === undefined ? '' : `${t(`weather.condition.${tomorrow.condition}`)} · `}
-            {temperature(tomorrow.max, unit) ?? '—'} / {temperature(tomorrow.min, unit) ?? '—'}
-          </small>
-        )}
-        <small className="muted today-weather-source">
-          {sourceLabel(forecast.provider, forecast.model)}
-          {data.fellBackFrom !== null && ` · ${t('weather.fellBack')}`}
-          {data.stale && ` · ${t('weather.asOf', { time: formatTime(data.fetchedAt) })}`}
-        </small>
-      </Link>
-    </section>
-  );
+  return <section className="card today-card today-weather" aria-label={t('today.weatherIn', { place: data.location.name })} data-card="weather">
+    <div className="instrument instrument-weather-compact">
+      <header className="instrument-heading"><span>{t('weather.heading')}</span><h3>{data.location.name}</h3></header>
+      <div className="instrument-weather-glance"><UiIcon name={conditionIcon(condition)} size="2.5em" /><span className="instrument-time">{temperature(forecast.current?.temperature, unit) ?? t('weather.missing')}<small>{unit}</small></span></div>
+      <p>{t(`weather.condition.${condition ?? 'UNKNOWN'}`)}{forecast.current?.condition === undefined && ` · ${t('weather.dailyOutlook')}`}</p>
+      <p>{t('weather.max')} {temperature(today?.max, unit) ?? t('weather.missing')} · {t('weather.min')} {temperature(today?.min, unit) ?? t('weather.missing')}</p>
+      {rain !== null && <p>{rain.kind === 'probability' ? t('weather.rainChance', { value: rain.value }) : t('weather.rainAmount', { value: rain.value })}{today?.partial === true && ` · ${t('weather.partial')}`}</p>}
+      {data.showTomorrow && forecast.days[1] !== undefined && <p className="instrument-compact-source">{t('weather.tomorrow')}: {t(`weather.condition.${forecast.days[1].condition ?? 'UNKNOWN'}`)} · {temperature(forecast.days[1].max, unit) ?? t('weather.missing')} / {temperature(forecast.days[1].min, unit) ?? t('weather.missing')}</p>}
+      <p className="instrument-compact-source">{sourceLabel(forecast.provider, forecast.model)}{data.fellBackFrom !== null && ` · ${t('weather.fellBack')}`}{data.stale && ` · ${t('weather.asOf', { time: formatTime(data.fetchedAt) })}`}</p>
+    </div>
+    <Link href={paths.weather()} className="today-weather-open">{t('guide.weatherOpenLink')} <UiIcon name="forward" /></Link>
+  </section>;
 }

@@ -10,6 +10,8 @@ const listeners = new Set<() => void>();
 let guard: (() => boolean) | null = null;
 /** The path the app shows; a refused Back/Forward returns to it. */
 let shownPath = typeof window === 'undefined' ? '/' : window.location.pathname;
+let appletReturn: string | null = null;
+export const appletBackPath = (fallback: string): string => appletReturn ?? fallback;
 
 export function setNavigationGuard(next: (() => boolean) | null): void {
   guard = next;
@@ -20,6 +22,7 @@ const mayLeave = (): boolean => guard === null || guard();
 export function navigate(path: string, options: { replace?: boolean; force?: boolean } = {}): void {
   if (path === window.location.pathname) return;
   if (options.force !== true && !mayLeave()) return;
+  if ((path === '/clock' || path === '/weather') && shownPath !== '/clock' && shownPath !== '/weather') appletReturn = shownPath;
   if (options.replace) window.history.replaceState(null, '', path);
   else window.history.pushState(null, '', path);
   // `path` may end in a fragment (e.g. `#history`); only the path decides which page is shown.
@@ -78,6 +81,7 @@ export const ADMIN_SECTIONS = ['workspaces', 'invitations', 'accounts', 'notific
 export type AdminSection = (typeof ADMIN_SECTIONS)[number];
 
 export type Route =
+  | { readonly page: 'clock' | 'weather' }
   | { readonly page: 'recipes'; readonly workspaceId: string }
   | { readonly page: 'bring'; readonly workspaceId: string }
   | { readonly page: 'journal'; readonly workspaceId: string; readonly creating?: boolean;readonly entryId?:string }
@@ -138,6 +142,7 @@ export function parseRoute(pathname: string): Route {
   const path = pathname.replace(/\/+$/, '') || '/';
   let match: RegExpExecArray | null;
   if (path === '/') return { page: 'home' };
+  if (path === '/clock' || path === '/weather') return { page: path === '/clock' ? 'clock' : 'weather' };
   if ((match = new RegExp(`^/invite/${TOKEN}$`).exec(path))) return { page: 'invite', token: match[1] ?? '' };
   if ((match = new RegExp(`^/recover/${TOKEN}$`).exec(path))) return { page: 'recover', token: match[1] ?? '' };
   if ((match = new RegExp(`^/knot/${TOKEN}$`).exec(path))) return { page: 'knot', token: match[1] ?? '' };
@@ -204,6 +209,8 @@ export function parseRoute(pathname: string): Route {
 }
 
 export const paths = {
+  clock: () => '/clock',
+  weather: () => '/weather',
   home: (workspaceId: string) => `/w/${workspaceId}`,
   reminders: (workspaceId: string) => `/w/${workspaceId}/reminders`,
   newReminder: (workspaceId: string) => `/w/${workspaceId}/reminders/new`,

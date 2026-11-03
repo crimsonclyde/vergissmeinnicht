@@ -23,20 +23,22 @@ VergissMeinNicht (VMN) is a self-hosted workspace for routines, shared responsib
 Turn repeatable work into **Procedures**, see what needs attention, and keep a record of who did what and when. Each Workspace uses only the tools it needs.
 
 <p align="center">
-  <a href="assets/screenshots/readme-2026-10-28/today-memento.webp"><img src="assets/screenshots/readme-2026-10-28/today-memento.webp" alt="Today in Memento Mori: a fictional studio’s active closing routine, upcoming reminders, supplies, Bring items and maintenance" width="1040"></a>
+  <a href="assets/screenshots/readme-2026-11-03/today-memento-mori.webp"><img src="assets/screenshots/readme-2026-11-03/today-memento-mori.webp" alt="Today in Memento Mori: Celestial, an active studio Run and personally chosen Clock and Weather tiles" width="1040"></a>
 </p>
 
 ## Features
 
 | Tool / capability | What it does |
 |---|---|
-| **Today** | Due dates, active Runs and next actions, arranged in your own card layout. |
+| **Today** | Due dates, active Runs and next actions in your personal layout. Optional Celestial leads the tiles; Clock and Weather are your choice. |
+| **Clock & Weather** | Dedicated instrument screens, local Stopwatch/Timer, and private weather forecasts with clear source and freshness. |
 | **Procedures & Runs** | Reusable instructions and guided execution. History keeps the actor, time and original instructions after later edits. |
 | **Reminders & Calendar** | One-off and recurring obligations, optional assignment, email and Telegram reminders. |
 | **Lists & Bring** | Shared grocery lists and reminders for things to take between places. |
 | **Documents** | Folders, original files, previews and text recognition on your own server. |
 | **Contacts** | Shared people and organisations, links, CSV and vCard import/export. |
 | **Equipment & Maintenance** | Models, compatible replacement parts, linked manuals and servicing records. |
+| **Recipes** | Reusable recipes, adjustable servings, images and reviewed grocery-list transfer. |
 | **Notes & Journal** | Shared Workspace Notes and a personal Journal, with Markdown, original images and portable exports. |
 | **Workspaces & roles** | Enable tools as needed; give members Guest, User, Editor or Admin access. |
 | **Backup & restore** | Workspace-admin exports; server-admin restore into a new Workspace. |
@@ -48,7 +50,24 @@ New Workspaces start with tools off. Switching a tool off keeps its data.
 
 ## Screenshots
 
-Real app screens, fictional **Northstar studio** data. Click any image for the full view.
+Real browser captures with fictional studio data. Weather in the new gallery uses a local sample forecast, not live conditions. Click any image for the full view.
+
+### Your day, your instruments.
+
+| Space Guide | Memento Mori (dark) |
+|---|---|
+| [![Today in Space Guide, with Celestial first and chosen Clock and Weather tiles](assets/screenshots/readme-2026-11-03/today-space-guide.webp)](assets/screenshots/readme-2026-11-03/today-space-guide.webp) | [![Today in Memento Mori, with Celestial above an active Run](assets/screenshots/readme-2026-11-03/today-memento-mori.webp)](assets/screenshots/readme-2026-11-03/today-memento-mori.webp) |
+
+| A dedicated Clock screen | A dedicated Weather screen |
+|---|---|
+| [![Clock instrument in Space Guide](assets/screenshots/readme-2026-11-03/clock-space-guide.webp)](assets/screenshots/readme-2026-11-03/clock-space-guide.webp) | [![Weather instrument in Memento Mori, with source and update time](assets/screenshots/readme-2026-11-03/weather-memento-mori.webp)](assets/screenshots/readme-2026-11-03/weather-memento-mori.webp) |
+
+<p align="center">
+  <a href="assets/screenshots/readme-2026-11-03/timer-phone.webp"><img src="assets/screenshots/readme-2026-11-03/timer-phone.webp" alt="Phone Timer with duration presets and the shared bottom action bar" width="255"></a>
+  <a href="assets/screenshots/readme-2026-11-03/personalize-phone.webp"><img src="assets/screenshots/readme-2026-11-03/personalize-phone.webp" alt="Profile Today settings: personal instrument choices and Celestial always first" width="255"></a>
+</p>
+
+Stopwatch and Timer are local to the signed-in tab and reset on reload or close; they do not promise background alarms. [Capture details](assets/screenshots/readme-2026-11-03/README.md).
 
 ### Write it once. Follow it together.
 
@@ -80,12 +99,12 @@ Shared entries belong to the Workspace. Account-private entries stay separate an
 
 ## Themes
 
-Two restrained everyday themes, with distinct palettes and quiet line-art details. **System** follows your device. Tokyo Nights, Witch Forest and the four Places remain available.
+Two restrained everyday themes, with distinct palettes and quiet line-art details. **System** follows your device. Space Guide adds a quiet planetary scene and an illustrated tool Guide. Tokyo Nights, Witch Forest and the four Places remain available.
 
 | **Memento Mori (dark)** | **Don't go into the (light)** |
 |---|---|
 | Warm black, bone, burgundy and candlelit brass. | Ivory, ink and deep teal, with a little daylight. |
-| [![Today in Memento Mori](assets/screenshots/readme-2026-10-28/today-memento.webp)](assets/screenshots/readme-2026-10-28/today-memento.webp) | [![Today in Don't go into the light](assets/screenshots/readme-2026-10-28/today-light.webp)](assets/screenshots/readme-2026-10-28/today-light.webp) |
+| [![Today in Memento Mori](assets/screenshots/readme-2026-11-03/today-memento-mori.webp)](assets/screenshots/readme-2026-11-03/today-memento-mori.webp) | [![Today in Don't go into the light](assets/screenshots/readme-2026-10-28/today-light.webp)](assets/screenshots/readme-2026-10-28/today-light.webp) |
 
 <details>
 <summary>Explore Tokyo Nights, the forest and Places</summary>

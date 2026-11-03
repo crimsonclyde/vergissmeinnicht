@@ -54,6 +54,9 @@ import { WorkspaceBackupPage } from './WorkspaceBackupPage.tsx';
 import { WeatherSettings } from './WeatherSettings.tsx';
 import { ScheduleHistory } from './ScheduleHistory.tsx';
 import { Today } from './Today.tsx';
+import { AppletPage } from './applets/AppletPage.tsx';
+import { ClockToolsProvider } from './applets/ClockToolsProvider.tsx';
+import { ForecastProvider } from './applets/ForecastProvider.tsx';
 import { UiIcon, type UiIconName } from './ui-icons.tsx';
 import type { WorkspaceContext } from './workspace-context.ts';
 
@@ -112,7 +115,7 @@ function ClassicNavigation({ workspaceId, tools, page, phone = false }: { worksp
 function GuideHeader({ workspaceId, tools, page, userId }: { workspaceId: string | null; tools: readonly string[]; page: Page; userId: string }) {
   const { preferences } = usePreferences();
   if (preferences.guide.layout !== 'guide') return null;
-  return <div className="guide-header-tools">{workspaceId !== null && <GuideNavigation key={`${workspaceId}:${page}:${tools.join(' ')}`} workspaceId={workspaceId} tools={tools} page={page} />}<GuideGlance key={workspaceId ?? 'account'} userId={userId} workspaceId={workspaceId} /></div>;
+  return <div className="guide-header-tools">{workspaceId !== null && <GuideNavigation key={`${workspaceId}:${page}:${tools.join(' ')}`} workspaceId={workspaceId} tools={tools} page={page} />}<GuideGlance key={workspaceId ?? 'account'} userId={userId} /></div>;
 }
 
 /** Loads the Workspace (name, role, capabilities) for the Workspace pages. */
@@ -523,10 +526,12 @@ export function AppShell(props: { user: CurrentUser; route: Route; onSignOut: ()
   // Focused work hides the global navigation: the builder everywhere, an execution on phones.
   const [journalEditing,setJournalEditing]=useState(false);
   useEffect(()=>{const listener=(event:Event)=>setJournalEditing((event as CustomEvent<boolean>).detail);window.addEventListener('vmn-journal-editing',listener);return()=>window.removeEventListener('vmn-journal-editing',listener);},[]);
-  const focus = journalEditing ? 'edit' : (route.page === 'procedure-edit' || (route.page === 'documents' && route.view === 'new')) ? 'edit' : route.page === 'run' ? 'run' : undefined;
+  const focus = journalEditing || route.page === 'clock' || route.page === 'weather' ? 'edit' : (route.page === 'procedure-edit' || (route.page === 'documents' && route.view === 'new')) ? 'edit' : route.page === 'run' ? 'run' : undefined;
 
   let content;
-  if (route.page === 'account') {
+  if (route.page === 'clock' || route.page === 'weather') {
+    content = <AppletPage page={route.page} userId={user.id} workspaceId={navWorkspaceId} />;
+  } else if (route.page === 'account') {
     // Today cards of tools that are off where the person last was are marked as such (UI only).
     content = (
       <AccountPage
@@ -567,6 +572,7 @@ export function AppShell(props: { user: CurrentUser; route: Route; onSignOut: ()
     // the person chose for the Workspace shown (or last used) applies (section 28).
     <PreferencesProvider key={user.id} userId={user.id} workspaceId={route.page === 'account' && route.section === 'appearance' ? null : navWorkspaceId}><ProgressProvider userId={user.id} workspaceId={workspaceId} tools={navTools} privateScope={route.page === 'account' && route.section === 'journal'}>
       <TodaySettingsProvider userId={user.id}>
+      <ClockToolsProvider><ForecastProvider userId={user.id} workspaceId={navWorkspaceId} explicit={route.page === 'weather'} ready={workspaces !== null}>
       <RingPaint />
       {/* Places (section 30): the person's own look of the Workspace shown; strongest on Today. */}
       <PlaceScene userId={user.id} workspaceId={navWorkspaceId} prominence={route.page === 'workspace' ? 'today' : 'page'} />
@@ -617,6 +623,6 @@ export function AppShell(props: { user: CurrentUser; route: Route; onSignOut: ()
         </div>
         <ClassicNavigation workspaceId={navWorkspaceId} tools={navTools} page={route.page} phone />
       </ShellFrame>
-    </TodaySettingsProvider></ProgressProvider></PreferencesProvider>
+    </ForecastProvider></ClockToolsProvider></TodaySettingsProvider></ProgressProvider></PreferencesProvider>
   );
 }

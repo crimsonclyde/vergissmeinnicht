@@ -23,7 +23,7 @@ export interface MobileAction {
   form?: string;
 }
 /** One active bar per focused phone workflow. Consumers supply authorized actions and save state. */
-export function MobileActionBar({ label, actions, primary, withinDialog = false }: { label: string; actions: readonly MobileAction[]; primary: MobileAction; withinDialog?: boolean }) {
+export function MobileActionBar({ label, actions, primary, withinDialog = false }: { label: string; actions: readonly MobileAction[]; primary?: MobileAction; withinDialog?: boolean }) {
   const bar = useRef<HTMLElement>(null);
   useEffect(() => {
     const element = bar.current;
@@ -64,6 +64,6 @@ export function MobileActionBar({ label, actions, primary, withinDialog = false 
     };
   }, [withinDialog]);
   const button = (action: MobileAction, emphasized = false) => <button key={action.id} type={action.type ?? 'button'} form={action.form} onClick={action.onClick} disabled={action.disabled} aria-label={action.label} title={action.label} className={emphasized ? 'primary' : 'quiet'}><UiIcon name={action.icon} size={24} /></button>;
-  const navigation = <nav ref={bar} className="mobile-action-bar" aria-label={label}><div className="mobile-action-bar-secondary">{actions.map(action => button(action))}</div>{button(primary, true)}</nav>;
+  const navigation = <nav ref={bar} className="mobile-action-bar" aria-label={label}><div className="mobile-action-bar-secondary">{actions.map(action => button(action))}</div>{primary !== undefined && button(primary, true)}</nav>;
   return withinDialog ? navigation : createPortal(navigation, document.body);
 }

@@ -1604,3 +1604,39 @@ No new processing/upload path, permission, sensitive flow, credential or storage
 lookups and Lists offline edits keep their existing scope. Modal busy/discard guards are presentation
 only. Next/Back never submit or award success; explicit Save retains server-authoritative validation
 and rewards. Existing short quick-add, read, execution, history and destructive policies remain intact.
+
+### Security check: Today instruments and dedicated screens — 27.2 (2026-11-03)
+
+**Security surface: LOW — presentation and reuse of existing own-account Weather data.** No new
+endpoint, credential, provider, dependency, upload, permission, database or Workspace-backup field.
+
+- Celestial remains `MOON`/`moon`, personally hideable and Workspace-admin gated. Pinning it above the
+  continuation hero never enables it or bypasses authenticated metadata authorization. Clock and Weather
+  stay off by default; existing personal choices survive. Today settings remain account-only and excluded
+  from Workspace packages. Opening a dedicated Weather screen is an explicit forecast request, separate
+  from opting into automatic Today/header forecasts.
+- One shared forecast provider scopes in-memory answers to the account and resolved current Workspace;
+  waits for Workspace context, cancels stale in-flight callbacks, hides mismatched answers immediately and
+  uses the existing owner/Workspace offline store. Navigation does not issue duplicate forecasts. Weather
+  and shared-location changes invalidate old display; a confirmed server Weather settings change also
+  invalidates the current client’s forecast before rereading the authoritative server gate. Authorization/server failures never use an offline
+  fallback; only network failure can show the existing bounded saved forecast. Six-hour expiry is enforced
+  on ticks and return to the visible document. Server switch, provider allowlist, sealed credential owner
+  isolation, call budgets and rounded location validation remain authoritative on the existing API.
+- Source/fallback/update/cached and partial-day labels remain explicit. Missing current temperature is
+  unavailable, never a daily maximum; daily wind maximum is distinguished from current wind. No new
+  telemetry, geolocation, browser-to-provider connection or public forecast route.
+- Stopwatch, Timer and laps are account-keyed tab memory only. No persistence, service worker alarm,
+  notification permission, audio, audit mutation or reward. Reload/sign-out drops them; intervals are
+  display refreshes, with elapsed timestamps recovering suspended-tab time. Controls bound minutes to
+  1–1440 and laps to 100. Both can run independently while navigating the signed-in tab. Clock uses device
+  time/zone; Weather and Celestial do not change schedules or historical timestamps.
+- Shared action-bar consumers supply only local allowed actions. Optional primary action enables a
+  Back-only bar without creating a new permission boundary; existing editors keep their Save semantics.
+
+**Verification:** pure timing and negative-bound tests, personal-hide/tool-gate/default ordering tests,
+missing/escaped Weather rendering tests and contained-palette contrast checks. Browser fixtures exercise
+page navigation, laps, pause/reset, invalid minutes, personal hide/reload, default no forecast, explicit
+Weather opening without Today opt-in, and Space/Memento captures. Full own-account Weather credential,
+Workspace isolation and disabled-route negatives remain in the existing suite. Final counts are in the
+ledger; physical devices, real screen readers and whole-app security certification are not claimed.

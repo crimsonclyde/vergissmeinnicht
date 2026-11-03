@@ -121,6 +121,11 @@ export function formatClock(now: Date, hour24: boolean): { readonly time: string
   return { time, date, full: `${full}, ${time}` };
 }
 
+/** Full local date for the dedicated Clock screen; never derive it from a UTC date slice. */
+export function formatClockDate(now: Date): string {
+  return new Intl.DateTimeFormat(formatLocale(), { dateStyle: 'full' }).format(now);
+}
+
 /** "tomorrow", "in 3 days", "yesterday" for a calendar date `YYYY-MM-DD`, counted from `today` (also `YYYY-MM-DD`). */
 export function formatRelativeDay(date: string, today: string): string {
   const days = Math.round((Date.parse(`${date}T00:00:00Z`) - Date.parse(`${today}T00:00:00Z`)) / 86_400_000);

@@ -50,6 +50,7 @@ export function WeatherAdmin() {
       (next) => {
         setSettings(next);
         setSaved(true);
+        window.dispatchEvent(new Event('vmn-weather-changed'));
       },
       (caught: unknown) => setMessage(messageFor(caught)),
     );

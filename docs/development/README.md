@@ -14,4 +14,4 @@ Keep user instructions in `docs/user`, operator instructions in `docs/admin`, an
 
 ## Screenshots
 
-Six reviewed actual-app screenshots from fictional demo data are in [the capture guide](../../assets/screenshots/workspace-tools-2026-10-04/README.md) and the root README. They show steps 17.1–17.2 on desktop and phone in Light/Dark. Mock-ups remain design references; bulk QA captures and credentials stay out of git.
+The current [instrument gallery](../../assets/screenshots/readme-2026-11-03/README.md) contains actual browser captures in Space Guide and Memento Mori, with fictional studio data and locally intercepted Weather. The root README also retains earlier fictional tool galleries. Mock-ups remain design references; bulk QA captures and credentials stay out of git.

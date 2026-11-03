@@ -1,5 +1,6 @@
 import { crc32, deflateSync } from 'node:zlib';
 import { checkPhoneRecipe, checkRecipeSourcePreservation } from './phone-recipe.ts';
+import { checkClockWeather } from './clock-weather.ts';
 import {checkPhoneJournal} from './phone-journal.ts';
 import { randomUUID } from 'node:crypto';
 import { mkdirSync } from 'node:fs';
@@ -7,7 +8,7 @@ import { expect, test, type Page } from '@playwright/test';
 import { hashPassword } from '../packages/auth/src/password-hashing.ts';
 import { openDatabase } from '../packages/database/src/connection.ts';
 import { createUserRepository } from '../packages/database/src/user-repository.ts';
-import { enableCoreTools, insertLegacyProcedure, insertLegacyWorkspace } from '../packages/database/src/test-support.ts';
+import { enableCoreTools, insertLegacyProcedure, insertLegacyRun, insertLegacyWorkspace } from '../packages/database/src/test-support.ts';
 import { normalizeEmail } from '../packages/domain/src/user.ts';
 import { DEFAULT_GUIDE_PREFERENCES } from '../packages/domain/src/preferences.ts';
 import { guideServerEnv } from '../playwright.config.ts';
@@ -41,6 +42,10 @@ test('Guide preserves routes, preferences, themes and private opt-in weather acr
     database.sqlite.prepare("INSERT INTO accounts(id,account_id,provider_id,user_id,password,created_at,updated_at) VALUES(?,?,'credential',?,?,?,?)").run(randomUUID(), user.id, user.id, await hashPassword(password), Date.now(), Date.now());
     workspaceId = insertLegacyWorkspace(database, { name: 'Fictional Guide studio', adminUserId: user.id }).id;
     enableCoreTools(database, workspaceId, user.id);
+    database.sqlite.prepare("INSERT INTO workspace_tools (workspace_id,tool,enabled,updated_at,updated_by_user_id) VALUES(?,'MOON',1,?,?)").run(workspaceId, Date.now(), user.id);
+    database.sqlite.prepare('UPDATE workspaces SET location=? WHERE id=?').run(JSON.stringify({ name: 'Fictional studio', latitude: 48.14, longitude: 11.58, timeZone: 'Europe/Berlin', elevation: null }), workspaceId);
+    const procedure = insertLegacyProcedure(database, { workspaceId, userId: user.id, title: 'Close the Northstar studio', steps: [{ title: 'Check the windows' }, { title: 'Switch off the workbench' }, { title: 'Set the alarm' }] });
+    insertLegacyRun(database, { workspaceId, procedureId: procedure.id, user });
   } finally { database.close(); }
   const requests: string[] = []; const errors: string[] = [];
   page.on('request', request => requests.push(request.url()));
@@ -112,19 +117,15 @@ test('Guide preserves routes, preferences, themes and private opt-in weather acr
   await form.getByLabel('Interface', { exact: true }).selectOption('guide');
   await form.getByRole('button', { name: 'Save', exact: true }).click();
   await expect(shell).toHaveAttribute('data-layout', 'guide');
-  await page.route('**/api/account/weather/forecast?*', route => route.fulfill({ json: { forecast: { provider: 'OPEN_METEO', current: { condition: 'SNOW', temperature: -1 }, days: [{ date: '2026-10-31', condition: 'SNOW', min: -3, max: 2 }] }, horizon: 1, location: { name: 'Fictional studio', timeZone: 'Europe/Berlin' }, fetchedAt: new Date().toISOString(), stale: false, fellBackFrom: null, unit: 'C', showTomorrow: false } }));
+  await page.route('**/api/account/weather/forecast?*', route => route.fulfill({ json: { forecast: { provider: 'OPEN_METEO', current: { condition: 'SNOW', temperature: -1 }, days: [{ date: '2026-11-03', condition: 'SNOW', min: -3, max: 2, precipitationProbabilityMax: 40, precipitationSum: 1.2, windSpeedMax: 14 }] }, horizon: 1, location: { name: 'Fictional studio', timeZone: 'Europe/Berlin' }, fetchedAt: new Date().toISOString(), stale: false, fellBackFrom: null, unit: 'C', showTomorrow: false } }));
   expect((await post('/api/account/today', { layout: { version: 1, density: 'COMPACT', cards: [
     { id: 'clock', visible: true, size: 'NORMAL', options: { hour24: false } },
     { id: 'weather', visible: true, size: 'NORMAL', options: {} },
     { id: 'toBuy', visible: true, size: 'NORMAL', options: { lists: 3 } },
   ] } })).status).toBe(200);
   await page.goto(`/w/${workspaceId}`);
-  await expect(page.getByRole('button', { name: /Snow.*Open forecast/ })).toBeVisible();
-  await page.getByRole('button', { name: /Snow.*Open forecast/ }).click();
-  await expect(page.getByRole('dialog', { name: 'Weather', exact: true })).toContainText('Fictional studio');
-  await expectAccessible(page, 'expanded weather'); await page.keyboard.press('Escape');
-  await page.getByRole('button', { name: 'Open clock and date' }).click();
-  await expect(page.getByRole('dialog')).toContainText(/20\d\d/); await page.keyboard.press('Escape');
+  await expect(page.getByRole('link', { name: /Snow.*Open forecast/ })).toBeVisible();
+  await checkClockWeather(page, workspaceId, testInfo.project.name === 'guide-desktop-chromium');
   for (const theme of ['system', 'light', 'dark', 'memento-mori', 'tokyo-nights', 'witch-forest', 'places-de', 'places-it', 'places-uk', 'places-scotland', 'space-guide']) {
     expect((await post('/api/account/preferences', { theme })).status).toBe(200); await page.reload();
     await expect(page.getByRole('button', { name: 'Guide', exact: true })).toBeVisible();
