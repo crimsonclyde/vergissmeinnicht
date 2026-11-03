@@ -18,17 +18,12 @@ For every completed task, add a concise completion note, tests/checks performed,
 
 ## Current state — resume here
 
-**Clock/Weather screen study (2026-11-03):** owner requested Celestial first on Today and
-dedicated Clock/Weather screens styled like Celestial, using the existing shared action bar.
-Interactive mockup and integration boundaries recorded in [the screen study](../design/clock-weather-screens.md).
-Owner approved the combined illustrated card after correction 27.3. Implementation and refreshed
-release candidate v0.11.0-beta.1 are recorded in 27.4. Earlier beta.0 stays unpublished. Count 45, next 46.
-
-**Published owner release 45 (2026-11-03): v0.10.1-beta.0 — Within Reach.** Shared phone authoring,
-visual-editor refinements and Node/Brotli dependency security fixes. All tagged release checks, native
-amd64/arm64 publishing scans/smoke, signing/SBOM and exact-image populated upgrade from v0.10.0-beta.0
-passed. [Release](https://github.com/crimsonclyde/vergissmeinnicht/releases/tag/v0.10.1-beta.0).
-Owner count **45**, next **46**; special release 42/dedication preserved. No live deployment.
+**Published owner release 46 (2026-11-03): v0.11.0-beta.1 — A Moment in Time.** Approved combined
+illustrated Clock/Weather card, Clock/Weather → Celestial → continuation order, personal visibility,
+dedicated screens/timing tools, guarded Notes/Journal Home and refreshed browser gallery. [Release](https://github.com/crimsonclyde/vergissmeinnicht/releases/tag/v0.11.0-beta.1).
+Main CI and tagged quality/browser/native builds/scans, signing/SBOM and both exact-image populated
+upgrade checks passed. Owner count **46**, next **47**; special release 42/dedication preserved.
+Earlier beta.0 was a withheld candidate, never a published owner release. No live deployment.
 
 **Recipes and MCP follow-up (2026-11-02):** owner requested Recipes and an MCP interface for AI/possible voice control, and selected recipe library **plus grocery-list transfer**. [Assessment and concrete proposal](recipes-mcp-plan.md), section 36.0, covers reusable editor/attachment infrastructure, atomic reviewed ingredient transfer, delegated MCP authorization and reviewed cleanup. Owner authorized implementation on 2026-11-02; Recipes implementation is now underway. Owner subsequently selected user-task writes through a client such as Claude, including Procedure/Run tasks and serving-scaled Recipe/image/shopping creation (36.3). Documents/OCR/private Journal remain excluded; image capability and deployment/auth details still need implementation design. Notes/Journal work below remains complete and unchanged.
 
@@ -5966,7 +5961,8 @@ gallery and release publication wait for the requested combined-card approval. O
 
 ### 27.4 Approved combined instrument card and release 46 / beta.1 (2026-11-03)
 
-**Status:** IN PROGRESS — implementation complete; final release checks pending.
+**Status:** DONE — implemented, verified and published; detailed publication record below. Earlier
+preparation notes remain chronological history.
 Owner approved the pictured combined card and explicitly authorized build, commit, main push and release.
 Plan: **v0.11.0-beta.1 — A Moment in Time**, still owner milestone **46**. Count remains 45 until GitHub
 publication. Preserve immutable candidate beta.0/tag/image and Release 42 dedication; no live deployment.
@@ -6011,3 +6007,30 @@ flows); all nine Space/Memento/phone WebP captures are updated and visually chec
 links, final lint/typecheck and `git diff --check` pass. Owner-authorized combined implementation, artwork,
 documentation and beta.1 preparation are ready to commit/push; tag/publication follow CI. The earlier
 owner asset directories stay excluded and untouched.
+
+### Published owner milestone 46 — v0.11.0-beta.1 (2026-11-03)
+
+**DONE:** [A Moment in Time](https://github.com/crimsonclyde/vergissmeinnicht/releases/tag/v0.11.0-beta.1)
+published from immutable source/tag `58d9d24004779941076ec994d93ce559fa352cc8`. Main implementation CI
+[41710105707](https://github.com/crimsonclyde/vergissmeinnicht/actions/runs/41710105707) and tagged
+[Release 41711156738](https://github.com/crimsonclyde/vergissmeinnicht/actions/runs/41711156738) passed
+all gates: 211 unit/security files / 1,589 tests, 28 browser checks / 2 intentional skips, lint/typecheck/
+audit, both native container builds/smoke/fixable-HIGH/CRITICAL scans, keyless signatures, CycloneDX SBOM
+and verification of the exact published image. Populated upgrade/backup/export/restore checks passed
+from both published v0.10.1-beta.0 and the held beta.0 candidate, retaining source data, clean foreign
+keys/integrity and no lingering restore marks. No new application migration or runtime service.
+
+Independently inspected image index:
+`sha256:a0ce8fa685f572c054ed4d0238bbda7e8f257f4b4629df6c1544cc39c650ed39` — linux/amd64
+`sha256:1ce63bf3bf9581c02574822df4d97969d2db99388a6acc84393ada78d2e723d4`, linux/arm64
+`sha256:d3724854bc1501db374283b5d4b284dbfbc84a15fc7d7c1b347c4b92975aa89e`.
+The exact beta tag is `ghcr.io/crimsonclyde/vergissmeinnicht:0.11.0-beta.1`; `latest` was not moved.
+GitHub confirms published/prerelease, not draft. Owner count updated to **46**, next **47**; Release 42
+and dedication unchanged. Superseded beta.0 draft metadata is discarded separately while its immutable
+tag/image and candidate record remain. Nine reviewed real-browser WebP captures and source-art provenance
+are committed. Owner asset folders stay untracked/preserved. No live deployment.
+
+Remaining limits: physical iOS/Android keyboard and real-screen-reader review; existing JavaScript
+chunk-size warnings. Timing remains ephemeral/tab-local, without sound or background-alarm guarantees.
+This final documentation-only record changes no security surface and does not rerun the already passed
+source gates. The original security impact/reuse controls remain in 27.2–27.4 and the security policy.
