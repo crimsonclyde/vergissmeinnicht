@@ -46,3 +46,11 @@ export function watchViewportDrift(win: Window = window): () => void {
     root.style.removeProperty('--viewport-drift');
   };
 }
+
+
+/** Lift a focused-work action bar above the keyboard, accounting for viewport panning. */
+export function keyboardInset(layoutHeight: number, viewport: { offsetTop: number; height: number; scale: number }): number {
+  if (Math.abs(viewport.scale - 1) > .01) return 0;
+  const inset = layoutHeight - viewport.offsetTop - viewport.height;
+  return Number.isFinite(inset) && inset >= 1 ? Math.round(inset) : 0;
+}

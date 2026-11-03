@@ -15,3 +15,12 @@ Extend the fixed `progressPoints` policy in the domain, then call `awardProgress
 The ledger still holds only hashed logical-action keys, owner, bounded points and server time. Disabled/capped actions consume zero-point deduplication marks so later undo/re-completion or re-enabling cannot reward old actions. No content or plain source/Workspace id is added. Lifetime totals and marks are excluded from Workspace backups; the shared Workspace flag is included. Full server backups retain all of them.
 
 `ProgressProvider` listens to successful mutation paths, refreshes the own-account aggregate and current canonical Workspace flag, and celebrates only a positive server-total difference after a mutation in the displayed scope. Initial load, focus, polling and scope changes never celebrate old progress. Failed gate reads suppress decorations. Equipment has no special local cheer, and guided Runs retain their normal confirmed-state navigation without separate cheers, confetti or vibration.
+
+
+## Phone action bars (35.4)
+
+Tools may use `mobile/MobileActionBar.tsx` for a common icon-based editing dock. The bar owns only
+presentation/viewport clearance, not reward events or permissions. Phone encouragement overlays clear
+its measured height and keyboard inset; decorative portions pass pointer input through and Dismiss
+remains interactive. Next/Back/Cancel never trigger reward hooks. Notes/Journal browser coverage checks
+failed saves show no overlay, a confirmed server award does, and that the overlay stays above the dock.

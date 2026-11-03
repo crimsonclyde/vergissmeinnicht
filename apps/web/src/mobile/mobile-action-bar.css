@@ -1,0 +1,13 @@
+:root[data-mobile-action-bar] body { padding-bottom:calc(var(--mobile-action-bar-height, 5rem) + 1rem); }
+.mobile-action-bar { position:fixed; z-index:45; inset-inline:0; bottom:var(--mobile-action-bar-inset, 0px); display:flex; align-items:center; justify-content:space-between; gap:.5rem; padding:.75rem max(.75rem, env(safe-area-inset-right)) max(.75rem, env(safe-area-inset-bottom)) max(.75rem, env(safe-area-inset-left)); border-top:1px solid var(--border); background:var(--surface-raised); color:var(--text); box-shadow:0 -.25rem 1rem rgb(0 0 0 / 8%); transform:translateY(var(--viewport-drift, 0px)); }
+.mobile-action-bar-secondary { display:flex; flex-wrap:nowrap; align-items:center; gap:.5rem; min-width:0; }
+.mobile-action-bar button { display:inline-flex; align-items:center; justify-content:center; flex:none; width:48px; min-width:48px; height:48px; min-height:48px; padding:.75rem; border-radius:1.5rem; }
+
+@media (max-width:40rem) {
+ .progress-cheer { bottom:calc(var(--mobile-action-bar-inset, 0px) + var(--mobile-action-bar-height, 5rem) + 1rem); pointer-events:none; }
+ .progress-cheer > button { pointer-events:auto; }
+}
+@media (forced-colors:active) { .mobile-action-bar { border-top:2px solid CanvasText; } }
+
+.mobile-action-bar[hidden] { display:none !important; }
+.phone-flow-heading h2 { margin:.5rem 0; }

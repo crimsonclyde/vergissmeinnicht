@@ -523,7 +523,7 @@ export function AppShell(props: { user: CurrentUser; route: Route; onSignOut: ()
   // Focused work hides the global navigation: the builder everywhere, an execution on phones.
   const [journalEditing,setJournalEditing]=useState(false);
   useEffect(()=>{const listener=(event:Event)=>setJournalEditing((event as CustomEvent<boolean>).detail);window.addEventListener('vmn-journal-editing',listener);return()=>window.removeEventListener('vmn-journal-editing',listener);},[]);
-  const focus = journalEditing ? 'edit' : route.page === 'procedure-edit' ? 'edit' : route.page === 'run' ? 'run' : undefined;
+  const focus = journalEditing ? 'edit' : (route.page === 'procedure-edit' || (route.page === 'documents' && route.view === 'new')) ? 'edit' : route.page === 'run' ? 'run' : undefined;
 
   let content;
   if (route.page === 'account') {

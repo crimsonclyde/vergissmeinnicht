@@ -1494,3 +1494,113 @@ No additional application security surface. Candidate CI `41218264286` and main 
 Recipes, original images, serving-scaled grocery transfers and the optional OAuth MCP endpoint are implemented locally. Migrations 0063–0065 add Recipe records, scoped grants, hashed tokens and durable meal/image request outcomes. Writes recheck current user permissions and selected Workspaces. Image generation sends the explicit prompt to the configured OpenAI project and preserves the returned original. Uncertain requests do not automatically incur another charge.
 
 Security surface changed. Local tests cover PKCE, revocation, role enforcement, duplicate requests, atomic shopping updates, image preservation and backup recovery. Desktop and mobile browser checks cover Recipes and consent. Live ChatGPT tunnel eligibility, OAuth reachability, voice and paid image quality require deployment validation. See [operator setup](../admin/mcp.md).
+
+### Runtime/advisory review — 2026-11-03 (32.1)
+
+**Security surface changed: LOW, protective** — patched existing runtime/build dependencies; no new
+credential, service, upload, permission or processing path. [Detailed review](dependency-review-2026-11-03.md).
+
+- [x] Production Node base is pinned by the official multi-platform digest to 24.22.2; `.nvmrc` and
+  supported package engines reflect the patched baseline. October Brotli/DNS/TLS/HTTP and related
+  fixes replace the affected 24.21.0 pin. Native fetch may decode compressed upstream responses;
+  fixed endpoints and decoded response caps are not substitutes for a patched runtime.
+- [x] Verify vendor patch provenance as well as reported library versions: patched Node 24.22.2
+  reports Brotli 1.2.0 because the fix is cherry-picked. Host Node 26.12.1/Brotli 1.2.1 is a separate
+  observation and never evidence that a previously built production image was patched.
+- [x] Full npm audit found one dev-only minimatch glob-expansion issue; narrow reviewed v11.0.1
+  override, unchanged release-age/provenance/script controls, frozen install and lint/typecheck/build.
+  Full and production-only re-audits report zero known advisories; no suppression added.
+- [x] Keep Claude client/tooling incidents separate from VMN runtime dependencies and scoped MCP.
+  Official plugin-pin and Edit TOCTOU fixed-version comparisons, local extension/plugin metadata and
+  exact known-artifact checks are recorded with limits. No malware or remediation script was run,
+  no host credential was printed, and no conclusion about other devices or historical compromise is made.
+- [x] Local patched-base candidate build and existing disposable image smoke workflow exercise native
+  dependency loading, migrations, bootstrap, backup, readiness and scheduled backup. Existing release
+  scanning/signing/upgrade gates remain required; local unit/browser results are recorded in the ledger.
+
+**Remaining:** live installations require a separately authorized patched-image deployment. No source
+change retroactively patches an existing container. This review is not a full native-library/OS scan
+or forensic clearance of developer devices. Physical phones/assistive technology still need manual
+UX verification. The separate Journal screens (35.3) change presentation only; existing private consent,
+scoped original files, draft/revision, CSRF, tool and permission boundaries remain authoritative.
+
+
+### Staged phone entries and shared action bar — 35.4 (2026-11-03)
+
+**Security surface changed: NO.** Existing Journal/attachment/private-consent/revision and Gamification
+boundaries remain authoritative. New shared UI code supplies typed icon actions, native form validation,
+viewport clearance and unsaved navigation only; callbacks still use existing authenticated commands.
+Phone visual-only editing never parses/serializes opaque source: its preserved preview allows metadata
+changes without changing the body, checked by saving and refetching the exact source. Editor loading is
+inert; native input/focused-document capture prevents unnoticed unsaved text after phone resizing.
+No content, credential or viewport measurement is stored/logged by the action bar. It removes its
+observers/listeners/root properties on unmount. Collection suggestions use only the already-authorized
+loaded library page, with no new query or cross-library source.
+
+Existing server award policy, scope gates, caps, deduplication and transactional audit are unchanged.
+Next/Back/Cancel and failed saves produce no encouragement; positive server-confirmed own totals do.
+Browser coverage exercises failure/retry, overlay placement above the dock, private consent/recovery,
+unsaved cancellation and opaque-source preservation. Existing Journal/progress authorization negatives
+and contrast/viewport checks pass; final results and manual-device limits are in ledger 35.4. No new
+permission, API, upload type, processing provider, offline cache or external connection was introduced.
+
+### Staged phone Procedure authoring — 15.2a (2026-11-03)
+
+Presentation-only adoption of the shared action bar. Name, outline, local Section/Step editing and
+review reuse the existing bounded draft and authenticated create/update routes. Server capabilities,
+Workspace scoping, CSRF, expectedRevision, transactional audits and immutable Run snapshots stay
+unchanged. A new Step is outside the outline until Apply; Cancel leaves no blank record. Saving is
+blocked for unapplied Step/Section changes. Section and Step copies participate in the unsaved
+navigation guard. Existing optional instruction-image upload remains immediate and authorized as
+before; hiding its controls under More options introduces no new upload or processing path. Plain
+React text rendering and bundled icons remain; no HTML injection, remote code or new persistence.
+Browser checks cover failed saves, retained drafts, cancellation, selection and stable saved ids;
+existing Procedure HTTP/structure negatives and pure draft tests remain required. No client-side
+reward or success claim is added to navigation or Apply. Physical-device review remains manual.
+
+### Staged phone Recipe authoring — 36.6 (2026-11-03)
+
+Presentation only: `RecipeForm` uses existing Recipe Save/revision, independent attachment consumer,
+Workspace tool/capability gates and server-authoritative grocery transfer. Back/Next and ingredient
+changes mutate only the in-memory draft. The visual-only phone editor preserves opaque Markdown
+without serialization; metadata-only edits must return identical instruction source. Existing image
+uploads remain immediate, authorized and quota-bound; Save links the resulting original as before.
+The configured image generator remains optional and explicit, never invoked by navigation, validation
+or Save. No new provider, credential, upload format, offline persistence or external connection.
+Existing Recipe HTTP authorization, image isolation and transfer tests remain required. Browser checks
+cover failed-save draft retention, cancellation, original image reuse/export and exact source retention.
+
+### Shared phone editing mechanics and scheduling — 14.1a (2026-11-03)
+
+No new authorization/data boundary. The shared flow controls only stage visibility, focus, native
+validation and presentation state; features own all mutations and policies. Scheduling retains existing
+server-side recurrence/time-zone validation, expectedRevision, assignment checks, bounded offsets,
+atomic audit and notification dispatch. Back/Next produce no Schedule, Run or notification. Unsaved
+cancellation and busy-close protection preserve the draft; failed submissions keep it for correction.
+Native modal bars render inside the dialog to preserve its focus/inert boundary; background bars are
+hidden and restored on close. No stored content, keyboard measurements or credentials are logged.
+Existing Schedule authorization/history negatives and Recipe source-preservation checks remain required.
+
+### 16.2a Phone Document creation review (2026-11-03)
+
+Presentation-only staging uses the existing Document upload and create adapters. Next performs no
+mutation; selecting files still starts existing provisional uploads and Save retains successful ids.
+No new upload path, permission boundary, processing, original transformation or credential introduced.
+Existing server-side tool/role/Workspace checks, format validation, quotas and abandoned-upload cleanup
+remain normative. Failed Save retains the local form; it does not claim persistence or award success.
+
+### 16.2b Document editing-dialog review (2026-11-03)
+
+Shared modal presentation leaves Document update/move authorization, tool gates, expected revision
+and atomic audit unchanged. No new endpoint or file flow. The phone bar stays within the native
+modal focus boundary. Busy submissions prevent duplicate UI submit and dismissal; dirty Cancel,
+Escape and navigation ask before discard. Client controls remain presentation, never authorization.
+
+### 16.14 Remaining phone form presentation review (2026-11-03)
+
+Equipment, Maintenance, Contacts, Bring and Lists reuse the shared modal without changing their
+application commands, Workspace/tool/capability gates, revision checks, assignment or atomic audit.
+No new processing/upload path, permission, sensitive flow, credential or storage. Contacts duplicate
+lookups and Lists offline edits keep their existing scope. Modal busy/discard guards are presentation
+only. Next/Back never submit or award success; explicit Save retains server-authoritative validation
+and rewards. Existing short quick-add, read, execution, history and destructive policies remain intact.

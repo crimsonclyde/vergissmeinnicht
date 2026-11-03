@@ -1,0 +1,84 @@
+import { expect, type Page } from '@playwright/test';
+import { expectAccessible } from './a11y.ts';
+
+interface ProcedureDetail { sections: { id: string; steps: { id: string; title: string }[] }[] }
+
+export async function checkPhoneProcedure(page: Page, workspaceId: string) {
+  await page.setViewportSize({ width: 320, height: 740 });
+  await page.goto(`/w/${workspaceId}/procedures/new`);
+  const bar = page.getByRole('navigation', { name: 'Procedure actions' });
+  const action = (name: string) => bar.getByRole('button', { name, exact: true });
+  await action('Next').click();
+  await expect(page.getByLabel('Procedure name')).toHaveAttribute('aria-invalid', 'true');
+  await page.getByLabel('Procedure name').fill('Leave the house');
+  await expect(page.getByPlaceholder('Add a step…')).toHaveCount(0);
+  await expectAccessible(page, 'phone Procedure name');
+  await action('Next').click();
+  await expect(bar.getByRole('button')).toHaveCount(5);
+  const boxes = await bar.getByRole('button').evaluateAll(buttons => buttons.map(button => { const r = button.getBoundingClientRect(); const s = button.ownerDocument.defaultView?.getComputedStyle(button); return { width:r.width, height:r.height, radius:s?.borderRadius }; }));
+  expect(boxes.every(box => box.width === 48 && box.height === 48 && box.radius === boxes[0]?.radius)).toBe(true);
+  expect(await page.evaluate('document.documentElement.scrollWidth <= innerWidth')).toBe(true);
+  await action('Add step').click();
+  await page.getByLabel('Step title', { exact: true }).fill('Close windows');
+  await page.getByLabel('Instructions', { exact: false }).fill('Check upstairs too.');
+  await page.setViewportSize({ width:1280, height:900 });
+  await expect(page.getByLabel('Step title', { exact: true })).toHaveValue('Close windows');
+  await page.setViewportSize({ width:320, height:740 });
+  await action('Apply step').click();
+  await expect(page.getByRole('button', { name:/^Step 1: Close windows/ })).toBeVisible();
+  await action('Add section').click();
+  await page.getByLabel('Section name', { exact: true }).fill('Outside');
+  await action('Add section').click();
+  await expect(page.getByText('Adding to: Outside', { exact:true })).toBeVisible();
+  await action('Add step').click();
+  await page.getByLabel('Step title', { exact: true }).fill('Lock the gate');
+  await page.getByText('More options', { exact:true }).click();
+  await expect(page.getByRole('switch', { name:'Required', exact:true })).toBeVisible();
+  await expectAccessible(page, 'phone Procedure step');
+  await action('Apply step').click();
+  // A cancelled new step never leaves a blank row in the outline.
+  await action('Add step').click();
+  await page.getByLabel('Step title', { exact: true }).fill('Discard this step');
+  page.once('dialog', dialog => dialog.accept());
+  await action('Cancel').click();
+  await expect(page.getByRole('button', { name:/Discard this step/ })).toHaveCount(0);
+  await expectAccessible(page, 'phone Procedure outline');
+  await page.screenshot({ path:'/tmp/vmn-procedure-phone-outline.png', fullPage:true });
+  page.once('dialog', dialog => dialog.dismiss());
+  await action('Cancel').click();
+  await expect(page.getByText('Adding to: Outside', { exact:true })).toBeVisible();
+  await action('Back').click();
+  await expect(page.getByLabel('Procedure name')).toHaveValue('Leave the house');
+  await action('Next').click(); await action('Next').click();
+  await expect(page.getByRole('region', { name: 'Section: Outside', exact:true }).getByText('Lock the gate', { exact:true })).toBeVisible();
+  await expectAccessible(page, 'phone Procedure review');
+  // Fail once: the complete draft remains and no success is claimed.
+  const endpoint = `**/api/workspaces/${workspaceId}/procedures`;
+  await page.route(endpoint, route => route.request().method() === 'POST' ? route.fulfill({ status:500, contentType:'application/json', body:'{"error":"internal_error"}' }) : route.continue());
+  await action('Save procedure').click();
+  await expect(page.locator('.builder-main > [role="alert"]')).toBeVisible();
+  await expect(page.getByRole('region', { name: 'Section: Outside', exact:true }).getByText('Lock the gate', { exact:true })).toBeVisible();
+  await page.unroute(endpoint);
+  await action('Save procedure').click();
+  await expect(page).toHaveURL(/\/procedures\/[0-9a-f-]{36}$/);
+  const id = page.url().split('/').at(-1);
+  if (!id) throw new Error('Missing saved Procedure id');
+  const read = () => page.evaluate(async path => { const r = await fetch(path); return r.json(); }, `/api/workspaces/${workspaceId}/procedures/${id}`);
+  const response = await read();
+  const original = (response as { procedure: ProcedureDetail }).procedure;
+  expect(original.sections.map((section: { steps: {title:string}[] }) => section.steps.map(step => step.title))).toEqual([['Close windows'], ['Lock the gate']]);
+  await page.evaluate(async () => { await fetch('/api/account/preferences', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({theme:'memento-mori'}) }); });
+  await page.goto(`/w/${workspaceId}/procedures/${id}/edit`);
+  await expect(page.getByRole('heading', { name:'Build your routine.', exact:true })).toBeVisible();
+  await expectAccessible(page, 'phone Procedure dark outline');
+  await page.screenshot({ path:'/tmp/vmn-procedure-phone-dark.png', fullPage:true });
+  await page.getByRole('button', { name:/Outside.*1 step/ }).click();
+  await page.getByRole('button', { name:/^Step 1: Lock the gate/ }).click();
+  await page.getByLabel('Step title', { exact:true }).fill('Lock the garden gate');
+  await action('Apply step').click(); await action('Next').click(); await action('Save procedure').click();
+  await expect(page).toHaveURL(`/w/${workspaceId}/procedures/${id}`);
+  const edited = (await read() as { procedure: ProcedureDetail }).procedure;
+  expect(edited.sections[1]?.id).toBe(original.sections[1]?.id);
+  expect(edited.sections[1]?.steps[0]?.id).toBe(original.sections[1]?.steps[0]?.id);
+  expect(edited.sections[1]?.steps[0]?.title).toBe('Lock the garden gate');
+}

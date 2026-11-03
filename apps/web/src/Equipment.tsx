@@ -117,7 +117,7 @@ export function Equipment(props: Props) {
         setDialog(null);
         setStatus(t('equipment.saved'));
         setRecord(r);
-        navigate(paths.equipmentRecord(workspaceId, r.id));
+        navigate(paths.equipmentRecord(workspaceId, r.id), { force: true });
         load();
     };
     async function reviewReminder(link: DocumentLink) {

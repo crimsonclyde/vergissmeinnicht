@@ -1,0 +1,10 @@
+.schedule-dialog [hidden] { display:none !important; }
+.schedule-dialog[data-compact='true'] {
+  position:fixed; inset:0; margin:0; width:100%; max-width:none; height:100dvh; max-height:none;
+  padding:max(1rem, env(safe-area-inset-top)) max(1rem, env(safe-area-inset-right)) calc(var(--mobile-action-bar-height, 5rem) + var(--mobile-action-bar-inset, 0px) + 2rem) max(1rem, env(safe-area-inset-left));
+  border:0; border-radius:0; transform:none;
+}
+.schedule-dialog[data-compact='true'] .row { flex-wrap:wrap; }
+.schedule-dialog[data-compact='true'] fieldset { min-width:0; }
+.schedule-dialog[data-compact='true'] input:not([type='checkbox']):not([type='radio']),
+.schedule-dialog[data-compact='true'] select, .schedule-dialog[data-compact='true'] textarea { max-width:100%; min-width:0; font-size:1rem; }

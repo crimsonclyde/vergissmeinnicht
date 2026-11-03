@@ -1,10 +1,13 @@
+import { crc32, deflateSync } from 'node:zlib';
+import { checkPhoneRecipe, checkRecipeSourcePreservation } from './phone-recipe.ts';
+import {checkPhoneJournal} from './phone-journal.ts';
 import { randomUUID } from 'node:crypto';
 import { mkdirSync } from 'node:fs';
 import { expect, test } from '@playwright/test';
 import { hashPassword } from '../packages/auth/src/password-hashing.ts';
 import { openDatabase } from '../packages/database/src/connection.ts';
 import { createUserRepository } from '../packages/database/src/user-repository.ts';
-import { enableCoreTools, insertLegacyWorkspace } from '../packages/database/src/test-support.ts';
+import { enableCoreTools, insertLegacyProcedure, insertLegacyWorkspace } from '../packages/database/src/test-support.ts';
 import { normalizeEmail } from '../packages/domain/src/user.ts';
 import { DEFAULT_GUIDE_PREFERENCES } from '../packages/domain/src/preferences.ts';
 import { guideServerEnv } from '../playwright.config.ts';
@@ -190,6 +193,7 @@ test('Celestial instrument preserves astronomy and reflows across themes at 320p
 
 test('Notes and personal Journal preserve Markdown, originals, privacy and recoverable drafts',async({page},testInfo)=>{
  test.setTimeout(180_000);page.setDefaultTimeout(15_000);
+ if(testInfo.project.name.includes('mobile'))await page.setViewportSize({width:320,height:720});
  const email=`notes-${randomUUID()}@example.org`;const password='a fictional notebook passphrase';const database=openDatabase(guideServerEnv.DATABASE_PATH);let workspaceId:string;
  try{const user=await createUserRepository(database).create({email:normalizeEmail(email),displayName:'Notebook reviewer',emailVerified:true,status:'ACTIVE',serverAdmin:false});database.sqlite.prepare("INSERT INTO accounts(id,account_id,provider_id,user_id,password,created_at,updated_at) VALUES(?,?,'credential',?,?,?,?)").run(randomUUID(),user.id,user.id,await hashPassword(password),Date.now(),Date.now());workspaceId=insertLegacyWorkspace(database,{name:'Fictional notebook studio',adminUserId:user.id}).id;enableCoreTools(database,workspaceId,user.id);}finally{database.close();}
  const errors:string[]=[];const requests:string[]=[];page.on('pageerror',error=>errors.push(error.message));page.on('request',request=>requests.push(request.url()));
@@ -197,21 +201,52 @@ test('Notes and personal Journal preserve Markdown, originals, privacy and recov
  await page.goto(`/w/${workspaceId}`);
  await page.evaluate(async id=>{const response=await fetch(`/api/workspaces/${id}/tools`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({tool:'JOURNAL',enabled:true,expectedRevision:(await fetch(`/api/workspaces/${id}`).then(response=>response.json()) as {toolsRevision:number}).toolsRevision})});if(!response.ok)throw new Error('tool fixture '+response.status+' '+await response.text());},workspaceId);
  await page.reload();await page.getByRole('button',{name:'Add',exact:true}).click();await expect(page.getByRole('button',{name:/Journal entry — Personal/})).toBeVisible();await page.getByRole('button',{name:/Note — Workspace/}).click();
- await expect(page.getByRole('heading',{name:'Notes',exact:true})).toBeVisible();await page.getByLabel('Title',{exact:true}).fill('A portable garden note');
- const editor=page.locator('.milkdown .ProseMirror');await expect(editor).toBeVisible();await editor.fill('Written visually.');await page.getByRole('button',{name:'Markdown source',exact:true}).click();
- const source=page.getByLabel('Markdown source',{exact:true});await expect(source).toHaveValue(/Written visually/);
+ if(testInfo.project.name.includes('mobile')){await checkPhoneJournal(page,testInfo,workspaceId);return;}
+ await expect(page.getByRole('heading',{name:'Notes',exact:true})).toBeVisible();
+ await page.getByRole('button',{name:'Details',exact:true}).click();await page.getByRole('button',{name:'Save entry',exact:true}).click();
+ await expect(page.getByLabel('Title',{exact:true})).toBeFocused();await expect(page.getByRole('button',{name:'Write',exact:true})).toHaveAttribute('aria-current','page');
+ await page.getByLabel('Title',{exact:true}).fill('A portable garden note');
+ const editor=page.locator('.milkdown .ProseMirror');await expect(editor).toBeVisible();
+ await expect(page.getByRole('button',{name:'Visual',exact:true})).toHaveAttribute('aria-pressed','true');
+ await expect(page.getByRole('button',{name:'Markdown source',exact:true})).toHaveAttribute('aria-pressed','false');
+ await expect(page.getByRole('group',{name:'Text formatting',exact:true})).toBeVisible();
+ await expect(page.getByLabel('Collection / notebook',{exact:true})).toBeHidden();
+ await page.screenshot({path:testInfo.outputPath('notes-new-entry.png'),fullPage:true});
+ await page.screenshot({path:testInfo.outputPath('notes-writing-viewport.png')});
+ if(testInfo.project.name.includes('mobile')){
+  const box=await editor.boundingBox();expect(box?.y).toBeDefined();expect(box?.y).toBeLessThan(480);
+  expect(await page.evaluate('document.documentElement.scrollWidth<=window.innerWidth')).toBe(true);
+  for(const button of await page.locator('.markdown-formatting button:visible, .journal-screens button').all()){
+   const target=await button.boundingBox();expect(target?.width).toBeGreaterThanOrEqual(44);expect(target?.height).toBeGreaterThanOrEqual(44);
+  }
+ }
+ if(testInfo.project.name.includes('mobile')){
+  await page.setViewportSize({width:320,height:420});await editor.focus();
+  const bar=await page.getByRole('button',{name:'Save entry',exact:true}).boundingBox();expect(bar?.y).toBeGreaterThanOrEqual(0);expect(bar?.y).toBeLessThan(100);
+  await page.setViewportSize({width:320,height:720});
+ }
+ await editor.fill('Written visually.');await editor.press('ControlOrMeta+a');
+ await page.getByRole('button',{name:'Bold',exact:true}).click();await expect(editor.locator('strong')).toHaveText('Written visually.');
+ if(testInfo.project.name.includes('mobile'))await page.getByRole('button',{name:'More formatting',exact:true}).click();
+ await page.getByRole('button',{name:'Undo',exact:true}).click();await expect(editor.locator('strong')).toHaveCount(0);
+ await page.getByRole('button',{name:'Redo',exact:true}).click();await expect(editor.locator('strong')).toHaveText('Written visually.');
+ await page.getByRole('button',{name:'Markdown source',exact:true}).click();
+ const source=page.getByLabel('Markdown source',{exact:true});await expect(source).toHaveValue(/\*\*Written visually\.\*\*/);
+ await expect(page.getByRole('button',{name:'Markdown source',exact:true})).toHaveAttribute('aria-pressed','true');
+ await expect(page.getByRole('group',{name:'Text formatting',exact:true})).toHaveCount(0);
  const markdown='# Garden\n\n## Materials\n\n- [ ] Bring seeds\n- [x] Find gloves\n\n| Item | Amount |\n| --- | --- |\n| Seeds | 2 |\n\n```javascript\nconst seeds = 2;\n```\n';
+ await page.getByRole('button',{name:'Details',exact:true}).click();await expect(source).toBeHidden();await page.getByLabel('Collection / notebook',{exact:true}).fill('Garden');await page.screenshot({path:testInfo.outputPath('notes-details-screen.png'),fullPage:true});await expectAccessible(page,'Entry details screen');await page.getByRole('button',{name:'Back to writing',exact:true}).click();await expect(source).toHaveValue(/Written visually/);
  await source.fill(markdown);await page.getByRole('button',{name:'Visual',exact:true}).click();await expect(page.getByRole('cell',{name:'Seeds',exact:true})).toBeVisible();await expectAccessible(page,'Visual Markdown editor');await page.getByRole('button',{name:'Markdown source',exact:true}).click();await expect(source).toHaveValue(/const seeds = 2/);await expect(source).toHaveValue(/Bring seeds/);
- await page.getByText('Images and originals',{exact:true}).click();await page.getByLabel('Upload original image',{exact:true}).setInputFiles({name:'garden.png',mimeType:'image/png',buffer:Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAIAAACQd1PeAAAADElEQVR4nGP4z8AAAAMBAQDJ/pLvAAAAAElFTkSuQmCC','base64')});
- await expect(page.getByLabel('Markdown source',{exact:true})).toHaveValue(/attachments\/[0-9a-f-]+\.png/);
+ await page.getByRole('button',{name:'Images & links',exact:true}).click();await expect(source).toBeHidden();await expectAccessible(page,'Images and links screen');await page.screenshot({path:testInfo.outputPath('notes-images-screen.png'),fullPage:true});await page.getByLabel('Upload original image',{exact:true}).setInputFiles({name:'garden.png',mimeType:'image/png',buffer:Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAIAAACQd1PeAAAADElEQVR4nGP4z8AAAAMBAQDJ/pLvAAAAAElFTkSuQmCC','base64')});
+ await page.getByRole('button',{name:'Back to writing',exact:true}).click();await expect(page.getByLabel('Markdown source',{exact:true})).toHaveValue(/attachments\/[0-9a-f-]+\.png/);
  await page.getByRole('button',{name:'Save entry',exact:true}).click();await expect(page.getByRole('status').filter({hasText:'Entry saved.'})).toBeVisible();await expectAccessible(page,'Notes editor');
  await page.screenshot({path:testInfo.outputPath('notes-editor.png'),fullPage:true});
  await page.reload();await page.getByRole('button',{name:'Markdown source',exact:true}).click();await expect(page.getByLabel('Markdown source',{exact:true})).toHaveValue(/attachments\/[0-9a-f-]+\.png/);
- const downloadPromise=page.waitForEvent('download');await page.getByRole('link',{name:'Export Markdown',exact:true}).click();const download=await downloadPromise;expect(download.suggestedFilename()).toBe('notes.zip');
- await page.getByRole('button',{name:'Back to entries',exact:true}).click();await page.goto(`/w/${workspaceId}`);await page.getByRole('button',{name:'Add',exact:true}).click();await page.getByRole('button',{name:/Journal entry — Personal/}).click();
+ await page.getByRole('button',{name:'Details',exact:true}).click();const downloadPromise=page.waitForEvent('download');await page.getByRole('link',{name:'Export Markdown',exact:true}).click();const download=await downloadPromise;expect(download.suggestedFilename()).toBe('notes.zip');
+ await page.getByRole('button',{name:'Back to writing',exact:true}).click();await page.getByRole('button',{name:'Back to entries',exact:true}).click();await page.goto(`/w/${workspaceId}`);await page.getByRole('button',{name:'Add',exact:true}).click();await page.getByRole('button',{name:/Journal entry — Personal/}).click();
  await expect(page.getByRole('heading',{name:'Your personal Journal',exact:true})).toBeVisible();
  expect(await page.evaluate(async()=>fetch('/api/account/journal',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({content:{kind:'note',version:2,title:'Before consent',date:null,body:''},expectedRevision:0,archived:false})}).then(response=>response.status))).toBe(403);
- await page.getByRole('button',{name:'Agree & Continue',exact:true}).click();await page.getByLabel('Title',{exact:true}).fill('A personal notebook');await page.getByRole('button',{name:'Markdown source',exact:true}).click();await page.getByLabel('Markdown source',{exact:true}).fill('Only this account.');await page.getByRole('button',{name:'Save entry',exact:true}).click();await expect(page.getByRole('status').filter({hasText:'Entry saved.'})).toBeVisible();
+ await page.getByRole('button',{name:'Agree & Continue',exact:true}).click();await page.getByLabel('Title',{exact:true}).fill('A personal notebook');await page.getByRole('button',{name:'Markdown source',exact:true}).click();await page.getByLabel('Markdown source',{exact:true}).fill('Only this account.');await page.getByRole('button',{name:'Visual',exact:true}).click();await expect(editor).toContainText('Only this account.');await page.getByRole('button',{name:'Markdown source',exact:true}).click();await expect(page.getByLabel('Markdown source',{exact:true})).toHaveValue(/Only this account\./);await page.getByRole('button',{name:'Save entry',exact:true}).click();await expect(page.getByRole('status').filter({hasText:'Entry saved.'})).toBeVisible();
  await page.getByLabel('Markdown source',{exact:true}).fill('A recoverable private draft.');await expect(page.getByRole('status').filter({hasText:'Draft saved for recovery.'})).toBeVisible();
  page.once('dialog',dialog=>void dialog.accept());await page.reload();await expect(page.getByRole('heading',{name:'Your personal Journal',exact:true})).toHaveCount(0);await page.getByRole('button',{name:'Recover saved draft',exact:true}).click();await page.getByRole('button',{name:'Markdown source',exact:true}).click();await expect(page.getByLabel('Markdown source',{exact:true})).toHaveValue('A recoverable private draft.');
  await page.getByRole('button',{name:'Save entry',exact:true}).click();await expect(page.getByRole('status').filter({hasText:'Entry saved.'})).toBeVisible();await expectAccessible(page,'Personal Journal editor');
@@ -221,7 +256,15 @@ test('Notes and personal Journal preserve Markdown, originals, privacy and recov
   await expectAccessible(page,`Journal ${theme}`);
   if(theme==='memento-mori')await page.screenshot({path:testInfo.outputPath('journal-dark.png'),fullPage:true});
  }
- if(testInfo.project.name.includes('mobile'))await page.setViewportSize({width:320,height:720});
+ if(testInfo.project.name.includes('mobile')){
+  await page.setViewportSize({width:390,height:844});await page.screenshot({path:testInfo.outputPath('journal-phone-390.png'),fullPage:true});
+  await page.setViewportSize({width:320,height:720});
+ }
+ await page.evaluate('window.scrollTo(0,document.body.scrollHeight)');
+ const saveBox=await page.getByRole('button',{name:'Save entry',exact:true}).boundingBox();expect(saveBox?.y).toBeGreaterThanOrEqual(0);expect(saveBox?.y).toBeLessThan(100);
+ await page.getByRole('button',{name:'Details',exact:true}).click();await page.getByLabel('Collection / notebook',{exact:true}).fill('Personal thoughts');await page.getByRole('button',{name:'Back to writing',exact:true}).click();await expect(editor).toContainText('A recoverable private draft.');
+ page.once('dialog',dialog=>void dialog.dismiss());await page.getByRole('button',{name:'Back to entries',exact:true}).click();await expect(page.getByLabel('Title',{exact:true})).toHaveValue('A personal notebook');
+ page.once('dialog',dialog=>void dialog.accept());await page.getByRole('button',{name:'Back to entries',exact:true}).click();await expect(page.getByRole('button',{name:'Guide',exact:true})).toBeVisible();
  expect(await page.evaluate('document.documentElement.scrollWidth <= window.innerWidth')).toBe(true);expect(errors).toEqual([]);expect(requests.every(url=>url.startsWith(guideServerEnv.PUBLIC_ORIGIN))).toBe(true);
 });
 
@@ -235,17 +278,21 @@ test('Recipes preserve originals and transfer ingredients for the requested serv
  const listId=await page.evaluate(async id=>{let response=await fetch(`/api/workspaces/${id}/tools`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({tool:'RECIPES',enabled:true,expectedRevision:((await fetch(`/api/workspaces/${id}`).then(response=>response.json())) as {toolsRevision:number}).toolsRevision})});if(!response.ok)throw new Error('Recipe tool fixture '+response.status+' '+await response.text());response=await fetch(`/api/workspaces/${id}/lists`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({title:'Pancake shopping'})});if(!response.ok)throw new Error('List fixture');return ((await response.json()) as {list:{id:string}}).list.id;},workspaceId);
  await page.goto(`/w/${workspaceId}/recipes`);await page.getByRole('button',{name:'New recipe',exact:true}).click();await page.getByLabel('Title',{exact:true}).fill('Pancakes for breakfast');
  const ingredient=(count:number)=>page.getByRole('group',{name:`Ingredient ${count}`,exact:true});
+ if(testInfo.project.name.includes('mobile')) { await checkPhoneRecipe(page, workspaceId); } else {
  await ingredient(1).getByLabel('Ingredient name',{exact:true}).fill('Flour');await ingredient(1).getByLabel('Amount',{exact:true}).fill('125');await ingredient(1).getByLabel('Unit',{exact:true}).fill('g');
  await page.getByRole('button',{name:'Add ingredient',exact:true}).click();await ingredient(2).getByLabel('Ingredient name',{exact:true}).fill('Eggs');await ingredient(2).getByLabel('Amount',{exact:true}).fill('1');
  await page.getByRole('button',{name:'Markdown source',exact:true}).click();await page.getByLabel('Markdown source',{exact:true}).fill('Mix the batter.\n\nCook in a warm pan.');
  await page.getByText('Images and originals',{exact:true}).click();await expect(async()=>{const response=page.waitForResponse(response=>response.request().method()==='POST'&&response.url().endsWith('/recipes/attachments'));await page.getByLabel('Upload original image',{exact:true}).setInputFiles({name:'pancakes.png',mimeType:'image/png',buffer:Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAIAAACQd1PeAAAADElEQVR4nGP4z8AAAAMBAQDJ/pLvAAAAAElFTkSuQmCC','base64')});expect((await response).status()).toBe(201);}).toPass({timeout:15000,intervals:[500,1000,2000]});
  await expect(page.getByLabel('Markdown source',{exact:true})).toHaveValue(/attachments\/[0-9a-f-]+\.png/);
  await page.getByRole('button',{name:'Save recipe',exact:true}).click();await expect(page.getByRole('status').filter({hasText:'Recipe saved.'})).toBeVisible();await expect(page.getByRole('img',{name:/pancakes.png/})).toBeVisible();
+ }
  await page.getByLabel('Shopping for this many servings',{exact:true}).fill('4');await expect(ingredient(1).getByLabel('Amount',{exact:true})).toHaveValue('250');await expect(ingredient(2).getByLabel('Amount',{exact:true})).toHaveValue('2');
  await page.getByRole('button',{name:'Add selected ingredients',exact:true}).click();await expect(page.getByRole('status').filter({hasText:'2 ingredients added.'})).toBeVisible();await expectAccessible(page,'Recipe and grocery transfer');
  const downloadPromise=page.waitForEvent('download');await page.getByRole('link',{name:'Export recipe',exact:true}).click();expect((await downloadPromise).suggestedFilename()).toBe('recipes.zip');
  await page.screenshot({path:testInfo.outputPath('recipe.png'),fullPage:true});expect(await page.evaluate('document.documentElement.scrollWidth <= innerWidth')).toBe(true);
  await page.goto(`/w/${workspaceId}/lists/${listId}`);await expect(page.getByRole('list',{name:'To buy'})).toContainText('Flour');await expect(page.getByRole('list',{name:'To buy'})).toContainText('250');await expect(page.getByRole('list',{name:'To buy'}).getByRole('listitem')).toHaveCount(2);expect(errors).toEqual([]);
+ if(testInfo.project.name.includes('mobile')) await checkRecipeSourcePreservation(page, workspaceId);
+ expect(errors).toEqual([]);
 });
 
 test('MCP requires visible consent and supports revoking a scoped user connection',async({page})=>{
@@ -260,4 +307,223 @@ test('MCP requires visible consent and supports revoking a scoped user connectio
  await page.getByRole('button',{name:'Allow connection',exact:true}).click();await expect(page).toHaveURL(/^https:\/\/client.example.org\/callback\?code=/);
  await page.goto(guideServerEnv.PUBLIC_ORIGIN+'/account/connections');await expect(page.getByText('Fictional AI assistant',{exact:true})).toBeVisible();await page.getByRole('button',{name:'Revoke connection',exact:true}).click();await expect(page.getByText('Revoked',{exact:true})).toBeVisible();await page.evaluate('window.scrollTo(0,0)');await expectAccessible(page,'MCP revoked connection');
  await page.setViewportSize({width:320,height:850});expect(await page.evaluate('document.documentElement.scrollWidth <= innerWidth')).toBe(true);
+});
+
+test('Procedure phone authoring uses staged screens and a uniform bottom action bar', async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name !== 'guide-mobile-chromium', 'focused phone flow; desktop builder has its account regression');
+  test.setTimeout(120_000);
+  const email = `procedure-phone-${randomUUID()}@example.org`;
+  const password = 'fictional phone procedure passphrase';
+  const database = openDatabase(guideServerEnv.DATABASE_PATH);
+  let workspaceId: string;
+  try {
+    const user = await createUserRepository(database).create({ email: normalizeEmail(email), displayName: 'Phone author', emailVerified: true, status: 'ACTIVE', serverAdmin: false });
+    database.sqlite.prepare("INSERT INTO accounts(id,account_id,provider_id,user_id,password,created_at,updated_at) VALUES(?,?,'credential',?,?,?,?)").run(randomUUID(), user.id, user.id, await hashPassword(password), Date.now(), Date.now());
+    workspaceId = insertLegacyWorkspace(database, { name: 'Phone procedure studio', adminUserId: user.id }).id;
+    enableCoreTools(database, workspaceId, user.id);
+  } finally { database.close(); }
+  await page.goto('/');
+  await page.getByLabel('Email').fill(email); await page.getByLabel('Password').fill(password);
+  await page.getByRole('button', { name: 'Sign in', exact: true }).click();
+  await expect(page.getByRole('button', { name: /^Settings/ })).toBeVisible();
+  const { checkPhoneProcedure } = await import('./phone-procedure.ts');
+  await checkPhoneProcedure(page, workspaceId);
+});
+
+test('Reminder and Procedure schedules preserve drafts with shared phone flow controls', async ({ page }, testInfo) => {
+  test.setTimeout(120_000);
+  const email = `schedule-flow-${randomUUID()}@example.org`, password = 'fictional schedule review passphrase';
+  const database = openDatabase(guideServerEnv.DATABASE_PATH);
+  let workspaceId: string;
+  try {
+    const user = await createUserRepository(database).create({ email:normalizeEmail(email), displayName:'Schedule reviewer', emailVerified:true, status:'ACTIVE', serverAdmin:false });
+    database.sqlite.prepare("INSERT INTO accounts(id,account_id,provider_id,user_id,password,created_at,updated_at) VALUES(?,?,'credential',?,?,?,?)").run(randomUUID(),user.id,user.id,await hashPassword(password),Date.now(),Date.now());
+    workspaceId = insertLegacyWorkspace(database,{name:'Schedule studio',adminUserId:user.id}).id;
+    enableCoreTools(database,workspaceId,user.id);
+  } finally { database.close(); }
+  await page.goto('/'); await page.getByLabel('Email').fill(email); await page.getByLabel('Password').fill(password);
+  await page.getByRole('button',{name:'Sign in',exact:true}).click(); await expect(page.getByRole('button',{name:/^Settings/})).toBeVisible();
+  const { checkScheduleFlow } = await import('./phone-schedule.ts');
+  await checkScheduleFlow(page, workspaceId, testInfo.project.name.includes('mobile'));
+});
+
+function documentPhoto(width = 320, height = 240): Buffer {
+  const chunk = (type: string, data: Buffer) => {
+    const head = Buffer.alloc(8);
+    head.writeUInt32BE(data.length, 0);
+    head.write(type, 4, 'ascii');
+    const crc = Buffer.alloc(4);
+    crc.writeUInt32BE(crc32(Buffer.concat([Buffer.from(type, 'ascii'), data])), 0);
+    return Buffer.concat([head, data, crc]);
+  };
+  const ihdr = Buffer.alloc(13);
+  ihdr.writeUInt32BE(width, 0);
+  ihdr.writeUInt32BE(height, 4);
+  ihdr.writeUInt8(8, 8);
+  ihdr.writeUInt8(2, 9);
+  const rows = Buffer.alloc((width * 3 + 1) * height);
+  for (let y = 0; y < height; y++) {
+    for (let x = 0; x < width; x++) {
+      const i = y * (width * 3 + 1) + 1 + x * 3;
+      rows[i] = (x * 255) / width;
+      rows[i + 1] = (y * 255) / height;
+      rows[i + 2] = 160;
+    }
+  }
+  return Buffer.concat([Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]), chunk('IHDR', ihdr), chunk('IDAT', deflateSync(rows)), chunk('IEND', Buffer.alloc(0))]);
+}
+
+test('Documents preserve uploads and details through the shared phone flow', async ({ page }, testInfo) => {
+  test.setTimeout(60_000); page.setDefaultTimeout(10_000);
+  const email = `schedule-flow-${randomUUID()}@example.org`, password = 'fictional schedule review passphrase';
+  const database = openDatabase(guideServerEnv.DATABASE_PATH);
+  let workspaceId: string;
+  try {
+    const user = await createUserRepository(database).create({ email:normalizeEmail(email), displayName:'Schedule reviewer', emailVerified:true, status:'ACTIVE', serverAdmin:false });
+    database.sqlite.prepare("INSERT INTO accounts(id,account_id,provider_id,user_id,password,created_at,updated_at) VALUES(?,?,'credential',?,?,?,?)").run(randomUUID(),user.id,user.id,await hashPassword(password),Date.now(),Date.now());
+    workspaceId = insertLegacyWorkspace(database,{name:'Schedule studio',adminUserId:user.id}).id;
+    enableCoreTools(database,workspaceId,user.id);
+    database.sqlite.prepare("INSERT INTO workspace_tools(workspace_id,tool,enabled,updated_at,updated_by_user_id) VALUES(?,'DOCUMENTS',1,?,?)").run(workspaceId,Date.now(),user.id);
+  } finally { database.close(); }
+  await page.goto('/'); await page.getByLabel('Email').fill(email); await page.getByLabel('Password').fill(password);
+  await page.getByRole('button',{name:'Sign in',exact:true}).click(); await expect(page.getByRole('button',{name:/^Settings/})).toBeVisible();
+  const mobile = testInfo.project.name.includes('mobile');
+  await page.goto(`/w/${workspaceId}/documents/new`);
+  const bar = page.getByRole('navigation', { name: 'Document actions' });
+  const next = () => bar.getByRole('button', { name: 'Next', exact:true }).click();
+  if (mobile) { await expect(bar.getByRole('button', { name:'Next',exact:true })).toBeDisabled(); await expect(page.getByLabel('Title', {exact:true})).toBeHidden(); }
+  await page.locator('input[type=file][multiple]').setInputFiles({name:'Receipt.png',mimeType:'image/png',buffer:documentPhoto()});
+  await expect(page.getByRole('listitem').filter({hasText:'Uploaded'})).toHaveCount(1);
+  if (mobile) await next();
+  await expect(page.getByLabel('Title',{exact:true})).toHaveValue('Receipt');
+  if (mobile) { await page.getByLabel('Title',{exact:true}).fill('   '); await next(); await expect(page.getByLabel('Title',{exact:true})).toBeFocused(); }
+  await page.getByLabel('Title',{exact:true}).fill('Phone receipt');
+  if (mobile) await next(); else await page.getByText('More details (type, dates, tags, notes)', {exact:true}).click();
+  await page.getByLabel('Notes',{exact:true}).fill('Keep the original bytes');
+  await page.getByLabel('Document date',{exact:true}).fill('2026-11-03');
+  if (mobile) {
+    await bar.getByRole('button',{name:'Back',exact:true}).click();
+    await expect(page.getByLabel('Title',{exact:true})).toHaveValue('Phone receipt');
+    await next();
+    await expect(page.getByLabel('Notes',{exact:true})).toHaveValue('Keep the original bytes');
+    page.once('dialog', dialog => dialog.dismiss()); await bar.getByRole('button',{name:'Cancel',exact:true}).click();
+    await expect(page.getByLabel('Notes',{exact:true})).toHaveValue('Keep the original bytes');
+    await page.setViewportSize({width:320,height:600});
+    expect(await page.evaluate('document.documentElement.scrollWidth <= innerWidth')).toBe(true);
+    for (const button of await bar.getByRole('button').all()) { const box=await button.boundingBox(); expect(box?.width).toBeGreaterThanOrEqual(48); expect(box?.height).toBeGreaterThanOrEqual(48); }
+    await expectAccessible(page,'Document phone details');
+    await page.screenshot({path:'/tmp/vmn-document-phone.png',fullPage:true});
+    await page.setViewportSize({width:1100,height:800}); await expect(page.getByLabel('Title',{exact:true})).toHaveValue('Phone receipt');
+    await page.setViewportSize({width:390,height:700}); await expect(bar).toBeVisible();
+  }
+  await page.route(`**/api/workspaces/${workspaceId}/documents`, async route => { if(route.request().method()==='POST') { await route.fulfill({status:500,json:{error:{code:'internal_error'}}}); } else await route.continue(); },{times:1});
+  await page.getByRole('button',{name:'Save document',exact:true}).click();
+  await expect(page.getByRole('alert')).toBeVisible();
+  await expect(page.getByLabel('Notes',{exact:true})).toHaveValue('Keep the original bytes');
+  await page.getByRole('button',{name:'Save document',exact:true}).click();
+  await expect(page.getByRole('heading',{name:'Phone receipt',level:2})).toBeVisible();
+  await page.getByRole('button',{name:'Actions for “Phone receipt”',exact:true}).click();
+  await page.getByRole('button',{name:'Edit details',exact:true}).click();
+  const editor=page.getByRole('dialog',{name:'Edit details',exact:true});
+  const editBar=editor.getByRole('navigation',{name:'Edit details',exact:true});
+  await editor.getByLabel('Title',{exact:true}).fill('Revised receipt');
+  if(mobile) {
+    await expect(editor.getByLabel('Notes',{exact:true})).toBeHidden();
+    await editBar.getByRole('button',{name:'Next',exact:true}).click();
+  }
+  await editor.getByLabel('Notes',{exact:true}).fill('Updated details');
+  page.once('dialog',dialog=>dialog.dismiss()); await page.keyboard.press('Escape');
+  await expect(editor).toBeVisible();
+  await expect(editor.getByLabel('Notes',{exact:true})).toHaveValue('Updated details');
+  if(mobile) {
+    await editBar.getByRole('button',{name:'Back',exact:true}).click();
+    await expect(editor.getByLabel('Title',{exact:true})).toHaveValue('Revised receipt');
+    await editBar.getByRole('button',{name:'Next',exact:true}).click();
+    await page.setViewportSize({width:320,height:600});
+    await expectAccessible(page,'Document editing dialog');
+    await page.setViewportSize({width:1100,height:800});
+    await expect(editor.getByLabel('Title',{exact:true})).toHaveValue('Revised receipt');
+    await page.setViewportSize({width:390,height:700});
+  }
+  await editor.getByRole('button',{name:'Save changes',exact:true}).click();
+  await expect(editor).toHaveCount(0);
+  await expect(page.getByRole('heading',{name:'Revised receipt',level:2})).toBeVisible();
+  await page.getByRole('button',{name:'Actions for “Revised receipt”',exact:true}).click();
+  await page.getByRole('button',{name:'Move',exact:true}).click();
+  const mover=page.getByRole('dialog',{name:'Move “Revised receipt”',exact:true});
+  await expect(mover.getByLabel('Move to',{exact:true})).toBeVisible();
+  await mover.getByRole('button',{name:'Move',exact:true}).click();
+  await expect(mover).toHaveCount(0);
+
+});
+
+test('Remaining tools share phone authoring controls and preserve simple list entry', async ({ page }, testInfo) => {
+  test.setTimeout(60_000); page.setDefaultTimeout(10_000);
+  const email = `schedule-flow-${randomUUID()}@example.org`, password = 'fictional schedule review passphrase';
+  const database = openDatabase(guideServerEnv.DATABASE_PATH);
+  let workspaceId: string; let procedureId: string;
+  try {
+    const user = await createUserRepository(database).create({ email:normalizeEmail(email), displayName:'Schedule reviewer', emailVerified:true, status:'ACTIVE', serverAdmin:false });
+    database.sqlite.prepare("INSERT INTO accounts(id,account_id,provider_id,user_id,password,created_at,updated_at) VALUES(?,?,'credential',?,?,?,?)").run(randomUUID(),user.id,user.id,await hashPassword(password),Date.now(),Date.now());
+    workspaceId = insertLegacyWorkspace(database,{name:'Schedule studio',adminUserId:user.id}).id;
+    enableCoreTools(database,workspaceId,user.id);
+    procedureId=insertLegacyProcedure(database,{workspaceId,userId:user.id,title:'Phone safety check',steps:[{title:'Check the door'}]}).id;
+    for (const tool of ['EQUIPMENT','MAINTENANCE','CONTACTS','BRING']) database.sqlite.prepare("INSERT INTO workspace_tools(workspace_id,tool,enabled,updated_at,updated_by_user_id) VALUES(?,?,1,?,?)").run(workspaceId,tool,Date.now(),user.id);
+  } finally { database.close(); }
+  await page.goto('/'); await page.getByLabel('Email').fill(email); await page.getByLabel('Password').fill(password);
+  await page.getByRole('button',{name:'Sign in',exact:true}).click(); await expect(page.getByRole('button',{name:/^Settings/})).toBeVisible();
+  const mobile = testInfo.project.name.includes('mobile');
+  const cases = [
+    {path:'equipment',open:'Add equipment',dialog:'Add equipment',field:/^Name/,value:'Phone kettle',steps:3,save:'Save'},
+    {path:'maintenance',open:'More details…',dialog:'New maintenance record',field:/^What/,value:'Phone servicing',steps:2,save:'Save'},
+    {path:'contacts',open:'More details…',dialog:'New contact',field:/^Name/,value:'Phone plumber',steps:3,save:'Save'},
+    {path:'bring',open:'Add item',dialog:'Add item',field:'What to bring',value:'Phone umbrella',steps:2,save:'Save'},
+  ];
+  for (const item of cases) {
+    await page.goto(`/w/${workspaceId}/${item.path}`);
+    await page.getByRole('button',{name:item.open,exact:true}).click();
+    const dialog=page.getByRole('dialog',{name:item.dialog,exact:true});
+    const bar=dialog.getByRole('navigation',{name:item.dialog,exact:true});
+    await dialog.getByLabel(item.field).fill(item.value);
+    if(mobile) {
+      for(let n=1;n<item.steps;n++) await bar.getByRole('button',{name:'Next',exact:true}).click();
+      page.once('dialog',popup=>popup.dismiss()); await bar.getByRole('button',{name:'Cancel',exact:true}).click();
+      await expect(dialog).toBeVisible();
+      await bar.getByRole('button',{name:'Back',exact:true}).click();
+      await bar.getByRole('button',{name:'Next',exact:true}).click();
+      await page.setViewportSize({width:320,height:600});
+      expect(await page.evaluate('document.documentElement.scrollWidth <= innerWidth')).toBe(true);
+      for(const button of await bar.getByRole('button').all()) {const box=await button.boundingBox();expect(box?.width).toBeGreaterThanOrEqual(48);expect(box?.height).toBeGreaterThanOrEqual(48);}
+      expect(await dialog.evaluate(element=>element.scrollWidth <= element.clientWidth)).toBe(true);
+      await expectAccessible(page,`${item.path} phone form`);
+      await page.locator('html').evaluate(element=>element.setAttribute('data-theme','memento-mori'));
+      await expectAccessible(page,`${item.path} phone dark form`);
+      await page.screenshot({path:`/tmp/vmn-phone-${item.path}.png`,fullPage:true});
+      await page.locator('html').evaluate(element=>element.setAttribute('data-theme','light'));
+      await page.setViewportSize({width:1100,height:800});
+      await expect(dialog.getByLabel(item.field)).toHaveValue(item.value);
+      await page.setViewportSize({width:390,height:700});
+    }
+    await page.route(`**/api/workspaces/${workspaceId}/${item.path}`,route=>route.fulfill({status:500,json:{error:{code:'internal_error'}}}),{times:1});
+    await dialog.getByRole('button',{name:item.save,exact:true}).click();
+    await expect(dialog.getByRole('alert')).toBeVisible();
+    await dialog.getByRole('button',{name:item.save,exact:true}).click();
+    await expect(dialog).toHaveCount(0);
+    await expect(page.getByText(item.value,{exact:true}).first()).toBeVisible();
+  }
+  await page.goto(`/w/${workspaceId}/lists/new`);
+  const list=page.getByRole('dialog',{name:'New grocery list',exact:true});
+  await list.getByLabel('Name',{exact:true}).fill('Phone groceries');
+  await list.getByRole('button',{name:'Create list',exact:true}).click();
+  await expect(list).toHaveCount(0);
+  await expect(page.getByRole('heading',{name:'Phone groceries',exact:true})).toBeVisible();
+  await expect(page.getByRole('form',{name:'Add an item',exact:true})).toBeVisible();
+  const runId=await page.evaluate(async ({workspaceId,procedureId})=>{ const r=await fetch(`/api/workspaces/${workspaceId}/runs`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({procedureId})});if(!r.ok)throw new Error('Run fixture');return (await r.json() as {run:{id:string}}).run.id; },{workspaceId,procedureId});
+  await page.goto(`/w/${workspaceId}/runs/${runId}`);
+  await expect(page.getByRole('button',{name:'Done: Check the door',exact:true})).toBeVisible();
+  await page.getByRole('button',{name:'Done: Check the door',exact:true}).click();
+  await expectAccessible(page,'Phone Run execution');
+  if(mobile) { await page.setViewportSize({width:320,height:700}); expect(await page.evaluate('document.documentElement.scrollWidth <= innerWidth')).toBe(true); }
+  await page.goto(`/w/${workspaceId}/calendar`); await expectAccessible(page,'Calendar after authoring');
+  await page.goto(`/w/${workspaceId}`); await expectAccessible(page,'Today after authoring');
 });

@@ -124,3 +124,10 @@ For a comparable local measurement, avoid running image builds/browser captures 
 
 
 Guide browser regressions use separate disposable servers/databases: existing checks run at `127.0.0.1:3100`, and `guide-desktop-chromium` / `guide-mobile-chromium` run at `127.0.0.1:3101`. `pnpm test:e2e` builds and runs both automatically. Guide fixture accounts never enter the bootstrap/account test's database. Both ports must be free; no live installation is used.
+
+
+Runtime security baseline (2026-11-03): use the reviewed Node **24.22.2** in `.nvmrc`
+(or a patched Node 26 release, at least 26.12.1). Older Node 24 versions before 24.22.1
+contain the October Brotli/DNS/TLS issues; 24.22.2 also carries the follow-up V8 fixes.
+The production Docker base is pinned independently; updating a workstation does not patch
+an existing container. See [the security review](dependency-review-2026-11-03.md).

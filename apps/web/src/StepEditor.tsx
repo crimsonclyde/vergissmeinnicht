@@ -5,6 +5,7 @@ import { t } from './i18n/index.ts';
 import { stepProblems, type DraftStep } from './procedure-draft.ts';
 import { formatBytes } from './document-model.ts';
 import { StepImageField } from './StepImage.tsx';
+import { MobileActionBar } from './mobile/MobileActionBar.tsx';
 import { UiIcon } from './ui-icons.tsx';
 
 function PolicySelect(props: { label: string; value: ReasonPolicy; onChange: (policy: ReasonPolicy) => void }) {
@@ -50,6 +51,7 @@ const fingerprint = (step: DraftStep, sectionKey: string): string => JSON.string
  * The rules are the existing ones — required, critical, skip and not-applicable reasons — unchanged.
  */
 export function StepEditor(props: {
+  compact?: boolean;
   workspaceId: string;
   step: DraftStep;
   /** "2" or "1.2": how the Step is numbered in the outline. */
@@ -69,6 +71,8 @@ export function StepEditor(props: {
   const [showProblems, setShowProblems] = useState(false);
   const titleRef = useRef<HTMLInputElement>(null);
   const headingId = useId();
+  const formId = useId();
+  const optionsRef = useRef<HTMLDetailsElement>(null);
   const titleId = useId();
   const sectionId = useId();
   const descriptionId = useId();
@@ -87,13 +91,14 @@ export function StepEditor(props: {
     if (problems.title !== undefined || problems.caption !== undefined) {
       setShowProblems(true);
       if (problems.title !== undefined) titleRef.current?.focus();
+      if (problems.caption !== undefined && optionsRef.current) optionsRef.current.open = true;
       return;
     }
     props.onApply({ ...local, title: local.title.trim(), image: local.image == null ? null : { ...local.image, caption: local.image.caption.trim() } }, sectionKey);
   }
 
   return (
-    <form className="step-editor" aria-labelledby={headingId} noValidate onSubmit={apply}>
+    <form id={formId} className="step-editor" aria-labelledby={headingId} noValidate onSubmit={apply}>
       <div className="step-editor-head">
         <button type="button" className="quiet icon-button" aria-label={t('stepEditor.close')} onClick={props.onCancel}>
           <span className="only-phone">
@@ -141,37 +146,42 @@ export function StepEditor(props: {
           </label>
           <textarea id={descriptionId} rows={3} maxLength={4000} value={local.description} onChange={(e) => set({ description: e.target.value })} />
         </div>
-        <div className="field">
-          <IconPicker label={t('stepEditor.icon')} value={local.icon} allowNone onChange={(icon) => set({ icon })} />
-        </div>
-        <div className="field">
-          <span className="field-label">{t('stepEditor.image')}</span>
-          <StepImageField
-            workspaceId={props.workspaceId}
-            number={props.number}
-            image={local.image ?? null}
-            onChange={(image) => set({ image })}
-            onUsage={props.onImageUsage}
-            captionError={shown.caption === undefined ? undefined : t(`error.${shown.caption}`)}
-          />
-          <small className="muted">
-            {t('stepEditor.imageHint')}
-            {props.imageUsage !== null && ` ${t('image.usage', { used: formatBytes(props.imageUsage.usedBytes), limit: formatBytes(props.imageUsage.limitBytes) })}`}
-          </small>
-        </div>
-        <RuleSwitch label={t('stepEditor.required')} explanation={t(local.required ? 'stepEditor.requiredOn' : 'stepEditor.requiredOff')} checked={local.required} onChange={(required) => set({ required })} />
-        <RuleSwitch label={t('stepEditor.critical')} explanation={t('stepEditor.criticalHint')} checked={local.critical} onChange={(critical) => set({ critical })} />
-        <details className="option-group">
-          <summary>
-            <span className="option-label">{t('stepEditor.advanced')}</span>
-            <span className="muted option-value">
-              {t('stepEditor.advancedSummary', { skip: t(`policy.short.${local.skipReasonPolicy}`), na: t(`policy.short.${local.notApplicableReasonPolicy}`) })}
-            </span>
-          </summary>
+        <details ref={optionsRef} className="option-group" open={props.compact ? undefined : true}>
+          <summary hidden={!props.compact}>{t('builder.phoneStepOptions')}</summary>
           <div className="stack option-body">
-            <PolicySelect label={t('stepEditor.whenSkipped')} value={local.skipReasonPolicy} onChange={(skipReasonPolicy) => set({ skipReasonPolicy })} />
-            <PolicySelect label={t('stepEditor.whenNotApplicable')} value={local.notApplicableReasonPolicy} onChange={(notApplicableReasonPolicy) => set({ notApplicableReasonPolicy })} />
-            <small className="muted">{t('stepEditor.advancedHint')}</small>
+            <div className="field">
+              <IconPicker label={t('stepEditor.icon')} value={local.icon} allowNone onChange={(icon) => set({ icon })} />
+            </div>
+            <div className="field">
+              <span className="field-label">{t('stepEditor.image')}</span>
+              <StepImageField
+                workspaceId={props.workspaceId}
+                number={props.number}
+                image={local.image ?? null}
+                onChange={(image) => set({ image })}
+                onUsage={props.onImageUsage}
+                captionError={shown.caption === undefined ? undefined : t(`error.${shown.caption}`)}
+              />
+              <small className="muted">
+                {t('stepEditor.imageHint')}
+                {props.imageUsage !== null && ` ${t('image.usage', { used: formatBytes(props.imageUsage.usedBytes), limit: formatBytes(props.imageUsage.limitBytes) })}`}
+              </small>
+            </div>
+            <RuleSwitch label={t('stepEditor.required')} explanation={t(local.required ? 'stepEditor.requiredOn' : 'stepEditor.requiredOff')} checked={local.required} onChange={(required) => set({ required })} />
+            <RuleSwitch label={t('stepEditor.critical')} explanation={t('stepEditor.criticalHint')} checked={local.critical} onChange={(critical) => set({ critical })} />
+            <details className="option-group">
+              <summary>
+                <span className="option-label">{t('stepEditor.advanced')}</span>
+                <span className="muted option-value">
+                  {t('stepEditor.advancedSummary', { skip: t(`policy.short.${local.skipReasonPolicy}`), na: t(`policy.short.${local.notApplicableReasonPolicy}`) })}
+                </span>
+              </summary>
+              <div className="stack option-body">
+                <PolicySelect label={t('stepEditor.whenSkipped')} value={local.skipReasonPolicy} onChange={(skipReasonPolicy) => set({ skipReasonPolicy })} />
+                <PolicySelect label={t('stepEditor.whenNotApplicable')} value={local.notApplicableReasonPolicy} onChange={(notApplicableReasonPolicy) => set({ notApplicableReasonPolicy })} />
+                <small className="muted">{t('stepEditor.advancedHint')}</small>
+              </div>
+            </details>
           </div>
         </details>
       </div>
@@ -188,6 +198,10 @@ export function StepEditor(props: {
           </button>
         </div>
       </div>
+      {props.compact && <MobileActionBar label={t('builder.phoneActions')} actions={[
+        { id: 'back', label: t('common.back'), icon: 'back', onClick: props.onCancel },
+        { id: 'cancel', label: t('common.cancel'), icon: 'close', onClick: props.onCancel },
+      ]} primary={{ id: 'apply', label: t('stepEditor.apply'), icon: 'check', type: 'submit', form: formId }} />}
     </form>
   );
 }

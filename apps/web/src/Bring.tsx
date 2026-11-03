@@ -1,8 +1,8 @@
+import { PhoneEditorDialog } from './mobile/PhoneEditorDialog.tsx';
 import type { BringContent, BringStatus } from '@vergissmeinnicht/domain';
 import { useCallback, useEffect, useState } from 'react';
 import { api, messageFor, type BringView, type PersonRef } from './api.ts';
 import { formatCalendarDate, formatDateTime, t } from './i18n/index.ts';
-import { setNavigationGuard } from './router.tsx';
 import { UndoNotice, type Undoable } from './UndoNotice.tsx';
 import { browserTimeZone, todayIn } from './schedule-dates.ts';
 const STATUS_LABEL = { OPEN: 'bring.OPEN', COMPLETED: 'bring.COMPLETED', CANCELLED: 'bring.CANCELLED' } as const;
@@ -23,13 +23,6 @@ export function BringPage({ workspaceId, canManage }: { workspaceId: string; can
  const [refresh, setRefresh] = useState(0);
  const [notice, setNotice] = useState<Undoable | null>(null);
  const dirty = editor !== null && JSON.stringify(editor.content) !== editor.original;
- const leave = useCallback(() => !dirty || window.confirm(t('bring.unsaved')), [dirty]);
- useEffect(() => {
-  setNavigationGuard(leave);
-  const warn = (event: BeforeUnloadEvent) => { if (dirty) { event.preventDefault(); event.returnValue = ''; } };
-  window.addEventListener('beforeunload', warn);
-  return () => { setNavigationGuard(null); window.removeEventListener('beforeunload', warn); };
- }, [dirty, leave]);
  const load = useCallback(() => { setItems(null); setRefresh(value => value + 1); }, []);
  useEffect(() => {
   let active = true;
@@ -53,22 +46,22 @@ export function BringPage({ workspaceId, canManage }: { workspaceId: string; can
  return <section className="stack bring" aria-labelledby="bring-heading">
   <div className="page-header"><h2 id="bring-heading">{t('bring.heading')}</h2></div>
   {message !== null && <p role="alert">{message}</p>}
-  {editor !== null ? <form className="card stack" onSubmit={event => {
-   event.preventDefault(); if (busy) return; setBusy(true); setMessage(null);
-   api.saveBring(workspaceId, editor.content, editor.item).then(() => { setEditor(null); return load(); }, (error: unknown) => setMessage(messageFor(error))).finally(() => setBusy(false));
-  }}>
-   <fieldset className="stack" disabled={busy}><legend>{t(editor.item === undefined ? 'bring.new' : 'bring.edit')}</legend>
-    <label>{t('bring.title')}<input required maxLength={120} value={editor.content.title} onChange={e => setEditor({ ...editor, content: { ...editor.content, title: e.target.value } })} /></label>
-    <details open={editor.item !== undefined}><summary>{t('bring.options')}</summary><div className="stack">
+  {editor !== null ? <PhoneEditorDialog title={t(editor.item === undefined ? 'bring.new' : 'bring.edit')} submitLabel={t('bring.save')}
+   stages={[{id:'title',title:t('bring.title')},{id:'details',title:t('bring.options')}]} dirty={dirty}
+   onClose={() => setEditor(null)} onSubmit={async () => { await api.saveBring(workspaceId, editor.content, editor.item); setEditor(null); load(); }}>
+   {stage => <>
+   <div className="stack">
+    <div data-editor-stage="title" hidden={stage !== undefined && stage !== 'title'}><label>{t('bring.title')}<input required pattern=".*\S.*" maxLength={120} value={editor.content.title} onChange={e => setEditor({ ...editor, content: { ...editor.content, title: e.target.value } })} /></label>
+    </div><div data-editor-stage="details" hidden={stage !== undefined && stage !== 'details'}><details className="bring-options" open={stage !== undefined || editor.item !== undefined}><summary>{t('bring.options')}</summary><div className="stack">
      {(['from', 'to'] as const).map(key => <label key={key}>{t(key === 'from' ? 'bring.from' : 'bring.to')}<input maxLength={80} list="bring-places" value={editor.content[key]} onChange={e => setEditor({ ...editor, content: { ...editor.content, [key]: e.target.value } })} /></label>)}
      <datalist id="bring-places">{places.map(place => <option key={place} value={place} />)}</datalist>
      <label>{t('bring.dueDate')}<input type="date" value={editor.content.dueDate ?? ''} onChange={e => setEditor({ ...editor, content: { ...editor.content, dueDate: e.target.value || null } })} /></label>
      <label>{t('bring.assignee')}<select value={editor.content.assigneeId ?? ''} onChange={e => setEditor({ ...editor, content: { ...editor.content, assigneeId: e.target.value || null } })}><option value="">{t('bring.unassigned')}</option>{members.map(member => <option key={member.id} value={member.id}>{member.name}</option>)}</select></label>
      <label>{t('bring.notes')}<textarea maxLength={2000} value={editor.content.notes} onChange={e => setEditor({ ...editor, content: { ...editor.content, notes: e.target.value } })} /></label>
     </div></details>
-    <div className="row wrap"><button type="submit" className="primary">{t('bring.save')}</button><button type="button" onClick={() => { if (leave()) setEditor(null); }}>{t('bring.cancel')}</button></div>
-   </fieldset>
-  </form> : <>
+    </div>
+   </div></>}
+  </PhoneEditorDialog> : <>
    <div className="row wrap">{canManage && <button type="button" className="primary" onClick={() => setEditor({ content: { ...empty }, original: JSON.stringify(empty) })}>{t('bring.new')}</button>}
     <label>{t('bring.history')}<select disabled={busy} aria-label={t('bring.history')} value={status} onChange={e => { setItems(null); setStatus(e.target.value as BringStatus); setOffset(0); }}>{(['OPEN', 'COMPLETED', 'CANCELLED'] as const).map(value => <option value={value} key={value}>{t(STATUS_LABEL[value])}</option>)}</select></label>
     <label>{t('bring.assignee')}<select disabled={busy} aria-label={t('bring.assignee')} value={filter} onChange={e => { setItems(null); setFilter(e.target.value); setOffset(0); }}><option value="ALL">{t('bring.all')}</option><option value="MINE">{t('bring.mine')}</option><option value="SHARED">{t('bring.shared')}</option></select></label>

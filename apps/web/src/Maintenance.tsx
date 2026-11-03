@@ -1,3 +1,4 @@
+import { PhoneEditorDialog } from './mobile/PhoneEditorDialog.tsx';
 import { EquipmentPickerDialog } from './Equipment.tsx';
 import { useCoreTools } from './core-tools.ts';
 import { useCallback, useEffect, useId, useRef, useState, type DragEvent, type FormEvent } from 'react';
@@ -116,6 +117,7 @@ function RecordDialog(props: { workspaceId: string; record: MaintenanceRecord | 
   const contactsTool = useContactsTool();
   const { workspaceId, record } = props;
   const [form, setForm] = useState<MaintenanceForm>(() => (record === null ? emptyMaintenanceForm(props.initialTitle ?? '') : formOfRecord(record)));
+  const [original] = useState(() => JSON.stringify(form));
   const [contacts, setContacts] = useState<readonly ContactSummary[] | null>(null);
   const set = (change: Partial<MaintenanceForm>) => setForm((current) => ({ ...current, ...change }));
   useEffect(() => {
@@ -129,7 +131,7 @@ function RecordDialog(props: { workspaceId: string; record: MaintenanceRecord | 
   const current = record?.contact ?? null;
   const options = [...(current !== null && !(contacts ?? []).some((contact) => contact.id === current.id) ? [{ id: current.id, name: current.name ?? t('contacts.deletedContact') }] : []), ...(contacts ?? []).map((contact) => ({ id: contact.id, name: contact.name }))];
   return (
-    <FormDialog
+    <PhoneEditorDialog stages={[{id:'title',title:t('maintenance.field.title')},{id:'details',title:t('documents.phone.details')}]} dirty={JSON.stringify(form) !== original}
       title={record === null ? t('maintenance.new.heading') : t('maintenance.edit.heading', { title: record.title })}
       submitLabel={t('maintenance.save')}
       submitDisabled={form.title.trim() === ''}
@@ -139,12 +141,15 @@ function RecordDialog(props: { workspaceId: string; record: MaintenanceRecord | 
         props.onSaved(record === null ? await api.createMaintenance(workspaceId, input) : await api.updateMaintenance(workspaceId, record.id, input, record.revision));
       }}
     >
+      {stage => <>
+      <div className="stack" data-editor-stage="title" hidden={stage !== undefined && stage !== 'title'}>
       <div className="field">
         <label htmlFor={`${id}-title`}>
           {t('maintenance.field.title')} <span className="muted">{t('common.required')}</span>
         </label>
-        <input id={`${id}-title`} required maxLength={MAINTENANCE_LIMITS.title} autoComplete="off" value={form.title} onChange={(event) => set({ title: event.target.value })} />
+        <input id={`${id}-title`} required pattern=".*\S.*" maxLength={MAINTENANCE_LIMITS.title} autoComplete="off" value={form.title} onChange={(event) => set({ title: event.target.value })} />
       </div>
+      </div><div className="stack" data-editor-stage="details" hidden={stage !== undefined && stage !== 'details'}>
       <div className="field">
         <label htmlFor={`${id}-category`}>{t('maintenance.field.category')}</label>
         <input id={`${id}-category`} maxLength={MAINTENANCE_LIMITS.category} list={`${id}-categories`} autoComplete="off" placeholder={t('maintenance.field.categoryExample')} value={form.category} onChange={(event) => set({ category: event.target.value })} />
@@ -200,7 +205,8 @@ function RecordDialog(props: { workspaceId: string; record: MaintenanceRecord | 
         <label htmlFor={`${id}-description`}>{t('maintenance.field.description')}</label>
         <textarea id={`${id}-description`} rows={4} maxLength={MAINTENANCE_LIMITS.description} value={form.description} onChange={(event) => set({ description: event.target.value })} />
       </div>
-    </FormDialog>
+      </div></>}
+    </PhoneEditorDialog>
   );
 }
 

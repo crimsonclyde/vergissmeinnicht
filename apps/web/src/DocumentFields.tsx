@@ -40,7 +40,7 @@ export function FolderSelect(props: { folders: readonly DocumentFolder[]; value:
  * The fields of a Document. Only the title is required; type, dates, notes and tags sit behind "More
  * details" when `folded` (creating), so adding a Document stays light.
  */
-export function DocumentFormFields(props: { form: DocumentForm; onChange: (form: DocumentForm) => void; types: DocumentTypes | null; currentType: DocumentTypeView | null; folded: boolean }) {
+export function DocumentFormFields(props: { form: DocumentForm; onChange: (form: DocumentForm) => void; types: DocumentTypes | null; currentType: DocumentTypeView | null; folded: boolean; phoneStage?: 'title' | 'details' | undefined }) {
   const id = useId();
   const { form } = props;
   const [yearTouched, setYearTouched] = useState(form.year !== '');
@@ -95,10 +95,11 @@ export function DocumentFormFields(props: { form: DocumentForm; onChange: (form:
   );
   return (
     <>
-      <div className="field">
+      <div className="field" data-editor-stage="title" hidden={props.phoneStage !== undefined && props.phoneStage !== 'title'}>
         <label htmlFor={`${id}-title`}>{t('documents.field.title')}</label>
-        <input id={`${id}-title`} required maxLength={200} value={form.title} onChange={(event) => props.onChange({ ...form, title: event.target.value })} />
+        <input id={`${id}-title`} required pattern=".*\S.*" maxLength={200} value={form.title} onChange={(event) => props.onChange({ ...form, title: event.target.value })} />
       </div>
+      <div data-editor-stage="details" hidden={props.phoneStage !== undefined && props.phoneStage !== 'details'}>
       {props.folded ? (
         <details className="more-details">
           <summary>{t('documents.moreDetails')}</summary>
@@ -107,6 +108,7 @@ export function DocumentFormFields(props: { form: DocumentForm; onChange: (form:
       ) : (
         details
       )}
+      </div>
     </>
   );
 }

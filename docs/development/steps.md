@@ -5274,7 +5274,7 @@ arbitrary SQL/shell tools or live deployment. Owner count remains 43; next relea
 
 ### 36.1 Recipes implementation
 
-**Status:** IN PROGRESS (owner authorized implementation 2026-11-02)
+**Status:** DONE — implemented and published in v0.10.0-beta.0 (owner milestone 44); see the implementation update below. Earlier progress notes are retained as history.
 **Implemented so far:** exact decimal/rational serving projection with explicit unrepresentable-quantity
 review, bounded Recipe content, independent RECIPES tool/capabilities, migration0063, scoped storage/API,
 reversible archive, atomic audited/idempotent grocery transfer, independent shared attachment consumer,
@@ -5285,12 +5285,11 @@ are rechecked inside transfer transactions; existing grocery items are not merge
 original-byte fidelity/policy isolation, serving projection, retry/mismatched payload and audit rollback).
 Existing Journal smoke7 pass. Full regressions running after updating schema/capability fixtures.
 **Security surface changed:** YES — new reviewed attachment consumer and cross-tool batch mutation.
-**Remaining:** complete UI/browser checks, populated Recipe recovery/export tests and regression gates;
-image generation and MCP36.2 are not yet implemented.
+**Follow-up:** the implementation update below supersedes this intermediate checklist: UI/browser, recovery and release checks were completed; Recipe image generation and MCP are implemented. Live client/tunnel/OAuth and paid image validation remain deployment follow-up.
 
 ### 36.2 MCP implementation
 
-**Status:** IN PROGRESS — owner authorized implementation. Official MCP SDK 1.32.2 (MIT) inspected/installed; OAuth/provider and transaction-time delegation integration next. No MCP route enabled yet. Selected initial client is ChatGPT via private Secure MCP Tunnel; Claude compatibility remains a standard-protocol seam.
+**Status:** DONE for implementation — published in v0.10.0-beta.0; live client connection validation remains OPEN. Official MCP SDK 1.32.2 (MIT), OAuth consent/revocation and scoped delegation are implemented; the endpoint remains operator-controlled. Selected initial client is ChatGPT via private Secure MCP Tunnel; Claude compatibility remains a standard-protocol seam. See the implementation update below and the current tunnel handoff at the end of this ledger.
 
 
 
@@ -5411,3 +5410,382 @@ Operators should verify a full server backup and preserve the existing /data mou
 switching images. Live Unraid deployment remains an operator action. Record publication after verification.
 
 Published owner milestone 44 on 2026-11-02. [Release workflow](https://github.com/crimsonclyde/vergissmeinnicht/actions/runs/41536887626) passed signing and the populated upgrade check. The image tag is `0.10.0-beta.0`. Next owner milestone is 45.
+
+### Open follow-up for 2026-11-03 — Visual editor in Notes and Journal
+
+Owner report on v0.10.0-beta.0, 2026-11-02. In Workspace Notes, type text in Visual mode. The editor accepts text, but Visual and Markdown source look equally selected and no formatting toolbar is visible. Owner reports the same behavior in the private Journal. The supplied Notes screenshot shows this in the dark theme. Cause has not been investigated.
+
+**Resolved locally by 35.2 and 35.3 below; original report retained for history.**
+
+Acceptance: make the active mode unmistakable visually and to assistive technology, expose discoverable formatting controls in Visual mode, and verify that switching modes preserves unsaved text in both Notes and Journal. Check desktop and phone layouts. Recorded only. No runtime or security change.
+
+MCP handoff: private discovery worked from the owner's browser. ChatGPT offers Tunnel and expects a tunnel ID. No tunnel ID or running Unraid tunnel client has been confirmed. Resume at Platform organization tunnel settings, then verify OAuth and a read-only Workspace call.
+
+
+### 35.2 Phone writing layout and discoverable formatting (2026-11-03)
+
+**Status:** DONE (local implementation and automated validation)
+**Completed:** 2026-11-03
+**Owner request:** review backlog before AI connection work; streamline creating Notes and personal
+Journal entries on phones, fix the missing formatting menu and unclear editing modes, improve presentation.
+**Implemented:** title and writing first; date, notebook, tags and pinning grouped under Entry details
+(legacy required dates remain expanded). Compact sticky Back/Save action bar preserves native form
+validation, busy/recovery gating and the unsaved-navigation guard. Back restores library/tool navigation;
+focused editing continues to hide global navigation as required. Shorter writing surface and reduced
+nested borders/spacing on phones. Persistent labelled formatting buttons invoke existing editor commands
+for bold, italic, heading, list, quote, Undo and Redo; compact accessible icons on phones, text on desktop.
+Existing selection toolbar remains available. Visual/source selection has distinct token-based paint,
+underline and pressed semantics, plus forced-color treatment. Shared adapter also improves Recipes.
+User guide updated. Corrected stale Recipes/MCP progress labels using the later implementation/release
+records; retained historical evidence and the owner's existing follow-up/tunnel handoff.
+**Tests/checks:** `pnpm build`, `pnpm typecheck`, `pnpm lint` and `git diff --check` pass.
+Focused Vitest (`contrast`, `theme`, Journal HTTP; `--maxWorkers=2`): **3 files / 37 tests passed**.
+Focused Playwright (`Notes and personal Journal|Recipes preserve`, `--workers=1`): **4 passed**,
+desktop and 320 px phone. Browser checks exercise visible toolbar/pressed mode states, actual selection
+formatting plus Undo/Redo, unsaved shared/private mode round trips, hidden/reachable optional details,
+writing-area position, no horizontal overflow, sticky Save at the bottom of a long page, restored Guide
+navigation, privacy consent, recovery drafts, image upload/export/reload and Recipe grocery transfer.
+Existing axe checks run across six Journal themes. Light/dark phone captures visually inspected,
+with an additional 390 px capture. Initial narrow-layout failures were fixed by compact icon controls,
+nonwrapping mode labels and reduced spacing, then rerun successfully. Loopback server checks required
+sandbox escalation; all fixtures remain disposable/local and no external request was made. No full-suite,
+physical-device, virtual-keyboard or screen-reader certification claimed. Existing large optional
+editor/language build-chunk warnings remain.
+**Security surface changed:** NO — presentation and existing bundled editing commands only; no endpoint,
+credential, upload, processing, data scope, permission, persistence or external connection change.
+**Security docs updated:** N/A; existing section 35 policy remains authoritative.
+**Remaining/limitations:** physical iOS/Android keyboard, screen-reader and low-memory performance remain
+manual checks. No AI/tunnel setup, release or live deployment in this task; owner count remains 44,
+next release 45. Existing unrelated mock-up/screenshot assets preserved.
+
+**Backlog review:** immediate editor follow-up addressed here. Remaining AI work is a confirmed tunnel
+ID/running client, reachable OAuth and first read-only Workspace call, followed by authorized write/voice
+and paid image quality validation. Longer-term deferred work includes scheduled Workspace backups
+(18.4), portable Notes import, comprehensive backlinks and reviewed physical file deduplication (35.1),
+and separately planned on-server AI Document suggestions (16.9 task 7). Not-planned Mail, external identity
+providers and completion evidence remain excluded. Historical “later” headings are not new approvals.
+
+
+### 35.3 Separate Notes/Journal creation screens (owner requested 2026-11-03)
+
+**Status:** DONE (local implementation and automated validation)
+**Completed:** 2026-11-03
+**Accepted:** usability is the second priority after security; owner prefers focused separate phone
+screens instead of the compact but still single-screen form in 35.2. Recorded in AGENTS.md.
+**Implemented:** [research and design record](journal-phone-ux-2026-11-03.md) based on current Day One
+usage guidance, established NN/g progressive disclosure and Material compact-screen conventions.
+Write, Details and Images & links are separate directly reachable screens over one draft. Basic Save
+requires no optional screen. Back from secondary screens returns to writing; Back from writing retains
+unsaved confirmation and library navigation. Selected screen is announced, screen changes focus without
+scrolling headings under the action bar, native validation reveals hidden invalid fields, and applying
+a historical revision returns to writing. Metadata, autosave, archive, history/export and image/reference
+controls no longer crowd the writing screen. One-row phone formatting with More retains 44 px targets;
+desktop controls remain complete. Fixed asynchronous editor creation/teardown ordering uncovered by
+quick mode-switch testing. Architecture, user guide and owner priority instructions updated.
+**Tests/checks:** `pnpm build`, `pnpm lint`, `pnpm typecheck` and `git diff --check` pass. Full Vitest:
+**208 files / 1,578 tests passed**; initial catalog-usage failure fixed with explicit formatting label
+keys, then the catalog and full suite rerun. Final focused Playwright: **4 passed**, desktop and phone
+Notes/Journal plus shared Recipe regression. Checks include actual formatting/Undo/Redo, unsaved
+source/visual and screen round trips, hidden-title validation, 44 px targets, 320/390 px and reduced-height
+viewport, optional details, images/original upload/export, consent/recovery, stale-content protection,
+Back cancellation and restored tool navigation. Six Journal themes pass existing axe checks; separate
+writing/details/images screen scans pass. Phone screenshots visually reviewed. Existing large editor
+chunk warning remains. No physical keyboard/screen-reader certification is claimed.
+**Security surface changed:** NO — presentation/lifecycle only; no new permission, endpoint, persistence,
+offline write, provider, or private/shared scope change. **Security docs updated:** existing 35 policy
+retained; runtime review separately records unchanged Journal boundaries.
+**Remaining:** owner review on actual devices, physical iOS/Android keyboard and assistive-technology
+checks. No release or deployment. Owner count remains 44; next release 45.
+
+### 32.1 Node/Brotli, dependency and Claude advisory review (2026-11-03)
+
+**Status:** DONE (local fixes, advisory assessment and candidate validation)
+**Completed:** 2026-11-03
+**Implemented:** [security review](dependency-review-2026-11-03.md) distinguishes the affected Node
+24.21.0 production pin from the patched development host, compressed upstream fetch exposure, official
+October fixes and v24.22.2 follow-up. Docker base now pinned by verified official multi-architecture
+index to 24.22.2, with matching `.nvmrc`/supported engines. Reviewed minimatch v11 API changes and
+narrowly replaced dev-only vulnerable 10.2.6 with 11.0.1; existing runtime glob pin remains. Dependency
+age/provenance/script restrictions unchanged. Official Cursor supply-chain and Claude plugin-pinning/
+Edit TOCTOU reports reviewed; installed local CLI 2.1.302 is newer than both advisory fixes, local
+Cursor Claude extension absent and plugin inventory empty; exact known-artifact checks negative.
+These checks do not clear other machines, prior installations or the live host. No credential exposure,
+remediation script, Claude update, external MCP/tunnel configuration or live host change.
+**Tests/checks:** full and production npm audits now report **0 known advisories** (initial full audit:
+1 moderate dev-only minimatch). Frozen lockfile install, lint/typecheck/build and full Vitest **1,578**
+pass; 4 focused desktop/phone browser regressions pass. Official Node index includes amd64/arm64; exact
+base reports Node 24.22.2/OpenSSL 3.5.9/Brotli 1.2.0 (vendor cherry-pick, not an unpatched-version
+inference). Final local amd64 candidate build and disposable image smoke passed, including migration, bootstrap,
+backup, readiness and scheduled backup. No image was published or deployed. No OS/native-library vulnerability scan or live-system
+forensic clearance claimed.
+**Security surface changed:** LOW, protective — patched existing runtime/development dependencies;
+no new surface. **Security docs updated:** YES, section 32.1 review/checks and local development baseline.
+**Remaining:** candidate publication and operator deployment are separate, not authorized here. Existing
+v0.10.0-beta.0 installations are not retroactively patched. Physical/device/client limitations remain.
+
+### 32.2 Automatic build/release gate audit (2026-11-03)
+
+**Status:** DONE (assessment only)
+**Completed:** 2026-11-03
+**Implemented:** inspected CI/release/Dependabot configuration and downloaded read-only logs for
+published release workflow `41536887626`. CI runs frozen install, high/critical npm gate, lint,
+typecheck, full tests, desktop/phone browser production build, and native amd64/arm64 container build,
+non-root/fail-closed checks, smoke and fixable HIGH/CRITICAL Trivy scans. Overall check requires all
+jobs to succeed. Tagged release reuses CI, then builds/smokes/scans each publishing image before push;
+index signing/SBOM and exact published-image/upgrade verification follow publication. Dependabot
+updates npm/actions/Docker/Compose weekly. Local build commands do not enforce the full pipeline.
+**Findings:** prior release tests ran Node 24.22.1 while containers built the older pinned 24.21.0.
+Scanner logs show Debian and node-pkg analysis; no explicit actual-container Node security-version
+assertion exists, and Brotli was not reported. Logs establish the gap, not the precise scanner
+classification/database reason. Audit thresholds do not block moderate findings; image scans exclude
+unfixed findings; no scheduled CI scan runs without a push/PR/tag; upgrade verification is post-publish.
+**Recommended follow-up:** explicit patched-runtime assertion in every actual candidate container,
+independent runtime/advisory coverage rather than npm/OS scan alone, scheduled rescanning, visible
+unfixed findings and pre-publication upgrade validation. These are recommendations, not implemented
+workflow changes or owner-approved threshold changes.
+**Tests/checks:** source inspection, historical workflow logs, line/ordering checks and `git diff --check`.
+No new runtime test required or claimed for assessment-only work.
+**Security surface changed:** NO. **Security docs updated:** N/A; existing policy and 32.1 review unchanged.
+**Remaining:** owner decision/implementation of gate hardening; no release or deployment.
+
+### 35.4 Approved staged phone entry flow and reusable icon action bar (2026-11-03)
+
+**Status:** DONE (local implementation and automated validation)
+**Completed:** 2026-11-03
+**Accepted:** owner approved the revised Title → visual Write → optional Details → Save mockup,
+with an improved icon-based bottom bar, Cancel/other action slots, reusable presentation across tools
+and existing encouraging Gamification overlays. This supersedes the three-tab phone design in 35.3;
+desktop authoring remains complete. Mockup previews alone did not change the application.
+**Implemented:** Notes and personal Journal now start new phone entries with title only. Native title
+validation gates Next; Enter advances rather than saving. Writing is visual-only, deferred until first
+use, then retained between steps. Details contains optional date, editable notebook suggestions from
+the loaded authorized library page, tags, pinning and existing advanced functions; images/references
+remain an optional disclosure, not a required screen. Existing entries/recovered drafts start at Write.
+Back retains input; Cancel uses the unsaved guard without deleting saved entries or recovery drafts.
+Opaque syntax/load failures show a preserved read-only phone preview; a details save keeps exact source.
+
+Shared `mobile/MobileActionBar.tsx`, stylesheet, compact-layout hook and adoption README provide labelled
+bundled icon actions, native form submission, busy/recovery states, safe-area padding, body portal,
+measured footer clearance and visual-viewport keyboard lifting. Existing Safari drift/zoom handling
+is preserved; observers/listeners/root properties clean up on unmount. Feedback overlays clear the dock,
+pass decorative pointer input through and retain Dismiss. Existing server points/gates/deduplication
+remain unchanged; Next/Back/Cancel and failed saves produce no celebration. Native editor input/focus
+capture fixed an edge exposed by typing after resize; initializing editors stay inert. Owner priority,
+architecture, security, user/design and Gamification documentation updated. Initial consumers are Notes
+and Journal; other plugins can adopt this shared component separately.
+**Tests/checks:** `pnpm build`, `pnpm lint`, `pnpm typecheck`, `git diff --check` pass. Full Vitest:
+**208 files / 1,580 tests passed**. Final focused contrast/theme/catalog/viewport/Journal/progress:
+**6 files / 50 tests passed**, including keyboard pan/zoom/drift/invalid-measurement negatives.
+Final focused Playwright: **4 passed**, desktop/phone Notes/Journal and shared Recipe regression.
+Phone checks cover staged validation, no source-mode control, 48px icon actions, 320/390px and reduced
+viewport height, editing/formatting and retained Back navigation, optional original upload, failed save
+without cheer, confirmed server award overlay above the dock, Dismiss, reload/export, private consent/
+recovery, Cancel refusal/confirmation and exact opaque-source preservation after a metadata save.
+Axe checks cover title/write/details, six Journal themes and existing desktop flows; light/dark phone
+captures visually reviewed. No browser gate suppressed. Existing optional editor/language chunk warning
+remains. Earlier failed checks exposed ambiguous selectors and native-input capture, corrected and rerun.
+**Security surface changed:** NO new surface or server behavior. Integrity/permission boundaries remain;
+security documentation records exact-source preservation, input safety and unchanged reward authority.
+**Security docs updated:** YES.
+**Remaining/limitations:** physical iOS/Android keyboard, assistive-technology and low-memory-device
+review remain manual; viewport simulation is not device certification. No cross-app toolbar rollout,
+new reward type, migration, credential, provider, endpoint, upload type or offline cache. No merge,
+release/image publication or deployment; owner milestone stays 44, next release 45. Existing unrelated
+owner assets and prior security changes preserved.
+
+### 15.2a Staged phone Procedure authoring and unified action buttons (2026-11-03)
+
+**Status:** DONE (local implementation and automated validation)
+**Completed:** 2026-11-03
+**Owner approval:** simplified Name → Sections/Steps → Review → Save mockup, with Add section and
+Add step in the bottom bar. All bar buttons must share geometry and icon treatment; primary color
+may distinguish Next/Apply/Save. Desktop keeps the complete outline editor.
+**Implemented:** shared compact breakpoint and `MobileActionBar` now serve Procedures as well as
+Notes/Journal. All actions are 48px icon buttons with the same shape, translated accessible names
+and tooltips. The five-action outline fits 320px without wrapping. Selected Section is explicit;
+Add section opens a focused local form, Add step opens a separate local editor, and Apply updates
+only the unsaved outline. Cancelled new Steps leave no blank rows. Optional Step controls remain
+available under More options, including images, icon, required/critical and reason policies. Desktop
+retains all controls; resizing preserves the active Step copy. Review shows the existing execution
+preview plus optional Procedure details. Save uses the existing create/update/revision/validation
+path and returns phone users to the saved Procedure. Failed saves retain the draft. Existing section
+and Step management menus, Undo, limits, focused navigation, unsaved guards and history remain.
+**Tests/checks:** production build, lint, typecheck and `git diff --check` pass. Focused Vitest:
+**7 files / 78 tests** (draft identity/validation, Procedure HTTP and structure authorization negatives,
+contrast, viewport and catalog). Browser checks: new 320px phone flow and full desktop account/Procedure
+regression both pass; desktop and phone Notes/Journal checks also pass with the unified bar. Browser
+coverage includes five equal 48px actions, title validation, Section creation/selection, separate Step
+application/cancellation, retained drafts on resize/Back, failed-save retry, saved Section/Step ids,
+light/dark accessibility and overflow. Actual light/dark phone captures visually reviewed. Existing
+account-flow Journal checks were updated to navigate its previously implemented Write/Details screens;
+a new accessibility check now waits for the builder to finish loading. These initial test failures were
+corrected and rerun without suppressing checks. Existing large editor/language chunk warning remains.
+No physical-device certification claimed.
+**Security surface changed:** NO — no API, permission, credential, storage, upload path, reward rule,
+network provider or Run snapshot change. Content stays local until the existing explicit Save;
+existing image uploads retain their documented immediate-upload behavior. New steps have no server
+id; existing steps/sections retain theirs. Section drafts now participate in the unsaved guard.
+**Security docs updated:** YES, presentation/integrity review only; authoritative boundaries unchanged.
+**Remaining:** physical iOS/Android keyboard and screen-reader review. No release or deployment.
+
+### 36.6 Staged phone Recipe authoring (2026-11-03)
+
+**Status:** DONE (local implementation and automated validation)
+**Completed:** 2026-11-03
+**Owner request:** extend the unified phone experience to remaining tools; Recipes is the next flow.
+**Implemented:** `RecipeForm` separates phone Title → Ingredients → Instructions → Details → explicit
+Save over one in-memory draft. Ingredients expand one at a time; Add/Remove live in the shared bottom
+bar, with confirmation before phone removal. Back/Cancel/Next/Save use the same Tabler icons and 48px
+geometry as Notes, Journal and Procedures. Title and ingredient validation gate progression; hidden
+invalid fields are revealed before focus. Writing is visual-only on phones, deferred until used and
+retained across stages; opaque syntax remains a preserved preview. Optional image uploads and the
+existing configured image generator live under Details. Desktop retains complete authoring, Markdown
+source, ingredient controls and attachments. The focused shell, existing unsaved guard, busy states,
+revision-checked Save, original images, exports and grocery transfer are retained.
+**Tests/checks:** production build, lint, typecheck and whitespace checks pass. Focused Vitest:
+**5 files / 35 tests passed** (Recipe domain/HTTP/image boundaries, catalog and contrast).
+Desktop and 320px phone Recipe browser regressions: **2 passed**. Checks cover staged validation,
+one expanded ingredient, uniform five-button bar, confirmed removal, retained text on Back/resize,
+visual-only writing, optional original upload, cancelled navigation, failed Save/retry, exact opaque
+source preservation after metadata edits, light/dark axe scans, export and serving-scaled grocery
+transfer. Actual phone captures reviewed; image-panel fieldset overflow found during review was fixed
+and an explicit 320px open-panel check added and passed. Two initial exact-label test mismatches were
+corrected without suppressing checks. Existing large optional editor chunk warning remains.
+**Security surface changed:** NO — no endpoint, permission, data scope, upload format, provider,
+credential or storage change. No image generation is triggered by navigation; existing explicit paid
+request controls remain. No new reward claim or client-issued points. Tests never call a live provider.
+**Security docs updated:** YES, source-preservation and unchanged boundaries recorded.
+**Remaining:** physical iOS/Android keyboard and screen-reader checks. This rollout covers Recipes;
+Reminders/scheduling, Documents, Equipment, Maintenance, Contacts, Bring and Lists remain follow-ups.
+No release or deployment; owner milestone remains 44, next 45.
+
+### 14.1a Phone scheduling and shared editing-flow mechanics (2026-11-03)
+
+**Status:** DONE (local implementation and automated validation)
+**Completed:** 2026-11-03
+**Owner request:** roll out the common phone UX to Reminders/scheduling; explicitly asked for reusable
+small-framework mechanics instead of independent screen implementations.
+**Implemented:** Reminder Title → Date/repeat → Optional details → Save; Procedure scheduling starts
+with its known title at Date/repeat. Both use a fullscreen native modal on phones with the same Tabler
+bottom actions. Draft fields survive Back, breakpoint changes and failed saves. Native validation opens
+only the relevant invalid field's stage/disclosure. Cancel/Escape/navigation warn about unsaved changes;
+busy submissions freeze fields and closing. Desktop retains its complete form and server commands.
+
+`mobile/PhoneEditorFlow.tsx` shares stage order, progress heading, Next/Back, visited stages, focus and
+hidden-field validation. Recipe authoring now uses it too, replacing its duplicated mechanics.
+`MobileActionBar` supports rendering inside native dialogs and restores a background editing dock when
+a modal closes after resizing. Tools retain their own fields, draft state, guards, authorization and
+save semantics; this is not a schema-based form engine. Adoption documentation added.
+**Tests/checks:** build, lint, typecheck and whitespace checks pass. Focused Vitest: **6 files /
+67 tests passed** (recurrence, Schedule use-case/HTTP negatives, catalog, contrast and viewport).
+Final cross-tool browser run: **7 passed**, with the existing desktop skip for the phone-only Procedure
+case. Covers desktop/phone Notes/Journal, Recipes, phone Procedure authoring, Reminder creation and
+existing-schedule edits, fixed/after-completion recurrence, failed-save retention/retry, cancellation,
+320px/reduced-height dialogs, accessibility, and Procedure scheduling without starting Runs. A real
+resize from a desktop Procedure editor's open scheduling dialog verifies modal-bar priority and
+restoration of the background bar/root clearance on close. Phone captures visually reviewed.
+Initial checks exposed over-broad disclosure opening during validation and a dialog hidden by its
+responsive opener; both were corrected and the full focused browser run passed. No checks suppressed.
+Existing optional editor/language chunk-size warning remains; no physical-device certification.
+**Security surface changed:** NO — same Schedule/Occurrence APIs, expected revisions, time-zone rules,
+recurrence model, assignee permissions, notification limits and audit transactions. UI navigation
+neither starts Runs nor sends notifications. No credential, persistence, provider or migration change.
+**Security docs updated:** YES, unchanged boundaries and modal focus/guard behavior recorded.
+**Remaining:** physical-device keyboard/screen-reader review; later tool rollouts. Journal/Procedure
+builder already use the bar but retain their existing specialized flow logic. No release or deployment.
+
+### 16.2a Phone Document creation (2026-11-03)
+
+**Implemented:** Files → Title → Details → explicit Save through the shared `usePhoneEditorFlow`,
+progress heading and `MobileActionBar`. All actions use existing Tabler icons and 48px geometry.
+Files retain existing selection/camera, progress, rejection, retry, ordering and removal controls.
+Next waits for uploads and at least one successful file. The title follows the first file until edited;
+optional type/date/year/tags/notes/Folder stay together on Details. Inputs/uploads stay mounted through
+Back/Next and breakpoint changes. Desktop retains the complete form. Busy Save freezes fields;
+failed saves retain inputs and uploaded ids. Navigation confirmation now covers typed metadata as
+well as chosen files. No draft persistence is claimed.
+
+**Security surface:** unchanged; existing upload validation, original bytes/metadata, Workspace/tool
+permissions, quota, provisional-file cleanup and create API remain authoritative. No endpoint,
+credential, file format, storage flow, migration or reward policy added.
+
+**Checks:** build, lint, typecheck and diff whitespace checks passed; Document model/contrast tests
+passed (2 files, 46 tests); desktop/phone browser tasks passed (2 tests), including actual upload/save,
+blank title validation, Back/Next preservation, declined cancellation, failed-save retry, resizing,
+320px overflow, 48px actions and phone axe scan. Inspected the phone Details screenshot. Focused
+creation now hides global navigation and supplies its own level-one heading. **Limitations:** existing Document metadata/edit-file dialogs are follow-up
+work; physical iOS/Android keyboards and screen readers still require manual review. No publication
+or deployment.
+
+### 16.2b Shared phone editing dialogs — Document details and Move (2026-11-03)
+
+**Status: DONE locally.** Document details uses Title → Details → Save changes on phones, with the
+same progress heading and icon actions as creation. Move stays one focused screen. Desktop retains
+complete modal forms. A reusable `PhoneEditorDialog` supplies native dialog focus, body portal,
+staged validation, modal-priority bottom actions, busy-state field/close protection, errors and
+explicit Save. Features own field state, dirty comparison, revisions and mutation commands.
+Cancel/Escape confirms dirty changes; route/tab departure is guarded; Back preserves fields and
+resizing preserves state. Existing revision-conflict reload behavior remains intact.
+
+**Checks:** build, lint, typecheck and diff checks passed; Document model/contrast tests passed
+(46 tests); desktop and phone browser flows passed (2 tests), exercising creation/upload/save retry,
+edit Save, retained Back/Next state, declined Escape cancellation, 320px dialog accessibility,
+open-dialog resizing and Move submission. No checks suppressed.
+
+**Security surface:** unchanged. Same authorized Document update/move APIs, revision handling,
+audit behavior and original-file storage; no new permission, upload or processing path. Security and
+architecture/user docs updated. **Remaining:** real-device keyboard/screen-reader review; bulk/folder
+and destructive confirmations retain their existing dialogs. Page-file controls remain inline in the
+Document view. No release or deployment.
+
+### 16.14 Remaining phone tool forms and execution-view review (2026-11-03)
+
+**Implemented locally, owner authorized the full sequence:** Equipment uses Name → Model/replacement
+parts → optional Details; Maintenance uses What → Details; Contacts uses Name → phone/email → Details;
+Bring uses What to bring → optional transfer Details. Each supports explicit Save, Back preserving the
+same mounted form, dirty Cancel/Escape/navigation confirmation, busy protection and failed-save retry.
+All compose the shared `PhoneEditorDialog`, `usePhoneEditorFlow` and matching 48px Tabler action bar.
+Equipment retains optional bounded/custom fields and suggestions; Maintenance keeps date/contact/cost
+semantics; Contacts keeps duplicate checks and multi-value rows; Bring keeps free-text places,
+assignment and existing history/Undo. Existing short Contacts/Maintenance quick-add paths stay inline.
+Desktop shows the complete modal forms, including resizing an open dialog without losing fields.
+
+Lists adopts the same single-screen phone modal controls for new list, rename and item edits; grocery
+item addition remains inline. Offline queue/storage/admission and field-specific error handling remain
+unchanged. Successful list/equipment navigation explicitly follows a confirmed saved result through
+the navigation guard. Shared submitDisabled support preserves feature validation.
+
+**Review:** Today already uses compact cards; Calendar already defaults to agenda on narrow screens;
+Run execution already offers a guided Section view and thumb-reachable progress/next controls. Keep
+those specialized task layouts. Browser coverage visits Today/Calendar and performs an actual RunStep
+Done after the new authoring flows; no execution semantics or rewards were changed.
+
+**Checks:** build, lint, typecheck and diff checks; nine focused test files / 61 tests (catalog usage,
+contrast, contact/maintenance/list/calendar models, Run guide/updates and offline list queue). Desktop
+and phone browser tasks cover all five tool groups, declined cancellation, Back/Next, dialog resizing,
+48px buttons, 320px document/dialog overflow, failed save/retry, actual persistence, Run Step execution,
+Today and Calendar accessibility. Existing Guide route/theme/preferences suite passed on both projects.
+Light/dark form scans and phone captures are included in final visual review. No checks suppressed.
+
+**Security surface:** unchanged — existing capabilities, Workspace/tool gates, revisions, validation,
+assignment, audit, offline contracts and server awards remain authoritative. No new API, permission,
+credential, attachment, provider, persistence or migration. Security/architecture/user docs updated.
+**Remaining:** physical iPhone/Android keyboard, safe-area and screen-reader review; specialized bulk,
+import/export, destructive and settings dialogs retain their existing layouts. No publication/deployment.
+
+**Final verification:** all new tool tasks passed on desktop/phone (2), Document shared-dialog regression
+passed on desktop/phone (2), and existing Guide route/theme/preferences suite passed on both (2).
+Light/dark scans and four phone captures reviewed; Bring labels now stack consistently and its phone
+Options disclosure avoids a repeated heading. A resize test now waits for the actual phone action bar
+before choosing Save, eliminating a desktop-button selection race. Final typecheck, lint, build,
+61 focused tests and whitespace checks passed. Physical-device review remains outstanding.
+
+### Phone layout integration — commit/build validation (2026-11-03)
+
+Owner authorized commit, push and build of the accumulated phone UX and dependency-security work.
+Final production web build, lint, typecheck and whitespace checks passed. Full local suite passed:
+208 files / 1,580 tests (HTTP/realtime tests require local socket access). Focused phone/desktop flows
+and light/dark checks are recorded above; a full browser integration run is also in progress.
+Push to main starts CI quality/browser and native amd64/arm64 image builds/scans; no version tag or
+published release is implied. Next owner release ordinal stays 45; no live deployment. Owner mock-ups
+and UX screenshot folders remain untracked and excluded from the source commit.

@@ -1,0 +1,3 @@
+.phone-document-form > fieldset { border: 0; padding: 0; margin: 0; min-width: 0; }
+.phone-document-form [hidden] { display: none !important; }
+.phone-document-form input, .phone-document-form select, .phone-document-form textarea { min-width: 0; max-width: 100%; }

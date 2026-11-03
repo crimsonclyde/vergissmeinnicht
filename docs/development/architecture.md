@@ -790,3 +790,103 @@ access stays excluded. This is documentation only, not a new endpoint or model p
 Recipes, original images, serving-scaled grocery transfers and the optional OAuth MCP endpoint are implemented locally. Migrations 0063–0065 add Recipe records, scoped grants, hashed tokens and durable meal/image request outcomes. Writes recheck current user permissions and selected Workspaces. Image generation sends the explicit prompt to the configured OpenAI project and preserves the returned original. Uncertain requests do not automatically incur another charge.
 
 Security surface changed. Local tests cover PKCE, revocation, role enforcement, duplicate requests, atomic shopping updates, image preservation and backup recovery. Desktop and mobile browser checks cover Recipes and consent. Live ChatGPT tunnel eligibility, OAuth reachability, voice and paid image quality require deployment validation. See [operator setup](../admin/mcp.md).
+
+
+### Focused Notes/Journal screens (35.3, 2026-11-03)
+
+The existing editor now presents Write, Details, and Images & links as separate views over one
+in-memory draft and one revision-guarded form. Inactive sections are hidden from layout and assistive
+technology while the mounted editor retains unsaved content. View changes move focus deliberately;
+Back from a secondary view returns to writing. Native validation reveals the relevant hidden field
+before focusing it, and a recovered historical revision returns to writing. Saving, author-only drafts,
+privacy acknowledgement, original-image policy and server authorization remain unchanged. These views
+introduce no new route, saved preference, offline write or persistence claim.
+
+
+### Approved staged phone entries and shared action bar (35.4, 2026-11-03)
+
+`mobile/useCompactLayout.ts` supplies the shared 40rem presentation breakpoint. New phone entries
+start at Title, then Write, then Details/Save; existing entries open at Write. All steps share one draft,
+revision-guarded Save and unsaved-navigation guard. Editor initialization is deferred until writing;
+once opened it stays mounted between steps. Native editor input events and focused document updates
+capture changes independently of React event ordering. Loading editors remain inert. The phone adapter
+shows visual editing only; opaque syntax/load failures get a preserved read-only preview, never a lossy
+conversion or a hidden source textarea. Desktop retains full modes and direct screen navigation.
+
+`mobile/MobileActionBar.tsx` is a presentation-only, feature-independent component accepting labelled,
+typed icon actions, disabled states, callbacks and native form association. Its body portal avoids
+transformed theme cards as fixed-position containing blocks. One active bar owns measured height and
+visual-viewport keyboard inset; cleanup removes its listeners, observer and root properties. The shared
+viewport utility distinguishes keyboard occlusion from Safari drift and zoom. Body end spacing keeps
+content and the licence footer reachable. Theme tokens, 48px targets and accessible names are mandatory.
+
+Other tools can adopt this bar without importing Journal logic. It neither grants permissions nor
+awards points. The existing ProgressProvider still requires an actual own-account server-total increase
+and current scope gate. Its phone overlay clears the measured action bar/keyboard; decoration does not
+intercept input, while its dismiss control remains operable. No new reward policy, database, API,
+upload flow or offline cache. Attachment/reference functions remain optional in phone Details.
+
+### Phone Procedure authoring (15.2a)
+
+`ProcedureBuilder` retains one draft and the same pure outline operations/server commands. Below
+40rem, name, outline and review are separate presentations of it. New Step copies live outside the
+outline until Apply; the existing `StepEditor` preserves the copy across breakpoint changes. Section
+editing keeps its local state in `SectionDialog`, rendering `PhoneSectionForm` on phones and the
+existing modal on desktop. Section/Step unapplied state participates in the navigation guard.
+The phone outline supplies Back, Cancel, Add section, Add step and Next to `MobileActionBar`; focused
+forms supply Back, Cancel and Apply, review supplies Save. All icons share 48px geometry, with only
+primary emphasis differing. Save validates the full draft and sends expectedRevision; success returns
+to the Procedure view on phones. No server, snapshot or reward-policy change. Desktop remains an
+outline editor; existing routes and menus remain available.
+
+### Phone Recipe authoring (36.6)
+
+`RecipesPage` retains the authoritative client draft, selected revision and existing Save lifecycle.
+`modules/recipes/RecipeForm` owns presentation state (phone stage, expanded ingredient, typed tags),
+with the shared 40rem breakpoint and `MobileActionBar`. Desktop renders all stages; phones render
+Title, Ingredients, Instructions and Details separately. Inactive panels remain mounted and hidden;
+visual editor initialization is deferred until writing, then retained between stages. Native validation
+reveals the relevant stage/ingredient and focuses its field. Unsupported instructions use the existing
+source-preserving phone adapter. Optional attachments/image generation retain their existing adapters;
+no API, permission, paid-request, grocery-transfer or persistence contract changes.
+
+### Shared phone editing-flow layer and scheduling (14.1a)
+
+`mobile/PhoneEditorFlow.tsx` provides ordered presentation stages, common progress headings, visited
+stages, Next/Back, focus and invalid-field recovery. Panels use `data-editor-stage`; the feature owns
+its data, cancellation guard, final submit and API semantics. Recipes and ScheduleDialog are the first
+two consumers, exercising ordinary pages and native dialogs. Journal and Procedure authoring retain
+their specialized stage logic while sharing the same action bar/breakpoint/icons.
+
+ScheduleDialog keeps its state across stage and breakpoint changes: Reminder title, date/repeat and
+optional notes/assignee/notifications; scheduled Procedures skip the redundant title step. Desktop
+shows the whole form. Busy submissions freeze controls and closing. Schedule dialogs portal to the body so a hidden background toolbar cannot hide them after resizing.
+Their action bars render inside the native dialog rather than through a separate body portal. The shared bar registry lets the modal
+supersede and then restore a background editor bar, including measured keyboard clearance. No new
+persistence, generic domain schema, server endpoint or notification policy.
+
+### Phone Document creation (16.2a)
+
+`NewDocument` adopts the shared phone flow and action bar for Files, Title and Details. `DocumentFormFields`
+accepts an optional presentation stage, keeping one instance and its date/year state across stages and
+resizing. Desktop omits that presentation option. Uploads remain owned by `useUploads`; navigation and
+Save remain owned by Documents, including provisional-file lifetime and the unchanged create command.
+
+### Shared phone editing dialogs (16.2b)
+
+`mobile/PhoneEditorDialog` composes native dialog semantics, `usePhoneEditorFlow` and an in-dialog
+`MobileActionBar`. The dialog portals to the body; its compact layout fills the viewport with measured
+bottom clearance. Consumers provide ordered stages, fields, dirty status and their existing submit
+command. The shared component blocks close/duplicate submission while busy, guards dirty dismissal
+and departure, and retains the form after errors. Document details and single-Document Move adopt it;
+bulk/folder and destructive FormDialog consumers are unchanged.
+
+### Remaining phone tool forms (16.14)
+
+EquipmentForm, Maintenance RecordDialog, ContactDialog, Bring and Lists' compact editing dialogs now
+compose PhoneEditorDialog. Fields remain feature-owned/mounted, marked with data-editor-stage and hidden
+only for compact presentation. Feature-specific submitDisabled predicates remain supported. The shared
+modal owns its dirty navigation guard; Bring's former parallel guard was removed. Successful list and
+Equipment route changes occur only after their existing mutation succeeds and intentionally bypass the
+dirty guard. Lists retains inline quick-add and the existing offline queue; execution and browsing views
+keep their specialized layouts. No generic domain schema/form generator introduced.

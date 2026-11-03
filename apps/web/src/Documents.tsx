@@ -1,3 +1,7 @@
+import { PhoneEditorDialog } from './mobile/PhoneEditorDialog.tsx';
+import { MobileActionBar } from './mobile/MobileActionBar.tsx';
+import { PhoneFlowHeading, usePhoneEditorFlow } from './mobile/PhoneEditorFlow.tsx';
+import './mobile/phone-document.css';
 import { useCallback, useEffect, useId, useRef, useState } from 'react';
 import { DocumentSuggestions } from './DocumentSuggestions.tsx';
 import { DocumentText } from './DocumentText.tsx';
@@ -836,6 +840,8 @@ function FolderView(props: { workspaceId: string; folderId: string | null; canMa
  * dates, notes and tags are behind "More details". The files are uploaded at once but are only kept
  * when Save makes them a Document; nothing is stored as a draft, and the page says so.
  */
+const DOCUMENT_STAGES = ['files', 'title', 'details'] as const;
+
 function NewDocument(props: { workspaceId: string; folderId: string | null }) {
   const { workspaceId } = props;
   const uploads = useUploads(workspaceId);
@@ -847,6 +853,9 @@ function NewDocument(props: { workspaceId: string; folderId: string | null }) {
   const [message, setMessage] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const saved = useRef(false);
+  const formId = useId();
+  const { compact, stage, form: formRef, heading, next, back, onInvalid, index, count, isLast } = usePhoneEditorFlow({ stages: DOCUMENT_STAGES, busy });
+  const cancel = () => { if (!busy) navigate(paths.documents(workspaceId, props.folderId)); };
 
   useEffect(() => {
     void api.documentFolders(workspaceId).then(setFolders, (caught: unknown) => setMessage(failureText(caught)));
@@ -858,7 +867,7 @@ function NewDocument(props: { workspaceId: string; folderId: string | null }) {
   const shown: DocumentForm = titleTouched ? form : { ...form, title: firstName === undefined ? '' : titleFromFileName(firstName) };
 
   // Leaving with files chosen would drop them: ask first (also when closing the tab).
-  const pending = uploads.items.length > 0;
+  const pending = uploads.items.length > 0 || JSON.stringify(form) !== JSON.stringify(EMPTY_FORM) || folderId !== props.folderId;
   useEffect(() => {
     if (!pending) return;
     setNavigationGuard(() => saved.current || window.confirm(t('documents.upload.leaveConfirm')));
@@ -892,42 +901,49 @@ function NewDocument(props: { workspaceId: string; folderId: string | null }) {
 
   return (
     <section aria-labelledby="new-document-heading">
-      <p className="back-row">
+      <p className="back-row" hidden={compact}>
         <Link href={paths.documents(workspaceId, props.folderId)} className="back-link">
           <UiIcon name="back" /> {t('documents.backToDocuments')}
         </Link>
       </p>
       <div className="page-header">
-        <h2 id="new-document-heading">{t('documents.addHeading')}</h2>
+        <h1 id="new-document-heading">{t('documents.addHeading')}</h1>
       </div>
-      <form
-        className="stack"
+      {compact && <PhoneFlowHeading title={t(stage === 'files' ? 'documents.upload.files' : stage === 'title' ? 'documents.field.title' : 'documents.moreDetails')} headingRef={heading} index={index} count={count} />}
+      <form id={formId} ref={formRef} className="stack phone-document-form" onInvalidCapture={onInvalid}
         onSubmit={(event) => {
           event.preventDefault();
+          if (busy || running || done.length === 0) return;
+          if (compact && !isLast) { next(); return; }
           void save();
         }}
       >
+        <fieldset disabled={busy} className="stack">
+        <div data-editor-stage="files" hidden={compact && stage !== 'files'}>
         <p className="callout">{t('documents.upload.metadataNotice')}</p>
         <FileChooser label={uploads.items.length === 0 ? t('documents.upload.choose') : t('documents.upload.chooseMore')} onFiles={uploads.add} />
         <UploadList uploads={uploads} />
         {uploads.items.length > 1 && <p className="muted">{t('documents.upload.oneDocument', { count: uploads.items.length })}</p>}
-        <div className="card stack">
+        </div>
+        <div className="card stack" hidden={compact && stage === 'files'}>
           <DocumentFormFields
+            phoneStage={compact ? (stage === 'files' ? 'title' : stage) : undefined}
             form={shown}
             types={types}
             currentType={null}
-            folded
+            folded={!compact}
             onChange={(next) => {
               if (next.title !== shown.title) setTitleTouched(true);
               setForm(next);
             }}
           />
-          <FolderSelect folders={folders} value={folderId} onChange={setFolderId} label={t('documents.field.folder')} />
+          <div hidden={compact && stage !== 'details'}><FolderSelect folders={folders} value={folderId} onChange={setFolderId} label={t('documents.field.folder')} /></div>
         </div>
+        </fieldset>
         {message !== null && <p role="alert">{message}</p>}
         {failed > 0 && <p className="muted">{t('documents.upload.failedNote', { count: failed })}</p>}
         <p className="muted">{t('documents.upload.notSavedYet')}</p>
-        <div className="row">
+        <div className="row" hidden={compact}>
           <button type="submit" className="primary" disabled={busy || running || done.length === 0 || shown.title.trim() === ''}>
             <UiIcon name="save" /> {t('documents.save')}
           </button>
@@ -936,6 +952,12 @@ function NewDocument(props: { workspaceId: string; folderId: string | null }) {
           </button>
         </div>
       </form>
+      {compact && <MobileActionBar label={t('documents.phone.actions')} actions={[
+        { id: 'back', label: t('common.back'), icon: 'back', disabled: busy, onClick: () => back(cancel) },
+        { id: 'cancel', label: t('common.cancel'), icon: 'close', disabled: busy, onClick: cancel },
+      ]} primary={isLast
+        ? { id: 'save', label: t('documents.save'), icon: 'save', type: 'submit', form: formId, disabled: busy || running || done.length === 0 }
+        : { id: 'next', label: t('common.next'), icon: 'forward', disabled: busy || (stage === 'files' && (running || done.length === 0)), onClick: next }} />}
     </section>
   );
 }
@@ -1294,7 +1316,9 @@ function DocumentPage(props: { workspaceId: string; documentId: string; canManag
         </dialog>
       )}
       {dialog === 'edit' && (
-        <FormDialog
+        <PhoneEditorDialog
+          stages={[{id:'title',title:t('documents.field.title')},{id:'details',title:t('documents.phone.details')}]}
+          dirty={JSON.stringify(form) !== JSON.stringify(formOf(doc))}
           title={t('documents.editDetails')}
           submitLabel={t('documents.saveChanges')}
           onClose={() => setDialog(null)}
@@ -1308,11 +1332,13 @@ function DocumentPage(props: { workspaceId: string; documentId: string; canManag
             );
           }}
         >
-          <DocumentFormFields form={form} onChange={setForm} types={types} currentType={doc.type} folded={false} />
-        </FormDialog>
+          {stage => <DocumentFormFields form={form} onChange={setForm} types={types} currentType={doc.type} folded={false} phoneStage={stage as 'title' | 'details' | undefined} />}
+        </PhoneEditorDialog>
       )}
       {dialog === 'move' && (
-        <FormDialog
+        <PhoneEditorDialog
+          stages={[{id:'details',title:t('documents.moveTo')}]}
+          dirty={target !== doc.folderId}
           title={t('documents.moveDocument', { title: doc.title })}
           submitLabel={t('documents.move')}
           onClose={() => setDialog(null)}
@@ -1321,8 +1347,8 @@ function DocumentPage(props: { workspaceId: string; documentId: string; canManag
             load();
           }}
         >
-          <FolderSelect folders={folders} value={target} onChange={setTarget} label={t('documents.moveTo')} />
-        </FormDialog>
+          {() => <FolderSelect folders={folders} value={target} onChange={setTarget} label={t('documents.moveTo')} />}
+        </PhoneEditorDialog>
       )}
     </section>
   );

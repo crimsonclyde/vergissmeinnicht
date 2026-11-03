@@ -293,7 +293,9 @@ test('first server admin: bootstrap link, account creation, sign-in, Workspace c
   await expect(page.getByText('Shared with every member', { exact: false })).toBeVisible();
   await page.getByRole('button', { name: 'New entry', exact: true }).click();
   await page.getByLabel('Title', { exact: true }).fill('Shared forest log');
+  await page.getByRole('button', { name: 'Details', exact: true }).click();
   await page.getByLabel('Entry date (optional)', { exact: true }).fill('2026-10-23');
+  await page.getByRole('button', { name: 'Write', exact: true }).click();
   await page.getByRole('button', { name: 'Markdown source', exact: true }).click();
   await page.getByLabel('Markdown source', { exact: true }).fill('<script>window.journalUnsafe = true</script>\nA quiet woodland.');
   await page.getByRole('button', { name: 'Save entry', exact: true }).click();
@@ -303,13 +305,19 @@ test('first server admin: bootstrap link, account creation, sign-in, Workspace c
   await page.getByRole('button', { name: 'Markdown source', exact: true }).click();
   await expect(page.getByLabel('Markdown source', { exact: true })).toHaveValue(/A quiet woodland/);
   expect(await page.evaluate('window.journalUnsafe')).toBeUndefined();
+  await page.getByRole('button', { name: 'Details', exact: true }).click();
   await page.getByRole('button', { name: 'Archive entry', exact: true }).click();
   await expect(page.getByRole('button', { name: 'Restore entry', exact: true })).toBeVisible();
+  await page.getByRole('button', { name: 'Write', exact: true }).click();
   await page.getByRole('button', { name: 'Back to entries', exact: true }).click();
   await expect(page.getByRole('button', { name: /Shared forest log/ })).toHaveCount(0);
   await page.getByLabel('Show archived entries', { exact: true }).check();
   await page.getByRole('button', { name: /Shared forest log/ }).click();
+  await page.getByRole('button', { name: 'Details', exact: true }).click();
   await page.getByRole('button', { name: 'Restore entry', exact: true }).click();
+  await expect(page.getByRole('button', { name: 'Archive entry', exact: true })).toBeVisible();
+  await page.getByRole('button', { name: 'Write', exact: true }).click();
+  await page.getByRole('button', { name: 'Back to entries', exact: true }).click();
   await page.getByRole('link', { name: 'Open your private journal', exact: true }).click();
   await page.getByRole('button', { name: 'Agree & Continue', exact: true }).click();
   await page.getByRole('button', { name: 'New entry', exact: true }).click();
@@ -599,20 +607,20 @@ test('first server admin: bootstrap link, account creation, sign-in, Workspace c
   // Phone: a dedicated full-screen Step editor; Preview and Save stay within reach; nothing scrolls sideways.
   await page.setViewportSize({ width: 320, height: 640 });
   expect(await page.evaluate('document.documentElement.scrollWidth <= document.documentElement.clientWidth')).toBe(true);
-  await expect(page.getByRole('button', { name: 'Save procedure' })).toBeInViewport();
+  await expect(page.getByRole('button', { name: 'Next', exact: true })).toBeInViewport();
   await expectAccessible(page, 'builder at 320 px');
   await page.getByRole('button', { name: /^Step 1: Close windows/ }).click();
   await expect(editor).toBeVisible();
   await expect(page.getByRole('button', { name: 'Save procedure' })).toBeHidden();
   await expect(page.getByLabel('Procedure name')).toBeHidden();
   expect(await page.evaluate('document.documentElement.scrollWidth <= document.documentElement.clientWidth')).toBe(true);
-  expect((await editor.getByRole('button', { name: 'Apply step' }).boundingBox())?.height).toBeGreaterThanOrEqual(44);
+  expect((await page.getByRole('navigation', { name: 'Procedure actions' }).getByRole('button', { name: 'Apply step' }).boundingBox())?.height).toBeGreaterThanOrEqual(44);
   await expectAccessible(page, 'step editor at 320 px');
   // Back (the phone's button) returns to the outline, not out of the builder.
   await page.goBack();
   await expect(editor).toHaveCount(0);
   await expect(page).toHaveURL(/\/procedures\/[0-9a-f-]{36}\/edit$/);
-  await expect(page.getByLabel('Procedure name')).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Build your routine.' })).toBeVisible();
   await page.setViewportSize({ width: 1280, height: 720 });
   await page.getByRole('button', { name: 'Back to the Procedure' }).click();
   await expect(page.getByRole('article')).toBeVisible();

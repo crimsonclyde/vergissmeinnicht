@@ -1,0 +1,10 @@
+.phone-editor-dialog [hidden] { display:none !important; }
+.phone-editor-dialog fieldset { border:0; padding:0; margin:0; min-width:0; }
+.phone-editor-dialog[data-compact='true'] {
+ position:fixed; inset:0; margin:0; width:100%; max-width:none; height:100dvh; max-height:none;
+ padding:max(1rem, env(safe-area-inset-top)) 1rem calc(var(--mobile-action-bar-height, 5rem) + var(--mobile-action-bar-inset, 0px) + 2rem);
+ border:0; border-radius:0; transform:none;
+}
+.phone-editor-dialog input, .phone-editor-dialog select, .phone-editor-dialog textarea { max-width:100%; min-width:0; }
+.phone-editor-dialog label:has(> input), .phone-editor-dialog label:has(> select), .phone-editor-dialog label:has(> textarea) { display:flex; flex-direction:column; align-items:stretch; gap:.4rem; }
+.phone-editor-dialog[data-compact='true'] .bring-options > summary { display:none; }

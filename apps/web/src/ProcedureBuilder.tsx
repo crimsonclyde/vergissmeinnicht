@@ -20,6 +20,7 @@ import {
   moveStepBy,
   moveStepTo,
   newSection,
+  newStep,
   previewPastedSteps,
   removeSection,
   removeStep,
@@ -40,6 +41,10 @@ import { ProcedurePreview } from './ProcedurePreview.tsx';
 import { navigate, paths, setNavigationGuard } from './router.tsx';
 import { StartControl } from './StartProcedure.tsx';
 import { StepEditor } from './StepEditor.tsx';
+import { MobileActionBar } from './mobile/MobileActionBar.tsx';
+import { useCompactLayout } from './mobile/useCompactLayout.ts';
+import { PhoneSectionForm } from './mobile/PhoneSectionForm.tsx';
+import './mobile/phone-procedure.css';
 import { UiIcon } from './ui-icons.tsx';
 import { UndoNotice, type Undoable } from './UndoNotice.tsx';
 
@@ -111,10 +116,38 @@ function PasteDialog(props: { sectionTitle: string; room: number; onAdd: (titles
 type SectionValue = { title: string; description: string; icon: ProcedureIcon | null };
 
 /** Name, optional icon (22.1) and optional description of a Section (adding one, or changing it). */
-function SectionDialog(props: { heading: string; submitLabel: string; initial: SectionValue; onSubmit: (value: SectionValue) => void; onClose: () => void }) {
+function SectionDialog(props: { heading: string; submitLabel: string; initial: SectionValue; onSubmit: (value: SectionValue) => void; onClose: () => void; compact?: boolean; onDirty: (dirty: boolean) => void }) {
   const [title, setTitle] = useState(props.initial.title);
   const [description, setDescription] = useState(props.initial.description);
   const [icon, setIcon] = useState(props.initial.icon);
+  const { onDirty } = props;
+  const sectionTitleRef = useRef<HTMLInputElement>(null);
+  useEffect(() => { if (props.compact) sectionTitleRef.current?.focus(); }, [props.compact]);
+  const dirty = title !== props.initial.title || description !== props.initial.description || icon !== props.initial.icon;
+  useEffect(() => { onDirty(dirty); return () => onDirty(false); }, [dirty, onDirty]);
+  if (props.compact) return (
+    <PhoneSectionForm
+      heading={props.heading}
+      submitLabel={props.submitLabel}
+      onClose={() => { if (!dirty || window.confirm(t('stepEditor.discardConfirm'))) props.onClose(); }}
+      onSubmit={() => { props.onSubmit({ title: title.trim(), description, icon }); props.onClose(); }}
+    >
+      <label>
+        {t('builder.sectionName')}
+        <input ref={sectionTitleRef} required maxLength={120} value={title} onChange={e => setTitle(e.target.value)} />
+      </label>
+      <details className="option-group">
+        <summary>{t('builder.details')}</summary>
+        <div className="stack option-body">
+          <IconPicker label={t('builder.sectionIcon')} value={icon} allowNone onChange={setIcon} />
+          <label>
+            {t('builder.sectionDescription')}
+            <textarea rows={2} maxLength={4000} value={description} onChange={e => setDescription(e.target.value)} />
+          </label>
+        </div>
+      </details>
+    </PhoneSectionForm>
+  );
   return (
     <FormDialog title={props.heading} submitLabel={props.submitLabel} onClose={props.onClose} onSubmit={() => props.onSubmit({ title: title.trim(), description, icon })}>
       <label>
@@ -190,8 +223,8 @@ function OutlinePreview({ section, onOpen }: { section: DraftSection | undefined
 
 /**
  * The Procedure builder (15.2): outline first. Name it, type Step titles one after another, open only
- * the Steps that need instructions or rules, look at the preview, save. Not a wizard — everything is on
- * one screen and in any order.
+ * the Steps that need instructions or rules, look at the preview, save. Desktop keeps one screen;
+ * phones separate the name, outline and review over the same draft.
  *
  * Nothing is stored until **Save procedure**: there is no autosave and no draft on the server. The
  * builder says which state it is in (unapplied Step changes, unsaved changes, saving, saved), asks
@@ -208,6 +241,10 @@ export function ProcedureBuilder(props: {
   onOpenRun: (runId: string) => void;
 }) {
   const { workspaceId } = props;
+  const compact = useCompactLayout();
+  const [phoneStage, setPhoneStage] = useState<'title' | 'outline' | 'review'>(props.procedureId === null ? 'title' : 'outline');
+  const [pendingStep, setPendingStep] = useState<{ step: DraftStep; section: DraftSection; sectionIndex: number; index: number } | null>(null);
+  const phoneHeading = useRef<HTMLHeadingElement>(null);
   const defaultSection = t('builder.defaultSection');
   /** A new Procedure starts empty, with one Section; an existing one is loaded from the server. */
   const [fresh] = useState<Draft | null>(() => (props.procedureId === null ? draftFrom(EMPTY, defaultSection) : null));
@@ -305,6 +342,7 @@ export function ProcedureBuilder(props: {
     editingRef.current = null;
     stepDirtyRef.current = false;
     setEditing(null);
+    setPendingStep(null);
     setStepDirty(false);
     focusRow.current = key;
     if (!viaHistory && (window.history.state as Record<string, unknown> | null)?.[EDITOR_STATE] === true) window.history.back();
@@ -333,6 +371,13 @@ export function ProcedureBuilder(props: {
     if (previewing && element !== null && !element.open) element.showModal();
   }, [previewing]);
 
+  useEffect(() => {
+    if (compact && editing === null && dialog === null) {
+      phoneHeading.current?.focus();
+      window.scrollTo({ top: 0 });
+    }
+  }, [compact, phoneStage, editing, dialog]);
+
   if (draft === null) {
     return message !== null ? (
       <p role="alert">
@@ -350,7 +395,7 @@ export function ProcedureBuilder(props: {
   const state = saveState({ saving, stepDirty, dirty, savedOnce });
   const mayAddSection = sections.length < MAX_SECTIONS_PER_PROCEDURE;
   const open = sections.find((section) => section.key === openSection) ?? sections[0];
-  const located = editing === null ? undefined : locateStep(sections, editing);
+  const located = editing === null ? undefined : pendingStep ?? locateStep(sections, editing);
   const sectionName = (section: DraftSection) => (section.title.trim() === '' ? t('builder.untitledSection') : section.title);
   const stepName = (step: DraftStep) => (step.title.trim() === '' ? t('builder.untitledStep') : step.title);
 
@@ -364,6 +409,7 @@ export function ProcedureBuilder(props: {
   };
 
   const openStep = (key: string) => {
+    setPhoneStage('outline');
     if (editingRef.current === key) return;
     if (editingRef.current !== null && stepDirtyRef.current && !window.confirm(t('stepEditor.discardConfirm'))) return;
     const alreadyOpen = editingRef.current !== null;
@@ -411,6 +457,7 @@ export function ProcedureBuilder(props: {
     },
   ];
   const sectionMenu = (section: DraftSection, index: number): MoreMenuItem[] => [
+    ...(compact && total < MAX_STEPS_PER_PROCEDURE ? [{ label: t('builder.pasteSteps'), onSelect: () => setDialog({ kind: 'paste', key: section.key }) }] : []),
     { label: t('builder.editSection'), onSelect: () => setDialog({ kind: 'edit-section', key: section.key }) },
     ...(index > 0 ? [{ label: t('builder.moveUp'), onSelect: () => change(moveSectionBy(sections, section.key, -1), t('builder.sectionMoved', { title: sectionName(section) })) }] : []),
     ...(index < sections.length - 1 ? [{ label: t('builder.moveDown'), onSelect: () => change(moveSectionBy(sections, section.key, 1), t('builder.sectionMoved', { title: sectionName(section) })) }] : []),
@@ -461,13 +508,14 @@ export function ProcedureBuilder(props: {
   };
 
   async function save() {
-    if (!canSave({ saving, stepDirty, dirty, isNew: saved === null })) return;
+    if (!canSave({ saving, stepDirty: stepDirty || pendingStep !== null, dirty, isNew: saved === null })) return;
     setMessage(null);
     if (hasProblems(problems)) {
       // Nothing is sent and nothing is lost: the fields say what is missing.
       setShowProblems(true);
       setMessage(t('builder.fixFirst'));
       const firstSection = sections.find((section) => problems.sections[section.key] !== undefined || section.steps.some((step) => problems.steps[step.key] !== undefined));
+      if (compact) setPhoneStage(problems.title !== undefined ? 'title' : 'outline');
       if (problems.title !== undefined) titleRef.current?.focus();
       else if (firstSection !== undefined) setOpenSection(firstSection.key);
       return;
@@ -480,6 +528,10 @@ export function ProcedureBuilder(props: {
       if (editingRef.current !== null) closeEditor();
       adopt(detail, openIndex);
       setSavedOnce(true);
+      if (compact) {
+        navigate(paths.procedure(workspaceId, detail.id), { replace: props.procedureId === null, force: true });
+        return;
+      }
       if (props.procedureId === null) {
         // From now on this is an existing Procedure with its own address (reload and Back keep working).
         handOver(JUST_SAVED, { id: detail.id, openIndex } satisfies JustSaved);
@@ -501,14 +553,28 @@ export function ProcedureBuilder(props: {
     unchanged: saved === null ? t('builder.state.new') : t('builder.state.unchanged'),
   };
   const saveBlocked = stepDirty;
-  const mayNotSave = !canSave({ saving, stepDirty, dirty, isNew: saved === null });
+  const mayNotSave = !canSave({ saving, stepDirty: stepDirty || pendingStep !== null, dirty, isNew: saved === null });
   const back = saved === null ? { href: paths.procedures(workspaceId), label: t('builder.backToProcedures') } : { href: paths.procedure(workspaceId, saved.id), label: t('builder.backToProcedure') };
 
+  const sectionEditing = compact && (dialog?.kind === 'add-section' || dialog?.kind === 'edit-section');
+  const nextPhone = () => {
+    if (phoneStage === 'title') {
+      if (problems.title !== undefined) { setShowProblems(true); titleRef.current?.focus(); return; }
+      setPhoneStage('outline');
+    } else setPhoneStage('review');
+  };
+  const addPhoneStep = () => {
+    if (open === undefined || total >= MAX_STEPS_PER_PROCEDURE) return;
+    const step = newStep('');
+    setPendingStep({ step, section: open, sectionIndex: sections.indexOf(open), index: open.steps.length });
+    openStep(step.key);
+  };
+
   return (
-    <div className="builder" data-editing={located !== undefined}>
+    <div className="builder" data-compact={compact} data-phone-stage={phoneStage} data-section-edit={sectionEditing} data-editing={located !== undefined}>
       {/* The global header is hidden while editing: the builder provides the page's level-one heading. */}
       <h1 className="visually-hidden">{t(saved === null ? 'builder.headingNew' : 'builder.headingEdit')}</h1>
-      <div className="builder-bar">
+      <div className="builder-bar" hidden={compact}>
         <button type="button" className="quiet" onClick={() => navigate(back.href)}>
           <UiIcon name="back" /> {back.label}
         </button>
@@ -518,7 +584,7 @@ export function ProcedureBuilder(props: {
           {STATE_GLYPH[state] !== '' && <span aria-hidden="true">{STATE_GLYPH[state]} </span>}
           {stateText[state]}
         </span>
-        <div className="builder-buttons">
+        <div className="builder-buttons" hidden={compact}>
           {saved !== null && !dirty && !stepDirty && (
             <StartControl workspaceId={workspaceId} procedure={{ id: saved.id, title: saved.title }} canStart={props.canStart} canSchedule={props.canSchedule} onOpenRun={props.onOpenRun} />
           )}
@@ -561,8 +627,15 @@ export function ProcedureBuilder(props: {
             )}
           </div>
         )}
-        <div className="builder-head">
-          <div className="builder-name">
+        {compact && located === undefined && !sectionEditing && (
+          <div className="phone-procedure-heading">
+            <p className="muted">{t('builder.phoneProgress', { number: phoneStage === 'title' ? 1 : phoneStage === 'outline' ? 2 : 3 })}</p>
+            <h2 ref={phoneHeading} tabIndex={-1}>{t(phoneStage === 'title' ? 'builder.phoneTitle' : phoneStage === 'outline' ? 'builder.phoneOutline' : 'builder.phoneReview')}</h2>
+            {phoneStage === 'outline' && open !== undefined && <p className="muted">{t('builder.phoneAddingTo', { title: sectionName(open) })}</p>}
+          </div>
+        )}
+        <div className="builder-head" hidden={compact && phoneStage === 'outline'}>
+          <div className="builder-name" hidden={compact && phoneStage === 'review'}>
             <span className="item-icon">
               <AppIcon name={draft.icon} decorative />
             </span>
@@ -575,6 +648,7 @@ export function ProcedureBuilder(props: {
                 id={titleId}
                 className="builder-title"
                 maxLength={120}
+                onKeyDown={e => { if (compact && e.key === 'Enter') { e.preventDefault(); nextPhone(); } }}
                 placeholder={t('builder.namePlaceholder')}
                 value={draft.title}
                 aria-invalid={shownProblems?.title !== undefined}
@@ -588,7 +662,7 @@ export function ProcedureBuilder(props: {
               )}
             </div>
           </div>
-          <details className="option-group builder-details">
+          <details className="option-group builder-details" hidden={compact && phoneStage === 'title'}>
             <summary>
               <span className="option-label">{t('builder.details')}</span>
               <span className="muted option-value">{t('builder.detailsHint')}</span>
@@ -607,7 +681,8 @@ export function ProcedureBuilder(props: {
           </details>
         </div>
 
-        <div className="builder-columns">
+        {compact && phoneStage === 'review' && <ProcedurePreview content={toContent(draft)} workspaceId={workspaceId} />}
+        <div className="builder-columns" hidden={compact && phoneStage !== 'outline'}>
           {/* Desktop: the Sections as a rail — choose one, drag to reorder, drop a Step on one to move it there. */}
           <nav className="builder-rail" aria-label={t('builder.sections')}>
             <ul className="plain-list">
@@ -696,19 +771,20 @@ export function ProcedureBuilder(props: {
                           {t('builder.dropHere', { title: sectionName(section) })}
                         </p>
                       )}
-                      <AddStep
+                      {!compact && <AddStep
                         sectionTitle={sectionName(section)}
                         empty={section.steps.length === 0}
                         limitReached={limitFor === section.key}
                         onAdd={(title) => addStep(section, title)}
                         onPaste={() => setDialog({ kind: 'paste', key: section.key })}
-                      />
+                      />}
+                      {compact && section.steps.length === 0 && <p className="muted">{t('builder.noSteps')}</p>}
                     </>
                   )}
                 </section>
               );
             })}
-            {mayAddSection && (
+            {!compact && mayAddSection && (
               <button type="button" className="builder-add-section builder-add-section-phone" onClick={() => setDialog({ kind: 'add-section' })}>
                 <UiIcon name="add" /> {t('builder.addSection')}
               </button>
@@ -720,6 +796,7 @@ export function ProcedureBuilder(props: {
             {located !== undefined ? (
               <StepEditor
                 key={located.step.key}
+                compact={compact}
                 workspaceId={workspaceId}
                 step={located.step}
                 number={sections.length > 1 ? `${located.sectionIndex + 1}.${located.index + 1}` : String(located.index + 1)}
@@ -730,7 +807,7 @@ export function ProcedureBuilder(props: {
                 onDirty={reportStepDirty}
                 onCancel={cancelStep}
                 onApply={(step, sectionKey) => {
-                  change(applyStep(sections, step, sectionKey));
+                  change(pendingStep !== null ? sections.map(section => section.key === sectionKey ? { ...section, steps: [...section.steps, step] } : section) : applyStep(sections, step, sectionKey));
                   setOpenSection(sectionKey);
                   closeEditor();
                 }}
@@ -742,6 +819,14 @@ export function ProcedureBuilder(props: {
         </div>
       </div>
 
+      {compact && located === undefined && !sectionEditing && <MobileActionBar label={t('builder.phoneActions')} actions={[
+        { id: 'back', label: t('common.back'), icon: 'back', disabled: saving, onClick: () => phoneStage === 'title' ? navigate(back.href) : setPhoneStage(phoneStage === 'review' ? 'outline' : 'title') },
+        { id: 'cancel', label: t('common.cancel'), icon: 'close', disabled: saving, onClick: () => navigate(back.href) },
+        ...(phoneStage === 'outline' ? [
+          { id: 'section', label: t('builder.addSection'), icon: 'addSection' as const, disabled: saving || !mayAddSection, onClick: () => setDialog({ kind: 'add-section' }) },
+          { id: 'step', label: t('builder.phoneAddStep'), icon: 'addStep' as const, disabled: saving || open === undefined || total >= MAX_STEPS_PER_PROCEDURE, onClick: addPhoneStep },
+        ] : []),
+      ]} primary={phoneStage === 'review' ? { id: 'save', label: t('builder.save'), icon: 'save', disabled: mayNotSave, onClick: () => void save() } : { id: 'next', label: t('common.next'), icon: 'forward', disabled: saving, onClick: nextPhone }} />}
       {previewing && (
         <dialog ref={previewRef} className="dialog preview-dialog" aria-labelledby={previewHeadingId} onClose={() => setPreviewing(false)}>
           <div className="preview-head">
@@ -767,6 +852,8 @@ export function ProcedureBuilder(props: {
       )}
       {dialog?.kind === 'add-section' && (
         <SectionDialog
+          compact={compact}
+          onDirty={reportStepDirty}
           heading={t('builder.addSection')}
           submitLabel={t('builder.addSection')}
           initial={{ title: t('builder.newSectionTitle', { number: sections.length + 1 }), description: '', icon: null }}
@@ -783,6 +870,8 @@ export function ProcedureBuilder(props: {
           const section = sections.find((candidate) => candidate.key === dialog.key);
           return section === undefined ? null : (
             <SectionDialog
+              compact={compact}
+              onDirty={reportStepDirty}
               heading={t('builder.editSectionHeading', { title: sectionName(section) })}
               submitLabel={t('builder.applySection')}
               initial={{ title: section.title, description: section.description, icon: section.icon ?? null }}

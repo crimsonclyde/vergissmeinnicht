@@ -1,0 +1,21 @@
+/* Only the compact builder adopts the staged flow; desktop retains its complete outline. */
+.builder[data-compact='true'] [hidden] { display:none !important; }
+.builder[data-compact='true'] .builder-actions { position:static; padding:.5rem 1rem; min-height:0; border:0; background:transparent; }
+.builder[data-compact='true'] .builder-main { padding-bottom:calc(var(--mobile-action-bar-height, 5rem) + 1rem); }
+.builder[data-compact='true'] .builder-rail { display:none; }
+.builder[data-compact='true'] .phone-procedure-heading { margin-bottom:1.5rem; }
+.builder[data-compact='true'] .phone-procedure-heading h2 { margin:.4rem 0; }
+.builder[data-compact='true'] .builder-name > .item-icon { display:none; }
+.builder[data-compact='true'] .builder-head { margin-bottom:1.5rem; }
+.builder[data-compact='true'] .outline-section[data-open='true'] { border-color:var(--accent); }
+.builder[data-compact='true'] .step-editor-head { position:static; padding:1rem; }
+.builder[data-compact='true'] .step-editor-head > button { display:none; }
+.builder[data-compact='true'] .step-editor-foot { position:static; }
+.builder[data-compact='true'] .step-editor-foot > .row { display:none; }
+.builder[data-compact='true'][data-editing='true'] .step-editor { min-height:0; margin:0; }
+.builder[data-compact='true'][data-section-edit='true'] > .builder-main,
+.builder[data-compact='true'][data-section-edit='true'] > .builder-actions { display:none; }
+.phone-section-form { padding:1rem 1rem calc(var(--mobile-action-bar-height, 5rem) + 2rem); }
+
+.builder[data-compact='true'] { display:block; }
+.builder[data-compact='true'] .builder-actions { justify-content:flex-start; }

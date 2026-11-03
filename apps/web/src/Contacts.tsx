@@ -1,3 +1,4 @@
+import { PhoneEditorDialog } from './mobile/PhoneEditorDialog.tsx';
 import { useCoreTools } from './core-tools.ts';
 import { useCallback, useEffect, useId, useRef, useState, type FormEvent } from 'react';
 import {
@@ -124,6 +125,7 @@ function ContactDialog(props: { workspaceId: string; contact: Contact | null; in
   const id = useId();
   const { workspaceId, contact } = props;
   const [form, setForm] = useState<ContactForm>(() => (contact === null ? { ...emptyContactForm(props.initialName ?? ''), phones: [{ value: '', label: '' }] } : formOf(contact)));
+  const [original] = useState(() => JSON.stringify(form));
   const [duplicates, setDuplicates] = useState<readonly ContactDuplicate[]>([]);
   const set = (change: Partial<ContactForm>) => setForm((current) => ({ ...current, ...change }));
   // Asked a moment after typing stops. What cannot be checked yet (an unfinished address) is simply not compared.
@@ -142,7 +144,7 @@ function ContactDialog(props: { workspaceId: string; contact: Contact | null; in
     };
   }, [workspaceId, contact?.id, form]);
   return (
-    <FormDialog
+    <PhoneEditorDialog stages={[{id:'name',title:t('contacts.field.name')},{id:'contact',title:t('shell.contacts')},{id:'details',title:t('documents.phone.details')}]} dirty={JSON.stringify(form) !== original}
       title={contact === null ? t('contacts.new.heading') : t('contacts.edit.heading', { name: contact.name })}
       submitLabel={t('contacts.save')}
       submitDisabled={form.name.trim() === ''}
@@ -152,15 +154,18 @@ function ContactDialog(props: { workspaceId: string; contact: Contact | null; in
         props.onSaved(saved.contact, saved.duplicates);
       }}
     >
+      {stage => <>
+      <div className="stack" data-editor-stage="name" hidden={stage !== undefined && stage !== 'name'}>
       <div className="field">
         <label htmlFor={`${id}-name`}>
           {t('contacts.field.name')} <span className="muted">{t('common.required')}</span>
         </label>
-        <input id={`${id}-name`} required maxLength={CONTACT_LIMITS.name} autoComplete="off" value={form.name} aria-describedby={`${id}-name-hint`} onChange={(event) => set({ name: event.target.value })} />
+        <input id={`${id}-name`} required pattern=".*\S.*" maxLength={CONTACT_LIMITS.name} autoComplete="off" value={form.name} aria-describedby={`${id}-name-hint`} onChange={(event) => set({ name: event.target.value })} />
         <small id={`${id}-name-hint`} className="muted">
           {t('contacts.field.nameHint')}
         </small>
       </div>
+      </div><div className="stack" data-editor-stage="details" hidden={stage !== undefined && stage !== 'details'}>
       <div className="field">
         <label htmlFor={`${id}-category`}>{t('contacts.field.category')}</label>
         <input id={`${id}-category`} maxLength={CONTACT_LIMITS.category} list={`${id}-categories`} autoComplete="off" placeholder={t('contacts.field.categoryExample')} value={form.category} onChange={(event) => set({ category: event.target.value })} />
@@ -174,8 +179,10 @@ function ContactDialog(props: { workspaceId: string; contact: Contact | null; in
         <label htmlFor={`${id}-organisation`}>{t('contacts.field.organisation')}</label>
         <input id={`${id}-organisation`} maxLength={CONTACT_LIMITS.organisation} autoComplete="off" value={form.organisation} onChange={(event) => set({ organisation: event.target.value })} />
       </div>
+      </div><div className="stack" data-editor-stage="contact" hidden={stage !== undefined && stage !== 'contact'}>
       <PointRows kind="phone" rows={form.phones} onChange={(phones) => set({ phones })} />
       <PointRows kind="email" rows={form.emails} onChange={(emails) => set({ emails })} />
+      </div><div className="stack" data-editor-stage="details" hidden={stage !== undefined && stage !== 'details'}>
       <div className="field">
         <label htmlFor={`${id}-address`}>{t('contacts.field.address')}</label>
         <textarea id={`${id}-address`} rows={3} maxLength={CONTACT_LIMITS.address} autoComplete="off" value={form.address} onChange={(event) => set({ address: event.target.value })} />
@@ -192,7 +199,8 @@ function ContactDialog(props: { workspaceId: string; contact: Contact | null; in
         <textarea id={`${id}-notes`} rows={4} maxLength={CONTACT_LIMITS.notes} value={form.notes} onChange={(event) => set({ notes: event.target.value })} />
       </div>
       <DuplicateHint workspaceId={workspaceId} duplicates={worthChecking(form) ? duplicates : []} links={false} />
-    </FormDialog>
+      </div></>}
+    </PhoneEditorDialog>
   );
 }
 

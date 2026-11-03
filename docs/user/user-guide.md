@@ -49,7 +49,11 @@ Forgot your password or lost your phone? Ask your server admin for an account re
 
 ## Write a Procedure (Editors)
 
-**Today → Add → Procedure**, or **Procedures → New Procedure**, opens the builder. It is one screen, not a wizard — and a Procedure needs no date.
+**Today → Add → Procedure**, or **Procedures → New Procedure**, opens the builder. A Procedure needs no date. On a computer, authoring stays on one screen.
+
+**On phones:** enter the name, press **Next**, build the outline, then **Next** to review and **Save procedure**. The bottom icon bar holds Back, Cancel, Add section, Add step and Next; every button has the same size and an accessible name. Tap a Section to select it: **Adding to** shows where the next Step goes. Add section and Add step open their own screens. Confirm with the check button to apply to the unsaved outline; cancelling a new Step leaves nothing behind. **More options** in a Step holds images, icons and rules. Procedure details are optional on Review. Back keeps applied changes; Cancel asks before leaving unsaved work. Saving returns to the Procedure, where you can Start a Run.
+
+**On computers:**
 
 1. **Name it.**
 2. **Type the steps.** There is already a section called *Steps*: type a step title into **Add a step…** and press Enter — the field is ready for the next one. **Paste multiple steps** takes a list (one step per line; bullets and numbers are removed) and shows what will be added before you confirm; a line that is too long, or more steps than fit (200 per Procedure), is named instead of being cut.
@@ -358,7 +362,18 @@ is saved per account and notice version. Private entries, drafts and images neve
 backups or Workspace searches; full server backups include private account data.
 
 New notes use **CommonMark with GFM**: headings, formatting, tables, task checkboxes, quotes, links and
-code. Use **Visual** or **Markdown source**. Unsupported syntax stays intact in source mode rather than
+code. Use **Visual** or **Markdown source**; the selected mode is highlighted. Visual mode has a
+visible formatting bar for bold, italic, headings, lists, quotes, Undo and Redo. On phones these use
+compact labelled icons. Desktop keeps **Write**, **Details** and **Images & links** screens, with Visual/Markdown modes.
+On a phone, a new entry starts with its **Title**, then **Next** opens visual writing, and **Next** opens
+optional **Details** before **Save**. The bottom action bar uses arrow icons for Back/Next, a disk for
+Save and × for Cancel, with accessible names. Back preserves the text between steps; Cancel leaves the
+editor and asks before leaving unsaved changes. It does not delete an existing entry or recovery draft.
+Date, collection/notebook suggestions, tags and pinning are in Details; Images & links is an optional
+Details disclosure. **More formatting** opens quotes, Undo and Redo. An existing phone entry opens at
+writing; Back returns to its title. Desktop editing remains available for unsupported source, shown as
+a preserved read-only preview on phones. Successful server-awarded points can show an encouragement
+overlay above the action bar when Gamification is enabled; moving between steps earns no points. Unsupported syntax stays intact in source mode rather than
 being discarded. Existing entries stay plain text until you explicitly choose **Convert to Markdown**.
 A title is required; dates are optional for new Markdown entries. Collections/notebooks, comma-separated
 tags and pinning organize the library; search covers titles, text, collections and tags. Pinned entries
@@ -420,3 +435,43 @@ Choose **Profile & settings → Appearance → Galactic Guide** for the optional
 Under **Interface and cards**, choose Guide or Existing interface and press **Save**. Galactic Guide cards can use **Glass** or **Starfield** backgrounds and **0–100% background opacity**. Decorative images can be switched off. Text and controls stay opaque and readable. **Cancel** restores saved values; **Reset** previews defaults until Save. These settings are private to your account, follow it across devices, and keep a device copy for offline use that is removed on sign-out. Places continues to use its own card-opacity/photo settings.
 
 When enabled in your Today preferences, Clock and Weather move into the Guide's top bar. Clock opens the full date/time; Weather shows a condition icon and temperature and opens a larger summary, with a link to the full forecast. Cached forecasts are marked. Weather still needs your existing opt-in and location and the server's Weather switch; no device location is used. The existing interface retains the earlier Clock/Weather cards. Celestial remains a separate optional card.
+
+### Create and edit Recipes on a phone
+
+Use **Title → Ingredients → Instructions → Details → Save recipe**. The bottom bar uses the same
+icons as Notes, Journal and Procedures. **Back** keeps your draft; **Cancel** asks before discarding
+unsaved changes. Nothing is autosaved.
+
+On Ingredients, set the base servings and tap an ingredient to expand its fields. Use the bottom
+**Add ingredient** or **Remove ingredient** buttons; removal asks first and at least one ingredient
+must remain. Instructions use the visual editor. Details holds optional preparation/cooking times,
+tags and source, with **Images & links** for existing image functions. Unsupported instruction syntax
+is preserved in a preview; use the desktop editor to change that source. Desktop still offers the
+complete form and Markdown source. Saving, exporting originals and transferring ingredients to a
+shopping list keep their existing behavior.
+
+### Reminders and scheduling on phones
+
+New Reminders use **Title → Date & repeat → Optional details → Save**. Scheduling a Procedure starts
+at the date because its title is already known. The bottom bar provides the same Back, Cancel, Next
+and Save icons as other editors. Notes, the responsible person and notification offsets are in Details.
+Back keeps your entries; cancelling or closing an edited form asks before discarding changes. Save
+errors keep the draft available. Scheduling a Procedure never starts a Run automatically. Desktop
+keeps the complete form; recurrence, time zones, notifications and permissions work as before.
+
+On phones, **Add document** opens Files → Title → Details. Choose or photograph your pages, wait for
+upload completion, then use the bottom Next arrow. Review the proposed title and optionally enter the
+Folder, type, dates, tags and notes. The bottom Back arrow keeps your entries; Save document finishes.
+Files are provisional until Save succeeds. Cancel asks before discarding selected files or typed details.
+Desktop continues to show the complete form.
+
+**Edit details** uses Title → Details → Save changes on phones. Back keeps your edits; Cancel or
+Escape asks before discarding changes. **Move** stays a single Folder choice with the same bottom
+icon controls. Desktop shows the complete modal forms. These actions do not alter original files.
+
+Phone forms now share the same bottom Back, Cancel, Next and Save icons. Equipment separates its name,
+model/replacement parts and optional details; Contacts separates name, phone/email and other details;
+Maintenance and Bring separate their title from optional details. Desktop keeps the complete form.
+Back preserves entered values; Cancel/Escape asks before discarding changes. A failed Save keeps your
+work for retry. Lists uses a single screen for its small dialogs and keeps grocery item addition inline.
+Today stays card-based, Calendar offers the narrow-screen agenda, and Runs keep guided Section execution.

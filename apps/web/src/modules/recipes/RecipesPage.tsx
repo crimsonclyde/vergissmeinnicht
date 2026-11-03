@@ -1,13 +1,11 @@
-import {RecipeImageGenerator} from './RecipeImageGenerator.tsx';
-import { lazy, Suspense, useCallback, useEffect, useMemo, useState } from 'react';
+import { RecipeForm } from './RecipeForm.tsx';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { RecipeContent } from '@vergissmeinnicht/domain';
 import { api, messageFor, recipeAttachmentClient, type RecipeView } from '../../api.ts';
 import { t } from '../../i18n/index.ts';
 import { Markdown } from '../../markdown/Markdown.tsx';
-import { AttachmentPanel, imageReference } from '../../attachments/AttachmentPanel.tsx';
 import { setNavigationGuard } from '../../router.tsx';
 import { RecipeShopping } from './RecipeShopping.tsx';
-const Editor = lazy(() => import('../../markdown/MarkdownEditor.tsx').then(module => ({ default: module.MarkdownEditor })));
 const fresh = (): RecipeContent => ({ version: 1, title: '', servings: 2, ingredients: [{ name: '', amount: '', unit: '', note: '' }], instructions: '', tags: [], source: '', prepMinutes: null, cookMinutes: null });
 const contentOf = (recipe: RecipeView): RecipeContent => ({ version: 1, title: recipe.title, servings: recipe.servings, ingredients: recipe.ingredients, instructions: recipe.instructions, tags: recipe.tags, source: recipe.source, prepMinutes: recipe.prepMinutes, cookMinutes: recipe.cookMinutes });
 
@@ -24,7 +22,6 @@ export function RecipesPage({ workspaceId, canWrite, canShop }: { workspaceId: s
   const [status, setStatus] = useState('');
   const [message, setMessage] = useState('');
   const [editorKey, setEditorKey] = useState(0);
-  const [tagText,setTagText]=useState<string|null>(null);
   const editing=draft!==null;
   const [sourceMode, setSourceMode] = useState(false);
   const client = useMemo(() => recipeAttachmentClient(workspaceId), [workspaceId]);
@@ -41,7 +38,7 @@ export function RecipesPage({ workspaceId, canWrite, canShop }: { workspaceId: s
   const showError = useCallback((message: string) => setMessage(message), []);
   function change(content: RecipeContent) { setDraft(content); setStatus(''); }
   function insert(markdown: string) { setDraft(previous => previous ? { ...previous, instructions: previous.instructions + '\n\n' + markdown } : previous); setEditorKey(value => value + 1); setStatus(''); }
-  function edit(recipe: RecipeView | null) { if (!leave()) return; setSelected(recipe); const next = recipe ? contentOf(recipe) : fresh(); setDraft(next); setOriginal(JSON.stringify(next)); setMessage(''); setStatus(''); setTagText(null); setEditorKey(value => value + 1); }
+  function edit(recipe: RecipeView | null) { if (!leave()) return; setSelected(recipe); const next = recipe ? contentOf(recipe) : fresh(); setDraft(next); setOriginal(JSON.stringify(next)); setMessage(''); setStatus(''); setEditorKey(value => value + 1); }
   async function save(content: RecipeContent, archive = selected?.archived ?? false) {
     setBusy(true); setStatus(''); setMessage('');
     try {
@@ -52,29 +49,14 @@ export function RecipesPage({ workspaceId, canWrite, canShop }: { workspaceId: s
   }
   function resolveImage(path: string, kind = 'preview') { const match = /^attachments\/([0-9a-f-]{36})\.(jpg|png)$/.exec(path); return match?.[1] ? client.url(match[1], kind) : undefined; }
   const Heading = draft ? 'h1' : 'h2';
-  return <section className="stack"><Heading>{t('recipes.heading')}</Heading><p className="muted">{t('recipes.hint')}</p>
+  return <section className="stack recipe-page" data-editing={editing}><Heading>{t('recipes.heading')}</Heading>{!editing && <p className="muted">{t('recipes.hint')}</p>}
     {message && <p role="alert">{message}</p>}{status && <p role="status">{status}</p>}
-    {draft ? <div className="card stack journal-editor">
-      <button type="button" disabled={busy} onClick={() => { if (leave()) { setDraft(null); setStatus(''); } }}>{t('recipes.cancelEdit')}</button>
-      <form className="stack" onSubmit={event => { event.preventDefault(); void save(draft); }}><fieldset className="stack" disabled={busy}>
-        <label>{t('journal.title')}<input required maxLength={160} value={draft.title} onChange={event => change({ ...draft, title: event.target.value })} /></label>
-        <label>{t('recipes.baseServings')}<input type="number" required min="1" max="1000" step="1" value={draft.servings} onChange={event => change({ ...draft, servings: Number(event.target.value) })} /></label>
-        <div className="row wrap">{(['prepMinutes', 'cookMinutes'] as const).map(key => <label key={key}>{t(key === 'prepMinutes' ? 'recipes.prep' : 'recipes.cook')}<input type="number" min="0" max="10080" value={draft[key] ?? ''} onChange={event => change({ ...draft, [key]: event.target.value === '' ? null : Number(event.target.value) })} /></label>)}</div>
-        <h3>{t('recipes.ingredients')}</h3>
-        {draft.ingredients.map((ingredient, index) => <fieldset key={index} className="card stack"><legend>{t('recipes.ingredientNumber', { count: index + 1 })}</legend>
-          {(['name', 'amount', 'unit', 'note'] as const).map(key => <label key={key}>{t(key === 'name' ? 'recipes.ingredientName' : key === 'amount' ? 'recipes.amount' : key === 'unit' ? 'recipes.unit' : 'recipes.note')}<input required={key === 'name'} maxLength={key === 'name' ? 120 : key === 'amount' ? 32 : key === 'unit' ? 16 : 160} value={ingredient[key]} onChange={event => change({ ...draft, ingredients: draft.ingredients.map((item, i) => i === index ? { ...item, [key]: event.target.value } : item) })} /></label>)}
-          <button type="button" disabled={draft.ingredients.length === 1} onClick={() => change({ ...draft, ingredients: draft.ingredients.filter((_, i) => i !== index) })}>{t('recipes.removeIngredient')}</button>
-        </fieldset>)}
-        <button type="button" disabled={draft.ingredients.length >= 100} onClick={() => change({ ...draft, ingredients: [...draft.ingredients, { name: '', amount: '', unit: '', note: '' }] })}>{t('recipes.addIngredient')}</button>
-        <h3>{t('recipes.instructions')}</h3>
-        <div inert={busy}><Suspense fallback={<p>{t('journal.loading')}</p>}><Editor key={editorKey} value={draft.instructions} sourceMode={sourceMode} onSourceModeChange={setSourceMode} resolveImage={resolveImage} onChange={instructions => setDraft(previous => previous ? { ...previous, instructions } : previous)} upload={async file => { try { const image = await client.upload(file); return imageReference(image); } catch (error) { showError(messageFor(error)); throw error; } }} /></Suspense></div>
-        <RecipeImageGenerator key={selected?.id??editorKey} workspaceId={workspaceId} onInsert={insert}/>
-        <AttachmentPanel client={client} refreshVersion={editorKey} onInsert={insert} onError={showError} />
-        <label>{t('journal.tags')}<input value={tagText??draft.tags.join(', ')} onChange={event => {setTagText(event.target.value);change({ ...draft, tags: event.target.value.split(',').map(tag => tag.trim()).filter(Boolean) });}} /></label>
-        <label>{t('recipes.source')}<input type="url" maxLength={2048} value={draft.source} onChange={event => change({ ...draft, source: event.target.value })} /></label>
-        <button type="submit" className="primary">{t('recipes.save')}</button>
-      </fieldset></form>
-    </div> : selected ? <>
+    {draft ? <RecipeForm
+      draft={draft} busy={busy} editorKey={editorKey} sourceMode={sourceMode}
+      client={client} workspaceId={workspaceId} selectedId={selected?.id}
+      onSourceModeChange={setSourceMode} onChange={change} onInsert={insert} onError={showError}
+      onSave={() => void save(draft)} onCancel={() => { if (leave()) { setDraft(null); setStatus(''); } }}
+    /> : selected ? <>
       <button type="button" onClick={() => { setSelected(null); setStatus(''); }}>{t('recipes.back')}</button>
       <a className="button quiet" href={`/api/workspaces/${workspaceId}/recipes/${selected.id}/export`} download>{t('recipes.export')}</a>
       <article className="card stack"><h3>{selected.title}</h3><p>{t('recipes.serves', { count: selected.servings })}</p>

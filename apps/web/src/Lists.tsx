@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useId, useRef, useState, type FormEvent, type RefObject } from 'react';
 import { ApiError, api, isNetworkError, messageFor, type ListChangeInput, type ListDetail, type ListItem, type ListItemInput, type ListSummary } from './api.ts';
-import { FormDialog } from './FormDialog.tsx';
+import { PhoneEditorDialog } from './mobile/PhoneEditorDialog.tsx';
 import { clearHandOver, handOver, handedOver } from './handoff.ts';
 import { formatDateTime, formatRelative, hasMessage, t } from './i18n/index.ts';
 import { amountLabel, isCurrent, splitItems, withChecked } from './list-model.ts';
@@ -183,7 +183,7 @@ function ListOverview(props: { workspaceId: string; creating: boolean; canEdit: 
         }}
       />
       {props.creating && props.canEdit && (
-        <FormDialog
+        <PhoneEditorDialog stages={[{id:'name',title:t('lists.name')}]} dirty={name !== ''}
           title={t('lists.newHeading')}
           submitLabel={t('lists.create')}
           onClose={() => {
@@ -202,18 +202,18 @@ function ListOverview(props: { workspaceId: string; creating: boolean; canEdit: 
               }
             }
             created.current = true;
-            navigate(paths.list(workspaceId, listId), { replace: true });
+            navigate(paths.list(workspaceId, listId), { replace: true, force: true });
           }}
         >
-          <p className="muted" style={{ margin: 0 }}>
+          {() => <><p className="muted" style={{ margin: 0 }}>
             {t('lists.newHint')}
           </p>
           <label>
             {t('lists.name')}
             <br />
             <input required maxLength={80} value={name} placeholder={t('lists.namePlaceholder')} onChange={(e) => setName(e.target.value)} />
-          </label>
-        </FormDialog>
+          </label></>}
+        </PhoneEditorDialog>
       )}
     </section>
   );
@@ -294,7 +294,7 @@ function EditItemDialog(props: { item: ListItem; onSave: (value: ListItemInput) 
   const [value, setValue] = useState<ListItemInput>({ title: props.item.title, quantity: props.item.quantity ?? '', unit: props.item.unit ?? '' });
   const [error, setError] = useState<{ field: ItemField; text: string } | null>(null);
   return (
-    <FormDialog
+    <PhoneEditorDialog stages={[{id:'item',title:t('lists.item')}]} dirty={JSON.stringify(value) !== JSON.stringify({title:props.item.title,quantity:props.item.quantity ?? '',unit:props.item.unit ?? ''})}
       title={t('lists.editHeading', { title: props.item.title })}
       submitLabel={t('lists.save')}
       onClose={props.onClose}
@@ -311,8 +311,8 @@ function EditItemDialog(props: { item: ListItem; onSave: (value: ListItemInput) 
         }
       }}
     >
-      <ItemFields value={value} onChange={setValue} error={error} />
-    </FormDialog>
+      {() => <ItemFields value={value} onChange={setValue} error={error} />}
+    </PhoneEditorDialog>
   );
 }
 
@@ -671,7 +671,7 @@ function ListPage(props: { workspaceId: string; listId: string; canEdit: boolean
         />
       )}
       {renaming && (
-        <FormDialog
+        <PhoneEditorDialog stages={[{id:'name',title:t('lists.name')}]} dirty={newName !== list.title}
           title={t('lists.renameHeading')}
           submitLabel={t('lists.save')}
           onClose={() => setRenaming(false)}
@@ -690,12 +690,12 @@ function ListPage(props: { workspaceId: string; listId: string; canEdit: boolean
             }
           }}
         >
-          <label>
+          {() => <label>
             {t('lists.name')}
             <br />
             <input required maxLength={80} value={newName} onChange={(e) => setNewName(e.target.value)} />
-          </label>
-        </FormDialog>
+          </label>}
+        </PhoneEditorDialog>
       )}
     </section>
   );

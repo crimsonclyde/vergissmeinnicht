@@ -1,7 +1,15 @@
+import { createPortal } from 'react-dom';
 import { useEffect, useId, useRef, useState, type FormEvent, type ReactNode } from 'react';
 import { messageFor, type PersonRef, type Recurrence, type RecurrenceUnit, type ReminderOffset, type ReminderUnit, type ScheduleInput } from './api.ts';
 import { t } from './i18n/index.ts';
+import { MobileActionBar } from './mobile/MobileActionBar.tsx';
+import { PhoneFlowHeading, usePhoneEditorFlow } from './mobile/PhoneEditorFlow.tsx';
+import { setNavigationGuard } from './router.tsx';
+import './mobile/phone-schedule.css';
 import { addDays, browserTimeZone, todayIn } from './schedule-dates.ts';
+
+const REMINDER_STAGES = ['title', 'when', 'details'] as const;
+const PROCEDURE_STAGES = ['when', 'details'] as const;
 
 const PRESETS: readonly ReminderOffset[] = [
   { unit: 'DAYS', amount: 0 },
@@ -79,6 +87,8 @@ export function ScheduleDialog(props: {
 }) {
   const ref = useRef<HTMLDialogElement>(null);
   const headingId = useId();
+  const formId = useId();
+  const closing = useRef(false);
   const everyId = useId();
   const unitId = useId();
   const responsibleId = useId();
@@ -109,6 +119,25 @@ export function ScheduleDialog(props: {
     reminders: false,
   });
   const toggle = (key: OptionKey) => (next: boolean) => setOpen((current) => ({ ...current, [key]: next }));
+  const { compact, stage, form: formRef, heading: stageHeading, index: stageIndex, count: stageCount, next, back, isLast, onInvalid } = usePhoneEditorFlow<'title' | 'when' | 'details'>({
+    stages: props.kind === 'REMINDER' ? REMINDER_STAGES : PROCEDURE_STAGES,
+    busy,
+  });
+  const fingerprint = JSON.stringify([title, description, date, time, repeat, unit, interval, weekdays, lastDay, reminders, assignee]);
+  const [baseline] = useState(fingerprint);
+  const dirty = fingerprint !== baseline;
+  function close() {
+    if (busy || (dirty && !window.confirm(t('schedule.leaveConfirm')))) return;
+    closing.current = true;
+    ref.current?.close();
+  }
+  useEffect(() => {
+    setNavigationGuard(() => closing.current || (!busy && (!dirty || window.confirm(t('schedule.leaveConfirm')))));
+    const warn = (event: BeforeUnloadEvent) => { if ((dirty || busy) && !closing.current) event.preventDefault(); };
+    window.addEventListener('beforeunload', warn);
+    return () => { setNavigationGuard(null); window.removeEventListener('beforeunload', warn); };
+  }, [dirty, busy]);
+
 
   useEffect(() => {
     const dialog = ref.current;
@@ -131,6 +160,8 @@ export function ScheduleDialog(props: {
 
   async function submit(event: FormEvent) {
     event.preventDefault();
+    if (busy) return;
+    if (compact && !isLast) { next(); return; }
     setBusy(true);
     setMessage(null);
     try {
@@ -143,6 +174,7 @@ export function ScheduleDialog(props: {
         reminders,
         assigneeUserId: assignee === '' ? null : assignee,
       });
+      closing.current = true;
       ref.current?.close();
     } catch (caught) {
       setMessage(messageFor(caught));
@@ -158,24 +190,29 @@ export function ScheduleDialog(props: {
         ? t('schedule.newReminderHeading')
         : t('schedule.heading', { title: props.title ?? '' });
 
-  return (
-    <dialog ref={ref} className="dialog" aria-labelledby={headingId} onClose={props.onClose}>
+  return createPortal(
+    <dialog ref={ref} className="dialog schedule-dialog" data-compact={compact} aria-labelledby={headingId} onClose={props.onClose} onCancel={event => { event.preventDefault(); close(); }}>
       {/* A field in a folded group that cannot be submitted (e.g. an empty interval) must be shown, not silently block. */}
-      <form onSubmit={(event) => void submit(event)} onInvalidCapture={() => setOpen({ notes: true, repeat: true, responsible: true, reminders: true })} className="stack">
+      <form id={formId} ref={formRef} onSubmit={(event) => void submit(event)} onInvalidCapture={event => { if (compact) onInvalid(event); else setOpen({ notes: true, repeat: true, responsible: true, reminders: true }); }} className="stack">
         <h2 id={headingId} style={{ margin: 0 }}>
           {heading}
         </h2>
-        <p className="muted" style={{ margin: 0 }}>
+        <p className="muted" hidden={compact && stageIndex > 0} style={{ margin: 0 }}>
           {t(props.kind === 'REMINDER' ? 'schedule.explainReminder' : 'schedule.explain')}
         </p>
         {message !== null && <p role="alert">{message}</p>}
+        {compact && <PhoneFlowHeading headingRef={stageHeading} index={stageIndex} count={stageCount} title={t(stage === 'title' ? 'schedule.phoneTitle' : stage === 'when' ? 'schedule.phoneWhen' : 'schedule.phoneDetails')} />}
+        <fieldset className="stack plain-fieldset" disabled={busy}>
+        <section data-editor-stage="title" hidden={compact && stage !== 'title'}>
         {props.kind === 'REMINDER' && (
           <label>
             {t('schedule.reminderTitle')}
             <br />
-            <input required maxLength={120} value={title} onChange={(e) => setTitle(e.target.value)} placeholder={t('schedule.reminderTitlePlaceholder')} />
+            <input required pattern=".*\S.*" onKeyDown={event => { if (compact && event.key === 'Enter') { event.preventDefault(); next(); } }} maxLength={120} value={title} onChange={(e) => setTitle(e.target.value)} placeholder={t('schedule.reminderTitlePlaceholder')} />
           </label>
         )}
+        </section>
+        <section className="stack" data-editor-stage="when" hidden={compact && stage !== 'when'}>
         <div className="row">
           <label>
             {t(repeat === 'ONCE' ? 'schedule.date' : 'schedule.firstDate')}
@@ -189,14 +226,6 @@ export function ScheduleDialog(props: {
           </label>
         </div>
         <small className="muted">{t('schedule.timeZone', { zone: timeZone })}</small>
-        {props.kind === 'REMINDER' && (
-          <Options label={t('schedule.reminderDescription')} value={description.trim() === '' ? t('schedule.none') : t('schedule.notesAdded')} open={open.notes} onToggle={toggle('notes')}>
-            <label>
-              <span className="visually-hidden">{t('schedule.reminderDescription')}</span>
-              <textarea rows={2} maxLength={4000} value={description} onChange={(e) => setDescription(e.target.value)} />
-            </label>
-          </Options>
-        )}
         <Options label={t('schedule.repeat')} value={recurrenceLabel(recurrence())} open={open.repeat} onToggle={toggle('repeat')}>
           <fieldset className="stack plain-fieldset">
             <legend className="visually-hidden">{t('schedule.repeat')}</legend>
@@ -260,6 +289,16 @@ export function ScheduleDialog(props: {
           )}
           </fieldset>
         </Options>
+        </section>
+        <section className="stack" data-editor-stage="details" hidden={compact && stage !== 'details'}>
+        {props.kind === 'REMINDER' && (
+          <Options label={t('schedule.reminderDescription')} value={description.trim() === '' ? t('schedule.none') : t('schedule.notesAdded')} open={open.notes} onToggle={toggle('notes')}>
+            <label>
+              <span className="visually-hidden">{t('schedule.reminderDescription')}</span>
+              <textarea rows={2} maxLength={4000} value={description} onChange={(e) => setDescription(e.target.value)} />
+            </label>
+          </Options>
+        )}
         {props.members !== null && (
           <Options
             label={t('schedule.responsible')}
@@ -341,15 +380,21 @@ export function ScheduleDialog(props: {
           </div>
           </fieldset>
         </Options>
-        <div className="row dialog-actions">
+        </section>
+        <div className="row dialog-actions" hidden={compact}>
           <button type="submit" className="primary" disabled={busy}>
             {t(props.initial === undefined ? (props.kind === 'REMINDER' ? 'schedule.submitReminder' : 'schedule.submit') : 'schedule.submitMove')}
           </button>
-          <button type="button" onClick={() => ref.current?.close()}>
+          <button type="button" disabled={busy} onClick={close}>
             {t('common.cancel')}
           </button>
         </div>
+        </fieldset>
       </form>
-    </dialog>
+      {compact && <MobileActionBar withinDialog label={t('schedule.phoneActions')} actions={[
+        { id: 'back', label: t('common.back'), icon: 'back', disabled: busy, onClick: () => back(close) },
+        { id: 'cancel', label: t('common.cancel'), icon: 'close', disabled: busy, onClick: close },
+      ]} primary={isLast ? { id: 'save', label: t(props.initial === undefined ? (props.kind === 'REMINDER' ? 'schedule.submitReminder' : 'schedule.submit') : 'schedule.submitMove'), icon: 'save', type: 'submit', form: formId, disabled: busy } : { id: 'next', label: t('common.next'), icon: 'forward', disabled: busy, onClick: next }} />}
+    </dialog>, document.body
   );
 }

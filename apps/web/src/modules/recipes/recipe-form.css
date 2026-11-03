@@ -1,0 +1,13 @@
+.recipe-editor [hidden] { display:none !important; }
+.recipe-ingredient { border:1px solid var(--border); border-radius:var(--radius); padding:1rem; }
+.recipe-ingredient > summary { min-height:44px; overflow-wrap:anywhere; padding:.5rem 0; }
+.recipe-ingredient > fieldset { min-width:0; }
+.recipe-editor[data-compact='true'] { border:0; padding:0 0 calc(var(--mobile-action-bar-height, 5rem) + 1rem); background:transparent; box-shadow:none; }
+.recipe-editor[data-compact='true'] .recipe-ingredient { padding:.75rem; }
+.recipe-editor[data-compact='true'] .recipe-ingredient[open] { border-color:var(--accent); }
+.recipe-editor[data-compact='true'] .recipe-stage-heading h2 { margin:.5rem 0; }
+.recipe-editor[data-compact='true'] .recipe-images > summary { min-height:44px; padding:.75rem 0; }
+.recipe-editor fieldset { min-width:0; border:0; padding:0; margin:0; }
+.recipe-editor input:not([type='checkbox']), .recipe-editor textarea { min-width:0; max-width:100%; }
+.recipe-editor input[type='file'] { width:100%; }
+.recipe-editor .recipe-images { min-width:0; overflow-wrap:anywhere; }

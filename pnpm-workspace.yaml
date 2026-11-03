@@ -30,3 +30,6 @@ overrides:
   'katex@<0.18.2': 0.18.2
   # Static-file glob enumeration retains its reviewed API; fixes both glob and minimatch advisories.
   '@fastify/static>glob': 14.0.3
+
+  # CVE-2026-118764: v11 bounds hostile glob expansion; reviewed API-compatible lint callers.
+  'minimatch@10': 11.0.1

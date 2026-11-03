@@ -5,8 +5,9 @@
 # `node` user; all persistent data lives in /data. No secrets are baked in: configuration and
 # secrets are injected at runtime (environment or *_FILE Docker secrets).
 
+# Node 24.22.2 includes the October 2026 Brotli/DNS/TLS fixes and the follow-up regression fix.
 # Pinned by digest; Dependabot (docker ecosystem) proposes updates.
-ARG NODE_IMAGE=node:24.21.0-bookworm-slim@sha256:0e0ff40c39bc087845bfb27465a0df4ea419520094bc35842ff83dd8cbe6f9b6
+ARG NODE_IMAGE=node:24.22.2-bookworm-slim@sha256:c86ecead9e55a5210ac1727de38a4ca840bf03dcaf34dc9749addbf383b1920c
 
 # ---- Toolchain: pnpm and what better-sqlite3 needs if no prebuilt binary is available.
 FROM ${NODE_IMAGE} AS toolchain

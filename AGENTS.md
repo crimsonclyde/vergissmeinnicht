@@ -246,7 +246,13 @@ Do not add Redis/Kafka/message queues merely because realtime exists.
 
 ## UI/UX
 
+**Usability is the second product priority after security** (owner, 2026-11-03). Phone creation flows must be designed for touch and a small viewport; split writing and secondary entry tasks into focused screens, preserve unsaved work between them, and verify actual task completion instead of relying on overflow checks alone.
+
 Desktop authoring and smartphone execution are both first-class.
+
+**Accepted phone entry flow (2026-11-03):** new Notes and personal Journal entries use Title → visual writing → optional Details → explicit Save. Shared icon-based bottom action bars support Back, Next, Save, Cancel and future reviewed actions, with accessible names, safe-area/keyboard clearance and preserved unsaved work. Keep desktop authoring complete. Unsupported source must remain intact rather than pass through a lossy phone conversion. Existing server-confirmed, gated Gamification overlays encourage successful actions; navigation, cancellation and failed saves never award or claim success.
+
+**Accepted phone Procedure authoring (2026-11-03):** Name → Sections/Steps → Review → explicit Save. Add section and Add step belong in the shared bottom action bar; all actions use matching icon-button geometry. Select a Section before adding Steps. Apply local Section/Step drafts before saving the outline; preserve ids, unsaved guards and desktop capabilities.
 
 Color may reinforce state but never be the only state indicator.
 
