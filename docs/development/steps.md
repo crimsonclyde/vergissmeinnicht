@@ -5789,3 +5789,8 @@ and light/dark checks are recorded above; a full browser integration run is also
 Push to main starts CI quality/browser and native amd64/arm64 image builds/scans; no version tag or
 published release is implied. Next owner release ordinal stays 45; no live deployment. Owner mock-ups
 and UX screenshot folders remain untracked and excluded from the source commit.
+
+Full browser integration exposed the pre-layout Schedule summary-order expectation (Notes before
+Repeat). Updated it to the implemented Date/repeat-before-Details order and selected Repeat by its
+summary text for the recurrence assertion, rather than its former index. No behavior or check removed;
+account flow rerun and pushed CI verification continue on the corrected source.

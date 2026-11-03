@@ -1372,7 +1372,7 @@ test('first server admin: bootstrap link, account creation, sign-in, Workspace c
   await expect(page).toHaveURL(/\/reminders\/new$/);
   const newReminder = page.getByRole('dialog', { name: 'New reminder' });
   await expect(newReminder.getByLabel('What')).toBeFocused();
-  await expect(newReminder.locator('summary')).toHaveText([/Notes\s*None/, /Repeat\s*Once/, /Responsible\s*Shared \(anyone\)/, /Reminders\s*On the due date/]);
+  await expect(newReminder.locator('summary')).toHaveText([/Repeat\s*Once/, /Notes\s*None/, /Responsible\s*Shared \(anyone\)/, /Reminders\s*On the due date/]);
   await expect(newReminder.getByLabel('On fixed dates')).toBeHidden();
   await newReminder.getByLabel('What').fill('Pay annual tax');
   await newReminder.getByLabel('Date', { exact: true }).fill(localDate(0));
@@ -1380,7 +1380,7 @@ test('first server admin: bootstrap link, account creation, sign-in, Workspace c
   await newReminder.getByLabel('On fixed dates').check();
   await newReminder.getByLabel('Unit', { exact: true }).selectOption({ label: 'years' });
   await expect(newReminder).toContainText('Dates stay fixed, even when one is done late.');
-  await expect(newReminder.locator('summary').nth(1)).toContainText('Every year');
+  await expect(newReminder.locator('summary', { hasText: 'Repeat' })).toContainText('Every year');
   await newReminder.locator('summary', { hasText: 'Responsible' }).click();
   await newReminder.getByLabel('Responsible').selectOption({ label: 'Ada Admin' });
   await newReminder.locator('summary', { hasText: 'Reminders' }).click();
