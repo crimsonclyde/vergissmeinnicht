@@ -3,7 +3,7 @@ import { checkPhoneRecipe, checkRecipeSourcePreservation } from './phone-recipe.
 import {checkPhoneJournal} from './phone-journal.ts';
 import { randomUUID } from 'node:crypto';
 import { mkdirSync } from 'node:fs';
-import { expect, test } from '@playwright/test';
+import { expect, test, type Page } from '@playwright/test';
 import { hashPassword } from '../packages/auth/src/password-hashing.ts';
 import { openDatabase } from '../packages/database/src/connection.ts';
 import { createUserRepository } from '../packages/database/src/user-repository.ts';
@@ -12,6 +12,21 @@ import { normalizeEmail } from '../packages/domain/src/user.ts';
 import { DEFAULT_GUIDE_PREFERENCES } from '../packages/domain/src/preferences.ts';
 import { guideServerEnv } from '../playwright.config.ts';
 import { expectAccessible } from './a11y.ts';
+
+/** Separate disposable users still share a loopback client: honor the real sign-in limit. */
+async function signInGuide(page: Page) {
+  const password = await page.getByLabel('Password').inputValue();
+  for (let attempt = 0; attempt < 3; attempt++) {
+    const response = page.waitForResponse(response => response.url().endsWith('/api/auth/sign-in') && response.request().method() === 'POST');
+    await page.getByRole('button', {name:'Sign in',exact:true}).click();
+    const result = await response;
+    if (result.status() !== 429) { expect(result.ok()).toBe(true); return; }
+    if (attempt === 2) throw new Error('Guide sign-in remained throttled after Retry-After');
+    const delay = Math.min(60_000, Math.max(1000, Number(result.headers()['retry-after'] ?? 60) * 1000));
+    await page.waitForTimeout(delay);
+    await page.getByLabel('Password').fill(password);
+  }
+}
 
 // Direct fixture setup is limited to the disposable Playwright database; browser commands use real APIs.
 test('Guide preserves routes, preferences, themes and private opt-in weather across desktop and phone', async ({ page }, testInfo) => {
@@ -33,7 +48,7 @@ test('Guide preserves routes, preferences, themes and private opt-in weather acr
   page.on('console', message => { if (message.text().includes('Content Security Policy')) errors.push(message.text()); });
   await page.goto('/');
   await page.getByLabel('Email').fill(email); await page.getByLabel('Password').fill(password);
-  await page.getByRole('button', { name: 'Sign in', exact: true }).click();
+  await signInGuide(page);
   await expect(page.getByRole('button', { name: /^Settings/ })).toBeVisible();
   await page.goto(`/w/${workspaceId}`);
   const shell = page.locator('.shell');
@@ -158,7 +173,7 @@ test('Celestial instrument preserves astronomy and reflows across themes at 320p
   await page.clock.setFixedTime(new Date('2026-10-31T12:00:00Z'));
   await page.goto('/');
   await page.getByLabel('Email').fill(email); await page.getByLabel('Password').fill(password);
-  await page.getByRole('button', { name: 'Sign in', exact: true }).click();
+  await signInGuide(page);
   await expect(page.getByRole('button', { name: /^Settings/ })).toBeVisible();
   await page.goto(`/w/${workspaceId}`);
   const card = page.getByRole('region', { name: 'Celestial', exact: true });
@@ -197,7 +212,7 @@ test('Notes and personal Journal preserve Markdown, originals, privacy and recov
  const email=`notes-${randomUUID()}@example.org`;const password='a fictional notebook passphrase';const database=openDatabase(guideServerEnv.DATABASE_PATH);let workspaceId:string;
  try{const user=await createUserRepository(database).create({email:normalizeEmail(email),displayName:'Notebook reviewer',emailVerified:true,status:'ACTIVE',serverAdmin:false});database.sqlite.prepare("INSERT INTO accounts(id,account_id,provider_id,user_id,password,created_at,updated_at) VALUES(?,?,'credential',?,?,?,?)").run(randomUUID(),user.id,user.id,await hashPassword(password),Date.now(),Date.now());workspaceId=insertLegacyWorkspace(database,{name:'Fictional notebook studio',adminUserId:user.id}).id;enableCoreTools(database,workspaceId,user.id);}finally{database.close();}
  const errors:string[]=[];const requests:string[]=[];page.on('pageerror',error=>errors.push(error.message));page.on('request',request=>requests.push(request.url()));
- await page.goto('/');await page.getByLabel('Email').fill(email);await page.getByLabel('Password').fill(password);await page.getByRole('button',{name:'Sign in',exact:true}).click();await expect(page.getByRole('button',{name:/^Settings/})).toBeVisible();
+ await page.goto('/');await page.getByLabel('Email').fill(email);await page.getByLabel('Password').fill(password);await signInGuide(page);await expect(page.getByRole('button',{name:/^Settings/})).toBeVisible();
  await page.goto(`/w/${workspaceId}`);
  await page.evaluate(async id=>{const response=await fetch(`/api/workspaces/${id}/tools`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({tool:'JOURNAL',enabled:true,expectedRevision:(await fetch(`/api/workspaces/${id}`).then(response=>response.json()) as {toolsRevision:number}).toolsRevision})});if(!response.ok)throw new Error('tool fixture '+response.status+' '+await response.text());},workspaceId);
  await page.reload();await page.getByRole('button',{name:'Add',exact:true}).click();await expect(page.getByRole('button',{name:/Journal entry — Personal/})).toBeVisible();await page.getByRole('button',{name:/Note — Workspace/}).click();
@@ -274,7 +289,7 @@ test('Recipes preserve originals and transfer ingredients for the requested serv
  const email=`recipes-${randomUUID()}@example.org`;const password='a fictional pancake passphrase';const database=openDatabase(guideServerEnv.DATABASE_PATH);let workspaceId:string;
  try{const user=await createUserRepository(database).create({email:normalizeEmail(email),displayName:'Recipe reviewer',emailVerified:true,status:'ACTIVE',serverAdmin:false});database.sqlite.prepare("INSERT INTO accounts(id,account_id,provider_id,user_id,password,created_at,updated_at) VALUES(?,?,'credential',?,?,?,?)").run(randomUUID(),user.id,user.id,await hashPassword(password),Date.now(),Date.now());workspaceId=insertLegacyWorkspace(database,{name:'Fictional kitchen',adminUserId:user.id}).id;enableCoreTools(database,workspaceId,user.id);}finally{database.close();}
  const errors:string[]=[];page.on('pageerror',error=>errors.push(error.message));
- await page.goto('/');await page.getByLabel('Email').fill(email);await page.getByLabel('Password').fill(password);await page.getByRole('button',{name:'Sign in',exact:true}).click();await expect(page.getByRole('button',{name:/^Settings/})).toBeVisible();
+ await page.goto('/');await page.getByLabel('Email').fill(email);await page.getByLabel('Password').fill(password);await signInGuide(page);await expect(page.getByRole('button',{name:/^Settings/})).toBeVisible();
  const listId=await page.evaluate(async id=>{let response=await fetch(`/api/workspaces/${id}/tools`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({tool:'RECIPES',enabled:true,expectedRevision:((await fetch(`/api/workspaces/${id}`).then(response=>response.json())) as {toolsRevision:number}).toolsRevision})});if(!response.ok)throw new Error('Recipe tool fixture '+response.status+' '+await response.text());response=await fetch(`/api/workspaces/${id}/lists`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({title:'Pancake shopping'})});if(!response.ok)throw new Error('List fixture');return ((await response.json()) as {list:{id:string}}).list.id;},workspaceId);
  await page.goto(`/w/${workspaceId}/recipes`);await page.getByRole('button',{name:'New recipe',exact:true}).click();await page.getByLabel('Title',{exact:true}).fill('Pancakes for breakfast');
  const ingredient=(count:number)=>page.getByRole('group',{name:`Ingredient ${count}`,exact:true});
@@ -299,7 +314,7 @@ test('MCP requires visible consent and supports revoking a scoped user connectio
  test.setTimeout(90000);page.setDefaultTimeout(15000);
  const email=`mcp-${randomUUID()}@example.org`,password='a fictional assistant review passphrase';const database=openDatabase(guideServerEnv.DATABASE_PATH);let workspaceId:string;
  try{const user=await createUserRepository(database).create({email:normalizeEmail(email),displayName:'Assistant reviewer',emailVerified:true,status:'ACTIVE',serverAdmin:false});database.sqlite.prepare("INSERT INTO accounts(id,account_id,provider_id,user_id,password,created_at,updated_at) VALUES(?,?,'credential',?,?,?,?)").run(randomUUID(),user.id,user.id,await hashPassword(password),Date.now(),Date.now());workspaceId=insertLegacyWorkspace(database,{name:'Fictional assistant kitchen',adminUserId:user.id}).id;enableCoreTools(database,workspaceId,user.id);}finally{database.close();}
- await page.goto('/');await page.getByLabel('Email').fill(email);await page.getByLabel('Password').fill(password);await page.getByRole('button',{name:'Sign in',exact:true}).click();await expect(page.getByRole('button',{name:/^Settings/})).toBeVisible();
+ await page.goto('/');await page.getByLabel('Email').fill(email);await page.getByLabel('Password').fill(password);await signInGuide(page);await expect(page.getByRole('button',{name:/^Settings/})).toBeVisible();
  const client=await page.evaluate(async()=>{const r=await fetch('/register',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({client_name:'Fictional AI assistant',redirect_uris:['https://client.example.org/callback'],token_endpoint_auth_method:'none'})});return await r.json() as {client_id:string};});
  const authorization=new URLSearchParams({client_id:client.client_id,redirect_uri:'https://client.example.org/callback',response_type:'code',code_challenge:'a'.repeat(43),code_challenge_method:'S256',scope:'workspaces.read lists.read lists.write',resource:guideServerEnv.PUBLIC_ORIGIN+'/mcp'});
  await page.goto('/authorize?'+authorization);await expect(page.getByRole('heading',{name:'Connect Fictional AI assistant'})).toBeVisible();await expectAccessible(page,'MCP consent');
@@ -324,7 +339,7 @@ test('Procedure phone authoring uses staged screens and a uniform bottom action 
   } finally { database.close(); }
   await page.goto('/');
   await page.getByLabel('Email').fill(email); await page.getByLabel('Password').fill(password);
-  await page.getByRole('button', { name: 'Sign in', exact: true }).click();
+  await signInGuide(page);
   await expect(page.getByRole('button', { name: /^Settings/ })).toBeVisible();
   const { checkPhoneProcedure } = await import('./phone-procedure.ts');
   await checkPhoneProcedure(page, workspaceId);
@@ -342,7 +357,7 @@ test('Reminder and Procedure schedules preserve drafts with shared phone flow co
     enableCoreTools(database,workspaceId,user.id);
   } finally { database.close(); }
   await page.goto('/'); await page.getByLabel('Email').fill(email); await page.getByLabel('Password').fill(password);
-  await page.getByRole('button',{name:'Sign in',exact:true}).click(); await expect(page.getByRole('button',{name:/^Settings/})).toBeVisible();
+  await signInGuide(page); await expect(page.getByRole('button',{name:/^Settings/})).toBeVisible();
   const { checkScheduleFlow } = await import('./phone-schedule.ts');
   await checkScheduleFlow(page, workspaceId, testInfo.project.name.includes('mobile'));
 });
@@ -374,7 +389,7 @@ function documentPhoto(width = 320, height = 240): Buffer {
 }
 
 test('Documents preserve uploads and details through the shared phone flow', async ({ page }, testInfo) => {
-  test.setTimeout(60_000); page.setDefaultTimeout(10_000);
+  test.setTimeout(180_000); page.setDefaultTimeout(10_000);
   const email = `schedule-flow-${randomUUID()}@example.org`, password = 'fictional schedule review passphrase';
   const database = openDatabase(guideServerEnv.DATABASE_PATH);
   let workspaceId: string;
@@ -386,7 +401,7 @@ test('Documents preserve uploads and details through the shared phone flow', asy
     database.sqlite.prepare("INSERT INTO workspace_tools(workspace_id,tool,enabled,updated_at,updated_by_user_id) VALUES(?,'DOCUMENTS',1,?,?)").run(workspaceId,Date.now(),user.id);
   } finally { database.close(); }
   await page.goto('/'); await page.getByLabel('Email').fill(email); await page.getByLabel('Password').fill(password);
-  await page.getByRole('button',{name:'Sign in',exact:true}).click(); await expect(page.getByRole('button',{name:/^Settings/})).toBeVisible();
+  await signInGuide(page); await expect(page.getByRole('button',{name:/^Settings/})).toBeVisible();
   const mobile = testInfo.project.name.includes('mobile');
   await page.goto(`/w/${workspaceId}/documents/new`);
   const bar = page.getByRole('navigation', { name: 'Document actions' });
@@ -458,7 +473,7 @@ test('Documents preserve uploads and details through the shared phone flow', asy
 });
 
 test('Remaining tools share phone authoring controls and preserve simple list entry', async ({ page }, testInfo) => {
-  test.setTimeout(60_000); page.setDefaultTimeout(10_000);
+  test.setTimeout(180_000); page.setDefaultTimeout(10_000);
   const email = `schedule-flow-${randomUUID()}@example.org`, password = 'fictional schedule review passphrase';
   const database = openDatabase(guideServerEnv.DATABASE_PATH);
   let workspaceId: string; let procedureId: string;
@@ -471,7 +486,7 @@ test('Remaining tools share phone authoring controls and preserve simple list en
     for (const tool of ['EQUIPMENT','MAINTENANCE','CONTACTS','BRING']) database.sqlite.prepare("INSERT INTO workspace_tools(workspace_id,tool,enabled,updated_at,updated_by_user_id) VALUES(?,?,1,?,?)").run(workspaceId,tool,Date.now(),user.id);
   } finally { database.close(); }
   await page.goto('/'); await page.getByLabel('Email').fill(email); await page.getByLabel('Password').fill(password);
-  await page.getByRole('button',{name:'Sign in',exact:true}).click(); await expect(page.getByRole('button',{name:/^Settings/})).toBeVisible();
+  await signInGuide(page); await expect(page.getByRole('button',{name:/^Settings/})).toBeVisible();
   const mobile = testInfo.project.name.includes('mobile');
   const cases = [
     {path:'equipment',open:'Add equipment',dialog:'Add equipment',field:/^Name/,value:'Phone kettle',steps:3,save:'Save'},

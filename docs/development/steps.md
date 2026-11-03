@@ -5794,3 +5794,10 @@ Full browser integration exposed the pre-layout Schedule summary-order expectati
 Repeat). Updated it to the implemented Date/repeat-before-Details order and selected Repeat by its
 summary text for the recurrence assertion, rather than its former index. No behavior or check removed;
 account flow rerun and pushed CI verification continue on the corrected source.
+
+The full browser run also exposed the shared loopback sign-in limit as Guide coverage grew (18 fresh
+users across both projects). Guide test login now honors HTTP 429 Retry-After and retries with the
+same fixture credentials, bounded to three attempts; no production limiter or security assertion is
+changed. Fixture timeouts allow that real rate-limit wait. The initial full run passed 26 browser
+tests with two intentional project skips and the two integration issues noted here. Final reruns
+verify the corrected account flow and complete Guide suite; source lint/typecheck passed again.
