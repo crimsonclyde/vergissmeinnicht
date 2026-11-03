@@ -5817,3 +5817,17 @@ container build, smoke and vulnerability-scan jobs successfully; quality/browser
 running at this documentation checkpoint. No release tag, registry release publication or deployment.
 This final documentation-only record adds no source changes and skips duplicate CI for that record;
 implementation CI continues on the exact tested source above. Owner assets remain untracked.
+
+### Release plan — owner milestone 45, v0.10.1-beta.0 — Within Reach (2026-11-03)
+
+Owner authorized proceeding through routine release steps following commit/push/build. Publish the
+validated phone UX and Node/Brotli/dependency security fixes as the next beta. Preserve special release
+42 and dedication. Current owner count 44, next 45; update the count only after publication.
+
+Prepare reviewed release notes and exact Unraid image reference, tag the source, then run the release
+workflow's quality/browser/native build/smoke/scans, signing/SBOM and exact-published-image verification.
+Upgrade predecessor corrected from release 42 to the registry-verified immediate v0.10.0-beta.0 index
+`sha256:5d0d4e03407012470d747d0c97573ed697aafb9652a013a3cc29008230c28729`.
+No migration or runtime/security behavior change in preparation; only release configuration/docs.
+Keep data/secrets and require an operator backup before upgrade; no live deployment. Separate
+Dependabot bumps remain separate and need refreshed CI before consideration. Release not yet published.
