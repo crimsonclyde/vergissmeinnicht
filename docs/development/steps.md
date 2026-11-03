@@ -21,8 +21,8 @@ For every completed task, add a concise completion note, tests/checks performed,
 **Clock/Weather screen study (2026-11-03):** owner requested Celestial first on Today and
 dedicated Clock/Weather screens styled like Celestial, using the existing shared action bar.
 Interactive mockup and integration boundaries recorded in [the screen study](../design/clock-weather-screens.md).
-Initial implementation passed release gates; owner correction 27.3 now holds the release draft for
-combined-card mockup approval. Local ordering/Home fixes are verified. Count 45, next 46.
+Owner approved the combined illustrated card after correction 27.3. Implementation and refreshed
+release candidate v0.11.0-beta.1 are recorded in 27.4. Earlier beta.0 stays unpublished. Count 45, next 46.
 
 **Published owner release 45 (2026-11-03): v0.10.1-beta.0 — Within Reach.** Shared phone authoring,
 visual-editor refinements and Node/Brotli dependency security fixes. All tagged release checks, native
@@ -5963,3 +5963,51 @@ remains **draft/unpublished** after this owner correction; the versioned image w
 the workflow, with no live deployment. Do not move its tag. Revised candidate/tag (normally beta.1),
 gallery and release publication wait for the requested combined-card approval. Owner count remains
 **45**, next **46**; Release 42 dedication is preserved. Earlier release-plan notes above are historical.
+
+### 27.4 Approved combined instrument card and release 46 / beta.1 (2026-11-03)
+
+**Status:** IN PROGRESS — implementation complete; final release checks pending.
+Owner approved the pictured combined card and explicitly authorized build, commit, main push and release.
+Plan: **v0.11.0-beta.1 — A Moment in Time**, still owner milestone **46**. Count remains 45 until GitHub
+publication. Preserve immutable candidate beta.0/tag/image and Release 42 dedication; no live deployment.
+
+**Implemented:** one contained navy/gold illustrated Clock/Weather card, equal-height whole-picture
+links and no text-link footers. One usable chosen instrument gets the full card (picture plus reading);
+neither produces nothing. Existing independent personal/server gates and default Celestial-only choice
+remain. Fixed order is Clock/Weather, Celestial, continuation hero. Actual device-minute hands are
+rendered over the approved blank-dial artwork; digital date/time and written Weather condition/units/
+saved-state remain real text. Detailed rain/wind/tomorrow/source/attribution stay on Weather's dedicated
+screen, and its tomorrow setting is relabelled accurately. Original art compressed to one 69,960-byte
+bundled WebP; exact prompts/provenance in `apps/web/src/applets/art/ARTWORK.md`. No external asset,
+new API, dependency, migration, permission or persistence. Home/unsaved-work fixes from 27.3 remain.
+
+**Checks so far:** targeted units, lint/typecheck/build pass. Browser desktop/phone combined-card flow
+passes, including equal geometry at 320/390/1440px, picture navigation, personal hiding, one/zero usable
+instruments and no default forecast requests. Complete local unit/security and browser runs plus refreshed
+README captures are underway; results follow. Security surface unchanged by this presentation; policy
+clarification recorded. Physical devices/real screen readers and existing large-chunk warnings remain.
+
+**Release plan:** candidate beta.0 was not a published owner release. New beta.1 gets its own tag, with
+full quality/browser/native builds/scans, signing/SBOM and exact-published-image verification. Populated
+upgrade checks cover both published v0.10.1-beta.0 index
+`sha256:1b7b677df1d5cab8cb754d8aabfdf900874d535ca78caf6b74761e4888770976` and held beta.0 image
+`sha256:205cd01fa6d1af24220bd20e9bdda8b82d7ae2a23ae6c2f646fd029a5a141de3` (independently verified
+against GHCR). Unraid candidate reference becomes beta.1. Main/Release gates must pass before publishing
+the GitHub prerelease; update owner count only then, and discard only the superseded draft metadata,
+never its immutable tag/image or the special release history.
+
+**27.4 local completion checks:** full unit/security suite **211 files / 1,589 tests passed**; complete
+browser suite **28 passed / 2 intentional project skips**, including account/TOTP/recovery, Workspace
+isolation, offline use, all phone authoring/Home guards and all themes. Lint, typecheck, production web
+build, dependency audit (no known vulnerabilities) and diff check pass. New combined-card assertions
+verify equal half widths/heights and picture navigation at 320/390/1440px, one usable instrument and
+zero/default visibility. Static negatives retain missing current temperature, escaped place text and
+real device-time hand angles. Final browser captures visually inspected; a final gallery-only rerun
+adds the phone Today image without changing behavior. Weather/Clock art is bounded/local/decorative;
+no live providers were called. Ready for authorized main commit/push and the beta.1 publishing gates.
+
+Final exact-build gallery rerun passed (one desktop fixture exercising responsive/a11y and instrument
+flows); all nine Space/Memento/phone WebP captures are updated and visually checked. README local file
+links, final lint/typecheck and `git diff --check` pass. Owner-authorized combined implementation, artwork,
+documentation and beta.1 preparation are ready to commit/push; tag/publication follow CI. The earlier
+owner asset directories stay excluded and untouched.

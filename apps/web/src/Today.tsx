@@ -5,8 +5,8 @@ import { bringContext } from './Bring.tsx';
 import type { BringTodayView } from './api.ts';
 import { MoonCard } from './TodayMoon.tsx';
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
-import { ClockCard } from './TodayClock.tsx';
-import { WeatherCard, useMyForecast } from './TodayWeather.tsx';
+import { useMyForecast } from './TodayWeather.tsx';
+import { TodayInstruments } from './TodayInstruments.tsx';
 import { ProgressCard, RecentCard } from './TodayProgress.tsx';
 import { AddChooser, type CanAdd } from './AddChooser.tsx';
 import { api, isNetworkError, messageFor, type HomeOverview, type ListSummary, type MaintenanceDueSoonItem, type Occurrence, type PersonRef, type RunSummary } from './api.ts';
@@ -404,11 +404,11 @@ export function Today(props: {
       case 'progress':
         return home?.progress === undefined ? null : <ProgressCard key={card.id} progress={home.progress} />;
       case 'clock':
-        return <ClockCard key={card.id} hour24={setting.hour24} />;
+        return null; // Clock/Weather share one independent presentation group above Celestial.
       case 'moon':
         return <MoonCard key={`${workspaceId}:moon`} workspaceId={workspaceId} />;
       case 'weather':
-        return weather === null ? null : <WeatherCard key={card.id} data={weather} />;
+        return null;
       case 'calendar': {
         const dates = home === null ? [] : agenda(home.upcoming.filter(shown));
         if (dates.length === 0) return null;
@@ -475,7 +475,7 @@ export function Today(props: {
           <AddChooser workspaceId={workspaceId} can={props.canAdd} />
         </span>
       </div>
-      {cards.some(setting => setting.card.id === 'clock' || setting.card.id === 'weather') && <div className="today-glance">{cards.filter(setting => setting.card.id === 'clock' || setting.card.id === 'weather').map(render)}</div>}
+      <TodayInstruments clock={cards.find(setting => setting.card.id === 'clock')} weather={cards.some(setting => setting.card.id === 'weather') ? weather : null} />
       {cards.filter(setting => setting.card.id === 'moon').map(render)}
       {hero !== null && cards.some((setting) => setting.card.id === 'continue') && <HeroCard workspaceId={workspaceId} hero={hero} />}
       {message !== null && <p role="alert">{message}</p>}

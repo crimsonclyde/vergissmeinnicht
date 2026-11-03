@@ -139,3 +139,5 @@ jobs:
           test "$(docker inspect --format '{{index .Config.Labels "org.opencontainers.image.revision"}}' "$REF")" = "$GITHUB_SHA"
           deploy/smoke-test.sh "$REF"
           deploy/upgrade-check.sh "$REF" ghcr.io/crimsonclyde/vergissmeinnicht@sha256:1b7b677df1d5cab8cb754d8aabfdf900874d535ca78caf6b74761e4888770976
+          # Earlier fully built beta.0 candidate was withheld as a GitHub Release for the owner’s UI correction.
+          deploy/upgrade-check.sh "$REF" ghcr.io/crimsonclyde/vergissmeinnicht@sha256:205cd01fa6d1af24220bd20e9bdda8b82d7ae2a23ae6c2f646fd029a5a141de3

@@ -1,0 +1,42 @@
+/* One illustrated card, two equal navigation targets. Text sits on a protected navy surface. */
+.today-instruments.instrument{container-type:inline-size;grid-column:1/-1;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:0;padding:0;overflow:hidden;isolation:isolate;border:1px solid var(--instrument-edge);border-radius:1.4rem;background:var(--instrument-bg);color:var(--instrument-text)}
+.today-instrument-half{position:relative;display:block;min-width:0;min-height:clamp(230px,45cqi,350px);overflow:hidden;padding:1rem .75rem;text-decoration:none;color:var(--instrument-text);background:var(--instrument-bg)}
+.today-instrument-half+.today-instrument-half{border-left:1px solid var(--instrument-edge)}
+.today-instrument-half:visited{color:var(--instrument-text)}
+.today-instrument-half:hover{color:var(--instrument-text);text-decoration:none;box-shadow:inset 0 0 0 1px var(--instrument-gold)}
+.today-instrument-half:focus-visible{outline:3px solid var(--instrument-gold);outline-offset:-5px;border-radius:1rem}
+.instrument-picture{position:absolute;inset:0 auto auto 50%;display:block;width:min(100%,350px);aspect-ratio:1;transform:translateX(-50%);pointer-events:none;overflow:hidden}
+.instrument-picture img{display:block;width:200%;max-width:none;height:auto}
+.instrument-picture-weather img{transform:translateX(-50%)}
+.instrument-picture-hands{position:absolute;inset:0;width:100%;height:100%;color:var(--instrument-gold);overflow:visible}
+.instrument-picture-hands line{stroke:currentColor;stroke-linecap:round}
+.instrument-picture-hands .picture-hour-hand{stroke-width:9}
+.instrument-picture-hands .picture-minute-hand{stroke-width:6}
+.instrument-picture-hands circle{fill:currentColor}
+.today-instrument-half::after{content:'';position:absolute;inset:0;background:linear-gradient(to bottom,transparent 60%,var(--instrument-bg) 90%);pointer-events:none}
+.instrument-half-name{position:relative;z-index:1;display:block;font-size:.7rem;letter-spacing:.16em;color:var(--instrument-muted);text-transform:uppercase}
+.instrument-half-copy{position:absolute;z-index:1;bottom:1rem;inset-inline:.75rem;display:grid;gap:.25rem;text-align:center;min-width:0}
+.instrument-half-value{display:block;font:400 clamp(1.8rem,5cqi,2.65rem)/1.2 Georgia,serif;font-variant-numeric:tabular-nums;color:var(--instrument-text);white-space:nowrap}
+.instrument-half-value small{font:400 .5em Georgia,serif;color:var(--instrument-gold)}
+.instrument-half-context{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:.75rem;color:var(--instrument-muted);min-width:0}
+.instrument-half-stale{position:relative;z-index:1;display:block;font-size:.7rem;color:var(--instrument-gold);margin-top:.35rem}
+.today-instruments[data-parts='1']{grid-template-columns:minmax(0,1fr)}
+.today-instruments[data-parts='1'] .today-instrument-half{min-height:clamp(200px,44cqi,330px)}
+.today-instruments[data-parts='1'] .instrument-picture{left:25%;width:50%;max-width:350px}
+.today-instruments[data-parts='1'] .instrument-half-copy{inset-block:0;left:50%;right:.75rem;align-content:center}
+.today-instruments[data-parts='1'] .today-instrument-half::after{background:linear-gradient(to right,transparent 32%,var(--instrument-bg) 55%)}
+:root[data-theme='space-guide'] .shell[data-layout='guide'] .today-instruments.instrument{padding:0;background:var(--instrument-bg);background-image:none;color:var(--instrument-text)}
+@media(max-width:30rem){
+ .today-instrument-half{padding:.75rem .5rem}
+ .instrument-half-copy{bottom:.8rem;inset-inline:.4rem}
+ .instrument-half-context{font-size:.7rem}
+ .today-instruments[data-parts='1'] .today-instrument-half{min-height:190px}
+}
+@media(forced-colors:active){
+ .today-instruments.instrument,.today-instrument-half{background:Canvas!important;color:LinkText;border-color:CanvasText}
+ .instrument-picture,.today-instrument-half::after{display:none}
+ .today-instruments .today-instrument-half{min-height:150px;box-shadow:none}
+ .today-instruments .instrument-half-copy{position:static;margin-top:1rem}
+ .today-instruments :is(.instrument-half-name,.instrument-half-context,.instrument-half-value,.instrument-half-value small,.instrument-half-stale){color:CanvasText}
+ .today-instrument-half:focus-visible{outline-color:Highlight}
+}

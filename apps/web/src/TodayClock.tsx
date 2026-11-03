@@ -1,7 +1,6 @@
 import { useEffect, useId, useState } from 'react';
 import { formatClock, t } from './i18n/index.ts';
-import { useThemeMode } from './theme.ts';
-import { UiIcon } from './ui-icons.tsx';
+import { InstrumentPicture } from './applets/InstrumentPicture.tsx';
 import { Link, paths } from './router.tsx';
 import './applets/instruments.css';
 
@@ -31,28 +30,22 @@ export function useMinute(): Date {
 }
 
 /**
- * Clock & date (19.3): a personal card, off by default — the "home screen" feel on a desktop, laptop or wall
- * tablet; one line on a phone. Purely in the browser. Not a live region: nothing is announced each minute;
+ * Clock & date (19.3): the personal Clock half of the shared Today instrument card, off by default. Purely in the browser. Not a live region: nothing is announced each minute;
  * the `<time>` carries the full date and time as text for assistive technology.
  */
 export function ClockCard({ hour24 }: { hour24: boolean }) {
   const now = useMinute();
   const { time, date, full } = formatClock(now, hour24);
-  const [mode] = useThemeMode();
-  return (
-    <section className="card today-card today-clock" aria-label={t('today.clock')} data-card="clock">
-      <div className="instrument">
-        <header className="instrument-heading"><span>{t('clock.deviceTime')}</span><h3>{t('today.clock')}</h3><i aria-hidden="true" /></header>
-        {mode === 'witch-forest' && <Sundial now={now} />}
-        <time dateTime={now.toISOString()}>
-          <span className="instrument-time" aria-hidden="true">{time}</span>
-          <span className="instrument-caption" aria-hidden="true">{date}</span>
-          <span className="visually-hidden">{full}</span>
-        </time>
-      </div>
-      <Link href={paths.clock()} className="today-clock-link">{t('guide.clockOpen')} <UiIcon name="forward" /></Link>
-    </section>
-  );
+  const description = useId();
+  return <Link href={paths.clock()} className="today-instrument-half" data-card="clock" aria-label={t('guide.clockOpen')} aria-describedby={description}>
+    <InstrumentPicture kind="clock" now={now} />
+    <span className="instrument-half-name">{t('today.clock')}</span>
+    <time dateTime={now.toISOString()} className="instrument-half-copy">
+      <span className="instrument-half-value" aria-hidden="true">{time}</span>
+      <span className="instrument-half-context" aria-hidden="true">{date}</span>
+      <span className="visually-hidden" id={description}>{full}</span>
+    </time>
+  </Link>;
 }
 
 const SOLAR_HOURS = ['VI', 'VII', 'VIII', 'IX', 'X', 'XI', 'XII', 'I', 'II', 'III', 'IV', 'V', 'VI'] as const;

@@ -6,7 +6,19 @@ import { expectAccessible } from './a11y.ts';
 export async function checkClockWeather(page: Page, workspaceId: string, screenshots: boolean) {
   expect(await page.locator('.today [data-card]').evaluateAll(nodes => nodes.slice(0,3).map(node => node.getAttribute('data-card')))).toEqual(['clock','weather','moon']);
   await expect(page.locator('[data-card="hero"]')).toBeVisible();
-  await page.getByRole('link', { name: /Snow.*Open forecast/ }).click();
+  await expect(page.locator('.today-instruments')).toHaveAttribute('data-parts', '2');
+  await expect(page.locator('.today-clock-link, .today-weather-open')).toHaveCount(0);
+  for (const width of [320, 390, 1440]) {
+    await page.setViewportSize({ width, height: 1000 });
+    const clock = await page.locator('.today-instruments [data-card="clock"]').boundingBox();
+    const weather = await page.locator('.today-instruments [data-card="weather"]').boundingBox();
+    expect(Math.abs((clock?.width ?? 0) - (weather?.width ?? 0))).toBeLessThanOrEqual(1);
+    expect(clock?.height).toBe(weather?.height);
+    expect(await page.evaluate('document.documentElement.scrollWidth <= innerWidth')).toBe(true);
+    await expectAccessible(page, `Combined instrument card ${width}`);
+  }
+
+  await page.locator('.today-instruments [data-card="weather"] .instrument-picture').click();
   await expect(page).toHaveURL('/weather');
   await expect(page.getByRole('heading', { name: 'Weather', exact: true })).toBeVisible();
   await expect(page.getByRole('dialog')).toHaveCount(0);
@@ -14,7 +26,7 @@ export async function checkClockWeather(page: Page, workspaceId: string, screens
   await expectAccessible(page, 'dedicated Weather');
   await page.getByRole('button', { name: 'Back', exact: true }).click();
   await expect(page).toHaveURL(`/w/${workspaceId}`);
-  await page.getByRole('link', { name: 'Open clock and date', exact: true }).first().click();
+  await page.locator('.today-instruments [data-card="clock"] .instrument-picture').click();
   await expect(page).toHaveURL('/clock');
   await expect(page.getByRole('dialog')).toHaveCount(0);
   const modes = page.getByRole('group', { name: 'Clock mode' });
@@ -61,6 +73,7 @@ export async function checkClockWeather(page: Page, workspaceId: string, screens
   await page.goto(`/w/${workspaceId}`);
   await expect(page.locator('[data-card="clock"]')).toHaveCount(0);
   await expect(page.locator('[data-card="weather"]')).toBeVisible();
+  await expect(page.locator('.today-instruments')).toHaveAttribute('data-parts', '1');
   await page.goto('/account/today'); await setClock(true);
   await page.reload(); await expect(clock).toBeChecked();
 
@@ -105,7 +118,11 @@ export async function checkClockWeather(page: Page, workspaceId: string, screens
       await page.goto('/weather'); await expect(page.locator('.instrument-weather')).toBeVisible();
       await page.screenshot({ path: `${directory}/weather-${value}.png`, fullPage: true });
     }
-    await page.setViewportSize({ width: 390, height: 1000 }); await page.goto('/clock');
+    await page.setViewportSize({ width: 390, height: 1000 });
+    await page.goto(`/w/${workspaceId}`);
+    await expect(page.locator('.today-instruments')).toHaveAttribute('data-parts', '2');
+    await page.screenshot({ path: `${directory}/today-phone.png`, fullPage: false });
+    await page.goto('/clock');
     await page.getByRole('button', { name: 'Timer', exact: true }).click();
     await page.screenshot({ path: `${directory}/timer-phone.png`, fullPage: false });
     await page.goto('/account/today');

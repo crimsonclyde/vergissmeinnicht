@@ -915,4 +915,8 @@ checks, forced-colour fallback and no motion or remote assets.
 
 Owner correction (27.3): Note/private Journal Home uses ordinary guarded router navigation to the
 validated current Workspace Today, falling back to the start page. It does not clear drafts or bypass
-unsaved-work confirmation. The combined illustrated Clock/Weather card is still an approval study.
+unsaved-work confirmation. The approved combined illustrated Clock/Weather card is implemented by TodayInstruments. Its presentation
+group composes the existing independent Clock/Weather choices; it adds no stored card id. Bundled
+artwork is decorative, native minute-updated clock hands match device time, and the whole half is a
+normal guarded router link. One usable instrument fills the card; neither produces no card. Detailed
+forecast fields, source/fallback, tomorrow and attribution remain on the dedicated Weather screen.

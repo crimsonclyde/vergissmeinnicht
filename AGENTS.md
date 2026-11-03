@@ -488,8 +488,9 @@ independent mobile versus a running-desktop bridge remains a product/deployment 
 
 Each person independently chooses Celestial, Clock and Weather in Profile → Today. Among these three,
 only Celestial defaults on, and it still requires the Workspace `MOON` gate. Owner correction later the same day: enabled Clock/Weather comes first, then enabled Celestial,
-then the continuation hero; preserve other saved choices/order. The illustrated combined Clock/Weather
-card requires mockup approval before implementation. Existing personal/server switches remain; no new
+then the continuation hero; preserve other saved choices/order. The owner approved the illustrated combined Clock/Weather
+card and authorized implementation, commit/push and release. Both equal halves are whole-picture links;
+one selected instrument fills the card, neither selected removes it, and there are no text-link footers. Existing personal/server switches remain; no new
 Workspace switches for Clock or Weather. Clock and Weather use
 Celestial-compatible contained instruments and dedicated screens, reusing the shared bottom action bar.
 Clock includes local Stopwatch/laps and Timer with presets/custom minutes. Timing is account-keyed tab

@@ -1541,9 +1541,9 @@ test('first server admin: bootstrap link, account creation, sign-in, Workspace c
   await expect(clock.locator('time')).toHaveText(/\b([01]\d|2[0-3]):[0-5]\d\b/);
   await expect(clock.locator('[aria-live]')).toHaveCount(0);
   // The glance row: full width above the cards, on a phone too.
-  await expect(page.locator('.today-glance').first().locator('.today-card')).toHaveAttribute('data-card', 'clock');
+  await expect(page.locator('.today-instruments')).toHaveAttribute('data-parts', '1');
   await page.setViewportSize({ width: 390, height: 844 });
-  await expect(clock.locator('.instrument')).toBeVisible();
+  await expect(clock.locator('.instrument-picture')).toBeVisible();
   expect(await page.evaluate('document.documentElement.scrollWidth <= innerWidth')).toBe(true);
   await page.setViewportSize({ width: 1280, height: 720 });
   await page.getByRole('link', { name: 'Customize Today' }).click();
@@ -1716,15 +1716,19 @@ test('first server admin: bootstrap link, account creation, sign-in, Workspace c
   await cardSettings.getByLabel('Weather', { exact: true }).check();
   await expect(page.getByRole('status').filter({ hasText: 'Saved.' })).toBeVisible();
   await sections.getByRole('link', { name: 'Today' }).click();
-  const weatherCard = page.getByRole('region', { name: 'Weather in Triora' });
+  const weatherCard = page.locator('[data-card="weather"]');
   // Rain as the provider gives it: no probability from this model, so the amount; who supplied it, with the model.
   await expect(weatherCard).toContainText('16°');
   await expect(weatherCard).toContainText('Cloudy');
-  await expect(weatherCard).toContainText('High 18° · Low 12°');
-  await expect(weatherCard).toContainText('11.9 mm rain');
-  await expect(weatherCard).toContainText('Open-Meteo · ItaliaMeteo ARPAE ICON-2I');
-  await expect(weatherCard).toContainText('Tomorrow: Cloudy · 19° / 9°');
-  await expect(page.locator('.today-glance').first().locator('[data-card="weather"]')).toHaveCount(1);
+  await weatherCard.locator('.instrument-picture').click();
+  await expect(page).toHaveURL('/weather');
+  const detailed = page.locator('.instrument-weather');
+  await expect(detailed).toContainText('High 18° · Low 12°');
+  await expect(detailed).toContainText('11.9 mm');
+  await expect(detailed).toContainText('Open-Meteo · ItaliaMeteo ARPAE ICON-2I');
+  await expect(detailed.locator('.instrument-weather-tomorrow')).toContainText('19° / 9°');
+  await page.getByRole('button', { name: 'Back', exact: true }).click();
+  await expect(page.locator('.today-instruments [data-card="weather"]')).toHaveCount(1);
   await page.setViewportSize({ width: 320, height: 700 });
   expect(await noSidewaysScroll()).toBe(true);
   await page.setViewportSize({ width: 1280, height: 720 });

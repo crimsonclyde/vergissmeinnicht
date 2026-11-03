@@ -1640,3 +1640,15 @@ page navigation, laps, pause/reset, invalid minutes, personal hide/reload, defau
 Weather opening without Today opt-in, and Space/Memento captures. Full own-account Weather credential,
 Workspace isolation and disabled-route negatives remain in the existing suite. Final counts are in the
 ledger; physical devices, real screen readers and whole-app security certification are not claimed.
+
+### Security check: approved combined instrument artwork — 27.4 (2026-11-03)
+
+No new security surface. The shared card composes the existing independently gated personal choices
+and existing scoped forecast. Weather off/missing still produces no Weather half or automatic request;
+no instruments produces no empty card. Normal router links retain navigation guards. The bundled fixed
+WebP carries no user data and has no configurable URL; no new upload, renderer, provider, credential,
+script, dependency, preference, permission, mutation, notification or backup field. Painted Weather is
+an emblem only, never a warning or measurement. Real textual readings remain authoritative; missing
+current temperature is never replaced by a daily maximum. Native clock hands use the same local
+minute as digital time and carry no motion or accessibility announcements. Forced colours hides art
+and retains named links/readings. Home/Back/timer navigation never awards points or changes history.
