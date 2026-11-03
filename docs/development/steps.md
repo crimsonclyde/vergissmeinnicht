@@ -18,6 +18,12 @@ For every completed task, add a concise completion note, tests/checks performed,
 
 ## Current state — resume here
 
+**Published owner release 45 (2026-11-03): v0.10.1-beta.0 — Within Reach.** Shared phone authoring,
+visual-editor refinements and Node/Brotli dependency security fixes. All tagged release checks, native
+amd64/arm64 publishing scans/smoke, signing/SBOM and exact-image populated upgrade from v0.10.0-beta.0
+passed. [Release](https://github.com/crimsonclyde/vergissmeinnicht/releases/tag/v0.10.1-beta.0).
+Owner count **45**, next **46**; special release 42/dedication preserved. No live deployment.
+
 **Recipes and MCP follow-up (2026-11-02):** owner requested Recipes and an MCP interface for AI/possible voice control, and selected recipe library **plus grocery-list transfer**. [Assessment and concrete proposal](recipes-mcp-plan.md), section 36.0, covers reusable editor/attachment infrastructure, atomic reviewed ingredient transfer, delegated MCP authorization and reviewed cleanup. Owner authorized implementation on 2026-11-02; Recipes implementation is now underway. Owner subsequently selected user-task writes through a client such as Claude, including Procedure/Run tasks and serving-scaled Recipe/image/shopping creation (36.3). Documents/OCR/private Journal remain excluded; image capability and deployment/auth details still need implementation design. Notes/Journal work below remains complete and unchanged.
 
 **Notes/Journal/shared attachments integration (2026-11-02):** owner approved proceeding after the [architectural assessment](notes-journal-attachments-plan.md). Shared Notes/personal Journal, reusable Markdown and independent attachment transport/application/storage/authorization, exact originals, quotas/hashes, exports and compatible recovery implemented and verified; results in 35.1. No release/deployment. Owner count remains 43; next 44th.
@@ -5831,3 +5837,19 @@ Upgrade predecessor corrected from release 42 to the registry-verified immediate
 No migration or runtime/security behavior change in preparation; only release configuration/docs.
 Keep data/secrets and require an operator backup before upgrade; no live deployment. Separate
 Dependabot bumps remain separate and need refreshed CI before consideration. Release not yet published.
+
+
+### Published owner milestone 45 — v0.10.1-beta.0 (2026-11-03)
+
+**DONE:** [Within Reach](https://github.com/crimsonclyde/vergissmeinnicht/releases/tag/v0.10.1-beta.0)
+published from immutable tag/source `a86d6b425de1ceb6ce357f78b15a0600d93a6c3a`.
+[Release workflow 41665421469](https://github.com/crimsonclyde/vergissmeinnicht/actions/runs/41665421469)
+passed all quality/browser/native container gates, publishing scans/smoke, keyless signing, CycloneDX
+attestation and verification of the exact published image including the populated immediate-predecessor
+upgrade. Index `sha256:1b7b677df1d5cab8cb754d8aabfdf900874d535ca78caf6b74761e4888770976` contains
+linux/amd64 `sha256:7a341a45459ae4400316f4c1bae25070dc68e096f48553efb5b9730b1d9a1eda` and
+linux/arm64 `sha256:46c3a54d497359ad7e24f43586f5179912030ee2e80575050a1a9abcea723e40`.
+Registry manifest independently inspected. Exact beta only; latest not moved. AGENTS count updated to
+45, next 46; release 42 dedication untouched. Completion record/docs only, no security-surface change.
+Remaining: physical-phone keyboard/screen-reader checks, specialized secondary dialogs and independent
+Dependabot updates. No live deployment. Owner asset folders excluded and preserved.
