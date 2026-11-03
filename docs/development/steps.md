@@ -5807,3 +5807,13 @@ checks passed. The account regression also needed to accept the new intentional 
 confirmation after a stale List edit; added that acceptance and asserted the editor closes. No
 application/security behavior changed in these follow-up test corrections. Final account/Guide rerun
 continues; GitHub native image builds/scans and quality/browser jobs run on the pushed source.
+
+**Final local integration result:** corrected account + complete Guide suite passed (18 tests; two
+existing project-specific skips). The other ten browser smoke/theme checks passed in the initial
+full run; both initial integration failures were corrected and rerun successfully. Full unit suite:
+208 files / 1,580 tests passed. Web build/lint/typecheck and production container smoke passed.
+GitHub CI run 41662440625 on implementation/test commit `2b4f687` completed both native amd64/arm64
+container build, smoke and vulnerability-scan jobs successfully; quality/browser jobs were still
+running at this documentation checkpoint. No release tag, registry release publication or deployment.
+This final documentation-only record adds no source changes and skips duplicate CI for that record;
+implementation CI continues on the exact tested source above. Owner assets remain untracked.
