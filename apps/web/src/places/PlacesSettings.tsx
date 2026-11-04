@@ -33,7 +33,7 @@ const clampPercent = (value: number) => Math.max(0, Math.min(100, Math.round(val
 /**
  * Profile & settings → Places (section 30): the person's own look of the Workspace being used, only
  * while that Workspace shows a Places theme. It never changes the place (that is the theme, chosen on
- * its Look and layout page), the Workspace, or anyone else's view. Changes are previewed first and kept only with Save;
+ * Profile & settings → Appearance), the Workspace, or anyone else's view. Changes are previewed first and kept only with Save;
  * Cancel returns to what is saved. The photo itself is stored as soon as it is uploaded (privately).
  */
 export function PlacesSettings({ userId, workspace, config }: { userId: string; workspace: WorkspaceSummary | null; config: PlaceConfig | null }) {
@@ -41,7 +41,7 @@ export function PlacesSettings({ userId, workspace, config }: { userId: string; 
     return (
       <div className="card">
         <p>{t('places.notActive')}</p>
-        {workspace !== null && <Link href={paths.look(workspace.id)}>{t('places.toLook')}</Link>}
+        {workspace !== null && <Link href={paths.account('appearance')}>{t('places.toAppearance')}</Link>}
       </div>
     );
   }

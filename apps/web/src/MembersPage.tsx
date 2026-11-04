@@ -102,11 +102,11 @@ function RenameWorkspace({ context, onRenamed }: { context: WorkspaceContext; on
   );
 }
 
-export type WorkspaceSettingsPage = 'settings' | 'members' | 'plugins' | 'knots' | 'storage' | 'backup' | 'look';
+export type WorkspaceSettingsPage = 'settings' | 'members' | 'plugins' | 'knots' | 'storage' | 'backup';
 
 /**
  * The Workspace settings sections (15.1; icons and groups since section 29): Workspace (General,
- * Members, Look and layout), Tools (Plugins, Sharing links), Data (Storage, Backup). Capabilities only adapt the UI;
+ * Members), Tools (Plugins, Sharing links), Data (Storage, Backup). Capabilities only adapt the UI;
  * the server authorizes every request.
  */
 export const workspaceSettingsSections = (workspaceId: string, capabilities: readonly string[], current: WorkspaceSettingsPage) => {
@@ -116,7 +116,6 @@ export const workspaceSettingsSections = (workspaceId: string, capabilities: rea
   return [
     { href: paths.settings(workspaceId), label: t('workspaceSettings.general'), current: current === 'settings', icon: 'settings' as const, group: workspace },
     { href: paths.members(workspaceId), label: t('members.heading'), current: current === 'members', icon: 'contacts' as const, group: workspace },
-    { href: paths.look(workspaceId), label: t('workspaceSettings.look'), current: current === 'look', icon: 'appearance' as const, group: workspace },
     // Workspace admins only: the on/off switches of every tool.
     ...(capabilities.includes('workspace.tools.manage') ? [{ href: paths.plugins(workspaceId), label: t('workspaceSettings.plugins'), current: current === 'plugins', icon: 'plugins' as const, group: tools }] : []),
     ...(capabilities.includes('knot.manage') ? [{ href: paths.knots(workspaceId), label: t('workspaceSettings.sharing'), current: current === 'knots', icon: 'share' as const, group: tools }] : []),

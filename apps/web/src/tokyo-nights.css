@@ -716,7 +716,7 @@
   backdrop-filter: blur(6px);
 }
 
-/* ---- Theme picker swatches (Settings → Appearance, Look and layout → Theme) ---------------------- */
+/* ---- Theme picker swatches (Profile & settings → Appearance, per Workspace) ---------------------- */
 
 :root[data-theme='tokyo-nights'] .theme-option:has(input:checked) {
   border-color: var(--neon-a);

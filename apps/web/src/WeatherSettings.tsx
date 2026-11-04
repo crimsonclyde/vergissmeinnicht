@@ -1,6 +1,6 @@
 import { DEFAULT_WEATHER_SETTINGS, KEYLESS_PROVIDERS, WEATHER_UNITS, type OpenMeteoModelId, type WeatherLocation, type WeatherProviderChoice, type WeatherSettings as Settings } from '@vergissmeinnicht/domain';
 import { useEffect, useId, useState, type FormEvent } from 'react';
-import { ApiError, api, messageFor, type ModelChoice, type MyForecast, type MyWeather, type PlaceResult, type WorkspaceWeatherStatus } from './api.ts';
+import { ApiError, api, messageFor, type ModelChoice, type MyForecast, type MyWeather, type PlaceResult } from './api.ts';
 import { formatCalendarDate, formatDateTime, t, type MessageKey } from './i18n/index.ts';
 import { browserTimeZone } from './schedule-dates.ts';
 import { UiIcon } from './ui-icons.tsx';
@@ -94,8 +94,6 @@ export function WeatherSettings() {
   const [manual, setManual] = useState({ name: '', latitude: '', longitude: '', timeZone: browserTimeZone(), elevation: '' });
   const [models, setModels] = useState<readonly ModelChoice[] | null>(null);
   const [forecast, setForecast] = useState<MyForecast | null>(null);
-  const [selectedWorkspace, setSelectedWorkspace] = useState<string | null>(null);
-  const [preview, setPreview] = useState<WeatherLocation | null>(null);
 
   useEffect(() => {
     api.myWeather().then(
@@ -110,23 +108,6 @@ export function WeatherSettings() {
     );
     api.myForecast().then(setForecast, () => undefined);
   }, []);
-
-  const chooseWorkspace = (id: string) => {
-    setPreview(null);
-    setSelectedWorkspace(id);
-  };
-  // The place a chosen Workspace uses for its weather: its own location if the person opted in, else the personal place.
-  useEffect(() => {
-    if (selectedWorkspace === null) return;
-    let active = true;
-    api.myWeather(selectedWorkspace).then(
-      (found) => active && setPreview(found.settings.location),
-      (caught: unknown) => active && setMessage(messageFor(caught)),
-    );
-    return () => {
-      active = false;
-    };
-  }, [selectedWorkspace]);
 
   // Which models cover the chosen place (asked once per place; the server caches it for a day).
   const place = draft.location;
@@ -180,17 +161,6 @@ export function WeatherSettings() {
       (caught: unknown) => setMessage(messageFor(caught)),
     );
   };
-  const toggleWorkspace = (workspace: WorkspaceWeatherStatus, enabled: boolean) => {
-    setMessage(null);
-    api.setWorkspaceWeatherLocation(workspace.id, enabled).then(
-      (result) => {
-        setMine((current) => (current === null ? current : { ...current, workspaces: result.workspaces }));
-        setPreview(result.settings.location);
-      },
-      (caught: unknown) => setMessage(messageFor(caught)),
-    );
-  };
-  const selected = mine.workspaces.find((workspace) => workspace.id === selectedWorkspace);
   const modelLabel = (model: ModelChoice) =>
     [
       model.label,
@@ -204,39 +174,6 @@ export function WeatherSettings() {
       <h3>{t('weather.heading')}</h3>
       <p className="muted">{t('weather.lead')}</p>
       {message !== null && <p role="alert">{message}</p>}
-
-      <section className="stack" aria-labelledby={`${id}-workspaces`}>
-        <h4 id={`${id}-workspaces`}>{t('weather.workspaces.heading')}</h4>
-        <p className="muted">{t('weather.workspaces.lead')}</p>
-        {mine.workspaces.length === 0 ? (
-          <p className="muted">{t('weather.workspaces.none')}</p>
-        ) : (
-          <ul className="plain-list weather-workspaces">
-            {mine.workspaces.map((workspace) => (
-              <li key={workspace.id}>
-                <button type="button" className="quiet" aria-pressed={workspace.id === selectedWorkspace} onClick={() => chooseWorkspace(workspace.id)}>
-                  <strong>{workspace.name}</strong>{' '}
-                  <small className="muted">{t(workspace.hasLocation ? 'weather.workspaces.hasLocation' : 'weather.workspaces.noLocation')}</small>
-                </button>
-              </li>
-            ))}
-          </ul>
-        )}
-        {selected !== undefined && (
-          <fieldset>
-            <legend>{selected.name}</legend>
-            <label className="row">
-              <input type="checkbox" checked={selected.enabled} disabled={!selected.hasLocation} onChange={(event) => toggleWorkspace(selected, event.target.checked)} />
-              {t('weather.useWorkspaceLocation')}
-            </label>
-            <p className="muted">{t(selected.hasLocation ? 'weather.workspaceLocationHint' : 'weather.workspaces.noLocationHint')}</p>
-            <p>
-              {t('weather.workspaces.used')} {preview === null ? <span className="muted">{t('common.loading')}</span> : <strong>{preview.name}</strong>}
-            </p>
-          </fieldset>
-        )}
-      </section>
-
 
       <h4>{t('weather.profileHeading')}</h4>
       <fieldset>

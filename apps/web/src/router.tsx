@@ -130,8 +130,6 @@ export type Route =
   | { readonly page: 'storage'; readonly workspaceId: string }
   | { readonly page: 'knots'; readonly workspaceId: string }
   | { readonly page: 'backup'; readonly workspaceId: string }
-  /** Workspace settings → Look and layout: the person's Background, Theme, Weather and navigation for this Workspace. */
-  | { readonly page: 'look'; readonly workspaceId: string }
   | { readonly page: 'not-found' };
 
 const TOKEN = '([A-Za-z0-9_-]+)';
@@ -207,7 +205,6 @@ export function parseRoute(pathname: string): Route {
   if ((match = new RegExp(`^/w/${ID}/storage$`).exec(path))) return { page: 'storage', workspaceId: match[1] ?? '' };
   if ((match = new RegExp(`^/w/${ID}/knots$`).exec(path))) return { page: 'knots', workspaceId: match[1] ?? '' };
   if ((match = new RegExp(`^/w/${ID}/backup$`).exec(path))) return { page: 'backup', workspaceId: match[1] ?? '' };
-  if ((match = new RegExp(`^/w/${ID}/look$`).exec(path))) return { page: 'look', workspaceId: match[1] ?? '' };
   return { page: 'not-found' };
 }
 
@@ -259,7 +256,6 @@ export const paths = {
   members: (workspaceId: string) => `/w/${workspaceId}/members`,
   plugins: (workspaceId: string) => `/w/${workspaceId}/plugins`,
   storage: (workspaceId: string) => `/w/${workspaceId}/storage`,
-  look: (workspaceId: string) => `/w/${workspaceId}/look`,
   account: (section: AccountSection) => (section === 'profile' ? '/account' : `/account/${section}`),
   admin: (section: AdminSection) => (section === 'workspaces' ? '/admin' : `/admin/${section}`),
 };

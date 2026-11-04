@@ -35,7 +35,6 @@ import { t, type MessageKey } from './i18n/index.ts';
 import { KnotOpener, KnotsPage } from './Knots.tsx';
 import { Lists } from './Lists.tsx';
 import { MembersPage, WorkspaceGeneral, WorkspaceStoragePage, roleLabel, workspaceSettingsSections, type WorkspaceSettingsPage } from './MembersPage.tsx';
-import { WorkspaceLookSettings } from './WorkspaceLookSettings.tsx';
 import { PluginsPage } from './PluginsPage.tsx';
 import { MorePage } from './MorePage.tsx';
 import { ProcedureBuilder } from './ProcedureBuilder.tsx';
@@ -339,8 +338,6 @@ function WorkspacePage(props: {
       return settings('knots', can('knot.manage') ? <KnotsPage workspaceId={route.workspaceId} /> : <p role="alert">{t('knot.manageOnly')}</p>);
     case 'backup':
       return settings('backup', can('workspace.backup') ? <WorkspaceBackupPage workspaceId={route.workspaceId} /> : <p role="alert">{t('backup.adminOnly')}</p>);
-    case 'look':
-      return settings('look', <WorkspaceLookSettings context={context} />);
     }
   };
   // Pages of other tools show linked Documents only where the Documents tool is on (16.5).

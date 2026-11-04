@@ -1612,28 +1612,29 @@ test('first server admin: bootstrap link, account creation, sign-in, Workspace c
     page.evaluate(async ({ id, location, expectedLocation }) => (await fetch(`/api/workspaces/${id}/location`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ location, expectedLocation }) })).status, { id: householdId, location, expectedLocation });
   const sharedLocation = { name: 'Home Triora', latitude: 43.993, longitude: 7.7637, timeZone: 'Europe/Rome', elevation: null };
   const useWorkspacePlace = page.getByLabel('Use the current Workspace’s location when available', { exact: true });
-  const chooseHousehold = () => page.getByRole('button', { name: /^Household/ }).click();
+  const chooseHousehold = async () => {
+    await page.goto('/account/appearance');
+    await page.getByRole('group', { name: 'Workspace', exact: true }).getByRole('button', { name: 'Household', exact: true }).click();
+  };
   await chooseHousehold();
   await expect(page.getByText('This Workspace has no shared location, so your personal location is used.')).toBeVisible();
   await expect(useWorkspacePlace).toBeDisabled();
   expect(await setSharedLocation(sharedLocation, null)).toBe(200);
-  await page.reload();
   await chooseHousehold();
   await expect(useWorkspacePlace).toBeEnabled();
   await expect(useWorkspacePlace).not.toBeChecked();
   await useWorkspacePlace.click();
   await expect(useWorkspacePlace).toBeChecked();
-  await page.reload();
   await chooseHousehold();
   await expect(useWorkspacePlace).toBeChecked();
   await useWorkspacePlace.click();
   await expect(useWorkspacePlace).not.toBeChecked();
-  await page.reload();
   await chooseHousehold();
   await expect(useWorkspacePlace).not.toBeChecked();
   // The stored location is the compare-and-set token for clearing it again.
   const storedSharedLocation = (await page.evaluate(async (id) => (await fetch(`/api/workspaces/${id}/location`)).json(), householdId)) as { location: unknown };
   expect(await setSharedLocation(null, storedSharedLocation.location)).toBe(200);
+  await page.goto('/account/weather');
   // Stored rounded to about 1 km.
   await expect(page.getByText('43.99, 7.76 · 780 m · Europe/Rome')).toBeVisible();
   await expect(page.getByText('This provider is not available on this server.')).toBeVisible();
@@ -2939,12 +2940,12 @@ test('first server admin: bootstrap link, account creation, sign-in, Workspace c
   await settingsSection(page, 'Profile & settings', 'Appearance');
   await expect(page).toHaveURL(/\/account\/appearance$/);
 
-  // Appearance (8.3, section 28): each Workspace's theme is picked on its Look and layout page. The choice applies in that Workspace and
+  // Appearance (8.3, section 28): each Workspace has its own tab under Profile & settings → Appearance, where its theme is picked. The choice applies in that Workspace and
   // survives a reload. Account pages show the account default, so each theme check reads the Workspace page.
   const html = page.locator('html');
   const pickWorkspace = async () => {
-    await page.goto(`${workspacePath}/look`);
-    await page.getByRole('group', { name: 'Look and layout sections' }).getByRole('button', { name: 'Theme', exact: true }).click();
+    await page.goto('/account/appearance');
+    await page.getByRole('group', { name: 'Workspace', exact: true }).getByRole('button', { name: 'Household', exact: true }).click();
   };
   await pickWorkspace();
   await page.getByRole('radio', { name: /^Memento Mori/ }).check();
