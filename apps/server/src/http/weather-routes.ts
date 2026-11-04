@@ -84,6 +84,7 @@ const forecastView = (result: MyForecast) => ({
   fellBackFrom: result.fellBackFrom,
   unit: result.unit,
   showTomorrow: result.showTomorrow,
+  history: result.history,
 });
 
 /**
@@ -135,7 +136,7 @@ export async function accountWeatherRoutes(app: FastifyInstance, { services }: {
   });
 
   // No forecast is not an error for Today: it simply shows nothing; the Weather page shows the reason.
-  // `days`: Today asks for 2; the Weather page for all the provider offers.
+  // `days`: Today and the Weather page both ask for 4: today and the three days after it.
   app.get('/forecast', async (request) => {
     const query = parse(z.strictObject({ workspaceId: z.string().regex(UUID_V4).optional(), days: z.coerce.number().int().min(1).max(16).optional() }), request.query);
     try {

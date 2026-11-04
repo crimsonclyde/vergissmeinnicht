@@ -22,7 +22,7 @@ export async function checkClockWeather(page: Page, workspaceId: string, screens
   await expect(page).toHaveURL('/weather');
   await expect(page.getByRole('heading', { name: 'Weather', exact: true })).toBeVisible();
   await expect(page.getByRole('dialog')).toHaveCount(0);
-  await expect(page.locator('.instrument-weather')).toContainText('Fictional studio');
+  await expect(page.locator('.weather-now')).toContainText('Fictional studio');
   await expectAccessible(page, 'dedicated Weather');
   await page.getByRole('button', { name: 'Back', exact: true }).click();
   await expect(page).toHaveURL(`/w/${workspaceId}`);
@@ -94,7 +94,7 @@ export async function checkClockWeather(page: Page, workspaceId: string, screens
   expect(automaticForecasts).toBe(0);
   await page.goto('/account/today');
   await page.getByRole('link', { name: 'Open Weather', exact: true }).click();
-  await expect(page.locator('.instrument-weather')).toBeVisible();
+  await expect(page.locator('.weather-page')).toBeVisible();
   expect(automaticForecasts).toBe(1); // Explicit opening is allowed without enabling the Today tile.
   page.off('request', track);
   await page.getByRole('button', { name: 'Back', exact: true }).click();
@@ -115,7 +115,7 @@ export async function checkClockWeather(page: Page, workspaceId: string, screens
       await page.screenshot({ path: `${directory}/today-${value}.png`, fullPage: true });
       await page.getByRole('link', { name: 'Open clock and date', exact: true }).first().click();
       await page.screenshot({ path: `${directory}/clock-${value}.png`, fullPage: true });
-      await page.goto('/weather'); await expect(page.locator('.instrument-weather')).toBeVisible();
+      await page.goto('/weather'); await expect(page.locator('.weather-page')).toBeVisible();
       await page.screenshot({ path: `${directory}/weather-${value}.png`, fullPage: true });
     }
     await page.setViewportSize({ width: 390, height: 1000 });

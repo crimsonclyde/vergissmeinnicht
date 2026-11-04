@@ -13,18 +13,17 @@
 .instrument-picture-hands .picture-hour-hand{stroke-width:9}
 .instrument-picture-hands .picture-minute-hand{stroke-width:6}
 .instrument-picture-hands circle{fill:currentColor}
-.today-instrument-half::after{content:'';position:absolute;inset:0;background:linear-gradient(to bottom,transparent 60%,var(--instrument-bg) 90%);pointer-events:none}
 .instrument-half-name{position:relative;z-index:1;display:block;font-size:.7rem;letter-spacing:.16em;color:var(--instrument-muted);text-transform:uppercase}
 .instrument-half-copy{position:absolute;z-index:1;bottom:1rem;inset-inline:.75rem;display:grid;gap:.25rem;text-align:center;min-width:0}
 .instrument-half-value{display:block;font:400 clamp(1.8rem,5cqi,2.65rem)/1.2 Georgia,serif;font-variant-numeric:tabular-nums;color:var(--instrument-text);white-space:nowrap}
 .instrument-half-value small{font:400 .5em Georgia,serif;color:var(--instrument-gold)}
 .instrument-half-context{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:.75rem;color:var(--instrument-muted);min-width:0}
+.instrument-half-weather{display:flex;align-items:center;justify-content:center;gap:.35rem}
 .instrument-half-stale{position:relative;z-index:1;display:block;font-size:.7rem;color:var(--instrument-gold);margin-top:.35rem}
 .today-instruments[data-parts='1']{grid-template-columns:minmax(0,1fr)}
 .today-instruments[data-parts='1'] .today-instrument-half{min-height:clamp(200px,44cqi,330px)}
 .today-instruments[data-parts='1'] .instrument-picture{left:25%;width:50%;max-width:350px}
 .today-instruments[data-parts='1'] .instrument-half-copy{inset-block:0;left:50%;right:.75rem;align-content:center}
-.today-instruments[data-parts='1'] .today-instrument-half::after{background:linear-gradient(to right,transparent 32%,var(--instrument-bg) 55%)}
 :root[data-theme='space-guide'] .shell[data-layout='guide'] .today-instruments.instrument{padding:0;background:var(--instrument-bg);background-image:none;color:var(--instrument-text)}
 @media(max-width:30rem){
  .today-instrument-half{padding:.75rem .5rem}
@@ -34,7 +33,7 @@
 }
 @media(forced-colors:active){
  .today-instruments.instrument,.today-instrument-half{background:Canvas!important;color:LinkText;border-color:CanvasText}
- .instrument-picture,.today-instrument-half::after{display:none}
+ .instrument-picture{display:none}
  .today-instruments .today-instrument-half{min-height:150px;box-shadow:none}
  .today-instruments .instrument-half-copy{position:static;margin-top:1rem}
  .today-instruments :is(.instrument-half-name,.instrument-half-context,.instrument-half-value,.instrument-half-value small,.instrument-half-stale){color:CanvasText}

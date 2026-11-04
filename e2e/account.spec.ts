@@ -1729,6 +1729,7 @@ test('first server admin: bootstrap link, account creation, sign-in, Workspace c
     fellBackFrom: null,
     unit: 'C',
     showTomorrow: true,
+    history: [],
   };
   await page.route('**/api/account/weather/forecast*', (route) => route.fulfill({ json: forecast }));
   await sections.getByRole('link', { name: 'Today' }).click();
@@ -1742,11 +1743,10 @@ test('first server admin: bootstrap link, account creation, sign-in, Workspace c
   await expect(weatherCard).toContainText('Cloudy');
   await weatherCard.locator('.instrument-picture').click();
   await expect(page).toHaveURL('/weather');
-  const detailed = page.locator('.instrument-weather');
+  const detailed = page.locator('.weather-page');
   await expect(detailed).toContainText('High 18° · Low 12°');
   await expect(detailed).toContainText('11.9 mm');
-  await expect(detailed).toContainText('Open-Meteo · ItaliaMeteo ARPAE ICON-2I');
-  await expect(detailed.locator('.instrument-weather-tomorrow')).toContainText('19° / 9°');
+  await expect(detailed.locator('.weather-next-days')).toContainText('19° / 9°');
   await page.getByRole('button', { name: 'Back', exact: true }).click();
   await expect(page.locator('.today-instruments [data-card="weather"]')).toHaveCount(1);
   await page.setViewportSize({ width: 320, height: 700 });

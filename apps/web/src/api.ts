@@ -1,7 +1,7 @@
 import type { BringContent, BringItem, BringStatus } from '@vergissmeinnicht/domain';
 import type { JournalContent, JournalEntry, PlacePreferences, PlaceSettings } from '@vergissmeinnicht/domain';
 /** Thin JSON client for the same-origin API. The browser adds the `Origin` header the server checks. */
-import type { CredentialProviderId, OpenMeteoModelId, ProcedureIcon, ReasonPolicy, RunState, StepState, ThemePreference, TodayLayout, UserPreferences, WeatherCredential, WeatherForecast, WeatherLocation, WeatherProviderId, WeatherSettings, WorkspacePreferences, WorkspaceRole } from '@vergissmeinnicht/domain';
+import type { CredentialProviderId, OpenMeteoModelId, ProcedureIcon, ReasonPolicy, RunState, StepState, ThemePreference, TodayLayout, UserPreferences, WeatherCredential, WeatherForecast, WeatherHistoryDay, WeatherLocation, WeatherProviderId, WeatherSettings, WorkspacePreferences, WorkspaceRole } from '@vergissmeinnicht/domain';
 import { hasMessage, t } from './i18n/index.ts';
 
 // Shared vocabulary comes from the domain package (browser-safe, no server code). The server still
@@ -297,6 +297,8 @@ export type MyForecast =
       readonly fellBackFrom: WeatherProviderId | null;
       readonly unit: 'C' | 'F';
       readonly showTomorrow: boolean;
+      /** Stored daily temperatures of this place for the last 14 days, today included, ascending (days without a sample are absent). */
+      readonly history: readonly WeatherHistoryDay[];
     }
   | { readonly forecast: null; readonly reason: string };
 

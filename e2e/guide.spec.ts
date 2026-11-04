@@ -117,7 +117,7 @@ test('Guide preserves routes, preferences, themes and private opt-in weather acr
   await form.getByLabel('Interface', { exact: true }).selectOption('guide');
   await form.getByRole('button', { name: 'Save', exact: true }).click();
   await expect(shell).toHaveAttribute('data-layout', 'guide');
-  await page.route('**/api/account/weather/forecast?*', route => route.fulfill({ json: { forecast: { provider: 'OPEN_METEO', current: { condition: 'SNOW', temperature: -1 }, days: [{ date: '2026-11-03', condition: 'SNOW', min: -3, max: 2, precipitationProbabilityMax: 40, precipitationSum: 1.2, windSpeedMax: 14 }] }, horizon: 1, location: { name: 'Fictional studio', timeZone: 'Europe/Berlin' }, fetchedAt: new Date().toISOString(), stale: false, fellBackFrom: null, unit: 'C', showTomorrow: false } }));
+  await page.route('**/api/account/weather/forecast?*', route => route.fulfill({ json: { forecast: { provider: 'OPEN_METEO', current: { condition: 'SNOW', temperature: -1 }, days: [{ date: '2026-11-03', condition: 'SNOW', min: -3, max: 2, precipitationProbabilityMax: 40, precipitationSum: 1.2, windSpeedMax: 14 }] }, horizon: 1, history: [], location: { name: 'Fictional studio', timeZone: 'Europe/Berlin' }, fetchedAt: new Date().toISOString(), stale: false, fellBackFrom: null, unit: 'C', showTomorrow: false } }));
   expect((await post('/api/account/today', { layout: { version: 1, density: 'COMPACT', cards: [
     { id: 'clock', visible: true, size: 'NORMAL', options: { hour24: false } },
     { id: 'weather', visible: true, size: 'NORMAL', options: {} },

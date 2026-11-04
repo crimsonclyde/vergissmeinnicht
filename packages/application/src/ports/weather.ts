@@ -1,4 +1,4 @@
-import type { Actor, CredentialProviderId, OpenMeteoModelId, UserId, WeatherCredential, WeatherForecast, WeatherProviderId, WeatherSettings, WorkspaceId } from '@vergissmeinnicht/domain';
+import type { Actor, CredentialProviderId, OpenMeteoModelId, UserId, WeatherCredential, WeatherForecast, WeatherHistoryDay, WeatherProviderId, WeatherSettings, WorkspaceId } from '@vergissmeinnicht/domain';
 
 /** Why a weather request failed — stable codes, never a provider's own text (19.4). */
 export type WeatherFailure =
@@ -82,6 +82,17 @@ export interface WeatherSettingsRepository {
   optedInWorkspaces(userId: UserId): Promise<WorkspaceId[]>;
   /** Sets one opt-in; `false` (nothing written) unless the person is a member of that Workspace right now. */
   setWorkspaceOptIn(input: { readonly userId: UserId; readonly workspaceId: WorkspaceId; readonly enabled: boolean; readonly at: Date }): Promise<boolean>;
+}
+
+/** A person's stored temperature history per place (19.4). Only ever read and written for that person. */
+export interface WeatherHistoryRepository {
+  /**
+   * Folds one temperature into a local day (min and max widen, the sample count goes up) and deletes this person's
+   * days at the place that are older than `oldest`, in one transaction.
+   */
+  record(input: { readonly userId: UserId; readonly locationKey: string; readonly date: string; readonly temperature: number; readonly oldest: string; readonly at: Date }): Promise<void>;
+  /** Stored days at the place from `from` to `to` (both inclusive), ascending by date. */
+  list(userId: UserId, locationKey: string, from: string, to: string): Promise<WeatherHistoryDay[]>;
 }
 
 /** The server's weather settings (server admins only). */

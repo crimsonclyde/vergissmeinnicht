@@ -919,4 +919,4 @@ unsaved-work confirmation. The approved combined illustrated Clock/Weather card 
 group composes the existing independent Clock/Weather choices; it adds no stored card id. Bundled
 artwork is decorative, native minute-updated clock hands match device time, and the whole half is a
 normal guarded router link. One usable instrument fills the card; neither produces no card. Detailed
-forecast fields, source/fallback, tomorrow and attribution remain on the dedicated Weather screen.
+forecast fields, source/fallback and tomorrow remain on the dedicated Weather screen. Attribution and fetch time moved to Forecast & weather settings. The screen's 14-day history reads `weather_history` (migration 0068), written only on a fresh provider fetch.

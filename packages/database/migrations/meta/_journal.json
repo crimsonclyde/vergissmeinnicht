@@ -477,6 +477,13 @@
       "when": 1793830000000,
       "tag": "0067_guide_card_art",
       "breakpoints": true
+    },
+    {
+      "idx": 68,
+      "version": "6",
+      "when": 1793920000000,
+      "tag": "0068_weather_history",
+      "breakpoints": true
     }
   ]
 }

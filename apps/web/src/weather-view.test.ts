@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { rainIndication, showable, sourceLabel, temperature } from './weather-view.ts';
+import { historyColumns, rainIndication, shiftDate, showable, sourceLabel, temperature } from './weather-view.ts';
 
 describe('weather on Today (19.4)', () => {
   it('converts only in the browser and only for display; a missing value stays missing', () => {
@@ -26,5 +26,25 @@ describe('weather on Today (19.4)', () => {
     const now = new Date('2026-10-08T16:00:00Z');
     expect(showable('2026-10-08T10:00:00Z', now)).toBe(true);
     expect(showable('2026-10-08T09:59:00Z', now)).toBe(false);
+  });
+});
+
+describe('weather history layout (Weather page)', () => {
+  it('shifts calendar dates across month and year boundaries', () => {
+    expect(shiftDate('2026-02-28', 1)).toBe('2026-03-01');
+    expect(shiftDate('2026-12-31', 1)).toBe('2027-01-01');
+    expect(shiftDate('2026-03-01', -1)).toBe('2026-02-28');
+  });
+
+  it('lays out 14 columns oldest first and leaves a day without a reading empty', () => {
+    const columns = historyColumns('2026-03-03', [
+      { date: '2026-02-28', min: 1, max: 4 },
+      { date: '2026-03-03', min: 5, max: 9 },
+    ]);
+    expect(columns).toHaveLength(14);
+    expect(columns[0]?.date).toBe('2026-02-18');
+    expect(columns[13]?.date).toBe('2026-03-03');
+    expect(columns.find((column) => column.date === '2026-02-28')?.range).toEqual({ date: '2026-02-28', min: 1, max: 4 });
+    expect(columns.find((column) => column.date === '2026-03-01')?.range).toBeNull();
   });
 });

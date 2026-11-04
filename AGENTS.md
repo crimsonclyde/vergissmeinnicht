@@ -356,6 +356,7 @@ Examples:
 - a database migrated by a newer version is never worked on: the server starts no services and reports `database_newer`, `migrate` and server-backup `verify`/`restore` refuse it, and nothing changes it;
 - a new column ending in `_id` in an exported table must be classified for restore (foreign key, person, or loose reference in `workspace-restore.ts`) — the restore refuses to run otherwise; a migration that changes an exported table's columns needs an upgrade path for older packages (`isRestorableLevel`).
 - a personal provider credential is never readable, usable or overwritable by anyone but its owner, and never reaches another user through a cache; weather tests never call live providers.
+- a person's weather history (`weather_history`, 14 local days per place) is never readable by anyone but its owner, is written only from a fresh provider fetch, and is never part of a Workspace backup.
 
 House management (section 16; each applies from the step that implements it):
 

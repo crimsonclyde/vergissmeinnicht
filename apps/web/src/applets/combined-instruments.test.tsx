@@ -4,7 +4,7 @@ import { TodayInstruments } from '../TodayInstruments.tsx';
 import { InstrumentPicture } from './InstrumentPicture.tsx';
 import type { ShownForecast } from './ForecastProvider.tsx';
 
-const weather: ShownForecast = { forecast: { provider: 'OPEN_METEO', days: [{ date: '2026-11-03', max: 20, condition: 'CLEAR' }] }, horizon: 1, location: { name: '<script>place</script>', timeZone: 'Europe/Berlin' }, fetchedAt: '2026-11-03T09:00:00Z', stale: true, fellBackFrom: null, unit: 'C', showTomorrow: false };
+const weather: ShownForecast = { forecast: { provider: 'OPEN_METEO', days: [{ date: '2026-11-03', max: 20, condition: 'CLEAR' }] }, horizon: 1, location: { name: '<script>place</script>', timeZone: 'Europe/Berlin' }, fetchedAt: '2026-11-03T09:00:00Z', stale: true, fellBackFrom: null, unit: 'C', showTomorrow: false, history: [] };
 it('shows no empty card or artwork without a chosen usable instrument, and never invents current temperature', () => {
   expect(renderToStaticMarkup(<TodayInstruments clock={undefined} weather={null} />)).toBe('');
   const html = renderToStaticMarkup(<TodayInstruments clock={undefined} weather={weather} />);

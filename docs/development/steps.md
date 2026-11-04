@@ -18,6 +18,8 @@ For every completed task, add a concise completion note, tests/checks performed,
 
 ## Current state — resume here
 
+**Release plan 0.11.3 (owner release 48):** owner asked for commit, push to main and release 0.11.3. Includes weather history per place (migration 0068 `weather_history`, 14 local days, written only on a fresh provider fetch), the rebuilt Weather page (current reading, 14-day graph, next three days), attribution and fetch time moved to Forecast & weather settings, condition icon plus rain chance on the page and Today card, the Today card gradient removed, and a per-condition sky animation that stops under reduced motion. Release notes: [0.11.3](../releases/0.11.3.md). Owner count stays **47** until publication; next ordinal **48**. Publishes a stable `v0.11.3` tag, which moves `0.11` and `latest`. Security impact LOW (section "Weather history" in `security.md`). No live deployment.
+
 **Published owner release 47 (2026-11-04): v0.11.2.** Per-Workspace weather opt-in (migration 0066), Workspace-first theme picker, Celestial frame cleanup and Guide card styles Forest/Water/Hearth (migration 0067). [Release](https://github.com/crimsonclyde/vergissmeinnicht/releases/tag/v0.11.2). Main CI 41796845844 and tagged release workflow 41797510217 passed, including exact-image verification and the populated upgrade. Stable tag: the workflow also moved `0.11` and `latest`. Image index `sha256:a95f52f26c88cd1c713781e081f455a8d51278d07b52847633ac6b97af2c6f6e`. Owner count **47**, next **48**; special release 42/dedication preserved. No live deployment.
 
 **Published owner release 46 (2026-11-03): v0.11.0-beta.1 — A Moment in Time.** Approved combined

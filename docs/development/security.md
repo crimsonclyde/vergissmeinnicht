@@ -1115,6 +1115,18 @@ Today counts and activity execute within a transaction that rechecks active memb
   - **No unnoticed paid use:** paid sources are answered from the cache unless the request carries `fetchPaid` (sent only by an explicit button that states the number of paid requests); budgets are consumed before any request and count every query; refusals never bypass the budget. No polling.
   - Each source is fetched independently; a provider failure becomes a stable reason in that source's entry.
 
+
+### Weather history: 14 days of temperature per place (unreleased, 2026-11-04)
+
+**Security surface changed: LOW** — one new personal table; no route, request body, permission, provider connection, credential or cache entry was added. The existing forecast response gains a `history` array, answered only for the signed-in person.
+
+- **Storage:** `weather_history` (migration 0068): primary key `(user_id, location_key, local_date)`, `min` and `max` of the current-temperature readings taken that local day, `samples`, `updated_at`. `location_key` is the place's coordinates rounded to 2 decimals (the precision `user_weather_settings` stores). Foreign key to `users` with `ON DELETE cascade`; CHECKs on the date length, `min <= max` and `samples >= 1`.
+- **Written only on a fresh upstream fetch:** cache hits and stale copies record nothing, so reloads cannot inflate a day. A failed write is ignored: the forecast is still answered and that day's sample is missing.
+- **Read only for the signed-in person:** `myForecast` reads the 14 local days ending today for the person's own user id and place. No user id comes from a request. Another person's history is never returned (tested).
+- **Retention:** the window is 14 local days; recording drops days that left it. Account deletion cascades. No delete path exists today; disabling an account deletes only its sessions.
+- **Backups:** private in the Workspace backup, like `user_weather_settings` (`workspace-backup-tables.ts`, tested). Full-server database backups hold the rows, as they hold every personal table; no sealed values are involved.
+- **Negative tests:** `packages/application/src/weather/weather-service.test.ts` (fresh fetch records a day, repeated reads do not add to it, another person's history is never shown, a failed write still answers the forecast); `packages/database` backup-table classification test.
+
 ### Workspace backup and restore (section 18; checklist written 2026-10-08 before 18a)
 
 **Security surface: HIGH** — a complete, portable copy of a Workspace's most sensitive data, and (18b) an import path writing many record types from an uploaded, hostile file.

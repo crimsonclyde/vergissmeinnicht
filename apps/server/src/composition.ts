@@ -93,6 +93,7 @@ import {
   createTodayLayoutRepository,
   createWeatherSettingsRepository,
   createWeatherCredentialRepository,
+  createWeatherHistoryRepository,
   createBackupJobRepository,
   createServerWeatherSettingsRepository,
   createProcedureRepository,
@@ -403,6 +404,7 @@ export function createServices(config: AppConfig, database: AppDatabase, overrid
         serverWeather,
         weather: weatherService,
         credentials: createWeatherCredentialRepository(database),
+        history: createWeatherHistoryRepository(database),
         // The same secret box as TOTP seeds and the Telegram token (DATA_ENCRYPTION_KEY); production refuses to start without the key.
         secrets: createSecretBox(config.dataEncryptionKey.reveal()),
         clock: systemClock,

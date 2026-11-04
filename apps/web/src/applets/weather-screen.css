@@ -1,0 +1,52 @@
+.weather-page{display:grid;gap:1.25rem}
+.weather-heading-row{display:flex;flex-wrap:wrap;align-items:baseline;justify-content:space-between;gap:.5rem 1rem}
+.weather-body{display:grid;gap:1.25rem}
+.weather-page .muted{color:color-mix(in srgb,var(--text) 65%,transparent)}
+
+.weather-now{position:relative;overflow:hidden;isolation:isolate;border:1px solid var(--border);border-radius:.9rem;background:var(--surface);padding:1.5rem 1.25rem;text-align:center}
+.weather-now-content{position:relative}
+.weather-place{font-size:.8rem;letter-spacing:.06em;color:color-mix(in srgb,var(--text) 65%,transparent)}
+.weather-now h2{font-size:1rem;font-weight:500;margin:.25rem 0 0}
+.weather-now-reading{display:flex;align-items:center;justify-content:center;gap:.75rem;margin:.5rem 0}
+.weather-now-reading .ui-icon{color:var(--accent)}
+.weather-temperature{font-size:clamp(2.5rem,8vw,3.5rem);font-variant-numeric:tabular-nums;line-height:1.1}
+.weather-minmax{font-size:.9rem;margin:.25rem 0 1rem}
+.weather-readings{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:.5rem;margin:0;border-block:1px solid var(--border);padding:1rem 0;text-align:center}
+.weather-readings dt{display:flex;flex-direction:column;align-items:center;gap:.35rem;font-size:.75rem;color:color-mix(in srgb,var(--text) 65%,transparent)}
+.weather-readings dd{margin:.5rem 0 0;font-size:1.1rem;overflow-wrap:anywhere}
+.weather-stale{margin-top:1rem;color:var(--accent)}
+
+/* The sky behind the current reading: one drawing per condition, drifting slowly. */
+.weather-sky{position:absolute;inset:0;z-index:-1;pointer-events:none;opacity:.3}
+.weather-now[data-sky='clear'] .weather-sky{background:radial-gradient(circle at 82% 18%,var(--accent) 0 14%,transparent 15%);animation:weather-sun 12s ease-in-out infinite alternate}
+.weather-now[data-sky='cloud'] .weather-sky{background:radial-gradient(ellipse at 30% 40%,var(--border) 0 28%,transparent 30%),radial-gradient(ellipse at 70% 60%,var(--border) 0 24%,transparent 26%);animation:weather-drift 18s ease-in-out infinite alternate}
+.weather-now[data-sky='fog'] .weather-sky{background:linear-gradient(90deg,transparent,var(--border) 30%,transparent 55%,var(--border) 80%,transparent);animation:weather-drift 22s ease-in-out infinite alternate}
+.weather-now[data-sky='rain'] .weather-sky{background:repeating-linear-gradient(105deg,transparent 0 14px,var(--accent) 14px 15px);animation:weather-streak 1.6s linear infinite}
+.weather-now[data-sky='snow'] .weather-sky{background:radial-gradient(circle,var(--text) 0 1.5px,transparent 2px) 0 0/22px 22px;animation:weather-snow 9s linear infinite}
+.weather-now[data-sky='thunder'] .weather-sky{background:repeating-linear-gradient(105deg,transparent 0 14px,var(--accent) 14px 15px);animation:weather-streak 1.2s linear infinite,weather-flash 7s steps(1) infinite}
+@keyframes weather-sun{from{transform:scale(1)}to{transform:scale(1.08)}}
+@keyframes weather-drift{from{transform:translateX(-4%)}to{transform:translateX(4%)}}
+@keyframes weather-streak{from{background-position:0 0}to{background-position:-42px 60px}}
+@keyframes weather-snow{from{background-position:0 0}to{background-position:22px 110px}}
+@keyframes weather-flash{0%,86%,100%{opacity:.3}88%{opacity:.85}90%{opacity:.3}}
+@media (prefers-reduced-motion:reduce){.weather-sky{animation:none!important}}
+
+/* Past 14 days: one bar per day, drawn on the scale of the whole period. */
+.weather-history{border:1px solid var(--border);border-radius:.9rem;padding:1rem}
+.weather-history h2,.weather-next h2{font-size:1rem;font-weight:500;margin:0}
+.weather-history-scale{font-size:.8rem;margin:.25rem 0 .75rem}
+.weather-history-days{display:grid;grid-template-columns:repeat(14,minmax(0,1fr));gap:.2rem;list-style:none;margin:0;padding:0}
+.weather-history-days li{display:grid;justify-items:center;gap:.3rem;min-width:0}
+.weather-history-days time{font-size:.7rem;color:color-mix(in srgb,var(--text) 65%,transparent)}
+.weather-history-days .is-today time{font-weight:700;color:var(--text)}
+.weather-history-track{position:relative;width:100%;height:7rem;border-radius:.3rem;background:color-mix(in srgb,var(--border) 35%,transparent)}
+.weather-history-bar{position:absolute;left:15%;right:15%;border-radius:.3rem;background:var(--accent)}
+
+/* Next days: one card per day after today. */
+.weather-next{display:grid;gap:.75rem}
+.weather-next-days{display:grid;grid-template-columns:repeat(auto-fit,minmax(7.5rem,1fr));gap:.75rem;list-style:none;margin:0;padding:0}
+.weather-next-days li{display:grid;justify-items:center;gap:.35rem;border:1px solid var(--border);border-radius:.75rem;padding:.75rem .5rem;text-align:center}
+.weather-next-days .ui-icon{color:var(--accent)}
+.weather-next-days time{font-size:.8rem}
+.weather-next-range{font-size:1rem;font-variant-numeric:tabular-nums}
+.weather-next-rain{display:flex;align-items:center;gap:.3rem;font-size:.85rem;font-variant-numeric:tabular-nums}

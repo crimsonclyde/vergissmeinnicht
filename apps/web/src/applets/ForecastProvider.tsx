@@ -30,7 +30,8 @@ export function ForecastProvider({ userId, workspaceId, explicit, ready, childre
     if (!wanted) return;
     let active = true;
     const setState = (state: ForecastState) => setStored({ scope, state });
-    api.myForecast(2, workspaceId ?? undefined).then(answer => {
+    // Today and the Weather page share this: today plus the three days after it.
+    api.myForecast(4, workspaceId ?? undefined).then(answer => {
       if (!active) return;
       if (answer.forecast === null) {
         const reason = REASONS.includes(answer.reason) ? answer.reason : 'unavailable';
@@ -41,7 +42,9 @@ export function ForecastProvider({ userId, workspaceId, explicit, ready, childre
       }
     }, async (caught: unknown) => {
       // Authorization/server failures never fall back to private cached data.
-      const saved = isNetworkError(caught) ? await offlineStore.loadForecast(userId, workspaceId ?? undefined) as ShownForecast | undefined : undefined;
+      const stored = isNetworkError(caught) ? await offlineStore.loadForecast(userId, workspaceId ?? undefined) as (Omit<ShownForecast, 'history'> & { readonly history?: ShownForecast['history'] }) | undefined : undefined;
+      // A copy saved before the history existed has none: it is shown without the graph.
+      const saved = stored === undefined ? undefined : { ...stored, history: stored.history ?? [] };
       if (!active) return;
       setState(saved !== undefined && showable(saved.fetchedAt) ? { data: { ...saved, stale: true }, loading: false, message: null } : { data: null, loading: false, message: caught instanceof ApiError && caught.code === 'weather_off' ? t('weather.off') : messageFor(caught) });
     });

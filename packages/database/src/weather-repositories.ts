@@ -1,11 +1,11 @@
 import { randomUUID } from 'node:crypto';
-import { DEFAULT_SERVER_WEATHER, type CredentialScope, type ServerWeatherSettingsRepository, type StoredWeatherCredential, type WeatherCredentialRepository, type WeatherSettingsRepository } from '@vergissmeinnicht/application';
+import { DEFAULT_SERVER_WEATHER, type CredentialScope, type ServerWeatherSettingsRepository, type StoredWeatherCredential, type WeatherCredentialRepository, type WeatherHistoryRepository, type WeatherSettingsRepository } from '@vergissmeinnicht/application';
 import { DEFAULT_WEATHER_SETTINGS, OPEN_METEO_MODEL_IDS, WEATHER_PROVIDERS, WEATHER_PROVIDER_CHOICES, type OpenMeteoModelId, type UserId, type WeatherProviderChoice, type WeatherProviderId, type WorkspaceId } from '@vergissmeinnicht/domain';
-import { and, eq, isNull, sql } from 'drizzle-orm';
+import { and, asc, eq, gte, isNull, lt, lte, sql } from 'drizzle-orm';
 import { IMMEDIATE } from './actor-guard.ts';
 import type { AppDatabase } from './connection.ts';
 import { recordSecurityEvent } from './security-events.ts';
-import { memberships, serverWeatherSettings, userWeatherSettings, userWeatherWorkspaceLocations, users, weatherCredentials } from './schema.ts';
+import { memberships, serverWeatherSettings, userWeatherSettings, userWeatherWorkspaceLocations, users, weatherCredentials, weatherHistory } from './schema.ts';
 
 /** A person's weather settings (19.4) — only ever read and written for that person. */
 export function createWeatherSettingsRepository({ db }: Pick<AppDatabase, 'db'>): WeatherSettingsRepository {
@@ -229,6 +229,36 @@ export function createWeatherCredentialRepository({ db }: Pick<AppDatabase, 'db'
 
     async recordTest(id, ok, at) {
       db.update(weatherCredentials).set({ lastTestAt: at, lastTestOk: ok }).where(eq(weatherCredentials.id, id)).run();
+    },
+  };
+}
+
+/** A person's stored weather history per place (19.4) — only ever read and written for that person. */
+export function createWeatherHistoryRepository({ db }: Pick<AppDatabase, 'db'>): WeatherHistoryRepository {
+  return {
+    async record(input) {
+      // One transaction: the day's sample and the removal of days that fell out of the window are one change.
+      db.transaction((tx) => {
+        tx.insert(weatherHistory)
+          .values({ userId: input.userId, locationKey: input.locationKey, localDate: input.date, min: input.temperature, max: input.temperature, samples: 1, updatedAt: input.at })
+          .onConflictDoUpdate({
+            target: [weatherHistory.userId, weatherHistory.locationKey, weatherHistory.localDate],
+            set: { min: sql`min(${weatherHistory.min}, excluded.min)`, max: sql`max(${weatherHistory.max}, excluded.max)`, samples: sql`${weatherHistory.samples} + 1`, updatedAt: input.at },
+          })
+          .run();
+        tx.delete(weatherHistory)
+          .where(and(eq(weatherHistory.userId, input.userId), eq(weatherHistory.locationKey, input.locationKey), lt(weatherHistory.localDate, input.oldest)))
+          .run();
+      }, IMMEDIATE);
+    },
+
+    async list(userId, locationKey, from, to) {
+      return db
+        .select({ date: weatherHistory.localDate, min: weatherHistory.min, max: weatherHistory.max })
+        .from(weatherHistory)
+        .where(and(eq(weatherHistory.userId, userId), eq(weatherHistory.locationKey, locationKey), gte(weatherHistory.localDate, from), lte(weatherHistory.localDate, to)))
+        .orderBy(asc(weatherHistory.localDate))
+        .all();
     },
   };
 }

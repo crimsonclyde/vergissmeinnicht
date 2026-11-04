@@ -1,4 +1,5 @@
 import {
+  addDays,
   CREDENTIAL_PROVIDERS,
   DEFAULT_WEATHER_SETTINGS,
   DomainValidationError,
@@ -9,7 +10,9 @@ import {
   canAuthenticate,
   isActiveServerAdmin,
   isCredentialProvider,
+  localDateAt,
   parseCredentialBudget,
+  parseTimeZone,
   parseWeatherCredential,
   parseWeatherLocation,
   parseWeatherSettings,
@@ -18,6 +21,7 @@ import {
   type User,
   type WeatherCredential,
   type WeatherForecast,
+  type WeatherHistoryDay,
   type WeatherLocation,
   type WeatherProviderId,
   type WeatherSettings,
@@ -41,6 +45,7 @@ import {
   type WeatherProviderAdapter,
   type WeatherSecrets,
   type WeatherSettingsRepository,
+  type WeatherHistoryRepository,
 } from '../ports/weather.ts';
 import type { UserRepository } from '../ports/user-repository.ts';
 import type { WorkspaceRepository } from '../ports/workspace-repository.ts';
@@ -80,7 +85,7 @@ interface CacheEntry {
  */
 export function createWeatherService(deps: { readonly providers: readonly WeatherProviderAdapter[]; readonly models: OpenMeteoModelsPort; readonly geocoder: GeocoderPort; readonly clock: Clock }) {
   const cache = new Map<string, CacheEntry>();
-  const inflight = new Map<string, Promise<CacheEntry>>();
+  const inflight = new Map<string, Promise<{ readonly entry: CacheEntry; readonly renewed: boolean }>>();
   const coverage = new Map<string, { readonly at: Date; readonly models: ModelCoverage[] }>();
   const coverageInflight = new Map<string, Promise<ModelCoverage[]>>();
 
@@ -91,7 +96,7 @@ export function createWeatherService(deps: { readonly providers: readonly Weathe
     while (map.size > CACHE_MAX_ENTRIES) map.delete(map.keys().next().value as string);
   };
 
-  async function fetchFresh(adapter: WeatherProviderAdapter, key: string, query: ForecastQuery): Promise<CacheEntry> {
+  async function fetchFresh(adapter: WeatherProviderAdapter, key: string, query: ForecastQuery): Promise<{ readonly entry: CacheEntry; readonly renewed: boolean }> {
     const now = () => deps.clock.now();
     const previous = cache.get(key);
     const answer = await adapter.forecast(previous?.lastModified === undefined ? query : { ...query, ifModifiedSince: previous.lastModified });
@@ -101,11 +106,11 @@ export function createWeatherService(deps: { readonly providers: readonly Weathe
       if (previous === undefined) throw new WeatherProviderError('bad_response');
       const entry = { ...previous, fetchedAt, freshUntil };
       remember(cache, key, entry);
-      return entry;
+      return { entry, renewed: false };
     }
     const entry: CacheEntry = { forecast: answer.forecast, fetchedAt, freshUntil, ...(answer.lastModified === undefined ? {} : { lastModified: answer.lastModified }) };
     remember(cache, key, entry);
-    return entry;
+    return { entry, renewed: true };
   }
 
   return {
@@ -116,14 +121,16 @@ export function createWeatherService(deps: { readonly providers: readonly Weathe
      * `scope`: `none` (no credential — shared by everyone), `server`, or `user:<id>` — a result fetched
      * with a person's own credential is cached for that person only (19.4b). `beforeFetch` runs only when
      * a request really goes out (budget check); a cache hit costs nothing.
+     * `fetched` is true only when this call itself went upstream and got a new forecast: a cache hit, a joined request or a stale copy reports false.
      */
-    async forecast(provider: WeatherProviderId, query: ForecastQuery, scope = 'none', beforeFetch?: () => Promise<void>): Promise<{ readonly entry: CacheEntry; readonly stale: boolean; readonly failure?: WeatherFailure }> {
+    async forecast(provider: WeatherProviderId, query: ForecastQuery, scope = 'none', beforeFetch?: () => Promise<void>): Promise<{ readonly entry: CacheEntry; readonly stale: boolean; readonly fetched: boolean; readonly failure?: WeatherFailure }> {
       const adapter = deps.providers.find((each) => each.id === provider);
       if (adapter === undefined) throw new WeatherProviderError('not_allowed');
       const key = [provider, query.model ?? '-', query.latitude, query.longitude, query.elevation ?? '-', query.timeZone, scope].join('|');
       const cached = cache.get(key);
-      if (cached !== undefined && cached.freshUntil.getTime() > deps.clock.now().getTime()) return { entry: cached, stale: false };
+      if (cached !== undefined && cached.freshUntil.getTime() > deps.clock.now().getTime()) return { entry: cached, stale: false, fetched: false };
       let running = inflight.get(key);
+      const started = running === undefined;
       if (running === undefined) {
         running = (async () => {
           await beforeFetch?.();
@@ -132,10 +139,11 @@ export function createWeatherService(deps: { readonly providers: readonly Weathe
         inflight.set(key, running);
       }
       try {
-        return { entry: await running, stale: false };
+        const { entry, renewed } = await running;
+        return { entry, stale: false, fetched: started && renewed };
       } catch (error) {
         if (cached !== undefined && deps.clock.now().getTime() - cached.fetchedAt.getTime() <= WEATHER_STALE_MAX_MS) {
-          return { entry: cached, stale: true, ...(error instanceof WeatherProviderError ? { failure: error.reason } : {}) };
+          return { entry: cached, stale: true, fetched: false, ...(error instanceof WeatherProviderError ? { failure: error.reason } : {}) };
         }
         throw error;
       }
@@ -195,6 +203,8 @@ export interface WeatherDeps {
   readonly weather: WeatherService;
   /** 19.4b: sealed provider credentials and the secret box that opens them. */
   readonly credentials: WeatherCredentialRepository;
+  /** 19.4: one stored temperature per person, place and local day (the 14-day history). */
+  readonly history: WeatherHistoryRepository;
   readonly secrets: WeatherSecrets;
   readonly clock: Clock;
 }
@@ -402,6 +412,8 @@ export interface MyForecast {
   readonly fellBackFrom: WeatherProviderId | null;
   readonly unit: WeatherSettings['unit'];
   readonly showTomorrow: boolean;
+  /** Stored daily temperatures of this place for the last 14 days, today included, ascending; days without a sample are absent. */
+  readonly history: WeatherHistoryDay[];
 }
 
 /** Why no forecast could be shown — for the Weather page; Today simply shows nothing. */
@@ -454,6 +466,25 @@ async function sourceRequest(deps: WeatherDeps, user: User, location: WeatherLoc
   };
 }
 
+/** How many days of temperature history are kept and shown, today included (19.4). */
+const HISTORY_DAYS = 14;
+
+/** The place's history key: its rounded coordinates, so the same place keeps one history whichever setting names it. */
+const historyKey = (location: WeatherLocation) => `${location.latitude.toFixed(2)}|${location.longitude.toFixed(2)}`;
+
+/** Stores this fresh fetch's temperature for the place's local day and drops days that left the window. Non-critical: a failure is ignored. */
+async function recordHistory(deps: WeatherDeps, user: User, location: WeatherLocation, forecast: WeatherForecast): Promise<void> {
+  const temperature = forecast.current?.temperature;
+  if (temperature === undefined) return;
+  const now = deps.clock.now();
+  const today = localDateAt(now, parseTimeZone(location.timeZone));
+  try {
+    await deps.history.record({ userId: user.id, locationKey: historyKey(location), date: today, temperature, oldest: addDays(today, 1 - HISTORY_DAYS), at: now });
+  } catch {
+    // The forecast is still shown; only this day's sample is missing.
+  }
+}
+
 /**
  * The person's forecast: their provider (Automatic = Open-Meteo, then MET Norway — keyless only, so it
  * never spends anyone's quota), their model for Open-Meteo, labelled fallback when allowed (W4), a stale
@@ -474,10 +505,13 @@ export async function myForecast(deps: WeatherDeps, input: { readonly user: User
     try {
       if (!allowed.includes(provider)) throw new WeatherProviderError('not_allowed');
       const { query, scope, beforeFetch } = await sourceRequest(deps, input.user, location, provider, settings.model);
-      const { entry, stale } = await deps.weather.forecast(provider, query, scope, beforeFetch);
+      const { entry, stale, fetched } = await deps.weather.forecast(provider, query, scope, beforeFetch);
       const chosen = settings.provider === 'AUTO' ? order[0] : settings.provider;
       const days = input.days === undefined ? entry.forecast.days : entry.forecast.days.slice(0, input.days);
       await recheckWorkspace(deps, input.user, input.workspaceId);
+      if (fetched) await recordHistory(deps, input.user, location, entry.forecast);
+      const today = localDateAt(deps.clock.now(), parseTimeZone(location.timeZone));
+      const history = await deps.history.list(input.user.id, historyKey(location), addDays(today, 1 - HISTORY_DAYS), today);
       return {
         forecast: { ...entry.forecast, days },
         horizon: entry.forecast.days.length,
@@ -487,6 +521,7 @@ export async function myForecast(deps: WeatherDeps, input: { readonly user: User
         fellBackFrom: provider === chosen ? null : (chosen ?? null),
         unit: settings.unit,
         showTomorrow: settings.showTomorrow,
+        history,
       };
     } catch (error) {
       if (!(error instanceof WeatherProviderError)) throw error;

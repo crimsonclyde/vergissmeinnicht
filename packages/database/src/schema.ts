@@ -983,6 +983,32 @@ export const userWeatherWorkspaceLocations = sqliteTable(
 );
 
 /**
+ * A person's daily temperature history at one place (19.4): the lowest and highest sample of each local day, from
+ * the time the history began (no backfill). `location_key` is the rounded coordinates of the place. Personal only —
+ * never part of a Workspace or its backup — and removed with the account.
+ */
+export const weatherHistory = sqliteTable(
+  'weather_history',
+  {
+    userId: text('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    locationKey: text('location_key').notNull(),
+    localDate: text('local_date').notNull(),
+    min: real('min').notNull(),
+    max: real('max').notNull(),
+    samples: integer('samples').notNull(),
+    updatedAt: integer('updated_at', { mode: 'timestamp_ms' }).notNull(),
+  },
+  (table) => [
+    primaryKey({ columns: [table.userId, table.locationKey, table.localDate] }),
+    check('weather_history_date_length', sql`length(${table.localDate}) = 10`),
+    check('weather_history_min_max', sql`${table.min} <= ${table.max}`),
+    check('weather_history_samples_positive', sql`${table.samples} >= 1`),
+  ],
+);
+
+/**
  * Workspace backup jobs (section 18): an export of one Workspace (18a) or — from 18b — the validation and
  * restore of an uploaded package. The package itself lives in a private folder of the data volume
  * (`workspace-backups/<id>/`), never in the database; `expires_at` says when it is deleted.

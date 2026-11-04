@@ -111,6 +111,17 @@ export interface WeatherSettings {
   readonly showTomorrow: boolean;
 }
 
+/** One day of a person's stored temperature history at a place (°C): the lowest and highest sample of that local day. */
+export interface WeatherHistoryDay {
+  /** `YYYY-MM-DD` in the place's local calendar. */
+  readonly date: string;
+  readonly min: number;
+  readonly max: number;
+}
+
+/** Stable key of a place for its history: the rounded coordinates, so the same spot shares rows whichever setting named it. */
+export const weatherLocationKey = (location: Pick<WeatherLocation, 'latitude' | 'longitude'>): string => `${roundCoordinate(location.latitude).toFixed(2)},${roundCoordinate(location.longitude).toFixed(2)}`;
+
 export const DEFAULT_WEATHER_SETTINGS: WeatherSettings = { location: null, provider: 'AUTO', model: 'best_match', fallback: false, unit: 'C', showTomorrow: true };
 
 export const ELEVATION_MIN = -500;

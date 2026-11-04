@@ -1,7 +1,7 @@
 import { DEFAULT_WEATHER_SETTINGS, type User, type UserId, type WeatherSettings } from '@vergissmeinnicht/domain';
 import { describe, expect, it } from 'vitest';
-import { DEFAULT_SERVER_WEATHER, WeatherProviderError, type ForecastAnswer, type ServerWeatherSettings, type StoredWeatherCredential, type WeatherProviderAdapter } from '../ports/weather.ts';
-import { NoForecastError, WeatherOffError, compareForecasts, createWeatherService, myForecast, saveMyWeather, type WeatherDeps } from './use-cases.ts';
+import { DEFAULT_SERVER_WEATHER, WeatherProviderError, type ForecastAnswer, type ServerWeatherSettings, type StoredWeatherCredential, type WeatherHistoryRepository, type WeatherProviderAdapter } from '../ports/weather.ts';
+import { NoForecastError, WEATHER_FRESH_MS, WeatherOffError, compareForecasts, createWeatherService, myForecast, saveMyWeather, type WeatherDeps } from './use-cases.ts';
 
 const TRIORA = { name: 'Triora', latitude: 43.99, longitude: 7.77, timeZone: 'Europe/Rome', elevation: null };
 const user = { id: 'u1' as UserId, status: 'ACTIVE', emailVerified: true, serverAdmin: false } as unknown as User;
@@ -16,8 +16,10 @@ function provider(id: WeatherProviderAdapter['id'], behave: () => Promise<Foreca
   };
 }
 const ok = (id: WeatherProviderAdapter['id']): ForecastAnswer => ({ kind: 'forecast', forecast: { provider: id, days: [{ date: '2026-10-08', max: 18 }] } });
+const DAY_MS = 24 * 60 * 60_000;
+const answerAt = (id: WeatherProviderAdapter['id'], temperature: number): ForecastAnswer => ({ kind: 'forecast', forecast: { provider: id, current: { temperature }, days: [{ date: '2026-10-08', max: temperature }] } });
 
-function setup(options: { openMeteo?: () => Promise<ForecastAnswer>; met?: () => Promise<ForecastAnswer>; settings?: Partial<WeatherSettings>; server?: Partial<ServerWeatherSettings> } = {}) {
+function setup(options: { openMeteo?: () => Promise<ForecastAnswer>; met?: () => Promise<ForecastAnswer>; settings?: Partial<WeatherSettings>; server?: Partial<ServerWeatherSettings>; historyFails?: boolean } = {}) {
   let now = new Date('2026-10-08T10:00:00Z');
   const clock = { now: () => now };
   const calls = { openMeteo: { n: 0 }, met: { n: 0 } };
@@ -29,11 +31,23 @@ function setup(options: { openMeteo?: () => Promise<ForecastAnswer>; met?: () =>
   });
   let stored: WeatherSettings | undefined = { ...DEFAULT_WEATHER_SETTINGS, location: TRIORA, ...options.settings };
   const server: ServerWeatherSettings = { ...DEFAULT_SERVER_WEATHER, ...options.server };
+  const rows = new Map<string, { userId: string; locationKey: string; date: string; min: number; max: number }>();
+  const history: WeatherHistoryRepository = {
+    record: async (input) => {
+      if (options.historyFails) throw new Error('disk full');
+      const key = `${input.userId}|${input.locationKey}|${input.date}`;
+      const row = rows.get(key);
+      rows.set(key, { userId: input.userId, locationKey: input.locationKey, date: input.date, min: Math.min(row?.min ?? input.temperature, input.temperature), max: Math.max(row?.max ?? input.temperature, input.temperature) });
+      for (const [other, r] of rows) if (r.userId === input.userId && r.locationKey === input.locationKey && r.date < input.oldest) rows.delete(other);
+    },
+    list: async (userId, locationKey, from, to) => [...rows.values()].filter((r) => r.userId === userId && r.locationKey === locationKey && r.date >= from && r.date <= to).sort((a, b) => (a.date < b.date ? -1 : 1)).map(({ date, min, max }) => ({ date, min, max })),
+  };
   const deps: WeatherDeps = {
     weatherSettings: { find: async () => stored, save: async (_id, settings) => void (stored = settings), optedInWorkspaces: async () => [], setWorkspaceOptIn: async () => false },
     serverWeather: { get: async () => server, save: async () => true },
     weather: service,
     credentials: { find: async () => undefined, list: async () => [], save: async () => true, remove: async () => true, consume: async () => true, recordTest: async () => undefined },
+    history,
     secrets: { seal: (plain) => plain, open: (sealed) => sealed },
     clock,
   };
@@ -108,6 +122,66 @@ describe('weather forecasts (19.4)', () => {
     await myForecast(deps, { user });
     expect(calls.openMeteo.n).toBe(3);
   });
+  it('records a sample per fresh fetch, widening the day, and adds nothing on a cache hit', async () => {
+    const temperatures = [9, 20];
+    const { deps, advance, calls } = setup({ openMeteo: async () => answerAt('OPEN_METEO', temperatures.shift() ?? 0) });
+    expect((await myForecast(deps, { user })).history).toEqual([{ date: '2026-10-08', min: 9, max: 9 }]);
+    expect((await myForecast(deps, { user })).history).toEqual([{ date: '2026-10-08', min: 9, max: 9 }]);
+    expect(calls.openMeteo.n).toBe(1);
+    advance(WEATHER_FRESH_MS + 1);
+    expect((await myForecast(deps, { user })).history).toEqual([{ date: '2026-10-08', min: 9, max: 20 }]);
+  });
+
+  it('starts a new row on a new local day and keeps the earlier one', async () => {
+    const { deps, advance } = setup({ openMeteo: async () => answerAt('OPEN_METEO', 12) });
+    await myForecast(deps, { user });
+    advance(DAY_MS);
+    expect((await myForecast(deps, { user })).history).toEqual([
+      { date: '2026-10-08', min: 12, max: 12 },
+      { date: '2026-10-09', min: 12, max: 12 },
+    ]);
+  });
+
+  it('shows only the 14 local days ending today and prunes older rows', async () => {
+    const { deps, advance } = setup({ openMeteo: async () => answerAt('OPEN_METEO', 12) });
+    let last = await myForecast(deps, { user });
+    for (let day = 1; day <= 15; day++) {
+      advance(DAY_MS);
+      last = await myForecast(deps, { user });
+    }
+    expect(last.history.map((d) => d.date)).toEqual(Array.from({ length: 14 }, (_, i) => `2026-10-${String(10 + i).padStart(2, '0')}`));
+  });
+
+  it('never mixes places with different coordinates', async () => {
+    let temperature = 12;
+    const { deps } = setup({ openMeteo: async () => answerAt('OPEN_METEO', temperature) });
+    expect((await myForecast(deps, { user })).history).toEqual([{ date: '2026-10-08', min: 12, max: 12 }]);
+    const triora = await deps.weatherSettings.find(user.id);
+    if (!triora) throw new Error('fixture');
+    await deps.weatherSettings.save(user.id, { ...triora, location: { name: 'Milan', latitude: 45.46, longitude: 9.19, timeZone: 'Europe/Rome', elevation: null } }, new Date());
+    temperature = 30;
+    expect((await myForecast(deps, { user })).history).toEqual([{ date: '2026-10-08', min: 30, max: 30 }]);
+    await deps.weatherSettings.save(user.id, triora, new Date());
+    expect((await myForecast(deps, { user })).history).toEqual([{ date: '2026-10-08', min: 12, max: 12 }]);
+  });
+
+  it("never shows another user's history", async () => {
+    const other = { ...user, id: 'u2' as UserId } as unknown as User;
+    let temperature = 12;
+    const { deps, advance } = setup({ openMeteo: async () => answerAt('OPEN_METEO', temperature) });
+    await myForecast(deps, { user });
+    advance(DAY_MS);
+    temperature = 30;
+    expect((await myForecast(deps, { user: other })).history).toEqual([{ date: '2026-10-09', min: 30, max: 30 }]);
+    expect((await myForecast(deps, { user })).history).toEqual([{ date: '2026-10-08', min: 12, max: 12 }]);
+  });
+
+  it('still answers the forecast when the history cannot be written', async () => {
+    const { deps } = setup({ historyFails: true, openMeteo: async () => answerAt('OPEN_METEO', 12) });
+    const result = await myForecast(deps, { user });
+    expect(result.forecast.days).toEqual([{ date: '2026-10-08', max: 12 }]);
+    expect(result.history).toEqual([]);
+  });
 });
 
 describe('forecast comparison with a paid source (19.4c)', () => {
@@ -123,6 +197,7 @@ describe('forecast comparison with a paid source (19.4c)', () => {
       weatherSettings: { find: async () => ({ ...DEFAULT_WEATHER_SETTINGS, location: TRIORA }), save: async () => undefined, optedInWorkspaces: async () => [], setWorkspaceOptIn: async () => false },
       serverWeather: { get: async () => DEFAULT_SERVER_WEATHER, save: async () => true },
       weather: service,
+      history: { record: async () => undefined, list: async () => [] },
       credentials: { find: async (scope) => (scope.kind === 'USER' ? stored : undefined), list: async () => [stored], save: async () => true, remove: async () => true, consume: async () => (budgetLeft-- > 0), recordTest: async () => undefined },
       secrets: { seal: (plain) => plain, open: (sealed) => sealed },
       clock,

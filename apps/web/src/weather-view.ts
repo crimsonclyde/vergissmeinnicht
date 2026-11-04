@@ -1,4 +1,4 @@
-import { OPEN_METEO_MODELS, type WeatherCondition, type WeatherDay, type WeatherProviderId } from '@vergissmeinnicht/domain';
+import { OPEN_METEO_MODELS, type WeatherCondition, type WeatherDay, type WeatherHistoryDay, type WeatherProviderId } from '@vergissmeinnicht/domain';
 import type { UiIconName } from './ui-icons.tsx';
 
 /** A forecast older than this is not shown at all, not even labelled (19.4). */
@@ -50,5 +50,25 @@ export function sourceLabel(provider: WeatherProviderId, model: string | undefin
   return `${PROVIDER_NAMES[provider]} · ${label}`;
 }
 
+/** A calendar date `YYYY-MM-DD` moved by `days` (plain date arithmetic, independent of time zones). */
+export function shiftDate(date: string, days: number): string {
+  const [year, month, day] = date.split('-').map(Number) as [number, number, number];
+  return new Date(Date.UTC(year, month - 1, day + days)).toISOString().slice(0, 10);
+}
+
+/** The Weather page's history graph: 14 days ending at `today`, oldest first; a day without a stored sample has `range: null`. */
+export function historyColumns(today: string, history: readonly WeatherHistoryDay[]): readonly { readonly date: string; readonly range: WeatherHistoryDay | null }[] {
+  const byDate = new Map(history.map((each) => [each.date, each]));
+  return Array.from({ length: HISTORY_COLUMNS }, (_, index) => {
+    const date = shiftDate(today, index - (HISTORY_COLUMNS - 1));
+    return { date, range: byDate.get(date) ?? null };
+  });
+}
+const HISTORY_COLUMNS = 14;
+
+/** The sky drawn behind the current reading, by condition: the page animates it (none for an unknown condition). */
+export type SkyKind = 'clear' | 'cloud' | 'fog' | 'rain' | 'snow' | 'thunder' | 'none';
+const SKIES: Record<WeatherCondition, SkyKind> = { CLEAR: 'clear', PARTLY_CLOUDY: 'cloud', CLOUDY: 'cloud', FOG: 'fog', DRIZZLE: 'rain', RAIN: 'rain', SHOWERS: 'rain', SLEET: 'snow', SNOW: 'snow', THUNDER: 'thunder', UNKNOWN: 'none' };
+export const conditionSky = (condition: WeatherCondition | undefined): SkyKind => SKIES[condition ?? 'UNKNOWN'];
 /** Whether a forecast fetched at `fetchedAt` may still be shown (with its time when stale). */
 export const showable = (fetchedAt: string, now: Date = new Date()): boolean => now.getTime() - Date.parse(fetchedAt) <= WEATHER_SHOW_MAX_MS;
