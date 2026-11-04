@@ -8,6 +8,15 @@ The owner requested **something special for the 42nd release** (2026-10-25). The
 
 Before preparing any release, check the milestone note in `docs/development/steps.md` and include the next ordinal in the release plan. Preserve the special 42nd release and its dedication in the project history, include the next owner ordinal in future release plans, and update the milestone count after publication. **Milestone fulfilled (2026-10-31): the owner-authorized special 42nd was published on Halloween as “The Curtain Between Worlds”, with the dedication in `docs/releases/0.9.0-beta.0.md`. Celestial was release 43. After v0.11.2 the count is 47 and the next release is 48. Live deployment remains separate.**
 
+### Release naming (settled 2026-11-04)
+
+- Git tag and GitHub release tag: `vX.Y.Z`, with the leading `v`. The release workflow triggers on this tag.
+- Everywhere else the version is bare `X.Y.Z`: image `ghcr.io/crimsonclyde/vergissmeinnicht:X.Y.Z`, GitHub release title, `docs/releases/X.Y.Z.md` and the Unraid template.
+- GitHub release title: `X.Y.Z — Name` when the owner gives a name; otherwise `X.Y.Z`.
+- No `-beta.N` or `-rc.N` suffix for new releases. The next and following releases are `0.n.n`, starting with `0.11.2`. Every stable release moves `0.n` and `latest`. The release workflow still accepts pre-release tags; do not use them.
+- Existing `-beta.N` tags, GitHub releases and images stay as published. Never rename or move them.
+- The owner's ordinal (milestone count, above) is separate from the semantic version.
+
 ## Prime directive
 
 **Security is the highest-priority requirement of this project.**
