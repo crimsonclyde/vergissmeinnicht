@@ -200,7 +200,7 @@ test('first server admin: bootstrap link, account creation, sign-in, Workspace c
   expect(await page.evaluate(async (id) => (await fetch('/api/account/workspace-preferences/guide', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ workspaceId: id, guide: { layout: 'classic' } }) })).status, freshWorkspaceId)).toBe(200);
   await page.reload();
   // A fresh Workspace starts empty; configure the tools explicitly through the admin UI.
-  await expect(page.getByRole('navigation', { name: 'Tools' }).getByRole('link')).toHaveText(['Today']);
+  await expect(page.getByRole('navigation', { name: 'Tools' }).getByRole('link')).toHaveText(['Dashboard']);
   await settingsSection(page, 'Workspace settings', 'Plugins');
   await expect(page).toHaveURL(/\/w\/[0-9a-f-]{36}\/plugins$/);
   for (const tool of ['Procedures', 'Reminders', 'Lists', 'Calendar', 'Gamification']) {
@@ -209,11 +209,11 @@ test('first server admin: bootstrap link, account creation, sign-in, Workspace c
   }
   // The tools (15.1): a persistent sidebar on desktop.
   const sections = page.getByRole('navigation', { name: 'Tools' });
-  await expect(sections.getByRole('link')).toHaveText(['Today', 'Procedures', 'Reminders', 'Lists', 'Calendar']);
-  await sections.getByRole('link', { name: 'Today' }).click();
-  await expect(page.getByRole('heading', { name: 'Today', level: 2 })).toBeVisible();
+  await expect(sections.getByRole('link')).toHaveText(['Dashboard', 'Procedures', 'Reminders', 'Lists', 'Calendar']);
+  await sections.getByRole('link', { name: 'Dashboard' }).click();
+  await expect(page.getByRole('heading', { name: 'Dashboard', level: 2 })).toBeVisible();
   await expect(page.getByText('Nothing needs attention right now.')).toBeVisible();
-  await expect(sections.getByRole('link', { name: 'Today' })).toHaveAttribute('aria-current', 'page');
+  await expect(sections.getByRole('link', { name: 'Dashboard' })).toHaveAttribute('aria-current', 'page');
   await expectAccessible(page, 'empty Today');
 
   page.setDefaultTimeout(15_000);
@@ -284,7 +284,7 @@ test('first server admin: bootstrap link, account creation, sign-in, Workspace c
     const toggle = page.getByRole('checkbox', { name: new RegExp(`^${name}`) });
     await toggle.check(); await expect(toggle).toBeEnabled();
   }
-  await sections.getByRole('link', { name: 'Today', exact: true }).click();
+  await sections.getByRole('link', { name: 'Dashboard', exact: true }).click();
   const moonCard = page.getByRole('region', { name: 'Celestial', exact: true });
   await expect(moonCard).toContainText('Illumination');
   await expect(moonCard).toContainText('Next full moon');
@@ -343,7 +343,7 @@ test('first server admin: bootstrap link, account creation, sign-in, Workspace c
     const toggle = page.getByRole('checkbox', { name: new RegExp(`^${name}`) });
     await toggle.uncheck(); await expect(toggle).toBeEnabled();
   }
-  await sections.getByRole('link', { name: 'Today', exact: true }).click();
+  await sections.getByRole('link', { name: 'Dashboard', exact: true }).click();
   await expect(page.getByRole('region', { name: 'Celestial', exact: true })).toHaveCount(0);
 
   // Add (15.1): a chooser with what this person may create; Escape closes it and focus returns.
@@ -907,8 +907,8 @@ test('first server admin: bootstrap link, account creation, sign-in, Workspace c
   await expect(viewer).toBeHidden();
   await expect(page).toHaveURL(/\/runs\/[0-9a-f-]{36}$/);
   // Today (15.1) puts unfinished executions first: one in the prominent card (22.3), the other under Continue.
-  await sections.getByRole('link', { name: 'Today' }).click();
-  await expect(page.getByRole('heading', { name: 'Today', level: 2 })).toBeVisible();
+  await sections.getByRole('link', { name: 'Dashboard' }).click();
+  await expect(page.getByRole('heading', { name: 'Dashboard', level: 2 })).toBeVisible();
   const pickUp = page.getByRole('region', { name: 'Pick up where you left off' });
   await expect(pickUp).toContainText('0 of 2 resolved');
   const activeRuns = page.getByRole('list', { name: 'Continue' });
@@ -1065,7 +1065,7 @@ test('first server admin: bootstrap link, account creation, sign-in, Workspace c
   await expectAccessible(page, 'completed history');
 
   // The other execution, guided (22.2): the Sections as tiles, then one Step at a time with a cheer.
-  await page.getByRole('button', { name: 'Go to Today' }).click();
+  await page.getByRole('button', { name: 'Go to Dashboard' }).click();
   await expect(page.getByRole('list', { name: 'Continue' })).toHaveCount(0);
   await page.getByRole('region', { name: 'Pick up where you left off' }).getByRole('link').click();
   await run.getByRole('button', { name: 'Guided view' }).click();
@@ -1097,7 +1097,7 @@ test('first server admin: bootstrap link, account creation, sign-in, Workspace c
   await run.getByRole('button', { name: 'Abort', exact: true }).click();
   const aborted = run.getByRole('status').filter({ hasText: 'Aborted by Ada Admin' });
   await expect(aborted).toContainText('reason: Plans changed');
-  await page.getByRole('button', { name: '← Today' }).click();
+  await page.getByRole('button', { name: '← Dashboard' }).click();
   await expect(page.getByRole('list', { name: 'Continue' })).toHaveCount(0);
   await toHistory();
   await expect(page.getByRole('list', { name: 'Finished' }).getByRole('listitem')).toHaveCount(2);
@@ -1299,7 +1299,7 @@ test('first server admin: bootstrap link, account creation, sign-in, Workspace c
   await expect(card).toContainText('Due today');
 
   // Today (15.1, 14.2): what is due today, with Start. Upcoming dates are not here — the Calendar has them.
-  await sections.getByRole('link', { name: 'Today' }).click();
+  await sections.getByRole('link', { name: 'Dashboard' }).click();
   const todayList = page.getByRole('list', { name: 'Needs attention' });
   await expect(todayList.getByRole('listitem')).toHaveCount(1);
   await expect(todayList).toContainText('Today');
@@ -1338,7 +1338,7 @@ test('first server admin: bootstrap link, account creation, sign-in, Workspace c
   await upcoming.getByRole('button', { name: 'More for Leave the flat' }).last().click();
   await upcoming.getByRole('button', { name: 'End schedule…' }).click();
   await page.getByRole('button', { name: 'Month', exact: true }).click();
-  await sections.getByRole('link', { name: 'Today' }).click();
+  await sections.getByRole('link', { name: 'Dashboard' }).click();
   await expect(page.getByRole('region', { name: 'Next up' })).toHaveCount(0);
   // Start what is due today: a normal execution, linked to this date.
   await todayList.getByRole('button', { name: 'Start Leave the flat' }).click();
@@ -1352,7 +1352,7 @@ test('first server admin: bootstrap link, account creation, sign-in, Workspace c
   await expect(page.locator('.tab-bar')).toBeHidden();
   await expectAccessible(page, 'run view on a phone, started from Today');
   await page.setViewportSize({ width: 1280, height: 720 });
-  await page.getByRole('button', { name: '← Today' }).click();
+  await page.getByRole('button', { name: '← Dashboard' }).click();
   // The date shows its execution in the prominent card (22.3) instead of a second Start.
   const pickUpAgain = page.getByRole('region', { name: 'Pick up where you left off' });
   await expect(pickUpAgain).toContainText('In progress — started by Ada Admin');
@@ -1363,7 +1363,7 @@ test('first server admin: bootstrap link, account creation, sign-in, Workspace c
   await run.getByRole('button', { name: 'Abort', exact: true }).click();
   await expect(run.getByRole('status').filter({ hasText: 'Aborted by Ada Admin' })).toBeVisible();
   // Aborted: the date is open again (Start), nothing was completed.
-  await page.getByRole('button', { name: '← Today' }).click();
+  await page.getByRole('button', { name: '← Dashboard' }).click();
   await expect(page.getByRole('list', { name: 'Needs attention' }).getByRole('button', { name: 'Start Leave the flat' })).toBeVisible();
 
   // A standalone Reminder (14.1, 15.3) from Add: what and when first; repetition, responsible person and
@@ -1397,15 +1397,15 @@ test('first server admin: bootstrap link, account creation, sign-in, Workspace c
   await expect(reminderToday).toContainText('Pay annual tax');
   await expect(reminderToday).toContainText('Assigned to Ada Admin');
   await expectAccessible(page, 'reminders');
-  await sections.getByRole('link', { name: 'Today' }).click();
+  await sections.getByRole('link', { name: 'Dashboard' }).click();
   const taxToday = page.getByRole('list', { name: 'Needs attention' }).getByRole('listitem').filter({ hasText: 'Pay annual tax' });
   await expect(taxToday).toContainText('Assigned to Ada Admin');
   // Filters: assigned to me shows it, shared hides it.
-  await page.getByRole('button', { name: 'Shared', exact: true }).click();
+  await page.getByRole('combobox', { name: 'Show', exact: true }).selectOption('Shared');
   await expect(taxToday).toHaveCount(0);
-  await page.getByRole('button', { name: 'Assigned to me' }).click();
+  await page.getByRole('combobox', { name: 'Show', exact: true }).selectOption('Mine');
   await expect(taxToday).toHaveCount(1);
-  await page.getByRole('button', { name: 'All', exact: true }).click();
+  await page.getByRole('combobox', { name: 'Show', exact: true }).selectOption('All');
   // Done, with Undo right there; completed activity itself is under Reminders → Recently done.
   await taxToday.getByRole('button', { name: 'Complete Pay annual tax' }).click();
   await expect(page.getByRole('status').filter({ hasText: '“Pay annual tax” is done.' })).toBeVisible();
@@ -1433,7 +1433,7 @@ test('first server admin: bootstrap link, account creation, sign-in, Workspace c
 
   // Grocery lists (15.3): a working shared list — name it, add items with optional quantity and unit,
   // tick what is bought, take it back, edit, remove. No Start, no Required/Critical, no Skip or N/A.
-  await sections.getByRole('link', { name: 'Today' }).click();
+  await sections.getByRole('link', { name: 'Dashboard' }).click();
   await page.getByRole('button', { name: 'Add', exact: true }).click();
   await page.getByRole('dialog', { name: 'What would you like to add?' }).getByRole('button', { name: /Grocery list/ }).click();
   await expect(page).toHaveURL(/\/lists\/new$/);
@@ -1520,11 +1520,12 @@ test('first server admin: bootstrap link, account creation, sign-in, Workspace c
   await page.getByRole('dialog', { name: 'Rename list' }).getByRole('button', { name: 'Save' }).click();
   await expect(page.getByRole('heading', { name: 'Weekly shop', level: 2 })).toBeVisible();
   await expectAccessible(page, 'grocery list');
-  await sections.getByRole('link', { name: 'Today' }).click();
+  await sections.getByRole('link', { name: 'Dashboard' }).click();
   await expect(page.getByRole('list', { name: 'To buy' })).toContainText('Weekly shop');
   await expect(page.getByRole('list', { name: 'To buy' })).toContainText('2 to buy');
   // Today in the Profile (19.2): the person's own cards, order and options; Customize leads there.
-  await page.getByRole('link', { name: 'Customize Today' }).click();
+  await fromMenu(page, 'Profile & settings');
+  await settingsSection(page, 'Profile & settings', 'Dashboard');
   await expect(page).toHaveURL(/\/account\/today$/);
   const cardSettings = page.getByRole('list', { name: 'Cards' });
   await expect(cardSettings.getByRole('listitem').first()).toContainText('Clock & date');
@@ -1537,7 +1538,7 @@ test('first server admin: bootstrap link, account creation, sign-in, Workspace c
   await cardSettings.getByLabel('Always 24-hour').check();
   await expect(cardSettings.getByLabel('Always 24-hour')).toBeChecked();
   await expect(page.getByRole('status').filter({ hasText: 'Saved.' })).toBeVisible();
-  await sections.getByRole('link', { name: 'Today' }).click();
+  await sections.getByRole('link', { name: 'Dashboard' }).click();
   const clock = page.getByRole('region', { name: 'Clock & date' });
   await expect(clock.locator('time')).toHaveText(/\b([01]\d|2[0-3]):[0-5]\d\b/);
   await expect(clock.locator('[aria-live]')).toHaveCount(0);
@@ -1547,7 +1548,8 @@ test('first server admin: bootstrap link, account creation, sign-in, Workspace c
   await expect(clock.locator('.instrument-picture')).toBeVisible();
   expect(await page.evaluate('document.documentElement.scrollWidth <= innerWidth')).toBe(true);
   await page.setViewportSize({ width: 1280, height: 720 });
-  await page.getByRole('link', { name: 'Customize Today' }).click();
+  await fromMenu(page, 'Profile & settings');
+  await settingsSection(page, 'Profile & settings', 'Dashboard');
   await cardSettings.getByLabel('To buy', { exact: true }).uncheck();
   await expect(page.getByRole('status').filter({ hasText: 'Saved.' })).toBeVisible();
   await cardSettings.getByLabel('Progress', { exact: true }).check();
@@ -1558,16 +1560,17 @@ test('first server admin: bootstrap link, account creation, sign-in, Workspace c
     await expect(page.getByRole('status').filter({ hasText: 'Saved.' })).toBeVisible();
   }
   await expect(cardSettings.getByRole('listitem').nth(3)).toContainText('Progress');
-  await sections.getByRole('link', { name: 'Today' }).click();
+  await sections.getByRole('link', { name: 'Dashboard' }).click();
   await expect(page.getByRole('region', { name: 'Progress' })).toBeVisible();
   await expect(page.locator('.today-side .today-card').first()).toHaveAttribute('data-card', 'progress');
   await expect(page.getByRole('region', { name: 'Clock & date' })).toBeVisible();
   await expect(page.getByRole('list', { name: 'To buy' })).toHaveCount(0);
   // Back to the defaults: To buy returns, Progress is off again.
-  await page.getByRole('link', { name: 'Customize Today' }).click();
+  await fromMenu(page, 'Profile & settings');
+  await settingsSection(page, 'Profile & settings', 'Dashboard');
   await page.getByRole('button', { name: 'Reset to default' }).click();
   await expect(cardSettings.getByLabel('To buy', { exact: true })).toBeChecked();
-  await sections.getByRole('link', { name: 'Today' }).click();
+  await sections.getByRole('link', { name: 'Dashboard' }).click();
   await expect(page.getByRole('list', { name: 'To buy' })).toContainText('Weekly shop');
   await expect(page.getByRole('region', { name: 'Progress' })).toHaveCount(0);
   await expect(page.getByRole('region', { name: 'Clock & date' })).toHaveCount(0);
@@ -1733,11 +1736,12 @@ test('first server admin: bootstrap link, account creation, sign-in, Workspace c
     history: [],
   };
   await page.route('**/api/account/weather/forecast*', (route) => route.fulfill({ json: forecast }));
-  await sections.getByRole('link', { name: 'Today' }).click();
-  await page.getByRole('link', { name: 'Customize Today' }).click();
+  await sections.getByRole('link', { name: 'Dashboard' }).click();
+  await fromMenu(page, 'Profile & settings');
+  await settingsSection(page, 'Profile & settings', 'Dashboard');
   await cardSettings.getByLabel('Weather', { exact: true }).check();
   await expect(page.getByRole('status').filter({ hasText: 'Saved.' })).toBeVisible();
-  await sections.getByRole('link', { name: 'Today' }).click();
+  await sections.getByRole('link', { name: 'Dashboard' }).click();
   const weatherCard = page.locator('[data-card="weather"]');
   // Rain as the provider gives it: no probability from this model, so the amount; who supplied it, with the model.
   await expect(weatherCard).toContainText('16°');
@@ -1761,13 +1765,13 @@ test('first server admin: bootstrap link, account creation, sign-in, Workspace c
   await page.getByLabel('Weather on this server').uncheck();
   await page.getByRole('button', { name: 'Save', exact: true }).click();
   await expect(page.getByRole('status').filter({ hasText: 'Saved.' })).toBeVisible();
-  await sections.getByRole('link', { name: 'Today' }).click();
+  await sections.getByRole('link', { name: 'Dashboard' }).click();
   await expect(page.getByRole('list', { name: 'To buy' })).toContainText('Weekly shop');
   await expect(page.locator('[data-card="weather"]')).toHaveCount(0);
   await fromMenu(page, 'Profile & settings');
   await expect(page.getByRole('navigation', { name: 'Profile & settings' }).getByRole('link', { name: 'Weather' })).toHaveCount(0);
   // Back to how the rest of the flow expects it: the card off, then weather on with every provider allowed.
-  await settingsSection(page, 'Profile & settings', 'Today');
+  await settingsSection(page, 'Profile & settings', 'Dashboard');
   await page.getByRole('button', { name: 'Reset to default' }).click();
   await fromMenu(page, 'Server admin');
   await settingsSection(page, 'Server administration', 'Weather');
@@ -1776,7 +1780,7 @@ test('first server admin: bootstrap link, account creation, sign-in, Workspace c
   await page.getByLabel('MET Norway', { exact: true }).check();
   await page.getByRole('button', { name: 'Save', exact: true }).click();
   await expect(page.getByRole('status').filter({ hasText: 'Saved.' })).toBeVisible();
-  await sections.getByRole('link', { name: 'Today' }).click();
+  await sections.getByRole('link', { name: 'Dashboard' }).click();
   await page.getByRole('link', { name: 'Open list Weekly shop' }).click();
   // Delete the list and take that back from the overview.
   page.once('dialog', (dialog) => void dialog.accept());
@@ -1951,7 +1955,7 @@ test('first server admin: bootstrap link, account creation, sign-in, Workspace c
 
   // Phone navigation (15.1): four labelled destinations at the bottom; More leads to Reminders, Calendar and history.
   await page.setViewportSize({ width: 390, height: 844 });
-  await expect(sections.getByRole('link')).toHaveText(['Today', 'Procedures', 'Lists', 'More']);
+  await expect(sections.getByRole('link')).toHaveText(['Dashboard', 'Procedures', 'Lists', 'More']);
   await expect(sections.getByRole('link', { name: 'Lists' })).toHaveAttribute('aria-current', 'page');
   for (const link of await sections.getByRole('link').all()) expect((await link.boundingBox())?.height).toBeGreaterThanOrEqual(44);
   await sections.getByRole('link', { name: 'More' }).click();
@@ -1960,7 +1964,7 @@ test('first server admin: bootstrap link, account creation, sign-in, Workspace c
   await page.getByRole('main').getByRole('link', { name: /Reminders/ }).click();
   await expect(page).toHaveURL(/\/reminders$/);
   await expect(sections.getByRole('link', { name: 'More' })).toHaveAttribute('aria-current', 'page');
-  await sections.getByRole('link', { name: 'Today' }).click();
+  await sections.getByRole('link', { name: 'Dashboard' }).click();
   await page.getByRole('button', { name: 'Add', exact: true }).click();
   await expectAccessible(page, 'add sheet on a phone');
   await page.keyboard.press('Escape');
@@ -1981,7 +1985,7 @@ test('first server admin: bootstrap link, account creation, sign-in, Workspace c
   await expectAccessible(page, 'workspace settings with the tool switch');
   await documentsSwitch.check();
   await expect(page.getByRole('status').filter({ hasText: 'Documents is switched on for everyone in this Workspace.' })).toBeVisible();
-  await expect(sections.getByRole('link')).toHaveText(['Today', 'Procedures', 'Reminders', 'Lists', 'Calendar', 'Documents']);
+  await expect(sections.getByRole('link')).toHaveText(['Dashboard', 'Procedures', 'Reminders', 'Lists', 'Calendar', 'Documents']);
   await sections.getByRole('link', { name: 'Documents' }).click();
   await expect(page.getByText('No documents yet — add a scan, PDF or photo.')).toBeVisible(); // nothing is pre-created
   await expectAccessible(page, 'empty documents');
@@ -2081,7 +2085,7 @@ test('first server admin: bootstrap link, account creation, sign-in, Workspace c
     await page.evaluate('window.scrollTo(0, 0)');
     await expectAccessible(page, `document at ${width} px (dark)`);
   }
-  await expect(sections.getByRole('link')).toHaveText(['Today', 'Procedures', 'Lists', 'More']);
+  await expect(sections.getByRole('link')).toHaveText(['Dashboard', 'Procedures', 'Lists', 'More']);
   await expect(sections.getByRole('link', { name: 'More' })).toHaveAttribute('aria-current', 'page');
   await sections.getByRole('link', { name: 'More' }).click();
   await expect(page.getByRole('main').getByRole('link').first()).toContainText('Documents');
@@ -2340,7 +2344,7 @@ test('first server admin: bootstrap link, account creation, sign-in, Workspace c
   await openPlugins(page);
   await page.getByRole('checkbox', { name: /^Contacts/ }).check();
   await expect(page.getByRole('status').filter({ hasText: 'Contacts is switched on for everyone in this Workspace.' })).toBeVisible();
-  await expect(sections.getByRole('link')).toHaveText(['Today', 'Procedures', 'Reminders', 'Lists', 'Calendar', 'Documents', 'Contacts']);
+  await expect(sections.getByRole('link')).toHaveText(['Dashboard', 'Procedures', 'Reminders', 'Lists', 'Calendar', 'Documents', 'Contacts']);
   await sections.getByRole('link', { name: 'Contacts' }).click();
   await expect(page.getByText('No contacts yet. Type a name above to add the first one.')).toBeVisible();
   await expectAccessible(page, 'contacts, empty');
@@ -2533,7 +2537,7 @@ test('first server admin: bootstrap link, account creation, sign-in, Workspace c
   await openPlugins(page);
   await page.getByRole('checkbox', { name: /^Maintenance/ }).check();
   await expect(page.getByRole('status').filter({ hasText: 'Maintenance is switched on for everyone in this Workspace.' })).toBeVisible();
-  await expect(sections.getByRole('link')).toHaveText(['Today', 'Procedures', 'Reminders', 'Lists', 'Calendar', 'Documents', 'Contacts', 'Maintenance']);
+  await expect(sections.getByRole('link')).toHaveText(['Dashboard', 'Procedures', 'Reminders', 'Lists', 'Calendar', 'Documents', 'Contacts', 'Maintenance']);
   await sections.getByRole('link', { name: 'Maintenance' }).click();
   const column = (name: string) => page.getByRole('region', { name: new RegExp(`^${name} \\(`) });
   await expect(column('Planned')).toContainText('Nothing here.');
@@ -2614,7 +2618,7 @@ test('first server admin: bootstrap link, account creation, sign-in, Workspace c
   await expect(recordLinks.getByRole('status')).toHaveText('“Service the boiler” is scheduled and linked to this record.');
   await expect(recordLinks.getByRole('listitem')).toHaveText([/^Execution: /, /^Document: Water bill March/, /^Reminder: Service the boiler/]);
   // The reminder is an ordinary one: it is on Today when due. The record did not change.
-  await sections.getByRole('link', { name: 'Today' }).click();
+  await sections.getByRole('link', { name: 'Dashboard' }).click();
   await expect(page.getByRole('main')).toContainText('Service the boiler');
   await page.goBack();
   await expect(page.locator('.maintenance-status')).toHaveText('▶ In progress');
@@ -2688,7 +2692,7 @@ test('first server admin: bootstrap link, account creation, sign-in, Workspace c
   await page.getByRole('checkbox', { name: /^Maintenance/ }).check();
   await sections.getByRole('link', { name: 'Maintenance' }).click();
   await expect(column('Completed').getByRole('listitem')).toHaveText([/Boiler service/]);
-  await sections.getByRole('link', { name: 'Today' }).click();
+  await sections.getByRole('link', { name: 'Dashboard' }).click();
 
   // Equipment (16.8): explicit metadata, existing links, reviewed warranty reminders and Trash.
   await page.goto(`${workspacePath}/equipment`);
@@ -2776,7 +2780,7 @@ test('first server admin: bootstrap link, account creation, sign-in, Workspace c
   await page.getByRole('checkbox',{name:/^Equipment/}).uncheck();
   await expect(page.getByRole('status').filter({hasText:'Equipment is switched off'})).toBeVisible();
   await expect(sections.getByRole('link',{name:'Equipment',exact:true})).toHaveCount(0);
-  await sections.getByRole('link',{name:'Today',exact:true}).click();
+  await sections.getByRole('link',{name:'Dashboard',exact:true}).click();
 
   // Calendar (14.4): the Occurrences Home shows, with the same actions; planned dates of a series;
   // filters remembered per viewer; arrow keys between days; an agenda that fits a phone.
@@ -2868,7 +2872,7 @@ test('first server admin: bootstrap link, account creation, sign-in, Workspace c
   await expect(providers.getByLabel('Bot token')).toHaveValue('');
   await expectAccessible(page, 'server admin page with notification providers');
   await page.goto('/'); // the start page opens the last Workspace's Today
-  await expect(page.getByRole('heading', { name: 'Today', level: 2 })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Dashboard', level: 2 })).toBeVisible();
   await sections.getByRole('link', { name: 'Procedures' }).click();
   await expect(page.getByRole('list', { name: 'Procedures' })).toBeVisible();
   await expect(page.getByRole('navigation', { name: 'Recently used' })).toHaveCount(0);
@@ -2930,7 +2934,7 @@ test('first server admin: bootstrap link, account creation, sign-in, Workspace c
 
   // Profile & settings (15.1): named sections instead of one long page.
   await fromMenu(page, 'Profile & settings');
-  await expect(page.getByRole('navigation', { name: 'Profile & settings' }).getByRole('link')).toHaveText(['Profile', 'Password & security', 'Appearance', 'Today', 'Confirmations', 'Notifications', 'Weather', 'Private journal']);
+  await expect(page.getByRole('navigation', { name: 'Profile & settings' }).getByRole('link')).toHaveText(['Profile', 'Password & security', 'Appearance', 'Dashboard', 'Confirmations', 'Notifications', 'Weather', 'Private journal']);
   await expect(page.getByRole('radio', { name: /^Memento Mori/ })).toHaveCount(0);
   await settingsSection(page, 'Profile & settings', 'Appearance');
   await expect(page).toHaveURL(/\/account\/appearance$/);
@@ -3072,7 +3076,7 @@ test('first server admin: bootstrap link, account creation, sign-in, Workspace c
   await settingsSection(page,'Profile & settings','Places');
   const effects=page.getByRole('checkbox',{name:'Effects',exact:true});
   await effects.uncheck();
-  const cardOpacity=page.getByRole('slider',{name:'Today card opacity',exact:true});
+  const cardOpacity=page.getByRole('slider',{name:'Dashboard card opacity',exact:true});
   await cardOpacity.focus();
   await cardOpacity.press('Home');
   await expect(cardOpacity).toHaveValue('0');
@@ -3086,11 +3090,11 @@ test('first server admin: bootstrap link, account creation, sign-in, Workspace c
   await expect(page.locator('.today-card').first()).toHaveCSS('background-color',/0\)$/);
   await fromMenu(page,'Profile & settings');
   await settingsSection(page,'Profile & settings','Places');
-  await expect(page.getByRole('slider',{name:'Today card opacity',exact:true})).toHaveValue('0');
-  await page.getByRole('slider',{name:'Today card opacity',exact:true}).press('End');
+  await expect(page.getByRole('slider',{name:'Dashboard card opacity',exact:true})).toHaveValue('0');
+  await page.getByRole('slider',{name:'Dashboard card opacity',exact:true}).press('End');
   await page.getByRole('button',{name:'Cancel',exact:true}).click();
-  await expect(page.getByRole('slider',{name:'Today card opacity',exact:true})).toHaveValue('0');
-  await page.getByRole('slider',{name:'Today card opacity',exact:true}).press('End');
+  await expect(page.getByRole('slider',{name:'Dashboard card opacity',exact:true})).toHaveValue('0');
+  await page.getByRole('slider',{name:'Dashboard card opacity',exact:true}).press('End');
   await page.getByRole('checkbox',{name:'Effects',exact:true}).check();
   await page.getByRole('button',{name:'Save',exact:true}).click();
   await expect(page.getByRole('status').filter({hasText:/^Saved\.$/})).toBeVisible();
@@ -3195,10 +3199,10 @@ test('first server admin: bootstrap link, account creation, sign-in, Workspace c
     if (await moveUp.isDisabled()) break;
     await moveUp.click();
   }
-  await expect(page.locator('.places-dock > a')).toHaveText(['Today', 'Procedures', 'Lists']);
+  await expect(page.locator('.places-dock > a')).toHaveText(['Dashboard', 'Procedures', 'Lists']);
   await menuOrder.getByRole('button', { name: 'Save menu order' }).click();
   await expect(menuOrder.getByRole('status')).toHaveText('Tool menu order saved.');
-  await expect(page.locator('.places-dock > a')).toHaveText(['Today', 'Equipment', 'Procedures']);
+  await expect(page.locator('.places-dock > a')).toHaveText(['Dashboard', 'Equipment', 'Procedures']);
   await page.reload();
   await expect(menuOrder.getByRole('list').locator('li strong').first()).toHaveText('Equipment');
   await page.locator('.places-dock').getByRole('button', { name: 'More', exact: true }).click();
@@ -3210,7 +3214,7 @@ test('first server admin: bootstrap link, account creation, sign-in, Workspace c
     await page.reload();
     await expect(page.locator('.shell-side nav a').nth(1)).toHaveText('Equipment');
     await page.setViewportSize({width:320,height:850});
-    await expect(page.locator('.tab-bar > a')).toHaveText(['Today', 'Equipment', 'Procedures', 'More']);
+    await expect(page.locator('.tab-bar > a')).toHaveText(['Dashboard', 'Equipment', 'Procedures', 'More']);
     expect(await page.evaluate('document.documentElement.scrollWidth <= innerWidth')).toBe(true);
     await expectAccessible(page, `Personal menu order ${theme} at 320px`);
     await page.screenshot({path:`${placeShots}/menu-order-${theme}-320.png`,fullPage:true,animations:'disabled'});
@@ -3224,12 +3228,12 @@ test('first server admin: bootstrap link, account creation, sign-in, Workspace c
   await menuOrder.getByRole('button', { name: 'Use default order' }).click();
   await menuOrder.getByRole('button', { name: 'Save menu order' }).click();
   await expect(menuOrder.getByRole('status')).toHaveText('Tool menu order saved.');
-  await expect(page.locator('.places-dock > a')).toHaveText(['Today', 'Procedures', 'Lists']);
+  await expect(page.locator('.places-dock > a')).toHaveText(['Dashboard', 'Procedures', 'Lists']);
   await settingsSection(page,'Profile & settings','Places');
   await page.getByText('My photo',{exact:true}).click();
   await expect(page.getByRole('radio',{name:'My photo',exact:true})).toBeChecked();
   await page.locator('input[type=file]').setInputFiles({name:'own-background.png',mimeType:'image/png',buffer:photo(500,400)});
-  const photoCardOpacity=page.getByRole('slider',{name:'Today card opacity',exact:true});
+  const photoCardOpacity=page.getByRole('slider',{name:'Dashboard card opacity',exact:true});
   await photoCardOpacity.press('Home');
   for (let n=0;n<35;n++) await photoCardOpacity.press('ArrowRight');
   await expect(photoCardOpacity).toHaveValue('35');
@@ -3373,7 +3377,7 @@ test('first server admin: bootstrap link, account creation, sign-in, Workspace c
   expect(cookiesBeforeCode.some((cookie) => cookie.name.endsWith('vmn.session_token'))).toBe(false);
   await page.getByLabel('Code from your authenticator app').fill(totp.generate({ timestamp: Date.now() + 30_000 }));
   await page.getByRole('button', { name: 'Verify' }).click();
-  await expect(page.getByRole('heading', { name: 'Today', level: 2 })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Dashboard', level: 2 })).toBeVisible();
 
   await fromMenu(page, 'Sign out');
   await expect(page.getByRole('heading', { name: 'Sign in' })).toBeVisible();
@@ -3396,7 +3400,7 @@ test('first server admin: bootstrap link, account creation, sign-in, Workspace c
   await page.getByLabel('Email').fill('admin@example.org');
   await page.getByLabel('Password').fill(PASSWORD);
   await page.getByRole('button', { name: 'Sign in' }).click();
-  await expect(page.getByRole('heading', { name: 'Today', level: 2 })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Dashboard', level: 2 })).toBeVisible();
   await fromMenu(page, 'Profile & settings');
   await settingsSection(page, 'Profile & settings', 'Password & security');
   await expect(page.getByText('Status: Not enabled')).toBeVisible();

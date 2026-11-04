@@ -57,7 +57,7 @@ test('Guide preserves routes, preferences, themes and private opt-in weather acr
   await page.goto(`/w/${workspaceId}`);
   const shell = page.locator('.shell');
   await expect(shell).toHaveAttribute('data-layout', 'guide');
-  await expect(page.getByRole('heading', { name: /^Today/ })).toBeVisible();
+  await expect(page.getByRole('heading', { name: /^Dashboard/ })).toBeVisible();
   expect(requests.filter(url => url.includes('/api/account/weather/forecast'))).toEqual([]);
   const post = async (path: string, body: unknown) => page.evaluate(async ({ path, body }) => { const r = await fetch(path, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }); return { status: r.status, data: await r.json() }; }, { path, body });
   expect((await post('/api/account/preferences', { theme: 'space-guide', navigationOrder: ['LISTS', 'CALENDAR', 'PROCEDURES'] })).status).toBe(200);
@@ -68,7 +68,7 @@ test('Guide preserves routes, preferences, themes and private opt-in weather acr
   await page.reload();
   await expect(page.locator('html')).toHaveAttribute('data-theme', 'space-guide');
   const nav = page.getByRole('navigation', { name: 'Tools', exact: true });
-  await expect(nav.getByRole('link')).toHaveText(['Today', 'Lists', 'Calendar']);
+  await expect(nav.getByRole('link')).toHaveText(['Dashboard', 'Lists', 'Calendar']);
   await page.getByRole('button', { name: /^Settings/ }).click();
   await expect(page.getByRole('link', { name: 'Profile & settings', exact: true })).toBeVisible();
   await expectAccessible(page, 'Guide top settings menu');
@@ -127,7 +127,7 @@ test('Guide preserves routes, preferences, themes and private opt-in weather acr
     { id: 'toBuy', visible: true, size: 'NORMAL', options: { lists: 3 } },
   ] } })).status).toBe(200);
   await page.goto(`/w/${workspaceId}`);
-  await expect(page.getByRole('link', { name: /Snow.*Open forecast/ })).toBeVisible();
+  await expect(page.getByRole('link', { name: 'Weather in Fictional studio' })).toBeVisible();
   await checkClockWeather(page, workspaceId, testInfo.project.name === 'guide-desktop-chromium');
   for (const theme of ['system', 'light', 'dark', 'memento-mori', 'tokyo-nights', 'witch-forest', 'places-de', 'places-it', 'places-uk', 'places-scotland', 'space-guide']) {
     expect((await post('/api/account/preferences', { theme })).status).toBe(200); await page.reload();
