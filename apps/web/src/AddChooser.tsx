@@ -74,8 +74,8 @@ export function AddChooser(props: { workspaceId: string; can: CanAdd }) {
 
   return (
     <>
-      <button ref={buttonRef} type="button" className="primary add-button" aria-haspopup="dialog" onClick={open}>
-        <UiIcon name="add" /> {t('add.button')}
+      <button ref={buttonRef} type="button" className="primary icon-button add-button" aria-haspopup="dialog" aria-label={t('add.button')} title={t('add.button')} onClick={open}>
+        <UiIcon name="add" />
       </button>
       <dialog
         ref={dialogRef}

@@ -10,7 +10,7 @@ import { TodayInstruments } from './TodayInstruments.tsx';
 import { ProgressCard, RecentCard } from './TodayProgress.tsx';
 import { AddChooser, type CanAdd } from './AddChooser.tsx';
 import { api, isNetworkError, messageFor, type HomeOverview, type ListSummary, type MaintenanceDueSoonItem, type Occurrence, type PersonRef, type RunSummary } from './api.ts';
-import { formatCalendarDate, formatClock, formatRelative, formatRelativeDay, t } from './i18n/index.ts';
+import { formatCalendarDate, formatRelative, formatRelativeDay, t } from './i18n/index.ts';
 import { AppIcon } from './procedure-icons.tsx';
 import { Ring } from './RunGuide.tsx';
 import { ActiveRunItem, OccurrenceItem, groupOverdue, when } from './Occurrences.tsx';
@@ -23,20 +23,13 @@ import { ATTENTION_ROWS, agenda, isTodayInstrument, nextUp, recentSince, todayCa
 import { useTodaySettings } from './today-settings.ts';
 import { UiIcon, type UiIconName } from './ui-icons.tsx';
 import { UndoNotice, type Undoable } from './UndoNotice.tsx';
+import { useHomeFilter } from './home-filter.ts';
+import { ScopeSelect } from './ScopeSelect.tsx';
+import { useGuideSlots } from './guide/guide-slots.tsx';
+import { createPortal } from 'react-dom';
 
 /** Other members' changes appear without reloading: Today refreshes this often while it is visible. */
 const REFRESH_MS = 30_000;
-const FILTER_KEY = 'vmn.homeFilter';
-type Filter = 'ALL' | 'MINE' | 'SHARED';
-
-function storedFilter(): Filter {
-  try {
-    const value = window.localStorage.getItem(FILTER_KEY);
-    return value === 'MINE' || value === 'SHARED' ? value : 'ALL';
-  } catch {
-    return 'ALL';
-  }
-}
 
 /** What Today puts in front of the person, in this order — everything else has its own tool. */
 export interface TodayView {
@@ -190,6 +183,7 @@ export function Today(props: {
   const { workspaceId } = props;
   const { guide } = usePreferences();
   const guideLayout = guide.layout === 'guide';
+  const slots = useGuideSlots();
   const { userId, reportReachable, reportUnreachable } = useOffline();
   const [home, setHome] = useState<HomeOverview | null>(null);
   const [bring, setBring] = useState<{ items: BringTodayView[]; total: number } | null>(null);
@@ -199,7 +193,7 @@ export function Today(props: {
   const [offlineActive, setOfflineActive] = useState<readonly RunSummary[] | null>(null);
   const [members, setMembers] = useState<readonly PersonRef[] | null>(null);
   const [message, setMessage] = useState<string | null>(null);
-  const [filter, setFilter] = useState<Filter>(storedFilter);
+  const [filter, chooseFilter] = useHomeFilter();
   const [notice, setNotice] = useState<Undoable | null>(null);
   const { settings, loaded } = useTodaySettings(userId);
   const cards = todayCards(props.tools, settings);
@@ -258,14 +252,6 @@ export function Today(props: {
     );
   }, [workspaceId, props.canSchedule]);
 
-  const chooseFilter = (next: Filter) => {
-    setFilter(next);
-    try {
-      window.localStorage.setItem(FILTER_KEY, next);
-    } catch {
-      /* per-viewer convenience only */
-    }
-  };
   const can = { canStart: props.canStart, canSchedule: props.canSchedule, canExecute: props.canExecute };
   const assigned = props.tools.includes('BRING') || props.tools.includes('PROCEDURES') || props.tools.includes('REMINDERS');
   const shown = (item: Occurrence) => filter === 'ALL' || (filter === 'MINE' ? item.responsible?.id === props.userId : item.responsible === null);
@@ -451,30 +437,26 @@ export function Today(props: {
       <div className="today-hello">
         <EverydaySigil />
         <div className="today-hello-text">
-          <h2 id="today-heading" className="today-eyebrow">
-            {t('shell.today')} <span className="today-date">· {formatClock(now, false).date}</span>
+          <h2 id="today-heading" className="visually-hidden">
+            {t('shell.today')}
           </h2>
           <p className="today-greeting">{t(greetingKey(now.getHours()), { name: firstName(props.userName) })}</p>
         </div>
         {ring !== null && <Ring done={ring.done} total={ring.total} size={64} label={t('today.ringLabel', { done: ring.done, total: ring.total })} />}
       </div>
-      <div className="today-toolbar">
-        {assigned && (
-          <div className="segmented" role="group" aria-label={t('home.filter')}>
-            {(['ALL', 'MINE', 'SHARED'] as const).map((value) => (
-              <button key={value} type="button" aria-pressed={filter === value} aria-label={t(`home.filter.short.${value}`) === t(`home.filter.${value}`) ? undefined : `${t(`home.filter.short.${value}`)} (${t(`home.filter.${value}`)})`} onClick={() => chooseFilter(value)}>
-                {t(`home.filter.short.${value}`)}
-              </button>
-            ))}
-          </div>
-        )}
-        <span className="today-toolbar-end">
-          <Link href={paths.account('today')} className="button icon-button quiet" aria-label={t('today.customize')} title={t('today.customize')}>
-            <UiIcon name="settings" />
-          </Link>
+      {guideLayout ? (
+        slots.scope !== null && slots.actions !== null && (
+          <>
+            {createPortal(assigned && <ScopeSelect filter={filter} onChoose={chooseFilter} />, slots.scope)}
+            {createPortal(<AddChooser workspaceId={workspaceId} can={props.canAdd} />, slots.actions)}
+          </>
+        )
+      ) : (
+        <div className="today-toolbar">
+          {assigned && <ScopeSelect filter={filter} onChoose={chooseFilter} />}
           <AddChooser workspaceId={workspaceId} can={props.canAdd} />
-        </span>
-      </div>
+        </div>
+      )}
       <TodayInstruments clock={cards.find(setting => setting.card.id === 'clock')} weather={cards.some(setting => setting.card.id === 'weather') ? weather : null} />
       {cards.filter(setting => setting.card.id === 'moon').map(render)}
       {hero !== null && cards.some((setting) => setting.card.id === 'continue') && <HeroCard workspaceId={workspaceId} hero={hero} />}

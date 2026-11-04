@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { Occurrence, RunSummary, Schedule } from './api.ts';
 import { destinations } from './navigation.ts';
+import { t } from './i18n/index.ts';
 import { remindersView } from './Reminders.tsx';
 import { firstName, greetingKey, todayHero, todayRing, todayView } from './Today.tsx';
 
@@ -13,7 +14,7 @@ function occurrence(id: string, kind: Schedule['kind'], extra: Partial<Occurrenc
 const inProgress = (id: string) => occurrence(id, 'PROCEDURE', { state: 'IN_PROGRESS', run: { id: `run-${id}`, state: 'ACTIVE', startedAt: '2026-10-01T08:00:00.000Z', startedBy: 'Uma' } });
 const run = { id: 'run-loose', title: 'Weekly clean' } as unknown as RunSummary;
 
-describe('Today', () => {
+describe('Dashboard', () => {
   const home = {
     overdue: [occurrence('tax', 'REMINDER'), inProgress('boiler')],
     today: [occurrence('bins', 'REMINDER', { responsible: { id: 'ana', name: 'Ana' } }), inProgress('leave'), occurrence('water', 'PROCEDURE')],
@@ -73,28 +74,28 @@ describe('tool navigation', () => {
 
   it('pins the first two enabled personal choices, keeps every tool reachable and marks exactly one phone destination', () => {
     const custom = destinations(W, ['PROCEDURES', 'LISTS', 'EQUIPMENT', 'JOURNAL', 'CALENDAR'], ['DOCUMENTS', 'EQUIPMENT', 'JOURNAL', 'LISTS']);
-    expect(custom.side.map(item => item.label)).toEqual(['Today', 'Equipment', 'Notes', 'Lists', 'Procedures', 'Calendar']);
-    expect(custom.bar.map(item => item.label)).toEqual(['Today', 'Equipment', 'Notes', 'More']);
+    expect(custom.side.map(item => item.label)).toEqual([t('shell.today'), 'Equipment', 'Notes', 'Lists', 'Procedures', 'Calendar']);
+    expect(custom.bar.map(item => item.label)).toEqual([t('shell.today'), 'Equipment', 'Notes', 'More']);
     for (const page of ['workspace', 'equipment', 'journal', 'lists', 'procedures', 'calendar', 'history', 'more'] as const) {
       expect(custom.bar.filter(item => item.pages.includes(page))).toHaveLength(1);
     }
-    expect(destinations(W, [], ['DOCUMENTS']).bar.map(item => item.label)).toEqual(['Today', 'More']);
-    expect(destinations(W, ['LISTS'], ['DOCUMENTS', 'LISTS']).bar.map(item => item.label)).toEqual(['Today', 'Lists', 'More']);
+    expect(destinations(W, [], ['DOCUMENTS']).bar.map(item => item.label)).toEqual([t('shell.today'), 'More']);
+    expect(destinations(W, ['LISTS'], ['DOCUMENTS', 'LISTS']).bar.map(item => item.label)).toEqual([t('shell.today'), 'Lists', 'More']);
   });
 
-  it('keeps Today and More with all tools off and never offers a disabled destination', () => {
-    expect(destinations(W, []).side.map((item) => item.label)).toEqual(['Today']);
-    expect(destinations(W, []).bar.map((item) => item.label)).toEqual(['Today', 'More']);
-    expect(destinations(W, ['LISTS']).bar.map((item) => item.label)).toEqual(['Today', 'Lists', 'More']);
+  it('keeps Dashboard and More with all tools off and never offers a disabled destination', () => {
+    expect(destinations(W, []).side.map((item) => item.label)).toEqual([t('shell.today')]);
+    expect(destinations(W, []).bar.map((item) => item.label)).toEqual([t('shell.today'), 'More']);
+    expect(destinations(W, ['LISTS']).bar.map((item) => item.label)).toEqual([t('shell.today'), 'Lists', 'More']);
   });
 
   it('has the five tools in the desktop sidebar', () => {
-    expect(nav.side.map((item) => item.label)).toEqual(['Today', 'Procedures', 'Reminders', 'Lists', 'Calendar']);
+    expect(nav.side.map((item) => item.label)).toEqual([t('shell.today'), 'Procedures', 'Reminders', 'Lists', 'Calendar']);
     expect(nav.side.map((item) => item.href)).toEqual([`/w/${W}`, `/w/${W}/procedures`, `/w/${W}/reminders`, `/w/${W}/lists`, `/w/${W}/calendar`]);
   });
 
   it('has four labelled destinations in the phone bar; More covers Reminders, Calendar and history', () => {
-    expect(nav.bar.map((item) => item.label)).toEqual(['Today', 'Procedures', 'Lists', 'More']);
+    expect(nav.bar.map((item) => item.label)).toEqual([t('shell.today'), 'Procedures', 'Lists', 'More']);
     const more = nav.bar[3];
     expect(more?.href).toBe(`/w/${W}/more`);
     expect(more?.pages).toEqual(expect.arrayContaining(['more', 'reminders', 'calendar', 'history']));
@@ -102,9 +103,9 @@ describe('tool navigation', () => {
 
   it('adds an enabled optional tool to the sidebar and to More — never to the phone bar (16.2)', () => {
     const withDocuments = destinations(W, ['PROCEDURES', 'REMINDERS', 'LISTS', 'CALENDAR', 'DOCUMENTS']);
-    expect(withDocuments.side.map((item) => item.label)).toEqual(['Today', 'Procedures', 'Reminders', 'Lists', 'Calendar', 'Documents']);
+    expect(withDocuments.side.map((item) => item.label)).toEqual([t('shell.today'), 'Procedures', 'Reminders', 'Lists', 'Calendar', 'Documents']);
     expect(withDocuments.side.at(-1)?.href).toBe(`/w/${W}/documents`);
-    expect(withDocuments.bar.map((item) => item.label)).toEqual(['Today', 'Procedures', 'Lists', 'More']); // still exactly four
+    expect(withDocuments.bar.map((item) => item.label)).toEqual([t('shell.today'), 'Procedures', 'Lists', 'More']); // still exactly four
     expect(withDocuments.bar[3]?.pages).toContain('documents');
     // Not switched on: it appears nowhere.
     expect(nav.side.some((item) => item.pages.includes('documents'))).toBe(false);

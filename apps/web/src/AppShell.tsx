@@ -5,13 +5,14 @@ import { TodaySettingsProvider } from './guide/TodaySettingsProvider.tsx';
 import { GUIDE_CARD_ART } from './guide/card-art.ts';
 import { GuideNavigation } from './guide/GuideNavigation.tsx';
 import { GuideGlance } from './guide/GuideGlance.tsx';
+import { GuideSlotsProvider } from './guide/guide-slots.tsx';
 import type { CSSProperties } from 'react';
 import { BringPage } from './Bring.tsx';
 import { destinations, type Destination } from './navigation.ts';
 import { ProgressProvider } from './Progress.tsx';
 import { PlacesNavigation } from './places/PlacesNavigation.tsx';
 import { JournalPage } from './modules/journal/LazyJournalPage.tsx';
-import { useCallback, useEffect, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { AccountSecurity } from './AccountSecurity.tsx';
 import { AdminPage } from './AdminPage.tsx';
 import { AppearanceSettings } from './AppearanceSettings.tsx';
@@ -113,10 +114,11 @@ function ClassicNavigation({ workspaceId, tools, page, phone = false }: { worksp
   const { guide } = usePreferences();
   return guide.layout === 'classic' && workspaceId !== null ? <ToolNavigation workspaceId={workspaceId} tools={tools} page={page} phone={phone} /> : null;
 }
-function GuideHeader({ workspaceId, tools, page, userId }: { workspaceId: string | null; tools: readonly string[]; page: Page; userId: string }) {
+function GuideHeader({ workspaceId, tools, page, userId, onScopeSlot, onActionSlot }: { workspaceId: string | null; tools: readonly string[]; page: Page; userId: string; onScopeSlot: (element: HTMLElement | null) => void; onActionSlot: (element: HTMLElement | null) => void }) {
   const { guide } = usePreferences();
   if (guide.layout !== 'guide') return null;
-  return <div className="guide-header-tools">{workspaceId !== null && <GuideNavigation key={`${workspaceId}:${page}:${tools.join(' ')}`} workspaceId={workspaceId} tools={tools} page={page} />}<GuideGlance key={workspaceId ?? 'account'} userId={userId} /></div>;
+  // Today's scope dropdown sits before the links; its Add button sits between the links and the time.
+  return <div className="guide-header-tools"><div className="guide-slot guide-slot-scope" ref={onScopeSlot} />{workspaceId !== null && <GuideNavigation key={`${workspaceId}:${page}:${tools.join(' ')}`} workspaceId={workspaceId} tools={tools} page={page} />}<div className="guide-slot guide-slot-actions" ref={onActionSlot} /><GuideGlance key={workspaceId ?? 'account'} userId={userId} /></div>;
 }
 
 /** Loads the Workspace (name, role, capabilities) for the Workspace pages. */
@@ -505,6 +507,10 @@ export function AppShell(props: { user: CurrentUser; route: Route; onSignOut: ()
   const [message, setMessage] = useState<string | null>(null);
   // The person's picture version (section 29); changed on the Profile page, shown in the Settings button.
   const [avatar, setAvatar] = useState<string | null>(user.avatar ?? null);
+  // The top bar's slots for Today's controls (guide layout); the ref callbacks report each element once mounted.
+  const [scopeSlot, setScopeSlot] = useState<HTMLElement | null>(null);
+  const [actionSlot, setActionSlot] = useState<HTMLElement | null>(null);
+  const guideSlots = useMemo(() => ({ scope: scopeSlot, actions: actionSlot }), [scopeSlot, actionSlot]);
 
   const refresh = useCallback(() => {
     api.workspaces().then(
@@ -589,6 +595,7 @@ export function AppShell(props: { user: CurrentUser; route: Route; onSignOut: ()
       >
         {t('shell.skipToContent')}
       </a>
+      <GuideSlotsProvider value={guideSlots}>
       <ShellFrame focus={focus} page={route.page}>
         <header className="shell-side">
           {/* The product name is the page's level-one heading; each page's own title is a level-two heading. */}
@@ -613,7 +620,7 @@ export function AppShell(props: { user: CurrentUser; route: Route; onSignOut: ()
             </label>
           )}
           <ClassicNavigation workspaceId={navWorkspaceId} tools={navTools} page={route.page} />
-          <GuideHeader workspaceId={navWorkspaceId} tools={navTools} page={route.page} userId={user.id} />
+          <GuideHeader workspaceId={navWorkspaceId} tools={navTools} page={route.page} userId={user.id} onScopeSlot={setScopeSlot} onActionSlot={setActionSlot} />
           <SettingsMenu user={user} avatar={avatar} workspaceId={navWorkspaceId} currentPath={window.location.pathname} onSignOut={signOut} />
         </header>
         <div className="shell-main">
@@ -625,7 +632,8 @@ export function AppShell(props: { user: CurrentUser; route: Route; onSignOut: ()
           </main>
         </div>
         <ClassicNavigation workspaceId={navWorkspaceId} tools={navTools} page={route.page} phone />
-      </ShellFrame>
+        </ShellFrame>
+      </GuideSlotsProvider>
     </ForecastProvider></ClockToolsProvider></TodaySettingsProvider></ProgressProvider></PreferencesProvider>
   );
 }

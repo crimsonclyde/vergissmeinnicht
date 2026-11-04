@@ -274,17 +274,6 @@
 
 /* ---- Today ------------------------------------------------------------------------------- */
 
-:root[data-theme='tokyo-nights'] .today-eyebrow {
-  color: var(--neon-a);
-  letter-spacing: 0.22em;
-  text-shadow: 0 0 0.5rem rgb(53 230 255 / 65%);
-}
-
-:root[data-theme='tokyo-nights'] .today-date {
-  letter-spacing: 0.02em;
-  text-shadow: none;
-}
-
 /* The greeting as a neon sign: light text with a coloured halo (the letters keep full contrast). */
 :root[data-theme='tokyo-nights'] .today-greeting {
   color: #f4f1ff;

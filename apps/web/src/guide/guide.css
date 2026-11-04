@@ -20,7 +20,13 @@
 .guide-navigation > :is(a, button):hover { background: var(--surface-muted); }
 .guide-glance { margin-left: auto; display: flex; align-items: center; gap: .3rem; }
 .guide-glance > :is(button, a) { display: inline-flex; align-items: center; gap: .4rem; white-space: nowrap; min-width: 44px; min-height: 44px; padding: .5rem; border-color: var(--border); background: var(--surface); font-variant-numeric: tabular-nums; text-decoration: none; }
-.guide-weather small { max-width: 6rem; white-space: normal; font-size: .7rem; }
+.guide-slot:empty { display: none; }
+.guide-slot-scope, .guide-slot-actions { display: flex; align-items: center; min-width: 0; }
+.guide-slot-scope { gap: .4rem; }
+:root .shell[data-layout='guide'] .guide-slot-scope .scope-select { flex: 0 1 auto; max-width: 9rem; }
+:root .shell[data-layout='guide'] .guide-slot-scope:not(:empty) + .guide-navigation { border-left: 1px solid var(--border); margin-left: .25rem; padding-left: .5rem; }
+:root .shell[data-layout='guide'] .settings-label { display: none; }
+:root .shell[data-layout='guide'] .settings-button { min-width: 44px; min-height: 44px; }
 .guide-dialog { width: min(40rem, calc(100vw - 2rem)); max-height: calc(100dvh - 2rem); padding: 1rem; }
 .guide-dialog-heading { display: flex; align-items: center; justify-content: space-between; gap: .5rem; margin-bottom: 1rem; }
 .guide-dialog-heading h2 { margin: 0; }
@@ -62,8 +68,6 @@
   .guide-navigation .ui-icon { width: 1rem; height: 1rem; }
   .guide-glance { gap: .15rem; }
   .guide-glance > :is(button, a) { padding: .35rem; font-size: .85rem; }
-  .guide-weather small { position: absolute; width: 1px; height: 1px; clip-path: inset(50%); overflow: hidden; }
-  .guide-weather:has(small)::after { content: '·'; color: var(--text); }
   :root .shell[data-layout='guide'][data-focus='run'] .guide-header-tools { display: none; }
   :root[data-theme='space-guide'] .shell[data-layout='guide'] .today-hero { grid-template-columns: minmax(0, 1fr) auto; }
   :root[data-theme='space-guide'] .shell[data-layout='guide'] .today-hero-icon { display: none; }
@@ -76,16 +80,21 @@
   :root[data-theme='space-guide'] .shell[data-layout='guide'], :root[data-theme='space-guide'] .shell[data-layout='guide'] :is(.today-card, .today-hero, .guide-destination), .guide-card-preview { background: Canvas !important; color: CanvasText; box-shadow: none; }
   .guide-art { display: none; }
 }
-/* On narrow phones, scope/settings/glances share row one; all labelled shortcuts fit row two. */
+/* On narrow phones: workspace, scope, time and avatar share row one; navigation and Add share row two. */
 @media (max-width: 35rem) {
-  :root .shell[data-layout='guide'] .shell-side { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; gap: .4rem; }
+  :root .shell[data-layout='guide'] .shell-side { display: grid; grid-template-columns: minmax(0, 1fr) auto auto auto; gap: .4rem; }
   :root .shell[data-layout='guide'] .brand-heading { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
   :root .shell[data-layout='guide'] .workspace-select { grid-column: 1; grid-row: 1; }
   :root .shell[data-layout='guide'] .guide-header-tools { display: contents; }
-  :root .shell[data-layout='guide'] .guide-navigation { grid-column: 1 / -1; grid-row: 2; justify-content: space-around; flex-wrap: nowrap; }
-  :root .shell[data-layout='guide'] .guide-navigation > :is(a, button) { flex: 1; }
-  :root .shell[data-layout='guide'] .guide-glance { grid-column: 2; grid-row: 1; margin: 0; }
-  :root .shell[data-layout='guide'] .settings-menu { grid-column: 3; grid-row: 1; margin: 0; }
+  :root .shell[data-layout='guide'] .guide-navigation { grid-column: 1 / 4; grid-row: 2; justify-content: space-around; flex-wrap: nowrap; }
+  :root .shell[data-layout='guide'] .guide-navigation > :is(a, button) { position: relative; flex: 0 0 auto; width: 44px; min-width: 44px; padding: 0; }
+  :root .shell[data-layout='guide'] .guide-navigation > :is(a, button) > span:not(.ui-icon) { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
+  :root .shell[data-layout='guide'] .guide-slot-scope { grid-column: 2; grid-row: 1; }
+  :root .shell[data-layout='guide'] .guide-slot-scope .scope-select { max-width: 6rem; }
+  :root .shell[data-layout='guide'] .guide-glance { grid-column: 3; grid-row: 1; margin: 0; }
+  :root .shell[data-layout='guide'] .guide-slot-actions { grid-column: 4; grid-row: 2; justify-content: flex-end; }
+  :root .shell[data-layout='guide'] .settings-menu { grid-column: 4; grid-row: 1; margin: 0; }
+  :root .shell[data-layout='guide'] .guide-slot-scope:not(:empty) + .guide-navigation { border-left: 0; margin-left: 0; padding-left: 0; }
   :root .shell[data-layout='guide'][data-focus='run'] .guide-navigation, :root .shell[data-layout='guide'][data-focus='run'] .guide-glance { display: none; }
 }
 /* The existing sidebar menu opens upwards; the top-bar menu must open into the page. */

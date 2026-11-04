@@ -422,12 +422,6 @@
 
 /* ---- Today ------------------------------------------------------------------------------- */
 
-:root[data-theme='witch-forest'] .today-eyebrow {
-  color: var(--wf-moss);
-  font-variant: small-caps;
-  letter-spacing: 0.14em;
-}
-
 :root[data-theme='witch-forest'] .today-greeting {
   font-style: italic;
   letter-spacing: 0.01em;
@@ -502,10 +496,6 @@
 
   :root[data-theme='witch-forest'] .today-hero-text > small:first-child {
     letter-spacing: 0.06em;
-  }
-
-  :root[data-theme='witch-forest'] .today-eyebrow {
-    letter-spacing: 0.08em;
   }
 }
 

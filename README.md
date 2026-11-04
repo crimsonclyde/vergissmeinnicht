@@ -23,15 +23,15 @@ VergissMeinNicht (VMN) is a self-hosted workspace for routines, shared responsib
 Turn repeatable work into **Procedures**, see what needs attention, and keep a record of who did what and when. Each Workspace uses only the tools it needs.
 
 <p align="center">
-  <a href="assets/screenshots/readme-2026-11-03/today-memento-mori.webp"><img src="assets/screenshots/readme-2026-11-03/today-memento-mori.webp" alt="Today in Memento Mori: Celestial, an active studio Run and the personally chosen Clock and Weather card" width="1040"></a>
+  <a href="assets/screenshots/readme-2026-11-03/today-memento-mori.webp"><img src="assets/screenshots/readme-2026-11-03/today-memento-mori.webp" alt="Dashboard in Memento Mori: Celestial, an active studio Run and the personally chosen Clock and Weather card" width="1040"></a>
 </p>
 
 ## Features
 
 | Tool / capability | What it does |
 |---|---|
-| **Today** | Due dates, active Runs and next actions in your personal layout. Chosen Clock/Weather instruments come first, followed by Celestial; every instrument is your choice. |
-| **Clock & Weather** | One illustrated Today card with clickable Clock/Weather halves, dedicated screens, local Stopwatch/Timer and private forecasts with clear source and freshness. |
+| **Dashboard** | Due dates, active Runs and next actions in your personal layout. Chosen Clock/Weather instruments come first, followed by Celestial; every instrument is your choice. |
+| **Clock & Weather** | One illustrated Dashboard card with clickable Clock/Weather halves, dedicated screens, local Stopwatch/Timer and private forecasts with clear source and freshness. |
 | **Procedures & Runs** | Reusable instructions and guided execution. History keeps the actor, time and original instructions after later edits. |
 | **Reminders & Calendar** | One-off and recurring obligations, optional assignment, email and Telegram reminders. |
 | **Lists & Bring** | Shared grocery lists and reminders for things to take between places. |
@@ -56,16 +56,16 @@ Real browser captures with fictional studio data. Weather in the new gallery use
 
 | Space Guide | Memento Mori (dark) |
 |---|---|
-| [![Today in Space Guide, with the combined illustrated Clock and Weather card above Celestial](assets/screenshots/readme-2026-11-03/today-space-guide.webp)](assets/screenshots/readme-2026-11-03/today-space-guide.webp) | [![Today in Memento Mori, with Celestial above an active Run](assets/screenshots/readme-2026-11-03/today-memento-mori.webp)](assets/screenshots/readme-2026-11-03/today-memento-mori.webp) |
+| [![Dashboard in Space Guide, with the combined illustrated Clock and Weather card above Celestial](assets/screenshots/readme-2026-11-03/today-space-guide.webp)](assets/screenshots/readme-2026-11-03/today-space-guide.webp) | [![Dashboard in Memento Mori, with Celestial above an active Run](assets/screenshots/readme-2026-11-03/today-memento-mori.webp)](assets/screenshots/readme-2026-11-03/today-memento-mori.webp) |
 
 | A dedicated Clock screen | A dedicated Weather screen |
 |---|---|
 | [![Clock instrument in Space Guide](assets/screenshots/readme-2026-11-03/clock-space-guide.webp)](assets/screenshots/readme-2026-11-03/clock-space-guide.webp) | [![Weather instrument in Memento Mori, with source and update time](assets/screenshots/readme-2026-11-03/weather-memento-mori.webp)](assets/screenshots/readme-2026-11-03/weather-memento-mori.webp) |
 
 <p align="center">
-  <a href="assets/screenshots/readme-2026-11-03/today-phone.webp"><img src="assets/screenshots/readme-2026-11-03/today-phone.webp" alt="Phone Today with one equal-half illustrated Clock and Weather card before Celestial" width="255"></a>
+  <a href="assets/screenshots/readme-2026-11-03/today-phone.webp"><img src="assets/screenshots/readme-2026-11-03/today-phone.webp" alt="Phone Dashboard with one equal-half illustrated Clock and Weather card before Celestial" width="255"></a>
   <a href="assets/screenshots/readme-2026-11-03/timer-phone.webp"><img src="assets/screenshots/readme-2026-11-03/timer-phone.webp" alt="Phone Timer with duration presets and the shared bottom action bar" width="255"></a>
-  <a href="assets/screenshots/readme-2026-11-03/personalize-phone.webp"><img src="assets/screenshots/readme-2026-11-03/personalize-phone.webp" alt="Profile Today settings: personal instrument choices and Celestial always first" width="255"></a>
+  <a href="assets/screenshots/readme-2026-11-03/personalize-phone.webp"><img src="assets/screenshots/readme-2026-11-03/personalize-phone.webp" alt="Profile Dashboard settings: personal instrument choices and Celestial always first" width="255"></a>
 </p>
 
 Stopwatch and Timer are local to the signed-in tab and reset on reload or close; they do not promise background alarms. [Capture details](assets/screenshots/readme-2026-11-03/README.md).
@@ -105,14 +105,14 @@ Two restrained everyday themes, with distinct palettes and quiet line-art detail
 | **Memento Mori (dark)** | **Don't go into the (light)** |
 |---|---|
 | Warm black, bone, burgundy and candlelit brass. | Ivory, ink and deep teal, with a little daylight. |
-| [![Today in Memento Mori](assets/screenshots/readme-2026-11-03/today-memento-mori.webp)](assets/screenshots/readme-2026-11-03/today-memento-mori.webp) | [![Today in Don't go into the light](assets/screenshots/readme-2026-10-28/today-light.webp)](assets/screenshots/readme-2026-10-28/today-light.webp) |
+| [![Dashboard in Memento Mori](assets/screenshots/readme-2026-11-03/today-memento-mori.webp)](assets/screenshots/readme-2026-11-03/today-memento-mori.webp) | [![Dashboard in Don't go into the light](assets/screenshots/readme-2026-10-28/today-light.webp)](assets/screenshots/readme-2026-10-28/today-light.webp) |
 
 <details>
 <summary>Explore Tokyo Nights, the forest and Places</summary>
 
 | Tokyo Nights | Witch Forest |
 |---|---|
-| [![Tokyo Nights: neon arcade Today](assets/screenshots/readme-2026-10-28/tokyo-nights.webp)](assets/screenshots/readme-2026-10-28/tokyo-nights.webp) | [![Witch Forest: woodland Today and an old-book Run card](assets/screenshots/readme-2026-10-28/old-forest.webp)](assets/screenshots/readme-2026-10-28/old-forest.webp) |
+| [![Tokyo Nights: neon arcade Dashboard](assets/screenshots/readme-2026-10-28/tokyo-nights.webp)](assets/screenshots/readme-2026-10-28/tokyo-nights.webp) | [![Witch Forest: woodland Dashboard and an old-book Run card](assets/screenshots/readme-2026-10-28/old-forest.webp)](assets/screenshots/readme-2026-10-28/old-forest.webp) |
 
 | Munich | Triora |
 |---|---|
