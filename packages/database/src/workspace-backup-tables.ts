@@ -109,7 +109,7 @@ export const EXCLUDED_TABLES: Readonly<Record<string, string>> = {
   rate_limits: 'server rate-limit counters',
   user_preferences: 'personal presentation settings',
   user_today_layouts: 'personal Today layouts',
-  user_workspace_preferences: 'personal default Workspace and per-Workspace themes',
+  user_workspace_preferences: 'personal default Workspace, per-Workspace themes and Guide presentation',
   user_avatars: 'personal profile pictures',
   user_place_preferences: 'personal Places settings per Workspace',
   user_place_backgrounds: 'personal Places background photos',

@@ -188,8 +188,8 @@ export function Today(props: {
   onOpenRun: (runId: string) => void;
 }) {
   const { workspaceId } = props;
-  const { preferences } = usePreferences();
-  const guideLayout = preferences.guide.layout === 'guide';
+  const { guide } = usePreferences();
+  const guideLayout = guide.layout === 'guide';
   const { userId, reportReachable, reportUnreachable } = useOffline();
   const [home, setHome] = useState<HomeOverview | null>(null);
   const [bring, setBring] = useState<{ items: BringTodayView[]; total: number } | null>(null);

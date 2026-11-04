@@ -1,6 +1,7 @@
 import {
   DEFAULT_PREFERENCES,
   canAuthenticate,
+  type GuidePreferencesChange,
   type ThemePreference,
   type User,
   type UserPreferences,
@@ -53,6 +54,21 @@ export async function setWorkspaceTheme(
 ): Promise<WorkspacePreferences> {
   await authorizeWorkspace(deps, input.user, input.workspaceId, 'workspace.view', null);
   const saved = await deps.preferences.setWorkspaceTheme({ userId: input.user.id, workspaceId: input.workspaceId, theme: input.theme, at: deps.clock.now() });
+  if (!saved) throw new WorkspaceNotFoundError();
+  return deps.preferences.workspacePreferences(input.user.id);
+}
+
+/**
+ * Sets the Galactic Guide choices (layout and background) of a Workspace the person belongs to (any role,
+ * also GUEST: it changes only their own view). Keys not given keep their value; `null` returns the Workspace
+ * to the default. A Workspace they do not belong to answers as unknown.
+ */
+export async function setWorkspaceGuide(
+  deps: PreferencesDeps,
+  input: { readonly user: User; readonly workspaceId: WorkspaceId; readonly changes: GuidePreferencesChange | null },
+): Promise<WorkspacePreferences> {
+  await authorizeWorkspace(deps, input.user, input.workspaceId, 'workspace.view', null);
+  const saved = await deps.preferences.setWorkspaceGuide({ userId: input.user.id, workspaceId: input.workspaceId, changes: input.changes, at: deps.clock.now() });
   if (!saved) throw new WorkspaceNotFoundError();
   return deps.preferences.workspacePreferences(input.user.id);
 }

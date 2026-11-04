@@ -25,41 +25,49 @@ export function orderedNavigationTools(order: readonly NavigationTool[] | null):
 /** Card backgrounds in the Galactic Guide. Each picture is bundled with the web app; none is fetched. */
 export const GUIDE_CARD_STYLES = ['glass', 'starfield', 'forest', 'water', 'hearth'] as const;
 export type GuideCardStyle = (typeof GUIDE_CARD_STYLES)[number];
+/** `guide`: the top bar with the Galactic Guide. `classic`: the sidebar of the existing interface. */
+export const GUIDE_LAYOUTS = ['guide', 'classic'] as const;
+export type GuideLayout = (typeof GUIDE_LAYOUTS)[number];
 export interface GuidePreferences {
-  readonly layout: 'guide' | 'classic';
+  readonly layout: GuideLayout;
   readonly cardStyle: GuideCardStyle;
   readonly cardOpacity: number;
   readonly images: boolean;
 }
 export const DEFAULT_GUIDE_PREFERENCES: GuidePreferences = Object.freeze({ layout: 'guide', cardStyle: 'glass', cardOpacity: 50, images: true });
 
-/** A bounded device copy is presentation only; malformed/old values are ignored. */
-export function readGuidePreferences(value: unknown): GuidePreferences | null {
-  if (value === null || typeof value !== 'object' || Array.isArray(value)) return null;
-  const record = value as Record<string, unknown>;
-  if (Object.keys(record).length !== 4 || (record.layout !== 'guide' && record.layout !== 'classic') || !(GUIDE_CARD_STYLES as readonly unknown[]).includes(record.cardStyle) || typeof record.cardOpacity !== 'number' || !Number.isInteger(record.cardOpacity) || record.cardOpacity < 0 || record.cardOpacity > 100 || typeof record.images !== 'boolean') return null;
-  return { layout: record.layout as GuidePreferences['layout'], cardStyle: record.cardStyle as GuideCardStyle, cardOpacity: record.cardOpacity, images: record.images };
+/** A partial Guide change: only the keys given are replaced; the rest keep their current value. */
+export type GuidePreferencesChange = { readonly [K in keyof GuidePreferences]?: GuidePreferences[K] | undefined };
+export function mergeGuidePreferences(current: GuidePreferences, change: GuidePreferencesChange): GuidePreferences {
+  return Object.freeze({
+    layout: change.layout ?? current.layout,
+    cardStyle: change.cardStyle ?? current.cardStyle,
+    cardOpacity: change.cardOpacity ?? current.cardOpacity,
+    images: change.images ?? current.images,
+  });
 }
 
 export interface UserPreferences {
-  readonly guide: GuidePreferences;
   readonly theme: ThemePreference;
   readonly criticalConfirm: CriticalConfirmMode;
   readonly privateGamification: boolean;
   readonly navigationOrder: readonly NavigationTool[] | null;
 }
 
-export const DEFAULT_PREFERENCES: UserPreferences = Object.freeze({ guide: DEFAULT_GUIDE_PREFERENCES, theme: 'system', criticalConfirm: 'hold', navigationOrder: null, privateGamification: true });
+export const DEFAULT_PREFERENCES: UserPreferences = Object.freeze({ theme: 'system', criticalConfirm: 'hold', navigationOrder: null, privateGamification: true });
 
 /**
- * A person's own choices per Workspace (section 28): which Workspace opens first, and a theme for a
- * Workspace that differs from their default theme. Presentation only; never shared, never in a backup.
- * Only Workspaces the person is currently a member of are listed.
+ * A person's own choices per Workspace (section 28): which Workspace opens first, a theme for a Workspace
+ * that differs from their default theme, and the Galactic Guide choices (layout and background) of each
+ * Workspace. Presentation only; never shared, never in a backup. Only Workspaces the person is currently
+ * a member of are listed.
  */
 export interface WorkspacePreferences {
   readonly defaultWorkspaceId: string | null;
   /** Workspace id → theme. A Workspace without an entry uses the default theme. */
   readonly themes: Readonly<Record<string, ThemePreference>>;
+  /** Workspace id → Guide choices. Only explicitly saved Workspaces are listed; others use DEFAULT_GUIDE_PREFERENCES. */
+  readonly guides: Readonly<Record<string, GuidePreferences>>;
 }
 
-export const EMPTY_WORKSPACE_PREFERENCES: WorkspacePreferences = Object.freeze({ defaultWorkspaceId: null, themes: Object.freeze({}) });
+export const EMPTY_WORKSPACE_PREFERENCES: WorkspacePreferences = Object.freeze({ defaultWorkspaceId: null, themes: Object.freeze({}), guides: Object.freeze({}) });

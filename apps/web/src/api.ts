@@ -1,7 +1,7 @@
 import type { BringContent, BringItem, BringStatus } from '@vergissmeinnicht/domain';
 import type { JournalContent, JournalEntry, PlacePreferences, PlaceSettings } from '@vergissmeinnicht/domain';
 /** Thin JSON client for the same-origin API. The browser adds the `Origin` header the server checks. */
-import type { CredentialProviderId, OpenMeteoModelId, ProcedureIcon, ReasonPolicy, RunState, StepState, ThemePreference, TodayLayout, UserPreferences, WeatherCredential, WeatherForecast, WeatherHistoryDay, WeatherLocation, WeatherProviderId, WeatherSettings, WorkspacePreferences, WorkspaceRole } from '@vergissmeinnicht/domain';
+import type { CredentialProviderId, GuidePreferencesChange, OpenMeteoModelId, ProcedureIcon, ReasonPolicy, RunState, StepState, ThemePreference, TodayLayout, UserPreferences, WeatherCredential, WeatherForecast, WeatherHistoryDay, WeatherLocation, WeatherProviderId, WeatherSettings, WorkspacePreferences, WorkspaceRole } from '@vergissmeinnicht/domain';
 import { hasMessage, t } from './i18n/index.ts';
 
 // Shared vocabulary comes from the domain package (browser-safe, no server code). The server still
@@ -1380,6 +1380,9 @@ export const api = {
   /** `null`: no default — the last used Workspace opens first. */
   setDefaultWorkspace: async (workspaceId: string | null) =>
     (await request<{ workspacePreferences: WorkspacePreferences }>('POST', '/account/workspace-preferences/default', { workspaceId })).workspacePreferences,
+  /** The Guide presentation of one Workspace: a partial change keeps the other keys; `null` returns it to the default. */
+  setWorkspaceGuide: async (workspaceId: string, guide: GuidePreferencesChange | null) =>
+    (await request<{ workspacePreferences: WorkspacePreferences }>('POST', '/account/workspace-preferences/guide', { workspaceId, guide })).workspacePreferences,
   startTotp: (password: string) => request<{ secret: string; uri: string }>('POST', '/account/mfa/totp/setup', { password }),
   confirmTotp: (code: string) => request<{ recoveryCodes: string[] }>('POST', '/account/mfa/totp/confirm', { code }),
   disableTotp: (password: string, factor: SecondFactor) =>

@@ -1,5 +1,5 @@
 import { offlineStore } from './offline/store.ts';
-import { DEFAULT_PREFERENCES, NAVIGATION_TOOLS, readGuidePreferences, type ThemePreference, type UserPreferences, type WorkspacePreferences } from '@vergissmeinnicht/domain';
+import { DEFAULT_GUIDE_PREFERENCES, DEFAULT_PREFERENCES, NAVIGATION_TOOLS, type GuidePreferences, type GuidePreferencesChange, type ThemePreference, type UserPreferences, type WorkspacePreferences } from '@vergissmeinnicht/domain';
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { api } from './api.ts';
 import { setThemeMode, setWorkspaceThemeMode, storeWorkspaceThemes, storedWorkspaceThemes } from './theme.ts';
@@ -16,16 +16,22 @@ interface PreferencesValue {
   /** `null` returns the Workspace to the default theme. Shown at once; saved to the account. */
   readonly setWorkspaceTheme: (workspaceId: string, theme: ThemePreference | null) => Promise<void>;
   readonly setDefaultWorkspace: (workspaceId: string | null) => Promise<void>;
+  /** The Guide presentation of the Workspace in use: the default when none is active or none is saved. */
+  readonly guide: GuidePreferences;
+  /** Saves a Workspace's Guide presentation (a partial change keeps the other keys); shown once the server kept it. */
+  readonly setWorkspaceGuide: (workspaceId: string, changes: GuidePreferencesChange | null) => Promise<void>;
 }
 
 const PreferencesContext = createContext<PreferencesValue>({
   preferences: DEFAULT_PREFERENCES,
   preferencesSettled: false,
   update: async () => undefined,
-  workspacePreferences: { defaultWorkspaceId: null, themes: {} },
+  workspacePreferences: { defaultWorkspaceId: null, themes: {}, guides: {} },
   workspacePreferencesSettled: true,
   setWorkspaceTheme: async () => undefined,
   setDefaultWorkspace: async () => undefined,
+  guide: DEFAULT_GUIDE_PREFERENCES,
+  setWorkspaceGuide: async () => undefined,
 });
 
 /**
@@ -38,7 +44,7 @@ export function PreferencesProvider({ userId, workspaceId, children }: { userId:
   const [preferencesSettled, setPreferencesSettled] = useState(false);
   const [preferences, setPreferences] = useState<UserPreferences>(DEFAULT_PREFERENCES);
   // Until the account answers, this browser's copy keeps the first paint right.
-  const [workspacePreferences, setWorkspacePreferences] = useState<WorkspacePreferences>(() => ({ defaultWorkspaceId: null, themes: storedWorkspaceThemes() }));
+  const [workspacePreferences, setWorkspacePreferences] = useState<WorkspacePreferences>(() => ({ defaultWorkspaceId: null, themes: storedWorkspaceThemes(), guides: {} }));
   const [settled, setSettled] = useState(false);
 
   useEffect(() => {
@@ -49,17 +55,14 @@ export function PreferencesProvider({ userId, workspaceId, children }: { userId:
         setPreferences(loaded);
         setThemeMode(loaded.theme);
         setPreferencesSettled(true);
-        void offlineStore.saveGuidePreferences(userId, { guide: loaded.guide, navigationOrder: loaded.navigationOrder });
+        void offlineStore.saveNavigationOrder(userId, loaded.navigationOrder);
       },
       // Presentation only: without the account's values the defaults and this browser's theme stay.
       async () => {
-        const saved: unknown = await offlineStore.loadGuidePreferences(userId);
-        const copy = saved !== null && typeof saved === 'object' ? saved as Record<string, unknown> : {};
-        const guide = readGuidePreferences(copy.guide);
-        const order = copy.navigationOrder;
-        const navigationOrder = Array.isArray(order) && order.length <= NAVIGATION_TOOLS.length && new Set(order).size === order.length && order.every((tool: unknown) => typeof tool === 'string' && (NAVIGATION_TOOLS as readonly string[]).includes(tool)) ? order as UserPreferences['navigationOrder'] : null;
+        const saved: unknown = await offlineStore.loadNavigationOrder(userId);
+        const navigationOrder = Array.isArray(saved) && saved.length <= NAVIGATION_TOOLS.length && new Set(saved).size === saved.length && saved.every((tool: unknown) => typeof tool === 'string' && (NAVIGATION_TOOLS as readonly string[]).includes(tool)) ? saved as UserPreferences['navigationOrder'] : null;
         if (!active) return;
-        if (guide !== null) setPreferences(current => ({ ...current, guide, navigationOrder }));
+        if (navigationOrder !== null) setPreferences(current => ({ ...current, navigationOrder }));
         setPreferencesSettled(true);
       },
     );
@@ -79,15 +82,16 @@ export function PreferencesProvider({ userId, workspaceId, children }: { userId:
   const themeHere = workspaceId === null ? null : (workspacePreferences.themes[workspaceId] ?? null);
   useEffect(() => setWorkspaceThemeMode(themeHere), [themeHere]);
   useEffect(() => storeWorkspaceThemes(workspacePreferences.themes), [workspacePreferences.themes]);
+  const guide = (workspaceId === null ? undefined : workspacePreferences.guides[workspaceId]) ?? DEFAULT_GUIDE_PREFERENCES;
 
   const update = useCallback(async (changes: Partial<UserPreferences>) => {
     // Menu ordering applies only after the server confirms Save; failed saves keep the current menu.
-    if (changes.navigationOrder === undefined && changes.privateGamification === undefined && changes.guide === undefined) setPreferences((current) => ({ ...current, ...changes }));
+    if (changes.navigationOrder === undefined && changes.privateGamification === undefined) setPreferences((current) => ({ ...current, ...changes }));
     if (changes.theme !== undefined) setThemeMode(changes.theme);
     const saved = await api.updatePreferences(changes);
     if (!mounted.current) return;
     setPreferences(saved);
-    void offlineStore.saveGuidePreferences(userId, { guide: saved.guide, navigationOrder: saved.navigationOrder });
+    void offlineStore.saveNavigationOrder(userId, saved.navigationOrder);
   }, [userId]);
 
   const setWorkspaceTheme = useCallback(async (id: string, theme: ThemePreference | null) => {
@@ -103,9 +107,14 @@ export function PreferencesProvider({ userId, workspaceId, children }: { userId:
     setWorkspacePreferences(await api.setDefaultWorkspace(id));
   }, []);
 
+  const setWorkspaceGuide = useCallback(async (id: string, changes: GuidePreferencesChange | null) => {
+    // Shown once the server has kept it: the Guide sets the shell's layout and cards, so no optimistic change.
+    setWorkspacePreferences(await api.setWorkspaceGuide(id, changes));
+  }, []);
+
   const value = useMemo(
-    () => ({ preferences, preferencesSettled, update, workspacePreferences, workspacePreferencesSettled: settled, setWorkspaceTheme, setDefaultWorkspace }),
-    [preferences, preferencesSettled, update, workspacePreferences, settled, setWorkspaceTheme, setDefaultWorkspace],
+    () => ({ preferences, preferencesSettled, update, workspacePreferences, workspacePreferencesSettled: settled, guide, setWorkspaceTheme, setWorkspaceGuide, setDefaultWorkspace }),
+    [preferences, preferencesSettled, update, workspacePreferences, settled, guide, setWorkspaceTheme, setWorkspaceGuide, setDefaultWorkspace],
   );
   return <PreferencesContext.Provider value={value}>{children}</PreferencesContext.Provider>;
 }

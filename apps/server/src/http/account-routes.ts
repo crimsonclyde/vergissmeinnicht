@@ -10,11 +10,12 @@ import {
   regenerateRecoveryCodes,
   saveTodayLayout,
   setDefaultWorkspace,
+  setWorkspaceGuide,
   setWorkspaceTheme,
   startTotpEnrollment,
   updatePreferences,
 } from '@vergissmeinnicht/application';
-import { CRITICAL_CONFIRM_MODES, GUIDE_CARD_STYLES, NAVIGATION_TOOLS, THEME_PREFERENCES, type WorkspaceId } from '@vergissmeinnicht/domain';
+import { CRITICAL_CONFIRM_MODES, GUIDE_CARD_STYLES, GUIDE_LAYOUTS, NAVIGATION_TOOLS, THEME_PREFERENCES, type WorkspaceId } from '@vergissmeinnicht/domain';
 import type { FastifyInstance, FastifyRequest } from 'fastify';
 import { z } from 'zod';
 import type { AppServices } from '../composition.ts';
@@ -31,12 +32,15 @@ const disableBody = z.union([
 const regenerateBody = z.strictObject({ password });
 const changePasswordBody = z.strictObject({ currentPassword: password, newPassword: password });
 const preferencesBody = z
-  .strictObject({ guide: z.strictObject({ layout: z.enum(['guide', 'classic']), cardStyle: z.enum(GUIDE_CARD_STYLES), cardOpacity: z.number().int().min(0).max(100), images: z.boolean() }).optional(), privateGamification: z.boolean().optional(), theme: z.enum(THEME_PREFERENCES).optional(), criticalConfirm: z.enum(CRITICAL_CONFIRM_MODES).optional(), navigationOrder: z.array(z.enum(NAVIGATION_TOOLS)).max(NAVIGATION_TOOLS.length).refine(order => new Set(order).size === order.length).nullable().optional() })
-  .refine((body) => body.theme !== undefined || body.criticalConfirm !== undefined || body.navigationOrder !== undefined || body.privateGamification !== undefined || body.guide !== undefined);
+  .strictObject({ privateGamification: z.boolean().optional(), theme: z.enum(THEME_PREFERENCES).optional(), criticalConfirm: z.enum(CRITICAL_CONFIRM_MODES).optional(), navigationOrder: z.array(z.enum(NAVIGATION_TOOLS)).max(NAVIGATION_TOOLS.length).refine(order => new Set(order).size === order.length).nullable().optional() })
+  .refine((body) => body.theme !== undefined || body.criticalConfirm !== undefined || body.navigationOrder !== undefined || body.privateGamification !== undefined);
 // Section 28: ids are UUIDs; `null` clears (the default theme, or no default Workspace).
 const workspaceIdSchema = z.uuid({ version: 'v4' });
 const workspaceThemeBody = z.strictObject({ workspaceId: workspaceIdSchema, theme: z.enum(THEME_PREFERENCES).nullable() });
 const defaultWorkspaceBody = z.strictObject({ workspaceId: workspaceIdSchema.nullable() });
+// Galactic Guide choices of one Workspace (section 28): a partial change; keys not given keep their stored value, `null` resets the Workspace to the default.
+const guideChangeBody = z.strictObject({ layout: z.enum(GUIDE_LAYOUTS).optional(), cardStyle: z.enum(GUIDE_CARD_STYLES).optional(), cardOpacity: z.number().int().min(0).max(100).optional(), images: z.boolean().optional() }).refine(change => Object.keys(change).length > 0);
+const workspaceGuideBody = z.strictObject({ workspaceId: workspaceIdSchema, guide: guideChangeBody.nullable() });
 
 function parse<T>(schema: z.ZodType<T>, value: unknown): T {
   const parsed = schema.safeParse(value);
@@ -79,7 +83,6 @@ export async function accountRoutes(app: FastifyInstance, { services }: { servic
     const preferences = await updatePreferences(services.preferences, {
       user: userOf(request),
       changes: {
-        ...(changes.guide === undefined ? {} : { guide: changes.guide }),
         ...(changes.theme === undefined ? {} : { theme: changes.theme }),
         ...(changes.criticalConfirm === undefined ? {} : { criticalConfirm: changes.criticalConfirm }),
         ...(changes.privateGamification === undefined ? {} : { privateGamification: changes.privateGamification }),
@@ -98,6 +101,10 @@ export async function accountRoutes(app: FastifyInstance, { services }: { servic
   app.post('/workspace-preferences/default', { bodyLimit: 1024 }, async (request) => {
     const body = parse(defaultWorkspaceBody, request.body);
     return { workspacePreferences: await setDefaultWorkspace(services.preferences, { user: userOf(request), workspaceId: body.workspaceId as WorkspaceId | null }) };
+  });
+  app.post('/workspace-preferences/guide', { bodyLimit: 1024 }, async (request) => {
+    const body = parse(workspaceGuideBody, request.body);
+    return { workspacePreferences: await setWorkspaceGuide(services.preferences, { user: userOf(request), workspaceId: body.workspaceId as WorkspaceId, changes: body.guide }) };
   });
 
   // Today layout (19.2): the person's own cards, order and options. Strictly validated on write; `null` resets.

@@ -484,6 +484,13 @@
       "when": 1793920000000,
       "tag": "0068_weather_history",
       "breakpoints": true
+    },
+    {
+      "idx": 69,
+      "version": "6",
+      "when": 1794006400000,
+      "tag": "0069_workspace_guide",
+      "breakpoints": true
     }
   ]
 }

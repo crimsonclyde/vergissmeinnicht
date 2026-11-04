@@ -26,26 +26,26 @@ describe('per-Workspace preferences API (section 28)', () => {
   afterEach(() => t.close());
 
   it('stores a theme per Workspace and a default Workspace, for this account only', async () => {
-    expect(await mine(bob)).toEqual({ defaultWorkspaceId: null, themes: {} });
-    expect((await t.post(THEME, { workspaceId: home, theme: 'tokyo-nights' }, bob)).json().workspacePreferences).toEqual({ defaultWorkspaceId: null, themes: { [home]: 'tokyo-nights' } });
+    expect(await mine(bob)).toEqual({ defaultWorkspaceId: null, themes: {}, guides: {} });
+    expect((await t.post(THEME, { workspaceId: home, theme: 'tokyo-nights' }, bob)).json().workspacePreferences).toEqual({ defaultWorkspaceId: null, themes: { [home]: 'tokyo-nights' }, guides: {} });
     // A GUEST may still choose how a Workspace looks to them.
     await t.post(THEME, { workspaceId: van, theme: 'witch-forest' }, bob);
-    expect((await t.post(DEFAULT, { workspaceId: van }, bob)).json().workspacePreferences).toEqual({ defaultWorkspaceId: van, themes: { [home]: 'tokyo-nights', [van]: 'witch-forest' } });
+    expect((await t.post(DEFAULT, { workspaceId: van }, bob)).json().workspacePreferences).toEqual({ defaultWorkspaceId: van, themes: { [home]: 'tokyo-nights', [van]: 'witch-forest' }, guides: {} });
     // Only one default: choosing another moves it, and the theme stays.
     expect((await t.post(DEFAULT, { workspaceId: home }, bob)).json().workspacePreferences.defaultWorkspaceId).toBe(home);
     expect((await mine(bob)).themes[van]).toBe('witch-forest');
     // The default theme is untouched, and other people see nothing of it.
     expect((await t.get('/api/account/preferences', bob)).json().preferences.theme).toBe('system');
-    expect(await mine(t.admin)).toEqual({ defaultWorkspaceId: null, themes: {} });
+    expect(await mine(t.admin)).toEqual({ defaultWorkspaceId: null, themes: {}, guides: {} });
   });
 
   it('clears with null and keeps no empty rows', async () => {
     await t.post(THEME, { workspaceId: home, theme: 'dark' }, bob);
     await t.post(DEFAULT, { workspaceId: home }, bob);
     await t.post(THEME, { workspaceId: home, theme: null }, bob);
-    expect(await mine(bob)).toEqual({ defaultWorkspaceId: home, themes: {} });
+    expect(await mine(bob)).toEqual({ defaultWorkspaceId: home, themes: {}, guides: {} });
     await t.post(DEFAULT, { workspaceId: null }, bob);
-    expect(await mine(bob)).toEqual({ defaultWorkspaceId: null, themes: {} });
+    expect(await mine(bob)).toEqual({ defaultWorkspaceId: null, themes: {}, guides: {} });
     expect(rows()).toEqual({ n: 0 });
   });
 
@@ -62,7 +62,7 @@ describe('per-Workspace preferences API (section 28)', () => {
     await t.post(DEFAULT, { workspaceId: van }, bob);
     const bobId = (t.database.sqlite.prepare("SELECT id FROM users WHERE email = 'bob@example.org'").get() as { id: string }).id;
     expect((await t.post(`/api/workspaces/${van}/members/${bobId}/remove`, undefined, t.admin)).statusCode).toBeLessThan(300);
-    expect(await mine(bob)).toEqual({ defaultWorkspaceId: null, themes: {} });
+    expect(await mine(bob)).toEqual({ defaultWorkspaceId: null, themes: {}, guides: {} });
     expect((await t.post(THEME, { workspaceId: van, theme: 'dark' }, bob)).statusCode).toBe(404);
   });
 

@@ -34,6 +34,7 @@ import { t, type MessageKey } from './i18n/index.ts';
 import { KnotOpener, KnotsPage } from './Knots.tsx';
 import { Lists } from './Lists.tsx';
 import { MembersPage, WorkspaceGeneral, WorkspaceStoragePage, roleLabel, workspaceSettingsSections, type WorkspaceSettingsPage } from './MembersPage.tsx';
+import { WorkspaceLookSettings } from './WorkspaceLookSettings.tsx';
 import { PluginsPage } from './PluginsPage.tsx';
 import { MorePage } from './MorePage.tsx';
 import { ProcedureBuilder } from './ProcedureBuilder.tsx';
@@ -105,17 +106,16 @@ function ToolNavigation({ workspaceId, tools, page, phone = false }: { workspace
 
 
 function ShellFrame({ focus, page, children }: { focus: 'edit' | 'run' | undefined; page: Page; children: ReactNode }) {
-  const { preferences } = usePreferences();
-  const guide = preferences.guide;
+  const { guide } = usePreferences();
   return <div className="shell" data-layout={guide.layout} data-card-style={guide.cardStyle} data-guide-images={guide.images} data-focus={focus} data-page={page} style={{ '--guide-card-opacity': `${guide.cardOpacity}%`, '--guide-card-art': GUIDE_CARD_ART[guide.cardStyle] } as CSSProperties}>{children}</div>;
 }
 function ClassicNavigation({ workspaceId, tools, page, phone = false }: { workspaceId: string | null; tools: readonly string[]; page: Page; phone?: boolean }) {
-  const { preferences } = usePreferences();
-  return preferences.guide.layout === 'classic' && workspaceId !== null ? <ToolNavigation workspaceId={workspaceId} tools={tools} page={page} phone={phone} /> : null;
+  const { guide } = usePreferences();
+  return guide.layout === 'classic' && workspaceId !== null ? <ToolNavigation workspaceId={workspaceId} tools={tools} page={page} phone={phone} /> : null;
 }
 function GuideHeader({ workspaceId, tools, page, userId }: { workspaceId: string | null; tools: readonly string[]; page: Page; userId: string }) {
-  const { preferences } = usePreferences();
-  if (preferences.guide.layout !== 'guide') return null;
+  const { guide } = usePreferences();
+  if (guide.layout !== 'guide') return null;
   return <div className="guide-header-tools">{workspaceId !== null && <GuideNavigation key={`${workspaceId}:${page}:${tools.join(' ')}`} workspaceId={workspaceId} tools={tools} page={page} />}<GuideGlance key={workspaceId ?? 'account'} userId={userId} /></div>;
 }
 
@@ -337,6 +337,8 @@ function WorkspacePage(props: {
       return settings('knots', can('knot.manage') ? <KnotsPage workspaceId={route.workspaceId} /> : <p role="alert">{t('knot.manageOnly')}</p>);
     case 'backup':
       return settings('backup', can('workspace.backup') ? <WorkspaceBackupPage workspaceId={route.workspaceId} /> : <p role="alert">{t('backup.adminOnly')}</p>);
+    case 'look':
+      return settings('look', <WorkspaceLookSettings context={context} />);
     }
   };
   // Pages of other tools show linked Documents only where the Documents tool is on (16.5).
@@ -569,8 +571,8 @@ export function AppShell(props: { user: CurrentUser; route: Route; onSignOut: ()
   }
 
   return (
-    // Appearance shows the default theme, so choosing it there is seen at once; elsewhere the theme
-    // the person chose for the Workspace shown (or last used) applies (section 28).
+    // The account Appearance page shows the account theme (no Workspace is in use there), so choosing it is seen at once;
+    // elsewhere the theme the person chose for the Workspace shown (or last used) applies (section 28).
     <PreferencesProvider key={user.id} userId={user.id} workspaceId={route.page === 'account' && route.section === 'appearance' ? null : navWorkspaceId}><ProgressProvider userId={user.id} workspaceId={workspaceId} tools={navTools} privateScope={route.page === 'account' && route.section === 'journal'}>
       <TodaySettingsProvider userId={user.id}>
       <ClockToolsProvider><ForecastProvider userId={user.id} workspaceId={navWorkspaceId} explicit={route.page === 'weather'} ready={workspaces !== null}>

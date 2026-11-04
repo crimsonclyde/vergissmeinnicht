@@ -798,14 +798,12 @@ export const userPreferences = sqliteTable(
       .references(() => users.id),
     theme: text('theme', { enum: THEME_PREFERENCES }).notNull(),
     criticalConfirm: text('critical_confirm', { enum: CRITICAL_CONFIRM_MODES }).notNull(),
-    guide: text('guide', { mode: 'json' }).$type<GuidePreferences>().notNull().default(sql`'{"layout":"guide","cardStyle":"glass","cardOpacity":50,"images":true}'`),
     privateGamification: integer('private_gamification', { mode: 'boolean' }).notNull().default(true),
     navigationOrder: text('navigation_order', { mode: 'json' }).$type<readonly NavigationTool[]>(),
     updatedAt: integer('updated_at', { mode: 'timestamp_ms' }).notNull(),
   },
   () => [
     check('user_preferences_theme_valid', sql.raw(`theme in (${THEME_PREFERENCES.map((value) => `'${value}'`).join(', ')})`)),
-    check('user_preferences_guide_valid', sql`json_valid(guide) and length(guide) <= 256 and json_type(guide) = 'object' and json_extract(guide, '$.layout') in ('guide', 'classic') and json_extract(guide, '$.cardStyle') in ('glass', 'starfield', 'forest', 'water', 'hearth') and json_type(guide, '$.cardOpacity') = 'integer' and json_extract(guide, '$.cardOpacity') between 0 and 100 and json_type(guide, '$.images') in ('true', 'false') and json_type(guide, '$.layout') is not null and json_type(guide, '$.cardStyle') is not null and json_type(guide, '$.cardOpacity') is not null and json_type(guide, '$.images') is not null`),
     check('user_preferences_private_gamification', sql`private_gamification in (0, 1)`),
     check('user_preferences_navigation_bound', sql`navigation_order is null or (json_valid(navigation_order) and json_type(navigation_order) = 'array' and json_array_length(navigation_order) <= 11 and length(navigation_order) <= 256)`),
     check(
@@ -835,9 +833,10 @@ export const userAvatars = sqliteTable(
 );
 
 /**
- * A person's own choices for one Workspace (section 28): a theme other than their default, and whether
- * it is the Workspace that opens first (at most one per person). Personal, never part of a Workspace or
- * its backup; rows of a Workspace the person has left are ignored on read. No row = default theme.
+ * A person's own choices for one Workspace (section 28): a theme other than their default, whether it is
+ * the Workspace that opens first (at most one per person), and its Galactic Guide choices (layout and
+ * background; validated JSON, null = default). Personal, never part of a Workspace or its backup; rows of
+ * a Workspace the person has left are ignored on read. No row = default theme and default Guide.
  */
 export const userWorkspacePreferences = sqliteTable(
   'user_workspace_preferences',
@@ -851,6 +850,7 @@ export const userWorkspacePreferences = sqliteTable(
     theme: text('theme', { enum: THEME_PREFERENCES }),
     isDefault: integer('is_default', { mode: 'boolean' }).notNull().default(false),
     updatedAt: integer('updated_at', { mode: 'timestamp_ms' }).notNull(),
+    guide: text('guide', { mode: 'json' }).$type<GuidePreferences>(),
   },
   (table) => [
     primaryKey({ columns: [table.userId, table.workspaceId] }),
@@ -858,7 +858,8 @@ export const userWorkspacePreferences = sqliteTable(
     check('user_workspace_preferences_theme_valid', sql.raw(`theme is null or theme in (${THEME_PREFERENCES.map((value) => `'${value}'`).join(', ')})`)),
     check('user_workspace_preferences_is_default_bool', sql`${table.isDefault} in (0, 1)`),
     // A row that changes nothing is deleted instead of kept.
-    check('user_workspace_preferences_not_empty', sql`${table.theme} is not null or ${table.isDefault} = 1`),
+    check('user_workspace_preferences_not_empty', sql`${table.theme} is not null or ${table.isDefault} = 1 or guide is not null`),
+    check('user_workspace_preferences_guide_valid', sql`guide is null or (json_valid(guide) and length(guide) <= 256 and json_type(guide) = 'object' and json_extract(guide, '$.layout') in ('guide', 'classic') and json_extract(guide, '$.cardStyle') in ('glass', 'starfield', 'forest', 'water', 'hearth') and json_type(guide, '$.cardOpacity') = 'integer' and json_extract(guide, '$.cardOpacity') between 0 and 100 and json_type(guide, '$.images') in ('true', 'false') and json_type(guide, '$.layout') is not null and json_type(guide, '$.cardStyle') is not null and json_type(guide, '$.cardOpacity') is not null and json_type(guide, '$.images') is not null)`),
   ],
 );
 

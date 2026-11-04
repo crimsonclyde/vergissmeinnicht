@@ -5966,7 +5966,7 @@ a.button.today-hero-go {
   }
 }
 
-/* ---- Appearance: the themes as small pictures (Settings → Appearance) ------------------------ */
+/* ---- Appearance: the themes as small pictures (Settings → Appearance, Look and layout → Theme) - */
 
 .theme-options {
   display: grid;
@@ -6110,7 +6110,7 @@ a.button.today-hero-go {
 .journal-note { white-space: pre-wrap; overflow-wrap: anywhere; }
 .journal-editor textarea { width: 100%; min-height: 18rem; resize: vertical; }
 
-/* ---- Appearance per Workspace (section 28): star = opens first, a small picture, a theme ---------- */
+/* ---- Appearance: per-Workspace pointers on the account Appearance page ---------- */
 .workspace-looks {
   margin-top: 1.5rem;
 }
@@ -6120,83 +6120,8 @@ a.button.today-hero-go {
 .workspace-looks > p {
   margin: 0 0 0.75rem;
 }
-.workspace-look-list {
-  display: grid;
-  gap: 0.5rem;
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-.workspace-look {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 0.5rem 0.75rem;
-  padding: 0.5rem 0.75rem 0.5rem 0.25rem;
-  border: 1px solid var(--border);
-  border-radius: 14px;
-  background: var(--surface);
-}
-.workspace-look-star[aria-pressed='true'] {
-  color: var(--accent);
-}
-.workspace-look-name {
-  flex: 1 1 6rem;
-  min-width: 0;
-  overflow-wrap: anywhere;
-}
-.workspace-look-pick {
-  flex: 1 1 11rem;
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 0.25rem 0.75rem;
-  min-width: 0;
-  padding: 0.25rem;
-  border: 0;
-  background: none;
-  color: inherit;
-  font: inherit;
-  text-align: start;
-  cursor: pointer;
-}
-.workspace-look-pick[aria-pressed='true'] .workspace-look-name {
-  text-decoration: underline;
-  text-underline-offset: 0.25em;
-}
-.workspace-look-selected {
-  border-color: var(--accent);
-}
 .weather-workspaces button[aria-pressed='true'] {
   box-shadow: inset 0 0 0 2px var(--accent);
-}
-.workspace-look-themes {
-  margin: 0.75rem 0 0;
-}
-.theme-swatch.theme-swatch-mini {
-  flex: 0 0 auto;
-  width: 3.25rem;
-  height: 2.25rem;
-  padding: 0.3rem;
-  border-radius: 7px;
-}
-.theme-swatch-mini[data-swatch='tokyo-nights'] {
-  background-position: right 0.25rem bottom 0.3rem, 0 100%, 0 0;
-  background-size: 1.1rem 1.1rem, 100% 4px, auto;
-}
-.theme-swatch-mini[data-swatch='witch-forest'] {
-  background-size: 2.4rem auto, auto;
-}
-.theme-swatch-mini .theme-swatch-card {
-  gap: 0.15rem;
-  padding: 0.2rem;
-  border-radius: 4px;
-}
-.theme-swatch-mini .theme-swatch-line {
-  height: 0.15rem;
-}
-.theme-swatch-mini .theme-swatch-button {
-  height: 0.3rem;
 }
 
 /* Equipment reference collection and private encouragement (31). */

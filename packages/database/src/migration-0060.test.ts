@@ -3,13 +3,13 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { migrate } from 'drizzle-orm/better-sqlite3/migrator';
 import { expect, it } from 'vitest';
-import { DEFAULT_GUIDE_PREFERENCES, normalizeEmail } from '@vergissmeinnicht/domain';
+import { normalizeEmail } from '@vergissmeinnicht/domain';
 import { openDatabase } from './connection.ts';
 import { MIGRATIONS_FOLDER, runMigrations } from './migrate.ts';
 import { createUserRepository } from './user-repository.ts';
 import { insertLegacyWorkspace } from './test-support.ts';
 
-it('0060 preserves populated personal settings and Workspace data; adds bounded Guide defaults with old guards intact', async () => {
+it('0060 preserves populated personal settings and Workspace data; old guards stay intact', async () => {
   const dir = mkdtempSync(join(tmpdir(), 'vmn-guide-upgrade-')); const path = join(dir, 'db.sqlite'); const before = join(dir, 'migrations');
   cpSync(MIGRATIONS_FOLDER, before, { recursive: true });
   const jp = join(before, 'meta/_journal.json'); const journal = JSON.parse(readFileSync(jp, 'utf8')) as { entries: { tag: string }[] };
@@ -23,11 +23,11 @@ it('0060 preserves populated personal settings and Workspace data; adds bounded 
     db.sqlite.prepare("INSERT INTO user_workspace_preferences VALUES(?,?,'witch-forest',1,456)").run(user.id, workspace.id);
     db.sqlite.prepare("INSERT INTO user_place_preferences VALUES(?,?,?,789)").run(user.id, workspace.id, '{"cardOpacity":35}');
     const shared = db.sqlite.prepare('SELECT * FROM workspaces').all();
-    const perWorkspace = db.sqlite.prepare('SELECT * FROM user_workspace_preferences').all();
+    const perWorkspace = db.sqlite.prepare('SELECT user_id, workspace_id, theme, is_default FROM user_workspace_preferences').all();
     db.close(); runMigrations(path); db = openDatabase(path);
-    expect(db.sqlite.prepare('SELECT * FROM user_preferences').get()).toEqual({ user_id: user.id, theme: 'dark', critical_confirm: 'tap-confirm', private_gamification: 0, navigation_order: '["BRING","EQUIPMENT"]', updated_at: 123, guide: JSON.stringify(DEFAULT_GUIDE_PREFERENCES) });
+    expect(db.sqlite.prepare('SELECT * FROM user_preferences').get()).toEqual({ user_id: user.id, theme: 'dark', critical_confirm: 'tap-confirm', private_gamification: 0, navigation_order: '["BRING","EQUIPMENT"]', updated_at: 123 });
     expect(db.sqlite.prepare('SELECT * FROM workspaces').all()).toEqual(shared);
-    expect(db.sqlite.prepare('SELECT * FROM user_workspace_preferences').all()).toEqual(perWorkspace);
+    expect(db.sqlite.prepare('SELECT user_id, workspace_id, theme, is_default FROM user_workspace_preferences').all()).toEqual(perWorkspace);
     expect(db.sqlite.prepare('SELECT settings FROM user_place_preferences').get()).toEqual({ settings: '{"cardOpacity":35}' });
     db.sqlite.prepare("UPDATE user_preferences SET theme='space-guide'").run();
     db.sqlite.prepare("UPDATE user_workspace_preferences SET theme='space-guide'").run();

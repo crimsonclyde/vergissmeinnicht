@@ -1,4 +1,4 @@
-import type { ThemePreference, UserId, UserPreferences, WorkspaceId, WorkspacePreferences } from '@vergissmeinnicht/domain';
+import type { GuidePreferencesChange, ThemePreference, UserId, UserPreferences, WorkspaceId, WorkspacePreferences } from '@vergissmeinnicht/domain';
 
 export interface PreferencesRepository {
   /** Stored preferences, or undefined when the user never changed them. */
@@ -11,6 +11,13 @@ export interface PreferencesRepository {
    * transaction, that the account is ACTIVE and a member; false (nothing written) otherwise.
    */
   setWorkspaceTheme(input: { readonly userId: UserId; readonly workspaceId: WorkspaceId; readonly theme: ThemePreference | null; readonly at: Date }): Promise<boolean>;
+  /**
+   * Sets the person's Galactic Guide choices for one Workspace. `changes` is merged into the stored choices
+   * (keys not given keep their value; the default applies when nothing is stored); `null` removes the stored
+   * choices so the Workspace uses the default. Rechecks, in the same transaction, that the account is ACTIVE
+   * and a member; false (nothing written) otherwise.
+   */
+  setWorkspaceGuide(input: { readonly userId: UserId; readonly workspaceId: WorkspaceId; readonly changes: GuidePreferencesChange | null; readonly at: Date }): Promise<boolean>;
   /** Makes one Workspace (membership rechecked as above) the person's default, or clears it with `null`. */
   setDefaultWorkspace(input: { readonly userId: UserId; readonly workspaceId: WorkspaceId | null; readonly at: Date }): Promise<boolean>;
 }

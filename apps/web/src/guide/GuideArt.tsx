@@ -18,7 +18,7 @@ export type GuideArtKind = keyof typeof ART;
 /** Bundled decoration only. Record names and stored icon keys never select a URL. */
 export function GuideArt({ kind }: { kind: GuideArtKind }) {
   const [mode] = useThemeMode();
-  const { preferences } = usePreferences();
-  if (mode !== 'space-guide' || !preferences.guide.images || preferences.guide.layout !== 'guide') return null;
+  const { guide } = usePreferences();
+  if (mode !== 'space-guide' || !guide.images || guide.layout !== 'guide') return null;
   return <img className="guide-art" src={ART[kind]} width={240} height={180} loading="lazy" decoding="async" alt="" aria-hidden="true" />;
 }

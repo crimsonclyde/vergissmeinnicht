@@ -261,15 +261,15 @@ export const offlineStore = {
       return entry?.value as CurrentUser | undefined;
     }, undefined),
 
-  /** Private Guide presentation, using the same account-scoped cleanup as Today settings. */
-  saveGuidePreferences: (userId: string, guide: unknown) =>
+  /** The person's menu order as last received, so the navigation keeps it offline. Deleted on sign-out. */
+  saveNavigationOrder: (userId: string, order: unknown) =>
     safely(async () => {
-      const entry: ContextEntry = { key: `guide:${userId}`, userId, value: guide };
+      const entry: ContextEntry = { key: `navigation:${userId}`, userId, value: order };
       await withStore(CONTEXT, 'readwrite', (store) => store.put(entry));
     }, undefined),
-  loadGuidePreferences: (userId: string) =>
+  loadNavigationOrder: (userId: string) =>
     safely(async () => {
-      const entry = await withStore<ContextEntry | undefined>(CONTEXT, 'readonly', (store) => store.get(`guide:${userId}`) as IDBRequest<ContextEntry | undefined>);
+      const entry = await withStore<ContextEntry | undefined>(CONTEXT, 'readonly', (store) => store.get(`navigation:${userId}`) as IDBRequest<ContextEntry | undefined>);
       return entry?.userId === userId ? entry.value : undefined;
     }, undefined),
 
