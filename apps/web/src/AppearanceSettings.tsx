@@ -8,6 +8,7 @@ import { Link, paths } from './router.tsx';
 import { canonicalThemeMode } from './theme.ts';
 import { ThemeOptions } from './ThemeOptions.tsx';
 import { UiIcon } from './ui-icons.tsx';
+import './appearance-settings.css';
 
 /**
  * Account Appearance. With no Workspace, one account theme is set here. With Workspaces, one tab per Workspace holds
@@ -24,11 +25,8 @@ export function AppearanceSettings({ workspaces = null }: { workspaces?: readonl
     <>
       {message !== null && <p role="alert">{message}</p>}
       {workspaces !== null && workspaces.length === 0 && (
-        <fieldset>
+        <fieldset title={t('appearance.savedToAccount')}>
           <legend>{t('appearance.legend')}</legend>
-          <p className="muted" style={{ marginTop: 0 }}>
-            {t('appearance.savedToAccount')}
-          </p>
           <ThemeOptions
             name="theme"
             current={canonicalThemeMode(preferences.theme)}
@@ -41,9 +39,14 @@ export function AppearanceSettings({ workspaces = null }: { workspaces?: readonl
       )}
       {workspaces !== null && picked !== null && (
         <section className="interface-settings" aria-labelledby="interface-heading">
-          <h3 id="interface-heading">{t('appearance.interface')}</h3>
-          <p className="muted">{t('appearance.interfaceHint')}</p>
-          <div className="segmented" role="group" aria-label={t('appearance.pickWorkspace')}>
+          <div className="appearance-heading">
+            <h3 id="interface-heading">{t('appearance.pickWorkspace')}</h3>
+            <details className="appearance-help">
+              <summary aria-label={t('appearance.interface')} title={t('appearance.interface')}><UiIcon name="info" /></summary>
+              <p>{t('appearance.interfaceHint')}</p>
+            </details>
+          </div>
+          <div className="segmented appearance-workspaces" role="group" aria-label={t('appearance.pickWorkspace')}>
             {workspaces.map((workspace) => (
               <button key={workspace.id} type="button" aria-pressed={workspace.id === picked.id} onClick={() => setPickedId(workspace.id)}>
                 {workspace.name}
@@ -69,21 +72,24 @@ function WorkspaceTheme({ workspaceId, name }: { workspaceId: string; name: stri
   return (
     <>
       {message !== null && <p role="alert">{message}</p>}
-      <p>
+      <div className="appearance-heading">
+        <h4><UiIcon name="appearance" /> {t('appearance.theme')}</h4>
         <button
           type="button"
-          className="quiet"
+          className="quiet icon-button appearance-icon-action"
+          aria-label={defaultLabel}
+          title={defaultLabel}
           aria-pressed={isDefault}
           onClick={() => {
             setMessage(null);
             setDefaultWorkspace(isDefault ? null : workspaceId).catch(failed);
           }}
         >
-          <UiIcon name={isDefault ? 'starFilled' : 'star'} size="1.2em" /> {defaultLabel}
+          <UiIcon name={isDefault ? 'starFilled' : 'star'} size={24} />
         </button>
-      </p>
-      <fieldset>
-        <legend>{t('appearance.themeFor', { name })}</legend>
+      </div>
+      <fieldset className="appearance-themes">
+        <legend className="visually-hidden">{t('appearance.themeFor', { name })}</legend>
         <ThemeOptions
           name={`theme-${workspaceId}`}
           current={canonicalThemeMode(workspacePreferences.themes[workspaceId] ?? preferences.theme)}
@@ -106,6 +112,7 @@ function WorkspaceWeather({ workspaceId, name }: { workspaceId: string; name: st
   const [used, setUsed] = useState<WeatherLocation | null>(null);
   const [loaded, setLoaded] = useState(false);
   const [off, setOff] = useState(false);
+  const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   useEffect(() => {
     let active = true;
@@ -130,30 +137,31 @@ function WorkspaceWeather({ workspaceId, name }: { workspaceId: string; name: st
   if (!loaded) return message === null ? <p>{t('common.loading')}</p> : <p role="alert">{message}</p>;
   if (status === null) return null;
   const toggle = (enabled: boolean) => {
+    setSaving(true);
     setMessage(null);
     api.setWorkspaceWeatherLocation(workspaceId, enabled).then(
       (result) => {
         setStatus(result.workspaces.find((entry) => entry.id === workspaceId) ?? status);
         setUsed(result.settings.location);
+        window.dispatchEvent(new Event('vmn-location-changed'));
       },
       (caught: unknown) => setMessage(messageFor(caught)),
-    );
+    ).finally(() => setSaving(false));
   };
   return (
-    <fieldset>
-      <legend>{t('appearance.weatherFor', { name })}</legend>
+    <fieldset className="appearance-weather" aria-label={t('appearance.weatherFor', { name })}>
+      <legend><UiIcon name="weatherPartlyCloudy" /> {t('weather.heading')}</legend>
       {message !== null && <p role="alert">{message}</p>}
-      <label className="row">
-        <input type="checkbox" checked={status.enabled} disabled={!status.hasLocation} onChange={(event) => toggle(event.target.checked)} />
-        {t('weather.useWorkspaceLocation')}
-      </label>
-      <p className="muted">{t(status.hasLocation ? 'weather.workspaces.hasLocation' : 'weather.workspaces.noLocation')}</p>
-      <p className="muted">{t(status.hasLocation ? 'weather.workspaceLocationHint' : 'weather.workspaces.noLocationHint')}</p>
-      <p>
-        {t('weather.workspaces.used')} {used === null ? <span className="muted">{t('weather.noPlace')}</span> : <strong>{used.name}</strong>}
-      </p>
-      <p>
-        <Link href={paths.account('weather')}>{t('weather.forecastSettings')}</Link>
+      <div className="appearance-weather-row">
+        <label className="check-label" title={t(status.hasLocation ? 'weather.workspaceLocationHint' : 'weather.workspaces.noLocationHint')}>
+          <input type="checkbox" aria-label={t('weather.useWorkspaceLocation')} checked={status.enabled} disabled={saving || !status.hasLocation} onChange={(event) => toggle(event.target.checked)} />
+          <UiIcon name="place" /> <span>{t('appearance.workspaceLocation')}</span>
+        </label>
+        <Link className="button quiet icon-button appearance-icon-action" href={paths.account('weather')} aria-label={t('weather.forecastSettings')} title={t('weather.forecastSettings')}><UiIcon name="settings" size={24} /></Link>
+      </div>
+      {!status.hasLocation && <p className="muted">{t('weather.workspaces.noLocation')}</p>}
+      <p className="appearance-location-value" title={t('weather.workspaces.used')}>
+        {used === null ? <span className="muted">{t('weather.noPlace')}</span> : <span>{used.name}</span>}
       </p>
     </fieldset>
   );

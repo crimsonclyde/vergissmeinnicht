@@ -5,6 +5,7 @@ import everyday from './everyday-themes.css?raw';
 import forest from './witch-forest.css?raw';
 import celestial from './celestial.css?raw';
 import instruments from './applets/instruments.css?raw';
+import skyCard from './applets/sky-card.css?raw';
 import { PLACE_LIST } from './places/registry.ts';
 
 /** Token values of one `selector { … }` block of the stylesheet. */
@@ -287,4 +288,18 @@ it('keeps Clock/Weather readings and selected duration controls readable in ever
     expect(contrast(palette[key] ?? '', background ?? '')).toBeGreaterThanOrEqual(4.5);
   }
   expect(contrast(palette.bg ?? '', palette.gold ?? '')).toBeGreaterThanOrEqual(4.5);
+});
+
+it('keeps shared sky-card text and highlights readable across theme surfaces at every opacity', () => {
+  const ornament = /--sky-card-ornament:\s*(#[0-9a-f]{6})/.exec(skyCard)?.[1];
+  if (ornament === undefined) throw new Error('Missing sky-card ornament token');
+  for (const [name, theme] of Object.entries(allThemes)) {
+    const text = theme.text, muted = theme['text-muted'], surface = theme.surface, bg = theme.bg;
+    if (text === undefined || muted === undefined || surface === undefined || bg === undefined) throw new Error(`Incomplete ${name} palette`);
+    const highlight = blend(text, .8, ornament);
+    for (const opacity of [0, .25, .5, .75, 1]) {
+      const paint = blend(surface, opacity, bg);
+      for (const foreground of [text, muted, highlight]) expect(contrast(foreground, paint), `${name} at ${opacity}`).toBeGreaterThanOrEqual(4.5);
+    }
+  }
 });

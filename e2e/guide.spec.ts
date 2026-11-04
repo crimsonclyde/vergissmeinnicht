@@ -1,6 +1,6 @@
 import { crc32, deflateSync } from 'node:zlib';
 import { checkPhoneRecipe, checkRecipeSourcePreservation } from './phone-recipe.ts';
-import { checkClockWeather } from './clock-weather.ts';
+import { checkClockWeather, expectSharedSkySurface } from './clock-weather.ts';
 import {checkPhoneJournal} from './phone-journal.ts';
 import { randomUUID } from 'node:crypto';
 import { mkdirSync } from 'node:fs';
@@ -10,6 +10,7 @@ import { openDatabase } from '../packages/database/src/connection.ts';
 import { createUserRepository } from '../packages/database/src/user-repository.ts';
 import { enableCoreTools, insertLegacyProcedure, insertLegacyRun, insertLegacyWorkspace } from '../packages/database/src/test-support.ts';
 import { normalizeEmail } from '../packages/domain/src/user.ts';
+import { DEFAULT_PLACE_PREFERENCES } from '../packages/domain/src/places.ts';
 import { guideServerEnv } from '../playwright.config.ts';
 import { expectAccessible } from './a11y.ts';
 
@@ -30,7 +31,7 @@ async function signInGuide(page: Page) {
 
 // Direct fixture setup is limited to the disposable Playwright database; browser commands use real APIs.
 test('Guide preserves routes, preferences, themes and private opt-in weather across desktop and phone', async ({ page }, testInfo) => {
-  test.setTimeout(180_000);
+  test.setTimeout(240_000);
   page.setDefaultTimeout(15_000);
   const email = `guide-${randomUUID()}@example.org`;
   const password = 'a fictional guide review passphrase';
@@ -79,8 +80,8 @@ test('Guide preserves routes, preferences, themes and private opt-in weather acr
   await expect(dialog.getByRole('link', { name: 'Equipment', exact: true })).toHaveCount(0);
   await expect(dialog.getByRole('link', { name: 'Lists', exact: true })).toBeVisible();
   await expectAccessible(page, 'Guide chooser');
-  mkdirSync('assets/screenshots/release-42', { recursive: true });
-  await page.screenshot({ path: `assets/screenshots/release-42/chooser-${testInfo.project.name}.png`, fullPage: true });
+  mkdirSync(process.env.VMN_REVIEW_SCREENSHOTS ?? 'assets/screenshots/release-42', { recursive: true });
+  await page.screenshot({ path: `${process.env.VMN_REVIEW_SCREENSHOTS ?? 'assets/screenshots/release-42'}/chooser-${testInfo.project.name}.png`, fullPage: true });
   await page.keyboard.press('Escape'); await expect(guideButton).toBeFocused();
   await guideButton.click(); await dialog.getByRole('link', { name: 'Lists', exact: true }).click();
   await expect(page).toHaveURL(`/w/${workspaceId}/lists`);
@@ -91,9 +92,9 @@ test('Guide preserves routes, preferences, themes and private opt-in weather acr
     expect(await page.evaluate('document.documentElement.scrollWidth <= innerWidth')).toBe(true);
     await expectAccessible(page, `Guide Today ${width}`);
   }
-  mkdirSync('assets/screenshots/release-42', { recursive: true });
+  mkdirSync(process.env.VMN_REVIEW_SCREENSHOTS ?? 'assets/screenshots/release-42', { recursive: true });
   await page.setViewportSize({ width: 1440, height: 1000 });
-  await page.screenshot({ path: `assets/screenshots/release-42/today-${testInfo.project.name}.png`, fullPage: true });
+  await page.screenshot({ path: `${process.env.VMN_REVIEW_SCREENSHOTS ?? 'assets/screenshots/release-42'}/today-${testInfo.project.name}.png`, fullPage: true });
   await page.goto('/account/appearance');
   await page.getByRole('button', { name: 'Fictional Guide studio', exact: true }).click();
   const layoutForm = page.locator('.guide-form');
@@ -103,6 +104,19 @@ test('Guide preserves routes, preferences, themes and private opt-in weather acr
   for (let i = 0; i < 28; i++) await page.keyboard.press('ArrowRight');
   await layoutForm.getByRole('button', { name: 'Save', exact: true }).click();
   await expect(layoutForm.getByRole('status')).toHaveText('Saved for this Workspace.');
+  await layoutForm.getByLabel('Card background', { exact: true }).selectOption('forest');
+  await layoutForm.getByRole('button', { name: 'Cancel', exact: true }).click();
+  await expect(layoutForm.getByLabel('Card background', { exact: true })).toHaveValue('starfield');
+  await layoutForm.getByRole('button', { name: 'Reset', exact: true }).click();
+  await expect(layoutForm.getByRole('slider')).toHaveValue('50');
+  await layoutForm.getByRole('button', { name: 'Cancel', exact: true }).click();
+  await expect(layoutForm.getByRole('slider')).toHaveValue('28');
+  for (const width of [320, 390, 1280]) {
+    await page.setViewportSize({ width, height: 1050 });
+    await page.evaluate('window.scrollTo(0,0)');
+    expect(await page.evaluate('document.documentElement.scrollWidth <= innerWidth')).toBe(true);
+    await expectAccessible(page, `Compact Appearance at ${width}`);
+  }
   await page.goto(`/w/${workspaceId}`);
   await expect(shell).toHaveAttribute('data-card-style', 'starfield');
   await page.goto('/account/appearance');
@@ -130,19 +144,53 @@ test('Guide preserves routes, preferences, themes and private opt-in weather acr
   await expect(page.getByRole('link', { name: 'Weather in Fictional studio' })).toBeVisible();
   await checkClockWeather(page, workspaceId, testInfo.project.name === 'guide-desktop-chromium');
   for (const theme of ['system', 'light', 'dark', 'memento-mori', 'tokyo-nights', 'witch-forest', 'places-de', 'places-it', 'places-uk', 'places-scotland', 'space-guide']) {
-    expect((await post('/api/account/preferences', { theme })).status).toBe(200); await page.reload();
-    await expect(page.getByRole('button', { name: 'Guide', exact: true })).toBeVisible();
-    expect(await page.evaluate('document.documentElement.scrollWidth <= innerWidth')).toBe(true);
-    await expectAccessible(page, `Guide theme ${theme}`);
+    expect((await post('/api/account/preferences', { theme })).status).toBe(200);
+    const paints = new Set<string>();
+    for (const opacity of [0, 50, 100]) {
+      if (theme.startsWith('places-')) {
+        expect((await post(`/api/account/places/${workspaceId}`, { preferences: { ...DEFAULT_PLACE_PREFERENCES, cardOpacity: opacity } })).status).toBe(200);
+      } else {
+        expect((await post('/api/account/workspace-preferences/guide', { workspaceId, guide: { cardOpacity: opacity } })).status).toBe(200);
+      }
+      await page.reload();
+      await expect(page.getByRole('button', { name: 'Guide', exact: true })).toBeVisible();
+      await expect(page.locator('.today-instruments')).toHaveCSS('--sky-card-opacity', `${opacity}%`);
+      await expectSharedSkySurface(page);
+      paints.add(await page.locator('.today-instruments').evaluate(node => node.ownerDocument.defaultView?.getComputedStyle(node).backgroundColor ?? 'missing'));
+      for (const width of [320, 1440]) {
+        await page.setViewportSize({ width, height: 1100 });
+        expect(await page.evaluate('document.documentElement.scrollWidth <= innerWidth')).toBe(true);
+        await expectAccessible(page, `Guide theme ${theme}, opacity ${opacity}, width ${width}`);
+        if (process.env.VMN_REVIEW_SCREENSHOTS && testInfo.project.name === 'guide-desktop-chromium' && ['space-guide', 'tokyo-nights', 'witch-forest'].includes(theme)) {
+          const top = await page.locator('.today-instruments').boundingBox();
+          const bottom = await page.locator('.today-moon').boundingBox();
+          if (top === null || bottom === null) throw new Error('Missing sky cards');
+          await page.screenshot({ path: `${process.env.VMN_REVIEW_SCREENSHOTS}/${theme}-${opacity}-${width}.png`, clip: { x: top.x, y: top.y, width: top.width, height: bottom.y + bottom.height - top.y } });
+        }
+      }
+    }
+    expect(paints.size, `${theme}: opacity must change the actual card paint`).toBe(3);
+  }
+  for (const layout of ['classic', 'guide']) {
+    expect((await post('/api/account/workspace-preferences/guide', { workspaceId, guide: { layout, cardStyle: 'glass', cardOpacity: 50 } })).status).toBe(200);
+    await page.reload();
+    await expect(shell).toHaveAttribute('data-layout', layout);
+    await expectSharedSkySurface(page);
+    for (const width of [320, 1440]) {
+      await page.setViewportSize({ width, height: 1100 });
+      await expectAccessible(page, `Sky cards in ${layout} at ${width}`);
+    }
   }
   await page.emulateMedia({ reducedMotion: 'reduce' });
   expect(await page.locator('.shell').evaluate(node => (node as unknown as { getAnimations(options: { subtree: boolean }): { playState: string }[] }).getAnimations({ subtree: true }).filter(a => a.playState === 'running').length)).toBe(0);
   await page.emulateMedia({ forcedColors: 'active' });
   await expect(page.locator('.guide-art').first()).toBeHidden();
+  await expect(page.locator('.today-instruments .instrument-picture').first()).toBeHidden();
+  await expect(page.locator('.today-moon .celestial-art')).toBeHidden();
   await page.emulateMedia({ forcedColors: 'none' });
-  mkdirSync('assets/screenshots/release-42', { recursive: true });
+  mkdirSync(process.env.VMN_REVIEW_SCREENSHOTS ?? 'assets/screenshots/release-42', { recursive: true });
   await page.setViewportSize({ width: 320, height: 900 });
-  await page.screenshot({ path: `assets/screenshots/release-42/guide-${testInfo.project.name}.png`, fullPage: true });
+  await page.screenshot({ path: `${process.env.VMN_REVIEW_SCREENSHOTS ?? 'assets/screenshots/release-42'}/guide-${testInfo.project.name}.png`, fullPage: true });
   expect((await post('/api/account/workspace-preferences/guide', { workspaceId, guide: { images: false, cardOpacity: 0 } })).status).toBe(200);
   await page.reload();
   await expect(shell).toHaveAttribute('data-guide-images', 'false');

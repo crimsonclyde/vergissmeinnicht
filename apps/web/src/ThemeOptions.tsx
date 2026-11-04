@@ -49,20 +49,18 @@ export function ThemeOptions({ name, current, onPick }: { name: string; current:
       {THEME_GROUPS.map(({ key, modes }) => (
         <div key={key} className="theme-group">
           {key === 'places' && (
-            <p className="theme-group-head">
+            <p className="theme-group-head" title={t('appearance.placesHint')}>
               <UiIcon name="places" size="1.2em" />
               <strong>{t('appearance.places')}</strong>
-              <small className="muted">{t('appearance.placesHint')}</small>
             </p>
           )}
           <div className="theme-options">
             {modes.map((value) => (
-              <label key={value} className="theme-option">
+              <label key={value} className="theme-option" title={t(`appearance.${value}Hint`)}>
                 <input type="radio" name={name} value={value} checked={current === value} onChange={() => onPick(value)} />
                 <ThemeSwatch mode={value} />
                 <span className="theme-option-text">
                   <strong>{t(`appearance.${value}`)}</strong>
-                  <small className="muted">{t(`appearance.${value}Hint`)}</small>
                 </span>
               </label>
             ))}

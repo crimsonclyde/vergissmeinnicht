@@ -1,6 +1,28 @@
 import { mkdirSync } from 'node:fs';
-import { expect, type Page } from '@playwright/test';
+import { expect, type Page, type Route } from '@playwright/test';
 import { expectAccessible } from './a11y.ts';
+import type { WeatherForecast } from '../packages/domain/src/weather.ts';
+
+/** Both instruments use the exact same personal background as Celestial; children never add opaque panels. */
+export async function expectSharedSkySurface(page: Page) {
+  const card = page.locator('.today-instruments');
+  const moon = page.locator('.today-moon');
+  await expect(moon).toBeVisible();
+  const paint = await moon.evaluate(node => {
+    const view = node.ownerDocument.defaultView;
+    if (view === null) throw new Error('Missing browser window');
+    const style = view.getComputedStyle(node);
+    return { color: style.backgroundColor, image: style.backgroundImage };
+  });
+  await expect(card).toHaveCSS('background-color', paint.color);
+  await expect(card).toHaveCSS('background-image', paint.image);
+  await expect(card).toHaveCSS('opacity', '1');
+  await expect(moon.locator('.celestial-instrument')).toHaveCSS('background-color', 'rgba(0, 0, 0, 0)');
+  for (const kind of ['clock', 'weather']) {
+    await expect(card.locator(`[data-card="${kind}"]`)).toHaveCSS('background-color', 'rgba(0, 0, 0, 0)');
+    await expect(card.locator(`[data-card="${kind}"] .instrument-half-copy`)).toHaveCSS('opacity', '1');
+  }
+}
 
 /** Called inside a signed-in disposable Guide fixture; all weather is intercepted sample data. */
 export async function checkClockWeather(page: Page, workspaceId: string, screenshots: boolean) {
@@ -14,9 +36,40 @@ export async function checkClockWeather(page: Page, workspaceId: string, screens
     const weather = await page.locator('.today-instruments [data-card="weather"]').boundingBox();
     expect(Math.abs((clock?.width ?? 0) - (weather?.width ?? 0))).toBeLessThanOrEqual(1);
     expect(clock?.height).toBe(weather?.height);
+    const card = page.locator('.today-instruments');
+    await expectSharedSkySurface(page);
+    for (const kind of ['clock', 'weather']) {
+      const half = card.locator(`[data-card="${kind}"]`);
+      await expect(half).toHaveCSS('background-color', 'rgba(0, 0, 0, 0)');
+      const name = await half.locator('.instrument-half-name').boundingBox();
+      const picture = await half.locator('.instrument-picture').boundingBox();
+      const reading = await half.locator('.instrument-half-copy').boundingBox();
+      if (name === null || picture === null || reading === null) throw new Error('Instrument content must be visible');
+      expect(name.y + name.height).toBeLessThanOrEqual(picture.y);
+      expect(picture.y + picture.height).toBeLessThanOrEqual(reading.y);
+    }
     expect(await page.evaluate('document.documentElement.scrollWidth <= innerWidth')).toBe(true);
     await expectAccessible(page, `Combined instrument card ${width}`);
   }
+
+  // Fresh canonical forecasts change the picture, never a live provider request.
+  const sample = await page.evaluate(async () => (await fetch('/api/account/weather/forecast?days=4')).json()) as { forecast: WeatherForecast };
+  for (const [condition, artwork] of [['CLEAR', 'sun'], ['RAIN', 'rain'], ['SNOW', 'snow'], ['THUNDER', 'storm'], ['CLOUDY', null], ['UNKNOWN', null]] as const) {
+    const handler = (route: Route) => route.fulfill({ json: { ...sample, forecast: { ...sample.forecast, current: { temperature: 3, condition } } } });
+    await page.route('**/api/account/weather/forecast?*', handler);
+    await page.reload();
+    const picture = page.locator('[data-card="weather"] .instrument-picture');
+    if (artwork === null) await expect(picture.locator('.instrument-weather-symbol')).toBeVisible();
+    else await expect(picture.locator('img')).toHaveAttribute('src', new RegExp(`weather-${artwork}.*\\.webp`));
+    if (process.env.VMN_REVIEW_SCREENSHOTS && screenshots) {
+      for (const width of [320, 1440]) {
+        await page.setViewportSize({ width, height: 1000 });
+        await page.locator('.today-instruments').screenshot({ path: `${process.env.VMN_REVIEW_SCREENSHOTS}/card-${condition}-${width}.png` });
+      }
+    }
+    await page.unroute('**/api/account/weather/forecast?*', handler);
+  }
+  await page.reload();
 
   await page.locator('.today-instruments [data-card="weather"] .instrument-picture').click();
   await expect(page).toHaveURL('/weather');
@@ -103,7 +156,7 @@ export async function checkClockWeather(page: Page, workspaceId: string, screens
   await setInstrument('Weather', true);
 
   if (screenshots) {
-    const directory = 'assets/screenshots/readme-2026-11-03';
+    const directory = process.env.VMN_REVIEW_SCREENSHOTS ?? 'assets/screenshots/readme-2026-11-03';
     mkdirSync(directory, { recursive: true });
     const theme = async (value: string) => {
       const status = await page.evaluate(async value => (await fetch('/api/account/preferences', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ theme: value }) })).status, value);

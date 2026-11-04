@@ -1,13 +1,25 @@
 # Clock / Weather artwork
 
-`clock-weather.webp` — original locally bundled art for the owner-approved combined Today card,
+2026-11-04 integration: `InstrumentPicture.tsx` now uses the transparent clock cutout and condition-specific
+Weather WebP derivatives documented in [WEATHER-VARIANTS.md](WEATHER-VARIANTS.md). `weather.webp` is
+retained as the original style reference, not used as a live condition painting. Cloudy, partly cloudy,
+foggy and unknown conditions use native symbols until matching paintings exist. One shared Celestial card
+surface replaces the old opaque study backdrop. Existing personal background/opacity settings control
+both cards through `sky-card.css`; the cutouts, text and clock hands remain fully opaque.
+The historical source/edit notes below describe the original split artwork.
+
+`clock.webp` and `weather.webp` — original locally bundled art for the owner-approved combined Today card,
 created with the built-in image-generation tool on 2026-11-03. No runtime generator, upload or remote
-image request. Final source asset: `apps/web/src/applets/art/clock-weather.webp`, 1400 × 700 WebP,
-quality 85, 69,960 bytes. The digital readings are real HTML; painted art carries no user/location data.
+image request. Final source assets: `apps/web/src/applets/art/clock.webp` and `weather.webp`, each 700 × 700
+RGBA WebP, lossless, with a transparent background. They are the left and right halves of the approved 1400 × 700
+study, split at x = 700. The flat navy backdrop, enclosed navy pockets beside the orbit rings, the warm-dark sun
+glow and the sky stars are removed, so the card supplies the background. Removal was a colour key against the
+border colour (RGB 6,13,31), with a stricter key in the rock base. The digital readings are real HTML; painted art
+carries no user/location data.
 The left dial has no painted hands: native SVG hands rotate from the same device minute as the digital
 clock. The right picture is a decorative Weather emblem, not a live observation or warning; actual
-conditions and unavailable/cached data remain explicit text. The shared asset avoids separate panel
-art scaling; each half crops one exact 700 × 700 portion. No new third-party stock asset/license.
+conditions and unavailable/cached data remain explicit text. Each picture is its own square file, so the two halves
+scale identically without a shared panel crop. No new third-party stock asset/license.
 
 The owner approved the original two-part study in chat. Original generation prompt is preserved in
 `docs/design/clock-weather-combined-review.md`. Final surgical edit prompt (built-in tool):

@@ -4,6 +4,7 @@ import { api } from './api.ts';
 import { formatMoonDateTime, formatMoonTime, formatNumber, t } from './i18n/index.ts';
 import { moonAt } from './moon.ts';
 import { CelestialArt } from './CelestialArt.tsx';
+import './applets/sky-card.css';
 
 function EventIcon({ setting }: { setting: boolean }) {
   return <svg viewBox="0 0 24 24" aria-hidden="true" className="celestial-event-icon" fill="none" stroke="currentColor" strokeWidth="1.4"><path d="M2 18h20M5 15a7 7 0 0 1 14 0" /><path d="M12 1v6m-3-3 3-3 3 3" transform={setting ? 'translate(0 8) scale(1 -1)' : undefined} /></svg>;
@@ -17,7 +18,7 @@ export function CelestialCard({ now, location }: { now: Date; location: WeatherL
     <dt><EventIcon setting={setting} />{t(label)}</dt>
     <dd>{zone === undefined ? t('moon.eventLocation') : value === null ? t(missing) : <time dateTime={value.toISOString()}>{formatMoonTime(value, zone, false)}</time>}</dd>
   </div>;
-  return <section className="card today-card today-moon" aria-label={t('moon.heading')} data-card="moon">
+  return <section className="card today-card today-moon sky-card" aria-label={t('moon.heading')} data-card="moon">
     <div className="celestial-instrument">
       <header className="celestial-heading">{location !== null && <span>{location.name}</span>}<h3>{t('moon.heading')}</h3><i aria-hidden="true" /></header>
       <CelestialArt fraction={moon.fraction} waxing={moon.waxing} />

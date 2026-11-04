@@ -478,7 +478,7 @@
 :root[data-theme='places'] .today-grid { grid-template-columns: minmax(0, 1fr); }
 :root[data-theme='places'] .today-glance { flex-wrap: wrap; }
 :root[data-theme='places'] .today-greeting { font-family: var(--places-serif); font-size: clamp(2rem, 4vw, 3.2rem); line-height: 1.12; font-weight: 400; letter-spacing: -.04em; }
-:root[data-theme='places'] .today-card { border-radius: 1.5rem; background: var(--surface); }
+:root[data-theme='places'] .today-card:not(.sky-card) { border-radius: 1.5rem; background: var(--surface); }
 :root[data-theme='places'] .places-dock { position: fixed; z-index: 25; display: flex; justify-content: center; gap: .3rem; left: 50%; right: auto; bottom: max(1.25rem, env(safe-area-inset-bottom, 0px)); transform: translateX(-50%); width: max-content; max-width: calc(100% - 2rem); border: 1px solid var(--border-strong); border-radius: 1.5rem; padding: .45rem; background: var(--surface); box-shadow: 0 .7rem 2.5rem rgb(0 0 0 / 18%); }
 :root[data-theme='places'] .places-dock > :is(a, button) { display: flex; flex-direction: row; align-items: center; justify-content: center; gap: .5rem; padding: .6rem 1rem; border: 0; border-radius: 1rem; text-decoration: none; font-size: .88rem; font-weight: 500; color: var(--text); background: transparent; min-height: 2.75rem; }
 :root[data-theme='places'] .places-dock > :is(a, button)[aria-current='page'] { background: var(--accent); color: var(--accent-text); }
@@ -526,7 +526,7 @@
 }
 
 /* Personal Today surfaces: alpha belongs to the paint, never to text or controls. */
-:root[data-theme='places'] .shell[data-page='workspace'] .today-card,
+:root[data-theme='places'] .shell[data-page='workspace'] .today-card:not(.sky-card),
 :root[data-theme='places'] .place-preview-card {
   background: color-mix(in srgb, var(--surface) var(--place-card-opacity, 100%), transparent);
   text-shadow: 0 0 .15rem var(--surface), 0 0 .5rem var(--surface);

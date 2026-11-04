@@ -1,0 +1,51 @@
+.interface-settings{display:grid;gap:.85rem;margin-top:0;min-width:0}
+.appearance-heading{display:flex;align-items:center;justify-content:space-between;gap:.25rem;min-width:0}
+.appearance-heading :is(h3,h4){display:flex;align-items:center;gap:.5rem;margin:0}
+.appearance-workspaces{display:flex;flex-wrap:wrap;justify-self:start;max-width:100%;border-radius:.8rem}
+.appearance-workspaces button{min-width:0;max-width:100%;overflow-wrap:anywhere}
+.interface-settings .guide-form{min-width:0}
+.interface-settings fieldset{min-width:0;width:100%;margin:0;padding:.65rem .5rem}
+.interface-settings legend{font-weight:600}
+.appearance-themes{padding:.65rem}
+.interface-settings .theme-options{grid-template-columns:repeat(auto-fill,minmax(min(100%,7.5rem),1fr));gap:.5rem}
+.interface-settings .theme-option{padding:.4rem;gap:.35rem}
+.interface-settings .theme-option:has(input:checked){padding:calc(.4rem - 1px)}
+.interface-settings .theme-swatch{height:3.25rem}
+.interface-settings .theme-option input{top:.75rem;right:.75rem}
+.interface-settings .theme-option-text{font-size:.85rem;line-height:1.3}
+.interface-settings .theme-group-head{margin:.65rem 0 .45rem}
+.appearance-layout-options{display:flex;flex-wrap:wrap;gap:.25rem;min-width:0}
+.appearance-layout-option{position:relative;display:flex;align-items:center;justify-content:center;gap:.4rem;min-height:48px;padding:.4rem .65rem;border:1px solid var(--border);border-radius:.65rem;cursor:pointer}
+.appearance-layout-option input{position:absolute;inset:0;opacity:0;width:100%;height:100%;margin:0;cursor:pointer}
+.appearance-layout-option:has(input:checked){border-color:var(--accent);box-shadow:inset 0 0 0 1px var(--accent);font-weight:700}
+.appearance-layout-option:has(input:checked)::after{content:'✓';color:var(--text);font-weight:700;margin-left:.2rem}
+.appearance-layout-option:has(input:focus-visible){outline:3px solid var(--focus);outline-offset:2px}
+.appearance-icon-action,.appearance-help summary{display:inline-flex;align-items:center;justify-content:center;flex:none;width:48px;min-width:48px;height:48px;min-height:48px;padding:0;border-radius:.65rem}
+.appearance-help{position:relative;flex:none}
+.appearance-help summary{list-style:none;cursor:pointer;color:var(--text-muted)}
+.appearance-help summary::-webkit-details-marker{display:none}
+.appearance-help summary:focus-visible{outline:3px solid var(--focus);outline-offset:2px}
+.appearance-help p{position:absolute;z-index:5;right:0;width:min(22rem,calc(100vw - 4rem));margin:.25rem 0 0;padding:.75rem;background:var(--surface);color:var(--text);border:1px solid var(--border-strong);border-radius:.65rem;box-shadow:var(--shadow);font-size:.85rem;line-height:1.5}
+.appearance-opacity{display:grid;gap:.25rem}
+.appearance-opacity>span{display:flex;align-items:center;gap:.5rem}
+.appearance-opacity-value{margin-left:auto;font-variant-numeric:tabular-nums}
+.appearance-opacity input{width:100%;min-height:44px;margin:0}
+.interface-settings .check-label{display:flex;align-items:center;gap:.5rem;min-height:48px;margin:0;cursor:pointer}
+.appearance-actions{display:flex;justify-content:flex-end;gap:.25rem}
+.appearance-illustration-row{display:flex;align-items:center;justify-content:space-between;gap:.5rem;min-width:0}
+.interface-settings .appearance-card-preview{display:flex;align-items:center;justify-content:center;flex:none;width:64px;min-height:48px;padding:.5rem;margin:0;color:var(--text)}
+.appearance-weather-row{display:flex;align-items:center;justify-content:space-between;gap:.5rem}
+.appearance-weather-row .check-label{flex:1;min-width:0}
+.appearance-weather-row .check-label>span:not(.ui-icon){min-width:0;overflow-wrap:anywhere}
+.appearance-weather-row input{flex:none}
+.appearance-location-value{margin:.25rem 0 0;color:var(--text-muted);font-size:.85rem;overflow-wrap:anywhere}
+@media(max-width:37.5rem){
+  .interface-settings .theme-options{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .interface-settings .theme-option-text{font-size:.8rem;overflow-wrap:anywhere}
+  .appearance-layout-option{width:48px;padding:0}
+  .appearance-layout-option>span:not(.ui-icon){display:none}
+  .appearance-layout-option:has(input:checked)::after{position:absolute;top:0;right:.1rem;margin:0;font-size:.7rem}
+  .appearance-weather-row .check-label>span:not(.ui-icon),
+  .appearance-illustration-row .check-label>span:not(.ui-icon){display:none}
+}
+@media(forced-colors:active){.appearance-layout-option:has(input:checked){border:2px solid Highlight;box-shadow:none}}

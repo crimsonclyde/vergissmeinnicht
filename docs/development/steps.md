@@ -18,7 +18,9 @@ For every completed task, add a concise completion note, tests/checks performed,
 
 ## Current state — resume here
 
-**Unpublished on `main` after owner release 51: Theme and weather moved to Profile & settings → Appearance.** Each Workspace is one tab there with Theme (the star makes it the one that opens first), Interface and cards, and Weather (use this Workspace's shared location; shows the place used). The Workspace Look and layout page is removed: route `/w/:id/look`, `paths.look`, the settings section, `workspaceSettings.look`, `look.*` and `weather.workspaces.*` (heading, lead, none) keys, and the `WorkspaceLookSettings` component (clean cutover, no redirect; old `/look` addresses show not found). Places links point to Appearance. The Weather page keeps the person's own place, provider, models, credentials and forecast. No migration; no change to authorization or stored data; existing weather and guide endpoints are unchanged. Checks: root `tsc -p .`; `tsc -p apps/web/tsconfig.json`; vitest router, catalog-usage, i18n, places, today-view and weather (17 files, 122 tests); `vite build`; Playwright `CI=1` full suite, 28 passed, 2 skipped, 0 failed. Not done: 320 px and Light/Dark visual check of the new tabs. Clock and Weather artwork not changed (see the owner's Codex hand-off). Not released; the next release ordinal is 52.
+**Release preparation — 0.11.7, owner milestone 52 (2026-11-04): IN PROGRESS.** Owner explicitly authorized commit, push and a new release, confirmed as 0.11.7 because 0.11.6 is already published. Includes the previously pushed personal per-Workspace Appearance consolidation (`d1771c3`) and the approved Clock/Weather condition artwork, shared Celestial background/opacity, weather opt-in refresh and compact icon-based Appearance controls (27.5–27.8). Release title/version is bare `0.11.7`; Git tag is `v0.11.7`. Current owner count stays **51**, next **52**, until publication. Release 42 and dedication are preserved. No live deployment.
+
+**Release checks/plan:** local full lint/typecheck/build, dependency audit, unit/security suite and full browser suite; selective commit excludes pre-existing owner mock-ups/screenshots. Main CI must pass before tagging; tagged Release must pass quality/browser/native image smoke/scans, multi-architecture signing/SBOM and exact-published-image verification before creating the GitHub Release. Added the independently verified 0.11.6 index `sha256:8f81c81266f60df648bc38123a9a43a35664d69d68ec5e450d4b4b87e2166fe2` to populated-upgrade checks, retaining both older predecessors. Browser CI is serialized to keep the expanded opacity matrix inside the existing loopback request budget; no production or test rate limit is raised. Unraid candidate is 0.11.7. No migration, dependency, API/credential/authorization or new security surface; existing personal settings and Weather boundaries remain. Local full unit/security suite: **211 files / 1,615 tests passed**; full lint, recursive typecheck, production build, dependency audit (no known vulnerabilities) and diff checks pass. Full browser verification is in progress; an obsolete assertion for the removed no-location paragraph was updated to the concise visible status while retaining the disabled-opt-in check. Detailed final results and publication evidence follow here. [Release notes](../releases/0.11.7.md).
 
 **Published owner release 51 (2026-11-04): v0.11.6 — header navigation redesign and Dashboard label.** Guide-layout top bar: brand, Workspace picker, Dashboard scope select (All, Mine, Shared; Dashboard only; remembered in `localStorage` key `vmn.homeFilter`), Dashboard, Procedures, Lists and Guide tabs, icon-only Add (+), time when the Clock card is on, settings gear or avatar. Weather is removed from the top bar and stays on the Dashboard card and Weather page. Classic layout keeps its toolbar (scope and Add) without the settings shortcut. Phones (≤35 rem): icon-only top tabs and four bottom destinations at 44 px; text names kept as accessible names. The user-visible "Today" page label is now "Dashboard" (en.ts, navigation, settings, README and user/admin docs); URLs, code identifiers, `icon: 'today'`, i18n keys and calendar-day "Today" are unchanged. [Release](https://github.com/crimsonclyde/vergissmeinnicht/releases/tag/v0.11.6) · [notes](../releases/0.11.6.md). Tag `v0.11.6` is on commit `d30108c`. Main CI `41863025674` passed for `d30108c` (the first main CI `41860163337` for `27b3390` failed on stale e2e expectations and was fixed). Tagged release workflow `41866342114`: the `quality` job failed once on a 5-second vitest timeout in `apps/server/src/http/workspace-backup.test.ts` ("makes one backup at a time…"), which passed on main; re-running the failed jobs passed everything including image and publish. Image index `sha256:8f81c81266f60df648bc38123a9a43a35664d69d68ec5e450d4b4b87e2166fe2`; `0.11.6`, `0.11` and `latest` resolve to it. Local checks: root `tsc -p .` exit 0; web `vite build` exit 0; root `vitest run` 211 files / 1,601 tests passed; full Playwright `CI=1` 28 passed, 2 skipped, 0 failed. Browser smoke against a local production server with a throwaway account and Workspace (stopped; data removed): desktop 1440 px top bar matches the approved mockup, clock before settings, Add chooser works, scope select writes `vmn.homeFilter`; 320 px Light and Dark: 16 px icons in 44 px tiles, no sideways scroll. Security impact: none beyond one non-sensitive UI value in `localStorage`; no endpoint, storage, credential, permission, migration or outbound host change, so `security.md` is unchanged. Known limitations: workspace name truncates at 320 px; sighted phone users lose text labels for the four top-level destinations; the Clock is off by default, so fresh accounts show no time; no physical phone or screen-reader test. The Dashboard settings are reached via Settings menu → Profile & settings → Dashboard (the header Customize link was removed). Owner count **51**, next **52**.
 
@@ -6042,6 +6044,111 @@ flows); all nine Space/Memento/phone WebP captures are updated and visually chec
 links, final lint/typecheck and `git diff --check` pass. Owner-authorized combined implementation, artwork,
 documentation and beta.1 preparation are ready to commit/push; tag/publication follow CI. The earlier
 owner asset directories stay excluded and untouched.
+
+### 27.5 Standalone Weather illustration variants (2026-11-04)
+
+**DONE — assets only:** owner requested matching sun, snow, rain without sun and storm illustrations
+for later condition-aware card selection. Saved four independent `weather-{sun,snow,rain,storm}.png`
+files beside the existing artwork in `apps/web/src/applets/art/`. Built-in image generation used the
+existing Weather art as a style reference; painterly celestial clouds/gold light and floating slate
+pedestals are retained. Existing art and application behavior are unchanged by this task. Full prompts
+and provenance are in `apps/web/src/applets/art/WEATHER-VARIANTS.md`.
+
+**Checks:** all four visually inspected for requested condition and matching style; each decoded as
+1254 × 1254 RGBA PNG, with alpha spanning 0–255 and fully transparent corners. Outer-edge alpha is
+0 for snow and at most 1/255 for the other three (negligible generation residue, no opaque backdrop).
+No application tests run: new images are not imported or used yet. Documentation diff check passed.
+**Remaining:** condition mapping, fallback/night behavior, card background repair and integrated layout
+verification are separate work; no release or deployment. **Security surface unchanged:** fixed local
+art only, no provider/API/credential/permission/data-flow or runtime generation change.
+
+### 27.6 Continuous instrument card, condition artwork and personal-settings audit (2026-11-04)
+
+**Implemented:** one contained navy/gold surface beneath transparent Clock and Weather art; Guide's
+image-card backgrounds and Places' surface/opacity rules exclude this card. Grid rows separate heading,
+illustration and readings across phone/desktop and one/two-instrument layouts. Current canonical
+condition selects fixed compressed WebP assets: clear → sun, drizzle/rain/showers → rain, snow/sleet →
+snow, thunder → storm. Other/unknown conditions keep their native weather symbol without invented
+sunshine or precipitation. Written condition is visible; only an absent current condition falls back
+to a labelled daily outlook; explicit UNKNOWN stays unknown. PNG source images are retained.
+
+**Personal-settings audit:** Profile → Appearance is the only theme/Guide control surface, with
+own-user choices per Workspace; Places settings are also user/Workspace scoped. The removed Workspace
+Look page is absent from routes/navigation. Appearance owns each person's per-Workspace shared-location
+weather opt-in. Fixed missing forecast/atmosphere invalidation after a successful opt-in save and disabled
+the toggle during saving. Provider/model/units/credentials/personal fallback location remain personal
+account-wide settings in Profile → Weather, not per-Workspace preferences. Workspace General still
+contains the accepted admin-managed shared location (used by Moon and opted-in weather), not personal
+appearance/weather controls. The server-wide Weather availability/provider policy also remains admin-only.
+No settings ownership, shared-location policy or stored scope was silently changed.
+
+**Verification:** 6 focused unit/contrast and negative preference-isolation files / **66 tests passed**;
+full lint, root/recursive typecheck, production build and `git diff --check` pass. Existing build chunk-size
+warning remains. Final Guide browser flows **2 passed** (desktop and phone): 320/390/1440px equal halves,
+no text/art overlap or sideways overflow, canonical artwork changes including cloudy/unknown fallback,
+one/zero instruments, whole-picture navigation/timing, personal appearance saves, all 11 theme aliases,
+accessibility, reduced-motion/forced-colour behavior and contained background assertions. Initial review
+found and corrected Places and Tokyo background overrides; final rerun passed. Real card captures for
+all four paintings and native fallbacks are in `/tmp/vmn-weather-review`, visually inspected at phone
+and desktop sizes. Capture output override avoids modifying existing owner screenshots. Weather is
+intercepted fictional data; no live providers.
+User/architecture/security/artwork docs updated. Security surface unchanged: existing authorized forecast
+and personal preference endpoints only; no new provider, credential, permission, migration or upload path.
+Remaining: cloudy/fog/night-specific paintings are not provided; native symbols handle unsupported/unknown
+conditions and the forecast has no day/night flag. No release, publication or live deployment.
+
+### 27.7 Owner correction — match Celestial and respect personal card opacity (2026-11-04)
+
+Owner rejected 27.6's fixed navy surface: Clock/Weather must use the same adjustable background as
+Celestial, including Galactic Guide, Tokyo Nights and green/forest themes on phone and desktop.
+This supersedes the contained-background exception above without changing the condition artwork.
+
+**DONE:** shared `sky-card` class/`applets/sky-card.css` on both cards. Their actual background
+paint follows the existing personal per-Workspace Appearance opacity, with the existing Places personal
+card-opacity setting for Places. Galactic Guide retains its chosen card image/tint. Removed the Clock
+card's hard-coded navy override and Celestial's opaque inner panel; transparent cutouts, readings and
+controls retain full opacity. Theme-aware text/muted/highlight tokens keep light, dark and green surfaces
+coherent, while native clock hands retain the gold needed on the painted dial. One/two-instrument layouts,
+canonical weather selection and navigation are unchanged. Appearance help, user/architecture/art docs
+updated. No new slider, preference, storage scope, API, provider or migration.
+
+**Verification:** shared-surface browser checks compare actual Clock/Weather and Celestial paint and
+assert that opacity changes the paint at 0/50/100, without fading content. Added token contrast coverage
+for all theme palettes, including both Places schemes, at five opacity levels. Focused unit/contrast and
+negative preference-isolation checks: **6 files / 67 tests passed**. Full lint, root/recursive typecheck,
+production build and diff check pass (existing chunk-size warning remains). Final browser checks use
+desktop Chromium and phone emulation: **4 browser flows passed**, with 11 theme choices × 0/50/100 opacity × 320/1440px, actual shared
+paint/alpha assertions, full-opacity text, equal halves, one/zero instruments, artwork condition changes,
+Guide/classic navigation, keyboard/accessibility, reduced motion and forced colours. Celestial's separate
+astronomy/layout regression covers 320/390/768/1440px. Parallel execution initially exhausted the ordinary
+loopback request limit; rerun sequentially, with no production or test rate-limit changes. Captures in
+`/tmp/vmn-sky-card-review` include paired Clock/Weather and Celestial at three opacities in Galactic Guide,
+Tokyo Nights and Witch Forest; visually inspected desktop and phone examples.
+**Security surface unchanged:** presentation only; existing own-user/Workspace settings and weather gates
+remain. No release or live deployment. Physical-device/personal-photo review remains outside local
+Chromium validation; arbitrary user photos can still need a stronger chosen tint for readability.
+
+### 27.8 Compact Appearance controls (2026-11-04)
+
+**DONE:** owner requested icons and much less explanatory text on Appearance. Implemented compact theme pictures
+with names (descriptions in tooltips), Workspace tabs, an icon-only default star and Save/Cancel/Reset
+actions, compact top-bar/sidebar choices, opacity with a visible percentage, illustrations preview and
+personal Workspace-weather location control. Repeated guidance is behind optional info disclosures.
+On phones, layout/illustration/location controls use icons and themes stay in two columns. All actions
+retain accessible names/tooltips, native checked states, keyboard focus and 48px icon targets; scoped
+CSS handles narrow content widths and forced colours. Removed the redundant “Location set” message.
+
+Preference ownership, all fields, theme choices, immediate theme/star/weather saves and explicit
+layout/card Save/Cancel/Reset behavior remain unchanged. No backend, endpoint, data model, stored scope,
+permission, Weather provider or security surface change. User/architecture documentation updated.
+
+Checks: catalog/translation/contrast suite **3 files / 33 tests passed**; full lint, recursive typecheck,
+production build and diff checks pass. Disposable fictional-data browser captures/accessibility review
+at 320/390/1280px pass; screenshots in `/tmp/vmn-appearance-compact`. Existing Guide browser flow now
+also checks Cancel restores saved card style, Reset stays a draft, icon Save and slider/layout persistence,
+and Appearance accessibility at phone/desktop widths. **Desktop and phone Guide browser flows: 2 passed**;
+final fictional-data visual/accessibility capture: **1 passed**, including the final 320px layout.
+No release or live deployment; physical-device and real-screen-reader review remain unperformed.
 
 ### Published owner milestone 46 — v0.11.0-beta.1 (2026-11-03)
 

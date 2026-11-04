@@ -50,7 +50,9 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm exec playwright install --with-deps chromium
       # test:e2e already builds the production web assets; no duplicate build.
-      - run: pnpm test:e2e
+      # Theme/opacity reviews share loopback with the other fixtures: keep the real request limits
+      # intact and run browser flows sequentially rather than saturating them with parallel reloads.
+      - run: pnpm test:e2e --workers=1
 
   image:
     # The production image must keep building and running on both architectures (native runners, no

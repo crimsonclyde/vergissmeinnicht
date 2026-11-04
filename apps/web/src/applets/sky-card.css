@@ -1,0 +1,38 @@
+/* Shared Celestial / Clock / Weather surface. Only paint is translucent; content stays opaque. */
+:root[data-theme] .shell[data-layout] .today-card.sky-card {
+  --sky-card-opacity: var(--guide-card-opacity, 50%);
+  --sky-card-paint: color-mix(in srgb, var(--surface) var(--sky-card-opacity), transparent);
+  --sky-card-ornament: #f2ca83;
+  --sky-card-highlight: color-mix(in srgb, var(--text) 80%, var(--sky-card-ornament));
+  --instrument-text: var(--text);
+  --instrument-muted: var(--text-muted);
+  --instrument-edge: var(--border-strong);
+  --celestial-text: var(--text);
+  --celestial-muted: var(--text-muted);
+  --celestial-gold: var(--sky-card-highlight);
+  --celestial-edge: var(--border-strong);
+  padding: 0;
+  background: var(--sky-card-paint);
+  border-color: var(--border-strong);
+  text-shadow: none;
+}
+:root[data-theme='places'] .shell[data-layout] .today-card.sky-card {
+  --sky-card-opacity: var(--place-card-opacity, 100%);
+}
+:root[data-theme='space-guide'] .shell[data-layout][data-guide-images='true']:not([data-card-style='glass']) .today-card.sky-card {
+  background-image: linear-gradient(var(--sky-card-paint), var(--sky-card-paint)), var(--guide-card-art);
+  background-size: cover;
+}
+.sky-card .celestial-instrument { background: transparent; }
+.sky-card .instrument-half-value small,
+.sky-card .instrument-half-stale,
+.sky-card .instrument-weather-symbol { color: var(--sky-card-highlight); }
+.sky-card .instrument-weather-symbol {
+  background: transparent;
+  box-shadow: none;
+}
+.sky-card .today-instrument-half:focus-visible { outline-color: var(--focus); }
+@media (forced-colors: active) {
+  :root[data-theme] .shell[data-layout] .today-card.sky-card { background: Canvas !important; border-color: CanvasText; }
+  .sky-card .celestial-instrument { background: Canvas; }
+}

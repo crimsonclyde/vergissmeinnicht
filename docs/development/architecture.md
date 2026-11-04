@@ -738,7 +738,7 @@ Presentation keeps the established persisted theme ids and API/database allowlis
 
 The authenticated shell now defaults to a theme-independent top navigation (`guide/GuideNavigation.tsx`). It derives the same personal shortcuts and enabled destinations from `navigation.ts`, exposes the full ordered list in a native dialog, and keeps existing route addresses, settings, Workspace selection and focused-editing guards. `ShellFrame` chooses Guide or the existing interface from the active Workspace's layout choice; switching presentation never swaps domain providers or offline queues. Today uses the saved card order in one column; no card types or commands are removed.
 
-Migration 0069 (`0069_workspace_guide`) moves the Guide choices from account scope to each Workspace: a nullable, bounded, strict `guide` JSON object on `user_workspace_preferences` (Guide/classic layout, Glass/Starfield/Forest/Water/Hearth, integer opacity 0–100, images; `null` means the default). It copies each account Guide value into a row for every Workspace the person is a member of (`memberships`), discards it for people with no membership, and then removes `guide` from `user_preferences`. The API is the own-user Workspace preference route `POST /api/account/workspace-preferences/guide`: partial changes are merged on the server and `null` resets the Workspace to the default. Workspace Look and layout (`/w/:id/look`) has two tabs, Theme and Weather. Account Appearance has an Interface and cards section with a Workspace picker that sets the layout and the card controls of the picked Workspace through `guide/GuideSettingsForm.tsx`, which saves through the same route. The web app reads the Guide of the active Workspace and keeps no device copy of it; the offline context store keeps only the navigation order (`navigation:<userId>`), with existing sign-out/account-switch cleanup. Workspace backups still exclude all personal preference tables; no exported columns change. Existing Places settings and theme aliases keep their scope and defaults.
+Migration 0069 (`0069_workspace_guide`) moves the Guide choices from account scope to each Workspace: a nullable, bounded, strict `guide` JSON object on `user_workspace_preferences` (Guide/classic layout, Glass/Starfield/Forest/Water/Hearth, integer opacity 0–100, images; `null` means the default). It copies each account Guide value into a row for every Workspace the person is a member of (`memberships`), discards it for people with no membership, and then removes `guide` from `user_preferences`. The API is the own-user Workspace preference route `POST /api/account/workspace-preferences/guide`: partial changes are merged on the server and `null` resets the Workspace to the default. Profile → Appearance owns the Workspace picker, personal theme, interface/card settings and personal Workspace-weather location opt-in. There is no Workspace Look and layout page. `guide/GuideSettingsForm.tsx` saves layout/card controls through the same own-account route. Provider, unit, model, credentials and fallback location remain personal account-wide Weather settings; the shared Workspace location remains admin-managed metadata used by Moon and opted-in weather. Successful personal location opt-in saves invalidate the scoped forecast/atmosphere immediately. The web app reads the Guide of the active Workspace and keeps no device copy of it; the offline context store keeps only the navigation order (`navigation:<userId>`), with existing sign-out/account-switch cleanup. Workspace backups still exclude all personal preference tables; no exported columns change. Existing Places settings and theme aliases keep their scope and defaults.
 
 `TodaySettingsProvider` shares existing Today choices with `GuideGlance` and Today. The header renders Clock/Weather only when selected; Guide suppresses their former Today row. Weather uses the existing forecast/cache contract, guards the account and Workspace identity, and retains stale/source details. Native Clock/Weather dialogs return focus and link to the existing full forecast settings. The optional Space stylesheet uses semantic tokens and local lazy decorative WebP cutouts; protected opaque captions/controls retain contrast at every opacity. Other themes retain their own decoration and functionality. Artwork provenance: `apps/web/src/guide/ARTWORK.md`.
 
@@ -920,3 +920,23 @@ group composes the existing independent Clock/Weather choices; it adds no stored
 artwork is decorative, native minute-updated clock hands match device time, and the whole half is a
 normal guarded router link. One usable instrument fills the card; neither produces no card. Detailed
 forecast fields, source/fallback and tomorrow remain on the dedicated Weather screen. Attribution and fetch time moved to Forecast & weather settings. The screen's 14-day history reads `weather_history` (migration 0068), written only on a fresh provider fetch.
+
+
+Clock/Weather card refinement (27.6–27.7, 2026-11-04): `applets/sky-card.css` supplies the same shared
+`sky-card` surface to Clock/Weather and Celestial. Background alpha follows the existing personal
+Workspace Guide opacity in every theme/layout and the personal Places opacity in Places. Space Guide
+retains the chosen card image beneath the tint. Both cards use theme-aware readable text/highlights;
+only the paint is translucent, and inner content/art layers remain transparent without fading content.
+The removed fixed navy override no longer masks the slider. Labels, cutout illustration and readings
+occupy separate grid rows, including one-instrument presentation. Weather selects fixed local WebP
+variants from the canonical current condition (or labelled daily outlook only when absent): clear → sun,
+drizzle/rain/showers → rain, snow/sleet → snow, thunder → storm. Other/unknown conditions use the existing
+native condition symbol; no sun/precipitation is guessed. Actual condition text remains visible. No new
+provider, data contract, fetching, preference scope, migration or credential behavior.
+
+
+Appearance presentation cleanup (27.8, 2026-11-04): compact theme swatches/names, optional native
+info disclosures and icon actions replace repeated explanatory paragraphs. Native radios/checkboxes
+retain accessible names and checked state; icon actions use 48px geometry. `appearance-settings.css`
+keeps a two-column phone theme grid, semantic tokens and focus/forced-colour support. Existing per-user
+Workspace preference endpoints, explicit Save/Cancel/Reset drafts and shared sky-card opacity remain.

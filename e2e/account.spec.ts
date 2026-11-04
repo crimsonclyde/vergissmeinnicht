@@ -1617,7 +1617,7 @@ test('first server admin: bootstrap link, account creation, sign-in, Workspace c
     await page.getByRole('group', { name: 'Workspace', exact: true }).getByRole('button', { name: 'Household', exact: true }).click();
   };
   await chooseHousehold();
-  await expect(page.getByText('This Workspace has no shared location, so your personal location is used.')).toBeVisible();
+  await expect(page.getByText('No location set', { exact: true })).toBeVisible();
   await expect(useWorkspacePlace).toBeDisabled();
   expect(await setSharedLocation(sharedLocation, null)).toBe(200);
   await chooseHousehold();

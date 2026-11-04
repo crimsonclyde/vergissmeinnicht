@@ -1675,3 +1675,13 @@ an emblem only, never a warning or measurement. Real textual readings remain aut
 current temperature is never replaced by a daily maximum. Native clock hands use the same local
 minute as digital time and carry no motion or accessibility announcements. Forced colours hides art
 and retains named links/readings. Home/Back/timer navigation never awards points or changes history.
+
+27.6 refinement (2026-11-04): condition-dependent artwork uses a fixed bundled WebP allowlist and the
+already authorized canonical forecast only. Missing/unknown conditions never invent sunshine, rain or
+lightning; textual conditions remain visible. Existing user/Workspace forecast-cache boundaries and
+personal settings ownership are unchanged. A successful own-account Workspace location opt-in refreshes
+the existing scoped forecast; no new network destination, credential, permission or stored field.
+
+27.7 appearance correction: Clock/Weather and Celestial share the existing own-user Workspace
+background/opacity settings. Transparency affects CSS paint only; it neither hides controls nor changes
+authorization, Weather opt-in, account/Workspace scope or stored data. No new security surface.

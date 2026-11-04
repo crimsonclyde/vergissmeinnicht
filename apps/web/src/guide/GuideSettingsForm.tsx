@@ -4,6 +4,7 @@ import { messageFor } from '../api.ts';
 import { t, type MessageKey } from '../i18n/index.ts';
 import { usePreferences } from '../preferences.tsx';
 import { GUIDE_CARD_ART } from './card-art.ts';
+import { UiIcon } from '../ui-icons.tsx';
 
 const CARD_STYLE_LABEL = { glass: 'guide.glass', starfield: 'guide.starfield', forest: 'guide.forest', water: 'guide.water', hearth: 'guide.hearth' } as const satisfies Record<GuideCardStyle, MessageKey>;
 const LAYOUT_LABEL = { guide: 'guide.modern', classic: 'guide.classic' } as const satisfies Record<GuideLayout, MessageKey>;
@@ -58,16 +59,23 @@ export function GuideSettingsForm({ workspaceId, legend }: { workspaceId: string
         save({ layout: draft.layout, cardStyle: draft.cardStyle, cardOpacity: draft.cardOpacity, images: draft.images });
       }}
     >
-      <fieldset disabled={locked}>
-        <legend>{legend}</legend>
-        <p className="muted">{t('guide.settingsHint')}</p>
-        <p className="muted">{t('guide.layoutHint')}</p>
-        {GUIDE_LAYOUTS.map((layout) => (
-          <label key={layout} className="check-label">
-            <input type="radio" name="guide-layout" value={layout} checked={draft.layout === layout} onChange={() => setDraft({ ...draft, layout })} />
-            {t(LAYOUT_LABEL[layout])}
-          </label>
-        ))}
+      <fieldset disabled={locked} aria-label={legend}>
+        <legend><UiIcon name="layout" /> {t('appearance.cards')}</legend>
+        <div className="appearance-heading">
+          <div className="appearance-layout-options" role="group" aria-label={t('guide.layoutHint')}>
+            {GUIDE_LAYOUTS.map((layout) => (
+              <label key={layout} className="appearance-layout-option" title={t(LAYOUT_LABEL[layout])}>
+                <input type="radio" name="guide-layout" aria-label={t(LAYOUT_LABEL[layout])} value={layout} checked={draft.layout === layout} onChange={() => setDraft({ ...draft, layout })} />
+                <UiIcon name={layout === 'guide' ? 'navigationTop' : 'navigationSide'} size={24} />
+                <span>{t(layout === 'guide' ? 'appearance.navigationTop' : 'appearance.navigationSide')}</span>
+              </label>
+            ))}
+          </div>
+          <details className="appearance-help">
+            <summary aria-label={t('appearance.cardsHelp')} title={t('appearance.cardsHelp')}><UiIcon name="info" /></summary>
+            <p>{t('guide.settingsHint')}</p>
+          </details>
+        </div>
         <label>
           {t('guide.style')}
           <select
@@ -82,26 +90,28 @@ export function GuideSettingsForm({ workspaceId, legend }: { workspaceId: string
             ))}
           </select>
         </label>
-        <label>
-          {t('guide.opacity')} · {draft.cardOpacity}%
-          <input type="range" min={0} max={100} step={1} value={draft.cardOpacity} onChange={(event) => setDraft({ ...draft, cardOpacity: Number(event.target.value) })} />
+        <label className="appearance-opacity">
+          <span><UiIcon name="contrast" /> {t('appearance.opacity')} <span className="appearance-opacity-value">{draft.cardOpacity}%</span></span>
+          <input aria-label={t('guide.opacity')} type="range" min={0} max={100} step={1} value={draft.cardOpacity} onChange={(event) => setDraft({ ...draft, cardOpacity: Number(event.target.value) })} />
         </label>
-        <label className="check-label">
-          <input type="checkbox" checked={draft.images} onChange={(event) => setDraft({ ...draft, images: event.target.checked })} />
-          {t('guide.images')}
-        </label>
-        <div className="guide-card-preview" data-card-style={draft.cardStyle} style={{ '--guide-card-opacity': `${draft.cardOpacity}%`, '--guide-card-art': GUIDE_CARD_ART[draft.cardStyle] } as CSSProperties}>
-          <span>{t('guide.preview')}</span>
+        <div className="appearance-illustration-row">
+          <label className="check-label">
+            <input type="checkbox" aria-label={t('guide.images')} checked={draft.images} onChange={(event) => setDraft({ ...draft, images: event.target.checked })} />
+            <UiIcon name="photo" /> <span title={t('guide.images')}>{t('appearance.illustrations')}</span>
+          </label>
+          <div className="guide-card-preview appearance-card-preview" role="img" aria-label={t('guide.preview')} data-card-style={draft.cardStyle} style={{ '--guide-card-opacity': `${draft.cardOpacity}%`, '--guide-card-art': GUIDE_CARD_ART[draft.cardStyle] } as CSSProperties}>
+            <UiIcon name="layout" size={28} />
+          </div>
         </div>
-        <div className="row">
-          <button type="submit" className="primary">
-            {t('guide.save')}
+        <div className="appearance-actions">
+          <button type="submit" className="primary icon-button appearance-icon-action" aria-label={t('guide.save')} title={t('guide.save')}>
+            <UiIcon name="save" size={24} />
           </button>
-          <button type="button" onClick={cancel}>
-            {t('common.cancel')}
+          <button type="button" className="quiet icon-button appearance-icon-action" aria-label={t('common.cancel')} title={t('common.cancel')} onClick={cancel}>
+            <UiIcon name="close" size={24} />
           </button>
-          <button type="button" onClick={() => setDraft(DEFAULT_GUIDE_PREFERENCES)}>
-            {t('guide.reset')}
+          <button type="button" className="quiet icon-button appearance-icon-action" aria-label={t('guide.reset')} title={t('guide.reset')} onClick={() => setDraft(DEFAULT_GUIDE_PREFERENCES)}>
+            <UiIcon name="reset" size={24} />
           </button>
         </div>
       </fieldset>
