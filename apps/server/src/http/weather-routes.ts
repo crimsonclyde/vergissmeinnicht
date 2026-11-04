@@ -12,6 +12,7 @@ import {
   saveServerCredential,
   saveServerWeather,
   searchPlaces,
+  setWorkspaceWeatherLocation,
   testPersonalCredential,
   testServerCredential,
   NoForecastError,
@@ -64,6 +65,7 @@ const myWeatherView = (mine: MyWeather) => ({
   settings: mine.settings,
   providers: mine.providers,
   credentialProviders: mine.credentialProviders.map((entry) => ({ ...entry, personal: entry.personal === null ? null : statusView(entry.personal) })),
+  workspaces: mine.workspaces,
 });
 
 // The credential's shape is checked by the domain (provider-specific); here only size and structure.
@@ -100,6 +102,13 @@ export async function accountWeatherRoutes(app: FastifyInstance, { services }: {
   app.post('/', { bodyLimit: 4096 }, async (request) => {
     const body = parse(z.strictObject({ settings: z.unknown() }), request.body);
     return myWeatherView(await saveMyWeather(deps, { user: userOf(request), settings: body.settings }));
+  });
+
+  // Step 26: the person's own opt-in to one Workspace's shared location. Affects only that Workspace's weather.
+  app.post('/workspaces/:workspaceId/location', { bodyLimit: 512 }, async (request) => {
+    const params = parse(z.strictObject({ workspaceId: z.string().regex(UUID_V4) }), request.params);
+    const body = parse(z.strictObject({ useWorkspaceLocation: z.unknown().optional() }), request.body);
+    return myWeatherView(await setWorkspaceWeatherLocation(deps, { user: userOf(request), workspaceId: params.workspaceId as WorkspaceId, useWorkspaceLocation: body.useWorkspaceLocation }));
   });
 
   app.get('/places', { config: perAccount('search', 30) }, async (request) => {

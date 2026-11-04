@@ -35,6 +35,7 @@ describe('Weather over HTTP (19.4a)', () => {
   it('keeps each person’s settings to themselves, validates strictly and fetches nothing while saving', async () => {
     expect((await t.get('/api/account/weather', bob)).json()).toEqual({
       settings: { location: null, provider: 'AUTO', model: 'best_match', fallback: false, unit: 'C', showTomorrow: true },
+      workspaces: [],
       providers: ['OPEN_METEO', 'MET_NORWAY'],
       // Optional commercial providers are listed, unusable without credentials (19.4b).
       credentialProviders: [

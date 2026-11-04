@@ -2,6 +2,7 @@ import {McpConnections} from './McpConnections.tsx';
 import {lazy,Suspense} from 'react';
 const RecipesPage=lazy(()=>import('./modules/recipes/RecipesPage.tsx').then(module=>({default:module.RecipesPage})));
 import { TodaySettingsProvider } from './guide/TodaySettingsProvider.tsx';
+import { GUIDE_CARD_ART } from './guide/card-art.ts';
 import { GuideNavigation } from './guide/GuideNavigation.tsx';
 import { GuideGlance } from './guide/GuideGlance.tsx';
 import type { CSSProperties } from 'react';
@@ -106,7 +107,7 @@ function ToolNavigation({ workspaceId, tools, page, phone = false }: { workspace
 function ShellFrame({ focus, page, children }: { focus: 'edit' | 'run' | undefined; page: Page; children: ReactNode }) {
   const { preferences } = usePreferences();
   const guide = preferences.guide;
-  return <div className="shell" data-layout={guide.layout} data-card-style={guide.cardStyle} data-guide-images={guide.images} data-focus={focus} data-page={page} style={{ '--guide-card-opacity': `${guide.cardOpacity}%` } as CSSProperties}>{children}</div>;
+  return <div className="shell" data-layout={guide.layout} data-card-style={guide.cardStyle} data-guide-images={guide.images} data-focus={focus} data-page={page} style={{ '--guide-card-opacity': `${guide.cardOpacity}%`, '--guide-card-art': GUIDE_CARD_ART[guide.cardStyle] } as CSSProperties}>{children}</div>;
 }
 function ClassicNavigation({ workspaceId, tools, page, phone = false }: { workspaceId: string | null; tools: readonly string[]; page: Page; phone?: boolean }) {
   const { preferences } = usePreferences();

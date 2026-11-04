@@ -1600,16 +1600,36 @@ test('first server admin: bootstrap link, account creation, sign-in, Workspace c
   await page.getByLabel('Elevation (m, optional)').fill('780');
   await page.getByRole('button', { name: 'Save weather settings' }).click();
   await expect(page.getByRole('status').filter({ hasText: 'Saved.' })).toBeVisible();
+  // Per Workspace (section 28): opting in applies to that Workspace only. Shared locations are admin-managed, so the
+  // test sets one through the same route Workspace settings use, and clears it again at the end.
+  const listedForWeather = (await page.evaluate(async () => (await fetch('/api/workspaces')).json())) as { workspaces: { id: string; name: string }[] };
+  const householdId = listedForWeather.workspaces.find((workspace) => workspace.name === 'Household')?.id ?? '';
+  const setSharedLocation = (location: unknown, expectedLocation: unknown) =>
+    page.evaluate(async ({ id, location, expectedLocation }) => (await fetch(`/api/workspaces/${id}/location`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ location, expectedLocation }) })).status, { id: householdId, location, expectedLocation });
+  const sharedLocation = { name: 'Home Triora', latitude: 43.993, longitude: 7.7637, timeZone: 'Europe/Rome', elevation: null };
   const useWorkspacePlace = page.getByLabel('Use the current Workspace’s location when available', { exact: true });
-  await expect(useWorkspacePlace).not.toBeChecked();
-  await useWorkspacePlace.check();
-  await page.getByRole('button', { name: 'Save weather settings' }).click();
-  await expect(page.getByRole('status').filter({ hasText: 'Saved.' })).toBeVisible();
+  const chooseHousehold = () => page.getByRole('button', { name: /^Household/ }).click();
+  await chooseHousehold();
+  await expect(page.getByText('This Workspace has no shared location, so your personal location is used.')).toBeVisible();
+  await expect(useWorkspacePlace).toBeDisabled();
+  expect(await setSharedLocation(sharedLocation, null)).toBe(200);
   await page.reload();
+  await chooseHousehold();
+  await expect(useWorkspacePlace).toBeEnabled();
+  await expect(useWorkspacePlace).not.toBeChecked();
+  await useWorkspacePlace.click();
   await expect(useWorkspacePlace).toBeChecked();
-  await useWorkspacePlace.uncheck();
-  await page.getByRole('button', { name: 'Save weather settings' }).click();
-  await expect(page.getByRole('status').filter({ hasText: 'Saved.' })).toBeVisible();
+  await page.reload();
+  await chooseHousehold();
+  await expect(useWorkspacePlace).toBeChecked();
+  await useWorkspacePlace.click();
+  await expect(useWorkspacePlace).not.toBeChecked();
+  await page.reload();
+  await chooseHousehold();
+  await expect(useWorkspacePlace).not.toBeChecked();
+  // The stored location is the compare-and-set token for clearing it again.
+  const storedSharedLocation = (await page.evaluate(async (id) => (await fetch(`/api/workspaces/${id}/location`)).json(), householdId)) as { location: unknown };
+  expect(await setSharedLocation(null, storedSharedLocation.location)).toBe(200);
   // Stored rounded to about 1 km.
   await expect(page.getByText('43.99, 7.76 · 780 m · Europe/Rome')).toBeVisible();
   await expect(page.getByText('This provider is not available on this server.')).toBeVisible();
@@ -1648,7 +1668,7 @@ test('first server admin: bootstrap link, account creation, sign-in, Workspace c
   };
   await page.route('**/api/account/weather', (route) =>
     route.request().method() === 'GET'
-      ? route.fulfill({ json: { settings: { location: { name: 'Triora', latitude: 43.99, longitude: 7.76, timeZone: 'Europe/Rome', elevation: 780 }, provider: 'AUTO', model: 'best_match', fallback: false, unit: 'C', showTomorrow: true }, providers: ['OPEN_METEO', 'MET_NORWAY', 'OPENWEATHER'], credentialProviders: [{ provider: 'OPENWEATHER', allowed: true, personal: { provider: 'OPENWEATHER', readable: true, dailyBudget: 200, usedToday: 1, lastTest: null, availableToUsers: false, updatedAt: new Date().toISOString() }, serverAvailable: false }] } })
+      ? route.fulfill({ json: { settings: { location: { name: 'Triora', latitude: 43.99, longitude: 7.76, timeZone: 'Europe/Rome', elevation: 780 }, provider: 'AUTO', model: 'best_match', fallback: false, unit: 'C', showTomorrow: true }, providers: ['OPEN_METEO', 'MET_NORWAY', 'OPENWEATHER'], credentialProviders: [{ provider: 'OPENWEATHER', allowed: true, personal: { provider: 'OPENWEATHER', readable: true, dailyBudget: 200, usedToday: 1, lastTest: null, availableToUsers: false, updatedAt: new Date().toISOString() }, serverAvailable: false }], workspaces: [] } })
       : route.fallback(),
   );
   await page.route('**/api/account/weather/models', (route) =>
@@ -2914,42 +2934,67 @@ test('first server admin: bootstrap link, account creation, sign-in, Workspace c
   await settingsSection(page, 'Profile & settings', 'Appearance');
   await expect(page).toHaveURL(/\/account\/appearance$/);
 
-  // Appearance (8.3): the theme choice applies at once and survives a reload.
+  // Appearance (8.3, section 28): the Workspace is picked first, then its theme. The choice applies in that Workspace and
+  // survives a reload. Account pages show the account default, so each theme check reads the Workspace page.
   const html = page.locator('html');
+  // GET /api/workspaces answers { workspaces: [{ id, name }] }, the shape the restore flow reads above.
+  const listedWorkspaces = (await page.evaluate(async () => (await fetch('/api/workspaces')).json())) as { workspaces: { id: string; name: string }[] };
+  const appearanceWorkspaceName = listedWorkspaces.workspaces.find((workspace) => workspace.id === workspacePath.split('/')[2])?.name ?? '';
+  const pickWorkspace = () => page.locator('button.workspace-look-pick', { hasText: appearanceWorkspaceName }).click();
+  const reopenAppearance = async () => {
+    await fromMenu(page, 'Profile & settings');
+    await settingsSection(page, 'Profile & settings', 'Appearance');
+  };
+  await pickWorkspace();
   await page.getByRole('radio', { name: /^Memento Mori/ }).check();
+  await page.goto(workspacePath);
   await expect(html).toHaveAttribute('data-theme', 'memento-mori');
   await expect(page.locator('body')).toHaveCSS('background-color', 'rgb(20, 17, 17)');
-  await expectAccessible(page, 'account page (dark)');
+  await expectAccessible(page, 'workspace page (dark)');
   await page.reload();
-  await expect(page.getByRole('radio', { name: /^Memento Mori/ })).toBeChecked();
   await expect(html).toHaveAttribute('data-theme', 'memento-mori');
+  await reopenAppearance();
+  await pickWorkspace();
+  await expect(page.getByRole('radio', { name: /^Memento Mori/ })).toBeChecked();
   await page.getByRole('radio', { name: /^Don't go into the/ }).check();
+  await page.goto(workspacePath);
   await expect(page.locator('body')).toHaveCSS('background-color', 'rgb(247, 243, 234)');
-  await expectAccessible(page, 'account page (light)');
+  await expectAccessible(page, 'workspace page (light)');
+  await reopenAppearance();
+  await pickWorkspace();
   await page.getByRole('radio', { name: /^System/ }).check();
+  await page.goto(workspacePath);
   await page.emulateMedia({ colorScheme: 'dark' });
   await expect(html).toHaveAttribute('data-theme', 'memento-mori');
   await page.emulateMedia({ colorScheme: 'light' });
   await expect(html).toHaveAttribute('data-theme', 'light');
   // Memento Mori (8.7) is saved to the account: another browser gets it right after signing in.
+  await reopenAppearance();
+  await pickWorkspace();
   await page.getByRole('radio', { name: /^Memento Mori/ }).check();
+  await page.goto(workspacePath);
   await expect(html).toHaveAttribute('data-theme', 'memento-mori');
   await expect(page.locator('body')).toHaveCSS('background-color', 'rgb(20, 17, 17)');
-  await expectAccessible(page, 'account page (memento mori)');
+  await expectAccessible(page, 'workspace page (memento mori)');
   const otherBrowser = await browser.newContext(testInfo.project.use.baseURL === undefined ? {} : { baseURL: testInfo.project.use.baseURL });
   const other = await otherBrowser.newPage();
   await other.goto('/');
   await other.getByLabel('Email').fill('admin@example.org');
   await other.getByLabel('Password').fill(PASSWORD);
   await other.getByRole('button', { name: 'Sign in' }).click();
+  await expect(other.getByRole('button', { name: /^Settings/ })).toBeVisible();
+  await other.goto(workspacePath);
   await expect(other.locator('html')).toHaveAttribute('data-theme', 'memento-mori');
   await otherBrowser.close();
   // Tokyo Nights (0.7.0): the neon preset; the city scene moves only when the device allows motion.
+  await reopenAppearance();
+  await pickWorkspace();
   await page.getByRole('radio', { name: /^Tokyo Nights/ }).check();
+  await page.goto(workspacePath);
   await expect(html).toHaveAttribute('data-theme', 'tokyo-nights');
   await expect(page.locator('body')).toHaveCSS('background-color', 'rgb(10, 11, 26)');
   await expect(page.locator('meta[name="theme-color"]')).toHaveAttribute('content', '#0a0b1a');
-  await expectAccessible(page, 'account page (tokyo nights)');
+  await expectAccessible(page, 'workspace page (tokyo nights)');
   const floorAnimation = () =>
     page.locator('.city-floor').evaluate((floor) => {
       const view = globalThis as unknown as { getComputedStyle(element: object): { animationName: string } };
@@ -2960,13 +3005,17 @@ test('first server admin: bootstrap link, account creation, sign-in, Workspace c
   await page.emulateMedia({ reducedMotion: 'no-preference' });
   expect(await floorAnimation()).toBe('tn-floor');
   await page.reload();
+  await expect(html).toHaveAttribute('data-theme', 'tokyo-nights');
+  await reopenAppearance();
+  await pickWorkspace();
   await expect(page.getByRole('radio', { name: /^Tokyo Nights/ })).toBeChecked();
   // Witch Forest (25.1): the forest preset; its mist drifts only when the device allows motion.
   await page.getByRole('radio', { name: /^Witch Forest/ }).check();
+  await page.goto(workspacePath);
   await expect(html).toHaveAttribute('data-theme', 'witch-forest');
   await expect(page.locator('body')).toHaveCSS('background-color', 'rgb(10, 17, 14)');
   await expect(page.locator('meta[name="theme-color"]')).toHaveAttribute('content', '#0a110e');
-  await expectAccessible(page, 'account page (witch forest)');
+  await expectAccessible(page, 'workspace page (witch forest)');
   const fogAnimation = () =>
     page.locator('.forest-fog-far').evaluate((fog) => {
       const view = globalThis as unknown as { getComputedStyle(element: object): { animationName: string } };
@@ -2990,6 +3039,9 @@ test('first server admin: bootstrap link, account creation, sign-in, Workspace c
   expect(await styleOf('.app-main', 'text-shadow')).toBe('none');
   await page.emulateMedia({ forcedColors: 'none' });
   await page.reload();
+  await expect(html).toHaveAttribute('data-theme', 'witch-forest');
+  await reopenAppearance();
+  await pickWorkspace();
   await expect(page.getByRole('radio', { name: /^Witch Forest/ })).toBeChecked();
   // Open horizon (31): same enabled tools in one dock; reference fields, private points and own backgrounds.
   page.setDefaultTimeout(15000);
@@ -3003,9 +3055,11 @@ test('first server admin: bootstrap link, account creation, sign-in, Workspace c
   },{path,data});
   expect((await requestForPlaces('/api/account/workspace-preferences/theme',{workspaceId:workspaceIdForPlaces,theme:null})).status).toBe(200);
   for (const [name,id] of [['Munich','de'],['Triora','it'],['London','uk'],['Scotland','scotland']] as const) {
+    await reopenAppearance();
+    await pickWorkspace();
     await page.getByRole('radio',{name:new RegExp('^'+name)}).check();
-    await expect(html).toHaveAttribute('data-place',id);
     await page.goto(workspacePath);
+    await expect(html).toHaveAttribute('data-place',id);
     await expect(page.locator('.places-dock')).toBeVisible();
     await expect(page.locator('.place-scene .place-art')).toBeVisible();
     for (const width of [1440,390,320]) {
@@ -3015,9 +3069,9 @@ test('first server admin: bootstrap link, account creation, sign-in, Workspace c
       await page.screenshot({path:`${placeShots}/${id}-${width}.png`,fullPage:true,animations:'disabled'});
     }
     await page.setViewportSize({width:1440,height:1000});
-    await fromMenu(page,'Profile & settings');
-    await settingsSection(page,'Profile & settings','Appearance');
   }
+  await reopenAppearance();
+  await pickWorkspace();
   await page.getByRole('radio',{name:/^Triora/}).check();
   await page.goto(workspacePath);
   await expect(page.locator('.place-scene-caption')).toHaveCount(0);
@@ -3161,9 +3215,9 @@ test('first server admin: bootstrap link, account creation, sign-in, Workspace c
   await page.locator('.places-dock').getByRole('button', { name: 'More', exact: true }).click();
   await expect(page.locator('.places-tool-grid a').nth(1)).toHaveText('Equipment');
   await page.locator('.places-tools').getByRole('button', { name: 'Close', exact: true }).click();
-  const savedMenuTheme = ((await requestForPlaces('/api/account/preferences')).body as { preferences: { theme: string } }).preferences.theme;
+  const savedMenuTheme = ((await requestForPlaces('/api/account/workspace-preferences')).body as { workspacePreferences: { themes: Record<string, string> } }).workspacePreferences.themes[workspaceIdForPlaces] ?? null;
   for (const theme of ['light', 'dark']) {
-    expect((await requestForPlaces('/api/account/preferences', { theme })).status).toBe(200);
+    expect((await requestForPlaces('/api/account/workspace-preferences/theme', { workspaceId: workspaceIdForPlaces, theme })).status).toBe(200);
     await page.reload();
     await expect(page.locator('.shell-side nav a').nth(1)).toHaveText('Equipment');
     await page.setViewportSize({width:320,height:850});
@@ -3176,7 +3230,7 @@ test('first server admin: bootstrap link, account creation, sign-in, Workspace c
     await page.goto('/account');
     await page.setViewportSize({width:1440,height:1000});
   }
-  expect((await requestForPlaces('/api/account/preferences', { theme: savedMenuTheme })).status).toBe(200);
+  expect((await requestForPlaces('/api/account/workspace-preferences/theme', { workspaceId: workspaceIdForPlaces, theme: savedMenuTheme })).status).toBe(200);
   await page.reload();
   await menuOrder.getByRole('button', { name: 'Use default order' }).click();
   await menuOrder.getByRole('button', { name: 'Save menu order' }).click();
@@ -3216,6 +3270,7 @@ test('first server admin: bootstrap link, account creation, sign-in, Workspace c
   const beforeEquipmentDisable=(await requestForPlaces(`/api/workspaces/${workspaceIdForPlaces}`)).body as {toolsRevision:number};
   expect((await requestForPlaces(`/api/workspaces/${workspaceIdForPlaces}/tools`,{tool:'EQUIPMENT',enabled:false,expectedRevision:beforeEquipmentDisable.toolsRevision})).status).toBe(200);
   await settingsSection(page,'Profile & settings','Appearance');
+  await pickWorkspace();
   await page.getByRole('radio', { name: /^System/ }).check();
 
   page.setDefaultTimeout(0);

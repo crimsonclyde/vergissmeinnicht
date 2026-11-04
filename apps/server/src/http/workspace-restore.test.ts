@@ -2,7 +2,7 @@ import { createHash, randomUUID } from 'node:crypto';
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
-import { EXPORTED_TABLES } from '@vergissmeinnicht/database';
+import { databaseLevel, EXPORTED_TABLES } from '@vergissmeinnicht/database';
 import { openWorkspaceBackup, writeWorkspaceBackupArchive, type ArchiveSource, type WorkspaceBackupManifest } from '@vergissmeinnicht/import-export';
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import { PASSWORD, startTestApp } from './test-harness.ts';
@@ -182,7 +182,7 @@ describe('Workspace restore (section 18b)', () => {
     const before = { workspaces: workspaceCount(), imported: importedCount() };
     const ready = await validated(homePackage);
     expect(ready, JSON.stringify(ready)).toMatchObject({ state: 'READY', phase: 'validated', errorCode: null, workspaceId: null });
-    expect(ready.preview).toMatchObject({ workspaceName: 'Home ✨ Ferienhaus', databaseLevel: '0065_recipe_generation', schedulesPaused: 2, assignmentsCleared: 1 });
+    expect(ready.preview).toMatchObject({ workspaceName: 'Home ✨ Ferienhaus', databaseLevel: databaseLevel(t.database.sqlite), schedulesPaused: 2, assignmentsCleared: 1 });
     expect(ready.preview.counts).toMatchObject({ procedures: 1, runs: 2, documents: 2, document_files: 3, links: 3, run_document_removals: 1, contacts: 1, list_items: 3 });
     // Previous members, for inviting them again by hand — the restore itself invites and matches nobody.
     expect(ready.preview.previousMembers.map((member) => `${member.displayName}:${member.email}:${member.role}`).sort()).toEqual(['Ada:admin@example.org:ADMIN', 'Eddie:editor@example.org:EDITOR', 'Gus:guest@example.org:GUEST', 'Olga Öwner:owner@example.org:ADMIN', 'Uma 🌸:user@example.org:USER']);

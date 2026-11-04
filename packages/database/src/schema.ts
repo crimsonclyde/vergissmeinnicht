@@ -805,7 +805,7 @@ export const userPreferences = sqliteTable(
   },
   () => [
     check('user_preferences_theme_valid', sql.raw(`theme in (${THEME_PREFERENCES.map((value) => `'${value}'`).join(', ')})`)),
-    check('user_preferences_guide_valid', sql`json_valid(guide) and length(guide) <= 256 and json_type(guide) = 'object' and json_extract(guide, '$.layout') in ('guide', 'classic') and json_extract(guide, '$.cardStyle') in ('glass', 'starfield') and json_type(guide, '$.cardOpacity') = 'integer' and json_extract(guide, '$.cardOpacity') between 0 and 100 and json_type(guide, '$.images') in ('true', 'false') and json_type(guide, '$.layout') is not null and json_type(guide, '$.cardStyle') is not null and json_type(guide, '$.cardOpacity') is not null and json_type(guide, '$.images') is not null`),
+    check('user_preferences_guide_valid', sql`json_valid(guide) and length(guide) <= 256 and json_type(guide) = 'object' and json_extract(guide, '$.layout') in ('guide', 'classic') and json_extract(guide, '$.cardStyle') in ('glass', 'starfield', 'forest', 'water', 'hearth') and json_type(guide, '$.cardOpacity') = 'integer' and json_extract(guide, '$.cardOpacity') between 0 and 100 and json_type(guide, '$.images') in ('true', 'false') and json_type(guide, '$.layout') is not null and json_type(guide, '$.cardStyle') is not null and json_type(guide, '$.cardOpacity') is not null and json_type(guide, '$.images') is not null`),
     check('user_preferences_private_gamification', sql`private_gamification in (0, 1)`),
     check('user_preferences_navigation_bound', sql`navigation_order is null or (json_valid(navigation_order) and json_type(navigation_order) = 'array' and json_array_length(navigation_order) <= 11 and length(navigation_order) <= 256)`),
     check(
@@ -946,7 +946,6 @@ export const userWeatherSettings = sqliteTable(
     longitude: real('longitude'),
     timeZone: text('time_zone'),
     elevation: integer('elevation'),
-    useWorkspaceLocation: integer('use_workspace_location', { mode: 'boolean' }).notNull().default(false),
     provider: text('provider').notNull(),
     model: text('model').notNull(),
     fallback: integer('fallback', { mode: 'boolean' }).notNull(),
@@ -962,6 +961,25 @@ export const userWeatherSettings = sqliteTable(
     check('user_weather_settings_model_valid', sql`length(${table.model}) between 1 and 64`),
     check('user_weather_settings_unit_valid', sql`${table.unit} in ('C', 'F')`),
   ],
+);
+
+/**
+ * A person's own opt-in (19.4, step 26) to use one Workspace's shared location for their weather. Per Workspace:
+ * switching on for one Workspace never changes another. Personal only — never part of a Workspace or its backup.
+ * Membership is re-checked on every read; leaving a Workspace removes the row.
+ */
+export const userWeatherWorkspaceLocations = sqliteTable(
+  'user_weather_workspace_locations',
+  {
+    userId: text('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    workspaceId: text('workspace_id')
+      .notNull()
+      .references(() => workspaces.id, { onDelete: 'cascade' }),
+    createdAt: integer('created_at', { mode: 'timestamp_ms' }).notNull(),
+  },
+  (table) => [primaryKey({ columns: [table.userId, table.workspaceId] })],
 );
 
 /**

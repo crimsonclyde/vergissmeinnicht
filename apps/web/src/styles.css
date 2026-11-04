@@ -6145,10 +6145,33 @@ a.button.today-hero-go {
   min-width: 0;
   overflow-wrap: anywhere;
 }
-.workspace-look select {
+.workspace-look-pick {
   flex: 1 1 11rem;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.25rem 0.75rem;
   min-width: 0;
-  max-width: 100%;
+  padding: 0.25rem;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: start;
+  cursor: pointer;
+}
+.workspace-look-pick[aria-pressed='true'] .workspace-look-name {
+  text-decoration: underline;
+  text-underline-offset: 0.25em;
+}
+.workspace-look-selected {
+  border-color: var(--accent);
+}
+.weather-workspaces button[aria-pressed='true'] {
+  box-shadow: inset 0 0 0 2px var(--accent);
+}
+.workspace-look-themes {
+  margin: 0.75rem 0 0;
 }
 .theme-swatch.theme-swatch-mini {
   flex: 0 0 auto;

@@ -114,6 +114,7 @@ export const EXCLUDED_TABLES: Readonly<Record<string, string>> = {
   user_place_preferences: 'personal Places settings per Workspace',
   user_place_backgrounds: 'personal Places background photos',
   user_weather_settings: 'personal weather settings and locations',
+  user_weather_workspace_locations: 'personal weather opt-in per Workspace',
   weather_credentials: 'weather provider credentials (sealed), any scope',
   server_weather_settings: 'server settings',
   instance_settings: 'server settings',

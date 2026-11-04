@@ -263,12 +263,22 @@ export interface CredentialProviderStatus {
   readonly serverAvailable: boolean;
 }
 
+/** One of the person's Workspaces as weather settings show it: their own opt-in, and whether the Workspace has a location. */
+export interface WorkspaceWeatherStatus {
+  readonly id: WorkspaceId;
+  readonly name: string;
+  readonly hasLocation: boolean;
+  readonly enabled: boolean;
+}
+
 export interface MyWeather {
   readonly settings: WeatherSettings;
   /** Providers the person can choose here. */
   readonly providers: readonly WeatherProviderId[];
   /** Optional credential providers and how they could be used (19.4b). */
   readonly credentialProviders: readonly CredentialProviderStatus[];
+  /** The person's Workspaces, each with its own opt-in (step 26). */
+  readonly workspaces: readonly WorkspaceWeatherStatus[];
 }
 
 const statusOf = (deps: WeatherDeps, stored: StoredWeatherCredential): CredentialStatus => ({
@@ -281,6 +291,14 @@ const statusOf = (deps: WeatherDeps, stored: StoredWeatherCredential): Credentia
   updatedAt: stored.updatedAt,
 });
 
+/** The person's Workspaces with their own opt-in (step 26); empty when the Workspace store is not wired. */
+async function workspacesOf(deps: WeatherDeps, user: User): Promise<WorkspaceWeatherStatus[]> {
+  if (deps.workspaces === undefined) return [];
+  const optedIn = await deps.weatherSettings.optedInWorkspaces(user.id);
+  const joined = await deps.workspaces.listForUser(user.id);
+  return joined.map(({ workspace }) => ({ id: workspace.id, name: workspace.name, hasLocation: workspace.location != null, enabled: optedIn.includes(workspace.id) }));
+}
+
 async function myWeatherOf(deps: WeatherDeps, server: ServerWeatherSettings, user: User, settings: WeatherSettings): Promise<MyWeather> {
   const credentialProviders: CredentialProviderStatus[] = [];
   for (const provider of CREDENTIAL_PROVIDERS) {
@@ -288,7 +306,7 @@ async function myWeatherOf(deps: WeatherDeps, server: ServerWeatherSettings, use
     const shared = await deps.credentials.find({ kind: 'SERVER' }, provider);
     credentialProviders.push({ provider, allowed: server.allowed.includes(provider) && deps.weather.providerIds.includes(provider), personal: own === undefined ? null : statusOf(deps, own), serverAvailable: shared?.availableToUsers === true });
   }
-  return { settings, providers: await usable(deps, server, user), credentialProviders };
+  return { settings, providers: await usable(deps, server, user), credentialProviders, workspaces: await workspacesOf(deps, user) };
 }
 
 async function settingsFor(deps: WeatherDeps, user: User, workspaceId?: WorkspaceId): Promise<WeatherSettings> {
@@ -298,8 +316,9 @@ async function settingsFor(deps: WeatherDeps, user: User, workspaceId?: Workspac
   await authorizeWorkspace({ workspaces: deps.workspaces }, user, workspaceId, 'workspace.view');
   const workspace = await deps.workspaces.findById(workspaceId);
   if (workspace === undefined) throw new WorkspaceNotFoundError();
+  const optedIn = (await deps.weatherSettings.optedInWorkspaces(user.id)).includes(workspaceId);
   // Personal provider/credentials stay personal. Automatic model covers locations beyond a regional model.
-  return settings.useWorkspaceLocation && workspace.location != null ? { ...settings, location: workspace.location, model: 'best_match' } : settings;
+  return optedIn && workspace.location != null ? { ...settings, location: workspace.location, model: 'best_match' } : settings;
 }
 
 async function recheckWorkspace(deps: WeatherDeps, user: User, workspaceId?: WorkspaceId) {
@@ -325,6 +344,19 @@ export async function saveMyWeather(deps: WeatherDeps, input: { readonly user: U
   const settings = parseWeatherSettings(input.settings);
   await deps.weatherSettings.save(input.user.id, settings, deps.clock.now());
   return myWeatherOf(deps, server, input.user, settings);
+}
+
+/** Turns one Workspace's shared location on or off for the person's own weather (step 26). Nothing is fetched here. */
+export async function setWorkspaceWeatherLocation(deps: WeatherDeps, input: { readonly user: User; readonly workspaceId: WorkspaceId; readonly useWorkspaceLocation: unknown }): Promise<MyWeather> {
+  await enter(deps, input.user);
+  if (deps.workspaces === undefined) throw new WorkspaceNotFoundError();
+  // Authorization first: a non-member learns nothing and writes nothing.
+  await authorizeWorkspace({ workspaces: deps.workspaces }, input.user, input.workspaceId, 'workspace.view');
+  const enabled = input.useWorkspaceLocation;
+  if (typeof enabled !== 'boolean') throw new DomainValidationError('useWorkspaceLocation', 'invalid_flag', 'Choose on or off');
+  const saved = await deps.weatherSettings.setWorkspaceOptIn({ userId: input.user.id, workspaceId: input.workspaceId, enabled, at: deps.clock.now() });
+  if (!saved) throw new WorkspaceNotFoundError();
+  return getMyWeather(deps, { user: input.user, workspaceId: input.workspaceId });
 }
 
 /** Place search (Open-Meteo geocoding) — only on an explicit action, only while Open-Meteo is allowed. */

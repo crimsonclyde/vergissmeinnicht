@@ -22,9 +22,12 @@ export function orderedNavigationTools(order: readonly NavigationTool[] | null):
   return [...(order ?? []), ...NAVIGATION_TOOLS.filter(tool => !order?.includes(tool))];
 }
 
+/** Card backgrounds in the Galactic Guide. Each picture is bundled with the web app; none is fetched. */
+export const GUIDE_CARD_STYLES = ['glass', 'starfield', 'forest', 'water', 'hearth'] as const;
+export type GuideCardStyle = (typeof GUIDE_CARD_STYLES)[number];
 export interface GuidePreferences {
   readonly layout: 'guide' | 'classic';
-  readonly cardStyle: 'glass' | 'starfield';
+  readonly cardStyle: GuideCardStyle;
   readonly cardOpacity: number;
   readonly images: boolean;
 }
@@ -34,8 +37,8 @@ export const DEFAULT_GUIDE_PREFERENCES: GuidePreferences = Object.freeze({ layou
 export function readGuidePreferences(value: unknown): GuidePreferences | null {
   if (value === null || typeof value !== 'object' || Array.isArray(value)) return null;
   const record = value as Record<string, unknown>;
-  if (Object.keys(record).length !== 4 || (record.layout !== 'guide' && record.layout !== 'classic') || (record.cardStyle !== 'glass' && record.cardStyle !== 'starfield') || typeof record.cardOpacity !== 'number' || !Number.isInteger(record.cardOpacity) || record.cardOpacity < 0 || record.cardOpacity > 100 || typeof record.images !== 'boolean') return null;
-  return { layout: record.layout as GuidePreferences['layout'], cardStyle: record.cardStyle as GuidePreferences['cardStyle'], cardOpacity: record.cardOpacity, images: record.images };
+  if (Object.keys(record).length !== 4 || (record.layout !== 'guide' && record.layout !== 'classic') || !(GUIDE_CARD_STYLES as readonly unknown[]).includes(record.cardStyle) || typeof record.cardOpacity !== 'number' || !Number.isInteger(record.cardOpacity) || record.cardOpacity < 0 || record.cardOpacity > 100 || typeof record.images !== 'boolean') return null;
+  return { layout: record.layout as GuidePreferences['layout'], cardStyle: record.cardStyle as GuideCardStyle, cardOpacity: record.cardOpacity, images: record.images };
 }
 
 export interface UserPreferences {

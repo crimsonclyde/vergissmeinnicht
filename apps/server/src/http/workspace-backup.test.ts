@@ -3,6 +3,7 @@ import { existsSync, mkdtempSync, readdirSync, rmSync, writeFileSync } from 'nod
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { WorkspaceBackupStoreError } from '@vergissmeinnicht/application';
+import { databaseLevel } from '@vergissmeinnicht/database';
 import { entriesSha256, openWorkspaceBackup, WORKSPACE_BACKUP_FORMAT, type WorkspaceBackupManifest } from '@vergissmeinnicht/import-export';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { createWorkspaceBackupStore } from '../workspace-backup/workspace-backup-store.ts';
@@ -140,7 +141,7 @@ describe('Workspace backup export (section 18a)', () => {
   });
 
   it('writes a self-describing, versioned package whose every entry matches its SHA-256', () => {
-    expect(manifest).toMatchObject({ format: WORKSPACE_BACKUP_FORMAT, formatVersion: 1, databaseLevel: '0065_recipe_generation', appVersion: 'development', workspace: { name: 'Home ✨ Ferienhaus' } });
+    expect(manifest).toMatchObject({ format: WORKSPACE_BACKUP_FORMAT, formatVersion: 1, databaseLevel: databaseLevel(t.database.sqlite), appVersion: 'development', workspace: { name: 'Home ✨ Ferienhaus' } });
     expect(manifest.integrity).toMatch(/do not prove who made this package/);
     expect(entriesSha256(manifest.entries)).toBe(manifest.entriesSha256);
     expect(new Set(contents.keys())).toEqual(new Set(['manifest.json', ...manifest.entries.map((entry) => entry.path)]));

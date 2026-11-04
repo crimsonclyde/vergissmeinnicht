@@ -47,6 +47,7 @@ function bodyFor(route: string, ids: Record<string, string>): object {
   if (url.endsWith('/recipes') || url.endsWith('/recipes/:recipeId')) return {content:{version:1,title:'Recipe',servings:2,ingredients:[{name:'Flour',amount:'125',unit:'g',note:''}],instructions:'Cook',tags:[],source:'',prepMinutes:null,cookMinutes:null},expectedRevision:0,archived:false};
   if (url.endsWith('/recipes/:recipeId/shopping')) return {operationId:'00000000-0000-4000-8000-000000000003',recipeRevision:1,listId:ids.listId,listRevision:1,servings:2,items:[{ingredient:0,title:'Flour',quantity:'125',unit:'g'}]};
   if (url.endsWith('/journal') || url.endsWith('/journal/:entryId')) return { content: { kind: 'note', version: 1, title: 'Entry', date: '2026-10-23', body: 'Note' }, expectedRevision: 0, archived: false };
+  if (url === '/api/account/weather/workspaces/:workspaceId/location') return { useWorkspaceLocation: true };
   if (url.endsWith('/location')) return { location: null, expectedLocation: null };
   if (url.endsWith('/tools')) return { tool: 'DOCUMENTS', enabled: true, expectedRevision: 0 };
   if (url.endsWith('/documents/:documentId/links')) return { target: { type: 'procedure', id: ids.procedureId ?? '' } };

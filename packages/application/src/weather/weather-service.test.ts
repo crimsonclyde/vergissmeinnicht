@@ -30,7 +30,7 @@ function setup(options: { openMeteo?: () => Promise<ForecastAnswer>; met?: () =>
   let stored: WeatherSettings | undefined = { ...DEFAULT_WEATHER_SETTINGS, location: TRIORA, ...options.settings };
   const server: ServerWeatherSettings = { ...DEFAULT_SERVER_WEATHER, ...options.server };
   const deps: WeatherDeps = {
-    weatherSettings: { find: async () => stored, save: async (_id, settings) => void (stored = settings) },
+    weatherSettings: { find: async () => stored, save: async (_id, settings) => void (stored = settings), optedInWorkspaces: async () => [], setWorkspaceOptIn: async () => false },
     serverWeather: { get: async () => server, save: async () => true },
     weather: service,
     credentials: { find: async () => undefined, list: async () => [], save: async () => true, remove: async () => true, consume: async () => true, recordTest: async () => undefined },
@@ -120,7 +120,7 @@ describe('forecast comparison with a paid source (19.4c)', () => {
     let budgetLeft = 1;
     const stored: StoredWeatherCredential = { id: 'c1', scope: { kind: 'USER', userId: user.id }, provider: 'OPENWEATHER', sealed: JSON.stringify({ provider: 'OPENWEATHER', apiKey: 'a1b2c3d4e5f60718293a4b5c6d7e8f90' }), availableToUsers: false, dailyBudget: 1, usedToday: 0, usageDay: null, lastTest: null, updatedAt: now };
     const deps: WeatherDeps = {
-      weatherSettings: { find: async () => ({ ...DEFAULT_WEATHER_SETTINGS, location: TRIORA }), save: async () => undefined },
+      weatherSettings: { find: async () => ({ ...DEFAULT_WEATHER_SETTINGS, location: TRIORA }), save: async () => undefined, optedInWorkspaces: async () => [], setWorkspaceOptIn: async () => false },
       serverWeather: { get: async () => DEFAULT_SERVER_WEATHER, save: async () => true },
       weather: service,
       credentials: { find: async (scope) => (scope.kind === 'USER' ? stored : undefined), list: async () => [stored], save: async () => true, remove: async () => true, consume: async () => (budgetLeft-- > 0), recordTest: async () => undefined },

@@ -1,11 +1,11 @@
 import { randomUUID } from 'node:crypto';
 import { DEFAULT_SERVER_WEATHER, type CredentialScope, type ServerWeatherSettingsRepository, type StoredWeatherCredential, type WeatherCredentialRepository, type WeatherSettingsRepository } from '@vergissmeinnicht/application';
-import { DEFAULT_WEATHER_SETTINGS, OPEN_METEO_MODEL_IDS, WEATHER_PROVIDERS, WEATHER_PROVIDER_CHOICES, type OpenMeteoModelId, type UserId, type WeatherProviderChoice, type WeatherProviderId } from '@vergissmeinnicht/domain';
+import { DEFAULT_WEATHER_SETTINGS, OPEN_METEO_MODEL_IDS, WEATHER_PROVIDERS, WEATHER_PROVIDER_CHOICES, type OpenMeteoModelId, type UserId, type WeatherProviderChoice, type WeatherProviderId, type WorkspaceId } from '@vergissmeinnicht/domain';
 import { and, eq, isNull, sql } from 'drizzle-orm';
 import { IMMEDIATE } from './actor-guard.ts';
 import type { AppDatabase } from './connection.ts';
 import { recordSecurityEvent } from './security-events.ts';
-import { serverWeatherSettings, userWeatherSettings, users, weatherCredentials } from './schema.ts';
+import { memberships, serverWeatherSettings, userWeatherSettings, userWeatherWorkspaceLocations, users, weatherCredentials } from './schema.ts';
 
 /** A person's weather settings (19.4) — only ever read and written for that person. */
 export function createWeatherSettingsRepository({ db }: Pick<AppDatabase, 'db'>): WeatherSettingsRepository {
@@ -20,7 +20,6 @@ export function createWeatherSettingsRepository({ db }: Pick<AppDatabase, 'db'>)
       // Values from an older or newer version that this one does not know fall back to the defaults.
       return {
         location,
-        ...(row.useWorkspaceLocation ? { useWorkspaceLocation: true } : {}),
         provider: (WEATHER_PROVIDER_CHOICES as readonly string[]).includes(row.provider) ? (row.provider as WeatherProviderChoice) : DEFAULT_WEATHER_SETTINGS.provider,
         model: (OPEN_METEO_MODEL_IDS as readonly string[]).includes(row.model) ? (row.model as OpenMeteoModelId) : DEFAULT_WEATHER_SETTINGS.model,
         fallback: row.fallback,
@@ -31,7 +30,6 @@ export function createWeatherSettingsRepository({ db }: Pick<AppDatabase, 'db'>)
 
     async save(userId, settings, at) {
       const values = {
-        useWorkspaceLocation: settings.useWorkspaceLocation === true,
         placeName: settings.location?.name ?? null,
         latitude: settings.location?.latitude ?? null,
         longitude: settings.location?.longitude ?? null,
@@ -45,6 +43,34 @@ export function createWeatherSettingsRepository({ db }: Pick<AppDatabase, 'db'>)
         updatedAt: at,
       };
       db.insert(userWeatherSettings).values({ userId, ...values }).onConflictDoUpdate({ target: userWeatherSettings.userId, set: values }).run();
+    },
+
+    async optedInWorkspaces(userId) {
+      return db
+        .select({ workspaceId: userWeatherWorkspaceLocations.workspaceId })
+        .from(userWeatherWorkspaceLocations)
+        .where(eq(userWeatherWorkspaceLocations.userId, userId))
+        .all()
+        .map((row) => row.workspaceId as WorkspaceId);
+    },
+
+    async setWorkspaceOptIn(input) {
+      // Membership and the write are one transaction: an opt-in can never outlive or precede the membership.
+      return db.transaction((tx) => {
+        const member = tx
+          .select({ userId: memberships.userId })
+          .from(memberships)
+          .where(and(eq(memberships.workspaceId, input.workspaceId), eq(memberships.userId, input.userId)))
+          .get();
+        if (member === undefined) return false;
+        const key = and(eq(userWeatherWorkspaceLocations.userId, input.userId), eq(userWeatherWorkspaceLocations.workspaceId, input.workspaceId));
+        if (input.enabled) {
+          tx.insert(userWeatherWorkspaceLocations).values({ userId: input.userId, workspaceId: input.workspaceId, createdAt: input.at }).onConflictDoNothing().run();
+        } else {
+          tx.delete(userWeatherWorkspaceLocations).where(key).run();
+        }
+        return true;
+      }, IMMEDIATE);
     },
   };
 }

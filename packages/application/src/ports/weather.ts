@@ -1,4 +1,4 @@
-import type { Actor, CredentialProviderId, OpenMeteoModelId, UserId, WeatherCredential, WeatherForecast, WeatherProviderId, WeatherSettings } from '@vergissmeinnicht/domain';
+import type { Actor, CredentialProviderId, OpenMeteoModelId, UserId, WeatherCredential, WeatherForecast, WeatherProviderId, WeatherSettings, WorkspaceId } from '@vergissmeinnicht/domain';
 
 /** Why a weather request failed — stable codes, never a provider's own text (19.4). */
 export type WeatherFailure =
@@ -78,6 +78,10 @@ export interface GeocoderPort {
 export interface WeatherSettingsRepository {
   find(userId: UserId): Promise<WeatherSettings | undefined>;
   save(userId: UserId, settings: WeatherSettings, at: Date): Promise<void>;
+  /** Workspaces in which this person opted in to the Workspace's shared location (step 26). */
+  optedInWorkspaces(userId: UserId): Promise<WorkspaceId[]>;
+  /** Sets one opt-in; `false` (nothing written) unless the person is a member of that Workspace right now. */
+  setWorkspaceOptIn(input: { readonly userId: UserId; readonly workspaceId: WorkspaceId; readonly enabled: boolean; readonly at: Date }): Promise<boolean>;
 }
 
 /** The server's weather settings (server admins only). */

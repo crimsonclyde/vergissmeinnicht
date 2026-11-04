@@ -7,6 +7,10 @@
   --celestial-edge: #52627a;
   container-type: inline-size;
   min-width: 0;
+  padding: 0;
+  border: 1px solid var(--celestial-edge);
+  border-radius: 1.4rem;
+  overflow: hidden;
 }
 .celestial-instrument {
   color: var(--celestial-text);
@@ -16,8 +20,6 @@
     radial-gradient(circle at 80% 65%, #9eafc4 0 .7px, transparent 1.2px),
     var(--celestial-bg);
   background-size: auto, 97px 113px, 131px 89px, auto;
-  border: 1px solid var(--celestial-edge);
-  border-radius: 1rem;
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
   grid-template-areas: 'heading heading' 'art art' 'sun moon' 'footer footer';
@@ -66,7 +68,7 @@
 }
 @media (forced-colors: active) {
   .celestial-art, .celestial-heading i { display: none; }
-  .celestial-instrument { color: CanvasText; background: Canvas; border-color: CanvasText; }
+  .celestial-instrument { color: CanvasText; background: Canvas; }
   .celestial-instrument :is(h4, p, span, dt, dd) { color: CanvasText; }
   .celestial-moon { border-color: CanvasText; }
 }

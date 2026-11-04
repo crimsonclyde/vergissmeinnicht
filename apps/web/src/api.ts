@@ -255,6 +255,16 @@ export interface MyWeather {
   readonly providers: readonly WeatherProviderId[];
   /** Optional credential providers: allowed here, the person's own credential, the server's availability. */
   readonly credentialProviders: readonly { readonly provider: CredentialProviderId; readonly allowed: boolean; readonly personal: CredentialStatus | null; readonly serverAvailable: boolean }[];
+  /** The person's Workspaces, each with its own opt-in (step 26). */
+  readonly workspaces: readonly WorkspaceWeatherStatus[];
+}
+
+/** One of the person's Workspaces: its name, whether it has a shared location, and the person's own opt-in for it. */
+export interface WorkspaceWeatherStatus {
+  readonly id: string;
+  readonly name: string;
+  readonly hasLocation: boolean;
+  readonly enabled: boolean;
 }
 
 export interface PlaceResult {
@@ -1319,6 +1329,7 @@ export const api = {
   workspaceLocation: async (workspaceId: string) => (await request<{ location: WeatherLocation | null }>('GET', `/workspaces/${encodeURIComponent(workspaceId)}/location`)).location,
   saveWorkspaceLocation: async (workspaceId: string, location: WeatherLocation | null, expectedLocation: WeatherLocation | null) => (await request<{ location: WeatherLocation | null }>('POST', `/workspaces/${encodeURIComponent(workspaceId)}/location`, { location, expectedLocation })).location,
   saveMyWeather: (settings: WeatherSettings) => request<MyWeather>('POST', '/account/weather', { settings }),
+  setWorkspaceWeatherLocation: (workspaceId: string, useWorkspaceLocation: boolean) => request<MyWeather>('POST', `/account/weather/workspaces/${encodeURIComponent(workspaceId)}/location`, { useWorkspaceLocation }),
   searchPlaces: async (text: string, language: string) => (await request<{ places: PlaceResult[] }>('GET', `/account/weather/places?q=${encodeURIComponent(text)}&lang=${encodeURIComponent(language)}`)).places,
   weatherModels: async (location: WeatherLocation) => (await request<{ models: ModelChoice[] }>('POST', '/account/weather/models', { location })).models,
   /** `days`: Today asks for 2; the Weather page for everything the provider offers. */

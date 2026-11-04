@@ -14,7 +14,7 @@ import {
   startTotpEnrollment,
   updatePreferences,
 } from '@vergissmeinnicht/application';
-import { CRITICAL_CONFIRM_MODES, NAVIGATION_TOOLS, THEME_PREFERENCES, type WorkspaceId } from '@vergissmeinnicht/domain';
+import { CRITICAL_CONFIRM_MODES, GUIDE_CARD_STYLES, NAVIGATION_TOOLS, THEME_PREFERENCES, type WorkspaceId } from '@vergissmeinnicht/domain';
 import type { FastifyInstance, FastifyRequest } from 'fastify';
 import { z } from 'zod';
 import type { AppServices } from '../composition.ts';
@@ -31,7 +31,7 @@ const disableBody = z.union([
 const regenerateBody = z.strictObject({ password });
 const changePasswordBody = z.strictObject({ currentPassword: password, newPassword: password });
 const preferencesBody = z
-  .strictObject({ guide: z.strictObject({ layout: z.enum(['guide', 'classic']), cardStyle: z.enum(['glass', 'starfield']), cardOpacity: z.number().int().min(0).max(100), images: z.boolean() }).optional(), privateGamification: z.boolean().optional(), theme: z.enum(THEME_PREFERENCES).optional(), criticalConfirm: z.enum(CRITICAL_CONFIRM_MODES).optional(), navigationOrder: z.array(z.enum(NAVIGATION_TOOLS)).max(NAVIGATION_TOOLS.length).refine(order => new Set(order).size === order.length).nullable().optional() })
+  .strictObject({ guide: z.strictObject({ layout: z.enum(['guide', 'classic']), cardStyle: z.enum(GUIDE_CARD_STYLES), cardOpacity: z.number().int().min(0).max(100), images: z.boolean() }).optional(), privateGamification: z.boolean().optional(), theme: z.enum(THEME_PREFERENCES).optional(), criticalConfirm: z.enum(CRITICAL_CONFIRM_MODES).optional(), navigationOrder: z.array(z.enum(NAVIGATION_TOOLS)).max(NAVIGATION_TOOLS.length).refine(order => new Set(order).size === order.length).nullable().optional() })
   .refine((body) => body.theme !== undefined || body.criticalConfirm !== undefined || body.navigationOrder !== undefined || body.privateGamification !== undefined || body.guide !== undefined);
 // Section 28: ids are UUIDs; `null` clears (the default theme, or no default Workspace).
 const workspaceIdSchema = z.uuid({ version: 'v4' });

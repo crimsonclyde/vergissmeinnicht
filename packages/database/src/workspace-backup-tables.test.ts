@@ -67,7 +67,7 @@ describe('Workspace backup allowlist (section 18)', () => {
 
   it('never exports a table holding secrets, tokens, sessions or personal settings', () => {
     const exported = new Set(EXPORTED_TABLES.map((spec) => spec.table));
-    for (const secret of ['progress_awards', 'users', 'sessions', 'accounts', 'verifications', 'totp_credentials', 'recovery_codes', 'mfa_challenges', 'account_recoveries', 'invitations', 'knots', 'security_events', 'notification_providers', 'telegram_links', 'telegram_pairings', 'weather_credentials', 'user_weather_settings', 'user_today_layouts', 'notification_preferences', 'procedure_pins']) {
+    for (const secret of ['progress_awards', 'users', 'sessions', 'accounts', 'verifications', 'totp_credentials', 'recovery_codes', 'mfa_challenges', 'account_recoveries', 'invitations', 'knots', 'security_events', 'notification_providers', 'telegram_links', 'telegram_pairings', 'weather_credentials', 'user_weather_settings', 'user_weather_workspace_locations', 'user_today_layouts', 'notification_preferences', 'procedure_pins']) {
       expect({ secret, exported: exported.has(secret) }).toEqual({ secret, exported: false });
     }
   });

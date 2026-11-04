@@ -4,7 +4,7 @@ import { placeForTheme } from './places/registry.ts';
 import { messageFor, type WorkspaceSummary } from './api.ts';
 import { t } from './i18n/index.ts';
 import { usePreferences } from './preferences.tsx';
-import { THEME_MODES, canonicalThemeMode, isThemeMode } from './theme.ts';
+import { THEME_MODES, canonicalThemeMode, type ThemeMode } from './theme.ts';
 import { UiIcon } from './ui-icons.tsx';
 
 /** A small picture of a theme: page, a card, the main button and the brand colour. */
@@ -51,67 +51,94 @@ const THEME_GROUPS = [
   },
 ] as const;
 
+/** The theme options as radio buttons with swatches; `onPick` saves the chosen theme. */
+function ThemeOptions({ name, current, onPick }: { name: string; current: ThemeMode; onPick: (value: ThemeMode) => void }) {
+  return (
+    <>
+      {THEME_GROUPS.map(({ key, modes }) => (
+        <div key={key} className="theme-group">
+          {key === 'places' && (
+            <p className="theme-group-head">
+              <UiIcon name="places" size="1.2em" />
+              <strong>{t('appearance.places')}</strong>
+              <small className="muted">{t('appearance.placesHint')}</small>
+            </p>
+          )}
+          <div className="theme-options">
+            {modes.map((value) => (
+              <label key={value} className="theme-option">
+                <input type="radio" name={name} value={value} checked={current === value} onChange={() => onPick(value)} />
+                <ThemeSwatch mode={value} />
+                <span className="theme-option-text">
+                  <strong>{t(`appearance.${value}`)}</strong>
+                  <small className="muted">{t(`appearance.${value}Hint`)}</small>
+                </span>
+              </label>
+            ))}
+          </div>
+        </div>
+      ))}
+    </>
+  );
+}
+
 /**
- * Theme choice, saved to the account (Step 8.7) so it follows the user to every device; and per
- * Workspace (section 28): the Workspace that opens first, and a theme that replaces the default there.
+ * Theme choice, saved to the account (Step 8.7) so it follows the user to every device. Per Workspace
+ * (section 28) the person picks the Workspace first, then that Workspace's theme. The account theme is
+ * offered directly only when the account has no Workspace to theme.
  */
 export function AppearanceSettings({ workspaces = null }: { workspaces?: readonly WorkspaceSummary[] | null }) {
   const { preferences, update, workspacePreferences, setWorkspaceTheme, setDefaultWorkspace } = usePreferences();
   const [message, setMessage] = useState<string | null>(null);
+  const [pickedId, setPickedId] = useState<string | null>(null);
   const failed = (caught: unknown) => setMessage(messageFor(caught));
+  const list = workspaces ?? [];
+  const selected = list.find((workspace) => workspace.id === pickedId) ?? list[0] ?? null;
   return (
     <>
       {message !== null && <p role="alert">{message}</p>}
       <GuideAppearance />
-      <fieldset>
-        <legend>{t('appearance.legend')}</legend>
-        <p className="muted" style={{ marginTop: 0 }}>
-          {t('appearance.savedToAccount')}
-        </p>
-        {THEME_GROUPS.map(({ key, modes }) => (
-          <div key={key} className="theme-group">
-            {key === 'places' && (
-              <p className="theme-group-head">
-                <UiIcon name="places" size="1.2em" />
-                <strong>{t('appearance.places')}</strong>
-                <small className="muted">{t('appearance.placesHint')}</small>
-              </p>
-            )}
-            <div className="theme-options">
-              {modes.map((value) => (
-                <label key={value} className="theme-option">
-                  <input
-                    type="radio"
-                    name="theme"
-                    value={value}
-                    checked={canonicalThemeMode(preferences.theme) === value}
-                    onChange={() => {
-                      setMessage(null);
-                      update({ theme: value }).catch(failed);
-                    }}
-                  />
-                  <ThemeSwatch mode={value} />
-                  <span className="theme-option-text">
-                    <strong>{t(`appearance.${value}`)}</strong>
-                    <small className="muted">{t(`appearance.${value}Hint`)}</small>
-                  </span>
-                </label>
-              ))}
-            </div>
-          </div>
-        ))}
-      </fieldset>
-      {workspaces !== null && workspaces.length > 0 && (
+      {workspaces !== null && workspaces.length === 0 && (
+        <fieldset>
+          <legend>{t('appearance.legend')}</legend>
+          <p className="muted" style={{ marginTop: 0 }}>
+            {t('appearance.savedToAccount')}
+          </p>
+          <ThemeOptions
+            name="theme"
+            current={canonicalThemeMode(preferences.theme)}
+            onPick={(value) => {
+              setMessage(null);
+              update({ theme: value }).catch(failed);
+            }}
+          />
+        </fieldset>
+      )}
+      {selected !== null && (
         <section className="workspace-looks" aria-labelledby="workspace-looks-heading">
           <h3 id="workspace-looks-heading">{t('appearance.workspaces')}</h3>
           <p className="muted">{t('appearance.workspacesHint')}</p>
           <ul className="workspace-look-list">
-            {workspaces.map((workspace) => {
-              const own = workspacePreferences.themes[workspace.id] ?? null;
+            {list.map((workspace) => {
+              const effective = canonicalThemeMode(workspacePreferences.themes[workspace.id] ?? preferences.theme);
               const isDefault = workspacePreferences.defaultWorkspaceId === workspace.id;
+              const isSelected = workspace.id === selected.id;
               const name = workspace.name;
               return (
-                <li key={workspace.id} className="workspace-look">
+                <li key={workspace.id} className={isSelected ? 'workspace-look workspace-look-selected' : 'workspace-look'}>
+                  <button
+                    type="button"
+                    className="workspace-look-pick"
+                    aria-pressed={isSelected}
+                    onClick={() => {
+                      setMessage(null);
+                      setPickedId(workspace.id);
+                    }}
+                  >
+                    <ThemeSwatch mode={effective} mini />
+                    <span className="workspace-look-name">{name}</span>
+                    <small className="muted">{t(`appearance.${effective}`)}</small>
+                  </button>
                   <button
                     type="button"
                     className="icon-button quiet workspace-look-star"
@@ -125,32 +152,21 @@ export function AppearanceSettings({ workspaces = null }: { workspaces?: readonl
                   >
                     <UiIcon name={isDefault ? 'starFilled' : 'star'} size="1.5em" />
                   </button>
-                  <ThemeSwatch mode={canonicalThemeMode(own ?? preferences.theme)} mini />
-                  <strong className="workspace-look-name">{name}</strong>
-                  <select
-                    aria-label={t('appearance.themeFor', { name })}
-                    value={own === null ? '' : canonicalThemeMode(own)}
-                    onChange={(event) => {
-                      setMessage(null);
-                      const value = event.target.value;
-                      setWorkspaceTheme(workspace.id, isThemeMode(value) ? value : null).catch(failed);
-                    }}
-                  >
-                    <option value="">
-                      {t('appearance.useDefault', {
-                        theme: t(`appearance.${canonicalThemeMode(preferences.theme)}`),
-                      })}
-                    </option>
-                    {THEME_MODES.map((value) => (
-                      <option key={value} value={value}>
-                        {t(`appearance.${value}`)}
-                      </option>
-                    ))}
-                  </select>
                 </li>
               );
             })}
           </ul>
+          <fieldset className="workspace-look-themes">
+            <legend>{t('appearance.themeFor', { name: selected.name })}</legend>
+            <ThemeOptions
+              name={`theme-${selected.id}`}
+              current={canonicalThemeMode(workspacePreferences.themes[selected.id] ?? preferences.theme)}
+              onPick={(value) => {
+                setMessage(null);
+                setWorkspaceTheme(selected.id, value).catch(failed);
+              }}
+            />
+          </fieldset>
         </section>
       )}
     </>

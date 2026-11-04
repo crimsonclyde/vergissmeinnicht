@@ -77,7 +77,7 @@ describe('shared Workspace locations and personal opt-in', () => {
     await t.post('/api/account/weather', { settings: SETTINGS }, guest);
     const mine = `/api/account/weather?workspaceId=${workspace}`;
     expect((await t.get(mine, guest)).json().settings.location.name).toBe('Personal');
-    await t.post('/api/account/weather', { settings: { ...SETTINGS, useWorkspaceLocation: true } }, guest);
+    await t.post(`/api/account/weather/workspaces/${workspace}/location`, { useWorkspaceLocation: true }, guest);
     expect((await t.get(mine, guest)).json().settings.location.name).toBe(HOME.name);
     expect((await t.get('/api/account/weather', guest)).json().settings.location.name).toBe('Personal');
     expect((await t.get(mine, t.admin)).json().settings.location).toBeNull();
@@ -93,7 +93,7 @@ describe('shared Workspace locations and personal opt-in', () => {
 
   it.each(['revoked', 'disabled'] as const)('rechecks the current account/membership after provider work (%s)', async (reason) => {
     await save(HOME);
-    await t.post('/api/account/weather', { settings: { ...SETTINGS, useWorkspaceLocation: true } }, guest);
+    await t.post(`/api/account/weather/workspaces/${workspace}/location`, { useWorkspaceLocation: true }, guest);
     revokeDuringFetch = reason === 'revoked';
     disableDuringFetch = reason === 'disabled';
     expect((await t.get(`/api/account/weather/forecast?workspaceId=${workspace}`, guest)).statusCode).toBe(404);
@@ -106,5 +106,29 @@ describe('shared Workspace locations and personal opt-in', () => {
     expect((await t.get(`/api/account/weather/forecast?workspaceId=${workspace}`, guest)).statusCode).toBe(404);
     expect((await t.get('/api/account/weather?workspaceId=bogus', guest)).statusCode).toBe(400);
     expect(requests).toEqual([]);
+  });
+
+  it('refuses the retired global switch, non-members and malformed opt-ins without writing', async () => {
+    expect((await t.post('/api/account/weather', { settings: { ...SETTINGS, useWorkspaceLocation: true } }, guest)).statusCode).toBe(400);
+    const outsider = await t.invite('outsider@example.org', 'Outsider');
+    expect((await t.post(`/api/account/weather/workspaces/${workspace}/location`, { useWorkspaceLocation: true }, outsider)).statusCode).toBe(404);
+    expect((await t.post(`/api/account/weather/workspaces/${workspace}/location`, { useWorkspaceLocation: 'yes' }, guest)).statusCode).toBe(400);
+    expect(t.database.sqlite.prepare('SELECT COUNT(*) AS n FROM user_weather_workspace_locations').get()).toEqual({ n: 0 });
+  });
+
+  it('applies an opt-in only to its own Workspace and only where that Workspace has a location', async () => {
+    await t.post('/api/account/weather', { settings: SETTINGS }, guest);
+    const other = await t.createWorkspace('Van');
+    await t.addMember(other, 'guest@example.org', 'GUEST');
+    await t.post(`/api/account/weather/workspaces/${workspace}/location`, { useWorkspaceLocation: true }, guest);
+    expect((await t.get(`/api/account/weather?workspaceId=${workspace}`, guest)).json().settings.location.name).toBe('Personal');
+    await save(HOME);
+    expect((await t.get(`/api/account/weather?workspaceId=${workspace}`, guest)).json().settings.location.name).toBe(HOME.name);
+    expect((await t.get(`/api/account/weather?workspaceId=${other}`, guest)).json().settings.location.name).toBe('Personal');
+    const listed = (await t.get('/api/account/weather', guest)).json().workspaces;
+    expect(listed.find((entry: { id: string }) => entry.id === workspace)).toMatchObject({ hasLocation: true, enabled: true });
+    expect(listed.find((entry: { id: string }) => entry.id === other)).toMatchObject({ hasLocation: false, enabled: false });
+    expect((await t.post(`/api/account/weather/workspaces/${workspace}/location`, { useWorkspaceLocation: false }, guest)).statusCode).toBe(200);
+    expect((await t.get(`/api/account/weather?workspaceId=${workspace}`, guest)).json().settings.location.name).toBe('Personal');
   });
 });
