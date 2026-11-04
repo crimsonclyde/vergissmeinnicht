@@ -37,7 +37,8 @@ jobs:
 
   browser:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    # Hosted Chromium setup alone can take eight minutes; allow the complete serial suite afterward.
+    timeout-minutes: 25
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
