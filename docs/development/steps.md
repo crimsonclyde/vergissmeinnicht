@@ -18,14 +18,14 @@ For every completed task, add a concise completion note, tests/checks performed,
 
 ## Current state — resume here
 
+**Published owner release 47 (2026-11-04): v0.11.2.** Per-Workspace weather opt-in (migration 0066), Workspace-first theme picker, Celestial frame cleanup and Guide card styles Forest/Water/Hearth (migration 0067). [Release](https://github.com/crimsonclyde/vergissmeinnicht/releases/tag/v0.11.2). Main CI 41796845844 and tagged release workflow 41797510217 passed, including exact-image verification and the populated upgrade. Stable tag: the workflow also moved `0.11` and `latest`. Image index `sha256:a95f52f26c88cd1c713781e081f455a8d51278d07b52847633ac6b97af2c6f6e`. Owner count **47**, next **48**; special release 42/dedication preserved. No live deployment.
+
 **Published owner release 46 (2026-11-03): v0.11.0-beta.1 — A Moment in Time.** Approved combined
 illustrated Clock/Weather card, Clock/Weather → Celestial → continuation order, personal visibility,
 dedicated screens/timing tools, guarded Notes/Journal Home and refreshed browser gallery. [Release](https://github.com/crimsonclyde/vergissmeinnicht/releases/tag/v0.11.0-beta.1).
 Main CI and tagged quality/browser/native builds/scans, signing/SBOM and both exact-image populated
 upgrade checks passed. Owner count **46**, next **47**; special release 42/dedication preserved.
 Earlier beta.0 was a withheld candidate, never a published owner release. No live deployment.
-
-**Release plan 0.11.2 (owner release 47):** owner asked for commit, push to main and a new release 0.11.2. Includes per-Workspace weather opt-in (migration 0066), Workspace-first theme picker, Celestial frame cleanup and Guide card styles Forest/Water/Hearth (migration 0067). Release notes: [0.11.2](../releases/0.11.2.md). Owner count stays **46** until publication; next ordinal **47**. Publishes a stable `v0.11.2` tag, which moves `0.11` and `latest`. No live deployment.
 
 **Recipes and MCP follow-up (2026-11-02):** owner requested Recipes and an MCP interface for AI/possible voice control, and selected recipe library **plus grocery-list transfer**. [Assessment and concrete proposal](recipes-mcp-plan.md), section 36.0, covers reusable editor/attachment infrastructure, atomic reviewed ingredient transfer, delegated MCP authorization and reviewed cleanup. Owner authorized implementation on 2026-11-02; Recipes implementation is now underway. Owner subsequently selected user-task writes through a client such as Claude, including Procedure/Run tasks and serving-scaled Recipe/image/shopping creation (36.3). Documents/OCR/private Journal remain excluded; image capability and deployment/auth details still need implementation design. Notes/Journal work below remains complete and unchanged.
 
