@@ -6110,14 +6110,14 @@ a.button.today-hero-go {
 .journal-note { white-space: pre-wrap; overflow-wrap: anywhere; }
 .journal-editor textarea { width: 100%; min-height: 18rem; resize: vertical; }
 
-/* ---- Appearance: per-Workspace pointers on the account Appearance page ---------- */
-.workspace-looks {
+/* ---- Appearance: each Workspace's interface on the account Appearance page ---------- */
+.interface-settings {
   margin-top: 1.5rem;
 }
-.workspace-looks > h3 {
+.interface-settings > h3 {
   margin: 0 0 0.25rem;
 }
-.workspace-looks > p {
+.interface-settings > p {
   margin: 0 0 0.75rem;
 }
 .weather-workspaces button[aria-pressed='true'] {
