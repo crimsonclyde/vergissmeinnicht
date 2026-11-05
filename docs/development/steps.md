@@ -18,9 +18,23 @@ For every completed task, add a concise completion note, tests/checks performed,
 
 ## Current state — resume here
 
-**0.12.1 prepared locally (36.8, 2026-11-05), not published or deployed.** Fix verified by
-6 targeted files / 88 passing tests, lint, full typecheck and build. Planned owner release **55**;
-current published count stays **54**. See [prepared release notes](../releases/0.12.1.md).
+**Published owner release 55 (2026-11-05): 0.12.1.** [GitHub Release](https://github.com/crimsonclyde/vergissmeinnicht/releases/tag/v0.12.1)
+published stable at `2026-11-05T20:53:56Z`, not draft, on immutable `v0.12.1` / source
+`a76c70d7410b171ace8f324ba524701e1111d092`. [Main CI 42102541182](https://github.com/crimsonclyde/vergissmeinnicht/actions/runs/42102541182)
+and [Release 42105269169](https://github.com/crimsonclyde/vergissmeinnicht/actions/runs/42105269169)
+passed all gates: **212 files / 1,652 tests**, **28 browser scenarios / two intentional skips**,
+audit/lint/typechecks, both native image builds/smoke/fixable-HIGH/CRITICAL scans, keyless signing,
+CycloneDX SBOM and exact-image version/revision/smoke plus all three populated-upgrade checks.
+Immediate predecessor is the independently verified published 0.12.0; older pinned fixtures retained.
+
+Independently inspected index `sha256:240e2eb3e6ac20a5c2b7b4ffd528a6cfc418b88eb3e6362e714deae855f16519`:
+amd64 `sha256:7890cba982eeedbc85a4419e26e492903968247789cab992dcc163e6d5e61fc2`,
+arm64 `sha256:7c5e28b4ffa88762152d4911b333247aa72bb4a6a3c0eb727cf6c239721c8a44`.
+Tags `0.12.1`, `0.12` and `latest` match. Signing evidence is the successful workflow, not independent
+local cosign verification. No migration, dependency, permission or credential change; security impact
+LOW, metadata aliases/fail-closed discovery fallback only. No live deployment, tunnel or public access
+change. Hosted interoperability remains untested. Owner count **55**, next **56**; Release 42 and its
+dedication remain intact. Owner assets untouched. [Release notes](../releases/0.12.1.md).
 
 
 **Published owner release 54 (2026-11-05): 0.12.0.** [GitHub Release](https://github.com/crimsonclyde/vergissmeinnicht/releases/tag/v0.12.0)
@@ -6480,3 +6494,21 @@ Full local unit run: 208 files passed; four known socket/CLI fixture files faile
 restrictions (17 failures / nine loopback errors). Permission-corrected rerun of exactly those four
 files passed all 28 tests without errors: **all 212 files / 1,652 tests verified across both runs**.
 Browser and remote pipeline results will be recorded after completion.
+
+Local full browser suite: **28 passed / 2 intentional skips**. Audit: no known vulnerabilities.
+Main [CI 42102541182](https://github.com/crimsonclyde/vergissmeinnicht/actions/runs/42102541182)
+passed every gate on source `a76c70d7410b171ace8f324ba524701e1111d092`: clean 212 files / 1,652 tests,
+28 browser scenarios / two intentional skips, quality/audit, both native image builds/smoke/scans and
+fail-closed aggregate. Immutable `v0.12.1` tag pushed on that source; owner-authorized GitHub draft
+prepared. [Release 42105269169](https://github.com/crimsonclyde/vergissmeinnicht/actions/runs/42105269169)
+is running; current published count remains 54 pending successful publication. No live deployment.
+
+
+#### 36.8 Published completion — owner release 55 (2026-11-05)
+
+**DONE:** 0.12.1 published stable after every main/tagged gate passed, on the exact verified source.
+Final evidence, image digests and links are recorded in Current state above and the release notes.
+GitHub confirms not draft/not prerelease. Owner count updated to 55 (next 56) in AGENTS.md only after
+publication; immutable tag, prior versions and special Release 42 unchanged. Documentation-only final
+bookkeeping adds no security surface; links/XML/diff checks pass. No new tests needed beyond the
+already successful source gates. No live deployment; hosted tunnel and physical-device limits remain.

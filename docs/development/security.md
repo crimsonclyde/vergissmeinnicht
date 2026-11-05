@@ -552,6 +552,15 @@ kind, permission boundary, outbound flow, public exposure or authentication exem
 implementation or validation change. Test results and remaining release/live integration gates are in
 ledger 36.8; preparation creates no publication/deployment and does not increment the owner count.
 
+Release verification (0.12.1, owner release 55, 2026-11-05): main CI `42102541182` and tagged Release
+`42105269169` passed all gates on source `a76c70d7410b171ace8f324ba524701e1111d092`: 212 files /
+1,652 tests, 28 browser scenarios / two intentional skips, audit/lint/typecheck, native amd64/arm64
+build/smoke/scans, keyless signing/CycloneDX and exact-image version/revision/smoke with all three
+populated upgrades (immediate predecessor 0.12.0). Independently inspected both architectures in index
+`sha256:240e2eb3e6ac20a5c2b7b4ffd528a6cfc418b88eb3e6362e714deae855f16519`; version/minor/latest
+match. Signing evidence is the successful workflow, not an independent local cosign check. GitHub
+Release is published stable, not draft. Final bookkeeping adds no security surface; no live deployment.
+
 ## Per-task security completion block
 
 For security-sensitive tasks, add/update a section in this file:
