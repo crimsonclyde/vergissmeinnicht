@@ -18,6 +18,24 @@ For every completed task, add a concise completion note, tests/checks performed,
 
 ## Current state — resume here
 
+**Release preparation — 0.11.8, owner milestone 53 (2026-11-05): IN PROGRESS.** Owner explicitly
+authorized a new release and push after weather completion (27.9–27.10). Includes complete known-condition
+artwork, correct fallback sizing and a native-symbol fallback for failed Weather images. Git tag
+`v0.11.8`, release title/version `0.11.8`; count remains **52** until publication, next **53**.
+Release 42/dedication are preserved. Selective commit excludes pre-existing owner mock-ups/screenshots.
+Plan: full local lint/typecheck/audit/unit/security and browser checks, main push/CI, then immutable tag
+and complete Release workflow before GitHub publication. Immediate upgrade predecessor independently
+verified as 0.11.7 index `sha256:cb9d607a8d0314e0864cbe30c5db7f4ac5bf1b7f97c62d3b87b064d3e53b1e4b`;
+older published/candidate upgrade checks remain. Unraid candidate becomes 0.11.8. No migration,
+dependency, API, provider, credential, permission or security-surface change. No live deployment.
+
+Local full lint/recursive typecheck and dependency audit pass (no known vulnerabilities); full
+unit/security suite **211 files / 1,615 tests passed** after allowing required loopback test sockets.
+Production build passes with the existing chunk-size warning. Full browser regression is in progress;
+account/bootstrap/TOTP/operator recovery and desktop/phone forest/Places checks have passed. The affected
+desktop/phone weather/Guide flows also passed before preparation. Push the candidate while remaining
+local browser flows finish; tagging/publication still require all local checks and main CI to pass.
+
 **Published owner release 52 (2026-11-05): 0.11.7.** [GitHub Release](https://github.com/crimsonclyde/vergissmeinnicht/releases/tag/v0.11.7) published at `2026-11-05T04:56:05Z`, stable and not a draft, from immutable tag `v0.11.7` / source `6e1af5d7526a5efb147ce121f1f672eafc530ed5`. Includes the personal Appearance consolidation, condition-dependent transparent Weather artwork, shared Celestial/Clock/Weather opacity and compact icon controls (27.5–27.8). Source commits `bd803f5` and CI-budget correction `6e1af5d` are pushed to main. [Main CI 41888520455](https://github.com/crimsonclyde/vergissmeinnicht/actions/runs/41888520455) and [Release 41890166610](https://github.com/crimsonclyde/vergissmeinnicht/actions/runs/41890166610) passed every gate: 211 unit/security files / 1,615 tests; 28 browser scenarios / 2 intentional skips; lint/typecheck/audit; both native image builds, smoke tests and fixable-HIGH/CRITICAL scans; keyless signing, CycloneDX SBOM and exact-image version/revision verification. Populated upgrades passed from published 0.11.6, 0.10.1-beta.0 and the retained beta.0 candidate. Original cancelled CI `41885752399` remains recorded below; no gate or request limit was relaxed.
 
 Independently inspected registry index: `sha256:cb9d607a8d0314e0864cbe30c5db7f4ac5bf1b7f97c62d3b87b064d3e53b1e4b`; linux/amd64 `sha256:0ffc8ad70f91009fb76c9cbbe1566f189708bc43ae1634cff83b7e811509677a`, linux/arm64 `sha256:de5b4181bfa2b52405e2d320d2f43f88b2e8f4681072630ca9dc62554e164125`. Image tags `0.11.7`, `0.11` and `latest` all resolve to this index; Unraid points to `0.11.7`. Signing evidence is the successful workflow, not independent local cosign verification. No migration, new runtime permission/credential/provider or application security surface. Owner count is **52**, next **53**; Release 42 and its dedication are unchanged. No live deployment. Pre-existing owner mock-ups/screenshots remain untracked and untouched. Physical-device/real-screen-reader review, unsupported-condition paintings and arbitrary-photo readability remain the documented limits.
@@ -6153,6 +6171,49 @@ also checks Cancel restores saved card style, Reset stays a draft, icon Save and
 and Appearance accessibility at phone/desktop widths. **Desktop and phone Guide browser flows: 2 passed**;
 final fictional-data visual/accessibility capture: **1 passed**, including the final 320px layout.
 No release or live deployment; physical-device and real-screen-reader review remain unperformed.
+
+### 27.9 Weather fallback symbol sizing (2026-11-05)
+
+Owner's device photo showed a tiny fog glyph inside an otherwise empty Weather illustration frame.
+The fallback wrapper scaled with the card, but its nested `UiIcon` SVG retained its toolbar-sized
+`1.25em` dimensions. Scoped CSS now makes the actual SVG fill that centered wrapper. Fog, cloudy,
+partly cloudy and unknown conditions retain their truthful native symbols and written conditions;
+no painting or forecast is invented. Existing art, card opacity and navigation remain unchanged.
+
+Verification: combined-instrument/contrast units **2 files / 41 tests passed**, production build,
+focused ESLint, root TypeScript and diff checks pass. Browser regression now exercises all four native
+fallbacks at 320/390/1440px and measures the actual SVG size and centering, rather than just wrapper
+visibility. Desktop and phone Guide browser flows **2 passed**; corrected fog captures at 320px and
+1440px visually inspected in `/tmp/vmn-fog-review`. Forecasts use intercepted fictional data only.
+**Security surface unchanged:** scoped presentation CSS and fictional-data browser checks only; no new
+API, provider, credential, permission, persistence or data flow. Remaining: no fog-specific painting,
+physical-device verification, release or deployment performed.
+
+### 27.10 Complete weather artwork and resilient fallback (2026-11-05)
+
+Owner requested images for the remaining weather conditions and a fallback. Added four matching
+transparent illustrations: fog, cloudy, partly cloudy and mixed rain/snow sleet. Preserved original
+1254px PNGs and bundled quality-88 WebPs; exact built-in generation prompts, reference and full
+condition table are in `apps/web/src/applets/art/WEATHER-VARIANTS.md`. Clear/sun, rain (also drizzle
+and showers), snow and thunder/storm retain existing art. Every known condition now has a painting;
+UNKNOWN/absent stays a neutral native symbol. Exhaustive TypeScript mapping forces future condition
+additions to explicitly choose art or fallback. A Weather image load failure now displays the native
+symbol for the same condition; another image can still load after an earlier failure. Readings,
+navigation, personal opacity, current/daily precedence and existing gates are unchanged.
+
+Checks: visually inspected all new originals; PNG/WebP transparency/corner checks pass, negligible
+outer-edge alpha at most 1/255. Combined-instrument/contrast units **2 files / 41 tests passed**;
+focused ESLint, root and web TypeScript, production build and diff checks pass. Browser coverage now
+checks every canonical condition, successful asset decoding, unknown fallback and an intentionally
+failed fog image in an isolated context with service workers blocked (ordinary app-shell caching
+otherwise shields image requests from the test's network interception). Final desktop and phone
+Guide flows **2 passed**. New paintings visually checked in actual 320px and desktop cards;
+captures are in `/tmp/vmn-fog-review`. No live weather provider calls were made.
+
+Architecture/artwork documentation updated. **Security surface unchanged:** local decorative art and
+client error handling only; no new API, provider, credential, permissions, persistence or network
+destination. Remaining: physical-device review and day/night-specific selection (the existing forecast
+contract supplies no day/night flag). No release, publication or deployment performed.
 
 ### Published owner milestone 46 — v0.11.0-beta.1 (2026-11-03)
 

@@ -29,7 +29,8 @@ it('keeps live analogue hands consistent with the supplied device time without a
 
 it.each([
   ['CLEAR', 'sun'], ['DRIZZLE', 'rain'], ['RAIN', 'rain'], ['SHOWERS', 'rain'],
-  ['SNOW', 'snow'], ['SLEET', 'snow'], ['THUNDER', 'storm'],
+  ['SNOW', 'snow'], ['SLEET', 'sleet'], ['THUNDER', 'storm'],
+  ['FOG', 'fog'], ['CLOUDY', 'cloudy'], ['PARTLY_CLOUDY', 'partly-cloudy'],
 ] as const)('uses the %s illustration from the canonical current condition', (condition, image) => {
   const shown = { ...weather, forecast: { ...weather.forecast, current: { condition, temperature: 3 } } };
   const html = renderToStaticMarkup(<TodayInstruments clock={undefined} weather={shown} />);
@@ -37,7 +38,7 @@ it.each([
   expect(html).not.toContain('Daily outlook');
 });
 
-it.each(['PARTLY_CLOUDY', 'CLOUDY', 'FOG', 'UNKNOWN', undefined] satisfies (WeatherCondition | undefined)[])(
+it.each(['UNKNOWN', undefined] satisfies (WeatherCondition | undefined)[])(
   'does not invent sunshine, precipitation or lightning for %s', condition => {
     const html = renderToStaticMarkup(<InstrumentPicture kind="weather" condition={condition} />);
     expect(html).toContain('instrument-weather-symbol');

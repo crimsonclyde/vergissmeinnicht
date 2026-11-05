@@ -42,3 +42,4 @@
 /* Truthful fallback for cloudy, foggy, partly cloudy or unavailable conditions without painted variants. */
 .instrument-weather-symbol{position:absolute;inset:10% 12% 7%;display:grid;place-items:center;border:1px solid var(--instrument-edge);border-radius:50%;color:var(--instrument-gold);background:radial-gradient(ellipse,color-mix(in srgb,var(--instrument-gold) 9%,transparent),transparent 70%);box-shadow:inset 0 0 0 .6rem var(--instrument-bg),inset 0 0 0 calc(.6rem + 1px) var(--instrument-edge)}
 .instrument-weather-symbol .ui-icon{width:58%;height:58%}
+.instrument-weather-symbol .ui-icon svg{width:100%;height:100%}

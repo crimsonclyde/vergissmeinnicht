@@ -54,13 +54,29 @@ export async function checkClockWeather(page: Page, workspaceId: string, screens
 
   // Fresh canonical forecasts change the picture, never a live provider request.
   const sample = await page.evaluate(async () => (await fetch('/api/account/weather/forecast?days=4')).json()) as { forecast: WeatherForecast };
-  for (const [condition, artwork] of [['CLEAR', 'sun'], ['RAIN', 'rain'], ['SNOW', 'snow'], ['THUNDER', 'storm'], ['CLOUDY', null], ['UNKNOWN', null]] as const) {
+  for (const [condition, artwork] of [['CLEAR', 'sun'], ['DRIZZLE', 'rain'], ['RAIN', 'rain'], ['SHOWERS', 'rain'], ['SLEET', 'sleet'], ['SNOW', 'snow'], ['THUNDER', 'storm'], ['PARTLY_CLOUDY', 'partly-cloudy'], ['CLOUDY', 'cloudy'], ['FOG', 'fog'], ['UNKNOWN', null]] as const) {
     const handler = (route: Route) => route.fulfill({ json: { ...sample, forecast: { ...sample.forecast, current: { temperature: 3, condition } } } });
     await page.route('**/api/account/weather/forecast?*', handler);
     await page.reload();
     const picture = page.locator('[data-card="weather"] .instrument-picture');
-    if (artwork === null) await expect(picture.locator('.instrument-weather-symbol')).toBeVisible();
-    else await expect(picture.locator('img')).toHaveAttribute('src', new RegExp(`weather-${artwork}.*\\.webp`));
+    if (artwork === null) {
+      const symbol = picture.locator('.instrument-weather-symbol');
+      await expect(symbol).toBeVisible();
+      for (const width of [320, 390, 1440]) {
+        await page.setViewportSize({ width, height: 1000 });
+        const frame = await symbol.boundingBox();
+        const glyph = await symbol.locator('svg').boundingBox();
+        if (frame === null || glyph === null) throw new Error('Weather fallback must be visible');
+        // The actual SVG must fill its centered illustration slot, not retain UiIcon's toolbar size.
+        expect(glyph.width / frame.width).toBeGreaterThan(.55);
+        expect(glyph.height / frame.height).toBeGreaterThan(.55);
+        expect(Math.abs(glyph.x + glyph.width / 2 - frame.x - frame.width / 2)).toBeLessThanOrEqual(1);
+        expect(Math.abs(glyph.y + glyph.height / 2 - frame.y - frame.height / 2)).toBeLessThanOrEqual(1);
+      }
+    } else {
+      await expect(picture.locator('img')).toHaveAttribute('src', new RegExp(`weather-${artwork}.*\\.webp`));
+      await expect.poll(() => picture.locator('img').evaluate(image => 'complete' in image && image.complete && 'naturalWidth' in image && Number(image.naturalWidth) > 0)).toBe(true);
+    }
     if (process.env.VMN_REVIEW_SCREENSHOTS && screenshots) {
       for (const width of [320, 1440]) {
         await page.setViewportSize({ width, height: 1000 });
@@ -70,6 +86,24 @@ export async function checkClockWeather(page: Page, workspaceId: string, screens
     await page.unroute('**/api/account/weather/forecast?*', handler);
   }
   await page.reload();
+
+  // Even a failed bundled image must leave a usable, truthful condition symbol and reading.
+  // Isolate this negative case from the app-shell service worker, which can serve assets itself.
+  const browser = page.context().browser();
+  if (browser === null) throw new Error('Browser required for failed-image check');
+  const failureContext = await browser.newContext({ storageState: await page.context().storageState(), serviceWorkers: 'block' });
+  const brokenForecast = (route: Route) => route.fulfill({ json: { ...sample, forecast: { ...sample.forecast, current: { temperature: 3, condition: 'FOG' } } } });
+  const brokenImage = (route: Route) => route.abort();
+  try {
+    const failurePage = await failureContext.newPage();
+    await failurePage.setViewportSize(page.viewportSize() ?? { width: 390, height: 1000 });
+    await failurePage.route('**/api/account/weather/forecast?*', brokenForecast);
+    await failurePage.route('**/weather-fog*.webp', brokenImage);
+    await failurePage.goto(page.url());
+    await expect(failurePage.locator('[data-card="weather"] .instrument-weather-symbol svg')).toBeVisible();
+    await expect(failurePage.locator('[data-card="weather"] .instrument-half-copy')).toContainText('Fog');
+    await expect(failurePage.locator('[data-card="weather"] img')).toHaveCount(0);
+  } finally { await failureContext.close(); }
 
   await page.locator('.today-instruments [data-card="weather"] .instrument-picture').click();
   await expect(page).toHaveURL('/weather');

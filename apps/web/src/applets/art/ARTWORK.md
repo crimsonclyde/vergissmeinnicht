@@ -2,8 +2,9 @@
 
 2026-11-04 integration: `InstrumentPicture.tsx` now uses the transparent clock cutout and condition-specific
 Weather WebP derivatives documented in [WEATHER-VARIANTS.md](WEATHER-VARIANTS.md). `weather.webp` is
-retained as the original style reference, not used as a live condition painting. Cloudy, partly cloudy,
-foggy and unknown conditions use native symbols until matching paintings exist. One shared Celestial card
+retained as the original style reference, not used as a live condition painting. The 2026-11-05 extension
+adds matching cloudy, partly cloudy, fog and sleet paintings. Unknown/absent conditions and failed image
+loads use native symbols. The exhaustive mapping and prompts are in WEATHER-VARIANTS.md. One shared Celestial card
 surface replaces the old opaque study backdrop. Existing personal background/opacity settings control
 both cards through `sky-card.css`; the cutouts, text and clock hands remain fully opaque.
 The historical source/edit notes below describe the original split artwork.

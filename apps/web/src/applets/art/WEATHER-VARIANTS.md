@@ -35,3 +35,42 @@ Other/unknown conditions use the existing native condition symbol, avoiding inve
 The normalized forecast supplies no day/night flag; the art represents the reported condition only.
 Illustrations are decorative, never weather warnings. Current condition wins; daily outlook is labelled
 and used only if current condition is absent, never to replace an explicit UNKNOWN.
+
+## Complete condition coverage — 2026-11-05
+
+Four additional originals were generated with the built-in image-generation tool, using
+`weather-rain.png` as the style/composition reference. Original PNG bytes are preserved; production
+uses quality-88 WebP derivatives with alpha retained. Each new source is 1254 × 1254 RGBA with
+transparent corners; outer-edge alpha is at most 1/255 (negligible generation residue). All four
+were visually inspected. The existing assets are retained without alteration.
+
+| Canonical condition | Bundled painting |
+| --- | --- |
+| CLEAR | `weather-sun.webp` |
+| PARTLY_CLOUDY | `weather-partly-cloudy.webp` (new) |
+| CLOUDY | `weather-cloudy.webp` (new) |
+| FOG | `weather-fog.webp` (new) |
+| DRIZZLE, RAIN, SHOWERS | `weather-rain.webp` |
+| SLEET | `weather-sleet.webp` (new; rain and snow) |
+| SNOW | `weather-snow.webp` |
+| THUNDER | `weather-storm.webp` |
+| UNKNOWN / absent | Native unknown-condition symbol |
+
+The mapping is exhaustive at compile time. A failed Weather image load replaces the broken image
+with the native symbol for that same condition. Written condition/temperature and the whole-card
+link remain available. A different image can still load after an earlier failure. No external asset
+URL, runtime generation, new provider field or day/night inference is introduced. The canonical
+contract still has no day/night flag; the paintings represent conditions rather than observed light.
+
+### Exact additional prompt set
+
+Common prompt:
+
+> Use case: stylized-concept. Create ONE square standalone weather illustration for a matching app-card set. Reference image is STYLE AND COMPOSITION REFERENCE ONLY: match its painterly storybook 3D rendering, sculptural silver-blue curling clouds, antique celestial fantasy materials, restrained gold highlights and small floating dark slate rock pedestal with fine golden veins. True alpha transparency everywhere outside the isolated object, including all gaps. NO sky, rectangular backdrop, stars, text, UI, frame or painted checkerboard. Center horizontally, subject entirely in upper 76 percent of square, comfortable transparent margins, bottom 24 percent empty transparent for HTML readings. Match reference subject scale and pedestal placement. Single asset, no collage. Subject:
+
+Append one subject per independent call (`transparent_background: true`):
+
+- **fog**: Low, layered horizontal banks of pearly silver-blue mist and gently curling translucent fog, hovering closely over the slate pedestal, visibly fog rather than a tall cumulus cloud. No sun, moon, rain, snow or lightning.
+- **cloudy**: A substantial cluster of overcast sculptural silver-blue clouds hovering above the slate pedestal. Clouds only, no sun, moon, rain, snow or lightning.
+- **partly-cloudy**: A warm golden sun partly obscured by a small sculptural silver-blue cloud cluster above the slate pedestal. Both sun and clouds clearly visible, no rain, snow or lightning.
+- **sleet**: A silver-blue sculptural cloud shedding a clearly visible mixture of luminous raindrops and small icy snow crystals above the slate pedestal. Mixed rain and snow, no sun, moon or lightning.

@@ -930,8 +930,11 @@ only the paint is translucent, and inner content/art layers remain transparent w
 The removed fixed navy override no longer masks the slider. Labels, cutout illustration and readings
 occupy separate grid rows, including one-instrument presentation. Weather selects fixed local WebP
 variants from the canonical current condition (or labelled daily outlook only when absent): clear → sun,
-drizzle/rain/showers → rain, snow/sleet → snow, thunder → storm. Other/unknown conditions use the existing
-native condition symbol; no sun/precipitation is guessed. Actual condition text remains visible. No new
+drizzle/rain/showers → rain, snow → snow, thunder → storm. The 2026-11-05 extension adds separate fog,
+cloudy, partly cloudy and mixed-precipitation sleet paintings. The mapping exhaustively covers the
+canonical condition type; unknown/absent conditions use the native unknown symbol. A failed Weather
+image load switches to that condition's native symbol, while another image can still load after a
+previous failure. No sun/precipitation is guessed. Actual condition text remains visible. No new
 provider, data contract, fetching, preference scope, migration or credential behavior.
 
 
