@@ -217,3 +217,25 @@ operation records are excluded from portable Workspace backups. Full server back
 security state and must be protected like the running database; restoring one restores that point in
 time, including its connection state. Deployment secrets are backed up separately. Regenerate/revoke
 connections after a security recovery as appropriate.
+
+
+### Discovery routing (0.12.1)
+
+Both `/.well-known/oauth-authorization-server` and its trailing-slash variant return identical
+200 `application/json` metadata. The same applies to `/.well-known/oauth-protected-resource/mcp`
+and its trailing-slash variant. Unknown discovery paths return 404 JSON, never the web app shell;
+discovery remains unavailable when MCP is disabled. The issuer (including its root slash),
+`/authorize`, `/token`, `/register` and `/mcp` URLs have not changed.
+
+Registration continues to use the SDK's RFC 7591 JSON protocol: successful public-client registration
+returns 201 JSON with `client_id`, issue time and the actual registered metadata, without a client
+secret or an application grant; invalid metadata returns 400 JSON. Clients must explicitly request
+`token_endpoint_auth_method: "none"`. RFC 7591 section 2 defaults omission to `client_secret_basic`,
+which VMN does not support; rejecting omission preserves the existing public-only requirement.
+The server selects and returns `authorization_code`/`refresh_token` grants and `code` responses;
+section 3.2.1 allows replacing requested metadata. Unsupported optional metadata is not retained.
+HTTPS (or HTTP loopback) redirects, no credentials/fragments, input bounds, rate limits, PKCE,
+authenticated consent/MFA and Workspace authorization all remain enforced.
+See [RFC 7591 sections 2 and 3](https://www.rfc-editor.org/rfc/rfc7591.html).
+This protocol review and local regression coverage do not establish hosted tunnel interoperability
+or require public access; the isolated live-integration gates above still apply.

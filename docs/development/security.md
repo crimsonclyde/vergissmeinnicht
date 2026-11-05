@@ -535,6 +535,23 @@ contains amd64/arm64; `0.12.0`, `0.12` and `latest` match. Signing evidence is t
 not independent local cosign verification. GitHub Release is published stable; only repository version
 pins/bookkeeping changed beyond the reviewed metadata work. No live deployment or new security surface.
 
+### OAuth discovery routing (36.8, 0.12.1 preparation, 2026-11-05)
+
+- [x] Exact authorization-server and `/mcp` protected-resource discovery paths and their single
+  trailing-slash aliases return identical 200 JSON with unchanged issuer/endpoint/resource values.
+  Regression tests run with a real static SPA fixture, HTML Accept headers and query strings.
+- [x] Unknown `/.well-known/` paths return 404 JSON rather than successful SPA HTML; MCP-disabled
+  discovery remains 404 for both spellings. Ordinary client-side routes still render the SPA.
+- [x] Reviewed SDK DCR and VMN client store against RFC 7591 sections 2/3: 201 JSON client information,
+  no public-client secret, 400 JSON metadata errors, explicit `none` required (omission defaults to
+  unsupported `client_secret_basic` in the RFC), and returned server-selected grants/response types.
+  Existing redirect validation, limits, PKCE, consent/MFA and authorization are unchanged.
+
+Security impact LOW: discovery aliases and fail-closed fallback correction only; no new credential
+kind, permission boundary, outbound flow, public exposure or authentication exemption. No registration
+implementation or validation change. Test results and remaining release/live integration gates are in
+ledger 36.8; preparation creates no publication/deployment and does not increment the owner count.
+
 ## Per-task security completion block
 
 For security-sensitive tasks, add/update a section in this file:

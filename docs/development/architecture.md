@@ -800,6 +800,13 @@ HTTPS URLs only; Harpoon/shim rewriting belongs to the transport. Local protocol
 do not establish hosted shim or Unraid compatibility. See the [review](mcp-tunnel-oauth-review.md).
 
 
+MCP routing follow-up 36.8 (0.12.1 preparation): both authorization-server discovery and the
+`/mcp` protected-resource discovery explicitly accept a single trailing slash, using the same
+metadata objects. Fastify's exact routing remains unchanged elsewhere. Unknown `/.well-known/`
+paths (and the namespace root) return 404 JSON instead of the SPA shell, including when MCP is off.
+Issuer, authorization/token/registration URLs and the exact resource identifier remain unchanged.
+
+
 ### Focused Notes/Journal screens (35.3, 2026-11-03)
 
 The existing editor now presents Write, Details, and Images & links as separate views over one

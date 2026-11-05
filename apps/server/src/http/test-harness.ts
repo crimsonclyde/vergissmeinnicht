@@ -31,6 +31,7 @@ export type InjectResponse = Awaited<ReturnType<App['inject']>>;
 export async function startTestApp(
   options: {
     mcpEnabled?:boolean;
+    webDistDir?: string;
     runEvents?: RunEventsOptions;
     trustedProxies?: readonly string[];
     /** Replaces the real Telegram client (tests never reach api.telegram.org). */
@@ -66,6 +67,7 @@ export async function startTestApp(
   const testConfig = { ...config, mediaPath: mediaDir, documentsPath: join(mediaDir, 'documents') };
   const build = () =>
     buildApp({
+      webDistDir: options.webDistDir,
       trustedProxies: options.trustedProxies,
       ...(options.captureLogs === true ? { logger: { ...loggerOptions('info'), stream: logStream } } : {}),
       services: (log) => {

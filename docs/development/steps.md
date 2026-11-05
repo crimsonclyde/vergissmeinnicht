@@ -18,6 +18,11 @@ For every completed task, add a concise completion note, tests/checks performed,
 
 ## Current state — resume here
 
+**0.12.1 prepared locally (36.8, 2026-11-05), not published or deployed.** Fix verified by
+6 targeted files / 88 passing tests, lint, full typecheck and build. Planned owner release **55**;
+current published count stays **54**. See [prepared release notes](../releases/0.12.1.md).
+
+
 **Published owner release 54 (2026-11-05): 0.12.0.** [GitHub Release](https://github.com/crimsonclyde/vergissmeinnicht/releases/tag/v0.12.0)
 published at `2026-11-05T19:16:32Z`, stable and not a draft, from immutable `v0.12.0` / source
 `cddcb5813d0d1671223c3b8d87f366772f537299`. The approved issuer consistency fix, 29 new protocol
@@ -6418,3 +6423,60 @@ issuer/resource handling across the shim, token exchange/refresh/revocation and 
 Docker hardening/file permissions are not runtime-validated. No mock-control-plane transport suite or
 live OpenAI call was added; existing VMN unit tests and browser tests cannot prove those layers. A
 separate-origin Docker HTTP target remains outside the supported v0.0.19 configuration in this change.
+
+
+### 36.8 OAuth discovery trailing-slash routing — 0.12.1 (2026-11-05)
+
+**DONE locally; release prepared, not published or deployed.** Target patch 0.12.1 is planned owner
+release **55**, following published 0.12.0 (54). Count remains 54 until publication; special release
+42 and its dedication stay intact. Local Unraid template pin and [release notes](../releases/0.12.1.md)
+are prepared; no tag, push, GitHub Release, image publication, tunnel setup or running-system change.
+
+**Cause:** Fastify's exact-path metadata routes omitted slash aliases. In the deployed static-web
+configuration, unmatched GET requests entered the generic non-API SPA fallback and returned 200 HTML.
+Existing OAuth fixtures had no static web directory and therefore could not detect that fallback.
+
+**Implemented:** explicit single-trailing-slash aliases for authorization-server and `/mcp`
+protected-resource metadata, sharing the same JSON objects. Unknown `/.well-known/` paths and the
+namespace root now return 404 JSON, including when MCP is disabled. No global slash normalization.
+Issuer (including its root slash), authorization/token/registration URLs, PUBLIC_ORIGIN, exact `/mcp`
+resource and existing browser routes remain unchanged. Regression fixtures include a real SPA shell;
+assertions cover status, JSON content type, byte-identical and parsed metadata, queries, HTML Accept,
+unknown and disabled discovery, and ordinary SPA routing. Existing exact URL/header-spoof tests remain.
+
+**Registration review:** inspected installed SDK registration handler/schema and VMN's provider/store
+against [RFC 7591 sections 2/3](https://www.rfc-editor.org/rfc/rfc7591.html). Supported public-client
+profile uses JSON POST, 201 JSON client information with id/issue time/actual metadata and no secret,
+and 400 JSON metadata errors. Added assertions for these responses. Explicit `none` remains mandatory:
+omission defaults to unsupported `client_secret_basic` in the RFC. Server-selected grants/response
+types are returned as required for clients to inspect; section 3.2.1 permits metadata substitution.
+No DCR implementation, redirect validation, rate/body limits, PKCE, consent/MFA or access rules changed.
+No public access requirement introduced. Operator, architecture and security documentation updated.
+
+**Verification:** pre-fix regression run reproduced nine failures (slash HTML, unknown discovery HTML
+and disabled discovery HTML). Final `pnpm exec vitest run apps/server/src/app.test.ts
+apps/server/src/http/mcp-oauth.test.ts apps/server/src/http/mcp.test.ts apps/server/src/logging.test.ts
+apps/server/src/http/mfa.test.ts apps/server/src/http/hardening.test.ts`: **6 files / 88 passed**.
+`pnpm lint`, full `pnpm typecheck`, `pnpm build` and `git diff --check` pass. Build retains its existing
+large-chunk warning. Local Unraid XML parses and targets 0.12.1. Full unit/browser/container release
+pipeline was not rerun for this focused server patch; no hosted interoperability success claimed.
+
+**Security impact LOW:** discovery routing and fail-closed namespace fallback only. No new permission,
+credential type, migration, dependency, outbound destination or authentication exemption; existing
+negative OAuth/MFA/Workspace/tool checks pass. Remaining: review/publication gates, native release CI,
+image verification and separately authorized live tunnel testing/deployment. Owner assets untouched.
+
+
+#### 36.8 Owner-authorized release execution (2026-11-05)
+
+Owner authorized release publication of 0.12.1 (planned ordinal **55**), keeping deployment separate.
+Immediate-predecessor upgrade gate advanced to published 0.12.0 index
+`sha256:0c288f171664aaab7d1871340ecb928ed23e866eeaded14b24bc580c4abc8168`, independently inspected
+with both native architectures and GitHub published-state confirmation. Existing older fixtures stay.
+Full local unit/browser validation and main/tagged CI are in progress. Count stays 54 until publication.
+No public access, tunnel change, runtime credential or installation change is authorized by this release.
+
+Full local unit run: 208 files passed; four known socket/CLI fixture files failed under sandbox
+restrictions (17 failures / nine loopback errors). Permission-corrected rerun of exactly those four
+files passed all 28 tests without errors: **all 212 files / 1,652 tests verified across both runs**.
+Browser and remote pipeline results will be recorded after completion.

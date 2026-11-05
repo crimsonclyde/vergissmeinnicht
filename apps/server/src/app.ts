@@ -284,8 +284,10 @@ export async function buildApp(options: AppOptions = {}) {
 
   app.setNotFoundHandler(async (request, reply) => {
     const isApi = request.url === '/api' || request.url.startsWith('/api/');
-    if (serveWeb && !isApi && request.method === 'GET') {
-      // Client-side routing fallback: unknown non-API paths render the SPA shell.
+    const pathname = request.url.split('?')[0];
+    const isWellKnown = pathname === '/.well-known' || pathname?.startsWith('/.well-known/');
+    if (serveWeb && !isApi && !isWellKnown && request.method === 'GET') {
+      // Discovery failures must stay 404 JSON, never a successful SPA shell.
       return reply.sendFile('index.html');
     }
     return reply.code(404).send({ error: 'Not Found' });

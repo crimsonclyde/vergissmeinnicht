@@ -1,6 +1,9 @@
 import { createHash, randomBytes } from 'node:crypto';
+import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { TOTP } from 'otpauth';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { MCP_SCOPES, UUID_V4 } from '@vergissmeinnicht/domain';
 import { ORIGIN, PASSWORD, startTestApp, type InjectResponse } from './test-harness.ts';
 
@@ -13,7 +16,13 @@ type Tokens = { access_token: string; refresh_token: string; expires_in: number;
 describe('MCP OAuth protocol and canonical discovery', () => {
   let t: Awaited<ReturnType<typeof startTestApp>>;
 
-  beforeEach(async () => { t = await startTestApp({ mcpEnabled: true, captureLogs: true }); });
+  let webDistDir: string;
+  beforeAll(() => {
+    webDistDir = mkdtempSync(join(tmpdir(), 'vmn-oauth-web-'));
+    writeFileSync(join(webDistDir, 'index.html'), '<!doctype html><title>VMN SPA</title>');
+  });
+  afterAll(() => rmSync(webDistDir, { recursive: true, force: true }));
+  beforeEach(async () => { t = await startTestApp({ mcpEnabled: true, captureLogs: true, webDistDir }); });
   afterEach(async () => { vi.useRealTimers(); await t?.close(); });
 
   const count = (table: 'mcp_clients' | 'mcp_authorization_requests' | 'mcp_grants' | 'mcp_tokens') => {
@@ -26,6 +35,9 @@ describe('MCP OAuth protocol and canonical discovery', () => {
     } });
     expect(response.statusCode).toBe(201);
     expect(response.headers['cache-control']).toBe('no-store');
+    expect(response.headers['content-type']).toMatch(/^application\/json\b/);
+    expect(response.json()).toMatchObject({ grant_types: ['authorization_code', 'refresh_token'], response_types: ['code'] });
+    expect(response.json().client_id_issued_at).toEqual(expect.any(Number));
     return response.json<{ client_id: string; redirect_uris: string[]; token_endpoint_auth_method: string }>();
   }
   async function begin(clientId: string, overrides: Record<string, string | undefined> = {}) {
@@ -101,7 +113,39 @@ describe('MCP OAuth protocol and canonical discovery', () => {
     }
   });
 
+  it('serves identical JSON for both discovery path spellings with the production SPA enabled', async () => {
+    for (const path of ['/.well-known/oauth-authorization-server', '/.well-known/oauth-protected-resource/mcp']) {
+      const canonical = await t.app.inject({ method: 'GET', url: path });
+      for (const suffix of ['', '/', '?discovery=1', '/?discovery=1']) {
+        const response = await t.app.inject({ method: 'GET', url: path + suffix, headers: { accept: 'text/html' } });
+        expect(response.statusCode).toBe(200);
+        expect(response.headers['content-type']).toMatch(/^application\/json\b/);
+        expect(response.body).toBe(canonical.body);
+        expect(response.json()).toEqual(canonical.json());
+      }
+    }
+    for (const url of ['/.well-known/unknown', '/.well-known/unknown/?x=1',
+      '/.well-known/oauth-authorization-server/unknown', '/.well-known/oauth-protected-resource/mcp/unknown']) {
+      const response = await t.app.inject({ method: 'GET', url, headers: { accept: 'text/html' } });
+      expect(response.statusCode).toBe(404);
+      expect(response.headers['content-type']).toMatch(/^application\/json\b/);
+      expect(response.json()).toEqual({ error: 'Not Found' });
+    }
+    const spa = await t.app.inject({ method: 'GET', url: '/account/connections' });
+    expect(spa.statusCode).toBe(200);
+    expect(spa.headers['content-type']).toMatch(/^text\/html\b/);
+  });
+
   it('keeps all discovery and OAuth endpoints unavailable when disabled', async () => {
+    await t.close(); t = await startTestApp({ webDistDir });
+    for (const path of ['/.well-known/oauth-authorization-server', '/.well-known/oauth-protected-resource/mcp']) {
+      for (const suffix of ['', '/']) {
+        const response = await t.app.inject({ method: 'GET', url: path + suffix });
+        expect(response.statusCode).toBe(404);
+        expect(response.headers['content-type']).toMatch(/^application\/json\b/);
+        expect(response.json()).toEqual({ error: 'Not Found' });
+      }
+    }
     await t.close(); t = await startTestApp();
     for (const [method, url] of [['GET', '/.well-known/oauth-protected-resource/mcp'], ['GET', '/.well-known/oauth-authorization-server'],
       ['GET', '/authorize'], ['POST', '/register'], ['POST', '/token'], ['POST', '/revoke'], ['POST', '/mcp']] as const) {
@@ -135,6 +179,8 @@ describe('MCP OAuth protocol and canonical discovery', () => {
     if (name === 'omitted client authentication') delete input['token_endpoint_auth_method'];
     const response = await t.app.inject({ method: 'POST', url: '/register', payload: input });
     expect(response.statusCode).toBe(400);
+    expect(response.headers['content-type']).toMatch(/^application\/json\b/);
+    expect(response.json().error).toBe('invalid_client_metadata');
     expect(count('mcp_clients')).toBe(0);
   });
 

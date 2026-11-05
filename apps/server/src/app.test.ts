@@ -49,4 +49,18 @@ describe('server app', () => {
     expect(response.json()).toEqual({ error: 'Not Found' });
     await app.close();
   });
+
+  it.each(['/.well-known', '/.well-known/', '/.well-known/unknown', '/.well-known/unknown/?x=1',
+    '/.well-known/oauth-authorization-server/unknown', '/.well-known/oauth-protected-resource',
+    '/.well-known/oauth-protected-resource/mcp/unknown'])('never serves the SPA for unknown discovery path %s', async url => {
+    const app = await buildApp({ webDistDir });
+    try {
+      const response = await app.inject({ method: 'GET', url, headers: { accept: 'text/html' } });
+      expect(response.statusCode).toBe(404);
+      expect(response.headers['content-type']).toMatch(/^application\/json\b/);
+      expect(response.json()).toEqual({ error: 'Not Found' });
+    } finally {
+      await app.close();
+    }
+  });
 });
