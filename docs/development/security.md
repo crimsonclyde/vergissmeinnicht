@@ -1685,3 +1685,18 @@ the existing scoped forecast; no new network destination, credential, permission
 27.7 appearance correction: Clock/Weather and Celestial share the existing own-user Workspace
 background/opacity settings. Transparency affects CSS paint only; it neither hides controls nor changes
 authorization, Weather opt-in, account/Workspace scope or stored data. No new security surface.
+
+### Container APT security update — 0.11.8 (2026-11-05)
+
+Native CI image scans detected CVE-2026-109518 in Debian Bookworm `apt`/`libapt-pkg6.0` 2.6.1.
+[Debian's tracker](https://security-tracker.debian.org/tracker/CVE-2026-109518) identifies 2.6.2
+as fixed. Docker now derives both toolchain and runtime from a shared patched base. Before the
+first package update/install, Debian repository URLs switch to HTTPS with normal certificate
+verification. The slim base has no system CA bundle: bootstrap with the public roots bundled in
+the pinned Node binary, then install Debian's maintained `ca-certificates` package. Initial APT
+commands disable retries (the vulnerable path requires retries) and fail on any index-fetch error;
+signed repository verification remains enabled. Both package versions must be at
+least 2.6.2 or the build fails. Existing pinned Node digest, non-root runtime, PCRE2/Perl version
+floors, native smoke tests and fixable-HIGH/CRITICAL scan gates remain. No vulnerability suppression,
+runtime permission, application endpoint, credential, provider or data-flow change. Native builds,
+smoke tests and scans must pass before release; final results are in the execution ledger.

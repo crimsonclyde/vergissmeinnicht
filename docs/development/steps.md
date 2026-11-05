@@ -36,6 +36,20 @@ account/bootstrap/TOTP/operator recovery and desktop/phone forest/Places checks 
 desktop/phone weather/Guide flows also passed before preparation. Push the candidate while remaining
 local browser flows finish; tagging/publication still require all local checks and main CI to pass.
 
+Full local browser suite completed: **28 passed / 2 intentional skips**. Candidate `e4730e6` pushed
+to main. CI [41978310437](https://github.com/crimsonclyde/vergissmeinnicht/actions/runs/41978310437)
+found a new fixable OS vulnerability on both native image scans: CVE-2026-109518 in Debian APT
+2.6.1. Release is held for correction before tagging. Shared `patched-base` now upgrades APT and
+libapt-pkg6.0 and asserts both are >=2.6.2; both toolchain and runtime inherit it. Debian sources
+use verified HTTPS even for that first patch download; repository signatures and scan gates remain.
+Security policy/release notes updated. This changes build/container security maintenance, not the
+application permission, credential or data surface. Native build/smoke/scan rerun is required.
+
+Local patched-base build passes, including both >=2.6.2 version assertions. The slim base lacks
+system CAs: bootstrap uses the pinned Node binary's public TLS roots, then installs Debian's
+maintained CA bundle. Initial vulnerable-APT commands have retries disabled and index-fetch errors
+fail the build. No TLS/signature bypass or suppression. Full native CI rebuild is the next gate.
+
 **Published owner release 52 (2026-11-05): 0.11.7.** [GitHub Release](https://github.com/crimsonclyde/vergissmeinnicht/releases/tag/v0.11.7) published at `2026-11-05T04:56:05Z`, stable and not a draft, from immutable tag `v0.11.7` / source `6e1af5d7526a5efb147ce121f1f672eafc530ed5`. Includes the personal Appearance consolidation, condition-dependent transparent Weather artwork, shared Celestial/Clock/Weather opacity and compact icon controls (27.5–27.8). Source commits `bd803f5` and CI-budget correction `6e1af5d` are pushed to main. [Main CI 41888520455](https://github.com/crimsonclyde/vergissmeinnicht/actions/runs/41888520455) and [Release 41890166610](https://github.com/crimsonclyde/vergissmeinnicht/actions/runs/41890166610) passed every gate: 211 unit/security files / 1,615 tests; 28 browser scenarios / 2 intentional skips; lint/typecheck/audit; both native image builds, smoke tests and fixable-HIGH/CRITICAL scans; keyless signing, CycloneDX SBOM and exact-image version/revision verification. Populated upgrades passed from published 0.11.6, 0.10.1-beta.0 and the retained beta.0 candidate. Original cancelled CI `41885752399` remains recorded below; no gate or request limit was relaxed.
 
 Independently inspected registry index: `sha256:cb9d607a8d0314e0864cbe30c5db7f4ac5bf1b7f97c62d3b87b064d3e53b1e4b`; linux/amd64 `sha256:0ffc8ad70f91009fb76c9cbbe1566f189708bc43ae1634cff83b7e811509677a`, linux/arm64 `sha256:de5b4181bfa2b52405e2d320d2f43f88b2e8f4681072630ca9dc62554e164125`. Image tags `0.11.7`, `0.11` and `latest` all resolve to this index; Unraid points to `0.11.7`. Signing evidence is the successful workflow, not independent local cosign verification. No migration, new runtime permission/credential/provider or application security surface. Owner count is **52**, next **53**; Release 42 and its dedication are unchanged. No live deployment. Pre-existing owner mock-ups/screenshots remain untracked and untouched. Physical-device/real-screen-reader review, unsupported-condition paintings and arbitrary-photo readability remain the documented limits.
