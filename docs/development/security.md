@@ -526,6 +526,15 @@ No new route, credential type, permission, resource alias, outbound call or tunn
 Evidence and exact test results are recorded in ledger 36.7. No live Unraid/container/credential
 changes were made; the unchecked deployment gates are not claimed by local unit/browser tests.
 
+Release verification (0.12.0, owner release 54, 2026-11-05): main CI `42088405901` and tagged Release
+`42090068064` passed cleanly: 212 files/1,644 tests, 28 browser scenarios/2 intentional skips, audit/
+lint/typechecks, both native build/smoke/scans, signing/CycloneDX and exact-image version/revision/
+populated-upgrade checks from all three pinned predecessors (immediate predecessor 0.11.8).
+Independently inspected index `sha256:0c288f171664aaab7d1871340ecb928ed23e866eeaded14b24bc580c4abc8168`
+contains amd64/arm64; `0.12.0`, `0.12` and `latest` match. Signing evidence is the successful workflow,
+not independent local cosign verification. GitHub Release is published stable; only repository version
+pins/bookkeeping changed beyond the reviewed metadata work. No live deployment or new security surface.
+
 ## Per-task security completion block
 
 For security-sensitive tasks, add/update a section in this file:

@@ -18,7 +18,30 @@ For every completed task, add a concise completion note, tests/checks performed,
 
 ## Current state — resume here
 
-**Release preparation — 0.12.0, owner milestone 54 (2026-11-05): IN PROGRESS.** Owner explicitly
+**Published owner release 54 (2026-11-05): 0.12.0.** [GitHub Release](https://github.com/crimsonclyde/vergissmeinnicht/releases/tag/v0.12.0)
+published at `2026-11-05T19:16:32Z`, stable and not a draft, from immutable `v0.12.0` / source
+`cddcb5813d0d1671223c3b8d87f366772f537299`. The approved issuer consistency fix, 29 new protocol
+tests, MFA/consent browser coverage and released tunnel-client v0.0.19 guidance are committed/pushed.
+[Main CI 42088405901](https://github.com/crimsonclyde/vergissmeinnicht/actions/runs/42088405901) and
+[Release 42090068064](https://github.com/crimsonclyde/vergissmeinnicht/actions/runs/42090068064) passed
+all gates: clean **212 unit/security files / 1,644 tests**, **28 browser scenarios / 2 intentional
+skips**, lint/typecheck/audit, both native build/smoke/fixable-HIGH/CRITICAL scans, keyless signing,
+CycloneDX SBOM and exact-image version/revision/smoke checks. All three populated upgrades passed
+from 0.11.8, published 0.10.1-beta.0 and the retained beta.0 candidate. Full local browser checks passed;
+local sandbox-blocked socket/CLI checks passed with the required permissions before main CI.
+
+Independently inspected index: `sha256:0c288f171664aaab7d1871340ecb928ed23e866eeaded14b24bc580c4abc8168`;
+linux/amd64 `sha256:66dbdeb503c23864bc9154fb51cc9e37c8c758d789e87b230a811221cf0ef4b5`, linux/arm64
+`sha256:929c211e8be02af2ea51556b6686f6223e085f0df84c579865f7c130c7742a61`. Tags `0.12.0`, `0.12`
+and `latest` all resolve to this index; repository Unraid template points to 0.12.0. Signing evidence
+is the successful workflow, not independent local cosign verification. No migration, dependency,
+permission, credential or outbound-target change; security impact remains the LOW metadata correction.
+`PUBLIC_ORIGIN`, PKCE/MFA, exact resource binding and Workspace controls remain. No live Unraid
+deployment, tunnel setup, public exposure or credential creation. Hosted DCR/shim/resource/refresh
+and Docker/tailnet routing remain separately approved integration gates, not claimed by this release.
+Owner count **54**, next **55**; special Release 42/dedication preserved. Owner assets remain excluded.
+
+**Release preparation — 0.12.0, owner milestone 54 (2026-11-05): DONE; published above.** Owner explicitly
 authorized commit, push and a new 0.12.0 release after approving the section-36.7 OAuth work. Release
 title/version is bare `0.12.0`, tag `v0.12.0`, image `0.12.0`; stable publication moves `0.12`/`latest`.
 Count remains **53** until publication; next **54**. Special Release 42/dedication preserved.
@@ -32,7 +55,15 @@ fresh dependency audit finds no known vulnerabilities. Full local browser run is
 must pass before tagging; tagged Release must pass both native publishing builds/smoke/scans,
 signing/SBOM and exact-image/populated-upgrade checks before GitHub Release publication.
 
-**Secure MCP Tunnel OAuth follow-up (36.7, 2026-11-05): approved local implementation ready for review.**
+Candidate `cddcb5813d0d1671223c3b8d87f366772f537299` committed and pushed. Full local browser
+verification: **28 passed / 2 intentional skips** (initial sandbox-blocked server start rerun with
+required loopback permissions). [Main CI 42088405901](https://github.com/crimsonclyde/vergissmeinnicht/actions/runs/42088405901)
+passed every gate: clean **212 files / 1,644 tests**, **28 browser scenarios / 2 intentional skips**,
+lint/typecheck/audit, both native image build/smoke/scans and the fail-closed aggregate. Immutable
+`v0.12.0` tag pushed on that source; [Release 42090068064](https://github.com/crimsonclyde/vergissmeinnicht/actions/runs/42090068064)
+is running. Owner count stays **53** until actual GitHub Release publication. No live deployment.
+
+**Secure MCP Tunnel OAuth follow-up (36.7, 2026-11-05): implemented and published in 0.12.0.**
 PRMD now reuses the SDK's exact issuer, including its root slash. Added 29 protocol/security tests and
 extended desktop/phone consent tests through password/MFA, decline, renewed consent and revocation.
 All 1,644 unit tests verified across the full run and permission-corrected rerun; targeted browser
