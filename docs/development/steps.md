@@ -18,7 +18,30 @@ For every completed task, add a concise completion note, tests/checks performed,
 
 ## Current state — resume here
 
-**Release preparation — 0.11.8, owner milestone 53 (2026-11-05): IN PROGRESS.** Owner explicitly
+**Published owner release 53 (2026-11-05): 0.11.8.** [GitHub Release](https://github.com/crimsonclyde/vergissmeinnicht/releases/tag/v0.11.8)
+published at `2026-11-05T06:38:58Z`, stable and not a draft, from immutable tag `v0.11.8` / source
+`7d6d1fa37b1d388d7003319c31c185e4f6819905`. Weather artwork/fallback fixes (27.9–27.10) and Debian
+APT security maintenance are pushed to main (`e4730e6`, `7d6d1fa`). Corrected [main CI 41978877088](https://github.com/crimsonclyde/vergissmeinnicht/actions/runs/41978877088)
+and [Release 41980150776](https://github.com/crimsonclyde/vergissmeinnicht/actions/runs/41980150776)
+passed all gates: **211 unit/security files / 1,615 tests**, **28 browser scenarios / 2 intentional
+skips**, lint/typecheck/audit, both native build/smoke/fixable-HIGH/CRITICAL scans, keyless signing,
+CycloneDX SBOM and exact-image version/revision/smoke checks. All three populated upgrades passed
+from 0.11.7, published 0.10.1-beta.0 and the retained beta.0 candidate. Superseded main run
+41978310437 detected APT's new CVE on both image scans and was cancelled by the correction;
+no scan suppression or weakened gate was used. Full local suites also passed.
+
+Independently inspected index: `sha256:d1eac6c539039b0b264ebba7c51cda4f8302cbf2e6cfdf21afe1b72048fbaf7a`;
+linux/amd64 `sha256:97daf804c750623fe5ad6feca1e378668b0e1dfa1071d9a887392b7cd1a1c041`, linux/arm64
+`sha256:698809e41212797ab57982133dfdff64bd37a296c60a4b5857331107481d2dc1`. Tags `0.11.8`, `0.11`
+and `latest` all resolve to this index; Unraid points to 0.11.8. Signing evidence is the successful
+workflow, not independent local cosign verification. No migration, new application permission,
+credential, provider or runtime data flow; OS maintenance patches APT and installs maintained CAs.
+Security policy and release/artwork/architecture docs updated. Owner count **53**, next **54**;
+Release 42/dedication unchanged. No live deployment. Pre-existing owner mock-ups/screenshots remain
+untracked and untouched. Remaining: physical-device/real-screen-reader review, day/night-specific
+art selection (no forecast flag) and existing arbitrary-photo readability/build chunk-size limits.
+
+**Release preparation — 0.11.8, owner milestone 53 (2026-11-05): DONE; published below.** Owner explicitly
 authorized a new release and push after weather completion (27.9–27.10). Includes complete known-condition
 artwork, correct fallback sizing and a native-symbol fallback for failed Weather images. Git tag
 `v0.11.8`, release title/version `0.11.8`; count remains **52** until publication, next **53**.

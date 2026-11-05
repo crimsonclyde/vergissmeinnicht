@@ -1700,3 +1700,8 @@ least 2.6.2 or the build fails. Existing pinned Node digest, non-root runtime, P
 floors, native smoke tests and fixable-HIGH/CRITICAL scan gates remain. No vulnerability suppression,
 runtime permission, application endpoint, credential, provider or data-flow change. Native builds,
 smoke tests and scans must pass before release; final results are in the execution ledger.
+
+Verified for 0.11.8: corrected main CI `41978877088` and tagged Release `41980150776` passed both
+native image build/smoke/scan gates without suppressions; exact published image checks and all three
+populated upgrades passed. Local patched-base inspection confirms APT/library 2.6.2. Stable release
+published; no live deployment or application security-boundary change.
