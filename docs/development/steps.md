@@ -18,6 +18,29 @@ For every completed task, add a concise completion note, tests/checks performed,
 
 ## Current state — resume here
 
+**Release preparation — 0.12.0, owner milestone 54 (2026-11-05): IN PROGRESS.** Owner explicitly
+authorized commit, push and a new 0.12.0 release after approving the section-36.7 OAuth work. Release
+title/version is bare `0.12.0`, tag `v0.12.0`, image `0.12.0`; stable publication moves `0.12`/`latest`.
+Count remains **53** until publication; next **54**. Special Release 42/dedication preserved.
+Selective commit includes issuer metadata/tests/docs, release notes and repository-only Unraid version
+pin; pre-existing owner assets stay excluded. No live deployment, tunnel setup, public exposure or
+credentials. Immediate upgrade predecessor independently read from GHCR as 0.11.8 index
+`sha256:d1eac6c539039b0b264ebba7c51cda4f8302cbf2e6cfdf21afe1b72048fbaf7a`; workflow pin updated,
+retaining older published/candidate upgrade checks. No migration/dependency/new security surface.
+Local unit/security 1,644 tests, lint/typechecks/build and targeted browser checks already verified;
+fresh dependency audit finds no known vulnerabilities. Full local browser run is in progress. Main CI
+must pass before tagging; tagged Release must pass both native publishing builds/smoke/scans,
+signing/SBOM and exact-image/populated-upgrade checks before GitHub Release publication.
+
+**Secure MCP Tunnel OAuth follow-up (36.7, 2026-11-05): approved local implementation ready for review.**
+PRMD now reuses the SDK's exact issuer, including its root slash. Added 29 protocol/security tests and
+extended desktop/phone consent tests through password/MFA, decline, renewed consent and revocation.
+All 1,644 unit tests verified across the full run and permission-corrected rerun; targeted browser
+checks, lint/typechecks/build and documentation checks pass. [Operator guidance](../admin/mcp.md)
+records source-verified released v0.0.19 Docker/same-origin HTTPS assumptions. Existing Tailscale
+origin, authentication and resource binding remain. Live integration/deployment is unapproved and
+untested; [report](mcp-tunnel-oauth-review.md) retains the remaining hosted/network gates.
+
 **Published owner release 53 (2026-11-05): 0.11.8.** [GitHub Release](https://github.com/crimsonclyde/vergissmeinnicht/releases/tag/v0.11.8)
 published at `2026-11-05T06:38:58Z`, stable and not a draft, from immutable tag `v0.11.8` / source
 `7d6d1fa37b1d388d7003319c31c185e4f6819905`. Weather artwork/fallback fixes (27.9–27.10) and Debian
@@ -6278,3 +6301,89 @@ Remaining limits: physical iOS/Android keyboard and real-screen-reader review; e
 chunk-size warnings. Timing remains ephemeral/tab-local, without sound or background-alarm guarantees.
 This final documentation-only record changes no security surface and does not rerun the already passed
 source gates. The original security impact/reuse controls remain in 27.2–27.4 and the security policy.
+
+### 36.7 Secure MCP Tunnel OAuth compatibility review (2026-11-05)
+
+**Status:** DONE for the initial report; owner subsequently approved the local implementation below.
+Live integration remains unapproved and untested.
+**Prepared:** [Compatibility report](mcp-tunnel-oauth-review.md), comparing VMN's OAuth adapter,
+transport, consent/MFA, repository resource/token handling, Origin guard and logging with official
+OpenAI documentation and pinned tunnel-client sources. Compared latest public v0.0.19
+(`01d67bb4da0d8359b808b4761f8db171ab682cd7`) against current master
+(`fb43d565373123433b02b4972e734514e9f37875`). Confirmed private browser authorization plus registered
+machine-endpoint tunneling is source-supported; recommend the same Tailscale HTTPS origin as MCP
+target. Confirmed VMN issuer trailing-slash inconsistency and the absence of master's separate-origin
+forwarding allowlist from that release. Separated hosted resource/issuer, DCR, refresh and reachability
+questions from confirmed gaps. Proposed a minimal generic metadata correction, focused protocol and
+browser/transport tests, and an isolated Docker/Unraid integration and credential rollback plan.
+
+**Tests/checks:** existing `pnpm exec vitest run apps/server/src/http/mcp.test.ts
+apps/server/src/logging.test.ts`: **2 files / 25 tests passed**. Pure installed-SDK metadata evaluation
+confirmed root issuer serialization; source/release review and local documentation links/diff checked.
+No new automated tests added before approval; no hosted integration success claimed.
+
+**Security surface changed:** NO — report/ledger only. No application/test code, dependency, schema,
+configuration, deployment infrastructure, production data, credentials or Unraid software changed.
+Existing security policy remains normative; the report records future sensitive-flow/test gates without
+marking them implemented. Owner mock-ups/screenshots remain untouched.
+**Remaining:** owner review, then the scoped correction/test/docs implementation if approved;
+separate approval for actual integration once a private sandbox origin and verified client artifact
+are concrete. No public exposure, static bearer workaround, authentication weakening, release or
+deployment. Owner milestone remains **53**, next release **54**; special Release 42/dedication preserved.
+
+#### 36.7 Approved issuer normalization and targeted tests (2026-11-05)
+
+**Status:** DONE locally, ready for owner code review. Owner approved the minimal protocol correction,
+targeted tests and released-v0.0.19 deployment documentation, explicitly excluding live changes.
+
+**Implemented:** `apps/server/src/mcp/oauth.ts` now takes PRMD `authorization_servers[0]` from
+`metadata.issuer`, so both discovery documents identify the same root issuer with a trailing slash.
+The production behavior change is one metadata field; `PUBLIC_ORIGIN`, browser URLs, registered
+machine paths, existing grant `/mcp` resource values, SDK OAuth/PKCE, MFA, cookie CSRF/Origin and
+Workspace/role/tool checks remain unchanged. No migration, configuration option or dependency added.
+
+**Tests:** new `mcp-oauth.test.ts` adds **29** HTTP protocol/security cases: exact metadata/challenge/
+endpoint/auth-method values, hostile request headers, disabled endpoints, DCR/public-only safe
+redirects/input bounds/SDK loopback matching, authorization errors/decline/state, omitted and foreign
+resources across authorization/exchange/refresh, verifier/client/callback/form-duplicate negatives,
+expired requests/codes, code replay, refresh rotation/scope/concurrency/replay/30-day and 90-day caps,
+token-issue rollback, authenticated same-origin consent and foreign-account revoke refusal, MFA grant
+revocation/consent gating and code/verifier/token log/audit exclusion. Existing MCP tests retain the
+Workspace/role/tool and mutation-transaction negatives. The enhanced Guide browser test completes
+logged-out password + TOTP, retains the pending consent URL, requires explicit Workspace selection,
+declines, starts new consent and revokes a granted connection on desktop and phone.
+
+**Checks/results:**
+
+- `pnpm exec vitest run apps/server/src/http/mcp-oauth.test.ts apps/server/src/http/mcp.test.ts
+  apps/server/src/logging.test.ts apps/server/src/http/mfa.test.ts`: **4 files / 67 tests passed**.
+- `pnpm lint`, full `pnpm typecheck` and `pnpm build` pass; build retains the existing large-chunk warning.
+- Full `pnpm test`: **208 files / 1,627 tests passed**, 17 failures in four pre-existing files and nine
+  unhandled errors under sandbox restrictions (loopback `listen EPERM`; CLI subprocess assertion).
+  Reran exactly `run-events.test.ts`, `document-file.test.ts`, `smtp-email-sender.test.ts` and
+  `database-version.test.ts` with the required local execution permissions: **4 files / 28 tests
+  passed**, no errors. Thus **all 212 files / 1,644 tests are verified across the full run and rerun**;
+  no test, timeout or production security check was weakened to accommodate the environment.
+- `pnpm exec playwright test e2e/guide.spec.ts --grep 'MCP requires' --workers=1`: **2 passed**
+  (desktop Chromium and Pixel 7 Chromium); only disposable local test servers/accounts used.
+- Local documentation links, YAML syntax in the report/operator examples and `git diff --check` pass.
+  Reviewed Dockerfile, config and OAuth registration behavior at released source
+  `01d67bb4da0d8359b808b4761f8db171ab682cd7`; no image/container or hosted product was run.
+
+**Documentation:** operator guide now specifies same-origin Tailscale HTTPS for v0.0.19, released YAML
+shape, image `run` entrypoint/doctor override, no host-port publication, loopback health, explicit UID
+and protected file mounts, raw/payload logging off and separate runtime/application credentials.
+Source-verified behavior is distinguished from proposed hardening and untested routing. Unreleased
+forwarding options are explicitly excluded. Architecture/security policy and report status updated.
+
+**Security impact:** LOW, metadata consistency only; no new surface, credential type or permission.
+Existing auth/resource/Workspace controls preserved and covered by negatives. No production credential
+created, Unraid access/software installation, container change, exposed port, deployment, commit/push
+or release. Owner assets untouched. Milestone remains **53**, next **54**, Release 42/dedication intact.
+
+**Remaining live-integration gates:** separate approval and concrete isolated sandbox/tunnel/artifact;
+browser and container DNS/ACL/TLS reachability, actual released-client OAuth catalog, hosted DCR `none`,
+issuer/resource handling across the shim, token exchange/refresh/revocation and read-only tool success.
+Docker hardening/file permissions are not runtime-validated. No mock-control-plane transport suite or
+live OpenAI call was added; existing VMN unit tests and browser tests cannot prove those layers. A
+separate-origin Docker HTTP target remains outside the supported v0.0.19 configuration in this change.

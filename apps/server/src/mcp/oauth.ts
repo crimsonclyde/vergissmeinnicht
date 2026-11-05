@@ -49,7 +49,8 @@ export async function registerMcpOAuth(app:FastifyInstance,services:AppServices)
    const input=new URLSearchParams(String(body));const parsed:Record<string,string>={};for(const [key,value]of input){if(Object.hasOwn(parsed,key)){done(new InvalidRequestError());return;}parsed[key]=value;}done(null,parsed);
   });
   machine.get('/.well-known/oauth-authorization-server',{config:{mcpProtocol:true}},async()=>metadata);
-  machine.get('/.well-known/oauth-protected-resource/mcp',{config:{mcpProtocol:true}},async()=>({resource:services.mcp.resource,authorization_servers:[services.publicOrigin],scopes_supported:[...MCP_SCOPES],resource_name:'VergissMeinNicht'}));
+  // RFC 8414 issuer identifiers must match exactly, including the SDK's root trailing slash.
+  machine.get('/.well-known/oauth-protected-resource/mcp',{config:{mcpProtocol:true}},async()=>({resource:services.mcp.resource,authorization_servers:[metadata.issuer],scopes_supported:[...MCP_SCOPES],resource_name:'VergissMeinNicht'}));
   for(const [method,url]of [['GET','/authorize'],['POST','/token'],['POST','/register'],['POST','/revoke']] as const){
    machine.route({method,url,bodyLimit:16*1024,config:{mcpProtocol:true,rateLimit:{max:url==='/register'?20:100,timeWindow:15*60000}},handler:async(request,reply)=>{
     // SDK router owns protocol validation; Fastify owns parsing, limits and the response.

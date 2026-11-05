@@ -493,6 +493,39 @@ always-on container host. A VPS/public inbound listener is not required for that
 Security surface changed by this assessment: **NO**. Implementing it will add new credentials,
 permission boundaries and sensitive data flows and must update these gates with concrete evidence.
 
+### MCP issuer consistency and released tunnel-client review (36.7, 2026-11-05)
+
+**Security impact: LOW, protocol metadata correction.** The owner approved the minimal issuer fix,
+targeted tests and deployment documentation after the [compatibility report](mcp-tunnel-oauth-review.md).
+No new route, credential type, permission, resource alias, outbound call or tunnel is introduced.
+
+- [x] PRMD `authorization_servers[0]` reuses the SDK-generated AS `issuer`, including its root slash.
+  `PUBLIC_ORIGIN`, cookie Origin checks, browser authorization and stored `/mcp` resource are unchanged.
+  Tests assert exact equality, endpoint URLs, scopes/grants/S256/`none`, challenge discovery and
+  independence from hostile Host/forwarded headers. No Harpoon URI is advertised by VMN.
+- [x] HTTP protocol negatives retain public-only DCR, safe callback registration, SDK redirect/PKCE
+  checks, authenticated same-origin consent, MFA gating and exact resource binding. Foreign/tunnel/
+  Harpoon audiences remain refused at authorization, exchange and refresh. Disabled MCP exposes none
+  of its routes; unknown state-changing requests still encounter ordinary CSRF validation first.
+- [x] Code/refresh replay revokes the grant; wrong verifier/client/callback/resource does not issue
+  tokens. Tests cover token-issue rollback, refresh scope policy, rotation/concurrent replay and
+  30-day refresh/90-day grant bounds. Logging/audit capture excludes code/verifier/access/refresh
+  values. Existing scoped MCP role/tool/Workspace and transaction-time authorization tests remain.
+- [x] Desktop and phone browser tests preserve a pending consent URL through password and TOTP,
+  require explicit Workspace selection, support decline and renewed consent, and revoke the grant.
+- [ ] Live integration remains a separate gate: pin/verify released v0.0.19, same-origin private HTTPS
+  target, independent browser/container tailnet routing, tagged OAuth catalog, actual hosted DCR
+  `none`, canonical resource/issuer round trip, refresh and revocation. No master-only forwarding
+  allowlist, plaintext/TLS exception, static MCP bearer or broadened proxy/Origin trust is approved.
+- [ ] Validate the documented Docker hardening/UID/file permissions against the selected image in
+  an isolated, separately authorized test. No published port, public relay, production data or host
+  software installation. Keep raw HTTP logging/payload capture off. OpenAI receives MCP and OAuth
+  artifacts in that future flow; transport/runtime credentials remain separate from VMN OAuth and
+  Recipe image billing. Cleanup must revoke both the test VMN grant and dedicated tunnel credential.
+
+Evidence and exact test results are recorded in ledger 36.7. No live Unraid/container/credential
+changes were made; the unchecked deployment gates are not claimed by local unit/browser tests.
+
 ## Per-task security completion block
 
 For security-sensitive tasks, add/update a section in this file:

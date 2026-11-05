@@ -791,6 +791,14 @@ Recipes, original images, serving-scaled grocery transfers and the optional OAut
 
 Security surface changed. Local tests cover PKCE, revocation, role enforcement, duplicate requests, atomic shopping updates, image preservation and backup recovery. Desktop and mobile browser checks cover Recipes and consent. Live ChatGPT tunnel eligibility, OAuth reachability, voice and paid image quality require deployment validation. See [operator setup](../admin/mcp.md).
 
+MCP follow-up 36.7 (2026-11-05): both discovery documents now use the same SDK-generated issuer
+identifier (root trailing slash included); configured `PUBLIC_ORIGIN`, browser authorization and the
+repository's exact `/mcp` resource binding stay unchanged. The deployment candidate for released
+tunnel-client v0.0.19 uses that same private Tailscale HTTPS origin as the MCP target, so known
+machine OAuth endpoints can be registered without separate-origin forwarding. VMN emits standard
+HTTPS URLs only; Harpoon/shim rewriting belongs to the transport. Local protocol and browser tests
+do not establish hosted shim or Unraid compatibility. See the [review](mcp-tunnel-oauth-review.md).
+
 
 ### Focused Notes/Journal screens (35.3, 2026-11-03)
 

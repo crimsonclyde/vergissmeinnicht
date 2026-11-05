@@ -3,6 +3,7 @@ import { checkPhoneRecipe, checkRecipeSourcePreservation } from './phone-recipe.
 import { checkClockWeather, expectSharedSkySurface } from './clock-weather.ts';
 import {checkPhoneJournal} from './phone-journal.ts';
 import { randomUUID } from 'node:crypto';
+import { TOTP } from 'otpauth';
 import { mkdirSync } from 'node:fs';
 import { expect, test, type Page } from '@playwright/test';
 import { hashPassword } from '../packages/auth/src/password-hashing.ts';
@@ -362,15 +363,31 @@ test('Recipes preserve originals and transfer ingredients for the requested serv
  expect(errors).toEqual([]);
 });
 
-test('MCP requires visible consent and supports revoking a scoped user connection',async({page})=>{
+test('MCP requires MFA and visible consent and supports revoking a scoped user connection',async({page})=>{
  test.setTimeout(90000);page.setDefaultTimeout(15000);
  const email=`mcp-${randomUUID()}@example.org`,password='a fictional assistant review passphrase';const database=openDatabase(guideServerEnv.DATABASE_PATH);let workspaceId:string;
  try{const user=await createUserRepository(database).create({email:normalizeEmail(email),displayName:'Assistant reviewer',emailVerified:true,status:'ACTIVE',serverAdmin:false});database.sqlite.prepare("INSERT INTO accounts(id,account_id,provider_id,user_id,password,created_at,updated_at) VALUES(?,?,'credential',?,?,?,?)").run(randomUUID(),user.id,user.id,await hashPassword(password),Date.now(),Date.now());workspaceId=insertLegacyWorkspace(database,{name:'Fictional assistant kitchen',adminUserId:user.id}).id;enableCoreTools(database,workspaceId,user.id);}finally{database.close();}
  await page.goto('/');await page.getByLabel('Email').fill(email);await page.getByLabel('Password').fill(password);await signInGuide(page);await expect(page.getByRole('button',{name:/^Settings/})).toBeVisible();
  const client=await page.evaluate(async()=>{const r=await fetch('/register',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({client_name:'Fictional AI assistant',redirect_uris:['https://client.example.org/callback'],token_endpoint_auth_method:'none'})});return await r.json() as {client_id:string};});
  const authorization=new URLSearchParams({client_id:client.client_id,redirect_uri:'https://client.example.org/callback',response_type:'code',code_challenge:'a'.repeat(43),code_challenge_method:'S256',scope:'workspaces.read lists.read lists.write',resource:guideServerEnv.PUBLIC_ORIGIN+'/mcp'});
+ // Enroll only the disposable fixture, then start authorization logged out. The request must
+ // survive both password and TOTP screens without issuing a code or silently selecting a Workspace.
+ const secret=await page.evaluate(async password=>{const r=await fetch('/api/account/mfa/totp/setup',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({password})});if(!r.ok)throw new Error('Synthetic MFA setup failed');return (await r.json() as {secret:string}).secret;},password);
+ const totp=new TOTP({secret});
+ const enrolled=await page.evaluate(async code=>{const r=await fetch('/api/account/mfa/totp/confirm',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({code})});return r.status;},totp.generate());expect(enrolled).toBe(200);
+ await page.context().clearCookies();
+ await page.goto('/authorize?'+authorization);await expect(page.getByRole('heading',{name:'Sign in',exact:true})).toBeVisible();
+ const consentUrl=page.url();expect(new URL(consentUrl).pathname).toBe('/account/connections');expect(new URL(consentUrl).searchParams.has('request')).toBe(true);
+ await page.getByLabel('Email').fill(email);await page.getByLabel('Password').fill(password);await signInGuide(page);
+ await expect(page.getByRole('heading',{name:'Two-factor authentication',exact:true})).toBeVisible();expect(page.url()).toBe(consentUrl);
+ expect((await page.context().cookies()).some(cookie=>cookie.name.endsWith('vmn.session_token'))).toBe(false);
+ await page.getByLabel('Code from your authenticator app').fill(totp.generate({timestamp:Date.now()+30000}));await page.getByRole('button',{name:'Verify',exact:true}).click();
+ await expect(page.getByRole('heading',{name:'Connect Fictional AI assistant'})).toBeVisible();expect(page.url()).toBe(consentUrl);
+ await expect(page.getByRole('checkbox',{name:'Fictional assistant kitchen',exact:true})).not.toBeChecked();await expect(page.getByRole('button',{name:'Allow connection',exact:true})).toBeDisabled();
+ await page.route('https://client.example.org/**',route=>route.fulfill({contentType:'text/plain',body:'Fictional OAuth callback'}));
+ await page.getByRole('button',{name:'Decline',exact:true}).click();await expect(page).toHaveURL(/^https:\/\/client.example.org\/callback\?error=access_denied/);
  await page.goto('/authorize?'+authorization);await expect(page.getByRole('heading',{name:'Connect Fictional AI assistant'})).toBeVisible();await expectAccessible(page,'MCP consent');
- await page.getByRole('checkbox',{name:'Fictional assistant kitchen',exact:true}).check();await page.getByRole('checkbox',{name:'Add grocery items',exact:true}).check();await page.route('https://client.example.org/**',route=>route.fulfill({contentType:'text/plain',body:'Fictional OAuth callback'}));
+ await page.getByRole('checkbox',{name:'Fictional assistant kitchen',exact:true}).check();await page.getByRole('checkbox',{name:'Add grocery items',exact:true}).check();
  await page.getByRole('button',{name:'Allow connection',exact:true}).click();await expect(page).toHaveURL(/^https:\/\/client.example.org\/callback\?code=/);
  await page.goto(guideServerEnv.PUBLIC_ORIGIN+'/account/connections');await expect(page.getByText('Fictional AI assistant',{exact:true})).toBeVisible();await page.getByRole('button',{name:'Revoke connection',exact:true}).click();await expect(page.getByText('Revoked',{exact:true})).toBeVisible();await page.evaluate('window.scrollTo(0,0)');await expectAccessible(page,'MCP revoked connection');
  await page.setViewportSize({width:320,height:850});expect(await page.evaluate('document.documentElement.scrollWidth <= innerWidth')).toBe(true);

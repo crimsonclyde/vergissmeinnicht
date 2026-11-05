@@ -3,7 +3,8 @@
 MCP is optional and disabled by default. Set `MCP_ENABLED=true` and restart VMN to offer the
 Streamable HTTP endpoint at `${PUBLIC_ORIGIN}/mcp` and **Profile & settings → AI connections**.
 Enabling it does not publish a port, install a tunnel, grant an account access or enable image billing.
-Use an HTTPS public origin for production; existing trusted-proxy/TLS deployment rules still apply.
+Use an HTTPS `PUBLIC_ORIGIN` for production; it may remain private Tailscale HTTPS. Existing
+trusted-proxy/TLS deployment rules still apply.
 
 ## User authorization
 
@@ -37,31 +38,140 @@ require the user's OAuth token; the tunnel credential never grants application a
 
 Before installing anything, verify the account's custom-plugin/Tunnel access, Platform organization
 association and supported OAuth public-client registration. ChatGPT Plus alone does not establish
-these entitlements. Get the official tunnel client from the OpenAI repository, verify its published
-release/checksum and follow the current [Secure MCP Tunnel documentation](https://developers.openai.com/api/docs/guides/secure-mcp-tunnels).
-A typical operator-owned profile is initialized with:
+these entitlements. Follow the [Secure MCP Tunnel documentation](https://developers.openai.com/api/docs/guides/secure-mcp-tunnels)
+and the [compatibility review](../development/mcp-tunnel-oauth-review.md). The configuration below
+targets released **tunnel-client v0.0.19**, source
+`01d67bb4da0d8359b808b4761f8db171ab682cd7`; it has been checked against that release's
+[Dockerfile](https://github.com/openai/tunnel-client/blob/01d67bb4da0d8359b808b4761f8db171ab682cd7/Dockerfile)
+and [configuration reference](https://github.com/openai/tunnel-client/blob/01d67bb4da0d8359b808b4761f8db171ab682cd7/docs/configuration.md).
+These are source-verified assumptions, **not a tested Unraid installation or hosted OAuth connection**.
 
-```sh
-tunnel-client init --profile vmn --tunnel-id YOUR_TUNNEL_ID --mcp-server-url http://vmn:3000/mcp
+### Same-origin HTTPS for v0.0.19
+
+Keep VMN's existing `PUBLIC_ORIGIN`, for example `https://vmn.example-tailnet.ts.net`. Configure the
+tunnel's MCP target as that exact origin plus `/mcp`, rather than an internal Docker HTTP address.
+Both the user's browser and the tunnel container must independently resolve/reach this HTTPS address
+and verify its certificate. A Docker bridge does not itself join the tailnet or supply its DNS.
+Do not alter proxy trust, disable TLS verification, publish ports or reuse VMN's Tailscale state to
+solve a routing failure. Verify the intended private path in a separately authorized sandbox first.
+
+VMN publishes the canonical issuer with its root slash (`https://vmn.example-tailnet.ts.net/`) in
+both discovery documents; the resource remains exactly `https://vmn.example-tailnet.ts.net/mcp`.
+Authorization, registration and token URLs remain HTTPS on that origin, without an extra path slash.
+No tunnel identifier or Harpoon URI is emitted by VMN.
+
+The released client registers known same-origin OAuth machine targets. The supported hosted shim can
+carry registration/token/revocation requests through Harpoon while browser authorization stays at
+VMN's private `/authorize` and `/account/connections`. It does not tunnel the whole authorization
+server. An unregistered HTTPS machine endpoint remains direct and may fail from a cloud OAuth caller.
+See the released [OAuth flow](https://github.com/openai/tunnel-client/blob/01d67bb4da0d8359b808b4761f8db171ab682cd7/docs/architecture.md#oauth-protected-mcp).
+
+Do not use `harpoon.oauth_forward_origins`, `HARPOON_OAUTH_FORWARD_ORIGINS` or
+`--harpoon.oauth-forward-origin`: **v0.0.19 does not have that capability**. Discovery trust alone
+does not grant forwarding to the different HTTPS origin advertised by an internal Docker HTTP target.
+Do not substitute host-suffix wildcards, generic Harpoon targets or application-side URI rewriting.
+
+### Docker configuration assumptions (example only)
+
+No deployment is authorized by these examples. For an approved isolated test, verify the official
+v0.0.19 artifact/provenance and pin its digest before starting it. The released image includes
+`ENTRYPOINT ["/usr/bin/tunnel-client", "run"]`; Compose `command` supplies flags, not another `run`.
+The Dockerfile's `EXPOSE 8080` does not publish a host port. Keep the loopback health listener and
+omit `ports`, host networking and remote UI access.
+
+An operator-owned `tunnel-client.yaml` uses the released schema (replace only the placeholders):
+
+```yaml
+control_plane:
+  tunnel_id: REPLACE_WITH_DEDICATED_TEST_TUNNEL
+  api_key: file:/run/secrets/tunnel-runtime-key
+mcp:
+  server_urls:
+    - channel: main
+      url: https://vmn.example-tailnet.ts.net/mcp
+health:
+  listen_addr: 127.0.0.1:8080
+log:
+  level: info
 ```
 
-Use a separate runtime credential restricted to the tunnel's Read/Use permissions, stored in a
-protected secret/profile file. Never reuse the Recipe image key, commit a profile or put credentials
-in a shell command or Compose file. Run the profile's `doctor`, then `run`, following the installed
-client's help. Keep it alive beside VMN with your host's existing container/service manager. Configure
-the custom ChatGPT plugin for that tunnel and OAuth. No tunnel binary/configuration or service has been
-installed automatically by this implementation.
+Leave poll channels unset to preserve the released default main/Harpoon handling; configuring only
+`main` would disable the machine OAuth route. No static MCP bearer/header injection is configured.
+The runtime credential is separate from VMN user OAuth and the Recipe image key; it needs Tunnels
+Read/Use only. Reference an operator-managed protected key file; never put its value in YAML,
+Compose, command arguments or chat. No key is created by VMN or by this documentation.
 
-**Integration gate:** tunneled MCP discovery does not automatically tunnel the OAuth authorization
-server. The sign-in/consent URL must be reachable by the user's browser and the token endpoint must be
-reachable by the client making the exchange. A phone in the tailnet only solves the browser part if
-ChatGPT's token exchange is cloud-originated. Validate that flow on the actual account before treating
-this deployment as ready; do not disable OAuth to bypass it. Public OAuth exposure, another relay or
-hosting changes require a deliberate deployment decision. The current code does not add those changes.
+A reviewable Compose excerpt for the later test is:
+
+```yaml
+services:
+  tunnel-client:
+    image: ghcr.io/openai/tunnel-client:v0.0.19 # Replace with its verified immutable digest before use.
+    command: ["--config", "/run/config/tunnel-client.yaml"]
+    user: "65532:65532"
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+    pids_limit: 128
+    mem_limit: 256m
+    cpus: 1.0
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=16m,uid=65532,gid=65532,mode=0700
+    environment:
+      LOG_HTTP_RAW_UNSAFE: "false"
+      HARPOON_CAPTURE_PAYLOADS: "false"
+    volumes:
+      - type: bind
+        source: ./tunnel-client.yaml
+        target: /run/config/tunnel-client.yaml
+        read_only: true
+        bind:
+          create_host_path: false
+      - type: bind
+        source: /absolute/operator-owned/tunnel-runtime.key
+        target: /run/secrets/tunnel-runtime-key
+        read_only: true
+        bind:
+          create_host_path: false
+```
+
+The source Dockerfile does not select a non-root user; the excerpt selects a numeric UID explicitly.
+Both mounted files and their paths must be readable by that UID, with the key restricted to it. The
+read-only/temp/resource bounds are proposed hardening to validate with the selected image, not
+observed runtime results. No Docker socket, production data, Tailscale state, host-root mount or
+Cloudflare companion is needed. Do not launch a public relay bundled in the image. No restart policy
+is enabled for this temporary test; use one poller and stop it explicitly on failure/completion.
+
+For a non-container profile, the equivalent initialization uses the same private HTTPS target:
+
+```sh
+tunnel-client init --profile vmn --tunnel-id YOUR_TUNNEL_ID --mcp-server-url https://vmn.example-tailnet.ts.net/mcp
+```
+
+Run `doctor` before the test runtime. With the container image, override the entrypoint to
+`/usr/bin/tunnel-client` for `doctor --config /run/config/tunnel-client.yaml --explain` or CLI help;
+otherwise Docker appends these after `run`. Keep runtime health/admin access within the container's
+loopback namespace. Do not open a port just to inspect readiness.
+
+**Integration gate:** local tests verify VMN metadata equality, DCR, code/PKCE exchange, exact resource
+binding, token refresh/rotation/replay, MFA and current authorization. They do not verify the hosted
+service's shim or this Docker/Unraid network. Before calling the integration ready, confirm discovery
+and the OAuth-role target catalog, browser MFA/consent, actual DCR `none`, canonical issuer/resource
+through exchange/refresh, a read-only synthetic call and revocation. The hosted product must retain
+the newest refresh token. VMN accepts omitted or identical refresh scopes; narrowing is refused.
+After an uncertain refresh, reauthorize instead of replaying the old token, which revokes the grant.
+MCP content and OAuth artifacts pass through OpenAI; private listeners do not mean local-only data.
+No automated tunnel setup or live check has been performed. The detailed isolated test and rollback
+plan is in the [review](../development/mcp-tunnel-oauth-review.md#isolated-docker-integration-and-rollback-plan-for-unraid).
 Test text/dictation from the phone with the desktop off, reconnects, token renewal/revocation and
 retries. Native live voice calling custom tools is a separate client capability, not guaranteed here.
 Claude can use the same standard MCP/OAuth endpoint when its client can reach it; its cloud connector
 cannot be assumed to join the tailnet.
+
+On abort/completion, stop only the test poller, revoke the synthetic VMN grant, remove the dedicated
+test connector/tunnel and revoke its runtime key, then remove test-only files/volumes. A stopped
+poller or deleted connector alone does not revoke VMN credentials. No production DB rollback is needed;
+the existing Tailscale-only installation must remain untouched.
 
 ## Optional OpenAI Recipe images
 
