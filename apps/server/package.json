@@ -12,7 +12,7 @@
   "dependencies": {
     "@fastify/helmet": "13.1.1",
     "@fastify/rate-limit": "11.2.0",
-    "@fastify/static": "10.1.8",
+    "@fastify/static": "10.1.9",
     "@modelcontextprotocol/sdk": "1.32.2",
     "@vergissmeinnicht/application": "workspace:*",
     "@vergissmeinnicht/auth": "workspace:*",
