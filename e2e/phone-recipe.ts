@@ -42,8 +42,20 @@ export async function checkPhoneRecipe(page: Page, workspaceId: string) {
   await expectAccessible(page, 'Recipe phone details');
   await page.getByText('Images & links', { exact:true }).click();
   await page.getByText('Images and originals', { exact:true }).click();
+  await page.evaluate(() => {
+    const canvas = document.createElement('canvas');
+    canvas.width = 1024;
+    canvas.height = 1536;
+    const context = canvas.getContext('2d')!;
+    context.fillStyle = 'orange';
+    context.fillRect(0, 0, canvas.width, canvas.height);
+    const png = new Promise<Blob>((resolve, reject) => canvas.toBlob(blob => blob ? resolve(blob) : reject(new Error('PNG fixture failed'))));
+    Object.defineProperty(navigator.clipboard, 'read', {
+      value: async () => [new ClipboardItem({ 'image/png': await png })],
+    });
+  });
   const uploaded = page.waitForResponse(response => response.request().method()==='POST' && response.url().endsWith('/recipes/attachments'));
-  await page.getByLabel('Upload original image', {exact:true}).setInputFiles({name:'pancakes.png',mimeType:'image/png',buffer:Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAIAAACQd1PeAAAADElEQVR4nGP4z8AAAAMBAQDJ/pLvAAAAAElFTkSuQmCC','base64')});
+  await page.getByRole('button', {name:'Paste copied image',exact:true}).click();
   expect((await uploaded).status()).toBe(201);
   await action('Back').click(); await expect(editor).toContainText('Mix the batter.');
   await expect(editor.locator('img')).toHaveCount(1);
@@ -61,7 +73,16 @@ export async function checkPhoneRecipe(page: Page, workspaceId: string) {
   await page.screenshot({path:'/tmp/vmn-recipe-phone-details.png',fullPage:true});
   await action('Save recipe').click();
   await expect(page.getByRole('status').filter({hasText:'Recipe saved.'})).toBeVisible();
-  await expect(page.getByRole('img',{name:/pancakes.png/})).toBeVisible();
+  // A fresh read must load the sizing rules without visiting the lazy editor.
+  await page.reload();
+  await page.getByRole('button', {name:/Pancakes for breakfast/}).click();
+  const preview = page.getByRole('img', {name:/recipe-image.png/});
+  await expect(preview).toBeVisible();
+  await expect.poll(() => preview.evaluate(image => (image as HTMLImageElement).naturalHeight)).toBeGreaterThan(288);
+  const bounds = await preview.boundingBox();
+  expect(bounds?.width).toBeLessThanOrEqual(320);
+  expect(bounds?.height).toBeLessThanOrEqual(288);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
 }
 
 export async function checkRecipeSourcePreservation(page: Page, workspaceId: string) {

@@ -6512,3 +6512,318 @@ GitHub confirms not draft/not prerelease. Owner count updated to 55 (next 56) in
 publication; immutable tag, prior versions and special Release 42 unchanged. Documentation-only final
 bookkeeping adds no security surface; links/XML/diff checks pass. No new tests needed beyond the
 already successful source gates. No live deployment; hosted tunnel and physical-device limits remain.
+
+### 36.9 ChatGPT tool discovery diagnosis (2026-11-08)
+
+**Status:** DONE for the live ChatGPT read-only acceptance test. The owner reported an existing
+developer plugin release with empty `mcp_servers` registry metadata, no callable VMN tools,
+and a prior generic OAuth reconnect failure. The registry observation does not locate the failure
+within ChatGPT registration, tunnel dispatch or upstream authorization.
+
+**Checks:** At 09:03:44 UTC a credential-free probe over the private tailnet got HTTP 200 JSON from
+VMN readiness and both OAuth discovery routes, including both slash variants. Discovery returned
+the same canonical root issuer in both documents, the exact `/mcp` resource, same-origin OAuth
+endpoints, public-client authentication `none`, PKCE S256 and the expected read scopes. A
+Streamable HTTP `initialize` POST reached VMN and returned its expected 401 OAuth challenge.
+These observations verify the VMN path from the diagnostic machine. The deployed image tag and
+the poller's own upstream route were not observed.
+
+The existing MCP, OAuth and log-redaction suites passed (3 files, 55 tests). A temporary synthetic
+fixture also passed authenticated initialization, tool descriptor checks and the read sequence
+`list_workspaces`, `list_grocery_lists`, `get_grocery_list` against a disposable VMN instance.
+The fixture was removed after the run. VMN advertises tools and does not advertise MCP resources.
+In signed-in ChatGPT, the installed development plugin showed version 1.0.0, OAuth support and
+a disconnected app. Its management screen showed no tool catalog, Refresh control or connection
+details. At 09:05:52 UTC, the first Connect click opened ChatGPT's confirmation prompt. It did not
+complete account linking. The final confirmation was left open for the owner.
+
+**Owner retry:** At about 10:10 Berlin time (09:10 UTC), the browser reached VMN consent and
+ChatGPT reported that it could not connect the account. The screenshot also shows a prior VMN
+grant entry. Source inspection confirms VMN creates that entry and an authorization code at
+consent, before exchanging the code for access and refresh tokens. The entry therefore cannot
+verify a token exchange or identify which retry created it. Correlate the consent POST, token
+POST and MCP POST at 09:10 UTC before changing connector or tunnel configuration.
+
+**Unraid correlation:** The owner installed a one-hour SSH key restricted to the diagnostic
+desktop's tailnet address and a fixed command. The command selected only the VMN container and
+returned allowlisted route names and HTTP statuses for 09:09–09:12 UTC. A supplied SSH command
+was ignored and returned the same filtered output. VMN logged `POST /api/account/mcp/approve`
+with HTTP 200 and no `POST /token` or `POST /mcp` in that interval. The callback and hosted
+OAuth dispatch are the next boundaries to inspect. The probe did not query the tunnel or
+expose request data. This was temporary host diagnostic access; VMN application authorization
+and deployment configuration did not change.
+
+**Owner access constraint:** Keep temporary SSH diagnostic access available until the requested
+end-to-end validation is complete or the owner stops the work. Use a separate, source-restricted
+key with an expiry appropriate to the agreed session, a fixed command and no shell or forwarding.
+The command must select only the named VMN application container and emit allowlisted diagnostics.
+It may not inspect the tunnel container, other containers, host configuration, secrets or raw logs.
+The owner runs any separate tunnel checks from the existing operator session. After validation,
+record the outcome before retiring the diagnostic access and record its cleanup.
+
+**Container inventory:** The owner confirmed `VergissMeinNicht` on 0.12.1 was healthy and
+`OpenAI-Tunnel` on v0.0.19 was running. Docker process state alone does not verify OpenAI
+polling or OAuth dispatch. The tunnel's loopback readiness and ChatGPT acceptance remain open.
+
+**Readiness follow-up:** The owner approved keeping replacement diagnostic access through end-to-end
+validation and allowing the fixed helper to read the dedicated tunnel's loopback readiness status.
+The helper is source-restricted, expires after 24 hours and ignores supplied SSH commands. It returns
+only the readiness HTTP status and allowlisted VMN route statuses. A local mock confirmed it excludes
+query strings, unrelated routes and raw payloads. The owner installed the key and the live helper
+returned HTTP 200 from `OpenAI-Tunnel` `/readyz`. Its recent VMN results showed consent HTTP 200
+without a token or MCP POST. Readiness is verified; hosted OAuth dispatch and the ChatGPT read
+remain open. The replacement access remains available for verification.
+
+**Hosted discovery follow-up:** Signed-in Platform showed the named tunnel associated with the
+Personal Organization and an empty ChatGPT Workspaces column. The workspace picker offered one
+unlabelled ID, whose identity was not independently established. In signed-in ChatGPT, a temporary
+setup form using the exact existing tunnel ID and OAuth reported that OAuth discovery failed and
+left dynamic client registration unavailable. No connector was created or modified. Confirm the
+intended workspace association before saving any access change, then rerun discovery to test
+whether the association explains the failure.
+The 09:26:24 UTC retry reached VMN consent (HTTP 200) again while the tunnel reported ready.
+No token or MCP POST appeared in the subsequent VMN diagnostic output.
+The only workspace offered by Platform was staged. Automatic approval review blocked saving
+the association without explicit confirmation of that workspace and its tunnel access. The
+association was not changed.
+
+**After workspace association:** The owner saved the intended workspace association and reopening
+the Platform editor confirmed it persisted. A fresh ChatGPT OAuth discovery attempt with the
+existing tunnel ID still failed and dynamic client registration remained unavailable. The
+restricted SSH probe reported tunnel readiness HTTP 200 and no new token or MCP POST. The probe
+does not report discovery GETs. Check the configured MCP target and its same-origin OAuth
+discovery from inside the tunnel container before making a further configuration change.
+
+**Target verified:** The owner extended the fixed SSH helper to classify the dedicated container's
+target and report selected health states. The installed helper reported an HTTP MCP target and
+no file or profile, while control-plane polling, dispatch and response delivery all reported OK.
+This confirms the deployment uses the HTTP/HTTPS origin split described in the compatibility
+review. The live VMN HTTPS metadata is known good from the diagnostic desktop. The path from
+the tunnel container still needs its own TLS, routing and DNS preflight before changing the target.
+The helper reports fixed labels and status fields. It does not return credentials or raw logs.
+
+**HTTPS preflight:** The owner ran the read-only test from the tunnel container's network.
+The container resolved the VMN hostname, TLS validation passed, unauthenticated MCP returned
+HTTP 401, and both OAuth documents matched the private HTTPS origin. A local operator script
+was prepared to stage the target-only change, keep the current container as rollback and
+restore it if the replacement fails readiness. Bash syntax and a mocked Docker launch were
+checked. No tunnel runtime change has been applied or verified yet.
+
+**Target switch:** The initial operator script refused the launch settings before mutation.
+The revised script recognizes a main-channel HTTP URL and preserves supported Docker network
+topologies, including a namespace shared with VMN. Bash syntax and mocked shared and dedicated
+network inputs passed. The owner applied the switch and retained the original tunnel stopped
+for rollback. The restricted probe confirmed the exact private HTTPS target, readiness HTTP
+200, polling, dispatch and response delivery. VMN logged expected unauthenticated MCP 401s.
+A fresh ChatGPT setup form discovered the OAuth endpoints and offered dynamic client
+registration for the same tunnel. The existing plugin's account linking and the authorized
+grocery-list read still require verification. The restricted SSH key remains installed.
+
+**New ChatGPT plugin:** The existing plugin still exposed zero tools in the owner's test.
+The new setup's create button was disabled because its required name was blank. The diagnostic
+session named it VergissMeinNicht (HTTPS), kept OAuth dynamic client registration and selected
+only the Workspace and Lists read scopes. ChatGPT accepted creation and displayed its connection
+prompt. The owner must complete account linking and choose the authorized Workspace. The live
+tool inventory and grocery-list read remain unverified.
+
+**Live acceptance passed:** The owner authorized only the intended Workspace and the Workspace
+and Lists read scopes. VMN logged consent and token exchange with HTTP 200 at 14:02 UTC.
+ChatGPT showed the new HTTPS plugin connected. A test chat used the plugin to list one
+accessible Workspace, list one grocery List in that Workspace and read its 25 items without
+printing item contents. The VMN probe corroborated successful MCP traffic at 14:04 UTC.
+Some preceding MCP requests returned HTTP 400, followed by successful requests. The
+restricted log projection does not establish the cause of those 400s. The tunnel remained
+ready. The old HTTP tunnel container remains stopped for rollback, and the temporary SSH
+authorization remains subject to its existing expiry.
+
+**Remaining:** This live acceptance covered OAuth discovery, initial linking and scoped reads.
+It did not exercise token refresh after expiry, revocation, or write tools. The stopped rollback
+container, superseded ChatGPT plugin and temporary SSH entry remain available for owner cleanup.
+
+**Security impact:** Live configuration now associates the intended ChatGPT workspace with the
+private tunnel, uses a TLS-validated same-origin MCP target, and permits the owner's explicitly
+scoped OAuth grant. The diagnostic key remains source-restricted and expires automatically.
+Application code and authorization rules were not changed. Existing security policy still applies.
+
+#### Grocery and recipe write acceptance (2026-11-08)
+
+**Status:** Live grocery and pictured-meal writes verified. The owner requested the ChatGPT plugin name `vmn`. The configuration uses
+the working private HTTPS tunnel and Dynamic Client Registration. It requests Workspace read,
+Lists read and write, and Recipes read and write. The existing read-only plugin remains usable
+while the new grant is tested. The owner will review the ChatGPT notice and grant access to the
+selected Workspace in VMN.
+
+**Checks:** The tunnel probe reported readiness HTTP 200 and the expected HTTPS target. A second
+discovery attempt in ChatGPT found Dynamic Client Registration. The local MCP and OAuth suites
+passed (2 files, 33 tests).
+
+**Live checks:** The owner approved only ÖggÖgg and the requested scopes. The `@vmn` chat added
+one requested grocery item and verified it on read-back. ChatGPT searched the public web, adapted
+a recipe for two servings and generated the dish image. The image was downloaded from ChatGPT
+and uploaded through the existing VMN Recipe editor. ChatGPT used the returned VMN attachment
+reference in `prepare_recipe_meal`. VMN saved the pictured recipe and transferred three
+serving-scaled ingredients atomically. Both records were read back. Earlier image-free meal and
+standalone recipe calls failed without committing recipe or grocery changes. The combined new
+meal path requires an image. The restricted response did not establish the standalone failure's
+cause. No application code or authorization rules changed.
+
+**Remaining:** For a fully in-chat workflow, design a bounded way to hand a ChatGPT-generated
+image to the existing VMN upload validation. The tested handoff uses the Recipe editor.
+For additional tools, settle the first cleanup action and whether backup means a Workspace
+export or a full-server backup.
+Workspace export already has an admin-gated background job and a signed-in download route.
+Any delegated trigger needs its own explicit permission, retry protection and bounded status
+output before it is added.
+
+#### Phone Recipe images and assistant guidance (2026-11-08)
+
+**Implemented locally:** Reader Markdown styles load on Recipe detail even if the editor has
+never opened. On phones the image fits the available width and is capped at 18 rem or 40% of
+the small viewport height, whichever is smaller. The Recipe editor can paste a copied PNG
+or JPEG through the existing attachment upload. The file picker remains available.
+
+MCP initialization tells the assistant to ask when several authorized Workspaces or Lists
+match, and to use a named or sole eligible target. Meal guidance covers proposing choices,
+waiting for a selection, asking for servings, accounting for ingredients already on hand
+and scaling in VMN. Procedure edits resolve the Procedure and Section at the current
+revision. Step completion resolves the active Run and its actual RunStep.
+
+**Checks:** A 390 px live viewport reproduced a 1536 px wide Recipe image. The local phone
+browser check pasted a 1024 × 1536 image, reloaded the reader independently of the editor,
+and verified the height cap and lack of overflow at 320 px. The desktop Recipe check, web
+build, web and server type checks and 33 MCP/OAuth tests passed. MCP initialization tests
+verify that clients receive the Workspace and List selection guidance. In the live ÖggÖgg
+Workspace, the test Recipe was archived and Goat butter was removed from Shopping. Live MCP
+reads confirmed the Recipe no longer appears in active search and Goat butter is absent.
+
+**Remaining:** Deploy the local changes, then verify the guidance in ChatGPT with multiple
+authorized Workspaces and multiple Lists, including duplicate names, a supplied target, and
+an ambiguous target that requires a question before any write. Test the same behavior for
+Recipe serving counts and multiple matching Procedures, Sections and active Runs. When new
+tools are approved, define their questions and tests with their permissions. Contacts
+should resolve the Workspace and person or organization before acting. Notes should
+resolve the intended scope, collection and entry before acting. The clipboard bridge
+still requires a signed-in Recipe editor. A direct handoff needs a verified ChatGPT
+generated-file delivery mechanism and security review of its download boundary.
+
+**Security impact:** The new user-initiated clipboard entry point uses existing Recipe
+file validation and authorization. The assistant guidance changes neither OAuth scopes
+nor server authorization. The implementation adds no remote file fetch or new MCP tool.
+
+#### Shareable ChatGPT tunnel runbook (2026-11-08)
+
+**Implemented:** The [admin runbook](../admin/chatgpt-mcp-tunnel.md) provides a copyable
+ChatGPT or Codex prompt, separate browser and poller preflights, the working same-origin
+HTTPS topology, a scoped grocery read as the acceptance test, and a troubleshooting table
+based on the live Unraid setup. Linked it from the admin index and the MCP configuration
+guide. The guide now distinguishes the live results from the illustrative Docker hardening
+configuration.
+
+**Checks and remaining work:** Checked the setup against official OpenAI documentation,
+validated local links and headings, checked the shell snippet with Bash, and ran
+`git diff --check`. The runbook records the previous live acceptance. This documentation
+change did not rerun it or verify a separate direct Codex connection or hosted token renewal.
+
+**Security impact:** Documentation only. The runbook uses example identifiers, protected
+runtime credentials, scoped consent and redacted diagnostics. No deployment, authorization
+or application behavior changed.
+
+#### AI connections setup and diagnostics (2026-11-08)
+
+**Implemented:** The existing account page guides first-time setup, separates Workspace
+selection from tool permissions, and uses action-specific dropdowns for the scopes the
+assistant requested. Requested reads are preselected. Workspace selection and writes
+remain explicit. Connection cards show the saved access, expiry, and whether there is
+evidence of token exchange. Changing access uses disconnect and fresh consent.
+
+The browser diagnostics report checks unauthenticated MCP and OAuth discovery, compares
+the configured resource and issuer, and counts the current user's active grants with
+and without exchange evidence. The account page also provides a read-only grocery test
+prompt. The operator command `deploy/mcp-diagnostics.sh` checks Docker state, loopback
+readiness, HTTPS from the tunnel network and a bounded projection of recent VMN route
+statuses. The [runbook](../admin/chatgpt-mcp-tunnel.md) explains how to use both reports.
+
+**Checks:** Web and server type checks, web build, Bash syntax, diff check and 55 MCP,
+OAuth and log-redaction tests passed. Phone and desktop consent checks cover MFA,
+explicit choices, narrow layout, local diagnostics, an HTML proxy error, and revocation.
+The Docker report was exercised with synthetic readiness, metadata and secret-bearing
+log entries. It returned only the intended route statuses and rejected a query-bearing
+input URL.
+
+**Remaining:** Deploy and verify on a real tunnel with the new page. Its local probes
+are separate from hosted dispatch and a real assistant tool call. The Docker probe
+uses the host's resolver and trust store in the tunnel network namespace. Permissions
+are per grant, with one set for the selected Workspaces. Per-Workspace permissions
+and changing an existing grant in place remain separate design work.
+
+**Security impact:** A signed-in account gains a read-only boolean about its own existing
+grant's token exchange and can copy an aggregate report. The operator command reads
+only bounded Docker diagnostics. Existing OAuth scopes, MFA, grant immutability,
+revocation and mutation authorization are unchanged.
+
+#### Multi-Workspace acceptance and recovery (2026-11-08)
+
+**Implemented:** The tunnel runbook now has repeatable ChatGPT checks for ambiguous
+Workspaces, Lists, Runs and servings, plus a recovery checklist. Local MCP tests cover
+identically named grocery Lists in two selected Workspaces and one unselected Workspace.
+They exposed a misleading success-shaped reply when offline replay did not apply a grocery
+write. The MCP adapter now marks those outcomes as tool errors. Successful writes return
+only an applied outcome and duplicate flag, keeping List contents behind the Lists read scope.
+
+**Checks:** 62 MCP, OAuth, Lists and log-redaction tests passed, along with server type
+checking, targeted lint and diff checks. The live `vmn` Workspace discovery call returned
+only the one authorized Workspace. No consent change was needed for that check.
+
+**Remaining:** The new test checks VMN's isolation locally. Verify ChatGPT's questions and
+hosted token renewal after deployment, with a disposable multi-Workspace grant.
+
+**Security impact:** The grocery write response is narrower. It never forwards the offline
+replay snapshot or actor metadata. Workspace grants, roles, tool switches and the underlying
+replay transaction are unchanged.
+
+#### 0.13.1 preflight (owner release 56, 2026-11-08)
+
+**Live baseline:** The restricted Unraid probe returned readiness HTTP 200, the expected
+private HTTPS target, active polling and response delivery. ChatGPT read Shopping, added
+one synthetic item, and read it back. The item was removed in VMN. A later connector read
+succeeded without reconnecting, with token and MCP HTTP 200 recorded in the same window.
+The route projection does not expose the OAuth grant type. A separate live PKCE probe
+used a disposable Workspace-read grant. The Workspace read returned HTTP 200 before
+revocation. Revocation returned HTTP 200, the same access token was then refused with
+HTTP 401, and refresh was refused with HTTP 400.
+
+**List ambiguity:** With two Lists visible to the existing one-Workspace grant, the
+deployed client picked Shopping without asking. UI responses that appeared interrupted
+were retried, and two test entries were later found and removed. The disposable list
+itself remains because the browser's native confirmation was inaccessible to automation.
+The local candidate now puts the selection rule first in MCP instructions and repeats
+it in grocery write tool descriptions. After the candidate was deployed and the ChatGPT
+tools were refreshed, a fresh chat asked which of the two Lists to use and waited for a
+selection. A separate read of both Lists confirmed the test item was absent. The server
+receives explicit IDs and cannot tell from those IDs alone whether the user chose the
+destination.
+
+**Candidate checks:** The production Dockerfile built a local candidate image. The full
+local suite passed (1,653 tests), and four focused mobile and desktop browser checks for
+OAuth/diagnostics and Recipe image upload and rendering passed before the final instruction
+edit. After that edit, 34 targeted MCP/OAuth tests, lint, diff checks, and a rebuilt
+candidate image with the disposable Docker smoke test passed. The owner installed the
+matching candidate on Unraid. VMN readiness returned HTTP 200 and the existing connector
+could read the Workspace and both Lists. The existing SSH key allows read-only diagnostics.
+
+**Generated-image handoff:** The [OpenAI Plugins file input contract](https://developers.openai.com/plugins/reference#define-file-inputs)
+documents temporary download URLs and file IDs. It does not establish whether a native
+ChatGPT-generated image can be passed to the VMN plugin or provide a stable download
+origin for such images. Next verify the generated-file capability using a synthetic file
+and a diagnostic tool that reports only whether the metadata arrived, without fetching or
+logging the URL. Any downloader requires a reviewed fixed origin, redirect and DNS/IP
+controls, time and byte limits and existing image admission. The clipboard upload is
+the current candidate path.
+
+**Release gate:** Owner selected 0.13.1 for release 56. The live candidate passed the
+two-List clarification and disposable-grant revocation checks. The owner approved
+shipping clipboard upload in 0.13.1 and tracking native image handoff separately.
+The special 42nd release record is preserved.
+
+**Security impact:** Assistant guidance changed. No change to the authorization boundary,
+credential, upload endpoint or outbound access.

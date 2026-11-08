@@ -81,7 +81,9 @@ export function createMcpRepository({db}:AppDatabase,resource:string){
   },
   async connections(actor:User){
    if(!active(db,actor.id))throw new NotAuthorizedError();
-   return db.select().from(mcpGrants).where(eq(mcpGrants.userId,actor.id)).all().map(grant=>({id:grant.id,clientName:String(db.select().from(mcpClients).where(eq(mcpClients.id,grant.clientId)).get()?.metadata['client_name']??'MCP client'),workspaceIds:grant.workspaceIds,scopes:grant.scopes,expiresAt:grant.expiresAt,revokedAt:grant.revokedAt}));
+   return db.select().from(mcpGrants).where(eq(mcpGrants.userId,actor.id)).all().map(grant=>({id:grant.id,clientName:String(db.select().from(mcpClients).where(eq(mcpClients.id,grant.clientId)).get()?.metadata['client_name']??'MCP client'),workspaceIds:grant.workspaceIds,scopes:grant.scopes,expiresAt:grant.expiresAt,revokedAt:grant.revokedAt,
+    tokenIssued:db.select({present:sql<number>`1`}).from(mcpTokens).where(and(eq(mcpTokens.grantId,grant.id),eq(mcpTokens.kind,'refresh'))).get()!==undefined,
+   }));
   },
   async revokeOwned(actor:User,id:string){
    db.transaction(tx=>{if(!active(tx,actor.id))throw new NotAuthorizedError();const row=tx.select().from(mcpGrants).where(and(eq(mcpGrants.id,id),eq(mcpGrants.userId,actor.id))).get();if(!row)throw new NotAuthorizedError();tx.update(mcpGrants).set({revokedAt:new Date()}).where(eq(mcpGrants.id,id)).run();recordSecurityEvent(tx,{type:'MCP_CONNECTION_CHANGED',actor:{kind:'user',userId:actor.id,displayName:actor.displayName},subjectType:'user',subjectId:actor.id,occurredAt:new Date(),metadata:{action:'revoke',grantId:id}});},IMMEDIATE);

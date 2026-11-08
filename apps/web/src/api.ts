@@ -1233,7 +1233,7 @@ const journalPath = (workspaceId?: string) => workspaceId === undefined ? '/acco
 export type BringView = Omit<BringItem, 'createdAt' | 'updatedAt' | 'completedAt' | 'cancelledAt'> & { createdAt: string; updatedAt: string; completedAt: string | null; cancelledAt: string | null };
 export type BringTodayView = Pick<BringView, 'id' | 'title' | 'from' | 'to' | 'dueDate' | 'assigneeId' | 'assigneeName' | 'status' | 'revision'>;
 const bringPath = (workspaceId: string, rest = '') => `/workspaces/${encodeURIComponent(workspaceId)}/bring${rest}`;
-export interface McpConnection {id:string;clientName:string;workspaceIds:string[];scopes:import('@vergissmeinnicht/domain').McpScope[];expiresAt:string;revokedAt:string|null}
+export interface McpConnection {id:string;clientName:string;workspaceIds:string[];scopes:import('@vergissmeinnicht/domain').McpScope[];expiresAt:string;revokedAt:string|null;tokenIssued:boolean}
 export interface McpConsent {id:string;clientName:string;redirectOrigin:string;scopes:import('@vergissmeinnicht/domain').McpScope[];expiresAt:string}
 export const api = {
   recipeImageStatus:(workspaceId:string)=>request<{enabled:boolean}>('GET',`/workspaces/${encodeURIComponent(workspaceId)}/recipes/image-generation/status`),

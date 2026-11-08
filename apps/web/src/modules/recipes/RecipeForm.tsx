@@ -69,7 +69,7 @@ export function RecipeForm(props: {
         <label>{t('recipes.source')}<input type="url" maxLength={2048} value={draft.source} onChange={event => onChange({ ...draft, source: event.target.value })} /></label>
         <details className="recipe-images" open={compact ? undefined : true}><summary hidden={!compact}>{t('journal.filesScreen')}</summary><div className="stack">
           <RecipeImageGenerator key={props.selectedId ?? props.editorKey} workspaceId={props.workspaceId} onInsert={props.onInsert} />
-          <AttachmentPanel client={client} refreshVersion={props.editorKey} onInsert={props.onInsert} onError={props.onError} />
+          <AttachmentPanel client={client} refreshVersion={props.editorKey} onInsert={props.onInsert} onError={props.onError} allowClipboardImage />
         </div></details>
       </section>
       {!compact && <button type="submit" className="primary">{t('recipes.save')}</button>}

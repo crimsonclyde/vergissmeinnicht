@@ -2,6 +2,7 @@ import {markdownHasOpaqueSyntax,markdownOutline} from '@vergissmeinnicht/domain'
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { t } from '../i18n/index.ts';
+import './markdown-content.css';
 
 export const attachmentDestination = /^attachments\/([0-9a-f-]{36})\.(jpg|png)$/;
 export function headingAnchor(text: string): string { return text.toLowerCase().normalize('NFC').replace(/[^\p{L}\p{N}\s-]/gu,'').trim().replace(/\s+/g,'-') || 'heading'; }

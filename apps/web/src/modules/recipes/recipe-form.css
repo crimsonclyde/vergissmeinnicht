@@ -11,3 +11,12 @@
 .recipe-editor input:not([type='checkbox']), .recipe-editor textarea { min-width:0; max-width:100%; }
 .recipe-editor input[type='file'] { width:100%; }
 .recipe-editor .recipe-images { min-width:0; overflow-wrap:anywhere; }
+
+@media (max-width: 40rem) {
+  .recipe-page .markdown-content figure > img {
+    display: block;
+    max-height: min(18rem, 40svh);
+    margin-inline: auto;
+    object-fit: contain;
+  }
+}

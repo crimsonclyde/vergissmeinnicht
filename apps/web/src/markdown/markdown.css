@@ -4,11 +4,7 @@
 .milkdown-host .milkdown { --crepe-color-background:var(--surface); --crepe-color-on-background:var(--text); --crepe-color-surface:var(--surface); --crepe-color-surface-low:var(--surface); --crepe-color-on-surface:var(--text); --crepe-color-outline:var(--border); --crepe-color-primary:var(--accent); --crepe-color-on-primary:var(--text); --crepe-color-secondary:var(--surface); --crepe-color-on-secondary:var(--text); --crepe-color-inverse:var(--text); --crepe-color-on-inverse:var(--surface); --crepe-color-inline-code:var(--text); --crepe-color-error:var(--text); --crepe-font-default:inherit; }
 .milkdown-host .ProseMirror { min-height:20rem; padding:1rem; outline-offset:3px; white-space:pre-wrap; }
 .milkdown-host .ProseMirror table { table-layout:fixed; width:100%; }
-.milkdown-host img,.markdown-content img { max-width:100%; height:auto; }
-.markdown-content { overflow-wrap:anywhere; }
-.markdown-content pre { white-space:pre-wrap; overflow-wrap:anywhere; }
-.markdown-content figure { margin-inline:0; }
-.markdown-table { max-width:100%; overflow-x:auto; }
+.milkdown-host img { max-width:100%; height:auto; }
 .journal-editor { max-width:70rem; margin-inline:auto; width:100%; min-width:0; }
 .journal-editor fieldset { min-width:0; border:0; padding:0; margin:0; }
 .journal-outline { max-height:16rem; overflow:auto; }

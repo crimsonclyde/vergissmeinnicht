@@ -16,25 +16,43 @@ describe('MCP OAuth delegation',()=>{
   expect((await t.get('/api/account/mcp/requests/'+pending)).statusCode).toBe(401);
   const consent=await t.post('/api/account/mcp/approve',{requestId:pending,allow:true,workspaceIds:[workspace],scopes:['workspaces.read','recipes.read','lists.write']},t.admin);
   expect(consent.statusCode,consent.body).toBe(200);const code=new URL(consent.json().redirect).searchParams.get('code');
+  const connections=()=>t.get('/api/account/mcp/',t.admin);
+  expect((await t.get('/api/account/mcp/')).statusCode).toBe(401);
+  expect((await connections()).json().connections).toMatchObject([{tokenIssued:false}]);
   const exchange=(params:Record<string,string>)=>t.app.inject({method:'POST',url:'/token',headers:{host:'vmn.example.org','content-type':'application/x-www-form-urlencoded'},payload:new URLSearchParams({client_id:client.client_id,...params}).toString()});
   const wrong=await exchange({grant_type:'authorization_code',code:String(code),redirect_uri:client.redirect_uris[0],code_verifier:randomBytes(32).toString('base64url')});expect(wrong.statusCode,wrong.body).toBe(400);
   expect((await exchange({grant_type:'authorization_code',code:String(code),redirect_uri:client.redirect_uris[0],code_verifier:verifier,resource:'https://foreign.example/mcp'})).statusCode).toBe(400);
   const response=await exchange({grant_type:'authorization_code',code:String(code),redirect_uri:client.redirect_uris[0],code_verifier:verifier});expect(response.statusCode,response.body).toBe(200);const tokens=response.json();
+  const linked=await connections();
+  expect(linked.json().connections).toMatchObject([{tokenIssued:true}]);
+  expect(linked.body).not.toContain(tokens.refresh_token);
+  const otherAccount=await t.invite('other-connection@example.org','Other account');
+  expect((await t.get('/api/account/mcp/',otherAccount)).json()).toEqual({connections:[]});
   expect((await t.services.mcp.verify(tokens.access_token)).grant.workspaceIds).toEqual([workspace]);
   expect(t.database.sqlite.prepare('SELECT hash FROM mcp_tokens').all().some((row:unknown)=>JSON.stringify(row).includes(tokens.access_token))).toBe(false);
   const rpc=(method:string,params:object={},access=tokens.access_token)=>t.app.inject({method:'POST',url:'/mcp',headers:{authorization:'Bearer '+access,accept:'application/json, text/event-stream'},payload:{jsonrpc:'2.0',id:1,method,params}});
-  expect((await rpc('initialize',{protocolVersion:'2025-11-25',capabilities:{},clientInfo:{name:'test',version:'1'}})).statusCode).toBe(200);
+  const initialized=await rpc('initialize',{protocolVersion:'2025-11-25',capabilities:{},clientInfo:{name:'test',version:'1'}});
+  expect(initialized.statusCode).toBe(200);
+  expect(initialized.json().result.instructions).toContain('ask the user which one to use before reading or writing its records');
+  expect(initialized.json().result.instructions).toContain('When several grocery Lists match, ask which one to use and wait for the answer before writing');
   expect((await t.app.inject({method:'POST',url:'/mcp',headers:{cookie:t.admin},payload:{jsonrpc:'2.0',id:1,method:'tools/list'}})).statusCode).toBe(401);
   const sdk=new Client({name:'sdk-interoperability-test',version:'1'});
   const adapter:typeof fetch=async(input,init)=>{const outgoing=new Request(input,init);const body=await outgoing.text();const incoming=await t.app.inject({method:outgoing.method as 'GET'|'POST'|'DELETE',url:new URL(outgoing.url).pathname,headers:Object.fromEntries(outgoing.headers),...(body?{payload:body}:{})});const headers=new Headers();for(const [key,value]of Object.entries(incoming.headers))if(typeof value==='string')headers.set(key,value);return new Response(incoming.statusCode===202?null:incoming.rawPayload,{status:incoming.statusCode,headers});};
   await sdk.connect(new StreamableHTTPClientTransport(new URL(ORIGIN+'/mcp'),{fetch:adapter,requestInit:{headers:{authorization:'Bearer '+tokens.access_token}}}));expect((await sdk.listTools()).tools.map(tool=>tool.name)).toContain('add_grocery_item');expect((await sdk.callTool({name:'list_workspaces',arguments:{}})).isError).not.toBe(true);await sdk.close();
   const tools=await rpc('tools/list');expect(tools.statusCode,tools.body).toBe(200);expect(tools.json().result.tools.map((tool:{name:string})=>tool.name)).toContain('add_grocery_item');expect(tools.json().result.tools.map((tool:{name:string})=>tool.name)).not.toContain('save_recipe');
+  expect(tools.json().result.tools).toContainEqual(expect.objectContaining({name:'add_grocery_item',description:expect.stringContaining('ask and wait before calling this tool')}));
   const discovered=await rpc('tools/call',{name:'list_workspaces',arguments:{}});expect(discovered.body).toContain(workspace);
   const list={id:randomUUID()};const createArgs={workspaceId:workspace,listId:list.id,operationId:randomUUID(),title:'Shopping'};expect((await rpc('tools/call',{name:'create_grocery_list',arguments:createArgs})).json().result.isError).not.toBe(true);expect((await rpc('tools/call',{name:'create_grocery_list',arguments:createArgs})).json().result.isError).not.toBe(true);
   const input={workspaceId:workspace,listId:list.id,operationId:randomBytes(16).toString('hex'),itemId:list.id,title:'Milk',quantity:'2',unit:'l'};
   const invalid=await rpc('tools/call',{name:'add_grocery_item',arguments:input});expect(invalid.json().result.isError).toBe(true);
   input.operationId=randomUUID();input.itemId=randomUUID();
-  const added=await rpc('tools/call',{name:'add_grocery_item',arguments:input});expect(added.json().result.isError,added.body).not.toBe(true);const retry=await rpc('tools/call',{name:'add_grocery_item',arguments:input});expect(retry.json().result.isError,retry.body).not.toBe(true);expect((await t.get(`/api/workspaces/${workspace}/lists/${list.id}`,t.admin)).json().list.items).toHaveLength(1);
+  const added=await rpc('tools/call',{name:'add_grocery_item',arguments:input});
+  expect(added.json().result.isError,added.body).not.toBe(true);
+  expect(JSON.parse(added.json().result.content[0].text)).toEqual({outcome:'APPLIED',duplicate:false});
+  const retry=await rpc('tools/call',{name:'add_grocery_item',arguments:input});
+  expect(JSON.parse(retry.json().result.content[0].text)).toEqual({outcome:'APPLIED',duplicate:true});
+  expect((await rpc('tools/call',{name:'get_grocery_list',arguments:{workspaceId:workspace,listId:list.id}})).json().result.isError).toBe(true);
+  expect((await t.get(`/api/workspaces/${workspace}/lists/${list.id}`,t.admin)).json().list.items).toHaveLength(1);
   const other=await t.createWorkspace('Private');expect((await rpc('tools/call',{name:'add_grocery_item',arguments:{...input,workspaceId:other}})).json().result.isError).toBe(true);
   await t.post(`/api/workspaces/${workspace}/tools`,{tool:'LISTS',enabled:false},t.admin);expect((await rpc('tools/call',{name:'add_grocery_item',arguments:{...input,operationId:randomUUID(),itemId:randomUUID()}})).json().result.isError).toBe(true);
   const refreshed=await exchange({grant_type:'refresh_token',refresh_token:tokens.refresh_token});expect(refreshed.statusCode,refreshed.body).toBe(200);
@@ -46,6 +64,61 @@ describe('MCP OAuth delegation',()=>{
   await t.close();t=await startTestApp({mcpEnabled:true});
   expect((await t.app.inject({method:'POST',url:'/register',headers:{origin:'https://attacker.example'},payload:{}})).statusCode).toBe(403);
   expect((await t.app.inject({method:'POST',url:'/register',headers:{host:'vmn.example.org'},payload:{redirect_uris:['http://attacker.example/callback'],token_endpoint_auth_method:'none'}})).statusCode).toBe(400);
+ });
+ it('keeps matching grocery List names isolated across selected and unselected Workspaces',async()=>{
+  t=await startTestApp({mcpEnabled:true});
+  const first=await t.createWorkspace('MCP test kitchen');
+  const second=await t.createWorkspace('MCP test cabin');
+  const unselected=await t.createWorkspace('MCP test private');
+  async function createShopping(workspaceId:string) {
+   const response=await t.post(`/api/workspaces/${workspaceId}/lists`,{title:'Shopping'},t.admin);
+   expect(response.statusCode,response.body).toBe(201);
+   return response.json().list.id as string;
+  }
+  const firstList=await createShopping(first);
+  const secondList=await createShopping(second);
+  const unselectedList=await createShopping(unselected);
+
+  const actor=await t.services.users.findById((await t.get('/api/auth/session',t.admin)).json().user.id);
+  if(!actor) throw new Error('Missing actor');
+  const clientId=randomUUID();
+  const redirectUri='https://client.example.org/callback';
+  const scopes=['workspaces.read','lists.read','lists.write'] as const;
+  await t.services.mcp.registerClient(clientId,{client_name:'Test assistant'});
+  const requestId=await t.services.mcp.begin({
+   clientId,redirectUri,state:null,codeChallenge:'a'.repeat(43),scopes:[...scopes],resource:ORIGIN+'/mcp',
+  });
+  const approved=await t.services.mcp.approve(actor,requestId,[first,second],[...scopes],true);
+  const code=new URL(approved).searchParams.get('code');
+  if(!code) throw new Error('Missing authorization code');
+  const {access_token}=await t.services.mcp.exchange(clientId,code,'code',redirectUri,ORIGIN+'/mcp');
+  async function call(name:string,args:object) {
+   const response=await t.app.inject({
+    method:'POST',url:'/mcp',headers:{authorization:'Bearer '+access_token,accept:'application/json, text/event-stream'},
+    payload:{jsonrpc:'2.0',id:1,method:'tools/call',params:{name,arguments:args}},
+   });
+   expect(response.statusCode,response.body).toBe(200);
+   return response.json().result;
+  }
+  const resultBody=(result:Awaited<ReturnType<typeof call>>)=>JSON.parse(result.content[0].text);
+  const discovered=resultBody(await call('list_workspaces',{}));
+  expect(discovered.workspaces.map((workspace:{id:string})=>workspace.id).sort()).toEqual([first,second].sort());
+  for(const [workspaceId,listId] of [[first,firstList],[second,secondList]]) {
+   expect(resultBody(await call('list_grocery_lists',{workspaceId})).lists).toEqual([
+    expect.objectContaining({id:listId,title:'Shopping'}),
+   ]);
+  }
+  const entry={operationId:randomUUID(),itemId:randomUUID(),title:'Fictional tea'};
+  expect((await call('get_grocery_list',{workspaceId:unselected,listId:unselectedList})).isError).toBe(true);
+  expect((await call('get_grocery_list',{workspaceId:first,listId:secondList})).isError).toBe(true);
+  expect((await call('add_grocery_item',{...entry,operationId:randomUUID(),workspaceId:first,listId:secondList})).isError).toBe(true);
+  expect((await call('add_grocery_item',{...entry,operationId:randomUUID(),workspaceId:unselected,listId:unselectedList})).isError).toBe(true);
+  expect((await call('add_grocery_item',{...entry,workspaceId:first,listId:firstList})).isError).not.toBe(true);
+  for(const [workspaceId,listId,count] of [[first,firstList,1],[second,secondList,0],[unselected,unselectedList,0]] as const) {
+   const response=await t.get(`/api/workspaces/${workspaceId}/lists/${listId}`,t.admin);
+   expect(response.statusCode,response.body).toBe(200);
+   expect(response.json().list.items).toHaveLength(count);
+  }
  });
  it('keeps editor and execution rights distinct and rechecks revocation inside mutation transactions',async()=>{
   t=await startTestApp({mcpEnabled:true});const workspace=await t.createWorkspace('Home');const cookie=await t.invite('assistant-user@example.org','User');await t.addMember(workspace,'assistant-user@example.org','USER');

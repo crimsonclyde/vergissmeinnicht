@@ -1,0 +1,5 @@
+.markdown-content { min-width: 0; overflow-wrap: anywhere; }
+.markdown-content img { max-width: 100%; height: auto; }
+.markdown-content pre { white-space: pre-wrap; overflow-wrap: anywhere; }
+.markdown-content figure { margin-inline: 0; }
+.markdown-table { max-width: 100%; overflow-x: auto; }

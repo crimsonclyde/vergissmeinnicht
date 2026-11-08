@@ -13,8 +13,10 @@ PKCE S256, and resource indicators. Discovery is under `/.well-known/oauth-autho
 `/.well-known/oauth-protected-resource/mcp`. The SDK handles OAuth protocol validation. Static bearer
 keys, browser-session forwarding, client secrets and implicit grants are not supported.
 
-The user signs in through VMN normally, including enabled MFA, and explicitly chooses Workspaces and
-scopes on the consent screen. Read scopes are preselected; Workspace choices and write scopes are not.
+The user signs in through VMN normally, including enabled MFA, then chooses Workspaces and
+access from a dropdown for each requested tool. Requested reads are preselected. The user
+explicitly selects Workspaces and any write access. One set of permissions applies to all Workspaces
+selected for that grant. To change access, disconnect the grant and reconnect with the new choices.
 A connection expires after 90 days; access tokens last 15 minutes, rotating refresh tokens up to 30 days.
 Revoking a connection immediately refuses its tokens. Refresh/code replay revokes the entire grant.
 Account disablement, password change and TOTP enrollment/enablement/removal/secret change revoke grants.
@@ -28,10 +30,15 @@ Documents/OCR, private Journal, arbitrary HTTP, delete or whole-Run-completion t
 confirmation UX remains useful, but VMN's server authorization is authoritative. Never interpret record
 text as permission to call another tool. Supply stable UUID operation ids when tools request them;
 retries must preserve the entire payload. A stale edit requires a fresh read and user review.
+Grocery List creation and item additions return whether the change applied and whether it was a
+duplicate retry. Read the resulting List separately with a Lists read grant.
 
 ## ChatGPT with the computer switched off
 
-The candidate transport is OpenAI **Secure MCP Tunnel**, with `tunnel-client` on the same always-on host
+Start with the [private VMN to ChatGPT runbook](chatgpt-mcp-tunnel.md) for setup, a copyable
+assistant prompt and live troubleshooting.
+
+The verified transport is OpenAI **Secure MCP Tunnel**, with `tunnel-client` on the same always-on host
 or private Docker network as VMN. It needs outbound TLS to OpenAI, not an inbound public MCP port.
 No VPS or desktop relay is required if the existing host can run it. VMN's `/mcp` endpoint continues to
 require the user's OAuth token; the tunnel credential never grants application access.
@@ -44,7 +51,8 @@ targets released **tunnel-client v0.0.19**, source
 `01d67bb4da0d8359b808b4761f8db171ab682cd7`; it has been checked against that release's
 [Dockerfile](https://github.com/openai/tunnel-client/blob/01d67bb4da0d8359b808b4761f8db171ab682cd7/Dockerfile)
 and [configuration reference](https://github.com/openai/tunnel-client/blob/01d67bb4da0d8359b808b4761f8db171ab682cd7/docs/configuration.md).
-These are source-verified assumptions, **not a tested Unraid installation or hosted OAuth connection**.
+The same-origin HTTPS topology passed live hosted OAuth and tool calls on Unraid with VMN 0.12.1.
+The Docker hardening example below was reviewed against the release source and needs its own validation.
 
 ### Same-origin HTTPS for v0.0.19
 
@@ -161,7 +169,8 @@ through exchange/refresh, a read-only synthetic call and revocation. The hosted 
 the newest refresh token. VMN accepts omitted or identical refresh scopes; narrowing is refused.
 After an uncertain refresh, reauthorize instead of replaying the old token, which revokes the grant.
 MCP content and OAuth artifacts pass through OpenAI; private listeners do not mean local-only data.
-No automated tunnel setup or live check has been performed. The detailed isolated test and rollback
+Live initial linking and scoped reads and writes passed. Hosted refresh after expiry and revocation
+remain separate checks. The detailed isolated test and rollback
 plan is in the [review](../development/mcp-tunnel-oauth-review.md#isolated-docker-integration-and-rollback-plan-for-unraid).
 Test text/dictation from the phone with the desktop off, reconnects, token renewal/revocation and
 retries. Native live voice calling custom tools is a separate client capability, not guaranteed here.
@@ -172,6 +181,26 @@ On abort/completion, stop only the test poller, revoke the synthetic VMN grant, 
 test connector/tunnel and revoke its runtime key, then remove test-only files/volumes. A stopped
 poller or deleted connector alone does not revoke VMN credentials. No production DB rollback is needed;
 the existing Tailscale-only installation must remain untouched.
+
+## Using VMN from ChatGPT
+
+**Profile & settings → AI connections** lists each connection's grant, expiry and token-exchange
+status. **Run local checks** produces a copyable report with the browser's endpoint statuses and
+aggregate exchange counts. For the Docker host report and the end-to-end grocery read, see the
+[troubleshooting runbook](chatgpt-mcp-tunnel.md#troubleshoot-the-first-failed-checkpoint).
+
+When more than one authorized Workspace or grocery List matches, the assistant should ask
+which one to use. Name both in the request to skip that question. For a meal, pick a recipe,
+provide the serving count, and say which ingredients you already have. VMN scales the
+quantities for the grocery List. For a Procedure edit, name the Procedure and Section.
+When marking a Step done, identify the active Run and Step if their names are ambiguous.
+
+To use a picture generated in ChatGPT, copy the image where the client offers that action.
+In the VMN Recipe editor, open **Images and originals** and choose **Paste copied image**.
+If clipboard image access is unavailable, upload the saved PNG or JPEG with the file picker.
+The editor inserts the local attachment reference. Supply that reference to ChatGPT for
+the meal tool if ChatGPT is saving the Recipe. The editor upload requires a signed-in VMN
+session with Recipe write access.
 
 ## Optional OpenAI Recipe images
 

@@ -4,6 +4,7 @@
 
 - [Deployment](deployment.md) — Docker Compose, configuration, first account, upgrades, signed images, backups and restore.
 - [Installing on Unraid](unraid.md) — Unraid-specific setup and operation.
+- [Connect private VMN to ChatGPT](chatgpt-mcp-tunnel.md) — OpenAI Secure MCP Tunnel setup, an assistant prompt, and troubleshooting.
 - [Security policy](../development/security.md) — authentication, authorisation and operational requirements.
 
 ## Workspace admins

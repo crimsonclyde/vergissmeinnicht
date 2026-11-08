@@ -387,9 +387,38 @@ test('MCP requires MFA and visible consent and supports revoking a scoped user c
  await page.route('https://client.example.org/**',route=>route.fulfill({contentType:'text/plain',body:'Fictional OAuth callback'}));
  await page.getByRole('button',{name:'Decline',exact:true}).click();await expect(page).toHaveURL(/^https:\/\/client.example.org\/callback\?error=access_denied/);
  await page.goto('/authorize?'+authorization);await expect(page.getByRole('heading',{name:'Connect Fictional AI assistant'})).toBeVisible();await expectAccessible(page,'MCP consent');
- await page.getByRole('checkbox',{name:'Fictional assistant kitchen',exact:true}).check();await page.getByRole('checkbox',{name:'Add grocery items',exact:true}).check();
+ await page.setViewportSize({width:320,height:850});
+ await page.getByRole('checkbox',{name:'Fictional assistant kitchen',exact:true}).check();
+ const groceryAccess=page.getByRole('combobox',{name:'Grocery Lists',exact:true});
+ await expect(groceryAccess).toHaveValue('read');
+ await groceryAccess.selectOption('read-write');
+ expect(await page.evaluate('document.documentElement.scrollWidth <= innerWidth')).toBe(true);
  await page.getByRole('button',{name:'Allow connection',exact:true}).click();await expect(page).toHaveURL(/^https:\/\/client.example.org\/callback\?code=/);
- await page.goto(guideServerEnv.PUBLIC_ORIGIN+'/account/connections');await expect(page.getByText('Fictional AI assistant',{exact:true})).toBeVisible();await page.getByRole('button',{name:'Revoke connection',exact:true}).click();await expect(page.getByText('Revoked',{exact:true})).toBeVisible();await page.evaluate('window.scrollTo(0,0)');await expectAccessible(page,'MCP revoked connection');
+ await page.goto(guideServerEnv.PUBLIC_ORIGIN+'/account/connections');
+ await expect(page.getByText('Fictional AI assistant',{exact:true})).toBeVisible();
+ await expect(page.getByText('Consent saved. No token exchange recorded.',{exact:true})).toBeVisible();
+ await page.getByRole('button',{name:'Run local checks',exact:true}).click();
+ const report=page.getByRole('textbox',{name:'VMN AI connection report',exact:true});
+ await expect(report).toHaveValue(/MCP without sign-in — HTTP 401[\s\S]*VMN browser checks passed/);
+ await expect(report).toHaveValue(/token issued: 0\. No exchange recorded: 1/);
+ expect(await report.inputValue()).not.toMatch(/Fictional|https?:\/\/|callback/);
+ await page.evaluate(() => {
+   Object.defineProperty(navigator.clipboard,'writeText',{
+     value:async (value:string) => { document.body.dataset.copiedDiagnostics = value; },
+   });
+ });
+ await page.getByRole('button',{name:'Copy diagnostics',exact:true}).click();
+ await expect(page.getByText('Diagnostics copied.',{exact:true})).toBeVisible();
+ expect(await page.locator('body').getAttribute('data-copied-diagnostics')).toBe(await report.inputValue());
+ const discovery='**/.well-known/oauth-authorization-server';
+ await page.route(discovery,route=>route.fulfill({contentType:'text/html',body:'private proxy error page'}));
+ await page.getByRole('button',{name:'Run local checks',exact:true}).click();
+ await expect(report).toHaveValue(/Discovery metadata is missing or does not match/);
+ expect(await report.inputValue()).not.toContain('private proxy error page');
+ await page.unroute(discovery);
+ await page.getByRole('button',{name:'Manage access',exact:true}).click();
+ await page.getByRole('button',{name:'Disconnect',exact:true}).click();
+ await expect(page.getByText('Disconnected',{exact:true})).toBeVisible();await page.evaluate('window.scrollTo(0,0)');await expectAccessible(page,'MCP revoked connection');
  await page.setViewportSize({width:320,height:850});expect(await page.evaluate('document.documentElement.scrollWidth <= innerWidth')).toBe(true);
 });
 

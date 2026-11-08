@@ -1586,6 +1586,41 @@ Recipes, original images, serving-scaled grocery transfers and the optional OAut
 
 Security surface changed. Local tests cover PKCE, revocation, role enforcement, duplicate requests, atomic shopping updates, image preservation and backup recovery. Desktop and mobile browser checks cover Recipes and consent. Live ChatGPT tunnel eligibility, OAuth reachability, voice and paid image quality require deployment validation. See [operator setup](../admin/mcp.md).
 
+The Recipe editor supports an explicit clipboard image upload. The browser reads the first
+PNG or JPEG image only when the user clicks **Paste copied image**. Clipboard text and URLs
+are excluded from the upload. The existing authenticated Recipe attachment route enforces
+the same Workspace permissions, file validation, ownership and quotas as the file picker.
+The browser entry point changed. Server authorization, OAuth grants and outbound access
+are unchanged. MCP instructions guide target selection and do not grant access.
+
+#### AI connections diagnostics
+
+The authenticated account connection list adds a boolean based on the presence of a refresh
+token record for the signed-in user's grant. It returns no credential material. Browser probes
+use fixed same-origin endpoints, omit credentials for public discovery, and reject redirects.
+The shareable report contains UTC time, status codes, metadata match results and aggregate
+counts for the signed-in account. Response bodies, client names, URLs and identifiers stay
+out of the report. Permission dropdowns submit the existing scoped consent request.
+Changing access uses existing revocation and fresh consent.
+
+The operator-run Docker report is read-only. It uses an explicitly supplied HTTPS origin,
+verifies TLS, avoids redirects and limits log sampling to two bounded windows (time and line
+count). Its log projection emits only UTC timestamps, allowlisted method/path pairs and
+numeric statuses. Only operators with existing Docker and namespace permissions run it.
+It has no remote execution route.
+
+- [x] Check that another account and an unauthenticated caller cannot read grant status.
+- [x] Check that browser metadata errors and synthetic Docker log secrets, unrelated URLs and
+  response headers do not appear in the shareable reports.
+
+Grocery List creation and item additions use the existing transactional offline replay path.
+The MCP adapter returns only the applied outcome and duplicate flag. It excludes replay snapshots,
+item contents and actor names, including for write-only grants. A replay outcome other than
+`APPLIED` is an MCP tool error. Missing, deleted and cross-Workspace list IDs reveal no list data.
+
+- [x] Test identically named Lists across selected and unselected Workspaces. Mismatched IDs cannot
+  be read or written. Test write-only receipts, duplicate retries and a separate read-scope refusal.
+
 ### Runtime/advisory review — 2026-11-03 (32.1)
 
 **Security surface changed: LOW, protective** — patched existing runtime/build dependencies; no new
