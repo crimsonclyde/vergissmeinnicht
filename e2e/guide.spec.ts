@@ -402,11 +402,11 @@ test('MCP requires MFA and visible consent and supports revoking a scoped user c
  await expect(report).toHaveValue(/MCP without sign-in — HTTP 401[\s\S]*VMN browser checks passed/);
  await expect(report).toHaveValue(/token issued: 0\. No exchange recorded: 1/);
  expect(await report.inputValue()).not.toMatch(/Fictional|https?:\/\/|callback/);
- await page.evaluate(() => {
+ await page.evaluate(`(() => {
    Object.defineProperty(navigator.clipboard,'writeText',{
-     value:async (value:string) => { document.body.dataset.copiedDiagnostics = value; },
+     value:async value => { document.body.dataset.copiedDiagnostics = value; },
    });
- });
+ })()`);
  await page.getByRole('button',{name:'Copy diagnostics',exact:true}).click();
  await expect(page.getByText('Diagnostics copied.',{exact:true})).toBeVisible();
  expect(await page.locator('body').getAttribute('data-copied-diagnostics')).toBe(await report.inputValue());

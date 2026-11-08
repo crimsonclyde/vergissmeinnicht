@@ -6829,6 +6829,10 @@ The [initial release run](https://github.com/crimsonclyde/vergissmeinnicht/actio
 at `72ef9cc` failed lint on a non-null assertion in the phone Recipe test before
 publishing. The fixture now checks that it received a Canvas context. Full lint and
 the focused Chromium phone scenario passed with that correction.
+The [second run](https://github.com/crimsonclyde/vergissmeinnicht/actions/runs/42517275117)
+at `ee80d5c` passed lint but stopped at type checking. The browser-only clipboard
+fixtures now execute in the page without requiring DOM types in the Node test project.
+Full type checking, full lint and both focused mobile Chromium scenarios passed.
 
 **Security impact:** Assistant guidance changed. No change to the authorization boundary,
 credential, upload endpoint or outbound access.

@@ -42,7 +42,7 @@ export async function checkPhoneRecipe(page: Page, workspaceId: string) {
   await expectAccessible(page, 'Recipe phone details');
   await page.getByText('Images & links', { exact:true }).click();
   await page.getByText('Images and originals', { exact:true }).click();
-  await page.evaluate(() => {
+  await page.evaluate(`(() => {
     const canvas = document.createElement('canvas');
     canvas.width = 1024;
     canvas.height = 1536;
@@ -50,11 +50,11 @@ export async function checkPhoneRecipe(page: Page, workspaceId: string) {
     if (!context) throw new Error('Canvas context unavailable for PNG fixture');
     context.fillStyle = 'orange';
     context.fillRect(0, 0, canvas.width, canvas.height);
-    const png = new Promise<Blob>((resolve, reject) => canvas.toBlob(blob => blob ? resolve(blob) : reject(new Error('PNG fixture failed'))));
+    const png = new Promise((resolve, reject) => canvas.toBlob(blob => blob ? resolve(blob) : reject(new Error('PNG fixture failed'))));
     Object.defineProperty(navigator.clipboard, 'read', {
       value: async () => [new ClipboardItem({ 'image/png': await png })],
     });
-  });
+  })()`);
   const uploaded = page.waitForResponse(response => response.request().method()==='POST' && response.url().endsWith('/recipes/attachments'));
   await page.getByRole('button', {name:'Paste copied image',exact:true}).click();
   expect((await uploaded).status()).toBe(201);
@@ -79,11 +79,11 @@ export async function checkPhoneRecipe(page: Page, workspaceId: string) {
   await page.getByRole('button', {name:/Pancakes for breakfast/}).click();
   const preview = page.getByRole('img', {name:/recipe-image.png/});
   await expect(preview).toBeVisible();
-  await expect.poll(() => preview.evaluate(image => (image as HTMLImageElement).naturalHeight)).toBeGreaterThan(288);
+  await expect.poll(() => preview.evaluate(image => Number(Reflect.get(image, 'naturalHeight')))).toBeGreaterThan(288);
   const bounds = await preview.boundingBox();
   expect(bounds?.width).toBeLessThanOrEqual(320);
   expect(bounds?.height).toBeLessThanOrEqual(288);
-  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+  expect(await page.evaluate('document.documentElement.scrollWidth <= innerWidth')).toBe(true);
 }
 
 export async function checkRecipeSourcePreservation(page: Page, workspaceId: string) {
