@@ -18,6 +18,17 @@ For every completed task, add a concise completion note, tests/checks performed,
 
 ## Current state — resume here
 
+**Published owner release 56 (2026-11-08): 0.13.1.** [GitHub Release](https://github.com/crimsonclyde/vergissmeinnicht/releases/tag/v0.13.1)
+published stable at `2026-11-08T20:11:56Z` from `v0.13.1` / source
+`85eb10054dc5e4a2e1b3d4d189b0fa5744dc9cd8`. [Main CI](https://github.com/crimsonclyde/vergissmeinnicht/actions/runs/42517712315)
+and [Release](https://github.com/crimsonclyde/vergissmeinnicht/actions/runs/42517712246) passed quality,
+browser, native builds, smoke tests, vulnerability scans, signing, CycloneDX attestation and
+three populated upgrade checks. The independently inspected GHCR index is
+`sha256:bcaec04bef344aaa8a28b0f75e3681a9b2f7c8e903138fb4d68a3233a0cea7c0` for amd64 and arm64.
+The preflight candidate remains on Unraid until the owner switches Repository to the
+published 0.13.1 image. Native ChatGPT image handoff remains separate from the clipboard flow.
+Owner count **56**, next **57**. Release 42 and its dedication are preserved.
+
 **Published owner release 55 (2026-11-05): 0.12.1.** [GitHub Release](https://github.com/crimsonclyde/vergissmeinnicht/releases/tag/v0.12.1)
 published stable at `2026-11-05T20:53:56Z`, not draft, on immutable `v0.12.1` / source
 `a76c70d7410b171ace8f324ba524701e1111d092`. [Main CI 42102541182](https://github.com/crimsonclyde/vergissmeinnicht/actions/runs/42102541182)
