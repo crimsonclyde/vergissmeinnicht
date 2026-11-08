@@ -46,7 +46,8 @@ export async function checkPhoneRecipe(page: Page, workspaceId: string) {
     const canvas = document.createElement('canvas');
     canvas.width = 1024;
     canvas.height = 1536;
-    const context = canvas.getContext('2d')!;
+    const context = canvas.getContext('2d');
+    if (!context) throw new Error('Canvas context unavailable for PNG fixture');
     context.fillStyle = 'orange';
     context.fillRect(0, 0, canvas.width, canvas.height);
     const png = new Promise<Blob>((resolve, reject) => canvas.toBlob(blob => blob ? resolve(blob) : reject(new Error('PNG fixture failed'))));

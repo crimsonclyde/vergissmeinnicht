@@ -6825,5 +6825,10 @@ two-List clarification and disposable-grant revocation checks. The owner approve
 shipping clipboard upload in 0.13.1 and tracking native image handoff separately.
 The special 42nd release record is preserved.
 
+The [initial release run](https://github.com/crimsonclyde/vergissmeinnicht/actions/runs/42517062410)
+at `72ef9cc` failed lint on a non-null assertion in the phone Recipe test before
+publishing. The fixture now checks that it received a Canvas context. Full lint and
+the focused Chromium phone scenario passed with that correction.
+
 **Security impact:** Assistant guidance changed. No change to the authorization boundary,
 credential, upload endpoint or outbound access.
