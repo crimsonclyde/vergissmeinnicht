@@ -18,6 +18,15 @@ For every completed task, add a concise completion note, tests/checks performed,
 
 ## Current state — resume here
 
+**Published owner release 57 (2026-11-09): 0.13.2.** The stable
+[GitHub Release](https://github.com/crimsonclyde/vergissmeinnicht/releases/tag/v0.13.2)
+was published at `2026-11-09T20:09:17Z` from `v0.13.2` /
+`66e5e2333b4fd9bcfd7890f9cac82ce048098868`. Main CI and the release workflow passed.
+The signed amd64 and arm64 image includes a CycloneDX SBOM attestation. The independently
+inspected GHCR index is `sha256:1456f2c2471eb2e70534d1d55c997a94e2548feca1614601c3e646021011b7ac`.
+The `0.13.2`, `0.13`, and `latest` tags resolve to that index. See section 36.10.
+Owner count **57**, next **58**. Release 42 and its dedication are preserved.
+
 **Published owner release 56 (2026-11-08): 0.13.1.** [GitHub Release](https://github.com/crimsonclyde/vergissmeinnicht/releases/tag/v0.13.1)
 published stable at `2026-11-08T20:11:56Z` from `v0.13.1` / source
 `85eb10054dc5e4a2e1b3d4d189b0fa5744dc9cd8`. [Main CI](https://github.com/crimsonclyde/vergissmeinnicht/actions/runs/42517712315)
@@ -27,7 +36,7 @@ three populated upgrade checks. The independently inspected GHCR index is
 `sha256:bcaec04bef344aaa8a28b0f75e3681a9b2f7c8e903138fb4d68a3233a0cea7c0` for amd64 and arm64.
 The preflight candidate remains on Unraid until the owner switches Repository to the
 published 0.13.1 image. Native ChatGPT image handoff remains separate from the clipboard flow.
-Owner count **56**, next **57**. Release 42 and its dedication are preserved.
+At that publication the owner count was **56**.
 
 **Published owner release 55 (2026-11-05): 0.12.1.** [GitHub Release](https://github.com/crimsonclyde/vergissmeinnicht/releases/tag/v0.12.1)
 published stable at `2026-11-05T20:53:56Z`, not draft, on immutable `v0.12.1` / source
@@ -6888,4 +6897,13 @@ and Galactic Guide in both viewports. Lint, type checking, web build and whitesp
 **Build:** The local production image `vergissmeinnicht:0.13.2` built and passed its smoke test.
 The populated upgrade from the published 0.13.1 image passed with a pre-migration backup,
 unchanged existing row counts, clean integrity and foreign key checks, and a successful Workspace
-export and restore. Owner release count remains **56** pending publication of the 57th release.
+export and restore.
+
+**Published:** Main CI and the tagged release passed quality checks, the full Chromium suite,
+and both native builds with smoke tests and fixable HIGH/CRITICAL vulnerability scans. The
+release workflow signed and attested the image, then pulled its exact digest and passed four
+populated upgrade checks. Publication updates the owner count to 57. The release process did
+not change the security surface beyond the implementation recorded above. Live deployment
+and hosted ChatGPT acceptance remain separate.
+[Main CI](https://github.com/crimsonclyde/vergissmeinnicht/actions/runs/42687918407)
+[Release workflow](https://github.com/crimsonclyde/vergissmeinnicht/actions/runs/42687918839)
