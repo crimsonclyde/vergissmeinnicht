@@ -12,12 +12,19 @@ export interface AttachmentProcessor {
  /** Local processing is an adapter concern, not a path in the service contract. */
  derive(key:string):Promise<{format:'JPEG'|'PNG';width:number;height:number;preview:Uint8Array;thumbnail:Uint8Array}>;
 }
+/** Optional transaction participant for a delegated upload receipt. */
+export interface AttachmentUploadOperation {
+ readonly id:string;
+ readonly targetId:string|null;
+ readonly payloadHash:string;
+}
+export class AttachmentUploadConflictError extends Error {}
 export interface AttachmentRepository {
  policy():Promise<AttachmentPolicy>;
  usage(user:User):Promise<AttachmentUsage>;
  reserve(actor:User,scope:AttachmentScope,bytes:number):Promise<{id:string;keys:readonly string[];bytes:number}>;
  resize(actor:User,scope:AttachmentScope,reservation:string,bytes:number):Promise<void>;
- commit(actor:User,scope:AttachmentScope,reservation:string,record:Omit<AttachmentRecord,'id'|'scope'|'uploadedBy'|'at'>):Promise<AttachmentRecord>;
+ commit(actor:User,scope:AttachmentScope,reservation:string,record:Omit<AttachmentRecord,'id'|'scope'|'uploadedBy'|'at'>,operation?:AttachmentUploadOperation):Promise<AttachmentRecord>;
  release(actor:User,reservation:string):Promise<void>;
  find(scope:AttachmentScope,id:string,actor:User):Promise<AttachmentRecord|undefined>;
  list(scope:AttachmentScope,actor:User):Promise<AttachmentRecord[]>;
@@ -25,7 +32,7 @@ export interface AttachmentRepository {
 export interface AttachmentDeps {readonly repository:AttachmentRepository;readonly store:AttachmentStore;readonly processor:AttachmentProcessor}
 /** Feature policy is a reviewed adapter supplied by composition, never by request data. */
 export interface AttachmentAccess {authorize(write:boolean):Promise<void>;readonly scope:AttachmentScope;readonly actor:User}
-export async function uploadAttachment(deps:AttachmentDeps,access:AttachmentAccess,name:string,source:AsyncIterable<Uint8Array>) {
+export async function uploadAttachment(deps:AttachmentDeps,access:AttachmentAccess,name:string,source:AsyncIterable<Uint8Array>,operation?:AttachmentUploadOperation) {
  await access.authorize(true);
  const policy=await deps.repository.policy();const originalName=normalizeOriginalFileName(name);
  if(await deps.store.freeBytes()<policy.maxUploadBytes*2+ATTACHMENT_DERIVATIVE_BUDGET+100_000_000)throw new AttachmentError('attachment_quota');
@@ -39,7 +46,7 @@ export async function uploadAttachment(deps:AttachmentDeps,access:AttachmentAcce
   const preview=await deps.store.put(result.preview,reservation.keys[1]);keys.push(preview.key);
   const thumbnail=await deps.store.put(result.thumbnail,reservation.keys[2]);keys.push(thumbnail.key);
   await access.authorize(true);
-  const record=await deps.repository.commit(access.actor,access.scope,reservation.id,{name:originalName,format:result.format,bytes:staged.bytes,sha256:staged.sha256,originalKey:staged.key,previewKey:preview.key,previewBytes:preview.bytes,previewHash:preview.sha256,thumbnailKey:thumbnail.key,thumbnailBytes:thumbnail.bytes,thumbnailHash:thumbnail.sha256,width:result.width,height:result.height});
+  const record=await deps.repository.commit(access.actor,access.scope,reservation.id,{name:originalName,format:result.format,bytes:staged.bytes,sha256:staged.sha256,originalKey:staged.key,previewKey:preview.key,previewBytes:preview.bytes,previewHash:preview.sha256,thumbnailKey:thumbnail.key,thumbnailBytes:thumbnail.bytes,thumbnailHash:thumbnail.sha256,width:result.width,height:result.height},operation);
   committed=true;return record;
  }catch(error){if(error instanceof AttachmentError&&error.code==='attachment_too_large'&&reservation.bytes<policy.maxUploadBytes)throw new AttachmentError('attachment_quota');throw error;}finally{
   if(!committed)for(const key of keys)await deps.store.remove(key);

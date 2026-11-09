@@ -6847,3 +6847,45 @@ Full type checking, full lint and both focused mobile Chromium scenarios passed.
 
 **Security impact:** Assistant guidance changed. No change to the authorization boundary,
 credential, upload endpoint or outbound access.
+
+### 36.10 Visual cookbook and delegated photo upload (2026-11-09)
+
+**Release plan:** Build stable **0.13.2**, owner release **57**, following 0.13.1 (56).
+The release workflow uses the bare image version and the tag `v0.13.2`. Its populated-upgrade
+check includes the published 0.13.1 digest and retains the older fixtures.
+[Release notes](../releases/0.13.2.md)
+
+**Implemented:** The Recipe overview uses a responsive theme-aware photo grid with lazy 4:3
+thumbnails, loading skeletons, illustrated missing-photo cards, times, servings and up to
+three tags. The Recipe editor supports adding photos and choosing a cover. Existing inline
+photos retain previews and original downloads. Existing Recipes default to the first local image
+and Workspace restore remaps explicit cover references.
+
+MCP now exposes a byte upload using the existing Recipe attachment service and grants. The
+ChatGPT widget reads a downloaded JPEG/PNG locally and sends the bytes via the MCP tool bridge.
+The tool returns a local reference for a separate Recipe save at its current revision. Assistant
+instructions require duplicate search, one representative image for new Recipes when available,
+preserving the Recipe on image failure and read-back verification. Migration 0070 adds atomic
+upload receipts. No existing image files or Recipe records are rewritten by the migration.
+
+**Security surface changed:** A scoped authenticated upload can exceed the standard MCP body
+cap. Large requests are bounded and limited in parallel. Current grant, account, role, Recipe
+tool and target are checked at commit, and the shared validation, original storage, quotas and
+audit apply. VMN does not fetch supplied URLs. Upload receipts are excluded from Workspace backups.
+[Security checks](security.md#delegated-recipe-photo-upload-and-cookbook-covers-3610-2026-11-09)
+
+**Remaining:** Verify the widget in hosted ChatGPT after deployment with refreshed tool discovery.
+The original generated file for Casa Nostra's Pastasciutta Antifascista (Casa Cervi) was unavailable
+in this workspace. No live Recipe, shopping List, grant or deployment was changed.
+
+**Checks:** 213 test files and 1,655 tests passed with local loopback access, including delegated
+PNG upload, grant/Workspace/role denials, quota failure, concurrent retry, original byte equality,
+cover validation and Workspace recovery. Two Playwright scenarios passed in desktop and 320 px
+mobile Chromium across all 11 theme choices. They checked cover changes, lazy thumbnails,
+matching 4:3 frames, missing photos, keyboard activation and horizontal overflow. Axe ran on Light
+and Galactic Guide in both viewports. Lint, type checking, web build and whitespace checks passed.
+
+**Build:** The local production image `vergissmeinnicht:0.13.2` built and passed its smoke test.
+The populated upgrade from the published 0.13.1 image passed with a pre-migration backup,
+unchanged existing row counts, clean integrity and foreign key checks, and a successful Workspace
+export and restore. Owner release count remains **56** pending publication of the 57th release.

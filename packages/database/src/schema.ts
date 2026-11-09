@@ -2426,6 +2426,14 @@ export const recipes = sqliteTable('recipes', {
 export const recipeAttachmentReferences = sqliteTable('recipe_attachment_references',{
   recipeId: text('recipe_id').notNull().references(() => recipes.id), workspaceId: text('workspace_id').notNull().references(() => workspaces.id), attachmentId: text('attachment_id').notNull().references(() => attachments.id),
 },t => [primaryKey({columns:[t.recipeId,t.attachmentId]})]);
+/** Receipts commit atomically with original-image metadata and stay local to this server. */
+export const attachmentUploadOperations = sqliteTable('attachment_upload_operations', {
+  id: text('id').primaryKey(),
+  workspaceId: text('workspace_id').notNull().references(() => workspaces.id),
+  userId: text('user_id').notNull().references(() => users.id),
+  payloadHash: text('payload_hash').notNull(),
+  attachmentId: text('attachment_id').references(() => attachments.id, { onDelete: 'set null' }),
+}, t => [index('attachment_upload_operation_file').on(t.attachmentId)]);
 /** Runtime retry outcomes, excluded from portable backups. Payload hashes prevent id reuse. */
 export const recipeShoppingOperations = sqliteTable('recipe_shopping_operations',{
   id:text('id').primaryKey(), workspaceId:text('workspace_id').notNull().references(() => workspaces.id), userId:text('user_id').notNull().references(() => users.id), payloadHash:text('payload_hash').notNull(),

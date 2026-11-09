@@ -958,3 +958,18 @@ info disclosures and icon actions replace repeated explanatory paragraphs. Nativ
 retain accessible names and checked state; icon actions use 48px geometry. `appearance-settings.css`
 keeps a two-column phone theme grid, semantic tokens and focus/forced-colour support. Existing per-user
 Workspace preference endpoints, explicit Save/Cancel/Reset drafts and shared sky-card opacity remain.
+
+### Visual cookbook and delegated recipe photo upload (36.10)
+
+The cookbook uses the shared attachment thumbnail route. Recipe JSON can designate a local
+Markdown image destination as its cover. Existing Recipes use their first local image, and the
+cookbook shows an illustration when there is no usable thumbnail. Recipe detail renders its
+original Markdown and original download links. Changing the cover stores a reference only.
+Workspace restore remaps the cover along with Markdown image destinations.
+
+MCP transports original bytes as bounded base64 in Streamable HTTP JSON-RPC. The ChatGPT upload
+resource lets the user choose the downloaded file and sends it through the host's tool bridge.
+The shared attachment service stages, validates, reserves and commits the file. Migration
+`0070_attachment_upload_operations` adds the runtime receipt, committed with the attachment and
+excluded from portable Workspace backup. Recipe creation and revision-checked editing remain
+separate commands, so upload failures leave the Recipe available.

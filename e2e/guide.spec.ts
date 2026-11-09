@@ -354,6 +354,61 @@ test('Recipes preserve originals and transfer ingredients for the requested serv
  await expect(page.getByLabel('Markdown source',{exact:true})).toHaveValue(/attachments\/[0-9a-f-]+\.png/);
  await page.getByRole('button',{name:'Save recipe',exact:true}).click();await expect(page.getByRole('status').filter({hasText:'Recipe saved.'})).toBeVisible();await expect(page.getByRole('img',{name:/pancakes.png/})).toBeVisible();
  }
+ // Exercise both the image upload action and cover selection in the real editor.
+ await page.getByRole('button', { name: 'Manage recipe photos' }).click();
+ const photoUpload = page.waitForResponse(response => response.request().method() === 'POST' && response.url().endsWith('/recipes/attachments'));
+ await page.getByLabel('Upload original image', { exact: true }).setInputFiles({ name: 'cover.png', mimeType: 'image/png', buffer: Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAIAAACQd1PeAAAADElEQVR4nGP4z8AAAAMBAQDJ/pLvAAAAAElFTkSuQmCC', 'base64') });
+ const coverResponse = await photoUpload;
+ expect(coverResponse.status()).toBe(201);
+ const coverId = (await coverResponse.json()).attachment.id as string;
+ const coverPicker = page.getByLabel('Cookbook cover photo');
+ await coverPicker.selectOption({ label: 'Photo 2' });
+ await expect(coverPicker).toHaveValue(`attachments/${coverId}.png`);
+ await page.getByRole('button', { name: 'Save recipe', exact: true }).click();
+ await expect(page.getByRole('status').filter({ hasText: 'Recipe saved.' })).toBeVisible();
+ const placeholderStatus = await page.evaluate(async workspaceId => fetch(`/api/workspaces/${workspaceId}/recipes`, {
+   method: 'POST', headers: { 'Content-Type': 'application/json' },
+   body: JSON.stringify({ content: { version: 1, title: 'Tea for two', servings: 2, ingredients: [{ name: 'Tea', amount: '', unit: '', note: '' }], instructions: 'Steep and serve.', tags: ['Drinks'], source: '', prepMinutes: 3, cookMinutes: null }, expectedRevision: 0, archived: false }),
+ }).then(response => response.status), workspaceId);
+ expect(placeholderStatus).toBe(201);
+ const themes = ['system', 'light', 'dark', 'memento-mori', 'tokyo-nights', 'witch-forest', 'places-de', 'places-it', 'places-uk', 'places-scotland', 'space-guide'];
+ for (const theme of themes) {
+   const result = await page.evaluate(async theme => fetch('/api/account/preferences', {
+     method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ theme }),
+   }).then(response => response.status), theme);
+   expect(result).toBe(200);
+   await page.goto(`/w/${workspaceId}/recipes`);
+   const pictured = page.getByRole('button', { name: /Pancakes for breakfast/ });
+   const unpictured = page.getByRole('button', { name: /Tea for two/ });
+   await expect(pictured.locator('.recipe-photo img')).toHaveAttribute('src', new RegExp(coverId + '/thumbnail$'));
+   await expect(pictured.locator('.recipe-photo img')).toHaveAttribute('loading', 'lazy');
+   await expect(pictured.locator('.recipe-photo')).toHaveAttribute('data-photo', 'loaded');
+   await expect(unpictured.locator('.recipe-photo')).toHaveAttribute('data-photo', 'missing');
+   expect(await page.evaluate('document.documentElement.scrollWidth <= innerWidth')).toBe(true);
+   const first = await pictured.boundingBox(), second = await unpictured.boundingBox();
+   if (!first || !second) throw new Error('Missing cookbook cards');
+   if (testInfo.project.name.includes('mobile')) expect(first.x).toBeCloseTo(second.x);
+   else expect(first.y).toBeCloseTo(second.y);
+   const photo = await pictured.locator('.recipe-photo').boundingBox();
+   const placeholder = await unpictured.locator('.recipe-photo').boundingBox();
+   if (!photo || !placeholder) throw new Error('Missing photo frames');
+   expect(Math.abs(photo.width / photo.height - 4 / 3)).toBeLessThan(0.01);
+   expect(Math.abs(placeholder.width / placeholder.height - 4 / 3)).toBeLessThan(0.01);
+   if (['light', 'space-guide'].includes(theme)) {
+     await expectAccessible(page, `Cookbook in ${theme}`);
+     await page.screenshot({ path: testInfo.outputPath(`cookbook-${theme}.png`), fullPage: true });
+   }
+ }
+ await page.route(`**/recipes/attachments/${coverId}/thumbnail`, route => route.fulfill({ status: 404 }));
+ await page.reload();
+ await expect(page.getByRole('button', { name: /Pancakes for breakfast/ }).locator('.recipe-photo')).toHaveAttribute('data-photo', 'missing');
+ await page.unroute(`**/recipes/attachments/${coverId}/thumbnail`);
+ await page.getByRole('button', { name: /Tea for two/ }).click();
+ await expect(page.getByRole('button', { name: 'Add recipe photo' })).toBeVisible();
+ await page.getByRole('button', { name: 'Back to recipes', exact: true }).click();
+ const pancakeCard = page.getByRole('button', { name: /Pancakes for breakfast/ });
+ await pancakeCard.focus();
+ await pancakeCard.press('Enter');
  await page.getByLabel('Shopping for this many servings',{exact:true}).fill('4');await expect(ingredient(1).getByLabel('Amount',{exact:true})).toHaveValue('250');await expect(ingredient(2).getByLabel('Amount',{exact:true})).toHaveValue('2');
  await page.getByRole('button',{name:'Add selected ingredients',exact:true}).click();await expect(page.getByRole('status').filter({hasText:'2 ingredients added.'})).toBeVisible();await expectAccessible(page,'Recipe and grocery transfer');
  const downloadPromise=page.waitForEvent('download');await page.getByRole('link',{name:'Export recipe',exact:true}).click();expect((await downloadPromise).suggestedFilename()).toBe('recipes.zip');

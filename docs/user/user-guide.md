@@ -437,6 +437,15 @@ In **Profile & settings → Appearance → Interface and cards**, pick a Workspa
 
 In Profile & settings → Dashboard, choose Celestial, Clock and Weather independently. By default only Celestial is shown among these three, and only when the Workspace enables it. Clock/Weather comes first when shown, followed by Celestial; other card choices remain yours. Clock and Weather share one illustrated card in both Guide and the existing interface. Its equal halves are whole-picture links to the dedicated screens, without separate text-link footers. One continuous, theme-aware surface sits behind the transparent Clock and Weather art, matching Celestial. The existing background-opacity slider in Appearance controls both cards; Places uses its existing personal Dashboard card-opacity slider. Only the background changes transparency, never the text, artwork or controls. Clear skies, rain/drizzle/showers, snow/sleet and thunderstorms use their matching illustrations; other or unknown conditions keep a weather symbol without inventing sunshine or precipitation. The written condition remains visible. A missing current condition uses the labelled daily outlook; an explicitly unknown condition stays unknown. If you choose only one usable instrument, it fills the card; if you choose neither, the card disappears. In Guide, the top bar shows the time when the Clock card is on. Open Clock or Open Weather in Dashboard settings works without enabling a tile. Each opens a full screen with Back and the shared action bar, rather than an overlay. Weather still uses your existing personal/location choices, server switch and scoped cached forecast; opening its screen requests a forecast, while leaving its tile off causes no automatic forecast request. No device location is used.
 
+### Browse and illustrate the cookbook
+
+The Recipes overview shows a cover photo, preparation and cooking time when entered, servings
+and up to three tags. Open a card to read the recipe and download the original photos.
+For a new recipe, add a representative JPEG or PNG in **Images & links**. You can still save
+and add the photo later. A recipe without a photo shows an illustration and offers **Add recipe
+photo** to editors. Open **Manage recipe photos** on a pictured recipe to upload another photo
+or choose its **Cookbook cover photo**, then save. The first local image is used by default.
+
 ### Create and edit Recipes on a phone
 
 Use **Title → Ingredients → Instructions → Details → Save recipe**. The bottom bar uses the same

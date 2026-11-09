@@ -576,7 +576,9 @@ export function restoreWorkspace(database: AppDatabase, input: WorkspaceRestoreI
           }
           if(table==='recipes') {
             const content=JSON.parse(row.content as string);
-            content.instructions=remapMarkdownAttachments(content.instructions,id=>{if(tableOf.get(id)!=='attachments')throw new WorkspaceRestoreError('broken_reference',plan.spec.name);const target=ids.get(id);if(!target)throw new WorkspaceRestoreError('broken_reference',plan.spec.name);return target;});
+            const remapAttachment = (id:string) => {if(tableOf.get(id)!=='attachments')throw new WorkspaceRestoreError('broken_reference',plan.spec.name);const target=ids.get(id);if(!target)throw new WorkspaceRestoreError('broken_reference',plan.spec.name);return target;};
+            content.instructions=remapMarkdownAttachments(content.instructions,remapAttachment);
+            if(content.coverImage)content.coverImage=content.coverImage.replace(/([0-9a-f-]{36})/,remapAttachment);
             content.instructions=remapMarkdownRecordLinks(content.instructions,target=>`/w/${workspaceId}/${target.kind}${target.kind==='reminders'?'#':'/'}${ids.get(target.id)??fresh(target.id)}`);
             values.set('content',JSON.stringify(content));
           }

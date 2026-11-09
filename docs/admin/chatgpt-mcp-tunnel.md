@@ -138,8 +138,10 @@ can include environment secrets. [Docker example](mcp.md#docker-configuration-as
 A successful call should be visible in ChatGPT and in the corresponding VMN MCP request
 statuses. If you need writes, separately approve the relevant Lists or Recipes write
 scopes. Verify a single agreed test write by reading it back, then clean it up in VMN.
-The pictured-meal test used an image generated in ChatGPT and uploaded through the VMN
-Recipe editor. Direct image handoff from ChatGPT was outside that test.
+The original pictured-meal test used the VMN Recipe editor. From VMN 0.13.2, a Recipes write
+grant can also use the ChatGPT upload widget to select and send a downloaded photo through MCP.
+After refreshing the tools, verify that the client displays the picker and read back the saved
+Recipe and cover. [Recipe image upload](mcp.md#upload-an-image-generated-in-chatgpt)
 
 ## Verify an upgrade with test data
 

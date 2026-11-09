@@ -1,10 +1,10 @@
 import {randomUUID} from 'node:crypto';
-import {AttachmentError, NotAuthorizedError, type AttachmentRepository} from '@vergissmeinnicht/application';
+import {AttachmentError, AttachmentUploadConflictError, NotAuthorizedError, type AttachmentUploadOperation, type AttachmentRepository} from '@vergissmeinnicht/application';
 import {DEFAULT_ATTACHMENT_QUOTA_BYTES, DEFAULT_ATTACHMENT_UPLOAD_BYTES, type AttachmentRecord, type AttachmentScope, type User} from '@vergissmeinnicht/domain';
 import {and,eq,sql,count,type SQL} from 'drizzle-orm';
 import {IMMEDIATE,type Transaction} from './actor-guard.ts';
 import type {AppDatabase} from './connection.ts';
-import {attachments,attachmentSettings,attachmentReservations,attachmentQuotaOverrides,users} from './schema.ts';
+import {attachments,attachmentUploadOperations,attachmentSettings,attachmentReservations,attachmentQuotaOverrides,users} from './schema.ts';
 import {storageUsageIn} from './storage-usage.ts';
 import {recordSecurityEvent} from './security-events.ts';
 const scopeFilter=(scope:AttachmentScope)=>'workspaceId' in scope?eq(attachments.workspaceId,scope.workspaceId):eq(attachments.ownerId,scope.ownerId);
@@ -17,8 +17,13 @@ export function globalStorageIn(tx:Pick<Transaction,'select'>):{used:number;rese
  return {used,reserved,limit};
 }
 export const globalStorageAllows=(tx:Pick<Transaction,'select'>,additional:number)=>{if(tx.select().from(attachmentSettings).where(eq(attachmentSettings.id,1)).get()?.serverLimitBytes==null)return true;const value=globalStorageIn(tx);return value.limit===null||value.used+value.reserved+additional<=value.limit;};
-export interface AttachmentConsumerPolicy {readonly key:string;guard(tx:Transaction,scope:AttachmentScope,actor:User):boolean;visible(scope:AttachmentScope,actor:User):SQL}
-export function createAttachmentRepository({db}:AppDatabase,consumer:AttachmentConsumerPolicy):AttachmentRepository {
+export interface AttachmentConsumerPolicy {
+ readonly key:string;
+ guard(tx:Transaction,scope:AttachmentScope,actor:User):boolean;
+ visible(scope:AttachmentScope,actor:User):SQL;
+ uploadTargetExists?(tx:Transaction,workspaceId:string,targetId:string):boolean;
+}
+export function createAttachmentRepository({db}:AppDatabase,consumer:AttachmentConsumerPolicy):AttachmentRepository & { priorUpload(actor:User,scope:AttachmentScope,operation:AttachmentUploadOperation):Promise<AttachmentRecord|undefined> } {
  const guard=consumer.guard;const scoped=(scope:AttachmentScope)=>and(eq(attachments.policyKey,consumer.key),scopeFilter(scope));
  const policy=()=>{const row=db.select().from(attachmentSettings).where(eq(attachmentSettings.id,1)).get();return {maxUploadBytes:row?.maxUploadBytes??DEFAULT_ATTACHMENT_UPLOAD_BYTES,defaultQuotaBytes:row?.defaultQuotaBytes??DEFAULT_ATTACHMENT_QUOTA_BYTES,serverLimitBytes:row?.serverLimitBytes??null,formats:row?.formats??['JPEG','PNG'] as ('JPEG'|'PNG')[]};};
  const usage=(tx:Pick<Transaction,'select'>,user:User)=>{
@@ -28,7 +33,20 @@ export function createAttachmentRepository({db}:AppDatabase,consumer:AttachmentC
   return {used,reserved,limit,remaining:Math.max(0,limit-used-reserved)};
  };
  const visible=consumer.visible;
+ function priorUpload(tx:Transaction, actor:User, scope:AttachmentScope, operation:AttachmentUploadOperation) {
+  if (!consumer.uploadTargetExists || !('workspaceId' in scope) || !guard(tx,scope,actor)
+    || (operation.targetId !== null && !consumer.uploadTargetExists(tx,scope.workspaceId,operation.targetId))) throw new NotAuthorizedError();
+  const prior=tx.select().from(attachmentUploadOperations).where(eq(attachmentUploadOperations.id,operation.id)).get();
+  if (!prior) return undefined;
+  if (prior.userId!==actor.id || prior.workspaceId!==scope.workspaceId || prior.payloadHash!==operation.payloadHash || !prior.attachmentId) throw new AttachmentUploadConflictError();
+  const file=tx.select().from(attachments).where(and(scoped(scope),eq(attachments.id,prior.attachmentId),eq(attachments.deleting,false))).get();
+  if (!file) throw new AttachmentUploadConflictError();
+  return view(file);
+ }
  return {
+  async priorUpload(actor:User,scope:AttachmentScope,operation:AttachmentUploadOperation) {
+   return db.transaction(tx=>priorUpload(tx,actor,scope,operation));
+  },
   async policy(){return policy();},async usage(user){return usage(db,user);},
   async reserve(actor,scope,bytes){return db.transaction(tx=>{
    if(!guard(tx,scope,actor))throw new NotAuthorizedError();
@@ -47,8 +65,9 @@ export function createAttachmentRepository({db}:AppDatabase,consumer:AttachmentC
    if('workspaceId' in scope){const value=storageUsageIn(tx,scope.workspaceId,new Date(Date.now()-86400000));if(value.used+workspaceReservationBytesIn(tx,scope.workspaceId)+change>value.limit)throw new AttachmentError('attachment_quota');}
    tx.update(attachmentReservations).set({bytes}).where(eq(attachmentReservations.id,reservation)).run();
   },IMMEDIATE);},
-  async commit(actor,scope,reservation,record){return db.transaction(tx=>{
+  async commit(actor,scope,reservation,record,operation){return db.transaction(tx=>{
    if(!guard(tx,scope,actor))throw new NotAuthorizedError();
+   if(operation && (!('workspaceId' in scope) || priorUpload(tx,actor,scope,operation)))throw new AttachmentUploadConflictError();
    const claim=tx.select().from(attachmentReservations).where(and(eq(attachmentReservations.id,reservation),eq(attachmentReservations.userId,actor.id))).get();
    if(claim && (claim.keys[0]!==record.originalKey||claim.keys[1]!==record.previewKey||claim.keys[2]!==record.thumbnailKey))throw new AttachmentError('attachment_quota');
    const bytes=record.bytes+record.previewBytes+record.thumbnailBytes;const current=policy();
@@ -57,7 +76,9 @@ export function createAttachmentRepository({db}:AppDatabase,consumer:AttachmentC
    if(own.used+own.reserved>own.limit || (global.limit!==null&&global.used+global.reserved>global.limit))throw new AttachmentError('attachment_quota');
    if('workspaceId' in scope){const value=storageUsageIn(tx,scope.workspaceId,new Date(Date.now()-86400000));const reserved=Number(tx.select({n:sql<number>`coalesce(sum(${attachmentReservations.bytes}),0)`}).from(attachmentReservations).where(eq(attachmentReservations.workspaceId,scope.workspaceId)).get()?.n??0);if(value.used+reserved>value.limit)throw new AttachmentError('attachment_quota');}
    const id=randomUUID();const row={...record,id,policyKey:consumer.key,workspaceId:'workspaceId' in scope?scope.workspaceId:null,ownerId:'ownerId' in scope?scope.ownerId:null,uploadedBy:actor.id,chargeUserId:actor.id,at:new Date()};
-   tx.insert(attachments).values(row).run();tx.delete(attachmentReservations).where(eq(attachmentReservations.id,reservation)).run();
+   tx.insert(attachments).values(row).run();
+   if(operation && 'workspaceId' in scope)tx.insert(attachmentUploadOperations).values({id:operation.id,workspaceId:scope.workspaceId,userId:actor.id,payloadHash:operation.payloadHash,attachmentId:id}).run();
+   tx.delete(attachmentReservations).where(eq(attachmentReservations.id,reservation)).run();
    recordSecurityEvent(tx,{type:'ATTACHMENT_CHANGED',actor:{kind:'user',userId:actor.id,displayName:actor.displayName},subjectType:'user',subjectId:actor.id,occurredAt:new Date(),metadata:{action:'upload',bytes}});
    return view({...row,deleting:false});
   },IMMEDIATE);},

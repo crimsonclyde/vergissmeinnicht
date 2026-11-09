@@ -6,11 +6,12 @@ import { useCompactLayout } from './useCompactLayout.ts';
 export function usePhoneEditorFlow<Stage extends string>(options: {
   stages: readonly [Stage, ...Stage[]];
   busy: boolean;
+  initialStage?: Stage;
   onReveal?: (field: HTMLElement) => void;
 }) {
   const compact = useCompactLayout();
-  const [stage, setStage] = useState<Stage>(options.stages[0]);
-  const [visited, setVisited] = useState<readonly Stage[]>([options.stages[0]]);
+  const [stage, setStage] = useState<Stage>(options.initialStage ?? options.stages[0]);
+  const [visited, setVisited] = useState<readonly Stage[]>([options.initialStage ?? options.stages[0]]);
   const form = useRef<HTMLFormElement>(null);
   const heading = useRef<HTMLHeadingElement>(null);
   const pendingFocus = useRef<HTMLElement | null>(null);

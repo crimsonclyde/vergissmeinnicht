@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { parseRecipeContent, scaleRecipeIngredients } from './recipe.ts';
+import { parseRecipeContent, recipeCover, scaleRecipeIngredients } from './recipe.ts';
 const recipe = { version: 1, title: 'Pancakes', servings: 2, ingredients: [{ name: 'Flour', amount: '125', unit: 'g', note: '' }, { name: 'Eggs', amount: '1', unit: '', note: '' }, { name: 'Salt', amount: '', unit: '', note: 'to taste' }], instructions: '# Cook\n\nKeep source intact.', tags: ['Breakfast'], source: '', prepMinutes: 5, cookMinutes: 10 };
 describe('recipe content and exact serving projection', () => {
   it('scales authoritative amounts without changing the base recipe or to-taste wording', () => {
@@ -15,6 +15,23 @@ describe('recipe content and exact serving projection', () => {
     expect(scaleRecipeIngredients({ servings: 2, ingredients }, 4)[0]?.quantity).toBe('3');
     expect(scaleRecipeIngredients({ servings: 3, ingredients: [{ ...ingredient, amount: '1' }] }, 4)[0]).toMatchObject({ quantity: null, exactAmount: '4/3', requiresReview: true });
     expect(scaleRecipeIngredients({ servings: 1, ingredients: [{ ...ingredient, amount: '99999' }] }, 1000)[0]?.requiresReview).toBe(true);
+  });
+  it('uses the first local image for older recipes and validates a designated cover', () => {
+    const first = 'attachments/c82d9cda-cbd2-4a9e-a6dd-a872682a3822.jpg';
+    const second = 'attachments/75748870-210a-4ed2-8b8c-6a479d332130.png';
+    const linked = 'attachments/099cf9ce-aa53-4416-967f-284894713a65.png';
+    const instructions = `[Original](${linked})
+
+![First](${first})
+
+![Second][photo]
+
+[photo]: ${second}`;
+    expect(recipeCover(parseRecipeContent({ ...recipe, instructions }))?.url).toBe(first);
+    expect(recipeCover(parseRecipeContent({ ...recipe, instructions, coverImage: second }))?.url).toBe(second);
+    for (const coverImage of [linked, 'https://example.com/cover.png', 'javascript:alert(1)']) {
+      expect(() => parseRecipeContent({ ...recipe, instructions, coverImage })).toThrow();
+    }
   });
   it('bounds hostile content, quantities and source links, preserving Markdown literally', () => {
     expect(parseRecipeContent(recipe).instructions).toBe(recipe.instructions);

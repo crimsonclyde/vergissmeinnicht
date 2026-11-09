@@ -268,3 +268,21 @@ authenticated consent/MFA and Workspace authorization all remain enforced.
 See [RFC 7591 sections 2 and 3](https://www.rfc-editor.org/rfc/rfc7591.html).
 This protocol review and local regression coverage do not establish hosted tunnel interoperability
 or require public access; the isolated live-integration gates above still apply.
+
+## Upload an image generated in ChatGPT
+
+Refresh the VMN tool list after upgrading. Recipe write access exposes `open_recipe_image_upload`
+and `upload_recipe_image`. In a ChatGPT client that renders the upload widget, open the tool for the
+chosen Workspace and existing Recipe (or use a null Recipe ID for a new Recipe). Download the
+generated JPEG or PNG from ChatGPT, select that original in the widget and press **Upload original
+to VMN**. Continue in the chat with the returned reference. The assistant includes the Markdown in
+the Recipe instructions, selects the returned reference as the cover and reads the Recipe back.
+The signed-in VMN Recipe editor also accepts the file if the client does not display the widget.
+
+Programmatic MCP clients can call `upload_recipe_image` with the actual RFC 4648 base64 bytes,
+`fileName`, `workspaceId`, nullable `recipeId` and a UUID `operationId`. Send the exact same
+arguments on retries. The MCP route accepts originals up to 20 MB, subject to any lower VMN upload
+limit and storage quotas. For a separate proxy, allow around 27 MB on `/mcp` for the encoded upload.
+Ordinary calls remain limited to 128 KiB. The photo upload uses no VMN image-generation API key.
+Availability and upload size over a particular hosted ChatGPT or tunnel configuration require a live
+check. [OpenAI documentation for the ChatGPT tool bridge](https://developers.openai.com/plugins/reference)

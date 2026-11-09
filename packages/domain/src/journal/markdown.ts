@@ -2,10 +2,15 @@ import {fromMarkdown} from 'mdast-util-from-markdown';
 import {gfmFromMarkdown} from 'mdast-util-gfm';
 import {gfm} from 'micromark-extension-gfm';
 const DEST=/^attachments\/([0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12})\.(jpg|png)$/;
-export function markdownAttachments(source:string):{id:string;url:string;start:number;end:number}[]{
+export function markdownAttachments(source:string, imagesOnly=false):{id:string;url:string;start:number;end:number}[]{
  const tree=fromMarkdown(source,{extensions:[gfm()],mdastExtensions:[gfmFromMarkdown()]});const result:{id:string;url:string;start:number;end:number}[]=[];
- function visit(node:{type:string;url?:string|undefined;position?:{start:{offset?:number|undefined};end:{offset?:number|undefined}}|undefined;children?:unknown[]|undefined}){
-  if(['image','link','definition'].includes(node.type)&&node.url){const match=DEST.exec(node.url);if(match){const start=node.position?.start.offset??0;const end=node.position?.end.offset??start;const raw=source.slice(start,end);const offset=destinationOffset(raw,node.type,node.url);if(offset>=0)result.push({id:match[1]??'',url:node.url,start:start+offset,end:start+offset+node.url.length});}}
+ const imageDefinitions=new Set<string>();
+ if(imagesOnly){
+  function collect(node:unknown){const value=node as {type:string;identifier?:string;children?:unknown[]};if(value.type==='imageReference'&&value.identifier)imageDefinitions.add(value.identifier);for(const child of value.children??[])collect(child);}
+  collect(tree);
+ }
+ function visit(node:{type:string;identifier?:string|undefined;url?:string|undefined;position?:{start:{offset?:number|undefined};end:{offset?:number|undefined}}|undefined;children?:unknown[]|undefined}){
+  if((node.type==='image'||(node.type==='link'&&!imagesOnly)||(node.type==='definition'&&(!imagesOnly||imageDefinitions.has(node.identifier??''))))&&node.url){const match=DEST.exec(node.url);if(match){const start=node.position?.start.offset??0;const end=node.position?.end.offset??start;const raw=source.slice(start,end);const offset=destinationOffset(raw,node.type,node.url);if(offset>=0)result.push({id:match[1]??'',url:node.url,start:start+offset,end:start+offset+node.url.length});}}
   for(const child of node.children??[])visit(child as Parameters<typeof visit>[0]);
  }visit(tree);return result;
 }

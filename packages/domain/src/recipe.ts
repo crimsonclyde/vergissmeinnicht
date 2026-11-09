@@ -1,6 +1,7 @@
 import { DomainValidationError } from './errors.ts';
 import { BIDI_CONTROLS, CONTROL_CHARS } from './text.ts';
 import { normalizeListItemQuantity } from './list.ts';
+import { markdownAttachments } from './journal/markdown.ts';
 
 export interface RecipeIngredient {
   readonly name: string;
@@ -18,6 +19,7 @@ export interface RecipeContent {
   readonly source: string;
   readonly prepMinutes: number | null;
   readonly cookMinutes: number | null;
+  readonly coverImage?: string | undefined;
 }
 export interface Recipe extends RecipeContent {
   readonly id: string;
@@ -79,7 +81,9 @@ export function scaleRecipeIngredients(recipe: Pick<RecipeContent, 'servings' | 
 }
 
 export function parseRecipeContent(value: unknown): RecipeContent {
-  const row = object(value, ['version', 'title', 'servings', 'ingredients', 'instructions', 'tags', 'source', 'prepMinutes', 'cookMinutes']);
+  const keys = ['version', 'title', 'servings', 'ingredients', 'instructions', 'tags', 'source', 'prepMinutes', 'cookMinutes'];
+  if (value && typeof value === 'object' && Object.hasOwn(value, 'coverImage')) keys.push('coverImage');
+  const row = object(value, keys);
   const title = text(row['title'], 160);
   if (!title || row['version'] !== 1 || !Number.isInteger(row['servings']) || Number(row['servings']) < 1 || Number(row['servings']) > 1000) return invalid();
   if (!Array.isArray(row['ingredients']) || row['ingredients'].length < 1 || row['ingredients'].length > 100) return invalid();
@@ -95,7 +99,19 @@ export function parseRecipeContent(value: unknown): RecipeContent {
   const source = text(row['source'], 2048);
   if (source && !/^https?:\/\/[^\s/?#]+(?:[/?#][^\s]*)?$/i.test(source)) return invalid();
   const minutes = (value: unknown): number | null => value === null ? null : Number.isInteger(value) && Number(value) >= 0 && Number(value) <= 10080 ? Number(value) : invalid();
-  return { version: 1, title, servings: Number(row['servings']), ingredients, instructions: text(row['instructions'], 50000, true), tags, source, prepMinutes: minutes(row['prepMinutes']), cookMinutes: minutes(row['cookMinutes']) };
+  const instructions = text(row['instructions'], 50000, true);
+  const cover = row['coverImage'];
+  if (cover !== undefined && (typeof cover !== 'string' || !recipeImages({ instructions }).some(image => image.url === cover))) return invalid();
+  return { version: 1, title, servings: Number(row['servings']), ingredients, instructions, tags, source, prepMinutes: minutes(row['prepMinutes']), cookMinutes: minutes(row['cookMinutes']), ...(cover === undefined ? {} : { coverImage: cover }) };
+}
+
+export function recipeImages(recipe: Pick<RecipeContent, 'instructions'>) {
+  return [...new Map(markdownAttachments(recipe.instructions, true).map(image => [image.url, image])).values()];
+}
+
+export function recipeCover(recipe: Pick<RecipeContent, 'instructions' | 'coverImage'>) {
+  const images = recipeImages(recipe);
+  return images.find(image => image.url === recipe.coverImage) ?? images[0];
 }
 
 export interface RecipeTransfer {

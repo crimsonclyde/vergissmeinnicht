@@ -1808,3 +1808,26 @@ Verified for 0.11.8: corrected main CI `41978877088` and tagged Release `4198015
 native image build/smoke/scan gates without suppressions; exact published image checks and all three
 populated upgrades passed. Local patched-base inspection confirms APT/library 2.6.2. Stable release
 published; no live deployment or application security-boundary change.
+
+### Delegated Recipe photo upload and cookbook covers (36.10, 2026-11-09)
+
+Security surface changed. An MCP client with an active bearer grant and `recipes.write` may submit
+original JPEG or PNG bytes to the shared Recipe attachment pipeline. VMN receives bounded canonical
+base64 in the authenticated tool call. The ChatGPT widget reads a user-selected file locally and calls
+the same tool through the host bridge. VMN accepts no external image URL, file path, cookie or storage key
+on this boundary. The widget declares no network domains and sends no photo until the user submits it.
+
+- [x] Authenticate before body parsing. Ordinary calls retain a 128 KiB limit. Only Recipe write grants
+  can exceed it, with two large calls per server process and a 20 MB decoded image ceiling. Existing
+  request deadlines and rate limits still apply.
+- [x] Recheck live delegation, account, Workspace membership, current write capability and enabled
+  Recipe tool in the attachment transaction. Reject foreign, missing or archived upload targets.
+  An upload for a new Recipe creates only an uploader-visible attachment.
+- [x] Enforce current file, format, dimensions, user, Workspace, disk and optional server limits in
+  shared storage. Preserve the original bytes and produce separate metadata-free derivatives.
+- [x] Bind the retry receipt to the actor, Workspace, operation ID, target Recipe, normalized name and
+  bytes. Insert it atomically with attachment metadata and its audit event. A retry cannot create a
+  second attachment, including after orphan cleanup. Exclude receipts from portable Workspace backups.
+- [x] Treat a cookbook cover as a reference to an already validated local image in the Recipe.
+  Thumbnail and preview requests use existing authenticated routes. Remap cover references during
+  Workspace restore. Never trust a cover supplied by a caller as authorization to read a file.

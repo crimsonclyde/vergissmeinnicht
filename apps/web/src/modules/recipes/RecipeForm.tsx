@@ -1,5 +1,5 @@
 import { lazy, Suspense, useId, useState, type FormEvent } from 'react';
-import type { RecipeContent } from '@vergissmeinnicht/domain';
+import { recipeImages, type RecipeContent } from '@vergissmeinnicht/domain';
 import { messageFor, type recipeAttachmentClient } from '../../api.ts';
 import { AttachmentPanel, imageReference } from '../../attachments/AttachmentPanel.tsx';
 import { t } from '../../i18n/index.ts';
@@ -14,7 +14,7 @@ const HEADINGS = { title: 'recipes.phoneTitle', ingredients: 'recipes.ingredient
 
 /** One in-memory draft and one explicit Save; phone stages never issue a Recipe mutation. */
 export function RecipeForm(props: {
-  draft: RecipeContent; busy: boolean; editorKey: number; sourceMode: boolean;
+  draft: RecipeContent; startWithImages: boolean; busy: boolean; editorKey: number; sourceMode: boolean;
   workspaceId: string; selectedId: string | undefined; client: ReturnType<typeof recipeAttachmentClient>;
   onChange: (value: RecipeContent) => void; onInsert: (markdown: string) => void;
   onError: (message: string) => void; onSourceModeChange: (source: boolean) => void;
@@ -24,7 +24,7 @@ export function RecipeForm(props: {
   const [activeIngredient, setActiveIngredient] = useState(0);
   const [tagText, setTagText] = useState<string | null>(null);
   const id = useId();
-  const flow = usePhoneEditorFlow({ stages: STAGES, busy, onReveal: field => {
+  const flow = usePhoneEditorFlow({ stages: STAGES, busy, initialStage: props.startWithImages ? 'details' : 'title', onReveal: field => {
     const index = field.closest<HTMLElement>('[data-ingredient]')?.dataset.ingredient;
     if (index !== undefined) setActiveIngredient(Number(index));
   } });
@@ -39,6 +39,8 @@ export function RecipeForm(props: {
     setActiveIngredient(draft.ingredients.length);
     onChange({ ...draft, ingredients: [...draft.ingredients, { name: '', amount: '', unit: '', note: '' }] });
   }
+  const images = recipeImages(draft);
+  const cover = images.find(image => image.url === draft.coverImage) ?? images[0];
   const resolveImage = (path: string) => { const match = /^attachments\/([0-9a-f-]{36})\.(jpg|png)$/.exec(path); return match?.[1] ? client.url(match[1], 'preview') : undefined; };
   return <div className="card stack recipe-editor" data-compact={compact}>
     {!compact && <button type="button" disabled={busy} onClick={props.onCancel}>{t('recipes.cancelEdit')}</button>}
@@ -67,9 +69,16 @@ export function RecipeForm(props: {
         <div className="row wrap">{(['prepMinutes', 'cookMinutes'] as const).map(key => <label key={key}>{t(key === 'prepMinutes' ? 'recipes.prep' : 'recipes.cook')}<input type="number" min="0" max="10080" value={draft[key] ?? ''} onChange={event => onChange({ ...draft, [key]: event.target.value === '' ? null : Number(event.target.value) })} /></label>)}</div>
         <label>{t('journal.tags')}<input value={tagText ?? draft.tags.join(', ')} onChange={event => { setTagText(event.target.value); onChange({ ...draft, tags: event.target.value.split(',').map(tag => tag.trim()).filter(Boolean) }); }} /></label>
         <label>{t('recipes.source')}<input type="url" maxLength={2048} value={draft.source} onChange={event => onChange({ ...draft, source: event.target.value })} /></label>
-        <details className="recipe-images" open={compact ? undefined : true}><summary hidden={!compact}>{t('journal.filesScreen')}</summary><div className="stack">
+        <details className="recipe-images" open={!compact || props.startWithImages ? true : undefined}><summary hidden={!compact}>{t('journal.filesScreen')}</summary><div className="stack">
+          <p className="muted">{t('recipes.photoHint')}</p>
+          {cover && <div className="recipe-cover-picker">
+            <img src={client.url(cover.id, 'thumbnail')} alt="" />
+            <label>{t('recipes.coverPhoto')}<select value={cover.url} onChange={event => onChange({ ...draft, coverImage: event.target.value })}>
+              {images.map((image, index) => <option key={image.url} value={image.url}>{t('recipes.photoNumber', { count: index + 1 })}</option>)}
+            </select></label>
+          </div>}
           <RecipeImageGenerator key={props.selectedId ?? props.editorKey} workspaceId={props.workspaceId} onInsert={props.onInsert} />
-          <AttachmentPanel client={client} refreshVersion={props.editorKey} onInsert={props.onInsert} onError={props.onError} allowClipboardImage />
+          <AttachmentPanel initiallyOpen={props.startWithImages} client={client} refreshVersion={props.editorKey} onInsert={props.onInsert} onError={props.onError} allowClipboardImage />
         </div></details>
       </section>
       {!compact && <button type="submit" className="primary">{t('recipes.save')}</button>}

@@ -179,7 +179,7 @@ export interface AppServices {
   readonly maintenance: MaintenanceDeps;
   readonly equipment: EquipmentDeps;
   readonly recipes: RecipeDeps;
-  readonly recipeAttachments: AttachmentDeps;
+  readonly recipeAttachments: AttachmentDeps & { repository: ReturnType<typeof createAttachmentRepository> };
   readonly bring: BringDeps;
   readonly attachments:AttachmentDeps;
   readonly attachmentAdmin:ReturnType<typeof createAttachmentAdmin>;

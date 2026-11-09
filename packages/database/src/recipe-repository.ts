@@ -15,6 +15,8 @@ const invalid = (message: string): never => { throw new DomainValidationError('r
 
 export const recipeAttachmentPolicy: import('./attachment-repository.ts').AttachmentConsumerPolicy = {
   key: 'recipes',
+  uploadTargetExists: (tx, workspaceId, id) => !!tx.select({ id: recipes.id }).from(recipes)
+    .where(and(eq(recipes.id,id),eq(recipes.workspaceId,workspaceId),eq(recipes.archived,false))).get(),
   guard: (tx, scope: AttachmentScope, actor) => 'workspaceId' in scope && guard(tx, scope.workspaceId as WorkspaceId, actor, true),
   visible: (_scope, actor) => sql`(${attachments.uploadedBy} = ${actor.id} or exists(select 1 from ${recipeAttachmentReferences} r where r.attachment_id = ${attachments.id}))`,
 };
