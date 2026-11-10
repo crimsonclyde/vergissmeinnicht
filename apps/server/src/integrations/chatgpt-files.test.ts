@@ -17,13 +17,19 @@ async function collect(source: AsyncIterable<Uint8Array>) {
 
 describe('ChatGPT file download policy', () => {
   it.each([
-    'http://files.oaiusercontent.com/file-fixture', 'https://files.oaiusercontent.com:444/file-fixture',
-    'https://files.oaiusercontent.com.evil.example/file-fixture', 'https://files.oaiusercontent.com@evil.example/file-fixture',
-    'https://user@files.oaiusercontent.com/file-fixture', 'https://127.0.0.1/file-fixture',
-    'https://[::1]/file-fixture', 'https://files.oaiusercontent.com/file-fixture#fragment',
+    '/mnt/data/file-fixture.png', 'sandbox:/mnt/data/file-fixture.png',
+    'http://files.oaiusercontent.com/file-fixture', 'https://files.oaiusercontent.com@evil.example/file-fixture',
+    'https://user@files.oaiusercontent.com/file-fixture', 'https://files.oaiusercontent.com/file-fixture#fragment',
     'blob:https://files.oaiusercontent.com/file-fixture', 'https://files.oaiusercontent.com\\@evil.example/file-fixture',
-  ])('refuses invalid file origins before any lookup', input => {
+  ])('refuses malformed or unsafe file URLs', input => {
     expect(() => chatGptFileUrl(input)).toThrow('file_source_invalid');
+  });
+
+  it.each([
+    'https://files.oaiusercontent.com:444/file-fixture', 'https://files.oaiusercontent.com.evil.example/file-fixture',
+    'https://127.0.0.1/file-fixture', 'https://[::1]/file-fixture',
+  ])('refuses URLs outside the fixed origin before any lookup', input => {
+    expect(() => chatGptFileUrl(input)).toThrow('file_origin_unsupported');
   });
 
   it.each(['127.0.0.1', '10.0.0.5', '100.64.0.1', '169.254.169.254', '192.168.1.1',

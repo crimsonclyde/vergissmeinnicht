@@ -7076,6 +7076,57 @@ extracted from the original PDF. ChatGPT must expose the separate image as a fil
 allowed host. The current tools accept JPEG and PNG, and PDF extraction remains client-side.
 This change shipped in 0.13.4 without a database migration.
 
+**Hosted diagnostic follow-up (2026-11-10):** ChatGPT discovered the new
+Recipe tool and reported passing a sandbox path for a PDF-extracted photo.
+The released tool advertises an object under `openai/fileParams`; inspection
+of the tagged schema and argument handler confirms that a string fails
+argument validation. The reported `file_source_invalid` instead comes from
+validating the URL inside a descriptor. The hosted report does not establish
+which arguments reached VMN. The follow-up chat had no directly attached
+image and made no upload. The next check is a directly attached JPEG or PNG
+in the same message as the upload-only request, recording the real tool
+result and whether a file object was passed, without retaining its URL.
+With a PNG attached, ChatGPT described its parameter as a local-path string
+and declined to call the tool when asked to supply an object. That report
+does not establish whether the client can translate its attachment reference
+at dispatch. The next hosted test lets the client bind the real attachment
+in its own format. The raw MCP regression verifies the advertised object and
+metadata, and distinguishes a raw string from a descriptor with an invalid
+URL. Both are refused before download. The focused MCP and downloader suites
+passed 25 tests. No production code or security surface changed.
+
+The hosted upload-only retry with a directly attached PNG executed once and
+returned the 0.13.4 `file_source_invalid` message. That message is produced
+after descriptor parsing during URL validation, before any download. The
+ChatGPT trace still shows only a local path, so the actual rejected URL and
+which validation check failed remain unknown. Both file tools now distinguish
+an invalid file object, an invalid URL, an unsupported origin, an unavailable
+link and a failed download. The messages are static and the security surface
+does not expand. The existing origin and permissions stay in force.
+Five focused suites passed all 70 tests with a 15-second test timeout after
+an initial timeout while running typecheck concurrently. Typecheck, lint and
+diff checks passed. Hosted verification on a build with the new diagnostics
+is pending for both direct attachments and PDF-extracted images.
+
+**Diagnostic Docker build (2026-11-10):** Built the current upload diagnostics
+as `vergissmeinnicht:0.13.4-file-diagnostics.1` for Linux amd64. The production
+image smoke test passed, including startup, backup, migrations and media
+processing. Exported a compressed Docker archive for local loading on the
+test host. This is a local build with no release or new security surface.
+The hosted upload remains to be tested after the image is loaded on Unraid.
+
+### Release plan for 0.13.5, owner milestone 60 (2026-11-10)
+
+Publish the diagnostic patch for direct pull from Unraid. Use source on main,
+tag `v0.13.5`, GitHub release title `0.13.5` and the exact image version in
+the Unraid template. Add the verified 0.13.4 index as the first populated
+upgrade fixture and retain the existing checks. The patch changes file
+diagnostics without expanding the security surface or changing the database.
+Local preflight covered 70 focused tests, lint, typecheck and an amd64
+production build with its Docker smoke test. Hosted verification remains
+pending. Owner count stays 59 until publication. Release 42 and its
+dedication remain in the published history.
+
 ### Release plan for 0.13.4, owner milestone 59 (2026-11-10)
 
 The owner requested a new stable release for ChatGPT file handoff (36.12). Prepare

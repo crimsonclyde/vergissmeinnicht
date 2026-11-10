@@ -1918,3 +1918,6 @@ that host. A different origin fails closed.
 - [x] Require a confirmed cover for `create_recipe` when the caller sets `requireImage`.
   Existing attachment checks validate the cover reference and Workspace ownership before
   the Recipe is saved.
+- [x] File-input diagnostics distinguish invalid descriptors, malformed URLs, unsupported
+  origins and unavailable links using fixed messages. The messages contain no submitted
+  hostname, signed URL, file ID or local path. Invalid inputs stop before download.

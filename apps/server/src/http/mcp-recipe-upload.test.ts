@@ -13,6 +13,7 @@ it('uploads supplied original bytes through OAuth MCP and safely attaches them o
   let downloads = 0;
   const t = app = await startTestApp({ mcpEnabled: true, captureLogs: true, chatGptFileSource: async function* (url) {
     downloads++;
+    if (url.searchParams.get('sig') === 'expired-fixture-secret') throw new ChatGptFileError('file_unavailable');
     if (url.pathname.endsWith('interrupted')) {
       yield attachedJpeg.subarray(0, 8);
       throw new ChatGptFileError('file_download_failed');
@@ -123,11 +124,22 @@ it('uploads supplied original bytes through OAuth MCP and safely attaches them o
   const fileUpload = { workspaceId, recipeId: null, operationId: randomUUID(), file };
   const recipeFileTool = toolList.find((tool: { name: string }) => tool.name === 'upload_recipe_image_file');
   expect(recipeFileTool._meta['openai/fileParams']).toEqual(['file']);
+  expect(recipeFileTool.inputSchema.properties.file.type).toBe('object');
   expect(recipeFileTool.inputSchema.properties.file.required.sort()).toEqual(['download_url', 'file_id']);
   expect(Object.keys(recipeFileTool.inputSchema.properties.file.properties).sort()).toEqual(['download_url', 'file_id', 'file_name', 'mime_type']);
   expect((await rpc('tools/call', { name: 'upload_recipe_image_file', arguments: fileUpload }, read)).json().result.isError).toBe(true);
   expect((await call('upload_recipe_image_file', { ...fileUpload, recipeId: foreignRecipe })).isError).toBe(true);
-  expect((await call('upload_recipe_image_file', { ...fileUpload, file: { ...file, download_url: 'https://127.0.0.1/file-pdf-photo' } })).content[0].text).toContain('file_source_invalid');
+  const sandboxPath = '/mnt/data/chatgpt-file-fixture.jpg';
+  const pathUpload = await call('upload_recipe_image_file', { ...fileUpload, file: sandboxPath });
+  expect(pathUpload.isError).toBe(true);
+  expect(pathUpload.content[0].text).toContain('file_reference_required');
+  expect(pathUpload.content[0].text).not.toContain(sandboxPath);
+  const pathDescriptor = await call('upload_recipe_image_file', { ...fileUpload, file: { ...file, download_url: sandboxPath } });
+  expect(pathDescriptor.content[0].text).toContain('file_source_invalid');
+  expect(pathDescriptor.content[0].text).not.toContain(sandboxPath);
+  const unsupported = await call('upload_recipe_image_file', { ...fileUpload, file: { ...file, download_url: 'https://127.0.0.1/file-pdf-photo?sig=fixture-secret' } });
+  expect(unsupported.content[0].text).toContain('file_origin_unsupported');
+  expect(unsupported.content[0].text).not.toMatch(/127\.0\.0\.1|fixture-secret/);
   expect(downloads).toBe(0);
   const staged = (await call('upload_recipe_image_file', fileUpload)).structuredContent;
   expect(staged.attachment.format).toBe('JPEG');
@@ -186,9 +198,15 @@ it('uploads supplied original bytes through OAuth MCP and safely attaches them o
     file: { download_url: 'https://files.oaiusercontent.com/file-interrupted?sig=fixture-secret', file_id: 'file-interrupted' } });
   expect(interrupted.content[0].text).toContain('file_download_failed');
   expect(counted()).toEqual(before);
+  const expiredUpload = { ...fileUpload, operationId: randomUUID(), file: { ...file, download_url: 'https://files.oaiusercontent.com/file-pdf-photo?sig=expired-fixture-secret' } };
+  const expired = await call('upload_recipe_image_file', expiredUpload);
+  expect(expired.content[0].text).toContain('file_unavailable');
+  expect(expired.content[0].text).not.toContain('expired-fixture-secret');
+  expect(counted()).toEqual(before);
   expect(t.database.sqlite.prepare('SELECT count(*) AS n FROM attachment_reservations').get()).toEqual({ n: 0 });
+  expect((await call('upload_recipe_image_file', { ...expiredUpload, file: refreshed })).structuredContent.attachment.format).toBe('JPEG');
   expect(t.logs).not.toContain('fixture-secret');
 
   t.database.sqlite.prepare("UPDATE memberships SET role='GUEST' WHERE workspace_id=? AND user_id=?").run(workspaceId, actorId);
   expect((await upload()).isError).toBe(true);
-});
+}, 15_000);

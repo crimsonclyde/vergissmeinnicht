@@ -9,7 +9,7 @@ const FILE_HOST = 'files.oaiusercontent.com';
 const FILE_ORIGIN = `https://${FILE_HOST}`;
 
 export class ChatGptFileError extends Error {
-  readonly code: 'file_source_invalid' | 'file_download_failed' | 'file_unavailable';
+  readonly code: 'file_source_invalid' | 'file_origin_unsupported' | 'file_download_failed' | 'file_unavailable';
 
   constructor(code: ChatGptFileError['code']) {
     super(code);
@@ -21,9 +21,10 @@ export function chatGptFileUrl(input: string): URL {
   if (!input.startsWith('https://') || input.length > 8192 || /[\p{Cc}\s\\]/u.test(input)) throw new ChatGptFileError('file_source_invalid');
   let url: URL;
   try { url = new URL(input); } catch { throw new ChatGptFileError('file_source_invalid'); }
-  if (url.protocol !== 'https:' || url.origin !== FILE_ORIGIN || url.username || url.password || url.hash || url.pathname === '/') {
+  if (url.protocol !== 'https:' || url.username || url.password || url.hash || url.pathname === '/') {
     throw new ChatGptFileError('file_source_invalid');
   }
+  if (url.origin !== FILE_ORIGIN) throw new ChatGptFileError('file_origin_unsupported');
   return url;
 }
 

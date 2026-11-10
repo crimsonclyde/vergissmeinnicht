@@ -316,6 +316,24 @@ and pass it as a file if the client makes that file available to the tool. VMN a
 the image bytes, preserves the original and creates its normal thumbnail. The tools
 accept file references from `https://files.oaiusercontent.com` only.
 
+The raw MCP `tools/list` response marks `file` in `openai/fileParams` and describes
+an object with `file_id` and `download_url`. ChatGPT's description of a tool in
+conversation is separate from that response. For an upload-only check, attach a JPEG
+or PNG directly in a fresh chat, select the VMN plugin, and ask it to call
+`upload_recipe_image_file` with `recipeId: null`. Let ChatGPT bind the real attachment
+using its file mechanism. A path sent to VMN as a raw string fails argument validation.
+If the call fails, record whether it actually ran and the returned error without
+sharing the signed download URL. Skip recipe creation during this check.
+
+Starting with 0.13.5, use the file transfer code to identify the first failed stage.
+
+- `file_reference_required` means VMN did not receive a valid file object.
+- `file_source_invalid` means the object's download URL was malformed or unsafe.
+- `file_origin_unsupported` means the HTTPS URL was outside the supported origin.
+- `file_unavailable` means the file host refused the link or no longer serves it.
+  Ask ChatGPT for a fresh link for the same file and keep the operation ID.
+- `file_download_failed` means VMN could not complete the download.
+
 For a pictured Recipe, put the returned Markdown in the instructions, set the returned
 reference as `coverImage` and use `requireImage: true` on `create_recipe`. Read the saved
 Recipe back and confirm its cover. If the user requires the photo and the transfer fails,
