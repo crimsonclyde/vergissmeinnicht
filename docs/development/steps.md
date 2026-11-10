@@ -7464,7 +7464,11 @@ owner ordinal 64 after publication. The immediate published predecessor remains
 0.13.8, with the same verified digest and all earlier upgrade fixtures. Local full
 code tests, lint, typecheck and advisory audit passed as recorded below; the preview
 fix passed the web build and 26 contrast tests. The full desktop account browser
-flow that caught the issue and GitHub gates remain in progress. No migration.
+flow passed the repaired opacity assertion and then exposed stale menu assertions
+that still expected the Places dock on Memento Mori settings. Updated the browser
+flow to verify the management theme/sidebar, persisted Places menu order after
+returning to the Workspace, and actual Light/Dark Workspace navigation. The full
+account rerun and GitHub gates remain in progress. No migration.
 
 ### Release plan for 0.13.9, owner milestone 64 (2026-11-10)
 

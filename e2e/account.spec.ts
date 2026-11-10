@@ -3200,19 +3200,25 @@ test('first server admin: bootstrap link, account creation, sign-in, Workspace c
     if (await moveUp.isDisabled()) break;
     await moveUp.click();
   }
-  await expect(page.locator('.places-dock > a')).toHaveText(['Dashboard', 'Procedures', 'Lists']);
+  await expect(page.locator('html')).toHaveAttribute('data-theme', 'memento-mori');
+  await expect(page.locator('.shell-side nav a').nth(1)).toHaveText('Procedures');
+  await expect(page.locator('.shell-side nav a').nth(2)).toHaveText('Lists');
   await menuOrder.getByRole('button', { name: 'Save menu order' }).click();
   await expect(menuOrder.getByRole('status')).toHaveText('Tool menu order saved.');
-  await expect(page.locator('.places-dock > a')).toHaveText(['Dashboard', 'Equipment', 'Procedures']);
+  await expect(page.locator('.shell-side nav a').nth(1)).toHaveText('Equipment');
+  await expect(page.locator('.shell-side nav a').nth(2)).toHaveText('Procedures');
   await page.reload();
   await expect(menuOrder.getByRole('list').locator('li strong').first()).toHaveText('Equipment');
+  await page.goto(workspacePath);
+  await expect(page.locator('.places-dock > a')).toHaveText(['Dashboard', 'Equipment', 'Procedures']);
   await page.locator('.places-dock').getByRole('button', { name: 'More', exact: true }).click();
   await expect(page.locator('.places-tool-grid a').nth(1)).toHaveText('Equipment');
   await page.locator('.places-tools').getByRole('button', { name: 'Close', exact: true }).click();
   const savedMenuTheme = ((await requestForPlaces('/api/account/workspace-preferences')).body as { workspacePreferences: { themes: Record<string, string> } }).workspacePreferences.themes[workspaceIdForPlaces] ?? null;
   for (const theme of ['light', 'dark']) {
     expect((await requestForPlaces('/api/account/workspace-preferences/theme', { workspaceId: workspaceIdForPlaces, theme })).status).toBe(200);
-    await page.reload();
+    await page.goto(workspacePath);
+    await expect(page.locator('html')).toHaveAttribute('data-theme', theme);
     await expect(page.locator('.shell-side nav a').nth(1)).toHaveText('Equipment');
     await page.setViewportSize({width:320,height:850});
     await expect(page.locator('.tab-bar > a')).toHaveText(['Dashboard', 'Equipment', 'Procedures', 'More']);
@@ -3229,7 +3235,9 @@ test('first server admin: bootstrap link, account creation, sign-in, Workspace c
   await menuOrder.getByRole('button', { name: 'Use default order' }).click();
   await menuOrder.getByRole('button', { name: 'Save menu order' }).click();
   await expect(menuOrder.getByRole('status')).toHaveText('Tool menu order saved.');
-  await expect(page.locator('.places-dock > a')).toHaveText(['Dashboard', 'Procedures', 'Lists']);
+  await expect(page.locator('html')).toHaveAttribute('data-theme', 'memento-mori');
+  await expect(page.locator('.shell-side nav a').nth(1)).toHaveText('Procedures');
+  await expect(page.locator('.shell-side nav a').nth(2)).toHaveText('Lists');
   await settingsSection(page,'Profile & settings','Places');
   await page.getByText('My photo',{exact:true}).click();
   await expect(page.getByRole('radio',{name:'My photo',exact:true})).toBeChecked();
