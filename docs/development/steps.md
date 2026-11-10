@@ -18,6 +18,14 @@ For every completed task, add a concise completion note, tests/checks performed,
 
 ## Current state — resume here
 
+**Published owner release 62 (2026-11-10).** Stable 0.13.7 was published from
+tag `v0.13.7` and source `553482e007fa639f8c491d362f940c604cebf155`. The signed
+amd64 and arm64 index resolves under `0.13.7`, `0.13` and `latest` at
+`sha256:5e66a45edfd6cf82bd0f16b6bfc2f65d54f921a5b62cd9c606462838314576c3`.
+Anubis runs the GHCR release and VMN reports ready. Owner count **62**, next **63**.
+[GitHub release](https://github.com/crimsonclyde/vergissmeinnicht/releases/tag/v0.13.7)
+[Release workflow](https://github.com/crimsonclyde/vergissmeinnicht/actions/runs/42846311994)
+
 **Published owner release 61 (2026-11-10).** Stable 0.13.6 was published from
 tag `v0.13.6` and source `ad07ffe680967e8065466d71500ae3626a672ff1`. The signed
 amd64 and arm64 index was verified under `0.13.6`, `0.13` and `latest` at
@@ -7201,6 +7209,19 @@ image smoke test passed, including startup, backup, migrations and media
 processing. Exported a compressed Docker archive for local loading on the
 test host. This is a local build with no release or new security surface.
 The hosted upload remains to be tested after the image is loaded on Unraid.
+
+
+Main CI and the tagged workflow passed, including browser checks, native
+container smoke and vulnerability scans, signing and attestation, and nine
+populated upgrade checks starting with 0.13.6. GitHub published the stable
+release at `2026-11-10T15:51:12Z`, advancing the owner count to 62. Unraid
+pulled the GHCR release and VMN returned `{"status":"ready"}` over its private
+HTTPS endpoint. Hosted upload was verified on the local candidate before
+publication. Saving the live Recipe and hosted List cover mutations remain
+outside that upload-only check.
+[Main CI](https://github.com/crimsonclyde/vergissmeinnicht/actions/runs/42846312028)
+[Release workflow](https://github.com/crimsonclyde/vergissmeinnicht/actions/runs/42846311994)
+[GitHub release](https://github.com/crimsonclyde/vergissmeinnicht/releases/tag/v0.13.7)
 
 ### Release plan for 0.13.6, owner milestone 61 (2026-11-10)
 
