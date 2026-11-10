@@ -12,7 +12,7 @@ export interface RecipeIngredient {
 export interface RecipeContent {
   readonly version: 1;
   readonly title: string;
-  readonly servings: number;
+  readonly servings: number | null;
   readonly ingredients: readonly RecipeIngredient[];
   readonly instructions: string;
   readonly tags: readonly string[];
@@ -75,17 +75,24 @@ function fraction(value: string): Fraction {
 }
 function gcd(a: bigint, b: bigint): bigint { while (b) [a, b] = [b, a % b]; return a; }
 
+function isServingCount(value: unknown): value is number {
+  return typeof value === 'number' && Number.isInteger(value) && value >= 1 && value <= 1000;
+}
+
 /** Scale measured amounts exactly and preserve descriptive amounts as written. */
-export function scaleRecipeIngredients(recipe: Pick<RecipeContent, 'servings' | 'ingredients'>, servings: number) {
-  if (!Number.isInteger(recipe.servings) || recipe.servings < 1 || recipe.servings > 1000 || !Number.isInteger(servings) || servings < 1 || servings > 1000) return invalid();
+export function scaleRecipeIngredients(recipe: Pick<RecipeContent, 'servings' | 'ingredients'>, servings: number | null) {
+  if (recipe.servings !== null && !isServingCount(recipe.servings)) return invalid('servings');
+  if (servings === null ? recipe.servings !== null : !isServingCount(servings)) return invalid('servings');
+  const base = BigInt(recipe.servings ?? 1);
+  const target = recipe.servings === null ? base : BigInt(servings ?? recipe.servings);
   return recipe.ingredients.map(ingredient => {
     const descriptiveAmount = isDescriptiveAmount(ingredient.amount) ? ingredient.amount : null;
     if (!ingredient.amount || descriptiveAmount) {
       return { ...ingredient, quantity: null, descriptiveAmount, exactAmount: '', requiresReview: false };
     }
     const [amount, divisor] = fraction(ingredient.amount);
-    let numerator = amount * BigInt(servings);
-    let denominator = divisor * BigInt(recipe.servings);
+    let numerator = amount * target;
+    let denominator = divisor * base;
     const common = gcd(numerator, denominator); numerator /= common; denominator /= common;
     let quantity: string | null = null;
     if ((numerator * 1000n) % denominator === 0n) {
@@ -106,7 +113,9 @@ export function parseRecipeContent(value: unknown): RecipeContent {
   const isPrivate = row['private'];
   if (keys.includes('private') && typeof isPrivate !== 'boolean') return invalid();
   const title = text(row['title'], 160);
-  if (!title || row['version'] !== 1 || !Number.isInteger(row['servings']) || Number(row['servings']) < 1 || Number(row['servings']) > 1000) return invalid();
+  if (!title || row['version'] !== 1) return invalid();
+  const servings = row['servings'];
+  if (servings !== null && !isServingCount(servings)) return invalid('servings');
   if (!Array.isArray(row['ingredients']) || row['ingredients'].length < 1 || row['ingredients'].length > 100) return invalid();
   const ingredients = row['ingredients'].map(value => {
     const item = object(value, ['name', 'amount', 'unit', 'note']);
@@ -123,7 +132,7 @@ export function parseRecipeContent(value: unknown): RecipeContent {
   const instructions = text(row['instructions'], 50000, true);
   const cover = row['coverImage'];
   if (cover !== undefined && (typeof cover !== 'string' || !recipeImages({ instructions }).some(image => image.url === cover))) return invalid('coverImage');
-  return { version: 1, title, servings: Number(row['servings']), ingredients, instructions, tags, source, prepMinutes: minutes(row['prepMinutes']), cookMinutes: minutes(row['cookMinutes']), ...(cover === undefined ? {} : { coverImage: cover }), ...(typeof isPrivate === 'boolean' ? { private: isPrivate } : {}) };
+  return { version: 1, title, servings, ingredients, instructions, tags, source, prepMinutes: minutes(row['prepMinutes']), cookMinutes: minutes(row['cookMinutes']), ...(cover === undefined ? {} : { coverImage: cover }), ...(typeof isPrivate === 'boolean' ? { private: isPrivate } : {}) };
 }
 
 export function recipeImages(recipe: Pick<RecipeContent, 'instructions'>) {
@@ -140,6 +149,7 @@ export interface RecipeTransfer {
   readonly recipeRevision: number;
   readonly listId: string;
   readonly listRevision: number;
-  readonly servings: number;
-  readonly items: readonly { readonly ingredient: number; readonly title: string; readonly quantity: string | null; readonly unit: string | null }[];
+  readonly servings: number | null;
+  /** Omit for the complete, server-calculated batch. */
+  readonly items?: readonly { readonly ingredient: number; readonly title: string; readonly quantity: string | null; readonly unit: string | null }[] | undefined;
 }

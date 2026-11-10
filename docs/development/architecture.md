@@ -748,7 +748,15 @@ Presentation keeps the established persisted theme ids and API/database allowlis
 
 ### Guide interface and optional Galactic Guide theme (34.7, 2026-10-31)
 
+Workspace Settings, Server Admin, and Profile & Settings apply a route-level Memento Mori
+override on first paint and client navigation. The theme store retains the saved account and
+Workspace choices for the working pages and suppresses theme scenes while the override is active.
+The private Journal is a working page even though its address is under `/account`.
+
 The authenticated shell now defaults to a theme-independent top navigation (`guide/GuideNavigation.tsx`). It derives the same personal shortcuts and enabled destinations from `navigation.ts`, exposes the full ordered list in a native dialog, and keeps existing route addresses, settings, Workspace selection and focused-editing guards. `ShellFrame` chooses Guide or the existing interface from the active Workspace's layout choice; switching presentation never swaps domain providers or offline queues. Today uses the saved card order in one column; no card types or commands are removed.
+
+The Guide dialog uses a compact grid of icon links on all themes. Galactic Guide artwork lives on
+the Dashboard, leaving the destination picker short enough for quick navigation on phones.
 
 Migration 0069 (`0069_workspace_guide`) moves the Guide choices from account scope to each Workspace: a nullable, bounded, strict `guide` JSON object on `user_workspace_preferences` (Guide/classic layout, Glass/Starfield/Forest/Water/Hearth, integer opacity 0–100, images; `null` means the default). It copies each account Guide value into a row for every Workspace the person is a member of (`memberships`), discards it for people with no membership, and then removes `guide` from `user_preferences`. The API is the own-user Workspace preference route `POST /api/account/workspace-preferences/guide`: partial changes are merged on the server and `null` resets the Workspace to the default. Profile → Appearance owns the Workspace picker, personal theme, interface/card settings and personal Workspace-weather location opt-in. There is no Workspace Look and layout page. `guide/GuideSettingsForm.tsx` saves layout/card controls through the same own-account route. Provider, unit, model, credentials and fallback location remain personal account-wide Weather settings; the shared Workspace location remains admin-managed metadata used by Moon and opted-in weather. Successful personal location opt-in saves invalidate the scoped forecast/atmosphere immediately. The web app reads the Guide of the active Workspace and keeps no device copy of it; the offline context store keeps only the navigation order (`navigation:<userId>`), with existing sign-out/account-switch cleanup. Workspace backups still exclude all personal preference tables; no exported columns change. Existing Places settings and theme aliases keep their scope and defaults.
 
@@ -996,6 +1004,11 @@ belongs to, while the home Recipes tool is enabled. Changes to the Recipe, its v
 its archive state still require home Workspace management rights. Cookbook cards and details display
 the home Workspace name from the current Workspace record. Delegated MCP operations
 continue to use the Recipe's home Workspace and the existing OAuth grant.
+
+The web shopping request can omit reviewed items to copy the entire Recipe. The existing write
+transaction checks authorization, visibility and revisions before deriving quantities from the
+stored Recipe. A null base serving count in Recipe JSON means use the original quantities.
+Existing reviewed MCP transfers and stored numeric counts remain supported.
 
 Recipe-scoped image reads resolve an attachment only through the current Markdown and a stored
 reference to the same home Workspace and consumer policy. Retained references still protect

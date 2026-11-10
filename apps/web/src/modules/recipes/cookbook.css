@@ -129,3 +129,7 @@
 }
 .recipe-no-photo { max-width: 21rem; }
 .recipe-no-photo .recipe-photo { border-radius: .75rem; margin-bottom: .65rem; }
+
+.recipe-shopping-fields { display: flex; flex-wrap: wrap; align-items: end; gap: .75rem; min-width: 0; margin: 0; }
+.recipe-shopping-fields > label { display: grid; flex: 1 1 10rem; min-width: 0; gap: .35rem; }
+.recipe-shopping-fields > label > :is(input, select) { width: 100%; min-width: 0; }

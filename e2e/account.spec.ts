@@ -2941,7 +2941,7 @@ test('first server admin: bootstrap link, account creation, sign-in, Workspace c
   await expect(page).toHaveURL(/\/account\/appearance$/);
 
   // Appearance (8.3, section 28): each Workspace has its own tab under Profile & settings → Appearance, where its theme is picked. The choice applies in that Workspace and
-  // survives a reload. Account pages show the account default, so each theme check reads the Workspace page.
+  // survives a reload. Management pages use Memento Mori, so each theme check reads the Workspace page.
   const html = page.locator('html');
   const pickWorkspace = async () => {
     await page.goto('/account/appearance');

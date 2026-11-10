@@ -8,7 +8,7 @@ import { setNavigationGuard } from '../../router.tsx';
 import { RecipeShopping } from './RecipeShopping.tsx';
 import { RecipePhoto } from './RecipePhoto.tsx';
 import './cookbook.css';
-const fresh = (): RecipeContent => ({ version: 1, title: '', servings: 2, ingredients: [{ name: '', amount: '', unit: '', note: '' }], instructions: '', tags: [], source: '', prepMinutes: null, cookMinutes: null, private: false });
+const fresh = (): RecipeContent => ({ version: 1, title: '', servings: null, ingredients: [{ name: '', amount: '', unit: '', note: '' }], instructions: '', tags: [], source: '', prepMinutes: null, cookMinutes: null, private: false });
 const contentOf = (recipe: RecipeView): RecipeContent => ({ version: 1, title: recipe.title, servings: recipe.servings, ingredients: recipe.ingredients, instructions: recipe.instructions, tags: recipe.tags, source: recipe.source, prepMinutes: recipe.prepMinutes, cookMinutes: recipe.cookMinutes, private: recipe.private, ...(recipe.coverImage ? { coverImage: recipe.coverImage } : {}) });
 
 export function RecipesPage({ workspaceId, canWrite, canShop }: { workspaceId: string; canWrite: boolean; canShop: boolean }) {
@@ -89,7 +89,7 @@ export function RecipesPage({ workspaceId, canWrite, canShop }: { workspaceId: s
         {selected.source && <a href={selected.source} rel="noopener noreferrer">{t('recipes.source')}</a>}
         {canEditSelected && <div className="row wrap"><button type="button" disabled={busy} onClick={() => edit(selected)}>{t('recipes.edit')}</button><button type="button" disabled={busy} onClick={() => void save(contentOf(selected), !selected.archived)}>{t(selected.archived ? 'recipes.restore' : 'recipes.archive')}</button></div>}
       </article>
-      {canShop && !selected.archived && <RecipeShopping key={selected.id + selected.revision} workspaceId={workspaceId} recipe={selected} />}
+      {canShop && !selected.archived && <RecipeShopping key={`${workspaceId}/${selected.id}/${selected.revision}`} workspaceId={workspaceId} recipe={selected} />}
     </> : <>
       <header className="recipe-library-heading">
         <div><h2>{t('recipes.heading')}</h2><p className="muted">{t('recipes.hint')}</p></div>
@@ -129,6 +129,6 @@ function RecipeFacts({ recipe }: { recipe: RecipeContent }) {
   return <span className="recipe-facts">
     {recipe.prepMinutes !== null && <span>{t('recipes.prepShort', { count: recipe.prepMinutes })}</span>}
     {recipe.cookMinutes !== null && <span>{t('recipes.cookShort', { count: recipe.cookMinutes })}</span>}
-    <span>{t('recipes.serves', { count: recipe.servings })}</span>
+    {recipe.servings !== null && <span>{t('recipes.serves', { count: recipe.servings })}</span>}
   </span>;
 }

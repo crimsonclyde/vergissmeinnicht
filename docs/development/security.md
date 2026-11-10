@@ -1846,6 +1846,10 @@ checks govern visibility changes, which are audited with the Recipe edit.
   Workspace. A private Recipe, revoked sharing or a disabled source tool denies foreign access.
   Grocery transfer rechecks source visibility and destination List permissions in its write
   transaction. A retry cannot bypass a new visibility restriction.
+- [x] A full-recipe shopping batch derives amounts from the current authorized Recipe in that same
+  transaction. It retains the Shopping-only destination, operation receipt, revision checks and
+  atomic audit. A null base serving count uses the recorded amounts. Exact values outside the
+  numeric field's range remain bounded plain text in item names.
 - [x] A foreign Recipe reveals its current home Workspace display name only through an authorized
   list or detail response. The label grants no access to the home Workspace.
 - [x] Foreign Recipe image reads require a current Markdown reference and the same Recipe,

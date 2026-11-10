@@ -7,7 +7,7 @@ const content = { version: 1, title: 'Pancakes', servings: 2, ingredients: [{ na
 describe('Recipes, shared originals and serving-scaled grocery transfers', () => {
   let t: Awaited<ReturnType<typeof startTestApp>>; let workspace: string; let other: string; let user: string; let guest: string;
   const base = () => `/api/workspaces/${workspace}/recipes`;
-  const save = (cookie = user, recipe: typeof content & { private?: boolean } = content, id?: string, revision = 0, archived = false) => t.post(base() + (id ? '/' + id : ''), { content: recipe, expectedRevision: revision, archived }, cookie);
+  const save = (cookie = user, recipe: Omit<typeof content, 'servings'> & { servings: number | null; private?: boolean } = content, id?: string, revision = 0, archived = false) => t.post(base() + (id ? '/' + id : ''), { content: recipe, expectedRevision: revision, archived }, cookie);
   beforeEach(async () => {
     t = await startTestApp(); workspace = await t.createWorkspace('Kitchen'); other = await t.createWorkspace('Van');
     user = await t.invite('cook@example.org', 'Cook'); guest = await t.invite('guest@example.org', 'Guest');
@@ -67,7 +67,7 @@ describe('Recipes, shared originals and serving-scaled grocery transfers', () =>
     expect((await t.post(url, { content: withPhoto, expectedRevision: 1, archived: true }, reader)).statusCode).toBe(404);
 
     const list = (await t.post(`/api/workspaces/${other}/lists`, { title: 'Van groceries' }, reader)).json().list;
-    const input = { operationId: randomUUID(), recipeRevision: 1, listId: list.id, listRevision: list.revision, servings: 4, items: [{ ingredient: 0, title: 'Flour', quantity: '250', unit: 'g' }] };
+    const input = { operationId: randomUUID(), recipeRevision: 1, listId: list.id, listRevision: list.revision, servings: 4 };
     expect((await t.get(url + '/ingredients?servings=4', reader)).json().ingredients[0].quantity).toBe('250');
     expect((await t.post(url + '/shopping', input, reader)).statusCode).toBe(200);
     await t.post(`/api/workspaces/${other}/tools`, { tool: 'RECIPES', enabled: false }, t.admin);
@@ -94,8 +94,9 @@ describe('Recipes, shared originals and serving-scaled grocery transfers', () =>
     const list = (await t.post(`/api/workspaces/${workspace}/lists`, { title: 'Shopping' }, user)).json().list;
     const projection = await t.get(base() + '/' + recipe.id + '/ingredients?servings=4', guest);
     expect(projection.json().ingredients.map((item: { quantity: string }) => item.quantity)).toEqual(['250', '2']);
-    const input = { operationId: randomUUID(), recipeRevision: 1, listId: list.id, listRevision: list.revision, servings: 4, items: [{ ingredient: 0, title: 'Flour', quantity: '250', unit: 'g' }, { ingredient: 1, title: 'Eggs', quantity: '2', unit: null }] };
+    const input = { operationId: randomUUID(), recipeRevision: 1, listId: list.id, listRevision: list.revision, servings: 6 };
     expect((await t.post(base() + '/' + recipe.id + '/shopping', input, guest)).statusCode).toBe(403);
+    expect((await t.post(base() + '/' + recipe.id + '/shopping', { ...input, servings: null }, user)).statusCode).toBe(400);
     const todo = (await t.post(`/api/workspaces/${workspace}/lists`, { title: 'Weekend prep', kind: 'TODO' }, user)).json().list;
     const refused = await t.post(base() + '/' + recipe.id + '/shopping', { ...input, listId: todo.id, listRevision: todo.revision }, user);
     expect(refused.statusCode).toBe(404);
@@ -104,10 +105,45 @@ describe('Recipes, shared originals and serving-scaled grocery transfers', () =>
     const retry = await t.post(base() + '/' + recipe.id + '/shopping', input, user); expect(retry.json()).toEqual({ ...first.json(), duplicate: true });
     expect((await t.post(base() + '/' + recipe.id + '/shopping', { ...input, servings: 3 }, user)).statusCode).toBe(409);
     const result = (await t.get(`/api/workspaces/${workspace}/lists/${list.id}`, user)).json().list;
-    expect(result.items).toHaveLength(2); expect(result.items[0]).toMatchObject({ title: 'Flour', quantity: '250', unit: 'g' });
+    expect(result.items).toMatchObject([{ title: 'Flour', quantity: '375', unit: 'g' }, { title: 'Eggs', quantity: '3' }]);
     expect((await t.get(base() + '/' + recipe.id, user)).json().recipe.servings).toBe(2);
     await t.post(`/api/workspaces/${workspace}/tools`, { tool: 'LISTS', enabled: false }, t.admin);
     expect((await t.post(base() + '/' + recipe.id + '/shopping', input, user)).statusCode).toBe(404);
+  });
+  it('adds unscaled amounts for a recipe without servings and retains exact fractions', async () => {
+    await enable();
+    const ingredients = [...content.ingredients, { name: 'Oil', amount: '1/3', unit: 'cup', note: '' }];
+    const recipe = (await save(user, { ...content, servings: null, ingredients })).json().recipe;
+    expect(recipe.servings).toBeNull();
+    const list = (await t.post(`/api/workspaces/${workspace}/lists`, { title: 'Shopping' }, user)).json().list;
+    const url = `${base()}/${recipe.id}`;
+    const projection = await t.get(url + '/ingredients?servings=6', guest);
+    expect(projection.json()).toMatchObject({ baseServings: null, ingredients: [{ quantity: '125' }, { quantity: '1' }, { exactAmount: '1/3' }] });
+    const input = { operationId: randomUUID(), recipeRevision: 1, listId: list.id, listRevision: list.revision, servings: null };
+    const added = await t.post(url + '/shopping', input, user);
+    expect(added.statusCode, added.body).toBe(200);
+    const result = (await t.get(`/api/workspaces/${workspace}/lists/${list.id}`, user)).json().list;
+    expect(result.items).toMatchObject([
+      { title: 'Flour', quantity: '125', unit: 'g' },
+      { title: 'Eggs', quantity: '1', unit: null },
+      { title: '1/3 cup Oil', quantity: null, unit: null },
+    ]);
+    const fractional = (await save(user, { ...content, servings: 3, ingredients })).json().recipe;
+    const scaled = await t.post(`${base()}/${fractional.id}/shopping`, { ...input, operationId: randomUUID(), listRevision: result.revision, servings: 1 }, user);
+    expect(scaled.statusCode, scaled.body).toBe(200);
+    const after = (await t.get(`/api/workspaces/${workspace}/lists/${list.id}`, user)).json().list;
+    expect(after.items.slice(3)).toMatchObject([
+      { title: '125/3 g Flour', quantity: null, unit: null },
+      { title: '1/3 Eggs', quantity: null },
+      { title: '1/9 cup Oil', quantity: null },
+    ]);
+    const longName = (await save(user, { ...content, servings: null, ingredients: [
+      ...content.ingredients.slice(0, 1),
+      { name: 'x'.repeat(120), amount: '1/3', unit: 'cup', note: '' },
+    ] })).json().recipe;
+    const tooLong = await t.post(`${base()}/${longName.id}/shopping`, { ...input, operationId: randomUUID(), listRevision: after.revision }, user);
+    expect(tooLong.json()).toMatchObject({ error: 'recipe_shopping_measurement_too_long' });
+    expect((await t.get(`/api/workspaces/${workspace}/lists/${list.id}`, user)).json().list.items).toHaveLength(6);
   });
   it('rolls back the entire batch when auditing fails and refuses stale destination revisions', async () => {
     await enable(); const recipe = (await save()).json().recipe; const list = (await t.post(`/api/workspaces/${workspace}/lists`, { title: 'Shopping' }, user)).json().list;

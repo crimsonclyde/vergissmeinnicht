@@ -50,7 +50,7 @@ export function RecipeForm(props: {
         <label>{t('journal.title')}<input required pattern=".*\S.*" maxLength={160} value={draft.title} onKeyDown={event => { if (compact && event.key === 'Enter') { event.preventDefault(); advance(); } }} onChange={event => onChange({ ...draft, title: event.target.value })} /></label>
       </section>
       <section className="stack" data-editor-stage="ingredients" hidden={compact && stage !== 'ingredients'}>
-        <label>{t('recipes.baseServings')}<input type="number" required min="1" max="1000" step="1" value={draft.servings} onChange={event => onChange({ ...draft, servings: Number(event.target.value) })} /></label>
+        <label>{t('recipes.baseServings')}<input type="number" min="1" max="1000" step="1" value={draft.servings ?? ''} onChange={event => onChange({ ...draft, servings: event.target.value === '' ? null : Number(event.target.value) })} /></label>
         {!compact && <h3>{t('recipes.ingredients')}</h3>}
         {draft.ingredients.map((ingredient, index) => <details className="recipe-ingredient" key={index} open={!compact || activeIngredient === index}>
           <summary hidden={!compact} onClick={event => { event.preventDefault(); setActiveIngredient(index); }}>{ingredient.name || t('recipes.ingredientNumber', { count: index + 1 })}</summary>

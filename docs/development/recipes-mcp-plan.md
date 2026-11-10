@@ -48,13 +48,12 @@ is reversible. Keep domain Recipe separate from Procedure/Run and Note even thou
 Ingredient fields are name, optional amount, optional unit and optional preparation note.
 Amounts accept positive numbers, fractions and common German, English and Italian phrases
 such as “etwas”, “to taste” and “q.b.”. Preserve descriptive wording in the amount field.
-Owner now explicitly requires serving-based scaling. Preserve the base recipe and compute a shopping
-projection using target servings / base servings in shared server-side domain code, with exact decimal/
-rational arithmetic. Scale numeric ingredient amounts, preserve “to taste” wording and units, and never
-infer unit conversions or dietary substitutions. If a result cannot be represented in the existing
-List quantity precision/range, disclose it and resolve that value explicitly rather than truncating it.
-The shopping preview shows descriptive amounts alongside an empty numeric quantity. A Shopping List
-stores an empty quantity for these ingredients unless the user supplies a measured value.
+The base serving count is optional. When known, the server scales numeric amounts by target
+servings divided by base servings using exact decimal and rational arithmetic. When unknown,
+the recipe stores a null count, the web form explains that the amounts will be copied as given,
+and the server uses a 1:1 ratio. Preserve descriptive amounts and units. Automatic transfers put
+phrases and exact measurements outside the numeric List field's limits in the item name. The
+item name limit still applies. The reviewed MCP path retains explicit quantity review.
 Store bounded, versioned structured ingredient data
 plus canonical CommonMark instructions. No proprietary inline ingredient syntax is necessary.
 
@@ -69,14 +68,14 @@ remote-image fetching in the first version; a source URL is just a link.
 1. Open a saved Recipe and choose **Add ingredients to grocery list**.
 2. Select an existing grocery List in the same Workspace. Both tools must be on and the current actor
    must have Recipe read and List edit capabilities. Reading a Recipe never grants List write access.
-3. Choose target servings and preview the scaled, selectable ingredients and editable name/quantity/unit values against existing List limits.
-   Display unrepresentable amounts explicitly; do not truncate a unit/name or silently discard wording.
-4. Confirm the exact selected additions. Append unchecked ordinary ListItems; do not silently merge
-   similarly named foods, add quantities, convert units or re-open purchased items. These are copies,
+3. Choose target servings when the recipe has a serving count. The web form shows the destination
+   and a single confirmation for the full recipe. The reviewed MCP path can still select a subset.
+4. Append unchecked ordinary ListItems and preserve exact quantities and units. Each ingredient
+   gets its own item, and existing items keep their amounts and check states. These are copies,
    so later Recipe edits do not change someone's shopping List.
 5. Apply the entire batch and required audit atomically, rechecking current membership, both tool gates,
    source/target revisions and the item cap. A stable operation id makes retries return the same result.
-   If the source or destination changed, rebuild the preview rather than altering the reviewed batch.
+   If a revision changed, refresh the affected records before retrying.
 
 Offer deliberate removal of the transferred batch only while its items remain unchanged; otherwise
 show the changed items and let the user decide. No automatic deletion of grocery items after cooking.

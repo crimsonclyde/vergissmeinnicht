@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useState, type ReactNode } from 'react';
 import { AcceptInvitation } from './AcceptInvitation.tsx';
 import { api, isNetworkError, type CurrentUser } from './api.ts';
 import { ForestScene } from './ForestScene.tsx';
@@ -13,6 +13,7 @@ import { navigate, parseRoute, usePathname } from './router.tsx';
 import { SignIn } from './SignIn.tsx';
 import { SourceFooter } from './SourceFooter.tsx';
 import { t } from './i18n/index.ts';
+import { setSettingsTheme, usesSettingsTheme } from './theme.ts';
 
 /** Pages reachable without signing in (sign-in, invitation and recovery links). */
 function PublicLayout({ children }: { children: ReactNode }) {
@@ -35,6 +36,8 @@ function PublicLayout({ children }: { children: ReactNode }) {
 
 export function App() {
   const route = parseRoute(usePathname());
+  const settingsTheme = usesSettingsTheme(route);
+  useLayoutEffect(() => setSettingsTheme(settingsTheme), [settingsTheme]);
   const [user, setUserState] = useState<CurrentUser | null | undefined>(undefined);
   const [cleanupFailed, setCleanupFailed] = useState(false);
 

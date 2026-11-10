@@ -26,9 +26,12 @@ VMN is organised around what you want to do. Choose a tool and it has the screen
 - **Contacts** — the people and organisations you deal with, with their numbers to call. An optional tool as well.
 - **Maintenance** — work on the house: planned, in progress, completed or cancelled, on a board and in a list. An optional tool as well.
 
-The **Guide interface** puts Workspace selection, your personal tool shortcuts, **Guide**, and **Settings** at the top on computers and phones. Guide opens all enabled tools in your saved menu order, plus completed history and More. Press Escape or Close to return to the opener. **Settings → Profile & settings → Appearance → Interface and cards** offers **Top bar (Galactic Guide)** or **Sidebar (Existing interface)** for the Workspace you pick there, if you prefer the earlier sidebar/phone bar; each Workspace chooses its own. Both interfaces keep the same addresses, permissions and saved work. Only enabled tools appear; disabled tools answer as unknown resources. New Workspaces start with tools off, and switching a tool off keeps its data and storage usage.
+The **Guide interface** puts Workspace selection, your personal tool shortcuts, **Guide**, and **Settings** at the top on computers and phones. Guide opens a compact grid of enabled tools in your saved menu order, plus completed history and More. Press Escape or Close to return to the opener. **Settings → Profile & settings → Appearance → Interface and cards** offers **Top bar (Galactic Guide)** or **Sidebar (Existing interface)** for the Workspace you pick there, if you prefer the earlier sidebar/phone bar; each Workspace chooses its own. Both interfaces keep the same addresses, permissions and saved work. Only enabled tools appear; disabled tools answer as unknown resources. New Workspaces start with tools off, and switching a tool off keeps its data and storage usage.
 
 **Settings** has three areas, each split into named sections so you never scroll past unrelated forms: **Profile & settings** (yours), **Workspace settings** (name, members, plugins, sharing links, storage, backup — what you see depends on your role) and **Server admin** (server admins only). **Sign out** is in the same menu.
+
+These three settings areas use **Memento Mori**. Theme choices made in Appearance take effect
+when you return to the Workspace tools. The private Journal also follows your working theme.
 
 ## Getting in
 
@@ -468,13 +471,21 @@ Workspace-only. You can change visibility in the home Workspace. From another Wo
 read and export a shared Recipe or add its ingredients to a grocery list you can edit. To edit
 the Recipe itself, open it in its home Workspace.
 
+### Shop for a recipe
+
+Open a recipe, choose a Shopping list and enter how many servings you want. Select
+**Add ingredients** to copy the full recipe at that scale. For example, 125 g in a
+two-serving recipe becomes 375 g for six. If the recipe has no serving count, VMN
+shows a warning and adds the amounts as written. Phrases like “to taste” and exact
+fractions that do not fit the numeric quantity field appear in the item name.
+
 ### Create and edit Recipes on a phone
 
 Use **Title → Ingredients → Instructions → Details → Save recipe**. The bottom bar uses the same
 icons as Notes, Journal and Procedures. **Back** keeps your draft; **Cancel** asks before discarding
 unsaved changes. Nothing is autosaved.
 
-On Ingredients, set the base servings and tap an ingredient to expand its fields. Use the bottom
+On Ingredients, enter the base servings when known and tap an ingredient to expand its fields. Use the bottom
 **Add ingredient** or **Remove ingredient** buttons; removal asks first and at least one ingredient
 must remain. Instructions use the visual editor. Details holds optional preparation/cooking times,
 tags, source and the **Private to this Workspace** setting, with **Images & links** for photos. Unsupported instruction syntax

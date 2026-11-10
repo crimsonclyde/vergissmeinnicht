@@ -224,7 +224,11 @@ it('uploads supplied original bytes through OAuth MCP and safely attaches them o
   const cookbookArgs = { ...createArgs, operationId: randomUUID(), content: { ...createArgs.content,
     title: 'Recipe from cookbook photo', instructions: `${cookbookPhoto.structuredContent.markdown}\n\nSource: Cookbook.pdf`,
     coverImage: cookbookPhoto.structuredContent.attachment.reference,
-    ingredients: [{ name: 'Tomatenmark / Paprikasauce', amount: 'etwas', unit: '', note: '' }] } };
+    servings: null,
+    ingredients: [
+      { name: 'Tomatenmark / Paprikasauce', amount: 'etwas', unit: '', note: '' },
+      { name: 'Lasagneplatten', amount: '150', unit: 'g', note: '' },
+    ] } };
   const invalidSource = await call('create_recipe', { ...cookbookArgs, content: { ...cookbookArgs.content, source: 'Cookbook.pdf' } });
   expect(invalidSource.isError).toBe(true);
   expect(invalidSource.content[0].text).toContain('leave source empty');
@@ -243,12 +247,13 @@ it('uploads supplied original bytes through OAuth MCP and safely attaches them o
   expect(cookbook.isError).toBeUndefined();
   const cookbookId = JSON.parse(cookbook.content[0].text).recipeId;
   expect(JSON.parse((await call('get_recipe', { workspaceId, recipeId: cookbookId })).content[0].text))
-    .toMatchObject({ coverImage: cookbookPhoto.structuredContent.attachment.reference, ingredients: cookbookArgs.content.ingredients });
-  const scaled = await call('scale_recipe_ingredients', { workspaceId, recipeId: cookbookId, servings: 8 });
+    .toMatchObject({ coverImage: cookbookPhoto.structuredContent.attachment.reference, servings: null, ingredients: cookbookArgs.content.ingredients });
+  const scaled = await call('scale_recipe_ingredients', { workspaceId, recipeId: cookbookId, servings: null });
   expect(scaled.isError).toBeUndefined();
-  expect(JSON.parse(scaled.content[0].text).ingredients).toMatchObject([
+  expect(JSON.parse(scaled.content[0].text)).toMatchObject({ baseServings: null, ingredients: [
     { ...cookbookArgs.content.ingredients[0], descriptiveAmount: 'etwas', quantity: null, requiresReview: false },
-  ]);
+    { ...cookbookArgs.content.ingredients[1], quantity: '150' },
+  ] });
   expect(JSON.parse((await call('create_recipe', cookbookArgs)).content[0].text)).toEqual({ recipeId: cookbookId, duplicate: true });
   expect(downloads).toBe(afterCookbookDownload);
   expect((await t.get(`/api/workspaces/${workspaceId}/recipes/attachments/${cookbookPhoto.structuredContent.attachment.id}/original`, t.admin)).rawPayload)

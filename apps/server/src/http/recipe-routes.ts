@@ -61,7 +61,7 @@ export async function recipeRoutes(app: FastifyInstance, { services }: { service
   });
   app.post('/:recipeId/shopping', { bodyLimit: 64 * 1024 }, async request => {
     const { actor, workspaceId } = context(request); const { recipeId } = parse(z.object({ recipeId: uuid }), request.params);
-    const input = parse(z.strictObject({ operationId: uuid, recipeRevision: z.number().int().min(1).max(1_000_000_000), listId: uuid, listRevision: z.number().int().min(1).max(1_000_000_000), servings: z.number().int().min(1).max(1000), items: z.array(z.strictObject({ ingredient: z.number().int().min(0).max(99), title: z.string().max(120), quantity: z.string().max(16).nullable(), unit: z.string().max(16).nullable() })).min(1).max(100) }), request.body);
+    const input = parse(z.strictObject({ operationId: uuid, recipeRevision: z.number().int().min(1).max(1_000_000_000), listId: uuid, listRevision: z.number().int().min(1).max(1_000_000_000), servings: z.number().int().min(1).max(1000).nullable(), items: z.array(z.strictObject({ ingredient: z.number().int().min(0).max(99), title: z.string().max(120), quantity: z.string().max(16).nullable(), unit: z.string().max(16).nullable() })).min(1).max(100).optional() }), request.body);
     return transferRecipe(services.recipes, actor, workspaceId, recipeId, input, true);
   });
 }

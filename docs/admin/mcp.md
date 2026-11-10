@@ -354,7 +354,9 @@ fraction or supported descriptive amount such as “etwas”, “a pinch”, “
 “q.b.” in `amount`. Preserve the wording in the recipe's language. For “etwas
 Tomatenmark / Paprikasauce”, use `amount: "etwas"`, `name: "Tomatenmark / Paprikasauce"`
 and an empty unit. Use the ingredient note for preparation details. Serving changes
-carry descriptive amounts through as written. Shopping Lists store numeric quantities,
+carry descriptive amounts through as written. Set the recipe's `servings` and the
+requested target to null when the source gives no serving count. The projection then
+reports `baseServings: null` and uses the amounts as written. Delegated Shopping List transfers store numeric quantities,
 so transferred items with a descriptive amount have an empty quantity by default.
 
 The base64 and picker tools remain available. VMN does not extract photos from a PDF in

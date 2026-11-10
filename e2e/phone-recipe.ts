@@ -6,7 +6,8 @@ export async function checkPhoneRecipe(page: Page, workspaceId: string) {
   const bar = page.getByRole('navigation', { name: 'Recipe actions' });
   const action = (name: string) => bar.getByRole('button', { name, exact:true });
   const ingredient = (number: number) => page.getByRole('group', { name:`Ingredient ${number}`, exact:true });
-  await expect(page.getByLabel('Base recipe servings', { exact:true })).toBeHidden();
+  const baseServings = page.getByLabel('Base recipe servings (optional)', { exact: true });
+  await expect(baseServings).toBeHidden();
   await expectAccessible(page, 'Recipe phone title');
   await page.getByLabel('Title', { exact:true }).fill('   '); await action('Next').click();
   await expect(page.getByLabel('Title', { exact:true })).toBeFocused();
@@ -14,6 +15,7 @@ export async function checkPhoneRecipe(page: Page, workspaceId: string) {
   await action('Next').click();
   await action('Next').click();
   await expect(ingredient(1).getByLabel('Ingredient name', { exact:true })).toBeFocused();
+  await baseServings.fill('2');
   await ingredient(1).getByLabel('Ingredient name', { exact:true }).fill('Flour');
   await ingredient(1).getByLabel('Amount', { exact:true }).fill('125');
   await ingredient(1).getByLabel('Unit', { exact:true }).fill('g');

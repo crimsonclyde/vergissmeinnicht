@@ -2,6 +2,7 @@ import { THEME_PREFERENCES, placeOfTheme, type ThemePreference } from '@vergissm
 import { PLACES } from './places/registry.ts';
 import { PLACE_TOKEN_NAMES } from './places/types.ts';
 import { useCallback, useSyncExternalStore } from 'react';
+import { parseRoute, type Route } from './router.tsx';
 
 /**
  * Theme selection (Steps 8.3, 8.7). The user picks a mode; the mode resolves to one theme whose
@@ -119,10 +120,29 @@ const listeners = new Set<() => void>();
 let currentMode: ThemeMode = 'system';
 /** The person's theme for the Workspace being shown, if they chose one (section 28). */
 let workspaceMode: ThemeMode | null = null;
+let settingsTheme = false;
 
 /** What is shown: the Workspace's own theme, else the default theme. */
 export function effectiveMode(defaultMode: ThemeMode, forWorkspace: ThemeMode | null): ThemeMode {
   return forWorkspace ?? defaultMode;
+}
+
+export function usesSettingsTheme(route: Route): boolean {
+  switch (route.page) {
+    case 'account': return route.section !== 'journal';
+    case 'admin':
+    case 'settings':
+    case 'members':
+    case 'plugins':
+    case 'storage':
+    case 'knots':
+    case 'backup': return true;
+    default: return false;
+  }
+}
+
+function displayedMode(): ThemeMode {
+  return settingsTheme ? 'memento-mori' : effectiveMode(currentMode, workspaceMode);
 }
 
 function systemPrefersDark(): boolean {
@@ -131,7 +151,7 @@ function systemPrefersDark(): boolean {
 
 function apply(): void {
   const root = document.documentElement;
-  const mode = effectiveMode(currentMode, workspaceMode);
+  const mode = displayedMode();
   const dark = systemPrefersDark();
   root.dataset.theme = resolveTheme(mode, dark);
   const place = placeAttributes(mode, dark);
@@ -155,10 +175,11 @@ function apply(): void {
 export function initTheme(): void {
   currentMode = storedMode();
   workspaceMode = storedWorkspaceTheme();
+  settingsTheme = usesSettingsTheme(parseRoute(window.location.pathname));
   apply();
   // "System" follows changes of the operating-system setting while the app is open.
   window.matchMedia?.(DARK_QUERY).addEventListener('change', () => {
-    const mode = effectiveMode(currentMode, workspaceMode);
+    const mode = displayedMode();
     if (mode === 'system' || placeOfTheme(mode) !== null) apply();
   });
 }
@@ -182,14 +203,21 @@ export function setWorkspaceThemeMode(mode: ThemeMode | null): void {
   changed();
 }
 
-/** The mode being shown (a Workspace's own theme or the default); the setter changes the default. */
+/** A presentation override for settings. It never writes a theme preference. */
+export function setSettingsTheme(active: boolean): void {
+  if (settingsTheme === active) return;
+  settingsTheme = active;
+  changed();
+}
+
+/** The displayed mode. The setter changes the saved default, even when settings use the override. */
 export function useThemeMode(): [ThemeMode, (mode: ThemeMode) => void] {
   const mode = useSyncExternalStore(
     useCallback((listener: () => void) => {
       listeners.add(listener);
       return () => listeners.delete(listener);
     }, []),
-    () => effectiveMode(currentMode, workspaceMode),
+    displayedMode,
   );
   return [mode, setThemeMode];
 }

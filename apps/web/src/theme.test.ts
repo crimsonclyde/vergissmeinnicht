@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { THEMES, THEME_MODES, canonicalThemeMode, effectiveMode, isThemeMode, parseWorkspaceThemes, resolveTheme } from './theme.ts';
+import { THEMES, THEME_MODES, canonicalThemeMode, effectiveMode, isThemeMode, parseWorkspaceThemes, resolveTheme, usesSettingsTheme } from './theme.ts';
+import { parseRoute } from './router.tsx';
 
 describe('theme selection', () => {
   it('resolves System from the device setting and keeps explicit choices', () => {
@@ -36,6 +37,17 @@ describe('theme selection', () => {
     expect(effectiveMode('witch-forest', 'tokyo-nights')).toBe('tokyo-nights');
     expect(effectiveMode('system', 'light')).toBe('light');
     expect(resolveTheme(effectiveMode('light', 'dark'), false)).toBe('memento-mori');
+  });
+
+  it('uses the settings appearance only on management pages', () => {
+    const workspace = '/w/3f1c2b9a-6d4e-4f8a-9b7c-1a2b3c4d5e6f';
+    for (const path of ['/account', '/account/appearance', '/account/places', '/admin', '/admin/accounts',
+      ...['settings', 'members', 'plugins', 'storage', 'knots', 'backup'].map(page => `${workspace}/${page}`)]) {
+      expect(usesSettingsTheme(parseRoute(path)), path).toBe(true);
+    }
+    for (const path of ['/', '/weather', '/account/journal', '/account/journal/new', workspace, `${workspace}/recipes`]) {
+      expect(usesSettingsTheme(parseRoute(path)), path).toBe(false);
+    }
   });
 
   it('keeps only known themes of plausible Workspace ids from this browser’s copy', () => {

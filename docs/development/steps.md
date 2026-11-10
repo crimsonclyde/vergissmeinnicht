@@ -5426,6 +5426,8 @@ One shared UI provider compares server totals only after successful same-scope m
 **Security surface changed:** LOW — bounded owner-only presentation JSON and its validated device copy; no new endpoint/permission/provider/upload. **Security docs updated:** YES, Guide checklist with API/SQL/isolation/cleanup checks. No production authentication, private Journal, audit, snapshot, collaboration or file behavior weakened.
 **Remaining:** owner review of working implementation; physical iOS/Android, screen-reader/400% zoom, modest-device performance and release-candidate upgrade/fallback/native image gates before publication readiness. Build warns about a main JS chunk over 500 KB. No version bump, tag, merge, container/image publication, release or deployment. Owner count remains 41, next special 42nd; final special treatment/version/publication still require owner review.
 
+The compact destination picker follow-up is recorded in 36.13.
+
 ---
 
 ## 35 — Notes, personal Journal and shared attachments (assessment 2026-11-02)
@@ -7229,6 +7231,44 @@ across seven focused suites passed, including a Workspace export,
 restore and re-export with “a pinch” in the amount field. The web build,
 typecheck, lint and diff checks passed. Hosted ChatGPT verification of
 the new schema awaits deployment.
+
+### 36.13 Compact Guide picker, recipe shopping and management appearance
+
+The top-bar Guide uses a grid of labeled icon links, with two columns on
+phones and three on wider screens. It keeps the saved order, enabled tools,
+keyboard focus and existing routes. The Galactic Guide illustrations remain
+on the Dashboard. The picker introduces no security surface.
+
+Workspace Settings, Server Admin, and Profile & Settings use Memento Mori
+on first paint and during in-app navigation. The route override never writes
+theme preferences. Workspace tools and the private Journal use the saved
+theme. Places controls still use the saved Workspace choice to decide what
+to show. This is presentation-only with no permission or data changes.
+
+Recipe shopping shows a destination, a target serving count when applicable,
+and one Add ingredients button. The server reads the saved recipe and scales
+the full batch by target divided by base servings. A missing base count is
+stored as null and shown with an unscaled-amount warning. Descriptive and
+non-decimal amounts appear in Shopping item names when the numeric field
+cannot hold them. Short preparation notes carry over when they fit. A
+combined measurement and name above the List title limit rejects the entire
+batch with an explanation.
+
+The existing transfer transaction checks the current actor, source visibility,
+destination, revisions, operation receipt and capacity before committing items
+and audit together. The existing reviewed MCP transfer remains available.
+The MCP schemas can express an unknown base and target without guessing.
+No migration is needed. Existing numeric counts and backups are supported.
+Restoring a backup that contains a null count requires the updated version.
+
+The full Recipe and navigation change passed 1,704 tests across 214 files
+with loopback enabled. The subsequent theme route tests passed. Desktop
+and mobile Chromium passed the compact Guide, recipe-shopping, and
+management appearance flows. They cover a 320 × 500 picker, the Recipes
+link, six-serving and unknown-serving transfers, Memento Mori on all
+three settings areas, and return to the saved Places theme. Typecheck,
+lint, web build and diff checks passed. Physical devices, release and
+hosted verification are pending.
 
 ### Release plan for 0.13.8, owner milestone 63 (2026-11-10)
 

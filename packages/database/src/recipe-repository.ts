@@ -1,6 +1,6 @@
 import { createHash, randomUUID } from 'node:crypto';
 import { RecipeConflictError, RecipeNotFoundError, NotAuthorizedError, type RecipeRepository } from '@vergissmeinnicht/application';
-import { markdownAttachments, DomainValidationError, MAX_ITEMS_PER_LIST, scaleRecipeIngredients, parseRecipeContent,normalizeListItemTitle,normalizeListItemQuantity,normalizeListItemUnit,type RecipeContent,type RecipeTransfer,type Recipe, type User, type WorkspaceId, type AttachmentScope } from '@vergissmeinnicht/domain';
+import { markdownAttachments, DomainValidationError, MAX_ITEMS_PER_LIST, MAX_LIST_ITEM_TITLE_LENGTH, scaleRecipeIngredients, parseRecipeContent,normalizeListItemTitle,normalizeListItemQuantity,normalizeListItemUnit,type RecipeContent,type RecipeTransfer,type Recipe, type User, type WorkspaceId, type AttachmentScope } from '@vergissmeinnicht/domain';
 import { roleHasCapability } from '@vergissmeinnicht/permissions';
 import { and, desc, eq, isNull, or, sql } from 'drizzle-orm';
 import { actorAllowed, IMMEDIATE, type Transaction } from './actor-guard.ts';
@@ -31,6 +31,20 @@ function visibleRecipes(workspaceId: WorkspaceId, includeShared: boolean) {
 const actorStamp = (actor: User) => ({ kind: 'user' as const, userId: actor.id, displayName: actor.displayName });
 const guard = (tx: Transaction, workspaceId: WorkspaceId, actor: User, write = false) => actorAllowed(tx, workspaceId, actorStamp(actor), { tool: 'RECIPES', actorMay: role => roleHasCapability(role, write ? 'recipe.manage' : 'recipe.view') });
 const invalid = (message: string): never => { throw new DomainValidationError('recipe', 'invalid_recipe', message); };
+
+function automaticShoppingItems(recipe: RecipeContent, servings: RecipeTransfer['servings']) {
+  return scaleRecipeIngredients(recipe, servings).map((item, ingredient) => {
+    // The numeric List field cannot hold descriptions or every exact fraction.
+    const textAmount = item.requiresReview ? (recipe.servings === null ? item.amount : item.exactAmount) : item.descriptiveAmount;
+    const unit = item.requiresReview ? null : normalizeListItemUnit(item.unit);
+    const title = [textAmount, item.requiresReview ? item.unit : null, item.name].filter(Boolean).join(' ');
+    if ([...title].length > MAX_LIST_ITEM_TITLE_LENGTH) {
+      throw new DomainValidationError('title', 'recipe_shopping_measurement_too_long', 'Ingredient and amount do not fit in the list item name');
+    }
+    const withNote = item.note ? `${title} (${item.note})` : title;
+    return { ingredient, title: normalizeListItemTitle([...withNote].length <= MAX_LIST_ITEM_TITLE_LENGTH ? withNote : title), quantity: item.quantity, unit };
+  });
+}
 
 export const recipeAttachmentPolicy: import('./attachment-repository.ts').AttachmentConsumerPolicy = {
   key: 'recipes',
@@ -79,19 +93,22 @@ export function createRecipeRepository({ db }: AppDatabase): RecipeRepository {
         const list = tx.select().from(lists).where(and(eq(lists.id, input.listId), eq(lists.workspaceId, workspaceId), eq(lists.kind, 'GROCERY'), isNull(lists.deletedAt))).get();
         if (!list || recipe.archived) throw new RecipeNotFoundError();
         if (recipe.revision !== input.recipeRevision || list.revision !== input.listRevision) throw new RecipeConflictError();
-        if (!Number.isInteger(input.servings) || input.servings < 1 || input.servings > 1000 || input.items.length < 1 || input.items.length > 100 || new Set(input.items.map(item => item.ingredient)).size !== input.items.length || input.items.some(item => !Number.isInteger(item.ingredient) || item.ingredient < 0 || item.ingredient >= recipe.content.ingredients.length)) invalid('Invalid ingredient selection');
+        if (input.servings === null ? recipe.content.servings !== null : !Number.isInteger(input.servings) || input.servings < 1 || input.servings > 1000) invalid('Invalid target serving count');
+        const items = input.items ?? automaticShoppingItems(recipe.content, input.servings);
+        if (items.length < 1 || items.length > 100 || new Set(items.map(item => item.ingredient)).size !== items.length || items.some(item => !Number.isInteger(item.ingredient) || item.ingredient < 0 || item.ingredient >= recipe.content.ingredients.length)) invalid('Invalid ingredient selection');
         const current = tx.select({ id: listItems.id }).from(listItems).where(and(eq(listItems.listId, list.id), isNull(listItems.deletedAt))).all();
-        if (current.length + input.items.length > MAX_ITEMS_PER_LIST) invalid('Grocery list item limit reached');
+        if (current.length + items.length > MAX_ITEMS_PER_LIST) invalid('Grocery list item limit reached');
         const position = Number(tx.select({ n: sql<number>`coalesce(max(${listItems.position}), -1)` }).from(listItems).where(eq(listItems.listId, list.id)).get()?.n ?? -1) + 1;
         const name = tx.select().from(users).where(eq(users.id, actor.id)).get()?.name ?? actor.displayName;
-        const itemIds = input.items.map((item, offset) => {
+        const itemIds = items.map((item, offset) => {
           const itemId = randomUUID();
           tx.insert(listItems).values({ id: itemId, listId: list.id, workspaceId, position: position + offset, title: item.title, quantity: item.quantity, unit: item.unit, revision: 1, createdByUserId: actor.id, createdByDisplayName: name, createdAt: at, contentChangedAt: at, contentChangedByDisplayName: name, checkChangedAt: at, checkChangedByDisplayName: name }).run();
           return itemId;
         });
         tx.update(lists).set({ revision: list.revision + 1, updatedAt: at }).where(eq(lists.id, list.id)).run();
         tx.insert(recipeShoppingOperations).values({ id: input.operationId, userId: actor.id, workspaceId, payloadHash: hash, itemIds, at }).run();
-        recordSecurityEvent(tx, { type: 'RECIPE_SHOPPING_TRANSFERRED', actor: actorStamp(actor), subjectType: 'workspace', subjectId: workspaceId, occurredAt: at, metadata: { recipeId: id, listId: list.id, count: itemIds.length, servings: input.servings } });
+        const servings = recipe.content.servings === null ? null : input.servings;
+        recordSecurityEvent(tx, { type: 'RECIPE_SHOPPING_TRANSFERRED', actor: actorStamp(actor), subjectType: 'workspace', subjectId: workspaceId, occurredAt: at, metadata: { recipeId: id, listId: list.id, count: itemIds.length, ...(servings === null ? {} : { servings }) } });
         return { itemIds, duplicate: false };
         };
   return {

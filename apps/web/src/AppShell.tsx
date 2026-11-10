@@ -574,9 +574,8 @@ export function AppShell(props: { user: CurrentUser; route: Route; onSignOut: ()
   }
 
   return (
-    // The account Appearance page shows the account theme (no Workspace is in use there), so choosing it is seen at once;
-    // elsewhere the theme the person chose for the Workspace shown (or last used) applies (section 28).
-    <PreferencesProvider key={user.id} userId={user.id} workspaceId={route.page === 'account' && route.section === 'appearance' ? null : navWorkspaceId}><ProgressProvider userId={user.id} workspaceId={workspaceId} tools={navTools} privateScope={route.page === 'account' && route.section === 'journal'}>
+    // Keep the Workspace preferences available while the settings theme temporarily overrides their appearance.
+    <PreferencesProvider key={user.id} userId={user.id} workspaceId={navWorkspaceId}><ProgressProvider userId={user.id} workspaceId={workspaceId} tools={navTools} privateScope={route.page === 'account' && route.section === 'journal'}>
       <TodaySettingsProvider userId={user.id}>
       <ClockToolsProvider><ForecastProvider userId={user.id} workspaceId={navWorkspaceId} explicit={route.page === 'weather'} ready={workspaces !== null}>
       <RingPaint />
