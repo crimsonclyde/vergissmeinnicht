@@ -7116,12 +7116,50 @@ an initial timeout while running typecheck concurrently. Typecheck, lint and
 diff checks passed. Hosted verification on a build with the new diagnostics
 is pending for both direct attachments and PDF-extracted images.
 
+**Hosted 0.13.5 result (2026-11-10):** A directly attached PNG reached VMN
+as a file descriptor and returned `file_origin_unsupported`. The error prints
+the configured allowed origin, so it does not identify the received hostname
+or port. VMN refused the reference before making an outbound connection or
+writing an attachment. No Recipe was created or changed. The owner reported
+a previous successful upload through the separate byte-upload tool. The next
+step for native handoff is to establish the actual origin from a redacted
+trace and review it against the existing outbound policy. No code or
+security surface changed during this verification.
+
+**Hosted byte-upload verification (2026-11-10):** Opened the actual ChatGPT
+activity trace. The rejected native file call still did not expose the
+received origin. In the same chat, ChatGPT read and encoded the attached PNG
+and called `upload_recipe_image` once with a fresh operation ID and a null
+Recipe ID. The live call returned a PNG attachment reference with
+`duplicate: false`. No Recipe or List was changed. VMN now tells clients to
+prefer the byte-upload tools when they can encode real file bytes, to keep
+operation IDs stable on same-payload retries, and to fall back to bytes only
+after a definite pre-download rejection. Server instructions spell out
+adding, replacing and removing Recipe images and List covers through the
+existing revision-checked tools. Five focused suites passed all 70 tests,
+including the Recipe lifecycle with stale revision rejection and original
+retention, and the List cover lifecycle. Typecheck, lint and diff checks
+passed. There is no new permission, route,
+storage behavior or outbound connection. The instructions await deployment.
+Hosted List mutations, PDF extraction and the native origin remain unverified.
+
 **Diagnostic Docker build (2026-11-10):** Built the current upload diagnostics
 as `vergissmeinnicht:0.13.4-file-diagnostics.1` for Linux amd64. The production
 image smoke test passed, including startup, backup, migrations and media
 processing. Exported a compressed Docker archive for local loading on the
 test host. This is a local build with no release or new security surface.
 The hosted upload remains to be tested after the image is loaded on Unraid.
+
+### Release plan for 0.13.6, owner milestone 61 (2026-11-10)
+
+Publish the hosted image workflow guidance and regression coverage from 36.12.
+Use source on main, tag `v0.13.6`, GitHub release title `0.13.6` and the exact
+image version in the Unraid template. Add the verified 0.13.5 index as the
+first populated upgrade fixture. Keep existing checks. This release adds no
+migration or permission change. Local preflight passed 70 focused tests,
+typecheck, lint and diff checks. Hosted PNG byte upload is verified. Cookbook
+PDF import and hosted List cover mutations remain pending. Owner count stays
+60 until publication. Release 42 and its dedication remain in the published history.
 
 ### Release plan for 0.13.5, owner milestone 60 (2026-11-10)
 

@@ -207,6 +207,22 @@ it('uploads supplied original bytes through OAuth MCP and safely attaches them o
   expect((await call('upload_recipe_image_file', { ...expiredUpload, file: refreshed })).structuredContent.attachment.format).toBe('JPEG');
   expect(t.logs).not.toContain('fixture-secret');
 
+  const replacementPhoto = (await upload({ ...args, operationId: randomUUID(), fileName: 'replacement.png' })).structuredContent.attachment;
+  const currentRecipe = (await get()).json().recipe;
+  const changedPhoto = { ...content, instructions: `Cook the pasta.\n\n![Recipe photo](${replacementPhoto.reference})`, coverImage: replacementPhoto.reference };
+  const editPhoto = (expectedRevision: number, recipeContent: object) =>
+    call('save_recipe', { workspaceId, recipeId, expectedRevision, content: recipeContent });
+  expect((await editPhoto(currentRecipe.revision - 1, changedPhoto)).isError).toBe(true);
+  expect((await get()).json().recipe.coverImage).toBe(attachment.reference);
+  expect((await editPhoto(currentRecipe.revision, changedPhoto)).isError).toBeUndefined();
+  const changedRecipe = JSON.parse((await call('get_recipe', { workspaceId, recipeId })).content[0].text);
+  expect(changedRecipe).toMatchObject({ title: content.title, instructions: changedPhoto.instructions, coverImage: replacementPhoto.reference });
+  expect((await editPhoto(changedRecipe.revision, content)).isError).toBeUndefined();
+  const removedPhoto = JSON.parse((await call('get_recipe', { workspaceId, recipeId })).content[0].text);
+  expect(removedPhoto).toMatchObject({ title: content.title, instructions: content.instructions, ingredients: content.ingredients });
+  expect(removedPhoto).not.toHaveProperty('coverImage');
+  expect((await t.get(endpoint + '/original', t.admin)).rawPayload.equals(original)).toBe(true);
+
   t.database.sqlite.prepare("UPDATE memberships SET role='GUEST' WHERE workspace_id=? AND user_id=?").run(workspaceId, actorId);
   expect((await upload()).isError).toBe(true);
 }, 15_000);

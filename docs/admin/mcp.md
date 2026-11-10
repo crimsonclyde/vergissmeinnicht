@@ -304,6 +304,13 @@ on the client. The signed-in List appearance editor provides an upload path in V
 
 ## Upload an image already available in ChatGPT
 
+When ChatGPT can read an attachment with its file or code tools, it can encode the
+actual bytes and call `upload_recipe_image` or `upload_list_cover` directly. This
+works without a file picker and avoids relying on a temporary download URL. ChatGPT
+should pass the generated base64 to the tool and keep it out of the chat. The
+Recipe byte upload was verified in hosted ChatGPT with a directly attached PNG.
+For a photo in a PDF, extract the original embedded photo first when possible.
+
 After installing a VMN build with file handoff support, refresh the VMN plugin tools in
 ChatGPT and open a fresh chat. Recipe write access exposes `upload_recipe_image_file`.
 **List cover images** access exposes `upload_list_cover_file`. These tools use the
@@ -343,3 +350,9 @@ at the reviewed revision. Keep the operation ID when retrying the same file.
 The base64 and picker tools remain available. VMN does not extract photos from a PDF in
 this flow. Whether ChatGPT can expose a newly extracted file and which host it uses for
 that file require live verification. [OpenAI file input documentation](https://developers.openai.com/plugins/reference#define-file-inputs)
+
+For existing Recipes, read the current Recipe and use `save_recipe` at its reviewed
+revision. Add the returned image Markdown, replace only the selected image after a
+successful upload, or remove only that image's Markdown. Update or omit `coverImage`
+if it referred to the replaced or removed image. Read the Recipe back to verify the
+result. Earlier originals follow the existing Recipe attachment retention policy.
