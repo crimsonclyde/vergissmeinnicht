@@ -18,6 +18,14 @@ For every completed task, add a concise completion note, tests/checks performed,
 
 ## Current state — resume here
 
+**Published owner release 60 (2026-11-10).** Stable 0.13.5 was published from
+tag `v0.13.5` and source `5f3ecc9c7871632fd7f65ad71a19acbb59ca1707`. The signed
+amd64 and arm64 index was verified under `0.13.5`, `0.13` and `latest` at
+`sha256:2072d94948c6d7c8fa6e54bb6761c5ebf6ae2c401f976f2b5530fce553aca3d9`.
+Owner count **60**, next **61**. Deployment and hosted ChatGPT acceptance are pending.
+[GitHub release](https://github.com/crimsonclyde/vergissmeinnicht/releases/tag/v0.13.5)
+[Release workflow](https://github.com/crimsonclyde/vergissmeinnicht/actions/runs/42803189516)
+
 **Published owner release 59 (2026-11-10).** Stable 0.13.4 was published from
 tag `v0.13.4` and source `e65e8bc92ed40768017d237a7a52cdb3e3ff0ff9`. The
 signed amd64 and arm64 image index was verified under `0.13.4`, `0.13` and
@@ -7126,6 +7134,15 @@ Local preflight covered 70 focused tests, lint, typecheck and an amd64
 production build with its Docker smoke test. Hosted verification remains
 pending. Owner count stays 59 until publication. Release 42 and its
 dedication remain in the published history.
+
+Main CI and the tagged workflow passed, including browser checks, native
+image scans and smoke tests, signing and attestation, and seven populated
+upgrade checks starting with 0.13.4. Published the stable GitHub release at
+`2026-11-10T11:10:07Z` and advanced the owner count to 60. Unraid can pull the
+exact tag from GHCR. Hosted file transfer is still unverified.
+[Main CI](https://github.com/crimsonclyde/vergissmeinnicht/actions/runs/42803189027)
+[Release workflow](https://github.com/crimsonclyde/vergissmeinnicht/actions/runs/42803189516)
+[GitHub release](https://github.com/crimsonclyde/vergissmeinnicht/releases/tag/v0.13.5)
 
 ### Release plan for 0.13.4, owner milestone 59 (2026-11-10)
 
