@@ -3202,7 +3202,7 @@ test('first server admin: bootstrap link, account creation, sign-in, Workspace c
   }
   await expect(page.locator('html')).toHaveAttribute('data-theme', 'memento-mori');
   await expect(page.locator('.shell-side nav a').nth(1)).toHaveText('Procedures');
-  await expect(page.locator('.shell-side nav a').nth(2)).toHaveText('Lists');
+  await expect(page.locator('.shell-side nav a').nth(2)).toHaveText('Reminders');
   await menuOrder.getByRole('button', { name: 'Save menu order' }).click();
   await expect(menuOrder.getByRole('status')).toHaveText('Tool menu order saved.');
   await expect(page.locator('.shell-side nav a').nth(1)).toHaveText('Equipment');
@@ -3218,7 +3218,7 @@ test('first server admin: bootstrap link, account creation, sign-in, Workspace c
   for (const theme of ['light', 'dark']) {
     expect((await requestForPlaces('/api/account/workspace-preferences/theme', { workspaceId: workspaceIdForPlaces, theme })).status).toBe(200);
     await page.goto(workspacePath);
-    await expect(page.locator('html')).toHaveAttribute('data-theme', theme);
+    await expect(page.locator('html')).toHaveAttribute('data-theme', theme === 'dark' ? 'memento-mori' : theme);
     await expect(page.locator('.shell-side nav a').nth(1)).toHaveText('Equipment');
     await page.setViewportSize({width:320,height:850});
     await expect(page.locator('.tab-bar > a')).toHaveText(['Dashboard', 'Equipment', 'Procedures', 'More']);
@@ -3237,7 +3237,7 @@ test('first server admin: bootstrap link, account creation, sign-in, Workspace c
   await expect(menuOrder.getByRole('status')).toHaveText('Tool menu order saved.');
   await expect(page.locator('html')).toHaveAttribute('data-theme', 'memento-mori');
   await expect(page.locator('.shell-side nav a').nth(1)).toHaveText('Procedures');
-  await expect(page.locator('.shell-side nav a').nth(2)).toHaveText('Lists');
+  await expect(page.locator('.shell-side nav a').nth(2)).toHaveText('Reminders');
   await settingsSection(page,'Profile & settings','Places');
   await page.getByText('My photo',{exact:true}).click();
   await expect(page.getByRole('radio',{name:'My photo',exact:true})).toBeChecked();

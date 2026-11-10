@@ -7468,7 +7468,11 @@ flow passed the repaired opacity assertion and then exposed stale menu assertion
 that still expected the Places dock on Memento Mori settings. Updated the browser
 flow to verify the management theme/sidebar, persisted Places menu order after
 returning to the Workspace, and actual Light/Dark Workspace navigation. The full
-account rerun and GitHub gates remain in progress. No migration.
+desktop account rerun passed in 3 minutes, including the opacity preview, persisted
+menu order, management and Workspace themes, offline execution and authentication.
+The assertions account for the existing desktop/sidebar order and legacy Dark
+alias. GitHub quality and both native-image checks passed on the preceding source;
+final source CI remains pending. No migration.
 
 ### Release plan for 0.13.9, owner milestone 64 (2026-11-10)
 
