@@ -32,6 +32,15 @@ describe('ChatGPT file download policy', () => {
     'https://oaisdmntprnortheu.blob.core.windows.net:444/container/file?sig=example',
     'https://oaisdmntprnortheu.blob.core.windows.net.evil.example/container/file?sig=example',
     'https://anotheraccount.blob.core.windows.net/container/file?sig=example',
+    'https://sdmntprdenmarkeast.oaiusercontent.com.evil.example/container/file?sig=example',
+    'https://sdmntprdenmarkeast.evil.oaiusercontent.com/container/file?sig=example',
+    'https://unreviewed.oaiusercontent.com/container/file?sig=example',
+    'https://sdmntpr.oaiusercontent.com/container/file?sig=example',
+    'https://sdmntprdenmarkeast.oaiusercontent.com:444/container/file?sig=example',
+    'https://sdmntprdenmarkeast.oaiusercontent.com/container/file',
+    'https://sdmntprdenmarkeast.oaiusercontent.com/container?sig=example',
+    'https://sdmntprdenmarkeast.oaiusercontent.com/container/file?sig=one&sig=two',
+    'https://sdmntprdenmarkeast.oaiusercontent.com/container/file?sig=example&snapshot=other',
     'https://oaisdmntprnortheu.blob.core.windows.net/container?sig=example',
     'https://oaisdmntprnortheu.blob.core.windows.net/container/file?sp=r',
     'https://oaisdmntprnortheu.blob.core.windows.net/container/file?sig=example&sig=other',
@@ -57,6 +66,10 @@ describe('ChatGPT file download policy', () => {
     [url, 'files.oaiusercontent.com', '/file-fixture?sig=short-lived'],
     [new URL('https://oaisdmntprnortheu.blob.core.windows.net/container/file?sp=r&sig=short-lived'),
       'oaisdmntprnortheu.blob.core.windows.net', '/container/file?sp=r&sig=short-lived'],
+    [new URL('https://sdmntprdenmarkeast.oaiusercontent.com/container/file?sp=r&sig=short-lived'),
+      'sdmntprdenmarkeast.oaiusercontent.com', '/container/file?sp=r&sig=short-lived'],
+    [new URL('https://sdmntprwestus2.oaiusercontent.com:443/container/file?sp=r&sig=short-lived'),
+      'sdmntprwestus2.oaiusercontent.com', '/container/file?sp=r&sig=short-lived'],
   ])('pins the validated address and TLS identity for %s and leaves bytes intact', async (file, host, path) => {
     const get = vi.fn(async () => response(200, ['ab', 'cd'], { 'content-length': '4' }));
     const resolve = vi.fn(async () => ['8.8.8.8', '2606:4700::1111']);

@@ -475,6 +475,10 @@ roughly $10 budget. This is the sole newly selected server-side external image-p
   concurrent jobs reserve admission, stable jobs prevent duplicated generations and uncertain billing
   outcomes are reconciled. Quotas include actual retained images/derivatives. Generated provenance is
   visible; originals remain byte-identical through downloads/exports/backup restore.
+- [x] Return fixed generation error messages only after the relevant authorization checks. Keep
+  provider error details and job internals out of MCP results. Reject access outside the grant
+  without revealing generator configuration. A retry after an uncertain provider call returns
+  the recorded status without redispatching.
 - [ ] Desktop tailnet access still requires a scoped authenticated actor; local processes get no SQL or
   browser cookie access. Remote Claude connector calls are cloud-originated; any desktop-mediated phone
   route is tested explicitly. No public exposure/tunnel is created merely by enabling MCP.
@@ -1856,8 +1860,13 @@ checks govern visibility changes, which are audited with the Recipe edit.
   home Workspace and attachment policy in the database. Old references, unattached uploads
   and generic attachment routes cannot expose foreign images. Exports recheck access and keep
   original bytes, and use the existing safe download headers for individual originals.
-- [x] MCP reads and writes stay tied to the home Workspace selected in the grant. MCP creates
-  Workspace-only Recipes and an ordinary MCP edit preserves existing visibility. Workspace
+- [x] MCP reads and writes stay tied to the home Workspace selected in the grant. New Recipes across web, MCP and meal creation default to public in the existing
+  authenticated shared cookbook, per the owner's 2026-11-10 decision. MCP accepts
+  an optional boolean `private` and returns current visibility; explicit true
+  restricts the Recipe to its home Workspace. Omitted visibility on edits preserves
+  the previous choice, including legacy missing flags (private). Receipt hashing
+  still uses the original request, so retries cannot republish old Recipes.
+  Cross-Workspace MCP access stays forbidden even for public Recipes. Workspace
   recovery keeps local ownership, the visibility field and the original file, including for
   Workspace-only Recipes. Private Journal reads and recovery use their separate existing policy.
 
@@ -1895,14 +1904,30 @@ is served, and provisional or removed covers have no generic download route.
   preserve the original operation ID. Ordinary grocery grants cannot invoke cover tools.
 
 
+### Temporary generated-image origin diagnostic (2026-11-10)
+
+The owner-authorized Anubis diagnostic image used one operation-ID-scoped diagnostic
+for `upload_recipe_image_file` after ordinary authorization and an unsupported
+origin rejection. It reports only a syntax-checked DNS hostname, port and fixed
+route/signature-count checks. No path, query value, file ID, secret or image bytes
+are returned or logged. No new destination is allowed or contacted. The probe
+was removed from the corrected candidate after identifying the generated-image
+handoff. Ordinary errors remain fixed messages without submitted hostnames. The saved Unraid VMN network is restored to the
+existing `vmn-mcp` network shared with OpenAI-Tunnel, with no new public port
+or application permission. Live MCP access passed after recreation.
+
 ### ChatGPT file handoff for Recipe images and List covers (36.12, 2026-11-10)
 
 The dedicated file-input tools receive a ChatGPT file descriptor under `openai/fileParams`.
 The HTTPS endpoint allowlist contains `files.oaiusercontent.com` and the exact
-storage account `oaisdmntprnortheu.blob.core.windows.net`. Both use port 443.
-The latter requires a container and blob path with one nonempty `sig` and
-refuses snapshot or version selectors. The storage account was observed in the
-hosted cookbook upload. Other Azure accounts and ChatGPT web paths are refused.
+storage account `oaisdmntprnortheu.blob.core.windows.net`, and regional generated-file
+hosts matching `sdmntpr[a-z0-9]{1,56}.oaiusercontent.com` (one label, anchored).
+All use port 443. Both signed-blob host classes require a container and blob path
+with one nonempty `sig` and refuse snapshot or version selectors. The Azure account
+was observed in the hosted cookbook upload; `sdmntprdenmarkeast.oaiusercontent.com`
+was observed by the scoped generated-image probe. Regional variation is allowed only
+inside this OpenAI-owned namespace, not across arbitrary Azure accounts or arbitrary
+`oaiusercontent.com` subdomains. Other Azure accounts and ChatGPT web paths are refused.
 URLs from Recipe text, PDFs, Lists or other content remain outside the download path.
 
 - [x] Check OAuth, target Workspace, current role, tool availability and the attachment
@@ -1919,7 +1944,7 @@ URLs from Recipe text, PDFs, Lists or other content remain outside the download 
 - [x] Keep signed query strings out of logs, errors, audit and storage. Map transport
   failures to stable codes. A retry receipt binds the operation to its caller, target,
   file ID and URL identity. The original host keeps its existing path-based identity.
-  Azure Blob receipts bind the origin and blob path. A refreshed signature can replay the same receipt
+  Azure and regional signed-blob receipts bind the origin and blob path. A refreshed signature can replay the same receipt
   without contacting the host. Failed transfers release the reservation and discard staging.
 - [x] Require a confirmed cover for `create_recipe` when the caller sets `requireImage`.
   Existing attachment checks validate the cover reference and Workspace ownership before
@@ -1927,8 +1952,13 @@ URLs from Recipe text, PDFs, Lists or other content remain outside the download 
 - [x] File-input diagnostics distinguish invalid descriptors, malformed URLs, unsupported
   origins and unavailable links using fixed messages. The messages contain no submitted
   hostname, signed URL, file ID or local path. Invalid inputs stop before download.
-- [x] Reject lookalike domains, other Azure accounts, alternate ports, other ChatGPT
-  paths, unsigned blob URLs and repeated signatures before DNS or outbound requests.
+- [x] Reject lookalike domains, nested regional-host labels, unrelated OpenAI subdomains,
+  empty regional names, other Azure accounts, alternate ports, other ChatGPT paths,
+  unsigned blob URLs and repeated signatures before DNS or outbound requests.
+- [x] Regional generated PNG upload preserves original bytes and saves/reads a required
+  Recipe cover. Renewed signatures replay the receipt without another download;
+  changing the region under the same operation conflicts. Foreign-Workspace uploads
+  are rejected before download. Cookbook JPEG upload and save/readback still pass.
 - [x] Return fixed hints for rejected Recipe source, amount and cover fields.
   The response excludes submitted field values. Rejected content leaves the
   Recipe and its create receipt unwritten. A corrected retry must still pass

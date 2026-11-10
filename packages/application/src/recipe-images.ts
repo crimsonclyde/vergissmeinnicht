@@ -18,7 +18,14 @@ export async function generateRecipeImage(deps:RecipeImageDeps,actor:User,worksp
  if(!claimed.created){const attachment=claimed.job.attachmentId?await deps.attachments.repository.find({workspaceId},claimed.job.attachmentId,actor):null;await authorizeRecipes(deps.recipes,actor,workspaceId,true);return {job:claimed.job,attachment:attachment??null,duplicate:true};}
  let dispatched=false;let generated=false;
  try{
-  const source=async function*(){await authorizeRecipes(deps.recipes,actor,workspaceId,true);dispatched=true;const bytes=await provider.generate(prompt);generated=true;yield bytes;};
+  const source=async function*(){
+   await authorizeRecipes(deps.recipes,actor,workspaceId,true);
+   dispatched=true;
+   let bytes:Uint8Array;
+   try{bytes=await provider.generate(prompt);}catch{throw new RecipeImageError('image_uncertain');}
+   generated=true;
+   yield bytes;
+  };
   const name=`AI-generated-OpenAI-${provider.model}-${new Date().toISOString().slice(0,10)}.png`;
   const attachment=await uploadAttachment(deps.attachments,{actor,scope:{workspaceId},authorize:write=>authorizeRecipes(deps.recipes,actor,workspaceId,write)},name,source());
   await deps.jobs.finish(actor,workspaceId,id,'SUCCEEDED',attachment.id);return {job:{id,status:'SUCCEEDED',attachmentId:attachment.id},attachment,duplicate:false};

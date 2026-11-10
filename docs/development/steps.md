@@ -6953,6 +6953,16 @@ and hosted ChatGPT acceptance remain separate.
 [Main CI](https://github.com/crimsonclyde/vergissmeinnicht/actions/runs/42687918407)
 [Release workflow](https://github.com/crimsonclyde/vergissmeinnicht/actions/runs/42687918839)
 
+**Live discovery follow-up (2026-11-09):** The private VMN endpoint returned readiness and
+MCP discovery HTTP 200. Its web entry assets matched the published 0.13.2 image and differed
+from 0.13.1. In ChatGPT settings, refreshed the existing development plugin `vmn`, then used it
+in a new conversation. The fresh chat discovered `open_recipe_image_upload` and
+`upload_recipe_image`. The picker tool returned the intended Casa Nostra Recipe target through
+the live connection, but the hosted app iframe timed out before showing the file input. No
+photo upload or Recipe edit was attempted. The VMN Recipe editor remains the path for adding
+the existing image now. Check the MCP Apps initialization bridge before retesting hosted
+uploads. No application code, authorization or deployment changes were made in this follow-up.
+
 ### 36.11 Shared cookbook visibility and image storage verification (2026-11-10)
 
 Recipes created in the web app are shared by default. The desktop and phone
@@ -7232,6 +7242,174 @@ restore and re-export with “a pinch” in the amount field. The web build,
 typecheck, lint and diff checks passed. Hosted ChatGPT verification of
 the new schema awaits deployment.
 
+**Two pictured Recipe flows (2026-11-10):** A live read and upload-target
+check confirmed Recipe write access for the current Casa Nostra connection
+and found no Tagliatelle ai piselli. The reported generation error came from
+the MCP fallback that covered permission failures as well as missing
+provider configuration, admission limits, operation conflicts and
+provider failures. The released PDF handoff changes did not change the
+generator, admission repository or key configuration. The exact cause of
+the live generation failure is still unknown.
+
+The client can now distinguish those generation outcomes and use the
+returned cover reference and Markdown with the same required-image save
+and readback used for uploaded photos. A definite pre-dispatch refusal
+can use an authorized real image upload. A provider failure preserves the
+uncertain result and cannot trigger a second generation on retry. MCP
+returns fixed messages and only the public job fields. There are no new
+permissions, outbound destinations, credential flows or storage changes.
+
+Five focused suites passed all 50 tests, including OAuth MCP generation
+with a mocked provider, missing configuration, admission limits, a
+foreign Workspace denial, timeout replay without a second provider call,
+and save/readback with the generated cover. The cookbook test transfers
+an extracted photo fixture, preserves its bytes, and saves and reads the
+Recipe with that cover. Typecheck, lint and diff checks passed. No release,
+deployment, paid live generation or live Recipe write was performed.
+Hosted verification of both complete flows on the updated build remains open.
+
+**Unraid test candidate (2026-11-10):** Built the Linux amd64 image
+`vergissmeinnicht:0.13.9-recipe-check.2` from the published 0.13.8 source
+with the three Recipe generation changes. The candidate excludes newer
+Guide and Recipe shopping changes. The production container smoke test
+passed, the five focused suites passed all 50 tests in the working
+checkout, and the exported Docker archive passed gzip verification with
+a recorded SHA-256 checksum. This is a local build with no additional
+security surface. Loading it on Anubis and testing generation and PDF
+photo import in hosted ChatGPT remain pending. The next stable release
+would be owner milestone 64 after the live checks and release gates.
+
+**Deployment access check (2026-11-10):** With the owner's go-ahead,
+Anubis responded over SSH but rejected both the configured identity and
+the earlier temporary key. No authenticated Unraid browser session was
+available. The verified archive remains ready to load. The container,
+configuration and hosted Recipe records were not changed.
+
+**Live cause confirmed (2026-11-10):** After the operator extended the
+temporary load key, signed-in VMN on Anubis returned `{"enabled":false}`
+from the Recipe image generation status endpoint. The running 0.13.7
+template had no recipe-image key setting. The reported permissions
+message therefore hid missing provider configuration. A live MCP
+readback confirmed Paprika-Cashew-Lasagne retained its original JPEG
+cover from the hosted cookbook import. Upload uses no image-generation
+key. No secret value was accessed.
+
+**Test candidate deployed (2026-11-10):** Anubis accepted the verified
+Docker archive with the extended temporary key. Changed the
+VergissMeinNicht Repository from the 0.13.7 GHCR tag to
+`vergissmeinnicht:0.13.9-recipe-check.2`. Unraid confirmed the container
+change, and VMN readiness returned `{"status":"ready"}`. The live MCP
+generation call returned `image_disabled` and did not contact the
+provider. A second MCP read confirmed the imported cookbook Recipe and
+cover survived the restart. No new Recipe was created. Pending a
+dedicated project key, successful live generation and release 64 remain
+open. The candidate deployment introduces no new security surface.
+
+**Owner clarification and acceptance criteria (2026-11-10):** The
+ChatGPT Recipe workflows use ChatGPT to create a fitting image for a
+web Recipe or extract the original photo from a supplied cookbook.
+ChatGPT uploads either image through the same shared VMN attachment
+service, saves the Recipe with the confirmed cover, and reads it back.
+The upload service also serves List covers under their own permission.
+Neither flow calls the optional VMN generator or requires a provider key
+on Anubis. This supersedes the earlier provider-configuration follow-up
+as a condition for this objective.
+
+The hosted cookbook photo was transferred and the saved Recipe and cover
+were read back. Hosted transfer of a ChatGPT-generated image has yet to
+pass. The tool catalog still offers `generate_recipe_image`, and the
+assistant guidance still permits it for a required cover. The remaining
+work is to direct ChatGPT to its own image tool and the shared upload,
+verify the generated file handoff and both complete hosted flows, then
+use the normal GitHub and GHCR release workflow. Anubis currently runs
+the temporary diagnostic image. This entry records the owner decision
+only. No code, deployment or security surface changed. The documentation
+was checked against the current MCP tool catalog, upload policy and
+recorded hosted checks. The diff check passed.
+
+**Hosted generated-image handoff (2026-11-10):** ChatGPT found the
+web recipe, generated the picture itself, and attempted the native
+VMN upload. VMN returned `file_origin_unsupported` before downloading
+the file. The hosted activity view did not expose the file hostname.
+ChatGPT reported that it could read the 3,085,344-byte PNG for a byte
+upload retry. The reply was interrupted before a durable attachment
+reference could be verified. The live Recipe search returned no
+Tagliatelle match in Casa Nostra. The native handoff remains open.
+Identify the rejected hostname without exposing the URL path or query
+before reviewing any allowlist change. No code, deployment or security
+surface changed in this check.
+
+**Generated-image diagnostic and persistent tunnel network (2026-11-10):**
+Prepared a temporary image derived from `0.13.9-recipe-check.2`, changing only
+MCP error handling for one designated Recipe upload operation. It returns the
+hostname and fixed URL shape checks, never the signed path/query or file bytes;
+it does not expand the download allowlist. The container smoke test and 36
+focused download/upload tests passed. The owner extended Docker-load access
+and the image was loaded and applied on Anubis.
+
+The recreation exposed a separate configuration fault: OpenAI-Tunnel used
+`vmn-mcp`, but the saved VMN template selected Bridge. The private readiness
+request returned 502 and a live MCP read failed. Saved Custom : vmn-mcp in
+VMN's template; Unraid confirmed the new network flag and a subsequent live
+MCP read returned Casa Nostra. The runbook now records persistence and the
+post-recreation live-call check. This restores the intended network membership;
+no public port, new credential or application permission was introduced.
+The designated hosted image probe and final non-diagnostic deployment remain
+in progress. No new Recipe has yet been confirmed.
+
+**Generated-image origin fix (2026-11-10):** The fresh hosted ChatGPT probe
+identified `sdmntprdenmarkeast.oaiusercontent.com:443`, a blob-shaped path and
+one signature parameter. The adapter now accepts the bounded regional
+`sdmntpr[a-z0-9]{1,56}` host family beneath `oaiusercontent.com`, with the same
+signed-blob checks as the cookbook host. No arbitrary Azure accounts, nested
+subdomains, other OpenAI subdomains or web image URLs are accepted. Public DNS
+pinning, verified TLS, no redirects, bounds, target authorization and shared
+attachment validation are unchanged. This broadens the reviewed outbound
+namespace; the security policy, architecture and operator documentation were
+updated. Regional retry identity remains origin plus path.
+
+All 47 focused upload tests passed, including original generated PNG preservation,
+required-cover save/readback, renewed-signature replay, changed-origin conflict,
+foreign-Workspace denial before download, host lookalikes and the existing cookbook
+JPEG flow. A corrected image built on the running pre-probe candidate removes the
+temporary diagnostic entirely. Typecheck, lint, diff checks and the corrected production-image smoke test passed.
+The regional List-cover path also passed, preserving the original PNG. The corrected
+image `vergissmeinnicht:generated-upload-fix` was loaded and applied on Anubis.
+The saved `vmn-mcp` network survived recreation; readiness and a live MCP Workspace
+read both passed after startup. The prior cookbook Recipe and JPEG cover were read
+back successfully. Final generated-image hosted upload/save verification remains
+in progress; no stable release has been published.
+
+**Hosted generated-image acceptance passed (2026-11-10):** After the corrected
+candidate deployment, ChatGPT retried the already-generated PNG through native
+`upload_recipe_image_file` with the same operation ID. VMN confirmed the upload
+without base64 or the VMN generator. ChatGPT researched the web recipe, found no
+duplicate, saved “Tagliatelle ai piselli con limone e Parmigiano” in Casa Nostra
+and read it back. An independent MCP search and get confirmed Recipe
+`70fa5a29-50cf-4b26-9399-44422c096704`, revision 1, the confirmed PNG cover,
+matching image Markdown, saved Migusto source URL and unarchived state. The
+original cookbook Recipe “Paprika-Cashew-Lasagne” was also read back with its
+original JPEG cover after deployment. A fresh PDF import was not repeated in
+this final hosted check; the existing cookbook import and byte-preserving
+regression cover that path.
+
+Anubis runs `vergissmeinnicht:generated-upload-fix`, without the temporary
+hostname probe, and its saved template uses `vmn-mcp`. The original ChatGPT
+conversation repeatedly lost its response stream; the fresh hosted session
+completed the full generation → native upload → save → readback flow. No
+server image-generation key was used. Tests/checks: 47 focused upload tests,
+additional regional List-cover integration pass, typecheck, lint, diff check,
+production image smoke, readiness and live MCP reads after recreation. Security
+surface: bounded regional outbound storage namespace added; existing target
+permissions, public-address pinning, TLS, size limits and no-redirect policy
+retained. The security checklist and architecture/runbook were updated.
+
+Remaining: normal GitHub/GHCR release (next owner milestone 64) and the owner-
+deferred assistant instruction update so ordinary prompts select ChatGPT image
+generation and native upload by default. This successful test used explicit
+manual workflow instructions; the current catalog still exposes the optional
+VMN generator. No stable release was published by this diagnostic/fix session.
+
 ### 36.13 Compact Guide picker, recipe shopping and management appearance
 
 The top-bar Guide uses a grid of labeled icon links, with two columns on
@@ -7269,6 +7447,38 @@ link, six-serving and unknown-serving transfers, Memento Mori on all
 three settings areas, and return to the saved Places theme. Typecheck,
 lint, web build and diff checks passed. Physical devices, release and
 hosted verification are pending.
+
+### Release plan for 0.13.9, owner milestone 64 (2026-11-10)
+
+The owner authorized publication after two gates: consistent public defaults for
+new Recipes with an explicit Private option, and corrected ChatGPT image workflow
+instructions. The common transactional Recipe creation boundary now defaults
+missing visibility to public for web, MCP and meal creation. Existing/legacy
+visibility and original operation receipt hashes are preserved. MCP accepts an
+optional privacy choice and returns current visibility. This changes the default
+sharing behavior within the existing authenticated cookbook, not anonymous access;
+MCP remains scoped to the home Workspace grant. The security policy documents it.
+
+ChatGPT server instructions and tool metadata now prefer its own image generation
+or extraction of an original cookbook photo, followed by the shared native file
+upload. The optional VMN generator is explicitly outside these workflows. Save
+requires a confirmed requested cover and readback verifies cover and visibility.
+The earlier regional-host upload fix, typed optional-generator errors and runbook
+network persistence correction are included. The already committed main change
+`4902856` (compact Guide, recipe shopping and settings appearance) is included.
+
+Publish tag `v0.13.9`, title `0.13.9`, GHCR image `0.13.9`, and update the Unraid
+template. The verified immediate predecessor is 0.13.8 at index digest
+`sha256:7b3bd3a33dca38b243442994de8caa3096f88a4ae7fdfa7cdd73f3ea339d996c`;
+add its populated upgrade check and retain the earlier fixtures. No database
+migration. New null-serving Recipe backups require this version or later.
+Owner count stays 63 until publication; release 42 and its dedication remain intact.
+Live deployment remains separate. Focused gate checks passed 15 tests in four
+suites. Local release preflight passed all 1,717 tests across 214 files with
+two workers and loopback enabled, typecheck, lint, dependency audit and diff checks.
+The initial simultaneous test/typecheck/lint run hit timeouts under load and was
+stopped; the bounded-worker full rerun passed without changing test timeouts.
+Tagged GitHub checks, native builds, scans and populated upgrades remain pending.
 
 ### Release plan for 0.13.8, owner milestone 63 (2026-11-10)
 

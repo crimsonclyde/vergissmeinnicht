@@ -35,11 +35,10 @@ export async function getRecipe(deps: RecipeDeps, actor: User, workspaceId: Work
   if (!result) throw new RecipeNotFoundError();
   return result;
 }
-export async function saveRecipe(deps: RecipeDeps, actor: User, workspaceId: WorkspaceId, id: string | undefined, revision: number, content: unknown, archived: boolean, shareNew = false) {
+export async function saveRecipe(deps: RecipeDeps, actor: User, workspaceId: WorkspaceId, id: string | undefined, revision: number, content: unknown, archived: boolean) {
   await authorizeRecipes(deps, actor, workspaceId, true);
   const parsed = parseRecipeContent(content);
-  const next = shareNew && !id && parsed.private === undefined ? { ...parsed, private: false } : parsed;
-  return deps.recipes.save(workspaceId, actor, id, revision, next, archived, deps.clock.now());
+  return deps.recipes.save(workspaceId, actor, id, revision, parsed, archived, deps.clock.now());
 }
 export async function recipeProjection(deps: RecipeDeps, actor: User, workspaceId: WorkspaceId, id: string, servings: number | null, includeShared = false) {
   const recipe = await getRecipe(deps, actor, workspaceId, id, includeShared);

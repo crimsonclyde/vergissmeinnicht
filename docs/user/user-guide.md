@@ -523,3 +523,11 @@ In a Note or personal Journal editor, **Home** returns to the current Workspaceâ
 the shared phone action bar and the desktop actions. Unsaved work still asks for confirmation; choosing
 to stay preserves the editor and its current writing screen. Home is unavailable during a save and
 does not save or complete an entry by itself.
+
+
+### Recipe visibility defaults
+
+New Recipes start as **Public**, including Recipes created through ChatGPT. Public
+Recipes join the shared cookbook for signed-in VMN users with Recipes enabled in
+a Workspace. Check **Private** to keep a Recipe in its home Workspace, or tell
+ChatGPT to make the new Recipe private. Existing Recipes keep their current choice.

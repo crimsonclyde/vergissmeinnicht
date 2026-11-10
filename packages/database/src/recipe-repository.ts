@@ -63,7 +63,7 @@ export function createRecipeRepository({ db }: AppDatabase): RecipeRepository {
         if (!previous && tx.select({ id: recipes.id }).from(recipes).where(eq(recipes.workspaceId, workspaceId)).limit(1000).all().length >= 1000) invalid('Recipe limit reached');
         const recipeId = id ?? randomUUID();
         const name = tx.select().from(users).where(eq(users.id, actor.id)).get()?.name ?? actor.displayName;
-        if (content.private === undefined && previous?.content.private !== undefined) content = { ...content, private: previous.content.private };
+        if (content.private === undefined) content = { ...content, private: previous ? previous.content.private ?? true : false };
         const stamps = { revision: revision + 1, updatedAt: at, updatedByUserId: actor.id, updatedBy: name, content, archived };
         const references = markdownAttachments(content.instructions);
         // References are retained after editing, so earlier original uploads cannot disappear silently.

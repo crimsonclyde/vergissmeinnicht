@@ -7,6 +7,9 @@ import { AttachmentError } from '@vergissmeinnicht/application';
 
 export const CHATGPT_LEGACY_FILE_ORIGIN = 'https://files.oaiusercontent.com';
 const CHATGPT_BLOB_ORIGIN = 'https://oaisdmntprnortheu.blob.core.windows.net';
+// ChatGPT-generated files use regional hosts in OpenAI's own storage namespace.
+// Do not generalize this to arbitrary oaiusercontent subdomains or Azure accounts.
+const CHATGPT_REGIONAL_FILE_HOST = /^sdmntpr[a-z0-9]{1,56}\.oaiusercontent\.com$/;
 
 export class ChatGptFileError extends Error {
   readonly code: 'file_source_invalid' | 'file_origin_unsupported' | 'file_download_failed' | 'file_unavailable';
@@ -25,7 +28,9 @@ export function chatGptFileUrl(input: string): URL {
     throw new ChatGptFileError('file_source_invalid');
   }
   if (url.origin === CHATGPT_LEGACY_FILE_ORIGIN) return url;
-  if (url.origin === CHATGPT_BLOB_ORIGIN && /^\/[^/]+\/.+/.test(url.pathname) &&
+  const signedBlobOrigin = url.origin === CHATGPT_BLOB_ORIGIN ||
+    (url.port === '' && CHATGPT_REGIONAL_FILE_HOST.test(url.hostname));
+  if (signedBlobOrigin && /^\/[^/]+\/.+/.test(url.pathname) &&
       ![...url.searchParams.keys()].some(key => ['snapshot', 'versionid'].includes(key.toLowerCase())) &&
       url.searchParams.getAll('sig').length === 1 && url.searchParams.get('sig')) return url;
   throw new ChatGptFileError('file_origin_unsupported');

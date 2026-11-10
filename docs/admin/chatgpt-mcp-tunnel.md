@@ -114,7 +114,16 @@ actual command, config mounts, network mode and restart policy locally. If you r
 dedicated poller to change the target, preserve that launch configuration and keep the
 previous container stopped for rollback until the new one passes readiness and a live
 call. Run one poller for the test. Avoid sharing raw container inspection output, which
-can include environment secrets. [Docker example](mcp.md#docker-configuration-assumptions-example-only)
+can include environment secrets.
+
+Persist shared Docker networking in the Unraid template. If the tunnel uses a dedicated
+network such as `vmn-mcp`, select that same network in VMN's saved **Network Type**.
+A one-off `docker network connect` is lost when Unraid recreates the container.
+After any recreation, verify both a live MCP read and VMN readiness; readiness alone
+does not prove the tunnel can reach its upstream. On Anubis, the 2026-11-10 diagnostic
+recreation exposed a saved Bridge setting while OpenAI-Tunnel used `vmn-mcp`.
+Saving Custom : vmn-mcp restored a successful live `list_workspaces` call.
+ [Docker example](mcp.md#docker-configuration-assumptions-example-only)
 
 ## 4. Connect and prove it works in ChatGPT
 

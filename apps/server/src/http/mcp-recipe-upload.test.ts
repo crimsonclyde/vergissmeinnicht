@@ -20,7 +20,8 @@ it('uploads supplied original bytes through OAuth MCP and safely attaches them o
       yield attachedJpeg.subarray(0, 8);
       throw new ChatGptFileError('file_download_failed');
     }
-    yield url.hostname === 'oaisdmntprnortheu.blob.core.windows.net' ? cookbookJpeg : attachedJpeg;
+    yield url.hostname.startsWith('sdmntpr') ? original :
+      url.hostname === 'oaisdmntprnortheu.blob.core.windows.net' ? cookbookJpeg : attachedJpeg;
   } });
   const workspaceId = await t.createWorkspace('Cookbook');
   const foreignWorkspace = await t.createWorkspace('Other cookbook');
@@ -117,8 +118,24 @@ it('uploads supplied original bytes through OAuth MCP and safely attaches them o
   const created = await call('create_recipe', { workspaceId, operationId: randomUUID(), content: { ...content, title: 'Second pasta', instructions: newUpload.structuredContent.markdown, coverImage: newUpload.structuredContent.attachment.reference } });
   expect(created.isError).toBeUndefined();
   const delegatedRecipe = JSON.parse(created.content[0].text).recipeId as string;
-  expect((await t.get(`/api/workspaces/${workspaceId}/recipes/${delegatedRecipe}`, t.admin)).json().recipe.private).toBe(true);
-  expect((await t.get(`/api/workspaces/${foreignWorkspace}/recipes/${delegatedRecipe}`, t.admin)).statusCode).toBe(404);
+  expect((await t.get(`/api/workspaces/${workspaceId}/recipes/${delegatedRecipe}`, t.admin)).json().recipe.private).toBe(false);
+  expect((await t.get(`/api/workspaces/${foreignWorkspace}/recipes/${delegatedRecipe}`, t.admin)).statusCode).toBe(200);
+
+  expect(JSON.parse((await call('get_recipe', { workspaceId, recipeId: delegatedRecipe })).content[0].text).private).toBe(false);
+  const privateArgs = { workspaceId, operationId: randomUUID(), content: { ...content, private: true } };
+  const privateId = JSON.parse((await call('create_recipe', privateArgs)).content[0].text).recipeId;
+  const foreignPath = `/api/workspaces/${foreignWorkspace}/recipes/${privateId}`;
+  expect((await t.get(foreignPath, t.admin)).statusCode).toBe(404);
+  expect(JSON.parse((await call('save_recipe', { workspaceId, recipeId: privateId, expectedRevision: 1, content })).content[0].text).private).toBe(true);
+  expect((await t.get(foreignPath, t.admin)).statusCode).toBe(404);
+  // Legacy missing flags remain private, including on edits and operation replay.
+  t.database.sqlite.prepare("UPDATE recipes SET content=json_remove(content, '$.private') WHERE id=?").run(privateId);
+  expect(JSON.parse((await call('create_recipe', privateArgs)).content[0].text)).toMatchObject({ recipeId: privateId, duplicate: true });
+  expect(JSON.parse((await call('save_recipe', { workspaceId, recipeId: privateId, expectedRevision: 2, content })).content[0].text).private).toBe(true);
+  expect((await t.get(foreignPath, t.admin)).statusCode).toBe(404);
+  expect(JSON.parse((await call('save_recipe', { workspaceId, recipeId: privateId, expectedRevision: 3, content: { ...content, private: false } })).content[0].text).private).toBe(false);
+  expect((await t.get(foreignPath, t.admin)).statusCode).toBe(200);
+  expect((await call('get_recipe', { workspaceId: foreignWorkspace, recipeId: privateId })).isError).toBe(true);
 
   // Cover access is a separate grant, including when the List is a To-do List.
   const list = (await t.post(`/api/workspaces/${workspaceId}/lists`, { title: 'Pack for the trip', kind: 'TODO' }, t.admin)).json().list;
@@ -190,9 +207,10 @@ it('uploads supplied original bytes through OAuth MCP and safely attaches them o
   expect((await coverRpc('set_list_cover', { ...update, coverId: null, expectedRevision: 3 })).isError).toBeUndefined();
   expect((await t.get(coverPath + `/${replacement}/original`, t.admin)).statusCode).toBe(404);
 
-  const fileCover = (await coverRpc('upload_list_cover_file', { workspaceId, listId: list.id, operationId: randomUUID(), file })).structuredContent.attachment.id;
+  const fileCover = (await coverRpc('upload_list_cover_file', { workspaceId, listId: list.id, operationId: randomUUID(),
+    file: { ...file, download_url: 'https://sdmntprdenmarkeast.oaiusercontent.com/container/list-cover?sig=fixture-secret' } })).structuredContent.attachment.id;
   expect((await coverRpc('set_list_cover', { ...update, coverId: fileCover, expectedRevision: 4 })).isError).toBeUndefined();
-  expect((await t.get(coverPath + `/${fileCover}/original`, t.admin)).rawPayload).toEqual(attachedJpeg);
+  expect((await t.get(coverPath + `/${fileCover}/original`, t.admin)).rawPayload).toEqual(original);
   expect(downloads).toBe(2);
   const counted = () => t.database.sqlite.prepare('SELECT count(*) AS n FROM attachments').get();
   const before = counted();
@@ -258,6 +276,32 @@ it('uploads supplied original bytes through OAuth MCP and safely attaches them o
   expect(downloads).toBe(afterCookbookDownload);
   expect((await t.get(`/api/workspaces/${workspaceId}/recipes/attachments/${cookbookPhoto.structuredContent.attachment.id}/original`, t.admin)).rawPayload)
     .toEqual(cookbookJpeg);
+  expect(t.logs).not.toContain('fixture-secret');
+
+  const generatedFile = { file_id: 'file-generated', file_name: 'generated.png',
+    download_url: 'https://sdmntprdenmarkeast.oaiusercontent.com/container/generated?sig=fixture-secret' };
+  const generatedUpload = { workspaceId, recipeId: null, operationId: randomUUID(), file: generatedFile };
+  const beforeGenerated = downloads;
+  expect((await call('upload_recipe_image_file', { ...generatedUpload, workspaceId: foreignWorkspace })).isError).toBe(true);
+  expect(downloads).toBe(beforeGenerated);
+  const generatedPhoto = await call('upload_recipe_image_file', generatedUpload);
+  expect(generatedPhoto.isError).toBeUndefined();
+  expect((await call('upload_recipe_image_file', { ...generatedUpload, file: { ...generatedFile,
+    download_url: generatedFile.download_url.replace('fixture-secret', 'renewed-signature') } })).structuredContent)
+    .toMatchObject({ duplicate: true, attachment: generatedPhoto.structuredContent.attachment });
+  expect((await call('upload_recipe_image_file', { ...generatedUpload, file: { ...generatedFile,
+    download_url: generatedFile.download_url.replace('denmarkeast', 'westus2') } })).isError).toBe(true);
+  expect(downloads).toBe(beforeGenerated + 1);
+  const generatedRecipe = await call('create_recipe', { ...createArgs, operationId: randomUUID(),
+    requireImage: true, content: { ...content, title: 'Pasta with ChatGPT picture',
+      instructions: generatedPhoto.structuredContent.markdown,
+      coverImage: generatedPhoto.structuredContent.attachment.reference } });
+  expect(generatedRecipe.isError).toBeUndefined();
+  const generatedId = JSON.parse(generatedRecipe.content[0].text).recipeId;
+  expect(JSON.parse((await call('get_recipe', { workspaceId, recipeId: generatedId })).content[0].text))
+    .toMatchObject({ coverImage: generatedPhoto.structuredContent.attachment.reference });
+  expect((await t.get(`/api/workspaces/${workspaceId}/recipes/attachments/${generatedPhoto.structuredContent.attachment.id}/original`, t.admin)).rawPayload)
+    .toEqual(original);
   expect(t.logs).not.toContain('fixture-secret');
 
   const replacementPhoto = (await upload({ ...args, operationId: randomUUID(), fileName: 'replacement.png' })).structuredContent.attachment;

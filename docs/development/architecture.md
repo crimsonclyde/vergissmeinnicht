@@ -997,8 +997,12 @@ separate commands, so upload failures leave the Recipe available.
 ### Shared cookbook visibility (36.11)
 
 A Recipe has one home Workspace. Its version 1 content can include an explicit `private`
-boolean. Existing records and delegated creations without the field are Workspace-only. New
-Recipes saved through the web API default to shared. Browser reads, serving projections and
+boolean. Existing records without the field remain Workspace-only. All new Recipes default
+to shared at the common transactional save boundary, including web, MCP and meal
+creation; explicit Private overrides it. An edit without the field preserves the
+existing visibility. Operation hashes remain based on the supplied payload before
+defaulting, preserving receipt compatibility. MCP exposes the optional choice and
+returns it on readback. Browser reads, serving projections and
 grocery transfers can use shared Recipes through any enabled Recipes Workspace the reader
 belongs to, while the home Recipes tool is enabled. Changes to the Recipe, its visibility and
 its archive state still require home Workspace management rights. Cookbook cards and details display
@@ -1035,6 +1039,10 @@ Recipe and List cover tools can accept ChatGPT file descriptors alongside the ex
 base64 and picker tools. The MCP adapter resolves each supported file reference through
 one bounded download adapter with an explicit endpoint allowlist. Its byte stream goes through the same shared
 attachment validation, storage and consumer authorization as a browser upload. The
-descriptor and signed URL are transient. A retry uses the existing durable attachment
+descriptor and signed URL are transient. The download adapter supports the legacy file
+host, the observed cookbook Azure account and the bounded regional `sdmntpr` host
+family under `oaiusercontent.com` used for generated images. Signed blob routes
+require a signature and bind retry identity to origin and path, preserving the
+original legacy receipt format. A retry uses the existing durable attachment
 receipt, keyed by target, file ID and URL identity. Adding another consumer
 requires its own attachment policy and tool authorization.

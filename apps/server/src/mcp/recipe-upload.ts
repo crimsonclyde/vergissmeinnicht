@@ -85,7 +85,7 @@ export async function uploadDelegatedImageFile(
   await authorize(true);
   const url = chatGptFileUrl(input.file.download_url);
   const name = normalizeOriginalFileName(input.file.file_name?.trim() || 'chatgpt-image');
-  // Keep old receipts compatible. Azure Blob identity is the storage origin and path.
+  // Keep old receipts compatible. Signed blob identity is the storage origin and path.
   const identity = url.origin === CHATGPT_LEGACY_FILE_ORIGIN
     ? url.pathname
     : [url.origin, url.pathname];

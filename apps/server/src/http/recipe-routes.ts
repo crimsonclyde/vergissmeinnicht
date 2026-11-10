@@ -48,7 +48,7 @@ export async function recipeRoutes(app: FastifyInstance, { services }: { service
   });
   app.post('/', { bodyLimit: 256 * 1024 }, async (request, reply) => {
     const { actor, workspaceId } = context(request); const input = parse(content, request.body);
-    return reply.code(201).send({ recipe: await saveRecipe(services.recipes, actor, workspaceId, undefined, input.expectedRevision, input.content, input.archived, true) });
+    return reply.code(201).send({ recipe: await saveRecipe(services.recipes, actor, workspaceId, undefined, input.expectedRevision, input.content, input.archived) });
   });
   app.post('/:recipeId', { bodyLimit: 256 * 1024 }, async request => {
     const { actor, workspaceId } = context(request); const { recipeId } = parse(z.object({ recipeId: uuid }), request.params); const input = parse(content, request.body);

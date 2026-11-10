@@ -484,6 +484,8 @@ and implementation gates are in docs/development/recipes-mcp-plan.md and securit
 
 ### Accepted image-provider follow-up (2026-11-02)
 
+The 2026-11-10 clarification below governs the ChatGPT recipe workflow.
+
 Owner selected OpenAI API image generation using a dedicated project key, with roughly $10 as the initial
 budget. This narrowly permits a server-side, explicitly configured Recipe-image generator; use protected
 secrets/sealed credentials, bounded model/quality/size, quota/cost admission and idempotent jobs. Never
@@ -493,6 +495,31 @@ bytes as an original with independent derivatives and clear generated provenance
 direction, not authorization to create a subscription, charge an account, expose a public MCP endpoint or
 configure a tunnel. Claude Desktop local MCP over the user's tailnet is a proposed connection path;
 independent mobile versus a running-desktop bridge remains a product/deployment choice.
+
+### Owner clarification — public Recipe defaults (2026-11-10)
+
+New Recipes default to public in the existing shared VMN cookbook, through web,
+MCP and meal creation. Users may explicitly choose Private (home Workspace only).
+This is authenticated cookbook sharing, not anonymous internet publication.
+Existing private/legacy Recipes retain their visibility, including on edits and
+operation retries. MCP can express the Private choice and returns it on readback;
+its reads/writes remain restricted to the home Workspace in the OAuth grant.
+
+### Owner clarification — ChatGPT supplies the image (2026-11-10)
+
+- **Recipe from the web.** ChatGPT finds the recipe, creates a fitting image in ChatGPT, and uses
+  `@vmn` to upload the image and save the Recipe with that cover in the requested Workspace.
+- **Recipe from a cookbook.** ChatGPT extracts the recipe and its original image from the uploaded
+  cookbook. It uses the same `@vmn` upload and Recipe save flow.
+- **Shared upload.** Both sources hand off an actual JPEG or PNG through the existing shared
+  VMN attachment service. Recipes and List covers are existing consumers. Each consumer keeps
+  its own Workspace, tool, target and permission checks. Add other consumers only within
+  their approved scope. Preserve original bytes and keep derivatives separate.
+- **Completion.** Confirm upload, save the requested Recipe with that cover, and read it back.
+  These workflows require no OpenAI API key on VMN and must never route to
+  `generate_recipe_image`. The older VMN generator is outside this objective.
+  Verify both flows in hosted ChatGPT, including whether a ChatGPT-generated image can
+  reach the same upload tool as an extracted photo. Ship through the normal GitHub and GHCR workflow.
 
 ## Accepted follow-up — Today instruments and focused Clock/Weather (2026-11-03)
 
