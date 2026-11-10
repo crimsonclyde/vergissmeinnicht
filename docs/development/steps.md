@@ -7240,6 +7240,21 @@ or permission boundary. Owner count stays 62 until publication. Release 42
 and its dedication remain in the published history. Live deployment and
 hosted ChatGPT verification are separate.
 
+Local release preflight passed all 1,703 tests, lint, typecheck, dependency
+audit, migration metadata and diff checks. Main CI and the tagged release
+workflow passed, with 28 browser tests and two expected skips in the
+tagged run. Both native images passed smoke tests and vulnerability
+scans. The signed and attested GHCR index passed ten populated upgrade
+checks, starting with 0.13.7. The exact, minor and latest tags resolve
+to the same amd64 and arm64 index.
+
+GitHub published the stable release at `2026-11-10T17:14:13Z`. The owner
+count is now 63. Deployment to Anubis and hosted ChatGPT verification
+remain pending.
+[Main CI](https://github.com/crimsonclyde/vergissmeinnicht/actions/runs/42860261125)
+[Release workflow](https://github.com/crimsonclyde/vergissmeinnicht/actions/runs/42860261759)
+[GitHub release](https://github.com/crimsonclyde/vergissmeinnicht/releases/tag/v0.13.8)
+
 ### Release plan for 0.13.7, owner milestone 62 (2026-11-10)
 
 Publish the verified Azure Blob fix from main as `v0.13.7`, with GitHub
