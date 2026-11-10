@@ -18,6 +18,14 @@ For every completed task, add a concise completion note, tests/checks performed,
 
 ## Current state — resume here
 
+**Published owner release 59 (2026-11-10).** Stable 0.13.4 was published from
+tag `v0.13.4` and source `e65e8bc92ed40768017d237a7a52cdb3e3ff0ff9`. The
+signed amd64 and arm64 image index was verified under `0.13.4`, `0.13` and
+`latest` at `sha256:b253d3a42e51605f4abbfa9ea36a9427a2b021ea2470540a83081782825201fc`.
+Owner count **59**, next **60**. Deployment and hosted ChatGPT acceptance are pending.
+[GitHub release](https://github.com/crimsonclyde/vergissmeinnicht/releases/tag/v0.13.4)
+[Release workflow](https://github.com/crimsonclyde/vergissmeinnicht/actions/runs/42797166090)
+
 **Published owner release 58 (2026-11-10).** Stable image 0.13.3 was published from
 tag `v0.13.3` and source `c7aabe04f5300ac238b7a121fde78ea70a1bea72`. Main CI and the
 tagged workflow passed, with the release verification complete at `2026-11-10T08:05:59Z`.
@@ -7066,7 +7074,7 @@ tests across seven files. The operator, architecture and security docs describe 
 Remaining work is a live hosted test with a directly attached JPEG or PNG and then a JPEG
 extracted from the original PDF. ChatGPT must expose the separate image as a file on the
 allowed host. The current tools accept JPEG and PNG, and PDF extraction remains client-side.
-This implementation is local and introduces no migration or release.
+This change shipped in 0.13.4 without a database migration.
 
 ### Release plan for 0.13.4, owner milestone 59 (2026-11-10)
 
@@ -7081,3 +7089,15 @@ remain in the published history. Deployment and hosted ChatGPT acceptance are se
 Release preflight passed all 1,683 tests in 214 files, lint, typecheck, the web build,
 the dependency advisory audit, migration metadata validation and diff checks. The local
 discovery note and untracked artwork are outside the release.
+
+Main CI and the tagged workflow passed, including browser coverage, native
+image smoke tests and scans, signing and attestation, and six populated
+upgrade checks starting with 0.13.3. The stable GitHub release was published
+at `2026-11-10T10:25:26Z`. The registry tags resolve to the same verified
+amd64 and arm64 index. This advances the owner count to 59. Release 42 and
+its dedication remain in the published history. The fixed-host retrieval
+security checks are recorded in 36.12. Deployment and hosted verification
+of a directly attached image and an image extracted from a PDF remain pending.
+[Main CI](https://github.com/crimsonclyde/vergissmeinnicht/actions/runs/42797167117)
+[Release workflow](https://github.com/crimsonclyde/vergissmeinnicht/actions/runs/42797166090)
+[GitHub release](https://github.com/crimsonclyde/vergissmeinnicht/releases/tag/v0.13.4)
