@@ -2,13 +2,32 @@ import { createHash, randomUUID } from 'node:crypto';
 import { RecipeConflictError, RecipeNotFoundError, NotAuthorizedError, type RecipeRepository } from '@vergissmeinnicht/application';
 import { markdownAttachments, DomainValidationError, MAX_ITEMS_PER_LIST, scaleRecipeIngredients, parseRecipeContent,normalizeListItemTitle,normalizeListItemQuantity,normalizeListItemUnit,type RecipeContent,type RecipeTransfer,type Recipe, type User, type WorkspaceId, type AttachmentScope } from '@vergissmeinnicht/domain';
 import { roleHasCapability } from '@vergissmeinnicht/permissions';
-import { and, desc, eq, isNull, sql } from 'drizzle-orm';
+import { and, desc, eq, isNull, or, sql } from 'drizzle-orm';
 import { actorAllowed, IMMEDIATE, type Transaction } from './actor-guard.ts';
 import type { AppDatabase } from './connection.ts';
-import { recipeMealOperations,recipes, recipeAttachmentReferences, recipeShoppingOperations, attachments, lists, listItems, users } from './schema.ts';
+import { recipeMealOperations,recipes, recipeAttachmentReferences, recipeShoppingOperations, attachments, lists, listItems, users, workspaces, workspaceTools } from './schema.ts';
+import { attachmentView } from './attachment-repository.ts';
+import { currentDelegation } from './delegation-context.ts';
 import { recordSecurityEvent } from './security-events.ts';
 
-const view = (row: typeof recipes.$inferSelect): Recipe => ({ ...row.content, id: row.id, revision: row.revision, archived: row.archived, updatedAt: row.updatedAt, updatedBy: row.updatedBy });
+const namedRecipes = (tx: Transaction) => tx.select({ row: recipes, homeWorkspaceName: workspaces.name })
+  .from(recipes).innerJoin(workspaces, eq(workspaces.id, recipes.workspaceId));
+
+const view = ({ row, homeWorkspaceName }: { row: typeof recipes.$inferSelect; homeWorkspaceName: string }, workspaceId: WorkspaceId): Recipe => {
+  const inCurrentWorkspace = row.workspaceId === workspaceId;
+  return { ...row.content, private: row.content.private ?? true, inCurrentWorkspace, homeWorkspaceName, id: row.id,
+    revision: row.revision, archived: row.archived, updatedAt: row.updatedAt, updatedBy: inCurrentWorkspace ? row.updatedBy : '' };
+};
+
+function visibleRecipes(workspaceId: WorkspaceId, includeShared: boolean) {
+  const local = eq(recipes.workspaceId, workspaceId);
+  if (!includeShared || currentDelegation()) return local;
+  // Missing flags are legacy Workspace-only records. A disabled source tool also hides its shared Recipes.
+  return or(local, sql`json_type(${recipes.content}, '$.private') = 'false' AND EXISTS (
+    SELECT 1 FROM ${workspaceTools} WHERE ${workspaceTools.workspaceId} = ${recipes.workspaceId}
+    AND ${workspaceTools.tool} = 'RECIPES' AND ${workspaceTools.enabled} = 1
+  )`);
+}
 const actorStamp = (actor: User) => ({ kind: 'user' as const, userId: actor.id, displayName: actor.displayName });
 const guard = (tx: Transaction, workspaceId: WorkspaceId, actor: User, write = false) => actorAllowed(tx, workspaceId, actorStamp(actor), { tool: 'RECIPES', actorMay: role => roleHasCapability(role, write ? 'recipe.manage' : 'recipe.view') });
 const invalid = (message: string): never => { throw new DomainValidationError('recipe', 'invalid_recipe', message); };
@@ -30,6 +49,7 @@ export function createRecipeRepository({ db }: AppDatabase): RecipeRepository {
         if (!previous && tx.select({ id: recipes.id }).from(recipes).where(eq(recipes.workspaceId, workspaceId)).limit(1000).all().length >= 1000) invalid('Recipe limit reached');
         const recipeId = id ?? randomUUID();
         const name = tx.select().from(users).where(eq(users.id, actor.id)).get()?.name ?? actor.displayName;
+        if (content.private === undefined && previous?.content.private !== undefined) content = { ...content, private: previous.content.private };
         const stamps = { revision: revision + 1, updatedAt: at, updatedByUserId: actor.id, updatedBy: name, content, archived };
         const references = markdownAttachments(content.instructions);
         // References are retained after editing, so earlier original uploads cannot disappear silently.
@@ -41,20 +61,23 @@ export function createRecipeRepository({ db }: AppDatabase): RecipeRepository {
         if (previous) tx.update(recipes).set(stamps).where(eq(recipes.id, recipeId)).run();
         else tx.insert(recipes).values({ id: recipeId, workspaceId, createdAt: at, createdByUserId: actor.id, createdBy: name, ...stamps }).run();
         for (const ref of references) tx.insert(recipeAttachmentReferences).values({ recipeId, workspaceId, attachmentId: ref.id }).onConflictDoNothing().run();
-        recordSecurityEvent(tx, { type: 'RECIPE_CHANGED', actor: actorStamp(actor), subjectType: 'workspace', subjectId: workspaceId, occurredAt: at, metadata: { recipeId, revision: stamps.revision, archived } });
-        return { ...content, id: recipeId, revision: stamps.revision, archived, updatedAt: at, updatedBy: name };
+        recordSecurityEvent(tx, { type: 'RECIPE_CHANGED', actor: actorStamp(actor), subjectType: 'workspace', subjectId: workspaceId, occurredAt: at, metadata: { recipeId, revision: stamps.revision, archived, private: content.private ?? true } });
+        const saved = namedRecipes(tx).where(eq(recipes.id, recipeId)).get();
+        if (!saved) throw new RecipeNotFoundError();
+        return view(saved, workspaceId);
         };
-  const transferTx=(tx:Transaction,workspaceId:WorkspaceId,actor:User,id:string,input:RecipeTransfer,at:Date)=>{
+  const transferTx=(tx:Transaction,workspaceId:WorkspaceId,actor:User,id:string,input:RecipeTransfer,at:Date,includeShared = false)=>{
         if (!guard(tx, workspaceId, actor) || !actorAllowed(tx, workspaceId, actorStamp(actor), { tool: 'LISTS', actorMay: role => roleHasCapability(role, 'list.edit') })) throw new NotAuthorizedError();
+        const recipe = tx.select().from(recipes).where(and(eq(recipes.id, id), visibleRecipes(workspaceId, includeShared))).get();
+        if (!recipe) throw new RecipeNotFoundError();
         const hash = createHash('sha256').update(JSON.stringify({ id, input })).digest('hex');
         const prior = tx.select().from(recipeShoppingOperations).where(eq(recipeShoppingOperations.id, input.operationId)).get();
         if (prior) {
           if (prior.workspaceId !== workspaceId || prior.userId !== actor.id || prior.payloadHash !== hash) throw new RecipeConflictError();
           return { itemIds: prior.itemIds, duplicate: true };
         }
-        const recipe = tx.select().from(recipes).where(and(eq(recipes.id, id), eq(recipes.workspaceId, workspaceId))).get();
-        const list = tx.select().from(lists).where(and(eq(lists.id, input.listId), eq(lists.workspaceId, workspaceId), isNull(lists.deletedAt))).get();
-        if (!recipe || !list || recipe.archived) throw new RecipeNotFoundError();
+        const list = tx.select().from(lists).where(and(eq(lists.id, input.listId), eq(lists.workspaceId, workspaceId), eq(lists.kind, 'GROCERY'), isNull(lists.deletedAt))).get();
+        if (!list || recipe.archived) throw new RecipeNotFoundError();
         if (recipe.revision !== input.recipeRevision || list.revision !== input.listRevision) throw new RecipeConflictError();
         if (!Number.isInteger(input.servings) || input.servings < 1 || input.servings > 1000 || input.items.length < 1 || input.items.length > 100 || new Set(input.items.map(item => item.ingredient)).size !== input.items.length || input.items.some(item => !Number.isInteger(item.ingredient) || item.ingredient < 0 || item.ingredient >= recipe.content.ingredients.length)) invalid('Invalid ingredient selection');
         const current = tx.select({ id: listItems.id }).from(listItems).where(and(eq(listItems.listId, list.id), isNull(listItems.deletedAt))).all();
@@ -72,15 +95,57 @@ export function createRecipeRepository({ db }: AppDatabase): RecipeRepository {
         return { itemIds, duplicate: false };
         };
   return {
-    async list(workspaceId, query, archived, offset) {
-      const rows = db.select().from(recipes).where(and(eq(recipes.workspaceId, workspaceId), eq(recipes.archived, archived))).orderBy(desc(recipes.updatedAt), desc(recipes.id)).limit(1000).all();
-      const needle = query.toLocaleLowerCase();
-      const matches = rows.filter(row => [row.content.title, row.content.instructions, ...row.content.tags, ...row.content.ingredients.map(item => item.name)].join('\n').toLocaleLowerCase().includes(needle));
-      return { recipes: matches.slice(offset, offset + 30).map(view), more: matches.length > offset + 30 };
+    async list(workspaceId, actor, query, archived, offset, includeShared) {
+      return db.transaction(tx => {
+        if (!guard(tx, workspaceId, actor)) throw new NotAuthorizedError();
+        const page = (start: number, size: number) => namedRecipes(tx)
+          .where(and(visibleRecipes(workspaceId, includeShared), eq(recipes.archived, archived)))
+          .orderBy(desc(recipes.updatedAt), desc(recipes.id)).limit(size).offset(start).all();
+        const needle = query.toLocaleLowerCase();
+        if (!needle) {
+          const rows = page(offset, 31);
+          return { recipes: rows.slice(0, 30).map(row => view(row, workspaceId)), more: rows.length > 30 };
+        }
+        const matches: Recipe[] = [];
+        let skipped = 0;
+        const batchSize = 100;
+        for (let start = 0; matches.length < 31; start += batchSize) {
+          const rows = page(start, batchSize);
+          for (const entry of rows) {
+            const { row } = entry;
+            const searchable = [row.content.title, row.content.instructions, ...row.content.tags, ...row.content.ingredients.map(item => item.name)].join('\n');
+            if (!searchable.toLocaleLowerCase().includes(needle)) continue;
+            if (skipped < offset) { skipped++; continue; }
+            matches.push(view(entry, workspaceId));
+            if (matches.length === 31) break;
+          }
+          if (rows.length < batchSize) break;
+        }
+        return { recipes: matches.slice(0, 30), more: matches.length > 30 };
+      });
     },
-    async find(workspaceId, id) { const row = db.select().from(recipes).where(and(eq(recipes.id, id), eq(recipes.workspaceId, workspaceId))).get(); return row ? view(row) : undefined; },
+    async find(workspaceId, actor, id, includeShared) {
+      return db.transaction(tx => {
+        if (!guard(tx, workspaceId, actor)) throw new NotAuthorizedError();
+        const entry = namedRecipes(tx).where(and(eq(recipes.id, id), visibleRecipes(workspaceId, includeShared))).get();
+        return entry ? view(entry, workspaceId) : undefined;
+      });
+    },
+    async findAttachment(workspaceId, actor, recipeId, attachmentId) {
+      return db.transaction(tx => {
+        if (!guard(tx, workspaceId, actor)) throw new NotAuthorizedError();
+        const row = tx.select().from(recipes).where(and(eq(recipes.id, recipeId), visibleRecipes(workspaceId, true))).get();
+        if (!row || !markdownAttachments(row.content.instructions).some(ref => ref.id === attachmentId)) return undefined;
+        const file = tx.select({ file: attachments }).from(recipeAttachmentReferences)
+          .innerJoin(attachments, eq(attachments.id, recipeAttachmentReferences.attachmentId))
+          .where(and(eq(recipeAttachmentReferences.recipeId, row.id), eq(recipeAttachmentReferences.workspaceId, row.workspaceId),
+            eq(attachments.id, attachmentId), eq(attachments.workspaceId, row.workspaceId),
+            eq(attachments.policyKey, 'recipes'), eq(attachments.deleting, false))).get()?.file;
+        return file ? attachmentView(file) : undefined;
+      });
+    },
     async save(workspaceId,actor,id,revision,content,archived,at){return db.transaction(tx=>saveTx(tx,workspaceId,actor,id,revision,content,archived,at),IMMEDIATE);},
-    async transfer(workspaceId,actor,id,input,at){return db.transaction(tx=>transferTx(tx,workspaceId,actor,id,input,at),IMMEDIATE);},
+    async transfer(workspaceId,actor,id,input,at,includeShared){return db.transaction(tx=>transferTx(tx,workspaceId,actor,id,input,at,includeShared),IMMEDIATE);},
     async createWithOperation(workspaceId,actor,operationId,content,at){return db.transaction(tx=>{
      if(!guard(tx,workspaceId,actor,true))throw new NotAuthorizedError();const hash=createHash('sha256').update(JSON.stringify({kind:'createRecipe',content})).digest('hex');const previous=tx.select().from(recipeMealOperations).where(eq(recipeMealOperations.id,operationId)).get();
      if(previous){if(previous.userId!==actor.id||previous.workspaceId!==workspaceId||previous.payloadHash!==hash)throw new RecipeConflictError();return {recipeId:previous.recipeId,duplicate:true};}
@@ -94,7 +159,7 @@ export function createRecipeRepository({ db }: AppDatabase): RecipeRepository {
      const existing=input.recipeId?tx.select().from(recipes).where(and(eq(recipes.id,input.recipeId),eq(recipes.workspaceId,workspaceId))).get():undefined;
      if(input.recipeId&&(!existing||existing.archived))throw new RecipeNotFoundError();
      if(!existing&&(!input.content||markdownAttachments(input.content.instructions).length===0))invalid('A new meal Recipe requires an image');
-     const recipe=existing?view(existing):saveTx(tx,workspaceId,actor,undefined,0,parseRecipeContent(input.content),false,at);
+     const recipe=existing?{...existing.content,id:existing.id,revision:existing.revision}:saveTx(tx,workspaceId,actor,undefined,0,parseRecipeContent(input.content),false,at);
      if(existing&&input.recipeRevision!==existing.revision)throw new RecipeConflictError();
      const projection=scaleRecipeIngredients(recipe,input.servings);if(projection.some(item=>item.requiresReview))invalid('Ingredient quantities require explicit review through the regular transfer');
      const result=transferTx(tx,workspaceId,actor,recipe.id,{operationId:input.operationId,recipeRevision:recipe.revision,listId:input.listId,listRevision:input.listRevision,servings:input.servings,items:projection.map((item,ingredient)=>({ingredient,title:normalizeListItemTitle(item.name),quantity:normalizeListItemQuantity(item.quantity),unit:normalizeListItemUnit(item.unit||null)}))},at);

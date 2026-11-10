@@ -6,13 +6,19 @@ import type { WorkspaceId } from './workspace.ts';
 /**
  * A List is lightweight shared content of a Workspace (15.3): named, with items that are checked off.
  * It is neither a Procedure nor a Run — no Sections, no Required/Critical rules, no Skip/N/A, nothing
- * to start. The first (and so far only) kind is the grocery list; `kind` is the seam for others.
+ * to start. Shopping Lists have quantities and units; To-do Lists have title-only tasks.
  */
 export type ListId = string & { readonly __brand: 'ListId' };
 export type ListItemId = string & { readonly __brand: 'ListItemId' };
 
-export const LIST_KINDS = ['GROCERY'] as const;
+export const LIST_KINDS = ['GROCERY', 'TODO'] as const;
 export type ListKind = (typeof LIST_KINDS)[number];
+export const LIST_ICONS = ['shopping', 'checklist', 'home', 'travel', 'garden', 'tools', 'book', 'gift'] as const;
+export type ListIcon = (typeof LIST_ICONS)[number];
+export interface ListAppearance {
+  readonly icon: ListIcon | null;
+  readonly coverId: string | null;
+}
 
 export const MAX_LIST_TITLE_LENGTH = 80;
 export const MAX_LIST_ITEM_TITLE_LENGTH = 120;
@@ -30,7 +36,7 @@ export const MAX_ITEMS_PER_LIST = 300;
  * edit or a check, and deleting a List wins over offline changes to it.
  */
 export type ListChange =
-  | { readonly kind: 'createList'; readonly listId: ListId; readonly title: string }
+  | { readonly kind: 'createList'; readonly listId: ListId; readonly title: string; readonly listKind: ListKind }
   | { readonly kind: 'renameList'; readonly listId: ListId; readonly title: string }
   | { readonly kind: 'deleteList'; readonly listId: ListId }
   | { readonly kind: 'addItem'; readonly listId: ListId; readonly itemId: ListItemId; readonly title: string; readonly quantity: string | null; readonly unit: string | null }
@@ -67,7 +73,7 @@ export interface ListActorStamp {
   readonly by: { readonly userId: UserId; readonly displayName: string };
 }
 
-export interface List {
+export interface List extends ListAppearance {
   readonly id: ListId;
   readonly workspaceId: WorkspaceId;
   readonly kind: ListKind;
@@ -91,7 +97,7 @@ export interface ListItem {
   /** Increases with every edit of title, quantity or unit (not with checking). */
   readonly revision: number;
   readonly created: ListActorStamp;
-  /** Purchased: who checked it and when; null = still to buy. */
+  /** Who checked it and when; null = still to buy or still to do. */
   readonly checked: ListActorStamp | null;
 }
 
@@ -123,6 +129,13 @@ export function normalizeListItemQuantity(input: string | null | undefined): str
 export function normalizeListItemUnit(input: string | null | undefined): string | null {
   if ((input ?? '').trim() === '') return null;
   return normalizeSingleLineName(input ?? '', { field: 'unit', codePrefix: 'list_item_unit', label: 'Unit', maxLength: MAX_LIST_ITEM_UNIT_LENGTH });
+}
+
+/** Only Shopping items can carry quantities or units. */
+export function assertListItemKind(kind: ListKind, item: Pick<ListItem, 'quantity' | 'unit'>): void {
+  if (kind === 'TODO' && (item.quantity !== null || item.unit !== null)) {
+    throw new DomainValidationError('quantity', 'todo_item_fields', 'To-do tasks only have a title');
+  }
 }
 
 export function parseListId(value: string): ListId {

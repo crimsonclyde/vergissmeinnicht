@@ -1,4 +1,4 @@
-import type { Actor, List, ListChange, ListId, ListItem, ListItemId, ListKind, ListReplayOutcome, WorkspaceId } from '@vergissmeinnicht/domain';
+import type { Actor, AttachmentRecord, List, ListAppearance, ListChange, ListId, ListItem, ListItemId, ListKind, ListReplayOutcome, WorkspaceId } from '@vergissmeinnicht/domain';
 import type { ActorGuard } from './actor-guard.ts';
 
 /** A List in the overview: how much is still to buy and how much is checked off. */
@@ -70,6 +70,12 @@ export interface ListRepository {
   replay(input: ListReplayInput, actor: UserActor, guard: ActorGuard): Promise<ListReplayResult>;
   /** `undefined` for unknown, foreign and deleted Lists. */
   find(workspaceId: WorkspaceId, listId: ListId): Promise<ListWithItems | undefined>;
+  findCover(workspaceId: WorkspaceId, listId: ListId, attachmentId: string, actor: UserActor, guard: ActorGuard): Promise<AttachmentRecord | undefined>;
+  changeAppearance(
+    input: { workspaceId: WorkspaceId; listId: ListId; expectedRevision: number; appearance: Partial<ListAppearance>; at: Date },
+    actor: UserActor,
+    guard: ActorGuard,
+  ): Promise<ListChangeResult<'list_not_found' | 'conflict' | 'cover_not_found'>>;
   create(
     input: { readonly workspaceId: WorkspaceId; readonly kind: ListKind; readonly title: string; readonly at: Date; readonly maxLists: number },
     actor: UserActor,

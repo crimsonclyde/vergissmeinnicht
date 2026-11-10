@@ -78,6 +78,9 @@ describe('MCP OAuth delegation',()=>{
   const firstList=await createShopping(first);
   const secondList=await createShopping(second);
   const unselectedList=await createShopping(unselected);
+  const todo=await t.post(`/api/workspaces/${first}/lists`,{title:'Tasks for this Workspace',kind:'TODO'},t.admin);
+  expect(todo.statusCode,todo.body).toBe(201);
+  const todoId=todo.json().list.id as string;
 
   const actor=await t.services.users.findById((await t.get('/api/auth/session',t.admin)).json().user.id);
   if(!actor) throw new Error('Missing actor');
@@ -111,6 +114,9 @@ describe('MCP OAuth delegation',()=>{
   const entry={operationId:randomUUID(),itemId:randomUUID(),title:'Fictional tea'};
   expect((await call('get_grocery_list',{workspaceId:unselected,listId:unselectedList})).isError).toBe(true);
   expect((await call('get_grocery_list',{workspaceId:first,listId:secondList})).isError).toBe(true);
+  expect((await call('get_grocery_list',{workspaceId:first,listId:todoId})).isError).toBe(true);
+  expect((await call('add_grocery_item',{...entry,operationId:randomUUID(),workspaceId:first,listId:todoId})).isError).toBe(true);
+  expect((await t.get(`/api/workspaces/${first}/lists/${todoId}`,t.admin)).json().list.items).toEqual([]);
   expect((await call('add_grocery_item',{...entry,operationId:randomUUID(),workspaceId:first,listId:secondList})).isError).toBe(true);
   expect((await call('add_grocery_item',{...entry,operationId:randomUUID(),workspaceId:unselected,listId:unselectedList})).isError).toBe(true);
   expect((await call('add_grocery_item',{...entry,workspaceId:first,listId:firstList})).isError).not.toBe(true);

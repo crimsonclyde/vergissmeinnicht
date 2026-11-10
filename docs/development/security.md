@@ -1831,3 +1831,61 @@ on this boundary. The widget declares no network domains and sends no photo unti
 - [x] Treat a cookbook cover as a reference to an already validated local image in the Recipe.
   Thumbnail and preview requests use existing authenticated routes. Remap cover references during
   Workspace restore. Never trust a cover supplied by a caller as authorization to read a file.
+
+### Shared cookbook visibility (36.11, 2026-11-10)
+
+This is an explicit exception to Workspace-only Recipe reads. A session needs an active
+membership with Recipe read access and an enabled Recipes tool in the viewing Workspace.
+A foreign Recipe is readable only if its home tool is enabled and its stored visibility is
+explicitly shared. Missing visibility in old records and packages means Workspace-only. Foreign
+responses include the home Workspace display name for the cookbook label and omit its identifier
+and editor attribution. Home role and revision
+checks govern visibility changes, which are audited with the Recipe edit.
+
+- [x] Exercise foreign search, detail, export, projection and grocery transfer through an enabled
+  Workspace. A private Recipe, revoked sharing or a disabled source tool denies foreign access.
+  Grocery transfer rechecks source visibility and destination List permissions in its write
+  transaction. A retry cannot bypass a new visibility restriction.
+- [x] A foreign Recipe reveals its current home Workspace display name only through an authorized
+  list or detail response. The label grants no access to the home Workspace.
+- [x] Foreign Recipe image reads require a current Markdown reference and the same Recipe,
+  home Workspace and attachment policy in the database. Old references, unattached uploads
+  and generic attachment routes cannot expose foreign images. Exports recheck access and keep
+  original bytes, and use the existing safe download headers for individual originals.
+- [x] MCP reads and writes stay tied to the home Workspace selected in the grant. MCP creates
+  Workspace-only Recipes and an ordinary MCP edit preserves existing visibility. Workspace
+  recovery keeps local ownership, the visibility field and the original file, including for
+  Workspace-only Recipes. Private Journal reads and recovery use their separate existing policy.
+
+### Shopping and To-do Lists (15.3a, 2026-11-10)
+
+The existing authenticated List routes and offline outbox now carry To-do content. Both List
+kinds use the existing Workspace, role, tool-switch and device-account checks.
+
+- [x] Creation accepts only Shopping or To-do. Older queued creates default to Shopping.
+  SQLite fixes the kind at creation and refuses quantities or units on To-do tasks, including
+  rows inserted during Workspace recovery. The server enforces the same rule on add, edit
+  and offline replay.
+- [x] Recipe ingredient writes check for a Shopping destination in the same transaction.
+  Delegated MCP grocery grants cannot list, read or write To-do Lists. A Workspace guest
+  can read its To-do Lists but cannot change them, and foreign IDs resolve as unknown.
+- [x] A restored To-do List retains its kind and checked state. Replay continues to use the
+  existing account binding, idempotency and current authorization checks.
+
+### List covers and icons (15.3b, 2026-11-10)
+
+This extends the shared attachment surface to Lists. Upload, apply, download and repair use
+the active Workspace List tool and its current roles. Only the current cover of a live List
+is served, and provisional or removed covers have no generic download route.
+
+- [x] The List cover reference is unique and restricted by the database to a non-deleting
+  List attachment in its Workspace. Setting a different cover requires an upload owned by
+  the current editor. Guests and other Workspaces cannot change it. The List revision and
+  the security event commit together.
+- [x] Uploads use the existing byte and quota checks and preserve the original. Repairs
+  touch derivatives only. Soft-deleting a List hides its cover and keeps it for Undo.
+  Detached files are eligible for shared housekeeping. Backups keep referenced originals.
+- [x] New MCP cover access requires its own grant and selected Workspace, with current
+  authorization checked at commit. The tool returns List metadata for target selection.
+  Large bodies are admitted only for the matching upload scope and tool. Upload retries
+  preserve the original operation ID. Ordinary grocery grants cannot invoke cover tools.

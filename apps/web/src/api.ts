@@ -1,5 +1,5 @@
 import type { BringContent, BringItem, BringStatus } from '@vergissmeinnicht/domain';
-import type { JournalContent, JournalEntry, PlacePreferences, PlaceSettings } from '@vergissmeinnicht/domain';
+import type { JournalContent, JournalEntry, ListAppearance, ListIcon, ListKind, PlacePreferences, PlaceSettings } from '@vergissmeinnicht/domain';
 /** Thin JSON client for the same-origin API. The browser adds the `Origin` header the server checks. */
 import type { CredentialProviderId, GuidePreferencesChange, OpenMeteoModelId, ProcedureIcon, ReasonPolicy, RunState, StepState, ThemePreference, TodayLayout, UserPreferences, WeatherCredential, WeatherForecast, WeatherHistoryDay, WeatherLocation, WeatherProviderId, WeatherSettings, WorkspacePreferences, WorkspaceRole } from '@vergissmeinnicht/domain';
 import { hasMessage, t } from './i18n/index.ts';
@@ -402,7 +402,9 @@ export interface HomeOverview {
 /** A List (grocery list) in the overview (15.3). */
 export interface ListSummary {
   readonly id: string;
-  readonly kind: 'GROCERY';
+  readonly kind: ListKind;
+  readonly icon?: ListIcon | null;
+  readonly coverId?: string | null;
   readonly title: string;
   /** Increases with every change to the List or its items. */
   readonly revision: number;
@@ -438,7 +440,7 @@ export interface ListItemInput {
 
 /** A List change made on this device while offline (17.5), as it is sent later. Ids of new Lists and items are the device's. */
 export type ListChangeInput =
-  | { readonly kind: 'createList'; readonly listId: string; readonly title: string }
+  | { readonly kind: 'createList'; readonly listId: string; readonly title: string; readonly listKind?: ListKind }
   | { readonly kind: 'renameList'; readonly listId: string; readonly title: string }
   | { readonly kind: 'deleteList'; readonly listId: string }
   | { readonly kind: 'addItem'; readonly listId: string; readonly itemId: string; readonly title: string; readonly quantity: string | null; readonly unit: string | null }
@@ -1602,7 +1604,11 @@ export const api = {
   // Lists (15.3). Every change answers with the canonical List, items included.
   lists: async (workspaceId: string) => (await request<{ lists: ListSummary[] }>('GET', listPath(workspaceId), undefined, within(LIST_READ_TIMEOUT_MS))).lists,
   list: (workspaceId: string, listId: string) => listOf(request('GET', listPath(workspaceId, listId), undefined, within(LIST_READ_TIMEOUT_MS))),
-  createList: (workspaceId: string, title: string) => listOf(request('POST', listPath(workspaceId), { title })),
+  repairListCover: (workspaceId: string, listId: string, coverId: string) =>
+    request('POST', listPath(workspaceId, listId) + '/cover/' + encodeURIComponent(coverId) + '/regenerate', {}),
+  saveListAppearance: (workspaceId: string, listId: string, expectedRevision: number, appearance: ListAppearance) =>
+    listOf(request('POST', listPath(workspaceId, listId) + '/appearance', { expectedRevision, ...appearance })),
+  createList: (workspaceId: string, title: string, kind: ListKind = 'GROCERY') => listOf(request('POST', listPath(workspaceId), { title, kind })),
   renameList: (workspaceId: string, listId: string, title: string, expectedTitle: string) => listOf(request('POST', `${listPath(workspaceId, listId)}/rename`, { title, expectedTitle })),
   deleteList: (workspaceId: string, listId: string) => listOf(request('POST', `${listPath(workspaceId, listId)}/delete`, {})),
   restoreList: (workspaceId: string, listId: string) => listOf(request('POST', `${listPath(workspaceId, listId)}/restore`, {})),
@@ -1745,10 +1751,18 @@ export const api = {
 
 export interface AttachmentView {id:string;name:string;format:'JPEG'|'PNG';bytes:number;width:number;height:number}
 export const attachmentUrl=(workspaceId:string|undefined,id:string,kind='preview')=>`/api${journalPath(workspaceId)}/attachments/${encodeURIComponent(id)}/${kind}`;
-export async function uploadJournalImage(workspaceId:string|undefined,file:File):Promise<AttachmentView>{
- const response=await fetch(`/api${journalPath(workspaceId)}/attachments`,{method:'POST',credentials:'same-origin',headers:{'content-type':'application/octet-stream','x-file-name':encodeURIComponent(file.name||'clipboard.png')},body:file});
- const body=await response.json();if(!response.ok)throw new ApiError(response.status,body.error??'request_failed');return body.attachment;
+async function uploadSharedImage(path: string, file: File): Promise<AttachmentView> {
+ const response = await fetch('/api' + path, { method: 'POST', credentials: 'same-origin',
+   headers: { 'content-type': 'application/octet-stream', 'x-file-name': encodeURIComponent(file.name || 'clipboard.png') }, body: file });
+ const body = await response.json();
+ if (!response.ok) throw new ApiError(response.status, body.error ?? 'request_failed');
+ return body.attachment;
 }
+export const uploadJournalImage = (workspaceId: string | undefined, file: File) => uploadSharedImage(journalPath(workspaceId) + '/attachments', file);
+export const uploadListCover = (workspaceId: string, listId: string, file: File) => uploadSharedImage(listPath(workspaceId, listId) + '/cover-upload', file);
+export const listCoverUrl = (workspaceId: string, listId: string, coverId: string, kind: 'thumbnail' | 'preview' | 'original') =>
+  '/api' + listPath(workspaceId, listId) + '/cover/' + encodeURIComponent(coverId) + '/' + kind;
+
 
 export type RecipeView = Omit<import('@vergissmeinnicht/domain').Recipe,'updatedAt'> & {updatedAt:string};
 export interface AttachmentClient {
@@ -1761,5 +1775,5 @@ export interface AttachmentClient {
 export function recipeAttachmentClient(workspaceId:string):AttachmentClient {
  const base=`/workspaces/${encodeURIComponent(workspaceId)}/recipes/attachments`;
  return {list:()=>request('GET',base),usage:()=>request('GET',base+'/usage'),regenerate:id=>request('POST',base+'/'+encodeURIComponent(id)+'/regenerate',{}),url:(id,kind='preview')=>'/api'+base+'/'+encodeURIComponent(id)+'/'+kind,
- upload:async file=>{const response=await fetch('/api'+base,{method:'POST',credentials:'same-origin',headers:{'content-type':'application/octet-stream','x-file-name':encodeURIComponent(file.name||'clipboard.png')},body:file});const body=await response.json();if(!response.ok)throw new ApiError(response.status,body.error??'request_failed');return body.attachment;}};
+ upload:file=>uploadSharedImage(base,file)};
 }

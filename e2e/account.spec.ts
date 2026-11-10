@@ -350,7 +350,7 @@ test('first server admin: bootstrap link, account creation, sign-in, Workspace c
   const addButton = page.getByRole('button', { name: 'Add', exact: true });
   await addButton.click();
   const chooser = page.getByRole('dialog', { name: 'What would you like to add?' });
-  await expect(chooser.getByRole('button')).toHaveText([/^$/, /Journal entry — Personal/, /Procedure.*Reusable steps/, /Reminder.*Remember one thing/, /Grocery list.*Quick shared shopping/]);
+  await expect(chooser.getByRole('button')).toHaveText([/^$/, /Journal entry — Personal/, /Procedure.*Reusable steps/, /Reminder.*Remember one thing/, /List.*Shared shopping or to-do checklist/]);
   await expectAccessible(page, 'add chooser');
   await page.keyboard.press('Escape');
   await expect(chooser).toBeHidden();
@@ -1435,9 +1435,9 @@ test('first server admin: bootstrap link, account creation, sign-in, Workspace c
   // tick what is bought, take it back, edit, remove. No Start, no Required/Critical, no Skip or N/A.
   await sections.getByRole('link', { name: 'Dashboard' }).click();
   await page.getByRole('button', { name: 'Add', exact: true }).click();
-  await page.getByRole('dialog', { name: 'What would you like to add?' }).getByRole('button', { name: /Grocery list/ }).click();
+  await page.getByRole('dialog', { name: 'What would you like to add?' }).getByRole('button', { name: /^List/ }).click();
   await expect(page).toHaveURL(/\/lists\/new$/);
-  const newList = page.getByRole('dialog', { name: 'New grocery list' });
+  const newList = page.getByRole('dialog', { name: 'New list' });
   await newList.getByLabel('Name').fill('Groceries');
   await newList.getByRole('button', { name: 'Create list' }).click();
   await expect(page).toHaveURL(/\/lists\/[0-9a-f-]{36}$/);

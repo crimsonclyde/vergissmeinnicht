@@ -14,6 +14,7 @@ import {
   DERIVATIVE_KINDS,
   DOCUMENT_FILE_FORMATS,
   LIST_KINDS,
+  LIST_ICONS,
   PREVIEW_STATES,
   LIST_REPLAY_OUTCOMES,
   TEXT_SOURCES,
@@ -1553,7 +1554,7 @@ export const procedurePins = sqliteTable(
 );
 
 /**
- * Lists (15.3): lightweight shared content of a Workspace — so far grocery lists. Not a Procedure and
+ * Lists (15.3): lightweight shared Shopping or To-do checklists. Not a Procedure and
  * not a Run: no snapshot, no Step rules. A List is soft-deleted (and can be restored); `revision`
  * increases with every change to the List or its items, so clients notice what they missed.
  */
@@ -1565,6 +1566,8 @@ export const lists = sqliteTable(
       .notNull()
       .references(() => workspaces.id),
     kind: text('kind', { enum: LIST_KINDS }).notNull(),
+    icon: text('icon', { enum: LIST_ICONS }),
+    coverId: text('cover_attachment_id').references(() => attachments.id),
     title: text('title').notNull(),
     revision: integer('revision').notNull().default(1),
     createdByUserId: text('created_by_user_id')
@@ -1580,15 +1583,17 @@ export const lists = sqliteTable(
      * When and by whom the name was last set (17.5): an offline rename made earlier than this does not
      * replace it ("the later change wins"). For an offline change the time is the device's, capped.
      */
-    titleChangedAt: integer('title_changed_at', { mode: 'timestamp_ms' }).notNull(),
-    titleChangedByDisplayName: text('title_changed_by_display_name').notNull(),
+    titleChangedAt: integer('title_changed_at', { mode: 'timestamp_ms' }).notNull().default(sql`0`),
+    titleChangedByDisplayName: text('title_changed_by_display_name').notNull().default(''),
   },
   (table) => [
     index('lists_workspace_idx').on(table.workspaceId, table.deletedAt),
+    uniqueIndex('lists_cover_attachment_unique').on(table.coverId),
     // Lets list_items reference (list, workspace) together: an item can never sit in another Workspace's List.
     uniqueIndex('lists_id_workspace_unique').on(table.id, table.workspaceId),
     check('lists_id_uuid', sql`length(${table.id}) = 36`),
     check('lists_kind_valid', oneOf('kind', LIST_KINDS)),
+    check('lists_icon_valid', oneOf('icon', LIST_ICONS)),
     check('lists_title_present', sql`length(trim(${table.title})) > 0 and length(${table.title}) <= 80`),
     check('lists_revision_positive', sql`${table.revision} >= 1`),
     check(

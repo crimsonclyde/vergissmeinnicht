@@ -104,6 +104,7 @@
   color: var(--text);
   font-size: .8rem;
 }
+.recipe-labels { overflow-wrap: anywhere; }
 .recipe-tile-skeleton .recipe-caption::before {
   content: '';
   width: 65%;

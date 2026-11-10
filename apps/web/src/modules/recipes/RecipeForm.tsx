@@ -69,6 +69,8 @@ export function RecipeForm(props: {
         <div className="row wrap">{(['prepMinutes', 'cookMinutes'] as const).map(key => <label key={key}>{t(key === 'prepMinutes' ? 'recipes.prep' : 'recipes.cook')}<input type="number" min="0" max="10080" value={draft[key] ?? ''} onChange={event => onChange({ ...draft, [key]: event.target.value === '' ? null : Number(event.target.value) })} /></label>)}</div>
         <label>{t('journal.tags')}<input value={tagText ?? draft.tags.join(', ')} onChange={event => { setTagText(event.target.value); onChange({ ...draft, tags: event.target.value.split(',').map(tag => tag.trim()).filter(Boolean) }); }} /></label>
         <label>{t('recipes.source')}<input type="url" maxLength={2048} value={draft.source} onChange={event => onChange({ ...draft, source: event.target.value })} /></label>
+        <label className="row"><input type="checkbox" checked={draft.private ?? false} onChange={event => onChange({ ...draft, private: event.target.checked })} />{t('recipes.private')}</label>
+        <p className="muted">{t(draft.private ? 'recipes.privateStatus' : 'recipes.sharedStatus')}</p>
         <details className="recipe-images" open={!compact || props.startWithImages ? true : undefined}><summary hidden={!compact}>{t('journal.filesScreen')}</summary><div className="stack">
           <p className="muted">{t('recipes.photoHint')}</p>
           {cover && <div className="recipe-cover-picker">

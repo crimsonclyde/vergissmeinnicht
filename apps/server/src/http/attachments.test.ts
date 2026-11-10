@@ -65,6 +65,25 @@ describe('shared attachment service and Journal/Notes integration',()=>{
   expect((await t.get(`${shared()}/attachments/usage`,member)).json().usage.used).toBeGreaterThan(png.length);
   expect((await upload(shared(),member,Buffer.from('<svg><script>alert(1)</script></svg>'),'photo.png')).statusCode).toBe(409);
  });
+ it('enforces the configured server cap independently of the default personal allowance',async()=>{
+  const config={maxUploadBytes:20_000_000,defaultQuotaBytes:500_000_000,serverLimitBytes:100_000_000,formats:['JPEG','PNG']};
+  const settings=await t.get('/api/admin/attachments',t.admin);
+  expect(settings.json().settings).toMatchObject({...config,serverLimitBytes:null});
+  expect((await t.post('/api/admin/attachments',config,member)).statusCode).toBe(403);
+  expect((await t.post('/api/admin/attachments',config,t.admin)).statusCode).toBe(200);
+  const session=(await t.get('/api/auth/session',member)).json().user;
+  const actor=await t.services.journal.users.findById(session.id);
+  if(!actor)throw new Error('Missing uploader');
+  const repository=t.services.attachments.repository;
+  const scope={workspaceId:workspace};
+  const first=await repository.reserve(actor,scope,90_000_000);
+  const second=await repository.reserve(actor,scope,20_000_000);
+  expect(first.bytes+second.bytes).toBe(config.serverLimitBytes);
+  expect((await upload(shared(),member)).json().error).toBe('attachment_quota');
+  await repository.release(actor,first.id);
+  await repository.release(actor,second.id);
+  expect((await upload(shared(),member)).statusCode).toBe(201);
+ });
  it('rechecks tool access after streaming and removes failed upload leases',async()=>{
   const actor=(await t.get('/api/auth/session',member)).json().user;
   const user=await t.services.journal.users.findById(actor.id);if(!user)throw new Error('fixture');

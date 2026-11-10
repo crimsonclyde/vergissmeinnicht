@@ -6907,3 +6907,126 @@ not change the security surface beyond the implementation recorded above. Live d
 and hosted ChatGPT acceptance remain separate.
 [Main CI](https://github.com/crimsonclyde/vergissmeinnicht/actions/runs/42687918407)
 [Release workflow](https://github.com/crimsonclyde/vergissmeinnicht/actions/runs/42687918839)
+
+### 36.11 Shared cookbook visibility and image storage verification (2026-11-10)
+
+Recipes created in the web app are shared by default. The desktop and phone
+editors offer **Private to this Workspace**. Existing Recipes and new MCP Recipes are Workspace-only
+until shared from the web editor. A shared Recipe can be read, exported with its original photos,
+or used for a grocery transfer through another enabled Recipes Workspace. Editing, visibility,
+archiving, uploads and storage billing stay with the home Workspace. Disabling either Recipes tool
+or marking the Recipe private removes foreign access. The server checks current image references
+separately from retained references used for file preservation. Existing OAuth grants still apply
+only to home Workspaces.
+
+The storage audit confirmed the existing shared pipeline for Notes, personal Journal and
+Recipes (35.1). It enforces 20 MB per image and 500 MB per account by default, with administrator overrides
+and an optional managed-server cap. It charges originals and retained derivatives, preserves exact
+original bytes and metadata, stores and regenerates derivatives separately, retains SHA-256 for
+integrity and includes original files in exports and backups. Documents keep their independent
+per-file configuration and existing Workspace ceilings. Sharing creates no new physical file or
+quota charge. Physical deduplication and administrator optimization remain deferred.
+
+All 109 focused tests passed across Recipes, attachments, MCP, Documents and recovery, including
+the Release 42 migration and restore fixtures. Desktop and phone Recipe Playwright flows passed,
+including privacy selection, cover photos, original export and grocery transfer. Lint and typecheck
+passed. The production web build passed with the existing large-chunk warning.
+
+The security surface changed because shared Recipe content and current photos can cross Workspace
+boundaries through browser sessions with Recipe read access. The security checklist records the
+visibility, attachment, MCP and backup tests. The optional visibility field travels in existing
+Recipe content JSON. No migration or backup format bump was needed for existing packages.
+
+Bulk cookbook export is bounded to 1,000 Recipes and 2 GB of originals. Large
+multi-Workspace catalogs have not been load-tested. Release 42 and its dedication are preserved.
+No publication or deployment. Owner count remains 57, next 58.
+
+#### Recipe visibility and home Workspace labels (2026-11-10)
+
+Cookbook cards and Recipe details show **Private** or **Public** and the name of the home
+Workspace. A Recipe from another Workspace displays that Workspace's current name. The browser
+API resolves it at read time so a rename appears on the next read.
+
+The security surface changed to expose the home Workspace display name to authorized viewers
+of shared Recipes. The visibility check still applies before the name is returned. Tests confirm
+that the response omits the home Workspace ID and that foreign viewers cannot open a private
+Recipe. Security, architecture and user guidance now describe the labels.
+
+Ten targeted tests and both desktop and phone Recipe browser flows passed. The browser checks
+covered a local Private card and a Public card from another Workspace. Lint, typecheck and build
+passed. The build retains its existing large-chunk warning. The update is local.
+
+### 15.3a Shopping and To-do Lists (2026-11-10)
+
+The owner approved adding To-do alongside Shopping in the existing Lists tool. Choose the kind
+when creating a List. To-do shows title-only task entry, progress, **To do** and a collapsed
+**Done** section with the option to reopen a task. Shopping keeps quantities, units and purchase
+tracking. Both kinds use the existing shared Workspace checklist, Undo and offline sync.
+
+Migration 0071 expands the existing kind constraint and preserves Shopping rows, items and
+change stamps. Older clients and queued creates that omit the kind still create Shopping lists.
+The Workspace backup format already carries the kind, items and checked state.
+
+The security surface changed because existing List endpoints, offline device storage and
+recovery now handle To-do content. The same membership and role checks apply. The server and
+SQLite enforce title-only tasks. Recipe transfers, the Today **To buy** card and delegated
+grocery tools are scoped to Shopping. The security checklist and user guidance describe the
+new behavior.
+
+Verification covered 79 focused tests across List and Recipe routes, grocery MCP grants,
+offline replay, populated migrations and Workspace recovery. The Shopping and To-do browser
+flows passed on desktop and phone, including accessibility checks and 320 px reflow. The final
+browser rerun passed five scenarios, including the existing desktop Shopping and offline flow and
+Recipe transfers, with the usual mobile bootstrap skip. Lint, typecheck, migration metadata
+validation and the local web build passed. The build
+retains its existing large-chunk warning.
+
+List kind is fixed at creation. To-do works within the existing offline storage limits.
+This is a local implementation. Owner release count remains 57, next 58.
+
+### 15.3b List overview, icons and covers (2026-11-10)
+
+The Lists overview now uses compact cards with a type filter, name search, progress and
+optional thumbnails. List appearance has eight bundled icons and one optional cover on either
+list kind. Editors can upload, replace, remove or repair a cover preview. Members can download
+the byte-exact original. Appearance edits require a connection. The offline list copy displays
+saved icons and keeps the existing task and item synchronization.
+
+Migration 0072 adds nullable appearance fields. Older Lists and Workspace packages open with
+default icons. Current Workspace packages keep the selected icon and cover original, and restore
+remaps the cover to the new attachment. The shared pipeline charges the uploader and Workspace
+for originals and derivatives. A detached cover becomes eligible for normal attachment cleanup.
+
+The security surface changed. A current List reference and membership protect cover reads.
+Uploads and appearance changes require List edit rights. MCP has a separate opt-in List cover
+scope, with explicit Workspace selection and revision checks, independent of grocery permissions.
+The security, architecture, user and operator documentation describes the new paths.
+
+Verification included 86 focused tests across Lists, Recipes, MCP, attachments, migration and
+backup recovery. Six desktop and phone browser scenarios passed for List appearance, the overview,
+Recipe regression and MCP consent, including 320 px checks. Lint, typecheck, build and migration
+metadata validation passed. The local MCP tests exercised tool discovery, upload and receipt
+replay, stale revisions, replace and remove. The hosted ChatGPT picker still needs live
+verification after deployment. The implementation is local. Owner release count remains 57,
+next 58.
+
+### Release plan for 0.13.3, owner milestone 58 (2026-11-10)
+
+The owner requested committing, pushing and starting stable release 0.13.3. This candidate
+includes shared Recipe visibility and home labels (36.11), Shopping and To-do Lists (15.3a),
+and the Lists overview, icons, covers and opt-in MCP cover management (15.3b). Migrations
+0071 and 0072 preserve existing Shopping data and recover older Workspace packages.
+
+Use source on main, tag `v0.13.3` and GitHub release title `0.13.3`. The Unraid template and
+release notes use the exact image version. The tagged workflow will verify the digest-pinned
+0.13.2 predecessor alongside its existing older populated upgrade fixtures. Release 42 and
+its dedication remain in the published history. The owner count remains 57 until publication.
+
+Release preflight found four assertions in two older fixtures. The route sweep now submits a
+valid List appearance payload and a real cover so it reaches the authorization checks. The
+populated 0045 upgrade fixture expects nulls for the two appearance columns added by 0072 and
+continues to compare all previous data. All 11 checks in the two affected files passed on
+rerun. The first full local run passed the other 1,655 tests. Lint, typecheck, web build,
+migration metadata validation and the dependency advisory audit passed. The tagged workflow
+reruns all gates on the release commit. The local discovery note and untracked artwork are
+outside this release. Live deployment and the hosted picker check remain separate.

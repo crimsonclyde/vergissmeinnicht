@@ -290,6 +290,7 @@ const ADDED_COLUMNS: Readonly<Record<string, readonly string[]>> = {
 
 /** A package row: exactly the expected columns, every value a string, a finite number or null. */
 function checkRow(plan: TablePlan, row: Record<string, unknown>, level?: string): void {
+  if (plan.spec.table === 'lists' && level !== undefined && level < '0072_list_appearance') { row.icon ??= null; row.cover_attachment_id ??= null; }
   if (plan.spec.table === 'equipment_records' && level !== undefined && level < '0056_equipment_progress') for (const key of ['replacement_parts', 'custom_fields']) if (!Object.hasOwn(row, key)) row[key] = null;
   if (plan.spec.table === 'journal_entries' && level !== undefined && level < '0061_journal_notes') { row.collection ??= ''; row.tags ??= '[]'; row.pinned ??= 0; }
   // An older package (see ADDED_COLUMNS): the column it could not have is NULL.
@@ -307,7 +308,7 @@ function checkRow(plan: TablePlan, row: Record<string, unknown>, level?: string)
       if (Object.entries(parsed).some(([key, value]) => key !== 'assigneeId' && content[key as keyof typeof content] !== value)) throw new Error('Noncanonical Bring');
     } catch { throw new WorkspaceRestoreError('malformed_records', plan.spec.name); }
   }
-  if(plan.spec.table==='attachments'&&(!['journal','recipes'].includes(row.policy_key as string)||typeof row.name!=='string'||normalizeOriginalFileName(row.name)!==row.name))throw new WorkspaceRestoreError('malformed_records',plan.spec.name);
+  if(plan.spec.table==='attachments'&&(!['journal','recipes','lists'].includes(row.policy_key as string)||typeof row.name!=='string'||normalizeOriginalFileName(row.name)!==row.name))throw new WorkspaceRestoreError('malformed_records',plan.spec.name);
   if (plan.spec.table === 'journal_entries') {
     try {
       const content = { kind: row.kind, version: row.version, title: row.title, date: row.date, body: row.body, collection: row.collection, tags: JSON.parse(row.tags as string), pinned:row.pinned === 1 };

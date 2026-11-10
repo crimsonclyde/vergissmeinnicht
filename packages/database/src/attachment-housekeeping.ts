@@ -2,7 +2,7 @@ import {and,eq,lt,sql} from 'drizzle-orm';
 import type {AttachmentStore} from '@vergissmeinnicht/application';
 import {markdownAttachments} from '@vergissmeinnicht/domain';
 import type {AppDatabase} from './connection.ts';
-import {attachments,attachmentReservations,journalDrafts,journalAttachmentReferences,privateJournalAttachmentReferences,recipeAttachmentReferences} from './schema.ts';
+import {attachments,attachmentReservations,journalDrafts,journalAttachmentReferences,privateJournalAttachmentReferences,recipeAttachmentReferences,lists} from './schema.ts';
 import {IMMEDIATE} from './actor-guard.ts';
 /** Journal lifecycle adapter. Unknown future policies retain files until their own lifecycle is registered. */
 export async function purgeAttachmentFiles({db}:AppDatabase,store:AttachmentStore,now=new Date()){
@@ -11,7 +11,7 @@ export async function purgeAttachmentFiles({db}:AppDatabase,store:AttachmentStor
  const before=new Date(now.getTime()-86400000);let files=0;
  const released=db.transaction(tx=>{
   const draftRefs=new Set(tx.select().from(journalDrafts).all().flatMap(row=>markdownAttachments(row.content.body).map(ref=>ref.id)));
-  const unreferenced=tx.select().from(attachments).where(and(sql`${attachments.policyKey} in ('journal','recipes')`,lt(attachments.at,before),sql`not exists(select 1 from ${journalAttachmentReferences} where ${journalAttachmentReferences.attachmentId}=${attachments.id}) and not exists(select 1 from ${privateJournalAttachmentReferences} where ${privateJournalAttachmentReferences.attachmentId}=${attachments.id}) and not exists(select 1 from ${recipeAttachmentReferences} where ${recipeAttachmentReferences.attachmentId}=${attachments.id})`)).all().filter(row=>!draftRefs.has(row.id));
+  const unreferenced=tx.select().from(attachments).where(and(sql`${attachments.policyKey} in ('journal','recipes','lists')`,lt(attachments.at,before),sql`not exists(select 1 from ${journalAttachmentReferences} where ${journalAttachmentReferences.attachmentId}=${attachments.id}) and not exists(select 1 from ${privateJournalAttachmentReferences} where ${privateJournalAttachmentReferences.attachmentId}=${attachments.id}) and not exists(select 1 from ${recipeAttachmentReferences} where ${recipeAttachmentReferences.attachmentId}=${attachments.id}) and not exists(select 1 from ${lists} where ${lists.coverId}=${attachments.id})`)).all().filter(row=>!draftRefs.has(row.id));
   // Keep rows charged until the objects are removed below; a new reference after this transaction
   // is refused by the consumer/SQL deleting guards. No await occurs inside this transaction.
   for(const row of unreferenced)tx.update(attachments).set({deleting:true}).where(eq(attachments.id,row.id)).run();return unreferenced;

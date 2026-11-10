@@ -391,6 +391,18 @@ GET/POST /api/admin/settings { footerHidden?, recentProceduresLimit? }   Recent 
 
 Collaboration without a new transport: every write runs in one `IMMEDIATE` transaction, raises the List's `revision` and answers with the canonical List; the page refetches every 10 s while visible and never applies an older revision. Checking is idempotent, editing an item is compare-and-set on the item's revision, renaming on the name the caller saw. The Run SSE hub is Run-specific (channels, limits and re-authorization are per Run) and was not widened for this; a push channel for Lists and Occurrences remains a possible later step. `kind` (`GROCERY`) is the seam for further list types.
 
+### Shopping and To-do Lists (15.3a)
+
+The existing List kind distinguishes Shopping (`GROCERY`) from To-do (`TODO`). It is set at
+creation and immutable. Both use the same item, revision, authorization and replay paths. Legacy
+clients and queued creates without a kind default to Shopping. To-do tasks store a title and
+checked state, with quantity and unit required to be null by the repository and SQLite triggers.
+The existing Workspace backup format carries the kind and tasks in its List tables.
+
+Recipe transfer checks the destination is Shopping inside its write transaction. The Today
+**To buy** card and Recipe picker also select Shopping lists. Delegated MCP grocery scopes are
+limited to Shopping for reads and writes.
+
 ## Offline execution (Step 8.5)
 
 ```text
@@ -973,3 +985,32 @@ The shared attachment service stages, validates, reserves and commits the file. 
 `0070_attachment_upload_operations` adds the runtime receipt, committed with the attachment and
 excluded from portable Workspace backup. Recipe creation and revision-checked editing remain
 separate commands, so upload failures leave the Recipe available.
+
+### Shared cookbook visibility (36.11)
+
+A Recipe has one home Workspace. Its version 1 content can include an explicit `private`
+boolean. Existing records and delegated creations without the field are Workspace-only. New
+Recipes saved through the web API default to shared. Browser reads, serving projections and
+grocery transfers can use shared Recipes through any enabled Recipes Workspace the reader
+belongs to, while the home Recipes tool is enabled. Changes to the Recipe, its visibility and
+its archive state still require home Workspace management rights. Cookbook cards and details display
+the home Workspace name from the current Workspace record. Delegated MCP operations
+continue to use the Recipe's home Workspace and the existing OAuth grant.
+
+Recipe-scoped image reads resolve an attachment only through the current Markdown and a stored
+reference to the same home Workspace and consumer policy. Retained references still protect
+previous originals from cleanup. Sharing creates no extra file or quota charge. The Workspace
+backup follows ownership and keeps the optional visibility field in the existing content JSON,
+so it needs no schema or package format change.
+
+### List overview and covers (15.3b)
+
+Lists have an optional bundled icon and one cover attachment. The overview filters by type
+and title and loads thumbnails on demand. List appearance is edited online with a List
+revision check. The standard attachment subsystem owns originals, previews, quotas and file
+cleanup. A List is the only route to its current cover. The Workspace package includes the
+current cover with its original, and restore remaps the reference.
+
+The separate `lists.covers.write` delegation allows List identification and cover changes
+for both kinds. It is requested and approved independently of grocery scopes. The upload
+stage shares the delegated image receipt and byte validation path used by Recipes.

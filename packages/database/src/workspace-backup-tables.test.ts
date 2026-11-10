@@ -41,7 +41,7 @@ const REVIEWED_COLUMNS: Record<string, string> = {
   schedules: 'id workspace_id kind procedure_id title description recurrence_kind recurrence_unit recurrence_interval recurrence_weekdays recurrence_last_day anchor_date time time_zone reminders assignee_user_id state paused_at ended_at ended_by_user_id ended_by_display_name revision created_by_user_id created_by_display_name created_at updated_at',
   occurrences: 'id schedule_id workspace_id due_date time state assignee_user_id closed_at closed_by_user_id closed_by_display_name skip_reason revision created_at updated_at',
   occurrence_runs: 'id occurrence_id run_id workspace_id how linked_at linked_by_user_id linked_by_display_name ended_at end_reason',
-  lists: 'id workspace_id kind title revision created_by_user_id created_by_display_name created_at updated_at deleted_at deleted_by_user_id deleted_by_display_name title_changed_at title_changed_by_display_name',
+  lists: 'id workspace_id kind title revision created_by_user_id created_by_display_name created_at updated_at deleted_at deleted_by_user_id deleted_by_display_name title_changed_at title_changed_by_display_name icon cover_attachment_id',
   list_items: 'id list_id workspace_id position title quantity unit revision created_by_user_id created_by_display_name created_at checked_at checked_by_user_id checked_by_display_name deleted_at deleted_by_display_name content_changed_at content_changed_by_display_name check_changed_at check_changed_by_display_name',
   links: 'id workspace_id from_type from_id to_type to_id created_by_user_id created_by_display_name created_at from_gone_at from_gone_by_display_name to_gone_at to_gone_by_display_name',
 };

@@ -286,3 +286,18 @@ limit and storage quotas. For a separate proxy, allow around 27 MB on `/mcp` for
 Ordinary calls remain limited to 128 KiB. The photo upload uses no VMN image-generation API key.
 Availability and upload size over a particular hosted ChatGPT or tunnel configuration require a live
 check. [OpenAI documentation for the ChatGPT tool bridge](https://developers.openai.com/plugins/reference)
+
+## Manage List covers
+
+After upgrading, reconnect the MCP client with the **List cover images** permission
+(`lists.covers.write`) for the Workspaces you choose. Existing grocery grants keep their
+original scope. Use `list_cover_targets` to select a Shopping or To-do List and get its
+current revision. `open_list_cover_upload` opens the picker in clients that support it.
+Programmatic clients can call `upload_list_cover` with the List ID, original JPEG or PNG bytes
+as canonical base64, the filename and a stable operation ID. It uses the same 20 MB MCP
+ceiling and shared quotas as Recipe photos.
+
+Use `set_list_cover` with the reviewed revision and the uploaded attachment ID to set or
+replace the cover. Send a null cover ID to remove it. Only perform the change the user
+requested. The tool returns the saved revision and cover ID. Hosted picker support depends
+on the client. The signed-in List appearance editor provides an upload path in VMN.

@@ -7,7 +7,7 @@ const content = { version: 1, title: 'Pancakes', servings: 2, ingredients: [{ na
 describe('Recipes, shared originals and serving-scaled grocery transfers', () => {
   let t: Awaited<ReturnType<typeof startTestApp>>; let workspace: string; let other: string; let user: string; let guest: string;
   const base = () => `/api/workspaces/${workspace}/recipes`;
-  const save = (cookie = user, recipe = content, id?: string, revision = 0, archived = false) => t.post(base() + (id ? '/' + id : ''), { content: recipe, expectedRevision: revision, archived }, cookie);
+  const save = (cookie = user, recipe: typeof content & { private?: boolean } = content, id?: string, revision = 0, archived = false) => t.post(base() + (id ? '/' + id : ''), { content: recipe, expectedRevision: revision, archived }, cookie);
   beforeEach(async () => {
     t = await startTestApp(); workspace = await t.createWorkspace('Kitchen'); other = await t.createWorkspace('Van');
     user = await t.invite('cook@example.org', 'Cook'); guest = await t.invite('guest@example.org', 'Guest');
@@ -28,6 +28,67 @@ describe('Recipes, shared originals and serving-scaled grocery transfers', () =>
     await t.post(`/api/workspaces/${workspace}/tools`, { tool: 'RECIPES', enabled: false }, t.admin);
     expect((await t.get(base() + '/' + recipe.id, t.admin)).statusCode).toBe(404);
   });
+  it('shares Recipes and current photos across enabled Workspaces, with home-only editing and immediate privacy changes', async () => {
+    await enable();
+    const reader = await t.invite('van@example.org', 'Van cook');
+    await t.addMember(other, 'van@example.org', 'USER');
+    const otherBase = `/api/workspaces/${other}/recipes`;
+    for (const tool of ['RECIPES', 'LISTS']) await t.post(`/api/workspaces/${other}/tools`, { tool, enabled: true }, t.admin);
+
+    const png = await sharp({ create: { width: 12, height: 10, channels: 3, background: '#d1ad66' } }).png().withMetadata().toBuffer();
+    const uploaded = await t.app.inject({ method: 'POST', url: base() + '/attachments', headers: { origin: ORIGIN, cookie: user, 'content-type': 'application/octet-stream', 'x-file-name': 'original.png' }, payload: png });
+    expect(uploaded.statusCode, uploaded.body).toBe(201);
+    const file = uploaded.json().attachment;
+    const withPhoto = { ...content, instructions: `![Pancakes](attachments/${file.id}.png)` };
+    const shared = (await save(user, withPhoto)).json().recipe;
+    const local = (await save(user, { ...content, title: 'Private pancakes', private: true })).json().recipe;
+    // Model a Recipe saved before the visibility field existed.
+    const legacy = (await save(user, { ...content, title: 'Legacy pancakes' })).json().recipe;
+    t.database.sqlite.prepare("UPDATE recipes SET content=json_remove(content, '$.private') WHERE id=?").run(legacy.id);
+    expect((await t.get(`${base()}/${legacy.id}`, guest)).json().recipe.private).toBe(true);
+    expect((await t.get(`${otherBase}/${legacy.id}`, reader)).statusCode).toBe(404);
+    const url = `${otherBase}/${shared.id}`;
+    const image = `${url}/attachments/${file.id}`;
+    expect((await t.get(base() + '/' + shared.id, reader)).statusCode).toBe(404);
+    expect((await t.get(otherBase + '?q=pancakes', reader)).json().recipes).toEqual([
+      expect.objectContaining({ id: shared.id, private: false, inCurrentWorkspace: false, homeWorkspaceName: 'Kitchen', updatedBy: '' }),
+    ]);
+    const visible = (await t.get(url, reader)).json().recipe;
+    expect(visible.homeWorkspaceName).toBe('Kitchen');
+    expect(visible).not.toHaveProperty('workspaceId');
+    expect((await t.post(`/api/workspaces/${workspace}/rename`, { name: 'Main kitchen' }, t.admin)).statusCode).toBe(204);
+    expect((await t.get(url, reader)).json().recipe.homeWorkspaceName).toBe('Main kitchen');
+    expect((await t.get(`${otherBase}/${local.id}`, reader)).statusCode).toBe(404);
+    expect((await t.get(`${otherBase}/${local.id}/export`, reader)).statusCode).toBe(404);
+    expect((await t.get(otherBase + `/attachments/${file.id}/original`, reader)).statusCode).toBe(404);
+    for (const kind of ['preview', 'thumbnail']) expect((await t.get(`${image}/${kind}`, reader)).statusCode).toBe(200);
+    expect((await t.get(image + '/original', reader)).rawPayload.equals(png)).toBe(true);
+    expect((await t.get(url + '/export', reader)).statusCode).toBe(200);
+    expect((await t.post(url, { content: withPhoto, expectedRevision: 1, archived: true }, reader)).statusCode).toBe(404);
+
+    const list = (await t.post(`/api/workspaces/${other}/lists`, { title: 'Van groceries' }, reader)).json().list;
+    const input = { operationId: randomUUID(), recipeRevision: 1, listId: list.id, listRevision: list.revision, servings: 4, items: [{ ingredient: 0, title: 'Flour', quantity: '250', unit: 'g' }] };
+    expect((await t.get(url + '/ingredients?servings=4', reader)).json().ingredients[0].quantity).toBe('250');
+    expect((await t.post(url + '/shopping', input, reader)).statusCode).toBe(200);
+    await t.post(`/api/workspaces/${other}/tools`, { tool: 'RECIPES', enabled: false }, t.admin);
+    expect((await t.get(url, reader)).statusCode).toBe(404);
+    expect((await t.get(image + '/original', reader)).statusCode).toBe(404);
+    await t.post(`/api/workspaces/${other}/tools`, { tool: 'RECIPES', enabled: true }, t.admin);
+
+    expect((await save(user, { ...withPhoto, private: true }, shared.id, 1)).statusCode).toBe(200);
+    for (const endpoint of [url, url + '/ingredients?servings=4', url + '/export', image + '/original']) {
+      expect((await t.get(endpoint, reader)).statusCode).toBe(404);
+    }
+    expect((await t.post(url + '/shopping', input, reader)).statusCode).toBe(404);
+    expect((await t.get(`${base()}/${shared.id}/attachments/${file.id}/original`, guest)).rawPayload.equals(png)).toBe(true);
+
+    expect((await save(user, { ...content, private: false }, shared.id, 2)).statusCode).toBe(200);
+    expect((await t.get(url, reader)).statusCode).toBe(200);
+    expect((await t.get(image + '/original', reader)).statusCode).toBe(404);
+    await t.post(`/api/workspaces/${workspace}/tools`, { tool: 'RECIPES', enabled: false }, t.admin);
+    expect((await t.get(url, reader)).statusCode).toBe(404);
+    expect((await t.get(otherBase, reader)).json().recipes).toEqual([]);
+  });
   it('computes servings exactly and adds a batch once, without changing the recipe or merging items', async () => {
     await enable(); const recipe = (await save()).json().recipe;
     const list = (await t.post(`/api/workspaces/${workspace}/lists`, { title: 'Shopping' }, user)).json().list;
@@ -35,6 +96,10 @@ describe('Recipes, shared originals and serving-scaled grocery transfers', () =>
     expect(projection.json().ingredients.map((item: { quantity: string }) => item.quantity)).toEqual(['250', '2']);
     const input = { operationId: randomUUID(), recipeRevision: 1, listId: list.id, listRevision: list.revision, servings: 4, items: [{ ingredient: 0, title: 'Flour', quantity: '250', unit: 'g' }, { ingredient: 1, title: 'Eggs', quantity: '2', unit: null }] };
     expect((await t.post(base() + '/' + recipe.id + '/shopping', input, guest)).statusCode).toBe(403);
+    const todo = (await t.post(`/api/workspaces/${workspace}/lists`, { title: 'Weekend prep', kind: 'TODO' }, user)).json().list;
+    const refused = await t.post(base() + '/' + recipe.id + '/shopping', { ...input, listId: todo.id, listRevision: todo.revision }, user);
+    expect(refused.statusCode).toBe(404);
+    expect((await t.get(`/api/workspaces/${workspace}/lists/${todo.id}`, user)).json().list.items).toEqual([]);
     const first = await t.post(base() + '/' + recipe.id + '/shopping', input, user); expect(first.statusCode, first.body).toBe(200);
     const retry = await t.post(base() + '/' + recipe.id + '/shopping', input, user); expect(retry.json()).toEqual({ ...first.json(), duplicate: true });
     expect((await t.post(base() + '/' + recipe.id + '/shopping', { ...input, servings: 3 }, user)).statusCode).toBe(409);

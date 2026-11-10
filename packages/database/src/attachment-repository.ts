@@ -8,7 +8,7 @@ import {attachments,attachmentUploadOperations,attachmentSettings,attachmentRese
 import {storageUsageIn} from './storage-usage.ts';
 import {recordSecurityEvent} from './security-events.ts';
 const scopeFilter=(scope:AttachmentScope)=>'workspaceId' in scope?eq(attachments.workspaceId,scope.workspaceId):eq(attachments.ownerId,scope.ownerId);
-const view=(row:typeof attachments.$inferSelect):AttachmentRecord=>({...row,scope:row.workspaceId!==null?{workspaceId:row.workspaceId}:{ownerId:row.ownerId??''}});
+export const attachmentView=(row:typeof attachments.$inferSelect):AttachmentRecord=>({...row,scope:row.workspaceId!==null?{workspaceId:row.workspaceId}:{ownerId:row.ownerId??''}});
 export const attachmentBytes=sql<number>`${attachments.bytes}+${attachments.previewBytes}+${attachments.thumbnailBytes}`;
 export function globalStorageIn(tx:Pick<Transaction,'select'>):{used:number;reserved:number;limit:number|null} {
  const limit=tx.select().from(attachmentSettings).where(eq(attachmentSettings.id,1)).get()?.serverLimitBytes??null;
@@ -41,7 +41,7 @@ export function createAttachmentRepository({db}:AppDatabase,consumer:AttachmentC
   if (prior.userId!==actor.id || prior.workspaceId!==scope.workspaceId || prior.payloadHash!==operation.payloadHash || !prior.attachmentId) throw new AttachmentUploadConflictError();
   const file=tx.select().from(attachments).where(and(scoped(scope),eq(attachments.id,prior.attachmentId),eq(attachments.deleting,false))).get();
   if (!file) throw new AttachmentUploadConflictError();
-  return view(file);
+  return attachmentView(file);
  }
  return {
   async priorUpload(actor:User,scope:AttachmentScope,operation:AttachmentUploadOperation) {
@@ -80,11 +80,11 @@ export function createAttachmentRepository({db}:AppDatabase,consumer:AttachmentC
    if(operation && 'workspaceId' in scope)tx.insert(attachmentUploadOperations).values({id:operation.id,workspaceId:scope.workspaceId,userId:actor.id,payloadHash:operation.payloadHash,attachmentId:id}).run();
    tx.delete(attachmentReservations).where(eq(attachmentReservations.id,reservation)).run();
    recordSecurityEvent(tx,{type:'ATTACHMENT_CHANGED',actor:{kind:'user',userId:actor.id,displayName:actor.displayName},subjectType:'user',subjectId:actor.id,occurredAt:new Date(),metadata:{action:'upload',bytes}});
-   return view({...row,deleting:false});
+   return attachmentView({...row,deleting:false});
   },IMMEDIATE);},
   async release(actor,reservation){db.delete(attachmentReservations).where(and(eq(attachmentReservations.id,reservation),eq(attachmentReservations.userId,actor.id))).run();},
-  async find(scope,id,actor){const row=db.select().from(attachments).where(and(eq(attachments.deleting,false),scoped(scope),eq(attachments.id,id),visible(scope,actor))).get();return row?view(row):undefined;},
-  async list(scope,actor){return db.select().from(attachments).where(and(eq(attachments.deleting,false),scoped(scope),visible(scope,actor))).limit(200).all().map(view);},
+  async find(scope,id,actor){const row=db.select().from(attachments).where(and(eq(attachments.deleting,false),scoped(scope),eq(attachments.id,id),visible(scope,actor))).get();return row?attachmentView(row):undefined;},
+  async list(scope,actor){return db.select().from(attachments).where(and(eq(attachments.deleting,false),scoped(scope),visible(scope,actor))).limit(200).all().map(attachmentView);},
  };
 }
 

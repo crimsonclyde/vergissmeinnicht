@@ -8,8 +8,8 @@ import { setNavigationGuard } from '../../router.tsx';
 import { RecipeShopping } from './RecipeShopping.tsx';
 import { RecipePhoto } from './RecipePhoto.tsx';
 import './cookbook.css';
-const fresh = (): RecipeContent => ({ version: 1, title: '', servings: 2, ingredients: [{ name: '', amount: '', unit: '', note: '' }], instructions: '', tags: [], source: '', prepMinutes: null, cookMinutes: null });
-const contentOf = (recipe: RecipeView): RecipeContent => ({ version: 1, title: recipe.title, servings: recipe.servings, ingredients: recipe.ingredients, instructions: recipe.instructions, tags: recipe.tags, source: recipe.source, prepMinutes: recipe.prepMinutes, cookMinutes: recipe.cookMinutes, ...(recipe.coverImage ? { coverImage: recipe.coverImage } : {}) });
+const fresh = (): RecipeContent => ({ version: 1, title: '', servings: 2, ingredients: [{ name: '', amount: '', unit: '', note: '' }], instructions: '', tags: [], source: '', prepMinutes: null, cookMinutes: null, private: false });
+const contentOf = (recipe: RecipeView): RecipeContent => ({ version: 1, title: recipe.title, servings: recipe.servings, ingredients: recipe.ingredients, instructions: recipe.instructions, tags: recipe.tags, source: recipe.source, prepMinutes: recipe.prepMinutes, cookMinutes: recipe.cookMinutes, private: recipe.private, ...(recipe.coverImage ? { coverImage: recipe.coverImage } : {}) });
 
 export function RecipesPage({ workspaceId, canWrite, canShop }: { workspaceId: string; canWrite: boolean; canShop: boolean }) {
   const [library, setLibrary] = useState<{ key: string; records: RecipeView[]; more: boolean }>();
@@ -57,7 +57,14 @@ export function RecipesPage({ workspaceId, canWrite, canShop }: { workspaceId: s
       const list = await api.recipes(workspaceId, query, archived, offset); setLibrary({ key: libraryKey, records: list.recipes, more: list.more });
     } catch (error) { setMessage(messageFor(error)); } finally { setBusy(false); }
   }
-  function resolveImage(path: string, kind = 'preview') { const match = /^attachments\/([0-9a-f-]{36})\.(jpg|png)$/.exec(path); return match?.[1] ? client.url(match[1], kind) : undefined; }
+  const canEditSelected = canWrite && selected?.inCurrentWorkspace;
+  function imageUrl(recipeId: string, attachmentId: string, kind: 'original' | 'preview' | 'thumbnail') {
+    return `/api/workspaces/${workspaceId}/recipes/${recipeId}/attachments/${attachmentId}/${kind}`;
+  }
+  function resolveImage(path: string, kind: 'original' | 'preview' = 'preview') {
+    const match = /^attachments\/([0-9a-f-]{36})\.(jpg|png)$/.exec(path);
+    return selected && match?.[1] ? imageUrl(selected.id, match[1], kind) : undefined;
+  }
   const Heading = draft ? 'h1' : 'h2';
   return <section className="stack recipe-page" data-editing={editing}>{(editing || selected) && <Heading>{t('recipes.heading')}</Heading>}
     {message && <p role="alert">{message}</p>}{status && <p role="status">{status}</p>}
@@ -70,15 +77,17 @@ export function RecipesPage({ workspaceId, canWrite, canShop }: { workspaceId: s
       <button type="button" onClick={() => { setSelected(null); setStatus(''); }}>{t('recipes.back')}</button>
       <a className="button quiet" href={`/api/workspaces/${workspaceId}/recipes/${selected.id}/export`} download>{t('recipes.export')}</a>
       <article className="card stack"><h3>{selected.title}</h3><RecipeFacts recipe={selected} />
+        <RecipeLabels recipe={selected} />
+        <p className="muted">{t(selected.private ? 'recipes.privateStatus' : 'recipes.sharedStatus')}</p>
         {!recipeCover(selected) && <div className="recipe-no-photo">
           <RecipePhoto />
-          {canWrite && <button type="button" disabled={busy} onClick={() => edit(selected, true)}>{t('recipes.addPhoto')}</button>}
+          {canEditSelected && <button type="button" disabled={busy} onClick={() => edit(selected, true)}>{t('recipes.addPhoto')}</button>}
         </div>}
         <ul>{selected.ingredients.map((item, index) => <li key={index}>{[item.amount, item.unit, item.name, item.note].filter(Boolean).join(' · ')}</li>)}</ul>
-        {canWrite && recipeCover(selected) && <div><button type="button" disabled={busy} onClick={() => edit(selected, true)}>{t('recipes.managePhotos')}</button></div>}
+        {canEditSelected && recipeCover(selected) && <div><button type="button" disabled={busy} onClick={() => edit(selected, true)}>{t('recipes.managePhotos')}</button></div>}
         <Markdown source={selected.instructions} resolveImage={resolveImage} resolveOriginal={path => resolveImage(path, 'original')} />
         {selected.source && <a href={selected.source} rel="noopener noreferrer">{t('recipes.source')}</a>}
-        {canWrite && <div className="row wrap"><button type="button" disabled={busy} onClick={() => edit(selected)}>{t('recipes.edit')}</button><button type="button" disabled={busy} onClick={() => void save(contentOf(selected), !selected.archived)}>{t(selected.archived ? 'recipes.restore' : 'recipes.archive')}</button></div>}
+        {canEditSelected && <div className="row wrap"><button type="button" disabled={busy} onClick={() => edit(selected)}>{t('recipes.edit')}</button><button type="button" disabled={busy} onClick={() => void save(contentOf(selected), !selected.archived)}>{t(selected.archived ? 'recipes.restore' : 'recipes.archive')}</button></div>}
       </article>
       {canShop && !selected.archived && <RecipeShopping key={selected.id + selected.revision} workspaceId={workspaceId} recipe={selected} />}
     </> : <>
@@ -98,8 +107,8 @@ export function RecipesPage({ workspaceId, canWrite, canShop }: { workspaceId: s
       <ul className="recipe-grid" aria-busy={loading}>{records.map(recipe => {
         const cover = recipeCover(recipe);
         return <li key={recipe.id}><button type="button" className="recipe-tile" onClick={() => { setMessage(''); void api.recipe(workspaceId, recipe.id).then(setSelected, error => setMessage(messageFor(error))); }}>
-          <RecipePhoto key={cover?.id ?? 'empty'} src={cover ? client.url(cover.id, 'thumbnail') : undefined} />
-          <span className="recipe-caption"><strong>{recipe.title}</strong><RecipeFacts recipe={recipe} />
+          <RecipePhoto key={cover?.id ?? 'empty'} src={cover ? imageUrl(recipe.id, cover.id, 'thumbnail') : undefined} />
+          <span className="recipe-caption"><strong>{recipe.title}</strong><RecipeLabels recipe={recipe} /><RecipeFacts recipe={recipe} />
             {recipe.tags.length > 0 && <span className="recipe-tags">{recipe.tags.slice(0, 3).map(tag => <span key={tag}>{tag}</span>)}</span>}
           </span>
         </button></li>;
@@ -107,6 +116,13 @@ export function RecipesPage({ workspaceId, canWrite, canShop }: { workspaceId: s
       {(offset > 0 || more) && <div className="row"><button type="button" disabled={offset === 0} onClick={() => setOffset(offset - 30)}>{t('journal.previous')}</button><button type="button" disabled={!more} onClick={() => setOffset(offset + 30)}>{t('journal.more')}</button></div>}
     </>}
   </section>;
+}
+
+function RecipeLabels({ recipe }: { recipe: RecipeView }) {
+  return <span className="recipe-tags recipe-labels">
+    <span>{t(recipe.private ? 'recipes.privateLabel' : 'recipes.publicLabel')}</span>
+    <span>{t('recipes.workspaceLabel', { name: recipe.homeWorkspaceName })}</span>
+  </span>;
 }
 
 function RecipeFacts({ recipe }: { recipe: RecipeContent }) {

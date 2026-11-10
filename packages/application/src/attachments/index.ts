@@ -55,9 +55,17 @@ export async function uploadAttachment(deps:AttachmentDeps,access:AttachmentAcce
 }
 export async function getAttachment(deps:AttachmentDeps,access:AttachmentAccess,id:string,kind:'original'|'preview'|'thumbnail') {
  await access.authorize(false);const record=await deps.repository.find(access.scope,id,access.actor);
+ const result=await openAttachment(deps.store,record,kind);
+ await access.authorize(false);return result;
+}
+
+/** Open an attachment already resolved through its consumer's read policy. */
+export async function openAttachment(store:AttachmentStore,record:AttachmentRecord|undefined,kind:'original'|'preview'|'thumbnail') {
  if(!record)throw new AttachmentError('attachment_not_found');
- let stream:AsyncIterable<Uint8Array>;try{stream=await deps.store.open(kind==='original'?record.originalKey:kind==='preview'?record.previewKey:record.thumbnailKey);}catch(error){if((error as {code?:string}).code==='ENOENT')throw new AttachmentError('attachment_not_found');throw error;}
- await access.authorize(false);return {record,stream};
+ try {
+  const stream=await store.open(kind==='original'?record.originalKey:kind==='preview'?record.previewKey:record.thumbnailKey);
+  return {record,stream};
+ }catch(error){if((error as {code?:string}).code==='ENOENT')throw new AttachmentError('attachment_not_found');throw error;}
 }
 
 /** Regenerate the stored recipe without modifying original bytes or logical ownership. */

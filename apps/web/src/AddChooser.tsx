@@ -26,7 +26,7 @@ const CHOICES: readonly Choice[] = [
   {key:'journal',icon:'documents',label:'add.journal',hint:'add.journalHint',href:paths.newJournal},
   { key: 'procedure', icon: 'procedures', label: 'add.procedure', hint: 'add.procedureHint', href: paths.newProcedure },
   { key: 'reminder', icon: 'reminders', label: 'add.reminder', hint: 'add.reminderHint', href: paths.newReminder },
-  { key: 'list', icon: 'grocery', label: 'add.list', hint: 'add.listHint', href: paths.newList },
+  { key: 'list', icon: 'lists', label: 'add.list', hint: 'add.listHint', href: paths.newList },
   { key: 'document', icon: 'documents', label: 'add.document', hint: 'add.documentHint', href: (workspaceId) => paths.newDocument(workspaceId) },
 ];
 

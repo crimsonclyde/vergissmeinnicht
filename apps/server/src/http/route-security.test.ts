@@ -1,5 +1,5 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { startTestApp, type InjectResponse } from './test-harness.ts';
+import { ORIGIN, startTestApp, type InjectResponse } from './test-harness.ts';
 
 /**
  * Security properties checked for *every* registered route (13.2), so a route added later cannot
@@ -22,6 +22,7 @@ const PUBLIC_ROUTES = [
   'POST /api/recoveries/complete',
 ];
 
+const PNG = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAIAAACQd1PeAAAADElEQVR4nGP4z8AAAAMBAQDJ/pLvAAAAAElFTkSuQmCC', 'base64');
 const STEP = { title: 'Stove off', required: true, critical: false, skipReasonPolicy: 'OPTIONAL', notApplicableReasonPolicy: 'OPTIONAL' };
 const TOMORROW = new Date(Date.now() + 86_400_000).toISOString().slice(0, 10);
 /** An exported Procedure document (set in beforeAll), the body the import route expects. */
@@ -86,6 +87,7 @@ function bodyFor(route: string, ids: Record<string, string>): object {
   if (url.endsWith('/document-types')) return { name: 'Stolen type' };
   if (url.endsWith('/document-types/:typeId/rename')) return { name: 'Taken over' };
   if (url.endsWith('/lists')) return { title: 'Groceries' };
+  if (url.endsWith('/lists/:listId/appearance')) return { expectedRevision: 3, icon: 'garden', coverId: ids.attachmentId ?? null };
   if (url.endsWith('/lists/:listId/rename')) return { title: 'Taken over', expectedTitle: 'Groceries' };
   if (url.endsWith('/lists/:listId/items')) return { title: 'Stolen milk' };
   if (url.endsWith('/lists/replay')) return { clientChangeId: '00000000-0000-4000-8000-000000000001', userId: ids.userId ?? '', deviceTime: new Date().toISOString(), change: { kind: 'checkItem', listId: ids.listId ?? '', itemId: ids.itemId ?? '', checked: true } };
@@ -124,6 +126,10 @@ describe('security properties of every route (13.2)', () => {
     const [method, pattern] = route.split(' ') as [string, string];
     // The calendar and Today's Maintenance card need valid dates to reach the lookup instead of stopping at 400.
     const url = fill(pattern, pattern.includes('/bring/') && values.bringId !== undefined && values.itemId === homeIds.itemId ? { ...values, itemId: values.bringId } : values) + (/\/calendar\/?$/.test(pattern) ? `?from=${TOMORROW}&to=${TOMORROW}` : /\/maintenance\/due-soon$/.test(pattern) ? `?today=${TOMORROW}` : /\/(document|contact)-links$/.test(pattern) ? `?procedure=${values.procedureId ?? ''}` : /\/contacts\/(export|import\/preview)$/.test(pattern) ? '?format=csv' : '');
+    if (method === 'POST' && pattern.replace(/\/$/, '').endsWith('/cover-upload')) {
+      return t.app.inject({ method: 'POST', url, headers: { origin: ORIGIN, ...(cookie ? { cookie } : {}),
+        'content-type': 'application/octet-stream', 'x-file-name': 'cover.png' }, payload: PNG });
+    }
     return method === 'GET' ? t.get(url, cookie) : t.post(url, bodyFor(route, values), cookie);
   };
 
@@ -185,6 +191,12 @@ describe('security properties of every route (13.2)', () => {
     const occurrence = (await t.get(`/api/workspaces/${home}/schedules/${scheduled.id}`, owner)).json().occurrences[0];
     const list = (await t.post(`/api/workspaces/${home}/lists`, { title: 'Groceries' }, owner)).json().list;
     const itemId = (await t.post(`/api/workspaces/${home}/lists/${list.id}/items`, { title: 'Milk' }, owner)).json().itemId;
+    const listPath = `/api/workspaces/${home}/lists/${list.id}`;
+    const coverUpload = await t.app.inject({ method: 'POST', url: listPath + '/cover-upload',
+      headers: { origin: ORIGIN, cookie: owner, 'content-type': 'application/octet-stream', 'x-file-name': 'cover.png' }, payload: PNG });
+    expect(coverUpload.statusCode, coverUpload.body).toBe(201);
+    const coverId = coverUpload.json().attachment.id as string;
+    expect((await t.post(listPath + '/appearance', { expectedRevision: 2, icon: 'shopping', coverId }, owner)).statusCode).toBe(200);
     // Links (16.5): the Document linked to the Procedure, and a version of it retained for the Run.
     const link = (await t.post(`/api/workspaces/${home}/documents/${document.id}/links`, { target: { type: 'procedure', id: procedure.id } }, owner)).json().link;
     const runDocument = (await t.post(`/api/workspaces/${home}/runs/${run.id}/documents`, { documentId: document.id }, owner)).json().document;
@@ -196,7 +208,7 @@ describe('security properties of every route (13.2)', () => {
     const bringItem = (await t.post(`/api/workspaces/${home}/bring`, { content: { title: 'Drill', from: '', to: '', dueDate: null, assigneeId: null, notes: '' }, expectedRevision: 0 }, owner)).json().item;
     homeIds = {
       recipeId:'00000000-0000-4000-8000-000000000002',
-      attachmentId:'00000000-0000-4000-8000-000000000001',kind:'original',
+      attachmentId:coverId,kind:'original',
       bringId: bringItem.id,
       entryId: journalEntry.id,
       jobId: backupJob.id,
@@ -334,7 +346,7 @@ describe('security properties of every route (13.2)', () => {
     const occurrence = (await t.get(`/api/workspaces/${homeIds.workspaceId}/occurrences/${homeIds.occurrenceId}`, owner)).json().occurrence;
     expect(occurrence).toMatchObject({ state: 'OPEN', revision: 1 });
     const list = (await t.get(`/api/workspaces/${homeIds.workspaceId}/lists/${homeIds.listId}`, owner)).json().list;
-    expect(list).toMatchObject({ title: 'Groceries', deleted: false, items: [{ title: 'Milk', checked: null, revision: 1 }] });
+    expect(list).toMatchObject({ title: 'Groceries', deleted: false, icon: 'shopping', coverId: homeIds.attachmentId, items: [{ title: 'Milk', checked: null, revision: 1 }] });
   });
 
   it('rejects malformed identifiers without errors or data', async () => {

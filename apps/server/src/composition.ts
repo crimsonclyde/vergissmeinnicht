@@ -2,7 +2,7 @@ import {openAiRecipeImages} from './integrations/openai-recipe-images.ts';
 import {createRecipeImageJobs} from '@vergissmeinnicht/database';
 import type {RecipeImageDeps} from '@vergissmeinnicht/application';
 import {createMcpRepository} from '@vergissmeinnicht/database';
-import {createRecipeRepository,recipeAttachmentPolicy} from '@vergissmeinnicht/database';
+import {createRecipeRepository,recipeAttachmentPolicy,listAttachmentPolicy} from '@vergissmeinnicht/database';
 import type {RecipeDeps} from '@vergissmeinnicht/application';
 import {createAttachmentStore} from '@vergissmeinnicht/media';
 import {createAttachmentRepository,journalAttachmentPolicy,createAttachmentAdmin} from '@vergissmeinnicht/database';
@@ -179,6 +179,7 @@ export interface AppServices {
   readonly maintenance: MaintenanceDeps;
   readonly equipment: EquipmentDeps;
   readonly recipes: RecipeDeps;
+  readonly listAttachments: AttachmentDeps & { repository: ReturnType<typeof createAttachmentRepository> };
   readonly recipeAttachments: AttachmentDeps & { repository: ReturnType<typeof createAttachmentRepository> };
   readonly bring: BringDeps;
   readonly attachments:AttachmentDeps;
@@ -454,6 +455,7 @@ export function createServices(config: AppConfig, database: AppDatabase, overrid
       recipeImages:{recipes:{ workspaces: workspaceDeps.workspaces, users: createUserRepository(database), tools, recipes: createRecipeRepository(database), clock: systemClock },attachments:recipeAttachments,jobs:createRecipeImageJobs(database,config.recipeImages.monthlyLimit,config.recipeImages.perUserLimit),provider:config.recipeImages.key?openAiRecipeImages(config.recipeImages.key):undefined},
       recipes: { workspaces: workspaceDeps.workspaces, users: createUserRepository(database), tools, recipes: createRecipeRepository(database), clock: systemClock },
       recipeAttachments,
+      listAttachments:{repository:createAttachmentRepository(database,listAttachmentPolicy),store:attachmentStorage,processor:attachmentStorage},
       bring: { workspaces: workspaceDeps.workspaces, users: createUserRepository(database), tools, bring: createBringRepository(database), clock: systemClock },
       attachments:{repository:createAttachmentRepository(database,journalAttachmentPolicy),store:attachmentStorage,processor:attachmentStorage},
       attachmentAdmin:createAttachmentAdmin(database),

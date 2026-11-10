@@ -3,11 +3,15 @@ import { enabledTool } from './tool-policy.ts';
 import { randomUUID } from 'node:crypto';
 import { and, asc, count, eq, isNotNull, isNull, lt, max, sql } from 'drizzle-orm';
 import type { ListReplayInput, ListReplayResult, ListRepository, ListSummary, ListWithItems } from '@vergissmeinnicht/application';
-import type { List, ListId, ListItem, ListItemId, ListReplayOutcome, UserId, WorkspaceId } from '@vergissmeinnicht/domain';
+import { assertListItemKind, type List, type ListId, type ListItem, type ListItemId, type ListReplayOutcome, type UserId, type WorkspaceId } from '@vergissmeinnicht/domain';
 import { IMMEDIATE, actorAllowed, type Transaction, type UserActor } from './actor-guard.ts';
+import { roleHasCapability } from '@vergissmeinnicht/permissions';
+import { attachmentView, type AttachmentConsumerPolicy } from './attachment-repository.ts';
+import { recordSecurityEvent } from './security-events.ts';
+import { currentDelegation } from './delegation-context.ts';
 import { recordAuditEvent } from './audit-events.ts';
 import type { AppDatabase } from './connection.ts';
-import { listClientChanges, listItems, lists } from './schema.ts';
+import { attachments, listClientChanges, listItems, lists } from './schema.ts';
 
 type Reader = Pick<Transaction, 'select'>;
 
@@ -16,6 +20,8 @@ function toList(row: typeof lists.$inferSelect): List {
     id: row.id as ListId,
     workspaceId: row.workspaceId as WorkspaceId,
     kind: row.kind,
+    icon: row.icon,
+    coverId: row.coverId,
     title: row.title,
     revision: row.revision,
     created: { at: row.createdAt, by: { userId: row.createdByUserId as UserId, displayName: row.createdByDisplayName } },
@@ -44,12 +50,32 @@ function toItem(row: typeof listItems.$inferSelect): ListItem {
   };
 }
 
+// The delegated Lists scopes were granted for grocery content only.
+const mayUseCovers = () => {
+  const delegation = currentDelegation();
+  return !delegation || delegation.scope === 'lists.covers.write';
+};
+const delegatedListKind = () => mayUseCovers() ? undefined : eq(lists.kind, 'GROCERY');
+
+export const listAttachmentPolicy: AttachmentConsumerPolicy = {
+  key: 'lists',
+  guard: (tx, scope, actor) => 'workspaceId' in scope && mayUseCovers()
+    && actorAllowed(tx, scope.workspaceId as WorkspaceId,
+      { kind: 'user', userId: actor.id, displayName: actor.displayName },
+      { tool: 'LISTS', actorMay: role => roleHasCapability(role, 'list.edit') }),
+  uploadTargetExists: (tx, workspaceId, id) => !!findRow(tx, workspaceId as WorkspaceId, id as ListId),
+  // The HTTP adapter exposes only the current cover of an authorized List.
+  visible: (_scope, actor) => sql`(${attachments.uploadedBy} = ${actor.id} OR EXISTS (
+    SELECT 1 FROM ${lists} WHERE ${lists.coverId} = ${attachments.id} AND ${lists.deletedAt} IS NULL
+  ))`,
+};
+
 /** The List row inside its Workspace; `deleted` chooses between live and deleted Lists. */
 function findRow(db: Reader, workspaceId: WorkspaceId, listId: ListId, deleted = false) {
   return db
     .select()
     .from(lists)
-    .where(and(enabledTool(workspaceId, 'LISTS'), eq(lists.workspaceId, workspaceId), eq(lists.id, listId), deleted ? isNotNull(lists.deletedAt) : isNull(lists.deletedAt)))
+    .where(and(enabledTool(workspaceId, 'LISTS'), eq(lists.workspaceId, workspaceId), eq(lists.id, listId), delegatedListKind(), deleted ? isNotNull(lists.deletedAt) : isNull(lists.deletedAt)))
     .get();
 }
 
@@ -115,7 +141,7 @@ function applyChange(tx: Transaction, input: ListReplayInput, actor: UserActor):
       .values({
         id: change.listId,
         workspaceId: input.workspaceId,
-        kind: 'GROCERY',
+        kind: change.listKind,
         title: change.title,
         revision: 1,
         createdByUserId: actor.userId,
@@ -151,6 +177,7 @@ function applyChange(tx: Transaction, input: ListReplayInput, actor: UserActor):
       return applied;
     }
     case 'addItem': {
+      assertListItemKind(row.kind, change);
       if (anyItem(tx, change.itemId) !== undefined) return 'id_taken';
       if (liveItems(tx, row.id) >= input.maxItems) return lostTo('LIMIT_REACHED', null, null);
       const last = tx.select({ position: max(listItems.position) }).from(listItems).where(eq(listItems.listId, row.id)).get()?.position;
@@ -180,6 +207,7 @@ function applyChange(tx: Transaction, input: ListReplayInput, actor: UserActor):
   if (item.deletedAt !== null) return change.kind === 'removeItem' ? applied : lostTo('ITEM_REMOVED', item.deletedByDisplayName, item.deletedAt);
   switch (change.kind) {
     case 'editItem': {
+      assertListItemKind(row.kind, change);
       if (item.contentChangedAt > madeAt) return lostTo('OVERRIDDEN', item.contentChangedByDisplayName, item.contentChangedAt);
       if (item.title === change.title && item.quantity === change.quantity && item.unit === change.unit) return applied;
       tx.update(listItems)
@@ -218,7 +246,7 @@ export function createListRepository({ db }: Pick<AppDatabase, 'db'>): ListRepos
         tx
           .select()
           .from(lists)
-          .where(and(enabledTool(workspaceId, 'LISTS'), eq(lists.workspaceId, workspaceId), isNull(lists.deletedAt)))
+          .where(and(enabledTool(workspaceId, 'LISTS'), eq(lists.workspaceId, workspaceId), delegatedListKind(), isNull(lists.deletedAt)))
           .orderBy(asc(lists.createdAt), asc(lists.id))
           .all()
           .map((row) => withItems(tx, row)),
@@ -228,6 +256,13 @@ export function createListRepository({ db }: Pick<AppDatabase, 'db'>): ListRepos
     async replay(input, actor, guard) {
       return db.transaction((tx): ListReplayResult => {
         if (!actorAllowed(tx, input.workspaceId, actor, guard)) return { status: 'forbidden' };
+        // Scope delegated requests before consulting any replay receipt or applying the change.
+        if (currentDelegation()) {
+          const { change, workspaceId } = input;
+          const toDo = change.kind === 'createList' ? change.listKind === 'TODO' : tx.select({ id: lists.id }).from(lists)
+            .where(and(eq(lists.id, change.listId), eq(lists.workspaceId, workspaceId), eq(lists.kind, 'TODO'))).get();
+          if (toDo) return { status: 'done', outcome: 'NOT_FOUND', duplicate: false, by: null, byAt: null, list: null };
+        }
         tx.delete(listClientChanges).where(lt(listClientChanges.appliedAt, input.keepSince)).run();
         const current = () => {
           const row = findRow(tx, input.workspaceId, input.change.listId);
@@ -265,7 +300,7 @@ export function createListRepository({ db }: Pick<AppDatabase, 'db'>): ListRepos
         tx
           .select()
           .from(lists)
-          .where(and(enabledTool(workspaceId, 'LISTS'), eq(lists.workspaceId, workspaceId), isNull(lists.deletedAt)))
+          .where(and(enabledTool(workspaceId, 'LISTS'), eq(lists.workspaceId, workspaceId), delegatedListKind(), isNull(lists.deletedAt)))
           .orderBy(asc(lists.createdAt), asc(lists.id))
           .all()
           .map((row) => {
@@ -282,9 +317,45 @@ export function createListRepository({ db }: Pick<AppDatabase, 'db'>): ListRepos
       });
     },
 
+    async findCover(workspaceId, listId, attachmentId, actor, guard) {
+      return db.transaction(tx => {
+        if (!actorAllowed(tx, workspaceId, actor, guard)) return undefined;
+        const row = findRow(tx, workspaceId, listId);
+        if (row?.coverId !== attachmentId) return undefined;
+        const file = tx.select().from(attachments).where(and(eq(attachments.id, attachmentId),
+          eq(attachments.workspaceId, workspaceId), eq(attachments.policyKey, 'lists'), eq(attachments.deleting, false))).get();
+        return file && attachmentView(file);
+      });
+    },
+
+    async changeAppearance(input, actor, guard) {
+      return db.transaction(tx => {
+        if (!mayUseCovers() || !actorAllowed(tx, input.workspaceId, actor, guard)) return { status: 'forbidden' } as const;
+        const row = findRow(tx, input.workspaceId, input.listId);
+        if (!row) return { status: 'list_not_found' } as const;
+        const { appearance } = input;
+        const icon = appearance.icon === undefined ? row.icon : appearance.icon;
+        const coverId = appearance.coverId === undefined ? row.coverId : appearance.coverId;
+        if (icon === row.icon && coverId === row.coverId) return { status: 'ok', list: withItems(tx, row) } as const;
+        if (input.expectedRevision !== row.revision) return { status: 'conflict' } as const;
+        if (coverId && coverId !== row.coverId) {
+          const file = tx.select({ id: attachments.id }).from(attachments).where(and(eq(attachments.id, coverId),
+            eq(attachments.workspaceId, row.workspaceId), eq(attachments.policyKey, 'lists'),
+            eq(attachments.uploadedBy, actor.userId), eq(attachments.deleting, false))).get();
+          const claimed = tx.select({ id: lists.id }).from(lists).where(eq(lists.coverId, coverId)).get();
+          if (!file || claimed) return { status: 'cover_not_found' } as const;
+        }
+        const saved = tx.update(lists).set({ icon, coverId, revision: row.revision + 1, updatedAt: input.at })
+          .where(eq(lists.id, row.id)).returning().get();
+        recordSecurityEvent(tx, { type: 'ATTACHMENT_CHANGED', actor, subjectType: 'workspace', subjectId: row.workspaceId,
+          occurredAt: input.at, metadata: { action: 'list_appearance', listId: row.id, hasCover: coverId !== null } });
+        return { status: 'ok', list: withItems(tx, saved) } as const;
+      }, IMMEDIATE);
+    },
+
     async create(input, actor, guard) {
       return db.transaction((tx) => {
-        if (!actorAllowed(tx, input.workspaceId, actor, guard)) return { status: 'forbidden' } as const;
+        if (!actorAllowed(tx, input.workspaceId, actor, guard) || (currentDelegation() && input.kind !== 'GROCERY')) return { status: 'forbidden' } as const;
         if (liveLists(tx, input.workspaceId) >= input.maxLists) return { status: 'limit_reached' } as const;
         const row = tx
           .insert(lists)
@@ -384,6 +455,7 @@ export function createListRepository({ db }: Pick<AppDatabase, 'db'>): ListRepos
         if (!actorAllowed(tx, input.workspaceId, actor, guard)) return { status: 'forbidden' } as const;
         const row = findRow(tx, input.workspaceId, input.listId);
         if (row === undefined) return { status: 'list_not_found' } as const;
+        assertListItemKind(row.kind, input);
         if (liveItems(tx, row.id) >= input.maxItems) return { status: 'limit_reached' } as const;
         // After every item ever added (removed ones keep their place for Undo).
         const last = tx.select({ position: max(listItems.position) }).from(listItems).where(eq(listItems.listId, row.id)).get()?.position;
@@ -415,6 +487,7 @@ export function createListRepository({ db }: Pick<AppDatabase, 'db'>): ListRepos
         if (row === undefined) return { status: 'list_not_found' } as const;
         const item = findItem(tx, row.id as ListId, input.itemId);
         if (item === undefined) return { status: 'item_not_found' } as const;
+        assertListItemKind(row.kind, input);
         if (item.revision !== input.expectedRevision) return { status: 'conflict' } as const;
         tx.update(listItems)
           .set({ title: input.title, quantity: input.quantity, unit: input.unit, revision: item.revision + 1, contentChangedAt: input.at, contentChangedByDisplayName: actor.displayName })

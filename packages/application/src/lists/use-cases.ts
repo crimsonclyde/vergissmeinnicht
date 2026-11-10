@@ -10,8 +10,10 @@ import {
   normalizeListItemUnit,
   normalizeListTitle,
   type ListChange,
+  type ListAppearance,
   type ListId,
   type ListItemId,
+  type ListKind,
   type User,
   type WorkspaceId,
 } from '@vergissmeinnicht/domain';
@@ -24,6 +26,7 @@ import { OfflineAccountMismatchError } from '../runs/errors.ts';
 import type { WorkspaceRepository } from '../ports/workspace-repository.ts';
 import { userActor } from '../user-actor.ts';
 import { authorizeWorkspace } from '../workspaces/use-cases.ts';
+import { AttachmentError } from '../attachments/index.ts';
 import { ListConflictError, ListItemLimitReachedError, ListItemNotFoundError, ListLimitReachedError, ListNotFoundError } from './errors.ts';
 
 export interface ListDeps {
@@ -83,14 +86,33 @@ export async function getList(deps: ListDeps, input: ListRef): Promise<ListWithI
   return found;
 }
 
-/** Creates a grocery list (`list.edit`: USER, EDITOR, ADMIN). Audited. */
+export async function authorizeListAppearance(deps: ListDeps, input: ListRef) {
+  await authorizeWorkspace(deps, input.actor, input.workspaceId, 'list.edit');
+  if (!(await deps.lists.find(input.workspaceId, input.listId))) throw new ListNotFoundError();
+}
+
+export async function changeListAppearance(deps: ListDeps, input: ListRef & { expectedRevision: number; appearance: Partial<ListAppearance> }) {
+  await authorizeWorkspace(deps, input.actor, input.workspaceId, 'list.edit');
+  const result = await deps.lists.changeAppearance({ ...input, at: deps.clock.now() }, userActor(input.actor), edit);
+  if (result.status === 'ok') return result.list;
+  if (result.status === 'cover_not_found') throw new AttachmentError('attachment_not_found');
+  return refuse(result.status);
+}
+
+export async function findListCover(deps: ListDeps, input: ListRef & { attachmentId: string }) {
+  await authorizeWorkspace(deps, input.actor, input.workspaceId, 'list.view');
+  return deps.lists.findCover(input.workspaceId, input.listId, input.attachmentId, userActor(input.actor),
+    { tool: 'LISTS', actorMay: role => roleHasCapability(role, 'list.view') });
+}
+
+/** Creates a Shopping or To-do List (`list.edit`: USER, EDITOR, ADMIN). Audited. */
 export async function createList(
   deps: ListDeps,
-  input: { readonly actor: User; readonly workspaceId: WorkspaceId; readonly title: string },
+  input: { readonly actor: User; readonly workspaceId: WorkspaceId; readonly title: string; readonly kind?: ListKind | undefined },
 ): Promise<ListWithItems> {
   await authorizeWorkspace(deps, input.actor, input.workspaceId, 'list.edit');
   const result = await deps.lists.create(
-    { workspaceId: input.workspaceId, kind: 'GROCERY', title: normalizeListTitle(input.title), at: deps.clock.now(), maxLists: MAX_LISTS_PER_WORKSPACE },
+    { workspaceId: input.workspaceId, kind: input.kind ?? 'GROCERY', title: normalizeListTitle(input.title), at: deps.clock.now(), maxLists: MAX_LISTS_PER_WORKSPACE },
     userActor(input.actor),
     edit,
   );
@@ -190,7 +212,8 @@ export async function listSnapshot(deps: ListDeps, input: { readonly actor: User
 
 /** A change as a device sends it: ids and text not yet checked. */
 export type RawListChange =
-  | { readonly kind: 'createList' | 'renameList'; readonly listId: string; readonly title: string }
+  | { readonly kind: 'createList'; readonly listId: string; readonly title: string; readonly listKind?: ListKind | undefined }
+  | { readonly kind: 'renameList'; readonly listId: string; readonly title: string }
   | { readonly kind: 'deleteList'; readonly listId: string }
   | ({ readonly kind: 'addItem' | 'editItem'; readonly listId: string; readonly itemId: string } & ItemContent)
   | { readonly kind: 'checkItem'; readonly listId: string; readonly itemId: string; readonly checked: boolean }
@@ -201,6 +224,7 @@ function normalizeChange(raw: RawListChange): ListChange {
   const listId = parseListId(raw.listId);
   switch (raw.kind) {
     case 'createList':
+      return { kind: raw.kind, listId, title: normalizeListTitle(raw.title), listKind: raw.listKind ?? 'GROCERY' };
     case 'renameList':
       return { kind: raw.kind, listId, title: normalizeListTitle(raw.title) };
     case 'deleteList':

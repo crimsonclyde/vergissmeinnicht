@@ -75,7 +75,7 @@ It also helps people remember everyday responsibilities and see what needs atten
 - How do I do this correctly?
 - Has this occurrence already been completed?
 
-The app is organised around tools (accepted 2026-10-01, `docs/development/steps.md` section 15): **Dashboard** brings what is actionable together; **Procedures**, **Reminders** and **Lists** each have their own place; the **Calendar** is an optional planning view. Reusable Procedures, scheduled Reminders and lightweight grocery Lists stay conceptually distinct.
+The app is organised around tools (accepted 2026-10-01, `docs/development/steps.md` section 15): **Dashboard** brings what is actionable together; **Procedures**, **Reminders** and **Lists** each have their own place; the **Calendar** is an optional planning view. Reusable Procedures, scheduled Reminders and lightweight Shopping and To-do Lists stay conceptually distinct.
 
 House management is an **optional** addition (accepted 2026-10-01, `docs/development/steps.md` section 16; planned in five phases, implemented step by step): the tools **Documents**, **Contacts**, **Maintenance**, **Equipment** and **Mail**. Each is enabled per Workspace by a Workspace admin; a Workspace without them stays fully useful, and no house-specific information is ever required. The Dashboard stays actionable: these tools add no sections to it, except the compact **Maintenance due soon** card (`docs/development/steps.md` 19, T5), and planned maintenance, warranty expiry or servicing reach the Dashboard only as ordinary Occurrences of the existing Schedules. `docs/development/steps.md` 16.12 holds the decisions; read it before any 16.x step and do not reopen what is decided there.
 
@@ -157,8 +157,8 @@ Use these terms consistently:
 - Assignee — the optional responsible member of a Schedule or Occurrence; assignment grants no access
 - Workspace backup — a portable, versioned `.vmnbackup` package of one Workspace (section 18): allowlisted data, original files, members' name/role/email; never secrets, credentials or other Workspaces
 - historical identity — a person kept in restored history (status `IMPORTED`, a reserved `@imported.invalid` address): display name and attribution only; never signs in, is notified, becomes a member, is activated or is matched to an account — enforced by the application **and** the database (CHECK and triggers, migration 0045)
-- List — lightweight shared content of a Workspace with items that are checked off; so far only the grocery list
-- ListItem — one entry of a List: a title, an optional quantity and unit, purchased or not
+- List — a lightweight shared Workspace checklist of kind Shopping or To-do
+- ListItem — one checkable entry with a title and, for Shopping only, an optional quantity and unit
 - WeatherProvider — an allow-listed forecast source with an endpoint fixed in code (Open-Meteo, MET Norway, OpenWeather, Meteomatics; 19.4)
 - provider credential — a sealed secret for a WeatherProvider, server-wide (managed by server admins) or personal (its owner only); never returned or logged
 
@@ -176,7 +176,7 @@ House management (section 16; a term is in use once its step is implemented):
 - Equipment — an appliance or installation of the house
 - Mailbox — a mail account connected to a Workspace; its messages are *live* (at the provider), *cached* (temporary, never an archive) or a *saved copy* (explicitly retained in VMN)
 
-A List is neither a Procedure nor a Run: nothing is started, and it has no Required, Critical, Skip or Not Applicable.
+A List is neither a Procedure nor a Run: nothing is started, and it has no Required, Critical, Skip or Not Applicable. A List may have one local cover image and a bundled icon (15.3b). Delegated cover access has its own opt-in scope for Shopping and To-do Lists.
 
 A Schedule of a Procedure never creates Runs by itself: only an explicit Start does. Completing one Occurrence never completes another.
 
@@ -311,7 +311,7 @@ Do not add without an accepted requirement:
 - notification channels beyond the accepted email and Telegram reminders;
 - photos beyond the accepted instruction image per Procedure Step (`docs/development/steps.md` 14.3); completion photos, required photo evidence and annotations are not planned (14.5, owner 2026-10-06);
 - other attachments — superseded for exactly the accepted house-management tools Documents, Contacts, Maintenance, Equipment and Mail (`docs/development/steps.md` section 16), each only as specified in its step; a Run retaining the Document version linked to it (16.5) is not approval of completion photos;
-- list types beyond the accepted grocery list, list categories, or links between Lists and Schedules or Documents (`docs/development/steps.md` 15.3);
+- list types beyond Shopping and To-do, list categories, or links between Lists and Schedules or Documents (`docs/development/steps.md` 15.3 and 15.3a);
 - Kanban or other boards — superseded for exactly the Maintenance status board with its four fixed statuses (`docs/development/steps.md` 16.7); no boards elsewhere, no custom columns, swimlanes or limits;
 - per-folder permissions, or personal preferences for hiding tools;
 - automatic payments or financial decisions, cost totals, budgets or charts;

@@ -42,11 +42,13 @@ describe('Lists on this device (17.5)', () => {
         queued({ kind: 'editItem', listId: LIST, itemId: eggs, title: 'Eggs', quantity: '10', unit: null }),
         queued({ kind: 'removeItem', listId: LIST, itemId: BREAD }),
         queued({ kind: 'renameList', listId: LIST, title: 'Weekly' }),
-        queued({ kind: 'createList', listId: camping, title: 'Camping' }),
+        queued({ kind: 'createList', listId: camping, title: 'Camping', listKind: 'TODO' }),
+        queued({ kind: 'addItem', listId: camping, itemId: 'bbbbbbbb-0000-4000-8000-000000000004', title: 'Pack the tent', quantity: null, unit: null }),
       ],
       'you',
     );
     expect(shown.map((list) => list.title)).toEqual(['Weekly', 'Camping']);
+    expect(shown[1]).toMatchObject({ kind: 'TODO', items: [{ title: 'Pack the tent' }] });
     expect(shown[0]?.items.map((item) => [item.title, item.quantity, item.checked?.by ?? null])).toEqual([
       ['Milk', '1', 'you'],
       ['Eggs', '10', null],

@@ -14,6 +14,20 @@ export async function uploadRecipeImage(
   input: { recipeId: string | null; operationId: string; fileName: string; imageBase64: string },
 ) {
   const authorize = (write: boolean) => authorizeRecipes(services.recipes, actor, workspaceId, write);
+  const result = await uploadDelegatedImage(services.recipeAttachments, actor, workspaceId, authorize,
+    { ...input, targetId: input.recipeId });
+  const { attachment } = result;
+  const reference = `attachments/${attachment.id}.${attachment.format === 'PNG' ? 'png' : 'jpg'}`;
+  return { ...result, attachment: { ...attachment, reference }, markdown: `![Recipe photo](${reference})` };
+}
+
+export async function uploadDelegatedImage(
+  deps: AppServices['recipeAttachments'],
+  actor: User,
+  workspaceId: WorkspaceId,
+  authorize: (write: boolean) => Promise<void>,
+  input: { targetId: string | null; operationId: string; fileName: string; imageBase64: string },
+) {
   await authorize(true);
   const name = normalizeOriginalFileName(input.fileName);
   const encoded = input.imageBase64;
@@ -23,14 +37,13 @@ export async function uploadRecipeImage(
     throw new AttachmentError('attachment_format');
   }
   const length = encoded.length / 4 * 3 - padding;
-  const deps = services.recipeAttachments;
   if (length > MCP_IMAGE_BYTES) throw new AttachmentError('attachment_too_large');
   const bytes = Buffer.from(encoded, 'base64');
   if (bytes.toString('base64') !== encoded) throw new AttachmentError('attachment_format');
 
   const scope = { workspaceId };
-  const payloadHash = createHash('sha256').update(JSON.stringify([input.recipeId, name])).update(bytes).digest('hex');
-  const operation = { id: input.operationId, targetId: input.recipeId, payloadHash };
+  const payloadHash = createHash('sha256').update(JSON.stringify([input.targetId, name])).update(bytes).digest('hex');
+  const operation = { id: input.operationId, targetId: input.targetId, payloadHash };
   const prior = () => deps.repository.priorUpload(actor, scope, operation);
   let attachment = await prior();
   let duplicate = !!attachment;
@@ -46,10 +59,5 @@ export async function uploadRecipeImage(
       duplicate = true;
     }
   }
-  const reference = `attachments/${attachment.id}.${attachment.format === 'PNG' ? 'png' : 'jpg'}`;
-  return {
-    attachment: { id: attachment.id, name: attachment.name, format: attachment.format, reference },
-    markdown: `![Recipe photo](${reference})`,
-    duplicate,
-  };
+  return { attachment: { id: attachment.id, name: attachment.name, format: attachment.format }, duplicate };
 }

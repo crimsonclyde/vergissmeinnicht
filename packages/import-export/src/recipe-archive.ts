@@ -3,7 +3,7 @@ import yazl from 'yazl';
 import { exportSegment, type RecipeContent } from '@vergissmeinnicht/domain';
 const literal = (value: string) => value.replace(/([\\`*_{}[\]<>()#+.!|~-])/g, '\\$1');
 export function recipeMarkdown(recipe: RecipeContent): string {
-  const meta = { title: recipe.title, servings: recipe.servings, tags: recipe.tags, preparation_minutes: recipe.prepMinutes, cooking_minutes: recipe.cookMinutes, source: recipe.source };
+  const meta = { title: recipe.title, servings: recipe.servings, tags: recipe.tags, preparation_minutes: recipe.prepMinutes, cooking_minutes: recipe.cookMinutes, source: recipe.source, ...(recipe.private === undefined ? {} : { private: recipe.private }) };
   const front = Object.entries(meta).map(([key, value]) => `${key}: ${JSON.stringify(value)}`).join('\n');
   return `---\n${front}\n---\n\n# ${literal(recipe.title)}\n\n## Ingredients\n\n${recipe.ingredients.map(item => '- ' + literal([item.amount, item.unit, item.name, item.note].filter(Boolean).join(' '))).join('\n')}\n\n## Instructions\n\n${recipe.instructions}\n`;
 }

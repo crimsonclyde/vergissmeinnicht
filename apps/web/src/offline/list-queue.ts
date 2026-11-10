@@ -50,7 +50,7 @@ export function withQueuedListChanges(lists: readonly ListDetail[], queued: read
   for (const { change, deviceTime } of queued) {
     if (change.kind === 'createList') {
       if (!result.some((list) => list.id === change.listId)) {
-        result.push({ id: change.listId, kind: 'GROCERY', title: change.title, revision: 0, createdBy: me, updatedAt: deviceTime, deleted: false, items: [] });
+        result.push({ id: change.listId, kind: change.listKind ?? 'GROCERY', title: change.title, revision: 0, createdBy: me, updatedAt: deviceTime, deleted: false, items: [] });
       }
       continue;
     }
@@ -80,7 +80,7 @@ export function withQueuedListChanges(lists: readonly ListDetail[], queued: read
 /** The overview line of a List: how much is still to buy and how much is checked off. */
 export function summaryOf(list: ListDetail): ListSummary {
   const checked = list.items.filter((item) => item.checked !== null).length;
-  return { id: list.id, kind: list.kind, title: list.title, revision: list.revision, createdBy: list.createdBy, updatedAt: list.updatedAt, deleted: list.deleted, open: list.items.length - checked, checked };
+  return { id: list.id, kind: list.kind, icon: list.icon ?? null, coverId: list.coverId ?? null, title: list.title, revision: list.revision, createdBy: list.createdBy, updatedAt: list.updatedAt, deleted: list.deleted, open: list.items.length - checked, checked };
 }
 
 /** Ids of Lists and items with a change on this device that is not sent yet ("Saved on this device"). */

@@ -15,7 +15,7 @@ export function RecipeShopping({ workspaceId, recipe }: { workspaceId: string; r
   const [loading, setLoading] = useState(true);
   const pending=useRef<import('@vergissmeinnicht/domain').RecipeTransfer|null>(null);
   const [operation, setOperation] = useState(() => crypto.randomUUID());
-  useEffect(() => { let active = true; api.lists(workspaceId).then(result => { if (active) { setLists(result); if (result.length === 1) setDestination(result[0]?.id ?? ''); } }, error => { if (active) setMessage(messageFor(error)); }); return () => { active = false; }; }, [workspaceId]);
+  useEffect(() => { let active = true; api.lists(workspaceId).then(result => { if (active) { const shopping = result.filter(list => list.kind === 'GROCERY'); setLists(shopping); if (shopping.length === 1) setDestination(shopping[0]?.id ?? ''); } }, error => { if (active) setMessage(messageFor(error)); }); return () => { active = false; }; }, [workspaceId]);
   useEffect(() => {
     let active = true;
     if (!Number.isInteger(servings) || servings < 1 || servings > 1000) { return; }

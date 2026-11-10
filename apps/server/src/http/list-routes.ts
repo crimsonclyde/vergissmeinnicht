@@ -1,5 +1,11 @@
 import {
   addListItem,
+  AttachmentError,
+  regenerateAttachment,
+  authorizeListAppearance,
+  changeListAppearance,
+  findListCover,
+  openAttachment,
   createList,
   deleteList,
   getList,
@@ -15,10 +21,11 @@ import {
   type ListSummary,
   type ListWithItems,
 } from '@vergissmeinnicht/application';
-import { UUID_V4, type List, type ListId, type ListItem, type ListItemId, type WorkspaceId } from '@vergissmeinnicht/domain';
+import { LIST_ICONS, LIST_KINDS, UUID_V4, type List, type ListId, type ListItem, type ListItemId, type WorkspaceId } from '@vergissmeinnicht/domain';
 import type { FastifyInstance, FastifyRequest } from 'fastify';
 import { z } from 'zod';
 import type { AppServices } from '../composition.ts';
+import { registerAttachmentHttp, sendAttachment } from './attachment-http.ts';
 import { InvalidRequestError } from './errors.ts';
 import { requireUser, type Principal } from './session.ts';
 
@@ -26,11 +33,15 @@ import { requireUser, type Principal } from './session.ts';
 const uuid = z.string().regex(UUID_V4);
 const workspaceParams = z.strictObject({ workspaceId: uuid });
 const listParams = z.strictObject({ workspaceId: uuid, listId: uuid });
+const coverRefParams = listParams.extend({ attachmentId: uuid });
+const coverParams = coverRefParams.extend({ kind: z.enum(['original', 'preview', 'thumbnail']) });
+const appearanceBody = z.strictObject({ expectedRevision: z.number().int().min(1), icon: z.enum(LIST_ICONS).nullable(), coverId: uuid.nullable() });
 const itemParams = z.strictObject({ workspaceId: uuid, listId: uuid, itemId: uuid });
 // Coarse transport bounds; the domain normalizes and enforces the exact rules.
 const title = z.string().max(1024);
 const optionalText = z.string().max(64).nullable().optional();
-const createBody = z.strictObject({ title });
+const listKind = z.enum(LIST_KINDS).optional();
+const createBody = z.strictObject({ title, kind: listKind });
 const renameBody = z.strictObject({ title, expectedTitle: title });
 const itemBody = z.strictObject({ title, quantity: optionalText, unit: optionalText });
 const itemUpdateBody = z.strictObject({ title, quantity: optionalText, unit: optionalText, expectedRevision: z.number().int().min(1) });
@@ -43,7 +54,7 @@ const replayBody = z.strictObject({
   userId: uuid,
   deviceTime: z.iso.datetime({ offset: true }),
   change: z.discriminatedUnion('kind', [
-    z.strictObject({ kind: z.literal('createList'), listId: uuid, title }),
+    z.strictObject({ kind: z.literal('createList'), listId: uuid, title, listKind }),
     z.strictObject({ kind: z.literal('renameList'), listId: uuid, title }),
     z.strictObject({ kind: z.literal('deleteList'), listId: uuid }),
     z.strictObject({ kind: z.literal('addItem'), listId: uuid, itemId: uuid, ...itemContent }),
@@ -72,6 +83,8 @@ function listInfo(list: List) {
   return {
     id: list.id,
     kind: list.kind,
+    icon: list.icon,
+    coverId: list.coverId,
     title: list.title,
     revision: list.revision,
     createdAt: list.created.at.toISOString(),
@@ -114,6 +127,38 @@ export async function listRoutes(app: FastifyInstance, { services }: { services:
     return { actor: principalOf(request).user, workspaceId: workspaceId as WorkspaceId, listId: listId as ListId, itemId: itemId as ListItemId };
   };
 
+  await app.register(async child => {
+    registerAttachmentHttp(child, services.listAttachments, request => {
+      const ref = listRef(request);
+      return { actor: ref.actor, scope: { workspaceId: ref.workspaceId }, authorize: () => authorizeListAppearance(deps, ref) };
+    }, { uploadOnly: true });
+  }, { prefix: '/:listId/cover-upload' });
+
+  app.get('/:listId/cover/:attachmentId/:kind', async (request, reply) => {
+    const { workspaceId, listId, attachmentId, kind } = parse(coverParams, request.params);
+    const record = await findListCover(deps, { actor: principalOf(request).user, workspaceId: workspaceId as WorkspaceId, listId: listId as ListId, attachmentId });
+    const { record: file, stream } = await openAttachment(services.listAttachments.store, record, kind);
+    return sendAttachment(reply, file, stream, kind);
+  });
+
+  app.post('/:listId/cover/:attachmentId/regenerate', { bodyLimit: 256 }, async request => {
+    const { workspaceId, listId, attachmentId } = parse(coverRefParams, request.params);
+    const ref = { actor: principalOf(request).user, workspaceId: workspaceId as WorkspaceId, listId: listId as ListId };
+    await regenerateAttachment(services.listAttachments, {
+      actor: ref.actor, scope: { workspaceId },
+      authorize: async () => {
+        await authorizeListAppearance(deps, ref);
+        if (!await findListCover(deps, { ...ref, attachmentId })) throw new AttachmentError('attachment_not_found');
+      },
+    }, attachmentId);
+    return { repaired: true };
+  });
+
+  app.post('/:listId/appearance', post, async request => {
+    const { expectedRevision, icon, coverId } = parse(appearanceBody, request.body);
+    return { list: detailView(await changeListAppearance(deps, { ...listRef(request), expectedRevision, appearance: { icon, coverId } })) };
+  });
+
   app.get('/', async (request) => {
     const { workspaceId } = parse(workspaceParams, request.params);
     const entries = await listLists(deps, { actor: principalOf(request).user, workspaceId: workspaceId as WorkspaceId });
@@ -123,7 +168,7 @@ export async function listRoutes(app: FastifyInstance, { services }: { services:
   app.post('/', post, async (request, reply) => {
     const { workspaceId } = parse(workspaceParams, request.params);
     const body = parse(createBody, request.body);
-    const created = await createList(deps, { actor: principalOf(request).user, workspaceId: workspaceId as WorkspaceId, title: body.title });
+    const created = await createList(deps, { actor: principalOf(request).user, workspaceId: workspaceId as WorkspaceId, title: body.title, kind: body.kind });
     return reply.code(201).send({ list: detailView(created) });
   });
 

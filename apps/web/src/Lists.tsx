@@ -1,5 +1,6 @@
+import type { ListKind } from '@vergissmeinnicht/domain';
 import { useCallback, useEffect, useId, useRef, useState, type FormEvent, type RefObject } from 'react';
-import { ApiError, api, isNetworkError, messageFor, type ListChangeInput, type ListDetail, type ListItem, type ListItemInput, type ListSummary } from './api.ts';
+import { ApiError, api, isNetworkError, listCoverUrl, messageFor, type ListChangeInput, type ListDetail, type ListItem, type ListItemInput, type ListSummary } from './api.ts';
 import { PhoneEditorDialog } from './mobile/PhoneEditorDialog.tsx';
 import { clearHandOver, handOver, handedOver } from './handoff.ts';
 import { formatDateTime, formatRelative, hasMessage, t } from './i18n/index.ts';
@@ -7,6 +8,7 @@ import { amountLabel, isCurrent, splitItems, withChecked } from './list-model.ts
 import { activeChanges, summaryOf, waitingIds, withQueuedListChanges } from './offline/list-queue.ts';
 import { useOffline } from './offline/OfflineProvider.tsx';
 import { offlineStore, type SavedLists } from './offline/store.ts';
+import { ListAppearanceDialog, ListArtwork } from './ListArtwork.tsx';
 import { MoreMenu } from './MoreMenu.tsx';
 import { Link, navigate, paths } from './router.tsx';
 import { UiIcon } from './ui-icons.tsx';
@@ -57,6 +59,14 @@ function DeviceCopyNote(props: { saved: SavedLists | null | undefined; online: b
 
 const failure = (caught: unknown): string => (isNetworkError(caught) ? t('lists.offline') : messageFor(caught));
 
+const kindLabel = (kind: ListKind) => t(kind === 'TODO' ? 'lists.todo' : 'lists.shopping');
+
+function listProgress(kind: ListKind, open: number, checked: number): string {
+  if (kind === 'TODO') return t('lists.todoProgress', { count: checked, total: open + checked });
+  if (open + checked === 0) return t('lists.emptyShort');
+  return `${t('lists.toBuy', { count: open })} · ${t('lists.purchasedCount', { count: checked })}`;
+}
+
 function useRefresh(load: () => void, everyMs: number) {
   useEffect(() => {
     const refresh = () => {
@@ -71,7 +81,7 @@ function useRefresh(load: () => void, everyMs: number) {
   }, [load, everyMs]);
 }
 
-/** The Lists of the Workspace: name, what is left to buy, and Open. `creating`: the New list dialog is open. */
+/** List names, kinds and progress. The new-list route opens the creation dialog. */
 function ListOverview(props: { workspaceId: string; creating: boolean; canEdit: boolean }) {
   const { workspaceId } = props;
   const local = useDeviceLists(workspaceId);
@@ -81,6 +91,9 @@ function ListOverview(props: { workspaceId: string; creating: boolean; canEdit: 
   const [message, setMessage] = useState<string | null>(null);
   const [notice, setNotice] = useState<Undoable | null>(null);
   const [name, setName] = useState('');
+  const [kind, setKind] = useState<ListKind>('GROCERY');
+  const [query, setQuery] = useState('');
+  const [kindFilter, setKindFilter] = useState<ListKind | 'ALL'>('ALL');
   const created = useRef(false);
 
   const load = useCallback(() => {
@@ -102,6 +115,8 @@ function ListOverview(props: { workspaceId: string; creating: boolean; canEdit: 
   }, [load, device]);
   useRefresh(load, OVERVIEW_REFRESH_MS);
   const lists: readonly ListSummary[] | null = device ? (local.lists?.map(summaryOf) ?? null) : fetched;
+  const visibleLists = lists?.filter(list =>
+    (kindFilter === 'ALL' || list.kind === kindFilter) && list.title.toLocaleLowerCase().includes(query.trim().toLocaleLowerCase()));
   // Arriving here right after deleting a List: offer Undo.
   const [deleted, setDeleted] = useState(() => {
     const handed = handedOver<DeletedList>(DELETED_LIST);
@@ -128,9 +143,9 @@ function ListOverview(props: { workspaceId: string; creating: boolean; canEdit: 
   };
   const shownNotice: Undoable | null = deleted === null ? notice : { message: t('lists.deleted', { title: deleted.title }), undo: () => undoDelete(deleted) };
   /** A List made on this device while offline gets its id here and is created on the server once (17.5). */
-  const createOnDevice = async (title: string) => {
+  const createOnDevice = async (title: string, listKind: ListKind) => {
     const listId = crypto.randomUUID();
-    const id = await offline.enqueueList(workspaceId, { kind: 'createList', listId, title: title.trim() }, title.trim());
+    const id = await offline.enqueueList(workspaceId, { kind: 'createList', listId, title: title.trim(), listKind }, title.trim());
     if (id === null) throw new Error(t('offline.cannotSave', { title }));
     return listId;
   };
@@ -155,25 +170,36 @@ function ListOverview(props: { workspaceId: string; creating: boolean; canEdit: 
       ) : lists.length === 0 ? (
         <p className="card calm">{t(props.canEdit ? 'lists.noneHint' : 'lists.none')}</p>
       ) : (
-        <ul className="plain-list" aria-labelledby="lists-heading">
-          {lists.map((list) => (
-            <li key={list.id}>
-              <Link href={paths.list(workspaceId, list.id)} className="card link-card" aria-label={t('lists.openNamed', { title: list.title })}>
-                <span className="item-icon">
-                  <UiIcon name="grocery" size="1.5em" />
-                </span>
-                <span className="item-body">
-                  <strong>{list.title}</strong>
-                  <small className="muted">
-                    {list.open + list.checked === 0 ? t('lists.emptyShort') : `${t('lists.toBuy', { count: list.open })} · ${t('lists.purchasedCount', { count: list.checked })}`}
-                  </small>
-                  {local.waiting.has(list.id) && <small className="muted">{t('lists.offlineWaiting')}</small>}
-                </span>
-                <UiIcon name="chevron" />
-              </Link>
-            </li>
-          ))}
-        </ul>
+        <>
+          <div className="list-overview-filters">
+            <label>{t('lists.find')}<input type="search" value={query} onChange={event => setQuery(event.target.value)} /></label>
+            <label>{t('lists.showKind')}<select value={kindFilter} onChange={event => {
+              const value = event.target.value;
+              setKindFilter(value === 'GROCERY' || value === 'TODO' ? value : 'ALL');
+            }}>
+              <option value="ALL">{t('lists.allKinds')}</option>
+              <option value="GROCERY">{kindLabel('GROCERY')}</option>
+              <option value="TODO">{kindLabel('TODO')}</option>
+            </select></label>
+          </div>
+          {visibleLists?.length === 0 && <p>{t('lists.noMatches')}</p>}
+          <ul className="plain-list list-overview-grid" aria-labelledby="lists-heading">
+            {visibleLists?.map(list => (
+              <li key={list.id}>
+                <Link href={paths.list(workspaceId, list.id)} className="card link-card list-overview-tile" aria-label={t('lists.openNamed', { title: list.title })} aria-describedby={`list-progress-${list.id}`}>
+                  <ListArtwork kind={list.kind} icon={list.icon ?? null}
+                    src={offline.online && list.coverId ? listCoverUrl(workspaceId, list.id, list.coverId, 'thumbnail') : undefined} />
+                  <span className="item-body">
+                    <strong>{list.title}</strong>
+                    <small id={`list-progress-${list.id}`} className="muted">{kindLabel(list.kind)} · {listProgress(list.kind, list.open, list.checked)}</small>
+                    {local.waiting.has(list.id) && <small className="muted">{t('lists.offlineWaiting')}</small>}
+                  </span>
+                  <UiIcon name="chevron" />
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </>
       )}
       <UndoNotice
         notice={shownNotice}
@@ -183,22 +209,26 @@ function ListOverview(props: { workspaceId: string; creating: boolean; canEdit: 
         }}
       />
       {props.creating && props.canEdit && (
-        <PhoneEditorDialog stages={[{id:'name',title:t('lists.name')}]} dirty={name !== ''}
+        <PhoneEditorDialog stages={[{id:'name',title:t('lists.name')}]} dirty={name !== '' || kind !== 'GROCERY'}
           title={t('lists.newHeading')}
           submitLabel={t('lists.create')}
           onClose={() => {
-            if (!created.current) navigate(paths.lists(workspaceId), { replace: true });
+            if (!created.current) {
+              setName('');
+              setKind('GROCERY');
+              navigate(paths.lists(workspaceId), { replace: true });
+            }
           }}
           onSubmit={async () => {
             let listId: string;
-            if (device) listId = await createOnDevice(name);
+            if (device) listId = await createOnDevice(name, kind);
             else {
               try {
-                listId = (await api.createList(workspaceId, name)).id;
+                listId = (await api.createList(workspaceId, name, kind)).id;
               } catch (caught) {
                 if (!isNetworkError(caught)) throw caught;
                 offline.reportUnreachable();
-                listId = await createOnDevice(name);
+                listId = await createOnDevice(name, kind);
               }
             }
             created.current = true;
@@ -211,7 +241,14 @@ function ListOverview(props: { workspaceId: string; creating: boolean; canEdit: 
           <label>
             {t('lists.name')}
             <br />
-            <input required maxLength={80} value={name} placeholder={t('lists.namePlaceholder')} onChange={(e) => setName(e.target.value)} />
+            <input required maxLength={80} value={name} placeholder={t(kind === 'TODO' ? 'lists.todoNamePlaceholder' : 'lists.namePlaceholder')} onChange={(e) => setName(e.target.value)} />
+          </label>
+          <label>
+            {t('lists.kind')}
+            <select value={kind} onChange={(event) => setKind(event.target.value === 'TODO' ? 'TODO' : 'GROCERY')}>
+              <option value="GROCERY">{kindLabel('GROCERY')}</option>
+              <option value="TODO">{kindLabel('TODO')}</option>
+            </select>
           </label></>}
         </PhoneEditorDialog>
       )}
@@ -230,53 +267,55 @@ function fieldError(caught: unknown): { field: ItemField; text: string } | null 
   return { field, text: t(key) };
 }
 
-/** Name, quantity and unit of an item — the same three fields for adding and for editing. */
-function ItemFields({ value, onChange, error, titleRef }: { value: ListItemInput; onChange: (value: ListItemInput) => void; error: { field: ItemField; text: string } | null; titleRef?: RefObject<HTMLInputElement | null> }) {
+/** Shopping items have quantity and unit fields. Tasks have a title field. */
+function ItemFields({ todo, value, onChange, error, titleRef }: { todo: boolean; value: ListItemInput; onChange: (value: ListItemInput) => void; error: { field: ItemField; text: string } | null; titleRef?: RefObject<HTMLInputElement | null> }) {
   const id = useId();
   const describe = (field: ItemField) => (error?.field === field ? `${id}-error` : undefined);
   return (
     <>
-      <div className="item-fields">
+      <div className="item-fields" data-title-only={todo}>
         <div className="field item-field-title">
-          <label htmlFor={`${id}-title`}>{t('lists.item')}</label>
+          <label htmlFor={`${id}-title`}>{t(todo ? 'lists.task' : 'lists.item')}</label>
           <input
             ref={titleRef}
             id={`${id}-title`}
             required
             maxLength={120}
             value={value.title}
-            placeholder={t('lists.itemPlaceholder')}
+            placeholder={t(todo ? 'lists.taskPlaceholder' : 'lists.itemPlaceholder')}
             enterKeyHint="done"
             aria-invalid={error?.field === 'title'}
             aria-describedby={describe('title')}
             onChange={(e) => onChange({ ...value, title: e.target.value })}
           />
         </div>
-        <div className="field item-field-small">
-          <label htmlFor={`${id}-quantity`}>{t('lists.quantity')}</label>
-          <input
-            id={`${id}-quantity`}
-            inputMode="decimal"
-            maxLength={10}
-            value={value.quantity ?? ''}
-            aria-invalid={error?.field === 'quantity'}
-            aria-describedby={describe('quantity')}
-            onChange={(e) => onChange({ ...value, quantity: e.target.value })}
-          />
-        </div>
-        <div className="field item-field-small">
-          <label htmlFor={`${id}-unit`}>{t('lists.unit')}</label>
-          <input
-            id={`${id}-unit`}
-            maxLength={16}
-            value={value.unit ?? ''}
-            placeholder={t('lists.unitPlaceholder')}
-            autoCapitalize="none"
-            aria-invalid={error?.field === 'unit'}
-            aria-describedby={describe('unit')}
-            onChange={(e) => onChange({ ...value, unit: e.target.value })}
-          />
-        </div>
+        {!todo && <>
+          <div className="field item-field-small">
+            <label htmlFor={`${id}-quantity`}>{t('lists.quantity')}</label>
+            <input
+              id={`${id}-quantity`}
+              inputMode="decimal"
+              maxLength={10}
+              value={value.quantity ?? ''}
+              aria-invalid={error?.field === 'quantity'}
+              aria-describedby={describe('quantity')}
+              onChange={(e) => onChange({ ...value, quantity: e.target.value })}
+            />
+          </div>
+          <div className="field item-field-small">
+            <label htmlFor={`${id}-unit`}>{t('lists.unit')}</label>
+            <input
+              id={`${id}-unit`}
+              maxLength={16}
+              value={value.unit ?? ''}
+              placeholder={t('lists.unitPlaceholder')}
+              autoCapitalize="none"
+              aria-invalid={error?.field === 'unit'}
+              aria-describedby={describe('unit')}
+              onChange={(e) => onChange({ ...value, unit: e.target.value })}
+            />
+          </div>
+        </>}
       </div>
       {error !== null && (
         <span id={`${id}-error`} className="field-error" role="alert">
@@ -290,11 +329,11 @@ function ItemFields({ value, onChange, error, titleRef }: { value: ListItemInput
 const EMPTY_ITEM: ListItemInput = { title: '', quantity: '', unit: '' };
 const cleaned = (value: ListItemInput): ListItemInput => ({ title: value.title, quantity: (value.quantity ?? '').trim() === '' ? null : value.quantity, unit: (value.unit ?? '').trim() === '' ? null : value.unit });
 
-function EditItemDialog(props: { item: ListItem; onSave: (value: ListItemInput) => Promise<void>; onClose: () => void }) {
+function EditItemDialog(props: { todo: boolean; item: ListItem; onSave: (value: ListItemInput) => Promise<void>; onClose: () => void }) {
   const [value, setValue] = useState<ListItemInput>({ title: props.item.title, quantity: props.item.quantity ?? '', unit: props.item.unit ?? '' });
   const [error, setError] = useState<{ field: ItemField; text: string } | null>(null);
   return (
-    <PhoneEditorDialog stages={[{id:'item',title:t('lists.item')}]} dirty={JSON.stringify(value) !== JSON.stringify({title:props.item.title,quantity:props.item.quantity ?? '',unit:props.item.unit ?? ''})}
+    <PhoneEditorDialog stages={[{id:'item',title:t(props.todo ? 'lists.task' : 'lists.item')}]} dirty={JSON.stringify(value) !== JSON.stringify({title:props.item.title,quantity:props.item.quantity ?? '',unit:props.item.unit ?? ''})}
       title={t('lists.editHeading', { title: props.item.title })}
       submitLabel={t('lists.save')}
       onClose={props.onClose}
@@ -311,16 +350,14 @@ function EditItemDialog(props: { item: ListItem; onSave: (value: ListItemInput) 
         }
       }}
     >
-      {() => <ItemFields value={value} onChange={setValue} error={error} />}
+      {() => <ItemFields todo={props.todo} value={value} onChange={setValue} error={error} />}
     </PhoneEditorDialog>
   );
 }
 
 /**
- * One grocery list: add items (Enter adds the next one), tick what is bought, edit or remove, and take
- * the last action back. Purchased items collect in a group that folds away. Nothing to start, no
- * Required or Critical, no Skip or N/A — a List is not a Procedure. Shared with the Workspace: other
- * members' changes appear within seconds; the server keeps the order of who was first.
+ * A shared checklist with inline entry and a collapsible group of checked items. Other members'
+ * changes appear within seconds, and the server keeps the order of who was first.
  */
 function ListPage(props: { workspaceId: string; listId: string; canEdit: boolean }) {
   const { workspaceId, listId } = props;
@@ -338,6 +375,8 @@ function ListPage(props: { workspaceId: string; listId: string; canEdit: boolean
   const [addError, setAddError] = useState<{ field: ItemField; text: string } | null>(null);
   const [adding, setAdding] = useState(false);
   const [editing, setEditing] = useState<ListItem | null>(null);
+  const [appearance, setAppearance] = useState(false);
+  const [coverVersion, setCoverVersion] = useState(0);
   const [renaming, setRenaming] = useState(false);
   const [newName, setNewName] = useState('');
   const titleRef = useRef<HTMLInputElement>(null);
@@ -431,7 +470,8 @@ function ListPage(props: { workspaceId: string; listId: string; canEdit: boolean
   };
   const checkChange = (item: ListItem, checked: boolean): ListChangeInput => ({ kind: 'checkItem', listId, itemId: item.id, checked });
   const setChecked = (item: ListItem, checked: boolean) => {
-    const message = t(checked ? 'lists.checkedNotice' : 'lists.uncheckedNotice', { title: item.title });
+    const checkedNotice = list?.kind === 'TODO' ? 'lists.doneNotice' : 'lists.checkedNotice';
+    const message = t(checked ? checkedNotice : 'lists.uncheckedNotice', { title: item.title });
     const back = () => onDevice(checkChange(item, !checked), item.title);
     const kept = () => onDevice(checkChange(item, checked), item.title, { message, undo: () => void back() });
     if (device) return void kept();
@@ -530,7 +570,9 @@ function ListPage(props: { workspaceId: string; listId: string; canEdit: boolean
       </section>
     );
   }
-  const { toBuy, purchased } = splitItems(list.items);
+  const { toBuy: open, purchased: checked } = splitItems(list.items);
+  const todo = list.kind === 'TODO';
+  const doneHeading = t(todo ? 'lists.doneHeading' : 'lists.purchasedHeading', { count: checked.length });
   const editable = props.canEdit && (device || !missing);
   const row = (item: ListItem) => {
     const amount = amountLabel(item);
@@ -579,11 +621,14 @@ function ListPage(props: { workspaceId: string; listId: string; canEdit: boolean
     <section aria-labelledby="list-heading" className="list-page">
       {back}
       <div className="page-header page-header-tool">
-        <div>
-          <h2 id="list-heading">{list.title}</h2>
-          <p className="muted page-lead">
-            {list.items.length === 0 ? t('lists.emptyShort') : `${t('lists.toBuy', { count: toBuy.length })} · ${t('lists.purchasedCount', { count: purchased.length })}`}
-          </p>
+        <div className="list-heading-art">
+          <ListArtwork key={coverVersion} kind={list.kind} icon={list.icon ?? null}
+            src={offline.online && list.coverId ? listCoverUrl(workspaceId, list.id, list.coverId, 'thumbnail') : undefined} />
+          <div>
+            <h2 id="list-heading">{list.title}</h2>
+            <p className="muted page-lead">{kindLabel(list.kind)} · {listProgress(list.kind, open.length, checked.length)}</p>
+            {offline.online && list.coverId && <a href={listCoverUrl(workspaceId, list.id, list.coverId, 'original')} download>{t('lists.coverDownload')}</a>}
+          </div>
         </div>
         {editable && (
           <MoreMenu
@@ -596,6 +641,7 @@ function ListPage(props: { workspaceId: string; listId: string; canEdit: boolean
                   setRenaming(true);
                 },
               },
+              ...(!device ? [{ label: t('lists.appearance'), onSelect: () => setAppearance(true) }] : []),
               { label: t('lists.delete'), danger: true, onSelect: () => void deleteList() },
             ]}
           />
@@ -604,8 +650,9 @@ function ListPage(props: { workspaceId: string; listId: string; canEdit: boolean
       <DeviceCopyNote saved={local.saved} online={offline.online} />
       {message !== null && <p role="alert">{message}</p>}
       {editable && (
-        <form className="card add-item" onSubmit={(event) => void add(event)} aria-label={t('lists.addHeading')}>
+        <form className="card add-item" onSubmit={(event) => void add(event)} aria-label={t(todo ? 'lists.addTask' : 'lists.addHeading')}>
           <ItemFields
+            todo={todo}
             value={draft}
             onChange={(value) => {
               setDraft(value);
@@ -615,31 +662,31 @@ function ListPage(props: { workspaceId: string; listId: string; canEdit: boolean
             titleRef={titleRef}
           />
           <button type="submit" className="primary" disabled={adding}>
-            <UiIcon name="add" /> {t('lists.add')}
+            <UiIcon name="add" /> {t(todo ? 'lists.addTask' : 'lists.add')}
           </button>
         </form>
       )}
-      {list.items.length === 0 && <p className="card calm">{t(editable ? 'lists.emptyHint' : 'lists.empty')}</p>}
-      {toBuy.length > 0 && (
-        <section aria-labelledby="list-to-buy" className="home-section">
-          <h3 id="list-to-buy" className="section-label">
-            {t('lists.toBuyHeading')}
+      {list.items.length === 0 && <p className="card calm">{t(editable ? (todo ? 'lists.emptyTasksHint' : 'lists.emptyHint') : 'lists.empty')}</p>}
+      {open.length > 0 && (
+        <section aria-labelledby="list-open" className="home-section">
+          <h3 id="list-open" className="section-label">
+            {t(todo ? 'lists.todoHeading' : 'lists.toBuyHeading')}
           </h3>
-          <ul className="plain-list card list-items" aria-labelledby="list-to-buy">
-            {toBuy.map(row)}
+          <ul className="plain-list card list-items" aria-labelledby="list-open">
+            {open.map(row)}
           </ul>
         </section>
       )}
-      {list.items.length > 0 && toBuy.length === 0 && (
+      {list.items.length > 0 && open.length === 0 && (
         <p className="card calm">
-          <UiIcon name="check" size="1.4em" /> {t('lists.allPurchased')}
+          <UiIcon name="check" size="1.4em" /> {t(todo ? 'lists.allDone' : 'lists.allPurchased')}
         </p>
       )}
-      {purchased.length > 0 && (
+      {checked.length > 0 && (
         <details className="more-actions purchased">
-          <summary>{t('lists.purchasedHeading', { count: purchased.length })}</summary>
-          <ul className="plain-list card list-items" aria-label={t('lists.purchasedHeading', { count: purchased.length })}>
-            {purchased.map(row)}
+          <summary>{doneHeading}</summary>
+          <ul className="plain-list card list-items" aria-label={doneHeading}>
+            {checked.map(row)}
           </ul>
         </details>
       )}
@@ -648,6 +695,7 @@ function ListPage(props: { workspaceId: string; listId: string; canEdit: boolean
         <EditItemDialog
           key={editing.id}
           item={editing}
+          todo={todo}
           onClose={() => setEditing(null)}
           onSave={async (value) => {
             const edit: ListChangeInput = { kind: 'editItem', listId, itemId: editing.id, title: value.title.trim(), quantity: value.quantity, unit: value.unit };
@@ -670,6 +718,7 @@ function ListPage(props: { workspaceId: string; listId: string; canEdit: boolean
           }}
         />
       )}
+      {appearance && <ListAppearanceDialog workspaceId={workspaceId} list={list} onSave={keep} onRepair={() => setCoverVersion(value => value + 1)} onClose={() => setAppearance(false)} />}
       {renaming && (
         <PhoneEditorDialog stages={[{id:'name',title:t('lists.name')}]} dirty={newName !== list.title}
           title={t('lists.renameHeading')}

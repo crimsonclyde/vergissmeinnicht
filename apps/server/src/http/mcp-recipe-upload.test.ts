@@ -56,6 +56,8 @@ it('uploads supplied original bytes through OAuth MCP and safely attaches them o
   const toolList = (await rpc('tools/list', {})).json().result.tools;
   expect(toolList).toContainEqual(expect.objectContaining({ name: 'upload_recipe_image', annotations: expect.objectContaining({ idempotentHint: true }) }));
   expect((await rpc('tools/list', {}, read)).body).not.toContain('upload_recipe_image');
+  expect((await t.get(`/api/workspaces/${workspaceId}/recipes/${foreignRecipe}`, t.admin)).statusCode).toBe(200);
+  expect((await call('get_recipe', { workspaceId, recipeId: foreignRecipe })).isError).toBe(true);
   const open = await call('open_recipe_image_upload', { workspaceId, recipeId });
   expect(open.structuredContent).toEqual({ workspaceId, recipeId });
   const widget = toolList.find((tool: { name: string }) => tool.name === 'open_recipe_image_upload')._meta.ui.resourceUri;
@@ -101,6 +103,37 @@ it('uploads supplied original bytes through OAuth MCP and safely attaches them o
   expect(newUpload.structuredContent.attachment.id).not.toBe(attachment.id);
   const created = await call('create_recipe', { workspaceId, operationId: randomUUID(), content: { ...content, title: 'Second pasta', instructions: newUpload.structuredContent.markdown, coverImage: newUpload.structuredContent.attachment.reference } });
   expect(created.isError).toBeUndefined();
+  const delegatedRecipe = JSON.parse(created.content[0].text).recipeId as string;
+  expect((await t.get(`/api/workspaces/${workspaceId}/recipes/${delegatedRecipe}`, t.admin)).json().recipe.private).toBe(true);
+  expect((await t.get(`/api/workspaces/${foreignWorkspace}/recipes/${delegatedRecipe}`, t.admin)).statusCode).toBe(404);
+
+  // Cover access is a separate grant, including when the List is a To-do List.
+  const list = (await t.post(`/api/workspaces/${workspaceId}/lists`, { title: 'Pack for the trip', kind: 'TODO' }, t.admin)).json().list;
+  const coverGrant = await grant(['lists.covers.write']);
+  const coverRpc = async (name: string, args: object) =>
+    (await rpc('tools/call', { name, arguments: args }, coverGrant)).json().result;
+  const coverTools = (await rpc('tools/list', {}, coverGrant)).json().result.tools;
+  expect(coverTools.map((tool: { name: string }) => tool.name)).not.toContain('get_grocery_list');
+  const coverWidget = coverTools.find((tool: { name: string }) => tool.name === 'open_list_cover_upload')._meta.ui.resourceUri;
+  expect((await rpc('resources/read', { uri: coverWidget }, coverGrant)).json().result.contents[0].text).toContain('upload_list_cover');
+  expect((await call('list_cover_targets', { workspaceId })).isError).toBe(true);
+  const targets = JSON.parse((await coverRpc('list_cover_targets', { workspaceId })).content[0].text).lists;
+  expect(targets).toContainEqual({ id: list.id, title: list.title, kind: 'TODO', revision: 1, coverId: null });
+  expect((await coverRpc('open_list_cover_upload', { workspaceId, listId: list.id })).structuredContent).toEqual({ workspaceId, listId: list.id });
+  const input = { workspaceId, listId: list.id, operationId: randomUUID(), fileName: 'cover.png', imageBase64: original.toString('base64') };
+  expect((await rpc('tools/call', { name: 'upload_list_cover', arguments: input }, write)).statusCode).toBe(413);
+  const cover = (await coverRpc('upload_list_cover', input)).structuredContent.attachment.id as string;
+  expect((await coverRpc('upload_list_cover', input)).structuredContent).toMatchObject({ duplicate: true, attachment: { id: cover } });
+  const update = { workspaceId, listId: list.id, expectedRevision: 1, coverId: cover };
+  expect((await coverRpc('set_list_cover', update)).isError).toBeUndefined();
+  const coverPath = `/api/workspaces/${workspaceId}/lists/${list.id}/cover`;
+  expect((await t.get(coverPath + `/${cover}/original`, t.admin)).rawPayload.equals(original)).toBe(true);
+  const replacement = (await coverRpc('upload_list_cover', { ...input, operationId: randomUUID() })).structuredContent.attachment.id as string;
+  expect((await coverRpc('set_list_cover', { ...update, coverId: replacement })).isError).toBe(true);
+  expect((await coverRpc('set_list_cover', { ...update, coverId: replacement, expectedRevision: 2 })).isError).toBeUndefined();
+  expect((await t.get(coverPath + `/${cover}/original`, t.admin)).statusCode).toBe(404);
+  expect((await coverRpc('set_list_cover', { ...update, coverId: null, expectedRevision: 3 })).isError).toBeUndefined();
+  expect((await t.get(coverPath + `/${replacement}/original`, t.admin)).statusCode).toBe(404);
 
   t.database.sqlite.prepare("UPDATE memberships SET role='GUEST' WHERE workspace_id=? AND user_id=?").run(workspaceId, actorId);
   expect((await upload()).isError).toBe(true);

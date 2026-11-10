@@ -44,7 +44,7 @@ it('0040 upgrades a beta.7 database: Lists and items unchanged, change stamps fi
     runMigrations(path);
     database = openDatabase(path);
     const lists = database.sqlite.prepare('SELECT * FROM lists').all() as Record<string, unknown>[];
-    expect(lists).toEqual(listsBefore.map((row) => ({ ...(row as object), title_changed_at: 1000, title_changed_by_display_name: 'Ada' })));
+    expect(lists).toEqual(listsBefore.map((row) => ({ ...(row as object), title_changed_at: 1000, title_changed_by_display_name: 'Ada', icon: null, cover_attachment_id: null })));
     const items = database.sqlite.prepare('SELECT * FROM list_items ORDER BY position').all() as Record<string, unknown>[];
     expect(items).toEqual([
       { ...(itemsBefore[0] as object), deleted_by_display_name: null, content_changed_at: 2000, content_changed_by_display_name: 'Ada', check_changed_at: 4000, check_changed_by_display_name: 'Bea' },

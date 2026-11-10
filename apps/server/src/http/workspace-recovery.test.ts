@@ -129,7 +129,7 @@ describe('Workspace recovery end to end (section 18c): export → restore → co
     const uploadedRecipeImage=await upload(`${api()}/recipes/attachments`,owner,PNG,'pancakes.png');expect(uploadedRecipeImage.statusCode,uploadedRecipeImage.body).toBe(201);
     const recipeImage=uploadedRecipeImage.json().attachment;
     const recipeContent={version:1,title:'Portable pancakes',servings:2,ingredients:[{name:'Flour',amount:'125',unit:'g',note:''}],instructions:`Mix and cook.\n\n![Pancakes](attachments/${recipeImage.id}.png)`,tags:['Breakfast'],source:'https://example.org/recipe',prepMinutes:5,cookMinutes:10,coverImage:`attachments/${recipeImage.id}.png`};
-    const savedRecipe=await t.post(`${api()}/recipes`,{content:recipeContent,expectedRevision:0,archived:false},owner);expect(savedRecipe.statusCode,savedRecipe.body).toBe(201);
+    const savedRecipe=await t.post(`${api()}/recipes`,{content:{...recipeContent,private:true},expectedRevision:0,archived:false},owner);expect(savedRecipe.statusCode,savedRecipe.body).toBe(201);
     const note = { kind: 'note', version: 2, title: 'Shared field notes', date: '2026-10-23', body: `Moss on the northern wall.\n\n![Moss](attachments/${noteImage.id}.png)` };
     expect((await t.post(`${api()}/journal`, { content: note, expectedRevision: 0, archived: false }, owner)).statusCode).toBe(201);
     await t.post('/api/account/journal/privacy',{version:1},owner);
@@ -191,6 +191,13 @@ describe('Workspace recovery end to end (section 18c): export → restore → co
     // Lists, Contacts, Maintenance (with a Contact), Equipment; then Equipment switched off (its data stays).
     const list = (await t.post(`${api()}/lists`, { title: 'Einkauf' }, owner)).json().list as { id: string };
     for (const title of ['Olivenöl', 'Brot', 'Caffè']) await t.post(`${api()}/lists/${list.id}/items`, { title }, owner);
+    const todo = (await t.post(`${api()}/lists`, { title: 'Vorbereitung', kind: 'TODO' }, owner)).json().list;
+    const task = (await t.post(`${api()}/lists/${todo.id}/items`, { title: 'Schlüssel holen' }, owner)).json().itemId;
+    expect((await t.post(`${api()}/lists/${todo.id}/items/${task}/check`, { checked: true }, owner)).statusCode).toBe(200);
+    const cover = await upload(`${api()}/lists/${todo.id}/cover-upload`, owner, PNG, 'preparation.png');
+    expect(cover.statusCode, cover.body).toBe(201);
+    const reviewed = (await t.get(`${api()}/lists/${todo.id}`, owner)).json().list;
+    expect((await t.post(`${api()}/lists/${todo.id}/appearance`, { expectedRevision: reviewed.revision, icon: 'travel', coverId: cover.json().attachment.id }, owner)).statusCode).toBe(200);
     const contact = (await t.post(`${api()}/contacts`, { name: 'Elettricista Bianchi', phones: [{ value: '+39 0184 000000' }] }, owner)).json().contact as { id: string };
     await t.post(`${api()}/maintenance`, { title: 'Heizung warten', contactId: contact.id }, owner);
     await t.post(`${api()}/equipment`, { name: 'Wärmepumpe', replacementParts: 'Filter HCF-18', customFields: [{label:'Cover',value:'C-40 matt white'}] }, owner);
@@ -216,7 +223,7 @@ describe('Workspace recovery end to end (section 18c): export → restore → co
     const checked = (await t.get(`${RESTORES}/${jobId}`, t.admin)).json().restore;
     expect(checked).toMatchObject({ state: 'READY', phase: 'validated', workspaceId: null });
     expect(checked.preview).toMatchObject({ workspaceName: 'Ferienhaus Triora 🏡', schedulesPaused: 2 });
-    expect(checked.preview.counts).toMatchObject({ procedures: 2, runs: 2, step_images: 1, documents: 2, document_folders: 1, contacts: 1, maintenance_records: 1, equipment_records: 1, list_items: 3 });
+    expect(checked.preview.counts).toMatchObject({ procedures: 2, runs: 2, step_images: 1, documents: 2, document_folders: 1, contacts: 1, maintenance_records: 1, equipment_records: 1, list_items: 4 });
     expect(checked.preview.previousMembers.map((member: { email: string }) => member.email).sort()).toEqual(['admin@example.org', 'guest@example.org', 'helper@example.org', 'owner@example.org']);
 
     // Confirm; the new Workspace is linked from the job.
@@ -267,14 +274,14 @@ describe('Workspace recovery end to end (section 18c): export → restore → co
     const again = await exportOf(restored, t.admin);
     const first = await contents(work, original);
     expect(first.tables.get('journal_entries')).toHaveLength(1);
-    expect(first.tables.get('attachments')).toHaveLength(2);
+    expect(first.tables.get('attachments')).toHaveLength(3);
     expect(first.tables.get('recipes')).toHaveLength(1);
     expect(JSON.stringify([...first.tables])).not.toContain('PRIVATE_ORIGINAL_DO_NOT_EXPORT');
     const restoredFile=one<{id:string;charge_user_id:null}>("SELECT id,charge_user_id FROM attachments WHERE workspace_id=? AND policy_key='journal'",restored);expect(restoredFile.charge_user_id).toBeNull();
     expect((await t.get(`${api(restored)}/journal/attachments/${restoredFile.id}/original`,t.admin)).rawPayload.equals(PNG)).toBe(true);
     const restoredRecipeFile=one<{id:string;charge_user_id:null}>("SELECT id,charge_user_id FROM attachments WHERE workspace_id=? AND policy_key='recipes'",restored);expect(restoredRecipeFile.charge_user_id).toBeNull();
     expect((await t.get(`${api(restored)}/recipes/attachments/${restoredRecipeFile.id}/original`,t.admin)).rawPayload.equals(PNG)).toBe(true);
-    const restoredRecipes=(await t.get(`${api(restored)}/recipes`,t.admin)).json().recipes;expect(restoredRecipes[0]).toMatchObject({title:'Portable pancakes',servings:2,coverImage:`attachments/${restoredRecipeFile.id}.png`});expect(restoredRecipes[0].instructions).toContain(restoredRecipeFile.id);
+    const restoredRecipes=(await t.get(`${api(restored)}/recipes`,t.admin)).json().recipes;expect(restoredRecipes[0]).toMatchObject({title:'Portable pancakes',servings:2,private:true,coverImage:`attachments/${restoredRecipeFile.id}.png`});expect(restoredRecipes[0].instructions).toContain(restoredRecipeFile.id);
 
     expect(first.tables.get('bring_items')).toHaveLength(2);
     expect((await t.get(`${api(restored)}/bring`, t.admin)).json().items).toMatchObject([{ title: 'Bring drill', assigneeId: null }]);
@@ -282,6 +289,13 @@ describe('Workspace recovery end to end (section 18c): export → restore → co
     expect(first.tables.has('private_journal_entries')).toBe(false);
     expect(JSON.stringify([...first.tables])).not.toContain('ACCOUNT_PRIVATE_DO_NOT_EXPORT');
     expect((await t.get(`${api(restored)}/journal`, t.admin)).json().entries).toHaveLength(1);
+    expect((await t.get(`${api(restored)}/lists`, t.admin)).json().lists).toEqual(expect.arrayContaining([
+      expect.objectContaining({ title: 'Einkauf', kind: 'GROCERY', open: 3 }),
+      expect.objectContaining({ title: 'Vorbereitung', kind: 'TODO', checked: 1 }),
+    ]));
+    const recovered = (await t.get(`${api(restored)}/lists`, t.admin)).json().lists.find((list: { title: string }) => list.title === 'Vorbereitung');
+    expect(recovered).toMatchObject({ icon: 'travel', coverId: expect.any(String) });
+    expect((await t.get(`${api(restored)}/lists/${recovered.id}/cover/${recovered.coverId}/original`, t.admin)).rawPayload.equals(PNG)).toBe(true);
     const second = await contents(work, again);
     expect(second.files).toEqual(first.files);
     const a = normalise(first);

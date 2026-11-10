@@ -62,7 +62,10 @@ describe('migration 0045 (18b): historical identities', () => {
     expect(runMigrations(path)).toBe('applied');
     database = openDatabase(path);
     try {
-      expect(snapshot(database)).toEqual(before);
+      expect(snapshot(database)).toEqual({
+        ...before,
+        lists: before.lists.map((row) => ({ ...(row as object), icon: null, cover_attachment_id: null })),
+      });
       expect(database.sqlite.pragma('foreign_key_check')).toEqual([]);
       expect(database.sqlite.pragma('integrity_check', { simple: true })).toBe('ok');
       expect(database.sqlite.pragma('foreign_keys', { simple: true })).toBe(1);

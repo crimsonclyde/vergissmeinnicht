@@ -7,7 +7,7 @@ import './mcp-connections.css';
 
 type Permission = {
   label: MessageKey;
-  read: McpScope;
+  read?: McpScope;
   readLabel?: MessageKey;
   write?: McpScope;
   writeLabel?: MessageKey;
@@ -19,12 +19,13 @@ const permissions:readonly Permission[] = [
   {label:'mcp.procedures',read:'procedures.read',write:'procedures.write',writeLabel:'mcp.addSteps'},
   {label:'mcp.runs',read:'runs.read',write:'runs.write',writeLabel:'mcp.markSteps'},
   {label:'mcp.lists',read:'lists.read',write:'lists.write',writeLabel:'mcp.addGroceries',readWriteLabel:'mcp.readAndAddGroceries'},
+  {label:'mcp.listCovers',write:'lists.covers.write',writeLabel:'mcp.manageListCovers'},
   {label:'mcp.recipes',read:'recipes.read',write:'recipes.write',writeLabel:'mcp.saveRecipes'},
 ];
 
 function permissionOptions({read,write,readLabel,writeLabel,readWriteLabel}:Permission, requested:readonly McpScope[]) {
   const options = [{value:'none',label:t('mcp.noAccess'),scopes:[] as McpScope[]}];
-  const canRead = requested.includes(read);
+  const canRead = read !== undefined && requested.includes(read);
   if (canRead) options.push({value:'read',label:t(readLabel ?? 'mcp.read'),scopes:[read]});
   if (write && writeLabel && requested.includes(write)) {
     if (canRead) options.push({
@@ -36,7 +37,7 @@ function permissionOptions({read,write,readLabel,writeLabel,readWriteLabel}:Perm
 }
 
 function permissionValue({read,write}:Permission, scopes:readonly McpScope[]) {
-  const canRead = scopes.includes(read);
+  const canRead = read !== undefined && scopes.includes(read);
   if (write && scopes.includes(write)) return canRead ? 'read-write' : 'write';
   return canRead ? 'read' : 'none';
 }

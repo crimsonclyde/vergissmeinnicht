@@ -3502,6 +3502,8 @@ input.builder-title {
   }
 }
 
+.item-fields[data-title-only="true"] { grid-template-columns: minmax(0, 1fr); }
+
 .list-items {
   padding: 0.25rem 0.5rem;
 }

@@ -9,7 +9,7 @@ VMN exists so you do not forget the things you have to do again and again.
 - A **Procedure** is a checklist you reuse: "Leave the house", "Close the shop", "Deploy the website". It has **Sections** (e.g. *Upstairs*, *Kitchen*) with **Steps**.
 - **Start** a Procedure to go through it now — or **Schedule** it (once or repeating) and get **reminders** (email, Telegram).
 - Keep simple obligations — like paying the annual tax — as **Reminders**, with or without repetition, and mark them done.
-- Keep the shopping in a **Grocery list** that everyone in the Workspace sees: add what is needed, tick what is bought.
+- Use a shared **Shopping** list for groceries or a **To-do** list for everyday tasks.
 - Every Step is **Pending**, **Done**, **Skipped** or **Not applicable** — and VMN remembers who changed it, when, and (if asked) why. Starting takes a copy of the Procedure, so later edits never change what happened. Finished executions end up in the **Completed history**.
 - Everything lives in a **Workspace** (a household, a team, a shop). You only see Workspaces you were added to.
 
@@ -20,7 +20,7 @@ VMN is organised around what you want to do. Choose a tool and it has the screen
 - **Dashboard** — progress and next actions: recent completions, unfinished executions, what is overdue and due today.
 - **Procedures** — the reusable checklists: start, schedule, write and change them.
 - **Reminders** — single things to remember, with a date.
-- **Lists** — grocery lists.
+- **Lists** — shared Shopping and To-do checklists.
 - **Calendar** — an optional look ahead, by month or as an agenda.
 - **Documents** — scans, PDFs and photos in folders. An optional tool: it is there only if a Workspace admin switched it on (see *Workspace settings*).
 - **Contacts** — the people and organisations you deal with, with their numbers to call. An optional tool as well.
@@ -43,7 +43,7 @@ Forgot your password or lost your phone? Ask your server admin for an account re
 | Role | Can |
 | --- | --- |
 | **Guest** | read Procedures, schedules, Reminders, Lists and the completed history |
-| **User** | … and start, schedule, execute, complete and abort Procedures; create, complete and skip Reminders; assign who is responsible; create and change grocery lists |
+| **User** | … and start, schedule, execute, complete and abort Procedures; create, complete and skip Reminders; assign who is responsible; create and change Shopping and To-do lists |
 | **Editor** | … and create, edit, import, duplicate, delete and restore Procedures; create Knot links |
 | **Admin** | … and manage members, roles and the Workspace name |
 
@@ -95,28 +95,41 @@ Opening a Workspace shows **Dashboard** — a greeting with the date, a ring for
 - **All / Assigned to me / Shared** appears when Procedures or Reminders is enabled, and filters the cards (remembered in this browser).
 - The full completed history is under **Procedures → ⋯ Manage Procedures → Completed history** (on a phone: **More → Completed history**).
 
-**Add** (top right) offers **Procedure** — reusable steps, **Reminder** — remember one thing, and **Grocery list** — quick shared shopping, and opens what you chose at once. You only see what your role may create.
+**Add** (top right) opens creation for the tool you choose. Choose **List** to start a shared Shopping or To-do checklist. The menu only shows actions your role can use.
 
 ## Reminders
 
 **Reminders** lists the standalone Reminders: overdue, today and the next 90 days, each with **Done**; **Recently done** (folded away) shows what was completed or skipped in the last day and by whom, with **Undo**. **New reminder** asks for what and when first; **Notes**, **Repeat**, **Responsible** and **Reminders** (the notifications) are folded behind lines that show their current value — once, shared, and a reminder on the due date unless you change them. Scheduled Procedures are not listed here: they are on the Dashboard when due, on their Procedure, and in the Calendar.
 
-## Grocery lists
+## Shopping and To-do lists
 
-**Lists** holds the Workspace's grocery lists — shared with everyone in it. A list is not a Procedure: nothing to start, no required or critical steps, no skipping.
+**Lists** holds shared checklists for the Workspace. Choose **New list** or **Add → List**, enter a
+name, then choose **Shopping** or **To-do**. Lists you already have are Shopping lists, and the
+type is set at creation.
 
-- **New list** (or **Add → Grocery list**): give it a name.
-- **Add an item**: what, and optionally a quantity (a number such as 2 or 1.5) and a unit (*kg*, *l*, *packs*). Enter adds it and the field is ready for the next item.
-- **Tick** an item when it is bought. It moves to **Purchased** (folded away, with who bought it); untick it there to buy it again. Two people ticking the same item is fine.
+- **Shopping** offers optional quantities and units, with **To buy** and **Purchased** sections.
+  Use **Add item** or press Enter to keep adding items. Open **Purchased** to see who checked
+  an item off or to put it back on **To buy**. Shopping lists can receive Recipe ingredients
+  and appear in the Today **To buy** card.
+- **To-do** uses task titles and shows your list’s progress, such as **3 of 7 done**. Check a task
+  to move it to **Done**. Open that section and uncheck a task to move it back to **To do**.
+
 - **⋯** on an item: *Edit…* or *Remove*. After ticking, unticking or removing, **Undo** takes it back.
 - **⋯** next to the list's name: *Rename list…* or *Delete list* (Undo right afterwards).
 - Changes by others appear within about ten seconds. If someone else edited the same item just before you, your edit is refused with a message instead of replacing theirs.
-- **In the shop without a connection:** whenever you open VMN with a connection, **all lists of the Workspace** are kept on your device. Without a connection — also after reloading or reopening VMN — the lists open from your device ("Offline — showing the Lists saved on this device at …"). You can tick, untick, add, edit and remove items, and create, rename and delete lists; each change shows **Saved on this device · not sent yet** and is sent once, automatically, when the connection is back. **Undo** takes back a change that has not been sent yet.
+- **Without a connection:** whenever you open VMN with a connection, **all lists of the Workspace** are kept on your device. Without a connection — also after reloading or reopening VMN — the lists open from your device ("Offline — showing the Lists saved on this device at …"). You can tick, untick, add, edit and remove items, and create, rename and delete lists; each change shows **Saved on this device · not sent yet** and is sent once, automatically, when the connection is back. **Undo** takes back a change that has not been sent yet.
 - **When others changed the same thing meanwhile:** changes to different items always come together. For the same item (or a list's name) the **later change wins** — by when it was made, using your device's clock for changes made offline; a removed item or a deleted list wins over changes to it. Whenever your change was not applied, a short message says what happened and by whom.
 - If your access changed while you were offline (no longer a member, no longer allowed to change lists, or Lists switched off), your waiting changes are **not** applied: they stay on your device with the reason until you choose **Discard these changes**.
 - Signing out removes the lists and any unsent changes from the device (VMN asks first if changes are waiting). Browsers can delete stored website data on their own, especially on iPhones after long non-use — open VMN online now and then. VMN asks the browser to keep its data; whether it does is the browser's decision.
 - **iPhone:** Safari and VMN added to the Home Screen keep **separate** data. Open the one you take shopping once with a connection before you need it offline.
 - **Weak signal:** if the network does not answer within a few seconds, VMN opens from your device and keeps your changes there until the connection is good again.
+
+Use **Find a list** to search by name and **Show lists** to filter by type. Cards show the list
+type and progress. To customize a card, open the list and choose **⋯ → List appearance**. Select a
+preset icon, or upload a JPEG or PNG as the cover. The icon also appears when a cover cannot load.
+The list offers **Download original cover**. Editors can replace or remove the cover, or repair its
+preview from **List appearance**. Changes to appearance need a connection. Saved lists still show
+their icons offline.
 
 ## A new version of VMN
 
@@ -440,11 +453,20 @@ In Profile & settings → Dashboard, choose Celestial, Clock and Weather indepen
 ### Browse and illustrate the cookbook
 
 The Recipes overview shows a cover photo, preparation and cooking time when entered, servings
-and up to three tags. Open a card to read the recipe and download the original photos.
+and up to three tags. Cards and recipe details show **Private** or **Public** and the home
+Workspace name, even when you open a shared recipe from a different Workspace. Open a card to
+read the recipe and download the original photos.
 For a new recipe, add a representative JPEG or PNG in **Images & links**. You can still save
 and add the photo later. A recipe without a photo shows an illustration and offers **Add recipe
 photo** to editors. Open **Manage recipe photos** on a pictured recipe to upload another photo
 or choose its **Cookbook cover photo**, then save. The first local image is used by default.
+
+New Recipes are shared with members of Workspaces that have Recipes enabled. To keep a Recipe
+and its photos in its home Workspace, select **Private to this Workspace** before saving. Recipes
+created before this setting was added and Recipes created through an AI connection start
+Workspace-only. You can change visibility in the home Workspace. From another Workspace you can
+read and export a shared Recipe or add its ingredients to a grocery list you can edit. To edit
+the Recipe itself, open it in its home Workspace.
 
 ### Create and edit Recipes on a phone
 
@@ -455,7 +477,7 @@ unsaved changes. Nothing is autosaved.
 On Ingredients, set the base servings and tap an ingredient to expand its fields. Use the bottom
 **Add ingredient** or **Remove ingredient** buttons; removal asks first and at least one ingredient
 must remain. Instructions use the visual editor. Details holds optional preparation/cooking times,
-tags and source, with **Images & links** for existing image functions. Unsupported instruction syntax
+tags, source and the **Private to this Workspace** setting, with **Images & links** for photos. Unsupported instruction syntax
 is preserved in a preview; use the desktop editor to change that source. Desktop still offers the
 complete form and Markdown source. Saving, exporting originals and transferring ingredients to a
 shopping list keep their existing behavior.
@@ -483,7 +505,7 @@ Phone forms now share the same bottom Back, Cancel, Next and Save icons. Equipme
 model/replacement parts and optional details; Contacts separates name, phone/email and other details;
 Maintenance and Bring separate their title from optional details. Desktop keeps the complete form.
 Back preserves entered values; Cancel/Escape asks before discarding changes. A failed Save keeps your
-work for retry. Lists uses a single screen for its small dialogs and keeps grocery item addition inline.
+work for retry. Lists uses a single screen for its small dialogs and keeps item and task entry inline.
 The Dashboard stays card-based, Calendar offers the narrow-screen agenda, and Runs keep guided Section execution.
 
 In a Note or personal Journal editor, **Home** returns to the current Workspace’s Dashboard. It appears in

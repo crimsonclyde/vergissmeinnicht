@@ -1,7 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { startTestApp } from './test-harness.ts';
+import { purgeAttachmentFiles } from '@vergissmeinnicht/database';
+import { ORIGIN, startTestApp } from './test-harness.ts';
 
-describe('List HTTP API (grocery lists)', () => {
+describe('List HTTP API', () => {
   let t: Awaited<ReturnType<typeof startTestApp>>;
   let home: string;
   let office: string;
@@ -74,6 +75,88 @@ describe('List HTTP API (grocery lists)', () => {
     expect(body).not.toMatch(/userId|@example|workspaceId/);
   });
 
+  it('supports title-only To-do Lists online and through offline replay', async () => {
+    expect((await t.post(lists(), { title: 'Anything', kind: 'UNKNOWN' }, user)).statusCode).toBe(400);
+    expect((await t.post(lists(), { title: 'Weekend prep', kind: 'TODO' }, guest)).statusCode).toBe(403);
+    const created = await t.post(lists(), { title: 'Weekend prep', kind: 'TODO' }, user);
+    expect(created.statusCode).toBe(201);
+    const listId = created.json().list.id as string;
+    expect(created.json().list.kind).toBe('TODO');
+    expect((await addItem(listId, { title: 'Charge the power bank', quantity: '2' })).json()).toMatchObject({ error: 'todo_item_fields' });
+    const task = (await addItem(listId, { title: 'Charge the power bank' })).json();
+    const item = `${lists()}/${listId}/items/${task.itemId}`;
+    expect(task.list.items).toMatchObject([{ title: 'Charge the power bank', quantity: null, unit: null, checked: null }]);
+    expect((await t.post(item + '/update', { title: 'Charge it', unit: 'packs', expectedRevision: 1 }, user)).json()).toMatchObject({ error: 'todo_item_fields' });
+    expect((await t.post(item + '/check', { checked: true }, guest)).statusCode).toBe(403);
+    expect((await t.post(item + '/check', { checked: true }, user)).json().list.items[0].checked).toMatchObject({ by: 'Uma' });
+    expect((await t.post(item + '/check', { checked: false }, editor)).json().list.items[0].checked).toBeNull();
+    expect((await t.get(`${lists(office)}/${listId}`, outsider)).statusCode).toBe(404);
+    expect(() => t.database.sqlite.prepare('UPDATE list_items SET quantity = ? WHERE id = ?').run('2', task.itemId)).toThrow(/only have a title/);
+    expect(() => t.database.sqlite.prepare("UPDATE lists SET kind = 'GROCERY' WHERE id = ?").run(listId)).toThrow(/kind cannot change/);
+
+    const userId = (await t.get('/api/auth/session', user)).json().user.id;
+    const replay = (change: object, clientChangeId = crypto.randomUUID()) =>
+      t.post(lists() + '/replay', { userId, clientChangeId, deviceTime: new Date().toISOString(), change }, user);
+    const offlineId = crypto.randomUUID();
+    const createOperationId = crypto.randomUUID();
+    const creation = { kind: 'createList', listId: offlineId, title: 'Offline tasks', listKind: 'TODO' };
+    expect((await replay(creation, createOperationId)).json()).toMatchObject({ outcome: 'APPLIED', duplicate: false, list: { kind: 'TODO' } });
+    expect((await replay(creation, createOperationId)).json()).toMatchObject({ outcome: 'APPLIED', duplicate: true, list: { kind: 'TODO' } });
+    const itemId = crypto.randomUUID();
+    const addition = { kind: 'addItem', listId: offlineId, itemId, title: 'Print tickets' };
+    expect((await replay({ ...addition, unit: 'packs' })).json()).toMatchObject({ error: 'todo_item_fields' });
+    expect((await replay(addition)).json()).toMatchObject({ outcome: 'APPLIED', list: { items: [{ title: 'Print tickets' }] } });
+    expect((await replay({ kind: 'checkItem', listId: offlineId, itemId, checked: true })).json()).toMatchObject({ outcome: 'APPLIED', list: { items: [{ checked: { by: 'Uma' } }] } });
+    expect((await replay({ kind: 'createList', listId: crypto.randomUUID(), title: 'Queued by an older app' })).json().list.kind).toBe('GROCERY');
+  });
+
+  it('preserves cover originals, requires List permissions and safely replaces or removes a cover', async () => {
+    const png = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAIAAACQd1PeAAAADElEQVR4nGP4z8AAAAMBAQDJ/pLvAAAAAElFTkSuQmCC', 'base64');
+    const list = await create();
+    const another = await create('Weekend');
+    const root = `${lists()}/${list.id}`;
+    const upload = (cookie: string) => t.app.inject({ method: 'POST', url: root + '/cover-upload',
+      headers: { cookie, origin: ORIGIN, 'content-type': 'application/octet-stream', 'x-file-name': 'cover.png' }, payload: png });
+    expect((await upload(guest)).statusCode).toBe(403);
+    const uploaded = await upload(user);
+    expect(uploaded.statusCode, uploaded.body).toBe(201);
+    const coverId = uploaded.json().attachment.id;
+    const original = root + `/cover/${coverId}/original`;
+    expect((await t.get(original, user)).statusCode).toBe(404);
+    const appearance = { expectedRevision: 1, icon: 'travel', coverId };
+    expect((await t.post(root + '/appearance', { ...appearance, icon: 'invalid' }, user)).statusCode).toBe(400);
+    expect((await t.post(root + '/appearance', appearance, guest)).statusCode).toBe(403);
+    expect((await t.post(root + '/appearance', appearance, editor)).statusCode).toBe(404);
+    expect((await t.post(root + '/appearance', appearance, user)).json().list).toMatchObject({ icon: 'travel', coverId, revision: 2 });
+    expect((await t.post(`${lists()}/${another.id}/appearance`, appearance, user)).statusCode).toBe(404);
+    expect((await t.post(root + '/appearance', { ...appearance, icon: 'garden' }, editor)).statusCode).toBe(409);
+    expect((await t.get(original, guest)).rawPayload.equals(png)).toBe(true);
+    const previewKey = (t.database.sqlite.prepare('SELECT preview_key FROM attachments WHERE id = ?').get(coverId) as { preview_key: string }).preview_key;
+    await t.services.listAttachments.store.remove(previewKey);
+    expect((await t.post(root + `/cover/${coverId}/regenerate`, {}, guest)).statusCode).toBe(403);
+    expect((await t.post(root + `/cover/${coverId}/regenerate`, {}, editor)).statusCode).toBe(200);
+    expect((await t.get(root + `/cover/${coverId}/preview`, guest)).statusCode).toBe(200);
+    expect((await t.get(original, guest)).rawPayload.equals(png)).toBe(true);
+    expect((await t.get(root + `/cover/${coverId}/thumbnail`, guest)).headers['content-type']).toBe('image/jpeg');
+    expect((await t.get(`${lists(office)}/${list.id}/cover/${coverId}/original`, outsider)).statusCode).toBe(404);
+    const replacement = await upload(editor);
+    expect(replacement.statusCode, replacement.body).toBe(201);
+    const replacementId = replacement.json().attachment.id;
+    expect((await t.post(root + '/appearance', { ...appearance, coverId: replacementId, expectedRevision: 2 }, editor)).statusCode).toBe(200);
+    expect((await t.get(original, user)).statusCode).toBe(404);
+    const replacementUrl = root + `/cover/${replacementId}/original`;
+    expect((await t.get(replacementUrl, guest)).rawPayload.equals(png)).toBe(true);
+    await t.post(root + '/delete', {}, user);
+    expect((await t.get(replacementUrl, guest)).statusCode).toBe(404);
+    await t.post(root + '/restore', {}, user);
+    const live = (await t.get(root, user)).json().list;
+    expect(live.coverId).toBe(replacementId);
+    expect((await t.post(root + '/appearance', { ...appearance, coverId: null, expectedRevision: live.revision }, user)).statusCode).toBe(200);
+    expect((await t.get(replacementUrl, guest)).statusCode).toBe(404);
+    await purgeAttachmentFiles(t.database, t.services.listAttachments.store, new Date(Date.now() + 2 * 86400000));
+    expect(t.database.sqlite.prepare("SELECT count(*) AS n FROM attachments WHERE policy_key='lists'").get()).toEqual({ n: 0 });
+  });
+
   it('enforces session, Origin, list.edit and Workspace scope', async () => {
     const list = await create();
     const itemId = (await addItem(list.id, { title: 'Milk' })).json().itemId as string;
@@ -125,7 +208,7 @@ describe('List HTTP API (grocery lists)', () => {
       [lists(), {}, 'invalid_request'],
       [lists(), { title: '   ' }, 'list_title_empty'],
       [lists(), { title: 'x'.repeat(81) }, 'list_title_too_long'],
-      [lists(), { title: 'Ours', kind: 'TODO' }, 'invalid_request'],
+      [lists(), { title: 'Ours', kind: 'TASKS' }, 'invalid_request'],
       [lists(), { title: 'Ours', id: list.id }, 'invalid_request'],
       [lists(), { title: 'Ours', workspaceId: office }, 'invalid_request'],
       [`${base}/rename`, { title: 'Ours' }, 'invalid_request'],

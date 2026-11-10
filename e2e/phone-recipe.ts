@@ -40,6 +40,8 @@ export async function checkPhoneRecipe(page: Page, workspaceId: string) {
   await expect(editor).toContainText('Mix the batter.');
   await action('Next').click();
   await expectAccessible(page, 'Recipe phone details');
+  await expect(page.getByLabel('Private to this Workspace')).not.toBeChecked();
+  await page.getByLabel('Private to this Workspace').check();
   await page.getByText('Images & links', { exact:true }).click();
   await page.getByText('Images and originals', { exact:true }).click();
   await page.evaluate(`(() => {
@@ -74,6 +76,7 @@ export async function checkPhoneRecipe(page: Page, workspaceId: string) {
   await page.screenshot({path:'/tmp/vmn-recipe-phone-details.png',fullPage:true});
   await action('Save recipe').click();
   await expect(page.getByRole('status').filter({hasText:'Recipe saved.'})).toBeVisible();
+  await expect(page.getByText('Visible only in this Workspace.')).toBeVisible();
   // A fresh read must load the sizing rules without visiting the lazy editor.
   await page.reload();
   await page.getByRole('button', {name:/Pancakes for breakfast/}).click();
@@ -89,7 +92,7 @@ export async function checkPhoneRecipe(page: Page, workspaceId: string) {
 export async function checkRecipeSourcePreservation(page: Page, workspaceId: string) {
   const opaque = ':::custom\nKeep these instructions exactly.\n:::';
   const id = await page.evaluate(async ({workspaceId,opaque}) => {
-    const response = await fetch(`/api/workspaces/${workspaceId}/recipes`, { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ content:{version:1,title:'Preserved recipe',servings:2,ingredients:[{name:'Tea',amount:'',unit:'',note:''}],instructions:opaque,tags:[],source:'',prepMinutes:null,cookMinutes:null},expectedRevision:0,archived:false }) });
+    const response = await fetch(`/api/workspaces/${workspaceId}/recipes`, { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ content:{version:1,title:'Preserved recipe',private:true,servings:2,ingredients:[{name:'Tea',amount:'',unit:'',note:''}],instructions:opaque,tags:[],source:'',prepMinutes:null,cookMinutes:null},expectedRevision:0,archived:false }) });
     if(!response.ok) throw new Error('Recipe fixture failed');
     await fetch('/api/account/preferences', { method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({theme:'memento-mori'}) });
     return (await response.json() as {recipe:{id:string}}).recipe.id;

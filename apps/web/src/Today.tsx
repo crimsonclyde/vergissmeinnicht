@@ -259,7 +259,7 @@ export function Today(props: {
   const continueRuns = view?.continueRuns ?? offlineActive ?? [];
   const attention = [...groupOverdue(view?.overdue ?? []), ...(view?.today ?? []).map((item) => ({ item, older: [] as Occurrence[] }))];
   const upcoming = home === null ? [] : nextUp(home.upcoming.filter(shown));
-  const listsToBuy = lists.filter((list) => list.open > 0);
+  const listsToBuy = lists.filter((list) => list.kind === 'GROCERY' && list.open > 0);
   const recent = home?.progress?.recentlyCompleted ?? [];
   const continuing = (view?.continueOccurrences.length ?? 0) + continueRuns.length;
   const calm = view !== null && continuing + attention.length === 0;

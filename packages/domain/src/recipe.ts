@@ -20,9 +20,13 @@ export interface RecipeContent {
   readonly prepMinutes: number | null;
   readonly cookMinutes: number | null;
   readonly coverImage?: string | undefined;
+  readonly private?: boolean | undefined;
 }
 export interface Recipe extends RecipeContent {
   readonly id: string;
+  readonly private: boolean;
+  readonly inCurrentWorkspace: boolean;
+  readonly homeWorkspaceName: string;
   readonly revision: number;
   readonly archived: boolean;
   readonly updatedAt: Date;
@@ -83,7 +87,10 @@ export function scaleRecipeIngredients(recipe: Pick<RecipeContent, 'servings' | 
 export function parseRecipeContent(value: unknown): RecipeContent {
   const keys = ['version', 'title', 'servings', 'ingredients', 'instructions', 'tags', 'source', 'prepMinutes', 'cookMinutes'];
   if (value && typeof value === 'object' && Object.hasOwn(value, 'coverImage')) keys.push('coverImage');
+  if (value && typeof value === 'object' && Object.hasOwn(value, 'private')) keys.push('private');
   const row = object(value, keys);
+  const isPrivate = row['private'];
+  if (keys.includes('private') && typeof isPrivate !== 'boolean') return invalid();
   const title = text(row['title'], 160);
   if (!title || row['version'] !== 1 || !Number.isInteger(row['servings']) || Number(row['servings']) < 1 || Number(row['servings']) > 1000) return invalid();
   if (!Array.isArray(row['ingredients']) || row['ingredients'].length < 1 || row['ingredients'].length > 100) return invalid();
@@ -102,7 +109,7 @@ export function parseRecipeContent(value: unknown): RecipeContent {
   const instructions = text(row['instructions'], 50000, true);
   const cover = row['coverImage'];
   if (cover !== undefined && (typeof cover !== 'string' || !recipeImages({ instructions }).some(image => image.url === cover))) return invalid();
-  return { version: 1, title, servings: Number(row['servings']), ingredients, instructions, tags, source, prepMinutes: minutes(row['prepMinutes']), cookMinutes: minutes(row['cookMinutes']), ...(cover === undefined ? {} : { coverImage: cover }) };
+  return { version: 1, title, servings: Number(row['servings']), ingredients, instructions, tags, source, prepMinutes: minutes(row['prepMinutes']), cookMinutes: minutes(row['cookMinutes']), ...(cover === undefined ? {} : { coverImage: cover }), ...(typeof isPrivate === 'boolean' ? { private: isPrivate } : {}) };
 }
 
 export function recipeImages(recipe: Pick<RecipeContent, 'instructions'>) {

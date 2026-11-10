@@ -26,6 +26,11 @@ export function prepareAttachmentSnapshot(databasePath:string,now=new Date()){
     const recipeCandidates=db.prepare("SELECT id FROM attachments WHERE policy_key='recipes' AND (deleting=1 OR (at < ? AND NOT EXISTS(SELECT 1 FROM recipe_attachment_references WHERE attachment_id=attachments.id)))").all(now.getTime()-86400000) as {id:string}[];
     candidates.push(...recipeCandidates);
   }
+  if (db.prepare("SELECT 1 FROM pragma_table_info('lists') WHERE name='cover_attachment_id'").get()) {
+    const listCandidates = db.prepare("SELECT id FROM attachments WHERE policy_key='lists' AND (deleting=1 OR (at < ? AND NOT EXISTS(SELECT 1 FROM lists WHERE cover_attachment_id=attachments.id)))")
+      .all(now.getTime()-86400000) as { id: string }[];
+    candidates.push(...listCandidates);
+  }
   const remove=db.prepare('DELETE FROM attachments WHERE id = ?');for(const row of candidates)if(!keep.has(row.id))remove.run(row.id);
  }finally{db.close();}
 }

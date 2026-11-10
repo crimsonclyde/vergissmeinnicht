@@ -498,6 +498,20 @@
       "when": 1794252385506,
       "tag": "0070_attachment_upload_operations",
       "breakpoints": true
+    },
+    {
+      "idx": 71,
+      "version": "6",
+      "when": 1794295106323,
+      "tag": "0071_list_kinds",
+      "breakpoints": true
+    },
+    {
+      "idx": 72,
+      "version": "6",
+      "when": 1794296102980,
+      "tag": "0072_list_appearance",
+      "breakpoints": true
     }
   ]
 }
