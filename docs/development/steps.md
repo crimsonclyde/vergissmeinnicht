@@ -7030,3 +7030,9 @@ rerun. The first full local run passed the other 1,655 tests. Lint, typecheck, w
 migration metadata validation and the dependency advisory audit passed. The tagged workflow
 reruns all gates on the release commit. The local discovery note and untracked artwork are
 outside this release. Live deployment and the hosted picker check remain separate.
+
+Source commit `c7aabe04f5300ac238b7a121fde78ea70a1bea72` and annotated tag
+`v0.13.3` were pushed together. The remote tag resolves to that source commit.
+[Main CI](https://github.com/crimsonclyde/vergissmeinnicht/actions/runs/42778142151)
+and the [tagged release workflow](https://github.com/crimsonclyde/vergissmeinnicht/actions/runs/42778141626)
+are running. Publication is pending. The owner count is 57 and this candidate is release 58.
