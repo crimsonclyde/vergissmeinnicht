@@ -391,7 +391,7 @@ if it referred to the replaced or removed image. Read the Recipe back to verify 
 result. Earlier originals follow the existing Recipe attachment retention policy.
 
 
-## Default Recipe creation workflow (0.13.9)
+## Default Recipe creation workflow (0.13.10)
 
 New Recipes are public in VMN's authenticated shared cookbook by default.
 Set `content.private: true` only for a requested Private Recipe; on edits keep the
@@ -405,5 +405,5 @@ with the actual JPEG/PNG. Only a client capable of passing real bytes programmat
 should use the base64 fallback. The optional VMN server generator is not part of
 these workflows. Confirm the upload, save with `requireImage: true`, image Markdown
 and the returned cover reference, then read back the cover and privacy choice.
-Refresh the connected VMN tools after deploying 0.13.9 so ChatGPT receives these
+Refresh the connected VMN tools after deploying 0.13.10 so ChatGPT receives these
 updated tool descriptions, schemas and server instructions.

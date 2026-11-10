@@ -7448,6 +7448,24 @@ three settings areas, and return to the saved Places theme. Typecheck,
 lint, web build and diff checks passed. Physical devices, release and
 hosted verification are pending.
 
+### Release plan for 0.13.10, owner milestone 64 (2026-11-10)
+
+The preceding 0.13.9 candidate was stopped before publication after inspecting the
+prior main CI failures. Its tag is retained and no owner release is counted.
+All changes in that plan, including main commit `4902856`, remain in this release.
+The deterministic browser failure was the Places opacity preview: its paint rule
+required the Places root theme, while management pages now intentionally use
+Memento Mori. Apply the preview-only opacity rule regardless of the root theme,
+including the forced-colors override. Dashboard theme rules stay scoped as before.
+No security surface is changed by this presentation fix.
+
+Use `v0.13.10`, GitHub title `0.13.10`, matching GHCR image/Unraid template, and
+owner ordinal 64 after publication. The immediate published predecessor remains
+0.13.8, with the same verified digest and all earlier upgrade fixtures. Local full
+code tests, lint, typecheck and advisory audit passed as recorded below; the preview
+fix passed the web build and 26 contrast tests. The full desktop account browser
+flow that caught the issue and GitHub gates remain in progress. No migration.
+
 ### Release plan for 0.13.9, owner milestone 64 (2026-11-10)
 
 The owner authorized publication after two gates: consistent public defaults for
@@ -7478,7 +7496,8 @@ suites. Local release preflight passed all 1,717 tests across 214 files with
 two workers and loopback enabled, typecheck, lint, dependency audit and diff checks.
 The initial simultaneous test/typecheck/lint run hit timeouts under load and was
 stopped; the bounded-worker full rerun passed without changing test timeouts.
-Tagged GitHub checks, native builds, scans and populated upgrades remain pending.
+The tagged candidate was subsequently stopped before publication for the preview
+regression described in the 0.13.10 plan. No GitHub release or owner count change.
 
 ### Release plan for 0.13.8, owner milestone 63 (2026-11-10)
 

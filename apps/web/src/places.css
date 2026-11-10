@@ -527,7 +527,7 @@
 
 /* Personal Today surfaces: alpha belongs to the paint, never to text or controls. */
 :root[data-theme='places'] .shell[data-page='workspace'] .today-card:not(.sky-card),
-:root[data-theme='places'] .place-preview-card {
+.place-preview-card {
   background: color-mix(in srgb, var(--surface) var(--place-card-opacity, 100%), transparent);
   text-shadow: 0 0 .15rem var(--surface), 0 0 .5rem var(--surface);
 }
@@ -537,5 +537,5 @@
 }
 @media (forced-colors: active) {
   :root[data-theme='places'] .shell[data-page='workspace'] :is(.today-card, .today-hero),
-  :root[data-theme='places'] .place-preview-card { background: Canvas; text-shadow: none; }
+  .place-preview-card { background: Canvas; text-shadow: none; }
 }
