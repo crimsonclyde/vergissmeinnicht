@@ -1,5 +1,11 @@
 # Recipes and MCP — assessment and implementation proposal
 
+Historical proposal: implementation and the owner's later decisions are recorded in
+`steps.md`. For the current ChatGPT workflow, see `../admin/mcp.md`: ChatGPT creates
+an image or extracts the original cookbook photo and uploads it through the shared
+native file path. That workflow does not require VMN image generation or a provider
+key. New Recipes default to Public; existing visibility is preserved on edits.
+
 2026-11-02. Owner requested both features and selected **recipe library plus grocery-list transfer**.
 Owner clarified the first MCP release: **ordinary user tasks through a client such as Claude**, including
 Procedure authoring, Run execution, shopping entries and recipe/image creation plus serving-scaled

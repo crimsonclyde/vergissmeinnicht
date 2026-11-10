@@ -18,6 +18,31 @@ For every completed task, add a concise completion note, tests/checks performed,
 
 ## Current state — resume here
 
+**Published owner release 64 (2026-11-11 Europe/Berlin; 2026-11-10 UTC).**
+Stable 0.13.10 was published from `v0.13.10`, source
+`78f5a2d50a29050829101082ff7c73b57507572a`, including the other chat's committed
+main change `4902856`. New Recipes default to Public with explicit Private;
+existing visibility is preserved. ChatGPT instructions use its own generated image
+or original cookbook photo through the shared native file upload. Regional file
+hosts and the settings preview correction are included. The historical proposal
+now points to these current instructions.
+
+Main CI and tagged release verification passed: 1,717 tests / 214 files,
+30 browser tests (2 skipped), lint, typecheck, dependency audit, native amd64/arm64
+smoke/security checks, signing/SBOM and eleven populated upgrades. Independently
+verified `0.13.10`, `0.13` and `latest` resolve to index
+`sha256:49b0ab726d3858ef1c3eb70be009d5828692acdc11dbd082cebe46621e076e5b`.
+Owner count **64**, next **65**; unpublished 0.13.9 does not increment the count.
+Security surface: changed by the bounded outbound-host support and new-record
+sharing default, documented in the security policy; existing authorization and
+private-record boundaries remain enforced. No migration. Live Anubis deployment
+remains separate: update its image and refresh ChatGPT's connected VMN tools to
+load the released defaults/instructions. Fresh cookbook import was not repeated
+in this final release check; prior hosted import and byte-preserving tests cover it.
+[GitHub release](https://github.com/crimsonclyde/vergissmeinnicht/releases/tag/v0.13.10)
+[Main CI](https://github.com/crimsonclyde/vergissmeinnicht/actions/runs/42916805094)
+[Release verification](https://github.com/crimsonclyde/vergissmeinnicht/actions/runs/42918490263)
+
 **Published owner release 62 (2026-11-10).** Stable 0.13.7 was published from
 tag `v0.13.7` and source `553482e007fa639f8c491d362f940c604cebf155`. The signed
 amd64 and arm64 index resolves under `0.13.7`, `0.13` and `latest` at
@@ -7472,7 +7497,8 @@ desktop account rerun passed in 3 minutes, including the opacity preview, persis
 menu order, management and Workspace themes, offline execution and authentication.
 The assertions account for the existing desktop/sidebar order and legacy Dark
 alias. GitHub quality and both native-image checks passed on the preceding source;
-final source CI remains pending. No migration.
+final source CI and tagged release verification passed. Published as owner release
+64; evidence and remaining deployment work are recorded in Current state. No migration.
 
 ### Release plan for 0.13.9, owner milestone 64 (2026-11-10)
 
