@@ -18,6 +18,15 @@ For every completed task, add a concise completion note, tests/checks performed,
 
 ## Current state — resume here
 
+**Published owner release 61 (2026-11-10).** Stable 0.13.6 was published from
+tag `v0.13.6` and source `ad07ffe680967e8065466d71500ae3626a672ff1`. The signed
+amd64 and arm64 index was verified under `0.13.6`, `0.13` and `latest` at
+`sha256:bff4da8fe2b3c11d918aaf55a84d6ed4f88c7ffe49f31c1ab1a4efe349628c83`.
+Owner count **61**, next **62**. Deployment and hosted PDF and List cover
+acceptance are pending.
+[GitHub release](https://github.com/crimsonclyde/vergissmeinnicht/releases/tag/v0.13.6)
+[Release workflow](https://github.com/crimsonclyde/vergissmeinnicht/actions/runs/42811343458)
+
 **Published owner release 60 (2026-11-10).** Stable 0.13.5 was published from
 tag `v0.13.5` and source `5f3ecc9c7871632fd7f65ad71a19acbb59ca1707`. The signed
 amd64 and arm64 index was verified under `0.13.5`, `0.13` and `latest` at
@@ -7160,6 +7169,15 @@ migration or permission change. Local preflight passed 70 focused tests,
 typecheck, lint and diff checks. Hosted PNG byte upload is verified. Cookbook
 PDF import and hosted List cover mutations remain pending. Owner count stays
 60 until publication. Release 42 and its dedication remain in the published history.
+
+Main CI and the tagged workflow passed, including browser checks, native
+image scans and smoke tests, signing and attestation, and eight populated
+upgrade checks starting with 0.13.5. Published the stable GitHub release at
+`2026-11-10T12:09:39Z` and advanced the owner count to 61. Hosted acceptance
+still needs the cookbook PDF and List cover mutations.
+[Main CI](https://github.com/crimsonclyde/vergissmeinnicht/actions/runs/42811343322)
+[Release workflow](https://github.com/crimsonclyde/vergissmeinnicht/actions/runs/42811343458)
+[GitHub release](https://github.com/crimsonclyde/vergissmeinnicht/releases/tag/v0.13.6)
 
 ### Release plan for 0.13.5, owner milestone 60 (2026-11-10)
 
