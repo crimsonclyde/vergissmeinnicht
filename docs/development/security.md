@@ -1925,3 +1925,10 @@ URLs from Recipe text, PDFs, Lists or other content remain outside the download 
   hostname, signed URL, file ID or local path. Invalid inputs stop before download.
 - [x] Reject lookalike domains, other Azure accounts, alternate ports, other ChatGPT
   paths, unsigned blob URLs and repeated signatures before DNS or outbound requests.
+- [x] Return fixed hints for rejected Recipe source, amount and cover fields.
+  The response excludes submitted field values. Rejected content leaves the
+  Recipe and its create receipt unwritten. A corrected retry must still pass
+  the Workspace, actor and attachment checks.
+- [x] Accept bounded, recognized descriptive Recipe amounts as plain text.
+  Reject control characters, markup and malformed numbers. Serving projections
+  keep these phrases out of the numeric Shopping List quantity field.

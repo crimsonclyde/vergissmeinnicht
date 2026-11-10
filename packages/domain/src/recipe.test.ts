@@ -9,6 +9,17 @@ describe('recipe content and exact serving projection', () => {
     expect(scaleRecipeIngredients(content, 3)[1]?.quantity).toBe('1.5');
     expect(scaleRecipeIngredients(content, 4)[2]?.note).toBe('to taste');
   });
+  it.each(['etwas', 'eine Prise', 'nach Geschmack', 'a bit', 'a pinch', 'to taste', 'un pizzico', 'Q. B.', 'un po’'])(
+    'preserves the descriptive amount %s through a serving change',
+    amount => {
+      const ingredient = { name: 'Salt', amount, unit: '', note: 'fine sea salt' };
+      const content = parseRecipeContent({ ...recipe, ingredients: [ingredient] });
+      expect(content.ingredients).toEqual([ingredient]);
+      expect(scaleRecipeIngredients(content, 4)[0]).toEqual({
+        ...ingredient, quantity: null, descriptiveAmount: amount, exactAmount: '', requiresReview: false,
+      });
+    },
+  );
   it('handles fractions exactly and refuses silent rounding or overflow', () => {
     const ingredient = {name:'Flour',amount:'1 1/2',unit:'cups',note:''};
     const ingredients = [ingredient];
@@ -36,6 +47,6 @@ describe('recipe content and exact serving projection', () => {
   it('bounds hostile content, quantities and source links, preserving Markdown literally', () => {
     expect(parseRecipeContent(recipe).instructions).toBe(recipe.instructions);
     for (const patch of [{ servings: 0 }, { ingredients: [] }, { source: 'javascript:alert(1)' }, { title: '\u202eevil' }, { unexpected: true }]) expect(() => parseRecipeContent({ ...recipe, ...patch })).toThrow();
-    for (const amount of ['0', '-1', '1/0', 'NaN', '1e99']) expect(() => parseRecipeContent({ ...recipe, ingredients: [{ ...recipe.ingredients[0], amount }] })).toThrow();
+    for (const amount of ['0', '-1', '1/0', 'NaN', '1e99', '1–2', 'etwas\u202e', '<b>some</b>']) expect(() => parseRecipeContent({ ...recipe, ingredients: [{ ...recipe.ingredients[0], amount }] })).toThrow();
   });
 });

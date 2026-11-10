@@ -28,6 +28,9 @@ export async function checkPhoneRecipe(page: Page, workspaceId: string) {
   await ingredient(3).getByLabel('Ingredient name', { exact:true }).fill('Remove me');
   page.once('dialog', dialog => dialog.accept()); await action('Remove ingredient').click();
   await expect(ingredient(3)).toHaveCount(0);
+  await action('Add ingredient').click();
+  await ingredient(3).getByLabel('Ingredient name', { exact:true }).fill('Salz');
+  await ingredient(3).getByLabel('Amount', { exact:true }).fill('etwas');
   await action('Next').click();
   const editor = page.locator('.milkdown .ProseMirror');
   await expect(editor).toBeVisible();

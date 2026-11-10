@@ -33,8 +33,8 @@ export interface Recipe extends RecipeContent {
   readonly updatedBy: string;
 }
 
-function invalid(): never {
-  throw new DomainValidationError('recipe', 'invalid_recipe', 'Invalid recipe');
+function invalid(field = 'recipe'): never {
+  throw new DomainValidationError(field, 'invalid_recipe', 'Invalid recipe');
 }
 function object(value: unknown, keys: readonly string[]): Record<string, unknown> {
   if (!value || typeof value !== 'object' || Array.isArray(value)) return invalid();
@@ -48,27 +48,41 @@ function text(value: unknown, max: number, multiline = false): string {
 }
 
 type Fraction = readonly [bigint, bigint];
+const descriptiveAmounts = new Set([
+  'etwas', 'ein bisschen', 'ein wenig', 'eine prise', 'prise', 'nach geschmack', 'nach belieben', 'nach bedarf',
+  'a bit', 'a little', 'some', 'a pinch', 'pinch', 'a dash', 'dash', 'to taste', 'as needed',
+  'un pizzico', 'pizzico', 'una presa', "un po'", 'poco', 'poca', 'quanto basta', 'a piacere', 'a gusto',
+]);
+
+function isDescriptiveAmount(value: string): boolean {
+  const phrase = value.toLowerCase().replace(/[’‘]/g, "'").replace(/\s+/g, ' ');
+  return descriptiveAmounts.has(phrase) || /^q\.? ?b\.?$/.test(phrase);
+}
+
 function fraction(value: string): Fraction {
   if (/^\d{1,5}(?:[.,]\d{1,3})?$/.test(value)) {
     const [whole = '', decimals = ''] = value.replace(',', '.').split('.');
     const numerator = BigInt(whole + decimals);
-    if (numerator === 0n) return invalid();
+    if (numerator === 0n) return invalid('ingredients.amount');
     return [numerator, 10n ** BigInt(decimals.length)];
   }
   const match = /^(?:(\d{1,5}) )?(\d{1,5})\/([1-9]\d{0,4})$/.exec(value);
-  if (!match) return invalid();
+  if (!match) return invalid('ingredients.amount');
   const denominator = BigInt(match[3] ?? '1');
   const numerator = BigInt(match[1] ?? '0') * denominator + BigInt(match[2] ?? '0');
-  if (numerator === 0n) return invalid();
+  if (numerator === 0n) return invalid('ingredients.amount');
   return [numerator, denominator];
 }
 function gcd(a: bigint, b: bigint): bigint { while (b) [a, b] = [b, a % b]; return a; }
 
-/** Exact serving projection. Values outside the grocery decimal contract require explicit review. */
+/** Scale measured amounts exactly and preserve descriptive amounts as written. */
 export function scaleRecipeIngredients(recipe: Pick<RecipeContent, 'servings' | 'ingredients'>, servings: number) {
   if (!Number.isInteger(recipe.servings) || recipe.servings < 1 || recipe.servings > 1000 || !Number.isInteger(servings) || servings < 1 || servings > 1000) return invalid();
   return recipe.ingredients.map(ingredient => {
-    if (!ingredient.amount) return { ...ingredient, quantity: null, exactAmount: '', requiresReview: false };
+    const descriptiveAmount = isDescriptiveAmount(ingredient.amount) ? ingredient.amount : null;
+    if (!ingredient.amount || descriptiveAmount) {
+      return { ...ingredient, quantity: null, descriptiveAmount, exactAmount: '', requiresReview: false };
+    }
     const [amount, divisor] = fraction(ingredient.amount);
     let numerator = amount * BigInt(servings);
     let denominator = divisor * BigInt(recipe.servings);
@@ -80,7 +94,7 @@ export function scaleRecipeIngredients(recipe: Pick<RecipeContent, 'servings' | 
       try { quantity = normalizeListItemQuantity(decimal); } catch { /* A bounded explicit review is required. */ }
     }
     const exactAmount = denominator === 1n ? String(numerator) : `${numerator}/${denominator}`;
-    return { ...ingredient, quantity, exactAmount, requiresReview: quantity === null };
+    return { ...ingredient, quantity, descriptiveAmount, exactAmount, requiresReview: quantity === null };
   });
 }
 
@@ -98,17 +112,17 @@ export function parseRecipeContent(value: unknown): RecipeContent {
     const item = object(value, ['name', 'amount', 'unit', 'note']);
     const name = text(item['name'], 120); const amount = text(item['amount'], 32);
     if (!name) return invalid();
-    if (amount) fraction(amount);
+    if (amount && !isDescriptiveAmount(amount)) fraction(amount);
     return { name, amount, unit: text(item['unit'], 16), note: text(item['note'], 160) };
   });
   if (!Array.isArray(row['tags']) || row['tags'].length > 12) return invalid();
   const tags = [...new Set(row['tags'].map(tag => text(tag, 40)).filter(Boolean))];
   const source = text(row['source'], 2048);
-  if (source && !/^https?:\/\/[^\s/?#]+(?:[/?#][^\s]*)?$/i.test(source)) return invalid();
+  if (source && !/^https?:\/\/[^\s/?#]+(?:[/?#][^\s]*)?$/i.test(source)) return invalid('source');
   const minutes = (value: unknown): number | null => value === null ? null : Number.isInteger(value) && Number(value) >= 0 && Number(value) <= 10080 ? Number(value) : invalid();
   const instructions = text(row['instructions'], 50000, true);
   const cover = row['coverImage'];
-  if (cover !== undefined && (typeof cover !== 'string' || !recipeImages({ instructions }).some(image => image.url === cover))) return invalid();
+  if (cover !== undefined && (typeof cover !== 'string' || !recipeImages({ instructions }).some(image => image.url === cover))) return invalid('coverImage');
   return { version: 1, title, servings: Number(row['servings']), ingredients, instructions, tags, source, prepMinutes: minutes(row['prepMinutes']), cookMinutes: minutes(row['cookMinutes']), ...(cover === undefined ? {} : { coverImage: cover }), ...(typeof isPrivate === 'boolean' ? { private: isPrivate } : {}) };
 }
 

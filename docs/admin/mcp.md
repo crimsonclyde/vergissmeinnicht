@@ -348,6 +348,15 @@ Recipe back and confirm its cover. If the user requires the photo and the transf
 stop before saving. For a List, apply the returned attachment ID with `set_list_cover`
 at the reviewed revision. Keep the operation ID when retrying the same file.
 
+For cookbook imports, leave `source` empty unless you have an HTTP or HTTPS URL.
+Keep a cookbook title or PDF filename in the instructions. Put a positive number,
+fraction or supported descriptive amount such as “etwas”, “a pinch”, “to taste” or
+“q.b.” in `amount`. Preserve the wording in the recipe's language. For “etwas
+Tomatenmark / Paprikasauce”, use `amount: "etwas"`, `name: "Tomatenmark / Paprikasauce"`
+and an empty unit. Use the ingredient note for preparation details. Serving changes
+carry descriptive amounts through as written. Shopping Lists store numeric quantities,
+so transferred items with a descriptive amount have an empty quantity by default.
+
 The base64 and picker tools remain available. VMN does not extract photos from a PDF in
 this flow. Whether ChatGPT can expose a newly extracted file and which host it uses for
 that file require live verification. [OpenAI file input documentation](https://developers.openai.com/plugins/reference#define-file-inputs)

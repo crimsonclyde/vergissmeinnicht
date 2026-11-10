@@ -18,6 +18,10 @@ const STEP = { title: 'Stove off', description: 'Knopf nach links ⟲', icon: nu
 const PNG = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAIAAACQd1PeAAAADElEQVR4nGP4z8AAAAMBAQDJ/pLvAAAAAElFTkSuQmCC', 'base64');
 const PNG2 = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAIAAACQd1PeAAAADElEQVR4nGNgYPgPAAEDAQAIicLsAAAAAElFTkSuQmCC', 'base64');
 const UUID = /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/g;
+const recipeIngredients = [
+  { name: 'Flour', amount: '125', unit: 'g', note: '' },
+  { name: 'Salt', amount: 'a pinch', unit: '', note: '' },
+];
 const sha = (bytes: Buffer) => createHash('sha256').update(bytes).digest('hex');
 
 type Row = Record<string, unknown>;
@@ -128,7 +132,7 @@ describe('Workspace recovery end to end (section 18c): export → restore → co
     const uploadedNoteImage=await upload(`${api()}/journal/attachments`,owner,PNG,'shared note.png');expect(uploadedNoteImage.statusCode,uploadedNoteImage.body).toBe(201);const noteImage=uploadedNoteImage.json().attachment;
     const uploadedRecipeImage=await upload(`${api()}/recipes/attachments`,owner,PNG,'pancakes.png');expect(uploadedRecipeImage.statusCode,uploadedRecipeImage.body).toBe(201);
     const recipeImage=uploadedRecipeImage.json().attachment;
-    const recipeContent={version:1,title:'Portable pancakes',servings:2,ingredients:[{name:'Flour',amount:'125',unit:'g',note:''}],instructions:`Mix and cook.\n\n![Pancakes](attachments/${recipeImage.id}.png)`,tags:['Breakfast'],source:'https://example.org/recipe',prepMinutes:5,cookMinutes:10,coverImage:`attachments/${recipeImage.id}.png`};
+    const recipeContent={version:1,title:'Portable pancakes',servings:2,ingredients:recipeIngredients,instructions:`Mix and cook.\n\n![Pancakes](attachments/${recipeImage.id}.png)`,tags:['Breakfast'],source:'https://example.org/recipe',prepMinutes:5,cookMinutes:10,coverImage:`attachments/${recipeImage.id}.png`};
     const savedRecipe=await t.post(`${api()}/recipes`,{content:{...recipeContent,private:true},expectedRevision:0,archived:false},owner);expect(savedRecipe.statusCode,savedRecipe.body).toBe(201);
     const note = { kind: 'note', version: 2, title: 'Shared field notes', date: '2026-10-23', body: `Moss on the northern wall.\n\n![Moss](attachments/${noteImage.id}.png)` };
     expect((await t.post(`${api()}/journal`, { content: note, expectedRevision: 0, archived: false }, owner)).statusCode).toBe(201);
@@ -281,7 +285,7 @@ describe('Workspace recovery end to end (section 18c): export → restore → co
     expect((await t.get(`${api(restored)}/journal/attachments/${restoredFile.id}/original`,t.admin)).rawPayload.equals(PNG)).toBe(true);
     const restoredRecipeFile=one<{id:string;charge_user_id:null}>("SELECT id,charge_user_id FROM attachments WHERE workspace_id=? AND policy_key='recipes'",restored);expect(restoredRecipeFile.charge_user_id).toBeNull();
     expect((await t.get(`${api(restored)}/recipes/attachments/${restoredRecipeFile.id}/original`,t.admin)).rawPayload.equals(PNG)).toBe(true);
-    const restoredRecipes=(await t.get(`${api(restored)}/recipes`,t.admin)).json().recipes;expect(restoredRecipes[0]).toMatchObject({title:'Portable pancakes',servings:2,private:true,coverImage:`attachments/${restoredRecipeFile.id}.png`});expect(restoredRecipes[0].instructions).toContain(restoredRecipeFile.id);
+    const restoredRecipes=(await t.get(`${api(restored)}/recipes`,t.admin)).json().recipes;expect(restoredRecipes[0]).toMatchObject({title:'Portable pancakes',servings:2,private:true,ingredients:recipeIngredients,coverImage:`attachments/${restoredRecipeFile.id}.png`});expect(restoredRecipes[0].instructions).toContain(restoredRecipeFile.id);
 
     expect(first.tables.get('bring_items')).toHaveLength(2);
     expect((await t.get(`${api(restored)}/bring`, t.admin)).json().items).toMatchObject([{ title: 'Bring drill', assigneeId: null }]);

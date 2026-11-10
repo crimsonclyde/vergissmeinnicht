@@ -221,13 +221,36 @@ it('uploads supplied original bytes through OAuth MCP and safely attaches them o
   const otherCookbook = { ...blob, download_url: blob.download_url.replace('file-cookbook', 'file-other') };
   expect((await call('upload_recipe_image_file', { ...cookbookUpload, file: otherCookbook })).isError).toBe(true);
   expect(downloads).toBe(afterCookbookDownload);
-  const cookbook = await call('create_recipe', { ...createArgs, operationId: randomUUID(), content: { ...createArgs.content,
-    title: 'Recipe from cookbook photo', instructions: cookbookPhoto.structuredContent.markdown,
-    coverImage: cookbookPhoto.structuredContent.attachment.reference } });
+  const cookbookArgs = { ...createArgs, operationId: randomUUID(), content: { ...createArgs.content,
+    title: 'Recipe from cookbook photo', instructions: `${cookbookPhoto.structuredContent.markdown}\n\nSource: Cookbook.pdf`,
+    coverImage: cookbookPhoto.structuredContent.attachment.reference,
+    ingredients: [{ name: 'Tomatenmark / Paprikasauce', amount: 'etwas', unit: '', note: '' }] } };
+  const invalidSource = await call('create_recipe', { ...cookbookArgs, content: { ...cookbookArgs.content, source: 'Cookbook.pdf' } });
+  expect(invalidSource.isError).toBe(true);
+  expect(invalidSource.content[0].text).toContain('leave source empty');
+  expect(invalidSource.content[0].text).not.toContain('Cookbook.pdf');
+  const invalidAmount = await call('create_recipe', { ...cookbookArgs, content: { ...cookbookArgs.content,
+    ingredients: [{ name: 'Salt', amount: '1/0', unit: '', note: '' }] } });
+  expect(invalidAmount.isError).toBe(true);
+  expect(invalidAmount.content[0].text).toContain('supported descriptive amount');
+  expect(invalidAmount.content[0].text).not.toContain('1/0');
+  const missingCoverMarkdown = await call('create_recipe', { ...cookbookArgs, content: { ...cookbookArgs.content, instructions: 'Cook the pasta.' } });
+  expect(missingCoverMarkdown.isError).toBe(true);
+  expect(missingCoverMarkdown.content[0].text).toContain('as a Markdown image');
+  expect(JSON.parse((await call('search_recipes', { workspaceId, query: cookbookArgs.content.title })).content[0].text).recipes)
+    .toEqual([]);
+  const cookbook = await call('create_recipe', cookbookArgs);
   expect(cookbook.isError).toBeUndefined();
   const cookbookId = JSON.parse(cookbook.content[0].text).recipeId;
   expect(JSON.parse((await call('get_recipe', { workspaceId, recipeId: cookbookId })).content[0].text))
-    .toMatchObject({ coverImage: cookbookPhoto.structuredContent.attachment.reference });
+    .toMatchObject({ coverImage: cookbookPhoto.structuredContent.attachment.reference, ingredients: cookbookArgs.content.ingredients });
+  const scaled = await call('scale_recipe_ingredients', { workspaceId, recipeId: cookbookId, servings: 8 });
+  expect(scaled.isError).toBeUndefined();
+  expect(JSON.parse(scaled.content[0].text).ingredients).toMatchObject([
+    { ...cookbookArgs.content.ingredients[0], descriptiveAmount: 'etwas', quantity: null, requiresReview: false },
+  ]);
+  expect(JSON.parse((await call('create_recipe', cookbookArgs)).content[0].text)).toEqual({ recipeId: cookbookId, duplicate: true });
+  expect(downloads).toBe(afterCookbookDownload);
   expect((await t.get(`/api/workspaces/${workspaceId}/recipes/attachments/${cookbookPhoto.structuredContent.attachment.id}/original`, t.admin)).rawPayload)
     .toEqual(cookbookJpeg);
   expect(t.logs).not.toContain('fixture-secret');

@@ -7194,6 +7194,52 @@ the native ChatGPT tool on the first attempt and returned a JPEG
 attachment reference. This was an upload-only test. The temporary origin
 probe is no longer running.
 
+**Hosted cookbook import completion (2026-11-10):** The first save was
+rejected because its source was a PDF filename and some amount fields
+contained “etwas”. Retried the same operation with the original photo,
+the PDF attribution in the instructions and the unmeasured quantities in
+ingredient notes. Live ChatGPT saved the Recipe and read it back with the
+same cover reference. The source schema now describes URL and cookbook
+attribution placement. Validation returns fixed hints for the source,
+amount and cover fields. The regression exercises rejected inputs,
+successful save and readback with the original image, and duplicate
+prevention. All 83 tests across six focused suites passed before the
+descriptive amount change below. The diagnostics await publication.
+
+**Descriptive Recipe amounts (2026-11-10):** The amount field accepts
+common German, English and Italian cooking phrases such as “etwas”,
+“a pinch”, “to taste” and “q.b.”. The MCP tool schema and instructions
+keep the source wording in the amount field. Recipe details display it
+before the ingredient, and serving projections preserve it as written.
+The shopping preview shows the phrase. Grocery items retain their
+existing numeric quantity field and default to an empty quantity for
+these ingredients. Existing notes still load as notes. There is no
+schema migration. Updated restore validation accepts both existing
+backups and the new phrases. Restoring a backup with the new phrases
+requires this version or later.
+
+The change broadens the accepted plain-text amount values within the
+existing field limit. Validation still rejects control characters,
+markup and malformed numbers. Authorization and file handling are
+unchanged. Local browser checks on desktop and phone passed from editing
+through save, serving projection and Shopping List transfer. The MCP
+regression uploaded the original fixture image, saved the cookbook
+Recipe with “etwas”, and read back the amount and cover. All 57 tests
+across seven focused suites passed, including a Workspace export,
+restore and re-export with “a pinch” in the amount field. The web build,
+typecheck, lint and diff checks passed. Hosted ChatGPT verification of
+the new schema awaits deployment.
+
+### Release plan for 0.13.8, owner milestone 63 (2026-11-10)
+
+Publish the descriptive Recipe amounts and cookbook import guidance from main
+with tag `v0.13.8`, GitHub release title `0.13.8`, and the matching GHCR image
+in the Unraid template. Verify the populated upgrade from the published
+0.13.7 digest and retain the earlier fixtures. The release adds no migration
+or permission boundary. Owner count stays 62 until publication. Release 42
+and its dedication remain in the published history. Live deployment and
+hosted ChatGPT verification are separate.
+
 ### Release plan for 0.13.7, owner milestone 62 (2026-11-10)
 
 Publish the verified Azure Blob fix from main as `v0.13.7`, with GitHub

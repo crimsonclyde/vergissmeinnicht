@@ -45,13 +45,16 @@ ingredients, Markdown instructions, tags, optional source link and original phot
 title/ingredients/tags. Use explicit Save, optimistic revision checks and actor/time history; archive
 is reversible. Keep domain Recipe separate from Procedure/Run and Note even though the editor is shared.
 
-Initial ingredient fields: name, optional decimal amount, optional unit and optional preparation note.
-Preserve nonnumeric wording such as “to taste” in the note; never coerce it to zero or guess an amount.
+Ingredient fields are name, optional amount, optional unit and optional preparation note.
+Amounts accept positive numbers, fractions and common German, English and Italian phrases
+such as “etwas”, “to taste” and “q.b.”. Preserve descriptive wording in the amount field.
 Owner now explicitly requires serving-based scaling. Preserve the base recipe and compute a shopping
 projection using target servings / base servings in shared server-side domain code, with exact decimal/
 rational arithmetic. Scale numeric ingredient amounts, preserve “to taste” wording and units, and never
 infer unit conversions or dietary substitutions. If a result cannot be represented in the existing
 List quantity precision/range, disclose it and resolve that value explicitly rather than truncating it.
+The shopping preview shows descriptive amounts alongside an empty numeric quantity. A Shopping List
+stores an empty quantity for these ingredients unless the user supplies a measured value.
 Store bounded, versioned structured ingredient data
 plus canonical CommonMark instructions. No proprietary inline ingredient syntax is necessary.
 

@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { api, messageFor, type RecipeView } from '../../api.ts';
 import { t } from '../../i18n/index.ts';
 type List = Awaited<ReturnType<typeof api.lists>>[number];
-type Item = { ingredient: number; title: string; quantity: string; unit: string; selected: boolean; exact: string; review: boolean };
+type Item = { ingredient: number; title: string; quantity: string; unit: string; selected: boolean; exact: string; descriptiveAmount: string | null; review: boolean };
 
 export function RecipeShopping({ workspaceId, recipe }: { workspaceId: string; recipe: RecipeView }) {
   const [lists, setLists] = useState<List[]>([]);
@@ -21,7 +21,7 @@ export function RecipeShopping({ workspaceId, recipe }: { workspaceId: string; r
     if (!Number.isInteger(servings) || servings < 1 || servings > 1000) { return; }
     api.recipeIngredients(workspaceId, recipe.id, servings).then(result => {
       if (!active) return;
-      setItems(result.ingredients.map((item, ingredient) => ({ ingredient, title: item.name + (item.note ? ` (${item.note})` : ''), quantity: item.quantity ?? '', unit: item.unit, selected: true, exact: item.exactAmount, review: item.requiresReview })));
+      setItems(result.ingredients.map((item, ingredient) => ({ ingredient, title: item.name + (item.note ? ` (${item.note})` : ''), quantity: item.quantity ?? '', unit: item.unit, selected: true, exact: item.exactAmount, descriptiveAmount: item.descriptiveAmount, review: item.requiresReview })));
       setOperation(crypto.randomUUID()); setLoading(false);
     }, error => { if (active) { setMessage(messageFor(error)); setLoading(false); } });
     return () => { active = false; };
@@ -48,7 +48,7 @@ export function RecipeShopping({ workspaceId, recipe }: { workspaceId: string; r
       {loading ? <p>{t('journal.loading')}</p> : items.map((item, index) => <fieldset key={item.ingredient} className="card stack"><legend>{t('recipes.ingredientNumber', { count: index + 1 })}</legend>
         <label className="row"><input type="checkbox" checked={item.selected} onChange={event => edit(index, { selected: event.target.checked })} />{t('recipes.include')}</label>
         <label>{t('recipes.ingredientName')}<input maxLength={120} required={item.selected} value={item.title} onChange={event => edit(index, { title: event.target.value })} /></label>
-        <label>{t('recipes.amount')}<input required={item.selected && item.review} value={item.quantity} onChange={event => edit(index, { quantity: event.target.value })} /></label>
+        <label>{t('recipes.amount')} {item.descriptiveAmount && <span>· {item.descriptiveAmount}</span>}<input required={item.selected && item.review} value={item.quantity} onChange={event => edit(index, { quantity: event.target.value })} /></label>
         {item.review && <p>{t('recipes.exactAmount', { amount: item.exact })}</p>}
         <label>{t('recipes.unit')}<input maxLength={16} value={item.unit} onChange={event => edit(index, { unit: event.target.value })} /></label>
       </fieldset>)}

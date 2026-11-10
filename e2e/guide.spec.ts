@@ -364,6 +364,9 @@ test('Recipes preserve originals and transfer ingredients for the requested serv
  if(testInfo.project.name.includes('mobile')) { await checkPhoneRecipe(page, workspaceId); } else {
  await ingredient(1).getByLabel('Ingredient name',{exact:true}).fill('Flour');await ingredient(1).getByLabel('Amount',{exact:true}).fill('125');await ingredient(1).getByLabel('Unit',{exact:true}).fill('g');
  await page.getByRole('button',{name:'Add ingredient',exact:true}).click();await ingredient(2).getByLabel('Ingredient name',{exact:true}).fill('Eggs');await ingredient(2).getByLabel('Amount',{exact:true}).fill('1');
+ await page.getByRole('button', { name: 'Add ingredient', exact: true }).click();
+ await ingredient(3).getByLabel('Ingredient name', { exact: true }).fill('Salz');
+ await ingredient(3).getByLabel('Amount', { exact: true }).fill('etwas');
  await page.getByRole('button',{name:'Markdown source',exact:true}).click();await page.getByLabel('Markdown source',{exact:true}).fill('Mix the batter.\n\nCook in a warm pan.');
  await page.getByText('Images and originals',{exact:true}).click();await expect(async()=>{const response=page.waitForResponse(response=>response.request().method()==='POST'&&response.url().endsWith('/recipes/attachments'));await page.getByLabel('Upload original image',{exact:true}).setInputFiles({name:'pancakes.png',mimeType:'image/png',buffer:Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAIAAACQd1PeAAAADElEQVR4nGP4z8AAAAMBAQDJ/pLvAAAAAElFTkSuQmCC','base64')});expect((await response).status()).toBe(201);}).toPass({timeout:15000,intervals:[500,1000,2000]});
  await expect(page.getByLabel('Markdown source',{exact:true})).toHaveValue(/attachments\/[0-9a-f-]+\.png/);
@@ -429,11 +432,13 @@ test('Recipes preserve originals and transfer ingredients for the requested serv
  await pancakeCard.focus();
  await pancakeCard.press('Enter');
  await expect(page.locator('article').getByText('Workspace: Fictional kitchen', { exact: true })).toBeVisible();
+ await expect(page.getByText('etwas · Salz', { exact: true })).toBeVisible();
  await page.getByLabel('Shopping for this many servings',{exact:true}).fill('4');await expect(ingredient(1).getByLabel('Amount',{exact:true})).toHaveValue('250');await expect(ingredient(2).getByLabel('Amount',{exact:true})).toHaveValue('2');
- await page.getByRole('button',{name:'Add selected ingredients',exact:true}).click();await expect(page.getByRole('status').filter({hasText:'2 ingredients added.'})).toBeVisible();await expectAccessible(page,'Recipe and grocery transfer');
+ await expect(ingredient(3).getByLabel(/Amount.*etwas/)).toHaveValue('');
+ await page.getByRole('button',{name:'Add selected ingredients',exact:true}).click();await expect(page.getByRole('status').filter({hasText:'3 ingredients added.'})).toBeVisible();await expectAccessible(page,'Recipe and grocery transfer');
  const downloadPromise=page.waitForEvent('download');await page.getByRole('link',{name:'Export recipe',exact:true}).click();expect((await downloadPromise).suggestedFilename()).toBe('recipes.zip');
  await page.screenshot({path:testInfo.outputPath('recipe.png'),fullPage:true});expect(await page.evaluate('document.documentElement.scrollWidth <= innerWidth')).toBe(true);
- await page.goto(`/w/${workspaceId}/lists/${listId}`);await expect(page.getByRole('list',{name:'To buy'})).toContainText('Flour');await expect(page.getByRole('list',{name:'To buy'})).toContainText('250');await expect(page.getByRole('list',{name:'To buy'}).getByRole('listitem')).toHaveCount(2);expect(errors).toEqual([]);
+ await page.goto(`/w/${workspaceId}/lists/${listId}`);await expect(page.getByRole('list',{name:'To buy'})).toContainText('Flour');await expect(page.getByRole('list',{name:'To buy'})).toContainText('250');await expect(page.getByRole('list',{name:'To buy'})).toContainText('Salz');await expect(page.getByRole('list',{name:'To buy'}).getByRole('listitem')).toHaveCount(3);expect(errors).toEqual([]);
  if(testInfo.project.name.includes('mobile')) await checkRecipeSourcePreservation(page, workspaceId);
  const sharedTitle = `Cabin recipe ${randomUUID().slice(0, 8)}`;
  const sharedStatus = await page.evaluate(async ({ foreignWorkspaceId, sharedTitle }) => fetch(`/api/workspaces/${foreignWorkspaceId}/recipes`, {
