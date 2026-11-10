@@ -301,3 +301,27 @@ Use `set_list_cover` with the reviewed revision and the uploaded attachment ID t
 replace the cover. Send a null cover ID to remove it. Only perform the change the user
 requested. The tool returns the saved revision and cover ID. Hosted picker support depends
 on the client. The signed-in List appearance editor provides an upload path in VMN.
+
+## Upload an image already available in ChatGPT
+
+After installing a VMN build with file handoff support, refresh the VMN plugin tools in
+ChatGPT and open a fresh chat. Recipe write access exposes `upload_recipe_image_file`.
+**List cover images** access exposes `upload_list_cover_file`. These tools use the
+existing grants and image limits. A connection needs new consent only if its existing
+grant lacks the scope for the tool you want.
+
+Attach a JPEG or PNG to the chat and name the destination Workspace and Recipe or List.
+For a photo in a PDF, ask ChatGPT to extract the original photo as a separate JPEG or PNG
+and pass it as a file if the client makes that file available to the tool. VMN accepts
+the image bytes, preserves the original and creates its normal thumbnail. The tools
+accept file references from `https://files.oaiusercontent.com` only.
+
+For a pictured Recipe, put the returned Markdown in the instructions, set the returned
+reference as `coverImage` and use `requireImage: true` on `create_recipe`. Read the saved
+Recipe back and confirm its cover. If the user requires the photo and the transfer fails,
+stop before saving. For a List, apply the returned attachment ID with `set_list_cover`
+at the reviewed revision. Keep the operation ID when retrying the same file.
+
+The base64 and picker tools remain available. VMN does not extract photos from a PDF in
+this flow. Whether ChatGPT can expose a newly extracted file and which host it uses for
+that file require live verification. [OpenAI file input documentation](https://developers.openai.com/plugins/reference#define-file-inputs)

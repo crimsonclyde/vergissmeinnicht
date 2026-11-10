@@ -2,13 +2,23 @@ import { randomUUID } from 'node:crypto';
 import sharp from 'sharp';
 import { afterEach, expect, it } from 'vitest';
 import type { McpScope, UserId } from '@vergissmeinnicht/domain';
+import { ChatGptFileError } from '../integrations/chatgpt-files.ts';
 import { ORIGIN, startTestApp } from './test-harness.ts';
 
 let app: Awaited<ReturnType<typeof startTestApp>> | undefined;
 afterEach(async () => { await app?.close(); });
 
 it('uploads supplied original bytes through OAuth MCP and safely attaches them on recipe save', async () => {
-  const t = app = await startTestApp({ mcpEnabled: true });
+  const attachedJpeg = await sharp({ create: { width: 8, height: 6, channels: 3, background: '#114422' } }).withMetadata().jpeg().toBuffer();
+  let downloads = 0;
+  const t = app = await startTestApp({ mcpEnabled: true, captureLogs: true, chatGptFileSource: async function* (url) {
+    downloads++;
+    if (url.pathname.endsWith('interrupted')) {
+      yield attachedJpeg.subarray(0, 8);
+      throw new ChatGptFileError('file_download_failed');
+    }
+    yield attachedJpeg;
+  } });
   const workspaceId = await t.createWorkspace('Cookbook');
   const foreignWorkspace = await t.createWorkspace('Other cookbook');
   for (const id of [workspaceId, foreignWorkspace]) {
@@ -109,11 +119,42 @@ it('uploads supplied original bytes through OAuth MCP and safely attaches them o
 
   // Cover access is a separate grant, including when the List is a To-do List.
   const list = (await t.post(`/api/workspaces/${workspaceId}/lists`, { title: 'Pack for the trip', kind: 'TODO' }, t.admin)).json().list;
+  const file = { download_url: 'https://files.oaiusercontent.com/file-pdf-photo?sig=fixture-secret', file_id: 'file-pdf-photo', file_name: 'photo.jpg' };
+  const fileUpload = { workspaceId, recipeId: null, operationId: randomUUID(), file };
+  const recipeFileTool = toolList.find((tool: { name: string }) => tool.name === 'upload_recipe_image_file');
+  expect(recipeFileTool._meta['openai/fileParams']).toEqual(['file']);
+  expect(recipeFileTool.inputSchema.properties.file.required.sort()).toEqual(['download_url', 'file_id']);
+  expect(Object.keys(recipeFileTool.inputSchema.properties.file.properties).sort()).toEqual(['download_url', 'file_id', 'file_name', 'mime_type']);
+  expect((await rpc('tools/call', { name: 'upload_recipe_image_file', arguments: fileUpload }, read)).json().result.isError).toBe(true);
+  expect((await call('upload_recipe_image_file', { ...fileUpload, recipeId: foreignRecipe })).isError).toBe(true);
+  expect((await call('upload_recipe_image_file', { ...fileUpload, file: { ...file, download_url: 'https://127.0.0.1/file-pdf-photo' } })).content[0].text).toContain('file_source_invalid');
+  expect(downloads).toBe(0);
+  const staged = (await call('upload_recipe_image_file', fileUpload)).structuredContent;
+  expect(staged.attachment.format).toBe('JPEG');
+  const refreshed = { file_id: file.file_id, download_url: 'https://files.oaiusercontent.com/file-pdf-photo?sig=refreshed' };
+  expect((await call('upload_recipe_image_file', { ...fileUpload, file: refreshed })).structuredContent).toMatchObject({ duplicate: true, attachment: staged.attachment });
+  expect((await call('upload_recipe_image_file', { ...fileUpload, file: { ...file, file_id: 'file-different' } })).isError).toBe(true);
+  expect(downloads).toBe(1);
+  const createArgs = { workspaceId, operationId: randomUUID(), requireImage: true, content: { ...content, title: 'Recipe from attached photo' } };
+  const noCover = await call('create_recipe', createArgs);
+  expect(noCover.isError).toBe(true);
+  expect(noCover.content[0].text).toContain('recipe_cover_required');
+  const invalidCover = `attachments/${randomUUID()}.jpg`;
+  expect((await call('create_recipe', { ...createArgs, content: { ...createArgs.content, instructions: `![Photo](${invalidCover})`, coverImage: invalidCover } })).isError).toBe(true);
+  expect((await call('search_recipes', { workspaceId, query: createArgs.content.title })).content[0].text).toContain('"recipes":[]');
+  const pictured = await call('create_recipe', { ...createArgs, content: { ...createArgs.content, instructions: staged.markdown, coverImage: staged.attachment.reference } });
+  expect(pictured.isError).toBeUndefined();
+  const picturedId = JSON.parse(pictured.content[0].text).recipeId;
+  expect(JSON.parse((await call('get_recipe', { workspaceId, recipeId: picturedId })).content[0].text)).toMatchObject({ coverImage: staged.attachment.reference });
+  expect((await t.get(`/api/workspaces/${workspaceId}/recipes/attachments/${staged.attachment.id}/original`, t.admin)).rawPayload).toEqual(attachedJpeg);
+  expect(t.logs).not.toContain('fixture-secret');
+
   const coverGrant = await grant(['lists.covers.write']);
   const coverRpc = async (name: string, args: object) =>
     (await rpc('tools/call', { name, arguments: args }, coverGrant)).json().result;
   const coverTools = (await rpc('tools/list', {}, coverGrant)).json().result.tools;
   expect(coverTools.map((tool: { name: string }) => tool.name)).not.toContain('get_grocery_list');
+  expect(coverTools.find((tool: { name: string }) => tool.name === 'upload_list_cover_file')._meta['openai/fileParams']).toEqual(['file']);
   const coverWidget = coverTools.find((tool: { name: string }) => tool.name === 'open_list_cover_upload')._meta.ui.resourceUri;
   expect((await rpc('resources/read', { uri: coverWidget }, coverGrant)).json().result.contents[0].text).toContain('upload_list_cover');
   expect((await call('list_cover_targets', { workspaceId })).isError).toBe(true);
@@ -134,6 +175,19 @@ it('uploads supplied original bytes through OAuth MCP and safely attaches them o
   expect((await t.get(coverPath + `/${cover}/original`, t.admin)).statusCode).toBe(404);
   expect((await coverRpc('set_list_cover', { ...update, coverId: null, expectedRevision: 3 })).isError).toBeUndefined();
   expect((await t.get(coverPath + `/${replacement}/original`, t.admin)).statusCode).toBe(404);
+
+  const fileCover = (await coverRpc('upload_list_cover_file', { workspaceId, listId: list.id, operationId: randomUUID(), file })).structuredContent.attachment.id;
+  expect((await coverRpc('set_list_cover', { ...update, coverId: fileCover, expectedRevision: 4 })).isError).toBeUndefined();
+  expect((await t.get(coverPath + `/${fileCover}/original`, t.admin)).rawPayload).toEqual(attachedJpeg);
+  expect(downloads).toBe(2);
+  const counted = () => t.database.sqlite.prepare('SELECT count(*) AS n FROM attachments').get();
+  const before = counted();
+  const interrupted = await call('upload_recipe_image_file', { ...fileUpload, operationId: randomUUID(),
+    file: { download_url: 'https://files.oaiusercontent.com/file-interrupted?sig=fixture-secret', file_id: 'file-interrupted' } });
+  expect(interrupted.content[0].text).toContain('file_download_failed');
+  expect(counted()).toEqual(before);
+  expect(t.database.sqlite.prepare('SELECT count(*) AS n FROM attachment_reservations').get()).toEqual({ n: 0 });
+  expect(t.logs).not.toContain('fixture-secret');
 
   t.database.sqlite.prepare("UPDATE memberships SET role='GUEST' WHERE workspace_id=? AND user_id=?").run(workspaceId, actorId);
   expect((await upload()).isError).toBe(true);

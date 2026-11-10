@@ -1014,3 +1014,14 @@ current cover with its original, and restore remaps the reference.
 The separate `lists.covers.write` delegation allows List identification and cover changes
 for both kinds. It is requested and approved independently of grocery scopes. The upload
 stage shares the delegated image receipt and byte validation path used by Recipes.
+
+
+### ChatGPT file inputs (36.12)
+
+Recipe and List cover tools can accept ChatGPT file descriptors alongside the existing
+base64 and picker tools. The MCP adapter resolves each supported file reference through
+one bounded, fixed-host download adapter. Its byte stream goes through the same shared
+attachment validation, storage and consumer authorization as a browser upload. The
+descriptor and signed URL are transient. A retry uses the existing durable attachment
+receipt, keyed by target, file ID and path. Adding another consumer
+requires its own attachment policy and tool authorization.

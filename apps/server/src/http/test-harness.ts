@@ -1,3 +1,4 @@
+import type { ChatGptFileSource } from '../integrations/chatgpt-files.ts';
 import { enableCoreTools } from '../../../../packages/database/src/test-support.ts';
 // Test-only helper: a production-configured app on a fresh database, with captured email and
 // signed-in demo users. Not imported by application code.
@@ -38,6 +39,7 @@ export async function startTestApp(
     telegramApi?: TelegramBotApi;
     /** Answers weather provider requests (19.4); by default every one fails as if the network were blocked. */
     weatherFetch?: typeof fetch;
+    chatGptFileSource?: ChatGptFileSource;
     /** Capture the server log (info level, production serializers) into `logs`. */
     captureLogs?: boolean;
   } = {},
@@ -71,7 +73,10 @@ export async function startTestApp(
       trustedProxies: options.trustedProxies,
       ...(options.captureLogs === true ? { logger: { ...loggerOptions('info'), stream: logStream } } : {}),
       services: (log) => {
-        const built = createServices(testConfig, database, { weatherFetch: options.weatherFetch ?? blockedWeatherFetch })(log);
+        const built = createServices(testConfig, database, {
+          weatherFetch: options.weatherFetch ?? blockedWeatherFetch,
+          chatGptFileSource: options.chatGptFileSource ?? (() => { throw new Error('network blocked in tests'); }),
+        })(log);
         const email = { send: async (message: EmailMessage) => void outbox.push(message) };
         const notifications = { ...built.notifications, email, ...(options.telegramApi === undefined ? {} : { telegramApi: options.telegramApi }) };
         services = { ...built, invitations: { ...built.invitations, email }, notifications, runEvents: options.runEvents };

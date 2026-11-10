@@ -18,6 +18,16 @@ For every completed task, add a concise completion note, tests/checks performed,
 
 ## Current state — resume here
 
+**Published owner release 58 (2026-11-10).** Stable image 0.13.3 was published from
+tag `v0.13.3` and source `c7aabe04f5300ac238b7a121fde78ea70a1bea72`. Main CI and the
+tagged workflow passed, with the release verification complete at `2026-11-10T08:05:59Z`.
+The independently inspected amd64 and arm64 registry index is
+`sha256:75b4edf72079b284d577108a528c2202db8be0dbcd185e0ce38d99f8f688f456`.
+The image publication is the owner milestone. GitHub has no separate release entry for that tag.
+Owner count **58**, next **59**. Release 42 and its dedication remain in the published history.
+[Main CI](https://github.com/crimsonclyde/vergissmeinnicht/actions/runs/42778142151)
+[Release workflow](https://github.com/crimsonclyde/vergissmeinnicht/actions/runs/42778141626)
+
 **Published owner release 57 (2026-11-09): 0.13.2.** The stable
 [GitHub Release](https://github.com/crimsonclyde/vergissmeinnicht/releases/tag/v0.13.2)
 was published at `2026-11-09T20:09:17Z` from `v0.13.2` /
@@ -7036,3 +7046,38 @@ Source commit `c7aabe04f5300ac238b7a121fde78ea70a1bea72` and annotated tag
 [Main CI](https://github.com/crimsonclyde/vergissmeinnicht/actions/runs/42778142151)
 and the [tagged release workflow](https://github.com/crimsonclyde/vergissmeinnicht/actions/runs/42778141626)
 are running. Publication is pending. The owner count is 57 and this candidate is release 58.
+
+### 36.12 ChatGPT file handoff for shared image uploads (2026-11-10)
+
+Implemented `upload_recipe_image_file` and `upload_list_cover_file` with the documented
+`openai/fileParams` schema. Both use the existing delegated scopes, receipts and attachment
+store. Existing base64 uploads and the picker remain available. A user-required Recipe photo
+can be enforced at creation with `requireImage: true`. The cover still has to resolve to a
+valid attachment before commit.
+
+The security surface changed. VMN can retrieve a temporary image URL at the fixed OpenAI
+file host after authorization and quota reservation. The downloader checks public DNS
+answers, pins the socket, verifies TLS, refuses redirects and bounds size, time and
+concurrency. Signed URLs stay transient. Tests cover Recipe and List grants, tool metadata,
+JPEG fidelity, valid and missing covers, expired or refreshed links, interrupted downloads,
+unsafe addresses, and the existing base64 and image paths. The focused suite passed 81
+tests across seven files. The operator, architecture and security docs describe the change.
+
+Remaining work is a live hosted test with a directly attached JPEG or PNG and then a JPEG
+extracted from the original PDF. ChatGPT must expose the separate image as a file on the
+allowed host. The current tools accept JPEG and PNG, and PDF extraction remains client-side.
+This implementation is local and introduces no migration or release.
+
+### Release plan for 0.13.4, owner milestone 59 (2026-11-10)
+
+The owner requested a new stable release for ChatGPT file handoff (36.12). Prepare
+source on main, tag `v0.13.4`, GitHub release title `0.13.4` and the exact image version
+in the Unraid template. Use published 0.13.3 by verified digest as the first populated
+upgrade fixture and retain the existing older fixtures. There is no migration in this
+patch. The security change is the fixed-host file retrieval path reviewed in 36.12.
+The owner count is 58 until this release publishes. Release 42 and its dedication
+remain in the published history. Deployment and hosted ChatGPT acceptance are separate.
+
+Release preflight passed all 1,683 tests in 214 files, lint, typecheck, the web build,
+the dependency advisory audit, migration metadata validation and diff checks. The local
+discovery note and untracked artwork are outside the release.

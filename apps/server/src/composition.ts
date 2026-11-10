@@ -1,3 +1,4 @@
+import { createChatGptFileSource, type ChatGptFileSource } from './integrations/chatgpt-files.ts';
 import {openAiRecipeImages} from './integrations/openai-recipe-images.ts';
 import {createRecipeImageJobs} from '@vergissmeinnicht/database';
 import type {RecipeImageDeps} from '@vergissmeinnicht/application';
@@ -136,6 +137,7 @@ export interface AppServices {
   readonly publicOrigin: string;
   readonly recipeImages:RecipeImageDeps;
   readonly mcpEnabled:boolean;
+  readonly chatGptFileSource: ChatGptFileSource;
   readonly mcp:ReturnType<typeof createMcpRepository>;
   /** Offered to every user via `GET /api/about` (AGPL-3.0 §13). */
   readonly sourceCodeUrl: string;
@@ -233,9 +235,10 @@ export function invitationDeps(config: AppConfig, database: AppDatabase): Invita
 }
 
 /** `weatherFetch`: replaces the network for weather providers (tests never reach a provider). */
-export function createServices(config: AppConfig, database: AppDatabase, overrides: { readonly weatherFetch?: typeof fetch } = {}) {
+export function createServices(config: AppConfig, database: AppDatabase, overrides: { readonly weatherFetch?: typeof fetch; readonly chatGptFileSource?: ChatGptFileSource } = {}) {
   // Weather (19.4): one forecast cache per server process, shared by every request.
   const serverWeather = createServerWeatherSettingsRepository(database);
+  const chatGptFileSource = overrides.chatGptFileSource ?? createChatGptFileSource();
   const weatherFetch = overrides.weatherFetch ?? fetch;
   const openMeteo = createOpenMeteo({ fetch: weatherFetch });
   const weatherService = createWeatherService({
@@ -377,6 +380,7 @@ export function createServices(config: AppConfig, database: AppDatabase, overrid
     const backupRunner = createBackupRunner(workspaceBackups, { onError: (error) => logger?.error({ err: { type: (error as Error).name, code: (error as { code?: unknown }).code } }, 'workspace backup job failed') });
     return {
       publicOrigin: config.publicOrigin,
+      chatGptFileSource,
       mcpEnabled:config.mcpEnabled,
       mcp:createMcpRepository(database,config.publicOrigin+'/mcp'),
       sourceCodeUrl: config.sourceCodeUrl,

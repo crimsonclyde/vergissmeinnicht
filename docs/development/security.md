@@ -1889,3 +1889,32 @@ is served, and provisional or removed covers have no generic download route.
   authorization checked at commit. The tool returns List metadata for target selection.
   Large bodies are admitted only for the matching upload scope and tool. Upload retries
   preserve the original operation ID. Ordinary grocery grants cannot invoke cover tools.
+
+
+### ChatGPT file handoff for Recipe images and List covers (36.12, 2026-11-10)
+
+The dedicated file-input tools receive a ChatGPT file descriptor under `openai/fileParams`.
+This extends MCP egress to the single fixed origin `https://files.oaiusercontent.com`, port
+443. Tool input cannot select a hostname. URLs from Recipe text, PDFs, Lists or other
+content remain outside the download path. The host is the one documented for OpenAI's file
+delivery examples. ChatGPT's plugin contract does not guarantee that all file references use
+that host. A different origin fails closed.
+
+- [x] Check OAuth, target Workspace, current role, tool availability and the attachment
+  target before DNS or download. The existing attachment transaction rechecks them before
+  it commits. The Recipe and List scopes stay separate.
+- [x] Require the exact HTTPS origin and refuse URL user info, fragments and alternate
+  ports. Classify every returned IPv4 and IPv6 address before pinning the socket to one
+  validated public address. Verify TLS against the fixed host and refuse redirects.
+  Send no VMN token, cookie or other authorization header.
+- [x] Bound DNS lookup, the TLS request and body time, bytes and concurrency. Reserve space
+  first. Check the lower of the configured image limit and the 20 MB MCP cap. Refuse
+  truncated or encoded responses. Existing signature, decoding, quota and derivative checks
+  still apply to the bytes.
+- [x] Keep signed query strings out of logs, errors, audit and storage. Map transport
+  failures to stable codes. A retry receipt binds the operation to its caller, target,
+  file ID and path. A refreshed signed query can replay the same receipt
+  without contacting the host. Failed transfers release the reservation and discard staging.
+- [x] Require a confirmed cover for `create_recipe` when the caller sets `requireImage`.
+  Existing attachment checks validate the cover reference and Workspace ownership before
+  the Recipe is saved.

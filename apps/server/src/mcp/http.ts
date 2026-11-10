@@ -8,8 +8,9 @@ import {hashMcpToken,withDelegation} from '@vergissmeinnicht/database';
 import type {UserId,WorkspaceId} from '@vergissmeinnicht/domain';
 import type {FastifyInstance,FastifyRequest} from 'fastify';
 import type {AppServices} from '../composition.ts';
-import {assistantTools} from './tools.ts';
+import {assistantTools, RecipeCoverRequiredError} from './tools.ts';
 import { MCP_IMAGE_BASE64_LENGTH } from './recipe-upload.ts';
+import { ChatGptFileError } from '../integrations/chatgpt-files.ts';
 import { attachmentUploadWidgets } from './recipe-upload-widget.ts';
 
 const assistantInstructions = [
@@ -17,9 +18,10 @@ const assistantInstructions = [
  'When several Workspaces match, ask the user which one to use before reading or writing its records. When several grocery Lists match, ask which one to use and wait for the answer before writing. Never infer a destination from its name, order or past use.',
  'Use list_workspaces and list_grocery_lists to resolve the available destinations. Use a destination the user named or confirmed, or the sole eligible destination when the user did not name one. If a named destination is unavailable, tell the user. Create a List only on explicit request.',
  'For meals, search saved Recipes first. If the user asks for ideas, offer choices and wait for a selection before saving a Recipe or adding ingredients. If they request web research, use public search without sharing VMN records. Ask for target servings if unspecified. Use the ingredients the user said they have and ask only if it is unclear what should be bought. Use VMN serving calculations. Use prepare_recipe_meal when the user wants every ingredient, or transfer_recipe_to_groceries for the reviewed subset. Never silently round amounts.',
- 'For a new Recipe, search for duplicates first, prepare the full Recipe, then generate one representative image using the client image capability when available. Transfer real file bytes with upload_recipe_image or use open_recipe_image_upload to pick the downloaded file in ChatGPT. Put the returned Markdown in instructions and use the attachment reference as coverImage. Save, then read the Recipe back and verify both fields.',
+ 'For a new Recipe, search for duplicates first. When the user supplies a photograph, use that original. Prefer upload_recipe_image_file for a JPEG or PNG already available as a ChatGPT file. If the photo is embedded in a PDF, extract it as a separate JPEG or PNG if the client can hand that file to the tool. Never pass a PDF as a photo. The existing byte upload and file picker remain available when appropriate.',
+ 'If the user requires a photo, wait for a confirmed upload, put the returned Markdown in instructions, use the attachment reference as coverImage and set requireImage true on create_recipe. Read the saved Recipe back and verify the cover. If the required image cannot be transferred, report that the Recipe was not created.',
  'When editing a Recipe without a suitable image, offer to add one. Keep suitable existing images. If generation or upload fails, preserve the Recipe and report the missing image. Never silently repeat image generation or use a remote image URL. The signed-in Recipe editor can upload the image later. Do not add groceries unless requested.',
- 'For List covers, use list_cover_targets to identify the Workspace, List and revision. Upload supplied JPEG or PNG bytes with upload_list_cover or open_list_cover_upload, then use set_list_cover. Remove or replace an existing cover only when the user asks.',
+ 'For List covers, use list_cover_targets to identify the Workspace, List and revision. Use upload_list_cover_file for a JPEG or PNG already available as a ChatGPT file, or use upload_list_cover or open_list_cover_upload, then use set_list_cover. Remove or replace an existing cover only when the user asks.',
  'For Procedure edits, resolve the Procedure and Section and read the current revision. For execution, resolve the active Run and actual RunStep and read its current state. Ask when any target is ambiguous.',
  'Use fresh records before writes. Report what was saved only after the server confirms it. Preserve operation ids and payloads on retries, and never retry uncertain image charges.',
  'Private Journal, Documents, administration and cleanup are unavailable.',
@@ -93,7 +95,7 @@ export async function registerMcpHttp(app:FastifyInstance,services:AppServices){
   }
   server.setRequestHandler(ListToolsRequestSchema,async()=>({tools:available.map(tool=>{
    const widget=widgets.find(item=>item.toolName===tool.name);
-   return {name:tool.name,description:tool.description,inputSchema:z.toJSONSchema(tool.schema),...(widget?{_meta:{ui:{resourceUri:widget.resource.uri}}}:{}),annotations:{readOnlyHint:!tool.write,destructiveHint:tool.name==='set_list_cover',idempotentHint:!tool.write||['complete_run_step','create_grocery_list','create_recipe','add_grocery_item','transfer_recipe_to_groceries','prepare_recipe_meal','generate_recipe_image','open_recipe_image_upload','upload_recipe_image','open_list_cover_upload','upload_list_cover','set_list_cover'].includes(tool.name),openWorldHint:tool.name==='generate_recipe_image'}} as Tool;
+   return {name:tool.name,description:tool.description,inputSchema:z.toJSONSchema(tool.schema),...(widget?{_meta:{ui:{resourceUri:widget.resource.uri}}}:tool.fileParams?{_meta:{'openai/fileParams':tool.fileParams}}:{}),annotations:{readOnlyHint:!tool.write,destructiveHint:tool.name==='set_list_cover',idempotentHint:!tool.write||!!tool.fileParams||['complete_run_step','create_grocery_list','create_recipe','add_grocery_item','transfer_recipe_to_groceries','prepare_recipe_meal','generate_recipe_image','open_recipe_image_upload','upload_recipe_image','open_list_cover_upload','upload_list_cover','set_list_cover'].includes(tool.name),openWorldHint:tool.name==='generate_recipe_image'||!!tool.fileParams}} as Tool;
   })}));
   server.setRequestHandler(CallToolRequestSchema,async call=>{
    const tool=available.find(tool=>tool.name===call.params.name);if(!tool)return {isError:true,content:[{type:'text' as const,text:'Tool unavailable for this connection.'}]};
@@ -107,8 +109,11 @@ export async function registerMcpHttp(app:FastifyInstance,services:AppServices){
     await services.mcp.verify(raw);await services.mcp.authorize(grant.id,actor.id,workspaceId,tool.scope);
     if(workspaceId){if(!await services.workspaces.workspaces.findMembership(workspaceId,actor.id))throw new Error('Revoked');const enabled=await services.workspaces.workspaces.enabledTools(workspaceId);if([tool.tool,...(tool.extraTools??[])].some(value=>value!==null&&!enabled.includes(value)))throw new Error('Disabled');}
     const text=JSON.stringify(result);if(Buffer.byteLength(text)>512*1024)return {isError:true,content:[{type:'text' as const,text:'Result too large. Narrow the request.'}]};
-    return {content:[{type:'text' as const,text}],...(widgets.some(widget=>widget.toolName===tool.name)||Object.hasOwn(uploadScopes,tool.name)?{structuredContent:JSON.parse(text) as Record<string,unknown>}: {})};
-   }catch(error){if(error instanceof AttachmentError)return {isError:true,content:[{type:'text' as const,text:`Image request failed (${error.code}). Keep the operation id unchanged if retrying.`}]};const name=error instanceof Error?error.constructor.name:'';const message=name.includes('Conflict')?'Conflict: refresh the current record and review before retrying.':name==='ZodError'?'Invalid tool arguments.':'Request not confirmed: check connection permissions and Workspace tools, then refresh the current record before retrying. Keep operation ids unchanged.';return {isError:true,content:[{type:'text' as const,text:message}]};}
+    return {content:[{type:'text' as const,text}],...(widgets.some(widget=>widget.toolName===tool.name)||Object.hasOwn(uploadScopes,tool.name)||tool.fileParams?{structuredContent:JSON.parse(text) as Record<string,unknown>}: {})};
+   }catch(error){
+    if(error instanceof RecipeCoverRequiredError)return {isError:true,content:[{type:'text' as const,text:'Recipe not saved (recipe_cover_required). Upload a JPEG or PNG and use its confirmed cover reference.'}]};
+    if(error instanceof ChatGptFileError)return {isError:true,content:[{type:'text' as const,text:`ChatGPT file transfer failed (${error.code}). Use a fresh file reference for the same file if it expired, and keep the operation id unchanged.`}]};
+    if(error instanceof AttachmentError)return {isError:true,content:[{type:'text' as const,text:`Image request failed (${error.code}). Keep the operation id unchanged if retrying.`}]};const name=error instanceof Error?error.constructor.name:'';const message=name.includes('Conflict')?'Conflict: refresh the current record and review before retrying.':name==='ZodError'?'Invalid tool arguments.':'Request not confirmed: check connection permissions and Workspace tools, then refresh the current record before retrying. Keep operation ids unchanged.';return {isError:true,content:[{type:'text' as const,text:message}]};}
   });
   const transport=new WebStandardStreamableHTTPServerTransport({enableJsonResponse:true});
   try{

@@ -138,7 +138,8 @@ jobs:
           test "$(docker inspect --format '{{index .Config.Labels "org.opencontainers.image.version"}}' "$REF")" = "$VERSION"
           test "$(docker inspect --format '{{index .Config.Labels "org.opencontainers.image.revision"}}' "$REF")" = "$GITHUB_SHA"
           deploy/smoke-test.sh "$REF"
-          # Immediate published predecessor, 0.13.2.
+          # Immediate published predecessor, 0.13.3.
+          deploy/upgrade-check.sh "$REF" ghcr.io/crimsonclyde/vergissmeinnicht@sha256:75b4edf72079b284d577108a528c2202db8be0dbcd185e0ce38d99f8f688f456
           deploy/upgrade-check.sh "$REF" ghcr.io/crimsonclyde/vergissmeinnicht@sha256:1456f2c2471eb2e70534d1d55c997a94e2548feca1614601c3e646021011b7ac
           deploy/upgrade-check.sh "$REF" ghcr.io/crimsonclyde/vergissmeinnicht@sha256:bcaec04bef344aaa8a28b0f75e3681a9b2f7c8e903138fb4d68a3233a0cea7c0
           deploy/upgrade-check.sh "$REF" ghcr.io/crimsonclyde/vergissmeinnicht@sha256:240e2eb3e6ac20a5c2b7b4ffd528a6cfc418b88eb3e6362e714deae855f16519
