@@ -1894,18 +1894,19 @@ is served, and provisional or removed covers have no generic download route.
 ### ChatGPT file handoff for Recipe images and List covers (36.12, 2026-11-10)
 
 The dedicated file-input tools receive a ChatGPT file descriptor under `openai/fileParams`.
-This extends MCP egress to the single fixed origin `https://files.oaiusercontent.com`, port
-443. Tool input cannot select a hostname. URLs from Recipe text, PDFs, Lists or other
-content remain outside the download path. The host is the one documented for OpenAI's file
-delivery examples. ChatGPT's plugin contract does not guarantee that all file references use
-that host. A different origin fails closed.
+The HTTPS endpoint allowlist contains `files.oaiusercontent.com` and the exact
+storage account `oaisdmntprnortheu.blob.core.windows.net`. Both use port 443.
+The latter requires a container and blob path with one nonempty `sig` and
+refuses snapshot or version selectors. The storage account was observed in the
+hosted cookbook upload. Other Azure accounts and ChatGPT web paths are refused.
+URLs from Recipe text, PDFs, Lists or other content remain outside the download path.
 
 - [x] Check OAuth, target Workspace, current role, tool availability and the attachment
   target before DNS or download. The existing attachment transaction rechecks them before
   it commits. The Recipe and List scopes stay separate.
-- [x] Require the exact HTTPS origin and refuse URL user info, fragments and alternate
+- [x] Require an allowlisted HTTPS endpoint and refuse URL user info, fragments and alternate
   ports. Classify every returned IPv4 and IPv6 address before pinning the socket to one
-  validated public address. Verify TLS against the fixed host and refuse redirects.
+  validated public address. Verify TLS against the selected allowlisted hostname and refuse redirects.
   Send no VMN token, cookie or other authorization header.
 - [x] Bound DNS lookup, the TLS request and body time, bytes and concurrency. Reserve space
   first. Check the lower of the configured image limit and the 20 MB MCP cap. Refuse
@@ -1913,7 +1914,8 @@ that host. A different origin fails closed.
   still apply to the bytes.
 - [x] Keep signed query strings out of logs, errors, audit and storage. Map transport
   failures to stable codes. A retry receipt binds the operation to its caller, target,
-  file ID and path. A refreshed signed query can replay the same receipt
+  file ID and URL identity. The original host keeps its existing path-based identity.
+  Azure Blob receipts bind the origin and blob path. A refreshed signature can replay the same receipt
   without contacting the host. Failed transfers release the reservation and discard staging.
 - [x] Require a confirmed cover for `create_recipe` when the caller sets `requireImage`.
   Existing attachment checks validate the cover reference and Workspace ownership before
@@ -1921,3 +1923,5 @@ that host. A different origin fails closed.
 - [x] File-input diagnostics distinguish invalid descriptors, malformed URLs, unsupported
   origins and unavailable links using fixed messages. The messages contain no submitted
   hostname, signed URL, file ID or local path. Invalid inputs stop before download.
+- [x] Reject lookalike domains, other Azure accounts, alternate ports, other ChatGPT
+  paths, unsigned blob URLs and repeated signatures before DNS or outbound requests.

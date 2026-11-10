@@ -28,8 +28,21 @@ describe('ChatGPT file download policy', () => {
   it.each([
     'https://files.oaiusercontent.com:444/file-fixture', 'https://files.oaiusercontent.com.evil.example/file-fixture',
     'https://127.0.0.1/file-fixture', 'https://[::1]/file-fixture',
-  ])('refuses URLs outside the fixed origin before any lookup', input => {
-    expect(() => chatGptFileUrl(input)).toThrow('file_origin_unsupported');
+    'https://chatgpt.com/backend-api/estuary/content?id=file-one&sig=example',
+    'https://oaisdmntprnortheu.blob.core.windows.net:444/container/file?sig=example',
+    'https://oaisdmntprnortheu.blob.core.windows.net.evil.example/container/file?sig=example',
+    'https://anotheraccount.blob.core.windows.net/container/file?sig=example',
+    'https://oaisdmntprnortheu.blob.core.windows.net/container?sig=example',
+    'https://oaisdmntprnortheu.blob.core.windows.net/container/file?sp=r',
+    'https://oaisdmntprnortheu.blob.core.windows.net/container/file?sig=example&sig=other',
+    'https://oaisdmntprnortheu.blob.core.windows.net/container/file?sig=example&versionid=other',
+  ])('refuses unsupported file endpoints before any lookup', async input => {
+    const resolve = vi.fn();
+    const get = vi.fn();
+    const source = createChatGptFileSource(resolve, get);
+    await expect(collect(source(new URL(input), 4))).rejects.toThrow('file_origin_unsupported');
+    expect(resolve).not.toHaveBeenCalled();
+    expect(get).not.toHaveBeenCalled();
   });
 
   it.each(['127.0.0.1', '10.0.0.5', '100.64.0.1', '169.254.169.254', '192.168.1.1',
@@ -40,16 +53,20 @@ describe('ChatGPT file download policy', () => {
     expect(get).not.toHaveBeenCalled();
   });
 
-  it('pins the validated address with fixed Host and TLS identity, and leaves bytes intact', async () => {
+  it.each([
+    [url, 'files.oaiusercontent.com', '/file-fixture?sig=short-lived'],
+    [new URL('https://oaisdmntprnortheu.blob.core.windows.net/container/file?sp=r&sig=short-lived'),
+      'oaisdmntprnortheu.blob.core.windows.net', '/container/file?sp=r&sig=short-lived'],
+  ])('pins the validated address and TLS identity for %s and leaves bytes intact', async (file, host, path) => {
     const get = vi.fn(async () => response(200, ['ab', 'cd'], { 'content-length': '4' }));
     const resolve = vi.fn(async () => ['8.8.8.8', '2606:4700::1111']);
     const source = createChatGptFileSource(resolve, get);
-    await expect(collect(source(url, 4))).resolves.toBe('abcd');
-    expect(resolve).toHaveBeenCalledOnce();
+    await expect(collect(source(file, 4))).resolves.toBe('abcd');
+    expect(resolve).toHaveBeenCalledExactlyOnceWith(host);
     expect(get).toHaveBeenCalledExactlyOnceWith(expect.objectContaining({
-      hostname: '8.8.8.8', port: 443, method: 'GET', path: '/file-fixture?sig=short-lived',
-      servername: 'files.oaiusercontent.com', rejectUnauthorized: true, minVersion: 'TLSv1.2', agent: false,
-      headers: { host: 'files.oaiusercontent.com', 'accept-encoding': 'identity' },
+      hostname: '8.8.8.8', port: 443, method: 'GET', path,
+      servername: host, rejectUnauthorized: true, minVersion: 'TLSv1.2', agent: false,
+      headers: { host, 'accept-encoding': 'identity' },
     }));
   });
 

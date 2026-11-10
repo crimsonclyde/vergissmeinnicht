@@ -321,7 +321,8 @@ Attach a JPEG or PNG to the chat and name the destination Workspace and Recipe o
 For a photo in a PDF, ask ChatGPT to extract the original photo as a separate JPEG or PNG
 and pass it as a file if the client makes that file available to the tool. VMN accepts
 the image bytes, preserves the original and creates its normal thumbnail. The tools
-accept file references from `https://files.oaiusercontent.com` only.
+accept file references from `https://files.oaiusercontent.com` and signed blob
+links at the exact ChatGPT storage account `oaisdmntprnortheu.blob.core.windows.net`.
 
 The raw MCP `tools/list` response marks `file` in `openai/fileParams` and describes
 an object with `file_id` and `download_url`. ChatGPT's description of a tool in
@@ -336,7 +337,7 @@ Starting with 0.13.5, use the file transfer code to identify the first failed st
 
 - `file_reference_required` means VMN did not receive a valid file object.
 - `file_source_invalid` means the object's download URL was malformed or unsafe.
-- `file_origin_unsupported` means the HTTPS URL was outside the supported origin.
+- `file_origin_unsupported` means the HTTPS URL was outside the supported file endpoints.
 - `file_unavailable` means the file host refused the link or no longer serves it.
   Ask ChatGPT for a fresh link for the same file and keep the operation ID.
 - `file_download_failed` means VMN could not complete the download.

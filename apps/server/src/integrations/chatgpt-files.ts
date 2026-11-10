@@ -5,8 +5,8 @@ import { BlockList, isIP } from 'node:net';
 import { checkServerIdentity } from 'node:tls';
 import { AttachmentError } from '@vergissmeinnicht/application';
 
-const FILE_HOST = 'files.oaiusercontent.com';
-const FILE_ORIGIN = `https://${FILE_HOST}`;
+export const CHATGPT_LEGACY_FILE_ORIGIN = 'https://files.oaiusercontent.com';
+const CHATGPT_BLOB_ORIGIN = 'https://oaisdmntprnortheu.blob.core.windows.net';
 
 export class ChatGptFileError extends Error {
   readonly code: 'file_source_invalid' | 'file_origin_unsupported' | 'file_download_failed' | 'file_unavailable';
@@ -24,8 +24,11 @@ export function chatGptFileUrl(input: string): URL {
   if (url.protocol !== 'https:' || url.username || url.password || url.hash || url.pathname === '/') {
     throw new ChatGptFileError('file_source_invalid');
   }
-  if (url.origin !== FILE_ORIGIN) throw new ChatGptFileError('file_origin_unsupported');
-  return url;
+  if (url.origin === CHATGPT_LEGACY_FILE_ORIGIN) return url;
+  if (url.origin === CHATGPT_BLOB_ORIGIN && /^\/[^/]+\/.+/.test(url.pathname) &&
+      ![...url.searchParams.keys()].some(key => ['snapshot', 'versionid'].includes(key.toLowerCase())) &&
+      url.searchParams.getAll('sig').length === 1 && url.searchParams.get('sig')) return url;
+  throw new ChatGptFileError('file_origin_unsupported');
 }
 
 const nonPublicV4 = new BlockList();
@@ -47,13 +50,13 @@ function isPublic(address: string): boolean {
     family === 6 && globalV6.check(address, 'ipv6') && !specialV6.check(address, 'ipv6');
 }
 
-async function resolveFileHost(): Promise<string[]> {
+async function resolveFileHost(host: string): Promise<string[]> {
   const resolver = new Resolver({ timeout: 3000, tries: 1 });
   const optional = (query: Promise<string[]>) => query.catch((error: NodeJS.ErrnoException) => {
     if (error.code === 'ENODATA') return [];
     throw error;
   });
-  return (await Promise.all([optional(resolver.resolve4(FILE_HOST)), optional(resolver.resolve6(FILE_HOST))])).flat();
+  return (await Promise.all([optional(resolver.resolve4(host)), optional(resolver.resolve6(host))])).flat();
 }
 
 function getFile(options: RequestOptions): Promise<IncomingMessage> {
@@ -66,23 +69,24 @@ function getFile(options: RequestOptions): Promise<IncomingMessage> {
 
 export type ChatGptFileSource = (url: URL, maxBytes: number) => AsyncIterable<Uint8Array>;
 
-/** Host and port are fixed. Only the opaque path and signed query come from ChatGPT. */
+/** Resolve only a reviewed file endpoint and connect to one of its verified public addresses. */
 export function createChatGptFileSource(resolve = resolveFileHost, get = getFile): ChatGptFileSource {
   let active = 0;
   return async function* (input, maxBytes) {
     const url = chatGptFileUrl(input.href);
+    const host = url.hostname;
     if (active >= 2) throw new AttachmentError('attachment_busy');
     active++;
     let response: IncomingMessage | undefined;
     try {
-      const addresses = await resolve();
+      const addresses = await resolve(host);
       const address = addresses[0];
       if (!address || !addresses.every(isPublic)) throw new ChatGptFileError('file_download_failed');
       response = await get({
         hostname: address, port: 443, path: url.pathname + url.search, method: 'GET',
-        servername: FILE_HOST, checkServerIdentity: (_name, cert) => checkServerIdentity(FILE_HOST, cert),
+        servername: host, checkServerIdentity: (_name, cert) => checkServerIdentity(host, cert),
         minVersion: 'TLSv1.2', rejectUnauthorized: true, agent: false,
-        signal: AbortSignal.timeout(20_000), headers: { host: FILE_HOST, 'accept-encoding': 'identity' },
+        signal: AbortSignal.timeout(20_000), headers: { host, 'accept-encoding': 'identity' },
       });
       if ([401, 403, 404, 410].includes(response.statusCode ?? 0)) throw new ChatGptFileError('file_unavailable');
       if (response.statusCode !== 200 || (response.headers['content-encoding'] ?? 'identity') !== 'identity') {

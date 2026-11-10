@@ -15,7 +15,7 @@ import { attachmentUploadWidgets } from './recipe-upload-widget.ts';
 
 const chatGptFileErrors: Record<ChatGptFileError['code'], string> = {
  file_source_invalid: 'ChatGPT did not provide a usable HTTPS download URL. A local path or sandbox link cannot be downloaded by VMN.',
- file_origin_unsupported: 'ChatGPT provided an HTTPS URL outside the supported file origin (https://files.oaiusercontent.com). VMN did not contact it.',
+ file_origin_unsupported: 'ChatGPT provided an HTTPS URL outside the supported file endpoints. VMN did not contact it.',
  file_download_failed: 'VMN could not complete the download from the supported ChatGPT file host. Keep the operation ID unchanged if retrying.',
  file_unavailable: 'The ChatGPT file link is expired or inaccessible. Request a fresh link for the same file and keep the operation ID unchanged.',
 };

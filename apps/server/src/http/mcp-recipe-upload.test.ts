@@ -1,4 +1,4 @@
-import { randomUUID } from 'node:crypto';
+import { randomBytes, randomUUID } from 'node:crypto';
 import sharp from 'sharp';
 import { afterEach, expect, it } from 'vitest';
 import type { McpScope, UserId } from '@vergissmeinnicht/domain';
@@ -10,6 +10,8 @@ afterEach(async () => { await app?.close(); });
 
 it('uploads supplied original bytes through OAuth MCP and safely attaches them on recipe save', async () => {
   const attachedJpeg = await sharp({ create: { width: 8, height: 6, channels: 3, background: '#114422' } }).withMetadata().jpeg().toBuffer();
+  const cookbookJpeg = await sharp(randomBytes(512 * 512 * 3), { raw: { width: 512, height: 512, channels: 3 } })
+    .withMetadata().jpeg({ quality: 90 }).toBuffer();
   let downloads = 0;
   const t = app = await startTestApp({ mcpEnabled: true, captureLogs: true, chatGptFileSource: async function* (url) {
     downloads++;
@@ -18,7 +20,7 @@ it('uploads supplied original bytes through OAuth MCP and safely attaches them o
       yield attachedJpeg.subarray(0, 8);
       throw new ChatGptFileError('file_download_failed');
     }
-    yield attachedJpeg;
+    yield url.hostname === 'oaisdmntprnortheu.blob.core.windows.net' ? cookbookJpeg : attachedJpeg;
   } });
   const workspaceId = await t.createWorkspace('Cookbook');
   const foreignWorkspace = await t.createWorkspace('Other cookbook');
@@ -205,6 +207,29 @@ it('uploads supplied original bytes through OAuth MCP and safely attaches them o
   expect(counted()).toEqual(before);
   expect(t.database.sqlite.prepare('SELECT count(*) AS n FROM attachment_reservations').get()).toEqual({ n: 0 });
   expect((await call('upload_recipe_image_file', { ...expiredUpload, file: refreshed })).structuredContent.attachment.format).toBe('JPEG');
+  expect(t.logs).not.toContain('fixture-secret');
+
+  const blob = { ...file, download_url: 'https://oaisdmntprnortheu.blob.core.windows.net/container/file-cookbook?sp=r&sig=fixture-secret' };
+  expect(cookbookJpeg.length).toBeGreaterThan(128 * 1024);
+  const cookbookUpload = { ...fileUpload, file: blob, operationId: randomUUID() };
+  const cookbookPhoto = await call('upload_recipe_image_file', cookbookUpload);
+  expect(cookbookPhoto.isError).toBeUndefined();
+  const afterCookbookDownload = downloads;
+  const refreshCookbook = { ...blob, download_url: blob.download_url.replace('fixture-secret', 'fresh-signature') };
+  expect((await call('upload_recipe_image_file', { ...cookbookUpload, file: refreshCookbook })).structuredContent)
+    .toMatchObject({ duplicate: true, attachment: cookbookPhoto.structuredContent.attachment });
+  const otherCookbook = { ...blob, download_url: blob.download_url.replace('file-cookbook', 'file-other') };
+  expect((await call('upload_recipe_image_file', { ...cookbookUpload, file: otherCookbook })).isError).toBe(true);
+  expect(downloads).toBe(afterCookbookDownload);
+  const cookbook = await call('create_recipe', { ...createArgs, operationId: randomUUID(), content: { ...createArgs.content,
+    title: 'Recipe from cookbook photo', instructions: cookbookPhoto.structuredContent.markdown,
+    coverImage: cookbookPhoto.structuredContent.attachment.reference } });
+  expect(cookbook.isError).toBeUndefined();
+  const cookbookId = JSON.parse(cookbook.content[0].text).recipeId;
+  expect(JSON.parse((await call('get_recipe', { workspaceId, recipeId: cookbookId })).content[0].text))
+    .toMatchObject({ coverImage: cookbookPhoto.structuredContent.attachment.reference });
+  expect((await t.get(`/api/workspaces/${workspaceId}/recipes/attachments/${cookbookPhoto.structuredContent.attachment.id}/original`, t.admin)).rawPayload)
+    .toEqual(cookbookJpeg);
   expect(t.logs).not.toContain('fixture-secret');
 
   const replacementPhoto = (await upload({ ...args, operationId: randomUUID(), fileName: 'replacement.png' })).structuredContent.attachment;

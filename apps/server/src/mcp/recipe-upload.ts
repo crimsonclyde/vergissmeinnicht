@@ -2,7 +2,7 @@ import { createHash } from 'node:crypto';
 import { Readable } from 'node:stream';
 import { AttachmentError, AttachmentUploadConflictError, authorizeRecipes, uploadAttachment } from '@vergissmeinnicht/application';
 import { DEFAULT_ATTACHMENT_UPLOAD_BYTES, normalizeOriginalFileName, type User, type WorkspaceId } from '@vergissmeinnicht/domain';
-import { chatGptFileUrl, type ChatGptFileSource } from '../integrations/chatgpt-files.ts';
+import { CHATGPT_LEGACY_FILE_ORIGIN, chatGptFileUrl, type ChatGptFileSource } from '../integrations/chatgpt-files.ts';
 import type { AppServices } from '../composition.ts';
 
 export const MCP_IMAGE_BYTES = DEFAULT_ATTACHMENT_UPLOAD_BYTES;
@@ -85,9 +85,12 @@ export async function uploadDelegatedImageFile(
   await authorize(true);
   const url = chatGptFileUrl(input.file.download_url);
   const name = normalizeOriginalFileName(input.file.file_name?.trim() || 'chatgpt-image');
-  // ChatGPT can refresh the signed query and omit optional metadata on a retry.
+  // Keep old receipts compatible. Azure Blob identity is the storage origin and path.
+  const identity = url.origin === CHATGPT_LEGACY_FILE_ORIGIN
+    ? url.pathname
+    : [url.origin, url.pathname];
   const payloadHash = createHash('sha256')
-    .update(JSON.stringify(['chatgpt-file', input.targetId, input.file.file_id, url.pathname])).digest('hex');
+    .update(JSON.stringify(['chatgpt-file', input.targetId, input.file.file_id, identity])).digest('hex');
   return persistDelegatedImage(deps, actor, workspaceId, authorize, { ...input, name, payloadHash,
     source: (maxBytes) => source(url, maxBytes),
   });

@@ -7152,6 +7152,49 @@ passed. There is no new permission, route,
 storage behavior or outbound connection. The instructions await deployment.
 Hosted List mutations, PDF extraction and the native origin remain unverified.
 
+**Hosted cookbook PDF retest (2026-11-10):** In the original ChatGPT chat,
+the native tool returned `file_origin_unsupported`. In two subsequent
+upload-only checks, Instant and Medium could access the extracted JPEG, which
+ChatGPT reported as 159,260 bytes. Medium reported encoding it to 212,348
+Base64 characters, but neither mode invoked `upload_recipe_image`; both
+reported that the code tool's bytes could not be passed to the MCP tool in
+that session. No Recipe was created or edited. These checks do not establish
+a size limit or identify the rejected origin. The next native-path check is
+to capture the actual origin without the URL path or query, then verify the
+reviewed origin with this PDF before release. No code or security surface
+changed in this diagnostic.
+
+**Native download compatibility (2026-11-10):** A live cookbook test on the
+Estuary candidate still returned `file_origin_unsupported`. A temporary
+image reported only the hostname, port and fixed route checks for one
+designated operation. The native reference used
+`oaisdmntprnortheu.blob.core.windows.net:443` with one signature parameter.
+The code now accepts signed blob paths on that exact storage account and
+retains the original OpenAI file host. It removes the speculative Estuary
+route. The security surface adds one specific outbound origin with public
+DNS pinning, verified TLS, no redirects, no credentials and bounded image
+validation. Blob upload receipts bind the origin and path, preserve legacy
+receipts and support retry with a renewed signature. Five focused suites
+passed all 79 tests, including byte-identical preservation of a JPEG over
+128 KiB and saving and reading a Recipe with its required cover. The amd64
+production Docker smoke test, typecheck, lint and diff checks passed.
+The operator authorized loading the images with a time-limited Docker-load
+key and editing only the VergissMeinNicht Unraid template. The running
+Repository is `vergissmeinnicht:chatgpt-blob-test` and readiness returned
+`{"status":"ready"}`. The original cookbook JPEG then uploaded through
+the native ChatGPT tool on the first attempt and returned a JPEG
+attachment reference. This was an upload-only test. The temporary origin
+probe is no longer running.
+
+### Release plan for 0.13.7, owner milestone 62 (2026-11-10)
+
+Publish the verified Azure Blob fix from main as `v0.13.7`, with GitHub
+release title `0.13.7` and the matching Unraid Repository tag. Run the release
+gates including a populated upgrade from the published 0.13.6 digest.
+After verification, use the GHCR release on Anubis and check VMN readiness.
+The owner count stays 61 until publication. Release 42 and its dedication
+remain in the published history.
+
 **Diagnostic Docker build (2026-11-10):** Built the current upload diagnostics
 as `vergissmeinnicht:0.13.4-file-diagnostics.1` for Linux amd64. The production
 image smoke test passed, including startup, backup, migrations and media
