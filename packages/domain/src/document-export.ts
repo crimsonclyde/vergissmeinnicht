@@ -1,4 +1,5 @@
 import { DOCUMENT_FILE_TYPES, type DocumentFileFormat } from './document-file.ts';
+import { trimDotsAndWhiteSpace } from './text.ts';
 
 /**
  * Export of Documents (steps.md 16.4, H12): a ZIP with the **original files in their Folder
@@ -24,7 +25,7 @@ const WINDOWS_RESERVED = /^(con|prn|aux|nul|com[0-9]|lpt[0-9])(\..*)?$/i;
 
 const shorten = (text: string, length: number) => [...text].slice(0, length).join('');
 /** No leading or trailing dots and spaces: `..` cannot survive, and Windows drops them anyway. */
-const trimEnds = (text: string) => text.replace(/^[.\s]+|[.\s]+$/g, '');
+const trimEnds = trimDotsAndWhiteSpace;
 
 /**
  * One safe path segment from any text: NFC, unsafe characters replaced by `_`, runs of white space

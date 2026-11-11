@@ -53,6 +53,12 @@ describe('document files (16.1)', () => {
     const long = downloadFileName(`${'x'.repeat(250)}.pdf`, 'PDF');
     expect(long).toHaveLength(120);
     expect(long.endsWith('.pdf')).toBe(true);
+    // Long runs of dots or spaces inside a name are trimmed in linear time (no regex backtracking).
+    const started = Date.now();
+    const spaced = downloadFileName(`a${' .'.repeat(100_000)}b.pdf`, 'PDF');
+    expect(spaced.length).toBeLessThanOrEqual(120);
+    expect(spaced.endsWith('.pdf')).toBe(true);
+    expect(Date.now() - started).toBeLessThan(1000);
     for (const name of ['../../x<script>.pdf', 'a/b\\c.pdf', 'x\u0007y.pdf']) {
       expect(downloadFileName(name, 'PDF')).not.toMatch(/[\\/<>\p{Cc}]/u);
     }

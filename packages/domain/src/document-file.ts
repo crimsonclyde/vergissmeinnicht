@@ -1,5 +1,5 @@
 import { DomainValidationError } from './errors.ts';
-import { BIDI_CONTROLS, INVISIBLE_OR_INVALID_CHARS } from './text.ts';
+import { BIDI_CONTROLS, INVISIBLE_OR_INVALID_CHARS, trimDotsAndWhiteSpace } from './text.ts';
 import { UUID_V4 } from './user.ts';
 
 /**
@@ -81,7 +81,7 @@ const WINDOWS_RESERVED = /^(con|prn|aux|nul|com[0-9]|lpt[0-9])$/i;
  */
 export function downloadFileName(originalName: string, format: DocumentFileFormat): string {
   const type = DOCUMENT_FILE_TYPES[format];
-  const name = originalName.replace(UNSAFE_DOWNLOAD_CHARS, '_').replace(/^[.\s]+|[.\s]+$/g, '');
+  const name = trimDotsAndWhiteSpace(originalName.replace(UNSAFE_DOWNLOAD_CHARS, '_'));
   const dot = name.lastIndexOf('.');
   const extension = dot > 0 ? name.slice(dot + 1).toLowerCase() : '';
   let stem = type.extensions.includes(extension) ? name.slice(0, dot) : name;

@@ -121,7 +121,8 @@ export function normalizeListItemQuantity(input: string | null | undefined): str
   const match = QUANTITY.exec(value);
   if (match === null) throw new DomainValidationError('quantity', 'invalid_list_item_quantity', 'Quantity must be a positive number');
   const whole = String(Number(match[1]));
-  const fraction = (match[2] ?? '').replace(/0+$/, '');
+  let fraction = match[2] ?? '';
+  while (fraction.endsWith('0')) fraction = fraction.slice(0, -1);
   if (Number(whole) === 0 && fraction === '') throw new DomainValidationError('quantity', 'invalid_list_item_quantity', 'Quantity must be a positive number');
   return fraction === '' ? whole : `${whole}.${fraction}`;
 }

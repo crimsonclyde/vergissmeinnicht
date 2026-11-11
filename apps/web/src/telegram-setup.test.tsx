@@ -155,7 +155,7 @@ describe('Telegram connection (account)', () => {
     expect(currentStep(html)).toContain('Open Telegram and press Start');
     expect(html).toContain('✓');
     expect(html).toContain('(done)');
-    expect(html).toContain(`href="${link.replace('&', '&amp;')}"`);
+    expect(html).toContain(`href="${link.replaceAll('&', '&amp;')}"`);
     expect(html).toContain('Open Telegram</a>');
     expect(html).toContain('Waiting for Telegram…');
     // In another tab (or after a reload) the one-time link is not shown again.

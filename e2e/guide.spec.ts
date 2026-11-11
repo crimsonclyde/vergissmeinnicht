@@ -553,7 +553,7 @@ test('MCP requires MFA and visible consent and supports revoking a scoped user c
  await expect(page.getByRole('heading',{name:'Connect Fictional AI assistant'})).toBeVisible();expect(page.url()).toBe(consentUrl);
  await expect(page.getByRole('checkbox',{name:'Fictional assistant kitchen',exact:true})).not.toBeChecked();await expect(page.getByRole('button',{name:'Allow connection',exact:true})).toBeDisabled();
  await page.route('https://client.example.org/**',route=>route.fulfill({contentType:'text/plain',body:'Fictional OAuth callback'}));
- await page.getByRole('button',{name:'Decline',exact:true}).click();await expect(page).toHaveURL(/^https:\/\/client.example.org\/callback\?error=access_denied/);
+ await page.getByRole('button',{name:'Decline',exact:true}).click();await expect(page).toHaveURL(/^https:\/\/client\.example\.org\/callback\?error=access_denied/);
  await page.goto('/authorize?'+authorization);await expect(page.getByRole('heading',{name:'Connect Fictional AI assistant'})).toBeVisible();await expectAccessible(page,'MCP consent');
  await page.setViewportSize({width:320,height:850});
  await page.getByRole('checkbox',{name:'Fictional assistant kitchen',exact:true}).check();
@@ -564,7 +564,7 @@ test('MCP requires MFA and visible consent and supports revoking a scoped user c
  await expect(coverAccess).toHaveValue('none');
  await coverAccess.selectOption('write');
  expect(await page.evaluate('document.documentElement.scrollWidth <= innerWidth')).toBe(true);
- await page.getByRole('button',{name:'Allow connection',exact:true}).click();await expect(page).toHaveURL(/^https:\/\/client.example.org\/callback\?code=/);
+ await page.getByRole('button',{name:'Allow connection',exact:true}).click();await expect(page).toHaveURL(/^https:\/\/client\.example\.org\/callback\?code=/);
  await page.goto(guideServerEnv.PUBLIC_ORIGIN+'/account/connections');
  await expect(page.getByText('Fictional AI assistant',{exact:true})).toBeVisible();
  await expect(page.getByText('Consent saved. No token exchange recorded.',{exact:true})).toBeVisible();
