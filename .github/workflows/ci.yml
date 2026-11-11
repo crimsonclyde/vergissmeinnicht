@@ -60,7 +60,13 @@ jobs:
           node-version-file: .nvmrc
           cache: pnpm
       - run: pnpm install --frozen-lockfile
-      - run: pnpm exec playwright install --with-deps chromium
+      # The runner image already has Chromium's libraries; --with-deps only adds optional fonts
+      # from the Ubuntu mirror. If that mirror is unreachable, install Chromium alone.
+      - name: Install Chromium
+        run: |
+          timeout 240 pnpm exec playwright install --with-deps chromium && exit 0
+          echo "::warning::Ubuntu mirror unreachable; installing Chromium without extra system fonts"
+          pnpm exec playwright install chromium
       # test:e2e already builds the production web assets; no duplicate build.
       # Theme/opacity reviews share loopback with the other fixtures: keep the real request limits
       # intact and run browser flows sequentially rather than saturating them with parallel reloads.
