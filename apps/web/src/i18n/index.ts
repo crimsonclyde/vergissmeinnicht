@@ -96,6 +96,17 @@ export function formatCalendarDate(date: string): string {
   );
 }
 
+/** "Thu" for a calendar date `YYYY-MM-DD`. */
+export function formatWeekdayShort(date: string): string {
+  const [year, month, day] = date.split('-').map(Number) as [number, number, number];
+  return new Intl.DateTimeFormat(formatLocale(), { weekday: 'short', timeZone: 'UTC' }).format(new Date(Date.UTC(year, month - 1, day, 12)));
+}
+
+/** "7:12 AM" / "07:12" for a place's wall time `YYYY-MM-DDTHH:MM`, exactly as given (no time zone conversion). */
+export function formatWallTime(time: string): string {
+  return new Intl.DateTimeFormat(formatLocale(), { hour: 'numeric', minute: '2-digit', timeZone: 'UTC' }).format(new Date(`${time}:00Z`));
+}
+
 /** "October 2026" for a month `YYYY-MM`. */
 export function formatMonth(month: string): string {
   const [year, index] = month.split('-').map(Number) as [number, number];

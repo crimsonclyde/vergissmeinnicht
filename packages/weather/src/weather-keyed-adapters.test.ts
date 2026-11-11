@@ -36,12 +36,12 @@ async function reason(promise: Promise<unknown>): Promise<string> {
 describe('OpenWeather One Call 3.0 (19.4b; documented format, no live account)', () => {
   const credential = { provider: 'OPENWEATHER' as const, apiKey: KEY };
 
-  it('asks only its fixed URL, once, metric, without minutely/hourly/alerts, and normalises 8 days', async () => {
+  it('asks only its fixed URL, once, metric, without minutely/alerts, and normalises 8 days', async () => {
     const seen: Seen[] = [];
     const answer = await createOpenWeather({ fetch: fakeFetch(() => json(fixture('openweather-onecall.json')), seen) }).forecast({ ...TRIORA, credential });
     expect(seen).toHaveLength(1);
     expect(seen[0]?.url.origin + (seen[0]?.url.pathname ?? '')).toBe('https://api.openweathermap.org/data/3.0/onecall');
-    expect(Object.fromEntries(seen[0]?.url.searchParams ?? [])).toEqual({ lat: '43.99', lon: '7.77', units: 'metric', exclude: 'minutely,hourly,alerts', appid: KEY });
+    expect(Object.fromEntries(seen[0]?.url.searchParams ?? [])).toEqual({ lat: '43.99', lon: '7.77', units: 'metric', exclude: 'minutely,alerts', appid: KEY });
     if (answer.kind !== 'forecast') throw new Error('expected a forecast');
     const { forecast } = answer;
     expect(forecast.days).toHaveLength(8);
@@ -51,6 +51,28 @@ describe('OpenWeather One Call 3.0 (19.4b; documented format, no live account)',
     expect(forecast.days[1]).not.toHaveProperty('precipitationSum');
     expect(forecast.days[2]).toMatchObject({ precipitationSum: 1.6, condition: 'SLEET' });
     expect(forecast.days.map((day) => day.condition)).toEqual(['RAIN', 'PARTLY_CLOUDY', 'SLEET', 'CLEAR', 'CLEAR', 'CLOUDY', 'THUNDER', 'FOG']);
+  });
+
+  it('reads feels-like, gusts, UV, sunrise/sunset and the first day\'s hours from the same call', async () => {
+    const body = JSON.parse(fixture('openweather-onecall.json')) as Record<string, unknown> & { current: Record<string, unknown>; daily: Record<string, unknown>[]; timezone_offset: number };
+    const first = body.daily[0] as { dt: number };
+    // Noon of the first local day, and noon of the next one (left out).
+    const noon = Math.floor((first.dt * 1000 + body.timezone_offset * 1000) / 86_400_000) * 86_400 + 12 * 3600 - body.timezone_offset;
+    const extended = {
+      ...body,
+      current: { ...body.current, feels_like: 13.26, wind_gust: 10, uvi: 2.14 },
+      daily: [{ ...first, uvi: 4.5, sunrise: noon - 5 * 3600, sunset: noon + 6 * 3600 }, ...body.daily.slice(1)],
+      hourly: [
+        { dt: noon, temp: 17.04, pop: 0.42, uvi: 4.1, weather: [{ id: 500 }] },
+        { dt: noon + 86_400, temp: 12, pop: 0, weather: [{ id: 800 }] },
+        'not an hour',
+      ],
+    };
+    const answer = await createOpenWeather({ fetch: fakeFetch(() => json(JSON.stringify(extended))) }).forecast({ ...TRIORA, credential });
+    if (answer.kind !== 'forecast') throw new Error('expected a forecast');
+    expect(answer.forecast.current).toMatchObject({ apparentTemperature: 13.3, windGusts: 36, uvIndex: 2.1 });
+    expect(answer.forecast.days[0]).toMatchObject({ uvIndexMax: 4.5, sunrise: '2026-10-08T07:00', sunset: '2026-10-08T18:00' });
+    expect(answer.forecast.hours).toEqual([{ time: '2026-10-08T12:00', temperature: 17, condition: 'RAIN', precipitationProbability: 42, uvIndex: 4.1 }]);
   });
 
   it('refuses to run without its credential and maps a bad key and an exhausted quota to stable reasons', async () => {

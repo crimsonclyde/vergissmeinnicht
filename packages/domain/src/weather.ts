@@ -64,6 +64,29 @@ export interface WeatherDay {
   readonly windSpeedMax?: number;
   readonly condition?: WeatherCondition;
   readonly partial?: boolean;
+  /** Highest UV index of the day. */
+  readonly uvIndexMax?: number;
+  /** Local wall time at the place, `YYYY-MM-DDTHH:MM`. */
+  readonly sunrise?: string;
+  readonly sunset?: string;
+}
+
+/** One hour of the place's first forecast day; `time` is local wall time at the place, `YYYY-MM-DDTHH:00`. */
+export interface WeatherHour {
+  readonly time: string;
+  /** °C */
+  readonly temperature?: number;
+  readonly condition?: WeatherCondition;
+  /** % */
+  readonly precipitationProbability?: number;
+  readonly uvIndex?: number;
+}
+
+/** A 15-minute step of the next hours; `time` is local wall time at the place, `YYYY-MM-DDTHH:MM`. */
+export interface WeatherQuarter {
+  readonly time: string;
+  /** mm in these 15 minutes */
+  readonly precipitation: number;
 }
 
 export interface WeatherCurrent {
@@ -74,6 +97,11 @@ export interface WeatherCurrent {
   readonly windSpeed?: number;
   /** mm in the current hour */
   readonly precipitation?: number;
+  /** °C, "feels like" */
+  readonly apparentTemperature?: number;
+  /** km/h */
+  readonly windGusts?: number;
+  readonly uvIndex?: number;
 }
 
 /** The normalised forecast every provider adapter returns (°C, mm, km/h, %). */
@@ -85,6 +113,10 @@ export interface WeatherForecast {
   readonly issuedAt?: string;
   readonly current?: WeatherCurrent;
   readonly days: readonly WeatherDay[];
+  /** The hours of the first day, where the provider gives hourly values in the same request. */
+  readonly hours?: readonly WeatherHour[];
+  /** Precipitation in 15-minute steps for the next hours (Open-Meteo only). */
+  readonly quarters?: readonly WeatherQuarter[];
 }
 
 export const WEATHER_UNITS = ['C', 'F'] as const;

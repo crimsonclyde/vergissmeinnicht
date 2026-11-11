@@ -1,5 +1,5 @@
 import { WeatherProviderError, type WeatherProviderAdapter } from '@vergissmeinnicht/application';
-import { conditionFromMetSymbol, type WeatherCondition, type WeatherDay } from '@vergissmeinnicht/domain';
+import { conditionFromMetSymbol, type WeatherCondition, type WeatherDay, type WeatherHour } from '@vergissmeinnicht/domain';
 import { finite, getJson, isRecord, round1, type Fetch } from './http.ts';
 import { optional } from './open-meteo.ts';
 
@@ -141,10 +141,20 @@ export function createMetNorway(options: { readonly fetch?: Fetch; readonly user
         ...optional('windSpeed', round1(first.windSpeed)),
         ...optional('precipitation', round1(first.hour1?.precipitation)),
       };
+      // The hours of the first day, from MET's hourly instants (no rain probability in the compact product).
+      const firstDay = dayList[0]?.[0];
+      const hours: WeatherHour[] = (firstDay === undefined ? [] : byDay.get(firstDay) ?? []).flatMap(({ slot, hour }): WeatherHour[] => {
+        const entry: WeatherHour = {
+          time: `${firstDay}T${String(hour).padStart(2, '0')}:00`,
+          ...optional('temperature', round1(slot.temperature)),
+          ...optional('condition', conditionFromMetSymbol(slot.hour1?.symbol)),
+        };
+        return Object.keys(entry).length > 1 ? [entry] : [];
+      });
       const lastModified = response.headers.get('last-modified') ?? undefined;
       return {
         kind: 'forecast',
-        forecast: { provider: 'MET_NORWAY', ...optional('issuedAt', updated), ...(Object.keys(current).length > 0 ? { current } : {}), days },
+        forecast: { provider: 'MET_NORWAY', ...optional('issuedAt', updated), ...(Object.keys(current).length > 0 ? { current } : {}), days, ...(hours.length > 0 ? { hours } : {}) },
         ...optional('expiresAt', expiresAt),
         ...optional('lastModified', lastModified),
       };

@@ -18,6 +18,14 @@ For every completed task, add a concise completion note, tests/checks performed,
 
 ## Current state — resume here
 
+**Release 0.13.11 prepared (owner release 65, 2026-11-11).** Includes PR #92 (Weather
+page, 36.15), PR #93 (one-call ChatGPT Recipe photos, 36.14), PR #94 (faster CI: parallel
+browser suites, release reuses the passing main CI of its commit, four upgrade checks) and
+PR #95 (CodeQL fixes: linear name trimming). The owner enabled CodeQL default setup, secret
+scanning with push protection and Dependabot security updates. No migration. Release
+upgrade checks now start from 0.13.10. Pending: owner publishes `v0.13.11`, then record
+the published digest here, the release notes and the owner count (65) in AGENTS.md.
+
 **Published owner release 64 (2026-11-11 Europe/Berlin; 2026-11-10 UTC).**
 Stable 0.13.10 was published from `v0.13.10`, source
 `78f5a2d50a29050829101082ff7c73b57507572a`, including the other chat's committed
@@ -7503,6 +7511,39 @@ Security surface changed (outbound host policy, error/log content, new write too
 security.md 36.14. Remaining: hosted ChatGPT check of both flows after deployment and a tool
 refresh. Whether ChatGPT honours `openai/visibility` for these tools must be confirmed live;
 if not, the tool descriptions still steer it to the one-call route.
+
+### 36.15 Picturesque Weather page (owner request 2026-11-11)
+
+The opened Weather page uses the painted condition art of the Today card
+instead of line icons and CSS skies. "Now" shows the painting, the
+temperature, high and low, and small icon readings that explain themselves
+in one line on a tap: rain chance (amount in the explanation, or the amount
+alone), wind, feels like, UV index (with the hours needing sun protection)
+and sunrise to sunset; strong gusts (from 50 km/h) only when there are any.
+"Rain in 20 min" or "Raining now" appears only when Open-Meteo's quarter
+hours show rain coming.
+
+Every chart is a line graph (owner: no bars). Today draws the temperature
+from 0 to 24 h with night shaded and a "now" marker, with four painted
+moments (morning, midday, afternoon, evening) and their rain chance. Next
+days draw highs and lows as two lines with the values on the points. Past
+14 days draw the daily average over the low-to-high band; a day without a
+reading is bridged by a dashed line. Lines are drawn in a stretched SVG and
+every label in HTML, so text keeps its size on phones.
+
+No extra provider calls. Open-Meteo asks for `hourly`, `minutely_15` (12
+steps) and more `current`/`daily` variables in the same request; MET Norway's
+hours come from the timeseries it already returns (no rain chance, UV or sun
+times in the compact product); OpenWeather keeps `hourly` in its One Call
+(still one billed call). Meteomatics gets no hours, so its page shows no
+Today chart. `WeatherForecast` gains optional `hours` and `quarters`, days
+gain `uvIndexMax`, `sunrise`, `sunset` (place wall time) and current gains
+`apparentTemperature`, `windGusts`, `uvIndex`. No migration; saved offline
+copies without the new fields still show.
+
+Colours come only from each theme's tokens, so Light, Dark, Memento Mori,
+Tokyo Nights, Witch Forest, Space Guide and the Places themes were checked
+by screenshot without per-theme rules; forced colours draw plain lines.
 
 ### Release plan for 0.13.10, owner milestone 64 (2026-11-10)
 
