@@ -1,18 +1,24 @@
 import { WeatherProviderError, type GeocoderPort, type ModelCoverage, type OpenMeteoModelsPort, type PlaceResult, type WeatherProviderAdapter } from '@vergissmeinnicht/application';
-import { BIDI_CONTROLS, INVISIBLE_OR_INVALID_CHARS, conditionFromWmo, roundCoordinate, type OpenMeteoModelId, type WeatherDay } from '@vergissmeinnicht/domain';
+import { BIDI_CONTROLS, INVISIBLE_OR_INVALID_CHARS, conditionFromWmo, roundCoordinate, type OpenMeteoModelId, type WeatherDay, type WeatherHour, type WeatherQuarter } from '@vergissmeinnicht/domain';
 import { finite, getJson, isRecord, round1, type Fetch } from './http.ts';
 
 /** The only hosts this adapter talks to (19.4; verified 2026-10-08). */
 const FORECAST_URL = 'https://api.open-meteo.com/v1/forecast';
 const GEOCODING_URL = 'https://geocoding-api.open-meteo.com/v1/search';
-const DAILY = ['temperature_2m_max', 'temperature_2m_min', 'precipitation_sum', 'precipitation_probability_max', 'weather_code', 'wind_speed_10m_max'] as const;
-const CURRENT = ['temperature_2m', 'weather_code', 'wind_speed_10m', 'precipitation'] as const;
+const DAILY = ['temperature_2m_max', 'temperature_2m_min', 'precipitation_sum', 'precipitation_probability_max', 'weather_code', 'wind_speed_10m_max', 'uv_index_max', 'sunrise', 'sunset'] as const;
+const CURRENT = ['temperature_2m', 'weather_code', 'wind_speed_10m', 'precipitation', 'apparent_temperature', 'wind_gusts_10m', 'uv_index'] as const;
+const HOURLY = ['temperature_2m', 'weather_code', 'precipitation_probability', 'uv_index'] as const;
+/** The next 3 hours in 15-minute steps: enough for "rain in 20 min". */
+const QUARTERS = 12;
+const LOCAL_TIME = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/;
 /** Open-Meteo's longest horizon; a model with fewer days simply has no values for the rest (they are left out). */
 export const FORECAST_DAYS = 16;
 const COVERAGE_DAYS = 16;
 const PLACES = 8;
 
 const array = (value: unknown): unknown[] => (Array.isArray(value) ? value : []);
+/** A provider's local wall time `YYYY-MM-DDTHH:MM`, or nothing when it is not one. */
+export const localTime = (value: unknown): string | undefined => (typeof value === 'string' && LOCAL_TIME.test(value) ? value : undefined);
 const DATE = /^\d{4}-\d{2}-\d{2}$/;
 
 /**
@@ -38,6 +44,10 @@ export function createOpenMeteo(options: { readonly fetch?: Fetch } = {}): Weath
       url.searchParams.set('forecast_days', String(FORECAST_DAYS));
       url.searchParams.set('current', CURRENT.join(','));
       url.searchParams.set('daily', DAILY.join(','));
+      // Same request: the hours of today and the next quarter hours (no extra call).
+      url.searchParams.set('hourly', HOURLY.join(','));
+      url.searchParams.set('minutely_15', 'precipitation');
+      url.searchParams.set('forecast_minutely_15', String(QUARTERS));
       url.searchParams.set('wind_speed_unit', 'kmh');
       url.searchParams.set('models', query.model ?? 'best_match');
       const { body } = await getJson(doFetch, url, {});
@@ -56,6 +66,9 @@ export function createOpenMeteo(options: { readonly fetch?: Fetch } = {}): Weath
           ...optional('precipitationProbabilityMax', at('precipitation_probability_max')),
           ...optional('windSpeedMax', round1(at('wind_speed_10m_max'))),
           ...optional('condition', conditionFromWmo(at('weather_code'))),
+          ...optional('uvIndexMax', round1(at('uv_index_max'))),
+          ...optional('sunrise', localTime(array(daily.sunrise)[index])),
+          ...optional('sunset', localTime(array(daily.sunset)[index])),
         };
         // A day with no value at all is outside what this model forecasts: leave it out.
         if (Object.keys(day).length > 1) days.push(day);
@@ -68,10 +81,41 @@ export function createOpenMeteo(options: { readonly fetch?: Fetch } = {}): Weath
         ...optional('condition', conditionFromWmo(finite(current.weather_code))),
         ...optional('windSpeed', round1(finite(current.wind_speed_10m))),
         ...optional('precipitation', round1(finite(current.precipitation))),
+        ...optional('apparentTemperature', round1(finite(current.apparent_temperature))),
+        ...optional('windGusts', round1(finite(current.wind_gusts_10m))),
+        ...optional('uvIndex', round1(finite(current.uv_index))),
       };
+      const firstDay = days[0]?.date ?? '';
+      const hourly = isRecord(body.hourly) ? body.hourly : {};
+      const hours: WeatherHour[] = array(hourly.time).flatMap((time, index): WeatherHour[] => {
+        const local = localTime(time);
+        if (local === undefined || !local.startsWith(firstDay)) return [];
+        const at = (name: (typeof HOURLY)[number]) => finite(array(hourly[name])[index]);
+        const hour: WeatherHour = {
+          time: local,
+          ...optional('temperature', round1(at('temperature_2m'))),
+          ...optional('condition', conditionFromWmo(at('weather_code'))),
+          ...optional('precipitationProbability', at('precipitation_probability')),
+          ...optional('uvIndex', round1(at('uv_index'))),
+        };
+        return Object.keys(hour).length > 1 ? [hour] : [];
+      });
+      const minutely = isRecord(body.minutely_15) ? body.minutely_15 : {};
+      const quarters: WeatherQuarter[] = array(minutely.time).flatMap((time, index): WeatherQuarter[] => {
+        const local = localTime(time);
+        const precipitation = finite(array(minutely.precipitation)[index]);
+        return local === undefined || precipitation === undefined ? [] : [{ time: local, precipitation: round1(precipitation) ?? 0 }];
+      }).slice(0, QUARTERS);
       return {
         kind: 'forecast',
-        forecast: { provider: 'OPEN_METEO', model: query.model ?? 'best_match', ...(Object.keys(now).length > 0 ? { current: now } : {}), days },
+        forecast: {
+          provider: 'OPEN_METEO',
+          model: query.model ?? 'best_match',
+          ...(Object.keys(now).length > 0 ? { current: now } : {}),
+          days,
+          ...(hours.length > 0 ? { hours } : {}),
+          ...(quarters.length > 0 ? { quarters } : {}),
+        },
       };
     },
 

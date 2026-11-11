@@ -1750,9 +1750,10 @@ test('first server admin: bootstrap link, account creation, sign-in, Workspace c
   await weatherCard.locator('.instrument-picture').click();
   await expect(page).toHaveURL('/weather');
   const detailed = page.locator('.weather-page');
-  await expect(detailed).toContainText('High 18° · Low 12°');
+  await expect(detailed.locator('.weather-minmax')).toContainText('High 18°');
+  await expect(detailed.locator('.weather-minmax')).toContainText('Low 12°');
   await expect(detailed).toContainText('11.9 mm');
-  await expect(detailed.locator('.weather-next-days')).toContainText('19° / 9°');
+  await expect(detailed.locator('.weather-next-days')).toContainText('High 19°, Low 9°');
   await page.getByRole('button', { name: 'Back', exact: true }).click();
   await expect(page.locator('.today-instruments [data-card="weather"]')).toHaveCount(1);
   await page.setViewportSize({ width: 320, height: 700 });

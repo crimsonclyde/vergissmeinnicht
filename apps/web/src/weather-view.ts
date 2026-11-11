@@ -1,4 +1,4 @@
-import { OPEN_METEO_MODELS, type WeatherCondition, type WeatherDay, type WeatherHistoryDay, type WeatherProviderId } from '@vergissmeinnicht/domain';
+import { OPEN_METEO_MODELS, type WeatherCondition, type WeatherDay, type WeatherHistoryDay, type WeatherHour, type WeatherProviderId, type WeatherQuarter } from '@vergissmeinnicht/domain';
 import type { UiIconName } from './ui-icons.tsx';
 
 /** A forecast older than this is not shown at all, not even labelled (19.4). */
@@ -66,9 +66,109 @@ export function historyColumns(today: string, history: readonly WeatherHistoryDa
 }
 const HISTORY_COLUMNS = 14;
 
-/** The sky drawn behind the current reading, by condition: the page animates it (none for an unknown condition). */
-export type SkyKind = 'clear' | 'cloud' | 'fog' | 'rain' | 'snow' | 'thunder' | 'none';
-const SKIES: Record<WeatherCondition, SkyKind> = { CLEAR: 'clear', PARTLY_CLOUDY: 'cloud', CLOUDY: 'cloud', FOG: 'fog', DRIZZLE: 'rain', RAIN: 'rain', SHOWERS: 'rain', SLEET: 'snow', SNOW: 'snow', THUNDER: 'thunder', UNKNOWN: 'none' };
-export const conditionSky = (condition: WeatherCondition | undefined): SkyKind => SKIES[condition ?? 'UNKNOWN'];
 /** Whether a forecast fetched at `fetchedAt` may still be shown (with its time when stale). */
 export const showable = (fetchedAt: string, now: Date = new Date()): boolean => now.getTime() - Date.parse(fetchedAt) <= WEATHER_SHOW_MAX_MS;
+
+/** The place's wall time now, `YYYY-MM-DDTHH:MM` — compared as text with the provider's local times. */
+export function wallTimeAt(now: Date, timeZone: string): string {
+  try {
+    const parts = Object.fromEntries(
+      new Intl.DateTimeFormat('en-US', { timeZone, year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }).formatToParts(now).map((part) => [part.type, part.value]),
+    ) as Record<string, string>;
+    return `${parts.year}-${parts.month}-${parts.day}T${parts.hour}:${parts.minute}`;
+  } catch {
+    return now.toISOString().slice(0, 16);
+  }
+}
+
+/** Hours since midnight of a wall time `YYYY-MM-DDTHH:MM` (e.g. 7.5 for 07:30). */
+export const hourOf = (time: string): number => Number(time.slice(11, 13)) + Number(time.slice(14, 16)) / 60;
+
+export type MomentId = 'morning' | 'midday' | 'afternoon' | 'evening';
+const MOMENTS: readonly { readonly id: MomentId; readonly hour: number }[] = [
+  { id: 'morning', hour: 8 },
+  { id: 'midday', hour: 12 },
+  { id: 'afternoon', hour: 15 },
+  { id: 'evening', hour: 19 },
+];
+
+/** Four moments of the day, each the forecast hour nearest to it (within 2 hours); a moment without one is left out. */
+export function dayMoments(hours: readonly WeatherHour[]): readonly { readonly id: MomentId; readonly hour: WeatherHour }[] {
+  return MOMENTS.flatMap(({ id, hour }) => {
+    const nearest = hours
+      .filter((each) => each.temperature !== undefined && Math.abs(hourOf(each.time) - hour) <= 2)
+      .sort((a, b) => Math.abs(hourOf(a.time) - hour) - Math.abs(hourOf(b.time) - hour))[0];
+    return nearest === undefined ? [] : [{ id, hour: nearest }];
+  });
+}
+
+/** Precipitation below this (mm in 15 minutes) does not count as rain. */
+const RAIN_QUARTER_MM = 0.1;
+
+/**
+ * Rain in the next hours from the 15-minute steps: `now` while the current step is wet, else the minutes until the
+ * first wet step; `null` when it stays dry (or there are no steps). Steps that have passed are ignored.
+ */
+export function rainSoon(quarters: readonly WeatherQuarter[] | undefined, nowWall: string): { readonly kind: 'now' } | { readonly kind: 'in'; readonly minutes: number } | null {
+  if (quarters === undefined) return null;
+  const minutes = (time: string) => Date.parse(`${time}:00Z`) / 60_000;
+  const now = minutes(nowWall);
+  for (const quarter of quarters) {
+    const start = minutes(quarter.time);
+    if (start + 15 <= now) continue;
+    if (quarter.precipitation < RAIN_QUARTER_MM) continue;
+    if (start <= now) return { kind: 'now' };
+    return { kind: 'in', minutes: Math.max(5, Math.round((start - now) / 5) * 5) };
+  }
+  return null;
+}
+
+export type UvLevel = 'low' | 'moderate' | 'high' | 'veryHigh' | 'extreme';
+/** The WHO scale: 0–2 low, 3–5 moderate, 6–7 high, 8–10 very high, 11+ extreme. */
+export function uvLevel(index: number): UvLevel {
+  const rounded = Math.round(index);
+  return rounded <= 2 ? 'low' : rounded <= 5 ? 'moderate' : rounded <= 7 ? 'high' : rounded <= 10 ? 'veryHigh' : 'extreme';
+}
+
+/** First and last hour of the day with UV 3 or more (sun protection advised), or `null`. */
+export function uvWindow(hours: readonly WeatherHour[]): { readonly from: string; readonly to: string } | null {
+  const strong = hours.filter((hour) => hour.uvIndex !== undefined && Math.round(hour.uvIndex) >= 3);
+  const first = strong[0];
+  const last = strong.at(-1);
+  if (first === undefined || last === undefined) return null;
+  return { from: first.time, to: `${last.time.slice(0, 11)}${String(Math.min(23, Number(last.time.slice(11, 13)) + 1)).padStart(2, '0')}:00` };
+}
+
+/** Gusts are worth a tile only when they are strong (Beaufort 7, "near gale", from about 50 km/h). */
+export const STRONG_GUSTS_KMH = 50;
+
+/** A smooth SVG path through the points (Catmull-Rom as cubic Béziers); a single point is a dot-sized line. */
+export function smoothPath(points: readonly { readonly x: number; readonly y: number }[]): string {
+  const [first] = points;
+  if (first === undefined) return '';
+  if (points.length === 1) return `M${first.x} ${first.y}h0.01`;
+  const at = (index: number) => points[Math.max(0, Math.min(points.length - 1, index))] as { x: number; y: number };
+  let path = `M${first.x} ${first.y}`;
+  for (let index = 0; index < points.length - 1; index += 1) {
+    const [p0, p1, p2, p3] = [at(index - 1), at(index), at(index + 1), at(index + 2)];
+    const c1 = { x: p1.x + (p2.x - p0.x) / 6, y: p1.y + (p2.y - p0.y) / 6 };
+    const c2 = { x: p2.x - (p3.x - p1.x) / 6, y: p2.y - (p3.y - p1.y) / 6 };
+    path += ` C${round(c1.x)} ${round(c1.y)},${round(c2.x)} ${round(c2.y)},${round(p2.x)} ${round(p2.y)}`;
+  }
+  return path;
+}
+const round = (value: number) => Math.round(value * 10) / 10;
+
+/** Runs of consecutive days that have a reading, for the history line (a gap breaks the line). */
+export function historyRuns<T extends { readonly range: unknown }>(columns: readonly T[]): readonly (readonly { readonly index: number; readonly column: T }[])[] {
+  const runs: { index: number; column: T }[][] = [];
+  let current: { index: number; column: T }[] = [];
+  columns.forEach((column, index) => {
+    if (column.range === null) {
+      if (current.length > 0) runs.push(current);
+      current = [];
+    } else current.push({ index, column });
+  });
+  if (current.length > 0) runs.push(current);
+  return runs;
+}
