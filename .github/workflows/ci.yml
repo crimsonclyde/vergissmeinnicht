@@ -4,7 +4,7 @@ on:
   push:
     branches: [main]
   pull_request:
-  # The release workflow runs the full checks before publishing an image.
+  # The release workflow runs these checks itself when no successful CI run exists for its commit.
   workflow_call:
 
 permissions:
@@ -36,6 +36,17 @@ jobs:
       - run: pnpm test
 
   browser:
+    # The two suites use separate servers and databases (playwright.config.ts), so they run as two
+    # parallel jobs. Each job still runs every test of its suite, sequentially.
+    name: browser (${{ matrix.suite }})
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - suite: main
+            projects: --project=desktop-chromium --project=mobile-chromium
+          - suite: guide
+            projects: --project=guide-desktop-chromium --project=guide-mobile-chromium
     runs-on: ubuntu-latest
     # Hosted Chromium setup alone can take eight minutes; allow the complete serial suite afterward.
     timeout-minutes: 25
@@ -53,7 +64,7 @@ jobs:
       # test:e2e already builds the production web assets; no duplicate build.
       # Theme/opacity reviews share loopback with the other fixtures: keep the real request limits
       # intact and run browser flows sequentially rather than saturating them with parallel reloads.
-      - run: pnpm test:e2e --workers=1
+      - run: pnpm test:e2e --workers=1 ${{ matrix.projects }}
 
   image:
     # The production image must keep building and running on both architectures (native runners, no

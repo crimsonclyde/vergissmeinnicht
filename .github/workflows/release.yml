@@ -18,11 +18,47 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  # A release commit is pushed to main and tagged together, so CI on main already checks this exact
+  # commit. Wait for that run and reuse its result instead of repeating it. Only a successful push run
+  # of ci.yml for this same commit counts; otherwise (failed, cancelled, none, tag not on main) the
+  # full checks run here.
+  ci-status:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    permissions:
+      actions: read
+    outputs:
+      passed: ${{ steps.wait.outputs.passed }}
+    steps:
+      - name: Wait for CI on this commit
+        id: wait
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          passed=false
+          for i in $(seq 1 70); do
+            runs="$(gh api "repos/$GITHUB_REPOSITORY/actions/workflows/ci.yml/runs?head_sha=$GITHUB_SHA&event=push&per_page=20" \
+              --jq '[.workflow_runs[] | {status, conclusion}]')"
+            if jq -e 'any(.[]; .conclusion == "success")' <<<"$runs" >/dev/null; then passed=true; break; fi
+            # Give the main push a few minutes to start its run; stop once every run has finished.
+            if jq -e 'length == 0' <<<"$runs" >/dev/null && [ "$i" -gt 6 ]; then break; fi
+            if jq -e 'length > 0 and all(.[]; .status == "completed")' <<<"$runs" >/dev/null; then break; fi
+            sleep 30
+          done
+          echo "CI on main passed for $GITHUB_SHA: $passed"
+          echo "passed=$passed" >> "$GITHUB_OUTPUT"
+
   checks:
+    needs: ci-status
+    if: needs.ci-status.outputs.passed != 'true'
     uses: ./.github/workflows/ci.yml
 
   image:
-    needs: checks
+    needs: [ci-status, checks]
+    # Runs only after CI passed: either on main for this commit, or in the checks job above.
+    if: >-
+      !cancelled() && needs.ci-status.result == 'success' &&
+      (needs.ci-status.outputs.passed == 'true' || needs.checks.result == 'success')
     strategy:
       matrix:
         include:
@@ -73,6 +109,7 @@ jobs:
 
   publish:
     needs: image
+    if: ${{ !cancelled() && needs.image.result == 'success' }}
     runs-on: ubuntu-latest
     timeout-minutes: 15
     permissions:
@@ -138,16 +175,9 @@ jobs:
           test "$(docker inspect --format '{{index .Config.Labels "org.opencontainers.image.version"}}' "$REF")" = "$VERSION"
           test "$(docker inspect --format '{{index .Config.Labels "org.opencontainers.image.revision"}}' "$REF")" = "$GITHUB_SHA"
           deploy/smoke-test.sh "$REF"
-          # Immediate published predecessor, 0.13.8.
+          # The last three published releases (newest first: 0.13.8, 0.13.7, 0.13.6) and one long jump
+          # from 0.10.1-beta.0. Add the new predecessor at the top and drop the oldest of the three.
           deploy/upgrade-check.sh "$REF" ghcr.io/crimsonclyde/vergissmeinnicht@sha256:7b3bd3a33dca38b243442994de8caa3096f88a4ae7fdfa7cdd73f3ea339d996c
           deploy/upgrade-check.sh "$REF" ghcr.io/crimsonclyde/vergissmeinnicht@sha256:5e66a45edfd6cf82bd0f16b6bfc2f65d54f921a5b62cd9c606462838314576c3
           deploy/upgrade-check.sh "$REF" ghcr.io/crimsonclyde/vergissmeinnicht@sha256:bff4da8fe2b3c11d918aaf55a84d6ed4f88c7ffe49f31c1ab1a4efe349628c83
-          deploy/upgrade-check.sh "$REF" ghcr.io/crimsonclyde/vergissmeinnicht@sha256:2072d94948c6d7c8fa6e54bb6761c5ebf6ae2c401f976f2b5530fce553aca3d9
-          deploy/upgrade-check.sh "$REF" ghcr.io/crimsonclyde/vergissmeinnicht@sha256:b253d3a42e51605f4abbfa9ea36a9427a2b021ea2470540a83081782825201fc
-          deploy/upgrade-check.sh "$REF" ghcr.io/crimsonclyde/vergissmeinnicht@sha256:75b4edf72079b284d577108a528c2202db8be0dbcd185e0ce38d99f8f688f456
-          deploy/upgrade-check.sh "$REF" ghcr.io/crimsonclyde/vergissmeinnicht@sha256:1456f2c2471eb2e70534d1d55c997a94e2548feca1614601c3e646021011b7ac
-          deploy/upgrade-check.sh "$REF" ghcr.io/crimsonclyde/vergissmeinnicht@sha256:bcaec04bef344aaa8a28b0f75e3681a9b2f7c8e903138fb4d68a3233a0cea7c0
-          deploy/upgrade-check.sh "$REF" ghcr.io/crimsonclyde/vergissmeinnicht@sha256:240e2eb3e6ac20a5c2b7b4ffd528a6cfc418b88eb3e6362e714deae855f16519
           deploy/upgrade-check.sh "$REF" ghcr.io/crimsonclyde/vergissmeinnicht@sha256:1b7b677df1d5cab8cb754d8aabfdf900874d535ca78caf6b74761e4888770976
-          # Earlier fully built beta.0 candidate was withheld as a GitHub Release for the owner’s UI correction.
-          deploy/upgrade-check.sh "$REF" ghcr.io/crimsonclyde/vergissmeinnicht@sha256:205cd01fa6d1af24220bd20e9bdda8b82d7ae2a23ae6c2f646fd029a5a141de3
