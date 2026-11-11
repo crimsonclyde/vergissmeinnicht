@@ -89,6 +89,28 @@ describe('Recipes, shared originals and serving-scaled grocery transfers', () =>
     expect((await t.get(url, reader)).statusCode).toBe(404);
     expect((await t.get(otherBase, reader)).json().recipes).toEqual([]);
   });
+  it('filters by any chosen category and sorts by newest, recently changed or title', async () => {
+    await enable();
+    // A short pause gives each Recipe its own creation time, so the order is deterministic.
+    const make = async (title: string, categories?: string[]) => (await new Promise(resolve => setTimeout(resolve, 5)), await save(user, { ...content, title, ...(categories ? { categories } : {}) } as typeof content)).json().recipe;
+    const soup = await make('Pumpkin soup', ['starter', 'soup']);
+    const negroni = await make('Negroni', ['cocktail', 'drink']);
+    const ragu = await make('Ragù', ['main']);
+    const pancakes = await make('Old pancakes');
+    expect(new Set([soup, negroni, ragu, pancakes].map(recipe => recipe.updatedAt)).size).toBe(4);
+    expect(soup.categories).toEqual(['starter', 'soup']);
+    const titles = async (query: string) => { const response = await t.get(base() + query, guest); expect(response.statusCode, response.body).toBe(200); return response.json().recipes.map((recipe: { title: string }) => recipe.title); };
+    expect(await titles('?categories=soup,main')).toEqual(['Ragù', 'Pumpkin soup']);
+    expect(await titles('?categories=cocktail&q=negroni')).toEqual(['Negroni']);
+    expect(await titles('?sort=title')).toEqual(['Negroni', 'Old pancakes', 'Pumpkin soup', 'Ragù']);
+    await new Promise(resolve => setTimeout(resolve, 5));
+    expect((await save(user, { ...content, title: 'Pumpkin soup', categories: ['soup'] } as typeof content, soup.id, 1)).statusCode).toBe(200);
+    expect((await titles('?sort=updated'))[0]).toBe('Pumpkin soup');
+    expect((await titles('?sort=newest'))[0]).toBe('Old pancakes');
+    expect(await titles('?categories=starter')).toEqual([]);
+    for (const query of ['?categories=pizza', "?categories=main')--", '?sort=random']) expect((await t.get(base() + query, guest)).statusCode).toBe(400);
+    expect((await save(user, { ...content, categories: ['pizza'] } as typeof content)).statusCode).toBe(400);
+  });
   it('computes servings exactly and adds a batch once, without changing the recipe or merging items', async () => {
     await enable(); const recipe = (await save()).json().recipe;
     const list = (await t.post(`/api/workspaces/${workspace}/lists`, { title: 'Shopping' }, user)).json().list;

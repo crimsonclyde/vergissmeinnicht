@@ -2,7 +2,7 @@ import { createHash, randomUUID } from 'node:crypto';
 import { RecipeConflictError, RecipeNotFoundError, NotAuthorizedError, type RecipeRepository } from '@vergissmeinnicht/application';
 import { markdownAttachments, DomainValidationError, MAX_ITEMS_PER_LIST, MAX_LIST_ITEM_TITLE_LENGTH, scaleRecipeIngredients, parseRecipeContent,normalizeListItemTitle,normalizeListItemQuantity,normalizeListItemUnit,type RecipeContent,type RecipeTransfer,type Recipe, type User, type WorkspaceId, type AttachmentScope } from '@vergissmeinnicht/domain';
 import { roleHasCapability } from '@vergissmeinnicht/permissions';
-import { and, desc, eq, isNull, or, sql } from 'drizzle-orm';
+import { and, asc, desc, eq, isNull, or, sql } from 'drizzle-orm';
 import { actorAllowed, IMMEDIATE, type Transaction } from './actor-guard.ts';
 import type { AppDatabase } from './connection.ts';
 import { recipeMealOperations,recipes, recipeAttachmentReferences, recipeShoppingOperations, attachments, lists, listItems, users, workspaces, workspaceTools } from './schema.ts';
@@ -112,12 +112,17 @@ export function createRecipeRepository({ db }: AppDatabase): RecipeRepository {
         return { itemIds, duplicate: false };
         };
   return {
-    async list(workspaceId, actor, query, archived, offset, includeShared) {
+    async list(workspaceId, actor, query, archived, offset, includeShared, filter = {}) {
       return db.transaction(tx => {
         if (!guard(tx, workspaceId, actor)) throw new NotAuthorizedError();
+        const categories = filter.categories ?? [];
+        // Bound values only: the category names were checked against the fixed list before they reach SQL.
+        const inCategory = categories.length === 0 ? undefined : sql`EXISTS (SELECT 1 FROM json_each(${recipes.content}, '$.categories') WHERE value IN (${sql.join(categories.map(category => sql`${category}`), sql`, `)}))`;
+        const order = filter.sort === 'title' ? [asc(sql`json_extract(${recipes.content}, '$.title') COLLATE NOCASE`), desc(recipes.id)]
+          : filter.sort === 'updated' ? [desc(recipes.updatedAt), desc(recipes.id)] : [desc(recipes.createdAt), desc(recipes.id)];
         const page = (start: number, size: number) => namedRecipes(tx)
-          .where(and(visibleRecipes(workspaceId, includeShared), eq(recipes.archived, archived)))
-          .orderBy(desc(recipes.updatedAt), desc(recipes.id)).limit(size).offset(start).all();
+          .where(and(visibleRecipes(workspaceId, includeShared), eq(recipes.archived, archived), inCategory))
+          .orderBy(...order).limit(size).offset(start).all();
         const needle = query.toLocaleLowerCase();
         if (!needle) {
           const rows = page(offset, 31);

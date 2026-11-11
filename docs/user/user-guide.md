@@ -455,6 +455,16 @@ In Profile & settings → Dashboard, choose Celestial, Clock and Weather indepen
 
 ### Browse and illustrate the cookbook
 
+Above the recipes, the filter bar holds the search field, the sort order (**Newest**,
+**Recently changed** or **A–Z**), a switch between **Card view** (large photos) and **List
+view** (compact rows), and **Show archived recipes**. Below it, tap one or more categories to
+show only those recipes; a recipe appears when it has any of the chosen categories. **All**
+clears the choice. The view you pick is remembered on this device.
+
+Give a recipe its categories in the editor: open **Categories** and tick every one that fits.
+The choices are Starter, Soup, Salad, Main course, Side dish, Dessert, Baking, Breakfast, Snack,
+Sauce & dip, Drink and Cocktail. Tags stay free text for everything else.
+
 The Recipes overview shows a cover photo, preparation and cooking time when entered, servings
 and up to three tags. Cards and recipe details show **Private** or **Public** and the home
 Workspace name, even when you open a shared recipe from a different Workspace. Open a card to

@@ -122,6 +122,13 @@ it('uploads supplied original bytes through OAuth MCP and safely attaches them o
   expect((await t.get(`/api/workspaces/${foreignWorkspace}/recipes/${delegatedRecipe}`, t.admin)).statusCode).toBe(200);
 
   expect(JSON.parse((await call('get_recipe', { workspaceId, recipeId: delegatedRecipe })).content[0].text).private).toBe(false);
+  // Categories: the assistant sets them from the fixed list, reads them back and filters by them.
+  const cocktail = JSON.parse((await call('create_recipe', { workspaceId, operationId: randomUUID(), content: { ...content, title: 'Negroni', categories: ['drink', 'cocktail'] } })).content[0].text).recipeId as string;
+  expect(JSON.parse((await call('get_recipe', { workspaceId, recipeId: cocktail })).content[0].text).categories).toEqual(['drink', 'cocktail']);
+  expect(JSON.parse((await call('get_recipe', { workspaceId, recipeId: delegatedRecipe })).content[0].text).categories).toEqual([]);
+  const found = await call('search_recipes', { workspaceId, categories: ['cocktail'] });
+  expect(JSON.parse(found.content[0].text).recipes).toEqual([expect.objectContaining({ id: cocktail, categories: ['drink', 'cocktail'] })]);
+  expect((await call('create_recipe', { workspaceId, operationId: randomUUID(), content: { ...content, categories: ['pizza'] } })).isError).toBe(true);
   const privateArgs = { workspaceId, operationId: randomUUID(), content: { ...content, private: true } };
   const privateId = JSON.parse((await call('create_recipe', privateArgs)).content[0].text).recipeId;
   const foreignPath = `/api/workspaces/${foreignWorkspace}/recipes/${privateId}`;

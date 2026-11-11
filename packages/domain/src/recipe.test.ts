@@ -1,7 +1,16 @@
 import { describe, expect, it } from 'vitest';
-import { parseRecipeContent, recipeCover, scaleRecipeIngredients } from './recipe.ts';
+import { parseRecipeContent, recipeCategories, recipeCover, scaleRecipeIngredients } from './recipe.ts';
 const recipe = { version: 1, title: 'Pancakes', servings: 2, ingredients: [{ name: 'Flour', amount: '125', unit: 'g', note: '' }, { name: 'Eggs', amount: '1', unit: '', note: '' }, { name: 'Salt', amount: '', unit: '', note: 'to taste' }], instructions: '# Cook\n\nKeep source intact.', tags: ['Breakfast'], source: '', prepMinutes: 5, cookMinutes: 10 };
 describe('recipe content and exact serving projection', () => {
+  it('keeps predefined categories deduplicated in display order and refuses unknown ones', () => {
+    expect(parseRecipeContent({ ...recipe, categories: ['cocktail', 'starter', 'starter', 'drink'] }).categories).toEqual(['starter', 'drink', 'cocktail']);
+    const legacy = parseRecipeContent(recipe);
+    expect(legacy).not.toHaveProperty('categories');
+    expect(recipeCategories(legacy)).toEqual([]);
+    const stored = parseRecipeContent({ ...recipe, categories: ['main', 'soup'] });
+    expect(JSON.stringify(parseRecipeContent(stored))).toBe(JSON.stringify(stored));
+    for (const categories of [['pizza'], 'main', [1], ['MAIN'], Array(13).fill('main')]) expect(() => parseRecipeContent({ ...recipe, categories })).toThrow();
+  });
   it('scales authoritative amounts without changing the base recipe or to-taste wording', () => {
     const content = parseRecipeContent(recipe);
     expect(scaleRecipeIngredients(content, 4).map(item => item.quantity)).toEqual(['250', '2', null]);

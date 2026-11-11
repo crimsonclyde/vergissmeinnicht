@@ -5658,6 +5658,26 @@ user workflows; no host migration or external service provisioned by the assessm
 
 ---
 
+## 38 — Recipe filters, list view and categories (owner request 2026-11-11)
+
+**Status:** DONE (implementation and checks complete; not released).
+
+**Request (owner):** filters above the Recipes overview (latest, by category), a list view and a card view with photos, predefined categories chosen by multi-select on the Recipe (starter, main course, dessert, cocktails …), and the MCP tools updated so the assistant knows about categories. Mockup approved 2026-11-11 ("looks good", themes must stay consistent).
+
+**Implemented:**
+- Domain: `RECIPE_CATEGORIES` (starter, soup, salad, main, side, dessert, baking, breakfast, snack, sauce, drink, cocktail) and `RECIPE_SORTS` (newest, updated, title). Recipe content gains an optional `categories` key, stored deduplicated in display order; unknown values are refused. Older Recipes have no key and read as no categories (`recipeCategories`). No migration: content is JSON and `parseRecipeContent` stays idempotent, so backup restore round-trips.
+- Repository/API: `GET …/recipes` accepts `categories` (comma-separated, enum-validated, any-of match via `json_each` with bound values) and `sort` (default `newest` = creation time; previously the list was ordered by last change).
+- Web: filter bar (search, sort select, card/list toggle, archived toggle as icon buttons) with category chips (scrolling row on phones); list view with small covers; view choice remembered per device in `localStorage` (`vmn.recipeView`); categories on cards, rows and the Recipe page; editor dropdown of checkboxes. Export cookbook became an icon button. Only theme tokens are used, so all themes apply without per-theme CSS.
+- MCP: `categories` in the Recipe content schema with a description of the list; returned by `get_recipe`/`search_recipes`; `search_recipes` filters and sorts; `set_recipe_image` preserves categories; server instructions and validation hint mention them. Markdown export front matter and JSON-LD (`recipeCategory`) include categories.
+
+**Tests/checks:** typecheck exit 0; ESLint on changed files clean. New tests: domain (order, dedupe, legacy, idempotence, refusals), HTTP (any-of filter, search + filter, three sorts, invalid category/sort/injection-shaped value → 400, invalid saved category → 400), MCP (create with categories, read back, search by category, unknown refused). Full root Vitest: 214 files / 1723 tests passed. E2E (`guide.spec.ts` Recipes and MCP tests, desktop and mobile, `--retries=0`): 4 passed. Screenshots on a throwaway server with fictional data at 1440 px and 390 px (cards, filtered list, editor) in Light, Memento Mori, Tokyo Nights, Witch Forest, Galactic Guide and Places Italy; a phone wrap in Galactic Guide was fixed.
+
+**Security impact:** LOW — a new bounded enum in Recipe content and two validated query parameters; category values reach SQL only as bound parameters after the enum check; no new permission, data flow or credential. **Security docs updated:** YES (security.md Recipes checklist).
+
+**Remaining / limits:** categories are not translated beyond English (the app catalog is English only); no per-Workspace custom categories; physical phones not tested.
+
+---
+
 ## 11 — Licensing
 
 ### 11.1 AGPL-3.0

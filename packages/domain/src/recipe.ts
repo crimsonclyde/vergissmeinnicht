@@ -9,6 +9,18 @@ export interface RecipeIngredient {
   readonly unit: string;
   readonly note: string;
 }
+/** Predefined Recipe categories, in display order (steps.md 38). A Recipe may have several. */
+export const RECIPE_CATEGORIES = ['starter', 'soup', 'salad', 'main', 'side', 'dessert', 'baking', 'breakfast', 'snack', 'sauce', 'drink', 'cocktail'] as const;
+export type RecipeCategory = typeof RECIPE_CATEGORIES[number];
+export const isRecipeCategory = (value: unknown): value is RecipeCategory => typeof value === 'string' && (RECIPE_CATEGORIES as readonly string[]).includes(value);
+/** Known categories, deduplicated and in display order. */
+export function normalizeRecipeCategories(values: readonly unknown[]): RecipeCategory[] {
+  if (values.length > RECIPE_CATEGORIES.length || !values.every(isRecipeCategory)) return invalid('categories');
+  return RECIPE_CATEGORIES.filter(category => values.includes(category));
+}
+export const RECIPE_SORTS = ['newest', 'updated', 'title'] as const;
+export type RecipeSort = typeof RECIPE_SORTS[number];
+
 export interface RecipeContent {
   readonly version: 1;
   readonly title: string;
@@ -16,6 +28,8 @@ export interface RecipeContent {
   readonly ingredients: readonly RecipeIngredient[];
   readonly instructions: string;
   readonly tags: readonly string[];
+  /** Absent on Recipes saved before categories existed; read it with `recipeCategories`. */
+  readonly categories?: readonly RecipeCategory[] | undefined;
   readonly source: string;
   readonly prepMinutes: number | null;
   readonly cookMinutes: number | null;
@@ -109,6 +123,7 @@ export function parseRecipeContent(value: unknown): RecipeContent {
   const keys = ['version', 'title', 'servings', 'ingredients', 'instructions', 'tags', 'source', 'prepMinutes', 'cookMinutes'];
   if (value && typeof value === 'object' && Object.hasOwn(value, 'coverImage')) keys.push('coverImage');
   if (value && typeof value === 'object' && Object.hasOwn(value, 'private')) keys.push('private');
+  if (value && typeof value === 'object' && Object.hasOwn(value, 'categories')) keys.push('categories');
   const row = object(value, keys);
   const isPrivate = row['private'];
   if (keys.includes('private') && typeof isPrivate !== 'boolean') return invalid();
@@ -126,13 +141,20 @@ export function parseRecipeContent(value: unknown): RecipeContent {
   });
   if (!Array.isArray(row['tags']) || row['tags'].length > 12) return invalid();
   const tags = [...new Set(row['tags'].map(tag => text(tag, 40)).filter(Boolean))];
+  const rawCategories = row['categories'];
+  if (rawCategories !== undefined && !Array.isArray(rawCategories)) return invalid('categories');
+  const categories = rawCategories === undefined ? undefined : normalizeRecipeCategories(rawCategories);
   const source = text(row['source'], 2048);
   if (source && !/^https?:\/\/[^\s/?#]+(?:[/?#][^\s]*)?$/i.test(source)) return invalid('source');
   const minutes = (value: unknown): number | null => value === null ? null : Number.isInteger(value) && Number(value) >= 0 && Number(value) <= 10080 ? Number(value) : invalid();
   const instructions = text(row['instructions'], 50000, true);
   const cover = row['coverImage'];
   if (cover !== undefined && (typeof cover !== 'string' || !recipeImages({ instructions }).some(image => image.url === cover))) return invalid('coverImage');
-  return { version: 1, title, servings, ingredients, instructions, tags, source, prepMinutes: minutes(row['prepMinutes']), cookMinutes: minutes(row['cookMinutes']), ...(cover === undefined ? {} : { coverImage: cover }), ...(typeof isPrivate === 'boolean' ? { private: isPrivate } : {}) };
+  return { version: 1, title, servings, ingredients, instructions, tags, ...(categories === undefined ? {} : { categories }), source, prepMinutes: minutes(row['prepMinutes']), cookMinutes: minutes(row['cookMinutes']), ...(cover === undefined ? {} : { coverImage: cover }), ...(typeof isPrivate === 'boolean' ? { private: isPrivate } : {}) };
+}
+
+export function recipeCategories(recipe: Pick<RecipeContent, 'categories'>): readonly RecipeCategory[] {
+  return recipe.categories ?? [];
 }
 
 export function recipeImages(recipe: Pick<RecipeContent, 'instructions'>) {

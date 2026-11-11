@@ -1946,6 +1946,9 @@ URLs from Recipe text, PDFs, Lists or other content remain outside the download 
   file ID and URL identity. The original host keeps its existing path-based identity.
   Azure and regional signed-blob receipts bind the origin and blob path. A refreshed signature can replay the same receipt
   without contacting the host. Failed transfers release the reservation and discard staging.
+- [x] Recipe categories (steps.md 38) are a fixed enum checked in the domain, the HTTP query
+  schema and the MCP schema. The list filter passes them to SQL only as bound parameters inside
+  `json_each`; `sort` is an enum mapped to fixed ORDER BY clauses. Invalid values return 400.
 - [x] Require a confirmed cover for `create_recipe` when the caller sets `requireImage`.
   Existing attachment checks validate the cover reference and Workspace ownership before
   the Recipe is saved.
