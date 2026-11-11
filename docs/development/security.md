@@ -1966,3 +1966,38 @@ URLs from Recipe text, PDFs, Lists or other content remain outside the download 
 - [x] Accept bounded, recognized descriptive Recipe amounts as plain text.
   Reject control characters, markup and malformed numbers. Serving projections
   keep these phrases out of the numeric Shopping List quantity field.
+
+### One-call ChatGPT Recipe photos and operator-approved file hosts (36.14, 2026-11-11)
+
+`create_recipe`, `prepare_recipe_meal` and the new `set_recipe_image` accept a ChatGPT file
+descriptor in `image` (`openai/fileParams`). The server runs the same delegated upload as
+`upload_recipe_image_file` (same scopes, Workspace and target checks, receipts, size limits and
+attachment validation) and then saves the Recipe through the existing application command, which
+still validates that the cover resolves to a Workspace attachment. The upload uses an operation ID
+derived from the caller's Recipe operation ID, so a retry reuses the receipt and the Recipe write
+hashes identically.
+
+- [x] Base64 and picker tools are marked `openai/visibility: private`, which hides them from the
+  ChatGPT model only. They keep their scopes and checks for other MCP clients. This is a usability
+  measure, not an access boundary.
+- [x] Regional OpenAI storage hosts match `sdmnt[a-z]{2}[a-z0-9]{1,54}.oaiusercontent.com` (one
+  label, anchored; covers `sdmntpr…` and `sdmntsw…`). Azure accounts stay exact, because Azure
+  storage account names can be registered by anyone and a name pattern proves nothing.
+- [x] An operator can add up to 10 exact hosts with `MCP_CHATGPT_FILE_HOSTS`. Each must be one
+  label below `oaiusercontent.com` or `blob.core.windows.net`; wildcards, deeper names, IPs and
+  other domains fail configuration. Added hosts get the same signed-path, DNS, TLS, size and
+  redirect checks.
+- [x] A refused DNS host name is returned in the tool error and logged at warn level so the
+  operator can review it. Address literals, paths, query strings and signatures are never
+  returned or logged. This replaces the 36.12 rule that unsupported-origin messages name no host.
+- [x] A failed AAAA lookup no longer fails a transfer when the A lookup succeeded (and the other
+  way round). Every returned address is still classified, and any non-public answer refuses.
+- [x] A still WebP is converted to a lossless PNG before the attachment pipeline, with the
+  instruction-image limits (10 MB input, header pixel limit, no animation) and the bounded
+  image-processing slots. JPEG and PNG originals still stream through unchanged.
+- [x] Unknown keys in the file descriptor are dropped instead of refused; only `download_url`,
+  `file_id`, `file_name` and `mime_type` are read.
+- [x] Tests: tool metadata and visibility, required photo, one-call create with a WebP from a
+  regional host, renewed-signature retry without a second download, cover replacement and
+  idempotent retry, stale revision conflict, refused-host reporting without secrets, AAAA
+  fallback, operator host configuration.

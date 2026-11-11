@@ -1,7 +1,7 @@
 import type { IncomingMessage } from 'node:http';
 import { Readable } from 'node:stream';
 import { describe, expect, it, vi } from 'vitest';
-import { chatGptFileUrl, createChatGptFileSource } from './chatgpt-files.ts';
+import { ChatGptFileError, chatGptFileUrl, createChatGptFileSource, resolveFileHost } from './chatgpt-files.ts';
 
 const url = chatGptFileUrl('https://files.oaiusercontent.com/file-fixture?sig=short-lived');
 
@@ -119,5 +119,40 @@ describe('ChatGPT file download policy', () => {
     await expect(collect(source(url, 4))).rejects.toThrow('attachment_too_large');
     await expect(collect(source(url, 4))).rejects.toThrow('file_download_failed');
     await expect(collect(source(url, 4))).rejects.toThrow('file_download_failed');
+  });
+
+  it('names a refused DNS host for the operator, never an address or the signed path', () => {
+    const refused = (input: string) => {
+      try { chatGptFileUrl(input); } catch (error) { return error as ChatGptFileError; }
+      throw new Error('accepted');
+    };
+    const azure = refused('https://oaisdmntprwesteurope.blob.core.windows.net/container/file?sig=secret');
+    expect([azure.code, azure.host]).toEqual(['file_origin_unsupported', 'oaisdmntprwesteurope.blob.core.windows.net']);
+    expect(refused('https://127.0.0.1/file?sig=secret').host).toBeUndefined();
+    expect(refused('https://[::1]/file?sig=secret').host).toBeUndefined();
+  });
+
+  it('accepts an exact operator-approved host with the same signed-link checks', async () => {
+    const extra = ['oaisdmntprwesteurope.blob.core.windows.net'];
+    const file = new URL('https://oaisdmntprwesteurope.blob.core.windows.net/container/file?sp=r&sig=short-lived');
+    expect(chatGptFileUrl(file.href, extra).hostname).toBe(extra[0]);
+    expect(() => chatGptFileUrl('https://oaisdmntprwesteurope.blob.core.windows.net/container/file?sp=r', extra)).toThrow('file_origin_unsupported');
+    expect(() => chatGptFileUrl('https://other.blob.core.windows.net/container/file?sig=x', extra)).toThrow('file_origin_unsupported');
+    const get = vi.fn(async () => response(200, ['ok']));
+    await expect(collect(createChatGptFileSource(async () => ['8.8.8.8'], get, extra)(file, 4))).resolves.toBe('ok');
+    await expect(collect(createChatGptFileSource(async () => ['8.8.8.8'], get)(file, 4))).rejects.toThrow('file_origin_unsupported');
+  });
+
+  it('uses the IPv4 answer when an AAAA lookup fails, and fails only when both families fail', async () => {
+    const failure = (code: string) => Promise.reject(Object.assign(new Error(code), { code }));
+    await expect(resolveFileHost('files.oaiusercontent.com', {
+      resolve4: async () => ['8.8.8.8'], resolve6: () => failure('ESERVFAIL'),
+    } as never)).resolves.toEqual(['8.8.8.8']);
+    await expect(resolveFileHost('files.oaiusercontent.com', {
+      resolve4: () => failure('ENODATA'), resolve6: async () => ['2606:4700::1111'],
+    } as never)).resolves.toEqual(['2606:4700::1111']);
+    await expect(resolveFileHost('files.oaiusercontent.com', {
+      resolve4: () => failure('ETIMEOUT'), resolve6: () => failure('ETIMEOUT'),
+    } as never)).rejects.toThrow('ETIMEOUT');
   });
 });

@@ -1,3 +1,4 @@
+import { CHATGPT_EXTRA_FILE_HOST } from '../integrations/chatgpt-files.ts';
 import { randomBytes } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { isIP } from 'node:net';
@@ -62,6 +63,15 @@ const envSchema = z
     RECIPE_IMAGE_MONTHLY_LIMIT:z.coerce.number().int().min(0).max(10000).default(100),
     RECIPE_IMAGE_USER_MONTHLY_LIMIT:z.coerce.number().int().min(0).max(1000).default(10),
     MCP_ENABLED: z.enum(['true','false']).default('false').transform(value=>value==='true'),
+    // Exact extra ChatGPT file hosts, comma-separated, for a storage host VMN reported as refused.
+    MCP_CHATGPT_FILE_HOSTS: z.string().max(2048).default('').transform((value,context)=>{
+      const hosts=[...new Set(value.split(',').map(host=>host.trim().toLowerCase()).filter(Boolean))];
+      if(hosts.length>10||hosts.some(host=>!CHATGPT_EXTRA_FILE_HOST.test(host))){
+        context.addIssue({code:'custom',message:'MCP_CHATGPT_FILE_HOSTS takes up to 10 exact host names below oaiusercontent.com or blob.core.windows.net'});
+        return z.NEVER;
+      }
+      return hosts;
+    }),
   NODE_ENV: modeSchema,
     HOST: z.string().min(1).default('127.0.0.1'),
     PORT: z.coerce.number().int().min(1).max(65535).default(3000),
@@ -168,6 +178,8 @@ export type Mode = z.infer<typeof modeSchema>;
 export interface AppConfig {
   readonly recipeImages:{key:string|undefined;monthlyLimit:number;perUserLimit:number};
   readonly mcpEnabled:boolean;
+  /** Exact operator-approved ChatGPT file hosts in addition to the built-in ones. */
+  readonly chatGptFileHosts:readonly string[];
   readonly mode: Mode;
   readonly host: string;
   readonly port: number;
@@ -242,6 +254,7 @@ export function loadConfig(env: NodeJS.ProcessEnv, readFile: (path: string) => s
   return Object.freeze({
     recipeImages:{key:values.OPENAI_RECIPE_IMAGE_KEY,monthlyLimit:values.RECIPE_IMAGE_MONTHLY_LIMIT,perUserLimit:values.RECIPE_IMAGE_USER_MONTHLY_LIMIT},
     mcpEnabled:values.MCP_ENABLED,
+    chatGptFileHosts:values.MCP_CHATGPT_FILE_HOSTS,
     mode: values.NODE_ENV,
     host: values.HOST,
     port: values.PORT,

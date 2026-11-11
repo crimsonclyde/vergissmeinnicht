@@ -123,7 +123,7 @@ import {
 } from '@vergissmeinnicht/database';
 import { canAuthenticate, type UserId } from '@vergissmeinnicht/domain';
 import { createSmtpEmailSender } from '@vergissmeinnicht/email';
-import { createDocumentFileProcessor, createDocumentFileStore, createDocumentWorker, createFileMediaStore, createSharpAvatarProcessor, createSharpImageProcessor, createSharpPlaceBackgroundProcessor, createTextExtractor } from '@vergissmeinnicht/media';
+import { convertWebpToPng, createDocumentFileProcessor, createDocumentFileStore, createDocumentWorker, createFileMediaStore, createSharpAvatarProcessor, createSharpImageProcessor, createSharpPlaceBackgroundProcessor, createTextExtractor } from '@vergissmeinnicht/media';
 import { createTelegramBotApi } from '@vergissmeinnicht/notifications';
 import { createWorkspaceBackupStore } from './workspace-backup/workspace-backup-store.ts';
 import { createMeteomatics, createMetNorway, createOpenMeteo, createOpenWeather, metUserAgent } from '@vergissmeinnicht/weather';
@@ -132,6 +132,11 @@ import type { FastifyBaseLogger } from 'fastify';
 import type { AppConfig } from './config/index.ts';
 import type { RunEventsOptions } from './http/run-events.ts';
 
+/** Attachment deps for delegated (MCP) uploads, which may convert a still WebP to PNG first. */
+export type DelegatedAttachmentDeps = AttachmentDeps & {
+  repository: ReturnType<typeof createAttachmentRepository>;
+  convertWebp: (input: Uint8Array) => Promise<Uint8Array>;
+};
 /** Everything the HTTP layer needs. Built once per process by the composition root. */
 export interface AppServices {
   readonly publicOrigin: string;
@@ -181,8 +186,8 @@ export interface AppServices {
   readonly maintenance: MaintenanceDeps;
   readonly equipment: EquipmentDeps;
   readonly recipes: RecipeDeps;
-  readonly listAttachments: AttachmentDeps & { repository: ReturnType<typeof createAttachmentRepository> };
-  readonly recipeAttachments: AttachmentDeps & { repository: ReturnType<typeof createAttachmentRepository> };
+  readonly listAttachments: DelegatedAttachmentDeps;
+  readonly recipeAttachments: DelegatedAttachmentDeps;
   readonly bring: BringDeps;
   readonly attachments:AttachmentDeps;
   readonly attachmentAdmin:ReturnType<typeof createAttachmentAdmin>;
@@ -238,7 +243,7 @@ export function invitationDeps(config: AppConfig, database: AppDatabase): Invita
 export function createServices(config: AppConfig, database: AppDatabase, overrides: { readonly weatherFetch?: typeof fetch; readonly chatGptFileSource?: ChatGptFileSource } = {}) {
   // Weather (19.4): one forecast cache per server process, shared by every request.
   const serverWeather = createServerWeatherSettingsRepository(database);
-  const chatGptFileSource = overrides.chatGptFileSource ?? createChatGptFileSource();
+  const chatGptFileSource = overrides.chatGptFileSource ?? createChatGptFileSource(undefined, undefined, config.chatGptFileHosts);
   const weatherFetch = overrides.weatherFetch ?? fetch;
   const openMeteo = createOpenMeteo({ fetch: weatherFetch });
   const weatherService = createWeatherService({
@@ -330,7 +335,7 @@ export function createServices(config: AppConfig, database: AppDatabase, overrid
     const pdfWorker = createDocumentWorker();
     const documentProcessor = createDocumentFileProcessor({ pdfWorker });
     const attachmentStorage=createAttachmentStore(join(dirname(config.documentsPath),'attachments'));
-    const recipeAttachments={repository:createAttachmentRepository(database,recipeAttachmentPolicy),store:attachmentStorage,processor:attachmentStorage};
+    const recipeAttachments={repository:createAttachmentRepository(database,recipeAttachmentPolicy),store:attachmentStorage,processor:attachmentStorage,convertWebp:convertWebpToPng};
     const documentFiles = {
       files: createDocumentFileRepository(database),
       store: createDocumentFileStore(config.documentsPath),
@@ -459,7 +464,7 @@ export function createServices(config: AppConfig, database: AppDatabase, overrid
       recipeImages:{recipes:{ workspaces: workspaceDeps.workspaces, users: createUserRepository(database), tools, recipes: createRecipeRepository(database), clock: systemClock },attachments:recipeAttachments,jobs:createRecipeImageJobs(database,config.recipeImages.monthlyLimit,config.recipeImages.perUserLimit),provider:config.recipeImages.key?openAiRecipeImages(config.recipeImages.key):undefined},
       recipes: { workspaces: workspaceDeps.workspaces, users: createUserRepository(database), tools, recipes: createRecipeRepository(database), clock: systemClock },
       recipeAttachments,
-      listAttachments:{repository:createAttachmentRepository(database,listAttachmentPolicy),store:attachmentStorage,processor:attachmentStorage},
+      listAttachments:{repository:createAttachmentRepository(database,listAttachmentPolicy),store:attachmentStorage,processor:attachmentStorage,convertWebp:convertWebpToPng},
       bring: { workspaces: workspaceDeps.workspaces, users: createUserRepository(database), tools, bring: createBringRepository(database), clock: systemClock },
       attachments:{repository:createAttachmentRepository(database,journalAttachmentPolicy),store:attachmentStorage,processor:attachmentStorage},
       attachmentAdmin:createAttachmentAdmin(database),
