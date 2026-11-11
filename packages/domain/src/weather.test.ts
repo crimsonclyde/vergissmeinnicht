@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { DEFAULT_WEATHER_SETTINGS, conditionFromMetSymbol, conditionFromWmo, parseWeatherSettings, roundCoordinate } from './weather.ts';
+import { ownForecastDays, DEFAULT_WEATHER_SETTINGS, conditionFromMetSymbol, conditionFromWmo, parseWeatherSettings, roundCoordinate } from './weather.ts';
 
 describe('weather (19.4)', () => {
   it('maps provider codes to conditions and never guesses', () => {
@@ -22,5 +22,11 @@ describe('weather (19.4)', () => {
     expect(() => parseWeatherSettings({ ...base, location: { ...base.location, elevation: 10.5 } })).toThrow();
     expect(() => parseWeatherSettings({ ...base, location: { ...base.location, timeZone: '+02:00' } })).toThrow();
     expect(() => parseWeatherSettings({ ...base, fallback: undefined })).toThrow();
+  });
+});
+
+describe('ownForecastDays', () => {
+  it('leaves out days added from the Automatic blend (Compare and the horizon count only the source itself)', () => {
+    expect(ownForecastDays([{ date: '2026-11-11' }, { date: '2026-11-12', extended: true }])).toEqual([{ date: '2026-11-11' }]);
   });
 });

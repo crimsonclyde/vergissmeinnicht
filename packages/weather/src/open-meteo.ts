@@ -20,6 +20,7 @@ const array = (value: unknown): unknown[] => (Array.isArray(value) ? value : [])
 /** A provider's local wall time `YYYY-MM-DDTHH:MM`, or nothing when it is not one. */
 export const localTime = (value: unknown): string | undefined => (typeof value === 'string' && LOCAL_TIME.test(value) ? value : undefined);
 const DATE = /^\d{4}-\d{2}-\d{2}$/;
+const WEATHER_VALUES = ['min', 'max', 'precipitationSum', 'precipitationProbabilityMax', 'windSpeedMax', 'condition', 'uvIndexMax'] as const;
 
 /**
  * Open-Meteo (19.4): forecasts with a chosen model, which models cover a place (W2), and place search.
@@ -49,16 +50,21 @@ export function createOpenMeteo(options: { readonly fetch?: Fetch } = {}): Weath
       url.searchParams.set('minutely_15', 'precipitation');
       url.searchParams.set('forecast_minutely_15', String(QUARTERS));
       url.searchParams.set('wind_speed_unit', 'kmh');
-      url.searchParams.set('models', query.model ?? 'best_match');
+      // A chosen model (often regional, 2–3 days) is asked together with the Automatic blend in the same
+      // request; days past the model's own range are taken whole from the blend and marked `extended`.
+      const chosen = query.model ?? 'best_match';
+      const extend = chosen !== 'best_match';
+      url.searchParams.set('models', extend ? `${chosen},best_match` : chosen);
       const { body } = await getJson(doFetch, url, {});
       if (!isRecord(body) || !isRecord(body.daily)) throw new WeatherProviderError('bad_response');
+      // With several models every value carries the model's id as suffix; with one it has none.
+      const values = (record: Record<string, unknown>, name: string, model: string = chosen): unknown[] => array(record[`${name}_${model}`] ?? record[name]);
       const daily = body.daily;
       const dates = array(daily.time);
       const days: WeatherDay[] = [];
-      dates.forEach((date, index) => {
-        if (typeof date !== 'string' || !DATE.test(date)) return;
-        const at = (name: (typeof DAILY)[number]) => finite(array(daily[name])[index]);
-        const day: WeatherDay = {
+      const dayFrom = (date: string, index: number, model: string): WeatherDay => {
+        const at = (name: (typeof DAILY)[number]) => finite(values(daily, name, model)[index]);
+        return {
           date,
           ...optional('min', round1(at('temperature_2m_min'))),
           ...optional('max', round1(at('temperature_2m_max'))),
@@ -67,30 +73,41 @@ export function createOpenMeteo(options: { readonly fetch?: Fetch } = {}): Weath
           ...optional('windSpeedMax', round1(at('wind_speed_10m_max'))),
           ...optional('condition', conditionFromWmo(at('weather_code'))),
           ...optional('uvIndexMax', round1(at('uv_index_max'))),
-          ...optional('sunrise', localTime(array(daily.sunrise)[index])),
-          ...optional('sunset', localTime(array(daily.sunset)[index])),
+          ...optional('sunrise', localTime(values(daily, 'sunrise', model)[index])),
+          ...optional('sunset', localTime(values(daily, 'sunset', model)[index])),
         };
-        // A day with no value at all is outside what this model forecasts: leave it out.
-        if (Object.keys(day).length > 1) days.push(day);
+      };
+      // Sunrise and sunset are astronomy, not forecast: a day with only those is outside what the model covers.
+      const hasWeather = (day: WeatherDay) => WEATHER_VALUES.some((key) => day[key] !== undefined);
+      const own = dates.map((date, index) => (typeof date === 'string' && DATE.test(date) ? dayFrom(date, index, chosen) : null));
+      // Only after the model's last own day: never a hole in the middle, and nothing if it covers no day.
+      const lastOwn = own.findLastIndex((day) => day !== null && hasWeather(day));
+      own.forEach((day, index) => {
+        if (day === null) return;
+        if (hasWeather(day)) { days.push(day); return; }
+        if (!extend || lastOwn < 0 || index < lastOwn) return;
+        const blend = dayFrom(day.date, index, 'best_match');
+        if (hasWeather(blend)) days.push({ ...blend, extended: true });
       });
       // Nothing for today: the model does not cover this place (W2).
       if (days.length === 0) throw new WeatherProviderError('not_covered');
       const current = isRecord(body.current) ? body.current : {};
+      const now1 = (name: (typeof CURRENT)[number]) => finite(current[`${name}_${chosen}`] ?? current[name]);
       const now = {
-        ...optional('temperature', round1(finite(current.temperature_2m))),
-        ...optional('condition', conditionFromWmo(finite(current.weather_code))),
-        ...optional('windSpeed', round1(finite(current.wind_speed_10m))),
-        ...optional('precipitation', round1(finite(current.precipitation))),
-        ...optional('apparentTemperature', round1(finite(current.apparent_temperature))),
-        ...optional('windGusts', round1(finite(current.wind_gusts_10m))),
-        ...optional('uvIndex', round1(finite(current.uv_index))),
+        ...optional('temperature', round1(now1('temperature_2m'))),
+        ...optional('condition', conditionFromWmo(now1('weather_code'))),
+        ...optional('windSpeed', round1(now1('wind_speed_10m'))),
+        ...optional('precipitation', round1(now1('precipitation'))),
+        ...optional('apparentTemperature', round1(now1('apparent_temperature'))),
+        ...optional('windGusts', round1(now1('wind_gusts_10m'))),
+        ...optional('uvIndex', round1(now1('uv_index'))),
       };
       const firstDay = days[0]?.date ?? '';
       const hourly = isRecord(body.hourly) ? body.hourly : {};
       const hours: WeatherHour[] = array(hourly.time).flatMap((time, index): WeatherHour[] => {
         const local = localTime(time);
         if (local === undefined || !local.startsWith(firstDay)) return [];
-        const at = (name: (typeof HOURLY)[number]) => finite(array(hourly[name])[index]);
+        const at = (name: (typeof HOURLY)[number]) => finite(values(hourly, name)[index]);
         const hour: WeatherHour = {
           time: local,
           ...optional('temperature', round1(at('temperature_2m'))),
@@ -103,14 +120,14 @@ export function createOpenMeteo(options: { readonly fetch?: Fetch } = {}): Weath
       const minutely = isRecord(body.minutely_15) ? body.minutely_15 : {};
       const quarters: WeatherQuarter[] = array(minutely.time).flatMap((time, index): WeatherQuarter[] => {
         const local = localTime(time);
-        const precipitation = finite(array(minutely.precipitation)[index]);
+        const precipitation = finite(values(minutely, 'precipitation')[index]);
         return local === undefined || precipitation === undefined ? [] : [{ time: local, precipitation: round1(precipitation) ?? 0 }];
       }).slice(0, QUARTERS);
       return {
         kind: 'forecast',
         forecast: {
           provider: 'OPEN_METEO',
-          model: query.model ?? 'best_match',
+          model: chosen,
           ...(Object.keys(now).length > 0 ? { current: now } : {}),
           days,
           ...(hours.length > 0 ? { hours } : {}),

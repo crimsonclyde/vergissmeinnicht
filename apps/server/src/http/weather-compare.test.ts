@@ -38,7 +38,7 @@ describe('Forecast comparison (19.4c)', () => {
         const url = new URL(input instanceof Request ? input.url : String(input));
         requests.push(url);
         const json = (body: string) => new Response(body, { status: 200, headers: { 'content-type': 'application/json' } });
-        if (url.host === 'api.open-meteo.com') return json(fixture(url.searchParams.get('models') === 'italia_meteo_arpae_icon_2i' ? 'open-meteo-icon-2i-16.json' : 'open-meteo-best-match-16.json'));
+        if (url.host === 'api.open-meteo.com') return json(fixture(url.searchParams.get('models')?.startsWith('italia_meteo_arpae_icon_2i') === true ? 'open-meteo-icon-2i-16.json' : 'open-meteo-best-match-16.json'));
         if (url.host === 'api.met.no') return metDown ? new Response('', { status: 503 }) : json(fixture('met-norway-compact.json'));
         if (url.host === 'api.openweathermap.org') return json(fixture('openweather-onecall.json'));
         if (url.host === 'api.meteomatics.com') return json(fixture(url.pathname.startsWith('/now/') ? 'meteomatics-current.json' : 'meteomatics-daily.json'));

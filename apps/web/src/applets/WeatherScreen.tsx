@@ -1,13 +1,14 @@
-import { useEffect, useId, useState, type CSSProperties } from 'react';
+import { useEffect, useState, type CSSProperties } from 'react';
 import type { WeatherDay, WeatherHour } from '@vergissmeinnicht/domain';
 import { formatCalendarDate, formatNumber, formatWallTime, formatWeekdayShort, t, type MessageKey } from '../i18n/index.ts';
 import { navigate, paths, Link } from '../router.tsx';
 import { MobileActionBar } from '../mobile/MobileActionBar.tsx';
-import { UiIcon, type UiIconName } from '../ui-icons.tsx';
+import { UiIcon } from '../ui-icons.tsx';
 import {
   dayMoments, historyColumns, historyRuns, hourOf, PROVIDER_NAMES, rainIndication, rainSoon, smoothPath, STRONG_GUSTS_KMH, temperature, uvLevel, uvWindow, wallTimeAt,
 } from '../weather-view.ts';
 import { WeatherArt } from './InstrumentPicture.tsx';
+import { Readings, type Reading } from './Readings.tsx';
 import { useForecast, type ShownForecast } from './ForecastProvider.tsx';
 import './weather-screen.css';
 
@@ -52,7 +53,6 @@ function WeatherPage({ data }: { data: ShownForecast }) {
   </div>;
 }
 
-interface Fact { readonly id: string; readonly icon: UiIconName; readonly label: string; readonly value: string; readonly info: string; readonly level?: string }
 
 function WeatherNow({ data, today, hours, wall }: { data: ShownForecast; today: WeatherDay | undefined; hours: readonly WeatherHour[]; wall: string }) {
   const { forecast, unit, location } = data;
@@ -72,24 +72,24 @@ function WeatherNow({ data, today, hours, wall }: { data: ShownForecast; today: 
         {today?.partial === true && <span className="weather-partial">{t('weather.partial')}</span>}
       </p>
       {soon !== null && <p className="weather-rain-soon" role="status"><UiIcon name="rainSoon" />{soon.kind === 'now' ? t('weather.rainSoon.now') : t('weather.rainSoon.in', { minutes: soon.minutes })}</p>}
-      <WeatherFacts facts={facts(data, today, hours)} />
       {data.fellBackFrom !== null && <p className="weather-note">{t('weather.fellBackFrom', { provider: PROVIDER_NAMES[data.fellBackFrom] })}</p>}
       {data.stale && <p className="weather-stale" role="status">{t('weather.savedForecast')}</p>}
     </div>
+    <Readings readings={facts(data, today, hours)} label={t('weather.details')} />
   </section>;
 }
 
 /** The small readings under "now": each an icon and a value; a tap explains it in one line. Missing ones are left out. */
-function facts(data: ShownForecast, today: WeatherDay | undefined, hours: readonly WeatherHour[]): Fact[] {
+function facts(data: ShownForecast, today: WeatherDay | undefined, hours: readonly WeatherHour[]): Reading[] {
   const { forecast, unit } = data;
   const current = forecast.current;
-  const list: Fact[] = [];
+  const list: Reading[] = [];
   // One rain reading: the chance where there is one (the amount in its explanation), else the amount.
   const amount = today?.precipitationSum === undefined ? null : `${formatNumber(today.precipitationSum, 1)} mm`;
-  if (today?.precipitationProbabilityMax !== undefined) list.push({ id: 'chance', icon: 'weatherDrizzle', label: t('weather.rainProbability'), value: `${Math.round(today.precipitationProbabilityMax)}%`, info: amount === null ? t('weather.info.chance') : t('weather.info.chanceAmount', { amount }) });
-  else if (amount !== null) list.push({ id: 'rain', icon: 'weatherRain', label: t('weather.rain'), value: amount, info: t('weather.info.rain') });
+  if (today?.precipitationProbabilityMax !== undefined) list.push({ id: 'chance', icon: 'weatherDrizzle', label: t('weather.rainProbability'), value: `${Math.round(today.precipitationProbabilityMax)}`, unit: '%', info: amount === null ? t('weather.info.chance') : t('weather.info.chanceAmount', { amount }) });
+  else if (today?.precipitationSum !== undefined) list.push({ id: 'rain', icon: 'weatherRain', label: t('weather.rain'), value: formatNumber(today.precipitationSum, 1), unit: 'mm', info: t('weather.info.rain') });
   const wind = current?.windSpeed ?? today?.windSpeedMax;
-  if (wind !== undefined) list.push({ id: 'wind', icon: 'wind', label: t(current?.windSpeed === undefined ? 'weather.windMax' : 'weather.windNow'), value: `${formatNumber(wind)} km/h`, info: t(current?.windSpeed === undefined ? 'weather.info.windMax' : 'weather.info.wind') });
+  if (wind !== undefined) list.push({ id: 'wind', icon: 'wind', label: t(current?.windSpeed === undefined ? 'weather.windMax' : 'weather.windNow'), value: formatNumber(wind), unit: 'km/h', info: t(current?.windSpeed === undefined ? 'weather.info.windMax' : 'weather.info.wind') });
   const feels = temperature(current?.apparentTemperature, unit);
   if (feels !== null) list.push({ id: 'feels', icon: 'feelsLike', label: t('weather.feelsLike'), value: feels, info: t('weather.info.feelsLike') });
   const uv = current?.uvIndex ?? today?.uvIndexMax;
@@ -101,33 +101,14 @@ function facts(data: ShownForecast, today: WeatherDay | undefined, hours: readon
       info: `${t(`weather.uvLevel.${level}` as MessageKey)}. ${window === null ? t('weather.info.uvNone') : t('weather.info.uvWindow', { from: formatWallTime(window.from), to: formatWallTime(window.to) })}`,
     });
   }
-  if (today?.sunrise !== undefined && today.sunset !== undefined) list.push({ id: 'sun', icon: 'sunrise', label: t('weather.daylight'), value: `${formatWallTime(today.sunrise)} – ${formatWallTime(today.sunset)}`, info: daylight(today.sunrise, today.sunset) });
-  if (current?.windGusts !== undefined && current.windGusts >= STRONG_GUSTS_KMH) list.push({ id: 'gusts', icon: 'wind', label: t('weather.gusts'), value: `${formatNumber(current.windGusts)} km/h`, level: 'high', info: t('weather.info.gusts') });
+  if (today?.sunrise !== undefined && today.sunset !== undefined) list.push({ id: 'sun', icon: 'sunrise', label: t('weather.daylight'), value: formatWallTime(today.sunrise), unit: `– ${formatWallTime(today.sunset)}`, info: daylight(today.sunrise, today.sunset) });
+  if (current?.windGusts !== undefined && current.windGusts >= STRONG_GUSTS_KMH) list.push({ id: 'gusts', icon: 'wind', label: t('weather.gusts'), value: formatNumber(current.windGusts), unit: 'km/h', level: 'high', info: t('weather.info.gusts') });
   return list;
 }
 
 function daylight(sunrise: string, sunset: string): string {
   const minutes = Math.max(0, Math.round((hourOf(sunset) - hourOf(sunrise)) * 60));
   return t('weather.info.daylight', { hours: Math.floor(minutes / 60), minutes: minutes % 60 });
-}
-
-function WeatherFacts({ facts }: { facts: readonly Fact[] }) {
-  const [open, setOpen] = useState<string | null>(null);
-  const infoId = useId();
-  const shown = facts.find((fact) => fact.id === open);
-  if (facts.length === 0) return null;
-  return <div className="weather-facts">
-    <ul aria-label={t('weather.details')}>
-      {facts.map((fact) => <li key={fact.id}>
-        <button type="button" className="weather-fact" data-level={fact.level} aria-expanded={open === fact.id} aria-controls={infoId} title={fact.label} onClick={() => setOpen(open === fact.id ? null : fact.id)}>
-          <UiIcon name={fact.icon} />
-          <span className="visually-hidden">{fact.label}: </span>
-          <span>{fact.value}</span>
-        </button>
-      </li>)}
-    </ul>
-    <p id={infoId} className="weather-fact-info" aria-live="polite" hidden={shown === undefined}>{shown === undefined ? null : <><strong>{shown.label}</strong> {shown.info}</>}</p>
-  </div>;
 }
 
 /** Vertical position (0 top – 100 bottom) of a temperature on a scale with a little room above and below. */
@@ -200,6 +181,16 @@ function WeatherNextDays({ days, unit }: { days: readonly WeatherDay[]; unit: Un
   const highs = line((day) => day.max);
   const lows = line((day) => day.min);
   const polyline = (points: readonly { x: number; y: number }[]) => points.map((point, index) => `${index === 0 ? 'M' : 'L'}${point.x} ${point.y}`).join(' ');
+  // Days past the chosen model's range (from the Automatic blend) are drawn dashed: the same values, less sure.
+  const firstExtended = days.findIndex((day) => day.extended === true);
+  const split = (points: readonly { x: number; y: number }[]) => {
+    if (firstExtended < 0) return { own: points, extended: [] as { x: number; y: number }[] };
+    const edge = x(firstExtended);
+    const own = points.filter((point) => point.x < edge);
+    return { own, extended: [...own.slice(-1), ...points.filter((point) => point.x >= edge)] };
+  };
+  const high = split(highs);
+  const low = split(lows);
   const columns = { '--weather-days': days.length } as CSSProperties;
   return <section className="card weather-next" aria-labelledby="weather-next-heading" style={columns}>
     <div className="weather-section-head">
@@ -210,18 +201,20 @@ function WeatherNextDays({ days, unit }: { days: readonly WeatherDay[]; unit: Un
       {days.map((day) => {
         const rain = rainIndication(day);
         const rainText = rain === null ? t('weather.missing') : rain.kind === 'probability' ? `${rain.value}%` : `${formatNumber(rain.value, 1)} mm`;
-        return <li key={day.date}>
-          <time dateTime={day.date} title={formatCalendarDate(day.date)}>{formatWeekdayShort(day.date)}</time>
+        return <li key={day.date} className={day.extended === true ? 'is-extended' : undefined}>
+          <time dateTime={day.date} title={day.extended === true ? `${formatCalendarDate(day.date)} · ${t('weather.extended')}` : formatCalendarDate(day.date)}>{formatWeekdayShort(day.date)}</time>
           <WeatherArt condition={day.condition} />
-          <span className="visually-hidden">{formatCalendarDate(day.date)}: {day.condition === undefined ? t('weather.missing') : t(`weather.condition.${day.condition}`)}, {t('weather.max')} {temperature(day.max, unit) ?? t('weather.missing')}, {t('weather.min')} {temperature(day.min, unit) ?? t('weather.missing')}, {rain?.kind === 'amount' ? t('weather.rain') : t('weather.rainProbability')} {rainText}</span>
+          <span className="visually-hidden">{formatCalendarDate(day.date)}: {day.condition === undefined ? t('weather.missing') : t(`weather.condition.${day.condition}`)}, {t('weather.max')} {temperature(day.max, unit) ?? t('weather.missing')}, {t('weather.min')} {temperature(day.min, unit) ?? t('weather.missing')}, {rain?.kind === 'amount' ? t('weather.rain') : t('weather.rainProbability')} {rainText}{day.extended === true ? ` (${t('weather.extended')})` : ''}</span>
         </li>;
       })}
     </ol>
     <div className="weather-chart weather-next-chart" aria-hidden="true">
       <svg viewBox="0 0 100 100" preserveAspectRatio="none" focusable="false">
         {highs.length > 1 && lows.length > 1 && <path className="weather-band" d={`${polyline(highs)} ${polyline([...lows].reverse()).replace(/^M/, 'L')} Z`} />}
-        <path className="weather-line weather-line-high" d={polyline(highs)} />
-        <path className="weather-line weather-line-low" d={polyline(lows)} />
+        <path className="weather-line weather-line-high" d={polyline(high.own)} />
+        <path className="weather-line weather-line-low" d={polyline(low.own)} />
+        {high.extended.length > 1 && <path className="weather-line weather-line-high weather-line-extended" d={polyline(high.extended)} />}
+        {low.extended.length > 1 && <path className="weather-line weather-line-low weather-line-extended" d={polyline(low.extended)} />}
       </svg>
       {days.map((day, index) => <span key={day.date}>
         {day.max !== undefined && <><span className="weather-dot weather-dot-high" style={at(x(index), y(day.max))} /><span className="weather-value weather-value-high" style={at(x(index), y(day.max))}>{temperature(day.max, unit)}</span></>}
@@ -231,7 +224,7 @@ function WeatherNextDays({ days, unit }: { days: readonly WeatherDay[]; unit: Un
     <ol className="weather-next-rain-row" aria-hidden="true">
       {days.map((day) => {
         const rain = rainIndication(day);
-        return <li key={day.date} className="weather-next-rain"><UiIcon name="weatherDrizzle" />{rain === null ? t('weather.missing') : rain.kind === 'probability' ? `${rain.value}%` : `${formatNumber(rain.value, 1)} mm`}</li>;
+        return <li key={day.date} className="weather-next-rain"><UiIcon name="weatherDrizzle" /><span>{rain === null ? t('weather.missing') : rain.kind === 'probability' ? `${rain.value}%` : <>{formatNumber(rain.value, 1)}<small> mm</small></>}</span></li>;
       })}
     </ol>
   </section>;

@@ -30,8 +30,8 @@ export function ForecastProvider({ userId, workspaceId, explicit, ready, childre
     if (!wanted) return;
     let active = true;
     const setState = (state: ForecastState) => setStored({ scope, state });
-    // Today and the Weather page share this: today plus the three days after it.
-    api.myForecast(4, workspaceId ?? undefined).then(answer => {
+    // Today and the Weather page share this: today plus the week after it.
+    api.myForecast(8, workspaceId ?? undefined).then(answer => {
       if (!active) return;
       if (answer.forecast === null) {
         const reason = REASONS.includes(answer.reason) ? answer.reason : 'unavailable';

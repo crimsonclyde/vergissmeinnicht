@@ -69,7 +69,12 @@ export interface WeatherDay {
   /** Local wall time at the place, `YYYY-MM-DDTHH:MM`. */
   readonly sunrise?: string;
   readonly sunset?: string;
+  /** Past the chosen model's own range: taken from Open-Meteo's Automatic blend so the next days are not empty. */
+  readonly extended?: boolean;
 }
+
+/** The days the chosen source itself forecasts (without days added from the Automatic blend). */
+export const ownForecastDays = <T extends { readonly extended?: boolean }>(days: readonly T[]): T[] => days.filter((day) => day.extended !== true);
 
 /** One hour of the place's first forecast day; `time` is local wall time at the place, `YYYY-MM-DDTHH:00`. */
 export interface WeatherHour {

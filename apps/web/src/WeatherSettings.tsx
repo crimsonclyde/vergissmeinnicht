@@ -39,6 +39,7 @@ function ForecastDetails({ answer }: { answer: MyForecast | null }) {
           <li key={day.date}>
             <strong>{formatCalendarDate(day.date)}</strong>
             {day.partial === true && <small className="muted"> · {t('weather.partial')}</small>}
+            {day.extended === true && <small className="muted"> · {t('weather.extended')}</small>}
             <p className="row weather-day-condition">
               <UiIcon name={conditionIcon(day.condition)} size="1.5em" /> {day.condition === undefined ? t('weather.missing') : t(`weather.condition.${day.condition}`)}
             </p>
