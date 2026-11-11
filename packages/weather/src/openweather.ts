@@ -1,5 +1,5 @@
 import { WeatherProviderError, type WeatherProviderAdapter } from '@vergissmeinnicht/application';
-import { conditionFromOpenWeather, type WeatherDay } from '@vergissmeinnicht/domain';
+import { conditionFromOpenWeather, type WeatherDay, type WeatherHour } from '@vergissmeinnicht/domain';
 import { finite, getJson, isRecord, round1, type Fetch } from './http.ts';
 import { optional } from './open-meteo.ts';
 
@@ -28,11 +28,13 @@ export function createOpenWeather(options: { readonly fetch?: Fetch } = {}): Wea
       url.searchParams.set('lat', String(query.latitude));
       url.searchParams.set('lon', String(query.longitude));
       url.searchParams.set('units', 'metric');
-      url.searchParams.set('exclude', 'minutely,hourly,alerts');
+      url.searchParams.set('exclude', 'minutely,alerts');
       url.searchParams.set('appid', query.credential.apiKey);
       const { body } = await getJson(doFetch, url, {}, { classify: (status) => (status === 401 || status === 403 ? 'invalid_credentials' : status === 429 ? 'quota_exhausted' : status === 404 ? 'not_covered' : undefined) });
       if (!isRecord(body)) throw new WeatherProviderError('bad_response');
       const offsetMs = (finite(body.timezone_offset) ?? 0) * 1000;
+      // A Unix time as the place's local wall time `YYYY-MM-DDTHH:MM`.
+      const local = (seconds: number | undefined) => (seconds === undefined ? undefined : new Date(seconds * 1000 + offsetMs).toISOString().slice(0, 16));
       const days: WeatherDay[] = array(body.daily).flatMap((raw): WeatherDay[] => {
         if (!isRecord(raw)) return [];
         const dt = finite(raw.dt);
@@ -54,6 +56,9 @@ export function createOpenWeather(options: { readonly fetch?: Fetch } = {}): Wea
             ...optional('precipitationProbabilityMax', pop === undefined ? undefined : Math.round(pop * 100)),
             ...optional('windSpeedMax', wind === undefined ? undefined : round1(wind * MS_TO_KMH)),
             ...optional('condition', conditionFromOpenWeather(firstWeatherId(raw.weather))),
+            ...optional('uvIndexMax', round1(finite(raw.uvi))),
+            ...optional('sunrise', local(finite(raw.sunrise))),
+            ...optional('sunset', local(finite(raw.sunset))),
           },
         ];
       });
@@ -61,16 +66,35 @@ export function createOpenWeather(options: { readonly fetch?: Fetch } = {}): Wea
       const current = isRecord(body.current) ? body.current : {};
       const wind = finite(current.wind_speed);
       const rain = isRecord(current.rain) ? finite(current.rain['1h']) : undefined;
+      const gust = finite(current.wind_gust);
       const now = {
         ...optional('temperature', round1(finite(current.temp))),
         ...optional('condition', conditionFromOpenWeather(firstWeatherId(current.weather))),
         ...optional('windSpeed', wind === undefined ? undefined : round1(wind * MS_TO_KMH)),
         ...optional('precipitation', round1(rain)),
+        ...optional('apparentTemperature', round1(finite(current.feels_like))),
+        ...optional('windGusts', gust === undefined ? undefined : round1(gust * MS_TO_KMH)),
+        ...optional('uvIndex', round1(finite(current.uvi))),
       };
+      // Hourly values come with the same call; only the first day's hours are kept.
+      const firstDay = days[0]?.date ?? '';
+      const hours: WeatherHour[] = array(body.hourly).flatMap((raw): WeatherHour[] => {
+        if (!isRecord(raw)) return [];
+        const time = local(finite(raw.dt));
+        if (time === undefined || !time.startsWith(firstDay)) return [];
+        const pop = finite(raw.pop);
+        return [{
+          time,
+          ...optional('temperature', round1(finite(raw.temp))),
+          ...optional('condition', conditionFromOpenWeather(firstWeatherId(raw.weather))),
+          ...optional('precipitationProbability', pop === undefined ? undefined : Math.round(pop * 100)),
+          ...optional('uvIndex', round1(finite(raw.uvi))),
+        }];
+      });
       const issued = finite(current.dt);
       return {
         kind: 'forecast',
-        forecast: { provider: 'OPENWEATHER', ...optional('issuedAt', issued === undefined ? undefined : new Date(issued * 1000).toISOString()), ...(Object.keys(now).length > 0 ? { current: now } : {}), days },
+        forecast: { provider: 'OPENWEATHER', ...optional('issuedAt', issued === undefined ? undefined : new Date(issued * 1000).toISOString()), ...(Object.keys(now).length > 0 ? { current: now } : {}), days, ...(hours.length > 0 ? { hours } : {}) },
         // OpenWeather updates every 10 minutes; VMN keeps its usual 30 minutes to save calls.
       };
     },

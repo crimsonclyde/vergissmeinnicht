@@ -56,6 +56,27 @@ describe('Open-Meteo', () => {
     });
   });
 
+  it('reads hours of today, quarter hours, feels-like, gusts, UV and sunrise/sunset from the same request', async () => {
+    const seen: Seen[] = [];
+    const body = {
+      current: { temperature_2m: 8.64, weather_code: 2, wind_speed_10m: 14, precipitation: 0, apparent_temperature: 6.12, wind_gusts_10m: 31.4, uv_index: 1.25 },
+      daily: { time: ['2026-11-11', '2026-11-12'], temperature_2m_max: [10.8, 9.2], temperature_2m_min: [4.1, 5], weather_code: [61, 63], uv_index_max: [2.4, null], sunrise: ['2026-11-11T07:12', 'nonsense'], sunset: ['2026-11-11T16:51', null] },
+      hourly: { time: ['2026-11-11T00:00', '2026-11-11T01:00', '2026-11-12T00:00', 'bad'], temperature_2m: [4.2, 4.04, 5, 1], weather_code: [45, null, 3, 0], precipitation_probability: [0, 5, 80, 0], uv_index: [0, 0, 0, 0] },
+      minutely_15: { time: ['2026-11-11T07:15', '2026-11-11T07:30', 'bad'], precipitation: [0, 0.34, 1] },
+    };
+    const answer = await createOpenMeteo({ fetch: fakeFetch(() => json(JSON.stringify(body)), seen) }).forecast({ ...TRIORA, model: 'best_match' });
+    expect(Object.fromEntries(seen[0]?.url.searchParams ?? [])).toMatchObject({ hourly: 'temperature_2m,weather_code,precipitation_probability,uv_index', minutely_15: 'precipitation', forecast_minutely_15: '12' });
+    if (answer.kind !== 'forecast') throw new Error('expected a forecast');
+    expect(answer.forecast.current).toEqual({ temperature: 8.6, condition: 'PARTLY_CLOUDY', windSpeed: 14, precipitation: 0, apparentTemperature: 6.1, windGusts: 31.4, uvIndex: 1.3 });
+    expect(answer.forecast.days[0]).toMatchObject({ uvIndexMax: 2.4, sunrise: '2026-11-11T07:12', sunset: '2026-11-11T16:51' });
+    expect(answer.forecast.days[1]).not.toHaveProperty('sunrise');
+    expect(answer.forecast.hours).toEqual([
+      { time: '2026-11-11T00:00', temperature: 4.2, condition: 'FOG', precipitationProbability: 0, uvIndex: 0 },
+      { time: '2026-11-11T01:00', temperature: 4, precipitationProbability: 5, uvIndex: 0 },
+    ]);
+    expect(answer.forecast.quarters).toEqual([{ time: '2026-11-11T07:15', precipitation: 0 }, { time: '2026-11-11T07:30', precipitation: 0.3 }]);
+  });
+
   it('keeps a value the model does not have missing — ICON-2I has no rain probability — and sends the elevation', async () => {
     const seen: Seen[] = [];
     const provider = createOpenMeteo({ fetch: fakeFetch(() => json(fixture('open-meteo-icon-2i.json')), seen) });
@@ -122,6 +143,11 @@ describe('MET Norway', () => {
     expect(answer.expiresAt?.toISOString()).toBe('2026-10-08T08:55:53.000Z');
     expect(answer.lastModified).toBe(headers['last-modified']);
     expect(answer.forecast).toMatchObject({ provider: 'MET_NORWAY', issuedAt: '2026-10-08T08:22:17.000Z', current: { temperature: 14.9, condition: 'CLEAR' } });
+    // The first local day's hourly instants, in the place's wall time; no rain probability in the compact product.
+    const hours = answer.forecast.hours ?? [];
+    expect(hours.length).toBeGreaterThan(0);
+    expect(hours.every((hour) => hour.time.startsWith(answer.forecast.days[0]?.date ?? '?') && /T\d{2}:00$/.test(hour.time) && !('precipitationProbability' in hour))).toBe(true);
+    expect(hours[0]).toMatchObject({ temperature: 14.9, condition: 'CLEAR' });
     // Days in the place's time zone; the first one only from now on (partial); no rain probability anywhere.
     const [today, tomorrow] = answer.forecast.days;
     expect(today).toMatchObject({ date: '2026-10-08', partial: true });

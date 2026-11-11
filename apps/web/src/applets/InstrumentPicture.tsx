@@ -32,3 +32,14 @@ export function InstrumentPicture({ kind, now, condition }: { kind: 'clock' | 'w
     </svg>}
   </span>;
 }
+
+/** The same painted condition artwork for the Weather page (decorative; the condition is always written too). */
+export function WeatherArt({ condition, className }: { condition: WeatherCondition | undefined; className?: string }) {
+  const [failed, setFailed] = useState<string>();
+  const artwork = weatherArtwork[condition ?? 'UNKNOWN'];
+  return <span className={`weather-art${className === undefined ? '' : ` ${className}`}`} aria-hidden="true">
+    {artwork !== undefined && artwork !== failed
+      ? <img key={artwork} src={artwork} alt="" width={700} height={700} loading="lazy" decoding="async" draggable={false} onError={() => setFailed(artwork)} />
+      : <span className="weather-art-symbol"><UiIcon name={conditionIcon(condition)} /></span>}
+  </span>;
+}

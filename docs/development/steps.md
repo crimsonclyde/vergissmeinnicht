@@ -7473,6 +7473,39 @@ three settings areas, and return to the saved Places theme. Typecheck,
 lint, web build and diff checks passed. Physical devices, release and
 hosted verification are pending.
 
+### 36.14 Picturesque Weather page (owner request 2026-11-11)
+
+The opened Weather page uses the painted condition art of the Today card
+instead of line icons and CSS skies. "Now" shows the painting, the
+temperature, high and low, and small icon readings that explain themselves
+in one line on a tap: rain chance (amount in the explanation, or the amount
+alone), wind, feels like, UV index (with the hours needing sun protection)
+and sunrise to sunset; strong gusts (from 50 km/h) only when there are any.
+"Rain in 20 min" or "Raining now" appears only when Open-Meteo's quarter
+hours show rain coming.
+
+Every chart is a line graph (owner: no bars). Today draws the temperature
+from 0 to 24 h with night shaded and a "now" marker, with four painted
+moments (morning, midday, afternoon, evening) and their rain chance. Next
+days draw highs and lows as two lines with the values on the points. Past
+14 days draw the daily average over the low-to-high band; a day without a
+reading is bridged by a dashed line. Lines are drawn in a stretched SVG and
+every label in HTML, so text keeps its size on phones.
+
+No extra provider calls. Open-Meteo asks for `hourly`, `minutely_15` (12
+steps) and more `current`/`daily` variables in the same request; MET Norway's
+hours come from the timeseries it already returns (no rain chance, UV or sun
+times in the compact product); OpenWeather keeps `hourly` in its One Call
+(still one billed call). Meteomatics gets no hours, so its page shows no
+Today chart. `WeatherForecast` gains optional `hours` and `quarters`, days
+gain `uvIndexMax`, `sunrise`, `sunset` (place wall time) and current gains
+`apparentTemperature`, `windGusts`, `uvIndex`. No migration; saved offline
+copies without the new fields still show.
+
+Colours come only from each theme's tokens, so Light, Dark, Memento Mori,
+Tokyo Nights, Witch Forest, Space Guide and the Places themes were checked
+by screenshot without per-theme rules; forced colours draw plain lines.
+
 ### Release plan for 0.13.10, owner milestone 64 (2026-11-10)
 
 The preceding 0.13.9 candidate was stopped before publication after inspecting the
