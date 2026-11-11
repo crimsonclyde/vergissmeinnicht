@@ -18,7 +18,7 @@ export function Readings({ readings, label }: { readings: readonly Reading[]; la
         <button type="button" className="reading" data-level={reading.level} aria-expanded={open === reading.id} aria-controls={infoId} title={reading.label} onClick={() => setOpen(open === reading.id ? null : reading.id)}>
           <UiIcon name={reading.icon} />
           <span className="visually-hidden">{reading.label}: </span>
-          <span className="reading-value">{reading.value}{reading.unit !== undefined && <small>{reading.unit}</small>}</span>
+          <span className="reading-value">{reading.value}{reading.unit !== undefined && <small>{reading.unit === '%' ? reading.unit : ` ${reading.unit}`}</small>}</span>
         </button>
       </li>)}
     </ul>

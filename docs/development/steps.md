@@ -7551,7 +7551,7 @@ by screenshot without per-theme rules; forced colours draw plain lines.
 sunset, gusts) now span the whole "now" card under a hairline, centred on one
 line. On phones each shows its icon over the value with the unit underneath,
 so up to five fit on one line at 320 px; a long reading such as
-"7:18 AM – 5:06 PM" takes a double share. The row is the shared `Readings`
+"7:18 AM – 5:06 PM" takes a double share. Units keep their space in the text ("11.9 mm"; "70%"). The row is the shared `Readings`
 component (`applets/Readings.tsx`, `readings.css`), also used by the Clock page.
 
 Next days now shows the week after today (Today and the Weather page ask for

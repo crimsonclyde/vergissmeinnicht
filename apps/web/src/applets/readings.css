@@ -15,7 +15,7 @@
   font: inherit; font-size: .95rem; font-variant-numeric: tabular-nums; cursor: pointer;
 }
 .reading .ui-icon { flex: none; width: 1.1rem; height: 1.1rem; color: var(--readings-warm); }
-.reading-value small { margin-left: .2em; font-size: inherit; }
+.reading-value small { font-size: inherit; }
 .reading[aria-expanded='true'], .reading[aria-pressed='true'] { border-color: var(--readings-warm); background: color-mix(in srgb, var(--readings-warm) 14%, transparent); }
 .reading[data-level='high'], .reading[data-level='veryHigh'], .reading[data-level='extreme'] { border-color: color-mix(in srgb, var(--readings-warm) 70%, var(--border)); }
 .reading:disabled { cursor: default; opacity: .55; }
