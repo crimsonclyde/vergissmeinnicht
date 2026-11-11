@@ -78,6 +78,24 @@ async function inspect(input: Uint8Array): Promise<Metadata> {
   return metadata;
 }
 
+/**
+ * Delegated Recipe photos and List covers: ChatGPT may hand over a still WebP, while attachments keep
+ * JPEG or PNG originals. Converts it to a lossless PNG after the same checks as instruction images
+ * (size, header-only pixel limit, no animation). Applies the orientation; writes no metadata.
+ */
+export async function convertWebpToPng(input: Uint8Array): Promise<Uint8Array> {
+  precheck(input);
+  return withSlot(async () => {
+    const metadata = await inspect(input);
+    if (metadata.format !== 'webp') throw new ImageRejectedError('unsupported_format');
+    try {
+      return new Uint8Array(await decoder(input).rotate().toColourspace('srgb').png().toBuffer());
+    } catch {
+      throw new ImageRejectedError('unreadable');
+    }
+  });
+}
+
 /** Avatar encodings, in order; the first within `MAX_STORED_AVATAR_BYTES` wins. */
 const AVATAR_QUALITIES = [82, 72, 62, 50] as const;
 

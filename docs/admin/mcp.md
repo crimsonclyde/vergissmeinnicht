@@ -288,6 +288,9 @@ or require public access; the isolated live-integration gates above still apply.
 
 ## Upload an image generated in ChatGPT
 
+ChatGPT uses the one-call file route described in the next section. The picker and base64
+upload below remain for other MCP clients.
+
 Refresh the VMN tool list after upgrading. Recipe write access exposes `open_recipe_image_upload`
 and `upload_recipe_image`. In a ChatGPT client that renders the upload widget, open the tool for the
 chosen Workspace and existing Recipe (or use a null Recipe ID for a new Recipe). Download the
@@ -321,53 +324,43 @@ on the client. The signed-in List appearance editor provides an upload path in V
 
 ## Upload an image already available in ChatGPT
 
-When ChatGPT can read an attachment with its file or code tools, it can encode the
-actual bytes and call `upload_recipe_image` or `upload_list_cover` directly. This
-works without a file picker and avoids relying on a temporary download URL. ChatGPT
-should pass the generated base64 to the tool and keep it out of the chat. The
-Recipe byte upload was verified in hosted ChatGPT with a directly attached PNG.
-For a photo in a PDF, extract the original embedded photo first when possible.
+ChatGPT saves a pictured Recipe in one call. `create_recipe` and `prepare_recipe_meal` take
+the photo in their `image` argument, and `set_recipe_image` adds or replaces the photo of an
+existing Recipe. VMN uploads the file, puts it at the top of the instructions and makes it
+the cover. With `requireImage: true`, nothing is saved without a photo. JPEG, PNG and WebP
+are accepted; VMN converts WebP to PNG. List covers use `upload_list_cover_file` and then
+`set_list_cover`.
 
-After installing a VMN build with file handoff support, refresh the VMN plugin tools in
-ChatGPT and open a fresh chat. Recipe write access exposes `upload_recipe_image_file`.
-**List cover images** access exposes `upload_list_cover_file`. These tools use the
-existing grants and image limits. A connection needs new consent only if its existing
-grant lacks the scope for the tool you want.
+The two everyday flows:
 
-Attach a JPEG or PNG to the chat and name the destination Workspace and Recipe or List.
-For a photo in a PDF, ask ChatGPT to extract the original photo as a separate JPEG or PNG
-and pass it as a file if the client makes that file available to the tool. VMN accepts
-the image bytes, preserves the original and creates its normal thumbnail. The tools
-accept file references from `https://files.oaiusercontent.com` and signed blob
-links at the exact ChatGPT storage account `oaisdmntprnortheu.blob.core.windows.net`
-and regional generated-file hosts such as `sdmntprdenmarkeast.oaiusercontent.com`.
-The regional rule accepts only one `sdmntpr`-prefixed alphanumeric label below
-`oaiusercontent.com`, with the same HTTPS, signed-blob, DNS and size checks.
-It does not allow general web image URLs or other Azure accounts.
+- **Recipe from a PDF**: attach the PDF and ask ChatGPT to save the recipe with its photo.
+  ChatGPT extracts the original photo as a separate image file and passes it as `image`.
+- **Recipe from a question or link**: ChatGPT creates a picture with its own image tool and
+  passes it as `image`.
 
-The raw MCP `tools/list` response marks `file` in `openai/fileParams` and describes
-an object with `file_id` and `download_url`. ChatGPT's description of a tool in
-conversation is separate from that response. For an upload-only check, attach a JPEG
-or PNG directly in a fresh chat, select the VMN plugin, and ask it to call
-`upload_recipe_image_file` with `recipeId: null`. Let ChatGPT bind the real attachment
-using its file mechanism. A path sent to VMN as a raw string fails argument validation.
-If the call fails, record whether it actually ran and the returned error without
-sharing the signed download URL. Skip recipe creation during this check.
+After upgrading, refresh the VMN tools in ChatGPT and open a fresh chat. ChatGPT then sees
+only these file routes. The base64 tools (`upload_recipe_image`, `upload_list_cover`), the
+picker tools and `upload_recipe_image_file` stay available to other MCP clients.
 
-Starting with 0.13.5, use the file transfer code to identify the first failed stage.
+VMN downloads the file from ChatGPT's temporary storage link. It accepts
+`files.oaiusercontent.com`, regional hosts such as `sdmntprdenmarkeast.oaiusercontent.com`
+or `sdmntswcentralus.oaiusercontent.com`, and the Azure storage account
+`oaisdmntprnortheu.blob.core.windows.net`. If ChatGPT uses another storage host, the tool
+error names it (for example `Refused host: oaisdmntprwesteurope.blob.core.windows.net`) and
+the server log records it. After checking that it is an OpenAI storage host, add it to the
+container variable `MCP_CHATGPT_FILE_HOSTS` (comma-separated exact names, up to 10, only
+below `oaiusercontent.com` or `blob.core.windows.net`) and restart the container. No new
+release is needed.
+
+Error codes:
 
 - `file_reference_required` means VMN did not receive a valid file object.
 - `file_source_invalid` means the object's download URL was malformed or unsafe.
-- `file_origin_unsupported` means the HTTPS URL was outside the supported file endpoints.
+- `file_origin_unsupported` means the storage host is not accepted yet; see above.
 - `file_unavailable` means the file host refused the link or no longer serves it.
   Ask ChatGPT for a fresh link for the same file and keep the operation ID.
 - `file_download_failed` means VMN could not complete the download.
-
-For a pictured Recipe, put the returned Markdown in the instructions, set the returned
-reference as `coverImage` and use `requireImage: true` on `create_recipe`. Read the saved
-Recipe back and confirm its cover. If the user requires the photo and the transfer fails,
-stop before saving. For a List, apply the returned attachment ID with `set_list_cover`
-at the reviewed revision. Keep the operation ID when retrying the same file.
+- `recipe_cover_required` means `requireImage` was set but no image arrived.
 
 For cookbook imports, leave `source` empty unless you have an HTTP or HTTPS URL.
 Keep a cookbook title or PDF filename in the instructions. Put a positive number,

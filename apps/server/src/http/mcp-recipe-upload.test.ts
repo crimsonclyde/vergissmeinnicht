@@ -159,6 +159,7 @@ it('uploads supplied original bytes through OAuth MCP and safely attaches them o
   const unsupported = await call('upload_recipe_image_file', { ...fileUpload, file: { ...file, download_url: 'https://127.0.0.1/file-pdf-photo?sig=fixture-secret' } });
   expect(unsupported.content[0].text).toContain('file_origin_unsupported');
   expect(unsupported.content[0].text).not.toMatch(/127\.0\.0\.1|fixture-secret/);
+  expect(unsupported.content[0].text).not.toContain('Refused host');
   expect(downloads).toBe(0);
   const staged = (await call('upload_recipe_image_file', fileUpload)).structuredContent;
   expect(staged.attachment.format).toBe('JPEG');

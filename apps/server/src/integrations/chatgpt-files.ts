@@ -6,21 +6,29 @@ import { checkServerIdentity } from 'node:tls';
 import { AttachmentError } from '@vergissmeinnicht/application';
 
 export const CHATGPT_LEGACY_FILE_ORIGIN = 'https://files.oaiusercontent.com';
-const CHATGPT_BLOB_ORIGIN = 'https://oaisdmntprnortheu.blob.core.windows.net';
-// ChatGPT-generated files use regional hosts in OpenAI's own storage namespace.
-// Do not generalize this to arbitrary oaiusercontent subdomains or Azure accounts.
-const CHATGPT_REGIONAL_FILE_HOST = /^sdmntpr[a-z0-9]{1,56}\.oaiusercontent\.com$/;
+// Azure storage account names are first come, first served, so a name pattern is not proof of
+// ownership. Only exact accounts observed in live ChatGPT transfers are built in; an operator can
+// add another exact host with MCP_CHATGPT_FILE_HOSTS after VMN reports it.
+const CHATGPT_BLOB_HOSTS = new Set(['oaisdmntprnortheu.blob.core.windows.net']);
+// OpenAI's own domain serves its signed file storage under one regional label (for example
+// sdmntprdenmarkeast or sdmntswcentralus). Other labels and deeper subdomains stay refused.
+const CHATGPT_REGIONAL_FILE_HOST = /^sdmnt[a-z]{2}[a-z0-9]{1,54}\.oaiusercontent\.com$/;
+/** Hosts an operator may add: one label below OpenAI's file domain or Azure Blob storage. */
+export const CHATGPT_EXTRA_FILE_HOST = /^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.(?:oaiusercontent\.com|blob\.core\.windows\.net)$/;
 
 export class ChatGptFileError extends Error {
   readonly code: 'file_source_invalid' | 'file_origin_unsupported' | 'file_download_failed' | 'file_unavailable';
+  /** Only for file_origin_unsupported: the refused host name, never the signed path or query. */
+  readonly host: string | undefined;
 
-  constructor(code: ChatGptFileError['code']) {
+  constructor(code: ChatGptFileError['code'], host?: string) {
     super(code);
     this.code = code;
+    this.host = host;
   }
 }
 
-export function chatGptFileUrl(input: string): URL {
+export function chatGptFileUrl(input: string, extraHosts: readonly string[] = []): URL {
   if (!input.startsWith('https://') || input.length > 8192 || /[\p{Cc}\s\\]/u.test(input)) throw new ChatGptFileError('file_source_invalid');
   let url: URL;
   try { url = new URL(input); } catch { throw new ChatGptFileError('file_source_invalid'); }
@@ -28,12 +36,14 @@ export function chatGptFileUrl(input: string): URL {
     throw new ChatGptFileError('file_source_invalid');
   }
   if (url.origin === CHATGPT_LEGACY_FILE_ORIGIN) return url;
-  const signedBlobOrigin = url.origin === CHATGPT_BLOB_ORIGIN ||
-    (url.port === '' && CHATGPT_REGIONAL_FILE_HOST.test(url.hostname));
+  const signedBlobOrigin = url.port === '' && (CHATGPT_BLOB_HOSTS.has(url.hostname) ||
+    CHATGPT_REGIONAL_FILE_HOST.test(url.hostname) || extraHosts.includes(url.hostname));
   if (signedBlobOrigin && /^\/[^/]+\/.+/.test(url.pathname) &&
       ![...url.searchParams.keys()].some(key => ['snapshot', 'versionid'].includes(key.toLowerCase())) &&
       url.searchParams.getAll('sig').length === 1 && url.searchParams.get('sig')) return url;
-  throw new ChatGptFileError('file_origin_unsupported');
+  // Report a refused DNS name so an operator can review it. Never an address literal or the signed path.
+  const host = isIP(url.hostname.replace(/^\[|\]$/g, '')) === 0 && /^[a-z0-9.-]{1,253}$/.test(url.hostname) ? url.hostname : undefined;
+  throw new ChatGptFileError('file_origin_unsupported', host);
 }
 
 const nonPublicV4 = new BlockList();
@@ -55,13 +65,15 @@ function isPublic(address: string): boolean {
     family === 6 && globalV6.check(address, 'ipv6') && !specialV6.check(address, 'ipv6');
 }
 
-async function resolveFileHost(host: string): Promise<string[]> {
-  const resolver = new Resolver({ timeout: 3000, tries: 1 });
-  const optional = (query: Promise<string[]>) => query.catch((error: NodeJS.ErrnoException) => {
-    if (error.code === 'ENODATA') return [];
-    throw error;
-  });
-  return (await Promise.all([optional(resolver.resolve4(host)), optional(resolver.resolve6(host))])).flat();
+type FileHostResolver = Pick<Resolver, 'resolve4' | 'resolve6'>;
+
+export async function resolveFileHost(host: string, resolver: FileHostResolver = new Resolver({ timeout: 3000, tries: 1 })): Promise<string[]> {
+  // One address family is enough. Some home routers and Docker DNS setups fail AAAA lookups
+  // with SERVFAIL or a timeout instead of an empty answer; that must not block an IPv4 download.
+  const [v4, v6] = await Promise.allSettled([resolver.resolve4(host), resolver.resolve6(host)]);
+  const addresses = [v4, v6].flatMap(result => result.status === 'fulfilled' ? result.value : []);
+  if (!addresses.length && v4.status === 'rejected') throw v4.reason;
+  return addresses;
 }
 
 function getFile(options: RequestOptions): Promise<IncomingMessage> {
@@ -75,10 +87,10 @@ function getFile(options: RequestOptions): Promise<IncomingMessage> {
 export type ChatGptFileSource = (url: URL, maxBytes: number) => AsyncIterable<Uint8Array>;
 
 /** Resolve only a reviewed file endpoint and connect to one of its verified public addresses. */
-export function createChatGptFileSource(resolve = resolveFileHost, get = getFile): ChatGptFileSource {
+export function createChatGptFileSource(resolve: (host: string) => Promise<string[]> = host => resolveFileHost(host), get = getFile, extraHosts: readonly string[] = []): ChatGptFileSource {
   let active = 0;
   return async function* (input, maxBytes) {
-    const url = chatGptFileUrl(input.href);
+    const url = chatGptFileUrl(input.href, extraHosts);
     const host = url.hostname;
     if (active >= 2) throw new AttachmentError('attachment_busy');
     active++;

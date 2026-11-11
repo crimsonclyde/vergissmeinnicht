@@ -25,6 +25,15 @@ function issuesOf(env: NodeJS.ProcessEnv): readonly string[] {
 }
 
 describe('loadConfig', () => {
+  it('accepts only exact extra ChatGPT file hosts below the reviewed storage domains', () => {
+    expect(loadConfig(production).chatGptFileHosts).toEqual([]);
+    expect(loadConfig({ ...production, MCP_CHATGPT_FILE_HOSTS: ' OaiSdmntprWestEurope.blob.core.windows.net, sdmntprnew.oaiusercontent.com ' }).chatGptFileHosts)
+      .toEqual(['oaisdmntprwesteurope.blob.core.windows.net', 'sdmntprnew.oaiusercontent.com']);
+    for (const value of ['evil.example', '*.blob.core.windows.net', 'a.b.oaiusercontent.com', 'oaiusercontent.com', '127.0.0.1']) {
+      expect(issuesOf({ ...production, MCP_CHATGPT_FILE_HOSTS: value }).join(' ')).toContain('MCP_CHATGPT_FILE_HOSTS');
+    }
+  });
+
   it('accepts a complete production configuration', () => {
     const config = loadConfig(production);
     expect(config.mode).toBe('production');

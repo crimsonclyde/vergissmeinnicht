@@ -3,7 +3,7 @@ import { Readable } from 'node:stream';
 import { AttachmentError, AttachmentUploadConflictError, authorizeRecipes, uploadAttachment } from '@vergissmeinnicht/application';
 import { DEFAULT_ATTACHMENT_UPLOAD_BYTES, normalizeOriginalFileName, type User, type WorkspaceId } from '@vergissmeinnicht/domain';
 import { CHATGPT_LEGACY_FILE_ORIGIN, chatGptFileUrl, type ChatGptFileSource } from '../integrations/chatgpt-files.ts';
-import type { AppServices } from '../composition.ts';
+import type { AppServices, DelegatedAttachmentDeps } from '../composition.ts';
 
 export const MCP_IMAGE_BYTES = DEFAULT_ATTACHMENT_UPLOAD_BYTES;
 export const MCP_IMAGE_BASE64_LENGTH = Math.ceil(MCP_IMAGE_BYTES / 3) * 4;
@@ -46,14 +46,14 @@ export async function uploadRecipeImageFile(
 }
 
 export async function uploadDelegatedImage(
-  deps: AppServices['recipeAttachments'],
+  deps: DelegatedAttachmentDeps,
   actor: User,
   workspaceId: WorkspaceId,
   authorize: AuthorizeUpload,
   input: UploadTarget & { fileName: string; imageBase64: string },
 ) {
   await authorize(true);
-  const name = normalizeOriginalFileName(input.fileName);
+  const name = normalizeOriginalFileName(pngName(input.fileName));
   const encoded = input.imageBase64;
   // Buffer's decoder alone accepts whitespace, alternate alphabets and noncanonical encodings.
   const padding = encoded.endsWith('==') ? 2 : encoded.endsWith('=') ? 1 : 0;
@@ -75,7 +75,7 @@ export async function uploadDelegatedImage(
 }
 
 export async function uploadDelegatedImageFile(
-  deps: AppServices['recipeAttachments'],
+  deps: DelegatedAttachmentDeps,
   actor: User,
   workspaceId: WorkspaceId,
   authorize: AuthorizeUpload,
@@ -84,7 +84,7 @@ export async function uploadDelegatedImageFile(
 ) {
   await authorize(true);
   const url = chatGptFileUrl(input.file.download_url);
-  const name = normalizeOriginalFileName(input.file.file_name?.trim() || 'chatgpt-image');
+  const name = normalizeOriginalFileName(pngName(input.file.file_name?.trim() || 'chatgpt-image'));
   // Keep old receipts compatible. Signed blob identity is the storage origin and path.
   const identity = url.origin === CHATGPT_LEGACY_FILE_ORIGIN
     ? url.pathname
@@ -96,8 +96,74 @@ export async function uploadDelegatedImageFile(
   });
 }
 
+const pngName = (name: string) => name.replace(/\.webp$/i, '.png');
+const isWebp = (head: Buffer) => head.length >= 12 && head.toString('latin1', 0, 4) === 'RIFF' &&
+  head.toString('latin1', 8, 12) === 'WEBP';
+
+/**
+ * Attachments keep JPEG or PNG originals. A still WebP (as ChatGPT may deliver) is converted to a
+ * lossless PNG within the same size limit; everything else streams through unchanged and is
+ * identified by the attachment pipeline as before.
+ */
+async function* convertWebp(source: AsyncIterable<Uint8Array>, maxBytes: number, convert: DelegatedAttachmentDeps['convertWebp']) {
+  const iterator = source[Symbol.asyncIterator]();
+  try {
+    const chunks: Uint8Array[] = [];
+    let size = 0;
+    while (size < 12) {
+      const next = await iterator.next();
+      if (next.done) break;
+      chunks.push(next.value);
+      size += next.value.byteLength;
+    }
+    const head = Buffer.concat(chunks);
+    if (!isWebp(head)) {
+      if (head.byteLength) yield head;
+      for (let next = await iterator.next(); !next.done; next = await iterator.next()) yield next.value;
+      return;
+    }
+    for (let next = await iterator.next(); !next.done; next = await iterator.next()) {
+      size += next.value.byteLength;
+      if (size > maxBytes) throw new AttachmentError('attachment_too_large');
+      chunks.push(next.value);
+    }
+    let png: Uint8Array;
+    try { png = await convert(Buffer.concat(chunks)); } catch { throw new AttachmentError('attachment_format'); }
+    if (png.byteLength > maxBytes) throw new AttachmentError('attachment_too_large');
+    yield png;
+  } finally {
+    await iterator.return?.();
+  }
+}
+
+/** A stable UUID v4 for the image upload that belongs to a Recipe write, so retries reuse its receipt. */
+export function derivedOperationId(operationId: string, purpose: string) {
+  const bytes = createHash('sha256').update(`${purpose}:${operationId}`).digest().subarray(0, 16);
+  bytes.writeUInt8((bytes.readUInt8(6) & 0x0f) | 0x40, 6);
+  bytes.writeUInt8((bytes.readUInt8(8) & 0x3f) | 0x80, 8);
+  const hex = bytes.toString('hex');
+  return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
+}
+
+const escapeRegExp = (value: string) => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+/**
+ * Puts an uploaded photo at the top of the instructions and makes it the cover. With replaceCover,
+ * the previous cover's image Markdown is removed first. Deterministic, so retries hash identically.
+ */
+export function withRecipeImage<T extends { instructions: string; coverImage?: string | undefined }>(
+  content: T, image: { reference: string; markdown: string }, replaceCover?: string,
+): T {
+  let instructions = content.instructions;
+  if (replaceCover && replaceCover !== image.reference) {
+    instructions = instructions.replace(new RegExp(`!\\[[^\\]\\n]*\\]\\(${escapeRegExp(replaceCover)}\\)[ \\t]*\\n*`, 'g'), '');
+  }
+  if (!instructions.includes(`(${image.reference})`)) instructions = `${image.markdown}\n\n${instructions.trim()}`.trim();
+  return { ...content, instructions, coverImage: image.reference };
+}
+
 async function persistDelegatedImage(
-  deps: AppServices['recipeAttachments'], actor: User, workspaceId: WorkspaceId, authorize: AuthorizeUpload,
+  deps: DelegatedAttachmentDeps, actor: User, workspaceId: WorkspaceId, authorize: AuthorizeUpload,
   input: UploadTarget & { name: string; payloadHash: string; source: (maxBytes: number) => AsyncIterable<Uint8Array> },
 ) {
   const scope = { workspaceId };
@@ -108,7 +174,7 @@ async function persistDelegatedImage(
   if (!attachment) {
     const maxBytes = Math.min(MCP_IMAGE_BYTES, (await deps.repository.policy()).maxUploadBytes);
     // Keep file retrieval lazy so the common upload pipeline authorizes and reserves capacity first.
-    const original = (async function* () { yield* input.source(maxBytes); })();
+    const original = (async function* () { yield* convertWebp(input.source(maxBytes), maxBytes, deps.convertWebp); })();
     try {
       attachment = await uploadAttachment(deps, { actor, scope, authorize }, input.name, original, operation);
     } catch (error) {

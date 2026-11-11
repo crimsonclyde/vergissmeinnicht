@@ -7473,6 +7473,37 @@ three settings areas, and return to the saved Places theme. Typecheck,
 lint, web build and diff checks passed. Physical devices, release and
 hosted verification are pending.
 
+### 36.14 One-call ChatGPT Recipe photos and file-host fixes (owner requested 2026-11-11)
+
+The owner reported that ChatGPT image uploads kept failing in the PDF and generated-image
+flows. Analysis found three causes: the exact download-host allowlist grew one host per
+release, ChatGPT saw five overlapping image tools (two of which it cannot use), and a
+pictured Recipe needed a five-step chain (upload, Markdown, cover, `requireImage`, readback).
+
+Implemented:
+
+- `create_recipe` and `prepare_recipe_meal` take the photo in an optional `image` file
+  parameter; the new `set_recipe_image` adds or replaces the photo of an existing Recipe.
+  VMN uploads it, puts the Markdown at the top of the instructions, sets the cover and
+  saves in one call. Retries reuse the upload receipt through a derived operation ID; a
+  repeated `set_recipe_image` after a successful save is a no-op.
+- Base64, picker and `upload_recipe_image_file` tools are hidden from the ChatGPT model
+  (`openai/visibility: private`) and stay available to other MCP clients. MCP instructions
+  describe only the one-call route.
+- Regional OpenAI hosts match `sdmnt` plus a two-letter class and region label. Azure
+  accounts stay exact. A refused host name is returned and logged, and the operator can add
+  exact hosts with `MCP_CHATGPT_FILE_HOSTS` without a release.
+- WebP is converted to lossless PNG; a failed AAAA lookup no longer fails an IPv4 download;
+  extra keys in the file object are ignored.
+
+Checks: lint, typecheck and the full Vitest suite; new tests in
+`mcp-recipe-image-oneshot.test.ts`, `chatgpt-files.test.ts` and `config.test.ts`.
+
+Security surface changed (outbound host policy, error/log content, new write tool); see
+security.md 36.14. Remaining: hosted ChatGPT check of both flows after deployment and a tool
+refresh. Whether ChatGPT honours `openai/visibility` for these tools must be confirmed live;
+if not, the tool descriptions still steer it to the one-call route.
+
 ### Release plan for 0.13.10, owner milestone 64 (2026-11-10)
 
 The preceding 0.13.9 candidate was stopped before publication after inspecting the

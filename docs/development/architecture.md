@@ -1046,3 +1046,10 @@ require a signature and bind retry identity to origin and path, preserving the
 original legacy receipt format. A retry uses the existing durable attachment
 receipt, keyed by target, file ID and URL identity. Adding another consumer
 requires its own attachment policy and tool authorization.
+
+Since 36.14, `create_recipe`, `prepare_recipe_meal` and `set_recipe_image` take the file
+descriptor directly in `image`. The MCP adapter uploads it through the same path, inserts the
+image Markdown at the top of the instructions, sets the cover and saves through the existing
+Recipe command in one tool call. Delegated uploads convert a still WebP to PNG before the shared
+attachment pipeline. Base64 and picker tools stay available to other MCP clients but are hidden
+from the ChatGPT model with `openai/visibility: private`.
