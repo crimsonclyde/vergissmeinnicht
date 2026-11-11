@@ -3,7 +3,15 @@ import { ORIGIN, startTestApp } from './test-harness.ts';
 
 const STEP = { title: 'Stove off', required: true, critical: false, skipReasonPolicy: 'DISABLED', notApplicableReasonPolicy: 'OPTIONAL' };
 const PROCEDURE = { title: 'Leave the house', icon: 'home', sections: [{ title: 'Kitchen', steps: [STEP] }] };
-const LINK = new RegExp(`^${ORIGIN.replaceAll('.', '\\.')}/knot/([A-Za-z0-9_-]{43})$`);
+// A Knot link is the public origin plus /knot/<token>. Compared as a prefix, not as a regex built
+// from ORIGIN, so the origin's dots can never act as wildcards.
+const LINK = {
+  exec(url: string): [string, string] | null {
+    const prefix = `${ORIGIN}/knot/`;
+    const token = url.startsWith(prefix) ? url.slice(prefix.length) : '';
+    return /^[A-Za-z0-9_-]{43}$/.test(token) ? [url, token] : null;
+  },
+};
 
 describe('Knot HTTP API', () => {
   let t: Awaited<ReturnType<typeof startTestApp>>;
@@ -49,7 +57,7 @@ describe('Knot HTTP API', () => {
     const response = await create({ target: { type: 'RUN', id: runId }, label: 'Evening round', expiresInDays: 7 });
     expect(response.statusCode).toBe(201);
     const { knot, url } = response.json();
-    expect(url).toMatch(LINK);
+    expect(LINK.exec(url)).not.toBeNull();
     expect(knot).toMatchObject({ label: 'Evening round', target: { type: 'RUN', id: runId }, status: 'ACTIVE', createdBy: 'Eddie', revoked: null });
     const token = LINK.exec(url)?.[1] ?? '';
 
