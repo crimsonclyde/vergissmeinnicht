@@ -15,6 +15,19 @@ export const BIDI_CONTROLS = /[؜‎‏‪-‮⁦-⁩]/u;
  * Trim → NFC, 1..`maxLength` code points, no control or bidi override/isolate characters.
  * Error codes are `{codePrefix}_empty`, `{codePrefix}_too_long` and `{codePrefix}_invalid_characters`.
  */
+/**
+ * Removes leading and trailing dots and white space. A loop instead of `/^[.\s]+|[.\s]+$/g`, whose
+ * second alternative backtracks quadratically on long runs of dots or spaces inside the text.
+ */
+export function trimDotsAndWhiteSpace(text: string): string {
+  const trimmed = (char: string) => char === '.' || /\s/.test(char);
+  let start = 0;
+  let end = text.length;
+  while (start < end && trimmed(text.charAt(start))) start++;
+  while (end > start && trimmed(text.charAt(end - 1))) end--;
+  return text.slice(start, end);
+}
+
 export function normalizeSingleLineName(
   input: string,
   rule: { readonly field: string; readonly codePrefix: string; readonly label: string; readonly maxLength: number },

@@ -67,7 +67,7 @@ describe('Contacts (16.6)', () => {
     expect(normalizeWebsite(undefined)).toBe('');
     expect(normalizeWebsite('  ')).toBe('');
     expect(normalizeWebsite('example.org')).toBe('https://example.org/');
-    expect(normalizeWebsite('HTTP://Example.org/a b'.replace(' ', '%20'))).toBe('http://example.org/a%20b');
+    expect(normalizeWebsite('HTTP://Example.org/a b'.replaceAll(' ', '%20'))).toBe('http://example.org/a%20b');
     expect(normalizeWebsite('example.org:8443/x?y=1')).toBe('https://example.org:8443/x?y=1');
     for (const website of [
       'javascript:alert(1)',
