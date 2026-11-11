@@ -1,5 +1,8 @@
 import {
   IconArchive,
+  IconArrowsSort,
+  IconLayoutList,
+  IconSearch,
   IconFolderPlus,
   IconPlaylistAdd,
   IconListDetails,
@@ -215,6 +218,10 @@ const ICONS = {
   navigationSide: IconLayoutSidebar,
   camera: IconCamera,
   storage: IconArchive,
+  archive: IconArchive,
+  sort: IconArrowsSort,
+  listView: IconLayoutList,
+  search: IconSearch,
   backup: IconDatabaseExport,
   share: IconShare,
   // Places (section 30): the tab, the three backgrounds, the preview frames and the adjustments.

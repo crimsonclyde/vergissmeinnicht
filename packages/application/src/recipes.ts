@@ -1,4 +1,4 @@
-import { parseRecipeContent, scaleRecipeIngredients, normalizeListItemTitle, normalizeListItemQuantity, normalizeListItemUnit, type AttachmentRecord, type RecipeTransfer, type Recipe, type RecipeContent, type User, type WorkspaceId } from '@vergissmeinnicht/domain';
+import { DomainValidationError, RECIPE_SORTS, normalizeRecipeCategories, parseRecipeContent, type RecipeCategory, type RecipeSort, scaleRecipeIngredients, normalizeListItemTitle, normalizeListItemQuantity, normalizeListItemUnit, type AttachmentRecord, type RecipeTransfer, type Recipe, type RecipeContent, type User, type WorkspaceId } from '@vergissmeinnicht/domain';
 import { authorizeTool, type ToolDeps } from './documents/tools.ts';
 import { NotAuthorizedError } from './invitations/errors.ts';
 import type { UserRepository } from './ports/user-repository.ts';
@@ -10,21 +10,24 @@ export interface RecipeMealInput {operationId:string;recipeId:string|null;recipe
 export interface RecipeRepository {
   createWithOperation(workspaceId:WorkspaceId,actor:User,operationId:string,content:RecipeContent,at:Date):Promise<{recipeId:string;duplicate:boolean}>;
   meal(workspaceId:WorkspaceId,actor:User,input:RecipeMealInput,at:Date):Promise<{recipeId:string;itemIds:string[];duplicate:boolean}>;
-  list(workspaceId: WorkspaceId, actor: User, query: string, archived: boolean, offset: number, includeShared: boolean): Promise<{ recipes: Recipe[]; more: boolean }>;
+  list(workspaceId: WorkspaceId, actor: User, query: string, archived: boolean, offset: number, includeShared: boolean, filter?: RecipeListFilter): Promise<{ recipes: Recipe[]; more: boolean }>;
   find(workspaceId: WorkspaceId, actor: User, id: string, includeShared: boolean): Promise<Recipe | undefined>;
   findAttachment(workspaceId: WorkspaceId, actor: User, recipeId: string, attachmentId: string): Promise<AttachmentRecord | undefined>;
   save(workspaceId: WorkspaceId, actor: User, id: string | undefined, revision: number, content: RecipeContent, archived: boolean, at: Date): Promise<Recipe>;
   transfer(workspaceId: WorkspaceId, actor: User, id: string, input: RecipeTransfer, at: Date, includeShared: boolean): Promise<{ itemIds: string[]; duplicate: boolean }>;
 }
+export interface RecipeListFilter { readonly categories?: readonly RecipeCategory[]; readonly sort?: RecipeSort }
 export interface RecipeDeps extends ToolDeps { readonly users: UserRepository; readonly recipes: RecipeRepository }
 export async function authorizeRecipes(deps: RecipeDeps, actor: User, workspaceId: WorkspaceId, write = false) {
   const current = await deps.users.findById(actor.id);
   if (current?.status !== 'ACTIVE') throw new NotAuthorizedError();
   await authorizeTool(deps, current, workspaceId, 'RECIPES', write ? 'recipe.manage' : 'recipe.view');
 }
-export async function listRecipes(deps: RecipeDeps, actor: User, workspaceId: WorkspaceId, query: string, archived: boolean, offset: number, includeShared = false) {
+export async function listRecipes(deps: RecipeDeps, actor: User, workspaceId: WorkspaceId, query: string, archived: boolean, offset: number, includeShared = false, filter: RecipeListFilter = {}) {
   await authorizeRecipes(deps, actor, workspaceId);
-  const result = await deps.recipes.list(workspaceId, actor, query, archived, offset, includeShared);
+  const categories = filter.categories === undefined ? undefined : normalizeRecipeCategories(filter.categories);
+  const sort = filter.sort === undefined ? undefined : RECIPE_SORTS.includes(filter.sort) ? filter.sort : (() => { throw new DomainValidationError('sort', 'invalid_recipe', 'Invalid sort'); })();
+  const result = await deps.recipes.list(workspaceId, actor, query, archived, offset, includeShared, { ...(categories ? { categories } : {}), ...(sort ? { sort } : {}) });
   await authorizeRecipes(deps, actor, workspaceId);
   return result;
 }

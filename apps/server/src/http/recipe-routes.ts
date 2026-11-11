@@ -3,7 +3,7 @@ import {registerRecipeExport} from './recipe-export.ts';
 import type { FastifyInstance, FastifyRequest } from 'fastify';
 import { z } from 'zod';
 import { authorizeRecipes, getRecipe, openAttachment, listRecipes, recipeProjection, saveRecipe, transferRecipe } from '@vergissmeinnicht/application';
-import { UUID_V4, type WorkspaceId } from '@vergissmeinnicht/domain';
+import { RECIPE_CATEGORIES, RECIPE_SORTS, UUID_V4, type WorkspaceId } from '@vergissmeinnicht/domain';
 import type { AppServices } from '../composition.ts';
 import { requireUser } from './session.ts';
 import { InvalidRequestError } from './errors.ts';
@@ -31,8 +31,10 @@ export async function recipeRoutes(app: FastifyInstance, { services }: { service
   app.post('/image-generation',{bodyLimit:4096,config:{rateLimit:{max:10,timeWindow:60000}}},async request=>{const {actor,workspaceId}=context(request);const input=parse(z.strictObject({operationId:uuid,prompt:z.string().min(1).max(2000)}),request.body);return generateRecipeImage(services.recipeImages,actor,workspaceId,input.operationId,input.prompt).then(result=>({job:result.job,duplicate:result.duplicate,attachment:result.attachment?{id:result.attachment.id,name:result.attachment.name,format:result.attachment.format}:null}));});
   app.get('/', async request => {
     const { actor, workspaceId } = context(request);
-    const query = parse(z.strictObject({ q: z.string().max(100).default(''), archived: z.enum(['true', 'false']).default('false'), offset: z.coerce.number().int().min(0).max(1_000_000_000).default(0) }), request.query);
-    return listRecipes(services.recipes, actor, workspaceId, query.q, query.archived === 'true', query.offset, true);
+    const query = parse(z.strictObject({ q: z.string().max(100).default(''), archived: z.enum(['true', 'false']).default('false'), offset: z.coerce.number().int().min(0).max(1_000_000_000).default(0),
+      categories: z.string().max(200).default('').transform(value => value ? value.split(',') : []).pipe(z.array(z.enum(RECIPE_CATEGORIES)).max(RECIPE_CATEGORIES.length)),
+      sort: z.enum(RECIPE_SORTS).default('newest') }), request.query);
+    return listRecipes(services.recipes, actor, workspaceId, query.q, query.archived === 'true', query.offset, true, { categories: query.categories, sort: query.sort });
   });
   app.get('/:recipeId', async request => {
     const { actor, workspaceId } = context(request); const { recipeId } = parse(z.object({ recipeId: uuid }), request.params);

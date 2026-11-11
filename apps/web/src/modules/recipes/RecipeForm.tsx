@@ -1,5 +1,6 @@
 import { lazy, Suspense, useId, useState, type FormEvent } from 'react';
-import { recipeImages, type RecipeContent } from '@vergissmeinnicht/domain';
+import { RECIPE_CATEGORIES, recipeCategories, recipeImages, type RecipeContent } from '@vergissmeinnicht/domain';
+import { UiIcon } from '../../ui-icons.tsx';
 import { messageFor, type recipeAttachmentClient } from '../../api.ts';
 import { AttachmentPanel, imageReference } from '../../attachments/AttachmentPanel.tsx';
 import { t } from '../../i18n/index.ts';
@@ -23,6 +24,7 @@ export function RecipeForm(props: {
   const { draft, busy, client, onChange } = props;
   const [activeIngredient, setActiveIngredient] = useState(0);
   const [tagText, setTagText] = useState<string | null>(null);
+  const [categoriesOpen, setCategoriesOpen] = useState(false);
   const id = useId();
   const flow = usePhoneEditorFlow({ stages: STAGES, busy, initialStage: props.startWithImages ? 'details' : 'title', onReveal: field => {
     const index = field.closest<HTMLElement>('[data-ingredient]')?.dataset.ingredient;
@@ -67,6 +69,18 @@ export function RecipeForm(props: {
       </section>
       <section className="stack" data-editor-stage="details" hidden={compact && stage !== 'details'}>
         <div className="row wrap">{(['prepMinutes', 'cookMinutes'] as const).map(key => <label key={key}>{t(key === 'prepMinutes' ? 'recipes.prep' : 'recipes.cook')}<input type="number" min="0" max="10080" value={draft[key] ?? ''} onChange={event => onChange({ ...draft, [key]: event.target.value === '' ? null : Number(event.target.value) })} /></label>)}</div>
+        <details className="recipe-category-picker" open={categoriesOpen} onToggle={event => setCategoriesOpen(event.currentTarget.open)}>
+          <summary><span className="recipe-category-picker-label" id={`${id}-categories`}>{t('recipes.categories')}</span>
+            <span className="recipe-category-picker-value">{recipeCategories(draft).length > 0 ? recipeCategories(draft).map(category => <span key={category}>{t(`recipes.category.${category}`)}</span>) : <span className="muted">{t('recipes.categoriesNone')}</span>}</span>
+            <UiIcon name="chevron" />
+          </summary>
+          <fieldset aria-labelledby={`${id}-categories`}><div className="recipe-category-options">
+            {RECIPE_CATEGORIES.map(category => <label key={category}><input type="checkbox" checked={recipeCategories(draft).includes(category)} onChange={event => {
+              const current = recipeCategories(draft);
+              onChange({ ...draft, categories: RECIPE_CATEGORIES.filter(value => value === category ? event.target.checked : current.includes(value)) });
+            }} />{t(`recipes.category.${category}`)}</label>)}
+          </div><p className="muted">{t('recipes.categoriesHint')}</p></fieldset>
+        </details>
         <label>{t('journal.tags')}<input value={tagText ?? draft.tags.join(', ')} onChange={event => { setTagText(event.target.value); onChange({ ...draft, tags: event.target.value.split(',').map(tag => tag.trim()).filter(Boolean) }); }} /></label>
         <label>{t('recipes.source')}<input type="url" maxLength={2048} value={draft.source} onChange={event => onChange({ ...draft, source: event.target.value })} /></label>
         <label className="row"><input type="checkbox" checked={draft.private ?? false} onChange={event => onChange({ ...draft, private: event.target.checked })} />{t('recipes.private')}</label>

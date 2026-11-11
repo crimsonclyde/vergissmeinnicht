@@ -322,6 +322,16 @@ replace the cover. Send a null cover ID to remove it. Only perform the change th
 requested. The tool returns the saved revision and cover ID. Hosted picker support depends
 on the client. The signed-in List appearance editor provides an upload path in VMN.
 
+## Recipe categories
+
+Recipe content takes an optional `categories` array from a fixed list: `starter`, `soup`,
+`salad`, `main`, `side`, `dessert`, `baking`, `breakfast`, `snack`, `sauce`, `drink`,
+`cocktail`. A Recipe may have several. The server instructions ask the assistant to set at
+least one for every new Recipe and to keep existing categories on edits. `get_recipe` and
+`search_recipes` return `categories` (empty for older Recipes). `search_recipes` also takes
+`categories` (matches any of them) and `sort` (`newest`, `updated`, `title`). An unknown
+category is refused.
+
 ## Upload an image already available in ChatGPT
 
 ChatGPT saves a pictured Recipe in one call. `create_recipe` and `prepare_recipe_meal` take

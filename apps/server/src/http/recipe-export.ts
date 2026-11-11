@@ -32,7 +32,7 @@ export function registerRecipeExport(app: FastifyInstance, services: AppServices
         files.set(ref.id, { path: ref.url, bytes: file.bytes, name: file.name, sha256: file.sha256, open: async () => (await openAttachment(services.recipeAttachments.store, await findFile(), 'original')).stream });
       }
       const content = (recipe: Recipe) => parseRecipeContent({ version: recipe.version, title: recipe.title, servings: recipe.servings,
-        ingredients: recipe.ingredients, instructions: recipe.instructions, tags: recipe.tags, source: recipe.source,
+        ingredients: recipe.ingredients, instructions: recipe.instructions, tags: recipe.tags, ...(recipe.categories ? { categories: recipe.categories } : {}), source: recipe.source,
         prepMinutes: recipe.prepMinutes, cookMinutes: recipe.cookMinutes, private: recipe.private,
         ...(recipe.coverImage ? { coverImage: recipe.coverImage } : {}) });
       for (const recipe of entries) {
