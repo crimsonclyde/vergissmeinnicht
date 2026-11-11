@@ -18,6 +18,14 @@ For every completed task, add a concise completion note, tests/checks performed,
 
 ## Current state — resume here
 
+**Release 0.13.11 prepared (owner release 65, 2026-11-11).** Includes PR #92 (Weather
+page, 36.15), PR #93 (one-call ChatGPT Recipe photos, 36.14), PR #94 (faster CI: parallel
+browser suites, release reuses the passing main CI of its commit, four upgrade checks) and
+PR #95 (CodeQL fixes: linear name trimming). The owner enabled CodeQL default setup, secret
+scanning with push protection and Dependabot security updates. No migration. Release
+upgrade checks now start from 0.13.10. Pending: owner publishes `v0.13.11`, then record
+the published digest here, the release notes and the owner count (65) in AGENTS.md.
+
 **Published owner release 64 (2026-11-11 Europe/Berlin; 2026-11-10 UTC).**
 Stable 0.13.10 was published from `v0.13.10`, source
 `78f5a2d50a29050829101082ff7c73b57507572a`, including the other chat's committed
