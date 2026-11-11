@@ -118,7 +118,7 @@
   .weather-now { grid-template-columns: 1fr; text-align: center; }
   .weather-now-art { width: min(70%, 14rem); }
   .weather-minmax, .weather-facts ul { justify-content: center; }
-  .weather-history-days li:nth-child(even) time { visibility: hidden; }
+  .weather-history-days li:nth-child(odd) time { visibility: hidden; }
   .weather-history-days li.is-today time { visibility: visible; }
 }
 
