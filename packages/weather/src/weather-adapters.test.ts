@@ -88,6 +88,41 @@ describe('Open-Meteo', () => {
     expect(answer.forecast.days[0]).toMatchObject({ min: 12.1, max: 17.9, precipitationSum: 11.9 });
   });
 
+  it('continues a short chosen model with the Automatic blend in the same request, marking those days', async () => {
+    const seen: Seen[] = [];
+    const m = 'italia_meteo_arpae_icon_2i';
+    const body = {
+      current: { [`temperature_2m_${m}`]: 13.04, [`temperature_2m_best_match`]: 99 },
+      daily: {
+        time: ['2026-11-11', '2026-11-12', '2026-11-13', '2026-11-14'],
+        [`temperature_2m_max_${m}`]: [15, 13, null, null], [`temperature_2m_min_${m}`]: [10, 11, null, null], [`weather_code_${m}`]: [63, 61, null, null],
+        [`sunrise_${m}`]: ['2026-11-11T07:18', '2026-11-12T07:19', '2026-11-13T07:20', '2026-11-14T07:21'],
+        temperature_2m_max_best_match: [16, 14, 16, 12], temperature_2m_min_best_match: [9, 10, 10, 8], weather_code_best_match: [61, 3, 2, 0],
+        precipitation_probability_max_best_match: [90, 40, 10, 0],
+      },
+      hourly: { time: ['2026-11-11T00:00'], [`temperature_2m_${m}`]: [11], temperature_2m_best_match: [50] },
+    };
+    const answer = await createOpenMeteo({ fetch: fakeFetch(() => json(JSON.stringify(body)), seen) }).forecast({ ...TRIORA, model: m });
+    expect(seen).toHaveLength(1);
+    expect(seen[0]?.url.searchParams.get('models')).toBe(`${m},best_match`);
+    if (answer.kind !== 'forecast') throw new Error('expected a forecast');
+    expect(answer.forecast.current).toEqual({ temperature: 13 });
+    expect(answer.forecast.hours).toEqual([{ time: '2026-11-11T00:00', temperature: 11 }]);
+    expect(answer.forecast.days).toEqual([
+      { date: '2026-11-11', min: 10, max: 15, condition: 'RAIN', sunrise: '2026-11-11T07:18' },
+      { date: '2026-11-12', min: 11, max: 13, condition: 'RAIN', sunrise: '2026-11-12T07:19' },
+      { date: '2026-11-13', min: 10, max: 16, precipitationProbabilityMax: 10, condition: 'PARTLY_CLOUDY', extended: true },
+      { date: '2026-11-14', min: 8, max: 12, precipitationProbabilityMax: 0, condition: 'CLEAR', extended: true },
+    ]);
+  });
+
+  it('never shows a day that has only sunrise and sunset', async () => {
+    const body = { daily: { time: ['2026-11-11', '2026-11-12'], temperature_2m_max: [15, null], sunrise: ['2026-11-11T07:18', '2026-11-12T07:19'], sunset: ['2026-11-11T17:06', '2026-11-12T17:05'] } };
+    const answer = await createOpenMeteo({ fetch: fakeFetch(() => json(JSON.stringify(body))) }).forecast({ ...TRIORA, model: 'best_match' });
+    if (answer.kind !== 'forecast') throw new Error('expected a forecast');
+    expect(answer.forecast.days.map((day) => day.date)).toEqual(['2026-11-11']);
+  });
+
   it('treats a model with no values for the place as not covering it', async () => {
     const empty = JSON.stringify({ daily: { time: ['2026-10-08'], temperature_2m_max: [null], temperature_2m_min: [null], weather_code: [null] } });
     expect(await reason(createOpenMeteo({ fetch: fakeFetch(() => json(empty)) }).forecast({ ...TRIORA, model: 'metno_nordic' }))).toBe('not_covered');

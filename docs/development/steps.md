@@ -7545,6 +7545,56 @@ Colours come only from each theme's tokens, so Light, Dark, Memento Mori,
 Tokyo Nights, Witch Forest, Space Guide and the Places themes were checked
 by screenshot without per-theme rules; forced colours draw plain lines.
 
+### 36.16 Weather readings row, a week ahead, and a picturesque Clock page (owner request 2026-11-11)
+
+**Weather.** The small readings (rain, wind, feels like, UV, sunrise to
+sunset, gusts) now span the whole "now" card under a hairline, centred on one
+line. On phones each shows its icon over the value with the unit underneath,
+so up to five fit on one line at 320 px; a long reading such as
+"7:18 AM – 5:06 PM" takes a double share. Units keep their space in the text ("11.9 mm"; "70%"). The row is the shared `Readings`
+component (`applets/Readings.tsx`, `readings.css`), also used by the Clock page.
+
+Next days now shows the week after today (Today and the Weather page ask for
+8 days instead of 4). The owner saw an empty Saturday with ICON-2I: that day
+had only sunrise and sunset, which are astronomy and always present. A day
+with only those is no longer shown. A short chosen model (ICON-2I covers
+about 3 days at Triora) is asked together with `best_match` in the same
+Open-Meteo request (`models=<chosen>,best_match`, same host, still one call);
+days after the model's last own day are taken whole from the blend, marked
+`extended` and drawn with dashed lines (title and screen-reader text say
+"Automatic forecast"). Current values, hours and quarter hours stay the chosen
+model's. Compare (19.4c) and the horizon line in Settings count only the
+model's own days, so comparison is unchanged. The adapter still reads
+unsuffixed answers, so saved copies and recorded fixtures keep working.
+
+**Clock.** The Clock page used its own line-drawn dial and three lines of
+prose; the Today card uses the painted pocket watch. The page now shows the
+same painted watch with live hands, the time large, the date, and readings for
+UTC offset, ISO week, and sunrise and sunset (only when the Today forecast is
+loaded and its place keeps this device's time zone; no extra request). A
+"Today" strip draws the day as a sky (night, dawn, day, dusk) with the passed
+part dimmed, a "now" mark and daylight left; without sun times it shows only
+the passed part. Stopwatch and Timer use the same watch with one sweeping hand
+and a gold ring (Timer: the set duration, Stopwatch: each hour); presets are
+reading-style buttons; laps are a plain list. Clock, Stopwatch and Timer are
+icon buttons with names. Unused dial styles and prose keys were removed.
+Colours come from theme tokens (the watch and the sky are pictures), so every
+theme styles it without per-theme rules.
+
+**Checks.** Typecheck, lint and all unit tests (1,720 passed, 14 skipped);
+new tests for the blended request, the sunrise-only day, own-day filtering and
+the clock helpers (ISO week, UTC offset, zone city). The Guide browser flow
+(desktop and phone), which covers Clock modes, laps, timer and accessibility
+at 320/390/1440, passed with updated selectors. Screenshots with a sample
+forecast in Dark, Light, Memento Mori, Tokyo Nights, Witch Forest, Space Guide
+and Places Italy at 320/390/1280 px showed no horizontal overflow and passed
+axe in Dark.
+
+**Security surface:** unchanged. Same fixed Open-Meteo host and one request
+per forecast; the extra model id is a fixed constant, no person-supplied text
+reaches the URL. No migration, no new stored data beyond an optional
+`extended` flag in cached forecast JSON.
+
 ### Release plan for 0.13.10, owner milestone 64 (2026-11-10)
 
 The preceding 0.13.9 candidate was stopped before publication after inspecting the

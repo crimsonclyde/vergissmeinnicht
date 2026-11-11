@@ -9,65 +9,16 @@
   border:1px solid var(--instrument-edge); border-radius:1rem; padding:clamp(1rem,3vw,2rem); min-width:0;
 }
 .instrument :is(h2,h3,h4,p,dl,dd){margin:0;color:inherit}
-.instrument-heading{text-align:center;min-width:0}
-.instrument-heading>span{display:block;font-size:.75rem;letter-spacing:.12em;color:var(--instrument-muted);overflow-wrap:anywhere}
-.instrument-heading :is(h2,h3){font:400 clamp(1.4rem,3vw,2rem)/1.3 Georgia,serif;margin:.75rem 0}
-.instrument-heading i{display:block;width:2.3rem;height:2px;background:var(--instrument-gold);margin:1rem auto}
-.instrument-heading p{font-size:1.1rem;margin:.5rem 0}
-.instrument-clock{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.15fr);align-items:center;gap:1.5rem}
-.instrument-timepiece{grid-column:2;grid-row:1/4;position:relative;max-width:21rem;width:100%;margin:auto;text-align:center}
-.instrument-dial{display:block;width:100%;height:auto;color:var(--instrument-gold)}
-.instrument-dial :is(circle,line){fill:none;stroke:currentColor;stroke-width:1}
-.instrument-dial .instrument-faint{opacity:.3}
-.instrument-dial .instrument-hour{stroke-width:4;stroke-linecap:round}
-.instrument-dial .instrument-minute{stroke-width:2;stroke-linecap:round}
-.instrument-dial .instrument-pivot{fill:currentColor}
-.instrument-dial text{fill:var(--instrument-muted);font:14px Georgia,serif;text-anchor:middle}
-.instrument-dial .instrument-timer-ring{stroke-width:3}
-.instrument-time{display:block;font:400 clamp(2.4rem,7vw,4rem)/1.2 Georgia,serif;font-variant-numeric:tabular-nums;overflow-wrap:anywhere}
-.instrument-caption{display:block;color:var(--instrument-muted);font-size:.75rem;letter-spacing:.14em;margin-top:.65rem}
-.instrument-digital{margin-top:1rem}
-.instrument-timing .instrument-digital{position:absolute;inset:0;display:flex;flex-direction:column;justify-content:center;align-items:center;margin:0;padding:2.5rem}
-.instrument-clock-meta{display:grid;gap:1.25rem;text-align:center}
-.instrument-clock-meta dt{font-size:.75rem;color:var(--instrument-muted)}
-.instrument-clock-meta dd{margin-top:.35rem;overflow-wrap:anywhere}
-.instrument .instrument-poem{font:italic 1rem/1.7 Georgia,serif;color:var(--instrument-muted);text-align:center}
-.instrument-duration{text-align:center;min-width:0}
-.instrument-presets{display:flex;flex-wrap:wrap;justify-content:center;gap:.4rem;margin-bottom:1rem}
-.instrument-presets button{background:var(--instrument-bg);color:var(--instrument-text);border:1px solid var(--instrument-muted);border-radius:1.5rem;min-width:44px;min-height:44px;padding:.55rem .75rem}
-.instrument-presets button[aria-pressed=true]{background:var(--instrument-gold);color:var(--instrument-bg)}
-.instrument-duration label{display:block;font-size:.85rem;color:var(--instrument-muted)}
-.instrument-duration input{background:var(--instrument-bg);color:var(--instrument-text);border-color:var(--instrument-muted);width:7rem;max-width:100%;margin:.5rem auto}
 .instrument :is(button,input):focus-visible{outline-color:var(--instrument-gold)}
-.instrument-laps{text-align:center;min-width:0;color:var(--instrument-muted)}
-.instrument-laps h3{font-weight:500;font-size:.85rem;margin-bottom:.5rem}
-.instrument-laps ol{list-style:none;padding:0;max-height:12rem;overflow:auto}
-.instrument-laps li{display:flex;justify-content:space-between;gap:.75rem;padding:.4rem;border-bottom:1px solid var(--instrument-edge);font-variant-numeric:tabular-nums}
 .applet-screen{max-width:60rem;margin-inline:auto}
-.today-clock .instrument{display:block;text-align:center}
-.today-clock-link,.today-weather-open{display:flex;justify-content:center;align-items:center;gap:.5rem;min-height:44px;margin-top:.75rem}
-.today-clock .instrument time{display:block}
-.today-clock .instrument-clock-meta{margin-top:1rem}
 .today-glance>.today-moon{flex-basis:100%}
-@media(max-width:40rem){
-  .instrument-clock{grid-template-columns:minmax(0,1fr);gap:1.25rem}
-  .instrument-timepiece{grid-column:auto;grid-row:auto;max-width:17rem}
-  .clock-modes{display:flex;width:100%}
-  .clock-modes button{flex:1;min-width:0;padding-inline:.6rem}
-}
 @media(forced-colors:active){
   .instrument{color:CanvasText;background:Canvas;border-color:CanvasText}
   .instrument :is(h2,h3,h4,p,dt,dd,span,a,small){color:CanvasText}
-  .instrument-dial,.instrument-heading i{display:none}
-  .instrument-timing .instrument-digital{position:static;padding:0}
-  .instrument-duration :is(input,button){background:Canvas;color:CanvasText;border-color:CanvasText}
 }
 
 .applet-screen>h1,.applet-screen>header>h1{font-size:1.8rem;margin:0}
 
-.instrument-timing .instrument-time{font-size:clamp(2.8rem,8vw,3.8rem)}
-.instrument-timing .instrument-time[data-long='true']{font-size:clamp(1.7rem,6vw,2.5rem)}
 .today>.today-moon{grid-column:1/-1}
 
 .today-glance{align-items:flex-start}
-.today-clock-link,.today-weather-open{background:var(--surface);padding:.6rem;border-radius:.65rem}

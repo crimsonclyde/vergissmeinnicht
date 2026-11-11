@@ -11,6 +11,7 @@ import {
   isActiveServerAdmin,
   isCredentialProvider,
   localDateAt,
+  ownForecastDays,
   parseCredentialBudget,
   parseTimeZone,
   parseWeatherCredential,
@@ -514,7 +515,7 @@ export async function myForecast(deps: WeatherDeps, input: { readonly user: User
       const history = await deps.history.list(input.user.id, historyKey(location), addDays(today, 1 - HISTORY_DAYS), today);
       return {
         forecast: { ...entry.forecast, days },
-        horizon: entry.forecast.days.length,
+        horizon: ownForecastDays(entry.forecast.days).length,
         location,
         fetchedAt: entry.fetchedAt,
         stale,
@@ -596,15 +597,15 @@ export async function compareForecasts(deps: WeatherDeps, input: { readonly user
         const cached = deps.weather.peek(source.provider, request.query, request.scope);
         // A paid source is never fetched without the person asking; whatever is cached is shown with its time.
         if (request.paid && !input.fetchPaid && cached?.fresh !== true) {
-          return cached === undefined ? { ...head, state: 'not_fetched' } : { ...head, state: 'cached', forecast: cached.entry.forecast, fetchedAt: cached.entry.fetchedAt, horizon: cached.entry.forecast.days.length, refreshFailed: null };
+          return cached === undefined ? { ...head, state: 'not_fetched' } : { ...head, state: 'cached', forecast: ownForecast(cached.entry.forecast), fetchedAt: cached.entry.fetchedAt, horizon: ownForecastDays(cached.entry.forecast.days).length, refreshFailed: null };
         }
         try {
           const { entry, stale, failure } = await deps.weather.forecast(source.provider, request.query, request.scope, request.beforeFetch);
-          return { ...head, state: stale ? 'cached' : 'fresh', forecast: entry.forecast, fetchedAt: entry.fetchedAt, horizon: entry.forecast.days.length, refreshFailed: failure ?? null };
+          return { ...head, state: stale ? 'cached' : 'fresh', forecast: ownForecast(entry.forecast), fetchedAt: entry.fetchedAt, horizon: ownForecastDays(entry.forecast.days).length, refreshFailed: failure ?? null };
         } catch (error) {
           // The refresh failed, but a copy is there (e.g. budget reached): show it, say why it is not newer.
           if (error instanceof WeatherProviderError && cached !== undefined) {
-            return { ...head, state: 'cached', forecast: cached.entry.forecast, fetchedAt: cached.entry.fetchedAt, horizon: cached.entry.forecast.days.length, refreshFailed: error.reason };
+            return { ...head, state: 'cached', forecast: ownForecast(cached.entry.forecast), fetchedAt: cached.entry.fetchedAt, horizon: ownForecastDays(cached.entry.forecast.days).length, refreshFailed: error.reason };
           }
           throw error;
         }
@@ -616,6 +617,9 @@ export async function compareForecasts(deps: WeatherDeps, input: { readonly user
   );
   return { location, results };
 }
+
+/** Compare shows each source by itself: no days added from another model. */
+const ownForecast = (forecast: WeatherForecast): WeatherForecast => ({ ...forecast, days: ownForecastDays(forecast.days) });
 
 /** Rejects a credential provider that is not allowed on this server (or has no adapter). */
 function allowedCredentialProvider(deps: WeatherDeps, server: ServerWeatherSettings, provider: unknown): CredentialProviderId {

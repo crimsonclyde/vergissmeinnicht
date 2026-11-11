@@ -1,0 +1,36 @@
+/*
+ * Small icon readings shared by the Weather and Clock pages: one centred row across the whole card under a
+ * hairline; on phones each shows its icon over the value (unit underneath), so a full row fits on one line.
+ * Colours come only from theme tokens, so every theme styles it without per-theme rules.
+ */
+.readings {
+  --readings-warm: color-mix(in srgb, var(--text) 28%, #e2a53c);
+  --readings-muted: var(--text-muted, color-mix(in srgb, var(--text) 68%, transparent));
+  grid-column: 1 / -1; min-width: 0; padding-top: 1rem; border-top: 1px solid color-mix(in srgb, var(--text) 10%, transparent);
+}
+.readings ul { display: flex; flex-wrap: wrap; justify-content: center; gap: .5rem; margin: 0; padding: 0; list-style: none; }
+.reading {
+  display: inline-flex; align-items: center; gap: .4rem; min-height: 44px; padding: .35rem .8rem;
+  border: 1px solid var(--border); border-radius: 999px; background: transparent; color: var(--text);
+  font: inherit; font-size: .95rem; font-variant-numeric: tabular-nums; cursor: pointer;
+}
+.reading .ui-icon { flex: none; width: 1.1rem; height: 1.1rem; color: var(--readings-warm); }
+.reading-value small { font-size: inherit; }
+.reading[aria-expanded='true'], .reading[aria-pressed='true'] { border-color: var(--readings-warm); background: color-mix(in srgb, var(--readings-warm) 14%, transparent); }
+.reading[data-level='high'], .reading[data-level='veryHigh'], .reading[data-level='extreme'] { border-color: color-mix(in srgb, var(--readings-warm) 70%, var(--border)); }
+.reading:disabled { cursor: default; opacity: .55; }
+.reading-info { margin: .6rem 0 0; font-size: .9rem; color: var(--readings-muted); text-align: center; }
+.reading-info strong { color: var(--text); font-weight: 500; }
+
+@media (max-width: 40rem) {
+  .readings ul { flex-wrap: nowrap; gap: .4rem; }
+  .readings li { display: flex; flex: 1 1 0; min-width: 0; }
+  .readings li.is-wide { flex-grow: 2; }
+  .reading { flex-direction: column; justify-content: center; gap: .2rem; width: 100%; padding: .5rem .2rem; border-radius: .9rem; font-size: .85rem; line-height: 1.15; }
+  .reading-value { display: grid; justify-items: center; }
+  .reading-value small { margin: 0; font-size: .75rem; color: var(--readings-muted); }
+}
+
+@media (forced-colors: active) {
+  .reading[aria-expanded='true'], .reading[aria-pressed='true'] { border-color: Highlight; }
+}

@@ -136,7 +136,7 @@ export async function accountWeatherRoutes(app: FastifyInstance, { services }: {
   });
 
   // No forecast is not an error for Today: it simply shows nothing; the Weather page shows the reason.
-  // `days`: Today and the Weather page both ask for 4: today and the three days after it.
+  // `days`: Today and the Weather page both ask for 8: today and the week after it.
   app.get('/forecast', async (request) => {
     const query = parse(z.strictObject({ workspaceId: z.string().regex(UUID_V4).optional(), days: z.coerce.number().int().min(1).max(16).optional() }), request.query);
     try {

@@ -1,0 +1,89 @@
+/*
+ * The Clock page: the painted pocket watch of the Today card with live hands, the time in large type, a row of
+ * small readings and the day as a sky. Laid out like the Weather page; colours come from each theme's tokens
+ * (only the watch and the sky strip are pictures), so every theme styles it without per-theme rules.
+ */
+.clock-page {
+  --clock-warm: color-mix(in srgb, var(--text) 28%, #e2a53c);
+  --clock-muted: var(--text-muted, color-mix(in srgb, var(--text) 68%, transparent));
+  display: grid;
+  gap: 1.25rem;
+}
+.clock-heading-row { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: .5rem 1rem; }
+.clock-modes button { display: inline-grid; place-items: center; min-width: 3.25rem; }
+.clock-modes .ui-icon { width: 1.3rem; height: 1.3rem; }
+.clock-body { display: grid; gap: 1rem; }
+.clock-page .card { margin: 0; overflow: hidden; }
+.clock-eyebrow { margin: 0; font-size: .75rem; font-weight: 500; letter-spacing: .16em; text-transform: uppercase; color: var(--clock-muted); }
+.clock-note { margin: .75rem 0 0; font-size: .85rem; color: var(--clock-muted); text-align: center; }
+.clock-ephemeral { margin: 0; text-align: start; }
+
+/* Hero */
+.clock-hero { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.1fr); align-items: center; gap: 1rem 2rem; padding: clamp(1rem, 3vw, 2rem); }
+.clock-watch { position: relative; display: block; width: min(100%, 20rem); aspect-ratio: 1; justify-self: center; }
+/* The artwork leaves empty space under its stone; trim it so the card does not grow a gap. */
+.clock-watch { margin-bottom: -12%; }
+.clock-watch img { display: block; width: 100%; height: 100%; object-fit: contain; filter: drop-shadow(0 .8rem 1.4rem rgb(0 0 0 / .35)); }
+.clock-watch svg { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
+.clock-hand { stroke: #f3d48c; stroke-linecap: round; filter: drop-shadow(0 2px 2px rgb(0 0 0 / .55)); }
+.clock-hand-hour { stroke-width: 13; }
+.clock-hand-minute { stroke-width: 8; }
+.clock-hand-sweep { stroke-width: 6; }
+.clock-pivot { fill: #f3d48c; }
+.clock-ring-track { fill: none; stroke: rgb(242 202 131 / .2); stroke-width: 10; }
+.clock-ring { fill: none; stroke: #f2ca83; stroke-width: 10; stroke-linecap: round; }
+.clock-hero-content { min-width: 0; }
+.clock-time { margin: .35rem 0 0; font: 400 clamp(3.5rem, 11vw, 5.5rem)/1 Georgia, 'Times New Roman', serif; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+.clock-time[data-long='true'] { font-size: clamp(2.6rem, 9vw, 4.25rem); }
+.clock-sub { margin: .5rem 0 0; font-size: 1.15rem; }
+
+/* Today as a sky: night, dawn, day, dusk; without a sunrise only the part of the day that has passed is shown. */
+.clock-day { padding: 1rem clamp(1rem, 3vw, 1.5rem); }
+.clock-day-strip {
+  --night: #0b1528; --dawn: #5a4a72; --glow: #d79a62; --day: #8fb6d8;
+  position: relative; height: 3rem; margin: .9rem 0 0; border-radius: .5rem; overflow: hidden;
+  background:
+    radial-gradient(circle at 7% 30%, rgb(255 255 255 / .7) 0 1px, transparent 1.5px),
+    radial-gradient(circle at 14% 70%, rgb(255 255 255 / .55) 0 1px, transparent 1.5px),
+    radial-gradient(circle at 21% 40%, rgb(255 255 255 / .6) 0 1px, transparent 1.5px),
+    radial-gradient(circle at 83% 35%, rgb(255 255 255 / .6) 0 1px, transparent 1.5px),
+    radial-gradient(circle at 90% 75%, rgb(255 255 255 / .5) 0 1px, transparent 1.5px),
+    radial-gradient(circle at 96% 25%, rgb(255 255 255 / .65) 0 1px, transparent 1.5px),
+    linear-gradient(90deg, var(--night) 0, var(--night) calc(var(--rise) - 4%), var(--dawn) calc(var(--rise) - 1.5%), var(--glow) calc(var(--rise) + 1.5%), var(--day) calc(var(--rise) + 7%), var(--day) calc(var(--set) - 7%), var(--glow) calc(var(--set) - 1.5%), var(--dawn) calc(var(--set) + 1.5%), var(--night) calc(var(--set) + 4%), var(--night) 100%);
+}
+.clock-day-strip.is-plain { background: linear-gradient(90deg, color-mix(in srgb, var(--text) 8%, transparent), color-mix(in srgb, var(--clock-warm) 22%, transparent), color-mix(in srgb, var(--text) 8%, transparent)); }
+.clock-day-past { position: absolute; inset: 0 auto 0 0; background: rgb(0 0 0 / .35); }
+.clock-day-strip.is-plain .clock-day-past { background: color-mix(in srgb, var(--text) 12%, transparent); }
+.clock-day-now { position: absolute; top: 0; bottom: 0; width: 0; border-left: 2px solid #fff; box-shadow: 0 0 .5rem rgb(255 255 255 / .6); }
+.clock-day-strip.is-plain .clock-day-now { border-color: var(--text); box-shadow: none; }
+.clock-day-axis { position: relative; height: 1.2rem; margin: .3rem 0 0; padding: 0; list-style: none; font-size: .75rem; color: var(--clock-muted); }
+.clock-day-axis li { position: absolute; transform: translateX(-50%); }
+.clock-day-axis li:first-child { transform: none; }
+.clock-day-axis li:last-child { transform: translateX(-100%); }
+
+/* Timer presets and laps */
+.clock-panel { padding: 1rem clamp(1rem, 3vw, 1.5rem); }
+.clock-presets { display: flex; justify-content: center; gap: .5rem; margin-top: .75rem; }
+.clock-presets .reading { flex: 0 1 6rem; justify-content: center; width: auto; }
+.clock-custom { display: grid; justify-items: center; gap: .4rem; margin-top: 1rem; text-align: center; }
+.clock-custom label { font-size: .85rem; color: var(--clock-muted); }
+.clock-custom input { width: 7rem; max-width: 100%; text-align: center; }
+.clock-custom p { margin: 0; }
+.clock-laps ol { display: grid; gap: 0; max-height: 14rem; overflow: auto; margin: .5rem 0 0; padding: 0; list-style: none; }
+.clock-laps li { display: flex; justify-content: space-between; gap: .75rem; padding: .5rem .25rem; border-bottom: 1px solid color-mix(in srgb, var(--text) 10%, transparent); font-variant-numeric: tabular-nums; }
+.clock-lap-number { color: var(--clock-muted); }
+
+@media (max-width: 40rem) {
+  .clock-hero { grid-template-columns: 1fr; text-align: center; }
+  .clock-watch { width: min(78%, 16rem); }
+}
+
+@media (forced-colors: active) {
+  .clock-watch img { display: none; }
+  .clock-watch { width: min(100%, 12rem); margin-bottom: 0; }
+  .clock-hand, .clock-pivot, .clock-ring { stroke: CanvasText; fill: CanvasText; forced-color-adjust: none; }
+  .clock-ring, .clock-ring-track { fill: none; }
+  .clock-day-strip { background: Canvas; border: 1px solid CanvasText; forced-color-adjust: none; }
+  .clock-day-past { background: GrayText; }
+  .clock-day-now { border-color: CanvasText; }
+}
