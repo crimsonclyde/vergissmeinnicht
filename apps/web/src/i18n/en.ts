@@ -52,6 +52,7 @@ export const en = {
   'attachments.originalNotice': 'Original files and embedded metadata are preserved. People who can read this record can download its originals. Removing an image keeps files used by saved history.',
   'recipes.export':'Export recipe',
   'recipes.exportAll':'Export cookbook',
+  'recipes.tags':'Tags (comma separated)',
   'recipes.heading': 'Recipes',
   'recipes.hint': 'Shared recipes and recipes private to this Workspace.',
   'recipes.privateLabel': 'Private',
