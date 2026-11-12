@@ -2032,3 +2032,31 @@ backups as before.
   a resolvable cover.
 - [x] Leftover generator settings do not fail startup and their secret file is not read.
 
+### Grocery move and batch delete through MCP (36.18, 2026-11-12)
+
+**Security surface changed: narrow.** Two delegated writes (`move_grocery_items`,
+`delete_grocery_items`) under the existing `lists.write` scope; no new scope, credential, route,
+outbound connection or dependency. A grant that could already add grocery items can now move and
+soft-remove the grocery items it names in the same selected Workspace.
+
+- [x] Authorization is the same as for other grocery writes: grant scope and selected Workspace
+  before the call, then membership, `list.edit`, the Lists tool switch and the live grant/token
+  re-checked inside the IMMEDIATE write transaction. Guests, non-members, demoted or removed
+  accounts, write-less grants and Workspaces with Lists off are refused before anything changes.
+- [x] Both Lists of a move are resolved inside the one Workspace of the call; a List of another
+  Workspace (selected or not) or a To-do List under a grocery grant is "not found". Items are only
+  taken from the source List, so foreign item ids are refused, not moved.
+- [x] All or nothing: every List revision and every named item is checked before the first row
+  changes, and the history event is written in the same transaction (a failing history write
+  rolls back the move/removal; tested).
+- [x] Removal is the existing soft delete with who removed it; nothing is erased, every item can be
+  restored, and the batch is bounded to 100 items, so one call cannot wipe a List by accident.
+- [x] Retries: an operation id is bound to the account, Workspace, kind and a SHA-256 of the
+  request. A replay returns the first answer and changes nothing, even if the List has new items
+  with the same titles; any other use of the id is refused. Receipts hold only ids, revisions and
+  the hash, are pruned after 90 days and are never in Workspace backups.
+- [x] Refusals return only a code, a fixed hint and the caller's own unusable ids. A stale
+  revision does not return the current revision, so the client has to read (with its read
+  scope) and review before retrying.
+- [x] `LIST_ITEMS_MOVED` / `LIST_ITEMS_REMOVED` security events record List ids, a count and the
+  MCP client/grant, never item text.

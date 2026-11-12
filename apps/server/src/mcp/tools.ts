@@ -1,7 +1,7 @@
 import {randomUUID} from 'node:crypto';
 import {z} from 'zod';
-import {authorizeListAppearance,changeListAppearance,authorizeRecipes,createRecipeWithOperation,prepareRecipeMeal,getProcedure,listProcedures,updateProcedure,getRun,listRuns,changeStepState,getList,listLists,replayListChange,ListConflictError,listRecipes,getRecipe,recipeProjection,saveRecipe,transferRecipe,NotAuthorizedError,RecipeConflictError} from '@vergissmeinnicht/application';
-import {RECIPE_CATEGORIES,RECIPE_SORTS,UUID_V4,recipeCategories,type User,type WorkspaceId,type ProcedureId,type RunId,type RunStepId,type ListId,type McpScope,type WorkspaceTool} from '@vergissmeinnicht/domain';
+import {authorizeListAppearance,changeListAppearance,authorizeRecipes,createRecipeWithOperation,prepareRecipeMeal,getProcedure,listProcedures,updateProcedure,getRun,listRuns,changeStepState,getList,listLists,replayListChange,moveListItems,removeListItems,ListBatchError,ListNotFoundError,ListConflictError,listRecipes,getRecipe,recipeProjection,saveRecipe,transferRecipe,NotAuthorizedError,RecipeConflictError} from '@vergissmeinnicht/application';
+import {MAX_LIST_BATCH_ITEMS,RECIPE_CATEGORIES,RECIPE_SORTS,UUID_V4,recipeCategories,type User,type WorkspaceId,type ProcedureId,type RunId,type RunStepId,type ListId,type McpScope,type WorkspaceTool} from '@vergissmeinnicht/domain';
 import { MCP_IMAGE_BASE64_LENGTH, uploadDelegatedImage, uploadDelegatedImageFile, uploadRecipeImage, uploadRecipeImageFile } from './recipe-upload.ts';
 import type {AppServices} from '../composition.ts';
 const uuid=z.string().regex(UUID_V4),workspace={workspaceId:uuid};
@@ -40,6 +40,37 @@ async function replayGroceryWrite(deps:Parameters<typeof replayListChange>[0],in
  // Offline replay includes a current List snapshot, which requires a separate MCP read scope.
  return {outcome:result.outcome,duplicate:result.duplicate};
 }
+/**
+ * Grocery moves and batch removals (36.18) answer with a machine-readable code, so the assistant can
+ * tell a refused permission, a stale revision, unusable items or a reused operation id apart.
+ */
+export class GroceryBatchToolError extends Error {
+ readonly code:string;readonly hint:string;readonly itemIds:readonly string[];
+ constructor(code:string,hint:string,itemIds:readonly string[]=[]){super(code);this.name='GroceryBatchToolError';this.code=code;this.hint=hint;this.itemIds=itemIds;}
+}
+const batchHints:Record<string,string>={
+ permission_denied:'This connection or account may not change grocery Lists in this Workspace. Nothing was changed.',
+ list_not_found:'A List was not found in this Workspace (unknown, deleted, a To-do List or in another Workspace). Moves only work between grocery Lists of the same Workspace. Nothing was changed.',
+ same_list:'Source and destination are the same List. Nothing was changed.',
+ kind_mismatch:'Items can only move between Lists of the same kind. Nothing was changed.',
+ stale_revision:'A List changed since it was read. Read it again with get_grocery_list, review the items with the user if they changed, and retry with a new operationId. Nothing was changed.',
+ invalid_items:'Some item ids are not live items of the source List (unknown, already removed, or in another List). Read the List again. Nothing was changed.',
+ duplicate_item_ids:'The same item id is listed more than once. Nothing was changed.',
+ operation_reused:'This operationId was already used for a different request. Use a new operationId for a new request. Nothing was changed.',
+ limit_reached:'The destination List would exceed its item limit. Nothing was changed.',
+ invalid_operation_id:'operationId must be a lower-case UUIDv4. Nothing was changed.',
+ invalid_arguments:'Check the arguments against the tool schema. Nothing was changed.',
+};
+export const groceryBatchError=(code:string,itemIds:readonly string[]=[])=>new GroceryBatchToolError(code,batchHints[code]??'Check the arguments against the tool schema. Nothing was changed.',itemIds);
+async function groceryBatch<T>(action:()=>Promise<T>):Promise<T>{
+ try{return await action();}catch(error){
+  const code=error instanceof ListBatchError?error.code:error instanceof NotAuthorizedError?'permission_denied':error instanceof ListNotFoundError?'list_not_found':null;
+  if(code===null)throw error;
+  throw groceryBatchError(code,error instanceof ListBatchError?error.itemIds:[]);
+ }
+}
+const batchItemIds=z.array(uuid).min(1).max(MAX_LIST_BATCH_ITEMS).refine(ids=>new Set(ids).size===ids.length,{message:'duplicate_item_ids'}).describe(`Exact item ids from get_grocery_list, 1 to ${MAX_LIST_BATCH_ITEMS}, each once.`);
+const batchOperationId=uuid.describe('A new UUIDv4 for this exact request. Reuse it, with the identical payload, only to retry the same request.');
 const recipeView=(recipe:Awaited<ReturnType<typeof getRecipe>>)=>({id:recipe.id,revision:recipe.revision,archived:recipe.archived,private:recipe.private,title:recipe.title,servings:recipe.servings,ingredients:recipe.ingredients,instructions:recipe.instructions,tags:recipe.tags,categories:recipeCategories(recipe),source:recipe.source,prepMinutes:recipe.prepMinutes,cookMinutes:recipe.cookMinutes,...(recipe.coverImage?{coverImage:recipe.coverImage}:{})});
 const procedureView=(detail:Awaited<ReturnType<typeof getProcedure>>)=>({id:detail.procedure.id,revision:detail.procedure.revision,title:detail.procedure.title,description:detail.procedure.description,sections:detail.sections.map(section=>({id:section.id,title:section.title,steps:section.steps.map(step=>({id:step.id,title:step.title,description:step.description,required:step.required,critical:step.critical}))}))});
 export const assistantTools:AssistantTool[]=[
@@ -57,6 +88,14 @@ export const assistantTools:AssistantTool[]=[
  define('get_grocery_list','Read items of one grocery List.','lists.read','LISTS',false,{...workspace,listId:uuid},async({services,actor,workspaceId},input)=>{const result=await getList(services.lists,{actor,workspaceId,listId:input.listId as ListId});return {id:result.list.id,title:result.list.title,revision:result.list.revision,items:result.items.map(item=>({id:item.id,title:item.title,quantity:item.quantity,unit:item.unit,checked:item.checked!==null}))};}),
  define('create_grocery_list','Create an ordinary grocery List when the user requests one and no suitable list exists. Keep operationId and listId unchanged on retries.','lists.write','LISTS',true,{...workspace,listId:uuid,operationId:uuid,title:z.string().min(1).max(80)},async({services,actor,workspaceId},input)=>replayGroceryWrite(services.lists,{actor,workspaceId,clientChangeId:input.operationId,madeBy:actor.id,deviceTime:services.lists.clock.now(),change:{kind:'createList',listId:input.listId,title:input.title}})),
  define('add_grocery_item','Append one ordinary grocery entry after identifying the destination. If multiple Lists or Workspaces match and the user has not chosen one, ask and wait before calling this tool. Reuse operationId and itemId on retries. Never merges or replaces existing items.','lists.write','LISTS',true,{...workspace,listId:uuid,operationId:uuid,itemId:uuid,title:z.string().min(1).max(120),quantity:z.string().max(16).nullable().default(null),unit:z.string().max(16).nullable().default(null)},async({services,actor,workspaceId},input)=>replayGroceryWrite(services.lists,{actor,workspaceId,clientChangeId:input.operationId,madeBy:actor.id,deviceTime:services.lists.clock.now(),change:{kind:'addItem',listId:input.listId,itemId:input.itemId,title:input.title,quantity:input.quantity,unit:input.unit}})),
+ define('move_grocery_items','Move the user-approved items from one grocery List to another grocery List of the same Workspace in one atomic operation. First read both Lists with get_grocery_list, show the user exactly which items will move and where, and wait for approval; once the user approved this exact move, call it without asking again. Items keep their ids, titles, quantities, units and checked state and are appended to the destination; nothing is merged with entries of the same title. Both Lists must still be at the read revisions. Keep operationId and payload unchanged on retries.','lists.write','LISTS',true,{...workspace,sourceListId:uuid,destinationListId:uuid,itemIds:batchItemIds,operationId:batchOperationId,expectedSourceRevision:revision,expectedDestinationRevision:revision},async({services,actor,workspaceId},input)=>groceryBatch(async()=>{
+  const result=await moveListItems(services.lists,{...input,actor,workspaceId});
+  return {outcome:'MOVED',duplicate:result.duplicate,movedItemIds:result.itemIds,sourceList:{id:input.sourceListId,revision:result.revisions[input.sourceListId]},destinationList:{id:input.destinationListId,revision:result.revisions[input.destinationListId]}};
+ })),
+ define('delete_grocery_items','Delete the user-approved items, checked or not, from one grocery List in one atomic operation. Destructive: first read the List with get_grocery_list, show the user exactly which items will be deleted and wait for explicit approval; once the user approved this exact deletion, call it without asking again. Only the named items are deleted; if any id is not a live item of this List, nothing is deleted. Deleted items can be restored in VMN. The List must still be at the read revision. Keep operationId and payload unchanged on retries.','lists.write','LISTS',true,{...workspace,listId:uuid,itemIds:batchItemIds,operationId:batchOperationId,expectedRevision:revision},async({services,actor,workspaceId},input)=>groceryBatch(async()=>{
+  const result=await removeListItems(services.lists,{...input,actor,workspaceId});
+  return {outcome:'DELETED',duplicate:result.duplicate,deletedItemIds:result.itemIds,list:{id:input.listId,revision:result.revisions[input.listId]}};
+ })),
  define('list_cover_targets','Find Shopping and To-do Lists for an explicitly requested cover change. Ask which List and Workspace if the destination is ambiguous. Returns cover status and the current revision, without checklist entries.','lists.covers.write','LISTS',false,workspace,async({services,actor,workspaceId})=>({lists:(await listLists(services.lists,{actor,workspaceId})).map(({list})=>({id:list.id,title:list.title,kind:list.kind,revision:list.revision,coverId:list.coverId}))})),
  otherClients(define('open_list_cover_upload','Open the file picker for a List cover. Resolve the List and Workspace first. Then use set_list_cover to apply the returned attachment to the reviewed List revision.','lists.covers.write','LISTS',true,{...workspace,listId:uuid},async({services,actor,workspaceId},input)=>{
   await authorizeListAppearance(services.lists,{actor,workspaceId,listId:input.listId as ListId});

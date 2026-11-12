@@ -26,6 +26,8 @@ export const MAX_LIST_ITEM_UNIT_LENGTH = 16;
 /** Resource bounds: Lists per Workspace and items per List (deleted ones do not count). */
 export const MAX_LISTS_PER_WORKSPACE = 100;
 export const MAX_ITEMS_PER_LIST = 300;
+/** Items one move or batch removal may name (36.18): one reviewed selection, not a whole-List wipe. */
+export const MAX_LIST_BATCH_ITEMS = 100;
 
 /**
  * Offline changes (17.5). A device that lost its connection keeps List changes and sends each one

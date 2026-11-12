@@ -35,3 +35,28 @@ export class ListItemLimitReachedError extends Error {
     this.name = 'ListItemLimitReachedError';
   }
 }
+
+/**
+ * A move or batch removal (36.18) that was refused as a whole; nothing was changed. `itemIds` names
+ * the caller's own ids that were not usable (unknown, removed, in another List, or repeated).
+ */
+export type ListBatchErrorCode =
+  | 'same_list'
+  | 'invalid_items'
+  | 'duplicate_item_ids'
+  | 'stale_revision'
+  | 'operation_reused'
+  | 'limit_reached'
+  | 'kind_mismatch'
+  | 'invalid_operation_id';
+
+export class ListBatchError extends Error {
+  readonly code: ListBatchErrorCode;
+  readonly itemIds: readonly string[];
+  constructor(code: ListBatchErrorCode, itemIds: readonly string[] = []) {
+    super(`List items not changed (${code})`);
+    this.name = 'ListBatchError';
+    this.code = code;
+    this.itemIds = itemIds;
+  }
+}

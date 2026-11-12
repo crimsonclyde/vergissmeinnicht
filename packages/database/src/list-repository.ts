@@ -1,8 +1,8 @@
 import { awardProgress } from './progress-repository.ts';
 import { enabledTool } from './tool-policy.ts';
-import { randomUUID } from 'node:crypto';
-import { and, asc, count, eq, isNotNull, isNull, lt, max, sql } from 'drizzle-orm';
-import type { ListReplayInput, ListReplayResult, ListRepository, ListSummary, ListWithItems } from '@vergissmeinnicht/application';
+import { createHash, randomUUID } from 'node:crypto';
+import { and, asc, count, eq, inArray, isNotNull, isNull, lt, max, sql } from 'drizzle-orm';
+import type { ListBatchResult, ListReplayInput, ListReplayResult, ListRepository, ListSummary, ListWithItems } from '@vergissmeinnicht/application';
 import { assertListItemKind, type List, type ListId, type ListItem, type ListItemId, type ListReplayOutcome, type UserId, type WorkspaceId } from '@vergissmeinnicht/domain';
 import { IMMEDIATE, actorAllowed, type Transaction, type UserActor } from './actor-guard.ts';
 import { roleHasCapability } from '@vergissmeinnicht/permissions';
@@ -11,7 +11,7 @@ import { recordSecurityEvent } from './security-events.ts';
 import { currentDelegation } from './delegation-context.ts';
 import { recordAuditEvent } from './audit-events.ts';
 import type { AppDatabase } from './connection.ts';
-import { attachments, listClientChanges, listItems, lists } from './schema.ts';
+import { attachments, listClientChanges, listItemOperations, listItems, lists } from './schema.ts';
 
 type Reader = Pick<Transaction, 'select'>;
 
@@ -237,6 +237,34 @@ function applyChange(tx: Transaction, input: ListReplayInput, actor: UserActor):
   }
   touch(tx, row.id, at);
   return applied;
+}
+
+/** Soft delete, as the app's single-item removal: kept with who removed it, so it can be put back. */
+const softRemove = (tx: Transaction, itemId: string, at: Date, actor: UserActor) =>
+  tx.update(listItems).set({ deletedAt: at, deletedByDisplayName: actor.displayName }).where(eq(listItems.id, itemId)).run();
+
+type BatchKind = 'MOVE' | 'REMOVE';
+/** Order-independent: a retry that lists the same items in another order is the same request. */
+const batchHash = (kind: BatchKind, request: Record<string, unknown> & { itemIds: readonly string[] }) =>
+  createHash('sha256').update(JSON.stringify({ kind, ...request, itemIds: [...request.itemIds].sort() })).digest('hex');
+
+/**
+ * The remembered answer to this operation id (36.18), after forgetting old ones: `undefined` for a
+ * new id, the first answer for the same request again, `operation_reused` for anything else.
+ */
+function priorBatch(tx: Transaction, input: { operationId: string; workspaceId: WorkspaceId; keepSince: Date }, actor: UserActor, kind: BatchKind, hash: string): ListBatchResult | undefined {
+  tx.delete(listItemOperations).where(lt(listItemOperations.at, input.keepSince)).run();
+  const prior = tx.select().from(listItemOperations).where(eq(listItemOperations.id, input.operationId)).get();
+  if (prior === undefined) return undefined;
+  if (prior.userId !== actor.userId || prior.workspaceId !== input.workspaceId || prior.kind !== kind || prior.payloadHash !== hash) return { status: 'operation_reused' };
+  return { status: 'ok', duplicate: true, itemIds: prior.result.itemIds as ListItemId[], revisions: prior.result.revisions };
+}
+
+/** The named items that are live in this List, in List order; `missing` keeps the caller's order. */
+function liveSelection(tx: Reader, listId: string, itemIds: readonly ListItemId[]) {
+  const rows = tx.select().from(listItems).where(and(itemsOf(listId), inArray(listItems.id, [...itemIds]))).orderBy(asc(listItems.position), asc(listItems.id)).all();
+  const found = new Set(rows.map((row) => row.id));
+  return { rows, missing: itemIds.filter((id) => !found.has(id)) };
 }
 
 export function createListRepository({ db }: Pick<AppDatabase, 'db'>): ListRepository {
@@ -530,8 +558,79 @@ export function createListRepository({ db }: Pick<AppDatabase, 'db'>): ListRepos
         if (row === undefined) return { status: 'list_not_found' } as const;
         const item = findItem(tx, row.id as ListId, input.itemId);
         if (item === undefined) return { status: 'item_not_found' } as const;
-        tx.update(listItems).set({ deletedAt: input.at, deletedByDisplayName: actor.displayName }).where(eq(listItems.id, item.id)).run();
+        softRemove(tx, item.id, input.at, actor);
         return { status: 'ok', list: withItems(tx, touch(tx, row.id, input.at)) } as const;
+      }, IMMEDIATE);
+    },
+
+    async moveItems(input, actor, guard) {
+      return db.transaction((tx): ListBatchResult => {
+        if (!actorAllowed(tx, input.workspaceId, actor, guard)) return { status: 'forbidden' };
+        const hash = batchHash('MOVE', {
+          workspaceId: input.workspaceId,
+          sourceListId: input.sourceListId,
+          destinationListId: input.destinationListId,
+          itemIds: input.itemIds,
+          expectedSourceRevision: input.expectedSourceRevision,
+          expectedDestinationRevision: input.expectedDestinationRevision,
+        });
+        const prior = priorBatch(tx, input, actor, 'MOVE', hash);
+        if (prior !== undefined) return prior;
+        // Both Lists are looked up inside this Workspace only: another Workspace's List is "not found".
+        const source = findRow(tx, input.workspaceId, input.sourceListId);
+        const destination = findRow(tx, input.workspaceId, input.destinationListId);
+        if (source === undefined || destination === undefined || source.id === destination.id) return { status: 'list_not_found' };
+        if (source.kind !== destination.kind) return { status: 'kind_mismatch' };
+        if (source.revision !== input.expectedSourceRevision || destination.revision !== input.expectedDestinationRevision) return { status: 'stale_revision' };
+        const { rows, missing } = liveSelection(tx, source.id, input.itemIds);
+        if (missing.length > 0) return { status: 'invalid_items', itemIds: missing };
+        if (liveItems(tx, destination.id) + rows.length > input.maxItems) return { status: 'limit_reached' };
+        const last = tx.select({ position: max(listItems.position) }).from(listItems).where(eq(listItems.listId, destination.id)).get()?.position;
+        const start = last === null || last === undefined ? 0 : last + 1;
+        // Same rows, new List: ids, text, quantity, unit, checked state and every stamp stay as they are.
+        rows.forEach((row, offset) => {
+          tx.update(listItems).set({ listId: destination.id, position: start + offset }).where(and(eq(listItems.id, row.id), eq(listItems.listId, source.id))).run();
+        });
+        const revisions = { [source.id]: touch(tx, source.id, input.at).revision, [destination.id]: touch(tx, destination.id, input.at).revision };
+        const itemIds = rows.map((row) => row.id as ListItemId);
+        tx.insert(listItemOperations).values({ id: input.operationId, userId: actor.userId, workspaceId: input.workspaceId, kind: 'MOVE', payloadHash: hash, result: { itemIds, revisions }, at: input.at }).run();
+        recordSecurityEvent(tx, {
+          type: 'LIST_ITEMS_MOVED',
+          actor,
+          subjectType: 'workspace',
+          subjectId: input.workspaceId,
+          occurredAt: input.at,
+          metadata: { sourceListId: source.id, destinationListId: destination.id, count: itemIds.length },
+        });
+        return { status: 'ok', duplicate: false, itemIds, revisions };
+      }, IMMEDIATE);
+    },
+
+    async removeItems(input, actor, guard) {
+      return db.transaction((tx): ListBatchResult => {
+        if (!actorAllowed(tx, input.workspaceId, actor, guard)) return { status: 'forbidden' };
+        const hash = batchHash('REMOVE', { workspaceId: input.workspaceId, listId: input.listId, itemIds: input.itemIds, expectedRevision: input.expectedRevision });
+        const prior = priorBatch(tx, input, actor, 'REMOVE', hash);
+        if (prior !== undefined) return prior;
+        const row = findRow(tx, input.workspaceId, input.listId);
+        if (row === undefined) return { status: 'list_not_found' };
+        if (row.revision !== input.expectedRevision) return { status: 'stale_revision' };
+        // Already removed, unknown or another List's: refused, and nothing else is removed either.
+        const { rows, missing } = liveSelection(tx, row.id, input.itemIds);
+        if (missing.length > 0) return { status: 'invalid_items', itemIds: missing };
+        for (const item of rows) softRemove(tx, item.id, input.at, actor);
+        const revisions = { [row.id]: touch(tx, row.id, input.at).revision };
+        const itemIds = rows.map((item) => item.id as ListItemId);
+        tx.insert(listItemOperations).values({ id: input.operationId, userId: actor.userId, workspaceId: input.workspaceId, kind: 'REMOVE', payloadHash: hash, result: { itemIds, revisions }, at: input.at }).run();
+        recordSecurityEvent(tx, {
+          type: 'LIST_ITEMS_REMOVED',
+          actor,
+          subjectType: 'workspace',
+          subjectId: input.workspaceId,
+          occurredAt: input.at,
+          metadata: { listId: row.id, count: itemIds.length },
+        });
+        return { status: 'ok', duplicate: false, itemIds, revisions };
       }, IMMEDIATE);
     },
 

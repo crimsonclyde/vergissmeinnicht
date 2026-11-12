@@ -167,6 +167,8 @@ out of the grant. Run the write checks only after separately approving Lists wri
 | “Read Shopping in the unselected test Workspace.” | ChatGPT reports it cannot access that Workspace. It does not substitute another Shopping list. |
 | “Mark Prepare done.” when two authorized active Runs have a Prepare Step | ChatGPT asks which Run before marking anything done. |
 | “Add this Recipe's ingredients to Shopping in Test Kitchen.” without a serving count in the conversation | ChatGPT asks how many servings before adding groceries. |
+| “Move test tea and test milk from Shopping to my second List in Test Kitchen.” | ChatGPT reads both Lists, names the two items and the destination and waits for your OK. After it, one call moves both; quantities and checked state are kept and no duplicate appears. |
+| “Delete the checked items from Shopping in Test Kitchen.” | ChatGPT lists exactly those items and waits for your OK. After it, only they are deleted; unchecked items stay. |
 
 Record only pass/fail and the first failed checkpoint. Remove the test item in VMN and
 disconnect the disposable grant when finished. A lost ChatGPT response can still leave a
