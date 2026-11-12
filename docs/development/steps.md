@@ -5747,6 +5747,30 @@ user workflows; no host migration or external service provisioned by the assessm
 
 ---
 
+## 41 — One look for the remaining areas: History, Reminders, More, Settings, Home, Contacts and Documents (owner request 2026-11-12)
+
+**Request (owner, 2026-11-12):** "all of them" on the design list: (1) Equipment and Maintenance as one "Home" area with cover art, cards and icon buttons; (2) Contacts and Documents with avatars, covers and long forms folded behind icons; (3) History and Reminders as a timeline that looks like the Journal; (4) More and Settings in one row style with icons. Owner choice the same day: **one "Home" menu entry** for Equipment and Maintenance. Mockup for (1) and (2): https://claude.ai/artifact/FAJHVwNaTcKeBUeKDTgu9L (awaiting the owner's OK). Note: "Storage" in the code is Workspace settings → Storage (disk space), not storage in the house; it gets the settings treatment of (4), not a place in Home.
+
+### 41.1 — History and Reminders as a timeline; More and Settings rows
+
+**Status:** DONE (implementation and checks complete; not released).
+
+**Implemented:**
+- `area.css` + `Timeline.tsx`: one shared page language with the Calendar (39) and Notes/Journal (40): eyebrow over a serif title with a muted count, round icon button, group labels, and a timeline with a day stamp (day number over the short month, `formatMonthShort`) on a thin line. The stamp repeats what the card says in words, so it is `aria-hidden`; a further entry of the same day leaves the column empty (`firstOfDay`). Theme touches for Tokyo Nights, Witch Forest and Places; forced colours.
+- *Completed history* (`Runs.tsx`): header with eyebrow and count; each finished Run is a card on the timeline (stamp = day it ended; done tone for Completed), procedure icon, serif title, state badge, progress, state summary, who and when; "Show older" as a round button. Still one list named "Finished" with one item per Run.
+- *Reminders* (`Reminders.tsx`): same header (New reminder kept as the labelled primary), Overdue / Today / Upcoming as group labels with the timeline; Overdue stamps in the pending colour, today filled. `OccurrenceItem` takes an optional `stamp` (Today is unchanged).
+- *More* (`MorePage.tsx`): eyebrow + serif title; tools and "Looking back" (Completed history) as cards of rows with a tinted icon tile, name, one muted line and chevron. Notes now uses the notebook icon there.
+- *Settings:* the menu icons sit in the same tile (wide screens); settings titles use the serif title face; Storage lists what uses the space as icon rows under a fuller meter; Profile → Tool menu order shows each tool's icon.
+- Presentation only: no API, schema, permission or route changes; no migration.
+
+**Tests/checks:** `pnpm typecheck`, `eslint`, `vitest run apps/web` (316 passed). Screens of History, Reminders, More, Storage and Profile in light, Memento Mori, Tokyo Nights, Witch Forest, Galactic Guide and Places (Triora) at 1440 px and 390 px reviewed (`/mnt/project-files/ui-review/2026-11-12-areas/`). Accessible names the e2e suite relies on (list "Finished", list "Today", More links and `.item-body strong`) are kept.
+
+**Security impact:** NONE (presentation only). **Security docs updated:** NO.
+
+**Remaining:** 41.2 Home (Equipment + Maintenance, one menu entry) and 41.3 Contacts + Documents after the owner approves the mockup.
+
+---
+
 ## 11 — Licensing
 
 ### 11.1 AGPL-3.0

@@ -102,6 +102,12 @@ export function formatWeekdayShort(date: string): string {
   return new Intl.DateTimeFormat(formatLocale(), { weekday: 'short', timeZone: 'UTC' }).format(new Date(Date.UTC(year, month - 1, day, 12)));
 }
 
+/** "Nov" for a calendar date `YYYY-MM-DD` (the small line under a timeline's day number, 41). */
+export function formatMonthShort(date: string): string {
+  const [year, month, day] = date.split('-').map(Number) as [number, number, number];
+  return new Intl.DateTimeFormat(formatLocale(), { month: 'short', timeZone: 'UTC' }).format(new Date(Date.UTC(year, month - 1, day, 12)));
+}
+
 /** "7:12 AM" / "07:12" for a place's wall time `YYYY-MM-DDTHH:MM`, exactly as given (no time zone conversion). */
 export function formatWallTime(time: string): string {
   return new Intl.DateTimeFormat(formatLocale(), { hour: 'numeric', minute: '2-digit', timeZone: 'UTC' }).format(new Date(`${time}:00Z`));

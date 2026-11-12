@@ -30,6 +30,7 @@ import { useRunLiveUpdates, type AnnouncedChange, type LiveStatus } from './useR
 import { UiIcon } from './ui-icons.tsx';
 import { navigate, paths } from './router.tsx';
 import { Ring, SectionGuide, SectionTiles, nextOpenSection } from './RunGuide.tsx';
+import { DayStamp, firstOfDay, localDate } from './Timeline.tsx';
 
 /** How long "Uma changed … at …" stays visible. */
 const REMOTE_NOTICE_MS = 10_000;
@@ -633,18 +634,25 @@ function RunView(props: {
   );
 }
 
+/** Finished executions as a timeline (41): a day stamp per day, then each Run as its own card. */
 function RunList({ title, runs, onOpen }: { title: string; runs: RunSummary[]; onOpen: (runId: string) => void }) {
+  const endedOn = (run: RunSummary) => localDate(run.ended?.at ?? run.startedAt);
+  const days = firstOfDay(runs, endedOn);
   return (
     <section aria-label={title}>
-      <h3>{title}</h3>
-      <ul aria-label={title} className="plain-list">
-        {runs.map((run) => {
+      <h3 className="area-group">{title}</h3>
+      <ol aria-label={title} className="plain-list area-timeline">
+        {runs.map((run, index) => {
           const total = Object.values(run.stepCounts).reduce((sum, n) => sum + n, 0);
           return (
-            <li key={run.id} className="card stack">
-              <div className="row" style={{ justifyContent: 'space-between' }}>
-                <button type="button" className="link-like" onClick={() => onOpen(run.id)} style={{ fontSize: '1.1rem', fontWeight: 600 }}>
-                  <AppIcon name={run.icon} /> {run.title}
+            <li key={run.id} className="card area-run">
+              <DayStamp date={days[index] ?? null} tone={run.state === 'COMPLETED' ? 'done' : undefined} />
+              <div className="area-run-head">
+                <span className="item-icon">
+                  <AppIcon name={run.icon} decorative />
+                </span>
+                <button type="button" className="area-run-title" onClick={() => onOpen(run.id)}>
+                  {run.title}
                 </button>
                 <RunStateBadge state={run.state} />
               </div>
@@ -656,7 +664,7 @@ function RunList({ title, runs, onOpen }: { title: string; runs: RunSummary[]; o
             </li>
           );
         })}
-      </ul>
+      </ol>
     </section>
   );
 }
@@ -910,7 +918,7 @@ export function Runs(props: {
   const finished = runs?.filter((run) => run.state !== 'ACTIVE') ?? [];
 
   return (
-    <section aria-label={t('runs.heading')}>
+    <section aria-label={t('runs.heading')} className={openRunId === null ? 'area' : undefined}>
       {openRunId !== null ? (
         <>
           {message !== null && <p role="alert">{message}</p>}
@@ -952,9 +960,16 @@ export function Runs(props: {
         </>
       ) : (
         <>
-          <div className="page-header">
-            <h2>{t('runs.heading')}</h2>
-          </div>
+          <header className="area-head">
+            <div className="area-title">
+              <p className="area-eyebrow">
+                <UiIcon name="history" /> {t('runs.eyebrow')}
+              </p>
+              <h2 className="area-heading">
+                {t('runs.heading')} {runs !== null && finished.length > 0 && <span className="area-heading-muted">{finished.length}{nextCursor !== null ? '+' : ''}</span>}
+              </h2>
+            </div>
+          </header>
           {message !== null && <p role="alert">{message}</p>}
           {listFromDevice && <p className="muted">{t('offline.historyNeedsConnection')}</p>}
           {runs === null ? (
@@ -973,9 +988,11 @@ export function Runs(props: {
               )}
               {finished.length > 0 && <RunList title={t('runs.finished')} runs={finished} onOpen={onOpen} />}
               {nextCursor !== null && (
-                <button type="button" className="quiet" disabled={loadingMore} onClick={() => void loadMore()}>
-                  {t('runs.showOlder')}
-                </button>
+                <div className="area-more">
+                  <button type="button" className="area-round" disabled={loadingMore} onClick={() => void loadMore()}>
+                    <UiIcon name="expand" /> {t('runs.showOlder')}
+                  </button>
+                </div>
               )}
             </>
           )}

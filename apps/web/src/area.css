@@ -1,0 +1,248 @@
+/* ---- One page language for the remaining areas (steps.md 41) ------------------------------------
+ * History, Reminders, More and the settings pages speak the same language as the Calendar (39) and
+ * Notes/Journal (40): a small eyebrow over a serif title with a muted count, round icon buttons, and a
+ * timeline with a day stamp on a thin line. Everything is drawn from the theme tokens; a theme only sets
+ * the title face (`--area-title-font`) and, at the end, what a token cannot say. */
+
+.area {
+  --area-title-font: Georgia, 'Times New Roman', serif;
+  --area-line: color-mix(in srgb, var(--border) 75%, transparent);
+  --area-radius: calc(var(--radius) + 4px);
+  min-width: 0;
+}
+
+.area :is(h1, h2, h3) { overflow-wrap: anywhere; }
+
+/* Header: eyebrow, serif title with a muted count, actions on the right. */
+.area-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 0.75rem 1rem;
+  margin-block-end: 1rem;
+}
+
+.area-title { display: flex; flex-direction: column; min-width: 0; }
+
+.area-eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 0.8rem;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.area-heading {
+  margin: 0.1rem 0 0;
+  font-family: var(--area-title-font);
+  font-size: clamp(1.8rem, 3.6vw, 2.5rem);
+  font-weight: 600;
+  line-height: 1.1;
+  letter-spacing: -0.01em;
+}
+
+.area-heading-muted { color: var(--text-muted); font-weight: 500; }
+.area-lead { margin: -0.5rem 0 1rem; color: var(--text-muted); font-size: 0.9rem; }
+
+.area-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.4rem;
+  margin-inline-start: auto;
+}
+
+/* A round icon button; a labelled primary keeps its words on wide screens only. */
+.area-round {
+  display: inline-grid;
+  place-items: center;
+  min-width: 2.75rem;
+  min-height: 2.75rem;
+  padding: 0 0.7rem;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--text);
+  text-decoration: none;
+}
+
+.area-group {
+  margin: 1.5rem 0 0.75rem;
+  color: var(--text-muted);
+  font-size: 0.8rem;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.area-group[data-tone='overdue'] { color: var(--state-pending); }
+.area-group:first-of-type { margin-top: 0.5rem; }
+
+/* Timeline: every entry keeps its own card; the day stamp sits on a thin line to its left. The stamp
+ * repeats what the card already says in words, so it is decoration for assistive technology. */
+.area-timeline,
+.plain-list.area-timeline {
+  position: relative;
+  display: grid;
+  gap: 0.75rem;
+  margin: 0;
+  padding: 0 0 0 4.25rem;
+  list-style: none;
+}
+
+.area-timeline::before {
+  content: '';
+  position: absolute;
+  top: 1.5rem;
+  bottom: 0.5rem;
+  inset-inline-start: calc(1.75rem - 1px);
+  width: 2px;
+  background: var(--area-line);
+}
+
+.area-timeline > li { position: relative; min-width: 0; }
+.plain-list.area-timeline > li + li { margin-top: 0; }
+
+.area-day {
+  position: absolute;
+  top: 0.35rem;
+  inset-inline-start: -4.25rem;
+  display: grid;
+  justify-items: center;
+  gap: 0.15rem;
+  width: 3.5rem;
+}
+
+.area-day b {
+  display: grid;
+  place-items: center;
+  width: 2.75rem;
+  height: 2.75rem;
+  border: 1px solid var(--border);
+  border-radius: 50%;
+  background: var(--surface);
+  color: var(--text);
+  font-family: var(--area-title-font);
+  font-size: 1.2rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.area-day small { color: var(--text-muted); font-size: 0.7rem; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; }
+.area-day[data-today] b { border-color: var(--accent); background: var(--accent); color: var(--accent-text); }
+.area-day[data-tone='overdue'] b { border-color: var(--state-pending); background: var(--state-pending-bg); color: var(--state-pending); }
+.area-day[data-tone='done'] b { border-color: color-mix(in srgb, var(--state-done) 45%, var(--border)); }
+
+/* A finished execution as a timeline card: icon, serif title, state, progress, who and when. */
+.area-run { display: grid; gap: 0.35rem; }
+.area-run-head { display: flex; align-items: center; gap: 0.75rem; min-width: 0; }
+.area-run-title {
+  flex: 1;
+  min-width: 0;
+  justify-content: flex-start;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--text);
+  font-family: var(--area-title-font);
+  font-size: 1.15rem;
+  font-weight: 600;
+  text-align: start;
+  overflow-wrap: anywhere;
+}
+
+.area-run-title:hover { color: var(--link); filter: none; }
+.area-run .progress { margin: 0.15rem 0; }
+.area-more { display: flex; justify-content: center; margin-top: 1rem; }
+
+@media (max-width: 40rem) {
+  .area-timeline, .plain-list.area-timeline { padding-inline-start: 3rem; }
+  .area-timeline::before { inset-inline-start: calc(1.25rem - 1px); }
+  .area-day { inset-inline-start: -3rem; width: 2.5rem; }
+  .area-day b { width: 2.25rem; height: 2.25rem; font-size: 1rem; }
+  .area-day small { font-size: 0.65rem; }
+  .area-actions { margin-inline-start: 0; width: 100%; }
+}
+
+@media (forced-colors: active) {
+  .area-timeline::before { background: CanvasText; }
+  .area-day[data-today] b { outline: 2px solid Highlight; }
+}
+
+:root[data-theme='witch-forest'] .area { --area-title-font: var(--wf-serif); }
+:root[data-theme='witch-forest'] :is(.area-eyebrow, .area-group) { font-variant: small-caps; text-transform: none; letter-spacing: 0.1em; font-size: 0.9rem; }
+:root[data-theme='tokyo-nights'] .area { --area-title-font: inherit; --area-line: rgb(157 124 255 / 28%); }
+:root[data-theme='tokyo-nights'] .area-heading { text-shadow: 0 0 0.9rem rgb(53 230 255 / 35%); }
+:root[data-theme='tokyo-nights'] .area-heading-muted { color: var(--neon-b); }
+:root[data-theme='tokyo-nights'] .area-day[data-today] b { box-shadow: var(--glow-a); }
+:root[data-theme='places'] .area { --area-title-font: var(--places-serif, Georgia, serif); }
+
+/* ---- Rows (41): More, the settings menu and settings lists share one row ------------------------
+ * A card of rows divided by a hairline: a tinted icon tile, a name over one muted line, a chevron. */
+.area-rows {
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: var(--area-radius, calc(var(--radius) + 4px));
+  background: var(--surface);
+}
+
+.plain-list.area-rows > li + li { margin-top: 0; border-top: 1px solid var(--area-line, var(--border)); }
+
+.area-row {
+  display: flex;
+  align-items: center;
+  gap: 0.9rem;
+  min-height: 3.75rem;
+  padding: 0.65rem 1rem;
+  color: var(--text);
+  text-decoration: none;
+}
+
+.area-row:hover { background: color-mix(in srgb, var(--surface-muted) 55%, transparent); }
+.area-row:focus-visible { outline: 3px solid var(--focus); outline-offset: -3px; }
+.area-row > .ui-icon:last-child { flex: none; color: var(--text-muted); }
+
+.area-row-icon {
+  display: inline-grid;
+  place-items: center;
+  flex: none;
+  width: 2.5rem;
+  height: 2.5rem;
+  border-radius: 0.7rem;
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+:root[data-theme='tokyo-nights'] .area-row-icon { box-shadow: inset 0 0 0 1px rgb(157 124 255 / 35%); }
+
+/* The settings menu (41): the same tinted icon tile as the rows, on wide screens. */
+.settings-nav-icon {
+  display: inline-grid;
+  place-items: center;
+  flex: none;
+  width: 2rem;
+  height: 2rem;
+  border-radius: 0.55rem;
+  background: var(--surface-muted);
+}
+
+.settings-nav a[aria-current='page'] .settings-nav-icon { background: var(--surface); }
+.settings-identity h2 { font-family: var(--area-title-font); font-size: clamp(1.5rem, 3vw, 2rem); }
+
+@media (max-width: 56rem) {
+  .settings-nav-icon { width: auto; height: auto; background: transparent; }
+}
+
+/* Workspace settings → Storage (41): a fuller meter, then what uses the space as icon rows. */
+.storage-meter { height: 0.9rem; border-radius: 999px; }
+.storage-lines.area-rows { gap: 0; margin-top: 0.75rem; }
+.storage-lines.area-rows > div { align-items: center; padding: 0.5rem 0.85rem; }
+.storage-lines.area-rows > div + div { border-top: 1px solid var(--area-line, var(--border)); }
+.storage-lines.area-rows dt { display: flex; align-items: center; gap: 0.75rem; color: var(--text); }
+.storage-lines.area-rows .area-row-icon { width: 2rem; height: 2rem; border-radius: 0.55rem; }
+.navigation-tool { display: inline-flex; align-items: center; gap: 0.75rem; }
+.navigation-tool .area-row-icon { width: 2rem; height: 2rem; border-radius: 0.55rem; }
