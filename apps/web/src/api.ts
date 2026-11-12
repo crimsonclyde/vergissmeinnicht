@@ -1242,8 +1242,6 @@ const bringPath = (workspaceId: string, rest = '') => `/workspaces/${encodeURICo
 export interface McpConnection {id:string;clientName:string;workspaceIds:string[];scopes:import('@vergissmeinnicht/domain').McpScope[];expiresAt:string;revokedAt:string|null;tokenIssued:boolean}
 export interface McpConsent {id:string;clientName:string;redirectOrigin:string;scopes:import('@vergissmeinnicht/domain').McpScope[];expiresAt:string}
 export const api = {
-  recipeImageStatus:(workspaceId:string)=>request<{enabled:boolean}>('GET',`/workspaces/${encodeURIComponent(workspaceId)}/recipes/image-generation/status`),
-  generateRecipeImage:(workspaceId:string,operationId:string,prompt:string)=>request<{job:{status:string};attachment:{id:string;name:string;format:string}|null}>('POST',`/workspaces/${encodeURIComponent(workspaceId)}/recipes/image-generation`,{operationId,prompt}),
   mcpStatus:()=>request<{enabled:boolean}>('GET','/account/mcp/status'),
   mcpConnections:()=>request<{connections:McpConnection[]}>('GET','/account/mcp/'),
   mcpConsent:(id:string)=>request<McpConsent>('GET','/account/mcp/requests/'+encodeURIComponent(id)),

@@ -46,7 +46,6 @@ function bodyFor(route: string, ids: Record<string, string>): object {
   if (url.endsWith('/bring') || url.endsWith('/bring/:itemId/update')) return { content: { title: 'Drill', from: '', to: '', dueDate: null, assigneeId: null, notes: '' }, expectedRevision: 0 };
   if (/\/bring\/:itemId\/(delete|restore)$/.test(url)) return { expectedRevision: 1 };
   if (url.endsWith('/bring/:itemId/status')) return { expectedRevision: 1, status: 'COMPLETED' };
-  if(url.endsWith('/recipes/image-generation'))return {operationId:'00000000-0000-4000-8000-000000000003',prompt:'Pancakes on a plate'};
   if (url.endsWith('/recipes') || url.endsWith('/recipes/:recipeId')) return {content:{version:1,title:'Recipe',servings:2,ingredients:[{name:'Flour',amount:'125',unit:'g',note:''}],instructions:'Cook',tags:[],source:'',prepMinutes:null,cookMinutes:null},expectedRevision:0,archived:false};
   if (url.endsWith('/recipes/:recipeId/shopping')) return {operationId:'00000000-0000-4000-8000-000000000003',recipeRevision:1,listId:ids.listId,listRevision:1,servings:2,items:[{ingredient:0,title:'Flour',quantity:'125',unit:'g'}]};
   if (url.endsWith('/journal') || url.endsWith('/journal/:entryId')) return { content: { kind: 'note', version: 1, title: 'Entry', date: '2026-10-23', body: 'Note' }, expectedRevision: 0, archived: false };

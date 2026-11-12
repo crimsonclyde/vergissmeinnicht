@@ -1,5 +1,5 @@
 import { inspect } from 'node:util';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { ConfigError, loadConfig } from './config.ts';
 
 const SECRET = 'a'.repeat(20) + 'unique-secret-value-xyz';
@@ -243,11 +243,11 @@ describe('loadConfig', () => {
 });
 
 
-describe('optional MCP and Recipe image secrets',()=>{
- it('defaults off, bounds admission and reads a dedicated image secret without echoing it',()=>{
-  expect(loadConfig(production).mcpEnabled).toBe(false);expect(loadConfig(production).recipeImages).toEqual({key:undefined,monthlyLimit:100,perUserLimit:10});
-  const key='test-recipe-project-key-not-a-real-secret';const config=loadConfig({...production,MCP_ENABLED:'true',OPENAI_RECIPE_IMAGE_KEY_FILE:'/run/secrets/recipe'},()=>key+'\n');expect(config.mcpEnabled).toBe(true);expect(config.recipeImages.key).toBe(key);
-  expect(()=>loadConfig({...production,OPENAI_RECIPE_IMAGE_KEY:key,OPENAI_RECIPE_IMAGE_KEY_FILE:'/run/secrets/recipe'},()=>key)).toThrow(/either OPENAI_RECIPE_IMAGE_KEY or OPENAI_RECIPE_IMAGE_KEY_FILE/);
-  expect(issuesOf({...production,RECIPE_IMAGE_MONTHLY_LIMIT:'-1'}).join(' ')).toContain('RECIPE_IMAGE_MONTHLY_LIMIT');expect(issuesOf({...production,OPENAI_RECIPE_IMAGE_KEY:'private-short-key'}).join(' ')).not.toContain('private-short-key');
+describe('optional MCP and removed Recipe image settings',()=>{
+ it('defaults MCP off and ignores the removed image generator settings without reading their secret file',()=>{
+  expect(loadConfig(production).mcpEnabled).toBe(false);
+  const readSecret=vi.fn(()=>'test-recipe-project-key-not-a-real-secret');
+  const config=loadConfig({...production,MCP_ENABLED:'true',OPENAI_RECIPE_IMAGE_KEY:'private-short-key',OPENAI_RECIPE_IMAGE_KEY_FILE:'/run/secrets/recipe',RECIPE_IMAGE_MONTHLY_LIMIT:'-1',RECIPE_IMAGE_USER_MONTHLY_LIMIT:'10'},readSecret);
+  expect(config.mcpEnabled).toBe(true);expect(readSecret).not.toHaveBeenCalled();expect(Object.keys(config)).not.toContain('recipeImages');
  });
 });

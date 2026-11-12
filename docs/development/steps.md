@@ -7642,6 +7642,54 @@ per forecast; the extra model id is a fixed constant, no person-supplied text
 reaches the URL. No migration, no new stored data beyond an optional
 `extended` flag in cached forecast JSON.
 
+### 36.17 Remove the server-side Recipe image generator (owner request 2026-11-12)
+
+ChatGPT kept assuming VMN creates Recipe images, although it should generate them itself.
+The owner confirmed in production: ChatGPT generates the picture, uploads the PNG with
+`upload_recipe_image_file` (`recipeId: null`), creates the Recipe with the returned
+`coverImage`, the returned Markdown and `requireImage: true`, and reads it back. The owner
+chose this upload route as the only one for ChatGPT.
+
+Implemented:
+
+- Removed `generate_recipe_image`, its OpenAI provider (`gpt-image-1.5` over plain `fetch`, no
+  npm dependency), the job/quota repository, the `RecipeImageError` mappings, the web
+  **Create an AI recipe image** panel and its two routes (`/recipes/image-generation` and
+  `/status`). Settings `OPENAI_RECIPE_IMAGE_KEY(_FILE)`, `RECIPE_IMAGE_MONTHLY_LIMIT` and
+  `RECIPE_IMAGE_USER_MONTHLY_LIMIT` are no longer read; leftover values are ignored, so an
+  existing container still starts.
+- `upload_recipe_image_file` is visible to ChatGPT again and described as the first step for a
+  pictured Recipe. `create_recipe` and `prepare_recipe_meal` no longer take an `image` file, and
+  `set_recipe_image` was removed (36.14 one-call route). For an existing Recipe, upload with its
+  `recipeId` and save with `save_recipe`.
+- MCP instructions describe the seven-step workflow (search, generate, upload, `coverImage`,
+  Markdown, `create_recipe` with `requireImage: true`, read back), say that VMN does not generate
+  images, and require reporting a failed generation or upload and never fabricating references
+  or upload success.
+- No migration. The unused `recipe_image_jobs` table stays as it is, so the change can be undone.
+  Images made by the generator are ordinary attachments and keep working.
+
+Kept unchanged: `upload_recipe_image_file`, `upload_recipe_image` and the picker for other MCP
+clients, original preservation with metadata, covers and embedded images, previews and
+thumbnails, quotas, validation, permissions, downloads, and manual upload in the Recipe editor.
+
+Breaking MCP changes: `generate_recipe_image` and `set_recipe_image` are gone from the tool list,
+and `create_recipe`/`prepare_recipe_meal` reject an `image` argument. Refresh the tools in
+ChatGPT after deployment.
+
+Checks: lint, typecheck and the full Vitest suite (1,720 passed, 14 skipped). `recipe-images.test.ts` now covers an uploaded
+original through an atomic meal, the absence of the removed tools and arguments, and a cover
+stored by the old generator saved with `requireImage` and read back. `mcp-recipe-upload.test.ts`
+keeps the upload, create and read-back flow; `mcp-recipe-image-oneshot.test.ts` was removed with
+the one-call route.
+
+Release note draft (for the next release):
+
+- **ChatGPT recipe photos:** VMN no longer has its own AI image generator. ChatGPT creates the
+  picture itself, uploads it to VMN and then saves the Recipe with it as the cover. The
+  **Create an AI recipe image** panel and the `OPENAI_RECIPE_IMAGE_KEY` settings are gone; you
+  can delete that secret. Existing pictures are unaffected. Refresh VMN's tools in ChatGPT.
+
 ### Release plan for 0.13.10, owner milestone 64 (2026-11-10)
 
 The preceding 0.13.9 candidate was stopped before publication after inspecting the

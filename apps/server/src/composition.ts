@@ -1,7 +1,4 @@
 import { createChatGptFileSource, type ChatGptFileSource } from './integrations/chatgpt-files.ts';
-import {openAiRecipeImages} from './integrations/openai-recipe-images.ts';
-import {createRecipeImageJobs} from '@vergissmeinnicht/database';
-import type {RecipeImageDeps} from '@vergissmeinnicht/application';
 import {createMcpRepository} from '@vergissmeinnicht/database';
 import {createRecipeRepository,recipeAttachmentPolicy,listAttachmentPolicy} from '@vergissmeinnicht/database';
 import type {RecipeDeps} from '@vergissmeinnicht/application';
@@ -142,7 +139,6 @@ export type DelegatedAttachmentDeps = AttachmentDeps & {
 /** Everything the HTTP layer needs. Built once per process by the composition root. */
 export interface AppServices {
   readonly publicOrigin: string;
-  readonly recipeImages:RecipeImageDeps;
   readonly mcpEnabled:boolean;
   readonly chatGptFileSource: ChatGptFileSource;
   readonly mcp:ReturnType<typeof createMcpRepository>;
@@ -466,7 +462,6 @@ export function createServices(config: AppConfig, database: AppDatabase, overrid
       storage: { workspaces: workspaceDeps.workspaces, storage: createStorageRepository(database), clock: systemClock },
       links: { workspaces: workspaceDeps.workspaces, tools, links: createLinkRepository(database), clock: systemClock },
       contacts: { workspaces: workspaceDeps.workspaces, tools, contacts: createContactRepository(database), clock: systemClock },
-      recipeImages:{recipes:{ workspaces: workspaceDeps.workspaces, users: createUserRepository(database), tools, recipes: createRecipeRepository(database), clock: systemClock },attachments:recipeAttachments,jobs:createRecipeImageJobs(database,config.recipeImages.monthlyLimit,config.recipeImages.perUserLimit),provider:config.recipeImages.key?openAiRecipeImages(config.recipeImages.key):undefined},
       recipes: { workspaces: workspaceDeps.workspaces, users: createUserRepository(database), tools, recipes: createRecipeRepository(database), clock: systemClock },
       recipeAttachments,
       listAttachments:{repository:createAttachmentRepository(database,listAttachmentPolicy),store:attachmentStorage,processor:attachmentStorage,convertWebp:convertWebpToPng},

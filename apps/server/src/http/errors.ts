@@ -1,4 +1,3 @@
-import {RecipeImageError} from '@vergissmeinnicht/application';
 import { CalendarFeedNotFoundError } from '@vergissmeinnicht/application';
 import {McpCredentialError} from '@vergissmeinnicht/database';
 import {RecipeNotFoundError,RecipeConflictError} from '@vergissmeinnicht/application';
@@ -277,7 +276,6 @@ export function errorHandler(error: FastifyError | Error, request: FastifyReques
   if (error instanceof ContactImportRefusedError) return reply.code(422).send({ error: 'contact_import_refused', reason: error.code });
   if (error instanceof ContactFileError) return reply.code(error.code === 'contact_import_too_large' ? 413 : 422).send({ error: 'contact_import_refused', reason: error.code, line: error.line });
 
-  if(error instanceof RecipeImageError)return reply.code(error.code==='image_limit'?429:error.code==='image_disabled'?503:409).send({error:error.code});
   if(error instanceof McpCredentialError)return reply.code(error.code==='temporarily_unavailable'?429:400).send({error:'invalid_mcp_request'});
   const statusCode = 'statusCode' in error && typeof error.statusCode === 'number' ? error.statusCode : 500;
   if (statusCode === 429) return reply.code(429).send({ error: 'rate_limited' });

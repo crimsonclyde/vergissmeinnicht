@@ -136,32 +136,6 @@ async function* convertWebp(source: AsyncIterable<Uint8Array>, maxBytes: number,
   }
 }
 
-/** A stable UUID v4 for the image upload that belongs to a Recipe write, so retries reuse its receipt. */
-export function derivedOperationId(operationId: string, purpose: string) {
-  const bytes = createHash('sha256').update(`${purpose}:${operationId}`).digest().subarray(0, 16);
-  bytes.writeUInt8((bytes.readUInt8(6) & 0x0f) | 0x40, 6);
-  bytes.writeUInt8((bytes.readUInt8(8) & 0x3f) | 0x80, 8);
-  const hex = bytes.toString('hex');
-  return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
-}
-
-const escapeRegExp = (value: string) => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-
-/**
- * Puts an uploaded photo at the top of the instructions and makes it the cover. With replaceCover,
- * the previous cover's image Markdown is removed first. Deterministic, so retries hash identically.
- */
-export function withRecipeImage<T extends { instructions: string; coverImage?: string | undefined }>(
-  content: T, image: { reference: string; markdown: string }, replaceCover?: string,
-): T {
-  let instructions = content.instructions;
-  if (replaceCover && replaceCover !== image.reference) {
-    instructions = instructions.replace(new RegExp(`!\\[[^\\]\\n]*\\]\\(${escapeRegExp(replaceCover)}\\)[ \\t]*\\n*`, 'g'), '');
-  }
-  if (!instructions.includes(`(${image.reference})`)) instructions = `${image.markdown}\n\n${instructions.trim()}`.trim();
-  return { ...content, instructions, coverImage: image.reference };
-}
-
 async function persistDelegatedImage(
   deps: DelegatedAttachmentDeps, actor: User, workspaceId: WorkspaceId, authorize: AuthorizeUpload,
   input: UploadTarget & { name: string; payloadHash: string; source: (maxBytes: number) => AsyncIterable<Uint8Array> },
