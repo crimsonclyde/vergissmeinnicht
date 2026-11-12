@@ -18,11 +18,17 @@ For every completed task, add a concise completion note, tests/checks performed,
 
 ## Current state — resume here
 
-**Release 0.14.0 prepared (owner release 67, 2026-11-12).** Includes PR #102 (server Recipe
-image generator removed, 36.17), PR #103 (Calendar subscription links and refreshed Calendar,
-39; migration 0073) and PR #104 (Notes and Journal library, reading view, timeline and
-Markdown import, 40). Release upgrade checks start from 0.13.12. Pending: owner publishes
-`v0.14.0`, then record the published digest here and the owner count (67) in AGENTS.md.
+**Published owner release 67 (2026-11-12).** 0.14.0 was published from `v0.14.0`, source
+`1b82bb6ff47efd9fd28a60c531be35a811b536bc` (PRs #102 upload-only ChatGPT recipe photos, #103
+Calendar subscription links and refreshed Calendar with migration 0073, #104 Notes and Journal
+library, reading view, timeline and Markdown import). The release reused the passing main CI.
+The first arm64 image build hung in `pnpm install` until its 30-minute timeout; re-running the
+failed job built it in 2 minutes. Smoke, scan, signing, SBOM and the populated upgrade checks
+passed. `0.14.0`, `0.14` and `latest` resolve to index
+`sha256:12ca36ddf9a49837625de7eb69dde840b5ee5dfc1285c8fdf354b130a030acd8`.
+Owner count **67**, next **68**.
+[GitHub release](https://github.com/crimsonclyde/vergissmeinnicht/releases/tag/v0.14.0)
+[Release workflow](https://github.com/crimsonclyde/vergissmeinnicht/actions/runs/43306611253)
 
 **Published owner release 66 (2026-11-11).** Stable 0.13.12 was published from `v0.13.12`,
 source `ef2247b2fdb0f61c99eee9a3e43d19e2a01750ef` (PRs #97–#99, #101: Recipe categories,
