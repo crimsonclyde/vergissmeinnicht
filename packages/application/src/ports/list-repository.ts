@@ -20,6 +20,40 @@ export type ListChangeResult<Code extends string = never> = { readonly status: '
 
 type UserActor = Actor & { readonly kind: 'user' };
 
+/**
+ * Moving or removing several items at once (36.18). One IMMEDIATE transaction: either every named
+ * item is moved/removed and the List revisions rise once, or nothing changes. The operation id is
+ * remembered with a hash of the request, so a retry gets the first answer and is never applied twice.
+ */
+export interface ListBatchCommon {
+  readonly workspaceId: WorkspaceId;
+  readonly operationId: string;
+  readonly itemIds: readonly ListItemId[];
+  readonly at: Date;
+  /** Remembered operations older than this are forgotten (`LIST_CHANGE_KEEP_MS`). */
+  readonly keepSince: Date;
+}
+export interface ListMoveInput extends ListBatchCommon {
+  readonly sourceListId: ListId;
+  readonly destinationListId: ListId;
+  readonly expectedSourceRevision: number;
+  readonly expectedDestinationRevision: number;
+  readonly maxItems: number;
+}
+export interface ListRemoveInput extends ListBatchCommon {
+  readonly listId: ListId;
+  readonly expectedRevision: number;
+}
+/** The List revisions right after the operation, by List id. */
+export interface ListBatchReceipt {
+  readonly itemIds: readonly ListItemId[];
+  readonly revisions: Readonly<Record<string, number>>;
+}
+export type ListBatchResult =
+  | ({ readonly status: 'ok'; readonly duplicate: boolean } & ListBatchReceipt)
+  | { readonly status: 'forbidden' | 'list_not_found' | 'stale_revision' | 'operation_reused' | 'limit_reached' | 'kind_mismatch' }
+  | { readonly status: 'invalid_items'; readonly itemIds: readonly ListItemId[] };
+
 /** A List change made offline, as the server applies it (17.5): normalized, with the time it counts as made. */
 export interface ListReplayInput {
   readonly workspaceId: WorkspaceId;
@@ -143,6 +177,13 @@ export interface ListRepository {
     actor: UserActor,
     guard: ActorGuard,
   ): Promise<ListChangeResult<'list_not_found' | 'item_not_found'>>;
+  /**
+   * Moves live items of one List to the end of another List of the same Workspace and kind (36.18).
+   * The items keep their ids, text, quantity, unit, checked state and who added/checked them.
+   */
+  moveItems(input: ListMoveInput, actor: UserActor, guard: ActorGuard): Promise<ListBatchResult>;
+  /** Removes several live items (soft delete, like `removeItem`, so each can be put back). */
+  removeItems(input: ListRemoveInput, actor: UserActor, guard: ActorGuard): Promise<ListBatchResult>;
   /** Puts a removed item back at its old place; counts against `maxItems` again. */
   restoreItem(
     input: { readonly workspaceId: WorkspaceId; readonly listId: ListId; readonly itemId: ListItemId; readonly at: Date; readonly maxItems: number },

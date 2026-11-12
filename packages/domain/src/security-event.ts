@@ -53,6 +53,9 @@ export const SECURITY_EVENT_TYPES = [
   'MCP_TOOL_USED',
   'RECIPE_CHANGED',
   'RECIPE_SHOPPING_TRANSFERRED',
+  // Several List items moved to another List or removed at once (36.18): List ids and a count, never item text.
+  'LIST_ITEMS_MOVED',
+  'LIST_ITEMS_REMOVED',
   'BRING_CHANGED',
   'JOURNAL_ENTRY_CHANGED',
   'JOURNAL_PRIVACY_ACKNOWLEDGED',

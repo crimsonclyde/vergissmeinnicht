@@ -131,6 +131,7 @@ export const EXCLUDED_TABLES: Readonly<Record<string, string>> = {
   procedure_pins: 'personal pins',
   procedure_icons: 'the server’s icon catalogue',
   list_client_changes: 'offline-sync bookkeeping of devices',
+  list_item_operations: 'List item move/removal retry outcomes, not portable Workspace content',
   contact_keys: 'derived — recalculated on restore (D8)',
   document_file_derivatives: 'previews — regenerated after a restore',
   workspace_backup_jobs: 'backup jobs themselves',

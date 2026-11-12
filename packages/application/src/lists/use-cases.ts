@@ -1,6 +1,8 @@
 import {
   LIST_CHANGE_KEEP_MS,
   MAX_ITEMS_PER_LIST,
+  MAX_LIST_BATCH_ITEMS,
+  UUID_V4,
   MAX_LISTS_PER_WORKSPACE,
   offlineChangeTime,
   parseListId,
@@ -21,13 +23,13 @@ import { roleHasCapability } from '@vergissmeinnicht/permissions';
 import { NotAuthorizedError } from '../invitations/errors.ts';
 import type { ActorGuard } from '../ports/actor-guard.ts';
 import type { Clock } from '../ports/clock.ts';
-import type { ListReplayResult, ListRepository, ListSummary, ListWithItems } from '../ports/list-repository.ts';
+import type { ListBatchReceipt, ListBatchResult, ListReplayResult, ListRepository, ListSummary, ListWithItems } from '../ports/list-repository.ts';
 import { OfflineAccountMismatchError } from '../runs/errors.ts';
 import type { WorkspaceRepository } from '../ports/workspace-repository.ts';
 import { userActor } from '../user-actor.ts';
 import { authorizeWorkspace } from '../workspaces/use-cases.ts';
 import { AttachmentError } from '../attachments/index.ts';
-import { ListConflictError, ListItemLimitReachedError, ListItemNotFoundError, ListLimitReachedError, ListNotFoundError } from './errors.ts';
+import { ListBatchError, ListConflictError, ListItemLimitReachedError, ListItemNotFoundError, ListLimitReachedError, ListNotFoundError } from './errors.ts';
 
 export interface ListDeps {
   readonly workspaces: WorkspaceRepository;
@@ -271,4 +273,122 @@ export async function replayListChange(
   if (result.status === 'forbidden') throw new NotAuthorizedError();
   if (result.status === 'id_taken') throw new ListConflictError();
   return result;
+}
+
+/** What a move or batch removal answers (36.18): the items it changed and the List revisions after it. */
+export interface ListBatchOutcome extends ListBatchReceipt {
+  /** The operation id had been used for exactly this request before: nothing was done again. */
+  readonly duplicate: boolean;
+}
+
+/** A non-empty, bounded selection of distinct item ids; otherwise nothing is touched. */
+function batchItemIds(itemIds: readonly string[]): ListItemId[] {
+  if (itemIds.length === 0 || itemIds.length > MAX_LIST_BATCH_ITEMS) throw new ListBatchError('invalid_items');
+  const malformed = itemIds.filter((id) => !UUID_V4.test(id));
+  if (malformed.length > 0) throw new ListBatchError('invalid_items');
+  const seen = new Set<string>();
+  const repeated = itemIds.filter((id) => (seen.has(id) ? true : (seen.add(id), false)));
+  if (repeated.length > 0) throw new ListBatchError('duplicate_item_ids', [...new Set(repeated)]);
+  return itemIds as ListItemId[];
+}
+
+function batchOutcome(result: ListBatchResult): ListBatchOutcome {
+  switch (result.status) {
+    case 'ok':
+      return { duplicate: result.duplicate, itemIds: result.itemIds, revisions: result.revisions };
+    case 'forbidden':
+      throw new NotAuthorizedError();
+    case 'list_not_found':
+      throw new ListNotFoundError();
+    case 'invalid_items':
+      throw new ListBatchError('invalid_items', result.itemIds);
+    default:
+      throw new ListBatchError(result.status);
+  }
+}
+
+const batchOperationId = (operationId: string) => {
+  if (!UUID_V4.test(operationId)) throw new ListBatchError('invalid_operation_id');
+  return operationId;
+};
+
+/**
+ * Moves items from one List to another List of the same Workspace in one transaction (36.18). Both
+ * Lists must still be at the revisions the caller reviewed. The items keep their ids and everything
+ * about them; they are appended to the destination in their source order. `list.edit` is required
+ * (re-checked in the transaction); a retry with the same operation id and request repeats the first
+ * answer, and the same id with a different request is refused.
+ */
+export async function moveListItems(
+  deps: ListDeps,
+  input: {
+    readonly actor: User;
+    readonly workspaceId: WorkspaceId;
+    readonly sourceListId: string;
+    readonly destinationListId: string;
+    readonly itemIds: readonly string[];
+    readonly operationId: string;
+    readonly expectedSourceRevision: number;
+    readonly expectedDestinationRevision: number;
+  },
+): Promise<ListBatchOutcome> {
+  await authorizeWorkspace(deps, input.actor, input.workspaceId, 'list.edit');
+  const sourceListId = parseListId(input.sourceListId);
+  const destinationListId = parseListId(input.destinationListId);
+  if (sourceListId === destinationListId) throw new ListBatchError('same_list');
+  const itemIds = batchItemIds(input.itemIds);
+  const now = deps.clock.now();
+  const result = await deps.lists.moveItems(
+    {
+      workspaceId: input.workspaceId,
+      operationId: batchOperationId(input.operationId),
+      sourceListId,
+      destinationListId,
+      itemIds,
+      expectedSourceRevision: input.expectedSourceRevision,
+      expectedDestinationRevision: input.expectedDestinationRevision,
+      at: now,
+      keepSince: new Date(now.getTime() - LIST_CHANGE_KEEP_MS),
+      maxItems: MAX_ITEMS_PER_LIST,
+    },
+    userActor(input.actor),
+    edit,
+  );
+  return batchOutcome(result);
+}
+
+/**
+ * Removes several items of one List at once (36.18): checked or not, all or none. Removal is the
+ * same soft delete as removing one item in the app, so each item can still be put back. The List
+ * must be at the reviewed revision; retries behave as for `moveListItems`.
+ */
+export async function removeListItems(
+  deps: ListDeps,
+  input: {
+    readonly actor: User;
+    readonly workspaceId: WorkspaceId;
+    readonly listId: string;
+    readonly itemIds: readonly string[];
+    readonly operationId: string;
+    readonly expectedRevision: number;
+  },
+): Promise<ListBatchOutcome> {
+  await authorizeWorkspace(deps, input.actor, input.workspaceId, 'list.edit');
+  const listId = parseListId(input.listId);
+  const itemIds = batchItemIds(input.itemIds);
+  const now = deps.clock.now();
+  const result = await deps.lists.removeItems(
+    {
+      workspaceId: input.workspaceId,
+      operationId: batchOperationId(input.operationId),
+      listId,
+      itemIds,
+      expectedRevision: input.expectedRevision,
+      at: now,
+      keepSince: new Date(now.getTime() - LIST_CHANGE_KEEP_MS),
+    },
+    userActor(input.actor),
+    edit,
+  );
+  return batchOutcome(result);
 }

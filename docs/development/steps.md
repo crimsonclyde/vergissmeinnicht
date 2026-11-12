@@ -28,6 +28,9 @@ passed. `0.14.0`, `0.14` and `latest` resolve to index
 `sha256:12ca36ddf9a49837625de7eb69dde840b5ee5dfc1285c8fdf354b130a030acd8`.
 Owner count **67**, next **68**.
 [GitHub release](https://github.com/crimsonclyde/vergissmeinnicht/releases/tag/v0.14.0)
+
+**Next release (68), not yet prepared:** 36.18 grocery move and delete through MCP (migration
+0074). Nothing is version-bumped or tagged yet.
 [Release workflow](https://github.com/crimsonclyde/vergissmeinnicht/actions/runs/43306611253)
 
 **Published owner release 66 (2026-11-11).** Stable 0.13.12 was published from `v0.13.12`,
@@ -7728,6 +7731,81 @@ Release note draft (for the next release):
   picture itself, uploads it to VMN and then saves the Recipe with it as the cover. The
   **Create an AI recipe image** panel and the `OPENAI_RECIPE_IMAGE_KEY` settings are gone; you
   can delete that secret. Existing pictures are unaffected. Refresh VMN's tools in ChatGPT.
+
+### 36.18 Move and delete grocery items through MCP (owner request 2026-11-12)
+
+ChatGPT could create grocery Lists, read them and add items, but could not move or delete
+existing items, so a List could not be tidied up. The owner asked for two MCP tools that do this
+in one atomic, permission-aware and idempotent operation each, for the next release.
+
+Implemented:
+
+- Application commands `moveListItems` and `removeListItems` (`packages/application/src/lists`)
+  with repository methods `moveItems` and `removeItems`. Each runs in one IMMEDIATE transaction
+  that re-checks membership, `list.edit`, the Lists tool switch and the live MCP grant, then
+  checks the operation receipt, the List revisions and every named item before changing anything.
+- **Move** re-points the existing rows to the destination List: item ids, title, quantity, unit,
+  checked state, who added and who checked stay exactly as they were. Items are appended after the
+  destination's items in their source order and are never merged with entries of the same title.
+  Both Lists are looked up inside the given Workspace only, so a List of another Workspace is "not
+  found"; same-List moves, To-do/Shopping mixes and moves past the 300-item limit are refused.
+- **Delete** is the same soft removal as removing an item in the app (`deleted_at` and who
+  removed it), checked or not, so every item can still be restored (`restoreListItem`). The
+  single-item removal now shares that helper.
+- Both raise each touched List's revision once, so the web app's existing polling (and the
+  revision checks of other clients) pick the change up; counts are computed from live items. No
+  frontend change was needed: the web app had no move, and its single-item removal is the
+  backend the batch removal reuses.
+- Idempotency: migration **0074** adds `list_item_operations` (operation id, account, Workspace,
+  kind, SHA-256 of the order-independent request, first answer, time). A retry with the same id
+  and request returns the first answer with `duplicate: true` and changes nothing; the same id
+  with any other request, account or Workspace is refused (`operation_reused`). Receipts are
+  pruned after `LIST_CHANGE_KEEP_MS` (90 days) and excluded from Workspace backups.
+- History: one `LIST_ITEMS_MOVED` or `LIST_ITEMS_REMOVED` security event per operation with the
+  List ids and a count (plus the MCP client and grant when delegated), never item text. Items
+  still have no audit events, as decided in 15.3.
+- MCP tools `move_grocery_items` and `delete_grocery_items` (scope `lists.write`, Lists tool,
+  existing OAuth connection; no new scope, so existing grants with Lists write see them after a
+  tool refresh). Inputs: `workspaceId`, List ids, `itemIds` (1–100 distinct UUIDs), `operationId`
+  and the expected revision(s). Answers: `outcome` (`MOVED`/`DELETED`), `duplicate`, the moved or
+  deleted item ids and the new List revisions. `delete_grocery_items` is annotated destructive;
+  both are annotated idempotent. Descriptions and server instructions tell the assistant to read
+  the Lists, show the exact change, wait for approval, not ask again after an explicit approval,
+  and never build a move from add plus delete.
+- Structured MCP errors for these two tools (`structuredContent.error.code`): `permission_denied`,
+  `list_not_found`, `same_list`, `kind_mismatch`, `stale_revision`, `invalid_items` (with the
+  unusable ids), `duplicate_item_ids`, `operation_reused`, `limit_reached`,
+  `invalid_operation_id`, `invalid_arguments`. Every refusal changes nothing. A failure after the
+  write committed (access revoked during the call) keeps the generic "not confirmed" message,
+  because the change may have happened; retrying with the same operation id is safe.
+
+Checks: `list-batch-use-cases.test.ts` (17 tests: single and multiple moves, checked and unchecked
+items, quantities and units, empty destination, same-title entries, same-List, cross-Workspace,
+To-do and limit refusals, guest/non-member/demoted actor, stale revisions on either List, two
+concurrent moves from the same revisions, missing/foreign/removed/repeated ids, rollback when the
+history write fails, idempotent retry and reused ids, single and batch removal with restore,
+already-removed items, retry after a same-title item was re-added, receipt pruning, unchanged
+single-item removal) and `mcp-grocery-batch.test.ts` (5 tests: tool list, schemas and
+annotations, read-only grants, the owner's two acceptance requests end to end with web
+read-back, structured refusals, guest, write-less grant and Lists switched off). Full results in
+the pull request.
+
+Security surface changed: yes, narrowly. A delegated `lists.write` grant can now move and
+soft-remove grocery items it names, within one selected Workspace, under the same
+transaction-time checks as other grocery writes. See security.md 36.18.
+
+Remaining: hosted ChatGPT check after deployment and a tool refresh (the two acceptance prompts
+are in `docs/admin/chatgpt-mcp-tunnel.md`). The web app has no "recently removed items" view, so
+an item deleted through MCP is restored through the existing restore route
+(`…/items/:itemId/restore`); such a view in the app would be a separate request.
+
+Release note draft (for the next release, owner release 68):
+
+- **ChatGPT can move and delete grocery items.** Ask it to move items from one grocery List to
+  another in the same Workspace, or to delete items (for example everything already bought).
+  ChatGPT shows what it will change and waits for your OK; the change then happens in one step,
+  keeps quantities, units and checked state, and never creates duplicates on a retry. Deleted
+  items can be restored. Refresh VMN's tools in ChatGPT after updating. Migration 0074.
 
 ### Release plan for 0.13.10, owner milestone 64 (2026-11-10)
 

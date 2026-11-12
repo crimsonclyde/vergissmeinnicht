@@ -1713,6 +1713,36 @@ export const listClientChanges = sqliteTable(
 );
 
 /**
+ * Moves and batch removals of List items (36.18): one row per operation id, so a retried request
+ * gets its first answer and is never applied twice, and an id reused for a different request (other
+ * account, Workspace, kind or payload hash) is refused. Runtime retry state, not Workspace content;
+ * kept for `LIST_CHANGE_KEEP_MS`, then pruned.
+ */
+export const listItemOperations = sqliteTable(
+  'list_item_operations',
+  {
+    id: text('id').primaryKey(),
+    userId: text('user_id')
+      .notNull()
+      .references(() => users.id),
+    workspaceId: text('workspace_id')
+      .notNull()
+      .references(() => workspaces.id),
+    kind: text('kind', { enum: ['MOVE', 'REMOVE'] }).notNull(),
+    payloadHash: text('payload_hash').notNull(),
+    /** The first answer: the changed item ids and the List revisions right after the operation. */
+    result: text('result', { mode: 'json' }).$type<{ itemIds: string[]; revisions: Record<string, number> }>().notNull(),
+    at: timestampMs('at'),
+  },
+  (table) => [
+    index('list_item_operations_age_idx').on(table.at),
+    check('list_item_operations_id_uuid', sql`length(${table.id}) = 36`),
+    check('list_item_operations_kind_valid', sql`${table.kind} in ('MOVE', 'REMOVE')`),
+    check('list_item_operations_result_json', sql`json_valid(${table.result})`),
+  ],
+);
+
+/**
  * Document files (16.1): one uploaded file of a Workspace. The bytes — the original, exactly as
  * uploaded — live in the document store, named by `sha256`. Everything about the file is immutable
  * (trigger in migration 0027); only the progress of its previews changes. Identical content uploaded

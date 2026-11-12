@@ -519,6 +519,13 @@
       "when": 1794508408166,
       "tag": "0073_calendar_feeds",
       "breakpoints": true
+    },
+    {
+      "idx": 74,
+      "version": "6",
+      "when": 1794521588256,
+      "tag": "0074_list_item_operations",
+      "breakpoints": true
     }
   ]
 }
