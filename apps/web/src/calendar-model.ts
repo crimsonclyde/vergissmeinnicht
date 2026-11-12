@@ -140,3 +140,25 @@ export function dayAfterKey(date: string, key: string): string | null {
   const step = { ArrowLeft: -1, ArrowRight: 1, ArrowUp: -7, ArrowDown: 7 }[key];
   return step === undefined ? null : addDays(date, step);
 }
+
+/** ISO 8601 week number of a calendar date `YYYY-MM-DD` (weeks start on Monday; week 1 holds the year's first Thursday). */
+export function isoWeek(date: string): number {
+  const [year, month, day] = date.split('-').map(Number) as [number, number, number];
+  const at = new Date(Date.UTC(year, month - 1, day));
+  const weekday = at.getUTCDay() || 7;
+  at.setUTCDate(at.getUTCDate() + 4 - weekday);
+  const yearStart = Date.UTC(at.getUTCFullYear(), 0, 1);
+  return Math.ceil(((at.getTime() - yearStart) / 86_400_000 + 1) / 7);
+}
+
+/** How many of the shown entries of a month are open (incl. in progress and planned), overdue and done (39). */
+export function monthSummary(entries: readonly CalendarEntry[], month: string): { open: number; overdue: number; done: number } {
+  const summary = { open: 0, overdue: 0, done: 0 };
+  for (const entry of entries) {
+    if (entry.date.slice(0, 7) !== month) continue;
+    if (entry.status === 'OVERDUE') summary.overdue += 1;
+    else if (entry.status === 'COMPLETED') summary.done += 1;
+    else if (entry.status !== 'SKIPPED') summary.open += 1;
+  }
+  return summary;
+}

@@ -116,7 +116,7 @@ A Workspace backup (*Workspace settings → Backup*) is no substitute: it holds 
 ## Alternative: reverse proxy instead of Tailscale
 
 With Nginx Proxy Manager or SWAG on a custom Docker network (e.g. `proxynet`): set *Use Tailscale* to *No*, *Network type* `proxynet`, *Public address* to your domain, *Trusted proxy* to the proxy's fixed IP, and harden the container further with *Extra Parameters*
-`--init --user 99:100 --read-only --tmpfs /tmp --cap-drop ALL --security-opt no-new-privileges:true`. In the proxy, forward your domain to `VergissMeinNicht:3000` with a Let's Encrypt certificate and add `access_log off;` (access logs would record Knot link tokens).
+`--init --user 99:100 --read-only --tmpfs /tmp --cap-drop ALL --security-opt no-new-privileges:true`. In the proxy, forward your domain to `VergissMeinNicht:3000` with a Let's Encrypt certificate and add `access_log off;` (access logs would record Knot link tokens and calendar subscription links).
 
 ## Tested
 

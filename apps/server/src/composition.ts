@@ -45,6 +45,7 @@ import {
   type ListDeps,
   type ProcedureDeps,
   type HomeDeps,
+  type CalendarFeedDeps,
   type TodayDeps,
   type NotificationDeps,
   type ReminderDeps,
@@ -83,6 +84,7 @@ import {
   createInstanceSettingsRepository,
   createInvitationRepository,
   createKnotRepository,
+  createCalendarFeedRepository,
   createListRepository,
   createMfaChallengeRepository,
   createPreferencesRepository,
@@ -167,6 +169,7 @@ export interface AppServices {
   /** Scheduled Procedures (13.4); starting one needs the Run dependencies as well. */
   readonly schedules: ScheduleDeps & RunDeps;
   readonly knots: KnotDeps;
+  readonly calendarFeeds: CalendarFeedDeps;
   /** Lists (grocery lists) of a Workspace (15.3). */
   readonly lists: ListDeps;
   readonly history: HistoryDeps;
@@ -379,6 +382,15 @@ export function createServices(config: AppConfig, database: AppDatabase, overrid
     };
     // The error type only: a message could quote a file or a record of a package.
     const backupRunner = createBackupRunner(workspaceBackups, { onError: (error) => logger?.error({ err: { type: (error as Error).name, code: (error as { code?: unknown }).code } }, 'workspace backup job failed') });
+    const homeDeps: HomeDeps = {
+      workspaces: runs.workspaces,
+      procedures: createProcedureRepository(database),
+      activity: createProcedureActivityRepository(database),
+      schedules: scheduleRepository,
+      runs: runs.runs,
+      settings: createInstanceSettingsRepository(database),
+      clock: systemClock,
+    };
     return {
       publicOrigin: config.publicOrigin,
       chatGptFileSource,
@@ -421,15 +433,8 @@ export function createServices(config: AppConfig, database: AppDatabase, overrid
       runs,
       schedules: { ...runs, schedules: scheduleRepository, notificationPreferences },
       today: { workspaces: workspaceDeps.workspaces, progress: createTodayRepository(database), clock: systemClock },
-      home: {
-        workspaces: runs.workspaces,
-        procedures: createProcedureRepository(database),
-        activity: createProcedureActivityRepository(database),
-        schedules: scheduleRepository,
-        runs: runs.runs,
-        settings: createInstanceSettingsRepository(database),
-        clock: systemClock,
-      },
+      home: homeDeps,
+      calendarFeeds: { home: homeDeps, users: userRepository, feeds: createCalendarFeedRepository(database), tokens: invitationTokens },
       notifications,
       reminders,
       runChanges,

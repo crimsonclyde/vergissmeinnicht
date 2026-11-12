@@ -11,6 +11,8 @@ import {
   matches,
   monthGrid,
   monthOf,
+  monthSummary,
+  isoWeek,
   parseFilters,
   responsiblePeople,
   scheduleOf,
@@ -19,7 +21,9 @@ import {
   type StatusFilter,
 } from './calendar-model.ts';
 import { DoneItem, OccurrenceItem, type Capabilities } from './Occurrences.tsx';
-import { formatCalendarDate, formatMonth, t, weekdayNames } from './i18n/index.ts';
+import { formatCalendarDate, formatMonth, formatMonthParts, formatWeekdayLong, t, weekdayNames } from './i18n/index.ts';
+import { CalendarSubscribe } from './CalendarSubscribe.tsx';
+import { UiIcon } from './ui-icons.tsx';
 import { useOffline } from './offline/OfflineProvider.tsx';
 import { AppIcon } from './procedure-icons.tsx';
 import { browserTimeZone, todayIn } from './schedule-dates.ts';
@@ -91,7 +95,8 @@ function ProjectedItem({ entry }: { entry: Extract<CalendarEntry, { status: 'PRO
 /**
  * Calendar and agenda (14.4): the Occurrences of one month — the same ones Home shows, with the same
  * actions — plus planned dates of repeating series. Month view by default, an agenda on narrow screens.
- * Read-only towards the server apart from those actions: no drag-and-drop, no external calendars.
+ * Read-only towards the server apart from those actions: no drag-and-drop. Other calendar apps can subscribe to
+ * it read-only through a private link (39, `CalendarSubscribe`); nothing is read from them.
  */
 export function Calendar(props: { workspaceId: string; userId: string; canStart: boolean; canSchedule: boolean; canExecute: boolean; onOpenRun: (runId: string) => void }) {
   const { workspaceId } = props;
@@ -104,6 +109,7 @@ export function Calendar(props: { workspaceId: string; userId: string; canStart:
   const filtering = filters.statuses.length !== DEFAULT_FILTERS.statuses.length || filters.responsible !== DEFAULT_FILTERS.responsible || filters.type !== DEFAULT_FILTERS.type;
   /** Folded away until used, so the dates come first — but open when a remembered filter hides entries. */
   const [filtersOpen, setFiltersOpen] = useState(filtering);
+  const [subscribing, setSubscribing] = useState(false);
   const [range, setRange] = useState<CalendarRange | null>(null);
   const [members, setMembers] = useState<readonly PersonRef[] | null>(null);
   const [message, setMessage] = useState<string | null>(null);
@@ -216,36 +222,80 @@ export function Calendar(props: { workspaceId: string; userId: string; canStart:
   const shortDays = weekdayNames('short');
   const longDays = weekdayNames('long');
 
+  const title = formatMonthParts(month);
+  const summary = loaded === null ? null : monthSummary([...byDay.values()].flat(), month);
+  const selectedPast = selected < today;
+
   return (
     <section aria-labelledby="calendar-heading" className="calendar">
-      <div className="page-header">
-        <h2 id="calendar-heading">{t('calendar.heading')}</h2>
-        <div className="row home-filter" role="group" aria-label={t('calendar.view')}>
-          {(['MONTH', 'AGENDA'] as const).map((value) => (
-            <button key={value} type="button" className="quiet" aria-pressed={view === value} onClick={() => chooseView(value)}>
-              {view === value && <span aria-hidden="true">✓ </span>}
-              {t(`calendar.view.${value}`)}
-            </button>
-          ))}
+      <div className="calendar-toolbar">
+        <div className="calendar-title">
+          <h2 id="calendar-heading" className="calendar-eyebrow">
+            {t('calendar.heading')}
+          </h2>
+          <h3 id="calendar-month" className="calendar-month" aria-live="polite">
+            {title.month} <span className="calendar-year">{title.year}</span>
+          </h3>
+        </div>
+        <div className="calendar-paging">
+          <button type="button" className="calendar-round" aria-label={t('calendar.previous')} title={t('calendar.previous')} onClick={() => showMonth(addMonths(month, -1))}>
+            <UiIcon name="previous" />
+          </button>
+          <button type="button" className="calendar-round" aria-label={t('calendar.next')} title={t('calendar.next')} onClick={() => showMonth(addMonths(month, 1))}>
+            <UiIcon name="chevron" />
+          </button>
+          <button type="button" className="calendar-round calendar-today-button" aria-label={t('calendar.today')} disabled={month === monthOf(today) && selected === today} onClick={() => showDay(today)}>
+            <UiIcon name="todayDot" />
+            <span>{t('calendar.today')}</span>
+          </button>
+        </div>
+        <div className="calendar-actions">
+          <div className="calendar-segmented" role="group" aria-label={t('calendar.view')}>
+            {(['MONTH', 'AGENDA'] as const).map((value) => (
+              <button key={value} type="button" aria-label={t(`calendar.view.${value}`)} title={t(`calendar.view.${value}`)} aria-pressed={view === value} onClick={() => chooseView(value)}>
+                <UiIcon name={value === 'MONTH' ? 'calendar' : 'listView'} />
+              </button>
+            ))}
+          </div>
+          <button
+            type="button"
+            className={`icon-button calendar-tool${filtering ? ' calendar-tool-active' : ''}`}
+            aria-label={t('calendar.filters')}
+            title={t('calendar.filters')}
+            aria-expanded={filtersOpen}
+            aria-controls="calendar-filters"
+            onClick={() => setFiltersOpen(!filtersOpen)}
+          >
+            <UiIcon name="filter" />
+          </button>
+          <button type="button" className="icon-button primary calendar-subscribe-button" aria-label={t('calendar.subscribe')} title={t('calendar.subscribe')} onClick={() => setSubscribing(true)}>
+            <UiIcon name="subscribe" />
+          </button>
         </div>
       </div>
-      <div className="calendar-nav">
-        <button type="button" aria-label={t('calendar.previous')} onClick={() => showMonth(addMonths(month, -1))}>
-          <span aria-hidden="true">‹</span>
-        </button>
-        <h3 id="calendar-month" aria-live="polite">
-          {formatMonth(month)}
-        </h3>
-        <button type="button" aria-label={t('calendar.next')} onClick={() => showMonth(addMonths(month, 1))}>
-          <span aria-hidden="true">›</span>
-        </button>
-        <button type="button" className="quiet" disabled={month === monthOf(today) && selected === today} onClick={() => showDay(today)}>
-          {t('calendar.today')}
-        </button>
-      </div>
-      <details className="calendar-filter-box" open={filtersOpen} onToggle={(event) => setFiltersOpen(event.currentTarget.open)}>
-        <summary>{filtering ? t('calendar.filtersActive') : t('calendar.filters')}</summary>
-        <div className="calendar-filters">
+
+      {summary !== null && (
+        <ul className="calendar-summary" aria-label={t('calendar.summaryLabel')}>
+          <li data-status="OPEN">
+            <span aria-hidden="true" className="calendar-summary-mark" />
+            {t('calendar.summary.open', { count: summary.open })}
+          </li>
+          {summary.overdue > 0 && (
+            <li data-status="OVERDUE">
+              <span aria-hidden="true">{STATUS_GLYPH.OVERDUE}</span>
+              {t('calendar.summary.overdue', { count: summary.overdue })}
+            </li>
+          )}
+          <li data-status="COMPLETED">
+            <span aria-hidden="true">{STATUS_GLYPH.COMPLETED}</span>
+            {t('calendar.summary.done', { count: summary.done })}
+          </li>
+          {filtering && <li className="calendar-summary-filtered">{t('calendar.filtersActive')}</li>}
+        </ul>
+      )}
+
+      {filtersOpen && (
+        <div id="calendar-filters" className="calendar-filters card">
           <fieldset>
             <legend>{t('home.filter')}</legend>
             {STATUS_FILTERS.map((status) => (
@@ -282,19 +332,20 @@ export function Calendar(props: { workspaceId: string; userId: string; canStart:
             </select>
           </label>
         </div>
-      </details>
+      )}
       {message !== null && <p role="alert">{message}</p>}
       {loaded === null && message === null && <p role="status">{t('common.loading')}</p>}
       {loaded?.truncated === true && <p role="note">{t('calendar.truncated')}</p>}
 
       {/* The grid stays while another month loads, so keyboard focus is never lost. */}
       {view === 'MONTH' && (
-        <>
+        <div className="calendar-layout">
           <table className="calendar-grid" ref={gridRef} aria-labelledby="calendar-month" aria-busy={loaded === null}>
             <thead>
               <tr>
+                <td className="calendar-week" />
                 {shortDays.map((name, index) => (
-                  <th key={name} scope="col" abbr={longDays[index]}>
+                  <th key={name} scope="col" abbr={longDays[index]} data-weekend={index >= 5 ? 'true' : undefined}>
                     {name}
                   </th>
                 ))}
@@ -303,13 +354,17 @@ export function Calendar(props: { workspaceId: string; userId: string; canStart:
             <tbody>
               {weeks.map((week) => (
                 <tr key={week[0]}>
-                  {week.map((date) => {
+                  <th scope="row" className="calendar-week" title={t('calendar.week', { week: isoWeek(week[0] ?? today) })}>
+                    <span aria-hidden="true">{isoWeek(week[0] ?? today)}</span>
+                    <span className="visually-hidden">{t('calendar.week', { week: isoWeek(week[0] ?? today) })}</span>
+                  </th>
+                  {week.map((date, index) => {
                     const entries = byDay.get(date) ?? [];
                     return (
                       <td key={date}>
                         <button
                           type="button"
-                          className={`calendar-day${monthOf(date) === month ? '' : ' calendar-outside'}`}
+                          className={`calendar-day${monthOf(date) === month ? '' : ' calendar-outside'}${index >= 5 ? ' calendar-weekend' : ''}${date < today ? ' calendar-past' : ''}`}
                           data-date={date}
                           aria-label={dayLabel(date, entries.length)}
                           aria-pressed={date === selected}
@@ -319,13 +374,20 @@ export function Calendar(props: { workspaceId: string; userId: string; canStart:
                           onKeyDown={(event) => onDayKey(event, date)}
                         >
                           <span className="calendar-day-number">{Number(date.slice(8))}</span>
-                          {entries.slice(0, CHIPS_PER_DAY).map((entry) => (
-                            <span key={entry.key} className="calendar-chip" data-status={entry.status}>
-                              <span className="calendar-chip-glyph">{STATUS_GLYPH[entry.status]}</span>
-                              <span className="calendar-chip-title"> {scheduleOf(entry).title}</span>
-                            </span>
-                          ))}
-                          {entries.length > CHIPS_PER_DAY && <span className="calendar-chip calendar-more">{t('calendar.more', { count: entries.length - CHIPS_PER_DAY })}</span>}
+                          <span className="calendar-chips">
+                            {entries.slice(0, CHIPS_PER_DAY).map((entry) => (
+                              <span key={entry.key} className="calendar-chip" data-status={entry.status}>
+                                <span className="calendar-chip-glyph" aria-hidden="true">
+                                  {STATUS_GLYPH[entry.status]}
+                                </span>
+                                <span className="calendar-chip-title">
+                                  {scheduleOf(entry).title}
+                                  {entry.time !== null && <span className="calendar-chip-time"> {entry.time}</span>}
+                                </span>
+                              </span>
+                            ))}
+                            {entries.length > CHIPS_PER_DAY && <span className="calendar-chip calendar-more">{t('calendar.more', { count: entries.length - CHIPS_PER_DAY })}</span>}
+                          </span>
                         </button>
                       </td>
                     );
@@ -334,27 +396,42 @@ export function Calendar(props: { workspaceId: string; userId: string; canStart:
               ))}
             </tbody>
           </table>
-          <section aria-labelledby="calendar-day-heading" className="home-section">
-            <h3 id="calendar-day-heading" aria-live="polite">
-              {dayHeading(selected)}
+          <section aria-labelledby="calendar-day-heading" className="calendar-day-panel">
+            <h3 id="calendar-day-heading" className="calendar-day-heading" aria-live="polite">
+              <span className="calendar-day-big" aria-hidden="true">
+                {Number(selected.slice(8))}
+              </span>
+              <span className="calendar-day-words">
+                <span className="visually-hidden">{dayHeading(selected)}</span>
+                <strong aria-hidden="true">{formatWeekdayLong(selected)}</strong>
+                <small aria-hidden="true">
+                  {selected === today ? `${t('calendar.today')} · ` : ''}
+                  {formatMonth(monthOf(selected))}
+                </small>
+              </span>
             </h3>
             {loaded === null ? null : selectedEntries.length === 0 ? (
-              <p className="muted">{t('calendar.nothingOnDay')}</p>
+              <p className={`calendar-day-empty${selectedPast ? ' muted' : ''}`}>{t('calendar.nothingOnDay')}</p>
             ) : (
               <ul className="plain-list" aria-labelledby="calendar-day-heading">
                 {selectedEntries.map(row)}
               </ul>
             )}
           </section>
-        </>
+        </div>
       )}
 
       {loaded !== null && view === 'AGENDA' && (
         <div className="calendar-agenda">
           {agendaDays.length === 0 && <p className="card">{t('calendar.nothingInMonth', { month: formatMonth(month) })}</p>}
           {agendaDays.map((date) => (
-            <section key={date} aria-labelledby={`agenda-${date}`} className="home-section">
-              <h3 id={`agenda-${date}`}>{dayHeading(date)}</h3>
+            <section key={date} aria-labelledby={`agenda-${date}`} className="calendar-agenda-day" data-today={date === today ? 'true' : undefined}>
+              <h3 id={`agenda-${date}`} className="calendar-agenda-date">
+                <span className="calendar-agenda-number" aria-hidden="true">
+                  {Number(date.slice(8))}
+                </span>
+                <span>{dayHeading(date)}</span>
+              </h3>
               <ul className="plain-list" aria-labelledby={`agenda-${date}`}>
                 {(byDay.get(date) ?? []).map(row)}
               </ul>
@@ -362,6 +439,7 @@ export function Calendar(props: { workspaceId: string; userId: string; canStart:
           ))}
         </div>
       )}
+      {subscribing && <CalendarSubscribe workspaceId={workspaceId} onClose={() => setSubscribing(false)} />}
     </section>
   );
 }

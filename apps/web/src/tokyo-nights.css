@@ -876,3 +876,69 @@
     display: none;
   }
 }
+
+/* ---- Calendar (39): night-glass cells over the city, a neon edge on the chosen day ---------------- */
+
+:root[data-theme='tokyo-nights'] .calendar {
+  --cal-cell: rgb(19 21 44 / 94%);
+  --cal-cell-weekend: rgb(27 24 56 / 94%);
+  --cal-line: rgb(157 124 255 / 28%);
+}
+
+:root[data-theme='tokyo-nights'] .calendar-month {
+  text-shadow: 0 0 0.9rem rgb(53 230 255 / 35%);
+}
+
+:root[data-theme='tokyo-nights'] .calendar-year {
+  color: var(--neon-b);
+}
+
+/* Days outside the month stay readable over the skyline. */
+:root[data-theme='tokyo-nights'] .calendar-outside {
+  background: rgb(10 11 28 / 82%);
+}
+
+:root[data-theme='tokyo-nights'] .calendar-day[aria-current='date'] .calendar-day-number {
+  box-shadow: var(--glow-a);
+}
+
+:root[data-theme='tokyo-nights'] .calendar-day[aria-pressed='true'] {
+  border-color: transparent;
+  box-shadow: none;
+  background:
+    linear-gradient(rgb(24 26 58 / 98%), rgb(24 26 58 / 98%)) padding-box,
+    var(--neon-edge) border-box;
+}
+
+:root[data-theme='tokyo-nights'] .calendar-chip[data-status='OVERDUE'] {
+  box-shadow: 0 0 0.45rem rgb(255 92 205 / 30%);
+}
+
+:root[data-theme='tokyo-nights'] .calendar-day-panel,
+:root[data-theme='tokyo-nights'] .calendar-subscribe {
+  border: 1px solid transparent;
+  background:
+    linear-gradient(rgb(19 21 44 / 98%), rgb(19 21 44 / 98%)) padding-box,
+    linear-gradient(140deg, rgb(53 230 255 / 55%), rgb(157 124 255 / 25%) 45%, rgb(255 92 205 / 55%)) border-box;
+}
+
+:root[data-theme='tokyo-nights'] .calendar-day-big {
+  color: var(--neon-a);
+  text-shadow: var(--glow-a);
+}
+
+:root[data-theme='tokyo-nights'] .calendar-summary li,
+:root[data-theme='tokyo-nights'] .calendar-round,
+:root[data-theme='tokyo-nights'] .calendar-tool {
+  background: rgb(19 21 44 / 94%);
+}
+
+:root[data-theme='tokyo-nights'] .calendar-agenda-day[data-today] .calendar-agenda-number {
+  box-shadow: var(--glow-a);
+}
+
+/* Week numbers sit on the scene: a dark halo keeps them readable. */
+:root[data-theme='tokyo-nights'] .calendar-grid .calendar-week {
+  color: var(--text);
+  text-shadow: 0 0 3px #05061a, 0 0 6px #05061a;
+}

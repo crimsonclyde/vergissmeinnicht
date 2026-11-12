@@ -194,6 +194,10 @@ export interface Occurrence {
   readonly revision: number;
 }
 
+/** A person's calendar subscription link (39); the link itself is shown only when it is made. */
+export type CalendarFeedScope = 'MINE' | 'ALL';
+export type CalendarFeedView = { scope: CalendarFeedScope; createdAt: string; lastUsedAt: string | null };
+
 /** A future date of a repeating Schedule that has no Occurrence yet (calendar, 14.4): shown, not actionable. */
 export interface ProjectedOccurrence {
   readonly schedule: Schedule;
@@ -1445,6 +1449,11 @@ export const api = {
     request<HomeOverview>('GET', `/workspaces/${encodeURIComponent(workspaceId)}/home?filter=${filter}${recentSince === undefined ? '' : `&recentSince=${encodeURIComponent(recentSince.toISOString())}`}`),
   calendar: (workspaceId: string, from: string, to: string) =>
     request<CalendarRange>('GET', `/workspaces/${encodeURIComponent(workspaceId)}/calendar?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`),
+  calendarFeed: (workspaceId: string) => request<{ feed: CalendarFeedView | null }>('GET', `/workspaces/${encodeURIComponent(workspaceId)}/calendar-feed`).then((r) => r.feed),
+  /** Makes the person's subscription link, or a new one in place of the old; the only time the link is shown. */
+  createCalendarFeed: (workspaceId: string, scope: CalendarFeedScope) => request<{ feed: CalendarFeedView; url: string }>('POST', `/workspaces/${encodeURIComponent(workspaceId)}/calendar-feed`, { scope }),
+  calendarFeedScope: (workspaceId: string, scope: CalendarFeedScope) => request<{ feed: CalendarFeedView }>('POST', `/workspaces/${encodeURIComponent(workspaceId)}/calendar-feed/scope`, { scope }).then((r) => r.feed),
+  deleteCalendarFeed: (workspaceId: string) => request<undefined>('POST', `/workspaces/${encodeURIComponent(workspaceId)}/calendar-feed/delete`),
   pinProcedure: (workspaceId: string, id: string, pinned: boolean) =>
     request<undefined>('POST', `/workspaces/${encodeURIComponent(workspaceId)}/procedures/${encodeURIComponent(id)}/${pinned ? 'pin' : 'unpin'}`),
   createSchedule: async (workspaceId: string, input: ScheduleInput & { readonly procedureId?: string }) =>

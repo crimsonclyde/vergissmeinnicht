@@ -1692,7 +1692,7 @@ test('first server admin: bootstrap link, account creation, sign-in, Workspace c
   await expect(compareView.getByLabel(/OpenWeather/)).not.toBeChecked();
   await compareView.getByLabel(/OpenWeather/).check();
   await compareView.getByRole('button', { name: 'Compare', exact: true }).click();
-  expect(compareRequests.at(-1)?.fetchPaid).toBe(false);
+  await expect.poll(() => compareRequests.at(-1)?.fetchPaid).toBe(false);
   await expect(compareView).toContainText('Paid sources were not fetched. Fetching them now uses 1 OpenWeather request from the daily budget.');
   await expect(compareView.getByRole('combobox')).toHaveValue(localDate(0));
   const sourcesShown = compareView.getByRole('listitem');
@@ -1706,7 +1706,7 @@ test('first server admin: bootstrap link, account creation, sign-in, Workspace c
   await expect(sourcesShown.filter({ hasText: 'ICON-2I' })).toContainText('No forecast for this day — this source offers 1 day.');
   await expect(sourcesShown.filter({ hasText: 'Automatic' }).or(sourcesShown.filter({ hasText: /^Open-Meteo/ })).first()).toContainText('0 mm');
   await compareView.getByRole('button', { name: 'Fetch paid forecasts now' }).click();
-  expect(compareRequests.at(-1)?.fetchPaid).toBe(true);
+  await expect.poll(() => compareRequests.at(-1)?.fetchPaid).toBe(true);
   await expectAccessible(page, 'forecast comparison');
   await page.setViewportSize({ width: 320, height: 700 });
   expect(await noSidewaysScroll()).toBe(true);
@@ -2797,8 +2797,25 @@ test('first server admin: bootstrap link, account creation, sign-in, Workspace c
   await expect(day).toContainText('Reason: Paid in advance');
   await expect(day.getByRole('button', { name: 'Start Leave the flat' })).toBeVisible();
   await expectAccessible(page, 'calendar month view');
+  // Subscribe (39): a private link for Apple or Google Calendar, shown once; the feed is iCalendar.
+  await page.getByRole('button', { name: 'Subscribe in Apple or Google Calendar' }).click();
+  const subscribe = page.getByRole('dialog', { name: 'Subscribe' });
+  await subscribe.getByRole('radio', { name: /Everyone/ }).click();
+  await subscribe.getByRole('button', { name: 'Create private link' }).click();
+  const feedUrl = await subscribe.getByLabel('Private calendar link').inputValue();
+  expect(feedUrl).toMatch(/\/api\/calendar-feed\/[A-Za-z0-9_-]{43}\.ics$/);
+  await expect(subscribe.getByRole('link', { name: 'Apple Calendar' })).toHaveAttribute('href', feedUrl.replace(/^https?:/, 'webcal:'));
+  await expect(subscribe.getByRole('link', { name: 'Google Calendar' })).toHaveAttribute('href', /^https:\/\/calendar\.google\.com\/calendar\/render\?cid=webcal/);
+  await expectAccessible(page, 'calendar subscribe dialog');
+  const feed = await page.request.get(new URL(feedUrl).pathname);
+  expect(feed.headers()['content-type']).toBe('text/calendar; charset=utf-8');
+  expect(await feed.text()).toContain('SUMMARY:Leave the flat');
+  await subscribe.getByRole('button', { name: 'Turn off subscription' }).click();
+  await expect(subscribe.getByRole('button', { name: 'Create private link' })).toBeVisible();
+  expect((await page.request.get(new URL(feedUrl).pathname)).status()).toBe(404);
+  await subscribe.getByRole('button', { name: 'Close' }).click();
   // Filters are folded away until used; with a remembered filter they open by themselves.
-  await page.getByText('Filters', { exact: true }).click();
+  await page.getByRole('button', { name: 'Filters', exact: true }).click();
   await page.getByLabel('Skipped').uncheck();
   await expect(day).not.toContainText('Pay annual tax');
   await page.getByLabel('Skipped').check();
@@ -2806,7 +2823,7 @@ test('first server admin: bootstrap link, account creation, sign-in, Workspace c
   await expect(day).not.toContainText('Pay annual tax');
   await expect(day).toContainText('Leave the flat');
   await page.reload();
-  await expect(page.getByText('Filters · some entries are hidden')).toBeVisible();
+  await expect(page.getByText('Some entries are hidden by filters')).toBeVisible();
   await expect(page.getByLabel('Type')).toHaveValue('PROCEDURE');
   await page.getByLabel('Type').selectOption({ label: 'Reminders and Procedures' });
   await page.getByLabel('Responsible').selectOption({ label: 'Shared' });
