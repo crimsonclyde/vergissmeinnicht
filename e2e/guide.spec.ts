@@ -328,32 +328,19 @@ test('Notes and personal Journal preserve Markdown, originals, privacy and recov
  await page.evaluate(async id=>{const response=await fetch(`/api/workspaces/${id}/tools`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({tool:'JOURNAL',enabled:true,expectedRevision:(await fetch(`/api/workspaces/${id}`).then(response=>response.json()) as {toolsRevision:number}).toolsRevision})});if(!response.ok)throw new Error('tool fixture '+response.status+' '+await response.text());},workspaceId);
  await page.reload();await page.getByRole('button',{name:'Add',exact:true}).click();await expect(page.getByRole('button',{name:/Journal entry — Personal/})).toBeVisible();await page.getByRole('button',{name:/Note — Workspace/}).click();
  if(testInfo.project.name.includes('mobile')){await checkPhoneJournal(page,testInfo,workspaceId);return;}
- await expect(page.getByRole('heading',{name:'Notes',exact:true})).toBeVisible();
- await page.getByRole('button',{name:'Details',exact:true}).click();await page.getByRole('button',{name:'Save entry',exact:true}).click();
- await expect(page.getByLabel('Title',{exact:true})).toBeFocused();await expect(page.getByRole('button',{name:'Write',exact:true})).toHaveAttribute('aria-current','page');
+ // One-screen editor (40): title, Markdown editor and the details panel side by side.
+ await page.getByRole('button',{name:'Save entry',exact:true}).click();
+ await expect(page.getByLabel('Title',{exact:true})).toBeFocused();
  await page.getByLabel('Title',{exact:true}).fill('A portable garden note');
  const editor=page.locator('.milkdown .ProseMirror');await expect(editor).toBeVisible();
  await expect(page.getByRole('button',{name:'Visual',exact:true})).toHaveAttribute('aria-pressed','true');
  await expect(page.getByRole('button',{name:'Markdown source',exact:true})).toHaveAttribute('aria-pressed','false');
  await expect(page.getByRole('group',{name:'Text formatting',exact:true})).toBeVisible();
- await expect(page.getByLabel('Collection / notebook',{exact:true})).toBeHidden();
+ await expect(page.getByLabel('Notebook',{exact:true})).toBeVisible();
  await page.screenshot({path:testInfo.outputPath('notes-new-entry.png'),fullPage:true});
  await page.screenshot({path:testInfo.outputPath('notes-writing-viewport.png')});
- if(testInfo.project.name.includes('mobile')){
-  const box=await editor.boundingBox();expect(box?.y).toBeDefined();expect(box?.y).toBeLessThan(480);
-  expect(await page.evaluate('document.documentElement.scrollWidth<=window.innerWidth')).toBe(true);
-  for(const button of await page.locator('.markdown-formatting button:visible, .journal-screens button').all()){
-   const target=await button.boundingBox();expect(target?.width).toBeGreaterThanOrEqual(44);expect(target?.height).toBeGreaterThanOrEqual(44);
-  }
- }
- if(testInfo.project.name.includes('mobile')){
-  await page.setViewportSize({width:320,height:420});await editor.focus();
-  const bar=await page.getByRole('button',{name:'Save entry',exact:true}).boundingBox();expect(bar?.y).toBeGreaterThanOrEqual(0);expect(bar?.y).toBeLessThan(100);
-  await page.setViewportSize({width:320,height:720});
- }
  await editor.fill('Written visually.');await editor.press('ControlOrMeta+a');
  await page.getByRole('button',{name:'Bold',exact:true}).click();await expect(editor.locator('strong')).toHaveText('Written visually.');
- if(testInfo.project.name.includes('mobile'))await page.getByRole('button',{name:'More formatting',exact:true}).click();
  await page.getByRole('button',{name:'Undo',exact:true}).click();await expect(editor.locator('strong')).toHaveCount(0);
  await page.getByRole('button',{name:'Redo',exact:true}).click();await expect(editor.locator('strong')).toHaveText('Written visually.');
  await page.getByRole('button',{name:'Markdown source',exact:true}).click();
@@ -361,15 +348,31 @@ test('Notes and personal Journal preserve Markdown, originals, privacy and recov
  await expect(page.getByRole('button',{name:'Markdown source',exact:true})).toHaveAttribute('aria-pressed','true');
  await expect(page.getByRole('group',{name:'Text formatting',exact:true})).toHaveCount(0);
  const markdown='# Garden\n\n## Materials\n\n- [ ] Bring seeds\n- [x] Find gloves\n\n| Item | Amount |\n| --- | --- |\n| Seeds | 2 |\n\n```javascript\nconst seeds = 2;\n```\n';
- await page.getByRole('button',{name:'Details',exact:true}).click();await expect(source).toBeHidden();await page.getByLabel('Collection / notebook',{exact:true}).fill('Garden');await page.screenshot({path:testInfo.outputPath('notes-details-screen.png'),fullPage:true});await expectAccessible(page,'Entry details screen');await page.getByRole('button',{name:'Back to writing',exact:true}).click();await expect(source).toHaveValue(/Written visually/);
+ await page.getByLabel('Notebook',{exact:true}).fill('Garden');
+ await page.getByLabel('Tags',{exact:true}).fill('seeds');await page.getByLabel('Tags',{exact:true}).press('Enter');
+ await expect(page.getByRole('button',{name:'Remove tag seeds',exact:true})).toBeVisible();
+ await expectAccessible(page,'Entry details panel');await expect(source).toHaveValue(/Written visually/);
  await source.fill(markdown);await page.getByRole('button',{name:'Visual',exact:true}).click();await expect(page.getByRole('cell',{name:'Seeds',exact:true})).toBeVisible();await expectAccessible(page,'Visual Markdown editor');await page.getByRole('button',{name:'Markdown source',exact:true}).click();await expect(source).toHaveValue(/const seeds = 2/);await expect(source).toHaveValue(/Bring seeds/);
- await page.getByRole('button',{name:'Images & links',exact:true}).click();await expect(source).toBeHidden();await expectAccessible(page,'Images and links screen');await page.screenshot({path:testInfo.outputPath('notes-images-screen.png'),fullPage:true});await page.getByLabel('Upload original image',{exact:true}).setInputFiles({name:'garden.png',mimeType:'image/png',buffer:Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAIAAACQd1PeAAAADElEQVR4nGP4z8AAAAMBAQDJ/pLvAAAAAElFTkSuQmCC','base64')});
- await page.getByRole('button',{name:'Back to writing',exact:true}).click();await expect(page.getByLabel('Markdown source',{exact:true})).toHaveValue(/attachments\/[0-9a-f-]+\.png/);
+ await expect(async()=>{const response=page.waitForResponse(response=>response.request().method()==='POST'&&response.url().endsWith('/journal/attachments'));await page.getByLabel('Upload original image',{exact:true}).setInputFiles({name:'garden.png',mimeType:'image/png',buffer:Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAIAAACQd1PeAAAADElEQVR4nGP4z8AAAAMBAQDJ/pLvAAAAAElFTkSuQmCC','base64')});expect((await response).status()).toBe(201);}).toPass({timeout:15000,intervals:[500,1000,2000]});
+ await expect(page.getByLabel('Markdown source',{exact:true})).toHaveValue(/attachments\/[0-9a-f-]+\.png/);
  await page.getByRole('button',{name:'Save entry',exact:true}).click();await expect(page.getByRole('status').filter({hasText:'Entry saved.'})).toBeVisible();await expectAccessible(page,'Notes editor');
  await page.screenshot({path:testInfo.outputPath('notes-editor.png'),fullPage:true});
- await page.reload();await page.getByRole('button',{name:'Markdown source',exact:true}).click();await expect(page.getByLabel('Markdown source',{exact:true})).toHaveValue(/attachments\/[0-9a-f-]+\.png/);
- await page.getByRole('button',{name:'Details',exact:true}).click();const downloadPromise=page.waitForEvent('download');await page.getByRole('link',{name:'Export Markdown',exact:true}).click();const download=await downloadPromise;expect(download.suggestedFilename()).toBe('notes.zip');
- await page.getByRole('button',{name:'Back to writing',exact:true}).click();await page.getByRole('button',{name:'Back to entries',exact:true}).click();await page.goto(`/w/${workspaceId}`);await page.getByRole('button',{name:'Add',exact:true}).click();await page.getByRole('button',{name:/Journal entry — Personal/}).click();
+ // A saved note opens to read: rendered Markdown, checklist progress, the notebook and tag named in words.
+ await page.reload();await expect(page.getByRole('heading',{name:'A portable garden note',exact:true})).toBeVisible();
+ await expect(page.locator('.nb-prose table')).toContainText('Seeds');await expect(page.locator('.nb-aside')).toContainText('1 of 2 done');
+ await expect(page.locator('.nb-labels')).toContainText('Garden');await expect(page.locator('.nb-labels')).toContainText('#seeds');
+ await expectAccessible(page,'Notes reading view');await page.screenshot({path:testInfo.outputPath('notes-reader.png'),fullPage:true});
+ await page.getByRole('button',{name:'Edit',exact:true}).click();await page.getByRole('button',{name:'Markdown source',exact:true}).click();await expect(page.getByLabel('Markdown source',{exact:true})).toHaveValue(/attachments\/[0-9a-f-]+\.png/);
+ await page.getByRole('button',{name:'Cancel editing',exact:true}).click();
+ await page.getByRole('button',{name:'More actions',exact:true}).click();const downloadPromise=page.waitForEvent('download');await page.getByRole('button',{name:'Export Markdown',exact:true}).click();const download=await downloadPromise;expect(download.suggestedFilename()).toBe('notes.zip');
+ // The library: the notebook and tag chips filter; the card shows the checklist.
+ await page.getByRole('button',{name:'Back to entries',exact:true}).click();
+ await expect(page.getByRole('button',{name:/A portable garden note/})).toContainText('1 of 2 done');
+ await page.getByRole('button',{name:'Tag seeds',exact:true}).click();await expect(page.getByRole('button',{name:/A portable garden note/})).toBeVisible();
+ await page.getByLabel('Search entries',{exact:true}).fill('no such words');await expect(page.getByText('Nothing matches',{exact:false})).toBeVisible();
+ await page.getByRole('button',{name:'Show everything',exact:true}).click();await expect(page.getByRole('button',{name:/A portable garden note/})).toBeVisible();
+ await expectAccessible(page,'Notes library');await page.screenshot({path:testInfo.outputPath('notes-library.png'),fullPage:true});
+ await page.goto(`/w/${workspaceId}`);await page.getByRole('button',{name:'Add',exact:true}).click();await page.getByRole('button',{name:/Journal entry — Personal/}).click();
  await expect(page.getByRole('heading',{name:'Your personal Journal',exact:true})).toBeVisible();
  expect(await page.evaluate(async()=>fetch('/api/account/journal',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({content:{kind:'note',version:2,title:'Before consent',date:null,body:''},expectedRevision:0,archived:false})}).then(response=>response.status))).toBe(403);
  await page.getByRole('button',{name:'Agree & Continue',exact:true}).click();await page.getByLabel('Title',{exact:true}).fill('A personal notebook');await page.getByRole('button',{name:'Markdown source',exact:true}).click();await page.getByLabel('Markdown source',{exact:true}).fill('Only this account.');await page.getByRole('button',{name:'Visual',exact:true}).click();await expect(editor).toContainText('Only this account.');await page.getByRole('button',{name:'Markdown source',exact:true}).click();await expect(page.getByLabel('Markdown source',{exact:true})).toHaveValue(/Only this account\./);await page.getByRole('button',{name:'Save entry',exact:true}).click();await expect(page.getByRole('status').filter({hasText:'Entry saved.'})).toBeVisible();
@@ -378,19 +381,20 @@ test('Notes and personal Journal preserve Markdown, originals, privacy and recov
  await page.getByRole('button',{name:'Save entry',exact:true}).click();await expect(page.getByRole('status').filter({hasText:'Entry saved.'})).toBeVisible();await expectAccessible(page,'Personal Journal editor');
  for(const theme of ['light','memento-mori','tokyo-nights','witch-forest','places-de','space-guide']){
   expect(await page.evaluate(async theme=>fetch('/api/account/preferences',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({theme})}).then(response=>response.status),theme)).toBe(200);
-  await page.reload();await expect(page.getByLabel('Title',{exact:true})).toHaveValue('A personal notebook');
+  await page.reload();await expect(page.getByRole('heading',{name:'A personal notebook',exact:true})).toBeVisible();
   await expectAccessible(page,`Journal ${theme}`);
   if(theme==='memento-mori')await page.screenshot({path:testInfo.outputPath('journal-dark.png'),fullPage:true});
  }
- if(testInfo.project.name.includes('mobile')){
-  await page.setViewportSize({width:390,height:844});await page.screenshot({path:testInfo.outputPath('journal-phone-390.png'),fullPage:true});
-  await page.setViewportSize({width:320,height:720});
- }
+ // The Journal's month timeline: undated pages live in the cards view, Today's page starts a dated one.
+ await page.getByRole('button',{name:'Back to entries',exact:true}).click();await expect(page.getByRole('button',{name:'Timeline',exact:true})).toHaveAttribute('aria-pressed','true');
+ await expect(page.getByRole('button',{name:/Write today's page/})).toBeVisible();await expectAccessible(page,'Journal timeline');
+ await page.getByRole('button',{name:'Cards',exact:true}).click();await page.getByRole('button',{name:/A personal notebook/}).click();
+ await page.getByRole('button',{name:'Edit',exact:true}).click();
  await page.evaluate('window.scrollTo(0,document.body.scrollHeight)');
  const saveBox=await page.getByRole('button',{name:'Save entry',exact:true}).boundingBox();expect(saveBox?.y).toBeGreaterThanOrEqual(0);expect(saveBox?.y).toBeLessThan(100);
- await page.getByRole('button',{name:'Details',exact:true}).click();await page.getByLabel('Collection / notebook',{exact:true}).fill('Personal thoughts');await page.getByRole('button',{name:'Back to writing',exact:true}).click();await expect(editor).toContainText('A recoverable private draft.');
- page.once('dialog',dialog=>void dialog.dismiss());await page.getByRole('button',{name:'Back to entries',exact:true}).click();await expect(page.getByLabel('Title',{exact:true})).toHaveValue('A personal notebook');
- page.once('dialog',dialog=>void dialog.accept());await page.getByRole('button',{name:'Back to entries',exact:true}).click();await expect(page.getByRole('button',{name:'Guide',exact:true})).toBeVisible();
+ await page.getByLabel('Notebook',{exact:true}).fill('Personal thoughts');await expect(editor).toContainText('A recoverable private draft.');
+ page.once('dialog',dialog=>void dialog.dismiss());await page.getByRole('button',{name:'Cancel editing',exact:true}).click();await expect(page.getByLabel('Title',{exact:true})).toHaveValue('A personal notebook');
+ page.once('dialog',dialog=>void dialog.accept());await page.getByRole('button',{name:'Cancel editing',exact:true}).click();await expect(page.getByRole('heading',{name:'A personal notebook',exact:true})).toBeVisible();await expect(page.getByRole('button',{name:'Guide',exact:true})).toBeVisible();
  expect(await page.evaluate('document.documentElement.scrollWidth <= window.innerWidth')).toBe(true);expect(errors).toEqual([]);expect(requests.every(url=>url.startsWith(guideServerEnv.PUBLIC_ORIGIN))).toBe(true);
 });
 

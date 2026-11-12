@@ -5703,6 +5703,29 @@ user workflows; no host migration or external service provisioned by the assessm
 
 **Remaining / limits:** possession of the link is enough to read it (calendar apps cannot sign in); Google refreshes subscriptions slowly (hours) and needs the instance on the public internet; no per-device links (one link per person and Workspace); week starts on Monday; no import of external calendars.
 
+
+## 40 — Notes and Journal: library, reading view, timeline and Markdown import (owner request 2026-11-12)
+
+**Status:** DONE (implementation and checks complete; not released).
+
+**Request (owner, 2026-11-12):** "improve notes and journal by function and by style … picturesque look and feel and everything should look its one app not 10 different apps". Mockup (7 artboards) approved the same day ("go for it"), with: "always focus on markdown in the background … frontend can be focused on the wysiwyg but the possibility for markdown is key, import export".
+
+**Implemented:**
+- *A — Library:* header in the Calendar style (eyebrow, serif title with count, round icon buttons, segmented Cards/List, ⋯ menu, primary New note); filter bar with live search (300 ms), sort (recently edited / by date / A to Z), archive toggle, notebook chips with counts and "No notebook", tag chips; "Pinned" and "Everything else" groups; cards with first image, excerpt, checklist progress, date and tags. Notebook colour = hash of the name onto theme tokens (`notebookTone`).
+- *B — Reading view* (`JournalReader.tsx`): deep links and saved entries open as a page (labels, serif title, date and "Edited by"); aside with day, checklist progress, outline and revision history; pin, history, ⋯ (Export Markdown, Copy as Markdown, Archive/Restore) and Edit. Phones get the same as a bottom action bar.
+- *C — Editor:* title and text on one sheet, Details (date, notebook input + chips, tag chips with removal, Pin to the top, Save automatically, Archive) and Images & links beside it; × Cancel editing returns to the page. Phone staged flow (title → write → details) kept.
+- *D — Personal Journal timeline:* month view with mini calendar (dots on written days), pages this month, writing streak, On this day (earlier years), Today's page (opens today's entry or starts one dated today).
+- *E — Weather and moon line:* optional, one plain italic Markdown line from the person's forecast and `moonAt` (personal Journal only; ordinary editable text).
+- *F — Markdown import:* `parseJournalMarkdown` (domain) reads up to 50 `.md` files of 200 KB in the browser (front matter title/date/notebook|collection/tags/pinned as data, else first `# heading`, else file name; BOM/CRLF normalised; values clamped) and saves each through the existing validated POST. `journalMarkdown` moved to the domain so export and import share one format; exported files round-trip.
+- *G — Server:* `GET …/journal` takes `collection`, `tag` (`json_each`), `month` and `sort`; new `GET …/journal/overview` (shared and personal) returns id, title, date, notebook and tags of unarchived entries (max 1,000), never bodies.
+- *Look:* `journal.css` (`.nb-*`) on theme tokens only; Tokyo Nights, Witch Forest (small caps, paper) and Places touches; forced colours. No migration.
+
+**Tests/checks:** `portable.test.ts` (summary, parse, limits, round trip), `journal-view.test.ts` (tones, month grid, streak, On this day, stamp escaping), `journal.test.ts` (filters, sorting, overview without bodies, private overview, foreign Workspace 404); e2e `account.spec.ts`, `guide.spec.ts` and `phone-journal.ts` updated for the reading view. Screenshots of every theme at 1440 px and 390 px reviewed (`/mnt/project-files/ui-review/2026-11-12-notes/`).
+
+**Security impact:** LOW — no new write path (import uses the existing validated save; files never reach the server as files), overview is read-only under the same guards and omits bodies; front matter is parsed as data. **Security docs updated:** NO (no new trust boundary).
+
+**Remaining / limits:** import does not bring images; notebooks are free text (no rename/merge); timeline is personal Journal only.
+
 ---
 
 ## 11 — Licensing

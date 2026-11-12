@@ -1,11 +1,8 @@
 import {Readable} from 'node:stream';
 import yazl from 'yazl';
-import {remapMarkdownRecordLinks,exportSegment,type JournalContent} from '@vergissmeinnicht/domain';
-export function journalMarkdown(content:JournalContent):string {
- const body=content.version===1?content.body.replace(/([\\`*_{}[\]<>()#+.!|~-])/g,'\\$1'):content.body;
- const metadata=content.date||content.collection||content.tags?.length||content.pinned?`---\ntitle: ${JSON.stringify(content.title)}\ndate: ${JSON.stringify(content.date)}\ncollection: ${JSON.stringify(content.collection??'')}\ntags: ${JSON.stringify(content.tags??[])}\npinned: ${JSON.stringify(content.pinned??false)}\n---\n\n`:'';
- return metadata+`# ${content.title.replace(/([\\`*_{}[\]<>()#+.!|~-])/g,'\\$1')}\n\n${body}`;
-}
+import {remapMarkdownRecordLinks,exportSegment,journalMarkdown,type JournalContent} from '@vergissmeinnicht/domain';
+/** Shared with the web app (copy as Markdown) and the importer: one serializer, one parser. */
+export {journalMarkdown};
 export function journalArchive(entries:readonly {id:string;content:JournalContent;archived?:boolean}[],files:readonly {path:string;bytes:number;name?:string;sha256?:string;open:()=>Promise<AsyncIterable<Uint8Array>>}[],kind:'notes'|'journal'){
  const zip=new yazl.ZipFile();
  const notePaths=new Map(entries.map(entry=>[entry.id,`${exportSegment(entry.content.title)}-${entry.id}.md`]));

@@ -80,7 +80,7 @@ export function RecipeForm(props: {
             }} />{t(`recipes.category.${category}`)}</label>)}
           </div><p className="muted">{t('recipes.categoriesHint')}</p></fieldset>
         </details>
-        <label>{t('journal.tags')}<input value={tagText ?? draft.tags.join(', ')} onChange={event => { setTagText(event.target.value); onChange({ ...draft, tags: event.target.value.split(',').map(tag => tag.trim()).filter(Boolean) }); }} /></label>
+        <label>{t('recipes.tags')}<input value={tagText ?? draft.tags.join(', ')} onChange={event => { setTagText(event.target.value); onChange({ ...draft, tags: event.target.value.split(',').map(tag => tag.trim()).filter(Boolean) }); }} /></label>
         <label>{t('recipes.source')}<input type="url" maxLength={2048} value={draft.source} onChange={event => onChange({ ...draft, source: event.target.value })} /></label>
         <label className="row"><input type="checkbox" checked={draft.private ?? false} onChange={event => onChange({ ...draft, private: event.target.checked })} />{t('recipes.private')}</label>
         <p className="muted">{t(draft.private ? 'recipes.privateStatus' : 'recipes.sharedStatus')}</p>

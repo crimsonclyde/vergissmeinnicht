@@ -101,4 +101,28 @@ describe('Journal and Moon module boundaries', () => {
     expect((await t.get(`/api/workspaces/${other}/moon`, guest)).statusCode).toBe(404);
     expect((await t.get(`/api/workspaces/${ws}/moon`)).statusCode).toBe(401);
   });
+  it('filters by notebook, tag and month, sorts by date and reports an overview without bodies', async () => {
+    await enable('JOURNAL');
+    const note = (title: string, date: string | null, collection: string, tags: string[]) => t.post(shared(), { content: { kind: 'note', version: 2, title, date, body: 'secret body ' + title, collection, tags, pinned: false }, expectedRevision: 0, archived: false }, user);
+    await note('Boiler', '2026-11-03', 'House', ['heating']);
+    await note('Garden', '2026-11-10', 'Garden', ['plans', 'heating']);
+    await note('Router', null, 'House', []);
+    await note('Old frost', '2025-11-12', '', ['van']);
+    const titles = async (query: string) => (await t.get(shared() + query, guest)).json().entries.map((entry: { title: string }) => entry.title);
+    expect(await titles('?collection=House&sort=title')).toEqual(['Boiler', 'Router']);
+    expect(await titles('?collection=')).toEqual(['Old frost']);
+    expect(await titles('?tag=heating&sort=date')).toEqual(['Garden', 'Boiler']);
+    expect(await titles('?month=2026-11&sort=date')).toEqual(['Garden', 'Boiler']);
+    expect(await titles('?sort=date')).toEqual(['Garden', 'Boiler', 'Old frost', 'Router']);
+    for (const bad of ['?month=2026-13', '?sort=random', '?tag=', '?collection=' + 'x'.repeat(81)]) expect((await t.get(shared() + bad, user)).statusCode).toBe(400);
+    const overview = (await t.get(shared() + '/overview', guest)).json();
+    expect(overview.total).toBe(4);
+    expect(overview.collections).toEqual([{ name: 'House', count: 2 }, { name: '', count: 1 }, { name: 'Garden', count: 1 }]);
+    expect(overview.tags[0]).toEqual({ name: 'heating', count: 2 });
+    expect(overview.dated.map((entry: { date: string }) => entry.date)).toEqual(['2026-11-10', '2026-11-03', '2025-11-12']);
+    expect(JSON.stringify(overview)).not.toContain('secret body');
+    // Private overview is the account's own and needs no Workspace.
+    expect((await t.get('/api/account/journal/overview', user)).json()).toEqual({ collections: [], tags: [], dated: [], total: 0 });
+    expect((await t.get(`/api/workspaces/${other}/journal/overview`, user)).statusCode).toBe(404);
+  });
 });
