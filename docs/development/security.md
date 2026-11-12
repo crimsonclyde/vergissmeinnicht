@@ -266,6 +266,7 @@ Never commit or log:
 - OAuth client secrets;
 - OAuth access/refresh tokens;
 - Knot tokens;
+- calendar subscription tokens (39): the `…/calendar-feed/{token}.ics` path is redacted from logs; only SHA-256 hashes are stored;
 - notification provider credentials (Telegram bot token) and Telegram pairing tokens;
 - weather provider credentials (OpenWeather API keys, Meteomatics usernames and passwords — 19.4b), server-wide and personal;
 - Workspace backup packages (section 18): never logged, never served statically, deleted 24 h after completion;
@@ -280,7 +281,7 @@ Checks:
 - [x] `DATA_ENCRYPTION_KEY` (encryption at rest) is separate from `AUTH_SECRET` (cookie signing), wrapped in `Secret`, required in production, rejected if equal to `AUTH_SECRET`.
 - [x] Safe `.env.example` contains placeholders only.
 - [x] Structured logging has redaction.
-- [x] Request logging avoids sensitive URL/path token leakage. (Knot paths — `/knot/…`, `/api/knot(s)/…` — and query strings redacted; add each new token route to the pattern in `apps/server/src/logging.ts`.)
+- [x] Request logging avoids sensitive URL/path token leakage. (Knot paths — `/knot/…`, `/api/knot(s)/…` —, calendar subscription paths — `/api/calendar-feed/…` (39) — and query strings redacted; add each new token route to the pattern in `apps/server/src/logging.ts`.)
 - [x] Exceptions do not serialize credential-bearing objects. (MFA use-case errors carry no codes or secrets.) (Config secrets use the `Secret` wrapper; the HTTP error handler logs only error type + stack frames because messages can embed query parameters; Better Auth log calls are reduced to their message string. Notification credentials (13.7): the Telegram adapter turns every failure — whose URL would contain the bot token — into a `NotificationDeliveryError` with a stable code only; the reminder scheduler logs error type and code only; tests capture the logs and responses and assert the token is absent. Extend to every new credential type.)
 - [x] Production debug mode is disabled. (`LOG_LEVEL` debug/trace rejected in production.)
 - [x] Secret rotation process can be documented. (`AUTH_SECRET`: see deployment.md — rotation signs everyone out.)
@@ -333,7 +334,7 @@ A dedicated security review and update to this file is mandatory before adding:
 - password reset/account recovery;
 - external OAuth/OIDC providers;
 - provider account linking;
-- anonymous Knot/bearer access;
+- anonymous Knot/bearer access (reviewed for read-only calendar subscription links in 39 — see "Security check: calendar subscription links"; any other bearer access needs its own review);
 - file or image uploads (reviewed for instruction images in 14.3 — see "Security check: instruction images"; completion photos (14.5) and any other upload need their own review). **Document uploads (16.1) are a new review, not an extension of 14.3:** originals are kept unchanged with their metadata, formats include PDF and HEIC, files are up to 50 MB and are downloadable by guests — the planned rules are in §3, §5 and §8; the review is "Security check: document files" in 16.1;
 - any new parser or renderer of hostile input: PDF, HEIC, OCR engines, MIME, vCard/CSV (16.1, 16.6, 16.9, 16.10 — each with a dependency review: install scripts, advisories, licences, SBOM);
 - bulk export of Workspace content, and permanent deletion of user content (16.4);
@@ -935,6 +936,16 @@ The following choices are mandatory V1 behavior:
 **Authorization review:** `packages/application/src/home/use-cases.ts` (`occurrencesInRange`); HTTP only authenticates and parses (`apps/server/src/http/home-routes.ts`).  
 **Open risks:** like Home, the calendar refreshes by polling every 30 s (no push channel); beyond 2000 entries in one month the answer is cut and marked, not paged; relies on the global API rate limit.  
 **Reviewed:** 2026-10-01
+
+### Security check: calendar subscription links (39, 2026-11-12)
+**Threat surface:** the first route that serves Workspace data without a session: calendar apps (Apple Calendar, Google Calendar — fetched from Google's servers — and others) cannot sign in, so a bearer token in the URL path names the person. Risks: guessed or leaked tokens; a token outliving the person's access (removed member, demoted role, disabled or recovered account, Calendar tool switched off); a token revealing more than the person sees in the app; tokens in logs, history, referrers or search indexes; token use for enumeration (different answers for unknown, revoked or unauthorised); injection into the iCalendar text (line breaks, `;`, `,`) to forge properties or events; heavy polling.  
+**Controls added:** one link per person and Workspace (`calendar_feeds`, primary key user + Workspace; migration 0073); the token is 256 bits from the CSPRNG (the invitation token generator), shown once at creation and stored only as SHA-256 (CHECK 64 hex characters, unique); "New link" replaces the hash in one IMMEDIATE transaction (the old link fails at once); "Turn off" deletes the row. Creating or changing a link needs a session, the Origin check, `procedure.view` with the Calendar tool on and the transaction guard (`actorAllowed`), and is rate-limited (20 per 15 minutes); turning off needs only membership, so a person can always withdraw their own link. `GET /api/calendar-feed/{token}.ics` (`publicCalendarFeedRoutes`) accepts only the exact token shape; `openCalendarFeed` hashes it, loads the owner, requires an ACTIVE account and then reads through `occurrencesInRange` as that person — membership, `procedure.view` and the Calendar tool are re-checked on every fetch, so the feed never shows more than the person's own Calendar page. Every failure (malformed, unknown, replaced, turned off, no access) is the same plain `404 Not found`. The link is deleted with the membership (`removeMember`; re-joining does not revive it) and by `revokeAllAccess` (account disabled, admin-assisted recovery). Content is limited to title, date/time, kind, display name of who is responsible, completed mark and a link back to the app — never Reminder descriptions, notes, Steps, email addresses or user ids; skipped entries are left out; window 31 days back to 183 days ahead, read in bounded 92-day ranges (each capped at 2000 entries). Text is escaped per RFC 5545 (backslash, `;`, `,`, line breaks) with control characters removed and lines folded at 75 octets. Response headers: `text/calendar`, `Cache-Control: no-store`, `X-Robots-Tag: noindex, nofollow`, the global `Referrer-Policy: no-referrer`. The path is redacted from request logs (`TOKEN_PATH_PATTERN` in `apps/server/src/logging.ts`); security events (`CALENDAR_FEED_CHANGED`: created, replaced, scope, removed) never carry the token or its hash; the table is excluded from Workspace backups. The fetch route has its own limit (30 per minute per client) under the global API limit; `last_used_at` is written at most every 5 minutes.  
+**Negative tests:** `apps/server/src/http/calendar-feed.test.ts` (token not stored or listed again, token absent from logs and security events, replaced / turned off / unknown / malformed / NUL-path links all `404 Not found`, Calendar tool off → 404 until switched on again, disabled account → 404 and the link is gone after re-enabling, removed member → row deleted and not revived on re-joining, Mine excludes others' entries, links are per person and Workspace, 401 without session, 403 without Origin, 400 for an unknown scope, non-member 404, escaping and folding), `route-security.test.ts` (the public route is pinned in `PUBLIC_ROUTES`; every management route needs a session and answers non-members like an unknown Workspace), e2e (create, `webcal:` and Google links, feed served as iCalendar, turned off → 404, axe on the dialog).  
+**Secrets/data involved:** the subscription token (bearer secret, in the URL the person copies into a calendar app); titles, dates and responsible members' display names of one Workspace's calendar.  
+**Logging review:** request URLs redacted (`/api/calendar-feed/[REDACTED]`); no new log lines; security events carry only `change` and `scope`.  
+**Authorization review:** `packages/application/src/calendar-feeds/use-cases.ts` (`createCalendarFeed`, `setCalendarFeedScope`, `deleteCalendarFeed`, `openCalendarFeed` → `occurrencesInRange`); repository guard in `packages/database/src/calendar-feed-repository.ts`. HTTP only parses and renders (`calendar-feed-routes.ts`, `calendar-feed-ics.ts`).  
+**Open risks:** possession of the link is enough to read it — by design, as calendar apps cannot authenticate (Apple Calendar supports Basic auth on macOS only; Google not at all); the person is told so in the dialog and can replace or turn off the link. Google Calendar and iCloud fetch the link from their servers and may cache content for hours after a link is turned off. Reverse-proxy access logs must redact the path like Knot paths (operator, see deployment.md). The calendar reflects changes only when the app refreshes (often hours for Google).  
+**Reviewed:** 2026-11-12
 
 ### Security check: instruction images (Step 14.3)
 **Threat surface:** the first file-upload and file-download surface: hostile files (SVG with script, PDF/HTML polyglots, decompression bombs, huge pixel counts, animated/multi-page files, malformed data aimed at image decoders); metadata leaks (GPS, device, owner names in EXIF/XMP/comments); reading another Workspace's images by id or by content hash; images served as something a browser executes; uploads bypassing or racing the Workspace quota; disk exhaustion; deleting files still referenced by historical Runs; Run history silently changing when a template image is replaced; backups missing or corrupting images; hostile Procedure archives (path traversal, symlinks, duplicates, zip bombs, lying sizes, hash mismatches, unexpected entries); libvips memory-safety bugs; licence obligations of the native binaries.
@@ -2004,3 +2015,20 @@ hashes identically.
   regional host, renewed-signature retry without a second download, cover replacement and
   idempotent retry, stale revision conflict, refused-host reporting without secrets, AAAA
   fallback, operator host configuration.
+
+### Server-side image generator removed (36.17, 2026-11-12)
+
+The optional OpenAI Recipe image generator is gone: no outbound call to `api.openai.com`, no
+billed API key and no generation admission state remain. `OPENAI_RECIPE_IMAGE_KEY(_FILE)` is no
+longer a file secret and is never read, so a leftover secret file is not opened. The one-call
+`image` parameter and `set_recipe_image` (36.14) were removed too; Recipe photos from assistants
+arrive only through `upload_recipe_image_file` (and the base64/picker tools for other clients),
+with the unchanged delegated-upload host policy, receipts, size limits, quotas, Workspace and
+target checks. `recipe_image_jobs` stays in the schema, unused and excluded from portable
+backups as before.
+
+- [x] The removed tools are absent from `tools/list`; calling them fails as an unknown tool.
+- [x] `create_recipe` rejects an `image` argument; `requireImage` still refuses a Recipe without
+  a resolvable cover.
+- [x] Leftover generator settings do not fail startup and their secret file is not read.
+

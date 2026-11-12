@@ -1,7 +1,4 @@
 import { createChatGptFileSource, type ChatGptFileSource } from './integrations/chatgpt-files.ts';
-import {openAiRecipeImages} from './integrations/openai-recipe-images.ts';
-import {createRecipeImageJobs} from '@vergissmeinnicht/database';
-import type {RecipeImageDeps} from '@vergissmeinnicht/application';
 import {createMcpRepository} from '@vergissmeinnicht/database';
 import {createRecipeRepository,recipeAttachmentPolicy,listAttachmentPolicy} from '@vergissmeinnicht/database';
 import type {RecipeDeps} from '@vergissmeinnicht/application';
@@ -48,6 +45,7 @@ import {
   type ListDeps,
   type ProcedureDeps,
   type HomeDeps,
+  type CalendarFeedDeps,
   type TodayDeps,
   type NotificationDeps,
   type ReminderDeps,
@@ -86,6 +84,7 @@ import {
   createInstanceSettingsRepository,
   createInvitationRepository,
   createKnotRepository,
+  createCalendarFeedRepository,
   createListRepository,
   createMfaChallengeRepository,
   createPreferencesRepository,
@@ -140,7 +139,6 @@ export type DelegatedAttachmentDeps = AttachmentDeps & {
 /** Everything the HTTP layer needs. Built once per process by the composition root. */
 export interface AppServices {
   readonly publicOrigin: string;
-  readonly recipeImages:RecipeImageDeps;
   readonly mcpEnabled:boolean;
   readonly chatGptFileSource: ChatGptFileSource;
   readonly mcp:ReturnType<typeof createMcpRepository>;
@@ -171,6 +169,7 @@ export interface AppServices {
   /** Scheduled Procedures (13.4); starting one needs the Run dependencies as well. */
   readonly schedules: ScheduleDeps & RunDeps;
   readonly knots: KnotDeps;
+  readonly calendarFeeds: CalendarFeedDeps;
   /** Lists (grocery lists) of a Workspace (15.3). */
   readonly lists: ListDeps;
   readonly history: HistoryDeps;
@@ -383,6 +382,15 @@ export function createServices(config: AppConfig, database: AppDatabase, overrid
     };
     // The error type only: a message could quote a file or a record of a package.
     const backupRunner = createBackupRunner(workspaceBackups, { onError: (error) => logger?.error({ err: { type: (error as Error).name, code: (error as { code?: unknown }).code } }, 'workspace backup job failed') });
+    const homeDeps: HomeDeps = {
+      workspaces: runs.workspaces,
+      procedures: createProcedureRepository(database),
+      activity: createProcedureActivityRepository(database),
+      schedules: scheduleRepository,
+      runs: runs.runs,
+      settings: createInstanceSettingsRepository(database),
+      clock: systemClock,
+    };
     return {
       publicOrigin: config.publicOrigin,
       chatGptFileSource,
@@ -425,15 +433,8 @@ export function createServices(config: AppConfig, database: AppDatabase, overrid
       runs,
       schedules: { ...runs, schedules: scheduleRepository, notificationPreferences },
       today: { workspaces: workspaceDeps.workspaces, progress: createTodayRepository(database), clock: systemClock },
-      home: {
-        workspaces: runs.workspaces,
-        procedures: createProcedureRepository(database),
-        activity: createProcedureActivityRepository(database),
-        schedules: scheduleRepository,
-        runs: runs.runs,
-        settings: createInstanceSettingsRepository(database),
-        clock: systemClock,
-      },
+      home: homeDeps,
+      calendarFeeds: { home: homeDeps, users: userRepository, feeds: createCalendarFeedRepository(database), tokens: invitationTokens },
       notifications,
       reminders,
       runChanges,
@@ -461,7 +462,6 @@ export function createServices(config: AppConfig, database: AppDatabase, overrid
       storage: { workspaces: workspaceDeps.workspaces, storage: createStorageRepository(database), clock: systemClock },
       links: { workspaces: workspaceDeps.workspaces, tools, links: createLinkRepository(database), clock: systemClock },
       contacts: { workspaces: workspaceDeps.workspaces, tools, contacts: createContactRepository(database), clock: systemClock },
-      recipeImages:{recipes:{ workspaces: workspaceDeps.workspaces, users: createUserRepository(database), tools, recipes: createRecipeRepository(database), clock: systemClock },attachments:recipeAttachments,jobs:createRecipeImageJobs(database,config.recipeImages.monthlyLimit,config.recipeImages.perUserLimit),provider:config.recipeImages.key?openAiRecipeImages(config.recipeImages.key):undefined},
       recipes: { workspaces: workspaceDeps.workspaces, users: createUserRepository(database), tools, recipes: createRecipeRepository(database), clock: systemClock },
       recipeAttachments,
       listAttachments:{repository:createAttachmentRepository(database,listAttachmentPolicy),store:attachmentStorage,processor:attachmentStorage,convertWebp:convertWebpToPng},

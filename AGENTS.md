@@ -482,7 +482,12 @@ image capability; do not claim a placeholder completes a requested pictured reci
 and implementation gates are in docs/development/recipes-mcp-plan.md and security.md section 36.
 
 
-### Accepted image-provider follow-up (2026-11-02)
+### Accepted image-provider follow-up (2026-11-02) — superseded
+
+**Superseded 2026-11-12 (steps.md 36.17):** the owner had the server-side generator removed.
+VMN does not generate images; assistants generate them and upload the file with
+`upload_recipe_image_file`. Do not add another image-generation provider, gateway or
+abstraction. The text below is history.
 
 The 2026-11-10 clarification below governs the ChatGPT recipe workflow.
 
@@ -516,8 +521,7 @@ its reads/writes remain restricted to the home Workspace in the OAuth grant.
   its own Workspace, tool, target and permission checks. Add other consumers only within
   their approved scope. Preserve original bytes and keep derivatives separate.
 - **Completion.** Confirm upload, save the requested Recipe with that cover, and read it back.
-  These workflows require no OpenAI API key on VMN and must never route to
-  `generate_recipe_image`. The older VMN generator is outside this objective.
+  These workflows require no OpenAI API key on VMN. The VMN generator was removed in 36.17.
   Verify both flows in hosted ChatGPT, including whether a ChatGPT-generated image can
   reach the same upload tool as an extracted photo. Ship through the normal GitHub and GHCR workflow.
 

@@ -20,6 +20,7 @@ const PUBLIC_ROUTES = [
   'POST /api/invitations/accept',
   'POST /api/recoveries/resolve',
   'POST /api/recoveries/complete',
+  'GET /api/calendar-feed/:file', // calendar apps cannot sign in: the unguessable token names the person, access is re-checked (39)
 ];
 
 const PNG = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAIAAACQd1PeAAAADElEQVR4nGP4z8AAAAMBAQDJ/pLvAAAAAElFTkSuQmCC', 'base64');
@@ -38,13 +39,13 @@ function bodyFor(route: string, ids: Record<string, string>): object {
   if (/\/schedules\/:scheduleId\/(pause|end|cancel)$/.test(url)) return { expectedRevision: 1 };
   if (url.endsWith('/schedules/:scheduleId/resume')) return { expectedRevision: 1, skipElapsed: false };
   if (url.endsWith('/schedules/:scheduleId/skip-older')) return { before: TOMORROW };
+  if (url.endsWith('/calendar-feed') || url.endsWith('/calendar-feed/scope')) return { scope: 'ALL' };
   if (url.endsWith('/occurrences/:occurrenceId/move')) return { date: TOMORROW };
   if (url.endsWith('/occurrences/:occurrenceId/assign')) return { assigneeUserId: null };
   if (url.endsWith('/occurrences/:occurrenceId/link-run')) return { runId: ids.runId ?? '' };
   if (url.endsWith('/bring') || url.endsWith('/bring/:itemId/update')) return { content: { title: 'Drill', from: '', to: '', dueDate: null, assigneeId: null, notes: '' }, expectedRevision: 0 };
   if (/\/bring\/:itemId\/(delete|restore)$/.test(url)) return { expectedRevision: 1 };
   if (url.endsWith('/bring/:itemId/status')) return { expectedRevision: 1, status: 'COMPLETED' };
-  if(url.endsWith('/recipes/image-generation'))return {operationId:'00000000-0000-4000-8000-000000000003',prompt:'Pancakes on a plate'};
   if (url.endsWith('/recipes') || url.endsWith('/recipes/:recipeId')) return {content:{version:1,title:'Recipe',servings:2,ingredients:[{name:'Flour',amount:'125',unit:'g',note:''}],instructions:'Cook',tags:[],source:'',prepMinutes:null,cookMinutes:null},expectedRevision:0,archived:false};
   if (url.endsWith('/recipes/:recipeId/shopping')) return {operationId:'00000000-0000-4000-8000-000000000003',recipeRevision:1,listId:ids.listId,listRevision:1,servings:2,items:[{ingredient:0,title:'Flour',quantity:'125',unit:'g'}]};
   if (url.endsWith('/journal') || url.endsWith('/journal/:entryId')) return { content: { kind: 'note', version: 1, title: 'Entry', date: '2026-10-23', body: 'Note' }, expectedRevision: 0, archived: false };

@@ -1,4 +1,4 @@
-import {RecipeImageError} from '@vergissmeinnicht/application';
+import { CalendarFeedNotFoundError } from '@vergissmeinnicht/application';
 import {McpCredentialError} from '@vergissmeinnicht/database';
 import {RecipeNotFoundError,RecipeConflictError} from '@vergissmeinnicht/application';
 import {AttachmentError} from '@vergissmeinnicht/application';
@@ -195,6 +195,7 @@ export function errorHandler(error: FastifyError | Error, request: FastifyReques
   if (error instanceof LastWorkspaceAdminError) return reply.code(409).send({ error: 'last_workspace_admin' });
   // Resolution failures of every kind share one answer (no hint about the target).
   if (error instanceof KnotNotFoundError) return reply.code(404).send({ error: 'knot_not_found' });
+  if (error instanceof CalendarFeedNotFoundError) return reply.code(404).send({ error: 'calendar_feed_not_found' });
   if (error instanceof KnotRecordNotFoundError) return reply.code(404).send({ error: 'knot_not_found' });
   if (error instanceof KnotAlreadyRevokedError) return reply.code(409).send({ error: 'knot_already_revoked' });
   if (error instanceof KnotTargetNotFoundError) return reply.code(404).send({ error: 'knot_target_not_found' });
@@ -275,7 +276,6 @@ export function errorHandler(error: FastifyError | Error, request: FastifyReques
   if (error instanceof ContactImportRefusedError) return reply.code(422).send({ error: 'contact_import_refused', reason: error.code });
   if (error instanceof ContactFileError) return reply.code(error.code === 'contact_import_too_large' ? 413 : 422).send({ error: 'contact_import_refused', reason: error.code, line: error.line });
 
-  if(error instanceof RecipeImageError)return reply.code(error.code==='image_limit'?429:error.code==='image_disabled'?503:409).send({error:error.code});
   if(error instanceof McpCredentialError)return reply.code(error.code==='temporarily_unavailable'?429:400).send({error:'invalid_mcp_request'});
   const statusCode = 'statusCode' in error && typeof error.statusCode === 'number' ? error.statusCode : 500;
   if (statusCode === 429) return reply.code(429).send({ error: 'rate_limited' });

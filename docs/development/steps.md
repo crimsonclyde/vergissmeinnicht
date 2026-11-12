@@ -3058,7 +3058,7 @@ PR #18 merged as `81d4134` after its second CI run (the first failed the scan ga
 **Status:** DONE (real-phone check open — see Remaining)
 **Depends on:** 14.1, 14.2 (read model).
 
-**Tasks:** month view as the default (D16) and an agenda/list view (default on narrow screens) on `occurrencesInRange`; previous/next navigation loads that range (the display range never limits scheduling); entries show type, title, time, Assignee, status (glyph + text) and projected entries marked; filters: status (open / overdue / completed / skipped), Assignee (me / shared / member), type (Reminder / Procedure) — remembered per viewer (localStorage convenience only); selecting an entry opens it with the same actions as the overview; keyboard navigation between days; no drag-and-drop, no external calendar sync.
+**Tasks:** month view as the default (D16) and an agenda/list view (default on narrow screens) on `occurrencesInRange`; previous/next navigation loads that range (the display range never limits scheduling); entries show type, title, time, Assignee, status (glyph + text) and projected entries marked; filters: status (open / overdue / completed / skipped), Assignee (me / shared / member), type (Reminder / Procedure) — remembered per viewer (localStorage convenience only); selecting an entry opens it with the same actions as the overview; keyboard navigation between days; no drag-and-drop, no external calendar sync (outgoing read-only subscriptions added in 39).
 
 **Acceptance criteria:** calendar and overview never disagree about an Occurrence (same read model); completing from the calendar updates both, also for other members; past months show completed and skipped Occurrences with who/when; a series projected years ahead appears when navigating there; the agenda works at 390 px without sideways scrolling; filters combine correctly.
 
@@ -5689,6 +5689,26 @@ user workflows; no host migration or external service provisioned by the assessm
 
 ---
 
+## 39 — Calendar subscriptions and a refreshed Calendar (owner request 2026-11-12)
+
+**Status:** DONE (implementation and checks complete; not released).
+
+**Request (owner, 2026-11-12):** "Is it possible to subscribe to an Apple calendar and maybe Google?" and a better visual presentation of the Calendar. Mockup approved by the owner the same day ("take care to integrate it properly into the different themes"). Direction chosen: VMN → calendar apps (a read-only subscription). Showing Apple/Google events inside VMN was not built: it would need outbound fetching of user-given URLs (§14 SSRF policy) and a parser of hostile iCalendar input. This revises 14.4's "no external calendar sync" for the outgoing, read-only direction only.
+
+**Implemented:**
+- *Subscription link (security-reviewed, see security.md "Security check: calendar subscription links"):* table `calendar_feeds` (migration 0073; one per person and Workspace; SHA-256 of a 256-bit token, scope `MINE`/`ALL`, created, last fetched; excluded from Workspace backups; deleted with the membership and by `revokeAllAccess`). Use-cases in `packages/application/src/calendar-feeds/` (`getCalendarFeed`, `createCalendarFeed` = create or replace, `setCalendarFeedScope`, `deleteCalendarFeed`, `openCalendarFeed`), repository `calendar-feed-repository.ts`, security event `CALENDAR_FEED_CHANGED`. Routes `GET|POST /api/workspaces/{id}/calendar-feed`, `POST …/scope`, `POST …/delete`, and the public `GET /api/calendar-feed/{token}.ics` (log-redacted, same 404 for every failure, own rate limit). `openCalendarFeed` reads as the owner through `occurrencesInRange` (31 days back to 183 ahead, three 92-day ranges), so access is re-checked on every fetch. `MINE` = assigned to the person or shared; skipped entries are left out.
+- *iCalendar* (`apps/server/src/http/calendar-feed-ics.ts`): RFC 5545 text escaping and 75-octet folding; all-day entries as `VALUE=DATE`, timed ones as UTC instants from the Schedule's zone (30 minutes long); planned dates `STATUS:TENTATIVE`; completed entries prefixed ✓; `X-WR-CALNAME` "VMN · Workspace", `REFRESH-INTERVAL` 1 h; stable UIDs (`occurrence-{id}`, `planned-{scheduleId}-{date}`). Only title, time, kind, responsible display name and a link back.
+- *Subscribe dialog* (`CalendarSubscribe.tsx`): Mine / Everyone, **Create private link**, then **Apple Calendar** (`webcal:` link), **Google Calendar** (`calendar.google.com/calendar/render?cid=webcal://…`), the link with a copy button, the privacy note, last fetched, **New link** and **Turn off** as icon buttons. The link is shown once.
+- *Calendar presentation* (`Calendar.tsx`, `styles.css`): month title with the year set back and a small "Calendar" eyebrow; round ‹ › and Today; icon segmented Month/Agenda, a Filters icon (dot when filtering) and the accent subscribe button; a summary line (open / overdue / done this month, and "Some entries are hidden by filters"); ISO week numbers; weekend tint; today as a filled circle, the chosen day outlined; status chips with glyph + title (+ time); the chosen day in a side panel with a large day number on wide screens (the Calendar page now uses the wide page width), below the month otherwise; phones show a single month surface with status dots (overdue a diamond, planned a ring); agenda days with round date badges. All colours are theme tokens; theme files add Tokyo Nights (night-glass cells, neon edge on the chosen day, glow on today), Witch Forest (engraved cells, old-book serif, small caps, moss ring), Space Guide (gold ring for today, serif numerals), Places (country serif), Light/Dark/Memento Mori (editorial serif). Forced-colours and reduced-motion handled.
+
+**Tests/checks:** `pnpm typecheck` exit 0; ESLint on changed files clean; `pnpm vitest run apps/server packages apps/web` passed (new: `apps/server/src/http/calendar-feed.test.ts` 6 tests; `calendar-model.test.ts` ISO weeks and month summary; `route-security.test.ts` pins the public route and covers the new management routes); e2e `account.spec.ts` (subscribe flow, feed served, turned off → 404, axe on the dialog; filter steps updated for the icon button) and `guide.spec.ts`. Screenshots of every theme at 1440 px and 390 px reviewed (`/mnt/project-files/ui-review/2026-11-12-calendar/`). Real Apple/Google Calendar subscription not tried from this environment (no public instance).
+
+**Security impact:** HIGH (new unauthenticated bearer route) — reviewed; **security docs updated:** YES (§9 secrets and logging, §12 trigger note, new security check). Deployment docs mention calendar links in proxy access logs.
+
+**Remaining / limits:** possession of the link is enough to read it (calendar apps cannot sign in); Google refreshes subscriptions slowly (hours) and needs the instance on the public internet; no per-device links (one link per person and Workspace); week starts on Monday; no import of external calendars.
+
+---
+
 ## 11 — Licensing
 
 ### 11.1 AGPL-3.0
@@ -7625,6 +7645,54 @@ axe in Dark.
 per forecast; the extra model id is a fixed constant, no person-supplied text
 reaches the URL. No migration, no new stored data beyond an optional
 `extended` flag in cached forecast JSON.
+
+### 36.17 Remove the server-side Recipe image generator (owner request 2026-11-12)
+
+ChatGPT kept assuming VMN creates Recipe images, although it should generate them itself.
+The owner confirmed in production: ChatGPT generates the picture, uploads the PNG with
+`upload_recipe_image_file` (`recipeId: null`), creates the Recipe with the returned
+`coverImage`, the returned Markdown and `requireImage: true`, and reads it back. The owner
+chose this upload route as the only one for ChatGPT.
+
+Implemented:
+
+- Removed `generate_recipe_image`, its OpenAI provider (`gpt-image-1.5` over plain `fetch`, no
+  npm dependency), the job/quota repository, the `RecipeImageError` mappings, the web
+  **Create an AI recipe image** panel and its two routes (`/recipes/image-generation` and
+  `/status`). Settings `OPENAI_RECIPE_IMAGE_KEY(_FILE)`, `RECIPE_IMAGE_MONTHLY_LIMIT` and
+  `RECIPE_IMAGE_USER_MONTHLY_LIMIT` are no longer read; leftover values are ignored, so an
+  existing container still starts.
+- `upload_recipe_image_file` is visible to ChatGPT again and described as the first step for a
+  pictured Recipe. `create_recipe` and `prepare_recipe_meal` no longer take an `image` file, and
+  `set_recipe_image` was removed (36.14 one-call route). For an existing Recipe, upload with its
+  `recipeId` and save with `save_recipe`.
+- MCP instructions describe the seven-step workflow (search, generate, upload, `coverImage`,
+  Markdown, `create_recipe` with `requireImage: true`, read back), say that VMN does not generate
+  images, and require reporting a failed generation or upload and never fabricating references
+  or upload success.
+- No migration. The unused `recipe_image_jobs` table stays as it is, so the change can be undone.
+  Images made by the generator are ordinary attachments and keep working.
+
+Kept unchanged: `upload_recipe_image_file`, `upload_recipe_image` and the picker for other MCP
+clients, original preservation with metadata, covers and embedded images, previews and
+thumbnails, quotas, validation, permissions, downloads, and manual upload in the Recipe editor.
+
+Breaking MCP changes: `generate_recipe_image` and `set_recipe_image` are gone from the tool list,
+and `create_recipe`/`prepare_recipe_meal` reject an `image` argument. Refresh the tools in
+ChatGPT after deployment.
+
+Checks: lint, typecheck and the full Vitest suite (1,720 passed, 14 skipped). `recipe-images.test.ts` now covers an uploaded
+original through an atomic meal, the absence of the removed tools and arguments, and a cover
+stored by the old generator saved with `requireImage` and read back. `mcp-recipe-upload.test.ts`
+keeps the upload, create and read-back flow; `mcp-recipe-image-oneshot.test.ts` was removed with
+the one-call route.
+
+Release note draft (for the next release):
+
+- **ChatGPT recipe photos:** VMN no longer has its own AI image generator. ChatGPT creates the
+  picture itself, uploads it to VMN and then saves the Recipe with it as the cover. The
+  **Create an AI recipe image** panel and the `OPENAI_RECIPE_IMAGE_KEY` settings are gone; you
+  can delete that secret. Existing pictures are unaffected. Refresh VMN's tools in ChatGPT.
 
 ### Release plan for 0.13.10, owner milestone 64 (2026-11-10)
 

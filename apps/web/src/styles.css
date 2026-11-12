@@ -1969,37 +1969,172 @@ a.button.primary {
   font-variant-numeric: tabular-nums;
 }
 
-/* ---- Calendar and agenda (14.4) ------------------------------------------------------------ */
+/* ---- Calendar and agenda (14.4; refreshed in 39) ------------------------------------------------
+ * Everything is drawn from the theme tokens, so each theme colours it; theme files add only what a token
+ * cannot say (neon edges, engraved frames, a typeface). Status is never colour alone: every chip keeps its
+ * glyph (○ ! ▶ ✓ ↷ ◌), today is a filled circle and the chosen day an outline. */
 
-.calendar-nav {
+.calendar {
+  --cal-gap: 6px;
+  --cal-cell: var(--surface);
+  --cal-cell-weekend: color-mix(in srgb, var(--surface) 82%, var(--surface-muted));
+  --cal-cell-radius: calc(var(--radius) + 2px);
+  --cal-line: color-mix(in srgb, var(--border) 70%, transparent);
+  --cal-title-font: inherit;
+}
+
+.calendar-toolbar {
   display: flex;
   flex-wrap: wrap;
-  align-items: center;
-  gap: 0.5rem;
+  align-items: flex-end;
+  gap: 0.75rem 1rem;
   margin: 0 0 0.75rem;
 }
 
-.calendar-nav h3 {
+.calendar-title {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.calendar .calendar-eyebrow {
   margin: 0;
-  min-width: 10rem;
-  text-align: center;
+  color: var(--text-muted);
+  font-family: inherit;
+  font-size: 0.8rem;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
 }
 
-.calendar-nav button {
+.calendar-month {
+  margin: 0;
+  font-family: var(--cal-title-font);
+  font-size: clamp(1.7rem, 3.4vw, 2.3rem);
+  font-weight: 600;
+  line-height: 1.1;
+  letter-spacing: -0.01em;
+}
+
+.calendar-year {
+  color: var(--text-muted);
+  font-weight: 500;
+}
+
+.calendar-paging,
+.calendar-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.calendar-actions {
+  margin-inline-start: auto;
+}
+
+.calendar-round {
   min-width: 2.75rem;
-  min-height: 2.75rem;
+  border-radius: 999px;
+  border-color: var(--border);
+  background: var(--surface);
+  padding-inline: 0.7rem;
 }
 
-.calendar-filter-box {
-  margin: 0 0 1rem;
+.calendar-round.calendar-today-button {
+  padding-inline: 0.9rem 1rem;
 }
 
-.calendar-filter-box summary {
-  display: inline-block;
-  min-height: 2.75rem;
-  padding: 0.6rem 0;
-  cursor: pointer;
-  text-decoration: underline;
+.calendar-segmented {
+  display: flex;
+  gap: 2px;
+  padding: 3px;
+  border-radius: calc(var(--radius) + 3px);
+  background: var(--surface-muted);
+}
+
+.calendar-segmented button {
+  min-width: 2.75rem;
+  min-height: 2.5rem;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: var(--radius);
+  background: transparent;
+  color: var(--text-muted);
+}
+
+/* The chosen view: raised surface, accent icon and a border — not colour alone. */
+.calendar-segmented button[aria-pressed='true'] {
+  background: var(--surface-raised);
+  border-color: var(--border);
+  color: var(--accent);
+  box-shadow: var(--shadow);
+}
+
+.calendar-tool {
+  border-color: var(--border);
+  background: var(--surface);
+  position: relative;
+}
+
+/* Filters in use: a dot on the button, and the summary line says so in words. */
+.calendar-tool-active::after {
+  content: '';
+  position: absolute;
+  top: 0.45rem;
+  right: 0.45rem;
+  width: 0.5rem;
+  height: 0.5rem;
+  border-radius: 50%;
+  background: var(--state-pending);
+  box-shadow: 0 0 0 2px var(--surface);
+}
+
+.calendar-tool[aria-expanded='true'] {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+
+.calendar-summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  margin: 0 0 0.9rem;
+  padding: 0;
+  list-style: none;
+  font-size: 0.85rem;
+}
+
+.calendar-summary li {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.2rem 0.7rem;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--text-muted);
+}
+
+.calendar-summary-mark {
+  width: 0.5rem;
+  height: 0.5rem;
+  border-radius: 50%;
+  background: var(--accent);
+}
+
+.calendar-summary li[data-status='OVERDUE'] {
+  border-color: color-mix(in srgb, var(--state-pending) 45%, var(--border));
+  background: var(--state-pending-bg);
+  color: var(--state-pending);
+  font-weight: 600;
+}
+
+.calendar-summary li[data-status='COMPLETED'] > span {
+  color: var(--state-done);
+}
+
+.calendar-summary li.calendar-summary-filtered {
+  border-style: dashed;
 }
 
 .calendar-filters {
@@ -2007,6 +2142,7 @@ a.button.primary {
   flex-wrap: wrap;
   align-items: flex-end;
   gap: 0.5rem 1.25rem;
+  margin: 0 0 1rem;
 }
 
 .calendar-filters fieldset {
@@ -2037,19 +2173,49 @@ a.button.primary {
   gap: 0.2rem;
 }
 
-.calendar-grid {
-  width: 100%;
-  table-layout: fixed;
-  border-collapse: separate;
-  border-spacing: 3px;
+/* Month: the grid, and the chosen day beside it on wide screens (below it otherwise). */
+.calendar-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 1.25rem;
+  align-items: start;
 }
 
-.calendar-grid th {
-  padding: 0.25rem 0;
-  font-size: 0.85rem;
+@media (min-width: 70rem) {
+  .calendar-layout {
+    grid-template-columns: minmax(0, 1fr) minmax(17rem, 21rem);
+  }
+
+  .calendar-day-panel {
+    position: sticky;
+    top: 1rem;
+  }
+}
+
+.calendar-grid {
+  table-layout: fixed;
+  border-collapse: separate;
+  border-spacing: var(--cal-gap);
+  margin: calc(var(--cal-gap) * -1);
+  width: calc(100% + 2 * var(--cal-gap));
+}
+
+.calendar-grid thead th {
+  padding: 0 0 0.1rem 0.6rem;
+  font-size: 0.75rem;
   font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
   color: var(--text-muted);
   text-align: left;
+}
+
+.calendar-grid thead th[data-weekend] {
+  color: var(--brand);
+}
+
+.calendar-grid :is(th, td) {
+  border: 0;
 }
 
 .calendar-grid td {
@@ -2057,60 +2223,218 @@ a.button.primary {
   vertical-align: top;
 }
 
+.calendar-grid .calendar-week {
+  width: 1.9rem;
+  padding: 0.7rem 0 0;
+  vertical-align: top;
+  font-size: 0.72rem;
+  font-weight: 500;
+  color: var(--text-muted);
+  text-align: center;
+}
+
 .calendar-day {
   display: flex;
   flex-direction: column;
   align-items: stretch;
-  gap: 0.15rem;
+  justify-content: flex-start;
+  gap: 0.3rem;
   width: 100%;
-  min-height: 6rem;
-  padding: 0.3rem;
-  background: var(--surface);
+  min-height: 6.6rem;
+  padding: 0.45rem;
+  border: 1px solid var(--cal-line);
+  border-radius: var(--cal-cell-radius);
+  background: var(--cal-cell);
+  color: var(--text);
   text-align: left;
   overflow: hidden;
+  transition: border-color 120ms ease, background-color 120ms ease;
+}
+
+.calendar-day:hover:not(:disabled) {
+  filter: none;
+  border-color: var(--border-strong);
+}
+
+.calendar-weekend {
+  background: var(--cal-cell-weekend);
 }
 
 .calendar-outside {
   background: transparent;
+  border-style: dashed;
   color: var(--text-muted);
 }
 
 .calendar-day-number {
+  display: grid;
+  place-items: center start;
+  min-width: 1.75rem;
+  height: 1.75rem;
+  padding-inline: 0.3rem;
+  font-size: 0.95rem;
   font-weight: 600;
+  font-variant-numeric: tabular-nums;
 }
 
-/* Today and the chosen day are marked by weight, underline and outline — not by colour alone. */
+/* Today: the number in a filled accent circle (shape and weight, not colour alone). */
 .calendar-day[aria-current='date'] .calendar-day-number {
+  place-items: center;
+  align-self: flex-start;
+  border-radius: 999px;
+  background: var(--accent);
+  color: var(--accent-text);
   font-weight: 800;
-  text-decoration: underline;
-  text-decoration-thickness: 2px;
 }
 
+/* The chosen day: a strong outline in the accent. */
 .calendar-day[aria-pressed='true'] {
-  outline: 2px solid var(--focus);
-  outline-offset: -2px;
-  background: var(--accent-soft);
+  border-color: var(--accent);
+  box-shadow: inset 0 0 0 1px var(--accent);
+  background: color-mix(in srgb, var(--accent-soft) 70%, var(--cal-cell));
+}
+
+.calendar-chips {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
 }
 
 .calendar-chip {
-  display: block;
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  min-width: 0;
+  padding: 0.12rem 0.4rem;
+  border-radius: 6px;
+  background: var(--accent-soft);
+  color: var(--text);
+  font-size: 0.78rem;
+  line-height: 1.35;
+}
+
+.calendar-chip-glyph {
+  flex: none;
+  width: 0.8rem;
+  color: var(--accent);
+  font-weight: 700;
+  text-align: center;
+}
+
+.calendar-chip-title {
+  min-width: 0;
   overflow: hidden;
-  font-size: 0.8rem;
-  line-height: 1.3;
   white-space: nowrap;
   text-overflow: ellipsis;
 }
 
+.calendar-chip-time {
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
 .calendar-chip[data-status='OVERDUE'] {
+  background: var(--state-pending-bg);
   color: var(--state-pending);
   font-weight: 600;
 }
 
+.calendar-chip[data-status='OVERDUE'] .calendar-chip-glyph {
+  color: inherit;
+  font-weight: 800;
+}
+
+.calendar-chip[data-status='IN_PROGRESS'] {
+  box-shadow: inset 0 0 0 1px var(--accent);
+}
+
 .calendar-chip[data-status='COMPLETED'],
-.calendar-chip[data-status='SKIPPED'],
-.calendar-chip[data-status='PROJECTED'],
-.calendar-more {
+.calendar-chip[data-status='SKIPPED'] {
+  background: transparent;
   color: var(--text-muted);
+}
+
+.calendar-chip[data-status='COMPLETED'] .calendar-chip-glyph {
+  color: var(--state-done);
+}
+
+.calendar-chip[data-status='SKIPPED'] .calendar-chip-glyph {
+  color: var(--state-skipped);
+}
+
+/* Planned (no Occurrence yet): dashed, like the planned card below. */
+.calendar-chip[data-status='PROJECTED'] {
+  background: transparent;
+  color: var(--text-muted);
+  outline: 1px dashed var(--border-strong);
+  outline-offset: -1px;
+}
+
+.calendar-chip[data-status='PROJECTED'] .calendar-chip-glyph {
+  color: var(--text-muted);
+}
+
+.calendar-more {
+  background: transparent;
+  color: var(--text-muted);
+  font-weight: 600;
+}
+
+/* The chosen day: its number large, the weekday and month beside it, then its entries. */
+.calendar-day-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 0.9rem;
+  min-width: 0;
+  padding: 1.1rem;
+  border: 1px solid var(--border);
+  border-radius: calc(var(--radius) + 6px);
+  background: var(--surface);
+  box-shadow: var(--shadow);
+}
+
+.calendar-day-heading {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin: 0;
+  padding-bottom: 0.8rem;
+  border-bottom: 1px solid var(--cal-line);
+}
+
+.calendar-day-big {
+  font-family: var(--cal-title-font);
+  font-size: 3rem;
+  font-weight: 600;
+  line-height: 1;
+  color: var(--accent);
+  font-variant-numeric: tabular-nums;
+}
+
+.calendar-day-words {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.calendar-day-words strong {
+  font-size: 1.1rem;
+}
+
+.calendar-day-words small {
+  color: var(--text-muted);
+  font-size: 0.85rem;
+  font-weight: 400;
+}
+
+.calendar-day-empty {
+  margin: 0;
+  padding: 1.2rem 0.5rem;
+  border: 1px dashed var(--border);
+  border-radius: var(--radius);
+  color: var(--text-muted);
+  text-align: center;
 }
 
 /* A planned date is not yet an Occurrence: dashed, with the word "Planned". */
@@ -2118,36 +2442,357 @@ a.button.primary {
   border-style: dashed;
 }
 
-/* Phones: the day cells keep only the status glyphs; titles are in the list below (or the agenda). */
+/* Agenda: one block per day, its number in a round badge (filled for today). */
+.calendar-agenda {
+  display: flex;
+  flex-direction: column;
+  gap: 1.1rem;
+}
+
+.calendar-agenda-day {
+  display: grid;
+  gap: 0.5rem;
+}
+
+.calendar-agenda-date {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  margin: 0;
+  font-size: 1rem;
+}
+
+.calendar-agenda-number {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 2.2rem;
+  height: 2.2rem;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--surface);
+  font-variant-numeric: tabular-nums;
+}
+
+.calendar-agenda-day[data-today] .calendar-agenda-number {
+  border-color: var(--accent);
+  background: var(--accent);
+  color: var(--accent-text);
+}
+
+/* Subscribe dialog (39). */
+.calendar-subscribe {
+  width: min(28rem, calc(100vw - 2rem));
+  display: none;
+}
+
+.calendar-subscribe[open] {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.calendar-subscribe-head {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.calendar-subscribe-head h2 {
+  flex: 1;
+  margin: 0;
+}
+
+.calendar-subscribe-badge {
+  display: grid;
+  place-items: center;
+  width: 2.75rem;
+  height: 2.75rem;
+  border-radius: var(--radius);
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+.calendar-scope {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 4px;
+  padding: 4px;
+  border-radius: calc(var(--radius) + 4px);
+  background: var(--surface-muted);
+}
+
+.calendar-scope button {
+  justify-content: flex-start;
+  gap: 0.6rem;
+  min-height: 3.25rem;
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--text-muted);
+  text-align: left;
+}
+
+.calendar-scope button > span:last-child {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.2;
+}
+
+.calendar-scope button small {
+  font-size: 0.75rem;
+}
+
+.calendar-scope button[aria-checked='true'] {
+  border-color: var(--border);
+  background: var(--surface-raised);
+  color: var(--text);
+  box-shadow: var(--shadow);
+}
+
+.calendar-scope button[aria-checked='true'] .ui-icon {
+  color: var(--accent);
+}
+
+.calendar-subscribe-apps {
+  display: grid;
+  gap: 0.5rem;
+}
+
+.calendar-subscribe-apps .button {
+  justify-content: flex-start;
+  min-height: 3.25rem;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.calendar-subscribe-apps .button > span:not(.ui-icon) {
+  flex: 1;
+}
+
+.calendar-subscribe-create {
+  min-height: 3.25rem;
+}
+
+.calendar-subscribe-link {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.calendar-subscribe-link input {
+  flex: 1;
+  min-width: 0;
+  color: var(--text-muted);
+  font-family: ui-monospace, 'SFMono-Regular', Menlo, Consolas, monospace;
+  font-size: 0.8rem;
+}
+
+.calendar-subscribe-private {
+  display: flex;
+  gap: 0.6rem;
+  margin: 0;
+  padding: 0.7rem 0.8rem;
+  border-radius: var(--radius);
+  background: var(--state-skipped-bg);
+  color: var(--text);
+  font-size: 0.85rem;
+  line-height: 1.45;
+}
+
+.calendar-subscribe-private .ui-icon {
+  color: var(--state-skipped);
+}
+
+.calendar-subscribe-note,
+.calendar-subscribe-status {
+  margin: 0;
+  font-size: 0.9rem;
+}
+
+.calendar-subscribe-foot {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid var(--cal-line, var(--border));
+}
+
+.calendar-subscribe-foot small {
+  flex: 1;
+  color: var(--text-muted);
+}
+
+.calendar-subscribe-foot .icon-button {
+  border-color: var(--border);
+  border-radius: 999px;
+  background: var(--surface);
+}
+
+.calendar-subscribe-foot .calendar-subscribe-off {
+  border-color: color-mix(in srgb, var(--danger) 45%, var(--border));
+  color: var(--danger);
+}
+
+/* Phones: dots instead of titles in the day cells; titles are in the chosen day below (or the agenda). */
 @media (max-width: 40rem) {
+  .calendar {
+    --cal-gap: 2px;
+  }
+
+  .calendar-toolbar {
+    align-items: center;
+    gap: 0.5rem;
+  }
+
+  .calendar-segmented button {
+    min-width: 2.6rem;
+  }
+
+  .calendar-outside {
+    color: color-mix(in srgb, var(--text-muted) 70%, transparent);
+  }
+
+  .calendar-title {
+    flex: 1 1 100%;
+  }
+
+  .calendar-actions {
+    margin-inline-start: auto;
+  }
+
+  .calendar-today-button > span:not(.ui-icon) {
+    display: none;
+  }
+
+  .calendar-grid .calendar-week {
+    display: none;
+  }
+
+  /* The month sits on one surface (the scene of a theme stays behind it). */
   .calendar-grid {
-    border-spacing: 2px;
+    width: 100%;
+    margin: 0;
+    padding: 0.4rem 0.2rem;
+    border: 1px solid var(--cal-line);
+    border-radius: calc(var(--radius) + 8px);
+    background: var(--cal-cell);
+  }
+
+  :root .calendar .calendar-day:is(.calendar-outside, .calendar-weekend) {
+    background: transparent;
+  }
+
+  .calendar-grid thead th {
+    padding: 0;
+    font-size: 0.7rem;
+    letter-spacing: 0.02em;
+    text-align: center;
   }
 
   .calendar-day {
-    flex-flow: row wrap;
-    align-content: flex-start;
-    gap: 0 0.2rem;
-    min-height: 3.5rem;
-    padding: 0.2rem;
+    align-items: center;
+    gap: 0.2rem;
+    min-height: 3.4rem;
+    padding: 0.25rem 0.1rem;
+    border-color: transparent;
+    border-radius: var(--radius);
+    background: transparent;
+  }
+
+  .calendar-weekend {
+    background: transparent;
+  }
+
+  .calendar-outside {
+    border-color: transparent;
   }
 
   .calendar-day-number {
-    flex-basis: 100%;
+    place-items: center;
+    width: 2rem;
+    min-width: 0;
+    height: 2rem;
+    padding: 0;
+    border-radius: 999px;
   }
 
+  .calendar-chips {
+    flex-flow: row wrap;
+    justify-content: center;
+    gap: 3px;
+  }
+
+  .calendar-chip {
+    width: 0.45rem;
+    height: 0.45rem;
+    padding: 0;
+    border-radius: 50%;
+    background: var(--accent);
+    font-size: 0;
+    overflow: hidden;
+  }
+
+  .calendar-chip-glyph,
   .calendar-chip-title {
     display: none;
   }
 
+  .calendar-chip[data-status='OVERDUE'] {
+    border-radius: 1px;
+    background: var(--state-pending);
+    transform: rotate(45deg);
+  }
+
+  .calendar-chip[data-status='COMPLETED'],
+  .calendar-chip[data-status='SKIPPED'] {
+    background: color-mix(in srgb, var(--text-muted) 55%, transparent);
+  }
+
+  .calendar-chip[data-status='PROJECTED'] {
+    outline: none;
+    box-shadow: inset 0 0 0 1.5px var(--text-muted);
+  }
+
   .calendar-more {
-    font-size: 0.7rem;
+    width: auto;
+    height: auto;
+    background: none;
+    font-size: 0.6rem;
+    line-height: 1;
+  }
+
+  .calendar-day[aria-pressed='true'] {
+    box-shadow: inset 0 0 0 2px var(--accent);
+    background: var(--accent-soft);
+  }
+
+  .calendar-day-panel {
+    padding: 0.9rem;
+  }
+
+  .calendar-day-big {
+    font-size: 2.4rem;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .calendar-day {
+    transition: none;
   }
 }
 
 @media (forced-colors: active) {
   .calendar-day[aria-pressed='true'] {
-    outline-color: Highlight;
+    outline: 2px solid Highlight;
+    outline-offset: -2px;
+  }
+
+  .calendar-day[aria-current='date'] .calendar-day-number {
+    border: 2px solid CanvasText;
+  }
+
+  .calendar-chip,
+  .calendar-chip[data-status='PROJECTED'] {
+    border: 1px solid CanvasText;
   }
 }
 
@@ -6132,6 +6777,16 @@ a.button.today-hero-go {
 .bring summary { display: flex; align-items: center; gap: 0.4rem; min-width: 2.75rem; min-height: 2.75rem; cursor: pointer; }
 .bring summary::before { content: '▸'; }
 .bring details[open] > summary::before { transform: rotate(90deg); }
+
+/* Calendar (39) in Space Guide: the instrument's gold marks today; serif numerals like the Celestial frame. */
+:root[data-theme='space-guide'] .calendar {
+  --cal-title-font: Georgia, 'Times New Roman', serif;
+}
+
+:root[data-theme='space-guide'] .calendar-day[aria-current='date'] .calendar-day-number,
+:root[data-theme='space-guide'] .calendar-agenda-day[data-today] .calendar-agenda-number {
+  box-shadow: 0 0 0 2px var(--surface), 0 0 0 3px #f2ca83;
+}
 
 :root[data-theme='space-guide'] {
   color-scheme: dark;

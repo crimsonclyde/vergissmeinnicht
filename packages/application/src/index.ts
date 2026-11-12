@@ -3,6 +3,8 @@ export * from './accounts/index.ts';
 export * from './history/index.ts';
 export * from './invitations/index.ts';
 export * from './knots/index.ts';
+export * from './calendar-feeds/index.ts';
+export * from './ports/calendar-feed-repository.ts';
 export * from './lists/index.ts';
 export * from './mfa/index.ts';
 export * from './recovery/index.ts';
@@ -74,4 +76,3 @@ export * from './bring.ts';
 export * from './attachments/index.ts';
 
 export * from './recipes.ts';
-export * from './recipe-images.ts';

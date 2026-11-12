@@ -60,3 +60,6 @@
 /* Decorative/action icons need a readable ink colour, rather than the dark button fill. */
 :root:is([data-theme='light'], [data-theme='dark'], [data-theme='memento-mori']) :is(.guide-step-icon, .equipment-reference-icon) { color: var(--brand); }
 :root:is([data-theme='light'], [data-theme='dark'], [data-theme='memento-mori']) .today-card[data-card='next'] .today-card-title > .ui-icon { color: var(--brand); }
+/* Calendar (39): the month and the chosen day's number in the editorial serif of these themes. */
+:root:is([data-theme='light'], [data-theme='dark'], [data-theme='memento-mori']) .calendar { --cal-title-font: Georgia, 'Times New Roman', serif; }
+:root:is([data-theme='light'], [data-theme='dark'], [data-theme='memento-mori']) .calendar-day-panel { box-shadow: 0 3px 0 color-mix(in srgb, var(--border) 28%, transparent), var(--shadow); }

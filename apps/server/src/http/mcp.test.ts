@@ -34,8 +34,10 @@ describe('MCP OAuth delegation',()=>{
   const initialized=await rpc('initialize',{protocolVersion:'2025-11-25',capabilities:{},clientInfo:{name:'test',version:'1'}});
   expect(initialized.statusCode).toBe(200);
   expect(initialized.json().result.instructions).toContain('ask the user which one to use before reading or writing its records');
-  expect(initialized.json().result.instructions).toContain('do not call generate_recipe_image for either flow');
-  expect(initialized.json().result.instructions).toContain('Pass the image file itself in the image argument of create_recipe');
+  expect(initialized.json().result.instructions).toContain('VMN does not generate images');
+  expect(initialized.json().result.instructions).not.toContain('generate_recipe_image');
+  expect(initialized.json().result.instructions).toContain('Upload the actual image file with upload_recipe_image_file and recipeId null');
+  expect(initialized.json().result.instructions).toContain('Never fabricate image references, file paths or upload success');
   expect(initialized.json().result.instructions).toContain('New Recipes default to public');
   expect(initialized.json().result.instructions).toContain('When several grocery Lists match, ask which one to use and wait for the answer before writing');
   expect((await t.app.inject({method:'POST',url:'/mcp',headers:{cookie:t.admin},payload:{jsonrpc:'2.0',id:1,method:'tools/list'}})).statusCode).toBe(401);

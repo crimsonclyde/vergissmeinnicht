@@ -15,7 +15,7 @@ import type {
   WorkspaceRole,
 } from '@vergissmeinnicht/domain';
 import type { AppDatabase } from './connection.ts';
-import { memberships, userPlaceBackgrounds, userPlacePreferences, userWeatherWorkspaceLocations, users, workspaceTools, workspaces } from './schema.ts';
+import { calendarFeeds, memberships, userPlaceBackgrounds, userPlacePreferences, userWeatherWorkspaceLocations, users, workspaceTools, workspaces } from './schema.ts';
 import { IMMEDIATE, actorAllowed, type Transaction, type UserActor } from './actor-guard.ts';
 import { recordSecurityEvent } from './security-events.ts';
 
@@ -271,6 +271,8 @@ export function createWorkspaceRepository(database: Pick<AppDatabase, 'db'>): Wo
         tx.delete(userPlacePreferences).where(and(eq(userPlacePreferences.workspaceId, input.workspaceId), eq(userPlacePreferences.userId, input.userId))).run();
         // The person's weather opt-in to this Workspace's location (step 26) goes too: re-joining must not re-enable it.
         tx.delete(userWeatherWorkspaceLocations).where(and(eq(userWeatherWorkspaceLocations.workspaceId, input.workspaceId), eq(userWeatherWorkspaceLocations.userId, input.userId))).run();
+        // The person's calendar subscription link (39) stops for good: re-joining must not revive it.
+        tx.delete(calendarFeeds).where(and(eq(calendarFeeds.workspaceId, input.workspaceId), eq(calendarFeeds.userId, input.userId))).run();
         recordSecurityEvent(tx, {
           type: 'MEMBERSHIP_REMOVED',
           actor,

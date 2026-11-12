@@ -33,6 +33,7 @@ import { equipmentRoutes } from './http/equipment-routes.ts';
 import { maintenanceRoutes } from './http/maintenance-routes.ts';
 import { adminInvitationRoutes, invitationRoutes } from './http/invitation-routes.ts';
 import { knotRoutes, workspaceKnotRoutes } from './http/knot-routes.ts';
+import { publicCalendarFeedRoutes, workspaceCalendarFeedRoutes } from './http/calendar-feed-routes.ts';
 import { listRoutes } from './http/list-routes.ts';
 import { accountNotificationRoutes, adminNotificationRoutes } from './http/notification-routes.ts';
 import { originGuard } from './http/origin-guard.ts';
@@ -255,6 +256,8 @@ export async function buildApp(options: AppOptions = {}) {
         await api.register(occurrenceRoutes, { prefix: '/workspaces/:workspaceId/occurrences', services });
         await api.register(homeRoutes, { prefix: '/workspaces/:workspaceId/home', services });
         await api.register(calendarRoutes, { prefix: '/workspaces/:workspaceId/calendar', services });
+        await api.register(workspaceCalendarFeedRoutes, { prefix: '/workspaces/:workspaceId/calendar-feed', services });
+        await api.register(publicCalendarFeedRoutes, { prefix: '/calendar-feed', services });
         await api.register(imageRoutes, { prefix: '/workspaces/:workspaceId/images', services });
         await api.register(workspaceStorageRoutes, { prefix: '/workspaces/:workspaceId/storage', services });
         await api.register(linkRoutes, { prefix: '/workspaces/:workspaceId', services });

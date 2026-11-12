@@ -62,6 +62,8 @@ export const SECURITY_EVENT_TYPES = [
   'MEMBERSHIP_ADDED',
   'MEMBERSHIP_ROLE_CHANGED',
   'MEMBERSHIP_REMOVED',
+  // A person's calendar subscription link (39): created, replaced, its scope changed or turned off — never the token.
+  'CALENDAR_FEED_CHANGED',
 ] as const;
 export type SecurityEventType = (typeof SECURITY_EVENT_TYPES)[number];
 
