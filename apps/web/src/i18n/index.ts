@@ -113,6 +113,19 @@ export function formatMonth(month: string): string {
   return new Intl.DateTimeFormat(formatLocale(), { month: 'long', year: 'numeric', timeZone: 'UTC' }).format(new Date(Date.UTC(year, index - 1, 1, 12)));
 }
 
+/** The month's name and its year apart ("November", "2026"), for a title that sets the year back (39). */
+export function formatMonthParts(month: string): { month: string; year: string } {
+  const [year, index] = month.split('-').map(Number) as [number, number];
+  const parts = new Intl.DateTimeFormat(formatLocale(), { month: 'long', year: 'numeric', timeZone: 'UTC' }).formatToParts(new Date(Date.UTC(year, index - 1, 1, 12)));
+  return { month: parts.find((part) => part.type === 'month')?.value ?? '', year: parts.find((part) => part.type === 'year')?.value ?? String(year) };
+}
+
+/** "Thursday" for a calendar date `YYYY-MM-DD`. */
+export function formatWeekdayLong(date: string): string {
+  const [year, month, day] = date.split('-').map(Number) as [number, number, number];
+  return new Intl.DateTimeFormat(formatLocale(), { weekday: 'long', timeZone: 'UTC' }).format(new Date(Date.UTC(year, month - 1, day, 12)));
+}
+
 /** Weekday names, Monday first: `short` ("Mon") for column headers, `long` ("Monday") as their full text. */
 export function weekdayNames(width: 'short' | 'long'): string[] {
   const format = new Intl.DateTimeFormat(formatLocale(), { weekday: width, timeZone: 'UTC' });

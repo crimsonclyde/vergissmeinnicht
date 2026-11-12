@@ -116,6 +116,7 @@ export const EXCLUDED_TABLES: Readonly<Record<string, string>> = {
   user_place_backgrounds: 'personal Places background photos',
   user_weather_settings: 'personal weather settings and locations',
   user_weather_workspace_locations: 'personal weather opt-in per Workspace',
+  calendar_feeds: 'personal calendar subscription links (token hashes)',
   weather_history: 'personal weather temperature history per place',
   weather_credentials: 'weather provider credentials (sealed), any scope',
   server_weather_settings: 'server settings',

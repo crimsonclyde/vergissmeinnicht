@@ -539,3 +539,7 @@
   :root[data-theme='places'] .shell[data-page='workspace'] :is(.today-card, .today-hero),
   .place-preview-card { background: Canvas; text-shadow: none; }
 }
+
+/* Calendar (39): the month and the chosen day in the country serif; cells stay on the token surfaces. */
+:root[data-theme='places'] .calendar { --cal-title-font: var(--places-serif, Georgia, serif); }
+:root[data-theme='places'] .calendar-outside { background: color-mix(in srgb, var(--surface) 55%, transparent); }

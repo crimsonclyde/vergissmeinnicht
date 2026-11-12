@@ -20,6 +20,7 @@ const PUBLIC_ROUTES = [
   'POST /api/invitations/accept',
   'POST /api/recoveries/resolve',
   'POST /api/recoveries/complete',
+  'GET /api/calendar-feed/:file', // calendar apps cannot sign in: the unguessable token names the person, access is re-checked (39)
 ];
 
 const PNG = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAIAAACQd1PeAAAADElEQVR4nGP4z8AAAAMBAQDJ/pLvAAAAAElFTkSuQmCC', 'base64');
@@ -38,6 +39,7 @@ function bodyFor(route: string, ids: Record<string, string>): object {
   if (/\/schedules\/:scheduleId\/(pause|end|cancel)$/.test(url)) return { expectedRevision: 1 };
   if (url.endsWith('/schedules/:scheduleId/resume')) return { expectedRevision: 1, skipElapsed: false };
   if (url.endsWith('/schedules/:scheduleId/skip-older')) return { before: TOMORROW };
+  if (url.endsWith('/calendar-feed') || url.endsWith('/calendar-feed/scope')) return { scope: 'ALL' };
   if (url.endsWith('/occurrences/:occurrenceId/move')) return { date: TOMORROW };
   if (url.endsWith('/occurrences/:occurrenceId/assign')) return { assigneeUserId: null };
   if (url.endsWith('/occurrences/:occurrenceId/link-run')) return { runId: ids.runId ?? '' };

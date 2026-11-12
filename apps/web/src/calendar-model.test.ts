@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { Occurrence, ProjectedOccurrence, Schedule } from './api.ts';
-import { DEFAULT_FILTERS, addMonths, dayAfterKey, entriesOf, lastDayOf, matches, monthGrid, parseFilters, responsiblePeople, statusOf, type CalendarFilters } from './calendar-model.ts';
+import { DEFAULT_FILTERS, addMonths, dayAfterKey, entriesOf, isoWeek, lastDayOf, matches, monthGrid, monthSummary, parseFilters, responsiblePeople, statusOf, type CalendarEntry, type CalendarFilters } from './calendar-model.ts';
 
 const UMA = { id: '11111111-1111-4111-8111-111111111111', name: 'Uma' };
 const COLE = { id: '22222222-2222-4222-8222-222222222222', name: 'Cole' };
@@ -148,5 +148,20 @@ describe('calendar months (14.4)', () => {
     expect(dayAfterKey('2026-12-28', 'ArrowDown')).toBe('2027-01-04');
     expect(dayAfterKey('2026-10-05', 'ArrowUp')).toBe('2026-09-28');
     expect(dayAfterKey('2026-10-05', 'Enter')).toBeNull();
+  });
+});
+
+describe('ISO weeks and the month summary (39)', () => {
+  it('numbers weeks like ISO 8601, across year ends', () => {
+    expect(isoWeek('2026-11-12')).toBe(46);
+    expect(isoWeek('2026-01-01')).toBe(1);
+    expect(isoWeek('2027-01-01')).toBe(53);
+    expect(isoWeek('2024-12-30')).toBe(1);
+  });
+
+  it('counts open, overdue and done entries of the month only', () => {
+    const entry = (date: string, status: string) => ({ key: `${date}-${status}`, date, status }) as unknown as CalendarEntry;
+    const entries = [entry('2026-11-01', 'OPEN'), entry('2026-11-02', 'PROJECTED'), entry('2026-11-03', 'IN_PROGRESS'), entry('2026-11-04', 'OVERDUE'), entry('2026-11-05', 'COMPLETED'), entry('2026-11-06', 'SKIPPED'), entry('2026-12-01', 'OPEN')];
+    expect(monthSummary(entries, '2026-11')).toEqual({ open: 3, overdue: 1, done: 1 });
   });
 });

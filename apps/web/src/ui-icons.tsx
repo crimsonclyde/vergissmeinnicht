@@ -1,4 +1,11 @@
 import {
+  IconCalendarShare,
+  IconCalendarPlus,
+  IconCalendarOff,
+  IconFilter,
+  IconLock,
+  IconCircleDot,
+  IconChevronLeft,
   IconArchive,
   IconArrowsSort,
   IconLayoutList,
@@ -234,6 +241,14 @@ const ICONS = {
   overlay: IconSquareHalf,
   vignette: IconVignette,
   atmosphere: IconSunMoon,
+  // Calendar (39): subscribe, its two apps, filters, Today and month paging.
+  subscribe: IconCalendarShare,
+  calendarAdd: IconCalendarPlus,
+  unsubscribe: IconCalendarOff,
+  filter: IconFilter,
+  lock: IconLock,
+  todayDot: IconCircleDot,
+  previous: IconChevronLeft,
 } as const;
 
 export type UiIconName = keyof typeof ICONS;

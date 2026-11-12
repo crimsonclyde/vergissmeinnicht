@@ -246,13 +246,25 @@ Changing a warranty date changes no Reminder. If a Reminder is linked, VMN offer
 
 **Calendar** is the optional planning view: one month at a time, with everything that has a date — also what is upcoming and what was done:
 
-- **Month** shows the days with what is on them; choose a day to see its entries below, with the same actions as on the Dashboard (**Done**, **Start**, **Start early**, **Continue**, **⋯**, **Undo**). **Agenda** lists the same month day by day and is what a phone shows first. Your choice is remembered in this browser.
+- **Month** (calendar icon) shows the days with what is on them, with week numbers; today has a filled circle. Choose a day to see its entries beside the month (below it on smaller screens), with the same actions as on the Dashboard (**Done**, **Start**, **Start early**, **Continue**, **⋯**, **Undo**). On a phone the days show dots instead of titles. **Agenda** (list icon) lists the same month day by day and is what a phone shows first. Your choice is remembered in this browser.
+- Under the month name, a short line counts what is open, overdue and done this month.
 - Every entry carries a sign and a word: ○ open, ! overdue, ▶ in progress, ✓ completed, ↷ skipped (with who did it and when), and ◌ **Planned**.
 - **Planned** entries are the future dates of something that repeats on fixed dates — also years ahead. They show what is coming; they can be completed once their turn has come and they appear on the Dashboard and under Reminders. Things that repeat *after they are done* have no planned dates, because the next date depends on when you finish.
 - **‹ ›** change the month, **Today** returns. With the keyboard: the arrow keys move between days, Page Up / Page Down between months.
-- **Filters** (folded away until you need them): open / overdue / completed / skipped, who is responsible, and Reminders or Procedures. They combine, and they are remembered in this browser.
+- **Filters** (funnel icon): open / overdue / completed / skipped, who is responsible, and Reminders or Procedures. They combine, and they are remembered in this browser; a dot on the icon and a note under the month tell you when something is hidden.
 
-The calendar only shows and lets you act; there is no dragging of entries and no connection to other calendars.
+The calendar only shows and lets you act; there is no dragging of entries.
+
+### Subscribe in Apple Calendar or Google Calendar
+
+The **subscribe** button (calendar with an arrow, next to Filters) makes a private link to this Workspace's calendar that calendar apps can follow:
+
+1. Choose **Mine** (what you are responsible for, plus shared entries) or **Everyone** (the whole calendar as you see it).
+2. **Create private link**, then **Apple Calendar** (opens the Calendar app on an iPhone, iPad or Mac) or **Google Calendar** (opens Google Calendar's "add by URL" page). Other calendar apps: copy the link and add it as a subscription ("From URL").
+
+What you get: the titles, dates and times, whether it is a Reminder or a Procedure, who is responsible, and a ✓ in front of what is done — from a month back to about six months ahead. No notes, Steps, email addresses or anything else. It is read-only: changes are made in VergissMeinNicht and reach the calendar app the next time it refreshes. Apple and Google decide how often that is — usually every few hours, sometimes less often for Google.
+
+Keep the link to yourself: anyone who has it can see what it shows, without signing in. For safety the link is shown only once. **New link** (circular arrows) replaces it — the old one stops working at once, so add the new one to your devices. **Turn off subscription** stops it for good. The link also stops when you leave the Workspace, when the Calendar is switched off for the Workspace (it works again when it is switched back on), or when your account is disabled or recovered. Google Calendar fetches the link from Google's servers, so it only works when your VergissMeinNicht is reachable from the internet; Apple Calendar on an iPhone or iPad fetches it from the device itself, so there it can also work inside your home network or VPN.
 
 ## Reminders and repeating schedules
 

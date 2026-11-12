@@ -484,7 +484,8 @@ function OpenFirstWorkspace({ workspaces }: { workspaces: readonly WorkspaceSumm
 
 /** How wide the page may get: forms and lists stay readable, the builder uses the screen. */
 function widthOf(route: Route): 'narrow' | 'wide' | undefined {
-  if (route.page === 'procedure-edit') return 'wide';
+  // The builder and the month view (39: the grid with the chosen day beside it) use the screen.
+  if (route.page === 'procedure-edit' || route.page === 'calendar') return 'wide';
   // Today sets its own width: two columns of cards on a wide screen, a reading width with one (19.1).
   if (route.page === 'lists' || route.page === 'more' || route.page === 'reminders') return 'narrow';
   if (route.page === 'documents' && route.view === 'new') return 'narrow';

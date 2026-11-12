@@ -1017,3 +1017,92 @@
     text-shadow: none;
   }
 }
+
+/* ---- Calendar (39): an almanac page — engraved cells, the old-book serif, a moss ring for today ----- */
+
+:root[data-theme='witch-forest'] .calendar {
+  --cal-title-font: var(--wf-serif);
+  --cal-cell: rgb(17 26 21 / 95%);
+  --cal-cell-weekend: rgb(22 33 26 / 95%);
+  --cal-line: var(--border);
+}
+
+/* Each day framed like the cards: a thin inner rule, as engraved. */
+:root[data-theme='witch-forest'] .calendar-day {
+  box-shadow: inset 0 0 0 3px var(--cal-cell), inset 0 0 0 4px var(--wf-rule);
+}
+
+:root[data-theme='witch-forest'] .calendar-weekend {
+  box-shadow: inset 0 0 0 3px var(--cal-cell-weekend), inset 0 0 0 4px var(--wf-rule);
+}
+
+:root[data-theme='witch-forest'] .calendar-outside {
+  background: rgb(10 17 13 / 85%);
+  box-shadow: none;
+}
+
+:root[data-theme='witch-forest'] .calendar .calendar-eyebrow,
+:root[data-theme='witch-forest'] .calendar-grid thead th {
+  font-variant: small-caps;
+  text-transform: none;
+  letter-spacing: 0.1em;
+  font-size: 0.9rem;
+}
+
+:root[data-theme='witch-forest'] .calendar-grid thead th[data-weekend] {
+  color: var(--wf-lichen);
+}
+
+:root[data-theme='witch-forest'] .calendar-day[aria-current='date'] .calendar-day-number {
+  box-shadow: 0 0 0 2px var(--cal-cell), 0 0 0 3px var(--wf-moss);
+}
+
+:root[data-theme='witch-forest'] .calendar-day[aria-pressed='true'] {
+  box-shadow: inset 0 0 0 1px var(--accent), inset 0 0 0 4px var(--cal-cell), inset 0 0 0 5px var(--wf-rule);
+}
+
+:root[data-theme='witch-forest'] .calendar-chip {
+  border-radius: 3px;
+}
+
+:root[data-theme='witch-forest'] .calendar-day-panel {
+  background: rgb(17 26 21 / 97%);
+  box-shadow: inset 0 0 0 3px rgb(17 26 21 / 97%), inset 0 0 0 4px var(--wf-rule);
+}
+
+:root[data-theme='witch-forest'] .calendar-day-big {
+  color: var(--wf-moss);
+  font-weight: 500;
+}
+
+:root[data-theme='witch-forest'] .calendar-summary li,
+:root[data-theme='witch-forest'] .calendar-round,
+:root[data-theme='witch-forest'] .calendar-tool {
+  background: rgb(17 26 21 / 95%);
+}
+
+@media (max-width: 40rem) {
+  :root[data-theme='witch-forest'] .calendar-day,
+  :root[data-theme='witch-forest'] .calendar-weekend {
+    box-shadow: none;
+  }
+
+  :root[data-theme='witch-forest'] .calendar-day[aria-pressed='true'] {
+    box-shadow: inset 0 0 0 2px var(--accent);
+  }
+
+  /* Dots stay round and the overdue mark a diamond (shape, not colour alone). */
+  :root[data-theme='witch-forest'] .calendar-chip {
+    border-radius: 50%;
+  }
+
+  :root[data-theme='witch-forest'] .calendar-chip[data-status='OVERDUE'] {
+    border-radius: 1px;
+  }
+}
+
+/* Week numbers sit on the forest: the same text halo as other text over the scene. */
+:root[data-theme='witch-forest'] .calendar-grid .calendar-week {
+  color: var(--text);
+  text-shadow: 0 0 3px #050a08, 0 0 6px #050a08;
+}

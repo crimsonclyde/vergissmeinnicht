@@ -1,4 +1,5 @@
 import {RecipeImageError} from '@vergissmeinnicht/application';
+import { CalendarFeedNotFoundError } from '@vergissmeinnicht/application';
 import {McpCredentialError} from '@vergissmeinnicht/database';
 import {RecipeNotFoundError,RecipeConflictError} from '@vergissmeinnicht/application';
 import {AttachmentError} from '@vergissmeinnicht/application';
@@ -195,6 +196,7 @@ export function errorHandler(error: FastifyError | Error, request: FastifyReques
   if (error instanceof LastWorkspaceAdminError) return reply.code(409).send({ error: 'last_workspace_admin' });
   // Resolution failures of every kind share one answer (no hint about the target).
   if (error instanceof KnotNotFoundError) return reply.code(404).send({ error: 'knot_not_found' });
+  if (error instanceof CalendarFeedNotFoundError) return reply.code(404).send({ error: 'calendar_feed_not_found' });
   if (error instanceof KnotRecordNotFoundError) return reply.code(404).send({ error: 'knot_not_found' });
   if (error instanceof KnotAlreadyRevokedError) return reply.code(409).send({ error: 'knot_already_revoked' });
   if (error instanceof KnotTargetNotFoundError) return reply.code(404).send({ error: 'knot_target_not_found' });

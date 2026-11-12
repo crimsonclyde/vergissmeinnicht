@@ -6,6 +6,7 @@ import type { EquipmentField, GuidePreferences, NavigationTool, WeatherLocation 
 import { sql } from 'drizzle-orm';
 import { blob, check, foreignKey, index, integer, primaryKey, real, sqliteTable, text, uniqueIndex, type AnySQLiteColumn } from 'drizzle-orm/sqlite-core';
 import {
+  CALENDAR_FEED_SCOPES,
   CONTACT_KEY_KINDS,
   MAINTENANCE_STATUSES,
   CRITICAL_CONFIRM_MODES,
@@ -982,6 +983,32 @@ export const userWeatherWorkspaceLocations = sqliteTable(
     createdAt: integer('created_at', { mode: 'timestamp_ms' }).notNull(),
   },
   (table) => [primaryKey({ columns: [table.userId, table.workspaceId] })],
+);
+
+/**
+ * A person's calendar subscription link per Workspace (39): only the SHA-256 of the 256-bit token is stored.
+ * Every fetch re-checks the account, the membership and the calendar permission. Personal — never part of a
+ * Workspace backup — and removed with the membership, by account recovery and when the account is removed.
+ */
+export const calendarFeeds = sqliteTable(
+  'calendar_feeds',
+  {
+    userId: text('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    workspaceId: text('workspace_id')
+      .notNull()
+      .references(() => workspaces.id, { onDelete: 'cascade' }),
+    tokenHash: text('token_hash').notNull().unique(),
+    scope: text('scope', { enum: CALENDAR_FEED_SCOPES }).notNull(),
+    createdAt: integer('created_at', { mode: 'timestamp_ms' }).notNull(),
+    lastUsedAt: integer('last_used_at', { mode: 'timestamp_ms' }),
+  },
+  (table) => [
+    primaryKey({ columns: [table.userId, table.workspaceId] }),
+    check('calendar_feeds_token_hash_format', sql`length(${table.tokenHash}) = 64`),
+    check('calendar_feeds_scope_valid', oneOf('scope', CALENDAR_FEED_SCOPES)),
+  ],
 );
 
 /**
