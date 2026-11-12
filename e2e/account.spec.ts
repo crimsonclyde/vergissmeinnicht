@@ -1692,7 +1692,7 @@ test('first server admin: bootstrap link, account creation, sign-in, Workspace c
   await expect(compareView.getByLabel(/OpenWeather/)).not.toBeChecked();
   await compareView.getByLabel(/OpenWeather/).check();
   await compareView.getByRole('button', { name: 'Compare', exact: true }).click();
-  expect(compareRequests.at(-1)?.fetchPaid).toBe(false);
+  await expect.poll(() => compareRequests.at(-1)?.fetchPaid).toBe(false);
   await expect(compareView).toContainText('Paid sources were not fetched. Fetching them now uses 1 OpenWeather request from the daily budget.');
   await expect(compareView.getByRole('combobox')).toHaveValue(localDate(0));
   const sourcesShown = compareView.getByRole('listitem');
@@ -1706,7 +1706,7 @@ test('first server admin: bootstrap link, account creation, sign-in, Workspace c
   await expect(sourcesShown.filter({ hasText: 'ICON-2I' })).toContainText('No forecast for this day — this source offers 1 day.');
   await expect(sourcesShown.filter({ hasText: 'Automatic' }).or(sourcesShown.filter({ hasText: /^Open-Meteo/ })).first()).toContainText('0 mm');
   await compareView.getByRole('button', { name: 'Fetch paid forecasts now' }).click();
-  expect(compareRequests.at(-1)?.fetchPaid).toBe(true);
+  await expect.poll(() => compareRequests.at(-1)?.fetchPaid).toBe(true);
   await expectAccessible(page, 'forecast comparison');
   await page.setViewportSize({ width: 320, height: 700 });
   expect(await noSidewaysScroll()).toBe(true);
