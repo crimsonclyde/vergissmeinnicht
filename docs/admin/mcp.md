@@ -203,62 +203,35 @@ the meal tool if ChatGPT is saving the Recipe. The editor upload requires a sign
 session with Recipe write access.
 
 Users can give ChatGPT a single request to create a pictured Recipe in a named Workspace.
-For a Recipe found on the web, ChatGPT creates a fitting picture with its own image tool.
-For a cookbook import, ChatGPT extracts the original photo. Both paths hand an actual image
-to the same VMN upload service, then save the Recipe and verify its cover. These workflows
-require no OpenAI API key on VMN. Hosted native handoff of a ChatGPT-generated PNG passed on the corrected
-2026-11-10 test candidate, including Recipe save and independent cover readback.
-This used explicit manual instructions; the default assistant guidance update
-and stable GitHub/GHCR release remain pending.
+VMN does not generate images. For a Recipe found on the web, ChatGPT creates a picture with its
+own native image generation. For a cookbook import, ChatGPT extracts the original photo. Both
+paths upload the actual image file to VMN, then save the Recipe and verify its cover:
 
-## Optional server-side image generator
+1. Search for an existing Recipe to avoid duplicates (`search_recipes`).
+2. Generate the image with the assistant's own image generation, if it has one.
+3. Upload the actual image file with `upload_recipe_image_file` and `recipeId: null`.
+4. Use the returned attachment reference as `coverImage`.
+5. Put the returned Markdown image in the Recipe instructions.
+6. Create the Recipe with `create_recipe` and `requireImage: true`.
+7. Read the Recipe back with `get_recipe` and verify the saved cover.
 
-This section describes the separate VMN generator and its operator settings.
+If generation or upload fails, the assistant reports it and does not create the Recipe without
+the required image. It must never invent image references, file paths or upload success. VMN
+needs no OpenAI API key for any of this, and the VMN Recipe editor still accepts photos uploaded
+by hand.
 
-Configure a dedicated OpenAI project key with image-generation permissions in a deployment secret:
-`OPENAI_RECIPE_IMAGE_KEY_FILE=/run/secrets/vmn_recipe_images` (absolute path), or
-`OPENAI_RECIPE_IMAGE_KEY`. Set exactly one. The key never goes to browsers/MCP clients or portable
-Workspace backups. API usage is billed separately from a ChatGPT subscription. Set the project's own
-budget/alerts before enabling it; a roughly $10 starting budget is the owner's intended setup, not an
-application-enforced dollar balance or a promise about OpenAI billing limits.
+### Removed: server-side image generator (36.17)
 
-Only the explicit image description is sent to the fixed official Images API endpoint. No Recipe
-library, user identity, Documents, private Journal, original images or credentials are sent in that
-request. The reviewed adapter uses `gpt-image-1.5`, one 1024×1024 PNG at low quality, at most 2,000 prompt
-characters, a 90-second timeout, 12 MiB response/8 MiB decoded-image bounds and no redirects/retries.
-Model/quality changes need a deliberate code/pricing review. Live image quality has not been evaluated
-with the owner's project; tests use synthetic PNGs and a mocked provider.
+The optional VMN image generator (`generate_recipe_image`, the **Create an AI recipe image**
+panel and its OpenAI provider) was removed because ChatGPT kept assuming VMN creates the image.
+`OPENAI_RECIPE_IMAGE_KEY`, `OPENAI_RECIPE_IMAGE_KEY_FILE`, `RECIPE_IMAGE_MONTHLY_LIMIT` and
+`RECIPE_IMAGE_USER_MONTHLY_LIMIT` are no longer read; a container that still sets them starts
+normally, and the secret file can be deleted. Images the generator created earlier are ordinary
+Recipe attachments (named `AI-generated-OpenAI-<model>-<date>.png`) and keep working as covers,
+previews, downloads, exports and backups. The old `recipe_image_jobs` table is left untouched
+and unused.
 
-Local admission defaults to **100 attempts per UTC month server-wide** and **10 per account**, across
-Workspaces. Override `RECIPE_IMAGE_MONTHLY_LIMIT` (0–10000) and
-`RECIPE_IMAGE_USER_MONTHLY_LIMIT` (0–1000); zero disables admission. At most two recent jobs run per
-server and one per account. These are conservative request caps, not dollar accounting. All admitted
-attempts count, including failures/uncertain outcomes; there is no automatic credit/refund or retry.
-Attachment quota admission occurs before provider dispatch. Retained originals and previews/thumbs
-then use the existing shared image quotas; Documents retain their independent limits.
-
-Each request has a durable UUID and payload hash. Repeating it returns the same result/status without
-another generation; changing its payload is refused. A timeout/crash after dispatch is uncertain and
-may have incurred a charge. Keep the id and reconcile the provider request outside VMN before manually
-starting another. An interrupted STARTED job is conservatively reported as uncertain on retry. A failed
-meal commit can leave an explicitly reported provisional image; retain its returned link to retry the
-same reviewed meal after resolving the conflict. Unbound images follow normal staging cleanup.
-
-MCP reports `image_disabled` when no generator is configured, `image_limit` when admission is
-blocked, `image_conflict` for invalid or mismatched operation inputs, and `image_uncertain` when
-the provider call fails without a confirmed result. These are separate from OAuth and Workspace
-authorization. In the signed-in Recipe editor, the **Create an AI recipe image** panel is shown
-when VMN has a generator configured. The panel indicates configuration presence only.
-
-Generated originals are uploaded without alteration, with visible `AI-generated-OpenAI-<model>-<date>`
-filenames and suggested AI-illustration captions. They are illustrative, not photos of the user's meal.
-Separate previews/thumbnails, hashes, original downloads, exports and backups work as for uploads.
-A new meal requires a stored image reference before Recipe/List/audit changes commit atomically; stale
-list revisions or audit failures roll back all those content changes. Image billing itself cannot be
-rolled back with a database transaction. Serving fractions that cannot fit grocery quantities require
-explicit review through the normal ingredient-transfer flow rather than silent rounding.
-
-Connection grants, token hashes, client registrations, job admission/retry records and meal/transfer
+Connection grants, token hashes, client registrations and meal/transfer
 operation records are excluded from portable Workspace backups. Full server backups contain database
 security state and must be protected like the running database; restoring one restores that point in
 time, including its connection state. Deployment secrets are backed up separately. Regenerate/revoke
@@ -288,7 +261,7 @@ or require public access; the isolated live-integration gates above still apply.
 
 ## Upload an image generated in ChatGPT
 
-ChatGPT uses the one-call file route described in the next section. The picker and base64
+ChatGPT uses `upload_recipe_image_file`, described in the next section. The picker and base64
 upload below remain for other MCP clients.
 
 Refresh the VMN tool list after upgrading. Recipe write access exposes `open_recipe_image_upload`
@@ -334,23 +307,26 @@ category is refused.
 
 ## Upload an image already available in ChatGPT
 
-ChatGPT saves a pictured Recipe in one call. `create_recipe` and `prepare_recipe_meal` take
-the photo in their `image` argument, and `set_recipe_image` adds or replaces the photo of an
-existing Recipe. VMN uploads the file, puts it at the top of the instructions and makes it
-the cover. With `requireImage: true`, nothing is saved without a photo. JPEG, PNG and WebP
-are accepted; VMN converts WebP to PNG. List covers use `upload_list_cover_file` and then
+ChatGPT uploads the image file first with `upload_recipe_image_file` (`openai/fileParams`),
+then saves the Recipe with the returned reference as `coverImage` and the returned Markdown in
+the instructions (see the workflow above). With `requireImage: true`, nothing is saved without
+a cover. JPEG, PNG and WebP are accepted; VMN converts WebP to PNG. Since 36.17,
+`create_recipe` and `prepare_recipe_meal` no longer take an `image` file, and
+`set_recipe_image` was removed: for an existing Recipe, upload with its `recipeId` and save it
+with `save_recipe`. List covers use `upload_list_cover_file` and then
 `set_list_cover`.
 
 The two everyday flows:
 
 - **Recipe from a PDF**: attach the PDF and ask ChatGPT to save the recipe with its photo.
-  ChatGPT extracts the original photo as a separate image file and passes it as `image`.
-- **Recipe from a question or link**: ChatGPT creates a picture with its own image tool and
-  passes it as `image`.
+  ChatGPT extracts the original photo as a separate image file and uploads it.
+- **Recipe from a question or link**: ChatGPT creates a picture with its own image generation
+  and uploads it.
 
 After upgrading, refresh the VMN tools in ChatGPT and open a fresh chat. ChatGPT then sees
-only these file routes. The base64 tools (`upload_recipe_image`, `upload_list_cover`), the
-picker tools and `upload_recipe_image_file` stay available to other MCP clients.
+the file routes `upload_recipe_image_file` and `upload_list_cover_file`. The base64 tools
+(`upload_recipe_image`, `upload_list_cover`) and the picker tools stay available to other MCP
+clients.
 
 VMN downloads the file from ChatGPT's temporary storage link. It accepts
 `files.oaiusercontent.com`, regional hosts such as `sdmntprdenmarkeast.oaiusercontent.com`

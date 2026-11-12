@@ -1,4 +1,3 @@
-import {generateRecipeImage} from '@vergissmeinnicht/application';
 import {registerRecipeExport} from './recipe-export.ts';
 import type { FastifyInstance, FastifyRequest } from 'fastify';
 import { z } from 'zod';
@@ -27,8 +26,6 @@ export async function recipeRoutes(app: FastifyInstance, { services }: { service
       return { actor, scope: { workspaceId }, authorize: write => authorizeRecipes(services.recipes, actor, workspaceId, write) };
     });
   }, { prefix: '/attachments' });
-  app.get('/image-generation/status',async request=>{const {actor,workspaceId}=context(request);await authorizeRecipes(services.recipes,actor,workspaceId);return {enabled:!!services.recipeImages.provider};});
-  app.post('/image-generation',{bodyLimit:4096,config:{rateLimit:{max:10,timeWindow:60000}}},async request=>{const {actor,workspaceId}=context(request);const input=parse(z.strictObject({operationId:uuid,prompt:z.string().min(1).max(2000)}),request.body);return generateRecipeImage(services.recipeImages,actor,workspaceId,input.operationId,input.prompt).then(result=>({job:result.job,duplicate:result.duplicate,attachment:result.attachment?{id:result.attachment.id,name:result.attachment.name,format:result.attachment.format}:null}));});
   app.get('/', async request => {
     const { actor, workspaceId } = context(request);
     const query = parse(z.strictObject({ q: z.string().max(100).default(''), archived: z.enum(['true', 'false']).default('false'), offset: z.coerce.number().int().min(0).max(1_000_000_000).default(0),

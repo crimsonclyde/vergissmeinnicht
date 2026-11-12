@@ -1,5 +1,5 @@
 import { Transform } from 'node:stream';
-import { AttachmentError, RecipeImageError } from '@vergissmeinnicht/application';
+import { AttachmentError } from '@vergissmeinnicht/application';
 import {Server} from '@modelcontextprotocol/sdk/server/index.js';
 import {WebStandardStreamableHTTPServerTransport} from '@modelcontextprotocol/sdk/server/webStandardStreamableHttp.js';
 import {CallToolRequestSchema,ListToolsRequestSchema,ListResourcesRequestSchema,ReadResourceRequestSchema,ErrorCode,McpError,type Tool} from '@modelcontextprotocol/sdk/types.js';
@@ -8,7 +8,7 @@ import {hashMcpToken,withDelegation} from '@vergissmeinnicht/database';
 import {DomainValidationError,type UserId,type WorkspaceId} from '@vergissmeinnicht/domain';
 import type {FastifyInstance,FastifyRequest} from 'fastify';
 import type {AppServices} from '../composition.ts';
-import {assistantTools, McpToolInputError, RecipeCoverRequiredError} from './tools.ts';
+import {assistantTools, RecipeCoverRequiredError} from './tools.ts';
 import { MCP_IMAGE_BASE64_LENGTH } from './recipe-upload.ts';
 import { ChatGptFileError } from '../integrations/chatgpt-files.ts';
 import { attachmentUploadWidgets } from './recipe-upload-widget.ts';
@@ -18,13 +18,6 @@ const chatGptFileErrors: Record<ChatGptFileError['code'], string> = {
  file_origin_unsupported: 'ChatGPT provided an HTTPS URL outside the supported file endpoints. VMN did not contact it. The VMN administrator can review the host named here and add it to MCP_CHATGPT_FILE_HOSTS.',
  file_download_failed: 'VMN could not complete the download from the supported ChatGPT file host. Keep the operation ID unchanged if retrying.',
  file_unavailable: 'The ChatGPT file link is expired or inaccessible. Request a fresh link for the same file and keep the operation ID unchanged.',
-};
-
-const recipeImageErrors: Record<RecipeImageError['code'], string> = {
- image_disabled: 'AI image generation is not configured on this VMN server. Use the upload tools if you have an actual JPEG or PNG.',
- image_limit: 'VMN reached a generation limit for concurrent or monthly requests. This call did not start a generation. Use the upload tools if you have an actual JPEG or PNG.',
- image_conflict: 'The operation ID and prompt are invalid or do not match this request. Use a UUID v4 and preserve the original prompt and ID on retries.',
- image_uncertain: 'VMN attempted to contact the image provider but could not confirm a result. A charge is possible. Do not start a new generation automatically. Keep the operation ID and prompt unchanged if checking this request.',
 };
 
 const recipeValidationHints = new Map([
@@ -40,12 +33,12 @@ const assistantInstructions = [
  'Use list_workspaces and list_grocery_lists to resolve the available destinations. Use a destination the user named or confirmed, or the sole eligible destination when the user did not name one. If a named destination is unavailable, tell the user. Create a List only on explicit request.',
  'For meals, search saved Recipes first. If the user asks for ideas, offer choices and wait for a selection before saving a Recipe or adding ingredients. If they request web research, use public search without sharing VMN records. When the Recipe has a base serving count, ask for a target if unspecified. For Recipes without a base serving count, use null for target servings and explain that amounts will be copied as written. Use the ingredients the user said they have and ask only if it is unclear what should be bought. Use VMN serving calculations. Use prepare_recipe_meal when the user wants every ingredient, or transfer_recipe_to_groceries for the reviewed subset. Never silently round amounts.',
  'For a new Recipe, search for duplicates first. New Recipes default to public in the shared VMN cookbook, visible through other enabled Workspaces to signed-in users, not anonymously on the internet. Set private true only when the user requests Private (home Workspace only). Preserve visibility when editing existing Recipes; never publish an existing private Recipe without an explicit request.',
- 'For a web Recipe or a question that needs a picture, create a fitting image with ChatGPT’s own image tool. For a supplied cookbook PDF, extract the recipe and its original photo as a separate JPEG, PNG or WebP file without re-encoding when possible; never pass the PDF itself as an image. Do not replace a supplied photo with a generated picture, and do not call generate_recipe_image for either flow.',
+ 'VMN does not generate images. For a web Recipe or a question that needs a picture, create the image with your own native image generation if you have it. For a supplied cookbook PDF, extract its original photo as a separate JPEG, PNG or WebP file without re-encoding when possible; never pass the PDF itself as an image, and never replace a supplied photo with a generated picture.',
  'Give every new Recipe its categories from the fixed list: starter, soup, salad, main, side, dessert, baking, breakfast, snack, sauce, drink, cocktail. Choose all that fit (a Negroni is drink and cocktail; a pumpkin soup can be starter and soup). Keep existing categories on edits unless the user asks to change them. Use search_recipes with categories to browse, for example all desserts.',
  'When importing or editing Recipe ingredients, put descriptive quantities such as etwas, eine Prise, nach Geschmack, a bit, a pinch, to taste, un pizzico or q.b. in amount and preserve the recipe language. For etwas Tomatenmark, use amount etwas, name Tomatenmark and an empty unit. Use note for preparation details. Never invent a measurement for a descriptive amount. Set the Recipe serving count to null when it is unknown.',
- 'Pass the image file itself in the image argument of create_recipe, prepare_recipe_meal or set_recipe_image, or in the file argument of upload_list_cover_file. VMN uploads it, places it in the instructions and sets the cover in the same call, so do not write image Markdown or coverImage yourself. Never guess, transcribe or print base64.',
- 'If the user wants a photo, set requireImage true on create_recipe. Read the saved Recipe back and verify the cover and visibility. If the call fails, report the error code and that the Recipe was not saved; keep the same operationId when retrying.',
- 'For an existing Recipe photo, read get_recipe and call set_recipe_image with its revision; set replaceCover true to replace the current cover. To remove a photo, edit only its image Markdown with save_recipe and update or omit coverImage if it pointed to that photo.',
+ 'Pictured Recipe workflow: 1. search_recipes to avoid a duplicate. 2. Generate or extract the image. 3. Upload the actual image file with upload_recipe_image_file and recipeId null. 4. Use the returned attachment reference as content.coverImage. 5. Put the returned Markdown in the instructions. 6. Call create_recipe with requireImage true. 7. Read the Recipe back with get_recipe and verify the saved cover and visibility.',
+ 'If image generation or upload fails, report the failure to the user. Do not create the Recipe without its image when an image was required. Never fabricate image references, file paths or upload success; use only references VMN returned. Never guess, transcribe or print base64. Keep the same operationId when retrying.',
+ 'For an existing Recipe photo, read get_recipe, upload the file with upload_recipe_image_file and that recipeId, then save_recipe at the read revision with the returned Markdown in the instructions and the returned reference as coverImage. To remove a photo, edit only its image Markdown with save_recipe and update or omit coverImage if it pointed to that photo.',
  'For List covers, use list_cover_targets to identify the Workspace, List and revision. Upload the image with upload_list_cover_file, then use set_list_cover with the returned attachment ID and reviewed revision. To remove a cover the user asked to remove, use set_list_cover with coverId null. Read the saved cover status back with list_cover_targets. If the file upload is unavailable, point the user to the List editor in VMN.',
  'For Procedure edits, resolve the Procedure and Section and read the current revision. For execution, resolve the active Run and actual RunStep and read its current state. Ask when any target is ambiguous.',
  'Use fresh records before writes. Report what was saved only after the server confirms it. Preserve operation ids and payloads on retries, and never retry uncertain image charges.',
@@ -126,7 +119,7 @@ export async function registerMcpHttp(app:FastifyInstance,services:AppServices){
   }
   server.setRequestHandler(ListToolsRequestSchema,async()=>({tools:available.map(tool=>{
    const widget=widgets.find(item=>item.toolName===tool.name);
-   return {name:tool.name,description:tool.description,inputSchema:z.toJSONSchema(tool.schema),...toolMeta(tool,widget?.resource.uri),annotations:{readOnlyHint:!tool.write,destructiveHint:tool.name==='set_list_cover',idempotentHint:!tool.write||!!tool.fileParams||['complete_run_step','create_grocery_list','create_recipe','add_grocery_item','transfer_recipe_to_groceries','prepare_recipe_meal','generate_recipe_image','open_recipe_image_upload','upload_recipe_image','open_list_cover_upload','upload_list_cover','set_list_cover'].includes(tool.name),openWorldHint:tool.name==='generate_recipe_image'||!!tool.fileParams}} as Tool;
+   return {name:tool.name,description:tool.description,inputSchema:z.toJSONSchema(tool.schema),...toolMeta(tool,widget?.resource.uri),annotations:{readOnlyHint:!tool.write,destructiveHint:tool.name==='set_list_cover',idempotentHint:!tool.write||!!tool.fileParams||['complete_run_step','create_grocery_list','create_recipe','add_grocery_item','transfer_recipe_to_groceries','prepare_recipe_meal','open_recipe_image_upload','upload_recipe_image','open_list_cover_upload','upload_list_cover','set_list_cover'].includes(tool.name),openWorldHint:!!tool.fileParams}} as Tool;
   })}));
   server.setRequestHandler(CallToolRequestSchema,async call=>{
    const tool=available.find(tool=>tool.name===call.params.name);if(!tool)return {isError:true,content:[{type:'text' as const,text:'Tool unavailable for this connection.'}]};
@@ -142,13 +135,11 @@ export async function registerMcpHttp(app:FastifyInstance,services:AppServices){
     const text=JSON.stringify(result);if(Buffer.byteLength(text)>512*1024)return {isError:true,content:[{type:'text' as const,text:'Result too large. Narrow the request.'}]};
     return {content:[{type:'text' as const,text}],...(widgets.some(widget=>widget.toolName===tool.name)||Object.hasOwn(uploadScopes,tool.name)||tool.fileParams?{structuredContent:JSON.parse(text) as Record<string,unknown>}: {})};
    }catch(error){
-    if(error instanceof RecipeImageError)return {isError:true,content:[{type:'text' as const,text:`Recipe image request failed (${error.code}). ${recipeImageErrors[error.code]}`}]};
     if(error instanceof RecipeCoverRequiredError)return {isError:true,content:[{type:'text' as const,text:'Recipe not saved (recipe_cover_required). Upload a JPEG or PNG and use its confirmed cover reference.'}]};
     if(error instanceof DomainValidationError && error.code === 'invalid_recipe'){
      const hint=recipeValidationHints.get(error.field) ?? 'Review the recipe fields against the tool schema.';
      return {isError:true,content:[{type:'text' as const,text:`Invalid recipe content (invalid_recipe). ${hint}`}]};
     }
-    if(error instanceof McpToolInputError)return {isError:true,content:[{type:'text' as const,text:error.message}]};
     if(error instanceof ChatGptFileError){
      // Host name only: the signed path and query never reach the log or the result.
      request.log.warn({tool:tool.name,code:error.code,host:error.host},'ChatGPT file transfer failed');

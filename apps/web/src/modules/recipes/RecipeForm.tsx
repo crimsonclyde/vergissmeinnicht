@@ -6,7 +6,6 @@ import { AttachmentPanel, imageReference } from '../../attachments/AttachmentPan
 import { t } from '../../i18n/index.ts';
 import { MobileActionBar } from '../../mobile/MobileActionBar.tsx';
 import { PhoneFlowHeading, usePhoneEditorFlow } from '../../mobile/PhoneEditorFlow.tsx';
-import { RecipeImageGenerator } from './RecipeImageGenerator.tsx';
 import './recipe-form.css';
 
 const Editor = lazy(() => import('../../markdown/MarkdownEditor.tsx').then(module => ({ default: module.MarkdownEditor })));
@@ -93,7 +92,6 @@ export function RecipeForm(props: {
               {images.map((image, index) => <option key={image.url} value={image.url}>{t('recipes.photoNumber', { count: index + 1 })}</option>)}
             </select></label>
           </div>}
-          <RecipeImageGenerator key={props.selectedId ?? props.editorKey} workspaceId={props.workspaceId} onInsert={props.onInsert} />
           <AttachmentPanel initiallyOpen={props.startWithImages} client={client} refreshVersion={props.editorKey} onInsert={props.onInsert} onError={props.onError} allowClipboardImage />
         </div></details>
       </section>
