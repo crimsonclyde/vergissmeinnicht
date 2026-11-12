@@ -39,6 +39,7 @@ export * from './progress.ts';
 export * from './bring.ts';
 export * from './attachment.ts';
 export * from './journal/markdown.ts';
+export * from './journal/portable.ts';
 
 export * from './recipe.ts';
 

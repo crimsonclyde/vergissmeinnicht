@@ -390,6 +390,28 @@ your entries are unencrypted, and the server operator can access the underlying 
 is saved per account and notice version. Private entries, drafts and images never enter Workspace
 backups or Workspace searches; full server backups include private account data.
 
+**Library and reading (2026-11-12).** Notes open as a library of cards or a compact list: search as
+you type, sort (recently edited, entry date, title), notebook and tag chips with counts, an archive
+toggle, and **Pinned** first. Each card shows the first image, an excerpt, checklist progress
+("1 of 3 done"), the date and tags. Notebooks keep one colour everywhere. The personal Journal adds a
+**timeline** view by month: a small calendar with dots on written days, "pages this month", a writing
+streak, **On this day** from earlier years and **Today's page**, which opens today's entry or starts
+one dated today. **Add weather and moon** (personal Journal) inserts one plain italic Markdown line
+with the forecast and moon phase; it is ordinary text you can edit or delete.
+
+Opening an entry shows it as a **page to read** with its notebook, tags, date, checklist progress and
+an outline; **Edit** (pencil) switches to the editor, **Pin** and **Revision history** are icon
+buttons, and **⋯ More actions** holds **Export Markdown**, **Copy as Markdown** and Archive/Restore.
+Desktop editing puts the title and text on one page with **Details** (date, notebook chips, tag chips,
+pin, autosave) and **Images & links** beside it; **×** leaves the editor (asking first about unsaved
+changes).
+
+**Markdown stays the source.** Every entry is stored as Markdown. **⋯ → Import Markdown files** in the library
+accepts up to 50 `.md` files (200 KB each): front matter (`title`, `date`, `notebook`/`collection`,
+`tags`, `pinned`) is read when present, otherwise the first `# heading` or the file name becomes the
+title. Files exported from VMN import back unchanged. **⋯ → Export collection** downloads the entries matching the
+search as ZIP, **Export complete archive** everything; images are not imported from Markdown files.
+
 New notes use **CommonMark with GFM**: headings, formatting, tables, task checkboxes, quotes, links and
 code. Use **Visual** or **Markdown source**; the selected mode is highlighted. Visual mode has a
 visible formatting bar for bold, italic, headings, lists, quotes, Undo and Redo. On phones these use

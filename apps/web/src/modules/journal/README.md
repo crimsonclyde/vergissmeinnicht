@@ -33,4 +33,14 @@ adapters; new permissions or cross-scope sharing do not follow from uploader reu
 Exports are readable Markdown/ZIP plus original image bytes and metadata. AST-based remapping changes
 real destinations only, preserving code and unknown text. Workspace recovery classifies all tables,
 remaps fresh ids and excludes private content. Supported older packages upgrade explicitly. Physical
-deduplication, portable import, broader backlinks and additional syntax stay deferred.
+deduplication, image import, broader backlinks and additional syntax stay deferred.
+
+Library and reading (steps.md 40): `JournalHome.tsx` (cards/list, and the personal timeline with month,
+streak and On this day), `JournalReader.tsx` (read-first page view; Edit is one tap), `JournalPage.tsx`
+(modes list/read/edit, the editor and the phone staged flow) and `journal.css` (`.nb-*`, theme tokens
+plus Tokyo Nights, Witch Forest and Places touches, forced colours). `GET …/journal/overview` returns
+id, title, date, notebook and tags of unarchived entries only (never bodies) for chips, the month and
+On this day; `GET …/journal` takes `collection`, `tag`, `month` and `sort`. Markdown import is
+client-side: `parseJournalMarkdown` (domain, shared with export's `journalMarkdown`) turns a `.md`
+file into ordinary content that goes through the same validated save as typed entries; front matter is
+read as data only, never executed.
