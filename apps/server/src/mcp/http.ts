@@ -40,6 +40,7 @@ const assistantInstructions = [
  'If image generation or upload fails, report the failure to the user. Do not create the Recipe without its image when an image was required. Never fabricate image references, file paths or upload success; use only references VMN returned. Never guess, transcribe or print base64. Keep the same operationId when retrying.',
  'For an existing Recipe photo, read get_recipe, upload the file with upload_recipe_image_file and that recipeId, then save_recipe at the read revision with the returned Markdown in the instructions and the returned reference as coverImage. To remove a photo, edit only its image Markdown with save_recipe and update or omit coverImage if it pointed to that photo.',
  'To move or delete grocery items, resolve the Workspace and Lists, read them with get_grocery_list and show the user exactly which items will move (and to which List) or be deleted. Wait for the user to approve that exact change, then make it with one move_grocery_items or delete_grocery_items call using the read revisions; do not ask again after an explicit approval. Never use add_grocery_item plus delete_grocery_items to move items. Never merge or replace items with the same title. If a List changed meanwhile, read it again and review the difference with the user before retrying.',
+ 'To change items, read the List and use update_grocery_items with the exact item ids: rename, change quantity or unit, or tick items off as bought (checked true) and put them back (checked false), several at once. When the user says what they bought, tick those items off without asking again; ask only when it is unclear which items are meant. To undo a deletion, read list_deleted_grocery_items and restore the named items with restore_grocery_items.',
  'For List covers, use list_cover_targets to identify the Workspace, List and revision. Upload the image with upload_list_cover_file, then use set_list_cover with the returned attachment ID and reviewed revision. To remove a cover the user asked to remove, use set_list_cover with coverId null. Read the saved cover status back with list_cover_targets. If the file upload is unavailable, point the user to the List editor in VMN.',
  'For Procedure edits, resolve the Procedure and Section and read the current revision. For execution, resolve the active Run and actual RunStep and read its current state. Ask when any target is ambiguous.',
  'Use fresh records before writes. Report what was saved only after the server confirms it. Preserve operation ids and payloads on retries, and never retry uncertain image charges.',
@@ -52,7 +53,7 @@ function toolMeta(tool:{fileParams?:readonly string[]|undefined;hiddenFromChatGp
  return Object.keys(meta).length?{_meta:meta}:{};
 }
 
-const groceryBatchTools = new Set(['move_grocery_items', 'delete_grocery_items']);
+const groceryBatchTools = new Set(['move_grocery_items', 'delete_grocery_items', 'update_grocery_items', 'restore_grocery_items']);
 /** A refusal before the grocery batch ran (grant, Workspace tool switch, arguments) as a structured error; nothing was changed. */
 function groceryBatchRefusal(error:unknown):GroceryBatchToolError|null{
  if(error instanceof GroceryBatchToolError)return error;
@@ -60,7 +61,8 @@ function groceryBatchRefusal(error:unknown):GroceryBatchToolError|null{
  if(error instanceof z.ZodError){
   const issues=error.issues;
   if(issues.some(issue=>issue.message==='duplicate_item_ids'))return groceryBatchError('duplicate_item_ids');
-  if(issues.some(issue=>issue.path[0]==='itemIds'))return groceryBatchError('invalid_items');
+  if(issues.some(issue=>issue.message==='empty_edit'))return groceryBatchError('empty_edit');
+  if(issues.some(issue=>issue.path[0]==='itemIds'||(issue.path[0]==='items'&&issue.path[2]==='itemId')))return groceryBatchError('invalid_items');
   return groceryBatchError(issues.some(issue=>issue.path[0]==='operationId')?'invalid_operation_id':'invalid_arguments');
  }
  return null;
@@ -134,7 +136,7 @@ export async function registerMcpHttp(app:FastifyInstance,services:AppServices){
   }
   server.setRequestHandler(ListToolsRequestSchema,async()=>({tools:available.map(tool=>{
    const widget=widgets.find(item=>item.toolName===tool.name);
-   return {name:tool.name,description:tool.description,inputSchema:z.toJSONSchema(tool.schema),...toolMeta(tool,widget?.resource.uri),annotations:{readOnlyHint:!tool.write,destructiveHint:['set_list_cover','delete_grocery_items'].includes(tool.name),idempotentHint:!tool.write||!!tool.fileParams||['complete_run_step','create_grocery_list','create_recipe','add_grocery_item','move_grocery_items','delete_grocery_items','transfer_recipe_to_groceries','prepare_recipe_meal','open_recipe_image_upload','upload_recipe_image','open_list_cover_upload','upload_list_cover','set_list_cover'].includes(tool.name),openWorldHint:!!tool.fileParams}} as Tool;
+   return {name:tool.name,description:tool.description,inputSchema:z.toJSONSchema(tool.schema),...toolMeta(tool,widget?.resource.uri),annotations:{readOnlyHint:!tool.write,destructiveHint:['set_list_cover','delete_grocery_items'].includes(tool.name),idempotentHint:!tool.write||!!tool.fileParams||['complete_run_step','create_grocery_list','create_recipe','add_grocery_item','move_grocery_items','delete_grocery_items','update_grocery_items','restore_grocery_items','transfer_recipe_to_groceries','prepare_recipe_meal','open_recipe_image_upload','upload_recipe_image','open_list_cover_upload','upload_list_cover','set_list_cover'].includes(tool.name),openWorldHint:!!tool.fileParams}} as Tool;
   })}));
   server.setRequestHandler(CallToolRequestSchema,async call=>{
    const tool=available.find(tool=>tool.name===call.params.name);if(!tool)return {isError:true,content:[{type:'text' as const,text:'Tool unavailable for this connection.'}]};

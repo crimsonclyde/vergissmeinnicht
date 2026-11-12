@@ -62,6 +62,31 @@ deleted, or nothing changes.
 
 Refresh VMN's tools in ChatGPT after upgrading so the two tools appear.
 
+### Edit, tick off and restore grocery items
+
+With **Lists write** access, `update_grocery_items` changes items of one grocery List in one
+atomic operation: rename, change quantity or unit (or clear them with `null`), tick off as bought
+(`checked: true`) or put back on the list (`checked: false`). `list_deleted_grocery_items` (needs
+only **Lists read**) shows the recently deleted items of a List, and `restore_grocery_items` puts
+chosen ones back at their old places with their quantity, unit and checked state.
+
+| Tool | Required arguments | Answer |
+| --- | --- | --- |
+| `update_grocery_items` | `workspaceId`, `listId`, `items` (1–100, each `itemId` plus any of `title`, `quantity`, `unit`, `checked`), `operationId`, `expectedRevision` | `outcome: "UPDATED"`, `duplicate`, `updatedItemIds`, `list` with its new revision |
+| `list_deleted_grocery_items` | `workspaceId`, `listId` | the List's `id`, `title`, `revision` and up to 100 `deletedItems` (newest first, with `deletedAt` and `deletedBy`) |
+| `restore_grocery_items` | `workspaceId`, `listId`, `itemIds` (1–100), `operationId`, `expectedRevision` | `outcome: "RESTORED"`, `duplicate`, `restoredItemIds`, `list` with its new revision |
+
+- Fields left out of an item edit stay as they are. Ticking an item that is already ticked keeps
+  the first tick. To-do tasks are not reachable through these grocery tools.
+- When the user says what they bought, the assistant ticks those items off without asking again;
+  it asks only when it is unclear which items are meant.
+- Retries and refusals work as for move and delete. Extra codes: `empty_edit` (an item edit names
+  no field) and `invalid_item_values` (empty title, a quantity that is not a positive number, or a
+  unit that is too long). For a restore, `invalid_items` names ids that are not deleted items of
+  that List.
+- In the web app, deleted items appear under **Recently deleted** at the end of each List, with
+  an undo button per item, for everyone who may edit the List.
+
 ## ChatGPT with the computer switched off
 
 Start with the [private VMN to ChatGPT runbook](chatgpt-mcp-tunnel.md) for setup, a copyable

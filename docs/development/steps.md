@@ -7807,6 +7807,58 @@ Release note draft (for the next release, owner release 68):
   keeps quantities, units and checked state, and never creates duplicates on a retry. Deleted
   items can be restored. Refresh VMN's tools in ChatGPT after updating. Migration 0074.
 
+### 36.19 Edit, tick and restore grocery items through MCP, and Recently deleted (owner request 2026-11-12)
+
+After 36.18 the owner picked every item of the follow-up list (MCP items 1–6 and four design
+items). This step is MCP item 1 (edit and tick grocery items) and item 2 (restore deleted items,
+plus a "Recently deleted" view in the web app). The other items follow as separate pull requests.
+
+Implemented:
+
+- Application commands `updateListItems`, `restoreListItems` and the read `listRemovedListItems`
+  (`packages/application/src/lists`), with repository methods `updateItems`, `restoreItems` and
+  `removedItems`. Both writes follow 36.18 exactly: one IMMEDIATE transaction re-checking
+  membership, `list.edit`, the Lists tool switch and the live MCP grant; the List must be at the
+  reviewed revision; every named item must be usable or nothing changes; one revision bump.
+- **Edit**: per item any of title, quantity, unit (both clearable with `null`) and checked. Text is
+  normalized by the same domain rules as the app; To-do tasks refuse quantity/unit
+  (`kind_mismatch`). Content edits raise the item revision and set the offline merge stamps, so the
+  app's own edit and offline replay keep working; ticking an already ticked item keeps the first
+  tick; a tick awards the same progress as in the app.
+- **Restore**: removed items of that List only, back at their old places with quantity, unit and
+  checked state; counts against the 300-item limit.
+- Migration **0075** widens `list_item_operations.kind` to `UPDATE` and `RESTORE` (table rebuild,
+  data kept). Security events `LIST_ITEMS_UPDATED` and `LIST_ITEMS_RESTORED` (List id and counts).
+- MCP tools `update_grocery_items`, `restore_grocery_items` (scope `lists.write`) and
+  `list_deleted_grocery_items` (scope `lists.read`); structured errors as in 36.18 plus
+  `empty_edit` and `invalid_item_values`. Server instructions: tick off what the user says they
+  bought without asking again; ask only when it is unclear which items are meant.
+- Web: `GET …/lists/:listId/removed-items` (`list.edit`, newest first, up to 100) and a collapsed
+  **Recently deleted (n)** section at the end of each List with one undo icon button per item. It
+  refreshes whenever the List revision changes, so deletions by others or by ChatGPT show up. Only
+  online and only for people who may edit. Theme tokens only; checked in light, dark,
+  witch-forest, memento-mori at 320/390 px and tokyo-nights/light at 1440 px (no overflow).
+  Screens in `/mnt/project-files/ui-review/2026-11-12-recently-deleted/`.
+
+Checks: `list-edit-restore-use-cases.test.ts` (8 tests: combined edit and tick, null clearing and
+repeated tick, refusals for removed/foreign/repeated/empty/invalid items, stale revision, other
+Workspace, guest, outsider and demoted actor, To-do rules, idempotent retry and reused ids, removed
+items order and restore, restore refusals and the item limit) and
+`mcp-grocery-edit-restore.test.ts` (3 tests: tool list, schemas, annotations and read-only grants;
+the "I bought…" flow, delete and undo end to end with web read-back; structured refusals). Full
+suite 1772 passed, lint and typecheck clean.
+
+Security surface changed: yes, narrowly; see security.md 36.19.
+
+Remaining: hosted ChatGPT check after deployment and a tool refresh.
+
+Release note draft (next release, owner release 68):
+
+- **ChatGPT can tick off and edit grocery items, and undo deletions.** Tell it what you bought and
+  it ticks those items off; ask it to change a quantity or rename an item. Deleted items can be
+  brought back by ChatGPT, and in VMN under **Recently deleted** at the end of each List.
+  Refresh VMN's tools in ChatGPT after updating. Migration 0075.
+
 ### Release plan for 0.13.10, owner milestone 64 (2026-11-10)
 
 The preceding 0.13.9 candidate was stopped before publication after inspecting the

@@ -23,7 +23,7 @@ import { roleHasCapability } from '@vergissmeinnicht/permissions';
 import { NotAuthorizedError } from '../invitations/errors.ts';
 import type { ActorGuard } from '../ports/actor-guard.ts';
 import type { Clock } from '../ports/clock.ts';
-import type { ListBatchReceipt, ListBatchResult, ListReplayResult, ListRepository, ListSummary, ListWithItems } from '../ports/list-repository.ts';
+import type { ListBatchReceipt, ListBatchResult, ListItemEdit, RemovedListItem, ListReplayResult, ListRepository, ListSummary, ListWithItems } from '../ports/list-repository.ts';
 import { OfflineAccountMismatchError } from '../runs/errors.ts';
 import type { WorkspaceRepository } from '../ports/workspace-repository.ts';
 import { userActor } from '../user-actor.ts';
@@ -391,4 +391,112 @@ export async function removeListItems(
     edit,
   );
   return batchOutcome(result);
+}
+
+/** A batch edit as a caller sends it (36.19): any of title, quantity, unit and checked per item. */
+export interface ListItemEditRequest {
+  readonly itemId: string;
+  readonly title?: string | undefined;
+  readonly quantity?: string | null | undefined;
+  readonly unit?: string | null | undefined;
+  readonly checked?: boolean | undefined;
+}
+
+/**
+ * Edits several items of one List at once (36.19): rename, change quantity or unit, tick or untick —
+ * all or none, at the List revision the caller reviewed. Text is normalized exactly as in the app.
+ * Retries behave as for `moveListItems`.
+ */
+export async function updateListItems(
+  deps: ListDeps,
+  input: {
+    readonly actor: User;
+    readonly workspaceId: WorkspaceId;
+    readonly listId: string;
+    readonly edits: readonly ListItemEditRequest[];
+    readonly operationId: string;
+    readonly expectedRevision: number;
+  },
+): Promise<ListBatchOutcome> {
+  await authorizeWorkspace(deps, input.actor, input.workspaceId, 'list.edit');
+  const listId = parseListId(input.listId);
+  const itemIds = batchItemIds(input.edits.map((edit) => edit.itemId));
+  const edits: ListItemEdit[] = input.edits.map((edit) => {
+    if (edit.title === undefined && edit.quantity === undefined && edit.unit === undefined && edit.checked === undefined) {
+      throw new ListBatchError('empty_edit', [edit.itemId]);
+    }
+    return {
+      itemId: edit.itemId as ListItemId,
+      ...(edit.title === undefined ? {} : { title: normalizeListItemTitle(edit.title) }),
+      ...(edit.quantity === undefined ? {} : { quantity: normalizeListItemQuantity(edit.quantity) }),
+      ...(edit.unit === undefined ? {} : { unit: normalizeListItemUnit(edit.unit) }),
+      ...(edit.checked === undefined ? {} : { checked: edit.checked }),
+    };
+  });
+  const now = deps.clock.now();
+  const result = await deps.lists.updateItems(
+    {
+      workspaceId: input.workspaceId,
+      operationId: batchOperationId(input.operationId),
+      listId,
+      itemIds,
+      edits,
+      expectedRevision: input.expectedRevision,
+      at: now,
+      keepSince: new Date(now.getTime() - LIST_CHANGE_KEEP_MS),
+    },
+    userActor(input.actor),
+    edit,
+  );
+  return batchOutcome(result);
+}
+
+/**
+ * Puts several removed items of one List back at once (36.19), at their old places — all or none,
+ * at the reviewed List revision. Retries behave as for `moveListItems`.
+ */
+export async function restoreListItems(
+  deps: ListDeps,
+  input: {
+    readonly actor: User;
+    readonly workspaceId: WorkspaceId;
+    readonly listId: string;
+    readonly itemIds: readonly string[];
+    readonly operationId: string;
+    readonly expectedRevision: number;
+  },
+): Promise<ListBatchOutcome> {
+  await authorizeWorkspace(deps, input.actor, input.workspaceId, 'list.edit');
+  const listId = parseListId(input.listId);
+  const itemIds = batchItemIds(input.itemIds);
+  const now = deps.clock.now();
+  const result = await deps.lists.restoreItems(
+    {
+      workspaceId: input.workspaceId,
+      operationId: batchOperationId(input.operationId),
+      listId,
+      itemIds,
+      expectedRevision: input.expectedRevision,
+      at: now,
+      keepSince: new Date(now.getTime() - LIST_CHANGE_KEEP_MS),
+      maxItems: MAX_ITEMS_PER_LIST,
+    },
+    userActor(input.actor),
+    edit,
+  );
+  return batchOutcome(result);
+}
+
+/** How many removed items "Recently deleted" shows. */
+export const REMOVED_LIST_ITEMS_SHOWN = 100;
+
+/**
+ * The removed items of a List that can still be put back, most recent first (36.19). Only people
+ * who may put them back (`list.edit`) see them.
+ */
+export async function listRemovedListItems(deps: ListDeps, input: ListRef): Promise<RemovedListItem[]> {
+  await authorizeWorkspace(deps, input.actor, input.workspaceId, 'list.edit');
+  const found = await deps.lists.removedItems(input.workspaceId, input.listId, REMOVED_LIST_ITEMS_SHOWN);
+  if (found === undefined) throw new ListNotFoundError();
+  return found;
 }

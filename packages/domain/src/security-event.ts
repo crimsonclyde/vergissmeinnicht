@@ -56,6 +56,9 @@ export const SECURITY_EVENT_TYPES = [
   // Several List items moved to another List or removed at once (36.18): List ids and a count, never item text.
   'LIST_ITEMS_MOVED',
   'LIST_ITEMS_REMOVED',
+  // Several List items edited or ticked, or put back, at once (36.19): List id and counts, never item text.
+  'LIST_ITEMS_UPDATED',
+  'LIST_ITEMS_RESTORED',
   'BRING_CHANGED',
   'JOURNAL_ENTRY_CHANGED',
   'JOURNAL_PRIVACY_ACKNOWLEDGED',

@@ -44,6 +44,34 @@ export interface ListRemoveInput extends ListBatchCommon {
   readonly listId: ListId;
   readonly expectedRevision: number;
 }
+/**
+ * One item change of a batch edit (36.19): any of title, quantity, unit and checked; a field left
+ * out stays as it is. Values are already normalized.
+ */
+export interface ListItemEdit {
+  readonly itemId: ListItemId;
+  readonly title?: string;
+  readonly quantity?: string | null;
+  readonly unit?: string | null;
+  readonly checked?: boolean;
+}
+export interface ListUpdateInput extends ListBatchCommon {
+  readonly listId: ListId;
+  readonly expectedRevision: number;
+  /** One per item, in the order of `itemIds`. */
+  readonly edits: readonly ListItemEdit[];
+}
+export interface ListRestoreInput extends ListBatchCommon {
+  readonly listId: ListId;
+  readonly expectedRevision: number;
+  readonly maxItems: number;
+}
+/** A removed item that can still be put back, with when and by whom it was removed. */
+export interface RemovedListItem {
+  readonly item: ListItem;
+  readonly removedAt: Date;
+  readonly removedBy: string | null;
+}
 /** The List revisions right after the operation, by List id. */
 export interface ListBatchReceipt {
   readonly itemIds: readonly ListItemId[];
@@ -184,6 +212,16 @@ export interface ListRepository {
   moveItems(input: ListMoveInput, actor: UserActor, guard: ActorGuard): Promise<ListBatchResult>;
   /** Removes several live items (soft delete, like `removeItem`, so each can be put back). */
   removeItems(input: ListRemoveInput, actor: UserActor, guard: ActorGuard): Promise<ListBatchResult>;
+  /**
+   * Edits several live items of one List at once (36.19): text, quantity, unit and checked state, all
+   * or none. Content edits raise the item's revision; asking for the checked state an item already
+   * has changes nothing for it.
+   */
+  updateItems(input: ListUpdateInput, actor: UserActor, guard: ActorGuard): Promise<ListBatchResult>;
+  /** Puts several removed items back at their old places (36.19); counts against `maxItems` again. */
+  restoreItems(input: ListRestoreInput, actor: UserActor, guard: ActorGuard): Promise<ListBatchResult>;
+  /** Removed items of a live List, most recently removed first (36.19); `undefined` for an unknown List. */
+  removedItems(workspaceId: WorkspaceId, listId: ListId, limit: number): Promise<RemovedListItem[] | undefined>;
   /** Puts a removed item back at its old place; counts against `maxItems` again. */
   restoreItem(
     input: { readonly workspaceId: WorkspaceId; readonly listId: ListId; readonly itemId: ListItemId; readonly at: Date; readonly maxItems: number },

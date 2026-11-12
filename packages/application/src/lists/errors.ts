@@ -48,7 +48,9 @@ export type ListBatchErrorCode =
   | 'operation_reused'
   | 'limit_reached'
   | 'kind_mismatch'
-  | 'invalid_operation_id';
+  | 'invalid_operation_id'
+  /** An edit (36.19) that names no field to change. */
+  | 'empty_edit';
 
 export class ListBatchError extends Error {
   readonly code: ListBatchErrorCode;

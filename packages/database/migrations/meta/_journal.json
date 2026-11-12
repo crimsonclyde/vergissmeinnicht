@@ -526,6 +526,13 @@
       "when": 1794521588256,
       "tag": "0074_list_item_operations",
       "breakpoints": true
+    },
+    {
+      "idx": 75,
+      "version": "6",
+      "when": 1794524191717,
+      "tag": "0075_list_item_operation_kinds",
+      "breakpoints": true
     }
   ]
 }

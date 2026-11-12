@@ -2060,3 +2060,28 @@ soft-remove the grocery items it names in the same selected Workspace.
   scope) and review before retrying.
 - [x] `LIST_ITEMS_MOVED` / `LIST_ITEMS_REMOVED` security events record List ids, a count and the
   MCP client/grant, never item text.
+
+### Grocery batch edit and restore through MCP (36.19, 2026-11-12)
+
+**Security surface changed: narrow.** Two delegated writes (`update_grocery_items`,
+`restore_grocery_items`) under the existing `lists.write` scope, one delegated read
+(`list_deleted_grocery_items`) under `lists.read`, and one web read
+(`GET /api/workspaces/{id}/lists/{listId}/removed-items`). No new scope, credential, outbound
+connection or dependency. Migration 0075 only widens the allowed kinds of `list_item_operations`.
+
+- [x] Writes use the same checks as the 36.18 batch tools: grant scope and Workspace before the
+  call; membership, `list.edit`, the Lists tool switch and the live grant re-checked in the
+  IMMEDIATE transaction. Guests, demoted accounts, other Workspaces and To-do Lists under a
+  grocery grant are refused or "not found" (tested).
+- [x] All or nothing at the reviewed List revision. Edits only touch live items of that List;
+  restores only touch removed items of that List; foreign ids are refused, never acted on. Text is
+  normalized by the same domain rules as the app's own edits; To-do tasks never get a quantity.
+- [x] Reading removed items requires `list.edit` (the people who can put them back), not only
+  `list.view`; the answer contains item text, quantity, unit, removal time and the remover's
+  display name only — no user ids or emails.
+- [x] Retries and operation ids as in 36.18 (bound to account, Workspace, kind and request hash;
+  pruned after 90 days; not in backups). An edit's hash ignores the order of items.
+- [x] `LIST_ITEMS_UPDATED` / `LIST_ITEMS_RESTORED` security events record the List id and counts
+  (plus the MCP client/grant when delegated), never item text.
+- [x] Ticking through MCP awards the same progress as ticking in the app (once per item).
+

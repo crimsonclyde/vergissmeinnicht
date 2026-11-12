@@ -11,6 +11,7 @@ import {
   getList,
   listLists,
   listSnapshot,
+  listRemovedListItems,
   replayListChange,
   removeListItem,
   renameList,
@@ -200,6 +201,15 @@ export async function listRoutes(app: FastifyInstance, { services }: { services:
   });
 
   app.get('/:listId', async (request) => ({ list: detailView(await getList(deps, listRef(request))) }));
+
+  /** Recently deleted items that can be put back (36.19), newest first. */
+  app.get('/:listId/removed-items', async (request) => ({
+    items: (await listRemovedListItems(deps, listRef(request))).map((entry) => ({
+      ...itemView(entry.item),
+      removedAt: entry.removedAt.toISOString(),
+      removedBy: entry.removedBy,
+    })),
+  }));
 
   app.post('/:listId/rename', post, async (request) => {
     const ref = listRef(request);

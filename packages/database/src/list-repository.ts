@@ -1,8 +1,8 @@
 import { awardProgress } from './progress-repository.ts';
 import { enabledTool } from './tool-policy.ts';
 import { createHash, randomUUID } from 'node:crypto';
-import { and, asc, count, eq, inArray, isNotNull, isNull, lt, max, sql } from 'drizzle-orm';
-import type { ListBatchResult, ListReplayInput, ListReplayResult, ListRepository, ListSummary, ListWithItems } from '@vergissmeinnicht/application';
+import { and, asc, count, desc, eq, inArray, isNotNull, isNull, lt, max, sql } from 'drizzle-orm';
+import type { ListBatchResult, ListItemEdit, ListReplayInput, ListReplayResult, ListRepository, ListSummary, ListWithItems } from '@vergissmeinnicht/application';
 import { assertListItemKind, type List, type ListId, type ListItem, type ListItemId, type ListReplayOutcome, type UserId, type WorkspaceId } from '@vergissmeinnicht/domain';
 import { IMMEDIATE, actorAllowed, type Transaction, type UserActor } from './actor-guard.ts';
 import { roleHasCapability } from '@vergissmeinnicht/permissions';
@@ -243,7 +243,7 @@ function applyChange(tx: Transaction, input: ListReplayInput, actor: UserActor):
 const softRemove = (tx: Transaction, itemId: string, at: Date, actor: UserActor) =>
   tx.update(listItems).set({ deletedAt: at, deletedByDisplayName: actor.displayName }).where(eq(listItems.id, itemId)).run();
 
-type BatchKind = 'MOVE' | 'REMOVE';
+type BatchKind = 'MOVE' | 'REMOVE' | 'UPDATE' | 'RESTORE';
 /** Order-independent: a retry that lists the same items in another order is the same request. */
 const batchHash = (kind: BatchKind, request: Record<string, unknown> & { itemIds: readonly string[] }) =>
   createHash('sha256').update(JSON.stringify({ kind, ...request, itemIds: [...request.itemIds].sort() })).digest('hex');
@@ -259,6 +259,22 @@ function priorBatch(tx: Transaction, input: { operationId: string; workspaceId: 
   if (prior.userId !== actor.userId || prior.workspaceId !== input.workspaceId || prior.kind !== kind || prior.payloadHash !== hash) return { status: 'operation_reused' };
   return { status: 'ok', duplicate: true, itemIds: prior.result.itemIds as ListItemId[], revisions: prior.result.revisions };
 }
+
+/** The named items that are removed from this List (36.19), in List order; `missing` keeps the caller's order. */
+function removedSelection(tx: Reader, listId: string, itemIds: readonly ListItemId[]) {
+  const rows = tx.select().from(listItems).where(and(eq(listItems.listId, listId), isNotNull(listItems.deletedAt), inArray(listItems.id, [...itemIds]))).orderBy(asc(listItems.position), asc(listItems.id)).all();
+  const found = new Set(rows.map((row) => row.id));
+  return { rows, missing: itemIds.filter((id) => !found.has(id)) };
+}
+
+/** Only the fields an edit names, so the request hash does not depend on how a client spells "unchanged". */
+const editKey = (edit: ListItemEdit) => ({
+  itemId: edit.itemId,
+  ...(edit.title === undefined ? {} : { title: edit.title }),
+  ...(edit.quantity === undefined ? {} : { quantity: edit.quantity }),
+  ...(edit.unit === undefined ? {} : { unit: edit.unit }),
+  ...(edit.checked === undefined ? {} : { checked: edit.checked }),
+});
 
 /** The named items that are live in this List, in List order; `missing` keeps the caller's order. */
 function liveSelection(tx: Reader, listId: string, itemIds: readonly ListItemId[]) {
@@ -632,6 +648,110 @@ export function createListRepository({ db }: Pick<AppDatabase, 'db'>): ListRepos
         });
         return { status: 'ok', duplicate: false, itemIds, revisions };
       }, IMMEDIATE);
+    },
+
+    async updateItems(input, actor, guard) {
+      return db.transaction((tx): ListBatchResult => {
+        if (!actorAllowed(tx, input.workspaceId, actor, guard)) return { status: 'forbidden' };
+        const edits = [...input.edits].map(editKey).sort((a, b) => (a.itemId < b.itemId ? -1 : a.itemId > b.itemId ? 1 : 0));
+        const hash = batchHash('UPDATE', { workspaceId: input.workspaceId, listId: input.listId, itemIds: input.itemIds, edits, expectedRevision: input.expectedRevision });
+        const prior = priorBatch(tx, input, actor, 'UPDATE', hash);
+        if (prior !== undefined) return prior;
+        const row = findRow(tx, input.workspaceId, input.listId);
+        if (row === undefined) return { status: 'list_not_found' };
+        if (row.revision !== input.expectedRevision) return { status: 'stale_revision' };
+        const { rows, missing } = liveSelection(tx, row.id, input.itemIds);
+        if (missing.length > 0) return { status: 'invalid_items', itemIds: missing };
+        const byId = new Map(input.edits.map((edit) => [edit.itemId as string, edit]));
+        // A To-do task has only a title: the whole edit is refused before anything changes.
+        if (row.kind === 'TODO' && input.edits.some((edit) => (edit.quantity ?? null) !== null || (edit.unit ?? null) !== null)) return { status: 'kind_mismatch' };
+        let checkedCount = 0;
+        for (const item of rows) {
+          const edit = byId.get(item.id);
+          if (edit === undefined) continue;
+          const title = edit.title ?? item.title;
+          const quantity = edit.quantity === undefined ? item.quantity : edit.quantity;
+          const unit = edit.unit === undefined ? item.unit : edit.unit;
+          const contentChanged = title !== item.title || quantity !== item.quantity || unit !== item.unit;
+          const checkChanged = edit.checked !== undefined && (item.checkedAt !== null) !== edit.checked;
+          if (!contentChanged && !checkChanged) continue;
+          tx.update(listItems)
+            .set({
+              ...(contentChanged ? { title, quantity, unit, revision: item.revision + 1, contentChangedAt: input.at, contentChangedByDisplayName: actor.displayName } : {}),
+              ...(checkChanged
+                ? {
+                    ...(edit.checked
+                      ? { checkedAt: input.at, checkedByUserId: actor.userId, checkedByDisplayName: actor.displayName }
+                      : { checkedAt: null, checkedByUserId: null, checkedByDisplayName: null }),
+                    checkChangedAt: input.at,
+                    checkChangedByDisplayName: actor.displayName,
+                  }
+                : {}),
+            })
+            .where(eq(listItems.id, item.id))
+            .run();
+          if (checkChanged && edit.checked) {
+            checkedCount += 1;
+            awardProgress(tx, actor.userId, { workspaceId: input.workspaceId }, `${input.workspaceId}:${item.id}`, 'LIST_ITEM_CHECKED', input.at);
+          }
+        }
+        const revisions = { [row.id]: touch(tx, row.id, input.at).revision };
+        const itemIds = rows.map((item) => item.id as ListItemId);
+        tx.insert(listItemOperations).values({ id: input.operationId, userId: actor.userId, workspaceId: input.workspaceId, kind: 'UPDATE', payloadHash: hash, result: { itemIds, revisions }, at: input.at }).run();
+        recordSecurityEvent(tx, {
+          type: 'LIST_ITEMS_UPDATED',
+          actor,
+          subjectType: 'workspace',
+          subjectId: input.workspaceId,
+          occurredAt: input.at,
+          metadata: { listId: row.id, count: itemIds.length, checked: checkedCount },
+        });
+        return { status: 'ok', duplicate: false, itemIds, revisions };
+      }, IMMEDIATE);
+    },
+
+    async restoreItems(input, actor, guard) {
+      return db.transaction((tx): ListBatchResult => {
+        if (!actorAllowed(tx, input.workspaceId, actor, guard)) return { status: 'forbidden' };
+        const hash = batchHash('RESTORE', { workspaceId: input.workspaceId, listId: input.listId, itemIds: input.itemIds, expectedRevision: input.expectedRevision });
+        const prior = priorBatch(tx, input, actor, 'RESTORE', hash);
+        if (prior !== undefined) return prior;
+        const row = findRow(tx, input.workspaceId, input.listId);
+        if (row === undefined) return { status: 'list_not_found' };
+        if (row.revision !== input.expectedRevision) return { status: 'stale_revision' };
+        // Live, unknown or another List's: refused, and nothing else is put back either.
+        const { rows, missing } = removedSelection(tx, row.id, input.itemIds);
+        if (missing.length > 0) return { status: 'invalid_items', itemIds: missing };
+        if (liveItems(tx, row.id) + rows.length > input.maxItems) return { status: 'limit_reached' };
+        for (const item of rows) tx.update(listItems).set({ deletedAt: null, deletedByDisplayName: null }).where(eq(listItems.id, item.id)).run();
+        const revisions = { [row.id]: touch(tx, row.id, input.at).revision };
+        const itemIds = rows.map((item) => item.id as ListItemId);
+        tx.insert(listItemOperations).values({ id: input.operationId, userId: actor.userId, workspaceId: input.workspaceId, kind: 'RESTORE', payloadHash: hash, result: { itemIds, revisions }, at: input.at }).run();
+        recordSecurityEvent(tx, {
+          type: 'LIST_ITEMS_RESTORED',
+          actor,
+          subjectType: 'workspace',
+          subjectId: input.workspaceId,
+          occurredAt: input.at,
+          metadata: { listId: row.id, count: itemIds.length },
+        });
+        return { status: 'ok', duplicate: false, itemIds, revisions };
+      }, IMMEDIATE);
+    },
+
+    async removedItems(workspaceId, listId, limit) {
+      return db.transaction((tx) => {
+        const row = findRow(tx, workspaceId, listId);
+        if (row === undefined) return undefined;
+        return tx
+          .select()
+          .from(listItems)
+          .where(and(eq(listItems.listId, row.id), isNotNull(listItems.deletedAt)))
+          .orderBy(desc(listItems.deletedAt), asc(listItems.id))
+          .limit(limit)
+          .all()
+          .map((item) => ({ item: toItem(item), removedAt: item.deletedAt as Date, removedBy: item.deletedByDisplayName }));
+      });
     },
 
     async restoreItem(input, actor, guard) {
