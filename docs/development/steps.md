@@ -18,6 +18,12 @@ For every completed task, add a concise completion note, tests/checks performed,
 
 ## Current state — resume here
 
+**Release 0.14.0 prepared (owner release 67, 2026-11-12).** Includes PR #102 (server Recipe
+image generator removed, 36.17), PR #103 (Calendar subscription links and refreshed Calendar,
+39; migration 0073) and PR #104 (Notes and Journal library, reading view, timeline and
+Markdown import, 40). Release upgrade checks start from 0.13.12. Pending: owner publishes
+`v0.14.0`, then record the published digest here and the owner count (67) in AGENTS.md.
+
 **Published owner release 66 (2026-11-11).** Stable 0.13.12 was published from `v0.13.12`,
 source `ef2247b2fdb0f61c99eee9a3e43d19e2a01750ef` (PRs #97–#99, #101: Recipe categories,
 filters and list view; Weather week ahead and the painted Clock page; CI installs Chromium
