@@ -18,11 +18,15 @@ For every completed task, add a concise completion note, tests/checks performed,
 
 ## Current state — resume here
 
-**Release 0.13.12 prepared (owner release 66, 2026-11-11).** Includes PR #98 (Weather
-readings row, a week ahead and the painted Clock page, 36.16), PR #99 (Recipe categories,
-filter bar and list view, 38) and PR #97 (CodeQL #3: Knot link check). No migration.
-Release upgrade checks now start from 0.13.11. Pending: owner publishes `v0.13.12`, then
-record the published digest here and the owner count (66) in AGENTS.md.
+**Published owner release 66 (2026-11-11).** Stable 0.13.12 was published from `v0.13.12`,
+source `ef2247b2fdb0f61c99eee9a3e43d19e2a01750ef` (PRs #97–#99, #101: Recipe categories,
+filters and list view; Weather week ahead and the painted Clock page; CI installs Chromium
+without extra fonts when the Ubuntu mirror is down). The release reused the passing main CI
+and passed smoke and upgrade checks. `0.13.12` and `latest` resolve to index
+`sha256:9ab74cefaaca2307fd2f7e7664d54d50c26f0383ad762932a4d749ea409c52bd`.
+Owner count **66**, next **67**.
+[GitHub release](https://github.com/crimsonclyde/vergissmeinnicht/releases/tag/v0.13.12)
+[Release workflow](https://github.com/crimsonclyde/vergissmeinnicht/actions/runs/43077164869)
 
 **Published owner release 65 (2026-11-11).** Stable 0.13.11 was published from `v0.13.11`,
 source `b675bf722ee3d5c3b9e8bc8a05ada86c73582146` (PRs #92–#97). The release workflow
