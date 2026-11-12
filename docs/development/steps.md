@@ -7859,6 +7859,35 @@ Release note draft (next release, owner release 68):
   brought back by ChatGPT, and in VMN under **Recently deleted** at the end of each List.
   Refresh VMN's tools in ChatGPT after updating. Migration 0075.
 
+### 36.20 Structured errors on every MCP tool (owner request 2026-11-12)
+
+MCP item 3 of the follow-up list. Before, only the grocery batch tools (36.18/36.19) told the
+assistant why a call failed; every other tool answered "Request not confirmed", so ChatGPT had to
+guess whether to re-read, ask the user or give up.
+
+Implemented:
+
+- One mapping (`toolFailure` in `apps/server/src/mcp/http.ts`) for every tool: `isError`, the text
+  and `structuredContent.error` with `code`, `message` and, where useful, `fields` or `host`.
+  Codes: `permission_denied`, `tool_disabled`, `tool_unavailable`, `not_found`, `stale_revision`,
+  `limit_reached`, `invalid_arguments`, `invalid_value`, `run_not_active`, `not_confirmed`; the
+  existing tool-specific codes (grocery batch, `recipe_cover_required`, `invalid_recipe`, ChatGPT
+  file and image codes) are kept and now also structured.
+- Failures after the tool ran stay `not_confirmed`; refusals before say nothing was changed.
+- Server instructions explain what each group of codes means for the next step.
+
+Checks: `mcp-errors.test.ts` (not found, invalid arguments with field, invalid value, unavailable
+tool, unselected Workspace, stale recipe revision with no change, switched-off tool); all existing
+MCP tests unchanged and passing.
+
+Security surface changed: no new capability; see security.md 36.20.
+
+Release note draft (owner release 68):
+
+- **ChatGPT understands VMN's answers better.** When something cannot be done (an outdated
+  record, a tool switched off, a missing permission), VMN now tells ChatGPT exactly why, so it
+  re-reads, asks you or explains instead of guessing.
+
 ### Release plan for 0.13.10, owner milestone 64 (2026-11-10)
 
 The preceding 0.13.9 candidate was stopped before publication after inspecting the

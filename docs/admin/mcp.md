@@ -34,6 +34,28 @@ retries must preserve the entire payload. A stale edit requires a fresh read and
 Grocery List creation and item additions return whether the change applied and whether it was a
 duplicate retry. Read the resulting List separately with a Lists read grant.
 
+### Errors
+
+Every failed tool call has `isError: true`, a short text and `structuredContent.error` with a
+stable `code` and a fixed `message` (never record content), plus `fields` (argument paths),
+`itemIds` or a refused file `host` where that helps.
+
+| Code | Meaning |
+| --- | --- |
+| `permission_denied` | Scope, role or Workspace not allowed for this connection. Nothing changed. |
+| `tool_disabled` | The VMN tool (Lists, Recipes, …) is switched off in the Workspace. Nothing changed. |
+| `tool_unavailable` | The tool is not offered to this connection. |
+| `not_found` | Unknown, deleted, or another Workspace's record. Nothing changed. |
+| `stale_revision` | The record changed since it was read: read again, review, retry with a new operation id. Nothing changed. |
+| `limit_reached` | A Workspace or record limit. Nothing changed. |
+| `invalid_arguments` / `invalid_value` | Arguments do not match the schema / a value breaks a rule (`fields` names it). Nothing changed. |
+| `run_not_active` | The Run is finished. Nothing changed. |
+| `not_confirmed` | The change may have happened (for example access was revoked during the call). Read again and retry only with the same operation id and payload. |
+
+Tool-specific codes stay as before: the grocery batch codes below, `recipe_cover_required`,
+`invalid_recipe`, the ChatGPT file codes (`file_source_invalid`, …, `file_reference_required`) and
+the image codes (`attachment_*`).
+
 ### Move and delete grocery items
 
 With **Lists write** access, `move_grocery_items` moves chosen items from one grocery List to

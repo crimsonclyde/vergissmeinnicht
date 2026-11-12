@@ -2085,3 +2085,17 @@ connection or dependency. Migration 0075 only widens the allowed kinds of `list_
   (plus the MCP client/grant when delegated), never item text.
 - [x] Ticking through MCP awards the same progress as ticking in the app (once per item).
 
+### Structured MCP errors on every tool (36.20, 2026-11-12)
+
+**Security surface changed: no new capability.** Only the shape of failure answers changes.
+
+- [x] Messages are fixed text per code; no record content, user ids, emails, stack traces or
+  internal error messages are returned. `fields` holds argument paths from the caller's own input
+  (or the domain field name), never values.
+- [x] "Nothing was changed" is only said for failures before the tool finished. A failure after
+  the tool ran (access revoked during the call) stays `not_confirmed`, as in 36.18.
+- [x] `not_found` and `permission_denied` stay distinct only where they already were: a record of
+  another Workspace still reads as `not_found`, and a Workspace that was not selected for the
+  connection is `permission_denied` without saying whether it exists.
+- [x] Unknown failures are logged with the tool name and error class only.
+
