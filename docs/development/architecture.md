@@ -1053,3 +1053,9 @@ image Markdown at the top of the instructions, sets the cover and saves through 
 Recipe command in one tool call. Delegated uploads convert a still WebP to PNG before the shared
 attachment pipeline. Base64 and picker tools stay available to other MCP clients but are hidden
 from the ChatGPT model with `openai/visibility: private`.
+
+Since 36.17 the one-call `image` parameter, `set_recipe_image` and the server-side OpenAI
+generator are gone. Assistants generate images themselves and upload them with
+`upload_recipe_image_file`, which ChatGPT sees again; the Recipe write then takes the returned
+reference as `coverImage`. The architecture is: external image creator → VMN MCP upload → VMN
+attachment storage → Recipe cover and thumbnails.

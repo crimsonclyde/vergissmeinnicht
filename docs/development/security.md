@@ -2004,3 +2004,20 @@ hashes identically.
   regional host, renewed-signature retry without a second download, cover replacement and
   idempotent retry, stale revision conflict, refused-host reporting without secrets, AAAA
   fallback, operator host configuration.
+
+### Server-side image generator removed (36.17, 2026-11-12)
+
+The optional OpenAI Recipe image generator is gone: no outbound call to `api.openai.com`, no
+billed API key and no generation admission state remain. `OPENAI_RECIPE_IMAGE_KEY(_FILE)` is no
+longer a file secret and is never read, so a leftover secret file is not opened. The one-call
+`image` parameter and `set_recipe_image` (36.14) were removed too; Recipe photos from assistants
+arrive only through `upload_recipe_image_file` (and the base64/picker tools for other clients),
+with the unchanged delegated-upload host policy, receipts, size limits, quotas, Workspace and
+target checks. `recipe_image_jobs` stays in the schema, unused and excluded from portable
+backups as before.
+
+- [x] The removed tools are absent from `tools/list`; calling them fails as an unknown tool.
+- [x] `create_recipe` rejects an `image` argument; `requireImage` still refuses a Recipe without
+  a resolvable cover.
+- [x] Leftover generator settings do not fail startup and their secret file is not read.
+

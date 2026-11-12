@@ -57,4 +57,3 @@ export * from './recipe-repository.ts';
 export * from './mcp-repository.ts';
 
 export * from './delegation-context.ts';
-export * from './recipe-image-repository.ts';
