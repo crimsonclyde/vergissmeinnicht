@@ -15,6 +15,7 @@ export function Markdown({source, resolveImage,resolveOriginal}: {source:string;
  img:({src,alt})=>{const url=src ? resolveImage?.(src) : undefined;return url?<figure><img src={url} alt={alt??''} loading="lazy"/><figcaption>{alt} · {t('journal.previewLabel')} {src&&resolveOriginal?.(src)&&<a href={resolveOriginal(src)} download>{t('journal.downloadOriginal')}</a>}</figcaption></figure>:<span>{alt || t('markdown.imageUnavailable')}</span>;},
  a:({href,children})=><a href={href} rel="noopener noreferrer">{children}</a>,
  table:({children})=><div className="markdown-table"><table>{children}</table></div>,
+ input:({type,checked})=>type==='checkbox'?<input type="checkbox" checked={checked??false} disabled readOnly aria-label={t(checked?'markdown.taskDone':'markdown.taskOpen')}/>:null,
  }}>{source}</ReactMarkdown></div>;
 }
 /** Unknown extensions remain editable in source without a lossy parse/serialize pass. */

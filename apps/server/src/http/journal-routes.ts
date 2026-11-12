@@ -1,5 +1,5 @@
 import {registerJournalExport} from './journal-export.ts';
-import { authorizeJournal, journalPrivacy, journalHistory, journalDraft, getJournalEntry, listJournal, saveJournalEntry, authorizeTool, NotAuthorizedError } from '@vergissmeinnicht/application';
+import { authorizeJournal, journalPrivacy, journalHistory, journalDraft, getJournalEntry, listJournal, journalOverview, saveJournalEntry, authorizeTool, NotAuthorizedError } from '@vergissmeinnicht/application';
 import { UUID_V4, type WorkspaceId } from '@vergissmeinnicht/domain';
 import type { FastifyInstance, FastifyRequest } from 'fastify';
 import { z } from 'zod';
@@ -34,9 +34,14 @@ export async function journalRoutes(app: FastifyInstance, { services, shared }: 
     return journalHistory(services.journal,actor(request),scope(request),entryId,before);
   });
   app.get('/',  async (request) => {
-    const query = parse(z.strictObject({ q: z.string().max(120).default(''), archived: z.enum(['true', 'false']).default('false'), offset: z.coerce.number().int().min(0).max(10000).default(0) }), request.query);
-    return listJournal(services.journal, actor(request), scope(request), query.q, query.archived === 'true', query.offset);
+    const query = parse(z.strictObject({
+      q: z.string().max(120).default(''), archived: z.enum(['true', 'false']).default('false'), offset: z.coerce.number().int().min(0).max(10000).default(0),
+      collection: z.string().max(80).optional(), tag: z.string().min(1).max(32).optional(), month: z.string().regex(/^[1-9]\d{3}-(0[1-9]|1[0-2])$/).optional(), sort: z.enum(['updated', 'date', 'title']).default('updated'),
+    }), request.query);
+    const options = { sort: query.sort, ...(query.collection === undefined ? {} : { collection: query.collection }), ...(query.tag === undefined ? {} : { tag: query.tag }), ...(query.month === undefined ? {} : { month: query.month }) };
+    return listJournal(services.journal, actor(request), scope(request), query.q, query.archived === 'true', query.offset, options);
   });
+  app.get('/overview', request => journalOverview(services.journal, actor(request), scope(request)));
   app.get('/:entryId', async (request) => {
     const { entryId } = parse(z.object({ entryId: uuid }), request.params);
     return { entry: await getJournalEntry(services.journal, actor(request), scope(request), entryId) };

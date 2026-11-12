@@ -1233,6 +1233,7 @@ const listOf = async (response: Promise<{ list: ListDetail }>) => (await respons
 const schedulePath = (workspaceId: string, scheduleId: string) => `/workspaces/${encodeURIComponent(workspaceId)}/schedules/${encodeURIComponent(scheduleId)}`;
 const occurrencePath = (workspaceId: string, id: string) => `/workspaces/${encodeURIComponent(workspaceId)}/occurrences/${encodeURIComponent(id)}`;
 
+export interface JournalOverview { readonly collections: readonly { name: string; count: number }[]; readonly tags: readonly { name: string; count: number }[]; readonly dated: readonly { id: string; title: string; date: string }[]; readonly total: number }
 export type JournalView = Omit<JournalEntry, 'createdAt' | 'updatedAt'> & { createdAt: string; updatedAt: string };
 const journalPath = (workspaceId?: string) => workspaceId === undefined ? '/account/journal' : `/workspaces/${encodeURIComponent(workspaceId)}/journal`;
 
@@ -1269,7 +1270,12 @@ export const api = {
   journalDraft: (workspaceId?:string) => request<{draft:import('@vergissmeinnicht/domain').JournalDraft|null}>('GET',`${journalPath(workspaceId)}/draft`),
   saveJournalDraft: (workspaceId:string|undefined,draft:Omit<import('@vergissmeinnicht/domain').JournalDraft,'updatedAt'>|null) => request('POST',`${journalPath(workspaceId)}/draft`,{draft}),
   journalHistory: (workspaceId:string|undefined,id:string,before=1_000_000_001) => request<{revisions:import('@vergissmeinnicht/domain').JournalRevision[]}>('GET',`${journalPath(workspaceId)}/${encodeURIComponent(id)}/history?before=${before}`),
-  journal: (workspaceId: string | undefined, q: string, archived: boolean, offset: number) => request<{ entries: JournalView[]; more: boolean }>('GET', `${journalPath(workspaceId)}?${new URLSearchParams({ q, archived: String(archived), offset: String(offset) })}`),
+  journal: (workspaceId: string | undefined, q: string, archived: boolean, offset: number, options: { collection?: string | undefined; tag?: string | undefined; month?: string | undefined; sort?: 'updated' | 'date' | 'title' } = {}) => {
+    const params = new URLSearchParams({ q, archived: String(archived), offset: String(offset) });
+    for (const [key, value] of Object.entries(options)) if (value !== undefined) params.set(key, value);
+    return request<{ entries: JournalView[]; more: boolean }>('GET', `${journalPath(workspaceId)}?${params}`);
+  },
+  journalOverview: (workspaceId: string | undefined) => request<JournalOverview>('GET', `${journalPath(workspaceId)}/overview`),
   journalEntry: (workspaceId: string | undefined, id: string) => request<{ entry: JournalView }>('GET', `${journalPath(workspaceId)}/${encodeURIComponent(id)}`).then((answer) => answer.entry),
   saveJournal: (workspaceId: string | undefined, id: string | undefined, content: JournalContent, expectedRevision: number, archived: boolean) => request<{ entry: JournalView }>('POST', `${journalPath(workspaceId)}${id === undefined ? '' : `/${encodeURIComponent(id)}`}`, { content, expectedRevision, archived }).then((answer) => answer.entry),
   uploadImage,

@@ -7,11 +7,17 @@ import type { UserRepository } from '../ports/user-repository.ts';
 export class JournalNotFoundError extends Error {}
 export class JournalConflictError extends Error {}
 export class JournalConsentError extends Error {}
+/** Narrowing of a library page (steps.md 40). `collection: ''` means entries without a notebook. */
+export interface JournalListOptions { readonly collection?: string; readonly tag?: string; readonly month?: string; readonly sort?: 'updated' | 'date' | 'title' }
+/** Compact facts about every unarchived entry of a library: notebooks, tags and dated entries. */
+export interface JournalOverviewRow { readonly id: string; readonly title: string; readonly date: string | null; readonly collection: string; readonly tags: readonly string[] }
+export interface JournalOverview { readonly collections: readonly { name: string; count: number }[]; readonly tags: readonly { name: string; count: number }[]; readonly dated: readonly { id: string; title: string; date: string }[]; readonly total: number }
 export interface JournalRepository {
   privacy(actor: User, acknowledge?: boolean): Promise<boolean>;
   history(scope: JournalScope, id: string, before: number): Promise<JournalRevision[]>;
   draft(scope: JournalScope, actor: User, input?: JournalDraft | null): Promise<JournalDraft | null>;
-  list(scope: JournalScope, query: string, archived: boolean, offset: number): Promise<{ entries: JournalEntry[]; more: boolean }>;
+  list(scope: JournalScope, query: string, archived: boolean, offset: number, options?: JournalListOptions): Promise<{ entries: JournalEntry[]; more: boolean }>;
+  overview(scope: JournalScope): Promise<JournalOverviewRow[]>;
   find(scope: JournalScope, id: string): Promise<JournalEntry | undefined>;
   save(scope: JournalScope, actor: User, entry: JournalContent, id: string | undefined, expectedRevision: number, archived: boolean, at: Date): Promise<JournalEntry | 'forbidden' | 'conflict' | 'missing'>;
 }
@@ -26,9 +32,9 @@ export async function authorizeJournal(deps: JournalDeps, actor: User, workspace
   if (write && !await deps.journal.privacy(current)) throw new JournalConsentError();
   return { ownerId: actor.id };
 }
-export async function listJournal(deps: JournalDeps, actor: User, workspaceId: WorkspaceId | undefined, query: string, archived: boolean, offset: number) {
+export async function listJournal(deps: JournalDeps, actor: User, workspaceId: WorkspaceId | undefined, query: string, archived: boolean, offset: number, options: JournalListOptions = {}) {
   const scope = await authorizeJournal(deps, actor, workspaceId);
-  const result = await deps.journal.list(scope, query, archived, offset);
+  const result = await deps.journal.list(scope, query, archived, offset, options);
   await authorizeJournal(deps, actor, workspaceId);
   return result;
 }
@@ -45,6 +51,18 @@ export async function saveJournalEntry(deps: JournalDeps, actor: User, workspace
   if (result === 'missing') throw new JournalNotFoundError();
   if (result === 'conflict') throw new JournalConflictError();
   return result;
+}
+/** Notebook and tag counts plus the dated entries (for the Journal's month strip and "On this day"). */
+export async function journalOverview(deps: JournalDeps, actor: User, workspaceId: WorkspaceId | undefined): Promise<JournalOverview> {
+  const rows = await deps.journal.overview(await authorizeJournal(deps, actor, workspaceId));
+  await authorizeJournal(deps, actor, workspaceId);
+  const count = (values: string[]) => [...values.reduce((map, value) => map.set(value, (map.get(value) ?? 0) + 1), new Map<string, number>())].map(([name, n]) => ({ name, count: n })).sort((a, b) => b.count - a.count || a.name.localeCompare(b.name));
+  return {
+    collections: count(rows.map(row => row.collection)),
+    tags: count(rows.flatMap(row => [...row.tags])),
+    dated: rows.filter((row): row is JournalOverviewRow & { date: string } => row.date !== null).map(({ id, title, date }) => ({ id, title, date })).sort((a, b) => b.date.localeCompare(a.date)),
+    total: rows.length,
+  };
 }
 /** Shared policy used by the transactional adapter as well as application authorization. */
 export const journalMayWrite = (role: Parameters<typeof roleHasCapability>[0]) => roleHasCapability(role, 'journal.manage');

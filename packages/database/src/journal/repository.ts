@@ -58,10 +58,22 @@ export function createJournalRepository({ db }: AppDatabase): JournalRepository 
       return row ? {entryId:row.entryId,expectedRevision:row.expectedRevision,content:row.content,archived:row.archived,updatedAt:row.updatedAt} : null;
      },IMMEDIATE);
     },
-    async list(scope, query, archived, offset) {
+    async list(scope, query, archived, offset, options = {}) {
       const { table, filter } = target(scope);
-      const rows = db.select().from(table).where(and(filter, eq(table.archived, archived), sql`instr(lower(${table.title} || char(10) || ${table.body} || char(10) || ${table.collection} || char(10) || ${table.tags}), lower(${query})) > 0`)).orderBy(desc(table.pinned), desc(table.updatedAt), desc(table.id)).limit(31).offset(offset).all();
+      const conditions = [filter, eq(table.archived, archived), sql`instr(lower(${table.title} || char(10) || ${table.body} || char(10) || ${table.collection} || char(10) || ${table.tags}), lower(${query})) > 0`];
+      if (options.collection !== undefined) conditions.push(eq(table.collection, options.collection));
+      if (options.tag !== undefined) conditions.push(sql`exists (select 1 from json_each(${table.tags}) where json_each.value = ${options.tag})`);
+      if (options.month !== undefined) conditions.push(sql`substr(${table.date}, 1, 7) = ${options.month}`);
+      const order = options.sort === 'date' ? [sql`${table.date} is null`, desc(table.date), desc(table.updatedAt), desc(table.id)]
+        : options.sort === 'title' ? [sql`lower(${table.title})`, desc(table.id)]
+        : [desc(table.pinned), desc(table.updatedAt), desc(table.id)];
+      const rows = db.select().from(table).where(and(...conditions)).orderBy(...order).limit(31).offset(offset).all();
       return { entries: rows.slice(0, 30).map(view), more: rows.length > 30 };
+    },
+    async overview(scope) {
+      const { table, filter } = target(scope);
+      // Bounded by the 1,000-entry library limit; only labels, never bodies.
+      return db.select({ id: table.id, title: table.title, date: table.date, collection: table.collection, tags: table.tags }).from(table).where(and(filter, eq(table.archived, false))).limit(1000).all().map(row => ({ ...row, tags: row.tags ?? [] }));
     },
     async find(scope, id) {
       const { table, filter } = target(scope);

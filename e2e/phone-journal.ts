@@ -17,6 +17,8 @@ export async function checkPhoneJournal(page: Page, testInfo: TestInfo, workspac
   const back = bar.getByRole('button', {name:'Back',exact:true});
   const save = bar.getByRole('button', {name:'Save entry',exact:true});
   const cancel = bar.getByRole('button', {name:'Cancel editing',exact:true});
+  const edit = bar.getByRole('button', {name:'Edit',exact:true});
+  const prose = page.locator('.nb-prose');
   const title = page.getByLabel('Title', {exact:true});
   const editor = page.locator('.milkdown .ProseMirror');
   await expect(title).toBeVisible();
@@ -44,14 +46,15 @@ export async function checkPhoneJournal(page: Page, testInfo: TestInfo, workspac
   await expectAccessible(page, 'Phone visual writing');
   await page.screenshot({path:testInfo.outputPath('phone-write.png'),fullPage:true});
   await next.click();
-  await expect(page.getByLabel('Entry date (optional)',{exact:true})).toBeVisible();
-  await page.getByLabel('Collection / notebook',{exact:true}).fill('Garden');
-  await page.getByLabel('Tags (comma separated)',{exact:true}).fill('morning, garden');
-  await page.getByLabel('Pin this entry',{exact:true}).check();
+  await expect(page.getByLabel('Date',{exact:true})).toBeVisible();
+  await page.getByLabel('Notebook',{exact:true}).fill('Garden');
+  await page.getByLabel('Tags',{exact:true}).fill('morning, garden');
+  await expect(page.getByRole('button',{name:'Remove tag garden',exact:true})).toBeVisible();
+  await page.getByLabel('Pin to the top',{exact:true}).check();
   await back.click(); await expect(editor).toContainText('Written on a phone.');
   await back.click(); await expect(title).toHaveValue('A portable phone note');
   await next.click(); await next.click();
-  await expect(page.getByLabel('Collection / notebook',{exact:true})).toHaveValue('Garden');
+  await expect(page.getByLabel('Notebook',{exact:true})).toHaveValue('Garden');
   // Attachments remain reachable as an optional disclosure, never an extra mandatory step.
   await page.locator('.journal-phone-files > summary').click();
   await page.getByLabel('Upload original image',{exact:true}).setInputFiles({name:'garden.png',mimeType:'image/png',buffer:Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAIAAACQd1PeAAAADElEQVR4nGP4z8AAAAMBAQDJ/pLvAAAAAElFTkSuQmCC','base64')});
@@ -69,11 +72,16 @@ export async function checkPhoneJournal(page: Page, testInfo: TestInfo, workspac
   expect((cheerBox?.y??0)+(cheerBox?.height??0)).toBeLessThanOrEqual(box?.y??0);
   await page.getByRole('button',{name:'Dismiss celebration',exact:true}).click();
   await expect(cheer).toHaveCount(0);
-  await page.reload(); await expect(editor).toContainText('Written on a phone.');
-  await next.click();
-  await expect(page.getByLabel('Collection / notebook',{exact:true})).toHaveValue('Garden');
-  const downloadPromise = page.waitForEvent('download'); await page.getByRole('link',{name:'Export Markdown',exact:true}).click();
+  // A saved entry reopens as a page to read; editing is one tap away.
+  await page.reload(); await expect(prose).toContainText('Written on a phone.'); await expect(editor).toHaveCount(0);
+  await expect(page.getByText('Garden',{exact:true}).first()).toBeVisible();
+  await expectAccessible(page, 'Phone reading view');
+  const downloadPromise = page.waitForEvent('download');
+  await page.getByRole('button',{name:'More actions',exact:true}).click(); await page.getByRole('button',{name:'Export Markdown',exact:true}).click();
   expect((await downloadPromise).suggestedFilename()).toBe('notes.zip');
+  await edit.click(); await expect(editor).toContainText('Written on a phone.');
+  await next.click();
+  await expect(page.getByLabel('Notebook',{exact:true})).toHaveValue('Garden');
   await home.click(); await expect(page).toHaveURL(`/w/${workspaceId}`);
   await expect(page.getByRole('button',{name:'Guide',exact:true})).toBeVisible();
   await expect(page.locator('.mobile-action-bar')).toHaveCount(0);
@@ -89,11 +97,12 @@ export async function checkPhoneJournal(page: Page, testInfo: TestInfo, workspac
   await expect(page.getByRole('status').filter({hasText:'Entry saved.'})).toBeVisible();
   for (const theme of ['light','memento-mori','tokyo-nights','witch-forest','places-de','space-guide']) {
     expect(await page.evaluate(async theme => fetch('/api/account/preferences',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({theme})}).then(r=>r.status),theme)).toBe(200);
-    await page.reload(); await expect(editor).toContainText('A recoverable private phone draft.');
-    await expectAccessible(page, `Staged phone ${theme}`);
+    await page.reload(); await expect(prose).toContainText('A recoverable private phone draft.');
+    await expectAccessible(page, `Phone reader ${theme}`);
     if (theme==='memento-mori') await page.screenshot({path:testInfo.outputPath('phone-dark.png'),fullPage:true});
   }
   await page.setViewportSize({width:390,height:844}); await page.screenshot({path:testInfo.outputPath('phone-390.png'),fullPage:true});
+  await edit.click(); await expect(editor).toContainText('A recoverable private phone draft.');
   await expect(page.getByRole('button',{name:'Bold',exact:true})).toBeEnabled();
   await editor.fill('Keep this edit.');await expect(page.getByRole('status').filter({hasText:'Unsaved changes'})).toBeVisible();
   page.once('dialog', dialog => void dialog.dismiss()); await cancel.click(); await expect(editor).toContainText('Keep this edit.');
@@ -109,9 +118,10 @@ export async function checkPhoneJournal(page: Page, testInfo: TestInfo, workspac
     if(!r.ok)throw new Error('Opaque fixture');return (await r.json() as {entry:{id:string}}).entry.id;
   },{workspaceId,opaque});
   await page.goto(`/w/${workspaceId}/notes/${entryId}`);
+  await expect(prose).toContainText('Keep this exact source.'); await edit.click();
   await expect(page.getByRole('status').filter({hasText:'desktop editor'})).toBeVisible();
   await expect(editor).toHaveCount(0);await expect(page.getByRole('button',{name:'Markdown source',exact:true})).toHaveCount(0);
-  await next.click();await page.getByLabel('Collection / notebook',{exact:true}).fill('Preserved');await save.click();
+  await next.click();await page.getByLabel('Notebook',{exact:true}).fill('Preserved');await save.click();
   await expect(page.getByRole('status').filter({hasText:'Entry saved.'})).toBeVisible();
   expect(await page.evaluate(async ({workspaceId,entryId})=>(await fetch(`/api/workspaces/${workspaceId}/journal/${entryId}`).then(r=>r.json()) as {entry:{body:string}}).entry.body,{workspaceId,entryId})).toBe(opaque);
   expect(errors).toEqual([]);

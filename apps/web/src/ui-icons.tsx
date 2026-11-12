@@ -1,4 +1,10 @@
 import {
+  IconPin,
+  IconPinFilled,
+  IconTag,
+  IconFileImport,
+  IconMarkdown,
+  IconListCheck,
   IconCalendarShare,
   IconCalendarPlus,
   IconCalendarOff,
@@ -249,6 +255,15 @@ const ICONS = {
   lock: IconLock,
   todayDot: IconCircleDot,
   previous: IconChevronLeft,
+  // Notes and Journal (40): pin, notebooks, tags, Markdown import/copy, checklists.
+  pin: IconPin,
+  pinned: IconPinFilled,
+  notebook: IconNotebook,
+  tag: IconTag,
+  copy: IconCopy,
+  importFile: IconFileImport,
+  markdown: IconMarkdown,
+  checklist: IconListCheck,
 } as const;
 
 export type UiIconName = keyof typeof ICONS;
