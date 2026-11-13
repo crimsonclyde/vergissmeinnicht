@@ -2,10 +2,12 @@ import {AttachmentSettings} from './AttachmentSettings.tsx';
 import { WeatherAdmin } from './WeatherAdmin.tsx';
 import { HistoricalIdentities, RestoreFromBackup, RestoreLimitSettings } from './WorkspaceRestore.tsx';
 import { useCallback, useEffect, useState, type FormEvent } from 'react';
-import { ApiError, api, messageFor, type AccountInfo, type NotificationProviders as NotificationProvidersInfo, type PendingInvitation, type SecurityLogEntry } from './api.ts';
-import { formatDateTime, hasMessage, t } from './i18n/index.ts';
+import { ApiError, api, messageFor, type WorkspaceSummary, type AccountInfo, type NotificationProviders as NotificationProvidersInfo, type PendingInvitation, type SecurityLogEntry } from './api.ts';
+import { formatDateTime, hasMessage, t, type MessageKey } from './i18n/index.ts';
 import { testFailureMessage } from './NotificationSettings.tsx';
 import { ADMIN_SECTIONS, Link, navigate, paths, type AdminSection } from './router.tsx';
+import { McpConnections } from './McpConnections.tsx';
+import type { UiIconName } from './ui-icons.tsx';
 import { SettingsLayout } from './SettingsLayout.tsx';
 import { announceFooterHidden } from './SourceFooter.tsx';
 import { AdminStorage, DocumentFileSettings } from './Storage.tsx';
@@ -820,13 +822,41 @@ function AccountRecovery() {
   );
 }
 
+/** Icons and groups of the Server admin sections (36.24), in the same rows as Profile and Workspace settings. */
+const ADMIN_SECTION_ICONS: Record<AdminSection, UiIconName> = {
+  workspaces: 'grid',
+  invitations: 'share',
+  accounts: 'profile',
+  notifications: 'reminders',
+  weather: 'weatherPartlyCloudy',
+  connections: 'assistant',
+  server: 'server',
+  log: 'security',
+};
+const ADMIN_SECTION_GROUPS: Record<AdminSection, MessageKey> = {
+  workspaces: 'admin.group.people',
+  invitations: 'admin.group.people',
+  accounts: 'admin.group.people',
+  notifications: 'admin.group.services',
+  weather: 'admin.group.services',
+  connections: 'admin.group.services',
+  server: 'admin.group.server',
+  log: 'admin.group.server',
+};
+
 /** Server admin (15.1): one named section at a time. The server checks the admin flag on every request. */
-export function AdminPage({ section, currentUserId, onWorkspacesChanged }: { section: AdminSection; currentUserId: string; onWorkspacesChanged: () => void }) {
+export function AdminPage({ section, currentUserId, workspaces = null, onWorkspacesChanged }: { section: AdminSection; currentUserId: string; workspaces?: readonly WorkspaceSummary[] | null; onWorkspacesChanged: () => void }) {
   return (
     <SettingsLayout
       title={t('admin.heading')}
       navLabel={t('admin.heading')}
-      sections={ADMIN_SECTIONS.map((value) => ({ href: paths.admin(value), label: t(`admin.section.${value}`), current: value === section }))}
+      sections={ADMIN_SECTIONS.map((value) => ({
+        href: paths.admin(value),
+        label: t(`admin.section.${value}`),
+        current: value === section,
+        icon: ADMIN_SECTION_ICONS[value],
+        group: t(ADMIN_SECTION_GROUPS[value]),
+      }))}
     >
       {section === 'workspaces' && (
         <>
@@ -844,6 +874,7 @@ export function AdminPage({ section, currentUserId, onWorkspacesChanged }: { sec
       )}
       {section === 'notifications' && <NotificationProviders />}
       {section === 'weather' && <WeatherAdmin />}
+      {section === 'connections' && <McpConnections workspaces={workspaces} currentUserId={currentUserId} />}
       {section === 'server' && (
         <>
           <ServerSettings />

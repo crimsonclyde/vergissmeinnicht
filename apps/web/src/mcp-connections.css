@@ -1,13 +1,88 @@
+/* Server admin → AI connections (steps.md 36.24): the area rows of section 41, from theme tokens only. */
 .mcp-connections { min-width: 0; overflow-wrap: anywhere; }
-.mcp-connections fieldset { min-width: 0; }
-.mcp-workspace {
-  display: flex;
+.mcp-connections fieldset { min-width: 0; margin: 0; padding: 0; border: 0; }
+.mcp-connections .area-heading .ui-icon { vertical-align: -0.1em; }
+.mcp-connections .item-body { display: flex; flex-direction: column; flex: 1; min-width: 0; gap: 0.1rem; }
+.mcp-connections .item-body h3 { margin: 0; font-family: var(--area-title-font, Georgia, serif); font-size: 1.25rem; }
+
+/* On/off pill next to the title: how the server is configured. */
+.mcp-server-state {
+  display: inline-flex;
   align-items: center;
-  gap: .5rem;
-  min-height: 44px;
+  gap: 0.35rem;
+  margin-inline-start: auto;
+  padding: 0.25rem 0.75rem;
+  border-radius: 999px;
+  background: var(--surface-muted);
+  color: var(--text-muted);
+  font-size: 0.85rem;
+  font-weight: 600;
 }
-.mcp-permission { display: grid; gap: .25rem; }
-.mcp-permission select, .mcp-connections button, .mcp-connections summary { min-height: 44px; }
-.mcp-permission select, .mcp-connections textarea { width: 100%; min-width: 0; }
-.mcp-connection { padding-block: .75rem; border-top: 1px solid var(--border); }
-.mcp-connections summary { align-content: center; }
+.mcp-server-state::before { content: ''; width: 0.5rem; height: 0.5rem; border-radius: 50%; background: currentColor; }
+.mcp-server-state[data-on='true'] { background: var(--state-done-bg); color: var(--state-done); }
+
+/* One connection: head row (icon tile, name, who and where, state, disconnect), then its access. */
+.mcp-connection { display: grid; gap: 0.6rem; padding: 0.8rem 1rem; }
+.mcp-connection-head { display: flex; align-items: center; gap: 0.9rem; min-width: 0; }
+.mcp-connection[data-state='ended'] .area-row-icon { background: var(--surface-muted); color: var(--text-muted); }
+.mcp-connection[data-state='ended'] strong { color: var(--text-muted); }
+.mcp-connection .icon-button { flex: none; min-width: 44px; min-height: 44px; }
+
+.mcp-state {
+  flex: none;
+  padding: 0.15rem 0.6rem;
+  border-radius: 999px;
+  background: var(--surface-muted);
+  color: var(--text-muted);
+  font-size: 0.8rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.mcp-state[data-state='mcp.authorized'] { background: var(--state-done-bg); color: var(--state-done); }
+
+/* Access as small chips: area icon, name, and Read / Change / Read & change. */
+.plain-list.mcp-areas { display: flex; flex-wrap: wrap; gap: 0.4rem; margin: 0; padding-inline-start: 3.4rem; }
+.plain-list.mcp-areas > li + li { margin-top: 0; }
+.mcp-areas li {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.25rem 0.6rem;
+  border: 1px solid var(--area-line, var(--border));
+  border-radius: 999px;
+  background: var(--surface);
+  font-size: 0.85rem;
+}
+.mcp-areas li .ui-icon { color: var(--accent); }
+.mcp-areas small { color: var(--text-muted); }
+.mcp-expiry { display: flex; align-items: center; gap: 0.35rem; margin: 0; padding-inline-start: 3.4rem; font-size: 0.85rem; }
+
+.mcp-confirm { display: grid; gap: 0.5rem; margin-inline-start: 3.4rem; padding: 0.75rem; border-radius: var(--radius); background: var(--state-pending-bg); }
+.mcp-confirm p { margin: 0; }
+.mcp-confirm button { min-height: 44px; }
+
+/* Consent: Workspaces as switches, areas as rows with a select on the right. */
+.mcp-consent { display: grid; gap: 1rem; }
+.mcp-consent legend.area-group { margin: 0 0 0.5rem; padding: 0; }
+.mcp-pick { cursor: pointer; }
+.mcp-permission { flex-wrap: wrap; }
+.mcp-permission select { width: 17rem; min-height: 44px; max-width: 100%; margin-inline-start: auto; }
+.mcp-pick .switch { margin: 0; }
+.mcp-permission select:not([data-access='none']) { border-color: var(--accent); }
+.mcp-hint { margin: 0; font-size: 0.85rem; }
+.mcp-consent .button-row { align-items: center; }
+.mcp-consent .button-row button { min-height: 44px; display: inline-flex; align-items: center; gap: 0.4rem; }
+
+.mcp-steps .area-row-icon { font-weight: 700; }
+.mcp-connections .mcp-check { margin-top: 1.5rem; }
+.mcp-check h3 { display: flex; align-items: center; gap: 0.5rem; margin: 0; }
+.mcp-check button, .mcp-check summary { min-height: 44px; }
+.mcp-check textarea { width: 100%; min-width: 0; }
+
+@media (max-width: 30rem) {
+  .plain-list.mcp-areas, .mcp-expiry { padding-inline-start: 0; }
+  .mcp-confirm { margin-inline-start: 0; }
+  .mcp-permission select { width: 100%; }
+  .mcp-connection-head { flex-wrap: wrap; }
+}
+

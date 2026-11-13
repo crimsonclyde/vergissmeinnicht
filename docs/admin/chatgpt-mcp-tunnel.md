@@ -192,7 +192,7 @@ token exchange and subsequent tool call using their status and UTC time.
 
 ## Troubleshoot the first failed checkpoint
 
-In VMN, open **Profile & settings → AI connections → Run local checks**. The report gives
+In VMN, open **Server admin → AI connections → Run local checks**. The report gives
 the browser's endpoint statuses, whether the discovery metadata matches, and counts of your
 active grants with and without a recorded token exchange. Use **Copy diagnostics** to share
 it. An issued token is evidence of OAuth exchange. The grocery read still verifies the
@@ -230,6 +230,6 @@ forced command that returns only fixed VMN and tunnel status fields. If you use 
 it available through the agreed test window and retire it when done. Share UTC times,
 route paths and statuses. Keep tokens, authorization codes, callback query strings, raw
 payloads and unrelated server logs out of the chat. To retire a test connection, revoke
-the grant under VMN **Profile & settings → AI connections** and remove the diagnostic
+the grant under VMN **Server admin → AI connections** and remove the diagnostic
 plugin. If the tunnel and runtime key were dedicated to that test, stop the poller and
 retire them too.

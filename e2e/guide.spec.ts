@@ -538,7 +538,7 @@ test('Recipes preserve originals and transfer ingredients for the requested serv
 test('MCP requires MFA and visible consent and supports revoking a scoped user connection',async({page})=>{
  test.setTimeout(90000);page.setDefaultTimeout(15000);
  const email=`mcp-${randomUUID()}@example.org`,password='a fictional assistant review passphrase';const database=openDatabase(guideServerEnv.DATABASE_PATH);let workspaceId:string;
- try{const user=await createUserRepository(database).create({email:normalizeEmail(email),displayName:'Assistant reviewer',emailVerified:true,status:'ACTIVE',serverAdmin:false});database.sqlite.prepare("INSERT INTO accounts(id,account_id,provider_id,user_id,password,created_at,updated_at) VALUES(?,?,'credential',?,?,?,?)").run(randomUUID(),user.id,user.id,await hashPassword(password),Date.now(),Date.now());workspaceId=insertLegacyWorkspace(database,{name:'Fictional assistant kitchen',adminUserId:user.id}).id;enableCoreTools(database,workspaceId,user.id);}finally{database.close();}
+ try{const user=await createUserRepository(database).create({email:normalizeEmail(email),displayName:'Assistant reviewer',emailVerified:true,status:'ACTIVE',serverAdmin:true});database.sqlite.prepare("INSERT INTO accounts(id,account_id,provider_id,user_id,password,created_at,updated_at) VALUES(?,?,'credential',?,?,?,?)").run(randomUUID(),user.id,user.id,await hashPassword(password),Date.now(),Date.now());workspaceId=insertLegacyWorkspace(database,{name:'Fictional assistant kitchen',adminUserId:user.id}).id;enableCoreTools(database,workspaceId,user.id);}finally{database.close();}
  await page.goto('/');await page.getByLabel('Email').fill(email);await page.getByLabel('Password').fill(password);await signInGuide(page);await expect(page.getByRole('button',{name:/^Settings/})).toBeVisible();
  const client=await page.evaluate(async()=>{const r=await fetch('/register',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({client_name:'Fictional AI assistant',redirect_uris:['https://client.example.org/callback'],token_endpoint_auth_method:'none'})});return await r.json() as {client_id:string};});
  const authorization=new URLSearchParams({client_id:client.client_id,redirect_uri:'https://client.example.org/callback',response_type:'code',code_challenge:'a'.repeat(43),code_challenge_method:'S256',scope:'workspaces.read lists.read lists.write lists.covers.write',resource:guideServerEnv.PUBLIC_ORIGIN+'/mcp'});
@@ -549,7 +549,7 @@ test('MCP requires MFA and visible consent and supports revoking a scoped user c
  const enrolled=await page.evaluate(async code=>{const r=await fetch('/api/account/mfa/totp/confirm',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({code})});return r.status;},totp.generate());expect(enrolled).toBe(200);
  await page.context().clearCookies();
  await page.goto('/authorize?'+authorization);await expect(page.getByRole('heading',{name:'Sign in',exact:true})).toBeVisible();
- const consentUrl=page.url();expect(new URL(consentUrl).pathname).toBe('/account/connections');expect(new URL(consentUrl).searchParams.has('request')).toBe(true);
+ const consentUrl=page.url();expect(new URL(consentUrl).pathname).toBe('/admin/connections');expect(new URL(consentUrl).searchParams.has('request')).toBe(true);
  await page.getByLabel('Email').fill(email);await page.getByLabel('Password').fill(password);await signInGuide(page);
  await expect(page.getByRole('heading',{name:'Two-factor authentication',exact:true})).toBeVisible();expect(page.url()).toBe(consentUrl);
  expect((await page.context().cookies()).some(cookie=>cookie.name.endsWith('vmn.session_token'))).toBe(false);
@@ -569,9 +569,9 @@ test('MCP requires MFA and visible consent and supports revoking a scoped user c
  await coverAccess.selectOption('write');
  expect(await page.evaluate('document.documentElement.scrollWidth <= innerWidth')).toBe(true);
  await page.getByRole('button',{name:'Allow connection',exact:true}).click();await expect(page).toHaveURL(/^https:\/\/client\.example\.org\/callback\?code=/);
- await page.goto(guideServerEnv.PUBLIC_ORIGIN+'/account/connections');
+ await page.goto(guideServerEnv.PUBLIC_ORIGIN+'/admin/connections');
  await expect(page.getByText('Fictional AI assistant',{exact:true})).toBeVisible();
- await expect(page.getByText('Consent saved. No token exchange recorded.',{exact:true})).toBeVisible();
+ await expect(page.getByText('Waiting for the assistant',{exact:true})).toBeVisible();
  await page.getByRole('button',{name:'Run local checks',exact:true}).click();
  const report=page.getByRole('textbox',{name:'VMN AI connection report',exact:true});
  await expect(report).toHaveValue(/MCP without sign-in — HTTP 401[\s\S]*VMN browser checks passed/);
@@ -591,7 +591,7 @@ test('MCP requires MFA and visible consent and supports revoking a scoped user c
  await expect(report).toHaveValue(/Discovery metadata is missing or does not match/);
  expect(await report.inputValue()).not.toContain('private proxy error page');
  await page.unroute(discovery);
- await page.getByRole('button',{name:'Manage access',exact:true}).click();
+ await page.getByRole('button',{name:'Disconnect Fictional AI assistant',exact:true}).click();
  await page.getByRole('button',{name:'Disconnect',exact:true}).click();
  await expect(page.getByText('Disconnected',{exact:true})).toBeVisible();await page.evaluate('window.scrollTo(0,0)');await expectAccessible(page,'MCP revoked connection');
  await page.setViewportSize({width:320,height:850});expect(await page.evaluate('document.documentElement.scrollWidth <= innerWidth')).toBe(true);

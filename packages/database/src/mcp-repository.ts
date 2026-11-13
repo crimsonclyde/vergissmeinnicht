@@ -1,16 +1,18 @@
 import { createHash, randomBytes, randomUUID } from 'node:crypto';
-import { and, eq, gt, isNull, sql } from 'drizzle-orm';
+import { and, desc, eq, gt, inArray, isNull, sql } from 'drizzle-orm';
 import { MCP_SCOPES, type McpAuthorizationRequest, type McpGrant, type McpScope, type User } from '@vergissmeinnicht/domain';
 import { NotAuthorizedError } from '@vergissmeinnicht/application';
 import type { AppDatabase } from './connection.ts';
 import { IMMEDIATE, type Transaction } from './actor-guard.ts';
-import { mcpClients, mcpAuthorizationRequests, mcpGrants, mcpTokens, memberships, users } from './schema.ts';
+import { mcpClients, mcpAuthorizationRequests, mcpGrants, mcpTokens, memberships, users, workspaces } from './schema.ts';
 import { recordSecurityEvent } from './security-events.ts';
 export class McpCredentialError extends Error { readonly code:'invalid_grant'|'invalid_client'|'invalid_scope'|'temporarily_unavailable'; constructor(code:McpCredentialError['code']){super(code);this.code=code;} }
 export const hashMcpToken = (value:string) => createHash('sha256').update(value).digest('hex');
 const token = () => randomBytes(32).toString('base64url');
 const reject = ():never=>{throw new McpCredentialError('invalid_grant');};
 const active = (tx:Pick<Transaction,'select'>,id:string) => tx.select({id:users.id}).from(users).where(and(eq(users.id,id as User['id']),eq(users.status,'ACTIVE'))).get()!==undefined;
+/** Since 36.24 AI connections are a server-admin matter: only an ACTIVE server admin may allow one or manage them. */
+const serverAdmin = (tx:Pick<Transaction,'select'>,id:string) => tx.select({id:users.id}).from(users).where(and(eq(users.id,id as User['id']),eq(users.status,'ACTIVE'),eq(users.serverAdmin,true))).get()!==undefined;
 export function createMcpRepository({db}:AppDatabase,resource:string){
  const validGrant=(tx:Pick<Transaction,'select'>,id:string):McpGrant|undefined=>{
   const grant=tx.select().from(mcpGrants).where(and(eq(mcpGrants.id,id),isNull(mcpGrants.revokedAt),gt(mcpGrants.expiresAt,new Date()))).get();
@@ -47,6 +49,7 @@ export function createMcpRepository({db}:AppDatabase,resource:string){
     if(!active(tx,actor.id))throw new NotAuthorizedError();
     const row=tx.select().from(mcpAuthorizationRequests).where(and(eq(mcpAuthorizationRequests.id,id),isNull(mcpAuthorizationRequests.usedAt),gt(mcpAuthorizationRequests.expiresAt,new Date()))).get();if(!row)return reject();
     const redirect=new URL(row.params.redirectUri);if(row.params.state!==null)redirect.searchParams.set('state',row.params.state);
+    if(allow&&!serverAdmin(tx,actor.id))throw new NotAuthorizedError();
     if(!allow){tx.update(mcpAuthorizationRequests).set({usedAt:new Date()}).where(eq(mcpAuthorizationRequests.id,id)).run();redirect.searchParams.set('error','access_denied');return redirect.href;}
     if(workspaceIds.length<1||workspaceIds.length>32||new Set(workspaceIds).size!==workspaceIds.length||scopes.length<1||scopes.some(scope=>!row.params.scopes.includes(scope))||new Set(scopes).size!==scopes.length)return reject();
     for(const workspaceId of workspaceIds)if(!tx.select().from(memberships).where(and(eq(memberships.userId,actor.id),eq(memberships.workspaceId,workspaceId))).get())throw new NotAuthorizedError();
@@ -89,6 +92,27 @@ export function createMcpRepository({db}:AppDatabase,resource:string){
    db.transaction(tx=>{if(!active(tx,actor.id))throw new NotAuthorizedError();const row=tx.select().from(mcpGrants).where(and(eq(mcpGrants.id,id),eq(mcpGrants.userId,actor.id))).get();if(!row)throw new NotAuthorizedError();tx.update(mcpGrants).set({revokedAt:new Date()}).where(eq(mcpGrants.id,id)).run();recordSecurityEvent(tx,{type:'MCP_CONNECTION_CHANGED',actor:{kind:'user',userId:actor.id,displayName:actor.displayName},subjectType:'user',subjectId:actor.id,occurredAt:new Date(),metadata:{action:'revoke',grantId:id}});},IMMEDIATE);
   },
   async revokeToken(clientId:string,raw:string){db.transaction(tx=>{const row=tx.select().from(mcpTokens).where(eq(mcpTokens.hash,hashMcpToken(raw))).get();if(!row)return;const grant=tx.select().from(mcpGrants).where(eq(mcpGrants.id,row.grantId)).get();if(grant?.clientId===clientId)tx.update(mcpGrants).set({revokedAt:new Date()}).where(eq(mcpGrants.id,grant.id)).run();},IMMEDIATE);},
+  /** Every connection on the server, newest first, for the Server admin page (36.24). Never returns token material. */
+  async allConnections(actor:User){
+   if(!serverAdmin(db,actor.id))throw new NotAuthorizedError();
+   const grants=db.select().from(mcpGrants).innerJoin(users,eq(users.id,mcpGrants.userId)).leftJoin(mcpClients,eq(mcpClients.id,mcpGrants.clientId)).orderBy(desc(mcpGrants.createdAt)).all().map(row=>({grant:row.mcp_grants,ownerName:row.users.name,client:row.mcp_clients?.metadata}));
+   const ids=[...new Set(grants.flatMap(({grant})=>grant.workspaceIds))];
+   const names=new Map(ids.length?db.select({id:workspaces.id,name:workspaces.name}).from(workspaces).where(inArray(workspaces.id,ids)).all().map(row=>[row.id,row.name]):[]);
+   return grants.map(({grant,ownerName,client})=>({
+    id:grant.id,owner:{id:grant.userId,displayName:ownerName},clientName:String(client?.['client_name']??'MCP client'),
+    workspaces:grant.workspaceIds.map(id=>({id,name:names.get(id)??null})),scopes:grant.scopes,createdAt:grant.createdAt,expiresAt:grant.expiresAt,revokedAt:grant.revokedAt,
+    tokenIssued:db.select({present:sql<number>`1`}).from(mcpTokens).where(and(eq(mcpTokens.grantId,grant.id),eq(mcpTokens.kind,'refresh'))).get()!==undefined,
+   }));
+  },
+  /** A server admin ends any connection at once (36.24). */
+  async revokeAny(actor:User,id:string){
+   db.transaction(tx=>{
+    if(!serverAdmin(tx,actor.id))throw new NotAuthorizedError();
+    const row=tx.select().from(mcpGrants).where(eq(mcpGrants.id,id)).get();if(!row)throw new NotAuthorizedError();
+    if(row.revokedAt===null)tx.update(mcpGrants).set({revokedAt:new Date()}).where(eq(mcpGrants.id,id)).run();
+    recordSecurityEvent(tx,{type:'MCP_CONNECTION_CHANGED',actor:{kind:'user',userId:actor.id,displayName:actor.displayName},subjectType:'user',subjectId:row.userId,occurredAt:new Date(),metadata:{action:'revoke',grantId:id}});
+   },IMMEDIATE);
+  },
   async authorize(grantId:string,actorId:string,workspaceId:string|undefined,scope:McpScope){
    const grant=validGrant(db,grantId);if(!grant||grant.userId!==actorId||!grant.scopes.includes(scope)||(workspaceId!==undefined&&!grant.workspaceIds.includes(workspaceId)))throw new NotAuthorizedError();return grant;
   },

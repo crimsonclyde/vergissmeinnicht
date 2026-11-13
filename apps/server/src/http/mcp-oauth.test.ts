@@ -56,7 +56,7 @@ describe('MCP OAuth protocol and canonical discovery', () => {
     expect(response.statusCode).toBe(302);
     const location = new URL(String(response.headers.location));
     expect(location.origin).toBe(ORIGIN);
-    expect(location.pathname).toBe('/account/connections');
+    expect(location.pathname).toBe('/admin/connections');
     expect(location.searchParams.has('code')).toBe(false);
     const requestId = location.searchParams.get('request');
     expect(requestId).toMatch(UUID_V4);
@@ -131,7 +131,7 @@ describe('MCP OAuth protocol and canonical discovery', () => {
       expect(response.headers['content-type']).toMatch(/^application\/json\b/);
       expect(response.json()).toEqual({ error: 'Not Found' });
     }
-    const spa = await t.app.inject({ method: 'GET', url: '/account/connections' });
+    const spa = await t.app.inject({ method: 'GET', url: '/admin/connections' });
     expect(spa.statusCode).toBe(200);
     expect(spa.headers['content-type']).toMatch(/^text\/html\b/);
   });

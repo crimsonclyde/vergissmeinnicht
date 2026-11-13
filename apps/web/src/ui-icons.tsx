@@ -1,4 +1,6 @@
 import {
+  IconSparkles,
+  IconPlugConnected,
   IconPin,
   IconPinFilled,
   IconTag,
@@ -264,6 +266,9 @@ const ICONS = {
   importFile: IconFileImport,
   markdown: IconMarkdown,
   checklist: IconListCheck,
+  /** AI connections (36.24). */
+  assistant: IconSparkles,
+  connected: IconPlugConnected,
 } as const;
 
 export type UiIconName = keyof typeof ICONS;
