@@ -3,14 +3,14 @@ import {lazy,Suspense} from 'react';
 const RecipesPage=lazy(()=>import('./modules/recipes/RecipesPage.tsx').then(module=>({default:module.RecipesPage})));
 import { TodaySettingsProvider } from './guide/TodaySettingsProvider.tsx';
 import { GUIDE_CARD_ART } from './guide/card-art.ts';
-import { GuideNavigation } from './guide/GuideNavigation.tsx';
+import { MenuBar } from './nav/MenuBar.tsx';
+import { PhoneNavigation } from './nav/PhoneNavigation.tsx';
 import { GuideGlance } from './guide/GuideGlance.tsx';
 import { GuideSlotsProvider } from './guide/guide-slots.tsx';
 import type { CSSProperties } from 'react';
 import { BringPage } from './Bring.tsx';
-import { destinations, type Destination } from './navigation.ts';
+import { navigation, type Navigation } from './navigation.ts';
 import { ProgressProvider } from './Progress.tsx';
-import { PlacesNavigation } from './places/PlacesNavigation.tsx';
 import { JournalPage } from './modules/journal/LazyJournalPage.tsx';
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { AccountSecurity } from './AccountSecurity.tsx';
@@ -84,24 +84,43 @@ type WorkspaceRoute = Extract<Route, { workspaceId: string }>;
 type Page = Route['page'];
 
 
-function NavLinks({ items, page }: { items: readonly Destination[]; page: Page }) {
-  return (
-    <>
-      {items.map((item) => (
-        <Link key={item.href} href={item.href} aria-current={item.pages.includes(page) ? 'page' : undefined}>
-          <UiIcon name={item.icon} size="1.4em" />
-          <span>{item.label}</span>
-        </Link>
-      ))}
-    </>
-  );
+/** The classic sidebar: Dashboard, then the same families as the menu bar, each under a small caption. */
+function SideNavigation({ nav, page }: { nav: Navigation; page: Page }) {
+  const link = (item: Navigation['today']) => <Link key={item.href} href={item.href} aria-current={item.pages.includes(page) ? 'page' : undefined}>
+    <UiIcon name={item.icon} size="1.4em" />
+    <span>{item.label}</span>
+  </Link>;
+  return <nav aria-label={t('shell.tools')} className="side-nav">
+    {link(nav.today)}
+    {nav.groups.map(group => <div key={group.id} className="side-nav-group" role="group" aria-labelledby={`side-nav-${group.id}`}>
+      <span id={`side-nav-${group.id}`} className="side-nav-caption">{group.label}</span>
+      {group.items.map(link)}
+    </div>)}
+  </nav>;
 }
 
-/** Read preferences inside their account-keyed provider, so Save updates both shells together. */
-function ToolNavigation({ workspaceId, tools, page, phone = false }: { workspaceId: string; tools: readonly string[]; page: Page; phone?: boolean }) {
+/** Read preferences inside their account-keyed provider, so Save updates every navigation together. */
+function useNavigation(workspaceId: string, tools: readonly string[]): Navigation {
   const { preferences } = usePreferences();
-  const nav = destinations(workspaceId, tools, preferences.navigationOrder);
-  return phone ? <PlacesNavigation items={nav.bar} all={nav.side} page={page} /> : <nav aria-label={t('shell.tools')} className="side-nav"><NavLinks items={nav.side} page={page} /></nav>;
+  return navigation(workspaceId, tools, preferences.navigationOrder);
+}
+
+function ClassicNavigation({ workspaceId, tools, page }: { workspaceId: string | null; tools: readonly string[]; page: Page }) {
+  const { guide } = usePreferences();
+  return guide.layout === 'classic' && workspaceId !== null ? <ClassicSide workspaceId={workspaceId} tools={tools} page={page} /> : null;
+}
+function ClassicSide({ workspaceId, tools, page }: { workspaceId: string; tools: readonly string[]; page: Page }) {
+  return <SideNavigation nav={useNavigation(workspaceId, tools)} page={page} />;
+}
+/** Phones, in both layouts: the bar with the person's favourites and the drawer with all tools (42). */
+function PhoneBar({ workspaceId, tools, page }: { workspaceId: string | null; tools: readonly string[]; page: Page }) {
+  return workspaceId === null ? null : <PhoneBarFor workspaceId={workspaceId} tools={tools} page={page} />;
+}
+function PhoneBarFor({ workspaceId, tools, page }: { workspaceId: string; tools: readonly string[]; page: Page }) {
+  return <PhoneNavigation nav={useNavigation(workspaceId, tools)} page={page} />;
+}
+function GuideMenuBar({ workspaceId, tools, page }: { workspaceId: string; tools: readonly string[]; page: Page }) {
+  return <MenuBar nav={useNavigation(workspaceId, tools)} page={page} />;
 }
 
 
@@ -109,15 +128,11 @@ function ShellFrame({ focus, page, children }: { focus: 'edit' | 'run' | undefin
   const { guide } = usePreferences();
   return <div className="shell" data-layout={guide.layout} data-card-style={guide.cardStyle} data-guide-images={guide.images} data-focus={focus} data-page={page} style={{ '--guide-card-opacity': `${guide.cardOpacity}%`, '--guide-card-art': GUIDE_CARD_ART[guide.cardStyle] } as CSSProperties}>{children}</div>;
 }
-function ClassicNavigation({ workspaceId, tools, page, phone = false }: { workspaceId: string | null; tools: readonly string[]; page: Page; phone?: boolean }) {
-  const { guide } = usePreferences();
-  return guide.layout === 'classic' && workspaceId !== null ? <ToolNavigation workspaceId={workspaceId} tools={tools} page={page} phone={phone} /> : null;
-}
 function GuideHeader({ workspaceId, tools, page, userId, onScopeSlot, onActionSlot }: { workspaceId: string | null; tools: readonly string[]; page: Page; userId: string; onScopeSlot: (element: HTMLElement | null) => void; onActionSlot: (element: HTMLElement | null) => void }) {
   const { guide } = usePreferences();
   if (guide.layout !== 'guide') return null;
   // Today's scope dropdown sits before the links; its Add button sits between the links and the time.
-  return <div className="guide-header-tools"><div className="guide-slot guide-slot-scope" ref={onScopeSlot} />{workspaceId !== null && <GuideNavigation key={`${workspaceId}:${page}:${tools.join(' ')}`} workspaceId={workspaceId} tools={tools} page={page} />}<div className="guide-slot guide-slot-actions" ref={onActionSlot} /><GuideGlance key={workspaceId ?? 'account'} userId={userId} /></div>;
+  return <div className="guide-header-tools"><div className="guide-slot guide-slot-scope" ref={onScopeSlot} />{workspaceId !== null && <GuideMenuBar key={workspaceId} workspaceId={workspaceId} tools={tools} page={page} />}<div className="guide-slot guide-slot-actions" ref={onActionSlot} /><GuideGlance key={workspaceId ?? 'account'} userId={userId} /></div>;
 }
 
 /** Loads the Workspace (name, role, capabilities) for the Workspace pages. */
@@ -628,7 +643,7 @@ export function AppShell(props: { user: CurrentUser; route: Route; onSignOut: ()
             <SourceFooter />
           </main>
         </div>
-        <ClassicNavigation workspaceId={navWorkspaceId} tools={navTools} page={route.page} phone />
+        <PhoneBar workspaceId={navWorkspaceId} tools={navTools} page={route.page} />
         </ShellFrame>
       </GuideSlotsProvider>
     </ForecastProvider></ClockToolsProvider></TodaySettingsProvider></ProgressProvider></PreferencesProvider>

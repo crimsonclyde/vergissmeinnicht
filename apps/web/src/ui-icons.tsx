@@ -122,6 +122,10 @@ import {
   IconX,
   IconZoomIn,
   IconZoomOut,
+  IconCalendarCheck,
+  IconBasket,
+  IconBuildingCottage,
+  IconChevronUp,
 } from '@tabler/icons-react';
 
 /**
@@ -264,6 +268,12 @@ const ICONS = {
   importFile: IconFileImport,
   markdown: IconMarkdown,
   checklist: IconListCheck,
+  // The navigation families (42): menu bar and phone drawer.
+  plan: IconCalendarCheck,
+  shop: IconBasket,
+  house: IconBuildingCottage,
+  weatherStatus: IconCloud,
+  drawerUp: IconChevronUp,
 } as const;
 
 export type UiIconName = keyof typeof ICONS;

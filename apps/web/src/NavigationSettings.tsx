@@ -44,7 +44,7 @@ export function NavigationSettings({ tools }: { tools: readonly string[] | null 
         <button type="button" className="quiet" disabled={busy || index === visible.length - 1} aria-label={t('todaySettings.moveDown', { title: t(LABELS[tool]) })} onClick={() => move(tool, 1)}>↓</button>
       </span></li>)}
     </ol>
-    <p><strong>{t('shell.more')}</strong> · {t('navigation.fixedLast')}</p>
+    <p><strong>{t('navigation.allTools')}</strong> · {t('navigation.fixedLast')}</p>
     {visible.length === 0 && <p className="muted">{t('navigation.noTools')}</p>}
     {message && <p role={message.error ? 'alert' : 'status'}>{message.text}</p>}
     <div className="row"><button type="button" className="primary" disabled={busy || draft === undefined} onClick={() => void save()}>{t('navigation.save')}</button>

@@ -200,16 +200,18 @@ test('first server admin: bootstrap link, account creation, sign-in, Workspace c
   expect(await page.evaluate(async (id) => (await fetch('/api/account/workspace-preferences/guide', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ workspaceId: id, guide: { layout: 'classic' } }) })).status, freshWorkspaceId)).toBe(200);
   await page.reload();
   // A fresh Workspace starts empty; configure the tools explicitly through the admin UI.
-  await expect(page.getByRole('navigation', { name: 'Tools' }).getByRole('link')).toHaveText(['Dashboard']);
+  // Weather and Clock are instruments, not Workspace tools: they are there from the start (42).
+  await expect(page.getByRole('navigation', { name: 'Tools' }).getByRole('link')).toHaveText(['Dashboard', 'Weather', 'Clock']);
   await settingsSection(page, 'Workspace settings', 'Plugins');
   await expect(page).toHaveURL(/\/w\/[0-9a-f-]{36}\/plugins$/);
   for (const tool of ['Procedures', 'Reminders', 'Lists', 'Calendar', 'Gamification']) {
     await page.getByRole('checkbox', { name: new RegExp(`^${tool}`) }).check();
     await expect(page.getByRole('checkbox', { name: new RegExp(`^${tool}`) })).toBeEnabled();
   }
-  // The tools (15.1): a persistent sidebar on desktop.
+  // The tools (15.1, 42): a persistent sidebar on desktop, sorted into the same families as the menu bar.
   const sections = page.getByRole('navigation', { name: 'Tools' });
-  await expect(sections.getByRole('link')).toHaveText(['Dashboard', 'Procedures', 'Reminders', 'Lists', 'Calendar']);
+  await expect(sections.getByRole('link')).toHaveText(['Dashboard', 'Procedures', 'Reminders', 'Calendar', 'Completed history', 'Lists', 'Weather', 'Clock']);
+  await expect(sections.getByRole('group')).toHaveText([/^Plan/, /^Shop & cook/, /^Instruments/]);
   await sections.getByRole('link', { name: 'Dashboard' }).click();
   await expect(page.getByRole('heading', { name: 'Dashboard', level: 2 })).toBeVisible();
   await expect(page.getByText('Nothing needs attention right now.')).toBeVisible();
@@ -1181,6 +1183,8 @@ test('first server admin: bootstrap link, account creation, sign-in, Workspace c
     await page.setViewportSize({ width, height: 800 });
     expect(await noSidewaysScroll()).toBe(true);
     await page.emulateMedia({ colorScheme: 'dark' });
+    // The phone bar is fixed at the bottom; check with nothing scrolled underneath it.
+    await page.evaluate(() => window.scrollTo(0, 0));
     await expectAccessible(page, `restore preview at ${width} px, dark`);
     await page.emulateMedia({ colorScheme: 'light' });
   }
@@ -1850,7 +1854,7 @@ test('first server admin: bootstrap link, account creation, sign-in, Workspace c
   await reopened.reload();
   await expect(reopened.getByRole('list', { name: 'To buy' }).getByRole('listitem')).toHaveText([/Eggs/]);
   await reopened.close();
-  if ((await butterNotice(page).count()) > 0) await page.getByRole('button', { name: 'OK' }).click();
+  if ((await butterNotice(page).count()) > 0) await page.getByRole('button', { name: 'OK', exact: true }).click();
   await page.reload();
   await expect(shopList.getByRole('listitem')).toHaveText([/Eggs/]);
   await expect(page.getByText('Purchased (2)')).toBeVisible();
@@ -1959,17 +1963,30 @@ test('first server admin: bootstrap link, account creation, sign-in, Workspace c
   expect(upgraded.probe).toBe('kept across the update');
   await probeTab.close();
 
-  // Phone navigation (15.1): four labelled destinations at the bottom; More leads to Reminders, Calendar and history.
+  // Phone navigation (15.1, 42): Dashboard, two favourites and All tools at the bottom; All tools slides up a
+  // drawer with every tool in the same families as the desktop menus.
   await page.setViewportSize({ width: 390, height: 844 });
-  await expect(sections.getByRole('link')).toHaveText(['Dashboard', 'Procedures', 'Lists', 'More']);
+  await expect(sections.getByRole('link')).toHaveText(['Dashboard', 'Procedures', 'Lists']);
   await expect(sections.getByRole('link', { name: 'Lists' })).toHaveAttribute('aria-current', 'page');
-  for (const link of await sections.getByRole('link').all()) expect((await link.boundingBox())?.height).toBeGreaterThanOrEqual(44);
-  await sections.getByRole('link', { name: 'More' }).click();
-  await expect(page.getByRole('main').getByRole('link')).toHaveText([/Reminders/, /Calendar/, /Completed history/, /VergissMeinNicht/, /AGPL/]);
-  await expectAccessible(page, 'more page on a phone');
-  await page.getByRole('main').getByRole('link', { name: /Reminders/ }).click();
+  const allTools = sections.getByRole('button', { name: 'All tools', exact: true });
+  for (const target of [...await sections.getByRole('link').all(), allTools]) expect((await target.boundingBox())?.height).toBeGreaterThanOrEqual(44);
+  await allTools.click();
+  const drawer = page.getByRole('dialog', { name: 'All tools', exact: true });
+  await expect(drawer.getByRole('link')).toHaveText(['Procedures', 'Reminders', 'Calendar', 'Completed history', 'Lists', 'Weather', 'Clock']);
+  await expect(drawer.getByRole('link', { name: 'Lists' })).toHaveAttribute('aria-current', 'page');
+  await expectAccessible(page, 'tool drawer on a phone');
+  await page.keyboard.press('Escape');
+  await expect(drawer).toBeHidden();
+  await expect(allTools).toBeFocused();
+  // The old More address still lists every tool, as a page.
+  await page.goto(`${/^\/w\/[0-9a-f-]{36}/.exec(new URL(page.url()).pathname)?.[0] ?? ''}/more`);
+  await expect(page.getByRole('heading', { name: 'All tools', level: 2 })).toBeVisible();
+  await expectAccessible(page, 'all tools page on a phone');
+  await allTools.click();
+  await drawer.getByRole('link', { name: 'Reminders' }).click();
   await expect(page).toHaveURL(/\/reminders$/);
-  await expect(sections.getByRole('link', { name: 'More' })).toHaveAttribute('aria-current', 'page');
+  await expect(drawer).toBeHidden();
+  await expect(allTools).toHaveAttribute('data-current', 'true');
   await sections.getByRole('link', { name: 'Dashboard' }).click();
   await page.getByRole('button', { name: 'Add', exact: true }).click();
   await expectAccessible(page, 'add sheet on a phone');
@@ -1991,7 +2008,7 @@ test('first server admin: bootstrap link, account creation, sign-in, Workspace c
   await expectAccessible(page, 'workspace settings with the tool switch');
   await documentsSwitch.check();
   await expect(page.getByRole('status').filter({ hasText: 'Documents is switched on for everyone in this Workspace.' })).toBeVisible();
-  await expect(sections.getByRole('link')).toHaveText(['Dashboard', 'Procedures', 'Reminders', 'Lists', 'Calendar', 'Documents']);
+  await expect(sections.getByRole('link')).toHaveText(['Dashboard', 'Procedures', 'Reminders', 'Calendar', 'Completed history', 'Lists', 'Documents', 'Weather', 'Clock']);
   await sections.getByRole('link', { name: 'Documents' }).click();
   await expect(page.getByText('No documents yet — add a scan, PDF or photo.')).toBeVisible(); // nothing is pre-created
   await expectAccessible(page, 'empty documents');
@@ -2091,11 +2108,11 @@ test('first server admin: bootstrap link, account creation, sign-in, Workspace c
     await page.evaluate('window.scrollTo(0, 0)');
     await expectAccessible(page, `document at ${width} px (dark)`);
   }
-  await expect(sections.getByRole('link')).toHaveText(['Dashboard', 'Procedures', 'Lists', 'More']);
-  await expect(sections.getByRole('link', { name: 'More' })).toHaveAttribute('aria-current', 'page');
-  await sections.getByRole('link', { name: 'More' }).click();
-  await expect(page.getByRole('main').getByRole('link').first()).toContainText('Documents');
-  await page.getByRole('main').getByRole('link', { name: /Documents/ }).click();
+  await expect(sections.getByRole('link')).toHaveText(['Dashboard', 'Procedures', 'Lists']);
+  await expect(sections.getByRole('button', { name: 'All tools', exact: true })).toHaveAttribute('data-current', 'true');
+  await sections.getByRole('button', { name: 'All tools', exact: true }).click();
+  await expect(page.getByRole('dialog', { name: 'All tools', exact: true }).getByRole('region', { name: 'House', exact: true }).getByRole('link')).toHaveText(['Documents']);
+  await page.getByRole('dialog', { name: 'All tools', exact: true }).getByRole('link', { name: 'Documents', exact: true }).click();
   // The top level lists every Document, newest first, and says where each one is.
   await expect(page.getByRole('heading', { name: 'Recently added', level: 3 })).toBeVisible();
   await expect(page.getByRole('link', { name: /Water bill March/ })).toContainText(/Bill · Uploaded .* · 4 pages · Water$/);
@@ -2350,7 +2367,7 @@ test('first server admin: bootstrap link, account creation, sign-in, Workspace c
   await openPlugins(page);
   await page.getByRole('checkbox', { name: /^Contacts/ }).check();
   await expect(page.getByRole('status').filter({ hasText: 'Contacts is switched on for everyone in this Workspace.' })).toBeVisible();
-  await expect(sections.getByRole('link')).toHaveText(['Dashboard', 'Procedures', 'Reminders', 'Lists', 'Calendar', 'Documents', 'Contacts']);
+  await expect(sections.getByRole('link')).toHaveText(['Dashboard', 'Procedures', 'Reminders', 'Calendar', 'Completed history', 'Lists', 'Documents', 'Contacts', 'Weather', 'Clock']);
   await sections.getByRole('link', { name: 'Contacts' }).click();
   await expect(page.getByText('No contacts yet. Type a name above to add the first one.')).toBeVisible();
   await expectAccessible(page, 'contacts, empty');
@@ -2543,7 +2560,7 @@ test('first server admin: bootstrap link, account creation, sign-in, Workspace c
   await openPlugins(page);
   await page.getByRole('checkbox', { name: /^Maintenance/ }).check();
   await expect(page.getByRole('status').filter({ hasText: 'Maintenance is switched on for everyone in this Workspace.' })).toBeVisible();
-  await expect(sections.getByRole('link')).toHaveText(['Dashboard', 'Procedures', 'Reminders', 'Lists', 'Calendar', 'Documents', 'Contacts', 'Maintenance']);
+  await expect(sections.getByRole('link')).toHaveText(['Dashboard', 'Procedures', 'Reminders', 'Calendar', 'Completed history', 'Lists', 'Documents', 'Contacts', 'Maintenance', 'Weather', 'Clock']);
   await sections.getByRole('link', { name: 'Maintenance' }).click();
   const column = (name: string) => page.getByRole('region', { name: new RegExp(`^${name} \\(`) });
   await expect(column('Planned')).toContainText('Nothing here.');
@@ -2706,7 +2723,10 @@ test('first server admin: bootstrap link, account creation, sign-in, Workspace c
   await openPlugins(page);
   await page.getByRole('checkbox', {name:/^Equipment/}).check();
   await expect(page.getByRole('status').filter({hasText:'Equipment is switched on'})).toBeVisible();
-  await sections.getByRole('link',{name:'Equipment',exact:true}).click({timeout:10000});
+  // Equipment and Maintenance share one Maintenance entry (41.2, 42); the Equipment tab is its own address.
+  await expect(sections.getByRole('link',{name:'Equipment',exact:true})).toHaveCount(0);
+  await page.goto(`${workspacePath}/equipment`);
+  await expect(sections.getByRole('link',{name:'Maintenance',exact:true})).toHaveAttribute('aria-current','page');
   await page.getByRole('button',{name:'Add equipment',exact:true}).click();
   const equipmentForm=page.getByRole('dialog',{name:'Add equipment'});
   await equipmentForm.getByLabel('Name',{exact:false}).fill('House boiler');
@@ -2750,7 +2770,7 @@ test('first server admin: bootstrap link, account creation, sign-in, Workspace c
   expect(await page.evaluate('document.documentElement.scrollWidth <= document.documentElement.clientWidth')).toBe(true);
   await expectAccessible(page,'equipment detail at 320 px');
   await page.goto(`${workspacePath}/more`);
-  await expect(page.getByRole('link',{name:/Equipment/})).toBeVisible();
+  await expect(page.getByRole('main').getByRole('link',{name:/Maintenance/})).toBeVisible();
   await page.goto(equipmentAddress);
   await page.emulateMedia({colorScheme:'dark'});
   await expectAccessible(page,'equipment detail dark at 320 px');
@@ -3125,9 +3145,11 @@ test('first server admin: bootstrap link, account creation, sign-in, Workspace c
   const beforeEquipmentEnable=(await requestForPlaces(`/api/workspaces/${workspaceIdForPlaces}`)).body as {toolsRevision:number};
   expect((await requestForPlaces(`/api/workspaces/${workspaceIdForPlaces}/tools`,{tool:'EQUIPMENT',enabled:true,expectedRevision:beforeEquipmentEnable.toolsRevision})).status).toBe(200);
   await page.reload();
-  await page.locator('.places-dock').getByRole('button',{name:'More',exact:true}).click();
-  await expectAccessible(page,'Places tools disclosure');
-  await page.locator('.places-tool-grid').getByRole('link',{name:'Equipment',exact:true}).click({timeout:10000});
+  await page.locator('.places-dock').getByRole('button',{name:'All tools',exact:true}).click();
+  await expectAccessible(page,'Places tool drawer');
+  await page.getByRole('dialog',{name:'All tools',exact:true}).getByRole('link',{name:'Maintenance',exact:true}).click({timeout:10000});
+  await expect(page).toHaveURL(/\/(maintenance|equipment)$/);
+  await page.goto(`${workspacePath}/equipment`);
   await page.getByRole('button',{name:'Add equipment',exact:true}).click();
   const referenceForm=page.getByRole('dialog',{name:'Add equipment'});
   await expect(referenceForm.getByLabel('Purchase date',{exact:true})).toHaveCount(0);
@@ -3223,32 +3245,35 @@ test('first server admin: bootstrap link, account creation, sign-in, Workspace c
     await moveUp.click();
   }
   await expect(page.locator('html')).toHaveAttribute('data-theme', 'memento-mori');
-  await expect(page.locator('.shell-side nav a').nth(1)).toHaveText('Procedures');
-  await expect(page.locator('.shell-side nav a').nth(2)).toHaveText('Reminders');
+  // The order decides the two phone favourites (the bar is in the page on every width, shown on phones).
+  await expect(page.locator('.tab-bar > a').nth(1)).toHaveText('Procedures');
+  await expect(page.locator('.tab-bar > a').nth(2)).toHaveText('Lists');
   await menuOrder.getByRole('button', { name: 'Save menu order' }).click();
   await expect(menuOrder.getByRole('status')).toHaveText('Tool menu order saved.');
-  await expect(page.locator('.shell-side nav a').nth(1)).toHaveText('Equipment');
-  await expect(page.locator('.shell-side nav a').nth(2)).toHaveText('Procedures');
+  await expect(page.locator('.tab-bar > a').nth(1)).toHaveText('Maintenance');
+  await expect(page.locator('.tab-bar > a').nth(2)).toHaveText('Procedures');
   await page.reload();
   await expect(menuOrder.getByRole('list').locator('li strong').first()).toHaveText('Equipment');
   await page.goto(workspacePath);
-  await expect(page.locator('.places-dock > a')).toHaveText(['Dashboard', 'Equipment', 'Procedures']);
-  await page.locator('.places-dock').getByRole('button', { name: 'More', exact: true }).click();
-  await expect(page.locator('.places-tool-grid a').nth(1)).toHaveText('Equipment');
-  await page.locator('.places-tools').getByRole('button', { name: 'Close', exact: true }).click();
+  await expect(page.locator('.places-dock > a')).toHaveText(['Dashboard', 'Maintenance', 'Procedures']);
+  await page.locator('.places-dock').getByRole('button', { name: 'All tools', exact: true }).click();
+  await expect(page.getByRole('dialog', { name: 'All tools', exact: true }).getByRole('region', { name: 'House', exact: true }).getByRole('link').first()).toHaveText('Maintenance');
+  await page.getByRole('dialog', { name: 'All tools', exact: true }).getByRole('button', { name: 'Close', exact: true }).click();
   const savedMenuTheme = ((await requestForPlaces('/api/account/workspace-preferences')).body as { workspacePreferences: { themes: Record<string, string> } }).workspacePreferences.themes[workspaceIdForPlaces] ?? null;
   for (const theme of ['light', 'dark']) {
     expect((await requestForPlaces('/api/account/workspace-preferences/theme', { workspaceId: workspaceIdForPlaces, theme })).status).toBe(200);
     await page.goto(workspacePath);
     await expect(page.locator('html')).toHaveAttribute('data-theme', theme === 'dark' ? 'memento-mori' : theme);
-    await expect(page.locator('.shell-side nav a').nth(1)).toHaveText('Equipment');
+    await expect(page.locator('.tab-bar > a').nth(1)).toHaveText('Maintenance');
     await page.setViewportSize({width:320,height:850});
-    await expect(page.locator('.tab-bar > a')).toHaveText(['Dashboard', 'Equipment', 'Procedures', 'More']);
+    await expect(page.locator('.tab-bar > a')).toHaveText(['Dashboard', 'Maintenance', 'Procedures']);
+    await expect(page.locator('.tab-bar > button')).toHaveText(['All tools']);
     expect(await page.evaluate('document.documentElement.scrollWidth <= innerWidth')).toBe(true);
     await expectAccessible(page, `Personal menu order ${theme} at 320px`);
     await page.screenshot({path:`${placeShots}/menu-order-${theme}-320.png`,fullPage:true,animations:'disabled'});
-    await page.locator('.tab-bar').getByRole('link', { name: 'More', exact: true }).click();
-    await expect(page.locator('main .plain-list .item-body strong').first()).toHaveText('Equipment');
+    await page.locator('.tab-bar').getByRole('button', { name: 'All tools', exact: true }).click();
+    await expect(page.getByRole('dialog', { name: 'All tools', exact: true }).getByRole('region', { name: 'House', exact: true }).getByRole('link').first()).toHaveText('Maintenance');
+    await page.keyboard.press('Escape');
     await page.goto('/account');
     await page.setViewportSize({width:1440,height:1000});
   }
@@ -3364,7 +3389,7 @@ test('first server admin: bootstrap link, account creation, sign-in, Workspace c
   await context.setOffline(false);
   await expect(page.getByRole('alert')).toContainText('Your offline change to “Close windows” was not applied: Someone else changed this Step', { timeout: 15_000 });
   await expect(stepItem('Close windows')).toContainText('Skipped');
-  await page.getByRole('button', { name: 'OK' }).click();
+  await page.getByRole('button', { name: 'OK', exact: true }).click();
   await run.getByRole('button', { name: 'Abort…' }).click();
   await run.getByRole('button', { name: 'Abort', exact: true }).click();
   await expect(run.getByRole('status').filter({ hasText: 'Aborted by Ada Admin' })).toBeVisible();

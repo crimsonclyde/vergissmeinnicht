@@ -83,7 +83,7 @@ export async function checkPhoneJournal(page: Page, testInfo: TestInfo, workspac
   await next.click();
   await expect(page.getByLabel('Notebook',{exact:true})).toHaveValue('Garden');
   await home.click(); await expect(page).toHaveURL(`/w/${workspaceId}`);
-  await expect(page.getByRole('button',{name:'Guide',exact:true})).toBeVisible();
+  await expect(page.getByRole('button',{name:'All tools',exact:true})).toBeVisible();
   await expect(page.locator('.mobile-action-bar')).toHaveCount(0);
   await page.goto(`/w/${workspaceId}`);await page.getByRole('button',{name:'Add',exact:true}).click(); await page.getByRole('button',{name:/Journal entry — Personal/}).click();
   await page.getByRole('button',{name:'Agree & Continue',exact:true}).click();
@@ -109,7 +109,7 @@ export async function checkPhoneJournal(page: Page, testInfo: TestInfo, workspac
   page.once('dialog', dialog => void dialog.dismiss()); await home.click(); await expect(editor).toContainText('Keep this edit.');
   page.once('dialog', dialog => void dialog.accept()); await home.click();
   await expect(page).toHaveURL(`/w/${workspaceId}`);
-  await expect(page.getByRole('button',{name:'Guide',exact:true})).toBeVisible();
+  await expect(page.getByRole('button',{name:'All tools',exact:true})).toBeVisible();
   expect(await page.evaluate('document.documentElement.scrollWidth<=window.innerWidth')).toBe(true);
   // Opaque syntax is never silently serialized through a lossy phone editor.
   const opaque=':::custom\nKeep this exact source.\n:::';
