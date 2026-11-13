@@ -18,6 +18,20 @@ For every completed task, add a concise completion note, tests/checks performed,
 
 ## Current state — resume here
 
+**Published owner release 68 (2026-11-13).** 0.14.1 was published from `v0.14.1`, source
+`ec46e836d41124ac393ba3763d5b3935f8a410d3` (PRs #107–#114: grocery move/delete/edit/restore
+through MCP with migrations 0074 and 0075, Recently deleted in Lists, History and Reminders
+timeline, structured MCP errors with To-do Lists, Calendar, Notes and Recipe tools, Maintenance
+area with Contacts and Documents, desktop menu bar and phone tool drawer, AI connections in
+Server admin). The release reused the passing main CI; both image builds, smoke tests, scans,
+signing, SBOM and the populated upgrade checks (from 0.14.0, 0.13.12, 0.13.11 and
+0.10.1-beta.0) passed in 4.5 minutes. `0.14.1`, `0.14` and `latest` resolve to index
+`sha256:4900e53a5a5baf01db59aab193ffbb9b2fb28ede33fb7eb3aeec9b9e1ea57088`.
+Release upgrade checks now start from 0.14.1, 0.14.0 and 0.13.12.
+Owner count **68**, next **69**.
+[GitHub release](https://github.com/crimsonclyde/vergissmeinnicht/releases/tag/v0.14.1)
+[Release workflow](https://github.com/crimsonclyde/vergissmeinnicht/actions/runs/43484627369)
+
 **Published owner release 67 (2026-11-12).** 0.14.0 was published from `v0.14.0`, source
 `1b82bb6ff47efd9fd28a60c531be35a811b536bc` (PRs #102 upload-only ChatGPT recipe photos, #103
 Calendar subscription links and refreshed Calendar with migration 0073, #104 Notes and Journal
@@ -28,15 +42,6 @@ passed. `0.14.0`, `0.14` and `latest` resolve to index
 `sha256:12ca36ddf9a49837625de7eb69dde840b5ee5dfc1285c8fdf354b130a030acd8`.
 Owner count **67**, next **68**.
 [GitHub release](https://github.com/crimsonclyde/vergissmeinnicht/releases/tag/v0.14.0)
-
-**Release 0.14.1 prepared (owner release 68, 2026-11-13).** Includes PRs #107 (grocery move
-and delete through MCP, 36.18; migration 0074), #108 (edit, tick and restore grocery items,
-Recently deleted in Lists, 36.19; migration 0075), #109 and #111 (History and Reminders
-timeline, More and Settings rows, 41.1), #110 (structured MCP errors, To-do Lists, Calendar and
-Notes, Recipe fields and archive, 36.20–36.23), #112 (Maintenance area, Contacts and Documents,
-41.2–41.3), #113 (desktop menu bar and phone tool drawer, 42) and #114 (AI connections in
-Server admin, 36.24). Release upgrade checks start from 0.14.0. Pending: owner publishes
-`v0.14.1`, then record the published digest here and the owner count (68) in AGENTS.md.
 
 **Published owner release 66 (2026-11-11).** Stable 0.13.12 was published from `v0.13.12`,
 source `ef2247b2fdb0f61c99eee9a3e43d19e2a01750ef` (PRs #97–#99, #101: Recipe categories,
