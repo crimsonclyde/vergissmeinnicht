@@ -526,7 +526,7 @@ export function createScheduleRepository({ db }: Pick<AppDatabase, 'db'>): Sched
         const schedule = tx
           .insert(schedules)
           .values({
-            id: randomUUID(),
+            id: input.id ?? randomUUID(),
             workspaceId: input.workspaceId,
             kind: input.kind,
             procedureId: input.kind === 'PROCEDURE' ? input.procedureId : null,

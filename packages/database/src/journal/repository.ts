@@ -80,7 +80,7 @@ export function createJournalRepository({ db }: AppDatabase): JournalRepository 
       const row = db.select().from(table).where(and(filter, eq(table.id, id))).get();
       return row === undefined ? undefined : view(row);
     },
-    async save(scope, actor, entry, id, expectedRevision, archived, at) {
+    async save(scope, actor, entry, id, expectedRevision, archived, at, newId) {
       return db.transaction((tx) => {
         if (!guard(tx,scope,actor)) return 'forbidden';
         const current = tx.select().from(users).where(eq(users.id,actor.id)).get();if(!current)return 'forbidden';
@@ -89,7 +89,7 @@ export function createJournalRepository({ db }: AppDatabase): JournalRepository 
         if (id !== undefined && previous === undefined) return 'missing';
         if (expectedRevision !== (previous?.revision ?? 0)) return 'conflict';
         if(previous?.version===2&&entry.version===1)throw new DomainValidationError('entry','invalid_journal_entry','Cannot downgrade Markdown');
-        const nextId = id ?? randomUUID();
+        const nextId = id ?? newId ?? randomUUID();
         const history = 'workspaceId' in scope ? journalRevisions : privateJournalRevisions;
         if (previous && !tx.select().from(history).where(and(eq(history.entryId,nextId),eq(history.revision,previous.revision))).get()) {
          const values={entryId:nextId,revision:previous.revision,content:contentOf(previous),archived:previous.archived,at:previous.updatedAt,by:previous.updatedBy,byUserId:previous.updatedByUserId};
