@@ -570,8 +570,10 @@ test('MCP requires MFA and visible consent and supports revoking a scoped user c
  expect(await page.evaluate('document.documentElement.scrollWidth <= innerWidth')).toBe(true);
  await page.getByRole('button',{name:'Allow connection',exact:true}).click();await expect(page).toHaveURL(/^https:\/\/client\.example\.org\/callback\?code=/);
  await page.goto(guideServerEnv.PUBLIC_ORIGIN+'/admin/connections');
- await expect(page.getByText('Fictional AI assistant',{exact:true})).toBeVisible();
- await expect(page.getByText('Waiting for the assistant',{exact:true})).toBeVisible();
+ // Server admin lists every connection on the server (36.24), including other projects' runs: use this user's own row.
+ const mine=page.getByRole('listitem').filter({hasText:'Acts as you'});
+ await expect(mine.getByText('Fictional AI assistant',{exact:true})).toBeVisible();
+ await expect(mine.getByText('Waiting for the assistant',{exact:true})).toBeVisible();
  await page.getByRole('button',{name:'Run local checks',exact:true}).click();
  const report=page.getByRole('textbox',{name:'VMN AI connection report',exact:true});
  await expect(report).toHaveValue(/MCP without sign-in — HTTP 401[\s\S]*VMN browser checks passed/);
@@ -591,9 +593,9 @@ test('MCP requires MFA and visible consent and supports revoking a scoped user c
  await expect(report).toHaveValue(/Discovery metadata is missing or does not match/);
  expect(await report.inputValue()).not.toContain('private proxy error page');
  await page.unroute(discovery);
- await page.getByRole('button',{name:'Disconnect Fictional AI assistant',exact:true}).click();
- await page.getByRole('button',{name:'Disconnect',exact:true}).click();
- await expect(page.getByText('Disconnected',{exact:true})).toBeVisible();await page.evaluate('window.scrollTo(0,0)');await expectAccessible(page,'MCP revoked connection');
+ await mine.getByRole('button',{name:'Disconnect Fictional AI assistant',exact:true}).click();
+ await mine.getByRole('button',{name:'Disconnect',exact:true}).click();
+ await expect(mine.filter({hasText:'Disconnected'}).getByText('Disconnected',{exact:true})).toBeVisible();await page.evaluate('window.scrollTo(0,0)');await expectAccessible(page,'MCP revoked connection');
  await page.setViewportSize({width:320,height:850});expect(await page.evaluate('document.documentElement.scrollWidth <= innerWidth')).toBe(true);
 });
 
