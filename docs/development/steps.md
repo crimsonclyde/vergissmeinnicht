@@ -5810,6 +5810,30 @@ user workflows; no host migration or external service provisioned by the assessm
 
 ---
 
+## 42 — Navigation: a menu bar on desktop, a drawer on phones (owner request 2026-11-13)
+
+**Request (owner, 2026-11-13):** the navigation between the tools no longer works, there are too many for one overlay ("Guide" dialog); ideas that do not clog the main interface. Four mockups (/mnt/project-files/ui-review/2026-11-13-navigation/); owner choice: option 1 on desktop as a **macOS-style menu bar**, option 4's **swipe-up drawer** on phones (final mockup `final-light.png` / `final-dark.png`), "ok go for it", every theme updated. Same day (41): Equipment and Maintenance are **one "Maintenance" entry**; Contacts and Documents stay separate.
+
+**Status:** DONE (implementation and checks complete; not released).
+
+**Implemented:**
+- `navigation.ts`: one source for every navigation — `navigation(workspaceId, tools, order)` returns Dashboard, the enabled tools in the person's order, the **families** (Plan: Procedures, Reminders, Calendar, Completed history; Shop & cook: Lists, Recipes, Bring; House: Notes, Documents, Contacts, Maintenance; Instruments: Weather, Clock) and the phone bar (Dashboard + first two tools of the person's order). The saved order (Settings → Tool menu order) decides the two phone favourites and the order inside each family. Empty families are left out; switched-off tools appear nowhere; Completed history only with Procedures. Equipment and Maintenance share one "Maintenance" entry (pages `maintenance` + `equipment`) that opens the last-used tab (`vmn.maintenanceTab.<workspaceId>`, written by 41.2) or the tool that is on.
+- `nav/MenuBar.tsx` (top-bar layout, desktop): Dashboard, then one drop-down per family. Disclosure buttons with plain links (no ARIA menu roles); once a menu is open, pointing at a neighbour opens that one; ↓/↑ enter a menu, ←/→ move between menus, Escape returns to the title; a page change or a click outside closes it. The family holding the current page is marked. When the top bar runs short of room (container query on the header tools: narrow desktops, tablets, Today's scope and Add, wide theme faces) the titles keep only their icons; names stay for screen readers and tooltips.
+- `guide/GuideGlance.tsx`: status items on the right — the current temperature (only when the Weather card is on and a forecast with a current reading is already loaded; no extra request) and the time (unchanged); each opens its page. The temperature is left out on narrow phones.
+- `nav/PhoneNavigation.tsx` (phones, both layouts): Dashboard, the two favourites and **All tools**; All tools or a swipe up from the bar opens a native modal bottom sheet with every tool in the same families (focus kept inside, Escape / tap outside / swipe down / picking a tool closes it, focus returns to the button). A tool reached through the drawer marks the button. Places keeps its floating dock look, now with All tools; in the top-bar layout the dock gives way to the menu bar on desktop.
+- Classic (sidebar) layout: the same families under small captions.
+- More (`/more`) became **All tools** as a page (same families, row style of 41.1); it is no longer linked from the bars, old links keep working. The Guide dialog (`GuideDialog`, `GuideNavigation`) and `PlacesNavigation` are removed. Narrow-phone top bar: workspace, scope, time, Add and settings in one row.
+- Themes: theme tokens throughout (`nav/navigation.css`), plus accents for Tokyo Nights (neon titles, glowing drawer edge), Witch Forest (engraved titles, moss seals) and Places (dock); forced colours, reduced motion and print handled.
+- Presentation only: no API, schema, permission or route change; no migration.
+
+**Tests/checks:** `tsc`, `eslint`, `vitest run apps/web` (new `nav/navigation.test.ts`: families, switched-off tools, personal order, one current destination per page, the shared Maintenance entry). E2E updated and run locally: `guide.spec.ts` (menu bar mouse + keyboard, drawer, swipe, every theme with axe at 320/1440 px) and the main regression (classic sidebar families, phone drawer, All tools page, menu order, Places). Screens in light, Memento Mori, Space Guide, Tokyo Nights, Witch Forest and Places at 1440/1280/1024/900/390 px reviewed (`/mnt/project-files/ui-review/2026-11-13-navigation/build/`).
+
+**Security impact:** NONE (presentation only; the server still authorizes every request, hidden entries are a UI convenience). **Security docs updated:** NO.
+
+**Remaining:** real-phone check of the swipe gesture and the drawer on iOS Safari. Keyboard shortcuts in the menus (shown in the mockup) were left out on purpose: ⌘/Ctrl + digit already switches browser tabs. "Recent" items in the menus (mockup) are not built: they would need a new per-person history.
+
+---
+
 ## 11 — Licensing
 
 ### 11.1 AGPL-3.0

@@ -128,6 +128,10 @@ import {
   IconX,
   IconZoomIn,
   IconZoomOut,
+  IconCalendarCheck,
+  IconBasket,
+  IconBuildingCottage,
+  IconChevronUp,
 } from '@tabler/icons-react';
 
 /**
@@ -273,6 +277,12 @@ const ICONS = {
   /** AI connections (36.24). */
   assistant: IconSparkles,
   connected: IconPlugConnected,
+  // The navigation families (42): menu bar and phone drawer.
+  plan: IconCalendarCheck,
+  shop: IconBasket,
+  house: IconBuildingCottage,
+  weatherStatus: IconCloud,
+  drawerUp: IconChevronUp,
   // Contacts and Documents (41.3).
   call: IconPhone,
   mail: IconMail,

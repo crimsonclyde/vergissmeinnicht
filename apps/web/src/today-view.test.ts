@@ -1,11 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import type { Occurrence, RunSummary, Schedule } from './api.ts';
-import { destinations } from './navigation.ts';
-import { t } from './i18n/index.ts';
 import { remindersView } from './Reminders.tsx';
 import { firstName, greetingKey, todayHero, todayRing, todayView } from './Today.tsx';
 
-const W = '3f1c2b9a-6d4e-4f8a-9b7c-1a2b3c4d5e6f';
 
 function occurrence(id: string, kind: Schedule['kind'], extra: Partial<Occurrence> = {}): Occurrence {
   const schedule = { id: `schedule-${id}`, kind, title: id, recurrence: { kind: 'ONCE' }, reminders: [], state: 'ACTIVE' } as unknown as Schedule;
@@ -66,64 +63,6 @@ describe('Reminders', () => {
     expect(view.today.map((item) => item.id)).toEqual(['bins']);
     expect(view.upcoming.map((item) => item.id)).toEqual(['insurance']);
     expect(view.done.map((item) => item.id)).toEqual(['passport']);
-  });
-});
-
-describe('tool navigation', () => {
-  const nav = destinations(W, ['PROCEDURES', 'REMINDERS', 'LISTS', 'CALENDAR']);
-
-  it('pins the first two enabled personal choices, keeps every tool reachable and marks exactly one phone destination', () => {
-    const custom = destinations(W, ['PROCEDURES', 'LISTS', 'EQUIPMENT', 'JOURNAL', 'CALENDAR'], ['DOCUMENTS', 'EQUIPMENT', 'JOURNAL', 'LISTS']);
-    expect(custom.side.map(item => item.label)).toEqual([t('shell.today'), 'Equipment', 'Notes', 'Lists', 'Procedures', 'Calendar']);
-    expect(custom.bar.map(item => item.label)).toEqual([t('shell.today'), 'Equipment', 'Notes', 'More']);
-    for (const page of ['workspace', 'equipment', 'journal', 'lists', 'procedures', 'calendar', 'history', 'more'] as const) {
-      expect(custom.bar.filter(item => item.pages.includes(page))).toHaveLength(1);
-    }
-    expect(destinations(W, [], ['DOCUMENTS']).bar.map(item => item.label)).toEqual([t('shell.today'), 'More']);
-    expect(destinations(W, ['LISTS'], ['DOCUMENTS', 'LISTS']).bar.map(item => item.label)).toEqual([t('shell.today'), 'Lists', 'More']);
-  });
-
-  it('keeps Dashboard and More with all tools off and never offers a disabled destination', () => {
-    expect(destinations(W, []).side.map((item) => item.label)).toEqual([t('shell.today')]);
-    expect(destinations(W, []).bar.map((item) => item.label)).toEqual([t('shell.today'), 'More']);
-    expect(destinations(W, ['LISTS']).bar.map((item) => item.label)).toEqual([t('shell.today'), 'Lists', 'More']);
-  });
-
-  it('has the five tools in the desktop sidebar', () => {
-    expect(nav.side.map((item) => item.label)).toEqual([t('shell.today'), 'Procedures', 'Reminders', 'Lists', 'Calendar']);
-    expect(nav.side.map((item) => item.href)).toEqual([`/w/${W}`, `/w/${W}/procedures`, `/w/${W}/reminders`, `/w/${W}/lists`, `/w/${W}/calendar`]);
-  });
-
-  it('has four labelled destinations in the phone bar; More covers Reminders, Calendar and history', () => {
-    expect(nav.bar.map((item) => item.label)).toEqual([t('shell.today'), 'Procedures', 'Lists', 'More']);
-    const more = nav.bar[3];
-    expect(more?.href).toBe(`/w/${W}/more`);
-    expect(more?.pages).toEqual(expect.arrayContaining(['more', 'reminders', 'calendar', 'history']));
-  });
-
-  it('adds an enabled optional tool to the sidebar and to More — never to the phone bar (16.2)', () => {
-    const withDocuments = destinations(W, ['PROCEDURES', 'REMINDERS', 'LISTS', 'CALENDAR', 'DOCUMENTS']);
-    expect(withDocuments.side.map((item) => item.label)).toEqual([t('shell.today'), 'Procedures', 'Reminders', 'Lists', 'Calendar', 'Documents']);
-    expect(withDocuments.side.at(-1)?.href).toBe(`/w/${W}/documents`);
-    expect(withDocuments.bar.map((item) => item.label)).toEqual([t('shell.today'), 'Procedures', 'Lists', 'More']); // still exactly four
-    expect(withDocuments.bar[3]?.pages).toContain('documents');
-    // Not switched on: it appears nowhere.
-    expect(nav.side.some((item) => item.pages.includes('documents'))).toBe(false);
-    expect(nav.bar.some((item) => item.pages.includes('documents'))).toBe(false);
-    expect(destinations(W, ['UNKNOWN']).side).toHaveLength(1);
-  });
-
-  it('marks exactly one destination for every tool page', () => {
-    for (const page of ['workspace', 'procedures', 'procedure-edit', 'reminders', 'lists', 'calendar'] as const) {
-      expect({ page, current: nav.side.filter((item) => item.pages.includes(page)).length }).toEqual({ page, current: 1 });
-    }
-    for (const page of ['workspace', 'procedures', 'lists', 'more', 'reminders', 'calendar', 'history'] as const) {
-      expect({ page, current: nav.bar.filter((item) => item.pages.includes(page)).length }).toEqual({ page, current: 1 });
-    }
-    // Settings pages belong to no tool.
-    for (const page of ['settings', 'members', 'knots', 'account', 'admin'] as const) {
-      expect(nav.side.some((item) => item.pages.includes(page))).toBe(false);
-    }
   });
 });
 

@@ -267,13 +267,13 @@
     border-top: 1px solid #22322a;
   }
 
-  :root[data-theme='witch-forest'] .tab-bar a[aria-current='page'] {
+  :root[data-theme='witch-forest'] .tab-bar :is(a[aria-current='page'], .tab-bar-tools[data-current]) {
     border-top-color: transparent;
     color: var(--text);
   }
 
   /* The current destination: its icon sits in a dark-green seal with a moss ring (the label is bold, too). */
-  :root[data-theme='witch-forest'] .tab-bar a[aria-current='page'] .ui-icon {
+  :root[data-theme='witch-forest'] .tab-bar :is(a[aria-current='page'], .tab-bar-tools[data-current]) .ui-icon {
     padding: 0.2rem 0.85rem;
     border-radius: 999px;
     background: #1d3324;
@@ -501,7 +501,7 @@
 
 /* The book face runs wider than the system face: on the narrowest phones the tab labels step down a little. */
 @media (max-width: 22rem) {
-  :root[data-theme='witch-forest'] .tab-bar a {
+  :root[data-theme='witch-forest'] .tab-bar :is(a, .tab-bar-tools) {
     font-size: 0.74rem;
   }
 }
@@ -1105,4 +1105,66 @@
 :root[data-theme='witch-forest'] .calendar-grid .calendar-week {
   color: var(--text);
   text-shadow: 0 0 3px #050a08, 0 0 6px #050a08;
+}
+
+/* ---- Navigation (42): engraved menu titles, a paper drop-down, moss seals in the drawer ---------- */
+:root[data-theme='witch-forest'] .menu-bar-top {
+  border-radius: 3px;
+}
+
+:root[data-theme='witch-forest'] .menu-bar-top:is([aria-current='page'], [data-current]) {
+  background: linear-gradient(180deg, rgb(156 207 143 / 14%), rgb(156 207 143 / 4%));
+  border-color: transparent;
+  box-shadow: inset 0 -1px 0 rgb(156 207 143 / 45%);
+}
+
+:root[data-theme='witch-forest'] .menu-bar-top:is([aria-current='page'], [data-current]) .ui-icon:first-child {
+  color: var(--wf-moss);
+}
+
+:root[data-theme='witch-forest'] .menu-bar-top[aria-expanded='true'] {
+  background: #1d3324;
+  border-color: rgb(156 207 143 / 45%);
+  color: var(--text);
+}
+
+:root[data-theme='witch-forest'] :is(.menu-bar-panel, .tool-drawer) {
+  background: #101a15;
+  border-color: #2c4034;
+  box-shadow: 0 0 0 1px rgb(156 207 143 / 8%), 0 1rem 2.5rem rgb(0 0 0 / 55%);
+}
+
+:root[data-theme='witch-forest'] .menu-bar-panel {
+  border-radius: 5px;
+}
+
+:root[data-theme='witch-forest'] .menu-bar-panel a {
+  border-radius: 3px;
+}
+
+:root[data-theme='witch-forest'] .menu-bar-panel a:is(:hover, :focus-visible) {
+  background: #1d3324;
+  color: var(--text);
+}
+
+:root[data-theme='witch-forest'] :is(.menu-bar-icon, .tool-drawer-icon) {
+  background: #16261d;
+  color: var(--wf-moss);
+  box-shadow: inset 0 0 0 1px rgb(156 207 143 / 25%);
+  border-radius: 50%;
+}
+
+:root[data-theme='witch-forest'] .tool-drawer-group a[aria-current='page'] .tool-drawer-icon {
+  background: #1d3324;
+  color: var(--wf-moss);
+  box-shadow: inset 0 0 0 1px rgb(156 207 143 / 60%), 0 0 0 4px rgb(156 207 143 / 8%);
+}
+
+:root[data-theme='witch-forest'] .tool-drawer-group a {
+  font-size: 0.72rem;
+}
+
+:root[data-theme='witch-forest'] :is(.side-nav-caption, .tool-drawer-group h3) {
+  color: var(--wf-moss);
+  letter-spacing: 0.16em;
 }

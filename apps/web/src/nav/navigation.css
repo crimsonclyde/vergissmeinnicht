@@ -1,0 +1,405 @@
+/*
+ * Navigation (section 42): the desktop menu bar, the classic sidebar's family captions, the phone bar's
+ * "All tools" button and the swipe-up drawer. Theme tokens only, so every theme carries it; the themes
+ * add their own accents in their stylesheets.
+ */
+
+/* ---- Desktop menu bar (top-bar layout) ------------------------------------------------------- */
+.menu-bar {
+  display: flex;
+  align-items: center;
+  gap: 0.15rem;
+  min-width: 0;
+}
+
+.menu-bar-group {
+  position: relative;
+}
+
+.menu-bar-top {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  min-height: 44px;
+  padding: 0.5rem 0.75rem;
+  border: 1px solid transparent;
+  border-radius: 0.6rem;
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  font-weight: 500;
+  text-decoration: none;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.menu-bar-top:hover {
+  background: var(--surface-muted);
+}
+
+/* The current place: the destination itself, or the family that holds it. */
+.menu-bar-top:is([aria-current='page'], [data-current]) {
+  background: var(--accent-soft);
+  border-color: var(--border-strong);
+  font-weight: 600;
+}
+
+/* An open menu: filled like a Mac menu title. */
+.menu-bar-top[aria-expanded='true'] {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--accent-text);
+}
+
+.menu-bar-top .ui-icon:last-child {
+  opacity: 0.7;
+}
+
+.menu-bar-panel {
+  position: absolute;
+  top: calc(100% + 0.35rem);
+  left: 0;
+  z-index: 40;
+  display: grid;
+  gap: 0.1rem;
+  min-width: 15rem;
+  padding: 0.4rem;
+  background: var(--surface-raised);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 0.8rem;
+  box-shadow: var(--shadow-raised);
+}
+
+.menu-bar-panel.plain-list > li + li {
+  margin: 0;
+}
+
+.menu-bar-panel[hidden] {
+  display: none;
+}
+
+.menu-bar-panel a {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  min-height: 2.6rem;
+  padding: 0.3rem 0.6rem 0.3rem 0.4rem;
+  border-radius: 0.55rem;
+  color: var(--text);
+  text-decoration: none;
+}
+
+.menu-bar-panel a:is(:hover, :focus-visible) {
+  background: var(--accent);
+  color: var(--accent-text);
+}
+
+.menu-bar-panel a[aria-current='page'] {
+  font-weight: 700;
+}
+
+.menu-bar-icon {
+  display: inline-grid;
+  place-items: center;
+  width: 2rem;
+  height: 2rem;
+  border-radius: 0.55rem;
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+.menu-bar-panel a:is(:hover, :focus-visible) .menu-bar-icon {
+  background: transparent;
+  color: inherit;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .menu-bar-panel:not([hidden]) {
+    animation: menu-bar-in 120ms ease-out;
+  }
+}
+
+@keyframes menu-bar-in {
+  from { opacity: 0; transform: translateY(-4px); }
+}
+
+/*
+ * When the top bar runs short of room (narrow desktops, tablets, Today's scope and Add beside the menus,
+ * a wide theme face): the titles keep their icons; the names stay for screen readers and tooltips.
+ */
+.guide-header-tools {
+  container: guide-tools / inline-size;
+}
+
+@container guide-tools (max-width: 64rem) {
+  .menu-bar-top {
+    padding-inline: 0.6rem;
+  }
+
+  .menu-bar-label {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+}
+
+/* Weather as a status item next to the time (top bar). */
+.guide-weather .ui-icon {
+  color: var(--accent);
+}
+
+/* ---- Classic sidebar: families under small captions ------------------------------------------ */
+.side-nav-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+
+.side-nav-caption {
+  margin: 0.7rem 0.75rem 0.15rem;
+  color: var(--text-muted);
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+/* ---- Phone bar: the "All tools" button looks like the links beside it -------------------------- */
+.tab-bar-tools {
+  display: none;
+}
+
+@media (max-width: 56rem) {
+  .menu-bar {
+    display: none;
+  }
+
+  .tab-bar > .tab-bar-tools {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 0.15rem;
+    min-height: 3.75rem;
+    min-width: 0;
+    padding: 0.3rem 0.2rem;
+    border: 0;
+    border-top: 3px solid transparent;
+    border-radius: 0;
+    background: transparent;
+    color: var(--text-muted);
+    font: inherit;
+    font-size: 0.8rem;
+  }
+
+  .tab-bar > .tab-bar-tools span:last-child {
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  /* A tool reached from the drawer is current: the button carries the mark the links carry. */
+  .tab-bar > .tab-bar-tools[data-current] {
+    border-top-color: var(--brand);
+    color: var(--text);
+    font-weight: 700;
+  }
+
+  .tab-bar > .tab-bar-tools[data-current] .ui-icon {
+    color: var(--brand);
+  }
+
+  /* The handle says the bar can be pulled up. */
+  .tab-bar:not(.places-dock)::before {
+    content: '';
+    position: absolute;
+    top: 4px;
+    left: 50%;
+    width: 2.25rem;
+    height: 4px;
+    margin-left: -1.125rem;
+    border-radius: 2px;
+    background: var(--border);
+  }
+}
+
+/* Places: the dock is the navigation on every width; in the top-bar layout the menu bar takes over on desktop. */
+:root[data-theme='places'] .places-dock > .tab-bar-tools {
+  display: flex;
+}
+
+/* A tool reached from the drawer: the button carries the dock's current mark. */
+:root[data-theme='places'] .places-dock > .tab-bar-tools[data-current] {
+  background: var(--accent);
+  color: var(--accent-text);
+}
+
+@media (min-width: 56.0625rem) {
+  :root[data-theme='places'] .shell[data-layout='guide'] .places-dock {
+    display: none;
+  }
+}
+
+/* ---- The drawer: a bottom sheet with every tool, sorted into the same families ----------------- */
+.tool-drawer {
+  position: fixed;
+  inset: auto 0 0;
+  width: min(36rem, 100%);
+  max-width: 100%;
+  max-height: min(88dvh, 44rem);
+  margin: 0 auto;
+  padding: 0;
+  border: 1px solid var(--border);
+  border-bottom: 0;
+  border-radius: 1.5rem 1.5rem 0 0;
+  background: var(--surface-raised);
+  color: var(--text);
+  box-shadow: var(--shadow-raised);
+  overflow: hidden auto;
+  overscroll-behavior: contain;
+}
+
+.tool-drawer::backdrop {
+  background: var(--overlay);
+}
+
+.tool-drawer-sheet {
+  padding: 0.35rem calc(1rem + var(--safe-right)) calc(1.25rem + var(--safe-bottom)) calc(1rem + var(--safe-left));
+  touch-action: pan-y;
+}
+
+.tool-drawer-head {
+  position: relative;
+  display: flex;
+  justify-content: flex-end;
+  min-height: 2.75rem;
+}
+
+.tool-drawer-handle {
+  position: absolute;
+  top: 0.35rem;
+  left: 50%;
+  width: 2.75rem;
+  height: 5px;
+  margin-left: -1.375rem;
+  border-radius: 3px;
+  background: var(--border-strong);
+  opacity: 0.6;
+}
+
+.tool-drawer-group h3 {
+  margin: 0.4rem 0.4rem 0.3rem;
+  color: var(--text-muted);
+  font-family: inherit;
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.tool-drawer-group .plain-list > li {
+  margin: 0;
+}
+
+.tool-drawer-group ul {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.15rem;
+  margin-bottom: 0.4rem;
+}
+
+.tool-drawer-group a {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.35rem;
+  min-height: 4.75rem;
+  padding: 0.45rem 0.15rem;
+  border-radius: 0.9rem;
+  color: var(--text);
+  font-size: 0.78rem;
+  line-height: 1.2;
+  text-align: center;
+  text-decoration: none;
+  overflow-wrap: break-word;
+  hyphens: auto;
+}
+
+.tool-drawer-group a:hover {
+  background: var(--surface-muted);
+}
+
+.tool-drawer-icon {
+  display: inline-grid;
+  place-items: center;
+  width: 2.9rem;
+  height: 2.9rem;
+  border-radius: 0.95rem;
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+.tool-drawer-group a[aria-current='page'] {
+  font-weight: 700;
+}
+
+.tool-drawer-group a[aria-current='page'] .tool-drawer-icon {
+  background: var(--accent);
+  color: var(--accent-text);
+}
+
+@media (max-width: 22rem) {
+  .tool-drawer-group ul {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .tool-drawer[open] {
+    animation: tool-drawer-in 220ms cubic-bezier(0.2, 0.8, 0.2, 1);
+  }
+
+  .tool-drawer[open]::backdrop {
+    animation: tool-drawer-fade 220ms ease-out;
+  }
+}
+
+@keyframes tool-drawer-in {
+  from { transform: translateY(100%); }
+}
+
+@keyframes tool-drawer-fade {
+  from { opacity: 0; }
+}
+
+@media (forced-colors: active) {
+  .menu-bar-top:is([aria-current='page'], [data-current], [aria-expanded='true']),
+  .tab-bar > .tab-bar-tools[data-current],
+  .tool-drawer-group a[aria-current='page'] {
+    outline: 2px solid CanvasText;
+    outline-offset: -2px;
+  }
+
+  .menu-bar-panel a:is(:hover, :focus-visible) {
+    outline: 2px solid Highlight;
+  }
+}
+
+@media print {
+  .menu-bar,
+  .tool-drawer {
+    display: none;
+  }
+}
+
+/* Narrow phones: the time stays in the top bar; the weather is one swipe away in the drawer. */
+@media (max-width: 35rem) {
+  .guide-weather {
+    display: none !important;
+  }
+}
