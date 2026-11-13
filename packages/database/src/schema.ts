@@ -1728,7 +1728,7 @@ export const listItemOperations = sqliteTable(
     workspaceId: text('workspace_id')
       .notNull()
       .references(() => workspaces.id),
-    kind: text('kind', { enum: ['MOVE', 'REMOVE'] }).notNull(),
+    kind: text('kind', { enum: ['MOVE', 'REMOVE', 'UPDATE', 'RESTORE'] }).notNull(),
     payloadHash: text('payload_hash').notNull(),
     /** The first answer: the changed item ids and the List revisions right after the operation. */
     result: text('result', { mode: 'json' }).$type<{ itemIds: string[]; revisions: Record<string, number> }>().notNull(),
@@ -1737,7 +1737,7 @@ export const listItemOperations = sqliteTable(
   (table) => [
     index('list_item_operations_age_idx').on(table.at),
     check('list_item_operations_id_uuid', sql`length(${table.id}) = 36`),
-    check('list_item_operations_kind_valid', sql`${table.kind} in ('MOVE', 'REMOVE')`),
+    check('list_item_operations_kind_valid', sql`${table.kind} in ('MOVE', 'REMOVE', 'UPDATE', 'RESTORE')`),
     check('list_item_operations_result_json', sql`json_valid(${table.result})`),
   ],
 );

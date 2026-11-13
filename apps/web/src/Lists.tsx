@@ -1,6 +1,6 @@
 import type { ListKind } from '@vergissmeinnicht/domain';
 import { useCallback, useEffect, useId, useRef, useState, type FormEvent, type RefObject } from 'react';
-import { ApiError, api, isNetworkError, listCoverUrl, messageFor, type ListChangeInput, type ListDetail, type ListItem, type ListItemInput, type ListSummary } from './api.ts';
+import { ApiError, api, isNetworkError, listCoverUrl, messageFor, type ListChangeInput, type ListDetail, type ListItem, type ListItemInput, type ListSummary, type RemovedListItem } from './api.ts';
 import { PhoneEditorDialog } from './mobile/PhoneEditorDialog.tsx';
 import { clearHandOver, handOver, handedOver } from './handoff.ts';
 import { formatDateTime, formatRelative, hasMessage, t } from './i18n/index.ts';
@@ -380,6 +380,7 @@ function ListPage(props: { workspaceId: string; listId: string; canEdit: boolean
   const [renaming, setRenaming] = useState(false);
   const [newName, setNewName] = useState('');
   const titleRef = useRef<HTMLInputElement>(null);
+  const [removedAnswer, setRemovedAnswer] = useState<{ readonly key: string; readonly items: readonly RemovedListItem[] } | null>(null);
 
   /** The List as the server answered, kept on this device too (17.5). */
   const keep = useCallback(
@@ -418,6 +419,24 @@ function ListPage(props: { workspaceId: string; listId: string; canEdit: boolean
   useRefresh(load, REFRESH_MS);
   const deviceList = local.lists?.find((each) => each.id === listId) ?? null;
   const list = device ? deviceList : serverList;
+  // Recently deleted (36.19): asked again whenever the List changes, so deletions elsewhere (another
+  // member, ChatGPT) show up too. Only for people who may put items back, and only online.
+  const revision = serverList?.revision;
+  const mayRestore = props.canEdit && !device && !missing;
+  const removedKey = mayRestore && revision !== undefined ? `${listId}:${revision}` : null;
+  useEffect(() => {
+    if (removedKey === null) return;
+    let current = true;
+    api.removedListItems(workspaceId, listId).then(
+      (items) => current && setRemovedAnswer({ key: removedKey, items }),
+      () => current && setRemovedAnswer({ key: removedKey, items: [] }),
+    );
+    return () => {
+      current = false;
+    };
+  }, [removedKey, workspaceId, listId]);
+  // The last answer stays visible while the next one is on its way, but never for another List.
+  const removed = removedKey !== null && removedAnswer !== null && removedAnswer.key.startsWith(`${listId}:`) ? removedAnswer.items : [];
 
   /** Kept on this device and sent when the server is reachable (17.5); `undo` is offered at once. */
   async function onDevice(next: ListChangeInput, label: string, undo?: Undoable): Promise<string | null> {
@@ -687,6 +706,39 @@ function ListPage(props: { workspaceId: string; listId: string; canEdit: boolean
           <summary>{doneHeading}</summary>
           <ul className="plain-list card list-items" aria-label={doneHeading}>
             {checked.map(row)}
+          </ul>
+        </details>
+      )}
+      {removed.length > 0 && (
+        <details className="more-actions recently-deleted">
+          <summary>{t('lists.recentlyDeleted', { count: removed.length })}</summary>
+          <ul className="plain-list card list-items" aria-label={t('lists.recentlyDeleted', { count: removed.length })}>
+            {removed.map((item) => {
+              const amount = amountLabel(item);
+              return (
+                <li key={item.id} className="list-row" data-removed="true">
+                  <span className="list-row-main">
+                    <span aria-hidden="true" className="list-glyph">
+                      <UiIcon name="trash" />
+                    </span>
+                    <span className="list-row-text">
+                      <span className="list-row-title">{item.title}</span>
+                      {amount !== '' && <span className="muted list-row-amount">{amount}</span>}
+                      <small className="muted">{t('lists.removedBy', { name: item.removedBy ?? t('lists.someone'), ago: formatRelative(item.removedAt) })}</small>
+                    </span>
+                  </span>
+                  <button
+                    type="button"
+                    className="icon-button"
+                    aria-label={t('lists.putBack', { title: item.title })}
+                    title={t('lists.putBack', { title: item.title })}
+                    onClick={putBack(item)}
+                  >
+                    <UiIcon name="undo" />
+                  </button>
+                </li>
+              );
+            })}
           </ul>
         </details>
       )}

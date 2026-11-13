@@ -432,6 +432,12 @@ export interface ListItem {
   readonly checked: { readonly at: string; readonly by: string } | null;
 }
 
+/** A removed item that can still be put back (36.19). */
+export interface RemovedListItem extends ListItem {
+  readonly removedAt: string;
+  readonly removedBy: string | null;
+}
+
 export interface ListDetail extends Omit<ListSummary, 'open' | 'checked'> {
   readonly items: readonly ListItem[];
 }
@@ -1629,6 +1635,9 @@ export const api = {
     listOf(request('POST', `${listItemPath(workspaceId, listId, itemId)}/update`, { ...item, expectedRevision })),
   checkListItem: (workspaceId: string, listId: string, itemId: string, checked: boolean) => listOf(request('POST', `${listItemPath(workspaceId, listId, itemId)}/check`, { checked })),
   removeListItem: (workspaceId: string, listId: string, itemId: string) => listOf(request('POST', `${listItemPath(workspaceId, listId, itemId)}/remove`, {})),
+  /** Recently deleted items of a List, newest first (36.19). */
+  removedListItems: async (workspaceId: string, listId: string) =>
+    (await request<{ items: RemovedListItem[] }>('GET', `${listPath(workspaceId, listId)}/removed-items`, undefined, within(LIST_READ_TIMEOUT_MS))).items,
   restoreListItem: (workspaceId: string, listId: string, itemId: string) => listOf(request('POST', `${listItemPath(workspaceId, listId, itemId)}/restore`, {})),
   /** Every List of the Workspace with its items, kept on this device for offline use (17.5). */
   listSnapshot: (workspaceId: string) => request<{ lists: ListDetail[]; at: string }>('GET', `${listPath(workspaceId)}/snapshot`, undefined, within(LIST_SYNC_TIMEOUT_MS)),

@@ -1612,6 +1612,8 @@ test('first server admin: bootstrap link, account creation, sign-in, Workspace c
   const householdId = listedForWeather.workspaces.find((workspace) => workspace.name === 'Household')?.id ?? '';
   const setSharedLocation = (location: unknown, expectedLocation: unknown) =>
     page.evaluate(async ({ id, location, expectedLocation }) => (await fetch(`/api/workspaces/${id}/location`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ location, expectedLocation }) })).status, { id: householdId, location, expectedLocation });
+  // Weather and Compare use the place's own day (Europe/Rome), not the runner's: around midnight UTC they differ.
+  const placeDate = (offsetDays: number) => new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Rome', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date(Date.now() + offsetDays * 86_400_000));
   const sharedLocation = { name: 'Home Triora', latitude: 43.993, longitude: 7.7637, timeZone: 'Europe/Rome', elevation: null };
   const useWorkspacePlace = page.getByLabel('Use the current Workspace’s location when available', { exact: true });
   const chooseHousehold = async () => {
@@ -1667,8 +1669,8 @@ test('first server admin: bootstrap link, account creation, sign-in, Workspace c
   const comparison = {
     location: { name: 'Triora', timeZone: 'Europe/Rome' },
     results: [
-      { provider: 'OPEN_METEO', model: 'best_match', paid: false, queries: 1, state: 'fresh', fetchedAt: new Date().toISOString(), horizon: 16, refreshFailed: null, forecast: { provider: 'OPEN_METEO', model: 'best_match', current: { temperature: 16 }, days: [forecastDay(localDate(0), { max: 19, min: 13, precipitationSum: 3.4, precipitationProbabilityMax: 70 }), forecastDay(localDate(1), { max: 18, min: 11, precipitationSum: 0 })] } },
-      { provider: 'OPEN_METEO', model: 'italia_meteo_arpae_icon_2i', paid: false, queries: 1, state: 'fresh', fetchedAt: new Date().toISOString(), horizon: 1, refreshFailed: null, forecast: { provider: 'OPEN_METEO', model: 'italia_meteo_arpae_icon_2i', days: [forecastDay(localDate(0), { max: 18, min: 12, precipitationSum: 11.9 })] } },
+      { provider: 'OPEN_METEO', model: 'best_match', paid: false, queries: 1, state: 'fresh', fetchedAt: new Date().toISOString(), horizon: 16, refreshFailed: null, forecast: { provider: 'OPEN_METEO', model: 'best_match', current: { temperature: 16 }, days: [forecastDay(placeDate(0), { max: 19, min: 13, precipitationSum: 3.4, precipitationProbabilityMax: 70 }), forecastDay(placeDate(1), { max: 18, min: 11, precipitationSum: 0 })] } },
+      { provider: 'OPEN_METEO', model: 'italia_meteo_arpae_icon_2i', paid: false, queries: 1, state: 'fresh', fetchedAt: new Date().toISOString(), horizon: 1, refreshFailed: null, forecast: { provider: 'OPEN_METEO', model: 'italia_meteo_arpae_icon_2i', days: [forecastDay(placeDate(0), { max: 18, min: 12, precipitationSum: 11.9 })] } },
       { provider: 'MET_NORWAY', model: null, paid: false, queries: 1, state: 'failed', reason: 'unavailable' },
       { provider: 'OPENWEATHER', model: null, paid: true, queries: 1, state: 'not_fetched' },
     ],
@@ -1696,7 +1698,7 @@ test('first server admin: bootstrap link, account creation, sign-in, Workspace c
   await compareView.getByRole('button', { name: 'Compare', exact: true }).click();
   await expect.poll(() => compareRequests.at(-1)?.fetchPaid).toBe(false);
   await expect(compareView).toContainText('Paid sources were not fetched. Fetching them now uses 1 OpenWeather request from the daily budget.');
-  await expect(compareView.getByRole('combobox')).toHaveValue(localDate(0));
+  await expect(compareView.getByRole('combobox')).toHaveValue(placeDate(0));
   const sourcesShown = compareView.getByRole('listitem');
   await expect(sourcesShown.filter({ hasText: 'ICON-2I' })).toContainText('11.9 mm');
   await expect(sourcesShown.filter({ hasText: 'ICON-2I' })).toContainText(/Rain chance:?\s*not given/);
