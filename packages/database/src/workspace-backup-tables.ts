@@ -87,6 +87,7 @@ export const EXCLUDED_TABLES: Readonly<Record<string, string>> = {
   mcp_authorization_requests:'pending OAuth requests',
   mcp_grants:'personal delegated connection grants',
   mcp_tokens:'hashed OAuth credentials',
+  mcp_file_hosts:'server-wide ChatGPT file host review list',
   recipe_shopping_operations: 'bounded user transfer retry outcomes, not portable Workspace content',
   attachment_settings:'server upload settings',
   attachment_quota_overrides:'personal storage quotas controlled by server admin',

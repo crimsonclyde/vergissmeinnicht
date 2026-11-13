@@ -2,7 +2,7 @@ import { createHash } from 'node:crypto';
 import { Readable } from 'node:stream';
 import { AttachmentError, AttachmentUploadConflictError, authorizeRecipes, uploadAttachment } from '@vergissmeinnicht/application';
 import { DEFAULT_ATTACHMENT_UPLOAD_BYTES, normalizeOriginalFileName, type User, type WorkspaceId } from '@vergissmeinnicht/domain';
-import { CHATGPT_LEGACY_FILE_ORIGIN, chatGptFileUrl, type ChatGptFileSource } from '../integrations/chatgpt-files.ts';
+import { CHATGPT_LEGACY_FILE_ORIGIN, chatGptFileUrl, type ChatGptExtraHosts, type ChatGptFileSource } from '../integrations/chatgpt-files.ts';
 import type { AppServices, DelegatedAttachmentDeps } from '../composition.ts';
 
 export const MCP_IMAGE_BYTES = DEFAULT_ATTACHMENT_UPLOAD_BYTES;
@@ -42,7 +42,7 @@ export async function uploadRecipeImageFile(
 ) {
   const authorize = (write: boolean) => authorizeRecipes(services.recipes, actor, workspaceId, write);
   return recipeImageResult(await uploadDelegatedImageFile(services.recipeAttachments, actor, workspaceId, authorize,
-    services.chatGptFileSource, { ...input, targetId: input.recipeId }));
+    services.chatGptFileSource, { ...input, targetId: input.recipeId }, services.chatGptFileHosts));
 }
 
 export async function uploadDelegatedImage(
@@ -81,9 +81,12 @@ export async function uploadDelegatedImageFile(
   authorize: AuthorizeUpload,
   source: ChatGptFileSource,
   input: UploadTarget & { file: ChatGptFile },
+  // MCP_CHATGPT_FILE_HOSTS plus hosts allowed in Server admin (36.25). Before 36.25 this check left
+  // them out, so an operator-added host was refused here although the download would have accepted it.
+  extraHosts: ChatGptExtraHosts,
 ) {
   await authorize(true);
-  const url = chatGptFileUrl(input.file.download_url);
+  const url = chatGptFileUrl(input.file.download_url, extraHosts);
   const name = normalizeOriginalFileName(pngName(input.file.file_name?.trim() || 'chatgpt-image'));
   // Keep old receipts compatible. Signed blob identity is the storage origin and path.
   const identity = url.origin === CHATGPT_LEGACY_FILE_ORIGIN

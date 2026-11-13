@@ -2517,6 +2517,15 @@ export const mcpGrants=sqliteTable('mcp_grants',{
 export const mcpTokens=sqliteTable('mcp_tokens',{
  hash:text('hash').primaryKey(),grantId:text('grant_id').notNull().references(()=>mcpGrants.id),kind:text('kind',{enum:['code','access','refresh']}).notNull(),expiresAt:timestampMs('expires_at'),usedAt:integer('used_at',{mode:'timestamp_ms'}),codeChallenge:text('code_challenge'),redirectUri:text('redirect_uri'),
 },t=>[index('mcp_token_grant').on(t.grantId),check('mcp_token_kind',sql`${t.kind} in ('code','access','refresh')`)]);
+/**
+ * ChatGPT file hosts (36.25): a host VMN refused is kept (name only, never a URL) so a server admin can
+ * review it; ALLOWED rows join the exact allowlist at once. Server state, never Workspace data or backups.
+ */
+export const mcpFileHosts=sqliteTable('mcp_file_hosts',{
+ host:text('host').primaryKey(),status:text('status',{enum:['REFUSED','ALLOWED']}).notNull(),refusedCount:integer('refused_count').notNull().default(1),
+ firstSeenAt:timestampMs('first_seen_at'),lastSeenAt:timestampMs('last_seen_at'),
+ decidedAt:integer('decided_at',{mode:'timestamp_ms'}),decidedByUserId:text('decided_by_user_id').references(()=>users.id),
+},t=>[check('mcp_file_host_status',sql`${t.status} in ('REFUSED','ALLOWED')`),check('mcp_file_host_length',sql`length(${t.host}) between 4 and 253`),index('mcp_file_host_seen').on(t.lastSeenAt)]);
 
 /** Generation attempts are durable billing/idempotency state, never portable credentials. */
 export const recipeImageJobs=sqliteTable('recipe_image_jobs',{

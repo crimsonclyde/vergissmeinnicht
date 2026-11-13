@@ -143,6 +143,30 @@ describe('ChatGPT file download policy', () => {
     await expect(collect(createChatGptFileSource(async () => ['8.8.8.8'], get)(file, 4))).rejects.toThrow('file_origin_unsupported');
   });
 
+  it('accepts the Denmark East Azure account from PDF-extracted images, but no lookalike (36.25)', () => {
+    const host = 'oaisdmntprdenmarkeast.blob.core.windows.net';
+    expect(chatGptFileUrl(`https://${host}/container/file?sp=r&sig=short-lived`).hostname).toBe(host);
+    for (const input of [
+      `https://${host}.evil.example/container/file?sig=x`,
+      `https://evil.${host}/container/file?sig=x`,
+      'https://oaisdmntprdenmarkeast2.blob.core.windows.net/container/file?sig=x',
+      `https://${host}:8443/container/file?sig=x`,
+      `http://${host}/container/file?sig=x`,
+      `https://${host}/container/file?sp=r`,
+    ]) expect(() => chatGptFileUrl(input), input).toThrow(/file_origin_unsupported|file_source_invalid/);
+  });
+
+  it('reads extra hosts given as a function on every check, so an allowed host works at once', () => {
+    let allowed: string[] = [];
+    const extra = () => allowed;
+    const file = 'https://oaisdmntprwesteurope.blob.core.windows.net/container/file?sp=r&sig=x';
+    expect(() => chatGptFileUrl(file, extra)).toThrow('file_origin_unsupported');
+    allowed = ['oaisdmntprwesteurope.blob.core.windows.net'];
+    expect(chatGptFileUrl(file, extra).hostname).toBe(allowed[0]);
+    allowed = [];
+    expect(() => chatGptFileUrl(file, extra)).toThrow('file_origin_unsupported');
+  });
+
   it('uses the IPv4 answer when an AAAA lookup fails, and fails only when both families fail', async () => {
     const failure = (code: string) => Promise.reject(Object.assign(new Error(code), { code }));
     await expect(resolveFileHost('files.oaiusercontent.com', {

@@ -51,6 +51,8 @@ export const SECURITY_EVENT_TYPES = [
   'WORKSPACE_LOCATION_CHANGED',
   'MCP_CONNECTION_CHANGED',
   'MCP_TOOL_USED',
+  // A server admin allowed or removed a ChatGPT file host (36.25): the host name only, never a file URL.
+  'MCP_FILE_HOST_CHANGED',
   'RECIPE_CHANGED',
   'RECIPE_SHOPPING_TRANSFERRED',
   // Several List items moved to another List or removed at once (36.18): List ids and a count, never item text.

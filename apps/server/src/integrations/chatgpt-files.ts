@@ -4,17 +4,23 @@ import { request, type RequestOptions } from 'node:https';
 import { BlockList, isIP } from 'node:net';
 import { checkServerIdentity } from 'node:tls';
 import { AttachmentError } from '@vergissmeinnicht/application';
+import { CHATGPT_EXTRA_FILE_HOST } from '@vergissmeinnicht/domain';
 
 export const CHATGPT_LEGACY_FILE_ORIGIN = 'https://files.oaiusercontent.com';
 // Azure storage account names are first come, first served, so a name pattern is not proof of
 // ownership. Only exact accounts observed in live ChatGPT transfers are built in; an operator can
-// add another exact host with MCP_CHATGPT_FILE_HOSTS after VMN reports it.
-const CHATGPT_BLOB_HOSTS = new Set(['oaisdmntprnortheu.blob.core.windows.net']);
+// add another exact host with MCP_CHATGPT_FILE_HOSTS, or a server admin allows a reported one in
+// Server admin → AI connections (36.25), without a release or restart.
+// oaisdmntprdenmarkeast: seen 2026-11-13 for an image ChatGPT cropped out of an uploaded PDF; it is the
+// Azure account behind the regional sdmntprdenmarkeast.oaiusercontent.com label, named like northeu.
+const CHATGPT_BLOB_HOSTS = new Set(['oaisdmntprnortheu.blob.core.windows.net', 'oaisdmntprdenmarkeast.blob.core.windows.net']);
 // OpenAI's own domain serves its signed file storage under one regional label (for example
 // sdmntprdenmarkeast or sdmntswcentralus). Other labels and deeper subdomains stay refused.
 const CHATGPT_REGIONAL_FILE_HOST = /^sdmnt[a-z]{2}[a-z0-9]{1,54}\.oaiusercontent\.com$/;
-/** Hosts an operator may add: one label below OpenAI's file domain or Azure Blob storage. */
-export const CHATGPT_EXTRA_FILE_HOST = /^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.(?:oaiusercontent\.com|blob\.core\.windows\.net)$/;
+export { CHATGPT_EXTRA_FILE_HOST };
+/** Exact extra hosts: a fixed list (tests) or a function read on every transfer (env + Server admin). */
+export type ChatGptExtraHosts = readonly string[] | (() => readonly string[]);
+const hostsOf = (extra: ChatGptExtraHosts) => typeof extra === 'function' ? extra() : extra;
 
 export class ChatGptFileError extends Error {
   readonly code: 'file_source_invalid' | 'file_origin_unsupported' | 'file_download_failed' | 'file_unavailable';
@@ -28,7 +34,7 @@ export class ChatGptFileError extends Error {
   }
 }
 
-export function chatGptFileUrl(input: string, extraHosts: readonly string[] = []): URL {
+export function chatGptFileUrl(input: string, extraHosts: ChatGptExtraHosts = []): URL {
   if (!input.startsWith('https://') || input.length > 8192 || /[\p{Cc}\s\\]/u.test(input)) throw new ChatGptFileError('file_source_invalid');
   let url: URL;
   try { url = new URL(input); } catch { throw new ChatGptFileError('file_source_invalid'); }
@@ -37,7 +43,7 @@ export function chatGptFileUrl(input: string, extraHosts: readonly string[] = []
   }
   if (url.origin === CHATGPT_LEGACY_FILE_ORIGIN) return url;
   const signedBlobOrigin = url.port === '' && (CHATGPT_BLOB_HOSTS.has(url.hostname) ||
-    CHATGPT_REGIONAL_FILE_HOST.test(url.hostname) || extraHosts.includes(url.hostname));
+    CHATGPT_REGIONAL_FILE_HOST.test(url.hostname) || hostsOf(extraHosts).includes(url.hostname));
   if (signedBlobOrigin && /^\/[^/]+\/.+/.test(url.pathname) &&
       ![...url.searchParams.keys()].some(key => ['snapshot', 'versionid'].includes(key.toLowerCase())) &&
       url.searchParams.getAll('sig').length === 1 && url.searchParams.get('sig')) return url;
@@ -87,7 +93,7 @@ function getFile(options: RequestOptions): Promise<IncomingMessage> {
 export type ChatGptFileSource = (url: URL, maxBytes: number) => AsyncIterable<Uint8Array>;
 
 /** Resolve only a reviewed file endpoint and connect to one of its verified public addresses. */
-export function createChatGptFileSource(resolve: (host: string) => Promise<string[]> = host => resolveFileHost(host), get = getFile, extraHosts: readonly string[] = []): ChatGptFileSource {
+export function createChatGptFileSource(resolve: (host: string) => Promise<string[]> = host => resolveFileHost(host), get = getFile, extraHosts: ChatGptExtraHosts = []): ChatGptFileSource {
   let active = 0;
   return async function* (input, maxBytes) {
     const url = chatGptFileUrl(input.href, extraHosts);
