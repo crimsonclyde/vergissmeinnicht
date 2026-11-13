@@ -1,0 +1,156 @@
+/* ---- The Maintenance area (steps.md 41.2): Maintenance + Equipment as two tabs of one place -------------
+ * Shares the page language of area.css. Every colour is a theme token or a mix of tokens, so each theme
+ * paints the cover and the card art in its own palette. */
+
+/* Tabs: a segmented pair of links; the current one is raised. */
+.ma-tabs {
+  display: inline-flex;
+  gap: 0.25rem;
+  padding: 0.25rem;
+  border-radius: calc(var(--radius) + 6px);
+  background: var(--surface-muted);
+}
+
+.ma-tabs a {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  min-height: 2.75rem;
+  padding: 0 0.9rem;
+  border-radius: calc(var(--radius) + 3px);
+  color: var(--text-muted);
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.ma-tabs a:hover { color: var(--text); }
+.ma-tabs a[aria-current='page'] { background: var(--surface); color: var(--text); box-shadow: 0 1px 2px color-mix(in srgb, var(--text) 18%, transparent); }
+.ma-tabs a:focus-visible { outline: 3px solid var(--focus); outline-offset: 1px; }
+
+/* Cover: painted hills and a small house under the glance chips. */
+.ma-cover {
+  position: relative;
+  display: flex;
+  align-items: flex-start;
+  min-height: 10.5rem;
+  margin-block-end: 1rem;
+  padding: 1.25rem 1.5rem 3.5rem;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: var(--area-radius, calc(var(--radius) + 4px));
+  background: linear-gradient(180deg, color-mix(in srgb, var(--accent) 10%, var(--surface-muted)), var(--surface) 70%);
+}
+
+.ma-cover-art { position: absolute; inset: 0; width: 100%; height: 100%; }
+.ma-sun { fill: color-mix(in srgb, var(--state-pending) 12%, var(--surface)); }
+.ma-hill-far { fill: color-mix(in srgb, var(--accent) 22%, var(--surface-muted)); }
+.ma-hill-mid { fill: color-mix(in srgb, var(--accent) 42%, var(--surface-muted)); }
+.ma-hill-near { fill: color-mix(in srgb, var(--accent) 60%, var(--surface-muted)); }
+.ma-house { fill: color-mix(in srgb, var(--text) 55%, var(--accent)); }
+.ma-window { fill: color-mix(in srgb, var(--state-pending) 10%, var(--surface)); }
+
+.ma-glances { position: relative; display: flex; flex-wrap: wrap; gap: 0.75rem; }
+.plain-list.ma-glances > li + li { margin-top: 0; }
+
+.ma-glance {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  min-width: min(100%, 13rem);
+  min-height: 2.75rem;
+  padding: 0.7rem 1rem;
+  border: 1px solid color-mix(in srgb, var(--border) 60%, transparent);
+  border-radius: calc(var(--radius) + 6px);
+  background: color-mix(in srgb, var(--surface) 94%, transparent);
+  color: var(--text);
+  text-decoration: none;
+}
+
+.ma-glance:hover { border-color: var(--accent); }
+.ma-glance:focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; }
+.ma-glance-icon { display: inline-grid; place-items: center; flex: none; width: 2.5rem; height: 2.5rem; border-radius: 50%; background: var(--accent-soft); color: var(--accent); }
+.ma-glance[data-tone='overdue'] .ma-glance-icon { background: var(--state-pending-bg); color: var(--state-pending); }
+.ma-glance[data-tone='warn'] .ma-glance-icon { background: var(--surface-muted); color: var(--text); }
+.ma-glance-body { display: flex; flex-direction: column; min-width: 0; }
+.ma-glance-body small { color: var(--text-muted); }
+.ma-glance-body strong { overflow-wrap: anywhere; }
+.ma-glance-calm { position: relative; margin: 0; padding: 0.6rem 1rem; border-radius: 999px; background: color-mix(in srgb, var(--surface) 92%, transparent); color: var(--text-muted); }
+
+/* Equipment cards: a tinted art band with the icon, then a serif name over brand · model and place. */
+.ma-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 17rem), 1fr)); gap: 1rem; }
+.plain-list.ma-cards > li + li { margin-top: 0; }
+.ma-card {
+  --ma-tone: var(--accent);
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: var(--area-radius, calc(var(--radius) + 4px));
+  background: var(--surface);
+  color: var(--text);
+  text-decoration: none;
+}
+
+.ma-card:hover { border-color: var(--ma-tone); }
+.ma-card:focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; }
+.ma-card[data-tone='1'] { --ma-tone: var(--state-done); }
+.ma-card[data-tone='2'] { --ma-tone: var(--brand, var(--accent)); }
+.ma-card[data-tone='3'] { --ma-tone: var(--link); }
+.ma-card[data-tone='4'] { --ma-tone: var(--text-muted); }
+
+.ma-card-art {
+  position: relative;
+  display: grid;
+  place-items: center;
+  height: 6.5rem;
+  background:
+    linear-gradient(175deg, transparent 62%, color-mix(in srgb, var(--ma-tone) 30%, transparent) 62.5%),
+    linear-gradient(160deg, color-mix(in srgb, var(--ma-tone) 26%, var(--surface)), color-mix(in srgb, var(--ma-tone) 55%, var(--surface-muted)));
+}
+
+.ma-card-art > .ui-icon { display: inline-grid; place-items: center; width: 3.5rem; height: 3.5rem; border-radius: 50%; background: color-mix(in srgb, var(--surface) 94%, transparent); color: var(--ma-tone); font-size: 1.5rem; }
+.ma-card-badge { position: absolute; top: 0.6rem; inset-inline-end: 0.6rem; display: inline-flex; align-items: center; gap: 0.3rem; padding: 0.2rem 0.6rem; border-radius: 999px; background: var(--surface); color: var(--text); font-size: 0.78rem; font-weight: 600; }
+.ma-card-body { display: flex; flex: 1; flex-direction: column; gap: 0.25rem; padding: 0.85rem 1rem 1rem; min-width: 0; }
+.ma-card-body > small:first-child { color: var(--text-muted); font-size: 0.72rem; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; }
+.ma-card-body strong { font-family: var(--area-title-font); font-size: 1.2rem; overflow-wrap: anywhere; }
+.ma-card-body .muted { overflow-wrap: anywhere; }
+.ma-card-place { display: inline-flex; align-items: center; gap: 0.3rem; color: var(--text-muted); font-size: 0.85rem; }
+
+/* Rows view of Equipment: the same facts on one line. */
+.ma-rows .area-row strong { font-family: var(--area-title-font); }
+
+/* Board: status columns as soft panels with a coloured top rule; cards get the serif title. */
+.area .maintenance-column { border-radius: var(--area-radius, calc(var(--radius) + 4px)); }
+.area .maintenance-card-title strong { font-family: var(--area-title-font); font-size: 1.05rem; }
+
+@media (max-width: 40rem) {
+  .ma-cover { padding: 1rem 1rem 3rem; }
+  .ma-glance { flex: 1 1 100%; }
+  .ma-tabs { flex: 1; }
+  .ma-tabs a { flex: 1; justify-content: center; padding: 0 0.6rem; }
+}
+
+@media (forced-colors: active) {
+  .ma-cover-art { display: none; }
+  .ma-tabs a[aria-current='page'], .ma-segment button[aria-pressed='true'], .ma-chips button[aria-pressed='true'] { outline: 2px solid Highlight; }
+}
+
+/* Themes: what a token cannot say. */
+:root[data-theme='tokyo-nights'] .ma-cover { background: linear-gradient(180deg, rgb(20 12 48 / 92%), rgb(8 6 24 / 96%)); }
+:root[data-theme='tokyo-nights'] .ma-hill-far { fill: rgb(157 124 255 / 22%); }
+:root[data-theme='tokyo-nights'] .ma-hill-mid { fill: rgb(53 230 255 / 18%); }
+:root[data-theme='tokyo-nights'] .ma-hill-near { fill: rgb(255 79 216 / 22%); }
+:root[data-theme='tokyo-nights'] .ma-house { fill: rgb(10 8 30); }
+:root[data-theme='tokyo-nights'] .ma-window { fill: rgb(255 214 102); }
+:root[data-theme='tokyo-nights'] .ma-sun { fill: rgb(255 79 216 / 55%); }
+:root[data-theme='tokyo-nights'] .ma-card-art > .ui-icon { box-shadow: 0 0 0.9rem color-mix(in srgb, var(--ma-tone) 45%, transparent); }
+:root[data-theme='witch-forest'] .ma-sun { fill: color-mix(in srgb, #f3e9c8 70%, var(--surface)); }
+:root[data-theme='witch-forest'] :is(.ma-card-body > small:first-child) { font-variant: small-caps; text-transform: none; letter-spacing: 0.08em; font-size: 0.85rem; }
+:root[data-theme='witch-forest'] .ma-window { fill: #f0c46a; }
+
+/* Equipment record: the same art band on top of the brand and model card. */
+.equipment-reference.ma-ref { height: auto; padding: 0; }
+.ma-ref > .ma-card-art { height: 5.5rem; }
+.ma-ref-inner { padding: 1.25rem 1.5rem 1.5rem; }
+.ma-ref .equipment-reference-heading h3 { font-family: var(--area-title-font); }
