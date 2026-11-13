@@ -5749,7 +5749,7 @@ user workflows; no host migration or external service provisioned by the assessm
 
 ## 41 — One look for the remaining areas: History, Reminders, More, Settings, Home, Contacts and Documents (owner request 2026-11-12)
 
-**Request (owner, 2026-11-12):** "all of them" on the design list: (1) Equipment and Maintenance as one "Home" area with cover art, cards and icon buttons; (2) Contacts and Documents with avatars, covers and long forms folded behind icons; (3) History and Reminders as a timeline that looks like the Journal; (4) More and Settings in one row style with icons. Owner choice the same day: **one "Home" menu entry** for Equipment and Maintenance. Mockup for (1) and (2): https://claude.ai/artifact/FAJHVwNaTcKeBUeKDTgu9L (awaiting the owner's OK). Note: "Storage" in the code is Workspace settings → Storage (disk space), not storage in the house; it gets the settings treatment of (4), not a place in Home.
+**Request (owner, 2026-11-12):** "all of them" on the design list: (1) Equipment and Maintenance as one "Home" area with cover art, cards and icon buttons; (2) Contacts and Documents with avatars, covers and long forms folded behind icons; (3) History and Reminders as a timeline that looks like the Journal; (4) More and Settings in one row style with icons. Owner choice the same day: **one menu entry** for Equipment and Maintenance, named **Maintenance** on 2026-11-13. Mockup for (1) and (2): https://claude.ai/artifact/FAJHVwNaTcKeBUeKDTgu9L (awaiting the owner's OK). Note: "Storage" in the code is Workspace settings → Storage (disk space), not storage in the house; it gets the settings treatment of (4), not a place in Home.
 
 ### 41.1 — History and Reminders as a timeline; More and Settings rows
 
@@ -5770,6 +5770,43 @@ user workflows; no host migration or external service provisioned by the assessm
 **Security impact:** NONE (presentation only). **Security docs updated:** NO.
 
 **Remaining:** 41.2 Home (Equipment + Maintenance, one menu entry) and 41.3 Contacts + Documents after the owner approves the mockup.
+
+### 41.2 — Maintenance area: Maintenance and Equipment as two tabs of one place
+
+**Owner decisions (2026-11-13):** the area is called **Maintenance** ("Home" sat oddly next to Dashboard; "Upkeep sounds strange"). Contacts and Documents stay separate menu entries but get the mockup redesign (41.3). "Update them like in your mockups" is the owner's OK on the mockup.
+
+**Status:** DONE (implementation and checks complete; not released).
+
+**Implemented:**
+- `MaintenanceArea.tsx`, `maintenance-area.ts`, `maintenance-area.css`: one head for both pages (eyebrow, serif title with count, the two tabs "Maintenance | Equipment", each only while its tool is on), and the last-used tab per Workspace on this device (`vmn.maintenanceTab.<workspaceId>`, a convenience in localStorage; `maintenanceAreaHref` for the menu). The two tools keep their own switches, routes, permissions and addresses.
+- A painted cover band (hills and a small house, drawn from theme tokens) with up to three glances, each a link: the next or overdue work and how many are due (the existing *Maintenance due soon* read, 14 days), and the warranty that ends first within 90 days (the loaded Equipment list). No new data or request type.
+- *Equipment:* search with icon, category and place chips (brand stays behind a disclosure), Cards | List toggle (remembered), cards with a tinted art band per category, warranty badge, serif name, brand · model, place; Trash as a round icon button. The record page gets the same art band on the brand and model card.
+- *Maintenance:* quick add on one line with a round "More details…" icon button, Board | List as an icon toggle; board and list unchanged.
+- The single "Maintenance" menu entry is built by the navigation rework (same day), which reads the remembered tab.
+- Presentation only: no API, schema, permission or route change; no migration.
+
+**Tests/checks:** `pnpm typecheck`, `eslint`, `vitest run apps/web` (316 passed, catalog usage included). Screens of Equipment, Maintenance and an Equipment record in light, Memento Mori, dark (alias), Tokyo Nights, Witch Forest, Galactic Guide and Places Munich, Triora, London and Scotland at 1440 px and 390 px (`/mnt/project-files/ui-review/2026-11-12-areas/after-41.2/`). Accessible names used by the e2e suite are kept (Add equipment, Search equipment in the link dialog, Show as → Board/List, More actions for maintenance, New record: what needs doing).
+
+**Security impact:** NONE (presentation only). **Security docs updated:** NO.
+
+**Remaining:** none for 41.2.
+
+### 41.3 — Contacts and Documents in the same language
+
+**Status:** DONE (implementation and checks complete; not released).
+
+**Implemented:**
+- Shared in `area.css`: the find card (search with icon, chips), quick add on one line, segmented icon toggles, a round button that folds a short panel (`area-pop`), and five token tints chosen by a word (`area-art.ts`: `toneOf`, `monogram`, with a unit test).
+- *Contacts:* eyebrow and serif title with the count; phone export as a round button that folds its help; quick add with a round "More details…" button; category chips with a colour dot instead of a select; cards in two columns with a monogram avatar (letters only, no photo, no new upload path), serif name, category · organisation, and round call and email buttons (`tel:`/`mailto:` still pass `safeHref`). The contact page opens with one hero card: large monogram, name, round call, email, "Add to device contacts" and its help; Edit and ⋯ unchanged.
+- *Documents:* eyebrow and serif title; New folder as a round icon button beside ⋯ and Add document; sub-folders as a shelf of tinted folder tiles (name and count); the find bar as one card with Board-style List | Grid icon toggle; grid tiles drawn as pages with a stacked edge, ruled lines when there is no thumbnail, and the document type as a badge; serif titles. The list view is unchanged.
+- New icons: call, mail, website, addressBook, page, folderOpen (Tabler, bundled).
+- Presentation only: no API, schema, permission or route change; no migration.
+
+**Tests/checks:** `pnpm typecheck`, `eslint`, `vitest run apps/web` (318 passed). Screens of Contacts, a contact, Documents (list and grid) in light, Memento Mori, dark (alias), Tokyo Nights, Witch Forest, Galactic Guide and Places Munich, Triora, London and Scotland at 1440 px and 390 px (`/mnt/project-files/ui-review/2026-11-12-areas/after-41.3/`). Names the e2e suite relies on are kept (list "Contacts", "Open …", "Call …: …", "Add to device contacts", "Search contacts", "New folder", "Add document", Show as → List/Grid, folder links "Water 1 document").
+
+**Security impact:** NONE (presentation only; contact links keep the existing `safeHref` check). **Security docs updated:** NO.
+
+**Remaining:** real-phone check of the redesigned areas.
 
 ---
 

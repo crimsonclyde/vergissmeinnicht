@@ -1,4 +1,8 @@
 import {
+  IconPhone,
+  IconMail,
+  IconAddressBook,
+  IconFolderOpen,
   IconPin,
   IconPinFilled,
   IconTag,
@@ -274,6 +278,13 @@ const ICONS = {
   house: IconBuildingCottage,
   weatherStatus: IconCloud,
   drawerUp: IconChevronUp,
+  // Contacts and Documents (41.3).
+  call: IconPhone,
+  mail: IconMail,
+  website: IconWorld,
+  addressBook: IconAddressBook,
+  page: IconFileText,
+  folderOpen: IconFolderOpen,
 } as const;
 
 export type UiIconName = keyof typeof ICONS;

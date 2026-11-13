@@ -1,6 +1,7 @@
 import { PhoneEditorDialog } from './mobile/PhoneEditorDialog.tsx';
 import { EquipmentPickerDialog } from './Equipment.tsx';
 import { useCoreTools } from './core-tools.ts';
+import { MaintenanceAreaHead, MaintenanceCover } from './MaintenanceArea.tsx';
 import { useCallback, useEffect, useId, useRef, useState, type DragEvent, type FormEvent } from 'react';
 import {
   ApiError,
@@ -547,28 +548,23 @@ function Overview(props: { workspaceId: string; canManage: boolean }) {
     }
   }
   return (
-    <section aria-labelledby="maintenance-heading">
-      <div className="page-header page-header-tool">
-        <div>
-          <h2 id="maintenance-heading">{t('shell.maintenance')}</h2>
-          <p className="muted page-lead">{t('maintenance.lead')}</p>
-        </div>
+    <section className="area" aria-labelledby="maintenance-heading">
+      <MaintenanceAreaHead workspaceId={workspaceId} current="maintenance" headingId="maintenance-heading" lead={t('maintenance.lead')}>
         {canManage && <MoreMenu label={t('maintenance.moreActions')} items={[{ label: t('contacts.trash.open'), onSelect: () => navigate(paths.maintenanceTrash(workspaceId)) }]} />}
-      </div>
+      </MaintenanceAreaHead>
+      <MaintenanceCover workspaceId={workspaceId} />
       {canManage && (
-        <form className="card stack" onSubmit={(event) => void quickAdd(event)} aria-label={t('maintenance.new.heading')}>
-          <div className="row contact-quick-add">
-            <div className="field">
-              <label htmlFor={`${id}-new`}>{t('maintenance.new.label')}</label>
-              <input id={`${id}-new`} maxLength={MAINTENANCE_LIMITS.title} autoComplete="off" placeholder={t('maintenance.new.example')} value={title} onChange={(event) => setTitle(event.target.value)} />
-            </div>
-            <button type="submit" className="primary" disabled={saving || title.trim() === ''}>
-              <UiIcon name="add" /> {t('maintenance.new.add')}
-            </button>
-            <button type="button" onClick={() => setDetails(true)}>
-              {t('contacts.new.more')}
-            </button>
+        <form className="ma-quick" onSubmit={(event) => void quickAdd(event)} aria-label={t('maintenance.new.heading')}>
+          <div className="field">
+            <label htmlFor={`${id}-new`}>{t('maintenance.new.label')}</label>
+            <input id={`${id}-new`} maxLength={MAINTENANCE_LIMITS.title} autoComplete="off" placeholder={t('maintenance.new.example')} value={title} onChange={(event) => setTitle(event.target.value)} />
           </div>
+          <button type="button" className="area-round" aria-label={t('contacts.new.more')} title={t('contacts.new.more')} onClick={() => setDetails(true)}>
+            <UiIcon name="expand" />
+          </button>
+          <button type="submit" className="primary" disabled={saving || title.trim() === ''}>
+            <UiIcon name="add" /> {t('maintenance.new.add')}
+          </button>
         </form>
       )}
       {message !== null && <p role="alert">{message}</p>}
@@ -581,12 +577,14 @@ function Overview(props: { workspaceId: string; canManage: boolean }) {
           </>
         )}
       </p>
-      <div className="row home-filter" role="group" aria-label={t('documents.find.view')}>
-        {(['BOARD', 'LIST'] as const).map((value) => (
-          <button key={value} type="button" aria-pressed={view === value} onClick={() => choose(value)}>
-            <UiIcon name={value === 'BOARD' ? 'board' : 'lists'} /> {t(value === 'BOARD' ? 'maintenance.view.BOARD' : 'maintenance.view.LIST')}
-          </button>
-        ))}
+      <div className="ma-toolbar">
+        <div className="ma-segment" role="group" aria-label={t('documents.find.view')}>
+          {(['BOARD', 'LIST'] as const).map((value) => (
+            <button key={value} type="button" aria-pressed={view === value} aria-label={t(value === 'BOARD' ? 'maintenance.view.BOARD' : 'maintenance.view.LIST')} title={t(value === 'BOARD' ? 'maintenance.view.BOARD' : 'maintenance.view.LIST')} onClick={() => choose(value)}>
+              <UiIcon name={value === 'BOARD' ? 'board' : 'lists'} />
+            </button>
+          ))}
+        </div>
       </div>
       {view === 'BOARD' ? (
         <Board workspaceId={workspaceId} canManage={canManage} version={version} onAnnounce={announce} onRefused={refused} />

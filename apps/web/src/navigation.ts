@@ -1,5 +1,6 @@
 import { orderedNavigationTools, type NavigationTool } from '@vergissmeinnicht/domain';
 import { t, type MessageKey } from './i18n/index.ts';
+import { maintenanceAreaHref } from './maintenance-area.ts';
 import { paths, type Route } from './router.tsx';
 import type { UiIconName } from './ui-icons.tsx';
 
@@ -38,14 +39,6 @@ const FAMILIES: readonly { readonly id: Exclude<NavigationGroupId, 'instruments'
   { id: 'house', label: 'navigation.groupHouse', icon: 'house', tools: ['EQUIPMENT', 'MAINTENANCE', 'DOCUMENTS', 'CONTACTS', 'JOURNAL'] },
 ];
 
-/** The Maintenance area's last-used tab (a per-viewer convenience; storage may be unavailable). */
-function maintenanceAreaHref(workspaceId: string, tools: readonly string[]): string {
-  let last: string | null = null;
-  try { last = globalThis.localStorage?.getItem(`vmn.maintenanceTab.${workspaceId}`) ?? null; } catch { /* ignore */ }
-  const equipment = tools.includes('EQUIPMENT') && (last === 'equipment' || !tools.includes('MAINTENANCE'));
-  return equipment ? paths.equipment(workspaceId) : paths.maintenance(workspaceId);
-}
-
 /** Enabled tools as destinations, in order; tools that share one area appear once. */
 function destinationsOf(workspaceId: string, tools: readonly string[], list: readonly NavigationTool[]): Destination[] {
   const result: Destination[] = [];
@@ -66,7 +59,7 @@ function toolDestination(workspaceId: string, tool: NavigationTool, tools: reado
     case 'CONTACTS': return { href: paths.contacts(workspaceId), label: t('shell.contacts'), icon: 'contacts', pages: ['contacts'] };
     // Equipment and Maintenance are one area (41.2): one entry, opening the tab used last.
     case 'MAINTENANCE':
-    case 'EQUIPMENT': return { href: maintenanceAreaHref(workspaceId, tools), label: t('shell.maintenance'), icon: 'maintenance', pages: ['maintenance', 'equipment'] };
+    case 'EQUIPMENT': return { href: maintenanceAreaHref(workspaceId, tools) ?? paths.maintenance(workspaceId), label: t('shell.maintenance'), icon: 'maintenance', pages: ['maintenance', 'equipment'] };
     case 'RECIPES': return { href: paths.recipes(workspaceId), label: t('recipes.heading'), icon: 'grocery', pages: ['recipes'] };
     case 'BRING': return { href: paths.bring(workspaceId), label: t('bring.heading'), icon: 'forward', pages: ['bring'] };
     case 'JOURNAL': return { href: paths.journal(workspaceId), label: t('journal.heading'), icon: 'notebook', pages: ['journal'] };

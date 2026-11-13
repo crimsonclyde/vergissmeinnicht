@@ -2456,9 +2456,11 @@ test('first server admin: bootstrap link, account creation, sign-in, Workspace c
   await page.getByLabel('Search contacts').fill('3331234567');
   await expect(contactCards).toHaveText([/Plumber Rossi/]);
   await page.getByLabel('Search contacts').fill('');
-  await page.getByLabel('Category').selectOption('Plumber');
+  const categoryChips = page.getByRole('group', { name: 'Category' });
+  await categoryChips.getByRole('button', { name: 'Plumber', exact: true }).click();
+  await expect(categoryChips.getByRole('button', { name: 'Plumber', exact: true })).toHaveAttribute('aria-pressed', 'true');
   await expect(contactCards).toHaveText([/Plumber Rossi/]);
-  await page.getByLabel('Category').selectOption('');
+  await categoryChips.getByRole('button', { name: 'All categories', exact: true }).click();
   // Import: a preview with the possible duplicate, the entry that cannot be imported and the unused column — nothing saved before confirming.
   await page.getByRole('button', { name: 'More actions for contacts' }).click();
   await page.getByRole('button', { name: 'Import from a file…' }).click();
@@ -2790,11 +2792,10 @@ test('first server admin: bootstrap link, account creation, sign-in, Workspace c
   await page.getByRole('button',{name:'Undo',exact:true}).click();
   await expect(page.getByRole('link',{name:/^House boiler/})).toBeVisible();
   await expectAccessible(page,'equipment list');
-  await page.getByRole('button',{name:'More actions for Equipment',exact:true}).click();
-  await page.getByRole('button',{name:'Equipment Trash',exact:true}).click();
+  await page.getByRole('link',{name:'Equipment Trash',exact:true}).click();
   await expectAccessible(page,'equipment Trash');
   await page.goto(`${workspacePath}/contacts`);
-  await page.getByText('Export for iPhone / Android…',{exact:true}).first().click();
+  await page.getByLabel('Export for iPhone / Android…',{exact:true}).click();
   await expect(page.getByText(/On iPhone, open it as an attachment/)).toBeVisible();
   const phoneDownload=page.waitForEvent('download');
   await page.getByRole('link',{name:'Download contacts (.vcf)',exact:true}).click();
