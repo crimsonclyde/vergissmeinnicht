@@ -340,7 +340,7 @@ function ContactList(props: { workspaceId: string; canManage: boolean; canExport
         )}
       </p>
       {added !== null && <DuplicateHint workspaceId={workspaceId} duplicates={added.duplicates} />}
-      <div className="ma-find" role="search" aria-label={t('contacts.find.search')}>
+      <div className="ma-find">
         <label className="ma-search"><UiIcon name="search" /><input id={`${id}-q`} type="search" maxLength={100} aria-label={t('contacts.find.search')} placeholder={t('contacts.find.hint')} value={find.q} onChange={(event) => setFind({ ...find, q: event.target.value })} /></label>
         {categories.length > 0 && (
           <div className="ma-chips" role="group" aria-label={t('contacts.find.category')}>

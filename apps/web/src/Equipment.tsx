@@ -156,7 +156,7 @@ export function Equipment(props: Props) {
   {removed !== null && <p role="status">{t('equipment.deleted', { name: removed.name })} <button type="button" onClick={() => void api.restoreEquipment(workspaceId, removed.id).then(() => { setRemoved(null); load(); }, fail)}>{t('common.undo')}</button></p>}
   {route.view === 'overview' && <>
    <MaintenanceCover workspaceId={workspaceId} equipment={records} />
-   <div className="ma-find" role="search" aria-label={t('equipment.search')}>
+   <div className="ma-find">
     <div className="ma-find-row">
      <label className="ma-search"><UiIcon name="search" /><input id={`${id}-search`} type="search" maxLength={100} aria-label={t('equipment.search')} placeholder={t('equipment.searchHint')} value={find.q} onChange={e => setFind({ ...find, q: e.target.value })}/></label>
      <div className="ma-segment" role="group" aria-label={t('documents.find.view')}>
