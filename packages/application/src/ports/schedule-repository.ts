@@ -78,6 +78,8 @@ export interface ScheduleRepository {
       readonly procedureId: ProcedureId | null;
       readonly at: Date;
       readonly maxOpen: number;
+      /** A caller-chosen id (36.22: an assistant retrying the same request); new by default. */
+      readonly id?: string | undefined;
     },
     actor: UserActor,
     guard: ActorGuard,

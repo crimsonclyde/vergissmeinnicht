@@ -5765,6 +5765,8 @@ user workflows; no host migration or external service provisioned by the assessm
 
 **Tests/checks:** `pnpm typecheck`, `eslint`, `vitest run apps/web` (316 passed). Screens of History, Reminders, More, Storage and Profile in light, Memento Mori, Tokyo Nights, Witch Forest, Galactic Guide and Places (Triora) at 1440 px and 390 px reviewed (`/mnt/project-files/ui-review/2026-11-12-areas/`). Accessible names the e2e suite relies on (list "Finished", list "Today", More links and `.item-body strong`) are kept.
 
+**Follow-up (2026-11-13, all themes):** History Run titles kept the `link-like` class (the e2e suite clicks it), which also brought its underline; titles are now plain serif text, underlined only on hover, and a full 44 px touch target. Rechecked History in light, Memento Mori, dark (alias), Tokyo Nights, Witch Forest, Galactic Guide and Places Munich, Triora, London and Scotland at 1440 px and 390 px.
+
 **Security impact:** NONE (presentation only). **Security docs updated:** NO.
 
 **Remaining:** 41.2 Home (Equipment + Maintenance, one menu entry) and 41.3 Contacts + Documents after the owner approves the mockup.
@@ -7906,6 +7908,126 @@ Release note draft (next release, owner release 68):
   it ticks those items off; ask it to change a quantity or rename an item. Deleted items can be
   brought back by ChatGPT, and in VMN under **Recently deleted** at the end of each List.
   Refresh VMN's tools in ChatGPT after updating. Migration 0075.
+
+### 36.20 Structured errors on every MCP tool (owner request 2026-11-12)
+
+MCP item 3 of the follow-up list. Before, only the grocery batch tools (36.18/36.19) told the
+assistant why a call failed; every other tool answered "Request not confirmed", so ChatGPT had to
+guess whether to re-read, ask the user or give up.
+
+Implemented:
+
+- One mapping (`toolFailure` in `apps/server/src/mcp/http.ts`) for every tool: `isError`, the text
+  and `structuredContent.error` with `code`, `message` and, where useful, `fields` or `host`.
+  Codes: `permission_denied`, `tool_disabled`, `tool_unavailable`, `not_found`, `stale_revision`,
+  `limit_reached`, `invalid_arguments`, `invalid_value`, `run_not_active`, `not_confirmed`; the
+  existing tool-specific codes (grocery batch, `recipe_cover_required`, `invalid_recipe`, ChatGPT
+  file and image codes) are kept and now also structured.
+- Failures after the tool ran stay `not_confirmed`; refusals before say nothing was changed.
+- Server instructions explain what each group of codes means for the next step.
+
+Checks: `mcp-errors.test.ts` (not found, invalid arguments with field, invalid value, unavailable
+tool, unselected Workspace, stale recipe revision with no change, switched-off tool); all existing
+MCP tests unchanged and passing.
+
+Security surface changed: no new capability; see security.md 36.20.
+
+Release note draft (owner release 68):
+
+- **ChatGPT understands VMN's answers better.** When something cannot be done (an outdated
+  record, a tool switched off, a missing permission), VMN now tells ChatGPT exactly why, so it
+  re-reads, asks you or explains instead of guessing.
+
+### 36.21 To-do Lists for ChatGPT (owner request 2026-11-12)
+
+MCP item 4 of the follow-up list. ChatGPT could only reach grocery Lists; delegated grants were
+deliberately limited to grocery content (15.3a).
+
+Implemented:
+
+- New opt-in scopes `todos.read` / `todos.write` (consent row "To-do Lists"). Each delegated scope
+  now maps to exactly one List kind in the repository, so grocery tools can never reach To-do
+  Lists and the other way round; existing grants keep exactly what they had.
+- Tools: `list_todo_lists`, `get_todo_list`, `list_deleted_todo_items` (read); `create_todo_list`,
+  `add_todo_item`, `update_todo_items` (rename, done/open), `move_todo_items`,
+  `delete_todo_items`, `restore_todo_items` (write). They reuse the 36.18/36.19 use cases, so the
+  same atomic, revision-checked, idempotent behaviour and error codes apply. `delete_todo_items`
+  is annotated destructive. Server instructions describe when to ask and when not to.
+- Consent wording for grocery Lists now says what Lists write allows today ("create Lists and add,
+  tick, move or delete items").
+
+Checks: `mcp-todo.test.ts` (2 tests: tool visibility per grant, grocery and To-do grants kept apart
+in both directions, read-only grant; create, add, rename, tick, move, delete and restore end to end
+with web read-back). Full suite 1775 passed.
+
+Security surface changed: yes, one new opt-in permission; see security.md 36.21.
+
+Remaining: clyde reconnects ChatGPT (or re-approves) and ticks "To-do Lists" to use it.
+
+Release note draft (owner release 68):
+
+- **ChatGPT can manage your To-do Lists.** Allow "To-do Lists" when connecting ChatGPT, then ask it
+  to add tasks, mark them done, move or delete them. Grocery and To-do access stay separate.
+
+### 36.22 Calendar and Notes for ChatGPT (owner request 2026-11-12)
+
+MCP item 5 of the follow-up list: "what's on this week?", "add dentist Tuesday 10:00", "add this to
+my Garden note". The private Journal stays off-limits.
+
+Implemented:
+
+- Opt-in scopes `calendar.read` / `calendar.write` and `notes.read` / `notes.write`, with consent
+  rows "Calendar" and "Notes (shared, never the private Journal)".
+- `get_calendar` (Calendar read model, up to 62 days), `add_reminder` (one-time Reminder, caller-
+  chosen id, retry-safe; uses `createSchedule` with a new optional `id`).
+- `search_notes`, `get_note`, `create_note` (caller-chosen id via a new optional `newId` on Journal
+  save), `update_note` (partial changes, `appendMarkdown` for additions, revision-checked). Markdown
+  stays the stored format; history revisions are written as in the app.
+- The Schedule create guard now names its tool (Procedures or Reminders), so a delegated write is
+  re-checked against it inside the transaction.
+- `operation_reused` joins the common error codes.
+
+Checks: `mcp-calendar-notes.test.ts` (4 tests: tool visibility per grant; add a Reminder, retry,
+reused id, Calendar and web read-back, past date and long range refused; Reminders/Calendar
+switched off; create, retry, search, append, stale revision, rename/pin, web read-back, and the
+private Journal unreachable). Full suite 1779 passed, lint clean.
+
+Security surface changed: yes, two opt-in permissions; see security.md 36.22.
+
+Remaining: clyde re-approves the ChatGPT connection with Calendar and Notes ticked. Recurring
+Reminders and deleting/archiving Notes through ChatGPT are not included.
+
+Release note draft (owner release 68):
+
+- **ChatGPT knows your Calendar and Notes.** Allow "Calendar" and "Notes" when connecting ChatGPT,
+  then ask what is coming up, add a one-time Reminder, or create and add to shared Notes (in
+  Markdown). Your private Journal is never shared.
+
+### 36.23 Archive a Recipe and change single fields through MCP (owner request 2026-11-12)
+
+MCP item 6 of the follow-up list. `save_recipe` needs the complete content, which is easy for an
+assistant to get wrong (a dropped photo or category), and Recipes could not be archived.
+
+Implemented:
+
+- `update_recipe_fields`: named fields only (title, servings, tags, categories, prep/cook minutes,
+  source, private, ingredients, instructions or `appendInstructions`), merged onto the Recipe read
+  in the same call at the expected revision; `empty_edit` when nothing is named.
+- `archive_recipe`: archive or restore at the read revision; asking for the current state changes
+  nothing. `search_recipes` gains `archived`.
+- Server instructions prefer partial edits over full rewrites.
+
+Checks: `mcp-recipe-fields.test.ts` (2 tests: partial edit and append keep every other field,
+retitle, stale revision, empty and conflicting edits; archive, search, no-op repeat, restore,
+stale revision). Full suite 1781 passed, lint and typecheck clean.
+
+Security surface changed: no new permission; see security.md 36.23.
+
+Release note draft (owner release 68):
+
+- **ChatGPT edits Recipes more carefully.** It changes just what you ask (servings, a title, an
+  extra note) without touching the rest, and can archive Recipes you no longer want or bring them
+  back.
 
 ### Release plan for 0.13.10, owner milestone 64 (2026-11-10)
 

@@ -153,10 +153,13 @@
   font-size: 1.15rem;
   font-weight: 600;
   text-align: start;
+  text-decoration: none;
   overflow-wrap: anywhere;
 }
 
-.link-like.area-run-title:hover { color: var(--link); filter: none; }
+/* The title is the way into the Run: a full-height touch target, underlined only on hover. */
+.link-like.area-run-title { display: block; min-height: 2.75rem; }
+.link-like.area-run-title:hover { color: var(--link); text-decoration: underline; filter: none; }
 .area-run .progress { margin: 0.15rem 0; }
 .area-more { display: flex; justify-content: center; margin-top: 1rem; }
 

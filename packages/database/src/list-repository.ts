@@ -1,9 +1,9 @@
 import { awardProgress } from './progress-repository.ts';
 import { enabledTool } from './tool-policy.ts';
 import { createHash, randomUUID } from 'node:crypto';
-import { and, asc, count, desc, eq, inArray, isNotNull, isNull, lt, max, sql } from 'drizzle-orm';
+import { and, asc, count, desc, eq, ne, inArray, isNotNull, isNull, lt, max, sql } from 'drizzle-orm';
 import type { ListBatchResult, ListItemEdit, ListReplayInput, ListReplayResult, ListRepository, ListSummary, ListWithItems } from '@vergissmeinnicht/application';
-import { assertListItemKind, type List, type ListId, type ListItem, type ListItemId, type ListReplayOutcome, type UserId, type WorkspaceId } from '@vergissmeinnicht/domain';
+import { assertListItemKind, type List, type ListId, type ListKind, type ListItem, type ListItemId, type ListReplayOutcome, type UserId, type WorkspaceId } from '@vergissmeinnicht/domain';
 import { IMMEDIATE, actorAllowed, type Transaction, type UserActor } from './actor-guard.ts';
 import { roleHasCapability } from '@vergissmeinnicht/permissions';
 import { attachmentView, type AttachmentConsumerPolicy } from './attachment-repository.ts';
@@ -50,12 +50,22 @@ function toItem(row: typeof listItems.$inferSelect): ListItem {
   };
 }
 
-// The delegated Lists scopes were granted for grocery content only.
+// Each delegated scope covers one kind of List: the Lists scopes grocery Lists, the To-do scopes
+// (36.21) To-do Lists. Only the cover scope reaches both, for covers.
 const mayUseCovers = () => {
   const delegation = currentDelegation();
   return !delegation || delegation.scope === 'lists.covers.write';
 };
-const delegatedListKind = () => mayUseCovers() ? undefined : eq(lists.kind, 'GROCERY');
+/** The one List kind a delegated call may touch; `undefined` without delegation or for covers. */
+const delegatedKind = (): ListKind | undefined => {
+  const delegation = currentDelegation();
+  if (!delegation || delegation.scope === 'lists.covers.write') return undefined;
+  return delegation.scope.startsWith('todos.') ? 'TODO' : 'GROCERY';
+};
+const delegatedListKind = () => {
+  const kind = delegatedKind();
+  return kind === undefined ? undefined : eq(lists.kind, kind);
+};
 
 export const listAttachmentPolicy: AttachmentConsumerPolicy = {
   key: 'lists',
@@ -301,11 +311,12 @@ export function createListRepository({ db }: Pick<AppDatabase, 'db'>): ListRepos
       return db.transaction((tx): ListReplayResult => {
         if (!actorAllowed(tx, input.workspaceId, actor, guard)) return { status: 'forbidden' };
         // Scope delegated requests before consulting any replay receipt or applying the change.
-        if (currentDelegation()) {
+        const kind = delegatedKind();
+        if (kind !== undefined) {
           const { change, workspaceId } = input;
-          const toDo = change.kind === 'createList' ? change.listKind === 'TODO' : tx.select({ id: lists.id }).from(lists)
-            .where(and(eq(lists.id, change.listId), eq(lists.workspaceId, workspaceId), eq(lists.kind, 'TODO'))).get();
-          if (toDo) return { status: 'done', outcome: 'NOT_FOUND', duplicate: false, by: null, byAt: null, list: null };
+          const otherKind = change.kind === 'createList' ? change.listKind !== kind : tx.select({ id: lists.id }).from(lists)
+            .where(and(eq(lists.id, change.listId), eq(lists.workspaceId, workspaceId), ne(lists.kind, kind))).get();
+          if (otherKind) return { status: 'done', outcome: 'NOT_FOUND', duplicate: false, by: null, byAt: null, list: null };
         }
         tx.delete(listClientChanges).where(lt(listClientChanges.appliedAt, input.keepSince)).run();
         const current = () => {
@@ -399,7 +410,7 @@ export function createListRepository({ db }: Pick<AppDatabase, 'db'>): ListRepos
 
     async create(input, actor, guard) {
       return db.transaction((tx) => {
-        if (!actorAllowed(tx, input.workspaceId, actor, guard) || (currentDelegation() && input.kind !== 'GROCERY')) return { status: 'forbidden' } as const;
+        if (!actorAllowed(tx, input.workspaceId, actor, guard) || (delegatedKind() ?? input.kind) !== input.kind) return { status: 'forbidden' } as const;
         if (liveLists(tx, input.workspaceId) >= input.maxLists) return { status: 'limit_reached' } as const;
         const row = tx
           .insert(lists)

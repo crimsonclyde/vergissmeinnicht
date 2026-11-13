@@ -34,6 +34,70 @@ retries must preserve the entire payload. A stale edit requires a fresh read and
 Grocery List creation and item additions return whether the change applied and whether it was a
 duplicate retry. Read the resulting List separately with a Lists read grant.
 
+### To-do Lists
+
+To-do Lists have their own permission, **To-do Lists** on the consent screen (scopes `todos.read`
+and `todos.write`). Grocery access never reaches To-do Lists and To-do access never reaches grocery
+Lists. Existing connections keep exactly what they were granted; reconnect ChatGPT (or add the
+permission when it asks again) to allow To-do Lists.
+
+| Tool | Scope | What it does |
+| --- | --- | --- |
+| `list_todo_lists`, `get_todo_list` | `todos.read` | To-do Lists with open/done counts; tasks with ids and the List revision |
+| `list_deleted_todo_items` | `todos.read` | Recently deleted tasks, newest first |
+| `create_todo_list`, `add_todo_item` | `todos.write` | New List / one new task (retry-safe ids) |
+| `update_todo_items` | `todos.write` | Rename tasks, mark done or open again, several at once |
+| `move_todo_items`, `delete_todo_items`, `restore_todo_items` | `todos.write` | As for groceries, between/on To-do Lists |
+
+Tasks have only a title and a done state. Moves, deletions and restores use the same atomic,
+revision-checked and retry-safe rules and error codes as the grocery tools.
+
+### Calendar and Notes
+
+Two more opt-in permissions on the consent screen: **Calendar** (`calendar.read`, `calendar.write`)
+and **Notes** (`notes.read`, `notes.write`). Existing connections do not gain them.
+
+| Tool | Scope | What it does |
+| --- | --- | --- |
+| `get_calendar` | `calendar.read` | Due/done Reminders and scheduled Procedures plus projected series dates for up to 62 days (Calendar tool) |
+| `add_reminder` | `calendar.write` | A one-time Reminder with date, optional time and the user's time zone (Reminders tool). The caller picks `reminderId`; a retry with the same id and request returns the same Reminder |
+| `search_notes`, `get_note` | `notes.read` | The Workspace's shared Notes: titles, notebooks, tags, a preview; one Note with its full Markdown |
+| `create_note` | `notes.write` | A new Markdown Note (caller-chosen `noteId`, retry-safe) |
+| `update_note` | `notes.write` | Change title, notebook, tags or pinned, replace the Markdown, or append Markdown at the end, at the read revision |
+
+The private Journal is never reachable: the Notes tools always work on one selected Workspace's
+shared Notes. Notes keep their revision history as in the app.
+
+### Recipe fields and archive
+
+With **Recipes write** access, `update_recipe_fields` changes only the named fields of a Recipe at
+its read revision (title, servings, tags, categories, prep/cook minutes, source, private, the whole
+ingredient list, the instructions, or `appendInstructions`); everything else, including the photo,
+stays as it is. `archive_recipe` archives a Recipe or brings it back; nothing is deleted.
+`search_recipes` takes `archived: true` to find archived Recipes.
+
+### Errors
+
+Every failed tool call has `isError: true`, a short text and `structuredContent.error` with a
+stable `code` and a fixed `message` (never record content), plus `fields` (argument paths),
+`itemIds` or a refused file `host` where that helps.
+
+| Code | Meaning |
+| --- | --- |
+| `permission_denied` | Scope, role or Workspace not allowed for this connection. Nothing changed. |
+| `tool_disabled` | The VMN tool (Lists, Recipes, …) is switched off in the Workspace. Nothing changed. |
+| `tool_unavailable` | The tool is not offered to this connection. |
+| `not_found` | Unknown, deleted, or another Workspace's record. Nothing changed. |
+| `stale_revision` | The record changed since it was read: read again, review, retry with a new operation id. Nothing changed. |
+| `limit_reached` | A Workspace or record limit. Nothing changed. |
+| `invalid_arguments` / `invalid_value` | Arguments do not match the schema / a value breaks a rule (`fields` names it). Nothing changed. |
+| `run_not_active` | The Run is finished. Nothing changed. |
+| `not_confirmed` | The change may have happened (for example access was revoked during the call). Read again and retry only with the same operation id and payload. |
+
+Tool-specific codes stay as before: the grocery batch codes below, `recipe_cover_required`,
+`invalid_recipe`, the ChatGPT file codes (`file_source_invalid`, …, `file_reference_required`) and
+the image codes (`attachment_*`).
+
 ### Move and delete grocery items
 
 With **Lists write** access, `move_grocery_items` moves chosen items from one grocery List to

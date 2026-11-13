@@ -2085,3 +2085,65 @@ connection or dependency. Migration 0075 only widens the allowed kinds of `list_
   (plus the MCP client/grant when delegated), never item text.
 - [x] Ticking through MCP awards the same progress as ticking in the app (once per item).
 
+### Structured MCP errors on every tool (36.20, 2026-11-12)
+
+**Security surface changed: no new capability.** Only the shape of failure answers changes.
+
+- [x] Messages are fixed text per code; no record content, user ids, emails, stack traces or
+  internal error messages are returned. `fields` holds argument paths from the caller's own input
+  (or the domain field name), never values.
+- [x] "Nothing was changed" is only said for failures before the tool finished. A failure after
+  the tool ran (access revoked during the call) stays `not_confirmed`, as in 36.18.
+- [x] `not_found` and `permission_denied` stay distinct only where they already were: a record of
+  another Workspace still reads as `not_found`, and a Workspace that was not selected for the
+  connection is `permission_denied` without saying whether it exists.
+- [x] Unknown failures are logged with the tool name and error class only.
+
+### To-do Lists through MCP (36.21, 2026-11-13)
+
+**Security surface changed: yes, one new opt-in permission.** New scopes `todos.read` and
+`todos.write`, offered on the consent screen as "To-do Lists". Existing grants are unchanged and do
+not gain To-do access; the user has to grant it.
+
+- [x] Each delegated scope reaches exactly one List kind, enforced in the repository for every
+  read and write (`delegatedKind` in `list-repository.ts`): Lists scopes → grocery Lists, To-do
+  scopes → To-do Lists, cover scope → covers of both. A List of the other kind is "not found"
+  (reads, edits, moves, deletes, restores, offline-style replays and List creation; tested in both
+  directions).
+- [x] All To-do writes reuse the grocery write paths: membership, `list.edit`, Lists tool switch
+  and live grant re-checked in the transaction; idempotent operation ids; structured errors.
+- [x] Tasks carry no quantity or unit; a To-do edit with them is refused.
+
+### Calendar and Notes through MCP (36.22, 2026-11-13)
+
+**Security surface changed: yes, two new opt-in permissions.** Scopes `calendar.read`,
+`calendar.write`, `notes.read`, `notes.write`; existing grants unchanged.
+
+- [x] The private Journal is out of reach by construction: every Notes tool requires a selected
+  `workspaceId` and calls the Journal use cases with that Workspace scope only; a private entry id
+  is "not found" (tested). Server instructions also say so.
+- [x] Writes re-check the delegation inside the write transaction against their own tool:
+  `add_reminder` against Reminders (the Schedule create guard now names its tool, which the web
+  path already enforced through the tool check), Notes against Journal; membership,
+  `schedule.manage` / `journal.manage` and the live grant as for the app.
+- [x] Retries: Reminder and Note ids are chosen by the caller. A retry with the same id and the same
+  request returns the existing record; a different request with that id is `operation_reused`. An
+  id that belongs to another Workspace fails the insert and is reported as `not_confirmed`, never
+  revealing that record.
+- [x] Note bodies are validated by the same domain rules as the app (control and bidi characters,
+  size, image references must be this Workspace's Journal attachments the actor may use).
+- [x] Calendar reads return titles, dates, times, states and Schedule ids only — no assignee ids or
+  emails.
+
+### Recipe fields and archive through MCP (36.23, 2026-11-13)
+
+**Security surface changed: no new permission.** Two writes under the existing `recipes.write`
+scope that reuse `saveRecipe` (same authorization, transaction and validation).
+
+- [x] Partial edits start from the Recipe read in the same call and refuse a stale revision, so
+  unrelated fields (photo, visibility, categories) are never dropped by an assistant that resent
+  incomplete content.
+- [x] Visibility only changes when `private` is named; the description asks for an explicit user
+  request before sharing a private Recipe (unchanged rule from 36.11).
+- [x] Archiving is reversible and keeps the Recipe complete; there is no delete tool.
+
