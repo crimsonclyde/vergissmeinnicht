@@ -68,6 +68,14 @@ and **Notes** (`notes.read`, `notes.write`). Existing connections do not gain th
 The private Journal is never reachable: the Notes tools always work on one selected Workspace's
 shared Notes. Notes keep their revision history as in the app.
 
+### Recipe fields and archive
+
+With **Recipes write** access, `update_recipe_fields` changes only the named fields of a Recipe at
+its read revision (title, servings, tags, categories, prep/cook minutes, source, private, the whole
+ingredient list, the instructions, or `appendInstructions`); everything else, including the photo,
+stays as it is. `archive_recipe` archives a Recipe or brings it back; nothing is deleted.
+`search_recipes` takes `archived: true` to find archived Recipes.
+
 ### Errors
 
 Every failed tool call has `isError: true`, a short text and `structuredContent.error` with a

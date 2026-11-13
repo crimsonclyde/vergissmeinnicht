@@ -7953,6 +7953,32 @@ Release note draft (owner release 68):
   then ask what is coming up, add a one-time Reminder, or create and add to shared Notes (in
   Markdown). Your private Journal is never shared.
 
+### 36.23 Archive a Recipe and change single fields through MCP (owner request 2026-11-12)
+
+MCP item 6 of the follow-up list. `save_recipe` needs the complete content, which is easy for an
+assistant to get wrong (a dropped photo or category), and Recipes could not be archived.
+
+Implemented:
+
+- `update_recipe_fields`: named fields only (title, servings, tags, categories, prep/cook minutes,
+  source, private, ingredients, instructions or `appendInstructions`), merged onto the Recipe read
+  in the same call at the expected revision; `empty_edit` when nothing is named.
+- `archive_recipe`: archive or restore at the read revision; asking for the current state changes
+  nothing. `search_recipes` gains `archived`.
+- Server instructions prefer partial edits over full rewrites.
+
+Checks: `mcp-recipe-fields.test.ts` (2 tests: partial edit and append keep every other field,
+retitle, stale revision, empty and conflicting edits; archive, search, no-op repeat, restore,
+stale revision). Full suite 1781 passed, lint and typecheck clean.
+
+Security surface changed: no new permission; see security.md 36.23.
+
+Release note draft (owner release 68):
+
+- **ChatGPT edits Recipes more carefully.** It changes just what you ask (servings, a title, an
+  extra note) without touching the rest, and can archive Recipes you no longer want or bring them
+  back.
+
 ### Release plan for 0.13.10, owner milestone 64 (2026-11-10)
 
 The preceding 0.13.9 candidate was stopped before publication after inspecting the

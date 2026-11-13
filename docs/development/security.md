@@ -2135,3 +2135,15 @@ not gain To-do access; the user has to grant it.
 - [x] Calendar reads return titles, dates, times, states and Schedule ids only — no assignee ids or
   emails.
 
+### Recipe fields and archive through MCP (36.23, 2026-11-13)
+
+**Security surface changed: no new permission.** Two writes under the existing `recipes.write`
+scope that reuse `saveRecipe` (same authorization, transaction and validation).
+
+- [x] Partial edits start from the Recipe read in the same call and refuse a stale revision, so
+  unrelated fields (photo, visibility, categories) are never dropped by an assistant that resent
+  incomplete content.
+- [x] Visibility only changes when `private` is named; the description asks for an explicit user
+  request before sharing a private Recipe (unchanged rule from 36.11).
+- [x] Archiving is reversible and keeps the Recipe complete; there is no delete tool.
+
