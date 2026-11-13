@@ -1184,7 +1184,7 @@ test('first server admin: bootstrap link, account creation, sign-in, Workspace c
     expect(await noSidewaysScroll()).toBe(true);
     await page.emulateMedia({ colorScheme: 'dark' });
     // The phone bar is fixed at the bottom; check with nothing scrolled underneath it.
-    await page.evaluate(() => window.scrollTo(0, 0));
+    await page.evaluate('window.scrollTo(0, 0)');
     await expectAccessible(page, `restore preview at ${width} px, dark`);
     await page.emulateMedia({ colorScheme: 'light' });
   }
