@@ -5765,6 +5765,8 @@ user workflows; no host migration or external service provisioned by the assessm
 
 **Tests/checks:** `pnpm typecheck`, `eslint`, `vitest run apps/web` (316 passed). Screens of History, Reminders, More, Storage and Profile in light, Memento Mori, Tokyo Nights, Witch Forest, Galactic Guide and Places (Triora) at 1440 px and 390 px reviewed (`/mnt/project-files/ui-review/2026-11-12-areas/`). Accessible names the e2e suite relies on (list "Finished", list "Today", More links and `.item-body strong`) are kept.
 
+**Follow-up (2026-11-13, all themes):** History Run titles kept the `link-like` class (the e2e suite clicks it), which also brought its underline; titles are now plain serif text, underlined only on hover, and a full 44 px touch target. Rechecked History in light, Memento Mori, dark (alias), Tokyo Nights, Witch Forest, Galactic Guide and Places Munich, Triora, London and Scotland at 1440 px and 390 px.
+
 **Security impact:** NONE (presentation only). **Security docs updated:** NO.
 
 **Remaining:** 41.2 Home (Equipment + Maintenance, one menu entry) and 41.3 Contacts + Documents after the owner approves the mockup.
