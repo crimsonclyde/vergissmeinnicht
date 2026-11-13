@@ -5789,7 +5789,24 @@ user workflows; no host migration or external service provisioned by the assessm
 
 **Security impact:** NONE (presentation only). **Security docs updated:** NO.
 
-**Remaining:** 41.3 Contacts and Documents.
+**Remaining:** none for 41.2.
+
+### 41.3 — Contacts and Documents in the same language
+
+**Status:** DONE (implementation and checks complete; not released).
+
+**Implemented:**
+- Shared in `area.css`: the find card (search with icon, chips), quick add on one line, segmented icon toggles, a round button that folds a short panel (`area-pop`), and five token tints chosen by a word (`area-art.ts`: `toneOf`, `monogram`, with a unit test).
+- *Contacts:* eyebrow and serif title with the count; phone export as a round button that folds its help; quick add with a round "More details…" button; category chips with a colour dot instead of a select; cards in two columns with a monogram avatar (letters only, no photo, no new upload path), serif name, category · organisation, and round call and email buttons (`tel:`/`mailto:` still pass `safeHref`). The contact page opens with one hero card: large monogram, name, round call, email, "Add to device contacts" and its help; Edit and ⋯ unchanged.
+- *Documents:* eyebrow and serif title; New folder as a round icon button beside ⋯ and Add document; sub-folders as a shelf of tinted folder tiles (name and count); the find bar as one card with Board-style List | Grid icon toggle; grid tiles drawn as pages with a stacked edge, ruled lines when there is no thumbnail, and the document type as a badge; serif titles. The list view is unchanged.
+- New icons: call, mail, website, addressBook, page, folderOpen (Tabler, bundled).
+- Presentation only: no API, schema, permission or route change; no migration.
+
+**Tests/checks:** `pnpm typecheck`, `eslint`, `vitest run apps/web` (318 passed). Screens of Contacts, a contact, Documents (list and grid) in light, Memento Mori, dark (alias), Tokyo Nights, Witch Forest, Galactic Guide and Places Munich, Triora, London and Scotland at 1440 px and 390 px (`/mnt/project-files/ui-review/2026-11-12-areas/after-41.3/`). Names the e2e suite relies on are kept (list "Contacts", "Open …", "Call …: …", "Add to device contacts", "Search contacts", "New folder", "Add document", Show as → List/Grid, folder links "Water 1 document").
+
+**Security impact:** NONE (presentation only; contact links keep the existing `safeHref` check). **Security docs updated:** NO.
+
+**Remaining:** real-phone check of the redesigned areas.
 
 ---
 

@@ -50,6 +50,8 @@ import { clearHandOver, handOver, handedOver } from './handoff.ts';
 import { formatCalendarDate, formatDateTime, t } from './i18n/index.ts';
 import { MoreMenu } from './MoreMenu.tsx';
 import { Link, navigate, paths, setNavigationGuard, type Route } from './router.tsx';
+import { toneOf } from './area-art.ts';
+import './area.css';
 import { UiIcon } from './ui-icons.tsx';
 import { UndoNotice, type Undoable } from './UndoNotice.tsx';
 
@@ -262,10 +264,10 @@ function FindBar(props: {
             ))}
           </select>
         </div>
-        <div className="row home-filter" role="group" aria-label={t('documents.find.view')}>
+        <div className="ma-segment" role="group" aria-label={t('documents.find.view')}>
           {(['LIST', 'GRID'] as const).map((value) => (
-            <button key={value} type="button" className="quiet" aria-pressed={props.view === value} onClick={() => props.onView(value)}>
-              <UiIcon name={value === 'GRID' ? 'grid' : 'lists'} /> {t(`documents.find.view.${value}`)}
+            <button key={value} type="button" aria-pressed={props.view === value} aria-label={t(`documents.find.view.${value}`)} title={t(`documents.find.view.${value}`)} onClick={() => props.onView(value)}>
+              <UiIcon name={value === 'GRID' ? 'grid' : 'lists'} />
             </button>
           ))}
         </div>
@@ -395,8 +397,9 @@ function DocumentList(props: {
                 {each.cover?.hasThumbnail === true ? (
                   <img src={documentFileUrls.thumbnail(workspaceId, each.cover.fileId)} alt={t('documents.find.thumbnailAlt', { title: each.title })} loading="lazy" decoding="async" />
                 ) : (
-                  <UiIcon name="documents" size="2.5em" />
+                  <span className="dc-page-lines" aria-hidden="true"><i /><i /><i /><i /><i /><i /></span>
                 )}
+                {typeLabel(each.type) !== null && <span className="dc-badge" data-tone={toneOf(typeLabel(each.type) ?? '')}>{typeLabel(each.type)}</span>}
               </span>
               {/* The title is always written out: the picture alone never tells two Documents apart. */}
               <strong>{each.title}</strong>
@@ -590,22 +593,17 @@ function FolderView(props: { workspaceId: string; folderId: string | null; canMa
   const heading = narrowed ? t('documents.find.results') : folder !== null ? t('documents.documents') : filters.sort === NO_FILTERS.sort && filters.dir === NO_FILTERS.dir ? t('documents.find.recent') : t('documents.find.all');
 
   return (
-    <section aria-labelledby="documents-heading">
+    <section className="area" aria-labelledby="documents-heading">
       {folder !== null && <Breadcrumbs workspaceId={workspaceId} folders={folders} folderId={folderId} />}
-      <div className="page-header page-header-tool">
-        <div>
-          <h2 id="documents-heading">{folder === null ? t('shell.documents') : folder.name}</h2>
-          {folder === null && <p className="muted page-lead">{t('documents.lead')}</p>}
+      <div className="area-head">
+        <div className="area-title">
+          <p className="area-eyebrow"><UiIcon name={folder === null ? 'documents' : 'folderOpen'} /> {t(folder === null ? 'documents.eyebrow' : 'documents.eyebrowFolder')}</p>
+          <h2 id="documents-heading" className="area-heading">{folder === null ? t('shell.documents') : folder.name}</h2>
         </div>
-        <div className="row">
+        <div className="area-actions">
           {canManage && (
-            <button type="button" className="primary" onClick={() => navigate(paths.newDocument(workspaceId, folderId))}>
-              <UiIcon name="add" /> {t('documents.add')}
-            </button>
-          )}
-          {canManage && (
-            <button type="button" onClick={() => open('new-folder')}>
-              <UiIcon name="folder" /> {t('documents.newFolder')}
+            <button type="button" className="area-round" aria-label={t('documents.newFolder')} title={t('documents.newFolder')} onClick={() => open('new-folder')}>
+              <UiIcon name="folder" />
             </button>
           )}
           <MoreMenu
@@ -619,8 +617,14 @@ function FolderView(props: { workspaceId: string; folderId: string | null; canMa
               ...(canManage && folder !== null ? [{ label: t('documents.deleteFolder'), danger: true, onSelect: () => open('delete') }] : []),
             ]}
           />
+          {canManage && (
+            <button type="button" className="primary" onClick={() => navigate(paths.newDocument(workspaceId, folderId))}>
+              <UiIcon name="upload" /> {t('documents.add')}
+            </button>
+          )}
         </div>
       </div>
+      {folder === null && <p className="area-lead">{t('documents.lead')}</p>}
       {message !== null && <p role="alert">{message}</p>}
       {status !== null && (
         <p role="status" className="card calm">
@@ -634,21 +638,18 @@ function FolderView(props: { workspaceId: string; folderId: string | null; canMa
       {/* While searching or filtering, the results come first; the sub-folders return when the filters are cleared. */}
       {subFolders.length > 0 && !narrowed && (
         <>
-          <h3 className="section-label">{t('documents.folders')}</h3>
-          <ul className="plain-list">
+          <h3 className="area-group">{t('documents.folders')}</h3>
+          <ul className="plain-list dc-shelf">
             {subFolders.map((each) => {
               const inside = folderContents(folders, each.id);
               return (
                 <li key={each.id}>
-                  <Link href={paths.documents(workspaceId, each.id)} className="card link-card">
-                    <span className="item-icon">
-                      <UiIcon name="folder" size="1.5em" />
-                    </span>
-                    <span className="item-body">
+                  <Link href={paths.documents(workspaceId, each.id)} className="dc-folder" data-tone={toneOf(each.name)}>
+                    <span className="dc-folder-sheets" aria-hidden="true" />
+                    <span className="dc-folder-label">
                       <strong>{each.name}</strong>
-                      <small className="muted">{[inside.folders > 0 ? t('documents.folderCount', { count: inside.folders }) : null, t('documents.documentCount', { count: inside.documents })].filter((part) => part !== null).join(' · ')}</small>
+                      <small>{[inside.folders > 0 ? t('documents.folderCount', { count: inside.folders }) : null, t('documents.documentCount', { count: inside.documents })].filter((part) => part !== null).join(' · ')}</small>
                     </span>
-                    <UiIcon name="chevron" />
                   </Link>
                 </li>
               );
@@ -659,7 +660,7 @@ function FolderView(props: { workspaceId: string; folderId: string | null; canMa
 
       {!nothingHere && (
         <>
-          <h3 className="section-label" id="document-list-heading">
+          <h3 className="area-group" id="document-list-heading">
             {heading}
           </h3>
           <FindBar workspaceId={workspaceId} folder={folder} folders={folders} filters={filters} text={text} onText={setText} onChange={apply} view={view} onView={chooseView} />

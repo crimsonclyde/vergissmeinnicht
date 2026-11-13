@@ -27,11 +27,6 @@
 .ma-tabs a[aria-current='page'] { background: var(--surface); color: var(--text); box-shadow: 0 1px 2px color-mix(in srgb, var(--text) 18%, transparent); }
 .ma-tabs a:focus-visible { outline: 3px solid var(--focus); outline-offset: 1px; }
 
-/* A segmented group of icon buttons (Board | List, Cards | List). */
-.ma-segment { display: inline-flex; gap: 0.25rem; padding: 0.25rem; border-radius: calc(var(--radius) + 6px); background: var(--surface-muted); }
-.ma-segment button { display: inline-grid; place-items: center; min-width: 2.75rem; min-height: 2.75rem; padding: 0; border: 0; border-radius: calc(var(--radius) + 3px); background: transparent; color: var(--text-muted); }
-.ma-segment button[aria-pressed='true'] { background: var(--surface); color: var(--accent); box-shadow: 0 1px 2px color-mix(in srgb, var(--text) 18%, transparent); }
-
 /* Cover: painted hills and a small house under the glance chips. */
 .ma-cover {
   position: relative;
@@ -81,19 +76,6 @@
 .ma-glance-body strong { overflow-wrap: anywhere; }
 .ma-glance-calm { position: relative; margin: 0; padding: 0.6rem 1rem; border-radius: 999px; background: color-mix(in srgb, var(--surface) 92%, transparent); color: var(--text-muted); }
 
-/* Find: one card with the search, then filter chips. */
-.ma-find { display: grid; gap: 0.75rem; margin-block-end: 1rem; padding: 0.85rem; border: 1px solid var(--border); border-radius: var(--area-radius, calc(var(--radius) + 4px)); background: var(--surface); }
-.ma-find-row { display: flex; flex-wrap: wrap; align-items: center; gap: 0.6rem; }
-.ma-search { display: flex; flex: 1; align-items: center; gap: 0.6rem; min-width: min(100%, 14rem); min-height: 2.75rem; padding: 0 0.85rem; border: 1px solid var(--input-border, var(--border)); border-radius: var(--radius); background: var(--input-bg, var(--surface)); color: var(--text-muted); }
-.ma-search input { flex: 1; min-width: 0; min-height: 2.5rem; padding: 0; border: 0; background: transparent; color: var(--text); box-shadow: none; }
-.ma-search input:focus { outline: none; }
-.ma-search:focus-within { outline: 3px solid var(--focus); outline-offset: 1px; }
-.ma-chips { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem; }
-.ma-chips button { min-height: 2.75rem; padding: 0 0.95rem; border: 1px solid var(--border); border-radius: 999px; background: var(--surface); color: var(--text); font-weight: 500; }
-.ma-chips button[aria-pressed='true'] { border-color: var(--accent); background: var(--accent); color: var(--accent-text); font-weight: 600; }
-.ma-chips button[data-kind='place'] { border-style: dashed; }
-.ma-chips-rule { width: 1px; height: 1.5rem; background: var(--border); }
-
 /* Equipment cards: a tinted art band with the icon, then a serif name over brand · model and place. */
 .ma-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 17rem), 1fr)); gap: 1rem; }
 .plain-list.ma-cards > li + li { margin-top: 0; }
@@ -137,11 +119,6 @@
 
 /* Rows view of Equipment: the same facts on one line. */
 .ma-rows .area-row strong { font-family: var(--area-title-font); }
-
-/* Maintenance: quick add as one line with round buttons. */
-.ma-quick { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 0.6rem; margin-block-end: 1rem; padding: 0.85rem; border: 1px solid var(--border); border-radius: var(--area-radius, calc(var(--radius) + 4px)); background: var(--surface); }
-.ma-quick .field { flex: 1; min-width: min(100%, 14rem); margin: 0; }
-.ma-toolbar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 0.6rem; margin-block-end: 0.75rem; }
 
 /* Board: status columns as soft panels with a coloured top rule; cards get the serif title. */
 .area .maintenance-column { border-radius: var(--area-radius, calc(var(--radius) + 4px)); }

@@ -14,9 +14,8 @@ import { UiIcon } from './ui-icons.tsx';
 import { EquipmentForm, EQUIPMENT_FIELDS } from './EquipmentForm.tsx';
 import { MaintenanceAreaHead, MaintenanceCover } from './MaintenanceArea.tsx';
 import { localDate } from './Timeline.tsx';
+import { toneOf } from './area-art.ts';
 const VIEW_KEY = 'vmn.equipmentView';
-/** A stable tint per category, so a kind of equipment keeps its colour; decoration only. */
-const toneOf = (category: string) => String([...category].reduce((sum, ch) => sum + ch.charCodeAt(0), 0) % 5);
 /** "in 40 days" while a warranty ends within 90 days. */
 function warrantySoon(record: EquipmentRecord, today: string, limit: string): string | null {
   if (record.warrantyExpiry === null) return null;

@@ -1,5 +1,7 @@
 import { PhoneEditorDialog } from './mobile/PhoneEditorDialog.tsx';
 import { useCoreTools } from './core-tools.ts';
+import { monogram, toneOf } from './area-art.ts';
+import './area.css';
 import { useCallback, useEffect, useId, useRef, useState, type FormEvent } from 'react';
 import {
   ApiError,
@@ -293,30 +295,39 @@ function ContactList(props: { workspaceId: string; canManage: boolean; canExport
   ];
   const searching = find.q.trim() !== '' || find.category !== '';
   return (
-    <section aria-labelledby="contacts-heading">
-      {props.canExport && <details className="option-group"><summary>{t('contacts.export.phone')}</summary><div className="stack option-body"><p>{t('contacts.export.phoneHelp')}</p><a className="button" href={contactExportUrl(workspaceId,'vcard')}>{t('contacts.export.downloadVcf')}</a></div></details>}
-      <div className="page-header page-header-tool">
-        <div>
-          <h2 id="contacts-heading">{t('shell.contacts')}</h2>
-          <p className="muted page-lead">{t('contacts.lead')}</p>
+    <section className="area" aria-labelledby="contacts-heading">
+      <div className="area-head">
+        <div className="area-title">
+          <p className="area-eyebrow"><UiIcon name="contacts" /> {t('contacts.eyebrow')}</p>
+          <h2 id="contacts-heading" className="area-heading">
+            {t('shell.contacts')}
+            {total !== null && !searching && <> <span className="area-heading-muted">{total}</span></>}
+          </h2>
         </div>
-        {menu.length > 0 && <MoreMenu label={t('contacts.moreActions')} items={menu} />}
+        <div className="area-actions">
+          {props.canExport && (
+            <details className="area-pop">
+              <summary className="area-round" aria-label={t('contacts.export.phone')} title={t('contacts.export.phone')}><UiIcon name="phone" /></summary>
+              <div className="area-pop-body card stack"><p>{t('contacts.export.phoneHelp')}</p><a className="button" href={contactExportUrl(workspaceId,'vcard')}><UiIcon name="download" /> {t('contacts.export.downloadVcf')}</a></div>
+            </details>
+          )}
+          {menu.length > 0 && <MoreMenu label={t('contacts.moreActions')} items={menu} />}
+        </div>
       </div>
+      <p className="area-lead">{t('contacts.lead')}</p>
       {message !== null && <p role="alert">{message}</p>}
       {canManage && (
-        <form className="card stack" onSubmit={(event) => void quickAdd(event)} aria-label={t('contacts.new.heading')}>
-          <div className="row contact-quick-add">
-            <div className="field">
-              <label htmlFor={`${id}-new`}>{t('contacts.new.label')}</label>
-              <input id={`${id}-new`} maxLength={CONTACT_LIMITS.name} autoComplete="off" placeholder={t('contacts.new.example')} value={name} onChange={(event) => setName(event.target.value)} />
-            </div>
-            <button type="submit" className="primary" disabled={saving || name.trim() === ''}>
-              {t('contacts.save')}
-            </button>
-            <button type="button" onClick={() => setDetails(true)}>
-              {t('contacts.new.more')}
-            </button>
+        <form className="ma-quick" onSubmit={(event) => void quickAdd(event)} aria-label={t('contacts.new.heading')}>
+          <div className="field">
+            <label htmlFor={`${id}-new`}>{t('contacts.new.label')}</label>
+            <input id={`${id}-new`} maxLength={CONTACT_LIMITS.name} autoComplete="off" placeholder={t('contacts.new.example')} value={name} onChange={(event) => setName(event.target.value)} />
           </div>
+          <button type="button" className="area-round" aria-label={t('contacts.new.more')} title={t('contacts.new.more')} onClick={() => setDetails(true)}>
+            <UiIcon name="expand" />
+          </button>
+          <button type="submit" className="primary" disabled={saving || name.trim() === ''}>
+            <UiIcon name="check" /> {t('contacts.save')}
+          </button>
         </form>
       )}
       <p role="status" className={status === null ? 'visually-hidden' : 'card calm'}>
@@ -329,22 +340,16 @@ function ContactList(props: { workspaceId: string; canManage: boolean; canExport
         )}
       </p>
       {added !== null && <DuplicateHint workspaceId={workspaceId} duplicates={added.duplicates} />}
-      <div className="row contact-find">
-        <div className="field">
-          <label htmlFor={`${id}-q`}>{t('contacts.find.search')}</label>
-          <input id={`${id}-q`} type="search" maxLength={100} value={find.q} onChange={(event) => setFind({ ...find, q: event.target.value })} />
-        </div>
+      <div className="ma-find" role="search" aria-label={t('contacts.find.search')}>
+        <label className="ma-search"><UiIcon name="search" /><input id={`${id}-q`} type="search" maxLength={100} aria-label={t('contacts.find.search')} placeholder={t('contacts.find.hint')} value={find.q} onChange={(event) => setFind({ ...find, q: event.target.value })} /></label>
         {categories.length > 0 && (
-          <div className="field">
-            <label htmlFor={`${id}-category`}>{t('contacts.find.category')}</label>
-            <select id={`${id}-category`} value={find.category} onChange={(event) => setFind({ ...find, category: event.target.value })}>
-              <option value="">{t('contacts.find.allCategories')}</option>
-              {categories.map((category) => (
-                <option key={category} value={category}>
-                  {category}
-                </option>
-              ))}
-            </select>
+          <div className="ma-chips" role="group" aria-label={t('contacts.find.category')}>
+            <button type="button" aria-pressed={find.category === ''} onClick={() => setFind({ ...find, category: '' })}>{t('contacts.find.allCategories')}</button>
+            {categories.map((category) => (
+              <button key={category} type="button" aria-pressed={find.category === category} onClick={() => setFind({ ...find, category: find.category === category ? '' : category })}>
+                <i className="ct-dot" data-tone={toneOf(category)} aria-hidden="true" /> {category}
+              </button>
+            ))}
           </div>
         )}
       </div>
@@ -355,50 +360,60 @@ function ContactList(props: { workspaceId: string; canManage: boolean; canExport
       ) : (
         <>
           {total !== null && (
-            <p className="muted" aria-live="polite">
+            <p className={searching ? 'muted' : 'visually-hidden'} aria-live="polite">
               {t(searching ? 'contacts.find.count' : 'contacts.count', { count: total })}
             </p>
           )}
-          <ul className="plain-list" aria-labelledby="contacts-heading">
+          <ul className="plain-list ct-cards" aria-label={t('shell.contacts')}>
             {contacts.map((contact) => {
               const phone = contact.phones[0];
               const href = phone === undefined ? null : safeHref(phone.href, 'tel');
+              const email = contact.emails[0];
+              const mail = email === undefined ? null : safeHref(email.href, 'mailto');
               const context = contactContext(contact);
               return (
-                <li key={contact.id} className="card contact-card">
+                <li key={contact.id} className="card contact-card ct-card">
                   <Link href={paths.contact(workspaceId, contact.id)} className="contact-card-main" aria-label={t('contacts.openNamed', { name: contact.name })}>
-                    <span className="item-icon">
-                      <UiIcon name="contacts" size="1.5em" />
-                    </span>
+                    <span className="ct-avatar" data-tone={toneOf(contact.category || contact.name)} aria-hidden="true">{monogram(contact.name)}</span>
                     <span className="item-body">
                       <strong>{contact.name}</strong>
                       {context !== '' && <small className="muted">{context}</small>}
                     </span>
                   </Link>
-                  {phone !== undefined && href !== null && (
-                    <a className="button contact-action" href={href} aria-label={t('contacts.callNamed', { name: contact.name, value: phone.value })}>
-                      {phone.value}
-                    </a>
-                  )}
+                  <span className="ct-actions">
+                    {phone !== undefined && href !== null && (
+                      <a className="ct-action" href={href} aria-label={t('contacts.callNamed', { name: contact.name, value: phone.value })} title={phone.value}>
+                        <UiIcon name="call" />
+                      </a>
+                    )}
+                    {email !== undefined && mail !== null && (
+                      <a className="ct-action" href={mail} aria-label={t('contacts.mailNamed', { name: contact.name, value: email.value })} title={email.value}>
+                        <UiIcon name="mail" />
+                      </a>
+                    )}
+                  </span>
                 </li>
               );
             })}
           </ul>
           {next !== null && (
-            <button
-              type="button"
-              onClick={() =>
-                void api.contacts(workspaceId, contactListingParams(find, next)).then(
-                  (page) => {
-                    setContacts([...contacts, ...page.contacts]);
-                    setNext(page.nextCursor);
-                  },
-                  (caught: unknown) => setMessage(messageFor(caught)),
-                )
-              }
-            >
-              {t('common.showMore')}
-            </button>
+            <div className="area-more">
+              <button
+                type="button"
+                className="area-round"
+                onClick={() =>
+                  void api.contacts(workspaceId, contactListingParams(find, next)).then(
+                    (page) => {
+                      setContacts([...contacts, ...page.contacts]);
+                      setNext(page.nextCursor);
+                    },
+                    (caught: unknown) => setMessage(messageFor(caught)),
+                  )
+                }
+              >
+                {t('common.showMore')}
+              </button>
+            </div>
           )}
         </>
       )}
@@ -610,15 +625,33 @@ function ContactPage(props: { workspaceId: string; contactId: string; canManage:
   const context = contactContext(contact);
   const website = safeHref(contact.website, 'web');
   return (
-    <section aria-labelledby="contact-heading" className="stack">
+    <section aria-labelledby="contact-heading" className="stack area">
       {back}
-      <div className="page-header page-header-tool">
-        <div>
-          <h2 id="contact-heading">{contact.name}</h2>
-          {context !== '' && <p className="muted page-lead">{context}</p>}
+      <div className="card ct-hero" data-tone={toneOf(contact.category || contact.name)}>
+        <span className="ct-avatar" data-size="large" data-tone={toneOf(contact.category || contact.name)} aria-hidden="true">{monogram(contact.name)}</span>
+        <div className="ct-hero-body">
+          {context !== '' && <p className="area-eyebrow">{context}</p>}
+          <h2 id="contact-heading" className="area-heading">{contact.name}</h2>
+          <div className="ct-actions">
+            {contact.phones[0] !== undefined && safeHref(contact.phones[0].href, 'tel') !== null && (
+              <a className="ct-action" href={safeHref(contact.phones[0].href, 'tel') ?? undefined} aria-label={t('contacts.callNamed', { name: contact.name, value: contact.phones[0].value })} title={contact.phones[0].value}><UiIcon name="call" /></a>
+            )}
+            {contact.emails[0] !== undefined && safeHref(contact.emails[0].href, 'mailto') !== null && (
+              <a className="ct-action" href={safeHref(contact.emails[0].href, 'mailto') ?? undefined} aria-label={t('contacts.mailNamed', { name: contact.name, value: contact.emails[0].value })} title={contact.emails[0].value}><UiIcon name="mail" /></a>
+            )}
+            {props.canExport && (
+              <a className="ct-action" href={contactExportUrl(workspaceId, 'vcard', contact.id)} aria-label={t('contacts.export.device')} title={t('contacts.export.device')}><UiIcon name="addressBook" /></a>
+            )}
+            {props.canExport && (
+              <details className="area-pop">
+                <summary className="ct-action" aria-label={t('contacts.export.deviceHelpSummary')} title={t('contacts.export.deviceHelpSummary')}><UiIcon name="info" /></summary>
+                <p className="area-pop-body card muted">{t('contacts.export.deviceHelp')}</p>
+              </details>
+            )}
+          </div>
         </div>
         {props.canManage && (
-          <div className="row">
+          <div className="row ct-hero-manage">
             <button
               type="button"
               onClick={() => {
@@ -638,13 +671,6 @@ function ContactPage(props: { workspaceId: string; contactId: string; canManage:
           {status}
         </p>
       )}
-      {props.canExport && <div className="stack">
-        <p className="row"><a className="button primary" href={contactExportUrl(workspaceId, 'vcard', contact.id)}><UiIcon name="download" /> {t('contacts.export.device')}</a></p>
-        <details>
-          <summary>{t('contacts.export.deviceHelpSummary')}</summary>
-          <p className="muted">{t('contacts.export.deviceHelp')}</p>
-        </details>
-      </div>}
       <DuplicateHint workspaceId={workspaceId} duplicates={duplicates} />
       <div className="card stack contact-details">
         {contact.phones.length > 0 && (
