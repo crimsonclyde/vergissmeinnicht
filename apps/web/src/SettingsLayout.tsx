@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react';
 import { Link } from './router.tsx';
 import { UiIcon, type UiIconName } from './ui-icons.tsx';
+import './area.css';
 
 export interface SettingsSection {
   readonly href: string;
@@ -33,10 +34,10 @@ export function groupSections(sections: readonly SettingsSection[]): { group: st
 export function SettingsLayout(props: { title: string; subtitle?: string; identity?: ReactNode; navLabel: string; sections: readonly SettingsSection[]; children: ReactNode }) {
   return (
     <>
-      <div className="page-header settings-header">
+      <div className="page-header settings-header area">
         {props.identity ?? (
           <>
-            <h2>{props.title}</h2>
+            <h2 className="area-heading">{props.title}</h2>
             {props.subtitle !== undefined && <span className="muted">{props.subtitle}</span>}
           </>
         )}
@@ -52,7 +53,11 @@ export function SettingsLayout(props: { title: string; subtitle?: string; identi
               )}
               {sections.map((section) => (
                 <Link key={section.href} href={section.href} aria-current={section.current ? 'page' : undefined}>
-                  {section.icon !== undefined && <UiIcon name={section.icon} />}
+                  {section.icon !== undefined && (
+                    <span className="settings-nav-icon">
+                      <UiIcon name={section.icon} />
+                    </span>
+                  )}
                   <span className="settings-nav-label">{section.label}</span>
                 </Link>
               ))}

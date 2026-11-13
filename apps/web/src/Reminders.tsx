@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { api, isNetworkError, messageFor, type HomeOverview, type Occurrence, type PersonRef } from './api.ts';
 import { t } from './i18n/index.ts';
 import { DoneItem, OccurrenceItem, groupOverdue } from './Occurrences.tsx';
@@ -7,6 +7,8 @@ import { Link, navigate, paths } from './router.tsx';
 import { ScheduleDialog } from './ScheduleDialog.tsx';
 import { UiIcon } from './ui-icons.tsx';
 import { UndoNotice, type Undoable } from './UndoNotice.tsx';
+import { DayStamp, firstOfDay } from './Timeline.tsx';
+import { todayIn } from './schedule-dates.ts';
 
 const REFRESH_MS = 30_000;
 const isReminder = (item: Occurrence) => item.schedule.kind === 'REMINDER';
@@ -89,39 +91,61 @@ export function Reminders(props: {
           load();
         }),
     });
-  const section = (id: string, label: string, children: ReactNode) => (
-    <section aria-labelledby={id} className="home-section">
-      <h3 id={id} className="section-label">
-        {label}
-      </h3>
-      <ul className="plain-list" aria-labelledby={id}>
-        {children}
-      </ul>
-    </section>
-  );
-  const row = (item: Occurrence, older: readonly Occurrence[] = []) => (
-    <OccurrenceItem key={item.id} workspaceId={workspaceId} item={item} older={older} can={can} members={members} onOpenRun={props.onOpenRun} onChanged={load} onCompleted={undoComplete} />
-  );
+  // A timeline like the Journal's (41): a day stamp on the line for the first Reminder of each day.
+  const section = (id: string, label: string, entries: readonly { item: Occurrence; older?: readonly Occurrence[] }[], tone?: 'overdue') => {
+    const days = firstOfDay(entries, (entry) => entry.item.dueDate);
+    return (
+      <section aria-labelledby={id} className="home-section">
+        <h3 id={id} className="area-group" {...(tone === undefined ? {} : { 'data-tone': tone })}>
+          {label}
+        </h3>
+        <ul className="plain-list area-timeline" aria-labelledby={id}>
+          {entries.map(({ item, older }, index) => (
+            <OccurrenceItem
+              key={item.id}
+              workspaceId={workspaceId}
+              item={item}
+              older={older ?? []}
+              can={can}
+              members={members}
+              onOpenRun={props.onOpenRun}
+              onChanged={load}
+              onCompleted={undoComplete}
+              stamp={<DayStamp date={days[index] ?? null} today={item.dueDate === todayIn(item.schedule.timeZone)} tone={tone} />}
+            />
+          ))}
+        </ul>
+      </section>
+    );
+  };
+  const count = view === null ? null : view.overdue.length + view.today.length + view.upcoming.length;
 
   return (
-    <section aria-labelledby="reminders-heading">
-      <div className="page-header page-header-tool">
-        <div>
-          <h2 id="reminders-heading">{t('shell.reminders')}</h2>
-          <p className="muted page-lead">{t('reminders.lead')}</p>
+    <section aria-labelledby="reminders-heading" className="area">
+      <header className="area-head">
+        <div className="area-title">
+          <p className="area-eyebrow">
+            <UiIcon name="reminders" /> {t('reminders.eyebrow')}
+          </p>
+          <h2 id="reminders-heading" className="area-heading">
+            {t('shell.reminders')} {count !== null && count > 0 && <span className="area-heading-muted">{count}</span>}
+          </h2>
         </div>
         {props.canSchedule && (
-          <button type="button" className="primary" onClick={() => navigate(paths.newReminder(workspaceId))}>
-            <UiIcon name="add" /> {t('home.newReminder')}
-          </button>
+          <div className="area-actions">
+            <button type="button" className="primary" onClick={() => navigate(paths.newReminder(workspaceId))}>
+              <UiIcon name="add" /> {t('home.newReminder')}
+            </button>
+          </div>
         )}
-      </div>
+      </header>
+      <p className="area-lead">{t('reminders.lead')}</p>
       {message !== null && <p role="alert">{message}</p>}
       {home === null && message === null && <p>{t('common.loading')}</p>}
       {empty && <p className="card calm">{t(props.canSchedule ? 'reminders.emptyHint' : 'reminders.empty')}</p>}
-      {view !== null && view.overdue.length > 0 && section('reminders-overdue', t('home.overdueSection'), groupOverdue(view.overdue).map(({ item, older }) => row(item, older)))}
-      {view !== null && view.today.length > 0 && section('reminders-today', t('home.todaySection'), view.today.map((item) => row(item)))}
-      {view !== null && view.upcoming.length > 0 && section('reminders-upcoming', t('home.upcoming'), view.upcoming.map((item) => row(item)))}
+      {view !== null && view.overdue.length > 0 && section('reminders-overdue', t('home.overdueSection'), groupOverdue(view.overdue), 'overdue')}
+      {view !== null && view.today.length > 0 && section('reminders-today', t('home.todaySection'), view.today.map((item) => ({ item })))}
+      {view !== null && view.upcoming.length > 0 && section('reminders-upcoming', t('home.upcoming'), view.upcoming.map((item) => ({ item })))}
       {home !== null && home.later > 0 && (
         <p className="muted">
           {t('home.later', { count: home.later })} <Link href={paths.calendar(workspaceId)}>{t('reminders.toCalendar')}</Link>

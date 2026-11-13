@@ -1,5 +1,5 @@
 import { addInterval, type LocalDate } from '@vergissmeinnicht/domain';
-import { useState } from 'react';
+import { useState, type ReactNode } from 'react';
 import { api, messageFor, type Occurrence, type PersonRef, type RunSummary, type ScheduleInput } from './api.ts';
 import { FormDialog } from './FormDialog.tsx';
 import { LinkedDocuments } from './DocumentLinks.tsx';
@@ -55,6 +55,8 @@ export function OccurrenceItem(props: {
   onChanged: () => void;
   /** A Reminder was just completed here (so the page can offer Undo). */
   onCompleted?: (item: Occurrence) => void;
+  /** On a timeline (41): the day stamp drawn on the line beside the card. */
+  stamp?: ReactNode;
 }) {
   const { item } = props;
   const { schedule } = item;
@@ -154,6 +156,7 @@ export function OccurrenceItem(props: {
 
   return (
     <li className="card item-card" data-timeliness={overdue ? 'OVERDUE' : item.dueDate === today ? 'TODAY' : 'UPCOMING'}>
+      {props.stamp}
       <div className="item-main">
         <span className="item-icon">
           <AppIcon name={schedule.procedure?.icon ?? 'reminder'} decorative />

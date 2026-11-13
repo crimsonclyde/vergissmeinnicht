@@ -903,6 +903,7 @@ export const en = {
 
   // ---- Runs
   'runs.heading': 'Completed history',
+  'runs.eyebrow': 'History · Procedures',
   'runs.none': 'Nothing finished yet. Completed and aborted executions of Procedures appear here — with who did what, when.',
   'runs.finished': 'Finished',
   'runs.showOlder': 'Show older',
@@ -3141,6 +3142,10 @@ export const en = {
 
   // ---- Reminders tool (15.3)
   'reminders.lead': 'One thing to remember, on a date. No steps.',
+  'more.eyebrow': 'Everything else',
+  'more.groupTools': 'Tools',
+  'more.groupHistory': 'Looking back',
+  'reminders.eyebrow': 'Reminders · Next 90 days',
   'reminders.empty': 'No reminders yet.',
   'reminders.emptyHint': 'No reminders yet. Create one for something that must not be forgotten — a payment, a renewal, an appointment.',
   'reminders.recentlyDone': { one: 'Recently done ({count})', other: 'Recently done ({count})' },

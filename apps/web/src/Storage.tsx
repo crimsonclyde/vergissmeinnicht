@@ -2,7 +2,20 @@ import { useCallback, useEffect, useId, useState, type FormEvent } from 'react';
 import { api, messageFor, type DocumentFileFormat, type StorageInfo, type WorkspaceStorage } from './api.ts';
 import { formatBytes } from './document-model.ts';
 import { t } from './i18n/index.ts';
+import { UiIcon, type UiIconName } from './ui-icons.tsx';
+import './area.css';
 import { STORAGE_GB_RANGE, bytesToGigabytes, gigabytesToBytes, storageLines, storageSummary } from './storage-model.ts';
+
+/** One icon per kind of stored data (41), in the same tile as the settings rows. */
+const STORAGE_ICONS: Readonly<Record<string, UiIconName>> = {
+  attachments: 'upload',
+  images: 'photo',
+  documents: 'documents',
+  previews: 'preview',
+  text: 'markdown',
+  retained: 'archive',
+  trash: 'trash',
+};
 
 /** How full, in words and as a meter, then what uses it — by tool. Trash is always named: it counts. */
 function StorageUsage(props: { storage: StorageInfo; label: string }) {
@@ -14,10 +27,15 @@ function StorageUsage(props: { storage: StorageInfo; label: string }) {
         {summary.full && ` ${t('storage.full')}`}
       </p>
       <progress className="storage-meter" max={100} value={summary.percent} aria-label={props.label} />
-      <dl className="storage-lines">
+      <dl className="storage-lines area-rows">
         {storageLines(props.storage).map((line) => (
           <div key={line.key}>
-            <dt>{line.label}</dt>
+            <dt>
+              <span className="area-row-icon" aria-hidden="true">
+                <UiIcon name={STORAGE_ICONS[line.key] ?? 'storage'} />
+              </span>
+              {line.label}
+            </dt>
             <dd>{line.value}</dd>
           </div>
         ))}

@@ -3,6 +3,11 @@ import { useState } from 'react';
 import { messageFor } from './api.ts';
 import { t, type MessageKey } from './i18n/index.ts';
 import { usePreferences } from './preferences.tsx';
+import { UiIcon, type UiIconName } from './ui-icons.tsx';
+import './area.css';
+
+/** The same icons as the menu (41), in the tile the settings rows use. */
+const ICONS: Record<NavigationTool, UiIconName> = { PROCEDURES: 'procedures', LISTS: 'lists', REMINDERS: 'reminders', CALENDAR: 'calendar', JOURNAL: 'notebook', DOCUMENTS: 'documents', CONTACTS: 'contacts', MAINTENANCE: 'maintenance', EQUIPMENT: 'equipment', BRING: 'forward', RECIPES: 'grocery' };
 
 const LABELS: Record<NavigationTool, MessageKey> = { PROCEDURES: 'shell.procedures', LISTS: 'shell.lists', REMINDERS: 'shell.reminders', CALENDAR: 'shell.calendar', JOURNAL: 'journal.heading', DOCUMENTS: 'shell.documents', CONTACTS: 'shell.contacts', MAINTENANCE: 'shell.maintenance', EQUIPMENT: 'shell.equipment', BRING: 'bring.heading', RECIPES:'recipes.heading' };
 
@@ -34,7 +39,7 @@ export function NavigationSettings({ tools }: { tools: readonly string[] | null 
     <p className="muted">{t('navigation.hint')}</p>
     <p><strong>{t('shell.today')}</strong> · {t('navigation.fixedFirst')}</p>
     <ol className="plain-list today-settings-cards" aria-label={t('navigation.heading')}>
-      {visible.map((tool, index) => <li key={tool} className="today-settings-card today-settings-row"><strong>{t(LABELS[tool])}</strong><span className="today-settings-move">
+      {visible.map((tool, index) => <li key={tool} className="today-settings-card today-settings-row"><strong className="navigation-tool"><span className="area-row-icon" aria-hidden="true"><UiIcon name={ICONS[tool]} /></span>{t(LABELS[tool])}</strong><span className="today-settings-move">
         <button type="button" className="quiet" disabled={busy || index === 0} aria-label={t('todaySettings.moveUp', { title: t(LABELS[tool]) })} onClick={() => move(tool, -1)}>↑</button>
         <button type="button" className="quiet" disabled={busy || index === visible.length - 1} aria-label={t('todaySettings.moveDown', { title: t(LABELS[tool]) })} onClick={() => move(tool, 1)}>↓</button>
       </span></li>)}
