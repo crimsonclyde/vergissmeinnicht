@@ -34,6 +34,24 @@ retries must preserve the entire payload. A stale edit requires a fresh read and
 Grocery List creation and item additions return whether the change applied and whether it was a
 duplicate retry. Read the resulting List separately with a Lists read grant.
 
+### To-do Lists
+
+To-do Lists have their own permission, **To-do Lists** on the consent screen (scopes `todos.read`
+and `todos.write`). Grocery access never reaches To-do Lists and To-do access never reaches grocery
+Lists. Existing connections keep exactly what they were granted; reconnect ChatGPT (or add the
+permission when it asks again) to allow To-do Lists.
+
+| Tool | Scope | What it does |
+| --- | --- | --- |
+| `list_todo_lists`, `get_todo_list` | `todos.read` | To-do Lists with open/done counts; tasks with ids and the List revision |
+| `list_deleted_todo_items` | `todos.read` | Recently deleted tasks, newest first |
+| `create_todo_list`, `add_todo_item` | `todos.write` | New List / one new task (retry-safe ids) |
+| `update_todo_items` | `todos.write` | Rename tasks, mark done or open again, several at once |
+| `move_todo_items`, `delete_todo_items`, `restore_todo_items` | `todos.write` | As for groceries, between/on To-do Lists |
+
+Tasks have only a title and a done state. Moves, deletions and restores use the same atomic,
+revision-checked and retry-safe rules and error codes as the grocery tools.
+
 ### Errors
 
 Every failed tool call has `isError: true`, a short text and `structuredContent.error` with a

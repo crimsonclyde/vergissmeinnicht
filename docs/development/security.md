@@ -2099,3 +2099,18 @@ connection or dependency. Migration 0075 only widens the allowed kinds of `list_
   connection is `permission_denied` without saying whether it exists.
 - [x] Unknown failures are logged with the tool name and error class only.
 
+### To-do Lists through MCP (36.21, 2026-11-13)
+
+**Security surface changed: yes, one new opt-in permission.** New scopes `todos.read` and
+`todos.write`, offered on the consent screen as "To-do Lists". Existing grants are unchanged and do
+not gain To-do access; the user has to grant it.
+
+- [x] Each delegated scope reaches exactly one List kind, enforced in the repository for every
+  read and write (`delegatedKind` in `list-repository.ts`): Lists scopes → grocery Lists, To-do
+  scopes → To-do Lists, cover scope → covers of both. A List of the other kind is "not found"
+  (reads, edits, moves, deletes, restores, offline-style replays and List creation; tested in both
+  directions).
+- [x] All To-do writes reuse the grocery write paths: membership, `list.edit`, Lists tool switch
+  and live grant re-checked in the transaction; idempotent operation ids; structured errors.
+- [x] Tasks carry no quantity or unit; a To-do edit with them is refused.
+

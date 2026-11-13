@@ -7888,6 +7888,37 @@ Release note draft (owner release 68):
   record, a tool switched off, a missing permission), VMN now tells ChatGPT exactly why, so it
   re-reads, asks you or explains instead of guessing.
 
+### 36.21 To-do Lists for ChatGPT (owner request 2026-11-12)
+
+MCP item 4 of the follow-up list. ChatGPT could only reach grocery Lists; delegated grants were
+deliberately limited to grocery content (15.3a).
+
+Implemented:
+
+- New opt-in scopes `todos.read` / `todos.write` (consent row "To-do Lists"). Each delegated scope
+  now maps to exactly one List kind in the repository, so grocery tools can never reach To-do
+  Lists and the other way round; existing grants keep exactly what they had.
+- Tools: `list_todo_lists`, `get_todo_list`, `list_deleted_todo_items` (read); `create_todo_list`,
+  `add_todo_item`, `update_todo_items` (rename, done/open), `move_todo_items`,
+  `delete_todo_items`, `restore_todo_items` (write). They reuse the 36.18/36.19 use cases, so the
+  same atomic, revision-checked, idempotent behaviour and error codes apply. `delete_todo_items`
+  is annotated destructive. Server instructions describe when to ask and when not to.
+- Consent wording for grocery Lists now says what Lists write allows today ("create Lists and add,
+  tick, move or delete items").
+
+Checks: `mcp-todo.test.ts` (2 tests: tool visibility per grant, grocery and To-do grants kept apart
+in both directions, read-only grant; create, add, rename, tick, move, delete and restore end to end
+with web read-back). Full suite 1775 passed.
+
+Security surface changed: yes, one new opt-in permission; see security.md 36.21.
+
+Remaining: clyde reconnects ChatGPT (or re-approves) and ticks "To-do Lists" to use it.
+
+Release note draft (owner release 68):
+
+- **ChatGPT can manage your To-do Lists.** Allow "To-do Lists" when connecting ChatGPT, then ask it
+  to add tasks, mark them done, move or delete them. Grocery and To-do access stay separate.
+
 ### Release plan for 0.13.10, owner milestone 64 (2026-11-10)
 
 The preceding 0.13.9 candidate was stopped before publication after inspecting the
