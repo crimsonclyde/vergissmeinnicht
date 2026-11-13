@@ -449,13 +449,19 @@ clients.
 
 VMN downloads the file from ChatGPT's temporary storage link. It accepts
 `files.oaiusercontent.com`, regional hosts such as `sdmntprdenmarkeast.oaiusercontent.com`
-or `sdmntswcentralus.oaiusercontent.com`, and the Azure storage account
-`oaisdmntprnortheu.blob.core.windows.net`. If ChatGPT uses another storage host, the tool
-error names it (for example `Refused host: oaisdmntprwesteurope.blob.core.windows.net`) and
-the server log records it. After checking that it is an OpenAI storage host, add it to the
-container variable `MCP_CHATGPT_FILE_HOSTS` (comma-separated exact names, up to 10, only
-below `oaiusercontent.com` or `blob.core.windows.net`) and restart the container. No new
-release is needed.
+or `sdmntswcentralus.oaiusercontent.com`, and the Azure storage accounts
+`oaisdmntprnortheu.blob.core.windows.net` and `oaisdmntprdenmarkeast.blob.core.windows.net`
+(images ChatGPT crops out of a PDF).
+
+If ChatGPT uses another storage host, the tool error names it and VMN lists it under
+**Server admin → AI connections → File sources**. If you just asked ChatGPT for that file, tap
+the check icon to allow it and ask ChatGPT to try again. No restart or new release is needed. The
+bin icon removes a host again. Only hosts VMN refused itself appear there, and only exact names
+below `oaiusercontent.com` or `blob.core.windows.net`.
+
+You can also preset hosts with the container variable `MCP_CHATGPT_FILE_HOSTS`
+(comma-separated exact names, up to 10, same rules) and restart the container. In 0.14.1 and
+earlier this variable was ignored by the upload tools.
 
 Error codes:
 

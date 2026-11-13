@@ -40,6 +40,8 @@ export async function startTestApp(
     /** Answers weather provider requests (19.4); by default every one fails as if the network were blocked. */
     weatherFetch?: typeof fetch;
     chatGptFileSource?: ChatGptFileSource;
+    /** MCP_CHATGPT_FILE_HOSTS for this app (36.25). */
+    chatGptFileHosts?: string;
     /** Capture the server log (info level, production serializers) into `logs`. */
     captureLogs?: boolean;
   } = {},
@@ -64,6 +66,7 @@ export async function startTestApp(
     SMTP_HOST: '127.0.0.1',
     MAIL_FROM_ADDRESS: 'noreply@example.org',
     LOG_LEVEL: 'info',
+    ...(options.chatGptFileHosts === undefined ? {} : { MCP_CHATGPT_FILE_HOSTS: options.chatGptFileHosts }),
   });
   const mediaDir = mkdtempSync(join(tmpdir(), 'vmn-test-media-'));
   const testConfig = { ...config, mediaPath: mediaDir, documentsPath: join(mediaDir, 'documents') };

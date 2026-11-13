@@ -3,6 +3,7 @@ import type {McpScope} from '@vergissmeinnicht/domain';
 import {api,messageFor,type WorkspaceSummary,type McpAdminConnection,type McpConsent} from './api.ts';
 import {t,formatDateTime,type MessageKey} from './i18n/index.ts';
 import {McpDiagnostics} from './McpDiagnostics.tsx';
+import {McpFileHosts} from './McpFileHosts.tsx';
 import {UiIcon,type UiIconName} from './ui-icons.tsx';
 import './mcp-connections.css';
 
@@ -277,6 +278,7 @@ export function McpConnections({workspaces,currentUserId}:{workspaces:readonly W
             aria-label={t('mcp.showAllEnded',{count:ended.length})} title={t('mcp.showAllEnded',{count:ended.length})}><UiIcon name="expand" /></button>
         </div>}
       </>}
+      <McpFileHosts />
     </>}
     {!consent && enabled !== null && <McpDiagnostics enabled={enabled} />}
   </section>;

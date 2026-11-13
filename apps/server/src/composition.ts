@@ -1,5 +1,5 @@
 import { createChatGptFileSource, type ChatGptFileSource } from './integrations/chatgpt-files.ts';
-import {createMcpRepository} from '@vergissmeinnicht/database';
+import {createMcpFileHostRepository,createMcpRepository} from '@vergissmeinnicht/database';
 import {createRecipeRepository,recipeAttachmentPolicy,listAttachmentPolicy} from '@vergissmeinnicht/database';
 import type {RecipeDeps} from '@vergissmeinnicht/application';
 import {createAttachmentStore} from '@vergissmeinnicht/media';
@@ -141,6 +141,9 @@ export interface AppServices {
   readonly publicOrigin: string;
   readonly mcpEnabled:boolean;
   readonly chatGptFileSource: ChatGptFileSource;
+  /** Exact extra ChatGPT file hosts: MCP_CHATGPT_FILE_HOSTS plus hosts a server admin allowed (36.25). */
+  readonly chatGptFileHosts: () => readonly string[];
+  readonly mcpFileHosts: ReturnType<typeof createMcpFileHostRepository>;
   readonly mcp:ReturnType<typeof createMcpRepository>;
   /** Offered to every user via `GET /api/about` (AGPL-3.0 §13). */
   readonly sourceCodeUrl: string;
@@ -242,7 +245,10 @@ export function invitationDeps(config: AppConfig, database: AppDatabase): Invita
 export function createServices(config: AppConfig, database: AppDatabase, overrides: { readonly weatherFetch?: typeof fetch; readonly chatGptFileSource?: ChatGptFileSource } = {}) {
   // Weather (19.4): one forecast cache per server process, shared by every request.
   const serverWeather = createServerWeatherSettingsRepository(database);
-  const chatGptFileSource = overrides.chatGptFileSource ?? createChatGptFileSource(undefined, undefined, config.chatGptFileHosts);
+  const mcpFileHosts = createMcpFileHostRepository(database);
+  // Read per transfer, so a host allowed in Server admin works on the next try without a restart.
+  const chatGptFileHosts = () => [...config.chatGptFileHosts, ...mcpFileHosts.allowedHosts()];
+  const chatGptFileSource = overrides.chatGptFileSource ?? createChatGptFileSource(undefined, undefined, chatGptFileHosts);
   const weatherFetch = overrides.weatherFetch ?? fetch;
   const openMeteo = createOpenMeteo({ fetch: weatherFetch });
   const weatherService = createWeatherService({
@@ -394,6 +400,8 @@ export function createServices(config: AppConfig, database: AppDatabase, overrid
     return {
       publicOrigin: config.publicOrigin,
       chatGptFileSource,
+      chatGptFileHosts,
+      mcpFileHosts,
       mcpEnabled:config.mcpEnabled,
       mcp:createMcpRepository(database,config.publicOrigin+'/mcp'),
       sourceCodeUrl: config.sourceCodeUrl,

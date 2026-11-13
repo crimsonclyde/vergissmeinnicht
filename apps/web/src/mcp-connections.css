@@ -79,6 +79,13 @@
 .mcp-check button, .mcp-check summary { min-height: 44px; }
 .mcp-check textarea { width: 100%; min-width: 0; }
 
+/* File sources (36.25): long storage host names wrap instead of pushing the buttons off a phone. */
+.mcp-file-hosts { margin-top: 1.5rem; }
+.mcp-file-host .item-body { min-width: 0; }
+.mcp-host-name { font-family: var(--font-mono, ui-monospace, monospace); font-size: 0.9rem; overflow-wrap: anywhere; }
+.mcp-file-host[data-status='ALLOWED'] .area-row-icon { color: var(--state-done); }
+.mcp-file-host .icon-button { min-width: 44px; min-height: 44px; }
+
 @media (max-width: 30rem) {
   .plain-list.mcp-areas, .mcp-expiry { padding-inline-start: 0; }
   .mcp-confirm { margin-inline-start: 0; }

@@ -15,7 +15,7 @@ import { attachmentUploadWidgets } from './recipe-upload-widget.ts';
 
 const chatGptFileErrors: Record<ChatGptFileError['code'], string> = {
  file_source_invalid: 'ChatGPT did not provide a usable HTTPS download URL. A local path or sandbox link cannot be downloaded by VMN.',
- file_origin_unsupported: 'ChatGPT provided an HTTPS URL outside the supported file endpoints. VMN did not contact it. The VMN administrator can review the host named here and add it to MCP_CHATGPT_FILE_HOSTS.',
+ file_origin_unsupported: 'ChatGPT provided an HTTPS URL outside the supported file endpoints. VMN did not contact it. Tell the user that a VMN server admin can review and allow the host named here in Server admin → AI connections, then retry with the same operation ID.',
  file_download_failed: 'VMN could not complete the download from the supported ChatGPT file host. Keep the operation ID unchanged if retrying.',
  file_unavailable: 'The ChatGPT file link is expired or inaccessible. Request a fresh link for the same file and keep the operation ID unchanged.',
 };
@@ -209,6 +209,8 @@ export async function registerMcpHttp(app:FastifyInstance,services:AppServices){
     if(error instanceof ChatGptFileError){
      // Host name only: the signed path and query never reach the log or the result.
      request.log.warn({tool:tool.name,code:error.code,host:error.host},'ChatGPT file transfer failed');
+     // Kept for one-tap review in Server admin (36.25); only names with the extra-host shape are stored.
+     if(error.code==='file_origin_unsupported'&&error.host){try{services.mcpFileHosts.noteRefused(error.host);}catch{request.log.warn({tool:tool.name},'Refused ChatGPT file host not recorded');}}
     }
     if(error instanceof AttachmentError)request.log.warn({tool:tool.name,code:error.code},'MCP image upload failed');
     const failure=toolFailure(error,tool,executed);

@@ -8112,6 +8112,43 @@ Release note draft (owner release 68):
 - **AI connections live in Server admin.** One clear page shows every assistant connected to VMN,
   who it acts for and what it may do, and ends any of them with one tap.
 
+### 36.25 ChatGPT file hosts: one-tap allow in Server admin (owner request 2026-11-13)
+
+clyde asked ChatGPT to crop the photo out of an uploaded PDF and save recipes. The upload was refused
+with `file_origin_unsupported` for `oaisdmntprdenmarkeast.blob.core.windows.net`. Investigation:
+
+- The host is the Azure account behind OpenAI's regional `sdmntprdenmarkeast.oaiusercontent.com`
+  label and named like the already observed `oaisdmntprnortheu`; it reached VMN from ChatGPT's own
+  file binding. DNS could not be checked from the build sandbox.
+- **Bug since 0.13.11:** `uploadDelegatedImageFile` checked the URL without the extra hosts, so a
+  host added with `MCP_CHATGPT_FILE_HOSTS` was still refused before the download. The variable never
+  worked for the upload tools.
+- clyde: adding one host per release is pointless. Owner decision: an Allow button in Server admin.
+
+Implemented:
+
+- `oaisdmntprdenmarkeast.blob.core.windows.net` is built in (exact name, like northeu).
+- The upload tools (`upload_recipe_image_file`, `upload_list_cover_file`) now honour the extra hosts.
+- A refused host with the extra-host shape (one label below `oaiusercontent.com` or
+  `blob.core.windows.net`) is kept in `mcp_file_hosts` (name, count, first/last seen; never a URL),
+  at most 20, oldest dropped first. Server admin → AI connections → **File sources** lists them;
+  a check icon allows one, a bin removes it. Allowed hosts (at most 20) join the exact allowlist on
+  the next transfer, with no restart. Only a host VMN itself refused can be allowed.
+- `GET /api/admin/mcp/file-hosts`, `POST /api/admin/mcp/file-hosts/allow|remove` `{host}`;
+  audited as `MCP_FILE_HOST_CHANGED`. The tool error tells ChatGPT that a server admin can allow the
+  host in Server admin. Migration **0076** (`mcp_file_hosts`).
+
+Checks: `mcp-file-hosts.test.ts` (4 tests: Denmark East upload, env host honoured by the tool,
+refuse → list → allow → upload → remove with audit and access checks, bounded review list) and new
+`chatgpt-files.test.ts` cases (lookalikes refused, function hosts read per check).
+
+Security surface changed; see security.md 36.25.
+
+Release note draft:
+
+- **Recipe photos cropped out of a PDF upload again.** When ChatGPT uses a new file storage host,
+  Server admin → AI connections shows it and one tap allows it, no update needed.
+
 ### Release plan for 0.13.10, owner milestone 64 (2026-11-10)
 
 The preceding 0.13.9 candidate was stopped before publication after inspecting the

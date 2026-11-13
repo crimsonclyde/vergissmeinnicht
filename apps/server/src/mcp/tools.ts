@@ -194,7 +194,7 @@ export const assistantTools:AssistantTool[]=[
  })),
  fileUpload(define('upload_list_cover_file','Upload a JPEG, PNG or WebP image available as a file in ChatGPT (generated, attached or extracted). Resolve the List and Workspace first. Use the returned attachment ID with set_list_cover at the reviewed revision. Reuse the operation ID for the same file on retries.','lists.covers.write','LISTS',true,{...workspace,listId:uuid,operationId:uuid,file:chatGptFile},async({services,actor,workspaceId},input)=>{
   const authorize=()=>authorizeListAppearance(services.lists,{actor,workspaceId,listId:input.listId as ListId});
-  return uploadDelegatedImageFile(services.listAttachments,actor,workspaceId,authorize,services.chatGptFileSource,{...input,targetId:input.listId});
+  return uploadDelegatedImageFile(services.listAttachments,actor,workspaceId,authorize,services.chatGptFileSource,{...input,targetId:input.listId},services.chatGptFileHosts);
  })),
  define('set_list_cover','Set or replace a List cover with the uploaded attachment ID, or pass null to remove it when explicitly requested. Resolve the target and use its reviewed revision.','lists.covers.write','LISTS',true,{...workspace,listId:uuid,expectedRevision:revision,coverId:uuid.nullable()},async({services,actor,workspaceId},input)=>{
   const {list}=await changeListAppearance(services.lists,{actor,workspaceId,listId:input.listId as ListId,expectedRevision:input.expectedRevision,appearance:{coverId:input.coverId}});

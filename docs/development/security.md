@@ -2165,3 +2165,22 @@ server admins see and can end every connection on the server.
 - Tests: `mcp-admin.test.ts` (non-admin allow refused, decline allowed, admin list without tokens,
   non-admin/signed-out/disabled refused, revoke of another person's connection with audit).
 
+### ChatGPT file hosts allowed in Server admin (36.25, 2026-11-13)
+
+**Security surface changed: a server admin can widen the exact file-host allowlist at runtime.**
+
+- [x] Only exact host names are ever allowed; no patterns. The Azure account
+  `oaisdmntprdenmarkeast.blob.core.windows.net` is built in because it was observed in a live
+  ChatGPT transfer (same rule as `oaisdmntprnortheu`); `*.blob.core.windows.net` stays refused.
+- [x] A refused host is stored only when it has the extra-host shape (one label below
+  `oaiusercontent.com` or `blob.core.windows.net`): name, count and times, never a path, query,
+  signature or address literal. The list is bounded (20 refused, 20 allowed), so a chat that sends
+  many names only replaces the oldest unreviewed ones.
+- [x] Allowing needs an ACTIVE server admin, checked in the same transaction (403 otherwise), and
+  only a host VMN itself refused can be allowed (409 `file_host_unknown`), so the page never takes a
+  typed-in name. Allow and remove are audited as `MCP_FILE_HOST_CHANGED` with the host name.
+- [x] Allowed hosts get every existing check: HTTPS on 443, signed blob path with one `sig`, no
+  snapshot/version, public DNS answers only, pinned TLS name, size limit, MIME check and original
+  image preservation. Removing a host refuses the next transfer at once.
+- [x] Fixed: the upload tools ignored `MCP_CHATGPT_FILE_HOSTS` (refused before download since 0.13.11).
+- Tests: `mcp-file-hosts.test.ts`, `chatgpt-files.test.ts`.

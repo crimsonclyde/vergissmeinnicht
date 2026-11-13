@@ -1,10 +1,10 @@
 import { createHash, randomBytes, randomUUID } from 'node:crypto';
-import { and, desc, eq, gt, inArray, isNull, sql } from 'drizzle-orm';
-import { MCP_SCOPES, type McpAuthorizationRequest, type McpGrant, type McpScope, type User } from '@vergissmeinnicht/domain';
+import { and, asc, desc, eq, gt, inArray, isNull, sql } from 'drizzle-orm';
+import { CHATGPT_EXTRA_FILE_HOST, MCP_FILE_HOST_LIMITS, MCP_SCOPES, type McpAuthorizationRequest, type McpGrant, type McpScope, type User } from '@vergissmeinnicht/domain';
 import { NotAuthorizedError } from '@vergissmeinnicht/application';
 import type { AppDatabase } from './connection.ts';
 import { IMMEDIATE, type Transaction } from './actor-guard.ts';
-import { mcpClients, mcpAuthorizationRequests, mcpGrants, mcpTokens, memberships, users, workspaces } from './schema.ts';
+import { mcpClients, mcpAuthorizationRequests, mcpFileHosts, mcpGrants, mcpTokens, memberships, users, workspaces } from './schema.ts';
 import { recordSecurityEvent } from './security-events.ts';
 export class McpCredentialError extends Error { readonly code:'invalid_grant'|'invalid_client'|'invalid_scope'|'temporarily_unavailable'; constructor(code:McpCredentialError['code']){super(code);this.code=code;} }
 export const hashMcpToken = (value:string) => createHash('sha256').update(value).digest('hex');
@@ -119,3 +119,58 @@ export function createMcpRepository({db}:AppDatabase,resource:string){
  };
 }
 export type McpRepository=ReturnType<typeof createMcpRepository>;
+
+export class McpFileHostError extends Error { readonly code:'file_host_unknown'|'file_host_limit'; constructor(code:McpFileHostError['code']){super(code);this.code=code;} }
+export interface McpFileHostView {host:string;status:'REFUSED'|'ALLOWED';refusedCount:number;firstSeenAt:Date;lastSeenAt:Date;decidedAt:Date|null;decidedBy:string|null}
+
+/**
+ * ChatGPT file hosts (36.25). VMN notes a refused host (only one with the extra-host shape, name only),
+ * a server admin allows it with one tap, and the next transfer uses it — no release, no restart.
+ * Only a host VMN itself refused can be allowed, so the list never takes a typed-in name.
+ */
+export function createMcpFileHostRepository({db}:Pick<AppDatabase,'db'>){
+ const event=(tx:Transaction,actor:User,host:string,action:'allow'|'remove')=>recordSecurityEvent(tx,{type:'MCP_FILE_HOST_CHANGED',actor:{kind:'user',userId:actor.id,displayName:actor.displayName},subjectType:'instance',subjectId:'mcp-file-hosts',occurredAt:new Date(),metadata:{action,host}});
+ return {
+  /** Read on every ChatGPT file transfer; small (at most 20 rows) and synchronous. */
+  allowedHosts():string[]{return db.select({host:mcpFileHosts.host}).from(mcpFileHosts).where(eq(mcpFileHosts.status,'ALLOWED')).all().map(row=>row.host);},
+  /** Keep a refused host for review. Anything without the extra-host shape is not stored at all. */
+  noteRefused(host:string){
+   if(!CHATGPT_EXTRA_FILE_HOST.test(host))return;
+   db.transaction(tx=>{
+    const now=new Date();const row=tx.select().from(mcpFileHosts).where(eq(mcpFileHosts.host,host)).get();
+    if(row){if(row.status==='REFUSED')tx.update(mcpFileHosts).set({lastSeenAt:now,refusedCount:sql`min(${mcpFileHosts.refusedCount} + 1, 1000000)`}).where(eq(mcpFileHosts.host,host)).run();return;}
+    const refused=tx.select({host:mcpFileHosts.host}).from(mcpFileHosts).where(eq(mcpFileHosts.status,'REFUSED')).orderBy(asc(mcpFileHosts.lastSeenAt),asc(sql`rowid`)).all();
+    // Bounded: a chat that keeps sending new names only ever replaces the oldest unreviewed ones.
+    for(const old of refused.slice(0,Math.max(0,refused.length-MCP_FILE_HOST_LIMITS.refused+1)))tx.delete(mcpFileHosts).where(and(eq(mcpFileHosts.host,old.host),eq(mcpFileHosts.status,'REFUSED'))).run();
+    tx.insert(mcpFileHosts).values({host,status:'REFUSED',refusedCount:1,firstSeenAt:now,lastSeenAt:now}).run();
+   },IMMEDIATE);
+  },
+  async list(actor:User):Promise<McpFileHostView[]>{
+   if(!serverAdmin(db,actor.id))throw new NotAuthorizedError();
+   return db.select().from(mcpFileHosts).leftJoin(users,eq(users.id,mcpFileHosts.decidedByUserId)).orderBy(desc(mcpFileHosts.lastSeenAt)).all().map(({mcp_file_hosts:row,users:by})=>({
+    host:row.host,status:row.status,refusedCount:row.refusedCount,firstSeenAt:row.firstSeenAt,lastSeenAt:row.lastSeenAt,decidedAt:row.decidedAt,decidedBy:by?.name??null,
+   }));
+  },
+  async allow(actor:User,host:string){
+   db.transaction(tx=>{
+    if(!serverAdmin(tx,actor.id))throw new NotAuthorizedError();
+    const row=tx.select().from(mcpFileHosts).where(eq(mcpFileHosts.host,host)).get();
+    if(!row||!CHATGPT_EXTRA_FILE_HOST.test(host))throw new McpFileHostError('file_host_unknown');
+    if(row.status==='ALLOWED')return;
+    if((tx.select({n:sql<number>`count(*)`}).from(mcpFileHosts).where(eq(mcpFileHosts.status,'ALLOWED')).get()?.n??0)>=MCP_FILE_HOST_LIMITS.allowed)throw new McpFileHostError('file_host_limit');
+    tx.update(mcpFileHosts).set({status:'ALLOWED',decidedAt:new Date(),decidedByUserId:actor.id}).where(eq(mcpFileHosts.host,host)).run();
+    event(tx,actor,host,'allow');
+   },IMMEDIATE);
+  },
+  /** Forget a host: an allowed one stops working at once; a refused one leaves the review list. */
+  async remove(actor:User,host:string){
+   db.transaction(tx=>{
+    if(!serverAdmin(tx,actor.id))throw new NotAuthorizedError();
+    const row=tx.select().from(mcpFileHosts).where(eq(mcpFileHosts.host,host)).get();if(!row)return;
+    tx.delete(mcpFileHosts).where(eq(mcpFileHosts.host,host)).run();
+    if(row.status==='ALLOWED')event(tx,actor,host,'remove');
+   },IMMEDIATE);
+  },
+ };
+}
+export type McpFileHostRepository=ReturnType<typeof createMcpFileHostRepository>;
