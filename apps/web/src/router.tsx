@@ -75,9 +75,9 @@ export function Link(props: AnchorHTMLAttributes<HTMLAnchorElement> & { href: st
 
 /** Sections of Profile & settings and of Server admin (15.1): one page each, so nothing unrelated has to be scrolled past. */
 /** In menu order (section 29): you, look & feel, staying informed, the journal. */
-export const ACCOUNT_SECTIONS = ['profile', 'security', 'connections', 'appearance', 'places', 'today', 'confirmations', 'notifications', 'weather', 'journal'] as const;
+export const ACCOUNT_SECTIONS = ['profile', 'security', 'appearance', 'places', 'today', 'confirmations', 'notifications', 'weather', 'journal'] as const;
 export type AccountSection = (typeof ACCOUNT_SECTIONS)[number];
-export const ADMIN_SECTIONS = ['workspaces', 'invitations', 'accounts', 'notifications', 'weather', 'server', 'log'] as const;
+export const ADMIN_SECTIONS = ['workspaces', 'invitations', 'accounts', 'notifications', 'weather', 'connections', 'server', 'log'] as const;
 export type AdminSection = (typeof ADMIN_SECTIONS)[number];
 
 export type Route =
@@ -149,6 +149,8 @@ export function parseRoute(pathname: string): Route {
   if ((match=new RegExp(`^/account/journal/${ID}$`).exec(path)))return {page:'account',section:'journal',entryId:match[1]??''};
   if (path === '/account/journal/new') return {page:'account',section:'journal',creating:true};
   if (path === '/account') return { page: 'account', section: 'profile' };
+  // AI connections moved to Server admin (36.24); old bookmarks and consent links still arrive.
+  if (path === '/account/connections') return { page: 'admin', section: 'connections' };
   if ((match = /^\/account\/([a-z]+)$/.exec(path))) {
     const section = oneOf(ACCOUNT_SECTIONS, match[1]);
     return section === undefined ? { page: 'not-found' } : { page: 'account', section };

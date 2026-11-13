@@ -2147,3 +2147,21 @@ scope that reuse `saveRecipe` (same authorization, transaction and validation).
   request before sharing a private Recipe (unchanged rule from 36.11).
 - [x] Archiving is reversible and keeps the Recipe complete; there is no delete tool.
 
+### AI connections in Server admin (36.24, 2026-11-13)
+
+**Security surface changed: narrower.** Allowing an AI connection is now a server-admin action, and
+server admins see and can end every connection on the server.
+
+- [x] `approve` with `allow: true` requires an ACTIVE server admin, checked in the same transaction
+  as the grant insert (repository, not only the route). Anyone signed in may still decline a pending
+  request. Existing grants of other people keep working until they end or an admin disconnects them.
+- [x] `GET /api/admin/mcp/` and `POST /api/admin/mcp/{grant}/revoke` require an ACTIVE server admin
+  (403 otherwise, even while MCP is off; 401 signed out; 404 for admins while MCP is off). The list carries owner name, client name,
+  Workspace names, scopes, dates and whether a token was issued; never token or code material.
+- [x] An admin disconnect revokes at once (the next MCP call is 401) and is audited as
+  `MCP_CONNECTION_CHANGED` with the admin as actor and the owner as subject.
+- [x] Grants stay immutable (0064 trigger): Workspaces or access cannot be edited in place; a
+  different access means a new consent. No migration.
+- Tests: `mcp-admin.test.ts` (non-admin allow refused, decline allowed, admin list without tokens,
+  non-admin/signed-out/disabled refused, revoke of another person's connection with audit).
+

@@ -13,6 +13,8 @@ describe('MCP grocery move and delete', () => {
   async function connect(cookie: string, workspaceIds: string[], scopes: McpScope[]) {
     const actor = await t.services.users.findById((await t.get('/api/auth/session', cookie)).json().user.id);
     if (!actor) throw new Error('Missing actor');
+    // Only server admins may allow a connection (36.24); the Workspace role still limits what it can do.
+    t.database.sqlite.prepare('UPDATE users SET server_admin = 1 WHERE id = ?').run(actor.id);
     const clientId = randomUUID();
     const redirectUri = 'https://client.example.org/callback';
     await t.services.mcp.registerClient(clientId, { client_name: 'Test assistant' });

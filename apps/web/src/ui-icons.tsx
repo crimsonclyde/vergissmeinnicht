@@ -1,4 +1,6 @@
 import {
+  IconSparkles,
+  IconPlugConnected,
   IconPhone,
   IconMail,
   IconAddressBook,
@@ -272,6 +274,9 @@ const ICONS = {
   importFile: IconFileImport,
   markdown: IconMarkdown,
   checklist: IconListCheck,
+  /** AI connections (36.24). */
+  assistant: IconSparkles,
+  connected: IconPlugConnected,
   // The navigation families (42): menu bar and phone drawer.
   plan: IconCalendarCheck,
   shop: IconBasket,

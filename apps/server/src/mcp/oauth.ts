@@ -27,7 +27,7 @@ export function createMcpOAuth(services:AppServices){
    const requested=params.scopes?.length?params.scopes:[...MCP_SCOPES];
    if(requested.some(scope=>!MCP_SCOPES.includes(scope as McpScope)))throw new InvalidScopeError('Unsupported scopes');
    const id=await translated(()=>repository.begin({clientId:client.client_id,redirectUri:params.redirectUri,state:params.state??null,codeChallenge:params.codeChallenge,scopes:requested as McpScope[],resource:params.resource?.href??repository.resource}));
-   response.redirect(services.publicOrigin+'/account/connections?request='+encodeURIComponent(id));
+   response.redirect(services.publicOrigin+'/admin/connections?request='+encodeURIComponent(id));
   },
   challengeForAuthorizationCode:(client,code)=>translated(()=>repository.challenge(client.client_id,code)),
   exchangeAuthorizationCode:(client,code,_verifier,redirect,resource)=>translated(()=>repository.exchange(client.client_id,code,'code',redirect,resource?.href)),

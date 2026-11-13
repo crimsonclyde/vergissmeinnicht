@@ -8066,6 +8066,42 @@ Release note draft (owner release 68):
   extra note) without touching the rest, and can archive Recipes you no longer want or bring them
   back.
 
+### 36.24 AI connections move to Server admin (owner request 2026-11-13)
+
+clyde: the AI connector screen sat in Profile, opened from inside any Workspace and listed every
+Workspace, so it looked as if Workspace A managed Workspace B. Investigation: connections were
+always per person (no leak between people), but Workspace admins could not see them. Owner decision:
+put it in Server admin for now (one ChatGPT account shared in the household) and improve the
+handling and look; the long-term place stays open.
+
+Implemented:
+
+- Server admin → **AI connections** (`/admin/connections`, group Services). The OAuth consent now
+  lands there; `/account/connections` still opens it for old links. The Profile section is gone.
+- Only server admins may allow a connection (repository check); anyone may decline.
+- The page lists every connection on the server, live first: client, who it acts for, Workspaces,
+  state pill, access chips (area icon + Read / Change / Read & change), expiry; disconnect is an
+  icon button with an inline confirm. Ended connections below (three, then show all).
+- Consent: Workspaces as switches, areas as rows with icon tiles and a select; shorter words.
+- Server admin sections now have icons and groups (People, Services, Server) like the other settings.
+- `GET /api/admin/mcp/`, `POST /api/admin/mcp/{grant}/revoke`. Grants stay immutable, so changing
+  Workspaces or access still means disconnecting and connecting again. No migration.
+
+Checks: `mcp-admin.test.ts` (3 tests) plus all MCP server tests (55 passed); web unit tests
+(316 passed); full suite 1786 passed; typecheck and lint clean; e2e MCP consent flow (desktop and phone) and the first
+server-admin flow pass. Server admin always uses Memento Mori, so screens are at 1440 and 390 px in that theme, in
+`/mnt/project-files/ui-review/2026-11-13-ai-connections/`.
+
+Security surface changed (narrower); see security.md 36.24.
+
+Remaining: decide the long-term home (Profile with per-Workspace toggles plus a Workspace admin
+switch was the recommended option); a non-admin can no longer connect an assistant.
+
+Release note draft (owner release 68):
+
+- **AI connections live in Server admin.** One clear page shows every assistant connected to VMN,
+  who it acts for and what it may do, and ends any of them with one tap.
+
 ### Release plan for 0.13.10, owner milestone 64 (2026-11-10)
 
 The preceding 0.13.9 candidate was stopped before publication after inspecting the

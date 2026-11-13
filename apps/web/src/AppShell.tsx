@@ -1,4 +1,3 @@
-import {McpConnections} from './McpConnections.tsx';
 import {lazy,Suspense} from 'react';
 const RecipesPage=lazy(()=>import('./modules/recipes/RecipesPage.tsx').then(module=>({default:module.RecipesPage})));
 import { TodaySettingsProvider } from './guide/TodaySettingsProvider.tsx';
@@ -386,7 +385,6 @@ function NoWorkspace({ user }: { user: CurrentUser }) {
 const ACCOUNT_SECTION_ICONS: Record<AccountSection, UiIconName> = {
   profile: 'profile',
   security: 'security',
-  connections: 'security',
   appearance: 'appearance',
   places: 'places',
   today: 'layout',
@@ -398,7 +396,6 @@ const ACCOUNT_SECTION_ICONS: Record<AccountSection, UiIconName> = {
 const ACCOUNT_SECTION_GROUPS: Record<AccountSection, MessageKey> = {
   profile: 'settings.group.you',
   security: 'settings.group.you',
-  connections: 'settings.group.you',
   appearance: 'settings.group.look',
   places: 'settings.group.look',
   today: 'settings.group.look',
@@ -414,8 +411,6 @@ function AccountPage({ user, section, creating = false, entryId, tools, workspac
   const { preferences, workspacePreferences } = usePreferences();
   const place = placeOfWorkspace(preferences.theme, workspacePreferences.themes, activeWorkspace?.id ?? null);
   // Weather (19.4) is offered only while the server allows it (W1); unknown until asked.
-  const [mcpOn,setMcpOn]=useState(false);
-  useEffect(()=>{api.mcpStatus().then(status=>setMcpOn(status.enabled),()=>setMcpOn(false));},[]);
   const [weatherOn, setWeatherOn] = useState<boolean | null>(null);
   useEffect(() => {
     api.myWeather().then(
@@ -431,7 +426,7 @@ function AccountPage({ user, section, creating = false, entryId, tools, workspac
       subtitle={t('account.identity', { name: user.displayName, email: user.email })}
       identity={section === 'profile' ? undefined : <ProfileIdentity user={user} avatar={avatar} />}
       navLabel={t('account.heading')}
-      sections={ACCOUNT_SECTIONS.filter((value) => (value!=='connections'||mcpOn) && (value !== 'weather' || weatherOn === true || section === 'weather') && (value !== 'places' || place !== null || section === 'places')).map((value) => ({
+      sections={ACCOUNT_SECTIONS.filter((value) => (value !== 'weather' || weatherOn === true || section === 'weather') && (value !== 'places' || place !== null || section === 'places')).map((value) => ({
         href: paths.account(value),
         label: t(`account.section.${value}`),
         current: value === section,
@@ -461,7 +456,6 @@ function AccountPage({ user, section, creating = false, entryId, tools, workspac
           <AppearanceSettings workspaces={workspaces} />
         </div>
       )}
-      {section === 'connections' && <McpConnections workspaces={workspaces}/>}
       {section === 'security' && (
         <>
           <div className="card">
@@ -570,7 +564,7 @@ export function AppShell(props: { user: CurrentUser; route: Route; onSignOut: ()
     );
   } else if (route.page === 'admin') {
     content = user.serverAdmin ? (
-      <AdminPage section={route.section} currentUserId={user.id} onWorkspacesChanged={refresh} />
+      <AdminPage section={route.section} currentUserId={user.id} workspaces={workspaces} onWorkspacesChanged={refresh} />
     ) : (
       <p role="alert">{t('admin.onlyServerAdmins')}</p>
     );

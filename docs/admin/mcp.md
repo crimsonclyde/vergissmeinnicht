@@ -1,7 +1,8 @@
 # AI assistant connections and Recipe images
 
 MCP is optional and disabled by default. Set `MCP_ENABLED=true` and restart VMN to offer the
-Streamable HTTP endpoint at `${PUBLIC_ORIGIN}/mcp` and **Profile & settings → AI connections**.
+Streamable HTTP endpoint at `${PUBLIC_ORIGIN}/mcp` and **Server admin → AI connections**. Only server
+admins can allow a connection (since 36.24); the connection acts as the admin who allowed it.
 Enabling it does not publish a port, install a tunnel, grant an account access or enable image billing.
 Use an HTTPS `PUBLIC_ORIGIN` for production; it may remain private Tailscale HTTPS. Existing
 trusted-proxy/TLS deployment rules still apply.
@@ -188,7 +189,7 @@ No tunnel identifier or Harpoon URI is emitted by VMN.
 
 The released client registers known same-origin OAuth machine targets. The supported hosted shim can
 carry registration/token/revocation requests through Harpoon while browser authorization stays at
-VMN's private `/authorize` and `/account/connections`. It does not tunnel the whole authorization
+VMN's private `/authorize` and `/admin/connections`. It does not tunnel the whole authorization
 server. An unregistered HTTPS machine endpoint remains direct and may fail from a cloud OAuth caller.
 See the released [OAuth flow](https://github.com/openai/tunnel-client/blob/01d67bb4da0d8359b808b4761f8db171ab682cd7/docs/architecture.md#oauth-protected-mcp).
 
@@ -302,8 +303,8 @@ the existing Tailscale-only installation must remain untouched.
 
 ## Using VMN from ChatGPT
 
-**Profile & settings → AI connections** lists each connection's grant, expiry and token-exchange
-status. **Run local checks** produces a copyable report with the browser's endpoint statuses and
+**Server admin → AI connections** lists every connection on the server with who it acts for, its
+Workspaces, access, expiry and whether a token was issued, and can disconnect any of them. **Run local checks** produces a copyable report with the browser's endpoint statuses and
 aggregate exchange counts. For the Docker host report and the end-to-end grocery read, see the
 [troubleshooting runbook](chatgpt-mcp-tunnel.md#troubleshoot-the-first-failed-checkpoint).
 

@@ -1,6 +1,7 @@
 import {useState} from 'react';
 import {api} from './api.ts';
 import {t} from './i18n/index.ts';
+import {UiIcon} from './ui-icons.tsx';
 
 const setupGuide = 'https://github.com/crimsonclyde/vergissmeinnicht/blob/main/docs/admin/chatgpt-mcp-tunnel.md';
 
@@ -66,8 +67,8 @@ export function McpDiagnostics({enabled}:{enabled:boolean}) {
     }
   }
 
-  return <section className="stack">
-    <h3>{t('mcp.diagnostics')}</h3>
+  return <section className="card stack mcp-check">
+    <h3><UiIcon name="info" /> {t('mcp.diagnostics')}</h3>
     <p>{t('mcp.diagnosticsHint')}</p>
     <div className="button-row">
       <button type="button" disabled={running} onClick={() => void runChecks()}>{t(running ? 'mcp.checking' : 'mcp.check')}</button>

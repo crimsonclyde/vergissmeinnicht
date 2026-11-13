@@ -116,7 +116,7 @@ test('first server admin: bootstrap link, account creation, sign-in, Workspace c
   await expect(menuButton).toBeFocused();
   await fromMenu(page, 'Server admin');
   // Server admin shows one named section at a time (15.1); each has its own address.
-  await expect(page.getByRole('navigation', { name: 'Server administration' }).getByRole('link')).toHaveText(['Workspaces', 'Invitations', 'Accounts & recovery', 'Notification providers', 'Weather', 'Server & storage', 'Security log']);
+  await expect(page.getByRole('navigation', { name: 'Server administration' }).getByRole('link')).toHaveText(['Workspaces', 'Invitations', 'Accounts & recovery', 'Notification providers', 'Weather', 'AI connections', 'Server & storage', 'Security log']);
   await expect(page.getByLabel('Email address to invite')).toHaveCount(0);
   // Invitations are managed here (no mail server in this test, so delivery reports a failure).
   await settingsSection(page, 'Server administration', 'Invitations');

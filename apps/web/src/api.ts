@@ -1247,6 +1247,7 @@ export type BringView = Omit<BringItem, 'createdAt' | 'updatedAt' | 'completedAt
 export type BringTodayView = Pick<BringView, 'id' | 'title' | 'from' | 'to' | 'dueDate' | 'assigneeId' | 'assigneeName' | 'status' | 'revision'>;
 const bringPath = (workspaceId: string, rest = '') => `/workspaces/${encodeURIComponent(workspaceId)}/bring${rest}`;
 export interface McpConnection {id:string;clientName:string;workspaceIds:string[];scopes:import('@vergissmeinnicht/domain').McpScope[];expiresAt:string;revokedAt:string|null;tokenIssued:boolean}
+export interface McpAdminConnection {id:string;owner:{id:string;displayName:string};clientName:string;workspaces:{id:string;name:string|null}[];scopes:import('@vergissmeinnicht/domain').McpScope[];createdAt:string;expiresAt:string;revokedAt:string|null;tokenIssued:boolean}
 export interface McpConsent {id:string;clientName:string;redirectOrigin:string;scopes:import('@vergissmeinnicht/domain').McpScope[];expiresAt:string}
 export const api = {
   mcpStatus:()=>request<{enabled:boolean}>('GET','/account/mcp/status'),
@@ -1254,6 +1255,8 @@ export const api = {
   mcpConsent:(id:string)=>request<McpConsent>('GET','/account/mcp/requests/'+encodeURIComponent(id)),
   mcpApprove:(input:{requestId:string;allow:boolean;workspaceIds:string[];scopes:import('@vergissmeinnicht/domain').McpScope[]})=>request<{redirect:string}>('POST','/account/mcp/approve',input),
   mcpRevoke:(id:string)=>request('POST','/account/mcp/'+encodeURIComponent(id)+'/revoke',{}),
+  mcpAdminConnections:()=>request<{connections:McpAdminConnection[]}>('GET','/admin/mcp/'),
+  mcpAdminRevoke:(id:string)=>request('POST','/admin/mcp/'+encodeURIComponent(id)+'/revoke',{}),
   bring: (workspaceId: string, status = 'OPEN', filter = 'ALL', offset = 0) => request<{ items: BringView[]; total: number; places: string[] }>('GET', bringPath(workspaceId, '?' + new URLSearchParams({ status, filter, offset: String(offset) }))),
   bringToday: (workspaceId: string, filter: string, today: string) => request<{ items: BringTodayView[]; total: number }>('GET', bringPath(workspaceId, '?' + new URLSearchParams({ filter, today }))),
   saveBring: (workspaceId: string, content: BringContent, item?: BringView) => request<{ item: BringView }>('POST', bringPath(workspaceId, item === undefined ? '' : `/${item.id}/update`), { content, expectedRevision: item?.revision ?? 0 }).then(r => r.item),
