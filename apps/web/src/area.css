@@ -250,3 +250,99 @@
 .storage-lines.area-rows .area-row-icon { width: 2rem; height: 2rem; border-radius: 0.55rem; }
 .navigation-tool { display: inline-flex; align-items: center; gap: 0.75rem; }
 .navigation-tool .area-row-icon { width: 2rem; height: 2rem; border-radius: 0.55rem; }
+
+/* ---- Shared controls of the redesigned areas (41.2, 41.3) -------------------------------------- */
+/* A segmented group of icon buttons (Board | List, Cards | List). */
+.ma-segment { display: inline-flex; gap: 0.25rem; padding: 0.25rem; border-radius: calc(var(--radius) + 6px); background: var(--surface-muted); }
+.ma-segment button { display: inline-grid; place-items: center; min-width: 2.75rem; min-height: 2.75rem; padding: 0; border: 0; border-radius: calc(var(--radius) + 3px); background: transparent; color: var(--text-muted); }
+.ma-segment button[aria-pressed='true'] { background: var(--surface); color: var(--accent); box-shadow: 0 1px 2px color-mix(in srgb, var(--text) 18%, transparent); }
+
+/* Find: one card with the search, then filter chips. */
+.ma-find { display: grid; gap: 0.75rem; margin-block-end: 1rem; padding: 0.85rem; border: 1px solid var(--border); border-radius: var(--area-radius, calc(var(--radius) + 4px)); background: var(--surface); }
+.ma-find-row { display: flex; flex-wrap: wrap; align-items: center; gap: 0.6rem; }
+.ma-search { display: flex; flex: 1; align-items: center; gap: 0.6rem; min-width: min(100%, 14rem); min-height: 2.75rem; padding: 0 0.85rem; border: 1px solid var(--input-border, var(--border)); border-radius: var(--radius); background: var(--input-bg, var(--surface)); color: var(--text-muted); }
+.ma-search input { flex: 1; min-width: 0; min-height: 2.5rem; padding: 0; border: 0; background: transparent; color: var(--text); box-shadow: none; }
+.ma-search input:focus { outline: none; }
+.ma-search:focus-within { outline: 3px solid var(--focus); outline-offset: 1px; }
+.ma-chips { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem; }
+.ma-chips button { min-height: 2.75rem; padding: 0 0.95rem; border: 1px solid var(--border); border-radius: 999px; background: var(--surface); color: var(--text); font-weight: 500; }
+.ma-chips button[aria-pressed='true'] { border-color: var(--accent); background: var(--accent); color: var(--accent-text); font-weight: 600; }
+.ma-chips button[data-kind='place'] { border-style: dashed; }
+.ma-chips-rule { width: 1px; height: 1.5rem; background: var(--border); }
+
+/* Quick add: one field, a round "more details" button and the primary, on one line. */
+.ma-quick { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 0.6rem; margin-block-end: 1rem; padding: 0.85rem; border: 1px solid var(--border); border-radius: var(--area-radius, calc(var(--radius) + 4px)); background: var(--surface); }
+.ma-quick .field { flex: 1; min-width: min(100%, 14rem); margin: 0; }
+.ma-toolbar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 0.6rem; margin-block-end: 0.75rem; }
+
+
+/* A round button that folds a short panel (e.g. the phone export help) under it. */
+.area-pop { position: relative; }
+.area-pop > summary { list-style: none; cursor: pointer; }
+.area-pop > summary::-webkit-details-marker { display: none; }
+.area-pop > summary:focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; }
+.area-pop[open] > summary { border-color: var(--accent); color: var(--accent); }
+.area-pop-body { position: absolute; z-index: 20; top: calc(100% + 0.5rem); inset-inline-end: 0; width: min(22rem, calc(100vw - 2rem)); margin: 0; box-shadow: 0 0.75rem 2rem color-mix(in srgb, var(--text) 18%, transparent); }
+
+/* Tints shared by avatars, dots and art bands: five token colours, chosen by a word (area-art.ts). */
+[data-tone] { --tone: var(--accent); }
+[data-tone='1'] { --tone: var(--state-done); }
+[data-tone='2'] { --tone: var(--brand, var(--accent)); }
+[data-tone='3'] { --tone: var(--link); }
+[data-tone='4'] { --tone: var(--text-muted); }
+
+/* Contacts (41.3): monogram avatars, serif names and round call / mail buttons. */
+.ct-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 22rem), 1fr)); gap: 0.85rem; }
+.plain-list.ct-cards > li + li { margin-top: 0; }
+.ct-card.contact-card { display: flex; align-items: center; gap: 0.75rem; padding: 0.9rem 1rem; border-radius: var(--area-radius, calc(var(--radius) + 4px)); }
+.ct-card .contact-card-main { display: flex; flex: 1; align-items: center; gap: 0.9rem; min-width: 0; color: var(--text); text-decoration: none; }
+.ct-card .contact-card-main strong { font-family: var(--area-title-font, Georgia, serif); font-size: 1.15rem; overflow-wrap: anywhere; }
+.ct-avatar { display: inline-grid; place-items: center; flex: none; width: 3.5rem; height: 3.5rem; border-radius: 50%; background: color-mix(in srgb, var(--tone) 82%, var(--text)); color: var(--surface); font-family: var(--area-title-font, Georgia, serif); font-size: 1.3rem; font-weight: 700; letter-spacing: 0.02em; }
+.ct-avatar[data-size='large'] { width: 5.5rem; height: 5.5rem; font-size: 2rem; }
+.ct-actions { display: flex; flex: none; gap: 0.3rem; }
+.ct-action { display: inline-grid; place-items: center; width: 2.75rem; height: 2.75rem; border-radius: 50%; background: var(--accent-soft); color: var(--accent); text-decoration: none; }
+.ct-action:hover { background: var(--accent); color: var(--accent-text); }
+.ct-action:focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; }
+.ct-dot { display: inline-block; width: 0.55rem; height: 0.55rem; border-radius: 2px; background: var(--tone); }
+
+/* Contact page: one hero card with the large monogram, the name and its round actions. */
+.ct-hero { position: relative; display: flex; flex-wrap: wrap; align-items: center; gap: 1rem 1.25rem; padding: 1.25rem 1.5rem; overflow: visible; border-radius: var(--area-radius, calc(var(--radius) + 4px)); background: linear-gradient(120deg, color-mix(in srgb, var(--tone) 14%, var(--surface)), var(--surface) 60%); }
+.ct-hero-body { display: grid; flex: 1; gap: 0.35rem; min-width: min(100%, 14rem); }
+.ct-hero-body .area-heading { margin: 0; }
+.ct-hero-body .ct-actions { flex-wrap: wrap; margin-top: 0.35rem; }
+.ct-hero-manage { align-self: flex-start; }
+
+/* Documents (41.3): the find bar as one card, like the other areas. */
+.area .document-find { margin-block-end: 1rem; padding: 0.85rem; border: 1px solid var(--border); border-radius: var(--area-radius, calc(var(--radius) + 4px)); background: var(--surface); }
+.area .document-find-row { align-items: flex-end; }
+
+/* Documents (41.3): a shelf of folders and documents as pages with a type badge. */
+.dc-shelf { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 9.5rem), 1fr)); gap: 0.85rem; margin-block-end: 1.25rem; }
+.plain-list.dc-shelf > li + li { margin-top: 0; }
+.dc-folder { position: relative; display: block; min-height: 6.5rem; overflow: hidden; border: 1px solid var(--border); border-radius: var(--area-radius, calc(var(--radius) + 4px)); background: linear-gradient(160deg, color-mix(in srgb, var(--tone) 30%, var(--surface)), color-mix(in srgb, var(--tone) 60%, var(--surface-muted))); color: var(--text); text-decoration: none; }
+.dc-folder:hover { border-color: var(--tone); }
+.dc-folder:focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; }
+.dc-folder-sheets { position: absolute; top: 0.85rem; inset-inline-start: 0.85rem; width: 3.3rem; height: 2.3rem; border-radius: 4px 10px 4px 4px; background: color-mix(in srgb, var(--surface) 92%, transparent); box-shadow: 4px -4px 0 color-mix(in srgb, var(--surface) 55%, transparent), 8px -8px 0 color-mix(in srgb, var(--surface) 30%, transparent); }
+.dc-folder-label { position: absolute; inset-inline: 0.75rem; bottom: 0.65rem; display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 0 0.5rem; padding: 0.35rem 0.65rem; border-radius: calc(var(--radius) + 2px); background: color-mix(in srgb, var(--surface) 94%, transparent); }
+.dc-folder-label strong { font-family: var(--area-title-font, Georgia, serif); overflow-wrap: anywhere; }
+.dc-folder-label small { color: var(--text-muted); }
+
+.area .document-grid { grid-template-columns: repeat(auto-fill, minmax(min(100%, 10rem), 1fr)); gap: 1rem; }
+.area .document-tile { padding: 0; border: 0; background: transparent; box-shadow: none; }
+.area .document-tile > strong { font-family: var(--area-title-font, Georgia, serif); font-size: 1.02rem; line-height: 1.25; }
+.area .document-tile-picture { position: relative; margin: 0 6px 6px 0; border-radius: 6px; background: var(--surface); box-shadow: 3px 3px 0 var(--surface-muted), 6px 6px 0 color-mix(in srgb, var(--border) 70%, var(--surface-muted)); }
+.area .document-tile:hover .document-tile-picture { border-color: var(--accent); }
+.area .document-tile:focus-visible { outline: 3px solid var(--focus); outline-offset: 3px; }
+.dc-page-lines { display: grid; align-content: start; gap: 0.45rem; width: 100%; height: 100%; padding: 1.1rem 1rem; }
+.dc-page-lines i { display: block; height: 0.25rem; border-radius: 2px; background: color-mix(in srgb, var(--text-muted) 25%, var(--surface)); }
+.dc-page-lines i:first-child { width: 60%; height: 0.5rem; background: color-mix(in srgb, var(--text-muted) 55%, var(--surface)); }
+.dc-page-lines i:nth-child(4) { width: 75%; }
+.dc-page-lines i:last-child { width: 50%; }
+.dc-badge { position: absolute; inset-inline-start: 0.5rem; bottom: 0.5rem; padding: 0.15rem 0.55rem; border-radius: 999px; background: color-mix(in srgb, var(--tone) 18%, var(--surface)); color: var(--text); font-size: 0.75rem; font-weight: 600; box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--tone) 45%, transparent); }
+
+@media (forced-colors: active) {
+  .dc-folder-label, .dc-badge { border: 1px solid CanvasText; }
+  .ct-avatar { border: 2px solid CanvasText; }
+  .ct-action { border: 1px solid ButtonText; }
+}
+:root[data-theme='tokyo-nights'] .ct-avatar { box-shadow: 0 0 0.8rem color-mix(in srgb, var(--tone) 45%, transparent); }

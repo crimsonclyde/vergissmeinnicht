@@ -1,6 +1,10 @@
 import {
   IconSparkles,
   IconPlugConnected,
+  IconPhone,
+  IconMail,
+  IconAddressBook,
+  IconFolderOpen,
   IconPin,
   IconPinFilled,
   IconTag,
@@ -269,6 +273,13 @@ const ICONS = {
   /** AI connections (36.24). */
   assistant: IconSparkles,
   connected: IconPlugConnected,
+  // Contacts and Documents (41.3).
+  call: IconPhone,
+  mail: IconMail,
+  website: IconWorld,
+  addressBook: IconAddressBook,
+  page: IconFileText,
+  folderOpen: IconFolderOpen,
 } as const;
 
 export type UiIconName = keyof typeof ICONS;
