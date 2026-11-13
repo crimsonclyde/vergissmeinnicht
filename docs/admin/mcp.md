@@ -52,6 +52,22 @@ permission when it asks again) to allow To-do Lists.
 Tasks have only a title and a done state. Moves, deletions and restores use the same atomic,
 revision-checked and retry-safe rules and error codes as the grocery tools.
 
+### Calendar and Notes
+
+Two more opt-in permissions on the consent screen: **Calendar** (`calendar.read`, `calendar.write`)
+and **Notes** (`notes.read`, `notes.write`). Existing connections do not gain them.
+
+| Tool | Scope | What it does |
+| --- | --- | --- |
+| `get_calendar` | `calendar.read` | Due/done Reminders and scheduled Procedures plus projected series dates for up to 62 days (Calendar tool) |
+| `add_reminder` | `calendar.write` | A one-time Reminder with date, optional time and the user's time zone (Reminders tool). The caller picks `reminderId`; a retry with the same id and request returns the same Reminder |
+| `search_notes`, `get_note` | `notes.read` | The Workspace's shared Notes: titles, notebooks, tags, a preview; one Note with its full Markdown |
+| `create_note` | `notes.write` | A new Markdown Note (caller-chosen `noteId`, retry-safe) |
+| `update_note` | `notes.write` | Change title, notebook, tags or pinned, replace the Markdown, or append Markdown at the end, at the read revision |
+
+The private Journal is never reachable: the Notes tools always work on one selected Workspace's
+shared Notes. Notes keep their revision history as in the app.
+
 ### Errors
 
 Every failed tool call has `isError: true`, a short text and `structuredContent.error` with a

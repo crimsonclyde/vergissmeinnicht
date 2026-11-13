@@ -7919,6 +7919,40 @@ Release note draft (owner release 68):
 - **ChatGPT can manage your To-do Lists.** Allow "To-do Lists" when connecting ChatGPT, then ask it
   to add tasks, mark them done, move or delete them. Grocery and To-do access stay separate.
 
+### 36.22 Calendar and Notes for ChatGPT (owner request 2026-11-12)
+
+MCP item 5 of the follow-up list: "what's on this week?", "add dentist Tuesday 10:00", "add this to
+my Garden note". The private Journal stays off-limits.
+
+Implemented:
+
+- Opt-in scopes `calendar.read` / `calendar.write` and `notes.read` / `notes.write`, with consent
+  rows "Calendar" and "Notes (shared, never the private Journal)".
+- `get_calendar` (Calendar read model, up to 62 days), `add_reminder` (one-time Reminder, caller-
+  chosen id, retry-safe; uses `createSchedule` with a new optional `id`).
+- `search_notes`, `get_note`, `create_note` (caller-chosen id via a new optional `newId` on Journal
+  save), `update_note` (partial changes, `appendMarkdown` for additions, revision-checked). Markdown
+  stays the stored format; history revisions are written as in the app.
+- The Schedule create guard now names its tool (Procedures or Reminders), so a delegated write is
+  re-checked against it inside the transaction.
+- `operation_reused` joins the common error codes.
+
+Checks: `mcp-calendar-notes.test.ts` (4 tests: tool visibility per grant; add a Reminder, retry,
+reused id, Calendar and web read-back, past date and long range refused; Reminders/Calendar
+switched off; create, retry, search, append, stale revision, rename/pin, web read-back, and the
+private Journal unreachable). Full suite 1779 passed, lint clean.
+
+Security surface changed: yes, two opt-in permissions; see security.md 36.22.
+
+Remaining: clyde re-approves the ChatGPT connection with Calendar and Notes ticked. Recurring
+Reminders and deleting/archiving Notes through ChatGPT are not included.
+
+Release note draft (owner release 68):
+
+- **ChatGPT knows your Calendar and Notes.** Allow "Calendar" and "Notes" when connecting ChatGPT,
+  then ask what is coming up, add a one-time Reminder, or create and add to shared Notes (in
+  Markdown). Your private Journal is never shared.
+
 ### Release plan for 0.13.10, owner milestone 64 (2026-11-10)
 
 The preceding 0.13.9 candidate was stopped before publication after inspecting the

@@ -2114,3 +2114,24 @@ not gain To-do access; the user has to grant it.
   and live grant re-checked in the transaction; idempotent operation ids; structured errors.
 - [x] Tasks carry no quantity or unit; a To-do edit with them is refused.
 
+### Calendar and Notes through MCP (36.22, 2026-11-13)
+
+**Security surface changed: yes, two new opt-in permissions.** Scopes `calendar.read`,
+`calendar.write`, `notes.read`, `notes.write`; existing grants unchanged.
+
+- [x] The private Journal is out of reach by construction: every Notes tool requires a selected
+  `workspaceId` and calls the Journal use cases with that Workspace scope only; a private entry id
+  is "not found" (tested). Server instructions also say so.
+- [x] Writes re-check the delegation inside the write transaction against their own tool:
+  `add_reminder` against Reminders (the Schedule create guard now names its tool, which the web
+  path already enforced through the tool check), Notes against Journal; membership,
+  `schedule.manage` / `journal.manage` and the live grant as for the app.
+- [x] Retries: Reminder and Note ids are chosen by the caller. A retry with the same id and the same
+  request returns the existing record; a different request with that id is `operation_reused`. An
+  id that belongs to another Workspace fails the insert and is reported as `not_confirmed`, never
+  revealing that record.
+- [x] Note bodies are validated by the same domain rules as the app (control and bidi characters,
+  size, image references must be this Workspace's Journal attachments the actor may use).
+- [x] Calendar reads return titles, dates, times, states and Schedule ids only — no assignee ids or
+  emails.
+

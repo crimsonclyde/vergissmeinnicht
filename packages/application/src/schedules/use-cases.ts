@@ -150,7 +150,7 @@ function contentFrom(kind: ScheduleKind, request: ScheduleRequest, current: Sche
  */
 export async function createSchedule(
   deps: ScheduleDeps,
-  input: { readonly actor: User; readonly workspaceId: WorkspaceId; readonly kind?: ScheduleKind | undefined; readonly procedureId?: string | undefined } & ScheduleRequest,
+  input: { readonly actor: User; readonly workspaceId: WorkspaceId; readonly kind?: ScheduleKind | undefined; readonly procedureId?: string | undefined; readonly id?: string | undefined } & ScheduleRequest,
 ): Promise<Schedule> {
   const kind: ScheduleKind = input.kind ?? (input.procedureId === undefined ? 'REMINDER' : 'PROCEDURE');
   if (kind === 'PROCEDURE' && input.procedureId === undefined) throw new ProcedureNotFoundError();
@@ -165,9 +165,11 @@ export async function createSchedule(
         procedureId: kind === 'PROCEDURE' ? (input.procedureId as ProcedureId) : null,
         at: deps.clock.now(),
         maxOpen: MAX_OPEN_SCHEDULES_PER_WORKSPACE,
+        ...(input.id === undefined ? {} : { id: parseScheduleId(input.id) }),
       },
       userActor(input.actor),
-      guardFor('schedule.manage'),
+      // The tool is named so a delegated (MCP) write is re-checked against its own tool too (36.22).
+      { ...guardFor('schedule.manage'), tool: kind === 'PROCEDURE' ? 'PROCEDURES' : 'REMINDERS' },
     ),
   );
 }

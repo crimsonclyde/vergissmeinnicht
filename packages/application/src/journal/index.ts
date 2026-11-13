@@ -19,7 +19,8 @@ export interface JournalRepository {
   list(scope: JournalScope, query: string, archived: boolean, offset: number, options?: JournalListOptions): Promise<{ entries: JournalEntry[]; more: boolean }>;
   overview(scope: JournalScope): Promise<JournalOverviewRow[]>;
   find(scope: JournalScope, id: string): Promise<JournalEntry | undefined>;
-  save(scope: JournalScope, actor: User, entry: JournalContent, id: string | undefined, expectedRevision: number, archived: boolean, at: Date): Promise<JournalEntry | 'forbidden' | 'conflict' | 'missing'>;
+  /** `newId` (36.22): the id of a new entry chosen by the caller, so a retried create is recognisable. */
+  save(scope: JournalScope, actor: User, entry: JournalContent, id: string | undefined, expectedRevision: number, archived: boolean, at: Date, newId?: string): Promise<JournalEntry | 'forbidden' | 'conflict' | 'missing'>;
 }
 export interface JournalDeps extends ToolDeps { readonly users: UserRepository; readonly journal: JournalRepository }
 export async function authorizeJournal(deps: JournalDeps, actor: User, workspaceId: WorkspaceId | undefined, write = false): Promise<JournalScope> {
@@ -44,9 +45,9 @@ export async function getJournalEntry(deps: JournalDeps, actor: User, workspaceI
   if (result === undefined) throw new JournalNotFoundError();
   return result;
 }
-export async function saveJournalEntry(deps: JournalDeps, actor: User, workspaceId: WorkspaceId | undefined, content: unknown, id: string | undefined, expectedRevision: number, archived: boolean) {
+export async function saveJournalEntry(deps: JournalDeps, actor: User, workspaceId: WorkspaceId | undefined, content: unknown, id: string | undefined, expectedRevision: number, archived: boolean, newId?: string) {
   const scope = await authorizeJournal(deps, actor, workspaceId, true);
-  const result = await deps.journal.save(scope, actor, parseJournalContent(content), id, expectedRevision, archived, deps.clock.now());
+  const result = await deps.journal.save(scope, actor, parseJournalContent(content), id, expectedRevision, archived, deps.clock.now(), id === undefined ? newId : undefined);
   if (result === 'forbidden') throw new NotAuthorizedError();
   if (result === 'missing') throw new JournalNotFoundError();
   if (result === 'conflict') throw new JournalConflictError();
