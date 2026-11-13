@@ -651,7 +651,7 @@ function RunList({ title, runs, onOpen }: { title: string; runs: RunSummary[]; o
                 <span className="item-icon">
                   <AppIcon name={run.icon} decorative />
                 </span>
-                <button type="button" className="area-run-title" onClick={() => onOpen(run.id)}>
+                <button type="button" className="link-like area-run-title" onClick={() => onOpen(run.id)}>
                   {run.title}
                 </button>
                 <RunStateBadge state={run.state} />
