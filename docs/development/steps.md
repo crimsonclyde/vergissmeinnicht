@@ -29,9 +29,14 @@ passed. `0.14.0`, `0.14` and `latest` resolve to index
 Owner count **67**, next **68**.
 [GitHub release](https://github.com/crimsonclyde/vergissmeinnicht/releases/tag/v0.14.0)
 
-**Next release (68), not yet prepared:** 36.18 grocery move and delete through MCP (migration
-0074). Nothing is version-bumped or tagged yet.
-[Release workflow](https://github.com/crimsonclyde/vergissmeinnicht/actions/runs/43306611253)
+**Release 0.14.1 prepared (owner release 68, 2026-11-13).** Includes PRs #107 (grocery move
+and delete through MCP, 36.18; migration 0074), #108 (edit, tick and restore grocery items,
+Recently deleted in Lists, 36.19; migration 0075), #109 and #111 (History and Reminders
+timeline, More and Settings rows, 41.1), #110 (structured MCP errors, To-do Lists, Calendar and
+Notes, Recipe fields and archive, 36.20–36.23), #112 (Maintenance area, Contacts and Documents,
+41.2–41.3), #113 (desktop menu bar and phone tool drawer, 42) and #114 (AI connections in
+Server admin, 36.24). Release upgrade checks start from 0.14.0. Pending: owner publishes
+`v0.14.1`, then record the published digest here and the owner count (68) in AGENTS.md.
 
 **Published owner release 66 (2026-11-11).** Stable 0.13.12 was published from `v0.13.12`,
 source `ef2247b2fdb0f61c99eee9a3e43d19e2a01750ef` (PRs #97–#99, #101: Recipe categories,
