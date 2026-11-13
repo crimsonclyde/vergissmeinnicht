@@ -18,6 +18,12 @@ For every completed task, add a concise completion note, tests/checks performed,
 
 ## Current state — resume here
 
+**Release 0.14.2 prepared (owner release 69, 2026-11-13).** Includes PR #118 (ChatGPT file
+hosts: Denmark East Azure host built in, one-tap allow in Server admin, `MCP_CHATGPT_FILE_HOSTS`
+honoured by the upload tools, 36.25; migration 0076). Release upgrade checks start from 0.14.1.
+Pending: owner publishes `v0.14.2`, then record the published digest here and the owner count
+(69) in AGENTS.md.
+
 **Published owner release 68 (2026-11-13).** 0.14.1 was published from `v0.14.1`, source
 `ec46e836d41124ac393ba3763d5b3935f8a410d3` (PRs #107–#114: grocery move/delete/edit/restore
 through MCP with migrations 0074 and 0075, Recently deleted in Lists, History and Reminders
