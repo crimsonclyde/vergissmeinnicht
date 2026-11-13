@@ -116,50 +116,53 @@ test('Guide preserves routes, preferences, themes and private opt-in weather acr
   await page.reload();
   await expect(page.locator('html')).toHaveAttribute('data-theme', 'space-guide');
   const nav = page.getByRole('navigation', { name: 'Tools', exact: true });
-  // The menu bar (42): Dashboard, then one drop-down per family; the person's order counts inside each.
-  await expect(nav.getByRole('link')).toHaveText(['Dashboard']);
-  await expect(nav.getByRole('button')).toHaveText(['Plan', 'Shop & cook', 'House']);
   await page.getByRole('button', { name: /^Settings/ }).click();
   await expect(page.getByRole('link', { name: 'Profile & settings', exact: true })).toBeVisible();
   await expectAccessible(page, 'Guide top settings menu');
   await page.keyboard.press('Escape');
-  const plan = nav.getByRole('button', { name: 'Plan', exact: true });
-  const shop = nav.getByRole('button', { name: 'Shop & cook', exact: true });
-  const house = nav.getByRole('button', { name: 'House', exact: true });
-  await plan.click();
-  await expect(plan).toHaveAttribute('aria-expanded', 'true');
-  const planMenu = nav.getByRole('list', { name: 'Plan', exact: true });
-  await expect(planMenu.getByRole('link')).toHaveText(['Calendar', 'Procedures', 'Reminders', 'Completed history']);
-  await expectAccessible(page, 'Menu bar with an open menu');
-  // Like a Mac menu bar: once a menu is open, pointing at a neighbour opens that one instead.
-  await shop.hover();
-  await expect(planMenu).toBeHidden();
-  await expect(nav.getByRole('list', { name: 'Shop & cook', exact: true }).getByRole('link')).toHaveText(['Lists', 'Bring', 'Recipes']);
-  await house.hover();
-  await expect(nav.getByRole('list', { name: 'House', exact: true }).getByRole('link')).toHaveText(['Notes', 'Documents', 'Contacts', 'Maintenance']);
-  await expect(nav.getByRole('link', { name: 'Equipment', exact: true })).toHaveCount(0);
-  await page.mouse.click(5, 600);
-  await expect(house).toHaveAttribute('aria-expanded', 'false');
-  // Keyboard: Down opens and enters a menu, Left/Right move between menus, Escape returns to the title.
-  await plan.focus();
-  await page.keyboard.press('ArrowDown');
-  await expect(planMenu.getByRole('link', { name: 'Calendar', exact: true })).toBeFocused();
-  await page.keyboard.press('ArrowUp');
-  await expect(planMenu.getByRole('link', { name: 'Completed history', exact: true })).toBeFocused();
-  await page.keyboard.press('ArrowRight');
-  await expect(nav.getByRole('list', { name: 'Shop & cook', exact: true }).getByRole('link', { name: 'Lists', exact: true })).toBeFocused();
-  await page.keyboard.press('Escape');
-  await expect(shop).toBeFocused();
-  await expect(shop).toHaveAttribute('aria-expanded', 'false');
-  await shop.click(); await nav.getByRole('link', { name: 'Recipes', exact: true }).click();
-  await expect(page).toHaveURL(`/w/${workspaceId}/recipes`);
-  await expect(shop).toHaveAttribute('data-current', 'true');
-  await expect(nav.getByRole('list', { name: 'Shop & cook', exact: true })).toBeHidden();
-  await page.goBack(); await expect(page).toHaveURL(`/w/${workspaceId}`);
-  await shop.click(); await nav.getByRole('link', { name: 'Lists', exact: true }).click();
-  await expect(page).toHaveURL(`/w/${workspaceId}/lists`);
-  await expectAccessible(page, 'Guide List working page');
-  await page.goBack(); await expect(page).toHaveURL(`/w/${workspaceId}`);
+  // The menu bar is the desktop navigation; the phone project checks the bar and drawer below.
+  if ((page.viewportSize()?.width ?? 0) > 900) {
+    // The menu bar (42): Dashboard, then one drop-down per family; the person's order counts inside each.
+    await expect(nav.getByRole('link')).toHaveText(['Dashboard']);
+    await expect(nav.getByRole('button')).toHaveText(['Plan', 'Shop & cook', 'House']);
+    const plan = nav.getByRole('button', { name: 'Plan', exact: true });
+    const shop = nav.getByRole('button', { name: 'Shop & cook', exact: true });
+    const house = nav.getByRole('button', { name: 'House', exact: true });
+    await plan.click();
+    await expect(plan).toHaveAttribute('aria-expanded', 'true');
+    const planMenu = nav.getByRole('list', { name: 'Plan', exact: true });
+    await expect(planMenu.getByRole('link')).toHaveText(['Calendar', 'Procedures', 'Reminders', 'Completed history']);
+    await expectAccessible(page, 'Menu bar with an open menu');
+    // Like a Mac menu bar: once a menu is open, pointing at a neighbour opens that one instead.
+    await shop.hover();
+    await expect(planMenu).toBeHidden();
+    await expect(nav.getByRole('list', { name: 'Shop & cook', exact: true }).getByRole('link')).toHaveText(['Lists', 'Bring', 'Recipes']);
+    await house.hover();
+    await expect(nav.getByRole('list', { name: 'House', exact: true }).getByRole('link')).toHaveText(['Notes', 'Documents', 'Contacts', 'Maintenance']);
+    await expect(nav.getByRole('link', { name: 'Equipment', exact: true })).toHaveCount(0);
+    await page.mouse.click(5, 600);
+    await expect(house).toHaveAttribute('aria-expanded', 'false');
+    // Keyboard: Down opens and enters a menu, Left/Right move between menus, Escape returns to the title.
+    await plan.focus();
+    await page.keyboard.press('ArrowDown');
+    await expect(planMenu.getByRole('link', { name: 'Calendar', exact: true })).toBeFocused();
+    await page.keyboard.press('ArrowUp');
+    await expect(planMenu.getByRole('link', { name: 'Completed history', exact: true })).toBeFocused();
+    await page.keyboard.press('ArrowRight');
+    await expect(nav.getByRole('list', { name: 'Shop & cook', exact: true }).getByRole('link', { name: 'Lists', exact: true })).toBeFocused();
+    await page.keyboard.press('Escape');
+    await expect(shop).toBeFocused();
+    await expect(shop).toHaveAttribute('aria-expanded', 'false');
+    await shop.click(); await nav.getByRole('link', { name: 'Recipes', exact: true }).click();
+    await expect(page).toHaveURL(`/w/${workspaceId}/recipes`);
+    await expect(shop).toHaveAttribute('data-current', 'true');
+    await expect(nav.getByRole('list', { name: 'Shop & cook', exact: true })).toBeHidden();
+    await page.goBack(); await expect(page).toHaveURL(`/w/${workspaceId}`);
+    await shop.click(); await nav.getByRole('link', { name: 'Lists', exact: true }).click();
+    await expect(page).toHaveURL(`/w/${workspaceId}/lists`);
+    await expectAccessible(page, 'Guide List working page');
+    await page.goBack(); await expect(page).toHaveURL(`/w/${workspaceId}`);
+  }
   // Phones: Dashboard, the two favourites and All tools; the drawer holds every tool in the same families.
   const viewport = page.viewportSize();
   if (!viewport) throw new Error('Guide test requires a viewport');
