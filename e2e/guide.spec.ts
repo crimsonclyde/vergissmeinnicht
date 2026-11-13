@@ -116,36 +116,88 @@ test('Guide preserves routes, preferences, themes and private opt-in weather acr
   await page.reload();
   await expect(page.locator('html')).toHaveAttribute('data-theme', 'space-guide');
   const nav = page.getByRole('navigation', { name: 'Tools', exact: true });
-  await expect(nav.getByRole('link')).toHaveText(['Dashboard', 'Lists', 'Calendar']);
   await page.getByRole('button', { name: /^Settings/ }).click();
   await expect(page.getByRole('link', { name: 'Profile & settings', exact: true })).toBeVisible();
   await expectAccessible(page, 'Guide top settings menu');
   await page.keyboard.press('Escape');
-  const guideButton = page.getByRole('button', { name: 'Guide', exact: true });
-  await guideButton.click();
-  const dialog = page.getByRole('dialog', { name: 'Guide', exact: true });
-  await expect(dialog.getByRole('link', { name: 'Equipment', exact: true })).toHaveCount(0);
-  await expect(dialog.getByRole('link', { name: 'Lists', exact: true })).toBeVisible();
+  // The menu bar is the desktop navigation; the phone project checks the bar and drawer below.
+  if ((page.viewportSize()?.width ?? 0) > 900) {
+    // The menu bar (42): Dashboard, then one drop-down per family; the person's order counts inside each.
+    await expect(nav.getByRole('link')).toHaveText(['Dashboard']);
+    await expect(nav.getByRole('button')).toHaveText(['Plan', 'Shop & cook', 'House']);
+    const plan = nav.getByRole('button', { name: 'Plan', exact: true });
+    const shop = nav.getByRole('button', { name: 'Shop & cook', exact: true });
+    const house = nav.getByRole('button', { name: 'House', exact: true });
+    await plan.click();
+    await expect(plan).toHaveAttribute('aria-expanded', 'true');
+    const planMenu = nav.getByRole('list', { name: 'Plan', exact: true });
+    await expect(planMenu.getByRole('link')).toHaveText(['Calendar', 'Procedures', 'Reminders', 'Completed history']);
+    await expectAccessible(page, 'Menu bar with an open menu');
+    // Like a Mac menu bar: once a menu is open, pointing at a neighbour opens that one instead.
+    await shop.hover();
+    await expect(planMenu).toBeHidden();
+    await expect(nav.getByRole('list', { name: 'Shop & cook', exact: true }).getByRole('link')).toHaveText(['Lists', 'Bring', 'Recipes']);
+    await house.hover();
+    await expect(nav.getByRole('list', { name: 'House', exact: true }).getByRole('link')).toHaveText(['Notes', 'Documents', 'Contacts', 'Maintenance']);
+    await expect(nav.getByRole('link', { name: 'Equipment', exact: true })).toHaveCount(0);
+    await page.mouse.click(5, 600);
+    await expect(house).toHaveAttribute('aria-expanded', 'false');
+    // Keyboard: Down opens and enters a menu, Left/Right move between menus, Escape returns to the title.
+    await plan.focus();
+    await page.keyboard.press('ArrowDown');
+    await expect(planMenu.getByRole('link', { name: 'Calendar', exact: true })).toBeFocused();
+    await page.keyboard.press('ArrowUp');
+    await expect(planMenu.getByRole('link', { name: 'Completed history', exact: true })).toBeFocused();
+    await page.keyboard.press('ArrowRight');
+    await expect(nav.getByRole('list', { name: 'Shop & cook', exact: true }).getByRole('link', { name: 'Lists', exact: true })).toBeFocused();
+    await page.keyboard.press('Escape');
+    await expect(shop).toBeFocused();
+    await expect(shop).toHaveAttribute('aria-expanded', 'false');
+    await shop.click(); await nav.getByRole('link', { name: 'Recipes', exact: true }).click();
+    await expect(page).toHaveURL(`/w/${workspaceId}/recipes`);
+    await expect(shop).toHaveAttribute('data-current', 'true');
+    await expect(nav.getByRole('list', { name: 'Shop & cook', exact: true })).toBeHidden();
+    await page.goBack(); await expect(page).toHaveURL(`/w/${workspaceId}`);
+    await shop.click(); await nav.getByRole('link', { name: 'Lists', exact: true }).click();
+    await expect(page).toHaveURL(`/w/${workspaceId}/lists`);
+    await expectAccessible(page, 'Guide List working page');
+    await page.goBack(); await expect(page).toHaveURL(`/w/${workspaceId}`);
+  }
+  // Phones: Dashboard, the two favourites and All tools; the drawer holds every tool in the same families.
   const viewport = page.viewportSize();
   if (!viewport) throw new Error('Guide test requires a viewport');
-  await page.setViewportSize({ width: 320, height: 500 });
-  await expect.poll(() => dialog.evaluate(node => ({
-    vertical: node.scrollHeight - node.clientHeight,
-    horizontal: node.scrollWidth - node.clientWidth,
-  }))).toEqual({ vertical: 0, horizontal: 0 });
-  await expect(dialog.locator('img')).toHaveCount(0);
-  await page.setViewportSize(viewport);
-  await expectAccessible(page, 'Guide chooser');
+  await page.setViewportSize({ width: 320, height: 568 });
+  await expect(nav.getByRole('link')).toHaveText(['Dashboard', 'Lists', 'Calendar']);
+  const allTools = nav.getByRole('button', { name: 'All tools', exact: true });
+  await allTools.click();
+  const drawer = page.getByRole('dialog', { name: 'All tools', exact: true });
+  await expect(drawer.getByRole('heading', { level: 3 })).toHaveText(['Plan', 'Shop & cook', 'House', 'Instruments']);
+  await expect(drawer.getByRole('link', { name: 'Equipment', exact: true })).toHaveCount(0);
+  await expect(drawer.getByRole('link', { name: 'Lists', exact: true })).toBeVisible();
+  await expect.poll(() => drawer.evaluate(node => node.scrollWidth - node.clientWidth)).toBe(0);
+  await expect(drawer.locator('img')).toHaveCount(0);
+  await expectAccessible(page, 'Tool drawer');
   mkdirSync(process.env.VMN_REVIEW_SCREENSHOTS ?? 'assets/screenshots/release-42', { recursive: true });
   await page.screenshot({ path: `${process.env.VMN_REVIEW_SCREENSHOTS ?? 'assets/screenshots/release-42'}/chooser-${testInfo.project.name}.png`, fullPage: true });
-  await page.keyboard.press('Escape'); await expect(guideButton).toBeFocused();
-  await guideButton.click(); await dialog.getByRole('link', { name: 'Recipes', exact: true }).click();
+  await page.keyboard.press('Escape');
+  await expect(drawer).toBeHidden();
+  await expect(allTools).toBeFocused();
+  // A swipe up from the bar opens it too.
+  const bar = await nav.boundingBox();
+  if (!bar) throw new Error('Phone bar is missing');
+  await page.evaluate(`(() => {
+    const element = document.querySelector('.tab-bar');
+    const touch = (clientY) => new Touch({ identifier: 1, target: element, clientX: 160, clientY });
+    element.dispatchEvent(new TouchEvent('touchstart', { bubbles: true, touches: [touch(${bar.y + 20})] }));
+    element.dispatchEvent(new TouchEvent('touchmove', { bubbles: true, touches: [touch(${bar.y - 80})] }));
+  })()`);
+  await expect(drawer).toBeVisible();
+  await drawer.getByRole('link', { name: 'Recipes', exact: true }).click();
   await expect(page).toHaveURL(`/w/${workspaceId}/recipes`);
+  await expect(drawer).toBeHidden();
+  await expect(allTools).toHaveAttribute('data-current', 'true');
   await page.goBack(); await expect(page).toHaveURL(`/w/${workspaceId}`);
-  await guideButton.click(); await dialog.getByRole('link', { name: 'Lists', exact: true }).click();
-  await expect(page).toHaveURL(`/w/${workspaceId}/lists`);
-  await expectAccessible(page, 'Guide List working page');
-  await page.goBack(); await expect(page).toHaveURL(`/w/${workspaceId}`);
+  await page.setViewportSize(viewport);
   for (const width of [1440, 390, 320]) {
     await page.setViewportSize({ width, height: 900 });
     expect(await page.evaluate('document.documentElement.scrollWidth <= innerWidth')).toBe(true);
@@ -212,7 +264,7 @@ test('Guide preserves routes, preferences, themes and private opt-in weather acr
         expect((await post('/api/account/workspace-preferences/guide', { workspaceId, guide: { cardOpacity: opacity } })).status).toBe(200);
       }
       await page.reload();
-      await expect(page.getByRole('button', { name: 'Guide', exact: true })).toBeVisible();
+      await expect(page.getByRole('navigation', { name: 'Tools', exact: true })).toBeVisible();
       await expect(page.locator('.today-instruments')).toHaveCSS('--sky-card-opacity', `${opacity}%`);
       await expectSharedSkySurface(page);
       paints.add(await page.locator('.today-instruments').evaluate(node => node.ownerDocument.defaultView?.getComputedStyle(node).backgroundColor ?? 'missing'));
@@ -394,7 +446,7 @@ test('Notes and personal Journal preserve Markdown, originals, privacy and recov
  const saveBox=await page.getByRole('button',{name:'Save entry',exact:true}).boundingBox();expect(saveBox?.y).toBeGreaterThanOrEqual(0);expect(saveBox?.y).toBeLessThan(100);
  await page.getByLabel('Notebook',{exact:true}).fill('Personal thoughts');await expect(editor).toContainText('A recoverable private draft.');
  page.once('dialog',dialog=>void dialog.dismiss());await page.getByRole('button',{name:'Cancel editing',exact:true}).click();await expect(page.getByLabel('Title',{exact:true})).toHaveValue('A personal notebook');
- page.once('dialog',dialog=>void dialog.accept());await page.getByRole('button',{name:'Cancel editing',exact:true}).click();await expect(page.getByRole('heading',{name:'A personal notebook',exact:true})).toBeVisible();await expect(page.getByRole('button',{name:'Guide',exact:true})).toBeVisible();
+ page.once('dialog',dialog=>void dialog.accept());await page.getByRole('button',{name:'Cancel editing',exact:true}).click();await expect(page.getByRole('heading',{name:'A personal notebook',exact:true})).toBeVisible();await expect(page.getByRole('navigation',{name:'Tools',exact:true})).toBeVisible();
  expect(await page.evaluate('document.documentElement.scrollWidth <= window.innerWidth')).toBe(true);expect(errors).toEqual([]);expect(requests.every(url=>url.startsWith(guideServerEnv.PUBLIC_ORIGIN))).toBe(true);
 });
 
