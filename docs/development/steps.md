@@ -8064,8 +8064,8 @@ Implemented:
   Workspaces or access still means disconnecting and connecting again. No migration.
 
 Checks: `mcp-admin.test.ts` (3 tests) plus all MCP server tests (55 passed); web unit tests
-(316 passed); typecheck and lint clean; e2e MCP consent flow (desktop and phone) and the first
-server-admin flow pass. Screens in all themes at 1440 and 390 px in
+(316 passed); full suite 1786 passed; typecheck and lint clean; e2e MCP consent flow (desktop and phone) and the first
+server-admin flow pass. Server admin always uses Memento Mori, so screens are at 1440 and 390 px in that theme, in
 `/mnt/project-files/ui-review/2026-11-13-ai-connections/`.
 
 Security surface changed (narrower); see security.md 36.24.
