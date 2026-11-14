@@ -7,7 +7,7 @@ import { startTestApp } from './test-harness.ts';
 const DAY = 86_400_000;
 const isoDay = (offset = 0) => new Date(Date.now() + offset * DAY).toISOString().slice(0, 10);
 
-describe('Morning Gazette API (43)', () => {
+describe('The Daily Planet API (43)', () => {
   let t: Awaited<ReturnType<typeof startTestApp>>; let workspace: string; let other: string; let editor: string; let user: string; let guest: string;
   const base = (ws = workspace) => `/api/workspaces/${ws}/gazette`;
   const publish = (cookie: string, body: Record<string, unknown>, ws = workspace) => t.post(`${base(ws)}/editions`, body, cookie);

@@ -2539,7 +2539,7 @@ export const recipeMealOperations=sqliteTable('recipe_meal_operations',{
 });
 
 /**
- * Morning Gazette (43). One row per Workspace holding its settings and section definitions (stable ids,
+ * The Daily Planet (43). One row per Workspace holding its settings and section definitions (stable ids,
  * order = array order). No row means the defaults. Part of the Workspace backup.
  */
 export const gazetteSettings = sqliteTable('gazette_settings', {

@@ -11,7 +11,7 @@ export function sampleGazetteEdition(date: string) {
   return {
     version: 1,
     date,
-    title: 'The Morning Gazette',
+    title: 'The Daily Planet',
     greeting: 'Sample edition: a bright, mild day in the valley; rain returns on Tuesday.',
     intro: 'Good morning. **This is sample content** for reviewing the Gazette before live imports are switched on. Nothing in it is real news.',
     sections: [

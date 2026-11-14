@@ -90,7 +90,7 @@ export function navigation(workspaceId: string, tools: readonly string[] = [], o
     label: t('navigation.groupInstruments'),
     icon: 'clock',
     items: [
-      // The Morning Gazette (43.2) is read, not managed: it sits with the other daily instruments.
+      // The Daily Planet (43.2) is read, not managed: it sits with the other daily instruments.
       ...(tools.includes('GAZETTE') ? [{ href: paths.gazette(workspaceId), label: t('gazette.heading'), icon: 'gazette' as const, pages: ['gazette' as const] }] : []),
       { href: paths.weather(), label: t('weather.heading'), icon: 'weatherStatus', pages: ['weather'] },
       { href: paths.clock(), label: t('navigation.clock'), icon: 'clock', pages: ['clock'] },

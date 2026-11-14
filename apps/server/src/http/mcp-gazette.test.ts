@@ -3,8 +3,8 @@ import { afterEach, describe, expect, it } from 'vitest';
 import { defaultGazetteSettings, sampleGazetteEdition, type McpScope, type TimeZoneName } from '@vergissmeinnicht/domain';
 import { ORIGIN, startTestApp } from './test-harness.ts';
 
-/** 43.4: the Morning Gazette through its own opt-in MCP scopes. */
-describe('MCP Morning Gazette', () => {
+/** 43.4: the The Daily Planet through its own opt-in MCP scopes. */
+describe('MCP The Daily Planet', () => {
   let t: Awaited<ReturnType<typeof startTestApp>>;
   afterEach(async () => {
     await t?.close();

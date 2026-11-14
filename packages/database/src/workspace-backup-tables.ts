@@ -43,7 +43,7 @@ const SPECS: readonly Spec[] = [
   { table: 'bring_items', name: 'bring_items', from: own('bring_items'), userColumns: ['assignee_user_id', 'completed_by_user_id', 'cancelled_by_user_id', 'created_by_user_id', 'updated_by_user_id'], omit: [] },
   { table: 'recipes', name:'recipes', from:own('recipes'), userColumns:['created_by_user_id','updated_by_user_id'], omit:[] },
   { table:'recipe_attachment_references', name:'recipe_attachment_references', from:own('recipe_attachment_references'), userColumns:[], omit:[] },
-  // Morning Gazette (43): settings and the kept editions. Editions past the retention are removed after a restore by housekeeping.
+  // The Daily Planet (43): settings and the kept editions. Editions past the retention are removed after a restore by housekeeping.
   { table: 'gazette_settings', name: 'gazette_settings', from: own('gazette_settings'), userColumns: ['updated_by_user_id'], omit: [] },
   { table: 'gazette_editions', name: 'gazette_editions', from: own('gazette_editions'), userColumns: ['created_by_user_id', 'updated_by_user_id'], omit: [] },
   // The watchlist (43.3) survives Gazette retention and travels with the Workspace, prices included.

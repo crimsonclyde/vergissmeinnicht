@@ -69,10 +69,10 @@ and **Notes** (`notes.read`, `notes.write`). Existing connections do not gain th
 The private Journal is never reachable: the Notes tools always work on one selected Workspace's
 shared Notes. Notes keep their revision history as in the app.
 
-### Morning Gazette
+### The Daily Planet (Gazette)
 
-One more opt-in permission on the consent screen: **Morning Gazette** (`gazette.read`,
-`gazette.write`). Existing connections do not gain it. The Workspace must have the Gazette tool on;
+One more opt-in permission on the consent screen: **The Daily Planet** (`gazette.read`,
+`gazette.write`). Existing connections do not gain it. The Workspace must have The Daily Planet on (Plugins);
 publishing needs an Editor or Admin account. Full format and REST API: [Gazette API](../development/gazette-api.md).
 
 | Tool | Scope | What it does |

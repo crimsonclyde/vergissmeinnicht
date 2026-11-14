@@ -147,13 +147,13 @@ Choose **Add item**, enter what to bring, then open **Options** for From, To, du
 
 The Dashboard's optional Bring card shows up to three open items that are overdue, due within seven days, or have no due date and are assigned to you. It follows the same assignment filter. Done has Undo; notes stay in Bring. Switch the card off or move it in Profile → Dashboard; reorder the tool in Profile → Tool menu order. Switching the Workspace tool off hides it and retains its data. Bring needs a connection; failed or stale changes are reported. Workspace backups include Bring history, but restored items start unassigned.
 
-## Morning Gazette
+## The Daily Planet
 
-A Workspace admin enables **Gazette** in Workspace settings → Plugins. It is a small illustrated newspaper for each morning: weather for your places, news sections, good news and the prices you watch. An edition is written by an assistant (for example a daily ChatGPT task through the VMN connection) or an import; VMN shows it, keeps it for 7 days and never makes up content.
+A Workspace admin enables **The Daily Planet** in Workspace settings → Plugins. It is a small illustrated newspaper for each morning: weather for your places, news sections, good news and the prices you watch. An edition is written by an assistant (for example a daily ChatGPT task through the VMN connection) or an import; VMN shows it, keeps it for 7 days and never makes up content.
 
-On the Dashboard the Gazette card shows the greeting, today's weather and one headline per section. Tap anywhere on the card to open the edition. If today's edition has not arrived yet, the card shows the newest one with its date and an amber **Older edition** label, never today's weather. Move, widen or switch the card off in Profile → Dashboard.
+On the Dashboard the Daily Planet card shows the greeting, today's weather and one headline per section. Tap anywhere on the card to open the edition. If today's edition has not arrived yet, the card shows the newest one with its date and an amber **Older edition** label, never today's weather. Move, widen or switch the card off in Profile → Dashboard.
 
-The Gazette page has the kept days at the top, the contents, and the sections. Fold a section with its arrow; your choice is remembered on this device. Every story links to its original. Admins open **Gazette settings** with the gear: name, how many days to keep, time zone, and the sections (show or hide, order, rename, icon, language, Dashboard headlines, start folded, a brief for the writer, add or remove). The **Watchlist** (tag icon) lists what you watch, with target and usual prices; editors add items, note a price they checked, and archive items. The watchlist is kept when old editions are removed.
+The Daily Planet page has the kept days at the top, the contents, and the sections. Fold a section with its arrow; your choice is remembered on this device. Every story links to its original. Admins open **Daily Planet settings** with the gear: name, how many days to keep, time zone, and the sections (show or hide, order, rename, icon, language, Dashboard headlines, start folded, a brief for the writer, add or remove). The **Watchlist** (tag icon) lists what you watch, with target and usual prices; editors add items, note a price they checked, and archive items. The watchlist is kept when old editions are removed.
 
 ## Documents
 

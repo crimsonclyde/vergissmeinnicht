@@ -1250,7 +1250,7 @@ export interface McpConnection {id:string;clientName:string;workspaceIds:string[
 export interface McpAdminConnection {id:string;owner:{id:string;displayName:string};clientName:string;workspaces:{id:string;name:string|null}[];scopes:import('@vergissmeinnicht/domain').McpScope[];createdAt:string;expiresAt:string;revokedAt:string|null;tokenIssued:boolean}
 export interface McpFileHost {host:string;status:'REFUSED'|'ALLOWED';refusedCount:number;firstSeenAt:string;lastSeenAt:string;decidedAt:string|null;decidedBy:string|null}
 export interface McpConsent {id:string;clientName:string;redirectOrigin:string;scopes:import('@vergissmeinnicht/domain').McpScope[];expiresAt:string}
-/** Morning Gazette (43): JSON shapes of the server's domain types (dates arrive as strings). */
+/** The Daily Planet (43): JSON shapes of the server's domain types (dates arrive as strings). */
 export type GazetteSettings = import('@vergissmeinnicht/domain').GazetteSettings;
 export type GazetteContent = import('@vergissmeinnicht/domain').GazetteEditionContent;
 export type GazetteSectionContent = import('@vergissmeinnicht/domain').GazetteSectionContent;
@@ -1282,7 +1282,7 @@ export const api = {
   saveBring: (workspaceId: string, content: BringContent, item?: BringView) => request<{ item: BringView }>('POST', bringPath(workspaceId, item === undefined ? '' : `/${item.id}/update`), { content, expectedRevision: item?.revision ?? 0 }).then(r => r.item),
   bringStatus: (workspaceId: string, item: Pick<BringView, 'id' | 'revision'>, status: BringStatus) => request<{ item: BringView }>('POST', bringPath(workspaceId, `/${item.id}/status`), { status, expectedRevision: item.revision }).then(r => r.item),
   bringDelete: (workspaceId: string, item: BringView, restore = false) => request<{ item: BringView }>('POST', bringPath(workspaceId, `/${item.id}/${restore ? 'restore' : 'delete'}`), { expectedRevision: item.revision }).then(r => r.item),
-  // Morning Gazette (43).
+  // The Daily Planet (43).
   gazetteToday: (workspaceId: string) => request<GazetteTodayView>('GET', `/workspaces/${encodeURIComponent(workspaceId)}/gazette/today`),
   gazetteSettings: (workspaceId: string) => request<{ settings: GazetteSettings; revision: number; today: string; oldest: string }>('GET', `/workspaces/${encodeURIComponent(workspaceId)}/gazette/settings`),
   saveGazetteSettings: (workspaceId: string, settings: GazetteSettings, expectedRevision: number) => request<{ settings: GazetteSettings; revision: number }>('POST', `/workspaces/${encodeURIComponent(workspaceId)}/gazette/settings`, { settings, expectedRevision }),

@@ -188,7 +188,7 @@ export interface AppServices {
   readonly maintenance: MaintenanceDeps;
   readonly equipment: EquipmentDeps;
   readonly recipes: RecipeDeps;
-  /** Morning Gazette editions and settings (43). */
+  /** The Daily Planet editions and settings (43). */
   readonly gazette: GazetteDeps;
   readonly listAttachments: DelegatedAttachmentDeps;
   readonly recipeAttachments: DelegatedAttachmentDeps;

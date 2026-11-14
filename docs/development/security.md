@@ -110,7 +110,7 @@ _Deferred with 2.6; these checks apply when external login is implemented (revie
 - [x] Assignment grants no access. (An Assignee of a Schedule or Occurrence (14.1) must be an ACTIVE member who can see the Workspace's Procedures when assigned; completing, skipping, starting and linking are authorized by the actor's own capabilities only — a GUEST Assignee can see but not act. Negative tests in `schedule-use-cases.test.ts` and `apps/server/src/http/schedule.test.ts`.)
 
 - [x] Journal (27): `journal.view` is granted to GUEST/USER/EDITOR/ADMIN; `journal.manage` only to USER/EDITOR/ADMIN. Private account journal reads/writes require the author’s ACTIVE account, with no Workspace/server-admin application override. Owner and Workspace identity cannot be changed in place.
-- [x] Morning Gazette (43): `gazette.view` is granted to GUEST/USER/EDITOR/ADMIN; `gazette.publish` (write, publish, read drafts) to EDITOR/ADMIN; `gazette.manage` (settings, sections, retention) to ADMIN only. All three need the `GAZETTE` tool switched on.
+- [x] The Daily Planet (Gazette, 43): `gazette.view` is granted to GUEST/USER/EDITOR/ADMIN; `gazette.publish` (write, publish, read drafts) to EDITOR/ADMIN; `gazette.manage` (settings, sections, retention) to ADMIN only. All three need the `GAZETTE` tool switched on.
 
 ### House-management tools (steps.md section 16)
 _Planned 2026-10-01, nothing implemented. Each line is checked off by the step that implements it (named in brackets) together with that step's "Security check"._
@@ -2186,7 +2186,7 @@ server admins see and can end every connection on the server.
 - [x] Fixed: the upload tools ignored `MCP_CHATGPT_FILE_HOSTS` (refused before download since 0.13.11).
 - Tests: `mcp-file-hosts.test.ts`, `chatgpt-files.test.ts`.
 
-### Morning Gazette data and API (43.1, 2026-11-14)
+### The Daily Planet (Gazette) data and API (43.1, 2026-11-14)
 
 **Security surface changed: a new optional tool with a write API meant for external importers.**
 

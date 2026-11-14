@@ -5996,6 +5996,15 @@ job, set up outside VMN.
 
 Security surface changed (new MCP scopes and write tools); see security.md 43.4.
 
+### 43.5 — Named "The Daily Planet" (owner, 2026-11-14)
+
+clyde: "Just don't call it Morning Gazette. Just call it The Daily Planet." Every name a person sees
+(menu, Plugins, Dashboard card, masthead default, settings, MCP consent row and tool description,
+user and admin docs, the sample edition) now says The Daily Planet. Internal identifiers stay
+`GAZETTE`/`gazette` (tool id, capabilities, scopes, tables, routes `/w/{ws}/gazette`), so nothing
+stored or granted changes. Follow-up noted by clyde: the background behind the header is too plain;
+to improve later.
+
 ## 11 — Licensing
 
 ### 11.1 AGPL-3.0

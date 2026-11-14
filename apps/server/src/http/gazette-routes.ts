@@ -20,7 +20,7 @@ function context(request: FastifyRequest) {
 }
 
 /**
- * Morning Gazette (43). Reads need `gazette.view`; writing and publishing editions `gazette.publish`;
+ * The Daily Planet (43). Reads need `gazette.view`; writing and publishing editions `gazette.publish`;
  * settings `gazette.manage`. Every write is validated in the domain before it is stored; a refused
  * payload changes nothing.
  */

@@ -4,7 +4,7 @@ import { BIDI_CONTROLS, CONTROL_CHARS } from './text.ts';
 import { WEATHER_CONDITIONS, type WeatherCondition } from './weather.ts';
 
 /**
- * Morning Gazette (section 43): one published daily edition per Workspace and local date, made of
+ * The Daily Planet (section 43): one published daily edition per Workspace and local date, made of
  * configurable sections. Sections are data: a stable id, a renderer type and presentation settings kept
  * in the Workspace's Gazette settings. Edition content is structured JSON validated here; it never holds
  * HTML. Adding a topic is a new section of an existing type, never a code change.
@@ -283,7 +283,7 @@ export function defaultGazetteSections(): GazetteSectionDefinition[] {
 }
 
 export function defaultGazetteSettings(timeZone: TimeZoneName | null): GazetteSettings {
-  return { version: 1, title: 'The Morning Gazette', retentionDays: DEFAULT_GAZETTE_RETENTION_DAYS, timeZone: timeZone ?? ('UTC' as TimeZoneName), publishTime: DEFAULT_GAZETTE_PUBLISH_TIME, dashboardHeadlines: 4, images: true, sections: defaultGazetteSections() };
+  return { version: 1, title: 'The Daily Planet', retentionDays: DEFAULT_GAZETTE_RETENTION_DAYS, timeZone: timeZone ?? ('UTC' as TimeZoneName), publishTime: DEFAULT_GAZETTE_PUBLISH_TIME, dashboardHeadlines: 4, images: true, sections: defaultGazetteSections() };
 }
 
 export function parseGazetteSettings(value: unknown): GazetteSettings {

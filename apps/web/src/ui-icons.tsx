@@ -307,7 +307,7 @@ const ICONS = {
   addressBook: IconAddressBook,
   page: IconFileText,
   folderOpen: IconFolderOpen,
-  // Morning Gazette (43): the tool and the bundled section icons (domain GAZETTE_ICONS map onto these).
+  // The Daily Planet (43): the tool and the bundled section icons (domain GAZETTE_ICONS map onto these).
   gazette: IconNews,
   gazetteShown: IconEye,
   gazetteHidden: IconEyeOff,

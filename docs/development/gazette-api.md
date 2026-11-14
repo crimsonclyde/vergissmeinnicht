@@ -1,8 +1,8 @@
-# Morning Gazette API (steps.md 43)
+# The Daily Planet API (internally "Gazette", steps.md 43)
 
-The Gazette is an optional Workspace tool (`GAZETTE`). VMN stores, validates and shows editions; it
+The Daily Planet (internally the Gazette) is an optional Workspace tool (`GAZETTE`). VMN stores, validates and shows editions; it
 never fetches news, forecasts or prices itself. An edition is written by an assistant through MCP
-(see [AI assistant connections](../admin/mcp.md#morning-gazette)) or by a signed-in client through
+(see [AI assistant connections](../admin/mcp.md#the-daily-planet-gazette)) or by a signed-in client through
 the REST API below. All paths are under `/api/workspaces/{workspaceId}/gazette`.
 
 | Method and path | Capability | Body / answer |
@@ -54,6 +54,6 @@ Cookie-authenticated writes need the usual same-origin request (CSRF origin chec
 [`docs/examples/gazette-edition.json`](../examples/gazette-edition.json) is a complete request body
 for `POST /editions` (generated from `sampleGazetteEdition` in `packages/domain/src/gazette-sample.ts`;
 every source is `example.org` and every headline is marked as a sample). To seed a development
-Workspace, switch the Gazette on in Plugins, change `content.date` to today in the Gazette time zone,
+Workspace, switch The Daily Planet on in Plugins, change `content.date` to today in its time zone,
 and send the file with an Editor's session, or ask a connected assistant to publish it with
 `publish_gazette_edition`.

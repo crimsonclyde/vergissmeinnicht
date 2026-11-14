@@ -76,7 +76,7 @@ export const WORKSPACE_CAPABILITIES = [
   'equipment.view',
   'equipment.manage',
   'equipment.purge',
-  /** Read published Morning Gazette editions and the section layout (43): every role, guests included. */
+  /** Read published The Daily Planet editions and the section layout (43): every role, guests included. */
   'gazette.view',
   /** Write, publish and read drafts of Gazette editions, by hand or through an import (EDITOR and above). */
   'gazette.publish',
