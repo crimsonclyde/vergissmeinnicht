@@ -83,6 +83,7 @@ export type AdminSection = (typeof ADMIN_SECTIONS)[number];
 export type Route =
   | { readonly page: 'clock' | 'weather' }
   | { readonly page: 'recipes'; readonly workspaceId: string }
+  | { readonly page: 'gazette'; readonly workspaceId: string; readonly date: string | null }
   | { readonly page: 'bring'; readonly workspaceId: string }
   | { readonly page: 'journal'; readonly workspaceId: string; readonly creating?: boolean;readonly entryId?:string }
   | { readonly page: 'home' }
@@ -173,6 +174,7 @@ export function parseRoute(pathname: string): Route {
   }
   if ((match = new RegExp(`^/w/${ID}/documents/${ID}$`).exec(path))) return { page: 'documents', workspaceId: match[1] ?? '', view: 'document', folderId: null, documentId: match[2] ?? null };
   if ((match = new RegExp(`^/w/${ID}/recipes$`).exec(path))) return {page:'recipes',workspaceId:match[1]??''};
+  if ((match = new RegExp(`^/w/${ID}/gazette(?:/(\\d{4}-\\d{2}-\\d{2}))?$`).exec(path))) return { page: 'gazette', workspaceId: match[1] ?? '', date: match[2] ?? null };
   if ((match = new RegExp(`^/w/${ID}/bring$`).exec(path))) return { page: 'bring', workspaceId: match[1] ?? '' };
   if ((match = new RegExp(`^/w/${ID}/(?:journal|notes)/${ID}$`).exec(path)))return {page:'journal',workspaceId:match[1]??'',entryId:match[2]??''};
   if ((match = new RegExp(`^/w/${ID}/(?:journal|notes)(/new)?$`).exec(path))) return { page: 'journal', workspaceId: match[1] ?? '', ...(match[2] ? {creating:true}: {}) };
@@ -225,6 +227,7 @@ export const paths = {
   document: (workspaceId: string, documentId: string) => `/w/${workspaceId}/documents/${documentId}`,
   documentTrash: (workspaceId: string) => `/w/${workspaceId}/documents/trash`,
   recipes:(workspaceId:string)=>`/w/${workspaceId}/recipes`,
+  gazette: (workspaceId: string, date?: string) => `/w/${workspaceId}/gazette${date ? `/${date}` : ''}`,
   bring: (workspaceId: string) => `/w/${workspaceId}/bring`,
   journal: (workspaceId: string) => `/w/${workspaceId}/notes`,
   note:(workspaceId:string,id:string)=>`/w/${workspaceId}/notes/${id}`,

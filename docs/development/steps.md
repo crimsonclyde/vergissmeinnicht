@@ -5919,6 +5919,38 @@ Security surface changed (new tool, capabilities, write API for external clients
 Remaining: 43.2 Dashboard card and Gazette page, 43.3 settings UI and watchlist, 43.4 MCP tools,
 API documentation and demo seed.
 
+### 43.2 — Dashboard card and Gazette page in every theme (2026-11-14)
+
+Implemented:
+
+- Today card `gazette` (registry after the instruments, main column, may be wide, on by default when
+  the tool is on; a saved layout gets it at the top). The whole card is one link to the edition
+  (no inner controls): engraved masthead band, greeting, weather for both places (today's edition
+  only), one headline per section, section count and verified price drops. An older edition shows its
+  real date and an amber "Older edition" chip and opens that date; no edition yet shows a quiet card.
+- `/w/{ws}/gazette` and `/w/{ws}/gazette/{YYYY-MM-DD}` (lazy-loaded; unknown when the tool is off):
+  cover engraving, masthead with double rules, a strip of the kept days (days without an edition are
+  dashed, the strip opens scrolled to the shown day), intro in Markdown with a drop cap, contents,
+  and the sections in the settings' order. Each section folds (per device, `localStorage`); a folded
+  section shows only its first headline. Renderers: articles (lead story, security box with
+  advisory/package/severity/VMN verdict), weather (high and low as line graphs, the week, disagreeing
+  days outlined, per-source comparison table, sources and fetch time), watchlist (price, usual,
+  target, trend line, verified/below-target/unverified chips), rich Markdown with tables; an unknown
+  type shows a note. External links open the original with `noopener noreferrer`.
+- Menu: "Gazette" first in the instruments group when the tool is on.
+- `gazette.css` uses only theme tokens (paper = surface tinted by the brand colour, engraving =
+  `currentColor`), with small per-theme touches: Tokyo Nights neon line work and glowing masthead,
+  Witch Forest old-book small capitals and inner rules, Galactic Guide plain face, Places' own serif;
+  Tokyo Nights and Witch Forest lay the page on a sheet so no text sits on the painted scene. Status
+  is never colour alone; reduced motion and forced colours handled.
+
+Checks: Playwright screenshots of the Dashboard and the Gazette in light, Memento Mori, Tokyo Nights,
+Witch Forest, Galactic Guide and Places IT/DE/UK/Scotland (light and dark) at 1440, 390 and 320 px,
+no horizontal scrolling at any width (`/mnt/project-files/ui-review/2026-11-14-gazette/build/`);
+Today layout, catalog and full suite, lint, typecheck.
+
+Security surface: none new (reads the 43.1 API; links are the validated https URLs).
+
 ## 11 — Licensing
 
 ### 11.1 AGPL-3.0

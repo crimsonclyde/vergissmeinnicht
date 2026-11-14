@@ -1,4 +1,5 @@
 import {lazy,Suspense} from 'react';
+const GazettePage=lazy(()=>import('./modules/gazette/GazettePage.tsx').then(module=>({default:module.GazettePage})));
 const RecipesPage=lazy(()=>import('./modules/recipes/RecipesPage.tsx').then(module=>({default:module.RecipesPage})));
 import { TodaySettingsProvider } from './guide/TodaySettingsProvider.tsx';
 import { GUIDE_CARD_ART } from './guide/card-art.ts';
@@ -277,6 +278,8 @@ function WorkspacePage(props: {
           {t('shell.notFound')} <Link href={paths.home(route.workspaceId)}>{t('common.startPage')}</Link>.
         </p>
       );
+    case 'gazette':
+      return context.tools.includes('GAZETTE')?<Suspense fallback={<p>{t('journal.loading')}</p>}><GazettePage key={route.workspaceId} workspaceId={route.workspaceId} date={route.date}/></Suspense>:<p role="alert">{t('shell.notFound')}</p>;
     case 'recipes':
       return context.tools.includes('RECIPES')?<Suspense fallback={<p>{t('journal.loading')}</p>}><RecipesPage key={route.workspaceId} workspaceId={route.workspaceId} canWrite={can('recipe.manage')} canShop={context.tools.includes('LISTS')&&can('list.edit')}/></Suspense>:<p role="alert">{t('shell.notFound')}</p>;
     case 'bring':

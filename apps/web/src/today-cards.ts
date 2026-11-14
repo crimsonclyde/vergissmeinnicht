@@ -46,6 +46,8 @@ export const TODAY_CARDS: readonly TodayCardDefinition[] = [
   // Personal, no Workspace tool (W1): shown when the server allows weather and the person set a place (19.4).
   { id: 'moon', anyOf: ['MOON'], defaultVisible: true, column: 'side', canBeWide: false },
   { id: 'weather', anyOf: [], defaultVisible: false, column: 'side', canBeWide: false },
+  // The Morning Gazette (43.2): the first main card when its tool is on; the whole card opens the edition.
+  { id: 'gazette', anyOf: ['GAZETTE'], defaultVisible: true, column: 'main', canBeWide: true },
   { id: 'attention', anyOf: ['REMINDERS', 'PROCEDURES'], defaultVisible: true, column: 'main', canBeWide: true },
   { id: 'continue', anyOf: ['PROCEDURES'], defaultVisible: true, column: 'main', canBeWide: true },
   { id: 'next', anyOf: ['REMINDERS', 'PROCEDURES'], defaultVisible: true, column: 'main', canBeWide: true },

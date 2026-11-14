@@ -19,6 +19,7 @@ const TITLES: Record<TodayCardId, MessageKey> = {
   clock: 'today.clock',
   weather: 'today.weather',
   moon: 'moon.heading',
+  gazette: 'gazette.heading',
 };
 
 /**
