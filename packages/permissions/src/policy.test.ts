@@ -13,8 +13,8 @@ describe('Workspace role policy', () => {
     // Changing this table is a security-relevant change: update docs/development/security.md §3 as well.
     const matrix = Object.fromEntries(WORKSPACE_ROLES.map((role) => [role, capabilitiesOf(role)]));
     expect(matrix).toEqual({
-      GUEST: ['workspace.view', 'procedure.view', 'run.view', 'list.view', 'document.view', 'contact.view', 'maintenance.view', 'transfer.view', 'recipe.view', 'journal.view', 'equipment.view'],
-      USER: ['workspace.view', 'workspace.members.view', 'procedure.view', 'run.view', 'run.start', 'run.execute', 'run.abort', 'schedule.manage', 'list.view', 'list.edit', 'document.view', 'document.manage', 'contact.view', 'contact.manage', 'contact.export', 'maintenance.view', 'maintenance.manage', 'transfer.view', 'transfer.manage', 'recipe.view', 'recipe.manage', 'journal.view', 'journal.manage', 'equipment.view', 'equipment.manage'],
+      GUEST: ['workspace.view', 'procedure.view', 'run.view', 'list.view', 'document.view', 'contact.view', 'maintenance.view', 'transfer.view', 'recipe.view', 'journal.view', 'equipment.view', 'gazette.view'],
+      USER: ['workspace.view', 'workspace.members.view', 'procedure.view', 'run.view', 'run.start', 'run.execute', 'run.abort', 'schedule.manage', 'list.view', 'list.edit', 'document.view', 'document.manage', 'contact.view', 'contact.manage', 'contact.export', 'maintenance.view', 'maintenance.manage', 'transfer.view', 'transfer.manage', 'recipe.view', 'recipe.manage', 'journal.view', 'journal.manage', 'equipment.view', 'equipment.manage', 'gazette.view'],
       EDITOR: [
         'workspace.view',
         'workspace.members.view',
@@ -44,9 +44,17 @@ describe('Workspace role policy', () => {
         'journal.manage',
         'equipment.view',
         'equipment.manage',
+        'gazette.view',
+        'gazette.publish',
       ],
       ADMIN: [...WORKSPACE_CAPABILITIES],
     });
+  });
+
+  it('lets every role read the Gazette, editors publish it and only admins configure it', () => {
+    expect(rolesWithCapability('gazette.view')).toEqual(['GUEST', 'USER', 'EDITOR', 'ADMIN']);
+    expect(rolesWithCapability('gazette.publish')).toEqual(['EDITOR', 'ADMIN']);
+    expect(rolesWithCapability('gazette.manage')).toEqual(['ADMIN']);
   });
 
   it('keeps GUEST read-only', () => {

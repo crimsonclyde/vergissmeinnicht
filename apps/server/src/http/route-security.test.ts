@@ -48,6 +48,12 @@ function bodyFor(route: string, ids: Record<string, string>): object {
   if (url.endsWith('/bring/:itemId/status')) return { expectedRevision: 1, status: 'COMPLETED' };
   if (url.endsWith('/recipes') || url.endsWith('/recipes/:recipeId')) return {content:{version:1,title:'Recipe',servings:2,ingredients:[{name:'Flour',amount:'125',unit:'g',note:''}],instructions:'Cook',tags:[],source:'',prepMinutes:null,cookMinutes:null},expectedRevision:0,archived:false};
   if (url.endsWith('/recipes/:recipeId/shopping')) return {operationId:'00000000-0000-4000-8000-000000000003',recipeRevision:1,listId:ids.listId,listRevision:1,servings:2,items:[{ingredient:0,title:'Flour',quantity:'125',unit:'g'}]};
+  if (url.endsWith('/gazette/settings')) return { settings: {}, expectedRevision: 0 };
+  if (url.endsWith('/gazette/editions')) return { content: {}, publish: false };
+  if (url.endsWith('/gazette/editions/id/:editionId/publish')) return { expectedRevision: 1 };
+  if (url.endsWith('/gazette/watchlist')) return { item: { name: 'Kettle', currency: 'EUR' } };
+  if (url.endsWith('/gazette/watchlist/:itemId')) return { item: { name: 'Kettle', currency: 'EUR' }, expectedRevision: 1 };
+  if (url.endsWith('/gazette/watchlist/prices')) return { observations: [] };
   if (url.endsWith('/journal') || url.endsWith('/journal/:entryId')) return { content: { kind: 'note', version: 1, title: 'Entry', date: '2026-10-23', body: 'Note' }, expectedRevision: 0, archived: false };
   if (url === '/api/account/weather/workspaces/:workspaceId/location') return { useWorkspaceLocation: true };
   if (url.endsWith('/location')) return { location: null, expectedLocation: null };
@@ -135,7 +141,8 @@ describe('security properties of every route (13.2)', () => {
   };
 
   beforeAll(async () => {
-    t = await startTestApp();
+    // Every route is called several times within a minute: the global per-client limit is not under test here.
+    t = await startTestApp({ apiRateLimitPerMinute: 5000 });
     owner = await t.invite('owner@example.org', 'Olga');
     outsider = await t.invite('outsider@example.org', 'Otto');
     plainUser = await t.invite('user@example.org', 'Uma');
@@ -209,6 +216,8 @@ describe('security properties of every route (13.2)', () => {
     const bringItem = (await t.post(`/api/workspaces/${home}/bring`, { content: { title: 'Drill', from: '', to: '', dueDate: null, assigneeId: null, notes: '' }, expectedRevision: 0 }, owner)).json().item;
     homeIds = {
       recipeId:'00000000-0000-4000-8000-000000000002',
+      editionId: '00000000-0000-4000-8000-000000000004',
+      date: '2026-11-14',
       attachmentId:coverId,kind:'original',
       bringId: bringItem.id,
       entryId: journalEntry.id,

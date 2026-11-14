@@ -27,6 +27,7 @@ import { useHomeFilter } from './home-filter.ts';
 import { ScopeSelect } from './ScopeSelect.tsx';
 import { useGuideSlots } from './guide/guide-slots.tsx';
 import { createPortal } from 'react-dom';
+import { GazetteCard } from './modules/gazette/GazetteCard.tsx';
 
 /** Other members' changes appear without reloading: Today refreshes this often while it is visible. */
 const REFRESH_MS = 30_000;
@@ -128,7 +129,7 @@ function TodayCard(props: { id: TodayCardId; icon: UiIconName; title: string; co
   const heading = `today-card-${props.id}`;
   return (
     <section aria-labelledby={heading} className={props.attention === true ? 'card today-card today-card-attention' : 'card today-card'} data-card={props.id}>
-      <GuideArt kind={({ attention: 'reminders', continue: 'procedures', next: 'calendar', toBuy: 'lists', bring: 'bring', maintenance: 'maintenance', recent: 'procedures', progress: 'procedures', calendar: 'calendar', clock: 'reminders', weather: 'calendar', moon: 'calendar' } as const)[props.id]} />
+      <GuideArt kind={({ attention: 'reminders', continue: 'procedures', next: 'calendar', toBuy: 'lists', bring: 'bring', maintenance: 'maintenance', recent: 'procedures', progress: 'procedures', calendar: 'calendar', clock: 'reminders', weather: 'calendar', moon: 'calendar', gazette: 'calendar' } as const)[props.id]} />
       <h3 id={heading} className="today-card-title">
         <UiIcon name={props.icon} />
         <span>{props.title}</span>
@@ -391,6 +392,8 @@ export function Today(props: {
         return home?.progress === undefined ? null : <ProgressCard key={card.id} progress={home.progress} />;
       case 'clock':
         return null; // Clock/Weather share one independent presentation group above Celestial.
+      case 'gazette':
+        return <GazetteCard key={`${workspaceId}:gazette`} workspaceId={workspaceId} />;
       case 'moon':
         return <MoonCard key={`${workspaceId}:moon`} workspaceId={workspaceId} />;
       case 'weather':

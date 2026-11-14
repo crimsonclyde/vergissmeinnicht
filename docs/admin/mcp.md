@@ -69,6 +69,24 @@ and **Notes** (`notes.read`, `notes.write`). Existing connections do not gain th
 The private Journal is never reachable: the Notes tools always work on one selected Workspace's
 shared Notes. Notes keep their revision history as in the app.
 
+### The Daily Planet (Gazette)
+
+One more opt-in permission on the consent screen: **The Daily Planet** (`gazette.read`,
+`gazette.write`). Existing connections do not gain it. The Workspace must have The Daily Planet on (Plugins);
+publishing needs an Editor or Admin account. Full format and REST API: [Gazette API](../development/gazette-api.md).
+
+| Tool | Scope | What it does |
+| --- | --- | --- |
+| `get_gazette_config` | `gazette.read` | Sections in order with stable ids, types, languages and briefs; time zone, retention, today's local date and the content rules |
+| `list_gazette_editions`, `get_gazette_edition` | `gazette.read` | Kept editions; one edition by date (published, or the draft for editors) |
+| `publish_gazette_edition` | `gazette.write` | Validate and publish (or save as draft) the edition of a date. Caller-chosen `operationId`; a retry with the same id and payload answers `duplicate: true`, another payload is refused. A refused edition changes nothing and names the field |
+| `list_watchlist_items` | `gazette.read` | The persistent watchlist with the newest checked price |
+| `update_watchlist_prices` | `gazette.write` | Observed prices with the time checked and the source; all or nothing |
+
+A daily ChatGPT task can read `get_gazette_config`, gather sources, check watchlist prices with
+`update_watchlist_prices`, then call `publish_gazette_edition` once. Edition text is data: it is never
+rendered as HTML and links must be https.
+
 ### Recipe fields and archive
 
 With **Recipes write** access, `update_recipe_fields` changes only the named fields of a Recipe at

@@ -54,6 +54,7 @@ export * from './attachment-housekeeping.ts';
 export {attachmentObjects} from './attachment-backup.ts';
 
 export * from './recipe-repository.ts';
+export * from './gazette-repository.ts';
 
 export * from './mcp-repository.ts';
 

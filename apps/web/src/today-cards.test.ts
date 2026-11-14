@@ -45,7 +45,7 @@ describe('Today cards (19.1)', () => {
   });
 
   it('puts what to act on in the main column and the rest beside it', () => {
-    expect(TODAY_CARDS.filter((card) => card.column === 'main').map((card) => card.id)).toEqual(['attention', 'continue', 'next']);
+    expect(TODAY_CARDS.filter((card) => card.column === 'main').map((card) => card.id)).toEqual(['gazette', 'attention', 'continue', 'next']);
   });
 });
 
@@ -77,7 +77,7 @@ describe('Today layout in the Profile (19.2)', () => {
     expect(read.density).toBe('COMFORTABLE');
     // Saved cards keep their order; missing ones go right after the registry card before them.
     // Clock & date did not exist then either: it comes first, as in the registry, and stays off.
-    expect(ids(read.cards)).toEqual(['clock', 'moon', 'weather', 'recent', 'attention', 'continue', 'next', 'toBuy', 'bring', 'maintenance', 'progress', 'calendar']);
+    expect(ids(read.cards)).toEqual(['clock', 'moon', 'weather', 'gazette', 'recent', 'attention', 'continue', 'next', 'toBuy', 'bring', 'maintenance', 'progress', 'calendar']);
     expect(read.cards[0]).toMatchObject({ visible: false, hour24: false });
     expect(read.cards.find((item) => item.card.id === 'weather')).toMatchObject({ visible: false });
     expect(read.cards.find((item) => item.card.id === 'moon')).toMatchObject({ visible: true });
@@ -97,7 +97,7 @@ describe('Today layout in the Profile (19.2)', () => {
   });
 
   it('moves cards one place at a time and stops at the ends', () => {
-    expect(ids(moveCard(defaults, 'continue', -1).cards).slice(3, 5)).toEqual(['continue', 'attention']);
+    expect(ids(moveCard(defaults, 'continue', -1).cards).slice(4, 6)).toEqual(['continue', 'attention']);
     expect(moveCard(defaults, 'clock', -1)).toBe(defaults);
     expect(moveCard(defaults, 'calendar', 1)).toBe(defaults);
   });

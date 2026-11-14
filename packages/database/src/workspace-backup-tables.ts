@@ -43,6 +43,12 @@ const SPECS: readonly Spec[] = [
   { table: 'bring_items', name: 'bring_items', from: own('bring_items'), userColumns: ['assignee_user_id', 'completed_by_user_id', 'cancelled_by_user_id', 'created_by_user_id', 'updated_by_user_id'], omit: [] },
   { table: 'recipes', name:'recipes', from:own('recipes'), userColumns:['created_by_user_id','updated_by_user_id'], omit:[] },
   { table:'recipe_attachment_references', name:'recipe_attachment_references', from:own('recipe_attachment_references'), userColumns:[], omit:[] },
+  // The Daily Planet (43): settings and the kept editions. Editions past the retention are removed after a restore by housekeeping.
+  { table: 'gazette_settings', name: 'gazette_settings', from: own('gazette_settings'), userColumns: ['updated_by_user_id'], omit: [] },
+  { table: 'gazette_editions', name: 'gazette_editions', from: own('gazette_editions'), userColumns: ['created_by_user_id', 'updated_by_user_id'], omit: [] },
+  // The watchlist (43.3) survives Gazette retention and travels with the Workspace, prices included.
+  { table: 'gazette_watch_items', name: 'gazette_watch_items', from: own('gazette_watch_items'), userColumns: ['created_by_user_id', 'updated_by_user_id'], omit: [] },
+  { table: 'gazette_watch_prices', name: 'gazette_watch_prices', from: own('gazette_watch_prices'), userColumns: ['created_by_user_id'], omit: [] },
   { table: 'journal_entries', name: 'journal_entries', from: own('journal_entries'), userColumns: ['created_by_user_id', 'updated_by_user_id'], omit: [] },
   { table: 'journal_revisions', name: 'journal_revisions', from: own('journal_revisions'), userColumns: ['by_user_id'], omit: [] },
   { table:'journal_attachment_references',name:'journal_attachment_references',from:own('journal_attachment_references'),userColumns:[],omit:[] },
@@ -88,6 +94,7 @@ export const EXCLUDED_TABLES: Readonly<Record<string, string>> = {
   mcp_grants:'personal delegated connection grants',
   mcp_tokens:'hashed OAuth credentials',
   mcp_file_hosts:'server-wide ChatGPT file host review list',
+  gazette_operations: 'Gazette import retry receipts, runtime state',
   recipe_shopping_operations: 'bounded user transfer retry outcomes, not portable Workspace content',
   attachment_settings:'server upload settings',
   attachment_quota_overrides:'personal storage quotas controlled by server admin',

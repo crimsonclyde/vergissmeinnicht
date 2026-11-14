@@ -76,6 +76,12 @@ export const WORKSPACE_CAPABILITIES = [
   'equipment.view',
   'equipment.manage',
   'equipment.purge',
+  /** Read published The Daily Planet editions and the section layout (43): every role, guests included. */
+  'gazette.view',
+  /** Write, publish and read drafts of Gazette editions, by hand or through an import (EDITOR and above). */
+  'gazette.publish',
+  /** Change Gazette settings: sections, retention, time zone (Workspace admins). */
+  'gazette.manage',
   /** Switch the optional tools of the Workspace (Documents, …) on and off (16.2). */
   'workspace.tools.manage',
   // Section 18 (B1): the Workspace backup holds everything — ADMIN only.
@@ -84,13 +90,13 @@ export const WORKSPACE_CAPABILITIES = [
 export type WorkspaceCapability = (typeof WORKSPACE_CAPABILITIES)[number];
 
 /** Read-only: Workspace content and history, no execution. */
-const GUEST: readonly WorkspaceCapability[] = ['workspace.view', 'procedure.view', 'run.view', 'list.view', 'document.view', 'contact.view', 'maintenance.view', 'equipment.view', 'journal.view', 'transfer.view', 'recipe.view'];
+const GUEST: readonly WorkspaceCapability[] = ['workspace.view', 'procedure.view', 'run.view', 'list.view', 'document.view', 'contact.view', 'maintenance.view', 'equipment.view', 'journal.view', 'transfer.view', 'recipe.view', 'gazette.view'];
 /** Executes Runs. */
 const USER: readonly WorkspaceCapability[] = [...GUEST, 'workspace.members.view', 'run.start', 'run.execute', 'run.abort', 'schedule.manage', 'list.edit', 'document.manage', 'contact.manage', 'contact.export', 'maintenance.manage', 'equipment.manage', 'journal.manage', 'transfer.manage', 'recipe.manage'];
 /** Authors Procedures. */
-const EDITOR: readonly WorkspaceCapability[] = [...USER, 'procedure.edit', 'procedure.restore', 'knot.manage'];
+const EDITOR: readonly WorkspaceCapability[] = [...USER, 'procedure.edit', 'procedure.restore', 'knot.manage', 'gazette.publish'];
 /** Manages membership, roles and settings. */
-const ADMIN: readonly WorkspaceCapability[] = [...EDITOR, 'workspace.members.manage', 'workspace.settings.manage', 'workspace.tools.manage', 'document.purge', 'run.document.remove', 'contact.purge', 'maintenance.purge', 'equipment.purge', 'workspace.backup'];
+const ADMIN: readonly WorkspaceCapability[] = [...EDITOR, 'workspace.members.manage', 'workspace.settings.manage', 'workspace.tools.manage', 'document.purge', 'run.document.remove', 'contact.purge', 'maintenance.purge', 'equipment.purge', 'workspace.backup', 'gazette.manage'];
 
 const ROLE_CAPABILITIES: Readonly<Record<WorkspaceRole, ReadonlySet<WorkspaceCapability>>> = Object.freeze({
   GUEST: new Set(GUEST),
@@ -134,6 +140,7 @@ export function toolForCapability(capability: WorkspaceCapability): WorkspaceToo
     case 'transfer': return 'BRING';
     case 'journal': return 'JOURNAL';
     case 'recipe': return 'RECIPES';
+    case 'gazette': return 'GAZETTE';
     default: return null;
   }
 }

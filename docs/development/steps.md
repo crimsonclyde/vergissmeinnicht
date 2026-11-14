@@ -5856,6 +5856,155 @@ user workflows; no host migration or external service provisioned by the assessm
 
 ---
 
+## 43 — Morning Gazette: a daily illustrated edition (owner request 2026-11-14)
+
+clyde asked for a modular Morning Gazette: one published edition per Workspace and local date with
+configurable sections (weather, IT & Open Source, Liguria in Italian, Europe & World, Good News,
+Shopping Watchlist), a Dashboard preview, a full newspaper-style page, retention (7 days by default),
+a REST API and MCP tools so ChatGPT can publish and read back an edition, and a persistent watchlist.
+Mockups approved 2026-11-14 (`/mnt/project-files/ui-review/2026-11-14-gazette/`): the whole Dashboard
+tile is one tap target (touchscreens); no small "Read more" link. Built in four reviewable stages.
+
+Decisions:
+
+- **Optional tool `GAZETTE`** (Plugins tab, off by default). Capabilities `gazette.view` (every role),
+  `gazette.publish` (EDITOR and above: write, publish, read drafts), `gazette.manage` (ADMIN: settings).
+- **SQLite, no JSONB:** edition content and settings are validated JSON text with `version: 1`, size
+  bounds and CHECKs in the database. Sections live in the settings as an ordered array with stable ids
+  (rename keeps the id); a new topic is a new section of an existing renderer type
+  (`weather`, `articles`, `watchlist`, `rich`), no rebuild. A new renderer is a code change.
+- **No HTML anywhere.** Text is plain or Markdown; tags are refused (`gazette_html_not_allowed`).
+  Links are https with a dotted host name and no user info. Images are not part of version 1 (CSP
+  allows no external images; a later step can reference uploaded attachments).
+- **Publishing:** one DRAFT and one PUBLISHED row per date. Publishing replaces the published row in
+  one transaction after validation, so a malformed or incomplete import never removes a valid edition.
+  An `operationId` makes imports idempotent: same id + same payload answers the stored edition
+  (`duplicate: true`); same id + other payload is 409 `gazette_operation_reused`. Editions may be
+  written for kept days and tomorrow only.
+- **Retention:** today and `retentionDays - 1` days before (Gazette time zone, default the Workspace
+  location's zone or UTC), run by the hourly housekeeping. The newest published edition is always kept
+  so the Dashboard never goes empty after a missed import; it shows its real date and no weather.
+- **WeatherOnline.de:** no documented permitted API was found; Göggenhofen uses MET Norway (or
+  another configured keyless source) and the edition names the actual source.
+
+### 43.1 — Data, edition service, REST API and retention (2026-11-14)
+
+Implemented:
+
+- Domain `gazette.ts`: settings and edition parsers with path-precise errors (`field` like
+  `edition.sections[2].items[0].url`), default sections, date window, retention boundary, the
+  Dashboard preview projection (round-robin headlines, weather only for today's edition, verified
+  price drops), and `gazette-sample.ts`, a clearly marked sample edition (example.org sources).
+- Migration **0077** (`gazette_settings`, `gazette_editions`, `gazette_operations`; `workspace_tools`
+  accepts `GAZETTE`). Settings and editions are in the Workspace backup (restore validates them with
+  the same parsers); operation receipts are not.
+- `GET /api/workspaces/{ws}/gazette/today` (Dashboard preview), `GET|POST …/gazette/settings`
+  (`expectedRevision`), `GET …/gazette/editions` (kept dates; drafts for publishers),
+  `GET …/gazette/editions/{date}?state=published|draft`, `GET …/gazette/editions/id/{id}`,
+  `POST …/gazette/editions` `{operationId?, content, publish, expectedRevision?}`,
+  `POST …/gazette/editions/id/{id}/publish` `{expectedRevision}` (re-validated against the current
+  sections), `POST …/gazette/editions/id/{id}/delete` (drafts only). Body limit 1 MiB, stored content
+  at most 600 kB. Audited as `GAZETTE_EDITION_CHANGED` / `GAZETTE_SETTINGS_CHANGED` (ids, dates,
+  revisions; never article text).
+- Hourly `purgeGazette` (own transaction) deletes expired editions and operation receipts older than
+  three days. Settings, watchlist and other tools' data are never touched.
+
+Checks: `packages/domain/src/gazette.test.ts` (12), `apps/server/src/http/gazette.test.ts` (7:
+tool/role/Workspace boundaries, idempotent retries, malformed imports keep the published edition,
+drafts hidden from readers and re-validated on publish, older edition never shown as today,
+retention boundaries incl. a shorter retention, settings validation and audit without content),
+permission matrix, backup allowlist and the full suite.
+
+Security surface changed (new tool, capabilities, write API for external clients); see security.md 43.
+Remaining at the time: 43.2–43.4 (done below).
+
+### 43.2 — Dashboard card and Gazette page in every theme (2026-11-14)
+
+Implemented:
+
+- Today card `gazette` (registry after the instruments, main column, may be wide, on by default when
+  the tool is on; a saved layout gets it at the top). The whole card is one link to the edition
+  (no inner controls): engraved masthead band, greeting, weather for both places (today's edition
+  only), one headline per section, section count and verified price drops. An older edition shows its
+  real date and an amber "Older edition" chip and opens that date; no edition yet shows a quiet card.
+- `/w/{ws}/gazette` and `/w/{ws}/gazette/{YYYY-MM-DD}` (lazy-loaded; unknown when the tool is off):
+  cover engraving, masthead with double rules, a strip of the kept days (days without an edition are
+  dashed, the strip opens scrolled to the shown day), intro in Markdown with a drop cap, contents,
+  and the sections in the settings' order. Each section folds (per device, `localStorage`); a folded
+  section shows only its first headline. Renderers: articles (lead story, security box with
+  advisory/package/severity/VMN verdict), weather (high and low as line graphs, the week, disagreeing
+  days outlined, per-source comparison table, sources and fetch time), watchlist (price, usual,
+  target, trend line, verified/below-target/unverified chips), rich Markdown with tables; an unknown
+  type shows a note. External links open the original with `noopener noreferrer`.
+- Menu: "Gazette" first in the instruments group when the tool is on.
+- `gazette.css` uses only theme tokens (paper = surface tinted by the brand colour, engraving =
+  `currentColor`), with small per-theme touches: Tokyo Nights neon line work and glowing masthead,
+  Witch Forest old-book small capitals and inner rules, Galactic Guide plain face, Places' own serif;
+  Tokyo Nights and Witch Forest lay the page on a sheet so no text sits on the painted scene. Status
+  is never colour alone; reduced motion and forced colours handled.
+
+Checks: Playwright screenshots of the Dashboard and the Gazette in light, Memento Mori, Tokyo Nights,
+Witch Forest, Galactic Guide and Places IT/DE/UK/Scotland (light and dark) at 1440, 390 and 320 px,
+no horizontal scrolling at any width (`/mnt/project-files/ui-review/2026-11-14-gazette/build/`);
+Today layout, catalog and full suite, lint, typecheck.
+
+Security surface: none new (reads the 43.1 API; links are the validated https URLs).
+
+### 43.3 — Settings and persistent watchlist (2026-11-14)
+
+Implemented:
+
+- `/w/{ws}/gazette/settings` (Workspace admins; a gear in the masthead): name, retention 1–31 days,
+  time zone, Dashboard headlines, and the sections: show/hide, reorder, rename, subtitle, language,
+  icon, Dashboard headlines, start folded, a brief for the writer, remove, and add a section of any
+  renderer type. Section ids stay stable on rename; nothing is saved before Save (revision checked).
+- Watchlist (migration **0078**: `gazette_watch_items`, `gazette_watch_prices`), independent of
+  editions and never touched by retention; in the Workspace backup. API: `GET|POST …/gazette/watchlist`,
+  `POST …/gazette/watchlist/{id}` `{item, expectedRevision}` (edit, archive with `active: false`),
+  `POST …/gazette/watchlist/prices` `{observations: [{itemId, price, checkedAt, verified?, source?, url?}]}`
+  (all or nothing; the newest 90 per item are kept).
+- `/w/{ws}/gazette/watchlist` (tag icon in the masthead and on the watchlist section): everyone reads;
+  editors add, edit, archive/restore and note a checked price; a small trend line from the history.
+
+Checks: HTTP test for roles, Workspace isolation, https links, missing check time, all-or-nothing
+batches, stale revisions, archive and retention; backup allowlist; screenshots of both screens in the
+themes at 1440 and 390 px; lint, typecheck, full suite.
+
+Security surface changed slightly (new Workspace data and write routes); see security.md 43.3.
+
+### 43.4 — MCP tools, API documentation and sample payload (2026-11-14)
+
+Implemented:
+
+- New opt-in MCP scopes `gazette.read` and `gazette.write` (consent row "Morning Gazette and its
+  watchlist"; existing connections do not gain them). Tools: `get_gazette_config` (enabled sections
+  with ids, types, languages and briefs, time zone, retention, today, content rules),
+  `list_gazette_editions`, `get_gazette_edition`, `publish_gazette_edition` (operation id, retry-safe,
+  draft or publish), `list_watchlist_items`, `update_watchlist_prices` (all or nothing). They use the
+  same use cases as the REST API: Workspace grant, tool gate and role are checked on every call.
+- `docs/development/gazette-api.md` (REST routes, edition format, sample data),
+  `docs/examples/gazette-edition.json` (complete sample request), MCP table in `docs/admin/mcp.md`,
+  user guide section "Morning Gazette".
+
+Checks: `apps/server/src/http/mcp-gazette.test.ts` (tool visibility per scope, config, idempotent
+publish, refused HTML names the field and keeps the published edition, watchlist read, all-or-nothing
+prices, read-only grant cannot publish); lint, typecheck, full suite.
+
+Not done: a seed command (seeding uses the sample request through the API or MCP, documented), and
+images in editions (version 1 has none). Live imports (news, forecasts, prices) are the assistant's
+job, set up outside VMN.
+
+Security surface changed (new MCP scopes and write tools); see security.md 43.4.
+
+### 43.5 — Named "The Daily Planet" (owner, 2026-11-14)
+
+clyde: "Just don't call it Morning Gazette. Just call it The Daily Planet." Every name a person sees
+(menu, Plugins, Dashboard card, masthead default, settings, MCP consent row and tool description,
+user and admin docs, the sample edition) now says The Daily Planet. Internal identifiers stay
+`GAZETTE`/`gazette` (tool id, capabilities, scopes, tables, routes `/w/{ws}/gazette`), so nothing
+stored or granted changes. Follow-up noted by clyde: the background behind the header is too plain;
+to improve later.
+
 ## 11 — Licensing
 
 ### 11.1 AGPL-3.0

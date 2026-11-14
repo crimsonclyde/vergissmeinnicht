@@ -1537,7 +1537,8 @@ test('first server admin: bootstrap link, account creation, sign-in, Workspace c
   await expect(cardSettings.getByRole('listitem').first()).toContainText('Clock & date');
   await expect(cardSettings.getByRole('listitem').nth(1)).toContainText('Weather');
   await expect(cardSettings.getByRole('listitem').nth(2)).toContainText('Celestial');
-  await expect(cardSettings.getByRole('listitem').nth(3)).toContainText('Needs attention');
+  await expect(cardSettings.getByRole('listitem').nth(3)).toContainText('Daily Planet');
+  await expect(cardSettings.getByRole('listitem').nth(4)).toContainText('Needs attention');
   await expectAccessible(page, 'today settings');
   // Clock & date (19.3): a personal card, off by default; switched on it tops Today, quietly (no live region).
   await cardSettings.getByLabel('Clock & date', { exact: true }).check();

@@ -110,6 +110,7 @@ _Deferred with 2.6; these checks apply when external login is implemented (revie
 - [x] Assignment grants no access. (An Assignee of a Schedule or Occurrence (14.1) must be an ACTIVE member who can see the Workspace's Procedures when assigned; completing, skipping, starting and linking are authorized by the actor's own capabilities only — a GUEST Assignee can see but not act. Negative tests in `schedule-use-cases.test.ts` and `apps/server/src/http/schedule.test.ts`.)
 
 - [x] Journal (27): `journal.view` is granted to GUEST/USER/EDITOR/ADMIN; `journal.manage` only to USER/EDITOR/ADMIN. Private account journal reads/writes require the author’s ACTIVE account, with no Workspace/server-admin application override. Owner and Workspace identity cannot be changed in place.
+- [x] The Daily Planet (Gazette, 43): `gazette.view` is granted to GUEST/USER/EDITOR/ADMIN; `gazette.publish` (write, publish, read drafts) to EDITOR/ADMIN; `gazette.manage` (settings, sections, retention) to ADMIN only. All three need the `GAZETTE` tool switched on.
 
 ### House-management tools (steps.md section 16)
 _Planned 2026-10-01, nothing implemented. Each line is checked off by the step that implements it (named in brackets) together with that step's "Security check"._
@@ -2184,3 +2185,48 @@ server admins see and can end every connection on the server.
   image preservation. Removing a host refuses the next transfer at once.
 - [x] Fixed: the upload tools ignored `MCP_CHATGPT_FILE_HOSTS` (refused before download since 0.13.11).
 - Tests: `mcp-file-hosts.test.ts`, `chatgpt-files.test.ts`.
+
+### The Daily Planet (Gazette) data and API (43.1, 2026-11-14)
+
+**Security surface changed: a new optional tool with a write API meant for external importers.**
+
+- [x] Optional tool `GAZETTE`, off by default; a disabled tool answers 404 to every role and deletes
+  nothing. Capabilities: `gazette.view` every role, `gazette.publish` EDITOR and above,
+  `gazette.manage` ADMIN — checked in the use case and again inside each write transaction.
+- [x] Drafts are invisible to readers (404 by id, 403 by date, not listed). Another Workspace never
+  sees an edition, not even by id.
+- [x] All content is validated in the domain before storage: strict field lists, length limits, no
+  control or bidi characters, no HTML tags in Markdown fields, https links only with a dotted host and
+  no user info, ISO timestamps, enumerated conditions, severities and states. Errors name a path,
+  never echo input. The database bounds size and version again.
+- [x] Imports are idempotent per `operationId`; a reused id with another payload is refused (409),
+  so a replayed or forged request cannot silently swap content under an old id.
+- [x] Publishing replaces the published edition only after validation, in one IMMEDIATE transaction.
+- [x] No external images or HTML are stored or rendered; the CSP stays unchanged.
+- [x] Retention deletes only Gazette editions and receipts; the newest published edition is kept.
+- [x] Audit: `GAZETTE_EDITION_CHANGED` (edition id, date, state, revision, action) and
+  `GAZETTE_SETTINGS_CHANGED` (revision, retention, section count) — never article text.
+- Tests: `gazette.test.ts` (domain and HTTP), `policy.test.ts`, backup allowlist tests.
+
+### Gazette watchlist (43.3, 2026-11-14)
+
+- [x] Watched items and observed prices (migration 0078) are Workspace data: every role with the tool
+  reads them, EDITOR and above change them (rechecked inside the write transaction). An item id of
+  another Workspace resolves to nothing; a price batch naming one stores nothing (404, all or nothing).
+- [x] Item links are https only (domain and database CHECK); prices need the time they were checked;
+  at most 100 items per Workspace and the newest 90 prices per item.
+- [x] Gazette retention never touches the watchlist; both tables are in the Workspace backup and are
+  restored with new ids and historical person references.
+- [x] The settings screen is reachable for `gazette.manage` only; the server enforces it regardless.
+
+### Gazette through MCP (43.4, 2026-11-14)
+
+- [x] Own opt-in scopes `gazette.read` / `gazette.write`; existing grants do not gain them, and tools
+  are listed only for grants that include them (test). Each call checks the granted Workspace, the
+  `GAZETTE` tool and the account's role through the same use cases as the REST API.
+- [x] `publish_gazette_edition` is idempotent per `operationId`; a different payload under a used id
+  is refused. Validation errors name the field and never echo content; a refused edition changes
+  nothing. Edition text, article summaries and watchlist notes are user data, never instructions.
+- [x] Prices are recorded only as observations with time and source; a batch naming an item outside
+  the Workspace stores nothing. No secrets, people, audit data or other tools are exposed.
+

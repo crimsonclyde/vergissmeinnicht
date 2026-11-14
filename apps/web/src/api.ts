@@ -1250,6 +1250,22 @@ export interface McpConnection {id:string;clientName:string;workspaceIds:string[
 export interface McpAdminConnection {id:string;owner:{id:string;displayName:string};clientName:string;workspaces:{id:string;name:string|null}[];scopes:import('@vergissmeinnicht/domain').McpScope[];createdAt:string;expiresAt:string;revokedAt:string|null;tokenIssued:boolean}
 export interface McpFileHost {host:string;status:'REFUSED'|'ALLOWED';refusedCount:number;firstSeenAt:string;lastSeenAt:string;decidedAt:string|null;decidedBy:string|null}
 export interface McpConsent {id:string;clientName:string;redirectOrigin:string;scopes:import('@vergissmeinnicht/domain').McpScope[];expiresAt:string}
+/** The Daily Planet (43): JSON shapes of the server's domain types (dates arrive as strings). */
+export type GazetteSettings = import('@vergissmeinnicht/domain').GazetteSettings;
+export type GazetteContent = import('@vergissmeinnicht/domain').GazetteEditionContent;
+export type GazetteSectionContent = import('@vergissmeinnicht/domain').GazetteSectionContent;
+export type GazetteWatchItemView = import('@vergissmeinnicht/domain').GazetteWatchItemView;
+export type GazetteWatchFields = import('@vergissmeinnicht/domain').GazetteWatchFields;
+export interface GazetteEditionSummaryView { readonly id: string; readonly date: string; readonly state: 'DRAFT' | 'PUBLISHED'; readonly title: string; readonly revision: number; readonly publishedAt: string | null; readonly updatedAt: string; readonly updatedBy: string }
+export interface GazetteEditionView extends GazetteEditionSummaryView { readonly content: GazetteContent }
+export interface GazettePreviewView {
+  readonly id: string; readonly date: string; readonly isToday: boolean; readonly title: string; readonly greeting: string; readonly publishedAt: string | null; readonly sectionCount: number;
+  readonly headlines: readonly { readonly sectionId: string; readonly section: string; readonly title: string }[];
+  readonly weather: readonly { readonly name: string; readonly condition: import('@vergissmeinnicht/domain').WeatherCondition; readonly high: number | null; readonly low: number | null }[];
+  readonly priceDrops: number;
+}
+export interface GazetteTodayView { readonly today: string; readonly preview: GazettePreviewView | null }
+
 export const api = {
   mcpStatus:()=>request<{enabled:boolean}>('GET','/account/mcp/status'),
   mcpConnections:()=>request<{connections:McpConnection[]}>('GET','/account/mcp/'),
@@ -1266,6 +1282,16 @@ export const api = {
   saveBring: (workspaceId: string, content: BringContent, item?: BringView) => request<{ item: BringView }>('POST', bringPath(workspaceId, item === undefined ? '' : `/${item.id}/update`), { content, expectedRevision: item?.revision ?? 0 }).then(r => r.item),
   bringStatus: (workspaceId: string, item: Pick<BringView, 'id' | 'revision'>, status: BringStatus) => request<{ item: BringView }>('POST', bringPath(workspaceId, `/${item.id}/status`), { status, expectedRevision: item.revision }).then(r => r.item),
   bringDelete: (workspaceId: string, item: BringView, restore = false) => request<{ item: BringView }>('POST', bringPath(workspaceId, `/${item.id}/${restore ? 'restore' : 'delete'}`), { expectedRevision: item.revision }).then(r => r.item),
+  // The Daily Planet (43).
+  gazetteToday: (workspaceId: string) => request<GazetteTodayView>('GET', `/workspaces/${encodeURIComponent(workspaceId)}/gazette/today`),
+  gazetteSettings: (workspaceId: string) => request<{ settings: GazetteSettings; revision: number; today: string; oldest: string }>('GET', `/workspaces/${encodeURIComponent(workspaceId)}/gazette/settings`),
+  saveGazetteSettings: (workspaceId: string, settings: GazetteSettings, expectedRevision: number) => request<{ settings: GazetteSettings; revision: number }>('POST', `/workspaces/${encodeURIComponent(workspaceId)}/gazette/settings`, { settings, expectedRevision }),
+  gazetteWatchlist: (workspaceId: string) => request<{ items: GazetteWatchItemView[] }>('GET', `/workspaces/${encodeURIComponent(workspaceId)}/gazette/watchlist`).then(result => result.items),
+  createGazetteWatchItem: (workspaceId: string, item: GazetteWatchFields) => request<{ item: GazetteWatchItemView }>('POST', `/workspaces/${encodeURIComponent(workspaceId)}/gazette/watchlist`, { item }).then(result => result.item),
+  updateGazetteWatchItem: (workspaceId: string, id: string, item: GazetteWatchFields, expectedRevision: number) => request<{ item: GazetteWatchItemView }>('POST', `/workspaces/${encodeURIComponent(workspaceId)}/gazette/watchlist/${encodeURIComponent(id)}`, { item, expectedRevision }).then(result => result.item),
+  recordGazettePrice: (workspaceId: string, itemId: string, price: number, source: string) => request<{ recorded: number }>('POST', `/workspaces/${encodeURIComponent(workspaceId)}/gazette/watchlist/prices`, { observations: [{ itemId, price, verified: true, checkedAt: new Date().toISOString(), source }] }),
+  gazetteEditions: (workspaceId: string) => request<{ today: string; editions: GazetteEditionSummaryView[] }>('GET', `/workspaces/${encodeURIComponent(workspaceId)}/gazette/editions`),
+  gazetteEdition: (workspaceId: string, date: string) => request<{ edition: GazetteEditionView }>('GET', `/workspaces/${encodeURIComponent(workspaceId)}/gazette/editions/${encodeURIComponent(date)}`).then(result => result.edition),
   recipes: (workspaceId:string,q='',archived=false,offset=0,filter:{categories?:readonly string[];sort?:string}={})=>request<{recipes:RecipeView[];more:boolean}>('GET',`/workspaces/${encodeURIComponent(workspaceId)}/recipes?${new URLSearchParams({q,archived:String(archived),offset:String(offset),...(filter.categories?.length?{categories:filter.categories.join(',')}:{}),...(filter.sort?{sort:filter.sort}:{})})}`),
   recipe: (workspaceId:string,id:string)=>request<{recipe:RecipeView}>('GET',`/workspaces/${encodeURIComponent(workspaceId)}/recipes/${encodeURIComponent(id)}`).then(result=>result.recipe),
   saveRecipe: (workspaceId:string,id:string|undefined,content:import('@vergissmeinnicht/domain').RecipeContent,expectedRevision:number,archived:boolean)=>request<{recipe:RecipeView}>('POST',`/workspaces/${encodeURIComponent(workspaceId)}/recipes${id?'/'+encodeURIComponent(id):''}`,{content,expectedRevision,archived}).then(result=>result.recipe),

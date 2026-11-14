@@ -1,4 +1,4 @@
-import { purgeExpired, type AppDatabase } from '@vergissmeinnicht/database';
+import { purgeExpired, purgeGazette, type AppDatabase } from '@vergissmeinnicht/database';
 import type { FastifyBaseLogger } from 'fastify';
 
 export const HOUSEKEEPING_INTERVAL_MS = 60 * 60_000;
@@ -23,6 +23,13 @@ export function scheduleHousekeeping(
       if (Object.values(deleted).some((count) => count > 0)) log.info({ housekeeping: deleted }, 'expired rows deleted');
     } catch (error) {
       log.error({ err: { type: (error as Error).name } }, 'housekeeping failed');
+    }
+    try {
+      // Gazette retention (43) in its own transaction: a failure here never blocks the rest.
+      const gazette = purgeGazette(database);
+      if (gazette.editions > 0 || gazette.operations > 0) log.info({ housekeeping: { gazette } }, 'expired Gazette editions deleted');
+    } catch (error) {
+      log.error({ err: { type: (error as Error).name } }, 'gazette housekeeping failed');
     }
     attachments?.().catch((error:unknown)=>log.error({err:{type:(error as Error).name}},'attachment housekeeping failed'));
     purgeImages?.().then(

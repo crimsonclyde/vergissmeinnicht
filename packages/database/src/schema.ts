@@ -21,6 +21,8 @@ import {
   TEXT_SOURCES,
   TEXT_STATES,
   WORKSPACE_TOOLS,
+  GAZETTE_EDITION_STATES,
+  GAZETTE_WATCH_CONDITIONS,
   PROCEDURE_ICONS,
   REASON_POLICIES,
   OCCURRENCE_STATES,
@@ -2535,3 +2537,67 @@ export const recipeImageJobs=sqliteTable('recipe_image_jobs',{
 export const recipeMealOperations=sqliteTable('recipe_meal_operations',{
  id:text('id').primaryKey(),workspaceId:text('workspace_id').notNull().references(()=>workspaces.id),userId:text('user_id').notNull().references(()=>users.id),payloadHash:text('payload_hash').notNull(),recipeId:text('recipe_id').notNull().references(()=>recipes.id),itemIds:text('item_ids',{mode:'json'}).$type<string[]>().notNull(),at:timestampMs('at'),
 });
+
+/**
+ * The Daily Planet (43). One row per Workspace holding its settings and section definitions (stable ids,
+ * order = array order). No row means the defaults. Part of the Workspace backup.
+ */
+export const gazetteSettings = sqliteTable('gazette_settings', {
+  workspaceId: text('workspace_id').primaryKey().references(() => workspaces.id),
+  settings: text('settings', { mode: 'json' }).$type<import('@vergissmeinnicht/domain').GazetteSettings>().notNull(),
+  revision: integer('revision').notNull(),
+  updatedAt: timestampMs('updated_at'), updatedByUserId: text('updated_by_user_id').notNull().references(() => users.id),
+}, t => [check('gazette_settings_valid', sql`json_valid(${t.settings}) and length(${t.settings}) <= 100000 and json_extract(${t.settings}, '$.version') = 1 and json_extract(${t.settings}, '$.retentionDays') between 1 and 31 and ${t.revision} >= 1`)]);
+
+/**
+ * Gazette editions (43): at most one DRAFT and one PUBLISHED edition per Workspace and local date.
+ * Publishing replaces the published row inside one transaction, so a failed import never removes a valid
+ * edition. Rows older than the retention are deleted by housekeeping; the newest published one is kept.
+ */
+export const gazetteEditions = sqliteTable('gazette_editions', {
+  id: text('id').primaryKey(), workspaceId: text('workspace_id').notNull().references(() => workspaces.id),
+  editionDate: text('edition_date').notNull(), state: text('state', { enum: GAZETTE_EDITION_STATES }).notNull(),
+  content: text('content', { mode: 'json' }).$type<import('@vergissmeinnicht/domain').GazetteEditionContent>().notNull(),
+  revision: integer('revision').notNull(), publishedAt: integer('published_at', { mode: 'timestamp_ms' }),
+  createdAt: timestampMs('created_at'), createdByUserId: text('created_by_user_id').notNull().references(() => users.id),
+  updatedAt: timestampMs('updated_at'), updatedByUserId: text('updated_by_user_id').notNull().references(() => users.id), updatedBy: text('updated_by').notNull(),
+}, t => [
+  uniqueIndex('gazette_edition_date_state').on(t.workspaceId, t.editionDate, t.state),
+  index('gazette_edition_workspace_state').on(t.workspaceId, t.state, t.editionDate),
+  check('gazette_edition_valid', sql`${oneOf('state', GAZETTE_EDITION_STATES)} and length(${t.editionDate}) = 10 and json_valid(${t.content}) and length(${t.content}) <= 600000 and json_extract(${t.content}, '$.version') = 1 and json_extract(${t.content}, '$.date') = ${t.editionDate} and ${t.revision} >= 1 and ((${t.state} = 'PUBLISHED') = (${t.publishedAt} is not null))`),
+]);
+
+/** Import retry outcomes (43): the same operation id with the same payload answers the stored edition; another payload is refused. Not portable. */
+export const gazetteOperations = sqliteTable('gazette_operations', {
+  id: text('id').primaryKey(), workspaceId: text('workspace_id').notNull().references(() => workspaces.id), userId: text('user_id').notNull().references(() => users.id),
+  payloadHash: text('payload_hash').notNull(), editionId: text('edition_id').notNull(), editionDate: text('edition_date').notNull(), at: timestampMs('at'),
+}, t => [index('gazette_operations_at').on(t.at)]);
+
+/**
+ * The persistent Gazette watchlist (43.3): what a Workspace watches, independent of editions — Gazette
+ * retention never touches it. Archived items stay with their price history.
+ */
+export const gazetteWatchItems = sqliteTable('gazette_watch_items', {
+  id: text('id').primaryKey(), workspaceId: text('workspace_id').notNull().references(() => workspaces.id),
+  name: text('name').notNull(), variant: text('variant').notNull(), condition: text('condition', { enum: GAZETTE_WATCH_CONDITIONS }).notNull(),
+  market: text('market').notNull(), shop: text('shop').notNull(), url: text('url'), currency: text('currency').notNull(),
+  target: real('target'), typical: real('typical'), notes: text('notes').notNull(), active: integer('active', { mode: 'boolean' }).notNull(),
+  revision: integer('revision').notNull(),
+  createdAt: timestampMs('created_at'), createdByUserId: text('created_by_user_id').notNull().references(() => users.id),
+  updatedAt: timestampMs('updated_at'), updatedByUserId: text('updated_by_user_id').notNull().references(() => users.id),
+}, t => [
+  index('gazette_watch_items_workspace').on(t.workspaceId, t.active),
+  check('gazette_watch_item_valid', sql`${oneOf('condition', GAZETTE_WATCH_CONDITIONS)} and length(${t.name}) between 1 and 480 and length(${t.variant}) <= 480 and length(${t.market}) <= 32 and length(${t.shop}) <= 320 and (${t.url} is null or (length(${t.url}) <= 2048 and ${t.url} like 'https://%')) and length(${t.currency}) = 3 and length(${t.notes}) <= 4000 and (${t.target} is null or ${t.target} >= 0) and (${t.typical} is null or ${t.typical} >= 0) and ${t.active} in (0, 1) and ${t.revision} >= 1`),
+]);
+
+/** Observed prices of a watched item (43.3): only what someone checked, with when and where. At most 90 per item. */
+export const gazetteWatchPrices = sqliteTable('gazette_watch_prices', {
+  id: text('id').primaryKey(), workspaceId: text('workspace_id').notNull().references(() => workspaces.id),
+  itemId: text('item_id').notNull().references(() => gazetteWatchItems.id),
+  price: real('price').notNull(), verified: integer('verified', { mode: 'boolean' }).notNull(), checkedAt: integer('checked_at', { mode: 'timestamp_ms' }).notNull(),
+  source: text('source').notNull(), url: text('url'),
+  createdAt: timestampMs('created_at'), createdByUserId: text('created_by_user_id').notNull().references(() => users.id),
+}, t => [
+  index('gazette_watch_prices_item').on(t.itemId, t.checkedAt),
+  check('gazette_watch_price_valid', sql`${t.price} >= 0 and ${t.verified} in (0, 1) and length(${t.source}) <= 320 and (${t.url} is null or (length(${t.url}) <= 2048 and ${t.url} like 'https://%'))`),
+]);

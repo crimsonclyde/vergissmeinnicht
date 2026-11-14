@@ -78,6 +78,11 @@ export function formatTime(value: string | Date): string {
   return new Intl.DateTimeFormat(formatLocale(), { timeStyle: 'medium' }).format(toDate(value));
 }
 
+/** Hour and minute only (e.g. "07:31" / "7:31 AM"). */
+export function formatShortTime(value: string | Date): string {
+  return new Intl.DateTimeFormat(formatLocale(), { timeStyle: 'short' }).format(toDate(value));
+}
+
 /** Compact "when": time only for today, date and time otherwise (e.g. "17:40" / "Sep 26, 17:40"). */
 export function formatWhen(value: string | Date, now: Date = new Date()): string {
   const date = toDate(value);

@@ -44,6 +44,8 @@ export async function startTestApp(
     chatGptFileHosts?: string;
     /** Capture the server log (info level, production serializers) into `logs`. */
     captureLogs?: boolean;
+    /** The global per-client API limit (default 300/min); sweeps over every route need more. */
+    apiRateLimitPerMinute?: number;
   } = {},
 ) {
   const database = createTestDatabase();
@@ -74,6 +76,7 @@ export async function startTestApp(
     buildApp({
       webDistDir: options.webDistDir,
       trustedProxies: options.trustedProxies,
+      apiRateLimitPerMinute: options.apiRateLimitPerMinute,
       ...(options.captureLogs === true ? { logger: { ...loggerOptions('info'), stream: logStream } } : {}),
       services: (log) => {
         const built = createServices(testConfig, database, {

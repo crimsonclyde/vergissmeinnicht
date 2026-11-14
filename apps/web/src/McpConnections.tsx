@@ -25,6 +25,7 @@ const permissions:readonly Permission[] = [
   {label:'mcp.todos',icon:'checklist',read:'todos.read',write:'todos.write',writeLabel:'mcp.manageTodos',readWriteLabel:'mcp.readAndManageTodos'},
   {label:'mcp.calendar',icon:'calendar',read:'calendar.read',write:'calendar.write',writeLabel:'mcp.addReminders',readWriteLabel:'mcp.readAndAddReminders'},
   {label:'mcp.notes',icon:'notebook',read:'notes.read',write:'notes.write',writeLabel:'mcp.writeNotes',readWriteLabel:'mcp.readAndWriteNotes'},
+  {label:'mcp.gazette',icon:'gazette',read:'gazette.read',write:'gazette.write',writeLabel:'mcp.publishGazette',readWriteLabel:'mcp.readAndPublishGazette'},
   {label:'mcp.listCovers',icon:'photo',write:'lists.covers.write',writeLabel:'mcp.manageListCovers'},
   {label:'mcp.recipes',icon:'grocery',read:'recipes.read',write:'recipes.write',writeLabel:'mcp.saveRecipes'},
 ];
