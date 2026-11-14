@@ -45,7 +45,7 @@ const SPECS: readonly Spec[] = [
   { table:'recipe_attachment_references', name:'recipe_attachment_references', from:own('recipe_attachment_references'), userColumns:[], omit:[] },
   // The Daily Planet (43): settings and the kept editions. Editions past the retention are removed after a restore by housekeeping.
   { table: 'gazette_settings', name: 'gazette_settings', from: own('gazette_settings'), userColumns: ['updated_by_user_id'], omit: [] },
-  { table: 'gazette_editions', name: 'gazette_editions', from: own('gazette_editions'), userColumns: ['created_by_user_id', 'updated_by_user_id'], omit: [] },
+  { table: 'gazette_editions', name: 'gazette_editions', from: own('gazette_editions'), userColumns: ['created_by_user_id', 'updated_by_user_id'], omit: ['header'] },
   // The watchlist (43.3) survives Gazette retention and travels with the Workspace, prices included.
   { table: 'gazette_watch_items', name: 'gazette_watch_items', from: own('gazette_watch_items'), userColumns: ['created_by_user_id', 'updated_by_user_id'], omit: [] },
   { table: 'gazette_watch_prices', name: 'gazette_watch_prices', from: own('gazette_watch_prices'), userColumns: ['created_by_user_id'], omit: [] },
@@ -121,6 +121,8 @@ export const EXCLUDED_TABLES: Readonly<Record<string, string>> = {
   user_workspace_preferences: 'personal default Workspace, per-Workspace themes and Guide presentation',
   user_avatars: 'personal profile pictures',
   user_place_preferences: 'personal Places settings per Workspace',
+  gazette_header_images: 'server-local decorative Gazette header photos',
+  gazette_header_settings: 'server-local Gazette header rotation',
   user_place_backgrounds: 'personal Places background photos',
   user_weather_settings: 'personal weather settings and locations',
   user_weather_workspace_locations: 'personal weather opt-in per Workspace',

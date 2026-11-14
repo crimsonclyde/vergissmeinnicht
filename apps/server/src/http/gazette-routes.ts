@@ -1,9 +1,9 @@
 import type { FastifyInstance, FastifyRequest } from 'fastify';
 import { z } from 'zod';
 import {
-  createGazetteWatchItem, deleteGazetteDraft, gazetteDashboard, listGazetteWatchItems, recordGazettePrices, updateGazetteWatchItem, getGazetteEdition, getGazetteEditionById, getGazetteSettings, listGazetteEditions, publishGazetteDraft, saveGazetteSettings, writeGazetteEdition,
+  removeGazetteWatchItem, getGazetteHeaderSettings, saveGazetteHeaderSettings, addGazetteHeaderImage, removeGazetteHeaderImage, readGazetteHeaderImage, overrideGazetteHeader, importGazetteWatchItems, createGazetteWatchItem, deleteGazetteDraft, gazetteDashboard, listGazetteWatchItems, recordGazettePrices, updateGazetteWatchItem, getGazetteEdition, getGazetteEditionById, getGazetteSettings, listGazetteEditions, publishGazetteDraft, saveGazetteSettings, writeGazetteEdition,
 } from '@vergissmeinnicht/application';
-import { UUID_V4, type WorkspaceId } from '@vergissmeinnicht/domain';
+import { MAX_IMAGE_UPLOAD_BYTES, UUID_V4, type WorkspaceId } from '@vergissmeinnicht/domain';
 import type { AppServices } from '../composition.ts';
 import { requireUser } from './session.ts';
 import { InvalidRequestError } from './errors.ts';
@@ -27,6 +27,44 @@ function context(request: FastifyRequest) {
 export async function gazetteRoutes(app: FastifyInstance, { services }: { services: AppServices }) {
   app.addHook('preHandler', requireUser(services));
   const deps = services.gazette;
+
+  app.addContentTypeParser('application/octet-stream', { parseAs: 'buffer', bodyLimit: MAX_IMAGE_UPLOAD_BYTES }, (_request, body, done) => done(null, body));
+  app.get('/header', async request => {
+    const { actor, workspaceId } = context(request);
+    return getGazetteHeaderSettings(deps, actor, workspaceId);
+  });
+  app.post('/header', { bodyLimit: 8192 }, async request => {
+    const { actor, workspaceId } = context(request);
+    const input = parse(z.strictObject({ settings: z.unknown(), expectedRevision: revision }), request.body);
+    return saveGazetteHeaderSettings(deps, actor, workspaceId, input.settings, input.expectedRevision);
+  });
+  app.post('/header/images', {
+    bodyLimit: MAX_IMAGE_UPLOAD_BYTES,
+    config: { rateLimit: { max: 20, timeWindow: 900_000, hook: 'preHandler', keyGenerator: request => `gazette-header:${request.principal?.user.id ?? request.ip}` } },
+  }, async request => {
+    const { actor, workspaceId } = context(request);
+    const input = parse(z.strictObject({ replace: uuid.optional(), revision: z.coerce.number().int().min(0).max(1_000_000_000) }), request.query);
+    if (!Buffer.isBuffer(request.body)) throw new InvalidRequestError();
+    return addGazetteHeaderImage(deps, actor, workspaceId, request.body, input.replace ?? null, input.revision);
+  });
+  app.get('/header/images/:imageId', async (request, reply) => {
+    const { actor, workspaceId } = context(request);
+    const { imageId } = parse(z.object({ imageId: uuid }), request.params);
+    const bytes = await readGazetteHeaderImage(deps, actor, workspaceId, imageId);
+    return reply.type('image/jpeg').header('Content-Disposition', 'inline; filename="gazette-header.jpg"').header('Cache-Control', 'private, no-store').send(Buffer.from(bytes));
+  });
+  app.post('/header/images/:imageId/delete', { bodyLimit: 1024 }, async request => {
+    const { actor, workspaceId } = context(request);
+    const { imageId } = parse(z.object({ imageId: uuid }), request.params);
+    const { expectedRevision } = parse(z.strictObject({ expectedRevision: revision }), request.body);
+    return removeGazetteHeaderImage(deps, actor, workspaceId, imageId, expectedRevision);
+  });
+  app.post('/header/override', { bodyLimit: 1024 }, async (request, reply) => {
+    const { actor, workspaceId } = context(request);
+    const { date, imageId, expectedRevision } = parse(z.strictObject({ date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/), imageId: uuid.nullable(), expectedRevision: revision }), request.body);
+    await overrideGazetteHeader(deps, actor, workspaceId, date, imageId, expectedRevision);
+    return reply.code(204).send();
+  });
 
   app.get('/today', async request => {
     const { actor, workspaceId } = context(request);
@@ -93,6 +131,18 @@ export async function gazetteRoutes(app: FastifyInstance, { services }: { servic
     const { actor, workspaceId } = context(request);
     const input = parse(z.strictObject({ observations: z.unknown() }), request.body);
     return recordGazettePrices(deps, actor, workspaceId, input.observations);
+  });
+  app.post('/watchlist/import', { bodyLimit: 128 * 1024 }, async request => {
+    const { actor, workspaceId } = context(request);
+    const input = parse(z.strictObject({ items: z.unknown() }), request.body);
+    return importGazetteWatchItems(deps, actor, workspaceId, input.items);
+  });
+  app.post('/watchlist/:itemId/delete', { bodyLimit: 1024 }, async (request, reply) => {
+    const { actor, workspaceId } = context(request);
+    const { itemId } = parse(z.object({ itemId: uuid }), request.params);
+    const { expectedRevision } = parse(z.strictObject({ expectedRevision: revision }), request.body);
+    await removeGazetteWatchItem(deps, actor, workspaceId, itemId, expectedRevision);
+    return reply.code(204).send();
   });
   app.post('/watchlist/:itemId', { bodyLimit: 16 * 1024 }, async request => {
     const { actor, workspaceId } = context(request);

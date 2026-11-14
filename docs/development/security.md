@@ -2230,3 +2230,33 @@ server admins see and can end every connection on the server.
 - [x] Prices are recorded only as observations with time and source; a batch naming an item outside
   the Workspace stores nothing. No secrets, people, audit data or other tools are exposed.
 
+
+### Gazette reference imports and masthead images (43.6, 2026-11-15)
+
+The import is a bounded, strict JSON batch of reviewed reference data. The server does not
+fetch Amazon or any pasted URL. The configured wishlist is a canonical Amazon.de list link
+with tracking removed; it is Workspace data, visible to authorized Gazette readers and
+included in portable backups. Product links remain validated HTTPS text, opened on user action.
+Import changes only reference metadata, never a verified observation. Exact ASIN/identity and
+market, condition and currency protect variants and retained price history. The existing
+`gazette.write` scope, EDITOR+ capability and Workspace/tool gates apply and are checked again
+in the IMMEDIATE transaction. Only admins can permanently delete an archived item and its
+observations, at the supplied revision; the audit event contains the item id and revision only.
+
+Header upload, reorder, crop, replacement, removal and edition override require
+`gazette.manage` and current revisions. Reads of image bytes require `gazette.view`, the enabled
+tool and the same Workspace; an image id grants no access. Uploads use the existing Places
+processor admission, format, pixel and decoding checks; only a metadata-free JPEG of at most
+700 kB survives. Request bodies are bounded and uploads rate-limited. At most 12 active and 24
+total images per Workspace, charged against both Workspace and configured server storage
+limits in the write transaction. JPEGs are served inline and private with no-store and the
+normal API security headers; no arbitrary content or external image sources. Replacement
+retains bytes while editions reference them. Housekeeping reclaims replaced, unreferenced
+images; removing an active image clears its edition snapshots. The binary data and decorative
+configuration are local to a full server backup and excluded, together with the local
+snapshot references, from portable Workspace packages.
+
+Negative coverage: denied uploads for editor and cross-origin requests, refused invalid
+images and focal points, foreign Workspace image ids, disabled tool reads, unauthorized
+overrides, denied import for guest and reader grants, refused invalid batch, archived-only
+admin removal, stable edition header after reimport and replacement. No new OAuth scopes.

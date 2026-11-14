@@ -1,3 +1,4 @@
+import sharp from 'sharp';
 import { randomUUID } from 'node:crypto';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { purgeGazette } from '@vergissmeinnicht/database';
@@ -177,4 +178,72 @@ describe('The Daily Planet API (43)', () => {
     purgeGazette(t.database, new Date(Date.now() + 60 * DAY));
     expect((await t.get(`${base()}/watchlist`, guest)).json().items[0].history).toHaveLength(2);
   });
+  it('imports supplied references atomically, matches ASINs exactly and retains observations on reimport', async () => {
+    const url = `${base()}/watchlist/import`;
+    const silver = { name: 'Ninja Luxe Café Pro, silver ES701EU', typical: 499, currency: 'EUR', url: 'https://www.amazon.de/Ninja/dp/B012345678?tag=tracking' };
+    const bronze = { ...silver, name: 'Ninja Luxe Café Pro, bronze', url: 'https://www.amazon.de/dp/B012345679' };
+    const cheap = { name: 'Filter', currency: 'EUR', typical: 10 };
+    expect((await t.post(url, { items: [silver] }, guest)).statusCode).toBe(403);
+    expect((await t.post(url, { items: [silver, { ...bronze, url: 'http://amazon.de/' }] }, editor)).statusCode).toBe(400);
+    expect((await t.get(`${base()}/watchlist`, guest)).json().items).toEqual([]);
+    expect((await t.post(url, { items: [silver, bronze, cheap, silver] }, editor)).json()).toEqual({ created: 2, updated: 0, skipped: 2 });
+    const getItems = async () => (await t.get(`${base()}/watchlist`, guest)).json().items;
+    const row = (await getItems()).find((item: { name: string }) => item.name === silver.name);
+    expect(row).toMatchObject({ url: 'https://www.amazon.de/dp/B012345678', typical: 499, latest: null, history: [] });
+    await t.post(`${base()}/watchlist/prices`, { observations: [{ itemId: row.id, checkedAt: new Date(Date.now() - 60_000).toISOString(), price: 450, verified: true, source: 'Retailer A' }, { itemId: row.id, checkedAt: new Date().toISOString(), price: 100, verified: false }] }, editor);
+    expect((await t.post(url, { items: [{ ...silver, name: 'Short retailer title', typical: 480 }] }, editor)).json()).toEqual({ created: 0, updated: 1, skipped: 0 });
+    const changed = (await getItems()).find((item: { id: string }) => item.id === row.id);
+    expect(changed).toMatchObject({ name: silver.name, typical: 480, revision: 2, lowestVerified: { price: 450, source: 'Retailer A' } });
+    expect(changed.history).toHaveLength(2);
+    const deletion = `${base()}/watchlist/${row.id}/delete`;
+    expect((await t.post(deletion, { expectedRevision: 2 }, editor)).statusCode).toBe(403);
+    expect((await t.post(deletion, { expectedRevision: 2 }, t.admin)).statusCode).toBe(409);
+    expect((await t.post(`${base()}/watchlist/${row.id}`, { item: { ...silver, active: false }, expectedRevision: 2 }, editor)).statusCode).toBe(200);
+    expect((await t.post(deletion, { expectedRevision: 3 }, t.admin)).statusCode).toBe(204);
+    expect(await getItems()).toHaveLength(1);
+  });
+
+  it('serves bounded admin-uploaded JPEGs only in their Workspace and snapshots edition rotations', async () => {
+    const bytes = await sharp({ create: { width: 48, height: 32, channels: 3, background: '#889a65' } }).jpeg().withExif({ IFD0: { Make: 'secret camera' } }).toBuffer();
+    const upload = (payload: Buffer, cookie: string, rev: number, replace?: string, origin = 'https://vmn.example.org') => t.app.inject({
+      method: 'POST', url: `${base()}/header/images?revision=${rev}${replace ? '&replace=' + replace : ''}`,
+      headers: { cookie, origin, 'content-type': 'application/octet-stream' }, payload,
+    });
+    expect((await upload(bytes, editor, 0)).statusCode).toBe(403);
+    expect((await upload(bytes, t.admin, 0, undefined, 'https://elsewhere.example')).statusCode).toBe(403);
+    expect((await upload(Buffer.from('<svg/>'), t.admin, 0)).statusCode).toBe(422);
+    const first = await upload(bytes, t.admin, 0);
+    expect(first.statusCode, first.body).toBe(200);
+    const second = await upload(bytes, t.admin, 1);
+    expect(second.statusCode, second.body).toBe(200);
+    const settings = second.json().settings;
+    const [a, b] = settings.images;
+    const art = await t.get(`${base()}/header/images/${a.id}`, guest);
+    expect(art.headers['content-type']).toMatch(/^image\/jpeg/);
+    expect((await sharp(art.rawPayload).metadata()).exif).toBeUndefined();
+    expect((await t.get(`${base()}/header`, guest)).statusCode).toBe(403);
+    await t.post(`/api/workspaces/${other}/tools`, { tool: 'GAZETTE', enabled: true }, t.admin);
+    expect((await t.get(`${base(other)}/header/images/${a.id}`, t.admin)).statusCode).toBe(404);
+    expect((await t.post(`${base()}/header`, { settings: { ...settings, images: [{ ...a, x: 101 }, b] }, expectedRevision: 2 }, t.admin)).statusCode).toBe(400);
+    expect((await t.post(`${base()}/header`, { settings: { ...settings, mode: 'daily', images: [{ ...a, x: 10 }, b] }, expectedRevision: 2 }, t.admin)).statusCode).toBe(200);
+    const e1 = await publish(editor, { content: sampleGazetteEdition(isoDay(-1)), publish: true });
+    const e2 = await publish(editor, { content: sampleGazetteEdition(isoDay()), publish: true });
+    const chosen = e1.json().edition.header;
+    expect(chosen.id).not.toBe(e2.json().edition.header.id);
+    const replacement = await upload(bytes, t.admin, 3, chosen.id);
+    expect(replacement.statusCode, replacement.body).toBe(200);
+    expect((await t.get(`${base()}/header/images/${chosen.id}`, guest)).statusCode).toBe(200);
+    await publish(editor, { content: sampleGazetteEdition(isoDay(-1)), publish: true });
+    expect((await t.get(`${base()}/editions/${isoDay(-1)}`, guest)).json().edition.header).toEqual(chosen);
+    const currentImage = replacement.json().settings.images[0].id;
+    const override = { date: isoDay(-1), imageId: currentImage, expectedRevision: 2 };
+    expect((await t.post(`${base()}/header/override`, override, editor)).statusCode).toBe(403);
+    expect((await t.post(`${base()}/header/override`, override, t.admin)).statusCode).toBe(204);
+    expect((await t.get(`${base()}/editions/${isoDay(-1)}`, guest)).json().edition.header.id).toBe(currentImage);
+    expect((await t.post(`${base()}/header/images/${currentImage}/delete`, { expectedRevision: 4 }, t.admin)).statusCode).toBe(200);
+    expect((await t.get(`${base()}/editions/${isoDay(-1)}`, guest)).json().edition.header).toBeNull();
+    await t.post(`/api/workspaces/${workspace}/tools`, { tool: 'GAZETTE', enabled: false }, t.admin);
+    expect((await t.get(`${base()}/header/images/${chosen.id}`, guest)).statusCode).toBe(404);
+  });
+
 });

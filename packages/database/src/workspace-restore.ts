@@ -285,6 +285,7 @@ function* records(path: string | undefined, table: string, allowMissing = false)
  *  - 0047 (22.1): the optional Section icon of Procedures and of the Run snapshot.
  */
 const ADDED_COLUMNS: Readonly<Record<string, readonly string[]>> = {
+  gazette_watch_items: ['discount_threshold'],
   workspaces: ['location'],
   procedure_sections: ['icon'],
   run_sections: ['icon'],

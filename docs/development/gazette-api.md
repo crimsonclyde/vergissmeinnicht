@@ -19,6 +19,14 @@ the REST API below. All paths are under `/api/workspaces/{workspaceId}/gazette`.
 | `GET /watchlist` | `gazette.view` | `{items}` with `latest` and `history` (oldest first) |
 | `POST /watchlist` | `gazette.publish` | `{item}` → 201 |
 | `POST /watchlist/{id}` | `gazette.publish` | `{item, expectedRevision}` (archive with `active: false`) |
+| `POST /watchlist/import` | `gazette.publish` | `{items}` with 1–50 reviewed EUR reference products → `{created, updated, skipped}`; no network requests |
+| `POST /watchlist/{id}/delete` | `gazette.manage` | `{expectedRevision}`; permanently removes an archived product and its observations → 204 |
+| `GET /header` | `gazette.manage` | `{settings, revision}` with mode, fixed id and ordered images with focal points |
+| `POST /header` | `gazette.manage` | `{settings, expectedRevision}` |
+| `POST /header/images?revision=N&replace=ID` | `gazette.manage` | Raw image bytes; omit `replace` to append |
+| `GET /header/images/{id}` | `gazette.view` | Workspace-scoped, re-encoded JPEG |
+| `POST /header/images/{id}/delete` | `gazette.manage` | `{expectedRevision}` → updated header settings |
+| `POST /header/override` | `gazette.manage` | `{date, imageId, expectedRevision}`; use null for bundled woodland; published editions only → 204 |
 | `POST /watchlist/prices` | `gazette.publish` | `{observations: [{itemId, price, checkedAt, verified?, source?, url?}]}` → `{recorded}`; all or nothing |
 
 Cookie-authenticated writes need the usual same-origin request (CSRF origin check). Errors are
@@ -40,14 +48,35 @@ Cookie-authenticated writes need the usual same-origin request (CSRF origin chec
   (number or {min, max}), windKmh?, gustKmh?, disagreement?}], comparison?: {metric, rows[{source,
   values[]}]}, warnings?, sources[{name, url}] (at least one), fetchedAt?, note?}`. Name the source
   actually used; WeatherOnline.de has no permitted data access, so it is not used.
-- `watchlist`: `items[]` of `{id, name, currency, change, verified, price?, checkedAt (required with a
-  price), typical?, target?, history?, ...}`: a snapshot for the edition; the persistent watchlist is
-  separate.
+- `watchlist`: `items[]` of `{id, name, currency, typical?, shop?, url?, variant?, price?,
+  checkedAt?, verified?, change?, discountThreshold?, target?, history?, ...}`: a snapshot for the
+  edition; the persistent watchlist is separate. For a reference-only item supply `typical` and
+  omit `price`, `checkedAt`, `verified` and `change`. If a price is present, supply its check time.
+  Only verified values appear as current offers. The percentage compares with `typical`, not the
+  previous day's price. The highlight uses the product override or the Workspace default (15%).
 - `rich`: `{body (Markdown), tables?: [{caption?, columns[], rows[][]}]}`.
 - Text is plain or Markdown; HTML tags are refused. Links are https with a dotted host and no user
   info. The stored edition is at most 600 kB; the request body at most 1 MiB.
 - An edition may be written for a kept day or tomorrow. Publishing replaces that date's published
   edition in one transaction; a refused edition leaves the published one untouched.
+
+## Header snapshots and price provenance
+
+New publications select a header once. Daily mode uses the edition date, random mode draws once per
+publication, and sequential advances on each new published edition. A republish or change of crop
+does not change an existing snapshot. Replacing an image keeps its original crop and bytes for past
+editions until retention or an explicit edition override removes their last reference. Deleting a
+gallery image sends editions using that image back to the bundled artwork. Full database backups
+retain custom backgrounds; portable Workspace backups omit decorative images, settings and snapshots.
+
+Watchlist imports use a checked Amazon.de product URL's ASIN, or an exact name/variant/shop/URL match
+when there is no ASIN. Currency, condition and market must also match. Imports update only the
+reference of an active matching record. The minimum EUR filter (20 by default) applies to known
+references in imports; unknown references and manual creation are allowed. VMN does not retrieve
+wishlists or seller data. A verified observation is a claim from the person or assistant who entered
+it. Compare equivalent products using the total including VAT and shipping and keep the seller and
+check time. A low means the lowest sourced, verified observation in the retained window, not an
+all-time market low.
 
 ## Sample data
 

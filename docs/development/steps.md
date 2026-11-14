@@ -6019,6 +6019,33 @@ user and admin docs, the sample edition) now says The Daily Planet. Internal ide
 stored or granted changes. Follow-up noted by clyde: the background behind the header is too plain;
 to improve later.
 
+### 43.6 — Reference Watchlist, wishlist paste import and edition mastheads (2026-11-15)
+
+Implemented Watchlist tables and phone rows, readable Markdown lists, reference-only edition
+entries, configurable discount thresholds, exact-product paste imports and audited removal
+of archived products. Price observations and sourced retained lows stay separate from
+references. The Daily Planet uses bundled woodland art and snapshots an admin-configured
+image and crop at publication; fixed, daily, random and sequential modes and an explicit
+override for published editions are available. REST and MCP use the existing roles and
+`gazette.read`/`gazette.write` grant. Migrations 0079–0080 preserve existing editions and
+older portable Watchlist packages. See [Gazette API](gazette-api.md).
+
+Verification: full Vitest suite (233 files, 1,830 tests), focused API/MCP/backup tests
+against the final migrations, lint, typecheck, build and whitespace checks. Chromium desktop
+and phone both passed the masthead upload/reload, Watchlist layout, Markdown list and five-item
+paste flow using a disposable Workspace. No live Casa Nostra data was changed.
+
+Security surface changed: scoped, bounded manual imports and decorative image uploads,
+private image reads and revision-checked admin removal. See [security.md](security.md)
+for transaction gates, byte/storage limits and backup behavior. The wishlist could not
+be read from this environment and Amazon.de's published terms restrict automated gathering
+absent permission. No live wishlist or seller fetching; manual paste and sourced observations
+are supported. The five Casa Nostra references must be entered in the intended Workspace,
+not seeded in every installation. Header images travel in full server backups only.
+
+Release plan: **0.15.1**, owner-counted release **71** after publication. Keep v0.15.0 as
+the first populated upgrade input. Live deployment is separate.
+
 ## 11 — Licensing
 
 ### 11.1 AGPL-3.0

@@ -281,7 +281,7 @@ function WorkspacePage(props: {
         </p>
       );
     case 'gazette':
-      return context.tools.includes('GAZETTE')?<Suspense fallback={<p>{t('journal.loading')}</p>}>{route.view==='settings'?(can('gazette.manage')?<GazetteSettings key={route.workspaceId} workspaceId={route.workspaceId}/>:<p role="alert">{t('shell.notFound')}</p>):route.view==='watchlist'?<GazetteWatchlist key={route.workspaceId} workspaceId={route.workspaceId} canEdit={can('gazette.publish')}/>:<GazettePage key={route.workspaceId} workspaceId={route.workspaceId} date={route.date} canManage={can('gazette.manage')}/>}</Suspense>:<p role="alert">{t('shell.notFound')}</p>;
+      return context.tools.includes('GAZETTE')?<Suspense fallback={<p>{t('journal.loading')}</p>}>{route.view==='settings'?(can('gazette.manage')?<GazetteSettings key={route.workspaceId} workspaceId={route.workspaceId}/>:<p role="alert">{t('shell.notFound')}</p>):route.view==='watchlist'?<GazetteWatchlist key={route.workspaceId} workspaceId={route.workspaceId} canEdit={can('gazette.publish')} canManage={can('gazette.manage')}/>:<GazettePage key={route.workspaceId} workspaceId={route.workspaceId} date={route.date} canManage={can('gazette.manage')}/>}</Suspense>:<p role="alert">{t('shell.notFound')}</p>;
     case 'recipes':
       return context.tools.includes('RECIPES')?<Suspense fallback={<p>{t('journal.loading')}</p>}><RecipesPage key={route.workspaceId} workspaceId={route.workspaceId} canWrite={can('recipe.manage')} canShop={context.tools.includes('LISTS')&&can('list.edit')}/></Suspense>:<p role="alert">{t('shell.notFound')}</p>;
     case 'bring':

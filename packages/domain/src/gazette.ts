@@ -70,6 +70,7 @@ export interface GazetteSettings {
   readonly publishTime: string;
   readonly dashboardHeadlines: number;
   readonly images: boolean;
+  readonly watchlist?: GazetteWatchSettings;
   readonly sections: readonly GazetteSectionDefinition[];
 }
 
@@ -139,7 +140,8 @@ export interface GazetteWatchItem {
   readonly price: number | null;
   readonly typical: number | null;
   readonly target: number | null;
-  readonly change: (typeof GAZETTE_PRICE_CHANGES)[number];
+  readonly change: (typeof GAZETTE_PRICE_CHANGES)[number] | null;
+  readonly discountThreshold?: number | null;
   /** True when `price` was verified at `checkedAt`; false keeps the last verified observation, labelled as such. */
   readonly verified: boolean;
   readonly checkedAt: string | null;
@@ -175,7 +177,7 @@ export interface GazetteEditionSummary {
   readonly updatedAt: Date;
   readonly updatedBy: string;
 }
-export interface GazetteEdition extends GazetteEditionSummary { readonly content: GazetteEditionContent }
+export interface GazetteEdition extends GazetteEditionSummary { readonly content: GazetteEditionContent; readonly header?: import('./gazette-header.ts').GazetteHeaderImage | null }
 
 // ---------------------------------------------------------------------------------------------------
 // Validation helpers. Errors carry a path (`sections[2].items[0].url`) and never echo input.
@@ -278,7 +280,7 @@ export function defaultGazetteSections(): GazetteSectionDefinition[] {
     section('liguria', 'articles', 'Notizie dalla Liguria', 'Triora, Valle Argentina, Imperia, Sanremo', 'map', 'it', 'Triora, Valle Argentina, Imperia, Sanremo, Liguria and important Italian national news. In Italian.'),
     section('europe-world', 'articles', 'Europe & World', 'Europe first, the world in brief', 'globe', 'en', 'Brief, source-backed coverage with Europe as the focus, plus important international developments.'),
     section('good-news', 'articles', 'Good News', 'Verified constructive developments', 'leaf', 'en', 'Verified constructive developments in science, conservation, technology, medicine or society.'),
-    section('watchlist', 'watchlist', 'Watchlist', 'Prices checked this morning', 'tag', 'en', 'Price changes of the products on the watchlist. Only verified prices; otherwise keep the last verified one and say so.'),
+    section('watchlist', 'watchlist', 'Watchlist', 'Reference prices and checked offers', 'tag', 'en', 'Use structured products and keep exact variants. For a reference-only product supply its reference and omit the live price, change and checked time. Record live prices only when verified for the specified market and variant.'),
   ];
 }
 
@@ -287,7 +289,7 @@ export function defaultGazetteSettings(timeZone: TimeZoneName | null): GazetteSe
 }
 
 export function parseGazetteSettings(value: unknown): GazetteSettings {
-  const row = record(value, 'settings', ['version', 'title', 'retentionDays', 'timeZone', 'publishTime', 'dashboardHeadlines', 'images', 'sections']);
+  const row = record(value, 'settings', ['version', 'title', 'retentionDays', 'timeZone', 'publishTime', 'dashboardHeadlines', 'images', 'sections'], ['watchlist']);
   if (row['version'] !== 1) fail('settings.version');
   const retention = row['retentionDays'];
   if (!Number.isInteger(retention) || Number(retention) < GAZETTE_LIMITS.retentionMin || Number(retention) > GAZETTE_LIMITS.retentionMax) fail('settings.retentionDays');
@@ -312,7 +314,7 @@ export function parseGazetteSettings(value: unknown): GazetteSettings {
       brief: str(s['brief'], `${path}.brief`, 1000, { multiline: true }), sources: sources(s['sources'], `${path}.sources`, 20),
     };
   });
-  return { version: 1, title: str(row['title'], 'settings.title', 60, { required: true }), retentionDays: Number(retention), timeZone, publishTime, dashboardHeadlines: Number(headlines), images: bool(row['images'], 'settings.images'), sections };
+  return { version: 1, title: str(row['title'], 'settings.title', 60, { required: true }), retentionDays: Number(retention), timeZone, publishTime, dashboardHeadlines: Number(headlines), images: bool(row['images'], 'settings.images'), sections, ...(row['watchlist'] === undefined ? {} : { watchlist: parseWatchSettings(row['watchlist']) }) };
 }
 
 // ---------------------------------------------------------------------------------------------------
@@ -387,9 +389,9 @@ function location(value: unknown, path: string): GazetteLocationForecast {
 }
 
 function watchItem(value: unknown, path: string): GazetteWatchItem {
-  const row = record(value, path, ['id', 'name', 'currency', 'change', 'verified'], ['variant', 'condition', 'market', 'shop', 'url', 'price', 'typical', 'target', 'checkedAt', 'history']);
+  const row = record(value, path, ['id', 'name', 'currency'], ['change', 'verified', 'discountThreshold', 'variant', 'condition', 'market', 'shop', 'url', 'price', 'typical', 'target', 'checkedAt', 'history']);
   const currency = typeof row['currency'] === 'string' && /^[A-Z]{3}$/.test(row['currency']) ? row['currency'] : fail(`${path}.currency`);
-  const verified = bool(row['verified'], `${path}.verified`);
+  const verified = bool(row['verified'], `${path}.verified`, false);
   const checkedAt = instant(row['checkedAt'], `${path}.checkedAt`, true);
   const price = num(row['price'], `${path}.price`, 0, 10_000_000);
   if (price !== null && checkedAt === null) fail(`${path}.checkedAt`, 'gazette_missing_field');
@@ -399,7 +401,8 @@ function watchItem(value: unknown, path: string): GazetteWatchItem {
     condition: oneOf(row['condition'], `${path}.condition`, ['new', 'refurbished', 'used'] as const, 'new'),
     market: str(row['market'], `${path}.market`, 8), shop: str(row['shop'], `${path}.shop`, 80), url: gazetteUrl(row['url'], `${path}.url`), currency,
     price, typical: num(row['typical'], `${path}.typical`, 0, 10_000_000), target: num(row['target'], `${path}.target`, 0, 10_000_000),
-    change: oneOf(row['change'], `${path}.change`, GAZETTE_PRICE_CHANGES), verified, checkedAt,
+    change: row['change'] == null ? null : oneOf(row['change'], `${path}.change`, GAZETTE_PRICE_CHANGES), verified, checkedAt,
+    ...(row['discountThreshold'] === undefined ? {} : { discountThreshold: num(row['discountThreshold'], `${path}.discountThreshold`, 2, 100) }),
     history: list(row['history'], `${path}.history`, 90).map((v, i) => num(v, `${path}.history[${i}]`, 0, 10_000_000, false) as number),
   };
 }
@@ -503,6 +506,19 @@ export interface GazettePreview {
 }
 
 /** The compact Dashboard projection: no full articles, no comparison tables. */
+export const DEFAULT_GAZETTE_DISCOUNT_THRESHOLD = 15;
+
+/** The signed change from the stated reference, not from a previous day's price. */
+export function gazettePriceChange(item: Pick<GazetteWatchItem, 'verified' | 'price' | 'typical'>): number | null {
+  if (!item.verified || item.price === null || item.typical === null || item.typical === 0) return null;
+  return ((item.price - item.typical) / item.typical) * 100;
+}
+
+export function gazetteSignificantDiscount(item: GazetteWatchItem, threshold = DEFAULT_GAZETTE_DISCOUNT_THRESHOLD): boolean {
+  const change = gazettePriceChange(item);
+  return change !== null && change <= -(item.discountThreshold ?? threshold) + 1e-9;
+}
+
 export function gazettePreview(edition: GazetteEdition, settings: GazetteSettings, today: LocalDate): GazettePreview {
   const sections = visibleGazetteSections(edition.content, settings);
   const isToday = edition.date === today;
@@ -519,7 +535,7 @@ export function gazettePreview(edition: GazetteEdition, settings: GazetteSetting
     const day = l.days.find(d => d.date === today);
     return day ? [{ name: l.name, condition: day.condition, high: day.high, low: day.low }] : [];
   }) : []).slice(0, 2) : [];
-  const priceDrops = sections.reduce((n, s) => n + (s.content.type === 'watchlist' && s.definition.dashboard ? s.content.items.filter(i => i.change === 'down' && i.verified).length : 0), 0);
+  const priceDrops = sections.reduce((n, s) => n + (s.content.type === 'watchlist' && s.definition.dashboard ? s.content.items.filter(i => gazetteSignificantDiscount(i, settings.watchlist?.discountThreshold)).length : 0), 0);
   return { id: edition.id, date: edition.date, isToday, title: edition.title, greeting: isToday ? edition.content.greeting : '', publishedAt: edition.publishedAt, sectionCount: sections.length, headlines, weather, priceDrops };
 }
 
@@ -555,6 +571,7 @@ export interface GazetteWatchFields {
   readonly typical: number | null;
   readonly notes: string;
   readonly active: boolean;
+  readonly discountThreshold?: number | null;
 }
 
 export interface GazettePriceObservationInput {
@@ -567,7 +584,7 @@ export interface GazettePriceObservationInput {
 }
 
 export function parseGazetteWatchFields(value: unknown): GazetteWatchFields {
-  const row = record(value, 'item', ['name', 'currency'], ['variant', 'condition', 'market', 'shop', 'url', 'target', 'typical', 'notes', 'active']);
+  const row = record(value, 'item', ['name', 'currency'], ['variant', 'condition', 'market', 'shop', 'url', 'target', 'typical', 'notes', 'active', 'discountThreshold']);
   return {
     name: str(row['name'], 'item.name', 120, { required: true }),
     variant: str(row['variant'], 'item.variant', 120),
@@ -580,6 +597,7 @@ export function parseGazetteWatchFields(value: unknown): GazetteWatchFields {
     typical: num(row['typical'], 'item.typical', 0, 10_000_000),
     notes: str(row['notes'], 'item.notes', 1000, { multiline: true }),
     active: bool(row['active'], 'item.active', true),
+    ...(row['discountThreshold'] === undefined ? {} : { discountThreshold: num(row['discountThreshold'], 'item.discountThreshold', 2, 100) }),
   };
 }
 
@@ -609,6 +627,44 @@ export interface GazetteWatchItemView extends GazetteWatchFields {
   readonly updatedAt: string;
   /** The newest observation, if any. */
   readonly latest: GazetteWatchPrice | null;
+  readonly lowestVerified?: GazetteWatchPrice | null;
   /** Oldest first, at most `pricesPerItem`. */
   readonly history: readonly GazetteWatchPrice[];
+}
+
+export interface GazetteWatchSettings {
+  readonly wishlistUrl: string | null;
+  readonly minimumEur: number;
+  readonly discountThreshold: number;
+}
+
+export const DEFAULT_GAZETTE_WATCH_SETTINGS: GazetteWatchSettings = {
+  wishlistUrl: null, minimumEur: 20, discountThreshold: DEFAULT_GAZETTE_DISCOUNT_THRESHOLD,
+};
+
+function parseWatchSettings(value: unknown): GazetteWatchSettings {
+  const path = 'settings.watchlist';
+  const row = record(value, path, [], ['wishlistUrl', 'minimumEur', 'discountThreshold']);
+  const url = gazetteUrl(row['wishlistUrl'], `${path}.wishlistUrl`);
+  const wishlist = url?.match(/^https:\/\/(?:www\.)?amazon\.de\/hz\/wishlist\/ls\/([A-Z0-9]{1,40})(?:[?#].*)?$/i);
+  if (url !== null && !wishlist) fail(`${path}.wishlistUrl`, 'gazette_invalid_url');
+  return {
+    wishlistUrl: wishlist ? `https://www.amazon.de/hz/wishlist/ls/${wishlist[1]}` : null,
+    minimumEur: num(row['minimumEur'], `${path}.minimumEur`, 0, 10_000_000) ?? DEFAULT_GAZETTE_WATCH_SETTINGS.minimumEur,
+    discountThreshold: num(row['discountThreshold'], `${path}.discountThreshold`, 2, 100) ?? DEFAULT_GAZETTE_WATCH_SETTINGS.discountThreshold,
+  };
+}
+
+/** Identify an exact Amazon.de listing variant, independent of its title and tracking parameters. */
+export function gazetteAmazonAsin(url: string | null): string | null {
+  return url?.match(/^https:\/\/(?:www\.)?amazon\.de\/(?:[^/?#]+\/)?(?:dp|gp\/product)\/([a-z0-9]{10})(?:[/?#]|$)/i)?.[1]?.toUpperCase() ?? null;
+}
+
+export function parseGazetteWatchImport(value: unknown): GazetteWatchFields[] {
+  return list(value, 'items', 50, 1).map(entry => {
+    const fields = parseGazetteWatchFields(entry);
+    if (fields.currency !== 'EUR') fail('item.currency');
+    const asin = gazetteAmazonAsin(fields.url);
+    return { ...fields, active: true, url: asin === null ? fields.url : `https://www.amazon.de/dp/${asin}` };
+  });
 }

@@ -12,7 +12,7 @@ export const attachmentView=(row:typeof attachments.$inferSelect):AttachmentReco
 export const attachmentBytes=sql<number>`${attachments.bytes}+${attachments.previewBytes}+${attachments.thumbnailBytes}`;
 export function globalStorageIn(tx:Pick<Transaction,'select'>):{used:number;reserved:number;limit:number|null} {
  const limit=tx.select().from(attachmentSettings).where(eq(attachmentSettings.id,1)).get()?.serverLimitBytes??null;
- const used=Number(tx.select({n:sql<number>`coalesce(sum(bytes),0)`}).from(sql`(select max(bytes) as bytes from (select sha256,bytes from document_files union all select sha256,bytes from document_file_derivatives) group by sha256 union all select max(bytes) as bytes from step_images group by sha256 union all select length(jpeg) as bytes from user_avatars union all select length(jpeg) as bytes from user_place_backgrounds union all select bytes+preview_bytes+thumbnail_bytes as bytes from attachments)`).get()?.n??0);
+ const used=Number(tx.select({n:sql<number>`coalesce(sum(bytes),0)`}).from(sql`(select max(bytes) as bytes from (select sha256,bytes from document_files union all select sha256,bytes from document_file_derivatives) group by sha256 union all select max(bytes) as bytes from step_images group by sha256 union all select length(jpeg) as bytes from user_avatars union all select length(jpeg) as bytes from user_place_backgrounds union all select length(jpeg) as bytes from gazette_header_images union all select bytes+preview_bytes+thumbnail_bytes as bytes from attachments)`).get()?.n??0);
  const reserved=Number(tx.select({n:sql<number>`coalesce(sum(${attachmentReservations.bytes}),0)`}).from(attachmentReservations).get()?.n??0);
  return {used,reserved,limit};
 }

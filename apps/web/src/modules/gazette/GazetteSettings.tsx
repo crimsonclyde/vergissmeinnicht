@@ -1,10 +1,11 @@
 import { useEffect, useId, useState, type FormEvent } from 'react';
-import { GAZETTE_ICONS, GAZETTE_LIMITS, GAZETTE_SECTION_TYPES, type GazetteIcon, type GazetteSectionDefinition, type GazetteSectionType } from '@vergissmeinnicht/domain';
+import { DEFAULT_GAZETTE_WATCH_SETTINGS, GAZETTE_ICONS, GAZETTE_LIMITS, GAZETTE_SECTION_TYPES, type GazetteIcon, type GazetteSectionDefinition, type GazetteSectionType } from '@vergissmeinnicht/domain';
 import { api, messageFor, type GazetteSettings as Settings } from '../../api.ts';
 import { t } from '../../i18n/index.ts';
 import { Link, paths } from '../../router.tsx';
 import { UiIcon } from '../../ui-icons.tsx';
 import { gazetteIcon } from './GazettePage.tsx';
+import { GazetteHeaderSettings } from './GazetteHeaderSettings.tsx';
 import './gazette.css';
 
 function timeZones(): string[] {
@@ -64,7 +65,8 @@ export function GazetteSettings({ workspaceId }: { workspaceId: string }) {
   };
 
   return (
-    <form className="gazette-page gazette-admin" onSubmit={event => void save(event)} aria-labelledby={`${id}-title`}>
+    <div className="gazette-page gazette-admin">
+    <form className="gazette-admin" onSubmit={event => void save(event)} aria-labelledby={`${id}-title`}>
       <header className="gazette-admin-head">
         <Link href={paths.gazette(workspaceId)} className="icon-button" aria-label={t('gazette.backToEdition')} title={t('gazette.backToEdition')}><UiIcon name="back" /></Link>
         <div><p className="gazette-admin-eyebrow"><UiIcon name="gazette" size="1em" />{draft.title}</p><h1 id={`${id}-title`}>{t('gazette.settings')}</h1></div>
@@ -81,6 +83,16 @@ export function GazetteSettings({ workspaceId }: { workspaceId: string }) {
           <label>{t('gazette.dashboardHeadlines')}<input type="number" inputMode="numeric" min={0} max={8} value={draft.dashboardHeadlines} onChange={event => change({ dashboardHeadlines: Math.max(0, Math.min(8, Number(event.target.value) || 0)) })} /></label>
         </div>
         <p className="muted gazette-admin-note">{t('gazette.retentionNote')}</p>
+      </fieldset>
+
+      <fieldset className="card gazette-admin-card" disabled={busy}>
+        <legend>{t('gazette.watchSettings')}</legend>
+        <div className="gazette-admin-grid">
+          <label>{t('gazette.wishlistUrl')}<input type="url" maxLength={2048} value={draft.watchlist?.wishlistUrl ?? ''} onChange={event => change({ watchlist: { ...DEFAULT_GAZETTE_WATCH_SETTINGS, ...draft.watchlist, wishlistUrl: event.target.value || null } })} /></label>
+          <label>{t('gazette.minimumEur')}<input type="number" min="0" max="10000000" step=".01" required value={draft.watchlist?.minimumEur ?? DEFAULT_GAZETTE_WATCH_SETTINGS.minimumEur} onChange={event => change({ watchlist: { ...DEFAULT_GAZETTE_WATCH_SETTINGS, ...draft.watchlist, minimumEur: Number(event.target.value) } })} /></label>
+          <label>{t('gazette.discountThreshold')}<input type="number" min="2" max="100" step=".01" required value={draft.watchlist?.discountThreshold ?? DEFAULT_GAZETTE_WATCH_SETTINGS.discountThreshold} onChange={event => change({ watchlist: { ...DEFAULT_GAZETTE_WATCH_SETTINGS, ...draft.watchlist, discountThreshold: Number(event.target.value) } })} /></label>
+        </div>
+        <p className="muted">{t('gazette.wishlistHelp')}</p>
       </fieldset>
 
       <fieldset className="card gazette-admin-card" disabled={busy}>
@@ -128,5 +140,7 @@ export function GazetteSettings({ workspaceId }: { workspaceId: string }) {
         </div>
       </fieldset>
     </form>
+    <GazetteHeaderSettings workspaceId={workspaceId} />
+    </div>
   );
 }

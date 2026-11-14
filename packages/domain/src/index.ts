@@ -46,3 +46,4 @@ export * from './recipe.ts';
 export * from './mcp.ts';
 export * from './gazette.ts';
 export * from './gazette-sample.ts';
+export * from './gazette-header.ts';

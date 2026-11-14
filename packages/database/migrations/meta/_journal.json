@@ -554,6 +554,20 @@
       "when": 1794646099131,
       "tag": "0078_gazette_watchlist",
       "breakpoints": true
+    },
+    {
+      "idx": 79,
+      "version": "6",
+      "when": 1794646099132,
+      "tag": "0079_gazette_watch_threshold",
+      "breakpoints": true
+    },
+    {
+      "idx": 80,
+      "version": "6",
+      "when": 1794646099133,
+      "tag": "0080_gazette_headers",
+      "breakpoints": true
     }
   ]
 }

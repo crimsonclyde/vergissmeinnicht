@@ -17,6 +17,8 @@ const DYNAMIC_PREFIXES = [
   'gazette.compare.',
   'gazette.condition.',
   'gazette.change.',
+  'gazette.headerMode.',
+  'gazette.headerFocus.',
   'gazette.type.',
   'gazette.watchConditionOption.',
   'recipes.category.',

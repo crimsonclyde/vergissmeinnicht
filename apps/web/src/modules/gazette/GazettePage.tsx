@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { gazettePriceChange, gazetteSignificantDiscount } from '@vergissmeinnicht/domain';
 import type { GazetteArticle, GazetteForecastDay, GazetteIcon, GazetteLocationForecast, GazetteSectionDefinition, GazetteTable, GazetteWatchItem } from '@vergissmeinnicht/domain';
-import { api, messageFor, type GazetteEditionSummaryView, type GazetteEditionView, type GazetteSectionContent, type GazetteSettings } from '../../api.ts';
+import { api, gazetteHeaderUrl, messageFor, type GazetteHeaderImage, type GazetteEditionSummaryView, type GazetteEditionView, type GazetteSectionContent, type GazetteSettings } from '../../api.ts';
 import { formatCalendarDate, formatDateTime, formatNumber, formatShortTime, formatWeekdayShort, t } from '../../i18n/index.ts';
 import { Markdown } from '../../markdown/Markdown.tsx';
 import { Link, paths } from '../../router.tsx';
@@ -8,6 +9,8 @@ import { addDays } from '../../schedule-dates.ts';
 import { UiIcon, type UiIconName } from '../../ui-icons.tsx';
 import { conditionIcon } from '../../weather-view.ts';
 import { GazetteLandscape, GazetteOrnament } from './GazetteArt.tsx';
+import woodlandWide from '../../witch-forest/old-forest-wide.webp';
+import woodlandPhone from '../../witch-forest/old-forest-portrait-480.webp';
 import './gazette.css';
 
 const SECTION_ICONS: Record<GazetteIcon, UiIconName> = {
@@ -90,8 +93,8 @@ export function GazettePage({ workspaceId, date, canManage = false }: { workspac
 
   return (
     <article className="gazette-page" aria-labelledby="gazette-title">
-      <div className="gazette-cover"><GazetteLandscape className="gazette-art" /></div>
       <header className="gazette-masthead">
+        <MastheadArtwork workspaceId={workspaceId} header={view?.header ?? null} />
         <span className="gazette-tools">
           <Link href={paths.gazetteWatchlist(workspaceId)} className="icon-button" aria-label={t('gazette.openWatchlist')} title={t('gazette.watchlist')}><UiIcon name="tag" /></Link>
           {canManage && <Link href={paths.gazetteSettings(workspaceId)} className="icon-button" aria-label={t('gazette.settings')} title={t('gazette.settings')}><UiIcon name="settings" /></Link>}
@@ -159,7 +162,7 @@ export function GazettePage({ workspaceId, date, canManage = false }: { workspac
                   </button>
                 </header>
                 <div id={`gazette-b-${definition.id}`}>
-                  {folded ? <Folded content={content} onOpen={() => toggle(definition.id, true)} /> : <SectionBody definition={definition} content={content} today={settings.today} images={settings.settings.images} />}
+                  {folded ? <Folded content={content} onOpen={() => toggle(definition.id, true)} /> : <SectionBody definition={definition} content={content} today={settings.today} images={settings.settings.images} discountThreshold={settings.settings.watchlist?.discountThreshold} />}
                 </div>
               </section>
             );
@@ -174,10 +177,21 @@ export function GazettePage({ workspaceId, date, canManage = false }: { workspac
   );
 }
 
+function MastheadArtwork({ workspaceId, header }: { workspaceId: string; header: GazetteHeaderImage | null }) {
+  const [failed, setFailed] = useState<string | null>(null);
+  return <>
+    <picture className="gazette-masthead-art" aria-hidden="true">
+      <source media="(max-width: 540px)" srcSet={woodlandPhone} />
+      <img src={woodlandWide} alt="" />
+    </picture>
+    {header && failed !== header.id && <img className="gazette-masthead-art gazette-custom-art" alt="" src={gazetteHeaderUrl(workspaceId, header.id)} style={{ objectPosition: `${header.x}% ${header.y}%` }} onError={() => setFailed(header.id)} />}
+  </>;
+}
+
 function countOf(content: GazetteSectionContent): string {
   switch (content.type) {
     case 'articles': return String(content.items.length);
-    case 'watchlist': return String(content.items.length);
+    case 'watchlist': return content.items.length === 0 && content.summary !== '' ? '' : String(content.items.length);
     case 'weather': return t('gazette.places', { count: content.locations.length });
     default: return '';
   }
@@ -188,19 +202,19 @@ function Folded({ content, onOpen }: { content: GazetteSectionContent; onOpen: (
   const more = content.type === 'articles' || content.type === 'watchlist' ? content.items.length - 1 : 0;
   return (
     <button type="button" className="gazette-folded" onClick={onOpen}>
-      <span className="gazette-folded-title">{first || t('gazette.emptySection')}</span>
+      <span className="gazette-folded-title">{first || t(content.summary ? 'gazette.readSummary' : 'gazette.emptySection')}</span>
       {more > 0 && <span className="muted">{t('gazette.more', { count: more })}</span>}
     </button>
   );
 }
 
 /** Renderer registry: one component per section type; anything else gets a quiet note. */
-function SectionBody({ definition, content, today, images }: { definition: GazetteSectionDefinition; content: GazetteSectionContent; today: string; images: boolean }): ReactNode {
+function SectionBody({ definition, content, today, images, discountThreshold }: { definition: GazetteSectionDefinition; content: GazetteSectionContent; today: string; images: boolean; discountThreshold: number | undefined }): ReactNode {
   const summary = content.summary !== '' ? <div className="gazette-summary"><Markdown source={content.summary} /></div> : null;
   switch (content.type) {
     case 'articles': return <>{summary}<Articles items={content.items} lead={images && definition.dashboard} /></>;
     case 'weather': return <>{summary}<div className="gazette-weather">{content.locations.map(location => <Forecast key={location.name} location={location} today={today} />)}</div></>;
-    case 'watchlist': return <>{summary}<Watchlist items={content.items} /></>;
+    case 'watchlist': return <>{content.summary !== '' && <div className="gazette-summary gazette-watch-summary"><Markdown source={content.summary} /></div>}{content.items.length > 0 ? <Watchlist items={content.items} threshold={discountThreshold} /> : summary === null && <p className="muted">{t('gazette.emptySection')}</p>}</>;
     case 'rich': return <>{summary}<div className="gazette-rich"><Markdown source={content.body} />{content.tables.map((table, index) => <Table key={index} table={table} />)}</div></>;
     default: return <p className="muted">{t('gazette.unsupported')}</p>;
   }
@@ -301,37 +315,35 @@ function Forecast({ location, today }: { location: GazetteLocationForecast; toda
 
 const money = (value: number | null, currency: string) => value === null ? '–' : new Intl.NumberFormat(undefined, { style: 'currency', currency, maximumFractionDigits: value % 1 === 0 ? 0 : 2 }).format(value);
 
-function Spark({ values, change }: { values: readonly number[]; change: GazetteWatchItem['change'] }) {
-  if (values.length < 2) return null;
-  const min = Math.min(...values), max = Math.max(...values), span = Math.max(1, max - min);
-  const points = values.map((value, index) => `${((index / (values.length - 1)) * 90).toFixed(1)},${(4 + (1 - (value - min) / span) * 18).toFixed(1)}`).join(' ');
-  return <svg className={`gazette-spark gazette-spark-${change}`} viewBox="0 0 90 26" aria-hidden="true" focusable="false"><polyline points={points} /></svg>;
-}
+const watchColumns = ['gazette.watchProduct', 'gazette.watchTypical', 'gazette.currentPrice', 'gazette.priceChange', 'gazette.seller'] as const;
 
-function Watchlist({ items }: { items: readonly GazetteWatchItem[] }) {
-  if (items.length === 0) return <p className="muted">{t('gazette.emptySection')}</p>;
+function Watchlist({ items, threshold }: { items: readonly GazetteWatchItem[]; threshold: number | undefined }) {
   return (
-    <ul className="plain-list gazette-watch">
-      {items.map(item => (
-        <li key={item.id} className="card gazette-watch-item">
-          <span className="gazette-watch-thumb" aria-hidden="true"><UiIcon name="tag" /></span>
-          <span className="gazette-watch-name">
-            <b>{item.url ? <a href={item.url} target="_blank" rel="noopener noreferrer">{item.name}</a> : item.name}</b>
-            <small className="muted">{[item.variant, t(`gazette.condition.${item.condition}`), item.market, item.shop].filter(Boolean).join(' · ')}</small>
-          </span>
-          <Spark values={item.history} change={item.change} />
-          <span className="gazette-watch-price">
-            <b className={item.verified ? undefined : 'muted'}>{money(item.price, item.currency)}</b>
-            <small className="muted">{t('gazette.usual', { price: money(item.typical, item.currency) })}{item.target !== null && ` · ${t('gazette.target', { price: money(item.target, item.currency) })}`}</small>
-          </span>
-          <span className="gazette-watch-state">
-            {!item.verified ? <span className="gazette-chip gazette-chip-warn">{item.checkedAt === null ? t('gazette.unverified') : t('gazette.lastVerified', { date: formatCalendarDate(item.checkedAt.slice(0, 10)) })}</span>
-              : item.target !== null && item.price !== null && item.price <= item.target ? <span className="gazette-chip gazette-chip-good"><UiIcon name="moveDown" size="1em" />{t('gazette.belowTarget')}</span>
-              : <span className={`gazette-chip gazette-change-${item.change}`}>{t(`gazette.change.${item.change}`)}</span>}
-          </span>
-        </li>
-      ))}
-    </ul>
+    <table className="gazette-edition-watch" role="table">
+      <caption className="visually-hidden">{t('gazette.watchlist')}</caption>
+      <thead role="rowgroup"><tr role="row">{watchColumns.map(column => <th key={column} scope="col" role="columnheader">{t(column)}</th>)}</tr></thead>
+      <tbody role="rowgroup">
+        {items.map(item => {
+          const change = gazettePriceChange(item);
+          const significant = gazetteSignificantDiscount(item, threshold);
+          const details = [item.variant, t(`gazette.condition.${item.condition}`), item.market].filter(Boolean).join(' · ');
+          return (
+            <tr key={item.id} role="row">
+              <th scope="row" role="rowheader">
+                {item.url ? <a href={item.url} target="_blank" rel="noopener noreferrer">{item.name}</a> : item.name}
+                <small className="muted">{details}</small>
+              </th>
+              {[
+                money(item.typical, item.currency),
+                item.verified && item.price !== null ? money(item.price, item.currency) : <>{t('gazette.notChecked')}{item.price !== null && item.checkedAt !== null && <small className="muted">{t('gazette.previousOffer', { price: money(item.price, item.currency), date: formatCalendarDate(item.checkedAt.slice(0, 10)) })}</small>}</>,
+                change === null ? '–' : Math.abs(change) < 2 ? t('gazette.change.same') : significant ? <span className="gazette-chip gazette-chip-good">{t('gazette.significantDiscount', { change: formatNumber(-change, 1) })}</span> : `${change > 0 ? '+' : '−'}${formatNumber(Math.abs(change), 1)}%`,
+                item.shop || '–',
+              ].map((cell, index) => <td key={watchColumns[index + 1]} role="cell"><span aria-hidden="true" className="gazette-watch-label">{t(watchColumns[index + 1] ?? 'gazette.watchProduct')}</span><span>{cell}</span></td>)}
+            </tr>
+          );
+        })}
+      </tbody>
+    </table>
   );
 }
 

@@ -57,6 +57,7 @@ export const SECURITY_EVENT_TYPES = [
   // The Daily Planet (43): edition id, date, state and revision; settings revision. Never article text.
   'GAZETTE_EDITION_CHANGED',
   'GAZETTE_SETTINGS_CHANGED',
+  'GAZETTE_WATCH_ITEM_REMOVED',
   'RECIPE_SHOPPING_TRANSFERRED',
   // Several List items moved to another List or removed at once (36.18): List ids and a count, never item text.
   'LIST_ITEMS_MOVED',

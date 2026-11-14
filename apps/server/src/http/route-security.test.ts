@@ -48,6 +48,10 @@ function bodyFor(route: string, ids: Record<string, string>): object {
   if (url.endsWith('/bring/:itemId/status')) return { expectedRevision: 1, status: 'COMPLETED' };
   if (url.endsWith('/recipes') || url.endsWith('/recipes/:recipeId')) return {content:{version:1,title:'Recipe',servings:2,ingredients:[{name:'Flour',amount:'125',unit:'g',note:''}],instructions:'Cook',tags:[],source:'',prepMinutes:null,cookMinutes:null},expectedRevision:0,archived:false};
   if (url.endsWith('/recipes/:recipeId/shopping')) return {operationId:'00000000-0000-4000-8000-000000000003',recipeRevision:1,listId:ids.listId,listRevision:1,servings:2,items:[{ingredient:0,title:'Flour',quantity:'125',unit:'g'}]};
+  if (url.endsWith('/gazette/header')) return { settings: {}, expectedRevision: 0 };
+  if (url.endsWith('/gazette/header/override')) return { date: ids.date, imageId: ids.imageId, expectedRevision: 1 };
+  if (url.endsWith('/gazette/header/images/:imageId/delete') || url.endsWith('/gazette/watchlist/:itemId/delete')) return { expectedRevision: 1 };
+  if (url.endsWith('/gazette/watchlist/import')) return { items: [{ name: 'Kettle', currency: 'EUR' }] };
   if (url.endsWith('/gazette/settings')) return { settings: {}, expectedRevision: 0 };
   if (url.endsWith('/gazette/editions')) return { content: {}, publish: false };
   if (url.endsWith('/gazette/editions/id/:editionId/publish')) return { expectedRevision: 1 };
@@ -133,6 +137,10 @@ describe('security properties of every route (13.2)', () => {
     const [method, pattern] = route.split(' ') as [string, string];
     // The calendar and Today's Maintenance card need valid dates to reach the lookup instead of stopping at 400.
     const url = fill(pattern, pattern.includes('/bring/') && values.bringId !== undefined && values.itemId === homeIds.itemId ? { ...values, itemId: values.bringId } : values) + (/\/calendar\/?$/.test(pattern) ? `?from=${TOMORROW}&to=${TOMORROW}` : /\/maintenance\/due-soon$/.test(pattern) ? `?today=${TOMORROW}` : /\/(document|contact)-links$/.test(pattern) ? `?procedure=${values.procedureId ?? ''}` : /\/contacts\/(export|import\/preview)$/.test(pattern) ? '?format=csv' : '');
+    if (method === 'POST' && pattern.endsWith('/gazette/header/images')) {
+      return t.app.inject({ method, url: url + '?revision=0', headers: { origin: ORIGIN, ...(cookie ? { cookie } : {}),
+        'content-type': 'application/octet-stream' }, payload: PNG });
+    }
     if (method === 'POST' && pattern.replace(/\/$/, '').endsWith('/cover-upload')) {
       return t.app.inject({ method: 'POST', url, headers: { origin: ORIGIN, ...(cookie ? { cookie } : {}),
         'content-type': 'application/octet-stream', 'x-file-name': 'cover.png' }, payload: PNG });

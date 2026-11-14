@@ -925,3 +925,68 @@ test('Remaining tools share phone authoring controls and preserve simple list en
   await page.goto(`/w/${workspaceId}/calendar`); await expectAccessible(page,'Calendar after authoring');
   await page.goto(`/w/${workspaceId}`); await expectAccessible(page,'Today after authoring');
 });
+
+test('Daily Planet keeps reference prices, summary lists and a stable masthead on desktop and phone', async ({ page }) => {
+  const email = `gazette-${randomUUID()}@example.org`;
+  const password = 'a fictional newspaper theme passphrase';
+  const database = openDatabase(guideServerEnv.DATABASE_PATH);
+  let workspaceId: string;
+  try {
+    const user = await createUserRepository(database).create({ email: normalizeEmail(email), displayName: 'Planet reviewer', emailVerified: true, status: 'ACTIVE', serverAdmin: true });
+    database.sqlite.prepare("INSERT INTO accounts(id,account_id,provider_id,user_id,password,created_at,updated_at) VALUES(?,?,'credential',?,?,?,?)").run(randomUUID(), user.id, user.id, await hashPassword(password), Date.now(), Date.now());
+    workspaceId = insertLegacyWorkspace(database, { name: 'Gazette studio', adminUserId: user.id }).id;
+    database.sqlite.prepare("INSERT INTO workspace_tools (workspace_id,tool,enabled,updated_at,updated_by_user_id) VALUES(?,'GAZETTE',1,?,?)").run(workspaceId, Date.now(), user.id);
+  } finally { database.close(); }
+  await page.goto('/');
+  await page.getByLabel('Email').fill(email);
+  await page.getByLabel('Password').fill(password);
+  await signInGuide(page);
+  await expect(page).toHaveURL(`/w/${workspaceId}`);
+  const api = `/api/workspaces/${workspaceId}`;
+  const gazette = `${api}/gazette`;
+  const today = await page.evaluate<string>(`fetch(${JSON.stringify(gazette + '/settings')}).then(response => response.json()).then(result => result.today)`);
+  const date = new Date(Date.parse(today) - 86400000).toISOString().slice(0, 10);
+  await page.goto(`/w/${workspaceId}/gazette/settings`);
+  const photo = documentPhoto(320, 180);
+  await page.getByLabel('Add a background image').setInputFiles({ name: 'masthead.png', mimeType: 'image/png', buffer: photo });
+  await expect(page.getByRole('img', { name: 'Image 1' })).toBeVisible();
+  await page.getByLabel('Add a background image').setInputFiles({ name: 'alternate.png', mimeType: 'image/png', buffer: documentPhoto(240, 180) });
+  await expect(page.getByRole('img', { name: 'Image 2' })).toBeVisible();
+  await page.getByRole('combobox', { name: 'Background rotation' }).selectOption('random');
+  await page.getByRole('button', { name: 'Save rotation and cropping' }).click();
+  await expect(page.getByRole('region', { name: 'Masthead backgrounds' }).getByRole('status')).toHaveText('Settings saved.');
+  const publish = async (editionDate: string, summary: string, items: unknown[]) => {
+    const body = { publish: true, content: { version: 1, date: editionDate, sections: [{ sectionId: 'watchlist', type: 'watchlist', summary, items }] } };
+    const result = await page.evaluate<{ status: number; body: string }>(`fetch(${JSON.stringify(gazette + '/editions')}, { method: 'POST', headers: { 'content-type': 'application/json' }, body: ${JSON.stringify(JSON.stringify(body))} }).then(async response => ({ status: response.status, body: await response.text() }))`);
+    expect(result.status, result.body).toBe(201);
+  };
+  await publish(today, 'Reference prices from the catalogue.', [
+    { id: 'baseline', name: 'Silver kettle', currency: 'EUR', typical: 100 },
+    { id: 'small', name: 'White kettle', currency: 'EUR', typical: 100, price: 99, verified: true, checkedAt: `${today}T00:00:00Z` },
+    { id: 'discount', name: 'Blue kettle', currency: 'EUR', typical: 100, price: 80, verified: true, checkedAt: `${today}T00:00:00Z` },
+  ]);
+  await publish(date, '- Black grinder\n- Silver kettle', []);
+  await page.goto(`/w/${workspaceId}/gazette`);
+  const table = page.getByRole('table', { name: 'Watchlist' });
+  await expect(table.getByRole('row', { name: /Silver kettle/ })).toContainText('Not checked');
+  await expect(table).toHaveCSS('display', (page.viewportSize()?.width ?? 0) <= 680 ? 'block' : 'table');
+  await expect(table.getByRole('row', { name: /White kettle/ })).toContainText('Unchanged');
+  await expect(table.getByRole('row', { name: /Blue kettle/ })).toContainText('20% below reference');
+  const art = page.locator('.gazette-custom-art');
+  await expect(art).toBeVisible();
+  const first = await art.getAttribute('src');
+  if (first === null) throw new Error('The edition image has no URL');
+  expect(first).toContain('/header/images/');
+  await page.reload();
+  await expect(art).toHaveAttribute('src', first);
+  await page.goto(`/w/${workspaceId}/gazette/${date}`);
+  await expect(page.locator('.gazette-watch-summary li')).toHaveText(['Black grinder', 'Silver kettle']);
+  await expect(page.getByText('Nothing in this section today')).toHaveCount(0);
+  await page.goto(`/w/${workspaceId}/gazette/watchlist`);
+  await page.locator('summary').filter({ hasText: 'Import reference products' }).click();
+  await page.getByRole('textbox', { name: /^Paste up to 50/ }).fill('X-Sense XS01-M + SBS50, 3-pack\t84.99\nNinja Luxe Café Pro, silver ES701EU\t499.00\nFemobook A2, black\t109.00\nBaratza Encore ESP Pro\t279.95\nROASTLY DF54 Gen 3 V3/V4, black\t263.99');
+  await page.getByRole('button', { name: 'Import reference products' }).click();
+  await expect(page.getByRole('status')).toHaveText('Added 5, updated 0, skipped 0.');
+  await expect(page.getByText('Baratza Encore ESP Pro', { exact: true })).toBeVisible();
+  expect(await page.evaluate('document.documentElement.scrollWidth <= window.innerWidth')).toBe(true);
+});

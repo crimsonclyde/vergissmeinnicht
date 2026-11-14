@@ -81,6 +81,13 @@ describe('MCP The Daily Planet', () => {
     expect(await assistant.errorCode('update_watchlist_prices', { workspaceId, observations: [{ itemId: randomUUID(), price: 1, checkedAt: new Date().toISOString() }] })).toMatchObject({ code: 'not_found' });
     expect(await assistant.body('update_watchlist_prices', { workspaceId, observations: [{ itemId: item.id, price: 38.5, checkedAt: new Date().toISOString(), verified: true, source: 'Example Shop' }] })).toEqual({ recorded: 1 });
     expect((await assistant.body('list_watchlist_items', { workspaceId })).items[0].latest).toMatchObject({ price: 38.5, verified: true });
+    expect(await assistant.body('import_watchlist_items', { workspaceId, items: [{ name: 'Grinder in black', typical: 110, currency: 'EUR' }] })).toEqual({ created: 1, updated: 0, skipped: 0 });
+    const created = await assistant.body('create_watchlist_item', { workspaceId, item: { name: 'Silver kettle', typical: 49, currency: 'EUR' } });
+    expect(await assistant.body('update_watchlist_item', { workspaceId, itemId: created.id, expectedRevision: created.revision, item: { name: created.name, currency: 'EUR', active: false } })).toMatchObject({ id: created.id, active: false });
+    expect((await reader.call('import_watchlist_items', { workspaceId, items: [{ name: 'Refused', currency: 'EUR' }] })).isError).toBe(true);
+    const baseline = { version: 1, date: today(), sections: [{ sectionId: 'watchlist', type: 'watchlist', items: [{ id: 'ref', name: 'Silver kettle', currency: 'EUR', typical: 49 }] }] };
+    expect(await assistant.body('publish_gazette_edition', { workspaceId, operationId: randomUUID(), content: baseline })).toMatchObject({ edition: { revision: 2 } });
+    expect((await assistant.body('get_gazette_edition', { workspaceId, date: today() })).edition.content.sections[0].items[0]).toMatchObject({ typical: 49, price: null, verified: false, change: null });
     // A read-only grant cannot publish, even when asked to.
     expect((await reader.call('publish_gazette_edition', { workspaceId, operationId: randomUUID(), content })).isError).toBe(true);
   });

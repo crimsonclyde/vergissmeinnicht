@@ -1,9 +1,10 @@
 import {
-  assertGazetteDateWritable, parseGazetteWatchFields, parseGazettePriceObservations, type GazetteWatchFields, type GazettePriceObservationInput, type GazetteWatchItemView, gazetteOldestKept, gazettePreview, gazetteToday, parseGazetteEdition, parseGazetteSettings, parseLocalDate,
-  type GazetteEdition, type GazetteEditionContent, type GazetteEditionSummary, type GazettePreview, type GazetteSettings, type LocalDate, type User, type WorkspaceId,
+  assertGazetteDateWritable, parseGazetteWatchFields, parseGazetteWatchImport, parseGazettePriceObservations, type GazetteWatchFields, type GazettePriceObservationInput, type GazetteWatchItemView, gazetteOldestKept, gazettePreview, gazetteToday, parseGazetteEdition, parseGazetteSettings, parseLocalDate,
+  parseGazetteHeaderSettings, type GazetteHeaderSettings, type GazetteEdition, type GazetteEditionContent, type GazetteEditionSummary, type GazettePreview, type GazetteSettings, type LocalDate, type User, type WorkspaceId,
 } from '@vergissmeinnicht/domain';
 import { authorizeTool, type ToolDeps } from './documents/tools.ts';
 import { NotAuthorizedError } from './invitations/errors.ts';
+import type { PlaceBackgroundProcessor } from './ports/places.ts';
 import type { UserRepository } from './ports/user-repository.ts';
 
 export class GazetteNotFoundError extends Error {}
@@ -21,6 +22,12 @@ export interface GazetteWriteInput {
   readonly expectedRevision: number | null;
 }
 export interface GazetteRepository {
+  headerSettings(workspaceId: WorkspaceId): Promise<{ settings: GazetteHeaderSettings; revision: number }>;
+  saveHeaderSettings(workspaceId: WorkspaceId, actor: User, settings: GazetteHeaderSettings, revision: number, at: Date): Promise<void>;
+  addHeaderImage(workspaceId: WorkspaceId, actor: User, jpeg: Uint8Array, replace: string | null, revision: number, at: Date): Promise<void>;
+  removeHeaderImage(workspaceId: WorkspaceId, actor: User, id: string, revision: number, at: Date): Promise<void>;
+  readHeaderImage(workspaceId: WorkspaceId, id: string): Promise<Uint8Array | undefined>;
+  overrideHeader(workspaceId: WorkspaceId, actor: User, date: LocalDate, id: string | null, revision: number, at: Date): Promise<void>;
   settings(workspaceId: WorkspaceId): Promise<StoredGazetteSettings>;
   saveSettings(workspaceId: WorkspaceId, actor: User, settings: GazetteSettings, expectedRevision: number, at: Date): Promise<StoredGazetteSettings>;
   /** Validated content only. One transaction: a failure leaves every stored edition as it was. */
@@ -34,6 +41,8 @@ export interface GazetteRepository {
   latestPublished(workspaceId: WorkspaceId, onOrBefore: LocalDate): Promise<GazetteEdition | undefined>;
 }
 export interface GazetteWatchRepository {
+  importWatchItems(workspaceId: WorkspaceId, actor: User, items: readonly GazetteWatchFields[], at: Date): Promise<{ created: number; updated: number; skipped: number }>;
+  removeWatchItem(workspaceId: WorkspaceId, actor: User, id: string, revision: number, at: Date): Promise<void>;
   watchItems(workspaceId: WorkspaceId): Promise<GazetteWatchItemView[]>;
   createWatchItem(workspaceId: WorkspaceId, actor: User, fields: GazetteWatchFields, at: Date): Promise<GazetteWatchItemView>;
   /** Refuses a stale revision; the item must belong to the Workspace. */
@@ -41,7 +50,7 @@ export interface GazetteWatchRepository {
   /** All or nothing: an unknown item (or one of another Workspace) refuses the whole batch. */
   recordPrices(workspaceId: WorkspaceId, actor: User, observations: readonly GazettePriceObservationInput[], at: Date): Promise<number>;
 }
-export interface GazetteDeps extends ToolDeps { readonly users: UserRepository; readonly gazette: GazetteRepository & GazetteWatchRepository }
+export interface GazetteDeps extends ToolDeps { readonly users: UserRepository; readonly headerProcessor: PlaceBackgroundProcessor; readonly gazette: GazetteRepository & GazetteWatchRepository }
 
 type Level = 'view' | 'publish' | 'manage';
 export async function authorizeGazette(deps: GazetteDeps, actor: User, workspaceId: WorkspaceId, level: Level = 'view') {
@@ -147,4 +156,46 @@ export async function recordGazettePrices(deps: GazetteDeps, actor: User, worksp
   await authorizeGazette(deps, actor, workspaceId, 'publish');
   const now = deps.clock.now();
   return { recorded: await deps.gazette.recordPrices(workspaceId, actor, parseGazettePriceObservations(observations, now), now) };
+}
+
+
+export async function importGazetteWatchItems(deps: GazetteDeps, actor: User, workspaceId: WorkspaceId, items: unknown) {
+  await authorizeGazette(deps, actor, workspaceId, 'publish');
+  return deps.gazette.importWatchItems(workspaceId, actor, parseGazetteWatchImport(items), deps.clock.now());
+}
+
+export async function getGazetteHeaderSettings(deps: GazetteDeps, actor: User, workspaceId: WorkspaceId) {
+  await authorizeGazette(deps, actor, workspaceId, 'manage');
+  return deps.gazette.headerSettings(workspaceId);
+}
+export async function saveGazetteHeaderSettings(deps: GazetteDeps, actor: User, workspaceId: WorkspaceId, value: unknown, revision: number) {
+  await authorizeGazette(deps, actor, workspaceId, 'manage');
+  await deps.gazette.saveHeaderSettings(workspaceId, actor, parseGazetteHeaderSettings(value), revision, deps.clock.now());
+  return deps.gazette.headerSettings(workspaceId);
+}
+export async function addGazetteHeaderImage(deps: GazetteDeps, actor: User, workspaceId: WorkspaceId, bytes: Uint8Array, replace: string | null, revision: number) {
+  await authorizeGazette(deps, actor, workspaceId, 'manage');
+  const { jpeg } = await deps.headerProcessor.background(bytes);
+  await deps.gazette.addHeaderImage(workspaceId, actor, jpeg, replace, revision, deps.clock.now());
+  return deps.gazette.headerSettings(workspaceId);
+}
+export async function removeGazetteHeaderImage(deps: GazetteDeps, actor: User, workspaceId: WorkspaceId, id: string, revision: number) {
+  await authorizeGazette(deps, actor, workspaceId, 'manage');
+  await deps.gazette.removeHeaderImage(workspaceId, actor, id, revision, deps.clock.now());
+  return deps.gazette.headerSettings(workspaceId);
+}
+export async function readGazetteHeaderImage(deps: GazetteDeps, actor: User, workspaceId: WorkspaceId, id: string) {
+  await authorizeGazette(deps, actor, workspaceId);
+  const jpeg = await deps.gazette.readHeaderImage(workspaceId, id);
+  if (!jpeg) throw new GazetteNotFoundError();
+  return jpeg;
+}
+export async function overrideGazetteHeader(deps: GazetteDeps, actor: User, workspaceId: WorkspaceId, date: string, id: string | null, revision: number) {
+  await authorizeGazette(deps, actor, workspaceId, 'manage');
+  await deps.gazette.overrideHeader(workspaceId, actor, parseLocalDate(date), id, revision, deps.clock.now());
+}
+
+export async function removeGazetteWatchItem(deps: GazetteDeps, actor: User, workspaceId: WorkspaceId, id: string, revision: number) {
+  await authorizeGazette(deps, actor, workspaceId, 'manage');
+  return deps.gazette.removeWatchItem(workspaceId, actor, id, revision, deps.clock.now());
 }

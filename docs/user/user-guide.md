@@ -155,6 +155,25 @@ On the Dashboard the Daily Planet card shows the greeting, today's weather and o
 
 The Daily Planet page has the kept days at the top, the contents, and the sections. Fold a section with its arrow; your choice is remembered on this device. Every story links to its original. Admins open **Daily Planet settings** with the gear: name, how many days to keep, time zone, and the sections (show or hide, order, rename, icon, language, Dashboard headlines, start folded, a brief for the writer, add or remove). The **Watchlist** (tag icon) lists what you watch, with target and usual prices; editors add items, note a price they checked, and archive items. The watchlist is kept when old editions are removed.
 
+The edition shows reference and current prices separately. **Not checked** means it has no
+verified current offer. Only a significant discount gets a deal highlight.
+
+For a wishlist, the Workspace admin can save the Amazon.de wishlist URL, minimum reference
+price and default discount threshold under **Daily Planet settings → Watchlist settings**.
+From the tag icon, open **Import reference products**. Open the wishlist yourself and paste up
+to 50 rows in this order, separated by tabs: product name, EUR reference price, exact product
+URL, variant, notes. Leave unused fields blank. A full Amazon.de product URL helps match the
+ASIN when you import again. The paste adds references only and keeps existing checked-price
+history. Editors can note a checked total including VAT and shipping; enter the seller and
+link to make the comparison traceable. Admins can permanently remove archived products if
+their history is no longer needed.
+
+Under **Masthead backgrounds** in Daily Planet settings, upload images and preview their
+crop. Choose the bundled woodland, a fixed image, or rotate by date, randomly for new editions,
+or in order. Use the focus sliders and save rotation and cropping. The archive keeps each
+edition's photo and crop; use **Set the background of a published edition** to override it.
+Deleting an image restores the bundled woodland on editions that used it.
+
 ## Documents
 
 *Only in Workspaces where an admin switched Documents on. Documents need a connection; they do not work offline.*

@@ -2561,9 +2561,11 @@ export const gazetteEditions = sqliteTable('gazette_editions', {
   revision: integer('revision').notNull(), publishedAt: integer('published_at', { mode: 'timestamp_ms' }),
   createdAt: timestampMs('created_at'), createdByUserId: text('created_by_user_id').notNull().references(() => users.id),
   updatedAt: timestampMs('updated_at'), updatedByUserId: text('updated_by_user_id').notNull().references(() => users.id), updatedBy: text('updated_by').notNull(),
+  header: text('header', { mode: 'json' }).$type<import('@vergissmeinnicht/domain').GazetteHeaderImage>(),
 }, t => [
   uniqueIndex('gazette_edition_date_state').on(t.workspaceId, t.editionDate, t.state),
   index('gazette_edition_workspace_state').on(t.workspaceId, t.state, t.editionDate),
+  check('gazette_edition_header_valid', sql`${t.header} is null or (json_valid(${t.header}) and length(${t.header}) <= 128)`),
   check('gazette_edition_valid', sql`${oneOf('state', GAZETTE_EDITION_STATES)} and length(${t.editionDate}) = 10 and json_valid(${t.content}) and length(${t.content}) <= 600000 and json_extract(${t.content}, '$.version') = 1 and json_extract(${t.content}, '$.date') = ${t.editionDate} and ${t.revision} >= 1 and ((${t.state} = 'PUBLISHED') = (${t.publishedAt} is not null))`),
 ]);
 
@@ -2585,7 +2587,9 @@ export const gazetteWatchItems = sqliteTable('gazette_watch_items', {
   revision: integer('revision').notNull(),
   createdAt: timestampMs('created_at'), createdByUserId: text('created_by_user_id').notNull().references(() => users.id),
   updatedAt: timestampMs('updated_at'), updatedByUserId: text('updated_by_user_id').notNull().references(() => users.id),
+  discountThreshold: real('discount_threshold'),
 }, t => [
+  check('gazette_watch_discount_threshold', sql`${t.discountThreshold} is null or ${t.discountThreshold} between 2 and 100`),
   index('gazette_watch_items_workspace').on(t.workspaceId, t.active),
   check('gazette_watch_item_valid', sql`${oneOf('condition', GAZETTE_WATCH_CONDITIONS)} and length(${t.name}) between 1 and 480 and length(${t.variant}) <= 480 and length(${t.market}) <= 32 and length(${t.shop}) <= 320 and (${t.url} is null or (length(${t.url}) <= 2048 and ${t.url} like 'https://%')) and length(${t.currency}) = 3 and length(${t.notes}) <= 4000 and (${t.target} is null or ${t.target} >= 0) and (${t.typical} is null or ${t.typical} >= 0) and ${t.active} in (0, 1) and ${t.revision} >= 1`),
 ]);
@@ -2601,3 +2605,19 @@ export const gazetteWatchPrices = sqliteTable('gazette_watch_prices', {
   index('gazette_watch_prices_item').on(t.itemId, t.checkedAt),
   check('gazette_watch_price_valid', sql`${t.price} >= 0 and ${t.verified} in (0, 1) and length(${t.source}) <= 320 and (${t.url} is null or (length(${t.url}) <= 2048 and ${t.url} like 'https://%'))`),
 ]);
+
+export const gazetteHeaderImages = sqliteTable('gazette_header_images', {
+  id: text('id').primaryKey(),
+  workspaceId: text('workspace_id').notNull().references(() => workspaces.id, { onDelete: 'cascade' }),
+  jpeg: blob('jpeg', { mode: 'buffer' }).notNull(),
+}, t => [
+  index('gazette_header_images_workspace').on(t.workspaceId),
+  check('gazette_header_jpeg_valid', sql`typeof(${t.jpeg}) = 'blob' and length(${t.jpeg}) between 4 and 700000 and substr(${t.jpeg}, 1, 3) = x'ffd8ff'`),
+]);
+
+export const gazetteHeaderSettings = sqliteTable('gazette_header_settings', {
+  workspaceId: text('workspace_id').primaryKey().references(() => workspaces.id, { onDelete: 'cascade' }),
+  settings: text('settings', { mode: 'json' }).$type<import('@vergissmeinnicht/domain').GazetteHeaderSettings>().notNull(),
+  revision: integer('revision').notNull(),
+  sequence: integer('sequence').notNull().default(0),
+}, t => [check('gazette_header_settings_valid', sql`json_valid(${t.settings}) and length(${t.settings}) <= 4096 and ${t.revision} >= 1 and ${t.sequence} >= 0`)]);

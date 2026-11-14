@@ -473,7 +473,7 @@ export function createServices(config: AppConfig, database: AppDatabase, overrid
       links: { workspaces: workspaceDeps.workspaces, tools, links: createLinkRepository(database), clock: systemClock },
       contacts: { workspaces: workspaceDeps.workspaces, tools, contacts: createContactRepository(database), clock: systemClock },
       recipes: { workspaces: workspaceDeps.workspaces, users: createUserRepository(database), tools, recipes: createRecipeRepository(database), clock: systemClock },
-      gazette: { workspaces: workspaceDeps.workspaces, users: createUserRepository(database), tools, gazette: createGazetteRepository(database), clock: systemClock },
+      gazette: { headerProcessor: createSharpPlaceBackgroundProcessor(), workspaces: workspaceDeps.workspaces, users: createUserRepository(database), tools, gazette: createGazetteRepository(database), clock: systemClock },
       recipeAttachments,
       listAttachments:{repository:createAttachmentRepository(database,listAttachmentPolicy),store:attachmentStorage,processor:attachmentStorage,convertWebp:convertWebpToPng},
       bring: { workspaces: workspaceDeps.workspaces, users: createUserRepository(database), tools, bring: createBringRepository(database), clock: systemClock },

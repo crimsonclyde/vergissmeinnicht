@@ -81,7 +81,14 @@ publishing needs an Editor or Admin account. Full format and REST API: [Gazette 
 | `list_gazette_editions`, `get_gazette_edition` | `gazette.read` | Kept editions; one edition by date (published, or the draft for editors) |
 | `publish_gazette_edition` | `gazette.write` | Validate and publish (or save as draft) the edition of a date. Caller-chosen `operationId`; a retry with the same id and payload answers `duplicate: true`, another payload is refused. A refused edition changes nothing and names the field |
 | `list_watchlist_items` | `gazette.read` | The persistent watchlist with the newest checked price |
+| `create_watchlist_item` | `gazette.write` | Add an exact product/variant and optional reference price |
+| `update_watchlist_item` | `gazette.write` | Edit an existing item at its current revision, archive or restore via `active` |
+| `import_watchlist_items` | `gazette.write` | Import reviewed EUR reference products without visiting Amazon or verifying prices |
 | `update_watchlist_prices` | `gazette.write` | Observed prices with the time checked and the source; all or nothing |
+
+Refresh the VMN tool list in ChatGPT after deploying a server with these additions. Existing grants
+that already include `gazette.write` need no new scope; if a connection was read-only or did not
+include The Daily Planet, authorize the required scope before asking it to write.
 
 A daily ChatGPT task can read `get_gazette_config`, gather sources, check watchlist prices with
 `update_watchlist_prices`, then call `publish_gazette_edition` once. Edition text is data: it is never

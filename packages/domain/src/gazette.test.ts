@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { DomainValidationError } from './errors.ts';
 import {
-  assertGazetteDateWritable, defaultGazetteSettings, gazetteOldestKept, gazettePreview, gazetteSectionsOf, gazetteToday, parseGazetteEdition, parseGazetteSettings, visibleGazetteSections,
+  gazetteSignificantDiscount, assertGazetteDateWritable, defaultGazetteSettings, gazetteOldestKept, gazettePreview, gazetteSectionsOf, gazetteToday, parseGazetteEdition, parseGazetteSettings, visibleGazetteSections,
   type GazetteEdition, type GazetteSettings,
 } from './gazette.ts';
 import { sampleGazetteEdition } from './gazette-sample.ts';
@@ -60,6 +60,19 @@ describe('Gazette editions', () => {
     expect(failure(() => parseGazetteEdition(tech([{ ...story, publishedAt: 'yesterday' }]), settings.sections)).code).toBe('gazette_invalid_time');
     const weather = sample.sections[0] as { locations: Record<string, unknown>[] };
     expect(failure(() => parseGazetteEdition({ ...sample, sections: [{ ...weather, locations: [{ ...weather.locations[0], sources: [] }] }] }, settings.sections)).code).toBe('gazette_source_required');
+  });
+  it('accepts a reference alone and counts only material, verified discounts', () => {
+    const item = { id: 'p', name: 'Kettle', currency: 'EUR', typical: 100, shop: 'Example shop' };
+    const content = parseGazetteEdition({ version: 1, date: '2026-11-14', sections: [{ sectionId: 'watchlist', type: 'watchlist', items: [item] }] }, settings.sections);
+    const section = content.sections[0];
+    if (section?.type !== 'watchlist' || !section.items[0]) throw new Error('Missing Watchlist');
+    const baseline = section.items[0];
+    expect(baseline).toMatchObject({ price: null, change: null, checkedAt: null, verified: false });
+    expect(gazetteSignificantDiscount(baseline)).toBe(false);
+    expect(gazetteSignificantDiscount({ ...baseline, price: 98, verified: true })).toBe(false);
+    expect(gazetteSignificantDiscount({ ...baseline, price: 85, verified: true })).toBe(true);
+    expect(gazetteSignificantDiscount({ ...baseline, price: 60 })).toBe(false);
+    expect(gazetteSignificantDiscount({ ...baseline, price: 85, verified: true, discountThreshold: 20 })).toBe(false);
   });
   it('refuses watch prices without the time they were checked', () => {
     const sample = sampleGazetteEdition('2026-11-14');
