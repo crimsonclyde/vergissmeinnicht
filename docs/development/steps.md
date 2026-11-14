@@ -18,11 +18,19 @@ For every completed task, add a concise completion note, tests/checks performed,
 
 ## Current state — resume here
 
-**Release 0.15.0 prepared (owner release 70, 2026-11-14).** Includes PR #121 (The Daily
-Planet, internally Gazette, 43.1–43.5: editions, Dashboard card and page, settings, watchlist, MCP
-scopes `gazette.read`/`gazette.write`; migrations 0077 and 0078). Release upgrade checks start from
-0.14.2. Pending: owner publishes `v0.15.0`, then record the published digest here and the owner
-count (70) in AGENTS.md.
+**Published owner release 70 (2026-11-14).** 0.15.0 was published from `v0.15.0`, source
+`eb9caf0517c6237c5719a3f151ebd6c52d1bcccb` (PR #121: The Daily Planet, internally Gazette,
+43.1–43.5: editions, Dashboard card and page, settings, watchlist, MCP scopes
+`gazette.read`/`gazette.write`; migrations 0077 and 0078). The release reused the passing main CI;
+both image builds, smoke tests, scans, signing, SBOM and the populated upgrade checks (from 0.14.2,
+0.14.1, 0.14.0 and 0.10.1-beta.0) passed in under 5 minutes. A separate smoke test and upgrade
+checks (from 0.14.2, 0.14.1 and 0.10.1-beta.0) on the published image also passed. `0.15.0`,
+`0.15` and `latest` resolve to index
+`sha256:f788ef651816dd0a929d91db353f086706db106771597bead4fe70f61a7274ed`.
+Release upgrade checks now start from 0.15.0, 0.14.2 and 0.14.1.
+Owner count **70**, next **71**.
+[GitHub release](https://github.com/crimsonclyde/vergissmeinnicht/releases/tag/v0.15.0)
+[Release workflow](https://github.com/crimsonclyde/vergissmeinnicht/actions/runs/43617412433)
 
 **Published owner release 69 (2026-11-13).** 0.14.2 was published from `v0.14.2`, source
 `2d9a61ce9d3633a3148865648a285ffef44151c0` (PR #118: ChatGPT file hosts, Denmark East Azure host
