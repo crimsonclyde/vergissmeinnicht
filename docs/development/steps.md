@@ -18,11 +18,17 @@ For every completed task, add a concise completion note, tests/checks performed,
 
 ## Current state — resume here
 
-**Release 0.14.2 prepared (owner release 69, 2026-11-13).** Includes PR #118 (ChatGPT file
-hosts: Denmark East Azure host built in, one-tap allow in Server admin, `MCP_CHATGPT_FILE_HOSTS`
-honoured by the upload tools, 36.25; migration 0076). Release upgrade checks start from 0.14.1.
-Pending: owner publishes `v0.14.2`, then record the published digest here and the owner count
-(69) in AGENTS.md.
+**Published owner release 69 (2026-11-13).** 0.14.2 was published from `v0.14.2`, source
+`2d9a61ce9d3633a3148865648a285ffef44151c0` (PR #118: ChatGPT file hosts, Denmark East Azure host
+built in, one-tap allow in Server admin, `MCP_CHATGPT_FILE_HOSTS` honoured by the upload tools,
+36.25; migration 0076). The release reused the passing main CI; both image builds, smoke tests,
+scans, signing, SBOM and the populated upgrade checks (from 0.14.1, 0.14.0, 0.13.12 and
+0.10.1-beta.0) passed in under 5 minutes. `0.14.2`, `0.14` and `latest` resolve to index
+`sha256:3daf8d365de9c25f0aadd3bd4faac0c3b30ae3af8c4fe7056b79f24e6100de40`.
+Release upgrade checks now start from 0.14.2, 0.14.1 and 0.14.0.
+Owner count **69**, next **70**.
+[GitHub release](https://github.com/crimsonclyde/vergissmeinnicht/releases/tag/v0.14.2)
+[Release workflow](https://github.com/crimsonclyde/vergissmeinnicht/actions/runs/43512993291)
 
 **Published owner release 68 (2026-11-13).** 0.14.1 was published from `v0.14.1`, source
 `ec46e836d41124ac393ba3763d5b3935f8a410d3` (PRs #107–#114: grocery move/delete/edit/restore
