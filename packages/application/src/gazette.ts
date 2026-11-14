@@ -1,5 +1,5 @@
 import {
-  assertGazetteDateWritable, gazetteOldestKept, gazettePreview, gazetteToday, parseGazetteEdition, parseGazetteSettings, parseLocalDate,
+  assertGazetteDateWritable, parseGazetteWatchFields, parseGazettePriceObservations, type GazetteWatchFields, type GazettePriceObservationInput, type GazetteWatchItemView, gazetteOldestKept, gazettePreview, gazetteToday, parseGazetteEdition, parseGazetteSettings, parseLocalDate,
   type GazetteEdition, type GazetteEditionContent, type GazetteEditionSummary, type GazettePreview, type GazetteSettings, type LocalDate, type User, type WorkspaceId,
 } from '@vergissmeinnicht/domain';
 import { authorizeTool, type ToolDeps } from './documents/tools.ts';
@@ -33,7 +33,15 @@ export interface GazetteRepository {
   /** The newest published edition on or before `date`. */
   latestPublished(workspaceId: WorkspaceId, onOrBefore: LocalDate): Promise<GazetteEdition | undefined>;
 }
-export interface GazetteDeps extends ToolDeps { readonly users: UserRepository; readonly gazette: GazetteRepository }
+export interface GazetteWatchRepository {
+  watchItems(workspaceId: WorkspaceId): Promise<GazetteWatchItemView[]>;
+  createWatchItem(workspaceId: WorkspaceId, actor: User, fields: GazetteWatchFields, at: Date): Promise<GazetteWatchItemView>;
+  /** Refuses a stale revision; the item must belong to the Workspace. */
+  updateWatchItem(workspaceId: WorkspaceId, actor: User, id: string, fields: GazetteWatchFields, expectedRevision: number, at: Date): Promise<GazetteWatchItemView>;
+  /** All or nothing: an unknown item (or one of another Workspace) refuses the whole batch. */
+  recordPrices(workspaceId: WorkspaceId, actor: User, observations: readonly GazettePriceObservationInput[], at: Date): Promise<number>;
+}
+export interface GazetteDeps extends ToolDeps { readonly users: UserRepository; readonly gazette: GazetteRepository & GazetteWatchRepository }
 
 type Level = 'view' | 'publish' | 'manage';
 export async function authorizeGazette(deps: GazetteDeps, actor: User, workspaceId: WorkspaceId, level: Level = 'view') {
@@ -120,4 +128,23 @@ export async function gazetteDashboard(deps: GazetteDeps, actor: User, workspace
   const today = gazetteToday(settings, deps.clock.now());
   const edition = await deps.gazette.latestPublished(workspaceId, today);
   return { today, preview: edition ? gazettePreview(edition, settings, today) : null };
+}
+
+/** The persistent watchlist (43.3): everyone with the tool reads it; publishers (EDITOR+) change it. */
+export async function listGazetteWatchItems(deps: GazetteDeps, actor: User, workspaceId: WorkspaceId) {
+  await authorizeGazette(deps, actor, workspaceId);
+  return deps.gazette.watchItems(workspaceId);
+}
+export async function createGazetteWatchItem(deps: GazetteDeps, actor: User, workspaceId: WorkspaceId, fields: unknown) {
+  await authorizeGazette(deps, actor, workspaceId, 'publish');
+  return deps.gazette.createWatchItem(workspaceId, actor, parseGazetteWatchFields(fields), deps.clock.now());
+}
+export async function updateGazetteWatchItem(deps: GazetteDeps, actor: User, workspaceId: WorkspaceId, id: string, fields: unknown, expectedRevision: number) {
+  await authorizeGazette(deps, actor, workspaceId, 'publish');
+  return deps.gazette.updateWatchItem(workspaceId, actor, id, parseGazetteWatchFields(fields), expectedRevision, deps.clock.now());
+}
+export async function recordGazettePrices(deps: GazetteDeps, actor: User, workspaceId: WorkspaceId, observations: unknown) {
+  await authorizeGazette(deps, actor, workspaceId, 'publish');
+  const now = deps.clock.now();
+  return { recorded: await deps.gazette.recordPrices(workspaceId, actor, parseGazettePriceObservations(observations, now), now) };
 }

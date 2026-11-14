@@ -1,4 +1,8 @@
 import {
+  IconEye,
+  IconEyeOff,
+  IconArchiveOff,
+  IconCurrencyEuro,
   IconNews,
   IconCpu,
   IconMap2,
@@ -305,6 +309,10 @@ const ICONS = {
   folderOpen: IconFolderOpen,
   // Morning Gazette (43): the tool and the bundled section icons (domain GAZETTE_ICONS map onto these).
   gazette: IconNews,
+  gazetteShown: IconEye,
+  gazetteHidden: IconEyeOff,
+  unarchive: IconArchiveOff,
+  gazettePrice: IconCurrencyEuro,
   gazetteChip: IconCpu,
   gazetteMap: IconMap2,
   gazetteLeaf: IconLeaf,

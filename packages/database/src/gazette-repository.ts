@@ -1,11 +1,11 @@
 import { createHash, randomUUID } from 'node:crypto';
-import { GazetteConflictError, GazetteNotFoundError, GazetteOperationConflictError, NotAuthorizedError, type GazetteRepository, type StoredGazetteSettings } from '@vergissmeinnicht/application';
-import { defaultGazetteSettings, gazetteOldestKept, parseTimeZone, type GazetteEdition, type GazetteSettings, type LocalDate, type TimeZoneName, type User, type WorkspaceId } from '@vergissmeinnicht/domain';
+import { GazetteConflictError, GazetteNotFoundError, GazetteOperationConflictError, NotAuthorizedError, type GazetteRepository, type GazetteWatchRepository, type StoredGazetteSettings } from '@vergissmeinnicht/application';
+import { DomainValidationError, GAZETTE_WATCH_LIMITS, defaultGazetteSettings, type GazetteWatchItemView, type GazetteWatchPrice, gazetteOldestKept, parseTimeZone, type GazetteEdition, type GazetteSettings, type LocalDate, type TimeZoneName, type User, type WorkspaceId } from '@vergissmeinnicht/domain';
 import { roleHasCapability, type WorkspaceCapability } from '@vergissmeinnicht/permissions';
-import { and, desc, eq, gte, lt, lte, ne } from 'drizzle-orm';
+import { and, asc, count, desc, eq, gte, inArray, lt, lte, ne } from 'drizzle-orm';
 import { actorAllowed, IMMEDIATE, type Transaction } from './actor-guard.ts';
 import type { AppDatabase } from './connection.ts';
-import { gazetteEditions, gazetteOperations, gazetteSettings, users, workspaces } from './schema.ts';
+import { gazetteEditions, gazetteOperations, gazetteSettings, gazetteWatchItems, gazetteWatchPrices, users, workspaces } from './schema.ts';
 import { recordSecurityEvent } from './security-events.ts';
 
 type Reader = Pick<Transaction, 'select'>;
@@ -31,9 +31,21 @@ const view = (row: typeof gazetteEditions.$inferSelect): GazetteEdition => ({
   publishedAt: row.publishedAt ?? null, updatedAt: row.updatedAt, updatedBy: row.updatedBy, content: row.content,
 });
 const summary = (edition: GazetteEdition) => ({ id: edition.id, date: edition.date, state: edition.state, title: edition.title, revision: edition.revision, publishedAt: edition.publishedAt, updatedAt: edition.updatedAt, updatedBy: edition.updatedBy });
+const priceView = (row: typeof gazetteWatchPrices.$inferSelect): GazetteWatchPrice => ({ price: row.price, verified: row.verified, checkedAt: row.checkedAt.toISOString(), source: row.source, url: row.url });
+function watchViews(tx: Reader, rows: readonly (typeof gazetteWatchItems.$inferSelect)[]): GazetteWatchItemView[] {
+  const prices = rows.length === 0 ? [] : tx.select().from(gazetteWatchPrices).where(inArray(gazetteWatchPrices.itemId, rows.map(row => row.id))).orderBy(asc(gazetteWatchPrices.checkedAt)).all();
+  return rows.map(row => {
+    const history = prices.filter(price => price.itemId === row.id).map(priceView);
+    return {
+      id: row.id, name: row.name, variant: row.variant, condition: row.condition, market: row.market, shop: row.shop, url: row.url, currency: row.currency,
+      target: row.target, typical: row.typical, notes: row.notes, active: row.active, revision: row.revision, updatedAt: row.updatedAt.toISOString(),
+      latest: history.at(-1) ?? null, history,
+    };
+  });
+}
 const hashOf = (value: unknown) => createHash('sha256').update(JSON.stringify(value)).digest('hex');
 
-export function createGazetteRepository({ db }: AppDatabase): GazetteRepository {
+export function createGazetteRepository({ db }: AppDatabase): GazetteRepository & GazetteWatchRepository {
   const nameOf = (tx: Transaction, actor: User) => tx.select({ name: users.name }).from(users).where(eq(users.id, actor.id)).get()?.name ?? actor.displayName;
   const event = (tx: Transaction, actor: User, workspaceId: WorkspaceId, at: Date, edition: { id: string; editionDate: string; state: string; revision: number }, action: string) =>
     recordSecurityEvent(tx, { type: 'GAZETTE_EDITION_CHANGED', actor: actorStamp(actor), subjectType: 'workspace', subjectId: workspaceId, occurredAt: at, metadata: { editionId: edition.id, date: edition.editionDate, state: edition.state, revision: edition.revision, action } });
@@ -124,6 +136,47 @@ export function createGazetteRepository({ db }: AppDatabase): GazetteRepository 
     async findByDate(workspaceId, date, state) {
       const row = db.select().from(gazetteEditions).where(and(eq(gazetteEditions.workspaceId, workspaceId), eq(gazetteEditions.editionDate, date), eq(gazetteEditions.state, state))).get();
       return row ? view(row) : undefined;
+    },
+    async watchItems(workspaceId) {
+      const rows = db.select().from(gazetteWatchItems).where(eq(gazetteWatchItems.workspaceId, workspaceId)).orderBy(desc(gazetteWatchItems.active), asc(gazetteWatchItems.name)).all();
+      return watchViews(db, rows);
+    },
+    async createWatchItem(workspaceId, actor, fields, at) {
+      return db.transaction(tx => {
+        if (!guard(tx, workspaceId, actor, 'gazette.publish')) throw new NotAuthorizedError();
+        const total = tx.select({ n: count() }).from(gazetteWatchItems).where(eq(gazetteWatchItems.workspaceId, workspaceId)).get()?.n ?? 0;
+        if (total >= GAZETTE_WATCH_LIMITS.items) throw new DomainValidationError('item', 'gazette_list_size', 'Too many watched items');
+        const id = randomUUID();
+        tx.insert(gazetteWatchItems).values({ id, workspaceId, ...fields, revision: 1, createdAt: at, createdByUserId: actor.id, updatedAt: at, updatedByUserId: actor.id }).run();
+        return watchViews(tx, tx.select().from(gazetteWatchItems).where(eq(gazetteWatchItems.id, id)).all())[0] as GazetteWatchItemView;
+      }, IMMEDIATE);
+    },
+    async updateWatchItem(workspaceId, actor, id, fields, expectedRevision, at) {
+      return db.transaction(tx => {
+        if (!guard(tx, workspaceId, actor, 'gazette.publish')) throw new NotAuthorizedError();
+        const row = tx.select().from(gazetteWatchItems).where(and(eq(gazetteWatchItems.id, id), eq(gazetteWatchItems.workspaceId, workspaceId))).get();
+        if (!row) throw new GazetteNotFoundError();
+        if (row.revision !== expectedRevision) throw new GazetteConflictError();
+        tx.update(gazetteWatchItems).set({ ...fields, revision: row.revision + 1, updatedAt: at, updatedByUserId: actor.id }).where(eq(gazetteWatchItems.id, id)).run();
+        return watchViews(tx, tx.select().from(gazetteWatchItems).where(eq(gazetteWatchItems.id, id)).all())[0] as GazetteWatchItemView;
+      }, IMMEDIATE);
+    },
+    async recordPrices(workspaceId, actor, observations, at) {
+      return db.transaction(tx => {
+        if (!guard(tx, workspaceId, actor, 'gazette.publish')) throw new NotAuthorizedError();
+        const ids = [...new Set(observations.map(entry => entry.itemId))];
+        const known = tx.select({ id: gazetteWatchItems.id }).from(gazetteWatchItems).where(and(eq(gazetteWatchItems.workspaceId, workspaceId), inArray(gazetteWatchItems.id, ids))).all();
+        if (known.length !== ids.length) throw new GazetteNotFoundError();
+        for (const entry of observations) {
+          tx.insert(gazetteWatchPrices).values({ id: randomUUID(), workspaceId, itemId: entry.itemId, price: entry.price, verified: entry.verified, checkedAt: new Date(entry.checkedAt), source: entry.source, url: entry.url, createdAt: at, createdByUserId: actor.id }).run();
+        }
+        // Keep the newest observations per item only.
+        for (const itemId of ids) {
+          const old = tx.select({ id: gazetteWatchPrices.id }).from(gazetteWatchPrices).where(eq(gazetteWatchPrices.itemId, itemId)).orderBy(desc(gazetteWatchPrices.checkedAt), desc(gazetteWatchPrices.createdAt)).limit(100_000).offset(GAZETTE_WATCH_LIMITS.pricesPerItem).all();
+          if (old.length > 0) tx.delete(gazetteWatchPrices).where(inArray(gazetteWatchPrices.id, old.map(row => row.id))).run();
+        }
+        return observations.length;
+      }, IMMEDIATE);
     },
     async latestPublished(workspaceId, onOrBefore) {
       const row = db.select().from(gazetteEditions).where(and(eq(gazetteEditions.workspaceId, workspaceId), eq(gazetteEditions.state, 'PUBLISHED'), lte(gazetteEditions.editionDate, onOrBefore)))

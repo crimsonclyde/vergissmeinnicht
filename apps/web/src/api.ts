@@ -1254,6 +1254,8 @@ export interface McpConsent {id:string;clientName:string;redirectOrigin:string;s
 export type GazetteSettings = import('@vergissmeinnicht/domain').GazetteSettings;
 export type GazetteContent = import('@vergissmeinnicht/domain').GazetteEditionContent;
 export type GazetteSectionContent = import('@vergissmeinnicht/domain').GazetteSectionContent;
+export type GazetteWatchItemView = import('@vergissmeinnicht/domain').GazetteWatchItemView;
+export type GazetteWatchFields = import('@vergissmeinnicht/domain').GazetteWatchFields;
 export interface GazetteEditionSummaryView { readonly id: string; readonly date: string; readonly state: 'DRAFT' | 'PUBLISHED'; readonly title: string; readonly revision: number; readonly publishedAt: string | null; readonly updatedAt: string; readonly updatedBy: string }
 export interface GazetteEditionView extends GazetteEditionSummaryView { readonly content: GazetteContent }
 export interface GazettePreviewView {
@@ -1284,6 +1286,10 @@ export const api = {
   gazetteToday: (workspaceId: string) => request<GazetteTodayView>('GET', `/workspaces/${encodeURIComponent(workspaceId)}/gazette/today`),
   gazetteSettings: (workspaceId: string) => request<{ settings: GazetteSettings; revision: number; today: string; oldest: string }>('GET', `/workspaces/${encodeURIComponent(workspaceId)}/gazette/settings`),
   saveGazetteSettings: (workspaceId: string, settings: GazetteSettings, expectedRevision: number) => request<{ settings: GazetteSettings; revision: number }>('POST', `/workspaces/${encodeURIComponent(workspaceId)}/gazette/settings`, { settings, expectedRevision }),
+  gazetteWatchlist: (workspaceId: string) => request<{ items: GazetteWatchItemView[] }>('GET', `/workspaces/${encodeURIComponent(workspaceId)}/gazette/watchlist`).then(result => result.items),
+  createGazetteWatchItem: (workspaceId: string, item: GazetteWatchFields) => request<{ item: GazetteWatchItemView }>('POST', `/workspaces/${encodeURIComponent(workspaceId)}/gazette/watchlist`, { item }).then(result => result.item),
+  updateGazetteWatchItem: (workspaceId: string, id: string, item: GazetteWatchFields, expectedRevision: number) => request<{ item: GazetteWatchItemView }>('POST', `/workspaces/${encodeURIComponent(workspaceId)}/gazette/watchlist/${encodeURIComponent(id)}`, { item, expectedRevision }).then(result => result.item),
+  recordGazettePrice: (workspaceId: string, itemId: string, price: number, source: string) => request<{ recorded: number }>('POST', `/workspaces/${encodeURIComponent(workspaceId)}/gazette/watchlist/prices`, { observations: [{ itemId, price, verified: true, checkedAt: new Date().toISOString(), source }] }),
   gazetteEditions: (workspaceId: string) => request<{ today: string; editions: GazetteEditionSummaryView[] }>('GET', `/workspaces/${encodeURIComponent(workspaceId)}/gazette/editions`),
   gazetteEdition: (workspaceId: string, date: string) => request<{ edition: GazetteEditionView }>('GET', `/workspaces/${encodeURIComponent(workspaceId)}/gazette/editions/${encodeURIComponent(date)}`).then(result => result.edition),
   recipes: (workspaceId:string,q='',archived=false,offset=0,filter:{categories?:readonly string[];sort?:string}={})=>request<{recipes:RecipeView[];more:boolean}>('GET',`/workspaces/${encodeURIComponent(workspaceId)}/recipes?${new URLSearchParams({q,archived:String(archived),offset:String(offset),...(filter.categories?.length?{categories:filter.categories.join(',')}:{}),...(filter.sort?{sort:filter.sort}:{})})}`),

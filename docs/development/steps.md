@@ -5951,6 +5951,28 @@ Today layout, catalog and full suite, lint, typecheck.
 
 Security surface: none new (reads the 43.1 API; links are the validated https URLs).
 
+### 43.3 — Settings and persistent watchlist (2026-11-14)
+
+Implemented:
+
+- `/w/{ws}/gazette/settings` (Workspace admins; a gear in the masthead): name, retention 1–31 days,
+  time zone, Dashboard headlines, and the sections: show/hide, reorder, rename, subtitle, language,
+  icon, Dashboard headlines, start folded, a brief for the writer, remove, and add a section of any
+  renderer type. Section ids stay stable on rename; nothing is saved before Save (revision checked).
+- Watchlist (migration **0078**: `gazette_watch_items`, `gazette_watch_prices`), independent of
+  editions and never touched by retention; in the Workspace backup. API: `GET|POST …/gazette/watchlist`,
+  `POST …/gazette/watchlist/{id}` `{item, expectedRevision}` (edit, archive with `active: false`),
+  `POST …/gazette/watchlist/prices` `{observations: [{itemId, price, checkedAt, verified?, source?, url?}]}`
+  (all or nothing; the newest 90 per item are kept).
+- `/w/{ws}/gazette/watchlist` (tag icon in the masthead and on the watchlist section): everyone reads;
+  editors add, edit, archive/restore and note a checked price; a small trend line from the history.
+
+Checks: HTTP test for roles, Workspace isolation, https links, missing check time, all-or-nothing
+batches, stale revisions, archive and retention; backup allowlist; screenshots of both screens in the
+themes at 1440 and 390 px; lint, typecheck, full suite.
+
+Security surface changed slightly (new Workspace data and write routes); see security.md 43.3.
+
 ## 11 — Licensing
 
 ### 11.1 AGPL-3.0

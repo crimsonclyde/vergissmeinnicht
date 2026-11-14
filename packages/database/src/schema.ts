@@ -22,6 +22,7 @@ import {
   TEXT_STATES,
   WORKSPACE_TOOLS,
   GAZETTE_EDITION_STATES,
+  GAZETTE_WATCH_CONDITIONS,
   PROCEDURE_ICONS,
   REASON_POLICIES,
   OCCURRENCE_STATES,
@@ -2571,3 +2572,32 @@ export const gazetteOperations = sqliteTable('gazette_operations', {
   id: text('id').primaryKey(), workspaceId: text('workspace_id').notNull().references(() => workspaces.id), userId: text('user_id').notNull().references(() => users.id),
   payloadHash: text('payload_hash').notNull(), editionId: text('edition_id').notNull(), editionDate: text('edition_date').notNull(), at: timestampMs('at'),
 }, t => [index('gazette_operations_at').on(t.at)]);
+
+/**
+ * The persistent Gazette watchlist (43.3): what a Workspace watches, independent of editions — Gazette
+ * retention never touches it. Archived items stay with their price history.
+ */
+export const gazetteWatchItems = sqliteTable('gazette_watch_items', {
+  id: text('id').primaryKey(), workspaceId: text('workspace_id').notNull().references(() => workspaces.id),
+  name: text('name').notNull(), variant: text('variant').notNull(), condition: text('condition', { enum: GAZETTE_WATCH_CONDITIONS }).notNull(),
+  market: text('market').notNull(), shop: text('shop').notNull(), url: text('url'), currency: text('currency').notNull(),
+  target: real('target'), typical: real('typical'), notes: text('notes').notNull(), active: integer('active', { mode: 'boolean' }).notNull(),
+  revision: integer('revision').notNull(),
+  createdAt: timestampMs('created_at'), createdByUserId: text('created_by_user_id').notNull().references(() => users.id),
+  updatedAt: timestampMs('updated_at'), updatedByUserId: text('updated_by_user_id').notNull().references(() => users.id),
+}, t => [
+  index('gazette_watch_items_workspace').on(t.workspaceId, t.active),
+  check('gazette_watch_item_valid', sql`${oneOf('condition', GAZETTE_WATCH_CONDITIONS)} and length(${t.name}) between 1 and 480 and length(${t.variant}) <= 480 and length(${t.market}) <= 32 and length(${t.shop}) <= 320 and (${t.url} is null or (length(${t.url}) <= 2048 and ${t.url} like 'https://%')) and length(${t.currency}) = 3 and length(${t.notes}) <= 4000 and (${t.target} is null or ${t.target} >= 0) and (${t.typical} is null or ${t.typical} >= 0) and ${t.active} in (0, 1) and ${t.revision} >= 1`),
+]);
+
+/** Observed prices of a watched item (43.3): only what someone checked, with when and where. At most 90 per item. */
+export const gazetteWatchPrices = sqliteTable('gazette_watch_prices', {
+  id: text('id').primaryKey(), workspaceId: text('workspace_id').notNull().references(() => workspaces.id),
+  itemId: text('item_id').notNull().references(() => gazetteWatchItems.id),
+  price: real('price').notNull(), verified: integer('verified', { mode: 'boolean' }).notNull(), checkedAt: integer('checked_at', { mode: 'timestamp_ms' }).notNull(),
+  source: text('source').notNull(), url: text('url'),
+  createdAt: timestampMs('created_at'), createdByUserId: text('created_by_user_id').notNull().references(() => users.id),
+}, t => [
+  index('gazette_watch_prices_item').on(t.itemId, t.checkedAt),
+  check('gazette_watch_price_valid', sql`${t.price} >= 0 and ${t.verified} in (0, 1) and length(${t.source}) <= 320 and (${t.url} is null or (length(${t.url}) <= 2048 and ${t.url} like 'https://%'))`),
+]);

@@ -2208,3 +2208,14 @@ server admins see and can end every connection on the server.
   `GAZETTE_SETTINGS_CHANGED` (revision, retention, section count) — never article text.
 - Tests: `gazette.test.ts` (domain and HTTP), `policy.test.ts`, backup allowlist tests.
 
+### Gazette watchlist (43.3, 2026-11-14)
+
+- [x] Watched items and observed prices (migration 0078) are Workspace data: every role with the tool
+  reads them, EDITOR and above change them (rechecked inside the write transaction). An item id of
+  another Workspace resolves to nothing; a price batch naming one stores nothing (404, all or nothing).
+- [x] Item links are https only (domain and database CHECK); prices need the time they were checked;
+  at most 100 items per Workspace and the newest 90 prices per item.
+- [x] Gazette retention never touches the watchlist; both tables are in the Workspace backup and are
+  restored with new ids and historical person references.
+- [x] The settings screen is reachable for `gazette.manage` only; the server enforces it regardless.
+

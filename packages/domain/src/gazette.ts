@@ -530,3 +530,83 @@ export function gazetteSectionsOf(value: unknown): GazetteSectionDefinition[] {
       ? [{ id: s.sectionId, type: s.type as GazetteSectionType, title: s.sectionId, subtitle: '', icon: 'news' as const, enabled: true, language: 'en', dashboard: true, collapsed: false, brief: '', sources: [] }] : [];
   });
 }
+
+/* ---- Persistent watchlist (43.3) ---------------------------------------------------------------
+ * What the Workspace watches, independent of editions: retention never touches it. Each item keeps a
+ * short price history from observations an import (or a person) records; an edition's watchlist
+ * section is a snapshot written by the import. Prices are only ever what someone observed, with the
+ * time and source — never inferred. */
+
+export const GAZETTE_WATCH_CONDITIONS = ['any', 'new', 'refurbished', 'used'] as const;
+export type GazetteWatchCondition = (typeof GAZETTE_WATCH_CONDITIONS)[number];
+export const GAZETTE_WATCH_LIMITS = Object.freeze({ items: 100, pricesPerItem: 90, observationsPerCall: 50 });
+
+export interface GazetteWatchFields {
+  readonly name: string;
+  readonly variant: string;
+  readonly condition: GazetteWatchCondition;
+  readonly market: string;
+  readonly shop: string;
+  readonly url: string | null;
+  readonly currency: string;
+  readonly target: number | null;
+  readonly typical: number | null;
+  readonly notes: string;
+  readonly active: boolean;
+}
+
+export interface GazettePriceObservationInput {
+  readonly itemId: string;
+  readonly price: number;
+  readonly verified: boolean;
+  readonly checkedAt: string;
+  readonly source: string;
+  readonly url: string | null;
+}
+
+export function parseGazetteWatchFields(value: unknown): GazetteWatchFields {
+  const row = record(value, 'item', ['name', 'currency'], ['variant', 'condition', 'market', 'shop', 'url', 'target', 'typical', 'notes', 'active']);
+  return {
+    name: str(row['name'], 'item.name', 120, { required: true }),
+    variant: str(row['variant'], 'item.variant', 120),
+    condition: oneOf(row['condition'], 'item.condition', GAZETTE_WATCH_CONDITIONS, 'any'),
+    market: str(row['market'], 'item.market', 8),
+    shop: str(row['shop'], 'item.shop', 80),
+    url: gazetteUrl(row['url'], 'item.url'),
+    currency: typeof row['currency'] === 'string' && /^[A-Z]{3}$/.test(row['currency']) ? row['currency'] : fail('item.currency'),
+    target: num(row['target'], 'item.target', 0, 10_000_000),
+    typical: num(row['typical'], 'item.typical', 0, 10_000_000),
+    notes: str(row['notes'], 'item.notes', 1000, { multiline: true }),
+    active: bool(row['active'], 'item.active', true),
+  };
+}
+
+/** A batch of observed prices; an observation without the time it was checked is refused. */
+export function parseGazettePriceObservations(value: unknown, now: Date): GazettePriceObservationInput[] {
+  const items = list(value, 'observations', GAZETTE_WATCH_LIMITS.observationsPerCall, 1);
+  return items.map((entry, index) => {
+    const path = `observations[${index}]`;
+    const row = record(entry, path, ['itemId', 'price', 'checkedAt'], ['verified', 'source', 'url']);
+    const checkedAt = instant(row['checkedAt'], `${path}.checkedAt`) as string;
+    if (Date.parse(checkedAt) > now.getTime() + 5 * 60_000) fail(`${path}.checkedAt`, 'gazette_invalid_time');
+    return {
+      itemId: typeof row['itemId'] === 'string' && /^[0-9a-f-]{36}$/.test(row['itemId']) ? row['itemId'] : fail(`${path}.itemId`, 'gazette_invalid_id'),
+      price: num(row['price'], `${path}.price`, 0, 10_000_000, false) as number,
+      verified: bool(row['verified'], `${path}.verified`, false),
+      checkedAt,
+      source: str(row['source'], `${path}.source`, 80),
+      url: gazetteUrl(row['url'], `${path}.url`),
+    };
+  });
+}
+
+export interface GazetteWatchPrice { readonly price: number; readonly verified: boolean; readonly checkedAt: string; readonly source: string; readonly url: string | null }
+export interface GazetteWatchItemView extends GazetteWatchFields {
+  readonly id: string;
+  readonly revision: number;
+  readonly updatedAt: string;
+  /** The newest observation, if any. */
+  readonly latest: GazetteWatchPrice | null;
+  /** Oldest first, at most `pricesPerItem`. */
+  readonly history: readonly GazetteWatchPrice[];
+}

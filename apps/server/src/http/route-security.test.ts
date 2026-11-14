@@ -51,6 +51,9 @@ function bodyFor(route: string, ids: Record<string, string>): object {
   if (url.endsWith('/gazette/settings')) return { settings: {}, expectedRevision: 0 };
   if (url.endsWith('/gazette/editions')) return { content: {}, publish: false };
   if (url.endsWith('/gazette/editions/id/:editionId/publish')) return { expectedRevision: 1 };
+  if (url.endsWith('/gazette/watchlist')) return { item: { name: 'Kettle', currency: 'EUR' } };
+  if (url.endsWith('/gazette/watchlist/:itemId')) return { item: { name: 'Kettle', currency: 'EUR' }, expectedRevision: 1 };
+  if (url.endsWith('/gazette/watchlist/prices')) return { observations: [] };
   if (url.endsWith('/journal') || url.endsWith('/journal/:entryId')) return { content: { kind: 'note', version: 1, title: 'Entry', date: '2026-10-23', body: 'Note' }, expectedRevision: 0, archived: false };
   if (url === '/api/account/weather/workspaces/:workspaceId/location') return { useWorkspaceLocation: true };
   if (url.endsWith('/location')) return { location: null, expectedLocation: null };

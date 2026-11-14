@@ -148,4 +148,33 @@ describe('Morning Gazette API (43)', () => {
     expect(events.map(e => e.type).sort()).toEqual(['GAZETTE_EDITION_CHANGED', 'GAZETTE_SETTINGS_CHANGED']);
     expect(events.map(e => e.metadata).join(' ')).not.toContain('Sample');
   });
+
+  it('keeps a persistent watchlist apart from editions: roles, Workspace, revisions, prices and retention', async () => {
+    const item = { name: 'Burr grinder', variant: 'Black', condition: 'new', market: 'IT', currency: 'EUR', target: 160, typical: 189, url: 'https://example.org/grinder' };
+    expect((await t.post(`${base()}/watchlist`, { item }, user)).statusCode).toBe(403);
+    expect((await t.post(`${base()}/watchlist`, { item: { ...item, url: 'http://example.org' } }, editor)).statusCode).toBe(400);
+    const created = await t.post(`${base()}/watchlist`, { item }, editor);
+    expect(created.statusCode, created.body).toBe(201);
+    const id = created.json().item.id;
+    expect((await t.get(`${base()}/watchlist`, guest)).json().items).toMatchObject([{ id, name: 'Burr grinder', latest: null, active: true }]);
+    // Another Workspace can neither read nor price it.
+    await t.post(`/api/workspaces/${other}/tools`, { tool: 'GAZETTE', enabled: true }, t.admin);
+    expect((await t.get(`${base(other)}/watchlist`, t.admin)).json().items).toEqual([]);
+    expect((await t.post(`${base(other)}/watchlist/prices`, { observations: [{ itemId: id, price: 1, checkedAt: new Date().toISOString() }] }, t.admin)).statusCode).toBe(404);
+    // A price needs the time it was checked; a batch with an unknown item stores nothing.
+    expect((await t.post(`${base()}/watchlist/prices`, { observations: [{ itemId: id, price: 150 }] }, editor)).statusCode).toBe(400);
+    expect((await t.post(`${base()}/watchlist/prices`, { observations: [{ itemId: id, price: 150, checkedAt: new Date().toISOString() }, { itemId: randomUUID(), price: 1, checkedAt: new Date().toISOString() }] }, editor)).statusCode).toBe(404);
+    const recorded = await t.post(`${base()}/watchlist/prices`, { observations: [{ itemId: id, price: 159, verified: true, checkedAt: new Date(Date.now() - DAY).toISOString(), source: 'Example Shop' }, { itemId: id, price: 149, verified: true, checkedAt: new Date().toISOString(), source: 'Example Shop' }] }, editor);
+    expect(recorded.json()).toEqual({ recorded: 2 });
+    const [read] = (await t.get(`${base()}/watchlist`, guest)).json().items;
+    expect(read.latest).toMatchObject({ price: 149, verified: true, source: 'Example Shop' });
+    expect(read.history.map((entry: { price: number }) => entry.price)).toEqual([159, 149]);
+    // Stale revisions are refused; archiving keeps the history.
+    expect((await t.post(`${base()}/watchlist/${id}`, { item: { ...item, active: false }, expectedRevision: 9 }, editor)).statusCode).toBe(409);
+    const archived = await t.post(`${base()}/watchlist/${id}`, { item: { ...item, active: false }, expectedRevision: 1 }, editor);
+    expect(archived.json().item).toMatchObject({ active: false, revision: 2, latest: { price: 149 } });
+    // Gazette retention never touches the watchlist.
+    purgeGazette(t.database, new Date(Date.now() + 60 * DAY));
+    expect((await t.get(`${base()}/watchlist`, guest)).json().items[0].history).toHaveLength(2);
+  });
 });

@@ -1,7 +1,7 @@
 import type { FastifyInstance, FastifyRequest } from 'fastify';
 import { z } from 'zod';
 import {
-  deleteGazetteDraft, gazetteDashboard, getGazetteEdition, getGazetteEditionById, getGazetteSettings, listGazetteEditions, publishGazetteDraft, saveGazetteSettings, writeGazetteEdition,
+  createGazetteWatchItem, deleteGazetteDraft, gazetteDashboard, listGazetteWatchItems, recordGazettePrices, updateGazetteWatchItem, getGazetteEdition, getGazetteEditionById, getGazetteSettings, listGazetteEditions, publishGazetteDraft, saveGazetteSettings, writeGazetteEdition,
 } from '@vergissmeinnicht/application';
 import { UUID_V4, type WorkspaceId } from '@vergissmeinnicht/domain';
 import type { AppServices } from '../composition.ts';
@@ -76,5 +76,28 @@ export async function gazetteRoutes(app: FastifyInstance, { services }: { servic
     const { editionId } = parse(z.object({ editionId: uuid }), request.params);
     await deleteGazetteDraft(deps, actor, workspaceId, editionId);
     return reply.code(204).send();
+  });
+
+  // The persistent watchlist (43.3): kept apart from editions, never removed by retention.
+  app.get('/watchlist', async request => {
+    const { actor, workspaceId } = context(request);
+    return { items: await listGazetteWatchItems(deps, actor, workspaceId) };
+  });
+  app.post('/watchlist', { bodyLimit: 16 * 1024 }, async (request, reply) => {
+    const { actor, workspaceId } = context(request);
+    const input = parse(z.strictObject({ item: z.unknown() }), request.body);
+    return reply.code(201).send({ item: await createGazetteWatchItem(deps, actor, workspaceId, input.item) });
+  });
+  /** Observed prices for one or more items, all or nothing. */
+  app.post('/watchlist/prices', { bodyLimit: 64 * 1024 }, async request => {
+    const { actor, workspaceId } = context(request);
+    const input = parse(z.strictObject({ observations: z.unknown() }), request.body);
+    return recordGazettePrices(deps, actor, workspaceId, input.observations);
+  });
+  app.post('/watchlist/:itemId', { bodyLimit: 16 * 1024 }, async request => {
+    const { actor, workspaceId } = context(request);
+    const { itemId } = parse(z.object({ itemId: uuid }), request.params);
+    const input = parse(z.strictObject({ item: z.unknown(), expectedRevision: revision }), request.body);
+    return { item: await updateGazetteWatchItem(deps, actor, workspaceId, itemId, input.item, input.expectedRevision) };
   });
 }

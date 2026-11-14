@@ -19,6 +19,8 @@ const REVIEWED_COLUMNS: Record<string, string> = {
   recipe_attachment_references:'recipe_id workspace_id attachment_id',
   gazette_settings: 'workspace_id settings revision updated_at updated_by_user_id',
   gazette_editions: 'id workspace_id edition_date state content revision published_at created_at created_by_user_id updated_at updated_by_user_id updated_by',
+  gazette_watch_items: 'id workspace_id name variant condition market shop url currency target typical notes active revision created_at created_by_user_id updated_at updated_by_user_id',
+  gazette_watch_prices: 'id workspace_id item_id price verified checked_at source url created_at created_by_user_id',
   attachments:'deleting policy_key id workspace_id owner_id uploaded_by_user_id charge_user_id name format bytes sha256 original_key preview_key preview_bytes preview_hash thumbnail_key thumbnail_bytes thumbnail_hash width height at',
   journal_attachment_references:'entry_id workspace_id attachment_id',
   journal_revisions: 'entry_id revision content archived at by_name by_user_id workspace_id',

@@ -30,7 +30,7 @@ function writeFolds(workspaceId: string, folds: Record<string, boolean>) {
  * Sections come in the settings' order; each folds, and a folded section renders only its first
  * headline (no pictures, no tables). Unknown renderer types get a quiet note instead of failing.
  */
-export function GazettePage({ workspaceId, date }: { workspaceId: string; date: string | null }) {
+export function GazettePage({ workspaceId, date, canManage = false }: { workspaceId: string; date: string | null; canManage?: boolean }) {
   const [settings, setSettings] = useState<{ settings: GazetteSettings; today: string; oldest: string } | null>(null);
   const [editions, setEditions] = useState<readonly GazetteEditionSummaryView[] | null>(null);
   const [loaded, setLoaded] = useState<{ readonly date: string; readonly edition: GazetteEditionView | 'missing' } | null>(null);
@@ -92,6 +92,10 @@ export function GazettePage({ workspaceId, date }: { workspaceId: string; date: 
     <article className="gazette-page" aria-labelledby="gazette-title">
       <div className="gazette-cover"><GazetteLandscape className="gazette-art" /></div>
       <header className="gazette-masthead">
+        <span className="gazette-tools">
+          <Link href={paths.gazetteWatchlist(workspaceId)} className="icon-button" aria-label={t('gazette.openWatchlist')} title={t('gazette.watchlist')}><UiIcon name="tag" /></Link>
+          {canManage && <Link href={paths.gazetteSettings(workspaceId)} className="icon-button" aria-label={t('gazette.settings')} title={t('gazette.settings')}><UiIcon name="settings" /></Link>}
+        </span>
         <div className="gazette-meta">
           <span>{view === null ? '' : isToday ? t('gazette.today') : t('gazette.olderEdition')}</span>
           <span>{view === null ? '' : formatCalendarDate(view.date)}</span>
@@ -149,6 +153,7 @@ export function GazettePage({ workspaceId, date }: { workspaceId: string; date: 
                     <h2 id={`gazette-h-${definition.id}`}>{definition.title}</h2>
                     {definition.subtitle !== '' && <p className="muted">{definition.subtitle}</p>}
                   </div>
+                  {content.type === 'watchlist' && <Link href={paths.gazetteWatchlist(workspaceId)} className="icon-button" aria-label={t('gazette.openWatchlist')} title={t('gazette.watchlist')}><UiIcon name="tag" /></Link>}
                   <button type="button" className="icon-button gazette-fold" aria-expanded={!folded} aria-controls={`gazette-b-${definition.id}`} aria-label={folded ? t('gazette.unfold', { title: definition.title }) : t('gazette.fold', { title: definition.title })} title={folded ? t('gazette.unfoldShort') : t('gazette.foldShort')} onClick={() => toggle(definition.id, folded)}>
                     <UiIcon name={folded ? 'chevron' : 'expand'} />
                   </button>

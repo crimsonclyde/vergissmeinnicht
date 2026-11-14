@@ -46,6 +46,9 @@ const SPECS: readonly Spec[] = [
   // Morning Gazette (43): settings and the kept editions. Editions past the retention are removed after a restore by housekeeping.
   { table: 'gazette_settings', name: 'gazette_settings', from: own('gazette_settings'), userColumns: ['updated_by_user_id'], omit: [] },
   { table: 'gazette_editions', name: 'gazette_editions', from: own('gazette_editions'), userColumns: ['created_by_user_id', 'updated_by_user_id'], omit: [] },
+  // The watchlist (43.3) survives Gazette retention and travels with the Workspace, prices included.
+  { table: 'gazette_watch_items', name: 'gazette_watch_items', from: own('gazette_watch_items'), userColumns: ['created_by_user_id', 'updated_by_user_id'], omit: [] },
+  { table: 'gazette_watch_prices', name: 'gazette_watch_prices', from: own('gazette_watch_prices'), userColumns: ['created_by_user_id'], omit: [] },
   { table: 'journal_entries', name: 'journal_entries', from: own('journal_entries'), userColumns: ['created_by_user_id', 'updated_by_user_id'], omit: [] },
   { table: 'journal_revisions', name: 'journal_revisions', from: own('journal_revisions'), userColumns: ['by_user_id'], omit: [] },
   { table:'journal_attachment_references',name:'journal_attachment_references',from:own('journal_attachment_references'),userColumns:[],omit:[] },
