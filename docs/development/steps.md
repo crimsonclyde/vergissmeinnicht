@@ -5916,8 +5916,7 @@ retention boundaries incl. a shorter retention, settings validation and audit wi
 permission matrix, backup allowlist and the full suite.
 
 Security surface changed (new tool, capabilities, write API for external clients); see security.md 43.
-Remaining: 43.2 Dashboard card and Gazette page, 43.3 settings UI and watchlist, 43.4 MCP tools,
-API documentation and demo seed.
+Remaining at the time: 43.2–43.4 (done below).
 
 ### 43.2 — Dashboard card and Gazette page in every theme (2026-11-14)
 
@@ -5972,6 +5971,30 @@ batches, stale revisions, archive and retention; backup allowlist; screenshots o
 themes at 1440 and 390 px; lint, typecheck, full suite.
 
 Security surface changed slightly (new Workspace data and write routes); see security.md 43.3.
+
+### 43.4 — MCP tools, API documentation and sample payload (2026-11-14)
+
+Implemented:
+
+- New opt-in MCP scopes `gazette.read` and `gazette.write` (consent row "Morning Gazette and its
+  watchlist"; existing connections do not gain them). Tools: `get_gazette_config` (enabled sections
+  with ids, types, languages and briefs, time zone, retention, today, content rules),
+  `list_gazette_editions`, `get_gazette_edition`, `publish_gazette_edition` (operation id, retry-safe,
+  draft or publish), `list_watchlist_items`, `update_watchlist_prices` (all or nothing). They use the
+  same use cases as the REST API: Workspace grant, tool gate and role are checked on every call.
+- `docs/development/gazette-api.md` (REST routes, edition format, sample data),
+  `docs/examples/gazette-edition.json` (complete sample request), MCP table in `docs/admin/mcp.md`,
+  user guide section "Morning Gazette".
+
+Checks: `apps/server/src/http/mcp-gazette.test.ts` (tool visibility per scope, config, idempotent
+publish, refused HTML names the field and keeps the published edition, watchlist read, all-or-nothing
+prices, read-only grant cannot publish); lint, typecheck, full suite.
+
+Not done: a seed command (seeding uses the sample request through the API or MCP, documented), and
+images in editions (version 1 has none). Live imports (news, forecasts, prices) are the assistant's
+job, set up outside VMN.
+
+Security surface changed (new MCP scopes and write tools); see security.md 43.4.
 
 ## 11 — Licensing
 

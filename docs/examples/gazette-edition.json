@@ -1,0 +1,334 @@
+{
+  "operationId": "gazette-2026-11-14-0645",
+  "publish": true,
+  "content": {
+    "version": 1,
+    "date": "2026-11-14",
+    "title": "The Morning Gazette",
+    "greeting": "Sample edition: a bright, mild day in the valley; rain returns on Tuesday.",
+    "intro": "Good morning. **This is sample content** for reviewing the Gazette before live imports are switched on. Nothing in it is real news.",
+    "sections": [
+      {
+        "sectionId": "weather",
+        "type": "weather",
+        "summary": "Sources disagree on Tuesday's rain in Liguria.",
+        "locations": [
+          {
+            "name": "Triora",
+            "region": "Imperia, Liguria",
+            "days": [
+              {
+                "date": "2026-11-14",
+                "condition": "CLEAR",
+                "high": 16,
+                "low": 8,
+                "precipitationMm": 0,
+                "windKmh": 8
+              },
+              {
+                "date": "2026-11-15",
+                "condition": "CLEAR",
+                "high": 17,
+                "low": 9,
+                "precipitationMm": 0,
+                "windKmh": 10
+              },
+              {
+                "date": "2026-11-16",
+                "condition": "PARTLY_CLOUDY",
+                "high": 14,
+                "low": 8,
+                "precipitationMm": 1,
+                "windKmh": 14
+              },
+              {
+                "date": "2026-11-17",
+                "condition": "RAIN",
+                "high": 11,
+                "low": 6,
+                "precipitationMm": {
+                  "min": 4,
+                  "max": 22
+                },
+                "windKmh": 28
+              },
+              {
+                "date": "2026-11-18",
+                "condition": "RAIN",
+                "high": 12,
+                "low": 6,
+                "precipitationMm": 6,
+                "windKmh": 20
+              },
+              {
+                "date": "2026-11-19",
+                "condition": "PARTLY_CLOUDY",
+                "high": 14,
+                "low": 7,
+                "precipitationMm": 0,
+                "windKmh": 12
+              },
+              {
+                "date": "2026-11-20",
+                "condition": "CLEAR",
+                "high": 15,
+                "low": 8,
+                "precipitationMm": 0,
+                "windKmh": 9
+              }
+            ],
+            "comparison": {
+              "metric": "precipitation",
+              "rows": [
+                {
+                  "source": "Open-Meteo ICON-2I (sample)",
+                  "values": [
+                    0,
+                    0,
+                    1,
+                    22,
+                    7,
+                    null,
+                    null
+                  ]
+                },
+                {
+                  "source": "MET Norway (sample)",
+                  "values": [
+                    0,
+                    0,
+                    0,
+                    4,
+                    5,
+                    0,
+                    0
+                  ]
+                },
+                {
+                  "source": "Open-Meteo ECMWF (sample)",
+                  "values": [
+                    0,
+                    0,
+                    2,
+                    11,
+                    6,
+                    0,
+                    0
+                  ]
+                }
+              ]
+            },
+            "warnings": [
+              {
+                "level": "yellow",
+                "text": "Sample: rain warning for the Valle Argentina.",
+                "source": "ARPAL Liguria (sample)",
+                "date": "2026-11-17"
+              }
+            ],
+            "sources": [
+              {
+                "name": "Open-Meteo (sample)",
+                "url": "https://example.org/open-meteo"
+              },
+              {
+                "name": "MET Norway (sample)",
+                "url": "https://example.org/met"
+              }
+            ],
+            "fetchedAt": "2026-11-14T05:31:00Z"
+          },
+          {
+            "name": "Göggenhofen",
+            "region": "Bavaria",
+            "days": [
+              {
+                "date": "2026-11-14",
+                "condition": "FOG",
+                "high": 6,
+                "low": 1,
+                "precipitationMm": 0
+              },
+              {
+                "date": "2026-11-15",
+                "condition": "PARTLY_CLOUDY",
+                "high": 7,
+                "low": 0,
+                "precipitationMm": 0
+              },
+              {
+                "date": "2026-11-16",
+                "condition": "CLEAR",
+                "high": 8,
+                "low": -1,
+                "precipitationMm": 0
+              },
+              {
+                "date": "2026-11-17",
+                "condition": "PARTLY_CLOUDY",
+                "high": 7,
+                "low": 0,
+                "precipitationMm": 0
+              },
+              {
+                "date": "2026-11-18",
+                "condition": "RAIN",
+                "high": 5,
+                "low": -2,
+                "precipitationMm": 3
+              },
+              {
+                "date": "2026-11-19",
+                "condition": "CLOUDY",
+                "high": 4,
+                "low": -2,
+                "precipitationMm": 0
+              },
+              {
+                "date": "2026-11-20",
+                "condition": "CLOUDY",
+                "high": 5,
+                "low": -1,
+                "precipitationMm": 0
+              }
+            ],
+            "sources": [
+              {
+                "name": "MET Norway (sample)",
+                "url": "https://example.org/met"
+              }
+            ],
+            "note": "WeatherOnline is not used: no permitted data access found yet."
+          }
+        ]
+      },
+      {
+        "sectionId": "it-open-source",
+        "type": "articles",
+        "items": [
+          {
+            "id": "sample-linux",
+            "title": "Sample: a new kernel release speeds up container hosts",
+            "summary": "Placeholder summary for the lead story of the technology section.",
+            "url": "https://example.org/tech/kernel",
+            "source": "Example Tech",
+            "publishedAt": "2026-11-14T05:10:00Z",
+            "relevance": "high"
+          },
+          {
+            "id": "sample-advisory",
+            "title": "Sample: image library fixes a crafted-file crash",
+            "summary": "Placeholder advisory to show the security box.",
+            "url": "https://example.org/tech/advisory",
+            "source": "Example Advisory",
+            "publishedAt": "2026-11-14T05:10:00Z",
+            "security": {
+              "package": "example-image-lib",
+              "identifier": "SAMPLE-0001",
+              "advisoryUrl": "https://example.org/advisory/0001",
+              "severity": "high",
+              "relevance": "Checked against the lockfile: not used by VMN.",
+              "verification": "not_affected"
+            }
+          }
+        ]
+      },
+      {
+        "sectionId": "liguria",
+        "type": "articles",
+        "items": [
+          {
+            "id": "sample-sanremo",
+            "title": "Esempio: riapre la pista ciclabile del Ponente",
+            "summary": "Testo di esempio per la sezione regionale.",
+            "url": "https://example.org/liguria/pista",
+            "source": "Fonte di esempio",
+            "publishedAt": "2026-11-14T05:10:00Z",
+            "language": "it"
+          },
+          {
+            "id": "sample-triora",
+            "title": "Esempio: il borgo prepara la festa della castagna",
+            "summary": "Testo di esempio.",
+            "url": "https://example.org/liguria/castagna",
+            "source": "Fonte di esempio",
+            "publishedAt": "2026-11-14T05:10:00Z",
+            "language": "it"
+          }
+        ]
+      },
+      {
+        "sectionId": "europe-world",
+        "type": "articles",
+        "items": [
+          {
+            "id": "sample-repair",
+            "title": "Sample: common rules for repairable phones agreed",
+            "summary": "Placeholder for the Europe & World section.",
+            "url": "https://example.org/world/repair",
+            "source": "Example Wire",
+            "publishedAt": "2026-11-14T05:10:00Z"
+          }
+        ]
+      },
+      {
+        "sectionId": "good-news",
+        "type": "articles",
+        "items": [
+          {
+            "id": "sample-bees",
+            "title": "Sample: alpine bee numbers recover in two valleys",
+            "summary": "Placeholder for the Good News section.",
+            "url": "https://example.org/good/bees",
+            "source": "Example Nature",
+            "publishedAt": "2026-11-14T05:10:00Z"
+          }
+        ]
+      },
+      {
+        "sectionId": "watchlist",
+        "type": "watchlist",
+        "items": [
+          {
+            "id": "sample-grinder",
+            "name": "Burr coffee grinder (sample)",
+            "condition": "new",
+            "market": "IT",
+            "shop": "Example Shop",
+            "url": "https://example.org/shop/grinder",
+            "currency": "EUR",
+            "price": 149,
+            "typical": 189,
+            "target": 160,
+            "change": "down",
+            "verified": true,
+            "checkedAt": "2026-11-14T05:20:00Z",
+            "history": [
+              189,
+              189,
+              185,
+              179,
+              169,
+              159,
+              149
+            ]
+          },
+          {
+            "id": "sample-boots",
+            "name": "Hiking boots (sample)",
+            "condition": "new",
+            "market": "IT",
+            "shop": "Example Outdoor",
+            "currency": "EUR",
+            "price": 164,
+            "typical": 170,
+            "target": 140,
+            "change": "same",
+            "verified": false,
+            "checkedAt": "2026-11-12T05:20:00Z"
+          }
+        ]
+      }
+    ]
+  }
+}

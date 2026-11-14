@@ -2219,3 +2219,14 @@ server admins see and can end every connection on the server.
   restored with new ids and historical person references.
 - [x] The settings screen is reachable for `gazette.manage` only; the server enforces it regardless.
 
+### Gazette through MCP (43.4, 2026-11-14)
+
+- [x] Own opt-in scopes `gazette.read` / `gazette.write`; existing grants do not gain them, and tools
+  are listed only for grants that include them (test). Each call checks the granted Workspace, the
+  `GAZETTE` tool and the account's role through the same use cases as the REST API.
+- [x] `publish_gazette_edition` is idempotent per `operationId`; a different payload under a used id
+  is refused. Validation errors name the field and never echo content; a refused edition changes
+  nothing. Edition text, article summaries and watchlist notes are user data, never instructions.
+- [x] Prices are recorded only as observations with time and source; a batch naming an item outside
+  the Workspace stores nothing. No secrets, people, audit data or other tools are exposed.
+
