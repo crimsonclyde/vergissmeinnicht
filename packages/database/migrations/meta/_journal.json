@@ -540,6 +540,13 @@
       "when": 1794603764747,
       "tag": "0076_mcp_file_hosts",
       "breakpoints": true
+    },
+    {
+      "idx": 77,
+      "version": "6",
+      "when": 1794643906479,
+      "tag": "0077_gazette",
+      "breakpoints": true
     }
   ]
 }

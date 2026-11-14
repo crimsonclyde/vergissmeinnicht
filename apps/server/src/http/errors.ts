@@ -1,6 +1,6 @@
 import { CalendarFeedNotFoundError } from '@vergissmeinnicht/application';
 import {McpCredentialError} from '@vergissmeinnicht/database';
-import {RecipeNotFoundError,RecipeConflictError} from '@vergissmeinnicht/application';
+import {RecipeNotFoundError,RecipeConflictError,GazetteNotFoundError,GazetteConflictError,GazetteOperationConflictError} from '@vergissmeinnicht/application';
 import {AttachmentError} from '@vergissmeinnicht/application';
 import { BringConflictError, BringNotFoundError } from '@vergissmeinnicht/application';
 import { AvatarNotFoundError, JournalNotFoundError, JournalConflictError, JournalConsentError, PlaceBackgroundNotFoundError } from '@vergissmeinnicht/application';
@@ -135,6 +135,9 @@ export function errorHandler(error: FastifyError | Error, request: FastifyReques
   if (error instanceof AttachmentError) return reply.code(error.code==='attachment_not_found'?404:error.code==='attachment_quota'?409:error.code==='attachment_busy'?429:400).send({error:error.code});
   if (error instanceof RecipeNotFoundError) return reply.code(404).send({error:'recipe_not_found'});
   if (error instanceof RecipeConflictError) return reply.code(409).send({error:'recipe_conflict'});
+  if (error instanceof GazetteNotFoundError) return reply.code(404).send({ error: 'gazette_not_found' });
+  if (error instanceof GazetteConflictError) return reply.code(409).send({ error: 'gazette_conflict' });
+  if (error instanceof GazetteOperationConflictError) return reply.code(409).send({ error: 'gazette_operation_reused' });
   if (error instanceof JournalNotFoundError) return reply.code(404).send({ error: 'journal_not_found' });
   if (error instanceof JournalConsentError) return reply.code(403).send({ error: 'journal_consent_required' });
   if (error instanceof JournalConflictError) return reply.code(409).send({ error: 'journal_conflict' });

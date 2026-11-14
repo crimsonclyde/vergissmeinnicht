@@ -21,6 +21,7 @@ import {
   TEXT_SOURCES,
   TEXT_STATES,
   WORKSPACE_TOOLS,
+  GAZETTE_EDITION_STATES,
   PROCEDURE_ICONS,
   REASON_POLICIES,
   OCCURRENCE_STATES,
@@ -2535,3 +2536,38 @@ export const recipeImageJobs=sqliteTable('recipe_image_jobs',{
 export const recipeMealOperations=sqliteTable('recipe_meal_operations',{
  id:text('id').primaryKey(),workspaceId:text('workspace_id').notNull().references(()=>workspaces.id),userId:text('user_id').notNull().references(()=>users.id),payloadHash:text('payload_hash').notNull(),recipeId:text('recipe_id').notNull().references(()=>recipes.id),itemIds:text('item_ids',{mode:'json'}).$type<string[]>().notNull(),at:timestampMs('at'),
 });
+
+/**
+ * Morning Gazette (43). One row per Workspace holding its settings and section definitions (stable ids,
+ * order = array order). No row means the defaults. Part of the Workspace backup.
+ */
+export const gazetteSettings = sqliteTable('gazette_settings', {
+  workspaceId: text('workspace_id').primaryKey().references(() => workspaces.id),
+  settings: text('settings', { mode: 'json' }).$type<import('@vergissmeinnicht/domain').GazetteSettings>().notNull(),
+  revision: integer('revision').notNull(),
+  updatedAt: timestampMs('updated_at'), updatedByUserId: text('updated_by_user_id').notNull().references(() => users.id),
+}, t => [check('gazette_settings_valid', sql`json_valid(${t.settings}) and length(${t.settings}) <= 100000 and json_extract(${t.settings}, '$.version') = 1 and json_extract(${t.settings}, '$.retentionDays') between 1 and 31 and ${t.revision} >= 1`)]);
+
+/**
+ * Gazette editions (43): at most one DRAFT and one PUBLISHED edition per Workspace and local date.
+ * Publishing replaces the published row inside one transaction, so a failed import never removes a valid
+ * edition. Rows older than the retention are deleted by housekeeping; the newest published one is kept.
+ */
+export const gazetteEditions = sqliteTable('gazette_editions', {
+  id: text('id').primaryKey(), workspaceId: text('workspace_id').notNull().references(() => workspaces.id),
+  editionDate: text('edition_date').notNull(), state: text('state', { enum: GAZETTE_EDITION_STATES }).notNull(),
+  content: text('content', { mode: 'json' }).$type<import('@vergissmeinnicht/domain').GazetteEditionContent>().notNull(),
+  revision: integer('revision').notNull(), publishedAt: integer('published_at', { mode: 'timestamp_ms' }),
+  createdAt: timestampMs('created_at'), createdByUserId: text('created_by_user_id').notNull().references(() => users.id),
+  updatedAt: timestampMs('updated_at'), updatedByUserId: text('updated_by_user_id').notNull().references(() => users.id), updatedBy: text('updated_by').notNull(),
+}, t => [
+  uniqueIndex('gazette_edition_date_state').on(t.workspaceId, t.editionDate, t.state),
+  index('gazette_edition_workspace_state').on(t.workspaceId, t.state, t.editionDate),
+  check('gazette_edition_valid', sql`${oneOf('state', GAZETTE_EDITION_STATES)} and length(${t.editionDate}) = 10 and json_valid(${t.content}) and length(${t.content}) <= 600000 and json_extract(${t.content}, '$.version') = 1 and json_extract(${t.content}, '$.date') = ${t.editionDate} and ${t.revision} >= 1 and ((${t.state} = 'PUBLISHED') = (${t.publishedAt} is not null))`),
+]);
+
+/** Import retry outcomes (43): the same operation id with the same payload answers the stored edition; another payload is refused. Not portable. */
+export const gazetteOperations = sqliteTable('gazette_operations', {
+  id: text('id').primaryKey(), workspaceId: text('workspace_id').notNull().references(() => workspaces.id), userId: text('user_id').notNull().references(() => users.id),
+  payloadHash: text('payload_hash').notNull(), editionId: text('edition_id').notNull(), editionDate: text('edition_date').notNull(), at: timestampMs('at'),
+}, t => [index('gazette_operations_at').on(t.at)]);

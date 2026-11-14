@@ -1,4 +1,17 @@
 import {
+  IconNews,
+  IconCpu,
+  IconMap2,
+  IconLeaf,
+  IconBook,
+  IconHeart,
+  IconFlask,
+  IconShield,
+  IconMusic,
+  IconMovie,
+  IconBallFootball,
+  IconCoins,
+  IconExternalLink,
   IconSparkles,
   IconPlugConnected,
   IconPhone,
@@ -290,6 +303,20 @@ const ICONS = {
   addressBook: IconAddressBook,
   page: IconFileText,
   folderOpen: IconFolderOpen,
+  // Morning Gazette (43): the tool and the bundled section icons (domain GAZETTE_ICONS map onto these).
+  gazette: IconNews,
+  gazetteChip: IconCpu,
+  gazetteMap: IconMap2,
+  gazetteLeaf: IconLeaf,
+  gazetteBook: IconBook,
+  gazetteHeart: IconHeart,
+  gazetteFlask: IconFlask,
+  gazetteShield: IconShield,
+  gazetteMusic: IconMusic,
+  gazetteFilm: IconMovie,
+  gazetteBall: IconBallFootball,
+  gazetteCoins: IconCoins,
+  openOriginal: IconExternalLink,
 } as const;
 
 export type UiIconName = keyof typeof ICONS;

@@ -1,7 +1,7 @@
 import { createChatGptFileSource, type ChatGptFileSource } from './integrations/chatgpt-files.ts';
 import {createMcpFileHostRepository,createMcpRepository} from '@vergissmeinnicht/database';
-import {createRecipeRepository,recipeAttachmentPolicy,listAttachmentPolicy} from '@vergissmeinnicht/database';
-import type {RecipeDeps} from '@vergissmeinnicht/application';
+import {createRecipeRepository,recipeAttachmentPolicy,listAttachmentPolicy,createGazetteRepository} from '@vergissmeinnicht/database';
+import type {RecipeDeps,GazetteDeps} from '@vergissmeinnicht/application';
 import {createAttachmentStore} from '@vergissmeinnicht/media';
 import {createAttachmentRepository,journalAttachmentPolicy,createAttachmentAdmin} from '@vergissmeinnicht/database';
 import type {AttachmentDeps} from '@vergissmeinnicht/application';
@@ -188,6 +188,8 @@ export interface AppServices {
   readonly maintenance: MaintenanceDeps;
   readonly equipment: EquipmentDeps;
   readonly recipes: RecipeDeps;
+  /** Morning Gazette editions and settings (43). */
+  readonly gazette: GazetteDeps;
   readonly listAttachments: DelegatedAttachmentDeps;
   readonly recipeAttachments: DelegatedAttachmentDeps;
   readonly bring: BringDeps;
@@ -471,6 +473,7 @@ export function createServices(config: AppConfig, database: AppDatabase, overrid
       links: { workspaces: workspaceDeps.workspaces, tools, links: createLinkRepository(database), clock: systemClock },
       contacts: { workspaces: workspaceDeps.workspaces, tools, contacts: createContactRepository(database), clock: systemClock },
       recipes: { workspaces: workspaceDeps.workspaces, users: createUserRepository(database), tools, recipes: createRecipeRepository(database), clock: systemClock },
+      gazette: { workspaces: workspaceDeps.workspaces, users: createUserRepository(database), tools, gazette: createGazetteRepository(database), clock: systemClock },
       recipeAttachments,
       listAttachments:{repository:createAttachmentRepository(database,listAttachmentPolicy),store:attachmentStorage,processor:attachmentStorage,convertWebp:convertWebpToPng},
       bring: { workspaces: workspaceDeps.workspaces, users: createUserRepository(database), tools, bring: createBringRepository(database), clock: systemClock },

@@ -54,6 +54,9 @@ export const SECURITY_EVENT_TYPES = [
   // A server admin allowed or removed a ChatGPT file host (36.25): the host name only, never a file URL.
   'MCP_FILE_HOST_CHANGED',
   'RECIPE_CHANGED',
+  // Morning Gazette (43): edition id, date, state and revision; settings revision. Never article text.
+  'GAZETTE_EDITION_CHANGED',
+  'GAZETTE_SETTINGS_CHANGED',
   'RECIPE_SHOPPING_TRANSFERRED',
   // Several List items moved to another List or removed at once (36.18): List ids and a count, never item text.
   'LIST_ITEMS_MOVED',

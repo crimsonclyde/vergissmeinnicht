@@ -5856,6 +5856,69 @@ user workflows; no host migration or external service provisioned by the assessm
 
 ---
 
+## 43 — Morning Gazette: a daily illustrated edition (owner request 2026-11-14)
+
+clyde asked for a modular Morning Gazette: one published edition per Workspace and local date with
+configurable sections (weather, IT & Open Source, Liguria in Italian, Europe & World, Good News,
+Shopping Watchlist), a Dashboard preview, a full newspaper-style page, retention (7 days by default),
+a REST API and MCP tools so ChatGPT can publish and read back an edition, and a persistent watchlist.
+Mockups approved 2026-11-14 (`/mnt/project-files/ui-review/2026-11-14-gazette/`): the whole Dashboard
+tile is one tap target (touchscreens); no small "Read more" link. Built in four reviewable stages.
+
+Decisions:
+
+- **Optional tool `GAZETTE`** (Plugins tab, off by default). Capabilities `gazette.view` (every role),
+  `gazette.publish` (EDITOR and above: write, publish, read drafts), `gazette.manage` (ADMIN: settings).
+- **SQLite, no JSONB:** edition content and settings are validated JSON text with `version: 1`, size
+  bounds and CHECKs in the database. Sections live in the settings as an ordered array with stable ids
+  (rename keeps the id); a new topic is a new section of an existing renderer type
+  (`weather`, `articles`, `watchlist`, `rich`), no rebuild. A new renderer is a code change.
+- **No HTML anywhere.** Text is plain or Markdown; tags are refused (`gazette_html_not_allowed`).
+  Links are https with a dotted host name and no user info. Images are not part of version 1 (CSP
+  allows no external images; a later step can reference uploaded attachments).
+- **Publishing:** one DRAFT and one PUBLISHED row per date. Publishing replaces the published row in
+  one transaction after validation, so a malformed or incomplete import never removes a valid edition.
+  An `operationId` makes imports idempotent: same id + same payload answers the stored edition
+  (`duplicate: true`); same id + other payload is 409 `gazette_operation_reused`. Editions may be
+  written for kept days and tomorrow only.
+- **Retention:** today and `retentionDays - 1` days before (Gazette time zone, default the Workspace
+  location's zone or UTC), run by the hourly housekeeping. The newest published edition is always kept
+  so the Dashboard never goes empty after a missed import; it shows its real date and no weather.
+- **WeatherOnline.de:** no documented permitted API was found; Göggenhofen uses MET Norway (or
+  another configured keyless source) and the edition names the actual source.
+
+### 43.1 — Data, edition service, REST API and retention (2026-11-14)
+
+Implemented:
+
+- Domain `gazette.ts`: settings and edition parsers with path-precise errors (`field` like
+  `edition.sections[2].items[0].url`), default sections, date window, retention boundary, the
+  Dashboard preview projection (round-robin headlines, weather only for today's edition, verified
+  price drops), and `gazette-sample.ts`, a clearly marked sample edition (example.org sources).
+- Migration **0077** (`gazette_settings`, `gazette_editions`, `gazette_operations`; `workspace_tools`
+  accepts `GAZETTE`). Settings and editions are in the Workspace backup (restore validates them with
+  the same parsers); operation receipts are not.
+- `GET /api/workspaces/{ws}/gazette/today` (Dashboard preview), `GET|POST …/gazette/settings`
+  (`expectedRevision`), `GET …/gazette/editions` (kept dates; drafts for publishers),
+  `GET …/gazette/editions/{date}?state=published|draft`, `GET …/gazette/editions/id/{id}`,
+  `POST …/gazette/editions` `{operationId?, content, publish, expectedRevision?}`,
+  `POST …/gazette/editions/id/{id}/publish` `{expectedRevision}` (re-validated against the current
+  sections), `POST …/gazette/editions/id/{id}/delete` (drafts only). Body limit 1 MiB, stored content
+  at most 600 kB. Audited as `GAZETTE_EDITION_CHANGED` / `GAZETTE_SETTINGS_CHANGED` (ids, dates,
+  revisions; never article text).
+- Hourly `purgeGazette` (own transaction) deletes expired editions and operation receipts older than
+  three days. Settings, watchlist and other tools' data are never touched.
+
+Checks: `packages/domain/src/gazette.test.ts` (12), `apps/server/src/http/gazette.test.ts` (7:
+tool/role/Workspace boundaries, idempotent retries, malformed imports keep the published edition,
+drafts hidden from readers and re-validated on publish, older edition never shown as today,
+retention boundaries incl. a shorter retention, settings validation and audit without content),
+permission matrix, backup allowlist and the full suite.
+
+Security surface changed (new tool, capabilities, write API for external clients); see security.md 43.
+Remaining: 43.2 Dashboard card and Gazette page, 43.3 settings UI and watchlist, 43.4 MCP tools,
+API documentation and demo seed.
+
 ## 11 — Licensing
 
 ### 11.1 AGPL-3.0

@@ -28,5 +28,6 @@ export const TOOL_PLUGINS: readonly ToolPlugin[] = [
   { tool: 'BRING', icon: 'forward', name: () => t('bring.heading'), hint: () => t('bring.hint') },
   { tool: 'JOURNAL', icon: 'journal', name: () => t('journal.heading'), hint: () => t('journal.toolHint') },
   { tool: 'GAMIFICATION', icon: 'star', name: () => t('gamification.heading'), hint: () => t('gamification.toolHint') },
+  { tool: 'GAZETTE', icon: 'gazette', name: () => t('gazette.heading'), hint: () => t('gazette.toolHint') },
   { tool: 'MOON', icon: 'moon', name: () => t('moon.heading'), hint: () => t('moon.toolHint') },
 ];

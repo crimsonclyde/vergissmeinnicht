@@ -17,6 +17,8 @@ const REVIEWED_COLUMNS: Record<string, string> = {
   bring_items: 'id workspace_id title from_place to_place due_date assignee_user_id notes status completed_at completed_by_user_id completed_by cancelled_at cancelled_by_user_id cancelled_by created_at created_by_user_id created_by updated_at updated_by_user_id updated_by revision deleted',
   recipes:'id workspace_id content revision archived created_at created_by_user_id created_by updated_at updated_by_user_id updated_by',
   recipe_attachment_references:'recipe_id workspace_id attachment_id',
+  gazette_settings: 'workspace_id settings revision updated_at updated_by_user_id',
+  gazette_editions: 'id workspace_id edition_date state content revision published_at created_at created_by_user_id updated_at updated_by_user_id updated_by',
   attachments:'deleting policy_key id workspace_id owner_id uploaded_by_user_id charge_user_id name format bytes sha256 original_key preview_key preview_bytes preview_hash thumbnail_key thumbnail_bytes thumbnail_hash width height at',
   journal_attachment_references:'entry_id workspace_id attachment_id',
   journal_revisions: 'entry_id revision content archived at by_name by_user_id workspace_id',

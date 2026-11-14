@@ -3,6 +3,7 @@ import {registerMcpOAuth} from './mcp/oauth.ts';
 import {mcpAccountRoutes} from './http/mcp-account-routes.ts';
 import {mcpAdminRoutes} from './http/mcp-admin-routes.ts';
 import {recipeRoutes} from './http/recipe-routes.ts';
+import {gazetteRoutes} from './http/gazette-routes.ts';
 import {attachmentRoutes,attachmentAdminRoutes} from './http/attachment-routes.ts';
 import { bringRoutes } from './http/bring-routes.ts';
 import { journalRoutes, moonRoutes } from './http/journal-routes.ts';
@@ -226,6 +227,7 @@ export async function buildApp(options: AppOptions = {}) {
         await api.register(mcpAccountRoutes,{prefix:'/account/mcp',services});
         await api.register(mcpAdminRoutes,{prefix:'/admin/mcp',services});
         await api.register(recipeRoutes,{prefix:'/workspaces/:workspaceId/recipes',services});
+        await api.register(gazetteRoutes,{prefix:'/workspaces/:workspaceId/gazette',services});
         await api.register(bringRoutes, { prefix: '/workspaces/:workspaceId/bring', services });
         await api.register(attachmentAdminRoutes,{prefix:'/admin/attachments',services});
         await api.register(attachmentRoutes,{prefix:'/account/journal/attachments',services,shared:false});

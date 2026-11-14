@@ -3,7 +3,7 @@ import {globalStorageAllows} from './attachment-repository.ts';
 import { randomUUID } from 'node:crypto';
 import { closeSync, openSync, readFileSync, readSync } from 'node:fs';
 import { join } from 'node:path';
-import { parseRecipeContent, parseBringContent, normalizeEquipmentContent, parseEquipmentFields, parseJournalContent, parseWeatherLocation, contactKeys, documentSearchText, documentTagKeys, documentTitleKey, IMPORTED_EMAIL_DOMAIN, MAX_WORKSPACE_NAME_LENGTH, WORKSPACE_ROLES, type ContactPoint } from '@vergissmeinnicht/domain';
+import { parseRecipeContent, parseGazetteSettings, parseGazetteEdition, gazetteSectionsOf, parseBringContent, normalizeEquipmentContent, parseEquipmentFields, parseJournalContent, parseWeatherLocation, contactKeys, documentSearchText, documentTagKeys, documentTitleKey, IMPORTED_EMAIL_DOMAIN, MAX_WORKSPACE_NAME_LENGTH, WORKSPACE_ROLES, type ContactPoint } from '@vergissmeinnicht/domain';
 import { IMMEDIATE, type Transaction } from './actor-guard.ts';
 import type { AppDatabase } from './connection.ts';
 import { storageUsageIn } from './storage-usage.ts';
@@ -167,6 +167,8 @@ const JSON_COLUMNS: Readonly<Record<string, Readonly<Record<string, JsonShape>>>
   runs: { tags: stringArray },
   documents: { tags: stringArray },
   recipes: {content:value=>{try{return JSON.stringify(parseRecipeContent(value))===JSON.stringify(value);}catch{return false;}}},
+  gazette_settings: { settings: value => { try { return JSON.stringify(parseGazetteSettings(value)) === JSON.stringify(value); } catch { return false; } } },
+  gazette_editions: { content: value => { try { return JSON.stringify(parseGazetteEdition(value, gazetteSectionsOf(value))) === JSON.stringify(value); } catch { return false; } } },
   journal_entries: {tags:stringArray},
   journal_revisions: {content:value=>{try {parseJournalContent(value);return true;}catch{return false;}}},
   equipment_records: { custom_fields: value => { try { return JSON.stringify(parseEquipmentFields(value)) === JSON.stringify(value); } catch { return false; } } },
@@ -384,7 +386,7 @@ export function restoreWorkspace(database: AppDatabase, input: WorkspaceRestoreI
       const tableOf = new Map<string, string>();
       for (const plan of plans.values()) {
         if (!plan.hasId || plan.spec.table === 'workspaces') continue;
-        for (const row of records(input.data.get(plan.spec.name), plan.spec.name, input.databaseLevel !== undefined && ((plan.spec.name === 'journal_entries' && input.databaseLevel < '0052_moon_journal') || (plan.spec.name === 'bring_items' && input.databaseLevel < '0059_bring') || (plan.spec.name === 'journal_revisions' && input.databaseLevel < '0061_journal_notes') || (['attachments','journal_attachment_references'].includes(plan.spec.name) && input.databaseLevel < '0062_shared_attachments') || (['recipes','recipe_attachment_references'].includes(plan.spec.name) && input.databaseLevel < '0063_recipes')))) {
+        for (const row of records(input.data.get(plan.spec.name), plan.spec.name, input.databaseLevel !== undefined && ((plan.spec.name === 'journal_entries' && input.databaseLevel < '0052_moon_journal') || (plan.spec.name === 'bring_items' && input.databaseLevel < '0059_bring') || (plan.spec.name === 'journal_revisions' && input.databaseLevel < '0061_journal_notes') || (['attachments','journal_attachment_references'].includes(plan.spec.name) && input.databaseLevel < '0062_shared_attachments') || (['recipes','recipe_attachment_references'].includes(plan.spec.name) && input.databaseLevel < '0063_recipes') || (['gazette_settings','gazette_editions'].includes(plan.spec.name) && input.databaseLevel < '0077_gazette')))) {
           const id = row.id;
           if (typeof id !== 'string' || !UUID.test(id) || ids.has(id)) throw new WorkspaceRestoreError('malformed_records', plan.spec.name);
           ids.set(id, randomUUID());
@@ -488,7 +490,7 @@ export function restoreWorkspace(database: AppDatabase, input: WorkspaceRestoreI
         if (table === 'workspaces') continue;
         const statement = table === 'memberships' ? undefined : sqlite.prepare(plan.insert);
         let rows = 0;
-        for (const row of records(input.data.get(plan.spec.name), plan.spec.name, input.databaseLevel !== undefined && ((plan.spec.name === 'journal_entries' && input.databaseLevel < '0052_moon_journal') || (plan.spec.name === 'bring_items' && input.databaseLevel < '0059_bring') || (plan.spec.name === 'journal_revisions' && input.databaseLevel < '0061_journal_notes') || (['attachments','journal_attachment_references'].includes(plan.spec.name) && input.databaseLevel < '0062_shared_attachments') || (['recipes','recipe_attachment_references'].includes(plan.spec.name) && input.databaseLevel < '0063_recipes')))) {
+        for (const row of records(input.data.get(plan.spec.name), plan.spec.name, input.databaseLevel !== undefined && ((plan.spec.name === 'journal_entries' && input.databaseLevel < '0052_moon_journal') || (plan.spec.name === 'bring_items' && input.databaseLevel < '0059_bring') || (plan.spec.name === 'journal_revisions' && input.databaseLevel < '0061_journal_notes') || (['attachments','journal_attachment_references'].includes(plan.spec.name) && input.databaseLevel < '0062_shared_attachments') || (['recipes','recipe_attachment_references'].includes(plan.spec.name) && input.databaseLevel < '0063_recipes') || (['gazette_settings','gazette_editions'].includes(plan.spec.name) && input.databaseLevel < '0077_gazette')))) {
           checkRow(plan, row, input.databaseLevel);
           if ((table === 'journal_entries' || table === 'bring_items') && rows >= 1000) throw new WorkspaceRestoreError('malformed_records', plan.spec.name);
           if (table === 'memberships') {
