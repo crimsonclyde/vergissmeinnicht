@@ -201,7 +201,9 @@ function str(value: unknown, path: string, max: number, options: { multiline?: b
 /** Markdown text: no raw HTML tags. The renderer never interprets HTML; refusing it keeps payloads honest. */
 function markdown(value: unknown, path: string, max: number): string {
   const text = str(value, path, max, { multiline: true });
-  if (/<\s*\/?\s*[a-z!][^>]*>/i.test(text)) fail(path, 'gazette_html_not_allowed');
+  // Anything a browser would start a tag, comment or declaration with (`<` then a letter, `/`, `!` or `?`). One
+  // linear scan: no nested quantifiers, so no slow backtracking on hostile input.
+  if (/<[a-z/!?]/i.test(text)) fail(path, 'gazette_html_not_allowed');
   return text;
 }
 function list(value: unknown, path: string, max: number, min = 0): unknown[] {
