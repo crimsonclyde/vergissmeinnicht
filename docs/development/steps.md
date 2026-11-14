@@ -18,6 +18,12 @@ For every completed task, add a concise completion note, tests/checks performed,
 
 ## Current state — resume here
 
+**Release 0.15.0 prepared (owner release 70, 2026-11-14).** Includes PR #121 (The Daily
+Planet, internally Gazette, 43.1–43.5: editions, Dashboard card and page, settings, watchlist, MCP
+scopes `gazette.read`/`gazette.write`; migrations 0077 and 0078). Release upgrade checks start from
+0.14.2. Pending: owner publishes `v0.15.0`, then record the published digest here and the owner
+count (70) in AGENTS.md.
+
 **Published owner release 69 (2026-11-13).** 0.14.2 was published from `v0.14.2`, source
 `2d9a61ce9d3633a3148865648a285ffef44151c0` (PR #118: ChatGPT file hosts, Denmark East Azure host
 built in, one-tap allow in Server admin, `MCP_CHATGPT_FILE_HOSTS` honoured by the upload tools,
