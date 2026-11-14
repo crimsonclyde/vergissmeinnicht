@@ -18,6 +18,15 @@ For every completed task, add a concise completion note, tests/checks performed,
 
 ## Current state — resume here
 
+**Published owner release 71 (2026-11-15 Europe/Berlin).** 0.15.1 was published from
+`v0.15.1`, source `ad8f6e2eb43b58627ef3d0f155b50e4fdd0a4fc7` (The Daily Planet Watchlist,
+wishlist paste import and edition mastheads, 43.6; migrations 0079 and 0080). Main CI, both
+release builds, scans, signing, SBOM, exact-image smoke and populated upgrades from 0.15.0,
+0.14.2, 0.14.1 and 0.10.1-beta.0 passed. Registry tags `0.15.1`, `0.15` and `latest` all point to
+`sha256:4bc38270f69c6cd035ee88982725c2218346ed63634eb804c75ae92a5d6f2acd`. Release upgrade checks now start from 0.15.1, 0.15.0 and 0.14.2.
+Owner count **71**, next **72**. Live deployment remains separate.
+[GitHub release](https://github.com/crimsonclyde/vergissmeinnicht/releases/tag/v0.15.1) · [Release workflow](https://github.com/crimsonclyde/vergissmeinnicht/actions/runs/43651364995)
+
 **Published owner release 70 (2026-11-14).** 0.15.0 was published from `v0.15.0`, source
 `eb9caf0517c6237c5719a3f151ebd6c52d1bcccb` (PR #121: The Daily Planet, internally Gazette,
 43.1–43.5: editions, Dashboard card and page, settings, watchlist, MCP scopes
@@ -6043,8 +6052,8 @@ absent permission. No live wishlist or seller fetching; manual paste and sourced
 are supported. The five Casa Nostra references must be entered in the intended Workspace,
 not seeded in every installation. Header images travel in full server backups only.
 
-Release plan: **0.15.1**, owner-counted release **71** after publication. Keep v0.15.0 as
-the first populated upgrade input. Live deployment is separate.
+Published as [0.15.1](https://github.com/crimsonclyde/vergissmeinnicht/releases/tag/v0.15.1), owner release **71**. The
+[release workflow](https://github.com/crimsonclyde/vergissmeinnicht/actions/runs/43651364995) passed the populated upgrade from v0.15.0. Live deployment is separate.
 
 ## 11 — Licensing
 
