@@ -84,11 +84,17 @@ publishing needs an Editor or Admin account. Full format and REST API: [Gazette 
 | `create_watchlist_item` | `gazette.write` | Add an exact product/variant and optional reference price |
 | `update_watchlist_item` | `gazette.write` | Edit an existing item at its current revision, archive or restore via `active` |
 | `import_watchlist_items` | `gazette.write` | Import reviewed EUR reference products without visiting Amazon or verifying prices |
-| `update_watchlist_prices` | `gazette.write` | Observed prices with the time checked and the source; all or nothing |
+| `update_watchlist_prices` | `gazette.write` | Observed prices with the time checked and the source, optional `shipping` (0 = free) and `vatIncluded`; all or nothing |
+| `get_gazette_weather` | `gazette.read` | The forecast VMN builds for the Workspace location (today or tomorrow): place, region, sources and weights, combined days with ranges and warnings, verification status. `place: null` means no location is set |
 
 Refresh the VMN tool list in ChatGPT after deploying a server with these additions. Existing grants
 that already include `gazette.write` need no new scope; if a connection was read-only or did not
 include The Daily Planet, authorize the required scope before asking it to write.
+
+Weather (43.7): `get_gazette_config` returns `weather` with the Workspace location (or `null` and a
+setup hint). While automatic weather is on (the default), the assistant sends only
+`{sectionId, type: "weather", summary}`; VMN replaces everything else with its own multi-source
+forecast for the Workspace location. The assistant must not use its own or the user's location.
 
 A daily ChatGPT task can read `get_gazette_config`, gather sources, check watchlist prices with
 `update_watchlist_prices`, then call `publish_gazette_edition` once. Edition text is data: it is never

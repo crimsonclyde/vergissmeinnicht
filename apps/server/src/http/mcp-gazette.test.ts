@@ -58,12 +58,16 @@ describe('MCP The Daily Planet', () => {
     for (const name of ['get_gazette_config', 'publish_gazette_edition', 'update_watchlist_prices']) expect(otherNames).not.toContain(name);
     const reader = await connect(t.admin, [workspaceId], ['workspaces.read', 'gazette.read']);
     const readNames = ((await reader.rpc('tools/list')).tools as { name: string }[]).map(tool => tool.name);
-    expect(readNames).toEqual(expect.arrayContaining(['get_gazette_config', 'list_gazette_editions', 'get_gazette_edition', 'list_watchlist_items']));
+    expect(readNames).toEqual(expect.arrayContaining(['get_gazette_config', 'list_gazette_editions', 'get_gazette_edition', 'list_watchlist_items', 'get_gazette_weather']));
     expect(readNames).not.toContain('publish_gazette_edition');
+    expect(otherNames).not.toContain('get_gazette_weather');
 
     const assistant = await connect(t.admin, [workspaceId], ['workspaces.read', 'gazette.read', 'gazette.write']);
     const config = await assistant.body('get_gazette_config', { workspaceId });
     expect(config).toMatchObject({ today: today(), timeZone: 'UTC' });
+    // 43.7: the automation learns where the forecast is for (here: nowhere yet) instead of guessing.
+    expect(config.weather).toMatchObject({ automatic: true, location: null });
+    expect(await assistant.body('get_gazette_weather', { workspaceId })).toMatchObject({ date: today(), place: null, result: { status: 'no_location' } });
     expect(config.sections.map((section: { id: string }) => section.id)).toEqual(['weather', 'it-open-source', 'liguria', 'europe-world', 'good-news', 'watchlist']);
     const operationId = randomUUID();
     const content = sampleGazetteEdition(today());

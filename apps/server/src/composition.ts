@@ -1,6 +1,6 @@
 import { createChatGptFileSource, type ChatGptFileSource } from './integrations/chatgpt-files.ts';
 import {createMcpFileHostRepository,createMcpRepository} from '@vergissmeinnicht/database';
-import {createRecipeRepository,recipeAttachmentPolicy,listAttachmentPolicy,createGazetteRepository} from '@vergissmeinnicht/database';
+import {createRecipeRepository,recipeAttachmentPolicy,listAttachmentPolicy,createGazetteRepository,createGazetteWeatherLogRepository} from '@vergissmeinnicht/database';
 import type {RecipeDeps,GazetteDeps} from '@vergissmeinnicht/application';
 import {createAttachmentStore} from '@vergissmeinnicht/media';
 import {createAttachmentRepository,journalAttachmentPolicy,createAttachmentAdmin} from '@vergissmeinnicht/database';
@@ -38,6 +38,7 @@ import {
   type WorkspaceBackupDeps,
   createBackupRunner,
   createWeatherService,
+  cachedGazetteWeatherSources,
   type HistoryDeps,
   type ImageDeps,
   type InvitationDeps,
@@ -125,7 +126,7 @@ import { createSmtpEmailSender } from '@vergissmeinnicht/email';
 import { convertWebpToPng, createDocumentFileProcessor, createDocumentFileStore, createDocumentWorker, createFileMediaStore, createSharpAvatarProcessor, createSharpImageProcessor, createSharpPlaceBackgroundProcessor, createTextExtractor } from '@vergissmeinnicht/media';
 import { createTelegramBotApi } from '@vergissmeinnicht/notifications';
 import { createWorkspaceBackupStore } from './workspace-backup/workspace-backup-store.ts';
-import { createMeteomatics, createMetNorway, createOpenMeteo, createOpenWeather, metUserAgent } from '@vergissmeinnicht/weather';
+import { createGazetteWeatherSources, createMeteomatics, createMetNorway, createOpenMeteo, createOpenWeather, metUserAgent } from '@vergissmeinnicht/weather';
 import { createRunChangeHub, type RunChangeHub } from '@vergissmeinnicht/realtime';
 import type { FastifyBaseLogger } from 'fastify';
 import type { AppConfig } from './config/index.ts';
@@ -265,6 +266,9 @@ export function createServices(config: AppConfig, database: AppDatabase, overrid
     geocoder: openMeteo,
     clock: systemClock,
   });
+  // The Daily Planet's own weather sources (43.7): shared cache and call ceiling for the whole server.
+  const gazetteWeatherSources = cachedGazetteWeatherSources(createGazetteWeatherSources({ fetch: weatherFetch, userAgent: async () => metUserAgent((await serverWeather.get()).metContact, config.appVersion) }), systemClock);
+  const gazetteWeatherLog = createGazetteWeatherLogRepository(database);
   // Without a logger (CLI), Better Auth warnings and errors go to stderr.
   return (logger?: FastifyBaseLogger): AppServices => {
     const userRepository = createUserRepository(database);
@@ -473,7 +477,7 @@ export function createServices(config: AppConfig, database: AppDatabase, overrid
       links: { workspaces: workspaceDeps.workspaces, tools, links: createLinkRepository(database), clock: systemClock },
       contacts: { workspaces: workspaceDeps.workspaces, tools, contacts: createContactRepository(database), clock: systemClock },
       recipes: { workspaces: workspaceDeps.workspaces, users: createUserRepository(database), tools, recipes: createRecipeRepository(database), clock: systemClock },
-      gazette: { headerProcessor: createSharpPlaceBackgroundProcessor(), workspaces: workspaceDeps.workspaces, users: createUserRepository(database), tools, gazette: createGazetteRepository(database), clock: systemClock },
+      gazette: { headerProcessor: createSharpPlaceBackgroundProcessor(), workspaces: workspaceDeps.workspaces, users: createUserRepository(database), tools, gazette: createGazetteRepository(database), clock: systemClock, forecast: { sources: gazetteWeatherSources, log: gazetteWeatherLog, weather: weatherService, serverWeather, workspaces: workspaceDeps.workspaces, clock: systemClock } },
       recipeAttachments,
       listAttachments:{repository:createAttachmentRepository(database,listAttachmentPolicy),store:attachmentStorage,processor:attachmentStorage,convertWebp:convertWebpToPng},
       bring: { workspaces: workspaceDeps.workspaces, users: createUserRepository(database), tools, bring: createBringRepository(database), clock: systemClock },

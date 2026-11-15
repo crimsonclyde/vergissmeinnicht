@@ -1064,7 +1064,7 @@ The following choices are mandatory V1 behavior:
 
 ## 14. Outbound connections to configurable hosts (SSRF policy)
 
-*Not covered by this policy:* hosts fixed in code with no configurable part — `api.telegram.org` (13.7) and the weather providers of 19.4 (`api.open-meteo.com`, `geocoding-api.open-meteo.com`, `api.met.no`; see "Weather providers and provider credentials").
+*Not covered by this policy:* hosts fixed in code with no configurable part — `api.telegram.org` (13.7) and the weather providers of 19.4 (`api.open-meteo.com`, `geocoding-api.open-meteo.com`, `api.met.no`; see "Weather providers and provider credentials") and of The Daily Planet's weather (43.7: `api.brightsky.dev`, `feeds.meteoalarm.org`, `allertaliguria.regione.liguria.it`; see "Daily Planet workspace weather").
 
 _Policy defined 2026-10-01 (steps.md 16.0); no code uses it yet. It is a prerequisite: no feature may open a connection to a host supplied through the application before it follows this section and has its own "Security check". First planned user: Mailboxes (16.10, IMAP/SMTP — its threat model is written there, task 2). Webhooks, ntfy and Gotify would fall under it as well._
 
@@ -2260,3 +2260,41 @@ Negative coverage: denied uploads for editor and cross-origin requests, refused 
 images and focal points, foreign Workspace image ids, disabled tool reads, unauthorized
 overrides, denied import for guest and reader grants, refused invalid batch, archived-only
 admin removal, stable edition header after reimport and replacement. No new OAuth scopes.
+
+
+### Daily Planet workspace weather (43.7, 2026-11-15)
+
+**Security surface changed: MEDIUM** (new fixed outbound hosts, server-initiated requests on edition
+writes, two derived tables).
+
+- **Fixed hosts only**, constants in `packages/weather/src/gazette-sources.ts`:
+  `https://api.open-meteo.com/v1/forecast` (several models per request),
+  `https://api.brightsky.dev/{weather,alerts}` (DWD open data: MOSMIX, station observations, CAP
+  warnings), `https://feeds.meteoalarm.org/api/v1/warnings/feeds-italy`,
+  `https://allertaliguria.regione.liguria.it/` (public home page, read for the zone map file name and
+  message time only). MET Norway goes through the existing 19.4 adapter and cache. Same bounded HTTP
+  helper as 19.4 (HTTPS, `redirect: 'error'`, 8 s, size caps: 512 KiB JSON, 3 MB for the Meteoalarm
+  feed, HTML read as text and never rendered); failures become stable reasons; provider text is
+  stripped of control, format and bidi characters and cut to length before it reaches an edition.
+- **What triggers a request:** writing or publishing an edition for today or tomorrow, the
+  `GET /gazette/weather` view (rate-limited 30 / 10 min per person) and `get_gazette_weather`.
+  Shared in-process cache (forecasts 30 min, warnings 10 min, observations 12 h, stale ≤ 3 h, 300
+  entries, one in-flight request per key) and ≤ 30 upstream calls per method per 10 minutes.
+  Respects the server weather master switch and allowed providers (Open-Meteo and MET Norway); when
+  weather is off, no request is made and the section says `unavailable`.
+- **Location:** only the Workspace location (already Workspace data, admin-managed, 2-decimal
+  coordinates). No client-supplied coordinates are accepted; the assistant's location is never used.
+  Providers learn the server IP and the rounded place, as in 19.4.
+- **Derived data:** `gazette_weather_forecasts` and `gazette_weather_observations` (migration 0081)
+  hold numbers only (source id, dates, temperatures, rain, station name ≤ 80 chars, distance,
+  elevation), bounded by CHECKs, cascade with the Workspace, pruned after 60 days with Gazette
+  retention, excluded from portable Workspace backups as derived data.
+- **Watchlist:** `gazette_watch_prices.shipping` (≥ 0 or null) and `vat_included` (0/1/null) added by
+  ALTER (no table rebuild); older packages restore with nulls.
+- **No Amazon automation:** Amazon.de's Conditions of Use forbid automated data gathering and
+  `robots.txt` disallows `/wishlist/`; VMN keeps the manual paste import only.
+- Tests: `gazette-sources.test.ts` (fixed hosts, recorded answers, rate limit, expiry, broken page),
+  `gazette-weather.test.ts` (domain combination rules and edition compatibility; HTTP: location only,
+  location change vs archive, no location → no request, outages, ranges, idempotent retry, Workspace
+  isolation, manual weather untouched), `mcp-gazette.test.ts`, `gazette.test.ts` (shipping/VAT
+  validation). No automated test reaches a provider.

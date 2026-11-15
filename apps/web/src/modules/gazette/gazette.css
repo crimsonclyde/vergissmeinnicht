@@ -300,6 +300,44 @@ a.gazette-day:hover { border-color: var(--border-strong); }
 .gazette-compare td.gazette-disagree { border-radius: 6px; background: var(--gz-warn-bg); color: var(--gz-warn); font-weight: 700; }
 .gazette-table caption { padding-block-end: 0.3rem; color: var(--text-muted); font-size: 0.8rem; text-align: start; }
 
+/* 43.7: official warnings as rows (level in words and colour), ranges and lower confidence said plainly. */
+.gazette-warnings { display: flex; flex-direction: column; gap: 0.35rem; }
+.gazette-warning { display: flex; align-items: flex-start; gap: 0.5rem; padding: 0.45rem 0.65rem; border-inline-start: 4px solid var(--gz-rule); border-radius: var(--radius); background: var(--gz-paper-soft); font-size: 0.85rem; }
+.gazette-warning > span { display: flex; flex-direction: column; gap: 0.1rem; min-width: 0; }
+.gazette-warning b { font-weight: 600; overflow-wrap: anywhere; }
+.gazette-warning small { font-size: 0.74rem; }
+.gazette-warning > .ui-icon { flex: none; margin-block-start: 0.1rem; color: var(--text-muted); }
+.gazette-warning-yellow { border-inline-start-color: var(--gz-warn); background: var(--gz-warn-bg); }
+.gazette-warning-yellow > .ui-icon { color: var(--gz-warn); }
+.gazette-warning-orange { border-inline-start-color: color-mix(in srgb, var(--gz-warn) 50%, var(--danger)); background: color-mix(in srgb, var(--gz-warn-bg) 70%, var(--danger) 8%); }
+.gazette-warning-orange > .ui-icon { color: color-mix(in srgb, var(--gz-warn) 50%, var(--danger)); }
+.gazette-warning-red { border-inline-start-color: var(--danger); background: color-mix(in srgb, var(--surface) 86%, var(--danger) 14%); }
+.gazette-warning-red > .ui-icon { color: var(--danger); }
+.gazette-week .gazette-low-confidence { opacity: 0.78; background: repeating-linear-gradient(135deg, transparent 0 6px, color-mix(in srgb, var(--gz-rule) 35%, transparent) 6px 7px); }
+.gazette-week .gazette-low-confidence.gazette-disagree { background: var(--gz-warn-bg); }
+.gazette-range, .gazette-chance { color: var(--text-muted); font-size: 0.66rem; white-space: nowrap; }
+.gazette-gust { display: inline-flex; align-items: center; gap: 0.15rem; color: var(--gz-warn); font-size: 0.68rem; font-weight: 700; }
+.gazette-day-notes { display: flex; flex-direction: column; gap: 0.2rem; margin: 0; font-size: 0.8rem; }
+.gazette-day-notes li { display: block; }
+.gazette-day-notes li > b { margin-right: 0.3rem; }
+.gazette-day-notes li > .ui-icon { margin-right: 0.3rem; vertical-align: -0.1em; }
+details.gazette-compare > summary { display: inline-flex; align-items: center; gap: 0.4rem; min-height: 44px; color: var(--link); font-size: 0.82rem; cursor: pointer; }
+.gazette-compare-scroll { overflow-x: auto; }
+.gazette-compare td { vertical-align: top; }
+.gazette-compare td > :is(span, small) { display: block; white-space: nowrap; }
+.gazette-compare td small, .gazette-compare th small { display: block; color: var(--text-muted); font-size: 0.68rem; font-weight: 400; }
+.gazette-weather-missing { display: flex; flex-direction: column; align-items: center; gap: 0.5rem; text-align: center; }
+.gazette-weather-place { display: flex; align-items: center; gap: 0.6rem; }
+.gazette-weather-place > span:not(.ui-icon) { display: flex; flex-direction: column; flex: 1; min-width: 0; }
+.gazette-weather-settings > label.row { flex-wrap: nowrap; align-items: flex-start; }
+.gazette-weather-settings > label.row > input { flex: none; margin-top: 0.15rem; }
+.gazette-weather-place small { overflow-wrap: anywhere; }
+.gazette-weather-sources { display: flex; flex-direction: column; gap: 0.3rem; }
+.gazette-weather-sources li { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 0.5rem; }
+.gazette-weight { display: flex; align-items: center; gap: 0.35rem; }
+.gazette-weight input { width: 7rem; }
+.gazette-weight output { min-width: 2.6rem; font-variant-numeric: tabular-nums; color: var(--text-muted); font-size: 0.8rem; }
+
 .gazette-sources { display: flex; align-items: flex-start; gap: 0.4rem; margin: 0; color: var(--text-muted); font-size: 0.78rem; }
 .gazette-sources > .ui-icon { flex: none; margin-block-start: 0.15rem; }
 
@@ -345,7 +383,11 @@ a.gazette-day:hover { border-color: var(--border-strong); }
   .gazette-articles { grid-template-columns: minmax(0, 1fr); }
   .gazette-week { font-size: 0.72rem; }
   .gazette-week b { font-size: 0.82rem; }
-  .gazette-rain { font-size: 0.62rem; white-space: normal; }
+  .gazette-rain { font-size: 0.62rem; white-space: normal; line-height: 1.15; }
+  .gazette-week li { padding-inline: 0.2rem; }
+  .gazette-range, .gazette-chance { font-size: 0.58rem; }
+  .gazette-weather-sources li { grid-template-columns: auto minmax(0, 1fr); }
+  .gazette-weight { grid-column: 2; }
   .card.gazette-watch-item { grid-template-columns: minmax(0, 1fr) auto; }
   .gazette-watch-thumb { display: none; }
   .gazette-watch-state { grid-column: 1 / -1; }
@@ -360,6 +402,7 @@ a.gazette-day:hover { border-color: var(--border-strong); }
 @media (forced-colors: active) {
   .gazette-chip, .gazette-day-current, .gazette-tile-go { border: 1px solid CanvasText; }
   .gazette-week .gazette-disagree { outline-color: Highlight; }
+  .gazette-warning { border: 1px solid CanvasText; border-inline-start-width: 4px; }
 }
 
 
@@ -377,6 +420,7 @@ a.gazette-day:hover { border-color: var(--border-strong); }
 .gazette-admin-note { margin: 0; font-size: 0.85rem; }
 
 .card.gazette-admin-card { display: flex; flex-direction: column; gap: 0.8rem; min-width: 0; margin: 0; border-radius: var(--gz-radius); }
+.gazette-admin-card > legend ~ * { clear: both; }
 .gazette-admin-card legend { float: inline-start; width: 100%; margin-block-end: 0.2rem; padding: 0; font-family: var(--gz-serif); font-size: 1.25rem; font-weight: 700; }
 .gazette-admin-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 13rem), 1fr)); gap: 0.8rem 1rem; min-width: 0; margin: 0; padding: 0; border: 0; }
 .gazette-admin-grid label, .gazette-admin-detail > label:not(.row), .gazette-admin-add label { display: flex; flex-direction: column; gap: 0.3rem; min-width: 0; font-size: 0.88rem; font-weight: 600; }
@@ -407,6 +451,7 @@ a.gazette-day:hover { border-color: var(--border-strong); }
 .gazette-watch-actions { display: flex; align-items: center; gap: 0.3rem; }
 .gazette-watch-price-form { display: flex; align-items: center; gap: 0.3rem; }
 .gazette-watch-price-form input { width: 6rem; }
+.gazette-watch-price-form .gazette-watch-shipping { width: 4.5rem; }
 .gazette-watch-toggle { display: inline-flex; align-items: center; gap: 0.35rem; align-self: flex-start; }
 
 @media (max-width: 52rem) {
@@ -535,7 +580,15 @@ a.gazette-day:hover { border-color: var(--border-strong); }
 .gazette-header-editor h2 { font-family: var(--gz-serif); }
 .gazette-header-list { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 16rem), 1fr)); gap: 1rem; }
 .gazette-header-list li { display: grid; gap: .45rem; min-width: 0; align-content: start; }
-.gazette-header-list img { width: 100%; aspect-ratio: 3 / 1; object-fit: cover; border: 1px solid var(--gz-rule); border-radius: var(--gz-radius); }
+.gazette-header-list img { display: block; width: 100%; aspect-ratio: 3 / 1; object-fit: cover; border: 1px solid var(--gz-rule); border-radius: var(--gz-radius); }
+.gazette-header-focus { position: relative; display: block; width: 100%; padding: 0; border: 0; background: none; cursor: crosshair; border-radius: var(--gz-radius); overflow: hidden; }
+.gazette-header-focus:focus-visible { outline: 2px solid var(--gz-accent, currentColor); outline-offset: 2px; }
+/* The same dark gradient the masthead puts over the photo, so the preview shows what readers see. */
+.gazette-header-shade { position: absolute; inset: 0; background: linear-gradient(180deg, rgb(13 18 14 / 72%), rgb(13 18 14 / 68%) 45%, rgb(13 18 14 / 90%)); pointer-events: none; }
+.gazette-header-dot { position: absolute; width: 0.9rem; height: 0.9rem; margin: -0.45rem 0 0 -0.45rem; border: 2px solid #fff; border-radius: 50%; box-shadow: 0 0 0 2px rgb(0 0 0 / 0.55); pointer-events: none; }
+.gazette-header-actions .icon-button.is-disabled { opacity: 0.5; pointer-events: none; }
+.gazette-header-actions label.icon-button { cursor: pointer; }
+.gazette-header-actions label.icon-button:focus-within { outline: 2px solid var(--gz-accent, currentColor); outline-offset: 2px; }
 .gazette-header-actions { display: flex; align-items: start; flex-wrap: wrap; gap: .4rem; }
 .gazette-header-editor input[type='file'] { width: 100%; }
 .gazette-watch-price-form { flex-wrap: wrap; }

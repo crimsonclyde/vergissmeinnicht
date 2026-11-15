@@ -1,11 +1,11 @@
 import { createHash, randomInt, randomUUID } from 'node:crypto';
 import { AttachmentError, StorageFullError, GazetteConflictError, GazetteNotFoundError, GazetteOperationConflictError, NotAuthorizedError, type GazetteRepository, type GazetteWatchRepository, type StoredGazetteSettings } from '@vergissmeinnicht/application';
-import { DomainValidationError, GAZETTE_WATCH_LIMITS, MAX_GAZETTE_HEADER_IMAGES, DEFAULT_GAZETTE_HEADER, type GazetteHeaderSettings, DEFAULT_GAZETTE_WATCH_SETTINGS, gazetteAmazonAsin, type GazetteWatchFields, defaultGazetteSettings, type GazetteWatchItemView, type GazetteWatchPrice, gazetteOldestKept, parseTimeZone, type GazetteEdition, type GazetteSettings, type LocalDate, type TimeZoneName, type User, type WorkspaceId } from '@vergissmeinnicht/domain';
+import { DomainValidationError, GAZETTE_WATCH_LIMITS, MAX_GAZETTE_HEADER_IMAGES, DEFAULT_GAZETTE_HEADER, type GazetteHeaderSettings, DEFAULT_GAZETTE_WATCH_SETTINGS, gazetteAmazonAsin, gazetteOfferTotal, type GazetteWatchFields, defaultGazetteSettings, type GazetteWatchItemView, type GazetteWatchPrice, gazetteOldestKept, parseTimeZone, type GazetteEdition, type GazetteSettings, type LocalDate, type TimeZoneName, type User, type WorkspaceId } from '@vergissmeinnicht/domain';
 import { roleHasCapability, type WorkspaceCapability } from '@vergissmeinnicht/permissions';
 import { and, asc, count, desc, eq, gte, inArray, lt, lte, ne, sql } from 'drizzle-orm';
 import { actorAllowed, IMMEDIATE, type Transaction } from './actor-guard.ts';
 import type { AppDatabase } from './connection.ts';
-import { gazetteEditions, gazetteHeaderImages, gazetteHeaderSettings, gazetteOperations, gazetteSettings, gazetteWatchItems, gazetteWatchPrices, users, workspaces } from './schema.ts';
+import { gazetteEditions, gazetteHeaderImages, gazetteHeaderSettings, gazetteOperations, gazetteSettings, gazetteWatchItems, gazetteWatchPrices, gazetteWeatherForecasts, gazetteWeatherObservations, users, workspaces } from './schema.ts';
 import { globalStorageAllows, workspaceReservationBytesIn } from './attachment-repository.ts';
 import { storageUsageIn } from './storage-usage.ts';
 import { recordSecurityEvent } from './security-events.ts';
@@ -33,7 +33,7 @@ const view = (row: typeof gazetteEditions.$inferSelect): GazetteEdition => ({
   publishedAt: row.publishedAt ?? null, updatedAt: row.updatedAt, updatedBy: row.updatedBy, content: row.content, header: row.header,
 });
 const summary = (edition: GazetteEdition) => ({ id: edition.id, date: edition.date, state: edition.state, title: edition.title, revision: edition.revision, publishedAt: edition.publishedAt, updatedAt: edition.updatedAt, updatedBy: edition.updatedBy });
-const priceView = (row: typeof gazetteWatchPrices.$inferSelect): GazetteWatchPrice => ({ price: row.price, verified: row.verified, checkedAt: row.checkedAt.toISOString(), source: row.source, url: row.url });
+const priceView = (row: typeof gazetteWatchPrices.$inferSelect): GazetteWatchPrice => ({ price: row.price, verified: row.verified, checkedAt: row.checkedAt.toISOString(), source: row.source, url: row.url, shipping: row.shipping, vatIncluded: row.vatIncluded });
 function watchViews(tx: Reader, rows: readonly (typeof gazetteWatchItems.$inferSelect)[]): GazetteWatchItemView[] {
   const prices = rows.length === 0 ? [] : tx.select().from(gazetteWatchPrices).where(inArray(gazetteWatchPrices.itemId, rows.map(row => row.id))).orderBy(asc(gazetteWatchPrices.checkedAt)).all();
   return rows.map(row => {
@@ -42,7 +42,7 @@ function watchViews(tx: Reader, rows: readonly (typeof gazetteWatchItems.$inferS
       id: row.id, name: row.name, variant: row.variant, condition: row.condition, market: row.market, shop: row.shop, url: row.url, currency: row.currency,
       target: row.target, typical: row.typical, notes: row.notes, active: row.active, revision: row.revision, updatedAt: row.updatedAt.toISOString(),
       latest: history.at(-1) ?? null, history, discountThreshold: row.discountThreshold,
-      lowestVerified: history.reduce<GazetteWatchPrice | null>((low, price) => price.verified && price.source !== '' && (low === null || price.price < low.price) ? price : low, null),
+      lowestVerified: history.reduce<GazetteWatchPrice | null>((low, price) => price.verified && price.source !== '' && (low === null || gazetteOfferTotal(price) < gazetteOfferTotal(low)) ? price : low, null),
     };
   });
 }
@@ -166,7 +166,7 @@ export function createGazetteRepository({ db }: AppDatabase): GazetteRepository 
     async write(workspaceId, actor, input, at) {
       return db.transaction(tx => {
         if (!guard(tx, workspaceId, actor, 'gazette.publish')) throw new NotAuthorizedError();
-        const payloadHash = hashOf({ content: input.content, publish: input.publish });
+        const payloadHash = hashOf({ content: input.clientContent ?? input.content, publish: input.publish });
         if (input.operationId) {
           const done = tx.select().from(gazetteOperations).where(eq(gazetteOperations.id, input.operationId)).get();
           if (done) {
@@ -318,7 +318,7 @@ export function createGazetteRepository({ db }: AppDatabase): GazetteRepository 
         const known = tx.select({ id: gazetteWatchItems.id }).from(gazetteWatchItems).where(and(eq(gazetteWatchItems.workspaceId, workspaceId), inArray(gazetteWatchItems.id, ids))).all();
         if (known.length !== ids.length) throw new GazetteNotFoundError();
         for (const entry of observations) {
-          tx.insert(gazetteWatchPrices).values({ id: randomUUID(), workspaceId, itemId: entry.itemId, price: entry.price, verified: entry.verified, checkedAt: new Date(entry.checkedAt), source: entry.source, url: entry.url, createdAt: at, createdByUserId: actor.id }).run();
+          tx.insert(gazetteWatchPrices).values({ id: randomUUID(), workspaceId, itemId: entry.itemId, price: entry.price, verified: entry.verified, checkedAt: new Date(entry.checkedAt), source: entry.source, url: entry.url, shipping: entry.shipping, vatIncluded: entry.vatIncluded, createdAt: at, createdByUserId: actor.id }).run();
         }
         // Keep the newest observations per item only.
         for (const itemId of ids) {
@@ -357,6 +357,10 @@ export function purgeGazette({ db }: Pick<AppDatabase, 'db'>, now: Date = new Da
     }
     for (const { workspaceId, settings } of tx.select({ workspaceId: gazetteHeaderSettings.workspaceId, settings: gazetteHeaderSettings.settings }).from(gazetteHeaderSettings).all()) reclaimHeaders(tx, workspaceId, settings);
     const operations = tx.delete(gazetteOperations).where(lt(gazetteOperations.at, new Date(now.getTime() - GAZETTE_OPERATION_RETENTION_MS))).returning({ id: gazetteOperations.id }).all().length;
+    // Weather verification rows (43.7): derived, kept 60 days.
+    const before = new Date(now.getTime() - 60 * 86_400_000).toISOString().slice(0, 10);
+    tx.delete(gazetteWeatherForecasts).where(lt(gazetteWeatherForecasts.targetDate, before)).run();
+    tx.delete(gazetteWeatherObservations).where(lt(gazetteWeatherObservations.date, before)).run();
     return { editions, operations };
   }, IMMEDIATE);
 }

@@ -13,6 +13,10 @@ const code = Object.entries(sources)
 const DYNAMIC_PREFIXES = [
   'clock.mode.',
   'gazette.severity.',
+  'gazette.warningLevel.',
+  'gazette.confidence.',
+  'gazette.bucket.',
+  'gazette.region.',
   'gazette.verification.',
   'gazette.compare.',
   'gazette.condition.',

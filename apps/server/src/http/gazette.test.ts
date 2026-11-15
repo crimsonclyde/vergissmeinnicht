@@ -246,4 +246,23 @@ describe('The Daily Planet API (43)', () => {
     expect((await t.get(`${base()}/header/images/${chosen.id}`, guest)).statusCode).toBe(404);
   });
 
+  it('compares retailers by delivered total and keeps shipping and VAT apart from the price (43.7)', async () => {
+    const item = (await t.post(`${base()}/watchlist`, { item: { name: 'Baratza Encore ESP Pro', currency: 'EUR', typical: 279.95 } }, editor)).json().item;
+    const at = new Date(Date.now() - 60_000).toISOString();
+    const offers = [
+      { itemId: item.id, price: 259, shipping: 29.9, vatIncluded: true, verified: true, checkedAt: at, source: 'Shop A', url: 'https://shop-a.example/baratza' },
+      { itemId: item.id, price: 269, shipping: 0, vatIncluded: true, verified: true, checkedAt: at, source: 'Shop B' },
+      { itemId: item.id, price: 230, verified: true, checkedAt: at, source: 'Shop C', vatIncluded: false },
+    ];
+    expect((await t.post(`${base()}/watchlist/prices`, { observations: offers }, editor)).json()).toEqual({ recorded: 3 });
+    const [view] = (await t.get(`${base()}/watchlist`, guest)).json().items;
+    expect(view.history.map((p: { source: string; shipping: number | null; vatIncluded: boolean | null }) => [p.source, p.shipping, p.vatIncluded])).toEqual(expect.arrayContaining([['Shop A', 29.9, true], ['Shop B', 0, true], ['Shop C', null, false]]));
+    // Shop A's lower price costs more delivered than Shop B's; Shop C's unknown shipping counts as stated.
+    expect(view.lowestVerified.source).toBe('Shop C');
+    expect((await t.post(`${base()}/watchlist/prices`, { observations: [{ ...offers[0], shipping: -1 }] }, editor)).statusCode).toBe(400);
+    expect((await t.post(`${base()}/watchlist/prices`, { observations: [{ ...offers[0], vatIncluded: 'yes' }] }, editor)).statusCode).toBe(400);
+    // Older clients that send neither still work.
+    expect((await t.post(`${base()}/watchlist/prices`, { observations: [{ itemId: item.id, price: 250, verified: true, checkedAt: at, source: 'Shop D' }] }, editor)).statusCode).toBe(200);
+  });
+
 });

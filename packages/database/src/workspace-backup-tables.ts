@@ -123,6 +123,8 @@ export const EXCLUDED_TABLES: Readonly<Record<string, string>> = {
   user_place_preferences: 'personal Places settings per Workspace',
   gazette_header_images: 'server-local decorative Gazette header photos',
   gazette_header_settings: 'server-local Gazette header rotation',
+  gazette_weather_forecasts: 'derived Daily Planet forecast log for verification, kept 60 days',
+  gazette_weather_observations: 'derived station observations for Daily Planet verification, kept 60 days',
   user_place_backgrounds: 'personal Places background photos',
   user_weather_settings: 'personal weather settings and locations',
   user_weather_workspace_locations: 'personal weather opt-in per Workspace',

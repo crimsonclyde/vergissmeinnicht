@@ -6055,6 +6055,37 @@ not seeded in every installation. Header images travel in full server backups on
 Published as [0.15.1](https://github.com/crimsonclyde/vergissmeinnicht/releases/tag/v0.15.1), owner release **71**. The
 [release workflow](https://github.com/crimsonclyde/vergissmeinnicht/actions/runs/43651364995) passed the populated upgrade from v0.15.0. Live deployment is separate.
 
+### 43.7 — Workspace weather, multi-source forecasts and Watchlist delivery costs (2026-11-15)
+
+**Status:** DONE (not released)
+**Owner request:** "VMN — The Daily Planet Improvements" (2026-11-15).
+
+**Implemented:** VMN writes the weather section itself from the Workspace location: no location →
+`no_location` with a setup link, never another Workspace's place or the assistant's location.
+Per region several sources (Open-Meteo multi-model, DWD MOSMIX/observations/warnings via Bright Sky,
+MET Norway, Meteoalarm, AllertaLiguria zone level), combined per model family with ranges where
+families disagree, lower confidence from day 4, gusts reported "up to", nothing filled in. Optional
+skill weighting from DWD station verification (60-day log, migration 0081). Archived editions keep
+their forecast; republishing an older date never refetches. Settings panel (sources, weights,
+Ligurian zone, learning), compare-sources table, warnings list, MCP `get_gazette_weather` and
+location discovery in `get_gazette_config`; REST `GET /gazette/weather`. Watchlist observations carry
+shipping and VAT; offers compare by delivered total. Header editor: icon buttons, click-to-set focal
+point, masthead shading in the preview. Brief migration replaces only the unchanged two-place default.
+
+**Tests/checks:** full Vitest suite (234 files, 1,844 tests), lint, typecheck, build. Live check on
+2026-11-15 against every provider from a disposable server: Triora (ICON-2I, ICON-EU, ECMWF, MET;
+Meteoalarm yellow wind; AllertaLiguria zone A), Göggenhofen (ICON-D2, ICON-EU, ECMWF, MOSMIX at
+Mering 7 km, MET; DWD fog and icy-surface warnings), DWD observations. A real Open-Meteo daily
+limit (HTTP 429 at the shared test egress) exercised the fallback: MET Norway alone, named as one
+family. Screenshots in all themes, desktop and phone: `ui-review/2026-11-15-daily-planet-weather/`.
+
+**Security impact:** MEDIUM — see security.md "Daily Planet workspace weather".
+**Security docs updated:** YES.
+**Remaining:** no Italian station verification (no permitted official station API found; OMIRL
+and Meteo 3R are links); ARPAL bulletin text not parsed; AllertaLiguria read from its public page
+(could change without notice — a changed page is reported as unavailable, not guessed); no
+automatic Amazon wishlist import (terms and robots.txt); a real-phone check of the new week layout.
+
 ## 11 — Licensing
 
 ### 11.1 AGPL-3.0

@@ -1,7 +1,8 @@
 # The Daily Planet API (internally "Gazette", steps.md 43)
 
 The Daily Planet (internally the Gazette) is an optional Workspace tool (`GAZETTE`). VMN stores, validates and shows editions; it
-never fetches news, forecasts or prices itself. An edition is written by an assistant through MCP
+never fetches news or prices itself. Since 43.7 it does write the weather section: see
+[Weather](#weather-437). An edition is written by an assistant through MCP
 (see [AI assistant connections](../admin/mcp.md#the-daily-planet-gazette)) or by a signed-in client through
 the REST API below. All paths are under `/api/workspaces/{workspaceId}/gazette`.
 
@@ -27,7 +28,8 @@ the REST API below. All paths are under `/api/workspaces/{workspaceId}/gazette`.
 | `GET /header/images/{id}` | `gazette.view` | Workspace-scoped, re-encoded JPEG |
 | `POST /header/images/{id}/delete` | `gazette.manage` | `{expectedRevision}` → updated header settings |
 | `POST /header/override` | `gazette.manage` | `{date, imageId, expectedRevision}`; use null for bundled woodland; published editions only → 204 |
-| `POST /watchlist/prices` | `gazette.publish` | `{observations: [{itemId, price, checkedAt, verified?, source?, url?}]}` → `{recorded}`; all or nothing |
+| `POST /watchlist/prices` | `gazette.publish` | `{observations: [{itemId, price, checkedAt, verified?, source?, url?, shipping?, vatIncluded?}]}` → `{recorded}`; all or nothing. `shipping` ≥ 0 (0 = free, omitted = not known); offers compare by `price + shipping` |
+| `GET /weather?date=YYYY-MM-DD` | `gazette.view` | Today or tomorrow (default today): `{date, place, settings, plan, result, verification}`; 30 requests per 10 minutes per person |
 
 Cookie-authenticated writes need the usual same-origin request (CSRF origin check). Errors are
 `{error: code}` with a `field` path for validation, e.g. `edition.sections[1].items[0].url`.
@@ -86,3 +88,36 @@ every source is `example.org` and every headline is marked as a sample). To seed
 Workspace, switch The Daily Planet on in Plugins, change `content.date` to today in its time zone,
 and send the file with an Editor's session, or ask a connected assistant to publish it with
 `publish_gazette_edition`.
+
+## Weather (43.7)
+
+When `settings.weather.automatic` is on (the default), every write or publish of an edition dated
+today or tomorrow rebuilds each enabled weather section on the server from the **Workspace location**
+(`workspaces.location`); the client's `summary` is kept and everything else it sent for that section
+is replaced. Older dates keep the weather section of the stored edition. Operation ids hash the
+client's content, so a retry stays idempotent even though VMN's forecast changed.
+
+Section fields (all optional, so editions written before 43.7 still parse):
+
+- `status`: `ok`, `no_location` (no Workspace location; `locations` is empty) or `unavailable`
+  (every forecast source failed or server weather is off). `generatedBy: "vmn"`.
+- Location: `place {latitude, longitude, elevation, timeZone}`, `models[]` (per-source days for the
+  comparison table), `sources[]` with `role` (`forecast`, `warnings`, `reference`), `model` and
+  `retrievedAt`.
+- Day: `highRange`/`lowRange` and a `{min, max}` `precipitationMm` when independent model families
+  disagree (temperature > 3 °C apart, rain > max(2 mm, 50 %)), `precipitationProbability`,
+  `confidence` (`high`, `medium`, `low`; day 4 onward is always `low`) and a plain-text `note`.
+- Warning: `onset`, `expires`, `kind`; level `info` for "no alert" messages.
+
+Region plans (fixed hosts, see security.md):
+
+| Region | Forecast sources | Warnings | References (links only) |
+| --- | --- | --- | --- |
+| Liguria | ItaliaMeteo ARPAE ICON-2I, DWD ICON-EU, ECMWF IFS (Open-Meteo); MET Norway | AllertaLiguria zone level, Meteoalarm Liguria | ARPAL bulletin, Meteo 3R, OMIRL |
+| Germany | DWD ICON-D2, ICON-EU, ECMWF IFS (Open-Meteo); DWD MOSMIX (Bright Sky); MET Norway | DWD (Bright Sky) | DWD |
+| Rest of Europe / world | ICON-EU (Europe), ECMWF IFS, NOAA GFS; MET Norway | – | – |
+
+Same-family sources (MET Norway ≈ ECMWF; ICON-D2 ≈ ICON-EU) are averaged before families are
+weighted. With `learn` on, forecasts and DWD station observations (≤ 25 km, ≤ 300 m elevation gap,
+lapse-rate corrected) are kept 60 days and each source's weight is scaled by median MAE / its MAE
+(0.5–1.5) per lead bucket, once it has 5 samples and 2 peers.

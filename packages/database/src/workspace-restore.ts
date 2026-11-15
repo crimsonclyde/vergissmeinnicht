@@ -283,9 +283,11 @@ function* records(path: string | undefined, table: string, allowMissing = false)
  * Nullable columns added to exported tables after the first backup level (0044), by table. A package written before
  * a column existed lacks it; the restore then stores NULL. Nothing else may be missing.
  *  - 0047 (22.1): the optional Section icon of Procedures and of the Run snapshot.
+ *  - 0081 (43.7): shipping and VAT of an observed Watchlist price.
  */
 const ADDED_COLUMNS: Readonly<Record<string, readonly string[]>> = {
   gazette_watch_items: ['discount_threshold'],
+  gazette_watch_prices: ['shipping', 'vat_included'],
   workspaces: ['location'],
   procedure_sections: ['icon'],
   run_sections: ['icon'],

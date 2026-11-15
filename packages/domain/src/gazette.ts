@@ -2,6 +2,7 @@ import { DomainValidationError } from './errors.ts';
 import { addDays, localDateAt, parseLocalDate, parseLocalTime, parseTimeZone, type LocalDate, type TimeZoneName } from './schedule.ts';
 import { BIDI_CONTROLS, CONTROL_CHARS } from './text.ts';
 import { WEATHER_CONDITIONS, type WeatherCondition } from './weather.ts';
+import { parseGazetteWeatherSettings, type GazetteWeatherSettings } from './gazette-weather.ts';
 
 /**
  * The Daily Planet (section 43): one published daily edition per Workspace and local date, made of
@@ -23,6 +24,8 @@ export const GAZETTE_VERIFICATION = ['unverified', 'checking', 'not_affected', '
 export const GAZETTE_WARNING_LEVELS = ['info', 'yellow', 'orange', 'red'] as const;
 export const GAZETTE_RELEVANCE = ['low', 'normal', 'high'] as const;
 export const GAZETTE_PRICE_CHANGES = ['new', 'down', 'up', 'same'] as const;
+/** 43.7: `no_location` = the Workspace has no place set; `unavailable` = no source answered. Missing = `ok` (older editions). */
+export const GAZETTE_WEATHER_STATUS = ['ok', 'no_location', 'unavailable'] as const;
 export const GAZETTE_EDITION_STATES = ['DRAFT', 'PUBLISHED'] as const;
 export type GazetteEditionState = (typeof GAZETTE_EDITION_STATES)[number];
 
@@ -44,7 +47,16 @@ export const GAZETTE_LIMITS = Object.freeze({
 export const DEFAULT_GAZETTE_RETENTION_DAYS = 7;
 export const DEFAULT_GAZETTE_PUBLISH_TIME = '06:45';
 
-export interface GazetteSource { readonly name: string; readonly url: string | null }
+export const GAZETTE_SOURCE_ROLES = ['forecast', 'warnings', 'observations', 'reference'] as const;
+export interface GazetteSource {
+  readonly name: string;
+  readonly url: string | null;
+  /** Weather (43.7): the forecast model behind a value, as the provider names it (e.g. `icon_d2`). */
+  readonly model?: string;
+  /** When VMN retrieved it (ISO 8601). */
+  readonly retrievedAt?: string;
+  readonly role?: (typeof GAZETTE_SOURCE_ROLES)[number];
+}
 export interface GazetteSectionDefinition {
   readonly id: string;
   readonly type: GazetteSectionType;
@@ -71,6 +83,8 @@ export interface GazetteSettings {
   readonly dashboardHeadlines: number;
   readonly images: boolean;
   readonly watchlist?: GazetteWatchSettings;
+  /** 43.7: how VMN makes the forecast for the Workspace place. Missing = the defaults. */
+  readonly weather?: GazetteWeatherSettings;
   readonly sections: readonly GazetteSectionDefinition[];
 }
 
@@ -106,7 +120,17 @@ export interface GazetteForecastDay {
   readonly windKmh: number | null;
   readonly gustKmh: number | null;
   readonly disagreement: boolean;
+  /** 43.7, optional: the spread across independent model families when they disagree. */
+  readonly highRange?: GazetteRange;
+  readonly lowRange?: GazetteRange;
+  /** Highest chance of precipitation in %, where a source gives one. */
+  readonly precipitationProbability?: number | null;
+  /** How far the sources agree and how far ahead the day is; days 4–7 are never `high`. */
+  readonly confidence?: (typeof GAZETTE_CONFIDENCE)[number];
+  /** One plain sentence such as "Models disagree on accumulation: 8–22 mm." */
+  readonly note?: string;
 }
+export const GAZETTE_CONFIDENCE = ['high', 'medium', 'low'] as const;
 export interface GazetteComparison {
   readonly metric: 'precipitation' | 'high' | 'low' | 'wind';
   readonly rows: readonly { readonly source: string; readonly values: readonly (number | null)[] }[];
@@ -117,6 +141,30 @@ export interface GazetteWarning {
   readonly source: string;
   readonly url: string | null;
   readonly date: LocalDate | null;
+  readonly onset?: string | null;
+  readonly expires?: string | null;
+  /** Short hazard key from the issuer (`thunderstorm`, `rain`, `wind`, `hydro`, `snow`, `frost`, …). */
+  readonly kind?: string;
+}
+/** The exact place a forecast was made for (43.7): kept with the edition, so an archived edition keeps its place. */
+export interface GazetteForecastPlace { readonly latitude: number; readonly longitude: number; readonly elevation: number | null; readonly timeZone: string }
+export interface GazetteModelDay {
+  readonly date: LocalDate;
+  readonly high: number | null;
+  readonly low: number | null;
+  readonly precipitationMm: number | null;
+  readonly gustKmh: number | null;
+  readonly condition: WeatherCondition;
+}
+/** One source's own days, as retrieved (43.7): shown in the comparison, never merged silently. */
+export interface GazetteModelForecast {
+  readonly source: string;
+  readonly model: string;
+  /** Sources sharing a family share an underlying model and count as one voice. */
+  readonly family: string;
+  readonly retrievedAt: string;
+  readonly weight: number;
+  readonly days: readonly GazetteModelDay[];
 }
 export interface GazetteLocationForecast {
   readonly name: string;
@@ -127,6 +175,8 @@ export interface GazetteLocationForecast {
   readonly sources: readonly GazetteSource[];
   readonly fetchedAt: string | null;
   readonly note: string;
+  readonly place?: GazetteForecastPlace;
+  readonly models?: readonly GazetteModelForecast[];
 }
 export interface GazetteWatchItem {
   readonly id: string;
@@ -152,7 +202,7 @@ export interface GazetteTable { readonly caption: string; readonly columns: read
 interface SectionBase { readonly sectionId: string; readonly summary: string }
 export type GazetteSectionContent =
   | (SectionBase & { readonly type: 'articles'; readonly items: readonly GazetteArticle[] })
-  | (SectionBase & { readonly type: 'weather'; readonly locations: readonly GazetteLocationForecast[] })
+  | (SectionBase & { readonly type: 'weather'; readonly locations: readonly GazetteLocationForecast[]; readonly status?: (typeof GAZETTE_WEATHER_STATUS)[number]; readonly generatedBy?: 'vmn' | 'client' })
   | (SectionBase & { readonly type: 'watchlist'; readonly items: readonly GazetteWatchItem[] })
   | (SectionBase & { readonly type: 'rich'; readonly body: string; readonly tables: readonly GazetteTable[] });
 
@@ -263,19 +313,30 @@ function localDate(value: unknown, path: string): LocalDate {
 }
 function sources(value: unknown, path: string, max: number = GAZETTE_LIMITS.sources): GazetteSource[] {
   return list(value, path, max).map((item, i) => {
-    const row = record(item, `${path}[${i}]`, ['name'], ['url']);
-    return { name: str(row['name'], `${path}[${i}].name`, 80, { required: true }), url: gazetteUrl(row['url'], `${path}[${i}].url`) };
+    const row = record(item, `${path}[${i}]`, ['name'], ['url', 'model', 'retrievedAt', 'role']);
+    const model = row['model'] === undefined ? undefined : str(row['model'], `${path}[${i}].model`, 60);
+    const retrievedAt = row['retrievedAt'] === undefined || row['retrievedAt'] === null ? undefined : instant(row['retrievedAt'], `${path}[${i}].retrievedAt`) as string;
+    return {
+      name: str(row['name'], `${path}[${i}].name`, 80, { required: true }), url: gazetteUrl(row['url'], `${path}[${i}].url`),
+      ...(model ? { model } : {}), ...(retrievedAt ? { retrievedAt } : {}),
+      ...(row['role'] === undefined ? {} : { role: oneOf(row['role'], `${path}[${i}].role`, GAZETTE_SOURCE_ROLES) }),
+    };
   });
 }
 
 // ---------------------------------------------------------------------------------------------------
 // Settings
 
+/** The weather brief since 43.7: VMN writes the forecast; a client only adds a short summary. */
+export const GAZETTE_WEATHER_BRIEF = 'VMN fills this section on the server from the Workspace location, comparing several sources and official warnings. Write only a short summary from get_gazette_weather; never add places, values or warnings yourself.';
+/** The brief every Workspace got before 43.7; migration 0081 replaces exactly this text. */
+export const GAZETTE_WEATHER_BRIEF_V1 = 'Triora (Imperia, Liguria) and Göggenhofen (Bavaria): seven days, up to three sources compared, disagreements as ranges, official warnings (ARPAL for Liguria). Name every source; never invent values.';
+
 export function defaultGazetteSections(): GazetteSectionDefinition[] {
   const section = (id: string, type: GazetteSectionType, title: string, subtitle: string, icon: GazetteIcon, language: string, brief: string): GazetteSectionDefinition =>
     ({ id, type, title, subtitle, icon, enabled: true, language, dashboard: type !== 'weather', collapsed: false, brief, sources: [] });
   return [
-    section('weather', 'weather', 'Weather', 'Seven days, compared across sources', 'weather', 'en', 'Triora (Imperia, Liguria) and Göggenhofen (Bavaria): seven days, up to three sources compared, disagreements as ranges, official warnings (ARPAL for Liguria). Name every source; never invent values.'),
+    section('weather', 'weather', 'Weather', 'Seven days, compared across sources', 'weather', 'en', GAZETTE_WEATHER_BRIEF),
     section('it-open-source', 'articles', 'IT & Open Source', 'Linux, self-hosting, containers, privacy, security', 'chip', 'en', 'Linux, open source, AI, self-hosting, containers, privacy and software security. Mark possible VMN relevance only after checking the actual dependencies.'),
     section('liguria', 'articles', 'Notizie dalla Liguria', 'Triora, Valle Argentina, Imperia, Sanremo', 'map', 'it', 'Triora, Valle Argentina, Imperia, Sanremo, Liguria and important Italian national news. In Italian.'),
     section('europe-world', 'articles', 'Europe & World', 'Europe first, the world in brief', 'globe', 'en', 'Brief, source-backed coverage with Europe as the focus, plus important international developments.'),
@@ -289,7 +350,7 @@ export function defaultGazetteSettings(timeZone: TimeZoneName | null): GazetteSe
 }
 
 export function parseGazetteSettings(value: unknown): GazetteSettings {
-  const row = record(value, 'settings', ['version', 'title', 'retentionDays', 'timeZone', 'publishTime', 'dashboardHeadlines', 'images', 'sections'], ['watchlist']);
+  const row = record(value, 'settings', ['version', 'title', 'retentionDays', 'timeZone', 'publishTime', 'dashboardHeadlines', 'images', 'sections'], ['watchlist', 'weather']);
   if (row['version'] !== 1) fail('settings.version');
   const retention = row['retentionDays'];
   if (!Number.isInteger(retention) || Number(retention) < GAZETTE_LIMITS.retentionMin || Number(retention) > GAZETTE_LIMITS.retentionMax) fail('settings.retentionDays');
@@ -314,7 +375,7 @@ export function parseGazetteSettings(value: unknown): GazetteSettings {
       brief: str(s['brief'], `${path}.brief`, 1000, { multiline: true }), sources: sources(s['sources'], `${path}.sources`, 20),
     };
   });
-  return { version: 1, title: str(row['title'], 'settings.title', 60, { required: true }), retentionDays: Number(retention), timeZone, publishTime, dashboardHeadlines: Number(headlines), images: bool(row['images'], 'settings.images'), sections, ...(row['watchlist'] === undefined ? {} : { watchlist: parseWatchSettings(row['watchlist']) }) };
+  return { version: 1, title: str(row['title'], 'settings.title', 60, { required: true }), retentionDays: Number(retention), timeZone, publishTime, dashboardHeadlines: Number(headlines), images: bool(row['images'], 'settings.images'), sections, ...(row['watchlist'] === undefined ? {} : { watchlist: parseWatchSettings(row['watchlist']) }), ...(row['weather'] === undefined ? {} : { weather: parseGazetteWeatherSettings(row['weather']) }) };
 }
 
 // ---------------------------------------------------------------------------------------------------
@@ -342,7 +403,7 @@ function article(value: unknown, path: string): GazetteArticle {
 }
 
 function forecastDay(value: unknown, path: string): GazetteForecastDay {
-  const row = record(value, path, ['date', 'condition'], ['high', 'low', 'precipitationMm', 'windKmh', 'gustKmh', 'disagreement']);
+  const row = record(value, path, ['date', 'condition'], ['high', 'low', 'precipitationMm', 'windKmh', 'gustKmh', 'disagreement', 'highRange', 'lowRange', 'precipitationProbability', 'confidence', 'note']);
   let precipitation: number | GazetteRange | null;
   const raw = row['precipitationMm'];
   if (raw && typeof raw === 'object') {
@@ -357,11 +418,35 @@ function forecastDay(value: unknown, path: string): GazetteForecastDay {
     date: localDate(row['date'], `${path}.date`), condition: oneOf(row['condition'], `${path}.condition`, WEATHER_CONDITIONS), high, low, precipitationMm: precipitation,
     windKmh: num(row['windKmh'], `${path}.windKmh`, 0, 500), gustKmh: num(row['gustKmh'], `${path}.gustKmh`, 0, 500),
     disagreement: bool(row['disagreement'], `${path}.disagreement`, typeof precipitation === 'object' && precipitation !== null),
+    ...optionalRange(row['highRange'], `${path}.highRange`, 'highRange'), ...optionalRange(row['lowRange'], `${path}.lowRange`, 'lowRange'),
+    ...(row['precipitationProbability'] === undefined ? {} : { precipitationProbability: num(row['precipitationProbability'], `${path}.precipitationProbability`, 0, 100) }),
+    ...(row['confidence'] === undefined ? {} : { confidence: oneOf(row['confidence'], `${path}.confidence`, GAZETTE_CONFIDENCE) }),
+    ...(row['note'] === undefined ? {} : { note: str(row['note'], `${path}.note`, 200) }),
   };
 }
 
+function optionalRange<K extends string>(value: unknown, path: string, key: K): { [P in K]?: GazetteRange } {
+  if (value === undefined || value === null) return {};
+  const range = record(value, path, ['min', 'max']);
+  const min = num(range['min'], `${path}.min`, -90, 60, false) as number; const max = num(range['max'], `${path}.max`, -90, 60, false) as number;
+  if (min > max) fail(path);
+  return { [key]: { min, max } } as { [P in K]?: GazetteRange };
+}
+
+function modelForecast(value: unknown, path: string, dates: ReadonlySet<string>): GazetteModelForecast {
+  const row = record(value, path, ['source', 'model', 'family', 'retrievedAt', 'days'], ['weight']);
+  const days = list(row['days'], `${path}.days`, GAZETTE_LIMITS.days).map((item, i): GazetteModelDay => {
+    const p = `${path}.days[${i}]`; const d = record(item, p, ['date', 'condition'], ['high', 'low', 'precipitationMm', 'gustKmh']);
+    const date = localDate(d['date'], `${p}.date`);
+    if (!dates.has(date)) fail(`${p}.date`, 'gazette_unknown_day');
+    return { date, condition: oneOf(d['condition'], `${p}.condition`, WEATHER_CONDITIONS), high: num(d['high'], `${p}.high`, -90, 60), low: num(d['low'], `${p}.low`, -90, 60), precipitationMm: num(d['precipitationMm'], `${p}.precipitationMm`, 0, 2000), gustKmh: num(d['gustKmh'], `${p}.gustKmh`, 0, 500) };
+  });
+  const id = (v: unknown, p: string) => typeof v === 'string' && /^[a-z0-9][a-z0-9_.-]{0,59}$/.test(v) ? v : fail(p);
+  return { source: str(row['source'], `${path}.source`, 80, { required: true }), model: id(row['model'], `${path}.model`), family: id(row['family'], `${path}.family`), retrievedAt: instant(row['retrievedAt'], `${path}.retrievedAt`) as string, weight: num(row['weight'], `${path}.weight`, 0, 10) ?? 1, days };
+}
+
 function location(value: unknown, path: string): GazetteLocationForecast {
-  const row = record(value, path, ['name', 'days', 'sources'], ['region', 'comparison', 'warnings', 'fetchedAt', 'note']);
+  const row = record(value, path, ['name', 'days', 'sources'], ['region', 'comparison', 'warnings', 'fetchedAt', 'note', 'place', 'models']);
   const days = list(row['days'], `${path}.days`, GAZETTE_LIMITS.days, 1).map((day, i) => forecastDay(day, `${path}.days[${i}]`));
   for (let i = 1; i < days.length; i++) if ((days[i] as GazetteForecastDay).date <= (days[i - 1] as GazetteForecastDay).date) fail(`${path}.days[${i}].date`, 'gazette_days_out_of_order');
   let comparison: GazetteComparison | null = null;
@@ -369,7 +454,7 @@ function location(value: unknown, path: string): GazetteLocationForecast {
     const c = record(row['comparison'], `${path}.comparison`, ['metric', 'rows']);
     comparison = {
       metric: oneOf(c['metric'], `${path}.comparison.metric`, ['precipitation', 'high', 'low', 'wind'] as const),
-      rows: list(c['rows'], `${path}.comparison.rows`, 3, 2).map((r, i) => {
+      rows: list(c['rows'], `${path}.comparison.rows`, 6, 2).map((r, i) => {
         const cr = record(r, `${path}.comparison.rows[${i}]`, ['source', 'values']);
         const values = list(cr['values'], `${path}.comparison.rows[${i}].values`, days.length, days.length).map((v, j) => num(v, `${path}.comparison.rows[${i}].values[${j}]`, -500, 2000));
         return { source: str(cr['source'], `${path}.comparison.rows[${i}].source`, 80, { required: true }), values };
@@ -377,14 +462,28 @@ function location(value: unknown, path: string): GazetteLocationForecast {
     };
   }
   const warnings = list(row['warnings'], `${path}.warnings`, 10).map((w, i) => {
-    const p = `${path}.warnings[${i}]`; const wr = record(w, p, ['level', 'text', 'source'], ['url', 'date']);
-    return { level: oneOf(wr['level'], `${p}.level`, GAZETTE_WARNING_LEVELS), text: str(wr['text'], `${p}.text`, 300, { required: true }), source: str(wr['source'], `${p}.source`, 80, { required: true }), url: gazetteUrl(wr['url'], `${p}.url`), date: wr['date'] === undefined || wr['date'] === null ? null : localDate(wr['date'], `${p}.date`) };
+    const p = `${path}.warnings[${i}]`; const wr = record(w, p, ['level', 'text', 'source'], ['url', 'date', 'onset', 'expires', 'kind']);
+    return {
+      level: oneOf(wr['level'], `${p}.level`, GAZETTE_WARNING_LEVELS), text: str(wr['text'], `${p}.text`, 300, { required: true }), source: str(wr['source'], `${p}.source`, 80, { required: true }), url: gazetteUrl(wr['url'], `${p}.url`), date: wr['date'] === undefined || wr['date'] === null ? null : localDate(wr['date'], `${p}.date`),
+      ...(wr['onset'] === undefined ? {} : { onset: instant(wr['onset'], `${p}.onset`, true) }), ...(wr['expires'] === undefined ? {} : { expires: instant(wr['expires'], `${p}.expires`, true) }),
+      ...(wr['kind'] === undefined ? {} : { kind: typeof wr['kind'] === 'string' && /^[a-z][a-z-]{0,23}$/.test(wr['kind']) ? wr['kind'] : fail(`${p}.kind`) }),
+    };
   });
-  const named = sources(row['sources'], `${path}.sources`);
+  const named = sources(row['sources'], `${path}.sources`, 12);
   if (named.length === 0) fail(`${path}.sources`, 'gazette_source_required');
+  let place: GazetteForecastPlace | undefined;
+  if (row['place'] !== undefined && row['place'] !== null) {
+    const pl = record(row['place'], `${path}.place`, ['latitude', 'longitude', 'timeZone'], ['elevation']);
+    let timeZone: string;
+    try { timeZone = parseTimeZone(typeof pl['timeZone'] === 'string' ? pl['timeZone'] : ''); } catch { return fail(`${path}.place.timeZone`); }
+    place = { latitude: num(pl['latitude'], `${path}.place.latitude`, -90, 90, false) as number, longitude: num(pl['longitude'], `${path}.place.longitude`, -180, 180, false) as number, elevation: num(pl['elevation'], `${path}.place.elevation`, -500, 9000), timeZone };
+  }
+  const dates = new Set(days.map(day => day.date));
+  const models = row['models'] === undefined ? undefined : list(row['models'], `${path}.models`, 8).map((m, i) => modelForecast(m, `${path}.models[${i}]`, dates));
   return {
     name: str(row['name'], `${path}.name`, 80, { required: true }), region: str(row['region'], `${path}.region`, 120), days, comparison, warnings, sources: named,
     fetchedAt: instant(row['fetchedAt'], `${path}.fetchedAt`, true), note: str(row['note'], `${path}.note`, 300),
+    ...(place ? { place } : {}), ...(models ? { models } : {}),
   };
 }
 
@@ -446,8 +545,17 @@ export function parseGazetteEdition(value: unknown, definitions: readonly Gazett
         return { sectionId: id, type, summary: markdown(s['summary'], `${path}.summary`, 1500), items };
       }
       case 'weather': {
-        const s = record(item, path, ['sectionId', 'type', 'locations'], ['summary']);
-        return { sectionId: id, type, summary: markdown(s['summary'], `${path}.summary`, 1500), locations: list(s['locations'], `${path}.locations`, GAZETTE_LIMITS.locations, 1).map((l, j) => location(l, `${path}.locations[${j}]`)) };
+        const s = record(item, path, ['sectionId', 'type'], ['locations', 'summary', 'status', 'generatedBy']);
+        let status = s['status'] === undefined ? undefined : oneOf(s['status'], `${path}.status`, GAZETTE_WEATHER_STATUS);
+        // 43.7: a client may send only the summary (VMN fills the places). Without places the section says so
+        // (`unavailable`) instead of looking like an empty forecast; with places it cannot claim to have none.
+        const locations = list(s['locations'], `${path}.locations`, GAZETTE_LIMITS.locations).map((l, j) => location(l, `${path}.locations[${j}]`));
+        if (locations.length === 0 && (status === undefined || status === 'ok')) status = 'unavailable';
+        if (status !== undefined && status !== 'ok' && locations.length > 0) fail(`${path}.locations`, 'gazette_list_size');
+        return {
+          sectionId: id, type, summary: markdown(s['summary'], `${path}.summary`, 1500), locations,
+          ...(status === undefined ? {} : { status }), ...(s['generatedBy'] === undefined ? {} : { generatedBy: oneOf(s['generatedBy'], `${path}.generatedBy`, ['vmn', 'client'] as const) }),
+        };
       }
       case 'watchlist': {
         const s = record(item, path, ['sectionId', 'type', 'items'], ['summary']);
@@ -581,7 +689,14 @@ export interface GazettePriceObservationInput {
   readonly checkedAt: string;
   readonly source: string;
   readonly url: string | null;
+  /** 43.7: delivery cost shown with the offer (0 = free); `null` = not known. */
+  readonly shipping: number | null;
+  /** 43.7: whether the price includes VAT as shown; `null` = not stated. */
+  readonly vatIncluded: boolean | null;
 }
+
+/** What an offer costs delivered: price plus shipping when the offer showed it (43.7). */
+export const gazetteOfferTotal = (price: { readonly price: number; readonly shipping?: number | null }) => Math.round((price.price + (price.shipping ?? 0)) * 100) / 100;
 
 export function parseGazetteWatchFields(value: unknown): GazetteWatchFields {
   const row = record(value, 'item', ['name', 'currency'], ['variant', 'condition', 'market', 'shop', 'url', 'target', 'typical', 'notes', 'active', 'discountThreshold']);
@@ -606,7 +721,7 @@ export function parseGazettePriceObservations(value: unknown, now: Date): Gazett
   const items = list(value, 'observations', GAZETTE_WATCH_LIMITS.observationsPerCall, 1);
   return items.map((entry, index) => {
     const path = `observations[${index}]`;
-    const row = record(entry, path, ['itemId', 'price', 'checkedAt'], ['verified', 'source', 'url']);
+    const row = record(entry, path, ['itemId', 'price', 'checkedAt'], ['verified', 'source', 'url', 'shipping', 'vatIncluded']);
     const checkedAt = instant(row['checkedAt'], `${path}.checkedAt`) as string;
     if (Date.parse(checkedAt) > now.getTime() + 5 * 60_000) fail(`${path}.checkedAt`, 'gazette_invalid_time');
     return {
@@ -616,11 +731,17 @@ export function parseGazettePriceObservations(value: unknown, now: Date): Gazett
       checkedAt,
       source: str(row['source'], `${path}.source`, 80),
       url: gazetteUrl(row['url'], `${path}.url`),
+      shipping: num(row['shipping'], `${path}.shipping`, 0, 100_000),
+      vatIncluded: row['vatIncluded'] === undefined || row['vatIncluded'] === null ? null : bool(row['vatIncluded'], `${path}.vatIncluded`),
     };
   });
 }
 
-export interface GazetteWatchPrice { readonly price: number; readonly verified: boolean; readonly checkedAt: string; readonly source: string; readonly url: string | null }
+export interface GazetteWatchPrice {
+  readonly price: number; readonly verified: boolean; readonly checkedAt: string; readonly source: string; readonly url: string | null;
+  /** 43.7, optional for older clients and packages: shipping (0 = free, null = not known) and VAT as shown. */
+  readonly shipping?: number | null; readonly vatIncluded?: boolean | null;
+}
 export interface GazetteWatchItemView extends GazetteWatchFields {
   readonly id: string;
   readonly revision: number;

@@ -6,6 +6,7 @@ import { Link, paths } from '../../router.tsx';
 import { UiIcon } from '../../ui-icons.tsx';
 import { gazetteIcon } from './GazettePage.tsx';
 import { GazetteHeaderSettings } from './GazetteHeaderSettings.tsx';
+import { GazetteWeatherSettings } from './GazetteWeatherSettings.tsx';
 import './gazette.css';
 
 function timeZones(): string[] {
@@ -94,6 +95,8 @@ export function GazetteSettings({ workspaceId }: { workspaceId: string }) {
         </div>
         <p className="muted">{t('gazette.wishlistHelp')}</p>
       </fieldset>
+
+      <GazetteWeatherSettings workspaceId={workspaceId} value={draft.weather} onChange={weather => change({ weather })} />
 
       <fieldset className="card gazette-admin-card" disabled={busy}>
         <legend>{t('gazette.sectionsHeading')}</legend>

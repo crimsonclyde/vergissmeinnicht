@@ -18,12 +18,13 @@ export interface ProviderResponse {
  * JSON only. The URL is never logged or put into an error — with credentials (19.4b) it may hold a key.
  * Every failure becomes a `WeatherProviderError` with a stable reason.
  */
-export async function getJson(doFetch: Fetch, url: URL, headers: Record<string, string>, options: { readonly timeoutMs?: number; readonly classify?: (status: number) => WeatherFailure | undefined } = {}): Promise<ProviderResponse> {
+export async function getJson(doFetch: Fetch, url: URL, headers: Record<string, string>, options: { readonly timeoutMs?: number; readonly classify?: (status: number) => WeatherFailure | undefined; readonly maxBytes?: number; readonly text?: boolean } = {}): Promise<ProviderResponse> {
   const timeoutMs = options.timeoutMs ?? TIMEOUT_MS;
+  const maxBytes = options.maxBytes ?? MAX_RESPONSE_BYTES;
   if (url.protocol !== 'https:') throw new WeatherProviderError('unavailable');
   let response: Response;
   try {
-    response = await doFetch(url, { method: 'GET', headers: { accept: 'application/json', ...headers }, redirect: 'error', signal: AbortSignal.timeout(timeoutMs) });
+    response = await doFetch(url, { method: 'GET', headers: { accept: options.text ? 'text/html' : 'application/json', ...headers }, redirect: 'error', signal: AbortSignal.timeout(timeoutMs) });
   } catch {
     throw new WeatherProviderError('unavailable');
   }
@@ -46,7 +47,7 @@ export async function getJson(doFetch: Fetch, url: URL, headers: Record<string, 
     throw new WeatherProviderError(response.status === 400 ? 'not_covered' : 'unavailable');
   }
   const declared = Number(response.headers.get('content-length') ?? '0');
-  if (declared > MAX_RESPONSE_BYTES) {
+  if (declared > maxBytes) {
     await response.body?.cancel();
     throw new WeatherProviderError('bad_response');
   }
@@ -59,7 +60,7 @@ export async function getJson(doFetch: Fetch, url: URL, headers: Record<string, 
       const { done, value } = await reader.read();
       if (done) break;
       size += value.byteLength;
-      if (size > MAX_RESPONSE_BYTES) {
+      if (size > maxBytes) {
         await reader.cancel();
         throw new WeatherProviderError('bad_response');
       }
@@ -70,7 +71,8 @@ export async function getJson(doFetch: Fetch, url: URL, headers: Record<string, 
     throw new WeatherProviderError('unavailable');
   }
   try {
-    return { status: response.status, headers: response.headers, body: JSON.parse(Buffer.concat(chunks).toString('utf8')) as unknown };
+    const text = Buffer.concat(chunks).toString('utf8');
+    return { status: response.status, headers: response.headers, body: options.text ? text : JSON.parse(text) as unknown };
   } catch {
     throw new WeatherProviderError('bad_response');
   }

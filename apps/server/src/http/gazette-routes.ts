@@ -1,7 +1,7 @@
 import type { FastifyInstance, FastifyRequest } from 'fastify';
 import { z } from 'zod';
 import {
-  removeGazetteWatchItem, getGazetteHeaderSettings, saveGazetteHeaderSettings, addGazetteHeaderImage, removeGazetteHeaderImage, readGazetteHeaderImage, overrideGazetteHeader, importGazetteWatchItems, createGazetteWatchItem, deleteGazetteDraft, gazetteDashboard, listGazetteWatchItems, recordGazettePrices, updateGazetteWatchItem, getGazetteEdition, getGazetteEditionById, getGazetteSettings, listGazetteEditions, publishGazetteDraft, saveGazetteSettings, writeGazetteEdition,
+  getGazetteWeather, removeGazetteWatchItem, getGazetteHeaderSettings, saveGazetteHeaderSettings, addGazetteHeaderImage, removeGazetteHeaderImage, readGazetteHeaderImage, overrideGazetteHeader, importGazetteWatchItems, createGazetteWatchItem, deleteGazetteDraft, gazetteDashboard, listGazetteWatchItems, recordGazettePrices, updateGazetteWatchItem, getGazetteEdition, getGazetteEditionById, getGazetteSettings, listGazetteEditions, publishGazetteDraft, saveGazetteSettings, writeGazetteEdition,
 } from '@vergissmeinnicht/application';
 import { MAX_IMAGE_UPLOAD_BYTES, UUID_V4, type WorkspaceId } from '@vergissmeinnicht/domain';
 import type { AppServices } from '../composition.ts';
@@ -69,6 +69,14 @@ export async function gazetteRoutes(app: FastifyInstance, { services }: { servic
   app.get('/today', async request => {
     const { actor, workspaceId } = context(request);
     return gazetteDashboard(deps, actor, workspaceId);
+  });
+  // 43.7: the forecast VMN would put into today's (or tomorrow's) edition, for the page and its settings.
+  app.get('/weather', {
+    config: { rateLimit: { max: 30, timeWindow: 600_000, hook: 'preHandler', keyGenerator: request => `gazette-weather:${request.principal?.user.id ?? request.ip}` } },
+  }, async request => {
+    const { actor, workspaceId } = context(request);
+    const { date } = parse(z.strictObject({ date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional() }), request.query);
+    return getGazetteWeather(deps, actor, workspaceId, date);
   });
   app.get('/settings', async request => {
     const { actor, workspaceId } = context(request);
