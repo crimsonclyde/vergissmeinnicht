@@ -1,4 +1,4 @@
-/* ---- The Morning Gazette (steps.md 43) ----------------------------------------------------------
+/* ---- The Daily Planet (steps.md 43) ----------------------------------------------------------
  * An illustrated newspaper drawn only from theme tokens: paper is a tint of the surface, ink is the
  * text colour, the engraving is `currentColor`. Each theme below sets only the face (`--gz-serif`), the
  * paper tint and what a token cannot say. Amber (`--state-skipped`) marks old or unsure things, green
@@ -46,7 +46,6 @@
 .gazette-chip-warn { background: var(--gz-warn-bg); color: var(--gz-warn); }
 .gazette-chip-good { background: var(--gz-good-bg); color: var(--gz-good); }
 .gazette-chip-plain { background: var(--accent-soft); color: var(--text); }
-.gazette-warning-red { background: var(--state-pending-bg); color: var(--state-pending); }
 .gazette-change-down { background: var(--gz-good-bg); color: var(--gz-good); }
 .gazette-change-up { background: var(--state-pending-bg); color: var(--state-pending); }
 
@@ -151,8 +150,8 @@ a.gazette-tile:focus-visible { outline: 3px solid var(--focus); outline-offset: 
 .gazette-page { width: 100%; max-width: 74rem; min-width: 0; margin-inline: auto; padding-block-end: 2rem; }
 .gazette-page :is(h1, h2, h3) { overflow-wrap: anywhere; }
 
-.gazette-masthead { padding-block-start: 1.1rem; text-align: center; }
-.gazette-masthead h1 { margin: 0; font-family: var(--gz-serif); font-size: clamp(2rem, 6vw, 4rem); font-weight: 700; line-height: 1; letter-spacing: 0.005em; color: var(--text); }
+.gazette-masthead { text-align: center; }
+.gazette-masthead h1 { margin: 0; font-family: var(--gz-serif); font-size: clamp(2.15rem, 7vw, 5.4rem); font-weight: 700; line-height: 1.04; letter-spacing: 0.005em; color: var(--text); }
 .gazette-meta { display: flex; justify-content: space-between; gap: 1rem; min-height: 1rem; padding-inline: 0.25rem; color: var(--text-muted); font-size: 0.75rem; font-weight: 600; letter-spacing: 0.14em; text-transform: uppercase; }
 .gazette-rule { margin-block: 0.6rem; border-block-start: 1px solid var(--gz-ink); border-block-end: 3px double var(--gz-ink); opacity: 0.55; }
 
@@ -178,7 +177,8 @@ a.gazette-tile:focus-visible { outline: 3px solid var(--focus); outline-offset: 
 a.gazette-day:hover { border-color: var(--border-strong); }
 .gazette-day-current { border-color: var(--accent); background: var(--accent); color: var(--accent-text); }
 .gazette-day-current b { color: var(--accent-text); }
-.gazette-day-none { border-style: dashed; background: transparent; opacity: 0.55; }
+.gazette-day-none { border-style: dashed; background: transparent; }
+.gazette-day-none b { color: var(--text-muted); }
 
 .gazette-older { margin-block: 0.75rem 0; }
 
@@ -187,6 +187,9 @@ a.gazette-day:hover { border-color: var(--border-strong); }
 
 .gazette-lede { display: grid; grid-template-columns: minmax(0, 1fr) 18rem; gap: 2rem; align-items: start; margin-block: 1.4rem 0.5rem; }
 .gazette-lede:has(> :only-child) { grid-template-columns: minmax(0, 1fr); }
+.gazette-brief { min-width: 0; overflow-wrap: anywhere; }
+.gazette-brief h2 { width: fit-content; margin: 0 0 .8rem; padding-block-end: .25rem; border-block-end: 3px double var(--border-strong); font-size: .8rem; letter-spacing: .14em; text-transform: uppercase; }
+.gazette-brief h3 { margin: 0 0 .7rem; font: 700 clamp(1.35rem, 3vw, 2rem)/1.15 var(--gz-serif); }
 .gazette-intro { font-family: var(--gz-serif); font-size: 1.15rem; line-height: 1.6; color: var(--text); }
 .gazette-intro > :first-child { margin-block-start: 0; }
 .gazette-intro > :last-child { margin-block-end: 0; }
@@ -235,19 +238,21 @@ a.gazette-day:hover { border-color: var(--border-strong); }
 .gazette-summary { margin-block-end: 1rem; color: var(--text-muted); font-family: var(--gz-serif); font-size: 1.05rem; font-style: italic; }
 .gazette-summary > * { margin: 0; }
 
-/* Articles: a newspaper grid; the lead story spans two columns with the engraving beside it. */
-.gazette-articles { display: grid; grid-template-columns: repeat(auto-fill, minmax(17rem, 1fr)); gap: 1rem; }
-.gazette-article { display: flex; flex-direction: column; min-width: 0; overflow: hidden; border: 1px solid var(--gz-rule); border-radius: var(--gz-radius); background: var(--surface); }
-.gazette-article-lead { grid-column: span 2; flex-direction: row; }
-.gazette-article-art { flex: 0 0 42%; min-height: 10rem; background: var(--gz-paper); border-inline-end: 1px solid var(--gz-rule); }
-.gazette-article-text { display: flex; flex: 1; flex-direction: column; gap: 0.5rem; min-width: 0; padding: 0.9rem 1rem 0.6rem; }
-.gazette-article h3 { margin: 0; font-family: var(--gz-serif); font-size: 1.12rem; font-weight: 700; line-height: 1.25; }
-.gazette-article-lead h3 { font-size: 1.45rem; }
+/* Headlines set in columns, with newspaper rules and a separate source line. */
+.gazette-articles { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 17rem), 1fr)); column-gap: clamp(1rem, 3vw, 2rem); }
+.gazette-article { position: relative; display: flex; min-width: 0; border-block-start: 1px solid var(--border); }
+.gazette-article-text { display: flex; flex: 1; flex-direction: column; gap: 0.65rem; min-width: 0; padding-block: 1rem .45rem; }
+.gazette-article h3 { margin: 0; font-family: var(--gz-serif); font-size: clamp(1.2rem, 2.5vw, 1.55rem); font-weight: 700; line-height: 1.2; }
 .gazette-article-summary { color: var(--text-muted); font-size: 0.93rem; line-height: 1.5; }
 .gazette-article-summary > * { margin: 0; }
 .gazette-byline { display: flex; align-items: center; gap: 0.4rem; margin: auto 0 0; padding-block-start: 0.3rem; color: var(--text-muted); font-size: 0.8rem; min-width: 0; }
 .gazette-byline > span:first-child { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.gazette-open { margin-inline-start: auto; color: var(--link); flex: none; }
+.gazette-story-link { color: inherit; text-decoration: none; }
+.gazette-story-link::after { content: ''; position: absolute; inset: 0; }
+.gazette-story-link:is(:hover, :focus-visible) { text-decoration: underline; }
+.gazette-story-link:focus-visible::after { outline: 2px solid var(--focus); outline-offset: 2px; }
+.gazette-article :is(.gazette-article-summary, .gazette-security) a { position: relative; z-index: 1; }
+.gazette-story-icon { margin-inline-start: auto; color: var(--link); flex: none; }
 
 .gazette-security {
   display: grid;
@@ -270,62 +275,102 @@ a.gazette-day:hover { border-color: var(--border-strong); }
 .gazette-security-affected { border-inline-start-color: var(--state-pending); }
 .gazette-security-affected .gazette-security-verdict { color: var(--state-pending); }
 
-/* Weather: one card per place; two temperature lines, the week, then where sources disagree. */
-.gazette-weather { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 24rem), 1fr)); gap: 1rem; }
-.card.gazette-place { display: flex; flex-direction: column; gap: 0.6rem; min-width: 0; border-radius: var(--gz-radius); }
-.gazette-place-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0.4rem 0.7rem; }
-.gazette-place-head h3 { margin: 0; font-family: var(--gz-serif); font-size: 1.3rem; }
-.gazette-place-head .gazette-chip { margin-inline-start: auto; }
+/* Weather desk: an aligned temperature plot, daily readings and the original bulletins. */
+.gazette-weather { display: grid; gap: 1.25rem; }
+.gazette-place {
+  container-type: inline-size;
+  display: grid;
+  gap: .85rem;
+  min-width: 0;
+  padding: clamp(.75rem, 2.5vw, 1.5rem);
+  border: 1px solid var(--border);
+  border-block-start: 3px double var(--border-strong);
+  border-radius: var(--radius);
+  background: var(--surface);
+  color: var(--text);
+  overflow-wrap: anywhere;
+}
+.gazette-place-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0 .7rem; }
+.gazette-place-head h3 { margin: 0; font-family: var(--gz-serif); font-size: clamp(1.45rem, 3vw, 2rem); line-height: 1.1; }
+.gazette-place-head > span { font-size: .86rem; }
 
-.gazette-lines { display: block; width: 100%; height: 3.4rem; overflow: visible; }
-.gazette-lines polyline { fill: none; stroke-width: 2.5; stroke-linecap: round; stroke-linejoin: round; vector-effect: non-scaling-stroke; }
-.gazette-line-high { stroke: var(--brand); }
-.gazette-line-low { stroke: var(--accent); stroke-dasharray: 5 5; }
+.gazette-temperature { margin: 0; padding: .75rem; background: var(--surface-muted); border: 1px solid var(--border); border-radius: var(--radius); }
+.gazette-temperature figcaption { display: flex; align-items: center; flex-wrap: wrap; gap: .4rem 1rem; margin-block-end: .55rem; font-size: .8rem; }
+.gazette-temperature figcaption > span { display: inline-flex; align-items: center; gap: .35rem; }
+.gazette-temperature figcaption > span::before { content: ''; width: 1.3rem; border-block-start: 2px solid currentColor; }
+.gazette-temperature figcaption > .gazette-chart-low::before { border-block-start-style: dashed; }
+.gazette-plot { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: .15rem .35rem; }
+.gazette-plot svg { display: block; width: 100%; height: clamp(5.75rem, 12vw, 8rem); }
+.gazette-chart-scale { position: relative; width: 4ch; }
+.gazette-chart-scale span { position: absolute; inset-inline-end: 0; transform: translateY(-50%); white-space: nowrap; }
+.gazette-chart-scale, .gazette-chart-days { color: var(--text-muted); font-size: .7rem; font-variant-numeric: tabular-nums; }
+.gazette-chart-days { grid-column: 2; display: grid; text-align: center; }
+.gazette-plot :is(line, path) { stroke: currentColor; vector-effect: non-scaling-stroke; fill: none; }
+.gazette-plot .gazette-chart-grid { stroke: var(--border); }
+.gazette-chart-high { color: var(--text); }
+.gazette-chart-low { color: var(--link); }
+.gazette-plot g line { stroke-width: 2; }
+.gazette-plot .gazette-chart-low line { stroke-dasharray: 5 4; }
+.gazette-plot g path { stroke-width: 5; stroke-linecap: round; }
 
-.gazette-week { display: grid; gap: 0.15rem; text-align: center; font-size: 0.82rem; }
-.gazette-week li { display: flex; flex-direction: column; align-items: center; gap: 0.15rem; min-width: 0; padding: 0.4rem 0.1rem; border-radius: var(--radius); }
-.gazette-week li > .ui-icon { color: var(--brand); }
-.gazette-week b { font-size: 0.95rem; }
-.gazette-week-day { color: var(--text-muted); font-size: 0.68rem; letter-spacing: 0.08em; text-transform: uppercase; }
-.gazette-week .gazette-today { background: var(--accent-soft); }
-.gazette-week .gazette-disagree { outline: 2px solid var(--gz-warn); outline-offset: -2px; background: var(--gz-warn-bg); }
-.gazette-rain { color: var(--link); font-size: 0.7rem; white-space: nowrap; }
+.gazette-week { display: grid; grid-template-columns: repeat(var(--gz-days), minmax(0, 1fr)); text-align: center; font-size: .85rem; font-variant-numeric: tabular-nums; }
+.gazette-week li {
+  display: grid;
+  align-content: start;
+  justify-items: center;
+  gap: .2rem;
+  min-width: 0;
+  padding: .55rem .3rem;
+  border-block-start: 1px solid var(--border);
+}
+.gazette-week li + li { border-inline-start: 1px solid var(--border); }
+.gazette-week-day, .gazette-week-temps, .gazette-rain { color: var(--text-muted); }
+.gazette-week-temps strong { color: var(--text); }
+.gazette-week-day { font-size: .75rem; text-transform: uppercase; letter-spacing: .03em; }
+.gazette-week-day b { color: var(--text); }
+.gazette-week-condition { color: var(--link); }
+.gazette-week .gazette-today { background: var(--accent-soft); border-block-start-color: var(--accent); box-shadow: inset 0 1px var(--accent); }
+.gazette-rain, .gazette-week-extra { font-size: .75rem; }
+.gazette-week-extra { display: grid; gap: .2rem; color: var(--text-muted); }
+.gazette-forecast-notes { display: grid; gap: .2rem; font-size: .86rem; }
+.gazette-forecast-notes strong { margin-inline-end: .3rem; }
+.gazette-week-range { display: inline-flex; align-items: start; gap: .2rem; line-height: 1.25; }
+.gazette-week-range > .ui-icon { flex: none; color: var(--gz-warn); }
+
+@container (max-width: 39rem) {
+  .gazette-place .gazette-week { grid-template-columns: minmax(0, 1fr); text-align: start; }
+  .gazette-week li { grid-template-columns: minmax(3.65rem, auto) 1.45rem minmax(0, 1fr) minmax(0, .9fr); align-items: center; justify-items: start; gap: .3rem; padding-inline: .4rem; }
+  .gazette-week li + li { border-inline-start: 0; }
+  .gazette-week .gazette-today { box-shadow: inset 3px 0 var(--accent); }
+  .gazette-week-extra { grid-column: 3 / -1; }
+}
+
+.gazette-notices { display: grid; gap: .45rem; }
+.gazette-notice { display: grid; overflow-wrap: anywhere; grid-template-columns: auto minmax(0, 1fr); align-items: start; gap: .6rem; padding: .6rem .75rem; border-inline-start: 3px solid var(--border-strong); background: var(--surface-muted); border-radius: var(--radius); }
+.gazette-notice > .ui-icon { margin-block-start: .15em; }
+.gazette-notice p { margin: 0; }
+.gazette-notice-level { display: block; font-size: .73rem; letter-spacing: .06em; text-transform: uppercase; }
+.gazette-notice:is(.gazette-notice-yellow, .gazette-notice-orange) { border-inline-start-color: var(--gz-warn); background: var(--gz-warn-bg); color: var(--gz-warn); }
+.gazette-notice-red { border-inline-start-color: var(--state-pending); background: var(--state-pending-bg); color: var(--state-pending); }
+.gazette-notice-meta { display: flex; flex-wrap: wrap; column-gap: .9rem; font-size: .8rem; }
+.gazette-notice-meta a { color: inherit; text-decoration: underline; }
+.gazette-forecast-note { display: flex; align-items: start; gap: .5rem; margin: 0; padding: .65rem .75rem; background: var(--surface-muted); border-radius: var(--radius); color: var(--text-muted); font-size: .86rem; }
+.gazette-forecast-note > .ui-icon { flex: none; margin-block-start: .13em; }
+.gazette-weather-details { min-width: 0; border-block-start: 1px solid var(--border); }
+.gazette-weather-details summary { display: list-item; min-height: 2.75rem; padding-block: .6rem; color: var(--link); cursor: pointer; }
+.gazette-compare table { border-collapse: collapse; }
+.gazette-compare tr + tr { border-block-start: 1px solid var(--border); }
 
 .gazette-compare, .gazette-table { overflow-x: auto; border-block-start: 1px solid var(--gz-rule); padding-block-start: 0.5rem; }
 :is(.gazette-compare, .gazette-table) table { width: 100%; border-collapse: collapse; font-size: 0.8rem; font-variant-numeric: tabular-nums; }
 :is(.gazette-compare, .gazette-table) :is(th, td) { padding: 0.3rem 0.4rem; text-align: center; }
 :is(.gazette-compare, .gazette-table) thead th { color: var(--text-muted); font-size: 0.68rem; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; }
 :is(.gazette-compare, .gazette-table) :is(th, td):first-child { text-align: start; }
+.gazette-compare :is(th, td) small { display: block; color: var(--text-muted); }
 .gazette-compare tbody th { font-weight: 500; white-space: nowrap; }
 .gazette-compare td.gazette-disagree { border-radius: 6px; background: var(--gz-warn-bg); color: var(--gz-warn); font-weight: 700; }
 .gazette-table caption { padding-block-end: 0.3rem; color: var(--text-muted); font-size: 0.8rem; text-align: start; }
 
-/* 43.7: official warnings as rows (level in words and colour), ranges and lower confidence said plainly. */
-.gazette-warnings { display: flex; flex-direction: column; gap: 0.35rem; }
-.gazette-warning { display: flex; align-items: flex-start; gap: 0.5rem; padding: 0.45rem 0.65rem; border-inline-start: 4px solid var(--gz-rule); border-radius: var(--radius); background: var(--gz-paper-soft); font-size: 0.85rem; }
-.gazette-warning > span { display: flex; flex-direction: column; gap: 0.1rem; min-width: 0; }
-.gazette-warning b { font-weight: 600; overflow-wrap: anywhere; }
-.gazette-warning small { font-size: 0.74rem; }
-.gazette-warning > .ui-icon { flex: none; margin-block-start: 0.1rem; color: var(--text-muted); }
-.gazette-warning-yellow { border-inline-start-color: var(--gz-warn); background: var(--gz-warn-bg); }
-.gazette-warning-yellow > .ui-icon { color: var(--gz-warn); }
-.gazette-warning-orange { border-inline-start-color: color-mix(in srgb, var(--gz-warn) 50%, var(--danger)); background: color-mix(in srgb, var(--gz-warn-bg) 70%, var(--danger) 8%); }
-.gazette-warning-orange > .ui-icon { color: color-mix(in srgb, var(--gz-warn) 50%, var(--danger)); }
-.gazette-warning-red { border-inline-start-color: var(--danger); background: color-mix(in srgb, var(--surface) 86%, var(--danger) 14%); }
-.gazette-warning-red > .ui-icon { color: var(--danger); }
-.gazette-week .gazette-low-confidence { opacity: 0.78; background: repeating-linear-gradient(135deg, transparent 0 6px, color-mix(in srgb, var(--gz-rule) 35%, transparent) 6px 7px); }
-.gazette-week .gazette-low-confidence.gazette-disagree { background: var(--gz-warn-bg); }
-.gazette-range, .gazette-chance { color: var(--text-muted); font-size: 0.66rem; white-space: nowrap; }
-.gazette-gust { display: inline-flex; align-items: center; gap: 0.15rem; color: var(--gz-warn); font-size: 0.68rem; font-weight: 700; }
-.gazette-day-notes { display: flex; flex-direction: column; gap: 0.2rem; margin: 0; font-size: 0.8rem; }
-.gazette-day-notes li { display: block; }
-.gazette-day-notes li > b { margin-right: 0.3rem; }
-.gazette-day-notes li > .ui-icon { margin-right: 0.3rem; vertical-align: -0.1em; }
-details.gazette-compare > summary { display: inline-flex; align-items: center; gap: 0.4rem; min-height: 44px; color: var(--link); font-size: 0.82rem; cursor: pointer; }
-.gazette-compare-scroll { overflow-x: auto; }
-.gazette-compare td { vertical-align: top; }
-.gazette-compare td > :is(span, small) { display: block; white-space: nowrap; }
-.gazette-compare td small, .gazette-compare th small { display: block; color: var(--text-muted); font-size: 0.68rem; font-weight: 400; }
 .gazette-weather-missing { display: flex; flex-direction: column; align-items: center; gap: 0.5rem; text-align: center; }
 .gazette-weather-place { display: flex; align-items: center; gap: 0.6rem; }
 .gazette-weather-place > span:not(.ui-icon) { display: flex; flex-direction: column; flex: 1; min-width: 0; }
@@ -338,8 +383,8 @@ details.gazette-compare > summary { display: inline-flex; align-items: center; g
 .gazette-weight input { width: 7rem; }
 .gazette-weight output { min-width: 2.6rem; font-variant-numeric: tabular-nums; color: var(--text-muted); font-size: 0.8rem; }
 
-.gazette-sources { display: flex; align-items: flex-start; gap: 0.4rem; margin: 0; color: var(--text-muted); font-size: 0.78rem; }
-.gazette-sources > .ui-icon { flex: none; margin-block-start: 0.15rem; }
+.gazette-sources { display: grid; gap: .25rem; padding-block-start: .7rem; border-block-start: 1px solid var(--border); color: var(--text-muted); font-size: .8rem; }
+.gazette-sources strong { color: var(--text); }
 
 /* Watchlist: one row per thing, the price trend as a small line. */
 .gazette-watch { display: flex; flex-direction: column; gap: 0.6rem; }
@@ -365,8 +410,6 @@ details.gazette-compare > summary { display: inline-flex; align-items: center; g
 @media (max-width: 52rem) {
   .gazette-lede { grid-template-columns: minmax(0, 1fr); gap: 1.25rem; }
   .gazette-contents { padding-inline-start: 0; border-inline-start: 0; border-block-start: 1px solid var(--gz-rule); }
-  .gazette-article-lead { grid-column: auto; flex-direction: column; }
-  .gazette-article-art { flex-basis: 7rem; min-height: 7rem; border-inline-end: 0; border-block-end: 1px solid var(--gz-rule); }
   .card.gazette-watch-item { grid-template-columns: auto minmax(0, 1fr) auto; }
   .gazette-spark { display: none; }
   .gazette-watch-state { grid-column: 2 / -1; }
@@ -381,11 +424,6 @@ details.gazette-compare > summary { display: inline-flex; align-items: center; g
   .gazette-masthead h1 { font-size: 2rem; }
   .gazette-intro { font-size: 1.05rem; }
   .gazette-articles { grid-template-columns: minmax(0, 1fr); }
-  .gazette-week { font-size: 0.72rem; }
-  .gazette-week b { font-size: 0.82rem; }
-  .gazette-rain { font-size: 0.62rem; white-space: normal; line-height: 1.15; }
-  .gazette-week li { padding-inline: 0.2rem; }
-  .gazette-range, .gazette-chance { font-size: 0.58rem; }
   .gazette-weather-sources li { grid-template-columns: auto minmax(0, 1fr); }
   .gazette-weight { grid-column: 2; }
   .card.gazette-watch-item { grid-template-columns: minmax(0, 1fr) auto; }
@@ -401,15 +439,13 @@ details.gazette-compare > summary { display: inline-flex; align-items: center; g
 
 @media (forced-colors: active) {
   .gazette-chip, .gazette-day-current, .gazette-tile-go { border: 1px solid CanvasText; }
-  .gazette-week .gazette-disagree { outline-color: Highlight; }
-  .gazette-warning { border: 1px solid CanvasText; border-inline-start-width: 4px; }
+  .gazette-notice { border: 1px solid CanvasText; border-inline-start-width: 3px; }
 }
 
 
 /* ---- Settings and watchlist (43.3): the same paper and faces, plain forms ---------------------- */
 .gazette-masthead { position: relative; }
 .gazette-tools { position: absolute; inset-block-start: 0.6rem; inset-inline-end: 0; display: flex; gap: 0.35rem; }
-.gazette-masthead:has(.gazette-tools) .gazette-meta { padding-inline-end: 6.5rem; }
 
 .gazette-admin { display: flex; flex-direction: column; gap: 1rem; max-width: 56rem; }
 .gazette-admin-head { display: flex; align-items: center; gap: 0.8rem; padding-block-end: 0.6rem; border-block-end: 3px double var(--gz-rule); }
@@ -486,7 +522,7 @@ details.gazette-compare > summary { display: inline-flex; align-items: center; g
 
 /* Tokyo Nights: the engraving becomes a neon sign; the masthead glows a little. */
 :root[data-theme='tokyo-nights'] :is(.gazette-tile, .gazette-page) {
-  --gz-serif: inherit;
+  --gz-serif: 'Iowan Old Style', Georgia, serif;
   --gz-paper: rgb(19 21 44 / 94%);
   --gz-paper-soft: rgb(19 21 44 / 90%);
   --gz-art: color-mix(in srgb, var(--accent) 55%, var(--surface));
@@ -500,7 +536,7 @@ details.gazette-compare > summary { display: inline-flex; align-items: center; g
 :root[data-theme='tokyo-nights'] .gazette-art { filter: drop-shadow(0 0 3px rgb(53 230 255 / 45%)); }
 :root[data-theme='tokyo-nights'] .gazette-kicker { color: var(--brand); }
 :root[data-theme='tokyo-nights'] .gazette-rule { border-color: var(--brand); opacity: 0.6; }
-:root[data-theme='tokyo-nights'] :is(.gazette-article, .gazette-folded, .gazette-day:not(.gazette-day-current, .gazette-day-none), .gazette-tile-place) { background: rgb(19 21 44 / 92%); }
+:root[data-theme='tokyo-nights'] :is(.gazette-folded, .gazette-day:not(.gazette-day-current, .gazette-day-none), .gazette-tile-place) { background: rgb(19 21 44 / 92%); }
 @media (prefers-reduced-motion: reduce) { :root[data-theme='tokyo-nights'] .gazette-art { filter: none; } }
 
 /* Witch Forest: an old broadsheet by candlelight, small capitals and a single inner rule. */
@@ -514,7 +550,7 @@ details.gazette-compare > summary { display: inline-flex; align-items: center; g
   --gz-rule: var(--wf-rule, var(--border));
 }
 :root[data-theme='witch-forest'] .card.gazette-tile,
-:root[data-theme='witch-forest'] :is(.gazette-article, .gazette-place, .gazette-watch-item) { box-shadow: inset 0 0 0 3px var(--gz-paper), inset 0 0 0 4px var(--gz-rule); background: var(--gz-paper); }
+:root[data-theme='witch-forest'] .gazette-watch-item { box-shadow: inset 0 0 0 3px var(--gz-paper), inset 0 0 0 4px var(--gz-rule); background: var(--gz-paper); }
 :root[data-theme='witch-forest'] :is(.gazette-kicker, .gazette-meta, .gazette-tile-mast small, .gazette-week-day) { font-variant: small-caps; text-transform: none; letter-spacing: 0.1em; }
 :root[data-theme='witch-forest'] .gazette-tile-mast { text-shadow: 0 0 6px rgb(10 17 14), 0 0 12px rgb(10 17 14); }
 :root[data-theme='witch-forest'] .gazette-art .gazette-art-sun { color: var(--focus); }
@@ -522,7 +558,7 @@ details.gazette-compare > summary { display: inline-flex; align-items: center; g
 
 /* Galactic Guide: a quiet star chart; the cover keeps the translucent card look of the theme. */
 :root[data-theme='space-guide'] :is(.gazette-tile, .gazette-page) {
-  --gz-serif: inherit;
+  --gz-serif: 'Iowan Old Style', Georgia, serif;
   --gz-paper: color-mix(in srgb, var(--surface) 92%, transparent);
   --gz-paper-soft: color-mix(in srgb, var(--surface) 88%, transparent);
   --gz-art: color-mix(in srgb, var(--text-muted) 75%, var(--accent));
@@ -562,21 +598,21 @@ details.gazette-compare > summary { display: inline-flex; align-items: center; g
   overflow: hidden;
   display: grid;
   align-content: center;
-  min-height: clamp(11rem, 25vw, 20rem);
-  padding: 3.5rem clamp(.8rem, 5vw, 4rem) 1.5rem;
-  background: #151914;
+  min-height: clamp(11rem, 19vw, 16rem);
+  padding: 3.1rem clamp(.8rem, 5vw, 4rem) 1.6rem;
+  background: #121615;
   border: 1px solid var(--gz-rule);
   border-radius: var(--gz-radius);
 }
 .gazette-masthead-art, .gazette-masthead::before { position: absolute; inset: 0; width: 100%; height: 100%; }
 .gazette-masthead-art { z-index: -3; }
-.gazette-masthead-art img, img.gazette-masthead-art { width: 100%; height: 100%; object-fit: cover; object-position: 50% 44%; display: block; }
+.gazette-masthead-art img, img.gazette-masthead-art { width: 100%; height: 100%; object-fit: cover; object-position: 50% 88%; display: block; }
 .gazette-masthead .gazette-custom-art { z-index: -2; }
-.gazette-masthead::before { content: ''; z-index: -1; background: linear-gradient(180deg, rgb(13 18 14 / 72%), rgb(13 18 14 / 68%) 45%, rgb(13 18 14 / 90%)); }
+.gazette-masthead::before { content: ''; z-index: -1; background: linear-gradient(180deg, rgb(10 14 20 / 65%), rgb(10 14 20 / 72%) 48%, rgb(10 14 20 / 56%)); }
 .gazette-masthead :is(h1, .gazette-meta) { color: var(--gz-masthead-text); }
 .gazette-masthead .gazette-rule { border-color: var(--gz-masthead-text); }
-.gazette-masthead:has(.gazette-tools) .gazette-meta { padding-inline-end: .25rem; }
-.gazette-masthead .gazette-tools { inset-block-start: .4rem; inset-inline-end: .4rem; }
+.gazette-masthead .gazette-tools { inset-block-start: .35rem; inset-inline-end: .35rem; }
+.gazette-masthead .gazette-tools .icon-button { background: var(--surface); color: var(--text); }
 .gazette-header-editor h2 { font-family: var(--gz-serif); }
 .gazette-header-list { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 16rem), 1fr)); gap: 1rem; }
 .gazette-header-list li { display: grid; gap: .45rem; min-width: 0; align-content: start; }
@@ -594,6 +630,8 @@ details.gazette-compare > summary { display: inline-flex; align-items: center; g
 .gazette-watch-price-form { flex-wrap: wrap; }
 @media (forced-colors: active) {
   .gazette-masthead-art, .gazette-masthead::before { display: none !important; }
-  .gazette-masthead :is(h1, .gazette-meta) { color: CanvasText; }
+  .gazette-masthead :is(h1, .gazette-meta), .gazette-temperature { color: CanvasText; }
+  .gazette-plot .gazette-chart-grid { stroke: GrayText; }
+  .gazette-week .gazette-today { border-block-start-color: Highlight; }
 }
 .gazette-watch-confirm { grid-column: 1 / -1; }

@@ -24,6 +24,7 @@ export interface NavigationGroup {
 
 export interface Navigation {
   readonly today: Destination;
+  readonly news: Destination | null;
   /** The enabled tools in the person's order (the classic sidebar). */
   readonly tools: readonly Destination[];
   /** The same tools sorted into families, each family in the person's order; empty families are left out. */
@@ -85,19 +86,22 @@ export function navigation(workspaceId: string, tools: readonly string[] = [], o
       ...(family.id === 'plan' && tools.includes('PROCEDURES') ? [history] : []),
     ],
   }));
+  const news: Destination | null = tools.includes('GAZETTE')
+    ? { href: paths.gazette(workspaceId), label: t('gazette.news'), icon: 'gazette', pages: ['gazette'] }
+    : null;
   const instruments: NavigationGroup = {
     id: 'instruments',
     label: t('navigation.groupInstruments'),
     icon: 'clock',
     items: [
-      // The Daily Planet (43.2) is read, not managed: it sits with the other daily instruments.
-      ...(tools.includes('GAZETTE') ? [{ href: paths.gazette(workspaceId), label: t('gazette.heading'), icon: 'gazette' as const, pages: ['gazette' as const] }] : []),
+      ...(news ? [news] : []),
       { href: paths.weather(), label: t('weather.heading'), icon: 'weatherStatus', pages: ['weather'] },
       { href: paths.clock(), label: t('navigation.clock'), icon: 'clock', pages: ['clock'] },
     ],
   };
   return {
     today,
+    news,
     tools: destinationsOf(workspaceId, tools, enabled),
     groups: [...groups.filter(group => group.items.length > 0), instruments],
     bar: [today, ...destinationsOf(workspaceId, tools, enabled).slice(0, 2)],

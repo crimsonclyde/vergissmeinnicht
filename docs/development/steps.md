@@ -18,6 +18,11 @@ For every completed task, add a concise completion note, tests/checks performed,
 
 ## Current state — resume here
 
+**Release plan 0.15.3, owner release 73.** The Daily Planet newspaper layout, direct News
+navigation and Local alerts & road closures (43.8–43.9), integrated with the 0.15.2 automatic
+Workspace forecast. No migration. Run CI, image smoke and populated upgrades starting with
+0.15.2. Live deployment remains separate.
+
 **Published owner release 72 (2026-11-15).** 0.15.2 was published from `v0.15.2`, source
 `d84d711e901d04599c24163be8b8b5fb5dcffde2` (PR #126: The Daily Planet workspace weather from several
 sources with warnings and ranges, Watchlist shipping/VAT, header editor icons, 43.7; migration 0081;
@@ -6100,6 +6105,61 @@ automatic Amazon wishlist import (terms and robots.txt); a real-phone check of t
 Release plan: **0.15.2**, owner-counted release **72** after publication (PR #126, migration 0081).
 Release notes in [0.15.2](../releases/0.15.2.md); upgrade inputs 0.15.1, 0.15.0, 0.14.2 and
 0.10.1-beta.0. Live deployment is separate.
+
+
+### 43.8 — Newspaper layout, weather desk and News navigation (2026-11-15)
+
+The Daily Planet uses a separate dated masthead, **Newsflash** for the edition summary,
+and text-first story columns. Story cards no longer reuse the ornamental landscape as
+an illustration. Each story opens the original in a new tab from the whole card, with its
+headline as the keyboard link. Links in summaries and advisory boxes remain clickable.
+The masthead keeps saved Workspace image snapshots and focal points.
+Bundled fallbacks use orbital, city, coastal or forest art according to the active theme,
+with a stable edition-date rotation in the everyday themes. **News** links directly from
+the desktop top bar and remains available under All tools on phones when Gazette is enabled.
+
+Weather has labeled high and low lines, a degree scale, visible gaps for missing readings,
+and daily rows on narrow screens. Warnings show severity, date and source when provided.
+Provider bulletins and source comparisons can be expanded. Forecast notes, ranges, source
+links and fetch timestamps remain available.
+
+Checks: typecheck, lint on the touched code, production web build and focused navigation,
+translation, contrast and Gazette domain tests. Chromium and axe exercised the nine named themes
+at 1440 px and 320 px with a disposable Workspace. The checks cover the News link, artwork,
+missing chart readings, warnings, bulletins, source comparison and activation from a story’s
+byline by mouse and touch, plus its separate advisory link. The live Workspace and
+other browser engines were outside this verification.
+
+Artwork provenance: the three bundled WebP assets were made with built-in ImageGen. Prompt
+template: “Wide decorative masthead photograph for a sophisticated daily newspaper website:
+{scene}. Panoramic composition, textured editorial photography, visually quiet dark central
+band for white typeset text that will be added separately. No letters, logos, typography or
+watermark. Important forms along lower third, intended for a shallow wide crop.” The scenes
+were “a blue-black orbital view of Earth with a luminous thin horizon and sparse stars”,
+“an electric-indigo city skyline in light rain at dusk with tiny muted neon accents”, and
+“a warm charcoal coastal panorama with distant layered mountains and a quiet sea at dawn”.
+
+Security surface: unchanged. The view uses the existing tool gate, publication snapshots
+and validated source links. Bundled images load locally. Live deployment remains separate.
+
+### 43.9 — Local alerts and road closures (2026-11-15)
+
+Gazette surfaces published weather warnings alongside official civil-protection and major
+road notices in a dedicated section above the weather. Informational bulletins remain with
+the forecast. Existing issues can show their weather warnings immediately. Edition publishers
+can include bounded, sourced `localNotices` with place and check time. The MCP configuration
+describes what to research and publish. The Gazette API guide lists official starting sources
+for Triora and Göggenhofen. The section represents the edition snapshot. VMN has no background
+feed polling. Live deployment and verification with the scheduled edition publisher remain open.
+
+Checks: production build, typecheck, 33 focused domain, REST, automatic weather, MCP and
+catalog tests. The automatic-weather HTTP test verifies that a local notice survives server
+forecast generation. Desktop and phone Chromium checks cover the alerts section, published road
+closure, source links and relocation of the weather warning. The Gazette flow also passed
+the existing theme and axe checks.
+
+Security surface: edition content extended within existing roles, MCP scopes and backup rules.
+Validation bounds and source handling are recorded in [security.md](security.md).
 
 ## 11 — Licensing
 

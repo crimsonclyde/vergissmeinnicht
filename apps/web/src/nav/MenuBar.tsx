@@ -9,7 +9,7 @@ import './navigation.css';
  * The desktop menu bar (section 42): Dashboard, then one drop-down per family, like a menu bar on a Mac.
  * Disclosure buttons with plain links (not ARIA menus), so every entry stays an ordinary link. Once a menu
  * is open, pointing at a neighbour opens that one; arrows move between menus and entries; Escape closes.
- * Instruments are not here: they sit on the right as status items.
+ * Weather and clock sit on the right as status items. News has a direct link.
  */
 export function MenuBar({ nav, page }: { nav: Navigation; page: Route['page'] }) {
   const groups = nav.groups.filter(group => group.id !== 'instruments');
@@ -75,5 +75,8 @@ export function MenuBar({ nav, page }: { nav: Navigation; page: Route['page'] })
         </li>)}
       </ul>
     </div>)}
+    {nav.news && <Link className="menu-bar-top" title={nav.news.label} href={nav.news.href} aria-current={nav.news.pages.includes(page) ? 'page' : undefined} onClick={() => setOpen(null)}>
+      <UiIcon name={nav.news.icon} /><span>{nav.news.label}</span>
+    </Link>}
   </nav>;
 }

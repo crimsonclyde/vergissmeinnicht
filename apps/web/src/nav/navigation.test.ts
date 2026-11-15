@@ -29,6 +29,13 @@ describe('navigation families (42)', () => {
     expect(navigation(W, ['REMINDERS']).groups[0]?.items.some(item => item.pages.includes('history'))).toBe(false);
   });
 
+  it('offers the same News destination in the desktop bar and the tool drawer only when Gazette is enabled', () => {
+    expect(navigation(W, []).news).toBeNull();
+    const nav = navigation(W, ['GAZETTE']);
+    expect(nav.news).toEqual({ href: `/w/${W}/gazette`, label: 'News', icon: 'gazette', pages: ['gazette'] });
+    expect(nav.groups.find(group => group.id === 'instruments')?.items).toContain(nav.news);
+  });
+
   it('keeps the person’s order inside each family and puts their first two tools on the phone bar', () => {
     const nav = navigation(W, ALL, ['DOCUMENTS', 'BRING', 'CONTACTS', 'LISTS']);
     expect(labels(nav.bar)).toEqual([t('shell.today'), 'Documents', t('bring.heading')]);

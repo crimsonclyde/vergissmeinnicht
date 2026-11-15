@@ -43,6 +43,18 @@ describe('Gazette editions', () => {
     expect(parseGazetteEdition(JSON.parse(JSON.stringify(content)), settings.sections)).toEqual(content);
     expect(parseGazetteEdition(content, gazetteSectionsOf(content))).toEqual(content);
   });
+  it('round-trips sourced local notices and rejects unchecked or unsafe entries', () => {
+    const sample = sampleGazetteEdition('2026-11-14');
+    const notice = { kind: 'road_closure', place: 'Triora', text: 'Road closed at the bridge.', source: 'Road authority', url: 'https://roads.example.org/closure', checkedAt: '2026-11-14T07:00:00.000Z' };
+    const parse = (localNotices: unknown[]) => parseGazetteEdition({ ...sample, localNotices }, settings.sections);
+    const content = parse([notice]);
+    expect(content.localNotices).toEqual([notice]);
+    expect(parseGazetteEdition(content, gazetteSectionsOf(content))).toEqual(content);
+    expect(parse([])).toEqual(parseGazetteEdition(sample, settings.sections));
+    expect(failure(() => parse([{ ...notice, url: 'javascript:alert(1)' }])).field).toBe('edition.localNotices[0].url');
+    expect(failure(() => parse([{ ...notice, checkedAt: 'unknown' }])).field).toBe('edition.localNotices[0].checkedAt');
+    expect(failure(() => parse(Array(21).fill(notice))).field).toBe('edition.localNotices');
+  });
   it('refuses unknown sections and mismatched renderer types instead of guessing', () => {
     const sample = sampleGazetteEdition('2026-11-14');
     expect(failure(() => parseGazetteEdition({ ...sample, sections: [{ sectionId: 'sports', type: 'articles', items: [] }] }, settings.sections)).code).toBe('gazette_unknown_section');
