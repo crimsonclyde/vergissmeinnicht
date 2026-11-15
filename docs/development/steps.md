@@ -6086,6 +6086,10 @@ and Meteo 3R are links); ARPAL bulletin text not parsed; AllertaLiguria read fro
 (could change without notice — a changed page is reported as unavailable, not guessed); no
 automatic Amazon wishlist import (terms and robots.txt); a real-phone check of the new week layout.
 
+Release plan: **0.15.2**, owner-counted release **72** after publication (PR #126, migration 0081).
+Release notes in [0.15.2](../releases/0.15.2.md); upgrade inputs 0.15.1, 0.15.0, 0.14.2 and
+0.10.1-beta.0. Live deployment is separate.
+
 ## 11 — Licensing
 
 ### 11.1 AGPL-3.0
