@@ -18,6 +18,17 @@ For every completed task, add a concise completion note, tests/checks performed,
 
 ## Current state — resume here
 
+**Published owner release 72 (2026-11-15).** 0.15.2 was published from `v0.15.2`, source
+`d84d711e901d04599c24163be8b8b5fb5dcffde2` (PR #126: The Daily Planet workspace weather from several
+sources with warnings and ranges, Watchlist shipping/VAT, header editor icons, 43.7; migration 0081;
+release PR #127). The release reused the passing main CI; both image builds, smoke tests, scans,
+signing, SBOM and the populated upgrade checks passed. A separate smoke test and upgrade checks (from
+0.15.1, 0.15.0, 0.14.2 and 0.10.1-beta.0) on the published image also passed. `0.15.2`, `0.15` and
+`latest` resolve to index `sha256:facc3a3448549dfc4ed63e5fe8bf691e38394a7726b2881aa3633e15ecc4ef08`.
+Release upgrade checks now start from 0.15.2, 0.15.1 and 0.15.0.
+Owner count **72**, next **73**. Live deployment remains separate.
+[GitHub release](https://github.com/crimsonclyde/vergissmeinnicht/releases/tag/v0.15.2) · [Release workflow](https://github.com/crimsonclyde/vergissmeinnicht/actions/runs/43706227664)
+
 **Published owner release 71 (2026-11-15 Europe/Berlin).** 0.15.1 was published from
 `v0.15.1`, source `ad8f6e2eb43b58627ef3d0f155b50e4fdd0a4fc7` (The Daily Planet Watchlist,
 wishlist paste import and edition mastheads, 43.6; migrations 0079 and 0080). Main CI, both
@@ -6057,7 +6068,7 @@ Published as [0.15.1](https://github.com/crimsonclyde/vergissmeinnicht/releases/
 
 ### 43.7 — Workspace weather, multi-source forecasts and Watchlist delivery costs (2026-11-15)
 
-**Status:** DONE (not released)
+**Status:** DONE (released in [0.15.2](https://github.com/crimsonclyde/vergissmeinnicht/releases/tag/v0.15.2), owner release 72)
 **Owner request:** "VMN — The Daily Planet Improvements" (2026-11-15).
 
 **Implemented:** VMN writes the weather section itself from the Workspace location: no location →
