@@ -37,7 +37,7 @@ Cookie-authenticated writes need the usual same-origin request (CSRF origin chec
 ## Edition format (version 1)
 
 ```text
-{ version: 1, date: "YYYY-MM-DD", title?, greeting?, intro? (Markdown),
+{ version: 1, date: "YYYY-MM-DD", title?, greeting?, intro? (Markdown), localNotices?,
   sections: [ { sectionId, type, summary? (Markdown), ...by type } ] }
 ```
 
@@ -62,14 +62,34 @@ Cookie-authenticated writes need the usual same-origin request (CSRF origin chec
 - An edition may be written for a kept day or tomorrow. Publishing replaces that date's published
   edition in one transaction; a refused edition leaves the published one untouched.
 
+## Local alerts and road closures
+
+Before publishing, the edition writer checks official sources for the places it covers. Publish up to
+20 `localNotices` entries with `{kind, place, text, source, url, checkedAt}`. Use `civil_protection`
+for civil alerts and `road_closure` for major closures or restrictions. Each entry needs an HTTPS
+notice URL and an ISO 8601 timestamp for when the writer checked it. Give the road, affected stretch,
+and timing or official detour when known. Omit unconfirmed items. An unavailable source is not an
+all-clear. The `get_gazette_config` response includes the same publishing guidance in
+`localNoticesBrief`.
+
+For Triora and the Valle Argentina, check [AllertaLiguria](https://allertaliguria.regione.liguria.it/)
+and the [Province of Imperia road notices](https://www.provincia.imperia.it/avvisi-strade). For
+Göggenhofen and nearby routes, check [BayernInfo](https://www.bayerninfo.de/) and
+[the municipality of Aying](https://aying.de/).
+
+Keep weather alerts in `weather.locations[].warnings`. Gazette shows yellow, orange and red warnings
+alongside the local notices. Informational weather bulletins stay with the forecast. The section
+reflects the dated edition. Source checks are performed by its publisher.
+
 ## Header snapshots and price provenance
 
 New publications select a header once. Daily mode uses the edition date, random mode draws once per
 publication, and sequential advances on each new published edition. A republish or change of crop
 does not change an existing snapshot. Replacing an image keeps its original crop and bytes for past
 editions until retention or an explicit edition override removes their last reference. Deleting a
-gallery image sends editions using that image back to the bundled artwork. Full database backups
-retain custom backgrounds; portable Workspace backups omit decorative images, settings and snapshots.
+gallery image sends editions using that image back to the bundled artwork. The web app selects that
+art by viewer theme, with a stable date-based rotation in the everyday themes. This selection is
+presentation only. Full database backups retain custom backgrounds; portable Workspace backups omit decorative images, settings and snapshots.
 
 Watchlist imports use a checked Amazon.de product URL's ASIN, or an exact name/variant/shop/URL match
 when there is no ASIN. Currency, condition and market must also match. Imports update only the

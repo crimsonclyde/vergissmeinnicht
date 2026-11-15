@@ -33,6 +33,7 @@ export const GAZETTE_LIMITS = Object.freeze({
   sections: 24,
   articlesPerSection: 30,
   locations: 6,
+  localNotices: 20,
   days: 10,
   sources: 6,
   watchItems: 40,
@@ -206,6 +207,15 @@ export type GazetteSectionContent =
   | (SectionBase & { readonly type: 'watchlist'; readonly items: readonly GazetteWatchItem[] })
   | (SectionBase & { readonly type: 'rich'; readonly body: string; readonly tables: readonly GazetteTable[] });
 
+export interface GazetteLocalNotice {
+  readonly kind: 'civil_protection' | 'road_closure';
+  readonly place: string;
+  readonly text: string;
+  readonly source: string;
+  readonly url: string;
+  readonly checkedAt: string;
+}
+
 export interface GazetteEditionContent {
   readonly version: 1;
   readonly date: LocalDate;
@@ -215,6 +225,7 @@ export interface GazetteEditionContent {
   /** Markdown, no HTML. */
   readonly intro: string;
   readonly sections: readonly GazetteSectionContent[];
+  readonly localNotices?: readonly GazetteLocalNotice[];
 }
 
 export interface GazetteEditionSummary {
@@ -519,7 +530,7 @@ function table(value: unknown, path: string): GazetteTable {
  * source URLs are unique within the edition (one story, one place).
  */
 export function parseGazetteEdition(value: unknown, definitions: readonly GazetteSectionDefinition[]): GazetteEditionContent {
-  const row = record(value, 'edition', ['version', 'date', 'sections'], ['title', 'greeting', 'intro']);
+  const row = record(value, 'edition', ['version', 'date', 'sections'], ['title', 'greeting', 'intro', 'localNotices']);
   if (row['version'] !== 1) fail('edition.version', 'gazette_unsupported_version');
   const byId = new Map(definitions.map(d => [d.id, d]));
   const seenSections = new Set<string>(); const seenArticles = new Set<string>(); const seenUrls = new Set<string>();
@@ -567,9 +578,22 @@ export function parseGazetteEdition(value: unknown, definitions: readonly Gazett
       }
     }
   });
+  const localNotices = list(row['localNotices'], 'edition.localNotices', GAZETTE_LIMITS.localNotices).map((value, i): GazetteLocalNotice => {
+    const path = `edition.localNotices[${i}]`;
+    const notice = record(value, path, ['kind', 'place', 'text', 'source', 'url', 'checkedAt']);
+    return {
+      kind: oneOf(notice['kind'], `${path}.kind`, ['civil_protection', 'road_closure'] as const),
+      place: str(notice['place'], `${path}.place`, 120, { required: true }),
+      text: str(notice['text'], `${path}.text`, 500, { required: true }),
+      source: str(notice['source'], `${path}.source`, 80, { required: true }),
+      url: gazetteUrl(notice['url'], `${path}.url`, true) as string,
+      checkedAt: instant(notice['checkedAt'], `${path}.checkedAt`) as string,
+    };
+  });
   const content: GazetteEditionContent = {
     version: 1, date: localDate(row['date'], 'edition.date'), title: str(row['title'], 'edition.title', 80),
     greeting: str(row['greeting'], 'edition.greeting', 200), intro: markdown(row['intro'], 'edition.intro', 4000), sections,
+    ...(localNotices.length > 0 ? { localNotices } : {}),
   };
   if (utf8Length(JSON.stringify(content)) > GAZETTE_LIMITS.contentBytes) fail('edition', 'gazette_too_large');
   return content;

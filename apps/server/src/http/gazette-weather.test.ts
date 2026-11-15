@@ -64,7 +64,9 @@ describe('The Daily Planet workspace weather (43.7)', () => {
   /** What the automation sends for weather: only the summary; VMN fills in the rest. */
   const content = (date: string) => {
     const sample = sampleGazetteEdition(date);
-    return { ...sample, sections: sample.sections.map(section => section.type === 'weather' ? { sectionId: section.sectionId, type: 'weather', summary: 'Weather for today.' } : section) };
+    return { ...sample,
+      localNotices: [{ kind: 'road_closure', place: 'Triora', text: 'Road closed at the bridge.', source: 'Example road authority', url: 'https://roads.example.org/closure', checkedAt: `${date}T07:00:00.000Z` }],
+      sections: sample.sections.map(section => section.type === 'weather' ? { sectionId: section.sectionId, type: 'weather', summary: 'Weather for today.' } : section) };
   };
   const publish = async (date = isoDay(), operationId: string = randomUUID()) => {
     const answer = await t.post(`${base()}/editions`, { operationId, content: content(date), publish: true }, t.admin);
@@ -76,7 +78,9 @@ describe('The Daily Planet workspace weather (43.7)', () => {
 
   it('forecasts only the Workspace location, from several sources, and keeps the client summary', async () => {
     await setLocation(TRIORA);
-    const weather = weatherOf(await publish());
+    const edition = await publish();
+    expect(edition.content).toMatchObject({ localNotices: [{ kind: 'road_closure', place: 'Triora' }] });
+    const weather = weatherOf(edition);
     expect(weather).toMatchObject({ status: 'ok', generatedBy: 'vmn', summary: 'Weather for today.' });
     expect(weather.locations).toHaveLength(1);
     const place = placeOf(weather);

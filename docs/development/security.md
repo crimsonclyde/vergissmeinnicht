@@ -2298,3 +2298,11 @@ writes, two derived tables).
   location change vs archive, no location → no request, outages, ranges, idempotent retry, Workspace
   isolation, manual weather untouched), `mcp-gazette.test.ts`, `gazette.test.ts` (shipping/VAT
   validation). No automated test reaches a provider.
+### Gazette local alerts and road closures (43.9, 2026-11-15)
+
+- [x] Edition-local notices use the existing Workspace, tool and publish gates and transactional
+  edition validation. Each entry has bounded plain-text fields, an allowlisted notice kind, a
+  validated HTTPS URL and a required check time. At most 20 entries, within existing edition limits.
+- [x] Official-source verification is the publisher’s responsibility. VMN stores the published
+  snapshot and links the supplied URL on click with `noopener noreferrer`. VMN does not fetch it.
+- [x] Notices follow edition retention, audit metadata, and Workspace backup and restore validation.

@@ -926,7 +926,8 @@ test('Remaining tools share phone authoring controls and preserve simple list en
   await page.goto(`/w/${workspaceId}`); await expectAccessible(page,'Today after authoring');
 });
 
-test('Daily Planet keeps reference prices, summary lists and a stable masthead on desktop and phone', async ({ page }) => {
+test('Daily Planet keeps reference prices, summary lists and a stable masthead on desktop and phone', async ({ page }, testInfo) => {
+  test.setTimeout(90_000);
   const email = `gazette-${randomUUID()}@example.org`;
   const password = 'a fictional newspaper theme passphrase';
   const database = openDatabase(guideServerEnv.DATABASE_PATH);
@@ -944,8 +945,49 @@ test('Daily Planet keeps reference prices, summary lists and a stable masthead o
   await expect(page).toHaveURL(`/w/${workspaceId}`);
   const api = `/api/workspaces/${workspaceId}`;
   const gazette = `${api}/gazette`;
-  const today = await page.evaluate<string>(`fetch(${JSON.stringify(gazette + '/settings')}).then(response => response.json()).then(result => result.today)`);
+  const today = await page.evaluate<string>(`(async () => {
+    const url = ${JSON.stringify(gazette + '/settings')};
+    const { settings, revision, today } = await fetch(url).then(response => response.json());
+    const saved = await fetch(url, { method: 'POST', headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ settings: { ...settings, weather: { ...settings.weather, automatic: false } }, expectedRevision: revision }) });
+    if (!saved.ok) throw new Error(await saved.text());
+    return today;
+  })()`);
   const date = new Date(Date.parse(today) - 86400000).toISOString().slice(0, 10);
+  const publish = async (editionDate: string, summary: string, items: unknown[]) => {
+    const days = Array.from({ length: 7 }, (_, i) => ({
+      date: new Date(Date.parse(editionDate) + i * 86_400_000).toISOString().slice(0, 10),
+      condition: 'RAIN', high: i === 2 ? null : 10 + i, low: 5 + i,
+      precipitationMm: i === 4 ? { min: 0, max: 3 } : 1,
+    }));
+    const body = { publish: true, content: {
+      version: 1, date: editionDate, title: 'The Daily Planet — 15 November 2026', intro: 'The day in brief, from Liguria to the world.',
+      localNotices: [{ kind: 'road_closure', place: 'Triora', text: 'The main road is closed at the bridge.', source: 'Road authority', url: 'https://roads.example.org/closure', checkedAt: `${editionDate}T09:00:00Z` }],
+      sections: [
+        { sectionId: 'watchlist', type: 'watchlist', summary, items },
+        { sectionId: 'weather', type: 'weather', locations: [{
+          name: 'Triora', region: 'Liguria, Italy · 780 m', days,
+          sources: [{ name: 'Example Forecast', url: 'https://forecast.example.org/' }],
+          warnings: [
+            { level: 'yellow', text: 'Wind warning for Tuesday', source: 'Civil protection', date: days[2]?.date, url: 'https://alerts.example.org/' },
+            { level: 'info', text: 'Regional marine outlook', source: 'Regional bulletin', url: 'https://outlook.example.org/' },
+          ],
+          comparison: { metric: 'precipitation', rows: [
+            { source: 'Forecast A', values: [1, 1, null, 1, 0, 1, 1] },
+            { source: 'Forecast B', values: [1, 1, 1, 1, 3, 1, 1] },
+          ] },
+          note: 'The sources diverge on rainfall later in the week.',
+        }] },
+        { sectionId: 'europe-world', type: 'articles', items: ['Lead story', 'Second story', 'Third story'].map((title, i) => ({
+          id: `world-${i}`, title, summary: 'Read the reporting and its source.', url: `https://news.example.org/story-${i}`, source: 'Example News', publishedAt: `${editionDate}T09:00:00Z`,
+          security: i === 0 ? { identifier: 'Example-advisory', severity: 'low', verification: 'unverified', advisoryUrl: 'https://news.example.org/advisory' } : undefined,
+        })) },
+      ],
+    } };
+    const result = await page.evaluate<{ status: number; body: string }>(`fetch(${JSON.stringify(gazette + '/editions')}, { method: 'POST', headers: { 'content-type': 'application/json' }, body: ${JSON.stringify(JSON.stringify(body))} }).then(async response => ({ status: response.status, body: await response.text() }))`);
+    expect(result.status, result.body).toBe(201);
+  };
+  await publish(date, '- Black grinder\n- Silver kettle', []);
   await page.goto(`/w/${workspaceId}/gazette/settings`);
   const photo = documentPhoto(320, 180);
   await page.getByLabel('Add a background image').setInputFiles({ name: 'masthead.png', mimeType: 'image/png', buffer: photo });
@@ -955,18 +997,19 @@ test('Daily Planet keeps reference prices, summary lists and a stable masthead o
   await page.getByRole('combobox', { name: 'Background rotation' }).selectOption('random');
   await page.getByRole('button', { name: 'Save rotation and cropping' }).click();
   await expect(page.getByRole('region', { name: 'Masthead backgrounds' }).getByRole('status')).toHaveText('Settings saved.');
-  const publish = async (editionDate: string, summary: string, items: unknown[]) => {
-    const body = { publish: true, content: { version: 1, date: editionDate, sections: [{ sectionId: 'watchlist', type: 'watchlist', summary, items }] } };
-    const result = await page.evaluate<{ status: number; body: string }>(`fetch(${JSON.stringify(gazette + '/editions')}, { method: 'POST', headers: { 'content-type': 'application/json' }, body: ${JSON.stringify(JSON.stringify(body))} }).then(async response => ({ status: response.status, body: await response.text() }))`);
-    expect(result.status, result.body).toBe(201);
-  };
   await publish(today, 'Reference prices from the catalogue.', [
     { id: 'baseline', name: 'Silver kettle', currency: 'EUR', typical: 100 },
     { id: 'small', name: 'White kettle', currency: 'EUR', typical: 100, price: 99, verified: true, checkedAt: `${today}T00:00:00Z` },
     { id: 'discount', name: 'Blue kettle', currency: 'EUR', typical: 100, price: 80, verified: true, checkedAt: `${today}T00:00:00Z` },
   ]);
-  await publish(date, '- Black grinder\n- Silver kettle', []);
-  await page.goto(`/w/${workspaceId}/gazette`);
+  if (testInfo.project.name === 'guide-desktop-chromium') {
+    const news = page.getByRole('navigation', { name: 'Tools', exact: true }).getByRole('link', { name: 'News', exact: true });
+    await expect(news).toHaveAttribute('href', `/w/${workspaceId}/gazette`);
+    await news.click();
+    await expect(news).toHaveAttribute('aria-current', 'page');
+  } else {
+    await page.goto(`/w/${workspaceId}/gazette`);
+  }
   const table = page.getByRole('table', { name: 'Watchlist' });
   await expect(table.getByRole('row', { name: /Silver kettle/ })).toContainText('Not checked');
   await expect(table).toHaveCSS('display', (page.viewportSize()?.width ?? 0) <= 680 ? 'block' : 'table');
@@ -980,6 +1023,62 @@ test('Daily Planet keeps reference prices, summary lists and a stable masthead o
   await page.reload();
   await expect(art).toHaveAttribute('src', first);
   await page.goto(`/w/${workspaceId}/gazette/${date}`);
+  await expect(page.getByRole('heading', { name: 'The Daily Planet', exact: true })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Newsflash' })).toBeVisible();
+  await expect(page.locator('.gazette-article')).toHaveCount(3);
+  await expect(page.locator('.gazette-article svg.gazette-art')).toHaveCount(0);
+  const lead = page.locator('.gazette-article').filter({ has: page.getByRole('heading', { name: 'Lead story' }) });
+  const story = lead.getByRole('link', { name: 'Lead story' });
+  await expect(story).toHaveAttribute('href', 'https://news.example.org/story-0');
+  await page.context().route('https://news.example.org/**', route => route.fulfill({ body: 'Example article' }));
+  const byline = lead.locator('.gazette-byline');
+  await byline.scrollIntoViewIfNeeded();
+  const position = await byline.boundingBox();
+  if (!position) throw new Error('Missing story byline');
+  const opened = page.waitForEvent('popup');
+  const point = { x: position.x + position.width / 2, y: position.y + position.height / 2 };
+  if (testInfo.project.name === 'guide-mobile-chromium') await page.touchscreen.tap(point.x, point.y);
+  else await page.mouse.click(point.x, point.y);
+  const original = await opened;
+  await expect(original).toHaveURL('https://news.example.org/story-0');
+  await original.close();
+  const secondary = page.waitForEvent('popup');
+  await lead.getByRole('link', { name: 'Example-advisory' }).click();
+  const report = await secondary;
+  await expect(report).toHaveURL('https://news.example.org/advisory');
+  await report.close();
+  const forecast = page.getByRole('region', { name: 'Triora' });
+  const alerts = page.getByRole('region', { name: 'Local alerts & road closures' });
+  await expect(alerts.getByText('Yellow warning · Triora')).toBeVisible();
+  await expect(alerts.getByRole('link', { name: 'Civil protection' })).toHaveAttribute('href', 'https://alerts.example.org/');
+  await expect(alerts.getByText('Road closure · Triora')).toBeVisible();
+  await expect(alerts.getByRole('link', { name: 'Road authority' })).toHaveAttribute('href', 'https://roads.example.org/closure');
+  await expect(forecast.getByText(/Yellow warning/)).toHaveCount(0);
+  await expect(forecast.getByText('Sources disagree')).toBeVisible();
+  await expect(forecast.locator('.gazette-chart-high line')).toHaveCount(4);
+  await forecast.getByText('Weather bulletins (1)', { exact: true }).click();
+  await expect(forecast.getByRole('link', { name: 'Regional bulletin' })).toBeVisible();
+  await forecast.getByText('Rain (mm) by source', { exact: true }).click();
+  await expect(forecast.getByRole('table', { name: 'Rain (mm) by source' })).toBeVisible();
+  const viewportWidth = testInfo.project.name === 'guide-desktop-chromium' ? 1440 : 320;
+  await page.setViewportSize({ width: viewportWidth, height: 1000 });
+  for (const theme of ['light', 'memento-mori', 'tokyo-nights', 'witch-forest', 'places-de', 'places-it', 'places-uk', 'places-scotland', 'space-guide']) {
+    const status = await page.evaluate(theme => fetch('/api/account/preferences', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ theme }),
+    }).then(response => response.status), theme);
+    expect(status).toBe(200);
+    await page.reload();
+    await expect(page.locator('html')).toHaveAttribute('data-theme', theme.startsWith('places-') ? 'places' : theme);
+    await expect(forecast).toBeVisible();
+    const scenery = theme === 'space-guide' ? /orbit/ : theme === 'witch-forest' ? /old-forest/ : theme === 'tokyo-nights' ? /city/ : /coast|city/;
+    await expect(page.locator('.gazette-masthead-art img')).toHaveAttribute('src', scenery);
+    expect(await page.evaluate('document.documentElement.scrollWidth <= innerWidth')).toBe(true);
+    await expectAccessible(page, `Gazette ${theme} at ${viewportWidth}px`);
+    if (['light', 'space-guide'].includes(theme)) {
+      await page.evaluate('window.scrollTo(0, 0)');
+      await page.screenshot({ path: testInfo.outputPath(`gazette-${theme}.png`), fullPage: true });
+    }
+  }
   await expect(page.locator('.gazette-watch-summary li')).toHaveText(['Black grinder', 'Silver kettle']);
   await expect(page.getByText('Nothing in this section today')).toHaveCount(0);
   await page.goto(`/w/${workspaceId}/gazette/watchlist`);
