@@ -248,7 +248,9 @@ export function parseAllertaLiguria(page: string, zone: LiguriaAlertZone): Gazet
     text: level.level === 'info' ? `No civil protection alert for zone ${zone} (message ${issued}).` : `Civil protection alert ${level.name} for zone ${zone} (message ${issued}); see AllertaLiguria for phenomena and times.`,
   }];
   // The bar's second line names a meteorological risk without an alert ("Rischio meteo per vento").
-  const risk = /<h2[^>]*>\s*(Rischio meteo per [a-zà-ù ,]{2,60}?)\s*<\/h2>/i.exec(page)?.[1];
+  // Linear: find the phrase first, then match a short slice (no backtracking over the whole page).
+  const at = page.search(/Rischio meteo per /i);
+  const risk = at < 0 ? undefined : /^(Rischio meteo per [a-zà-ù ,]{2,60}?)\s*<\/h2>/i.exec(page.slice(at, at + 120))?.[1];
   if (risk) warnings.push({ level: 'info', source: 'ARPAL', url: 'https://allertaliguria.regione.liguria.it/bollettino_vigilanza_arpal.php', date: null, text: `${risk.replace(/\s+/g, ' ').trim()} (ARPAL, message ${issued}).`, ...(kindOf(risk) ? { kind: kindOf(risk) as string } : {}) });
   return warnings;
 }

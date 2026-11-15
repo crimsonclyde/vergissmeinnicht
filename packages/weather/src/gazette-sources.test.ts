@@ -82,6 +82,10 @@ describe('Daily Planet weather sources (43.7)', () => {
     expect(parseAllertaLiguria(yellow, 'A')[0]?.level).toBe('yellow');
     expect(parseAllertaLiguria(yellow, 'B')[0]?.level).toBe('info');
     expect(() => parseAllertaLiguria('<html>maintenance</html>', 'A')).toThrow(WeatherProviderError);
+    // A hostile page cannot make the parser slow (CodeQL: polynomial regular expression).
+    const started = performance.now();
+    expect(parseAllertaLiguria(fixture('gazette-allerta-liguria.html') + '<h2'.repeat(200_000), 'A')).toHaveLength(2);
+    expect(performance.now() - started).toBeLessThan(500);
     const seen: URL[] = [];
     await sources(() => new Response(fixture('gazette-allerta-liguria.html'), { status: 200, headers: { 'content-type': 'text/html' } }), seen).allertaLiguria('A');
     expect(seen[0]?.href).toBe('https://allertaliguria.regione.liguria.it/');
