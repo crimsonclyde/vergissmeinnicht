@@ -1,5 +1,5 @@
 import { useEffect, useId, useState, type FormEvent } from 'react';
-import { GAZETTE_WATCH_CONDITIONS, type GazetteWatchCondition } from '@vergissmeinnicht/domain';
+import { GAZETTE_WATCH_CONDITIONS, gazetteOfferTotal, type GazetteWatchCondition, type GazetteWatchPrice } from '@vergissmeinnicht/domain';
 import { api, messageFor, type GazetteWatchFields, type GazetteWatchItemView } from '../../api.ts';
 import { formatCalendarDate, t } from '../../i18n/index.ts';
 import { Link, paths } from '../../router.tsx';
@@ -8,10 +8,12 @@ import './gazette.css';
 
 const EMPTY: GazetteWatchFields = { name: '', variant: '', condition: 'any', market: '', shop: '', url: null, currency: 'EUR', target: null, typical: null, notes: '', active: true };
 const money = (value: number | null, currency: string) => value === null ? '–' : new Intl.NumberFormat(undefined, { style: 'currency', currency, maximumFractionDigits: value % 1 === 0 ? 0 : 2 }).format(value);
+/** "free delivery", "+ €4.99 delivery" or "excl. VAT" when the offer said so; '' when nothing is known. */
+const delivery = (price: GazetteWatchPrice, currency: string) => [price.shipping === 0 ? t('gazette.watchFreeShipping') : price.shipping == null ? '' : t('gazette.watchPlusShipping', { price: money(price.shipping, currency) }), price.vatIncluded === false ? t('gazette.watchExclVat') : ''].filter(Boolean).join(', ');
 const amount = (text: string): number | null => { const value = Number(text.replace(',', '.')); return text.trim() === '' || !Number.isFinite(value) ? null : value; };
 
 function Trend({ item }: { item: GazetteWatchItemView }) {
-  const values = item.history.filter(entry => entry.verified && entry.source !== '').map(entry => entry.price);
+  const values = item.history.filter(entry => entry.verified && entry.source !== '').map(entry => gazetteOfferTotal(entry));
   if (values.length < 2) return null;
   const min = Math.min(...values), max = Math.max(...values), span = Math.max(1, max - min);
   const points = values.map((value, index) => `${((index / (values.length - 1)) * 90).toFixed(1)},${(4 + (1 - (value - min) / span) * 18).toFixed(1)}`).join(' ');
@@ -58,7 +60,7 @@ function ItemForm({ initial, onSave, onCancel, busy }: { initial: GazetteWatchFi
 export function GazetteWatchlist({ workspaceId, canEdit, canManage }: { workspaceId: string; canEdit: boolean; canManage: boolean }) {
   const [items, setItems] = useState<GazetteWatchItemView[] | null>(null);
   const [editing, setEditing] = useState<string | 'new' | null>(null);
-  const [pricing, setPricing] = useState<{ id: string; value: string; source: string; url: string } | null>(null);
+  const [pricing, setPricing] = useState<{ id: string; value: string; shipping: string; source: string; url: string } | null>(null);
   const [wishlist, setWishlist] = useState<string | null>(null);
   const [pasted, setPasted] = useState('');
   const [report, setReport] = useState<{ created: number; updated: number; skipped: number } | null>(null);
@@ -137,24 +139,25 @@ export function GazetteWatchlist({ workspaceId, canEdit, canManage }: { workspac
             </span>
             <Trend item={item} />
             <span className="gazette-watch-price">
-              <b>{item.latest?.verified && item.latest.source !== '' ? money(item.latest.price, item.currency) : t('gazette.notChecked')}</b>
-              {item.latest?.verified && item.latest.source !== '' && <small className="muted">{item.latest.source} · {formatCalendarDate(item.latest.checkedAt.slice(0, 10))}</small>}
+              <b>{item.latest?.verified && item.latest.source !== '' ? money(gazetteOfferTotal(item.latest), item.currency) : t('gazette.notChecked')}</b>
+              {item.latest?.verified && item.latest.source !== '' && <small className="muted">{[item.latest.source, delivery(item.latest, item.currency), formatCalendarDate(item.latest.checkedAt.slice(0, 10))].filter(Boolean).join(' · ')}</small>}
               {item.typical !== null && <small className="muted">{t('gazette.referenceAmount', { price: money(item.typical, item.currency) })}</small>}
               {item.target !== null && <small className="muted">{t('gazette.target', { price: money(item.target, item.currency) })}</small>}
-              {item.lowestVerified && <small className="muted">{t('gazette.watchRecordedLow', { price: money(item.lowestVerified.price, item.currency) })}</small>}
+              {item.lowestVerified && <small className="muted">{t('gazette.watchRecordedLow', { price: money(gazetteOfferTotal(item.lowestVerified), item.currency) })}</small>}
 
             </span>
             {canEdit && (
               <span className="gazette-watch-actions">
                 {pricing?.id === item.id ? (
-                  <form className="gazette-watch-price-form" onSubmit={event => { event.preventDefault(); const value = amount(pricing.value); if (value !== null && value >= 0) void run(() => api.recordGazettePrice(workspaceId, item.id, value, pricing.source.trim(), pricing.url.trim() || null)).then(ok => { if (ok) setPricing(null); }); }}>
+                  <form className="gazette-watch-price-form" onSubmit={event => { event.preventDefault(); const value = amount(pricing.value); if (value !== null && value >= 0) void run(() => api.recordGazettePrice(workspaceId, item.id, value, pricing.source.trim(), pricing.url.trim() || null, amount(pricing.shipping))).then(ok => { if (ok) setPricing(null); }); }}>
                     <input inputMode="decimal" aria-label={t('gazette.watchTotalPrice')} placeholder={t('gazette.currentPrice')} value={pricing.value} autoFocus onChange={event => setPricing({ ...pricing, value: event.target.value })} />
+                    <input inputMode="decimal" className="gazette-watch-shipping" aria-label={t('gazette.watchShipping')} placeholder={t('gazette.watchShipping')} value={pricing.shipping} onChange={event => setPricing({ ...pricing, shipping: event.target.value })} />
                     <input aria-label={t('gazette.seller')} placeholder={t('gazette.seller')} required maxLength={80} value={pricing.source} onChange={event => setPricing({ ...pricing, source: event.target.value })} />
                     <input type="url" aria-label={t('gazette.watchUrl')} placeholder={t('gazette.watchUrl')} maxLength={2048} value={pricing.url} onChange={event => setPricing({ ...pricing, url: event.target.value })} />
                     <button type="submit" className="icon-button" disabled={busy || amount(pricing.value) === null || pricing.source.trim() === ''} aria-label={t('gazette.watchPriceSave')} title={t('gazette.watchPriceSave')}><UiIcon name="check" /></button>
                   </form>
                 ) : (
-                  <button type="button" className="icon-button" disabled={!item.active} aria-label={t('gazette.watchPriceFor', { name: item.name })} title={t('gazette.watchPrice')} onClick={() => setPricing({ id: item.id, value: '', source: item.shop, url: item.url ?? '' })}><UiIcon name="gazettePrice" /></button>
+                  <button type="button" className="icon-button" disabled={!item.active} aria-label={t('gazette.watchPriceFor', { name: item.name })} title={t('gazette.watchPrice')} onClick={() => setPricing({ id: item.id, value: '', shipping: '', source: item.shop, url: item.url ?? '' })}><UiIcon name="gazettePrice" /></button>
                 )}
                 <button type="button" className="icon-button" aria-label={t('gazette.watchEdit', { name: item.name })} title={t('gazette.watchEditShort')} onClick={() => { setPricing(null); setEditing(item.id); }}><UiIcon name="edit" /></button>
                 <button type="button" className="icon-button" disabled={busy} aria-label={t(item.active ? 'gazette.watchArchive' : 'gazette.watchRestore', { name: item.name })} title={t(item.active ? 'gazette.watchArchiveShort' : 'gazette.watchRestoreShort')} onClick={() => void run(() => api.updateGazetteWatchItem(workspaceId, item.id, { ...fieldsOf(item), active: !item.active }, item.revision))}><UiIcon name={item.active ? 'archive' : 'unarchive'} /></button>
@@ -165,9 +168,9 @@ export function GazetteWatchlist({ workspaceId, canEdit, canManage }: { workspac
               <summary>{t('gazette.watchOffers')}</summary>
               <ul>
                 {Array.from(new Map(item.history.filter(price => price.verified && price.source !== '').map(price => [price.source, price])).values())
-                  .sort((a, b) => b.checkedAt.localeCompare(a.checkedAt)).map(price => <li key={price.source}>
+                  .sort((a, b) => gazetteOfferTotal(a) - gazetteOfferTotal(b) || b.checkedAt.localeCompare(a.checkedAt)).map(price => <li key={price.source}>
                     {price.url ? <a href={price.url} target="_blank" rel="noopener noreferrer">{price.source}</a> : price.source}
-                    {' · '}{money(price.price, item.currency)}{' · '}{formatCalendarDate(price.checkedAt.slice(0, 10))}
+                    {' · '}{money(gazetteOfferTotal(price), item.currency)}{delivery(price, item.currency) && ` (${delivery(price, item.currency)})`}{' · '}{formatCalendarDate(price.checkedAt.slice(0, 10))}
                   </li>)}
               </ul>
             </details>}

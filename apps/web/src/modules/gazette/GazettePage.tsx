@@ -162,7 +162,7 @@ export function GazettePage({ workspaceId, date, canManage = false }: { workspac
                   </button>
                 </header>
                 <div id={`gazette-b-${definition.id}`}>
-                  {folded ? <Folded content={content} onOpen={() => toggle(definition.id, true)} /> : <SectionBody definition={definition} content={content} today={settings.today} images={settings.settings.images} discountThreshold={settings.settings.watchlist?.discountThreshold} />}
+                  {folded ? <Folded content={content} onOpen={() => toggle(definition.id, true)} /> : <SectionBody definition={definition} content={content} today={settings.today} images={settings.settings.images} discountThreshold={settings.settings.watchlist?.discountThreshold} workspaceId={workspaceId} canManage={canManage} />}
                 </div>
               </section>
             );
@@ -192,7 +192,7 @@ function countOf(content: GazetteSectionContent): string {
   switch (content.type) {
     case 'articles': return String(content.items.length);
     case 'watchlist': return content.items.length === 0 && content.summary !== '' ? '' : String(content.items.length);
-    case 'weather': return t('gazette.places', { count: content.locations.length });
+    case 'weather': return content.locations.length === 0 ? '' : t('gazette.places', { count: content.locations.length });
     default: return '';
   }
 }
@@ -209,11 +209,11 @@ function Folded({ content, onOpen }: { content: GazetteSectionContent; onOpen: (
 }
 
 /** Renderer registry: one component per section type; anything else gets a quiet note. */
-function SectionBody({ definition, content, today, images, discountThreshold }: { definition: GazetteSectionDefinition; content: GazetteSectionContent; today: string; images: boolean; discountThreshold: number | undefined }): ReactNode {
+function SectionBody({ definition, content, today, images, discountThreshold, workspaceId, canManage }: { definition: GazetteSectionDefinition; content: GazetteSectionContent; today: string; images: boolean; discountThreshold: number | undefined; workspaceId: string; canManage: boolean }): ReactNode {
   const summary = content.summary !== '' ? <div className="gazette-summary"><Markdown source={content.summary} /></div> : null;
   switch (content.type) {
     case 'articles': return <>{summary}<Articles items={content.items} lead={images && definition.dashboard} /></>;
-    case 'weather': return <>{summary}<div className="gazette-weather">{content.locations.map(location => <Forecast key={location.name} location={location} today={today} />)}</div></>;
+    case 'weather': return <>{summary}{content.status === 'no_location' || content.status === 'unavailable' ? <WeatherMissing status={content.status} workspaceId={workspaceId} canManage={canManage} /> : <div className="gazette-weather">{content.locations.map(location => <Forecast key={location.name} location={location} today={today} />)}</div>}</>;
     case 'watchlist': return <>{content.summary !== '' && <div className="gazette-summary gazette-watch-summary"><Markdown source={content.summary} /></div>}{content.items.length > 0 ? <Watchlist items={content.items} threshold={discountThreshold} /> : summary === null && <p className="muted">{t('gazette.emptySection')}</p>}</>;
     case 'rich': return <>{summary}<div className="gazette-rich"><Markdown source={content.body} />{content.tables.map((table, index) => <Table key={index} table={table} />)}</div></>;
     default: return <p className="muted">{t('gazette.unsupported')}</p>;
@@ -268,30 +268,100 @@ function TemperatureLines({ days }: { days: readonly GazetteForecastDay[] }) {
   );
 }
 
+const range = (value: { min: number; max: number }, unit: string) => `${formatNumber(value.min)}–${formatNumber(value.max)}${unit}`;
+const timeSpan = (onset: string | null | undefined, expires: string | null | undefined) =>
+  [onset ? formatDateTime(onset) : '', expires ? formatDateTime(expires) : ''].filter(Boolean).join(' – ');
+
+/** Official warnings first and loud; a confirmed "no alert" is a quiet line, never hidden. */
+function Warnings({ warnings }: { warnings: GazetteLocationForecast['warnings'] }) {
+  if (warnings.length === 0) return null;
+  return (
+    <ul className="plain-list gazette-warnings" aria-label={t('gazette.warnings')}>
+      {warnings.map((warning, index) => (
+        <li key={index} className={`gazette-warning gazette-warning-${warning.level}`}>
+          <UiIcon name={warning.level === 'info' ? 'info' : 'warning'} size="1.1em" />
+          <span>
+            <b>{warning.level === 'info' ? '' : `${t(`gazette.warningLevel.${warning.level}`)} · `}{warning.date !== null && `${formatWeekdayShort(warning.date)}: `}{warning.text}</b>
+            <small className="muted">{warning.url ? <a href={warning.url} target="_blank" rel="noopener noreferrer">{warning.source}</a> : warning.source}{timeSpan(warning.onset, warning.expires) !== '' && ` · ${timeSpan(warning.onset, warning.expires)}`}</small>
+          </span>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+/** Every source's own days, side by side: nothing merged out of sight. */
+function SourceTable({ location }: { location: GazetteLocationForecast }) {
+  const models = location.models ?? [];
+  if (models.length < 2) return null;
+  return (
+    <details className="gazette-compare">
+      <summary><UiIcon name="grid" size="1em" />{t('gazette.compareSources', { count: models.length })}</summary>
+      <div className="gazette-compare-scroll">
+        <table>
+          <caption className="visually-hidden">{t('gazette.compareSources', { count: models.length })}</caption>
+          <thead><tr><th scope="col">{t('gazette.source')}</th>{location.days.map(day => <th key={day.date} scope="col">{formatWeekdayShort(day.date)}</th>)}</tr></thead>
+          <tbody>
+            {models.map(model => (
+              <tr key={model.source}>
+                <th scope="row">{model.source}<small className="muted">{t('gazette.family', { family: model.family })}</small></th>
+                {location.days.map(day => {
+                  const own = model.days.find(item => item.date === day.date);
+                  return <td key={day.date} className={day.disagreement ? 'gazette-disagree' : undefined}>{own === undefined ? '–' : <>
+                    <span>{own.high === null ? '–' : `${formatNumber(own.high, 0)}°`}/{own.low === null ? '–' : `${formatNumber(own.low, 0)}°`}</span>
+                    {own.precipitationMm !== null && <small>{formatNumber(own.precipitationMm, 1)} mm</small>}
+                    {own.gustKmh !== null && own.gustKmh >= 50 && <small>{t('gazette.gust', { value: formatNumber(own.gustKmh, 0) })}</small>}
+                  </>}</td>;
+                })}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </details>
+  );
+}
+
 function Forecast({ location, today }: { location: GazetteLocationForecast; today: string }) {
+  const notes = location.days.filter(day => day.note);
+  const lowConfidence = location.days.some(day => day.confidence === 'low');
+  const forecastSources = location.sources.filter(source => source.role === undefined || source.role === 'forecast');
+  const otherSources = location.sources.filter(source => source.role === 'warnings' || source.role === 'observations');
+  const references = location.sources.filter(source => source.role === 'reference');
   return (
     <section className="card gazette-place" aria-label={location.name}>
       <header className="gazette-place-head">
-        <h3>{location.name}</h3>{location.region !== '' && <small className="muted">{location.region}</small>}
-        {location.warnings.map((warning, index) => (
+        <h3>{location.name}</h3>
+        {(location.region !== '' || location.place?.elevation != null) && <small className="muted">{[location.region, location.place?.elevation != null ? `${formatNumber(location.place.elevation)} m` : ''].filter(Boolean).join(' · ')}</small>}
+        {location.models === undefined && location.warnings.map((warning, index) => (
           <span key={index} className={`gazette-chip gazette-chip-${warning.level === 'info' ? 'plain' : 'warn'} gazette-warning-${warning.level}`} title={warning.source}>
             <UiIcon name="warning" size="1em" />{warning.date !== null && `${formatWeekdayShort(warning.date)}: `}{warning.text}
           </span>
         ))}
       </header>
+      {location.models !== undefined && <Warnings warnings={location.warnings} />}
       <TemperatureLines days={location.days} />
       <ol className="plain-list gazette-week" style={{ gridTemplateColumns: `repeat(${location.days.length}, minmax(0, 1fr))` }}>
         {location.days.map(day => (
-          <li key={day.date} className={[day.disagreement ? 'gazette-disagree' : '', day.date === today ? 'gazette-today' : ''].filter(Boolean).join(' ') || undefined} title={day.disagreement ? t('gazette.disagree') : undefined}>
+          <li key={day.date} className={[day.disagreement ? 'gazette-disagree' : '', day.date === today ? 'gazette-today' : '', day.confidence === 'low' ? 'gazette-low-confidence' : ''].filter(Boolean).join(' ') || undefined} title={[day.disagreement ? t('gazette.disagree') : '', day.confidence ? t(`gazette.confidence.${day.confidence}`) : ''].filter(Boolean).join(' · ') || undefined}>
             <span className="gazette-week-day">{formatWeekdayShort(day.date)}</span>
             <UiIcon name={conditionIcon(day.condition)} size="1.3em" />
-            <span className="visually-hidden">{t(`weather.condition.${day.condition}`)}</span>
+            <span className="visually-hidden">{t(`weather.condition.${day.condition}`)}{day.confidence ? `, ${t(`gazette.confidence.${day.confidence}`)}` : ''}</span>
             <b>{day.high === null ? '–' : `${formatNumber(day.high)}°`}</b>
             <span className="muted">{day.low === null ? '' : `${formatNumber(day.low)}°`}</span>
+            {day.highRange && <small className="gazette-range" title={t('gazette.highRange')}>{range(day.highRange, '°')}</small>}
             {rainOf(day) !== '' && <small className="gazette-rain">{rainOf(day)}</small>}
+            {day.precipitationProbability != null && day.precipitationProbability >= 20 && <small className="gazette-chance">{t('gazette.chance', { value: formatNumber(day.precipitationProbability) })}</small>}
+            {day.gustKmh !== null && day.gustKmh >= 60 && <small className="gazette-gust"><UiIcon name="wind" size="1em" />{formatNumber(day.gustKmh)}</small>}
           </li>
         ))}
       </ol>
+      {(notes.length > 0 || lowConfidence) && (
+        <ul className="plain-list gazette-day-notes">
+          {notes.map(day => <li key={day.date}><b>{formatWeekdayShort(day.date)}:</b> {day.note}</li>)}
+          {lowConfidence && <li className="muted"><UiIcon name="info" size="1em" />{t('gazette.lowConfidenceNote')}</li>}
+        </ul>
+      )}
       {location.comparison !== null && (
         <div className="gazette-compare">
           <table>
@@ -305,11 +375,25 @@ function Forecast({ location, today }: { location: GazetteLocationForecast; toda
           </table>
         </div>
       )}
+      <SourceTable location={location} />
       <p className="gazette-sources"><UiIcon name="info" size="1em" />
-        <span>{location.sources.map((source, index) => <span key={source.name}>{index > 0 && ', '}{source.url ? <a href={source.url} target="_blank" rel="noopener noreferrer">{source.name}</a> : source.name}</span>)}
-          {location.fetchedAt !== null && ` · ${t('gazette.fetched', { time: formatShortTime(location.fetchedAt) })}`}{location.note !== '' && ` · ${location.note}`}</span>
+        <span>{forecastSources.map((source, index) => <span key={source.name}>{index > 0 && ', '}{source.url ? <a href={source.url} target="_blank" rel="noopener noreferrer">{source.name}</a> : source.name}</span>)}
+          {otherSources.length > 0 && <> · {t('gazette.warningSources')} {otherSources.map((source, index) => <span key={source.name}>{index > 0 && ', '}{source.url ? <a href={source.url} target="_blank" rel="noopener noreferrer">{source.name}</a> : source.name}</span>)}</>}
+          {location.fetchedAt !== null && ` · ${t('gazette.fetched', { time: formatDateTime(location.fetchedAt) })}`}{location.note !== '' && ` · ${location.note}`}
+          {references.length > 0 && <> · {t('gazette.alsoRead')} {references.map((source, index) => <span key={source.name}>{index > 0 && ', '}{source.url ? <a href={source.url} target="_blank" rel="noopener noreferrer">{source.name}</a> : source.name}</span>)}</>}</span>
       </p>
     </section>
+  );
+}
+
+/** A weather section VMN could not fill: says why, never shows an empty week. */
+function WeatherMissing({ status, workspaceId, canManage }: { status: 'no_location' | 'unavailable'; workspaceId: string; canManage: boolean }) {
+  return (
+    <div className="card gazette-empty gazette-weather-missing">
+      <UiIcon name={status === 'no_location' ? 'place' : 'weatherUnknown'} size="2em" />
+      <p>{t(status === 'no_location' ? 'gazette.weatherNoLocation' : 'gazette.weatherUnavailable')}</p>
+      {status === 'no_location' && canManage && <Link className="button" href={paths.members(workspaceId)}><UiIcon name="place" /><span>{t('gazette.setLocation')}</span></Link>}
+    </div>
   );
 }
 

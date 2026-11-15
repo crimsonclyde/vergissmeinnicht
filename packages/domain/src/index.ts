@@ -47,3 +47,5 @@ export * from './mcp.ts';
 export * from './gazette.ts';
 export * from './gazette-sample.ts';
 export * from './gazette-header.ts';
+export * from './gazette-weather.ts';
+export * from './liguria-alert-zones.ts';

@@ -77,3 +77,5 @@ export * from './attachments/index.ts';
 
 export * from './recipes.ts';
 export * from './gazette.ts';
+export * from './gazette-weather.ts';
+export * from './ports/gazette-weather.ts';

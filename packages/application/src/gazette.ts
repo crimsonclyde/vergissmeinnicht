@@ -1,11 +1,12 @@
 import {
   assertGazetteDateWritable, parseGazetteWatchFields, parseGazetteWatchImport, parseGazettePriceObservations, type GazetteWatchFields, type GazettePriceObservationInput, type GazetteWatchItemView, gazetteOldestKept, gazettePreview, gazetteToday, parseGazetteEdition, parseGazetteSettings, parseLocalDate,
-  parseGazetteHeaderSettings, type GazetteHeaderSettings, type GazetteEdition, type GazetteEditionContent, type GazetteEditionSummary, type GazettePreview, type GazetteSettings, type LocalDate, type User, type WorkspaceId,
+  parseGazetteHeaderSettings, addDays, DEFAULT_GAZETTE_WEATHER_SETTINGS, gazetteWeatherPlan, type GazetteHeaderSettings, type GazetteEdition, type GazetteEditionContent, type GazetteEditionSummary, type GazettePreview, type GazetteSettings, type LocalDate, type User, type WorkspaceId,
 } from '@vergissmeinnicht/domain';
 import { authorizeTool, type ToolDeps } from './documents/tools.ts';
 import { NotAuthorizedError } from './invitations/errors.ts';
 import type { PlaceBackgroundProcessor } from './ports/places.ts';
 import type { UserRepository } from './ports/user-repository.ts';
+import { buildGazetteWeather, gazetteWeatherVerification, withGazetteWeather, type GazetteWeatherDeps } from './gazette-weather.ts';
 
 export class GazetteNotFoundError extends Error {}
 /** A stale `expectedRevision` (settings or a draft edited meanwhile). */
@@ -20,6 +21,8 @@ export interface GazetteWriteInput {
   readonly publish: boolean;
   /** Required to change an existing draft by hand; imports with an operation id may omit it. */
   readonly expectedRevision: number | null;
+  /** What the client sent, for operation-id retries: VMN's own weather (43.7) is added afterwards and may differ per try. */
+  readonly clientContent?: GazetteEditionContent;
 }
 export interface GazetteRepository {
   headerSettings(workspaceId: WorkspaceId): Promise<{ settings: GazetteHeaderSettings; revision: number }>;
@@ -50,7 +53,7 @@ export interface GazetteWatchRepository {
   /** All or nothing: an unknown item (or one of another Workspace) refuses the whole batch. */
   recordPrices(workspaceId: WorkspaceId, actor: User, observations: readonly GazettePriceObservationInput[], at: Date): Promise<number>;
 }
-export interface GazetteDeps extends ToolDeps { readonly users: UserRepository; readonly headerProcessor: PlaceBackgroundProcessor; readonly gazette: GazetteRepository & GazetteWatchRepository }
+export interface GazetteDeps extends ToolDeps { readonly users: UserRepository; readonly headerProcessor: PlaceBackgroundProcessor; readonly gazette: GazetteRepository & GazetteWatchRepository; readonly forecast?: GazetteWeatherDeps }
 
 type Level = 'view' | 'publish' | 'manage';
 export async function authorizeGazette(deps: GazetteDeps, actor: User, workspaceId: WorkspaceId, level: Level = 'view') {
@@ -81,17 +84,24 @@ export async function writeGazetteEdition(deps: GazetteDeps, actor: User, worksp
   await authorizeGazette(deps, actor, workspaceId, 'publish');
   const { settings } = await deps.gazette.settings(workspaceId);
   const content = parseGazetteEdition(input.content, settings.sections);
-  assertGazetteDateWritable(settings, content.date, deps.clock.now());
-  return deps.gazette.write(workspaceId, actor, { operationId: input.operationId, content, publish: input.publish, expectedRevision: input.expectedRevision }, deps.clock.now());
+  const now = deps.clock.now();
+  assertGazetteDateWritable(settings, content.date, now);
+  const existing = deps.forecast === undefined ? undefined : (await deps.gazette.findByDate(workspaceId, content.date, 'PUBLISHED'))?.content;
+  const withWeather = parseGazetteEdition(await withGazetteWeather(deps.forecast, { workspaceId, settings, content, existing, now }), settings.sections);
+  return deps.gazette.write(workspaceId, actor, { operationId: input.operationId, content: withWeather, clientContent: content, publish: input.publish, expectedRevision: input.expectedRevision }, deps.clock.now());
 }
 
 export async function publishGazetteDraft(deps: GazetteDeps, actor: User, workspaceId: WorkspaceId, editionId: string, expectedRevision: number) {
   await authorizeGazette(deps, actor, workspaceId, 'publish');
   const { settings } = await deps.gazette.settings(workspaceId);
   const now = deps.clock.now();
+  // A fresh forecast at publication (43.7), prepared outside the transaction and used only for the draft it was made from.
+  const draft = deps.forecast === undefined ? undefined : await deps.gazette.findById(workspaceId, editionId);
+  const existing = draft === undefined ? undefined : (await deps.gazette.findByDate(workspaceId, draft.date, 'PUBLISHED'))?.content;
+  const prepared = draft === undefined || draft.state !== 'DRAFT' ? undefined : await withGazetteWeather(deps.forecast, { workspaceId, settings, content: draft.content, existing, now });
   // Section definitions may have changed since the draft was written: validate again, inside the transaction.
   return deps.gazette.publish(workspaceId, actor, editionId, expectedRevision, content => {
-    const parsed = parseGazetteEdition(content, settings.sections);
+    const parsed = parseGazetteEdition(prepared !== undefined && draft !== undefined && JSON.stringify(content) === JSON.stringify(draft.content) ? prepared : content, settings.sections);
     assertGazetteDateWritable(settings, parsed.date, now);
     return parsed;
   }, now);
@@ -198,4 +208,27 @@ export async function overrideGazetteHeader(deps: GazetteDeps, actor: User, work
 export async function removeGazetteWatchItem(deps: GazetteDeps, actor: User, workspaceId: WorkspaceId, id: string, revision: number) {
   await authorizeGazette(deps, actor, workspaceId, 'manage');
   return deps.gazette.removeWatchItem(workspaceId, actor, id, revision, deps.clock.now());
+}
+
+/**
+ * The forecast VMN would put into today's edition (43.7), for the page's settings and for MCP clients that
+ * write the summary: the Workspace place, the source plan, the combined days and what failed. Nothing is
+ * stored in an edition by reading it.
+ */
+export async function getGazetteWeather(deps: GazetteDeps, actor: User, workspaceId: WorkspaceId, date?: string) {
+  await authorizeGazette(deps, actor, workspaceId);
+  const { settings } = await deps.gazette.settings(workspaceId);
+  const now = deps.clock.now();
+  const today = gazetteToday(settings, now);
+  let day: LocalDate = today;
+  if (date !== undefined) { try { day = parseLocalDate(date); } catch { throw new GazetteNotFoundError(); } }
+  if (day < today || day > addDays(today, 1)) throw new GazetteNotFoundError();
+  const workspace = await deps.workspaces.findById(workspaceId);
+  const place = workspace?.location ?? null;
+  const weather = settings.weather ?? DEFAULT_GAZETTE_WEATHER_SETTINGS;
+  const plan = place === null ? null : gazetteWeatherPlan(place, weather);
+  if (deps.forecast === undefined) return { date: day, place, settings: weather, plan, result: { status: 'unavailable' as const, failed: [], reason: 'weather_off' as const }, verification: null };
+  const result = await buildGazetteWeather(deps.forecast, workspaceId, settings, day);
+  const verification = place === null ? null : await gazetteWeatherVerification(deps.forecast, workspaceId, place, today).catch(() => null);
+  return { date: day, place, settings: weather, plan, result: result.status === 'ok' ? { status: result.status, location: result.location, failed: result.failed } : result.status === 'unavailable' ? { status: result.status, failed: result.failed, reason: result.reason } : result, verification };
 }

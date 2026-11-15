@@ -164,15 +164,48 @@ From the tag icon, open **Import reference products**. Open the wishlist yoursel
 to 50 rows in this order, separated by tabs: product name, EUR reference price, exact product
 URL, variant, notes. Leave unused fields blank. A full Amazon.de product URL helps match the
 ASIN when you import again. The paste adds references only and keeps existing checked-price
-history. Editors can note a checked total including VAT and shipping; enter the seller and
-link to make the comparison traceable. Admins can permanently remove archived products if
+history. Editors note a checked price including VAT, with delivery in the small **Shipping**
+field (0 for free delivery), plus the seller and link, so offers are compared by what they cost
+delivered.
+
+The five Casa Nostra starter products (baselines from the Amazon.de wishlist, 14 Nov 2026)
+can be pasted as they are (tab-separated):
+
+```text
+X-Sense XS01-M + SBS50 smoke alarm 3-pack	84.99
+Ninja Luxe Café Pro ES701EU	499.00		silver
+Femobook A2	109.00		black
+Baratza Encore ESP Pro	279.95
+ROASTLY DF54 Gen 3 V3/V4	263.99		black
+``` Admins can permanently remove archived products if
 their history is no longer needed.
 
 Under **Masthead backgrounds** in Daily Planet settings, upload images and preview their
 crop. Choose the bundled woodland, a fixed image, or rotate by date, randomly for new editions,
-or in order. Use the focus sliders and save rotation and cropping. The archive keeps each
+or in order. Click or tap the photo where its subject is to set the focal point (the
+sliders fine-tune it); the preview shows the same dark shading as the masthead. Save rotation and cropping. The archive keeps each
 edition's photo and crop; use **Set the background of a published edition** to override it.
 Deleting an image restores the bundled woodland on editions that used it.
+
+### Weather in The Daily Planet
+
+The weather section is written by VMN itself for the **Workspace location** (Workspace settings →
+Members & location): Triora's Workspace gets Triora, Göggenhofen's gets Göggenhofen, never both.
+Without a location the section says so, with a **Set location** link for admins. Changing the
+location changes the next editions; older editions keep the forecast they were published with.
+
+VMN asks several forecast models and compares them: in Liguria ItaliaMeteo ARPAE ICON-2I, DWD
+ICON-EU, ECMWF IFS and MET Norway, with AllertaLiguria and Meteoalarm warnings; in Germany DWD
+ICON-D2 and ICON-EU, DWD MOSMIX (station forecast), ECMWF IFS and MET Norway, with official DWD
+warnings. Models from the same family (MET Norway is based on ECMWF; ICON-D2 and ICON-EU are both
+DWD ICON) count as one opinion. Where independent models disagree you see a range ("2–9 mm") and a
+line under the week; faded days (4–7) are less certain. **Compare sources** opens the value of
+every model per day. Missing values stay empty; a provider that is down is named.
+
+Admins find **Weather** in Daily Planet settings: switch a source off (eye), change its weight,
+choose the AllertaLiguria zone when the place name is not a Ligurian municipality, and let VMN
+adjust weights from nearby official stations (DWD stations in Germany; Italy has no station data
+VMN may use yet). The writer (for example ChatGPT) only adds a short summary.
 
 ## Documents
 

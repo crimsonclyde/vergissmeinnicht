@@ -568,6 +568,13 @@
       "when": 1794646099133,
       "tag": "0080_gazette_headers",
       "breakpoints": true
+    },
+    {
+      "idx": 81,
+      "version": "6",
+      "when": 1794726362756,
+      "tag": "0081_gazette_weather",
+      "breakpoints": true
     }
   ]
 }

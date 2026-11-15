@@ -2,6 +2,7 @@ import { useEffect, useState, type FormEvent } from 'react';
 import { GAZETTE_HEADER_MODES, MAX_GAZETTE_HEADER_IMAGES } from '@vergissmeinnicht/domain';
 import { api, gazetteHeaderUrl, messageFor, type GazetteEditionSummaryView, type GazetteHeaderSettings as Header, type GazetteHeaderView } from '../../api.ts';
 import { formatCalendarDate, t } from '../../i18n/index.ts';
+import { UiIcon } from '../../ui-icons.tsx';
 
 export function GazetteHeaderSettings({ workspaceId }: { workspaceId: string }) {
   const [stored, setStored] = useState<GazetteHeaderView | null>(null);
@@ -72,20 +73,30 @@ export function GazetteHeaderSettings({ workspaceId }: { workspaceId: string }) 
           {draft.images.map((image, index) => {
             const name = t('gazette.headerPhoto', { number: index + 1 });
             return <li key={image.id}>
-              <img src={gazetteHeaderUrl(workspaceId, image.id)} alt={name} style={{ objectPosition: `${image.x}% ${image.y}%` }} />
+              {/* Click or tap the photo to put its focal point there; the sliders fine-tune it. */}
+              <button type="button" className="gazette-header-focus" aria-label={t('gazette.headerFocusHere', { name })} title={t('gazette.headerFocusHere', { name })}
+                onClick={event => { const box = event.currentTarget.getBoundingClientRect(); if (box.width === 0 || box.height === 0) return; const x = Math.round(Math.min(100, Math.max(0, ((event.clientX - box.left) / box.width) * 100))); const y = Math.round(Math.min(100, Math.max(0, ((event.clientY - box.top) / box.height) * 100))); setDraft({ ...draft, images: draft.images.map(item => item.id === image.id ? { ...item, x, y } : item) }); }}>
+                <img src={gazetteHeaderUrl(workspaceId, image.id)} alt={name} style={{ objectPosition: `${image.x}% ${image.y}%` }} />
+                <span className="gazette-header-shade" aria-hidden="true" />
+                <span className="gazette-header-dot" aria-hidden="true" style={{ left: `${image.x}%`, top: `${image.y}%` }} />
+              </button>
               <div className="gazette-admin-grid">
                 {(['x', 'y'] as const).map(axis => <label key={axis}>{t(`gazette.headerFocus.${axis}`)}<input type="range" min="0" max="100" value={image[axis]} onChange={event => setDraft({ ...draft, images: draft.images.map(item => item.id === image.id ? { ...item, [axis]: Number(event.target.value) } : item) })} /></label>)}
               </div>
               <div className="gazette-header-actions">
-                <button type="button" className="button" disabled={index === 0} onClick={() => reorder(index, -1)}>{t('gazette.moveUp', { title: name })}</button>
-                <button type="button" className="button" disabled={index === draft.images.length - 1} onClick={() => reorder(index, 1)}>{t('gazette.moveDown', { title: name })}</button>
+                <button type="button" className="icon-button" disabled={index === 0} aria-label={t('gazette.moveUp', { title: name })} title={t('gazette.moveUp', { title: name })} onClick={() => reorder(index, -1)}><UiIcon name="moveUp" /></button>
+                <button type="button" className="icon-button" disabled={index === draft.images.length - 1} aria-label={t('gazette.moveDown', { title: name })} title={t('gazette.moveDown', { title: name })} onClick={() => reorder(index, 1)}><UiIcon name="moveDown" /></button>
+                <label className={dirty ? 'button icon-button is-disabled' : 'button icon-button'} title={t('gazette.headerReplace', { name })}>
+                  <UiIcon name="replace" /><span className="visually-hidden">{t('gazette.headerReplace', { name })}</span>
+                  <input className="visually-hidden" type="file" accept="image/jpeg,image/png,image/webp" disabled={dirty} onChange={event => { upload(event.target.files?.[0], image.id); event.target.value = ''; }} />
+                </label>
+                {deleting !== image.id && <button type="button" className="icon-button" disabled={dirty} aria-label={t('gazette.headerDelete', { name })} title={t('gazette.headerDelete', { name })} onClick={() => setDeleting(image.id)}><UiIcon name="trash" /></button>}
               </div>
-              <label>{t('gazette.headerReplace', { name })}<input type="file" accept="image/jpeg,image/png,image/webp" disabled={dirty} onChange={event => { upload(event.target.files?.[0], image.id); event.target.value = ''; }} /></label>
-              {deleting === image.id ? <div className="gazette-header-actions">
+              {deleting === image.id && <div className="gazette-header-actions">
                 <p>{t('gazette.headerConfirmDelete')}</p>
-                <button type="button" className="button" disabled={dirty} onClick={() => void run(async () => { apply(await api.deleteGazetteHeader(workspaceId, image.id, stored.revision)); setDeleting(null); })}>{t('gazette.headerDelete', { name })}</button>
                 <button type="button" className="button" onClick={() => setDeleting(null)}>{t('common.cancel')}</button>
-              </div> : <button type="button" className="button" disabled={dirty} onClick={() => setDeleting(image.id)}>{t('gazette.headerDelete', { name })}</button>}
+                <button type="button" className="button" disabled={dirty} onClick={() => void run(async () => { apply(await api.deleteGazetteHeader(workspaceId, image.id, stored.revision)); setDeleting(null); })}>{t('gazette.headerDelete', { name })}</button>
+              </div>}
             </li>;
           })}
         </ul>

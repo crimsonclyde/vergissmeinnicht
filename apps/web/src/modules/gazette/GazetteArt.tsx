@@ -19,7 +19,7 @@ export function GazetteLandscape({ className }: { className?: string }) {
         </g>
         <path className="gazette-art-far" d="M0 150 C90 120 160 128 240 108 S380 70 450 96 560 140 640 118 760 70 840 92 980 130 1060 112 1160 96 1200 104" strokeWidth="1.6" />
         <g className="gazette-art-hatch" strokeWidth="1"><path d="M60 150l30-22M120 140l30-24M300 104l26-18M470 112l26-12M700 104l28-22M1000 126l26-16" /></g>
-        <path className="gazette-art-mid" d="M0 190 C120 160 210 170 300 150 S470 120 560 146 700 196 820 170 980 140 1080 158 1200 150" strokeWidth="2" />
+        <path className="gazette-art-mid" d="M0 190 C120 160 210 170 300 150 S470 120 560 146 700 196 820 170 980 140 1080 158 L1200 150" strokeWidth="2" />
         <g className="gazette-art-village" strokeWidth="1.6">
           <path d="M470 132v-20h16v20M486 132v-28l9-9 9 9v28M504 132v-16h18v16M522 132v-24h12v24M534 132v-12h16v12" />
           <path d="M495 95v-12M491 87h8" />

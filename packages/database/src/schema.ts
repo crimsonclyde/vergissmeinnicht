@@ -2600,9 +2600,15 @@ export const gazetteWatchPrices = sqliteTable('gazette_watch_prices', {
   itemId: text('item_id').notNull().references(() => gazetteWatchItems.id),
   price: real('price').notNull(), verified: integer('verified', { mode: 'boolean' }).notNull(), checkedAt: integer('checked_at', { mode: 'timestamp_ms' }).notNull(),
   source: text('source').notNull(), url: text('url'),
+  /** 43.7: delivery cost in the item's currency when the offer showed it (0 = free); `null` = not known. */
+  shipping: real('shipping'),
+  /** 43.7: the price includes VAT, as shown by the seller; `null` = not stated. */
+  vatIncluded: integer('vat_included', { mode: 'boolean' }),
   createdAt: timestampMs('created_at'), createdByUserId: text('created_by_user_id').notNull().references(() => users.id),
 }, t => [
   index('gazette_watch_prices_item').on(t.itemId, t.checkedAt),
+  check('gazette_watch_price_shipping', sql`${t.shipping} is null or ${t.shipping} >= 0`),
+  check('gazette_watch_price_vat', sql`${t.vatIncluded} is null or ${t.vatIncluded} in (0, 1)`),
   check('gazette_watch_price_valid', sql`${t.price} >= 0 and ${t.verified} in (0, 1) and length(${t.source}) <= 320 and (${t.url} is null or (length(${t.url}) <= 2048 and ${t.url} like 'https://%'))`),
 ]);
 
@@ -2621,3 +2627,30 @@ export const gazetteHeaderSettings = sqliteTable('gazette_header_settings', {
   revision: integer('revision').notNull(),
   sequence: integer('sequence').notNull().default(0),
 }, t => [check('gazette_header_settings_valid', sql`json_valid(${t.settings}) and length(${t.settings}) <= 4096 and ${t.revision} >= 1 and ${t.sequence} >= 0`)]);
+
+/**
+ * What each weather source forecast for the Daily Planet (43.7), per Workspace place and issue day, so it can be
+ * checked against what a nearby official station observed. Derived data: kept for 60 days, never in backups.
+ */
+export const gazetteWeatherForecasts = sqliteTable('gazette_weather_forecasts', {
+  workspaceId: text('workspace_id').notNull().references(() => workspaces.id, { onDelete: 'cascade' }),
+  locationKey: text('location_key').notNull(), sourceId: text('source_id').notNull(), issuedOn: text('issued_on').notNull(), targetDate: text('target_date').notNull(),
+  lead: integer('lead').notNull(), high: real('high'), low: real('low'), precipitationMm: real('precipitation_mm'),
+  recordedAt: integer('recorded_at', { mode: 'timestamp_ms' }).notNull(),
+}, t => [
+  primaryKey({ columns: [t.workspaceId, t.locationKey, t.sourceId, t.issuedOn, t.targetDate] }),
+  index('gazette_weather_forecasts_target').on(t.workspaceId, t.locationKey, t.targetDate),
+  check('gazette_weather_forecasts_valid', sql`length(${t.locationKey}) <= 32 and length(${t.sourceId}) between 1 and 40 and length(${t.issuedOn}) = 10 and length(${t.targetDate}) = 10 and ${t.lead} between 0 and 15 and (${t.high} is null or ${t.high} between -90 and 60) and (${t.low} is null or ${t.low} between -90 and 60) and (${t.precipitationMm} is null or ${t.precipitationMm} between 0 and 2000)`),
+]);
+
+/** Daily highs, lows and rain observed at an official station near the Workspace place (43.7), moved to the place's height. */
+export const gazetteWeatherObservations = sqliteTable('gazette_weather_observations', {
+  workspaceId: text('workspace_id').notNull().references(() => workspaces.id, { onDelete: 'cascade' }),
+  locationKey: text('location_key').notNull(), date: text('date').notNull(),
+  high: real('high'), low: real('low'), precipitationMm: real('precipitation_mm'),
+  station: text('station').notNull(), distanceM: integer('distance_m').notNull(), elevationM: integer('elevation_m'), source: text('source').notNull(), hours: integer('hours').notNull(),
+  recordedAt: integer('recorded_at', { mode: 'timestamp_ms' }).notNull(),
+}, t => [
+  primaryKey({ columns: [t.workspaceId, t.locationKey, t.date] }),
+  check('gazette_weather_observations_valid', sql`length(${t.locationKey}) <= 32 and length(${t.date}) = 10 and length(${t.station}) between 1 and 320 and length(${t.source}) between 1 and 80 and ${t.distanceM} between 0 and 100000 and ${t.hours} between 1 and 25 and (${t.high} is null or ${t.high} between -90 and 60) and (${t.low} is null or ${t.low} between -90 and 60) and (${t.precipitationMm} is null or ${t.precipitationMm} between 0 and 2000)`),
+]);
