@@ -18,10 +18,16 @@ For every completed task, add a concise completion note, tests/checks performed,
 
 ## Current state — resume here
 
-**Release plan 0.15.3, owner release 73.** The Daily Planet newspaper layout, direct News
-navigation and Local alerts & road closures (43.8–43.9), integrated with the 0.15.2 automatic
-Workspace forecast. No migration. Run CI, image smoke and populated upgrades starting with
-0.15.2. Live deployment remains separate.
+**Published owner release 73 (2026-11-16 Europe/Berlin).** 0.15.3 was published from
+`v0.15.3`, source `b4771802817540d681134f114816ea51ef2688d3` (PR #129, Daily Planet newspaper
+layout, direct News navigation, Local alerts & road closures, and the redesigned automatic Workspace
+forecast in 43.8–43.9). No migration. Main CI, amd64 and arm64 image builds and scans, signing,
+SBOM attestation, exact-image smoke test and populated upgrades from 0.15.2, 0.15.1, 0.15.0 and
+0.10.1-beta.0 passed. Registry tags `0.15.3`, `0.15` and `latest` all point to
+`sha256:b2026c293019815afc3c10f767d72135065f37792ee0f9d482613d53c6e6e0f3`.
+The publication record changes no application security surface. Owner count **73**, next **74**.
+Live deployment and the first scheduled local-notice import remain separate.
+[GitHub release](https://github.com/crimsonclyde/vergissmeinnicht/releases/tag/v0.15.3) · [Release workflow](https://github.com/crimsonclyde/vergissmeinnicht/actions/runs/43715090633)
 
 **Published owner release 72 (2026-11-15).** 0.15.2 was published from `v0.15.2`, source
 `d84d711e901d04599c24163be8b8b5fb5dcffde2` (PR #126: The Daily Planet workspace weather from several
@@ -6109,6 +6115,8 @@ Release notes in [0.15.2](../releases/0.15.2.md); upgrade inputs 0.15.1, 0.15.0,
 
 ### 43.8 — Newspaper layout, weather desk and News navigation (2026-11-15)
 
+**Status:** Released in [0.15.3](https://github.com/crimsonclyde/vergissmeinnicht/releases/tag/v0.15.3), owner release 73.
+
 The Daily Planet uses a separate dated masthead, **Newsflash** for the edition summary,
 and text-first story columns. Story cards no longer reuse the ornamental landscape as
 an illustration. Each story opens the original in a new tab from the whole card, with its
@@ -6143,6 +6151,8 @@ Security surface: unchanged. The view uses the existing tool gate, publication s
 and validated source links. Bundled images load locally. Live deployment remains separate.
 
 ### 43.9 — Local alerts and road closures (2026-11-15)
+
+**Status:** Released in [0.15.3](https://github.com/crimsonclyde/vergissmeinnicht/releases/tag/v0.15.3), owner release 73.
 
 Gazette surfaces published weather warnings alongside official civil-protection and major
 road notices in a dedicated section above the weather. Informational bulletins remain with
