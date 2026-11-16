@@ -8,7 +8,7 @@ the REST API below. All paths are under `/api/workspaces/{workspaceId}/gazette`.
 
 | Method and path | Capability | Body / answer |
 | --- | --- | --- |
-| `GET /today` | `gazette.view` | `{today, preview}`: the Dashboard projection of the newest published edition (`null` if none) |
+| `GET /today` | `gazette.view` | `{today, preview}`: the Dashboard projection of the newest published edition (`null` if none), including the Workspace masthead name, Newsflash Markdown (`intro`), and the edition’s saved image and focal point (`header`, or `null`) |
 | `GET /settings` | `gazette.view` | `{settings, revision, today, oldest}` |
 | `POST /settings` | `gazette.manage` | `{settings, expectedRevision}` |
 | `GET /editions` | `gazette.view` | `{today, editions}`: kept editions; drafts only for publishers |

@@ -958,10 +958,11 @@ test('Daily Planet keeps reference prices, summary lists and a stable masthead o
     const days = Array.from({ length: 7 }, (_, i) => ({
       date: new Date(Date.parse(editionDate) + i * 86_400_000).toISOString().slice(0, 10),
       condition: 'RAIN', high: i === 2 ? null : 10 + i, low: 5 + i,
+      ...(i === 4 ? { confidence: 'low', note: 'Rain amounts vary by source.', precipitationProbability: 61 } : {}),
       precipitationMm: i === 4 ? { min: 0, max: 3 } : 1,
     }));
     const body = { publish: true, content: {
-      version: 1, date: editionDate, title: 'The Daily Planet — 15 November 2026', intro: 'The day in brief, from Liguria to the world.',
+      version: 1, date: editionDate, title: 'The Daily Planet — 15 November 2026', intro: 'The day in brief, from [Liguria](https://news.example.org/liguria) to the world.',
       localNotices: [{ kind: 'road_closure', place: 'Triora', text: 'The main road is closed at the bridge.', source: 'Road authority', url: 'https://roads.example.org/closure', checkedAt: `${editionDate}T09:00:00Z` }],
       sections: [
         { sectionId: 'watchlist', type: 'watchlist', summary, items },
@@ -1020,7 +1021,29 @@ test('Daily Planet keeps reference prices, summary lists and a stable masthead o
   const first = await art.getAttribute('src');
   if (first === null) throw new Error('The edition image has no URL');
   expect(first).toContain('/header/images/');
-  await page.reload();
+  const editionBrief = page.getByRole('region', { name: 'Newsflash' });
+  const intro = await editionBrief.innerText();
+  const crop = await art.getAttribute('style');
+  expect(crop).toContain('object-position:');
+  const viewportWidth = testInfo.project.name === 'guide-desktop-chromium' ? 1440 : 320;
+  await page.setViewportSize({ width: viewportWidth, height: 1000 });
+  await page.goto(`/w/${workspaceId}`);
+  const tile = page.locator('[data-card="gazette"]');
+  const tileBrief = tile.getByRole('region', { name: 'Newsflash' });
+  await expect(tileBrief).toHaveText(intro.replace(/\s+/g, ' ').trim(), { useInnerText: true });
+  await expect(tileBrief.getByRole('link', { name: 'Liguria' })).toHaveAttribute('href', 'https://news.example.org/liguria');
+  await expect(tile.locator('.gazette-custom-art')).toHaveAttribute('src', first);
+  expect(await tile.locator('.gazette-custom-art').getAttribute('style')).toBe(crop);
+  expect(await page.evaluate('document.documentElement.scrollWidth <= innerWidth')).toBe(true);
+  await expectAccessible(page, `Dashboard Newsflash at ${viewportWidth}px`);
+  await tile.screenshot({ path: testInfo.outputPath('gazette-dashboard.png') });
+  const openEdition = tile.locator('a.gazette-tile-band');
+  if (testInfo.project.name === 'guide-mobile-chromium') await openEdition.tap();
+  else {
+    await openEdition.focus();
+    await openEdition.press('Enter');
+  }
+  await expect(page).toHaveURL(`/w/${workspaceId}/gazette/${today}`);
   await expect(art).toHaveAttribute('src', first);
   await page.goto(`/w/${workspaceId}/gazette/${date}`);
   await expect(page.getByRole('heading', { name: 'The Daily Planet', exact: true })).toBeVisible();
@@ -1054,26 +1077,38 @@ test('Daily Planet keeps reference prices, summary lists and a stable masthead o
   await expect(alerts.getByText('Road closure · Triora')).toBeVisible();
   await expect(alerts.getByRole('link', { name: 'Road authority' })).toHaveAttribute('href', 'https://roads.example.org/closure');
   await expect(forecast.getByText(/Yellow warning/)).toHaveCount(0);
-  await expect(forecast.getByText('Sources disagree')).toBeVisible();
+  const rainDay = forecast.locator('.gazette-day-details').filter({ hasText: 'Rain amounts vary by source.' });
+  await expect(rainDay.locator('summary')).toContainText('61% · 0–3 mm');
+  await expect(rainDay.getByText('Rain amounts vary by source.')).toBeHidden();
+  if (testInfo.project.name === 'guide-mobile-chromium') await rainDay.locator('summary').tap();
+  else {
+    await rainDay.locator('summary').focus();
+    await rainDay.locator('summary').press('Enter');
+  }
+  await expect(rainDay.getByText('Rain amounts vary by source.')).toBeVisible();
+  await expect(rainDay.getByText('Sources disagree', { exact: true }).last()).toBeVisible();
   await expect(forecast.locator('.gazette-chart-high line')).toHaveCount(4);
+  const chart = forecast.locator('.gazette-temperature');
+  if (viewportWidth === 320) await expect(chart).toBeHidden();
+  else await expect(chart).toBeVisible();
   await forecast.getByText('Weather bulletins (1)', { exact: true }).click();
   await expect(forecast.getByRole('link', { name: 'Regional bulletin' })).toBeVisible();
   await forecast.getByText('Rain (mm) by source', { exact: true }).click();
   await expect(forecast.getByRole('table', { name: 'Rain (mm) by source' })).toBeVisible();
-  const viewportWidth = testInfo.project.name === 'guide-desktop-chromium' ? 1440 : 320;
-  await page.setViewportSize({ width: viewportWidth, height: 1000 });
-  for (const theme of ['light', 'memento-mori', 'tokyo-nights', 'witch-forest', 'places-de', 'places-it', 'places-uk', 'places-scotland', 'space-guide']) {
+  for (const theme of ['light', 'dark', 'tokyo-nights', 'witch-forest', 'places-de', 'places-it', 'places-uk', 'places-scotland', 'space-guide']) {
     const status = await page.evaluate(theme => fetch('/api/account/preferences', {
       method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ theme }),
     }).then(response => response.status), theme);
     expect(status).toBe(200);
     await page.reload();
-    await expect(page.locator('html')).toHaveAttribute('data-theme', theme.startsWith('places-') ? 'places' : theme);
+    const resolvedTheme = theme === 'dark' ? 'memento-mori' : theme.startsWith('places-') ? 'places' : theme;
+    await expect(page.locator('html')).toHaveAttribute('data-theme', resolvedTheme);
     await expect(forecast).toBeVisible();
     const scenery = theme === 'space-guide' ? /orbit/ : theme === 'witch-forest' ? /old-forest/ : theme === 'tokyo-nights' ? /city/ : /coast|city/;
     await expect(page.locator('.gazette-masthead-art img')).toHaveAttribute('src', scenery);
     expect(await page.evaluate('document.documentElement.scrollWidth <= innerWidth')).toBe(true);
     await expectAccessible(page, `Gazette ${theme} at ${viewportWidth}px`);
+    if (theme === 'light') await forecast.screenshot({ path: testInfo.outputPath('gazette-weather.png') });
     if (['light', 'space-guide'].includes(theme)) {
       await page.evaluate('window.scrollTo(0, 0)');
       await page.screenshot({ path: testInfo.outputPath(`gazette-${theme}.png`), fullPage: true });

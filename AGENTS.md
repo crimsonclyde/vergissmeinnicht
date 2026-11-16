@@ -255,6 +255,12 @@ Do not add Redis/Kafka/message queues merely because realtime exists.
 
 ## UI/UX
 
+Make VergissMeinNicht feel like one application. Give each screen a clear visual hierarchy and an obvious next action. Use typography, spacing, icons, charts and purposeful imagery to make it inviting and easy to scan. Keep essential labels, statuses, warnings and actions visible. Put secondary explanations and supporting detail behind accessible, clearly named controls.
+
+Reuse shared buttons, cards, rows, menus, disclosures and action bars, along with the app's design tokens. Prefer existing components and native HTML controls for common interactions. If a new library would materially improve the design or accessibility, show the owner the proposed library and a design example, and explain the benefit and dependency cost. Obtain approval before adding the dependency.
+
+Design for desktop and touch from the start. Adapt layout to the available space while keeping labels, actions and feedback familiar. Exercise the main task with keyboard and touch in Light and Dark, including at 320 px. Verify contrast, focus and reduced-motion behavior where relevant.
+
 **Usability is the second product priority after security** (owner, 2026-11-03). Phone creation flows must be designed for touch and a small viewport; split writing and secondary entry tasks into focused screens, preserve unsaved work between them, and verify actual task completion instead of relying on overflow checks alone.
 
 Desktop authoring and smartphone execution are both first-class.

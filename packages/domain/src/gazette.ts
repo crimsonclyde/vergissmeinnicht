@@ -628,6 +628,9 @@ export interface GazettePreview {
   readonly date: LocalDate;
   readonly isToday: boolean;
   readonly title: string;
+  readonly masthead: string;
+  readonly intro: string;
+  readonly header: NonNullable<GazetteEdition['header']> | null;
   readonly greeting: string;
   readonly publishedAt: Date | null;
   readonly sectionCount: number;
@@ -668,7 +671,21 @@ export function gazettePreview(edition: GazetteEdition, settings: GazetteSetting
     return day ? [{ name: l.name, condition: day.condition, high: day.high, low: day.low }] : [];
   }) : []).slice(0, 2) : [];
   const priceDrops = sections.reduce((n, s) => n + (s.content.type === 'watchlist' && s.definition.dashboard ? s.content.items.filter(i => gazetteSignificantDiscount(i, settings.watchlist?.discountThreshold)).length : 0), 0);
-  return { id: edition.id, date: edition.date, isToday, title: edition.title, greeting: isToday ? edition.content.greeting : '', publishedAt: edition.publishedAt, sectionCount: sections.length, headlines, weather, priceDrops };
+  return {
+    id: edition.id,
+    date: edition.date,
+    isToday,
+    title: edition.title,
+    masthead: settings.title,
+    intro: edition.content.intro,
+    header: edition.header ?? null,
+    greeting: isToday ? edition.content.greeting : '',
+    publishedAt: edition.publishedAt,
+    sectionCount: sections.length,
+    headlines,
+    weather,
+    priceDrops,
+  };
 }
 
 /** Placeholder definitions matching an edition's own sections: checks a stored edition's shape (restore) without its Workspace settings. */

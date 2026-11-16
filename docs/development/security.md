@@ -2203,6 +2203,11 @@ server admins see and can end every connection on the server.
   so a replayed or forged request cannot silently swap content under an old id.
 - [x] Publishing replaces the published edition only after validation, in one IMMEDIATE transaction.
 - [x] No external images or HTML are stored or rendered; the CSP stays unchanged.
+- [x] Dashboard `GET /gazette/today` includes the bounded Newsflash Markdown and image id/focal
+  point of the same published edition under the existing Workspace and tool gates. Both views
+  use the existing Markdown renderer with external image fetching disabled. Masthead image
+  bytes still use the authenticated, Workspace-scoped image route. Regression checks cover
+  published preview parity, draft exclusion, tool disablement and Workspace separation.
 - [x] Retention deletes only Gazette editions and receipts; the newest published edition is kept.
 - [x] Audit: `GAZETTE_EDITION_CHANGED` (edition id, date, state, revision, action) and
   `GAZETTE_SETTINGS_CHANGED` (revision, retention, section count) — never article text.

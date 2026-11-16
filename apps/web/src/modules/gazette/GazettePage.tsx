@@ -1,19 +1,15 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { gazettePriceChange, gazetteSignificantDiscount } from '@vergissmeinnicht/domain';
 import type { GazetteArticle, GazetteIcon, GazetteTable, GazetteWatchItem } from '@vergissmeinnicht/domain';
-import { api, gazetteHeaderUrl, messageFor, type GazetteHeaderImage, type GazetteEditionSummaryView, type GazetteEditionView, type GazetteSectionContent, type GazetteSettings } from '../../api.ts';
+import { api, messageFor, type GazetteEditionSummaryView, type GazetteEditionView, type GazetteSectionContent, type GazetteSettings } from '../../api.ts';
 import { formatCalendarDate, formatDateTime, formatNumber, formatShortTime, formatWeekdayShort, t } from '../../i18n/index.ts';
 import { Markdown } from '../../markdown/Markdown.tsx';
 import { Link, paths } from '../../router.tsx';
-import { useThemeMode } from '../../theme.ts';
 import { addDays } from '../../schedule-dates.ts';
 import { UiIcon, type UiIconName } from '../../ui-icons.tsx';
 import { GazetteOrnament } from './GazetteArt.tsx';
-import woodlandWide from '../../witch-forest/old-forest-wide.webp';
-import woodlandPhone from '../../witch-forest/old-forest-portrait-480.webp';
-import orbit from './art/orbit.webp';
-import city from './art/city.webp';
-import coast from './art/coast.webp';
+import { GazetteMastheadArtwork } from './GazetteMastheadArtwork.tsx';
+import { GazetteNewsflash } from './GazetteNewsflash.tsx';
 import { GazetteForecast, WeatherNotice } from './GazetteForecast.tsx';
 import './gazette.css';
 
@@ -103,14 +99,11 @@ export function GazettePage({ workspaceId, date, canManage = false }: { workspac
   const isToday = view?.date === settings.today;
   const coverDate = view?.date ?? wanted ?? settings.today;
   const masthead = settings.settings.title;
-  const editionTitle = view?.content.title;
-  const datedTitle = editionTitle?.startsWith(`${masthead} — `) && /^\d{1,2} [\p{L}.]+ \d{4}$/u.test(editionTitle.slice(masthead.length + 3));
-  const headline = editionTitle && editionTitle !== masthead && !datedTitle ? editionTitle : null;
 
   return (
     <article className="gazette-page" aria-labelledby="gazette-title">
       <header className="gazette-masthead">
-        <MastheadArtwork workspaceId={workspaceId} header={view?.header ?? null} date={coverDate} />
+        <GazetteMastheadArtwork workspaceId={workspaceId} header={view?.header ?? null} date={coverDate} />
         <span className="gazette-tools">
           <Link href={paths.gazetteWatchlist(workspaceId)} className="icon-button" aria-label={t('gazette.openWatchlist')} title={t('gazette.watchlist')}><UiIcon name="tag" /></Link>
           {canManage && <Link href={paths.gazetteSettings(workspaceId)} className="icon-button" aria-label={t('gazette.settings')} title={t('gazette.settings')}><UiIcon name="settings" /></Link>}
@@ -150,11 +143,7 @@ export function GazettePage({ workspaceId, date, canManage = false }: { workspac
         <>
           {!isToday && <p className="gazette-chip gazette-chip-warn gazette-older"><UiIcon name="calendar" size="1em" />{t('gazette.olderNote', { date: formatCalendarDate(view.date) })}</p>}
           <div className="gazette-lede">
-            <section className="gazette-brief" aria-labelledby="gazette-newsflash">
-              <h2 id="gazette-newsflash">{t('gazette.newsflash')}</h2>
-              {headline && <h3>{headline}</h3>}
-              {view.content.intro !== '' && <div className="gazette-intro"><Markdown source={view.content.intro} /></div>}
-            </section>
+            <GazetteNewsflash masthead={masthead} title={view.content.title} intro={view.content.intro} />
             {sections.length + Number(alertCount > 0) > 1 && (
               <nav className="gazette-contents" aria-label={t('gazette.contents')}>
                 {alertCount > 0 && (
@@ -227,28 +216,6 @@ export function GazettePage({ workspaceId, date, canManage = false }: { workspac
         </>
       )}
     </article>
-  );
-}
-
-function MastheadArtwork({ workspaceId, header, date }: { workspaceId: string; header: GazetteHeaderImage | null; date: string }) {
-  const [theme] = useThemeMode();
-  const [failed, setFailed] = useState<string | null>(null);
-  const day = Date.parse(date) / 86_400_000;
-  const scenery = theme === 'space-guide' ? orbit
-    : theme === 'witch-forest' ? woodlandWide
-    : theme === 'tokyo-nights' ? city
-    : theme.startsWith('places-') || day % 2 === 0 ? coast
-    : city;
-
-  if (header && failed !== header.id) {
-    return <img className="gazette-masthead-art gazette-custom-art" alt="" src={gazetteHeaderUrl(workspaceId, header.id)} style={{ objectPosition: `${header.x}% ${header.y}%` }} onError={() => setFailed(header.id)} />;
-  }
-
-  return (
-    <picture className="gazette-masthead-art" aria-hidden="true">
-      {scenery === woodlandWide && <source media="(max-width: 540px)" srcSet={woodlandPhone} />}
-      <img src={scenery} alt="" />
-    </picture>
   );
 }
 

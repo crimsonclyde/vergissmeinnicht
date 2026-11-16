@@ -8,21 +8,23 @@ const temperature = (value: number | null) => value === null ? '–' : `${format
 
 function rainOf(value: NonNullable<GazetteForecastDay['precipitationMm']>): string {
   return typeof value === 'number'
-    ? `${formatNumber(value, 1)} mm`
-    : `${formatNumber(value.min, 1)}–${formatNumber(value.max, 1)} mm`;
+    ? `${formatNumber(value, 1)}\u00a0mm`
+    : `${formatNumber(value.min, 1)}–${formatNumber(value.max, 1)}\u00a0mm`;
 }
 
-/** Each day has a fixed slot, and missing readings break the line. The daily list gives the exact values. */
-function TemperatureChart({ days }: { days: readonly GazetteForecastDay[] }) {
-  const values = days.flatMap(day => [day.high, day.low]).filter(value => value !== null);
-  if (values.length < 2 || days.length < 2) return null;
+function chartReadings(days: readonly GazetteForecastDay[]) {
+  return days.flatMap(day => [day.high, day.low]).filter(value => value !== null);
+}
+
+/** Each day has a fixed slot, and missing readings break the line. */
+function TemperatureChart({ days, values }: { days: readonly GazetteForecastDay[]; values: readonly number[] }) {
   const spread = Math.max(...values) - Math.min(...values);
   const step = Math.max(2, Math.ceil(spread / 6) * 2);
   const bottom = Math.floor(Math.min(...values) / step) * step;
   const top = Math.max(bottom + 2 * step, Math.ceil(Math.max(...values) / step) * step);
   const ticks = Array.from({ length: (top - bottom) / step + 1 }, (_, i) => top - i * step);
   const x = (i: number) => 700 * (i + 0.5) / days.length;
-  const y = (value: number) => 7 + 78 * (top - value) / (top - bottom);
+  const y = (value: number) => 16 + 68 * (top - value) / (top - bottom);
 
   return (
     <figure className="gazette-temperature" aria-hidden="true">
@@ -35,25 +37,30 @@ function TemperatureChart({ days }: { days: readonly GazetteForecastDay[] }) {
         <div className="gazette-chart-scale">
           {ticks.map(value => <span key={value} style={{ top: `${y(value)}%` }}>{temperature(value)}</span>)}
         </div>
-        <svg viewBox="0 0 700 100" preserveAspectRatio="none" focusable="false">
-          {ticks.map(value => <line key={value} className="gazette-chart-grid" x1="0" x2="700" y1={y(value)} y2={y(value)} />)}
-          {(['high', 'low'] as const).map(series => (
-            <g key={series} className={`gazette-chart-${series}`}>
-              {days.map((day, i) => {
-                const value = day[series];
-                const previous = days[i - 1]?.[series];
-                return value === null ? null : (
-                  <g key={day.date}>
-                    {previous != null && <line x1={x(i - 1)} y1={y(previous)} x2={x(i)} y2={y(value)} />}
-                    <path d={`M${x(i)} ${y(value)}h.05`} />
-                  </g>
-                );
-              })}
-            </g>
-          ))}
-        </svg>
-        <div className="gazette-chart-days" style={{ gridTemplateColumns: `repeat(${days.length}, minmax(0, 1fr))` }}>
-          {days.map(day => <span key={day.date}>{formatWeekdayShort(day.date)}</span>)}
+        <div className="gazette-chart-series">
+          <svg viewBox="0 0 700 100" preserveAspectRatio="none" focusable="false">
+            {ticks.map(value => <line key={value} className="gazette-chart-grid" x1="0" x2="700" y1={y(value)} y2={y(value)} />)}
+            {(['high', 'low'] as const).map(series => (
+              <g key={series} className={`gazette-chart-${series}`}>
+                {days.map((day, i) => {
+                  const value = day[series];
+                  const previous = days[i - 1]?.[series];
+                  return value === null ? null : (
+                    <g key={day.date}>
+                      {previous != null && <line x1={x(i - 1)} y1={y(previous)} x2={x(i)} y2={y(value)} />}
+                      <path d={`M${x(i)} ${y(value)}h.05`} />
+                    </g>
+                  );
+                })}
+              </g>
+            ))}
+          </svg>
+          {(['high', 'low'] as const).flatMap(series => days.flatMap((day, i) => {
+            const value = day[series];
+            return value === null ? [] : [
+              <b key={`${day.date}:${series}`} className={`gazette-point gazette-point-${series}`} style={{ left: `${x(i) / 7}%`, top: `${y(value)}%` }}>{temperature(value)}</b>,
+            ];
+          }))}
         </div>
       </div>
     </figure>
@@ -112,7 +119,8 @@ function SourceTable({ location }: { location: GazetteLocationForecast }) {
 
 export function GazetteForecast({ location, today }: { location: GazetteLocationForecast; today: string | null }) {
   const bulletins = location.warnings.filter(notice => notice.level === 'info');
-  const notes = location.days.filter(day => day.note);
+  const values = chartReadings(location.days);
+  const chart = values.length >= 2 && location.days.length >= 2;
   const lowConfidence = location.days.some(day => day.confidence === 'low');
   const forecastSources = location.sources.filter(source => source.role === undefined || source.role === 'forecast');
   const otherSources = location.sources.filter(source => source.role === 'warnings' || source.role === 'observations');
@@ -124,44 +132,17 @@ export function GazetteForecast({ location, today }: { location: GazetteLocation
         <h3>{location.name}</h3>
         {region !== '' && <span className="muted">{region}</span>}
       </header>
-      <TemperatureChart days={location.days} />
-      <ol className="plain-list gazette-week" style={{ '--gz-days': location.days.length } as CSSProperties}>
-        {location.days.map(day => (
-          <li key={day.date} className={day.date === today ? 'gazette-today' : undefined}>
-            <time className="gazette-week-day" dateTime={day.date} aria-current={day.date === today ? 'date' : undefined}>
-              {formatWeekdayShort(day.date)} <b>{Number(day.date.slice(-2))}</b>
-            </time>
-            <span className="gazette-week-condition" title={t(`weather.condition.${day.condition}`)}>
-              <UiIcon name={conditionIcon(day.condition)} size="1.35em" />
-              <span className="visually-hidden">{t(`weather.condition.${day.condition}`)}</span>
-            </span>
-            <span className="gazette-week-temps">
-              <span className="visually-hidden">{t('gazette.high')} </span><strong>{temperature(day.high)}</strong>
-              <span aria-hidden="true"> / </span>
-              <span className="visually-hidden">{t('gazette.low')} </span>{temperature(day.low)}
-            </span>
-            <span className="gazette-rain">
-              <span className="visually-hidden">{t('gazette.precipitation')} </span>
-              {day.precipitationMm === null ? '–' : rainOf(day.precipitationMm)}
-            </span>
-            {(day.disagreement || day.confidence === 'low' || day.highRange || (day.precipitationProbability ?? 0) >= 20 || (day.gustKmh ?? 0) >= 60) && (
-              <div className="gazette-week-extra">
-                {day.highRange && <span title={t('gazette.highRange')}>{temperature(day.highRange.min)}–{temperature(day.highRange.max)}</span>}
-                {day.precipitationProbability != null && day.precipitationProbability >= 20 && <span>{t('gazette.chance', { value: formatNumber(day.precipitationProbability) })}</span>}
-                {day.gustKmh !== null && day.gustKmh >= 60 && <span>{t('gazette.gust', { value: formatNumber(day.gustKmh) })}</span>}
-                {day.disagreement && <span className="gazette-week-range"><UiIcon name="info" size="1em" />{t('gazette.disagree')}</span>}
-                {day.confidence === 'low' && <span>{t('gazette.confidence.low')}</span>}
-              </div>
-            )}
-          </li>
-        ))}
-      </ol>
-      {(notes.length > 0 || lowConfidence) && (
-        <ul className="plain-list gazette-forecast-notes">
-          {notes.map(day => <li key={day.date}><strong>{formatWeekdayShort(day.date)}</strong> {day.note}</li>)}
-          {lowConfidence && <li className="muted">{t('gazette.lowConfidenceNote')}</li>}
-        </ul>
-      )}
+      <div className={chart ? 'gazette-outlook gazette-outlook-chart' : 'gazette-outlook'}>
+        {chart && <TemperatureChart days={location.days} values={values} />}
+        <ol className="plain-list gazette-week" style={{ '--gz-days': location.days.length } as CSSProperties}>
+          {location.days.map(day => (
+            <li key={day.date} className={day.date === today ? 'gazette-today' : undefined}>
+              <ForecastDay day={day} today={today} />
+            </li>
+          ))}
+        </ol>
+      </div>
+      {lowConfidence && <small className="gazette-confidence muted"><strong className="gazette-lower-confidence">{t('gazette.confidence.low')}</strong><span>{t('gazette.lowConfidenceNote')}</span></small>}
       {location.note !== '' && <p className="gazette-forecast-note"><UiIcon name="info" size="1.1em" /><span>{location.note}</span></p>}
       {bulletins.length > 0 && (
         <details className="gazette-weather-details">
@@ -193,6 +174,58 @@ export function GazetteForecast({ location, today }: { location: GazetteLocation
         {location.fetchedAt !== null && <span>{t('gazette.fetched', { time: formatDateTime(location.fetchedAt) })}</span>}
       </footer>
     </section>
+  );
+}
+
+function ForecastDay({ day, today }: { day: GazetteForecastDay; today: string | null }) {
+  const chance = day.precipitationProbability != null && day.precipitationProbability >= 20
+    ? t('gazette.chance', { value: formatNumber(day.precipitationProbability) })
+    : null;
+  const rain = day.precipitationMm === null ? null : rainOf(day.precipitationMm);
+  const gust = day.gustKmh !== null && day.gustKmh >= 60 ? t('gazette.gust', { value: formatNumber(day.gustKmh) }) : null;
+  const lowerConfidence = day.confidence === 'low';
+  const expandable = Boolean(day.note || day.disagreement || lowerConfidence || day.highRange || day.lowRange);
+  const overview = (
+    <>
+      <time className={lowerConfidence ? 'gazette-week-day gazette-lower-confidence' : 'gazette-week-day'} dateTime={day.date} aria-current={day.date === today ? 'date' : undefined}>
+        {formatWeekdayShort(day.date)} <b>{Number(day.date.slice(-2))}</b>
+      </time>
+      <span className="gazette-week-condition" title={t(`weather.condition.${day.condition}`)}>
+        <UiIcon name={conditionIcon(day.condition)} size="1.65em" />
+        <span className="visually-hidden">{t(`weather.condition.${day.condition}`)}</span>
+      </span>
+      {gust && <span className="gazette-week-gust">{gust}</span>}
+      <span className="gazette-week-temps">
+        <span className="visually-hidden">{t('gazette.high')} </span><strong>{temperature(day.high)}</strong>
+        <span aria-hidden="true"> / </span>
+        <span className="visually-hidden">{t('gazette.low')} </span>{temperature(day.low)}
+      </span>
+      <span className="gazette-rain">
+        <span className="visually-hidden">{t('gazette.precipitation')} </span>
+        {[chance, rain].filter(Boolean).join(' · ') || '–'}
+      </span>
+      {expandable && <span className="gazette-day-info">
+        <UiIcon name="info" size="1em" />
+        <span className="visually-hidden">{[
+          day.disagreement && t('gazette.disagree'),
+          lowerConfidence && t('gazette.confidence.low'),
+        ].filter(Boolean).join(' · ') || t('weather.details')}</span>
+      </span>}
+    </>
+  );
+
+  if (!expandable) return <div className="gazette-day-overview">{overview}</div>;
+  return (
+    <details className="gazette-day-details">
+      <summary className="gazette-day-overview">{overview}</summary>
+      <div className="gazette-day-detail">
+        {day.disagreement && <strong>{t('gazette.disagree')}</strong>}
+        {lowerConfidence && <span>{t('gazette.confidence.low')}</span>}
+        {day.highRange && <span>{t('gazette.highRange')} · {temperature(day.highRange.min)}–{temperature(day.highRange.max)}</span>}
+        {day.lowRange && <span>{t('gazette.low')} · {temperature(day.lowRange.min)}–{temperature(day.lowRange.max)}</span>}
+        {day.note && <span>{day.note}</span>}
+      </div>
+    </details>
   );
 }
 
