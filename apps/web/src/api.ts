@@ -1276,6 +1276,9 @@ export interface GazetteWeatherView {
 }
 export interface GazettePreviewView {
   readonly id: string; readonly date: string; readonly isToday: boolean; readonly title: string; readonly greeting: string; readonly publishedAt: string | null; readonly sectionCount: number;
+  readonly masthead: string;
+  readonly intro: string;
+  readonly header: GazetteHeaderImage | null;
   readonly headlines: readonly { readonly sectionId: string; readonly section: string; readonly title: string }[];
   readonly weather: readonly { readonly name: string; readonly condition: import('@vergissmeinnicht/domain').WeatherCondition; readonly high: number | null; readonly low: number | null }[];
   readonly priceDrops: number;

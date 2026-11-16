@@ -230,6 +230,10 @@ describe('The Daily Planet API (43)', () => {
     const e2 = await publish(editor, { content: sampleGazetteEdition(isoDay()), publish: true });
     const chosen = e1.json().edition.header;
     expect(chosen.id).not.toBe(e2.json().edition.header.id);
+    const todayEdition = e2.json().edition;
+    expect((await t.get(`${base()}/today`, guest)).json().preview).toMatchObject({
+      date: isoDay(), intro: todayEdition.content.intro, header: todayEdition.header,
+    });
     const replacement = await upload(bytes, t.admin, 3, chosen.id);
     expect(replacement.statusCode, replacement.body).toBe(200);
     expect((await t.get(`${base()}/header/images/${chosen.id}`, guest)).statusCode).toBe(200);

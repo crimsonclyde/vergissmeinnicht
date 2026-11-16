@@ -18,6 +18,12 @@ For every completed task, add a concise completion note, tests/checks performed,
 
 ## Current state — resume here
 
+**Release plan — 0.15.4, owner release 74.** Dashboard masthead and Newsflash parity
+and compact Gazette Weather (43.8 follow-up). No migration. Validate the PR and
+main, then run tag-triggered signed image publication and the exact-image upgrade
+checks from 0.15.3, 0.15.2, 0.15.1 and 0.10.1-beta.0. Live deployment follows
+publication when the target can be verified. [Release notes](../releases/0.15.4.md)
+
 **Published owner release 73 (2026-11-16 Europe/Berlin).** 0.15.3 was published from
 `v0.15.3`, source `b4771802817540d681134f114816ea51ef2688d3` (PR #129, Daily Planet newspaper
 layout, direct News navigation, Local alerts & road closures, and the redesigned automatic Workspace
@@ -6149,6 +6155,28 @@ were “a blue-black orbital view of Earth with a luminous thin horizon and spar
 
 Security surface: unchanged. The view uses the existing tool gate, publication snapshots
 and validated source links. Bundled images load locally. Live deployment remains separate.
+
+#### Follow-up — Dashboard parity and compact weather (2026-11-16)
+
+The Dashboard uses the same masthead artwork, saved crop and Newsflash renderer as
+the linked issue. It preserves configured headline previews as a fallback for issues
+without intro text. The masthead is one wide link so Markdown links inside Newsflash
+keep their own targets. Weather combines the chart and day columns on wide screens,
+and switches to compact rows on phones. Day disclosures hold ranges and model notes.
+A single dotted-underline legend identifies lower confidence. Warnings, bulletins and
+source comparison keep their existing places. No new dependencies. AGENTS.md records
+the shared UI, responsive design and dependency approval rules.
+
+**Security surface changed:** the existing authorized preview now carries published
+Newsflash Markdown and masthead metadata. It uses the existing rendering and image
+authorization paths. See [security.md](security.md#the-daily-planet-gazette-data-and-api-431-2026-11-14).
+
+**Checks:** repository typecheck, lint on touched TypeScript, production web build,
+and 64 focused API, domain, translation and contrast tests. The Daily Planet Chromium
+flows passed at 1440 px and 320 px, with axe, keyboard and touch activation,
+published image/crop and Newsflash parity, and forecast details across nine theme
+choices including Light and Dark (Memento Mori).
+**Remaining:** live deployment and checks on physical devices or other browser engines.
 
 ### 43.9 — Local alerts and road closures (2026-11-15)
 

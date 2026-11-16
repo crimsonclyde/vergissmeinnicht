@@ -428,7 +428,7 @@ export const en = {
   'gazette.confidence.high': 'Higher confidence',
   'gazette.confidence.medium': 'Medium confidence',
   'gazette.confidence.low': 'Lower confidence',
-  'gazette.lowConfidenceNote': 'Days marked lower confidence are further ahead and use rounded values.',
+  'gazette.lowConfidenceNote': 'Later days use rounded values.',
   'gazette.warningSources': 'Warnings:',
   'gazette.alsoRead': 'Also read:',
   'gazette.weatherNoLocation': 'No Workspace location is set, so there is no forecast. VMN never guesses a place.',

@@ -1,8 +1,8 @@
 /* ---- The Daily Planet (steps.md 43) ----------------------------------------------------------
  * An illustrated newspaper drawn only from theme tokens: paper is a tint of the surface, ink is the
- * text colour, the engraving is `currentColor`. Each theme below sets only the face (`--gz-serif`), the
+ * text colour. Each theme below sets the face (`--gz-serif`), the
  * paper tint and what a token cannot say. Amber (`--state-skipped`) marks old or unsure things, green
- * (`--state-done`) good ones; both always come with words. Nothing moves except the card's press. */
+ * (`--state-done`) good ones; both always come with words. */
 
 .gazette-tile,
 .gazette-page {
@@ -10,7 +10,6 @@
   --gz-paper: color-mix(in srgb, var(--surface) 88%, var(--brand) 12%);
   --gz-paper-soft: color-mix(in srgb, var(--surface) 94%, var(--brand) 6%);
   --gz-ink: color-mix(in srgb, var(--text) 78%, var(--brand) 22%);
-  --gz-art: color-mix(in srgb, var(--text-muted) 70%, var(--brand) 30%);
   --gz-flower: var(--accent);
   --gz-rule: color-mix(in srgb, var(--border) 75%, transparent);
   --gz-warn: var(--state-skipped);
@@ -19,14 +18,6 @@
   --gz-good-bg: var(--state-done-bg);
   --gz-radius: calc(var(--radius) + 4px);
 }
-
-/* The engraving: line work in one colour, the forget-me-nots in the accent. */
-.gazette-art { display: block; width: 100%; height: 100%; color: var(--gz-art); }
-.gazette-art .gazette-art-sky { opacity: 0.35; }
-.gazette-art .gazette-art-hatch { opacity: 0.55; }
-.gazette-art .gazette-art-sun { color: var(--brand); opacity: 0.85; }
-.gazette-art :is(.gazette-art-sprig, .gazette-art-hearts) { color: var(--gz-flower); }
-.gazette-art .gazette-art-village { color: var(--gz-ink); }
 
 /* Chips: short facts with an icon, never colour alone. */
 .gazette-chip {
@@ -50,7 +41,7 @@
 .gazette-change-up { background: var(--state-pending-bg); color: var(--state-pending); }
 
 /* ---- Dashboard card --------------------------------------------------------------------------- */
-/* The whole card is one link: a big, calm touch target with no small "Read more". */
+/* The masthead is a wide touch target. Newsflash links have their own targets. */
 .card.gazette-tile {
   position: relative;
   display: flex;
@@ -62,48 +53,34 @@
   background: var(--gz-paper-soft);
   color: var(--text);
   text-decoration: none;
-  transition: box-shadow 0.15s ease, transform 0.15s ease, border-color 0.15s ease;
 }
-a.gazette-tile:hover { border-color: var(--border-strong); box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 28%, transparent), var(--shadow); }
-a.gazette-tile:active { transform: scale(0.99); }
-a.gazette-tile:focus-visible { outline: 3px solid var(--focus); outline-offset: 3px; }
+a.gazette-tile-band:hover .gazette-tile-go { background: var(--surface); color: var(--text); }
+a.gazette-tile-band:focus-visible { outline: 3px solid var(--focus); outline-offset: -3px; }
 
 .gazette-tile-band {
   position: relative;
-  height: 7.25rem;
+  isolation: isolate;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-content: start;
+  align-items: start;
+  gap: .65rem;
+  min-height: 7.25rem;
+  padding: .85rem 1.1rem;
   overflow: hidden;
   border-block-end: 1px solid var(--gz-rule);
-  background: linear-gradient(to bottom, var(--gz-paper-soft), var(--gz-paper));
+  text-decoration: none;
 }
-.gazette-tile-band .gazette-art { position: absolute; inset: 0; }
-/* A wash of paper behind the masthead, so no line of the engraving runs through the title. */
-.gazette-tile-band::after {
-  content: '';
-  position: absolute;
-  inset: 0;
-  background: radial-gradient(ellipse 22rem 5.5rem at 0 0, var(--gz-paper-soft) 55%, transparent 100%);
-  pointer-events: none;
-}
-.gazette-tile-mast, .gazette-tile-go { z-index: 1; }
 
 .gazette-tile-mast {
-  position: absolute;
-  inset-block-start: 0.85rem;
-  inset-inline-start: 1.1rem;
-  inset-inline-end: 4rem;
   display: flex;
   flex-direction: column;
   gap: 0.35rem;
-  /* A halo of paper keeps the masthead readable over any line of the engraving. */
-  text-shadow: 0 0 4px var(--gz-paper), 0 0 10px var(--gz-paper), 0 0 2px var(--gz-paper);
 }
 .gazette-tile-mast strong { font-family: var(--gz-serif); font-size: 1.5rem; font-weight: 700; line-height: 1.05; color: var(--text); overflow-wrap: anywhere; }
 .gazette-tile-mast small { color: var(--text-muted); font-size: 0.72rem; font-weight: 600; letter-spacing: 0.16em; text-transform: uppercase; }
 
 .gazette-tile-go {
-  position: absolute;
-  inset-block-start: 0.85rem;
-  inset-inline-end: 0.85rem;
   display: grid;
   place-items: center;
   width: 2.75rem;
@@ -141,7 +118,6 @@ a.gazette-tile:focus-visible { outline: 3px solid var(--focus); outline-offset: 
 
 .gazette-tile-foot { display: flex; flex-wrap: wrap; gap: 0.5rem; padding: 0.55rem 1.1rem 1rem; }
 
-.gazette-tile-stale .gazette-tile-band { filter: saturate(0.6); }
 .gazette-tile-stale .gazette-tile-go { background: var(--surface); color: var(--text); border: 1px solid var(--border-strong); }
 
 .gazette-tile-empty-text { display: flex; align-items: center; gap: 0.75rem; margin: 0; padding: 1rem 1.1rem 1.2rem; }
@@ -294,17 +270,22 @@ a.gazette-day:hover { border-color: var(--border-strong); }
 .gazette-place-head h3 { margin: 0; font-family: var(--gz-serif); font-size: clamp(1.45rem, 3vw, 2rem); line-height: 1.1; }
 .gazette-place-head > span { font-size: .86rem; }
 
-.gazette-temperature { margin: 0; padding: .75rem; background: var(--surface-muted); border: 1px solid var(--border); border-radius: var(--radius); }
-.gazette-temperature figcaption { display: flex; align-items: center; flex-wrap: wrap; gap: .4rem 1rem; margin-block-end: .55rem; font-size: .8rem; }
+.gazette-outlook { --gz-scale: 3rem; border: 1px solid var(--border); border-radius: var(--radius); }
+.gazette-outlook-chart .gazette-week { margin-inline-start: var(--gz-scale); }
+.gazette-temperature { margin: 0; padding-block-start: .65rem; background: var(--surface-muted); border-start-start-radius: inherit; border-start-end-radius: inherit; }
+.gazette-chart-series { position: relative; }
+.gazette-temperature figcaption { display: flex; align-items: center; flex-wrap: wrap; gap: .4rem 1rem; padding-inline: .75rem; font-size: .8rem; }
 .gazette-temperature figcaption > span { display: inline-flex; align-items: center; gap: .35rem; }
 .gazette-temperature figcaption > span::before { content: ''; width: 1.3rem; border-block-start: 2px solid currentColor; }
 .gazette-temperature figcaption > .gazette-chart-low::before { border-block-start-style: dashed; }
-.gazette-plot { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: .15rem .35rem; }
+.gazette-plot { display: grid; grid-template-columns: var(--gz-scale) minmax(0, 1fr); }
 .gazette-plot svg { display: block; width: 100%; height: clamp(5.75rem, 12vw, 8rem); }
-.gazette-chart-scale { position: relative; width: 4ch; }
+.gazette-chart-scale { position: relative; margin-inline-end: .45rem; }
 .gazette-chart-scale span { position: absolute; inset-inline-end: 0; transform: translateY(-50%); white-space: nowrap; }
-.gazette-chart-scale, .gazette-chart-days { color: var(--text-muted); font-size: .7rem; font-variant-numeric: tabular-nums; }
-.gazette-chart-days { grid-column: 2; display: grid; text-align: center; }
+.gazette-chart-scale, .gazette-point { color: var(--text-muted); font-size: .7rem; font-variant-numeric: tabular-nums; }
+.gazette-point { position: absolute; padding-inline: .15rem; line-height: 1.1; background: var(--surface-muted); white-space: nowrap; }
+.gazette-point-high { color: var(--text); transform: translate(-50%, calc(-100% - .27rem)); }
+.gazette-point-low { color: var(--link); transform: translate(-50%, .27rem); }
 .gazette-plot :is(line, path) { stroke: currentColor; vector-effect: non-scaling-stroke; fill: none; }
 .gazette-plot .gazette-chart-grid { stroke: var(--border); }
 .gazette-chart-high { color: var(--text); }
@@ -314,35 +295,55 @@ a.gazette-day:hover { border-color: var(--border-strong); }
 .gazette-plot g path { stroke-width: 5; stroke-linecap: round; }
 
 .gazette-week { display: grid; grid-template-columns: repeat(var(--gz-days), minmax(0, 1fr)); text-align: center; font-size: .85rem; font-variant-numeric: tabular-nums; }
-.gazette-week li {
+.gazette-week > li { min-width: 0; border-block-start: 1px solid var(--border); }
+.plain-list.gazette-week > li + li { margin-top: 0; }
+.gazette-week > li + li { border-inline-start: 1px solid var(--border); }
+.gazette-day-overview {
   display: grid;
   align-content: start;
   justify-items: center;
-  gap: .2rem;
+  gap: .25rem;
   min-width: 0;
   padding: .55rem .3rem;
-  border-block-start: 1px solid var(--border);
 }
-.gazette-week li + li { border-inline-start: 1px solid var(--border); }
-.gazette-week-day, .gazette-week-temps, .gazette-rain { color: var(--text-muted); }
+.gazette-day-details > summary { cursor: pointer; list-style: none; }
+.gazette-day-details > summary::-webkit-details-marker { display: none; }
+.gazette-day-details > summary:focus-visible { outline: 2px solid var(--focus); outline-offset: -2px; }
+.gazette-day-details[open] > summary,
+.gazette-day-details > summary:hover { background: var(--surface-muted); }
+.gazette-day-info { color: var(--gz-warn); }
+.gazette-day-detail { display: grid; gap: .3rem; padding: .35rem .5rem .6rem; font-size: .75rem; color: var(--text-muted); }
+.gazette-week-day, .gazette-week-temps, .gazette-rain, .gazette-week-gust { color: var(--text-muted); }
 .gazette-week-temps strong { color: var(--text); }
 .gazette-week-day { font-size: .75rem; text-transform: uppercase; letter-spacing: .03em; }
 .gazette-week-day b { color: var(--text); }
 .gazette-week-condition { color: var(--link); }
 .gazette-week .gazette-today { background: var(--accent-soft); border-block-start-color: var(--accent); box-shadow: inset 0 1px var(--accent); }
-.gazette-rain, .gazette-week-extra { font-size: .75rem; }
-.gazette-week-extra { display: grid; gap: .2rem; color: var(--text-muted); }
-.gazette-forecast-notes { display: grid; gap: .2rem; font-size: .86rem; }
-.gazette-forecast-notes strong { margin-inline-end: .3rem; }
-.gazette-week-range { display: inline-flex; align-items: start; gap: .2rem; line-height: 1.25; }
-.gazette-week-range > .ui-icon { flex: none; color: var(--gz-warn); }
+.gazette-rain, .gazette-week-gust { font-size: .75rem; }
+.gazette-confidence { display: flex; flex-wrap: wrap; align-items: baseline; gap: .2rem .5rem; }
+.gazette-lower-confidence { text-decoration: underline dotted; text-underline-offset: .2em; }
 
+@container (width > 39rem) {
+  .gazette-outlook-chart .gazette-week-temps { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+}
 @container (max-width: 39rem) {
-  .gazette-place .gazette-week { grid-template-columns: minmax(0, 1fr); text-align: start; }
-  .gazette-week li { grid-template-columns: minmax(3.65rem, auto) 1.45rem minmax(0, 1fr) minmax(0, .9fr); align-items: center; justify-items: start; gap: .3rem; padding-inline: .4rem; }
-  .gazette-week li + li { border-inline-start: 0; }
+  .gazette-temperature { display: none; }
+  .gazette-place .gazette-week { grid-template-columns: minmax(0, 1fr); margin-inline-start: 0; text-align: start; }
+  .gazette-week > li + li { border-inline-start: 0; }
+  .gazette-week > li:first-child { border-block-start: 0; border-start-start-radius: var(--radius); border-start-end-radius: var(--radius); }
+  .gazette-day-overview {
+    grid-template-columns: minmax(3.4rem, auto) 1.5rem minmax(0, 1fr) minmax(0, 1fr) 1rem;
+    align-items: center;
+    justify-items: start;
+    gap: .25rem;
+    min-block-size: 44px;
+    padding-inline: .4rem;
+  }
+  .gazette-week-temps { grid-column: 3; grid-row: 1; }
+  .gazette-rain { grid-column: 4; grid-row: 1; }
+  .gazette-day-info { grid-column: 5; grid-row: 1; }
+  .gazette-week-gust { grid-column: 3 / -1; }
   .gazette-week .gazette-today { box-shadow: inset 3px 0 var(--accent); }
-  .gazette-week-extra { grid-column: 3 / -1; }
 }
 
 .gazette-notices { display: grid; gap: .45rem; }
@@ -416,7 +417,7 @@ a.gazette-day:hover { border-color: var(--border-strong); }
 }
 
 @media (max-width: 30rem) {
-  .gazette-tile-band { height: 6rem; }
+  .gazette-tile-band { min-height: 6rem; }
   .gazette-tile-mast strong { font-size: 1.3rem; }
   .gazette-kicker { width: auto; }
   .gazette-tile-heads li { flex-direction: column; gap: 0.15rem; }
@@ -430,11 +431,6 @@ a.gazette-day:hover { border-color: var(--border-strong); }
   .gazette-watch-thumb { display: none; }
   .gazette-watch-state { grid-column: 1 / -1; }
   .gazette-footer { flex-direction: column; }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .card.gazette-tile { transition: none; }
-  a.gazette-tile:active { transform: none; }
 }
 
 @media (forced-colors: active) {
@@ -525,26 +521,20 @@ a.gazette-day:hover { border-color: var(--border-strong); }
   --gz-serif: 'Iowan Old Style', Georgia, serif;
   --gz-paper: rgb(19 21 44 / 94%);
   --gz-paper-soft: rgb(19 21 44 / 90%);
-  --gz-art: color-mix(in srgb, var(--accent) 55%, var(--surface));
   --gz-flower: var(--brand);
   --gz-ink: var(--text);
   --gz-rule: rgb(157 124 255 / 30%);
 }
-:root[data-theme='tokyo-nights'] .gazette-tile-band,
 :root[data-theme='tokyo-nights'] :is(.gazette-tile-mast strong, .gazette-masthead h1) { text-shadow: 0 0 0.8rem rgb(53 230 255 / 40%); }
-:root[data-theme='tokyo-nights'] .gazette-tile-mast { text-shadow: 0 0 0.8rem rgb(53 230 255 / 40%), 0 0 4px rgb(10 11 26); }
-:root[data-theme='tokyo-nights'] .gazette-art { filter: drop-shadow(0 0 3px rgb(53 230 255 / 45%)); }
 :root[data-theme='tokyo-nights'] .gazette-kicker { color: var(--brand); }
 :root[data-theme='tokyo-nights'] .gazette-rule { border-color: var(--brand); opacity: 0.6; }
 :root[data-theme='tokyo-nights'] :is(.gazette-folded, .gazette-day:not(.gazette-day-current, .gazette-day-none), .gazette-tile-place) { background: rgb(19 21 44 / 92%); }
-@media (prefers-reduced-motion: reduce) { :root[data-theme='tokyo-nights'] .gazette-art { filter: none; } }
 
 /* Witch Forest: an old broadsheet by candlelight, small capitals and a single inner rule. */
 :root[data-theme='witch-forest'] :is(.gazette-tile, .gazette-page) {
   --gz-serif: var(--wf-serif, Georgia, serif);
   --gz-paper: rgb(17 26 21 / 96%);
   --gz-paper-soft: rgb(17 26 21 / 94%);
-  --gz-art: color-mix(in srgb, var(--text-muted) 80%, var(--accent) 20%);
   --gz-flower: var(--brand);
   --gz-ink: var(--text);
   --gz-rule: var(--wf-rule, var(--border));
@@ -552,8 +542,6 @@ a.gazette-day:hover { border-color: var(--border-strong); }
 :root[data-theme='witch-forest'] .card.gazette-tile,
 :root[data-theme='witch-forest'] .gazette-watch-item { box-shadow: inset 0 0 0 3px var(--gz-paper), inset 0 0 0 4px var(--gz-rule); background: var(--gz-paper); }
 :root[data-theme='witch-forest'] :is(.gazette-kicker, .gazette-meta, .gazette-tile-mast small, .gazette-week-day) { font-variant: small-caps; text-transform: none; letter-spacing: 0.1em; }
-:root[data-theme='witch-forest'] .gazette-tile-mast { text-shadow: 0 0 6px rgb(10 17 14), 0 0 12px rgb(10 17 14); }
-:root[data-theme='witch-forest'] .gazette-art .gazette-art-sun { color: var(--focus); }
 :root[data-theme='witch-forest'] :is(.gazette-folded, .gazette-day:not(.gazette-day-current, .gazette-day-none), .gazette-tile-place) { background: rgb(17 26 21 / 94%); }
 
 /* Galactic Guide: a quiet star chart; the cover keeps the translucent card look of the theme. */
@@ -561,10 +549,8 @@ a.gazette-day:hover { border-color: var(--border-strong); }
   --gz-serif: 'Iowan Old Style', Georgia, serif;
   --gz-paper: color-mix(in srgb, var(--surface) 92%, transparent);
   --gz-paper-soft: color-mix(in srgb, var(--surface) 88%, transparent);
-  --gz-art: color-mix(in srgb, var(--text-muted) 75%, var(--accent));
   --gz-ink: var(--text);
 }
-:root[data-theme='space-guide'] .gazette-tile-mast { text-shadow: 0 0 6px var(--surface), 0 0 12px var(--surface); }
 
 /* Places: the theme's own book face, paper tinted by the country palette through its tokens. */
 :root[data-theme='places'] :is(.gazette-tile, .gazette-page) { --gz-serif: var(--places-serif, Georgia, serif); }
@@ -592,24 +578,25 @@ a.gazette-day:hover { border-color: var(--border-strong); }
   .gazette-watch-label { display: block; color: var(--text-muted); }
 }
 
-.gazette-masthead {
+:is(.gazette-masthead, .gazette-tile-band) {
   --gz-masthead-text: #fff8e8;
+  background: #121615;
+}
+.gazette-masthead {
   isolation: isolate;
   overflow: hidden;
   display: grid;
   align-content: center;
   min-height: clamp(11rem, 19vw, 16rem);
   padding: 3.1rem clamp(.8rem, 5vw, 4rem) 1.6rem;
-  background: #121615;
   border: 1px solid var(--gz-rule);
   border-radius: var(--gz-radius);
 }
-.gazette-masthead-art, .gazette-masthead::before { position: absolute; inset: 0; width: 100%; height: 100%; }
+.gazette-masthead-art, :is(.gazette-masthead, .gazette-tile-band)::before { position: absolute; inset: 0; width: 100%; height: 100%; }
 .gazette-masthead-art { z-index: -3; }
 .gazette-masthead-art img, img.gazette-masthead-art { width: 100%; height: 100%; object-fit: cover; object-position: 50% 88%; display: block; }
-.gazette-masthead .gazette-custom-art { z-index: -2; }
-.gazette-masthead::before { content: ''; z-index: -1; background: linear-gradient(180deg, rgb(10 14 20 / 65%), rgb(10 14 20 / 72%) 48%, rgb(10 14 20 / 56%)); }
-.gazette-masthead :is(h1, .gazette-meta) { color: var(--gz-masthead-text); }
+:is(.gazette-masthead, .gazette-tile-band)::before { content: ''; z-index: -1; background: linear-gradient(180deg, rgb(10 14 20 / 65%), rgb(10 14 20 / 72%) 48%, rgb(10 14 20 / 56%)); }
+:is(.gazette-masthead h1, .gazette-meta, .gazette-tile-mast strong, .gazette-tile-mast small) { color: var(--gz-masthead-text); }
 .gazette-masthead .gazette-rule { border-color: var(--gz-masthead-text); }
 .gazette-masthead .gazette-tools { inset-block-start: .35rem; inset-inline-end: .35rem; }
 .gazette-masthead .gazette-tools .icon-button { background: var(--surface); color: var(--text); }
@@ -629,8 +616,8 @@ a.gazette-day:hover { border-color: var(--border-strong); }
 .gazette-header-editor input[type='file'] { width: 100%; }
 .gazette-watch-price-form { flex-wrap: wrap; }
 @media (forced-colors: active) {
-  .gazette-masthead-art, .gazette-masthead::before { display: none !important; }
-  .gazette-masthead :is(h1, .gazette-meta), .gazette-temperature { color: CanvasText; }
+  .gazette-masthead-art, :is(.gazette-masthead, .gazette-tile-band)::before { display: none !important; }
+  :is(.gazette-masthead h1, .gazette-meta, .gazette-tile-mast strong, .gazette-tile-mast small), .gazette-temperature { color: CanvasText; }
   .gazette-plot .gazette-chart-grid { stroke: GrayText; }
   .gazette-week .gazette-today { border-block-start-color: Highlight; }
 }
