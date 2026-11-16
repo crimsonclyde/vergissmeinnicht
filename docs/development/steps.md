@@ -18,11 +18,18 @@ For every completed task, add a concise completion note, tests/checks performed,
 
 ## Current state — resume here
 
-**Release plan — 0.15.4, owner release 74.** Dashboard masthead and Newsflash parity
-and compact Gazette Weather (43.8 follow-up). No migration. Validate the PR and
-main, then run tag-triggered signed image publication and the exact-image upgrade
-checks from 0.15.3, 0.15.2, 0.15.1 and 0.10.1-beta.0. Live deployment follows
-publication when the target can be verified. [Release notes](../releases/0.15.4.md)
+**Published owner release 74 (2026-11-16 Europe/Berlin).** 0.15.4 was published from
+`v0.15.4`, source `fcc9d99eca4c4111ab5afe48784f600818afb1fe` (PR #130, Dashboard
+masthead and Newsflash parity and compact Gazette Weather, 43.8 follow-up). No
+migration. PR and main CI passed. Both architecture builds and scans, signing,
+SBOM attestation, exact-image smoke test and populated upgrades from 0.15.3,
+0.15.2, 0.15.1 and 0.10.1-beta.0 passed. Registry tags `0.15.4`, `0.15` and
+`latest` resolve to
+`sha256:c6d553b9f588157e3b3b2c0ebf7a548fda67406823682e078ee9a68373675fbb`.
+Publication adds no application security surface. Owner count **74**, next **75**.
+Live deployment remains separate.
+[GitHub release](https://github.com/crimsonclyde/vergissmeinnicht/releases/tag/v0.15.4) ·
+[Release workflow](https://github.com/crimsonclyde/vergissmeinnicht/actions/runs/43922693920)
 
 **Published owner release 73 (2026-11-16 Europe/Berlin).** 0.15.3 was published from
 `v0.15.3`, source `b4771802817540d681134f114816ea51ef2688d3` (PR #129, Daily Planet newspaper
@@ -6157,6 +6164,8 @@ Security surface: unchanged. The view uses the existing tool gate, publication s
 and validated source links. Bundled images load locally. Live deployment remains separate.
 
 #### Follow-up — Dashboard parity and compact weather (2026-11-16)
+
+**Status:** Released in [0.15.4](../releases/0.15.4.md), owner release 74.
 
 The Dashboard uses the same masthead artwork, saved crop and Newsflash renderer as
 the linked issue. It preserves configured headline previews as a fallback for issues
