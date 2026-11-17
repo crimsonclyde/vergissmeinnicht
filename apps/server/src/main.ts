@@ -43,6 +43,7 @@ const services = createServices(config, database);
 let built: ReturnType<typeof services> | undefined;
 const app = await buildApp({
   mapAssetsPath: config.mapAssetsPath,
+  managedMapPath: join(dirname(config.databasePath), 'map-data'),
   webDistDir: config.mode === 'production' ? resolve(import.meta.dirname, '../../web/dist') : undefined,
   logger: loggerOptions(config.logLevel),
   services: databaseNewer ? undefined : (log) => (built = services(log)),

@@ -425,6 +425,32 @@ Deletion never erases older server backups or copies made elsewhere.
 
 ## Optional Marauder’s Map basemap
 
+The easiest setup is **Server admin → Map data**. Use the Triora preset or search for a town,
+choose a radius (10–200 km), and click **Download map**. VMN downloads a rectangular regional
+OpenStreetMap-derived map and local label fonts. **Update installed area** refreshes the same
+area; selecting another town/radius explicitly replaces it. Downloads continue when the page
+is closed and can be cancelled there. The previous map stays available until installation
+finishes. Reopen Map after installation to load the new version.
+
+Managed maps are stored in `map-data/` beside the SQLite database, on the existing persistent
+data volume. No additional container mount or environment variable is needed. Allow at least
+3.2 GB of free space before a download. Individual map payloads are capped at 1 GB; dense or
+large areas can exceed the limit, in which case choose a smaller radius. One download runs
+at a time, with a 20-minute deadline; a server restart stops it and cleans interrupted staging
+at startup. The active and previous map files are retained; older install manifests retain
+the acting admin UUID and timestamp. These operator assets are outside VMN Workspace and
+SQLite backups and can be downloaded again. No automatic periodic update is configured.
+
+The server needs HTTPS access to `build-metadata.protomaps.dev`, `build.protomaps.com` and
+`protomaps.github.io`; town searches use `geocoding-api.open-meteo.com`. The sources receive
+the search text or requested regional tile ranges, never VMN saved places/private visits.
+Provider URLs are fixed and redirects are refused. The browser reads only local map files.
+Preserve HTTP Range/ETag headers under `/map-assets/` through a reverse proxy, including
+versioned `/map-assets/managed/` paths. Install permissions/status are server-admin only;
+downloaded cartography is public, with no Workspace overlays or install manifests exposed.
+
+### Existing manually installed maps
+
 Map is off until a Workspace admin enables it under **Workspace settings → Plugins**. The shared
 place list and saved directions work before a basemap is installed. To provide interactive
 cartography, install a Protomaps-compatible MVT PMTiles region and set `MAP_ASSETS_PATH` to the

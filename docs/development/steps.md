@@ -18,6 +18,18 @@ For every completed task, add a concise completion note, tests/checks performed,
 
 ## Current state — resume here
 
+**Release 76 preparation — 0.16.1 (owner request, 2026-11-17 Europe/Berlin).**
+Publish the managed regional map downloads and updates in §44.2 as stable tag `v0.16.1`,
+GitHub title `0.16.1`, and image `ghcr.io/crimsonclyde/vergissmeinnicht:0.16.1`.
+The owner count stays **75** until publication succeeds, then becomes **76** (next **77**);
+the special 42nd release and dedication remain unchanged. Scope excludes the unrelated
+unfinished Gazette, navigation, README and screenshot changes in the working checkout.
+Verify exact-source CI, native amd64/arm64 smoke/scans, signing/SBOM, exact-image checks and
+populated upgrades from 0.16.0, 0.15.4, 0.15.3 and 0.10.1-beta.0. No new migration.
+Local feature verification is recorded in §44.2. Publication evidence and final checks follow
+here after the workflow succeeds. Live deployment remains separate.
+[Release notes](../releases/0.16.1.md).
+
 **ChatGPT plugin replacement runbook (2026-11-17):** owner requested replacing the stale
 registration and preserving a repeatable update procedure. The old `vmn` registration was
 deleted after explicit action-time confirmation; the replacement uses the exact name `vmn`,
@@ -8783,3 +8795,66 @@ visits and delegated shared writes. See the Map section in [security.md](securit
 with migration 0082 and verify CI, both native images, signing and attestation,
 and populated upgrades from 0.15.4, 0.15.3, 0.15.2 and 0.10.1-beta.0.
 See [release notes](../releases/0.16.0.md). Live deployment is separate.
+
+**Operator basemap preparation (2026-11-17):** At the owner's request, downloaded a
+Protomaps 4.15.2 regional extract from the official 20261117 build covering a rectangle
+enclosing a 100 km radius around Triora (43.99252 N, 7.76624 E). Bounds are
+6.5161,43.0931,9.0164,44.8919; zoom levels 0–15; initial centre is Triora at zoom 9.
+The 237,017,449-byte MVT archive, all 256 Noto Sans Regular glyph ranges, font license,
+source/attribution, checksums and Unraid installation instructions are prepared under
+ignored `.var/map-assets/triora-100km/`, with a transferable `triora-100km-map.tar.gz`
+beside it. Assets remain outside tracked source and VMN backups.
+Checks: official go-pmtiles 1.31.2 `verify` passed, a nonempty zoom-14 Triora tile was
+read, required style source layers were confirmed, and the bundle's PMTiles signature
+and first glyph range were checked against the prepared files. Remaining: copy assets
+to the Unraid host, mount read-only, set `MAP_ASSETS_PATH`, restart and verify the live
+map; no live server access or installation was performed. Security surface unchanged:
+public operator-installed assets use the existing same-origin allowlisted file serving;
+no application code, permissions, schema or runtime outbound connection changed.
+
+### 44.2 — In-app regional map downloads and updates (owner-approved 2026-11-17)
+
+**Implemented:** **Server admin → Map data** provides town search, radius selection and a
+Triora/100 km default, with explicit Download, Update/replace and Cancel. Installation uses the
+existing persistent data volume with no new container mount/environment setting. A bounded
+Node worker downloads only regional PMTiles ranges and local Noto Sans labels from fixed
+Protomaps endpoints; town search uses the existing fixed Open-Meteo locality host. This reuses
+the already pinned PMTiles 4.5.0 library on the server, with no new library/version or external
+queue/binary. Progress survives page navigation; installed state survives restart. Publication
+uses a flushed atomic manifest, versioned same-origin files and an install record with actor,
+timestamp and source build. Failed/cancelled jobs retain the current map. The active/previous
+payloads are retained, older payloads pruned, install manifests retained and interrupted staging
+cleaned. Legacy operator mounts remain usable until a managed installation. The map viewer
+reads the current asset manifest and still provides the existing List fallback.
+
+**Security surface changed:** new server-admin controls, public versioned static assets and
+fixed-provider outbound downloads. Strict input, current authority rechecks, CSRF, persisted
+request limits, one worker, deadlines, memory/buffer/request/tile/storage bounds, stable ETags,
+exact Range validation and bounded decompression are enforced. No arbitrary URL, upload,
+credential, geolocation, automatic periodic update, new Workspace permission, schema migration
+or private-place disclosure was added. Policy and checks are recorded in security.md §14;
+AGENTS.md, architecture, deployment, Unraid and the user guide reflect the approved extension.
+
+**Checks:** full suite **240 files / 1,890 tests passed** with local networking enabled; the first
+sandboxed run passed 1,872 and failed 18 due to socket restrictions/timeouts and a child-command
+failure, then the affected integration files passed in isolation before the clean full run.
+Final focused security/install tests after the last publication-state hardening and added
+provider rejection case: **13 passed**. Full lint, root/server/web typechecks, production build,
+router/catalog/contrast tests and diff checks pass. Production-CSP browser checks exercise town
+search, install, progress, reload, update, cancellation, installed-map retention and actual managed
+map rendering, with Light/Dark at 320/390/1440 px, axe, keyboard/touch, reduced motion and no
+overflow/page errors. Local browser evidence is under ignored `.var/map-browser-evidence/`.
+Separate manual provider verification used the actual resource-limited worker to install Triora
+100 km: **237,018,664 archive bytes**, **47,820 entries**, zoom 0–15 and all 256 font ranges;
+the official go-pmtiles verifier passed. All automated provider tests use fixtures.
+
+**Remaining/limits:** release and deploy when requested; the running Unraid server is unchanged.
+The next owner-counted release remains **76** after 0.16.0 (75); no version/tag/release was
+prepared here. A restart cancels a partial download, which can be started again explicitly.
+Dense/large or high-latitude areas can exceed bounded limits and need a smaller radius. Internet
+access to the fixed providers and at least 3.2 GB free are required. Reopen Map after replacing
+its data. This is one-process managed storage, not distributed installation coordination.
+
+**0.16.1 release plan (owner-authorized):** owner release **76**, stable tag `v0.16.1`;
+release gates and publication evidence are tracked in Current state above. Update the Unraid
+image reference and populated-upgrade predecessors; no live deployment is included.

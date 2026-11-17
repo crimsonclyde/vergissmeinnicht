@@ -1,3 +1,6 @@
+import { mapDataRoutes } from './http/map-data-routes.ts';
+import { MapDataManager, type MapRunner } from './map-data/manager.ts';
+import type { MapFetch } from './map-data/remote.ts';
 import {registerMcpHttp} from './mcp/http.ts';
 import {registerMcpOAuth} from './mcp/oauth.ts';
 import {mcpAccountRoutes} from './http/mcp-account-routes.ts';
@@ -51,6 +54,10 @@ export interface AppOptions {
   /** Built web assets (apps/web/dist). When absent, only the API is served (development). */
   webDistDir?: string | undefined;
   mapAssetsPath?: string | undefined;
+  managedMapPath?: string | undefined;
+  /** Test adapters: no live provider requests in automated tests. */
+  mapRunner?: MapRunner | undefined;
+  mapFetch?: MapFetch | undefined;
   logger?: FastifyServerOptions['logger'];
   /** Application services. Without them only health and static assets are served (tests of the HTTP baseline). */
   services?: ((log: FastifyBaseLogger) => AppServices) | undefined;
@@ -157,6 +164,11 @@ export async function buildApp(options: AppOptions = {}) {
   app.decorate('routeTable', routeTable as readonly RouteEntry[]);
 
   const services = options.services?.(app.log);
+  const mapData = services && options.managedMapPath ? new MapDataManager(options.managedMapPath, options.mapRunner) : undefined;
+  if (mapData) {
+    await mapData.init();
+    app.addHook('onClose', async () => mapData.close());
+  }
   if (services !== undefined) {
     app.addHook('onRequest', originGuard(services.publicOrigin));
     app.addHook('onClose', () => services.closeDocumentFiles());
@@ -214,6 +226,7 @@ export async function buildApp(options: AppOptions = {}) {
         api.all('/*', async (_request, reply) => reply.code(503).send({ error: unavailable.reason }));
       }
       if (services !== undefined) {
+        await api.register(mapDataRoutes, { prefix: '/admin/map-data', services, manager: mapData, fetcher: options.mapFetch });
         // Readiness for container health checks: no details beyond a reason code.
         api.get('/health/ready', async (_request, reply) => {
           const readiness = services.readiness();
@@ -286,11 +299,20 @@ export async function buildApp(options: AppOptions = {}) {
     { prefix: '/api' },
   );
 
+  // Public cartography contains no saved places or private overlays. Versioned paths avoid mixed ranges on updates.
+  if (mapData) {
+    app.get('/map-assets/current.json', async (_request, reply) => reply.header('Cache-Control', 'no-store').send(mapData.manifest()));
+    await app.register(fastifyStatic, {
+      root: mapData.root + '/versions', prefix: '/map-assets/managed/', decorateReply: false, index: false, redirect: false,
+      allowedPath: path => /^\/?[0-9a-f-]{36}\/(?:region\.pmtiles|fonts\/OFL\.txt|fonts\/Noto Sans Regular\/\d{1,6}-\d{1,6}\.pbf)$/.test(path),
+      maxAge: '1h',
+    });
+  }
   // Operator-installed public basemap only. Paths are fixed to the archive and its local glyphs.
   if (options.mapAssetsPath && services && existsSync(options.mapAssetsPath)) {
     await app.register(fastifyStatic, {
       root: options.mapAssetsPath, prefix: '/map-assets/', decorateReply: false, index: false, redirect: false,
-      allowedPath: path => /^\/?(?:region\.pmtiles|fonts\/Noto Sans Regular\/\d{1,6}-\d{1,6}\.pbf)$/.test(path),
+      allowedPath: path => /^\/?(?:region\.pmtiles|fonts\/OFL\.txt|fonts\/Noto Sans Regular\/\d{1,6}-\d{1,6}\.pbf)$/.test(path),
       maxAge: '1h',
     });
   }

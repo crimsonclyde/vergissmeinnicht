@@ -34,6 +34,14 @@ Witch Forest 25.3 uses local compressed WebP woodland/ivy assets with responsive
 - Independent private database fixtures cloned from real migrated empty-schema bytes; upgrade tests run the migrator directly. CI quality/browser/native-image checks run concurrently behind one fail-closed aggregate gate.
 
 ### Package manager
+
+Managed basemaps (44.2) use server infrastructure modules under `apps/server/src/map-data/`:
+fixed-provider HTTP, bounded PMTiles extraction, a resource-limited Node worker and an atomic
+filesystem manifest. Fastify adapters enforce server-admin access; React polls job status.
+The existing pinned PMTiles library is reused on the server. One job runs in the monolith;
+there is no external worker service or queue. Public, versioned cartography is served under
+`/map-assets/managed/`, with no private overlays or manifests exposed. Storage follows the
+existing database volume and is separate from application/Workspace backup records.
 - pnpm preferred
 
 Exact versions must be pinned/locked when implementation begins and checked against current security advisories.

@@ -6,25 +6,20 @@ import type { MapPlace, MapPoint } from '@vergissmeinnicht/domain';
 import { t } from '../../i18n/index.ts';
 import 'maplibre-gl/dist/maplibre-gl.css';
 
-const archive = new URL('/map-assets/region.pmtiles', window.location.origin).href;
-const glyphRoot = window.location.origin + '/map-assets/fonts/';
 const protocol = new Protocol();
-const tiles = new PMTiles(archive);
-protocol.add(tiles);
 setWorkerUrl(workerUrl);
-const tilePattern = new RegExp('^' + escapePattern('pmtiles://' + archive) + '/\\d+/\\d+/\\d+$');
+function validResource(url: string): boolean {
+  const parsed = new URL(url, window.location.origin);
+  return parsed.origin === window.location.origin && /^\/map-assets\/(?:managed\/[0-9a-f-]{36}\/)?(?:region\.pmtiles|fonts\/Noto(?:%20| )Sans(?:%20| )Regular\/(?:\{range\}|\d+-\d+)\.pbf)$/.test(parsed.pathname);
+}
 addProtocol('pmtiles', async (request, controller) => {
-  if (request.url !== 'pmtiles://' + archive && !tilePattern.test(request.url)) {
-    throw new Error('Unexpected Map tile request');
-  }
+  const value = request.url.slice('pmtiles://'.length);
+  const archiveUrl = value.replace(/\/\d+\/\d+\/\d+$/, '');
+  if (!request.url.startsWith('pmtiles://') || !validResource(archiveUrl) || !archiveUrl.endsWith('/region.pmtiles')) throw new Error('Unexpected Map tile request');
   const result = await protocol.tilev4(request, controller);
   if (result.data === null || typeof result.data !== 'object') throw new Error('Invalid Map resource');
   return { data: result.data, cacheControl: result.cacheControl ?? null, expires: result.expires ?? null };
 });
-function escapePattern(value: string) {
-  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-}
-
 const LIMIT = 85.05112878;
 const tileLatitude = (latitude: number) => Math.max(-LIMIT, Math.min(LIMIT, latitude));
 type Position = [longitude: number, latitude: number];
@@ -36,7 +31,7 @@ interface Props {
   onMove: (viewport: Viewport, bounds: string) => void;
 }
 
-function cartography(element: HTMLElement, glyphsInstalled: boolean): StyleSpecification {
+function cartography(element: HTMLElement, glyphsInstalled: boolean, archive: string, glyphRoot: string): StyleSpecification {
   const token = getComputedStyle(element);
   const color = (name: string, fallback: string) => token.getPropertyValue('--map-' + name).trim() || fallback;
   const paths: FilterSpecification = ['any',
@@ -46,7 +41,7 @@ function cartography(element: HTMLElement, glyphsInstalled: boolean): StyleSpeci
   return {
     version: 8,
     ...(glyphsInstalled ? { glyphs: glyphRoot + '{fontstack}/{range}.pbf' } : {}),
-    sources: { region: { type: 'vector', url: 'pmtiles://' + archive, attribution: '<a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer">© OpenStreetMap contributors</a>' } },
+    sources: { region: { type: 'vector', url: 'pmtiles://' + archive, attribution: '<a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer">© OpenStreetMap contributors</a>' + (glyphsInstalled ? ' · <a href="' + glyphRoot + 'OFL.txt" target="_blank" rel="noreferrer">Noto Sans license</a>' : '') } },
     layers: [
       { id: 'paper', type: 'background', paint: { 'background-color': color('paper', '#e5e9d6') } },
       { id: 'land', type: 'fill', source: 'region', 'source-layer': 'landuse', paint: { 'fill-color': color('land', '#c7d3b3'), 'fill-opacity': 0.52 } },
@@ -116,7 +111,16 @@ export function MapCanvas(props: Props) {
       callbacks.current.onMove({ center: [center.lng, center.lat], zoom: atlas.getZoom() }, bounds);
       setMarkerRevision(current => current + 1);
     }
-    tiles.getHeader().then(async header => {
+    const elementForMap = element;
+    async function initialize() {
+      const element = elementForMap;
+      const config = await fetch('/map-assets/current.json', { credentials: 'same-origin', redirect: 'error', signal: controller.signal })
+        .then(async response => response.ok ? await response.json() as { archive: string; glyphRoot: string } : null);
+      const archive = new URL(config?.archive ?? '/map-assets/region.pmtiles', window.location.origin).href;
+      const glyphRoot = new URL(config?.glyphRoot ?? '/map-assets/fonts/', window.location.origin).href;
+      if (!validResource(archive) || !validResource(glyphRoot + 'Noto%20Sans%20Regular/0-255.pbf')) throw new Error('Unexpected Map resource');
+      const tiles = new PMTiles(archive); protocol.add(tiles);
+      const header = await tiles.getHeader();
       const glyphsInstalled = await fetch(glyphRoot + 'Noto%20Sans%20Regular/0-255.pbf', {
         method: 'HEAD', credentials: 'same-origin', redirect: 'error', signal: controller.signal,
       }).then(response => response.ok).catch(() => false);
@@ -130,17 +134,17 @@ export function MapCanvas(props: Props) {
       } : viewport;
       home.current = coverage;
       atlas = new Atlas({
-        container: element, style: cartography(element, glyphsInstalled), center: coverage.center, zoom: coverage.zoom, minZoom: 2, maxZoom: 18,
+        container: element, style: cartography(element, glyphsInstalled, archive, glyphRoot), center: coverage.center, zoom: coverage.zoom, minZoom: 2, maxZoom: 18,
         dragRotate: false, pitchWithRotate: false,
         transformRequest(url) {
           if (url.startsWith('pmtiles://')) return { url };
           const parsed = new URL(url, window.location.origin);
-          if (parsed.origin !== window.location.origin || !parsed.pathname.startsWith('/map-assets/')) throw new Error('Unexpected Map resource');
+          if (!validResource(parsed.href)) throw new Error('Unexpected Map resource');
           return { url: parsed.href };
         },
       });
       map.current = atlas;
-      theme = new MutationObserver(() => atlas?.setStyle(cartography(element, glyphsInstalled)));
+      theme = new MutationObserver(() => atlas?.setStyle(cartography(element, glyphsInstalled, archive, glyphRoot)));
       theme.observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme', 'data-scheme'] });
       atlas.on('load', () => { if (active) { setReady(true); moved(); } });
       atlas.on('error', event => {
@@ -150,7 +154,8 @@ export function MapCanvas(props: Props) {
       atlas.on('click', event => {
         if (callbacks.current.pick) callbacks.current.onDrop(event.lngLat.wrap().lng, event.lngLat.lat);
       });
-    }).catch(() => { if (active) setUnavailable(true); });
+    }
+    void initialize().catch(() => { if (active) setUnavailable(true); });
     return () => { active = false; controller.abort(); map.current = null; theme?.disconnect(); atlas?.remove(); };
   }, []);
   useEffect(() => {

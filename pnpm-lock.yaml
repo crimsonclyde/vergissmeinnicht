@@ -257,6 +257,9 @@ importers:
       fastify:
         specifier: 5.12.7
         version: 5.12.7
+      pmtiles:
+        specifier: 4.5.0
+        version: 4.5.0
       zod:
         specifier: 4.6.6
         version: 4.6.6

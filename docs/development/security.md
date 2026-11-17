@@ -1064,6 +1064,70 @@ The following choices are mandatory V1 behavior:
 
 ## 14. Outbound connections to configurable hosts (SSRF policy)
 
+### Security check: managed regional basemaps (44.2, 2026-11-17)
+
+The owner approved in-app area selection, server-side regional map downloads and explicit
+updates. Only ACTIVE server admins may search, start, cancel or inspect download jobs.
+Provider hosts and paths are fixed in code: Protomaps build metadata and dated PMTiles
+archives, Protomaps Noto glyphs and Open-Meteo locality search. No submitted URL, credential,
+shell command, uploaded archive or device geolocation is accepted. HTTPS requests refuse
+redirects, send no cookies/credentials, validate response/range sizes, and have deadlines.
+Untrusted build keys are constrained to dated archive names and never become arbitrary URLs.
+
+One bounded worker handles extraction at a time, outside the HTTP thread, with a fixed
+memory budget, total deadline, tile/request/download/storage bounds and cancellation.
+Only public map data is downloaded; the selected area is disclosed to the tile source and
+search words to the locality provider, explained before download. Private saved places and
+visits are never sent. The old map remains available until complete validated output is
+published through an atomic manifest; versioned URLs prevent mixed reads during replacement.
+Interrupted/staged files are cleaned on startup and failure. Managed data lives beside the
+database on its existing persistent volume, outside Workspace backups; legacy operator mounts
+continue to work. Explicit updates only; no scheduled downloads or automatic paid service.
+
+**Implemented controls:** one worker with a 192 MiB old-generation / 32 MiB young-generation
+JS heap budget, 20-minute deadline and termination on cancellation/shutdown. Buffers and
+decompression have separate bounds (8 MiB expansion per directory/metadata/tile). An area is
+10–200 km at supported latitudes, at most 400,000 candidate tiles, 2,048 directories / depth 3,
+4,096 upstream requests, 1 GB of selected tile payload and 128 MB additional transfer budget.
+Individual HTTP reads have a 30-second deadline and response caps; archive reads require exact
+206 ranges and a stable strong ETag. A download requires at least 3.2 GB free first. Download
+requests are persisted at three per admin per 15 minutes, locality searches at 30. No credentials,
+provider cookies, arbitrary URL or redirect is accepted. Directory/metadata formats, MVT type,
+source layers, compression, glyph signature/size and archive offsets are checked. Validation is
+bounded format checking, not a claim of full semantic verification of every vector feature.
+Generated TileJSON metadata contains only fixed plain-text attribution and allowlisted layer
+names; upstream attribution HTML, URLs and other metadata are not forwarded to the browser.
+
+Output is streamed to staging; tile bytes, glyph files and directories are flushed before an
+atomic active-manifest rename. The generated version UUID, actor UUID, timestamp, area and
+source build are retained in an immutable install manifest. The admin's current ACTIVE/admin
+status is rechecked before publication. Cancellation after publication cannot undo that install.
+At most the active and previous payloads are kept; older install manifests remain. The public
+static allowlist exposes only versioned PMTiles, font PBFs and their OFL license, never install
+manifests. The browser's manifest names only generated local asset paths and adds no private
+Workspace content. Existing operator mounts remain the fallback until the first managed install.
+
+**Verification:** negative HTTP tests cover anonymous/non-admin/CSRF refusal and invalid area
+bodies; the exhaustive route-security sweep covers the new admin endpoints. Codec/download
+tests exercise malformed/oversized directory input, decompression limits, fixed-host rejection,
+redirect refusal, response caps, exact ranges, changed ETags, malformed fonts, complete fixed
+provider fixtures, removal of upstream attribution HTML and regional output readable through
+the existing PMTiles library. Manager
+tests cover overlapping starts, cancellation, source failure, restart cleanup and admin revocation
+before publication. HTTP tests verify versioned 206 reads, stale replacement refusal and private
+manifest exclusion. Automated tests use provider fixtures exclusively. Separate manual verification
+downloaded the real Triora 100 km region through the worker; the official PMTiles CLI accepted
+the generated archive, and the production-CSP browser rendered it. Full suite: 1,890 passed;
+final focused cases after the last changes: 13 passed. Browser checks cover Light/Dark at
+320/390/1440 px, task completion, axe, keyboard/touch, overflow and reduced motion.
+
+**Limits:** fixed providers see requested public region ranges/search text and must be reachable.
+An interrupted job must be explicitly restarted. Existing map views should be reopened after
+replacement; payloads older than the retained previous version are removed. The JS heap budget
+does not cap the entire process RSS; bounded buffers and the operator's existing container memory
+limit remain relevant. One VMN process owns this data directory; multi-process shared-volume
+installation coordination is not added. Release verification is recorded in steps.md; live deployment remains separate.
+
 *Not covered by this policy:* hosts fixed in code with no configurable part — `api.telegram.org` (13.7) and the weather providers of 19.4 (`api.open-meteo.com`, `geocoding-api.open-meteo.com`, `api.met.no`; see "Weather providers and provider credentials") and of The Daily Planet's weather (43.7: `api.brightsky.dev`, `feeds.meteoalarm.org`, `allertaliguria.regione.liguria.it`; see "Daily Planet workspace weather").
 
 _Policy defined 2026-10-01 (steps.md 16.0); no code uses it yet. It is a prerequisite: no feature may open a connection to a host supplied through the application before it follows this section and has its own "Security check". First planned user: Mailboxes (16.10, IMAP/SMTP — its threat model is written there, task 2). Webhooks, ntfy and Gotify would fall under it as well._

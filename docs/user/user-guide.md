@@ -644,6 +644,14 @@ Search by place name, locality or tag, choose a saved town to center the map, or
 and tag filters. **Want to go** and **Favorites** filter by your own flags. **List** still works when
 the basemap is unavailable and includes places without a known pin.
 
+If a basemap is missing, a **server admin** can open **Server admin → Map data**, choose a
+town (or the Triora preset) and a radius, then select **Download map**. The server installs
+the map and its labels; no container configuration is needed. The same screen offers
+**Update installed area** and cancellation. Downloads continue while the page is closed.
+The previous map stays available until a replacement is installed; reopen Map afterwards.
+Town search uses Open-Meteo and regional downloads use Protomaps; saved places and private
+visits are never sent to those providers. Workspace admins still enable the Map tool separately.
+
 Workspace editors can add and archive places. Choose a category, then drop a pin, enter WGS 84
 latitude and longitude, save an original link, or leave the location for later. Walking approaches
 and starting points can be reused. Review reported hazards and the check date in a place’s details.

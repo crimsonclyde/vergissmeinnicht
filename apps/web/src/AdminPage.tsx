@@ -1,3 +1,4 @@
+import { MapDataAdmin } from './MapDataAdmin.tsx';
 import {AttachmentSettings} from './AttachmentSettings.tsx';
 import { WeatherAdmin } from './WeatherAdmin.tsx';
 import { HistoricalIdentities, RestoreFromBackup, RestoreLimitSettings } from './WorkspaceRestore.tsx';
@@ -829,6 +830,7 @@ const ADMIN_SECTION_ICONS: Record<AdminSection, UiIconName> = {
   accounts: 'profile',
   notifications: 'reminders',
   weather: 'weatherPartlyCloudy',
+  'map-data': 'gazetteMap',
   connections: 'assistant',
   server: 'server',
   log: 'security',
@@ -839,6 +841,7 @@ const ADMIN_SECTION_GROUPS: Record<AdminSection, MessageKey> = {
   accounts: 'admin.group.people',
   notifications: 'admin.group.services',
   weather: 'admin.group.services',
+  'map-data': 'admin.group.services',
   connections: 'admin.group.services',
   server: 'admin.group.server',
   log: 'admin.group.server',
@@ -874,6 +877,7 @@ export function AdminPage({ section, currentUserId, workspaces = null, onWorkspa
       )}
       {section === 'notifications' && <NotificationProviders />}
       {section === 'weather' && <WeatherAdmin />}
+      {section === 'map-data' && <MapDataAdmin />}
       {section === 'connections' && <McpConnections workspaces={workspaces} currentUserId={currentUserId} />}
       {section === 'server' && (
         <>
