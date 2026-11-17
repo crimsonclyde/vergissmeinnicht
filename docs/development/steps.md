@@ -45,6 +45,17 @@ before merging/tagging. Live deployment remains separate.
 [Candidate PR](https://github.com/crimsonclyde/vergissmeinnicht/pull/131) ·
 [Initial CI](https://github.com/crimsonclyde/vergissmeinnicht/actions/runs/44157892193).
 
+**Final candidate checks:** on source `74ab897`, both browser suites, CodeQL and both native
+image build/smoke/scan jobs passed in
+[CI 44158609801](https://github.com/crimsonclyde/vergissmeinnicht/actions/runs/44158609801).
+The quality job stopped at `pnpm audit --audit-level high` with the same unpatched picomatch
+advisory, before lint/typecheck/unit execution. The aggregate gate correctly failed. Local
+focused map tests passed **10/10**, with targeted ESLint passing after the CI fixture fixes.
+The release is prepared but held for a reviewed dependency-security resolution. No tag,
+release image or GitHub Release exists for 0.16.1. A documentation-only status commit records
+this result without rerunning unchanged application checks. Owner count stays **75**.
+
+
 **ChatGPT plugin replacement runbook (2026-11-17):** owner requested replacing the stale
 registration and preserving a repeatable update procedure. The old `vmn` registration was
 deleted after explicit action-time confirmation; the replacement uses the exact name `vmn`,

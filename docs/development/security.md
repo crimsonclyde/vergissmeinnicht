@@ -1138,7 +1138,7 @@ but this does not establish whole-tree runtime non-reachability. No exception, s
 replacement package or audit gate change has been introduced. Publication requires a reviewed
 security resolution; the owner count is unchanged. CodeQL's separate URL-matching findings
 were in provider fixtures and were fixed by exact parsed-host comparisons, matching the
-production allowlist. Release status is tracked at the top of steps.md.
+production allowlist. Release status is tracked at the top of steps.md. Candidate `74ab897` passed CodeQL, both browser suites and native amd64/arm64 smoke/scans; the audit and aggregate gates remain failed. No release was published.
 
 *Not covered by this policy:* hosts fixed in code with no configurable part — `api.telegram.org` (13.7) and the weather providers of 19.4 (`api.open-meteo.com`, `geocoding-api.open-meteo.com`, `api.met.no`; see "Weather providers and provider credentials") and of The Daily Planet's weather (43.7: `api.brightsky.dev`, `feeds.meteoalarm.org`, `allertaliguria.regione.liguria.it`; see "Daily Planet workspace weather").
 
