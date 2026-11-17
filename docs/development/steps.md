@@ -18,6 +18,18 @@ For every completed task, add a concise completion note, tests/checks performed,
 
 ## Current state — resume here
 
+**Published owner release 75 (2026-11-17 Europe/Berlin).** 0.16.0 was published
+from `v0.16.0`, source `0c5b8ef761412fc68b50ff99709071d32d6bd07f` (Marauder’s Map, §44.1).
+Migration 0082 adds the optional Workspace tool. Main CI passed, along with both
+architecture builds and scans, signing, SBOM attestation, exact-image smoke
+and populated upgrades from 0.15.4, 0.15.3, 0.15.2 and 0.10.1-beta.0.
+Registry tags `0.16.0`, `0.16` and `latest` resolve to
+`sha256:cdd94bf3fa95d42a69d14ed4a380854f765cfa3640790241aaaa425c6f8a118e`. The publication record adds no application security surface.
+Owner count **75**, next **76**. Live deployment remains separate.
+[GitHub release](https://github.com/crimsonclyde/vergissmeinnicht/releases/tag/v0.16.0) ·
+[Main CI](https://github.com/crimsonclyde/vergissmeinnicht/actions/runs/44060047434) ·
+[Release workflow](https://github.com/crimsonclyde/vergissmeinnicht/actions/runs/44060047832)
+
 **Published owner release 74 (2026-11-16 Europe/Berlin).** 0.15.4 was published from
 `v0.15.4`, source `fcc9d99eca4c4111ab5afe48784f600818afb1fe` (PR #130, Dashboard
 masthead and Newsflash parity and compact Gazette Weather, 43.8 follow-up). No
