@@ -35,7 +35,7 @@ export interface Navigation {
 
 /** The families (section 42): one list for the desktop menu bar, the classic sidebar and the phone drawer. */
 const FAMILIES: readonly { readonly id: Exclude<NavigationGroupId, 'instruments'>; readonly label: MessageKey; readonly icon: UiIconName; readonly tools: readonly NavigationTool[] }[] = [
-  { id: 'plan', label: 'navigation.groupPlan', icon: 'plan', tools: ['PROCEDURES', 'REMINDERS', 'CALENDAR'] },
+  { id: 'plan', label: 'navigation.groupPlan', icon: 'plan', tools: ['PROCEDURES', 'REMINDERS', 'CALENDAR', 'MAP'] },
   { id: 'shop', label: 'navigation.groupShop', icon: 'shop', tools: ['LISTS', 'RECIPES', 'BRING'] },
   { id: 'house', label: 'navigation.groupHouse', icon: 'house', tools: ['EQUIPMENT', 'MAINTENANCE', 'DOCUMENTS', 'CONTACTS', 'JOURNAL'] },
 ];
@@ -61,6 +61,7 @@ function toolDestination(workspaceId: string, tool: NavigationTool, tools: reado
     // Equipment and Maintenance are one area (41.2): one entry, opening the tab used last.
     case 'MAINTENANCE':
     case 'EQUIPMENT': return { href: maintenanceAreaHref(workspaceId, tools) ?? paths.maintenance(workspaceId), label: t('shell.maintenance'), icon: 'maintenance', pages: ['maintenance', 'equipment'] };
+    case 'MAP': return { href: paths.map(workspaceId), label: t('map.navigation'), icon: 'gazetteMap', pages: ['map'] };
     case 'RECIPES': return { href: paths.recipes(workspaceId), label: t('recipes.heading'), icon: 'grocery', pages: ['recipes'] };
     case 'BRING': return { href: paths.bring(workspaceId), label: t('bring.heading'), icon: 'forward', pages: ['bring'] };
     case 'JOURNAL': return { href: paths.journal(workspaceId), label: t('journal.heading'), icon: 'notebook', pages: ['journal'] };

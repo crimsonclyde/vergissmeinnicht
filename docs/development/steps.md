@@ -8693,3 +8693,63 @@ of a directly attached image and an image extracted from a PDF remain pending.
 [Main CI](https://github.com/crimsonclyde/vergissmeinnicht/actions/runs/42797167117)
 [Release workflow](https://github.com/crimsonclyde/vergissmeinnicht/actions/runs/42797166090)
 [GitHub release](https://github.com/crimsonclyde/vergissmeinnicht/releases/tag/v0.13.4)
+
+## 44 — Marauder’s Map design review (owner request 2026-11-17)
+
+**Status:** Desktop and phone mockups and [technical proposal](marauders-map-proposal.md)
+ready for owner review. The mockups cover browsing, filters and no results, selection,
+details, WGS 84, manual entry and an import preview using Casa Nostra · Triora.
+The proposal records VMN integration points, shared and private data boundaries,
+backup/restore, directions, and an idempotent MCP contract.
+
+**Checks:** Chromium exercised desktop browse, clustering, filters and coordinates,
+plus 320 px phone details, missing tiles, import preview and saving then locating an
+unresolved link. The light desktop and dark phone layouts were inspected. Whitespace
+checks passed.
+
+**Remaining:** Owner review before implementation. The six Google Maps URLs were
+absent from the brief. The exact Creppo trail entrance and current conditions remain
+unverified. The mock uses a reported ruin pin, a village start and simulated Nearby and
+import results. Geolocation needs an explicit decision under the existing scope rule.
+
+**Security surface:** Design only. No application routes, permissions, migrations,
+uploads, outbound runtime calls or MCP tools were added. The proposal records the
+checks required for the planned data flows and authorization boundaries.
+
+### 44.1 — Workspace tool, visits, basemap and import (owner-approved 2026-11-17)
+
+**Implemented:** Migration 0082 adds the off-by-default Map switch, shared places, tag
+assignments, reusable points and approaches, private flags and visits, photo bindings and import
+receipts. The desktop list and map synchronize selection, and phones switch between Map and
+List. Editors can save and revisit unresolved links, add or reuse labelled locations, archive
+and restore, or preview and save a selection of researched drafts. The optional same-origin
+basemap uses lazy-loaded MapLibre GL JS and PMTiles, with a list fallback. The tool offers
+WGS 84 coordinates, labelled Google Maps handoff, private visit history, and locally processed
+photos. MCP read/write scopes support search, read, preview, create, batch import and revisioned
+patches. Shared places use reversible archive.
+
+**Verification:** Production-mode browser tests exercised Light desktop and Memento Mori at
+320 px, including tile outage, search, private visits, completing an unresolved place and
+batch import preview. A disposable VMN server served a real MVT archive with HTTP 206 and
+rendered a selectable marker under the production CSP. The API, MCP, role, route security,
+migration and Workspace backup tests exercise the new boundary. Workspace recovery verifies
+that two restored places share one remapped point and approach, the cover remains available,
+and private visit data and bytes are absent. Typecheck, lint, web build and whitespace checks
+passed. Dependency audit reported no high or critical advisories. The two moderate advisories
+are in the existing MCP dependency `@hono/node-server`. The full suite passed 1,877 tests and
+timed out on the existing Recipe MCP upload test, which passed in an isolated rerun.
+
+**Remaining:** Deploy and migrate through the usual release workflow when authorized, install
+a regional archive for installations that want the basemap, and configure any existing MCP
+connection with the new Map scopes. The brief's six original Maps URLs were unavailable, so
+no example entries were seeded. Device geolocation, GPX, visit sharing and physical navigation
+handoff verification remain follow-ups.
+
+**Security surface:** Added optional routes, Workspace capabilities, scoped media, private
+visits and delegated shared writes. See the Map section in [security.md](security.md) and the
+[deployment notes](../admin/deployment.md#optional-marauders-map-basemap).
+
+**Release plan:** 0.16.0 is owner release **75** after publication. Tag `v0.16.0`
+with migration 0082 and verify CI, both native images, signing and attestation,
+and populated upgrades from 0.15.4, 0.15.3, 0.15.2 and 0.10.1-beta.0.
+See [release notes](../releases/0.16.0.md). Live deployment is separate.

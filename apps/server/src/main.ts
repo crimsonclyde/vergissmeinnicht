@@ -42,6 +42,7 @@ try {
 const services = createServices(config, database);
 let built: ReturnType<typeof services> | undefined;
 const app = await buildApp({
+  mapAssetsPath: config.mapAssetsPath,
   webDistDir: config.mode === 'production' ? resolve(import.meta.dirname, '../../web/dist') : undefined,
   logger: loggerOptions(config.logLevel),
   services: databaseNewer ? undefined : (log) => (built = services(log)),

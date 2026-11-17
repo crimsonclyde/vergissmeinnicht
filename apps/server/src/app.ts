@@ -3,6 +3,7 @@ import {registerMcpOAuth} from './mcp/oauth.ts';
 import {mcpAccountRoutes} from './http/mcp-account-routes.ts';
 import {mcpAdminRoutes} from './http/mcp-admin-routes.ts';
 import {recipeRoutes} from './http/recipe-routes.ts';
+import { placesMapRoutes } from './http/places-map-routes.ts';
 import {gazetteRoutes} from './http/gazette-routes.ts';
 import {attachmentRoutes,attachmentAdminRoutes} from './http/attachment-routes.ts';
 import { bringRoutes } from './http/bring-routes.ts';
@@ -49,6 +50,7 @@ import { workspaceRoutes } from './http/workspace-routes.ts';
 export interface AppOptions {
   /** Built web assets (apps/web/dist). When absent, only the API is served (development). */
   webDistDir?: string | undefined;
+  mapAssetsPath?: string | undefined;
   logger?: FastifyServerOptions['logger'];
   /** Application services. Without them only health and static assets are served (tests of the HTTP baseline). */
   services?: ((log: FastifyBaseLogger) => AppServices) | undefined;
@@ -227,6 +229,7 @@ export async function buildApp(options: AppOptions = {}) {
         await api.register(mcpAccountRoutes,{prefix:'/account/mcp',services});
         await api.register(mcpAdminRoutes,{prefix:'/admin/mcp',services});
         await api.register(recipeRoutes,{prefix:'/workspaces/:workspaceId/recipes',services});
+        await api.register(placesMapRoutes, { prefix: '/workspaces/:workspaceId/map', services });
         await api.register(gazetteRoutes,{prefix:'/workspaces/:workspaceId/gazette',services});
         await api.register(bringRoutes, { prefix: '/workspaces/:workspaceId/bring', services });
         await api.register(attachmentAdminRoutes,{prefix:'/admin/attachments',services});
@@ -283,6 +286,14 @@ export async function buildApp(options: AppOptions = {}) {
     { prefix: '/api' },
   );
 
+  // Operator-installed public basemap only. Paths are fixed to the archive and its local glyphs.
+  if (options.mapAssetsPath && services && existsSync(options.mapAssetsPath)) {
+    await app.register(fastifyStatic, {
+      root: options.mapAssetsPath, prefix: '/map-assets/', decorateReply: false, index: false, redirect: false,
+      allowedPath: path => /^\/?(?:region\.pmtiles|fonts\/Noto Sans Regular\/\d{1,6}-\d{1,6}\.pbf)$/.test(path),
+      maxAge: '1h',
+    });
+  }
   const webDistDir = options.webDistDir;
   const serveWeb = webDistDir !== undefined && existsSync(webDistDir);
   if (serveWeb) {
@@ -293,7 +304,8 @@ export async function buildApp(options: AppOptions = {}) {
     const isApi = request.url === '/api' || request.url.startsWith('/api/');
     const pathname = request.url.split('?')[0];
     const isWellKnown = pathname === '/.well-known' || pathname?.startsWith('/.well-known/');
-    if (serveWeb && !isApi && !isWellKnown && request.method === 'GET') {
+    const isMapAsset = pathname === '/map-assets' || pathname?.startsWith('/map-assets/');
+    if (serveWeb && !isApi && !isWellKnown && !isMapAsset && request.method === 'GET') {
       // Discovery failures must stay 404 JSON, never a successful SPA shell.
       return reply.sendFile('index.html');
     }

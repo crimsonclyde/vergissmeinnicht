@@ -12,6 +12,10 @@ const code = Object.entries(sources)
 /** Keys built at runtime, e.g. t(`state.${state}`); `error.*` keys are chosen by server error codes. */
 const DYNAMIC_PREFIXES = [
   'clock.mode.',
+  'map.category.',
+  'map.role.',
+  'map.precision.',
+  'map.go.',
   'gazette.severity.',
   'gazette.warningLevel.',
   'gazette.confidence.',

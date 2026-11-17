@@ -2311,3 +2311,38 @@ writes, two derived tables).
 - [x] Official-source verification is the publisher’s responsibility. VMN stores the published
   snapshot and links the supplied URL on click with `noopener noreferrer`. VMN does not fetch it.
 - [x] Notices follow edition retention, audit metadata, and Workspace backup and restore validation.
+
+### Marauder’s Map (44, 2026-11-17)
+
+**Security surface changed.** This adds a Workspace-gated tool, shared records and scoped
+photos, owner-only flags and visits, delegated import, and an operator-installed public basemap.
+
+- Every Map API route requires a current signed-in member and the `MAP` switch. Shared reads
+  use `map.view` for every Workspace role. `map.visit` starts at USER, shared edits at EDITOR
+  and tag changes at ADMIN. Archived reads require shared edit access. SQLite access rechecks
+  the active account, tool, current role and live MCP grant transactionally. Composite foreign
+  keys scope shared points, approaches, tags and personal/photo joins to the owning Workspace.
+- Shared cover and private visit uploads use separate policies on the existing bounded attachment
+  pipeline, including quota admission, format inspection and derivative generation. Bytes are served
+  through bound-record routes only, with `no-store` and metadata-free derivatives. Private image
+  bindings check the active owner and the same place and Workspace. Neither server nor Workspace
+  administrator status creates an owner override. Logs redact private record paths.
+- The Workspace backup allowlist includes shared places, covers, points, tags, approaches and
+  joins. Private flags, visits, visit photos and import receipts stay outside the portable package.
+  Restore remaps shared identifiers and validates typed content. Shared-cover and private-photo
+  triggers refuse out-of-scope or deleting attachments.
+- MCP Map scopes are opt-in, intersect the same role and enabled tool gates, and expose only shared
+  records. Discovery reflects accessible enabled Workspaces. Preview writes nothing. Create and
+  import hold exact and possible matches for review. Reused operation IDs with changed payloads
+  are refused. Revisions preserve concurrent edits, and shared mutations and audit events
+  commit together. Audit metadata carries IDs and action/revision, with diagnostics kept free of
+  imported content, URLs, coordinates and personal visit data.
+- Map inputs are bounded and rendered as text. Source and original URLs are validated HTTPS
+  references opened deliberately by the viewer. The server never resolves or fetches them.
+  No geolocation, routing, external geocoding or remote image loading is added. A fixed same-origin
+  archive and glyph path, an explicit file allowlist and a self-hosted renderer worker preserve
+  the existing browser security policy. Operator-installed tiles are public and contain no
+  Workspace coordinates or overlays. The client never sends private place data to the basemap.
+- Regression coverage includes disabled tools, cross-Workspace ID substitution, current role
+  and MCP scopes, private photos and visits, malformed coordinates/URLs, stale writes, match
+  review, duplicate retries, archive, shared reference remapping and portable backup exclusion.

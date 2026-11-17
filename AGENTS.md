@@ -549,3 +549,16 @@ provider/data source.
 Notes and private Journal editing retain a Home action in the shared phone bar and desktop controls.
 Home returns to the current Workspace Today (or start-page fallback), keeps the existing unsaved-work
 confirmation, is disabled while saving and never saves or awards success merely for navigation.
+
+## Accepted follow-up — Marauder’s Map (2026-11-17)
+
+Map is an optional Workspace place collection, off by default, following the approved design
+in `docs/development/marauders-map-proposal.md` and ledger section 44. Current members may
+read shared places. EDITOR and ADMIN can manage places and import research. ADMIN enables the
+tool and manages Workspace tags. USER and above can record their own visits. This approves local
+shared place covers and owner-only visit photos using the existing attachment pipeline. The
+portable Workspace backup includes shared Map records and cover originals. Private visits,
+flags, ratings, notes and photos require the owner's web session and stay out of Workspace
+backups and MCP. The basemap uses configured public same-origin files. Initial navigation uses
+saved points, towns or the Workspace location. Device geolocation, GPX, individual visit sharing,
+and automatic external link resolution remain separate decisions.

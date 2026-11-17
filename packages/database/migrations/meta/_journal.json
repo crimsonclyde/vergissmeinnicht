@@ -575,6 +575,13 @@
       "when": 1794726362756,
       "tag": "0081_gazette_weather",
       "breakpoints": true
+    },
+    {
+      "idx": 82,
+      "version": "6",
+      "when": 1794903450130,
+      "tag": "0082_places_map",
+      "breakpoints": true
     }
   ]
 }

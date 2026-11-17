@@ -542,3 +542,19 @@ these workflows. Confirm the upload, save with `requireImage: true`, image Markd
 and the returned cover reference, then read back the cover and privacy choice.
 Refresh the connected VMN tools after deploying 0.13.10 so ChatGPT receives these
 updated tool descriptions, schemas and server instructions.
+
+## Marauder’s Map
+
+An enabled Map can delegate `map.read` and `map.write` per connection and selected Workspace.
+Use `search_places` and `get_place` for shared saved places and current revisions.
+`preview_place_import` validates a researched draft and reports identity or possible matches.
+Research and source retrieval happen in the authorized client. VMN stores pasted links without
+resolving them.
+
+When the user requests a save, use `create_place` or `import_places` (up to 12 independent items).
+Each item has its own operation ID. Use the same ID and inputs for retries. An exact or possible
+match is held for review. `update_place_fields` takes a current revision and only the fields to
+change, using complete collections if replacing points or tags. Read back successful IDs, and
+report unresolved location, match review or rejected items individually. The application exposes
+shared place records, sources and points through these scopes. Private notes, ratings, visits and
+visit photos require the owner's ordinary web session.

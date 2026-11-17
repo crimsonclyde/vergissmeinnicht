@@ -1,5 +1,6 @@
 import { CalendarFeedNotFoundError } from '@vergissmeinnicht/application';
 import {McpCredentialError} from '@vergissmeinnicht/database';
+import { MapNotFoundError, MapConflictError, MapMatchError, MapOperationReusedError } from '@vergissmeinnicht/application';
 import {RecipeNotFoundError,RecipeConflictError,GazetteNotFoundError,GazetteConflictError,GazetteOperationConflictError} from '@vergissmeinnicht/application';
 import {AttachmentError} from '@vergissmeinnicht/application';
 import { BringConflictError, BringNotFoundError } from '@vergissmeinnicht/application';
@@ -135,6 +136,10 @@ export function errorHandler(error: FastifyError | Error, request: FastifyReques
   if (error instanceof AttachmentError) return reply.code(error.code==='attachment_not_found'?404:error.code==='attachment_quota'?409:error.code==='attachment_busy'?429:400).send({error:error.code});
   if (error instanceof RecipeNotFoundError) return reply.code(404).send({error:'recipe_not_found'});
   if (error instanceof RecipeConflictError) return reply.code(409).send({error:'recipe_conflict'});
+  if (error instanceof MapNotFoundError) return reply.code(404).send({ error: 'map_not_found' });
+  if (error instanceof MapOperationReusedError) return reply.code(409).send({ error: 'map_operation_reused' });
+  if (error instanceof MapMatchError) return reply.code(409).send({ error: 'map_match_review', kind: error.kind });
+  if (error instanceof MapConflictError) return reply.code(409).send({ error: 'map_conflict' });
   if (error instanceof GazetteNotFoundError) return reply.code(404).send({ error: 'gazette_not_found' });
   if (error instanceof GazetteConflictError) return reply.code(409).send({ error: 'gazette_conflict' });
   if (error instanceof GazetteOperationConflictError) return reply.code(409).send({ error: 'gazette_operation_reused' });

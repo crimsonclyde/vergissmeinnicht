@@ -83,6 +83,7 @@ Procedures can be exported as a `.vmn.json` file (**Export as JSON** — without
 Opening a Workspace shows **Dashboard** — a greeting with the date, a ring for how much of today is done (what you finished today out of that plus what is still due or overdue), and a few compact cards with what needs you now. Chosen Clock/Weather instruments lead the Dashboard, followed by Celestial when you choose to show it and the Workspace enables it. An unfinished execution follows in a large card — **Pick up where you left off** — with its progress and one **Continue** button. **All**, **Mine** and **Shared** at the top filter what is shown; choose your cards under **Profile & settings → Dashboard**. A card appears only when its tool is switched on in the Workspace and it has something to show; on a quiet day the Dashboard is just **All clear — Nothing needs attention right now** (plus what is coming up, if anything). Guide shows cards in your saved order in one column. The existing interface retains two columns on wide screens and one on phones.
 
 - **Needs attention** — what is overdue (marked **Overdue**) and what is due today, with a count: a Reminder offers **Done**, a Procedure **Start**. Overdue dates stay until you complete or skip them; nothing is marked done by itself. If a repeating item is overdue several times, it is shown once ("3 overdue") with **⋯ → Skip the older ones…**. At most five are listed; **N more** leads to Reminders (or the Calendar).
+- **Progress ring** — the circle beside the greeting shows the number of scheduled items completed today out of that number plus the entries that still need attention. It follows the Dashboard scope (**All**, **Mine** or **Shared**) and counts grouped overdue repeats as one entry. For example, **0/1** means zero completed today and one entry that is due or overdue.
 - **Continue** — further executions that are not finished (the first one is the large card at the top), with how far they are and **Continue**.
 - **Next up** — the next few dates within a week (*tomorrow*, *in 3 days*), with the way to the **Calendar**.
 - **To buy** — grocery lists that still have something on them and how many items; tap one to open it.
@@ -635,3 +636,21 @@ New Recipes start as **Public**, including Recipes created through ChatGPT. Publ
 Recipes join the shared cookbook for signed-in VMN users with Recipes enabled in
 a Workspace. Check **Private** to keep a Recipe in its home Workspace, or tell
 ChatGPT to make the new Recipe private. Existing Recipes keep their current choice.
+
+## Marauder’s Map
+
+Open **Map** from your Workspace navigation. On phones, use the **Map** and **List** views.
+Search by place name, locality or tag, choose a saved town to center the map, or combine category
+and tag filters. **Want to go** and **Favorites** filter by your own flags. **List** still works when
+the basemap is unavailable and includes places without a known pin.
+
+Workspace editors can add and archive places. Choose a category, then drop a pin, enter WGS 84
+latitude and longitude, save an original link, or leave the location for later. Walking approaches
+and starting points can be reused. Review reported hazards and the check date in a place’s details.
+**Go** opens Google Maps. Separate parking and trailhead destinations are labelled on the action.
+For Garmin or another device, use **Coordinates** to copy the labelled latitude–longitude pair.
+
+**My visit** is personal. Record repeat visits, an optional date, note, rating and up to six photos
+per visit. A visit recorded without a date is labelled **Visited · date unspecified**. Your private
+visit, flag and photo records are excluded from Workspace backups. Workspace admins can add or
+rename shared tags through **Manage Workspace tags**.

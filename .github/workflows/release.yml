@@ -175,9 +175,9 @@ jobs:
           test "$(docker inspect --format '{{index .Config.Labels "org.opencontainers.image.version"}}' "$REF")" = "$VERSION"
           test "$(docker inspect --format '{{index .Config.Labels "org.opencontainers.image.revision"}}' "$REF")" = "$GITHUB_SHA"
           deploy/smoke-test.sh "$REF"
-          # The last three published releases (newest first: 0.15.3, 0.15.2, 0.15.1) and one long jump
+          # The last three published releases (newest first: 0.15.4, 0.15.3, 0.15.2) and one long jump
           # from 0.10.1-beta.0. Add the new predecessor at the top and drop the oldest of the three.
+          deploy/upgrade-check.sh "$REF" ghcr.io/crimsonclyde/vergissmeinnicht@sha256:c6d553b9f588157e3b3b2c0ebf7a548fda67406823682e078ee9a68373675fbb
           deploy/upgrade-check.sh "$REF" ghcr.io/crimsonclyde/vergissmeinnicht@sha256:b2026c293019815afc3c10f767d72135065f37792ee0f9d482613d53c6e6e0f3
           deploy/upgrade-check.sh "$REF" ghcr.io/crimsonclyde/vergissmeinnicht@sha256:facc3a3448549dfc4ed63e5fe8bf691e38394a7726b2881aa3633e15ecc4ef08
-          deploy/upgrade-check.sh "$REF" ghcr.io/crimsonclyde/vergissmeinnicht@sha256:4bc38270f69c6cd035ee88982725c2218346ed63634eb804c75ae92a5d6f2acd
           deploy/upgrade-check.sh "$REF" ghcr.io/crimsonclyde/vergissmeinnicht@sha256:1b7b677df1d5cab8cb754d8aabfdf900874d535ca78caf6b74761e4888770976

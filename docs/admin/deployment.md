@@ -422,3 +422,20 @@ Workspace and global storage without a personal billing owner. Personal Journal 
 consent and quota overrides are excluded from Workspace packages. Existing backups remain
 subject to their original format/migration-level checks; newer databases/packages remain refused.
 Deletion never erases older server backups or copies made elsewhere.
+
+## Optional Marauder’s Map basemap
+
+Map is off until a Workspace admin enables it under **Workspace settings → Plugins**. The shared
+place list and saved directions work before a basemap is installed. To provide interactive
+cartography, install a Protomaps-compatible MVT PMTiles region and set `MAP_ASSETS_PATH` to the
+absolute path of its dedicated, read-only directory. On a container, bind-mount that directory
+read-only and set the environment value to the in-container path. Give the app user read access.
+
+The archive must be named `region.pmtiles`. Town labels use locally installed
+`fonts/Noto Sans Regular/<start>-<end>.pbf` glyph ranges. Keep the archive and glyphs within the
+coverage, zoom, storage and bandwidth appropriate for the installation. VMN serves the files under
+`/map-assets/` with HTTP byte ranges. Preserve the Range and ETag headers if the reverse proxy
+changes caching or handles those files directly. Use compatible data whose terms permit this
+distribution and keep required attribution current. Install only public basemap assets there.
+VMN displays OpenStreetMap attribution and uses no public tile-service fallback. The configured
+map assets are operator-managed and outside VMN backups. [MapLibre PMTiles example](https://maplibre.org/maplibre-gl-js/docs/examples/pmtiles-source-and-protocol/) · [Protomaps basemap layers](https://docs.protomaps.com/basemaps/layers) · [OpenStreetMap attribution](https://www.openstreetmap.org/copyright)

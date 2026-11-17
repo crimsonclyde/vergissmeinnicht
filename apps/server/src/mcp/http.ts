@@ -1,5 +1,5 @@
 import { Transform } from 'node:stream';
-import { AttachmentError, NotAuthorizedError } from '@vergissmeinnicht/application';
+import { AttachmentError, authorizeTool, NotAuthorizedError } from '@vergissmeinnicht/application';
 import {Server} from '@modelcontextprotocol/sdk/server/index.js';
 import {WebStandardStreamableHTTPServerTransport} from '@modelcontextprotocol/sdk/server/webStandardStreamableHttp.js';
 import {CallToolRequestSchema,ListToolsRequestSchema,ListResourcesRequestSchema,ReadResourceRequestSchema,ErrorCode,McpError,type Tool} from '@modelcontextprotocol/sdk/types.js';
@@ -42,6 +42,7 @@ const assistantInstructions = [
  'To move or delete grocery items, resolve the Workspace and Lists, read them with get_grocery_list and show the user exactly which items will move (and to which List) or be deleted. Wait for the user to approve that exact change, then make it with one move_grocery_items or delete_grocery_items call using the read revisions; do not ask again after an explicit approval. Never use add_grocery_item plus delete_grocery_items to move items. Never merge or replace items with the same title. If a List changed meanwhile, read it again and review the difference with the user before retrying.',
  'To change items, read the List and use update_grocery_items with the exact item ids: rename, change quantity or unit, or tick items off as bought (checked true) and put them back (checked false), several at once. When the user says what they bought, tick those items off without asking again; ask only when it is unclear which items are meant. To undo a deletion, read list_deleted_grocery_items and restore the named items with restore_grocery_items.',
  'To-do Lists have their own tools (list_todo_lists, get_todo_list, create_todo_list, add_todo_item, update_todo_items, move_todo_items, delete_todo_items, list_deleted_todo_items, restore_todo_items) and need the To-do access the user granted; grocery tools never reach To-do Lists. Tasks have only a title and a done state. Mark tasks done when the user says they finished them; ask before moving or deleting, as for groceries.',
+ 'Map: research in the client, use search_places and preview_place_import before writing, then create_place or import_places only when the user asks to add entries. Leave unknown coordinates blank. Use update_place_fields for requested changes to an existing shared place and read successful IDs back. Keep private visits outside delegated Map tasks.',
  'Calendar: use get_calendar for questions about what is due; add_reminder adds a one-time Reminder when the user asks (use their time zone; ask for the date if unclear). Notes: search_notes, get_note, create_note and update_note work only on the Workspace\'s shared Notes, which are Markdown. To add to a Note, read it and use update_note with appendMarkdown; replace the whole Markdown only when the user asks to rewrite it. The private Journal is never available.',
  'To change part of a Recipe, read it with get_recipe and use update_recipe_fields with only the changed fields (appendInstructions to add a note or step); use save_recipe only for a full rewrite. archive_recipe hides a Recipe without deleting it and brings it back; search_recipes with archived true finds archived Recipes.',
  'For List covers, use list_cover_targets to identify the Workspace, List and revision. Upload the image with upload_list_cover_file, then use set_list_cover with the returned attachment ID and reviewed revision. To remove a cover the user asked to remove, use set_list_cover with coverId null. Read the saved cover status back with list_cover_targets. If the file upload is unavailable, point the user to the List editor in VMN.',
@@ -110,6 +111,9 @@ function toolFailure(error:unknown,tool:{name:string;fileParams?:readonly string
  }
  if(error instanceof DomainValidationError)return refused('invalid_value',`The value of ${error.field} is not valid (${error.code}). Nothing was changed.`,{fields:[error.field]});
  const name=errorName(error);
+ if(name==='MapMatchError')return refused('map_match_review','Review the matching place before deciding whether to add a separate record.');
+ if(name==='MapOperationReusedError')return refused('operation_reused','This id was already used for a different Map request.');
+ if(name==='ToolNotEnabledError')return refused('tool_disabled','This tool is switched off in the Workspace.');
  if(error instanceof NotAuthorizedError||name==='OfflineAccountMismatchError')return refused('permission_denied','This connection or account may not do this in this Workspace (scope, role or Workspace not selected). Nothing was changed.');
  if(error instanceof Error&&error.message==='Disabled')return refused('tool_disabled','This tool is switched off in the Workspace. A Workspace admin can switch it on. Nothing was changed.');
  if(name.endsWith('ConflictError'))return refused('stale_revision','The record changed since it was read. Read it again, review the difference with the user, and retry with a new operation id. Nothing was changed.');
@@ -182,10 +186,21 @@ export async function registerMcpHttp(app:FastifyInstance,services:AppServices){
     return {contents:[{...widget.resource,text:widget.html,_meta:{ui:{csp:{connectDomains:[],resourceDomains:[]}}}}]};
    });
   }
-  server.setRequestHandler(ListToolsRequestSchema,async()=>({tools:available.map(tool=>{
+  server.setRequestHandler(ListToolsRequestSchema,async () => {
+   const mapAvailable = async (write: boolean) => {
+    const states = await Promise.all(grant.workspaceIds.map(async workspaceId => {
+     try { await authorizeTool(services.placesMap, actor, workspaceId as WorkspaceId, 'MAP', write ? 'map.edit' : 'map.view'); return true; }
+     catch { return false; }
+    }));
+    return states.some(Boolean);
+   };
+   const [mapRead, mapWrite] = await Promise.all([available.some(tool => tool.scope === 'map.read') && mapAvailable(false),
+    available.some(tool => tool.scope === 'map.write') && mapAvailable(true)]);
+   return {tools:available.filter(tool => tool.tool !== 'MAP' || (tool.write ? mapWrite : mapRead)).map(tool=>{
    const widget=widgets.find(item=>item.toolName===tool.name);
-   return {name:tool.name,description:tool.description,inputSchema:z.toJSONSchema(tool.schema),...toolMeta(tool,widget?.resource.uri),annotations:{readOnlyHint:!tool.write,destructiveHint:['set_list_cover','delete_grocery_items','delete_todo_items'].includes(tool.name),idempotentHint:!tool.write||!!tool.fileParams||['complete_run_step','create_grocery_list','create_recipe','add_grocery_item','move_grocery_items','delete_grocery_items','update_grocery_items','restore_grocery_items','create_todo_list','add_todo_item','update_todo_items','move_todo_items','delete_todo_items','restore_todo_items','add_reminder','create_note','transfer_recipe_to_groceries','prepare_recipe_meal','open_recipe_image_upload','upload_recipe_image','open_list_cover_upload','upload_list_cover','set_list_cover'].includes(tool.name),openWorldHint:!!tool.fileParams}} as Tool;
-  })}));
+   return {name:tool.name,description:tool.description,inputSchema:z.toJSONSchema(tool.schema),...toolMeta(tool,widget?.resource.uri),annotations:{readOnlyHint:!tool.write,destructiveHint:['set_list_cover','delete_grocery_items','delete_todo_items'].includes(tool.name),idempotentHint:!tool.write||!!tool.fileParams||['create_place','update_place_fields','import_places','complete_run_step','create_grocery_list','create_recipe','add_grocery_item','move_grocery_items','delete_grocery_items','update_grocery_items','restore_grocery_items','create_todo_list','add_todo_item','update_todo_items','move_todo_items','delete_todo_items','restore_todo_items','add_reminder','create_note','transfer_recipe_to_groceries','prepare_recipe_meal','open_recipe_image_upload','upload_recipe_image','open_list_cover_upload','upload_list_cover','set_list_cover'].includes(tool.name),openWorldHint:!!tool.fileParams}} as Tool;
+   })};
+  });
   server.setRequestHandler(CallToolRequestSchema,async call=>{
    const tool=available.find(tool=>tool.name===call.params.name);if(!tool)return {isError:true,content:[{type:'text' as const,text:'Tool unavailable for this connection.'}],structuredContent:{error:{code:'tool_unavailable',message:'This tool is not available for this connection (scope not granted or unknown tool).'}}};
    let executed=false;
@@ -199,7 +214,7 @@ export async function registerMcpHttp(app:FastifyInstance,services:AppServices){
     await services.mcp.verify(raw);await services.mcp.authorize(grant.id,actor.id,workspaceId,tool.scope);
     if(workspaceId){if(!await services.workspaces.workspaces.findMembership(workspaceId,actor.id))throw new Error('Revoked');const enabled=await services.workspaces.workspaces.enabledTools(workspaceId);if([tool.tool,...(tool.extraTools??[])].some(value=>value!==null&&!enabled.includes(value)))throw new Error('Disabled');}
     const text=JSON.stringify(result);if(Buffer.byteLength(text)>512*1024)return {isError:true,content:[{type:'text' as const,text:'Result too large. Narrow the request.'}]};
-    return {content:[{type:'text' as const,text}],...(widgets.some(widget=>widget.toolName===tool.name)||Object.hasOwn(uploadScopes,tool.name)||tool.fileParams?{structuredContent:JSON.parse(text) as Record<string,unknown>}: {})};
+    return {content:[{type:'text' as const,text}],...(tool.tool==='MAP'||widgets.some(widget=>widget.toolName===tool.name)||Object.hasOwn(uploadScopes,tool.name)||tool.fileParams?{structuredContent:JSON.parse(text) as Record<string,unknown>}: {})};
    }catch(error){
     const refusal=groceryBatchTools.has(tool.name)&&!executed?groceryBatchRefusal(error):null;
     if(refusal){

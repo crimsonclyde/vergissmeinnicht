@@ -7,9 +7,9 @@ import { UiIcon, type UiIconName } from './ui-icons.tsx';
 import './area.css';
 
 /** The same icons as the menu (41), in the tile the settings rows use. */
-const ICONS: Record<NavigationTool, UiIconName> = { PROCEDURES: 'procedures', LISTS: 'lists', REMINDERS: 'reminders', CALENDAR: 'calendar', JOURNAL: 'notebook', DOCUMENTS: 'documents', CONTACTS: 'contacts', MAINTENANCE: 'maintenance', EQUIPMENT: 'equipment', BRING: 'forward', RECIPES: 'grocery' };
+const ICONS: Record<NavigationTool, UiIconName> = { PROCEDURES: 'procedures', LISTS: 'lists', REMINDERS: 'reminders', CALENDAR: 'calendar', JOURNAL: 'notebook', DOCUMENTS: 'documents', CONTACTS: 'contacts', MAINTENANCE: 'maintenance', EQUIPMENT: 'equipment', BRING: 'forward', RECIPES: 'grocery', MAP: 'gazetteMap' };
 
-const LABELS: Record<NavigationTool, MessageKey> = { PROCEDURES: 'shell.procedures', LISTS: 'shell.lists', REMINDERS: 'shell.reminders', CALENDAR: 'shell.calendar', JOURNAL: 'journal.heading', DOCUMENTS: 'shell.documents', CONTACTS: 'shell.contacts', MAINTENANCE: 'shell.maintenance', EQUIPMENT: 'shell.equipment', BRING: 'bring.heading', RECIPES:'recipes.heading' };
+const LABELS: Record<NavigationTool, MessageKey> = { PROCEDURES: 'shell.procedures', LISTS: 'shell.lists', REMINDERS: 'shell.reminders', CALENDAR: 'shell.calendar', JOURNAL: 'journal.heading', DOCUMENTS: 'shell.documents', CONTACTS: 'shell.contacts', MAINTENANCE: 'shell.maintenance', EQUIPMENT: 'shell.equipment', BRING: 'bring.heading', RECIPES:'recipes.heading', MAP: 'map.navigation' };
 
 /** One account-wide order, filtered by each Workspace's enabled tools. Save is explicit. */
 export function NavigationSettings({ tools }: { tools: readonly string[] | null }) {

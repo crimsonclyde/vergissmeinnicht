@@ -58,6 +58,9 @@ export const SECURITY_EVENT_TYPES = [
   'GAZETTE_EDITION_CHANGED',
   'GAZETTE_SETTINGS_CHANGED',
   'GAZETTE_WATCH_ITEM_REMOVED',
+  'MAP_PLACE_CHANGED',
+  'MAP_TAG_CHANGED',
+  'MAP_APPROACH_ADDED',
   'RECIPE_SHOPPING_TRANSFERRED',
   // Several List items moved to another List or removed at once (36.18): List ids and a count, never item text.
   'LIST_ITEMS_MOVED',

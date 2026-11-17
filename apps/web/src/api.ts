@@ -1,3 +1,4 @@
+import type { MapApproach, MapPointFields, MapPlace, MapPlaceInput, MapPersonalState, MapTag, MapVisit } from '@vergissmeinnicht/domain';
 import type { BringContent, BringItem, BringStatus } from '@vergissmeinnicht/domain';
 import type { JournalContent, JournalEntry, ListAppearance, ListIcon, ListKind, PlacePreferences, PlaceSettings } from '@vergissmeinnicht/domain';
 /** Thin JSON client for the same-origin API. The browser adds the `Origin` header the server checks. */
@@ -1861,3 +1862,30 @@ export function recipeAttachmentClient(workspaceId:string):AttachmentClient {
  return {list:()=>request('GET',base),usage:()=>request('GET',base+'/usage'),regenerate:id=>request('POST',base+'/'+encodeURIComponent(id)+'/regenerate',{}),url:(id,kind='preview')=>'/api'+base+'/'+encodeURIComponent(id)+'/'+kind,
  upload:file=>uploadSharedImage(base,file)};
 }
+
+const mapPath = (workspaceId: string, suffix: string) => `/workspaces/${encodeURIComponent(workspaceId)}/map${suffix}`;
+export const mapPhotoUrl = (workspaceId: string, placeId: string, id: string, purpose: 'cover' | 'visit', kind: 'thumbnail' | 'preview') =>
+  '/api' + mapPath(workspaceId, '/places/' + encodeURIComponent(placeId) + '/' + purpose + '-photo/' + encodeURIComponent(id) + '/' + kind);
+export const mapApi = {
+  upload: (workspaceId: string, file: File, purpose: 'cover' | 'visit') => uploadSharedImage(mapPath(workspaceId, '/' + purpose + '-upload'), file),
+  browse: (workspaceId: string, query: URLSearchParams, signal?: AbortSignal) =>
+    request<{ places: MapPlace[]; tags: MapTag[]; approaches: Pick<MapApproach, 'id' | 'name'>[]; sharedPoints: (MapPointFields & { id: string })[]; towns: string[]; nextOffset: number | null }>('GET', mapPath(workspaceId, '/places?' + query), undefined, signal ? { signal } : {}),
+  preview: (workspaceId: string, place: MapPlaceInput) =>
+    request<{ exact: string | null; possible: string[]; unresolved: boolean }>('POST', mapPath(workspaceId, '/import-preview'), place),
+  save: (workspaceId: string, place: MapPlaceInput, operationId: string, existing?: MapPlace, archived?: boolean, checkMatches = false) =>
+    request<{ id: string }>('POST', mapPath(workspaceId, existing ? '/places/' + existing.id + '/update' : '/places'), {
+      place, operationId, ...(existing ? { expectedRevision: existing.revision, archived: archived ?? existing.archived } : { checkMatches }),
+    }),
+  place: (workspaceId: string, id: string, archived = false) =>
+    request<MapPlace>('GET', mapPath(workspaceId, '/places/' + id + (archived ? '?archived=true' : ''))),
+  approach: (workspaceId: string, input: Partial<Omit<MapApproach, 'id'>>) =>
+    request<MapApproach>('POST', mapPath(workspaceId, '/approaches'), input),
+  tag: (workspaceId: string, name: string, id?: string) =>
+    request<MapTag>('POST', mapPath(workspaceId, '/tags'), { name, ...(id ? { id } : {}) }),
+  personal: (workspaceId: string, id: string) =>
+    request<MapPersonalState>('GET', mapPath(workspaceId, '/places/' + id + '/personal')),
+  setPersonal: (workspaceId: string, id: string, favorite: boolean, want: boolean) =>
+    request<MapPersonalState>('POST', mapPath(workspaceId, '/places/' + id + '/personal'), { favorite, want }),
+  visit: (workspaceId: string, id: string, visit: Omit<MapVisit, 'id'>) =>
+    request<MapPersonalState>('POST', mapPath(workspaceId, '/places/' + id + '/visits'), visit),
+};

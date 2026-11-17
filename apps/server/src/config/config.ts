@@ -74,6 +74,7 @@ const envSchema = z
     PORT: z.coerce.number().int().min(1).max(65535).default(3000),
     PUBLIC_ORIGIN: z.url({ protocol: /^https?$/ }).optional(),
     DATABASE_PATH: z.string().min(1).optional(),
+    MAP_ASSETS_PATH: z.string().refine(isAbsolute, 'Use an absolute Map assets path').optional(),
     AUTH_SECRET: secretSchema('AUTH_SECRET'),
     DATA_ENCRYPTION_KEY: secretSchema('DATA_ENCRYPTION_KEY'),
     LOG_LEVEL: z.enum(logLevels).optional(),
@@ -182,6 +183,7 @@ export interface AppConfig {
   /** Origin the browser uses to reach the app; basis for auth callbacks and origin/CSRF checks. */
   readonly publicOrigin: string;
   readonly databasePath: string;
+  readonly mapAssetsPath?: string;
   /** Instruction images (14.3): `media/` next to the database, so one volume holds all data. */
   readonly mediaPath: string;
   /** Files of Documents (16.1): `documents/` next to the database — originals, previews and uploads in progress. */
@@ -254,6 +256,7 @@ export function loadConfig(env: NodeJS.ProcessEnv, readFile: (path: string) => s
     host: values.HOST,
     port: values.PORT,
     publicOrigin: new URL(values.PUBLIC_ORIGIN ?? 'http://localhost:5173').origin,
+    ...(values.MAP_ASSETS_PATH === undefined ? {} : { mapAssetsPath: values.MAP_ASSETS_PATH }),
     databasePath: resolve(REPO_ROOT, values.DATABASE_PATH ?? '.var/vergissmeinnicht.sqlite'),
     mediaPath: defaultMediaPath(resolve(REPO_ROOT, values.DATABASE_PATH ?? '.var/vergissmeinnicht.sqlite')),
     documentsPath: defaultDocumentsPath(resolve(REPO_ROOT, values.DATABASE_PATH ?? '.var/vergissmeinnicht.sqlite')),

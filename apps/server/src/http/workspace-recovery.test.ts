@@ -127,7 +127,7 @@ describe('Workspace recovery end to end (section 18c): export → restore → co
     await t.addMember(home, 'owner@example.org', 'ADMIN');
     await t.addMember(home, 'helper@example.org', 'USER');
     await t.addMember(home, 'guest@example.org', 'GUEST');
-    for (const tool of ['DOCUMENTS', 'CONTACTS', 'MAINTENANCE', 'EQUIPMENT', 'MOON', 'JOURNAL', 'GAMIFICATION', 'RECIPES']) await t.post(`${api()}/tools`, { tool, enabled: true }, owner);
+    for (const tool of ['DOCUMENTS', 'CONTACTS', 'MAINTENANCE', 'EQUIPMENT', 'MOON', 'JOURNAL', 'GAMIFICATION', 'RECIPES', 'MAP']) await t.post(`${api()}/tools`, { tool, enabled: true }, owner);
 
     const uploadedNoteImage=await upload(`${api()}/journal/attachments`,owner,PNG,'shared note.png');expect(uploadedNoteImage.statusCode,uploadedNoteImage.body).toBe(201);const noteImage=uploadedNoteImage.json().attachment;
     const uploadedRecipeImage=await upload(`${api()}/recipes/attachments`,owner,PNG,'pancakes.png');expect(uploadedRecipeImage.statusCode,uploadedRecipeImage.body).toBe(201);
@@ -141,6 +141,22 @@ describe('Workspace recovery end to end (section 18c): export → restore → co
 
     const privateFile=await upload('/api/account/journal/attachments',owner,PNG2,'PRIVATE_ORIGINAL_DO_NOT_EXPORT.png');expect(privateFile.statusCode).toBe(201);
     await t.post('/api/account/journal',{content:{...note,title:'Private image',body:`![Private](attachments/${privateFile.json().attachment.id}.png)`},expectedRevision:0,archived:false},owner);
+
+    const sharedCover = await upload(`${api()}/map/cover-upload`, owner, PNG, 'Shared travel photo.png');
+    expect(sharedCover.statusCode, sharedCover.body).toBe(201);
+    const coverId = sharedCover.json().attachment.id as string;
+    const approach = (await t.post(`${api()}/map/approaches`, { name: 'Creppo–Gerbonte', sourceUrl: 'https://example.org/route' }, owner)).json();
+    const addPlace = (place: object) => t.post(`${api()}/map/places`, { operationId: randomUUID(), place }, owner);
+    const gerbontina = await addPlace({ name: 'Gerbontina', coverId, approachId: approach.id, points: [
+      { role: 'trailhead', preferred: true, newPoint: { label: 'Creppo', latitude: 44.00785, longitude: 7.71568, precision: 'exact' } },
+    ] });
+    expect(gerbontina.statusCode, gerbontina.body).toBe(200);
+    const firstPlace = `${api()}/map/places/${gerbontina.json().id}`;
+    const pointId = (await t.get(firstPlace, owner)).json().points[0].id;
+    expect((await addPlace({ name: 'Bruzzi', approachId: approach.id, points: [{ pointId, role: 'trailhead', preferred: true }] })).statusCode).toBe(200);
+    const privateVisitPhoto = await upload(`${api()}/map/visit-upload`, owner, PNG2, 'PRIVATE_VISIT_PHOTO.png');
+    expect(privateVisitPhoto.statusCode, privateVisitPhoto.body).toBe(201);
+    expect((await t.post(firstPlace + '/visits', { note: 'PRIVATE_MAP_VISIT', photoIds: [privateVisitPhoto.json().attachment.id] }, owner)).statusCode).toBe(200);
 
     // Procedures with an instruction image; a second one in Trash.
     const image = (await upload(`${api()}/images`, owner, PNG)).json().image as { id: string };
@@ -278,7 +294,16 @@ describe('Workspace recovery end to end (section 18c): export → restore → co
     const again = await exportOf(restored, t.admin);
     const first = await contents(work, original);
     expect(first.tables.get('journal_entries')).toHaveLength(1);
-    expect(first.tables.get('attachments')).toHaveLength(3);
+    expect(first.tables.get('attachments')).toHaveLength(4);
+    expect(first.tables.get('map_places')).toHaveLength(2);
+    expect(first.tables.get('map_points')).toHaveLength(1);
+    expect(first.tables.has('map_visits')).toBe(false);
+    expect(JSON.stringify([...first.tables])).not.toMatch(/PRIVATE_MAP_VISIT|PRIVATE_VISIT_PHOTO/);
+    const restoredMap = (await t.get(`${api(restored)}/map/places`, t.admin)).json().places;
+    expect(restoredMap[0].points[0].id).toBe(restoredMap[1].points[0].id);
+    expect(restoredMap[0].sharedApproach.id).toBe(restoredMap[1].sharedApproach.id);
+    const restoredCover = restoredMap.find((place: { coverId: string | null }) => place.coverId);
+    expect((await t.get(`${api(restored)}/map/places/${restoredCover.id}/cover-photo/${restoredCover.coverId}/preview`, t.admin)).statusCode).toBe(200);
     expect(first.tables.get('recipes')).toHaveLength(1);
     expect(JSON.stringify([...first.tables])).not.toContain('PRIVATE_ORIGINAL_DO_NOT_EXPORT');
     const restoredFile=one<{id:string;charge_user_id:null}>("SELECT id,charge_user_id FROM attachments WHERE workspace_id=? AND policy_key='journal'",restored);expect(restoredFile.charge_user_id).toBeNull();

@@ -60,3 +60,4 @@ export * from './gazette-weather-log.ts';
 export * from './mcp-repository.ts';
 
 export * from './delegation-context.ts';
+export * from './places-map-repository.ts';

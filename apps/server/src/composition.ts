@@ -1,3 +1,5 @@
+import { createMapRepository, createMapMediaRepository, mapAttachmentPolicy } from '@vergissmeinnicht/database';
+import type { MapDeps } from '@vergissmeinnicht/application';
 import { createChatGptFileSource, type ChatGptFileSource } from './integrations/chatgpt-files.ts';
 import {createMcpFileHostRepository,createMcpRepository} from '@vergissmeinnicht/database';
 import {createRecipeRepository,recipeAttachmentPolicy,listAttachmentPolicy,createGazetteRepository,createGazetteWeatherLogRepository} from '@vergissmeinnicht/database';
@@ -191,6 +193,9 @@ export interface AppServices {
   readonly recipes: RecipeDeps;
   /** The Daily Planet editions and settings (43). */
   readonly gazette: GazetteDeps;
+  readonly placesMap: MapDeps;
+  readonly mapMedia: ReturnType<typeof createMapMediaRepository>;
+  readonly mapAttachments: Record<'cover' | 'visit', AttachmentDeps>;
   readonly listAttachments: DelegatedAttachmentDeps;
   readonly recipeAttachments: DelegatedAttachmentDeps;
   readonly bring: BringDeps;
@@ -477,6 +482,12 @@ export function createServices(config: AppConfig, database: AppDatabase, overrid
       links: { workspaces: workspaceDeps.workspaces, tools, links: createLinkRepository(database), clock: systemClock },
       contacts: { workspaces: workspaceDeps.workspaces, tools, contacts: createContactRepository(database), clock: systemClock },
       recipes: { workspaces: workspaceDeps.workspaces, users: createUserRepository(database), tools, recipes: createRecipeRepository(database), clock: systemClock },
+      mapMedia: createMapMediaRepository(database),
+      mapAttachments: {
+        cover: { repository: createAttachmentRepository(database, mapAttachmentPolicy('cover')), store: attachmentStorage, processor: attachmentStorage },
+        visit: { repository: createAttachmentRepository(database, mapAttachmentPolicy('visit')), store: attachmentStorage, processor: attachmentStorage },
+      },
+      placesMap: { workspaces: workspaceDeps.workspaces, tools, clock: systemClock, map: createMapRepository(database) },
       gazette: { headerProcessor: createSharpPlaceBackgroundProcessor(), workspaces: workspaceDeps.workspaces, users: createUserRepository(database), tools, gazette: createGazetteRepository(database), clock: systemClock, forecast: { sources: gazetteWeatherSources, log: gazetteWeatherLog, weather: weatherService, serverWeather, workspaces: workspaceDeps.workspaces, clock: systemClock } },
       recipeAttachments,
       listAttachments:{repository:createAttachmentRepository(database,listAttachmentPolicy),store:attachmentStorage,processor:attachmentStorage,convertWebp:convertWebpToPng},

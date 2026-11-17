@@ -79,3 +79,4 @@ export * from './recipes.ts';
 export * from './gazette.ts';
 export * from './gazette-weather.ts';
 export * from './ports/gazette-weather.ts';
+export * from './places-map.ts';

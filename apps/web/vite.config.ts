@@ -22,6 +22,7 @@ export default defineConfig({
     // In development the API runs as a separate process; production serves both from one origin.
     proxy: {
       '/api': 'http://127.0.0.1:3000',
+      '/map-assets': 'http://127.0.0.1:3000',
     },
   },
 });

@@ -31,6 +31,11 @@ export function prepareAttachmentSnapshot(databasePath:string,now=new Date()){
       .all(now.getTime()-86400000) as { id: string }[];
     candidates.push(...listCandidates);
   }
+  if (db.prepare("SELECT name FROM sqlite_master WHERE name='map_places'").get()) {
+    const mapCandidates = db.prepare("SELECT id FROM attachments WHERE policy_key IN ('map_cover', 'map_visit') AND (deleting=1 OR (at < ? AND NOT EXISTS(SELECT 1 FROM map_places WHERE cover_attachment_id=attachments.id) AND NOT EXISTS(SELECT 1 FROM map_visit_photos WHERE attachment_id=attachments.id)))")
+      .all(now.getTime()-86400000) as { id: string }[];
+    candidates.push(...mapCandidates);
+  }
   const remove=db.prepare('DELETE FROM attachments WHERE id = ?');for(const row of candidates)if(!keep.has(row.id))remove.run(row.id);
  }finally{db.close();}
 }

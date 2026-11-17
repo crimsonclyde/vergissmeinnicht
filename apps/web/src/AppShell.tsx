@@ -1,4 +1,5 @@
 import {lazy,Suspense} from 'react';
+const PlacesMap = lazy(() => import('./modules/map/PlacesMap.tsx'));
 const GazetteSettings=lazy(()=>import('./modules/gazette/GazetteSettings.tsx').then(module=>({default:module.GazetteSettings})));
 const GazetteWatchlist=lazy(()=>import('./modules/gazette/GazetteWatchlist.tsx').then(module=>({default:module.GazetteWatchlist})));
 const GazettePage=lazy(()=>import('./modules/gazette/GazettePage.tsx').then(module=>({default:module.GazettePage})));
@@ -280,6 +281,8 @@ function WorkspacePage(props: {
           {t('shell.notFound')} <Link href={paths.home(route.workspaceId)}>{t('common.startPage')}</Link>.
         </p>
       );
+    case 'map':
+      return context.tools.includes('MAP') ? <Suspense fallback={<p>{t('map.loading')}</p>}><PlacesMap key={route.workspaceId} workspaceId={route.workspaceId} canEdit={can('map.edit')} canVisit={can('map.visit')} canManage={can('map.taxonomy')} /></Suspense> : <p role="alert">{t('shell.notFound')}</p>;
     case 'gazette':
       return context.tools.includes('GAZETTE')?<Suspense fallback={<p>{t('journal.loading')}</p>}>{route.view==='settings'?(can('gazette.manage')?<GazetteSettings key={route.workspaceId} workspaceId={route.workspaceId}/>:<p role="alert">{t('shell.notFound')}</p>):route.view==='watchlist'?<GazetteWatchlist key={route.workspaceId} workspaceId={route.workspaceId} canEdit={can('gazette.publish')} canManage={can('gazette.manage')}/>:<GazettePage key={route.workspaceId} workspaceId={route.workspaceId} date={route.date} canManage={can('gazette.manage')}/>}</Suspense>:<p role="alert">{t('shell.notFound')}</p>;
     case 'recipes':
