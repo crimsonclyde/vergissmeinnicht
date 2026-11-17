@@ -297,6 +297,13 @@ Checks:
 
 ### Reviewed local mitigation: picomatch 4.0.7 (release 76, 2026-11-17)
 
+**Published in 0.16.1 (owner release 76).** Candidate/main CI and the signed-image release
+workflow passed, including native runtime-exclusion smoke checks/scans, the pinned mitigation
+guard, exact-image verification and all four populated upgrades. The remaining audit findings
+are the two existing moderate Hono advisories; the single mitigated picomatch disposition
+expires 2026-11-24 and remains guarded. No live installation was changed. Publication evidence
+and the immutable image digest are in steps.md Current state.
+
 The renewed launch request is implemented with a mitigation rather than an unmodified vulnerable
 matcher. `patches/picomatch@4.0.7.patch` uses the existing parser's risky-pattern literal fallback
 for every non-literal single-branch repeated extglob. The check precedes the optional recursion
@@ -1165,7 +1172,7 @@ but this does not establish whole-tree runtime non-reachability. No exception, s
 replacement package or audit gate change has been introduced. Publication requires a reviewed
 security resolution; the owner count is unchanged. CodeQL's separate URL-matching findings
 were in provider fixtures and were fixed by exact parsed-host comparisons, matching the
-production allowlist. Release status is tracked at the top of steps.md. Candidate `74ab897` passed CodeQL, both browser suites and native amd64/arm64 smoke/scans; the audit and aggregate gates remain failed. No release was published.
+production allowlist. Release status is tracked at the top of steps.md. Candidate `74ab897` passed CodeQL, both browser suites and native amd64/arm64 smoke/scans; at that checkpoint the audit and aggregate gates were failed. The reviewed §10 mitigation resolved this hold; final publication is recorded in steps.md.
 
 *Not covered by this policy:* hosts fixed in code with no configurable part — `api.telegram.org` (13.7) and the weather providers of 19.4 (`api.open-meteo.com`, `geocoding-api.open-meteo.com`, `api.met.no`; see "Weather providers and provider credentials") and of The Daily Planet's weather (43.7: `api.brightsky.dev`, `feeds.meteoalarm.org`, `allertaliguria.regione.liguria.it`; see "Daily Planet workspace weather").
 

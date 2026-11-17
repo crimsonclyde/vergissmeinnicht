@@ -18,6 +18,29 @@ For every completed task, add a concise completion note, tests/checks performed,
 
 ## Current state — resume here
 
+**Published owner release 76 (2026-11-17 Europe/Berlin): 0.16.1.**
+Stable tag `v0.16.1` points to `f69e6754df336a9922cafe67cdbc84d06aaa4620` (PR #131).
+Managed regional Map downloads/updates (§44.2) and the reviewed build-matcher mitigation
+are published. Exact-candidate CI passed **240 files / 1,878 tests**, lint/typechecks,
+both browser suites, CodeQL and native amd64/arm64 image smoke/scans. Main CI passed too.
+The tagged workflow reused main CI and passed both native release builds/scans, keyless
+signing, CycloneDX SBOM attestation, exact-digest image smoke/version/revision checks, and
+populated upgrades from 0.16.0, 0.15.4, 0.15.3 and 0.10.1-beta.0 (including backup and
+Workspace export/restore). No new migration; schema remains 0082. Public registry checks
+confirm `0.16.1`, `0.16` and `latest` share the amd64/arm64 index
+`sha256:1385b55b49f7776490e694573dd41d297a50b369f368d7bc29a395d8f61e91af`.
+The picomatch advisory is locally mitigated and excluded from runtime; its exact-byte,
+version/edge, regression and 2026-11-24 expiry guard precedes the unchanged high audit level.
+The two existing moderate Hono advisories remain. This publication record adds no application
+security surface beyond the reviewed §44.2 feature and §10 supply-chain mitigation.
+Owner count **76**, next **77**; special release 42 and its dedication remain preserved.
+**No live deployment:** update the Unraid image separately, then use Server admin → Map data.
+Unrelated local Gazette/navigation/README/screenshot edits remain uncommitted and unreleased.
+[GitHub Release](https://github.com/crimsonclyde/vergissmeinnicht/releases/tag/v0.16.1) ·
+[Candidate CI](https://github.com/crimsonclyde/vergissmeinnicht/actions/runs/44171814562) ·
+[Main CI](https://github.com/crimsonclyde/vergissmeinnicht/actions/runs/44172989557) ·
+[Release workflow](https://github.com/crimsonclyde/vergissmeinnicht/actions/runs/44174129149).
+
 **Release 76 launch resumed (owner request, 2026-11-17):** upstream picomatch still has
 no patched npm release. A reviewed local pnpm patch now treats non-literal single-branch
 repeated extglobs as literal text through the existing parser's fail-closed path, including
@@ -8898,3 +8921,8 @@ its data. This is one-process managed storage, not distributed installation coor
 **0.16.1 release plan (owner-authorized):** owner release **76**, stable tag `v0.16.1`;
 release gates and publication evidence are tracked in Current state above. Update the Unraid
 image reference and populated-upgrade predecessors; no live deployment is included.
+
+**44.2 publication completed:** 0.16.1 is owner release **76**; the successful native,
+security, browser, signed-image and four populated-upgrade gates are recorded in Current state.
+No live deployment was performed. Use the published 0.16.1 image before opening Server admin
+→ Map data; Triora/100 km is preselected. Owner count is **76**, next **77**.
