@@ -295,6 +295,33 @@ Checks:
 
 ## 10. Dependency / supply-chain security
 
+### Reviewed local mitigation: picomatch 4.0.7 (release 76, 2026-11-17)
+
+The renewed launch request is implemented with a mitigation rather than an unmodified vulnerable
+matcher. `patches/picomatch@4.0.7.patch` uses the existing parser's risky-pattern literal fallback
+for every non-literal single-branch repeated extglob. The check precedes the optional recursion
+opt-out. This deliberately restricts complex repeated extglob semantics in build/test tooling;
+ordinary globs, brace extensions and repeated plain literal alternatives remain supported.
+The original advisory pattern `+(*a)b` exceeded a one-second child-process deadline against the
+unpatched package; deadline-bounded patched probes cover star/plus/wildcard/nested variants,
+both with default options and recursion checks disabled, alongside ordinary positive/negative
+matches. This is a local fail-closed mitigation, not a claim of an upstream patched version.
+
+The single `audit.ignore` entry for GHSA-fc5q-39xc-vjpf is tied to this patch: CI first runs
+`deploy/check-picomatch-mitigation.ts`, which verifies the patch's SHA-256, the installed parser's
+SHA-256 through Vite/Vitest resolution, every resolved lockfile matcher edge and exact version,
+and the hostile-pattern probes. It expires on **2026-11-24 UTC**; an upstream upgrade, changed
+patch, missing patch or expired disposition fails closed and requires review/removal of the
+exception. The existing `--audit-level high` and every other advisory gate remain unchanged.
+Unscoped `--ignore-unfixable` and blanket high-severity suppression are not used.
+
+Production images additionally remove picomatch from the pruned runtime tree. The common image
+smoke check asserts no picomatch package remains before exercising migrations, account bootstrap,
+backup and server readiness; native builds and scans must pass. No VMN request accepts a glob,
+and no production functionality is added by this mitigation. Existing auth, roles, Map provider
+boundaries and private data flows are unchanged. Local lint/build/typechecks/full tests and
+exact-source CI evidence are tracked in steps.md; release 76 stays unpublished until gates pass.
+
 - [x] Use lockfile.
 - [x] Pin/review security-critical dependencies. (All versions pinned exactly with a committed lockfile; installed versions compared with the latest releases on 2026-09-29.)
 - [x] Automated vulnerability/dependency scanning enabled.

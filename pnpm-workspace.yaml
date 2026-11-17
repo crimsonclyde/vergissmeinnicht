@@ -33,3 +33,10 @@ overrides:
 
   # CVE-2026-118764: v11 bounds hostile glob expansion; reviewed API-compatible lint callers.
   'minimatch@10': 11.0.1
+patchedDependencies:
+  picomatch@4.0.7: patches/picomatch@4.0.7.patch
+# Temporary, locally mitigated exact advisory; CI verifies patch bytes/behavior and expiry first.
+# Remove with a reviewed upstream upgrade; all other high/critical advisories still fail.
+audit:
+  ignore:
+    - GHSA-fc5q-39xc-vjpf

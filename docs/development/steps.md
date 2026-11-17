@@ -18,6 +18,20 @@ For every completed task, add a concise completion note, tests/checks performed,
 
 ## Current state — resume here
 
+**Release 76 launch resumed (owner request, 2026-11-17):** upstream picomatch still has
+no patched npm release. A reviewed local pnpm patch now treats non-literal single-branch
+repeated extglobs as literal text through the existing parser's fail-closed path, including
+when recursion limits are disabled. The original `+(*a)b` probe with 40 `a` characters and
+an unmatched suffix exceeded a one-second subprocess deadline; the patched deadline-bounded
+probes and ordinary glob cases pass. This is a compatibility restriction for build/test glob
+tooling, not a claim of an upstream release. The audit disposition covers exactly
+GHSA-fc5q-39xc-vjpf and is conditional on exact patch/parser bytes, patched lockfile edges,
+regression probes and expiry at 2026-11-24 UTC, checked before the unchanged high audit level.
+All other high/critical findings still fail. Runtime images explicitly remove picomatch;
+the image smoke script asserts it is absent. Notes, patch and guard are reviewable in PR #131.
+Re-run exact-source CI before merging/tagging, then all signed-image and upgrade gates.
+Owner count remains **75** until publication; live deployment is separate.
+
 **Release 76 preparation — 0.16.1 (owner request, 2026-11-17 Europe/Berlin).**
 Publish the managed regional map downloads and updates in §44.2 as stable tag `v0.16.1`,
 GitHub title `0.16.1`, and image `ghcr.io/crimsonclyde/vergissmeinnicht:0.16.1`.

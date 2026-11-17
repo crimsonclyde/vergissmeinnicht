@@ -28,6 +28,8 @@ jobs:
           node-version-file: .nvmrc
           cache: pnpm
       - run: pnpm install --frozen-lockfile
+      - name: Verify temporary picomatch mitigation
+        run: node deploy/check-picomatch-mitigation.ts
       - run: pnpm audit --audit-level high
       - run: pnpm lint
       - run: pnpm typecheck

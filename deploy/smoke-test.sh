@@ -5,6 +5,8 @@
 #   deploy/smoke-test.sh <image>
 set -eu
 image="${1:?usage: smoke-test.sh <image>}"
+# The temporarily patched matcher is build/test tooling and must not ship in runtime images.
+docker run --rm --entrypoint sh "$image" -c 'test -z "$(find /app/node_modules/.pnpm -maxdepth 1 -name "picomatch@*" -print -quit)"'
 name="vmn-smoke-$$"
 volume="vmn-smoke-$$"
 cleanup() {
