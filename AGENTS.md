@@ -574,3 +574,16 @@ flags, ratings, notes and photos require the owner's web session and stay out of
 backups and MCP. The basemap uses configured public same-origin files. Initial navigation uses
 saved points, towns or the Workspace location. Device geolocation, GPX, individual visit sharing,
 and automatic external link resolution remain separate decisions.
+
+### Accepted follow-up — managed regional map downloads (2026-11-17)
+
+The owner approved **Server admin → Map data**: choose a town and radius, explicitly download
+a regional basemap and its local label fonts, and explicitly update or replace the installed
+area. This narrowly extends the operator-installed basemap design. Only ACTIVE server admins
+manage downloads. Fixed public Protomaps build/archive/font endpoints and the existing fixed
+Open-Meteo locality endpoint are allowed; arbitrary URLs, provider credentials, device
+geolocation, automatic scheduled updates and paid services are not added. Downloads run as
+one bounded in-process worker job and publish complete versioned assets atomically on the
+existing persistent data volume. Preserve the current map on failure/cancellation, retain
+legacy mounts, and keep map data outside Workspace backups. Review controls and limits in
+`docs/development/security.md` section 14 and ledger section 44.2 before changing this flow.

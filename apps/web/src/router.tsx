@@ -77,7 +77,7 @@ export function Link(props: AnchorHTMLAttributes<HTMLAnchorElement> & { href: st
 /** In menu order (section 29): you, look & feel, staying informed, the journal. */
 export const ACCOUNT_SECTIONS = ['profile', 'security', 'appearance', 'places', 'today', 'confirmations', 'notifications', 'weather', 'journal'] as const;
 export type AccountSection = (typeof ACCOUNT_SECTIONS)[number];
-export const ADMIN_SECTIONS = ['workspaces', 'invitations', 'accounts', 'notifications', 'weather', 'connections', 'server', 'log'] as const;
+export const ADMIN_SECTIONS = ['workspaces', 'invitations', 'accounts', 'notifications', 'weather', 'map-data', 'connections', 'server', 'log'] as const;
 export type AdminSection = (typeof ADMIN_SECTIONS)[number];
 
 export type Route =
@@ -158,7 +158,7 @@ export function parseRoute(pathname: string): Route {
     return section === undefined ? { page: 'not-found' } : { page: 'account', section };
   }
   if (path === '/admin') return { page: 'admin', section: 'workspaces' };
-  if ((match = /^\/admin\/([a-z]+)$/.exec(path))) {
+  if ((match = /^\/admin\/([a-z-]+)$/.exec(path))) {
     const section = oneOf(ADMIN_SECTIONS, match[1]);
     return section === undefined ? { page: 'not-found' } : { page: 'admin', section };
   }

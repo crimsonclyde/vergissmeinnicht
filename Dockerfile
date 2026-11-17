@@ -31,6 +31,7 @@ RUN apt-get update \
   && npm install -g pnpm@12.6.0
 WORKDIR /app
 COPY pnpm-lock.yaml pnpm-workspace.yaml package.json tsconfig.base.json ./
+COPY patches patches
 COPY apps/server/package.json apps/server/
 COPY apps/web/package.json apps/web/
 COPY packages/application/package.json packages/application/
@@ -71,7 +72,7 @@ RUN cd node_modules/.pnpm \
   && rm -rf vitest@* @vitest+* vite@* rolldown@* @rolldown+* esbuild@* @esbuild+* @esbuild-kit+* \
     drizzle-kit@* @drizzle-team+brocli@* lightningcss@* lightningcss-* postcss@* @oxc-project+* \
     react@* react-dom@* scheduler@* @types+* tsx@* get-tsconfig@* resolve-pkg-maps@* \
-    chai@* assertion-error@* tinybench@* tinyexec@* why-is-node-running@* expect-type@* \
+    picomatch@* chai@* assertion-error@* tinybench@* tinyexec@* why-is-node-running@* expect-type@* \
   && cd better-sqlite3@*/node_modules/better-sqlite3 \
   && find prebuilds -type f ! -name "linux-$(node -p process.arch).node" -delete \
   && rm -rf deps src build \

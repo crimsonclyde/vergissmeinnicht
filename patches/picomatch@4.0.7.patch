@@ -1,0 +1,19 @@
+diff --git a/lib/parse.js b/lib/parse.js
+index 29207512c60183b4bb9bf5112be3b9b5f4a9a9fd..6a59d0ea1ca291f336bda756e4e4ba0a6d9b8364 100644
+--- a/lib/parse.js
++++ b/lib/parse.js
+@@ -285,6 +285,14 @@ const repeatedExtglobRecursion = pattern => {
+ };
+ 
+ const analyzeRepeatedExtglob = (body, options) => {
++  // VMN GHSA-fc5q-39xc-vjpf mitigation: fail closed for non-literal single branches.
++  // The existing risky-pattern path emits the entire extglob as escaped literal text.
++  // This mandatory guard also applies when callers disable the optional recursion limit.
++  const singleBranches = splitTopLevel(body).map(branch => branch.trim());
++  if (singleBranches.length === 1 && !isPlainBranch(singleBranches[0])) {
++    return { risky: true };
++  }
++
+   if (options.maxExtglobRecursion === false) {
+     return { risky: false };
+   }

@@ -1,3 +1,4 @@
+import type { MapRunner } from '../map-data/manager.ts';
 import type { ChatGptFileSource } from '../integrations/chatgpt-files.ts';
 import { enableCoreTools } from '../../../../packages/database/src/test-support.ts';
 // Test-only helper: a production-configured app on a fresh database, with captured email and
@@ -32,6 +33,9 @@ export type InjectResponse = Awaited<ReturnType<App['inject']>>;
 export async function startTestApp(
   options: {
     mcpEnabled?:boolean;
+    managedMapData?: boolean;
+    mapRunner?: MapRunner;
+    mapFetch?: typeof fetch;
     webDistDir?: string;
     runEvents?: RunEventsOptions;
     trustedProxies?: readonly string[];
@@ -75,6 +79,9 @@ export async function startTestApp(
   const build = () =>
     buildApp({
       webDistDir: options.webDistDir,
+      managedMapPath: options.managedMapData ? join(mediaDir, 'map-data') : undefined,
+      mapRunner: options.mapRunner,
+      mapFetch: options.mapFetch ?? blockedWeatherFetch,
       trustedProxies: options.trustedProxies,
       apiRateLimitPerMinute: options.apiRateLimitPerMinute,
       ...(options.captureLogs === true ? { logger: { ...loggerOptions('info'), stream: logStream } } : {}),

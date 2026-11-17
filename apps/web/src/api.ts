@@ -1286,7 +1286,17 @@ export interface GazettePreviewView {
 }
 export interface GazetteTodayView { readonly today: string; readonly preview: GazettePreviewView | null }
 
+export interface MapDownloadArea { name: string; latitude: number; longitude: number; radiusKm: number }
+export interface MapDownloadStatus {
+  available: boolean;
+  installed: null | { id: string; area: MapDownloadArea; installedAt: string; build: string; bytes: number };
+  job: null | { state: 'downloading' | 'installed' | 'failed' | 'cancelled'; percent: number; area: MapDownloadArea };
+}
 export const api = {
+  mapData: () => request<MapDownloadStatus>('GET', '/admin/map-data/'),
+  mapDataPlaces: (search: string) => request<{ places: Omit<MapDownloadArea, 'radiusKm'>[] }>('GET', '/admin/map-data/places?' + new URLSearchParams({ search })),
+  downloadMap: (area: MapDownloadArea, expectedVersion: string | null) => request<MapDownloadStatus>('POST', '/admin/map-data/download', { area, expectedVersion }),
+  cancelMapDownload: () => request<MapDownloadStatus>('POST', '/admin/map-data/cancel', {}),
   mcpStatus:()=>request<{enabled:boolean}>('GET','/account/mcp/status'),
   mcpConnections:()=>request<{connections:McpConnection[]}>('GET','/account/mcp/'),
   mcpConsent:(id:string)=>request<McpConsent>('GET','/account/mcp/requests/'+encodeURIComponent(id)),

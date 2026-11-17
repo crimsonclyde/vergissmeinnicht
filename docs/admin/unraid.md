@@ -1,5 +1,10 @@
 # Installing on Unraid
 
+**Map setup:** In VMN, open **Server admin → Map data**, choose a town and radius and click
+**Download map**. Use **Update installed area** on the same screen for updates. Map files
+use the existing `/data` volume; no extra Unraid path or environment variable is required.
+Keep at least 3.2 GB free before downloading. See [basemap setup and limits](deployment.md#optional-marauders-map-basemap).
+
 VergissMeinNicht runs on Unraid as one ordinary container. HTTPS is required (sign-in cookies are `Secure`, and the app refuses a plain-HTTP address), and on Unraid the simplest way to get it is **Unraid's built-in Tailscale for containers with Tailscale Serve**: the app gets its own name in your tailnet, e.g. `https://vergissmeinnicht.your-tailnet.ts.net`, with a valid certificate — no reverse proxy, no open ports on your LAN. A variant with a reverse proxy is at the end.
 
 ## What you need
