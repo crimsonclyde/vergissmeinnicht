@@ -72,7 +72,7 @@ describe('managed map security and extraction', () => {
     if (!extracted) throw new Error('missing tile');
     expect(Buffer.from(extracted.data)).toEqual(unpack(source.tile, 2));
     expect(await archive.getZxy(14, 0, 0)).toBeUndefined();
-    expect((await archive.getMetadata()).attribution).toBe('© OpenStreetMap contributors');
+    expect(await archive.getMetadata()).toMatchObject({ attribution: '© OpenStreetMap contributors' });
   });
   it('downloads a complete package from fixed provider fixtures without live network calls', async () => {
     const source = fixture(true), directory = await temp(); let requests = 0;
