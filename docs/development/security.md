@@ -1128,6 +1128,18 @@ does not cap the entire process RSS; bounded buffers and the operator's existing
 limit remain relevant. One VMN process owns this data directory; multi-process shared-volume
 installation coordination is not added. Release verification is recorded in steps.md; live deployment remains separate.
 
+**0.16.1 release audit blocker (2026-11-17):** the unchanged `pnpm audit --audit-level high`
+gate rejects picomatch 4.0.7 under
+[GHSA-fc5q-39xc-vjpf](https://github.com/advisories/GHSA-fc5q-39xc-vjpf) (single-branch repeated
+extglob ReDoS). The advisory was reviewed/updated November 17 and lists affected versions
+through 4.0.7 with no patched version. npm's newest published version is 4.0.7. Dependency
+paths include build/test glob tooling; a source search finds no direct VMN picomatch calls,
+but this does not establish whole-tree runtime non-reachability. No exception, suppression,
+replacement package or audit gate change has been introduced. Publication requires a reviewed
+security resolution; the owner count is unchanged. CodeQL's separate URL-matching findings
+were in provider fixtures and were fixed by exact parsed-host comparisons, matching the
+production allowlist. Release status is tracked at the top of steps.md.
+
 *Not covered by this policy:* hosts fixed in code with no configurable part — `api.telegram.org` (13.7) and the weather providers of 19.4 (`api.open-meteo.com`, `geocoding-api.open-meteo.com`, `api.met.no`; see "Weather providers and provider credentials") and of The Daily Planet's weather (43.7: `api.brightsky.dev`, `feeds.meteoalarm.org`, `allertaliguria.regione.liguria.it`; see "Daily Planet workspace weather").
 
 _Policy defined 2026-10-01 (steps.md 16.0); no code uses it yet. It is a prerequisite: no feature may open a connection to a host supplied through the application before it follows this section and has its own "Security check". First planned user: Mailboxes (16.10, IMAP/SMTP — its threat model is written there, task 2). Webhooks, ntfy and Gotify would fall under it as well._

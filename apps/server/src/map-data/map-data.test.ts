@@ -79,7 +79,7 @@ describe('managed map security and extraction', () => {
     const fetcher = (async (url, options) => {
       requests++; expect(allowedMapUrl(String(url))).toBe(true);
       if (String(url).endsWith('/builds.json')) return new Response(JSON.stringify([{ key: '20261117.pmtiles', version: '4.15.2', size: source.bytes.length }]));
-      if (String(url).includes('build.protomaps.com')) {
+      if (new URL(String(url)).hostname === 'build.protomaps.com') {
         const range = /^bytes=(\d+)-(\d+)$/.exec(new Headers(options?.headers).get('range') ?? '');
         if (!range) throw new Error('Expected bounded range');
         const offset = Number(range[1]), end = Number(range[2]);
@@ -97,7 +97,7 @@ describe('managed map security and extraction', () => {
       const source = fixture(true), directory = await temp(); let ranges = 0;
       const fetcher = (async (url, options) => {
         if (String(url).endsWith('/builds.json')) return new Response(JSON.stringify([{ key: '20261117.pmtiles', version: '4.15.2', size: source.bytes.length }]));
-        if (String(url).includes('build.protomaps.com')) {
+        if (new URL(String(url)).hostname === 'build.protomaps.com') {
           const range = /^bytes=(\d+)-(\d+)$/.exec(new Headers(options?.headers).get('range') ?? '');
           if (!range) throw new Error('Expected range');
           const offset = Number(range[1]), end = Number(range[2]);

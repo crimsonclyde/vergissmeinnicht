@@ -30,6 +30,21 @@ Local feature verification is recorded in §44.2. Publication evidence and final
 here after the workflow succeeds. Live deployment remains separate.
 [Release notes](../releases/0.16.1.md).
 
+**0.16.1 release blocker (2026-11-17):** candidate PR #131 / `f712545` failed the
+unchanged high-severity dependency gate. `picomatch` 4.0.7 is affected by
+[GHSA-fc5q-39xc-vjpf](https://github.com/advisories/GHSA-fc5q-39xc-vjpf), reviewed/updated
+November 17; npm lists no version newer than 4.0.7 and the advisory lists no patched version.
+A local `pnpm audit --json` reproduces one high and the two previously recorded moderate
+Hono findings. No advisory suppression, audit-level reduction, tag, merge, image publication or
+GitHub Release was made. Owner count remains **75**, next **76**. Initial native amd64/arm64
+CI image builds/smoke/scans passed. The browser menu assertion was updated for Map data,
+and two mock provider dispatches now compare parsed hostnames exactly for CodeQL. The new
+browser assertion also checks the default Triora/100 km download controls without network access.
+Remaining: green exact-candidate checks and a reviewed resolution of the dependency advisory
+before merging/tagging. Live deployment remains separate.
+[Candidate PR](https://github.com/crimsonclyde/vergissmeinnicht/pull/131) ·
+[Initial CI](https://github.com/crimsonclyde/vergissmeinnicht/actions/runs/44157892193).
+
 **ChatGPT plugin replacement runbook (2026-11-17):** owner requested replacing the stale
 registration and preserving a repeatable update procedure. The old `vmn` registration was
 deleted after explicit action-time confirmation; the replacement uses the exact name `vmn`,

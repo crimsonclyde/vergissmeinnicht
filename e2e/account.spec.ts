@@ -116,8 +116,15 @@ test('first server admin: bootstrap link, account creation, sign-in, Workspace c
   await expect(menuButton).toBeFocused();
   await fromMenu(page, 'Server admin');
   // Server admin shows one named section at a time (15.1); each has its own address.
-  await expect(page.getByRole('navigation', { name: 'Server administration' }).getByRole('link')).toHaveText(['Workspaces', 'Invitations', 'Accounts & recovery', 'Notification providers', 'Weather', 'AI connections', 'Server & storage', 'Security log']);
+  await expect(page.getByRole('navigation', { name: 'Server administration' }).getByRole('link')).toHaveText(['Workspaces', 'Invitations', 'Accounts & recovery', 'Notification providers', 'Weather', 'Map data', 'AI connections', 'Server & storage', 'Security log']);
   await expect(page.getByLabel('Email address to invite')).toHaveCount(0);
+  // The regional downloader is ready on the existing data volume; checking its defaults makes no provider request.
+  await settingsSection(page, 'Server administration', 'Map data');
+  await expect(page.getByRole('heading', { name: 'Download a map', exact: true })).toBeVisible();
+  await expect(page.getByText('Triora, Italy · 100 km around it', { exact: true })).toBeVisible();
+  await expect(page.getByLabel('Include around this town')).toHaveValue('100');
+  await expect(page.getByRole('button', { name: 'Download map', exact: true })).toBeVisible();
+
   // Invitations are managed here (no mail server in this test, so delivery reports a failure).
   await settingsSection(page, 'Server administration', 'Invitations');
   await expect(page).toHaveURL(/\/admin\/invitations$/);
