@@ -4382,6 +4382,17 @@ Capture a small, reviewed set from the actual app using `test-env` fictional dem
 
 **Security impact:** LOW — public assets use fictional demo data; no new application feature.
 
+
+#### README theme gallery refresh (2026-11-16)
+
+**Implemented:** Reduced the root README to ten product points, desktop and smartphone Today galleries, and links to the documentation index and license. The documentation index routes readers to the user, Workspace admin, server admin and MCP guides. Updated the Workspace admin summary to remove the obsolete tool count and Mail plan. Captured Galactic Guide, Tokyo Nights and Places · Scotland using the fictional Northstar studio demo.
+
+**Checks:** Captured all six views in Chromium with reduced motion at 1440 × 1000 and 390 × 844. Checked theme and horizontal overflow, visually reviewed the screenshots for fictional content, verified local links and image dimensions, and ran `git diff --check`. Reviewed reachable text blobs from local Git refs and GitHub's advertised branches and tags for tunnel IDs, Harpoon URIs and runtime keys. Matches were setup placeholders and synthetic OAuth test fixtures.
+
+**Security impact:** Public documentation and fictional screenshots only. The runtime security surface is unchanged. **Limitations:** The tunnel check covers reachable Git content in those refs. It does not cover GitHub discussions, PR text, release assets or live deployment logs.
+
+**Follow-up (2026-11-17):** Added Weather and Moon to the ten-point introduction and shared Places on a Map with photos and private visit history. Refreshed all six Today screenshots with Clock, Weather and Celestial enabled. A browser-local sample forecast supplies fictional Munich conditions without live provider calls. Desktop captures use 1440 × 1100 and phone captures 390 × 1200 so the complete Celestial card fits. Checked card visibility and bounds, horizontal overflow, local links, screenshot dimensions, visual content and whitespace. Security surface remains public documentation and fictional demo screenshots. The Places theme in this gallery is distinct from the shared Places records in the Map tool.
+
 ### 17.4 Stabilize CI and reduce validation time
 **Status:** DONE (2026-10-04; `3de6fa5`, merged through PR #15)
 
