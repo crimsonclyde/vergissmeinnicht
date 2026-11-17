@@ -18,6 +18,24 @@ For every completed task, add a concise completion note, tests/checks performed,
 
 ## Current state — resume here
 
+**ChatGPT plugin replacement runbook (2026-11-17):** owner requested replacing the stale
+registration and preserving a repeatable update procedure. The old `vmn` registration was
+deleted after explicit action-time confirmation; the replacement uses the exact name `vmn`,
+the VMN flower icon and the existing tunnel. Discovery advertised and selected `map.read`
+and `map.write`; the owner completed consent and the connected catalog shows 37 write and
+26 read tools, including all six Map tools. An extra registration created despite an initial
+connection error was also deleted with confirmation. The Tunnel ID and reusable
+small PNG are kept under ignored `.var/local-configuration/` with restricted permissions.
+[Runbook](../admin/chatgpt-mcp-tunnel.md#owners-plugin-replacement-procedure-2026-11-17)
+records delete-before-create, DCR, owner-reviewed consent, ambiguous-error duplicate checks,
+and the owner's full read/write/change access preference for this connection's future replacements.
+Checks: UI deletion/creation transition, owner consent return, connected tool catalog, advertised
+Map scopes, PNG size/type, Git ignore and documentation whitespace.
+Remaining: authenticated read from a fresh chat/tool refresh; this Codex chat retained the old
+binding and returned `Unknown tool` from `list_workspaces`.
+Application security surface changed: NO; connection replacement uses existing OAuth
+boundaries, and no automatic scope expansion or new transport is introduced.
+
 **Published owner release 75 (2026-11-17 Europe/Berlin).** 0.16.0 was published
 from `v0.16.0`, source `0c5b8ef761412fc68b50ff99709071d32d6bd07f` (Marauder’s Map, §44.1).
 Migration 0082 adds the optional Workspace tool. Main CI passed, along with both

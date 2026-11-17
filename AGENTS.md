@@ -395,6 +395,18 @@ House management (section 16; each applies from the step that implements it):
 
 Keep both current.
 
+### ChatGPT plugin updates
+
+For an owner-requested ChatGPT plugin update/recreation, follow
+`docs/admin/chatgpt-mcp-tunnel.md` → "Owner's plugin replacement procedure".
+Use the exact name `vmn`, the VMN flower favicon and the existing Tunnel ID from
+ignored `.var/local-configuration/vmn-chatgpt.json`. Delete the old `vmn`
+registration before creating its replacement; uninstall alone does not free the name.
+Respect action-time deletion confirmation and leave Workspace/scope consent to the
+owner. For this owner's personal connection, prepare all read/write/change permissions
+by default, subject to their final review or reduction; do not change global consent
+defaults. Keep connection identifiers out of tracked files and verify tools after consent.
+
 ## Accepted follow-up — section 17 (2026-10-02)
 
 Documentation now lives in `docs/admin`, `docs/user` and `docs/development`. Section 17 of the ledger records the accepted changes; 17.1–17.4 are implemented and released in 0.5.0-beta.3 (2026-10-04). Workspace admins choose all implemented functional tools, all off for new Workspaces; Today, selection and settings remain structural. This supersedes fixed core navigation and exactly four phone destinations when tools are disabled. Preserve existing Workspace flags and available core tools on upgrade. Today includes compact progress statistics and recent accomplishments alongside actionable items; this narrowly supersedes “actionable only” and the analytics exclusion for those measures, with no cost charts, rankings or external analytics. Read 17.1–17.2 before implementation; server gates and workers must enforce tool settings and aggregate access.

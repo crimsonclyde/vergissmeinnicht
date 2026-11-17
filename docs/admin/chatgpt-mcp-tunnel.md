@@ -179,6 +179,54 @@ token exchange and subsequent tool call using their status and UTC time.
 
 ## Recover an existing connection
 
+### Owner's plugin replacement procedure (2026-11-17)
+
+When the owner asks to update/recreate the ChatGPT plugin, use the exact name **`vmn`**
+for the whole application. Use the VMN flower favicon, not a Map-specific name or icon.
+Reuse the existing tunnel; do not create a new tunnel, poller or runtime key for a catalog update.
+
+The operator's local reference is `.var/local-configuration/vmn-chatgpt.json` in this
+checkout. It stores `pluginName`, `tunnelId` and authentication method. `.var/` is already
+Git-ignored; keep the directory mode `0700` and file mode `0600`. Never copy its actual
+Tunnel ID into tracked documentation. A replacement icon is saved alongside it as
+`vmn-plugin-icon.png` (128×128 PNG, below ChatGPT's 10 KB limit), derived from
+`assets/brand/vergissmeinnicht-icon.png`. Regenerate from that brand asset if branding changes.
+
+1. Read the local reference and inspect the existing **vmn** registration. Export its plugin
+   ZIP as a fallback before removal. Uninstalling a connection does not delete its custom
+   registration or free the name.
+2. **Delete the old vmn registration before creating the replacement.** In Personal plugins,
+   open vmn → More actions → Delete plugin. Verify the target; leave other similarly named
+   historical plugins alone. If the browser's action-time confirmation policy applies, prepare
+   the final deletion dialog and obtain that confirmation. Deletion is permanent for the
+   ChatGPT registration and its connections; it does not delete VMN Workspace records.
+3. Add custom MCP server: name **vmn**, upload the saved flower PNG, choose **Tunnel** and
+   the saved Tunnel ID, then **OAuth** with discovered **Dynamic Client Registration**.
+   Leave static client credentials unset. Review discovered default scopes; for Map support
+   confirm `map.read` and `map.write` are advertised and selected. Create the plugin.
+4. The owner's preference for this personal connection is **all available read/write/change
+   permissions by default** (2026-11-17); prepare those choices for future replacements,
+   with the owner free to reduce them. This is an operator preference, not a change to the
+   application's consent defaults for everyone. Hand final consent to the owner to select
+   Workspaces, review permissions and click **Allow connection**. Map needs **Read and edit
+   shared places**. A replacement registration does not inherit the previous grant.
+5. After the return to ChatGPT, verify installation, name and icon, inspect the tools, and
+   make a read-only call in a fresh chat. For Map, check `search_places`, `get_place`,
+   `preview_place_import`, `create_place`, `update_place_fields` and `import_places` against
+   the approved read/write access. The Workspace Map switch and current role still apply.
+   Do not create test records without an agreed task. Record the new registration ID and
+   verification status in the ignored local reference for the next update.
+
+The 2026-11-17 replacement completed owner consent and appeared connected as **vmn**, with the
+flower icon, **37 write** and **26 read** tools, including all six Map tools above. Both the old
+registration and an accidental **VMN Map** registration were deleted after separate owner
+confirmations. The initial creation attempt reported a connection error but still created a
+registration: after an ambiguous error, inspect Personal plugins before retrying to avoid
+duplicates. A name collision was resolved by deleting the old registration before retrying.
+The existing Codex chat still had the old tool binding (`Unknown tool`); a fresh chat or tool
+refresh is needed for an authenticated read test. Connected catalog verification and a successful
+tool call remain separate checkpoints.
+
 - **Expired or disconnected.** Reconnect from the assistant and review the VMN consent
   again. Confirm the new grant in **AI connections** and repeat the grocery read.
 - **OAuth completes, but the tool catalog looks stale after an upgrade.** Refresh the
