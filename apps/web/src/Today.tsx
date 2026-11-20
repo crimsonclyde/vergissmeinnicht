@@ -78,6 +78,25 @@ export function todayRing(doneToday: number | null | undefined, stillDue: number
   return total === 0 ? null : { done, total };
 }
 
+/**
+ * The day's ring (done of due today, overdue included) opens what it counts (46): Needs attention on this
+ * page when that card is shown, else the Reminders (or Calendar) list. Without either it is only a picture.
+ */
+function TodayRing({ ring, showList, allDue }: { ring: { done: number; total: number }; showList: boolean; allDue: string | null }) {
+  const picture = <Ring done={ring.done} total={ring.total} size={64} label={t('today.ringLabel', { done: ring.done, total: ring.total })} />;
+  const label = t('today.ringOpen', { done: ring.done, total: ring.total });
+  if (showList) {
+    return <button type="button" className="today-ring-button" aria-label={label} title={label} onClick={() => {
+      const heading = document.getElementById('today-card-attention');
+      const still = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false;
+      heading?.closest('section')?.scrollIntoView({ behavior: still ? 'auto' : 'smooth', block: 'start' });
+      heading?.focus({ preventScroll: true });
+    }}>{picture}</button>;
+  }
+  if (allDue !== null) return <Link href={allDue} className="today-ring-button" aria-label={label} title={label}>{picture}</Link>;
+  return picture;
+}
+
 /** "Good morning", "Good afternoon" or "Good evening" for the local hour. */
 export function greetingKey(hour: number): 'today.greeting.morning' | 'today.greeting.afternoon' | 'today.greeting.evening' {
   if (hour < 12) return 'today.greeting.morning';
@@ -130,7 +149,7 @@ function TodayCard(props: { id: TodayCardId; icon: UiIconName; title: string; co
   return (
     <section aria-labelledby={heading} className={props.attention === true ? 'card today-card today-card-attention' : 'card today-card'} data-card={props.id}>
       <GuideArt kind={({ attention: 'reminders', continue: 'procedures', next: 'calendar', toBuy: 'lists', bring: 'bring', maintenance: 'maintenance', recent: 'procedures', progress: 'procedures', calendar: 'calendar', clock: 'reminders', weather: 'calendar', moon: 'calendar', gazette: 'calendar' } as const)[props.id]} />
-      <h3 id={heading} className="today-card-title">
+      <h3 id={heading} className="today-card-title" tabIndex={-1}>
         <UiIcon name={props.icon} />
         <span>{props.title}</span>
         {props.count !== undefined && (
@@ -448,7 +467,7 @@ export function Today(props: {
           </h2>
           <p className="today-greeting">{t(greetingKey(now.getHours()), { name: firstName(props.userName) })}</p>
         </div>
-        {ring !== null && <Ring done={ring.done} total={ring.total} size={64} label={t('today.ringLabel', { done: ring.done, total: ring.total })} />}
+        {ring !== null && <TodayRing ring={ring} showList={cards.some(setting => setting.card.id === 'attention') && attention.length > 0} allDue={allDue} />}
       </div>
       {guideLayout ? (
         slots.scope !== null && slots.actions !== null && (

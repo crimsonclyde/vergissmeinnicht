@@ -87,6 +87,6 @@
 :root .shell[data-layout='guide'] .settings-menu .menu-panel { top: calc(100% + .4rem); bottom: auto; left: auto; right: 0; }
 /* Working pages use a protected reading surface over the scenic background. */
 :root[data-theme='space-guide'] .shell[data-layout='guide']:not([data-page='workspace']) .app-main { width: calc(100% - 2rem); margin: 1.5rem auto; padding: 1.5rem; background: var(--surface); border: 1px solid var(--border); border-radius: 1rem; }
-:root[data-theme='space-guide'] .shell[data-layout='guide'] :is(.app-footer, .today-hello > .ring) { background: var(--surface); border-radius: .75rem; padding: .5rem; }
+:root[data-theme='space-guide'] .shell[data-layout='guide'] :is(.app-footer, .today-hello > :is(.ring, .today-ring-button)) { background: var(--surface); border-radius: .75rem; padding: .5rem; }
 
 :root[data-theme='space-guide'] .shell[data-layout='guide'] .today-hero :is(.ring-track,.ring-fill){stroke:var(--text)}

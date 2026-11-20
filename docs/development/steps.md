@@ -9015,6 +9015,9 @@ Workspace weather stays as the fallback.
   navigation. Appearance shows a one-line note instead of the old layout choice; the stored
   `layout` key stays for compatibility but no longer decides.
 - Settings button: the profile picture, or the person's initials (Avatar) until they add one.
+- The Dashboard's day ring (done of due today, overdue included; owner: "you cannot click it and see
+  what is due") is a button: it scrolls to Needs attention and focuses its heading, or opens
+  Reminders (Calendar) when that card is hidden.
 - Top bar order: name (opens the shown Workspace's Dashboard), Workspace drop-down (same style as
   All tools; each entry with its role), Dashboard, News, **All tools** (one drop-down, families as
   columns: Plan, Shop & cook, House), space, weather, time, round **+**, round profile picture.

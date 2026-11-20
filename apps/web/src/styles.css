@@ -6404,6 +6404,33 @@ a.today-row:hover .today-row-title {
   min-width: 0;
 }
 
+/* The day's ring opens what it counts (46): a round, plain button around the picture. */
+.today-ring-button {
+  display: inline-grid;
+  place-items: center;
+  flex: none;
+  padding: 0.2rem;
+  border: 1px solid transparent;
+  border-radius: 50%;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+}
+
+.today-ring-button:hover {
+  border-color: var(--border-strong);
+  background: var(--surface-muted);
+}
+
+.today-card-title:focus {
+  outline: none;
+}
+
+.today-card-title:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+}
+
 .today-greeting {
   margin: 0.15rem 0 0;
   font-size: clamp(1.45rem, 1.1rem + 1.6vw, 2.1rem);

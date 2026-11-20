@@ -3222,6 +3222,7 @@ export const en = {
   'today.greeting.afternoon': 'Good afternoon, {name}',
   'today.greeting.evening': 'Good evening, {name}',
   'today.ringLabel': 'Dashboard: {done} of {total} done',
+  'today.ringOpen': 'Due today: {done} of {total} done. Show what is due',
   'today.pickUp': 'Pick up where you left off',
   'today.allClear': 'All clear',
   'today.needsAttention': 'Needs attention',

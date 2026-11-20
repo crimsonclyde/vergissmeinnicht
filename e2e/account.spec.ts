@@ -1413,6 +1413,9 @@ test('first server admin: bootstrap link, account creation, sign-in, Workspace c
   await sections.getByRole('link', { name: 'Dashboard' }).click();
   const taxToday = page.getByRole('list', { name: 'Needs attention' }).getByRole('listitem').filter({ hasText: 'Pay annual tax' });
   await expect(taxToday).toContainText('Assigned to Ada Admin');
+  // The day's ring opens what it counts (46): Needs attention on this page.
+  await page.getByRole('button', { name: /^Due today: \d+ of \d+ done/ }).click();
+  await expect(page.getByRole('heading', { name: /Needs attention/ })).toBeFocused();
   // Filters: assigned to me shows it, shared hides it.
   await page.getByRole('combobox', { name: 'Show', exact: true }).selectOption('Shared');
   await expect(taxToday).toHaveCount(0);
