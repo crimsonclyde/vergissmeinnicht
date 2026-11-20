@@ -8992,6 +8992,11 @@ Today a theme is wired in five ways (token blocks in `styles.css`, Places tokens
 mounted from `main.tsx`, `App.tsx`, `AppShell` and Today). Add one theme registry
 (`themes/<id>/`: tokens, scene, navigation style, light/dark support) and one `ThemeScene` slot.
 
+**Status:** IN PROGRESS. First slice (2026-11-20): `THEME_REGISTRY` in
+`packages/domain/src/theme-registry.ts` describes every stored theme value once (navigation
+`top-bar`/`sidebar`, kind `theme`/`place`/`alias`); a test keeps it equal to `THEME_PREFERENCES` and
+`TOP_BAR_THEMES`. Not yet used by the web app; next: tokens, scene and `ThemeScene` slot per theme.
+
 ### 45.5 — Surface-role tokens; feature CSS without `data-theme` (L)
 Journal, Gazette, Map, area and maintenance CSS carry per-theme selectors. Add surface-role
 tokens (bar, panel, card, raised, accent ink) to every theme so feature CSS uses tokens only.

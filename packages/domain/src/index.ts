@@ -17,6 +17,7 @@ export * from './workspace.ts';
 export * from './calendar-feed.ts';
 export * from './preferences.ts';
 export * from './places.ts';
+export * from './theme-registry.ts';
 export * from './today-layout.ts';
 export * from './weather.ts';
 export * from './schedule.ts';
