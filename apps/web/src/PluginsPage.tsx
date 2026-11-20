@@ -78,8 +78,8 @@ export function PluginsPage(props: { context: WorkspaceContext; onChanged: () =>
             </li>
           );
         })}
+        <AiAssistantsTile workspaceId={context.workspace.id} />
       </ul>
-      <AiAssistantsTile workspaceId={context.workspace.id} />
       <p role="status" style={{ margin: 0 }}>
         {status ?? ''}
       </p>
@@ -113,8 +113,7 @@ function AiAssistantsTile(props: { workspaceId: string }) {
   }
   const name = t('aiAssistants.name');
   return (
-    <ul className="plugin-grid">
-      <li className={`card plugin-tile${allowed === true ? ' plugin-on' : ''}`}>
+    <li className={`card plugin-tile${allowed === true ? ' plugin-on' : ''}`}>
         <label className="plugin-switch">
           <span className="plugin-icon">
             <UiIcon name="assistant" size="1.5rem" />
@@ -129,7 +128,6 @@ function AiAssistantsTile(props: { workspaceId: string }) {
           {t('aiAssistants.hint')}
         </small>
         {message !== null && <p role="alert">{message}</p>}
-      </li>
-    </ul>
+    </li>
   );
 }

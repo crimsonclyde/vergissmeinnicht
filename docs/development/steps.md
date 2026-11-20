@@ -9037,7 +9037,7 @@ connection cannot choose it (consent screen greys it out). Existing connections 
 it again when switched back on. UI: one icon tile "AI assistants" under the Plugins grid.
 **Tests/checks:** typecheck, lint, `mcp-errors.test.ts` (read, write, list, new connection, back
 on, audit; EDITOR 403, bad body 400), route sweep classifies the route, full Vitest.
-Not checked by screenshot: the tile reuses the Plugins tile classes (theme tokens).
+Checked on screen (desktop + phone, every theme token set incl. axe): tile sits in the Plugins grid with the same spacing. Screens: `/mnt/project-files/ui-review/2026-11-20-ai-tile/`.
 **Security impact:** MEDIUM (new permission boundary for MCP). **Security docs updated:** YES.
 
 ---
