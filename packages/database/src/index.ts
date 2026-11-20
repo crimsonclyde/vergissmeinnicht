@@ -27,6 +27,7 @@ export { createScheduleRepository } from './schedule-repository.ts';
 export { createImageRepository } from './image-repository.ts';
 export { createDocumentFileRepository } from './document-file-repository.ts';
 export { createDocumentTextRepository } from './document-text-repository.ts';
+export { aiAllowedWorkspaces, createAiAssistantsRepository } from './ai-assistants-repository.ts';
 export { createDocumentRepository, createWorkspaceToolRepository } from './document-repository.ts';
 export { createStorageRepository } from './storage-usage.ts';
 export { createLinkRepository } from './link-repository.ts';

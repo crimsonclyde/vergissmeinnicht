@@ -1,3 +1,4 @@
+import { aiAssistantsAllowed } from './ai-assistants-repository.ts';
 import { AsyncLocalStorage } from 'node:async_hooks';
 import { and, eq, gt, isNull } from 'drizzle-orm';
 import type { WorkspaceTool, McpScope } from '@vergissmeinnicht/domain';
@@ -13,5 +14,5 @@ export function delegationAllows(tx:Pick<Transaction,'select'>,userId:string,wor
  if(context.userId!==userId||(context.tool!==tool&&!context.additionalTools?.includes(tool as WorkspaceTool)))return false;
  const now=new Date();const grant=tx.select().from(mcpGrants).where(and(eq(mcpGrants.id,context.grantId),eq(mcpGrants.userId,userId),eq(mcpGrants.clientId,context.clientId),isNull(mcpGrants.revokedAt),gt(mcpGrants.expiresAt,now))).get();
  const access=tx.select().from(mcpTokens).where(and(eq(mcpTokens.hash,context.tokenHash),eq(mcpTokens.grantId,context.grantId),eq(mcpTokens.kind,'access'),isNull(mcpTokens.usedAt),gt(mcpTokens.expiresAt,now))).get();
- return !!grant&&!!access&&grant.workspaceIds.includes(workspaceId)&&grant.scopes.includes(context.scope)&&(context.additionalScopes??[]).every(scope=>grant.scopes.includes(scope));
+ return !!grant&&!!access&&grant.workspaceIds.includes(workspaceId)&&aiAssistantsAllowed(tx,workspaceId)&&grant.scopes.includes(context.scope)&&(context.additionalScopes??[]).every(scope=>grant.scopes.includes(scope));
 }

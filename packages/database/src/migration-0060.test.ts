@@ -26,7 +26,8 @@ it('0060 preserves populated personal settings and Workspace data; old guards st
     const perWorkspace = db.sqlite.prepare('SELECT user_id, workspace_id, theme, is_default FROM user_workspace_preferences').all();
     db.close(); runMigrations(path); db = openDatabase(path);
     expect(db.sqlite.prepare('SELECT * FROM user_preferences').get()).toEqual({ user_id: user.id, theme: 'dark', critical_confirm: 'tap-confirm', private_gamification: 0, navigation_order: '["BRING","EQUIPMENT"]', updated_at: 123 });
-    expect(db.sqlite.prepare('SELECT * FROM workspaces').all()).toEqual(shared);
+    // Later migrations only add columns with defaults (0084: AI assistants on).
+    expect(db.sqlite.prepare('SELECT * FROM workspaces').all()).toEqual(shared.map((row) => ({ ...(row as object), ai_assistants: 1 })));
     expect(db.sqlite.prepare('SELECT user_id, workspace_id, theme, is_default FROM user_workspace_preferences').all()).toEqual(perWorkspace);
     expect(db.sqlite.prepare('SELECT settings FROM user_place_preferences').get()).toEqual({ settings: '{"cardOpacity":35}' });
     db.sqlite.prepare("UPDATE user_preferences SET theme='space-guide'").run();

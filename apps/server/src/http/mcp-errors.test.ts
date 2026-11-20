@@ -89,4 +89,42 @@ describe('MCP structured errors', () => {
     expect((await t.post(`/api/workspaces/${workspaceId}/tools`, { tool: 'LISTS', enabled: false, expectedRevision: tools.revision }, t.admin)).statusCode).toBe(200);
     expect(await assistant.errorCode('list_grocery_lists', { workspaceId })).toMatchObject({ code: 'tool_disabled' });
   });
+  it('keeps every AI assistant out of a Workspace whose admin switched them off (45.11)', async () => {
+    t = await startTestApp({ mcpEnabled: true });
+    const home = await t.createWorkspace('Casa Nostra');
+    const office = await t.createWorkspace('Office');
+    const { listId } = await shopping(home, 'Weekly shop', [{ title: 'Milk' }]);
+    const assistant = await connect(t.admin, [home, office], ['workspaces.read', 'lists.read', 'lists.write']);
+    expect((await t.get(`/api/workspaces/${home}/ai-assistants`, t.admin)).json()).toEqual({ allowed: true });
+    expect((await assistant.body('list_grocery_lists', { workspaceId: home })).lists).toHaveLength(1);
+
+    const off = await t.post(`/api/workspaces/${home}/ai-assistants`, { allowed: false }, t.admin);
+    expect(off.statusCode, off.body).toBe(200);
+    expect(off.json()).toEqual({ allowed: false });
+    // Reads, writes and the Workspace list: the existing connection no longer reaches Home.
+    expect(await assistant.errorCode('list_grocery_lists', { workspaceId: home })).toMatchObject({ code: 'ai_not_allowed' });
+    expect(await assistant.errorCode('add_grocery_item', { workspaceId: home, listId, operationId: randomUUID(), itemId: randomUUID(), title: 'Eggs', quantity: null, unit: null })).toMatchObject({ code: 'ai_not_allowed' });
+    const listed = JSON.stringify(await assistant.body('list_workspaces', {}));
+    expect(listed).not.toContain(home);
+    expect(listed).toContain(office);
+    expect(t.database.sqlite.prepare("SELECT title FROM list_items WHERE title = 'Eggs'").all()).toEqual([]);
+    expect(t.database.sqlite.prepare("SELECT type FROM audit_events WHERE type LIKE 'AI_ASSISTANTS_%'").all()).toEqual([{ type: 'AI_ASSISTANTS_BLOCKED' }]);
+    // A new connection cannot choose Home.
+    await expect(connect(t.admin, [home], ['lists.read'])).rejects.toThrow();
+
+    // On again: the same connection works.
+    expect((await t.post(`/api/workspaces/${home}/ai-assistants`, { allowed: true }, t.admin)).json()).toEqual({ allowed: true });
+    expect((await assistant.body('list_grocery_lists', { workspaceId: home })).lists).toHaveLength(1);
+  });
+
+  it('lets only Workspace admins switch AI assistants (45.11)', async () => {
+    t = await startTestApp({ mcpEnabled: true });
+    const home = await t.createWorkspace('Casa Nostra');
+    const uma = await t.invite('uma@example.org', 'Uma');
+    await t.addMember(home, 'uma@example.org', 'EDITOR');
+    expect((await t.get(`/api/workspaces/${home}/ai-assistants`, uma)).json()).toEqual({ allowed: true });
+    expect((await t.post(`/api/workspaces/${home}/ai-assistants`, { allowed: false }, uma)).statusCode).toBe(403);
+    expect((await t.post(`/api/workspaces/${home}/ai-assistants`, { allowed: 'no' }, t.admin)).statusCode).toBe(400);
+    expect((await t.get(`/api/workspaces/${home}/ai-assistants`, t.admin)).json()).toEqual({ allowed: true });
+  });
 });

@@ -317,6 +317,8 @@ export const workspaces = sqliteTable(
     toolsRevision: integer('tools_revision').notNull().default(0),
     /** Text recognition of document files (16.9, P5): on unless a Workspace admin switched it off. */
     textRecognition: integer('text_recognition', { mode: 'boolean' }).notNull().default(true),
+    /** AI assistants (MCP connections) may reach this Workspace (45.11): on unless a Workspace admin switched it off. */
+    aiAssistants: integer('ai_assistants', { mode: 'boolean' }).notNull().default(true),
   },
   (table) => [
     check('workspaces_id_uuid', sql`length(${table.id}) = 36`),

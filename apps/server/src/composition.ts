@@ -21,6 +21,7 @@ import {
   createPreviewQueue,
   createTextRecognizer,
   type TextRecognitionUseCaseDeps,
+  type AiAssistantsDeps,
   type SuggestionDeps,
   type TextRecognizer,
   type AccountAdminDeps,
@@ -78,6 +79,7 @@ import {
   createDocumentFileRepository,
   createDocumentRepository,
   createDocumentTextRepository,
+  createAiAssistantsRepository,
   createStorageRepository,
   createLinkRepository,
   createContactRepository,
@@ -209,6 +211,7 @@ export interface AppServices {
   readonly documents: DocumentExportDeps;
   /** Text recognition of document files (16.9): Retry and the Workspace switch. */
   readonly textRecognition: TextRecognitionUseCaseDeps;
+  readonly aiAssistants: AiAssistantsDeps;
   /** Suggestions from recognised text (16.9 task 5). */
   readonly suggestions: SuggestionDeps;
   /** The background text recognizer; the server wakes it periodically for retries that became due. */
@@ -500,6 +503,7 @@ export function createServices(config: AppConfig, database: AppDatabase, overrid
       maintenance: { workspaces: workspaceDeps.workspaces, tools, maintenance: createMaintenanceRepository(database), clock: systemClock },
       documents: { workspaces: workspaceDeps.workspaces, tools, documents: createDocumentRepository(database), store: documentFiles.store, clock: systemClock },
       textRecognition: { workspaces: workspaceDeps.workspaces, tools, texts, recognizer, clock: systemClock },
+      aiAssistants: { workspaces: workspaceDeps.workspaces, aiAssistants: createAiAssistantsRepository(database), clock: systemClock },
       recognizer,
       suggestions: { workspaces: workspaceDeps.workspaces, tools, documents: createDocumentRepository(database), texts, clock: systemClock },
       closeDocumentFiles: async () => {

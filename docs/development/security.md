@@ -1098,6 +1098,17 @@ The following choices are mandatory V1 behavior:
 
 ## 14. Outbound connections to configurable hosts (SSRF policy)
 
+### Security check: "AI assistants allowed" per Workspace (45.11, 2026-11-20)
+
+A Workspace admin (`workspace.settings.manage`, re-checked inside the `IMMEDIATE` write, audited
+`AI_ASSISTANTS_ALLOWED` / `_BLOCKED`) can switch AI assistants off for the whole Workspace; on by
+default (migration 0084). Off is enforced on the server at every MCP entry: `McpRepository.authorize`
+refuses a call naming the Workspace (`AiAssistantsBlockedError` → `ai_not_allowed`, nothing changed),
+returns the grant with that Workspace removed for Workspace-less tools (`list_workspaces`, Map tool
+listing), `approve` refuses it for a new connection, and `delegationAllows` refuses every delegated
+write inside its transaction. Grants are not modified (they stay immutable), so switching back on
+restores access without reconnecting. Negative tests: `apps/server/src/http/mcp-errors.test.ts`.
+
 ### Security check: one outbound HTTP client (45.10, 2026-11-20)
 
 Every request the server makes to another host goes through `@vergissmeinnicht/outbound`

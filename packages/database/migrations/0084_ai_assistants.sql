@@ -1,0 +1,1 @@
+ALTER TABLE `workspaces` ADD `ai_assistants` integer DEFAULT true NOT NULL;

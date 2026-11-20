@@ -9001,6 +9001,10 @@ Guide settings (layout, card art) affect every theme, and Settings pages are for
 Mori. Move card art to a theme-neutral "Look" group and let Settings keep the person's theme
 (the layout is decided by the theme since 46).
 
+**Owner decision (2026-11-20):** Settings pages get their own dedicated **Settings theme**, not
+pickable as a user theme, used for every Settings page whatever theme is chosen; user themes need
+not support Settings. **Status:** not started.
+
 ### 45.7–45.9 — Tool manifests (web, server) and Equipment as the first module (steps 28.2–28.4)
 One manifest per tool (id, routes, navigation entry, Today cards, MCP tools, backup tables) read
 by the web app and the server, then Equipment moved behind it as the proof.
@@ -9022,6 +9026,19 @@ and Gazette route tests, full Vitest.
 
 ### 45.11 — "AI assistants allowed" per Workspace (needs OK)
 A Workspace switch that blocks MCP/AI access to that Workspace for every member.
+
+**Owner decision (2026-11-20):** yes, **on by default**.
+**Status:** DONE (not released). Migration **0084** adds `workspaces.ai_assistants` (default on).
+`GET/POST /api/workspaces/:id/ai-assistants` (every member reads, `workspace.settings.manage`
+switches; audited `AI_ASSISTANTS_ALLOWED` / `_BLOCKED`, re-checked in the write). Off: the MCP
+`authorize` refuses that Workspace (`ai_not_allowed`), a grant's Workspace list (`list_workspaces`,
+Map tool listing) leaves it out, `delegationAllows` refuses writes inside the transaction, and a new
+connection cannot choose it (consent screen greys it out). Existing connections are kept and reach
+it again when switched back on. UI: one icon tile "AI assistants" under the Plugins grid.
+**Tests/checks:** typecheck, lint, `mcp-errors.test.ts` (read, write, list, new connection, back
+on, audit; EDITOR 403, bad body 400), route sweep classifies the route, full Vitest.
+Not checked by screenshot: the tile reuses the Plugins tile classes (theme tokens).
+**Security impact:** MEDIUM (new permission boundary for MCP). **Security docs updated:** YES.
 
 ---
 

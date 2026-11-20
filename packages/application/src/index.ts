@@ -81,3 +81,4 @@ export * from './gazette-weather.ts';
 export * from './ports/gazette-weather.ts';
 export * from './places-map.ts';
 export * from './tools/require-tool.ts';
+export * from './ai-assistants.ts';

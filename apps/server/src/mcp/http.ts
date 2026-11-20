@@ -113,6 +113,7 @@ function toolFailure(error:unknown,tool:{name:string;fileParams?:readonly string
  const name=errorName(error);
  if(name==='MapMatchError')return refused('map_match_review','Review the matching place before deciding whether to add a separate record.');
  if(name==='MapOperationReusedError')return refused('operation_reused','This id was already used for a different Map request.');
+ if(name==='AiAssistantsBlockedError')return refused('ai_not_allowed','A Workspace admin switched AI assistants off for this Workspace. Nothing was changed.');
  if(name==='ToolNotEnabledError')return refused('tool_disabled','This tool is switched off in the Workspace.');
  if(error instanceof NotAuthorizedError||name==='OfflineAccountMismatchError')return refused('permission_denied','This connection or account may not do this in this Workspace (scope, role or Workspace not selected). Nothing was changed.');
  if(error instanceof Error&&error.message==='Disabled')return refused('tool_disabled','This tool is switched off in the Workspace. A Workspace admin can switch it on. Nothing was changed.');
@@ -188,7 +189,8 @@ export async function registerMcpHttp(app:FastifyInstance,services:AppServices){
   }
   server.setRequestHandler(ListToolsRequestSchema,async () => {
    const mapAvailable = async (write: boolean) => {
-    const states = await Promise.all(grant.workspaceIds.map(async workspaceId => {
+    const reachable = (await services.mcp.authorize(grant.id, actor.id, undefined, grant.scopes[0] ?? 'workspaces.read')).workspaceIds;
+    const states = await Promise.all(reachable.map(async workspaceId => {
      try { await requireTool(services.placesMap, actor, workspaceId as WorkspaceId, 'MAP', write ? 'map.edit' : 'map.view'); return true; }
      catch { return false; }
     }));
@@ -208,10 +210,10 @@ export async function registerMcpHttp(app:FastifyInstance,services:AppServices){
    const requireToolsOn=async(workspaceId:WorkspaceId)=>{const enabled=await services.workspaces.workspaces.enabledTools(workspaceId);if([tool.tool,...(tool.extraTools??[])].some(value=>value!==null&&!enabled.includes(value)))throw new Error('Disabled');};
    try{
     const input=tool.schema.parse(call.params.arguments??{});const workspaceId=typeof input['workspaceId']==='string'?input['workspaceId'] as WorkspaceId:undefined;
-    const current=await services.mcp.verify(raw);await services.mcp.authorize(current.grant.id,actor.id,workspaceId,tool.scope);
+    const current=await services.mcp.verify(raw);const reach=await services.mcp.authorize(current.grant.id,actor.id,workspaceId,tool.scope);
     if(workspaceId){await requireToolsOn(workspaceId);}
     const context={grantId:grant.id,clientId:grant.clientId,userId:actor.id,tokenHash:hashMcpToken(raw),scope:tool.scope,tool:tool.tool,additionalScopes:tool.extraScopes??[],additionalTools:tool.extraTools??[]};
-    const result=await withDelegation(context,()=>tool.execute({services,actor,workspaceId:workspaceId as WorkspaceId,grantWorkspaceIds:current.grant.workspaceIds},input));executed=true;
+    const result=await withDelegation(context,()=>tool.execute({services,actor,workspaceId:workspaceId as WorkspaceId,grantWorkspaceIds:reach.workspaceIds},input));executed=true;
     // An access change during an async read must not return data collected under the earlier grant.
     await services.mcp.verify(raw);await services.mcp.authorize(grant.id,actor.id,workspaceId,tool.scope);
     if(workspaceId){if(!await services.workspaces.workspaces.findMembership(workspaceId,actor.id))throw new Error('Revoked');await requireToolsOn(workspaceId);}

@@ -47,7 +47,7 @@ const TOOL_GATES: ReadonlyArray<readonly [RegExp, ReadonlyArray<readonly string[
   [/^\/recipes(\/|$)/, [['RECIPES']]],
   [/^\/gazette(\/|$)/, [['GAZETTE']]],
   [/^\/map(\/|$)/, [['MAP']]],
-  [/^(\/(home|location|rename|leave|members|tools|backups|storage)(\/|$)|$)/, []],
+  [/^(\/(home|location|rename|leave|members|tools|backups|storage|ai-assistants)(\/|$)|$)/, []],
 ];
 
 function toolSetsFor(route: string): ReadonlyArray<readonly string[]> | undefined {
@@ -95,6 +95,7 @@ function bodyFor(route: string, ids: Record<string, string>): object {
   if (url === '/api/account/weather/workspaces/:workspaceId/location') return { useWorkspaceLocation: true };
   if (url.endsWith('/location')) return { location: null, expectedLocation: null };
   if (url.endsWith('/tools')) return { tool: 'DOCUMENTS', enabled: true, expectedRevision: 0 };
+  if (url.endsWith('/ai-assistants')) return { allowed: true };
   if (url.endsWith('/documents/:documentId/links')) return { target: { type: 'procedure', id: ids.procedureId ?? '' } };
   if (url.endsWith('/runs/:runId/documents')) return { documentId: ids.documentId ?? '' };
   if (url.endsWith('/remove-kept')) return { reason: 'Taken away', confirm: true };

@@ -1250,7 +1250,7 @@ const bringPath = (workspaceId: string, rest = '') => `/workspaces/${encodeURICo
 export interface McpConnection {id:string;clientName:string;workspaceIds:string[];scopes:import('@vergissmeinnicht/domain').McpScope[];expiresAt:string;revokedAt:string|null;tokenIssued:boolean}
 export interface McpAdminConnection {id:string;owner:{id:string;displayName:string};clientName:string;workspaces:{id:string;name:string|null}[];scopes:import('@vergissmeinnicht/domain').McpScope[];createdAt:string;expiresAt:string;revokedAt:string|null;tokenIssued:boolean}
 export interface McpFileHost {host:string;status:'REFUSED'|'ALLOWED';refusedCount:number;firstSeenAt:string;lastSeenAt:string;decidedAt:string|null;decidedBy:string|null}
-export interface McpConsent {id:string;clientName:string;redirectOrigin:string;scopes:import('@vergissmeinnicht/domain').McpScope[];expiresAt:string}
+export interface McpConsent {id:string;clientName:string;redirectOrigin:string;scopes:import('@vergissmeinnicht/domain').McpScope[];expiresAt:string;blockedWorkspaceIds?:string[]}
 /** The Daily Planet (43): JSON shapes of the server's domain types (dates arrive as strings). */
 export type GazetteSettings = import('@vergissmeinnicht/domain').GazetteSettings;
 export type GazetteContent = import('@vergissmeinnicht/domain').GazetteEditionContent;
@@ -1582,6 +1582,8 @@ export const api = {
     (await request<{ text: FileTextInfo }>('POST', documentFilePath(workspaceId, fileId, '/text/correct').slice('/api'.length), { text, revision })).text,
   restoreDocumentText: async (workspaceId: string, fileId: string, revision: number) =>
     (await request<{ text: FileTextInfo }>('POST', documentFilePath(workspaceId, fileId, '/text/restore').slice('/api'.length), { revision })).text,
+  aiAssistants: async (workspaceId: string) => (await request<{ allowed: boolean }>('GET', `/workspaces/${encodeURIComponent(workspaceId)}/ai-assistants`)).allowed,
+  setAiAssistants: async (workspaceId: string, allowed: boolean) => (await request<{ allowed: boolean }>('POST', `/workspaces/${encodeURIComponent(workspaceId)}/ai-assistants`, { allowed })).allowed,
   textRecognition: async (workspaceId: string) => (await request<{ textRecognition: TextRecognitionInfo }>('GET', `/workspaces/${encodeURIComponent(workspaceId)}/text-recognition`)).textRecognition,
   setTextRecognition: async (workspaceId: string, enabled: boolean) =>
     (await request<{ textRecognition: TextRecognitionInfo }>('POST', `/workspaces/${encodeURIComponent(workspaceId)}/text-recognition`, { enabled })).textRecognition,

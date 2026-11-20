@@ -589,6 +589,13 @@
       "when": 1795164000000,
       "tag": "0083_top_bar_scope",
       "breakpoints": true
+    },
+    {
+      "idx": 84,
+      "version": "6",
+      "when": 1795169514788,
+      "tag": "0084_ai_assistants",
+      "breakpoints": true
     }
   ]
 }
