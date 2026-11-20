@@ -1,5 +1,5 @@
 import {registerJournalExport} from './journal-export.ts';
-import { authorizeJournal, journalPrivacy, journalHistory, journalDraft, getJournalEntry, listJournal, journalOverview, saveJournalEntry, authorizeTool, NotAuthorizedError } from '@vergissmeinnicht/application';
+import { authorizeJournal, journalPrivacy, journalHistory, journalDraft, getJournalEntry, listJournal, journalOverview, saveJournalEntry, requireTool, NotAuthorizedError } from '@vergissmeinnicht/application';
 import { UUID_V4, type WorkspaceId } from '@vergissmeinnicht/domain';
 import type { FastifyInstance, FastifyRequest } from 'fastify';
 import { z } from 'zod';
@@ -65,11 +65,11 @@ export async function moonRoutes(app: FastifyInstance, { services }: { services:
   app.get('/',  async (request) => {
     const { workspaceId } = parse(z.strictObject({ workspaceId: uuid }), request.params);
     const id = workspaceId as WorkspaceId;
-    await authorizeTool(services.documents, actor(request), id, 'MOON', 'workspace.view');
+    await requireTool(services.documents, actor(request), id, 'MOON', 'workspace.view');
     const workspace = await services.workspaces.workspaces.findById(id);
     const current = await services.workspaces.users.findById(actor(request).id);
     if (current?.status !== 'ACTIVE') throw new NotAuthorizedError();
-    await authorizeTool(services.documents, current, id, 'MOON', 'workspace.view');
+    await requireTool(services.documents, current, id, 'MOON', 'workspace.view');
     return { location: workspace?.location ?? null };
   });
 }

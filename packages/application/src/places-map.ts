@@ -2,7 +2,8 @@ import {
   mapId, mapNumber, mapText, parseMapApproach, parseMapPlace, parseMapVisit,
   type MapApproach, type MapCategory, type MapPersonalState, type MapPlace, type MapPlaceInput, type MapPointFields, type MapTag, type MapVisit, type User, type WorkspaceId,
 } from '@vergissmeinnicht/domain';
-import { authorizeTool, type ToolDeps } from './documents/tools.ts';
+import type { ToolDeps } from './documents/tools.ts';
+import { requireTool } from './tools/require-tool.ts';
 
 export class MapNotFoundError extends Error {}
 export class MapConflictError extends Error {}
@@ -35,25 +36,25 @@ export interface MapRepository {
 export interface MapDeps extends ToolDeps { map: MapRepository }
 
 export async function browseMap(deps: MapDeps, context: MapContext, query: MapQuery) {
-  await authorizeTool(deps, context.actor, context.workspaceId, 'MAP', query.archived ? 'map.edit' : query.favorite || query.want ? 'map.visit' : 'map.view');
+  await requireTool(deps, context.actor, context.workspaceId, 'MAP', query.archived ? 'map.edit' : query.favorite || query.want ? 'map.visit' : 'map.view');
   return deps.map.browse(context, query);
 }
 export async function getMapPlace(deps: MapDeps, context: MapContext, id: string, includeArchived = false) {
-  await authorizeTool(deps, context.actor, context.workspaceId, 'MAP', includeArchived ? 'map.edit' : 'map.view');
+  await requireTool(deps, context.actor, context.workspaceId, 'MAP', includeArchived ? 'map.edit' : 'map.view');
   return deps.map.get(context, mapId(id, 'placeId'), includeArchived);
 }
 export async function previewMapPlace(deps: MapDeps, context: MapContext, raw: unknown) {
-  await authorizeTool(deps, context.actor, context.workspaceId, 'MAP', 'map.view');
+  await requireTool(deps, context.actor, context.workspaceId, 'MAP', 'map.view');
   const place = parseMapPlace(raw);
   const matches = await deps.map.lookup(context, place);
   return { ...matches, place, unresolved: !place.points.length && Boolean(place.details.originalUrl) };
 }
 export async function saveMapPlace(deps: MapDeps, context: MapContext, raw: unknown, operationId: string, change?: { id: string; revision: number; archived: boolean }, checkMatches = false) {
-  await authorizeTool(deps, context.actor, context.workspaceId, 'MAP', 'map.edit');
+  await requireTool(deps, context.actor, context.workspaceId, 'MAP', 'map.edit');
   return deps.map.write(context, parseMapPlace(raw), mapId(operationId, 'operationId'), deps.clock.now(), change, checkMatches);
 }
 export async function updateMapPlaceFields(deps: MapDeps, context: MapContext, patch: MapPlacePatch, operationId: string, id: string, revision: number) {
-  await authorizeTool(deps, context.actor, context.workspaceId, 'MAP', 'map.edit');
+  await requireTool(deps, context.actor, context.workspaceId, 'MAP', 'map.edit');
   return deps.map.write(context, patch, mapId(operationId, 'operationId'), deps.clock.now(), { id, revision, patch: true });
 }
 export function editableMapPlace(place: MapPlace): MapPlaceInput {
@@ -63,23 +64,23 @@ export function editableMapPlace(place: MapPlace): MapPlaceInput {
   };
 }
 export async function changeMapTag(deps: MapDeps, context: MapContext, name: unknown, id: string | null) {
-  await authorizeTool(deps, context.actor, context.workspaceId, 'MAP', 'map.taxonomy');
+  await requireTool(deps, context.actor, context.workspaceId, 'MAP', 'map.taxonomy');
   return deps.map.tag(context, mapText(name, 'tag.name', 60, true), id, deps.clock.now());
 }
 export async function addMapApproach(deps: MapDeps, context: MapContext, raw: unknown) {
-  await authorizeTool(deps, context.actor, context.workspaceId, 'MAP', 'map.edit');
+  await requireTool(deps, context.actor, context.workspaceId, 'MAP', 'map.edit');
   return deps.map.addApproach(context, parseMapApproach(raw), deps.clock.now());
 }
 export async function mapPersonalState(deps: MapDeps, context: MapContext, id: string) {
-  await authorizeTool(deps, context.actor, context.workspaceId, 'MAP', 'map.visit');
+  await requireTool(deps, context.actor, context.workspaceId, 'MAP', 'map.visit');
   return deps.map.personal(context, id);
 }
 export async function saveMapPersonalState(deps: MapDeps, context: MapContext, id: string, state: { favorite: boolean; want: boolean }) {
-  await authorizeTool(deps, context.actor, context.workspaceId, 'MAP', 'map.visit');
+  await requireTool(deps, context.actor, context.workspaceId, 'MAP', 'map.visit');
   return deps.map.setPersonal(context, id, state);
 }
 export async function recordMapVisit(deps: MapDeps, context: MapContext, id: string, raw: unknown) {
-  await authorizeTool(deps, context.actor, context.workspaceId, 'MAP', 'map.visit');
+  await requireTool(deps, context.actor, context.workspaceId, 'MAP', 'map.visit');
   return deps.map.visit(context, id, parseMapVisit(raw), deps.clock.now());
 }
 export function checkedMapBounds(bounds: MapBounds): MapBounds {

@@ -1,7 +1,7 @@
 import { DomainValidationError, normalizeRemovalReason, parseDocumentId, parseLinkId, parseLinkTarget, parseRunDocumentId, parseRunId, type LinkTarget, type User, type WorkspaceId } from '@vergissmeinnicht/domain';
 import { roleHasCapability } from '@vergissmeinnicht/permissions';
 import { DocumentLimitReachedError, DocumentNotFoundError, ToolNotEnabledError } from '../documents/errors.ts';
-import { authorizeTool } from '../documents/tools.ts';
+import { requireTool } from '../tools/require-tool.ts';
 import { NotAuthorizedError } from '../invitations/errors.ts';
 import type { ActorGuard } from '../ports/actor-guard.ts';
 import type { Clock } from '../ports/clock.ts';
@@ -101,7 +101,7 @@ function ok<T>(result: LinkWrite<T>): { readonly status: 'ok' } & T {
 
 /** Reading Links needs the Documents tool, `document.view`, and the view capability of the other kind of record. */
 async function reader(deps: LinkDeps, input: Ref, also: 'procedure.view' | 'run.view'): Promise<{ readonly seesTrash: boolean }> {
-  await authorizeTool(deps, input.actor, input.workspaceId, 'DOCUMENTS', 'document.view');
+  await requireTool(deps, input.actor, input.workspaceId, 'DOCUMENTS', 'document.view');
   const membership = await authorizeWorkspace(deps, input.actor, input.workspaceId, also, also === 'run.view' ? 'PROCEDURES' : null);
   return { seesTrash: roleHasCapability(membership.role, 'document.manage') };
 }
@@ -131,7 +131,7 @@ export async function listDocumentLinks(deps: LinkDeps, input: Ref & { readonly 
 export async function listLinkedDocuments(deps: LinkDeps, input: Ref & { readonly target: { readonly type: string; readonly id: string } }): Promise<LinkView[]> {
   const { seesTrash } = await reader(deps, input, 'procedure.view');
   const target = parseLinkTarget(input.target);
-  if (target.type === 'contact') await authorizeTool(deps, input.actor, input.workspaceId, 'CONTACTS', 'contact.view');
+  if (target.type === 'contact') await requireTool(deps, input.actor, input.workspaceId, 'CONTACTS', 'contact.view');
   if (!(await deps.links.targetToolEnabled(input.workspaceId, target))) throw new LinkTargetNotFoundError();
   return withoutHiddenTitles(await deps.links.listForTarget(input.workspaceId, target), seesTrash);
 }
@@ -142,21 +142,21 @@ export async function listLinkedDocuments(deps: LinkDeps, input: Ref & { readonl
  * nobody gains access to anything. Audited.
  */
 export async function addDocumentLink(deps: LinkDeps, input: Ref & { readonly documentId: string; readonly target: { readonly type: string; readonly id: string } }): Promise<LinkView> {
-  await authorizeTool(deps, input.actor, input.workspaceId, 'DOCUMENTS', 'document.view');
+  await requireTool(deps, input.actor, input.workspaceId, 'DOCUMENTS', 'document.view');
   await authorizeWorkspace(deps, input.actor, input.workspaceId, 'procedure.view', null);
   const target: LinkTarget = parseLinkTarget(input.target);
   if (!(await deps.links.targetToolEnabled(input.workspaceId, target))) throw new ToolNotEnabledError();
-  await authorizeTool(deps, input.actor, input.workspaceId, 'DOCUMENTS', 'document.manage');
+  await requireTool(deps, input.actor, input.workspaceId, 'DOCUMENTS', 'document.manage');
   // A Contact as the other end: the Contacts tool must be on, and its Contacts readable.
-  if (target.type === 'contact') await authorizeTool(deps, input.actor, input.workspaceId, 'CONTACTS', 'contact.view');
+  if (target.type === 'contact') await requireTool(deps, input.actor, input.workspaceId, 'CONTACTS', 'contact.view');
   return ok(await deps.links.add({ workspaceId: input.workspaceId, documentId: parseDocumentId(input.documentId), target, at: deps.clock.now() }, userActor(input.actor), linker)).link;
 }
 
 /** Removes a Link (never either record). Audited. */
 export async function removeDocumentLink(deps: LinkDeps, input: Ref & { readonly linkId: string }): Promise<void> {
-  await authorizeTool(deps, input.actor, input.workspaceId, 'DOCUMENTS', 'document.view');
+  await requireTool(deps, input.actor, input.workspaceId, 'DOCUMENTS', 'document.view');
   if (!(await deps.links.linkToolsEnabled(input.workspaceId, parseLinkId(input.linkId)))) throw new LinkNotFoundError();
-  await authorizeTool(deps, input.actor, input.workspaceId, 'DOCUMENTS', 'document.manage');
+  await requireTool(deps, input.actor, input.workspaceId, 'DOCUMENTS', 'document.manage');
   ok(await deps.links.remove({ workspaceId: input.workspaceId, linkId: parseLinkId(input.linkId), at: deps.clock.now() }, userActor(input.actor), linker));
 }
 
@@ -176,7 +176,7 @@ export async function listRunDocuments(deps: LinkDeps, input: Ref & { readonly r
  */
 export async function linkRunDocument(deps: LinkDeps, input: Ref & { readonly runId: string; readonly documentId: string }): Promise<RunDocumentView> {
   await authorizeWorkspace(deps, input.actor, input.workspaceId, 'run.view');
-  await authorizeTool(deps, input.actor, input.workspaceId, 'DOCUMENTS', 'document.manage');
+  await requireTool(deps, input.actor, input.workspaceId, 'DOCUMENTS', 'document.manage');
   const values = { workspaceId: input.workspaceId, runId: parseRunId(input.runId), documentId: parseDocumentId(input.documentId), at: deps.clock.now() };
   return ok(await deps.links.linkRun(values, userActor(input.actor), linker)).document;
 }
@@ -196,7 +196,7 @@ export async function removeRunDocumentFromFinishedRun(
   deps: LinkDeps,
   input: Ref & { readonly runId: string; readonly runDocumentId: string; readonly reason: string; readonly confirmed: boolean },
 ): Promise<RunDocumentRemoval> {
-  await authorizeTool(deps, input.actor, input.workspaceId, 'DOCUMENTS', 'document.view');
+  await requireTool(deps, input.actor, input.workspaceId, 'DOCUMENTS', 'document.view');
   await authorizeWorkspace(deps, input.actor, input.workspaceId, 'run.document.remove');
   if (!input.confirmed) throw new DomainValidationError('confirmed', 'removal_not_confirmed', 'Confirm the removal');
   const values = { workspaceId: input.workspaceId, runId: parseRunId(input.runId), runDocumentId: parseRunDocumentId(input.runDocumentId), reason: normalizeRemovalReason(input.reason), at: deps.clock.now() };
@@ -206,7 +206,7 @@ export async function removeRunDocumentFromFinishedRun(
 /** Removes a retained Document version from a Run that is still ACTIVE (anyone who manages Documents). From a finished Run: `removeRunDocumentFromFinishedRun`. Audited. */
 export async function unlinkRunDocument(deps: LinkDeps, input: Ref & { readonly runId: string; readonly runDocumentId: string }): Promise<void> {
   await authorizeWorkspace(deps, input.actor, input.workspaceId, 'run.view');
-  await authorizeTool(deps, input.actor, input.workspaceId, 'DOCUMENTS', 'document.manage');
+  await requireTool(deps, input.actor, input.workspaceId, 'DOCUMENTS', 'document.manage');
   const values = { workspaceId: input.workspaceId, runId: parseRunId(input.runId), runDocumentId: parseRunDocumentId(input.runDocumentId), at: deps.clock.now() };
   ok(await deps.links.unlinkRun(values, userActor(input.actor), linker));
 }

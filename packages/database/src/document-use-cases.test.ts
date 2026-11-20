@@ -549,11 +549,11 @@ describe('Folders and Documents (16.2)', () => {
       // Demoted after the use-case's check: the repository reads the membership again.
       const demoting: DocumentDeps = {
         ...deps,
-        tools: {
-          ...deps.tools,
-          enabled: async (workspaceId) => {
+        workspaces: {
+          ...deps.workspaces,
+          enabledTools: async (workspaceId) => {
             await changeMemberRole({ users, workspaces: deps.workspaces, clock }, { actor: admin, workspaceId: home.id, userId: uma.id, role: 'GUEST' });
-            return deps.tools.enabled(workspaceId);
+            return deps.workspaces.enabledTools(workspaceId);
           },
         },
       };

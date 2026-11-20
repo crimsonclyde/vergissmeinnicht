@@ -1,5 +1,6 @@
 import { DomainValidationError, RECIPE_SORTS, normalizeRecipeCategories, parseRecipeContent, type RecipeCategory, type RecipeSort, scaleRecipeIngredients, normalizeListItemTitle, normalizeListItemQuantity, normalizeListItemUnit, type AttachmentRecord, type RecipeTransfer, type Recipe, type RecipeContent, type User, type WorkspaceId } from '@vergissmeinnicht/domain';
-import { authorizeTool, type ToolDeps } from './documents/tools.ts';
+import type { ToolDeps } from './documents/tools.ts';
+import { requireTool } from './tools/require-tool.ts';
 import { NotAuthorizedError } from './invitations/errors.ts';
 import type { UserRepository } from './ports/user-repository.ts';
 
@@ -21,7 +22,7 @@ export interface RecipeDeps extends ToolDeps { readonly users: UserRepository; r
 export async function authorizeRecipes(deps: RecipeDeps, actor: User, workspaceId: WorkspaceId, write = false) {
   const current = await deps.users.findById(actor.id);
   if (current?.status !== 'ACTIVE') throw new NotAuthorizedError();
-  await authorizeTool(deps, current, workspaceId, 'RECIPES', write ? 'recipe.manage' : 'recipe.view');
+  await requireTool(deps, current, workspaceId, 'RECIPES', write ? 'recipe.manage' : 'recipe.view');
 }
 export async function listRecipes(deps: RecipeDeps, actor: User, workspaceId: WorkspaceId, query: string, archived: boolean, offset: number, includeShared = false, filter: RecipeListFilter = {}) {
   await authorizeRecipes(deps, actor, workspaceId);
@@ -49,13 +50,13 @@ export async function recipeProjection(deps: RecipeDeps, actor: User, workspaceI
 }
 export async function transferRecipe(deps: RecipeDeps, actor: User, workspaceId: WorkspaceId, id: string, input: RecipeTransfer, includeShared = false) {
   await authorizeRecipes(deps, actor, workspaceId);
-  await authorizeTool(deps, actor, workspaceId, 'LISTS', 'list.edit');
+  await requireTool(deps, actor, workspaceId, 'LISTS', 'list.edit');
   const items = input.items?.map(item => ({ ingredient: item.ingredient, title: normalizeListItemTitle(item.title), quantity: normalizeListItemQuantity(item.quantity), unit: normalizeListItemUnit(item.unit) }));
   return deps.recipes.transfer(workspaceId, actor, id, { ...input, items }, deps.clock.now(), includeShared);
 }
 
 export async function prepareRecipeMeal(deps:RecipeDeps,actor:User,workspaceId:WorkspaceId,input:RecipeMealInput){
- await authorizeRecipes(deps,actor,workspaceId,true);await authorizeTool(deps,actor,workspaceId,'LISTS','list.edit');
+ await authorizeRecipes(deps,actor,workspaceId,true);await requireTool(deps,actor,workspaceId,'LISTS','list.edit');
  if((input.recipeId===null)!==(input.content!==null))throw new RecipeConflictError();
  return deps.recipes.meal(workspaceId,actor,{...input,content:input.content?parseRecipeContent(input.content):null},deps.clock.now());
 }

@@ -1,5 +1,5 @@
 import { Transform } from 'node:stream';
-import { AttachmentError, authorizeTool, NotAuthorizedError } from '@vergissmeinnicht/application';
+import { AttachmentError, requireTool, NotAuthorizedError } from '@vergissmeinnicht/application';
 import {Server} from '@modelcontextprotocol/sdk/server/index.js';
 import {WebStandardStreamableHTTPServerTransport} from '@modelcontextprotocol/sdk/server/webStandardStreamableHttp.js';
 import {CallToolRequestSchema,ListToolsRequestSchema,ListResourcesRequestSchema,ReadResourceRequestSchema,ErrorCode,McpError,type Tool} from '@modelcontextprotocol/sdk/types.js';
@@ -189,7 +189,7 @@ export async function registerMcpHttp(app:FastifyInstance,services:AppServices){
   server.setRequestHandler(ListToolsRequestSchema,async () => {
    const mapAvailable = async (write: boolean) => {
     const states = await Promise.all(grant.workspaceIds.map(async workspaceId => {
-     try { await authorizeTool(services.placesMap, actor, workspaceId as WorkspaceId, 'MAP', write ? 'map.edit' : 'map.view'); return true; }
+     try { await requireTool(services.placesMap, actor, workspaceId as WorkspaceId, 'MAP', write ? 'map.edit' : 'map.view'); return true; }
      catch { return false; }
     }));
     return states.some(Boolean);
@@ -204,15 +204,17 @@ export async function registerMcpHttp(app:FastifyInstance,services:AppServices){
   server.setRequestHandler(CallToolRequestSchema,async call=>{
    const tool=available.find(tool=>tool.name===call.params.name);if(!tool)return {isError:true,content:[{type:'text' as const,text:'Tool unavailable for this connection.'}],structuredContent:{error:{code:'tool_unavailable',message:'This tool is not available for this connection (scope not granted or unknown tool).'}}};
    let executed=false;
+   // Every tool this MCP tool reads or writes must be switched on (45.2); the use case checks its own tool again.
+   const requireToolsOn=async(workspaceId:WorkspaceId)=>{const enabled=await services.workspaces.workspaces.enabledTools(workspaceId);if([tool.tool,...(tool.extraTools??[])].some(value=>value!==null&&!enabled.includes(value)))throw new Error('Disabled');};
    try{
     const input=tool.schema.parse(call.params.arguments??{});const workspaceId=typeof input['workspaceId']==='string'?input['workspaceId'] as WorkspaceId:undefined;
     const current=await services.mcp.verify(raw);await services.mcp.authorize(current.grant.id,actor.id,workspaceId,tool.scope);
-    if(workspaceId){const enabled=await services.workspaces.workspaces.enabledTools(workspaceId);if([tool.tool,...(tool.extraTools??[])].some(value=>value!==null&&!enabled.includes(value)))throw new Error('Disabled');}
+    if(workspaceId){await requireToolsOn(workspaceId);}
     const context={grantId:grant.id,clientId:grant.clientId,userId:actor.id,tokenHash:hashMcpToken(raw),scope:tool.scope,tool:tool.tool,additionalScopes:tool.extraScopes??[],additionalTools:tool.extraTools??[]};
     const result=await withDelegation(context,()=>tool.execute({services,actor,workspaceId:workspaceId as WorkspaceId,grantWorkspaceIds:current.grant.workspaceIds},input));executed=true;
     // An access change during an async read must not return data collected under the earlier grant.
     await services.mcp.verify(raw);await services.mcp.authorize(grant.id,actor.id,workspaceId,tool.scope);
-    if(workspaceId){if(!await services.workspaces.workspaces.findMembership(workspaceId,actor.id))throw new Error('Revoked');const enabled=await services.workspaces.workspaces.enabledTools(workspaceId);if([tool.tool,...(tool.extraTools??[])].some(value=>value!==null&&!enabled.includes(value)))throw new Error('Disabled');}
+    if(workspaceId){if(!await services.workspaces.workspaces.findMembership(workspaceId,actor.id))throw new Error('Revoked');await requireToolsOn(workspaceId);}
     const text=JSON.stringify(result);if(Buffer.byteLength(text)>512*1024)return {isError:true,content:[{type:'text' as const,text:'Result too large. Narrow the request.'}]};
     return {content:[{type:'text' as const,text}],...(tool.tool==='MAP'||widgets.some(widget=>widget.toolName===tool.name)||Object.hasOwn(uploadScopes,tool.name)||tool.fileParams?{structuredContent:JSON.parse(text) as Record<string,unknown>}: {})};
    }catch(error){

@@ -19,7 +19,7 @@ import {
 } from '@vergissmeinnicht/domain';
 import { roleHasCapability } from '@vergissmeinnicht/permissions';
 import { ToolNotEnabledError } from '../documents/errors.ts';
-import { authorizeTool } from '../documents/tools.ts';
+import { requireTool } from '../tools/require-tool.ts';
 import { NotAuthorizedError } from '../invitations/errors.ts';
 import { AlreadyLinkedError, LinkNotFoundError, LinkTargetNotFoundError } from '../links/use-cases.ts';
 import type { ActorGuard } from '../ports/actor-guard.ts';
@@ -77,8 +77,8 @@ function ok<T>(result: ContactWrite<T>): { readonly status: 'ok' } & T {
   return result;
 }
 
-const view = (deps: ContactDeps, input: Ref) => authorizeTool(deps, input.actor, input.workspaceId, 'CONTACTS', 'contact.view');
-const write = (deps: ContactDeps, input: Ref) => authorizeTool(deps, input.actor, input.workspaceId, 'CONTACTS', 'contact.manage');
+const view = (deps: ContactDeps, input: Ref) => requireTool(deps, input.actor, input.workspaceId, 'CONTACTS', 'contact.view');
+const write = (deps: ContactDeps, input: Ref) => requireTool(deps, input.actor, input.workspaceId, 'CONTACTS', 'contact.manage');
 
 /**
  * One page of Contacts by name (`contact.view`: every role, guests included), searched by name,
@@ -157,7 +157,7 @@ export async function listContactTrash(deps: ContactDeps, input: Ref): Promise<T
  * kept: the audit entry holds the id only. Copies in existing backups stay until those backups rotate.
  */
 export async function purgeContactTrash(deps: ContactDeps, input: Ref & { readonly contactIds: readonly string[] | 'all' }): Promise<number> {
-  await authorizeTool(deps, input.actor, input.workspaceId, 'CONTACTS', 'contact.purge');
+  await requireTool(deps, input.actor, input.workspaceId, 'CONTACTS', 'contact.purge');
   if (input.contactIds !== 'all' && (input.contactIds.length === 0 || input.contactIds.length > MAX_CONTACTS_PER_PURGE || new Set(input.contactIds).size !== input.contactIds.length)) {
     throw new DomainValidationError('contacts', 'invalid_trash_selection', 'Choose between 1 and 200 contacts of Trash');
   }
@@ -254,7 +254,7 @@ export async function importContacts(deps: ContactDeps, input: Ref & { readonly 
 
 /** All live Contacts or one requested Contact (`contact.export`: USER and above). Audited by id/count only. */
 export async function exportContacts(deps: ContactDeps, input: Ref & { readonly format: 'csv' | 'vcard'; readonly contactId?: string }): Promise<ContactRecord[]> {
-  await authorizeTool(deps, input.actor, input.workspaceId, 'CONTACTS', 'contact.export');
+  await requireTool(deps, input.actor, input.workspaceId, 'CONTACTS', 'contact.export');
   return ok(await deps.contacts.exportAll({ workspaceId: input.workspaceId, format: input.format, ...(input.contactId === undefined ? {} : { contactId: parseContactId(input.contactId) }), at: deps.clock.now() }, userActor(input.actor), exporter)).contacts;
 }
 

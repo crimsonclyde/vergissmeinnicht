@@ -27,7 +27,7 @@ import type { WorkspaceRepository } from '../ports/workspace-repository.ts';
 import { userActor } from '../user-actor.ts';
 import { DocumentFileNotFoundError, StorageFullError, TooManyUploadsError, ToolNotEnabledError } from './errors.ts';
 import type { PreviewQueue } from './previews.ts';
-import { authorizeTool } from './tools.ts';
+import { requireTool } from '../tools/require-tool.ts';
 
 export interface DocumentFileDeps {
   readonly workspaces: WorkspaceRepository;
@@ -99,7 +99,7 @@ export async function uploadDocumentFile(
   input: { readonly actor: User; readonly workspaceId: WorkspaceId; readonly name: string; readonly source: AsyncIterable<Uint8Array> },
 ): Promise<{ readonly file: DocumentFileRecord; readonly usage: DocumentStorageUsage }> {
   // Authorised before a single byte is accepted.
-  await authorizeTool(deps, input.actor, input.workspaceId, 'DOCUMENTS', 'document.manage');
+  await requireTool(deps, input.actor, input.workspaceId, 'DOCUMENTS', 'document.manage');
   const originalName = normalizeOriginalFileName(input.name);
   const policy = await deps.policy();
   return withUploadSlot(input.actor.id, async () => {
@@ -132,7 +132,7 @@ export async function uploadDocumentFile(
       }
       if (result.file.textState === 'QUEUED') deps.recognizer?.wake();
       const file = await deps.files.find(input.workspaceId, result.file.id);
-      await authorizeTool(deps, input.actor, input.workspaceId, 'DOCUMENTS', 'document.manage');
+      await requireTool(deps, input.actor, input.workspaceId, 'DOCUMENTS', 'document.manage');
       return { file: file ?? { ...result.file, previewState: state }, usage: await deps.files.usage(input.workspaceId, deps.clock.now()) };
     } finally {
       await staged.discard();
@@ -141,7 +141,7 @@ export async function uploadDocumentFile(
 }
 
 async function findFile(deps: DocumentFileDeps, input: { readonly actor: User; readonly workspaceId: WorkspaceId; readonly fileId: string }): Promise<DocumentFileRecord> {
-  await authorizeTool(deps, input.actor, input.workspaceId, 'DOCUMENTS', 'document.view');
+  await requireTool(deps, input.actor, input.workspaceId, 'DOCUMENTS', 'document.view');
   const record = await deps.files.find(input.workspaceId, parseDocumentFileId(input.fileId));
   if (record === undefined) throw new DocumentFileNotFoundError();
   return record;
@@ -187,7 +187,7 @@ export async function openDerivative(
 
 /** The Workspace's combined storage and its limit (every member who can see Documents; the breakdown by tool is for admins — `workspaceStorage`). */
 export async function documentStorageUsage(deps: DocumentFileDeps, input: { readonly actor: User; readonly workspaceId: WorkspaceId }): Promise<DocumentStorageUsage> {
-  await authorizeTool(deps, input.actor, input.workspaceId, 'DOCUMENTS', 'document.view');
+  await requireTool(deps, input.actor, input.workspaceId, 'DOCUMENTS', 'document.view');
   return deps.files.usage(input.workspaceId, deps.clock.now());
 }
 

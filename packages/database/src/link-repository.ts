@@ -13,15 +13,14 @@ import {
   type RunDocumentId,
   type RunDocumentRemovalId,
   type WorkspaceId,
-  type WorkspaceTool,
 } from '@vergissmeinnicht/domain';
 import { and, asc, count, desc, eq, inArray, isNull, or, sql } from 'drizzle-orm';
 import { IMMEDIATE, actorAllowed, type Transaction, type UserActor } from './actor-guard.ts';
 import { recordAuditEvent } from './audit-events.ts';
 import type { AppDatabase } from './connection.ts';
-import { recordToolEnabled } from './tool-policy.ts';
+import { recordToolEnabled, toolEnabled } from './tool-policy.ts';
 import { fileRecords } from './document-file-repository.ts';
-import { contacts, equipmentRecords, maintenanceRecords, documentFileDerivatives, documentFileTexts, documentFiles, documentPages, documentTypes, documents, links, occurrences, procedures, runDocumentFiles, runDocumentRemovals, runDocuments, runs, schedules, workspaceTools } from './schema.ts';
+import { contacts, equipmentRecords, maintenanceRecords, documentFileDerivatives, documentFileTexts, documentFiles, documentPages, documentTypes, documents, links, occurrences, procedures, runDocumentFiles, runDocumentRemovals, runDocuments, runs, schedules } from './schema.ts';
 
 type Reader = Pick<Transaction, 'select'>;
 type LinkRow = typeof links.$inferSelect;
@@ -132,15 +131,6 @@ function viewFrom(tx: Reader, row: LinkRow, documentId: string): LinkView {
   return { id: row.id as LinkId, record: other, createdAt: row.createdAt, createdByName: row.createdByDisplayName };
 }
 
-function toolEnabled(tx: Reader, workspaceId: string, tool: WorkspaceTool = 'DOCUMENTS'): boolean {
-  return (
-    tx
-      .select({ enabled: workspaceTools.enabled })
-      .from(workspaceTools)
-      .where(and(eq(workspaceTools.workspaceId, workspaceId), eq(workspaceTools.tool, tool)))
-      .get()?.enabled === true
-  );
-}
 
 function liveDocument(tx: Reader, workspaceId: string, documentId: string) {
   return tx
@@ -202,7 +192,7 @@ export function createLinkRepository({ db }: Pick<AppDatabase, 'db'>): LinkRepos
     try {
       return db.transaction((tx) => {
         if (!actorAllowed(tx, workspaceId, actor, guard)) throw new Refusal('forbidden');
-        if (!toolEnabled(tx, workspaceId)) throw new Refusal('tool_disabled');
+        if (!toolEnabled(tx, workspaceId, 'DOCUMENTS')) throw new Refusal('tool_disabled');
         return { status: 'ok' as const, ...change(tx) };
       }, IMMEDIATE);
     } catch (error) {

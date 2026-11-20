@@ -55,7 +55,7 @@ import {
   NameTakenError,
   ToolNotEnabledError,
 } from './errors.ts';
-import { authorizeTool } from './tools.ts';
+import { requireTool } from '../tools/require-tool.ts';
 
 export interface DocumentDeps {
   readonly workspaces: WorkspaceRepository;
@@ -105,8 +105,8 @@ interface Ref {
   readonly workspaceId: WorkspaceId;
 }
 
-const view = (deps: DocumentDeps, input: Ref) => authorizeTool(deps, input.actor, input.workspaceId, 'DOCUMENTS', 'document.view');
-const write = (deps: DocumentDeps, input: Ref) => authorizeTool(deps, input.actor, input.workspaceId, 'DOCUMENTS', 'document.manage');
+const view = (deps: DocumentDeps, input: Ref) => requireTool(deps, input.actor, input.workspaceId, 'DOCUMENTS', 'document.view');
+const write = (deps: DocumentDeps, input: Ref) => requireTool(deps, input.actor, input.workspaceId, 'DOCUMENTS', 'document.manage');
 const folderIdOrTop = (value: string | null): FolderId | null => (value === null ? null : parseFolderId(value));
 
 // ---- Folders
@@ -296,7 +296,7 @@ const purge: ActorGuard = { actorMay: (role) => roleHasCapability(role, 'documen
  * in existing backups stay there until those backups rotate.
  */
 export async function purgeDocumentTrash(deps: DocumentDeps, input: Ref & { readonly items: readonly { readonly kind: string; readonly id: string }[] | 'all' }): Promise<PurgeOutcome> {
-  await authorizeTool(deps, input.actor, input.workspaceId, 'DOCUMENTS', 'document.purge');
+  await requireTool(deps, input.actor, input.workspaceId, 'DOCUMENTS', 'document.purge');
   let items: readonly TrashItemRef[] | 'all' = 'all';
   if (input.items !== 'all') {
     const keys = new Set(input.items.map((item) => `${item.kind}:${item.id}`));

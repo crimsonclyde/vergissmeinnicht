@@ -8956,9 +8956,31 @@ wait for the owner before they are built.
 to every optional tool (Documents, Contacts, Equipment, Maintenance, Bring, Recipes, Journal, Map,
 Gazette) so a route that forgets its tool gate fails a test.
 
+**Status:** DONE (not released). `route-security.test.ts` has `TOOL_GATES`: every route under
+`/workspaces/:workspaceId` is mapped to the tool set whose switch turns it off (Run documents and
+recipe shopping to two tools each) or marked tool-independent (Workspace, members, location,
+backups, storage, Dashboard). Two tests: every Workspace route is classified and every optional
+tool except Gamification (no routes) has gated routes; and, for each tool set, with only that set
+off, every one of its routes answers 404 to the Workspace ADMIN without any seeded content.
+Mutation check: removing the switch check from the gate for BRING fails the sweep.
+**Security impact:** test only. **Security docs updated:** YES (checklist line on disabled tools).
+
 ### 45.2 — One tool gate: `requireTool` (M)
 Three styles of tool checks exist (`toolEnabled`, `actorAllowed({ tool })`, `authorizeTool`).
 Replace them with one server helper used by every route and MCP tool, with the same error.
+
+**Status:** DONE (not released). Application: `authorizeTool` is replaced by `requireTool`
+(`packages/application/src/tools/require-tool.ts`), a thin name over `authorizeWorkspace` with an
+explicit tool, so both use the same order (membership → switch → capability) and the same errors
+(`404 workspace_not_found`, `404 tool_not_enabled`, `403`). Every use case, HTTP route and the MCP
+Map listing use it; the MCP call path checks all tools of an MCP tool through one local
+`requireToolsOn` before and after the call. Database: the five private `toolEnabled` copies
+(Documents, Links, Contacts, Equipment, Maintenance) and the inline query in `actorAllowed` now use
+the one `toolEnabled` of `tool-policy.ts`. Behaviour unchanged.
+**Tests/checks:** typecheck, lint, full Vitest (two race tests now hook `workspaces.enabledTools`,
+the read the gate uses), the 45.1 sweep.
+**Security impact:** none intended (refactor of the gate; same checks, fewer copies).
+**Security docs updated:** YES (checklist line; architecture.md optional tools).
 
 ### 45.3 — Lookup tables for theme and tool ids (M)
 Theme ids live in two CHECK constraints and tool ids in a `workspace_tools` CHECK, so every new

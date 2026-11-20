@@ -18,9 +18,9 @@ import { and, asc, count, desc, eq, gt, inArray, isNotNull, isNull, ne, or, sql,
 import { IMMEDIATE, actorAllowed, type Transaction, type UserActor } from './actor-guard.ts';
 import { recordAuditEvent } from './audit-events.ts';
 import type { AppDatabase } from './connection.ts';
-import { recordToolEnabled } from './tool-policy.ts';
+import { recordToolEnabled, toolEnabled } from './tool-policy.ts';
 import { markLinksOfPurged } from './link-repository.ts';
-import { contactKeys, contacts, links, procedures, workspaceTools } from './schema.ts';
+import { contactKeys, contacts, links, procedures } from './schema.ts';
 
 type Reader = Pick<Transaction, 'select'>;
 type ContactRow = typeof contacts.$inferSelect;
@@ -47,15 +47,6 @@ const record = (row: ContactRow): ContactRecord => ({
   updatedByName: row.updatedByDisplayName,
 });
 
-function toolEnabled(tx: Reader, workspaceId: string): boolean {
-  return (
-    tx
-      .select({ enabled: workspaceTools.enabled })
-      .from(workspaceTools)
-      .where(and(eq(workspaceTools.workspaceId, workspaceId), eq(workspaceTools.tool, 'CONTACTS')))
-      .get()?.enabled === true
-  );
-}
 
 function liveContact(tx: Reader, workspaceId: string, contactId: string): ContactRow | undefined {
   return tx
@@ -127,7 +118,7 @@ export function createContactRepository({ db }: Pick<AppDatabase, 'db'>): Contac
     try {
       return db.transaction((tx) => {
         if (!actorAllowed(tx, workspaceId, actor, guard)) throw new Refusal('forbidden');
-        if (!toolEnabled(tx, workspaceId)) throw new Refusal('tool_disabled');
+        if (!toolEnabled(tx, workspaceId, 'CONTACTS')) throw new Refusal('tool_disabled');
         return { status: 'ok' as const, ...change(tx) };
       }, IMMEDIATE);
     } catch (error) {

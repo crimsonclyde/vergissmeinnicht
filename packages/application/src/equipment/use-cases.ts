@@ -1,7 +1,7 @@
 import { DomainValidationError, EQUIPMENT_PAGE_SIZE, MAX_EQUIPMENT_RECORDS_PER_PURGE, normalizeEquipmentContent, parseLinkId, parseEquipmentCursor, parseEquipmentLinkTarget, parseEquipmentQuery, parseEquipmentId, type EquipmentCursor, type EquipmentInput, type User, type WorkspaceId, } from '@vergissmeinnicht/domain';
 import { roleHasCapability, type WorkspaceCapability } from '@vergissmeinnicht/permissions';
 import { ToolNotEnabledError } from '../documents/errors.ts';
-import { authorizeTool } from '../documents/tools.ts';
+import { requireTool } from '../tools/require-tool.ts';
 import { NotAuthorizedError } from '../invitations/errors.ts';
 import { AlreadyLinkedError, LinkNotFoundError, LinkTargetNotFoundError } from '../links/use-cases.ts';
 import type { ActorGuard } from '../ports/actor-guard.ts';
@@ -79,7 +79,7 @@ function ok<T>(result: EquipmentWrite<T>): {
  * that tool is switched on **and** the viewer has its view capability.
  */
 async function enter(deps: EquipmentDeps, input: Ref, capability: WorkspaceCapability): Promise<void> {
-    await authorizeTool(deps, input.actor, input.workspaceId, 'EQUIPMENT', capability);
+    await requireTool(deps, input.actor, input.workspaceId, 'EQUIPMENT', capability);
 }
 /** One page of the List, by name, searched and filtered by category, location and manufacturer. Never anything in Trash. */
 export async function findEquipment(deps: EquipmentDeps, input: Ref & {
@@ -202,7 +202,7 @@ export async function addEquipmentLink(deps: EquipmentDeps, input: Ref & {
     await enter(deps, input, 'equipment.manage');
     const target = parseEquipmentLinkTarget(input.target);
     if (target.type === 'document')
-        await authorizeTool(deps, input.actor, input.workspaceId, 'DOCUMENTS', 'document.view');
+        await requireTool(deps, input.actor, input.workspaceId, 'DOCUMENTS', 'document.view');
     else
         await authorizeWorkspace(deps, input.actor, input.workspaceId, VIEW_OF[target.type], target.type === 'schedule' ? null : undefined);
     const linker: ActorGuard = { actorMay: (role) => roleHasCapability(role, 'equipment.manage') && roleHasCapability(role, VIEW_OF[target.type]) };

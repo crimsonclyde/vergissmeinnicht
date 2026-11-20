@@ -49,12 +49,11 @@ import {
   type FolderId,
   type FolderNode,
   type WorkspaceId,
-  type WorkspaceTool,
 } from '@vergissmeinnicht/domain';
 import { IMMEDIATE, actorAllowed, type Transaction, type UserActor } from './actor-guard.ts';
 import { recordAuditEvent } from './audit-events.ts';
 import type { AppDatabase } from './connection.ts';
-import { recordToolEnabled } from './tool-policy.ts';
+import { recordToolEnabled, toolEnabled } from './tool-policy.ts';
 import { fileRecords } from './document-file-repository.ts';
 import { effectiveSearchText, effectiveText, textCounts } from './document-text-repository.ts';
 import { deleteTextsOfFiles } from './document-text-repository.ts';
@@ -74,15 +73,6 @@ class Refusal extends Error {
   }
 }
 
-function toolEnabled(tx: Reader, workspaceId: string, tool: WorkspaceTool): boolean {
-  return (
-    tx
-      .select({ enabled: workspaceTools.enabled })
-      .from(workspaceTools)
-      .where(and(eq(workspaceTools.workspaceId, workspaceId), eq(workspaceTools.tool, tool)))
-      .get()?.enabled === true
-  );
-}
 
 /** Which optional tools a Workspace has switched on. */
 export function createWorkspaceToolRepository({ db }: Pick<AppDatabase, 'db'>): WorkspaceToolRepository {

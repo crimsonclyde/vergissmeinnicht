@@ -1,4 +1,5 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { WORKSPACE_TOOLS } from '@vergissmeinnicht/domain';
 import { ORIGIN, startTestApp, type InjectResponse } from './test-harness.ts';
 
 /**
@@ -22,6 +23,38 @@ const PUBLIC_ROUTES = [
   'POST /api/recoveries/complete',
   'GET /api/calendar-feed/:file', // calendar apps cannot sign in: the unguessable token names the person, access is re-checked (39)
 ];
+
+/**
+ * 45.1: which tool switch turns each Workspace route off. Every route under `/workspaces/:workspaceId`
+ * must match one entry; each inner list is a set of tools that, switched off together, makes the route
+ * 404. An empty outer list marks a route that is deliberately independent of every tool (Workspace
+ * settings, members, backups). The first matching entry wins, so specific paths come first.
+ */
+const TOOL_GATES: ReadonlyArray<readonly [RegExp, ReadonlyArray<readonly string[]>]> = [
+  [/^\/runs\/:runId\/documents/, [['PROCEDURES'], ['DOCUMENTS']]],
+  [/^\/(procedures|runs|knots|images)(\/|$)/, [['PROCEDURES']]],
+  [/^\/(schedules|occurrences)(\/|$)/, [['PROCEDURES', 'REMINDERS']]],
+  [/^\/lists(\/|$)/, [['LISTS']]],
+  [/^\/(calendar|calendar-feed)(\/|$)/, [['CALENDAR']]],
+  [/^\/(documents|document-files|document-folders|document-types|document-links|text-recognition)(\/|$)/, [['DOCUMENTS']]],
+  [/^\/(contacts|contact-links)(\/|$)/, [['CONTACTS']]],
+  [/^\/(equipment|equipment-links)(\/|$)/, [['EQUIPMENT']]],
+  [/^\/(maintenance|maintenance-links)(\/|$)/, [['MAINTENANCE']]],
+  [/^\/moon$/, [['MOON']]],
+  [/^\/journal(\/|$)/, [['JOURNAL']]],
+  [/^\/bring(\/|$)/, [['BRING']]],
+  [/^\/recipes\/:recipeId\/shopping$/, [['RECIPES'], ['LISTS']]],
+  [/^\/recipes(\/|$)/, [['RECIPES']]],
+  [/^\/gazette(\/|$)/, [['GAZETTE']]],
+  [/^\/map(\/|$)/, [['MAP']]],
+  [/^(\/(home|location|rename|leave|members|tools|backups|storage)(\/|$)|$)/, []],
+];
+
+function toolSetsFor(route: string): ReadonlyArray<readonly string[]> | undefined {
+  if (!route.includes('/workspaces/:workspaceId')) return [];
+  const rest = (route.split(' ')[1] ?? '').split('/workspaces/:workspaceId')[1] ?? '';
+  return TOOL_GATES.find(([pattern]) => pattern.test(rest))?.[1];
+}
 
 const PNG = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAIAAACQd1PeAAAADElEQVR4nGP4z8AAAAMBAQDJ/pLvAAAAAElFTkSuQmCC', 'base64');
 const STEP = { title: 'Stove off', required: true, critical: false, skipReasonPolicy: 'OPTIONAL', notApplicableReasonPolicy: 'OPTIONAL' };
@@ -289,6 +322,44 @@ describe('security properties of every route (13.2)', () => {
       await t.restart();
     }
   });
+
+  it('classifies every Workspace route: tool-gated or deliberately tool-independent (45.1)', () => {
+    const unclassified = routes.filter((route) => route.includes('/workspaces/:workspaceId') && toolSetsFor(route) === undefined);
+    expect(unclassified).toEqual([]);
+  });
+
+  it('answers 404 on every route of an optional tool switched off, admins included (45.1)', async () => {
+    const workspaceId = homeIds.workspaceId ?? '';
+    const setOn = async (tools: readonly string[], enabled: boolean) => {
+      for (const tool of tools) expect((await t.post(`/api/workspaces/${workspaceId}/tools`, { tool, enabled }, owner)).statusCode).toBe(200);
+    };
+    await setOn(['GAZETTE', 'MAP'], true);
+    const sets = new Map<string, string[]>();
+    for (const route of routes) for (const set of toolSetsFor(route) ?? []) sets.set(set.join('+'), [...(sets.get(set.join('+')) ?? []), route]);
+    // Every optional tool has at least one gated route, so a new tool needs an entry in TOOL_GATES.
+    for (const tool of WORKSPACE_TOOLS.filter((value) => value !== 'GAMIFICATION')) expect([...sets.keys()].some((key) => key.split('+').includes(tool)), tool).toBe(true);
+    let sent = 0;
+    try {
+      for (const [key, gated] of sets) {
+        const tools = key.split('+');
+        await setOn(tools, false);
+        await t.restart();
+        try {
+          for (const route of gated) {
+            if (sent++ % 150 === 0) await t.restart();
+            const response = await call(route, owner, homeIds);
+            expect({ route, off: key, status: response.statusCode }).toEqual({ route, off: key, status: 404 });
+            for (const secret of ['Leave the house', 'Groceries', 'Water bill', 'Rossi', 'Boiler', 'Drill']) expect(response.body).not.toContain(secret);
+          }
+        } finally {
+          await setOn(tools, true);
+        }
+      }
+    } finally {
+      await setOn(['GAZETTE', 'MAP'], false);
+      await t.restart();
+    }
+  }, 60_000);
 
   it('pins the list of public routes', () => {
     for (const route of PUBLIC_ROUTES) expect(routes).toContain(route);
