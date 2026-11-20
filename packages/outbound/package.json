@@ -1,0 +1,16 @@
+{
+  "name": "@vergissmeinnicht/outbound",
+  "private": true,
+  "license": "AGPL-3.0-only",
+  "description": "The one outbound HTTP client (45.10): host allowlist, HTTPS only, no redirects, timeouts, size limits.",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc -p ."
+  },
+  "devDependencies": {
+    "@types/node": "24.13.6"
+  }
+}

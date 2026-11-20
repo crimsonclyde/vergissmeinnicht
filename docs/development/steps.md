@@ -9009,6 +9009,17 @@ by the web app and the server, then Equipment moved behind it as the proof.
 Weather, Telegram, map download and ChatGPT file hosts each have their own client. One client
 with host allowlist, timeouts, size limits and redirect rules.
 
+**Status:** DONE (not released). New package `@vergissmeinnicht/outbound` (`outboundFetch`,
+`readBounded`, `discard`, `OutboundError`): allowlist, HTTPS/default port, no URL credentials or
+fragment, no redirects, no cookies, timeout + caller signal, declared and streamed size cap,
+URL-free errors. Weather/Daily Planet (`WEATHER_HOSTS`), Telegram and map download use it; ESLint
+refuses a direct `fetch` in server code. ChatGPT file download keeps its DNS-pinned `node:https`
+transport (needs the verified address) with the same rules; documented as the one exception.
+Dockerfile copies the new package manifest.
+**Tests/checks:** typecheck, lint, `packages/outbound` tests, weather, Telegram, map-data, weather
+and Gazette route tests, full Vitest.
+**Security impact:** MEDIUM (hardening, no new surface). **Security docs updated:** YES (§14).
+
 ### 45.11 — "AI assistants allowed" per Workspace (needs OK)
 A Workspace switch that blocks MCP/AI access to that Workspace for every member.
 

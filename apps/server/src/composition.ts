@@ -129,6 +129,7 @@ import { convertWebpToPng, createDocumentFileProcessor, createDocumentFileStore,
 import { createTelegramBotApi } from '@vergissmeinnicht/notifications';
 import { createWorkspaceBackupStore } from './workspace-backup/workspace-backup-store.ts';
 import { createGazetteWeatherSources, createMeteomatics, createMetNorway, createOpenMeteo, createOpenWeather, metUserAgent } from '@vergissmeinnicht/weather';
+import type { Fetch } from '@vergissmeinnicht/outbound';
 import { createRunChangeHub, type RunChangeHub } from '@vergissmeinnicht/realtime';
 import type { FastifyBaseLogger } from 'fastify';
 import type { AppConfig } from './config/index.ts';
@@ -250,14 +251,14 @@ export function invitationDeps(config: AppConfig, database: AppDatabase): Invita
 }
 
 /** `weatherFetch`: replaces the network for weather providers (tests never reach a provider). */
-export function createServices(config: AppConfig, database: AppDatabase, overrides: { readonly weatherFetch?: typeof fetch; readonly chatGptFileSource?: ChatGptFileSource } = {}) {
+export function createServices(config: AppConfig, database: AppDatabase, overrides: { readonly weatherFetch?: Fetch | undefined; readonly chatGptFileSource?: ChatGptFileSource } = {}) {
   // Weather (19.4): one forecast cache per server process, shared by every request.
   const serverWeather = createServerWeatherSettingsRepository(database);
   const mcpFileHosts = createMcpFileHostRepository(database);
   // Read per transfer, so a host allowed in Server admin works on the next try without a restart.
   const chatGptFileHosts = () => [...config.chatGptFileHosts, ...mcpFileHosts.allowedHosts()];
   const chatGptFileSource = overrides.chatGptFileSource ?? createChatGptFileSource(undefined, undefined, chatGptFileHosts);
-  const weatherFetch = overrides.weatherFetch ?? fetch;
+  const weatherFetch = overrides.weatherFetch;
   const openMeteo = createOpenMeteo({ fetch: weatherFetch });
   const weatherService = createWeatherService({
     providers: [

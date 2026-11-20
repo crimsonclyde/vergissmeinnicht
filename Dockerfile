@@ -42,6 +42,7 @@ COPY packages/email/package.json packages/email/
 COPY packages/import-export/package.json packages/import-export/
 COPY packages/media/package.json packages/media/
 COPY packages/notifications/package.json packages/notifications/
+COPY packages/outbound/package.json packages/outbound/
 COPY packages/permissions/package.json packages/permissions/
 COPY packages/realtime/package.json packages/realtime/
 COPY packages/ui/package.json packages/ui/

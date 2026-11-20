@@ -102,6 +102,8 @@ packages/
   realtime/
   email/
   notifications/   (Telegram Bot API adapter; more providers later)
+  outbound/        (the one outbound HTTP client: host allowlist, HTTPS, no redirects, timeout, size cap — 45.10)
+  weather/         (weather providers and Daily Planet sources, through outbound/)
   import-export/   (Procedure JSON v1 and the Procedure archive, 14.3)
   media/           (instruction images: sharp/libvips processing, content-addressed file store, 14.3;
                     document files: validation, previews — MuPDF as WebAssembly in a worker thread —, store, 16.1)

@@ -22,6 +22,7 @@
     "@vergissmeinnicht/import-export": "workspace:*",
     "@vergissmeinnicht/media": "workspace:*",
     "@vergissmeinnicht/notifications": "workspace:*",
+    "@vergissmeinnicht/outbound": "workspace:*",
     "@vergissmeinnicht/realtime": "workspace:*",
     "@vergissmeinnicht/weather": "workspace:*",
     "fastify": "5.12.7",

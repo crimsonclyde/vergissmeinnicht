@@ -48,8 +48,8 @@ function localParts(at: Date, timeZone: string): { readonly date: string; readon
  * min/max from the instants, rain from non-overlapping periods, the condition from the daytime period.
  * A day the data covers only partly (the rest of today) is marked `partial`. No rain probability.
  */
-export function createMetNorway(options: { readonly fetch?: Fetch; readonly userAgent: () => Promise<string> }): WeatherProviderAdapter {
-  const doFetch = options.fetch ?? fetch;
+export function createMetNorway(options: { readonly fetch?: Fetch | undefined; readonly userAgent: () => Promise<string> }): WeatherProviderAdapter {
+  const doFetch = options.fetch;
   return {
     id: 'MET_NORWAY',
 

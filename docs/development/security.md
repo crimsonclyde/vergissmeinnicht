@@ -1098,6 +1098,32 @@ The following choices are mandatory V1 behavior:
 
 ## 14. Outbound connections to configurable hosts (SSRF policy)
 
+### Security check: one outbound HTTP client (45.10, 2026-11-20)
+
+Every request the server makes to another host goes through `@vergissmeinnicht/outbound`
+(`outboundFetch` + `readBounded`): HTTPS only on the default port, no credentials or fragment in
+the URL, an allowlist per caller (exact host names, or a predicate for fixed paths), `redirect:
+'error'`, `credentials: 'omit'`, a timeout combined with the caller's abort signal, a declared
+`content-length` checked before reading and the body streamed with a byte cap; errors carry only a
+stable reason (`blocked`, `unreachable`, `too_large`, `bad_response`), never the URL (it may hold
+an API key, a bot token or a signature) or the network error. Callers: the weather adapters and
+Daily Planet sources (`WEATHER_HOSTS` in `packages/weather/src/http.ts`; adding a host there was
+previously not needed because any HTTPS URL passed), Telegram (`api.telegram.org`; its answer is now
+streamed with the 1 MiB cap instead of read whole first) and the map download (`mapPath` in
+`apps/server/src/map-data/remote.ts`). ESLint (`no-restricted-globals: fetch`) refuses a direct
+`fetch` in server code outside the client and tests. The one exception is the ChatGPT file download
+(`apps/server/src/integrations/chatgpt-files.ts`): it must connect to a DNS-resolved, verified public
+address with `node:https`, and applies the same rules (allow-listed hosts, HTTPS/TLS 1.2+, no
+redirects, timeout, size cap, URL-free errors) itself.
+
+**Negative tests:** `packages/outbound/src/outbound.test.ts` (scheme, port, credentials, fragment,
+look-alike host, predicate; blocked URL never reaches fetch; redirect/credentials options; network
+error without the URL; timeout; declared and streamed size caps, malformed length); existing weather,
+Telegram and map-data tests unchanged and passing.
+**Security impact:** MEDIUM (hardening): weather requests are now limited to the listed hosts;
+Telegram reads are capped while streaming. No new route, credential or capability.
+
+
 ### Security check: managed regional basemaps (44.2, 2026-11-17)
 
 The owner approved in-app area selection, server-side regional map downloads and explicit
