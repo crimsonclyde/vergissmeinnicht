@@ -1,4 +1,4 @@
-import { THEME_PREFERENCES, placeOfTheme, type ThemePreference } from '@vergissmeinnicht/domain';
+import { THEME_PREFERENCES, THEME_REGISTRY, placeOfTheme, type ThemePreference } from '@vergissmeinnicht/domain';
 import { PLACES } from './places/registry.ts';
 import { PLACE_TOKEN_NAMES } from './places/types.ts';
 import { useCallback, useSyncExternalStore } from 'react';
@@ -12,8 +12,9 @@ import { parseRoute, type Route } from './router.tsx';
  * A named preset (such as "Memento Mori") is one more entry in THEMES plus one token block in the
  * stylesheet, and one more mode — no component changes.
  */
-// `dark` remains a valid saved/API value, but has one visible successor.
-export const THEME_MODES = THEME_PREFERENCES.filter(mode => mode !== 'dark');
+// `dark` remains a valid saved/API value, but has one visible successor (an `alias` in the theme
+// registry, 45.4); `system` is the other alias and stays pickable: it follows the device.
+export const THEME_MODES = THEME_REGISTRY.filter(theme => theme.id !== 'dark').map(theme => theme.id);
 export const canonicalThemeMode = (mode: ThemePreference): ThemePreference => mode === 'dark' ? 'memento-mori' : mode;
 export type ThemeMode = ThemePreference;
 
