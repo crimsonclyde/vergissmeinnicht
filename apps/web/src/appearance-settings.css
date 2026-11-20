@@ -15,6 +15,7 @@
 .interface-settings .theme-option-text{font-size:.85rem;line-height:1.3}
 .interface-settings .theme-group-head{margin:.65rem 0 .45rem}
 .appearance-layout-options{display:flex;flex-wrap:wrap;gap:.25rem;min-width:0}
+.appearance-layout-fixed{display:flex;align-items:center;gap:.5rem;margin:0}
 .appearance-layout-option{position:relative;display:flex;align-items:center;justify-content:center;gap:.4rem;min-height:48px;padding:.4rem .65rem;border:1px solid var(--border);border-radius:.65rem;cursor:pointer}
 .appearance-layout-option input{position:absolute;inset:0;opacity:0;width:100%;height:100%;margin:0;cursor:pointer}
 .appearance-layout-option:has(input:checked){border-color:var(--accent);box-shadow:inset 0 0 0 1px var(--accent);font-weight:700}

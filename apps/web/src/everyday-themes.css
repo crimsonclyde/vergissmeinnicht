@@ -14,6 +14,10 @@
   border-inline-end-color: var(--border);
   box-shadow: inset 3px 0 var(--brand);
 }
+/* The top bar (46) carries the same brand line along its lower edge, like the neon edge of Tokyo Nights. */
+:root:is([data-theme='light'], [data-theme='dark'], [data-theme='memento-mori']) .shell[data-layout='guide'] .shell-side {
+  box-shadow: inset 0 -2px color-mix(in srgb, var(--brand) 70%, transparent);
+}
 :root:is([data-theme='light'], [data-theme='dark'], [data-theme='memento-mori']) .card {
   box-shadow: 0 3px 0 color-mix(in srgb, var(--border) 28%, transparent), var(--shadow);
 }

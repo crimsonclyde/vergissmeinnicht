@@ -194,7 +194,10 @@ export function Today(props: {
   const [offlineActive, setOfflineActive] = useState<readonly RunSummary[] | null>(null);
   const [members, setMembers] = useState<readonly PersonRef[] | null>(null);
   const [message, setMessage] = useState<string | null>(null);
-  const [filter, chooseFilter] = useHomeFilter();
+  const [chosenFilter, chooseFilter] = useHomeFilter();
+  // The top bar hides the scope unless the person shows it (46); hidden, Today shows everything.
+  const scopeShown = !guideLayout || guide.scopeFilter;
+  const filter = scopeShown ? chosenFilter : 'ALL';
   const [notice, setNotice] = useState<Undoable | null>(null);
   const { settings, loaded } = useTodaySettings(userId);
   const cards = todayCards(props.tools, settings);
@@ -450,7 +453,7 @@ export function Today(props: {
       {guideLayout ? (
         slots.scope !== null && slots.actions !== null && (
           <>
-            {createPortal(assigned && <ScopeSelect filter={filter} onChoose={chooseFilter} />, slots.scope)}
+            {createPortal(assigned && scopeShown && <ScopeSelect filter={filter} onChoose={chooseFilter} />, slots.scope)}
             {createPortal(<AddChooser workspaceId={workspaceId} can={props.canAdd} />, slots.actions)}
           </>
         )
@@ -460,7 +463,7 @@ export function Today(props: {
           <AddChooser workspaceId={workspaceId} can={props.canAdd} />
         </div>
       )}
-      <TodayInstruments clock={cards.find(setting => setting.card.id === 'clock')} weather={cards.some(setting => setting.card.id === 'weather') ? weather : null} />
+      <TodayInstruments clock={cards.find(setting => setting.card.id === 'clock')} weatherOn={cards.some(setting => setting.card.id === 'weather')} weather={cards.some(setting => setting.card.id === 'weather') ? weather : null} />
       {cards.filter(setting => setting.card.id === 'moon').map(render)}
       {hero !== null && cards.some((setting) => setting.card.id === 'continue') && <HeroCard workspaceId={workspaceId} hero={hero} />}
       {message !== null && <p role="alert">{message}</p>}

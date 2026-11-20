@@ -39,7 +39,7 @@ const workspaceIdSchema = z.uuid({ version: 'v4' });
 const workspaceThemeBody = z.strictObject({ workspaceId: workspaceIdSchema, theme: z.enum(THEME_PREFERENCES).nullable() });
 const defaultWorkspaceBody = z.strictObject({ workspaceId: workspaceIdSchema.nullable() });
 // Galactic Guide choices of one Workspace (section 28): a partial change; keys not given keep their stored value, `null` resets the Workspace to the default.
-const guideChangeBody = z.strictObject({ layout: z.enum(GUIDE_LAYOUTS).optional(), cardStyle: z.enum(GUIDE_CARD_STYLES).optional(), cardOpacity: z.number().int().min(0).max(100).optional(), images: z.boolean().optional() }).refine(change => Object.keys(change).length > 0);
+const guideChangeBody = z.strictObject({ layout: z.enum(GUIDE_LAYOUTS).optional(), cardStyle: z.enum(GUIDE_CARD_STYLES).optional(), cardOpacity: z.number().int().min(0).max(100).optional(), images: z.boolean().optional(), scopeFilter: z.boolean().optional() }).refine(change => Object.keys(change).length > 0);
 const workspaceGuideBody = z.strictObject({ workspaceId: workspaceIdSchema, guide: guideChangeBody.nullable() });
 
 function parse<T>(schema: z.ZodType<T>, value: unknown): T {

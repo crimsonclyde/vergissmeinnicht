@@ -114,7 +114,12 @@ describe('Gazette dates, retention and the Dashboard preview', () => {
     const today = gazettePreview(edition(), settings, '2026-11-14' as LocalDate);
     expect(today).toMatchObject({ isToday: true, sectionCount: 6, priceDrops: 1 });
     expect(today.headlines.map(h => h.sectionId)).toEqual(['it-open-source', 'liguria', 'europe-world', 'good-news']);
-    expect(today.weather).toEqual([{ name: 'Triora', condition: 'CLEAR', high: 16, low: 8 }, { name: 'Göggenhofen', condition: 'FOG', high: 6, low: 1 }]);
+    expect(today.weather.map(({ name, condition, high, low }) => ({ name, condition, high, low }))).toEqual([{ name: 'Triora', condition: 'CLEAR', high: 16, low: 8 }, { name: 'Göggenhofen', condition: 'FOG', high: 6, low: 1 }]);
+    // 46: rain for the Dashboard tile, never invented — a range gives its upper end.
+    for (const place of today.weather) {
+      expect(place.precipitationProbability === null || typeof place.precipitationProbability === 'number').toBe(true);
+      expect(place.precipitationMm === null || typeof place.precipitationMm === 'number').toBe(true);
+    }
     const later = gazettePreview(edition(), settings, '2026-11-15' as LocalDate);
     expect(later).toMatchObject({ isToday: false, date: '2026-11-14', weather: [], greeting: '' });
   });

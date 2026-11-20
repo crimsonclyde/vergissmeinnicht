@@ -122,43 +122,48 @@ test('Guide preserves routes, preferences, themes and private opt-in weather acr
   await page.keyboard.press('Escape');
   // The menu bar is the desktop navigation; the phone project checks the bar and drawer below.
   if ((page.viewportSize()?.width ?? 0) > 900) {
-    // The menu bar (42): Dashboard, then one drop-down per family; the person's order counts inside each.
+    // The top bar (46): Dashboard, then one All tools drop-down with the families as columns; the
+    // person's order counts inside each family. Galactic Guide always shows it.
     await expect(nav.getByRole('link')).toHaveText(['Dashboard']);
-    await expect(nav.getByRole('button')).toHaveText(['Plan', 'Shop & cook', 'House']);
-    const plan = nav.getByRole('button', { name: 'Plan', exact: true });
-    const shop = nav.getByRole('button', { name: 'Shop & cook', exact: true });
-    const house = nav.getByRole('button', { name: 'House', exact: true });
-    await plan.click();
-    await expect(plan).toHaveAttribute('aria-expanded', 'true');
+    await expect(nav.getByRole('button')).toHaveText(['All tools']);
+    const all = nav.getByRole('button', { name: 'All tools', exact: true });
+    await all.click();
+    await expect(all).toHaveAttribute('aria-expanded', 'true');
+    await expect(nav.getByRole('group')).toHaveText([/^\s*Plan/, /^\s*Shop & cook/, /^\s*House/]);
     const planMenu = nav.getByRole('list', { name: 'Plan', exact: true });
     await expect(planMenu.getByRole('link')).toHaveText(['Calendar', 'Procedures', 'Reminders', 'Completed history']);
-    await expectAccessible(page, 'Menu bar with an open menu');
-    // Like a Mac menu bar: once a menu is open, pointing at a neighbour opens that one instead.
-    await shop.hover();
-    await expect(planMenu).toBeHidden();
     await expect(nav.getByRole('list', { name: 'Shop & cook', exact: true }).getByRole('link')).toHaveText(['Lists', 'Bring', 'Recipes']);
-    await house.hover();
     await expect(nav.getByRole('list', { name: 'House', exact: true }).getByRole('link')).toHaveText(['Notes', 'Documents', 'Contacts', 'Maintenance']);
     await expect(nav.getByRole('link', { name: 'Equipment', exact: true })).toHaveCount(0);
+    await expectAccessible(page, 'Top bar with All tools open');
     await page.mouse.click(5, 600);
-    await expect(house).toHaveAttribute('aria-expanded', 'false');
-    // Keyboard: Down opens and enters a menu, Left/Right move between menus, Escape returns to the title.
-    await plan.focus();
+    await expect(all).toHaveAttribute('aria-expanded', 'false');
+    // Keyboard: Down opens and enters the list, Up/Down move through every tool, Escape returns to the button.
+    await all.focus();
     await page.keyboard.press('ArrowDown');
     await expect(planMenu.getByRole('link', { name: 'Calendar', exact: true })).toBeFocused();
     await page.keyboard.press('ArrowUp');
-    await expect(planMenu.getByRole('link', { name: 'Completed history', exact: true })).toBeFocused();
-    await page.keyboard.press('ArrowRight');
-    await expect(nav.getByRole('list', { name: 'Shop & cook', exact: true }).getByRole('link', { name: 'Lists', exact: true })).toBeFocused();
+    await expect(nav.getByRole('link', { name: 'Maintenance', exact: true })).toBeFocused();
     await page.keyboard.press('Escape');
-    await expect(shop).toBeFocused();
-    await expect(shop).toHaveAttribute('aria-expanded', 'false');
-    await shop.click(); await nav.getByRole('link', { name: 'Recipes', exact: true }).click();
+    await expect(all).toBeFocused();
+    await expect(all).toHaveAttribute('aria-expanded', 'false');
+    await all.click(); await nav.getByRole('link', { name: 'Recipes', exact: true }).click();
     await expect(page).toHaveURL(`/w/${workspaceId}/recipes`);
-    await expect(shop).toHaveAttribute('data-current', 'true');
-    await expect(nav.getByRole('list', { name: 'Shop & cook', exact: true })).toBeHidden();
-    await page.goBack(); await expect(page).toHaveURL(`/w/${workspaceId}`);
-    await shop.click(); await nav.getByRole('link', { name: 'Lists', exact: true }).click();
+    await expect(all).toHaveAttribute('data-current', 'true');
+    await expect(planMenu).toBeHidden();
+    // The name opens the Dashboard of the Workspace shown; the Workspace drop-down lists every Workspace.
+    await page.getByRole('link', { name: /start page/ }).click();
+    await expect(page).toHaveURL(`/w/${workspaceId}`);
+    const workspaceMenu = page.getByRole('button', { name: 'Workspace', exact: true });
+    await expect(workspaceMenu).toHaveText('Fictional Guide studio');
+    await workspaceMenu.click();
+    await expect(page.getByRole('list', { name: 'Workspace', exact: true }).getByRole('link')).toHaveText([/Fictional Guide studio/]);
+    await page.keyboard.press('Escape');
+    // Add sits right before the profile picture; the All / Mine / Shared filter is hidden until chosen.
+    await expect(page.locator('.guide-header-tools > :last-child')).toHaveClass(/guide-slot-actions/);
+    await expect(page.locator('.guide-slot-actions').getByRole('button', { name: /Add/ })).toBeVisible();
+    await expect(page.locator('.guide-slot-scope .scope-select')).toHaveCount(0);
+    await all.click(); await nav.getByRole('link', { name: 'Lists', exact: true }).click();
     await expect(page).toHaveURL(`/w/${workspaceId}/lists`);
     await expectAccessible(page, 'Guide List working page');
     await page.goBack(); await expect(page).toHaveURL(`/w/${workspaceId}`);
@@ -233,6 +238,14 @@ test('Guide preserves routes, preferences, themes and private opt-in weather acr
   await page.goto('/account/appearance');
   await page.getByRole('button', { name: 'Fictional Guide studio', exact: true }).click();
   await expect(layoutForm.getByRole('slider')).toHaveValue('28');
+  // Galactic Guide always uses the top bar (46): no layout choice, only the note and the bar's filter switch.
+  await expect(layoutForm.getByText('This theme always uses the top bar.')).toBeVisible();
+  await expect(layoutForm.getByLabel('Sidebar (Existing interface)', { exact: true })).toHaveCount(0);
+  await expect(layoutForm.getByLabel('Show the All / Mine / Shared filter in the top bar')).not.toBeChecked();
+  // Other themes keep the choice.
+  expect((await post('/api/account/preferences', { theme: 'light' })).status).toBe(200);
+  await page.reload();
+  await page.getByRole('button', { name: 'Fictional Guide studio', exact: true }).click();
   await layoutForm.getByLabel('Sidebar (Existing interface)', { exact: true }).check();
   await layoutForm.getByRole('button', { name: 'Save', exact: true }).click();
   await expect(layoutForm.getByRole('status')).toHaveText('Saved for this Workspace.');
@@ -282,6 +295,11 @@ test('Guide preserves routes, preferences, themes and private opt-in weather acr
     }
     expect(paints.size, `${theme}: opacity must change the actual card paint`).toBe(3);
   }
+  // Galactic Guide keeps the top bar even with the sidebar saved (46).
+  expect((await post('/api/account/workspace-preferences/guide', { workspaceId, guide: { layout: 'classic' } })).status).toBe(200);
+  await page.reload();
+  await expect(shell).toHaveAttribute('data-layout', 'guide');
+  expect((await post('/api/account/preferences', { theme: 'memento-mori' })).status).toBe(200);
   for (const layout of ['classic', 'guide']) {
     expect((await post('/api/account/workspace-preferences/guide', { workspaceId, guide: { layout, cardStyle: 'glass', cardOpacity: 50 } })).status).toBe(200);
     await page.reload();
@@ -292,6 +310,8 @@ test('Guide preserves routes, preferences, themes and private opt-in weather acr
       await expectAccessible(page, `Sky cards in ${layout} at ${width}`);
     }
   }
+  expect((await post('/api/account/preferences', { theme: 'space-guide' })).status).toBe(200);
+  await page.reload();
   await page.emulateMedia({ reducedMotion: 'reduce' });
   expect(await page.locator('.shell').evaluate(node => (node as unknown as { getAnimations(options: { subtree: boolean }): { playState: string }[] }).getAnimations({ subtree: true }).filter(a => a.playState === 'running').length)).toBe(0);
   await page.emulateMedia({ forcedColors: 'active' });

@@ -1281,7 +1281,7 @@ export interface GazettePreviewView {
   readonly intro: string;
   readonly header: GazetteHeaderImage | null;
   readonly headlines: readonly { readonly sectionId: string; readonly section: string; readonly title: string }[];
-  readonly weather: readonly { readonly name: string; readonly condition: import('@vergissmeinnicht/domain').WeatherCondition; readonly high: number | null; readonly low: number | null }[];
+  readonly weather: readonly import('@vergissmeinnicht/domain').GazettePreviewWeather[];
   readonly priceDrops: number;
 }
 export interface GazetteTodayView { readonly today: string; readonly preview: GazettePreviewView | null }

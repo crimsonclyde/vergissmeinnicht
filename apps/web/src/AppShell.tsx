@@ -6,7 +6,7 @@ const GazettePage=lazy(()=>import('./modules/gazette/GazettePage.tsx').then(modu
 const RecipesPage=lazy(()=>import('./modules/recipes/RecipesPage.tsx').then(module=>({default:module.RecipesPage})));
 import { TodaySettingsProvider } from './guide/TodaySettingsProvider.tsx';
 import { GUIDE_CARD_ART } from './guide/card-art.ts';
-import { MenuBar } from './nav/MenuBar.tsx';
+import { MenuBar, MenuDropdown } from './nav/MenuBar.tsx';
 import { PhoneNavigation } from './nav/PhoneNavigation.tsx';
 import { GuideGlance } from './guide/GuideGlance.tsx';
 import { GuideSlotsProvider } from './guide/guide-slots.tsx';
@@ -61,6 +61,7 @@ import { ScheduleHistory } from './ScheduleHistory.tsx';
 import { Today } from './Today.tsx';
 import { AppletPage } from './applets/AppletPage.tsx';
 import { ClockToolsProvider } from './applets/ClockToolsProvider.tsx';
+import { PublishedWeatherProvider } from './applets/PublishedWeather.tsx';
 import { ForecastProvider } from './applets/ForecastProvider.tsx';
 import { UiIcon, type UiIconName } from './ui-icons.tsx';
 import type { WorkspaceContext } from './workspace-context.ts';
@@ -126,6 +127,36 @@ function GuideMenuBar({ workspaceId, tools, page }: { workspaceId: string; tools
   return <MenuBar nav={useNavigation(workspaceId, tools)} page={page} />;
 }
 
+/**
+ * The Workspace choice: in the top bar a drop-down like All tools (46); in the sidebar the select. Each
+ * entry opens that Workspace's Dashboard.
+ */
+function WorkspacePicker({ workspaces, workspaceId, page }: { workspaces: readonly WorkspaceSummary[]; workspaceId: string | null; page: Page }) {
+  const { guide } = usePreferences();
+  const current = workspaces.find(workspace => workspace.id === workspaceId) ?? null;
+  if (guide.layout === 'guide') {
+    return <MenuDropdown icon={null} label={t('shell.workspace')} buttonLabel={current?.name ?? t('shell.choose')} current={false} page={page} className="workspace-menu">
+      {close => <ul className="plain-list" aria-label={t('shell.workspace')}>
+        {workspaces.map(workspace => <li key={workspace.id}>
+          <Link href={paths.home(workspace.id)} aria-current={workspace.id === workspaceId ? 'true' : undefined} onClick={close}>
+            <span className="menu-bar-icon"><UiIcon name="house" /></span>
+            <span className="workspace-menu-text"><span>{workspace.name}</span><small>{roleLabel(workspace.role)}</small></span>
+          </Link>
+        </li>)}
+      </ul>}
+    </MenuDropdown>;
+  }
+  return <label className="workspace-select">
+    <select aria-label={t('shell.workspace')} value={workspaceId ?? ''} onChange={(e) => navigate(paths.home(e.target.value))}>
+      {workspaceId === null && <option value="">{t('shell.choose')}</option>}
+      {workspaces.map((workspace) => (
+        <option key={workspace.id} value={workspace.id}>
+          {t('workspace.option', { name: workspace.name, role: roleLabel(workspace.role) })}
+        </option>
+      ))}
+    </select>
+  </label>;
+}
 
 function ShellFrame({ focus, page, children }: { focus: 'edit' | 'run' | undefined; page: Page; children: ReactNode }) {
   const { guide } = usePreferences();
@@ -134,8 +165,9 @@ function ShellFrame({ focus, page, children }: { focus: 'edit' | 'run' | undefin
 function GuideHeader({ workspaceId, tools, page, userId, onScopeSlot, onActionSlot }: { workspaceId: string | null; tools: readonly string[]; page: Page; userId: string; onScopeSlot: (element: HTMLElement | null) => void; onActionSlot: (element: HTMLElement | null) => void }) {
   const { guide } = usePreferences();
   if (guide.layout !== 'guide') return null;
-  // Today's scope dropdown sits before the links; its Add button sits between the links and the time.
-  return <div className="guide-header-tools"><div className="guide-slot guide-slot-scope" ref={onScopeSlot} />{workspaceId !== null && <GuideMenuBar key={workspaceId} workspaceId={workspaceId} tools={tools} page={page} />}<div className="guide-slot guide-slot-actions" ref={onActionSlot} /><GuideGlance key={workspaceId ?? 'account'} userId={userId} /></div>;
+  // Left to right (46): Today's scope (when shown), Dashboard, News, All tools; then weather, time and
+  // Today's round Add button, right before the profile picture.
+  return <div className="guide-header-tools"><div className="guide-slot guide-slot-scope" ref={onScopeSlot} />{workspaceId !== null && <GuideMenuBar key={workspaceId} workspaceId={workspaceId} tools={tools} page={page} />}<GuideGlance key={workspaceId ?? 'account'} userId={userId} /><div className="guide-slot guide-slot-actions" ref={onActionSlot} /></div>;
 }
 
 /** Loads the Workspace (name, role, capabilities) for the Workspace pages. */
@@ -595,7 +627,7 @@ export function AppShell(props: { user: CurrentUser; route: Route; onSignOut: ()
     // Keep the Workspace preferences available while the settings theme temporarily overrides their appearance.
     <PreferencesProvider key={user.id} userId={user.id} workspaceId={navWorkspaceId}><ProgressProvider userId={user.id} workspaceId={workspaceId} tools={navTools} privateScope={route.page === 'account' && route.section === 'journal'}>
       <TodaySettingsProvider userId={user.id}>
-      <ClockToolsProvider><ForecastProvider userId={user.id} workspaceId={navWorkspaceId} explicit={route.page === 'weather'} ready={workspaces !== null}>
+      <ClockToolsProvider><ForecastProvider userId={user.id} workspaceId={navWorkspaceId} explicit={route.page === 'weather'} ready={workspaces !== null}><PublishedWeatherProvider workspaceId={navWorkspaceId} enabled={navTools.includes('GAZETTE')}>
       <RingPaint />
       {/* Places (section 30): the person's own look of the Workspace shown; strongest on Today. */}
       <PlaceScene userId={user.id} workspaceId={navWorkspaceId} prominence={route.page === 'workspace' ? 'today' : 'page'} />
@@ -614,25 +646,14 @@ export function AppShell(props: { user: CurrentUser; route: Route; onSignOut: ()
         <header className="shell-side">
           {/* The product name is the page's level-one heading; each page's own title is a level-two heading. */}
           <h1 className="brand-heading">
-            <Link href="/" className="brand" aria-label={t('shell.home')}>
+            <Link href={navWorkspaceId === null ? '/' : paths.home(navWorkspaceId)} className="brand" aria-label={t('shell.home')}>
               <img className="brand-icon" src="/icon.svg" alt="" width={36} height={36} />
               <span className="brand-long">
                 VergissMein<span className="brand-accent">Nicht</span>
               </span>
             </Link>
           </h1>
-          {workspaces !== null && workspaces.length > 0 && (
-            <label className="workspace-select">
-              <select aria-label={t('shell.workspace')} value={navWorkspaceId ?? ''} onChange={(e) => navigate(paths.home(e.target.value))}>
-                {navWorkspaceId === null && <option value="">{t('shell.choose')}</option>}
-                {workspaces.map((workspace) => (
-                  <option key={workspace.id} value={workspace.id}>
-                    {t('workspace.option', { name: workspace.name, role: roleLabel(workspace.role) })}
-                  </option>
-                ))}
-              </select>
-            </label>
-          )}
+          {workspaces !== null && workspaces.length > 0 && <WorkspacePicker workspaces={workspaces} workspaceId={navWorkspaceId} page={route.page} />}
           <ClassicNavigation workspaceId={navWorkspaceId} tools={navTools} page={route.page} />
           <GuideHeader workspaceId={navWorkspaceId} tools={navTools} page={route.page} userId={user.id} onScopeSlot={setScopeSlot} onActionSlot={setActionSlot} />
           <SettingsMenu user={user} avatar={avatar} workspaceId={navWorkspaceId} currentPath={window.location.pathname} onSignOut={signOut} />
@@ -648,6 +669,6 @@ export function AppShell(props: { user: CurrentUser; route: Route; onSignOut: ()
         <PhoneBar workspaceId={navWorkspaceId} tools={navTools} page={route.page} />
         </ShellFrame>
       </GuideSlotsProvider>
-    </ForecastProvider></ClockToolsProvider></TodaySettingsProvider></ProgressProvider></PreferencesProvider>
+    </PublishedWeatherProvider></ForecastProvider></ClockToolsProvider></TodaySettingsProvider></ProgressProvider></PreferencesProvider>
   );
 }

@@ -170,7 +170,8 @@ test('first server admin: bootstrap link, account creation, sign-in, Workspace c
   // Members are a section of Workspace settings; the old address keeps working.
   await expect(page).toHaveURL(/\/w\/[0-9a-f-]{36}\/members$/);
   await expect(page.getByRole('heading', { name: 'Workspace settings', level: 2 })).toBeVisible();
-  await expect(page.getByRole('combobox', { name: 'Workspace' })).toContainText('Household (Admin)');
+  // The top bar (46) shows the Workspace as a drop-down like All tools.
+  await expect(page.getByRole('button', { name: 'Workspace', exact: true })).toHaveText('Household');
   await expect(page.getByText('Household · Admin', { exact: true })).toBeVisible();
   const members = page.getByRole('list', { name: 'Members' });
   await expect(members.getByRole('listitem')).toHaveCount(1);

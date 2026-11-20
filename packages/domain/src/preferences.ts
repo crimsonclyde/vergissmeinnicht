@@ -33,8 +33,27 @@ export interface GuidePreferences {
   readonly cardStyle: GuideCardStyle;
   readonly cardOpacity: number;
   readonly images: boolean;
+  /** Top bar (46): show Today's "All / Mine / Shared" drop-down in the bar. Off unless chosen. */
+  readonly scopeFilter: boolean;
 }
-export const DEFAULT_GUIDE_PREFERENCES: GuidePreferences = Object.freeze({ layout: 'guide', cardStyle: 'glass', cardOpacity: 50, images: true });
+export const DEFAULT_GUIDE_PREFERENCES: GuidePreferences = Object.freeze({ layout: 'guide', cardStyle: 'glass', cardOpacity: 50, images: true, scopeFilter: false });
+
+/**
+ * Themes that always use the top bar (46): their look is built around it, so the person's sidebar choice
+ * does not apply to them. Every other theme follows the saved layout.
+ */
+export const TOP_BAR_THEMES = ['tokyo-nights', 'space-guide'] as const satisfies readonly ThemePreference[];
+export function topBarTheme(theme: ThemePreference): boolean {
+  return (TOP_BAR_THEMES as readonly string[]).includes(theme);
+}
+/** The layout shown: the top bar for the top-bar themes, else the saved choice. */
+export function effectiveGuideLayout(theme: ThemePreference, layout: GuideLayout): GuideLayout {
+  return topBarTheme(theme) ? 'guide' : layout;
+}
+/** A stored Guide from before 46 has no `scopeFilter`: the missing key reads as the default. */
+export function normalizeGuidePreferences(stored: Partial<GuidePreferences>): GuidePreferences {
+  return Object.freeze({ ...DEFAULT_GUIDE_PREFERENCES, ...stored });
+}
 
 /** A partial Guide change: only the keys given are replaced; the rest keep their current value. */
 export type GuidePreferencesChange = { readonly [K in keyof GuidePreferences]?: GuidePreferences[K] | undefined };
@@ -44,6 +63,7 @@ export function mergeGuidePreferences(current: GuidePreferences, change: GuidePr
     cardStyle: change.cardStyle ?? current.cardStyle,
     cardOpacity: change.cardOpacity ?? current.cardOpacity,
     images: change.images ?? current.images,
+    scopeFilter: change.scopeFilter ?? current.scopeFilter ?? DEFAULT_GUIDE_PREFERENCES.scopeFilter,
   });
 }
 
