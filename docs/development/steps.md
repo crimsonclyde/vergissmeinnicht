@@ -8976,7 +8976,8 @@ tokens (bar, panel, card, raised, accent ink) to every theme so feature CSS uses
 
 ### 45.6 — "Look" settings out of the Guide; Settings keep the theme (needs OK)
 Guide settings (layout, card art) affect every theme, and Settings pages are forced to Memento
-Mori. Move layout/card art to a theme-neutral "Look" group and let Settings keep the person's theme.
+Mori. Move card art to a theme-neutral "Look" group and let Settings keep the person's theme
+(the layout is decided by the theme since 46).
 
 ### 45.7–45.9 — Tool manifests (web, server) and Equipment as the first module (steps 28.2–28.4)
 One manifest per tool (id, routes, navigation entry, Today cards, MCP tools, backup tables) read
@@ -8995,8 +8996,9 @@ A Workspace switch that blocks MCP/AI access to that Workspace for every member.
 
 **Request (owner, 2026-11-20):** Tokyo Nights and Galactic Guide always use the newer top menu
 bar so one can switch tools and return to the main page easily; Tokyo Nights colours properly
-adapted to the bar. Classic themes keep their own navigation choice (Places keeps its classic
-sidebar look). The top bar, left to right: VergissMeinNicht icon + name (opens the current
+adapted to the bar. The older themes (Light, Memento Mori, Witch Forest) and Places keep the
+traditional sidebar on the left (owner, same day). The settings button shows the profile picture
+(initials until one is added), never a cogwheel. The top bar, left to right: VergissMeinNicht icon + name (opens the current
 Workspace's Dashboard), the Workspace selector styled like the other drop-downs, Home, News
 (The Daily Planet), one **All tools** drop-down holding every other tool, space, weather, time,
 the round **+** (Add) button, the profile picture. A setting for the top bar, per person and
@@ -9007,11 +9009,12 @@ Workspace weather stays as the fallback.
 **Status:** DONE (not released). First piece of the 45 plan; touches 45.4/45.6 only for navigation.
 
 **Implemented:**
-- `TOP_BAR_THEMES` (domain): Tokyo Nights and Galactic Guide always show the top bar
-  (`effectiveGuideLayout`); the saved sidebar choice still applies to every other theme. The
-  choice follows the theme the person picked for the Workspace, so settings pages (shown in
-  Memento Mori) keep the same bar. Appearance shows "This theme always uses the top bar" instead
-  of the layout choice for those themes.
+- `TOP_BAR_THEMES` (domain): the theme decides the navigation (`effectiveGuideLayout`): Tokyo
+  Nights and Galactic Guide the top bar, every other theme the sidebar. It follows the theme the
+  person picked for the Workspace, so settings pages (shown in Memento Mori) keep the same
+  navigation. Appearance shows a one-line note instead of the old layout choice; the stored
+  `layout` key stays for compatibility but no longer decides.
+- Settings button: the profile picture, or the person's initials (Avatar) until they add one.
 - Top bar order: name (opens the shown Workspace's Dashboard), Workspace drop-down (same style as
   All tools; each entry with its role), Dashboard, News, **All tools** (one drop-down, families as
   columns: Plan, Shop & cook, House), space, weather, time, round **+**, round profile picture.
@@ -9022,8 +9025,7 @@ Workspace weather stays as the fallback.
   Guide JSON triggers (four or five keys; `scopeFilter` must be a boolean); rows written before
   read as off.
 - Tokyo Nights bar: glass bar with a cyan-to-magenta lower edge, neon Add, magenta picture ring,
-  bordered status items, neon family captions; Light and Memento Mori draw their brand line along
-  the bar's lower edge instead of the sidebar's left edge.
+  bordered status items, neon family captions.
 - Weather (owner choice "only what the AI publishes"): when The Daily Planet is on and today's
   edition is published with a weather place, the Dashboard weather tile and the top bar show that
   place's high/low, sky and rain and open the edition; otherwise the Workspace weather as before.
@@ -9032,13 +9034,13 @@ Workspace weather stays as the fallback.
 
 **Tests/checks:** typecheck, lint, Vitest (new `preferences.test.ts`, `published-weather.test.ts`,
 Guide preference API cases for `scopeFilter` and legacy rows, Gazette preview rain), Playwright
-`guide.spec.ts` desktop + phone (All tools mouse/keyboard, Workspace drop-down, name link, fixed
-top bar for Galactic Guide, axe in every theme). Screens of every theme at 1440/390 px:
+`guide.spec.ts` desktop + phone (All tools mouse/keyboard, Workspace drop-down, name link, theme
+decides the navigation, axe in every theme). Screens of every theme at 1440/390 px:
 `/mnt/project-files/ui-review/2026-11-20-top-bar/`.
 
 **Security impact:** LOW — one more presentation boolean (strict API schema, database trigger),
 no new endpoint; the published weather uses the existing authorized Gazette preview.
 **Security docs updated:** NO (no new surface).
 
-**Remaining:** the owner's message ended mid-sentence ("and since we get a proper …"); places
-keep the person's own layout choice; real-phone check.
+**Remaining:** the owner's first message ended mid-sentence ("and since we get a proper …");
+real-phone check.

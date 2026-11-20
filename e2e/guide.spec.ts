@@ -104,7 +104,8 @@ test('Guide preserves routes, preferences, themes and private opt-in weather acr
   await expect(page.getByRole('button', { name: /^Settings/ })).toBeVisible();
   await page.goto(`/w/${workspaceId}`);
   const shell = page.locator('.shell');
-  await expect(shell).toHaveAttribute('data-layout', 'guide');
+  // The theme decides the navigation (46): the everyday themes use the sidebar.
+  await expect(shell).toHaveAttribute('data-layout', 'classic');
   await expect(page.getByRole('heading', { name: /^Dashboard/ })).toBeVisible();
   expect(requests.filter(url => url.includes('/api/account/weather/forecast'))).toEqual([]);
   const post = async (path: string, body: unknown) => page.evaluate(async ({ path, body }) => { const r = await fetch(path, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }); return { status: r.status, data: await r.json() }; }, { path, body });
@@ -115,6 +116,7 @@ test('Guide preserves routes, preferences, themes and private opt-in weather acr
   expect((await post(`/api/workspaces/${workspaceId}/lists/${listId}/items`, { title: 'Tea bags' })).status).toBe(201);
   await page.reload();
   await expect(page.locator('html')).toHaveAttribute('data-theme', 'space-guide');
+  await expect(shell).toHaveAttribute('data-layout', 'guide');
   const nav = page.getByRole('navigation', { name: 'Tools', exact: true });
   await page.getByRole('button', { name: /^Settings/ }).click();
   await expect(page.getByRole('link', { name: 'Profile & settings', exact: true })).toBeVisible();
@@ -242,21 +244,16 @@ test('Guide preserves routes, preferences, themes and private opt-in weather acr
   await expect(layoutForm.getByText('This theme always uses the top bar.')).toBeVisible();
   await expect(layoutForm.getByLabel('Sidebar (Existing interface)', { exact: true })).toHaveCount(0);
   await expect(layoutForm.getByLabel('Show the All / Mine / Shared filter in the top bar')).not.toBeChecked();
-  // Other themes keep the choice.
+  // Other themes use the sidebar, also without a choice.
   expect((await post('/api/account/preferences', { theme: 'light' })).status).toBe(200);
   await page.reload();
   await page.getByRole('button', { name: 'Fictional Guide studio', exact: true }).click();
-  await layoutForm.getByLabel('Sidebar (Existing interface)', { exact: true }).check();
-  await layoutForm.getByRole('button', { name: 'Save', exact: true }).click();
-  await expect(layoutForm.getByRole('status')).toHaveText('Saved for this Workspace.');
+  await expect(layoutForm.getByText('This theme uses the sidebar.')).toBeVisible();
+  await expect(layoutForm.getByLabel('Show the All / Mine / Shared filter in the top bar')).toHaveCount(0);
   await page.goto(`/w/${workspaceId}`);
   await expect(shell).toHaveAttribute('data-layout', 'classic');
-  await page.goto('/account/appearance');
-  await page.getByRole('button', { name: 'Fictional Guide studio', exact: true }).click();
-  await layoutForm.getByLabel('Top bar (Galactic Guide)', { exact: true }).check();
-  await layoutForm.getByRole('button', { name: 'Save', exact: true }).click();
-  await expect(layoutForm.getByRole('status')).toHaveText('Saved for this Workspace.');
-  await page.goto(`/w/${workspaceId}`);
+  expect((await post('/api/account/preferences', { theme: 'space-guide' })).status).toBe(200);
+  await page.reload();
   await expect(shell).toHaveAttribute('data-layout', 'guide');
   await page.route('**/api/account/weather/forecast?*', route => route.fulfill({ json: { forecast: { provider: 'OPEN_METEO', current: { condition: 'SNOW', temperature: -1 }, days: [{ date: '2026-11-03', condition: 'SNOW', min: -3, max: 2, precipitationProbabilityMax: 40, precipitationSum: 1.2, windSpeedMax: 14 }] }, horizon: 1, history: [], location: { name: 'Fictional studio', timeZone: 'Europe/Berlin' }, fetchedAt: new Date().toISOString(), stale: false, fellBackFrom: null, unit: 'C', showTomorrow: false } }));
   expect((await post('/api/account/today', { layout: { version: 1, density: 'COMPACT', cards: [
@@ -295,13 +292,10 @@ test('Guide preserves routes, preferences, themes and private opt-in weather acr
     }
     expect(paints.size, `${theme}: opacity must change the actual card paint`).toBe(3);
   }
-  // Galactic Guide keeps the top bar even with the sidebar saved (46).
-  expect((await post('/api/account/workspace-preferences/guide', { workspaceId, guide: { layout: 'classic' } })).status).toBe(200);
-  await page.reload();
-  await expect(shell).toHaveAttribute('data-layout', 'guide');
-  expect((await post('/api/account/preferences', { theme: 'memento-mori' })).status).toBe(200);
-  for (const layout of ['classic', 'guide']) {
-    expect((await post('/api/account/workspace-preferences/guide', { workspaceId, guide: { layout, cardStyle: 'glass', cardOpacity: 50 } })).status).toBe(200);
+  // The saved layout no longer decides (46): the theme does.
+  for (const [theme, layout] of [['memento-mori', 'classic'], ['space-guide', 'guide']] as const) {
+    expect((await post('/api/account/preferences', { theme })).status).toBe(200);
+    expect((await post('/api/account/workspace-preferences/guide', { workspaceId, guide: { layout: layout === 'guide' ? 'classic' : 'guide', cardStyle: 'glass', cardOpacity: 50 } })).status).toBe(200);
     await page.reload();
     await expect(shell).toHaveAttribute('data-layout', layout);
     await expectSharedSkySurface(page);

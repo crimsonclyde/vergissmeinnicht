@@ -39,16 +39,16 @@ export interface GuidePreferences {
 export const DEFAULT_GUIDE_PREFERENCES: GuidePreferences = Object.freeze({ layout: 'guide', cardStyle: 'glass', cardOpacity: 50, images: true, scopeFilter: false });
 
 /**
- * Themes that always use the top bar (46): their look is built around it, so the person's sidebar choice
- * does not apply to them. Every other theme follows the saved layout.
+ * The theme decides the navigation (46, owner 2026-11-20): Tokyo Nights and Galactic Guide always use the
+ * top bar; every other theme (Light, Memento Mori, Witch Forest, Places) keeps the traditional sidebar.
  */
 export const TOP_BAR_THEMES = ['tokyo-nights', 'space-guide'] as const satisfies readonly ThemePreference[];
 export function topBarTheme(theme: ThemePreference): boolean {
   return (TOP_BAR_THEMES as readonly string[]).includes(theme);
 }
-/** The layout shown: the top bar for the top-bar themes, else the saved choice. */
-export function effectiveGuideLayout(theme: ThemePreference, layout: GuideLayout): GuideLayout {
-  return topBarTheme(theme) ? 'guide' : layout;
+/** The layout shown: the top bar for the top-bar themes, the sidebar for every other theme. */
+export function effectiveGuideLayout(theme: ThemePreference): GuideLayout {
+  return topBarTheme(theme) ? 'guide' : 'classic';
 }
 /** A stored Guide from before 46 has no `scopeFilter`: the missing key reads as the default. */
 export function normalizeGuidePreferences(stored: Partial<GuidePreferences>): GuidePreferences {

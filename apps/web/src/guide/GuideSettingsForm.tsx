@@ -1,5 +1,5 @@
 import { useState, type CSSProperties } from 'react';
-import { DEFAULT_GUIDE_PREFERENCES, GUIDE_CARD_STYLES, GUIDE_LAYOUTS, topBarTheme, type GuideCardStyle, type GuideLayout, type GuidePreferences, type GuidePreferencesChange } from '@vergissmeinnicht/domain';
+import { DEFAULT_GUIDE_PREFERENCES, GUIDE_CARD_STYLES, topBarTheme, type GuideCardStyle, type GuidePreferences, type GuidePreferencesChange } from '@vergissmeinnicht/domain';
 import { messageFor } from '../api.ts';
 import { t, type MessageKey } from '../i18n/index.ts';
 import { usePreferences } from '../preferences.tsx';
@@ -7,7 +7,6 @@ import { GUIDE_CARD_ART } from './card-art.ts';
 import { UiIcon } from '../ui-icons.tsx';
 
 const CARD_STYLE_LABEL = { glass: 'guide.glass', starfield: 'guide.starfield', forest: 'guide.forest', water: 'guide.water', hearth: 'guide.hearth' } as const satisfies Record<GuideCardStyle, MessageKey>;
-const LAYOUT_LABEL = { guide: 'guide.modern', classic: 'guide.classic' } as const satisfies Record<GuideLayout, MessageKey>;
 
 /**
  * A form's draft of one Workspace's Guide presentation. Edits stay local until Save; Cancel returns to the saved
@@ -53,33 +52,25 @@ function useGuideDraft(workspaceId: string) {
  */
 export function GuideSettingsForm({ workspaceId, legend }: { workspaceId: string; legend: string }) {
   const { fixedTopBar, draft, setDraft, locked, message, done, save, cancel } = useGuideDraft(workspaceId);
-  const topBar = fixedTopBar || draft.layout === 'guide';
   return (
     <form
       className="stack guide-form"
       onSubmit={(event) => {
         event.preventDefault();
-        save({ layout: draft.layout, cardStyle: draft.cardStyle, cardOpacity: draft.cardOpacity, images: draft.images, scopeFilter: draft.scopeFilter });
+        save({ cardStyle: draft.cardStyle, cardOpacity: draft.cardOpacity, images: draft.images, scopeFilter: draft.scopeFilter });
       }}
     >
       <fieldset disabled={locked} aria-label={legend}>
         <legend><UiIcon name="layout" /> {t('appearance.cards')}</legend>
         <div className="appearance-heading">
-          {fixedTopBar ? <p className="appearance-layout-fixed muted"><UiIcon name="navigationTop" size={24} /> <span>{t('guide.topBarFixed')}</span></p> : <div className="appearance-layout-options" role="group" aria-label={t('guide.layoutHint')}>
-            {GUIDE_LAYOUTS.map((layout) => (
-              <label key={layout} className="appearance-layout-option" title={t(LAYOUT_LABEL[layout])}>
-                <input type="radio" name="guide-layout" aria-label={t(LAYOUT_LABEL[layout])} value={layout} checked={draft.layout === layout} onChange={() => setDraft({ ...draft, layout })} />
-                <UiIcon name={layout === 'guide' ? 'navigationTop' : 'navigationSide'} size={24} />
-                <span>{t(layout === 'guide' ? 'appearance.navigationTop' : 'appearance.navigationSide')}</span>
-              </label>
-            ))}
-          </div>}
+          {/* The theme decides the navigation (46): no layout choice, only a note. */}
+          <p className="appearance-layout-fixed muted"><UiIcon name={fixedTopBar ? 'navigationTop' : 'navigationSide'} size={24} /> <span>{t(fixedTopBar ? 'guide.topBarFixed' : 'guide.sidebarFixed')}</span></p>
           <details className="appearance-help">
             <summary aria-label={t('appearance.cardsHelp')} title={t('appearance.cardsHelp')}><UiIcon name="info" /></summary>
             <p>{t('guide.settingsHint')}</p>
           </details>
         </div>
-        {topBar && <label className="check-label guide-scope-toggle">
+        {fixedTopBar && <label className="check-label guide-scope-toggle">
           <input type="checkbox" aria-label={t('guide.scopeFilter')} checked={draft.scopeFilter} onChange={(event) => setDraft({ ...draft, scopeFilter: event.target.checked })} />
           <UiIcon name="filter" /> <span title={t('guide.scopeFilter')}>{t('guide.scopeFilterShort')}</span>
         </label>}

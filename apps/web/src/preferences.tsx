@@ -83,9 +83,9 @@ export function PreferencesProvider({ userId, workspaceId, children }: { userId:
   useEffect(() => setWorkspaceThemeMode(themeHere), [themeHere]);
   useEffect(() => storeWorkspaceThemes(workspacePreferences.themes), [workspacePreferences.themes]);
   const savedGuide = (workspaceId === null ? undefined : workspacePreferences.guides[workspaceId]) ?? DEFAULT_GUIDE_PREFERENCES;
-  // Tokyo Nights and Galactic Guide always show the top bar (46); the saved layout applies to the other themes.
+  // The theme decides the navigation (46): the top bar for Tokyo Nights and Galactic Guide, the sidebar otherwise.
   const chosen = useChosenThemeMode();
-  const layout = effectiveGuideLayout(chosen, savedGuide.layout);
+  const layout = effectiveGuideLayout(chosen);
   const guide = useMemo(() => (layout === savedGuide.layout ? savedGuide : { ...savedGuide, layout }), [savedGuide, layout]);
 
   const update = useCallback(async (changes: Partial<UserPreferences>) => {

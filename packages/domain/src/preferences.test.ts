@@ -2,16 +2,15 @@ import { describe, expect, it } from 'vitest';
 import { DEFAULT_GUIDE_PREFERENCES, TOP_BAR_THEMES, effectiveGuideLayout, mergeGuidePreferences, normalizeGuidePreferences, topBarTheme } from './preferences.ts';
 
 describe('Top bar (46)', () => {
-  it('Tokyo Nights and Galactic Guide always use the top bar; every other theme keeps the saved layout', () => {
+  it('Tokyo Nights and Galactic Guide always use the top bar; every other theme uses the sidebar', () => {
     expect([...TOP_BAR_THEMES]).toEqual(['tokyo-nights', 'space-guide']);
     for (const theme of TOP_BAR_THEMES) {
       expect(topBarTheme(theme)).toBe(true);
-      expect(effectiveGuideLayout(theme, 'classic')).toBe('guide');
+      expect(effectiveGuideLayout(theme)).toBe('guide');
     }
     for (const theme of ['system', 'light', 'dark', 'memento-mori', 'witch-forest', 'places-it'] as const) {
       expect(topBarTheme(theme)).toBe(false);
-      expect(effectiveGuideLayout(theme, 'classic')).toBe('classic');
-      expect(effectiveGuideLayout(theme, 'guide')).toBe('guide');
+      expect(effectiveGuideLayout(theme)).toBe('classic');
     }
   });
 
