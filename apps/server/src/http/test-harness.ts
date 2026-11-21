@@ -44,6 +44,8 @@ export async function startTestApp(
     /** Answers weather provider requests (19.4); by default every one fails as if the network were blocked. */
     weatherFetch?: typeof fetch;
     chatGptFileSource?: ChatGptFileSource;
+    /** Replaces how an AI safety backup file is written (48.1), e.g. to make it fail. */
+    aiBackupWrite?: (target: string, now: Date) => Promise<void>;
     /** MCP_CHATGPT_FILE_HOSTS for this app (36.25). */
     chatGptFileHosts?: string;
     /** Capture the server log (info level, production serializers) into `logs`. */
@@ -89,6 +91,8 @@ export async function startTestApp(
         const built = createServices(testConfig, database, {
           weatherFetch: options.weatherFetch ?? blockedWeatherFetch,
           chatGptFileSource: options.chatGptFileSource ?? (() => { throw new Error('network blocked in tests'); }),
+          // AI safety backups (48.1): the in-memory test database through SQLite's backup API.
+          aiBackups: { dir: join(mediaDir, 'backups'), write: options.aiBackupWrite ?? (async (target) => void (await database.sqlite.backup(target))) },
         })(log);
         const email = { send: async (message: EmailMessage) => void outbox.push(message) };
         const notifications = { ...built.notifications, email, ...(options.telegramApi === undefined ? {} : { telegramApi: options.telegramApi }) };
@@ -152,7 +156,7 @@ export async function startTestApp(
     post(`/api/workspaces/${workspaceId}/members`, { email, role }, admin);
 
   return {
-    paths:{media:mediaDir,documents:testConfig.documentsPath,attachments:join(mediaDir,'attachments')},
+    paths:{media:mediaDir,documents:testConfig.documentsPath,attachments:join(mediaDir,'attachments'),aiBackups:join(mediaDir,'backups')},
     get app() {
       return app;
     },

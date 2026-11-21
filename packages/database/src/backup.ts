@@ -581,11 +581,63 @@ export async function backupIfDue(
   const all = listAutomaticBackups(databasePath);
   const removed = all.slice(0, Math.max(0, all.length - options.keep)).map((entry) => entry.path);
   for (const path of removed) rmSync(path, { force: true });
-  // Image files only the removed backups used (14.3).
-  pruneBackupMedia(join(dirname(databasePath), 'backups'), now);
-  // … and document files (16.1).
-  pruneBackupDocuments(join(dirname(databasePath), 'backups'), now);
-  const attachmentBackupDir=join(dirname(databasePath),'backups');
-  if(existsSync(attachmentBackupDir))pruneAttachmentBackups(attachmentBackupDir,readdirSync(attachmentBackupDir).filter(name=>name.endsWith('.sqlite')).map(name=>join(attachmentBackupDir,name)));
+  pruneBackupStores(join(dirname(databasePath), 'backups'), now);
   return { written, removed };
+}
+
+/**
+ * Removes the image, document and attachment files of a backup directory that no backup in it uses
+ * any more. Every `*.sqlite` file there counts (manual, scheduled, pre-migration and AI safety backups).
+ */
+export function pruneBackupStores(backupDir: string, now: Date = new Date()): void {
+  // Image files only the removed backups used (14.3).
+  pruneBackupMedia(backupDir, now);
+  // … and document files (16.1).
+  pruneBackupDocuments(backupDir, now);
+  if (existsSync(backupDir)) pruneAttachmentBackups(backupDir, readdirSync(backupDir).filter((name) => name.endsWith('.sqlite')).map((name) => join(backupDir, name)));
+}
+
+/**
+ * AI safety backups (48.1): a verified backup written right before an AI assistant changes something
+ * through MCP, at most one per interval. Their own prefix keeps them apart from manual, scheduled and
+ * pre-migration backups, so their retention never touches those. They are ordinary server backups:
+ * `vergissmeinnicht verify` / `restore` work on them unchanged.
+ */
+const AI_PREFIX = 'vergissmeinnicht-ai-';
+const AI_NAME = /^vergissmeinnicht-ai-(\d{4}-\d{2}-\d{2}T\d{2}-\d{2}-\d{2}\.\d{3}Z)\.sqlite$/;
+
+export function aiBackupName(now: Date): string {
+  return `${AI_PREFIX}${now.toISOString().replaceAll(':', '-')}.sqlite`;
+}
+
+/** AI safety backups in `backupDir`, oldest first, with their size. Other files are ignored. */
+export function listAiBackups(backupDir: string): { readonly name: string; readonly path: string; readonly at: Date; readonly bytes: number }[] {
+  if (!existsSync(backupDir)) return [];
+  return readdirSync(backupDir)
+    .map((name) => ({ name, match: AI_NAME.exec(name) }))
+    .filter((entry): entry is { name: string; match: RegExpExecArray } => entry.match !== null)
+    .map(({ name, match }) => {
+      const path = join(backupDir, name);
+      let bytes = 0;
+      try {
+        bytes = statSync(path).size;
+      } catch {
+        // Removed meanwhile: listed with 0 bytes, gone on the next listing.
+      }
+      return { name, path, at: new Date((match[1] ?? '').replace(/T(\d{2})-(\d{2})-(\d{2})/, 'T$1:$2:$3')), bytes };
+    })
+    .filter((entry) => !Number.isNaN(entry.at.getTime()))
+    .sort((a, b) => a.at.getTime() - b.at.getTime());
+}
+
+/** Keeps the newest `keep` AI safety backups (and their side files); returns the names removed. */
+export function pruneAiBackups(backupDir: string, keep: number, now: Date = new Date()): string[] {
+  const all = listAiBackups(backupDir);
+  const removed = all.slice(0, Math.max(0, all.length - keep));
+  for (const entry of removed) {
+    rmSync(entry.path, { force: true });
+    rmSync(`${entry.path}.json`, { force: true });
+  }
+  if (removed.length > 0) pruneBackupStores(backupDir, now);
+  return removed.map((entry) => entry.name);
 }

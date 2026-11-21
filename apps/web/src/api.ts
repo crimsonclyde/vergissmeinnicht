@@ -1249,6 +1249,9 @@ export type BringTodayView = Pick<BringView, 'id' | 'title' | 'from' | 'to' | 'd
 const bringPath = (workspaceId: string, rest = '') => `/workspaces/${encodeURIComponent(workspaceId)}/bring${rest}`;
 export interface McpConnection {id:string;clientName:string;workspaceIds:string[];scopes:import('@vergissmeinnicht/domain').McpScope[];expiresAt:string;revokedAt:string|null;tokenIssued:boolean}
 export interface McpAdminConnection {id:string;owner:{id:string;displayName:string};clientName:string;workspaces:{id:string;name:string|null}[];scopes:import('@vergissmeinnicht/domain').McpScope[];createdAt:string;expiresAt:string;revokedAt:string|null;tokenIssued:boolean}
+/** An AI safety backup (48.1): file name, time, size and what triggered it. */
+export interface McpAiBackup {name:string;createdAt:string;bytes:number;person:string|null;assistant:string|null;workspace:string|null;tool:string|null}
+export interface McpAiBackupSettings {intervalMinutes:number;keep:number}
 export interface McpFileHost {host:string;status:'REFUSED'|'ALLOWED';refusedCount:number;firstSeenAt:string;lastSeenAt:string;decidedAt:string|null;decidedBy:string|null}
 export interface McpConsent {id:string;clientName:string;redirectOrigin:string;scopes:import('@vergissmeinnicht/domain').McpScope[];expiresAt:string;blockedWorkspaceIds?:string[]}
 /** The Daily Planet (43): JSON shapes of the server's domain types (dates arrive as strings). */
@@ -1305,6 +1308,7 @@ export const api = {
   mcpAdminConnections:()=>request<{connections:McpAdminConnection[]}>('GET','/admin/mcp/'),
   mcpAdminRevoke:(id:string)=>request('POST','/admin/mcp/'+encodeURIComponent(id)+'/revoke',{}),
   mcpFileHosts:()=>request<{hosts:McpFileHost[]}>('GET','/admin/mcp/file-hosts'),
+  mcpAiBackups:()=>request<{settings:McpAiBackupSettings;backups:McpAiBackup[]}>('GET','/admin/mcp/backups'),
   mcpAllowFileHost:(host:string)=>request('POST','/admin/mcp/file-hosts/allow',{host}),
   mcpRemoveFileHost:(host:string)=>request('POST','/admin/mcp/file-hosts/remove',{host}),
   bring: (workspaceId: string, status = 'OPEN', filter = 'ALL', offset = 0) => request<{ items: BringView[]; total: number; places: string[] }>('GET', bringPath(workspaceId, '?' + new URLSearchParams({ status, filter, offset: String(offset) }))),

@@ -104,7 +104,7 @@ export function createMcpRepository({db}:AppDatabase,resource:string){
    const ids=[...new Set(grants.flatMap(({grant})=>grant.workspaceIds))];
    const names=new Map(ids.length?db.select({id:workspaces.id,name:workspaces.name}).from(workspaces).where(inArray(workspaces.id,ids)).all().map(row=>[row.id,row.name]):[]);
    return grants.map(({grant,ownerName,client})=>({
-    id:grant.id,owner:{id:grant.userId,displayName:ownerName},clientName:String(client?.['client_name']??'MCP client'),
+    id:grant.id,owner:{id:grant.userId,displayName:ownerName},clientId:grant.clientId,clientName:String(client?.['client_name']??'MCP client'),
     workspaces:grant.workspaceIds.map(id=>({id,name:names.get(id)??null})),scopes:grant.scopes,createdAt:grant.createdAt,expiresAt:grant.expiresAt,revokedAt:grant.revokedAt,
     tokenIssued:db.select({present:sql<number>`1`}).from(mcpTokens).where(and(eq(mcpTokens.grantId,grant.id),eq(mcpTokens.kind,'refresh'))).get()!==undefined,
    }));

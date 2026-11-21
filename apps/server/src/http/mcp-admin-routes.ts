@@ -1,6 +1,6 @@
 import type {FastifyInstance,FastifyRequest} from 'fastify';
 import {z} from 'zod';
-import {UUID_V4} from '@vergissmeinnicht/domain';
+import {UUID_V4,type UserId,type WorkspaceId} from '@vergissmeinnicht/domain';
 import type {AppServices} from '../composition.ts';
 import {requireUser} from './session.ts';
 import {InvalidRequestError} from './errors.ts';
@@ -34,5 +34,21 @@ export async function mcpAdminRoutes(app:FastifyInstance,{services}:{services:Ap
   return {allowed:true};
  });
  app.post('/file-hosts/remove',{bodyLimit:512},async request=>{await services.mcpFileHosts.remove(actor(request),host(request));return {removed:true};});
+ // AI safety backups (48.1): what was backed up before AI changes, with who and where; restored with `restore` (server stopped).
+ app.get('/backups',async request=>{
+  const connections=await services.mcp.allConnections(actor(request));
+  const clients=new Map(connections.map(row=>[row.clientId,row.clientName]));
+  const names=new Map<string,string|null>();const places=new Map<string,string|null>();
+  const backups=[];
+  for(const entry of services.aiBackups.list()){
+   const trigger=entry.trigger;
+   if(trigger&&!names.has(trigger.userId))names.set(trigger.userId,(await services.users.findById(trigger.userId as UserId))?.displayName??null);
+   if(trigger?.workspaceId&&!places.has(trigger.workspaceId))places.set(trigger.workspaceId,(await services.workspaces.workspaces.findById(trigger.workspaceId as WorkspaceId))?.name??null);
+   backups.push({name:entry.name,createdAt:entry.createdAt.toISOString(),bytes:entry.bytes,person:trigger?names.get(trigger.userId)??null:null,
+    assistant:trigger?clients.get(trigger.clientId)??null:null,
+    workspace:trigger?.workspaceId?places.get(trigger.workspaceId)??null:null,tool:trigger?.tool??null});
+  }
+  return {settings:services.aiBackups.settings,backups};
+ });
  app.post('/:grantId/revoke',{bodyLimit:256},async request=>{await services.mcp.revokeAny(actor(request),params(request));return {revoked:true};});
 }

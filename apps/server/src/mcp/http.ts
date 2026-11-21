@@ -113,6 +113,7 @@ function toolFailure(error:unknown,tool:{name:string;fileParams?:readonly string
  const name=errorName(error);
  if(name==='MapMatchError')return refused('map_match_review','Review the matching place before deciding whether to add a separate record.');
  if(name==='MapOperationReusedError')return refused('operation_reused','This id was already used for a different Map request.');
+ if(name==='AiBackupFailedError')return refused('backup_failed','VMN could not write its safety backup before this change, so nothing was changed. Tell the user; a server admin should check the free disk space and the server log.');
  if(name==='AiAssistantsBlockedError')return refused('ai_not_allowed','A Workspace admin switched AI assistants off for this Workspace. Nothing was changed.');
  if(name==='ToolNotEnabledError')return refused('tool_disabled','This tool is switched off in the Workspace.');
  if(error instanceof NotAuthorizedError||name==='OfflineAccountMismatchError')return refused('permission_denied','This connection or account may not do this in this Workspace (scope, role or Workspace not selected). Nothing was changed.');
@@ -212,6 +213,8 @@ export async function registerMcpHttp(app:FastifyInstance,services:AppServices){
     const input=tool.schema.parse(call.params.arguments??{});const workspaceId=typeof input['workspaceId']==='string'?input['workspaceId'] as WorkspaceId:undefined;
     const current=await services.mcp.verify(raw);const reach=await services.mcp.authorize(current.grant.id,actor.id,workspaceId,tool.scope);
     if(workspaceId){await requireToolsOn(workspaceId);}
+    // 48.1: every change by an AI assistant is preceded by a fresh server backup (at most one per interval).
+    if(tool.write)await services.aiBackups.beforeChange({userId:actor.id,clientId:grant.clientId,workspaceId:workspaceId??null,tool:tool.name});
     const context={grantId:grant.id,clientId:grant.clientId,userId:actor.id,tokenHash:hashMcpToken(raw),scope:tool.scope,tool:tool.tool,additionalScopes:tool.extraScopes??[],additionalTools:tool.extraTools??[]};
     const result=await withDelegation(context,()=>tool.execute({services,actor,workspaceId:workspaceId as WorkspaceId,grantWorkspaceIds:reach.workspaceIds},input));executed=true;
     // An access change during an async read must not return data collected under the earlier grant.

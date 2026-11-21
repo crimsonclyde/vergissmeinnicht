@@ -21,7 +21,7 @@ export { createAvatarRepository } from './avatar-repository.ts';
 export { createPlacesRepository } from './places-repository.ts';
 export { createTodayLayoutRepository } from './today-layout-repository.ts';
 export { createServerWeatherSettingsRepository, createWeatherCredentialRepository, createWeatherHistoryRepository, createWeatherSettingsRepository } from './weather-repositories.ts';
-export { backupIfDue, defaultDocumentsPath, defaultMediaPath, listAutomaticBackups } from './backup.ts';
+export { aiBackupName, backupDatabase, backupIfDue, defaultDocumentsPath, defaultMediaPath, listAiBackups, listAutomaticBackups, pruneAiBackups } from './backup.ts';
 export { createInstanceSettingsRepository } from './instance-settings-repository.ts';
 export { createScheduleRepository } from './schedule-repository.ts';
 export { createImageRepository } from './image-repository.ts';

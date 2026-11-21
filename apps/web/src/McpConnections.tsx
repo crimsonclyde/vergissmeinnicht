@@ -4,6 +4,7 @@ import {api,messageFor,type WorkspaceSummary,type McpAdminConnection,type McpCon
 import {t,formatDateTime,type MessageKey} from './i18n/index.ts';
 import {McpDiagnostics} from './McpDiagnostics.tsx';
 import {McpFileHosts} from './McpFileHosts.tsx';
+import {McpAiBackups} from './McpAiBackups.tsx';
 import {UiIcon,type UiIconName} from './ui-icons.tsx';
 import './mcp-connections.css';
 
@@ -281,6 +282,7 @@ export function McpConnections({workspaces,currentUserId}:{workspaces:readonly W
         </div>}
       </>}
       <McpFileHosts />
+      <McpAiBackups />
     </>}
     {!consent && enabled !== null && <McpDiagnostics enabled={enabled} />}
   </section>;
