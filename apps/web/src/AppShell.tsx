@@ -28,7 +28,7 @@ import { offlineStore } from './offline/store.ts';
 import { api, isNetworkError, messageFor, type CurrentUser, type WorkspaceSummary } from './api.ts';
 import { DocumentsToolContext } from './documents-tool.ts';
 import { Contacts } from './Contacts.tsx';
-import { Equipment } from './Equipment.tsx';
+import { Equipment } from './modules/equipment/Equipment.tsx';
 import { Maintenance } from './Maintenance.tsx';
 import { ContactsToolContext } from './contacts-tool.ts';
 import { Calendar } from './Calendar.tsx';

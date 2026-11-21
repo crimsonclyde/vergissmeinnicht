@@ -1,5 +1,5 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { WORKSPACE_TOOLS } from '@vergissmeinnicht/domain';
+import { WORKSPACE_TOOLS, toolGatesFor } from '@vergissmeinnicht/domain';
 import { ORIGIN, startTestApp, type InjectResponse } from './test-harness.ts';
 
 /**
@@ -30,30 +30,18 @@ const PUBLIC_ROUTES = [
  * 404. An empty outer list marks a route that is deliberately independent of every tool (Workspace
  * settings, members, backups). The first matching entry wins, so specific paths come first.
  */
-const TOOL_GATES: ReadonlyArray<readonly [RegExp, ReadonlyArray<readonly string[]>]> = [
-  [/^\/runs\/:runId\/documents/, [['PROCEDURES'], ['DOCUMENTS']]],
-  [/^\/(procedures|runs|knots|images)(\/|$)/, [['PROCEDURES']]],
-  [/^\/(schedules|occurrences)(\/|$)/, [['PROCEDURES', 'REMINDERS']]],
-  [/^\/lists(\/|$)/, [['LISTS']]],
-  [/^\/(calendar|calendar-feed)(\/|$)/, [['CALENDAR']]],
-  [/^\/(documents|document-files|document-folders|document-types|document-links|text-recognition)(\/|$)/, [['DOCUMENTS']]],
-  [/^\/(contacts|contact-links)(\/|$)/, [['CONTACTS']]],
-  [/^\/(equipment|equipment-links)(\/|$)/, [['EQUIPMENT']]],
-  [/^\/(maintenance|maintenance-links)(\/|$)/, [['MAINTENANCE']]],
-  [/^\/moon$/, [['MOON']]],
-  [/^\/journal(\/|$)/, [['JOURNAL']]],
-  [/^\/bring(\/|$)/, [['BRING']]],
-  [/^\/recipes\/:recipeId\/shopping$/, [['RECIPES'], ['LISTS']]],
-  [/^\/recipes(\/|$)/, [['RECIPES']]],
-  [/^\/gazette(\/|$)/, [['GAZETTE']]],
-  [/^\/map(\/|$)/, [['MAP']]],
-  [/^(\/(home|location|rename|leave|members|tools|backups|storage|ai-assistants)(\/|$)|$)/, []],
-];
+/**
+ * Workspace routes that belong to no tool (45.1): the Workspace itself. Every other Workspace route must be
+ * owned by a tool manifest (`TOOL_MANIFESTS`, 45.8), which also says which switch gates it.
+ */
+const CORE_WORKSPACE_ROUTES = /^(\/(home|location|rename|leave|members|tools|backups|storage|ai-assistants)(\/|$)|$)/;
 
 function toolSetsFor(route: string): ReadonlyArray<readonly string[]> | undefined {
   if (!route.includes('/workspaces/:workspaceId')) return [];
   const rest = (route.split(' ')[1] ?? '').split('/workspaces/:workspaceId')[1] ?? '';
-  return TOOL_GATES.find(([pattern]) => pattern.test(rest))?.[1];
+  if (CORE_WORKSPACE_ROUTES.test(rest)) return [];
+  const gates = toolGatesFor(rest);
+  return gates.length === 0 ? undefined : gates;
 }
 
 const PNG = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAIAAACQd1PeAAAADElEQVR4nGP4z8AAAAMBAQDJ/pLvAAAAAElFTkSuQmCC', 'base64');
@@ -337,7 +325,7 @@ describe('security properties of every route (13.2)', () => {
     await setOn(['GAZETTE', 'MAP'], true);
     const sets = new Map<string, string[]>();
     for (const route of routes) for (const set of toolSetsFor(route) ?? []) sets.set(set.join('+'), [...(sets.get(set.join('+')) ?? []), route]);
-    // Every optional tool has at least one gated route, so a new tool needs an entry in TOOL_GATES.
+    // Every optional tool has at least one gated route, so a new tool needs routes in its manifest.
     for (const tool of WORKSPACE_TOOLS.filter((value) => value !== 'GAMIFICATION')) expect([...sets.keys()].some((key) => key.split('+').includes(tool)), tool).toBe(true);
     let sent = 0;
     try {

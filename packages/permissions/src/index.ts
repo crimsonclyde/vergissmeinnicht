@@ -1,6 +1,6 @@
 // Centralized capability policies. Authorization is always evaluated server-side, inside the
 // application use-cases; callers never compare role strings themselves.
-import { WORKSPACE_ROLES, isActiveServerAdmin, type User, type WorkspaceRole, type WorkspaceTool } from '@vergissmeinnicht/domain';
+import { WORKSPACE_ROLES, isActiveServerAdmin, toolForCapabilityGroup, type User, type WorkspaceRole, type WorkspaceTool } from '@vergissmeinnicht/domain';
 
 /**
  * Capabilities a Workspace role can grant. Every capability is assigned here and nowhere else;
@@ -131,21 +131,7 @@ export function rolesWithCapability(capability: WorkspaceCapability): WorkspaceR
   return WORKSPACE_ROLES.filter((role) => roleHasCapability(role, capability));
 }
 
-/** Structural views have no tool; Schedule access is decided by its own source kind. */
+/** Structural views have no tool; Schedule access is decided by its own source kind. Read from the tool manifests (45.8). */
 export function toolForCapability(capability: WorkspaceCapability): WorkspaceTool | null {
-  const group = capability.split('.')[0];
-  switch (group) {
-    case 'procedure': case 'run': case 'knot': return 'PROCEDURES';
-    case 'list': return 'LISTS';
-    case 'document': return 'DOCUMENTS';
-    case 'contact': return 'CONTACTS';
-    case 'maintenance': return 'MAINTENANCE';
-    case 'equipment': return 'EQUIPMENT';
-    case 'transfer': return 'BRING';
-    case 'journal': return 'JOURNAL';
-    case 'recipe': return 'RECIPES';
-    case 'gazette': return 'GAZETTE';
-    case 'map': return 'MAP';
-    default: return null;
-  }
+  return toolForCapabilityGroup(capability.split('.')[0] ?? '');
 }

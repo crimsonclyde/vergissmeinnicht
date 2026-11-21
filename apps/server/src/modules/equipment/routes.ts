@@ -2,10 +2,10 @@ import { InvalidCursorError, addEquipmentLink, createEquipmentRecord, deleteEqui
 import { UUID_V4, type EquipmentCursor, type WorkspaceId } from '@vergissmeinnicht/domain';
 import type { FastifyInstance, FastifyRequest } from 'fastify';
 import { z } from 'zod';
-import type { AppServices } from '../composition.ts';
-import { InvalidRequestError } from './errors.ts';
-import { linkView } from './link-routes.ts';
-import { requireUser, type Principal } from './session.ts';
+import type { AppServices } from '../../composition.ts';
+import { InvalidRequestError } from '../../http/errors.ts';
+import { linkView } from '../../http/link-routes.ts';
+import { requireUser, type Principal } from '../../http/session.ts';
 // Lower-case UUIDv4 only, like the domain parsers: one canonical spelling per id.
 const uuid = z.string().regex(UUID_V4);
 const workspaceParams = z.strictObject({ workspaceId: uuid });

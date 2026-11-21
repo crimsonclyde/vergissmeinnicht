@@ -9044,6 +9044,17 @@ dropped with this decision).
 One manifest per tool (id, routes, navigation entry, Today cards, MCP tools, backup tables) read
 by the web app and the server, then Equipment moved behind it as the proof.
 
+**Status:** DONE (not released). `TOOL_MANIFESTS` (`packages/domain/src/tool-manifest.ts`) is the
+shared manifest of every tool: navigation family, capability groups, Workspace API routes (with
+`anyOf` for routes shared by several tools) and backup tables (plus `SHARED_BACKUP_TABLES` with
+reasons). Read by: the navigation families and pages (web manifest `TOOL_PLUGINS` gained each tool's
+page), `toolForCapability` in permissions, the tool-off sweep (`toolGatesFor` replaces the test's own
+table) and a backup coverage test (every exported table owned once). Equipment is the first module:
+`apps/web/src/modules/equipment/` (pages, README as the template) and `apps/server/src/modules/
+equipment/` (routes and a `ServerToolModule`, registered from `SERVER_TOOL_MODULES`). Today cards
+already come from one registry (`TODAY_CARDS`). The other tools keep their places and move into
+modules one by one; nothing is loaded at runtime.
+
 ### 45.10 — One outbound HTTP client (M)
 Weather, Telegram, map download and ChatGPT file hosts each have their own client. One client
 with host allowlist, timeouts, size limits and redirect rules.

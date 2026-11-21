@@ -1,20 +1,20 @@
 import { useCallback, useEffect, useId, useRef, useState } from 'react';
-import { api, messageFor, type DocumentLink, type EquipmentFilters, type EquipmentRecord, type ScheduleInput, type TrashedEquipment } from './api.ts';
-import { ContactPicker } from './ContactPicker.tsx';
-import { DocumentPicker, hrefOf, RemindDialog } from './DocumentLinks.tsx';
-import { statusLabel } from './maintenance-model.ts';
-import { linkedKind, linkedRecordText } from './document-model.ts';
-import { handOver, handedOver, clearHandOver } from './handoff.ts';
-import { FormDialog } from './FormDialog.tsx';
-import { formatCalendarDate, formatRelativeDay, t } from './i18n/index.ts';
-import { Link, navigate, paths, type Route } from './router.tsx';
-import { ScheduleDialog } from './ScheduleDialog.tsx';
-import { MoreMenu } from './MoreMenu.tsx';
-import { UiIcon } from './ui-icons.tsx';
+import { api, messageFor, type DocumentLink, type EquipmentFilters, type EquipmentRecord, type ScheduleInput, type TrashedEquipment } from '../../api.ts';
+import { ContactPicker } from '../../ContactPicker.tsx';
+import { DocumentPicker, hrefOf, RemindDialog } from '../../DocumentLinks.tsx';
+import { statusLabel } from '../../maintenance-model.ts';
+import { linkedKind, linkedRecordText } from '../../document-model.ts';
+import { handOver, handedOver, clearHandOver } from '../../handoff.ts';
+import { FormDialog } from '../../FormDialog.tsx';
+import { formatCalendarDate, formatRelativeDay, t } from '../../i18n/index.ts';
+import { Link, navigate, paths, type Route } from '../../router.tsx';
+import { ScheduleDialog } from '../../ScheduleDialog.tsx';
+import { MoreMenu } from '../../MoreMenu.tsx';
+import { UiIcon } from '../../ui-icons.tsx';
 import { EquipmentForm, EQUIPMENT_FIELDS } from './EquipmentForm.tsx';
-import { MaintenanceAreaHead, MaintenanceCover } from './MaintenanceArea.tsx';
-import { localDate } from './Timeline.tsx';
-import { toneOf } from './area-art.ts';
+import { MaintenanceAreaHead, MaintenanceCover } from '../../MaintenanceArea.tsx';
+import { localDate } from '../../Timeline.tsx';
+import { toneOf } from '../../area-art.ts';
 const VIEW_KEY = 'vmn.equipmentView';
 /** "in 40 days" while a warranty ends within 90 days. */
 function warrantySoon(record: EquipmentRecord, today: string, limit: string): string | null {

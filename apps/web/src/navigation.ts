@@ -1,7 +1,7 @@
-import { orderedNavigationTools, type NavigationTool } from '@vergissmeinnicht/domain';
+import { orderedNavigationTools, toolsOfFamily, type NavigationTool, type ToolFamily } from '@vergissmeinnicht/domain';
 import { t, type MessageKey } from './i18n/index.ts';
-import { maintenanceAreaHref } from './maintenance-area.ts';
 import { paths, type Route } from './router.tsx';
+import { toolPlugin } from './tool-registry.ts';
 import type { UiIconName } from './ui-icons.tsx';
 
 export interface Destination {
@@ -33,11 +33,14 @@ export interface Navigation {
   readonly bar: readonly Destination[];
 }
 
-/** The families (section 42): one list for the desktop menu bar, the classic sidebar and the phone drawer. */
-const FAMILIES: readonly { readonly id: Exclude<NavigationGroupId, 'instruments'>; readonly label: MessageKey; readonly icon: UiIconName; readonly tools: readonly NavigationTool[] }[] = [
-  { id: 'plan', label: 'navigation.groupPlan', icon: 'plan', tools: ['PROCEDURES', 'REMINDERS', 'CALENDAR', 'MAP'] },
-  { id: 'shop', label: 'navigation.groupShop', icon: 'shop', tools: ['LISTS', 'RECIPES', 'BRING'] },
-  { id: 'house', label: 'navigation.groupHouse', icon: 'house', tools: ['EQUIPMENT', 'MAINTENANCE', 'DOCUMENTS', 'CONTACTS', 'JOURNAL'] },
+/**
+ * The families (section 42): one list for the desktop menu bar, the classic sidebar and the phone drawer.
+ * Which tool belongs to which family is part of its manifest (`TOOL_MANIFESTS`, 45.7).
+ */
+const FAMILIES: readonly { readonly id: ToolFamily; readonly label: MessageKey; readonly icon: UiIconName }[] = [
+  { id: 'plan', label: 'navigation.groupPlan', icon: 'plan' },
+  { id: 'shop', label: 'navigation.groupShop', icon: 'shop' },
+  { id: 'house', label: 'navigation.groupHouse', icon: 'house' },
 ];
 
 /** Enabled tools as destinations, in order; tools that share one area appear once. */
@@ -50,22 +53,11 @@ function destinationsOf(workspaceId: string, tools: readonly string[], list: rea
   return result;
 }
 
+/** The tool's page from its web manifest (45.7). */
 function toolDestination(workspaceId: string, tool: NavigationTool, tools: readonly string[]): Destination {
-  switch (tool) {
-    case 'PROCEDURES': return { href: paths.procedures(workspaceId), label: t('shell.procedures'), icon: 'procedures', pages: ['procedures', 'procedure-edit', 'photos'] };
-    case 'REMINDERS': return { href: paths.reminders(workspaceId), label: t('shell.reminders'), icon: 'reminders', pages: ['reminders'] };
-    case 'LISTS': return { href: paths.lists(workspaceId), label: t('shell.lists'), icon: 'lists', pages: ['lists'] };
-    case 'CALENDAR': return { href: paths.calendar(workspaceId), label: t('shell.calendar'), icon: 'calendar', pages: ['calendar'] };
-    case 'DOCUMENTS': return { href: paths.documents(workspaceId), label: t('shell.documents'), icon: 'documents', pages: ['documents'] };
-    case 'CONTACTS': return { href: paths.contacts(workspaceId), label: t('shell.contacts'), icon: 'contacts', pages: ['contacts'] };
-    // Equipment and Maintenance are one area (41.2): one entry, opening the tab used last.
-    case 'MAINTENANCE':
-    case 'EQUIPMENT': return { href: maintenanceAreaHref(workspaceId, tools) ?? paths.maintenance(workspaceId), label: t('shell.maintenance'), icon: 'maintenance', pages: ['maintenance', 'equipment'] };
-    case 'MAP': return { href: paths.map(workspaceId), label: t('map.navigation'), icon: 'gazetteMap', pages: ['map'] };
-    case 'RECIPES': return { href: paths.recipes(workspaceId), label: t('recipes.heading'), icon: 'grocery', pages: ['recipes'] };
-    case 'BRING': return { href: paths.bring(workspaceId), label: t('bring.heading'), icon: 'forward', pages: ['bring'] };
-    case 'JOURNAL': return { href: paths.journal(workspaceId), label: t('journal.heading'), icon: 'notebook', pages: ['journal'] };
-  }
+  const page = toolPlugin(tool).page;
+  if (page === undefined) throw new Error(`${tool} has no navigation page`);
+  return page(workspaceId, tools);
 }
 
 /**
@@ -82,7 +74,7 @@ export function navigation(workspaceId: string, tools: readonly string[] = [], o
     label: t(family.label),
     icon: family.icon,
     items: [
-      ...destinationsOf(workspaceId, tools, enabled.filter(tool => family.tools.includes(tool))),
+      ...destinationsOf(workspaceId, tools, enabled.filter(tool => toolsOfFamily(family.id).includes(tool))),
       // The completed history looks back on executed Procedures, so it is there only with Procedures.
       ...(family.id === 'plan' && tools.includes('PROCEDURES') ? [history] : []),
     ],

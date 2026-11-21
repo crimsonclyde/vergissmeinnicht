@@ -1,8 +1,8 @@
 import { useId, useState } from 'react';
-import { api, type EquipmentFilters, type EquipmentInput, type EquipmentRecord } from './api.ts';
-import { PhoneEditorDialog } from './mobile/PhoneEditorDialog.tsx';
-import { t } from './i18n/index.ts';
-import { UiIcon } from './ui-icons.tsx';
+import { api, type EquipmentFilters, type EquipmentInput, type EquipmentRecord } from '../../api.ts';
+import { PhoneEditorDialog } from '../../mobile/PhoneEditorDialog.tsx';
+import { t } from '../../i18n/index.ts';
+import { UiIcon } from '../../ui-icons.tsx';
 
 export const EQUIPMENT_FIELDS = ['name', 'manufacturer', 'model', 'replacementParts', 'category', 'location', 'serialNumber', 'purchaseDate', 'warrantyExpiry', 'notes'] as const;
 const PRIMARY = ['name', 'manufacturer', 'model', 'replacementParts'] as const;

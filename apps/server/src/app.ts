@@ -36,7 +36,7 @@ import { imageRoutes } from './http/image-routes.ts';
 import { adminStorageRoutes, workspaceStorageRoutes } from './http/storage-routes.ts';
 import { linkRoutes } from './http/link-routes.ts';
 import { contactRoutes } from './http/contact-routes.ts';
-import { equipmentRoutes } from './http/equipment-routes.ts';
+import { SERVER_TOOL_MODULES } from './modules/index.ts';
 import { maintenanceRoutes } from './http/maintenance-routes.ts';
 import { adminInvitationRoutes, invitationRoutes } from './http/invitation-routes.ts';
 import { knotRoutes, workspaceKnotRoutes } from './http/knot-routes.ts';
@@ -283,7 +283,7 @@ export async function buildApp(options: AppOptions = {}) {
         await api.register(workspaceStorageRoutes, { prefix: '/workspaces/:workspaceId/storage', services });
         await api.register(linkRoutes, { prefix: '/workspaces/:workspaceId', services });
         await api.register(contactRoutes, { prefix: '/workspaces/:workspaceId', services });
-        await api.register(equipmentRoutes, { prefix: '/workspaces/:workspaceId', services });
+        for (const module of SERVER_TOOL_MODULES) await module.register(api, services);
         await api.register(maintenanceRoutes, { prefix: '/workspaces/:workspaceId', services });
         await api.register(workspaceToolRoutes, { prefix: '/workspaces/:workspaceId/tools', services });
         await api.register(workspaceBackupRoutes, { prefix: '/workspaces/:workspaceId/backups', services });

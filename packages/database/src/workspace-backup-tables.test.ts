@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { SHARED_BACKUP_TABLES, TOOL_MANIFESTS } from '@vergissmeinnicht/domain';
 import { createTestDatabase } from './test-support.ts';
 import { EXCLUDED_TABLES, EXPORTED_TABLES } from './workspace-backup-tables.ts';
 
@@ -97,5 +98,9 @@ describe('Workspace backup allowlist (section 18)', () => {
       expect(spec.from).toMatch(/\?/);
       expect(spec.from).not.toMatch(/\$\{|'/);
     }
+  });
+  it('assigns every exported table to one tool manifest or to the shared tables (45.8)', () => {
+    const owned = [...TOOL_MANIFESTS.flatMap((manifest) => manifest.backupTables), ...Object.keys(SHARED_BACKUP_TABLES)].sort();
+    expect(owned).toEqual(EXPORTED_TABLES.map((spec) => spec.table).sort());
   });
 });
