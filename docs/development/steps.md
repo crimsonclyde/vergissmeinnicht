@@ -18,6 +18,16 @@ For every completed task, add a concise completion note, tests/checks performed,
 
 ## Current state — resume here
 
+**Release 78 preparation — 0.17.1 (owner request, 2026-11-21 Europe/Berlin).**
+Publish the top bar on every page and the weather link to the Daily Planet's weather section
+(§47, PR #137) as stable tag `v0.17.1`, GitHub title `0.17.1`, image
+`ghcr.io/crimsonclyde/vergissmeinnicht:0.17.1`. Patch bump: an improvement to the 0.17.0 top bar.
+No new migration; schema stays **0085**. Upgrades checked from 0.17.0, 0.16.1, 0.16.0 and
+0.10.1-beta.0. The owner count stays **77** until publication succeeds, then becomes **78**
+(next **79**); the special 42nd release and dedication remain unchanged. The picomatch audit
+disposition expires 2026-11-24 UTC; this release falls before it. Live deployment is separate.
+[Release notes](../releases/0.17.1.md).
+
 **Published owner release 77 (2026-11-21 Europe/Berlin): 0.17.0.**
 Stable tag `v0.17.0` points to `740cdf513579b755af9e2f4fb5767ef3ac470411` (release PR #134,
 with PRs #132 top bar and #133 modularity plan 45). Main CI on that commit passed. The tagged
