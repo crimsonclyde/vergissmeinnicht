@@ -18,6 +18,16 @@ For every completed task, add a concise completion note, tests/checks performed,
 
 ## Current state — resume here
 
+**Release 77 preparation — 0.17.0 (owner request, 2026-11-21 Europe/Berlin).**
+Publish the theme-decided navigation (§46, PR #132) and the modularity plan (§45, PR #133) as
+stable tag `v0.17.0`, GitHub title `0.17.0`, image `ghcr.io/crimsonclyde/vergissmeinnicht:0.17.0`.
+New minor version: the top bar, the Settings theme and the AI assistants switch are visible changes.
+Migrations **0083–0085** (schema 0085). Upgrades checked from 0.16.1, 0.16.0, 0.15.4 and
+0.10.1-beta.0. The owner count stays **76** until publication succeeds, then becomes **77**
+(next **78**); the special 42nd release and dedication remain unchanged. The picomatch audit
+disposition expires 2026-11-24 UTC; this release falls before it. Live deployment is separate.
+[Release notes](../releases/0.17.0.md).
+
 **Published owner release 76 (2026-11-17 Europe/Berlin): 0.16.1.**
 Stable tag `v0.16.1` points to `f69e6754df336a9922cafe67cdbc84d06aaa4620` (PR #131).
 Managed regional Map downloads/updates (§44.2) and the reviewed build-matcher mitigation
