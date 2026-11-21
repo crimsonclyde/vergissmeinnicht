@@ -1,5 +1,6 @@
 import { parseBringContent, type BringContent, type BringItem, type BringStatus, type User, type WorkspaceId } from '@vergissmeinnicht/domain';
-import { authorizeTool, type ToolDeps } from './documents/tools.ts';
+import type { ToolDeps } from './documents/tools.ts';
+import { requireTool } from './tools/require-tool.ts';
 import { NotAuthorizedError } from './invitations/errors.ts';
 import type { UserRepository } from './ports/user-repository.ts';
 export class BringNotFoundError extends Error {}
@@ -15,7 +16,7 @@ export interface BringDeps extends ToolDeps { users: UserRepository; bring: Brin
 async function enter(deps: BringDeps, actor: User, workspaceId: WorkspaceId, write = false) {
  const current = await deps.users.findById(actor.id);
  if (current?.status !== 'ACTIVE') throw new NotAuthorizedError();
- await authorizeTool(deps, current, workspaceId, 'BRING', write ? 'transfer.manage' : 'transfer.view');
+ await requireTool(deps, current, workspaceId, 'BRING', write ? 'transfer.manage' : 'transfer.view');
 }
 export async function listBring(deps: BringDeps, actor: User, workspaceId: WorkspaceId, query: BringQuery) {
  await enter(deps, actor, workspaceId);

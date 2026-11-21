@@ -90,7 +90,7 @@ describe('per-Workspace preferences API (section 28)', () => {
     await t.post(THEME, { workspaceId: home, theme: 'dark' }, bob);
     await t.post(THEME, { workspaceId: van, theme: 'dark' }, bob);
     const sql = t.database.sqlite;
-    expect(() => sql.prepare("UPDATE user_workspace_preferences SET theme = 'neon'").run()).toThrow(/CHECK constraint failed/);
+    expect(() => sql.prepare("UPDATE user_workspace_preferences SET theme = 'neon'").run()).toThrow(/FOREIGN KEY constraint failed/);
     expect(() => sql.prepare('UPDATE user_workspace_preferences SET theme = NULL').run()).toThrow(/CHECK constraint failed/);
     expect(() => sql.prepare('UPDATE user_workspace_preferences SET is_default = 1').run()).toThrow(/UNIQUE constraint failed/);
   });

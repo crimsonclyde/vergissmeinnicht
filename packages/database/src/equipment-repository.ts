@@ -5,9 +5,9 @@ import { and, asc, count, desc, eq, inArray, isNotNull, isNull, gt, ne, or, sql,
 import { IMMEDIATE, actorAllowed, type Transaction, type UserActor } from './actor-guard.ts';
 import { recordAuditEvent } from './audit-events.ts';
 import type { AppDatabase } from './connection.ts';
-import { recordToolEnabled } from './tool-policy.ts';
+import { recordToolEnabled, toolEnabled } from './tool-policy.ts';
 import { linkedRecord, markLinksOfPurged } from './link-repository.ts';
-import { links, equipmentRecords, maintenanceRecords, workspaceTools } from './schema.ts';
+import { links, equipmentRecords, maintenanceRecords } from './schema.ts';
 type Reader = Pick<Transaction, 'select'>;
 type Row = typeof equipmentRecords.$inferSelect;
 /** Rolls the transaction back with a refusal: nothing of a refused write is kept. */
@@ -17,13 +17,6 @@ class Refusal extends Error {
         super(status);
         this.status = status;
     }
-}
-function toolEnabled(tx: Reader, workspaceId: string): boolean {
-    return (tx
-        .select({ enabled: workspaceTools.enabled })
-        .from(workspaceTools)
-        .where(and(eq(workspaceTools.workspaceId, workspaceId), eq(workspaceTools.tool, 'EQUIPMENT')))
-        .get()?.enabled === true);
 }
 function recordOf(row: Row): EquipmentRecord {
     const { id, name, category, location, manufacturer, model, serialNumber, purchaseDate, warrantyExpiry, notes, revision, createdAt, updatedAt } = row;
@@ -60,7 +53,7 @@ export function createEquipmentRepository({ db }: Pick<AppDatabase, 'db'>): Equi
             return db.transaction((tx) => {
                 if (!actorAllowed(tx, workspaceId, actor, guard))
                     throw new Refusal('forbidden');
-                if (!toolEnabled(tx, workspaceId))
+                if (!toolEnabled(tx, workspaceId, 'EQUIPMENT'))
                     throw new Refusal('tool_disabled');
                 return { status: 'ok' as const, ...change(tx) };
             }, IMMEDIATE);

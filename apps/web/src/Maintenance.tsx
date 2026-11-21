@@ -1,5 +1,5 @@
 import { PhoneEditorDialog } from './mobile/PhoneEditorDialog.tsx';
-import { EquipmentPickerDialog } from './Equipment.tsx';
+import { EquipmentPickerDialog } from './modules/equipment/Equipment.tsx';
 import { useCoreTools } from './core-tools.ts';
 import { MaintenanceAreaHead, MaintenanceCover } from './MaintenanceArea.tsx';
 import { useCallback, useEffect, useId, useRef, useState, type DragEvent, type FormEvent } from 'react';

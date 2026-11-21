@@ -30,9 +30,9 @@ import { and, asc, count, desc, eq, inArray, isNotNull, isNull, lt, ne, or, sql,
 import { IMMEDIATE, actorAllowed, type Transaction, type UserActor } from './actor-guard.ts';
 import { recordAuditEvent } from './audit-events.ts';
 import type { AppDatabase } from './connection.ts';
-import { recordToolEnabled, toolEnabled as linkedToolEnabled } from './tool-policy.ts';
+import { recordToolEnabled, toolEnabled } from './tool-policy.ts';
 import { linkedRecord, markLinksOfPurged } from './link-repository.ts';
-import { contacts, equipmentRecords, links, maintenanceRecords, workspaceTools } from './schema.ts';
+import { contacts, equipmentRecords, links, maintenanceRecords } from './schema.ts';
 
 type Reader = Pick<Transaction, 'select'>;
 type Row = typeof maintenanceRecords.$inferSelect;
@@ -46,15 +46,6 @@ class Refusal extends Error {
   }
 }
 
-function toolEnabled(tx: Reader, workspaceId: string): boolean {
-  return (
-    tx
-      .select({ enabled: workspaceTools.enabled })
-      .from(workspaceTools)
-      .where(and(eq(workspaceTools.workspaceId, workspaceId), eq(workspaceTools.tool, 'MAINTENANCE')))
-      .get()?.enabled === true
-  );
-}
 
 /** The responsible Contacts of some records, by id: a name while the Contact is there, `null` for one in Trash or gone. */
 function contactRefs(tx: Reader, workspaceId: string, rows: readonly Row[], scope: MaintenanceScope): Map<string, MaintenanceContactRef> {
@@ -132,7 +123,7 @@ const day = (at: Date): string => at.toISOString().slice(0, 10);
 /** The responsible Contact must be a Contact of this Workspace that is not in Trash. */
 function requireContact(tx: Reader, workspaceId: string, contactId: string | null): void {
   if (contactId === null) return;
-  if (!linkedToolEnabled(tx, workspaceId, 'CONTACTS')) throw new Refusal('contact_not_found');
+  if (!toolEnabled(tx, workspaceId, 'CONTACTS')) throw new Refusal('contact_not_found');
   const contact = tx
     .select({ id: contacts.id })
     .from(contacts)
@@ -156,7 +147,7 @@ export function createMaintenanceRepository({ db }: Pick<AppDatabase, 'db'>): Ma
     try {
       return db.transaction((tx) => {
         if (!actorAllowed(tx, workspaceId, actor, guard)) throw new Refusal('forbidden');
-        if (!toolEnabled(tx, workspaceId)) throw new Refusal('tool_disabled');
+        if (!toolEnabled(tx, workspaceId, 'MAINTENANCE')) throw new Refusal('tool_disabled');
         return { status: 'ok' as const, ...change(tx) };
       }, IMMEDIATE);
     } catch (error) {

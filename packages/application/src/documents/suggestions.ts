@@ -7,7 +7,7 @@ import type { DocumentTextRepository } from '../ports/document-texts.ts';
 import type { WorkspaceRepository } from '../ports/workspace-repository.ts';
 import { userActor } from '../user-actor.ts';
 import { DocumentNotFoundError, InvalidSuggestionError } from './errors.ts';
-import { authorizeTool } from './tools.ts';
+import { requireTool } from '../tools/require-tool.ts';
 
 export interface SuggestionDeps {
   readonly workspaces: WorkspaceRepository;
@@ -48,7 +48,7 @@ function alreadySo(document: DocumentRecord, suggestion: DocumentSuggestion): bo
  * Document already says are left out.
  */
 export async function documentSuggestions(deps: SuggestionDeps, input: { readonly actor: User; readonly workspaceId: WorkspaceId; readonly documentId: string }): Promise<OfferedSuggestion[]> {
-  await authorizeTool(deps, input.actor, input.workspaceId, 'DOCUMENTS', 'document.manage');
+  await requireTool(deps, input.actor, input.workspaceId, 'DOCUMENTS', 'document.manage');
   const documentId = parseDocumentId(input.documentId);
   const document = await deps.documents.findDocument(input.workspaceId, documentId);
   if (document === undefined) throw new DocumentNotFoundError();
@@ -65,7 +65,7 @@ export async function dismissSuggestion(
   deps: SuggestionDeps,
   input: { readonly actor: User; readonly workspaceId: WorkspaceId; readonly documentId: string; readonly field: string; readonly value: string },
 ): Promise<void> {
-  await authorizeTool(deps, input.actor, input.workspaceId, 'DOCUMENTS', 'document.manage');
+  await requireTool(deps, input.actor, input.workspaceId, 'DOCUMENTS', 'document.manage');
   const documentId = parseDocumentId(input.documentId);
   const field = parseSuggestionField(input.field);
   if (field === undefined || input.value.trim() === '' || input.value.length > 300) throw new InvalidSuggestionError();

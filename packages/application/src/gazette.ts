@@ -2,7 +2,8 @@ import {
   assertGazetteDateWritable, parseGazetteWatchFields, parseGazetteWatchImport, parseGazettePriceObservations, type GazetteWatchFields, type GazettePriceObservationInput, type GazetteWatchItemView, gazetteOldestKept, gazettePreview, gazetteToday, parseGazetteEdition, parseGazetteSettings, parseLocalDate,
   parseGazetteHeaderSettings, addDays, DEFAULT_GAZETTE_WEATHER_SETTINGS, gazetteWeatherPlan, type GazetteHeaderSettings, type GazetteEdition, type GazetteEditionContent, type GazetteEditionSummary, type GazettePreview, type GazetteSettings, type LocalDate, type User, type WorkspaceId,
 } from '@vergissmeinnicht/domain';
-import { authorizeTool, type ToolDeps } from './documents/tools.ts';
+import type { ToolDeps } from './documents/tools.ts';
+import { requireTool } from './tools/require-tool.ts';
 import { NotAuthorizedError } from './invitations/errors.ts';
 import type { PlaceBackgroundProcessor } from './ports/places.ts';
 import type { UserRepository } from './ports/user-repository.ts';
@@ -59,7 +60,7 @@ type Level = 'view' | 'publish' | 'manage';
 export async function authorizeGazette(deps: GazetteDeps, actor: User, workspaceId: WorkspaceId, level: Level = 'view') {
   const current = await deps.users.findById(actor.id);
   if (current?.status !== 'ACTIVE') throw new NotAuthorizedError();
-  await authorizeTool(deps, current, workspaceId, 'GAZETTE', `gazette.${level}`);
+  await requireTool(deps, current, workspaceId, 'GAZETTE', `gazette.${level}`);
 }
 async function canPublish(deps: GazetteDeps, actor: User, workspaceId: WorkspaceId): Promise<boolean> {
   try { await authorizeGazette(deps, actor, workspaceId, 'publish'); return true; } catch (error) { if (error instanceof NotAuthorizedError) return false; throw error; }

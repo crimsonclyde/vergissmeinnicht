@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs';
 import { randomUUID } from 'node:crypto';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { normalizeEquipmentContent, type WorkspaceId, type UserId } from '@vergissmeinnicht/domain';
-import { ORIGIN, startTestApp } from './test-harness.ts';
+import { ORIGIN, startTestApp } from '../../http/test-harness.ts';
 describe('Equipment HTTP, transactions and links (16.8)', () => {
     let t: Awaited<ReturnType<typeof startTestApp>>;
     let home: string;

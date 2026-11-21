@@ -19,7 +19,7 @@ import {
 import { roleHasCapability, type WorkspaceCapability } from '@vergissmeinnicht/permissions';
 import { ContactNotFoundError } from '../contacts/errors.ts';
 import { ToolNotEnabledError } from '../documents/errors.ts';
-import { authorizeTool } from '../documents/tools.ts';
+import { requireTool } from '../tools/require-tool.ts';
 import { NotAuthorizedError } from '../invitations/errors.ts';
 import { AlreadyLinkedError, LinkNotFoundError, LinkTargetNotFoundError } from '../links/use-cases.ts';
 import type { ActorGuard } from '../ports/actor-guard.ts';
@@ -127,7 +127,7 @@ function ok<T>(result: MaintenanceWrite<T>): { readonly status: 'ok' } & T {
  * that tool is switched on **and** the viewer has its view capability.
  */
 async function enter(deps: MaintenanceDeps, input: Ref, capability: WorkspaceCapability): Promise<MaintenanceScope> {
-  await authorizeTool(deps, input.actor, input.workspaceId, 'MAINTENANCE', capability);
+  await requireTool(deps, input.actor, input.workspaceId, 'MAINTENANCE', capability);
   const membership = await authorizeWorkspace(deps, input.actor, input.workspaceId, 'workspace.view');
   const on = await deps.tools.enabled(input.workspaceId);
   return {
@@ -149,7 +149,7 @@ export async function findMaintenance(
 ): Promise<MaintenanceListing> {
   const scope = await enter(deps, input, 'maintenance.view');
   const query = parseMaintenanceQuery(input.query);
-  if (query.equipmentId !== null) await authorizeTool(deps,input.actor,input.workspaceId,'EQUIPMENT','equipment.view');
+  if (query.equipmentId !== null) await requireTool(deps,input.actor,input.workspaceId,'EQUIPMENT','equipment.view');
   // A filter by Contact exists only where Contacts are shown.
   if (query.contactId !== null && !scope.contacts) throw new ToolNotEnabledError();
   let after: MaintenanceCursor | null = null;
@@ -284,7 +284,7 @@ export async function listMaintenanceLinks(deps: MaintenanceDeps, input: Ref & {
 export async function addMaintenanceLink(deps: MaintenanceDeps, input: Ref & { readonly recordId: string; readonly target: { readonly type: string; readonly id: string } }): Promise<MaintenanceLink> {
   const scope = await enter(deps, input, 'maintenance.manage');
   const target = parseMaintenanceLinkTarget(input.target);
-  if (target.type === 'document') await authorizeTool(deps, input.actor, input.workspaceId, 'DOCUMENTS', 'document.view');
+  if (target.type === 'document') await requireTool(deps, input.actor, input.workspaceId, 'DOCUMENTS', 'document.view');
   else await authorizeWorkspace(deps, input.actor, input.workspaceId, VIEW_OF[target.type], target.type === 'schedule' ? null : undefined);
   const linker: ActorGuard = { actorMay: (role) => roleHasCapability(role, 'maintenance.manage') && roleHasCapability(role, VIEW_OF[target.type]) };
   return ok(await deps.maintenance.addLink({ workspaceId: input.workspaceId, recordId: parseMaintenanceRecordId(input.recordId), target, at: deps.clock.now(), scope }, userActor(input.actor), linker)).link;

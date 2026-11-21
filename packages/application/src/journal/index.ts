@@ -1,6 +1,7 @@
 import { parseJournalContent, type JournalDraft, type JournalRevision, type JournalContent, type JournalEntry, type JournalScope, type User, type WorkspaceId } from '@vergissmeinnicht/domain';
 import { roleHasCapability } from '@vergissmeinnicht/permissions';
-import { authorizeTool, type ToolDeps } from '../documents/tools.ts';
+import type { ToolDeps } from '../documents/tools.ts';
+import { requireTool } from '../tools/require-tool.ts';
 import { NotAuthorizedError } from '../invitations/errors.ts';
 import type { UserRepository } from '../ports/user-repository.ts';
 
@@ -27,7 +28,7 @@ export async function authorizeJournal(deps: JournalDeps, actor: User, workspace
   const current = await deps.users.findById(actor.id);
   if (current?.status !== 'ACTIVE') throw new NotAuthorizedError();
   if (workspaceId !== undefined) {
-    await authorizeTool(deps, current, workspaceId, 'JOURNAL', write ? 'journal.manage' : 'journal.view');
+    await requireTool(deps, current, workspaceId, 'JOURNAL', write ? 'journal.manage' : 'journal.view');
     return { workspaceId };
   }
   if (write && !await deps.journal.privacy(current)) throw new JournalConsentError();

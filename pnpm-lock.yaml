@@ -251,6 +251,9 @@ importers:
       '@vergissmeinnicht/notifications':
         specifier: workspace:*
         version: link:../../packages/notifications
+      '@vergissmeinnicht/outbound':
+        specifier: workspace:*
+        version: link:../../packages/outbound
       '@vergissmeinnicht/realtime':
         specifier: workspace:*
         version: link:../../packages/realtime
@@ -507,6 +510,15 @@ importers:
       '@vergissmeinnicht/application':
         specifier: workspace:*
         version: link:../application
+      '@vergissmeinnicht/outbound':
+        specifier: workspace:*
+        version: link:../outbound
+    devDependencies:
+      '@types/node':
+        specifier: 24.13.6
+        version: 24.13.6
+
+  packages/outbound:
     devDependencies:
       '@types/node':
         specifier: 24.13.6
@@ -534,6 +546,9 @@ importers:
       '@vergissmeinnicht/domain':
         specifier: workspace:*
         version: link:../domain
+      '@vergissmeinnicht/outbound':
+        specifier: workspace:*
+        version: link:../outbound
     devDependencies:
       '@types/node':
         specifier: 24.13.6

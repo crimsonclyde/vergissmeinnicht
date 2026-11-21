@@ -16,8 +16,8 @@ const firstWeatherId = (value: unknown) => finite(isRecord(array(value)[0]) ? (a
  * an error (see `getJson`). One request = one billed call; 1 000/day are free, more are charged
  * automatically by OpenWeather, so VMN's daily budget never exceeds 1 000 (W5). No elevation parameter.
  */
-export function createOpenWeather(options: { readonly fetch?: Fetch } = {}): WeatherProviderAdapter {
-  const doFetch = options.fetch ?? fetch;
+export function createOpenWeather(options: { readonly fetch?: Fetch | undefined } = {}): WeatherProviderAdapter {
+  const doFetch = options.fetch;
   return {
     id: 'OPENWEATHER',
     queriesPerForecast: 1,

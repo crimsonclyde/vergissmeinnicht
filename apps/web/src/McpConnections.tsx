@@ -213,19 +213,19 @@ export function McpConnections({workspaces,currentUserId}:{workspaces:readonly W
         <legend className="area-group">{t('mcp.chooseWorkspaces')}</legend>
         {workspaces?.length === 0 && <p>{t('mcp.noWorkspaces')}</p>}
         <ul className="plain-list area-rows">
-          {workspaces?.map(workspace => <li key={workspace.id}>
-            <label className="area-row mcp-pick">
+          {workspaces?.map(workspace => { const blocked = consent.blockedWorkspaceIds?.includes(workspace.id) === true; return <li key={workspace.id}>
+            <label className="area-row mcp-pick" title={blocked ? t('aiAssistants.blocked') : undefined}>
               <span className="area-row-icon" aria-hidden="true"><UiIcon name="grid" /></span>
               <span className="item-body"><strong>{workspace.name}</strong></span>
               <input type="checkbox" className="switch" checked={selected.includes(workspace.id)}
                 aria-label={workspace.name}
-                disabled={selected.length >= 32 && !selected.includes(workspace.id)}
+                disabled={blocked || (selected.length >= 32 && !selected.includes(workspace.id))}
                 onChange={event => {
                   const checked = event.currentTarget.checked;
                   setSelected(current => checked ? [...current,workspace.id] : current.filter(id => id !== workspace.id));
                 }} />
             </label>
-          </li>)}
+          </li>; })}
         </ul>
       </fieldset>
       <fieldset className="stack" disabled={busy}>

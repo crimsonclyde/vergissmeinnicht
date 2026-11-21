@@ -1,12 +1,11 @@
 import { parseWorkspaceTool, type User, type WorkspaceId, type WorkspaceTool } from '@vergissmeinnicht/domain';
-import { roleHasCapability, type WorkspaceCapability } from '@vergissmeinnicht/permissions';
+import { roleHasCapability } from '@vergissmeinnicht/permissions';
 import { NotAuthorizedError } from '../invitations/errors.ts';
 import type { Clock } from '../ports/clock.ts';
 import type { WorkspaceToolRepository } from '../ports/document-repository.ts';
 import type { WorkspaceRepository } from '../ports/workspace-repository.ts';
 import { userActor } from '../user-actor.ts';
 import { authorizeWorkspace } from '../workspaces/use-cases.ts';
-import { ToolNotEnabledError } from './errors.ts';
 
 export interface ToolDeps {
   readonly workspaces: WorkspaceRepository;
@@ -19,19 +18,6 @@ export class ToolSettingsConflictError extends Error {
     super('Workspace tools were changed meanwhile');
     this.name = 'ToolSettingsConflictError';
   }
-}
-
-/**
- * The gate of every route of an optional tool: the actor is a member with the capability **and** the
- * tool is switched on in this Workspace. A disabled tool looks like an unknown resource (404) — to
- * everyone, admins included; its data stays where it is.
- */
-export async function authorizeTool(deps: Pick<ToolDeps, 'workspaces' | 'tools'>, actor: User, workspaceId: WorkspaceId, tool: WorkspaceTool, capability: WorkspaceCapability): Promise<void> {
-  // Membership first (a non-member learns nothing), then the switch (a disabled tool is 404 whatever the
-  // member's role), then the capability.
-  const membership = await authorizeWorkspace(deps, actor, workspaceId, 'workspace.view');
-  if (!(await deps.tools.enabled(workspaceId)).includes(tool)) throw new ToolNotEnabledError();
-  if (!roleHasCapability(membership.role, capability)) throw new NotAuthorizedError();
 }
 
 /** The optional tools switched on in the Workspace: every member may know (it decides what the navigation shows). */

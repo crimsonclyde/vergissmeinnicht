@@ -424,11 +424,11 @@ describe('Workspace storage, export and permanent deletion (16.4)', () => {
     // Demoted between the use-case's check and the deleting transaction: nothing is deleted.
     const demotingTools: DocumentExportDeps = {
       ...docs,
-      tools: {
-        ...docs.tools,
-        enabled: async (workspaceId) => {
+      workspaces: {
+        ...docs.workspaces,
+        enabledTools: async (workspaceId) => {
           await demote('USER');
-          return docs.tools.enabled(workspaceId);
+          return docs.workspaces.enabledTools(workspaceId);
         },
       },
     };
@@ -452,11 +452,11 @@ describe('Workspace storage, export and permanent deletion (16.4)', () => {
     // … for an export by someone who was removed meanwhile (nothing is recorded as exported) …
     const removing: DocumentExportDeps = {
       ...docs,
-      tools: {
-        ...docs.tools,
-        enabled: async (workspaceId) => {
+      workspaces: {
+        ...docs.workspaces,
+        enabledTools: async (workspaceId) => {
           await removeMember(members, { actor: admin, workspaceId: home.id, userId: ana.id });
-          return docs.tools.enabled(workspaceId);
+          return docs.workspaces.enabledTools(workspaceId);
         },
       },
     };

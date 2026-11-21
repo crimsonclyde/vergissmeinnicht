@@ -204,6 +204,9 @@ interface TablePlan {
  * `pragma_foreign_key_list` with the table name bound). The INSERT statement is built from those column names —
  * checked against a strict identifier pattern, never from the package — and binds every value.
  */
+/** Server-wide lookup tables (45.3): never part of a package, and their ids are the same on every server. */
+const LOOKUP_TABLES: ReadonlySet<string> = new Set(['theme_ids', 'tool_ids']);
+
 function planTables(sqlite: AppDatabase['sqlite']): Map<string, TablePlan> {
   const columnsOf = sqlite.prepare('SELECT name, pk FROM pragma_table_info(?) ORDER BY cid');
   const keysOf = sqlite.prepare('SELECT "from" AS column, "table" AS target, "to" AS targetColumn FROM pragma_foreign_key_list(?)');
@@ -224,6 +227,8 @@ function planTables(sqlite: AppDatabase['sqlite']): Map<string, TablePlan> {
       else if (spec.userColumns.includes(column)) rules.set(column, { kind: 'person' });
       else if (references.some((key) => key.target === 'users')) throw new Error(`${spec.table}.${column} refers to users but is no person column`);
       else if (references.some((key) => key.target === 'procedure_icons')) rules.set(column, { kind: 'icon' });
+      // Lookup ids (45.3: theme and tool ids) are copied as they are; the foreign key refuses an unknown one.
+      else if (references.length > 0 && references.every((key) => LOOKUP_TABLES.has(key.target))) rules.set(column, { kind: 'copy' });
       else if (references.length > 0) {
         const direct = references.find((key) => exported.has(key.target) && (key.targetColumn ?? 'id') === 'id');
         if (direct === undefined) throw new Error(`${spec.table}.${column} refers to a table that is not restored`);

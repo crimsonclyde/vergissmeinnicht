@@ -1,4 +1,4 @@
-import { THEME_PREFERENCES, placeOfTheme, type ThemePreference } from '@vergissmeinnicht/domain';
+import { THEME_PREFERENCES, THEME_REGISTRY, placeOfTheme, schemeOfTheme, type ThemePreference } from '@vergissmeinnicht/domain';
 import { PLACES } from './places/registry.ts';
 import { PLACE_TOKEN_NAMES } from './places/types.ts';
 import { useCallback, useSyncExternalStore } from 'react';
@@ -12,16 +12,18 @@ import { parseRoute, type Route } from './router.tsx';
  * A named preset (such as "Memento Mori") is one more entry in THEMES plus one token block in the
  * stylesheet, and one more mode — no component changes.
  */
-// `dark` remains a valid saved/API value, but has one visible successor.
-export const THEME_MODES = THEME_PREFERENCES.filter(mode => mode !== 'dark');
+// `dark` remains a valid saved/API value, but has one visible successor (an `alias` in the theme
+// registry, 45.4); `system` is the other alias and stays pickable: it follows the device.
+export const THEME_MODES = THEME_REGISTRY.filter(theme => theme.id !== 'dark').map(theme => theme.id);
 export const canonicalThemeMode = (mode: ThemePreference): ThemePreference => mode === 'dark' ? 'memento-mori' : mode;
 export type ThemeMode = ThemePreference;
 
 /**
  * Theme ids = `data-theme` values; each has a token block (incl. `color-scheme`) in styles.css — except
- * `places` (section 30), whose tokens come from the country registry and are set on <html> by `apply`.
+ * `places` (section 30), whose tokens come from the country registry and are set on <html> by `apply`,
+ * and `settings` (45.6, `settings-theme.css`), the one theme of every Settings page; never pickable.
  */
-export const THEMES = ['light', 'dark', 'memento-mori', 'tokyo-nights', 'witch-forest', 'space-guide', 'places'] as const;
+export const THEMES = ['light', 'dark', 'memento-mori', 'tokyo-nights', 'witch-forest', 'space-guide', 'places', 'settings'] as const;
 export type ThemeId = (typeof THEMES)[number];
 
 const STORAGE_KEY = 'vmn.theme';
@@ -142,6 +144,7 @@ export function usesSettingsTheme(route: Route): boolean {
 }
 
 function displayedMode(): ThemeMode {
+  // A Settings page has no scene and no Places look; its colours come from the Settings theme (45.6).
   return settingsTheme ? 'memento-mori' : effectiveMode(currentMode, workspaceMode);
 }
 
@@ -153,11 +156,15 @@ function apply(): void {
   const root = document.documentElement;
   const mode = displayedMode();
   const dark = systemPrefersDark();
-  root.dataset.theme = resolveTheme(mode, dark);
+  // Settings pages always show the Settings theme (45.6); it is never a saved preference.
+  root.dataset.theme = settingsTheme ? 'settings' : resolveTheme(mode, dark);
   const place = placeAttributes(mode, dark);
   if (place === null) {
     delete root.dataset.place;
-    delete root.dataset.scheme;
+    // Feature CSS reads the scheme, never theme ids (45.5).
+    const scheme = schemeOfTheme(root.dataset.theme ?? '');
+    if (scheme === null) delete root.dataset.scheme;
+    else root.dataset.scheme = scheme;
     for (const name of PLACE_PROPERTIES) root.style.removeProperty(name);
     root.style.removeProperty('color-scheme');
   } else {
@@ -217,7 +224,7 @@ const subscribe = (listener: () => void) => {
 const chosenMode = (): ThemeMode => effectiveMode(currentMode, workspaceMode);
 /**
  * The theme the person chose for the Workspace shown, ignoring the settings override: the top bar of a
- * top-bar theme (46) stays the same on settings pages, which are shown in Memento Mori.
+ * top-bar theme (46) stays the same on settings pages, which are shown in the Settings theme (45.6).
  */
 export function useChosenThemeMode(): ThemeMode {
   return useSyncExternalStore(subscribe, chosenMode);

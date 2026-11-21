@@ -12,7 +12,7 @@ import { usePlaceSettings } from './settings-store.ts';
  * sign-in (and without a Workspace) it is the country's illustration with the defaults; signed in, it is
  * the person's own look for the Workspace being shown.
  */
-export function PlaceScene({ userId, workspaceId, prominence }: { userId?: string; workspaceId?: string | null; prominence: PlaceProminence }) {
+export function PlaceScene({ userId, workspaceId, prominence }: { userId?: string | undefined; workspaceId?: string | null; prominence: PlaceProminence }) {
   const [mode] = useThemeMode();
   const config = placeForTheme(mode);
   if (config === null) return null;

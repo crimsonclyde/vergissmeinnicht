@@ -26,6 +26,7 @@ import {
   FolderNotFoundError,
   NameTakenError,
   ToolNotEnabledError,
+  AiAssistantsBlockedError,
   TextRetryNotPossibleError,
   InvalidSuggestionError,
   ToolSettingsConflictError,
@@ -147,6 +148,7 @@ export function errorHandler(error: FastifyError | Error, request: FastifyReques
   if (error instanceof JournalConsentError) return reply.code(403).send({ error: 'journal_consent_required' });
   if (error instanceof JournalConflictError) return reply.code(409).send({ error: 'journal_conflict' });
   if (error instanceof WorkspaceLocationConflictError) return reply.code(409).send({ error: 'workspace_location_conflict' });
+  if (error instanceof AiAssistantsBlockedError) return reply.code(403).send({ error: 'ai_assistants_off' });
   if (error instanceof NotAuthorizedError) return reply.code(403).send({ error: 'forbidden' });
   if (error instanceof InvalidInvitationError) return reply.code(404).send({ error: 'invalid_invitation' });
   if (error instanceof InvitationNotRevocableError) return reply.code(409).send({ error: 'invitation_not_pending' });

@@ -26,8 +26,8 @@ const WEATHER_VALUES = ['min', 'max', 'precipitationSum', 'precipitationProbabil
  * Open-Meteo (19.4): forecasts with a chosen model, which models cover a place (W2), and place search.
  * Free for non-commercial use, no key; CC BY 4.0 (attribution shown with every forecast).
  */
-export function createOpenMeteo(options: { readonly fetch?: Fetch } = {}): WeatherProviderAdapter & OpenMeteoModelsPort & GeocoderPort {
-  const doFetch = options.fetch ?? fetch;
+export function createOpenMeteo(options: { readonly fetch?: Fetch | undefined } = {}): WeatherProviderAdapter & OpenMeteoModelsPort & GeocoderPort {
+  const doFetch = options.fetch;
 
   const place = (url: URL, query: { latitude: number; longitude: number; elevation: number | null; timeZone: string }) => {
     url.searchParams.set('latitude', String(query.latitude));

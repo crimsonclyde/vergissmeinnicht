@@ -5,9 +5,9 @@
  * say. Notebook colours are tokens too (`--nb-tone`), and a notebook is always also named in words. */
 
 .nb {
-  --nb-title-font: Georgia, 'Times New Roman', serif;
-  --nb-paper: var(--surface);
-  --nb-line: color-mix(in srgb, var(--border) 75%, transparent);
+  --nb-title-font: var(--title-font, Georgia, 'Times New Roman', serif);
+  --nb-paper: var(--paper, var(--surface));
+  --nb-line: var(--hairline, color-mix(in srgb, var(--border) 75%, transparent));
   --nb-radius: calc(var(--radius) + 4px);
   max-width: 80rem;
   margin-inline: auto;
@@ -34,10 +34,11 @@
   gap: 0.35rem;
   margin: 0;
   color: var(--text-muted);
-  font-size: 0.8rem;
+  font-size: var(--label-size, 0.8rem);
   font-weight: 600;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
+  letter-spacing: var(--label-tracking, 0.12em);
+  text-transform: var(--label-case, uppercase);
+  font-variant: var(--label-variant, normal);
 }
 
 .nb-heading {
@@ -47,9 +48,10 @@
   font-weight: 600;
   line-height: 1.1;
   letter-spacing: -0.01em;
+  text-shadow: var(--heading-glow, none);
 }
 
-.nb-heading-muted { color: var(--text-muted); font-weight: 500; }
+.nb-heading-muted { color: var(--heading-muted-ink, var(--text-muted)); font-weight: 500; }
 
 .nb-head-actions {
   display: flex;
@@ -82,7 +84,7 @@
   margin-block-end: 1.25rem;
   border: 1px solid var(--border);
   border-radius: var(--nb-radius);
-  background: var(--surface);
+  background: var(--panel, var(--surface));
 }
 
 .nb-filter-row { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem; }
@@ -196,10 +198,11 @@
   gap: 0.4rem;
   margin: 1.25rem 0 0.75rem;
   color: var(--text-muted);
-  font-size: 0.8rem;
+  font-size: var(--label-size, 0.8rem);
   font-weight: 600;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
+  letter-spacing: var(--label-tracking, 0.1em);
+  text-transform: var(--label-case, uppercase);
+  font-variant: var(--label-variant, normal);
 }
 
 .nb-group .ui-icon { color: var(--brand); }
@@ -235,7 +238,7 @@
   color: var(--text);
   text-align: start;
   font-weight: 400;
-  box-shadow: var(--shadow);
+  box-shadow: var(--paper-frame, var(--shadow));
   transition: border-color 120ms ease, transform 120ms ease;
 }
 
@@ -391,7 +394,7 @@
   border: 1px solid var(--border);
   border-radius: var(--nb-radius);
   background: var(--nb-paper);
-  box-shadow: var(--shadow);
+  box-shadow: var(--paper-frame, var(--shadow));
 }
 
 
@@ -431,18 +434,18 @@
   padding: 1rem 1.15rem;
   border: 1px solid var(--border);
   border-radius: var(--nb-radius);
-  background: var(--surface);
+  background: var(--panel, var(--surface));
   grid-template-columns: minmax(0, 1fr);
   min-width: 0;
   overflow-wrap: anywhere;
 }
 .nb-panel * { min-width: 0; max-width: 100%; }
 
-.nb-panel-title { margin: 0; color: var(--text-muted); font-size: 0.78rem; font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase; }
+.nb-panel-title { margin: 0; color: var(--text-muted); font-size: var(--label-size, 0.78rem); font-weight: 600; letter-spacing: var(--label-tracking, 0.1em); text-transform: var(--label-case, uppercase); font-variant: var(--label-variant, normal); }
 
 /* The entry's date, like the Calendar's day panel. */
 .nb-day { display: flex; align-items: center; gap: 0.8rem; }
-.nb-day-big { font-family: var(--nb-title-font); font-size: 2.75rem; line-height: 1; color: var(--accent); font-variant-numeric: tabular-nums; }
+.nb-day-big { font-family: var(--nb-title-font); font-size: 2.75rem; line-height: 1; color: var(--figure-ink, var(--accent)); font-weight: var(--figure-weight, 400); font-variant-numeric: tabular-nums; }
 .nb-day-words { display: grid; }
 .nb-day-words small { color: var(--text-muted); }
 
@@ -573,7 +576,7 @@ button.nb-month-day:hover { background: var(--surface-muted); filter: none; }
   background: var(--accent);
 }
 
-.nb-month-day[aria-current='date'] { background: var(--accent); color: var(--accent-text); font-weight: 700; }
+.nb-month-day[aria-current='date'] { background: var(--accent); color: var(--accent-text); font-weight: 700; box-shadow: var(--today-glow, none); }
 .nb-month-day[aria-current='date']::after { background: var(--accent-text); }
 
 .nb-streak { display: flex; flex-wrap: wrap; gap: 0.35rem 0.75rem; margin: 0.25rem 0 0; color: var(--text-muted); font-size: 0.85rem; }
@@ -621,7 +624,7 @@ button.nb-month-day:hover { background: var(--surface-muted); filter: none; }
 }
 
 .nb-entry-day small { color: var(--text-muted); font-size: 0.7rem; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; }
-.nb-entry[data-today='true'] .nb-entry-day b { border-color: var(--accent); background: var(--accent); color: var(--accent-text); }
+.nb-entry[data-today='true'] .nb-entry-day b { border-color: var(--accent); background: var(--accent); color: var(--accent-text); box-shadow: var(--today-glow, none); }
 
 .nb-entry .nb-card { flex-direction: row; }
 .nb-entry .nb-card::before { display: none; }
@@ -676,20 +679,4 @@ button.nb-month-day:hover { background: var(--surface-muted); filter: none; }
   .nb-card { transition: none; }
 }
 
-/* ---- Themes ----------------------------------------------------------------------------------- */
-:root[data-theme='witch-forest'] .nb { --nb-title-font: var(--wf-serif); --nb-paper: rgb(17 26 21 / 96%); }
-:root[data-theme='witch-forest'] .nb-card,
-:root[data-theme='witch-forest'] .nb-page { box-shadow: inset 0 0 0 3px var(--nb-paper), inset 0 0 0 4px var(--wf-rule); }
-:root[data-theme='witch-forest'] :is(.nb-eyebrow, .nb-group, .nb-panel-title) { font-variant: small-caps; text-transform: none; letter-spacing: 0.1em; font-size: 0.9rem; }
-:root[data-theme='witch-forest'] .nb-day-big { color: var(--wf-moss); font-weight: 500; }
-:root[data-theme='witch-forest'] .nb-filters,
-:root[data-theme='witch-forest'] .nb-panel { background: rgb(17 26 21 / 97%); }
-
-:root[data-theme='tokyo-nights'] .nb { --nb-title-font: inherit; --nb-paper: rgb(19 21 44 / 94%); --nb-line: rgb(157 124 255 / 28%); }
-:root[data-theme='tokyo-nights'] .nb-heading { text-shadow: 0 0 0.9rem rgb(53 230 255 / 35%); }
-:root[data-theme='tokyo-nights'] .nb-heading-muted { color: var(--neon-b); }
-:root[data-theme='tokyo-nights'] :is(.nb-filters, .nb-panel) { background: rgb(19 21 44 / 94%); }
-:root[data-theme='tokyo-nights'] .nb-month-day[aria-current='date'],
-:root[data-theme='tokyo-nights'] .nb-entry[data-today='true'] .nb-entry-day b { box-shadow: var(--glow-a); }
-
-:root[data-theme='places'] .nb { --nb-title-font: var(--places-serif, Georgia, serif); }
+/* Themes reach the Journal only through the surface roles (45.5): no per-theme rules here. */

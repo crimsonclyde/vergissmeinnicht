@@ -115,7 +115,7 @@ _Deferred with 2.6; these checks apply when external login is implemented (revie
 ### House-management tools (steps.md section 16)
 _Planned 2026-10-01, nothing implemented. Each line is checked off by the step that implements it (named in brackets) together with that step's "Security check"._
 - [x] Each tool (Documents, Contacts, Maintenance, Equipment, Mail) has its own capabilities in the central table; enabling or disabling a tool and permanent deletion need a Workspace ADMIN capability; the exact matrix is pinned by `policy.test.ts`. (16.2 for Documents: `document.view` every role, `document.manage` USER and above, `workspace.tools.manage` ADMIN only; 16.4: `document.purge` ADMIN only — permanent deletion; the Workspace's storage view and own limit use the existing ADMIN-only `workspace.settings.manage`. The other tools with their steps.)
-- [x] A disabled tool answers like an unknown resource on every one of its routes (404, no counts, no fields in other responses); the check is server-side, and hiding the navigation entry is presentation only. Enabling and disabling are audited and delete nothing. (16.2: `authorizeTool` — membership, then the switch, then the capability — in every document and document-file use-case, and again inside every write transaction; `404 tool_not_enabled` for every role incl. ADMIN; `WORKSPACE_TOOL_ENABLED` / `_DISABLED` audit events.)
+- [x] A disabled tool answers like an unknown resource on every one of its routes (404, no counts, no fields in other responses); the check is server-side, and hiding the navigation entry is presentation only. Enabling and disabling are audited and delete nothing. (16.2; one gate since 45.2: `requireTool` in `packages/application/src/tools/require-tool.ts` — membership, then the switch, then the capability, the same check `authorizeWorkspace` applies for a capability's own tool — in every use-case of an optional tool, and `toolEnabled` (`packages/database/src/tool-policy.ts`) again inside every write transaction; `404 tool_not_enabled` for every role incl. ADMIN; `WORKSPACE_TOOL_ENABLED` / `_DISABLED` audit events. 45.1: `route-security.test.ts` maps every Workspace route to the tool switch that turns it off (since 45.8 from the tool manifests' `routes`, `toolGatesFor` in `packages/domain/src/tool-manifest.ts`) or marks it tool-independent; an unclassified route, an optional tool without gated routes, or a gated route that answers anything but 404 with its tool off (as ADMIN) fails the test.)
 - [ ] GUEST is read-only by decision (H4): views Documents and Contacts, previews, downloads and bulk-exports Documents; every write route refuses a GUEST. (16.7 for Maintenance, by its own decision P3: a GUEST reads every MaintenanceRecord incl. costs; every write route refuses, tested per route.) (16.6 for Contacts: a GUEST reads Contacts and their links; create, edit, delete, restore, link, import and — unlike Documents — export are refused, tested per route.) Because guests receive originals with embedded metadata, the upload screen states that originals may contain location or other embedded data. (16.1, 16.2 done for Documents: every write route refuses a GUEST — use-case, HTTP and route-table tests — and the notice is on the upload screen and in the user guide; 16.4: a GUEST exports like any member — the same archive, with the notice repeated in the export dialog — and cannot purge; open: Contacts 16.6.)
 - [ ] Every file, preview, thumbnail, download, export entry, search result, snippet, count, suggestion and link target is authorised per request and scoped by the route's Workspace id; an id of another Workspace resolves to nothing, also inside link lists, search results and archives. (16.1–16.5, 16.9. Done so far: files, previews, thumbnails, downloads 16.1; Folders and Documents 16.2; search results, totals, filter values and paging cursors 16.3 — a Folder, type or cursor of another Workspace used as a filter finds nothing. Export 16.4: scope resolved inside the Workspace, Trash excluded. Links 16.5: both ends and every Run version resolved inside the route's Workspace. Open: text 16.9.)
 - [x] A Link never grants access: creating one needs read access to both ends plus the manage capability; a linked record the viewer may not read is not disclosed — no title, no revealing count, no file. Cross-Workspace Links cannot exist at the database level. (16.5: a Link is only a row naming two ids — each record is still read through its own authorised routes; `document.manage` plus the other end's view capability, re-checked in the transaction; a Document in Trash is named only to those who can open Trash; triggers refuse a Link whose ends are not both in its Workspace. **Mail (16.11) and guest-restricted tools must filter linked records through the same per-viewer check.**)
@@ -1097,6 +1097,49 @@ The following choices are mandatory V1 behavior:
 ---
 
 ## 14. Outbound connections to configurable hosts (SSRF policy)
+
+### Security check: lookup tables, Settings theme and tool manifests (45.3–45.9, 2026-11-21)
+
+- [x] Theme and tool ids stay validated by the database: `theme_ids` and `tool_ids` (migration 0085) replace the CHECK lists with foreign keys, so an unknown theme or tool is still refused past the API (`FOREIGN KEY constraint failed`); the navigation-order triggers read `tool_ids WHERE navigable = 1`. Both lookups are server-wide, never part of a Workspace backup, and restore copies their ids unchanged (the foreign key refuses an unknown one). A test keeps both tables equal to the domain lists.
+- [x] The Settings theme (45.6) and surface roles (45.5) are presentation only: no route, capability, schema or data flow.
+- [x] `toolForCapability` (permissions) now reads the tool manifests; a test keeps every capability group owned by at most one tool, and the tool-off sweep reads the same manifests, so a capability and its routes cannot be gated by different switches. Equipment's routes move to `apps/server/src/modules/equipment/` unchanged and are registered from `SERVER_TOOL_MODULES`; the route security sweep (authentication, isolation, tool off) covers them like before. Nothing is loaded at runtime.
+
+### Security check: "AI assistants allowed" per Workspace (45.11, 2026-11-20)
+
+A Workspace admin (`workspace.settings.manage`, re-checked inside the `IMMEDIATE` write, audited
+`AI_ASSISTANTS_ALLOWED` / `_BLOCKED`) can switch AI assistants off for the whole Workspace; on by
+default (migration 0084). Off is enforced on the server at every MCP entry: `McpRepository.authorize`
+refuses a call naming the Workspace (`AiAssistantsBlockedError` → `ai_not_allowed`, nothing changed),
+returns the grant with that Workspace removed for Workspace-less tools (`list_workspaces`, Map tool
+listing), `approve` refuses it for a new connection, and `delegationAllows` refuses every delegated
+write inside its transaction. Grants are not modified (they stay immutable), so switching back on
+restores access without reconnecting. Negative tests: `apps/server/src/http/mcp-errors.test.ts`.
+
+### Security check: one outbound HTTP client (45.10, 2026-11-20)
+
+Every request the server makes to another host goes through `@vergissmeinnicht/outbound`
+(`outboundFetch` + `readBounded`): HTTPS only on the default port, no credentials or fragment in
+the URL, an allowlist per caller (exact host names, or a predicate for fixed paths), `redirect:
+'error'`, `credentials: 'omit'`, a timeout combined with the caller's abort signal, a declared
+`content-length` checked before reading and the body streamed with a byte cap; errors carry only a
+stable reason (`blocked`, `unreachable`, `too_large`, `bad_response`), never the URL (it may hold
+an API key, a bot token or a signature) or the network error. Callers: the weather adapters and
+Daily Planet sources (`WEATHER_HOSTS` in `packages/weather/src/http.ts`; adding a host there was
+previously not needed because any HTTPS URL passed), Telegram (`api.telegram.org`; its answer is now
+streamed with the 1 MiB cap instead of read whole first) and the map download (`mapPath` in
+`apps/server/src/map-data/remote.ts`). ESLint (`no-restricted-globals: fetch`) refuses a direct
+`fetch` in server code outside the client and tests. The one exception is the ChatGPT file download
+(`apps/server/src/integrations/chatgpt-files.ts`): it must connect to a DNS-resolved, verified public
+address with `node:https`, and applies the same rules (allow-listed hosts, HTTPS/TLS 1.2+, no
+redirects, timeout, size cap, URL-free errors) itself.
+
+**Negative tests:** `packages/outbound/src/outbound.test.ts` (scheme, port, credentials, fragment,
+look-alike host, predicate; blocked URL never reaches fetch; redirect/credentials options; network
+error without the URL; timeout; declared and streamed size caps, malformed length); existing weather,
+Telegram and map-data tests unchanged and passing.
+**Security impact:** MEDIUM (hardening): weather requests are now limited to the listed hosts;
+Telegram reads are capped while streaming. No new route, credential or capability.
+
 
 ### Security check: managed regional basemaps (44.2, 2026-11-17)
 

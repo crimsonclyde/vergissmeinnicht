@@ -1,7 +1,8 @@
 import { createHash, randomBytes, randomUUID } from 'node:crypto';
 import { and, asc, desc, eq, gt, inArray, isNull, sql } from 'drizzle-orm';
 import { CHATGPT_EXTRA_FILE_HOST, MCP_FILE_HOST_LIMITS, MCP_SCOPES, type McpAuthorizationRequest, type McpGrant, type McpScope, type User } from '@vergissmeinnicht/domain';
-import { NotAuthorizedError } from '@vergissmeinnicht/application';
+import { AiAssistantsBlockedError, NotAuthorizedError } from '@vergissmeinnicht/application';
+import { aiAllowedWorkspaces, aiAssistantsAllowed } from './ai-assistants-repository.ts';
 import type { AppDatabase } from './connection.ts';
 import { IMMEDIATE, type Transaction } from './actor-guard.ts';
 import { mcpClients, mcpAuthorizationRequests, mcpFileHosts, mcpGrants, mcpTokens, memberships, users, workspaces } from './schema.ts';
@@ -42,7 +43,10 @@ export function createMcpRepository({db}:AppDatabase,resource:string){
    if(!active(db,actor.id))throw new NotAuthorizedError();
    const row=db.select().from(mcpAuthorizationRequests).where(and(eq(mcpAuthorizationRequests.id,id),isNull(mcpAuthorizationRequests.usedAt),gt(mcpAuthorizationRequests.expiresAt,new Date()))).get();if(!row)return reject();
    const client=db.select().from(mcpClients).where(eq(mcpClients.id,row.clientId)).get();if(!client)return reject();
-   return {id:row.id,clientName:String(client.metadata['client_name']??'MCP client'),redirectOrigin:new URL(row.params.redirectUri).origin,scopes:row.params.scopes,expiresAt:row.expiresAt};
+   // 45.11: Workspaces whose admin switched AI assistants off cannot be chosen.
+   const mine=db.select({id:memberships.workspaceId}).from(memberships).where(eq(memberships.userId,actor.id)).all().map(each=>each.id);
+   const allowed=new Set(aiAllowedWorkspaces(db,mine));
+   return {id:row.id,clientName:String(client.metadata['client_name']??'MCP client'),redirectOrigin:new URL(row.params.redirectUri).origin,scopes:row.params.scopes,expiresAt:row.expiresAt,blockedWorkspaceIds:mine.filter(id=>!allowed.has(id))};
   },
   async approve(actor:User,id:string,workspaceIds:string[],scopes:McpScope[],allow:boolean){
    return db.transaction(tx=>{
@@ -53,6 +57,7 @@ export function createMcpRepository({db}:AppDatabase,resource:string){
     if(!allow){tx.update(mcpAuthorizationRequests).set({usedAt:new Date()}).where(eq(mcpAuthorizationRequests.id,id)).run();redirect.searchParams.set('error','access_denied');return redirect.href;}
     if(workspaceIds.length<1||workspaceIds.length>32||new Set(workspaceIds).size!==workspaceIds.length||scopes.length<1||scopes.some(scope=>!row.params.scopes.includes(scope))||new Set(scopes).size!==scopes.length)return reject();
     for(const workspaceId of workspaceIds)if(!tx.select().from(memberships).where(and(eq(memberships.userId,actor.id),eq(memberships.workspaceId,workspaceId))).get())throw new NotAuthorizedError();
+    if(workspaceIds.some(workspaceId=>!aiAssistantsAllowed(tx,workspaceId)))throw new AiAssistantsBlockedError();
     if((tx.select({n:sql<number>`count(*)`}).from(mcpGrants).where(and(eq(mcpGrants.userId,actor.id),isNull(mcpGrants.revokedAt),gt(mcpGrants.expiresAt,new Date()))).get()?.n??0)>=30)throw new McpCredentialError('temporarily_unavailable');
     const grantId=randomUUID(),code=token(),now=new Date();
     tx.insert(mcpGrants).values({id:grantId,userId:actor.id,clientId:row.clientId,workspaceIds,scopes,resource,expiresAt:new Date(now.getTime()+90*86400000)}).run();
@@ -114,7 +119,10 @@ export function createMcpRepository({db}:AppDatabase,resource:string){
    },IMMEDIATE);
   },
   async authorize(grantId:string,actorId:string,workspaceId:string|undefined,scope:McpScope){
-   const grant=validGrant(db,grantId);if(!grant||grant.userId!==actorId||!grant.scopes.includes(scope)||(workspaceId!==undefined&&!grant.workspaceIds.includes(workspaceId)))throw new NotAuthorizedError();return grant;
+   const grant=validGrant(db,grantId);if(!grant||grant.userId!==actorId||!grant.scopes.includes(scope)||(workspaceId!==undefined&&!grant.workspaceIds.includes(workspaceId)))throw new NotAuthorizedError();
+   if(workspaceId!==undefined&&!aiAssistantsAllowed(db,workspaceId))throw new AiAssistantsBlockedError();
+   // 45.11: a grant reaches only the Workspaces that still allow AI assistants.
+   return {...grant,workspaceIds:aiAllowedWorkspaces(db,grant.workspaceIds)};
   },
  };
 }

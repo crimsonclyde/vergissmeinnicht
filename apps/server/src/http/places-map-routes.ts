@@ -1,7 +1,7 @@
 import type { FastifyInstance, FastifyRequest } from 'fastify';
 import { z } from 'zod';
 import {
-  addMapApproach, authorizeTool, openAttachment, browseMap, changeMapTag, checkedMapBounds, getMapPlace, mapPersonalState, previewMapPlace, recordMapVisit, saveMapPersonalState, saveMapPlace,
+  addMapApproach, requireTool, openAttachment, browseMap, changeMapTag, checkedMapBounds, getMapPlace, mapPersonalState, previewMapPlace, recordMapVisit, saveMapPersonalState, saveMapPlace,
 } from '@vergissmeinnicht/application';
 import { MAP_CATEGORIES, UUID_V4, type WorkspaceId } from '@vergissmeinnicht/domain';
 import type { AppServices } from '../composition.ts';
@@ -35,19 +35,19 @@ export async function placesMapRoutes(app: FastifyInstance, { services }: { serv
   const deps = services.placesMap;
   app.addHook('preHandler', async request => {
     const { actor, workspaceId } = context(request);
-    await authorizeTool(deps, actor, workspaceId, 'MAP', 'map.view');
+    await requireTool(deps, actor, workspaceId, 'MAP', 'map.view');
   });
   for (const purpose of ['cover', 'visit'] as const) {
     await app.register(async child => {
       registerAttachmentHttp(child, services.mapAttachments[purpose], request => {
         const ref = context(request);
-        return { ...ref, scope: { workspaceId: ref.workspaceId }, authorize: () => authorizeTool(deps, ref.actor, ref.workspaceId,
-          'MAP', purpose === 'cover' ? 'map.edit' : 'map.visit') };
+        return { ...ref, scope: { workspaceId: ref.workspaceId }, authorize: async () => { await requireTool(deps, ref.actor, ref.workspaceId,
+          'MAP', purpose === 'cover' ? 'map.edit' : 'map.visit'); } };
       }, { uploadOnly: true });
     }, { prefix: '/' + purpose + '-upload' });
     app.get('/places/:placeId/' + purpose + '-photo/:attachmentId/:kind', async (request, reply) => {
       const ref = context(request);
-      await authorizeTool(deps, ref.actor, ref.workspaceId, 'MAP', purpose === 'cover' ? 'map.view' : 'map.visit');
+      await requireTool(deps, ref.actor, ref.workspaceId, 'MAP', purpose === 'cover' ? 'map.view' : 'map.visit');
       const { attachmentId, kind } = parse(z.object({ attachmentId: uuid, kind: z.enum(['preview', 'thumbnail']) }), request.params);
       const record = services.mapMedia[purpose](ref, placeId(request), attachmentId);
       const file = await openAttachment(services.mapAttachments[purpose].store, record, kind);

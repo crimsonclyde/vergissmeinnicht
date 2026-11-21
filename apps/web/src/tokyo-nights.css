@@ -1048,3 +1048,35 @@
   color: var(--neon-a);
   text-shadow: 0 0 0.4rem rgb(53 230 255 / 55%);
 }
+
+/* ---- Surface roles (45.5): how features look at night, without naming any feature --------------- */
+:root[data-theme='tokyo-nights'] {
+  --title-font: var(--font-ui);
+  --book-font: 'Iowan Old Style', Georgia, serif;
+  --paper: rgb(19 21 44 / 94%);
+  --panel: rgb(19 21 44 / 94%);
+  --raised: rgb(19 21 44 / 92%);
+  --sheet: rgb(19 21 44 / 94%);
+  --sheet-soft: rgb(19 21 44 / 90%);
+  --sheet-ink: var(--text);
+  --sheet-rule: rgb(157 124 255 / 30%);
+  --hairline: rgb(157 124 255 / 28%);
+  --flower: var(--brand);
+  --heading-glow: 0 0 0.9rem rgb(53 230 255 / 35%);
+  --heading-muted-ink: var(--neon-b);
+  --today-glow: var(--glow-a);
+  --icon-ring: inset 0 0 0 1px rgb(157 124 255 / 35%);
+  --tone-glow: 0.8rem;
+  --rule-ink: var(--brand);
+  --rule-opacity: 0.6;
+  --scene-sky: linear-gradient(180deg, rgb(20 12 48 / 92%), rgb(8 6 24 / 96%));
+  --scene-sun: rgb(255 79 216 / 55%);
+  --scene-hill-far: rgb(157 124 255 / 22%);
+  --scene-hill-mid: rgb(53 230 255 / 18%);
+  --scene-hill-near: rgb(255 79 216 / 22%);
+  --scene-house: rgb(10 8 30);
+  --scene-window: rgb(255 214 102);
+  --scene-sheet-border: 1px;
+  --scene-sheet-pad: clamp(0.75rem, 2.5vw, 1.75rem);
+  --scene-sheet-fill: rgb(19 21 44 / 94%);
+}

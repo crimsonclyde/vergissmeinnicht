@@ -28,7 +28,7 @@ import { offlineStore } from './offline/store.ts';
 import { api, isNetworkError, messageFor, type CurrentUser, type WorkspaceSummary } from './api.ts';
 import { DocumentsToolContext } from './documents-tool.ts';
 import { Contacts } from './Contacts.tsx';
-import { Equipment } from './Equipment.tsx';
+import { Equipment } from './modules/equipment/Equipment.tsx';
 import { Maintenance } from './Maintenance.tsx';
 import { ContactsToolContext } from './contacts-tool.ts';
 import { Calendar } from './Calendar.tsx';
@@ -48,7 +48,7 @@ import { ACCOUNT_SECTIONS, Link, navigate, paths, type AccountSection, type Rout
 import { RingPaint } from './RunGuide.tsx';
 import { Runs } from './Runs.tsx';
 import { SettingsLayout } from './SettingsLayout.tsx';
-import { PlaceScene } from './places/PlaceScene.tsx';
+import { ThemeScene } from './ThemeScene.tsx';
 import { PlacesSettings } from './places/PlacesSettings.tsx';
 import { placeOfWorkspace } from './places/registry.ts';
 import { SettingsMenu } from './SettingsMenu.tsx';
@@ -629,8 +629,8 @@ export function AppShell(props: { user: CurrentUser; route: Route; onSignOut: ()
       <TodaySettingsProvider userId={user.id}>
       <ClockToolsProvider><ForecastProvider userId={user.id} workspaceId={navWorkspaceId} explicit={route.page === 'weather'} ready={workspaces !== null}><PublishedWeatherProvider workspaceId={navWorkspaceId} enabled={navTools.includes('GAZETTE')}>
       <RingPaint />
-      {/* Places (section 30): the person's own look of the Workspace shown; strongest on Today. */}
-      <PlaceScene userId={user.id} workspaceId={navWorkspaceId} prominence={route.page === 'workspace' ? 'today' : 'page'} />
+      {/* The theme's scene (45.4): city, forest or the person's Places look; Places is strongest on Today. */}
+      <ThemeScene userId={user.id} workspaceId={workspaceId ?? undefined} placeWorkspaceId={navWorkspaceId} prominence={route.page === 'workspace' ? 'today' : 'page'} />
       <a
         className="skip-link"
         href="#main"

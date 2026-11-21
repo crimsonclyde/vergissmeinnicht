@@ -63,6 +63,9 @@ export const AUDIT_EVENT_TYPES = [
   // text itself is derived data, never an event.
   'TEXT_RECOGNITION_ENABLED',
   'TEXT_RECOGNITION_DISABLED',
+  // AI assistants (45.11): a Workspace admin allowed or blocked MCP/AI connections for the Workspace.
+  'AI_ASSISTANTS_ALLOWED',
+  'AI_ASSISTANTS_BLOCKED',
   // A person corrected a file's recognised text, or restored the recognised text (16.13): who, when,
   // the Document and the file — never the text.
   'DOCUMENT_TEXT_CORRECTED',

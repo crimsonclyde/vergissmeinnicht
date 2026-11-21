@@ -18,7 +18,7 @@ import type { ExportScope, ExportSize, ExportedDocument, ExportedFile } from '..
 import { userActor } from '../user-actor.ts';
 import type { DocumentDeps } from './documents.ts';
 import { DocumentFileNotFoundError, DocumentNotFoundError, ExportRunningError, ExportTooLargeError, FolderNotFoundError, ToolNotEnabledError } from './errors.ts';
-import { authorizeTool } from './tools.ts';
+import { requireTool } from '../tools/require-tool.ts';
 
 export interface DocumentExportDeps extends DocumentDeps {
   readonly store: Pick<DocumentFileStore, 'open'>;
@@ -82,7 +82,7 @@ interface Ref {
  * is said plainly. Same authorisation as the export itself; nothing is recorded.
  */
 export async function checkDocumentExport(deps: DocumentDeps & Pick<DocumentExportDeps, 'exportLimits'>, input: Ref & { readonly request: ExportRequest }): Promise<ExportSize> {
-  await authorizeTool(deps, input.actor, input.workspaceId, 'DOCUMENTS', 'document.view');
+  await requireTool(deps, input.actor, input.workspaceId, 'DOCUMENTS', 'document.view');
   const scope = parseScope(input.request);
   const size = await deps.documents.exportSize(input.workspaceId, scope);
   if (size === undefined) throw notFound(scope);
@@ -100,7 +100,7 @@ export async function checkDocumentExport(deps: DocumentDeps & Pick<DocumentExpo
  * running until then. Files are opened one by one, only when their turn comes.
  */
 export async function exportDocuments(deps: DocumentExportDeps, input: Ref & { readonly request: ExportRequest }, deliver: (archive: DocumentExport) => Promise<void>): Promise<void> {
-  await authorizeTool(deps, input.actor, input.workspaceId, 'DOCUMENTS', 'document.view');
+  await requireTool(deps, input.actor, input.workspaceId, 'DOCUMENTS', 'document.view');
   const scope = parseScope(input.request);
   if (running.has(input.actor.id)) throw new ExportRunningError();
   running.add(input.actor.id);

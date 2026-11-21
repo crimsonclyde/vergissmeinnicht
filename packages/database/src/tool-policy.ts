@@ -4,6 +4,7 @@ import type { Transaction } from './actor-guard.ts';
 import { schedules, workspaceTools } from './schema.ts';
 
 type Reader = Pick<Transaction, 'select'>;
+/** The one database-side tool check (45.2): is `tool` switched on in this Workspace? Used inside write transactions. */
 export function toolEnabled(tx: Reader, workspaceId: string, tool: WorkspaceTool): boolean {
   return tx.select({ enabled: workspaceTools.enabled }).from(workspaceTools).where(and(eq(workspaceTools.workspaceId, workspaceId), eq(workspaceTools.tool, tool))).get()?.enabled === true;
 }

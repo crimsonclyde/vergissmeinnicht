@@ -8,7 +8,7 @@ import portrait from './witch-forest/old-forest-portrait-768.webp';
 import smallPortrait from './witch-forest/old-forest-portrait-480.webp';
 
 /** Independent artwork, CSS mist and sparse fireflies. Never an interaction or content surface. */
-export function ForestScene({ userId, workspaceId }: { userId?: string; workspaceId?: string | undefined }) {
+export function ForestScene({ userId, workspaceId }: { userId?: string | undefined; workspaceId?: string | undefined }) {
   const [mode] = useThemeMode();
   return mode === 'witch-forest' ? <Forest key={`${userId ?? 'public'}:${workspaceId ?? 'personal'}`} userId={userId} workspaceId={workspaceId} /> : null;
 }

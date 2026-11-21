@@ -2995,7 +2995,7 @@ test('first server admin: bootstrap link, account creation, sign-in, Workspace c
   await expect(page).toHaveURL(/\/account\/appearance$/);
 
   // Appearance (8.3, section 28): each Workspace has its own tab under Profile & settings → Appearance, where its theme is picked. The choice applies in that Workspace and
-  // survives a reload. Management pages use Memento Mori, so each theme check reads the Workspace page.
+  // survives a reload. Management pages use the Settings theme, so each theme check reads the Workspace page.
   const html = page.locator('html');
   const pickWorkspace = async () => {
     await page.goto('/account/appearance');
@@ -3256,7 +3256,7 @@ test('first server admin: bootstrap link, account creation, sign-in, Workspace c
     if (await moveUp.isDisabled()) break;
     await moveUp.click();
   }
-  await expect(page.locator('html')).toHaveAttribute('data-theme', 'memento-mori');
+  await expect(page.locator('html')).toHaveAttribute('data-theme', 'settings');
   // The order decides the two phone favourites (the bar is in the page on every width, shown on phones).
   await expect(page.locator('.tab-bar > a').nth(1)).toHaveText('Procedures');
   await expect(page.locator('.tab-bar > a').nth(2)).toHaveText('Lists');
@@ -3294,7 +3294,7 @@ test('first server admin: bootstrap link, account creation, sign-in, Workspace c
   await menuOrder.getByRole('button', { name: 'Use default order' }).click();
   await menuOrder.getByRole('button', { name: 'Save menu order' }).click();
   await expect(menuOrder.getByRole('status')).toHaveText('Tool menu order saved.');
-  await expect(page.locator('html')).toHaveAttribute('data-theme', 'memento-mori');
+  await expect(page.locator('html')).toHaveAttribute('data-theme', 'settings');
   await expect(page.locator('.shell-side nav a').nth(1)).toHaveText('Procedures');
   await expect(page.locator('.shell-side nav a').nth(2)).toHaveText('Reminders');
   await settingsSection(page,'Profile & settings','Places');

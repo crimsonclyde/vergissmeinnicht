@@ -1,0 +1,65 @@
+/*
+ * The Settings theme (45.6). Every Settings page (account, Workspace settings, members, plugins,
+ * storage, Knots, backups, server admin) is shown in this one theme, whatever theme the person picked;
+ * user themes need not support Settings. It is not a user theme: not pickable, not stored, not in the
+ * theme registry or `theme_ids`. It started as a fork of Memento Mori, so Settings look as before, and
+ * can now change on its own. Only `apps/web/src/theme.ts` sets it (`data-theme='settings'`).
+ */
+:root[data-theme='settings'] {
+  color-scheme: dark;
+  --bg: #141111;
+  --surface: #201b1c;
+  --surface-muted: #30292a;
+  --surface-raised: #282123;
+  --text: #eee7da;
+  --text-muted: #c0b3a4;
+  --border: #514346;
+  --border-strong: #968378;
+  --accent: #9f3746;
+  --accent-text: #fff0dc;
+  --accent-soft: #382026;
+  --danger: #ff9596;
+  --focus: #e4c58c;
+  --brand: #d8b47c;
+  --link: #e6c49d;
+  --on-pending: #261013;
+  --state-pending: #ff9596;
+  --state-pending-bg: #462429;
+  --state-done: #a9c5a0;
+  --state-done-bg: #233526;
+  --state-done-text: #142015;
+  --state-skipped: #e3c084;
+  --state-skipped-bg: #40331d;
+  --state-na: #c3bccb;
+  --state-na-bg: #34303c;
+  --shadow: none;
+  --shadow-raised: 0 10px 32px rgb(0 0 0 / 70%);
+  --overlay: rgb(0 0 0 / 65%);
+  /* Surface roles (45.5) */
+  --sheet-tint: 10%;
+  --sheet-tint-soft: 4%;
+  --flower: color-mix(in srgb, var(--link) 70%, var(--accent) 30%);
+}
+
+/* Quiet editorial chrome: a faint brass glow, serif page titles, a brass edge on the side bar. */
+:root[data-theme='settings'] body {
+  background-image: radial-gradient(ellipse at 90% 0%, color-mix(in srgb, var(--brand) 6%, transparent), transparent 42rem);
+  background-attachment: fixed;
+}
+:root[data-theme='settings'] :is(.page-header h2, .today-greeting, .guide-step-title) {
+  font-family: Georgia, 'Times New Roman', serif;
+  font-weight: 500;
+  letter-spacing: -0.035em;
+}
+:root[data-theme='settings'] .shell-side {
+  border-inline-end-color: var(--border);
+  box-shadow: inset 3px 0 var(--brand);
+}
+:root[data-theme='settings'] .card {
+  box-shadow: 0 3px 0 color-mix(in srgb, var(--border) 28%, transparent), var(--shadow);
+}
+:root[data-theme='settings'] :is(.guide-step-icon, .equipment-reference-icon) { color: var(--brand); }
+
+@media (forced-colors: active) {
+  :root[data-theme='settings'] body { background-image: none; }
+}

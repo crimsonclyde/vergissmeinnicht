@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { SHARED_BACKUP_TABLES, TOOL_MANIFESTS } from '@vergissmeinnicht/domain';
 import { createTestDatabase } from './test-support.ts';
 import { EXCLUDED_TABLES, EXPORTED_TABLES } from './workspace-backup-tables.ts';
 
@@ -7,7 +8,7 @@ import { EXCLUDED_TABLES, EXPORTED_TABLES } from './workspace-backup-tables.ts';
  * fail until someone decides whether it belongs in a Workspace backup (and adds it to `omit` if not).
  */
 const REVIEWED_COLUMNS: Record<string, string> = {
-  workspaces: 'id name created_by_user_id created_at updated_at image_quota_bytes storage_quota_bytes storage_limit_bytes tools_revision text_recognition location',
+  workspaces: 'id name created_by_user_id created_at updated_at image_quota_bytes storage_quota_bytes storage_limit_bytes tools_revision text_recognition location ai_assistants',
   workspace_tools: 'workspace_id tool enabled updated_at updated_by_user_id',
   memberships: 'workspace_id user_id role created_at updated_at',
   step_images: 'id workspace_id sha256 bytes width height created_by_user_id created_at',
@@ -97,5 +98,9 @@ describe('Workspace backup allowlist (section 18)', () => {
       expect(spec.from).toMatch(/\?/);
       expect(spec.from).not.toMatch(/\$\{|'/);
     }
+  });
+  it('assigns every exported table to one tool manifest or to the shared tables (45.8)', () => {
+    const owned = [...TOOL_MANIFESTS.flatMap((manifest) => manifest.backupTables), ...Object.keys(SHARED_BACKUP_TABLES)].sort();
+    expect(owned).toEqual(EXPORTED_TABLES.map((spec) => spec.table).sort());
   });
 });

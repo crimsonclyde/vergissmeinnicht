@@ -38,16 +38,16 @@
   overflow: hidden;
   border: 1px solid var(--border);
   border-radius: var(--area-radius, calc(var(--radius) + 4px));
-  background: linear-gradient(180deg, color-mix(in srgb, var(--accent) 10%, var(--surface-muted)), var(--surface) 70%);
+  background: var(--scene-sky, linear-gradient(180deg, color-mix(in srgb, var(--accent) 10%, var(--surface-muted)), var(--surface) 70%));
 }
 
 .ma-cover-art { position: absolute; inset: 0; width: 100%; height: 100%; }
-.ma-sun { fill: color-mix(in srgb, var(--state-pending) 12%, var(--surface)); }
-.ma-hill-far { fill: color-mix(in srgb, var(--accent) 22%, var(--surface-muted)); }
-.ma-hill-mid { fill: color-mix(in srgb, var(--accent) 42%, var(--surface-muted)); }
-.ma-hill-near { fill: color-mix(in srgb, var(--accent) 60%, var(--surface-muted)); }
-.ma-house { fill: color-mix(in srgb, var(--text) 55%, var(--accent)); }
-.ma-window { fill: color-mix(in srgb, var(--state-pending) 10%, var(--surface)); }
+.ma-sun { fill: var(--scene-sun, color-mix(in srgb, var(--state-pending) 12%, var(--surface))); }
+.ma-hill-far { fill: var(--scene-hill-far, color-mix(in srgb, var(--accent) 22%, var(--surface-muted))); }
+.ma-hill-mid { fill: var(--scene-hill-mid, color-mix(in srgb, var(--accent) 42%, var(--surface-muted))); }
+.ma-hill-near { fill: var(--scene-hill-near, color-mix(in srgb, var(--accent) 60%, var(--surface-muted))); }
+.ma-house { fill: var(--scene-house, color-mix(in srgb, var(--text) 55%, var(--accent))); }
+.ma-window { fill: var(--scene-window, color-mix(in srgb, var(--state-pending) 10%, var(--surface))); }
 
 .ma-glances { position: relative; display: flex; flex-wrap: wrap; gap: 0.75rem; }
 .plain-list.ma-glances > li + li { margin-top: 0; }
@@ -109,10 +109,10 @@
     linear-gradient(160deg, color-mix(in srgb, var(--ma-tone) 26%, var(--surface)), color-mix(in srgb, var(--ma-tone) 55%, var(--surface-muted)));
 }
 
-.ma-card-art > .ui-icon { display: inline-grid; place-items: center; width: 3.5rem; height: 3.5rem; border-radius: 50%; background: color-mix(in srgb, var(--surface) 94%, transparent); color: var(--ma-tone); font-size: 1.5rem; }
+.ma-card-art > .ui-icon { display: inline-grid; place-items: center; width: 3.5rem; height: 3.5rem; border-radius: 50%; background: color-mix(in srgb, var(--surface) 94%, transparent); color: var(--ma-tone); font-size: 1.5rem; box-shadow: 0 0 calc(var(--tone-glow, 0rem) * 1.125) color-mix(in srgb, var(--ma-tone) 45%, transparent); }
 .ma-card-badge { position: absolute; top: 0.6rem; inset-inline-end: 0.6rem; display: inline-flex; align-items: center; gap: 0.3rem; padding: 0.2rem 0.6rem; border-radius: 999px; background: var(--surface); color: var(--text); font-size: 0.78rem; font-weight: 600; }
 .ma-card-body { display: flex; flex: 1; flex-direction: column; gap: 0.25rem; padding: 0.85rem 1rem 1rem; min-width: 0; }
-.ma-card-body > small:first-child { color: var(--text-muted); font-size: 0.72rem; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; }
+.ma-card-body > small:first-child { color: var(--text-muted); font-size: var(--label-size-small, 0.72rem); font-weight: 600; letter-spacing: 0.08em; text-transform: var(--label-case, uppercase); font-variant: var(--label-variant, normal); }
 .ma-card-body strong { font-family: var(--area-title-font); font-size: 1.2rem; overflow-wrap: anywhere; }
 .ma-card-body .muted { overflow-wrap: anywhere; }
 .ma-card-place { display: inline-flex; align-items: center; gap: 0.3rem; color: var(--text-muted); font-size: 0.85rem; }
@@ -137,17 +137,7 @@
 }
 
 /* Themes: what a token cannot say. */
-:root[data-theme='tokyo-nights'] .ma-cover { background: linear-gradient(180deg, rgb(20 12 48 / 92%), rgb(8 6 24 / 96%)); }
-:root[data-theme='tokyo-nights'] .ma-hill-far { fill: rgb(157 124 255 / 22%); }
-:root[data-theme='tokyo-nights'] .ma-hill-mid { fill: rgb(53 230 255 / 18%); }
-:root[data-theme='tokyo-nights'] .ma-hill-near { fill: rgb(255 79 216 / 22%); }
-:root[data-theme='tokyo-nights'] .ma-house { fill: rgb(10 8 30); }
-:root[data-theme='tokyo-nights'] .ma-window { fill: rgb(255 214 102); }
-:root[data-theme='tokyo-nights'] .ma-sun { fill: rgb(255 79 216 / 55%); }
-:root[data-theme='tokyo-nights'] .ma-card-art > .ui-icon { box-shadow: 0 0 0.9rem color-mix(in srgb, var(--ma-tone) 45%, transparent); }
-:root[data-theme='witch-forest'] .ma-sun { fill: color-mix(in srgb, #f3e9c8 70%, var(--surface)); }
-:root[data-theme='witch-forest'] :is(.ma-card-body > small:first-child) { font-variant: small-caps; text-transform: none; letter-spacing: 0.08em; font-size: 0.85rem; }
-:root[data-theme='witch-forest'] .ma-window { fill: #f0c46a; }
+/* Themes paint the cover through the scene roles (45.5). */
 
 /* Equipment record: the same art band on top of the brand and model card. */
 .equipment-reference.ma-ref { height: auto; padding: 0; }

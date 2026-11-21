@@ -1168,3 +1168,30 @@
   color: var(--wf-moss);
   letter-spacing: 0.16em;
 }
+
+/* ---- Surface roles (45.5): an old book by candlelight, small capitals and a single inner rule ---- */
+:root[data-theme='witch-forest'] {
+  --title-font: var(--wf-serif);
+  --book-font: var(--wf-serif, Georgia, serif);
+  --paper: rgb(17 26 21 / 96%);
+  --paper-frame: inset 0 0 0 3px rgb(17 26 21 / 96%), inset 0 0 0 4px var(--wf-rule);
+  --panel: rgb(17 26 21 / 97%);
+  --raised: rgb(17 26 21 / 94%);
+  --sheet: rgb(17 26 21 / 96%);
+  --sheet-soft: rgb(17 26 21 / 94%);
+  --sheet-ink: var(--text);
+  --sheet-rule: var(--wf-rule, var(--border));
+  --flower: var(--brand);
+  --label-variant: small-caps;
+  --label-case: none;
+  --label-tracking: 0.1em;
+  --label-size: 0.9rem;
+  --label-size-small: 0.85rem;
+  --figure-ink: var(--wf-moss);
+  --figure-weight: 500;
+  --scene-sun: color-mix(in srgb, #f3e9c8 70%, var(--surface));
+  --scene-window: #f0c46a;
+  --scene-sheet-border: 1px;
+  --scene-sheet-pad: clamp(0.75rem, 2.5vw, 1.75rem);
+  --scene-sheet-fill: rgb(17 26 21 / 96%);
+}

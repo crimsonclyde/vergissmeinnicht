@@ -102,6 +102,8 @@ packages/
   realtime/
   email/
   notifications/   (Telegram Bot API adapter; more providers later)
+  outbound/        (the one outbound HTTP client: host allowlist, HTTPS, no redirects, timeout, size cap — 45.10)
+  weather/         (weather providers and Daily Planet sources, through outbound/)
   import-export/   (Procedure JSON v1 and the Procedure archive, 14.3)
   media/           (instruction images: sharp/libvips processing, content-addressed file store, 14.3;
                     document files: validation, previews — MuPDF as WebAssembly in a worker thread —, store, 16.1)
@@ -509,7 +511,7 @@ GET  …/documents/trash[?within=]                        document.manage: what 
 GET|POST …/document-types  ·  POST …/document-types/{tid}/rename|retire
 ```
 
-- **Optional tools** (`workspace_tools`, `packages/application/src/documents/tools.ts`): `authorizeTool(actor, workspace, tool, capability)` is the gate of every route of an optional tool — membership, then the switch, then the capability — and repositories check the switch again inside their write transaction. A tool that is off is `404 tool_not_enabled` for everyone. The web shell gets the enabled tools with the Workspace list and adds them to the sidebar and to **More**; the phone bar keeps four destinations (`destinations(workspaceId, tools)`). Further tools add a value to `WORKSPACE_TOOLS`, their routes behind `authorizeTool`, and a navigation entry.
+- **Optional tools** (`workspace_tools`, `packages/application/src/documents/tools.ts`, gate in `packages/application/src/tools/require-tool.ts`): `requireTool(actor, workspace, tool, capability)` (45.2; formerly `authorizeTool`) is the gate of every route of an optional tool — membership, then the switch, then the capability — and repositories check the switch again inside their write transaction. A tool that is off is `404 tool_not_enabled` for everyone. The web shell gets the enabled tools with the Workspace list and adds them to the sidebar and to **More**; the phone bar keeps four destinations (`destinations(workspaceId, tools)`). Further tools add a value to `WORKSPACE_TOOLS` and a row of `tool_ids` (45.3), a shared manifest in `TOOL_MANIFESTS` (family, capability groups, routes, backup tables; 45.7–45.9) and a web manifest in `TOOL_PLUGINS`, their routes behind `requireTool`, and ideally a module folder like Equipment (`apps/web/src/modules/equipment/`, `apps/server/src/modules/equipment/`, registered from `SERVER_TOOL_MODULES`). Repositories use the one `toolEnabled` of `packages/database/src/tool-policy.ts` (no local copies).
 - **Versioned settings** (migration 0035): `GET /tools` and its POST response return `{ tools, revision }`; Workspace detail includes `toolsRevision`. POST requires `expectedRevision`; the IMMEDIATE transaction checks it before a change or no-op and returns 409 on conflict. Actual changes increment revision and write their audit together; a no-op does neither. Existing flags and history are preserved on upgrade.
 - **Model** (`packages/domain/src/document.ts`, migration 0028): `document_folders` (a tree by `parent_id`; `name_key` for sibling uniqueness), `documents` (title, optional type — a built-in key or a row of `document_types` —, document date, year, notes, tags; `created_*` = uploaded, immutable; `updated_*` = last modified), `document_pages` (ordered file ids; a file is a page of one Document; this table is what keeps an uploaded file). Folder and Document carry a `revision` for compare-and-set.
 - **Tree rules are pure** and shared: placement (cycle, depth, sibling name), restore target and restored name are functions over a list of Folders, used by the repository on the tree it reads inside its `IMMEDIATE` transaction and tested on their own, including a randomised invariant test. A trigger and indexes repeat the essential ones in the database.
@@ -669,6 +671,11 @@ Arrows point from the module that knows to the module that is known. Nothing exi
 
 ## Persistence
 
+**Theme and tool ids (45.3):** the tables `theme_ids` and `tool_ids` hold the allowed ids; preference
+and `workspace_tools` rows reference them by foreign key. Adding a theme or a tool is one `INSERT` in
+its migration plus the domain list (`THEME_PREFERENCES`, `WORKSPACE_TOOLS`, `NAVIGATION_TOOLS`);
+`migration-0085.test.ts` fails when the two disagree. No table rebuild is needed.
+
 SQLite is initial persistence.
 
 Requirements:
@@ -756,8 +763,9 @@ Presentation keeps the established persisted theme ids and API/database allowlis
 
 ### Guide interface and optional Galactic Guide theme (34.7, 2026-10-31)
 
-Workspace Settings, Server Admin, and Profile & Settings apply a route-level Memento Mori
-override on first paint and client navigation. The theme store retains the saved account and
+Workspace Settings, Server Admin, and Profile & Settings apply a route-level override to the
+dedicated Settings theme (`data-theme='settings'`, `settings-theme.css`, 45.6; not a user theme) on
+first paint and client navigation. The theme store retains the saved account and
 Workspace choices for the working pages and suppresses theme scenes while the override is active.
 The private Journal is a working page even though its address is under `/account`.
 

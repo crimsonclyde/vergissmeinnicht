@@ -12,7 +12,8 @@
   },
   "dependencies": {
     "@vergissmeinnicht/application": "workspace:*",
-    "@vergissmeinnicht/domain": "workspace:*"
+    "@vergissmeinnicht/domain": "workspace:*",
+    "@vergissmeinnicht/outbound": "workspace:*"
   },
   "devDependencies": {
     "@types/node": "24.13.6"

@@ -8956,39 +8956,135 @@ wait for the owner before they are built.
 to every optional tool (Documents, Contacts, Equipment, Maintenance, Bring, Recipes, Journal, Map,
 Gazette) so a route that forgets its tool gate fails a test.
 
+**Status:** DONE (not released). `route-security.test.ts` has `TOOL_GATES`: every route under
+`/workspaces/:workspaceId` is mapped to the tool set whose switch turns it off (Run documents and
+recipe shopping to two tools each) or marked tool-independent (Workspace, members, location,
+backups, storage, Dashboard). Two tests: every Workspace route is classified and every optional
+tool except Gamification (no routes) has gated routes; and, for each tool set, with only that set
+off, every one of its routes answers 404 to the Workspace ADMIN without any seeded content.
+Mutation check: removing the switch check from the gate for BRING fails the sweep.
+**Security impact:** test only. **Security docs updated:** YES (checklist line on disabled tools).
+
 ### 45.2 — One tool gate: `requireTool` (M)
 Three styles of tool checks exist (`toolEnabled`, `actorAllowed({ tool })`, `authorizeTool`).
 Replace them with one server helper used by every route and MCP tool, with the same error.
+
+**Status:** DONE (not released). Application: `authorizeTool` is replaced by `requireTool`
+(`packages/application/src/tools/require-tool.ts`), a thin name over `authorizeWorkspace` with an
+explicit tool, so both use the same order (membership → switch → capability) and the same errors
+(`404 workspace_not_found`, `404 tool_not_enabled`, `403`). Every use case, HTTP route and the MCP
+Map listing use it; the MCP call path checks all tools of an MCP tool through one local
+`requireToolsOn` before and after the call. Database: the five private `toolEnabled` copies
+(Documents, Links, Contacts, Equipment, Maintenance) and the inline query in `actorAllowed` now use
+the one `toolEnabled` of `tool-policy.ts`. Behaviour unchanged.
+**Tests/checks:** typecheck, lint, full Vitest (two race tests now hook `workspaces.enabledTools`,
+the read the gate uses), the 45.1 sweep.
+**Security impact:** none intended (refactor of the gate; same checks, fewer copies).
+**Security docs updated:** YES (checklist line; architecture.md optional tools).
 
 ### 45.3 — Lookup tables for theme and tool ids (M)
 Theme ids live in two CHECK constraints and tool ids in a `workspace_tools` CHECK, so every new
 theme or tool needs a table rebuild migration. Move both to lookup tables (foreign keys) seeded
 by migrations.
 
+**Status:** DONE (not released). Migration **0085** adds `theme_ids` and `tool_ids` (`navigable`
+marks `NAVIGATION_TOOLS`), seeded from the domain lists, and rebuilds `user_preferences`,
+`user_workspace_preferences` and `workspace_tools` once: the theme and tool CHECKs become foreign
+keys, the navigation-order bound is a fixed 64 entries / 1024 characters, the navigation triggers
+check `tool_ids WHERE navigable = 1`, and the Guide triggers of 0083 are recreated. **A new theme or
+tool now needs only an `INSERT` into `theme_ids` / `tool_ids` in its migration** (plus the domain
+list). `migration-0085.test.ts`: tables equal the domain lists; unknown ids refused by FK and
+trigger; populated rows survive the upgrade with `foreign_key_check` clean and the guards intact.
+**Security impact:** LOW (same allowlists, enforced by FK instead of CHECK). **Security docs updated:** NO.
+
 ### 45.4 — Theme registry and one scene slot (M)
 Today a theme is wired in five ways (token blocks in `styles.css`, Places tokens from TS, scenes
 mounted from `main.tsx`, `App.tsx`, `AppShell` and Today). Add one theme registry
 (`themes/<id>/`: tokens, scene, navigation style, light/dark support) and one `ThemeScene` slot.
 
+**Status:** DONE (not released). `THEME_REGISTRY` in `packages/domain/src/theme-registry.ts`
+describes every stored theme value once: navigation (`top-bar`/`sidebar`), kind
+(`theme`/`place`/`alias`) and scene (`city`/`forest`/`place`/none); a test keeps it equal to
+`THEME_PREFERENCES` and `TOP_BAR_THEMES`. The theme picker (`THEME_MODES`) reads it, and
+`apps/web/src/ThemeScene.tsx` is the one scene slot: `main.tsx`, `App.tsx` and `AppShell` no longer
+mount scenes themselves. Tokens stay in each theme's CSS file (45.5 adds the surface roles there).
+Screens before/after in every theme showed no change except scene animation.
+
 ### 45.5 — Surface-role tokens; feature CSS without `data-theme` (L)
 Journal, Gazette, Map, area and maintenance CSS carry per-theme selectors. Add surface-role
 tokens (bar, panel, card, raised, accent ink) to every theme so feature CSS uses tokens only.
+
+**Status:** DONE (not released). Surface roles (`--title-font`, `--book-font`, `--paper`,
+`--paper-frame`, `--panel`, `--raised`, `--sheet*`, `--hairline`, `--flower`, `--heading-glow`,
+`--today-glow`, `--label-*`, `--scene-*` and a few more; listed in `styles.css`) are set by each
+theme in its own CSS file; Journal, areas (Contacts, More, Settings lists), Maintenance, the Daily
+Planet, the Map and the sky card read only those roles, each with the default look as fallback.
+Dark surfaces are `data-scheme='dark'` on `<html>`, set from the theme registry (`scheme`). A test
+(`apps/server/src/web-feature-css.test.ts`) fails when feature CSS names a theme; the allowed theme files
+are listed with a reason (theme files, the Places dock of 46, Galactic Guide layout). Screens of
+six themes × seven pages (desktop and phone) before/after: unchanged except that contact names in
+Tokyo Nights now use the theme's sans face like every other Tokyo heading (they fell back to Georgia).
 
 ### 45.6 — "Look" settings out of the Guide; Settings keep the theme (needs OK)
 Guide settings (layout, card art) affect every theme, and Settings pages are forced to Memento
 Mori. Move card art to a theme-neutral "Look" group and let Settings keep the person's theme
 (the layout is decided by the theme since 46).
 
+**Owner decision (2026-11-20):** Settings pages get their own dedicated **Settings theme**, not
+pickable as a user theme, used for every Settings page whatever theme is chosen; user themes need
+not support Settings. **Status:** DONE (not released). `apps/web/src/settings-theme.css` defines
+`data-theme='settings'`, forked from Memento Mori so Settings look as before; `theme.ts` sets it on
+every Settings page (account, Workspace settings, members, plugins, storage, Knots, backups, server
+admin) whatever theme is chosen. It is not in the theme registry, `theme_ids` or the picker; the top
+bar of a top-bar theme stays the person's choice. The contrast test checks its tokens; e2e expects
+`settings` on management pages. Card art stays with the Galactic Guide (the "Look" group was
+dropped with this decision).
+
 ### 45.7–45.9 — Tool manifests (web, server) and Equipment as the first module (steps 28.2–28.4)
 One manifest per tool (id, routes, navigation entry, Today cards, MCP tools, backup tables) read
 by the web app and the server, then Equipment moved behind it as the proof.
+
+**Status:** DONE (not released). `TOOL_MANIFESTS` (`packages/domain/src/tool-manifest.ts`) is the
+shared manifest of every tool: navigation family, capability groups, Workspace API routes (with
+`anyOf` for routes shared by several tools) and backup tables (plus `SHARED_BACKUP_TABLES` with
+reasons). Read by: the navigation families and pages (web manifest `TOOL_PLUGINS` gained each tool's
+page), `toolForCapability` in permissions, the tool-off sweep (`toolGatesFor` replaces the test's own
+table) and a backup coverage test (every exported table owned once). Equipment is the first module:
+`apps/web/src/modules/equipment/` (pages, README as the template) and `apps/server/src/modules/
+equipment/` (routes and a `ServerToolModule`, registered from `SERVER_TOOL_MODULES`). Today cards
+already come from one registry (`TODAY_CARDS`). The other tools keep their places and move into
+modules one by one; nothing is loaded at runtime.
 
 ### 45.10 — One outbound HTTP client (M)
 Weather, Telegram, map download and ChatGPT file hosts each have their own client. One client
 with host allowlist, timeouts, size limits and redirect rules.
 
+**Status:** DONE (not released). New package `@vergissmeinnicht/outbound` (`outboundFetch`,
+`readBounded`, `discard`, `OutboundError`): allowlist, HTTPS/default port, no URL credentials or
+fragment, no redirects, no cookies, timeout + caller signal, declared and streamed size cap,
+URL-free errors. Weather/Daily Planet (`WEATHER_HOSTS`), Telegram and map download use it; ESLint
+refuses a direct `fetch` in server code. ChatGPT file download keeps its DNS-pinned `node:https`
+transport (needs the verified address) with the same rules; documented as the one exception.
+Dockerfile copies the new package manifest.
+**Tests/checks:** typecheck, lint, `packages/outbound` tests, weather, Telegram, map-data, weather
+and Gazette route tests, full Vitest.
+**Security impact:** MEDIUM (hardening, no new surface). **Security docs updated:** YES (§14).
+
 ### 45.11 — "AI assistants allowed" per Workspace (needs OK)
 A Workspace switch that blocks MCP/AI access to that Workspace for every member.
+
+**Owner decision (2026-11-20):** yes, **on by default**.
+**Status:** DONE (not released). Migration **0084** adds `workspaces.ai_assistants` (default on).
+`GET/POST /api/workspaces/:id/ai-assistants` (every member reads, `workspace.settings.manage`
+switches; audited `AI_ASSISTANTS_ALLOWED` / `_BLOCKED`, re-checked in the write). Off: the MCP
+`authorize` refuses that Workspace (`ai_not_allowed`), a grant's Workspace list (`list_workspaces`,
+Map tool listing) leaves it out, `delegationAllows` refuses writes inside the transaction, and a new
+connection cannot choose it (consent screen greys it out). Existing connections are kept and reach
+it again when switched back on. UI: one icon tile "AI assistants" under the Plugins grid.
+**Tests/checks:** typecheck, lint, `mcp-errors.test.ts` (read, write, list, new connection, back
+on, audit; EDITOR 403, bad body 400), route sweep classifies the route, full Vitest.
+Checked on screen (desktop + phone, every theme token set incl. axe): tile sits in the Plugins grid with the same spacing. Screens: `/mnt/project-files/ui-review/2026-11-20-ai-tile/`.
+**Security impact:** MEDIUM (new permission boundary for MCP). **Security docs updated:** YES.
 
 ---
 

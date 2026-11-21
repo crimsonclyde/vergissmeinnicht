@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { api, messageFor } from './api.ts';
 import { TOOL_PLUGINS, type ToolPlugin } from './tool-registry.ts';
 import { UiIcon } from './ui-icons.tsx';
@@ -78,10 +78,56 @@ export function PluginsPage(props: { context: WorkspaceContext; onChanged: () =>
             </li>
           );
         })}
+        <AiAssistantsTile workspaceId={context.workspace.id} />
       </ul>
       <p role="status" style={{ margin: 0 }}>
         {status ?? ''}
       </p>
     </section>
+  );
+}
+
+/** 45.11: "AI assistants allowed" for the whole Workspace — on by default; off keeps every MCP connection out. */
+function AiAssistantsTile(props: { workspaceId: string }) {
+  const { workspaceId } = props;
+  const [allowed, setAllowed] = useState<boolean | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [message, setMessage] = useState<string | null>(null);
+  const [open, setOpen] = useState(false);
+  useEffect(() => {
+    api.aiAssistants(workspaceId).then(setAllowed, (caught: unknown) => setMessage(messageFor(caught)));
+  }, [workspaceId]);
+  async function set(next: boolean) {
+    const before = allowed;
+    setBusy(true);
+    setMessage(null);
+    setAllowed(next);
+    try {
+      setAllowed(await api.setAiAssistants(workspaceId, next));
+    } catch (caught) {
+      setAllowed(before);
+      setMessage(messageFor(caught));
+    } finally {
+      setBusy(false);
+    }
+  }
+  const name = t('aiAssistants.name');
+  return (
+    <li className={`card plugin-tile${allowed === true ? ' plugin-on' : ''}`}>
+        <label className="plugin-switch">
+          <span className="plugin-icon">
+            <UiIcon name="assistant" size="1.5rem" />
+          </span>
+          <strong className="plugin-name">{name}</strong>
+          <input type="checkbox" className="switch" checked={allowed === true} disabled={busy || allowed === null} aria-describedby="plugin-ai-hint" onChange={(event) => void set(event.target.checked)} />
+        </label>
+        <button type="button" className="icon-button plugin-info" aria-expanded={open} aria-controls="plugin-ai-hint" aria-label={t('plugins.about', { tool: name })} title={t('plugins.about', { tool: name })} onClick={() => setOpen(!open)}>
+          <UiIcon name="info" />
+        </button>
+        <small id="plugin-ai-hint" className={open ? 'muted plugin-hint' : 'visually-hidden'}>
+          {t('aiAssistants.hint')}
+        </small>
+        {message !== null && <p role="alert">{message}</p>}
+    </li>
   );
 }

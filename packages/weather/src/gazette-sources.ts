@@ -103,8 +103,8 @@ function brightSkyHours(body: Record<string, unknown>, sourceIds: ReadonlySet<nu
 const WARNING_KINDS: readonly [RegExp, string][] = [[/thunder|gewitter|temporal/i, 'thunderstorm'], [/rain|regen|pioggi|precip/i, 'rain'], [/snow|schnee|neve/i, 'snow'], [/frost|ice|glätte|glatteis|gelo/i, 'frost'], [/gust|wind|böen|sturm|orkan|vento/i, 'wind'], [/fog|nebel|nebbia/i, 'fog'], [/heat|hitze|calore|high-temp/i, 'heat'], [/flood|hochwasser|idro|hydro|landslide|frana/i, 'hydro']];
 const kindOf = (text: string) => WARNING_KINDS.find(([pattern]) => pattern.test(text))?.[1];
 
-export function createGazetteWeatherSources(options: { readonly fetch?: Fetch; readonly userAgent: () => Promise<string>; readonly now?: () => Date }): GazetteWeatherSourcesPort {
-  const doFetch = options.fetch ?? fetch;
+export function createGazetteWeatherSources(options: { readonly fetch?: Fetch | undefined; readonly userAgent: () => Promise<string>; readonly now?: () => Date }): GazetteWeatherSourcesPort {
+  const doFetch = options.fetch;
   const now = options.now ?? (() => new Date());
   const headers = async () => ({ 'user-agent': await options.userAgent() });
 

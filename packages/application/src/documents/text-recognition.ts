@@ -21,7 +21,7 @@ import { TextExtractionError, type DocumentTextRepository, type FileText, type T
 import type { WorkspaceRepository } from '../ports/workspace-repository.ts';
 import { userActor } from '../user-actor.ts';
 import { DocumentConflictError, DocumentFileNotFoundError, StorageFullError } from './errors.ts';
-import { authorizeTool } from './tools.ts';
+import { requireTool } from '../tools/require-tool.ts';
 
 /** A claim is held this long and extended after every page; a crashed worker's file is picked up again after it. */
 export const TEXT_LEASE_MS = 10 * 60_000;
@@ -175,7 +175,7 @@ export class TextRetryNotPossibleError extends Error {
 
 /** Retry for a file whose text could not be read (`document.manage`, like any change to a Document's files). */
 export async function retryTextRecognition(deps: TextRecognitionUseCaseDeps, input: { readonly actor: User; readonly workspaceId: WorkspaceId; readonly fileId: string }): Promise<void> {
-  await authorizeTool(deps, input.actor, input.workspaceId, 'DOCUMENTS', 'document.manage');
+  await requireTool(deps, input.actor, input.workspaceId, 'DOCUMENTS', 'document.manage');
   const fileId = parseDocumentFileId(input.fileId);
   const result = await deps.texts.retry({ workspaceId: input.workspaceId, fileId, at: deps.clock.now() }, userActor(input.actor), {
     tool: 'DOCUMENTS',
@@ -189,7 +189,7 @@ export async function retryTextRecognition(deps: TextRecognitionUseCaseDeps, inp
 
 /** Whether recognition is on, and how many files are in each state — for Workspace admins (P5). */
 export async function textRecognitionSettings(deps: TextRecognitionUseCaseDeps, input: { readonly actor: User; readonly workspaceId: WorkspaceId }): Promise<TextRecognitionSettings> {
-  await authorizeTool(deps, input.actor, input.workspaceId, 'DOCUMENTS', 'workspace.settings.manage');
+  await requireTool(deps, input.actor, input.workspaceId, 'DOCUMENTS', 'workspace.settings.manage');
   return deps.texts.settings(input.workspaceId);
 }
 
@@ -199,7 +199,7 @@ export async function textRecognitionSettings(deps: TextRecognitionUseCaseDeps, 
  * existing files, behind new uploads. Audited.
  */
 export async function setTextRecognition(deps: TextRecognitionUseCaseDeps, input: { readonly actor: User; readonly workspaceId: WorkspaceId; readonly enabled: boolean }): Promise<TextRecognitionSettings> {
-  await authorizeTool(deps, input.actor, input.workspaceId, 'DOCUMENTS', 'workspace.settings.manage');
+  await requireTool(deps, input.actor, input.workspaceId, 'DOCUMENTS', 'workspace.settings.manage');
   const result = await deps.texts.setEnabled({ workspaceId: input.workspaceId, enabled: input.enabled, at: deps.clock.now() }, userActor(input.actor), {
     tool: 'DOCUMENTS',
     actorMay: (role) => roleHasCapability(role, 'workspace.settings.manage'),
@@ -216,7 +216,7 @@ const manageGuard = { tool: 'DOCUMENTS', actorMay: (role) => roleHasCapability(r
  * included — they can already find these words by search. Another Workspace's file is "not found".
  */
 export async function documentFileText(deps: TextRecognitionUseCaseDeps, input: { readonly actor: User; readonly workspaceId: WorkspaceId; readonly fileId: string }): Promise<FileText> {
-  await authorizeTool(deps, input.actor, input.workspaceId, 'DOCUMENTS', 'document.view');
+  await requireTool(deps, input.actor, input.workspaceId, 'DOCUMENTS', 'document.view');
   const text = await deps.texts.fileText(input.workspaceId, parseDocumentFileId(input.fileId));
   if (text === undefined) throw new DocumentFileNotFoundError();
   return text;
@@ -232,7 +232,7 @@ export async function correctDocumentText(
   deps: TextRecognitionUseCaseDeps,
   input: { readonly actor: User; readonly workspaceId: WorkspaceId; readonly fileId: string; readonly text: string; readonly revision: number },
 ): Promise<FileText> {
-  await authorizeTool(deps, input.actor, input.workspaceId, 'DOCUMENTS', 'document.manage');
+  await requireTool(deps, input.actor, input.workspaceId, 'DOCUMENTS', 'document.manage');
   const fileId = parseDocumentFileId(input.fileId);
   const text = cleanCorrectedText(input.text);
   const result = await deps.texts.correct({ workspaceId: input.workspaceId, fileId, text, searchText: recognizedSearchText(text), revision: input.revision, at: deps.clock.now() }, userActor(input.actor), manageGuard);
@@ -245,7 +245,7 @@ export async function correctDocumentText(
 
 /** Discards a correction, so the recognised text counts again (16.13, `document.manage`); audited. */
 export async function restoreDocumentText(deps: TextRecognitionUseCaseDeps, input: { readonly actor: User; readonly workspaceId: WorkspaceId; readonly fileId: string; readonly revision: number }): Promise<FileText> {
-  await authorizeTool(deps, input.actor, input.workspaceId, 'DOCUMENTS', 'document.manage');
+  await requireTool(deps, input.actor, input.workspaceId, 'DOCUMENTS', 'document.manage');
   const fileId = parseDocumentFileId(input.fileId);
   const result = await deps.texts.restore({ workspaceId: input.workspaceId, fileId, revision: input.revision, at: deps.clock.now() }, userActor(input.actor), manageGuard);
   if (result === 'forbidden') throw new NotAuthorizedError();

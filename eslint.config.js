@@ -46,6 +46,15 @@ export default tseslint.config(
     ),
   },
   {
+    // One outbound HTTP client (45.10): server code reaches other hosts only through @vergissmeinnicht/outbound
+    // (allowlist, HTTPS, no redirects, timeout, size cap). Tests inject a fake fetch.
+    files: ['apps/server/**', 'packages/**'],
+    ignores: ['packages/outbound/**', 'packages/ui/**', '**/*.test.ts', '**/*.test.tsx', 'apps/server/src/http/test-harness.ts', 'packages/*/scripts/**'],
+    rules: {
+      'no-restricted-globals': ['error', { name: 'fetch', message: 'Use outboundFetch from @vergissmeinnicht/outbound (45.10).' }],
+    },
+  },
+  {
     files: ['apps/web/**', 'packages/ui/**'],
     languageOptions: { globals: { ...globals.browser } },
     plugins: { 'react-hooks': reactHooks },

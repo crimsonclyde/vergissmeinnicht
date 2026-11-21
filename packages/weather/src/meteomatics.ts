@@ -43,8 +43,8 @@ function series(body: unknown): Map<string, { readonly date: string; readonly va
  * Daily values are 24-hour aggregates ending at each local midnight. Rain probability is not requested
  * (not part of every account); it stays missing. No elevation parameter.
  */
-export function createMeteomatics(options: { readonly fetch?: Fetch; readonly now?: () => Date } = {}): WeatherProviderAdapter {
-  const doFetch = options.fetch ?? fetch;
+export function createMeteomatics(options: { readonly fetch?: Fetch | undefined; readonly now?: () => Date } = {}): WeatherProviderAdapter {
+  const doFetch = options.fetch;
   const now = options.now ?? (() => new Date());
   const call = (path: string, query: ForecastQuery) => {
     if (query.credential?.provider !== 'METEOMATICS') throw new WeatherProviderError('needs_credentials');
