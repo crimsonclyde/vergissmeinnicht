@@ -1100,6 +1100,8 @@ The following choices are mandatory V1 behavior:
 
 ### Security check: lookup tables, Settings theme and tool manifests (45.3–45.9, 2026-11-21)
 
+**Published in 0.17.0 (owner release 77, 2026-11-21).**
+
 - [x] Theme and tool ids stay validated by the database: `theme_ids` and `tool_ids` (migration 0085) replace the CHECK lists with foreign keys, so an unknown theme or tool is still refused past the API (`FOREIGN KEY constraint failed`); the navigation-order triggers read `tool_ids WHERE navigable = 1`. Both lookups are server-wide, never part of a Workspace backup, and restore copies their ids unchanged (the foreign key refuses an unknown one). A test keeps both tables equal to the domain lists.
 - [x] The Settings theme (45.6) and surface roles (45.5) are presentation only: no route, capability, schema or data flow.
 - [x] `toolForCapability` (permissions) now reads the tool manifests; a test keeps every capability group owned by at most one tool, and the tool-off sweep reads the same manifests, so a capability and its routes cannot be gated by different switches. Equipment's routes move to `apps/server/src/modules/equipment/` unchanged and are registered from `SERVER_TOOL_MODULES`; the route security sweep (authentication, isolation, tool off) covers them like before. Nothing is loaded at runtime.
