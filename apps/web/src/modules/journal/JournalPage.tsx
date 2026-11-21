@@ -1,12 +1,14 @@
 import { useCallback, useEffect, useId, useLayoutEffect, useRef, useState, type CSSProperties } from 'react';
 import { JOURNAL_IMPORT_LIMITS, parseJournalMarkdown, type JournalContent, type JournalDraft } from '@vergissmeinnicht/domain';
-import { api, attachmentUrl, messageFor, uploadJournalImage, type JournalOverview, type JournalView } from '../../api.ts';
+import { api, attachmentUrl, isNetworkError, messageFor, uploadJournalImage, type JournalOverview, type JournalView } from '../../api.ts';
 import { formatCalendarDate, formatWeekdayLong, t } from '../../i18n/index.ts';
 import { MarkdownEditor } from '../../markdown/MarkdownEditor.tsx';
 import { WorkspaceReferences } from '../../markdown/WorkspaceReferences.tsx';
 import { MobileActionBar } from '../../mobile/MobileActionBar.tsx';
 import { useCompactLayout } from '../../mobile/useCompactLayout.ts';
 import { moonAt } from '../../moon.ts';
+import { useOffline } from '../../offline/OfflineProvider.tsx';
+import { noteView, pendingOutbox, waitingOutboxIds, withQueuedNotes, type OutboxChange } from '../../offline/outbox.ts';
 import { navigate, paths, replaceEditorPath, setNavigationGuard } from '../../router.tsx';
 import { UiIcon } from '../../ui-icons.tsx';
 import { temperature } from '../../weather-view.ts';
@@ -34,6 +36,7 @@ function writeSetting(key: string, value: string) { try { window.localStorage.se
  */
 export function JournalPage({ workspaceId, canWrite, creating = false, entryId, homeHref }: { workspaceId?: string; canWrite: boolean; creating?: boolean; entryId?: string; homeHref?: string }) {
   const compact = useCompactLayout();
+  const offline = useOffline();
   const personal = workspaceId === undefined;
   const formId = useId(); const panelId = useId();
   const titleInput = useRef<HTMLInputElement>(null);
@@ -91,7 +94,7 @@ export function JournalPage({ workspaceId, canWrite, creating = false, entryId, 
   useEffect(() => {
     if (!entryId || consent !== true) return;
     let active = true;
-    api.journalEntry(workspaceId, entryId).then(result => { if (active) showEntry(result, 'read'); }, error => { if (active) setMessage(messageFor(error)); }).finally(() => { if (active) setLoadingEntry(false); });
+    loadEntry(entryId).then(result => { if (active) showEntry(result, 'read'); }, error => { if (active) setMessage(messageFor(error)); }).finally(() => { if (active) setLoadingEntry(false); });
     return () => { active = false; };
     // eslint-disable-next-line react-hooks/exhaustive-deps -- once per deep link
   }, [workspaceId, entryId, consent]);
@@ -115,23 +118,60 @@ export function JournalPage({ workspaceId, canWrite, creating = false, entryId, 
     const [q, archived, page, options] = JSON.parse(listKey).slice(1) as [string, boolean, number, typeof listOptions];
     api.journal(workspaceId, q, archived, page, options).then(result => { if (active) { setEntries(result.entries); setMore(result.more); } }, error => { if (active) setMessage(messageFor(error)); });
     return () => { active = false; };
-  }, [consent, workspaceId, listKey]);
+    // Changes sent from this device (48.5): read the list again.
+  }, [consent, workspaceId, listKey, offline.outboxVersion]);
   useEffect(() => {
     if (consent !== true) return;
     let active = true;
     api.journalOverview(workspaceId).then(result => { if (active) setOverview(result); }, () => { if (active) setOverview(null); });
     return () => { active = false; };
-  }, [consent, workspaceId, overviewVersion]);
+  }, [consent, workspaceId, overviewVersion, offline.outboxVersion]);
 
   useEffect(() => {
     if (consent !== true || !canWrite) return;
     let active = true;
-    api.journalDraft(workspaceId).then(result => { if (active) { setRecovery(result.draft); if (creating && result.draft === null) startEditing(fresh(), null); } }, error => { if (active) setMessage(messageFor(error)); });
+    api.journalDraft(workspaceId).then(result => { if (active) { setRecovery(result.draft); if (creating && result.draft === null) startEditing(fresh(), null); } }, error => {
+      if (!active) return;
+      // Offline (48.5): no server draft to recover; writing still works and is kept on this device.
+      if (isNetworkError(error)) { if (creating) startEditing(fresh(), null); return; }
+      setMessage(messageFor(error));
+    });
     return () => { active = false; };
     // eslint-disable-next-line react-hooks/exhaustive-deps -- once per library
   }, [consent, canWrite, creating, workspaceId]);
 
-  const refresh = useCallback(async () => { setOverviewVersion(value => value + 1); await reload().catch(error => setMessage(messageFor(error))); }, [reload]);
+  const refresh = useCallback(async () => { setOverviewVersion(value => value + 1); await reload().catch(error => { if (!isNetworkError(error)) setMessage(messageFor(error)); }); }, [reload]);
+
+  // Notes changed on this device and not sent yet (48.5): shown as this device has them.
+  const me = t('lists.you');
+  const waitingNote = (id: string | undefined) => pendingOutbox(offline.outbox).find((item) => item.change.kind === 'note' && item.change.entryId === id);
+  async function loadEntry(id: string): Promise<JournalView> {
+    const waiting = waitingNote(id);
+    try {
+      const saved = await api.journalEntry(workspaceId, id);
+      return waiting?.change.kind === 'note' ? noteView(waiting.change, saved, waiting.deviceTime, me) : saved;
+    } catch (error) {
+      if (waiting?.change.kind === 'note' && (isNetworkError(error) || waiting.change.isNew)) return noteView(waiting.change, null, waiting.deviceTime, me);
+      throw error;
+    }
+  }
+  /** Keeps a Note on this device to be sent later; shows it as saved here. */
+  async function keepNote(base: JournalView | null, content: JournalContent, archived: boolean): Promise<JournalView | null> {
+    // The personal Journal is never kept on the device (security.md: private entries are not cached offline).
+    if (personal) { setMessage(t('offline.journalNeedsConnection')); return null; }
+    const change: OutboxChange = { kind: 'note', workspaceId: workspaceId ?? null, entryId: base?.id ?? crypto.randomUUID(), isNew: base === null, expectedRevision: base?.revision ?? 0, content, archived };
+    if (!await offline.enqueueOutbox(change, content.title)) { setMessage(t('offline.notSaved')); return null; }
+    return noteView(change, base, new Date().toISOString(), me);
+  }
+
+  // Sent from this device: show what the server has now.
+  const outboxVersion = offline.outboxVersion;
+  useEffect(() => {
+    if (outboxVersion === 0) return;
+    const state = current.current;
+    if (state.entry !== null && !state.dirty && !state.busy) void api.journalEntry(workspaceId, state.entry.id).then(result => { if (!current.current.dirty) { setEntry(result); const next = contentOf(result); setDraft(next); setOriginal(JSON.stringify(next)); } }, () => undefined);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- only when changes were sent
+  }, [outboxVersion]);
   const resolveImage = (path: string) => { const match = ATTACHMENT.exec(path); return match ? attachmentUrl(workspaceId, match[1] ?? '') : undefined; };
   async function uploadFile(file: File) { try { const fileRef = imageReference(await uploadJournalImage(workspaceId, file)); setImageVersion(value => value + 1); return fileRef; } catch (error) { setMessage(messageFor(error)); throw error; } }
   function change(next: JournalContent) { setDraft(next); setStatus(''); setMessage(null); }
@@ -149,7 +189,7 @@ export function JournalPage({ workspaceId, canWrite, creating = false, entryId, 
   async function open(id: string) {
     if (!id || !leave()) return;
     setBusy(true); setMessage(null);
-    try { showEntry(await api.journalEntry(workspaceId, id), 'read'); } catch (error) { setMessage(messageFor(error)); } finally { setBusy(false); }
+    try { showEntry(await loadEntry(id), 'read'); } catch (error) { setMessage(messageFor(error)); } finally { setBusy(false); }
   }
   function toList() {
     if (busy || !leave()) return;
@@ -164,37 +204,57 @@ export function JournalPage({ workspaceId, canWrite, creating = false, entryId, 
   const save = useCallback(async (archive?: boolean) => {
     const state = current.current; if (state.draft === null || state.busy) return;
     setBusy(true); setMessage(null); setStatus(t('journal.saving'));
+    const archived = archive ?? state.entry?.archived ?? false;
+    const keepHere = async () => {
+      const kept = await keepNote(state.entry, state.draft as JournalContent, archived);
+      if (kept === null) { setStatus(t('journal.unsavedStatus')); return; }
+      setEntry(kept); replaceEditorPath(entryPath(kept.id));
+      if (JSON.stringify(current.current.draft) === JSON.stringify(state.draft)) setOriginal(JSON.stringify(state.draft));
+      setStatus(t('offline.noteSavedHere'));
+    };
     try {
-      const result = await api.saveJournal(workspaceId, state.entry?.id, state.draft, state.entry?.revision ?? 0, archive ?? state.entry?.archived ?? false);
+      // A Note with a change still waiting on this device goes the same way, so its changes stay in order.
+      if (waitingNote(state.entry?.id) !== undefined) { await keepHere(); return; }
+      const result = await api.saveJournal(workspaceId, state.entry?.id, state.draft, state.entry?.revision ?? 0, archived);
       setEntry(result); replaceEditorPath(entryPath(result.id));
       const next = contentOf(result); const unchanged = JSON.stringify(current.current.draft) === JSON.stringify(state.draft);
       if (unchanged) setDraft(next);
       setOriginal(JSON.stringify(next)); setRecovery(null);
       setStatus(t(unchanged ? 'journal.saved' : 'journal.unsavedStatus'));
       await refresh();
-    } catch (error) { setMessage(messageFor(error)); setStatus(t('journal.unsavedStatus')); setAutosave(false); } finally { setBusy(false); }
+    } catch (error) {
+      if (isNetworkError(error)) { await keepHere(); return; }
+      setMessage(messageFor(error)); setStatus(t('journal.unsavedStatus')); setAutosave(false);
+    } finally { setBusy(false); }
     // eslint-disable-next-line react-hooks/exhaustive-deps -- paths only depend on workspaceId
-  }, [workspaceId, refresh]);
+  }, [workspaceId, refresh, offline.outbox, offline.enqueueOutbox]);
 
   // Reading view: pin and archive save the entry as it is, with only that flag changed.
   async function quickSave(change: { pinned?: boolean; archived?: boolean }) {
     if (entry === null || busy) return;
     setBusy(true); setMessage(null);
+    const content = { ...contentOf(entry), ...(change.pinned === undefined ? {} : { pinned: change.pinned }) };
+    const archived = change.archived ?? entry.archived;
+    const keepHere = async () => { const kept = await keepNote(entry, content, archived); if (kept !== null) { showEntry(kept, 'read'); setStatus(t('offline.noteSavedHere')); } };
     try {
-      const result = await api.saveJournal(workspaceId, entry.id, { ...contentOf(entry), ...(change.pinned === undefined ? {} : { pinned: change.pinned }) }, entry.revision, change.archived ?? entry.archived);
+      if (waitingNote(entry.id) !== undefined) { await keepHere(); return; }
+      const result = await api.saveJournal(workspaceId, entry.id, content, entry.revision, archived);
       showEntry(result, 'read'); setStatus(t('journal.saved')); await refresh();
-    } catch (error) { setMessage(messageFor(error)); } finally { setBusy(false); }
+    } catch (error) { if (isNetworkError(error)) await keepHere(); else setMessage(messageFor(error)); } finally { setBusy(false); }
   }
 
   useEffect(() => {
-    if (recovery !== null || !dirty || busy || draft === null || draft.title.trim() === '' || consent !== true || !canWrite || mode !== 'edit') return;
+    if (recovery !== null || !dirty || busy || draft === null || draft.title.trim() === '' || consent !== true || !canWrite || mode !== 'edit' || !offline.online) return;
     let active = true;
     const timer = window.setTimeout(() => {
       if (autosave) { void save(); return; }
-      void api.saveJournalDraft(workspaceId, { entryId: entry?.id ?? null, expectedRevision: entry?.revision ?? 0, content: draft, archived: entry?.archived ?? false }).then(() => { if (active) setStatus(t('journal.draftSaved')); }, error => { if (active) setMessage(messageFor(error)); });
+      // A Note that exists only on this device has no server draft yet.
+      if (waitingNote(entry?.id)?.change.kind === 'note') return;
+      void api.saveJournalDraft(workspaceId, { entryId: entry?.id ?? null, expectedRevision: entry?.revision ?? 0, content: draft, archived: entry?.archived ?? false }).then(() => { if (active) setStatus(t('journal.draftSaved')); }, error => { if (active && !isNetworkError(error)) setMessage(messageFor(error)); });
     }, 1500);
     return () => { active = false; window.clearTimeout(timer); };
-  }, [recovery, dirty, busy, draft, entry, consent, canWrite, autosave, save, workspaceId, mode]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- waitingNote reads the current outbox
+  }, [recovery, dirty, busy, draft, entry, consent, canWrite, autosave, save, workspaceId, mode, offline.online]);
 
   async function recover() {
     if (!recovery || !leave()) return;
@@ -287,10 +347,12 @@ export function JournalPage({ workspaceId, canWrite, creating = false, entryId, 
   </section>;
 
   // ---- Library / timeline -------------------------------------------------------------------
+  const shownEntries = entries === null ? null : offset > 0 ? entries : withQueuedNotes(entries, offline.outbox, workspaceId ?? null, timeline ? false : filters.archived, me);
+  const waitingIds = waitingOutboxIds(offline.outbox);
   if (!isEditing || draft === null) return <section className="nb journal" data-editing="false" aria-label={t(personal ? 'journal.privateHeading' : 'journal.heading')}>
     {importer}
     <p className="journal-status" role="status">{status}</p>
-    <JournalHome workspaceId={workspaceId} canWrite={canWrite && recovery === null} busy={busy} entries={entries} overview={overview} more={more} offset={offset}
+    <JournalHome workspaceId={workspaceId} canWrite={canWrite && recovery === null} busy={busy} entries={shownEntries} waiting={waitingIds} overview={overview} more={more} offset={offset}
       layout={layout} filters={filters} notice={notice}
       onLayout={changeLayout} onFilters={updateFilters} onPage={setOffset} onOpen={id => void open(id)}
       onNew={() => startEditing(fresh(), null)} onToday={() => void todayPage()} onImport={() => importInput.current?.click()} />

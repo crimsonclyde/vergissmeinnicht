@@ -1365,12 +1365,32 @@ caption {
 
 /* Offline state (8.5): visible, but not alarming; the text says what happens. */
 .offline-banner {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.25rem 0.5rem;
   margin: 0 0 1rem;
   padding: 0.5rem 0.75rem;
   border: 1px solid var(--border);
   border-left: 6px solid var(--state-skipped);
   border-radius: var(--radius);
   background: var(--surface);
+  color: var(--text);
+}
+
+/* When the saved copy on screen was received (48.3): secondary, after the status. */
+.offline-banner-copy {
+  color: var(--text-muted);
+  font-size: 0.9em;
+}
+
+/* "Saved on this device, not sent yet" mark on a Note or Reminder (48.5). */
+.offline-mark {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  color: var(--text-muted);
+  font-size: 0.85em;
 }
 
 .offline-notices ul {

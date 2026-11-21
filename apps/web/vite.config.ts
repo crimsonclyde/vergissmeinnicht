@@ -1,9 +1,10 @@
 import react from '@vitejs/plugin-react';
 import { defineConfig } from 'vite';
+import { precacheManifest } from './precache-manifest.ts';
 import { thirdPartyNotices } from './third-party-notices.ts';
 
 export default defineConfig({
-  plugins: [react(), thirdPartyNotices()],
+  plugins: [react(), thirdPartyNotices(), precacheManifest()],
   build: {
     // Keep bundled editor fonts compatible with the existing self-only production font CSP.
     assetsInlineLimit: filePath => /\.(woff2?|ttf|otf)$/i.test(filePath) ? false : undefined,

@@ -1,10 +1,12 @@
 import { addInterval, type LocalDate } from '@vergissmeinnicht/domain';
-import { useState, type ReactNode } from 'react';
-import { api, messageFor, type Occurrence, type PersonRef, type RunSummary, type ScheduleInput } from './api.ts';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { api, isNetworkError, messageFor, type Occurrence, type PersonRef, type RunSummary, type ScheduleInput } from './api.ts';
 import { FormDialog } from './FormDialog.tsx';
 import { LinkedDocuments } from './DocumentLinks.tsx';
 import { formatCalendarDate, formatDateTime, formatRelative, t } from './i18n/index.ts';
 import { MoreMenu } from './MoreMenu.tsx';
+import { useOffline } from './offline/OfflineProvider.tsx';
+import { pendingOutbox } from './offline/outbox.ts';
 import { AppIcon } from './procedure-icons.tsx';
 import { Link, paths } from './router.tsx';
 import { ScheduleDialog, recurrenceLabel, reminderLabel } from './ScheduleDialog.tsx';
@@ -71,6 +73,16 @@ export function OccurrenceItem(props: {
   const [linkable, setLinkable] = useState<readonly RunSummary[] | null>(null);
   const [runId, setRunId] = useState('');
   const [skipElapsed, setSkipElapsed] = useState(true);
+  const offline = useOffline();
+  // Done pressed without a connection (48.5): kept on this device, sent when the server is reachable.
+  const doneHere = pendingOutbox(offline.outbox).find((entry) => entry.change.kind === 'completeOccurrence' && entry.change.occurrenceId === item.id);
+  // Once sent (or undone), show what the server has now.
+  const wasDoneHere = useRef(false);
+  const { onChanged } = props;
+  useEffect(() => {
+    if (wasDoneHere.current && doneHere === undefined) onChanged();
+    wasDoneHere.current = doneHere !== undefined;
+  }, [doneHere, onChanged]);
   const today = todayIn(schedule.timeZone);
   const overdue = item.dueDate < today;
   const isProcedure = schedule.kind === 'PROCEDURE';
@@ -215,6 +227,17 @@ export function OccurrenceItem(props: {
                 {t(dueNow ? 'start.button' : 'home.startEarly')}
               </button>
             )
+          ) : doneHere !== undefined ? (
+            <>
+              <span className="offline-mark" title={t('offline.notSent')}>
+                <UiIcon name="savedHere" />
+                {t('home.done')}
+                <span className="visually-hidden">{t('offline.notSent')}</span>
+              </span>
+              <button type="button" className="icon-button" aria-label={t('offline.undoDone', { title: schedule.title })} title={t('offline.undoDone', { title: schedule.title })} onClick={() => void offline.removeOutbox([doneHere.clientChangeId])}>
+                <UiIcon name="undo" />
+              </button>
+            </>
           ) : (
             props.can.canExecute && (
               <button
@@ -224,7 +247,13 @@ export function OccurrenceItem(props: {
                 aria-label={t('home.completeNamed', { title: schedule.title })}
                 onClick={() =>
                   void act(async () => {
-                    await api.completeOccurrence(props.workspaceId, item.id);
+                    try {
+                      await api.completeOccurrence(props.workspaceId, item.id);
+                    } catch (caught) {
+                      // No answer: keep Done on this device (48.5); the server decides when it arrives.
+                      if (!isNetworkError(caught) || !(await offline.enqueueOutbox({ kind: 'completeOccurrence', workspaceId: props.workspaceId, occurrenceId: item.id }, schedule.title))) throw caught;
+                      return;
+                    }
                     props.onCompleted?.(item);
                   })
                 }

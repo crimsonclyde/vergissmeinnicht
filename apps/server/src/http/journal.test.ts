@@ -84,6 +84,36 @@ describe('Journal and Moon module boundaries', () => {
     t.database.sqlite.prepare("UPDATE users SET status = 'DISABLED' WHERE id = ?").run(id);
     expect(await repo.save({ ownerId: id }, actor, note, undefined, 0, false, new Date())).toBe('forbidden');
   });
+  it('creates an offline Note under its device-chosen id at most once (48.5)', async () => {
+    await enable('JOURNAL');
+    const id = '0b8f9a3c-4d2e-4f61-9a7b-3c5d2e1f0a9b';
+    const first = await t.post(shared(), { ...body(), id }, user);
+    expect(first.statusCode).toBe(201);
+    expect(first.json().entry.id).toBe(id);
+    // The same create again (its answer was lost): the same entry, nothing new, no second revision.
+    const again = await t.post(shared(), { ...body(), id }, user);
+    expect(again.statusCode).toBe(200);
+    expect(again.json().entry).toMatchObject({ id, revision: 1 });
+    expect((await t.get(shared(), user)).json().entries).toHaveLength(1);
+    // Other content under that id is never written over it.
+    expect((await t.post(shared(), { ...body(), id, content: { ...content, body: 'other' } }, user)).statusCode).toBe(409);
+    expect((await t.get(`${shared()}/${id}`, user)).json().entry.body).toBe(content.body);
+    // A guest cannot create, also not by retrying an id; a chosen id needs revision 0; ids are UUIDs.
+    expect((await t.post(shared(), { ...body(), id: '1c8f9a3c-4d2e-4f61-9a7b-3c5d2e1f0a9b' }, guest)).statusCode).toBe(403);
+    expect((await t.post(shared(), { ...body(), id }, guest)).statusCode).toBe(403);
+    expect((await t.post(shared(), { ...body(3), id: '2c8f9a3c-4d2e-4f61-9a7b-3c5d2e1f0a9b' }, user)).statusCode).toBe(400);
+    expect((await t.post(shared(), { ...body(), id: 'not-a-uuid' }, user)).statusCode).toBe(400);
+    // Another Workspace or the personal Journal never sees or confirms that entry through its id.
+    await t.addMember(other, 'member@example.org', 'USER');
+    await t.post(`/api/workspaces/${other}/tools`, { tool: 'JOURNAL', enabled: true }, t.admin);
+    expect((await t.get(`/api/workspaces/${other}/journal/${id}`, user)).statusCode).toBe(404);
+    const personal = await t.post('/api/account/journal', { ...body(), id: '3c8f9a3c-4d2e-4f61-9a7b-3c5d2e1f0a9b' }, user);
+    expect(personal.statusCode).toBe(201);
+    // Someone else's id is a conflict, never a server error and never their entry.
+    expect((await t.post('/api/account/journal', { ...body(), id: '3c8f9a3c-4d2e-4f61-9a7b-3c5d2e1f0a9b' }, t.admin)).statusCode).toBe(409);
+    expect((await t.post(`/api/workspaces/${other}/journal`, { ...body(), id }, user)).statusCode).toBe(409);
+    expect((await t.get('/api/account/journal', t.admin)).json().entries).toHaveLength(0);
+  });
   it('enforces the per-account entry limit, including archived entries', async () => {
     const entry = (await t.post('/api/account/journal', body(), user)).json().entry;
     const columns = 'id, kind, version, title, date, body, revision, archived, created_by_user_id, created_by, updated_by_user_id, updated_by, created_at, updated_at, owner_id';

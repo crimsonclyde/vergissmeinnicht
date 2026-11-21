@@ -1,5 +1,5 @@
 import {registerJournalExport} from './journal-export.ts';
-import { authorizeJournal, journalPrivacy, journalHistory, journalDraft, getJournalEntry, listJournal, journalOverview, saveJournalEntry, requireTool, NotAuthorizedError } from '@vergissmeinnicht/application';
+import { authorizeJournal, createJournalEntryOnce, journalPrivacy, journalHistory, journalDraft, getJournalEntry, listJournal, journalOverview, saveJournalEntry, requireTool, NotAuthorizedError } from '@vergissmeinnicht/application';
 import { UUID_V4, type WorkspaceId } from '@vergissmeinnicht/domain';
 import type { FastifyInstance, FastifyRequest } from 'fastify';
 import { z } from 'zod';
@@ -47,8 +47,15 @@ export async function journalRoutes(app: FastifyInstance, { services, shared }: 
     return { entry: await getJournalEntry(services.journal, actor(request), scope(request), entryId) };
   });
   const body = z.strictObject({ content: z.unknown(), expectedRevision: z.number().int().min(0).max(1_000_000_000), archived: z.boolean() });
+  // `id` (48.5): a new entry written offline carries the id its device chose, so sending it again creates it once.
+  const createBody = body.extend({ id: uuid.optional() });
   app.post('/', { bodyLimit: 256 * 1024 }, async (request, reply) => {
-    const input = parse(body, request.body);
+    const input = parse(createBody, request.body);
+    if (input.id !== undefined) {
+      if (input.expectedRevision !== 0) throw new InvalidRequestError();
+      const result = await createJournalEntryOnce(services.journal, actor(request), scope(request), input.content, input.archived, input.id);
+      return reply.code(result.duplicate ? 200 : 201).send({ entry: result.entry });
+    }
     const entry = await saveJournalEntry(services.journal, actor(request), scope(request), input.content, undefined, input.expectedRevision, input.archived);
     return reply.code(201).send({ entry });
   });

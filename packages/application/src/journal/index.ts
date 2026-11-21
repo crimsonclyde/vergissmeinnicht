@@ -54,6 +54,24 @@ export async function saveJournalEntry(deps: JournalDeps, actor: User, workspace
   if (result === 'conflict') throw new JournalConflictError();
   return result;
 }
+/**
+ * Creates a new entry under an id the client chose (48.5: a Note written offline), at most once: when
+ * an entry with that id already holds exactly this content, it is the same create sent again after a
+ * lost answer and is answered with that entry; any other entry with that id is a conflict.
+ */
+export async function createJournalEntryOnce(deps: JournalDeps, actor: User, workspaceId: WorkspaceId | undefined, content: unknown, archived: boolean, id: string): Promise<{ entry: JournalEntry; duplicate: boolean }> {
+  // Only someone who may write gets an answer about an existing id.
+  await authorizeJournal(deps, actor, workspaceId, true);
+  const parsed = parseJournalContent(content);
+  const existing = await getJournalEntry(deps, actor, workspaceId, id).catch((error: unknown) => { if (error instanceof JournalNotFoundError) return undefined; throw error; });
+  if (existing !== undefined) {
+    const same = existing.title === parsed.title && existing.body === parsed.body && existing.date === parsed.date && (existing.collection ?? '') === (parsed.collection ?? '')
+      && JSON.stringify(existing.tags ?? []) === JSON.stringify(parsed.tags ?? []) && (existing.pinned ?? false) === (parsed.pinned ?? false) && existing.archived === archived;
+    if (!same) throw new JournalConflictError();
+    return { entry: existing, duplicate: true };
+  }
+  return { entry: await saveJournalEntry(deps, actor, workspaceId, parsed, undefined, 0, archived, id), duplicate: false };
+}
 /** Notebook and tag counts plus the dated entries (for the Journal's month strip and "On this day"). */
 export async function journalOverview(deps: JournalDeps, actor: User, workspaceId: WorkspaceId | undefined): Promise<JournalOverview> {
   const rows = await deps.journal.overview(await authorizeJournal(deps, actor, workspaceId));

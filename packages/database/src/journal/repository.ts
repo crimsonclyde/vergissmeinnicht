@@ -90,6 +90,8 @@ export function createJournalRepository({ db }: AppDatabase): JournalRepository 
         if (expectedRevision !== (previous?.revision ?? 0)) return 'conflict';
         if(previous?.version===2&&entry.version===1)throw new DomainValidationError('entry','invalid_journal_entry','Cannot downgrade Markdown');
         const nextId = id ?? newId ?? randomUUID();
+        // A caller-chosen id (36.22, 48.5) that is taken anywhere else is a conflict, never a constraint failure.
+        if (previous === undefined && newId !== undefined && tx.select({ id: table.id }).from(table).where(eq(table.id, nextId)).get() !== undefined) return 'conflict';
         const history = 'workspaceId' in scope ? journalRevisions : privateJournalRevisions;
         if (previous && !tx.select().from(history).where(and(eq(history.entryId,nextId),eq(history.revision,previous.revision))).get()) {
          const values={entryId:nextId,revision:previous.revision,content:contentOf(previous),archived:previous.archived,at:previous.updatedAt,by:previous.updatedBy,byUserId:previous.updatedByUserId};

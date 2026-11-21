@@ -1,8 +1,10 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import { ApiError, api, isNetworkError, messageFor, type ListChangeInput, type ListReplayAnswer } from '../api.ts';
-import { t } from '../i18n/index.ts';
+import { ApiError, api, isNetworkError, messageFor, setSavedReadOwner, type ListChangeInput, type ListReplayAnswer } from '../api.ts';
+import { formatDateTime, t } from '../i18n/index.ts';
+import { UiIcon } from '../ui-icons.tsx';
 import { UPDATE_CHECK_MS, UPDATE_CHECK_URL, isNewerShell, runningScript, updateAction } from './app-update.ts';
 import { droppedNotice, followers, listSendOutcome, noticeFor, refusedReason, refusedText, type QueuedListChange, type RefusedReason } from './list-queue.ts';
+import { outboxOutcome, outboxRefusal, pendingOutbox, sameNote, withChange, type OutboxChange, type QueuedOutboxChange } from './outbox.ts';
 import { dependents, outcomeOf, type QueuedChange } from './queue.ts';
 import { offlineStore } from './store.ts';
 
@@ -34,6 +36,15 @@ interface OfflineValue {
   readonly removeListChanges: (clientChangeIds: readonly string[]) => Promise<void>;
   /** Receives every List of the Workspace for this device (17.5); forgets them when access or the tool is gone. */
   readonly syncLists: (workspaceId: string) => Promise<void>;
+  /** This user's Notes and Reminder changes kept on this device (48.5), in order — also those refused for good. */
+  readonly outbox: readonly QueuedOutboxChange[];
+  /** Increases after Notes or Reminder changes were sent, so views can show the server's state. */
+  readonly outboxVersion: number;
+  /** Keeps a Notes or Reminder change on this device and sends it when the server is reachable; false when it could not be kept. */
+  readonly enqueueOutbox: (change: OutboxChange, label: string) => Promise<boolean>;
+  readonly removeOutbox: (clientChangeIds: readonly string[]) => Promise<void>;
+  /** When the oldest saved copy shown since the connection was lost was saved (48.3); null while online. */
+  readonly savedCopyAt: string | null;
   readonly reportUnreachable: () => void;
   readonly reportReachable: () => void;
   readonly dismissNotices: () => void;
@@ -89,11 +100,25 @@ export function OfflineProvider({ userId, children }: { userId: string; children
   const [sentVersion, setSentVersion] = useState(0);
   const [listChanges, setListChanges] = useState<readonly QueuedListChange[]>([]);
   const [listsVersion, setListsVersion] = useState(0);
+  const [outbox, setOutbox] = useState<readonly QueuedOutboxChange[]>([]);
+  const [outboxVersion, setOutboxVersion] = useState(0);
+  const [savedCopyAt, setSavedCopyAt] = useState<string | null>(null);
   const sending = useRef(false);
+  const unreachableNow = useRef(false);
+  useEffect(() => {
+    unreachableNow.current = unreachable;
+  }, [unreachable]);
 
   const reload = useCallback(async () => {
     setQueued(await offlineStore.queued(userId));
     setListChanges(await offlineStore.listChanges(userId));
+    setOutbox(await offlineStore.outbox(userId));
+  }, [userId]);
+
+  // Reads of this account are saved for offline use (48.3) — only while it is the signed-in account.
+  useEffect(() => {
+    setSavedReadOwner(userId);
+    return () => setSavedReadOwner(null);
   }, [userId]);
 
   const syncLists = useCallback(
@@ -174,6 +199,76 @@ export function OfflineProvider({ userId, children }: { userId: string; children
     [userId, syncLists],
   );
 
+  /**
+   * Sends Notes and Reminder changes (48.5) strictly in order, each once. A Note someone else changed
+   * meanwhile is kept as a new Note ("offline copy"); a Reminder that is no longer open is explained.
+   * Returns false when sending must stop (offline, signed out).
+   */
+  const sendOutbox = useCallback(
+    async (pending: readonly QueuedOutboxChange[]): Promise<boolean> => {
+      let queue = [...pending];
+      let sent = false;
+      try {
+        while (queue.length > 0) {
+          const entry = queue[0] as QueuedOutboxChange;
+          const { change } = entry;
+          const workspace = change.workspaceId ?? undefined;
+          let error: unknown;
+          try {
+            if (change.kind === 'completeOccurrence') await api.completeOccurrence(change.workspaceId, change.occurrenceId);
+            else if (change.isNew) await api.createJournalOnce(workspace, change.entryId, change.content, change.archived);
+            else await api.saveJournal(workspace, change.entryId, change.content, change.expectedRevision, change.archived);
+          } catch (caught) {
+            error = caught;
+          }
+          const outcome = outboxOutcome(error);
+          if (outcome === 'retry') {
+            setUnreachable(true);
+            return false;
+          }
+          if (outcome === 'sign-in') {
+            setNeedsSignIn(true);
+            return false;
+          }
+          setUnreachable(false);
+          setNeedsSignIn(false);
+          if (outcome === 'refused') {
+            const reason = outboxRefusal(error);
+            const held = queue.filter((other) => other.change.workspaceId === change.workspaceId);
+            await offlineStore.putOutbox(held.map((other) => ({ ...other, refused: reason })));
+            queue = queue.filter((other) => !held.includes(other));
+            continue;
+          }
+          if (outcome === 'conflict' && change.kind === 'note') {
+            // Perhaps it is already saved (an earlier answer was lost); otherwise nothing is overwritten:
+            // this device's text becomes a new Note, sent next.
+            const saved = await api.journalEntry(workspace, change.entryId).catch(() => null);
+            if (saved === null || !sameNote(saved, change)) {
+              const title = t('offline.noteCopyTitle', { title: change.content.title }).slice(0, 160);
+              const copy: QueuedOutboxChange = { ...entry, clientChangeId: crypto.randomUUID(), label: title, change: { ...change, entryId: crypto.randomUUID(), isNew: true, expectedRevision: 0, content: { ...change.content, title } } };
+              await offlineStore.putOutbox([copy]);
+              await offlineStore.removeOutbox([entry.clientChangeId]);
+              setNotices((current) => [...current, t('offline.noteCopied', { title: entry.label, copy: title })]);
+              queue = [copy, ...queue.slice(1)];
+              continue;
+            }
+          } else if (outcome === 'conflict') {
+            setNotices((current) => [...current, t('offline.reminderClosed', { title: entry.label })]);
+          } else if (outcome === 'drop') {
+            setNotices((current) => [...current, t('offline.rejected', { title: entry.label, reason: messageFor(error) })]);
+          }
+          await offlineStore.removeOutbox([entry.clientChangeId]);
+          sent = true;
+          queue = queue.slice(1);
+        }
+        return true;
+      } finally {
+        if (sent) setOutboxVersion((version) => version + 1);
+      }
+    },
+    [],
+  );
+
   const send = useCallback(async () => {
     if (sending.current) return;
     sending.current = true;
@@ -182,7 +277,8 @@ export function OfflineProvider({ userId, children }: { userId: string; children
       await withSendLock(async () => {
         let pending = await offlineStore.queued(userId);
         const listPending = (await offlineStore.listChanges(userId)).filter((change) => change.refused === undefined);
-        if (pending.length === 0 && listPending.length === 0) return;
+        const outboxPending = pendingOutbox(await offlineStore.outbox(userId));
+        if (pending.length === 0 && listPending.length === 0 && outboxPending.length === 0) return;
         // Queued changes go out only under the session of the account that made them (13.1): after
         // a sign-out or another account's sign-in in another tab, the shared cookie belongs to
         // someone else — then nothing is sent (the server refuses such changes as well).
@@ -244,20 +340,23 @@ export function OfflineProvider({ userId, children }: { userId: string; children
         }
         if (sent) setSentVersion((version) => version + 1);
         // List changes (17.5) are independent of Run changes; they wait only while the server is unreachable or the session is gone.
-        if (!stopped && listPending.length > 0) await sendListChanges(listPending);
+        if (!stopped && listPending.length > 0) stopped = !(await sendListChanges(listPending));
+        // Notes and Reminders (48.5) likewise.
+        if (!stopped && outboxPending.length > 0) await sendOutbox(outboxPending);
       });
     } finally {
       sending.current = false;
       await reload();
     }
-  }, [userId, reload, sendListChanges]);
+  }, [userId, reload, sendListChanges, sendOutbox]);
 
   // Load this user's queue, then send whenever the browser comes back online and periodically while
   // anything waits.
   useEffect(() => {
-    void Promise.all([offlineStore.queued(userId), offlineStore.listChanges(userId)]).then(([runs, lists]) => {
+    void Promise.all([offlineStore.queued(userId), offlineStore.listChanges(userId), offlineStore.outbox(userId)]).then(([runs, lists, kept]) => {
       setQueued(runs);
       setListChanges(lists);
+      setOutbox(kept);
       void send();
     });
     const goOnline = () => {
@@ -280,7 +379,7 @@ export function OfflineProvider({ userId, children }: { userId: string; children
     };
   }, [userId, send]);
 
-  const waiting = queued.length > 0 || listChanges.some((change) => change.refused === undefined);
+  const waiting = queued.length > 0 || listChanges.some((change) => change.refused === undefined) || pendingOutbox(outbox).length > 0;
   useEffect(() => {
     if (!waiting) return;
     const timer = setInterval(() => void send(), RETRY_MS);
@@ -323,6 +422,47 @@ export function OfflineProvider({ userId, children }: { userId: string; children
     [userId, reload, browserOnline, send],
   );
 
+  const enqueueOutbox = useCallback(
+    async (change: OutboxChange, label: string) => {
+      const kept = await offlineStore.outbox(userId);
+      const entry = withChange(kept, { clientChangeId: crypto.randomUUID(), userId, change, label, deviceTime: new Date().toISOString(), seq: (kept.at(-1)?.seq ?? 0) + 1 });
+      const stored = await offlineStore.putOutbox([entry]);
+      await reload();
+      if (browserOnline) void send();
+      return stored;
+    },
+    [userId, reload, browserOnline, send],
+  );
+
+  const removeOutbox = useCallback(
+    async (clientChangeIds: readonly string[]) => {
+      await offlineStore.removeOutbox(clientChangeIds);
+      await reload();
+    },
+    [reload],
+  );
+
+  // Saved copies shown (48.3) mean no answer came; any answer means the server is back.
+  useEffect(() => {
+    const copyShown = (event: Event) => {
+      const at = (event as CustomEvent<string>).detail;
+      setUnreachable(true);
+      setSavedCopyAt((current) => (current === null || at < current ? at : current));
+    };
+    const answered = () => {
+      setSavedCopyAt(null);
+      if (!unreachableNow.current) return;
+      setUnreachable(false);
+      void send();
+    };
+    window.addEventListener('vmn-saved-copy', copyShown);
+    window.addEventListener('vmn-answered', answered);
+    return () => {
+      window.removeEventListener('vmn-saved-copy', copyShown);
+      window.removeEventListener('vmn-answered', answered);
+    };
+  }, [send]);
+
   const removeListChanges = useCallback(
     async (clientChangeIds: readonly string[]) => {
       await offlineStore.removeListChanges(clientChangeIds);
@@ -352,11 +492,16 @@ export function OfflineProvider({ userId, children }: { userId: string; children
       enqueueList,
       removeListChanges,
       syncLists,
+      outbox,
+      outboxVersion,
+      enqueueOutbox,
+      removeOutbox,
+      savedCopyAt,
       reportUnreachable,
       reportReachable,
       dismissNotices,
     }),
-    [userId, browserOnline, unreachable, queued, needsSignIn, notices, sentVersion, enqueue, listChanges, listsVersion, enqueueList, removeListChanges, syncLists, reportUnreachable, reportReachable, dismissNotices],
+    [userId, browserOnline, unreachable, queued, needsSignIn, notices, sentVersion, enqueue, listChanges, listsVersion, enqueueList, removeListChanges, syncLists, outbox, outboxVersion, enqueueOutbox, removeOutbox, savedCopyAt, reportUnreachable, reportReachable, dismissNotices],
   );
   return <OfflineContext.Provider value={value}>{children}</OfflineContext.Provider>;
 }
@@ -365,7 +510,7 @@ export function OfflineProvider({ userId, children }: { userId: string; children
  * List changes kept on this device that the server refused because access or the tool is gone (17.5):
  * shown wherever the person is — the Lists page may not exist any more — never applied, discardable.
  */
-function RefusedListChanges(props: { changes: readonly QueuedListChange[]; onDiscard: () => void }) {
+function RefusedListChanges(props: { changes: readonly (QueuedListChange | QueuedOutboxChange)[]; onDiscard: () => void }) {
   if (props.changes.length === 0) return null;
   const heading = t('lists.offlineRefusedHeading', { count: props.changes.length });
   const reasons = [...new Set(props.changes.map((change) => change.refused).filter((reason): reason is RefusedReason => reason !== undefined))];
@@ -441,7 +586,7 @@ function UpdateNotice(props: { unsent: number; online: boolean }) {
 /** Status line for the whole app: offline, changes waiting, sign in again, refused changes. */
 export function OfflineBanner() {
   const offline = useOffline();
-  const count = offline.queued.length + offline.listChanges.filter((change) => change.refused === undefined).length;
+  const count = offline.queued.length + offline.listChanges.filter((change) => change.refused === undefined).length + pendingOutbox(offline.outbox).length;
   const text = offline.needsSignIn
     ? t('offline.signInAgain', { count })
     : !offline.online
@@ -451,14 +596,23 @@ export function OfflineBanner() {
       : count > 0
         ? t('offline.sending', { count })
         : null;
-  const refused = offline.listChanges.filter((change) => change.refused !== undefined);
+  const refused = [...offline.listChanges, ...offline.outbox].filter((change) => change.refused !== undefined);
+  const copy = !offline.online && offline.savedCopyAt !== null ? t('offline.savedCopyShort', { time: formatDateTime(offline.savedCopyAt) }) : null;
   return (
     <>
       <UpdateNotice unsent={count} online={offline.online} />
-      <RefusedListChanges changes={refused} onDiscard={() => void offline.removeListChanges(refused.map((change) => change.clientChangeId))} />
+      <RefusedListChanges
+        changes={refused}
+        onDiscard={() => {
+          const ids = refused.map((change) => change.clientChangeId);
+          void offline.removeListChanges(ids).then(() => offline.removeOutbox(ids));
+        }}
+      />
       {text !== null && (
         <p role="status" className="offline-banner">
-          {text}
+          <UiIcon name={offline.online ? 'syncing' : 'offline'} />
+          <span>{text}</span>
+          {copy !== null && <span className="offline-banner-copy">{copy}</span>}
         </p>
       )}
       {offline.notices.length > 0 && (

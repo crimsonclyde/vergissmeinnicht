@@ -1138,3 +1138,74 @@ test('Daily Planet keeps reference prices, summary lists and a stable masthead o
   await expect(page.getByText('Baratza Encore ESP Pro', { exact: true })).toBeVisible();
   expect(await page.evaluate('document.documentElement.scrollWidth <= window.innerWidth')).toBe(true);
 });
+
+// Offline for every app (48): the whole app is kept on the device, reads of every tool keep a copy,
+// and Notes and Reminder "Done" made offline are kept on the device and sent once when the connection is back.
+test('Every app opens offline; Notes and Reminders changed offline are sent once when back online', async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name.includes('mobile'), 'The phone Notes flow is covered by phone-journal; this checks offline storage and sending.');
+  test.setTimeout(180_000);
+  page.setDefaultTimeout(15_000);
+  const email = `offline-${randomUUID()}@example.org`;
+  const password = 'a fictional offline passphrase';
+  const database = openDatabase(guideServerEnv.DATABASE_PATH);
+  let workspaceId: string;
+  try {
+    const user = await createUserRepository(database).create({ email: normalizeEmail(email), displayName: 'Offline reviewer', emailVerified: true, status: 'ACTIVE', serverAdmin: false });
+    database.sqlite.prepare("INSERT INTO accounts(id,account_id,provider_id,user_id,password,created_at,updated_at) VALUES(?,?,'credential',?,?,?,?)").run(randomUUID(), user.id, user.id, await hashPassword(password), Date.now(), Date.now());
+    workspaceId = insertLegacyWorkspace(database, { name: 'Offline cabin', adminUserId: user.id }).id;
+    enableCoreTools(database, workspaceId, user.id);
+    database.sqlite.prepare('INSERT INTO workspace_tools (workspace_id, tool, enabled, updated_at, updated_by_user_id) VALUES (?, ?, 1, ?, ?) ON CONFLICT (workspace_id, tool) DO UPDATE SET enabled = 1').run(workspaceId, 'JOURNAL', Date.now(), user.id);
+  } finally { database.close(); }
+  await page.goto('/');
+  await page.getByLabel('Email').fill(email);
+  await page.getByLabel('Password').fill(password);
+  await signInGuide(page);
+  await expect(page).toHaveURL(`/w/${workspaceId}`);
+
+  // Online: one Note and one Reminder due today, made through the real API.
+  const call = (path: string, body: unknown) => page.evaluate(`fetch(${JSON.stringify(path)}, { method: 'POST', credentials: 'same-origin', headers: { 'content-type': 'application/json' }, body: ${JSON.stringify(JSON.stringify(body))} }).then((r) => r.status)`);
+  const today = await page.evaluate('new Date().toLocaleDateString("sv-SE")') as string;
+  expect(await call(`/api/workspaces/${workspaceId}/journal`, { content: { kind: 'note', version: 2, title: 'Boiler manual', date: null, body: 'Bleed the radiators.', collection: '', tags: [], pinned: false }, expectedRevision: 0, archived: false })).toBe(201);
+  expect(await call(`/api/workspaces/${workspaceId}/schedules`, { title: 'Water the ferns', description: '', recurrence: { kind: 'ONCE' }, date: today, time: null, timeZone: await page.evaluate('Intl.DateTimeFormat().resolvedOptions().timeZone'), reminders: [], assigneeUserId: null })).toBe(201);
+
+  // The whole app is kept: also the Notes editor, which index.html does not name.
+  expect(await page.evaluate('navigator.serviceWorker.ready.then(() => true)')).toBe(true);
+  await page.reload();
+  await expect.poll(() => page.evaluate(`caches.open('vmn-shell-v2').then((cache) => cache.match('/precache.json')).then((saved) => saved ? saved.json() : null).then(async (manifest) => {
+    if (!manifest) return 'no manifest';
+    const cache = await caches.open('vmn-shell-v2');
+    const missing = [];
+    for (const path of manifest.files) if (!(await cache.match(path))) missing.push(path);
+    return missing.length === 0 ? 'complete' : missing.length + ' missing';
+  })`), { timeout: 60_000 }).toBe('complete');
+  // Visited online once: their reads are kept.
+  await page.goto(`/w/${workspaceId}/notes`);
+  await expect(page.getByRole('button', { name: /Boiler manual/ })).toBeVisible();
+  await page.goto(`/w/${workspaceId}/reminders`);
+  await expect(page.getByText('Water the ferns')).toBeVisible();
+
+  await page.context().setOffline(true);
+  await page.goto(`/w/${workspaceId}/notes`);
+  await expect(page.getByRole('status').filter({ hasText: 'Offline.' })).toBeVisible();
+  await expect(page.getByRole('button', { name: /Boiler manual/ })).toBeVisible();
+  // A new Note offline: the editor opens (its code is on the device) and the Note is kept here.
+  await page.getByRole('button', { name: 'New entry' }).click();
+  await page.getByPlaceholder('e.g. A quiet morning').fill('Firewood order');
+  await page.getByRole('button', { name: 'Save entry' }).click();
+  await expect(page.getByText('Saved on this device. It is sent when you are online.')).toBeVisible();
+  // Reminders: Done is kept on this device, with Undo.
+  await page.goto(`/w/${workspaceId}/reminders`);
+  await page.getByRole('button', { name: 'Complete Water the ferns' }).click();
+  await expect(page.getByRole('button', { name: 'Undo Done for “Water the ferns”' })).toBeVisible();
+  await expect(page.getByRole('status').filter({ hasText: 'Offline.' })).toContainText('2 changes are saved on this device');
+  await expectAccessible(page, 'reminders offline');
+
+  // Back online: both are sent once, nothing waits any more.
+  await page.context().setOffline(false);
+  await page.evaluate("window.dispatchEvent(new Event('online'))");
+  await expect(page.getByRole('status').filter({ hasText: /Offline\.|Sending/ })).toHaveCount(0, { timeout: 20_000 });
+  const notes = await page.evaluate(`fetch('/api/workspaces/${workspaceId}/journal').then((r) => r.json())`) as { entries: { title: string }[] };
+  expect(notes.entries.map((entry) => entry.title).sort()).toEqual(['Boiler manual', 'Firewood order']);
+  const home = await page.evaluate(`fetch('/api/workspaces/${workspaceId}/home?filter=ALL').then((r) => r.json())`) as Record<string, unknown>;
+  expect(JSON.stringify(home)).not.toMatch(/"title":"Water the ferns"[^}]*"state":"OPEN"/);
+});
