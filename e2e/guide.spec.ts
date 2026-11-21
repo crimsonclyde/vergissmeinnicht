@@ -550,10 +550,11 @@ test('Recipes preserve originals and transfer ingredients for the requested serv
      await page.screenshot({ path: testInfo.outputPath(`cookbook-${theme}.png`), fullPage: true });
    }
  }
- await page.route(`**/recipes/*/attachments/${coverId}/thumbnail`, route => route.fulfill({ status: 404 }));
+ // The service worker fetches pictures (48.4), so the browser context routes them.
+ await page.context().route(`**/recipes/*/attachments/${coverId}/thumbnail`, route => route.fulfill({ status: 404 }));
  await page.reload();
  await expect(page.getByRole('button', { name: /Pancakes for breakfast/ }).locator('.recipe-photo')).toHaveAttribute('data-photo', 'missing');
- await page.unroute(`**/recipes/*/attachments/${coverId}/thumbnail`);
+ await page.context().unroute(`**/recipes/*/attachments/${coverId}/thumbnail`);
  await page.getByRole('button', { name: /Afternoon tea/ }).click();
  await expect(page.getByRole('button', { name: 'Add recipe photo' })).toBeVisible();
  const shopping = page.getByRole('region', { name: 'Add ingredients to a grocery list' });
