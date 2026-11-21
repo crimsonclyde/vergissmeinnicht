@@ -45,7 +45,7 @@ export function PublishedWeatherCard({ published, unit }: { published: Published
   const high = temperature(place.high ?? undefined, unit);
   const low = temperature(place.low ?? undefined, unit);
   const rain = place.precipitationProbability !== null ? `${Math.round(place.precipitationProbability)}%` : place.precipitationMm !== null ? `${formatNumber(place.precipitationMm, 1)} mm` : t('weather.missing');
-  return <Link href={paths.gazette(published.workspaceId, published.date)} className="today-instrument-half" data-card="weather" data-source="daily-planet" aria-label={t('today.weatherPublished', { place: place.name })} aria-describedby={description}>
+  return <Link href={paths.gazetteWeather(published.workspaceId, published.date)} className="today-instrument-half" data-card="weather" data-source="daily-planet" aria-label={t('today.weatherPublished', { place: place.name })} aria-describedby={description}>
     <InstrumentPicture kind="weather" condition={place.condition} />
     <span className="instrument-half-name">{t('weather.heading')}</span>
     <span className="instrument-half-copy" id={description}>

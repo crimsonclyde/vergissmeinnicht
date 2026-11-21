@@ -158,9 +158,12 @@ function WorkspacePicker({ workspaces, workspaceId, page }: { workspaces: readon
   </label>;
 }
 
-function ShellFrame({ focus, page, children }: { focus: 'edit' | 'run' | undefined; page: Page; children: ReactNode }) {
+function ShellFrame({ focus, page, children }: { focus: 'applet' | 'edit' | 'run' | undefined; page: Page; children: ReactNode }) {
   const { guide } = usePreferences();
-  return <div className="shell" data-layout={guide.layout} data-card-style={guide.cardStyle} data-guide-images={guide.images} data-focus={focus} data-page={page} style={{ '--guide-card-opacity': `${guide.cardOpacity}%`, '--guide-card-art': GUIDE_CARD_ART[guide.cardStyle] } as CSSProperties}>{children}</div>;
+  // Clock and Weather fill the page in the sidebar themes; the top-bar themes keep their bar (and the phone's
+  // bottom bar) on every page (47), so these are ordinary pages there.
+  const shown = focus === 'applet' ? (guide.layout === 'guide' ? undefined : 'edit') : focus;
+  return <div className="shell" data-layout={guide.layout} data-card-style={guide.cardStyle} data-guide-images={guide.images} data-focus={shown} data-page={page} style={{ '--guide-card-opacity': `${guide.cardOpacity}%`, '--guide-card-art': GUIDE_CARD_ART[guide.cardStyle] } as CSSProperties}>{children}</div>;
 }
 function GuideHeader({ workspaceId, tools, page, userId, onScopeSlot, onActionSlot }: { workspaceId: string | null; tools: readonly string[]; page: Page; userId: string; onScopeSlot: (element: HTMLElement | null) => void; onActionSlot: (element: HTMLElement | null) => void }) {
   const { guide } = usePreferences();
@@ -582,7 +585,7 @@ export function AppShell(props: { user: CurrentUser; route: Route; onSignOut: ()
   // Focused work hides the global navigation: the builder everywhere, an execution on phones.
   const [journalEditing,setJournalEditing]=useState(false);
   useEffect(()=>{const listener=(event:Event)=>setJournalEditing((event as CustomEvent<boolean>).detail);window.addEventListener('vmn-journal-editing',listener);return()=>window.removeEventListener('vmn-journal-editing',listener);},[]);
-  const focus = journalEditing || route.page === 'clock' || route.page === 'weather' ? 'edit' : (route.page === 'procedure-edit' || (route.page === 'documents' && route.view === 'new')) ? 'edit' : route.page === 'run' ? 'run' : undefined;
+  const focus = route.page === 'clock' || route.page === 'weather' ? 'applet' : journalEditing ? 'edit' : (route.page === 'procedure-edit' || (route.page === 'documents' && route.view === 'new')) ? 'edit' : route.page === 'run' ? 'run' : undefined;
 
   let content;
   if (route.page === 'clock' || route.page === 'weather') {
