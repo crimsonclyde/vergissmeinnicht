@@ -233,6 +233,6 @@ describe('Places personal settings (section 30)', { timeout: 30_000 }, () => {
     expect(() => insert.run(bobId, home, Buffer.concat([Buffer.from([0xff, 0xd8, 0xff]), Buffer.alloc(700_000)]), 10, 10)).toThrow(/CHECK constraint failed/);
     expect(() => insert.run(bobId, home, Buffer.from([0xff, 0xd8, 0xff, 0xe0]), 5000, 10)).toThrow(/CHECK constraint failed/);
     expect(() => sql.prepare("UPDATE user_workspace_preferences SET theme = 'places-fr'").run()).not.toThrow();
-    expect(() => sql.prepare("INSERT INTO user_workspace_preferences (user_id, workspace_id, theme, is_default, updated_at) VALUES (?, ?, 'places-fr', 0, 1)").run(bobId, home)).toThrow(/CHECK constraint failed/);
+    expect(() => sql.prepare("INSERT INTO user_workspace_preferences (user_id, workspace_id, theme, is_default, updated_at) VALUES (?, ?, 'places-fr', 0, 1)").run(bobId, home)).toThrow(/FOREIGN KEY constraint failed/);
   });
 });

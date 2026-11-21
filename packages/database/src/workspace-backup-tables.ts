@@ -91,6 +91,8 @@ export const EXPORTED_TABLES: readonly ExportedTable[] = SPECS.map((spec) => ({ 
 
 /** Never in a Workspace backup, with the reason (section 18, B3, 18.1 "never included"). */
 export const EXCLUDED_TABLES: Readonly<Record<string, string>> = {
+  theme_ids: 'server-wide lookup of theme ids (45.3), the same on every server',
+  tool_ids: 'server-wide lookup of tool ids (45.3), the same on every server',
   progress_awards: 'personal encouragement totals and deduplication; never Workspace data',
   attachment_upload_operations:'delegated attachment retry receipts',
   recipe_image_jobs:'generation billing and retry state, excluded from portable content',

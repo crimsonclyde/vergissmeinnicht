@@ -8987,6 +8987,16 @@ Theme ids live in two CHECK constraints and tool ids in a `workspace_tools` CHEC
 theme or tool needs a table rebuild migration. Move both to lookup tables (foreign keys) seeded
 by migrations.
 
+**Status:** DONE (not released). Migration **0085** adds `theme_ids` and `tool_ids` (`navigable`
+marks `NAVIGATION_TOOLS`), seeded from the domain lists, and rebuilds `user_preferences`,
+`user_workspace_preferences` and `workspace_tools` once: the theme and tool CHECKs become foreign
+keys, the navigation-order bound is a fixed 64 entries / 1024 characters, the navigation triggers
+check `tool_ids WHERE navigable = 1`, and the Guide triggers of 0083 are recreated. **A new theme or
+tool now needs only an `INSERT` into `theme_ids` / `tool_ids` in its migration** (plus the domain
+list). `migration-0085.test.ts`: tables equal the domain lists; unknown ids refused by FK and
+trigger; populated rows survive the upgrade with `foreign_key_check` clean and the guards intact.
+**Security impact:** LOW (same allowlists, enforced by FK instead of CHECK). **Security docs updated:** NO.
+
 ### 45.4 — Theme registry and one scene slot (M)
 Today a theme is wired in five ways (token blocks in `styles.css`, Places tokens from TS, scenes
 mounted from `main.tsx`, `App.tsx`, `AppShell` and Today). Add one theme registry

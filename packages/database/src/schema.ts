@@ -796,6 +796,22 @@ export const rateLimits = sqliteTable(
   ],
 );
 
+/**
+ * The user theme ids (45.3). Preference rows reference this table instead of a CHECK, so a new theme is
+ * one INSERT in its migration rather than a table rebuild. Seeded from `THEME_PREFERENCES`; a test keeps
+ * both equal. The Settings theme (45.6) is not a user theme and is not listed here.
+ */
+export const themeIds = sqliteTable('theme_ids', { id: text('id').primaryKey() });
+
+/**
+ * The Workspace tool ids (45.3), seeded from `WORKSPACE_TOOLS`. `navigable` marks the tools that may
+ * appear in a personal navigation order (`NAVIGATION_TOOLS`). A new tool is one INSERT.
+ */
+export const toolIds = sqliteTable('tool_ids', {
+  id: text('id').primaryKey(),
+  navigable: integer('navigable', { mode: 'boolean' }).notNull().default(false),
+}, (table) => [check('tool_ids_navigable_bool', sql`${table.navigable} in (0, 1)`)]);
+
 /** Presentation preferences of an account (Step 8.7). No row = defaults. */
 export const userPreferences = sqliteTable(
   'user_preferences',
@@ -803,16 +819,15 @@ export const userPreferences = sqliteTable(
     userId: text('user_id')
       .primaryKey()
       .references(() => users.id),
-    theme: text('theme', { enum: THEME_PREFERENCES }).notNull(),
+    theme: text('theme', { enum: THEME_PREFERENCES }).notNull().references(() => themeIds.id),
     criticalConfirm: text('critical_confirm', { enum: CRITICAL_CONFIRM_MODES }).notNull(),
     privateGamification: integer('private_gamification', { mode: 'boolean' }).notNull().default(true),
     navigationOrder: text('navigation_order', { mode: 'json' }).$type<readonly NavigationTool[]>(),
     updatedAt: integer('updated_at', { mode: 'timestamp_ms' }).notNull(),
   },
   () => [
-    check('user_preferences_theme_valid', sql.raw(`theme in (${THEME_PREFERENCES.map((value) => `'${value}'`).join(', ')})`)),
     check('user_preferences_private_gamification', sql`private_gamification in (0, 1)`),
-    check('user_preferences_navigation_bound', sql`navigation_order is null or (json_valid(navigation_order) and json_type(navigation_order) = 'array' and json_array_length(navigation_order) <= 12 and length(navigation_order) <= 256)`),
+    check('user_preferences_navigation_bound', sql`navigation_order is null or (json_valid(navigation_order) and json_type(navigation_order) = 'array' and json_array_length(navigation_order) <= 64 and length(navigation_order) <= 1024)`),
     check(
       'user_preferences_critical_confirm_valid',
       sql.raw(`critical_confirm in (${CRITICAL_CONFIRM_MODES.map((value) => `'${value}'`).join(', ')})`),
@@ -854,7 +869,7 @@ export const userWorkspacePreferences = sqliteTable(
     workspaceId: text('workspace_id')
       .notNull()
       .references(() => workspaces.id),
-    theme: text('theme', { enum: THEME_PREFERENCES }),
+    theme: text('theme', { enum: THEME_PREFERENCES }).references(() => themeIds.id),
     isDefault: integer('is_default', { mode: 'boolean' }).notNull().default(false),
     updatedAt: integer('updated_at', { mode: 'timestamp_ms' }).notNull(),
     guide: text('guide', { mode: 'json' }).$type<GuidePreferences>(),
@@ -862,7 +877,6 @@ export const userWorkspacePreferences = sqliteTable(
   (table) => [
     primaryKey({ columns: [table.userId, table.workspaceId] }),
     uniqueIndex('user_workspace_preferences_one_default').on(table.userId).where(sql`${table.isDefault} = 1`),
-    check('user_workspace_preferences_theme_valid', sql.raw(`theme is null or theme in (${THEME_PREFERENCES.map((value) => `'${value}'`).join(', ')})`)),
     check('user_workspace_preferences_is_default_bool', sql`${table.isDefault} in (0, 1)`),
     // A row that changes nothing is deleted instead of kept.
     check('user_workspace_preferences_not_empty', sql`${table.theme} is not null or ${table.isDefault} = 1 or guide is not null`),
@@ -1838,14 +1852,14 @@ export const workspaceTools = sqliteTable(
     workspaceId: text('workspace_id')
       .notNull()
       .references(() => workspaces.id),
-    tool: text('tool', { enum: WORKSPACE_TOOLS }).notNull(),
+    tool: text('tool', { enum: WORKSPACE_TOOLS }).notNull().references(() => toolIds.id),
     enabled: integer('enabled', { mode: 'boolean' }).notNull(),
     updatedAt: integer('updated_at', { mode: 'timestamp_ms' }).notNull(),
     updatedByUserId: text('updated_by_user_id')
       .notNull()
       .references(() => users.id),
   },
-  (table) => [primaryKey({ columns: [table.workspaceId, table.tool] }), check('workspace_tools_tool_valid', oneOf('tool', WORKSPACE_TOOLS))],
+  (table) => [primaryKey({ columns: [table.workspaceId, table.tool] })],
 );
 
 /**

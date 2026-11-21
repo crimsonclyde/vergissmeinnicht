@@ -29,7 +29,7 @@ describe('account preferences API (Step 8.7)', () => {
 
   it('accepts Tokyo Nights, and the database refuses an unknown theme even past the API (0049)', async () => {
     expect((await t.post('/api/account/preferences', { theme: 'tokyo-nights' }, bob)).json().preferences.theme).toBe('tokyo-nights');
-    expect(() => t.database.sqlite.prepare("UPDATE user_preferences SET theme = 'neon'").run()).toThrow(/CHECK constraint failed/);
+    expect(() => t.database.sqlite.prepare("UPDATE user_preferences SET theme = 'neon'").run()).toThrow(/FOREIGN KEY constraint failed/);
     expect((await t.get('/api/account/preferences', bob)).json().preferences.theme).toBe('tokyo-nights');
   });
 

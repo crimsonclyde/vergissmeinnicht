@@ -671,6 +671,11 @@ Arrows point from the module that knows to the module that is known. Nothing exi
 
 ## Persistence
 
+**Theme and tool ids (45.3):** the tables `theme_ids` and `tool_ids` hold the allowed ids; preference
+and `workspace_tools` rows reference them by foreign key. Adding a theme or a tool is one `INSERT` in
+its migration plus the domain list (`THEME_PREFERENCES`, `WORKSPACE_TOOLS`, `NAVIGATION_TOOLS`);
+`migration-0085.test.ts` fails when the two disagree. No table rebuild is needed.
+
 SQLite is initial persistence.
 
 Requirements:
