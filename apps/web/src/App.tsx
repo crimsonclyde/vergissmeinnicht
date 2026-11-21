@@ -1,8 +1,6 @@
 import { useCallback, useEffect, useLayoutEffect, useState, type ReactNode } from 'react';
 import { AcceptInvitation } from './AcceptInvitation.tsx';
 import { api, isNetworkError, type CurrentUser } from './api.ts';
-import { ForestScene } from './ForestScene.tsx';
-import { PlaceScene } from './places/PlaceScene.tsx';
 import { clearPlaceCopies } from './places/settings-store.ts';
 import { AppShell } from './AppShell.tsx';
 import { OfflineProvider } from './offline/OfflineProvider.tsx';
@@ -12,6 +10,7 @@ import { RecoverAccount } from './RecoverAccount.tsx';
 import { navigate, parseRoute, usePathname } from './router.tsx';
 import { SignIn } from './SignIn.tsx';
 import { SourceFooter } from './SourceFooter.tsx';
+import { ThemeScene } from './ThemeScene.tsx';
 import { t } from './i18n/index.ts';
 import { setSettingsTheme, usesSettingsTheme } from './theme.ts';
 
@@ -19,8 +18,7 @@ import { setSettingsTheme, usesSettingsTheme } from './theme.ts';
 function PublicLayout({ children }: { children: ReactNode }) {
   return (
     <>
-      <ForestScene />
-      <PlaceScene prominence="today" />
+      <ThemeScene prominence="today" />
       <main className="app-main public-main">
         <h1 className="public-brand">
           <img className="brand-icon" src="/icon.svg" alt="" width={40} height={40} />
@@ -110,7 +108,7 @@ export function App() {
       </PublicLayout>
     );
   }
-  if (user === undefined) return <><ForestScene /><PlaceScene prominence="today" /><p className="app-main public-main">{t('common.loading')}</p></>;
+  if (user === undefined) return <><ThemeScene prominence="today" /><p className="app-main public-main">{t('common.loading')}</p></>;
   if (user === null) {
     return (
       <PublicLayout>
@@ -130,7 +128,6 @@ export function App() {
   }
   return (
     <OfflineProvider key={user.id} userId={user.id}>
-      <ForestScene userId={user.id} workspaceId={'workspaceId' in route ? route.workspaceId : undefined} />
       <AppShell
         user={user}
         route={route}

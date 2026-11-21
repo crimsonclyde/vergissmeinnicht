@@ -1,7 +1,6 @@
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { App } from './App.tsx';
-import { CityScene } from './CityScene.tsx';
 import './styles.css';
 import './everyday-themes.css';
 import './tokyo-nights.css';
@@ -25,7 +24,6 @@ if (!root) throw new Error('Root element #root not found');
 
 createRoot(root).render(
   <StrictMode>
-    <CityScene />
     <App />
   </StrictMode>,
 );
