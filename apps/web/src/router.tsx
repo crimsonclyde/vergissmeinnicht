@@ -19,16 +19,40 @@ export function setNavigationGuard(next: (() => boolean) | null): void {
 
 const mayLeave = (): boolean => guard === null || guard();
 
+/** Counts in-app visits to an address with a fragment, so a page can jump to its part again on a repeated tap. */
+let fragmentVisit = 0;
+
 export function navigate(path: string, options: { replace?: boolean; force?: boolean } = {}): void {
   if (path === window.location.pathname) return;
-  if (options.force !== true && !mayLeave()) return;
+  const fragment = path.includes('#');
+  // Tapping a link to the part of the page already shown (e.g. the Daily Planet's weather) jumps there again.
+  const same = fragment && path === window.location.pathname + window.location.hash;
+  if (!same && options.force !== true && !mayLeave()) return;
   if ((path === '/clock' || path === '/weather') && shownPath !== '/clock' && shownPath !== '/weather') appletReturn = shownPath;
-  if (options.replace) window.history.replaceState(null, '', path);
+  if (same) { /* nothing to add to the history */ }
+  else if (options.replace) window.history.replaceState(null, '', path);
   else window.history.pushState(null, '', path);
   // `path` may end in a fragment (e.g. `#history`); only the path decides which page is shown.
   shownPath = path.split('#')[0] ?? path;
-  window.scrollTo(0, 0);
+  if (fragment) fragmentVisit += 1;
+  if (!same) window.scrollTo(0, 0);
   for (const listener of listeners) listener();
+}
+
+/**
+ * The fragment of the address (`#weather`) and a visit number that changes on every in-app navigation to an
+ * address with a fragment: the page scrolls to the named part once its content has loaded.
+ */
+export function useFragment(): { readonly hash: string; readonly visit: number } {
+  const [state, setState] = useState(() => ({ hash: window.location.hash, visit: fragmentVisit }));
+  useEffect(() => {
+    const update = () => setState(current => current.hash === window.location.hash && current.visit === fragmentVisit ? current : { hash: window.location.hash, visit: fragmentVisit });
+    listeners.add(update);
+    window.addEventListener('popstate', update);
+    window.addEventListener('hashchange', update);
+    return () => { listeners.delete(update); window.removeEventListener('popstate', update); window.removeEventListener('hashchange', update); };
+  }, []);
+  return state;
 }
 
 // Canonicalize a saved editor address without remounting it or losing in-flight edits.
@@ -232,6 +256,8 @@ export const paths = {
   recipes:(workspaceId:string)=>`/w/${workspaceId}/recipes`,
   map: (workspaceId: string) => `/w/${workspaceId}/map`,
   gazette: (workspaceId: string, date?: string) => `/w/${workspaceId}/gazette${date ? `/${date}` : ''}`,
+  /** The edition opened at its weather section (the weather in the top bar and on the Dashboard). */
+  gazetteWeather: (workspaceId: string, date?: string) => `/w/${workspaceId}/gazette${date ? `/${date}` : ''}#weather`,
   gazetteSettings: (workspaceId: string) => `/w/${workspaceId}/gazette/settings`,
   gazetteWatchlist: (workspaceId: string) => `/w/${workspaceId}/gazette/watchlist`,
   bring: (workspaceId: string) => `/w/${workspaceId}/bring`,

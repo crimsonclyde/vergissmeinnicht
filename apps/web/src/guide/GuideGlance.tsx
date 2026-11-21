@@ -24,7 +24,7 @@ export function GuideGlance({ userId }: { userId: string }) {
   const low = published === null ? null : temperature(published.place.low ?? undefined, unit);
   const now = useMinute();
   return <div className="guide-glance">
-    {loaded && weather?.visible === true && published !== null && <Link href={paths.gazette(published.workspaceId, published.date)} className="guide-weather" data-source="daily-planet" aria-label={t('navigation.weatherPublished', { place: published.place.name, high: high ?? '–', low: low ?? '–' })}><UiIcon name={conditionIcon(published.place.condition)} /><span>{high ?? '–'}<span className="guide-weather-low"> / {low ?? '–'}</span></span></Link>}
+    {loaded && weather?.visible === true && published !== null && <Link href={paths.gazetteWeather(published.workspaceId, published.date)} className="guide-weather" data-source="daily-planet" aria-label={t('navigation.weatherPublished', { place: published.place.name, high: high ?? '–', low: low ?? '–' })}><UiIcon name={conditionIcon(published.place.condition)} /><span>{high ?? '–'}<span className="guide-weather-low"> / {low ?? '–'}</span></span></Link>}
     {loaded && weather?.visible === true && published === null && degrees !== null && <Link href={paths.weather()} className="guide-weather" aria-label={t('navigation.weatherStatus', { temperature: degrees })}><UiIcon name="weatherStatus" /><span>{degrees}</span></Link>}
     {loaded && clock?.visible === true && <Link href={paths.clock()} className="guide-time" aria-label={t('guide.clockOpen')}><time dateTime={now.toISOString()}>{formatClock(now, clock.hour24).time}</time></Link>}
   </div>;

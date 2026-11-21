@@ -9168,3 +9168,37 @@ no new endpoint; the published weather uses the existing authorized Gazette prev
 
 **Remaining:** the owner's first message ended mid-sentence ("and since we get a proper …");
 real-phone check.
+
+## 47 — The top bar on every page; weather opens the Daily Planet's weather (owner request 2026-11-21)
+
+**Request (owner, 2026-11-21):** "When I press on the clock the top menu bar is not there? … we
+need the menu bar everywhere even if you open the weather or whatever other tool." And: the
+weather (Dashboard tile, top bar) opens The Daily Planet, which is fine, but it should open the
+weather part of the page, not the top of the news.
+
+**Status:** DONE (not released).
+
+**What changed:**
+- Audit: in the top-bar themes (Tokyo Nights, Galactic Guide) the bar was hidden by the shell's
+  "focus" mode on Clock and Weather, the Procedure builder, the Journal editor and a new Document;
+  on phones a run also hid the bar's tools and time. Every other page already showed it.
+- Clock and Weather are ordinary pages in the top-bar themes: top bar, and on phones the bottom
+  bar too; their own Back/Start bar sits right above the bottom bar. The sidebar themes keep the
+  full-screen Clock and Weather exactly as before.
+- Editors keep the top bar as well; there it scrolls away so the editor's own sticky bar keeps
+  the top of the screen. A run keeps the bar's tools and time on phones (its dock still replaces
+  the bottom bar).
+- Weather in the top bar and on the Dashboard opens `/w/{ws}/gazette/{date}#weather`: the edition
+  scrolls to its weather section once loaded (below the sticky bar) and unfolds it for this visit
+  without changing the saved fold. Tapping the weather again on that page jumps back to it without
+  a new history entry (`useFragment` in the router).
+
+**Tests/checks:** typecheck, lint, Vitest (router: `gazetteWeather` path, repeated jump), local
+Playwright review spec (not committed) on desktop + phone in Tokyo Nights, Galactic Guide, Light,
+Memento Mori, Witch Forest and Places: bar visible on Clock/Weather in the top-bar themes and
+hidden (unchanged) in the sidebar themes, Daily Planet weather in view after the tap, builder with
+bar. `guide.spec.ts` (top bar, clock/weather, Daily Planet). Screens:
+`/mnt/project-files/ui-review/2026-11-21-top-bar-everywhere/`.
+
+**Security impact:** NONE — presentation and client-side routing only; no API, schema or data change.
+**Security docs updated:** NO.

@@ -134,4 +134,18 @@ describe('navigation guard (unsaved changes)', () => {
     navigate(`/w/${W}`);
     expect(guard).not.toHaveBeenCalled();
   });
+
+  it('jumps to the Daily Planet weather again without a new history entry when it is already shown (47)', () => {
+    const weather = paths.gazetteWeather(W, '2026-11-21');
+    expect(weather).toBe(`/w/${W}/gazette/2026-11-21#weather`);
+    expect(parseRoute(weather.split('#')[0] ?? '')).toEqual({ page: 'gazette', workspaceId: W, date: '2026-11-21' });
+    const scrollTo = vi.fn();
+    vi.stubGlobal('window', { location: { pathname: `/w/${W}/gazette/2026-11-21`, hash: '#weather' }, history, scrollTo });
+    navigate(weather);
+    expect(history.pushState).not.toHaveBeenCalled();
+    expect(scrollTo).not.toHaveBeenCalled();
+    install(`/w/${W}`);
+    navigate(weather);
+    expect(history.pushState).toHaveBeenCalledWith(null, '', weather);
+  });
 });

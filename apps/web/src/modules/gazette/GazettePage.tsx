@@ -4,7 +4,7 @@ import type { GazetteArticle, GazetteIcon, GazetteTable, GazetteWatchItem } from
 import { api, messageFor, type GazetteEditionSummaryView, type GazetteEditionView, type GazetteSectionContent, type GazetteSettings } from '../../api.ts';
 import { formatCalendarDate, formatDateTime, formatNumber, formatShortTime, formatWeekdayShort, t } from '../../i18n/index.ts';
 import { Markdown } from '../../markdown/Markdown.tsx';
-import { Link, paths } from '../../router.tsx';
+import { Link, paths, useFragment } from '../../router.tsx';
 import { addDays } from '../../schedule-dates.ts';
 import { UiIcon, type UiIconName } from '../../ui-icons.tsx';
 import { GazetteOrnament } from './GazetteArt.tsx';
@@ -78,7 +78,27 @@ export function GazettePage({ workspaceId, date, canManage = false }: { workspac
     element.scrollLeft = current === null ? element.scrollWidth : current.offsetLeft + current.offsetWidth - element.clientWidth + 8;
   }, [days, edition]);
 
-  const toggle = (id: string, folded: boolean) => setFolds(current => { const next = { ...current, [id]: !folded }; writeFolds(workspaceId, next); return next; });
+  // `#weather` (the weather in the top bar or on the Dashboard): open the edition at its weather section,
+  // unfolded for this visit (the person's saved fold stays as it was), once the edition has loaded.
+  const fragment = useFragment();
+  const [refolded, setRefolded] = useState<number | null>(null);
+  const loadedEdition = edition !== null && edition !== 'missing' ? edition : null;
+  const weatherSection = fragment.hash === '#weather' && settings !== null && loadedEdition !== null
+    ? settings.settings.sections.find(definition => definition.enabled && loadedEdition.content.sections.some(section => section.sectionId === definition.id && section.type === 'weather'))?.id ?? null
+    : null;
+  const opened = refolded === fragment.visit ? null : weatherSection;
+  useEffect(() => {
+    if (weatherSection === null) return;
+    const frame = requestAnimationFrame(() => {
+      const target = document.getElementById(`gazette-${weatherSection}`);
+      if (target === null) return;
+      target.scrollIntoView({ block: 'start' });
+      target.querySelector<HTMLElement>('h2')?.focus({ preventScroll: true });
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [weatherSection, fragment.visit]);
+
+  const toggle = (id: string, folded: boolean) => { if (opened === id) setRefolded(fragment.visit); setFolds(current => { const next = { ...current, [id]: !folded }; writeFolds(workspaceId, next); return next; }); };
 
   if (error !== null) return <section className="gazette-page"><p role="alert">{error}</p></section>;
   if (settings === null || editions === null) return <section className="gazette-page" aria-busy="true"><p className="muted">{t('common.loading')}</p></section>;
@@ -188,14 +208,14 @@ export function GazettePage({ workspaceId, date, canManage = false }: { workspac
             </section>
           )}
           {sections.map(({ definition, content }) => {
-            const folded = folds[definition.id] ?? definition.collapsed;
+            const folded = opened === definition.id ? false : folds[definition.id] ?? definition.collapsed;
             return (
               <section key={definition.id} id={`gazette-${definition.id}`} className="gazette-section" aria-labelledby={`gazette-h-${definition.id}`} lang={definition.language}>
                 <GazetteOrnament />
                 <header className="gazette-section-head">
                   <span className="gazette-section-icon"><UiIcon name={gazetteIcon(definition.icon)} /></span>
                   <div>
-                    <h2 id={`gazette-h-${definition.id}`}>{definition.title}</h2>
+                    <h2 id={`gazette-h-${definition.id}`} tabIndex={-1}>{definition.title}</h2>
                     {definition.subtitle !== '' && <p className="muted">{definition.subtitle}</p>}
                   </div>
                   {content.type === 'watchlist' && <Link href={paths.gazetteWatchlist(workspaceId)} className="icon-button" aria-label={t('gazette.openWatchlist')} title={t('gazette.watchlist')}><UiIcon name="tag" /></Link>}

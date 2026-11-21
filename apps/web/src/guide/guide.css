@@ -13,7 +13,8 @@
 :root .shell[data-layout='guide'] .app-main[data-width='wide'] { max-width: 82rem; }
 :root .shell[data-layout='guide'] .today { max-width: 54rem; margin-inline: auto; }
 :root .shell[data-layout='guide'] .today-wide { grid-column: auto; }
-:root .shell[data-layout='guide'][data-focus='edit'] .shell-side { display: none; }
+/* The top bar stays on every page (47). In an editor it scrolls away so the editor's own sticky bar keeps the top. */
+:root .shell[data-layout='guide'][data-focus='edit'] .shell-side { position: relative; }
 .guide-header-tools { display: flex; align-items: center; gap: .65rem; flex: 1; min-width: 0; }
 .guide-glance { display: flex; align-items: center; gap: .3rem; }
 .guide-glance > :is(button, a) { display: inline-flex; align-items: center; gap: .4rem; white-space: nowrap; min-width: 44px; min-height: 44px; padding: .5rem; border-color: var(--border); background: var(--surface); font-variant-numeric: tabular-nums; text-decoration: none; }
@@ -54,7 +55,6 @@
   :root .shell[data-layout='guide'] .guide-header-tools { order: 5; flex-basis: 100%; gap: .2rem; }
   .guide-glance { gap: .15rem; }
   .guide-glance > :is(button, a) { padding: .35rem; font-size: .85rem; }
-  :root .shell[data-layout='guide'][data-focus='run'] .guide-header-tools { display: none; }
   :root[data-theme='space-guide'] .shell[data-layout='guide'] .today-hero { grid-template-columns: minmax(0, 1fr) auto; }
   :root[data-theme='space-guide'] .shell[data-layout='guide'] .today-hero-icon { display: none; }
   :root[data-theme='space-guide'] .shell[data-layout='guide'] .today-hero > :not(.guide-art) { padding: .8rem; }
@@ -77,7 +77,6 @@
   :root .shell[data-layout='guide'] .guide-glance { grid-column: 3; grid-row: 1; margin: 0; }
   :root .shell[data-layout='guide'] .guide-slot-actions { grid-column: 4; grid-row: 1; justify-content: flex-end; }
   :root .shell[data-layout='guide'] .settings-menu { grid-column: 5; grid-row: 1; margin: 0; }
-  :root .shell[data-layout='guide'][data-focus='run'] .guide-glance { display: none; }
 }
 /* The narrowest phones keep the workspace name readable: the time is one swipe away in the drawer. */
 @media (max-width: 22.5rem) {
@@ -90,3 +89,8 @@
 :root[data-theme='space-guide'] .shell[data-layout='guide'] :is(.app-footer, .today-hello > :is(.ring, .today-ring-button)) { background: var(--surface); border-radius: .75rem; padding: .5rem; }
 
 :root[data-theme='space-guide'] .shell[data-layout='guide'] .today-hero :is(.ring-track,.ring-fill){stroke:var(--text)}
+/* Clock and Weather keep the phone's bottom bar in the top-bar themes (47): their Back/Start bar sits right above it. */
+@media (max-width: 55.99rem) {
+  :root:has(.shell[data-layout='guide']:is([data-page='clock'], [data-page='weather'])) .mobile-action-bar { bottom: calc(var(--tabbar-height) + var(--mobile-action-bar-inset, 0px)); padding-bottom: .75rem; }
+  :root:has(.shell[data-layout='guide']:is([data-page='clock'], [data-page='weather'])) .tab-bar { box-shadow: none; }
+}
