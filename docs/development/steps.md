@@ -18,6 +18,21 @@ For every completed task, add a concise completion note, tests/checks performed,
 
 ## Current state — resume here
 
+**Published owner release 77 (2026-11-21 Europe/Berlin): 0.17.0.**
+Stable tag `v0.17.0` points to `740cdf513579b755af9e2f4fb5767ef3ac470411` (release PR #134,
+with PRs #132 top bar and #133 modularity plan 45). Main CI on that commit passed. The tagged
+workflow reused main CI and passed both native amd64/arm64 builds, smoke tests and scans,
+keyless signing, CycloneDX SBOM attestation, the exact-digest image smoke test, and populated
+upgrades from 0.16.1, 0.16.0, 0.15.4 and 0.10.1-beta.0. Migrations 0083–0085; schema is
+**0085**. Published index
+`sha256:acf7c7bb058e2c6192f85ccc5401b54e8ff20fe30b28ec92d9d560c183fc4aa4`.
+Security surface as reviewed in security.md (45.3–45.11, top bar §46); no new advisories.
+Owner count **77**, next **78**; special release 42 and its dedication remain preserved.
+**No live deployment:** update the Unraid image separately.
+[GitHub Release](https://github.com/crimsonclyde/vergissmeinnicht/releases/tag/v0.17.0) ·
+[Main CI](https://github.com/crimsonclyde/vergissmeinnicht/actions/runs/44890068540) ·
+[Release workflow](https://github.com/crimsonclyde/vergissmeinnicht/actions/runs/44916471758).
+
 **Release 77 preparation — 0.17.0 (owner request, 2026-11-21 Europe/Berlin).**
 Publish the theme-decided navigation (§46, PR #132) and the modularity plan (§45, PR #133) as
 stable tag `v0.17.0`, GitHub title `0.17.0`, image `ghcr.io/crimsonclyde/vergissmeinnicht:0.17.0`.
