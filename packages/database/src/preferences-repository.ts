@@ -1,6 +1,6 @@
 import { and, eq } from 'drizzle-orm';
 import { NotAuthorizedError, type PreferencesRepository } from '@vergissmeinnicht/application';
-import { DEFAULT_GUIDE_PREFERENCES, mergeGuidePreferences, type GuidePreferences, type ThemePreference, type UserId, type WorkspaceId } from '@vergissmeinnicht/domain';
+import { DEFAULT_GUIDE_PREFERENCES, mergeGuidePreferences, normalizeGuidePreferences, type GuidePreferences, type ThemePreference, type UserId, type WorkspaceId } from '@vergissmeinnicht/domain';
 import type { AppDatabase } from './connection.ts';
 import { IMMEDIATE, type Transaction as Tx } from './actor-guard.ts';
 import { memberships, userPreferences, users, userWorkspacePreferences } from './schema.ts';
@@ -68,7 +68,7 @@ export function createPreferencesRepository({ db }: Pick<AppDatabase, 'db'>): Pr
       let defaultWorkspaceId: string | null = null;
       for (const row of rows) {
         if (row.theme !== null) themes[row.workspaceId] = row.theme;
-        if (row.guide !== null) guides[row.workspaceId] = row.guide;
+        if (row.guide !== null) guides[row.workspaceId] = normalizeGuidePreferences(row.guide);
         if (row.isDefault) defaultWorkspaceId = row.workspaceId;
       }
       return { defaultWorkspaceId, themes, guides };

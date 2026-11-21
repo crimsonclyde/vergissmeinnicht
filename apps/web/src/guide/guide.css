@@ -6,8 +6,7 @@
 :root .shell[data-layout='guide'] .brand-heading { margin: 0; }
 :root .shell[data-layout='guide'] .brand { font-size: 1rem; }
 :root .shell[data-layout='guide'] .brand-icon { width: 28px; height: 28px; }
-:root .shell[data-layout='guide'] .workspace-select { margin: 0; max-width: 16rem; min-width: 0; flex: 0 1 auto; }
-:root .shell[data-layout='guide'] .workspace-select select { width: 100%; min-width: 0; text-overflow: ellipsis; }
+:root .shell[data-layout='guide'] .workspace-menu { max-width: 16rem; min-width: 0; flex: 0 1 auto; }
 :root .shell[data-layout='guide'] .settings-menu { margin: 0 0 0 auto; }
 :root .shell[data-layout='guide'] .shell-main { min-width: 0; flex: 1; }
 :root .shell[data-layout='guide'] .app-main { padding-top: 1.5rem; padding-bottom: max(2rem, var(--safe-bottom), calc(var(--tabbar-height, 0px) + 2rem)); margin-inline: auto; }
@@ -16,7 +15,7 @@
 :root .shell[data-layout='guide'] .today-wide { grid-column: auto; }
 :root .shell[data-layout='guide'][data-focus='edit'] .shell-side { display: none; }
 .guide-header-tools { display: flex; align-items: center; gap: .65rem; flex: 1; min-width: 0; }
-.guide-glance { margin-left: auto; display: flex; align-items: center; gap: .3rem; }
+.guide-glance { display: flex; align-items: center; gap: .3rem; }
 .guide-glance > :is(button, a) { display: inline-flex; align-items: center; gap: .4rem; white-space: nowrap; min-width: 44px; min-height: 44px; padding: .5rem; border-color: var(--border); background: var(--surface); font-variant-numeric: tabular-nums; text-decoration: none; }
 .guide-slot:empty { display: none; }
 .guide-slot-scope, .guide-slot-actions { display: flex; align-items: center; min-width: 0; }
@@ -51,7 +50,7 @@
 @media (max-width: 55.99rem) {
   :root .shell[data-layout='guide'] .shell-side { gap: .5rem; padding-inline: max(.65rem, var(--safe-left)); }
   :root .shell[data-layout='guide'] .brand-long { display: none; }
-  :root .shell[data-layout='guide'] .workspace-select { flex: 1; max-width: none; }
+  :root .shell[data-layout='guide'] .workspace-menu { flex: 1; max-width: none; }
   :root .shell[data-layout='guide'] .guide-header-tools { order: 5; flex-basis: 100%; gap: .2rem; }
   .guide-glance { gap: .15rem; }
   .guide-glance > :is(button, a) { padding: .35rem; font-size: .85rem; }
@@ -71,7 +70,7 @@
 @media (max-width: 35rem) {
   :root .shell[data-layout='guide'] .shell-side { display: grid; grid-template-columns: minmax(0, 1fr) auto auto auto auto; gap: .4rem; }
   :root .shell[data-layout='guide'] .brand-heading { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
-  :root .shell[data-layout='guide'] .workspace-select { grid-column: 1; grid-row: 1; }
+  :root .shell[data-layout='guide'] .workspace-menu { grid-column: 1; grid-row: 1; }
   :root .shell[data-layout='guide'] .guide-header-tools { display: contents; }
   :root .shell[data-layout='guide'] .guide-slot-scope { grid-column: 2; grid-row: 1; }
   :root .shell[data-layout='guide'] .guide-slot-scope .scope-select { max-width: 5.5rem; }
@@ -88,6 +87,6 @@
 :root .shell[data-layout='guide'] .settings-menu .menu-panel { top: calc(100% + .4rem); bottom: auto; left: auto; right: 0; }
 /* Working pages use a protected reading surface over the scenic background. */
 :root[data-theme='space-guide'] .shell[data-layout='guide']:not([data-page='workspace']) .app-main { width: calc(100% - 2rem); margin: 1.5rem auto; padding: 1.5rem; background: var(--surface); border: 1px solid var(--border); border-radius: 1rem; }
-:root[data-theme='space-guide'] .shell[data-layout='guide'] :is(.app-footer, .today-hello > .ring) { background: var(--surface); border-radius: .75rem; padding: .5rem; }
+:root[data-theme='space-guide'] .shell[data-layout='guide'] :is(.app-footer, .today-hello > :is(.ring, .today-ring-button)) { background: var(--surface); border-radius: .75rem; padding: .5rem; }
 
 :root[data-theme='space-guide'] .shell[data-layout='guide'] .today-hero :is(.ring-track,.ring-fill){stroke:var(--text)}

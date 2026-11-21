@@ -6,7 +6,7 @@ const UNKNOWN_ID = '3f1c2b9a-6d4e-4f8a-9b7c-1a2b3c4d5e6f';
 const GUIDE = '/api/account/workspace-preferences/guide';
 const THEME = '/api/account/workspace-preferences/theme';
 const WORKSPACE_PREFERENCES = '/api/account/workspace-preferences';
-const classic = { layout: 'classic', cardStyle: 'starfield', cardOpacity: 28, images: false };
+const classic = { layout: 'classic', cardStyle: 'starfield', cardOpacity: 28, images: false, scopeFilter: false };
 
 const open: { close(): Promise<void> }[] = [];
 afterEach(async () => {
@@ -73,6 +73,7 @@ it('validates strictly: malformed bodies are 400, unauthenticated or Origin-less
     { workspaceId: home, guide: { cardOpacity: 101 } },
     { workspaceId: home, guide: { cardOpacity: 50.5 } },
     { workspaceId: home, guide: { images: 1 } },
+    { workspaceId: home, guide: { scopeFilter: 'yes' } },
     { workspaceId: home, guide: { ...classic, extra: true } },
     { workspaceId: home, guide: [] },
     { workspaceId: home, guide: classic, userId: 'x' },
@@ -83,8 +84,18 @@ it('validates strictly: malformed bodies are 400, unauthenticated or Origin-less
   expect((await app.post(GUIDE, { workspaceId: home, guide: classic })).statusCode).toBe(401);
   expect((await app.post(GUIDE, { workspaceId: home, guide: classic }, bob, null)).statusCode).toBe(403);
   const update = app.database.sqlite.prepare('UPDATE user_workspace_preferences SET guide = ?');
-  for (const value of ['{"layout":"remote","cardStyle":"glass","cardOpacity":50,"images":true}', '{"layout":"guide","cardStyle":"glass","cardOpacity":50,"images":true,"extra":true}', '{"layout":"guide","layout":"classic","cardStyle":"glass","cardOpacity":50,"images":true}']) {
+  for (const value of ['{"layout":"remote","cardStyle":"glass","cardOpacity":50,"images":true}', '{"layout":"guide","cardStyle":"glass","cardOpacity":50,"images":true,"extra":true}', '{"layout":"guide","layout":"classic","cardStyle":"glass","cardOpacity":50,"images":true}', '{"layout":"guide","cardStyle":"glass","cardOpacity":50,"images":true,"scopeFilter":1}', '{"layout":"guide","cardStyle":"glass","cardOpacity":50,"images":true,"scopeFilter":true,"extra":1}']) {
     expect(() => update.run(value)).toThrow();
   }
   expect(await guidesOf(bob)).toEqual({ [home]: classic });
+});
+
+it('top bar (46): the All / Mine / Shared filter is a saved choice, off by default; a Guide stored before 46 reads as off', async () => {
+  const { app, bob, home, van, guidesOf } = await setup();
+  expect((await app.post(GUIDE, { workspaceId: home, guide: { scopeFilter: true } }, bob)).json().workspacePreferences.guides[home]).toEqual({ ...DEFAULT_GUIDE_PREFERENCES, scopeFilter: true });
+  await app.post(GUIDE, { workspaceId: van, guide: { images: false } }, bob);
+  // A row written by 0.16 has the four keys only.
+  app.database.sqlite.prepare('UPDATE user_workspace_preferences SET guide = ? WHERE workspace_id = ?').run('{"layout":"classic","cardStyle":"glass","cardOpacity":50,"images":true}', van);
+  expect((await guidesOf(bob))[van]).toEqual({ layout: 'classic', cardStyle: 'glass', cardOpacity: 50, images: true, scopeFilter: false });
+  expect((await app.post(GUIDE, { workspaceId: van, guide: { cardOpacity: 70 } }, bob)).json().workspacePreferences.guides[van]).toEqual({ layout: 'classic', cardStyle: 'glass', cardOpacity: 70, images: true, scopeFilter: false });
 });

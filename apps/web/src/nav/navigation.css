@@ -132,12 +132,12 @@
   container: guide-tools / inline-size;
 }
 
-@container guide-tools (max-width: 64rem) {
+@container guide-tools (max-width: 44rem) {
   .menu-bar-top {
     padding-inline: 0.6rem;
   }
 
-  .menu-bar-label {
+  .menu-bar .menu-bar-label {
     position: absolute;
     width: 1px;
     height: 1px;
@@ -147,9 +147,141 @@
   }
 }
 
+/* Today's published Daily Planet weather (46): the low is quieter than the high. */
+.guide-weather-low {
+  color: var(--text-muted);
+}
+
 /* Weather as a status item next to the time (top bar). */
 .guide-weather .ui-icon {
   color: var(--accent);
+}
+
+/* ---- Top bar (46): Workspace drop-down, All tools with family columns, round Add -------------- */
+/* The space between the tools and the status items (weather, time, Add, picture). */
+.guide-header-tools > .menu-bar {
+  margin-right: auto;
+}
+
+.menu-bar-panel > .plain-list {
+  display: grid;
+  gap: 0.1rem;
+}
+
+.menu-bar-panel .plain-list > li + li {
+  margin: 0;
+}
+
+.menu-bar-all .menu-bar-panel {
+  min-width: 0;
+  width: max-content;
+  max-width: min(46rem, calc(100vw - 2rem));
+}
+
+.menu-bar-families {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(12rem, 1fr);
+  gap: 0.4rem;
+}
+
+.menu-bar-family {
+  display: grid;
+  align-content: start;
+  gap: 0.1rem;
+  min-width: 0;
+}
+
+.menu-bar-family + .menu-bar-family {
+  padding-left: 0.4rem;
+  border-left: 1px solid var(--border);
+}
+
+.menu-bar-caption {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin: 0.3rem 0.5rem 0.25rem;
+  color: var(--text-muted);
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.menu-bar-family .plain-list {
+  display: grid;
+  gap: 0.1rem;
+}
+
+/* The Workspace drop-down: the current Workspace's name, like a menu title. */
+.workspace-menu {
+  min-width: 0;
+}
+
+.workspace-menu > .menu-bar-top {
+  justify-content: space-between;
+  width: 100%;
+  max-width: 100%;
+  border-color: var(--border);
+  background: var(--surface);
+}
+
+.workspace-menu > .menu-bar-top[aria-expanded='true'] {
+  background: var(--accent);
+  border-color: var(--accent);
+}
+
+.workspace-menu > .menu-bar-top .menu-bar-label {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.workspace-menu .menu-bar-panel a[aria-current='true'] {
+  font-weight: 700;
+}
+
+.workspace-menu-text {
+  display: grid;
+  min-width: 0;
+}
+
+.workspace-menu-text small {
+  color: var(--text-muted);
+  font-size: 0.78rem;
+}
+
+.workspace-menu .menu-bar-panel a:is(:hover, :focus-visible) small {
+  color: inherit;
+}
+
+/* Add and the profile picture: two circles of one size at the end of the bar. */
+.shell[data-layout='guide'] .guide-slot-actions .add-button,
+.shell[data-layout='guide'] .settings-menu .settings-button {
+  display: inline-grid;
+  place-items: center;
+  width: 44px;
+  min-width: 44px;
+  height: 44px;
+  min-height: 44px;
+  padding: 0;
+  border-radius: 50%;
+}
+
+.shell[data-layout='guide'] .settings-menu .settings-button {
+  border: 1px solid var(--border);
+  background: var(--surface);
+}
+
+.shell[data-layout='guide'] .settings-menu .settings-button:has(.avatar) {
+  border-color: transparent;
+  background: transparent;
+}
+
+.shell[data-layout='guide'] .settings-menu .settings-button .avatar {
+  width: 36px;
+  height: 36px;
 }
 
 /* ---- Classic sidebar: families under small captions ------------------------------------------ */

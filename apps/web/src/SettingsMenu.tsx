@@ -62,8 +62,8 @@ export function SettingsMenu(props: { user: CurrentUser; avatar?: string | null;
   return (
     <div className="settings-menu" ref={rootRef}>
       <button ref={buttonRef} type="button" className="settings-button" aria-expanded={open} aria-controls={panelId} aria-label={t('menu.open')} onClick={() => setOpen((value) => !value)}>
-        {/* The person's own picture once they have one (section 29); the gear otherwise. */}
-        {avatar === null ? <UiIcon name="settings" /> : <Avatar name={props.user.displayName} seed={props.user.id} src={ownAvatarUrl(avatar)} />}
+        {/* The person's own picture (section 29), or their initials until they add one (46). */}
+        <Avatar name={props.user.displayName} seed={props.user.id} src={avatar === null ? null : ownAvatarUrl(avatar)} />
         <span className="settings-label" aria-hidden="true">
           {t('menu.settings')}
         </span>

@@ -1,8 +1,8 @@
 import { offlineStore } from './offline/store.ts';
-import { DEFAULT_GUIDE_PREFERENCES, DEFAULT_PREFERENCES, NAVIGATION_TOOLS, type GuidePreferences, type GuidePreferencesChange, type ThemePreference, type UserPreferences, type WorkspacePreferences } from '@vergissmeinnicht/domain';
+import { DEFAULT_GUIDE_PREFERENCES, DEFAULT_PREFERENCES, NAVIGATION_TOOLS, effectiveGuideLayout, type GuidePreferences, type GuidePreferencesChange, type ThemePreference, type UserPreferences, type WorkspacePreferences } from '@vergissmeinnicht/domain';
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { api } from './api.ts';
-import { setThemeMode, setWorkspaceThemeMode, storeWorkspaceThemes, storedWorkspaceThemes } from './theme.ts';
+import { setThemeMode, setWorkspaceThemeMode, storeWorkspaceThemes, storedWorkspaceThemes, useChosenThemeMode } from './theme.ts';
 
 interface PreferencesValue {
   readonly preferences: UserPreferences;
@@ -82,7 +82,11 @@ export function PreferencesProvider({ userId, workspaceId, children }: { userId:
   const themeHere = workspaceId === null ? null : (workspacePreferences.themes[workspaceId] ?? null);
   useEffect(() => setWorkspaceThemeMode(themeHere), [themeHere]);
   useEffect(() => storeWorkspaceThemes(workspacePreferences.themes), [workspacePreferences.themes]);
-  const guide = (workspaceId === null ? undefined : workspacePreferences.guides[workspaceId]) ?? DEFAULT_GUIDE_PREFERENCES;
+  const savedGuide = (workspaceId === null ? undefined : workspacePreferences.guides[workspaceId]) ?? DEFAULT_GUIDE_PREFERENCES;
+  // The theme decides the navigation (46): the top bar for Tokyo Nights and Galactic Guide, the sidebar otherwise.
+  const chosen = useChosenThemeMode();
+  const layout = effectiveGuideLayout(chosen);
+  const guide = useMemo(() => (layout === savedGuide.layout ? savedGuide : { ...savedGuide, layout }), [savedGuide, layout]);
 
   const update = useCallback(async (changes: Partial<UserPreferences>) => {
     // Menu ordering applies only after the server confirms Save; failed saves keep the current menu.

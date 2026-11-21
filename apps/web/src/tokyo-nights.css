@@ -991,3 +991,60 @@
   color: var(--neon-a);
   opacity: 0.8;
 }
+
+/* ---- Top bar (46): Tokyo Nights always uses it — a glass bar with a neon lower edge ------------- */
+:root[data-theme='tokyo-nights'] .shell[data-layout='guide'] .shell-side {
+  background: rgb(14 15 34 / 84%);
+  border: 0;
+  border-bottom: 1px solid transparent;
+  border-image: linear-gradient(90deg, transparent, var(--neon-a) 20%, var(--neon-b) 80%, transparent) 1;
+  box-shadow: 0 0.6rem 1.6rem rgb(5 6 26 / 55%);
+}
+
+:root[data-theme='tokyo-nights'] .shell[data-layout='guide'] .menu-bar-top:hover:not([aria-expanded='true']) {
+  background: rgb(53 230 255 / 10%);
+  color: var(--text);
+}
+
+:root[data-theme='tokyo-nights'] .workspace-menu > .menu-bar-top {
+  background: rgb(19 21 44 / 80%);
+  border-color: rgb(157 124 255 / 45%);
+}
+
+:root[data-theme='tokyo-nights'] .workspace-menu > .menu-bar-top[aria-expanded='true'] {
+  background: rgb(255 92 205 / 18%);
+  border-color: var(--neon-b);
+}
+
+:root[data-theme='tokyo-nights'] .menu-bar-caption {
+  color: var(--neon-a);
+}
+
+:root[data-theme='tokyo-nights'] .menu-bar-family + .menu-bar-family {
+  border-left-color: rgb(157 124 255 / 30%);
+}
+
+:root[data-theme='tokyo-nights'] .workspace-menu .menu-bar-panel a[aria-current='true'] .menu-bar-icon {
+  background: rgb(255 92 205 / 22%);
+  color: var(--brand);
+}
+
+/* Add: the neon cyan action; the picture beside it gets the same ring in magenta. */
+:root[data-theme='tokyo-nights'] .shell[data-layout='guide'] .guide-slot-actions .add-button {
+  box-shadow: 0 0 0 1px var(--neon-a), 0 0 0.9rem rgb(53 230 255 / 55%);
+}
+
+:root[data-theme='tokyo-nights'] .shell[data-layout='guide'] .settings-menu .settings-button {
+  box-shadow: 0 0 0 1px var(--neon-b), 0 0 0.8rem rgb(255 92 205 / 40%);
+}
+
+:root[data-theme='tokyo-nights'] .shell[data-layout='guide'] .guide-glance > :is(a, button) {
+  background: rgb(19 21 44 / 80%);
+  border: 1px solid rgb(157 124 255 / 35%);
+  color: var(--text);
+}
+
+:root[data-theme='tokyo-nights'] .guide-glance .guide-time {
+  color: var(--neon-a);
+  text-shadow: 0 0 0.4rem rgb(53 230 255 / 55%);
+}

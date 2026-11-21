@@ -4,7 +4,8 @@ import { useMinute } from '../TodayClock.tsx';
 import { Link, paths } from '../router.tsx';
 import { useForecast } from '../applets/ForecastProvider.tsx';
 import { UiIcon } from '../ui-icons.tsx';
-import { temperature } from '../weather-view.ts';
+import { conditionIcon, temperature } from '../weather-view.ts';
+import { usePublishedWeather } from '../applets/PublishedWeather.tsx';
 
 /**
  * The status items of the top bar (section 42): the temperature when the Weather card is on and a forecast
@@ -15,10 +16,16 @@ export function GuideGlance({ userId }: { userId: string }) {
   const clock = settings.cards.find(item => item.card.id === 'clock');
   const weather = settings.cards.find(item => item.card.id === 'weather');
   const { data } = useForecast();
+  const unit = data?.unit ?? 'C';
   const degrees = data === null ? null : temperature(data.forecast.current?.temperature, data.unit);
+  // Today's published Daily Planet weather first (46): high and low of its first place; else the Workspace's current reading.
+  const published = usePublishedWeather();
+  const high = published === null ? null : temperature(published.place.high ?? undefined, unit);
+  const low = published === null ? null : temperature(published.place.low ?? undefined, unit);
   const now = useMinute();
   return <div className="guide-glance">
-    {loaded && weather?.visible === true && degrees !== null && <Link href={paths.weather()} className="guide-weather" aria-label={t('navigation.weatherStatus', { temperature: degrees })}><UiIcon name="weatherStatus" /><span>{degrees}</span></Link>}
+    {loaded && weather?.visible === true && published !== null && <Link href={paths.gazette(published.workspaceId, published.date)} className="guide-weather" data-source="daily-planet" aria-label={t('navigation.weatherPublished', { place: published.place.name, high: high ?? '–', low: low ?? '–' })}><UiIcon name={conditionIcon(published.place.condition)} /><span>{high ?? '–'}<span className="guide-weather-low"> / {low ?? '–'}</span></span></Link>}
+    {loaded && weather?.visible === true && published === null && degrees !== null && <Link href={paths.weather()} className="guide-weather" aria-label={t('navigation.weatherStatus', { temperature: degrees })}><UiIcon name="weatherStatus" /><span>{degrees}</span></Link>}
     {loaded && clock?.visible === true && <Link href={paths.clock()} className="guide-time" aria-label={t('guide.clockOpen')}><time dateTime={now.toISOString()}>{formatClock(now, clock.hour24).time}</time></Link>}
   </div>;
 }

@@ -636,7 +636,7 @@ export interface GazettePreview {
   readonly sectionCount: number;
   readonly headlines: readonly { readonly sectionId: string; readonly section: string; readonly title: string }[];
   /** Only for today's edition: an older forecast is never shown as current. */
-  readonly weather: readonly { readonly name: string; readonly condition: WeatherCondition; readonly high: number | null; readonly low: number | null }[];
+  readonly weather: readonly GazettePreviewWeather[];
   readonly priceDrops: number;
 }
 
@@ -654,6 +654,18 @@ export function gazetteSignificantDiscount(item: GazetteWatchItem, threshold = D
   return change !== null && change <= -(item.discountThreshold ?? threshold) + 1e-9;
 }
 
+/** Today's weather of one place as published in the edition (46: also the Dashboard tile and the top bar). */
+export interface GazettePreviewWeather {
+  readonly name: string;
+  readonly condition: WeatherCondition;
+  readonly high: number | null;
+  readonly low: number | null;
+  /** Highest chance of precipitation in %, where the edition gives one. */
+  readonly precipitationProbability: number | null;
+  /** mm; the upper end where the sources disagree. */
+  readonly precipitationMm: number | null;
+}
+
 export function gazettePreview(edition: GazetteEdition, settings: GazetteSettings, today: LocalDate): GazettePreview {
   const sections = visibleGazetteSections(edition.content, settings);
   const isToday = edition.date === today;
@@ -668,7 +680,8 @@ export function gazettePreview(edition: GazetteEdition, settings: GazetteSetting
   }
   const weather = isToday ? sections.flatMap(s => s.content.type === 'weather' ? s.content.locations.flatMap(l => {
     const day = l.days.find(d => d.date === today);
-    return day ? [{ name: l.name, condition: day.condition, high: day.high, low: day.low }] : [];
+    const rain = day?.precipitationMm;
+    return day ? [{ name: l.name, condition: day.condition, high: day.high, low: day.low, precipitationProbability: day.precipitationProbability ?? null, precipitationMm: rain === null || rain === undefined ? null : typeof rain === 'number' ? rain : rain.max }] : [];
   }) : []).slice(0, 2) : [];
   const priceDrops = sections.reduce((n, s) => n + (s.content.type === 'watchlist' && s.definition.dashboard ? s.content.items.filter(i => gazetteSignificantDiscount(i, settings.watchlist?.discountThreshold)).length : 0), 0);
   return {

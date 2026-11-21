@@ -210,6 +210,19 @@ export function setSettingsTheme(active: boolean): void {
   changed();
 }
 
+const subscribe = (listener: () => void) => {
+  listeners.add(listener);
+  return () => { listeners.delete(listener); };
+};
+const chosenMode = (): ThemeMode => effectiveMode(currentMode, workspaceMode);
+/**
+ * The theme the person chose for the Workspace shown, ignoring the settings override: the top bar of a
+ * top-bar theme (46) stays the same on settings pages, which are shown in Memento Mori.
+ */
+export function useChosenThemeMode(): ThemeMode {
+  return useSyncExternalStore(subscribe, chosenMode);
+}
+
 /** The displayed mode. The setter changes the saved default, even when settings use the override. */
 export function useThemeMode(): [ThemeMode, (mode: ThemeMode) => void] {
   const mode = useSyncExternalStore(

@@ -8937,3 +8937,113 @@ image reference and populated-upgrade predecessors; no live deployment is includ
 security, browser, signed-image and four populated-upgrade gates are recorded in Current state.
 No live deployment was performed. Use the published 0.16.1 image before opening Server admin
 → Map data; Triora/100 km is preselected. Owner count is **76**, next **77**.
+
+---
+
+## 45 — Modularity, plugin boundaries, security gaps and one look (owner-approved plan 2026-11-20)
+
+**Request (owner, 2026-11-20):** analyse how modular the app is, where plugins and tools are wired
+by hand, which security checks are uneven, and why the themes feel like different apps. Analysis
+delivered as the document "VMN: modular, secure, one look"; the owner said yes to turning the
+plan into steps. Latest release when planned: 0.16.1 (owner release 76); next owner release 77.
+Each item is its own PR unless noted. Items marked **(needs OK)** change behaviour people see and
+wait for the owner before they are built.
+
+**Status:** PLANNED (46 below is the first piece built from it).
+
+### 45.1 — "Tool off = 404" sweep for every tool (S)
+`route-security.test.ts` checks only Procedures, Reminders, Lists and Calendar. Extend the sweep
+to every optional tool (Documents, Contacts, Equipment, Maintenance, Bring, Recipes, Journal, Map,
+Gazette) so a route that forgets its tool gate fails a test.
+
+### 45.2 — One tool gate: `requireTool` (M)
+Three styles of tool checks exist (`toolEnabled`, `actorAllowed({ tool })`, `authorizeTool`).
+Replace them with one server helper used by every route and MCP tool, with the same error.
+
+### 45.3 — Lookup tables for theme and tool ids (M)
+Theme ids live in two CHECK constraints and tool ids in a `workspace_tools` CHECK, so every new
+theme or tool needs a table rebuild migration. Move both to lookup tables (foreign keys) seeded
+by migrations.
+
+### 45.4 — Theme registry and one scene slot (M)
+Today a theme is wired in five ways (token blocks in `styles.css`, Places tokens from TS, scenes
+mounted from `main.tsx`, `App.tsx`, `AppShell` and Today). Add one theme registry
+(`themes/<id>/`: tokens, scene, navigation style, light/dark support) and one `ThemeScene` slot.
+
+### 45.5 — Surface-role tokens; feature CSS without `data-theme` (L)
+Journal, Gazette, Map, area and maintenance CSS carry per-theme selectors. Add surface-role
+tokens (bar, panel, card, raised, accent ink) to every theme so feature CSS uses tokens only.
+
+### 45.6 — "Look" settings out of the Guide; Settings keep the theme (needs OK)
+Guide settings (layout, card art) affect every theme, and Settings pages are forced to Memento
+Mori. Move card art to a theme-neutral "Look" group and let Settings keep the person's theme
+(the layout is decided by the theme since 46).
+
+### 45.7–45.9 — Tool manifests (web, server) and Equipment as the first module (steps 28.2–28.4)
+One manifest per tool (id, routes, navigation entry, Today cards, MCP tools, backup tables) read
+by the web app and the server, then Equipment moved behind it as the proof.
+
+### 45.10 — One outbound HTTP client (M)
+Weather, Telegram, map download and ChatGPT file hosts each have their own client. One client
+with host allowlist, timeouts, size limits and redirect rules.
+
+### 45.11 — "AI assistants allowed" per Workspace (needs OK)
+A Workspace switch that blocks MCP/AI access to that Workspace for every member.
+
+---
+
+## 46 — One top bar for the top-bar themes (owner request 2026-11-20)
+
+**Request (owner, 2026-11-20):** Tokyo Nights and Galactic Guide always use the newer top menu
+bar so one can switch tools and return to the main page easily; Tokyo Nights colours properly
+adapted to the bar. The older themes (Light, Memento Mori, Witch Forest) and Places keep the
+traditional sidebar on the left (owner, same day). The settings button shows the profile picture
+(initials until one is added), never a cogwheel. The top bar, left to right: VergissMeinNicht icon + name (opens the current
+Workspace's Dashboard), the Workspace selector styled like the other drop-downs, Home, News
+(The Daily Planet), one **All tools** drop-down holding every other tool, space, weather, time,
+the round **+** (Add) button, the profile picture. A setting for the top bar, per person and
+Workspace: the "All / Mine / Shared" drop-down is hidden by default. Same day: when The Daily
+Planet is on, the weather tile and the top bar use its combined multi-source forecast; the
+Workspace weather stays as the fallback.
+
+**Status:** DONE (not released). First piece of the 45 plan; touches 45.4/45.6 only for navigation.
+
+**Implemented:**
+- `TOP_BAR_THEMES` (domain): the theme decides the navigation (`effectiveGuideLayout`): Tokyo
+  Nights and Galactic Guide the top bar, every other theme the sidebar. It follows the theme the
+  person picked for the Workspace, so settings pages (shown in Memento Mori) keep the same
+  navigation. Appearance shows a one-line note instead of the old layout choice; the stored
+  `layout` key stays for compatibility but no longer decides.
+- Settings button: the profile picture, or the person's initials (Avatar) until they add one.
+- The Dashboard's day ring (done of due today, overdue included; owner: "you cannot click it and see
+  what is due") is a button: it scrolls to Needs attention and focuses its heading, or opens
+  Reminders (Calendar) when that card is hidden.
+- Top bar order: name (opens the shown Workspace's Dashboard), Workspace drop-down (same style as
+  All tools; each entry with its role), Dashboard, News, **All tools** (one drop-down, families as
+  columns: Plan, Shop & cook, House), space, weather, time, round **+**, round profile picture.
+  The family drop-downs of 42 are replaced; keyboard: ↓/↑ enter and move, Escape returns, Tab or a
+  click outside closes. Phones keep the 42 bar and drawer.
+- `GuidePreferences.scopeFilter` (per person and Workspace, default off): the All / Mine / Shared
+  drop-down in the top bar. Hidden, Today shows everything. Migration **0083** replaces only the
+  Guide JSON triggers (four or five keys; `scopeFilter` must be a boolean); rows written before
+  read as off.
+- Tokyo Nights bar: glass bar with a cyan-to-magenta lower edge, neon Add, magenta picture ring,
+  bordered status items, neon family captions.
+- Weather (owner choice "only what the AI publishes"): when The Daily Planet is on and today's
+  edition is published with a weather place, the Dashboard weather tile and the top bar show that
+  place's high/low, sky and rain and open the edition; otherwise the Workspace weather as before.
+  One shared request (`PublishedWeatherProvider`, the existing `gazette/today` preview, refreshed
+  every 15 minutes and on return). The preview's weather now carries rain probability/amount.
+
+**Tests/checks:** typecheck, lint, Vitest (new `preferences.test.ts`, `published-weather.test.ts`,
+Guide preference API cases for `scopeFilter` and legacy rows, Gazette preview rain), Playwright
+`guide.spec.ts` desktop + phone (All tools mouse/keyboard, Workspace drop-down, name link, theme
+decides the navigation, axe in every theme). Screens of every theme at 1440/390 px:
+`/mnt/project-files/ui-review/2026-11-20-top-bar/`.
+
+**Security impact:** LOW — one more presentation boolean (strict API schema, database trigger),
+no new endpoint; the published weather uses the existing authorized Gazette preview.
+**Security docs updated:** NO (no new surface).
+
+**Remaining:** the owner's first message ended mid-sentence ("and since we get a proper …");
+real-phone check.

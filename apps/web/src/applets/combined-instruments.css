@@ -17,6 +17,8 @@
 .instrument-half-value{display:block;font:400 clamp(1.8rem,5cqi,2.65rem)/1.2 Georgia,serif;font-variant-numeric:tabular-nums;color:var(--instrument-text);white-space:nowrap}
 .instrument-half-value small{font:400 .5em Georgia,serif;color:var(--instrument-gold)}
 .instrument-half-context{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:.75rem;color:var(--instrument-muted);min-width:0}
+.instrument-half-value .instrument-half-low{color:var(--instrument-muted)}
+.instrument-half-source{display:flex;align-items:center;gap:.3rem}
 .instrument-half-weather{display:flex;align-items:center;justify-content:center;gap:.35rem}
 .instrument-half-stale{position:absolute;top:2rem;inset-inline:.75rem;z-index:1;display:block;font-size:.7rem;color:var(--instrument-gold);margin-top:.35rem}
 .today-instruments[data-parts='1']{grid-template-columns:minmax(0,1fr)}

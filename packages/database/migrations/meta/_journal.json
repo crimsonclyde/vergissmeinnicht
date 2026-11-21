@@ -582,6 +582,13 @@
       "when": 1794903450130,
       "tag": "0082_places_map",
       "breakpoints": true
+    },
+    {
+      "idx": 83,
+      "version": "6",
+      "when": 1795164000000,
+      "tag": "0083_top_bar_scope",
+      "breakpoints": true
     }
   ]
 }

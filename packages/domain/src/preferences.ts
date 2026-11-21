@@ -33,8 +33,27 @@ export interface GuidePreferences {
   readonly cardStyle: GuideCardStyle;
   readonly cardOpacity: number;
   readonly images: boolean;
+  /** Top bar (46): show Today's "All / Mine / Shared" drop-down in the bar. Off unless chosen. */
+  readonly scopeFilter: boolean;
 }
-export const DEFAULT_GUIDE_PREFERENCES: GuidePreferences = Object.freeze({ layout: 'guide', cardStyle: 'glass', cardOpacity: 50, images: true });
+export const DEFAULT_GUIDE_PREFERENCES: GuidePreferences = Object.freeze({ layout: 'guide', cardStyle: 'glass', cardOpacity: 50, images: true, scopeFilter: false });
+
+/**
+ * The theme decides the navigation (46, owner 2026-11-20): Tokyo Nights and Galactic Guide always use the
+ * top bar; every other theme (Light, Memento Mori, Witch Forest, Places) keeps the traditional sidebar.
+ */
+export const TOP_BAR_THEMES = ['tokyo-nights', 'space-guide'] as const satisfies readonly ThemePreference[];
+export function topBarTheme(theme: ThemePreference): boolean {
+  return (TOP_BAR_THEMES as readonly string[]).includes(theme);
+}
+/** The layout shown: the top bar for the top-bar themes, the sidebar for every other theme. */
+export function effectiveGuideLayout(theme: ThemePreference): GuideLayout {
+  return topBarTheme(theme) ? 'guide' : 'classic';
+}
+/** A stored Guide from before 46 has no `scopeFilter`: the missing key reads as the default. */
+export function normalizeGuidePreferences(stored: Partial<GuidePreferences>): GuidePreferences {
+  return Object.freeze({ ...DEFAULT_GUIDE_PREFERENCES, ...stored });
+}
 
 /** A partial Guide change: only the keys given are replaced; the rest keep their current value. */
 export type GuidePreferencesChange = { readonly [K in keyof GuidePreferences]?: GuidePreferences[K] | undefined };
@@ -44,6 +63,7 @@ export function mergeGuidePreferences(current: GuidePreferences, change: GuidePr
     cardStyle: change.cardStyle ?? current.cardStyle,
     cardOpacity: change.cardOpacity ?? current.cardOpacity,
     images: change.images ?? current.images,
+    scopeFilter: change.scopeFilter ?? current.scopeFilter ?? DEFAULT_GUIDE_PREFERENCES.scopeFilter,
   });
 }
 
