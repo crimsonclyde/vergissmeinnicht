@@ -11,7 +11,7 @@
     "typecheck": "tsc -p ."
   },
   "dependencies": {
-    "@node-rs/argon2": "2.2.1",
+    "@node-rs/argon2": "2.2.2",
     "@vergissmeinnicht/application": "workspace:*",
     "@vergissmeinnicht/domain": "workspace:*",
     "better-auth": "1.7.14",
