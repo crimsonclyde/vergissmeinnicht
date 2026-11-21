@@ -5,8 +5,8 @@
  * the title face (`--area-title-font`) and, at the end, what a token cannot say. */
 
 .area {
-  --area-title-font: Georgia, 'Times New Roman', serif;
-  --area-line: color-mix(in srgb, var(--border) 75%, transparent);
+  --area-title-font: var(--title-font, Georgia, 'Times New Roman', serif);
+  --area-line: var(--hairline, color-mix(in srgb, var(--border) 75%, transparent));
   --area-radius: calc(var(--radius) + 4px);
   min-width: 0;
 }
@@ -30,10 +30,11 @@
   gap: 0.35rem;
   margin: 0;
   color: var(--text-muted);
-  font-size: 0.8rem;
+  font-size: var(--label-size, 0.8rem);
   font-weight: 600;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
+  letter-spacing: var(--label-tracking, 0.12em);
+  text-transform: var(--label-case, uppercase);
+  font-variant: var(--label-variant, normal);
 }
 
 .area-heading {
@@ -43,9 +44,10 @@
   font-weight: 600;
   line-height: 1.1;
   letter-spacing: -0.01em;
+  text-shadow: var(--heading-glow, none);
 }
 
-.area-heading-muted { color: var(--text-muted); font-weight: 500; }
+.area-heading-muted { color: var(--heading-muted-ink, var(--text-muted)); font-weight: 500; }
 .area-lead { margin: -0.5rem 0 1rem; color: var(--text-muted); font-size: 0.9rem; }
 
 .area-actions {
@@ -73,10 +75,11 @@
 .area-group {
   margin: 1.5rem 0 0.75rem;
   color: var(--text-muted);
-  font-size: 0.8rem;
+  font-size: var(--label-size, 0.8rem);
   font-weight: 600;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
+  letter-spacing: var(--label-tracking, 0.12em);
+  text-transform: var(--label-case, uppercase);
+  font-variant: var(--label-variant, normal);
 }
 
 .area-group[data-tone='overdue'] { color: var(--state-pending); }
@@ -133,7 +136,7 @@
 }
 
 .area-day small { color: var(--text-muted); font-size: 0.7rem; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; }
-.area-day[data-today] b { border-color: var(--accent); background: var(--accent); color: var(--accent-text); }
+.area-day[data-today] b { border-color: var(--accent); background: var(--accent); color: var(--accent-text); box-shadow: var(--today-glow, none); }
 .area-day[data-tone='overdue'] b { border-color: var(--state-pending); background: var(--state-pending-bg); color: var(--state-pending); }
 .area-day[data-tone='done'] b { border-color: color-mix(in srgb, var(--state-done) 45%, var(--border)); }
 
@@ -177,13 +180,7 @@
   .area-day[data-today] b { outline: 2px solid Highlight; }
 }
 
-:root[data-theme='witch-forest'] .area { --area-title-font: var(--wf-serif); }
-:root[data-theme='witch-forest'] :is(.area-eyebrow, .area-group) { font-variant: small-caps; text-transform: none; letter-spacing: 0.1em; font-size: 0.9rem; }
-:root[data-theme='tokyo-nights'] .area { --area-title-font: inherit; --area-line: rgb(157 124 255 / 28%); }
-:root[data-theme='tokyo-nights'] .area-heading { text-shadow: 0 0 0.9rem rgb(53 230 255 / 35%); }
-:root[data-theme='tokyo-nights'] .area-heading-muted { color: var(--neon-b); }
-:root[data-theme='tokyo-nights'] .area-day[data-today] b { box-shadow: var(--glow-a); }
-:root[data-theme='places'] .area { --area-title-font: var(--places-serif, Georgia, serif); }
+/* Themes reach the areas only through the surface roles (45.5). */
 
 /* ---- Rows (41): More, the settings menu and settings lists share one row ------------------------
  * A card of rows divided by a hairline: a tinted icon tile, a name over one muted line, a chevron. */
@@ -219,9 +216,9 @@
   border-radius: 0.7rem;
   background: var(--accent-soft);
   color: var(--accent);
+  box-shadow: var(--icon-ring, none);
 }
 
-:root[data-theme='tokyo-nights'] .area-row-icon { box-shadow: inset 0 0 0 1px rgb(157 124 255 / 35%); }
 
 /* The settings menu (41): the same tinted icon tile as the rows, on wide screens. */
 .settings-nav-icon {
@@ -297,7 +294,7 @@
 .ct-card.contact-card { display: flex; align-items: center; gap: 0.75rem; padding: 0.9rem 1rem; border-radius: var(--area-radius, calc(var(--radius) + 4px)); }
 .ct-card .contact-card-main { display: flex; flex: 1; align-items: center; gap: 0.9rem; min-width: 0; color: var(--text); text-decoration: none; }
 .ct-card .contact-card-main strong { font-family: var(--area-title-font, Georgia, serif); font-size: 1.15rem; overflow-wrap: anywhere; }
-.ct-avatar { display: inline-grid; place-items: center; flex: none; width: 3.5rem; height: 3.5rem; border-radius: 50%; background: color-mix(in srgb, var(--tone) 82%, var(--text)); color: var(--surface); font-family: var(--area-title-font, Georgia, serif); font-size: 1.3rem; font-weight: 700; letter-spacing: 0.02em; }
+.ct-avatar { display: inline-grid; place-items: center; flex: none; width: 3.5rem; height: 3.5rem; border-radius: 50%; background: color-mix(in srgb, var(--tone) 82%, var(--text)); color: var(--surface); font-family: var(--area-title-font, Georgia, serif); font-size: 1.3rem; font-weight: 700; letter-spacing: 0.02em; box-shadow: 0 0 var(--tone-glow, 0) color-mix(in srgb, var(--tone) 45%, transparent); }
 .ct-avatar[data-size='large'] { width: 5.5rem; height: 5.5rem; font-size: 2rem; }
 .ct-actions { display: flex; flex: none; gap: 0.3rem; }
 .ct-action { display: inline-grid; place-items: center; width: 2.75rem; height: 2.75rem; border-radius: 50%; background: var(--accent-soft); color: var(--accent); text-decoration: none; }
@@ -345,4 +342,3 @@
   .ct-avatar { border: 2px solid CanvasText; }
   .ct-action { border: 1px solid ButtonText; }
 }
-:root[data-theme='tokyo-nights'] .ct-avatar { box-shadow: 0 0 0.8rem color-mix(in srgb, var(--tone) 45%, transparent); }

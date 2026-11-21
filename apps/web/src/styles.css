@@ -40,6 +40,7 @@
   --shadow: 0 1px 2px rgb(0 0 0 / 8%);
   --shadow-raised: 0 8px 28px rgb(0 0 0 / 18%);
   --overlay: rgb(20 18 16 / 45%);
+  --font-ui: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
   /* Layout: the phone bottom bar (0 where there is none) and the safe areas of notched screens. */
   --tabbar-height: 0px;
   --safe-bottom: env(safe-area-inset-bottom, 0px);
@@ -116,6 +117,25 @@
   --shadow: none;
   --shadow-raised: 0 10px 32px rgb(0 0 0 / 70%);
   --overlay: rgb(0 0 0 / 65%);
+}
+
+/*
+ * Surface roles (45.5). Feature CSS never names a theme: it reads these roles, each with the default
+ * look as its fallback, and a theme sets only the roles it changes. The roles:
+ * --title-font, --book-font (faces) · --paper, --paper-frame (pages and note cards) · --panel (filter
+ * bars, side panels) · --raised (small raised cells) · --sheet, --sheet-soft, --sheet-tint,
+ * --sheet-tint-soft, --sheet-ink, --sheet-rule (the Daily Planet's paper) · --hairline · --flower
+ * (accent ink of ornaments) · --heading-glow, --heading-muted-ink · --today-glow · --icon-ring ·
+ * --tone-glow · --rule-ink, --rule-opacity · --label-variant, --label-case, --label-tracking,
+ * --label-size, --label-size-small · --figure-ink, --figure-weight · --scene-sky, --scene-sun,
+ * --scene-hill-far/-mid/-near, --scene-house, --scene-window (painted covers) · --scene-sheet-border,
+ * --scene-sheet-pad, --scene-sheet-fill (a sheet laid over a painted scene) · --card-opacity.
+ * Light or dark surfaces are `data-scheme` on <html>, set from the theme registry.
+ */
+:root:is([data-theme='dark'], [data-theme='memento-mori']) {
+  --sheet-tint: 10%;
+  --sheet-tint-soft: 4%;
+  --flower: color-mix(in srgb, var(--link) 70%, var(--accent) 30%);
 }
 
 :root[data-theme='tokyo-nights'] {
@@ -6813,6 +6833,14 @@ a.button.today-hero-go {
 :root[data-theme='space-guide'] .calendar-day[aria-current='date'] .calendar-day-number,
 :root[data-theme='space-guide'] .calendar-agenda-day[data-today] .calendar-agenda-number {
   box-shadow: 0 0 0 2px var(--surface), 0 0 0 3px #f2ca83;
+}
+
+:root[data-theme='space-guide'] {
+  /* Surface roles (45.5): a quiet star chart; the Daily Planet keeps the translucent card look. */
+  --book-font: 'Iowan Old Style', Georgia, serif;
+  --sheet: color-mix(in srgb, var(--surface) 92%, transparent);
+  --sheet-soft: color-mix(in srgb, var(--surface) 88%, transparent);
+  --sheet-ink: var(--text);
 }
 
 :root[data-theme='space-guide'] {

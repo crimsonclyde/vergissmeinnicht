@@ -9,7 +9,8 @@
   gap: 1rem;
   min-width: 0;
 }
-:root:is([data-theme='dark'], [data-theme='memento-mori'], [data-theme='witch-forest'], [data-theme='tokyo-nights'], [data-theme='space-guide'], [data-scheme='dark']) .vmn-places-map {
+/* Dark surfaces: every dark theme sets `data-scheme` from the theme registry (45.5). */
+:root[data-scheme='dark'] .vmn-places-map {
   --map-paper: #26352c;
   --map-land: #3f5040;
   --map-water: #6b9dab;

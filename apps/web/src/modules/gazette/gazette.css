@@ -1,17 +1,17 @@
 /* ---- The Daily Planet (steps.md 43) ----------------------------------------------------------
  * An illustrated newspaper drawn only from theme tokens: paper is a tint of the surface, ink is the
- * text colour. Each theme below sets the face (`--gz-serif`), the
- * paper tint and what a token cannot say. Amber (`--state-skipped`) marks old or unsure things, green
+ * text colour. Themes reach it only through the surface roles (45.5): the book face
+ * (`--book-font`), the sheet (`--sheet`, `--sheet-soft`, or a brand tint) and its ink, rule and flower. Amber (`--state-skipped`) marks old or unsure things, green
  * (`--state-done`) good ones; both always come with words. */
 
 .gazette-tile,
 .gazette-page {
-  --gz-serif: 'Iowan Old Style', 'Palatino Linotype', Palatino, 'Book Antiqua', Georgia, 'Times New Roman', serif;
-  --gz-paper: color-mix(in srgb, var(--surface) 88%, var(--brand) 12%);
-  --gz-paper-soft: color-mix(in srgb, var(--surface) 94%, var(--brand) 6%);
-  --gz-ink: color-mix(in srgb, var(--text) 78%, var(--brand) 22%);
-  --gz-flower: var(--accent);
-  --gz-rule: color-mix(in srgb, var(--border) 75%, transparent);
+  --gz-serif: var(--book-font, 'Iowan Old Style', 'Palatino Linotype', Palatino, 'Book Antiqua', Georgia, 'Times New Roman', serif);
+  --gz-paper: var(--sheet, color-mix(in srgb, var(--surface), var(--brand) var(--sheet-tint, 12%)));
+  --gz-paper-soft: var(--sheet-soft, color-mix(in srgb, var(--surface), var(--brand) var(--sheet-tint-soft, 6%)));
+  --gz-ink: var(--sheet-ink, color-mix(in srgb, var(--text) 78%, var(--brand) 22%));
+  --gz-flower: var(--flower, var(--accent));
+  --gz-rule: var(--sheet-rule, var(--hairline, color-mix(in srgb, var(--border) 75%, transparent)));
   --gz-warn: var(--state-skipped);
   --gz-warn-bg: var(--state-skipped-bg);
   --gz-good: var(--state-done);
@@ -77,8 +77,8 @@ a.gazette-tile-band:focus-visible { outline: 3px solid var(--focus); outline-off
   flex-direction: column;
   gap: 0.35rem;
 }
-.gazette-tile-mast strong { font-family: var(--gz-serif); font-size: 1.5rem; font-weight: 700; line-height: 1.05; color: var(--text); overflow-wrap: anywhere; }
-.gazette-tile-mast small { color: var(--text-muted); font-size: 0.72rem; font-weight: 600; letter-spacing: 0.16em; text-transform: uppercase; }
+.gazette-tile-mast strong { font-family: var(--gz-serif); font-size: 1.5rem; font-weight: 700; line-height: 1.05; color: var(--text); overflow-wrap: anywhere; text-shadow: var(--heading-glow, none); }
+.gazette-tile-mast small { color: var(--text-muted); font-size: 0.72rem; font-weight: 600; letter-spacing: var(--label-tracking, 0.16em); text-transform: var(--label-case, uppercase); font-variant: var(--label-variant, normal); }
 
 .gazette-tile-go {
   display: grid;
@@ -104,7 +104,7 @@ a.gazette-tile-band:focus-visible { outline: 3px solid var(--focus); outline-off
   padding: 0.5rem 0.7rem;
   border: 1px solid var(--gz-rule);
   border-radius: var(--radius);
-  background: var(--surface);
+  background: var(--raised, var(--surface));
 }
 .gazette-tile-place > .ui-icon { color: var(--brand); flex: none; }
 .gazette-tile-place > span { display: flex; flex-direction: column; min-width: 0; }
@@ -113,7 +113,7 @@ a.gazette-tile-band:focus-visible { outline: 3px solid var(--focus); outline-off
 
 .gazette-tile-heads li { display: flex; align-items: baseline; gap: 0.75rem; padding-block: 0.55rem; border-block-start: 1px solid var(--gz-rule); min-width: 0; }
 .gazette-tile-heads li:first-child { border-block-start: 0; padding-block-start: 0.1rem; }
-.gazette-kicker { flex: none; width: 8.5rem; color: var(--brand); font-size: 0.68rem; font-weight: 700; letter-spacing: 0.12em; line-height: 1.5; text-transform: uppercase; overflow-wrap: anywhere; }
+.gazette-kicker { flex: none; width: 8.5rem; color: var(--brand); font-size: 0.68rem; font-weight: 700; letter-spacing: var(--label-tracking, 0.12em); line-height: 1.5; text-transform: var(--label-case, uppercase); font-variant: var(--label-variant, normal); overflow-wrap: anywhere; }
 .gazette-tile-head { min-width: 0; font-family: var(--gz-serif); font-size: 1rem; font-weight: 600; line-height: 1.3; overflow-wrap: anywhere; }
 
 .gazette-tile-foot { display: flex; flex-wrap: wrap; gap: 0.5rem; padding: 0.55rem 1.1rem 1rem; }
@@ -123,13 +123,16 @@ a.gazette-tile-band:focus-visible { outline: 3px solid var(--focus); outline-off
 .gazette-tile-empty-text { display: flex; align-items: center; gap: 0.75rem; margin: 0; padding: 1rem 1.1rem 1.2rem; }
 
 /* ---- The Gazette page ------------------------------------------------------------------------- */
-.gazette-page { width: 100%; max-width: 74rem; min-width: 0; margin-inline: auto; padding-block-end: 2rem; }
+.gazette-page { width: 100%; max-width: 74rem; min-width: 0; margin-inline: auto; padding: var(--scene-sheet-pad, 0 0 2rem); }
+/* On a theme with a painted scene the edition is a sheet laid over it, so text never sits on the picture (scene roles, 45.5). */
+:is(.gazette-page, .gazette-admin) { border: var(--scene-sheet-border, 0) solid var(--gz-rule); border-radius: var(--gz-radius); background: var(--scene-sheet-fill, transparent); }
+.gazette-admin:not(.gazette-page) { padding: var(--scene-sheet-pad, 0); }
 .gazette-page :is(h1, h2, h3) { overflow-wrap: anywhere; }
 
 .gazette-masthead { text-align: center; }
-.gazette-masthead h1 { margin: 0; font-family: var(--gz-serif); font-size: clamp(2.15rem, 7vw, 5.4rem); font-weight: 700; line-height: 1.04; letter-spacing: 0.005em; color: var(--text); }
-.gazette-meta { display: flex; justify-content: space-between; gap: 1rem; min-height: 1rem; padding-inline: 0.25rem; color: var(--text-muted); font-size: 0.75rem; font-weight: 600; letter-spacing: 0.14em; text-transform: uppercase; }
-.gazette-rule { margin-block: 0.6rem; border-block-start: 1px solid var(--gz-ink); border-block-end: 3px double var(--gz-ink); opacity: 0.55; }
+.gazette-masthead h1 { margin: 0; font-family: var(--gz-serif); font-size: clamp(2.15rem, 7vw, 5.4rem); font-weight: 700; line-height: 1.04; letter-spacing: 0.005em; color: var(--text); text-shadow: var(--heading-glow, none); }
+.gazette-meta { display: flex; justify-content: space-between; gap: 1rem; min-height: 1rem; padding-inline: 0.25rem; color: var(--text-muted); font-size: 0.75rem; font-weight: 600; letter-spacing: var(--label-tracking, 0.14em); text-transform: var(--label-case, uppercase); font-variant: var(--label-variant, normal); }
+.gazette-rule { margin-block: 0.6rem; border-block-start: 1px solid var(--rule-ink, var(--gz-ink)); border-block-end: 3px double var(--rule-ink, var(--gz-ink)); opacity: var(--rule-opacity, 0.55); }
 
 .gazette-days { position: relative; display: flex; gap: 0.4rem; margin-block: 1rem 0.5rem; overflow-x: auto; padding-block: 0.2rem; scrollbar-width: thin; }
 .gazette-day {
@@ -142,7 +145,7 @@ a.gazette-tile-band:focus-visible { outline: 3px solid var(--focus); outline-off
   height: 3.5rem;
   border: 1px solid var(--border);
   border-radius: var(--radius);
-  background: var(--surface);
+  background: var(--raised, var(--surface));
   color: var(--text-muted);
   font-size: 0.68rem;
   letter-spacing: 0.08em;
@@ -202,7 +205,7 @@ a.gazette-day:hover { border-color: var(--border-strong); }
   padding: 0.75rem 1rem;
   border: 1px solid var(--gz-rule);
   border-radius: var(--gz-radius);
-  background: var(--surface);
+  background: var(--raised, var(--surface));
   color: var(--text);
   font: inherit;
   text-align: start;
@@ -315,7 +318,7 @@ a.gazette-day:hover { border-color: var(--border-strong); }
 .gazette-day-detail { display: grid; gap: .3rem; padding: .35rem .5rem .6rem; font-size: .75rem; color: var(--text-muted); }
 .gazette-week-day, .gazette-week-temps, .gazette-rain, .gazette-week-gust { color: var(--text-muted); }
 .gazette-week-temps strong { color: var(--text); }
-.gazette-week-day { font-size: .75rem; text-transform: uppercase; letter-spacing: .03em; }
+.gazette-week-day { font-size: .75rem; text-transform: var(--label-case, uppercase); letter-spacing: var(--label-tracking, .03em); font-variant: var(--label-variant, normal); }
 .gazette-week-day b { color: var(--text); }
 .gazette-week-condition { color: var(--link); }
 .gazette-week .gazette-today { background: var(--accent-soft); border-block-start-color: var(--accent); box-shadow: inset 0 1px var(--accent); }
@@ -501,60 +504,6 @@ a.gazette-day:hover { border-color: var(--border-strong); }
   .gazette-admin-add > label:not(.gazette-admin-add-title) { flex: 1 1 8rem; }
 }
 
-/* Themes with a painted scene behind the page: the edition is a sheet laid over it, so text never sits on the picture. */
-:root:is([data-theme='tokyo-nights'], [data-theme='witch-forest']) .gazette-page:not(.gazette-admin), :root:is([data-theme='tokyo-nights'], [data-theme='witch-forest']) .gazette-admin {
-  padding: clamp(0.75rem, 2.5vw, 1.75rem);
-  border: 1px solid var(--gz-rule);
-  border-radius: var(--gz-radius);
-  background: var(--gz-paper);
-}
-
-/* ---- Themes ----------------------------------------------------------------------------------- */
-:root:is([data-theme='dark'], [data-theme='memento-mori']) :is(.gazette-tile, .gazette-page) {
-  --gz-paper: color-mix(in srgb, var(--surface) 90%, var(--brand) 10%);
-  --gz-paper-soft: color-mix(in srgb, var(--surface) 96%, var(--brand) 4%);
-  --gz-flower: color-mix(in srgb, var(--link) 70%, var(--accent) 30%);
-}
-
-/* Tokyo Nights: the engraving becomes a neon sign; the masthead glows a little. */
-:root[data-theme='tokyo-nights'] :is(.gazette-tile, .gazette-page) {
-  --gz-serif: 'Iowan Old Style', Georgia, serif;
-  --gz-paper: rgb(19 21 44 / 94%);
-  --gz-paper-soft: rgb(19 21 44 / 90%);
-  --gz-flower: var(--brand);
-  --gz-ink: var(--text);
-  --gz-rule: rgb(157 124 255 / 30%);
-}
-:root[data-theme='tokyo-nights'] :is(.gazette-tile-mast strong, .gazette-masthead h1) { text-shadow: 0 0 0.8rem rgb(53 230 255 / 40%); }
-:root[data-theme='tokyo-nights'] .gazette-kicker { color: var(--brand); }
-:root[data-theme='tokyo-nights'] .gazette-rule { border-color: var(--brand); opacity: 0.6; }
-:root[data-theme='tokyo-nights'] :is(.gazette-folded, .gazette-day:not(.gazette-day-current, .gazette-day-none), .gazette-tile-place) { background: rgb(19 21 44 / 92%); }
-
-/* Witch Forest: an old broadsheet by candlelight, small capitals and a single inner rule. */
-:root[data-theme='witch-forest'] :is(.gazette-tile, .gazette-page) {
-  --gz-serif: var(--wf-serif, Georgia, serif);
-  --gz-paper: rgb(17 26 21 / 96%);
-  --gz-paper-soft: rgb(17 26 21 / 94%);
-  --gz-flower: var(--brand);
-  --gz-ink: var(--text);
-  --gz-rule: var(--wf-rule, var(--border));
-}
-:root[data-theme='witch-forest'] .card.gazette-tile,
-:root[data-theme='witch-forest'] .gazette-watch-item { box-shadow: inset 0 0 0 3px var(--gz-paper), inset 0 0 0 4px var(--gz-rule); background: var(--gz-paper); }
-:root[data-theme='witch-forest'] :is(.gazette-kicker, .gazette-meta, .gazette-tile-mast small, .gazette-week-day) { font-variant: small-caps; text-transform: none; letter-spacing: 0.1em; }
-:root[data-theme='witch-forest'] :is(.gazette-folded, .gazette-day:not(.gazette-day-current, .gazette-day-none), .gazette-tile-place) { background: rgb(17 26 21 / 94%); }
-
-/* Galactic Guide: a quiet star chart; the cover keeps the translucent card look of the theme. */
-:root[data-theme='space-guide'] :is(.gazette-tile, .gazette-page) {
-  --gz-serif: 'Iowan Old Style', Georgia, serif;
-  --gz-paper: color-mix(in srgb, var(--surface) 92%, transparent);
-  --gz-paper-soft: color-mix(in srgb, var(--surface) 88%, transparent);
-  --gz-ink: var(--text);
-}
-
-/* Places: the theme's own book face, paper tinted by the country palette through its tokens. */
-:root[data-theme='places'] :is(.gazette-tile, .gazette-page) { --gz-serif: var(--places-serif, Georgia, serif); }
-
 .gazette-summary .markdown-content > :first-child { margin-block-start: 0; }
 .gazette-summary .markdown-content > :last-child { margin-block-end: 0; }
 .gazette-summary .markdown-content :is(ul, ol) { font-style: normal; padding-inline-start: 1.4em; }
@@ -597,7 +546,7 @@ a.gazette-day:hover { border-color: var(--border-strong); }
 .gazette-masthead-art img, img.gazette-masthead-art { width: 100%; height: 100%; object-fit: cover; object-position: 50% 88%; display: block; }
 :is(.gazette-masthead, .gazette-tile-band)::before { content: ''; z-index: -1; background: linear-gradient(180deg, rgb(10 14 20 / 65%), rgb(10 14 20 / 72%) 48%, rgb(10 14 20 / 56%)); }
 :is(.gazette-masthead h1, .gazette-meta, .gazette-tile-mast strong, .gazette-tile-mast small) { color: var(--gz-masthead-text); }
-.gazette-masthead .gazette-rule { border-color: var(--gz-masthead-text); }
+.gazette-masthead .gazette-rule { border-color: var(--rule-ink, var(--gz-masthead-text)); }
 .gazette-masthead .gazette-tools { inset-block-start: .35rem; inset-inline-end: .35rem; }
 .gazette-masthead .gazette-tools .icon-button { background: var(--surface); color: var(--text); }
 .gazette-header-editor h2 { font-family: var(--gz-serif); }

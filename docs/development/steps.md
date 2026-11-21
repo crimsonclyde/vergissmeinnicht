@@ -9014,6 +9014,17 @@ Screens before/after in every theme showed no change except scene animation.
 Journal, Gazette, Map, area and maintenance CSS carry per-theme selectors. Add surface-role
 tokens (bar, panel, card, raised, accent ink) to every theme so feature CSS uses tokens only.
 
+**Status:** DONE (not released). Surface roles (`--title-font`, `--book-font`, `--paper`,
+`--paper-frame`, `--panel`, `--raised`, `--sheet*`, `--hairline`, `--flower`, `--heading-glow`,
+`--today-glow`, `--label-*`, `--scene-*` and a few more; listed in `styles.css`) are set by each
+theme in its own CSS file; Journal, areas (Contacts, More, Settings lists), Maintenance, the Daily
+Planet, the Map and the sky card read only those roles, each with the default look as fallback.
+Dark surfaces are `data-scheme='dark'` on `<html>`, set from the theme registry (`scheme`). A test
+(`apps/web/src/feature-css.test.ts`) fails when feature CSS names a theme; the allowed theme files
+are listed with a reason (theme files, the Places dock of 46, Galactic Guide layout). Screens of
+six themes × seven pages (desktop and phone) before/after: unchanged except that contact names in
+Tokyo Nights now use the theme's sans face like every other Tokyo heading (they fell back to Georgia).
+
 ### 45.6 — "Look" settings out of the Guide; Settings keep the theme (needs OK)
 Guide settings (layout, card art) affect every theme, and Settings pages are forced to Memento
 Mori. Move card art to a theme-neutral "Look" group and let Settings keep the person's theme

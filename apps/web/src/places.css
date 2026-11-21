@@ -17,6 +17,10 @@
 :root[data-theme='places'] {
   --places-serif: 'Iowan Old Style', 'Palatino Linotype', Palatino, 'Book Antiqua', 'URW Palladio L', P052, Charter, 'Bitstream Charter', Georgia, 'Noto Serif', serif;
   --radius: 8px;
+  /* Surface roles (45.5): the theme's own book face; paper follows the country palette tokens. */
+  --title-font: var(--places-serif, Georgia, serif);
+  --book-font: var(--places-serif, Georgia, serif);
+  --card-opacity: var(--place-card-opacity, 100%);
 }
 
 :root[data-theme='places'] body {

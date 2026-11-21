@@ -1,4 +1,4 @@
-import { THEME_PREFERENCES, THEME_REGISTRY, placeOfTheme, type ThemePreference } from '@vergissmeinnicht/domain';
+import { THEME_PREFERENCES, THEME_REGISTRY, placeOfTheme, schemeOfTheme, type ThemePreference } from '@vergissmeinnicht/domain';
 import { PLACES } from './places/registry.ts';
 import { PLACE_TOKEN_NAMES } from './places/types.ts';
 import { useCallback, useSyncExternalStore } from 'react';
@@ -158,7 +158,10 @@ function apply(): void {
   const place = placeAttributes(mode, dark);
   if (place === null) {
     delete root.dataset.place;
-    delete root.dataset.scheme;
+    // Feature CSS reads the scheme, never theme ids (45.5).
+    const scheme = schemeOfTheme(root.dataset.theme ?? '');
+    if (scheme === null) delete root.dataset.scheme;
+    else root.dataset.scheme = scheme;
     for (const name of PLACE_PROPERTIES) root.style.removeProperty(name);
     root.style.removeProperty('color-scheme');
   } else {
