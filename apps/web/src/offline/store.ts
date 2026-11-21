@@ -102,7 +102,13 @@ interface SavedImage {
   readonly blob: Blob;
 }
 
-function open(): Promise<IDBDatabase> {
+/**
+ * Opens (and, if missing, creates) the database. While storage is suspended (signing out here or in
+ * another tab) nothing opens it again: a late step of an earlier save would otherwise re-create the
+ * database right after sign-out deleted it. Only the sign-out clean-up itself opens it then.
+ */
+function open(forCleanup = false): Promise<IDBDatabase> {
+  if (suspended && !forCleanup) return Promise.reject(new Error('Device storage is suspended'));
   return new Promise((resolve, reject) => {
     // Versions only ever add stores: an app update never drops what is waiting on the device (17.5).
     const request = indexedDB.open(DB_NAME, 4);
@@ -471,7 +477,7 @@ export const offlineStore = {
     return cleanUpDevice({
       announce: () => announceSession({ type: 'signed-out' }),
       emptyStores: async () => {
-        const db = await open();
+        const db = await open(true);
         try {
           await new Promise<void>((resolve, reject) => {
             const transaction = db.transaction(STORES, 'readwrite');
