@@ -587,3 +587,12 @@ one bounded in-process worker job and publish complete versioned assets atomical
 existing persistent data volume. Preserve the current map on failure/cancellation, retain
 legacy mounts, and keep map data outside Workspace backups. Review controls and limits in
 `docs/development/security.md` section 14 and ledger section 44.2 before changing this flow.
+
+## Accepted follow-up — Full MCP control with safety backups (2026-11-21)
+
+Owner decision: AI assistants may use every Workspace tool through MCP; a full server backup written
+automatically before AI changes (steps.md 48.1) replaces per-change confirmation. Keep per-person grants,
+current roles, the per-Workspace AI switch and Workspace tool switches authoritative. Every Workspace tool
+manifest carries an `mcp` entry (covered actions, or `notForAi` with a reason); `mcp-coverage.test.ts`
+enforces it, so a new feature or action ships with its MCP tools or a stated reason. MCP tools live in
+`apps/server/src/mcp/tools/<area>.ts`. Deletes stay soft and are marked destructive.

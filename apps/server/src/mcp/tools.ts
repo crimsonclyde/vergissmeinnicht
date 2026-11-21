@@ -6,9 +6,13 @@
  */
 import { randomUUID } from 'node:crypto';
 import { calendarTools } from './tools/calendar.ts';
+import { contactsTools } from './tools/contacts.ts';
+import { documentsTools } from './tools/documents.ts';
+import { equipmentTools } from './tools/equipment.ts';
 import { gazetteTools } from './tools/gazette.ts';
 import { groceriesTools } from './tools/groceries.ts';
 import { listCoversTools } from './tools/list-covers.ts';
+import { maintenanceTools } from './tools/maintenance.ts';
 import { notesTools } from './tools/notes.ts';
 import { placesTools } from './tools/places.ts';
 import { proceduresTools } from './tools/procedures.ts';
@@ -30,6 +34,10 @@ export const assistantTools: AssistantTool[] = [
   ...recipesTools,
   ...placesTools,
   ...gazetteTools,
+  ...equipmentTools,
+  ...maintenanceTools,
+  ...contactsTools,
+  ...documentsTools,
 ];
 // Server chooses identities and time. The client supplies no actor, role or execution code.
 export const newAssistantOperationId = () => randomUUID();

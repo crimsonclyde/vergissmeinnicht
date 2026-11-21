@@ -2,7 +2,7 @@ import { z } from 'zod';
 import { authorizeListAppearance, changeListAppearance, listLists } from '@vergissmeinnicht/application';
 import { type ListId } from '@vergissmeinnicht/domain';
 import { MCP_IMAGE_BASE64_LENGTH, uploadDelegatedImage, uploadDelegatedImageFile } from '../recipe-upload.ts';
-import { chatGptFile, define, fileUpload, otherClients, revision, uuid, workspace, type AssistantTool } from './shared.ts';
+import { chatGptFile, define, fileUpload, otherClients, revision, uuid, workspace, destructive, type AssistantTool } from './shared.ts';
 
 export const listCoversTools: AssistantTool[] = [
  define('list_cover_targets','Find Shopping and To-do Lists for an explicitly requested cover change. Ask which List and Workspace if the destination is ambiguous. Returns cover status and the current revision, without checklist entries.','lists.covers.write','LISTS',false,workspace,async({services,actor,workspaceId})=>({lists:(await listLists(services.lists,{actor,workspaceId})).map(({list})=>({id:list.id,title:list.title,kind:list.kind,revision:list.revision,coverId:list.coverId}))})),
@@ -18,8 +18,8 @@ export const listCoversTools: AssistantTool[] = [
   const authorize=()=>authorizeListAppearance(services.lists,{actor,workspaceId,listId:input.listId as ListId});
   return uploadDelegatedImageFile(services.listAttachments,actor,workspaceId,authorize,services.chatGptFileSource,{...input,targetId:input.listId},services.chatGptFileHosts);
  })),
- define('set_list_cover','Set or replace a List cover with the uploaded attachment ID, or pass null to remove it when explicitly requested. Resolve the target and use its reviewed revision.','lists.covers.write','LISTS',true,{...workspace,listId:uuid,expectedRevision:revision,coverId:uuid.nullable()},async({services,actor,workspaceId},input)=>{
+ destructive(define('set_list_cover','Set or replace a List cover with the uploaded attachment ID, or pass null to remove it when explicitly requested. Resolve the target and use its reviewed revision.','lists.covers.write','LISTS',true,{...workspace,listId:uuid,expectedRevision:revision,coverId:uuid.nullable()},async({services,actor,workspaceId},input)=>{
   const {list}=await changeListAppearance(services.lists,{actor,workspaceId,listId:input.listId as ListId,expectedRevision:input.expectedRevision,appearance:{coverId:input.coverId}});
   return {id:list.id,revision:list.revision,coverId:list.coverId};
- }),
+ })),
 ];

@@ -9212,3 +9212,62 @@ bar. `guide.spec.ts` (top bar, clock/weather, Daily Planet). Screens:
 
 **Security impact:** NONE — presentation and client-side routing only; no API, schema or data change.
 **Security docs updated:** NO.
+
+## 48 — Full MCP control with safety backups (owner request 2026-11-21)
+
+**Request (owner, 2026-11-21):** "Mcp control should be possible by ai we just do a backup before any
+changes. In the background so it should be fine giving ai all the controls." Based on the analysis
+"VMN: structure and MCP coverage" (steps 1–4 of its plan). Offline support is a separate thread.
+
+### 48.1 Safety backup before AI changes
+
+**Status:** DONE (not released)  
+**Completed:** 2026-11-21  
+**Implemented:** `mcp/safety-backup.ts`: before any writing MCP tool, a full verified server backup
+`vergissmeinnicht-ai-<time>.sqlite` in `<db dir>/backups`, at most one per `MCP_BACKUP_INTERVAL_MINUTES`
+(default 30), newest `MCP_BACKUP_KEEP` (default 48) kept, side file with person/assistant/Workspace/tool.
+A failed backup refuses the change (`backup_failed`). Server admin → AI connections → Safety backups lists
+them and copies the path; restore is the existing CLI. Replaces the confirm-code idea.  
+**Tests/checks:** `mcp-safety-backup.test.ts`.  
+**Security impact:** MEDIUM  
+**Security docs updated:** YES  
+**Remaining:** one-tap restore from Server admin (needs a stop/restart flow).
+
+### 48.2 Coverage test
+
+**Status:** DONE (not released)  
+**Completed:** 2026-11-21  
+**Implemented:** every tool manifest has an `mcp` entry (actions covered, or `notForAi` with a reason);
+`mcp-coverage.test.ts` fails when a tool, scope or action has no matching MCP tool or vice versa. New
+Workspace tools must add the entry (see AGENTS.md).  
+**Tests/checks:** `mcp-coverage.test.ts`.  
+**Security impact:** NONE  
+**Security docs updated:** N/A
+
+### 48.3 One file per Workspace tool
+
+**Status:** DONE (not released)  
+**Completed:** 2026-11-21  
+**Implemented:** `apps/server/src/mcp/tools.ts` split mechanically into `mcp/tools/<area>.ts` plus
+`shared.ts`; `tools.ts` is the ordered index. No behaviour change in that commit.  
+**Tests/checks:** all MCP tests unchanged and passing.  
+**Security impact:** NONE  
+**Security docs updated:** N/A
+
+### 48.4 Tools for everything else
+
+**Status:** DONE (not released)  
+**Completed:** 2026-11-21  
+**Implemented:** 120 tools. New: Equipment, Maintenance (scope `home.*`), Contacts (`contacts.*`),
+Documents (`documents.*`: search, read with text, folders, move, update, Trash/restore; no upload);
+Reminders (list, update, repeat, pause/end, complete/skip/reopen/move a date); Procedures (create,
+save structure, delete/restore, schedule) and Runs (list, start, tick, complete, abort); rename,
+delete and restore whole Grocery/To-do Lists; archive Notes; delete watchlist items. Deletes are
+marked destructive. Consent screen: Home, Contacts and Documents rows; Contacts and Documents not
+preselected. Guards of Equipment, Maintenance, Contacts, Documents and Schedules name their tool.
+Not for AI: Moon, Gamification, Bring.  
+**Tests/checks:** typecheck, lint, full Vitest; `mcp-full-control.test.ts`.  
+**Security impact:** MEDIUM  
+**Security docs updated:** YES  
+**Remaining:** Bring through MCP; Document upload; idempotency keys for create on Equipment,
+Contacts, Maintenance and Procedures (assistants are told to search again after `not_confirmed`).

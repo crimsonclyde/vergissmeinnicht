@@ -65,7 +65,7 @@ export interface DocumentDeps {
 }
 
 /** Re-checked inside every write transaction (concurrent demotion, removal or disabling). */
-const manage: ActorGuard = { actorMay: (role) => roleHasCapability(role, 'document.manage') };
+const manage: ActorGuard = { tool: 'DOCUMENTS', actorMay: (role) => roleHasCapability(role, 'document.manage') };
 
 function refuse(status: DocumentWriteRefusal): never {
   switch (status) {
@@ -286,7 +286,7 @@ export async function listDocumentTrash(deps: DocumentDeps, input: Ref & { reado
 }
 
 /** Re-checked inside the deleting transaction: only a Workspace admin deletes for good. */
-const purge: ActorGuard = { actorMay: (role) => roleHasCapability(role, 'document.purge') };
+const purge: ActorGuard = { tool: 'DOCUMENTS', actorMay: (role) => roleHasCapability(role, 'document.purge') };
 
 /**
  * **Permanent deletion** (16.4, H11): removes items from Trash for good — the Documents named, the

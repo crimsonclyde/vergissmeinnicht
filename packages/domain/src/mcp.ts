@@ -1,5 +1,7 @@
 /** Delegation is an intersection with current membership/capabilities, never another role. */
-export const MCP_SCOPES = ['workspaces.read','procedures.read','procedures.write','runs.read','runs.write','lists.read','lists.write','recipes.read','recipes.write','lists.covers.write','todos.read','todos.write','calendar.read','calendar.write','notes.read','notes.write','gazette.read','gazette.write','map.read','map.write'] as const;
+export const MCP_SCOPES = ['workspaces.read','procedures.read','procedures.write','runs.read','runs.write','lists.read','lists.write','recipes.read','recipes.write','lists.covers.write','todos.read','todos.write','calendar.read','calendar.write','notes.read','notes.write','gazette.read','gazette.write','map.read','map.write','home.read','home.write','contacts.read','contacts.write','documents.read','documents.write'] as const;
+/** Scopes the consent screen leaves off unless chosen (48.4): personal data such as addresses and documents. */
+export const SENSITIVE_MCP_SCOPES: readonly McpScope[] = ['contacts.read','contacts.write','documents.read','documents.write'];
 export type McpScope = typeof MCP_SCOPES[number];
 export interface McpAuthorizationRequest {
   clientId: string; redirectUri: string; state: string | null; codeChallenge: string; scopes: McpScope[]; resource: string;

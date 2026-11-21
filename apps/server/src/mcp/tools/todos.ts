@@ -1,7 +1,7 @@
 import { z } from 'zod';
-import { getList, listLists, moveListItems, removeListItems, updateListItems, restoreListItems, listRemovedListItems } from '@vergissmeinnicht/application';
+import { renameList, deleteList, restoreList, getList, listLists, moveListItems, removeListItems, updateListItems, restoreListItems, listRemovedListItems } from '@vergissmeinnicht/application';
 import { MAX_LIST_BATCH_ITEMS, type ListId } from '@vergissmeinnicht/domain';
-import { batchItemIds, batchOperationId, define, groceryBatch, replayGroceryWrite, revision, uuid, workspace, type AssistantTool } from './shared.ts';
+import { batchItemIds, batchOperationId, define, groceryBatch, replayGroceryWrite, revision, uuid, workspace, destructive, type AssistantTool } from './shared.ts';
 
 export const todosTools: AssistantTool[] = [
  define('list_todo_lists','List To-do Lists of the chosen Workspace with open and done counts.','todos.read','LISTS',false,workspace,async({services,actor,workspaceId})=>({lists:(await listLists(services.lists,{actor,workspaceId})).map(item=>({id:item.list.id,title:item.list.title,revision:item.list.revision,open:item.open,done:item.checked}))})),
@@ -16,10 +16,10 @@ export const todosTools: AssistantTool[] = [
   const result=await moveListItems(services.lists,{...input,actor,workspaceId});
   return {outcome:'MOVED',duplicate:result.duplicate,movedItemIds:result.itemIds,sourceList:{id:input.sourceListId,revision:result.revisions[input.sourceListId]},destinationList:{id:input.destinationListId,revision:result.revisions[input.destinationListId]}};
  })),
- define('delete_todo_items','Delete the user-approved tasks, done or not, from one To-do List in one atomic operation. Destructive: read the List, show exactly which tasks will be deleted and wait for explicit approval; once approved, do not ask again. Deleted tasks can be restored. Keep operationId and payload unchanged on retries.','todos.write','LISTS',true,{...workspace,listId:uuid,itemIds:batchItemIds,operationId:batchOperationId,expectedRevision:revision},async({services,actor,workspaceId},input)=>groceryBatch(async()=>{
+ destructive(define('delete_todo_items','Delete the user-approved tasks, done or not, from one To-do List in one atomic operation. Destructive: read the List, show exactly which tasks will be deleted and wait for explicit approval; once approved, do not ask again. Deleted tasks can be restored. Keep operationId and payload unchanged on retries.','todos.write','LISTS',true,{...workspace,listId:uuid,itemIds:batchItemIds,operationId:batchOperationId,expectedRevision:revision},async({services,actor,workspaceId},input)=>groceryBatch(async()=>{
   const result=await removeListItems(services.lists,{...input,actor,workspaceId});
   return {outcome:'DELETED',duplicate:result.duplicate,deletedItemIds:result.itemIds,list:{id:input.listId,revision:result.revisions[input.listId]}};
- })),
+ }))),
  define('list_deleted_todo_items','Read the recently deleted tasks of one To-do List that can still be restored, most recent first (up to 100).','todos.read','LISTS',false,{...workspace,listId:uuid},async({services,actor,workspaceId},input)=>{
   const [list,removed]=await Promise.all([getList(services.lists,{actor,workspaceId,listId:input.listId as ListId}),listRemovedListItems(services.lists,{actor,workspaceId,listId:input.listId as ListId})]);
   return {id:list.list.id,title:list.list.title,revision:list.list.revision,deletedTasks:removed.map(entry=>({id:entry.item.id,title:entry.item.title,done:entry.item.checked!==null,deletedAt:entry.removedAt.toISOString(),deletedBy:entry.removedBy}))};
@@ -28,4 +28,16 @@ export const todosTools: AssistantTool[] = [
   const result=await restoreListItems(services.lists,{...input,actor,workspaceId});
   return {outcome:'RESTORED',duplicate:result.duplicate,restoredItemIds:result.itemIds,list:{id:input.listId,revision:result.revisions[input.listId]}};
  })),
+ define('rename_todo_list','Rename a To-do List. expectedTitle is the name read with list_todo_lists; a rename by someone else meanwhile is refused.','todos.write','LISTS',true,{...workspace,listId:uuid,title:z.string().min(1).max(80),expectedTitle:z.string().max(200)},async({services,actor,workspaceId},input)=>{
+  const result=await renameList(services.lists,{actor,workspaceId,listId:input.listId as ListId,title:input.title,expectedTitle:input.expectedTitle});
+  return {outcome:'RENAMED',list:{id:result.list.id,title:result.list.title,revision:result.list.revision}};
+ }),
+ destructive(define('delete_todo_list','Delete a whole To-do List with its tasks when the user asks. It can be brought back with restore_todo_list.','todos.write','LISTS',true,{...workspace,listId:uuid},async({services,actor,workspaceId},input)=>{
+  await deleteList(services.lists,{actor,workspaceId,listId:input.listId as ListId});
+  return {outcome:'DELETED',listId:input.listId};
+ })),
+ define('restore_todo_list','Bring a deleted To-do List back with its tasks.','todos.write','LISTS',true,{...workspace,listId:uuid},async({services,actor,workspaceId},input)=>{
+  const result=await restoreList(services.lists,{actor,workspaceId,listId:input.listId as ListId});
+  return {outcome:'RESTORED',list:{id:result.list.id,title:result.list.title,revision:result.list.revision}};
+ }),
 ];

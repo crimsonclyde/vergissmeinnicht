@@ -146,8 +146,9 @@ export function createMaintenanceRepository({ db }: Pick<AppDatabase, 'db'>): Ma
   function write<T>(workspaceId: WorkspaceId, actor: UserActor, guard: ActorGuard, change: (tx: Transaction) => T): MaintenanceWrite<T> {
     try {
       return db.transaction((tx) => {
-        if (!actorAllowed(tx, workspaceId, actor, guard)) throw new Refusal('forbidden');
+        // The switch first: the guard names the tool too (delegation, 48.4), and a switched-off tool answers as such.
         if (!toolEnabled(tx, workspaceId, 'MAINTENANCE')) throw new Refusal('tool_disabled');
+        if (!actorAllowed(tx, workspaceId, actor, guard)) throw new Refusal('forbidden');
         return { status: 'ok' as const, ...change(tx) };
       }, IMMEDIATE);
     } catch (error) {

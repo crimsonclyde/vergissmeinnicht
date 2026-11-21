@@ -1,7 +1,7 @@
 import { z } from 'zod';
-import { getList, listLists, moveListItems, removeListItems, updateListItems, restoreListItems, listRemovedListItems } from '@vergissmeinnicht/application';
+import { renameList, deleteList, restoreList, getList, listLists, moveListItems, removeListItems, updateListItems, restoreListItems, listRemovedListItems } from '@vergissmeinnicht/application';
 import { type ListId } from '@vergissmeinnicht/domain';
-import { batchItemEdits, batchItemIds, batchOperationId, define, groceryBatch, replayGroceryWrite, revision, uuid, workspace, type AssistantTool } from './shared.ts';
+import { batchItemEdits, batchItemIds, batchOperationId, define, groceryBatch, replayGroceryWrite, revision, uuid, workspace, destructive, type AssistantTool } from './shared.ts';
 
 export const groceriesTools: AssistantTool[] = [
  define('list_grocery_lists','List grocery Lists of the chosen Workspace.','lists.read','LISTS',false,workspace,async({services,actor,workspaceId})=>({lists:(await listLists(services.lists,{actor,workspaceId})).map(item=>({id:item.list.id,title:item.list.title,revision:item.list.revision,open:item.open,checked:item.checked}))})),
@@ -12,10 +12,10 @@ export const groceriesTools: AssistantTool[] = [
   const result=await moveListItems(services.lists,{...input,actor,workspaceId});
   return {outcome:'MOVED',duplicate:result.duplicate,movedItemIds:result.itemIds,sourceList:{id:input.sourceListId,revision:result.revisions[input.sourceListId]},destinationList:{id:input.destinationListId,revision:result.revisions[input.destinationListId]}};
  })),
- define('delete_grocery_items','Delete the user-approved items, checked or not, from one grocery List in one atomic operation. Destructive: first read the List with get_grocery_list, show the user exactly which items will be deleted and wait for explicit approval; once the user approved this exact deletion, call it without asking again. Only the named items are deleted; if any id is not a live item of this List, nothing is deleted. Deleted items can be restored with restore_grocery_items or in VMN. The List must still be at the read revision. Keep operationId and payload unchanged on retries.','lists.write','LISTS',true,{...workspace,listId:uuid,itemIds:batchItemIds,operationId:batchOperationId,expectedRevision:revision},async({services,actor,workspaceId},input)=>groceryBatch(async()=>{
+ destructive(define('delete_grocery_items','Delete the user-approved items, checked or not, from one grocery List in one atomic operation. Destructive: first read the List with get_grocery_list, show the user exactly which items will be deleted and wait for explicit approval; once the user approved this exact deletion, call it without asking again. Only the named items are deleted; if any id is not a live item of this List, nothing is deleted. Deleted items can be restored with restore_grocery_items or in VMN. The List must still be at the read revision. Keep operationId and payload unchanged on retries.','lists.write','LISTS',true,{...workspace,listId:uuid,itemIds:batchItemIds,operationId:batchOperationId,expectedRevision:revision},async({services,actor,workspaceId},input)=>groceryBatch(async()=>{
   const result=await removeListItems(services.lists,{...input,actor,workspaceId});
   return {outcome:'DELETED',duplicate:result.duplicate,deletedItemIds:result.itemIds,list:{id:input.listId,revision:result.revisions[input.listId]}};
- })),
+ }))),
  define('update_grocery_items','Change existing items of one grocery List in one atomic operation: rename, change quantity or unit, tick off as bought (checked true) or put back (checked false). Read the List with get_grocery_list first and use its exact item ids and revision. Ticking or unticking what the user said they bought, and edits the user asked for in plain words, need no extra confirmation; when the user was vague about which items, show the matching items and ask first. Fields left out stay as they are. Never use delete plus add to edit an item. Keep operationId and payload unchanged on retries.','lists.write','LISTS',true,{...workspace,listId:uuid,items:batchItemEdits,operationId:batchOperationId,expectedRevision:revision},async({services,actor,workspaceId},input)=>groceryBatch(async()=>{
   const result=await updateListItems(services.lists,{actor,workspaceId,listId:input.listId,edits:input.items,operationId:input.operationId,expectedRevision:input.expectedRevision});
   return {outcome:'UPDATED',duplicate:result.duplicate,updatedItemIds:result.itemIds,list:{id:input.listId,revision:result.revisions[input.listId]}};
@@ -28,4 +28,16 @@ export const groceriesTools: AssistantTool[] = [
   const result=await restoreListItems(services.lists,{...input,actor,workspaceId});
   return {outcome:'RESTORED',duplicate:result.duplicate,restoredItemIds:result.itemIds,list:{id:input.listId,revision:result.revisions[input.listId]}};
  })),
+ define('rename_grocery_list','Rename a grocery List. expectedTitle is the name read with list_grocery_lists; a rename by someone else meanwhile is refused.','lists.write','LISTS',true,{...workspace,listId:uuid,title:z.string().min(1).max(80),expectedTitle:z.string().max(200)},async({services,actor,workspaceId},input)=>{
+  const result=await renameList(services.lists,{actor,workspaceId,listId:input.listId as ListId,title:input.title,expectedTitle:input.expectedTitle});
+  return {outcome:'RENAMED',list:{id:result.list.id,title:result.list.title,revision:result.list.revision}};
+ }),
+ destructive(define('delete_grocery_list','Delete a whole grocery List with its items when the user asks. It can be brought back with restore_grocery_list.','lists.write','LISTS',true,{...workspace,listId:uuid},async({services,actor,workspaceId},input)=>{
+  await deleteList(services.lists,{actor,workspaceId,listId:input.listId as ListId});
+  return {outcome:'DELETED',listId:input.listId};
+ })),
+ define('restore_grocery_list','Bring a deleted grocery List back with its items.','lists.write','LISTS',true,{...workspace,listId:uuid},async({services,actor,workspaceId},input)=>{
+  const result=await restoreList(services.lists,{actor,workspaceId,listId:input.listId as ListId});
+  return {outcome:'RESTORED',list:{id:result.list.id,title:result.list.title,revision:result.list.revision}};
+ }),
 ];

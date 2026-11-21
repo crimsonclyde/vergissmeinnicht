@@ -31,10 +31,14 @@ export const chatGptFile = z.object({
 export class RecipeCoverRequiredError extends Error {}
 /** A tool input that is valid JSON but cannot be applied; the message is safe to return to the client. */
 export interface Context {services:AppServices;actor:User;workspaceId:WorkspaceId;grantWorkspaceIds:string[]}
-export interface AssistantTool {name:string;description:string;scope:McpScope;extraScopes?:McpScope[];tool:WorkspaceTool|null;extraTools?:WorkspaceTool[];write:boolean;schema:z.ZodObject;fileParams?:readonly string[];hiddenFromChatGpt?:boolean;execute:(context:Context,input:Record<string,unknown>)=>Promise<unknown>}
+export interface AssistantTool {name:string;description:string;scope:McpScope;extraScopes?:McpScope[];tool:WorkspaceTool|null;extraTools?:WorkspaceTool[];write:boolean;schema:z.ZodObject;fileParams?:readonly string[];hiddenFromChatGpt?:boolean;destructive?:boolean;execute:(context:Context,input:Record<string,unknown>)=>Promise<unknown>}
 export function define<S extends z.ZodRawShape>(name:string,description:string,scope:McpScope,tool:WorkspaceTool|null,write:boolean,shape:S,execute:(context:Context,input:z.output<z.ZodObject<S>>)=>Promise<unknown>,extraScopes?:McpScope[],extraTools?:WorkspaceTool[]):AssistantTool{
  const schema=z.strictObject(shape);return {name,description,scope,tool,write,schema,...(extraScopes?{extraScopes}:{}),...(extraTools?{extraTools}:{}),execute:(context,input)=>execute(context,schema.parse(input))};
 }
+/** Marks a tool that deletes, ends or replaces something (48.4): announced to the client as destructive. A safety backup precedes it like every change. */
+export const destructive = (tool: AssistantTool): AssistantTool => ({ ...tool, destructive: true });
+/** The `next` value of the previous page, passed back unchanged (only its shape is checked by the use case). */
+export const cursor = z.unknown().optional().describe('The next value of the previous page; omit for the first page.');
 export const fileUpload = (tool: AssistantTool, fileParams: readonly string[] = ['file']): AssistantTool => ({ ...tool, fileParams });
 // ChatGPT binds files natively, so it sees only the file routes. Base64 and picker tools stay for other MCP clients.
 export const otherClients = (tool: AssistantTool): AssistantTool => ({ ...tool, hiddenFromChatGpt: true });
@@ -85,7 +89,7 @@ export const recipeView=(recipe:Awaited<ReturnType<typeof getRecipe>>)=>({id:rec
 export const procedureView=(detail:Awaited<ReturnType<typeof getProcedure>>)=>({id:detail.procedure.id,revision:detail.procedure.revision,title:detail.procedure.title,description:detail.procedure.description,sections:detail.sections.map(section=>({id:section.id,title:section.title,steps:section.steps.map(step=>({id:step.id,title:step.title,description:step.description,required:step.required,critical:step.critical}))}))});
 
 /** Calendar and Notes (36.22): plain views, display names only; Notes are always the Workspace's, never the private Journal. */
-export const reminderView=(schedule:Awaited<ReturnType<typeof getSchedule>>)=>({id:schedule.id,title:schedule.title,description:schedule.description,date:schedule.anchorDate,time:schedule.time,timeZone:schedule.timeZone,revision:schedule.revision});
+export const reminderView=(schedule:Awaited<ReturnType<typeof getSchedule>>)=>({id:schedule.id,kind:schedule.kind,title:schedule.title,description:schedule.description,date:schedule.anchorDate,time:schedule.time,timeZone:schedule.timeZone,recurrence:schedule.recurrence,state:schedule.state,assignee:schedule.assignee?.displayName??null,revision:schedule.revision});
 type CalendarItem={schedule:Awaited<ReturnType<typeof getSchedule>>};
 export const calendarTitle=(item:CalendarItem)=>item.schedule.title??item.schedule.procedure?.title??'Procedure';
 export const noteView=(entry:Awaited<ReturnType<typeof getJournalEntry>>)=>({id:entry.id,revision:entry.revision,title:entry.title,notebook:entry.collection??'',tags:entry.tags??[],pinned:entry.pinned??false,date:entry.date,archived:entry.archived,updatedAt:entry.updatedAt.toISOString(),updatedBy:entry.updatedBy,markdown:entry.body});
@@ -101,3 +105,10 @@ export async function gazetteWeatherConfig(services:AppServices,workspaceId:Work
  return {automatic,location:{name:place.name,latitude:place.latitude,longitude:place.longitude,elevation:place.elevation,timeZone:place.timeZone},region:plan.region,alertZone:plan.alertZone,sources:plan.sources.filter(source=>source.enabled).map(({id,label,family,role})=>({id,label,family,role}))};
 }
 export class AssistantOperationReusedError extends Error {}
+
+/** The tool input without its `workspaceId` (the Workspace is already resolved by the transport). */
+export function withoutWorkspace<T extends { readonly workspaceId?: unknown }>(input: T): Omit<T, 'workspaceId'> {
+  const { workspaceId, ...rest } = input;
+  void workspaceId;
+  return rest;
+}

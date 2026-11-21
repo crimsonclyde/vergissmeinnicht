@@ -45,11 +45,11 @@ interface Ref {
 }
 
 /** Re-checked inside every write transaction (concurrent demotion, removal or disabling). */
-const manage: ActorGuard = { actorMay: (role) => roleHasCapability(role, 'contact.manage') };
-const exporter: ActorGuard = { actorMay: (role) => roleHasCapability(role, 'contact.export') };
-const purger: ActorGuard = { actorMay: (role) => roleHasCapability(role, 'contact.purge') };
+const manage: ActorGuard = { tool: 'CONTACTS', actorMay: (role) => roleHasCapability(role, 'contact.manage') };
+const exporter: ActorGuard = { tool: 'CONTACTS', actorMay: (role) => roleHasCapability(role, 'contact.export') };
+const purger: ActorGuard = { tool: 'CONTACTS', actorMay: (role) => roleHasCapability(role, 'contact.purge') };
 /** Whoever links a Contact to a Procedure manages Contacts and can read Procedures. */
-const linker: ActorGuard = { actorMay: (role) => roleHasCapability(role, 'contact.manage') && roleHasCapability(role, 'procedure.view') };
+const linker: ActorGuard = { tool: 'CONTACTS', actorMay: (role) => roleHasCapability(role, 'contact.manage') && roleHasCapability(role, 'procedure.view') };
 
 function refuse(status: ContactRefusal): never {
   switch (status) {

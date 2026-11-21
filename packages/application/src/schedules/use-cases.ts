@@ -93,7 +93,12 @@ export interface ScheduleRequest {
   readonly assigneeUserId?: string | null | undefined;
 }
 
-const guardFor = (capability: WorkspaceCapability) => ({ actorMay: (role: Parameters<typeof roleHasCapability>[0]) => roleHasCapability(role, capability) });
+const guardFor = (capability: WorkspaceCapability, tool?: 'PROCEDURES' | 'REMINDERS') => ({
+  actorMay: (role: Parameters<typeof roleHasCapability>[0]) => roleHasCapability(role, capability),
+  // The tool of the Schedule's kind (48.4): rechecked in the write transaction, and what an AI delegation is scoped to.
+  ...(tool === undefined ? {} : { tool }),
+});
+const kindTool = (kind: ScheduleKind) => (kind === 'PROCEDURE' ? ('PROCEDURES' as const) : ('REMINDERS' as const));
 
 function fail(status: ScheduleWriteStatus): never {
   switch (status) {
@@ -186,7 +191,7 @@ export async function updateSchedule(
     await deps.schedules.update(
       { ...content, workspaceId: input.workspaceId, scheduleId: current.id, expectedRevision: input.expectedRevision, at: deps.clock.now() },
       userActor(input.actor),
-      guardFor('schedule.manage'),
+      guardFor('schedule.manage', kindTool(current.kind)),
     ),
   );
 }
@@ -194,35 +199,35 @@ export async function updateSchedule(
 type ScheduleCommand = { readonly actor: User; readonly workspaceId: WorkspaceId; readonly scheduleId: string; readonly expectedRevision: number };
 
 export async function pauseSchedule(deps: ScheduleDeps, input: ScheduleCommand): Promise<Schedule> {
-  await getSchedule(deps, input);
+  const current = await getSchedule(deps, input);
   await authorizeWorkspace(deps, input.actor, input.workspaceId, 'schedule.manage');
   const scheduleId = parseScheduleId(input.scheduleId);
   return schedule(
-    await deps.schedules.pause({ workspaceId: input.workspaceId, scheduleId, expectedRevision: input.expectedRevision, at: deps.clock.now() }, userActor(input.actor), guardFor('schedule.manage')),
+    await deps.schedules.pause({ workspaceId: input.workspaceId, scheduleId, expectedRevision: input.expectedRevision, at: deps.clock.now() }, userActor(input.actor), guardFor('schedule.manage', kindTool(current.kind))),
   );
 }
 
 /** Fixed series keep their anchor; Occurrences that fell into the pause are created and skipped when `skipElapsed` (D3). */
 export async function resumeSchedule(deps: ScheduleDeps, input: ScheduleCommand & { readonly skipElapsed: boolean }): Promise<Schedule> {
-  await getSchedule(deps, input);
+  const current = await getSchedule(deps, input);
   await authorizeWorkspace(deps, input.actor, input.workspaceId, 'schedule.manage');
   const scheduleId = parseScheduleId(input.scheduleId);
   return schedule(
     await deps.schedules.resume(
       { workspaceId: input.workspaceId, scheduleId, expectedRevision: input.expectedRevision, skipElapsed: input.skipElapsed, at: deps.clock.now() },
       userActor(input.actor),
-      guardFor('schedule.manage'),
+      guardFor('schedule.manage', kindTool(current.kind)),
     ),
   );
 }
 
 /** Ends a Schedule: its OPEN Occurrences are cancelled, history stays. */
 export async function endSchedule(deps: ScheduleDeps, input: ScheduleCommand): Promise<Schedule> {
-  await getSchedule(deps, input);
+  const current = await getSchedule(deps, input);
   await authorizeWorkspace(deps, input.actor, input.workspaceId, 'schedule.manage');
   const scheduleId = parseScheduleId(input.scheduleId);
   return schedule(
-    await deps.schedules.end({ workspaceId: input.workspaceId, scheduleId, expectedRevision: input.expectedRevision, at: deps.clock.now() }, userActor(input.actor), guardFor('schedule.manage')),
+    await deps.schedules.end({ workspaceId: input.workspaceId, scheduleId, expectedRevision: input.expectedRevision, at: deps.clock.now() }, userActor(input.actor), guardFor('schedule.manage', kindTool(current.kind))),
   );
 }
 
@@ -249,9 +254,9 @@ async function occurrenceCommand<T>(
   capability: WorkspaceCapability,
   run: (ref: { workspaceId: WorkspaceId; occurrenceId: ReturnType<typeof parseOccurrenceId>; at: Date }, guard: ReturnType<typeof guardFor>) => Promise<T>,
 ): Promise<T> {
-  await getOccurrence(deps, input);
+  const current = await getOccurrence(deps, input);
   await authorizeWorkspace(deps, input.actor, input.workspaceId, capability, null);
-  return run({ workspaceId: input.workspaceId, occurrenceId: parseOccurrenceId(input.occurrenceId), at: deps.clock.now() }, guardFor(capability));
+  return run({ workspaceId: input.workspaceId, occurrenceId: parseOccurrenceId(input.occurrenceId), at: deps.clock.now() }, guardFor(capability, kindTool(current.schedule.kind)));
 }
 
 /** Completes a Reminder Occurrence (D6: the execution permission); the completing user is recorded separately from the Assignee. */

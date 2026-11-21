@@ -1,5 +1,5 @@
 import {useEffect,useState} from 'react';
-import type {McpScope} from '@vergissmeinnicht/domain';
+import {SENSITIVE_MCP_SCOPES,type McpScope} from '@vergissmeinnicht/domain';
 import {api,messageFor,type WorkspaceSummary,type McpAdminConnection,type McpConsent} from './api.ts';
 import {t,formatDateTime,type MessageKey} from './i18n/index.ts';
 import {McpDiagnostics} from './McpDiagnostics.tsx';
@@ -30,6 +30,9 @@ const permissions:readonly Permission[] = [
   {label:'mcp.gazette',icon:'gazette',read:'gazette.read',write:'gazette.write',writeLabel:'mcp.publishGazette',readWriteLabel:'mcp.readAndPublishGazette'},
   {label:'mcp.listCovers',icon:'photo',write:'lists.covers.write',writeLabel:'mcp.manageListCovers'},
   {label:'mcp.recipes',icon:'grocery',read:'recipes.read',write:'recipes.write',writeLabel:'mcp.saveRecipes'},
+  {label:'mcp.home',icon:'equipment',read:'home.read',write:'home.write',writeLabel:'mcp.manageHome'},
+  {label:'mcp.contacts',icon:'contacts',read:'contacts.read',write:'contacts.write',writeLabel:'mcp.manageContacts'},
+  {label:'mcp.documents',icon:'documents',read:'documents.read',write:'documents.write',writeLabel:'mcp.manageDocuments'},
 ];
 
 function permissionOptions({read,write,readLabel,writeLabel,readWriteLabel}:Permission, requested:readonly McpScope[]) {
@@ -95,7 +98,8 @@ export function McpConnections({workspaces,currentUserId}:{workspaces:readonly W
           const request = await api.mcpConsent(id);
           if (!live) return;
           setConsent(request);
-          setScopes(request.scopes.filter(scope => scope.endsWith('.read')));
+          // Read access is preselected, except for personal data (Contacts, Documents), which stays off unless chosen (48.4).
+          setScopes(request.scopes.filter(scope => scope.endsWith('.read') && !SENSITIVE_MCP_SCOPES.includes(scope)));
         }
         const result = await api.mcpAdminConnections();
         if (live) {

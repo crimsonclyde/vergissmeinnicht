@@ -18,6 +18,16 @@ export type ToolFamily = 'plan' | 'shop' | 'house';
  */
 export type ToolRoute = RegExp | { readonly pattern: RegExp; readonly anyOf: readonly WorkspaceTool[] };
 
+/** What an AI assistant can do with a tool's records through MCP (48.2). */
+export type McpAction = 'read' | 'create' | 'update' | 'delete';
+/**
+ * A tool's MCP coverage: the actions AI assistants have tools for, or why the tool is not for AI. The
+ * coverage test (`apps/server/src/mcp/mcp-coverage.test.ts`) fails when a listed action has no MCP tool,
+ * or a tool has MCP tools although it says it is not for AI — so a new feature cannot quietly stay out
+ * of reach of the assistant.
+ */
+export type ToolMcpCoverage = { readonly covers: readonly McpAction[]; readonly note?: string } | { readonly notForAi: string };
+
 export interface ToolManifest {
   readonly tool: WorkspaceTool;
   /** Where the tool appears in the navigation; `null` for tools without a page of their own in it. */
@@ -27,7 +37,10 @@ export interface ToolManifest {
   readonly routes: readonly ToolRoute[];
   /** Workspace backup tables that hold this tool's records. */
   readonly backupTables: readonly string[];
+  readonly mcp: ToolMcpCoverage;
 }
+
+const ALL: readonly McpAction[] = ['read', 'create', 'update', 'delete'];
 
 const SCHEDULES: ToolRoute = { pattern: /^\/(schedules|occurrences)(\/|$)/, anyOf: ['PROCEDURES', 'REMINDERS'] };
 
@@ -36,27 +49,30 @@ export const TOOL_MANIFESTS: readonly ToolManifest[] = Object.freeze([
     tool: 'PROCEDURES', family: 'plan', capabilityGroups: ['procedure', 'run', 'knot'],
     routes: [/^\/(procedures|runs|knots|images)(\/|$)/, SCHEDULES],
     backupTables: ['step_images', 'procedures', 'procedure_sections', 'procedure_steps', 'runs', 'run_sections', 'run_steps'],
+    mcp: { covers: ALL, note: 'Deleting hides a Procedure; Runs are aborted, never deleted.' },
   },
-  { tool: 'REMINDERS', family: 'plan', capabilityGroups: [], routes: [SCHEDULES], backupTables: [] },
-  { tool: 'LISTS', family: 'shop', capabilityGroups: ['list'], routes: [/^\/lists(\/|$)/, /^\/recipes\/:recipeId\/shopping$/], backupTables: ['lists', 'list_items'] },
-  { tool: 'CALENDAR', family: 'plan', capabilityGroups: [], routes: [/^\/(calendar|calendar-feed)(\/|$)/], backupTables: [] },
+  { tool: 'REMINDERS', family: 'plan', capabilityGroups: [], routes: [SCHEDULES], backupTables: [], mcp: { covers: ['read', 'create', 'update'], note: 'A Reminder is ended (set_reminder_state), never deleted: its history stays.' } },
+  { tool: 'LISTS', family: 'shop', capabilityGroups: ['list'], routes: [/^\/lists(\/|$)/, /^\/recipes\/:recipeId\/shopping$/], backupTables: ['lists', 'list_items'], mcp: { covers: ALL } },
+  { tool: 'CALENDAR', family: 'plan', capabilityGroups: [], routes: [/^\/(calendar|calendar-feed)(\/|$)/], backupTables: [], mcp: { covers: ['read'], note: 'A view: its entries are changed through the Reminder and Procedure tools.' } },
   {
     tool: 'DOCUMENTS', family: 'house', capabilityGroups: ['document'],
     routes: [/^\/(documents|document-files|document-folders|document-types|document-links|text-recognition)(\/|$)/, /^\/runs\/:runId\/documents/],
     backupTables: ['document_types', 'document_folders', 'document_files', 'documents', 'document_pages', 'document_file_texts', 'document_suggestion_dismissals'],
+    mcp: { covers: ['read', 'update', 'delete'], note: 'A Document needs uploaded files; files never pass through MCP.' },
   },
-  { tool: 'CONTACTS', family: 'house', capabilityGroups: ['contact'], routes: [/^\/(contacts|contact-links)(\/|$)/], backupTables: ['contacts'] },
-  { tool: 'MAINTENANCE', family: 'house', capabilityGroups: ['maintenance'], routes: [/^\/(maintenance|maintenance-links)(\/|$)/], backupTables: ['maintenance_records'] },
-  { tool: 'EQUIPMENT', family: 'house', capabilityGroups: ['equipment'], routes: [/^\/(equipment|equipment-links)(\/|$)/], backupTables: ['equipment_records'] },
-  { tool: 'MOON', family: null, capabilityGroups: [], routes: [/^\/moon$/], backupTables: [] },
-  { tool: 'JOURNAL', family: 'house', capabilityGroups: ['journal'], routes: [/^\/journal(\/|$)/], backupTables: ['journal_entries', 'journal_revisions', 'journal_attachment_references'] },
-  { tool: 'GAMIFICATION', family: null, capabilityGroups: [], routes: [], backupTables: [] },
-  { tool: 'BRING', family: 'shop', capabilityGroups: ['transfer'], routes: [/^\/bring(\/|$)/], backupTables: ['bring_items'] },
-  { tool: 'RECIPES', family: 'shop', capabilityGroups: ['recipe'], routes: [/^\/recipes(\/|$)/], backupTables: ['recipes', 'recipe_attachment_references'] },
-  { tool: 'GAZETTE', family: null, capabilityGroups: ['gazette'], routes: [/^\/gazette(\/|$)/], backupTables: ['gazette_settings', 'gazette_editions', 'gazette_watch_items', 'gazette_watch_prices'] },
+  { tool: 'CONTACTS', family: 'house', capabilityGroups: ['contact'], routes: [/^\/(contacts|contact-links)(\/|$)/], backupTables: ['contacts'], mcp: { covers: ALL } },
+  { tool: 'MAINTENANCE', family: 'house', capabilityGroups: ['maintenance'], routes: [/^\/(maintenance|maintenance-links)(\/|$)/], backupTables: ['maintenance_records'], mcp: { covers: ALL } },
+  { tool: 'EQUIPMENT', family: 'house', capabilityGroups: ['equipment'], routes: [/^\/(equipment|equipment-links)(\/|$)/], backupTables: ['equipment_records'], mcp: { covers: ALL } },
+  { tool: 'MOON', family: null, capabilityGroups: [], routes: [/^\/moon$/], backupTables: [], mcp: { notForAi: 'Shows the moon phase; it holds no records.' } },
+  { tool: 'JOURNAL', family: 'house', capabilityGroups: ['journal'], routes: [/^\/journal(\/|$)/], backupTables: ['journal_entries', 'journal_revisions', 'journal_attachment_references'], mcp: { covers: ['read', 'create', 'update'], note: 'Shared Notes only (archived, not deleted); the private Journal is never reachable.' } },
+  { tool: 'GAMIFICATION', family: null, capabilityGroups: [], routes: [], backupTables: [], mcp: { notForAi: 'Points are earned by doing things, never set.' } },
+  { tool: 'BRING', family: 'shop', capabilityGroups: ['transfer'], routes: [/^\/bring(\/|$)/], backupTables: ['bring_items'], mcp: { notForAi: 'Bring hands things between Workspaces in person; not offered to AI yet (owner decision open).' } },
+  { tool: 'RECIPES', family: 'shop', capabilityGroups: ['recipe'], routes: [/^\/recipes(\/|$)/], backupTables: ['recipes', 'recipe_attachment_references'], mcp: { covers: ALL, note: 'Recipes are archived, not deleted.' } },
+  { tool: 'GAZETTE', family: null, capabilityGroups: ['gazette'], routes: [/^\/gazette(\/|$)/], backupTables: ['gazette_settings', 'gazette_editions', 'gazette_watch_items', 'gazette_watch_prices'], mcp: { covers: ALL } },
   {
     tool: 'MAP', family: 'plan', capabilityGroups: ['map'], routes: [/^\/map(\/|$)/],
     backupTables: ['map_approaches', 'map_places', 'map_points', 'map_tags', 'map_place_points', 'map_place_tags'],
+    mcp: { covers: ['read', 'create', 'update'], note: 'Shared places are archived in the app; personal visits stay private.' },
   },
 ] satisfies readonly ToolManifest[]);
 

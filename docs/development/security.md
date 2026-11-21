@@ -2501,3 +2501,30 @@ photos, owner-only flags and visits, delegated import, and an operator-installed
 - Regression coverage includes disabled tools, cross-Workspace ID substitution, current role
   and MCP scopes, private photos and visits, malformed coordinates/URLs, stale writes, match
   review, duplicate retries, archive, shared reference remapping and portable backup exclusion.
+
+### Full MCP control with AI safety backups (48, 2026-11-21)
+
+**Security surface changed.** Owner decision (2026-11-21): AI assistants may use every Workspace tool, protected
+by an automatic backup before changes instead of a per-change confirmation code.
+
+- Before every MCP tool marked as writing, the transport writes a full verified server backup
+  (`vergissmeinnicht-ai-<time>.sqlite` in the backup directory, 0600 like other backups) unless one is newer than
+  `MCP_BACKUP_INTERVAL_MINUTES`. Concurrent calls wait for the same backup. A failed backup refuses the change
+  (`backup_failed`) before any domain code runs. Retention (`MCP_BACKUP_KEEP`) only removes AI safety backups and
+  then prunes unreferenced image/document/attachment store files, counting every backup in the folder.
+- Backups contain everything on the server (all Workspaces, accounts, sessions), as server backups always did.
+  The side file stores only user, client, Workspace and tool IDs/names, 0600. The list is visible only to
+  server admins (`GET /api/admin/mcp/backups`, same gate as AI connections). Restore stays an operator CLI action
+  with the server stopped; there is no restore over HTTP or MCP.
+- New scopes `home.*`, `contacts.*`, `documents.*`. Contacts and Documents are listed in `SENSITIVE_MCP_SCOPES`
+  and never preselected. Scopes only narrow: every tool still runs as the person through the use-case guards,
+  the current role, the per-Workspace AI switch and the Workspace tool switch.
+- The guards of Equipment, Maintenance, Contacts, Documents and Schedules now name their Workspace tool, so a
+  delegated (MCP) write is allowed only through that tool's grant; before, these guards refused every delegated
+  write. Repositories check the tool switch before the role, so a disabled tool answers `tool_disabled`.
+- Document reads return metadata and recognised text (bounded: 10 files, 20,000 characters each), never file
+  bytes or download links; there is no upload or create over MCP. All deletes are soft (Trash) and annotated
+  `destructiveHint`.
+- Tests: `mcp-safety-backup.test.ts` (throttle, refusal on failure, retention, admin-only list),
+  `mcp-full-control.test.ts` (each area, GUEST refusal, disabled tool, scope-filtered listing),
+  `mcp-coverage.test.ts` (every tool matches its manifest `mcp` entry).
