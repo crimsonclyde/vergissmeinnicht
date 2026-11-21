@@ -3,7 +3,8 @@ import { join, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 
-const root = fileURLToPath(new URL('.', import.meta.url));
+/** The web client's sources; checked here because the web package must not import Node modules. */
+const root = fileURLToPath(new URL('../../web/src/', import.meta.url));
 
 /**
  * Where a theme id may appear in CSS (45.5). Theme files define tokens and their own chrome; feature
@@ -15,6 +16,7 @@ const THEME_CSS: Readonly<Record<string, string>> = {
   'tokyo-nights.css': 'Tokyo Nights theme',
   'witch-forest.css': 'Witch Forest theme',
   'places.css': 'Places themes',
+  'settings-theme.css': 'the Settings theme (45.6)',
   'nav/navigation.css': 'the navigation each theme decides (46): the Places dock',
   'guide/guide.css': 'the Galactic Guide layout',
   'applets/sky-card.css': 'Galactic Guide card art behind the sky card',

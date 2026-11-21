@@ -6,13 +6,14 @@ import forest from './witch-forest.css?raw';
 import celestial from './celestial.css?raw';
 import instruments from './applets/instruments.css?raw';
 import skyCard from './applets/sky-card.css?raw';
+import settingsCss from './settings-theme.css?raw';
 import { PLACE_LIST } from './places/registry.ts';
 
 /** Token values of one `selector { … }` block of the stylesheet. */
-function tokens(selector: string): Record<string, string> {
-  const start = css.indexOf(`${selector} {`);
+function tokens(selector: string, sheet: string = css): Record<string, string> {
+  const start = sheet.indexOf(`${selector} {`);
   if (start === -1) throw new Error(`no block ${selector}`);
-  const body = css.slice(start, css.indexOf('}', start));
+  const body = sheet.slice(start, sheet.indexOf('}', start));
   return Object.fromEntries([...body.matchAll(/--([a-z-]+):\s*(#[0-9a-f]{6})\s*;/gi)].map((m) => [m[1] ?? '', (m[2] ?? '').toLowerCase()]));
 }
 
@@ -35,6 +36,8 @@ const themes = {
   light,
   dark: { ...light, ...tokens(":root[data-theme='dark']") },
   'memento-mori': { ...light, ...tokens(":root[data-theme='memento-mori']") },
+  // The Settings theme (45.6): not pickable, shown on every Settings page.
+  settings: { ...light, ...tokens(":root[data-theme='settings']", settingsCss) },
   'tokyo-nights': { ...light, ...tokens(":root[data-theme='tokyo-nights']") },
   'witch-forest': { ...light, ...tokens(":root[data-theme='witch-forest']") },
   // Witch Forest's grimoire pages (the Step card, "Pick up where you left off") have their own tokens.
@@ -222,6 +225,7 @@ describe('theme contrast (WCAG AA)', () => {
     for (const selector of [":root[data-theme='space-guide']", ":root[data-theme='dark']", ":root[data-theme='memento-mori']", ":root[data-theme='tokyo-nights']", ":root[data-theme='witch-forest']", ":root[data-theme='witch-forest'] :is(.guide-card, .today-hero)"]) {
       expect(Object.keys(tokens(selector)).sort()).toEqual(Object.keys(light).sort());
     }
+    expect(Object.keys(tokens(":root[data-theme='settings']", settingsCss)).sort()).toEqual(Object.keys(light).sort());
   });
 
   for (const [name, values] of Object.entries(allThemes)) {

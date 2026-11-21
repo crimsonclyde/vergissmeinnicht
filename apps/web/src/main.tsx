@@ -8,6 +8,7 @@ import './witch-forest.css';
 import './places.css';
 import './guide/guide.css';
 import './celestial.css';
+import './settings-theme.css';
 import { initTheme } from './theme.ts';
 import { watchViewportDrift } from './viewport-drift.ts';
 

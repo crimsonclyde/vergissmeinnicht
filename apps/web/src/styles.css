@@ -6836,14 +6836,6 @@ a.button.today-hero-go {
 }
 
 :root[data-theme='space-guide'] {
-  /* Surface roles (45.5): a quiet star chart; the Daily Planet keeps the translucent card look. */
-  --book-font: 'Iowan Old Style', Georgia, serif;
-  --sheet: color-mix(in srgb, var(--surface) 92%, transparent);
-  --sheet-soft: color-mix(in srgb, var(--surface) 88%, transparent);
-  --sheet-ink: var(--text);
-}
-
-:root[data-theme='space-guide'] {
   color-scheme: dark;
   --bg: #07111b;
   --surface: #101d2a;
@@ -6870,4 +6862,12 @@ a.button.today-hero-go {
   --state-skipped-bg: #3a2f1c;
   --state-na: #bacde6;
   --state-na-bg: #243143;
+}
+
+:root[data-theme='space-guide'] {
+  /* Surface roles (45.5): a quiet star chart; the Daily Planet keeps the translucent card look. */
+  --book-font: 'Iowan Old Style', Georgia, serif;
+  --sheet: color-mix(in srgb, var(--surface) 92%, transparent);
+  --sheet-soft: color-mix(in srgb, var(--surface) 88%, transparent);
+  --sheet-ink: var(--text);
 }

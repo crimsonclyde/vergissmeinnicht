@@ -763,8 +763,9 @@ Presentation keeps the established persisted theme ids and API/database allowlis
 
 ### Guide interface and optional Galactic Guide theme (34.7, 2026-10-31)
 
-Workspace Settings, Server Admin, and Profile & Settings apply a route-level Memento Mori
-override on first paint and client navigation. The theme store retains the saved account and
+Workspace Settings, Server Admin, and Profile & Settings apply a route-level override to the
+dedicated Settings theme (`data-theme='settings'`, `settings-theme.css`, 45.6; not a user theme) on
+first paint and client navigation. The theme store retains the saved account and
 Workspace choices for the working pages and suppresses theme scenes while the override is active.
 The private Journal is a working page even though its address is under `/account`.
 

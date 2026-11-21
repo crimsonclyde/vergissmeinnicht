@@ -9020,7 +9020,7 @@ tokens (bar, panel, card, raised, accent ink) to every theme so feature CSS uses
 theme in its own CSS file; Journal, areas (Contacts, More, Settings lists), Maintenance, the Daily
 Planet, the Map and the sky card read only those roles, each with the default look as fallback.
 Dark surfaces are `data-scheme='dark'` on `<html>`, set from the theme registry (`scheme`). A test
-(`apps/web/src/feature-css.test.ts`) fails when feature CSS names a theme; the allowed theme files
+(`apps/server/src/web-feature-css.test.ts`) fails when feature CSS names a theme; the allowed theme files
 are listed with a reason (theme files, the Places dock of 46, Galactic Guide layout). Screens of
 six themes × seven pages (desktop and phone) before/after: unchanged except that contact names in
 Tokyo Nights now use the theme's sans face like every other Tokyo heading (they fell back to Georgia).
@@ -9032,7 +9032,13 @@ Mori. Move card art to a theme-neutral "Look" group and let Settings keep the pe
 
 **Owner decision (2026-11-20):** Settings pages get their own dedicated **Settings theme**, not
 pickable as a user theme, used for every Settings page whatever theme is chosen; user themes need
-not support Settings. **Status:** not started.
+not support Settings. **Status:** DONE (not released). `apps/web/src/settings-theme.css` defines
+`data-theme='settings'`, forked from Memento Mori so Settings look as before; `theme.ts` sets it on
+every Settings page (account, Workspace settings, members, plugins, storage, Knots, backups, server
+admin) whatever theme is chosen. It is not in the theme registry, `theme_ids` or the picker; the top
+bar of a top-bar theme stays the person's choice. The contrast test checks its tokens; e2e expects
+`settings` on management pages. Card art stays with the Galactic Guide (the "Look" group was
+dropped with this decision).
 
 ### 45.7–45.9 — Tool manifests (web, server) and Equipment as the first module (steps 28.2–28.4)
 One manifest per tool (id, routes, navigation entry, Today cards, MCP tools, backup tables) read

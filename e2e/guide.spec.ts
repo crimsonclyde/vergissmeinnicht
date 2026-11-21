@@ -30,7 +30,7 @@ async function signInGuide(page: Page) {
   }
 }
 
-test('Management pages use Memento Mori and preserve the Workspace theme', async ({ page }) => {
+test('Management pages use the Settings theme and preserve the Workspace theme', async ({ page }) => {
   const email = `settings-theme-${randomUUID()}@example.org`;
   const password = 'a fictional settings theme passphrase';
   const database = openDatabase(guideServerEnv.DATABASE_PATH);
@@ -51,13 +51,13 @@ test('Management pages use Memento Mori and preserve the Workspace theme', async
   async function openSettings(name: string | RegExp) {
     await settings.click();
     await page.getByRole('link', { name, exact: true }).click();
-    await expect(html).toHaveAttribute('data-theme', 'memento-mori');
+    await expect(html).toHaveAttribute('data-theme', 'settings');
   }
 
   await openSettings('Profile & settings');
   await page.getByRole('navigation', { name: 'Profile & settings' }).getByRole('link', { name: 'Appearance', exact: true }).click();
   await page.getByRole('radio', { name: /^Triora/ }).check();
-  await expect(html).toHaveAttribute('data-theme', 'memento-mori');
+  await expect(html).toHaveAttribute('data-theme', 'settings');
   await expect(page.locator('meta[name="theme-color"]')).toHaveAttribute('content', '#141111');
   await page.getByRole('navigation', { name: 'Tools' }).getByRole('link', { name: 'Dashboard', exact: true }).click();
   await expect(html).toHaveAttribute('data-place', 'it');
@@ -67,7 +67,7 @@ test('Management pages use Memento Mori and preserve the Workspace theme', async
   await expect(html).toHaveAttribute('data-place', 'it');
   await openSettings(/^Server admin/);
   await page.reload();
-  await expect(html).toHaveAttribute('data-theme', 'memento-mori');
+  await expect(html).toHaveAttribute('data-theme', 'settings');
   await expect(page.getByRole('navigation', { name: 'Server administration' })).toBeVisible();
   await page.getByRole('navigation', { name: 'Tools' }).getByRole('link', { name: 'Dashboard', exact: true }).click();
   await expect(html).toHaveAttribute('data-place', 'it');
