@@ -18,6 +18,23 @@ For every completed task, add a concise completion note, tests/checks performed,
 
 ## Current state — resume here
 
+**Published owner release 79 (2026-11-22 Europe/Berlin): 0.17.2.**
+Stable tag `v0.17.2` points to `5da272c48750171ef87f02951ac5425dc493a66a` (release PR #141, with
+PRs #139 full MCP control with AI safety backups §48 and #140 offline support for every app §49).
+Main CI on that commit passed. The tagged workflow reused main CI and passed both native
+amd64/arm64 builds, smoke tests and scans, signing, SBOM attestation and the upgrade checks.
+Independently, the published index was pulled (version label 0.17.2, revision 5da272c) and passed
+`deploy/smoke-test.sh` and `deploy/upgrade-check.sh` from 0.17.1, 0.17.0, 0.16.1 and
+0.10.1-beta.0. No migration; schema **0085**. Published index
+`sha256:7ad991d161ced61c22ba5790e74d6bfa789875a8165123d17b0a13dd99792e5d`.
+Security surface as reviewed in security.md (§48, §49); the personal Journal stays online-only.
+Owner count **79**, next **80**; special release 42 and its dedication remain preserved.
+Next release's upgrade list: 0.17.2, 0.17.1, 0.17.0 + 0.10.1-beta.0.
+**No live deployment:** update the Unraid image separately.
+[GitHub Release](https://github.com/crimsonclyde/vergissmeinnicht/releases/tag/v0.17.2) ·
+[Main CI](https://github.com/crimsonclyde/vergissmeinnicht/actions/runs/45026121305) ·
+[Release workflow](https://github.com/crimsonclyde/vergissmeinnicht/actions/runs/45034170145).
+
 **Release 79 preparation — 0.17.2 (owner request, 2026-11-22 Europe/Berlin).**
 Publish full MCP control with AI safety backups (§48, PR #139) and offline support for every app
 (§49, PR #140) as stable tag `v0.17.2`, GitHub title `0.17.2`, image
