@@ -1,4 +1,4 @@
-import type { CSSProperties, ReactNode } from 'react';
+import { createContext, useContext, type CSSProperties, type ReactNode } from 'react';
 import { attachmentUrl, type JournalOverview, type JournalView } from '../../api.ts';
 import { formatCalendarDate, formatMonthParts, formatWeekdayShort, t, weekdayNames } from '../../i18n/index.ts';
 import { MoreMenu } from '../../MoreMenu.tsx';
@@ -19,6 +19,8 @@ export interface JournalFilters {
 
 const tone = (name: string) => ({ '--nb-tone': notebookTone(name) }) as CSSProperties;
 const ATTACHMENT = /^attachments\/([0-9a-f-]{36})\.(?:jpg|png)$/;
+/** Ids of Notes with a change saved on this device and not sent yet (49.5). */
+const Waiting = createContext<ReadonlySet<string>>(new Set());
 
 /** The Notes library and the Journal's month timeline: header, filter bar, cards or timeline. */
 export function JournalHome(props: {
@@ -26,6 +28,7 @@ export function JournalHome(props: {
   canWrite: boolean;
   busy: boolean;
   entries: JournalView[] | null;
+  waiting?: ReadonlySet<string>;
   overview: JournalOverview | null;
   more: boolean;
   offset: number;
@@ -68,7 +71,7 @@ export function JournalHome(props: {
       : <button type="button" className="primary" disabled={props.busy} aria-label={t('journal.new')} onClick={props.onNew}><UiIcon name="add" /><span className="nb-primary-label">{t('journal.newNote')}</span></button>)}
   </div>;
 
-  return <>
+  return <Waiting.Provider value={props.waiting ?? new Set()}>
     <header className="nb-head">
       <div className="nb-title">
         <p className="nb-eyebrow">{personal ? <><UiIcon name="lock" />{t('journal.eyebrowPrivate')}</> : t('journal.eyebrowShared')}</p>
@@ -97,7 +100,7 @@ export function JournalHome(props: {
           <button type="button" className="nb-round" disabled={!props.more} aria-label={t('journal.more')} title={t('journal.more')} onClick={() => props.onPage(props.offset + 30)}><UiIcon name="chevron" /></button>
         </div>}
       </>}
-  </>;
+  </Waiting.Provider>;
 }
 
 export function shiftMonth(month: string, by: number): string {
@@ -149,6 +152,7 @@ export function EntryCard({ entry, workspaceId, busy, onOpen, hideDate = false }
   const summary = summaryOf(entry);
   const cover = summary.cover === null ? null : ATTACHMENT.exec(summary.cover)?.[1] ?? null;
   const notebook = entry.collection ?? '';
+  const waiting = useContext(Waiting).has(entry.id);
   return <button type="button" className="nb-card" style={tone(notebook)} data-cover={cover !== null} disabled={busy} onClick={() => onOpen(entry.id)}>
     {cover !== null && <span className="nb-cover"><img src={attachmentUrl(workspaceId, cover)} alt="" loading="lazy" /></span>}
     {entry.pinned && <span className="nb-pin-mark" title={t('journal.pinnedGroup')}><UiIcon name="pinned" /><span className="visually-hidden">{t('journal.pinnedGroup')}</span></span>}
@@ -161,6 +165,7 @@ export function EntryCard({ entry, workspaceId, busy, onOpen, hideDate = false }
         {summary.tasks.total > 0 && <span className="nb-tasks" data-complete={summary.tasks.done === summary.tasks.total}><UiIcon name="checklist" />{t('journal.tasks', { done: summary.tasks.done, total: summary.tasks.total })}</span>}
         {!hideDate && entry.date && <time dateTime={entry.date}>{formatCalendarDate(entry.date)}</time>}
         {(entry.tags ?? []).slice(0, 3).map(tag => <span key={tag} className="nb-tag">#{tag}</span>)}
+        {waiting && <span className="offline-mark" title={t('offline.notSent')}><UiIcon name="savedHere" /><span className="visually-hidden">{t('offline.notSent')}</span></span>}
       </span>
     </span>
   </button>;

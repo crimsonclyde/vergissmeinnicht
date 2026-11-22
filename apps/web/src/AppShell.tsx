@@ -546,10 +546,10 @@ function widthOf(route: Route): 'narrow' | 'wide' | undefined {
 
 export function AppShell(props: { user: CurrentUser; route: Route; onSignOut: () => void }) {
   const { user, route } = props;
-  const { queued, listChanges } = useOffline();
+  const { queued, listChanges, outbox } = useOffline();
   // Unsent offline changes are deleted with the rest of the device data on sign-out: ask first.
   const signOut = () => {
-    const unsent = queued.length + listChanges.length;
+    const unsent = queued.length + listChanges.length + outbox.length;
     if (unsent > 0 && !window.confirm(t('offline.signOutConfirm', { count: unsent }))) return;
     props.onSignOut();
   };

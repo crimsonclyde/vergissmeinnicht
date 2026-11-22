@@ -1,6 +1,7 @@
 import type { CurrentUser, ListDetail, RunDetail, WorkspaceSummary } from '../api.ts';
 import { cleanUpDevice, deleteIndexedDb, type CleanupResult } from './cleanup.ts';
 import type { QueuedListChange } from './list-queue.ts';
+import type { QueuedOutboxChange } from './outbox.ts';
 import type { QueuedChange } from './queue.ts';
 import { announceSession } from './session-channel.ts';
 
@@ -22,7 +23,18 @@ const IMAGES = 'images';
 const LISTS = 'lists';
 /** List changes made on this device and not answered yet (17.5). */
 const LIST_QUEUE = 'list-queue';
-const STORES = [RUNS, QUEUE, CONTEXT, IMAGES, LISTS, LIST_QUEUE];
+/** Saved copies of what the server answered to reads of the other apps (49.3): one entry per account and address. */
+const READS = 'reads';
+/** Changes of Notes and Reminders made on this device and not answered yet (49.5). */
+const OUTBOX = 'outbox';
+const STORES = [RUNS, QUEUE, CONTEXT, IMAGES, LISTS, LIST_QUEUE, READS, OUTBOX];
+/** Pictures of pages kept by the service worker for offline use (49.4); deleted with the rest. */
+const MEDIA_CACHE = 'vmn-media-v1';
+/** At most this many saved reads per account; the oldest go first. */
+const READ_LIMIT = 800;
+/** A single answer larger than this is not kept on the device. */
+const READ_MAX_CHARS = 2_000_000;
+let readsSinceTrim = 0;
 /** How long sign-out waits for other tabs to release the database before reporting `emptied`. */
 const DELETE_WAIT_MS = 3000;
 
@@ -61,7 +73,26 @@ export interface SavedLists {
   readonly savedAt: string;
 }
 
+/** A read answer as the server last sent it to this account (49.3). */
+export interface SavedRead {
+  readonly key: string;
+  readonly userId: string;
+  readonly path: string;
+  readonly body: unknown;
+  readonly savedAt: string;
+}
+
 const runKey = (userId: string, runId: string) => `${userId}:${runId}`;
+const readKey = (userId: string, path: string) => `${userId}:${path}`;
+
+/** Deletes the pictures the service worker kept (49.4). Never throws. */
+async function deleteMediaCache(): Promise<void> {
+  try {
+    if (typeof caches !== 'undefined') await caches.delete(MEDIA_CACHE);
+  } catch {
+    // nothing kept, or storage unavailable
+  }
+}
 const listsKey = (userId: string, workspaceId: string) => `${userId}:${workspaceId}`;
 const imageKey = (userId: string, workspaceId: string, imageId: string) => `${userId}:${workspaceId}:${imageId}`;
 
@@ -71,10 +102,16 @@ interface SavedImage {
   readonly blob: Blob;
 }
 
-function open(): Promise<IDBDatabase> {
+/**
+ * Opens (and, if missing, creates) the database. While storage is suspended (signing out here or in
+ * another tab) nothing opens it again: a late step of an earlier save would otherwise re-create the
+ * database right after sign-out deleted it. Only the sign-out clean-up itself opens it then.
+ */
+function open(forCleanup = false): Promise<IDBDatabase> {
+  if (suspended && !forCleanup) return Promise.reject(new Error('Device storage is suspended'));
   return new Promise((resolve, reject) => {
     // Versions only ever add stores: an app update never drops what is waiting on the device (17.5).
-    const request = indexedDB.open(DB_NAME, 3);
+    const request = indexedDB.open(DB_NAME, 4);
     request.onupgradeneeded = (event) => {
       const db = request.result;
       if (event.oldVersion < 1) {
@@ -86,6 +123,10 @@ function open(): Promise<IDBDatabase> {
       if (event.oldVersion < 3) {
         db.createObjectStore(LISTS, { keyPath: 'key' });
         db.createObjectStore(LIST_QUEUE, { keyPath: 'clientChangeId' });
+      }
+      if (event.oldVersion < 4) {
+        db.createObjectStore(READS, { keyPath: 'key' });
+        db.createObjectStore(OUTBOX, { keyPath: 'clientChangeId' });
       }
     };
     request.onsuccess = () => {
@@ -248,6 +289,68 @@ export const offlineStore = {
       });
     }, undefined),
 
+  /** What the server answered to a read of this account (49.3); kept for showing while offline. */
+  saveRead: (userId: string, path: string, body: unknown) =>
+    safely(async () => {
+      if (JSON.stringify(body).length > READ_MAX_CHARS) return;
+      const entry: SavedRead = { key: readKey(userId, path), userId, path, body, savedAt: new Date().toISOString() };
+      await withStore(READS, 'readwrite', (store) => store.put(entry));
+      readsSinceTrim += 1;
+      if (readsSinceTrim < 25) return;
+      readsSinceTrim = 0;
+      const all = (await withStore<SavedRead[]>(READS, 'readonly', (store) => store.getAll() as IDBRequest<SavedRead[]>)) ?? [];
+      const mine = all.filter((each) => each.userId === userId).sort((a, b) => a.savedAt.localeCompare(b.savedAt));
+      const old = mine.slice(0, Math.max(0, mine.length - READ_LIMIT)).map((each) => each.key);
+      if (old.length > 0) {
+        await withStore(READS, 'readwrite', (store) => {
+          for (const key of old) store.delete(key);
+          return undefined;
+        });
+      }
+    }, undefined),
+
+  loadRead: (userId: string, path: string) =>
+    safely(async () => {
+      const entry = await withStore<SavedRead | undefined>(READS, 'readonly', (store) => store.get(readKey(userId, path)) as IDBRequest<SavedRead | undefined>);
+      return entry !== undefined && entry.userId === userId && entry.path === path ? entry : undefined;
+    }, undefined),
+
+  /** Saved reads of one Workspace may no longer be kept (no access any more). */
+  deleteWorkspaceReads: (userId: string, workspaceId: string) =>
+    safely(async () => {
+      const prefix = `/workspaces/${encodeURIComponent(workspaceId)}/`;
+      const all = (await withStore<SavedRead[]>(READS, 'readonly', (store) => store.getAll() as IDBRequest<SavedRead[]>)) ?? [];
+      const gone = all.filter((each) => each.userId === userId && each.path.startsWith(prefix)).map((each) => each.key);
+      if (gone.length === 0) return;
+      await withStore(READS, 'readwrite', (store) => {
+        for (const key of gone) store.delete(key);
+        return undefined;
+      });
+    }, undefined),
+
+  outbox: (userId: string) =>
+    safely(async () => {
+      const all = (await withStore<QueuedOutboxChange[]>(OUTBOX, 'readonly', (store) => store.getAll() as IDBRequest<QueuedOutboxChange[]>)) ?? [];
+      return all.filter((change) => change.userId === userId).sort((a, b) => a.seq - b.seq);
+    }, [] as QueuedOutboxChange[]),
+
+  putOutbox: (changes: readonly QueuedOutboxChange[]) =>
+    safely(async () => {
+      await withStore(OUTBOX, 'readwrite', (store) => {
+        for (const change of changes) store.put(change);
+        return undefined;
+      });
+      return true;
+    }, false),
+
+  removeOutbox: (clientChangeIds: readonly string[]) =>
+    safely(async () => {
+      await withStore(OUTBOX, 'readwrite', (store) => {
+        for (const id of clientChangeIds) store.delete(id);
+        return undefined;
+      });
+    }, undefined),
+
   saveUser: (user: CurrentUser) =>
     safely(async () => {
       const entry: ContextEntry = { key: 'user', userId: user.id, value: user };
@@ -330,6 +433,13 @@ export const offlineStore = {
   /** Keeps only this user's data (another account signed in on this browser). */
   discardOtherUsers: (userId: string) =>
     safely(async () => {
+      // Pictures are not keyed by account: whoever they were kept for, another account never sees them.
+      const owner = await withStore<ContextEntry | undefined>(CONTEXT, 'readonly', (store) => store.get('media-owner') as IDBRequest<ContextEntry | undefined>);
+      if (owner?.userId !== userId) {
+        await deleteMediaCache();
+        const entry: ContextEntry = { key: 'media-owner', userId, value: null };
+        await withStore(CONTEXT, 'readwrite', (store) => store.put(entry));
+      }
       for (const name of STORES) {
         const all = (await withStore<{ userId: string; key?: string; clientChangeId?: string }[]>(name, 'readonly', (store) => store.getAll())) ?? [];
         const foreign = all.filter((entry) => entry.userId !== userId).map((entry) => entry.key ?? entry.clientChangeId ?? '');
@@ -359,6 +469,7 @@ export const offlineStore = {
    */
   clear: async (): Promise<CleanupResult> => {
     suspended = true;
+    await deleteMediaCache();
     if (typeof indexedDB === 'undefined') {
       announceSession({ type: 'signed-out' });
       return 'deleted';
@@ -366,7 +477,7 @@ export const offlineStore = {
     return cleanUpDevice({
       announce: () => announceSession({ type: 'signed-out' }),
       emptyStores: async () => {
-        const db = await open();
+        const db = await open(true);
         try {
           await new Promise<void>((resolve, reject) => {
             const transaction = db.transaction(STORES, 'readwrite');

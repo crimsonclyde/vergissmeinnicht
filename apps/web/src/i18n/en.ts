@@ -949,7 +949,16 @@ export const en = {
 
   // ---- General
   'offline.toolDisabled': 'Procedures is switched off in this Workspace. Your pending changes stay on this device and can sync when an admin switches it on again.',
-  'offline.offline': 'Offline. Changes to Lists and to Runs you opened here are saved on this device.',
+  'offline.offline': 'Offline. What you see is saved on this device; your changes wait here.',
+  'offline.savedCopyShort': 'Saved {time}',
+  'offline.noteCopyTitle': '{title} (offline copy)',
+  'offline.noteCopied': '“{title}” was changed elsewhere while you were offline. Your version is saved as “{copy}”.',
+  'offline.reminderClosed': '“{title}” was already done or skipped when your offline Done arrived.',
+  'offline.notSent': 'Saved on this device, not sent yet',
+  'offline.undoDone': 'Undo Done for “{title}”',
+  'offline.noteSavedHere': 'Saved on this device. It is sent when you are online.',
+  'offline.notSaved': 'Could not keep this on the device. Try again when you are online.',
+  'offline.journalNeedsConnection': 'Offline. Your private Journal is never kept on this device; your text is still here — save it when you are online.',
   'offline.offlineWaiting': { one: 'Offline. {count} change is saved on this device and will be sent when the connection is back.', other: 'Offline. {count} changes are saved on this device and will be sent when the connection is back.' },
   'offline.sending': { one: 'Sending {count} change saved on this device…', other: 'Sending {count} changes saved on this device…' },
   'offline.signInAgain': { one: 'Your session has ended. Sign in again to send the {count} change saved on this device.', other: 'Your session has ended. Sign in again to send the {count} changes saved on this device.' },

@@ -149,6 +149,8 @@ import {
   IconBasket,
   IconBuildingCottage,
   IconChevronUp,
+  IconCloudOff,
+  IconCloudUp,
 } from '@tabler/icons-react';
 
 /**
@@ -325,6 +327,12 @@ const ICONS = {
   gazetteBall: IconBallFootball,
   gazetteCoins: IconCoins,
   openOriginal: IconExternalLink,
+  /** No connection (49.6): the app shows what is saved on this device. */
+  offline: IconCloudOff,
+  /** Changes saved on this device are being sent. */
+  syncing: IconCloudUp,
+  /** A change is saved on this device and not sent yet. */
+  savedHere: IconDeviceFloppy,
 } as const;
 
 export type UiIconName = keyof typeof ICONS;
