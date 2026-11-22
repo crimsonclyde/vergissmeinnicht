@@ -1969,8 +1969,8 @@ test('first server admin: bootstrap link, account creation, sign-in, Workspace c
     };
     opened.onerror = () => reject(new Error('open failed'));
   })`)) as { version: number; stores: string[]; probe: unknown };
-  expect(upgraded.version).toBe(3);
-  expect(upgraded.stores).toEqual(expect.arrayContaining(['lists', 'list-queue', 'queue', 'context']));
+  expect(upgraded.version).toBe(4);
+  expect(upgraded.stores).toEqual(expect.arrayContaining(['lists', 'list-queue', 'queue', 'context', 'reads', 'outbox']));
   expect(upgraded.probe).toBe('kept across the update');
   await probeTab.close();
 

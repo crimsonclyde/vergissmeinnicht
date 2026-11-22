@@ -125,6 +125,7 @@ type is set at creation.
 - **When others changed the same thing meanwhile:** changes to different items always come together. For the same item (or a list's name) the **later change wins** — by when it was made, using your device's clock for changes made offline; a removed item or a deleted list wins over changes to it. Whenever your change was not applied, a short message says what happened and by whom.
 - If your access changed while you were offline (no longer a member, no longer allowed to change lists, or Lists switched off), your waiting changes are **not** applied: they stay on your device with the reason until you choose **Discard these changes**.
 - Signing out removes the lists and any unsent changes from the device (VMN asks first if changes are waiting). Browsers can delete stored website data on their own, especially on iPhones after long non-use — open VMN online now and then. VMN asks the browser to keep its data; whether it does is the browser's decision.
+- **Every tool without a connection (49):** VMN keeps its whole app on your device, so every page opens without a connection. Each page you opened online keeps a copy of what it showed; offline it shows that copy, and the status line says *Saved* with the time. **Notes** you write or change offline and **Done** on a Reminder are kept on your device (marked with a floppy disk) and sent once, automatically, when the connection is back. If someone changed the same Note meanwhile, yours is saved as a new Note "… (offline copy)" — nothing is overwritten. A Reminder that someone already finished stays as it is, and you are told. Your private **Journal** is never kept on the device and needs a connection.
 - **iPhone:** Safari and VMN added to the Home Screen keep **separate** data. Open the one you take shopping once with a connection before you need it offline.
 - **Weak signal:** if the network does not answer within a few seconds, VMN opens from your device and keeps your changes there until the connection is good again.
 
@@ -210,7 +211,7 @@ VMN may use yet). The writer (for example ChatGPT) only adds a short summary.
 
 ## Documents
 
-*Only in Workspaces where an admin switched Documents on. Documents need a connection; they do not work offline.*
+*Only in Workspaces where an admin switched Documents on. Without a connection you see what was shown here the last time you were online (read-only); changes need a connection.*
 
 **Documents** keeps scans, PDFs and photos in **folders** — for example *Water*, and inside it *2026*. Nothing is set up for you: you create the folders you want.
 
@@ -247,7 +248,7 @@ VMN may use yet). The writer (for example ChatGPT) only adds a short summary.
 
 ## Contacts
 
-*Only in Workspaces where an admin switched Contacts on. Contacts need a connection; they do not work offline.*
+*Only in Workspaces where an admin switched Contacts on. Without a connection you see what was shown here the last time you were online (read-only); changes need a connection.*
 
 **Contacts** keeps the people and organisations you deal with — the plumber, the electrician, the utility provider, an office. A contact is **not an account**: it cannot sign in and gets no access to anything.
 
@@ -270,7 +271,7 @@ VMN may use yet). The writer (for example ChatGPT) only adds a short summary.
 
 ## Maintenance
 
-*Only in Workspaces where an admin switched Maintenance on. It needs a connection; it does not work offline.*
+*Only in Workspaces where an admin switched Maintenance on. Without a connection you see what was shown here the last time you were online (read-only); changes need a connection.*
 
 **Maintenance** keeps track of work on the house — a boiler service, a repair, an inspection: what is **planned**, what is **in progress**, what is **completed** and what was **cancelled**.
 

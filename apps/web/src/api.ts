@@ -4,6 +4,8 @@ import type { JournalContent, JournalEntry, ListAppearance, ListIcon, ListKind, 
 /** Thin JSON client for the same-origin API. The browser adds the `Origin` header the server checks. */
 import type { CredentialProviderId, GuidePreferencesChange, OpenMeteoModelId, ProcedureIcon, ReasonPolicy, RunState, StepState, ThemePreference, TodayLayout, UserPreferences, WeatherCredential, WeatherForecast, WeatherHistoryDay, WeatherLocation, WeatherProviderId, WeatherSettings, WorkspacePreferences, WorkspaceRole } from '@vergissmeinnicht/domain';
 import { hasMessage, t } from './i18n/index.ts';
+import { isSavedRead, readWithCopy, workspaceOfRead } from './offline/reads.ts';
+import { offlineStore } from './offline/store.ts';
 
 // Shared vocabulary comes from the domain package (browser-safe, no server code). The server still
 // validates everything; these lists only drive the UI.
@@ -678,7 +680,38 @@ export class ApiError extends Error {
 
 const afterQuery = (after: string | undefined) => (after === undefined ? '' : `?after=${encodeURIComponent(after)}`);
 
+/** The account whose reads are saved on this device for offline use (49.3); null while nobody is signed in. */
+let savedReadOwner: string | null = null;
+export function setSavedReadOwner(userId: string | null): void {
+  savedReadOwner = userId;
+}
+
+const announce = (name: string, detail?: unknown) => {
+  if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent(name, { detail }));
+};
+
 async function request<T>(method: 'GET' | 'POST', path: string, body?: unknown, options: { signal?: AbortSignal } = {}): Promise<T> {
+  const owner = savedReadOwner;
+  if (method === 'GET' && owner !== null && isSavedRead(path)) {
+    return readWithCopy(
+      owner,
+      path,
+      () =>
+        send<T>(method, path, body, options).catch((error: unknown) => {
+          // No access to the Workspace any more: nothing of it stays readable on this device.
+          const workspaceId = workspaceOfRead(path);
+          if (error instanceof ApiError && error.code === 'workspace_not_found' && workspaceId !== null) void offlineStore.deleteWorkspaceReads(owner, workspaceId);
+          throw error;
+        }),
+      { save: offlineStore.saveRead, load: offlineStore.loadRead },
+      { copyShown: (savedAt) => announce('vmn-saved-copy', savedAt), answered: () => announce('vmn-answered') },
+      isNetworkError,
+    );
+  }
+  return send<T>(method, path, body, options);
+}
+
+async function send<T>(method: 'GET' | 'POST', path: string, body?: unknown, options: { signal?: AbortSignal } = {}): Promise<T> {
   const response = await fetch(`/api${path}`, {
     method,
     credentials: 'same-origin',
@@ -1361,6 +1394,8 @@ export const api = {
   },
   journalOverview: (workspaceId: string | undefined) => request<JournalOverview>('GET', `${journalPath(workspaceId)}/overview`),
   journalEntry: (workspaceId: string | undefined, id: string) => request<{ entry: JournalView }>('GET', `${journalPath(workspaceId)}/${encodeURIComponent(id)}`).then((answer) => answer.entry),
+  /** A Note written offline (49.5), under the id its device chose: sent twice, it is created once. */
+  createJournalOnce: (workspaceId: string | undefined, id: string, content: JournalContent, archived: boolean) => request<{ entry: JournalView }>('POST', journalPath(workspaceId), { content, expectedRevision: 0, archived, id }).then((answer) => answer.entry),
   saveJournal: (workspaceId: string | undefined, id: string | undefined, content: JournalContent, expectedRevision: number, archived: boolean) => request<{ entry: JournalView }>('POST', `${journalPath(workspaceId)}${id === undefined ? '' : `/${encodeURIComponent(id)}`}`, { content, expectedRevision, archived }).then((answer) => answer.entry),
   uploadImage,
   uploadAvatar,

@@ -18,6 +18,26 @@ For every completed task, add a concise completion note, tests/checks performed,
 
 ## Current state — resume here
 
+**Release 79 preparation — 0.17.2 (owner request, 2026-11-22 Europe/Berlin).**
+Publish full MCP control with AI safety backups (§48, PR #139) and offline support for every app
+(§49, PR #140) as stable tag `v0.17.2`, GitHub title `0.17.2`, image
+`ghcr.io/crimsonclyde/vergissmeinnicht:0.17.2`. Patch bump by the owner's choice. No new migration;
+schema stays **0085**. Upgrades checked from 0.17.1, 0.17.0, 0.16.1 and 0.10.1-beta.0. The owner
+count stays **78** until publication succeeds, then becomes **79** (next **80**); the special 42nd
+release and dedication remain unchanged. The personal Journal stays online-only (security.md, §49).
+The picomatch audit disposition expires 2026-11-24 UTC; this release falls before it. Live
+deployment is separate. [Release notes](../releases/0.17.2.md).
+
+**Published owner release 78 (2026-11-21 Europe/Berlin): 0.17.1.**
+Stable tag `v0.17.1` points to `19cf36c52d85261661b96cad6b48d04647766e72` (release PR #138, with
+PR #137 top bar on every page). The tagged workflow reused main CI and passed. No migration; schema
+**0085**. Published index
+`sha256:d3a73484a922e6d809bd57877562dc804a13dded5866be62ed74248059e15e5e`.
+Owner count **78**, next **79**; special release 42 and its dedication remain preserved.
+**No live deployment:** update the Unraid image separately.
+[GitHub Release](https://github.com/crimsonclyde/vergissmeinnicht/releases/tag/v0.17.1) ·
+[Release workflow](https://github.com/crimsonclyde/vergissmeinnicht/actions/runs/44946067215).
+
 **Release 78 preparation — 0.17.1 (owner request, 2026-11-21 Europe/Berlin).**
 Publish the top bar on every page and the weather link to the Daily Planet's weather section
 (§47, PR #137) as stable tag `v0.17.1`, GitHub title `0.17.1`, image
@@ -9271,3 +9291,105 @@ Not for AI: Moon, Gamification, Bring.
 **Security docs updated:** YES  
 **Remaining:** Bring through MCP; Document upload; idempotency keys for create on Equipment,
 Contacts, Maintenance and Procedures (assistants are told to search again after `not_confirmed`).
+
+## 49 — Offline support for every app (owner request 2026-11-21)
+
+**Request (owner, 2026-11-21):** after the offline/iPhone analysis (stay a Home Screen web app, no
+native app): "all apps needs offline support". Build in order: (1) the iPhone Home Screen icon and
+name; (2) keep all of the app's code on the device so every page opens offline; (3) saved copies of
+Reminders, Calendar, Notes, Recipes, Contacts and the other tools readable offline and, where it can
+be done safely, changes made offline queued and sent when back online (following the Lists sync
+queue: conflicts handled, per-person data, clear offline indicator, cache cleared on sign-out).
+Web Push for reminders is a separate later step, not part of 49.
+
+**Status:** DONE (not released).
+
+### 49.1 — Home Screen icon and name
+- `apple-touch-icon.png` (180 px, full-bleed — iOS rounds the corners), `icon-192.png`,
+  `icon-512.png` and a maskable `icon-maskable-512.png` (flower inside the safe zone), rendered from
+  the existing flower artwork; `index.html` names the touch icon and the Home Screen name `VMN`
+  (`apple-mobile-web-app-title`, `application-name`), same as the manifest's `short_name`. The
+  manifest lists the PNGs next to the SVG and has an `id`. The status bar style is unchanged (no
+  `black-translucent`: content would slide under the status bar).
+
+### 49.2 — Every page's code on the device
+- Build plugin `apps/web/precache-manifest.ts` writes `precache.json`: every file of the build
+  (code, styles, fonts, artwork; never source maps) plus the public icons and manifest, with a
+  version hash. The service worker (`vmn-shell-v2`) keeps the shell, the page's own files first,
+  then everything in `precache.json` (six at a time; a file that fails is fetched on the next
+  visit), refreshes unhashed public files when the build changes, and removes files of older
+  builds. Notes, the Recipe editor, the map and every other lazily loaded page now open offline.
+  About 14 MB per build; unchanged files are not fetched again.
+
+### 49.3 — Saved copies of every app's reads
+- `apps/web/src/offline/reads.ts` + `api.ts`: a GET of an allowed address is answered by the
+  server as before and its answer kept in IndexedDB (`reads` store, key = account + address). When
+  no answer comes (offline, or nothing within 6 s with weak signal) the saved copy is shown and the
+  status line says when it was saved; a late answer still updates the copy. An **answer** of the
+  server (403, 404, `tool_not_enabled`, 401, …) is never replaced by a copy.
+- Allowed: everything below `/workspaces/{id}/…` (Notes, Reminders/Today, Calendar, Recipes,
+  Contacts, Documents lists, Maintenance, Equipment, Places, Daily Planet, Bring, members, …) and the
+  person's own Today layout, preferences, Places and progress. Never kept: the session and the
+  Workspace context (they have their own copies, 8.5), Lists and Runs (own richer copies, 17.5/8.5),
+  administration, `/account/mfa|mcp|notifications|weather`, backups, Knots, calendar-feed links,
+  AI-assistant and text-recognition settings, storage, tool switches, exports, usage counters, Notes
+  drafts, searches, and the **personal Journal** (security.md: private entries are not cached
+  offline). At most 800 copies per account (oldest go first), none larger than 2 MB.
+- Pictures (49.4): `<img>` requests to `/api` are network-first; the answer is kept in the
+  `vmn-media-v1` cache (≤ 400 pictures, ≤ 5 MB each) and used only while offline. Never pictures of
+  the personal Journal.
+
+### 49.5 — Changes made offline: Notes and Reminder Done
+- `apps/web/src/offline/outbox.ts` (IndexedDB `outbox` store) and `OfflineProvider`: sent strictly in
+  order, after the Run and List queues, one tab at a time, only under the session of the account
+  that made them (the existing session check), retried every 30 s, on `online` and when the app is
+  shown again.
+- **Notes (shared):** Save without a connection keeps the Note on the device ("Saved on this
+  device…", a floppy mark on the card); changing it again before it is sent keeps one entry (newest
+  text, first revision). A new Note carries an id chosen on the device: `POST …/journal` accepts an
+  optional `id` (revision 0 only) and creates it **at most once** — the same create again answers
+  the existing entry, other content under that id is `409`, an id taken anywhere else is `409`
+  (never a constraint error). An edited Note carries the revision it was changed from; if someone
+  saved a newer version meanwhile (or it is gone), nothing is overwritten: the device's text is
+  saved as a new Note "… (offline copy)" and the person is told. A Note whose change still waits is
+  always saved through the queue, so its changes stay in order. The server draft is skipped offline.
+- **Reminders:** Done without a connection is kept on the device (the card shows Done with a
+  floppy mark and an Undo button that removes it from the device); when sent, the server applies it
+  only if the Occurrence is still open, otherwise "already done or skipped" is shown. The server's
+  completion time is the sending time (no device time for Occurrences).
+- Refused (role, membership, tool off): kept with the reason in the existing "not sent" card,
+  never applied, discardable — the same as refused List changes. 401: sign in again; 5xx/429/no
+  answer: retried.
+- **Not offline (needs a connection):** the personal Journal, recipe/contact/document/maintenance/
+  equipment/place editing, Skip/Move/Assign of Reminders, Calendar changes, uploads. These keep
+  their normal error message when offline.
+
+### 49.6 — Offline indicator and sign-out
+- The status line has an icon (cloud-off offline, cloud-up while sending), the existing counts, and
+  "Saved {time}" when saved copies are on screen. Theme tokens only (`--text`, `--text-muted`,
+  `--border`, `--surface`, `--state-skipped`).
+- Sign-out empties and deletes the device database (new stores included) and deletes the picture
+  cache; another account signing in deletes the previous account's pictures (`media-owner` marker)
+  and entries; the sign-out warning counts unsent Notes/Reminder changes too.
+
+**Tests/checks:** typecheck (web, server, application), lint, Vitest: `apps/web/src/offline/reads.test.ts`
+(allowed/never-kept addresses, refusals never replaced, weak signal, per account),
+`outbox.test.ts` (merging, overlay, outcomes, own Note recognised), `precache-manifest.test.ts`
+(all build files, lazy chunks, no source maps, icons and meta present), `apps/server/src/http/journal.test.ts`
+(create-once: duplicate answers the same entry, other content 409, guest 403 also on retry, revision ≠ 0
+and non-UUID 400, another Workspace/person's id 409 and unreadable), all web unit tests; e2e
+`guide.spec.ts` "Every app opens offline…" (every precache file in the cache, Notes and Reminders
+offline from saved copies, a new Note and Done kept on the device, both sent once when back online)
+and the existing offline Lists/Runs/upgrade checks in `account.spec.ts` (device database now version 4).
+Screens in every theme: `/mnt/project-files/ui-review/2026-11-21-offline/`.
+
+**Remaining / limits:** not checked on a physical iPhone yet (icon, Home Screen name, storage
+eviction after weeks unused). Map tiles are not kept offline. Saved copies show the state of the
+last online visit of that page; pages not visited online have no copy. Offline editing of Recipes,
+Contacts, Documents, Maintenance, Equipment, Places and the Calendar, and offline Skip/Move of
+Reminders, are possible next steps (each needs its own idempotent replay). The personal Journal
+stays online-only unless the owner changes the security rule. No migration.
+
+**Security impact:** YES — Workspace data of more tools at rest on devices, a picture cache, a
+client-chosen id for new Notes. **Security docs updated:** YES (security.md "offline support for
+every app (49)").
