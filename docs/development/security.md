@@ -2566,6 +2566,8 @@ by an automatic backup before changes instead of a per-change confirmation code.
   `mcp-coverage.test.ts` (every tool matches its manifest `mcp` entry).
 ## 50. Ask VMN native chat (2026-11-22)
 
+**Published in 0.17.3 (owner release 80, 2026-11-22 Europe/Berlin).**
+
 **Security surface changed: HIGH** — new external AI data flow, a dedicated operator
 credential, account-private conversations, Workspace AI consent and billable requests.
 This owner-authorized flow narrowly extends the prior external-processing exclusion.

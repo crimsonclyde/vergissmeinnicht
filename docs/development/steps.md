@@ -18,6 +18,34 @@ For every completed task, add a concise completion note, tests/checks performed,
 
 ## Current state — resume here
 
+**Published owner release 80 (2026-11-22 Europe/Berlin): 0.17.3.**
+Stable tag `v0.17.3` points to `5ed5f01e5f2b4e47746d6d939c0355164d6625e7`.
+Ask VMN and two clear AI administration tasks (§50), reviewed Map fixes (§44.3) and
+Daily Planet precipitation validation are consolidated in this existing main checkout.
+No extra branch or worktree was created; unrelated local mock-ups/screenshots were preserved.
+Migration **0086** is additive; native chat remains off on upgrade. Existing grants, OAuth
+consent, file approvals, automatic AI safety backups, Daily Planet and offline support remain.
+
+[Main CI](https://github.com/crimsonclyde/vergissmeinnicht/actions/runs/45077828635) passed
+quality, both desktop/mobile browser suites, both native images, smoke tests and scans.
+Local full Vitest: **259 files / 1,985 tests passed**. The corrected navigation rerun passes
+on desktop and phone; the account flow passes with assets held fixed.
+[Release workflow](https://github.com/crimsonclyde/vergissmeinnicht/actions/runs/45078606718)
+reused that exact-commit CI, built/scanned native amd64 and arm64, signed the index keylessly,
+attested its CycloneDX SBOM, pulled the exact published digest, verified version/revision,
+smoke-tested it and passed populated upgrades from 0.17.2, 0.17.1, 0.17.0 and 0.10.1-beta.0.
+Published index: `sha256:6906f91de07f2edf2f479fd17be6c297e2dd0241072b9be1bc108937de8a5436`.
+Independent manifest inspection confirms **0.17.3**, **0.17** and **latest** match that digest.
+[GitHub Release](https://github.com/crimsonclyde/vergissmeinnicht/releases/tag/v0.17.3).
+
+**Security surface changed: HIGH**, reviewed in security.md §50. Provider responses are mocked;
+no live OpenAI key/charge or provider answer quality is claimed. Physical iPad/iOS keyboard
+and screen-reader checks remain manual. **No live Unraid deployment.** Exact opt-in setup:
+[Ask VMN operator guide](../admin/ask-vmn.md); screenshots in
+`assets/screenshots/ask-vmn-2026-11-22/`. Owner count **80**, next **81**; the special 42nd
+release and dedication remain unchanged. Next upgrade list: 0.17.3, 0.17.2, 0.17.1 + 0.10.1-beta.0.
+
+
 **Published owner release 79 (2026-11-22 Europe/Berlin): 0.17.2.**
 Stable tag `v0.17.2` points to `5da272c48750171ef87f02951ac5425dc493a66a` (release PR #141, with
 PRs #139 full MCP control with AI safety backups §48 and #140 offline support for every app §49).
