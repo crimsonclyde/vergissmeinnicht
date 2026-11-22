@@ -1083,7 +1083,7 @@ generator are gone. Assistants generate images themselves and upload them with
 reference as `coverImage`. The architecture is: external image creator → VMN MCP upload → VMN
 attachment storage → Recipe cover and thumbnails.
 
-### Native Ask VMN and two AI administration tasks (45, 2026-11-22)
+### Native Ask VMN and two AI administration tasks (50, 2026-11-22)
 
 Ask VMN is an independent vertical slice of the monolith: `packages/application/src/ask.ts`
 owns context validation, the one read-only lookup and two-call orchestration; `AskRepository`

@@ -360,7 +360,7 @@ test('Guide navigation stays usable in every theme after switching between News 
   const nav = page.getByRole('navigation', { name: 'Tools', exact: true });
   const dashboard = nav.getByRole('link', { name: 'Dashboard', exact: true });
   const drawer = page.getByRole('dialog', { name: 'All tools', exact: true });
-  const plan = nav.getByRole('button', { name: 'Plan', exact: true });
+  const plan = nav.getByRole('button', { name: 'All tools', exact: true });
 
   for (const theme of THEME_PREFERENCES) {
     const status = await page.evaluate(async (theme) => (await fetch('/api/account/preferences', {
@@ -375,9 +375,11 @@ test('Guide navigation stays usable in every theme after switching between News 
     if (place !== null) await expect(html).toHaveAttribute('data-place', place);
     await expect(dashboard).toHaveAttribute('aria-current', 'page');
     await expect(nav).toHaveCount(1);
-    if (mobile) {
-      await nav.getByRole('button', { name: 'All tools', exact: true }).tap();
-      await drawer.getByRole('link', { name: 'News', exact: true }).tap();
+    if (mobile || place !== null) {
+      const allTools = nav.getByRole('button', { name: 'All tools', exact: true });
+      const news = drawer.getByRole('link', { name: 'News', exact: true });
+      if (mobile) { await allTools.tap(); await news.tap(); }
+      else { await allTools.click(); await news.click(); }
       await expect(drawer).toBeHidden();
     } else {
       await nav.getByRole('link', { name: 'News', exact: true }).click();
@@ -388,7 +390,8 @@ test('Guide navigation stays usable in every theme after switching between News 
     await expect(dashboard).toHaveAttribute('aria-current', 'page');
     await expect(nav).toHaveCount(1);
     if (!mobile && describeTheme(theme).navigation === 'top-bar') {
-      await expect(page.locator('.guide-slot-scope select')).toBeVisible();
+      await expect(page.getByRole('button', { name: 'Workspace', exact: true })).toBeVisible();
+      await expect(page.locator('.guide-slot-scope select')).toHaveCount(0);
       if (theme === 'tokyo-nights') {
         await expect(page.locator('.shell-side')).toHaveCSS('backdrop-filter', 'none');
       }

@@ -9613,3 +9613,20 @@ and cancellation. Private chat endpoints are explicitly tested as excluded from 
 Native personal chat and billing have no MCP actions: exposing them would break owner privacy
 and permit recursive spending; shared Notes/Recipes keep their existing MCP manifest coverage.
 The current checkout remains main; no extra branch or worktree was created.
+
+
+**Final local validation on current main:** full Vitest **259 files / 1,985 tests passed**;
+focused provider/chat/migration/offline/catalog **25 passed**; lint, root/package typechecks,
+production build, frozen install, picomatch mitigation and high-severity audit passed
+(two existing moderate advisories). Four desktop/phone Ask/admin flows passed, including
+all native/MCP on/off combinations. The complete browser run passed 39 checks and skipped
+three intentionally; its two failures were traced to a concurrent asset rebuild during the
+account test and a restored pre-0.17.2 navigation test. A fixed-build account rerun passed;
+Guide assertions now follow the current theme registry, All tools menu and hidden scope filter.
+Remote CI and publication results are recorded with the release below. Provider responses
+remain mocked; browser record pages, authorization, database admission and populated upgrade
+use the real application. No live provider key, charge or production Unraid deployment.
+
+The corrected all-theme navigation check passes on desktop and phone, including the Places
+dock. The original Guide CI failure was the stale scope-filter assertion; all other checks
+on dcab41c were green. A fresh complete CI run will gate the final release commit.

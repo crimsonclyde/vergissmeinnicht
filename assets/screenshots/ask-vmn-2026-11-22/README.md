@@ -40,3 +40,7 @@ Unraid deployment remain manual checks. See [operator setup](../../../docs/admin
 
 Captures refreshed after updating this checkout in place to 0.17.2 main. The current four
 chat/admin browser flows pass; the release ledger records the final regression and CI results.
+
+Final current-main backend regression: **259 files / 1,985 tests passed**. Responses are mocked;
+local source records and application routes are real. Release CI verifies the complete browser
+suites and both native production images; see ledger section 50.1 for publication evidence.
