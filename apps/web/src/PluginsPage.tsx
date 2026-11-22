@@ -90,7 +90,7 @@ export function PluginsPage(props: { context: WorkspaceContext; onChanged: () =>
   );
 }
 
-/** 45.11: "AI assistants allowed" for the whole Workspace — on by default; off keeps every MCP connection out. */
+/** 45.11: "AI assistants allowed" for the whole Workspace — on by default; off blocks external assistants and native Workspace lookups. */
 function AiAssistantsTile(props: { workspaceId: string }) {
   const { workspaceId } = props;
   const [allowed, setAllowed] = useState<boolean | null>(null);

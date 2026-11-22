@@ -3303,7 +3303,7 @@ export const en = {
   'profile.workspaceSettingsOf': 'Settings of {name}',
   'plugins.about': 'About {tool}',
   'aiAssistants.name': 'AI assistants',
-  'aiAssistants.hint': 'Lets connected AI assistants (ChatGPT, Claude) read and change this Workspace. Off: no connection reaches it.',
+  'aiAssistants.hint': 'Allows external assistants and Ask VMN lookups to access this Workspace under their own permissions. Off: neither can access it.',
   'aiAssistants.blocked': 'AI assistants are off in this Workspace',
   'plugins.adminOnly': 'Only Workspace admins can switch tools on and off.',
   'workspaceSettings.roleHeading': 'Your role',

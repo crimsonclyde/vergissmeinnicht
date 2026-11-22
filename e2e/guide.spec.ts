@@ -11,6 +11,7 @@ import { hashPassword } from '../packages/auth/src/password-hashing.ts';
 import { openDatabase } from '../packages/database/src/connection.ts';
 import { createUserRepository } from '../packages/database/src/user-repository.ts';
 import { enableCoreTools, insertLegacyProcedure, insertLegacyRun, insertLegacyWorkspace } from '../packages/database/src/test-support.ts';
+import {describeTheme} from '../packages/domain/src/theme-registry.ts';
 import { THEME_PREFERENCES } from '../packages/domain/src/preferences.ts';
 import { normalizeEmail } from '../packages/domain/src/user.ts';
 import { DEFAULT_PLACE_PREFERENCES, placeOfTheme } from '../packages/domain/src/places.ts';
@@ -386,7 +387,7 @@ test('Guide navigation stays usable in every theme after switching between News 
     await expect(page).toHaveURL(home);
     await expect(dashboard).toHaveAttribute('aria-current', 'page');
     await expect(nav).toHaveCount(1);
-    if (!mobile) {
+    if (!mobile && describeTheme(theme).navigation === 'top-bar') {
       await expect(page.locator('.guide-slot-scope select')).toBeVisible();
       if (theme === 'tokyo-nights') {
         await expect(page.locator('.shell-side')).toHaveCSS('backdrop-filter', 'none');

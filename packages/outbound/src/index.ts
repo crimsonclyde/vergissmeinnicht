@@ -51,7 +51,7 @@ export function outboundAllowed(url: URL, allow: OutboundAllowlist): boolean {
 
 /**
  * Sends one request under the rules above and returns the response with its body unread. The caller
- * reads it with `readBounded` or cancels it with `discard`.
+ * reads it with `readBounded` / `readBoundedChunks` or cancels it with `discard`.
  */
 export async function outboundFetch(input: URL | string, request: OutboundRequest): Promise<Response> {
   let url: URL;
@@ -83,7 +83,7 @@ export async function discard(response: Response): Promise<void> {
 }
 
 /**
- * Reads the whole body, refusing more than `maxBytes`: a declared `content-length` above it (or not a
+ * Yields bounded chunks for streaming consumers, refusing more than `maxBytes`: a declared `content-length` above it (or not a
  * plain number) is refused before reading; otherwise the stream is cut as soon as it passes the limit.
  */
 export async function* readBoundedChunks(response: Response, maxBytes: number): AsyncGenerator<Uint8Array> {
