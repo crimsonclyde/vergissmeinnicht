@@ -18,6 +18,26 @@ For every completed task, add a concise completion note, tests/checks performed,
 
 ## Current state — resume here
 
+**Release 79 preparation — 0.17.2 (owner request, 2026-11-22 Europe/Berlin).**
+Publish full MCP control with AI safety backups (§48, PR #139) and offline support for every app
+(§49, PR #140) as stable tag `v0.17.2`, GitHub title `0.17.2`, image
+`ghcr.io/crimsonclyde/vergissmeinnicht:0.17.2`. Patch bump by the owner's choice. No new migration;
+schema stays **0085**. Upgrades checked from 0.17.1, 0.17.0, 0.16.1 and 0.10.1-beta.0. The owner
+count stays **78** until publication succeeds, then becomes **79** (next **80**); the special 42nd
+release and dedication remain unchanged. The personal Journal stays online-only (security.md, §49).
+The picomatch audit disposition expires 2026-11-24 UTC; this release falls before it. Live
+deployment is separate. [Release notes](../releases/0.17.2.md).
+
+**Published owner release 78 (2026-11-21 Europe/Berlin): 0.17.1.**
+Stable tag `v0.17.1` points to `19cf36c52d85261661b96cad6b48d04647766e72` (release PR #138, with
+PR #137 top bar on every page). The tagged workflow reused main CI and passed. No migration; schema
+**0085**. Published index
+`sha256:d3a73484a922e6d809bd57877562dc804a13dded5866be62ed74248059e15e5e`.
+Owner count **78**, next **79**; special release 42 and its dedication remain preserved.
+**No live deployment:** update the Unraid image separately.
+[GitHub Release](https://github.com/crimsonclyde/vergissmeinnicht/releases/tag/v0.17.1) ·
+[Release workflow](https://github.com/crimsonclyde/vergissmeinnicht/actions/runs/44946067215).
+
 **Release 78 preparation — 0.17.1 (owner request, 2026-11-21 Europe/Berlin).**
 Publish the top bar on every page and the weather link to the Daily Planet's weather section
 (§47, PR #137) as stable tag `v0.17.1`, GitHub title `0.17.1`, image
