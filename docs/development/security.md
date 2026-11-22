@@ -1120,7 +1120,7 @@ restores access without reconnecting. Negative tests: `apps/server/src/http/mcp-
 ### Security check: one outbound HTTP client (45.10, 2026-11-20)
 
 Every request the server makes to another host goes through `@vergissmeinnicht/outbound`
-(`outboundFetch` + `readBounded`): HTTPS only on the default port, no credentials or fragment in
+(`outboundFetch` + `readBounded`, or `readBoundedChunks` for SSE): HTTPS only on the default port, no credentials or fragment in
 the URL, an allowlist per caller (exact host names, or a predicate for fixed paths), `redirect:
 'error'`, `credentials: 'omit'`, a timeout combined with the caller's abort signal, a declared
 `content-length` checked before reading and the body streamed with a byte cap; errors carry only a
@@ -1141,6 +1141,28 @@ error without the URL; timeout; declared and streamed size caps, malformed lengt
 Telegram and map-data tests unchanged and passing.
 **Security impact:** MEDIUM (hardening): weather requests are now limited to the listed hosts;
 Telegram reads are capped while streaming. No new route, credential or capability.
+
+### Address lookup review (44.3, owner request 2026-11-17)
+
+Only a current Map editor (EDITOR/ADMIN) may deliberately send reviewed address/search text
+to the fixed HTTPS Photon endpoint `photon.komoot.io/api/`. The screen names the provider,
+explains transmission and requires an explicit lookup action; ordinary Save never sends an
+address. This narrowly extends the earlier no-geocoding design. No arbitrary endpoint, redirect,
+API key, browser geolocation, bulk/background lookup, remote image or MCP operation is added.
+JSON-body input is bounded and control characters refused. Normal cookie/CSRF, enabled-Map,
+Workspace and current role checks run before lookup and again before returning results.
+Provider replies are capped, typed and rendered as text; OSM source links are generated from
+bounded typed identifiers. One process admits at most one request at a time and one start per
+second, with a ten-second deadline and a persisted per-account request limit. A bounded,
+one-hour memory cache is keyed by Workspace and a query hash, never backed up or logged.
+No query appears in VMN request URLs/logs, and no saved point changes until explicit Save through
+the existing revisioned, audited place mutation. Keep uncertainty and manual pin entry available.
+**Verified:** negative tests cover role/tool/Workspace denial before network, CSRF/consent,
+provider failure/redirect/oversize/malformed input, cache isolation, single-flight admission,
+the per-account 20/hour limit across restart, query-free logs and tool/role/membership/account
+revocation before returning results. Browser tests cover deliberate lookup, candidate selection,
+approximate precision and explicit Save. No new credential, upload, database column or backup
+content is added. See ledger 44.3 for regression and responsive UI evidence.
 
 
 ### Security check: managed regional basemaps (44.2, 2026-11-17)
@@ -2458,6 +2480,9 @@ writes, two derived tables).
   hold numbers only (source id, dates, temperatures, rain, station name ≤ 80 chars, distance,
   elevation), bounded by CHECKs, cascade with the Workspace, pruned after 60 days with Gazette
   retention, excluded from portable Workspace backups as derived data.
+- Provider precipitation must be a finite number in the edition's 0–2,000 mm range. Invalid model
+  totals are excluded from comparisons and written as unknown in editions and verification rows.
+  This does not relax validation of client-written weather or add any permissions or data flows.
 - **Watchlist:** `gazette_watch_prices.shipping` (≥ 0 or null) and `vat_included` (0/1/null) added by
   ALTER (no table rebuild); older packages restore with nulls.
 - **No Amazon automation:** Amazon.de's Conditions of Use forbid automated data gathering and
@@ -2539,3 +2564,91 @@ by an automatic backup before changes instead of a per-change confirmation code.
 - Tests: `mcp-safety-backup.test.ts` (throttle, refusal on failure, retention, admin-only list),
   `mcp-full-control.test.ts` (each area, GUEST refusal, disabled tool, scope-filtered listing),
   `mcp-coverage.test.ts` (every tool matches its manifest `mcp` entry).
+## 50. Ask VMN native chat (2026-11-22)
+
+**Security surface changed: HIGH** — new external AI data flow, a dedicated operator
+credential, account-private conversations, Workspace AI consent and billable requests.
+This owner-authorized flow narrowly extends the prior external-processing exclusion.
+
+- Native `/api/ask/*` uses authenticated VMN sessions and the existing API Origin/CSRF
+  boundary. The actor always comes from `requireUser`; no body-supplied identity, MCP self-call,
+  OAuth grant, admin impersonation, tunnel dependency or removed image-generator credential.
+  Normal active members, including guests for read-only sources, may ask general questions.
+- Configuration defaults off; lookups default off globally and per Workspace. Only a current
+  ACTIVE server admin changes server settings or reads the aggregate report/runs the test.
+  Only a current Workspace ADMIN changes its AI policy. Server-admin status does not confer
+  membership, source access, policy authority in another Workspace, or access to another chat.
+- `ASK_VMN_OPENAI_KEY(_FILE)` is a separate operator secret using the existing mutually exclusive
+  absolute-path file-secret loader and redacting `Secret`. It never enters DB, browser payloads,
+  errors, logs, usage reports or portable exports. It is consumed only in Authorization to the
+  fixed `https://api.openai.com/v1/responses` endpoint, with redirects refused and normal TLS.
+  The optional Unraid mount is read-only and protected by the app identity's file permissions.
+- OpenAI receives submitted questions and preceding chat messages; general mode sends no
+  Workspace identifiers or records. Workspace mode explicitly identifies the selected Workspace
+  to the user and can submit four bounded excerpts from shared Notes/non-private Recipes.
+  The operator and user are told about this data flow and separate API billing. `store:false`
+  avoids provider response/conversation storage APIs but is not a claim about provider retention.
+- One forced `search_records(query)` function is the entire callable surface, followed by one
+  answer call with **no tools**. It calls `listJournal`/`getJournalEntry` with a mandatory shared
+  Workspace scope and `listRecipes`/`getRecipe` with cross-Workspace sharing disabled. It excludes
+  private Recipes, archived records, account-private Journal, attachments and all other tools.
+  Actor activity, current membership/role, Workspace policy, server lookup policy and tool flags
+  are rechecked, including the existing Workspace-wide `ai_assistants` switch; source records are re-read. Retrieved text is data, bounded and sent as function
+  output. There is no action to obey an instruction hidden in a source, fetch its URL or write.
+- Stored chats are owner-only (including against admins), immutable in owner/Workspace through
+  the repository and a database trigger, and never silently migrate with the UI's current Workspace. Every follow-up
+  and chat read rechecks Workspace policy/access and the current visibility/revision of **all**
+  earlier source references. Revoked, changed, archived, disabled or newly private context is
+  refused before another provider request. Switching Workspace remounts/clears the panel and
+  cancels its pending fetch. A general conversation cannot reuse a Workspace conversation ID.
+- Text answers render as React text, never Markdown/HTML or model-supplied links. Only VMN's
+  verified source IDs construct same-origin source links. Empty searches return a VMN-owned
+  no-match message and make no second provider call. Source titles are escaped, URLs use
+  fixed route templates and record reads still enforce their original access. Recipe detail
+  links are now supported by the existing Recipe page's authorized detail request.
+- At most 50 stored conversations per owner and 20 messages per conversation. Input/question,
+  output/stream, source count/size, deadlines and the two-call loop are bounded. Persisted
+  per-account chat admission limits and a server-wide monthly cap apply. Stream buffers abort
+  on backpressure/disconnect. Stop aborts upstream; no automatic provider retry runs. Unknown
+  provider usage retains the reservation. Raw upstream errors/response bodies never reach logs.
+  Conversation IDs are redacted from request paths; body logging remains absent.
+- Spending uses integer USD micro-units, a reviewed pinned GPT-5.4 mini model/price table
+  ($0.75/M input, $4.50/M output; cached discounts ignored), UTC admission month, and a $0.10
+  worst-case reservation. The provider request forces Standard processing (`service_tier: default`).
+  SQLite IMMEDIATE atomically checks **all** charges/reservations before
+  admission. A request UUID is admitted once; all tabs/accounts share the cap. Known completed
+  usage settles once; failed/cancelled/unknown usage and interrupted-process reservations retain
+  their full charge. An activity lock expires after 120 s, never refunding its money. Deleting
+  chat cannot refund spending; final save cannot resurrect a chat deleted while in flight.
+  Each provider call has ≤2,048 output tokens, input payload ≤24/40 KB plus a bounded fixed
+  envelope, provider stream ≤1 MiB, turn ≤90 s (test ≤30 s). The combined maximum cost is below $0.10.
+  Any future model/price/tool/bound change must re-prove that inequality before shipment.
+- Admin usage reports contain only month/cost/counts. Settings changes produce value-free
+  `ASK_SETTINGS_CHANGED` security events in the same transaction. Conversations, usage and AI
+  policy are explicitly classified outside portable Workspace backup; restored Workspaces must
+  opt in anew. Full server backups include chat and billing as sensitive database data. Deletion
+  removes live conversation content, not provider retention or older backups. “Delete all my
+  conversations” works even if Workspace context is no longer accessible.
+- Migration 0086 only adds four tables/indexes/checks. Existing grants, consent, credentials,
+  approved file hosts, Daily Planet and safety backup records are not rewritten. Native chat
+  stays off on upgrade; `/admin/connections`, legacy account links and OAuth return stay valid.
+
+Required checks (mock provider only in automated tests):
+
+- [x] Ordinary non-admin general question with MCP off sends no Workspace record/id.
+- [x] Shared oven Note is found under the member's authority and its actual detail link works.
+- [x] Private Journal and private Recipes never enter the provider request; no matches create no links.
+- [x] Another account/admin cannot read/delete an owner's conversation; Workspace switching cannot
+  rebind it; revoked membership/policy, changed sources and disabled Notes prevent context reuse.
+- [x] Only Workspace ADMIN changes AI policy; only server admin reads aggregates/configures/tests;
+  missing CSRF is refused, disabled/unconfigured chat performs no provider call.
+- [x] Concurrent near-cap requests cannot both start; retries keep the same global cap and request
+  IDs cannot be admitted twice; known usage settles; cancellation/deletion retain unknown charges.
+- [x] Fixed endpoint, store:false, strict tool allowlist, bounded fragmented streaming, malformed,
+  failed/oversized/truncated responses and cancellation are covered by provider adapter fixtures.
+- [x] Populated pre-0086 upgrade preserves external records and OAuth refresh; native remains off.
+- [x] Desktop/phone layout, focus restoration, failure/retry/Stop and all four enablement combinations
+  are exercised by local browser fixtures; automated accessibility checks accompany screenshots.
+
+Live OpenAI billing/key permission, actual Italian/oven answer quality, physical iPad/iOS keyboard
+and a real screen reader remain manual deployment checks. No live provider success is claimed.

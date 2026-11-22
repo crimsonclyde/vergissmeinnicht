@@ -48,6 +48,7 @@ export function RecipesPage({ workspaceId, canWrite, canShop }: { workspaceId: s
   const [busy, setBusy] = useState(false);
   const [status, setStatus] = useState('');
   const [message, setMessage] = useState('');
+  useEffect(()=>{const id=new URLSearchParams(window.location.search).get('recipe');if(!id||!/^[a-f0-9-]{36}$/.test(id))return;let live=true;api.recipe(workspaceId,id).then(recipe=>{if(live)setSelected(recipe);},error=>{if(live)setMessage(messageFor(error));});return()=>{live=false;};},[workspaceId]);
   const [editorKey, setEditorKey] = useState(0);
   const editing=draft!==null;
   const [sourceMode, setSourceMode] = useState(false);

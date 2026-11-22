@@ -58,6 +58,16 @@ function PlaceRow({ place, workspaceId, selected, onSelect }: { place: MapPlace;
 }
 
 export default function PlacesMap({ workspaceId, canEdit, canVisit, canManage }: Props) {
+  const mapDialog = useRef<HTMLDialogElement>(null);
+  const expandControl = useRef<HTMLButtonElement>(null);
+  const [expanded, setExpanded] = useState(false);
+  function toggleExpanded() {
+    const dialog = mapDialog.current;
+    if (!dialog) return;
+    dialog.close();
+    if (expanded) { dialog.show(); setExpanded(false); expandControl.current?.focus(); }
+    else { dialog.showModal(); setExpanded(true); }
+  }
   const [screen, setScreen] = useState<Screen>('browse');
   const [phone, setPhone] = useState<'map' | 'list'>('map');
   const [places, setPlaces] = useState<MapPlace[]>([]);
@@ -149,7 +159,7 @@ export default function PlacesMap({ workspaceId, canEdit, canVisit, canManage }:
     const place = markers.find(entry => entry.id === id);
     if (place) choose(place, true);
   }
-  function showDetail(place: MapPlace) { setSelected(place); setScreen('detail'); setError(''); }
+  function showDetail(place: MapPlace) { if (expanded) toggleExpanded(); setSelected(place); setScreen('detail'); setError(''); }
   function openEditor(place: MapPlace | null) {
     setEdit(place); setDropped(''); setError(''); setScreen('edit'); saveRequest.current = null;
   }
@@ -223,7 +233,9 @@ export default function PlacesMap({ workspaceId, canEdit, canVisit, canManage }:
         </div>
       </>}
       <div className="vmn-map-grid" data-phone={phone}>
-        <div className="vmn-map-column">
+        <dialog open ref={mapDialog} className="vmn-map-column" data-expanded={expanded} role={expanded ? 'dialog' : 'region'}
+          aria-label={t('map.navigation')} aria-modal={expanded || undefined} onCancel={event => { event.preventDefault(); if (expanded) toggleExpanded(); }}>
+          <button type="button" ref={expandControl} className="vmn-map-expand" onClick={toggleExpanded}>{t(expanded ? 'map.exitFullscreen' : 'map.fullscreen')}</button>
           <Suspense fallback={<p>{t('map.loading')}</p>}>
             {mapInitialized && <MapCanvas places={markers} selected={selected?.id ?? ''} active={browsing && phone === 'map'} viewport={view}
               focus={focus} pick={picking} onSelect={selectPin} onDrop={(longitude, latitude) => {
@@ -242,7 +254,7 @@ export default function PlacesMap({ workspaceId, canEdit, canVisit, canManage }:
             {!selected.archived && <PlaceGo place={selected} />}
             <AccessWarning place={selected} />
           </article>}
-        </div>
+        </dialog>
         {!picking && <section className="vmn-map-list" aria-label={t('map.savedPlaces')}>
           <h2>{t('map.savedPlaces')}</h2>
           {!loaded && <p role="status">{t('map.loading')}</p>}

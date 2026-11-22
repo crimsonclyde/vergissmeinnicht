@@ -1,4 +1,6 @@
 import { useEffect, useState } from 'react';
+import {AskWorkspacePolicy} from './AskWorkspacePolicy.tsx';
+
 import { api, messageFor } from './api.ts';
 import { TOOL_PLUGINS, type ToolPlugin } from './tool-registry.ts';
 import { UiIcon } from './ui-icons.tsx';
@@ -83,6 +85,7 @@ export function PluginsPage(props: { context: WorkspaceContext; onChanged: () =>
       <p role="status" style={{ margin: 0 }}>
         {status ?? ''}
       </p>
+    <AskWorkspacePolicy workspaceId={context.workspace.id}/>
     </section>
   );
 }

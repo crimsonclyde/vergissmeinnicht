@@ -596,3 +596,28 @@ current roles, the per-Workspace AI switch and Workspace tool switches authorita
 manifest carries an `mcp` entry (covered actions, or `notForAi` with a reason); `mcp-coverage.test.ts`
 enforces it, so a new feature or action ships with its MCP tools or a stated reason. MCP tools live in
 `apps/server/src/mcp/tools/<area>.ts`. Deletes stay soft and are marked destructive.
+### Accepted follow-up — reviewed address pins and full-screen Map (2026-11-17)
+
+The owner requested address-to-pin lookup, full-screen Map and correction of false inland
+water shapes. An editor may explicitly send a reviewed address/search text to the fixed public
+Photon endpoint (`https://photon.komoot.io/api/`) after the UI identifies that provider and
+requires a deliberate lookup action. No automatic geocoding on save, bulk/background lookup,
+device geolocation or arbitrary provider URL is approved. Show bounded candidate locations
+with OSM attribution, retain uncertainty, and save a chosen point only through explicit Save
+and the existing revision/role/Workspace gates. Keep manual coordinates/drop-pin usable without
+the provider. Full-screen retains map state, keyboard/touch operation and an obvious exit.
+Improve local vector styling with the existing data; satellite/elevation providers are separate.
+
+
+## Accepted native Ask VMN (2026-11-22)
+
+Owner-authorized section 50 adds optional native OpenAI Responses chat, disabled by default,
+using a dedicated operator credential and server-enforced monthly cap. General questions send
+no Workspace records. Explicit Workspace lookup is read-only and limited to shared Notes and
+non-private Recipes, behind server and Workspace-admin AI policy plus current source permissions.
+Private Journal, private records and all other tools remain excluded. Chats belong only to their
+owner, bind immutably to their original Workspace and are excluded from portable Workspace
+backups. External processing is authorized only for the submitted conversation and necessary
+source excerpts in this flow. No MCP self-calls, OAuth grants, admin impersonation, tunnel-key
+reuse, removed image generation or other AI features are authorized. Admin keeps `/admin/connections`
+and separates Ask VMN from External assistants without replacing existing grants or approvals.

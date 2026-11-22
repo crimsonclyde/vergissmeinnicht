@@ -86,14 +86,13 @@ export async function discard(response: Response): Promise<void> {
  * Reads the whole body, refusing more than `maxBytes`: a declared `content-length` above it (or not a
  * plain number) is refused before reading; otherwise the stream is cut as soon as it passes the limit.
  */
-export async function readBounded(response: Response, maxBytes: number): Promise<Buffer> {
+export async function* readBoundedChunks(response: Response, maxBytes: number): AsyncGenerator<Uint8Array> {
   const declared = response.headers.get('content-length');
   if (declared !== null && (!/^\d+$/.test(declared) || Number(declared) > maxBytes)) {
     await discard(response);
     throw new OutboundError(declared !== null && /^\d+$/.test(declared) ? 'too_large' : 'bad_response');
   }
-  if (response.body === null) return Buffer.alloc(0);
-  const chunks: Buffer[] = [];
+  if (response.body === null) return;
   let size = 0;
   const reader = response.body.getReader();
   try {
@@ -105,11 +104,18 @@ export async function readBounded(response: Response, maxBytes: number): Promise
         await reader.cancel().catch(() => undefined);
         throw new OutboundError('too_large');
       }
-      chunks.push(Buffer.from(value));
+      yield value;
     }
   } catch (error) {
     if (error instanceof OutboundError) throw error;
     throw new OutboundError('unreachable');
+  } finally {
+    await reader.cancel().catch(() => undefined);
   }
+}
+
+export async function readBounded(response: Response, maxBytes: number): Promise<Buffer> {
+  const chunks: Buffer[] = [];
+  for await (const chunk of readBoundedChunks(response, maxBytes)) chunks.push(Buffer.from(chunk));
   return Buffer.concat(chunks);
 }

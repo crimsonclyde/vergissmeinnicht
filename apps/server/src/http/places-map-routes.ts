@@ -1,3 +1,4 @@
+import { addressQuery, AddressSearchBusy, AddressSearchUnavailable } from '../map-data/address-search.ts';
 import type { FastifyInstance, FastifyRequest } from 'fastify';
 import { z } from 'zod';
 import {
@@ -36,6 +37,26 @@ export async function placesMapRoutes(app: FastifyInstance, { services }: { serv
   app.addHook('preHandler', async request => {
     const { actor, workspaceId } = context(request);
     await requireTool(deps, actor, workspaceId, 'MAP', 'map.view');
+  });
+  app.post('/address-search', { bodyLimit: 2048, config: { rateLimit: {
+    persist: 'map-address-search', max: 20, timeWindow: 60 * 60_000, hook: 'preHandler',
+    keyGenerator: (request: FastifyRequest) => 'map-address:' + request.principal?.user.id,
+  } } }, async (request, reply) => {
+    const ref = context(request);
+    await requireTool(deps, ref.actor, ref.workspaceId, 'MAP', 'map.edit');
+    const { query } = parse(z.strictObject({ query: addressQuery, consent: z.literal(true) }), request.body);
+    try {
+      const candidates = await services.mapAddressSearch(ref.workspaceId, query);
+      const actor = await services.users.findById(ref.actor.id);
+      if (!actor) return reply.code(403).send({ error: 'forbidden' });
+      await requireTool(deps, actor, ref.workspaceId, 'MAP', 'map.edit');
+      return { candidates };
+    } catch (error) {
+      if (error instanceof AddressSearchBusy) return reply.code(429).send({ error: 'map_address_busy' });
+      // Authorization failures after the provider request must retain their existing unknown/forbidden semantics.
+      if (!(error instanceof AddressSearchUnavailable)) throw error;
+      return reply.code(502).send({ error: 'map_address_unavailable' });
+    }
   });
   for (const purpose of ['cover', 'visit'] as const) {
     await app.register(async child => {

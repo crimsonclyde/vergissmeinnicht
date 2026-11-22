@@ -42,6 +42,10 @@ test('Map preserves a link draft, adds coordinates and keeps the list usable wit
   if (phone) await expect(page.locator('html')).toHaveAttribute('data-theme', 'memento-mori');
   await expect(page.getByRole('heading', { name: 'Marauder’s Map' })).toBeVisible();
   await expect(page.getByText('Basemap unavailable.', { exact: false })).toBeVisible();
+  await page.getByRole('button', { name: 'Full screen', exact: true }).click();
+  await expect(page.getByRole('dialog', { name: 'Map', exact: true })).toBeVisible();
+  await page.keyboard.press('Escape');
+  await expect(page.getByRole('button', { name: 'Full screen', exact: true })).toBeFocused();
   await page.getByRole('button', { name: 'Add place', exact: true }).click();
   await page.getByLabel('Name', { exact: true }).fill('Gerbontina');
   const editor = page.locator('form.vmn-map-editor');
@@ -82,4 +86,28 @@ test('Map preserves a link draft, adds coordinates and keeps the list usable wit
   await expect(page.getByText('Saved 1. 0 could not be confirmed.', { exact: true })).toBeVisible();
   await page.getByRole('button', { name: 'Open saved place', exact: true }).click();
   await expect(page.getByRole('heading', { name: 'Case Bondazzo', exact: true })).toBeVisible();
+  await page.getByRole('button', { name: 'Back to browse' }).click();
+  await page.getByRole('button', { name: 'Add place', exact: true }).click();
+  await page.getByLabel('Name', { exact: true }).fill('Reviewed address');
+  await page.getByLabel('Address', { exact: true }).fill('Via Roma 2, Soldano');
+  await page.getByLabel('Add a location').selectOption('address');
+  let lookups = 0;
+  await page.route('**/map/address-search', async route => {
+    expect(route.request().postDataJSON()).toEqual({ query: 'Reviewed address, Via Roma 2, Soldano', consent: true });
+    lookups++;
+    await route.fulfill({ json: { candidates: [{ label: 'Via Roma 2, Soldano', latitude: 43.82, longitude: 7.65,
+      approximate: true, sourceUrl: 'https://www.openstreetmap.org/node/123' }] } });
+  });
+  expect(lookups).toBe(0);
+  await expect(page.getByText('Find sends this search to Photon (komoot).', { exact: false })).toBeVisible();
+  await page.getByRole('button', { name: 'Find location', exact: true }).click();
+  await page.getByRole('button', { name: 'Use this location', exact: true }).click();
+  await expect(page.getByLabel('WGS 84 decimal latitude, longitude')).toHaveValue('43.82, 7.65');
+  await expect(page.getByRole('checkbox', { name: 'Approximate area', exact: true })).toBeChecked();
+  await page.getByRole('button', { name: 'Save place', exact: true }).click();
+  await expect(page.getByRole('heading', { name: 'Reviewed address', exact: true })).toBeVisible();
+  await page.getByRole('button', { name: 'Coordinates', exact: true }).click();
+  await expect(page.getByRole('dialog', { name: 'Coordinates' }).getByText('43.82, 7.65')).toBeVisible();
+  expect(lookups).toBe(1);
+
 });

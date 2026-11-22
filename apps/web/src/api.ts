@@ -1917,7 +1917,9 @@ export function recipeAttachmentClient(workspaceId:string):AttachmentClient {
 const mapPath = (workspaceId: string, suffix: string) => `/workspaces/${encodeURIComponent(workspaceId)}/map${suffix}`;
 export const mapPhotoUrl = (workspaceId: string, placeId: string, id: string, purpose: 'cover' | 'visit', kind: 'thumbnail' | 'preview') =>
   '/api' + mapPath(workspaceId, '/places/' + encodeURIComponent(placeId) + '/' + purpose + '-photo/' + encodeURIComponent(id) + '/' + kind);
+export interface MapAddressCandidate { label: string; latitude: number; longitude: number; sourceUrl: string; approximate: boolean }
 export const mapApi = {
+  addressSearch: async (workspaceId: string, query: string) => (await request<{ candidates: MapAddressCandidate[] }>('POST', mapPath(workspaceId, '/address-search'), { query, consent: true })).candidates,
   upload: (workspaceId: string, file: File, purpose: 'cover' | 'visit') => uploadSharedImage(mapPath(workspaceId, '/' + purpose + '-upload'), file),
   browse: (workspaceId: string, query: URLSearchParams, signal?: AbortSignal) =>
     request<{ places: MapPlace[]; tags: MapTag[]; approaches: Pick<MapApproach, 'id' | 'name'>[]; sharedPoints: (MapPointFields & { id: string })[]; towns: string[]; nextOffset: number | null }>('GET', mapPath(workspaceId, '/places?' + query), undefined, signal ? { signal } : {}),
@@ -1939,4 +1941,19 @@ export const mapApi = {
     request<MapPersonalState>('POST', mapPath(workspaceId, '/places/' + id + '/personal'), { favorite, want }),
   visit: (workspaceId: string, id: string, visit: Omit<MapVisit, 'id'>) =>
     request<MapPersonalState>('POST', mapPath(workspaceId, '/places/' + id + '/visits'), visit),
+};
+
+export interface AskConversation {id:string;workspaceId:string|null;messages:{role:'user'|'assistant';content:string;kind?:'no_matches'}[];sources:{kind:string;id:string;revision:number;title:string;url:string}[];updatedAt:number}
+export interface AskAdminState {enabled:boolean;lookups:boolean;cap:number;model:'gpt-5.4-mini-2026-03-17';configured:boolean;month:string;usage:{charge:number;requests:number;pending:number}}
+export const askApi={
+ deleteAll:()=>request('POST','/ask/conversations/delete-all',{}),
+ status:()=>request<{enabled:boolean;hasHistory:boolean;lookups:boolean}>('GET','/ask/status'),
+ admin:()=>request<AskAdminState>('GET','/ask/admin'),
+ configure:(state:Pick<AskAdminState,'enabled'|'lookups'|'cap'|'model'>)=>request('POST','/ask/admin',state),
+ test:()=>request('POST','/ask/admin/test',{}),
+ policy:(id:string)=>request<{enabled:boolean;name:string;canManage:boolean}>('GET',`/ask/policy/${id}`),
+ setPolicy:(id:string,enabled:boolean)=>request<{enabled:boolean;name:string;canManage:boolean}>('POST',`/ask/policy/${id}`,{enabled}),
+ list:()=>request<{conversations:Pick<AskConversation,'id'|'workspaceId'|'updatedAt'>[]}>('GET','/ask/conversations'),
+ find:(id:string)=>request<AskConversation>('GET',`/ask/conversations/${id}`),
+ delete:(id:string)=>request('POST',`/ask/conversations/${id}/delete`,{}),
 };

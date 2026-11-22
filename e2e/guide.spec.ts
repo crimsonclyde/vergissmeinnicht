@@ -1,3 +1,4 @@
+import {askBrowserTest} from './ask-browser.ts';
 import { crc32, deflateSync } from 'node:zlib';
 import { checkPhoneRecipe, checkRecipeSourcePreservation } from './phone-recipe.ts';
 import { checkClockWeather, expectSharedSkySurface } from './clock-weather.ts';
@@ -10,8 +11,9 @@ import { hashPassword } from '../packages/auth/src/password-hashing.ts';
 import { openDatabase } from '../packages/database/src/connection.ts';
 import { createUserRepository } from '../packages/database/src/user-repository.ts';
 import { enableCoreTools, insertLegacyProcedure, insertLegacyRun, insertLegacyWorkspace } from '../packages/database/src/test-support.ts';
+import { THEME_PREFERENCES } from '../packages/domain/src/preferences.ts';
 import { normalizeEmail } from '../packages/domain/src/user.ts';
-import { DEFAULT_PLACE_PREFERENCES } from '../packages/domain/src/places.ts';
+import { DEFAULT_PLACE_PREFERENCES, placeOfTheme } from '../packages/domain/src/places.ts';
 import { guideServerEnv } from '../playwright.config.ts';
 import { expectAccessible } from './a11y.ts';
 
@@ -331,6 +333,78 @@ test('Guide preserves routes, preferences, themes and private opt-in weather acr
   expect((await post('/api/account/workspace-preferences/guide', { workspaceId, guide: null })).status).toBe(200);
 });
 
+test('Guide navigation stays usable in every theme after switching between News and Dashboard', async ({ page }, testInfo) => {
+  test.setTimeout(120_000);
+  const email = `navigation-${randomUUID()}@example.org`;
+  const password = 'a fictional navigation review passphrase';
+  const database = openDatabase(guideServerEnv.DATABASE_PATH);
+  let workspaceId: string;
+  try {
+    const user = await createUserRepository(database).create({ email: normalizeEmail(email), displayName: 'Navigation reviewer', emailVerified: true, status: 'ACTIVE', serverAdmin: false });
+    database.sqlite.prepare("INSERT INTO accounts(id,account_id,provider_id,user_id,password,created_at,updated_at) VALUES(?,?,'credential',?,?,?,?)").run(randomUUID(), user.id, user.id, await hashPassword(password), Date.now(), Date.now());
+    workspaceId = insertLegacyWorkspace(database, { name: 'Fictional navigation studio', adminUserId: user.id }).id;
+    enableCoreTools(database, workspaceId, user.id);
+    database.sqlite.prepare("INSERT INTO workspace_tools (workspace_id,tool,enabled,updated_at,updated_by_user_id) VALUES(?,'GAZETTE',1,?,?)").run(workspaceId, Date.now(), user.id);
+  } finally { database.close(); }
+
+  const mobile = testInfo.project.name === 'guide-mobile-chromium';
+  await page.setViewportSize({ width: mobile ? 320 : 1440, height: 900 });
+  await page.emulateMedia({ colorScheme: 'light' });
+  await page.goto('/');
+  await page.getByLabel('Email').fill(email);
+  await page.getByLabel('Password').fill(password);
+  await signInGuide(page);
+  const home = `/w/${workspaceId}`;
+  await expect(page).toHaveURL(home);
+  const nav = page.getByRole('navigation', { name: 'Tools', exact: true });
+  const dashboard = nav.getByRole('link', { name: 'Dashboard', exact: true });
+  const drawer = page.getByRole('dialog', { name: 'All tools', exact: true });
+  const plan = nav.getByRole('button', { name: 'Plan', exact: true });
+
+  for (const theme of THEME_PREFERENCES) {
+    const status = await page.evaluate(async (theme) => (await fetch('/api/account/preferences', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ theme }),
+    })).status, theme);
+    expect(status).toBe(200);
+    await page.reload();
+    const html = page.locator('html');
+    const place = placeOfTheme(theme);
+    const expectedTheme = place !== null ? 'places' : theme === 'system' ? 'light' : theme === 'dark' ? 'memento-mori' : theme;
+    await expect(html).toHaveAttribute('data-theme', expectedTheme);
+    if (place !== null) await expect(html).toHaveAttribute('data-place', place);
+    await expect(dashboard).toHaveAttribute('aria-current', 'page');
+    await expect(nav).toHaveCount(1);
+    if (mobile) {
+      await nav.getByRole('button', { name: 'All tools', exact: true }).tap();
+      await drawer.getByRole('link', { name: 'News', exact: true }).tap();
+      await expect(drawer).toBeHidden();
+    } else {
+      await nav.getByRole('link', { name: 'News', exact: true }).click();
+    }
+    await expect(page).toHaveURL(`${home}/gazette`);
+    await dashboard.click();
+    await expect(page).toHaveURL(home);
+    await expect(dashboard).toHaveAttribute('aria-current', 'page');
+    await expect(nav).toHaveCount(1);
+    if (!mobile) {
+      await expect(page.locator('.guide-slot-scope select')).toBeVisible();
+      if (theme === 'tokyo-nights') {
+        await expect(page.locator('.shell-side')).toHaveCSS('backdrop-filter', 'none');
+      }
+      await plan.focus();
+      await page.keyboard.press('ArrowDown');
+      await expect(nav.getByRole('link', { name: 'Procedures', exact: true })).toBeFocused();
+      await page.keyboard.press('Enter');
+      await expect(page).toHaveURL(`${home}/procedures`);
+      await expect(plan).toHaveAttribute('data-current', 'true');
+      await expect(plan).toHaveAttribute('aria-expanded', 'false');
+      await dashboard.click();
+    }
+    await expect(dashboard).toHaveAttribute('aria-current', 'page');
+    expect(await page.evaluate('document.documentElement.scrollWidth <= innerWidth')).toBe(true);
+  }
+});
+
 test('Celestial instrument preserves astronomy and reflows across themes at 320px through desktop', async ({ page }, testInfo) => {
   test.setTimeout(180_000);
   const email = `celestial-${randomUUID()}@example.org`;
@@ -641,6 +715,7 @@ test('MCP requires MFA and visible consent and supports revoking a scoped user c
  const mine=page.getByRole('listitem').filter({hasText:'Acts as you'});
  await expect(mine.getByText('Fictional AI assistant',{exact:true})).toBeVisible();
  await expect(mine.getByText('Waiting for the assistant',{exact:true})).toBeVisible();
+ await page.getByText('Technical checks and tunnel help',{exact:true}).first().click();
  await page.getByRole('button',{name:'Run local checks',exact:true}).click();
  const report=page.getByRole('textbox',{name:'VMN AI connection report',exact:true});
  await expect(report).toHaveValue(/MCP without sign-in — HTTP 401[\s\S]*VMN browser checks passed/);
@@ -1210,3 +1285,4 @@ test('Every app opens offline; Notes and Reminders changed offline are sent once
   const home = await page.evaluate(`fetch('/api/workspaces/${workspaceId}/home?filter=ALL').then((r) => r.json())`) as Record<string, unknown>;
   expect(JSON.stringify(home)).not.toMatch(/"title":"Water the ferns"[^}]*"state":"OPEN"/);
 });
+askBrowserTest(guideServerEnv,true);

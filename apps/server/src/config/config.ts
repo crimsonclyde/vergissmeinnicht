@@ -17,7 +17,7 @@ export const DEFAULT_API_RATE_LIMIT_PER_MINUTE = 300;
 /** One year; sent only when the public origin is https. */
 const DEFAULT_HSTS_MAX_AGE = 31_536_000;
 /** Secrets that may be given as a file (Docker/Kubernetes secrets) via `<NAME>_FILE`. */
-const FILE_SECRETS = ['AUTH_SECRET', 'DATA_ENCRYPTION_KEY', 'SMTP_PASSWORD'] as const;
+const FILE_SECRETS = ['AUTH_SECRET', 'DATA_ENCRYPTION_KEY', 'SMTP_PASSWORD', 'ASK_VMN_OPENAI_KEY'] as const;
 
 /** An IPv4/IPv6 address or CIDR range, or the `loopback` preset. Never "trust everything". */
 function isTrustedProxyEntry(entry: string): boolean {
@@ -59,6 +59,7 @@ const productionLogLevels = ['fatal', 'error', 'warn', 'info', 'silent'] as cons
 
 const envSchema = z
   .object({
+    ASK_VMN_OPENAI_KEY: z.string().min(20).max(512).regex(/^[A-Za-z0-9_-]+$/, 'ASK_VMN_OPENAI_KEY must be a valid key').optional(),
     MCP_ENABLED: z.enum(['true','false']).default('false').transform(value=>value==='true'),
     // Exact extra ChatGPT file hosts, comma-separated, for a storage host VMN reported as refused.
     MCP_CHATGPT_FILE_HOSTS: z.string().max(2048).default('').transform((value,context)=>{
@@ -177,6 +178,7 @@ const envSchema = z
 export type Mode = z.infer<typeof modeSchema>;
 
 export interface AppConfig {
+  readonly askKey:Secret|undefined;
   readonly mcpEnabled:boolean;
   /** Exact operator-approved ChatGPT file hosts in addition to the built-in ones. */
   readonly chatGptFileHosts:readonly string[];
@@ -255,6 +257,7 @@ export function loadConfig(env: NodeJS.ProcessEnv, readFile: (path: string) => s
   const production = values.NODE_ENV === 'production';
 
   return Object.freeze({
+    askKey:values.ASK_VMN_OPENAI_KEY === undefined ? undefined : new Secret(values.ASK_VMN_OPENAI_KEY),
     mcpEnabled:values.MCP_ENABLED,
     chatGptFileHosts:values.MCP_CHATGPT_FILE_HOSTS,
     mode: values.NODE_ENV,

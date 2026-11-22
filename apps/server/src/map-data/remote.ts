@@ -5,6 +5,7 @@ export type MapFetch = Fetch;
 const mapPath = (u: URL): boolean => (u.hostname === 'build-metadata.protomaps.dev' && u.pathname === '/builds.json' && !u.search)
     || (u.hostname === 'build.protomaps.com' && /^\/\d{8}\.pmtiles$/.test(u.pathname) && !u.search)
     || (u.hostname === 'protomaps.github.io' && /^\/basemaps-assets\/fonts\/(?:Noto%20Sans%20Regular\/\d+-\d+\.pbf|OFL\.txt)$/.test(u.pathname) && !u.search)
+    || (u.hostname === 'photon.komoot.io' && u.pathname === '/api/')
     || (u.hostname === 'geocoding-api.open-meteo.com' && u.pathname === '/v1/search');
 export function allowedMapUrl(url: string): boolean {
   return outboundAllowed(new URL(url), mapPath);

@@ -56,6 +56,22 @@ describe('Daily Planet weather: regions and sources (43.7)', () => {
 });
 
 describe('Daily Planet weather: combining forecasts (43.7)', () => {
+  it.each([undefined, null, NaN, Infinity, -Infinity, '0', false, { min: 0, max: 2 }, -0.01, 2000.01])(
+    'keeps invalid precipitation (%j) unknown across every model and day',
+    (invalid: unknown) => {
+      const forecast = combine(['a', 'b', 'c'].map(id => series(id, id,
+        Array.from({ length: 7 }, (_, i) => ({
+          date: day(i), high: 12, low: 6,
+          ...(invalid === undefined ? {} : { precipitationMm: invalid as number }),
+        })),
+      )));
+      expect(forecast.days.map(d => d.precipitationMm)).toEqual(Array(7).fill(null));
+      expect(forecast.models?.map(model => model.days.map(d => d.precipitationMm))).toEqual(
+        Array.from({ length: 3 }, () => Array(7).fill(null)),
+      );
+    },
+  );
+
   it('agreeing families give one value and higher confidence for the first days', () => {
     const forecast = combine([
       series('a', 'icon', [{ date: day(0), high: 12, low: 6, precipitationMm: 4, condition: 'RAIN', precipitationProbability: 80 }]),

@@ -6100,6 +6100,14 @@ user workflows; no host migration or external service provisioned by the assessm
 
 **Remaining:** real-phone check of the swipe gesture and the drawer on iOS Safari. Keyboard shortcuts in the menus (shown in the mockup) were left out on purpose: ⌘/Ctrl + digit already switches browser tabs. "Recent" items in the menus (mockup) are not built: they would need a new per-person history.
 
+**2026-11-17 follow-up — Tokyo Nights top bar.** Removed backdrop blur from the already opaque Tokyo Nights top bar to avoid stale menu paint when the header reflows between News and Dashboard. Kept the blur on the classic sidebar. The phone drawer now handles Escape through the same state as its other close actions, so the native close event cannot undo an immediate swipe to reopen. The user guide explains the Dashboard progress ring.
+
+**Checks:** Production web build, targeted ESLint and TypeScript, and 41 navigation, contrast and Today-view unit tests passed. Isolated Playwright navigation checks passed in desktop and mobile Chromium at 1440 and 320 px across all supported themes, including News → Dashboard, keyboard dropdown selection and touch drawer selection. The existing Guide flow passed in desktop Chromium, including the swipe to reopen after Escape and the axe checks.
+
+**Remaining:** The stale pixels in the reported screenshot could not be reproduced in local Chromium. The original browser and physical phone Safari still need verification.
+
+**Security impact:** NONE. The changes affect rendering and drawer state only. No API, data or authorization changes.
+
 ---
 
 ## 43 — Morning Gazette: a daily illustrated edition (owner request 2026-11-14)
@@ -6312,6 +6320,32 @@ automatic Amazon wishlist import (terms and robots.txt); a real-phone check of t
 Release plan: **0.15.2**, owner-counted release **72** after publication (PR #126, migration 0081).
 Release notes in [0.15.2](../releases/0.15.2.md); upgrade inputs 0.15.1, 0.15.0, 0.14.2 and
 0.10.1-beta.0. Live deployment is separate.
+
+**2026-11-17 follow-up — Casa Nostra precipitation validation.** Automatic weather now excludes
+invalid precipitation from the model comparison and weather verification log and emits unknown
+(`null`) for the affected model day. Open-Meteo totals are checked before rounding; Bright Sky does
+not sum a station day's available hours when any of those hours has missing or invalid rain.
+The edition schema still requires finite numbers from 0 to 2,000 mm, inclusive, and manual
+weather validation remains strict. The REST forecast and MCP weather reader use the same builder
+as publication.
+
+**Incident and recovery:** With the Triora fixture, injecting `-0.2` into Open-Meteo
+`precipitation_sum_ecmwf_ifs025[4]` reproduced the exact rejection at
+`edition.sections[0].locations[0].models[2].days[4].precipitationMm`. The failing live request
+and raw response were not available; that test value and source are a reproduction. Live Casa
+Nostra had automatic weather enabled and neither a draft nor a published edition for November 17.
+The failed validation precedes the edition and operation receipt write. Recovery requires the
+original automation payload, a check that no edition has since been published, and an identical
+retry with its original operation id once the fix is live. If the date has passed, VMN will not
+backfill a fresh forecast as historical weather.
+
+**Tests/checks:** 54 focused tests passed (provider parsing, model comparison across all days,
+edition validation, publication, and MCP); lint, typecheck, and diff whitespace checks passed.
+The full suite passed 1,871 tests and timed out on two unrelated MCP tests; both passed on
+an isolated rerun.
+
+**Security impact:** Validation hardening only; no change to the security surface. Updated
+security.md and the Gazette API notes. Live deployment and incident recovery remain open.
 
 
 ### 43.8 — Newspaper layout, weather desk and News navigation (2026-11-15)
@@ -9410,3 +9444,172 @@ stays online-only unless the owner changes the security rule. No migration.
 **Security impact:** YES — Workspace data of more tools at rest on devices, a picture cache, a
 client-chosen id for new Notes. **Security docs updated:** YES (security.md "offline support for
 every app (49)").
+
+### 44.3 — Reviewed address pins, full-screen Map and water rendering (2026-11-17)
+
+**Implemented:** Place editing exposes Address beside the location controls. **Find address on
+map → Find location** deliberately sends the reviewed search to the fixed public Photon service,
+shows at most five attributed candidates, and copies a chosen candidate's coordinates, precision
+and OSM provenance into the unsaved draft. Explicit **Save place** uses the existing audited,
+revisioned command; lookup never saves, changes old pins or automatically runs on Save. Manual
+coordinates, drop pin and unresolved places remain available. EDITOR/ADMIN only; no MCP lookup.
+
+**Full screen** uses a native modal dialog with an obvious exit and Escape/focus restoration.
+The same WebGL canvas and viewport survive entry/exit; resize observation keeps rendering aligned.
+The local style now filters mixed vector sources by geometry: river LineStrings cannot enter
+polygon-fill triangulation, fixing the false inland blue wedges reported around Sanremo and
+Triora. Waterways remain visible as lines. Existing tiles now supply building fills, road casings
+and major-road hierarchy; no new download, provider, dependency or imagery is needed for styling.
+
+**Security surface changed:** Yes: one explicit outbound address/search data flow to fixed HTTPS
+Photon, with UI disclosure/consent, cookie/CSRF, current role/tool/Workspace rechecks, a persisted
+20/hour account budget, process-wide single-flight/one-start-per-second admission, ten-second
+deadline, 256 KB reply cap and typed candidates. Workspace-keyed bounded memory results expire
+after one hour and are absent from logs/DB/backups. See security section 14.
+
+**Checks:** Server/web type checks, lint and production web build; full Vitest regression run
+(242 files, 1,904 tests), plus expanded focused address suite (13 tests). Negative cases cover
+roles, foreign/disabled Workspace, CSRF/consent, provider redirects/malformed/oversized data,
+cache separation, concurrent admission, persisted budget and authority revoked during lookup.
+Desktop/phone Playwright Map tests pass, including lookup → candidate → explicit Save and
+coordinate display, manual pins, unresolved places, full-screen Escape and focus restoration.
+Real downloaded Triora archive browser checks and screenshots are recorded locally under
+`.var/map-browser-evidence/`: actual saved Light and Memento Mori themes at 320/390/1440 px,
+repeated zoom in/out, close-up buildings/roads, full-screen canvas retention, focus containment/
+restoration, reduced motion, no horizontal overflow and zero WCAG A/AA axe violations. Visual
+inspection confirms the false river-fill wedges are absent and local building detail is present.
+
+**Limits:** Public Photon needs internet and offers no availability or location-accuracy promise;
+review coordinates and keep approximate locations labelled. Existing saved addresses need an
+explicit lookup and Save to gain pins. Satellite imagery, terrain/hillshade, automatic/bulk
+geocoding and background map updates remain separate work. Changes are local, not released or
+live-deployed; the published owner count remains 76 and next is 77.
+
+## 50 — Ask VMN and two clear AI administration tasks (owner request, 2026-11-22)
+
+**DONE locally.** The owner authorized native OpenAI Responses chat, narrowly extending
+external AI processing for explicit questions and bounded shared Note/Recipe excerpts. The
+pre-edit trace covered the actual React `/admin/connections`/legacy return routing, Fastify
+session/CSRF and admin handlers, MCP consent/grant/delegation checks, source services and
+visibility, file-secret loading, outbound adapters, backups and existing regression suites.
+The two-section layout and independent native/MCP status model were summarized before editing.
+Existing unrelated Map/weather/asset work in this checkout has been preserved.
+
+- **Native chat:** a labelled Ask VMN header action opens a native modal side panel on desktop/
+  tablet, full height on phones, with focus containment/restoration and Escape. Streamed plain
+  text, explicit Send, Stop, error recovery with the question retained, own history, deletion
+  and delete-all use theme tokens and the English translation catalog. No chat is persisted
+  in browser/offline storage. Switching account/Workspace resets the panel to general mode.
+  Focused editing follows the existing shell's hidden-global-navigation convention.
+- **General mode:** ordinary signed-in users use their own VMN session; no Workspace ID or
+  records go to the provider. Workspace lookup is explicit and displays the selected name.
+  The server and each Workspace admin separately opt in. The Workspace policy is available
+  in Workspace settings → Plugins and in chat's policy disclosure, default off on upgrade,
+  new Workspace and portable restore.
+- **Read-only sources:** one forced `search_records` tool chooses a short query; existing
+  shared `listJournal/getJournalEntry` and home-Workspace `listRecipes/getRecipe` services
+  authorize each lookup. Four bounded matching excerpts go to the final answer call, with
+  no callable tools. Private Journal, private Recipes, archived records, files and other
+  tools stay out. VMN constructs links from verified IDs; model text cannot create links.
+  Recipe `?recipe=id` opens the actual record through its authorized detail API. Empty
+  search results produce no fabricated source links. This is bounded text search, not a
+  semantic index, and translated/sentence searches may need a more distinctive short term.
+- **Private persistence:** migration 0086 adds four classified/excluded tables: server settings,
+  Workspace AI policy, own conversations and value-free billing reservations. Context references
+  include source revisions. Reads/follow-ups recheck membership, role/tool gates, server and
+  Workspace policy, source visibility and revisions before reusing prior messages. A transcript
+  comparison in admission prevents stale-tab overwrites; a DB trigger and repository checks
+  keep owner/Workspace binding immutable. Deletion during a response cannot resurrect history.
+  Owners retain access to read/delete history when native chat is disabled.
+- **Provider:** dedicated `ASK_VMN_OPENAI_KEY(_FILE)` follows the existing protected secret loader
+  and redacting `Secret`, never reaches UI/log/report/export, and supports the standard read-only
+  Unraid secrets mount. The fixed HTTPS Responses endpoint refuses redirects, uses store:false,
+  and is bounded in input, output, buffer size, duration and two-call loop. No dependency was
+  added. The reviewed pinned model is `gpt-5.4-mini-2026-03-17`, reasoning none; the initial
+  GPT-4.1 mini candidate was replaced when current official docs marked it deprecated.
+  No MCP self-call, grant creation, impersonation, tunnel credential or removed generator.
+- **Spending:** chat/tests default off, cap zero. SQLite IMMEDIATE admission reserves $0.10
+  against the global UTC-month cap before any call; one active turn per account, persistent
+  rate limit, unique request UUID, all accounts/tabs/connections share the same allowance.
+  Known completed usage settles at $0.75/M input and $4.50/M output, rounding up and ignoring
+  cached discounts. Unknown/failed/cancelled/interrupted attempts retain full reservations.
+  Restart/lock expiry/deletion/retry cannot refund spending. Reports contain aggregate month,
+  cost and counts only. The operator guide documents the worst-case bound, UTC admission month,
+  model/price maintenance, actual invoice limitations and provider privacy/billing disclosure.
+- **Server admin → AI:** keeps `/admin/connections`, the old account alias and OAuth return;
+  consent still directly opens the existing consent form. Ask VMN has its own configuration,
+  mounted-key presence, supported provider/model, lookup permission, monthly usage/cap and
+  explicitly billable test (one streamed `Reply with OK.`, no Workspace records). Configuration
+  status, missing credential, failed request and exhausted allowance are distinct. External
+  assistants retains acting accounts, Workspace/action grants, expiry/disconnect, approved file
+  sources, automatic AI safety backups, local checks/copy-report actions and tunnel runbook. No
+  existing settings, grants, approvals, Daily Planet records or backup records are rewritten.
+
+**Security surface changed: HIGH.** The policy/checklist in security.md section 50 records
+credential, external processing, private history, consent/authorization and spending boundaries.
+AGENTS.md, architecture, user guide, MCP/tunnel operator docs, `.env.example` and the optional
+Unraid template field are updated. Exact setup is in `docs/admin/ask-vmn.md`.
+
+**Checks before updating the checkout to current main:** full Vitest **245 files / 1,921 tests passed** with local socket/child-process
+access (two workers), lint, all root/package typechecks, production build and diff checks pass.
+The initial sandboxed suite hit existing socket/child-process restrictions; the unrestricted
+local suite passed. Dedicated Ask tests use an injected provider; adapter tests use synthetic,
+fragmented SSE fixtures. Coverage includes ordinary general questions with MCP off, the actual
+Casa Nostra oven Note and public Recipe links, private-source exclusion, no match/no links,
+owner isolation, Workspace binding, source/tool/policy/membership changes, CSRF/admin boundaries,
+near-cap concurrency, separate DB connections/reopen, duplicate admission/settlement, cancellation
+and deletion during flight. The populated pre-0086 migration preserves external grants, pending
+consent, file approvals, Daily Planet and backup rows byte-for-byte and refreshes the existing
+OAuth token after migration, with native chat still off. Existing MCP/OAuth/file-host/Gazette
+regressions pass. The dependency mitigation check and high-threshold audit pass (two existing
+moderate advisories, no new dependencies).
+
+**Browser verification:** the complete production-build Playwright suite passed **40 checks /
+2 intentional skips**. A final focused chat rerun passed **4 checks** after the localized HTTP
+failure recovery change; the final provider guard checks also pass (**4 adapter tests**).
+This covers desktop/phone and all four native/MCP enablement combinations, real phone touch,
+keyboard close/reopen, Note-link navigation, provider/HTTP failures with preserved input, Stop,
+Light/Dark, reduced motion, overflow and axe. Existing MFA/OAuth consent, copy diagnostics,
+file-source/grant controls and Daily Planet flows pass with native chat off. Fixtures honor
+VMN's real sign-in Retry-After rather than changing production limits. Screenshots use only
+fictional data and mocked provider output; the source Note and linked page are real local
+records. Five selected originals and the detailed verification boundary are in
+[the screenshot handoff](../../assets/screenshots/ask-vmn-2026-11-22/README.md); the full 20-image
+matrix is generated under ignored `.var/ask-browser-evidence/`.
+The first broad run found an assertion for the renamed AI label and a floating launcher's
+collision with the scenic phone dock. The assertion now uses AI, and the launcher lives in the
+header with its own responsive space. The native Escape/reopen race found in early testing is
+fixed by handling native dialog cancellation explicitly. No accessibility rule was suppressed. Visual review also caught squeezed mobile grant names:
+connection status/disconnect now use a second row and permission labels use full-width rows.
+The mobile name-column readability check and six chat/OAuth browser checks pass; the final
+four-chat rerun also covers localized HTTP failures and the simpler model label.
+
+**Remaining/limits:** no live OpenAI call, credential/billing test or production Unraid deployment.
+Release preparation is recorded below. Browser answer content is fictional/intercepted; backend authorization,
+billing and provider parsing are separately exercised with injected providers and synthetic response streams. Real
+provider answer quality, physical iPad/iOS keyboard and screen-reader testing remain manual.
+Only the pinned model and bounded text lookup ship in this first release. Provider retention
+and old full-server backups are outside local conversation deletion. Owner milestone remains
+**79**, next **80**; the special Release 42 and dedication remain unchanged.
+
+
+
+### 50.1 — Release plan: 0.17.3 (owner release 80)
+
+Update the existing checkout in place on main, preserving the 0.17.2 release (owner 79)
+and the special 42nd dedication. Publish stable tag v0.17.3 after current checks pass;
+advance images 0.17.3, 0.17 and latest through the normal signed release workflow.
+Native chat is disabled on upgrade. Migration 0086 is additive after 0083–0085.
+Preserve existing grants, consent, file approvals, real automatic MCP safety backups,
+Daily Planet and offline support. Check populated upgrades from immutable 0.17.2,
+0.17.1, 0.17.0 and the retained long-jump baseline. Live Unraid deployment is separate.
+
+
+**0.17.2 reconciliation:** kept main's migrations 0083–0085 and generated additive 0086,
+retained the automatic MCP safety-backup service/UI and new external scopes, and gated native
+lookups with both the Workspace-wide AI switch and explicit native opt-in. Responses streaming
+now uses the common outbound client and bounded chunk reader, including declared-length checks
+and cancellation. Private chat endpoints are explicitly tested as excluded from offline storage.
+Native personal chat and billing have no MCP actions: exposing them would break owner privacy
+and permit recursive spending; shared Notes/Recipes keep their existing MCP manifest coverage.
+The current checkout remains main; no extra branch or worktree was created.

@@ -1,3 +1,4 @@
+import { AddressLookup } from './AddressLookup.tsx';
 import { useCallback, useEffect, useState, type FormEvent } from 'react';
 import { MAP_CATEGORIES, MAP_POINT_ROLES, type MapApproach, type MapPointFields, type MapPlace, type MapPlaceDetails, type MapPlaceInput, type MapPointRole, type MapSource, type MapTag } from '@vergissmeinnicht/domain';
 import { mapApi, mapPhotoUrl, messageFor } from '../../api.ts';
@@ -18,8 +19,9 @@ export function PlaceEditor(props: Props) {
   const [initial] = useState(() => editDraft(existing));
   const [draft, setDraft] = useState<MapPlaceInput>(() => ({ ...initial, name: existing ? initial.name : '' }));
   const [coord, setCoord] = useState('');
-  const [method, setMethod] = useState<'none' | 'coordinates' | 'link'>(existing?.details.originalUrl ? 'link' : 'none');
+  const [method, setMethod] = useState<'none' | 'coordinates' | 'link' | 'address'>(existing?.details.address ? 'address' : existing?.details.originalUrl ? 'link' : 'none');
   const [role, setRole] = useState<MapPointRole>('destination');
+  const [provenance, setProvenance] = useState('');
   const [approximate, setApproximate] = useState(false);
   const [issue, setIssue] = useState('');
   const [createdApproach, setCreatedApproach] = useState<Pick<MapApproach, 'id' | 'name'> | null>(null);
@@ -46,11 +48,11 @@ export function PlaceEditor(props: Props) {
     event.preventDefault();
     if (uploading || props.busy) return;
     setIssue('');
-    const position = method === 'coordinates' && (props.dropped || coord) ? parsePair(props.dropped || coord) : null;
-    if (method === 'coordinates' && (props.dropped || coord) && !position) { setIssue(t('map.badPair')); return; }
+    const position = (method === 'coordinates' || method === 'address') && (props.dropped || coord) ? parsePair(props.dropped || coord) : null;
+    if ((method === 'coordinates' || method === 'address') && (props.dropped || coord) && !position) { setIssue(t('map.badPair')); return; }
     const points = position ? [...draft.points, { role, preferred: draft.points.length === 0, newPoint: {
       ...position, label: role === 'destination' ? draft.name : t(`map.role.${role}`),
-      precision: approximate ? 'approximate' as const : 'exact' as const, provenance: '',
+      precision: approximate ? 'approximate' as const : 'exact' as const, provenance: props.dropped ? '' : provenance,
     } }] : draft.points;
     props.onSave({ ...draft, points, details: { ...draft.details, sources: draft.details.sources.filter(source => source.url.trim()) } });
   }
@@ -105,19 +107,23 @@ export function PlaceEditor(props: Props) {
         <button type="button" onClick={() => { setDirty(true); setDraft({ ...draft, points: draft.points.filter((_, i) => i !== index) }); }}>{t('documents.upload.remove')}</button>
       </div>;
     })}
+    {text('address', t('map.address'))}
     <div className="vmn-map-two">
       <label>{t('map.locationMethod')}<select value={props.dropped ? 'coordinates' : method} onChange={event => {
         props.onUseDrop(); setMethod(event.target.value as typeof method);
       }}>
         <option value="none">{t('map.locationLater')}</option>
+        <option value="address">{t('map.addressSearch')}</option>
         <option value="coordinates">{t('map.coordinates')}</option>
         <option value="link">{t('map.originalLink')}</option>
       </select></label>
       <button type="button" onClick={() => { setMethod('coordinates'); setDirty(true); props.onPick(); }}>{t('map.dropPin')}</button>
     </div>
-    {(method === 'coordinates' || props.dropped) && <div className="vmn-map-two">
+    {method === 'address' && <AddressLookup workspaceId={props.workspaceId} seed={[draft.name, draft.details.address, draft.details.locality].filter(Boolean).join(', ')}
+      onChoose={candidate => { props.onUseDrop(); setCoord(`${candidate.latitude}, ${candidate.longitude}`); setRole('destination'); setApproximate(candidate.approximate); setProvenance(candidate.sourceUrl); setDirty(true); }} />}
+    {(method === 'coordinates' || method === 'address' || props.dropped) && <div className="vmn-map-two">
       <label>{t('map.latLon')}<input value={props.dropped || coord} inputMode="text" placeholder="44.00166, 7.71564"
-        onChange={event => { props.onUseDrop(); setCoord(event.target.value); }} /></label>
+        onChange={event => { props.onUseDrop(); setCoord(event.target.value); setProvenance(''); }} /></label>
       <label>{t('map.pointRole')}<select value={role} onChange={event => setRole(event.target.value as MapPointRole)}>
         {MAP_POINT_ROLES.map(value => <option key={value} value={value}>{t(`map.role.${value}`)}</option>)}
       </select></label>
@@ -141,7 +147,7 @@ export function PlaceEditor(props: Props) {
       <summary>{t('map.secondaryFields')}</summary>
       <div className="vmn-map-editor-fields">
         {text('description', t('map.description'), 'text', 1600)}
-        <div className="vmn-map-two">{text('address', t('map.address'))}{text('website', t('map.website'), 'url', 2048)}</div>
+        <div className="vmn-map-two">{text('website', t('map.website'), 'url', 2048)}</div>
         <div className="vmn-map-two">{text('hours', t('map.hours'), 'text', 320)}{text('hoursCheckedOn', t('map.checkedOn'), 'date', 10)}</div>
         <label>{t('map.sharedApproach')}<select value={draft.approachId ?? ''} onChange={event => setDraft({ ...draft, approachId: event.target.value || null })}>
           <option value="">{t('map.noSharedApproach')}</option>

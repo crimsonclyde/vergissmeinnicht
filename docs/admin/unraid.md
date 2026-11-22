@@ -128,3 +128,12 @@ With Nginx Proxy Manager or SWAG on a custom Docker network (e.g. `proxynet`): s
 The image was run as the template does it: started as root with `PUID=99`/`PGID=100` (application process as 99:100, no effective or bounding capabilities), `TRUSTED_PROXIES=loopback`, secrets from files, migration on start, scheduled backup, `admin-bootstrap` from the console, restore; and in the hardened reverse-proxy variant (`--user 99:100 --read-only --cap-drop ALL`). Unraid's Tailscale setup itself runs only on Unraid and was not part of these tests — please report anything that differs.
 
 A private network never replaces the app's own sign-in; keep two-factor authentication on for admins.
+
+## Optional Ask VMN chat
+
+Native chat is disabled on upgrade and independent of the ChatGPT tunnel. The standard secrets
+mount can hold `secrets/ask_vmn_openai` (owner 99:100, mode 0400); set
+`ASK_VMN_OPENAI_KEY_FILE=/run/secrets/ask_vmn_openai` in the saved template and restart. Use a
+dedicated OpenAI project key. Enable chat, save a monthly cap and optionally allow lookups in
+Server admin → AI. Each Workspace also needs its admin's explicit lookup opt-in. Follow the
+[exact configuration, privacy disclosure, billable test and spending rules](ask-vmn.md).

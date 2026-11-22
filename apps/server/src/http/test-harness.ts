@@ -32,10 +32,12 @@ export type InjectResponse = Awaited<ReturnType<App['inject']>>;
 
 export async function startTestApp(
   options: {
+    askProvider?:import('@vergissmeinnicht/application').AskProvider;
     mcpEnabled?:boolean;
     managedMapData?: boolean;
     mapRunner?: MapRunner;
     mapFetch?: typeof fetch;
+    mapAddressFetch?: typeof fetch;
     webDistDir?: string;
     runEvents?: RunEventsOptions;
     trustedProxies?: readonly string[];
@@ -89,7 +91,9 @@ export async function startTestApp(
       ...(options.captureLogs === true ? { logger: { ...loggerOptions('info'), stream: logStream } } : {}),
       services: (log) => {
         const built = createServices(testConfig, database, {
+          ...(options.askProvider?{askProvider:options.askProvider}:{}),
           weatherFetch: options.weatherFetch ?? blockedWeatherFetch,
+          mapAddressFetch: options.mapAddressFetch ?? blockedWeatherFetch,
           chatGptFileSource: options.chatGptFileSource ?? (() => { throw new Error('network blocked in tests'); }),
           // AI safety backups (48.1): the in-memory test database through SQLite's backup API.
           aiBackups: { dir: join(mediaDir, 'backups'), write: options.aiBackupWrite ?? (async (target) => void (await database.sqlite.backup(target))) },

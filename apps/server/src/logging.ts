@@ -15,6 +15,7 @@ export function redactUrl(url: string): string {
   const redactedPath = normalisedPath(path).replace(TOKEN_PATH_PATTERN, '$1[REDACTED]')
     .replace(/^(\/(?:api\/)?account\/journal\/)(?!(?:privacy|draft|export|attachments)(?:\/|$))[^/]+/, '$1[REDACTED]')
     .replace(/^(\/(?:api\/)?account\/journal\/attachments\/)(?!usage(?:\/|$))[^/]+/, '$1[REDACTED]')
+    .replace(/^(\/api\/ask\/conversations\/)[^/]+/, '$1[REDACTED]')
     .replace(/^(\/api\/workspaces\/[^/]+\/map\/places\/)[^/]+(\/(?:visits|personal|visit-photo)(?:\/.*)?$)/, '$1[REDACTED]/private');
   return queryStart === -1 ? redactedPath : `${redactedPath}?[REDACTED]`;
 }

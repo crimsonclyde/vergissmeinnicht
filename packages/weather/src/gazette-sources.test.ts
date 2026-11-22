@@ -39,6 +39,25 @@ describe('Daily Planet weather sources (43.7)', () => {
     expect(await reason(sources(() => { throw new TypeError('network'); }).openMeteoModels(TRIORA, ['ecmwf_ifs025'], 7))).toBe('unavailable');
   });
 
+  it('checks raw Open-Meteo accumulations before rounding and preserves valid bounds', async () => {
+    const models = ['italia_meteo_arpae_icon_2i', 'ecmwf_ifs025', 'icon_eu'];
+    const time = Array.from({ length: 9 }, (_, i) => `2026-11-${15 + i}`);
+    const daily = {
+      time,
+      ...Object.fromEntries(models.flatMap(model => [
+        [`temperature_2m_max_${model}`, time.map(() => 10)],
+        [`precipitation_sum_${model}`, [0, 2000, -0.01, 2000.01, null, '1', false, 'overflow']],
+      ])),
+    };
+    // JSON has no literal Infinity; a numeric exponent can still overflow when parsed.
+    const body = JSON.stringify({ daily }).replaceAll('"overflow"', '1e999');
+    const result = await sources(() => json(body)).openMeteoModels(TRIORA, models, time.length);
+    for (const model of models) {
+      expect(result[model]?.map(d => d.high)).toEqual(time.map(() => 10));
+      expect(result[model]?.map(d => d.precipitationMm)).toEqual([0, 2000, ...Array(7).fill(undefined)]);
+    }
+  });
+
   it('builds MOSMIX days from the forecast station only, in the place\'s time zone', async () => {
     const seen: URL[] = [];
     const { station, days } = await sources(() => json(fixture('gazette-brightsky-mosmix.json')), seen).mosmix(GOGGENHOFEN, '2026-11-15', 7);
@@ -55,6 +74,16 @@ describe('Daily Planet weather sources (43.7)', () => {
     expect(day?.hours).toBeGreaterThanOrEqual(MIN_HOURS_PER_DAY);
     const sparse = JSON.parse(fixture('gazette-brightsky-observations.json')) as { weather: unknown[] };
     expect(await sources(() => json(JSON.stringify({ ...sparse, weather: sparse.weather.slice(0, 10) }))).dwdObservations(GOGGENHOFEN, '2026-11-13')).toBeNull();
+  });
+
+  it('does not report a rainfall total when a station hour has an invalid amount', async () => {
+    const body = JSON.parse(fixture('gazette-brightsky-observations.json')) as { weather: { precipitation: number }[] };
+    for (const hour of body.weather) hour.precipitation = 1;
+    const baseline = await sources(() => json(JSON.stringify(body))).dwdObservations(GOGGENHOFEN, '2026-11-13');
+    expect(baseline?.precipitationMm).toBeGreaterThan(0);
+    for (const hour of body.weather.slice(0, 2)) hour.precipitation = -1;
+    const invalid = await sources(() => json(JSON.stringify(body))).dwdObservations(GOGGENHOFEN, '2026-11-13');
+    expect(invalid).toMatchObject({ precipitationMm: null, high: baseline?.high, low: baseline?.low });
   });
 
   it('maps official DWD warnings to levels and drops expired ones', async () => {

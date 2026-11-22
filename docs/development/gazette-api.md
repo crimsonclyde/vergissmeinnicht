@@ -117,6 +117,11 @@ today or tomorrow rebuilds each enabled weather section on the server from the *
 is replaced. Older dates keep the weather section of the stored edition. Operation ids hash the
 client's content, so a retry stays idempotent even though VMN's forecast changed.
 
+VMN excludes missing or invalid precipitation totals from the automatic comparison. Each model
+day shows `precipitationMm: null` when its amount is unknown; the combined day uses only valid
+amounts or shows `null` if none are available. Valid totals are finite numbers from 0 to 2,000 mm,
+inclusive. A reported zero still means zero rain. Client-written weather is still validated strictly.
+
 Section fields (all optional, so editions written before 43.7 still parse):
 
 - `status`: `ok`, `no_location` (no Workspace location; `locations` is empty) or `unavailable`

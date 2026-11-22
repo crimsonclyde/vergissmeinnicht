@@ -42,6 +42,13 @@ The existing pinned PMTiles library is reused on the server. One job runs in the
 there is no external worker service or queue. Public, versioned cartography is served under
 `/map-assets/managed/`, with no private overlays or manifests exposed. Storage follows the
 existing database volume and is separate from application/Workspace backup records.
+Reviewed address lookup (44.3) uses a separate fixed-Photon adapter with a bounded, ephemeral
+Workspace-keyed cache. The cookie-authenticated Map route requires editor authority and explicit
+consent, then rechecks current authority before returning typed candidates. The browser chooses
+a candidate into its local draft; the existing place command remains the only persistence path.
+MapLibre's local style separates polygon fills from line waterways. A permanent native dialog
+keeps the WebGL canvas mounted during full-screen viewing; a ResizeObserver updates its size.
+
 - pnpm preferred
 
 Exact versions must be pinned/locked when implementation begins and checked against current security advisories.
@@ -1075,3 +1082,39 @@ generator are gone. Assistants generate images themselves and upload them with
 `upload_recipe_image_file`, which ChatGPT sees again; the Recipe write then takes the returned
 reference as `coverImage`. The architecture is: external image creator → VMN MCP upload → VMN
 attachment storage → Recipe cover and thumbnails.
+
+### Native Ask VMN and two AI administration tasks (45, 2026-11-22)
+
+Ask VMN is an independent vertical slice of the monolith: `packages/application/src/ask.ts`
+owns context validation, the one read-only lookup and two-call orchestration; `AskRepository`
+and `AskProvider` are ports. `packages/database/src/ask-repository.ts` supplies account ownership,
+Workspace policy, bounded chat persistence and atomic monthly spending admission. Migration
+0086 adds server-local settings/policy, private conversations and value-free usage reservations.
+All four tables are excluded from portable Workspace packages; full server backups retain them.
+Workspace AI consent deliberately does not transfer with a portable restore.
+
+`apps/server/src/integrations/ask-openai.ts` implements a bounded Responses SSE reader against
+one fixed OpenAI endpoint with a dedicated redacting config secret and store:false. The pinned
+model is GPT-5.4 mini (`gpt-5.4-mini-2026-03-17`, reasoning none). General mode exposes no tools.
+Workspace mode first forces `search_records` to choose a short query, calls existing Note and
+Recipe application services under the authenticated actor, then submits four limited excerpts
+as untrusted function output to a final answer call with no tools. An empty search produces a deterministic VMN no-match answer without a second provider call.
+Source IDs never come from model output: VMN builds links from verified records. Conversation history carries source
+references/revisions; each read/follow-up reauthorizes them before reusing any earlier context.
+
+`/api/ask/turn` streams typed newline-delimited events to a same-origin authenticated fetch.
+The existing Fastify session, CSRF and persisted rate-limit system applies. A disconnect,
+90-second deadline or Stop aborts the provider; money remains reserved when usage is uncertain.
+Atomic integer-microdollar admission spans all accounts/tabs and survives restart. See the
+[operator guide](../admin/ask-vmn.md) for the token envelope, prices, reservation, UTC month and
+known/unknown usage reconciliation. No new SDK, queue, provider proxy, vector store or MCP
+self-client is introduced.
+
+React `AskWindow` opens an accessible native dialog over the current route, retains the page,
+and uses full-height phone layout, semantic tokens, plain-text answers and explicit source
+links. It is keyed to account/Workspace and stores no browser-persistent chat. `AskAdmin` keeps
+`/admin/connections` and routes OAuth requests directly to the existing consent component.
+Ordinary admin use has separate Ask VMN / External assistants sections. Existing grants, file
+approvals, automatic AI safety backups, diagnostic reports and tunnel setup remain under the latter.
+Workspace settings → Plugins exposes the explicit admin AI opt-in. The existing Recipe page
+accepts `?recipe=<verified id>` through its ordinary authorized detail API.

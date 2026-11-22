@@ -653,8 +653,18 @@ The previous map stays available until a replacement is installed; reopen Map af
 Town search uses Open-Meteo and regional downloads use Protomaps; saved places and private
 visits are never sent to those providers. Workspace admins still enable the Map tool separately.
 
-Workspace editors can add and archive places. Choose a category, then drop a pin, enter WGS 84
-latitude and longitude, save an original link, or leave the location for later. Walking approaches
+Use **Full screen** above the map for a larger view; **Exit full screen** or Escape returns to
+browsing with the same map position. Roads, waterways, buildings and labels use the installed
+regional data. Improving the style does not require another download.
+
+Workspace editors can add and archive places. An address alone does not create a pin. In
+**Add place** or **Edit place**, enter the address and choose **Find address on map**, then
+**Find location**. This explicitly sends the displayed search to Photon (komoot). Review a
+suggestion, choose **Use this location**, check its coordinates and approximate-area setting,
+then **Save place**. Lookup never saves by itself, and existing pins are retained unless you
+remove them. Public lookup can be unavailable or inaccurate; you can edit the search, drop a
+pin or enter WGS 84 latitude and longitude instead. You can also save an original link or
+leave the location for later. Walking approaches
 and starting points can be reused. Review reported hazards and the check date in a place’s details.
 **Go** opens Google Maps. Separate parking and trailhead destinations are labelled on the action.
 For Garmin or another device, use **Coordinates** to copy the labelled latitude–longitude pair.
@@ -663,3 +673,43 @@ For Garmin or another device, use **Coordinates** to copy the labelled latitude�
 per visit. A visit recorded without a date is labelled **Visited · date unspecified**. Your private
 visit, flag and photo records are excluded from Workspace backups. Workspace admins can add or
 rename shared tags through **Manage Workspace tags**.
+
+## Ask VMN
+
+If the operator enables it, **Ask VMN** opens a private chat from the page you are using.
+Desktop/tablet show a side panel; phones use the full height. Close it or press Escape to
+return to the same page. Tab moves through its controls. The question field supports multiple
+lines; use **Send question** to submit. **Stop response** stops waiting for an answer. On an
+error, your question stays in the field so you can retry deliberately. A stopped request may
+still incur provider charges. No automatic retry runs.
+
+It starts in **General question · no Workspace records** mode. For example, ask “How would
+I ask Gianni in Italian when he can come with his tractor?” without sending Notes or Recipes.
+OpenAI receives the conversation's questions and prior messages. API usage is separately billed
+from ChatGPT Plus; the household operator supplies the credential, not each household member.
+
+If both the operator and Workspace admin allow lookups, choose **Look up shared Notes and
+Recipes**. Check the visible Workspace name before sending. “What did we save about the oven
+functions in Casa Nostra?” can retrieve a matching shared Note and show its actual VMN link.
+Search is a bounded text search, not an exhaustive semantic index; try a distinct word such as
+“oven” if a longer or translated query finds nothing. Read the linked record to check an answer.
+The sources list contains the verified sources used in this conversation. A model can make
+mistakes. Its text cannot create clickable record links; VMN supplies those separately.
+
+Lookup includes only shared Notes and non-private, unarchived Recipes in the selected Workspace.
+It excludes your private Journal, private Recipes, attachments and every other tool. It cannot
+change records. Matching excerpts go to OpenAI. Workspace admins enable this under **Workspace
+settings → Plugins → Ask VMN**; the server's lookup switch must also be on.
+
+**New conversation** starts over. **Your conversations** reopens your accessible saved chats in
+the current mode/Workspace. Nobody else can read them through VMN, including administrators.
+**Delete conversation** removes the current saved conversation. **Delete all my conversations**
+also removes histories hidden after you lose access to a Workspace. This does not erase older
+server backups or provider retention. Chats are not saved in offline browser storage.
+
+A Workspace conversation always belongs to its original Workspace. Switching Workspace clears
+the panel and starts general mode; it never sends the old conversation into the new Workspace.
+Membership loss, a disabled source tool, a changed/archived/private source, or revoked AI policy
+blocks reuse of the stored context. Start a new conversation when VMN reports that context is
+unavailable. There are limits on history length and monthly spending; ask the operator if the
+allowance is reached.

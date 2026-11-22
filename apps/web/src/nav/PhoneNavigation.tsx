@@ -58,7 +58,8 @@ export function PhoneNavigation({ nav, page }: { nav: Navigation; page: Route['p
       ref={dialog}
       className="tool-drawer"
       aria-labelledby={heading}
-      onClose={() => { setOpen(false); opener.current?.focus(); }}
+      onCancel={event => { event.preventDefault(); setOpen(false); }}
+      onClose={() => { if (dialog.current?.open === false) opener.current?.focus(); }}
       onClick={event => { if (event.target === dialog.current) setOpen(false); }}
     >
       <div className="tool-drawer-sheet" style={drag > 0 ? { transform: `translateY(${drag}px)` } : undefined} onTouchStart={begin} onTouchMove={sheetMove} onTouchEnd={sheetEnd}>

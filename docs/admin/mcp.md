@@ -1,7 +1,7 @@
 # AI assistant connections and Recipe images
 
 MCP is optional and disabled by default. Set `MCP_ENABLED=true` and restart VMN to offer the
-Streamable HTTP endpoint at `${PUBLIC_ORIGIN}/mcp` and **Server admin → AI connections**. Only server
+Streamable HTTP endpoint at `${PUBLIC_ORIGIN}/mcp` and **Server admin → AI → External assistants**. Only server
 admins can allow a connection (since 36.24); the connection acts as the admin who allowed it.
 Enabling it does not publish a port, install a tunnel, grant an account access or enable image billing.
 Use an HTTPS `PUBLIC_ORIGIN` for production; it may remain private Tailscale HTTPS. Existing
@@ -340,7 +340,7 @@ the existing Tailscale-only installation must remain untouched.
 
 ## Using VMN from ChatGPT
 
-**Server admin → AI connections** lists every connection on the server with who it acts for, its
+**Server admin → AI → External assistants** lists every connection on the server with who it acts for, its
 Workspaces, access, expiry and whether a token was issued, and can disconnect any of them. **Run local checks** produces a copyable report with the browser's endpoint statuses and
 aggregate exchange counts. For the Docker host report and the end-to-end grocery read, see the
 [troubleshooting runbook](chatgpt-mcp-tunnel.md#troubleshoot-the-first-failed-checkpoint).
@@ -491,7 +491,7 @@ or `sdmntswcentralus.oaiusercontent.com`, and the Azure storage accounts
 (images ChatGPT crops out of a PDF).
 
 If ChatGPT uses another storage host, the tool error names it and VMN lists it under
-**Server admin → AI connections → File sources**. If you just asked ChatGPT for that file, tap
+**Server admin → AI → External assistants → File sources**. If you just asked ChatGPT for that file, tap
 the check icon to allow it and ask ChatGPT to try again. No restart or new release is needed. The
 bin icon removes a host again. Only hosts VMN refused itself appear there, and only exact names
 below `oaiusercontent.com` or `blob.core.windows.net`.
@@ -564,3 +564,14 @@ change, using complete collections if replacing points or tags. Read back succes
 report unresolved location, match review or rejected items individually. The application exposes
 shared place records, sources and points through these scopes. Private notes, ratings, visits and
 visit photos require the owner's ordinary web session.
+
+## Native chat and the AI administration page
+
+Server admin → **AI** keeps `/admin/connections` and the existing OAuth consent return flow.
+**External assistants** contains the MCP grants, acting accounts, Workspace/action access,
+expiry/disconnect, file approvals, AI safety backup links, local checks and tunnel runbook.
+**Ask VMN** is a separate, disabled-by-default native chat using a dedicated OpenAI Responses
+credential and ordinary VMN sessions. It does not call `/mcp`, create a grant or use the tunnel.
+MCP and The Daily Planet continue to work with native chat disabled. See [Ask VMN setup](ask-vmn.md)
+for the Unraid secret mount, privacy choices and monthly cap. Existing documentation references
+to “AI connections” mean this page's **External assistants** section.

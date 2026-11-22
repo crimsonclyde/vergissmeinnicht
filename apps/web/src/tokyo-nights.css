@@ -116,6 +116,10 @@
   background: rgb(14 15 34 / 88%);
   border-right: 1px solid transparent;
   border-image: linear-gradient(180deg, transparent, var(--neon-c), var(--neon-b), transparent) 1;
+}
+
+/* The sticky top bar already has an opaque surface. Blur can leave stale menu pixels when it reflows. */
+:root[data-theme='tokyo-nights'] .shell[data-layout='classic'] .shell-side {
   backdrop-filter: blur(10px);
 }
 

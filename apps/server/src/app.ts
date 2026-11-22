@@ -1,3 +1,4 @@
+import {askRoutes} from './http/ask-routes.ts';
 import { mapDataRoutes } from './http/map-data-routes.ts';
 import { MapDataManager, type MapRunner } from './map-data/manager.ts';
 import type { MapFetch } from './map-data/remote.ts';
@@ -240,6 +241,7 @@ export async function buildApp(options: AppOptions = {}) {
           footerHidden: (await getInstanceSettings(services.instanceSettings)).footerHidden,
         }));
         await api.register(authRoutes, { prefix: '/auth', services });
+        await api.register(askRoutes,{prefix:'/ask',services});
         await api.register(mcpAccountRoutes,{prefix:'/account/mcp',services});
         await api.register(mcpAdminRoutes,{prefix:'/admin/mcp',services});
         await api.register(recipeRoutes,{prefix:'/workspaces/:workspaceId/recipes',services});

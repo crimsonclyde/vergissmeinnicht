@@ -92,8 +92,8 @@ private path before changing the tunnel target.
 
 Create or reuse a tunnel in Platform. Use the official tunnel client and check
 `tunnel-client help quickstart` for the installed version. Configure the runtime key
-through a protected operator-managed secret. Keep it separate from VMN OAuth and any
-optional Recipe image API key. [OpenAI tunnel client setup](https://developers.openai.com/api/docs/guides/secure-mcp-tunnels#set-up-tunnel-client)
+through a protected operator-managed secret. Keep it separate from VMN OAuth and the
+dedicated Ask VMN billing key. [OpenAI tunnel client setup](https://developers.openai.com/api/docs/guides/secure-mcp-tunnels#set-up-tunnel-client)
 
 Point the main MCP target at the **exact private HTTPS VMN origin plus `/mcp`**.
 The live failure used an internal Docker HTTP target while VMN advertised HTTPS OAuth
@@ -228,7 +228,7 @@ refresh is needed for an authenticated read test. Connected catalog verification
 tool call remain separate checkpoints.
 
 - **Expired or disconnected.** Reconnect from the assistant and review the VMN consent
-  again. Confirm the new grant in **AI connections** and repeat the grocery read.
+  again. Confirm the new grant in **AI → External assistants** and repeat the grocery read.
 - **OAuth completes, but the tool catalog looks stale after an upgrade.** Refresh the
   plugin in ChatGPT, check tool enablement and try a fresh chat. Confirm the expected
   scopes in VMN. To change them, disconnect the old grant and reconnect with the intended
@@ -240,7 +240,7 @@ tool call remain separate checkpoints.
 
 ## Troubleshoot the first failed checkpoint
 
-In VMN, open **Server admin → AI connections → Run local checks**. The report gives
+In VMN, open **Server admin → AI → External assistants → Run local checks**. The report gives
 the browser's endpoint statuses, whether the discovery metadata matches, and counts of your
 active grants with and without a recorded token exchange. Use **Copy diagnostics** to share
 it. An issued token is evidence of OAuth exchange. The grocery read still verifies the
@@ -278,6 +278,16 @@ forced command that returns only fixed VMN and tunnel status fields. If you use 
 it available through the agreed test window and retire it when done. Share UTC times,
 route paths and statuses. Keep tokens, authorization codes, callback query strings, raw
 payloads and unrelated server logs out of the chat. To retire a test connection, revoke
-the grant under VMN **Server admin → AI connections** and remove the diagnostic
+the grant under VMN **Server admin → AI → External assistants** and remove the diagnostic
 plugin. If the tunnel and runtime key were dedicated to that test, stop the poller and
 retire them too.
+
+## Separate native chat
+
+The existing AI connections address and consent flow remain `/admin/connections`. The page now
+has **Ask VMN** and **External assistants**. Tunnel setup, grants, file-source approvals and
+copy/report diagnostics belong to **External assistants**; expand **Technical checks and tunnel
+help** for local checks. **AI safety backups** links to the existing Workspace backups.
+Native chat uses its own mounted billing credential and works without this tunnel or MCP.
+Do not reuse the tunnel runtime key for chat. See [Ask VMN](ask-vmn.md). Its connection test is
+billable and checks one Responses API request; it does not check tunnel readiness or OAuth.

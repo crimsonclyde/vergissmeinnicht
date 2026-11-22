@@ -116,7 +116,7 @@ test('first server admin: bootstrap link, account creation, sign-in, Workspace c
   await expect(menuButton).toBeFocused();
   await fromMenu(page, 'Server admin');
   // Server admin shows one named section at a time (15.1); each has its own address.
-  await expect(page.getByRole('navigation', { name: 'Server administration' }).getByRole('link')).toHaveText(['Workspaces', 'Invitations', 'Accounts & recovery', 'Notification providers', 'Weather', 'Map data', 'AI connections', 'Server & storage', 'Security log']);
+  await expect(page.getByRole('navigation', { name: 'Server administration' }).getByRole('link')).toHaveText(['Workspaces', 'Invitations', 'Accounts & recovery', 'Notification providers', 'Weather', 'Map data', 'AI', 'Server & storage', 'Security log']);
   await expect(page.getByLabel('Email address to invite')).toHaveCount(0);
   // The regional downloader is ready on the existing data volume; checking its defaults makes no provider request.
   await settingsSection(page, 'Server administration', 'Map data');

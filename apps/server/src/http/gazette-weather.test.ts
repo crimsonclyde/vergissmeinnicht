@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { randomUUID } from 'node:crypto';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { defaultGazetteSettings, sampleGazetteEdition, type TimeZoneName } from '@vergissmeinnicht/domain';
+import { defaultGazetteSettings, parseGazetteEdition, sampleGazetteEdition, type GazetteEdition, type TimeZoneName } from '@vergissmeinnicht/domain';
 import { startTestApp } from './test-harness.ts';
 
 /**
@@ -21,7 +21,7 @@ type Down = 'open-meteo' | 'brightsky' | 'met' | 'meteoalarm' | 'allerta';
 
 describe('The Daily Planet workspace weather (43.7)', () => {
   let t: Awaited<ReturnType<typeof startTestApp>>; let workspace: string; let guest: string;
-  let requests: URL[]; let down: Set<Down>; let disagree: boolean;
+  let requests: URL[]; let down: Set<Down>; let disagree: boolean; let badRain: boolean;
   const base = () => `/api/workspaces/${workspace}/gazette`;
   const json = (body: unknown, status = 200) => new Response(typeof body === 'string' ? body : JSON.stringify(body), { status, headers: { 'content-type': 'application/json' } });
 
@@ -30,12 +30,13 @@ describe('The Daily Planet workspace weather (43.7)', () => {
     const body = JSON.parse(fixture(Number(url.searchParams.get('latitude')) > 46 ? 'gazette-open-meteo-goggenhofen.json' : 'gazette-open-meteo-triora.json')) as { daily: Record<string, (number | string | null)[]> };
     body.daily.time = must(body.daily.time).map((_, index) => isoDay(index));
     if (disagree) for (const [key, values] of Object.entries(body.daily)) if (key.startsWith('precipitation_sum_ecmwf')) body.daily[key] = values.map(() => 30);
+    if (badRain) must(body.daily.precipitation_sum_ecmwf_ifs025)[4] = -0.2;
     return json(body);
   }
   const alert = (event: string, severity: string) => ({ id: 1, alert_id: randomUUID(), effective: new Date(Date.now() - DAY / 4).toISOString(), onset: new Date(Date.now() - DAY / 4).toISOString(), expires: new Date(Date.now() + DAY).toISOString(), category: 'met', severity, certainty: 'likely', urgency: 'immediate', event_en: event, headline_en: `Official WARNING of ${event.toUpperCase()}`, description_en: '', status: 'actual' });
 
   beforeEach(async () => {
-    requests = []; down = new Set(); disagree = false;
+    requests = []; down = new Set(); disagree = false; badRain = false;
     t = await startTestApp({ weatherFetch: (async (input: string | URL | Request) => {
       const url = new URL(input instanceof Request ? input.url : String(input));
       requests.push(url);
@@ -71,9 +72,9 @@ describe('The Daily Planet workspace weather (43.7)', () => {
   const publish = async (date = isoDay(), operationId: string = randomUUID()) => {
     const answer = await t.post(`${base()}/editions`, { operationId, content: content(date), publish: true }, t.admin);
     expect(answer.statusCode, answer.body).toBeLessThan(300);
-    return answer.json().edition as { id: string; content: { sections: { type: string; summary: string; status?: string; generatedBy?: string; locations?: { name: string; place?: { name: string }; days: { date: string; note?: string; confidence?: string; precipitationMm: number | { min: number; max: number } | null }[]; sources: { name: string; model?: string; retrievedAt?: string; role?: string }[]; warnings: { level: string; source?: string; text: string }[]; models?: { sourceId: string }[] }[] }[] } };
+    return answer.json().edition as GazetteEdition;
   };
-  const weatherOf = (edition: Awaited<ReturnType<typeof publish>>) => must(edition.content.sections.find(section => section.type === 'weather'));
+  const weatherOf = (edition: GazetteEdition) => must(edition.content.sections.find(section => section.type === 'weather'));
   const placeOf = (weather: ReturnType<typeof weatherOf>) => must(weather.locations?.[0]);
 
   it('forecasts only the Workspace location, from several sources, and keeps the client summary', async () => {
@@ -147,6 +148,26 @@ describe('The Daily Planet workspace weather (43.7)', () => {
     disagree = true;
     const place = placeOf(weatherOf(await publish()));
     expect(place.days.some(day => typeof day.precipitationMm === 'object' && day.precipitationMm !== null && /disagree on accumulation/.test(day.note ?? ''))).toBe(true);
+  });
+
+  it('publishes the original edition with a missing model accumulation and keeps valid peer rain', async () => {
+    await setLocation(TRIORA);
+    badRain = true;
+    down.add('met');
+    const date = isoDay();
+    const operationId = randomUUID();
+    const edition = await publish(date, operationId);
+    const weather = weatherOf(edition);
+    expect(weather.summary).toBe('Weather for today.');
+    const place = placeOf(weather);
+    expect(place.days[4]?.precipitationMm).toBe(5.4);
+    expect(place.models?.find(model => model.model === 'ecmwf_ifs025')?.days[4]).toMatchObject({
+      date: isoDay(4), precipitationMm: null, high: 15.9,
+    });
+    expect(edition.content.sections.filter(section => section.type !== 'weather')).toEqual(
+      parseGazetteEdition(content(date), defaultGazetteSettings('UTC' as TimeZoneName).sections).sections.filter(section => section.type !== 'weather'),
+    );
+    expect(await publish(date, operationId)).toMatchObject({ id: edition.id, revision: edition.revision });
   });
 
   it('retries idempotently with the same operation and serves the weather view to members only', async () => {

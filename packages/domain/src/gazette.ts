@@ -2,7 +2,7 @@ import { DomainValidationError } from './errors.ts';
 import { addDays, localDateAt, parseLocalDate, parseLocalTime, parseTimeZone, type LocalDate, type TimeZoneName } from './schedule.ts';
 import { BIDI_CONTROLS, CONTROL_CHARS } from './text.ts';
 import { WEATHER_CONDITIONS, type WeatherCondition } from './weather.ts';
-import { parseGazetteWeatherSettings, type GazetteWeatherSettings } from './gazette-weather.ts';
+import { GAZETTE_MAX_PRECIPITATION_MM, parseGazetteWeatherSettings, type GazetteWeatherSettings } from './gazette-weather.ts';
 
 /**
  * The Daily Planet (section 43): one published daily edition per Workspace and local date, made of
@@ -419,10 +419,10 @@ function forecastDay(value: unknown, path: string): GazetteForecastDay {
   const raw = row['precipitationMm'];
   if (raw && typeof raw === 'object') {
     const range = record(raw, `${path}.precipitationMm`, ['min', 'max']);
-    const min = num(range['min'], `${path}.precipitationMm.min`, 0, 2000, false) as number; const max = num(range['max'], `${path}.precipitationMm.max`, 0, 2000, false) as number;
+    const min = num(range['min'], `${path}.precipitationMm.min`, 0, GAZETTE_MAX_PRECIPITATION_MM, false) as number; const max = num(range['max'], `${path}.precipitationMm.max`, 0, GAZETTE_MAX_PRECIPITATION_MM, false) as number;
     if (min > max) fail(`${path}.precipitationMm`);
     precipitation = min === max ? min : { min, max };
-  } else precipitation = num(raw, `${path}.precipitationMm`, 0, 2000);
+  } else precipitation = num(raw, `${path}.precipitationMm`, 0, GAZETTE_MAX_PRECIPITATION_MM);
   const high = num(row['high'], `${path}.high`, -90, 60); const low = num(row['low'], `${path}.low`, -90, 60);
   if (high !== null && low !== null && low > high) fail(`${path}.low`);
   return {
@@ -450,7 +450,7 @@ function modelForecast(value: unknown, path: string, dates: ReadonlySet<string>)
     const p = `${path}.days[${i}]`; const d = record(item, p, ['date', 'condition'], ['high', 'low', 'precipitationMm', 'gustKmh']);
     const date = localDate(d['date'], `${p}.date`);
     if (!dates.has(date)) fail(`${p}.date`, 'gazette_unknown_day');
-    return { date, condition: oneOf(d['condition'], `${p}.condition`, WEATHER_CONDITIONS), high: num(d['high'], `${p}.high`, -90, 60), low: num(d['low'], `${p}.low`, -90, 60), precipitationMm: num(d['precipitationMm'], `${p}.precipitationMm`, 0, 2000), gustKmh: num(d['gustKmh'], `${p}.gustKmh`, 0, 500) };
+    return { date, condition: oneOf(d['condition'], `${p}.condition`, WEATHER_CONDITIONS), high: num(d['high'], `${p}.high`, -90, 60), low: num(d['low'], `${p}.low`, -90, 60), precipitationMm: num(d['precipitationMm'], `${p}.precipitationMm`, 0, GAZETTE_MAX_PRECIPITATION_MM), gustKmh: num(d['gustKmh'], `${p}.gustKmh`, 0, 500) };
   });
   const id = (v: unknown, p: string) => typeof v === 'string' && /^[a-z0-9][a-z0-9_.-]{0,59}$/.test(v) ? v : fail(p);
   return { source: str(row['source'], `${path}.source`, 80, { required: true }), model: id(row['model'], `${path}.model`), family: id(row['family'], `${path}.family`), retrievedAt: instant(row['retrievedAt'], `${path}.retrievedAt`) as string, weight: num(row['weight'], `${path}.weight`, 0, 10) ?? 1, days };

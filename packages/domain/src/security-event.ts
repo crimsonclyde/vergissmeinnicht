@@ -53,6 +53,7 @@ export const SECURITY_EVENT_TYPES = [
   'MCP_TOOL_USED',
   // A server admin allowed or removed a ChatGPT file host (36.25): the host name only, never a file URL.
   'MCP_FILE_HOST_CHANGED',
+  'ASK_SETTINGS_CHANGED',
   'RECIPE_CHANGED',
   // The Daily Planet (43): edition id, date, state and revision; settings revision. Never article text.
   'GAZETTE_EDITION_CHANGED',

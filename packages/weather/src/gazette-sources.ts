@@ -1,5 +1,5 @@
 import { WeatherProviderError, type GazetteObservedDay, type GazettePlaceQuery, type GazetteStation, type GazetteWeatherSourcesPort } from '@vergissmeinnicht/application';
-import { conditionFromWmo, type GazetteSourceDay, type GazetteWarning, type LiguriaAlertZone, type WeatherCondition } from '@vergissmeinnicht/domain';
+import { conditionFromWmo, gazettePrecipitationMm, type GazetteSourceDay, type GazetteWarning, type LiguriaAlertZone, type WeatherCondition } from '@vergissmeinnicht/domain';
 import { finite, getJson, isRecord, round1, type Fetch } from './http.ts';
 
 /**
@@ -68,7 +68,8 @@ function daysFromHours(hours: readonly Hour[], timeZone: string): (GazetteSource
     const condition = counts.has('THUNDER') ? 'THUNDER' : [...counts].filter(([, n]) => n >= 2).sort((a, b) => SEVERITY.indexOf(b[0]) - SEVERITY.indexOf(a[0]))[0]?.[0];
     const day: Record<string, unknown> = { date, hours: list.length };
     if (temps.length >= MIN_HOURS_PER_DAY) { put(day, 'high', round1(Math.max(...temps))); put(day, 'low', round1(Math.min(...temps))); }
-    if (rain.length >= MIN_HOURS_PER_DAY) put(day, 'precipitationMm', round1(rain.reduce((a, b) => a + b, 0)));
+    // A missing or invalid hour must not lower the total of the available station day.
+    if (rain.length === list.length) put(day, 'precipitationMm', round1(gazettePrecipitationMm(rain.reduce((a, b) => a + b, 0))));
     if (prob.length > 0) put(day, 'precipitationProbability', Math.max(...prob));
     if (wind.length > 0) put(day, 'windKmh', round1(Math.max(...wind)));
     if (gust.length > 0) put(day, 'gustKmh', round1(Math.max(...gust)));
@@ -94,7 +95,7 @@ function brightSkyHours(body: Record<string, unknown>, sourceIds: ReadonlySet<nu
     const icon = typeof raw.icon === 'string' ? BRIGHT_SKY_CONDITIONS[raw.icon] : undefined;
     const condition = raw.condition === 'thunderstorm' || raw.condition === 'hail' ? 'THUNDER' : icon;
     const hour: Record<string, unknown> = { at };
-    for (const [key, value] of [['temperature', finite(raw.temperature)], ['precipitation', finite(raw.precipitation)], ['probability', finite(raw.precipitation_probability)], ['wind', finite(raw.wind_speed)], ['gust', finite(raw.wind_gust_speed)]] as const) if (value !== undefined) hour[key] = value;
+    for (const [key, value] of [['temperature', finite(raw.temperature)], ['precipitation', gazettePrecipitationMm(raw.precipitation)], ['probability', finite(raw.precipitation_probability)], ['wind', finite(raw.wind_speed)], ['gust', finite(raw.wind_gust_speed)]] as const) if (value !== undefined) hour[key] = value;
     if (condition !== undefined) hour.condition = condition;
     return [hour as unknown as Hour];
   });
@@ -144,7 +145,7 @@ export function createGazetteWeatherSources(options: { readonly fetch?: Fetch | 
           const at = (name: (typeof DAILY)[number]) => finite(values(name)[i]);
           const day: Record<string, unknown> = { date };
           put(day, 'high', round1(at('temperature_2m_max'))); put(day, 'low', round1(at('temperature_2m_min')));
-          put(day, 'precipitationMm', round1(at('precipitation_sum'))); put(day, 'precipitationProbability', at('precipitation_probability_max'));
+          put(day, 'precipitationMm', round1(gazettePrecipitationMm(values('precipitation_sum')[i]))); put(day, 'precipitationProbability', at('precipitation_probability_max'));
           put(day, 'windKmh', round1(at('wind_speed_10m_max'))); put(day, 'gustKmh', round1(at('wind_gusts_10m_max')));
           put(day, 'condition', conditionFromWmo(at('weather_code')));
           // A day with no forecast value is outside the model's range or area.

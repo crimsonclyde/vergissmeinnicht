@@ -12,7 +12,7 @@
 -->
 <Container version="2">
   <Name>VergissMeinNicht</Name>
-  <Repository>ghcr.io/crimsonclyde/vergissmeinnicht:0.17.2</Repository>
+  <Repository>ghcr.io/crimsonclyde/vergissmeinnicht:0.17.3</Repository>
   <Registry>https://github.com/crimsonclyde/vergissmeinnicht/pkgs/container/vergissmeinnicht</Registry>
   <Network>bridge</Network>
   <MyIP/>
@@ -42,6 +42,7 @@
   <Config Name="Backups every (hours)" Target="BACKUP_INTERVAL_HOURS" Default="24" Mode="" Description="Automatic verified backups into Data/backups. 0 = off." Type="Variable" Display="always" Required="false" Mask="false">24</Config>
   <Config Name="Backups to keep" Target="BACKUP_KEEP" Default="14" Mode="" Description="Newest automatic backups kept." Type="Variable" Display="advanced" Required="false" Mask="false">14</Config>
   <Config Name="Migrate on start" Target="VMN_MIGRATE_ON_START" Default="true" Mode="" Description="Apply database updates when the container starts (a backup is written first)." Type="Variable" Display="advanced" Required="false" Mask="false">true</Config>
+  <Config Name="Ask VMN OpenAI key file" Target="ASK_VMN_OPENAI_KEY_FILE" Default="" Mode="" Description="Optional dedicated chat key: /run/secrets/ask_vmn_openai. File owned by PUID:PGID, mode 0400. Leave empty to stay unconfigured; enable chat and a monthly cap separately in Server admin → AI. Independent of MCP/tunnel." Type="Variable" Display="advanced" Required="false" Mask="false"/>
   <Config Name="Auth secret file" Target="AUTH_SECRET_FILE" Default="/run/secrets/auth_secret" Mode="" Description="Do not change." Type="Variable" Display="advanced" Required="true" Mask="false">/run/secrets/auth_secret</Config>
   <Config Name="Data encryption key file" Target="DATA_ENCRYPTION_KEY_FILE" Default="/run/secrets/data_encryption_key" Mode="" Description="Do not change." Type="Variable" Display="advanced" Required="true" Mask="false">/run/secrets/data_encryption_key</Config>
   <Config Name="Log level" Target="LOG_LEVEL" Default="info" Mode="" Description="info, warn or error." Type="Variable" Display="advanced" Required="false" Mask="false">info</Config>

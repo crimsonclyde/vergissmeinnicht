@@ -7,7 +7,7 @@ import { ApiError, api, messageFor, type WorkspaceSummary, type AccountInfo, typ
 import { formatDateTime, hasMessage, t, type MessageKey } from './i18n/index.ts';
 import { testFailureMessage } from './NotificationSettings.tsx';
 import { ADMIN_SECTIONS, Link, navigate, paths, type AdminSection } from './router.tsx';
-import { McpConnections } from './McpConnections.tsx';
+import { AskAdmin } from './AskAdmin.tsx';
 import type { UiIconName } from './ui-icons.tsx';
 import { SettingsLayout } from './SettingsLayout.tsx';
 import { announceFooterHidden } from './SourceFooter.tsx';
@@ -878,7 +878,7 @@ export function AdminPage({ section, currentUserId, workspaces = null, onWorkspa
       {section === 'notifications' && <NotificationProviders />}
       {section === 'weather' && <WeatherAdmin />}
       {section === 'map-data' && <MapDataAdmin />}
-      {section === 'connections' && <McpConnections workspaces={workspaces} currentUserId={currentUserId} />}
+      {section === 'connections' && <AskAdmin workspaces={workspaces} currentUserId={currentUserId} />}
       {section === 'server' && (
         <>
           <ServerSettings />

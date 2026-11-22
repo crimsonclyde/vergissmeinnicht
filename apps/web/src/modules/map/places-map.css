@@ -5,6 +5,9 @@
   --map-road: #917347;
   --map-trail: #61533e;
   --map-ink: #283b2d;
+  --map-building: #b3ab96;
+  --map-road-case: #f6efdb;
+  --map-major-road: #b58a48;
   display: grid;
   gap: 1rem;
   min-width: 0;
@@ -17,6 +20,9 @@
   --map-road: #c8b89a;
   --map-trail: #d0c6ad;
   --map-ink: #f6f1de;
+  --map-building: #6c7767;
+  --map-road-case: #26352c;
+  --map-major-road: #e1c58e;
 }
 .vmn-places-map [hidden] { display: none !important; }
 .vmn-map-heading, .vmn-map-actions, .vmn-map-toolbar, .vmn-map-point-row, .vmn-map-legend, .vmn-map-chips {
@@ -101,3 +107,16 @@
 .vmn-map-visit-photo { width: 4.5rem; height: 4.5rem; object-fit: cover; border-radius: var(--radius); }
 .vmn-map-warning p { margin-block: .2rem; }
 .vmn-map-editor fieldset { min-width: 0; }
+
+/* A permanent dialog keeps the same WebGL canvas/viewport when it enters the top layer. */
+dialog.vmn-map-column { display: block; position: static; inset: auto; width: auto; max-width: none; height: auto; max-height: none; margin: 0; padding: 0; border: 0; background: transparent; color: inherit; }
+.vmn-map-expand { margin-block-end: .45rem; }
+dialog.vmn-map-column[data-expanded='true'] { position: fixed; inset: 0; width: 100%; height: 100%; max-width: 100%; max-height: 100%; padding: max(.6rem, env(safe-area-inset-top)) max(.6rem, env(safe-area-inset-right)) max(.6rem, env(safe-area-inset-bottom)) max(.6rem, env(safe-area-inset-left)); background: var(--surface); color: var(--text); display: flex; flex-direction: column; gap: .45rem; box-sizing: border-box; overflow: auto; }
+.vmn-map-column[data-expanded='true'] .vmn-map-atlas { flex: 1 1 auto; height: auto; min-height: 8rem; }
+.vmn-map-column[data-expanded='true'] .vmn-map-expand { align-self: flex-end; flex: none; margin: 0; }
+.vmn-map-column[data-expanded='true'] .vmn-map-pin-card { flex: none; max-height: 25vh; overflow: auto; margin: 0; }
+.vmn-map-column[data-expanded='true'] .vmn-map-legend { flex: none; padding: 0; }
+.vmn-map-address-results { display: grid; gap: .55rem; padding: 0; list-style: none; }
+.vmn-map-address-results li { display: grid; gap: .35rem; padding: .65rem; border: 1px solid var(--border); border-radius: var(--radius); overflow-wrap: anywhere; }
+
+.vmn-map-address-results a { min-height: 2.75rem; display: flex; align-items: center; }

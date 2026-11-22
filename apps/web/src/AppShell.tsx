@@ -1,3 +1,4 @@
+import {AskWindow} from './AskWindow.tsx';
 import {lazy,Suspense} from 'react';
 const PlacesMap = lazy(() => import('./modules/map/PlacesMap.tsx'));
 const GazetteSettings=lazy(()=>import('./modules/gazette/GazetteSettings.tsx').then(module=>({default:module.GazetteSettings})));
@@ -659,6 +660,7 @@ export function AppShell(props: { user: CurrentUser; route: Route; onSignOut: ()
           {workspaces !== null && workspaces.length > 0 && <WorkspacePicker workspaces={workspaces} workspaceId={navWorkspaceId} page={route.page} />}
           <ClassicNavigation workspaceId={navWorkspaceId} tools={navTools} page={route.page} />
           <GuideHeader workspaceId={navWorkspaceId} tools={navTools} page={route.page} userId={user.id} onScopeSlot={setScopeSlot} onActionSlot={setActionSlot} />
+          <AskWindow key={user.id+('workspaceId' in route?route.workspaceId:'general')} {...('workspaceId' in route?{workspaceId:route.workspaceId}:{})} />
           <SettingsMenu user={user} avatar={avatar} workspaceId={navWorkspaceId} currentPath={window.location.pathname} onSignOut={signOut} />
         </header>
         <div className="shell-main">

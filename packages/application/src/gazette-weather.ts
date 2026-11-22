@@ -1,5 +1,5 @@
 import {
-  DEFAULT_GAZETTE_WEATHER_SETTINGS, GAZETTE_SKILL_BUCKETS, addDays, adjustForElevation, combineGazetteForecast, gazetteSourceSkill, gazetteToday, gazetteWeatherPlan, weatherLocationKey,
+  DEFAULT_GAZETTE_WEATHER_SETTINGS, GAZETTE_SKILL_BUCKETS, addDays, adjustForElevation, combineGazetteForecast, gazettePrecipitationMm, gazetteSourceSkill, gazetteToday, gazetteWeatherPlan, weatherLocationKey,
   type GazetteEditionContent, type GazetteLocationForecast, type GazetteSectionContent, type GazetteSettings, type GazetteSkillBucket, type GazetteSource, type GazetteSourceDay, type GazetteSourceSeries,
   type GazetteWarning, type GazetteWeatherPlan, type LocalDate, type WeatherLocation, type WorkspaceId,
 } from '@vergissmeinnicht/domain';
@@ -168,7 +168,7 @@ export async function buildGazetteWeather(deps: GazetteWeatherDeps, workspaceId:
 
 async function record(deps: GazetteWeatherDeps, workspaceId: WorkspaceId, place: WeatherLocation, issuedOn: LocalDate, series: readonly GazetteSourceSeries[], now: Date) {
   const key = weatherLocationKey(place);
-  const rows = series.flatMap(s => s.days.map(day => ({ sourceId: s.id, targetDate: day.date, lead: daysBetween(issuedOn, day.date), high: day.high ?? null, low: day.low ?? null, precipitationMm: day.precipitationMm ?? null }))).filter(row => row.lead >= 0 && row.lead < 10);
+  const rows = series.flatMap(s => s.days.map(day => ({ sourceId: s.id, targetDate: day.date, lead: daysBetween(issuedOn, day.date), high: day.high ?? null, low: day.low ?? null, precipitationMm: gazettePrecipitationMm(day.precipitationMm) ?? null }))).filter(row => row.lead >= 0 && row.lead < 10);
   try { await deps.log.recordForecasts(workspaceId, key, issuedOn, rows, now); } catch { /* verification is optional: the forecast still stands */ }
 }
 

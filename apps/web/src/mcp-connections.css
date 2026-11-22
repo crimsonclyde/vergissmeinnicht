@@ -93,3 +93,14 @@
   .mcp-connection-head { flex-wrap: wrap; }
 }
 
+
+/* At phone widths, keep names readable before placing status and disconnect below. */
+@media (max-width: 30rem) {
+  .mcp-connection-head { display: grid; grid-template-columns: 44px minmax(0, 1fr) 44px; gap: .5rem; align-items: start; }
+  .mcp-connection-head > .area-row-icon { grid-column: 1; grid-row: 1; }
+  .mcp-connection-head > .item-body { grid-column: 2 / -1; grid-row: 1; }
+  .mcp-connection-head > .mcp-state { grid-column: 2; grid-row: 2; justify-self: start; align-self: center; max-width: 100%; white-space: normal; }
+  .mcp-connection-head > .icon-button { grid-column: 3; grid-row: 2; justify-self: end; }
+  .mcp-areas li { display: grid; grid-template-columns: 20px minmax(0, 1fr); width: 100%; border-radius: .5rem; }
+  .mcp-areas small { grid-column: 2; }
+}

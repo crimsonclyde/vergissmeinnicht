@@ -2806,3 +2806,26 @@ export const mapVisitPhotos = sqliteTable('map_visit_photos', {
   foreignKey({ columns: [t.workspaceId, t.visitId, t.userId], foreignColumns: [mapVisits.workspaceId, mapVisits.id, mapVisits.userId] }),
   index('map_visit_photo_attachment').on(t.attachmentId),
 ]);
+
+// Ask VMN: account-owned chat and server-local billing, excluded from portable backups.
+export const askSettings = sqliteTable('ask_settings', {
+ id: integer('id').primaryKey(), enabled: integer('enabled', {mode:'boolean'}).notNull().default(false),
+ lookups: integer('lookups', {mode:'boolean'}).notNull().default(false),
+ cap: integer('cap').notNull().default(0), model: text('model').notNull().default('gpt-5.4-mini-2026-03-17'),
+}, t => [check('ask_settings_valid', sql`${t.id}=1 and ${t.cap} between 0 and 1000000000 and ${t.model}='gpt-5.4-mini-2026-03-17'`)]);
+export const askPolicies = sqliteTable('ask_policies', {
+ workspaceId:text('workspace_id').primaryKey().references(()=>workspaces.id,{onDelete:'cascade'}),
+ enabled:integer('enabled',{mode:'boolean'}).notNull().default(false),
+});
+export const askConversations = sqliteTable('ask_conversations', {
+ id:text('id').primaryKey(), ownerId:text('owner_id').notNull().references(()=>users.id,{onDelete:'cascade'}),
+ workspaceId:text('workspace_id').references(()=>workspaces.id,{onDelete:'cascade'}),
+ messages:text('messages',{mode:'json'}).$type<import('@vergissmeinnicht/application').AskMessage[]>().notNull(),
+ sources:text('sources',{mode:'json'}).$type<import('@vergissmeinnicht/application').AskSource[]>().notNull(),
+ updatedAt:integer('updated_at').notNull(),
+},t=>[index('ask_conversations_owner').on(t.ownerId),check('ask_conversation_size',sql`length(${t.messages})<=180000 and length(${t.sources})<=10000`)]);
+export const askUsage = sqliteTable('ask_usage', {
+ id:text('id').primaryKey(), ownerId:text('owner_id').notNull().references(()=>users.id),
+ month:text('month').notNull(), charge:integer('charge').notNull(), pending:integer('pending',{mode:'boolean'}).notNull(),
+ at:integer('at').notNull(),
+},t=>[index('ask_usage_month').on(t.month),check('ask_charge_valid',sql`${t.charge} between 0 and 100000000`)]);

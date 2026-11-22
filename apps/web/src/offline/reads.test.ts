@@ -23,6 +23,10 @@ describe('which reads are saved for offline use (49.3)', () => {
 
   it('never keeps the session, administration, security, credentials, links with tokens or exports', () => {
     for (const path of [
+      '/ask/status',
+      '/ask/conversations/private-chat',
+      '/ask/policy/private-workspace',
+      '/ask/admin',
       '/auth/session',
       '/workspaces',
       W,

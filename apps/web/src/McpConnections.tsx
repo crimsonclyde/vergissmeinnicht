@@ -195,13 +195,12 @@ export function McpConnections({workspaces,currentUserId}:{workspaces:readonly W
       <div className="area-title">
         <p className="area-eyebrow"><UiIcon name="assistant" size={16} /> {t('admin.heading')}</p>
         <h2 id="mcp-heading" className="area-heading">
-          {t('admin.section.connections')}
-          {enabled === true && !consent && <> <span className="area-heading-muted">{liveConnections.length}</span></>}
+          {t('ask.external')}
         </h2>
       </div>
       {enabled !== null && <span className="mcp-server-state" data-on={enabled}>{t(enabled ? 'mcp.on' : 'mcp.off')}</span>}
     </header>
-    <p className="area-lead">{t('mcp.intro')}</p>
+    <p className="area-lead">{t('ask.externalHint')}</p>
     {error && <p role="alert">{error}</p>}
     {enabled === null && !error && <p role="status">{t('mcp.loading')}</p>}
     {enabled === false && <p className="card">{t('mcp.disabled')}</p>}
@@ -288,6 +287,6 @@ export function McpConnections({workspaces,currentUserId}:{workspaces:readonly W
       <McpFileHosts />
       <McpAiBackups />
     </>}
-    {!consent && enabled !== null && <McpDiagnostics enabled={enabled} />}
+    {!consent && <><details><summary>{t('ask.troubleshooting')}</summary>{enabled !== null && <McpDiagnostics enabled={enabled}/>}<a href="https://github.com/crimsonclyde/vergissmeinnicht/blob/main/docs/admin/chatgpt-mcp-tunnel.md" target="_blank" rel="noopener noreferrer">{t('ask.troubleshooting')}</a></details></>}
   </section>;
 }

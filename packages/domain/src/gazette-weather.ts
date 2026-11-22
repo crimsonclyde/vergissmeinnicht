@@ -14,6 +14,12 @@ import type { WeatherCondition, WeatherLocation } from './weather.ts';
  */
 
 export const GAZETTE_WEATHER_REGIONS = ['liguria', 'italy', 'germany', 'europe', 'global'] as const;
+export const GAZETTE_MAX_PRECIPITATION_MM = 2000;
+
+/** Check before rounding or combining: invalid accumulations are unknown, never zero or clamped. */
+export function gazettePrecipitationMm(value: unknown): number | undefined {
+  return typeof value === 'number' && Number.isFinite(value) && value >= 0 && value <= GAZETTE_MAX_PRECIPITATION_MM ? value : undefined;
+}
 export type GazetteWeatherRegion = (typeof GAZETTE_WEATHER_REGIONS)[number];
 export const LIGURIA_ALERT_ZONES = ['A', 'B', 'C', 'D', 'E'] as const;
 export type LiguriaAlertZone = (typeof LIGURIA_ALERT_ZONES)[number];
@@ -212,9 +218,9 @@ export function combineGazetteForecast(input: GazetteCombineInput): GazetteLocat
   const days: GazetteForecastDay[] = [];
   for (let lead = 0; lead < length; lead++) {
     const date = addDays(input.today, lead);
-    const covering = input.series.flatMap(s => { const d = s.days.find(day => day.date === date); return d && (d.high !== undefined || d.low !== undefined || d.precipitationMm !== undefined) ? [{ s, d }] : []; });
+    const covering = input.series.flatMap(s => { const d = s.days.find(day => day.date === date); return d && (d.high !== undefined || d.low !== undefined || gazettePrecipitationMm(d.precipitationMm) !== undefined) ? [{ s, d }] : []; });
     if (covering.length === 0) { if (days.length === 0 && lead === 0) continue; break; }
-    const highs = byFamily(covering, d => d.high, lead), lows = byFamily(covering, d => d.low, lead), rain = byFamily(covering, d => d.precipitationMm, lead);
+    const highs = byFamily(covering, d => d.high, lead), lows = byFamily(covering, d => d.low, lead), rain = byFamily(covering, d => gazettePrecipitationMm(d.precipitationMm), lead);
     const probability = byFamily(covering, d => d.precipitationProbability, lead), wind = byFamily(covering, d => d.windKmh, lead), gusts = byFamily(covering, d => d.gustKmh, lead);
     const families = new Set(covering.map(c => c.s.family)).size;
     const notes: string[] = [];
@@ -275,7 +281,12 @@ export function combineGazetteForecast(input: GazetteCombineInput): GazetteLocat
   const used = input.series.filter(s => s.days.some(d => days.some(day => day.date === d.date)));
   const models: GazetteModelForecast[] = used.slice(0, 8).map(s => ({
     source: s.label, model: s.model, family: s.family, retrievedAt: s.retrievedAt, weight: round(s.weight, 2),
-    days: days.flatMap(day => { const d = s.days.find(x => x.date === day.date); return d ? [{ date: day.date, condition: d.condition ?? 'UNKNOWN', high: d.high === undefined ? null : round(d.high), low: d.low === undefined ? null : round(d.low), precipitationMm: d.precipitationMm === undefined ? null : round(d.precipitationMm), gustKmh: d.gustKmh === undefined ? null : round(d.gustKmh, 0) }] : []; }),
+    days: days.flatMap(day => {
+      const d = s.days.find(x => x.date === day.date);
+      if (d === undefined) return [];
+      const rain = gazettePrecipitationMm(d.precipitationMm);
+      return [{ date: day.date, condition: d.condition ?? 'UNKNOWN', high: d.high === undefined ? null : round(d.high), low: d.low === undefined ? null : round(d.low), precipitationMm: rain === undefined ? null : round(rain), gustKmh: d.gustKmh === undefined ? null : round(d.gustKmh, 0) }];
+    }),
   }));
   const sources: GazetteSource[] = [
     ...used.map(s => ({ name: s.label, url: s.url, model: s.model, retrievedAt: s.retrievedAt, role: 'forecast' as const })),

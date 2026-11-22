@@ -1,5 +1,6 @@
+import { regionalMapStyle } from './map-style.ts';
 import { useEffect, useRef, useState } from 'react';
-import { addProtocol, Map as Atlas, Marker, setWorkerUrl, type FilterSpecification, type StyleSpecification } from 'maplibre-gl';
+import { addProtocol, Map as Atlas, Marker, setWorkerUrl } from 'maplibre-gl';
 import workerUrl from 'maplibre-gl/dist/maplibre-gl-worker.mjs?url';
 import { PMTiles, Protocol } from 'pmtiles';
 import type { MapPlace, MapPoint } from '@vergissmeinnicht/domain';
@@ -31,33 +32,9 @@ interface Props {
   onMove: (viewport: Viewport, bounds: string) => void;
 }
 
-function cartography(element: HTMLElement, glyphsInstalled: boolean, archive: string, glyphRoot: string): StyleSpecification {
+function cartography(element: HTMLElement, glyphsInstalled: boolean, archive: string, glyphRoot: string) {
   const token = getComputedStyle(element);
-  const color = (name: string, fallback: string) => token.getPropertyValue('--map-' + name).trim() || fallback;
-  const paths: FilterSpecification = ['any',
-    ['in', ['coalesce', ['get', 'kind_detail'], ['get', 'pmap:kind_detail'], ''], ['literal', ['path', 'track', 'pedestrian', 'bridleway', 'steps']]],
-    ['==', ['coalesce', ['get', 'kind'], ['get', 'pmap:kind'], ''], 'path'],
-  ];
-  return {
-    version: 8,
-    ...(glyphsInstalled ? { glyphs: glyphRoot + '{fontstack}/{range}.pbf' } : {}),
-    sources: { region: { type: 'vector', url: 'pmtiles://' + archive, attribution: '<a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer">© OpenStreetMap contributors</a>' + (glyphsInstalled ? ' · <a href="' + glyphRoot + 'OFL.txt" target="_blank" rel="noreferrer">Noto Sans license</a>' : '') } },
-    layers: [
-      { id: 'paper', type: 'background', paint: { 'background-color': color('paper', '#e5e9d6') } },
-      { id: 'land', type: 'fill', source: 'region', 'source-layer': 'landuse', paint: { 'fill-color': color('land', '#c7d3b3'), 'fill-opacity': 0.52 } },
-      { id: 'wood', type: 'fill', source: 'region', 'source-layer': 'landcover', paint: { 'fill-color': color('land', '#c7d3b3'), 'fill-opacity': 0.5 } },
-      { id: 'water', type: 'fill', source: 'region', 'source-layer': 'water', paint: { 'fill-color': color('water', '#78a4ae') } },
-      { id: 'roads', type: 'line', source: 'region', 'source-layer': 'roads', filter: ['!', paths], paint: { 'line-color': color('road', '#9b7e58'), 'line-width': ['interpolate', ['linear'], ['zoom'], 5, 0.35, 14, 1.65] } },
-      { id: 'trails', type: 'line', source: 'region', 'source-layer': 'roads', filter: paths, paint: { 'line-color': color('trail', '#665945'), 'line-dasharray': [2, 3], 'line-width': 1.2 } },
-      ...(glyphsInstalled ? [{ id: 'localities', type: 'symbol' as const, source: 'region', 'source-layer': 'places', minzoom: 7, layout: {
-        'text-field': ['coalesce', ['get', 'name:en'], ['get', 'name'], ''], 'text-font': ['Noto Sans Regular'], 'text-size': 13,
-      }, paint: { 'text-color': color('ink', '#283c33'), 'text-halo-color': color('paper', '#e5e9d6'), 'text-halo-width': 1.5 } },
-      { id: 'road-names', type: 'symbol', source: 'region', 'source-layer': 'roads', minzoom: 13, filter: ['has', 'name'], layout: {
-        'symbol-placement': 'line', 'text-field': ['get', 'name'], 'text-font': ['Noto Sans Regular'], 'text-size': 11,
-      }, paint: { 'text-color': color('ink', '#283c33'), 'text-halo-color': color('paper', '#e5e9d6'), 'text-halo-width': 1.5 } },
-      ] satisfies StyleSpecification['layers'] : []),
-    ],
-  };
+  return regionalMapStyle((name, fallback) => token.getPropertyValue('--map-' + name).trim() || fallback, glyphsInstalled, archive, glyphRoot);
 }
 
 interface MarkerGroup { point: MapPoint; places: MapPlace[] }
@@ -99,6 +76,7 @@ export function MapCanvas(props: Props) {
     const controller = new AbortController();
     let atlas: Atlas | null = null;
     let theme: MutationObserver | undefined;
+    let dimensions: ResizeObserver | undefined;
     function moved() {
       if (!atlas) return;
       const center = atlas.getCenter().wrap();
@@ -144,6 +122,8 @@ export function MapCanvas(props: Props) {
         },
       });
       map.current = atlas;
+      dimensions = new ResizeObserver(() => atlas?.resize());
+      dimensions.observe(element);
       theme = new MutationObserver(() => atlas?.setStyle(cartography(element, glyphsInstalled, archive, glyphRoot)));
       theme.observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme', 'data-scheme'] });
       atlas.on('load', () => { if (active) { setReady(true); moved(); } });
@@ -156,7 +136,7 @@ export function MapCanvas(props: Props) {
       });
     }
     void initialize().catch(() => { if (active) setUnavailable(true); });
-    return () => { active = false; controller.abort(); map.current = null; theme?.disconnect(); atlas?.remove(); };
+    return () => { active = false; controller.abort(); map.current = null; theme?.disconnect(); dimensions?.disconnect(); atlas?.remove(); };
   }, []);
   useEffect(() => {
     if (!props.active || !ready) return;

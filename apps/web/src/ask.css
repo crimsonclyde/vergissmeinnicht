@@ -1,0 +1,14 @@
+.ask-launch{position:static;background:var(--surface);color:var(--text);border:1px solid var(--border-strong);border-radius:2rem;min-height:44px;padding:.5rem 1rem;flex-shrink:0}
+.ask-dialog{box-sizing:border-box;margin:0 0 0 auto;width:min(34rem,100%);height:100dvh;max-height:100dvh;max-width:100%;padding:0;border:1px solid var(--border-strong);background:var(--surface);color:var(--text);overflow:hidden}
+.ask-dialog[open]{display:flex;flex-direction:column}.ask-dialog::backdrop{background:#0005}
+.ask-head{display:flex;align-items:center;justify-content:space-between;gap:1rem;padding:.75rem 1rem;border-bottom:1px solid var(--border)}.ask-head h2{margin:0}.ask-head button{min-width:44px;min-height:44px}
+.ask-controls,.ask-compose{padding:.75rem 1rem;flex-shrink:0}.ask-controls p,.ask-compose p{margin:.25rem 0}.ask-controls{border-bottom:1px solid var(--border);max-height:28dvh;overflow:auto}.ask-compose{border-top:1px solid var(--border);padding-bottom:max(.75rem,env(safe-area-inset-bottom));max-height:48dvh;overflow:auto}
+.ask-messages{overflow:auto;flex:1;min-height:3rem;padding:1rem;overflow-wrap:anywhere}.ask-message{white-space:pre-wrap;padding:.75rem;border:1px solid var(--border);border-radius:.75rem}.ask-user{background:var(--surface-muted);margin-left:1.5rem}.ask-assistant{margin-right:.5rem}.ask-compose textarea{width:100%;box-sizing:border-box;resize:vertical;min-height:44px}.ask-dialog button,.ask-dialog summary{min-height:44px}.ask-dialog .check-label{display:flex;align-items:center;gap:.5rem;min-height:44px}.ask-admin{min-width:0;overflow-wrap:anywhere}.ask-admin fieldset{min-width:0;margin:0;padding:0;border:0}.ask-admin input[type=number],.ask-admin select{max-width:100%;box-sizing:border-box}.ask-admin label{min-height:44px}.ask-admin summary{min-height:44px;align-content:center}
+@media(min-width:768px){.ask-dialog{box-shadow:-4px 0 30px #0002}}
+@media(max-width:400px){.ask-controls,.ask-compose,.ask-messages{padding:.5rem}.ask-controls .button-row{gap:.25rem}.ask-dialog button{padding:.4rem .6rem}}
+
+.ask-admin .mcp-connections{border:1px solid var(--border);border-radius:var(--radius,.75rem);padding:1rem;background:var(--surface)}
+.ask-admin .mcp-connections .area-eyebrow{display:none}.ask-admin .mcp-connections .area-heading{font-family:inherit;font-size:1.25rem;letter-spacing:normal}.ask-admin .mcp-connections .area-head{padding-top:0}
+.ask-admin fieldset>label:not(.check-label){display:flex;flex-direction:column;align-items:flex-start;gap:.5rem}.ask-admin .check-label{display:flex;align-items:center;gap:.5rem}.ask-admin fieldset>button{align-self:flex-start}.ask-admin .button-row a{min-height:44px;display:inline-flex;align-items:center;padding:.5rem .75rem}
+
+@media(max-width:35rem){:root .shell[data-layout='guide'] .ask-launch{grid-column:1 / -1;grid-row:2;justify-self:end}}

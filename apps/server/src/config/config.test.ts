@@ -251,3 +251,14 @@ describe('optional MCP and removed Recipe image settings',()=>{
   expect(config.mcpEnabled).toBe(true);expect(readSecret).not.toHaveBeenCalled();expect(Object.keys(config)).not.toContain('recipeImages');
  });
 });
+
+describe('dedicated Ask VMN credential',()=>{
+ it('loads the protected mount, redacts the key and refuses ambiguous env/file configuration',()=>{
+  const key='sk-test-dedicated-chat-project-key';const read=vi.fn(()=>key+'\n');
+  const config=loadConfig({...production,ASK_VMN_OPENAI_KEY_FILE:'/run/secrets/ask_vmn_openai'},read);
+  expect(read).toHaveBeenCalledWith('/run/secrets/ask_vmn_openai');expect(config.askKey?.reveal()).toBe(key);
+  expect(JSON.stringify(config)).not.toContain(key);expect(inspect(config)).not.toContain(key);
+  expect(issuesOf({...production,ASK_VMN_OPENAI_KEY:key,ASK_VMN_OPENAI_KEY_FILE:'/run/secrets/ask_vmn_openai'}).join()).toContain('set either');
+  expect(loadConfig(production).askKey).toBeUndefined();
+ });
+});
