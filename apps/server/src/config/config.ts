@@ -105,6 +105,9 @@ const envSchema = z
     // Scheduled backups into <database dir>/backups (Step 10.5); 0 or unset = off.
     BACKUP_INTERVAL_HOURS: z.coerce.number().int().min(0).max(24 * 31).optional(),
     BACKUP_KEEP: z.coerce.number().int().min(1).max(1000).optional(),
+    // AI safety backups before MCP changes (48.1): at most one per interval (minutes), newest kept.
+    MCP_BACKUP_INTERVAL_MINUTES: z.coerce.number().int().min(1).max(1440).optional(),
+    MCP_BACKUP_KEEP: z.coerce.number().int().min(1).max(500).optional(),
     // Global per-client limit on /api requests per minute (default 300). Security-sensitive routes keep
     // their own, persisted limits regardless of this value.
     API_RATE_LIMIT_PER_MINUTE: z.coerce.number().int().min(60).max(10_000).optional(),
@@ -213,6 +216,8 @@ export interface AppConfig {
   readonly hstsMaxAge: number;
   /** Scheduled automatic backups (10.5); `intervalHours` 0 = off. */
   readonly backup: { readonly intervalHours: number; readonly keep: number };
+  /** AI safety backups before MCP changes (48.1): always on while MCP is on. */
+  readonly aiBackup: { readonly intervalMinutes: number; readonly keep: number };
   /** Global per-client limit on /api requests per minute. */
   readonly apiRateLimitPerMinute: number;
 }
@@ -285,6 +290,7 @@ export function loadConfig(env: NodeJS.ProcessEnv, readFile: (path: string) => s
     // HSTS only makes sense (and is only honoured) on https origins; loopback http never gets it.
     hstsMaxAge: new URL(values.PUBLIC_ORIGIN ?? 'http://localhost').protocol === 'https:' ? (values.HSTS_MAX_AGE ?? DEFAULT_HSTS_MAX_AGE) : 0,
     backup: Object.freeze({ intervalHours: values.BACKUP_INTERVAL_HOURS ?? 0, keep: values.BACKUP_KEEP ?? 14 }),
+    aiBackup: Object.freeze({ intervalMinutes: values.MCP_BACKUP_INTERVAL_MINUTES ?? 30, keep: values.MCP_BACKUP_KEEP ?? 48 }),
     apiRateLimitPerMinute: values.API_RATE_LIMIT_PER_MINUTE ?? DEFAULT_API_RATE_LIMIT_PER_MINUTE,
   });
 }

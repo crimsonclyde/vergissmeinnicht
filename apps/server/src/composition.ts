@@ -1,7 +1,7 @@
 import { createMapRepository, createMapMediaRepository, mapAttachmentPolicy } from '@vergissmeinnicht/database';
 import type { MapDeps } from '@vergissmeinnicht/application';
 import { createChatGptFileSource, type ChatGptFileSource } from './integrations/chatgpt-files.ts';
-import {createMcpFileHostRepository,createMcpRepository} from '@vergissmeinnicht/database';
+import {backupDatabase,createMcpFileHostRepository,createMcpRepository} from '@vergissmeinnicht/database';
 import {createRecipeRepository,recipeAttachmentPolicy,listAttachmentPolicy,createGazetteRepository,createGazetteWeatherLogRepository} from '@vergissmeinnicht/database';
 import type {RecipeDeps,GazetteDeps} from '@vergissmeinnicht/application';
 import {createAttachmentStore} from '@vergissmeinnicht/media';
@@ -130,6 +130,7 @@ import { createSmtpEmailSender } from '@vergissmeinnicht/email';
 import { convertWebpToPng, createDocumentFileProcessor, createDocumentFileStore, createDocumentWorker, createFileMediaStore, createSharpAvatarProcessor, createSharpImageProcessor, createSharpPlaceBackgroundProcessor, createTextExtractor } from '@vergissmeinnicht/media';
 import { createTelegramBotApi } from '@vergissmeinnicht/notifications';
 import { createWorkspaceBackupStore } from './workspace-backup/workspace-backup-store.ts';
+import { createAiBackupService, type AiBackupService } from './mcp/safety-backup.ts';
 import { createGazetteWeatherSources, createMeteomatics, createMetNorway, createOpenMeteo, createOpenWeather, metUserAgent } from '@vergissmeinnicht/weather';
 import type { Fetch } from '@vergissmeinnicht/outbound';
 import { createRunChangeHub, type RunChangeHub } from '@vergissmeinnicht/realtime';
@@ -150,6 +151,8 @@ export interface AppServices {
   /** Exact extra ChatGPT file hosts: MCP_CHATGPT_FILE_HOSTS plus hosts a server admin allowed (36.25). */
   readonly chatGptFileHosts: () => readonly string[];
   readonly mcpFileHosts: ReturnType<typeof createMcpFileHostRepository>;
+  /** AI safety backups before MCP changes (48.1). */
+  readonly aiBackups: AiBackupService;
   readonly mcp:ReturnType<typeof createMcpRepository>;
   /** Offered to every user via `GET /api/about` (AGPL-3.0 §13). */
   readonly sourceCodeUrl: string;
@@ -254,7 +257,7 @@ export function invitationDeps(config: AppConfig, database: AppDatabase): Invita
 }
 
 /** `weatherFetch`: replaces the network for weather providers (tests never reach a provider). */
-export function createServices(config: AppConfig, database: AppDatabase, overrides: { readonly weatherFetch?: Fetch | undefined; readonly chatGptFileSource?: ChatGptFileSource } = {}) {
+export function createServices(config: AppConfig, database: AppDatabase, overrides: { readonly weatherFetch?: Fetch | undefined; readonly chatGptFileSource?: ChatGptFileSource; readonly aiBackups?: { readonly dir: string; readonly write: (target: string, now: Date) => Promise<void> } } = {}) {
   // Weather (19.4): one forecast cache per server process, shared by every request.
   const serverWeather = createServerWeatherSettingsRepository(database);
   const mcpFileHosts = createMcpFileHostRepository(database);
@@ -417,6 +420,14 @@ export function createServices(config: AppConfig, database: AppDatabase, overrid
       chatGptFileSource,
       chatGptFileHosts,
       mcpFileHosts,
+      // AI safety backups (48.1): whole-server backups next to the scheduled ones, restorable with `restore`.
+      aiBackups: createAiBackupService({
+        dir: overrides.aiBackups?.dir ?? join(dirname(config.databasePath), 'backups'),
+        intervalMinutes: config.aiBackup.intervalMinutes,
+        keep: config.aiBackup.keep,
+        write: overrides.aiBackups?.write ?? (async (target, now) => void (await backupDatabase(config.databasePath, target, { now, mediaPath: config.mediaPath, documentsPath: config.documentsPath }))),
+        onError: (error) => logger?.error({ err: { type: (error as Error).name, message: (error as Error).message } }, 'AI safety backup failed'),
+      }),
       mcpEnabled:config.mcpEnabled,
       mcp:createMcpRepository(database,config.publicOrigin+'/mcp'),
       sourceCodeUrl: config.sourceCodeUrl,

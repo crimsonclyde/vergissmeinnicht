@@ -87,8 +87,8 @@ interface Ref {
 }
 
 /** Re-checked inside every write transaction (concurrent demotion, removal or disabling). */
-const manage: ActorGuard = { actorMay: (role) => roleHasCapability(role, 'maintenance.manage') };
-const purger: ActorGuard = { actorMay: (role) => roleHasCapability(role, 'maintenance.purge') };
+const manage: ActorGuard = { tool: 'MAINTENANCE', actorMay: (role) => roleHasCapability(role, 'maintenance.manage') };
+const purger: ActorGuard = { tool: 'MAINTENANCE', actorMay: (role) => roleHasCapability(role, 'maintenance.purge') };
 
 function refuse(status: MaintenanceRefusal): never {
   switch (status) {
@@ -286,7 +286,7 @@ export async function addMaintenanceLink(deps: MaintenanceDeps, input: Ref & { r
   const target = parseMaintenanceLinkTarget(input.target);
   if (target.type === 'document') await requireTool(deps, input.actor, input.workspaceId, 'DOCUMENTS', 'document.view');
   else await authorizeWorkspace(deps, input.actor, input.workspaceId, VIEW_OF[target.type], target.type === 'schedule' ? null : undefined);
-  const linker: ActorGuard = { actorMay: (role) => roleHasCapability(role, 'maintenance.manage') && roleHasCapability(role, VIEW_OF[target.type]) };
+  const linker: ActorGuard = { tool: 'MAINTENANCE', actorMay: (role) => roleHasCapability(role, 'maintenance.manage') && roleHasCapability(role, VIEW_OF[target.type]) };
   return ok(await deps.maintenance.addLink({ workspaceId: input.workspaceId, recordId: parseMaintenanceRecordId(input.recordId), target, at: deps.clock.now(), scope }, userActor(input.actor), linker)).link;
 }
 

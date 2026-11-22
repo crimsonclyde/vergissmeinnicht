@@ -43,8 +43,8 @@ interface Ref {
     readonly workspaceId: WorkspaceId;
 }
 /** Re-checked inside every write transaction (concurrent demotion, removal or disabling). */
-const manage: ActorGuard = { actorMay: (role) => roleHasCapability(role, 'equipment.manage') };
-const purger: ActorGuard = { actorMay: (role) => roleHasCapability(role, 'equipment.purge') };
+const manage: ActorGuard = { tool: 'EQUIPMENT', actorMay: (role) => roleHasCapability(role, 'equipment.manage') };
+const purger: ActorGuard = { tool: 'EQUIPMENT', actorMay: (role) => roleHasCapability(role, 'equipment.purge') };
 function refuse(status: EquipmentRefusal): never {
     switch (status) {
         case 'forbidden':
@@ -205,7 +205,7 @@ export async function addEquipmentLink(deps: EquipmentDeps, input: Ref & {
         await requireTool(deps, input.actor, input.workspaceId, 'DOCUMENTS', 'document.view');
     else
         await authorizeWorkspace(deps, input.actor, input.workspaceId, VIEW_OF[target.type], target.type === 'schedule' ? null : undefined);
-    const linker: ActorGuard = { actorMay: (role) => roleHasCapability(role, 'equipment.manage') && roleHasCapability(role, VIEW_OF[target.type]) };
+    const linker: ActorGuard = { tool: 'EQUIPMENT', actorMay: (role) => roleHasCapability(role, 'equipment.manage') && roleHasCapability(role, VIEW_OF[target.type]) };
     return ok(await deps.equipment.addLink({ workspaceId: input.workspaceId, recordId: parseEquipmentId(input.recordId), target, at: deps.clock.now() }, userActor(input.actor), linker)).link;
 }
 export async function removeEquipmentLink(deps: EquipmentDeps, input: Ref & {
